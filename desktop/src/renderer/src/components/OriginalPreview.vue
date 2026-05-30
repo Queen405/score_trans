@@ -1,7 +1,7 @@
 <template>
   <div class="original-preview">
     <div v-if="fileUrl && isPdf" class="pdf-frame">
-      <iframe :src="fileUrl" :title="fileName" />
+      <iframe :src="pdfFitUrl" :title="fileName" />
     </div>
     <div v-else-if="fileUrl && isImage" class="image-frame">
       <img :src="fileUrl" :alt="fileName" />
@@ -25,6 +25,9 @@ const props = defineProps<{
 }>()
 
 const fileUrl = computed(() => (props.fileId ? getFileURL(props.fileId) : ''))
+const pdfFitUrl = computed(() =>
+  fileUrl.value ? `${fileUrl.value}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : '',
+)
 const extension = computed(() => props.fileName.split('.').pop()?.toLowerCase() ?? '')
 const isPdf = computed(() => extension.value === 'pdf')
 const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].includes(extension.value))
@@ -32,13 +35,19 @@ const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].inc
 
 <style scoped>
 .original-preview {
-  min-height: 260px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
 .pdf-frame,
 .image-frame {
-  height: 360px;
-  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   border: 1px solid rgba(129, 161, 193, 0.25);
   border-radius: 14px;
   background: linear-gradient(145deg, rgba(248, 250, 252, 0.82), rgba(236, 239, 244, 0.68));
@@ -53,9 +62,9 @@ const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].inc
 
 .image-frame img {
   display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   border-radius: 8px;
 }
 

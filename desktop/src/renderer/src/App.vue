@@ -20,7 +20,7 @@
                 <n-tag :bordered="false" size="small" type="info" round>五线谱 / 简谱</n-tag>
               </div>
             </div>
-            <div class="titlebar-actions">
+            <div class="titlebar-status">
               <n-space align="center" :size="10" class="status-strip">
                 <n-tag :bordered="false" size="small" round class="active-view-tag">
                   当前：{{ currentTabLabel }}
@@ -54,24 +54,24 @@
                   </n-tag>
                 </transition>
               </n-space>
+            </div>
 
-              <div class="window-controls" role="group" aria-label="窗口控制">
-                <button class="window-control-btn" type="button" aria-label="最小化" @click="minimizeWindow">
-                  <RemoveOutline />
-                </button>
-                <button
-                  class="window-control-btn"
-                  type="button"
-                  :aria-label="isMaximized ? '还原' : '最大化'"
-                  @click="toggleMaximizeWindow"
-                >
-                  <ExpandOutline v-if="!isMaximized" />
-                  <ContractOutline v-else />
-                </button>
-                <button class="window-control-btn close-btn" type="button" aria-label="关闭" @click="closeWindow">
-                  <CloseOutline />
-                </button>
-              </div>
+            <div class="window-controls" role="group" aria-label="窗口控制">
+              <button class="window-control-btn" type="button" aria-label="最小化" @click="minimizeWindow">
+                <RemoveOutline />
+              </button>
+              <button
+                class="window-control-btn"
+                type="button"
+                :aria-label="isMaximized ? '还原' : '最大化'"
+                @click="toggleMaximizeWindow"
+              >
+                <ExpandOutline v-if="!isMaximized" />
+                <ContractOutline v-else />
+              </button>
+              <button class="window-control-btn close-btn" type="button" aria-label="关闭" @click="closeWindow">
+                <CloseOutline />
+              </button>
             </div>
           </div>
         </n-layout-header>
@@ -179,9 +179,9 @@ function handleThemeChange(event: MediaQueryListEvent): void {
 onMounted(() => {
   if (typeof mediaQuery.addEventListener === 'function') {
     mediaQuery.addEventListener('change', handleThemeChange)
-    return
+  } else {
+    mediaQuery.addListener(handleThemeChange)
   }
-  mediaQuery.addListener(handleThemeChange)
 
   window.api
     .isMaximized()
@@ -199,9 +199,9 @@ onMounted(() => {
 onUnmounted(() => {
   if (typeof mediaQuery.removeEventListener === 'function') {
     mediaQuery.removeEventListener('change', handleThemeChange)
-    return
+  } else {
+    mediaQuery.removeListener(handleThemeChange)
   }
-  mediaQuery.removeListener(handleThemeChange)
 
   if (removeMaximizedListener) {
     removeMaximizedListener()
@@ -333,6 +333,8 @@ body {
 
 .app-shell {
   position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   isolation: isolate;
 }
@@ -431,6 +433,9 @@ body {
   width: 100%;
   display: flex;
   align-items: center;
+  position: relative;
+  min-height: 52px;
+  padding-right: 124px;
   gap: 14px;
 }
 
@@ -441,10 +446,12 @@ body {
   app-region: drag;
 }
 
-.titlebar-actions {
+.titlebar-status {
   display: flex;
   align-items: center;
-  gap: 10px;
+  margin-left: auto;
+  min-width: 0;
+  padding-right: 8px;
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
@@ -499,13 +506,19 @@ body {
 }
 
 .window-controls {
-  display: inline-flex;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
   align-items: center;
   gap: 6px;
   padding: 3px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 98%, transparent);
   border: 1px solid color-mix(in srgb, var(--panel-border) 96%, transparent);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .window-control-btn {
@@ -547,11 +560,19 @@ body {
 }
 
 .app-content {
+  flex: 1;
+  min-height: 0;
   padding: 2px 18px 10px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .content-shell {
+  height: 100%;
+  min-height: 0;
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
   padding: 14px 18px 18px;
   border-radius: 24px;
   border: 1px solid var(--panel-border);
@@ -561,7 +582,10 @@ body {
 }
 
 .main-tabs {
+  flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-tabs .tab-label {
@@ -573,7 +597,19 @@ body {
 }
 
 .main-tabs .n-tabs-pane-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   padding-top: 14px;
+}
+
+.main-tabs :deep(.n-tabs-pane-wrapper) {
+  flex: 1;
+}
+
+.main-tabs :deep(.n-tab-pane) {
+  height: 100%;
+  min-height: 0;
 }
 
 .app-footer {
@@ -594,48 +630,37 @@ body {
   opacity: 0;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
+* {
+  scrollbar-width: none;
 }
 
-::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--accent) 45%, #a7b1c2);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--accent) 70%, #7d8898);
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 @media (max-width: 920px) {
   .app-header {
-    height: auto;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+    margin: 12px 12px 8px;
+    padding: 8px 12px;
+    min-height: 66px;
   }
 
   .titlebar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
+    min-height: 46px;
+    padding-right: 116px;
   }
 
-  .titlebar-drag-region {
-    width: 100%;
-  }
-
-  .titlebar-actions {
-    width: 100%;
-    justify-content: space-between;
+  .brand-subtitle {
+    display: none;
   }
 
   .status-strip {
-    flex: 1;
+    display: none;
+  }
+
+  .brand-title {
+    font-size: 18px;
   }
 
   .content-shell {

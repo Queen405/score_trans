@@ -1,8 +1,6 @@
 <template>
   <div class="svg-preview" v-if="svgUrl">
-    <div class="svg-scroll">
-      <img :src="svgUrl" class="svg-img" />
-    </div>
+    <img :src="svgUrl" class="svg-img" />
   </div>
   <div v-else class="svg-empty">
     <n-icon size="48" :depth="3"><ImageOutline /></n-icon>
@@ -22,6 +20,11 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
 
 <style scoped>
 .svg-preview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgba(129, 161, 193, 0.24);
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(248, 250, 253, 0.84) 0%, rgba(236, 239, 244, 0.72) 100%);
@@ -29,17 +32,11 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.svg-scroll {
-  max-height: 72vh;
-  overflow: auto;
-  padding: 8px;
-}
-
 .svg-img {
   display: block;
-  width: auto;
-  min-width: 1200px;
-  max-width: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   border-radius: 10px;
 }
 

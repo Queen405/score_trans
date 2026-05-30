@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-RkubrHLp.js"(exports, module) {
+  "assets/index-DajSeIqB.js"(exports, module) {
     /**
     * @vue/shared v3.5.35
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -8381,11 +8381,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$m = [_hoisted_2$y, _hoisted_3$s];
+    const _hoisted_4$l = [_hoisted_2$y, _hoisted_3$s];
     const ArrowBackOutline = /* @__PURE__ */ defineComponent({
       name: "ArrowBackOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$B, _hoisted_4$m);
+        return openBlock(), createElementBlock("svg", _hoisted_1$B, _hoisted_4$l);
       }
     });
     const _hoisted_1$A = {
@@ -8421,11 +8421,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$l = [_hoisted_2$x, _hoisted_3$r];
+    const _hoisted_4$k = [_hoisted_2$x, _hoisted_3$r];
     const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
       name: "ArrowForwardOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_4$l);
+        return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_4$k);
       }
     });
     const _hoisted_1$z = {
@@ -8460,11 +8460,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$k = [_hoisted_2$w, _hoisted_3$q];
+    const _hoisted_4$j = [_hoisted_2$w, _hoisted_3$q];
     const CheckmarkCircleOutline = /* @__PURE__ */ defineComponent({
       name: "CheckmarkCircleOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_4$k);
+        return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_4$j);
       }
     });
     const _hoisted_1$y = {
@@ -8499,7 +8499,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$j = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8513,7 +8513,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$e = [_hoisted_2$v, _hoisted_3$p, _hoisted_4$j];
+    const _hoisted_5$e = [_hoisted_2$v, _hoisted_3$p, _hoisted_4$i];
     const CloseCircleOutline = /* @__PURE__ */ defineComponent({
       name: "CloseCircleOutline",
       render: function render2(_ctx, _cache) {
@@ -8553,11 +8553,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$i = [_hoisted_2$u, _hoisted_3$o];
+    const _hoisted_4$h = [_hoisted_2$u, _hoisted_3$o];
     const CloseOutline = /* @__PURE__ */ defineComponent({
       name: "CloseOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_4$i);
+        return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_4$h);
       }
     });
     const _hoisted_1$w = {
@@ -8593,7 +8593,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$h = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$g = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8607,7 +8607,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$d = [_hoisted_2$t, _hoisted_3$n, _hoisted_4$h];
+    const _hoisted_5$d = [_hoisted_2$t, _hoisted_3$n, _hoisted_4$g];
     const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
       name: "CloudDownloadOutline",
       render: function render2(_ctx, _cache) {
@@ -8647,7 +8647,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$g = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$f = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8661,7 +8661,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$c = [_hoisted_2$s, _hoisted_3$m, _hoisted_4$g];
+    const _hoisted_5$c = [_hoisted_2$s, _hoisted_3$m, _hoisted_4$f];
     const CloudUploadOutline = /* @__PURE__ */ defineComponent({
       name: "CloudUploadOutline",
       render: function render2(_ctx, _cache) {
@@ -8701,11 +8701,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$f = [_hoisted_2$r, _hoisted_3$l];
+    const _hoisted_4$e = [_hoisted_2$r, _hoisted_3$l];
     const CodeOutline = /* @__PURE__ */ defineComponent({
       name: "CodeOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$f);
+        return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$e);
       }
     });
     const _hoisted_1$t = {
@@ -8754,7 +8754,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M160 80v152a23.69 23.69 0 0 1-24 24c-12 0-24-9.1-24-24V88c0-30.59 16.57-56 48-56s48 24.8 48 55.38v138.75c0 43-27.82 77.87-72 77.87s-72-34.86-72-77.87V144",
@@ -8768,7 +8768,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$b = [_hoisted_2$p, _hoisted_3$k, _hoisted_4$e];
+    const _hoisted_5$b = [_hoisted_2$p, _hoisted_3$k, _hoisted_4$d];
     const DocumentAttachOutline = /* @__PURE__ */ defineComponent({
       name: "DocumentAttachOutline",
       render: function render2(_ctx, _cache) {
@@ -8807,7 +8807,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8835,7 +8835,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$6 = [_hoisted_2$o, _hoisted_3$j, _hoisted_4$d, _hoisted_5$a];
+    const _hoisted_6$6 = [_hoisted_2$o, _hoisted_3$j, _hoisted_4$c, _hoisted_5$a];
     const DocumentTextOutline = /* @__PURE__ */ defineComponent({
       name: "DocumentTextOutline",
       render: function render2(_ctx, _cache) {
@@ -8875,7 +8875,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8889,7 +8889,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$9 = [_hoisted_2$n, _hoisted_3$i, _hoisted_4$c];
+    const _hoisted_5$9 = [_hoisted_2$n, _hoisted_3$i, _hoisted_4$b];
     const DownloadOutline = /* @__PURE__ */ defineComponent({
       name: "DownloadOutline",
       render: function render2(_ctx, _cache) {
@@ -8999,7 +8999,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$a = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M304 335.79l-90.66-90.49a32 32 0 0 0-43.87-1.3L48 352",
@@ -9027,7 +9027,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$5 = [_hoisted_2$i, _hoisted_3$g, _hoisted_4$b, _hoisted_5$8];
+    const _hoisted_6$5 = [_hoisted_2$i, _hoisted_3$g, _hoisted_4$a, _hoisted_5$8];
     const ImageOutline = /* @__PURE__ */ defineComponent({
       name: "ImageOutline",
       render: function render2(_ctx, _cache) {
@@ -9092,11 +9092,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$a = [_hoisted_2$g, _hoisted_3$e];
+    const _hoisted_4$9 = [_hoisted_2$g, _hoisted_3$e];
     const MusicalNotesOutline = /* @__PURE__ */ defineComponent({
       name: "MusicalNotesOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_4$a);
+        return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_4$9);
       }
     });
     const _hoisted_1$i = {
@@ -9184,7 +9184,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$9 = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$8 = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M176 448h-56a56 56 0 0 1-56-56v-56",
@@ -9212,7 +9212,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$4 = [_hoisted_2$d, _hoisted_3$b, _hoisted_4$9, _hoisted_5$7];
+    const _hoisted_6$4 = [_hoisted_2$d, _hoisted_3$b, _hoisted_4$8, _hoisted_5$7];
     const ScanOutline = /* @__PURE__ */ defineComponent({
       name: "ScanOutline",
       render: function render2(_ctx, _cache) {
@@ -9278,7 +9278,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$8 = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$7 = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -9292,7 +9292,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$6 = [_hoisted_2$b, _hoisted_3$9, _hoisted_4$8];
+    const _hoisted_5$6 = [_hoisted_2$b, _hoisted_3$9, _hoisted_4$7];
     const SyncOutline = /* @__PURE__ */ defineComponent({
       name: "SyncOutline",
       render: function render2(_ctx, _cache) {
@@ -9336,7 +9336,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$7 = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$6 = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -9350,7 +9350,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$5 = [_hoisted_2$a, _hoisted_3$8, _hoisted_4$7];
+    const _hoisted_5$5 = [_hoisted_2$a, _hoisted_3$8, _hoisted_4$6];
     const TerminalOutline = /* @__PURE__ */ defineComponent({
       name: "TerminalOutline",
       render: function render2(_ctx, _cache) {
@@ -9389,11 +9389,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$6 = [_hoisted_2$9, _hoisted_3$7];
+    const _hoisted_4$5 = [_hoisted_2$9, _hoisted_3$7];
     const TimeOutline = /* @__PURE__ */ defineComponent({
       name: "TimeOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_4$6);
+        return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_4$5);
       }
     });
     const _hoisted_1$b = {
@@ -41933,7 +41933,7 @@ ${style2}
               value: __props.modelValue,
               "onUpdate:value": _cache[0] || (_cache[0] = ($event) => _ctx.$emit("update:modelValue", $event)),
               placeholder: "key=C\ntime=4/4\n1 2 3 4 | 5 6 7 1' |",
-              rows: 14,
+              rows: 8,
               font: "monospace",
               class: "jianpu-input"
             }, null, 8, ["value"])
@@ -41941,14 +41941,14 @@ ${style2}
         };
       }
     });
-    const JianpuEditor = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-d2763498"]]);
+    const JianpuEditor = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-ad092090"]]);
     const _hoisted_1$7 = { class: "original-preview" };
     const _hoisted_2$5 = {
       key: 0,
       class: "pdf-frame"
     };
     const _hoisted_3$5 = ["src", "title"];
-    const _hoisted_4$5 = {
+    const _hoisted_4$4 = {
       key: 1,
       class: "image-frame"
     };
@@ -41966,6 +41966,9 @@ ${style2}
       setup(__props) {
         const props = __props;
         const fileUrl = computed(() => props.fileId ? getFileURL(props.fileId) : "");
+        const pdfFitUrl = computed(
+          () => fileUrl.value ? `${fileUrl.value}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : ""
+        );
         const extension = computed(() => props.fileName.split(".").pop()?.toLowerCase() ?? "");
         const isPdf = computed(() => extension.value === "pdf");
         const isImage = computed(() => ["png", "jpg", "jpeg", "tif", "tiff", "webp"].includes(extension.value));
@@ -41973,10 +41976,10 @@ ${style2}
           return openBlock(), createElementBlock("div", _hoisted_1$7, [
             fileUrl.value && isPdf.value ? (openBlock(), createElementBlock("div", _hoisted_2$5, [
               createBaseVNode("iframe", {
-                src: fileUrl.value,
+                src: pdfFitUrl.value,
                 title: __props.fileName
               }, null, 8, _hoisted_3$5)
-            ])) : fileUrl.value && isImage.value ? (openBlock(), createElementBlock("div", _hoisted_4$5, [
+            ])) : fileUrl.value && isImage.value ? (openBlock(), createElementBlock("div", _hoisted_4$4, [
               createBaseVNode("img", {
                 src: fileUrl.value,
                 alt: __props.fileName
@@ -42005,14 +42008,13 @@ ${style2}
         };
       }
     });
-    const OriginalPreview = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-6c3c65a1"]]);
+    const OriginalPreview = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-8c4de2b4"]]);
     const _hoisted_1$6 = {
       key: 0,
       class: "svg-preview"
     };
-    const _hoisted_2$4 = { class: "svg-scroll" };
-    const _hoisted_3$4 = ["src"];
-    const _hoisted_4$4 = {
+    const _hoisted_2$4 = ["src"];
+    const _hoisted_3$4 = {
       key: 1,
       class: "svg-empty"
     };
@@ -42026,13 +42028,11 @@ ${style2}
         const svgUrl = computed(() => props.svgFileId ? getFileURL(props.svgFileId) : "");
         return (_ctx, _cache) => {
           return svgUrl.value ? (openBlock(), createElementBlock("div", _hoisted_1$6, [
-            createBaseVNode("div", _hoisted_2$4, [
-              createBaseVNode("img", {
-                src: svgUrl.value,
-                class: "svg-img"
-              }, null, 8, _hoisted_3$4)
-            ])
-          ])) : (openBlock(), createElementBlock("div", _hoisted_4$4, [
+            createBaseVNode("img", {
+              src: svgUrl.value,
+              class: "svg-img"
+            }, null, 8, _hoisted_2$4)
+          ])) : (openBlock(), createElementBlock("div", _hoisted_3$4, [
             createVNode(unref(NIcon), {
               size: "48",
               depth: 3
@@ -42052,7 +42052,7 @@ ${style2}
         };
       }
     });
-    const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["__scopeId", "data-v-a081bb62"]]);
+    const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["__scopeId", "data-v-24ffeb7a"]]);
     const _hoisted_1$5 = { class: "convert-view" };
     const _hoisted_2$3 = { class: "toolbar panel" };
     const _hoisted_3$3 = { class: "editor-layout" };
@@ -42062,6 +42062,7 @@ ${style2}
       key: 1,
       class: "empty-hint"
     };
+    const _hoisted_7$2 = { class: "panel-footnote" };
     const _sfc_main$5 = /* @__PURE__ */ defineComponent({
       __name: "ConvertView",
       setup(__props) {
@@ -42180,14 +42181,15 @@ ${style2}
         return (_ctx, _cache) => {
           const _component_n_text = resolveComponent("n-text");
           return openBlock(), createElementBlock("div", _hoisted_1$5, [
-            createBaseVNode("div", _hoisted_2$3, [
+            createBaseVNode("section", _hoisted_2$3, [
               _cache[5] || (_cache[5] = createBaseVNode("div", { class: "panel-head" }, [
                 createBaseVNode("h3", null, "对照编辑工作区"),
                 createBaseVNode("p", null, "从识别到回转，统一在同一画布完成")
               ], -1)),
               createVNode(unref(NSpace), {
                 size: 10,
-                wrap: ""
+                wrap: "",
+                class: "toolbar-actions"
               }, {
                 default: withCtx(() => [
                   createVNode(unref(Button), {
@@ -42278,14 +42280,17 @@ ${style2}
                 _: 1
               })
             ]),
-            createBaseVNode("div", _hoisted_3$3, [
-              createBaseVNode("div", _hoisted_4$3, [
+            createBaseVNode("section", _hoisted_3$3, [
+              createBaseVNode("article", _hoisted_4$3, [
                 createVNode(unref(NCard), {
                   title: unref(store).originalFileName ? `原始五线谱 · ${unref(store).originalFileName}` : "原始五线谱",
                   size: "small",
                   class: "panel-card",
                   bordered: false
                 }, {
+                  footer: withCtx(() => [..._cache[6] || (_cache[6] = [
+                    createBaseVNode("span", { class: "panel-footnote" }, "原图按容器自动缩放，完整可见", -1)
+                  ])]),
                   default: withCtx(() => [
                     createVNode(OriginalPreview, {
                       "file-id": unref(store).originalFileId,
@@ -42295,7 +42300,7 @@ ${style2}
                   _: 1
                 }, 8, ["title"])
               ]),
-              createBaseVNode("div", _hoisted_5$3, [
+              createBaseVNode("article", _hoisted_5$3, [
                 createVNode(unref(NCard), {
                   title: isViewingFinal.value ? "最终渲染" : "简谱编辑",
                   size: "small",
@@ -42318,6 +42323,9 @@ ${style2}
                       _: 1
                     }, 8, ["loading", "disabled"])
                   ]),
+                  footer: withCtx(() => [
+                    createBaseVNode("span", _hoisted_7$2, toDisplayString(isViewingFinal.value ? "渲染结果自动适配，无需滚动" : "编辑区按工作区高度自动铺满"), 1)
+                  ]),
                   default: withCtx(() => [
                     isViewingFinal.value && finalSvgFileId.value ? (openBlock(), createBlock(SvgPreview, {
                       key: 0,
@@ -42333,7 +42341,7 @@ ${style2}
                         _: 1
                       }),
                       createVNode(_component_n_text, { depth: "3" }, {
-                        default: withCtx(() => [..._cache[6] || (_cache[6] = [
+                        default: withCtx(() => [..._cache[7] || (_cache[7] = [
                           createTextVNode("暂无渲染结果", -1)
                         ])]),
                         _: 1
@@ -42352,7 +42360,7 @@ ${style2}
         };
       }
     });
-    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-1654f0c7"]]);
+    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-fe5a958e"]]);
     const exportApi = {
       exportScore(req) {
         return apiFetch("/export", {
@@ -43195,7 +43203,7 @@ ${style2}
     };
     const _hoisted_2 = { class: "titlebar-drag-region" };
     const _hoisted_3 = { class: "header-brand" };
-    const _hoisted_4 = { class: "titlebar-actions" };
+    const _hoisted_4 = { class: "titlebar-status" };
     const _hoisted_5 = {
       class: "window-controls",
       role: "group",
@@ -43223,9 +43231,9 @@ ${style2}
         onMounted(() => {
           if (typeof mediaQuery.addEventListener === "function") {
             mediaQuery.addEventListener("change", handleThemeChange);
-            return;
+          } else {
+            mediaQuery.addListener(handleThemeChange);
           }
-          mediaQuery.addListener(handleThemeChange);
           window.api.isMaximized().then((value) => {
             isMaximized.value = value;
           }).catch(() => {
@@ -43238,9 +43246,9 @@ ${style2}
         onUnmounted(() => {
           if (typeof mediaQuery.removeEventListener === "function") {
             mediaQuery.removeEventListener("change", handleThemeChange);
-            return;
+          } else {
+            mediaQuery.removeListener(handleThemeChange);
           }
-          mediaQuery.removeListener(handleThemeChange);
           if (removeMaximizedListener) {
             removeMaximizedListener();
             removeMaximizedListener = null;
@@ -43468,32 +43476,32 @@ ${style2}
                                   })
                                 ]),
                                 _: 1
-                              }),
-                              createBaseVNode("div", _hoisted_5, [
-                                createBaseVNode("button", {
-                                  class: "window-control-btn",
-                                  type: "button",
-                                  "aria-label": "最小化",
-                                  onClick: minimizeWindow
-                                }, [
-                                  createVNode(unref(RemoveOutline))
-                                ]),
-                                createBaseVNode("button", {
-                                  class: "window-control-btn",
-                                  type: "button",
-                                  "aria-label": isMaximized.value ? "还原" : "最大化",
-                                  onClick: toggleMaximizeWindow
-                                }, [
-                                  !isMaximized.value ? (openBlock(), createBlock(unref(ExpandOutline), { key: 0 })) : (openBlock(), createBlock(unref(ContractOutline), { key: 1 }))
-                                ], 8, _hoisted_6),
-                                createBaseVNode("button", {
-                                  class: "window-control-btn close-btn",
-                                  type: "button",
-                                  "aria-label": "关闭",
-                                  onClick: closeWindow
-                                }, [
-                                  createVNode(unref(CloseOutline))
-                                ])
+                              })
+                            ]),
+                            createBaseVNode("div", _hoisted_5, [
+                              createBaseVNode("button", {
+                                class: "window-control-btn",
+                                type: "button",
+                                "aria-label": "最小化",
+                                onClick: minimizeWindow
+                              }, [
+                                createVNode(unref(RemoveOutline))
+                              ]),
+                              createBaseVNode("button", {
+                                class: "window-control-btn",
+                                type: "button",
+                                "aria-label": isMaximized.value ? "还原" : "最大化",
+                                onClick: toggleMaximizeWindow
+                              }, [
+                                !isMaximized.value ? (openBlock(), createBlock(unref(ExpandOutline), { key: 0 })) : (openBlock(), createBlock(unref(ContractOutline), { key: 1 }))
+                              ], 8, _hoisted_6),
+                              createBaseVNode("button", {
+                                class: "window-control-btn close-btn",
+                                type: "button",
+                                "aria-label": "关闭",
+                                onClick: closeWindow
+                              }, [
+                                createVNode(unref(CloseOutline))
                               ])
                             ])
                           ])

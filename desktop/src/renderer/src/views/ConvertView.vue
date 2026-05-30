@@ -1,11 +1,11 @@
 <template>
   <div class="convert-view">
-    <div class="toolbar panel">
+    <section class="toolbar panel">
       <div class="panel-head">
         <h3>对照编辑工作区</h3>
         <p>从识别到回转，统一在同一画布完成</p>
       </div>
-      <n-space :size="10" wrap>
+      <n-space :size="10" wrap class="toolbar-actions">
         <n-button
           class="tool-btn"
           type="primary"
@@ -45,10 +45,10 @@
           导出 SVG
         </n-button>
       </n-space>
-    </div>
+    </section>
 
-    <div class="editor-layout">
-      <div class="left-panel">
+    <section class="editor-layout">
+      <article class="left-panel">
         <n-card
           :title="store.originalFileName ? `原始五线谱 · ${store.originalFileName}` : '原始五线谱'"
           size="small"
@@ -59,11 +59,14 @@
             :file-id="store.originalFileId"
             :file-name="store.originalFileName"
           />
+          <template #footer>
+            <span class="panel-footnote">原图按容器自动缩放，完整可见</span>
+          </template>
         </n-card>
 
-      </div>
+      </article>
 
-      <div class="right-panel">
+      <article class="right-panel">
         <n-card
           :title="isViewingFinal ? '最终渲染' : '简谱编辑'"
           size="small"
@@ -93,9 +96,12 @@
             <n-text depth="3">暂无渲染结果</n-text>
           </div>
           <jianpu-editor v-else v-model="jianpuText" />
+          <template #footer>
+            <span class="panel-footnote">{{ isViewingFinal ? '渲染结果自动适配，无需滚动' : '编辑区按工作区高度自动铺满' }}</span>
+          </template>
         </n-card>
-      </div>
-    </div>
+      </article>
+    </section>
 
   </div>
 </template>
@@ -239,9 +245,11 @@ async function toggleFinalView(): Promise<void> {
 
 <style scoped>
 .convert-view {
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 }
 
 .panel {
@@ -254,23 +262,27 @@ async function toggleFinalView(): Promise<void> {
 }
 
 .panel-head {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .panel-head h3 {
   margin: 0;
-  font-size: 19px;
+  font-size: 18px;
   color: #2e3440;
 }
 
 .panel-head p {
-  margin: 5px 0 0;
-  font-size: 13px;
+  margin: 3px 0 0;
+  font-size: 12px;
   color: #5f6879;
 }
 
+.toolbar-actions {
+  width: 100%;
+}
+
 .tool-btn {
-  min-width: 150px;
+  min-width: 138px;
   border-radius: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -281,30 +293,47 @@ async function toggleFinalView(): Promise<void> {
 }
 
 .editor-layout {
-  display: flex;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(380px, 1fr) minmax(380px, 1fr);
   gap: 16px;
-  min-height: 360px;
 }
 
 .left-panel {
-  flex: 1;
-  min-width: 0;
+  min-width: 340px;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .right-panel {
-  flex: 1;
-  min-width: 0;
+  min-width: 340px;
+  display: flex;
 }
 
 .panel-card {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
   border-radius: 18px;
   border: 1px solid rgba(129, 161, 193, 0.24);
   background: linear-gradient(150deg, rgba(255, 255, 255, 0.74), rgba(236, 239, 244, 0.64));
   box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
+}
+
+.panel-card :deep(.n-card__content) {
   height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-card :deep(.n-card__footer) {
+  padding-top: 8px;
+}
+
+.panel-footnote {
+  font-size: 12px;
+  color: #5f6879;
 }
 
 .toggle-btn {
@@ -318,6 +347,8 @@ async function toggleFinalView(): Promise<void> {
 }
 
 .empty-hint {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -354,9 +385,23 @@ async function toggleFinalView(): Promise<void> {
   color: #c7cfdd;
 }
 
+:global(body.n-theme-dark) .panel-footnote {
+  color: #c7cfdd;
+}
+
 @media (max-width: 1100px) {
   .editor-layout {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .left-panel,
+  .right-panel {
+    min-width: 0;
+  }
+
+  .panel-card {
+    min-height: 360px;
   }
 }
 
