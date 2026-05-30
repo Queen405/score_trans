@@ -9,7 +9,7 @@
           </n-button>
           <n-popconfirm @positive-click="handleDeleteAll" :show-icon="false">
             <template #trigger>
-              <n-button size="tiny" quaternary type="error" :disabled="!histEntries.length">
+              <n-button size="tiny" quaternary type="error" :disabled="!histBatches.length">
                 <template #icon><n-icon size="14"><TrashOutline /></n-icon></template>
               </n-button>
             </template>
@@ -18,17 +18,30 @@
         </div>
       </div>
       <div class="ws-hist-body">
-        <div v-if="!histLoading && !histEntries.length" class="hist-empty">
+        <div v-if="!histLoading && !histBatches.length" class="hist-empty">
           <span>暂无记录</span>
         </div>
-        <div v-for="entry in histEntries" :key="entry.id" class="hist-item" @click="handleRestore(entry)">
-          <div class="hist-item-top">
-            <span :class="['hist-dot', entry.status === 'completed' ? 'ok' : 'err']" />
-            <span class="hist-item-name">{{ entry.input_file_name || '未知' }}</span>
+        <div v-for="batch in histBatches" :key="batch.id" class="hist-batch">
+          <div class="hist-batch-head" @click="toggleBatchExpand(batch.id)">
+            <span :class="['hist-dot', batch.status === 'completed' ? 'ok' : 'err']" />
+            <span class="hist-batch-name">{{ batch.first_file_name || '未知' }}</span>
+            <span class="hist-batch-count" v-if="batch.page_count > 1">{{ batch.page_count }}页</span>
+            <n-icon size="12" class="hist-expand-icon" :class="{ rotated: expandedBatchId === batch.id }">
+              <ChevronForwardOutline />
+            </n-icon>
           </div>
-          <div class="hist-item-meta">
-            <span>{{ formatTime(entry.created_at) }}</span>
-            <span :class="entry.status">{{ entry.status === 'completed' ? '成功' : '失败' }}</span>
+          <div class="hist-batch-meta">{{ formatTime(batch.created_at) }}</div>
+          <div v-if="expandedBatchId === batch.id" class="hist-pages">
+            <div v-if="loadingBatch" class="hist-loading">加载中...</div>
+            <div
+              v-for="(page, pi) in expandedPages"
+              :key="page.id"
+              class="hist-page-item"
+              @click="handleRestorePage(page)"
+            >
+              <span :class="['hist-dot small', page.status === 'completed' ? 'ok' : 'err']" />
+              <span class="hist-page-name">{{ page.input_file_name || `第${pi + 1}页` }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -122,7 +135,7 @@ import { renderApi } from '../api/render'
 import { exportApi } from '../api/export'
 import { historyApi } from '../api/history'
 import { ApiError, getFileURL, fileExists } from '../api/client'
-import type { HistoryEntry } from '../models/types'
+import type { HistoryBatchListItem, HistoryBatch, HistoryPage } from '../models/types'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
@@ -158,8 +171,11 @@ const formatOptions = [
 ]
 
 const historyOpen = ref(false)
-const histEntries = ref<HistoryEntry[]>([])
+const histBatches = ref<HistoryBatchListItem[]>([])
 const histLoading = ref(false)
+const expandedBatchId = ref<number | null>(null)
+const expandedPages = ref<HistoryPage[]>([])
+const loadingBatch = ref(false)
 
 watch(() => store.jianpuText, (v) => { jianpuText.value = v })
 watch(jianpuText, (v) => { store.setJianpu(v) })
@@ -175,7 +191,7 @@ function toggleHistory() {
 async function loadHistory(): Promise<void> {
   histLoading.value = true
   try {
-    histEntries.value = await historyApi.list()
+    histBatches.value = await historyApi.list()
   } catch (e: unknown) {
     log.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`)
   } finally {
@@ -183,34 +199,50 @@ async function loadHistory(): Promise<void> {
   }
 }
 
-async function handleDelete(id: number): Promise<void> {
-  await historyApi.deleteOne(id)
-  histEntries.value = histEntries.value.filter((e) => e.id !== id)
-}
-
 async function handleDeleteAll(): Promise<void> {
   await historyApi.deleteAll()
-  histEntries.value = []
+  histBatches.value = []
+  expandedBatchId.value = null
+  expandedPages.value = []
   message.success('已清空')
 }
 
-async function handleRestore(entry: HistoryEntry): Promise<void> {
+async function toggleBatchExpand(batchId: number): Promise<void> {
+  if (expandedBatchId.value === batchId) {
+    expandedBatchId.value = null
+    expandedPages.value = []
+    return
+  }
+  expandedBatchId.value = batchId
+  loadingBatch.value = true
+  try {
+    const batch: HistoryBatch = await historyApi.get(batchId)
+    expandedPages.value = batch.pages
+  } catch (e: unknown) {
+    log.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`)
+    expandedPages.value = []
+  } finally {
+    loadingBatch.value = false
+  }
+}
+
+async function handleRestorePage(page: HistoryPage): Promise<void> {
   const warnings: string[] = []
-  if (entry.input_file_id) {
-    if (await fileExists(entry.input_file_id)) store.setInputFile(entry.input_file_name, entry.input_file_id)
+  if (page.input_file_id) {
+    if (await fileExists(page.input_file_id)) store.setInputFile(page.input_file_name, page.input_file_id)
     else warnings.push('原始文件已失效')
   }
-  if (entry.musicxml_file_id) {
-    if (await fileExists(entry.musicxml_file_id)) store.setMusicxml(entry.musicxml_file_id, '')
+  if (page.musicxml_file_id) {
+    if (await fileExists(page.musicxml_file_id)) store.setMusicxml(page.musicxml_file_id, '')
     else { store.setMusicxml('', ''); warnings.push('MusicXML 已失效') }
   }
-  if (entry.jianpu_text) store.setJianpu(entry.jianpu_text)
-  if (entry.svg_file_id) {
-    if (await fileExists(entry.svg_file_id)) store.setSvg(entry.svg_file_id)
+  if (page.jianpu_text) store.setJianpu(page.jianpu_text)
+  if (page.svg_file_id) {
+    if (await fileExists(page.svg_file_id)) store.setSvg(page.svg_file_id)
     else { store.setSvg(''); warnings.push('SVG 已失效') }
   }
-  if (entry.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(entry.input_file_name)) {
-    if (await fileExists(entry.input_file_id)) store.setOriginalFile(entry.input_file_name, entry.input_file_id)
+  if (page.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(page.input_file_name)) {
+    if (await fileExists(page.input_file_id)) store.setOriginalFile(page.input_file_name, page.input_file_id)
     else store.clearOriginalFile()
   } else store.clearOriginalFile()
   if (warnings.length) { message.warning(warnings.join('，')); return }
@@ -433,22 +465,23 @@ async function toggleFinalView(): Promise<void> {
   color: var(--text-tertiary);
 }
 
-.hist-item {
-  padding: 8px;
+.hist-batch {
   border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background-color 0.12s ease;
+  margin-bottom: 2px;
 }
 
-.hist-item:hover {
-  background: var(--accent-light);
-}
-
-.hist-item-top {
+.hist-batch-head {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 3px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.12s ease;
+}
+
+.hist-batch-head:hover {
+  background: var(--accent-light);
 }
 
 .hist-dot {
@@ -458,10 +491,16 @@ async function toggleFinalView(): Promise<void> {
   flex-shrink: 0;
 }
 
+.hist-dot.small {
+  width: 4px;
+  height: 4px;
+}
+
 .hist-dot.ok { background: var(--success); }
 .hist-dot.err { background: var(--danger); }
 
-.hist-item-name {
+.hist-batch-name {
+  flex: 1;
   font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
@@ -470,16 +509,62 @@ async function toggleFinalView(): Promise<void> {
   white-space: nowrap;
 }
 
-.hist-item-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.hist-batch-count {
   font-size: 10px;
   color: var(--text-tertiary);
+  background: var(--bg-surface);
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
-.hist-item-meta .completed { color: var(--success); }
-.hist-item-meta .:not(.completed) { color: var(--danger); }
+.hist-expand-icon {
+  color: var(--text-tertiary);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.hist-expand-icon.rotated {
+  transform: rotate(90deg);
+}
+
+.hist-batch-meta {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  padding: 0 8px 4px 20px;
+}
+
+.hist-pages {
+  padding: 2px 0 4px 20px;
+}
+
+.hist-loading {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 4px 0;
+}
+
+.hist-page-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.12s ease;
+}
+
+.hist-page-item:hover {
+  background: var(--accent-light);
+}
+
+.hist-page-name {
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .ws-main {
   flex: 1;

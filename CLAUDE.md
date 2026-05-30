@@ -20,11 +20,11 @@ python -m pytest tests/test_jianpu.py -k "test_parse"  # single test
 
 # Run FastAPI backend
 $env:PYTHONPATH="src"
-.venv/Scripts/python.exe -m uvicorn score_trans.api.app:create_app --factory --reload --host 127.0.0.1 --port 8004
+.venv/Scripts/python.exe -m uvicorn score_trans.api.app:create_app --factory --reload --host 127.0.0.1 --port 19200
 
 # Run Electron/Vue desktop frontend
 cd desktop
-$env:VITE_BACKEND_URL="http://127.0.0.1:8004"
+$env:VITE_BACKEND_URL="http://127.0.0.1:19200"
 pnpm dev
 
 # Lint

@@ -5,6 +5,7 @@ import { BackendProcess } from './backend'
 
 let mainWindow: BrowserWindow | null = null
 let backend: BackendProcess | null = null
+let quitting = false
 
 function createWindow(baseURL: string): void {
   mainWindow = new BrowserWindow({
@@ -50,6 +51,18 @@ function createWindow(baseURL: string): void {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+}
+
+async function cleanupBackend(): Promise<void> {
+  if (!backend) return
+  const ref = backend
+  backend = null
+  try {
+    await ref.stop()
+    console.log('[main] Backend stopped')
+  } catch (err) {
+    console.error('[main] Error stopping backend:', err)
+  }
 }
 
 app.whenReady().then(async () => {
@@ -109,27 +122,25 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', async (e) => {
+  if (quitting) return
+  quitting = true
   if (backend) {
     e.preventDefault()
-    try {
-      await backend.stop()
-    } catch (err) {
-      console.error('[main] Error stopping backend:', err)
-    }
-    backend = null
+    await cleanupBackend()
     app.quit()
   }
+})
+
+app.on('will-quit', async () => {
+  await cleanupBackend()
+  ipcMain.removeHandler('window:minimize')
+  ipcMain.removeHandler('window:toggle-maximize')
+  ipcMain.removeHandler('window:is-maximized')
+  ipcMain.removeHandler('window:close')
 })
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
-})
-
-app.on('will-quit', () => {
-  ipcMain.removeHandler('window:minimize')
-  ipcMain.removeHandler('window:toggle-maximize')
-  ipcMain.removeHandler('window:is-maximized')
-  ipcMain.removeHandler('window:close')
 })

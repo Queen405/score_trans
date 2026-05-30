@@ -1,21 +1,21 @@
 import { apiFetch } from './client'
-import type { HistoryEntry, HistoryCreateRequest } from '../models/types'
+import type { HistoryBatch, HistoryBatchListItem, HistoryCreateRequest } from '../models/types'
 
 export const historyApi = {
-  list(): Promise<HistoryEntry[]> {
+  list(): Promise<HistoryBatchListItem[]> {
     return apiFetch('/history')
   },
 
-  create(req: HistoryCreateRequest): Promise<HistoryEntry> {
+  get(id: number): Promise<HistoryBatch> {
+    return apiFetch(`/history/${id}`)
+  },
+
+  create(req: HistoryCreateRequest): Promise<HistoryBatch> {
     return apiFetch('/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
     })
-  },
-
-  get(id: number): Promise<HistoryEntry> {
-    return apiFetch(`/history/${id}`)
   },
 
   deleteOne(id: number): Promise<{ ok: boolean }> {

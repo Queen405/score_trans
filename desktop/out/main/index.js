@@ -98,7 +98,7 @@ const optimizer = {
     });
   }
 };
-const DEFAULT_PORT = 18513;
+const DEFAULT_PORT = 19200;
 const HEALTH_CHECK_INTERVAL = 1e3;
 const HEALTH_CHECK_TIMEOUT = 15e3;
 const SHUTDOWN_TIMEOUT = 5e3;
@@ -133,7 +133,8 @@ class BackendProcess {
       ], {
         stdio: "pipe",
         cwd: projectRoot,
-        env: { ...process.env, PYTHONPATH: pythonPath }
+        env: { ...process.env, PYTHONPATH: pythonPath },
+        windowsHide: true
       });
     } else {
       const exePath = path.join(process.resourcesPath, "backend", "backend.exe");
@@ -142,7 +143,7 @@ class BackendProcess {
         "127.0.0.1",
         "--port",
         String(this.port)
-      ], { stdio: "pipe" });
+      ], { stdio: "pipe", windowsHide: true });
     }
     this.process.stdout?.on("data", (data) => {
       console.log(`[backend] ${data.toString().trim()}`);
@@ -191,19 +192,36 @@ class BackendProcess {
   }
   async stop() {
     if (!this.process) return;
-    this.process.kill("SIGTERM");
-    await new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        console.log("[backend] Force killing backend process");
-        this.process?.kill("SIGKILL");
-        resolve();
-      }, SHUTDOWN_TIMEOUT);
-      this.process?.on("exit", () => {
-        clearTimeout(timeout);
-        resolve();
+    const pid = this.process.pid;
+    if (!pid) {
+      this.process = null;
+      return;
+    }
+    if (process.platform === "win32") {
+      this.killTree(pid);
+    } else {
+      this.process.kill("SIGTERM");
+      await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          try {
+            this.process?.kill("SIGKILL");
+          } catch {
+          }
+          resolve();
+        }, SHUTDOWN_TIMEOUT);
+        this.process?.on("exit", () => {
+          clearTimeout(timeout);
+          resolve();
+        });
       });
-    });
+    }
     this.process = null;
+  }
+  killTree(pid) {
+    try {
+      child_process.execSync(`taskkill /T /F /PID ${pid}`, { stdio: "ignore" });
+    } catch {
+    }
   }
   getBaseURL() {
     return this.baseURL;
@@ -239,6 +257,7 @@ function isPortAvailable(port) {
 }
 let mainWindow = null;
 let backend = null;
+let quitting = false;
 function createWindow(baseURL) {
   mainWindow = new electron.BrowserWindow({
     width: 1200,
@@ -276,6 +295,17 @@ function createWindow(baseURL) {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+}
+async function cleanupBackend() {
+  if (!backend) return;
+  const ref = backend;
+  backend = null;
+  try {
+    await ref.stop();
+    console.log("[main] Backend stopped");
+  } catch (err) {
+    console.error("[main] Error stopping backend:", err);
+  }
 }
 electron.app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.scoretrans.app");
@@ -320,25 +350,23 @@ electron.app.whenReady().then(async () => {
   });
 });
 electron.app.on("before-quit", async (e) => {
+  if (quitting) return;
+  quitting = true;
   if (backend) {
     e.preventDefault();
-    try {
-      await backend.stop();
-    } catch (err) {
-      console.error("[main] Error stopping backend:", err);
-    }
-    backend = null;
+    await cleanupBackend();
     electron.app.quit();
   }
+});
+electron.app.on("will-quit", async () => {
+  await cleanupBackend();
+  electron.ipcMain.removeHandler("window:minimize");
+  electron.ipcMain.removeHandler("window:toggle-maximize");
+  electron.ipcMain.removeHandler("window:is-maximized");
+  electron.ipcMain.removeHandler("window:close");
 });
 electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     electron.app.quit();
   }
-});
-electron.app.on("will-quit", () => {
-  electron.ipcMain.removeHandler("window:minimize");
-  electron.ipcMain.removeHandler("window:toggle-maximize");
-  electron.ipcMain.removeHandler("window:is-maximized");
-  electron.ipcMain.removeHandler("window:close");
 });

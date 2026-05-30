@@ -4,7 +4,7 @@ function getBaseURL(): string {
   return (
     (window as any)?.api?.getBackendURL?.() ||
     import.meta.env.VITE_BACKEND_URL ||
-    'http://127.0.0.1:18513'
+    'http://127.0.0.1:19200'
   )
 }
 

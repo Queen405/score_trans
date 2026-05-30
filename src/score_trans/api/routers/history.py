@@ -3,13 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ...services.history_service import HistoryEntry, HistoryService
+from ...services.history_service import HistoryPage, HistoryService
 
 router = APIRouter(prefix="/history", tags=["history"])
 _service = HistoryService()
 
 
-class HistoryCreateRequest(BaseModel):
+class PageCreate(BaseModel):
     input_file_name: str = ""
     input_file_id: str = ""
     musicxml_file_id: str = ""
@@ -19,9 +19,8 @@ class HistoryCreateRequest(BaseModel):
     error_message: str = ""
 
 
-class HistoryResponse(BaseModel):
+class PageResponse(BaseModel):
     id: int
-    created_at: str
     input_file_name: str
     input_file_id: str
     musicxml_file_id: str
@@ -31,64 +30,105 @@ class HistoryResponse(BaseModel):
     error_message: str
 
 
-class HistoryDeleteAllResponse(BaseModel):
+class BatchCreateRequest(BaseModel):
+    pages: list[PageCreate]
+
+
+class BatchResponse(BaseModel):
+    id: int
+    created_at: str
+    page_count: int
+    status: str
+    pages: list[PageResponse]
+
+
+class BatchListItem(BaseModel):
+    id: int
+    created_at: str
+    page_count: int
+    status: str
+    first_file_name: str
+
+
+class DeleteAllResponse(BaseModel):
     deleted_count: int
 
 
-def _entry_to_response(entry: HistoryEntry) -> HistoryResponse:
-    return HistoryResponse(
-        id=entry.id,
-        created_at=entry.created_at,
-        input_file_name=entry.input_file_name,
-        input_file_id=entry.input_file_id,
-        musicxml_file_id=entry.musicxml_file_id,
-        jianpu_text=entry.jianpu_text,
-        svg_file_id=entry.svg_file_id,
-        status=entry.status,
-        error_message=entry.error_message,
+def _page_to_response(p: HistoryPage) -> PageResponse:
+    return PageResponse(
+        id=p.id,
+        input_file_name=p.input_file_name,
+        input_file_id=p.input_file_id,
+        musicxml_file_id=p.musicxml_file_id,
+        jianpu_text=p.jianpu_text,
+        svg_file_id=p.svg_file_id,
+        status=p.status,
+        error_message=p.error_message,
     )
 
 
-@router.get("", response_model=list[HistoryResponse])
+def _batch_to_response(batch) -> BatchResponse:
+    return BatchResponse(
+        id=batch.id,
+        created_at=batch.created_at,
+        page_count=batch.page_count,
+        status=batch.status,
+        pages=[_page_to_response(p) for p in batch.pages],
+    )
+
+
+@router.get("", response_model=list[BatchListItem])
 def list_history():
-    """List all history entries, most recent first."""
-    return [_entry_to_response(e) for e in _service.list_entries()]
+    batches = _service.list_batches()
+    result = []
+    for b in batches:
+        first_name = b.pages[0].input_file_name if b.pages else ""
+        result.append(
+            BatchListItem(
+                id=b.id,
+                created_at=b.created_at,
+                page_count=b.page_count,
+                status=b.status,
+                first_file_name=first_name,
+            )
+        )
+    return result
 
 
-@router.post("", response_model=HistoryResponse, status_code=201)
-def create_history(req: HistoryCreateRequest):
-    """Create a new history entry."""
-    entry = HistoryEntry(
-        input_file_name=req.input_file_name,
-        input_file_id=req.input_file_id,
-        musicxml_file_id=req.musicxml_file_id,
-        jianpu_text=req.jianpu_text,
-        svg_file_id=req.svg_file_id,
-        status=req.status,
-        error_message=req.error_message,
-    )
-    return _entry_to_response(_service.create_entry(entry))
+@router.post("", response_model=BatchResponse, status_code=201)
+def create_batch(req: BatchCreateRequest):
+    pages = [
+        HistoryPage(
+            input_file_name=p.input_file_name,
+            input_file_id=p.input_file_id,
+            musicxml_file_id=p.musicxml_file_id,
+            jianpu_text=p.jianpu_text,
+            svg_file_id=p.svg_file_id,
+            status=p.status,
+            error_message=p.error_message,
+        )
+        for p in req.pages
+    ]
+    batch = _service.create_batch(pages)
+    return _batch_to_response(batch)
 
 
-@router.get("/{entry_id}", response_model=HistoryResponse)
-def get_history(entry_id: int):
-    """Get a single history entry by ID."""
-    entry = _service.get_entry(entry_id)
-    if not entry:
-        raise HTTPException(status_code=404, detail="History entry not found")
-    return _entry_to_response(entry)
+@router.get("/{batch_id}", response_model=BatchResponse)
+def get_history(batch_id: int):
+    batch = _service.get_batch(batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    return _batch_to_response(batch)
 
 
-@router.delete("/{entry_id}")
-def delete_history(entry_id: int):
-    """Delete a single history entry."""
-    if not _service.delete_entry(entry_id):
-        raise HTTPException(status_code=404, detail="History entry not found")
+@router.delete("/{batch_id}")
+def delete_history(batch_id: int):
+    if not _service.delete_batch(batch_id):
+        raise HTTPException(status_code=404, detail="Batch not found")
     return {"ok": True}
 
 
-@router.delete("", response_model=HistoryDeleteAllResponse)
+@router.delete("", response_model=DeleteAllResponse)
 def delete_all_history():
-    """Delete all history entries."""
     count = _service.delete_all()
-    return HistoryDeleteAllResponse(deleted_count=count)
+    return DeleteAllResponse(deleted_count=count)

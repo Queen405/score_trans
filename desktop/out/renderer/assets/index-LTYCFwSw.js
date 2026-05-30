@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-CjscjY1t.js"(exports, module) {
+  "assets/index-LTYCFwSw.js"(exports, module) {
     /**
     * @vue/shared v3.5.35
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -8332,7 +8332,7 @@ var require_index_001 = __commonJS({
       return { entries, errorCount, addLog, addError, clear };
     });
     function getBaseURL() {
-      return window?.api?.getBackendURL?.() || void 0 || "http://127.0.0.1:18513";
+      return window?.api?.getBackendURL?.() || void 0 || "http://127.0.0.1:19200";
     }
     class ApiError extends Error {
       stage;
@@ -8463,15 +8463,15 @@ var require_index_001 = __commonJS({
       list() {
         return apiFetch("/history");
       },
+      get(id) {
+        return apiFetch(`/history/${id}`);
+      },
       create(req) {
         return apiFetch("/history", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(req)
         });
-      },
-      get(id) {
-        return apiFetch(`/history/${id}`);
       },
       deleteOne(id) {
         return apiFetch(`/history/${id}`, { method: "DELETE" });
@@ -36737,7 +36737,9 @@ ${style2}
         }
         async function runPipelineForPage(pageIndex) {
           const page = store.pages[pageIndex];
-          if (!page?.inputFileId || !page.inputFileName) return;
+          if (!page?.inputFileId || !page.inputFileName) {
+            return { input_file_name: "", input_file_id: "", musicxml_file_id: "", jianpu_text: "", svg_file_id: "", status: "failed", error_message: "无输入文件" };
+          }
           store.selectPage(pageIndex);
           store.setCurrentPageStatus("processing");
           const sourceFileId = page.inputFileId;
@@ -36761,34 +36763,61 @@ ${style2}
           store.setJianpu(result.jianpu_text);
           store.setSvg(result.svg_file_id);
           store.setCurrentPageStatus("completed");
+          log.addLog(`识别完成：${sourceFileName}`);
+          return {
+            input_file_name: sourceFileName,
+            input_file_id: sourceFileId,
+            musicxml_file_id: result.musicxml_file_id,
+            jianpu_text: result.jianpu_text,
+            svg_file_id: result.svg_file_id,
+            status: "completed",
+            error_message: ""
+          };
+        }
+        async function saveHistoryBatch(pageResults) {
+          if (!pageResults.length) return;
           try {
             await historyApi.create({
-              input_file_name: sourceFileName,
-              input_file_id: sourceFileId,
-              musicxml_file_id: result.musicxml_file_id,
-              jianpu_text: result.jianpu_text,
-              svg_file_id: result.svg_file_id,
-              status: "completed"
+              pages: pageResults.map((r) => ({
+                input_file_name: r.input_file_name,
+                input_file_id: r.input_file_id,
+                musicxml_file_id: r.musicxml_file_id,
+                jianpu_text: r.jianpu_text,
+                svg_file_id: r.svg_file_id,
+                status: r.status,
+                error_message: r.error_message
+              }))
             });
           } catch {
           }
-          log.addLog(`识别完成：${sourceFileName}`);
         }
         async function recognize() {
           const pageIndex = store.currentPageIndex;
           if (pageIndex < 0 || !store.hasInput) return;
           store.setBusy(true);
+          const results = [];
           try {
             setProgress(0, "准备识别");
-            await runPipelineForPage(pageIndex);
+            const r = await runPipelineForPage(pageIndex);
+            results.push(r);
             setProgress(100, "完成");
             message.success("识别完成");
           } catch (e) {
             const msg2 = e instanceof Error ? e.message : String(e);
             store.setCurrentPageStatus("failed", msg2);
+            results.push({
+              input_file_name: store.pages[pageIndex]?.inputFileName ?? "",
+              input_file_id: store.pages[pageIndex]?.inputFileId ?? "",
+              musicxml_file_id: "",
+              jianpu_text: "",
+              svg_file_id: "",
+              status: "failed",
+              error_message: msg2
+            });
             log.addError(`识别失败：${msg2}`);
             message.error(msg2);
           } finally {
+            await saveHistoryBatch(results);
             store.setBusy(false);
           }
         }
@@ -36796,6 +36825,7 @@ ${style2}
           const indexes = store.pages.map((page, index) => ({ page, index })).filter((entry) => !!entry.page.inputFileId).map((entry) => entry.index);
           if (!indexes.length) return;
           store.setBusy(true);
+          const results = [];
           try {
             setProgress(0, "准备批量识别");
             for (let i = 0; i < indexes.length; i += 1) {
@@ -36804,11 +36834,21 @@ ${style2}
               const end = (i + 1) / indexes.length * 100;
               setProgress(start, `处理第 ${i + 1} / ${indexes.length} 页`);
               try {
-                await runPipelineForPage(pageIndex);
+                const r = await runPipelineForPage(pageIndex);
+                results.push(r);
               } catch (e) {
                 const msg2 = e instanceof Error ? e.message : String(e);
                 store.selectPage(pageIndex);
                 store.setCurrentPageStatus("failed", msg2);
+                results.push({
+                  input_file_name: store.pages[pageIndex]?.inputFileName ?? "",
+                  input_file_id: store.pages[pageIndex]?.inputFileId ?? "",
+                  musicxml_file_id: "",
+                  jianpu_text: "",
+                  svg_file_id: "",
+                  status: "failed",
+                  error_message: msg2
+                });
                 log.addError(`第 ${i + 1} 页失败：${msg2}`);
               }
               setProgress(end, `已完成 ${i + 1} / ${indexes.length} 页`);
@@ -36820,6 +36860,7 @@ ${style2}
             log.addError(`批量识别失败：${msg2}`);
             message.error(msg2);
           } finally {
+            await saveHistoryBatch(results);
             store.setBusy(false);
           }
         }
@@ -36987,7 +37028,7 @@ ${style2}
         };
       }
     });
-    const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-0a097d85"]]);
+    const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-9554c334"]]);
     const convertApi = {
       musicxmlToJianpu(req) {
         return apiFetch("/convert/musicxml-to-jianpu", {
@@ -37390,30 +37431,43 @@ ${style2}
       class: "hist-empty"
     };
     const _hoisted_6$2 = ["onClick"];
-    const _hoisted_7$2 = { class: "hist-item-top" };
-    const _hoisted_8$2 = { class: "hist-item-name" };
-    const _hoisted_9$1 = { class: "hist-item-meta" };
-    const _hoisted_10$1 = { class: "ws-main" };
-    const _hoisted_11$1 = { class: "ws-toolbar" };
-    const _hoisted_12$1 = { class: "ws-toolbar-left" };
-    const _hoisted_13$1 = {
+    const _hoisted_7$2 = { class: "hist-batch-name" };
+    const _hoisted_8$2 = {
+      key: 0,
+      class: "hist-batch-count"
+    };
+    const _hoisted_9$1 = { class: "hist-batch-meta" };
+    const _hoisted_10$1 = {
+      key: 0,
+      class: "hist-pages"
+    };
+    const _hoisted_11$1 = {
+      key: 0,
+      class: "hist-loading"
+    };
+    const _hoisted_12$1 = ["onClick"];
+    const _hoisted_13$1 = { class: "hist-page-name" };
+    const _hoisted_14$1 = { class: "ws-main" };
+    const _hoisted_15$1 = { class: "ws-toolbar" };
+    const _hoisted_16$1 = { class: "ws-toolbar-left" };
+    const _hoisted_17 = {
       key: 0,
       class: "page-nav"
     };
-    const _hoisted_14$1 = { class: "page-indicator" };
-    const _hoisted_15$1 = { class: "ws-toolbar-right" };
-    const _hoisted_16$1 = { class: "ws-layout" };
-    const _hoisted_17 = { class: "ws-panel ws-left" };
-    const _hoisted_18 = { class: "ws-panel-head" };
-    const _hoisted_19 = {
+    const _hoisted_18 = { class: "page-indicator" };
+    const _hoisted_19 = { class: "ws-toolbar-right" };
+    const _hoisted_20 = { class: "ws-layout" };
+    const _hoisted_21 = { class: "ws-panel ws-left" };
+    const _hoisted_22 = { class: "ws-panel-head" };
+    const _hoisted_23 = {
       key: 0,
       class: "panel-filename"
     };
-    const _hoisted_20 = { class: "ws-panel-body" };
-    const _hoisted_21 = { class: "ws-panel ws-right" };
-    const _hoisted_22 = { class: "ws-panel-head" };
-    const _hoisted_23 = { class: "ws-panel-body" };
-    const _hoisted_24 = {
+    const _hoisted_24 = { class: "ws-panel-body" };
+    const _hoisted_25 = { class: "ws-panel ws-right" };
+    const _hoisted_26 = { class: "ws-panel-head" };
+    const _hoisted_27 = { class: "ws-panel-body" };
+    const _hoisted_28 = {
       key: 1,
       class: "empty-hint"
     };
@@ -37435,8 +37489,11 @@ ${style2}
           { label: "MIDI", value: "mid" }
         ];
         const historyOpen = /* @__PURE__ */ ref(false);
-        const histEntries = /* @__PURE__ */ ref([]);
+        const histBatches = /* @__PURE__ */ ref([]);
         const histLoading = /* @__PURE__ */ ref(false);
+        const expandedBatchId = /* @__PURE__ */ ref(null);
+        const expandedPages = /* @__PURE__ */ ref([]);
+        const loadingBatch = /* @__PURE__ */ ref(false);
         watch(() => store.jianpuText, (v) => {
           jianpuText.value = v;
         });
@@ -37454,7 +37511,7 @@ ${style2}
         async function loadHistory() {
           histLoading.value = true;
           try {
-            histEntries.value = await historyApi.list();
+            histBatches.value = await historyApi.list();
           } catch (e) {
             log.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`);
           } finally {
@@ -37463,32 +37520,52 @@ ${style2}
         }
         async function handleDeleteAll() {
           await historyApi.deleteAll();
-          histEntries.value = [];
+          histBatches.value = [];
+          expandedBatchId.value = null;
+          expandedPages.value = [];
           message.success("已清空");
         }
-        async function handleRestore(entry) {
+        async function toggleBatchExpand(batchId) {
+          if (expandedBatchId.value === batchId) {
+            expandedBatchId.value = null;
+            expandedPages.value = [];
+            return;
+          }
+          expandedBatchId.value = batchId;
+          loadingBatch.value = true;
+          try {
+            const batch2 = await historyApi.get(batchId);
+            expandedPages.value = batch2.pages;
+          } catch (e) {
+            log.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`);
+            expandedPages.value = [];
+          } finally {
+            loadingBatch.value = false;
+          }
+        }
+        async function handleRestorePage(page) {
           const warnings = [];
-          if (entry.input_file_id) {
-            if (await fileExists(entry.input_file_id)) store.setInputFile(entry.input_file_name, entry.input_file_id);
+          if (page.input_file_id) {
+            if (await fileExists(page.input_file_id)) store.setInputFile(page.input_file_name, page.input_file_id);
             else warnings.push("原始文件已失效");
           }
-          if (entry.musicxml_file_id) {
-            if (await fileExists(entry.musicxml_file_id)) store.setMusicxml(entry.musicxml_file_id, "");
+          if (page.musicxml_file_id) {
+            if (await fileExists(page.musicxml_file_id)) store.setMusicxml(page.musicxml_file_id, "");
             else {
               store.setMusicxml("", "");
               warnings.push("MusicXML 已失效");
             }
           }
-          if (entry.jianpu_text) store.setJianpu(entry.jianpu_text);
-          if (entry.svg_file_id) {
-            if (await fileExists(entry.svg_file_id)) store.setSvg(entry.svg_file_id);
+          if (page.jianpu_text) store.setJianpu(page.jianpu_text);
+          if (page.svg_file_id) {
+            if (await fileExists(page.svg_file_id)) store.setSvg(page.svg_file_id);
             else {
               store.setSvg("");
               warnings.push("SVG 已失效");
             }
           }
-          if (entry.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(entry.input_file_name)) {
-            if (await fileExists(entry.input_file_id)) store.setOriginalFile(entry.input_file_name, entry.input_file_id);
+          if (page.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(page.input_file_name)) {
+            if (await fileExists(page.input_file_id)) store.setOriginalFile(page.input_file_name, page.input_file_id);
             else store.clearOriginalFile();
           } else store.clearOriginalFile();
           if (warnings.length) {
@@ -37678,7 +37755,7 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
                         size: "tiny",
                         quaternary: "",
                         type: "error",
-                        disabled: !histEntries.value.length
+                        disabled: !histBatches.value.length
                       }, {
                         icon: withCtx(() => [
                           createVNode(unref(NIcon), { size: "14" }, {
@@ -37699,34 +37776,56 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
                 ])
               ]),
               createBaseVNode("div", _hoisted_4$3, [
-                !histLoading.value && !histEntries.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$2, [..._cache[6] || (_cache[6] = [
+                !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$2, [..._cache[6] || (_cache[6] = [
                   createBaseVNode("span", null, "暂无记录", -1)
                 ])])) : createCommentVNode("", true),
-                (openBlock(true), createElementBlock(Fragment, null, renderList(histEntries.value, (entry) => {
+                (openBlock(true), createElementBlock(Fragment, null, renderList(histBatches.value, (batch2) => {
                   return openBlock(), createElementBlock("div", {
-                    key: entry.id,
-                    class: "hist-item",
-                    onClick: ($event) => handleRestore(entry)
+                    key: batch2.id,
+                    class: "hist-batch"
                   }, [
-                    createBaseVNode("div", _hoisted_7$2, [
+                    createBaseVNode("div", {
+                      class: "hist-batch-head",
+                      onClick: ($event) => toggleBatchExpand(batch2.id)
+                    }, [
                       createBaseVNode("span", {
-                        class: normalizeClass(["hist-dot", entry.status === "completed" ? "ok" : "err"])
+                        class: normalizeClass(["hist-dot", batch2.status === "completed" ? "ok" : "err"])
                       }, null, 2),
-                      createBaseVNode("span", _hoisted_8$2, toDisplayString(entry.input_file_name || "未知"), 1)
-                    ]),
-                    createBaseVNode("div", _hoisted_9$1, [
-                      createBaseVNode("span", null, toDisplayString(formatTime(entry.created_at)), 1),
-                      createBaseVNode("span", {
-                        class: normalizeClass(entry.status)
-                      }, toDisplayString(entry.status === "completed" ? "成功" : "失败"), 3)
-                    ])
-                  ], 8, _hoisted_6$2);
+                      createBaseVNode("span", _hoisted_7$2, toDisplayString(batch2.first_file_name || "未知"), 1),
+                      batch2.page_count > 1 ? (openBlock(), createElementBlock("span", _hoisted_8$2, toDisplayString(batch2.page_count) + "页", 1)) : createCommentVNode("", true),
+                      createVNode(unref(NIcon), {
+                        size: "12",
+                        class: normalizeClass(["hist-expand-icon", { rotated: expandedBatchId.value === batch2.id }])
+                      }, {
+                        default: withCtx(() => [
+                          createVNode(unref(ChevronForwardOutline))
+                        ]),
+                        _: 1
+                      }, 8, ["class"])
+                    ], 8, _hoisted_6$2),
+                    createBaseVNode("div", _hoisted_9$1, toDisplayString(formatTime(batch2.created_at)), 1),
+                    expandedBatchId.value === batch2.id ? (openBlock(), createElementBlock("div", _hoisted_10$1, [
+                      loadingBatch.value ? (openBlock(), createElementBlock("div", _hoisted_11$1, "加载中...")) : createCommentVNode("", true),
+                      (openBlock(true), createElementBlock(Fragment, null, renderList(expandedPages.value, (page, pi) => {
+                        return openBlock(), createElementBlock("div", {
+                          key: page.id,
+                          class: "hist-page-item",
+                          onClick: ($event) => handleRestorePage(page)
+                        }, [
+                          createBaseVNode("span", {
+                            class: normalizeClass(["hist-dot small", page.status === "completed" ? "ok" : "err"])
+                          }, null, 2),
+                          createBaseVNode("span", _hoisted_13$1, toDisplayString(page.input_file_name || `第${pi + 1}页`), 1)
+                        ], 8, _hoisted_12$1);
+                      }), 128))
+                    ])) : createCommentVNode("", true)
+                  ]);
                 }), 128))
               ])
             ], 2),
-            createBaseVNode("div", _hoisted_10$1, [
-              createBaseVNode("div", _hoisted_11$1, [
-                createBaseVNode("div", _hoisted_12$1, [
+            createBaseVNode("div", _hoisted_14$1, [
+              createBaseVNode("div", _hoisted_15$1, [
+                createBaseVNode("div", _hoisted_16$1, [
                   createBaseVNode("button", {
                     class: "hist-toggle",
                     title: "历史记录",
@@ -37739,7 +37838,7 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
                       _: 1
                     })
                   ]),
-                  unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_13$1, [
+                  unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_17, [
                     createVNode(unref(Button), {
                       size: "small",
                       quaternary: "",
@@ -37756,7 +37855,7 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
                       ]),
                       _: 1
                     }, 8, ["disabled"]),
-                    createBaseVNode("span", _hoisted_14$1, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
+                    createBaseVNode("span", _hoisted_18, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
                     createVNode(unref(Button), {
                       size: "small",
                       quaternary: "",
@@ -37775,7 +37874,7 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
                     }, 8, ["disabled"])
                   ])) : createCommentVNode("", true)
                 ]),
-                createBaseVNode("div", _hoisted_15$1, [
+                createBaseVNode("div", _hoisted_19, [
                   createVNode(unref(Button), {
                     size: "small",
                     onClick: musicxmlToJianpu,
@@ -37904,21 +38003,21 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
                   }, null, 8, ["value"])
                 ])
               ]),
-              createBaseVNode("div", _hoisted_16$1, [
-                createBaseVNode("div", _hoisted_17, [
-                  createBaseVNode("div", _hoisted_18, [
+              createBaseVNode("div", _hoisted_20, [
+                createBaseVNode("div", _hoisted_21, [
+                  createBaseVNode("div", _hoisted_22, [
                     _cache[14] || (_cache[14] = createBaseVNode("span", null, "原始五线谱", -1)),
-                    unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_19, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
+                    unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_23, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
                   ]),
-                  createBaseVNode("div", _hoisted_20, [
+                  createBaseVNode("div", _hoisted_24, [
                     createVNode(OriginalPreview, {
                       "file-id": unref(store).originalFileId,
                       "file-name": unref(store).originalFileName
                     }, null, 8, ["file-id", "file-name"])
                   ])
                 ]),
-                createBaseVNode("div", _hoisted_21, [
-                  createBaseVNode("div", _hoisted_22, [
+                createBaseVNode("div", _hoisted_25, [
+                  createBaseVNode("div", _hoisted_26, [
                     createBaseVNode("span", null, toDisplayString(isViewingFinal.value ? "最终渲染" : "简谱编辑"), 1),
                     createVNode(unref(Button), {
                       size: "tiny",
@@ -37933,11 +38032,11 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
                       _: 1
                     }, 8, ["loading", "disabled"])
                   ]),
-                  createBaseVNode("div", _hoisted_23, [
+                  createBaseVNode("div", _hoisted_27, [
                     isViewingFinal.value && finalSvgFileId.value ? (openBlock(), createBlock(SvgPreview, {
                       key: 0,
                       "svg-file-id": finalSvgFileId.value
-                    }, null, 8, ["svg-file-id"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_24, [
+                    }, null, 8, ["svg-file-id"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_28, [
                       createVNode(unref(NIcon), {
                         size: "32",
                         depth: 3
@@ -37961,7 +38060,7 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
         };
       }
     });
-    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-46816ea5"]]);
+    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-9f3bf3da"]]);
     const _hoisted_1$2 = { class: "settings-view" };
     const _hoisted_2$2 = { class: "sv-section" };
     const _hoisted_3$2 = { class: "sv-grid" };

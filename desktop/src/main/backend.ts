@@ -1,11 +1,11 @@
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, execSync, ChildProcess } from 'child_process'
 import { app } from 'electron'
 import path from 'path'
 import http from 'http'
 import net from 'net'
 import { existsSync } from 'fs'
 
-const DEFAULT_PORT = 18513
+const DEFAULT_PORT = 19200
 const HEALTH_CHECK_INTERVAL = 1000
 const HEALTH_CHECK_TIMEOUT = 15000
 const SHUTDOWN_TIMEOUT = 5000
@@ -43,13 +43,14 @@ export class BackendProcess {
         stdio: 'pipe',
         cwd: projectRoot,
         env: { ...process.env, PYTHONPATH: pythonPath },
+        windowsHide: true,
       })
     } else {
       const exePath = path.join(process.resourcesPath, 'backend', 'backend.exe')
       this.process = spawn(exePath, [
         '--host', '127.0.0.1',
         '--port', String(this.port),
-      ], { stdio: 'pipe' })
+      ], { stdio: 'pipe', windowsHide: true })
     }
 
     this.process.stdout?.on('data', (data: Buffer) => {
@@ -107,22 +108,31 @@ export class BackendProcess {
   async stop(): Promise<void> {
     if (!this.process) return
 
-    this.process.kill('SIGTERM')
+    const pid = this.process.pid
+    if (!pid) { this.process = null; return }
 
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => {
-        console.log('[backend] Force killing backend process')
-        this.process?.kill('SIGKILL')
-        resolve()
-      }, SHUTDOWN_TIMEOUT)
-
-      this.process?.on('exit', () => {
-        clearTimeout(timeout)
-        resolve()
+    if (process.platform === 'win32') {
+      this.killTree(pid)
+    } else {
+      this.process.kill('SIGTERM')
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          try { this.process?.kill('SIGKILL') } catch {}
+          resolve()
+        }, SHUTDOWN_TIMEOUT)
+        this.process?.on('exit', () => { clearTimeout(timeout); resolve() })
       })
-    })
+    }
 
     this.process = null
+  }
+
+  private killTree(pid: number): void {
+    try {
+      execSync(`taskkill /T /F /PID ${pid}`, { stdio: 'ignore' })
+    } catch {
+      // process may already be dead
+    }
   }
 
   getBaseURL(): string {

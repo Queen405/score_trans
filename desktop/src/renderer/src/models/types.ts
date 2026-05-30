@@ -132,9 +132,8 @@ export interface LogEntry {
 
 // ── History ──
 
-export interface HistoryEntry {
+export interface HistoryPage {
   id: number
-  created_at: string
   input_file_name: string
   input_file_id: string
   musicxml_file_id: string
@@ -144,12 +143,30 @@ export interface HistoryEntry {
   error_message: string
 }
 
+export interface HistoryBatch {
+  id: number
+  created_at: string
+  page_count: number
+  status: string
+  pages: HistoryPage[]
+}
+
+export interface HistoryBatchListItem {
+  id: number
+  created_at: string
+  page_count: number
+  status: string
+  first_file_name: string
+}
+
 export interface HistoryCreateRequest {
-  input_file_name?: string
-  input_file_id?: string
-  musicxml_file_id?: string
-  jianpu_text?: string
-  svg_file_id?: string
-  status?: string
-  error_message?: string
+  pages: {
+    input_file_name?: string
+    input_file_id?: string
+    musicxml_file_id?: string
+    jianpu_text?: string
+    svg_file_id?: string
+    status?: string
+    error_message?: string
+  }[]
 }

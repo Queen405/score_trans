@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .env_file import PROJECT_ROOT
@@ -10,9 +10,9 @@ DEFAULT_DB_PATH = PROJECT_ROOT / "work" / "history.db"
 
 
 @dataclass(slots=True)
-class HistoryEntry:
+class HistoryPage:
     id: int = 0
-    created_at: str = ""
+    batch_id: int = 0
     input_file_name: str = ""
     input_file_id: str = ""
     musicxml_file_id: str = ""
@@ -20,6 +20,15 @@ class HistoryEntry:
     svg_file_id: str = ""
     status: str = "completed"
     error_message: str = ""
+
+
+@dataclass(slots=True)
+class HistoryBatch:
+    id: int = 0
+    created_at: str = ""
+    page_count: int = 0
+    status: str = "completed"
+    pages: list[HistoryPage] = field(default_factory=list)
 
 
 class HistoryService:
@@ -31,32 +40,32 @@ class HistoryService:
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
     def _init_db(self) -> None:
-        expected_cols = {
-            "id", "created_at", "input_file_name", "input_file_id",
-            "musicxml_file_id", "jianpu_text", "svg_file_id",
-            "status", "error_message",
-        }
         with self._connect() as conn:
-            # Check if the table exists and has the expected schema
             rows = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='history'"
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='history_batch'"
             ).fetchall()
             if rows:
-                existing = {
-                    row["name"]
-                    for row in conn.execute("PRAGMA table_info(history)").fetchall()
-                }
-                if not expected_cols.issubset(existing):
-                    conn.execute("DROP TABLE history")
-                    conn.commit()
+                return
+            conn.execute("DROP TABLE IF EXISTS history")
             conn.execute(
                 """
-                CREATE TABLE IF NOT EXISTS history (
+                CREATE TABLE history_batch (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                    page_count INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'completed'
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE history_page (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    batch_id INTEGER NOT NULL REFERENCES history_batch(id) ON DELETE CASCADE,
                     input_file_name TEXT NOT NULL DEFAULT '',
                     input_file_id TEXT NOT NULL DEFAULT '',
                     musicxml_file_id TEXT NOT NULL DEFAULT '',
@@ -67,60 +76,87 @@ class HistoryService:
                 )
                 """
             )
-
-    def list_entries(self) -> list[HistoryEntry]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM history ORDER BY id DESC").fetchall()
-        return [self._row_to_entry(row) for row in rows]
-
-    def get_entry(self, entry_id: int) -> HistoryEntry | None:
-        with self._connect() as conn:
-            row = conn.execute("SELECT * FROM history WHERE id = ?", (entry_id,)).fetchone()
-        return self._row_to_entry(row) if row else None
-
-    def create_entry(self, entry: HistoryEntry) -> HistoryEntry:
-        with self._connect() as conn:
-            cursor = conn.execute(
-                """
-                INSERT INTO history
-                    (input_file_name, input_file_id, musicxml_file_id,
-                     jianpu_text, svg_file_id, status, error_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    entry.input_file_name,
-                    entry.input_file_id,
-                    entry.musicxml_file_id,
-                    entry.jianpu_text,
-                    entry.svg_file_id,
-                    entry.status,
-                    entry.error_message,
-                ),
-            )
-            entry.id = cursor.lastrowid
             conn.commit()
-            row = conn.execute("SELECT created_at FROM history WHERE id = ?", (entry.id,)).fetchone()
-            if row:
-                entry.created_at = row["created_at"]
-        return entry
 
-    def delete_entry(self, entry_id: int) -> bool:
+    def list_batches(self) -> list[HistoryBatch]:
         with self._connect() as conn:
-            cursor = conn.execute("DELETE FROM history WHERE id = ?", (entry_id,))
+            rows = conn.execute(
+                "SELECT * FROM history_batch ORDER BY id DESC"
+            ).fetchall()
+            return [self._row_to_batch(conn, row) for row in rows]
+
+    def get_batch(self, batch_id: int) -> HistoryBatch | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            if not row:
+                return None
+            return self._row_to_batch(conn, row)
+
+    def create_batch(self, pages: list[HistoryPage]) -> HistoryBatch:
+        with self._connect() as conn:
+            cursor = conn.execute("INSERT INTO history_batch (page_count) VALUES (?)", (len(pages),))
+            batch_id = cursor.lastrowid
+            for page in pages:
+                conn.execute(
+                    """
+                    INSERT INTO history_page
+                        (batch_id, input_file_name, input_file_id, musicxml_file_id,
+                         jianpu_text, svg_file_id, status, error_message)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        batch_id,
+                        page.input_file_name,
+                        page.input_file_id,
+                        page.musicxml_file_id,
+                        page.jianpu_text,
+                        page.svg_file_id,
+                        page.status,
+                        page.error_message,
+                    ),
+                )
+            has_error = any(p.status != "completed" for p in pages)
+            batch_status = "failed" if has_error else "completed"
+            conn.execute(
+                "UPDATE history_batch SET status = ? WHERE id = ?",
+                (batch_status, batch_id),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM history_batch WHERE id = ?", (batch_id,)).fetchone()
+            return self._row_to_batch(conn, row)
+
+    def delete_batch(self, batch_id: int) -> bool:
+        with self._connect() as conn:
+            cursor = conn.execute("DELETE FROM history_batch WHERE id = ?", (batch_id,))
             conn.commit()
             return cursor.rowcount > 0
 
     def delete_all(self) -> int:
         with self._connect() as conn:
-            cursor = conn.execute("DELETE FROM history")
+            cursor = conn.execute("DELETE FROM history_batch")
             conn.commit()
             return cursor.rowcount
 
-    @staticmethod
-    def _row_to_entry(row: sqlite3.Row) -> HistoryEntry:
-        return HistoryEntry(
+    def _row_to_batch(self, conn: sqlite3.Connection, row: sqlite3.Row) -> HistoryBatch:
+        batch = HistoryBatch(
             id=row["id"],
             created_at=row["created_at"],
+            page_count=row["page_count"],
+            status=row["status"],
+        )
+        page_rows = conn.execute(
+            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY id", (batch.id,)
+        ).fetchall()
+        batch.pages = [self._row_to_page(pr) for pr in page_rows]
+        return batch
+
+    @staticmethod
+    def _row_to_page(row: sqlite3.Row) -> HistoryPage:
+        return HistoryPage(
+            id=row["id"],
+            batch_id=row["batch_id"],
             input_file_name=row["input_file_name"],
             input_file_id=row["input_file_id"],
             musicxml_file_id=row["musicxml_file_id"],

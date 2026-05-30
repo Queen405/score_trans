@@ -3,7 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
   getBackendURL: (): string => {
-    return ipcRenderer.sendSync('get-backend-url') || 'http://127.0.0.1:18513'
+    return ipcRenderer.sendSync('get-backend-url') || 'http://127.0.0.1:19200'
   },
   minimizeWindow: async (): Promise<void> => {
     await ipcRenderer.invoke('window:minimize')

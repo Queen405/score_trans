@@ -95,6 +95,7 @@ import { useSettingsStore } from '../stores/settings'
 import { pipelineApi } from '../api/pipeline'
 import { historyApi } from '../api/history'
 import { getFileURL } from '../api/client'
+import type { HistoryCreateRequest } from '../models/types'
 import FileUploader from '../components/FileUploader.vue'
 import {
   ScanOutline,
@@ -140,9 +141,21 @@ function setProgress(percent: number, text: string): void {
   progressText.value = text
 }
 
-async function runPipelineForPage(pageIndex: number): Promise<void> {
+interface PageResult {
+  input_file_name: string
+  input_file_id: string
+  musicxml_file_id: string
+  jianpu_text: string
+  svg_file_id: string
+  status: string
+  error_message: string
+}
+
+async function runPipelineForPage(pageIndex: number): Promise<PageResult> {
   const page = store.pages[pageIndex]
-  if (!page?.inputFileId || !page.inputFileName) return
+  if (!page?.inputFileId || !page.inputFileName) {
+    return { input_file_name: '', input_file_id: '', musicxml_file_id: '', jianpu_text: '', svg_file_id: '', status: 'failed', error_message: '无输入文件' }
+  }
 
   store.selectPage(pageIndex)
   store.setCurrentPageStatus('processing')
@@ -170,18 +183,34 @@ async function runPipelineForPage(pageIndex: number): Promise<void> {
   store.setJianpu(result.jianpu_text)
   store.setSvg(result.svg_file_id)
   store.setCurrentPageStatus('completed')
+  log.addLog(`识别完成：${sourceFileName}`)
 
+  return {
+    input_file_name: sourceFileName,
+    input_file_id: sourceFileId,
+    musicxml_file_id: result.musicxml_file_id,
+    jianpu_text: result.jianpu_text,
+    svg_file_id: result.svg_file_id,
+    status: 'completed',
+    error_message: '',
+  }
+}
+
+async function saveHistoryBatch(pageResults: PageResult[]): Promise<void> {
+  if (!pageResults.length) return
   try {
     await historyApi.create({
-      input_file_name: sourceFileName,
-      input_file_id: sourceFileId,
-      musicxml_file_id: result.musicxml_file_id,
-      jianpu_text: result.jianpu_text,
-      svg_file_id: result.svg_file_id,
-      status: 'completed',
+      pages: pageResults.map((r) => ({
+        input_file_name: r.input_file_name,
+        input_file_id: r.input_file_id,
+        musicxml_file_id: r.musicxml_file_id,
+        jianpu_text: r.jianpu_text,
+        svg_file_id: r.svg_file_id,
+        status: r.status,
+        error_message: r.error_message,
+      })),
     })
   } catch { /* ignore */ }
-  log.addLog(`识别完成：${sourceFileName}`)
 }
 
 async function recognize(): Promise<void> {
@@ -189,17 +218,26 @@ async function recognize(): Promise<void> {
   if (pageIndex < 0 || !store.hasInput) return
 
   store.setBusy(true)
+  const results: PageResult[] = []
   try {
     setProgress(0, '准备识别')
-    await runPipelineForPage(pageIndex)
+    const r = await runPipelineForPage(pageIndex)
+    results.push(r)
     setProgress(100, '完成')
     message.success('识别完成')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     store.setCurrentPageStatus('failed', msg)
+    results.push({
+      input_file_name: store.pages[pageIndex]?.inputFileName ?? '',
+      input_file_id: store.pages[pageIndex]?.inputFileId ?? '',
+      musicxml_file_id: '', jianpu_text: '', svg_file_id: '',
+      status: 'failed', error_message: msg,
+    })
     log.addError(`识别失败：${msg}`)
     message.error(msg)
   } finally {
+    await saveHistoryBatch(results)
     store.setBusy(false)
   }
 }
@@ -212,6 +250,7 @@ async function recognizeAllPages(): Promise<void> {
   if (!indexes.length) return
 
   store.setBusy(true)
+  const results: PageResult[] = []
   try {
     setProgress(0, '准备批量识别')
     for (let i = 0; i < indexes.length; i += 1) {
@@ -220,11 +259,18 @@ async function recognizeAllPages(): Promise<void> {
       const end = ((i + 1) / indexes.length) * 100
       setProgress(start, `处理第 ${i + 1} / ${indexes.length} 页`)
       try {
-        await runPipelineForPage(pageIndex)
+        const r = await runPipelineForPage(pageIndex)
+        results.push(r)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         store.selectPage(pageIndex)
         store.setCurrentPageStatus('failed', msg)
+        results.push({
+          input_file_name: store.pages[pageIndex]?.inputFileName ?? '',
+          input_file_id: store.pages[pageIndex]?.inputFileId ?? '',
+          musicxml_file_id: '', jianpu_text: '', svg_file_id: '',
+          status: 'failed', error_message: msg,
+        })
         log.addError(`第 ${i + 1} 页失败：${msg}`)
       }
       setProgress(end, `已完成 ${i + 1} / ${indexes.length} 页`)
@@ -236,6 +282,7 @@ async function recognizeAllPages(): Promise<void> {
     log.addError(`批量识别失败：${msg}`)
     message.error(msg)
   } finally {
+    await saveHistoryBatch(results)
     store.setBusy(false)
   }
 }
