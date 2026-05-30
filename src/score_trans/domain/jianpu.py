@@ -221,7 +221,16 @@ def _parse_note_token(raw: str) -> ParsedToken:
         duration += duration / 2
         raw = raw[:-1]
     duration += extension
-    if raw.startswith("#"):
+    if raw.startswith("bb"):
+        accidental = -2
+        raw = raw[2:]
+    elif raw.startswith("x"):
+        accidental = 2
+        raw = raw[1:]
+    elif raw.startswith(("n", "♮")):
+        accidental = 0
+        raw = raw[1:]
+    elif raw.startswith("#"):
         accidental = 1
         raw = raw[1:]
     elif raw.startswith("b"):

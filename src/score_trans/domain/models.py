@@ -16,6 +16,9 @@ class TextBlock:
     confidence: float | None = None
     role: TextRole = "other"
     measure_number: str | int | None = None
+    start: Fraction | None = None
+    placement: str | None = None
+    staff: str | None = None
 
 
 @dataclass(slots=True)
@@ -26,6 +29,7 @@ class JianpuPitch:
     midi: int | None = None
     step: str | None = None
     alter: int = 0
+    accidental_text: str | None = None
 
     @property
     def rank(self) -> float:
@@ -45,6 +49,9 @@ class Event:
     lyric: str | None = None
     dynamic: str | None = None
     articulation: str | None = None
+    articulations: list[str] = field(default_factory=list)
+    ornaments: list[str] = field(default_factory=list)
+    technical: list[str] = field(default_factory=list)
     voice: str | None = None
     staff: str | None = None
     start: Fraction | None = None

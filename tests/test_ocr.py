@@ -114,6 +114,7 @@ def test_parse_openai_compatible_response_coerces_blocks() -> None:
                     "content": (
                         '{"text_blocks":[{"text":"Title","bbox":[0,1,2,3],'
                         '"confidence":"0.95","role":"title"},'
+                        '{"text":"118"},'
                         '{"text":"?","role":"unknown"}]}'
                     )
                 }
@@ -125,6 +126,7 @@ def test_parse_openai_compatible_response_coerces_blocks() -> None:
 
     assert blocks == [
         OCRTextBlock("Title", bbox=(0.0, 1.0, 2.0, 3.0), confidence=0.95, role="title"),
+        OCRTextBlock("118", role="measure_number"),
         OCRTextBlock("?", role="other"),
     ]
 

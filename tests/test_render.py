@@ -74,6 +74,26 @@ def test_render_score_page_svg_places_ocr_text_block_at_bbox() -> None:
     assert 8.0 <= float(ocr_text.attrib["font-size"]) <= 24.0
 
 
+def test_render_score_page_svg_uses_ocr_measure_number_without_overlay_duplicate() -> None:
+    musicxml = jianpu_to_musicxml("key=C\ntime=4/4\n1 2 | 3 4 |")
+    score = musicxml_to_score(musicxml)
+    score.text_blocks.append(TextBlock("88", bbox=(12, 20, 28, 38), role="measure_number"))
+    for index, measure in enumerate(score.measures):
+        measure.display_number = 88 + index
+
+    svg = render_score_page_svg(score, page_width=600, page_height=800)
+    root = _svg_root(svg)
+    texts = _svg_elements(root, "text")
+
+    measure_numbers = [text.text for text in texts if text.attrib.get("class") == "measure-no"]
+    positioned_numbers = [
+        text for text in texts
+        if text.text == "88" and text.attrib.get("class") in {"ocr-overlay", "dynamic"}
+    ]
+    assert measure_numbers[:2] == ["88", "89"]
+    assert positioned_numbers == []
+
+
 def test_render_score_page_svg_renders_dynamic_and_fermata() -> None:
     score = _simple_score(
         JianpuEvent(
@@ -93,6 +113,82 @@ def test_render_score_page_svg_renders_dynamic_and_fermata() -> None:
 
     assert any(text.attrib.get("class") == "dynamic" and text.text == "f" for text in text_elements)
     assert any(path.attrib.get("class") == "articulation" for path in path_elements)
+
+
+def test_musicxml_direction_marks_attach_to_note_and_positioned_words() -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>Part</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes>
+      <direction placement="above"><direction-type><words>poco rit.</words></direction-type></direction>
+      <direction placement="below"><direction-type><dynamics><f/></dynamics></direction-type></direction>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <notations>
+          <articulations><staccato/><accent/></articulations>
+          <ornaments><trill-mark/></ornaments>
+          <technical><fingering>2</fingering></technical>
+        </notations>
+      </note>
+    </measure>
+  </part>
+</score-partwise>"""
+
+    score = musicxml_to_score(xml)
+    svg = render_score_svg(score)
+
+    assert '>f</text>' in svg
+    assert 'poco rit.' in svg
+    assert '>tr</text>' in svg
+    assert '>2</text>' in svg
+    assert 'class="articulation"' in svg
+
+
+def test_musicxml_explicit_accidentals_render_as_separate_symbols() -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>Part</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes>
+      <note>
+        <pitch><step>F</step><alter>1</alter><octave>4</octave></pitch>
+        <duration>1</duration>
+        <accidental>sharp</accidental>
+      </note>
+      <note>
+        <pitch><step>B</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <accidental>natural</accidental>
+      </note>
+      <note>
+        <pitch><step>B</step><alter>-2</alter><octave>4</octave></pitch>
+        <duration>1</duration>
+        <accidental>double-flat</accidental>
+      </note>
+    </measure>
+  </part>
+</score-partwise>"""
+
+    score = musicxml_to_score(xml)
+    svg = render_score_svg(score)
+
+    assert '>#</text>' in svg
+    assert '>♮</text>' in svg
+    assert '>bb</text>' in svg
+    assert '>#4</text>' not in svg
+    assert '>n7</text>' not in svg
 
 
 def test_render_text_uses_publication_marks() -> None:

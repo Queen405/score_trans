@@ -44,13 +44,27 @@ class ConvertMusicXmlToJianpuUseCase:
 
 
 def _apply_measure_number_ocr(score: JianpuScore, blocks) -> None:
-    numbers = sorted(
-        int(block.text.strip())
-        for block in blocks
+    candidates = [
+        (index, block, int(block.text.strip()))
+        for index, block in enumerate(blocks)
         if block.role == "measure_number" and block.text.strip().isdigit()
-    )
-    if not numbers:
+    ]
+    if not candidates:
         return
-    start = numbers[0]
+    candidates.sort(key=_measure_number_candidate_key)
+    start = candidates[0][2]
     for index, measure in enumerate(score.measures):
-        measure.display_number = start + index
+        display_number = start + index
+        measure.display_number = display_number
+        for block in measure.text_blocks:
+            if block.role == "measure_number":
+                block.text = str(display_number)
+                block.measure_number = display_number
+
+
+def _measure_number_candidate_key(candidate) -> tuple[int, float, float, int]:
+    index, block, _number = candidate
+    if block.bbox is None:
+        return (1, 0.0, 0.0, index)
+    x1, y1, _x2, _y2 = block.bbox
+    return (0, y1, x1, index)

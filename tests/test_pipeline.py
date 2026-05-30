@@ -59,3 +59,21 @@ def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> No
 
     assert [measure.display_number for measure in score.measures] == [42, 43]
     assert provider.calls == [image]
+
+
+def test_ocr_measure_number_uses_reading_order_not_smallest_number(tmp_path) -> None:
+    musicxml = tmp_path / "score.musicxml"
+    image = tmp_path / "score.png"
+    musicxml.write_text(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 | 3 4 |"), encoding="utf-8")
+    image.write_bytes(b"fake image")
+    provider = MockOCRProvider(
+        [
+            OCRTextBlock("118", bbox=(100, 30, 124, 46), role="measure_number"),
+            OCRTextBlock("78", bbox=(500, 760, 526, 780), role="measure_number"),
+        ]
+    )
+
+    score = ConvertMusicXmlToJianpuUseCase().build_score(musicxml, image_path=image, ocr_provider=provider)
+
+    assert [measure.display_number for measure in score.measures] == [118, 119]
+    assert [measure.text_blocks[0].text for measure in score.measures] == ["118", "119"]

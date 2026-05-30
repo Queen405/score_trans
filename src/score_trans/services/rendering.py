@@ -45,6 +45,7 @@ class RenderItem:
     token: str
     duration: Fraction
     generated: bool = False
+    start: Fraction | None = None
     lyric: str | None = None
     tie_start: bool = False
     tie_stop: bool = False
@@ -52,6 +53,9 @@ class RenderItem:
     slur_stop: bool = False
     dynamic: str | None = None
     articulation: str | None = None
+    articulations: list[str] = field(default_factory=list)
+    ornaments: list[str] = field(default_factory=list)
+    technical: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -122,7 +126,7 @@ def render_score_page_svg(
         min_measure_width=base_options.min_measure_width,
         max_measure_width=max(base_options.max_measure_width, width - margin * 2),
         beat_gap=base_options.beat_gap,
-        show_measure_numbers=not any(block.bbox for block in score.text_blocks if block.role == "measure_number"),
+        show_measure_numbers=base_options.show_measure_numbers,
     )
     rows = _layout_rows(layouts, page_options)
 
@@ -136,7 +140,7 @@ def render_score_page_svg(
         y += page_options.line_height
         if y > height - bottom:
             break
-    out.extend(_render_positioned_text_blocks(score.text_blocks, width, height))
+    out.extend(_render_positioned_text_blocks(score.text_blocks, width, height, include_measure_numbers=False))
     out.append("</svg>")
     return "\n".join(out)
 
@@ -257,6 +261,8 @@ def _svg_header(options: RenderOptions, height: int, title: str, meta: str) -> l
         ".ocr-text { font-size: 20px; fill: #333; }",
         ".lyric { font-size: 18px; fill: #5f5a52; }",
         ".dynamic { font-size: 22px; font-style: italic; font-weight: 650; }",
+        ".ornament { font-size: 15px; fill: #171717; }",
+        ".technical { font-size: 13px; fill: #171717; }",
         ".articulation { stroke: #171717; fill: none; stroke-width: 1.5; stroke-linecap: round; }",
         ".ocr-overlay { fill: #202020; }",
         "</style>",
@@ -285,6 +291,8 @@ def _svg_page_header(options: RenderOptions, width: int, height: int) -> list[st
         ".generated { fill: #818181; }",
         ".lyric { font-size: 18px; fill: #5f5a52; }",
         ".dynamic { font-size: 22px; font-style: italic; font-weight: 650; }",
+        ".ornament { font-size: 15px; fill: #171717; }",
+        ".technical { font-size: 13px; fill: #171717; }",
         ".articulation { stroke: #171717; fill: none; stroke-width: 1.5; stroke-linecap: round; }",
         ".ocr-overlay { font-size: 18px; fill: #202020; }",
         "</style>",
@@ -361,7 +369,7 @@ def _split_rest_across_beats(
         pieces.append(
             (
                 beat_index,
-                RenderItem(token="0" + _duration_suffix(chunk), duration=chunk, generated=event.generated),
+                RenderItem(token="0" + _duration_suffix(chunk), duration=chunk, generated=event.generated, start=cursor),
             )
         )
         remaining -= chunk
@@ -403,7 +411,7 @@ def _token_visual_width(token: str) -> float:
         extension = max((_parse_note(part).extension for part in parts), default=0)
         return 42 + extension * 16
     note = _parse_note(token)
-    accidental_space = 8 if note.display.startswith(("#", "b")) else 0
+    accidental_space = 12 if _split_accidental(note.display)[0] else 0
     return 30 + accidental_space + note.extension * 16 + (8 if note.dotted else 0)
 
 
@@ -440,7 +448,7 @@ def _render_measure(
         beat_x += beat_width + options.beat_gap * scale
     out.extend(_render_beams(measure_slots, y))
     out.extend(_render_spanners(measure_slots, y))
-    out.extend(_render_measure_text_blocks(measure.source, x, y))
+    out.extend(_render_measure_text_blocks(measure.source, x, y, width, measure_slots))
     if measure.errors:
         out.append(f'<text class="measure-no error" x="{x + 6:.1f}" y="{y + 80}">{_esc("; ".join(measure.errors))}</text>')
     out.append(_bar_line(x + width, y))
@@ -475,31 +483,90 @@ def _render_slot_items(slots: list[tuple[RenderItem, float, float]], y: int) -> 
     return out
 
 
-def _render_measure_text_blocks(source: Any, x: float, y: int) -> list[str]:
+def _render_measure_text_blocks(
+    source: Any,
+    x: float,
+    y: int,
+    width: float,
+    slots: list[tuple[RenderItem, float, float]],
+) -> list[str]:
     blocks = [
         block
         for block in getattr(source, "text_blocks", [])
-        if block.text and block.role in {"expression", "other"} and block.bbox is None
+        if block.text and block.role in {"expression", "other", "lyric"} and block.bbox is None
     ]
     out: list[str] = []
-    seen: set[str] = set()
-    offset = 0
+    seen: set[tuple[str, Fraction | None]] = set()
+    used_lanes: dict[tuple[float, str], int] = {}
     for block in blocks:
         text = block.text.strip()
-        if not text or text in seen:
+        start = getattr(block, "start", None)
+        key = (text, start)
+        if not text or key in seen:
             continue
-        seen.add(text)
+        if _is_dynamic_text(text) and _slot_has_dynamic(slots, text, start):
+            continue
+        if block.role == "lyric" and _slot_has_lyric(slots, text, start):
+            continue
+        seen.add(key)
         class_name = "dynamic" if _is_dynamic_text(text) else "lyric"
-        out.append(f'<text class="{class_name}" x="{x + 28:.1f}" y="{y + 62 + offset}" text-anchor="start">{_esc(text)}</text>')
-        offset += 20
+        text_x = _measure_text_x(source, x, width, slots, start)
+        placement = (getattr(block, "placement", None) or "below").lower()
+        anchor = "middle" if start is not None else "start"
+        base_y = y - 48 if placement == "above" else y + 62
+        lane_key = (round(text_x, 1), placement)
+        lane = used_lanes.get(lane_key, 0)
+        used_lanes[lane_key] = lane + 1
+        text_y = base_y - lane * 18 if placement == "above" else base_y + lane * 20
+        out.append(f'<text class="{class_name}" x="{text_x:.1f}" y="{text_y:.1f}" text-anchor="{anchor}">{_esc(text)}</text>')
     return out
 
 
-def _render_positioned_text_blocks(blocks: list[TextBlock], width: int, height: int) -> list[str]:
+def _slot_has_dynamic(slots: list[tuple[RenderItem, float, float]], text: str, start: Fraction | None) -> bool:
+    return any(item.dynamic == text and _same_start(item.start, start) for item, _, _ in slots)
+
+
+def _slot_has_lyric(slots: list[tuple[RenderItem, float, float]], text: str, start: Fraction | None) -> bool:
+    return any(item.lyric == text and _same_start(item.start, start) for item, _, _ in slots)
+
+
+def _same_start(left: Fraction | None, right: Fraction | None) -> bool:
+    if left is None or right is None:
+        return left is right
+    return left == right
+
+
+def _measure_text_x(
+    source: Any,
+    x: float,
+    width: float,
+    slots: list[tuple[RenderItem, float, float]],
+    start: Fraction | None,
+) -> float:
+    if start is not None:
+        same_start = [(cx, slot_width) for item, cx, slot_width in slots if item.start == start]
+        if same_start:
+            return same_start[0][0]
+        duration = getattr(source, "duration", None)
+        if duration:
+            ratio = max(0.0, min(1.0, float(start / duration)))
+            return x + 26 + max(0.0, width - 56) * ratio
+    return x + 28
+
+
+def _render_positioned_text_blocks(
+    blocks: list[TextBlock],
+    width: int,
+    height: int,
+    *,
+    include_measure_numbers: bool = True,
+) -> list[str]:
     out: list[str] = []
     seen: set[tuple[str, tuple[float, float, float, float]]] = set()
     for block in blocks:
         if not block.text or block.bbox is None:
+            continue
+        if block.role == "measure_number" and not include_measure_numbers:
             continue
         x1, y1, x2, y2 = _scale_bbox(block.bbox, width, height)
         if x2 <= x1 or y2 <= y1:
@@ -526,7 +593,24 @@ def _scale_bbox(bbox: tuple[float, float, float, float], width: int, height: int
 
 
 def _is_dynamic_text(text: str) -> bool:
-    return text.strip() in {"p", "pp", "ppp", "f", "ff", "fff", "mp", "mf", "sfz", "fp"}
+    return text.strip() in {
+        "p",
+        "pp",
+        "ppp",
+        "pppp",
+        "f",
+        "ff",
+        "fff",
+        "ffff",
+        "mp",
+        "mf",
+        "sf",
+        "sfz",
+        "sfp",
+        "fp",
+        "fz",
+        "rfz",
+    }
 
 
 def _render_articulation(name: str, cx: float, y: int) -> list[str]:
@@ -603,6 +687,7 @@ def _event_to_item(event: JianpuEvent) -> RenderItem:
         token=token,
         duration=event.duration,
         generated=event.generated,
+        start=event.start,
         lyric=event.lyric,
         tie_start=event.tie_start,
         tie_stop=event.tie_stop,
@@ -610,6 +695,9 @@ def _event_to_item(event: JianpuEvent) -> RenderItem:
         slur_stop=event.slur_stop,
         dynamic=event.dynamic,
         articulation=event.articulation,
+        articulations=list(getattr(event, "articulations", []) or ([event.articulation] if event.articulation else [])),
+        ornaments=list(getattr(event, "ornaments", [])),
+        technical=list(getattr(event, "technical", [])),
     )
 
 
@@ -630,11 +718,41 @@ def _render_item(item: RenderItem, cx: float, y: int, slot_width: float, *, supp
     out = _render_token(item.token, cx, y, generated=item.generated, suppress_duration=suppress_duration)
     if item.dynamic:
         out.append(f'<text class="dynamic" x="{cx:.1f}" y="{y + 58}" text-anchor="middle">{_esc(item.dynamic)}</text>')
-    if item.articulation:
-        out.extend(_render_articulation(item.articulation, cx, y))
+    articulations = item.articulations or ([item.articulation] if item.articulation else [])
+    for index, articulation in enumerate(articulations[:4]):
+        out.extend(_render_articulation(articulation, cx, y - index * 12))
+    for index, ornament in enumerate(item.ornaments[:3]):
+        out.append(
+            f'<text class="ornament" x="{cx:.1f}" y="{y - 46 - index * 14}" '
+            f'text-anchor="middle">{_esc(_mark_display(ornament))}</text>'
+        )
+    for index, technical in enumerate(item.technical[:4]):
+        out.append(
+            f'<text class="technical" x="{cx:.1f}" y="{y - 64 - index * 13}" '
+            f'text-anchor="middle">{_esc(_mark_display(technical))}</text>'
+        )
     if item.lyric:
         out.append(f'<text class="lyric" x="{cx:.1f}" y="{y + 48}" text-anchor="middle">{_esc(item.lyric)}</text>')
     return out
+
+
+def _mark_display(name: str) -> str:
+    normalized = name.strip().lower().replace("_", "-")
+    return {
+        "trill-mark": "tr",
+        "mordent": "mord.",
+        "inverted-mordent": "mord.",
+        "turn": "turn",
+        "delayed-turn": "turn",
+        "inverted-turn": "turn",
+        "tremolo": "trem.",
+        "up-bow": "up-bow",
+        "down-bow": "down-bow",
+        "harmonic": "harm.",
+        "snap-pizzicato": "snap",
+        "open-string": "open",
+        "thumb-position": "thumb",
+    }.get(normalized, name)
 
 
 def _render_spanners(slots: list[tuple[RenderItem, float, float]], y: int) -> list[str]:
@@ -744,7 +862,9 @@ def _event_token(event: JianpuEvent) -> str:
 
 
 def _pitch_token(pitch: JianpuPitch) -> str:
-    accidental = "#" if pitch.accidental > 0 else "b" if pitch.accidental < 0 else ""
+    accidental = pitch.accidental_text
+    if accidental is None:
+        accidental = "#" if pitch.accidental > 0 else "b" if pitch.accidental < 0 else ""
     octave = "'" * max(0, pitch.octave) + "," * max(0, -pitch.octave)
     return f"{accidental}{pitch.degree}{octave}"
 
@@ -877,8 +997,9 @@ def _render_note_shape(
 
 
 def _split_accidental(display: str) -> tuple[str, str]:
-    if display.startswith(("#", "b")) and len(display) > 1:
-        return display[0], display[1:]
+    for token, symbol in (("bb", "bb"), ("x", "x"), ("n", "♮"), ("♮", "♮"), ("#", "#"), ("b", "b")):
+        if display.startswith(token) and len(display) > len(token):
+            return symbol, display[len(token):]
     return "", display
 
 
@@ -961,10 +1082,10 @@ def _parse_note(token: str) -> NoteShape:
     extension_match = re.search(r"(-*)$", token)
     extension = len(extension_match.group(1)) if extension_match else 0
     display = token.replace("'", "").replace(",", "").replace("/", "").replace(".", "")
-    display = re.sub(r"([#b]?[0-7])[-]*$", r"\1", display)
+    display = re.sub(r"((?:bb|[#bnx♮])?[0-7])[-]*$", r"\1", display)
     degree_match = re.search(r"([0-7])", display)
     degree = int(degree_match.group(1)) if degree_match else 0
-    accidental = 0.1 if "#" in display else -0.1 if "b" in display else 0
+    accidental = 0.2 if display.startswith("x") else 0.1 if "#" in display else -0.2 if display.startswith("bb") else -0.1 if "b" in display else 0
     return NoteShape(
         display=display,
         slashes=slashes,

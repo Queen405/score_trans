@@ -37,6 +37,13 @@ def test_parse_duration_extension_suffix() -> None:
     assert tokens[1].duration == 4
 
 
+def test_parse_explicit_accidental_tokens() -> None:
+    _, tokens = parse_jianpu("n7 bb6 x4 #5 b3 |")
+
+    assert [token.accidental for token in tokens[:5]] == [0, -2, 2, 1, -1]
+    assert [token.value for token in tokens[:5]] == ["7", "6", "4", "5", "3"]
+
+
 def test_musicxml_file_to_jianpu_reads_mxl(tmp_path) -> None:
     xml = jianpu_to_musicxml("key=C\ntime=4/4\n1 2 |")
     mxl = tmp_path / "score.mxl"
