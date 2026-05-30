@@ -22,6 +22,7 @@ export const useSettingsStore = defineStore('settings', () => {
       musescorePath.value = data.musescore_path
       javaHome.value = data.java_home
       outputDir.value = data.output_dir ?? ''
+      ocrApiKey.value = data.ocr_api_key ?? ''
       ocrApiKeySet.value = data.ocr_api_key_set ?? false
       ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
       ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'

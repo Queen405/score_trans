@@ -218,6 +218,36 @@ export const useTaskStore = defineStore('task', () => {
     currentPageIndex.value = -1
   }
 
+  function loadBatch(
+    batchPages: {
+      inputFileName: string
+      inputFileId: string
+      originalFileName?: string
+      originalFileId?: string
+      musicxmlFileId?: string
+      musicxmlText?: string
+      jianpuText?: string
+      svgFileId?: string
+      status?: TaskPageStatus
+    }[],
+    selectIndex: number,
+  ) {
+    pages.value = batchPages.map((p) => createPage({
+      inputFileName: p.inputFileName,
+      inputFileId: p.inputFileId,
+      originalFileName: p.originalFileName ?? '',
+      originalFileId: p.originalFileId ?? '',
+      musicxmlFileId: p.musicxmlFileId ?? '',
+      musicxmlText: p.musicxmlText ?? '',
+      jianpuText: p.jianpuText ?? '',
+      svgFileId: p.svgFileId ?? '',
+      status: (p.status ?? 'completed') as TaskPageStatus,
+    }))
+    const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))
+    currentPageIndex.value = idx
+    syncCurrentFromPage()
+  }
+
   return {
     inputFileName,
     inputFileId,
@@ -252,5 +282,6 @@ export const useTaskStore = defineStore('task', () => {
     setCurrentPageStatus,
     setBusy,
     reset,
+    loadBatch,
   }
 })

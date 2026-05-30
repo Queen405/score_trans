@@ -80,7 +80,7 @@ const electronAPI = {
 };
 const api = {
   getBackendURL: () => {
-    return electron.ipcRenderer.sendSync("get-backend-url") || "http://127.0.0.1:19300";
+    return electron.ipcRenderer.sendSync("get-backend-url") || "http://127.0.0.1:19200";
   },
   minimizeWindow: async () => {
     await electron.ipcRenderer.invoke("window:minimize");

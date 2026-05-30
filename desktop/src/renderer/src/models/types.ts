@@ -99,6 +99,7 @@ export interface SettingsResponse {
   work_dir: string
   target_key?: string
   output_dir?: string
+  ocr_api_key?: string
   ocr_api_key_set?: boolean
   ocr_base_url?: string
   ocr_model?: string

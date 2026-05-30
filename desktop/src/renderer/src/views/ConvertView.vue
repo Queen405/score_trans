@@ -227,26 +227,41 @@ async function toggleBatchExpand(batchId: number): Promise<void> {
 }
 
 async function handleRestorePage(page: HistoryPage): Promise<void> {
+  const batchId = expandedBatchId.value
+  const allPages = expandedPages.value
+  if (!batchId || !allPages.length) return
+
+  const pageIndex = allPages.findIndex((p) => p.id === page.id)
   const warnings: string[] = []
-  if (page.input_file_id) {
-    if (await fileExists(page.input_file_id)) store.setInputFile(page.input_file_name, page.input_file_id)
-    else warnings.push('原始文件已失效')
-  }
-  if (page.musicxml_file_id) {
-    if (await fileExists(page.musicxml_file_id)) store.setMusicxml(page.musicxml_file_id, '')
-    else { store.setMusicxml('', ''); warnings.push('MusicXML 已失效') }
-  }
-  if (page.jianpu_text) store.setJianpu(page.jianpu_text)
-  if (page.svg_file_id) {
-    if (await fileExists(page.svg_file_id)) store.setSvg(page.svg_file_id)
-    else { store.setSvg(''); warnings.push('SVG 已失效') }
-  }
-  if (page.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(page.input_file_name)) {
-    if (await fileExists(page.input_file_id)) store.setOriginalFile(page.input_file_name, page.input_file_id)
-    else store.clearOriginalFile()
-  } else store.clearOriginalFile()
-  if (warnings.length) { message.warning(warnings.join('，')); return }
-  message.success('已恢复')
+
+  const resolved = await Promise.all(
+    allPages.map(async (p) => {
+      const inputOk = p.input_file_id ? await fileExists(p.input_file_id) : false
+      const musicxmlOk = p.musicxml_file_id ? await fileExists(p.musicxml_file_id) : false
+      const svgOk = p.svg_file_id ? await fileExists(p.svg_file_id) : false
+      if (p.input_file_id && !inputOk) warnings.push(`${p.input_file_name}：原始文件已失效`)
+      if (p.musicxml_file_id && !musicxmlOk) warnings.push(`${p.input_file_name}：MusicXML 已失效`)
+      if (p.svg_file_id && !svgOk) warnings.push(`${p.input_file_name}：SVG 已失效`)
+      return { page: p, inputOk, musicxmlOk, svgOk }
+    }),
+  )
+
+  store.loadBatch(
+    resolved.map((r) => ({
+      inputFileName: r.inputOk ? r.page.input_file_name : '',
+      inputFileId: r.inputOk ? r.page.input_file_id : '',
+      originalFileName: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_name : '',
+      originalFileId: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_id : '',
+      musicxmlFileId: r.musicxmlOk ? r.page.musicxml_file_id : '',
+      jianpuText: r.page.jianpu_text || '',
+      svgFileId: r.svgOk ? r.page.svg_file_id : '',
+      status: r.page.status as any,
+    })),
+    pageIndex >= 0 ? pageIndex : 0,
+  )
+
+  if (warnings.length) { message.warning(warnings.join('；')); return }
+  message.success(`已恢复 ${allPages.length} 页`)
 }
 
 function formatTime(iso: string): string {

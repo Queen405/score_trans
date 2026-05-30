@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-rSiCWyOJ.js"(exports, module) {
+  "assets/index-4Y48vJ3w.js"(exports, module) {
     /**
     * @vue/shared v3.5.35
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -8277,6 +8277,22 @@ var require_index_001 = __commonJS({
         pages.value = [];
         currentPageIndex.value = -1;
       }
+      function loadBatch(batchPages, selectIndex) {
+        pages.value = batchPages.map((p2) => createPage({
+          inputFileName: p2.inputFileName,
+          inputFileId: p2.inputFileId,
+          originalFileName: p2.originalFileName ?? "",
+          originalFileId: p2.originalFileId ?? "",
+          musicxmlFileId: p2.musicxmlFileId ?? "",
+          musicxmlText: p2.musicxmlText ?? "",
+          jianpuText: p2.jianpuText ?? "",
+          svgFileId: p2.svgFileId ?? "",
+          status: p2.status ?? "completed"
+        }));
+        const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1));
+        currentPageIndex.value = idx;
+        syncCurrentFromPage();
+      }
       return {
         inputFileName,
         inputFileId,
@@ -8310,7 +8326,8 @@ var require_index_001 = __commonJS({
         removePage,
         setCurrentPageStatus,
         setBusy,
-        reset
+        reset,
+        loadBatch
       };
     });
     const useLogStore = /* @__PURE__ */ defineStore("log", () => {
@@ -8332,7 +8349,7 @@ var require_index_001 = __commonJS({
       return { entries, errorCount, addLog, addError, clear };
     });
     function getBaseURL() {
-      return window?.api?.getBackendURL?.() || void 0 || "http://127.0.0.1:19300";
+      return window?.api?.getBackendURL?.() || void 0 || "http://127.0.0.1:19200";
     }
     class ApiError extends Error {
       stage;
@@ -8410,6 +8427,7 @@ var require_index_001 = __commonJS({
           musescorePath.value = data.musescore_path;
           javaHome.value = data.java_home;
           outputDir.value = data.output_dir ?? "";
+          ocrApiKey.value = data.ocr_api_key ?? "";
           ocrApiKeySet.value = data.ocr_api_key_set ?? false;
           ocrBaseUrl.value = data.ocr_base_url ?? "https://api.siliconflow.cn/v1";
           ocrModel.value = data.ocr_model ?? "deepseek-ai/DeepSeek-OCR";
@@ -37545,35 +37563,40 @@ ${style2}
           }
         }
         async function handleRestorePage(page) {
+          const batchId = expandedBatchId.value;
+          const allPages = expandedPages.value;
+          if (!batchId || !allPages.length) return;
+          const pageIndex = allPages.findIndex((p2) => p2.id === page.id);
           const warnings = [];
-          if (page.input_file_id) {
-            if (await fileExists(page.input_file_id)) store.setInputFile(page.input_file_name, page.input_file_id);
-            else warnings.push("原始文件已失效");
-          }
-          if (page.musicxml_file_id) {
-            if (await fileExists(page.musicxml_file_id)) store.setMusicxml(page.musicxml_file_id, "");
-            else {
-              store.setMusicxml("", "");
-              warnings.push("MusicXML 已失效");
-            }
-          }
-          if (page.jianpu_text) store.setJianpu(page.jianpu_text);
-          if (page.svg_file_id) {
-            if (await fileExists(page.svg_file_id)) store.setSvg(page.svg_file_id);
-            else {
-              store.setSvg("");
-              warnings.push("SVG 已失效");
-            }
-          }
-          if (page.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(page.input_file_name)) {
-            if (await fileExists(page.input_file_id)) store.setOriginalFile(page.input_file_name, page.input_file_id);
-            else store.clearOriginalFile();
-          } else store.clearOriginalFile();
+          const resolved = await Promise.all(
+            allPages.map(async (p2) => {
+              const inputOk = p2.input_file_id ? await fileExists(p2.input_file_id) : false;
+              const musicxmlOk = p2.musicxml_file_id ? await fileExists(p2.musicxml_file_id) : false;
+              const svgOk = p2.svg_file_id ? await fileExists(p2.svg_file_id) : false;
+              if (p2.input_file_id && !inputOk) warnings.push(`${p2.input_file_name}：原始文件已失效`);
+              if (p2.musicxml_file_id && !musicxmlOk) warnings.push(`${p2.input_file_name}：MusicXML 已失效`);
+              if (p2.svg_file_id && !svgOk) warnings.push(`${p2.input_file_name}：SVG 已失效`);
+              return { page: p2, inputOk, musicxmlOk, svgOk };
+            })
+          );
+          store.loadBatch(
+            resolved.map((r) => ({
+              inputFileName: r.inputOk ? r.page.input_file_name : "",
+              inputFileId: r.inputOk ? r.page.input_file_id : "",
+              originalFileName: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_name : "",
+              originalFileId: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_id : "",
+              musicxmlFileId: r.musicxmlOk ? r.page.musicxml_file_id : "",
+              jianpuText: r.page.jianpu_text || "",
+              svgFileId: r.svgOk ? r.page.svg_file_id : "",
+              status: r.page.status
+            })),
+            pageIndex >= 0 ? pageIndex : 0
+          );
           if (warnings.length) {
-            message.warning(warnings.join("，"));
+            message.warning(warnings.join("；"));
             return;
           }
-          message.success("已恢复");
+          message.success(`已恢复 ${allPages.length} 页`);
         }
         function formatTime(iso) {
           if (!iso) return "";
@@ -38061,7 +38084,7 @@ ${entry.text.trim()}`).join("\n\n") : (store.jianpuText || allTexts[0]?.text || 
         };
       }
     });
-    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-9f3bf3da"]]);
+    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-b7a8c2f5"]]);
     const _hoisted_1$2 = { class: "settings-view" };
     const _hoisted_2$2 = { class: "sv-section" };
     const _hoisted_3$2 = { class: "sv-grid" };

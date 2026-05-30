@@ -34,6 +34,7 @@ async def get_settings(
         java_home=config.java_home,
         work_dir=str(config.work_dir),
         output_dir=os.environ.get("SCORE_TRANS_OUTPUT_DIR", ""),
+        ocr_api_key=_ocr("ocr_api_key"),
         ocr_api_key_set=bool(_ocr("ocr_api_key")),
         ocr_base_url=_ocr("ocr_base_url"),
         ocr_model=_ocr("ocr_model"),

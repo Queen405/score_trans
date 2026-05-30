@@ -123,6 +123,7 @@ class SettingsResponse(BaseModel):
     work_dir: str
     target_key: str = "C"
     output_dir: str = ""
+    ocr_api_key: str = ""
     ocr_api_key_set: bool = False
     ocr_base_url: str = "https://api.siliconflow.cn/v1"
     ocr_model: str = "deepseek-ai/DeepSeek-OCR"
