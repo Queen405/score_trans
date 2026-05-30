@@ -5,16 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "score-trans"
 version = "0.1.0"
-description = "Staff notation and Jianpu conversion desktop prototype"
+description = "Staff notation and Jianpu conversion backend for the Electron desktop app"
 requires-python = ">=3.11"
-dependencies = ["PySide6-Essentials>=6.7"]
+dependencies = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
 api = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
-
-[project.scripts]
-score-trans = "score_trans.cli.commands:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

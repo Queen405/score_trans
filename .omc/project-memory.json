@@ -26,7 +26,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd \"D:/CODE/MyProjects/score_trans\" && .venv/Scripts/python.exe -m pytest tests/ -x -q 2>&1 | head -30",
+    "testCommand": "cd \"D:/CODE/MyProjects/score_trans\" && .venv/Scripts/python.exe -m pytest tests/ -x -q 2>&1 | tail -5",
     "lintCommand": "ruff check",
     "devCommand": null,
     "scripts": {}
@@ -126,8 +126,14 @@
     },
     {
       "path": "src\\score_trans\\viewmodels\\main_window_vm.py",
-      "accessCount": 8,
-      "lastAccessed": 1780161860998,
+      "accessCount": 10,
+      "lastAccessed": 1780165979337,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\views\\main_window.py",
+      "accessCount": 6,
+      "lastAccessed": 1780166032917,
       "type": "file"
     },
     {
@@ -140,12 +146,6 @@
       "path": "pyproject.toml",
       "accessCount": 5,
       "lastAccessed": 1780156685977,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\views\\main_window.py",
-      "accessCount": 5,
-      "lastAccessed": 1780161832903,
       "type": "file"
     },
     {
@@ -263,6 +263,12 @@
       "type": "file"
     },
     {
+      "path": "src\\score_trans\\api\\routers\\__init__.py",
+      "accessCount": 2,
+      "lastAccessed": 1780166741665,
+      "type": "file"
+    },
+    {
       "path": "C:\\Users\\15732\\.claude\\CLAUDE.md",
       "accessCount": 1,
       "lastAccessed": 1780150702977,
@@ -356,12 +362,6 @@
       "path": "src\\score_trans\\api\\__init__.py",
       "accessCount": 1,
       "lastAccessed": 1780156541275,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\routers\\__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156542137,
       "type": "file"
     },
     {

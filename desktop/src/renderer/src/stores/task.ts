@@ -22,11 +22,25 @@ export const useTaskStore = defineStore('task', () => {
   function setInputFile(name: string, fileId: string) {
     inputFileName.value = name
     inputFileId.value = fileId
+    clearDerived()
   }
 
   function setOriginalFile(name: string, fileId: string) {
     originalFileName.value = name
     originalFileId.value = fileId
+  }
+
+  function clearOriginalFile() {
+    originalFileName.value = ''
+    originalFileId.value = ''
+  }
+
+  function clearDerived() {
+    clearOriginalFile()
+    musicxmlFileId.value = ''
+    musicxmlText.value = ''
+    jianpuText.value = ''
+    svgFileId.value = ''
   }
 
   function setMusicxml(fileId: string, text: string) {
@@ -73,6 +87,8 @@ export const useTaskStore = defineStore('task', () => {
     hasOriginal,
     setInputFile,
     setOriginalFile,
+    clearOriginalFile,
+    clearDerived,
     setMusicxml,
     setJianpu,
     setSvg,

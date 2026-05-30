@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"D:/CODE/MyProjects/score_trans\\\" && curl -s http://127.0.0.1:8004/health 2>&1 && echo \\\"\\\" && curl -s http://127.0.0.1:8004/history 2>&1 && echo \\\"\\\" && curl -s http://127.0.0.1:8004/...",
+  "error": "Exit code 7",
+  "timestamp": "2026-05-30T19:06:23.889Z",
+  "retry_count": 2
+}

@@ -23,6 +23,9 @@ _MEDIA_TYPES: dict[str, str] = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".webp": "image/webp",
 }
 
 

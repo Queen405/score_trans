@@ -3,6 +3,8 @@ const electron = require("electron");
 const path = require("path");
 const child_process = require("child_process");
 const http = require("http");
+const net = require("net");
+const fs = require("fs");
 const is = {
   dev: !electron.app.isPackaged
 };
@@ -110,8 +112,15 @@ class BackendProcess {
   }
   async start() {
     const isDev = !electron.app.isPackaged;
+    this.port = await findAvailablePort(this.port);
+    this.baseURL = `http://127.0.0.1:${this.port}`;
     if (isDev) {
-      this.process = child_process.spawn("python", [
+      const projectRoot = resolveProjectRoot();
+      const localPython = path.join(projectRoot, ".venv", "Scripts", "python.exe");
+      const pythonExe = fs.existsSync(localPython) ? localPython : "python";
+      const srcPath = path.join(projectRoot, "src");
+      const pythonPath = [srcPath, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter);
+      this.process = child_process.spawn(pythonExe, [
         "-m",
         "uvicorn",
         "score_trans.api.app:create_app",
@@ -121,7 +130,11 @@ class BackendProcess {
         "--port",
         String(this.port),
         "--reload"
-      ], { stdio: "pipe" });
+      ], {
+        stdio: "pipe",
+        cwd: projectRoot,
+        env: { ...process.env, PYTHONPATH: pythonPath }
+      });
     } else {
       const exePath = path.join(process.resourcesPath, "backend", "backend.exe");
       this.process = child_process.spawn(exePath, [
@@ -195,6 +208,34 @@ class BackendProcess {
   getBaseURL() {
     return this.baseURL;
   }
+}
+function resolveProjectRoot() {
+  const candidates = [
+    path.resolve(__dirname, "..", "..", ".."),
+    path.resolve(__dirname, "..", ".."),
+    process.cwd(),
+    path.resolve(process.cwd(), "..")
+  ];
+  const found = candidates.find((candidate) => fs.existsSync(path.join(candidate, "src", "score_trans")));
+  return found ?? process.cwd();
+}
+async function findAvailablePort(startPort) {
+  for (let port = startPort; port < startPort + 20; port += 1) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+  throw new Error(`No available backend port found from ${startPort}`);
+}
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", () => resolve(false));
+    server.once("listening", () => {
+      server.close(() => resolve(true));
+    });
+    server.listen(port, "127.0.0.1");
+  });
 }
 let mainWindow = null;
 let backend = null;

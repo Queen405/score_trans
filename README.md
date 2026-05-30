@@ -11,23 +11,18 @@
 
 ## 架构
 
-项目已按轻量 MVVM 重构：
+当前桌面界面只保留 Electron + Vue3，Python 侧只保留 FastAPI 后端、领域逻辑和外部工具编排：
 
 ```text
 src/score_trans/
   domain/       纯领域模型和 MusicXML/简谱领域入口
   services/     外部工具、文件、渲染、OCR、设置等技术服务
   use_cases/    用户动作：识别、转换、渲染、导出、完整流水线
-  viewmodels/   Qt 无关业务状态与命令调度，向 View 暴露 signal
-  views/        PySide6 界面，只负责控件、对话框和绑定 ViewModel
-  cli/          命令行入口，复用 use cases
+  api/          FastAPI 路由、上传文件管理和接口 DTO
+desktop/        Electron + Vue3 桌面前端
 ```
 
-顶层包只保留应用入口：
-
-- `python -m score_trans` 通过 `__main__.py` 启动 CLI 或桌面界面。
-- 命令行脚本入口为 `score_trans.cli.commands:main`。
-- 不再保留旧的顶层兼容模块，业务代码必须进入对应的 MVVM 分层目录。
+Python 版 PySide 图形界面已删除，避免与 Electron/Vue 前端互相干扰。
 
 ## 环境
 
@@ -40,10 +35,19 @@ uv venv .venv --python 3.13
 uv pip install -e ".[test]" --python .venv\Scripts\python.exe
 ```
 
-启动桌面软件：
+启动后端 API：
 
 ```powershell
-.venv\Scripts\python.exe -m score_trans
+$env:PYTHONPATH="src"
+.venv\Scripts\python.exe -m uvicorn score_trans.api.app:create_app --factory --reload --host 127.0.0.1 --port 8004
+```
+
+启动桌面前端开发环境：
+
+```powershell
+cd desktop
+$env:VITE_BACKEND_URL="http://127.0.0.1:8004"
+pnpm dev
 ```
 
 界面里可以设置：
@@ -70,42 +74,19 @@ python -m pytest
 使用项目虚拟环境运行：
 
 ```powershell
-.venv\Scripts\python.exe -m score_trans
 .venv\Scripts\python.exe -m pytest
 ```
 
-如果暂时不安装包，也可以在项目根目录这样运行命令行转换：
+### API 调用方式
 
-```powershell
-$env:PYTHONPATH="src"
-python -m score_trans to-musicxml examples\simple_jianpu.txt -o work\simple.musicxml
-python -m score_trans to-jianpu work\simple.musicxml
-```
+后端能力通过 FastAPI 暴露，推荐从桌面前端调用。开发或调试时也可以直接请求接口：
 
-结构化 MusicXML/MXL 转简谱，支持目标调和起始小节号：
-
-```powershell
-.venv\Scripts\python.exe -m score_trans to-jianpu work\score.mxl --target-key C --start-measure-number 118 -o work\score_jianpu.txt
-.venv\Scripts\python.exe -m score_trans render-musicxml work\score.mxl --target-key C --start-measure-number 118 -o work\score_jianpu.svg
-```
-
-如果要把页面图里的文字层合进 SVG，可给 `render-musicxml` 传 OCR 页面图：
-
-```powershell
-.venv\Scripts\python.exe -m score_trans render-musicxml work\score.mxl --ocr-image work\page.png -o work\score_jianpu.svg
-```
-
-图片/PDF 一键识别并导出：
-
-```powershell
-.venv\Scripts\python.exe -m score_trans recognize "examples\5.瑞雪迎春 - 分谱.pdf" -o work\converted --target-key C --start-measure-number 118
-```
-
-该命令会在输出目录生成：
-
-- `<原文件名>.musicxml` 或 `<原文件名>.mxl`
-- `<原文件名>_jianpu.txt`
-- `<原文件名>_jianpu.svg`
+- `POST /files/upload`：上传输入文件，返回 `file_id`
+- `POST /recognize`：图片/PDF -> MusicXML
+- `POST /convert/musicxml-to-jianpu`：MusicXML -> 简谱文本
+- `POST /convert/jianpu-to-musicxml`：简谱文本 -> MusicXML
+- `POST /render/jianpu-svg`：MusicXML -> 简谱 SVG
+- `POST /pipeline`：一键完成识别+转换+渲染
 
 ## 外部工具配置
 
@@ -158,7 +139,7 @@ audiveris -batch -export -output <output_dir> <input_file>
 musescore -o <output_file> <musicxml_file>
 ```
 
-如果你的本地版本命令参数不同，可以在 `src/score_trans/tools.py` 里调整命令模板。
+如果你的本地版本命令参数不同，可以在 `src/score_trans/services/external_tools.py` 里调整命令模板。
 
 ## OCR 文字层
 

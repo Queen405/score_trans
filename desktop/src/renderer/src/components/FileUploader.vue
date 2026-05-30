@@ -2,20 +2,23 @@
   <n-upload
     :custom-request="handleUpload"
     :show-file-list="false"
+    :disabled="disabled"
     accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt"
     directory-dnd
   >
-    <n-upload-dragger>
-      <div style="padding: 16px; text-align: center">
-        <n-icon size="48" :depth="3">
-          <CloudUploadOutline />
-        </n-icon>
-        <n-text style="font-size: 16px; display: block; margin-top: 8px">
+    <n-upload-dragger class="upload-dragger">
+      <div class="upload-content">
+        <div class="upload-icon-ring">
+          <n-icon size="32" color="#4a9c6d">
+            <CloudUploadOutline />
+          </n-icon>
+        </div>
+        <n-text class="upload-title" style="font-size: 16px; font-weight: 600; display: block; margin-top: 12px">
           点击或拖拽文件到此处
         </n-text>
-        <n-p depth="3" style="margin: 8px 0 0 0; font-size: 12px">
+        <n-text depth="3" style="font-size: 13px; display: block; margin-top: 6px">
           支持 PDF、PNG、JPG、TIF、MusicXML、MXL
-        </n-p>
+        </n-text>
       </div>
     </n-upload-dragger>
   </n-upload>
@@ -25,10 +28,14 @@
 import { CloudUploadOutline } from '@vicons/ionicons5'
 import { useFileUpload } from '../composables/useFileUpload'
 import { useLogStore } from '../stores/log'
-import { NUpload, NUploadDragger, NIcon, NText, NP } from 'naive-ui'
+import { NUpload, NUploadDragger, NIcon, NText } from 'naive-ui'
 
 const emit = defineEmits<{
   uploaded: [fileId: string, fileName: string]
+}>()
+
+defineProps<{
+  disabled?: boolean
 }>()
 
 const { upload } = useFileUpload()
@@ -43,3 +50,32 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   }
 }
 </script>
+
+<style scoped>
+.upload-dragger {
+  border-radius: 12px !important;
+  border: 2px dashed #c8d4cc !important;
+  transition: all 0.25s ease;
+  background: #f9fcfa !important;
+}
+
+.upload-dragger:hover {
+  border-color: #4a9c6d !important;
+  background: #f0faf4 !important;
+}
+
+.upload-content {
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.upload-icon-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8f5ed, #d4edde);
+}
+</style>

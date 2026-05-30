@@ -18,25 +18,24 @@ python -m pytest
 python -m pytest tests/test_jianpu.py          # single test file
 python -m pytest tests/test_jianpu.py -k "test_parse"  # single test
 
-# Run desktop GUI (PySide6)
-.venv/Scripts/python.exe -m score_trans
+# Run FastAPI backend
+$env:PYTHONPATH="src"
+.venv/Scripts/python.exe -m uvicorn score_trans.api.app:create_app --factory --reload --host 127.0.0.1 --port 8004
 
-# Run CLI
-.venv/Scripts/python.exe -m score_trans to-jianpu input.mxl -o out.txt
-.venv/Scripts/python.exe -m score_trans to-musicxml jianpu.txt -o out.musicxml
-.venv/Scripts/python.exe -m score_trans render-musicxml input.mxl -o out.svg
-.venv/Scripts/python.exe -m score_trans render-jianpu input.txt -o out.svg
-.venv/Scripts/python.exe -m score_trans recognize image.pdf -o work/converted
+# Run Electron/Vue desktop frontend
+cd desktop
+$env:VITE_BACKEND_URL="http://127.0.0.1:8004"
+pnpm dev
 
 # Lint
 ruff check src/ tests/
 ```
 
-## Architecture — Lightweight MVVM
+## Architecture
 
 ```
 src/score_trans/
-  domain/          Pure domain models & conversion logic (no I/O, no Qt)
+  domain/          Pure domain models & conversion logic (no I/O, no UI)
     models.py      JianpuScore, Measure, Beat, Event, JianpuPitch, TextBlock
     jianpu.py      Low-level Jianpu ↔ MusicXML text conversion (two-way)
     musicxml.py    Structured MusicXML → JianpuScore parsing + score → jianpu text
@@ -60,21 +59,20 @@ src/score_trans/
     render_score.py        (placeholder, not yet created)
     export_score.py        MusicXML → PDF/PNG/MIDI via MuseScore
     full_pipeline.py       Recognize + convert + render in one pass
-  viewmodels/      Qt-agnostic state & command dispatch
-    base.py               parse_optional_int helper
-    main_window_vm.py     MainWindowViewModel (signals, business logic orchestration)
-  views/           PySide6 UI (controls, dialogs, bindings only)
-    main_window.py        MainWindow + run_app()
-  cli/             CLI entry point
-    commands.py           argparse subcommands → use cases
+  api/             FastAPI boundary
+    app.py                app factory
+    routers/              HTTP endpoints
+    schemas.py            Pydantic DTOs
+    uploads.py            uploaded/generated file registry
+desktop/          Electron + Vue3 frontend
 ```
 
 ### Key Architectural Rules
 
-- **`domain/` has zero dependencies** on services, Qt, or I/O. All music theory helpers (`FIFTHS_TO_KEY`, `KEY_TO_TONIC`, `MAJOR_SCALE`) live there.
+- **`domain/` has zero dependencies** on services, UI, or I/O. All music theory helpers (`FIFTHS_TO_KEY`, `KEY_TO_TONIC`, `MAJOR_SCALE`) live there.
 - **`use_cases/`** are the public API surface. Each has an `execute()` method and accepts optional service dependencies for testing.
-- **`viewmodels/`** use PySide6 `Signal` but contain no widget code. The `MainWindowViewModel` owns all business state and delegates to use cases.
-- **`views/`** are thin — only widget layout, signal/slot wiring, and file dialogs. All logic flows through the ViewModel.
+- **`api/routers/`** are the HTTP boundary. Routers validate IDs/files, then delegate to use cases.
+- **`desktop/src/renderer/`** is the active desktop UI. Keep UI state in Pinia stores and call typed API wrappers.
 - **`services/rendering.py`** is the SVG engine (~800 lines). It takes either raw jianpu text or a `JianpuScore` and produces self-contained SVG with beams, ties, slurs, chords, and measure layout.
 
 ## Data Flow
@@ -105,7 +103,7 @@ All configured via `.env` file (auto-loaded by `env_file.py`) or environment:
 
 - **Audiveris** (OMR): Source in `third_party/audiveris/`, built via Gradle. Requires JDK 25. Run as `gradlew.bat :app:run` in batch mode.
 - **MuseScore Studio**: CLI used for MusicXML → PDF/PNG/MIDI export.
-- **PySide6-Essentials**: GUI framework (optional — CLI works without it).
+- **FastAPI / Uvicorn / python-multipart**: local API used by Electron/Vue and manual API testing.
 
 ## Jianpu Text Format
 
@@ -121,4 +119,4 @@ time=4/4
 
 ## Future Direction
 
-`ELECTRON_VUE_FASTAPI_MVVM_PLAN.md` describes a planned migration to Electron + Vue3 + FastAPI while keeping the existing `domain/services/use_cases` layers intact. The plan adds an `api/` layer (FastAPI routers + Pydantic DTOs) alongside the existing PySide6 views.
+The old PySide6 Python GUI has been removed. `ELECTRON_VUE_FASTAPI_MVVM_PLAN.md` is historical planning context only; the active app is Electron + Vue3 + FastAPI.

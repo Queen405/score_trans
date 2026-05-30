@@ -129,3 +129,27 @@ export interface LogEntry {
   level: 'info' | 'warn' | 'error'
   message: string
 }
+
+// ── History ──
+
+export interface HistoryEntry {
+  id: number
+  created_at: string
+  input_file_name: string
+  input_file_id: string
+  musicxml_file_id: string
+  jianpu_text: string
+  svg_file_id: string
+  status: string
+  error_message: string
+}
+
+export interface HistoryCreateRequest {
+  input_file_name?: string
+  input_file_id?: string
+  musicxml_file_id?: string
+  jianpu_text?: string
+  svg_file_id?: string
+  status?: string
+  error_message?: string
+}

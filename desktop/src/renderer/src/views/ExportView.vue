@@ -1,26 +1,43 @@
 <template>
-  <n-space vertical :size="16">
-    <n-space>
-      <n-button @click="saveMusicxml" :disabled="!store.hasMusicxml"> 保存 MusicXML </n-button>
-      <n-button
-        type="primary"
-        @click="exportScore"
-        :loading="store.isBusy"
-        :disabled="!store.hasMusicxml"
-      >
-        MuseScore 导出
-      </n-button>
-      <n-select
-        v-model:value="exportFormat"
-        :options="formatOptions"
-        style="width: 120px"
-      />
-    </n-space>
+  <div class="export-view">
+    <n-card title="📤 导出乐谱" :bordered="false" class="export-card">
+      <n-space vertical :size="20">
+        <n-space :size="12" wrap align="center">
+          <n-button
+            @click="saveMusicxml"
+            :disabled="!store.hasMusicxml"
+            size="large"
+            secondary
+          >
+            <template #icon><n-icon><DocumentTextOutline /></n-icon></template>
+            保存 MusicXML
+          </n-button>
+          <n-button
+            type="primary"
+            @click="exportScore"
+            :loading="store.isBusy"
+            :disabled="!store.hasMusicxml"
+            size="large"
+          >
+            <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
+            MuseScore 导出
+          </n-button>
+          <n-select
+            v-model:value="exportFormat"
+            :options="formatOptions"
+            style="width: 130px"
+            size="large"
+          />
+        </n-space>
 
-    <n-card title="日志">
-      <log-panel />
+        <n-divider style="margin: 0" />
+
+        <n-card title="📋 操作日志" size="small" :bordered="false" class="log-card">
+          <log-panel />
+        </n-card>
+      </n-space>
     </n-card>
-  </n-space>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -30,7 +47,8 @@ import { useLogStore } from '../stores/log'
 import { exportApi } from '../api/export'
 import { getFileURL } from '../api/client'
 import LogPanel from '../components/LogPanel.vue'
-import { NSpace, NButton, NSelect, NCard, useMessage } from 'naive-ui'
+import { DocumentTextOutline, CloudDownloadOutline } from '@vicons/ionicons5'
+import { NSpace, NButton, NSelect, NCard, NDivider, NIcon, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const log = useLogStore()
@@ -38,9 +56,9 @@ const message = useMessage()
 
 const exportFormat = ref('pdf')
 const formatOptions = [
-  { label: 'PDF', value: 'pdf' },
-  { label: 'PNG', value: 'png' },
-  { label: 'MIDI', value: 'mid' },
+  { label: '📄 PDF', value: 'pdf' },
+  { label: '🖼️ PNG', value: 'png' },
+  { label: '🎹 MIDI', value: 'mid' },
 ]
 
 function saveMusicxml(): void {
@@ -75,3 +93,19 @@ async function exportScore(): Promise<void> {
   }
 }
 </script>
+
+<style scoped>
+.export-view {
+  max-width: 800px;
+}
+
+.export-card {
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.log-card {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+}
+</style>

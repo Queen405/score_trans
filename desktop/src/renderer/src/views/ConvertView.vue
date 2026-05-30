@@ -1,39 +1,55 @@
 <template>
-  <n-space vertical :size="16">
-    <n-space>
-      <n-button
-        type="primary"
-        @click="musicxmlToJianpu"
-        :loading="store.isBusy"
-        :disabled="!store.hasMusicxml"
-      >
-        MusicXML → 简谱
-      </n-button>
-      <n-button
-        @click="jianpuToMusicxml"
-        :loading="store.isBusy"
-        :disabled="!jianpuText"
-      >
-        简谱 → MusicXML
-      </n-button>
-      <n-button @click="saveJianpu" :disabled="!store.jianpuText"> 保存简谱 </n-button>
-      <n-button
-        type="info"
-        @click="renderSvg"
-        :loading="store.isBusy"
-        :disabled="!store.hasMusicxml"
-      >
-        导出简谱谱面 SVG
-      </n-button>
-    </n-space>
+  <div class="convert-view">
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <n-space :size="10" wrap>
+        <n-button
+          type="primary"
+          @click="musicxmlToJianpu"
+          :loading="store.isBusy"
+          :disabled="!store.hasMusicxml"
+          size="large"
+        >
+          <template #icon><n-icon><ArrowForwardOutline /></n-icon></template>
+          MusicXML → 简谱
+        </n-button>
+        <n-button
+          @click="jianpuToMusicxml"
+          :loading="store.isBusy"
+          :disabled="!jianpuText"
+          size="large"
+          secondary
+        >
+          <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
+          简谱 → MusicXML
+        </n-button>
+        <n-button @click="saveJianpu" :disabled="!store.jianpuText" size="large" secondary>
+          <template #icon><n-icon><DownloadOutline /></n-icon></template>
+          保存简谱
+        </n-button>
+        <n-button
+          type="info"
+          @click="renderSvg"
+          :loading="store.isBusy"
+          :disabled="!store.hasMusicxml"
+          size="large"
+          secondary
+        >
+          <template #icon><n-icon><ImageOutline /></n-icon></template>
+          导出 SVG
+        </n-button>
+      </n-space>
+    </div>
 
+    <!-- Split view -->
     <div class="editor-layout">
-      <!-- 左侧：五线谱预览 -->
+      <!-- Left panel: score preview -->
       <div class="left-panel">
         <n-card
-          :title="store.originalFileName ? `原始五线谱：${store.originalFileName}` : '原始五线谱对照'"
+          :title="store.originalFileName ? `🎼 ${store.originalFileName}` : '🎼 原始五线谱'"
           size="small"
-          class="preview-card"
+          class="panel-card"
+          :bordered="false"
         >
           <original-preview
             :file-id="store.originalFileId"
@@ -41,27 +57,35 @@
           />
         </n-card>
 
-        <n-card title="五线谱 (MusicXML)" size="small" class="preview-card">
+        <n-card title="📄 MusicXML" size="small" class="panel-card" :bordered="false">
           <div v-if="store.musicxmlText" class="xml-preview">
             <n-code :code="store.musicxmlText" language="xml" word-wrap />
           </div>
           <div v-else class="empty-hint">
-            <n-text depth="3">请先识别或打开 MusicXML 文件</n-text>
+            <n-icon size="40" :depth="3"><DocumentTextOutline /></n-icon>
+            <n-text depth="3">请先识别或打开 MusicXML</n-text>
           </div>
         </n-card>
       </div>
 
-      <!-- 右侧：简谱编辑 -->
+      <!-- Right panel: jianpu editor -->
       <div class="right-panel">
-        <n-card :title="isViewingFinal ? '最终渲染' : '简谱编辑'" size="small">
+        <n-card
+          :title="isViewingFinal ? '🖼️ 最终渲染' : '📝 简谱编辑'"
+          size="small"
+          class="panel-card"
+          :bordered="false"
+        >
           <template #header-extra>
             <n-button
               size="small"
               @click="toggleFinalView"
               :loading="isRenderingFinal"
               :disabled="store.isBusy || (!store.hasMusicxml && !jianpuText)"
+              secondary
+              round
             >
-              {{ isViewingFinal ? '切回编辑' : '查看渲染' }}
+              {{ isViewingFinal ? '📝 编辑' : '🖼️ 渲染' }}
             </n-button>
           </template>
 
@@ -70,15 +94,26 @@
             :svg-file-id="finalSvgFileId"
           />
           <div v-else-if="isViewingFinal" class="empty-hint">
-            <n-text depth="3">暂无最终渲染结果</n-text>
+            <n-icon size="40" :depth="3"><ImageOutline /></n-icon>
+            <n-text depth="3">暂无渲染结果</n-text>
           </div>
           <jianpu-editor v-else v-model="jianpuText" />
         </n-card>
       </div>
     </div>
 
-    <svg-preview v-if="store.svgFileId && !isViewingFinal" :svg-file-id="store.svgFileId" />
-  </n-space>
+    <!-- SVG preview below -->
+    <transition name="slide-fade">
+      <n-card
+        v-if="store.svgFileId && !isViewingFinal"
+        title="🖼️ 简谱谱面"
+        class="svg-card"
+        :bordered="false"
+      >
+        <svg-preview :svg-file-id="store.svgFileId" />
+      </n-card>
+    </transition>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -91,7 +126,14 @@ import { renderApi } from '../api/render'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
-import { NSpace, NButton, NCard, NCode, NText, useMessage } from 'naive-ui'
+import {
+  ArrowForwardOutline,
+  ArrowBackOutline,
+  DownloadOutline,
+  ImageOutline,
+  DocumentTextOutline,
+} from '@vicons/ionicons5'
+import { NSpace, NButton, NCard, NCode, NText, NIcon, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const settings = useSettingsStore()
@@ -117,6 +159,7 @@ async function musicxmlToJianpu(): Promise<void> {
     })
     store.setJianpu(result.jianpu_text)
     log.addLog('已转换为简谱')
+    message.success('转换完成')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     log.addError(`转换失败：${msg}`)
@@ -131,7 +174,9 @@ async function jianpuToMusicxml(): Promise<void> {
   try {
     const result = await convertApi.jianpuToMusicxml({ jianpu_text: jianpuText.value })
     store.setMusicxml(result.musicxml_file_id, result.musicxml_text)
+    store.clearOriginalFile()
     log.addLog('已生成 MusicXML')
+    message.success('转换完成')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     log.addError(`转换失败：${msg}`)
@@ -150,6 +195,7 @@ function saveJianpu(): void {
   a.click()
   URL.revokeObjectURL(url)
   log.addLog('已保存简谱文本')
+  message.success('已保存')
 }
 
 async function renderSvg(): Promise<void> {
@@ -162,6 +208,7 @@ async function renderSvg(): Promise<void> {
     })
     store.setSvg(result.svg_file_id)
     log.addLog('已渲染简谱 SVG')
+    message.success('渲染完成')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     log.addError(`渲染失败：${msg}`)
@@ -208,32 +255,72 @@ async function toggleFinalView(): Promise<void> {
 </script>
 
 <style scoped>
+.convert-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toolbar {
+  padding: 4px 0;
+}
+
 .editor-layout {
   display: flex;
   gap: 16px;
-  min-height: 300px;
+  min-height: 360px;
 }
+
 .left-panel {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
+
 .right-panel {
   flex: 1;
   min-width: 0;
 }
-.preview-card {
+
+.panel-card {
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   height: 100%;
 }
+
 .xml-preview {
   max-height: 320px;
   overflow-y: auto;
   font-size: 12px;
 }
+
 .empty-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding: 40px 0;
   text-align: center;
+}
+
+.svg-card {
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.slide-fade-enter-active {
+  transition: all 0.35s ease-out;
+}
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+.slide-fade-enter-from {
+  transform: translateY(10px);
+  opacity: 0;
+}
+.slide-fade-leave-to {
+  opacity: 0;
 }
 </style>

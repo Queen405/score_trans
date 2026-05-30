@@ -1,7 +1,9 @@
 import type { UploadResponse } from '../models/types'
 
 const BASE_URL: string =
-  (window as any)?.api?.getBackendURL?.() || 'http://127.0.0.1:18513'
+  (window as any)?.api?.getBackendURL?.() ||
+  import.meta.env.VITE_BACKEND_URL ||
+  'http://127.0.0.1:18513'
 
 export class ApiError extends Error {
   stage?: string
