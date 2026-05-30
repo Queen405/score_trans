@@ -98,7 +98,7 @@ const optimizer = {
     });
   }
 };
-const DEFAULT_PORT = 19200;
+const DEFAULT_PORT = 19300;
 const HEALTH_CHECK_INTERVAL = 1e3;
 const HEALTH_CHECK_TIMEOUT = 15e3;
 const SHUTDOWN_TIMEOUT = 5e3;

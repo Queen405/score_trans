@@ -151,29 +151,35 @@ interface PageResult {
   error_message: string
 }
 
-async function runPipelineForPage(pageIndex: number): Promise<PageResult> {
+async function runPipelineForPage(
+  pageIndex: number,
+  rangeStart = 0,
+  rangeEnd = 100,
+): Promise<PageResult> {
   const page = store.pages[pageIndex]
   if (!page?.inputFileId || !page.inputFileName) {
     return { input_file_name: '', input_file_id: '', musicxml_file_id: '', jianpu_text: '', svg_file_id: '', status: 'failed', error_message: '无输入文件' }
   }
+
+  const mapPercent = (p: number) => rangeStart + (p / 100) * (rangeEnd - rangeStart)
 
   store.selectPage(pageIndex)
   store.setCurrentPageStatus('processing')
   const sourceFileId = page.inputFileId
   const sourceFileName = page.inputFileName
 
-  setProgress(8, `读取：${sourceFileName}`)
+  setProgress(mapPercent(8), `读取：${sourceFileName}`)
   const resp = await fetch(getFileURL(sourceFileId))
   const blob = await resp.blob()
 
-  setProgress(24, '识别与转换中')
+  setProgress(mapPercent(24), '识别与转换中')
   const result = await pipelineApi.run(
     new File([blob], sourceFileName),
     settings.targetKey,
     settings.startMeasureNumber ?? undefined,
   )
 
-  setProgress(82, '写入结果')
+  setProgress(mapPercent(82), '写入结果')
   store.setMusicxml(result.musicxml_file_id, '')
   if (isPreviewable(sourceFileName)) {
     store.setOriginalFile(sourceFileName, sourceFileId)
@@ -221,7 +227,7 @@ async function recognize(): Promise<void> {
   const results: PageResult[] = []
   try {
     setProgress(0, '准备识别')
-    const r = await runPipelineForPage(pageIndex)
+    const r = await runPipelineForPage(pageIndex, 0, 100)
     results.push(r)
     setProgress(100, '完成')
     message.success('识别完成')
@@ -255,11 +261,11 @@ async function recognizeAllPages(): Promise<void> {
     setProgress(0, '准备批量识别')
     for (let i = 0; i < indexes.length; i += 1) {
       const pageIndex = indexes[i]
-      const start = (i / indexes.length) * 100
-      const end = ((i + 1) / indexes.length) * 100
-      setProgress(start, `处理第 ${i + 1} / ${indexes.length} 页`)
+      const rangeStart = (i / indexes.length) * 100
+      const rangeEnd = ((i + 1) / indexes.length) * 100
+      setProgress(rangeStart, `处理第 ${i + 1} / ${indexes.length} 页`)
       try {
-        const r = await runPipelineForPage(pageIndex)
+        const r = await runPipelineForPage(pageIndex, rangeStart, rangeEnd)
         results.push(r)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -273,7 +279,7 @@ async function recognizeAllPages(): Promise<void> {
         })
         log.addError(`第 ${i + 1} 页失败：${msg}`)
       }
-      setProgress(end, `已完成 ${i + 1} / ${indexes.length} 页`)
+      setProgress(rangeEnd, `已完成 ${i + 1} / ${indexes.length} 页`)
     }
     setProgress(100, '批量识别完成')
     message.success('批量识别完成')
