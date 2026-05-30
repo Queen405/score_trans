@@ -1,0 +1,268 @@
+"use strict";
+const electron = require("electron");
+const path = require("path");
+const child_process = require("child_process");
+const http = require("http");
+const is = {
+  dev: !electron.app.isPackaged
+};
+const platform = {
+  isWindows: process.platform === "win32",
+  isMacOS: process.platform === "darwin",
+  isLinux: process.platform === "linux"
+};
+const electronApp = {
+  setAppUserModelId(id) {
+    if (platform.isWindows)
+      electron.app.setAppUserModelId(is.dev ? process.execPath : id);
+  },
+  setAutoLaunch(auto) {
+    if (platform.isLinux)
+      return false;
+    const isOpenAtLogin = () => {
+      return electron.app.getLoginItemSettings().openAtLogin;
+    };
+    if (isOpenAtLogin() !== auto) {
+      electron.app.setLoginItemSettings({
+        openAtLogin: auto,
+        path: process.execPath
+      });
+      return isOpenAtLogin() === auto;
+    } else {
+      return true;
+    }
+  },
+  skipProxy() {
+    return electron.session.defaultSession.setProxy({ mode: "direct" });
+  }
+};
+const optimizer = {
+  watchWindowShortcuts(window, shortcutOptions) {
+    if (!window)
+      return;
+    const { webContents } = window;
+    const { escToCloseWindow = false, zoom = false } = shortcutOptions || {};
+    webContents.on("before-input-event", (event, input) => {
+      if (input.type === "keyDown") {
+        if (!is.dev) {
+          if (input.code === "KeyR" && (input.control || input.meta))
+            event.preventDefault();
+        } else {
+          if (input.code === "F12") {
+            if (webContents.isDevToolsOpened()) {
+              webContents.closeDevTools();
+            } else {
+              webContents.openDevTools({ mode: "undocked" });
+              console.log("Open dev tool...");
+            }
+          }
+        }
+        if (escToCloseWindow) {
+          if (input.code === "Escape" && input.key !== "Process") {
+            window.close();
+            event.preventDefault();
+          }
+        }
+        if (!zoom) {
+          if (input.code === "Minus" && (input.control || input.meta))
+            event.preventDefault();
+          if (input.code === "Equal" && input.shift && (input.control || input.meta))
+            event.preventDefault();
+        }
+      }
+    });
+  },
+  registerFramelessWindowIpc() {
+    electron.ipcMain.on("win:invoke", (event, action) => {
+      const win = electron.BrowserWindow.fromWebContents(event.sender);
+      if (win) {
+        if (action === "show") {
+          win.show();
+        } else if (action === "showInactive") {
+          win.showInactive();
+        } else if (action === "min") {
+          win.minimize();
+        } else if (action === "max") {
+          const isMaximized = win.isMaximized();
+          if (isMaximized) {
+            win.unmaximize();
+          } else {
+            win.maximize();
+          }
+        } else if (action === "close") {
+          win.close();
+        }
+      }
+    });
+  }
+};
+const DEFAULT_PORT = 18513;
+const HEALTH_CHECK_INTERVAL = 1e3;
+const HEALTH_CHECK_TIMEOUT = 15e3;
+const SHUTDOWN_TIMEOUT = 5e3;
+class BackendProcess {
+  process = null;
+  port;
+  baseURL;
+  constructor(port = DEFAULT_PORT) {
+    this.port = port;
+    this.baseURL = `http://127.0.0.1:${port}`;
+  }
+  async start() {
+    const isDev = !electron.app.isPackaged;
+    if (isDev) {
+      this.process = child_process.spawn("python", [
+        "-m",
+        "uvicorn",
+        "score_trans.api.app:create_app",
+        "--factory",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        String(this.port),
+        "--reload"
+      ], { stdio: "pipe" });
+    } else {
+      const exePath = path.join(process.resourcesPath, "backend", "backend.exe");
+      this.process = child_process.spawn(exePath, [
+        "--host",
+        "127.0.0.1",
+        "--port",
+        String(this.port)
+      ], { stdio: "pipe" });
+    }
+    this.process.stdout?.on("data", (data) => {
+      console.log(`[backend] ${data.toString().trim()}`);
+    });
+    this.process.stderr?.on("data", (data) => {
+      console.error(`[backend] ${data.toString().trim()}`);
+    });
+    this.process.on("exit", (code) => {
+      console.log(`[backend] Process exited with code=${code}`);
+      this.process = null;
+    });
+    this.process.on("error", (err) => {
+      console.error(`[backend] Process error: ${err.message}`);
+    });
+    await this.waitForHealthy();
+  }
+  async waitForHealthy(maxWait = HEALTH_CHECK_TIMEOUT) {
+    const start = Date.now();
+    while (Date.now() - start < maxWait) {
+      try {
+        await this.healthCheck();
+        console.log(`[backend] Health check passed on port ${this.port}`);
+        return;
+      } catch {
+        await new Promise((r) => setTimeout(r, HEALTH_CHECK_INTERVAL));
+      }
+    }
+    throw new Error(`Backend startup timed out after ${maxWait}ms`);
+  }
+  healthCheck() {
+    return new Promise((resolve, reject) => {
+      const req = http.get(`${this.baseURL}/health`, (res) => {
+        res.resume();
+        if (res.statusCode === 200) {
+          resolve();
+        } else {
+          reject(new Error(`Health check returned ${res.statusCode}`));
+        }
+      });
+      req.on("error", reject);
+      req.setTimeout(2e3, () => {
+        req.destroy();
+        reject(new Error("Health check timeout"));
+      });
+    });
+  }
+  async stop() {
+    if (!this.process) return;
+    this.process.kill("SIGTERM");
+    await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.log("[backend] Force killing backend process");
+        this.process?.kill("SIGKILL");
+        resolve();
+      }, SHUTDOWN_TIMEOUT);
+      this.process?.on("exit", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+    this.process = null;
+  }
+  getBaseURL() {
+    return this.baseURL;
+  }
+}
+let mainWindow = null;
+let backend = null;
+function createWindow(baseURL) {
+  mainWindow = new electron.BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/index.js"),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  mainWindow.on("ready-to-show", () => {
+    mainWindow?.show();
+  });
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    electron.shell.openExternal(details.url);
+    return { action: "deny" };
+  });
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+  } else {
+    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+  }
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
+}
+electron.app.whenReady().then(async () => {
+  electronApp.setAppUserModelId("com.scoretrans.app");
+  electron.app.on("browser-window-created", (_, window) => {
+    optimizer.watchWindowShortcuts(window);
+  });
+  backend = new BackendProcess();
+  try {
+    await backend.start();
+  } catch (err) {
+    console.error("[main] Failed to start backend:", err);
+  }
+  const backendURL = backend.getBaseURL();
+  createWindow();
+  if (mainWindow) {
+    mainWindow.webContents.executeJavaScript(`window.__BACKEND_URL__ = '${backendURL}'`);
+  }
+  electron.app.on("activate", () => {
+    if (electron.BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+electron.app.on("before-quit", async (e) => {
+  if (backend) {
+    e.preventDefault();
+    try {
+      await backend.stop();
+    } catch (err) {
+      console.error("[main] Error stopping backend:", err);
+    }
+    backend = null;
+    electron.app.quit();
+  }
+});
+electron.app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    electron.app.quit();
+  }
+});

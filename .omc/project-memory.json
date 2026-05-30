@@ -26,7 +26,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "pytest",
+    "testCommand": "cd \"D:/CODE/MyProjects/score_trans\" && .venv/Scripts/python.exe -m pytest tests/ -x -q",
     "lintCommand": "ruff check",
     "devCommand": null,
     "scripts": {}
@@ -113,21 +113,27 @@
   },
   "hotPaths": [
     {
+      "path": "ELECTRON_VUE_FASTAPI_MVVM_PLAN.md",
+      "accessCount": 13,
+      "lastAccessed": 1780155886519,
+      "type": "file"
+    },
+    {
       "path": ".",
       "accessCount": 12,
       "lastAccessed": 1780152094932,
       "type": "directory"
     },
     {
-      "path": "ELECTRON_VUE_FASTAPI_MVVM_PLAN.md",
-      "accessCount": 12,
-      "lastAccessed": 1780155357189,
-      "type": "file"
-    },
-    {
       "path": "C:\\Users\\15732\\.claude\\settings.json",
       "accessCount": 5,
       "lastAccessed": 1780151290716,
+      "type": "file"
+    },
+    {
+      "path": "pyproject.toml",
+      "accessCount": 5,
+      "lastAccessed": 1780156685977,
       "type": "file"
     },
     {
@@ -164,12 +170,6 @@
       "path": "src\\score_trans\\viewmodels\\main_window_vm.py",
       "accessCount": 3,
       "lastAccessed": 1780155274009,
-      "type": "file"
-    },
-    {
-      "path": "pyproject.toml",
-      "accessCount": 2,
-      "lastAccessed": 1780155232984,
       "type": "file"
     },
     {
@@ -227,6 +227,30 @@
       "type": "file"
     },
     {
+      "path": "src\\score_trans\\services\\settings.py",
+      "accessCount": 2,
+      "lastAccessed": 1780156143558,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\__init__.py",
+      "accessCount": 2,
+      "lastAccessed": 1780156143766,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\files.py",
+      "accessCount": 2,
+      "lastAccessed": 1780156674098,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\dependencies.py",
+      "accessCount": 2,
+      "lastAccessed": 1780157001137,
+      "type": "file"
+    },
+    {
       "path": "C:\\Users\\15732\\.claude\\CLAUDE.md",
       "accessCount": 1,
       "lastAccessed": 1780150702977,
@@ -263,12 +287,6 @@
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\services\\settings.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155248421,
-      "type": "file"
-    },
-    {
       "path": "src\\score_trans\\services\\render_service.py",
       "accessCount": 1,
       "lastAccessed": 1780155249389,
@@ -284,12 +302,6 @@
       "path": "src\\score_trans\\services\\musescore_service.py",
       "accessCount": 1,
       "lastAccessed": 1780155249991,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\use_cases\\__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155254576,
       "type": "file"
     },
     {
@@ -332,6 +344,72 @@
       "path": "CLAUDE.md",
       "accessCount": 1,
       "lastAccessed": 1780155325338,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\15732\\.claude\\plans\\sunny-meandering-key.md",
+      "accessCount": 1,
+      "lastAccessed": 1780155565254,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156541275,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156542137,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\health.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156543011,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\schemas.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156555163,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\uploads.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156573784,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\tasks.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156586365,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\convert.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156620751,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\recognize.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156625778,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\render.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156637424,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\pipeline.py",
+      "accessCount": 1,
+      "lastAccessed": 1780156643001,
       "type": "file"
     }
   ],

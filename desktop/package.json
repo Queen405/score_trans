@@ -1,0 +1,36 @@
+{
+  "name": "score-trans-desktop",
+  "version": "0.1.0",
+  "description": "Score Trans - 五线谱/简谱互转桌面应用",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@vicons/ionicons5": "^0.12.0",
+    "date-fns": "^3.6.0",
+    "naive-ui": "^2.40.3",
+    "pinia": "^2.2.8",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@vitejs/plugin-vue": "^5.2.3",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vue-tsc": "^2.2.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "date-fns": "^3.6.0"
+    }
+  }
+}

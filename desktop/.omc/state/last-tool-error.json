@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"D:/CODE/MyProjects/score_trans\\\" && .venv/Scripts/python.exe -c \\\"from score_trans.api.app import create_app; app = create_app(); routes = [r.path for r in app.routes if not r.startsw...",
+  "error": "Exit code 1\nTraceback (most recent call last):\r\n  File \"<string>\", line 1, in <module>\r\n    from score_trans.api.app import create_app; app = create_app(); routes = [r.path for r in app.routes if not r.startswith('/docs') and not r.startswith('/openapi') and not r.startswith('/redoc')]; print(f'{len(routes)} routes:'); [print(f'  {r}') for r in sorted(routes)]\r\n                                                                                                                ^^^^^^^^^^^^\r\nAttributeE...",
+  "timestamp": "2026-05-30T16:40:10.765Z",
+  "retry_count": 2
+}

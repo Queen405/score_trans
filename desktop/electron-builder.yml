@@ -1,0 +1,17 @@
+appId: com.scoretrans.app
+productName: Score Trans
+directories:
+  output: dist-electron
+  buildResources: build
+files:
+  - "dist/**/*"
+  - "package.json"
+extraResources:
+  - from: "../dist/backend"
+    to: "backend"
+win:
+  target: nsis
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
