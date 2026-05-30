@@ -1,7 +1,11 @@
 <template>
   <div class="export-view">
-    <n-card title="📤 导出乐谱" :bordered="false" class="export-card">
+    <n-card title="导出乐谱" :bordered="false" class="export-card">
       <n-space vertical :size="20">
+        <div class="panel-head">
+          <h3>发布输出</h3>
+          <p>导出 MusicXML 或交给 MuseScore 生成成品文件</p>
+        </div>
         <n-space :size="12" wrap align="center">
           <n-button
             @click="saveMusicxml"
@@ -32,7 +36,7 @@
 
         <n-divider style="margin: 0" />
 
-        <n-card title="📋 操作日志" size="small" :bordered="false" class="log-card">
+        <n-card title="操作日志" size="small" :bordered="false" class="log-card">
           <log-panel />
         </n-card>
       </n-space>
@@ -100,12 +104,47 @@ async function exportScore(): Promise<void> {
 }
 
 .export-card {
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  border: 1px solid rgba(129, 161, 193, 0.24);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.76), rgba(236, 239, 244, 0.68));
+  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.panel-head h3 {
+  margin: 0;
+  font-size: 19px;
+  color: #2e3440;
+}
+
+.panel-head p {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: #5f6879;
 }
 
 .log-card {
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.48), rgba(236, 239, 244, 0.32));
+  border-radius: 14px;
+  border: 1px solid rgba(129, 161, 193, 0.22);
+}
+
+:global(body.n-theme-dark) .export-card {
+  border-color: rgba(129, 161, 193, 0.35);
+  background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.8));
+  box-shadow: 0 34px 70px -56px rgba(0, 0, 0, 0.95);
+}
+
+:global(body.n-theme-dark) .panel-head h3 {
+  color: #eceff4;
+}
+
+:global(body.n-theme-dark) .panel-head p {
+  color: #c7cfdd;
+}
+
+:global(body.n-theme-dark) .log-card {
+  background: linear-gradient(145deg, rgba(46, 52, 64, 0.6), rgba(59, 66, 82, 0.5));
+  border-color: rgba(129, 161, 193, 0.3);
 }
 </style>

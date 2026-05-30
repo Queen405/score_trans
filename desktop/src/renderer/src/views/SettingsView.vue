@@ -1,7 +1,12 @@
 <template>
   <div class="settings-view">
-    <n-card title="⚙️ 外部工具配置" :bordered="false" class="settings-card">
+    <n-card title="外部工具配置" :bordered="false" class="settings-card">
       <n-form label-placement="left" label-width="140" size="large">
+        <div class="panel-head">
+          <h3>系统参数中心</h3>
+          <p>调整识别引擎、导出路径与 OCR 服务参数</p>
+        </div>
+
         <n-form-item label="Audiveris 路径">
           <n-input
             v-model:value="settings.audiverisPath"
@@ -58,7 +63,7 @@
             v-model:value="settings.ocrApiKey"
             type="password"
             show-password-on="click"
-            placeholder="SCORE_TRANS_OCR_API_KEY"
+            :placeholder="settings.ocrApiKeySet ? '已保存（留空则不更新）' : 'SCORE_TRANS_OCR_API_KEY'"
           >
             <template #prefix><n-icon><KeyOutline /></n-icon></template>
           </n-input>
@@ -152,7 +157,40 @@ function selectOutputDir(): void {
 }
 
 .settings-card {
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  border: 1px solid rgba(129, 161, 193, 0.24);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.76), rgba(236, 239, 244, 0.68));
+  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.panel-head {
+  margin-bottom: 14px;
+}
+
+.panel-head h3 {
+  margin: 0;
+  font-size: 19px;
+  color: #2e3440;
+}
+
+.panel-head p {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: #5f6879;
+}
+
+:global(body.n-theme-dark) .settings-card {
+  border-color: rgba(129, 161, 193, 0.35);
+  background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.8));
+  box-shadow: 0 34px 70px -56px rgba(0, 0, 0, 0.95);
+}
+
+:global(body.n-theme-dark) .panel-head h3 {
+  color: #eceff4;
+}
+
+:global(body.n-theme-dark) .panel-head p {
+  color: #c7cfdd;
 }
 </style>

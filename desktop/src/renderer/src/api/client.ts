@@ -1,9 +1,12 @@
 import type { UploadResponse } from '../models/types'
 
-const BASE_URL: string =
-  (window as any)?.api?.getBackendURL?.() ||
-  import.meta.env.VITE_BACKEND_URL ||
-  'http://127.0.0.1:18513'
+function getBaseURL(): string {
+  return (
+    (window as any)?.api?.getBackendURL?.() ||
+    import.meta.env.VITE_BACKEND_URL ||
+    'http://127.0.0.1:18513'
+  )
+}
 
 export class ApiError extends Error {
   stage?: string
@@ -18,7 +21,7 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, options)
+  const response = await fetch(`${getBaseURL()}${path}`, options)
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({
@@ -40,7 +43,7 @@ export async function uploadFile(file: File): Promise<UploadResponse> {
 }
 
 export function getFileURL(fileId: string): string {
-  return `${BASE_URL}/files/${fileId}`
+  return `${getBaseURL()}/files/${fileId}`
 }
 
-export { BASE_URL }
+export { getBaseURL as BASE_URL }

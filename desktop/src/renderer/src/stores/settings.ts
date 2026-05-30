@@ -10,6 +10,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const startMeasureNumber = ref<number | null>(null)
   const outputDir = ref('')
   const ocrApiKey = ref('')
+  const ocrApiKeySet = ref(false)
   const ocrBaseUrl = ref('https://api.siliconflow.cn/v1')
   const ocrModel = ref('deepseek-ai/DeepSeek-OCR')
   const loaded = ref(false)
@@ -21,6 +22,7 @@ export const useSettingsStore = defineStore('settings', () => {
       musescorePath.value = data.musescore_path
       javaHome.value = data.java_home
       outputDir.value = data.output_dir ?? ''
+      ocrApiKeySet.value = data.ocr_api_key_set ?? false
       ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
       ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'
       loaded.value = true
@@ -49,6 +51,7 @@ export const useSettingsStore = defineStore('settings', () => {
     startMeasureNumber,
     outputDir,
     ocrApiKey,
+    ocrApiKeySet,
     ocrBaseUrl,
     ocrModel,
     loaded,

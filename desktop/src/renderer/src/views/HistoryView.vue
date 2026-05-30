@@ -264,22 +264,24 @@ function statusLabel(status: string): string {
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .history-card {
-  border: 1px solid var(--n-border-color, #e0e0e6);
-  border-radius: 12px;
+  border: 1px solid rgba(129, 161, 193, 0.24);
+  border-radius: 16px;
   padding: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  background: var(--n-color, #fff);
+  transition: all 0.24s ease;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.75), rgba(236, 239, 244, 0.66));
+  box-shadow: 0 24px 52px -46px rgba(46, 52, 64, 0.88);
+  backdrop-filter: blur(8px);
 }
 
 .history-card:hover {
-  border-color: #36ad6a;
-  box-shadow: 0 2px 12px rgba(54, 173, 106, 0.12);
-  transform: translateY(-1px);
+  border-color: rgba(136, 192, 208, 0.82);
+  box-shadow: 0 30px 62px -46px rgba(46, 52, 64, 0.88);
+  transform: translateY(-2px);
 }
 
 .card-header {
@@ -311,8 +313,24 @@ function statusLabel(status: string): string {
 
 .card-preview {
   padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 6px;
+  background: rgba(94, 129, 172, 0.08);
+  border: 1px solid rgba(94, 129, 172, 0.15);
+  border-radius: 9px;
   margin-top: 4px;
+}
+
+:global(body.n-theme-dark) .history-card {
+  border-color: rgba(129, 161, 193, 0.36);
+  background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.82));
+  box-shadow: 0 32px 68px -48px rgba(0, 0, 0, 0.95);
+}
+
+:global(body.n-theme-dark) .history-card:hover {
+  border-color: rgba(136, 192, 208, 0.95);
+}
+
+:global(body.n-theme-dark) .card-preview {
+  background: rgba(136, 192, 208, 0.12);
+  border-color: rgba(136, 192, 208, 0.22);
 }
 </style>

@@ -1,9 +1,13 @@
 <template>
   <div class="convert-view">
-    <!-- Toolbar -->
-    <div class="toolbar">
+    <div class="toolbar panel">
+      <div class="panel-head">
+        <h3>对照编辑工作区</h3>
+        <p>从识别到回转，统一在同一画布完成</p>
+      </div>
       <n-space :size="10" wrap>
         <n-button
+          class="tool-btn"
           type="primary"
           @click="musicxmlToJianpu"
           :loading="store.isBusy"
@@ -14,6 +18,7 @@
           MusicXML → 简谱
         </n-button>
         <n-button
+          class="tool-btn"
           @click="jianpuToMusicxml"
           :loading="store.isBusy"
           :disabled="!jianpuText"
@@ -23,11 +28,12 @@
           <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
           简谱 → MusicXML
         </n-button>
-        <n-button @click="saveJianpu" :disabled="!store.jianpuText" size="large" secondary>
+        <n-button class="tool-btn" @click="saveJianpu" :disabled="!store.jianpuText" size="large" secondary>
           <template #icon><n-icon><DownloadOutline /></n-icon></template>
           保存简谱
         </n-button>
         <n-button
+          class="tool-btn"
           type="info"
           @click="renderSvg"
           :loading="store.isBusy"
@@ -41,12 +47,10 @@
       </n-space>
     </div>
 
-    <!-- Split view -->
     <div class="editor-layout">
-      <!-- Left panel: score preview -->
       <div class="left-panel">
         <n-card
-          :title="store.originalFileName ? `🎼 ${store.originalFileName}` : '🎼 原始五线谱'"
+          :title="store.originalFileName ? `原始五线谱 · ${store.originalFileName}` : '原始五线谱'"
           size="small"
           class="panel-card"
           :bordered="false"
@@ -57,21 +61,11 @@
           />
         </n-card>
 
-        <n-card title="📄 MusicXML" size="small" class="panel-card" :bordered="false">
-          <div v-if="store.musicxmlText" class="xml-preview">
-            <n-code :code="store.musicxmlText" language="xml" word-wrap />
-          </div>
-          <div v-else class="empty-hint">
-            <n-icon size="40" :depth="3"><DocumentTextOutline /></n-icon>
-            <n-text depth="3">请先识别或打开 MusicXML</n-text>
-          </div>
-        </n-card>
       </div>
 
-      <!-- Right panel: jianpu editor -->
       <div class="right-panel">
         <n-card
-          :title="isViewingFinal ? '🖼️ 最终渲染' : '📝 简谱编辑'"
+          :title="isViewingFinal ? '最终渲染' : '简谱编辑'"
           size="small"
           class="panel-card"
           :bordered="false"
@@ -79,13 +73,14 @@
           <template #header-extra>
             <n-button
               size="small"
+              class="toggle-btn"
               @click="toggleFinalView"
               :loading="isRenderingFinal"
               :disabled="store.isBusy || (!store.hasMusicxml && !jianpuText)"
               secondary
               round
             >
-              {{ isViewingFinal ? '📝 编辑' : '🖼️ 渲染' }}
+              {{ isViewingFinal ? '编辑' : '渲染' }}
             </n-button>
           </template>
 
@@ -102,17 +97,6 @@
       </div>
     </div>
 
-    <!-- SVG preview below -->
-    <transition name="slide-fade">
-      <n-card
-        v-if="store.svgFileId && !isViewingFinal"
-        title="🖼️ 简谱谱面"
-        class="svg-card"
-        :bordered="false"
-      >
-        <svg-preview :svg-file-id="store.svgFileId" />
-      </n-card>
-    </transition>
   </div>
 </template>
 
@@ -131,9 +115,8 @@ import {
   ArrowBackOutline,
   DownloadOutline,
   ImageOutline,
-  DocumentTextOutline,
 } from '@vicons/ionicons5'
-import { NSpace, NButton, NCard, NCode, NText, NIcon, useMessage } from 'naive-ui'
+import { NSpace, NButton, NCard, NIcon, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const settings = useSettingsStore()
@@ -258,11 +241,43 @@ async function toggleFinalView(): Promise<void> {
 .convert-view {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
-.toolbar {
-  padding: 4px 0;
+.panel {
+  border: 1px solid rgba(129, 161, 193, 0.24);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.76), rgba(236, 239, 244, 0.68));
+  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
+  border-radius: 18px;
+  padding: 16px;
+  backdrop-filter: blur(10px);
+}
+
+.panel-head {
+  margin-bottom: 12px;
+}
+
+.panel-head h3 {
+  margin: 0;
+  font-size: 19px;
+  color: #2e3440;
+}
+
+.panel-head p {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: #5f6879;
+}
+
+.tool-btn {
+  min-width: 150px;
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tool-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px -28px rgba(46, 52, 64, 0.9);
 }
 
 .editor-layout {
@@ -285,9 +300,15 @@ async function toggleFinalView(): Promise<void> {
 }
 
 .panel-card {
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  border: 1px solid rgba(129, 161, 193, 0.24);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.74), rgba(236, 239, 244, 0.64));
+  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
   height: 100%;
+}
+
+.toggle-btn {
+  border-radius: 999px;
 }
 
 .xml-preview {
@@ -304,12 +325,6 @@ async function toggleFinalView(): Promise<void> {
   padding: 40px 0;
   text-align: center;
 }
-
-.svg-card {
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-}
-
 .slide-fade-enter-active {
   transition: all 0.35s ease-out;
 }
@@ -322,5 +337,32 @@ async function toggleFinalView(): Promise<void> {
 }
 .slide-fade-leave-to {
   opacity: 0;
+}
+
+:global(body.n-theme-dark) .panel,
+:global(body.n-theme-dark) .panel-card {
+  border-color: rgba(129, 161, 193, 0.35);
+  background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.8));
+  box-shadow: 0 34px 70px -56px rgba(0, 0, 0, 0.95);
+}
+
+:global(body.n-theme-dark) .panel-head h3 {
+  color: #eceff4;
+}
+
+:global(body.n-theme-dark) .panel-head p {
+  color: #c7cfdd;
+}
+
+@media (max-width: 1100px) {
+  .editor-layout {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 920px) {
+  .tool-btn {
+    min-width: 100%;
+  }
 }
 </style>

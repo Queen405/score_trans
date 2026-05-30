@@ -1,13 +1,20 @@
 <template>
   <div class="recognize-view">
-    <!-- Upload area -->
     <n-card class="upload-card" :bordered="false">
+      <div class="panel-head">
+        <div>
+          <h3>智能识别入口</h3>
+          <p>上传扫描页，快速得到 MusicXML 与简谱成果</p>
+        </div>
+      </div>
+
       <div class="upload-section">
         <file-uploader :disabled="store.isBusy" @uploaded="onFileUploaded" />
       </div>
 
       <n-space class="action-bar" :size="10" wrap>
         <n-button
+          class="action-btn"
           type="primary"
           @click="recognize"
           :loading="store.isBusy"
@@ -18,6 +25,7 @@
           识别为 MusicXML
         </n-button>
         <n-button
+          class="action-btn"
           type="info"
           @click="recognizeAndExport"
           :loading="store.isBusy"
@@ -27,7 +35,7 @@
           <template #icon><n-icon><FlashOutline /></n-icon></template>
           一键识别并导出简谱
         </n-button>
-        <n-button @click="openMusicXml" :disabled="store.isBusy" size="large" secondary>
+        <n-button class="action-btn" @click="openMusicXml" :disabled="store.isBusy" size="large" secondary>
           <template #icon><n-icon><DocumentAttachOutline /></n-icon></template>
           打开 MusicXML
         </n-button>
@@ -43,11 +51,10 @@
       </transition>
     </n-card>
 
-    <!-- MusicXML Preview -->
     <transition name="slide-fade">
       <n-card
         v-if="store.musicxmlText"
-        title="📄 MusicXML 预览"
+        title="MusicXML 预览"
         class="preview-card"
         :bordered="false"
       >
@@ -210,30 +217,63 @@ async function saveHistory(
 .recognize-view {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .upload-card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  border: 1px solid rgba(129, 161, 193, 0.24);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.76), rgba(236, 239, 244, 0.68));
+  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.panel-head h3 {
+  margin: 0;
+  font-size: 19px;
+  color: #2e3440;
+}
+
+.panel-head p {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: #5f6879;
 }
 
 .upload-section {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .action-bar {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+}
+
+.action-btn {
+  border-radius: 12px;
+  min-width: 168px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px -28px rgba(46, 52, 64, 0.9);
 }
 
 .file-tag {
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .preview-card {
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  border: 1px solid rgba(129, 161, 193, 0.24);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.74), rgba(236, 239, 244, 0.64));
+  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
 }
 
 /* Transitions */
@@ -258,5 +298,26 @@ async function saveHistory(
 }
 .slide-fade-leave-to {
   opacity: 0;
+}
+
+:global(body.n-theme-dark) .upload-card,
+:global(body.n-theme-dark) .preview-card {
+  border-color: rgba(129, 161, 193, 0.35);
+  background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.8));
+  box-shadow: 0 34px 70px -56px rgba(0, 0, 0, 0.95);
+}
+
+:global(body.n-theme-dark) .panel-head h3 {
+  color: #eceff4;
+}
+
+:global(body.n-theme-dark) .panel-head p {
+  color: #c7cfdd;
+}
+
+@media (max-width: 920px) {
+  .action-btn {
+    min-width: 100%;
+  }
 }
 </style>

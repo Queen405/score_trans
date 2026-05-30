@@ -22,15 +22,17 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
 
 <style scoped>
 .svg-preview {
-  border: 1px solid #e0e0e6;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #f9f7f0 0%, #f4f1e8 100%);
+  border: 1px solid rgba(129, 161, 193, 0.24);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(248, 250, 253, 0.84) 0%, rgba(236, 239, 244, 0.72) 100%);
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .svg-scroll {
   max-height: 72vh;
   overflow: auto;
+  padding: 8px;
 }
 
 .svg-img {
@@ -38,6 +40,7 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
   width: auto;
   min-width: 1200px;
   max-width: none;
+  border-radius: 10px;
 }
 
 .svg-empty {
@@ -47,5 +50,10 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
   gap: 8px;
   padding: 48px 0;
   text-align: center;
+}
+
+:global(body.n-theme-dark) .svg-preview {
+  border-color: rgba(129, 161, 193, 0.35);
+  background: linear-gradient(180deg, rgba(46, 52, 64, 0.9) 0%, rgba(59, 66, 82, 0.82) 100%);
 }
 </style>

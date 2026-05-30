@@ -80,7 +80,28 @@ const electronAPI = {
 };
 const api = {
   getBackendURL: () => {
-    return window.__BACKEND_URL__ || "http://127.0.0.1:18513";
+    return electron.ipcRenderer.sendSync("get-backend-url") || "http://127.0.0.1:18513";
+  },
+  minimizeWindow: async () => {
+    await electron.ipcRenderer.invoke("window:minimize");
+  },
+  toggleMaximizeWindow: async () => {
+    return electron.ipcRenderer.invoke("window:toggle-maximize");
+  },
+  isMaximized: async () => {
+    return electron.ipcRenderer.invoke("window:is-maximized");
+  },
+  closeWindow: async () => {
+    await electron.ipcRenderer.invoke("window:close");
+  },
+  onMaximizedChanged: (callback) => {
+    const listener = (_event, maximized) => {
+      callback(maximized);
+    };
+    electron.ipcRenderer.on("window:maximized-changed", listener);
+    return () => {
+      electron.ipcRenderer.removeListener("window:maximized-changed", listener);
+    };
   }
 };
 if (process.contextIsolated) {

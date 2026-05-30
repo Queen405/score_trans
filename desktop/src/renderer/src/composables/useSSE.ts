@@ -13,7 +13,7 @@ export function useSSE() {
 
   function start(taskId: string): void {
     stop()
-    eventSource = new EventSource(`${BASE_URL}/tasks/${taskId}/stream`)
+    eventSource = new EventSource(`${BASE_URL()}/tasks/${taskId}/stream`)
 
     eventSource.onmessage = (event: MessageEvent) => {
       const data: SSEProgressEvent = JSON.parse(event.data)

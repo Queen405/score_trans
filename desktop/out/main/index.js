@@ -245,6 +245,8 @@ function createWindow(baseURL) {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    frame: false,
+    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
@@ -255,6 +257,7 @@ function createWindow(baseURL) {
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
   });
+  mainWindow.removeMenu();
   mainWindow.webContents.setWindowOpenHandler((details) => {
     electron.shell.openExternal(details.url);
     return { action: "deny" };
@@ -264,6 +267,12 @@ function createWindow(baseURL) {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
+  const emitWindowMaximizedState = () => {
+    const value = mainWindow?.isMaximized() ?? false;
+    mainWindow?.webContents.send("window:maximized-changed", value);
+  };
+  mainWindow.on("maximize", emitWindowMaximizedState);
+  mainWindow.on("unmaximize", emitWindowMaximizedState);
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -280,10 +289,30 @@ electron.app.whenReady().then(async () => {
     console.error("[main] Failed to start backend:", err);
   }
   const backendURL = backend.getBaseURL();
+  electron.ipcMain.on("get-backend-url", (event) => {
+    event.returnValue = backendURL;
+  });
+  electron.ipcMain.handle("window:minimize", () => {
+    mainWindow?.minimize();
+  });
+  electron.ipcMain.handle("window:toggle-maximize", () => {
+    if (!mainWindow) {
+      return false;
+    }
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+      return false;
+    }
+    mainWindow.maximize();
+    return true;
+  });
+  electron.ipcMain.handle("window:is-maximized", () => {
+    return mainWindow?.isMaximized() ?? false;
+  });
+  electron.ipcMain.handle("window:close", () => {
+    mainWindow?.close();
+  });
   createWindow();
-  if (mainWindow) {
-    mainWindow.webContents.executeJavaScript(`window.__BACKEND_URL__ = '${backendURL}'`);
-  }
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -306,4 +335,10 @@ electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     electron.app.quit();
   }
+});
+electron.app.on("will-quit", () => {
+  electron.ipcMain.removeHandler("window:minimize");
+  electron.ipcMain.removeHandler("window:toggle-maximize");
+  electron.ipcMain.removeHandler("window:is-maximized");
+  electron.ipcMain.removeHandler("window:close");
 });

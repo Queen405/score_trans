@@ -39,9 +39,10 @@ const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].inc
 .image-frame {
   height: 360px;
   overflow: auto;
-  border: 1px solid #e0e0e6;
-  border-radius: 8px;
-  background: #f9f9f9;
+  border: 1px solid rgba(129, 161, 193, 0.25);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(248, 250, 252, 0.82), rgba(236, 239, 244, 0.68));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .pdf-frame iframe {
@@ -55,6 +56,7 @@ const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].inc
   max-width: 100%;
   height: auto;
   margin: 0 auto;
+  border-radius: 8px;
 }
 
 .empty-hint {
@@ -64,5 +66,11 @@ const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].inc
   gap: 8px;
   padding: 40px 16px;
   text-align: center;
+}
+
+:global(body.n-theme-dark) .pdf-frame,
+:global(body.n-theme-dark) .image-frame {
+  border-color: rgba(129, 161, 193, 0.34);
+  background: linear-gradient(145deg, rgba(46, 52, 64, 0.86), rgba(59, 66, 82, 0.74));
 }
 </style>
