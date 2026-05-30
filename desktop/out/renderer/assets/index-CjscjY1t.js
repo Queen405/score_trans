@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-6HTCah5y.js"(exports, module) {
+  "assets/index-CjscjY1t.js"(exports, module) {
     /**
     * @vue/shared v3.5.35
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -37077,42 +37077,48 @@ ${style2}
       let startTy = 0;
       let resizeObserver = null;
       let autoFit = true;
+      let contentW = 0;
+      let contentH = 0;
       function applyTransform() {
         const el = container.value;
         if (!el) return;
-        const target = el.querySelector(".zp-content");
-        if (!target) return;
-        target.style.transform = `translate(${tx.value}px, ${ty.value}px) scale(${scale.value})`;
-        target.style.transformOrigin = "0 0";
-        target.style.willChange = "transform";
+        const inner = el.querySelector(".zp-inner");
+        if (!inner) return;
+        inner.style.transform = `translate(${tx.value}px, ${ty.value}px) scale(${scale.value})`;
+        inner.style.transformOrigin = "0 0";
       }
-      function getContentSize() {
+      function measureContent() {
         const el = container.value;
-        if (!el) return null;
-        const img = el.querySelector(".zp-content img");
-        if (img && img.naturalWidth && img.naturalHeight) {
-          return { w: img.naturalWidth, h: img.naturalHeight };
+        if (!el) return false;
+        const img = el.querySelector(".zp-inner img");
+        if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+          contentW = img.naturalWidth;
+          contentH = img.naturalHeight;
+          return true;
         }
-        const iframe = el.querySelector(".zp-content iframe");
+        const iframe = el.querySelector(".zp-inner iframe");
         if (iframe) {
-          return { w: iframe.clientWidth || 800, h: iframe.clientHeight || 600 };
+          contentW = iframe.clientWidth || 800;
+          contentH = iframe.clientHeight || 600;
+          return true;
         }
-        return null;
+        return false;
       }
       function fitToView() {
         const el = container.value;
         if (!el) return;
-        const size2 = getContentSize();
-        if (!size2) return;
+        if (!measureContent()) return;
         const cw = el.clientWidth;
         const ch = el.clientHeight;
-        if (!cw || !ch) return;
-        const sx = cw / size2.w;
-        const sy = ch / size2.h;
-        const s = Math.min(sx, sy);
+        if (cw <= 0 || ch <= 0) return;
+        const sx = cw / contentW;
+        const sy = ch / contentH;
+        const s = Math.min(sx, sy, 1);
+        const renderedW = contentW * s;
+        const renderedH = contentH * s;
         scale.value = s;
-        tx.value = (cw - size2.w * s) / 2;
-        ty.value = (ch - size2.h * s) / 2;
+        tx.value = (cw - renderedW) / 2;
+        ty.value = (ch - renderedH) / 2;
         autoFit = true;
         applyTransform();
       }
@@ -37195,9 +37201,9 @@ ${style2}
       return { scale, tx, ty, reset, fitToView, bind, unbind, applyTransform };
     }
     const _hoisted_1$5 = { class: "original-preview" };
-    const _hoisted_2$5 = { class: "zp-content" };
+    const _hoisted_2$5 = { class: "zp-inner" };
     const _hoisted_3$5 = ["src", "title"];
-    const _hoisted_4$5 = ["src", "alt"];
+    const _hoisted_4$5 = ["src", "alt", "width", "height"];
     const _hoisted_5$4 = {
       key: 0,
       class: "empty-overlay"
@@ -37217,6 +37223,8 @@ ${style2}
         const props = __props;
         const containerRef = /* @__PURE__ */ ref();
         const zp = useZoomPan(containerRef);
+        const imgW = /* @__PURE__ */ ref(0);
+        const imgH = /* @__PURE__ */ ref(0);
         const fileUrl = computed(() => props.fileId ? getFileURL(props.fileId) : "");
         const pdfFitUrl = computed(
           () => fileUrl.value ? `${fileUrl.value}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : ""
@@ -37224,7 +37232,12 @@ ${style2}
         const extension = computed(() => props.fileName.split(".").pop()?.toLowerCase() ?? "");
         const isPdf = computed(() => extension.value === "pdf");
         const isImage = computed(() => ["png", "jpg", "jpeg", "tif", "tiff", "webp"].includes(extension.value));
-        function onImgLoad() {
+        function onImgLoad(e) {
+          const img = e.target;
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            imgW.value = img.naturalWidth;
+            imgH.value = img.naturalHeight;
+          }
           requestAnimationFrame(() => zp.fitToView());
         }
         watch(fileUrl, async (url) => {
@@ -37252,6 +37265,8 @@ ${style2}
                   key: 1,
                   src: fileUrl.value,
                   alt: __props.fileName,
+                  width: imgW.value,
+                  height: imgH.value,
                   onLoad: onImgLoad
                 }, null, 40, _hoisted_4$5)) : createCommentVNode("", true)
               ])
@@ -37280,13 +37295,13 @@ ${style2}
         };
       }
     });
-    const OriginalPreview = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-d41dff9c"]]);
+    const OriginalPreview = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-ec9dd309"]]);
     const _hoisted_1$4 = {
       key: 0,
       class: "svg-preview"
     };
-    const _hoisted_2$4 = { class: "zp-content" };
-    const _hoisted_3$4 = ["src"];
+    const _hoisted_2$4 = { class: "zp-inner" };
+    const _hoisted_3$4 = ["src", "width", "height"];
     const _hoisted_4$4 = { class: "zoom-bar" };
     const _hoisted_5$3 = { class: "zoom-label" };
     const _hoisted_6$3 = {
@@ -37303,11 +37318,20 @@ ${style2}
         const svgUrl = computed(() => props.svgFileId ? getFileURL(props.svgFileId) : "");
         const containerRef = /* @__PURE__ */ ref();
         const zp = useZoomPan(containerRef);
-        function onImgLoad() {
+        const imgW = /* @__PURE__ */ ref(0);
+        const imgH = /* @__PURE__ */ ref(0);
+        function onImgLoad(e) {
+          const img = e.target;
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            imgW.value = img.naturalWidth;
+            imgH.value = img.naturalHeight;
+          }
           requestAnimationFrame(() => zp.fitToView());
         }
         watch(svgUrl, async (url) => {
           if (url) {
+            imgW.value = 0;
+            imgH.value = 0;
             await nextTick();
             zp.unbind();
             zp.bind();
@@ -37327,6 +37351,8 @@ ${style2}
               createBaseVNode("div", _hoisted_2$4, [
                 createBaseVNode("img", {
                   src: svgUrl.value,
+                  width: imgW.value,
+                  height: imgH.value,
                   onLoad: onImgLoad
                 }, null, 40, _hoisted_3$4)
               ])
@@ -37354,7 +37380,7 @@ ${style2}
         };
       }
     });
-    const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-188f1116"]]);
+    const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-30c0fee7"]]);
     const _hoisted_1$3 = { class: "workspace" };
     const _hoisted_2$3 = { class: "ws-hist-head" };
     const _hoisted_3$3 = { class: "ws-hist-actions" };
