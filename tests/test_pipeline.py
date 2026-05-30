@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from PIL import Image
+
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.domain.models import OCRTextBlock
 from score_trans.services.ocr_provider import MockOCRProvider
@@ -46,6 +48,32 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
     assert "Pipeline Test" in svg
     assert ">118</text>" in svg
     assert recognizer.calls
+
+
+def test_full_pipeline_runs_ocr_for_image_and_preserves_text_layer(tmp_path) -> None:
+    source = tmp_path / "scan.png"
+    Image.new("RGB", (320, 480), "white").save(source)
+    recognized = tmp_path / "audiveris-output.musicxml"
+    recognized.write_text(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 |"), encoding="utf-8")
+    recognizer = FakeRecognizer(source, recognized)
+    provider = MockOCRProvider(
+        [OCRTextBlock("原谱标题", bbox=(24, 18, 120, 42), confidence=0.95, role="title")]
+    )
+
+    outputs = FullPipelineUseCase(recognizer=recognizer).execute(
+        source,
+        tmp_path / "out",
+        config=ToolConfig(audiveris_path="fake-audiveris"),
+        target_key="C",
+        ocr_provider=provider,
+    )
+
+    svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")
+    assert provider.calls == [source.resolve()]
+    assert 'width="320"' in svg
+    assert 'height="480"' in svg
+    assert "原谱标题" in svg
+    assert 'class="ocr-overlay"' in svg
 
 
 def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> None:

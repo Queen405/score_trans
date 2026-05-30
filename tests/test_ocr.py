@@ -5,6 +5,7 @@ import pytest
 
 from score_trans.services.ocr_provider import (
     OCR_API_KEY_ENV,
+    OCR_BASE_URL_ENV,
     OCR_MODEL_ENV,
     DEFAULT_OCR_MODEL,
     OCRError,
@@ -67,6 +68,29 @@ def test_non_deepseek_ocr_provider_requests_json_response(tmp_path, monkeypatch)
     request = OpenAICompatibleOCRProvider(model="Qwen/Qwen3-VL-8B-Instruct", dry_run=True).build_request(image)
 
     assert request.payload["response_format"] == {"type": "json_object"}
+
+
+def test_openai_provider_reads_persisted_settings_db(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv(DISABLE_DOTENV_ENV, raising=False)
+    monkeypatch.delenv(OCR_API_KEY_ENV, raising=False)
+    monkeypatch.delenv(OCR_BASE_URL_ENV, raising=False)
+    monkeypatch.delenv(OCR_MODEL_ENV, raising=False)
+    monkeypatch.setattr(
+        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        lambda: {
+            "ocr_api_key": "persisted-key",
+            "ocr_base_url": "https://persisted.example/v1",
+            "ocr_model": "Qwen/Qwen3-VL-8B-Instruct",
+        },
+    )
+    image = tmp_path / "score.jpg"
+    image.write_bytes(b"abc")
+
+    request = OpenAICompatibleOCRProvider().build_request(image)
+
+    assert request.endpoint == "https://persisted.example/v1/chat/completions"
+    assert request.headers["Authorization"] == "Bearer persisted-key"
+    assert request.payload["model"] == "Qwen/Qwen3-VL-8B-Instruct"
 
 
 def test_openai_provider_requires_key_when_not_dry_run(tmp_path, monkeypatch) -> None:

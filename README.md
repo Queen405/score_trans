@@ -56,6 +56,7 @@ pnpm dev
 - `起始小节号`：留空时使用 MusicXML 自带小节号；填写 `118` 这类整数时会从该数字开始重新显示。
 - `识别并导出简谱`：对当前图片/PDF 跑 Audiveris，随后生成 MusicXML、简谱文本和简谱 SVG。
 - `导出简谱谱面 SVG`：把 MusicXML/MXL 解析成结构化简谱谱面，包含小节线、拍内辅助线、减时线、附点、延音线、连音线和纵向排列的和弦音。
+- `识别预处理`：图片输入会在调用 Audiveris 前自动裁白边、增强对比并放大到更适合 OMR 的尺寸。默认目标长边为 `3600` 像素；识别异常时可在设置页关闭或启用黑白化。
 
 简谱 SVG 默认使用出版模式：
 
@@ -125,6 +126,9 @@ $env:https_proxy="http://127.0.0.1:7897"
 $env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris\gradlew.bat"
 $env:SCORE_TRANS_JAVA_HOME="E:\ENV\JAVA\JDK25"
 $env:SCORE_TRANS_MUSESCORE="C:\Program Files\MuseScore 4\bin\MuseScore4.exe"
+$env:SCORE_TRANS_OMR_PREPROCESS="1"
+$env:SCORE_TRANS_OMR_PREPROCESS_LONG_EDGE="3600"
+$env:SCORE_TRANS_OMR_PREPROCESS_BINARIZE="0"
 ```
 
 默认 Audiveris 命令：
@@ -152,6 +156,8 @@ $env:SCORE_TRANS_OCR_MODEL="deepseek-ai/DeepSeek-OCR"
 ```
 
 默认 provider 使用 OpenAI-compatible 的 `chat/completions` 请求格式，适配 SiliconFlow / DeepSeek OCR。最终渲染会同步读取 OMR 生成的 MusicXML 和 OCR 文字层；如果 OCR 返回 `bbox`，文字会按原页面坐标叠回 SVG，并保持原页面尺寸。测试和离线开发可以使用 `MockOCRProvider`，或者把 `OpenAICompatibleOCRProvider(dry_run=True)` 用于只构造请求、不发起网络调用。
+
+图片页执行“识别并自动填充”或“批量识别全部”时会同时跑 OMR 和 OCR，生成的 SVG 会把 OCR 文字原样放回 bbox 对应位置。普通“SVG”渲染如果当前页有原始图片，也会带上 OCR 文字层；没有配置 OCR key 时会直接提示配置错误，避免静默漏字。
 
 ## 简谱输入格式
 

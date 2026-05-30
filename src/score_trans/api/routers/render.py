@@ -36,13 +36,29 @@ async def render_jianpu_svg(
     svg_name = f"{uuid.uuid4().hex[:12]}.svg"
     svg_path = uploads.base_dir / svg_name
 
-    uc.execute(
-        path,
-        svg_path,
-        target_key=req.target_key,
-        start_measure_number=req.start_measure_number,
-        title=req.title,
-    )
+    if req.page_image_file_id:
+        image_path = uploads.get_path(req.page_image_file_id)
+        if not image_path or not image_path.exists():
+            raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+        page_width, page_height = image_dimensions(image_path)
+        uc.execute_page(
+            path,
+            svg_path,
+            page_width=page_width,
+            page_height=page_height,
+            target_key=req.target_key,
+            start_measure_number=req.start_measure_number,
+            image_path=image_path,
+            title=req.title,
+        )
+    else:
+        uc.execute(
+            path,
+            svg_path,
+            target_key=req.target_key,
+            start_measure_number=req.start_measure_number,
+            title=req.title,
+        )
 
     svg_id = uploads.register(svg_path)
     return RenderJianpuSvgResponse(svg_file_id=svg_id)

@@ -38,6 +38,9 @@ async def get_settings(
         ocr_api_key_set=bool(_ocr("ocr_api_key")),
         ocr_base_url=_ocr("ocr_base_url"),
         ocr_model=_ocr("ocr_model"),
+        omr_preprocess=config.omr_preprocess,
+        omr_preprocess_long_edge=config.omr_preprocess_long_edge,
+        omr_preprocess_binarize=config.omr_preprocess_binarize,
     )
 
 
@@ -75,6 +78,19 @@ async def update_settings(
         _db.set("ocr_model", req.ocr_model)
         os.environ["SCORE_TRANS_OCR_MODEL"] = req.ocr_model
 
+    if req.omr_preprocess is not None:
+        os.environ["SCORE_TRANS_OMR_PREPROCESS"] = "1" if req.omr_preprocess else "0"
+        config.omr_preprocess = req.omr_preprocess
+
+    if req.omr_preprocess_long_edge is not None:
+        value = max(0, req.omr_preprocess_long_edge)
+        os.environ["SCORE_TRANS_OMR_PREPROCESS_LONG_EDGE"] = str(value)
+        config.omr_preprocess_long_edge = value
+
+    if req.omr_preprocess_binarize is not None:
+        os.environ["SCORE_TRANS_OMR_PREPROCESS_BINARIZE"] = "1" if req.omr_preprocess_binarize else "0"
+        config.omr_preprocess_binarize = req.omr_preprocess_binarize
+
     return SettingsResponse(
         audiveris_path=config.audiveris_path,
         musescore_path=config.musescore_path,
@@ -84,4 +100,7 @@ async def update_settings(
         ocr_api_key_set=bool(_ocr("ocr_api_key")),
         ocr_base_url=_ocr("ocr_base_url"),
         ocr_model=_ocr("ocr_model"),
+        omr_preprocess=config.omr_preprocess,
+        omr_preprocess_long_edge=config.omr_preprocess_long_edge,
+        omr_preprocess_binarize=config.omr_preprocess_binarize,
     )

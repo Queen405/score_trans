@@ -6,6 +6,9 @@ from pathlib import Path
 
 from ..domain.musicxml import score_to_jianpu_text
 from ..services.file_service import FileService
+from ..services.image_info import image_dimensions
+from ..services.image_preprocessing import IMAGE_SUFFIXES
+from ..services.ocr_provider import OCRProvider
 from ..services.render_service import RenderService
 from ..services.settings import ToolConfig
 from .convert_to_jianpu import ConvertMusicXmlToJianpuUseCase
@@ -42,23 +45,37 @@ class FullPipelineUseCase:
         target_key: str = "C",
         start_measure_number: int | None = None,
         title: str | None = None,
+        ocr_provider: OCRProvider | None = None,
     ) -> ScorePipelineOutputs:
         source = Path(input_path).resolve()
         out_dir = Path(output_dir).resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
         recognized = self.recognizer.execute(source, out_dir / "omr", config)
         musicxml_path = _copy_musicxml_output(Path(recognized), out_dir, source.stem)
+        ocr_image_path = source if _is_ocr_image(source) else None
         score = self.converter.build_score(
             musicxml_path,
             target_key=target_key,
             start_measure_number=start_measure_number,
+            image_path=ocr_image_path,
+            ocr_provider=ocr_provider,
         )
         if title:
             score.title = title
         text_path = out_dir / f"{source.stem}_jianpu.txt"
         self.file_service.write_text(text_path, score_to_jianpu_text(score))
         svg_path = out_dir / f"{source.stem}_jianpu.svg"
-        self.renderer.render_score_svg(score, svg_path, title=title or score.title)
+        if ocr_image_path is not None:
+            page_width, page_height = image_dimensions(ocr_image_path)
+            self.renderer.render_score_page_svg(
+                score,
+                svg_path,
+                page_width=page_width,
+                page_height=page_height,
+                title=title or score.title,
+            )
+        else:
+            self.renderer.render_score_svg(score, svg_path, title=title or score.title)
         return ScorePipelineOutputs(
             input_path=source,
             musicxml_path=musicxml_path,
@@ -73,3 +90,7 @@ def _copy_musicxml_output(path: Path, output_dir: Path, stem: str) -> Path:
     if path.resolve() != target.resolve():
         shutil.copy2(path, target)
     return target
+
+
+def _is_ocr_image(path: Path) -> bool:
+    return path.suffix.lower() in IMAGE_SUFFIXES

@@ -34,6 +34,7 @@ export interface JianpuToMusicXmlResponse {
 
 export interface RenderJianpuSvgRequest {
   musicxml_file_id: string
+  page_image_file_id?: string
   target_key?: string
   start_measure_number?: number
   title?: string
@@ -103,6 +104,9 @@ export interface SettingsResponse {
   ocr_api_key_set?: boolean
   ocr_base_url?: string
   ocr_model?: string
+  omr_preprocess?: boolean
+  omr_preprocess_long_edge?: number
+  omr_preprocess_binarize?: boolean
 }
 
 export interface SettingsUpdateRequest {
@@ -113,6 +117,9 @@ export interface SettingsUpdateRequest {
   ocr_api_key?: string
   ocr_base_url?: string
   ocr_model?: string
+  omr_preprocess?: boolean
+  omr_preprocess_long_edge?: number
+  omr_preprocess_binarize?: boolean
 }
 
 export interface SSEProgressEvent {

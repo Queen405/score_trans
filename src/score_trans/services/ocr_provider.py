@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from ..domain.models import OCRTextBlock, TextRole
-from .env_file import load_project_env
+from .env_file import DISABLE_DOTENV_ENV, load_project_env
 
 
 OCR_API_KEY_ENV = "SCORE_TRANS_OCR_API_KEY"
@@ -57,9 +57,20 @@ class OpenAICompatibleOCRProvider:
         timeout: float = 60.0,
         dry_run: bool = False,
     ) -> None:
+        explicit_api_key = os.environ.get(OCR_API_KEY_ENV)
+        explicit_base_url = os.environ.get(OCR_BASE_URL_ENV)
+        explicit_model = os.environ.get(OCR_MODEL_ENV)
         load_project_env()
-        self.base_url = (base_url or os.environ.get(OCR_BASE_URL_ENV) or DEFAULT_OCR_BASE_URL).rstrip("/")
-        self.model = model or os.environ.get(OCR_MODEL_ENV) or DEFAULT_OCR_MODEL
+        persisted = persisted_ocr_settings()
+        self.base_url = (
+            base_url
+            or explicit_base_url
+            or persisted.get("ocr_base_url")
+            or os.environ.get(OCR_BASE_URL_ENV)
+            or DEFAULT_OCR_BASE_URL
+        ).rstrip("/")
+        self.model = model or explicit_model or persisted.get("ocr_model") or os.environ.get(OCR_MODEL_ENV) or DEFAULT_OCR_MODEL
+        self.api_key = explicit_api_key or persisted.get("ocr_api_key") or os.environ.get(OCR_API_KEY_ENV)
         self.timeout = timeout
         self.dry_run = dry_run
 
@@ -92,13 +103,12 @@ class OpenAICompatibleOCRProvider:
         if not path.is_file():
             raise FileNotFoundError(path)
 
-        api_key = os.environ.get(OCR_API_KEY_ENV)
-        if not api_key and not self.dry_run:
+        if not self.api_key and not self.dry_run:
             raise OCRError(f"Set {OCR_API_KEY_ENV} before calling the OCR provider.")
 
         headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
 
         payload: dict[str, Any] = {
             "model": self.model,
@@ -137,6 +147,17 @@ def image_to_data_url(path: Path) -> str:
 
 def is_deepseek_ocr_model(model: str) -> bool:
     return model.lower().endswith("/deepseek-ocr") or model.lower() == "deepseek-ocr"
+
+
+def persisted_ocr_settings() -> dict[str, str]:
+    if os.environ.get(DISABLE_DOTENV_ENV):
+        return {}
+    try:
+        from .settings_db import SettingsDB
+
+        return SettingsDB().get_all()
+    except Exception:
+        return {}
 
 
 def ocr_prompt_for_model(model: str) -> str:

@@ -42,6 +42,20 @@
     </div>
 
     <div class="sv-section">
+      <div class="sv-section-title">识别预处理</div>
+      <div class="sv-grid">
+        <label>启用</label>
+        <n-switch v-model:value="settings.omrPreprocess" size="small" />
+
+        <label>目标长边</label>
+        <n-input-number v-model:value="settings.omrPreprocessLongEdge" :min="0" :step="200" size="small" style="width: 140px" />
+
+        <label>黑白化</label>
+        <n-switch v-model:value="settings.omrPreprocessBinarize" size="small" />
+      </div>
+    </div>
+
+    <div class="sv-section">
       <div class="sv-section-title">OCR 设置</div>
       <div class="sv-grid">
         <label>API Key</label>
@@ -86,6 +100,7 @@ import {
 import {
   NInput,
   NInputNumber,
+  NSwitch,
   NButton,
   NIcon,
   useMessage,

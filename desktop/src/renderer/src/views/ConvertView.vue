@@ -378,10 +378,12 @@ async function renderSvg(): Promise<void> {
   try {
     const result = await renderApi.jianpuSvg({
       musicxml_file_id: store.musicxmlFileId,
+      page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
       start_measure_number: settings.startMeasureNumber ?? undefined,
     })
     store.setSvg(result.svg_file_id)
+    finalSvgFileId.value = result.svg_file_id
     log.addLog('已渲染 SVG')
     message.success('渲染完成')
   } catch (e: unknown) {

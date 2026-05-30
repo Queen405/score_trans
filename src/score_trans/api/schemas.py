@@ -50,6 +50,7 @@ class JianpuToMusicXmlResponse(BaseModel):
 
 class RenderJianpuSvgRequest(BaseModel):
     musicxml_file_id: str
+    page_image_file_id: str | None = None
     target_key: str = "C"
     start_measure_number: int | None = None
     title: str | None = None
@@ -127,6 +128,9 @@ class SettingsResponse(BaseModel):
     ocr_api_key_set: bool = False
     ocr_base_url: str = "https://api.siliconflow.cn/v1"
     ocr_model: str = "deepseek-ai/DeepSeek-OCR"
+    omr_preprocess: bool = True
+    omr_preprocess_long_edge: int = 3600
+    omr_preprocess_binarize: bool = False
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -137,6 +141,9 @@ class SettingsUpdateRequest(BaseModel):
     ocr_api_key: str | None = None
     ocr_base_url: str | None = None
     ocr_model: str | None = None
+    omr_preprocess: bool | None = None
+    omr_preprocess_long_edge: int | None = None
+    omr_preprocess_binarize: bool | None = None
 
 
 # ── SSE 进度 ──────────────────────────────────────────────────────────────────

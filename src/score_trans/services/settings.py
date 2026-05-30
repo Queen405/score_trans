@@ -17,6 +17,9 @@ class ToolConfig:
     musescore_path: str = ""
     java_home: str = ""
     work_dir: Path = Path("work")
+    omr_preprocess: bool = True
+    omr_preprocess_long_edge: int = 3600
+    omr_preprocess_binarize: bool = False
 
     @classmethod
     def from_env(cls) -> "ToolConfig":
@@ -34,4 +37,24 @@ class ToolConfig:
                 str(DEFAULT_JAVA_HOME) if (DEFAULT_JAVA_HOME / "bin" / "java.exe").exists() else "",
             ),
             work_dir=Path(os.environ.get("SCORE_TRANS_WORKDIR", str(PROJECT_ROOT / "work"))),
+            omr_preprocess=_env_bool("SCORE_TRANS_OMR_PREPROCESS", True),
+            omr_preprocess_long_edge=_env_int("SCORE_TRANS_OMR_PREPROCESS_LONG_EDGE", 3600),
+            omr_preprocess_binarize=_env_bool("SCORE_TRANS_OMR_PREPROCESS_BINARIZE", False),
         )
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in {"0", "false", "no", "off", ""}
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return default

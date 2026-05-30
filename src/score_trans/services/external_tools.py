@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from dataclasses import dataclass
 from pathlib import Path
 
+from .image_preprocessing import prepare_omr_input
 from .settings import ToolConfig
 
 
@@ -48,6 +49,7 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
     input_file = input_file.resolve()
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    omr_input = prepare_omr_input(input_file, output_dir, config)
 
     audiveris_path = Path(config.audiveris_path)
     env = _java_env(config)
@@ -55,7 +57,7 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
         args = [
             str(audiveris_path),
             ":app:run",
-            f"-PcmdLineArgs=-batch,-export,-output,{output_dir},{input_file}",
+            f"-PcmdLineArgs=-batch,-export,-output,{output_dir},{omr_input}",
         ]
         _run(args, cwd=audiveris_path.parent, env=env)
     else:
@@ -65,7 +67,7 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
             "-export",
             "-output",
             str(output_dir),
-            str(input_file),
+            str(omr_input),
         ]
         _run(args, env=env)
 

@@ -7,7 +7,7 @@ name = "score-trans"
 version = "0.1.0"
 description = "Staff notation and Jianpu conversion backend for the Electron desktop app"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
+dependencies = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "pillow>=10.0"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
