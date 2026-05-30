@@ -1,138 +1,128 @@
 <template>
-  <div class="convert-view">
-    <section class="toolbar panel">
-      <div class="panel-head">
-        <div>
-          <h3>对照编辑工作区</h3>
-          <p>从识别到回转，统一在同一画布完成</p>
-        </div>
-        <div class="page-switcher" v-if="store.pageCount">
-          <n-button size="small" secondary :disabled="!store.canPrevPage || store.isBusy" @click="store.prevPage()">
-            上一页
+  <div class="workspace">
+    <div :class="['ws-history', { open: historyOpen }]">
+      <div class="ws-hist-head">
+        <span class="ws-hist-title">历史</span>
+        <div class="ws-hist-actions">
+          <n-button size="tiny" quaternary @click="loadHistory" :loading="histLoading">
+            <template #icon><n-icon size="14"><RefreshOutline /></n-icon></template>
           </n-button>
-          <n-tag size="small" round :bordered="false" type="info">
-            第 {{ store.currentPageIndex + 1 }} / {{ store.pageCount }} 页
-          </n-tag>
-          <n-button size="small" secondary :disabled="!store.canNextPage || store.isBusy" @click="store.nextPage()">
-            下一页
-          </n-button>
+          <n-popconfirm @positive-click="handleDeleteAll" :show-icon="false">
+            <template #trigger>
+              <n-button size="tiny" quaternary type="error" :disabled="!histEntries.length">
+                <template #icon><n-icon size="14"><TrashOutline /></n-icon></template>
+              </n-button>
+            </template>
+            确定删除所有历史记录？
+          </n-popconfirm>
         </div>
       </div>
-      <n-space :size="10" wrap class="toolbar-actions">
-        <n-button
-          class="tool-btn"
-          type="primary"
-          @click="musicxmlToJianpu"
-          :loading="store.isBusy"
-          :disabled="!store.hasMusicxml"
-          size="large"
-        >
-          <template #icon><n-icon><ArrowForwardOutline /></n-icon></template>
-          MusicXML → 简谱
-        </n-button>
-        <n-button
-          class="tool-btn"
-          @click="jianpuToMusicxml"
-          :loading="store.isBusy"
-          :disabled="!jianpuText"
-          size="large"
-          secondary
-        >
-          <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
-          简谱 → MusicXML
-        </n-button>
-        <n-button
-          class="tool-btn"
-          @click="saveJianpu"
-          :disabled="!store.jianpuText && !store.pages.some((p) => !!p.jianpuText)"
-          size="large"
-          secondary
-        >
-          <template #icon><n-icon><DownloadOutline /></n-icon></template>
-          {{ store.pageCount > 1 ? '保存全部简谱' : '保存简谱' }}
-        </n-button>
-        <n-button
-          class="tool-btn"
-          type="info"
-          @click="renderSvg"
-          :loading="store.isBusy"
-          :disabled="!store.hasMusicxml"
-          size="large"
-          secondary
-        >
-          <template #icon><n-icon><ImageOutline /></n-icon></template>
-          导出 SVG
-        </n-button>
-      </n-space>
-    </section>
+      <div class="ws-hist-body">
+        <div v-if="!histLoading && !histEntries.length" class="hist-empty">
+          <span>暂无记录</span>
+        </div>
+        <div v-for="entry in histEntries" :key="entry.id" class="hist-item" @click="handleRestore(entry)">
+          <div class="hist-item-top">
+            <span :class="['hist-dot', entry.status === 'completed' ? 'ok' : 'err']" />
+            <span class="hist-item-name">{{ entry.input_file_name || '未知' }}</span>
+          </div>
+          <div class="hist-item-meta">
+            <span>{{ formatTime(entry.created_at) }}</span>
+            <span :class="entry.status">{{ entry.status === 'completed' ? '成功' : '失败' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <section class="editor-layout">
-      <article class="left-panel">
-        <n-card
-          :title="store.originalFileName ? `原始五线谱 · ${store.originalFileName}` : '原始五线谱'"
-          size="small"
-          class="panel-card"
-          :bordered="false"
-        >
-          <original-preview
-            :file-id="store.originalFileId"
-            :file-name="store.originalFileName"
-          />
-          <template #footer>
-            <span class="panel-footnote">原图按容器自动缩放，完整可见</span>
-          </template>
-        </n-card>
+    <div class="ws-main">
+      <div class="ws-toolbar">
+        <div class="ws-toolbar-left">
+          <button class="hist-toggle" title="历史记录" @click="toggleHistory">
+            <n-icon size="16"><TimeOutline /></n-icon>
+          </button>
+          <div v-if="store.pageCount" class="page-nav">
+            <n-button size="small" quaternary :disabled="!store.canPrevPage || store.isBusy" @click="store.prevPage()">
+              <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
+            </n-button>
+            <span class="page-indicator">{{ store.currentPageIndex + 1 }} / {{ store.pageCount }}</span>
+            <n-button size="small" quaternary :disabled="!store.canNextPage || store.isBusy" @click="store.nextPage()">
+              <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
+            </n-button>
+          </div>
+        </div>
+        <div class="ws-toolbar-right">
+          <n-button size="small" @click="musicxmlToJianpu" :loading="store.isBusy" :disabled="!store.hasMusicxml" type="primary">
+            <template #icon><n-icon><ArrowForwardOutline /></n-icon></template>
+            XML → 简谱
+          </n-button>
+          <n-button size="small" @click="jianpuToMusicxml" :loading="store.isBusy" :disabled="!jianpuText" secondary>
+            <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
+            简谱 → XML
+          </n-button>
+          <n-button size="small" @click="saveJianpu" :disabled="!store.jianpuText && !store.pages.some((p) => !!p.jianpuText)" secondary>
+            <template #icon><n-icon><DownloadOutline /></n-icon></template>
+            保存
+          </n-button>
+          <n-button size="small" @click="renderSvg" :loading="store.isBusy" :disabled="!store.hasMusicxml" secondary>
+            <template #icon><n-icon><ImageOutline /></n-icon></template>
+            SVG
+          </n-button>
+          <div class="toolbar-sep" />
+          <n-button size="small" @click="saveMusicxml" :disabled="!store.hasMusicxml" secondary>
+            <template #icon><n-icon><DocumentTextOutline /></n-icon></template>
+            MusicXML
+          </n-button>
+          <n-button size="small" type="primary" @click="exportScore" :loading="store.isBusy" :disabled="!store.hasMusicxml">
+            <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
+            导出
+          </n-button>
+          <n-select v-model:value="exportFormat" :options="formatOptions" size="small" style="width: 96px" />
+        </div>
+      </div>
 
-      </article>
+      <div class="ws-layout">
+        <div class="ws-panel ws-left">
+          <div class="ws-panel-head">
+            <span>原始五线谱</span>
+            <span v-if="store.originalFileName" class="panel-filename">{{ store.originalFileName }}</span>
+          </div>
+          <div class="ws-panel-body">
+            <original-preview :file-id="store.originalFileId" :file-name="store.originalFileName" />
+          </div>
+        </div>
 
-      <article class="right-panel">
-        <n-card
-          :title="isViewingFinal ? '最终渲染' : '简谱编辑'"
-          size="small"
-          class="panel-card"
-          :bordered="false"
-        >
-          <template #header-extra>
-            <n-button
-              size="small"
-              class="toggle-btn"
-              @click="toggleFinalView"
-              :loading="isRenderingFinal"
-              :disabled="store.isBusy || (!store.hasMusicxml && !jianpuText)"
-              secondary
-              round
-            >
+        <div class="ws-panel ws-right">
+          <div class="ws-panel-head">
+            <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
+            <n-button size="tiny" quaternary @click="toggleFinalView" :loading="isRenderingFinal" :disabled="store.isBusy || (!store.hasMusicxml && !jianpuText)">
               {{ isViewingFinal ? '编辑' : '渲染' }}
             </n-button>
-          </template>
-
-          <svg-preview
-            v-if="isViewingFinal && finalSvgFileId"
-            :svg-file-id="finalSvgFileId"
-          />
-          <div v-else-if="isViewingFinal" class="empty-hint">
-            <n-icon size="40" :depth="3"><ImageOutline /></n-icon>
-            <n-text depth="3">暂无渲染结果</n-text>
           </div>
-          <jianpu-editor v-else v-model="jianpuText" />
-          <template #footer>
-            <span class="panel-footnote">{{ isViewingFinal ? '渲染结果自动适配，无需滚动' : '编辑区按工作区高度自动铺满' }}</span>
-          </template>
-        </n-card>
-      </article>
-    </section>
-
+          <div class="ws-panel-body">
+            <svg-preview v-if="isViewingFinal && finalSvgFileId" :svg-file-id="finalSvgFileId" />
+            <div v-else-if="isViewingFinal" class="empty-hint">
+              <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
+              <span>暂无渲染</span>
+            </div>
+            <jianpu-editor v-else v-model="jianpuText" />
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
-import { ApiError } from '../api/client'
+import { exportApi } from '../api/export'
+import { historyApi } from '../api/history'
+import { ApiError, getFileURL, fileExists } from '../api/client'
+import type { HistoryEntry } from '../models/types'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
@@ -141,8 +131,15 @@ import {
   ArrowBackOutline,
   DownloadOutline,
   ImageOutline,
+  ChevronBackOutline,
+  ChevronForwardOutline,
+  DocumentTextOutline,
+  CloudDownloadOutline,
+  TimeOutline,
+  RefreshOutline,
+  TrashOutline,
 } from '@vicons/ionicons5'
-import { NSpace, NButton, NCard, NIcon, useMessage } from 'naive-ui'
+import { NButton, NSelect, NIcon, NPopconfirm, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const settings = useSettingsStore()
@@ -153,25 +150,123 @@ const jianpuText = ref(store.jianpuText)
 const isViewingFinal = ref(false)
 const isRenderingFinal = ref(false)
 const finalSvgFileId = ref(store.svgFileId)
+const exportFormat = ref('pdf')
+const formatOptions = [
+  { label: 'PDF', value: 'pdf' },
+  { label: 'PNG', value: 'png' },
+  { label: 'MIDI', value: 'mid' },
+]
+
+const historyOpen = ref(false)
+const histEntries = ref<HistoryEntry[]>([])
+const histLoading = ref(false)
 
 watch(() => store.jianpuText, (v) => { jianpuText.value = v })
 watch(jianpuText, (v) => { store.setJianpu(v) })
 watch(() => store.svgFileId, (v) => { finalSvgFileId.value = v })
 
-function resolveMissingFileId(message: string): string | null {
-  const match = message.match(/文件不存在[:：]\s*([A-Za-z0-9_-]+)/)
+onMounted(() => loadHistory())
+
+function toggleHistory() {
+  historyOpen.value = !historyOpen.value
+  if (historyOpen.value) loadHistory()
+}
+
+async function loadHistory(): Promise<void> {
+  histLoading.value = true
+  try {
+    histEntries.value = await historyApi.list()
+  } catch (e: unknown) {
+    log.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`)
+  } finally {
+    histLoading.value = false
+  }
+}
+
+async function handleDelete(id: number): Promise<void> {
+  await historyApi.deleteOne(id)
+  histEntries.value = histEntries.value.filter((e) => e.id !== id)
+}
+
+async function handleDeleteAll(): Promise<void> {
+  await historyApi.deleteAll()
+  histEntries.value = []
+  message.success('已清空')
+}
+
+async function handleRestore(entry: HistoryEntry): Promise<void> {
+  const warnings: string[] = []
+  if (entry.input_file_id) {
+    if (await fileExists(entry.input_file_id)) store.setInputFile(entry.input_file_name, entry.input_file_id)
+    else warnings.push('原始文件已失效')
+  }
+  if (entry.musicxml_file_id) {
+    if (await fileExists(entry.musicxml_file_id)) store.setMusicxml(entry.musicxml_file_id, '')
+    else { store.setMusicxml('', ''); warnings.push('MusicXML 已失效') }
+  }
+  if (entry.jianpu_text) store.setJianpu(entry.jianpu_text)
+  if (entry.svg_file_id) {
+    if (await fileExists(entry.svg_file_id)) store.setSvg(entry.svg_file_id)
+    else { store.setSvg(''); warnings.push('SVG 已失效') }
+  }
+  if (entry.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(entry.input_file_name)) {
+    if (await fileExists(entry.input_file_id)) store.setOriginalFile(entry.input_file_name, entry.input_file_id)
+    else store.clearOriginalFile()
+  } else store.clearOriginalFile()
+  if (warnings.length) { message.warning(warnings.join('，')); return }
+  message.success('已恢复')
+}
+
+function formatTime(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso.replace(' ', 'T'))
+  if (isNaN(d.getTime())) return iso
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+function resolveMissingFileId(msg: string): string | null {
+  const match = msg.match(/文件不存在[:：]\s*([A-Za-z0-9_-]+)/)
   return match?.[1] ?? null
 }
 
 function handleMissingMusicxml(errorMessage: string): string {
   const missingId = resolveMissingFileId(errorMessage)
-  if (!missingId || missingId !== store.musicxmlFileId) {
-    return errorMessage
-  }
-
+  if (!missingId || missingId !== store.musicxmlFileId) return errorMessage
   store.setMusicxml('', store.musicxmlText)
   finalSvgFileId.value = ''
-  return '当前 MusicXML 引用已失效，请回到“识别”页重新识别或重新打开 MusicXML 文件。'
+  return '当前 MusicXML 引用已失效，请回到"识别"页重新识别。'
+}
+
+function saveMusicxml(): void {
+  const url = getFileURL(store.musicxmlFileId)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'score.musicxml'
+  a.click()
+  log.addLog('已保存 MusicXML')
+}
+
+async function exportScore(): Promise<void> {
+  store.setBusy(true)
+  try {
+    const result = await exportApi.exportScore({
+      musicxml_file_id: store.musicxmlFileId,
+      output_format: exportFormat.value as 'pdf' | 'png' | 'mid',
+    })
+    const url = exportApi.getDownloadURL(result.file_id)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = result.filename
+    a.click()
+    log.addLog(`导出完成：${result.filename}`)
+    message.success('导出完成')
+  } catch (e: unknown) {
+    log.addError(`导出失败：${e instanceof Error ? e.message : String(e)}`)
+    message.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    store.setBusy(false)
+  }
 }
 
 async function musicxmlToJianpu(): Promise<void> {
@@ -214,28 +309,12 @@ async function jianpuToMusicxml(): Promise<void> {
 
 function saveJianpu(): void {
   const allTexts = store.pages
-    .map((page, index) => ({
-      index,
-      name: page.inputFileName || `page-${index + 1}`,
-      text: page.jianpuText,
-    }))
+    .map((page, index) => ({ index, name: page.inputFileName || `page-${index + 1}`, text: page.jianpuText }))
     .filter((entry) => entry.text.trim().length > 0)
-
-  const payload =
-    allTexts.length > 1
-      ? allTexts
-          .map(
-            (entry) =>
-              `# Page ${entry.index + 1}: ${entry.name}\n${entry.text.trim()}`,
-          )
-          .join('\n\n')
-      : (store.jianpuText || allTexts[0]?.text || '').trim()
-
-  if (!payload) {
-    message.warning('暂无可保存的简谱内容')
-    return
-  }
-
+  const payload = allTexts.length > 1
+    ? allTexts.map((entry) => `# Page ${entry.index + 1}: ${entry.name}\n${entry.text.trim()}`).join('\n\n')
+    : (store.jianpuText || allTexts[0]?.text || '').trim()
+  if (!payload) { message.warning('暂无可保存内容'); return }
   const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -243,7 +322,7 @@ function saveJianpu(): void {
   a.download = allTexts.length > 1 ? 'jianpu_pages.txt' : 'jianpu.txt'
   a.click()
   URL.revokeObjectURL(url)
-  log.addLog(allTexts.length > 1 ? `已保存 ${allTexts.length} 页简谱文本` : '已保存简谱文本')
+  log.addLog('已保存简谱')
   message.success('已保存')
 }
 
@@ -256,7 +335,7 @@ async function renderSvg(): Promise<void> {
       start_measure_number: settings.startMeasureNumber ?? undefined,
     })
     store.setSvg(result.svg_file_id)
-    log.addLog('已渲染简谱 SVG')
+    log.addLog('已渲染 SVG')
     message.success('渲染完成')
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
@@ -269,11 +348,7 @@ async function renderSvg(): Promise<void> {
 }
 
 async function toggleFinalView(): Promise<void> {
-  if (isViewingFinal.value) {
-    isViewingFinal.value = false
-    return
-  }
-
+  if (isViewingFinal.value) { isViewingFinal.value = false; return }
   isRenderingFinal.value = true
   store.setBusy(true)
   try {
@@ -284,19 +359,14 @@ async function toggleFinalView(): Promise<void> {
           target_key: settings.targetKey,
           start_measure_number: settings.startMeasureNumber ?? undefined,
         })
-      : await renderApi.jianpuTextSvg({
-          jianpu_text: jianpuText.value,
-          title: '简谱',
-        })
-
+      : await renderApi.jianpuTextSvg({ jianpu_text: jianpuText.value, title: '简谱' })
     finalSvgFileId.value = result.svg_file_id
     store.setSvg(result.svg_file_id)
     isViewingFinal.value = true
-    log.addLog(store.hasMusicxml ? '已生成最终渲染 SVG' : '已从简谱文本渲染 SVG')
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
-    log.addError(`最终渲染失败：${msg}`)
+    log.addError(`渲染失败：${msg}`)
     message.error(msg)
   } finally {
     store.setBusy(false)
@@ -306,190 +376,245 @@ async function toggleFinalView(): Promise<void> {
 </script>
 
 <style scoped>
-.convert-view {
+.workspace {
   height: 100%;
+  display: flex;
   min-height: 0;
+  overflow: hidden;
+}
+
+.ws-history {
+  width: 0;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-elevated);
+  overflow: hidden;
+  transition: width 0.2s ease;
 }
 
-.panel {
-  border: 1px solid rgba(129, 161, 193, 0.24);
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.76), rgba(236, 239, 244, 0.68));
-  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
-  border-radius: 18px;
-  padding: 16px;
-  backdrop-filter: blur(10px);
+.ws-history.open {
+  width: 240px;
 }
 
-.panel-head {
+.ws-hist-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
-.page-switcher {
-  display: inline-flex;
+.ws-hist-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ws-hist-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.ws-hist-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.hist-empty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.hist-item {
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.hist-item:hover {
+  background: var(--accent-light);
+}
+
+.hist-item-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.hist-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hist-dot.ok { background: var(--success); }
+.hist-dot.err { background: var(--danger); }
+
+.hist-item-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hist-item-meta {
+  display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 10px;
+  color: var(--text-tertiary);
 }
 
-.panel-head h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #2e3440;
+.hist-item-meta .completed { color: var(--success); }
+.hist-item-meta .:not(.completed) { color: var(--danger); }
+
+.ws-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
-.panel-head p {
-  margin: 3px 0 0;
+.ws-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.ws-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ws-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.hist-toggle {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hist-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.page-indicator {
   font-size: 12px;
-  color: #5f6879;
+  color: var(--text-tertiary);
+  min-width: 36px;
+  text-align: center;
 }
 
-.toolbar-actions {
-  width: 100%;
-}
-
-.tool-btn {
-  min-width: 138px;
-  border-radius: 12px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.tool-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 18px 34px -28px rgba(46, 52, 64, 0.9);
-}
-
-.editor-layout {
+.ws-layout {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(380px, 1fr) minmax(380px, 1fr);
-  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-.left-panel {
-  min-width: 340px;
-  display: flex;
-}
-
-.right-panel {
-  min-width: 340px;
-  display: flex;
-}
-
-.panel-card {
-  height: 100%;
-  min-height: 0;
-  width: 100%;
-  border-radius: 18px;
-  border: 1px solid rgba(129, 161, 193, 0.24);
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.74), rgba(236, 239, 244, 0.64));
-  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
-}
-
-.panel-card :deep(.n-card__content) {
-  height: 100%;
-  min-height: 0;
+.ws-panel {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  overflow: hidden;
 }
 
-.panel-card :deep(.n-card__footer) {
-  padding-top: 8px;
+.ws-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
-.panel-footnote {
-  font-size: 12px;
-  color: #5f6879;
+.panel-filename {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: none;
 }
 
-.toggle-btn {
-  border-radius: 999px;
-}
-
-.xml-preview {
-  max-height: 320px;
-  overflow-y: auto;
-  font-size: 12px;
+.ws-panel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: 6px;
 }
 
 .empty-hint {
   flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 40px 0;
-  text-align: center;
-}
-.slide-fade-enter-active {
-  transition: all 0.35s ease-out;
-}
-.slide-fade-leave-active {
-  transition: all 0.2s ease-in;
-}
-.slide-fade-enter-from {
-  transform: translateY(10px);
-  opacity: 0;
-}
-.slide-fade-leave-to {
-  opacity: 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
 }
 
-:global(body.n-theme-dark) .panel,
-:global(body.n-theme-dark) .panel-card {
-  border-color: rgba(129, 161, 193, 0.35);
-  background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.8));
-  box-shadow: 0 34px 70px -56px rgba(0, 0, 0, 0.95);
-}
-
-:global(body.n-theme-dark) .panel-head h3 {
-  color: #eceff4;
-}
-
-:global(body.n-theme-dark) .panel-head p {
-  color: #c7cfdd;
-}
-
-:global(body.n-theme-dark) .panel-footnote {
-  color: #c7cfdd;
-}
-
-@media (max-width: 1100px) {
-  .editor-layout {
+@media (max-width: 900px) {
+  .ws-layout {
     grid-template-columns: 1fr;
-    overflow-y: auto;
   }
 
-  .left-panel,
-  .right-panel {
-    min-width: 0;
-  }
-
-  .panel-card {
-    min-height: 360px;
-  }
-}
-
-@media (max-width: 920px) {
-  .panel-head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .page-switcher {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .tool-btn {
-    min-width: 100%;
+  .ws-history.open {
+    width: 200px;
   }
 }
 </style>

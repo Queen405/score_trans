@@ -1,100 +1,72 @@
 <template>
   <div class="settings-view">
-    <n-card title="外部工具配置" :bordered="false" class="settings-card">
-      <n-form label-placement="left" label-width="140" size="large">
-        <div class="panel-head">
-          <h3>系统参数中心</h3>
-          <p>调整识别引擎、导出路径与 OCR 服务参数</p>
-        </div>
+    <h2>设置</h2>
+    <p class="subtitle">调整识别引擎、导出路径与 OCR 服务参数</p>
 
-        <n-form-item label="Audiveris 路径">
-          <n-input
-            v-model:value="settings.audiverisPath"
-            placeholder="audiveris 或 gradlew.bat 路径"
-          >
-            <template #prefix><n-icon><TerminalOutline /></n-icon></template>
-          </n-input>
-        </n-form-item>
-        <n-form-item label="MuseScore 路径">
-          <n-input
-            v-model:value="settings.musescorePath"
-            placeholder="musescore 或 MuseScore4.exe 路径"
-          >
-            <template #prefix><n-icon><MusicalNotesOutline /></n-icon></template>
-          </n-input>
-        </n-form-item>
-        <n-form-item label="JDK / JAVA_HOME">
-          <n-input v-model:value="settings.javaHome" placeholder="JDK 25 路径">
-            <template #prefix><n-icon><CodeOutline /></n-icon></template>
-          </n-input>
-        </n-form-item>
+    <div class="sv-section">
+      <div class="sv-section-title">外部工具</div>
+      <div class="sv-grid">
+        <label>Audiveris 路径</label>
+        <n-input v-model:value="settings.audiverisPath" placeholder="audiveris 或 gradlew.bat 路径" size="small">
+          <template #prefix><n-icon size="14"><TerminalOutline /></n-icon></template>
+        </n-input>
 
-        <n-divider>转换设置</n-divider>
+        <label>MuseScore 路径</label>
+        <n-input v-model:value="settings.musescorePath" placeholder="musescore 或 MuseScore4.exe 路径" size="small">
+          <template #prefix><n-icon size="14"><MusicalNotesOutline /></n-icon></template>
+        </n-input>
 
-        <n-form-item label="简谱调">
-          <n-input
-            v-model:value="settings.targetKey"
-            placeholder="C"
-            style="width: 100px"
-          />
-        </n-form-item>
-        <n-form-item label="起始小节号">
-          <n-input-number
-            v-model:value="settings.startMeasureNumber"
-            placeholder="留空使用原小节号"
-            clearable
-            style="width: 180px"
-          />
-        </n-form-item>
-        <n-form-item label="默认导出路径">
-          <n-input-group>
-            <n-input
-              v-model:value="settings.outputDir"
-              placeholder="留空则每次手动选择"
-            />
-            <n-button @click="selectOutputDir" secondary>浏览</n-button>
-          </n-input-group>
-        </n-form-item>
+        <label>JDK / JAVA_HOME</label>
+        <n-input v-model:value="settings.javaHome" placeholder="JDK 25 路径" size="small">
+          <template #prefix><n-icon size="14"><CodeOutline /></n-icon></template>
+        </n-input>
+      </div>
+    </div>
 
-        <n-divider>OCR 设置</n-divider>
+    <div class="sv-section">
+      <div class="sv-section-title">转换设置</div>
+      <div class="sv-grid">
+        <label>简谱调</label>
+        <n-input v-model:value="settings.targetKey" placeholder="C" size="small" style="width: 80px" />
 
-        <n-form-item label="OCR API Key">
-          <n-input
-            v-model:value="settings.ocrApiKey"
-            type="password"
-            show-password-on="click"
-            :placeholder="settings.ocrApiKeySet ? '已保存（留空则不更新）' : 'SCORE_TRANS_OCR_API_KEY'"
-          >
-            <template #prefix><n-icon><KeyOutline /></n-icon></template>
-          </n-input>
-        </n-form-item>
-        <n-form-item label="OCR Base URL">
-          <n-input
-            v-model:value="settings.ocrBaseUrl"
-            placeholder="https://api.siliconflow.cn/v1"
-          >
-            <template #prefix><n-icon><GlobeOutline /></n-icon></template>
-          </n-input>
-        </n-form-item>
-        <n-form-item label="OCR 模型">
-          <n-input
-            v-model:value="settings.ocrModel"
-            placeholder="deepseek-ai/DeepSeek-OCR"
-          >
-            <template #prefix><n-icon><HardwareChipOutline /></n-icon></template>
-          </n-input>
-        </n-form-item>
+        <label>起始小节号</label>
+        <n-input-number v-model:value="settings.startMeasureNumber" placeholder="留空" clearable size="small" style="width: 140px" />
 
-        <n-form-item>
-          <n-space>
-            <n-button type="primary" @click="save" size="large">
-              <template #icon><n-icon><SaveOutline /></n-icon></template>
-              保存配置
-            </n-button>
-          </n-space>
-        </n-form-item>
-      </n-form>
-    </n-card>
+        <label>默认导出路径</label>
+        <n-input v-model:value="settings.outputDir" placeholder="留空则每次手动选择" size="small">
+          <template #suffix>
+            <n-button size="tiny" quaternary @click="selectOutputDir">浏览</n-button>
+          </template>
+        </n-input>
+      </div>
+    </div>
+
+    <div class="sv-section">
+      <div class="sv-section-title">OCR 设置</div>
+      <div class="sv-grid">
+        <label>API Key</label>
+        <n-input v-model:value="settings.ocrApiKey" type="password" show-password-on="click" :placeholder="settings.ocrApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
+          <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+        </n-input>
+
+        <label>Base URL</label>
+        <n-input v-model:value="settings.ocrBaseUrl" placeholder="https://api.siliconflow.cn/v1" size="small">
+          <template #prefix><n-icon size="14"><GlobeOutline /></n-icon></template>
+        </n-input>
+
+        <label>模型</label>
+        <n-input v-model:value="settings.ocrModel" placeholder="deepseek-ai/DeepSeek-OCR" size="small">
+          <template #prefix><n-icon size="14"><HardwareChipOutline /></n-icon></template>
+        </n-input>
+      </div>
+    </div>
+
+    <div class="sv-footer">
+      <n-button type="primary" @click="save">
+        <template #icon><n-icon><SaveOutline /></n-icon></template>
+        保存配置
+      </n-button>
+    </div>
   </div>
 </template>
 
@@ -112,15 +84,9 @@ import {
   CodeOutline,
 } from '@vicons/ionicons5'
 import {
-  NCard,
-  NForm,
-  NFormItem,
   NInput,
-  NInputGroup,
   NInputNumber,
   NButton,
-  NSpace,
-  NDivider,
   NIcon,
   useMessage,
 } from 'naive-ui'
@@ -145,52 +111,70 @@ async function save(): Promise<void> {
 
 function selectOutputDir(): void {
   const path = prompt('请输入导出路径：', settings.outputDir)
-  if (path !== null) {
-    settings.outputDir = path
-  }
+  if (path !== null) settings.outputDir = path
 }
 </script>
 
 <style scoped>
 .settings-view {
-  max-width: 800px;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
-.settings-card {
-  border-radius: 18px;
-  border: 1px solid rgba(129, 161, 193, 0.24);
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.76), rgba(236, 239, 244, 0.68));
-  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
-  backdrop-filter: blur(10px);
-}
-
-.panel-head {
-  margin-bottom: 14px;
-}
-
-.panel-head h3 {
+.settings-view h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
   margin: 0;
-  font-size: 19px;
-  color: #2e3440;
 }
 
-.panel-head p {
-  margin: 5px 0 0;
+.subtitle {
   font-size: 13px;
-  color: #5f6879;
+  color: var(--text-tertiary);
+  margin: 4px 0 20px;
 }
 
-:global(body.n-theme-dark) .settings-card {
-  border-color: rgba(129, 161, 193, 0.35);
-  background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.8));
-  box-shadow: 0 34px 70px -56px rgba(0, 0, 0, 0.95);
+.sv-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
 }
 
-:global(body.n-theme-dark) .panel-head h3 {
-  color: #eceff4;
+.sv-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
 }
 
-:global(body.n-theme-dark) .panel-head p {
-  color: #c7cfdd;
+.sv-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px 12px;
+  align-items: center;
+}
+
+.sv-grid label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.sv-footer {
+  margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+  .sv-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sv-grid label {
+    text-align: left;
+  }
 }
 </style>

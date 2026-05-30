@@ -1,133 +1,89 @@
 <template>
   <div class="recognize-view">
-    <n-card class="upload-card" :bordered="false">
-      <div class="panel-head">
-        <div>
-          <h3>智能识别入口</h3>
-          <p>上传扫描页，快速得到 MusicXML 与简谱成果</p>
-        </div>
-        <div class="page-switcher" v-if="store.pageCount">
-          <n-button size="small" secondary :disabled="!store.canPrevPage || store.isBusy" @click="store.prevPage()">
-            上一页
-          </n-button>
-          <n-tag size="small" :bordered="false" round>
-            第 {{ store.currentPageIndex + 1 }} / {{ store.pageCount }} 页
-          </n-tag>
-          <n-button size="small" secondary :disabled="!store.canNextPage || store.isBusy" @click="store.nextPage()">
-            下一页
-          </n-button>
-        </div>
+    <div class="rv-header">
+      <div class="rv-title">
+        <h2>智能识别</h2>
+        <p>上传乐谱图片或 PDF，快速得到简谱成果</p>
       </div>
-
-      <div class="upload-section">
-        <file-uploader :disabled="store.isBusy" @uploaded="onFileUploaded" />
+      <div v-if="store.pageCount" class="page-nav">
+        <n-button size="small" quaternary :disabled="!store.canPrevPage || store.isBusy" @click="store.prevPage()">
+          <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
+        </n-button>
+        <span class="page-indicator">{{ store.currentPageIndex + 1 }} / {{ store.pageCount }}</span>
+        <n-button size="small" quaternary :disabled="!store.canNextPage || store.isBusy" @click="store.nextPage()">
+          <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
+        </n-button>
       </div>
+    </div>
 
-      <n-progress
-        v-if="store.isBusy"
-        type="line"
-        :percentage="progressPercent"
-        :indicator-placement="'inside'"
-        processing
-        class="process-progress"
+    <file-uploader :disabled="store.isBusy" @uploaded="onFileUploaded" />
+
+    <n-progress
+      v-if="store.isBusy"
+      type="line"
+      :percentage="progressPercent"
+      :indicator-placement="'inside'"
+      processing
+      class="rv-progress"
+    >
+      {{ progressText }}
+    </n-progress>
+
+    <div class="rv-actions">
+      <n-button
+        type="primary"
+        @click="recognize"
+        :loading="store.isBusy"
+        :disabled="store.isBusy || !store.hasInput"
       >
-        {{ progressText }}
-      </n-progress>
+        <template #icon><n-icon><ScanOutline /></n-icon></template>
+        识别并自动填充
+      </n-button>
+      <n-button
+        @click="recognizeAllPages"
+        :loading="store.isBusy"
+        :disabled="store.isBusy || !store.pageCount"
+        secondary
+      >
+        <template #icon><n-icon><FlashOutline /></n-icon></template>
+        批量识别全部
+      </n-button>
+    </div>
 
-      <n-space class="action-bar" :size="10" wrap>
-        <n-button
-          class="action-btn"
-          type="primary"
-          @click="recognize"
-          :loading="store.isBusy"
-          :disabled="store.isBusy || !store.hasInput"
-          size="large"
-        >
-          <template #icon><n-icon><ScanOutline /></n-icon></template>
-          识别并自动填充对照编辑
-        </n-button>
-        <n-button
-          class="action-btn"
-          type="info"
-          @click="recognizeAllPages"
-          :loading="store.isBusy"
-          :disabled="store.isBusy || !store.pageCount"
-          size="large"
-        >
-          <template #icon><n-icon><FlashOutline /></n-icon></template>
-          批量识别全部页面
-        </n-button>
-      </n-space>
-
-      <transition name="fade">
-        <div v-if="store.pages.length" class="pages-gallery">
-          <div
-            v-for="(page, index) in store.pages"
-            :key="page.id"
-            :class="['page-thumb', { active: index === store.currentPageIndex }]"
-            @click="store.selectPage(index)"
-          >
-            <button
-              class="page-thumb-remove"
-              type="button"
-              aria-label="删除"
-              @click.stop="removePage(index)"
-            >
-              <n-icon size="14"><CloseOutline /></n-icon>
-            </button>
-            <div class="page-thumb-preview">
-              <img
-                v-if="isPreviewableOriginal(page.inputFileName)"
-                :src="getFileURL(page.inputFileId)"
-                :alt="page.inputFileName"
-                class="page-thumb-img"
-              />
-              <div v-else class="page-thumb-placeholder">
-                <n-icon size="22"><DocumentAttachOutline /></n-icon>
-              </div>
-            </div>
-            <div class="page-thumb-info">
-              <span class="page-thumb-name" :title="page.inputFileName">{{ page.inputFileName }}</span>
-              <n-tag
-                v-if="page.status === 'completed'"
-                size="tiny"
-                type="success"
-                :bordered="false"
-                round
-              >完成</n-tag>
-              <n-tag
-                v-else-if="page.status === 'failed'"
-                size="tiny"
-                type="error"
-                :bordered="false"
-                round
-              >失败</n-tag>
-              <n-tag
-                v-else-if="page.status === 'processing'"
-                size="tiny"
-                type="warning"
-                :bordered="false"
-                round
-              >处理中</n-tag>
-            </div>
-          </div>
+    <div v-if="store.pages.length" class="pages-strip">
+      <div
+        v-for="(page, index) in store.pages"
+        :key="page.id"
+        :class="['page-card', { active: index === store.currentPageIndex }]"
+        @click="store.selectPage(index)"
+      >
+        <button class="page-del" type="button" @click.stop="removePage(index)">
+          <n-icon size="12"><CloseOutline /></n-icon>
+        </button>
+        <div class="page-thumb">
+          <img
+            v-if="isPreviewable(page.inputFileName)"
+            :src="getFileURL(page.inputFileId)"
+            :alt="page.inputFileName"
+          />
+          <n-icon v-else size="20" class="page-icon"><DocumentOutline /></n-icon>
         </div>
-      </transition>
+        <div class="page-label">
+          <span class="page-name">{{ page.inputFileName }}</span>
+          <span :class="['page-status', page.status]">{{ statusText(page.status) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <n-card
+      v-if="store.musicxmlText"
+      title="MusicXML 预览"
+      size="small"
+      :bordered="true"
+      class="rv-preview"
+    >
+      <n-code :code="store.musicxmlText" language="xml" word-wrap />
     </n-card>
-
-    <transition name="slide-fade">
-      <n-card
-        v-if="store.musicxmlText"
-        title="MusicXML 预览"
-        class="preview-card"
-        :bordered="false"
-      >
-        <template #header-extra>
-          <n-tag size="small" :bordered="false" type="info">XML</n-tag>
-        </template>
-        <n-code :code="store.musicxmlText" language="xml" word-wrap />
-      </n-card>
-    </transition>
   </div>
 </template>
 
@@ -143,10 +99,12 @@ import FileUploader from '../components/FileUploader.vue'
 import {
   ScanOutline,
   FlashOutline,
-  CheckmarkCircleOutline,
   CloseOutline,
+  ChevronBackOutline,
+  ChevronForwardOutline,
+  DocumentOutline,
 } from '@vicons/ionicons5'
-import { NSpace, NButton, NTag, NCard, NCode, NIcon, NProgress, useMessage } from 'naive-ui'
+import { NButton, NTag, NCard, NCode, NIcon, NProgress, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const log = useLogStore()
@@ -155,17 +113,26 @@ const message = useMessage()
 const progressPercent = ref(0)
 const progressText = ref('等待开始')
 
+function isPreviewable(fileName: string): boolean {
+  return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
+}
+
+function statusText(status: string): string {
+  const map: Record<string, string> = { completed: '完成', failed: '失败', processing: '处理中', pending: '待处理' }
+  return map[status] ?? ''
+}
+
 function removePage(index: number): void {
   const page = store.pages[index]
   if (!page) return
   store.removePage(index)
-  log.addLog(`已移除页面：${page.inputFileName}`)
+  log.addLog(`已移除：${page.inputFileName}`)
 }
 
 async function onFileUploaded(fileId: string, fileName: string): Promise<void> {
   if (store.isBusy) return
   store.addInputPage(fileName, fileId)
-  log.addLog(`已加入页面：${fileName}`)
+  log.addLog(`已加入：${fileName}`)
 }
 
 function setProgress(percent: number, text: string): void {
@@ -182,7 +149,7 @@ async function runPipelineForPage(pageIndex: number): Promise<void> {
   const sourceFileId = page.inputFileId
   const sourceFileName = page.inputFileName
 
-  setProgress(8, `读取文件：${sourceFileName}`)
+  setProgress(8, `读取：${sourceFileName}`)
   const resp = await fetch(getFileURL(sourceFileId))
   const blob = await resp.blob()
 
@@ -193,14 +160,27 @@ async function runPipelineForPage(pageIndex: number): Promise<void> {
     settings.startMeasureNumber ?? undefined,
   )
 
-  setProgress(82, '写入对照编辑结果')
+  setProgress(82, '写入结果')
   store.setMusicxml(result.musicxml_file_id, '')
-  setRecognizedOriginal(sourceFileName, sourceFileId)
+  if (isPreviewable(sourceFileName)) {
+    store.setOriginalFile(sourceFileName, sourceFileId)
+  } else {
+    store.clearOriginalFile()
+  }
   store.setJianpu(result.jianpu_text)
   store.setSvg(result.svg_file_id)
   store.setCurrentPageStatus('completed')
 
-  await saveHistory(sourceFileName, sourceFileId, result.musicxml_file_id, result.jianpu_text, result.svg_file_id)
+  try {
+    await historyApi.create({
+      input_file_name: sourceFileName,
+      input_file_id: sourceFileId,
+      musicxml_file_id: result.musicxml_file_id,
+      jianpu_text: result.jianpu_text,
+      svg_file_id: result.svg_file_id,
+      status: 'completed',
+    })
+  } catch { /* ignore */ }
   log.addLog(`识别完成：${sourceFileName}`)
 }
 
@@ -212,8 +192,8 @@ async function recognize(): Promise<void> {
   try {
     setProgress(0, '准备识别')
     await runPipelineForPage(pageIndex)
-    setProgress(100, '识别完成')
-    message.success('已自动填充对照编辑并完成渲染')
+    setProgress(100, '完成')
+    message.success('识别完成')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     store.setCurrentPageStatus('failed', msg)
@@ -250,7 +230,7 @@ async function recognizeAllPages(): Promise<void> {
       setProgress(end, `已完成 ${i + 1} / ${indexes.length} 页`)
     }
     setProgress(100, '批量识别完成')
-    message.success('批量识别完成，请在对照编辑中翻页查看')
+    message.success('批量识别完成')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     log.addError(`批量识别失败：${msg}`)
@@ -259,285 +239,164 @@ async function recognizeAllPages(): Promise<void> {
     store.setBusy(false)
   }
 }
-
-function isPreviewableOriginal(fileName: string): boolean {
-  return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
-}
-
-function setRecognizedOriginal(fileName: string, fileId: string): void {
-  if (isPreviewableOriginal(fileName)) {
-    store.setOriginalFile(fileName, fileId)
-  } else {
-    store.clearOriginalFile()
-  }
-}
-
-async function saveHistory(
-  inputFileName: string,
-  inputFileId: string,
-  musicxmlFileId: string,
-  jianpuText: string,
-  svgFileId: string,
-): Promise<void> {
-  try {
-    await historyApi.create({
-      input_file_name: inputFileName,
-      input_file_id: inputFileId,
-      musicxml_file_id: musicxmlFileId,
-      jianpu_text: jianpuText,
-      svg_file_id: svgFileId,
-      status: 'completed',
-    })
-  } catch {
-    log.addLog('历史记录保存失败（不影响结果）')
-  }
-}
 </script>
 
 <style scoped>
 .recognize-view {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100%;
+  justify-content: center;
 }
 
-.upload-card {
-  border-radius: 18px;
-  border: 1px solid rgba(129, 161, 193, 0.24);
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.76), rgba(236, 239, 244, 0.68));
-  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
-  backdrop-filter: blur(10px);
-}
-
-.panel-head {
+.rv-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
 }
 
-.page-switcher {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.panel-head h3 {
+.rv-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
   margin: 0;
-  font-size: 19px;
-  color: #2e3440;
 }
 
-.panel-head p {
-  margin: 5px 0 0;
+.rv-header p {
   font-size: 13px;
-  color: #5f6879;
+  color: var(--text-tertiary);
+  margin: 4px 0 0;
 }
 
-.upload-section {
-  margin-bottom: 18px;
-}
-
-.action-bar {
-  margin-bottom: 10px;
-}
-
-.process-progress {
-  margin: 8px 0 14px;
-}
-
-.action-btn {
-  border-radius: 12px;
-  min-width: 168px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.action-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 18px 34px -28px rgba(46, 52, 64, 0.9);
-}
-
-.pages-gallery {
-  margin-top: 12px;
+.page-nav {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-indicator {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  min-width: 40px;
+  text-align: center;
+}
+
+.rv-progress {
+  margin: 0;
+}
+
+.rv-actions {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.page-thumb {
-  width: 120px;
+.pages-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.page-card {
+  width: 110px;
   position: relative;
   cursor: pointer;
-  border-radius: 12px;
-  border: 2px solid transparent;
-  background: rgba(216, 222, 233, 0.3);
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--bg-elevated);
   padding: 6px;
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.page-thumb:hover {
-  border-color: rgba(94, 129, 172, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px -10px rgba(46, 52, 64, 0.5);
+.page-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.page-thumb.active {
-  border-color: #5e81ac;
-  box-shadow: 0 8px 24px -12px rgba(94, 129, 172, 0.5);
+.page-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
-.page-thumb-remove {
+.page-del {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
   border: 0;
-  border-radius: 999px;
-  display: inline-flex;
+  border-radius: 50%;
+  background: var(--bg-base);
+  color: var(--text-tertiary);
+  display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #4c566a;
-  background: rgba(216, 222, 233, 0.85);
-  backdrop-filter: blur(4px);
   opacity: 0;
-  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
   z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.page-thumb:hover .page-thumb-remove {
+.page-card:hover .page-del {
   opacity: 1;
 }
 
-.page-thumb-remove:hover {
-  background: rgba(208, 48, 80, 0.9);
-  color: #ffffff;
+.page-del:hover {
+  background: var(--danger);
+  color: #fff;
 }
 
-.page-thumb-preview {
+.page-thumb {
   width: 100%;
-  height: 80px;
-  border-radius: 8px;
+  height: 64px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(216, 222, 233, 0.4);
+  background: var(--bg-surface);
 }
 
-.page-thumb-img {
+.page-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.page-thumb-placeholder {
-  color: #4c566a;
+.page-icon {
+  color: var(--text-tertiary);
 }
 
-.page-thumb-info {
-  margin-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  align-items: center;
-}
-
-.page-thumb-name {
-  font-size: 11px;
-  color: var(--text-soft, #4c566a);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+.page-label {
+  margin-top: 4px;
   text-align: center;
 }
 
-.preview-card {
-  border-radius: 18px;
-  border: 1px solid rgba(129, 161, 193, 0.24);
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.74), rgba(236, 239, 244, 0.64));
-  box-shadow: 0 30px 64px -54px rgba(46, 52, 64, 0.95);
+.page-name {
+  display: block;
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Transitions */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+.page-status {
+  font-size: 10px;
+  color: var(--text-tertiary);
 }
 
-.slide-fade-enter-active {
-  transition: all 0.35s ease-out;
-}
-.slide-fade-leave-active {
-  transition: all 0.2s ease-in;
-}
-.slide-fade-enter-from {
-  transform: translateY(10px);
-  opacity: 0;
-}
-.slide-fade-leave-to {
-  opacity: 0;
-}
+.page-status.completed { color: var(--success); }
+.page-status.failed { color: var(--danger); }
+.page-status.processing { color: var(--warning); }
 
-:global(body.n-theme-dark) .upload-card,
-:global(body.n-theme-dark) .preview-card {
-  border-color: rgba(129, 161, 193, 0.35);
-  background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.8));
-  box-shadow: 0 34px 70px -56px rgba(0, 0, 0, 0.95);
-}
-
-:global(body.n-theme-dark) .page-thumb {
-  background: rgba(59, 66, 82, 0.5);
-}
-
-:global(body.n-theme-dark) .page-thumb:hover {
-  border-color: rgba(136, 192, 208, 0.5);
-}
-
-:global(body.n-theme-dark) .page-thumb.active {
-  border-color: #88c0d0;
-}
-
-:global(body.n-theme-dark) .page-thumb-preview {
-  background: rgba(59, 66, 82, 0.6);
-}
-
-:global(body.n-theme-dark) .page-thumb-placeholder {
-  color: #d8dee9;
-}
-
-:global(body.n-theme-dark) .page-thumb-remove {
-  background: rgba(59, 66, 82, 0.85);
-  color: #d8dee9;
-}
-
-:global(body.n-theme-dark) .page-thumb-remove:hover {
-  background: rgba(208, 48, 80, 0.9);
-  color: #ffffff;
-}
-
-:global(body.n-theme-dark) .page-thumb-name {
-  color: #d8dee9;
-}
-
-:global(body.n-theme-dark) .panel-head h3 {
-  color: #eceff4;
-}
-
-:global(body.n-theme-dark) .panel-head p {
-  color: #c7cfdd;
-}
-
-@media (max-width: 920px) {
-  .action-btn {
-    min-width: 100%;
-  }
+.rv-preview {
+  border-radius: var(--radius-lg);
 }
 </style>

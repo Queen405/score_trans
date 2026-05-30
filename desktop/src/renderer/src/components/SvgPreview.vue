@@ -1,21 +1,36 @@
 <template>
   <div class="svg-preview" v-if="svgUrl">
-    <img :src="svgUrl" class="svg-img" />
+    <div ref="containerRef" class="preview-viewport">
+      <div class="zp-content">
+        <img :src="svgUrl" class="svg-img" />
+      </div>
+    </div>
+    <div class="zoom-bar">
+      <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
+      <button class="zoom-btn" @click="zp.reset()" title="重置">1:1</button>
+    </div>
   </div>
   <div v-else class="svg-empty">
-    <n-icon size="48" :depth="3"><ImageOutline /></n-icon>
-    <n-text depth="3">暂无 SVG 预览</n-text>
+    <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
+    <span>暂无 SVG</span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { getFileURL } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
-import { NText, NIcon } from 'naive-ui'
+import { NIcon } from 'naive-ui'
+import { useZoomPan } from '../composables/useZoomPan'
 
 const props = defineProps<{ svgFileId: string }>()
 const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : ''))
+
+const containerRef = ref<HTMLElement>()
+const zp = useZoomPan(containerRef)
+
+onMounted(() => zp.bind())
+onUnmounted(() => zp.unbind())
 </script>
 
 <style scoped>
@@ -23,34 +38,77 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
   flex: 1;
   min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(129, 161, 193, 0.24);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(248, 250, 253, 0.84) 0%, rgba(236, 239, 244, 0.72) 100%);
-  overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  position: relative;
 }
 
-.svg-img {
+.preview-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  cursor: default;
+  position: relative;
+}
+
+.preview-viewport .zp-content {
+  display: inline-block;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.preview-viewport .zp-content .svg-img {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 10px;
+  max-width: none;
+  max-height: none;
 }
 
 .svg-empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 48px 0;
-  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
 }
 
-:global(body.n-theme-dark) .svg-preview {
-  border-color: rgba(129, 161, 193, 0.35);
-  background: linear-gradient(180deg, rgba(46, 52, 64, 0.9) 0%, rgba(59, 66, 82, 0.82) 100%);
+.zoom-bar {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  z-index: 5;
+}
+
+.zoom-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  min-width: 32px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.zoom-btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
 }
 </style>

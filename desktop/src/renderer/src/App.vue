@@ -1,130 +1,66 @@
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
-      <n-layout style="height: 100vh" :class="['app-shell', prefersDark ? 'theme-dark' : 'theme-light']">
-        <div class="aurora-layer" aria-hidden="true">
-          <span class="aurora-orb orb-1"></span>
-          <span class="aurora-orb orb-2"></span>
-          <span class="aurora-grid"></span>
+      <div :class="['app-shell', prefersDark ? 'theme-dark' : 'theme-light']">
+        <div class="titlebar" role="banner">
+          <div class="titlebar-left">
+            <span class="app-icon">♪</span>
+            <span class="app-title">Score Trans</span>
+          </div>
+          <div class="titlebar-drag" />
+          <div class="titlebar-right">
+            <div class="window-controls" role="group" aria-label="窗口控制">
+              <button class="wc-btn" type="button" aria-label="最小化" @click="minimizeWindow">
+                <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor" /></svg>
+              </button>
+              <button class="wc-btn" type="button" :aria-label="isMaximized ? '还原' : '最大化'" @click="toggleMaximizeWindow">
+                <svg v-if="!isMaximized" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="0.6" y="0.6" width="8.8" height="8.8" /></svg>
+                <svg v-else width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="0" width="8" height="8" /><rect x="0" y="2" width="8" height="8" fill="var(--bg-base)" /><rect x="0" y="2" width="8" height="8" /></svg>
+              </button>
+              <button class="wc-btn wc-close" type="button" aria-label="关闭" @click="closeWindow">
+                <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.3"><line x1="0" y1="0" x2="10" y2="10" /><line x1="10" y1="0" x2="0" y2="10" /></svg>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <n-layout-header bordered class="app-header">
-          <div class="titlebar" role="banner">
-            <div class="titlebar-drag-bar" aria-hidden="true"></div>
-            <div class="titlebar-drag-region">
-              <div class="header-brand">
-                <div class="brand-glyph" aria-hidden="true">♪</div>
-                <div class="brand-copy">
-                  <h2 class="brand-title">Score Trans</h2>
-                  <p class="brand-subtitle">Nord Echo Workspace</p>
-                </div>
-                <n-tag :bordered="false" size="small" type="info" round>五线谱 / 简谱</n-tag>
+        <div class="app-body">
+          <nav class="sidebar">
+            <div class="sidebar-nav">
+              <button
+                v-for="item in navItems"
+                :key="item.key"
+                :class="['nav-btn', { active: activeTab === item.key }]"
+                :title="item.label"
+                @click="activeTab = item.key"
+              >
+                <component :is="item.icon" />
+              </button>
+            </div>
+            <div class="sidebar-footer">
+              <div v-if="store.isBusy" class="busy-indicator" title="处理中…" />
+            </div>
+          </nav>
+
+          <main class="main-area">
+            <div class="main-content">
+              <recognize-view v-if="activeTab === 'recognize'" />
+              <convert-view v-else-if="activeTab === 'convert'" />
+              <settings-view v-else-if="activeTab === 'settings'" />
+            </div>
+            <div :class="['log-drawer', { open: logOpen }]">
+              <button class="log-toggle" @click="logOpen = !logOpen">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M2 4l4 4 4-4" /></svg>
+                <span>日志</span>
+                <span v-if="logStore.errorCount" class="log-badge">{{ logStore.errorCount }}</span>
+              </button>
+              <div class="log-body">
+                <log-panel />
               </div>
             </div>
-            <div class="titlebar-status">
-              <n-space align="center" :size="10" class="status-strip">
-                <n-tag :bordered="false" size="small" round class="active-view-tag">
-                  当前：{{ currentTabLabel }}
-                </n-tag>
-                <transition name="fade" mode="out-in">
-                  <n-tag
-                    v-if="store.isBusy"
-                    key="busy"
-                    type="warning"
-                    size="small"
-                    round
-                    :bordered="false"
-                  >
-                    <template #icon>
-                      <n-icon><TimeOutline /></n-icon>
-                    </template>
-                    处理中…
-                  </n-tag>
-                  <n-tag
-                    v-else
-                    key="ready"
-                    type="success"
-                    size="small"
-                    round
-                    :bordered="false"
-                  >
-                    <template #icon>
-                      <n-icon><CheckmarkCircleOutline /></n-icon>
-                    </template>
-                    就绪
-                  </n-tag>
-                </transition>
-              </n-space>
-            </div>
-
-            <div class="window-controls" role="group" aria-label="窗口控制">
-              <button class="window-control-btn" type="button" aria-label="最小化" @click="minimizeWindow">
-                <RemoveOutline />
-              </button>
-              <button
-                class="window-control-btn"
-                type="button"
-                :aria-label="isMaximized ? '还原' : '最大化'"
-                @click="toggleMaximizeWindow"
-              >
-                <ExpandOutline v-if="!isMaximized" />
-                <ContractOutline v-else />
-              </button>
-              <button class="window-control-btn close-btn" type="button" aria-label="关闭" @click="closeWindow">
-                <CloseOutline />
-              </button>
-            </div>
-          </div>
-        </n-layout-header>
-
-        <n-layout-content class="app-content">
-          <div class="content-shell">
-            <n-tabs
-              v-model:value="activeTab"
-              type="line"
-              animated
-              size="large"
-              class="main-tabs"
-              @update:value="onTabChange"
-            >
-              <n-tab-pane name="recognize">
-                <template #tab>
-                  <span class="tab-label"><n-icon><ScanOutline /></n-icon><span>识别</span></span>
-                </template>
-              <recognize-view />
-            </n-tab-pane>
-              <n-tab-pane name="convert">
-                <template #tab>
-                  <span class="tab-label"><n-icon><SyncOutline /></n-icon><span>对照编辑</span></span>
-                </template>
-              <convert-view />
-            </n-tab-pane>
-              <n-tab-pane name="export">
-                <template #tab>
-                  <span class="tab-label"><n-icon><DownloadOutline /></n-icon><span>导出</span></span>
-                </template>
-              <export-view />
-            </n-tab-pane>
-              <n-tab-pane name="history">
-                <template #tab>
-                  <span class="tab-label"><n-icon><TimeOutline /></n-icon><span>历史</span></span>
-                </template>
-              <history-view />
-            </n-tab-pane>
-              <n-tab-pane name="settings">
-                <template #tab>
-                  <span class="tab-label"><n-icon><SettingsOutline /></n-icon><span>设置</span></span>
-                </template>
-              <settings-view />
-            </n-tab-pane>
-            </n-tabs>
-          </div>
-        </n-layout-content>
-
-        <n-layout-footer bordered class="app-footer">
-          <log-panel />
-        </n-layout-footer>
-      </n-layout>
+          </main>
+        </div>
+      </div>
     </n-message-provider>
   </n-config-provider>
 </template>
@@ -133,45 +69,32 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { GlobalThemeOverrides } from 'naive-ui'
 import { useTaskStore } from './stores/task'
+import { useLogStore } from './stores/log'
 import RecognizeView from './views/RecognizeView.vue'
 import ConvertView from './views/ConvertView.vue'
-import ExportView from './views/ExportView.vue'
-import HistoryView from './views/HistoryView.vue'
 import SettingsView from './views/SettingsView.vue'
 import LogPanel from './components/LogPanel.vue'
 import {
-  CheckmarkCircleOutline,
-  CloseOutline,
-  ContractOutline,
-  DownloadOutline,
-  ExpandOutline,
-  RemoveOutline,
   ScanOutline,
-  SettingsOutline,
   SyncOutline,
-  TimeOutline,
+  SettingsOutline,
 } from '@vicons/ionicons5'
-import {
-  darkTheme,
-  NConfigProvider,
-  NMessageProvider,
-  NLayout,
-  NLayoutHeader,
-  NLayoutContent,
-  NLayoutFooter,
-  NTabs,
-  NTabPane,
-  NTag,
-  NSpace,
-  NIcon,
-} from 'naive-ui'
+import { darkTheme, NConfigProvider, NMessageProvider } from 'naive-ui'
 
 const store = useTaskStore()
-const activeTab = ref<'recognize' | 'convert' | 'export' | 'history' | 'settings'>('recognize')
+const logStore = useLogStore()
+const activeTab = ref<'recognize' | 'convert' | 'settings'>('recognize')
+const logOpen = ref(false)
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 const prefersDark = ref(mediaQuery.matches)
 const isMaximized = ref(false)
 let removeMaximizedListener: (() => void) | null = null
+
+const navItems = [
+  { key: 'recognize' as const, label: '识别', icon: ScanOutline },
+  { key: 'convert' as const, label: '工作台', icon: SyncOutline },
+  { key: 'settings' as const, label: '设置', icon: SettingsOutline },
+]
 
 function handleThemeChange(event: MediaQueryListEvent): void {
   prefersDark.value = event.matches
@@ -225,101 +148,82 @@ function closeWindow(): void {
 }
 
 const naiveTheme = computed(() => (prefersDark.value ? darkTheme : null))
-const currentTabLabel = computed(() => {
-  const labels = {
-    recognize: '识别',
-    convert: '对照编辑',
-    export: '导出',
-    history: '历史',
-    settings: '设置',
-  }
-  return labels[activeTab.value]
-})
-
-function onTabChange(_name: string): void {
-  activeTab.value = _name as typeof activeTab.value
-}
 
 const lightThemeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#5e81ac',
-    primaryColorHover: '#6c92c1',
-    primaryColorPressed: '#4b6c95',
-    primaryColorSuppl: '#5e81ac',
-    borderColor: '#d8dee9',
-    borderRadius: '14px',
-    borderRadiusSmall: '10px',
-    fontFamily:
-      "'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif",
-  },
-  Layout: {
-    color: 'transparent',
-    textColor: '#2e3440',
-    siderColor: 'transparent',
-    headerColor: 'transparent',
-    footerColor: 'transparent',
-  },
-  Button: {
-    borderRadiusMedium: '12px',
-    borderRadiusSmall: '10px',
-    textColorHoverPrimary: '#ffffff',
-    textColorPressedPrimary: '#ffffff',
+    primaryColor: '#4c6ef5',
+    primaryColorHover: '#5c7aff',
+    primaryColorPressed: '#3b5bdb',
+    primaryColorSuppl: '#4c6ef5',
+    borderColor: '#e9ecef',
+    borderRadius: '8px',
+    borderRadiusSmall: '6px',
+    fontFamily: "'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei', sans-serif",
   },
   Card: {
-    borderRadius: '18px',
-    color: '#ffffffcc',
-    borderColor: '#d8dee999',
-    boxShadow: '0 28px 60px -44px rgba(46, 52, 64, 0.6)',
-  },
-  Tag: {
-    borderRadius: '999px',
+    borderRadius: '10px',
+    color: '#ffffff',
+    borderColor: '#e9ecef',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
   },
   Input: {
-    borderRadius: '12px',
-    color: '#f6f8fc',
+    borderRadius: '8px',
+    color: '#f8f9fa',
+    borderHover: '#4c6ef5',
+    borderFocus: '#4c6ef5',
+    boxShadowFocus: '0 0 0 2px rgba(76,110,245,0.15)',
+  },
+  Button: {
+    borderRadiusMedium: '8px',
+    borderRadiusSmall: '6px',
+  },
+  Tag: {
+    borderRadius: '6px',
   },
   Tabs: {
-    tabTextColorLine: '#4c566a',
-    tabTextColorActiveLine: '#2e3440',
-    tabTextColorHoverLine: '#5e81ac',
-    barColor: '#88c0d0',
+    tabTextColorLine: '#868e96',
+    tabTextColorActiveLine: '#212529',
+    tabTextColorHoverLine: '#4c6ef5',
+    barColor: '#4c6ef5',
   },
 }
 
 const darkThemeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#88c0d0',
-    primaryColorHover: '#9dd2e2',
-    primaryColorPressed: '#6ea9bb',
-    primaryColorSuppl: '#88c0d0',
-    borderColor: '#3b4252',
-    borderRadius: '14px',
-    borderRadiusSmall: '10px',
-    fontFamily:
-      "'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif",
-  },
-  Layout: {
-    color: 'transparent',
-    textColor: '#eceff4',
-    siderColor: 'transparent',
-    headerColor: 'transparent',
-    footerColor: 'transparent',
+    primaryColor: '#748ffc',
+    primaryColorHover: '#91a7ff',
+    primaryColorPressed: '#5c7cfa',
+    primaryColorSuppl: '#748ffc',
+    borderColor: '#363a3f',
+    borderRadius: '8px',
+    borderRadiusSmall: '6px',
+    fontFamily: "'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei', sans-serif",
   },
   Card: {
-    borderRadius: '18px',
-    color: '#2e3440d1',
-    borderColor: '#434c5e',
-    boxShadow: '0 32px 65px -52px rgba(0, 0, 0, 0.9)',
+    borderRadius: '10px',
+    color: '#1e2028',
+    borderColor: '#2c2f36',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
   },
   Input: {
-    borderRadius: '12px',
-    color: '#3b4252',
+    borderRadius: '8px',
+    color: '#25282e',
+    borderHover: '#748ffc',
+    borderFocus: '#748ffc',
+    boxShadowFocus: '0 0 0 2px rgba(116,143,252,0.2)',
+  },
+  Button: {
+    borderRadiusMedium: '8px',
+    borderRadiusSmall: '6px',
+  },
+  Tag: {
+    borderRadius: '6px',
   },
   Tabs: {
-    tabTextColorLine: '#d8dee9',
-    tabTextColorActiveLine: '#eceff4',
-    tabTextColorHoverLine: '#88c0d0',
-    barColor: '#88c0d0',
+    tabTextColorLine: '#868e96',
+    tabTextColorActiveLine: '#e9ecef',
+    tabTextColorHoverLine: '#748ffc',
+    barColor: '#748ffc',
   },
 }
 
@@ -327,386 +231,344 @@ const themeOverrides = computed(() => (prefersDark.value ? darkThemeOverrides : 
 </script>
 
 <style>
-body {
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
-  font-family: 'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  padding: 0;
+}
+
+body {
+  overflow: hidden;
+  font-family: 'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
 }
 
 .app-shell {
-  position: relative;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  isolation: isolate;
-}
-
-.app-shell.theme-light {
-  --shell-bg: radial-gradient(circle at 10% 12%, #f2f6ff 0%, #dfe8f2 35%, #d8dee9 100%);
-  --panel-bg: linear-gradient(148deg, rgba(255, 255, 255, 0.78) 4%, rgba(236, 239, 244, 0.86) 96%);
-  --panel-border: rgba(216, 222, 233, 0.95);
-  --text-main: #2e3440;
-  --text-soft: #4c566a;
-  --header-bg: linear-gradient(140deg, rgba(250, 252, 255, 0.82), rgba(237, 242, 248, 0.9));
-  --header-border: rgba(216, 222, 233, 0.95);
-  --footer-bg: rgba(236, 239, 244, 0.82);
-  --glow-1: rgba(136, 192, 208, 0.34);
-  --glow-2: rgba(94, 129, 172, 0.2);
-  --accent: #5e81ac;
+  --bg-base: #ffffff;
+  --bg-surface: #f8f9fa;
+  --bg-elevated: #ffffff;
+  --bg-sidebar: #1a1d23;
+  --border: #e9ecef;
+  --border-light: #f1f3f5;
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-tertiary: #868e96;
+  --text-sidebar: #adb5bd;
+  --text-sidebar-active: #ffffff;
+  --accent: #4c6ef5;
+  --accent-light: rgba(76, 110, 245, 0.08);
+  --danger: #fa5252;
+  --success: #40c057;
+  --warning: #fab005;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
 }
 
 .app-shell.theme-dark {
-  --shell-bg: radial-gradient(circle at 12% 10%, #293140 0%, #252d3b 32%, #232731 100%);
-  --panel-bg: linear-gradient(148deg, rgba(46, 52, 64, 0.82) 2%, rgba(59, 66, 82, 0.9) 98%);
-  --panel-border: rgba(76, 86, 106, 0.9);
-  --text-main: #eceff4;
-  --text-soft: #d8dee9;
-  --header-bg: linear-gradient(140deg, rgba(35, 40, 49, 0.9), rgba(46, 52, 64, 0.86));
-  --header-border: rgba(67, 76, 94, 0.9);
-  --footer-bg: rgba(35, 40, 49, 0.85);
-  --glow-1: rgba(136, 192, 208, 0.24);
-  --glow-2: rgba(129, 161, 193, 0.2);
-  --accent: #88c0d0;
+  --bg-base: #111318;
+  --bg-surface: #181a20;
+  --bg-elevated: #1e2028;
+  --bg-sidebar: #0e1014;
+  --border: #2c2f36;
+  --border-light: #23262c;
+  --text-primary: #e9ecef;
+  --text-secondary: #adb5bd;
+  --text-tertiary: #6c7278;
+  --text-sidebar: #6c7278;
+  --text-sidebar-active: #e9ecef;
+  --accent: #748ffc;
+  --accent-light: rgba(116, 143, 252, 0.1);
+  --danger: #ff6b6b;
+  --success: #51cf66;
+  --warning: #fcc419;
 }
 
-.aurora-layer {
-  position: absolute;
-  inset: 0;
-  background: var(--shell-bg);
-  z-index: -2;
+.app-shell.theme-dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.aurora-orb {
-  position: absolute;
-  display: block;
-  border-radius: 999px;
-  filter: blur(14px);
-  opacity: 0.95;
-  animation: drift 20s ease-in-out infinite;
-}
-
-.aurora-layer .orb-1 {
-  width: 520px;
-  height: 520px;
-  top: -180px;
-  right: -140px;
-  background: var(--glow-1);
-}
-
-.aurora-layer .orb-2 {
-  width: 420px;
-  height: 420px;
-  left: -120px;
-  bottom: -170px;
-  background: var(--glow-2);
-  animation-delay: -7s;
-}
-
-.aurora-grid {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(rgba(94, 129, 172, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(94, 129, 172, 0.04) 1px, transparent 1px);
-  background-size: 34px 34px;
-  mask-image: radial-gradient(circle at center, black 32%, transparent 92%);
-}
-
-.app-shell :is(.n-layout-header, .n-layout-content, .n-layout-footer) {
-  position: relative;
-  z-index: 1;
-}
-
-.app-header {
-  margin: 16px 18px 12px;
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: stretch;
-  background: var(--header-bg);
-  border: 1px solid var(--header-border) !important;
-  backdrop-filter: blur(16px);
-  border-radius: 18px;
-  min-height: 74px;
-  box-sizing: border-box;
-  box-shadow: 0 26px 58px -44px rgba(46, 52, 64, 0.65);
+.app-shell.theme-dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .titlebar {
-  width: 100%;
+  height: 38px;
   display: flex;
   align-items: center;
-  position: relative;
-  min-height: 56px;
-  padding-top: 8px;
-  padding-right: 124px;
-  gap: 14px;
-}
-
-.titlebar-drag-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 124px;
-  height: 18px;
+  background: var(--bg-sidebar);
+  color: #ced4da;
+  font-size: 12px;
   -webkit-app-region: drag;
   app-region: drag;
+  flex-shrink: 0;
+  user-select: none;
 }
 
-.titlebar-drag-region {
-  flex: 1;
-  min-width: 0;
-  -webkit-app-region: drag;
-  app-region: drag;
-}
-
-.titlebar-status {
+.titlebar-left {
   display: flex;
   align-items: center;
-  margin-left: auto;
-  min-width: 0;
-  padding-right: 8px;
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  gap: 8px;
+  padding: 0 12px;
+  flex-shrink: 0;
 }
 
-.header-brand {
+.app-icon {
+  width: 20px;
+  height: 20px;
   display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand-glyph {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(136, 192, 208, 0.26), rgba(94, 129, 172, 0.34));
-  color: var(--text-main);
-  font-size: 23px;
-  border: 1px solid color-mix(in srgb, var(--panel-border) 86%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.brand-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.app-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: #ced4da;
+  letter-spacing: -0.2px;
 }
 
-.brand-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 760;
-  color: var(--text-main);
-  letter-spacing: -0.4px;
+.titlebar-drag {
+  flex: 1;
+  height: 100%;
 }
 
-.brand-subtitle {
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 1.7px;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-soft) 78%, transparent);
-}
-
-.status-strip {
-  padding: 6px 8px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--panel-border) 92%, transparent);
-  background: color-mix(in srgb, var(--panel-bg) 96%, transparent);
+.titlebar-right {
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .window-controls {
-  position: fixed;
-  top: 26px;
-  right: 34px;
-  z-index: 9999;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--panel-bg) 98%, transparent);
-  border: 1px solid color-mix(in srgb, var(--panel-border) 96%, transparent);
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  height: 38px;
 }
 
-.window-control-btn {
-  width: 30px;
-  height: 30px;
+.wc-btn {
+  width: 46px;
+  height: 38px;
   border: 0;
-  border-radius: 999px;
+  background: transparent;
+  color: #ced4da;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--text-main);
-  background: transparent;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition: background-color 0.12s ease;
 }
 
-.window-control-btn:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  transform: translateY(-1px);
+.wc-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
-.window-control-btn:active {
-  transform: translateY(0);
+.wc-close:hover {
+  background: var(--danger);
+  color: #fff;
 }
 
-.window-control-btn.close-btn:hover {
-  background: rgba(208, 48, 80, 0.92);
-  color: #ffffff;
-}
-
-.window-control-btn svg {
-  width: 15px;
-  height: 15px;
-}
-
-.active-view-tag {
-  background: color-mix(in srgb, var(--accent) 15%, transparent) !important;
-  color: var(--text-main) !important;
-}
-
-.app-content {
+.app-body {
   flex: 1;
+  display: flex;
   min-height: 0;
-  padding: 2px 18px 10px;
   overflow: hidden;
 }
 
-.content-shell {
-  height: 100%;
-  min-height: 0;
-  max-width: 1600px;
-  margin: 0 auto;
+.sidebar {
+  width: 52px;
+  background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
-  padding: 14px 18px 18px;
-  border-radius: 24px;
-  border: 1px solid var(--panel-border);
-  background: var(--panel-bg);
-  box-shadow: 0 32px 64px -50px rgba(32, 39, 50, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(16px);
+  justify-content: space-between;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.main-tabs {
-  flex: 1;
-  min-height: 0;
+.sidebar-nav {
   display: flex;
   flex-direction: column;
+  padding: 8px 6px;
+  gap: 2px;
 }
 
-.main-tabs .tab-label {
+.sidebar-footer {
+  padding: 8px 6px;
+  display: flex;
+  justify-content: center;
+}
+
+.busy-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.nav-btn {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-sidebar);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 580;
-  letter-spacing: 0.1px;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 18px;
+  position: relative;
 }
 
-.main-tabs .n-tabs-pane-wrapper {
+.nav-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-sidebar-active);
+}
+
+.nav-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-sidebar-active);
+}
+
+.nav-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+
+.nav-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-surface);
+}
+
+.main-content {
   flex: 1;
   min-height: 0;
+  overflow: auto;
+  padding: 20px 24px;
+}
+
+.log-drawer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+  max-height: 32px;
   overflow: hidden;
-  padding-top: 14px;
+  transition: max-height 0.25s ease;
 }
 
-.main-tabs :deep(.n-tabs-pane-wrapper) {
-  flex: 1;
+.log-drawer.open {
+  max-height: 200px;
 }
 
-.main-tabs :deep(.n-tab-pane) {
-  height: 100%;
-  min-height: 0;
+.log-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s ease;
 }
 
-.app-footer {
-  margin: 8px 18px 14px;
-  padding: 4px 14px;
-  border: 1px solid var(--panel-border) !important;
-  border-radius: 18px;
-  background: var(--footer-bg);
-  backdrop-filter: blur(10px);
+.log-toggle:hover {
+  color: var(--text-secondary);
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+.log-drawer.open .log-toggle svg {
+  transform: rotate(180deg);
 }
 
-* {
-  scrollbar-width: none;
+.log-toggle svg {
+  transition: transform 0.2s ease;
 }
 
-*::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+.log-badge {
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 9px;
+  line-height: 1.3;
 }
 
-@media (max-width: 920px) {
-  .app-header {
-    margin: 12px 12px 8px;
-    padding: 8px 12px;
-    min-height: 66px;
-  }
-
-  .titlebar {
-    min-height: 50px;
-    padding-top: 6px;
-    padding-right: 116px;
-  }
-
-  .titlebar-drag-bar {
-    right: 116px;
-    height: 16px;
-  }
-
-  .window-controls {
-    top: 22px;
-    right: 22px;
-  }
-
-  .brand-subtitle {
-    display: none;
-  }
-
-  .status-strip {
-    display: none;
-  }
-
-  .brand-title {
-    font-size: 18px;
-  }
-
-  .content-shell {
-    padding: 12px 12px 16px;
-    border-radius: 20px;
-  }
-
-  .app-content {
-    padding: 2px 10px 8px;
-  }
-
-  .app-footer {
-    margin: 8px 10px 12px;
-  }
+.log-body {
+  height: 168px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-light);
 }
 
-@keyframes drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
+.log-body .log-panel {
+  padding: 8px 16px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
   }
-  50% {
-    transform: translate3d(0, 18px, 0) scale(1.03);
+
+  .sidebar {
+    width: 44px;
+  }
+
+  .nav-btn {
+    width: 32px;
+    height: 36px;
   }
 }
 </style>

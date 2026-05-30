@@ -1,28 +1,40 @@
 <template>
   <div class="original-preview">
-    <div v-if="fileUrl && isPdf" class="pdf-frame">
-      <iframe :src="pdfFitUrl" :title="fileName" />
+    <div v-if="fileUrl && isPdf" ref="containerRef" class="preview-viewport">
+      <div class="zp-content">
+        <iframe :src="pdfFitUrl" :title="fileName" />
+      </div>
     </div>
-    <div v-else-if="fileUrl && isImage" class="image-frame">
-      <img :src="fileUrl" :alt="fileName" />
+    <div v-else-if="fileUrl && isImage" ref="containerRef" class="preview-viewport">
+      <div class="zp-content">
+        <img :src="fileUrl" :alt="fileName" />
+      </div>
     </div>
     <div v-else class="empty-hint">
-      <n-icon size="48" :depth="3"><ImageOutline /></n-icon>
-      <n-text depth="3" style="font-size: 13px">上传图片或 PDF 后在此对照原始五线谱</n-text>
+      <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
+      <span>上传图片或 PDF 后对照原始五线谱</span>
+    </div>
+    <div v-if="fileUrl" class="zoom-bar">
+      <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
+      <button class="zoom-btn" @click="zp.reset()" title="重置">1:1</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { getFileURL } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
-import { NText, NIcon } from 'naive-ui'
+import { NIcon } from 'naive-ui'
+import { useZoomPan } from '../composables/useZoomPan'
 
 const props = defineProps<{
   fileId: string
   fileName: string
 }>()
+
+const containerRef = ref<HTMLElement>()
+const zp = useZoomPan(containerRef)
 
 const fileUrl = computed(() => (props.fileId ? getFileURL(props.fileId) : ''))
 const pdfFitUrl = computed(() =>
@@ -31,6 +43,9 @@ const pdfFitUrl = computed(() =>
 const extension = computed(() => props.fileName.split('.').pop()?.toLowerCase() ?? '')
 const isPdf = computed(() => extension.value === 'pdf')
 const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].includes(extension.value))
+
+onMounted(() => zp.bind())
+onUnmounted(() => zp.unbind())
 </script>
 
 <style scoped>
@@ -38,48 +53,84 @@ const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].inc
   flex: 1;
   min-height: 0;
   display: flex;
+  position: relative;
 }
 
-.pdf-frame,
-.image-frame {
+.preview-viewport {
   flex: 1;
   min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-  border: 1px solid rgba(129, 161, 193, 0.25);
-  border-radius: 14px;
-  background: linear-gradient(145deg, rgba(248, 250, 252, 0.82), rgba(236, 239, 244, 0.68));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  cursor: default;
+  position: relative;
 }
 
-.pdf-frame iframe {
+.preview-viewport .zp-content {
+  display: inline-block;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.preview-viewport .zp-content iframe {
   width: 100%;
   height: 100%;
   border: 0;
+  min-height: 500px;
 }
 
-.image-frame img {
+.preview-viewport .zp-content img {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 8px;
+  max-width: none;
+  max-height: none;
 }
 
 .empty-hint {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 40px 16px;
-  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
 }
 
-:global(body.n-theme-dark) .pdf-frame,
-:global(body.n-theme-dark) .image-frame {
-  border-color: rgba(129, 161, 193, 0.34);
-  background: linear-gradient(145deg, rgba(46, 52, 64, 0.86), rgba(59, 66, 82, 0.74));
+.zoom-bar {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  z-index: 5;
+}
+
+.zoom-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  min-width: 32px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.zoom-btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
 }
 </style>

@@ -1,19 +1,13 @@
 <template>
   <div class="log-panel">
-    <div class="log-header">
-      <n-text strong style="font-size: 13px">操作日志</n-text>
-      <n-button size="tiny" quaternary @click="logStore.clear()">清空</n-button>
+    <div v-for="(entry, i) in logStore.entries" :key="i" class="log-line" :class="entry.level">
+      <span class="log-dot" :class="entry.level" />
+      <span class="log-ts">{{ entry.timestamp }}</span>
+      <span class="log-msg">{{ entry.message }}</span>
     </div>
-    <div class="log-container" ref="logContainer">
-      <div v-for="(entry, i) in logStore.entries" :key="i" class="log-entry" :class="entry.level">
-        <span class="log-dot" :class="entry.level"></span>
-        <span class="time">{{ entry.timestamp }}</span>
-        <span class="message">{{ entry.message }}</span>
-      </div>
-      <div v-if="!logStore.entries.length" class="log-entry info">
-        <span class="log-dot info"></span>
-        <span class="message" style="color: #999">暂无日志</span>
-      </div>
+    <div v-if="!logStore.entries.length" class="log-line info">
+      <span class="log-dot info" />
+      <span class="log-msg empty">暂无日志</span>
     </div>
   </div>
 </template>
@@ -21,7 +15,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { useLogStore } from '../stores/log'
-import { NText, NButton } from 'naive-ui'
 
 const logStore = useLogStore()
 const logContainer = ref<HTMLDivElement>()
@@ -39,84 +32,50 @@ watch(
 
 <style scoped>
 .log-panel {
-  padding: 6px 2px;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11.5px;
+  line-height: 1.7;
 }
 
-.log-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.log-container {
-  max-height: 128px;
-  overflow-y: auto;
-  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
-  font-size: 12px;
-  line-height: 1.8;
-  border: 1px solid rgba(94, 129, 172, 0.2);
-  border-radius: 12px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.7), rgba(236, 239, 244, 0.6));
-  padding: 8px 10px;
-}
-
-.log-entry {
+.log-line {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 2px 0;
+  padding: 1px 0;
 }
 
 .log-dot {
   flex-shrink: 0;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   margin-top: 7px;
-  background: #c0c0c0;
+  background: var(--text-tertiary);
 }
 
-.log-dot.info {
-  background: #4a9c6d;
-}
+.log-dot.info { background: var(--success); }
+.log-dot.error { background: var(--danger); }
+.log-dot.warn { background: var(--warning); }
 
-.log-dot.error {
-  background: #d03050;
-}
-
-.log-dot.warn {
-  background: #f0a020;
-}
-
-.log-entry.error .message {
-  color: #d03050;
-}
-
-.log-entry.warn .message {
-  color: #f0a020;
-}
-
-.log-entry .time {
-  color: #7d8698;
+.log-ts {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10px;
+  color: var(--text-tertiary);
 }
 
-:global(body.n-theme-dark) .log-container {
-  border-color: rgba(129, 161, 193, 0.25);
-  background: linear-gradient(145deg, rgba(46, 52, 64, 0.86), rgba(59, 66, 82, 0.78));
+.log-msg {
+  color: var(--text-secondary);
 }
 
-:global(body.n-theme-dark) .log-entry .time {
-  color: #aeb8cb;
+.log-msg.empty {
+  color: var(--text-tertiary);
 }
 
-:global(body.n-theme-dark) .log-entry.error .message {
-  color: #ff8f9e;
+.log-line.error .log-msg {
+  color: var(--danger);
 }
 
-:global(body.n-theme-dark) .log-entry.warn .message {
-  color: #ffd27f;
+.log-line.warn .log-msg {
+  color: var(--warning);
 }
 </style>
