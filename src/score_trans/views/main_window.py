@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QPlainTextEdit,
+    QSplitter,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -27,8 +29,9 @@ class MainWindow(QMainWindow):
     def __init__(self, view_model: MainWindowViewModel | None = None) -> None:
         super().__init__()
         self.vm = view_model or MainWindowViewModel()
+        self._syncing_jianpu = False
         self.setWindowTitle("Score Trans 五线谱 / 简谱互转")
-        self.resize(1080, 720)
+        self.resize(1200, 800)
 
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -36,6 +39,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._build_tabs(), 1)
         self.setCentralWidget(root)
         self._connect_view_model()
+
+    # ------------------------------------------------------------------
+    # Settings panel
+    # ------------------------------------------------------------------
 
     def _build_settings(self) -> QGroupBox:
         box = QGroupBox("外部工具")
@@ -58,38 +65,80 @@ class MainWindow(QMainWindow):
         grid.addWidget(self.start_measure_edit, 4, 1)
         return box
 
+    # ------------------------------------------------------------------
+    # Tabs
+    # ------------------------------------------------------------------
+
     def _build_tabs(self) -> QTabWidget:
         tabs = QTabWidget()
-        tabs.addTab(self._build_omr_tab(), "图片/PDF 识别")
+        tabs.addTab(self._build_comparison_tab(), "五线谱 / 简谱对照")
         tabs.addTab(self._build_jianpu_tab(), "简谱互转")
         tabs.addTab(self._build_export_tab(), "导出")
         return tabs
 
-    def _build_omr_tab(self) -> QWidget:
+    # ------------------------------------------------------------------
+    # Tab 1 — Score / Jianpu comparison
+    # ------------------------------------------------------------------
+
+    def _build_comparison_tab(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
+
+        # --- toolbar ---
         actions = QHBoxLayout()
         open_btn = QPushButton("选择图片或 PDF")
         open_btn.clicked.connect(self.choose_input)
-        recognize_btn = QPushButton("识别为 MusicXML")
-        recognize_btn.clicked.connect(self.recognize_input)
-        pipeline_btn = QPushButton("识别并导出简谱")
-        pipeline_btn.clicked.connect(self.recognize_and_export_jianpu)
-        load_xml_btn = QPushButton("直接打开 MusicXML")
+        recognize_btn = QPushButton("识别为简谱")
+        recognize_btn.clicked.connect(self.recognize_and_show_jianpu)
+        save_jianpu_btn = QPushButton("保存简谱")
+        save_jianpu_btn.clicked.connect(self.save_jianpu)
+        save_svg_btn = QPushButton("导出 SVG")
+        save_svg_btn.clicked.connect(self.save_jianpu_svg)
+        load_xml_btn = QPushButton("打开 MusicXML")
         load_xml_btn.clicked.connect(self.load_musicxml)
         actions.addWidget(open_btn)
         actions.addWidget(recognize_btn)
-        actions.addWidget(pipeline_btn)
+        actions.addWidget(save_jianpu_btn)
+        actions.addWidget(save_svg_btn)
         actions.addWidget(load_xml_btn)
         actions.addStretch(1)
+
         self.input_label = QLabel("未选择文件")
         self.input_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.xml_preview = QPlainTextEdit()
-        self.xml_preview.setPlaceholderText("MusicXML 内容会显示在这里。")
+
+        # --- splitter: image | jianpu editor ---
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # left: score image
+        image_box = QGroupBox("五线谱")
+        image_layout = QVBoxLayout(image_box)
+        self.score_image_label = QLabel("请选择五线谱图片")
+        self.score_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.score_image_label.setMinimumSize(200, 150)
+        image_layout.addWidget(self.score_image_label)
+        splitter.addWidget(image_box)
+
+        # right: jianpu editor
+        jianpu_box = QGroupBox("简谱编辑")
+        jianpu_layout = QVBoxLayout(jianpu_box)
+        self.omr_jianpu_edit = QPlainTextEdit()
+        self.omr_jianpu_edit.setPlaceholderText(
+            "识别后的简谱会显示在这里，也可以直接编辑。\n\n"
+            "key=C\ntime=4/4\n1 2 3 4 | 5 6 7 1' |"
+        )
+        jianpu_layout.addWidget(self.omr_jianpu_edit)
+        splitter.addWidget(jianpu_box)
+
+        splitter.setSizes([550, 450])
+
         layout.addLayout(actions)
         layout.addWidget(self.input_label)
-        layout.addWidget(self.xml_preview, 1)
+        layout.addWidget(splitter, 1)
         return page
+
+    # ------------------------------------------------------------------
+    # Tab 2 — Jianpu standalone editor
+    # ------------------------------------------------------------------
 
     def _build_jianpu_tab(self) -> QWidget:
         page = QWidget()
@@ -114,6 +163,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.jianpu_edit, 1)
         return page
 
+    # ------------------------------------------------------------------
+    # Tab 3 — Export
+    # ------------------------------------------------------------------
+
     def _build_export_tab(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -132,21 +185,32 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.log_edit, 1)
         return page
 
+    # ------------------------------------------------------------------
+    # ViewModel connections
+    # ------------------------------------------------------------------
+
     def _connect_view_model(self) -> None:
+        # settings
         self.audiveris_edit.textChanged.connect(self._sync_tool_paths)
         self.musescore_edit.textChanged.connect(self._sync_tool_paths)
         self.java_home_edit.textChanged.connect(self._sync_tool_paths)
         self.target_key_edit.textChanged.connect(self.vm.set_target_key)
         self.start_measure_edit.textChanged.connect(self.vm.set_start_measure_text)
-        self.xml_preview.textChanged.connect(lambda: self.vm.set_musicxml_text(self.xml_preview.toPlainText()))
-        self.jianpu_edit.textChanged.connect(lambda: self.vm.set_jianpu_text(self.jianpu_edit.toPlainText()))
 
-        self.vm.input_file_changed.connect(self.input_label.setText)
-        self.vm.musicxml_text_changed.connect(self._set_xml_preview)
+        # jianpu editors — bidirectional sync
+        self.jianpu_edit.textChanged.connect(self._on_jianpu_tab_changed)
+        self.omr_jianpu_edit.textChanged.connect(self._on_omr_jianpu_changed)
+
+        # vm → view
+        self.vm.input_file_changed.connect(self._on_input_file_changed)
         self.vm.jianpu_text_changed.connect(self._set_jianpu_preview)
         self.vm.log_added.connect(self.log_edit.appendPlainText)
         self.vm.error_occurred.connect(self._warn)
         self.vm.busy_changed.connect(self._set_busy)
+
+    # ------------------------------------------------------------------
+    # User actions
+    # ------------------------------------------------------------------
 
     def choose_input(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -168,9 +232,9 @@ class MainWindow(QMainWindow):
         if path:
             self.vm.load_musicxml(path)
 
-    def recognize_input(self) -> None:
+    def recognize_and_show_jianpu(self) -> None:
         self._sync_tool_paths()
-        self.vm.recognize_musicxml()
+        self.vm.recognize_and_show_jianpu()
 
     def recognize_and_export_jianpu(self) -> None:
         output_dir = QFileDialog.getExistingDirectory(
@@ -214,20 +278,94 @@ class MainWindow(QMainWindow):
         if path:
             self.vm.export_musicxml(Path(path))
 
+    # ------------------------------------------------------------------
+    # Image display
+    # ------------------------------------------------------------------
+
+    def _display_score_image(self, path: str) -> None:
+        file_path = Path(path)
+        ext = file_path.suffix.lower()
+        if ext == ".pdf":
+            self.score_image_label.setText(
+                f"PDF 文件\n{file_path.name}\n（PDF 预览暂不支持）"
+            )
+            return
+        if ext not in (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif"):
+            self.score_image_label.setText(f"文件已选择\n{file_path.name}")
+            return
+        pixmap = QPixmap(str(file_path))
+        if pixmap.isNull():
+            self.score_image_label.setText(f"无法加载图片\n{file_path.name}")
+            return
+        self._score_pixmap = pixmap
+        self._fit_score_image()
+
+    def _fit_score_image(self) -> None:
+        if not hasattr(self, "_score_pixmap") or self._score_pixmap.isNull():
+            return
+        label_size = self.score_image_label.size()
+        if label_size.width() < 50 or label_size.height() < 50:
+            label_size = QSize(500, 600)
+        scaled = self._score_pixmap.scaled(
+            label_size,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self.score_image_label.setPixmap(scaled)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "_score_pixmap"):
+            self._fit_score_image()
+
+    # ------------------------------------------------------------------
+    # Jianpu sync helpers
+    # ------------------------------------------------------------------
+
+    def _on_omr_jianpu_changed(self) -> None:
+        if self._syncing_jianpu:
+            return
+        self._syncing_jianpu = True
+        text = self.omr_jianpu_edit.toPlainText()
+        self.vm.set_jianpu_text(text)
+        if self.jianpu_edit.toPlainText() != text:
+            self.jianpu_edit.setPlainText(text)
+        self._syncing_jianpu = False
+
+    def _on_jianpu_tab_changed(self) -> None:
+        if self._syncing_jianpu:
+            return
+        self._syncing_jianpu = True
+        text = self.jianpu_edit.toPlainText()
+        self.vm.set_jianpu_text(text)
+        if self.omr_jianpu_edit.toPlainText() != text:
+            self.omr_jianpu_edit.setPlainText(text)
+        self._syncing_jianpu = False
+
+    def _set_jianpu_preview(self, text: str) -> None:
+        if self._syncing_jianpu:
+            return
+        self._syncing_jianpu = True
+        if self.jianpu_edit.toPlainText() != text:
+            self.jianpu_edit.setPlainText(text)
+        if self.omr_jianpu_edit.toPlainText() != text:
+            self.omr_jianpu_edit.setPlainText(text)
+        self._syncing_jianpu = False
+
+    def _on_input_file_changed(self, path: str) -> None:
+        self.input_label.setText(path)
+        self._display_score_image(path)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
     def _sync_tool_paths(self) -> None:
         self.vm.set_tool_paths(
             self.audiveris_edit.text(),
             self.musescore_edit.text(),
             self.java_home_edit.text(),
         )
-
-    def _set_xml_preview(self, text: str) -> None:
-        if self.xml_preview.toPlainText() != text:
-            self.xml_preview.setPlainText(text)
-
-    def _set_jianpu_preview(self, text: str) -> None:
-        if self.jianpu_edit.toPlainText() != text:
-            self.jianpu_edit.setPlainText(text)
 
     def _warn(self, message: str) -> None:
         QMessageBox.warning(self, "Score Trans", message)

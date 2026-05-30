@@ -1,9 +1,30 @@
 from fractions import Fraction
+import xml.etree.ElementTree as ET
 
 from score_trans.domain.jianpu import jianpu_to_musicxml
-from score_trans.domain.models import JianpuEvent, JianpuMeasure, JianpuPitch, JianpuScore
+from score_trans.domain.models import JianpuEvent, JianpuMeasure, JianpuPitch, JianpuScore, TextBlock
 from score_trans.domain.musicxml import musicxml_to_score
-from score_trans.services.rendering import RenderOptions, render_jianpu_svg, render_score_svg
+from score_trans.services.rendering import RenderOptions, render_jianpu_svg, render_score_page_svg, render_score_svg
+
+
+def _svg_root(svg: str) -> ET.Element:
+    return ET.fromstring(svg)
+
+
+def _svg_elements(root: ET.Element, tag: str) -> list[ET.Element]:
+    return [element for element in root.iter() if element.tag.endswith(tag)]
+
+
+def _simple_score(*events: JianpuEvent, text_blocks: list[TextBlock] | None = None) -> JianpuScore:
+    score = JianpuScore(title="Rendered page", target_key="C", beats=4, beat_type=4, text_blocks=text_blocks or [])
+    score.measures.append(
+        JianpuMeasure(
+            source_number="1",
+            duration=Fraction(4, 1),
+            events=list(events),
+        )
+    )
+    return score
 
 
 def test_render_jianpu_svg_contains_title_and_notes() -> None:
@@ -21,6 +42,57 @@ def test_render_score_svg_uses_display_measure_number() -> None:
 
     assert ">118<" in svg
     assert "generated" in svg
+
+
+def test_render_score_page_svg_preserves_requested_page_size() -> None:
+    score = _simple_score(
+        JianpuEvent(kind="note", duration=Fraction(1, 1), pitches=[JianpuPitch(1)], start=Fraction(0, 1))
+    )
+
+    svg = render_score_page_svg(score, page_width=1240, page_height=1754)
+    root = _svg_root(svg)
+
+    assert root.attrib["width"] == "1240"
+    assert root.attrib["height"] == "1754"
+    assert root.attrib["viewBox"] == "0 0 1240 1754"
+
+
+def test_render_score_page_svg_places_ocr_text_block_at_bbox() -> None:
+    score = _simple_score(
+        JianpuEvent(kind="note", duration=Fraction(1, 1), pitches=[JianpuPitch(1)], start=Fraction(0, 1)),
+        text_blocks=[TextBlock("Allegro sempre", bbox=(120, 40, 280, 64), role="expression")],
+    )
+
+    svg = render_score_page_svg(score, page_width=600, page_height=800)
+    root = _svg_root(svg)
+    ocr_text = next(text for text in _svg_elements(root, "text") if text.text == "Allegro sempre")
+
+    assert "Allegro sempre" in svg
+    assert ocr_text.attrib["class"] == "ocr-overlay"
+    assert float(ocr_text.attrib["x"]) == 120.0
+    assert 40.0 < float(ocr_text.attrib["y"]) <= 64.0
+    assert 8.0 <= float(ocr_text.attrib["font-size"]) <= 24.0
+
+
+def test_render_score_page_svg_renders_dynamic_and_fermata() -> None:
+    score = _simple_score(
+        JianpuEvent(
+            kind="note",
+            duration=Fraction(1, 1),
+            pitches=[JianpuPitch(5)],
+            dynamic="f",
+            articulation="fermata",
+            start=Fraction(0, 1),
+        )
+    )
+
+    svg = render_score_page_svg(score, page_width=600, page_height=800)
+    root = _svg_root(svg)
+    text_elements = _svg_elements(root, "text")
+    path_elements = _svg_elements(root, "path")
+
+    assert any(text.attrib.get("class") == "dynamic" and text.text == "f" for text in text_elements)
+    assert any(path.attrib.get("class") == "articulation" for path in path_elements)
 
 
 def test_render_text_uses_publication_marks() -> None:
@@ -208,3 +280,57 @@ def test_chord_tie_sits_below_duration_lines() -> None:
     tie_y = float(tie_line.split("M ")[1].split(" ")[1])
     beam_y = float(beam_line.split('y1="')[1].split('"')[0])
     assert tie_y > beam_y + 4
+
+
+def test_generated_full_measure_rest_is_split_into_visible_beats() -> None:
+    score = JianpuScore(title="Generated rest", target_key="C", beats=4, beat_type=4)
+    score.measures.append(
+        JianpuMeasure(
+            source_number="1",
+            duration=Fraction(4, 1),
+            events=[JianpuEvent(kind="rest", duration=Fraction(4, 1), start=Fraction(0, 1), generated=True)],
+        )
+    )
+
+    svg = render_score_svg(score)
+
+    assert svg.count(">0</text>") == 4
+    assert 'class="extension-line"' not in svg
+
+
+def test_musicxml_full_measure_rest_is_split_into_visible_beats() -> None:
+    score = JianpuScore(title="Rest", target_key="C", beats=4, beat_type=4)
+    score.measures.append(
+        JianpuMeasure(
+            source_number="1",
+            duration=Fraction(4, 1),
+            events=[JianpuEvent(kind="rest", duration=Fraction(4, 1), start=Fraction(0, 1))],
+        )
+    )
+
+    svg = render_score_svg(score)
+
+    assert svg.count(">0</text>") == 4
+    assert 'class="extension-line"' not in svg
+
+
+def test_low_octave_duration_line_sits_below_low_dot() -> None:
+    svg = render_jianpu_svg("key=C\ntime=4/4\n5,/ |")
+
+    dot_line = next(line for line in svg.splitlines() if 'class="octave-dot"' in line)
+    beam_line = next(line for line in svg.splitlines() if 'class="duration-line beam-line"' in line)
+    dot_y = float(dot_line.split('cy="')[1].split('"')[0])
+    beam_y = float(beam_line.split('y1="')[1].split('"')[0])
+
+    assert beam_y > dot_y + 8
+
+
+def test_extension_line_sits_at_note_height_not_below_note() -> None:
+    svg = render_jianpu_svg("key=C\ntime=4/4\n2--- |")
+
+    note_line = next(line for line in svg.splitlines() if 'class="note"' in line)
+    extension_line = next(line for line in svg.splitlines() if 'class="extension-line"' in line)
+    note_y = float(note_line.split('y="')[1].split('"')[0])
+    extension_y = float(extension_line.split('y1="')[1].split('"')[0])
+
+    assert extension_y < note_y

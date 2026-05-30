@@ -4,6 +4,8 @@ import type {
   RenderJianpuSvgResponse,
   RenderJianpuTextSvgRequest,
   RenderJianpuTextSvgResponse,
+  FinalOutputRequest,
+  FinalOutputResponse,
 } from '../models/types'
 
 export const renderApi = {
@@ -17,6 +19,14 @@ export const renderApi = {
 
   jianpuTextSvg(req: RenderJianpuTextSvgRequest): Promise<RenderJianpuTextSvgResponse> {
     return apiFetch('/render/jianpu-text-svg', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  finalOutput(req: FinalOutputRequest): Promise<FinalOutputResponse> {
+    return apiFetch('/render/final-output', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),

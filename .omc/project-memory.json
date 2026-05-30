@@ -26,7 +26,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd \"D:/CODE/MyProjects/score_trans\" && .venv/Scripts/python.exe -m pytest tests/ -x -q",
+    "testCommand": "cd \"D:/CODE/MyProjects/score_trans\" && .venv/Scripts/python.exe -m pytest tests/ -x -q 2>&1 | head -30",
     "lintCommand": "ruff check",
     "devCommand": null,
     "scripts": {}
@@ -125,6 +125,12 @@
       "type": "directory"
     },
     {
+      "path": "src\\score_trans\\viewmodels\\main_window_vm.py",
+      "accessCount": 8,
+      "lastAccessed": 1780161860998,
+      "type": "file"
+    },
+    {
       "path": "C:\\Users\\15732\\.claude\\settings.json",
       "accessCount": 5,
       "lastAccessed": 1780151290716,
@@ -134,6 +140,12 @@
       "path": "pyproject.toml",
       "accessCount": 5,
       "lastAccessed": 1780156685977,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\views\\main_window.py",
+      "accessCount": 5,
+      "lastAccessed": 1780161832903,
       "type": "file"
     },
     {
@@ -161,15 +173,21 @@
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\views\\main_window.py",
+      "path": "src\\score_trans\\services\\ocr_provider.py",
       "accessCount": 3,
-      "lastAccessed": 1780155273489,
+      "lastAccessed": 1780163418006,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\viewmodels\\main_window_vm.py",
+      "path": "src\\score_trans\\services\\settings.py",
       "accessCount": 3,
-      "lastAccessed": 1780155274009,
+      "lastAccessed": 1780163418785,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\convert_to_jianpu.py",
+      "accessCount": 3,
+      "lastAccessed": 1780163424256,
       "type": "file"
     },
     {
@@ -203,18 +221,6 @@
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\use_cases\\convert_to_jianpu.py",
-      "accessCount": 2,
-      "lastAccessed": 1780155255714,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\ocr_provider.py",
-      "accessCount": 2,
-      "lastAccessed": 1780155264634,
-      "type": "file"
-    },
-    {
       "path": "src\\score_trans\\use_cases\\recognize_score.py",
       "accessCount": 2,
       "lastAccessed": 1780155274763,
@@ -224,12 +230,6 @@
       "path": "README.md",
       "accessCount": 2,
       "lastAccessed": 1780155275433,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\settings.py",
-      "accessCount": 2,
-      "lastAccessed": 1780156143558,
       "type": "file"
     },
     {
@@ -248,6 +248,18 @@
       "path": "src\\score_trans\\api\\dependencies.py",
       "accessCount": 2,
       "lastAccessed": 1780157001137,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\render_jianpu.py",
+      "accessCount": 2,
+      "lastAccessed": 1780161770151,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\env_file.py",
+      "accessCount": 2,
+      "lastAccessed": 1780163423848,
       "type": "file"
     },
     {
@@ -311,21 +323,9 @@
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\use_cases\\render_jianpu.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155258133,
-      "type": "file"
-    },
-    {
       "path": "src\\score_trans\\services\\external_tools.py",
       "accessCount": 1,
       "lastAccessed": 1780155258214,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\env_file.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155264879,
       "type": "file"
     },
     {

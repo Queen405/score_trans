@@ -140,7 +140,10 @@ def _read_measure_events(xml_measure: ET.Element, ns: str, divisions: int, targe
         if notations is not None:
             event.slur_start = any(slur.get("type") == "start" for slur in notations.findall(_q(ns, "slur")))
             event.slur_stop = any(slur.get("type") == "stop" for slur in notations.findall(_q(ns, "slur")))
-            event.articulation = _first_child_name(notations.find(_q(ns, "articulations")), ns)
+            if notations.find(_q(ns, "fermata")) is not None:
+                event.articulation = "fermata"
+            else:
+                event.articulation = _first_child_name(notations.find(_q(ns, "articulations")), ns)
             event.dynamic = _first_child_name(notations.find(_q(ns, "dynamics")), ns)
         lyric = note.find(_q(ns, "lyric"))
         if lyric is not None:

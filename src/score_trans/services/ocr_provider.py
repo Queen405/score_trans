@@ -142,10 +142,14 @@ def is_deepseek_ocr_model(model: str) -> bool:
 def ocr_prompt_for_model(model: str) -> str:
     if is_deepseek_ocr_model(model):
         return (
-            "You are an OCR engine. Extract only the exact readable text visible in this score/page image. "
-            "Preserve original wording and line order. "
-            "Return plain text only, with one visible text item per line. "
-            "Do not number the lines. Do not describe the image. Do not explain."
+            "You are an OCR engine for sheet music pages. Extract every exact readable text item visible in the image, "
+            "including title, lyrics, measure numbers, tempo marks, dynamics, fingering, and annotations. "
+            "Preserve original wording exactly. Return JSON only as "
+            '{"text_blocks":[{"text":"...","bbox":[x1,y1,x2,y2],'
+            '"confidence":0.0,"role":"title|instrument|lyric|'
+            'expression|footer|measure_number|other"}]}. '
+            "Use pixel coordinates in the original image. If a coordinate is impossible to determine, use null for bbox. "
+            "Do not describe the image. Do not explain."
         )
     return (
         "Extract all readable score text from this image. "

@@ -20,6 +20,9 @@ export const useSettingsStore = defineStore('settings', () => {
       audiverisPath.value = data.audiveris_path
       musescorePath.value = data.musescore_path
       javaHome.value = data.java_home
+      outputDir.value = data.output_dir ?? ''
+      ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
+      ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'
       loaded.value = true
     } catch (e) {
       console.error('Failed to load settings:', e)
@@ -31,6 +34,10 @@ export const useSettingsStore = defineStore('settings', () => {
       audiveris_path: audiverisPath.value,
       musescore_path: musescorePath.value,
       java_home: javaHome.value,
+      output_dir: outputDir.value,
+      ocr_api_key: ocrApiKey.value || undefined,
+      ocr_base_url: ocrBaseUrl.value,
+      ocr_model: ocrModel.value,
     })
   }
 

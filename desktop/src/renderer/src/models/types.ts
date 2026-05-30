@@ -53,6 +53,20 @@ export interface RenderJianpuTextSvgResponse {
   svg_file_id: string
 }
 
+export interface FinalOutputRequest {
+  musicxml_file_id: string
+  page_image_file_id?: string
+  target_key?: string
+  start_measure_number?: number
+  title?: string
+}
+
+export interface FinalOutputResponse {
+  svg_file_id: string
+  page_width: number
+  page_height: number
+}
+
 export interface RecognizeResponse {
   task_id?: string
   musicxml_file_id: string
@@ -84,12 +98,20 @@ export interface SettingsResponse {
   java_home: string
   work_dir: string
   target_key?: string
+  output_dir?: string
+  ocr_api_key_set?: boolean
+  ocr_base_url?: string
+  ocr_model?: string
 }
 
 export interface SettingsUpdateRequest {
   audiveris_path?: string
   musescore_path?: string
   java_home?: string
+  output_dir?: string
+  ocr_api_key?: string
+  ocr_base_url?: string
+  ocr_model?: string
 }
 
 export interface SSEProgressEvent {

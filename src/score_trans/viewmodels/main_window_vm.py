@@ -88,6 +88,11 @@ class MainWindowViewModel(QObject):
             return self._error("请先选择图片或 PDF。")
         return self._execute(self._recognize_musicxml)
 
+    def recognize_and_show_jianpu(self) -> bool:
+        if self.input_file is None:
+            return self._error("请先选择图片或 PDF。")
+        return self._execute(self._recognize_and_show_jianpu, success_log="已识别并转换为简谱。")
+
     def recognize_and_export_jianpu(self, output_dir: str | Path) -> bool:
         if self.input_file is None:
             return self._error("请先选择图片或 PDF。")
@@ -157,6 +162,11 @@ class MainWindowViewModel(QObject):
         self.musicxml_file_changed.emit(str(output))
         self.set_musicxml_text(self.dependencies.file_service.read_musicxml_text(output), emit=True)
         self._log(f"OMR 完成：{output}")
+
+    def _recognize_and_show_jianpu(self) -> None:
+        assert self.input_file is not None
+        self._recognize_musicxml()
+        self._convert_musicxml_to_jianpu()
 
     def _recognize_and_export_jianpu(self, output_dir: str | Path) -> None:
         assert self.input_file is not None

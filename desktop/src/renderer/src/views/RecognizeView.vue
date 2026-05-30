@@ -81,6 +81,9 @@ const ocrImageName = ref('')
 
 async function onFileUploaded(fileId: string, fileName: string): Promise<void> {
   store.setInputFile(fileName, fileId)
+  if (isPreviewableOriginal(fileName)) {
+    store.setOriginalFile(fileName, fileId)
+  }
 }
 
 async function recognize(): Promise<void> {
@@ -162,6 +165,7 @@ async function pickOcrImage(): Promise<void> {
       const result = await uploadFile(file)
       ocrImageFileId.value = result.file_id
       ocrImageName.value = file.name
+      store.setOriginalFile(file.name, result.file_id)
       log.addLog(`已上传 OCR 页面图：${file.name}`)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -199,5 +203,9 @@ async function renderWithOcr(): Promise<void> {
   } finally {
     store.setBusy(false)
   }
+}
+
+function isPreviewableOriginal(fileName: string): boolean {
+  return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
 }
 </script>

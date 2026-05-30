@@ -30,6 +30,17 @@
     <div class="editor-layout">
       <!-- 左侧：五线谱预览 -->
       <div class="left-panel">
+        <n-card
+          :title="store.originalFileName ? `原始五线谱：${store.originalFileName}` : '原始五线谱对照'"
+          size="small"
+          class="preview-card"
+        >
+          <original-preview
+            :file-id="store.originalFileId"
+            :file-name="store.originalFileName"
+          />
+        </n-card>
+
         <n-card title="五线谱 (MusicXML)" size="small" class="preview-card">
           <div v-if="store.musicxmlText" class="xml-preview">
             <n-code :code="store.musicxmlText" language="xml" word-wrap />
@@ -42,13 +53,31 @@
 
       <!-- 右侧：简谱编辑 -->
       <div class="right-panel">
-        <n-card title="简谱编辑" size="small">
-          <jianpu-editor v-model="jianpuText" />
+        <n-card :title="isViewingFinal ? '最终渲染' : '简谱编辑'" size="small">
+          <template #header-extra>
+            <n-button
+              size="small"
+              @click="toggleFinalView"
+              :loading="isRenderingFinal"
+              :disabled="store.isBusy || (!store.hasMusicxml && !jianpuText)"
+            >
+              {{ isViewingFinal ? '切回编辑' : '查看渲染' }}
+            </n-button>
+          </template>
+
+          <svg-preview
+            v-if="isViewingFinal && finalSvgFileId"
+            :svg-file-id="finalSvgFileId"
+          />
+          <div v-else-if="isViewingFinal" class="empty-hint">
+            <n-text depth="3">暂无最终渲染结果</n-text>
+          </div>
+          <jianpu-editor v-else v-model="jianpuText" />
         </n-card>
       </div>
     </div>
 
-    <svg-preview v-if="store.svgFileId" :svg-file-id="store.svgFileId" />
+    <svg-preview v-if="store.svgFileId && !isViewingFinal" :svg-file-id="store.svgFileId" />
   </n-space>
 </template>
 
@@ -60,6 +89,7 @@ import { useLogStore } from '../stores/log'
 import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
 import JianpuEditor from '../components/JianpuEditor.vue'
+import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
 import { NSpace, NButton, NCard, NCode, NText, useMessage } from 'naive-ui'
 
@@ -69,8 +99,13 @@ const log = useLogStore()
 const message = useMessage()
 
 const jianpuText = ref(store.jianpuText)
+const isViewingFinal = ref(false)
+const isRenderingFinal = ref(false)
+const finalSvgFileId = ref(store.svgFileId)
+
 watch(() => store.jianpuText, (v) => { jianpuText.value = v })
 watch(jianpuText, (v) => { store.setJianpu(v) })
+watch(() => store.svgFileId, (v) => { finalSvgFileId.value = v })
 
 async function musicxmlToJianpu(): Promise<void> {
   store.setBusy(true)
@@ -135,6 +170,41 @@ async function renderSvg(): Promise<void> {
     store.setBusy(false)
   }
 }
+
+async function toggleFinalView(): Promise<void> {
+  if (isViewingFinal.value) {
+    isViewingFinal.value = false
+    return
+  }
+
+  isRenderingFinal.value = true
+  store.setBusy(true)
+  try {
+    const result = store.hasMusicxml
+      ? await renderApi.finalOutput({
+          musicxml_file_id: store.musicxmlFileId,
+          page_image_file_id: store.originalFileId || undefined,
+          target_key: settings.targetKey,
+          start_measure_number: settings.startMeasureNumber ?? undefined,
+        })
+      : await renderApi.jianpuTextSvg({
+          jianpu_text: jianpuText.value,
+          title: '简谱',
+        })
+
+    finalSvgFileId.value = result.svg_file_id
+    store.setSvg(result.svg_file_id)
+    isViewingFinal.value = true
+    log.addLog(store.hasMusicxml ? '已生成最终渲染 SVG' : '已从简谱文本渲染 SVG')
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.addError(`最终渲染失败：${msg}`)
+    message.error(msg)
+  } finally {
+    store.setBusy(false)
+    isRenderingFinal.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -146,6 +216,9 @@ async function renderSvg(): Promise<void> {
 .left-panel {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 .right-panel {
   flex: 1;

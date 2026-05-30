@@ -1,6 +1,8 @@
 <template>
   <div class="svg-preview" v-if="svgUrl">
-    <img :src="svgUrl" class="svg-img" />
+    <div class="svg-scroll">
+      <img :src="svgUrl" class="svg-img" />
+    </div>
   </div>
   <div v-else class="svg-empty">
     <n-text depth="3">暂无 SVG 预览</n-text>
@@ -17,10 +19,20 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
 </script>
 
 <style scoped>
-.svg-img {
-  width: 100%;
+.svg-preview {
   border: 1px solid #e0e0e0;
   border-radius: 4px;
+  background: #f4f1e8;
+}
+.svg-scroll {
+  max-height: 72vh;
+  overflow: auto;
+}
+.svg-img {
+  display: block;
+  width: auto;
+  min-width: 1200px;
+  max-width: none;
 }
 .svg-empty {
   padding: 40px;

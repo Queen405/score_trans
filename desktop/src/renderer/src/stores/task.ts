@@ -5,6 +5,8 @@ export const useTaskStore = defineStore('task', () => {
   // ── State ──
   const inputFileName = ref('')
   const inputFileId = ref('')
+  const originalFileName = ref('')
+  const originalFileId = ref('')
   const musicxmlFileId = ref('')
   const musicxmlText = ref('')
   const jianpuText = ref('')
@@ -14,11 +16,17 @@ export const useTaskStore = defineStore('task', () => {
   // ── Computed ──
   const hasMusicxml = computed(() => !!musicxmlFileId.value)
   const hasInput = computed(() => !!inputFileId.value)
+  const hasOriginal = computed(() => !!originalFileId.value)
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
     inputFileName.value = name
     inputFileId.value = fileId
+  }
+
+  function setOriginalFile(name: string, fileId: string) {
+    originalFileName.value = name
+    originalFileId.value = fileId
   }
 
   function setMusicxml(fileId: string, text: string) {
@@ -41,6 +49,8 @@ export const useTaskStore = defineStore('task', () => {
   function reset() {
     inputFileName.value = ''
     inputFileId.value = ''
+    originalFileName.value = ''
+    originalFileId.value = ''
     musicxmlFileId.value = ''
     musicxmlText.value = ''
     jianpuText.value = ''
@@ -51,6 +61,8 @@ export const useTaskStore = defineStore('task', () => {
   return {
     inputFileName,
     inputFileId,
+    originalFileName,
+    originalFileId,
     musicxmlFileId,
     musicxmlText,
     jianpuText,
@@ -58,7 +70,9 @@ export const useTaskStore = defineStore('task', () => {
     isBusy,
     hasMusicxml,
     hasInput,
+    hasOriginal,
     setInputFile,
+    setOriginalFile,
     setMusicxml,
     setJianpu,
     setSvg,

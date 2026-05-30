@@ -36,6 +36,35 @@ class RenderMusicXmlJianpuUseCase:
         )
         return self.render_service.render_score_svg(score, output_path, title=title or score.title)
 
+    def execute_page(
+        self,
+        musicxml_path: str | Path,
+        output_path: str | Path,
+        *,
+        page_width: float,
+        page_height: float,
+        target_key: str = "C",
+        start_measure_number: int | None = None,
+        title: str | None = None,
+        image_path: str | Path | None = None,
+        ocr_provider: OCRProvider | None = None,
+    ) -> Path:
+        score = self.build_score(
+            musicxml_path,
+            target_key=target_key,
+            start_measure_number=start_measure_number,
+            title=title,
+            image_path=image_path,
+            ocr_provider=ocr_provider,
+        )
+        return self.render_service.render_score_page_svg(
+            score,
+            output_path,
+            page_width=page_width,
+            page_height=page_height,
+            title=title or score.title,
+        )
+
     def build_score(
         self,
         musicxml_path: str | Path,

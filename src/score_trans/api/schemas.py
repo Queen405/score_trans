@@ -69,6 +69,20 @@ class RenderJianpuTextSvgResponse(BaseModel):
     svg_file_id: str
 
 
+class FinalRenderRequest(BaseModel):
+    musicxml_file_id: str
+    page_image_file_id: str | None = None
+    target_key: str = "C"
+    start_measure_number: int | None = None
+    title: str | None = None
+
+
+class FinalRenderResponse(BaseModel):
+    svg_file_id: str
+    page_width: float
+    page_height: float
+
+
 # ── 识别 ──────────────────────────────────────────────────────────────────────
 
 class RecognizeResponse(BaseModel):
@@ -143,6 +157,7 @@ class PreservingLayoutRequest(BaseModel):
     page_image_file_id: str
     target_key: str = "C"
     start_measure_number: int | None = None
+    title: str | None = None
 
 
 class PreservingLayoutResponse(BaseModel):

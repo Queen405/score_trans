@@ -167,10 +167,10 @@ OCR provider 只会从环境变量读取 API key，不会在代码或配置文�
 ```powershell
 $env:SCORE_TRANS_OCR_API_KEY="你的 OCR API key"
 $env:SCORE_TRANS_OCR_BASE_URL="https://api.siliconflow.cn/v1"
-$env:SCORE_TRANS_OCR_MODEL="Qwen/Qwen2.5-VL-72B-Instruct"
+$env:SCORE_TRANS_OCR_MODEL="deepseek-ai/DeepSeek-OCR"
 ```
 
-默认 provider 使用 OpenAI-compatible 的 `chat/completions` 请求格式，适配 SiliconFlow / DeepSeek-compatible 风格接口。测试和离线开发可以使用 `MockOCRProvider`，或者把 `OpenAICompatibleOCRProvider(dry_run=True)` 用于只构造请求、不发起网络调用。
+默认 provider 使用 OpenAI-compatible 的 `chat/completions` 请求格式，适配 SiliconFlow / DeepSeek OCR。最终渲染会同步读取 OMR 生成的 MusicXML 和 OCR 文字层；如果 OCR 返回 `bbox`，文字会按原页面坐标叠回 SVG，并保持原页面尺寸。测试和离线开发可以使用 `MockOCRProvider`，或者把 `OpenAICompatibleOCRProvider(dry_run=True)` 用于只构造请求、不发起网络调用。
 
 ## 简谱输入格式
 

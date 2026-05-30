@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"D:/CODE/MyProjects/score_trans\\\" && .venv/Scripts/python.exe -c \\\"from score_trans.api.app import create_app; app = create_app(); print(f'FastAPI app created: {app.title} v{app.versio...",
-  "error": "Exit code 1\nTraceback (most recent call last):\r\n  File \"<string>\", line 1, in <module>\r\n    from score_trans.api.app import create_app; app = create_app(); print(f'FastAPI app created: {app.title} v{app.version}'); routes = [r.path for r in app.routes]; print(f'Routes ({len(routes)}):'); [print(f'  {r}') for r in sorted(routes)]\r\n                                                      ~~~~~~~~~~^^\r\n  File \"D:\\CODE\\MyProjects\\score_trans\\src\\score_trans\\api\\app.py\", line 26, in create_app\r\n    from...",
-  "timestamp": "2026-05-30T16:03:00.716Z",
-  "retry_count": 2
-}
