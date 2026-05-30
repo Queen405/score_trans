@@ -1,0 +1,194 @@
+
+name: Draft release
+
+on:
+  - workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  # Build an installer for each OS
+  build-installer:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: ubuntu-22.04    # fix for issue #805 libasound2t64 is required but not found
+          - os: macos-latest    # for Apple Silicon (arm64) support
+          - os: macos-15-intel  # for legacy Intel (x64) hardware support
+          - os: windows-latest
+            option: ""          # without console
+          - os: windows-latest
+            option: Console     # with console
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Retrieve Gradle properties
+        uses: BrycensRanch/read-properties-action@v1
+        id: all
+        with:
+          file: gradle.properties
+          all: true
+
+      - name: Setup Java ${{ steps.all.outputs.theMinJavaVersion }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ steps.all.outputs.theMinJavaVersion }}
+          distribution: zulu
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build installer on ${{ matrix.os }} option ${{ matrix.option }}
+        run: ./gradlew --info jpackage -Poption=${{ matrix.option }}
+
+      - name: Upload installer
+        id: upload-installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}${{ matrix.option }}
+          path: packaging/build/dist/*
+          compression-level: 0
+          overwrite: true
+
+  # Build the handbook PDF from Audiveris github pages
+  build-handbook-pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PrinceXML
+        run: |
+          wget https://www.princexml.com/download/prince_16-1_ubuntu24.04_amd64.deb
+          sudo apt install ./prince_16-1_ubuntu24.04_amd64.deb
+          prince --version
+
+      - name: Generate PDF
+        run: ./gradlew --info :docs:handbookPdf
+          
+      - name: Verify generated pdf
+        run: ls -l ./docs/build/pdf
+        
+      - name: Upload handbook PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: handbook
+          path: ./docs/build/pdf/*.pdf
+          compression-level: 0
+          overwrite: true
+
+  # Build the schema documentation
+  build-schema-doc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Retrieve Gradle properties
+        uses: BrycensRanch/read-properties-action@v1
+        id: all
+        with:
+          file: gradle.properties
+          all: true
+
+      - name: Setup Java ${{ steps.all.outputs.theMinJavaVersion }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ steps.all.outputs.theMinJavaVersion }}
+          distribution: zulu
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        
+      - name: Install xsltproc
+        run: |
+          sudo apt update
+          sudo apt install xsltproc
+          xsltproc --version
+
+      - name: Build schema doc
+        run: ./gradlew --info :schemas:genSchemaDoc
+
+      - name: Upload schema doc
+        id: upload-schema-doc
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-doc
+          path: schemas/build/distributions/*
+          compression-level: 0
+          overwrite: true
+
+  # Collect all artifacts and draft a release with them
+  global-upload:
+    needs: [build-installer, build-handbook-pdf, build-schema-doc]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download ubuntu latest installer
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-ubuntu-latest
+          path: ./artifacts
+
+      - name: Download ubuntu 22.04 installer
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-ubuntu-22.04
+          path: ./artifacts
+
+      - name: Download windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-windows-latest
+          path: ./artifacts
+
+      - name: Download windows installer with Console option
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-windows-latestConsole
+          path: ./artifacts
+
+      - name: Download macos installer
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-macos-latest
+          path: ./artifacts
+
+      - name: Download (old) macos installer
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-macos-15-intel
+          path: ./artifacts
+
+      - name: Download handbook PDF
+        uses: actions/download-artifact@v4
+        with:
+          name: handbook
+          path: ./artifacts
+
+      - name: Download schema doc
+        uses: actions/download-artifact@v4
+        with:
+          name: schema-doc
+          path: ./artifacts
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          generate_release_notes: true
+          draft: true
+          prerelease: true
+          files: ./artifacts/*

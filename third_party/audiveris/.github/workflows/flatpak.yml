@@ -1,0 +1,157 @@
+name: Build flatpak package
+
+on:
+  - pull_request
+  - release
+  - workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  java-dependencies:
+    name: "Get java dependencies"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Retrieve Gradle properties
+        uses: BrycensRanch/read-properties-action@v1
+        id: all
+        with:
+          file: gradle.properties
+          all: true
+
+      - name: Setup Java ${{ steps.all.outputs.theMinJavaVersion }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ steps.all.outputs.theMinJavaVersion }}
+          distribution: zulu
+
+      - name: Populate flatpak/flathub
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: init flathub with gradle
+        run: ./gradlew --info -P flathubDir=flathub initFlathub
+
+      - name: upload flathub content
+        uses: actions/upload-artifact@v4
+        with:
+          name: flathub-content
+          path: flathub/
+
+  flatpak:
+    name: "Flatpak"
+    needs: java-dependencies
+
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+
+    strategy:
+      matrix:
+        variant:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+      fail-fast: false
+    runs-on: ${{ matrix.variant.runner }}
+
+    steps:
+      - name: download flathub content
+        uses: actions/download-artifact@v4
+        with:
+          name: flathub-content
+
+      - name: Fix repository owner
+        run: |
+          sed -i '/url:/s,Audiveris/audiveris,${{ github.repository }},' org.audiveris.audiveris.yml
+
+      - name: Build flatpak ${{ github.sha }}
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          build-bundle: true
+          bundle: org.audiveris.audiveris.flatpak
+          manifest-path: org.audiveris.audiveris.yml
+          cache-key: audiveris-flatpak-${{ github.sha }}
+          arch: ${{ matrix.variant.arch }}
+
+  flathub-pr:
+    name: "Submit flathub PR"
+    runs-on: ubuntu-latest
+    needs: java-dependencies
+    env:
+      GH_TOKEN: ${{ secrets.FLATHUB_TOKEN }}
+      BASE_BRANCH: ${{ secrets.BASE_BRANCH }}
+
+    steps:
+      - name: Download flathub content
+        uses: actions/download-artifact@v4
+        with:
+          name: flathub-content
+          path: flathub_update
+
+      - name: Push to flathub and create PR
+        if: ${{ env.GH_TOKEN != '' }}
+        run: |
+          set -x
+          SHA=${{ github.sha }}
+          SHA=${SHA:0:7}
+          git config --global user.name 'GitHub Workflow'
+          git config --global user.email 'flatpak-pr@audiveris.org'
+
+          # Which flathub branch to create PR for
+          if [[ "$BASE_BRANCH" ]]; then
+            BASE=$BASE_BRANCH
+          elif [[ "${{ github.event_name }}" = release ]]; then
+            BASE=master
+          else
+            BASE=beta
+          fi
+          PUSHTO="auto-${{ github.ref_name }}-$SHA-to-$BASE"
+          PR_BODY="\
+          ## Update $BASE from workflow ${{ github.workflow }}
+          
+          * Workflow repository: ${{ github.repository }}
+          * Actor: ${{ github.actor }} / ${{ github.triggering_actor }}
+          * Event:  ${{ github.event_name }}
+          * Ref: ${{ github.ref_name }}
+          * Source SHA: ${{ github.sha }}
+          * Workflow: ${{ github.workflow }}
+          * Job: ${{ github.job }}
+          * Run ID: ${{ github.run_id }}
+          "
+          
+          gh repo clone https://github.com/flathub/org.audiveris.audiveris \
+            flathub
+          cd flathub
+          if [[ "$BASE" != master ]]; then
+              git switch -c "$BASE" "origin/$BASE"
+          fi
+          git remote -v
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/flathub/org.audiveris.audiveris
+          git remote -v
+
+          # Add modifications from "java-dependencies" job
+          rsync -ri ../flathub_update/ ./
+          # Adapt the repo url and sha to match the code for which
+          # the workflow is triggered
+          sed -i '/url:/s,Audiveris/audiveris,${{ github.repository }},' \
+            org.audiveris.audiveris.yml
+          sed -iE 's,commit: [a-f0-9]{40},commit: ${{ github.sha }},' \
+            org.audiveris.audiveris.yml
+
+          # Commit, push, and create PR
+          git commit -am \
+            "Update to ${{ github.repository }}#${{ github.ref_name }}, $SHA"
+          git show
+          git push origin "HEAD:$PUSHTO"
+          gh pr create \
+            --repo flathub/org.audiveris.audiveris \
+            --head "$PUSHTO" \
+            --base "$BASE" \
+            --title \
+            "Update $BASE from ${{ github.repository }}#${{ github.ref_name }}" \
+            --body "$PR_BODY"

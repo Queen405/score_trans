@@ -1,0 +1,7 @@
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"oh-my-claudecode:deep-dive"}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"superpowers:dispatching-parallel-agents"}
+{"t":0,"agent":"a858b98","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"ae20eb8","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a1ef800","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a1b3a3b","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"superpowers:using-superpowers"}

@@ -1,0 +1,243 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1780150479767,
+  "projectRoot": "D:\\CODE\\MyProjects\\score_trans",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "pyproject.toml",
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "pytest",
+        "version": null,
+        "category": "testing"
+      }
+    ],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": "pytest",
+    "lintCommand": "ruff check",
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "examples",
+      "scripts",
+      "src",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 2,
+      "lastAccessed": 1780150479705,
+      "keyFiles": [
+        "5.瑞雪迎春 - 分谱.pdf",
+        "simple_jianpu.txt"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 2,
+      "lastAccessed": 1780150479706,
+      "keyFiles": [
+        "check_audiveris.ps1",
+        "inspect_mxl.py"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 0,
+      "lastAccessed": 1780150479707,
+      "keyFiles": []
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 6,
+      "lastAccessed": 1780150479708,
+      "keyFiles": [
+        "test_convert.py",
+        "test_jianpu.py",
+        "test_mvvm.py",
+        "test_ocr.py",
+        "test_pipeline.py"
+      ]
+    },
+    "third_party": {
+      "path": "third_party",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1780150479708,
+      "keyFiles": []
+    },
+    "work": {
+      "path": "work",
+      "purpose": null,
+      "fileCount": 22,
+      "lastAccessed": 1780150479709,
+      "keyFiles": [
+        "clean_mvvm_verify.svg",
+        "mvvm_verify_jianpu.svg",
+        "mvvm_verify_jianpu.txt",
+        "ocr_smoke.png",
+        "ruixue_sheet10_beamed_jianpu.png"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": ".",
+      "accessCount": 12,
+      "lastAccessed": 1780152094932,
+      "type": "directory"
+    },
+    {
+      "path": "C:\\Users\\15732\\.claude\\settings.json",
+      "accessCount": 5,
+      "lastAccessed": 1780151290716,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\15732\\.claude.json",
+      "accessCount": 4,
+      "lastAccessed": 1780151399465,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 3,
+      "lastAccessed": 1780154462431,
+      "type": "directory"
+    },
+    {
+      "path": "src\\score_trans\\viewmodels\\main_window_vm.py",
+      "accessCount": 2,
+      "lastAccessed": 1780152271262,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\views\\main_window.py",
+      "accessCount": 2,
+      "lastAccessed": 1780152271329,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\models.py",
+      "accessCount": 2,
+      "lastAccessed": 1780152306881,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\audiveris_service.py",
+      "accessCount": 2,
+      "lastAccessed": 1780152307049,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\15732\\.claude\\CLAUDE.md",
+      "accessCount": 1,
+      "lastAccessed": 1780150702977,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1780152061430,
+      "type": "file"
+    },
+    {
+      "path": "pyproject.toml",
+      "accessCount": 1,
+      "lastAccessed": 1780152061587,
+      "type": "file"
+    },
+    {
+      "path": "requirements.txt",
+      "accessCount": 1,
+      "lastAccessed": 1780152061624,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\__main__.py",
+      "accessCount": 1,
+      "lastAccessed": 1780152102089,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\cli\\commands.py",
+      "accessCount": 1,
+      "lastAccessed": 1780152102152,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\musicxml.py",
+      "accessCount": 1,
+      "lastAccessed": 1780152113703,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\jianpu.py",
+      "accessCount": 1,
+      "lastAccessed": 1780152113744,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\ocr_provider.py",
+      "accessCount": 1,
+      "lastAccessed": 1780152114179,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\full_pipeline.py",
+      "accessCount": 1,
+      "lastAccessed": 1780152114241,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\recognize_score.py",
+      "accessCount": 1,
+      "lastAccessed": 1780152307095,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\convert_to_jianpu.py",
+      "accessCount": 1,
+      "lastAccessed": 1780152307164,
+      "type": "file"
+    },
+    {
+      "path": "ELECTRON_VUE_FASTAPI_MVVM_PLAN.md",
+      "accessCount": 1,
+      "lastAccessed": 1780154483072,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

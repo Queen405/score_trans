@@ -1,0 +1,34 @@
+name: Build handbook PDF
+
+on:
+  - workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PrinceXML
+        run: |
+          wget https://www.princexml.com/download/prince_16-1_ubuntu24.04_amd64.deb
+          sudo apt install ./prince_16-1_ubuntu24.04_amd64.deb
+          prince --version
+
+      - name: Generate PDF from Audiveris github pages
+        run: |
+          chmod +x ./docs/pdf/pdf-build.sh
+          cd ./docs
+          ./pdf/pdf-build.sh
+          
+      - name: Verify generated pdf
+        run: ls -l ./docs/build/pdf
+        
+      - name: Upload handbook PDF
+        uses: actions/upload-artifact@v4
+        with:
+          path: ./docs/build/pdf/*.pdf
+          compression-level: 0
+          overwrite: true
