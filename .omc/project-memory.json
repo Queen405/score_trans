@@ -119,6 +119,12 @@
       "type": "directory"
     },
     {
+      "path": "ELECTRON_VUE_FASTAPI_MVVM_PLAN.md",
+      "accessCount": 12,
+      "lastAccessed": 1780155357189,
+      "type": "file"
+    },
+    {
       "path": "C:\\Users\\15732\\.claude\\settings.json",
       "accessCount": 5,
       "lastAccessed": 1780151290716,
@@ -137,27 +143,87 @@
       "type": "directory"
     },
     {
-      "path": "src\\score_trans\\viewmodels\\main_window_vm.py",
-      "accessCount": 2,
-      "lastAccessed": 1780152271262,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\views\\main_window.py",
-      "accessCount": 2,
-      "lastAccessed": 1780152271329,
-      "type": "file"
-    },
-    {
       "path": "src\\score_trans\\domain\\models.py",
-      "accessCount": 2,
-      "lastAccessed": 1780152306881,
+      "accessCount": 3,
+      "lastAccessed": 1780155240869,
       "type": "file"
     },
     {
       "path": "src\\score_trans\\services\\audiveris_service.py",
+      "accessCount": 3,
+      "lastAccessed": 1780155249591,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\views\\main_window.py",
+      "accessCount": 3,
+      "lastAccessed": 1780155273489,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\viewmodels\\main_window_vm.py",
+      "accessCount": 3,
+      "lastAccessed": 1780155274009,
+      "type": "file"
+    },
+    {
+      "path": "pyproject.toml",
       "accessCount": 2,
-      "lastAccessed": 1780152307049,
+      "lastAccessed": 1780155232984,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\__main__.py",
+      "accessCount": 2,
+      "lastAccessed": 1780155239206,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\cli\\commands.py",
+      "accessCount": 2,
+      "lastAccessed": 1780155240858,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\jianpu.py",
+      "accessCount": 2,
+      "lastAccessed": 1780155241000,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\musicxml.py",
+      "accessCount": 2,
+      "lastAccessed": 1780155241108,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\full_pipeline.py",
+      "accessCount": 2,
+      "lastAccessed": 1780155255041,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\convert_to_jianpu.py",
+      "accessCount": 2,
+      "lastAccessed": 1780155255714,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\ocr_provider.py",
+      "accessCount": 2,
+      "lastAccessed": 1780155264634,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\recognize_score.py",
+      "accessCount": 2,
+      "lastAccessed": 1780155274763,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 2,
+      "lastAccessed": 1780155275433,
       "type": "file"
     },
     {
@@ -167,75 +233,105 @@
       "type": "file"
     },
     {
-      "path": "README.md",
-      "accessCount": 1,
-      "lastAccessed": 1780152061430,
-      "type": "file"
-    },
-    {
-      "path": "pyproject.toml",
-      "accessCount": 1,
-      "lastAccessed": 1780152061587,
-      "type": "file"
-    },
-    {
       "path": "requirements.txt",
       "accessCount": 1,
       "lastAccessed": 1780152061624,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\__main__.py",
+      "path": "src\\score_trans\\__init__.py",
       "accessCount": 1,
-      "lastAccessed": 1780152102089,
+      "lastAccessed": 1780155238952,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\cli\\commands.py",
+      "path": "src\\score_trans\\domain\\__init__.py",
       "accessCount": 1,
-      "lastAccessed": 1780152102152,
+      "lastAccessed": 1780155241325,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\domain\\musicxml.py",
+      "path": "src\\score_trans\\services\\__init__.py",
       "accessCount": 1,
-      "lastAccessed": 1780152113703,
+      "lastAccessed": 1780155247485,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\domain\\jianpu.py",
+      "path": "src\\score_trans\\services\\file_service.py",
       "accessCount": 1,
-      "lastAccessed": 1780152113744,
+      "lastAccessed": 1780155247865,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\services\\ocr_provider.py",
+      "path": "src\\score_trans\\services\\settings.py",
       "accessCount": 1,
-      "lastAccessed": 1780152114179,
+      "lastAccessed": 1780155248421,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\use_cases\\full_pipeline.py",
+      "path": "src\\score_trans\\services\\render_service.py",
       "accessCount": 1,
-      "lastAccessed": 1780152114241,
+      "lastAccessed": 1780155249389,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\use_cases\\recognize_score.py",
+      "path": "src\\score_trans\\services\\rendering.py",
       "accessCount": 1,
-      "lastAccessed": 1780152307095,
+      "lastAccessed": 1780155249474,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\use_cases\\convert_to_jianpu.py",
+      "path": "src\\score_trans\\services\\musescore_service.py",
       "accessCount": 1,
-      "lastAccessed": 1780152307164,
+      "lastAccessed": 1780155249991,
       "type": "file"
     },
     {
-      "path": "ELECTRON_VUE_FASTAPI_MVVM_PLAN.md",
+      "path": "src\\score_trans\\use_cases\\__init__.py",
       "accessCount": 1,
-      "lastAccessed": 1780154483072,
+      "lastAccessed": 1780155254576,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\convert_to_musicxml.py",
+      "accessCount": 1,
+      "lastAccessed": 1780155255444,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\render_jianpu.py",
+      "accessCount": 1,
+      "lastAccessed": 1780155258133,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\external_tools.py",
+      "accessCount": 1,
+      "lastAccessed": 1780155258214,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\env_file.py",
+      "accessCount": 1,
+      "lastAccessed": 1780155264879,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\viewmodels\\base.py",
+      "accessCount": 1,
+      "lastAccessed": 1780155274368,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\export_score.py",
+      "accessCount": 1,
+      "lastAccessed": 1780155275109,
+      "type": "file"
+    },
+    {
+      "path": "CLAUDE.md",
+      "accessCount": 1,
+      "lastAccessed": 1780155325338,
       "type": "file"
     }
   ],
