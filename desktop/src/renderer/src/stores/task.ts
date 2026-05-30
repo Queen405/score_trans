@@ -182,6 +182,20 @@ export const useTaskStore = defineStore('task', () => {
     patchCurrentPage({ svgFileId: fileId })
   }
 
+  function removePage(index: number): void {
+    if (index < 0 || index >= pages.value.length) return
+    pages.value.splice(index, 1)
+    if (pages.value.length === 0) {
+      currentPageIndex.value = -1
+      syncCurrentFromPage()
+    } else if (currentPageIndex.value >= pages.value.length) {
+      currentPageIndex.value = pages.value.length - 1
+      syncCurrentFromPage()
+    } else if (currentPageIndex.value === index) {
+      syncCurrentFromPage()
+    }
+  }
+
   function setCurrentPageStatus(status: TaskPageStatus, errorMessage = '') {
     patchCurrentPage({ status, errorMessage })
   }
@@ -234,6 +248,7 @@ export const useTaskStore = defineStore('task', () => {
     setMusicxml,
     setJianpu,
     setSvg,
+    removePage,
     setCurrentPageStatus,
     setBusy,
     reset,

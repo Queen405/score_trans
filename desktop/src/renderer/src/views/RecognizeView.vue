@@ -57,24 +57,60 @@
           <template #icon><n-icon><FlashOutline /></n-icon></template>
           批量识别全部页面
         </n-button>
-        <n-button class="action-btn" @click="openMusicXml" :disabled="store.isBusy" size="large" secondary>
-          <template #icon><n-icon><DocumentAttachOutline /></n-icon></template>
-          打开 MusicXML
-        </n-button>
       </n-space>
 
       <transition name="fade">
-        <div v-if="store.inputFileName" class="file-tag">
-          <n-tag type="success" round :bordered="false" size="medium">
-            <template #icon><n-icon><CheckmarkCircleOutline /></n-icon></template>
-            已选择：{{ store.inputFileName }}
-          </n-tag>
-          <n-tag v-if="store.currentPage?.status === 'failed'" type="error" round :bordered="false" size="medium">
-            识别失败
-          </n-tag>
-          <n-tag v-else-if="store.currentPage?.status === 'completed'" type="info" round :bordered="false" size="medium">
-            已生成简谱与渲染
-          </n-tag>
+        <div v-if="store.pages.length" class="pages-gallery">
+          <div
+            v-for="(page, index) in store.pages"
+            :key="page.id"
+            :class="['page-thumb', { active: index === store.currentPageIndex }]"
+            @click="store.selectPage(index)"
+          >
+            <button
+              class="page-thumb-remove"
+              type="button"
+              aria-label="删除"
+              @click.stop="removePage(index)"
+            >
+              <n-icon size="14"><CloseOutline /></n-icon>
+            </button>
+            <div class="page-thumb-preview">
+              <img
+                v-if="isPreviewableOriginal(page.inputFileName)"
+                :src="getFileURL(page.inputFileId)"
+                :alt="page.inputFileName"
+                class="page-thumb-img"
+              />
+              <div v-else class="page-thumb-placeholder">
+                <n-icon size="22"><DocumentAttachOutline /></n-icon>
+              </div>
+            </div>
+            <div class="page-thumb-info">
+              <span class="page-thumb-name" :title="page.inputFileName">{{ page.inputFileName }}</span>
+              <n-tag
+                v-if="page.status === 'completed'"
+                size="tiny"
+                type="success"
+                :bordered="false"
+                round
+              >完成</n-tag>
+              <n-tag
+                v-else-if="page.status === 'failed'"
+                size="tiny"
+                type="error"
+                :bordered="false"
+                round
+              >失败</n-tag>
+              <n-tag
+                v-else-if="page.status === 'processing'"
+                size="tiny"
+                type="warning"
+                :bordered="false"
+                round
+              >处理中</n-tag>
+            </div>
+          </div>
         </div>
       </transition>
     </n-card>
@@ -102,13 +138,13 @@ import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
 import { pipelineApi } from '../api/pipeline'
 import { historyApi } from '../api/history'
-import { uploadFile, getFileURL } from '../api/client'
+import { getFileURL } from '../api/client'
 import FileUploader from '../components/FileUploader.vue'
 import {
   ScanOutline,
   FlashOutline,
-  DocumentAttachOutline,
   CheckmarkCircleOutline,
+  CloseOutline,
 } from '@vicons/ionicons5'
 import { NSpace, NButton, NTag, NCard, NCode, NIcon, NProgress, useMessage } from 'naive-ui'
 
@@ -118,6 +154,13 @@ const settings = useSettingsStore()
 const message = useMessage()
 const progressPercent = ref(0)
 const progressText = ref('等待开始')
+
+function removePage(index: number): void {
+  const page = store.pages[index]
+  if (!page) return
+  store.removePage(index)
+  log.addLog(`已移除页面：${page.inputFileName}`)
+}
 
 async function onFileUploaded(fileId: string, fileName: string): Promise<void> {
   if (store.isBusy) return
@@ -215,34 +258,6 @@ async function recognizeAllPages(): Promise<void> {
   } finally {
     store.setBusy(false)
   }
-}
-
-async function openMusicXml(): Promise<void> {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.musicxml,.xml,.mxl'
-  input.onchange = async () => {
-    const file = input.files?.[0]
-    if (!file) return
-    store.setBusy(true)
-    try {
-      const result = await uploadFile(file)
-      const idx = store.addInputPage(file.name, result.file_id)
-      store.selectPage(idx)
-      store.setMusicxml(result.file_id, '')
-      store.setCurrentPageStatus('completed')
-      store.clearOriginalFile()
-      log.addLog(`已打开 MusicXML：${file.name}`)
-      message.success('已加入新页面')
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      log.addError(`打开失败：${msg}`)
-      message.error(msg)
-    } finally {
-      store.setBusy(false)
-    }
-  }
-  input.click()
 }
 
 function isPreviewableOriginal(fileName: string): boolean {
@@ -343,11 +358,101 @@ async function saveHistory(
   box-shadow: 0 18px 34px -28px rgba(46, 52, 64, 0.9);
 }
 
-.file-tag {
+.pages-gallery {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-thumb {
+  width: 120px;
+  position: relative;
+  cursor: pointer;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: rgba(216, 222, 233, 0.3);
+  padding: 6px;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.page-thumb:hover {
+  border-color: rgba(94, 129, 172, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -10px rgba(46, 52, 64, 0.5);
+}
+
+.page-thumb.active {
+  border-color: #5e81ac;
+  box-shadow: 0 8px 24px -12px rgba(94, 129, 172, 0.5);
+}
+
+.page-thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #4c566a;
+  background: rgba(216, 222, 233, 0.85);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  z-index: 2;
+}
+
+.page-thumb:hover .page-thumb-remove {
+  opacity: 1;
+}
+
+.page-thumb-remove:hover {
+  background: rgba(208, 48, 80, 0.9);
+  color: #ffffff;
+}
+
+.page-thumb-preview {
+  width: 100%;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(216, 222, 233, 0.4);
+}
+
+.page-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.page-thumb-placeholder {
+  color: #4c566a;
+}
+
+.page-thumb-info {
   margin-top: 6px;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+}
+
+.page-thumb-name {
+  font-size: 11px;
+  color: var(--text-soft, #4c566a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
 }
 
 .preview-card {
@@ -386,6 +491,40 @@ async function saveHistory(
   border-color: rgba(129, 161, 193, 0.35);
   background: linear-gradient(150deg, rgba(46, 52, 64, 0.9), rgba(59, 66, 82, 0.8));
   box-shadow: 0 34px 70px -56px rgba(0, 0, 0, 0.95);
+}
+
+:global(body.n-theme-dark) .page-thumb {
+  background: rgba(59, 66, 82, 0.5);
+}
+
+:global(body.n-theme-dark) .page-thumb:hover {
+  border-color: rgba(136, 192, 208, 0.5);
+}
+
+:global(body.n-theme-dark) .page-thumb.active {
+  border-color: #88c0d0;
+}
+
+:global(body.n-theme-dark) .page-thumb-preview {
+  background: rgba(59, 66, 82, 0.6);
+}
+
+:global(body.n-theme-dark) .page-thumb-placeholder {
+  color: #d8dee9;
+}
+
+:global(body.n-theme-dark) .page-thumb-remove {
+  background: rgba(59, 66, 82, 0.85);
+  color: #d8dee9;
+}
+
+:global(body.n-theme-dark) .page-thumb-remove:hover {
+  background: rgba(208, 48, 80, 0.9);
+  color: #ffffff;
+}
+
+:global(body.n-theme-dark) .page-thumb-name {
+  color: #d8dee9;
 }
 
 :global(body.n-theme-dark) .panel-head h3 {

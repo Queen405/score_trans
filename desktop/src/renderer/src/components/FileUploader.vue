@@ -5,6 +5,7 @@
     :disabled="disabled"
     accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt"
     directory-dnd
+    multiple
   >
     <n-upload-dragger class="upload-dragger">
       <div class="upload-content">
@@ -14,7 +15,7 @@
           </n-icon>
         </div>
         <n-text class="upload-title">
-          点击或拖拽文件到此处
+          点击或拖拽文件到此处（支持多选）
         </n-text>
         <n-text depth="3" class="upload-subtitle">
           支持 PDF、PNG、JPG、TIF、MusicXML、MXL

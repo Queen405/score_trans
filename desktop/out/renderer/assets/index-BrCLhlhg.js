@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-DsSMW2NK.js"(exports, module) {
+  "assets/index-BrCLhlhg.js"(exports, module) {
     /**
     * @vue/shared v3.5.35
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -8248,6 +8248,19 @@ var require_index_001 = __commonJS({
         svgFileId.value = fileId;
         patchCurrentPage({ svgFileId: fileId });
       }
+      function removePage(index) {
+        if (index < 0 || index >= pages.value.length) return;
+        pages.value.splice(index, 1);
+        if (pages.value.length === 0) {
+          currentPageIndex.value = -1;
+          syncCurrentFromPage();
+        } else if (currentPageIndex.value >= pages.value.length) {
+          currentPageIndex.value = pages.value.length - 1;
+          syncCurrentFromPage();
+        } else if (currentPageIndex.value === index) {
+          syncCurrentFromPage();
+        }
+      }
       function setCurrentPageStatus(status, errorMessage = "") {
         patchCurrentPage({ status, errorMessage });
       }
@@ -8297,6 +8310,7 @@ var require_index_001 = __commonJS({
         setMusicxml,
         setJianpu,
         setSvg,
+        removePage,
         setCurrentPageStatus,
         setBusy,
         reset
@@ -8468,46 +8482,6 @@ var require_index_001 = __commonJS({
         return apiFetch("/history", { method: "DELETE" });
       }
     };
-    const _hoisted_1$B = {
-      xmlns: "http://www.w3.org/2000/svg",
-      "xmlns:xlink": "http://www.w3.org/1999/xlink",
-      viewBox: "0 0 512 512"
-    };
-    const _hoisted_2$y = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "48",
-        d: "M244 400L100 256l144-144"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_3$s = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "48",
-        d: "M120 256h292"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_4$m = [_hoisted_2$y, _hoisted_3$s];
-    const ArrowBackOutline = /* @__PURE__ */ defineComponent({
-      name: "ArrowBackOutline",
-      render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$B, _hoisted_4$m);
-      }
-    });
     const _hoisted_1$A = {
       xmlns: "http://www.w3.org/2000/svg",
       "xmlns:xlink": "http://www.w3.org/1999/xlink",
@@ -8521,7 +8495,7 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "48",
-        d: "M268 112l144 144l-144 144"
+        d: "M244 400L100 256l144-144"
       },
       null,
       -1
@@ -8535,15 +8509,15 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "48",
-        d: "M392 256H100"
+        d: "M120 256h292"
       },
       null,
       -1
       /* HOISTED */
     );
     const _hoisted_4$l = [_hoisted_2$x, _hoisted_3$r];
-    const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
-      name: "ArrowForwardOutline",
+    const ArrowBackOutline = /* @__PURE__ */ defineComponent({
+      name: "ArrowBackOutline",
       render: function render2(_ctx, _cache) {
         return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_4$l);
       }
@@ -8556,11 +8530,12 @@ var require_index_001 = __commonJS({
     const _hoisted_2$w = /* @__PURE__ */ createBaseVNode(
       "path",
       {
-        d: "M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192z",
         fill: "none",
         stroke: "currentColor",
-        "stroke-miterlimit": "10",
-        "stroke-width": "32"
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "48",
+        d: "M268 112l144 144l-144 144"
       },
       null,
       -1
@@ -8573,16 +8548,16 @@ var require_index_001 = __commonJS({
         stroke: "currentColor",
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
-        "stroke-width": "32",
-        d: "M352 176L217.6 336L160 272"
+        "stroke-width": "48",
+        d: "M392 256H100"
       },
       null,
       -1
       /* HOISTED */
     );
     const _hoisted_4$k = [_hoisted_2$w, _hoisted_3$q];
-    const CheckmarkCircleOutline = /* @__PURE__ */ defineComponent({
-      name: "CheckmarkCircleOutline",
+    const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
+      name: "ArrowForwardOutline",
       render: function render2(_ctx, _cache) {
         return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_4$k);
       }
@@ -8613,31 +8588,17 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "32",
-        d: "M320 320L192 192"
+        d: "M352 176L217.6 336L160 272"
       },
       null,
       -1
       /* HOISTED */
     );
-    const _hoisted_4$j = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "32",
-        d: "M192 320l128-128"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_5$f = [_hoisted_2$v, _hoisted_3$p, _hoisted_4$j];
-    const CloseCircleOutline = /* @__PURE__ */ defineComponent({
-      name: "CloseCircleOutline",
+    const _hoisted_4$j = [_hoisted_2$v, _hoisted_3$p];
+    const CheckmarkCircleOutline = /* @__PURE__ */ defineComponent({
+      name: "CheckmarkCircleOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_5$f);
+        return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_4$j);
       }
     });
     const _hoisted_1$x = {
@@ -8648,12 +8609,11 @@ var require_index_001 = __commonJS({
     const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
       "path",
       {
+        d: "M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192z",
         fill: "none",
         stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "32",
-        d: "M368 368L144 144"
+        "stroke-miterlimit": "10",
+        "stroke-width": "32"
       },
       null,
       -1
@@ -8667,17 +8627,31 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "32",
-        d: "M368 144L144 368"
+        d: "M320 320L192 192"
       },
       null,
       -1
       /* HOISTED */
     );
-    const _hoisted_4$i = [_hoisted_2$u, _hoisted_3$o];
-    const CloseOutline = /* @__PURE__ */ defineComponent({
-      name: "CloseOutline",
+    const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "32",
+        d: "M192 320l128-128"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_5$e = [_hoisted_2$u, _hoisted_3$o, _hoisted_4$i];
+    const CloseCircleOutline = /* @__PURE__ */ defineComponent({
+      name: "CloseCircleOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_4$i);
+        return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_5$e);
       }
     });
     const _hoisted_1$w = {
@@ -8688,12 +8662,12 @@ var require_index_001 = __commonJS({
     const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
       "path",
       {
-        d: "M320 336h76c55 0 100-21.21 100-75.6s-53-73.47-96-75.6C391.11 99.74 329 48 256 48c-69 0-113.44 45.79-128 91.2c-60 5.7-112 35.88-112 98.4S70 336 136 336h56",
         fill: "none",
         stroke: "currentColor",
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
-        "stroke-width": "32"
+        "stroke-width": "32",
+        d: "M368 368L144 144"
       },
       null,
       -1
@@ -8707,31 +8681,17 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "32",
-        d: "M192 400.1l64 63.9l64-63.9"
+        d: "M368 144L144 368"
       },
       null,
       -1
       /* HOISTED */
     );
-    const _hoisted_4$h = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "32",
-        d: "M256 224v224.03"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_5$e = [_hoisted_2$t, _hoisted_3$n, _hoisted_4$h];
-    const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
-      name: "CloudDownloadOutline",
+    const _hoisted_4$h = [_hoisted_2$t, _hoisted_3$n];
+    const CloseOutline = /* @__PURE__ */ defineComponent({
+      name: "CloseOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_5$e);
+        return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_4$h);
       }
     });
     const _hoisted_1$v = {
@@ -8742,7 +8702,7 @@ var require_index_001 = __commonJS({
     const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
       "path",
       {
-        d: "M320 367.79h76c55 0 100-29.21 100-83.6s-53-81.47-96-83.6c-8.89-85.06-71-136.8-144-136.8c-69 0-113.44 45.79-128 91.2c-60 5.7-112 43.88-112 106.4s54 106.4 120 106.4h56",
+        d: "M320 336h76c55 0 100-21.21 100-75.6s-53-73.47-96-75.6C391.11 99.74 329 48 256 48c-69 0-113.44 45.79-128 91.2c-60 5.7-112 35.88-112 98.4S70 336 136 336h56",
         fill: "none",
         stroke: "currentColor",
         "stroke-linecap": "round",
@@ -8761,7 +8721,7 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "32",
-        d: "M320 255.79l-64-64l-64 64"
+        d: "M192 400.1l64 63.9l64-63.9"
       },
       null,
       -1
@@ -8775,15 +8735,15 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "32",
-        d: "M256 448.21V207.79"
+        d: "M256 224v224.03"
       },
       null,
       -1
       /* HOISTED */
     );
     const _hoisted_5$d = [_hoisted_2$s, _hoisted_3$m, _hoisted_4$g];
-    const CloudUploadOutline = /* @__PURE__ */ defineComponent({
-      name: "CloudUploadOutline",
+    const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
+      name: "CloudDownloadOutline",
       render: function render2(_ctx, _cache) {
         return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_5$d);
       }
@@ -8796,12 +8756,12 @@ var require_index_001 = __commonJS({
     const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
       "path",
       {
+        d: "M320 367.79h76c55 0 100-29.21 100-83.6s-53-81.47-96-83.6c-8.89-85.06-71-136.8-144-136.8c-69 0-113.44 45.79-128 91.2c-60 5.7-112 43.88-112 106.4s54 106.4 120 106.4h56",
         fill: "none",
         stroke: "currentColor",
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
-        "stroke-width": "32",
-        d: "M160 368L32 256l128-112"
+        "stroke-width": "32"
       },
       null,
       -1
@@ -8815,17 +8775,31 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "32",
-        d: "M352 368l128-112l-128-112"
+        d: "M320 255.79l-64-64l-64 64"
       },
       null,
       -1
       /* HOISTED */
     );
-    const _hoisted_4$f = [_hoisted_2$r, _hoisted_3$l];
-    const CodeOutline = /* @__PURE__ */ defineComponent({
-      name: "CodeOutline",
+    const _hoisted_4$f = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "32",
+        d: "M256 448.21V207.79"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_5$c = [_hoisted_2$r, _hoisted_3$l, _hoisted_4$f];
+    const CloudUploadOutline = /* @__PURE__ */ defineComponent({
+      name: "CloudUploadOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$f);
+        return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_5$c);
       }
     });
     const _hoisted_1$t = {
@@ -8833,28 +8807,15 @@ var require_index_001 = __commonJS({
       "xmlns:xlink": "http://www.w3.org/1999/xlink",
       viewBox: "0 0 512 512"
     };
-    const _hoisted_2$q = /* @__PURE__ */ createStaticVNode('<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M304 416V304h112"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M314.2 314.23L432 432"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M208 96v112H96"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M197.8 197.77L80 80"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M416 208H304V96"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M314.23 197.8L432 80"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M96 304h112v112"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M197.77 314.2L80 432"></path>', 8);
-    const _hoisted_10$3 = [_hoisted_2$q];
-    const ContractOutline = /* @__PURE__ */ defineComponent({
-      name: "ContractOutline",
-      render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_10$3);
-      }
-    });
-    const _hoisted_1$s = {
-      xmlns: "http://www.w3.org/2000/svg",
-      "xmlns:xlink": "http://www.w3.org/1999/xlink",
-      viewBox: "0 0 512 512"
-    };
-    const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_2$q = /* @__PURE__ */ createBaseVNode(
       "path",
       {
-        d: "M208 64h66.75a32 32 0 0 1 22.62 9.37l141.26 141.26a32 32 0 0 1 9.37 22.62V432a48 48 0 0 1-48 48H192a48 48 0 0 1-48-48V304",
         fill: "none",
         stroke: "currentColor",
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
-        "stroke-width": "32"
+        "stroke-width": "32",
+        d: "M160 368L32 256l128-112"
       },
       null,
       -1
@@ -8863,36 +8824,35 @@ var require_index_001 = __commonJS({
     const _hoisted_3$k = /* @__PURE__ */ createBaseVNode(
       "path",
       {
-        d: "M288 72v120a32 32 0 0 0 32 32h120",
         fill: "none",
         stroke: "currentColor",
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
-        "stroke-width": "32"
+        "stroke-width": "32",
+        d: "M352 368l128-112l-128-112"
       },
       null,
       -1
       /* HOISTED */
     );
-    const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        d: "M160 80v152a23.69 23.69 0 0 1-24 24c-12 0-24-9.1-24-24V88c0-30.59 16.57-56 48-56s48 24.8 48 55.38v138.75c0 43-27.82 77.87-72 77.87s-72-34.86-72-77.87V144",
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-miterlimit": "10",
-        "stroke-width": "32"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_5$c = [_hoisted_2$p, _hoisted_3$k, _hoisted_4$e];
-    const DocumentAttachOutline = /* @__PURE__ */ defineComponent({
-      name: "DocumentAttachOutline",
+    const _hoisted_4$e = [_hoisted_2$q, _hoisted_3$k];
+    const CodeOutline = /* @__PURE__ */ defineComponent({
+      name: "CodeOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_5$c);
+        return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_4$e);
+      }
+    });
+    const _hoisted_1$s = {
+      xmlns: "http://www.w3.org/2000/svg",
+      "xmlns:xlink": "http://www.w3.org/1999/xlink",
+      viewBox: "0 0 512 512"
+    };
+    const _hoisted_2$p = /* @__PURE__ */ createStaticVNode('<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M304 416V304h112"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M314.2 314.23L432 432"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M208 96v112H96"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M197.8 197.77L80 80"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M416 208H304V96"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M314.23 197.8L432 80"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M96 304h112v112"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M197.77 314.2L80 432"></path>', 8);
+    const _hoisted_10$4 = [_hoisted_2$p];
+    const ContractOutline = /* @__PURE__ */ defineComponent({
+      name: "ContractOutline",
+      render: function render2(_ctx, _cache) {
+        return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_10$4);
       }
     });
     const _hoisted_1$r = {
@@ -8955,11 +8915,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$6 = [_hoisted_2$o, _hoisted_3$j, _hoisted_4$d, _hoisted_5$b];
+    const _hoisted_6$7 = [_hoisted_2$o, _hoisted_3$j, _hoisted_4$d, _hoisted_5$b];
     const DocumentTextOutline = /* @__PURE__ */ defineComponent({
       name: "DocumentTextOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_6$6);
+        return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_6$7);
       }
     });
     const _hoisted_1$q = {
@@ -9022,11 +8982,11 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 512 512"
     };
     const _hoisted_2$m = /* @__PURE__ */ createStaticVNode('<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 320v112H320"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M421.8 421.77L304 304"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M80 192V80h112"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M90.2 90.23L208 208"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M320 80h112v112"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M421.77 90.2L304 208"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M192 432H80V320"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M90.23 421.8L208 304"></path>', 8);
-    const _hoisted_10$2 = [_hoisted_2$m];
+    const _hoisted_10$3 = [_hoisted_2$m];
     const ExpandOutline = /* @__PURE__ */ defineComponent({
       name: "ExpandOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_10$2);
+        return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_10$3);
       }
     });
     const _hoisted_1$o = {
@@ -9061,11 +9021,11 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 512 512"
     };
     const _hoisted_2$k = /* @__PURE__ */ createStaticVNode('<path d="M256 48C141.13 48 48 141.13 48 256s93.13 208 208 208s208-93.13 208-208S370.87 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M256 48c-58.07 0-112.67 93.13-112.67 208S197.93 464 256 464s112.67-93.13 112.67-208S314.07 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M117.33 117.33c38.24 27.15 86.38 43.34 138.67 43.34s100.43-16.19 138.67-43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path d="M394.67 394.67c-38.24-27.15-86.38-43.34-138.67-43.34s-100.43 16.19-138.67 43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M256 48v416"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M464 256H48"></path>', 6);
-    const _hoisted_8$4 = [_hoisted_2$k];
+    const _hoisted_8$5 = [_hoisted_2$k];
     const GlobeOutline = /* @__PURE__ */ defineComponent({
       name: "GlobeOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_8$4);
+        return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_8$5);
       }
     });
     const _hoisted_1$m = {
@@ -9147,11 +9107,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$5 = [_hoisted_2$i, _hoisted_3$g, _hoisted_4$b, _hoisted_5$9];
+    const _hoisted_6$6 = [_hoisted_2$i, _hoisted_3$g, _hoisted_4$b, _hoisted_5$9];
     const ImageOutline = /* @__PURE__ */ defineComponent({
       name: "ImageOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_6$5);
+        return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_6$6);
       }
     });
     const _hoisted_1$k = {
@@ -9332,11 +9292,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$4 = [_hoisted_2$d, _hoisted_3$b, _hoisted_4$9, _hoisted_5$8];
+    const _hoisted_6$5 = [_hoisted_2$d, _hoisted_3$b, _hoisted_4$9, _hoisted_5$8];
     const ScanOutline = /* @__PURE__ */ defineComponent({
       name: "ScanOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_6$4);
+        return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_6$5);
       }
     });
     const _hoisted_1$f = {
@@ -9522,11 +9482,11 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 512 512"
     };
     const _hoisted_2$8 = /* @__PURE__ */ createStaticVNode('<path d="M112 112l20 320c.95 18.49 14.4 32 32 32h184c17.67 0 30.87-13.51 32-32l20-320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M80 112h352" fill="currentColor"></path><path d="M192 112V72h0a23.93 23.93 0 0 1 24-24h80a23.93 23.93 0 0 1 24 24h0v40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 176v224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M184 176l8 224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M328 176l-8 224"></path>', 6);
-    const _hoisted_8$3 = [_hoisted_2$8];
+    const _hoisted_8$4 = [_hoisted_2$8];
     const TrashOutline = /* @__PURE__ */ defineComponent({
       name: "TrashOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$b, _hoisted_8$3);
+        return openBlock(), createElementBlock("svg", _hoisted_1$b, _hoisted_8$4);
       }
     });
     function useFileUpload() {
@@ -41674,7 +41634,8 @@ ${style2}
             "show-file-list": false,
             disabled: __props.disabled,
             accept: ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt",
-            "directory-dnd": ""
+            "directory-dnd": "",
+            multiple: ""
           }, {
             default: withCtx(() => [
               createVNode(unref(NUploadDragger), { class: "upload-dragger" }, {
@@ -41690,7 +41651,7 @@ ${style2}
                     ]),
                     createVNode(unref(NText), { class: "upload-title" }, {
                       default: withCtx(() => [..._cache[0] || (_cache[0] = [
-                        createTextVNode(" 点击或拖拽文件到此处 ", -1)
+                        createTextVNode(" 点击或拖拽文件到此处（支持多选） ", -1)
                       ])]),
                       _: 1
                     }),
@@ -41720,7 +41681,7 @@ ${style2}
       }
       return target;
     };
-    const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-89bca261"]]);
+    const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-2e09171a"]]);
     const _hoisted_1$9 = { class: "recognize-view" };
     const _hoisted_2$6 = { class: "panel-head" };
     const _hoisted_3$6 = {
@@ -41730,8 +41691,18 @@ ${style2}
     const _hoisted_4$5 = { class: "upload-section" };
     const _hoisted_5$5 = {
       key: 0,
-      class: "file-tag"
+      class: "pages-gallery"
     };
+    const _hoisted_6$4 = ["onClick"];
+    const _hoisted_7$3 = ["onClick"];
+    const _hoisted_8$3 = { class: "page-thumb-preview" };
+    const _hoisted_9$3 = ["src", "alt"];
+    const _hoisted_10$2 = {
+      key: 1,
+      class: "page-thumb-placeholder"
+    };
+    const _hoisted_11$2 = { class: "page-thumb-info" };
+    const _hoisted_12$2 = ["title"];
     const _sfc_main$9 = /* @__PURE__ */ defineComponent({
       __name: "RecognizeView",
       setup(__props) {
@@ -41741,6 +41712,12 @@ ${style2}
         const message = useMessage();
         const progressPercent = /* @__PURE__ */ ref(0);
         const progressText = /* @__PURE__ */ ref("等待开始");
+        function removePage(index) {
+          const page = store.pages[index];
+          if (!page) return;
+          store.removePage(index);
+          log.addLog(`已移除页面：${page.inputFileName}`);
+        }
         async function onFileUploaded(fileId, fileName) {
           if (store.isBusy) return;
           store.addInputPage(fileName, fileId);
@@ -41824,33 +41801,6 @@ ${style2}
             store.setBusy(false);
           }
         }
-        async function openMusicXml() {
-          const input = document.createElement("input");
-          input.type = "file";
-          input.accept = ".musicxml,.xml,.mxl";
-          input.onchange = async () => {
-            const file = input.files?.[0];
-            if (!file) return;
-            store.setBusy(true);
-            try {
-              const result = await uploadFile(file);
-              const idx = store.addInputPage(file.name, result.file_id);
-              store.selectPage(idx);
-              store.setMusicxml(result.file_id, "");
-              store.setCurrentPageStatus("completed");
-              store.clearOriginalFile();
-              log.addLog(`已打开 MusicXML：${file.name}`);
-              message.success("已加入新页面");
-            } catch (e) {
-              const msg2 = e instanceof Error ? e.message : String(e);
-              log.addError(`打开失败：${msg2}`);
-              message.error(msg2);
-            } finally {
-              store.setBusy(false);
-            }
-          };
-          input.click();
-        }
         function isPreviewableOriginal(fileName) {
           return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName);
         }
@@ -41876,6 +41826,7 @@ ${style2}
           }
         }
         return (_ctx, _cache) => {
+          const _component_DocumentAttachOutline = resolveComponent("DocumentAttachOutline");
           return openBlock(), createElementBlock("div", _hoisted_1$9, [
             createVNode(unref(NCard), {
               class: "upload-card",
@@ -41988,75 +41939,89 @@ ${style2}
                         _cache[6] || (_cache[6] = createTextVNode(" 批量识别全部页面 ", -1))
                       ]),
                       _: 1
-                    }, 8, ["loading", "disabled"]),
-                    createVNode(unref(Button), {
-                      class: "action-btn",
-                      onClick: openMusicXml,
-                      disabled: unref(store).isBusy,
-                      size: "large",
-                      secondary: ""
-                    }, {
-                      icon: withCtx(() => [
-                        createVNode(unref(NIcon), null, {
-                          default: withCtx(() => [
-                            createVNode(unref(DocumentAttachOutline))
-                          ]),
-                          _: 1
-                        })
-                      ]),
-                      default: withCtx(() => [
-                        _cache[7] || (_cache[7] = createTextVNode(" 打开 MusicXML ", -1))
-                      ]),
-                      _: 1
-                    }, 8, ["disabled"])
+                    }, 8, ["loading", "disabled"])
                   ]),
                   _: 1
                 }),
                 createVNode(Transition, { name: "fade" }, {
                   default: withCtx(() => [
-                    unref(store).inputFileName ? (openBlock(), createElementBlock("div", _hoisted_5$5, [
-                      createVNode(unref(NTag), {
-                        type: "success",
-                        round: "",
-                        bordered: false,
-                        size: "medium"
-                      }, {
-                        icon: withCtx(() => [
-                          createVNode(unref(NIcon), null, {
-                            default: withCtx(() => [
-                              createVNode(unref(CheckmarkCircleOutline))
-                            ]),
-                            _: 1
-                          })
-                        ]),
-                        default: withCtx(() => [
-                          createTextVNode(" 已选择：" + toDisplayString(unref(store).inputFileName), 1)
-                        ]),
-                        _: 1
-                      }),
-                      unref(store).currentPage?.status === "failed" ? (openBlock(), createBlock(unref(NTag), {
-                        key: 0,
-                        type: "error",
-                        round: "",
-                        bordered: false,
-                        size: "medium"
-                      }, {
-                        default: withCtx(() => [..._cache[8] || (_cache[8] = [
-                          createTextVNode(" 识别失败 ", -1)
-                        ])]),
-                        _: 1
-                      })) : unref(store).currentPage?.status === "completed" ? (openBlock(), createBlock(unref(NTag), {
-                        key: 1,
-                        type: "info",
-                        round: "",
-                        bordered: false,
-                        size: "medium"
-                      }, {
-                        default: withCtx(() => [..._cache[9] || (_cache[9] = [
-                          createTextVNode(" 已生成简谱与渲染 ", -1)
-                        ])]),
-                        _: 1
-                      })) : createCommentVNode("", true)
+                    unref(store).pages.length ? (openBlock(), createElementBlock("div", _hoisted_5$5, [
+                      (openBlock(true), createElementBlock(Fragment, null, renderList(unref(store).pages, (page, index) => {
+                        return openBlock(), createElementBlock("div", {
+                          key: page.id,
+                          class: normalizeClass(["page-thumb", { active: index === unref(store).currentPageIndex }]),
+                          onClick: ($event) => unref(store).selectPage(index)
+                        }, [
+                          createBaseVNode("button", {
+                            class: "page-thumb-remove",
+                            type: "button",
+                            "aria-label": "删除",
+                            onClick: withModifiers(($event) => removePage(index), ["stop"])
+                          }, [
+                            createVNode(unref(NIcon), { size: "14" }, {
+                              default: withCtx(() => [
+                                createVNode(unref(CloseOutline))
+                              ]),
+                              _: 1
+                            })
+                          ], 8, _hoisted_7$3),
+                          createBaseVNode("div", _hoisted_8$3, [
+                            isPreviewableOriginal(page.inputFileName) ? (openBlock(), createElementBlock("img", {
+                              key: 0,
+                              src: unref(getFileURL)(page.inputFileId),
+                              alt: page.inputFileName,
+                              class: "page-thumb-img"
+                            }, null, 8, _hoisted_9$3)) : (openBlock(), createElementBlock("div", _hoisted_10$2, [
+                              createVNode(unref(NIcon), { size: "22" }, {
+                                default: withCtx(() => [
+                                  createVNode(_component_DocumentAttachOutline)
+                                ]),
+                                _: 1
+                              })
+                            ]))
+                          ]),
+                          createBaseVNode("div", _hoisted_11$2, [
+                            createBaseVNode("span", {
+                              class: "page-thumb-name",
+                              title: page.inputFileName
+                            }, toDisplayString(page.inputFileName), 9, _hoisted_12$2),
+                            page.status === "completed" ? (openBlock(), createBlock(unref(NTag), {
+                              key: 0,
+                              size: "tiny",
+                              type: "success",
+                              bordered: false,
+                              round: ""
+                            }, {
+                              default: withCtx(() => [..._cache[7] || (_cache[7] = [
+                                createTextVNode("完成", -1)
+                              ])]),
+                              _: 1
+                            })) : page.status === "failed" ? (openBlock(), createBlock(unref(NTag), {
+                              key: 1,
+                              size: "tiny",
+                              type: "error",
+                              bordered: false,
+                              round: ""
+                            }, {
+                              default: withCtx(() => [..._cache[8] || (_cache[8] = [
+                                createTextVNode("失败", -1)
+                              ])]),
+                              _: 1
+                            })) : page.status === "processing" ? (openBlock(), createBlock(unref(NTag), {
+                              key: 2,
+                              size: "tiny",
+                              type: "warning",
+                              bordered: false,
+                              round: ""
+                            }, {
+                              default: withCtx(() => [..._cache[9] || (_cache[9] = [
+                                createTextVNode("处理中", -1)
+                              ])]),
+                              _: 1
+                            })) : createCommentVNode("", true)
+                          ])
+                        ], 10, _hoisted_6$4);
+                      }), 128))
                     ])) : createCommentVNode("", true)
                   ]),
                   _: 1
@@ -42100,7 +42065,7 @@ ${style2}
         };
       }
     });
-    const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-72ba47bd"]]);
+    const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-40322cf0"]]);
     const convertApi = {
       musicxmlToJianpu(req) {
         return apiFetch("/convert/musicxml-to-jianpu", {

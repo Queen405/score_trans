@@ -518,9 +518,10 @@ body {
 }
 
 .window-controls {
-  position: absolute;
-  top: 0;
-  right: 0;
+  position: fixed;
+  top: 26px;
+  right: 34px;
+  z-index: 9999;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -666,6 +667,11 @@ body {
   .titlebar-drag-bar {
     right: 116px;
     height: 16px;
+  }
+
+  .window-controls {
+    top: 22px;
+    right: 22px;
   }
 
   .brand-subtitle {
