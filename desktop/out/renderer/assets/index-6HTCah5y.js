@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-nnnei2VL.js"(exports, module) {
+  "assets/index-6HTCah5y.js"(exports, module) {
     /**
     * @vue/shared v3.5.35
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -8992,11 +8992,11 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 512 512"
     };
     const _hoisted_2$j = /* @__PURE__ */ createStaticVNode('<path d="M256 48C141.13 48 48 141.13 48 256s93.13 208 208 208s208-93.13 208-208S370.87 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M256 48c-58.07 0-112.67 93.13-112.67 208S197.93 464 256 464s112.67-93.13 112.67-208S314.07 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M117.33 117.33c38.24 27.15 86.38 43.34 138.67 43.34s100.43-16.19 138.67-43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path d="M394.67 394.67c-38.24-27.15-86.38-43.34-138.67-43.34s-100.43 16.19-138.67 43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M256 48v416"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M464 256H48"></path>', 6);
-    const _hoisted_8$6 = [_hoisted_2$j];
+    const _hoisted_8$5 = [_hoisted_2$j];
     const GlobeOutline = /* @__PURE__ */ defineComponent({
       name: "GlobeOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_8$6);
+        return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_8$5);
       }
     });
     const _hoisted_1$k = {
@@ -9467,11 +9467,11 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 512 512"
     };
     const _hoisted_2$7 = /* @__PURE__ */ createStaticVNode('<path d="M112 112l20 320c.95 18.49 14.4 32 32 32h184c17.67 0 30.87-13.51 32-32l20-320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M80 112h352" fill="currentColor"></path><path d="M192 112V72h0a23.93 23.93 0 0 1 24-24h80a23.93 23.93 0 0 1 24 24h0v40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 176v224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M184 176l8 224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M328 176l-8 224"></path>', 6);
-    const _hoisted_8$5 = [_hoisted_2$7];
+    const _hoisted_8$4 = [_hoisted_2$7];
     const TrashOutline = /* @__PURE__ */ defineComponent({
       name: "TrashOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$9, _hoisted_8$5);
+        return openBlock(), createElementBlock("svg", _hoisted_1$9, _hoisted_8$4);
       }
     });
     function useFileUpload() {
@@ -12532,7 +12532,7 @@ ${style2}
       };
       return ResizeObserverController2;
     })();
-    var ResizeObserver = (function() {
+    var ResizeObserver$1 = (function() {
       function ResizeObserver2(callback) {
         if (arguments.length === 0) {
           throw new TypeError("Failed to construct 'ResizeObserver': 1 argument required, but only 0 present.");
@@ -12571,7 +12571,7 @@ ${style2}
     class ResizeObserverDelegate {
       constructor() {
         this.handleResize = this.handleResize.bind(this);
-        this.observer = new (typeof window !== "undefined" && window.ResizeObserver || ResizeObserver)(this.handleResize);
+        this.observer = new (typeof window !== "undefined" && window.ResizeObserver || ResizeObserver$1)(this.handleResize);
         this.elHandlersMap = /* @__PURE__ */ new Map();
       }
       handleResize(entries) {
@@ -36699,7 +36699,7 @@ ${style2}
       class: "pages-strip"
     };
     const _hoisted_7$4 = ["onClick"];
-    const _hoisted_8$4 = ["onClick"];
+    const _hoisted_8$3 = ["onClick"];
     const _hoisted_9$2 = { class: "page-thumb" };
     const _hoisted_10$2 = ["src", "alt"];
     const _hoisted_11$2 = { class: "page-label" };
@@ -36941,7 +36941,7 @@ ${style2}
                       ]),
                       _: 1
                     })
-                  ], 8, _hoisted_8$4),
+                  ], 8, _hoisted_8$3),
                   createBaseVNode("div", _hoisted_9$2, [
                     isPreviewable(page.inputFileName) ? (openBlock(), createElementBlock("img", {
                       key: 0,
@@ -37067,14 +37067,16 @@ ${style2}
       const scale = /* @__PURE__ */ ref(1);
       const tx = /* @__PURE__ */ ref(0);
       const ty = /* @__PURE__ */ ref(0);
-      const MIN_SCALE = 0.1;
+      const MIN_SCALE = 0.05;
       const MAX_SCALE = 10;
-      const ZOOM_STEP = 0.1;
+      const ZOOM_STEP = 0.08;
       let isPanning = false;
       let startX = 0;
       let startY = 0;
       let startTx = 0;
       let startTy = 0;
+      let resizeObserver = null;
+      let autoFit = true;
       function applyTransform() {
         const el = container.value;
         if (!el) return;
@@ -37084,11 +37086,44 @@ ${style2}
         target.style.transformOrigin = "0 0";
         target.style.willChange = "transform";
       }
+      function getContentSize() {
+        const el = container.value;
+        if (!el) return null;
+        const img = el.querySelector(".zp-content img");
+        if (img && img.naturalWidth && img.naturalHeight) {
+          return { w: img.naturalWidth, h: img.naturalHeight };
+        }
+        const iframe = el.querySelector(".zp-content iframe");
+        if (iframe) {
+          return { w: iframe.clientWidth || 800, h: iframe.clientHeight || 600 };
+        }
+        return null;
+      }
+      function fitToView() {
+        const el = container.value;
+        if (!el) return;
+        const size2 = getContentSize();
+        if (!size2) return;
+        const cw = el.clientWidth;
+        const ch = el.clientHeight;
+        if (!cw || !ch) return;
+        const sx = cw / size2.w;
+        const sy = ch / size2.h;
+        const s = Math.min(sx, sy);
+        scale.value = s;
+        tx.value = (cw - size2.w * s) / 2;
+        ty.value = (ch - size2.h * s) / 2;
+        autoFit = true;
+        applyTransform();
+      }
+      function reset() {
+        fitToView();
+      }
       function onWheel(e) {
         e.preventDefault();
         if (e.ctrlKey || e.metaKey) {
           const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-          const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale.value + delta));
+          const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale.value * (1 + delta)));
           const rect = container.value.getBoundingClientRect();
           const mx = e.clientX - rect.left;
           const my = e.clientY - rect.top;
@@ -37096,11 +37131,14 @@ ${style2}
           tx.value = mx - ratio * (mx - tx.value);
           ty.value = my - ratio * (my - ty.value);
           scale.value = newScale;
+          autoFit = false;
         } else if (e.shiftKey) {
           tx.value -= e.deltaY;
+          autoFit = false;
         } else {
           ty.value -= e.deltaY;
           tx.value -= e.deltaX;
+          autoFit = false;
         }
         applyTransform();
       }
@@ -37119,6 +37157,7 @@ ${style2}
         if (!isPanning) return;
         tx.value = startTx + (e.clientX - startX);
         ty.value = startTy + (e.clientY - startY);
+        autoFit = false;
         applyTransform();
       }
       function onMouseUp() {
@@ -37127,11 +37166,8 @@ ${style2}
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
       }
-      function reset() {
-        scale.value = 1;
-        tx.value = 0;
-        ty.value = 0;
-        applyTransform();
+      function onResize() {
+        if (autoFit) fitToView();
       }
       function bind() {
         const el = container.value;
@@ -37140,31 +37176,37 @@ ${style2}
         el.addEventListener("mousedown", onMouseDown);
         window.addEventListener("mousemove", onMouseMove);
         window.addEventListener("mouseup", onMouseUp);
+        resizeObserver = new ResizeObserver(onResize);
+        resizeObserver.observe(el);
       }
       function unbind() {
         const el = container.value;
-        if (!el) return;
-        el.removeEventListener("wheel", onWheel);
-        el.removeEventListener("mousedown", onMouseDown);
+        if (el) {
+          el.removeEventListener("wheel", onWheel);
+          el.removeEventListener("mousedown", onMouseDown);
+        }
         window.removeEventListener("mousemove", onMouseMove);
         window.removeEventListener("mouseup", onMouseUp);
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+          resizeObserver = null;
+        }
       }
-      return { scale, tx, ty, reset, bind, unbind, applyTransform };
+      return { scale, tx, ty, reset, fitToView, bind, unbind, applyTransform };
     }
     const _hoisted_1$5 = { class: "original-preview" };
     const _hoisted_2$5 = { class: "zp-content" };
     const _hoisted_3$5 = ["src", "title"];
-    const _hoisted_4$5 = { class: "zp-content" };
-    const _hoisted_5$4 = ["src", "alt"];
-    const _hoisted_6$4 = {
-      key: 2,
-      class: "empty-hint"
+    const _hoisted_4$5 = ["src", "alt"];
+    const _hoisted_5$4 = {
+      key: 0,
+      class: "empty-overlay"
     };
-    const _hoisted_7$3 = {
-      key: 3,
+    const _hoisted_6$4 = {
+      key: 1,
       class: "zoom-bar"
     };
-    const _hoisted_8$3 = { class: "zoom-label" };
+    const _hoisted_7$3 = { class: "zoom-label" };
     const _sfc_main$5 = /* @__PURE__ */ defineComponent({
       __name: "OriginalPreview",
       props: {
@@ -37182,35 +37224,39 @@ ${style2}
         const extension = computed(() => props.fileName.split(".").pop()?.toLowerCase() ?? "");
         const isPdf = computed(() => extension.value === "pdf");
         const isImage = computed(() => ["png", "jpg", "jpeg", "tif", "tiff", "webp"].includes(extension.value));
+        function onImgLoad() {
+          requestAnimationFrame(() => zp.fitToView());
+        }
+        watch(fileUrl, async (url) => {
+          if (url) {
+            await nextTick();
+            zp.unbind();
+            zp.bind();
+          }
+        });
         onMounted(() => zp.bind());
         onUnmounted(() => zp.unbind());
         return (_ctx, _cache) => {
           return openBlock(), createElementBlock("div", _hoisted_1$5, [
-            fileUrl.value && isPdf.value ? (openBlock(), createElementBlock("div", {
-              key: 0,
+            createBaseVNode("div", {
               ref_key: "containerRef",
               ref: containerRef,
               class: "preview-viewport"
             }, [
               createBaseVNode("div", _hoisted_2$5, [
-                createBaseVNode("iframe", {
+                fileUrl.value && isPdf.value ? (openBlock(), createElementBlock("iframe", {
+                  key: 0,
                   src: pdfFitUrl.value,
                   title: __props.fileName
-                }, null, 8, _hoisted_3$5)
-              ])
-            ], 512)) : fileUrl.value && isImage.value ? (openBlock(), createElementBlock("div", {
-              key: 1,
-              ref_key: "containerRef",
-              ref: containerRef,
-              class: "preview-viewport"
-            }, [
-              createBaseVNode("div", _hoisted_4$5, [
-                createBaseVNode("img", {
+                }, null, 8, _hoisted_3$5)) : fileUrl.value && isImage.value ? (openBlock(), createElementBlock("img", {
+                  key: 1,
                   src: fileUrl.value,
-                  alt: __props.fileName
-                }, null, 8, _hoisted_5$4)
+                  alt: __props.fileName,
+                  onLoad: onImgLoad
+                }, null, 40, _hoisted_4$5)) : createCommentVNode("", true)
               ])
-            ], 512)) : (openBlock(), createElementBlock("div", _hoisted_6$4, [
+            ], 512),
+            !fileUrl.value ? (openBlock(), createElementBlock("div", _hoisted_5$4, [
               createVNode(unref(NIcon), {
                 size: "32",
                 depth: 3
@@ -37221,20 +37267,20 @@ ${style2}
                 _: 1
               }),
               _cache[1] || (_cache[1] = createBaseVNode("span", null, "上传图片或 PDF 后对照原始五线谱", -1))
-            ])),
-            fileUrl.value ? (openBlock(), createElementBlock("div", _hoisted_7$3, [
-              createBaseVNode("span", _hoisted_8$3, toDisplayString(Math.round(unref(zp).scale.value * 100)) + "%", 1),
+            ])) : createCommentVNode("", true),
+            fileUrl.value ? (openBlock(), createElementBlock("div", _hoisted_6$4, [
+              createBaseVNode("span", _hoisted_7$3, toDisplayString(Math.round(unref(zp).scale.value * 100)) + "%", 1),
               createBaseVNode("button", {
                 class: "zoom-btn",
                 onClick: _cache[0] || (_cache[0] = ($event) => unref(zp).reset()),
-                title: "重置"
-              }, "1:1")
+                title: "适应窗口"
+              }, "适应")
             ])) : createCommentVNode("", true)
           ]);
         };
       }
     });
-    const OriginalPreview = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-8126740e"]]);
+    const OriginalPreview = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-d41dff9c"]]);
     const _hoisted_1$4 = {
       key: 0,
       class: "svg-preview"
@@ -37257,7 +37303,19 @@ ${style2}
         const svgUrl = computed(() => props.svgFileId ? getFileURL(props.svgFileId) : "");
         const containerRef = /* @__PURE__ */ ref();
         const zp = useZoomPan(containerRef);
-        onMounted(() => zp.bind());
+        function onImgLoad() {
+          requestAnimationFrame(() => zp.fitToView());
+        }
+        watch(svgUrl, async (url) => {
+          if (url) {
+            await nextTick();
+            zp.unbind();
+            zp.bind();
+          }
+        });
+        onMounted(() => {
+          if (svgUrl.value) zp.bind();
+        });
         onUnmounted(() => zp.unbind());
         return (_ctx, _cache) => {
           return svgUrl.value ? (openBlock(), createElementBlock("div", _hoisted_1$4, [
@@ -37269,8 +37327,8 @@ ${style2}
               createBaseVNode("div", _hoisted_2$4, [
                 createBaseVNode("img", {
                   src: svgUrl.value,
-                  class: "svg-img"
-                }, null, 8, _hoisted_3$4)
+                  onLoad: onImgLoad
+                }, null, 40, _hoisted_3$4)
               ])
             ], 512),
             createBaseVNode("div", _hoisted_4$4, [
@@ -37278,8 +37336,8 @@ ${style2}
               createBaseVNode("button", {
                 class: "zoom-btn",
                 onClick: _cache[0] || (_cache[0] = ($event) => unref(zp).reset()),
-                title: "重置"
-              }, "1:1")
+                title: "适应窗口"
+              }, "适应")
             ])
           ])) : (openBlock(), createElementBlock("div", _hoisted_6$3, [
             createVNode(unref(NIcon), {
@@ -37296,7 +37354,7 @@ ${style2}
         };
       }
     });
-    const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-4074c742"]]);
+    const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-188f1116"]]);
     const _hoisted_1$3 = { class: "workspace" };
     const _hoisted_2$3 = { class: "ws-hist-head" };
     const _hoisted_3$3 = { class: "ws-hist-actions" };

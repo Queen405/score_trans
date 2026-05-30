@@ -2,12 +2,12 @@
   <div class="svg-preview" v-if="svgUrl">
     <div ref="containerRef" class="preview-viewport">
       <div class="zp-content">
-        <img :src="svgUrl" class="svg-img" />
+        <img :src="svgUrl" @load="onImgLoad" />
       </div>
     </div>
     <div class="zoom-bar">
       <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
-      <button class="zoom-btn" @click="zp.reset()" title="重置">1:1</button>
+      <button class="zoom-btn" @click="zp.reset()" title="适应窗口">适应</button>
     </div>
   </div>
   <div v-else class="svg-empty">
@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import { getFileURL } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
@@ -29,7 +29,21 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
 const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 
-onMounted(() => zp.bind())
+function onImgLoad() {
+  requestAnimationFrame(() => zp.fitToView())
+}
+
+watch(svgUrl, async (url) => {
+  if (url) {
+    await nextTick()
+    zp.unbind()
+    zp.bind()
+  }
+})
+
+onMounted(() => {
+  if (svgUrl.value) zp.bind()
+})
 onUnmounted(() => zp.unbind())
 </script>
 
@@ -53,11 +67,9 @@ onUnmounted(() => zp.unbind())
 
 .preview-viewport .zp-content {
   display: inline-block;
-  min-width: 100%;
-  min-height: 100%;
 }
 
-.preview-viewport .zp-content .svg-img {
+.preview-viewport .zp-content img {
   display: block;
   max-width: none;
   max-height: none;

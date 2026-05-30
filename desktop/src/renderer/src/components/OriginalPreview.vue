@@ -1,28 +1,24 @@
 <template>
   <div class="original-preview">
-    <div v-if="fileUrl && isPdf" ref="containerRef" class="preview-viewport">
+    <div ref="containerRef" class="preview-viewport">
       <div class="zp-content">
-        <iframe :src="pdfFitUrl" :title="fileName" />
+        <iframe v-if="fileUrl && isPdf" :src="pdfFitUrl" :title="fileName" />
+        <img v-else-if="fileUrl && isImage" :src="fileUrl" :alt="fileName" @load="onImgLoad" />
       </div>
     </div>
-    <div v-else-if="fileUrl && isImage" ref="containerRef" class="preview-viewport">
-      <div class="zp-content">
-        <img :src="fileUrl" :alt="fileName" />
-      </div>
-    </div>
-    <div v-else class="empty-hint">
+    <div v-if="!fileUrl" class="empty-overlay">
       <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
       <span>上传图片或 PDF 后对照原始五线谱</span>
     </div>
     <div v-if="fileUrl" class="zoom-bar">
       <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
-      <button class="zoom-btn" @click="zp.reset()" title="重置">1:1</button>
+      <button class="zoom-btn" @click="zp.reset()" title="适应窗口">适应</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import { getFileURL } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
@@ -43,6 +39,18 @@ const pdfFitUrl = computed(() =>
 const extension = computed(() => props.fileName.split('.').pop()?.toLowerCase() ?? '')
 const isPdf = computed(() => extension.value === 'pdf')
 const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].includes(extension.value))
+
+function onImgLoad() {
+  requestAnimationFrame(() => zp.fitToView())
+}
+
+watch(fileUrl, async (url) => {
+  if (url) {
+    await nextTick()
+    zp.unbind()
+    zp.bind()
+  }
+})
 
 onMounted(() => zp.bind())
 onUnmounted(() => zp.unbind())
@@ -68,8 +76,6 @@ onUnmounted(() => zp.unbind())
 
 .preview-viewport .zp-content {
   display: inline-block;
-  min-width: 100%;
-  min-height: 100%;
 }
 
 .preview-viewport .zp-content iframe {
@@ -85,8 +91,9 @@ onUnmounted(() => zp.unbind())
   max-height: none;
 }
 
-.empty-hint {
-  flex: 1;
+.empty-overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
