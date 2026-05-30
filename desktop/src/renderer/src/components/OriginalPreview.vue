@@ -1,9 +1,16 @@
 <template>
   <div class="original-preview">
     <div ref="containerRef" class="preview-viewport">
-      <div class="zp-content">
+      <div class="zp-inner">
         <iframe v-if="fileUrl && isPdf" :src="pdfFitUrl" :title="fileName" />
-        <img v-else-if="fileUrl && isImage" :src="fileUrl" :alt="fileName" @load="onImgLoad" />
+        <img
+          v-else-if="fileUrl && isImage"
+          :src="fileUrl"
+          :alt="fileName"
+          :width="imgW"
+          :height="imgH"
+          @load="onImgLoad"
+        />
       </div>
     </div>
     <div v-if="!fileUrl" class="empty-overlay">
@@ -31,6 +38,8 @@ const props = defineProps<{
 
 const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
+const imgW = ref(0)
+const imgH = ref(0)
 
 const fileUrl = computed(() => (props.fileId ? getFileURL(props.fileId) : ''))
 const pdfFitUrl = computed(() =>
@@ -40,7 +49,12 @@ const extension = computed(() => props.fileName.split('.').pop()?.toLowerCase() 
 const isPdf = computed(() => extension.value === 'pdf')
 const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].includes(extension.value))
 
-function onImgLoad() {
+function onImgLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+    imgW.value = img.naturalWidth
+    imgH.value = img.naturalHeight
+  }
   requestAnimationFrame(() => zp.fitToView())
 }
 
@@ -74,21 +88,25 @@ onUnmounted(() => zp.unbind())
   position: relative;
 }
 
-.preview-viewport .zp-content {
+.zp-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: inline-block;
 }
 
-.preview-viewport .zp-content iframe {
+.zp-inner img {
+  display: block;
+  max-width: none;
+  max-height: none;
+}
+
+.zp-inner iframe {
+  display: block;
   width: 100%;
   height: 100%;
   border: 0;
   min-height: 500px;
-}
-
-.preview-viewport .zp-content img {
-  display: block;
-  max-width: none;
-  max-height: none;
 }
 
 .empty-overlay {

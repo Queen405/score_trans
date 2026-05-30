@@ -1,8 +1,8 @@
 <template>
   <div class="svg-preview" v-if="svgUrl">
     <div ref="containerRef" class="preview-viewport">
-      <div class="zp-content">
-        <img :src="svgUrl" @load="onImgLoad" />
+      <div class="zp-inner">
+        <img :src="svgUrl" :width="imgW" :height="imgH" @load="onImgLoad" />
       </div>
     </div>
     <div class="zoom-bar">
@@ -28,13 +28,22 @@ const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : '
 
 const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
+const imgW = ref(0)
+const imgH = ref(0)
 
-function onImgLoad() {
+function onImgLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+    imgW.value = img.naturalWidth
+    imgH.value = img.naturalHeight
+  }
   requestAnimationFrame(() => zp.fitToView())
 }
 
 watch(svgUrl, async (url) => {
   if (url) {
+    imgW.value = 0
+    imgH.value = 0
     await nextTick()
     zp.unbind()
     zp.bind()
@@ -65,11 +74,14 @@ onUnmounted(() => zp.unbind())
   position: relative;
 }
 
-.preview-viewport .zp-content {
+.zp-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: inline-block;
 }
 
-.preview-viewport .zp-content img {
+.zp-inner img {
   display: block;
   max-width: none;
   max-height: none;

@@ -15,48 +15,54 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
   let startTy = 0
   let resizeObserver: ResizeObserver | null = null
   let autoFit = true
+  let contentW = 0
+  let contentH = 0
 
   function applyTransform() {
     const el = container.value
     if (!el) return
-    const target = el.querySelector('.zp-content') as HTMLElement
-    if (!target) return
-    target.style.transform = `translate(${tx.value}px, ${ty.value}px) scale(${scale.value})`
-    target.style.transformOrigin = '0 0'
-    target.style.willChange = 'transform'
+    const inner = el.querySelector<HTMLElement>('.zp-inner')
+    if (!inner) return
+    inner.style.transform = `translate(${tx.value}px, ${ty.value}px) scale(${scale.value})`
+    inner.style.transformOrigin = '0 0'
   }
 
-  function getContentSize(): { w: number; h: number } | null {
+  function measureContent(): boolean {
     const el = container.value
-    if (!el) return null
-    const img = el.querySelector('.zp-content img') as HTMLImageElement | null
-    if (img && img.naturalWidth && img.naturalHeight) {
-      return { w: img.naturalWidth, h: img.naturalHeight }
+    if (!el) return false
+    const img = el.querySelector<HTMLImageElement>('.zp-inner img')
+    if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      contentW = img.naturalWidth
+      contentH = img.naturalHeight
+      return true
     }
-    const iframe = el.querySelector('.zp-content iframe') as HTMLIFrameElement | null
+    const iframe = el.querySelector<HTMLIFrameElement>('.zp-inner iframe')
     if (iframe) {
-      return { w: iframe.clientWidth || 800, h: iframe.clientHeight || 600 }
+      contentW = iframe.clientWidth || 800
+      contentH = iframe.clientHeight || 600
+      return true
     }
-    return null
+    return false
   }
 
   function fitToView(): void {
     const el = container.value
     if (!el) return
-    const size = getContentSize()
-    if (!size) return
+    if (!measureContent()) return
 
     const cw = el.clientWidth
     const ch = el.clientHeight
-    if (!cw || !ch) return
+    if (cw <= 0 || ch <= 0) return
 
-    const sx = cw / size.w
-    const sy = ch / size.h
-    const s = Math.min(sx, sy)
+    const sx = cw / contentW
+    const sy = ch / contentH
+    const s = Math.min(sx, sy, 1)
 
+    const renderedW = contentW * s
+    const renderedH = contentH * s
     scale.value = s
-    tx.value = (cw - size.w * s) / 2
-    ty.value = (ch - size.h * s) / 2
+    tx.value = (cw - renderedW) / 2
+    ty.value = (ch - renderedH) / 2
     autoFit = true
     applyTransform()
   }
@@ -67,7 +73,6 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
 
   function onWheel(e: WheelEvent) {
     e.preventDefault()
-
     if (e.ctrlKey || e.metaKey) {
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
       const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale.value * (1 + delta)))
@@ -87,7 +92,6 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
       tx.value -= e.deltaX
       autoFit = false
     }
-
     applyTransform()
   }
 
