@@ -167,6 +167,40 @@ def test_musicxml_direction_marks_attach_to_note_and_positioned_words() -> None:
     assert 'class="articulation"' in svg
 
 
+def test_musicxml_tremolo_renders_zhongruan_roll_mark_below_right() -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>中阮</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>2</duration>
+        <notations>
+          <ornaments><tremolo type="single">3</tremolo></ornaments>
+        </notations>
+      </note>
+    </measure>
+  </part>
+</score-partwise>"""
+
+    score = musicxml_to_score(xml)
+    svg = render_score_svg(score)
+    root = _svg_root(svg)
+    roll = next(text for text in _svg_elements(root, "text") if text.text == "轮")
+    note = next(text for text in _svg_elements(root, "text") if text.attrib.get("class") == "note" and text.text == "2")
+
+    assert roll.attrib["class"] == "technique-mark"
+    assert float(roll.attrib["x"]) > float(note.attrib["x"])
+    assert float(roll.attrib["y"]) > float(note.attrib["y"])
+    assert "trem." not in svg
+
+
 def test_musicxml_explicit_accidentals_render_as_separate_symbols() -> None:
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
@@ -394,6 +428,37 @@ def test_chord_tie_sits_below_duration_lines() -> None:
     assert tie_y > beam_y + 4
 
 
+def test_chord_accent_sits_above_highest_note() -> None:
+    score = JianpuScore(title="Accent", target_key="C", beats=4, beat_type=4)
+    score.measures.append(
+        JianpuMeasure(
+            source_number="1",
+            duration=Fraction(4, 1),
+            events=[
+                JianpuEvent(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(1, octave=1), JianpuPitch(5), JianpuPitch(1, octave=-1)],
+                    articulations=["accent"],
+                    start=Fraction(0, 1),
+                ),
+            ],
+        )
+    )
+
+    svg = render_score_svg(score)
+    root = _svg_root(svg)
+    note_ys = [
+        float(text.attrib["y"])
+        for text in _svg_elements(root, "text")
+        if text.attrib.get("class") == "note"
+    ]
+    accent = next(path for path in _svg_elements(root, "path") if path.attrib.get("class") == "articulation")
+    accent_y = float(accent.attrib["d"].split()[2])
+
+    assert accent_y < min(note_ys) - 20
+
+
 def test_generated_full_measure_rest_is_split_into_visible_beats() -> None:
     score = JianpuScore(title="Generated rest", target_key="C", beats=4, beat_type=4)
     score.measures.append(
@@ -435,6 +500,17 @@ def test_low_octave_duration_line_sits_below_low_dot() -> None:
     beam_y = float(beam_line.split('y1="')[1].split('"')[0])
 
     assert beam_y > dot_y + 8
+
+
+def test_low_octave_dot_sits_close_to_notehead() -> None:
+    svg = render_jianpu_svg("key=C\ntime=4/4\n1, |")
+
+    note_line = next(line for line in svg.splitlines() if 'class="note"' in line and ">1<" in line)
+    dot_line = next(line for line in svg.splitlines() if 'class="octave-dot"' in line)
+    note_y = float(note_line.split('y="')[1].split('"')[0])
+    dot_y = float(dot_line.split('cy="')[1].split('"')[0])
+
+    assert 15 <= dot_y - note_y <= 20
 
 
 def test_extension_line_sits_at_note_height_not_below_note() -> None:

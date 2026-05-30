@@ -11,6 +11,8 @@ from ..domain.models import JianpuEvent, JianpuPitch, JianpuScore, TextBlock
 
 
 CHORD_GAP = 38
+LOW_OCTAVE_DOT_OFFSET = 18
+OCTAVE_DOT_GAP = 8
 
 
 @dataclass(slots=True)
@@ -263,6 +265,7 @@ def _svg_header(options: RenderOptions, height: int, title: str, meta: str) -> l
         ".dynamic { font-size: 22px; font-style: italic; font-weight: 650; }",
         ".ornament { font-size: 15px; fill: #171717; }",
         ".technical { font-size: 13px; fill: #171717; }",
+        ".technique-mark { font-size: 16px; fill: #171717; font-weight: 650; }",
         ".articulation { stroke: #171717; fill: none; stroke-width: 1.5; stroke-linecap: round; }",
         ".ocr-overlay { fill: #202020; }",
         "</style>",
@@ -293,6 +296,7 @@ def _svg_page_header(options: RenderOptions, width: int, height: int) -> list[st
         ".dynamic { font-size: 22px; font-style: italic; font-weight: 650; }",
         ".ornament { font-size: 15px; fill: #171717; }",
         ".technical { font-size: 13px; fill: #171717; }",
+        ".technique-mark { font-size: 16px; fill: #171717; font-weight: 650; }",
         ".articulation { stroke: #171717; fill: none; stroke-width: 1.5; stroke-linecap: round; }",
         ".ocr-overlay { font-size: 18px; fill: #202020; }",
         "</style>",
@@ -752,22 +756,72 @@ def _render_item(item: RenderItem, cx: float, y: int, slot_width: float, *, supp
     out = _render_token(item.token, cx, y, generated=item.generated, suppress_duration=suppress_duration)
     if item.dynamic:
         out.append(f'<text class="dynamic" x="{cx:.1f}" y="{y + 58}" text-anchor="middle">{_esc(item.dynamic)}</text>')
+    for index, mark in enumerate(_technique_marks(item)):
+        out.append(
+            f'<text class="technique-mark" x="{_technique_mark_x(item.token, cx):.1f}" '
+            f'y="{_technique_mark_y(item.token, y) + index * 17:.1f}" text-anchor="start">{_esc(mark)}</text>'
+        )
+    upper_anchor_y = _upper_mark_anchor_y(item.token, y)
     articulations = item.articulations or ([item.articulation] if item.articulation else [])
     for index, articulation in enumerate(articulations[:4]):
-        out.extend(_render_articulation(articulation, cx, y - index * 12))
-    for index, ornament in enumerate(item.ornaments[:3]):
+        out.extend(_render_articulation(articulation, cx, upper_anchor_y - index * 12))
+    visible_ornaments = [ornament for ornament in item.ornaments if _technique_mark(ornament) is None]
+    for index, ornament in enumerate(visible_ornaments[:3]):
         out.append(
-            f'<text class="ornament" x="{cx:.1f}" y="{y - 46 - index * 14}" '
+            f'<text class="ornament" x="{cx:.1f}" y="{upper_anchor_y - 46 - index * 14:.1f}" '
             f'text-anchor="middle">{_esc(_mark_display(ornament))}</text>'
         )
-    for index, technical in enumerate(item.technical[:4]):
+    visible_technical = [technical for technical in item.technical if _technique_mark(technical) is None]
+    for index, technical in enumerate(visible_technical[:4]):
         out.append(
-            f'<text class="technical" x="{cx:.1f}" y="{y - 64 - index * 13}" '
+            f'<text class="technical" x="{cx:.1f}" y="{upper_anchor_y - 64 - index * 13:.1f}" '
             f'text-anchor="middle">{_esc(_mark_display(technical))}</text>'
         )
     if item.lyric:
         out.append(f'<text class="lyric" x="{cx:.1f}" y="{y + 48}" text-anchor="middle">{_esc(item.lyric)}</text>')
     return out
+
+
+def _upper_mark_anchor_y(token: str, y: int) -> float:
+    return _token_metrics(token, y)["top"] + 28.0
+
+
+def _technique_marks(item: RenderItem) -> list[str]:
+    marks: list[str] = []
+    seen: set[str] = set()
+    for name in [*item.ornaments, *item.technical]:
+        mark = _technique_mark(name)
+        if mark and mark not in seen:
+            marks.append(mark)
+            seen.add(mark)
+    return marks
+
+
+def _technique_mark(name: str) -> str | None:
+    normalized = name.strip().lower().replace("_", "-").replace(" ", "-")
+    return {
+        "tremolo": "轮",
+        "roll": "轮",
+        "rolled": "轮",
+        "lun": "轮",
+        "lun-yin": "轮",
+        "轮": "轮",
+        "轮音": "轮",
+    }.get(normalized)
+
+
+def _technique_mark_x(token: str, cx: float) -> float:
+    return cx + max(15.0, min(24.0, _token_visual_width(token) * 0.38))
+
+
+def _technique_mark_y(token: str, y: int) -> float:
+    token = token.strip().strip("()~")
+    if token.startswith("[") and token.endswith("]"):
+        notes = [_parse_note(part.strip()) for part in token[1:-1].split("+") if part.strip()]
+        if notes:
+            top_y = y - (len(notes) - 1) * CHORD_GAP / 2
+            return top_y + CHORD_GAP * (len(notes) - 1) + 20
+    return y + 21
 
 
 def _mark_display(name: str) -> str:
@@ -779,7 +833,7 @@ def _mark_display(name: str) -> str:
         "turn": "turn",
         "delayed-turn": "turn",
         "inverted-turn": "turn",
-        "tremolo": "trem.",
+        "tremolo": "轮",
         "up-bow": "up-bow",
         "down-bow": "down-bow",
         "harmonic": "harm.",
@@ -1020,7 +1074,7 @@ def _render_note_shape(
     for dot in range(min(3, note.octave_up)):
         out.append(f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y - 30 - dot * 9}" r="3.0"/>')
     for dot in range(min(3, note.octave_down)):
-        out.append(f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y + 24 + dot * 9}" r="3.0"/>')
+        out.append(f'<circle class="octave-dot" cx="{cx:.1f}" cy="{_low_octave_dot_y(y, dot):.1f}" r="3.0"/>')
     if note.dotted:
         out.append(f'<circle class="rhythm-dot" cx="{cx + 20:.1f}" cy="{y - 8}" r="3.0"/>')
     if not suppress_duration:
@@ -1074,7 +1128,7 @@ def _note_visual_top(note: NoteShape, y: int) -> float:
 def _note_visual_bottom(note: NoteShape, y: int, *, include_duration: bool) -> float:
     bottom = float(y + 14)
     if note.octave_down:
-        bottom = max(bottom, y + 24 + (note.octave_down - 1) * 9 + 4)
+        bottom = max(bottom, _low_octave_dot_y(y, note.octave_down - 1) + 4)
     if include_duration and note.slashes:
         bottom = max(bottom, _note_duration_line_y(note, y, min(3, note.slashes)) + 4)
     if include_duration and note.extension:
@@ -1103,8 +1157,12 @@ def _duration_line_y(token: str, y: int, level: int) -> float:
 def _note_duration_line_y(note: NoteShape, y: int, level: int) -> float:
     base = y + 10
     if note.octave_down:
-        base = max(base, y + 24 + (note.octave_down - 1) * 9 + 12)
+        base = max(base, _low_octave_dot_y(y, note.octave_down - 1) + 12)
     return base + (level - 1) * 6
+
+
+def _low_octave_dot_y(y: int, index: int) -> float:
+    return y + LOW_OCTAVE_DOT_OFFSET + index * OCTAVE_DOT_GAP
 
 
 def _parse_note(token: str) -> NoteShape:
