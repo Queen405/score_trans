@@ -563,10 +563,15 @@ def _render_positioned_text_blocks(
 ) -> list[str]:
     out: list[str] = []
     seen: set[tuple[str, tuple[float, float, float, float]]] = set()
+    seen_texts: set[str] = set()
+    unpositioned: list[TextBlock] = []
     for block in blocks:
-        if not block.text or block.bbox is None:
+        if not block.text:
             continue
         if block.role == "measure_number" and not include_measure_numbers:
+            continue
+        if block.bbox is None:
+            unpositioned.append(block)
             continue
         x1, y1, x2, y2 = _scale_bbox(block.bbox, width, height)
         if x2 <= x1 or y2 <= y1:
@@ -575,6 +580,7 @@ def _render_positioned_text_blocks(
         if key in seen:
             continue
         seen.add(key)
+        seen_texts.add(block.text.strip())
 
         font_size = max(8.0, min(34.0, (y2 - y1) * 0.78))
         class_name = "dynamic" if _is_dynamic_text(block.text) else "ocr-overlay"
@@ -582,6 +588,34 @@ def _render_positioned_text_blocks(
             f'<text class="{class_name}" x="{x1:.1f}" y="{y2 - font_size * 0.16:.1f}" '
             f'font-size="{font_size:.1f}" text-anchor="start">{_esc(block.text)}</text>'
         )
+    out.extend(_render_unpositioned_text_blocks(unpositioned, width, height, seen_texts))
+    return out
+
+
+def _render_unpositioned_text_blocks(
+    blocks: list[TextBlock],
+    width: int,
+    height: int,
+    seen_texts: set[str],
+) -> list[str]:
+    out: list[str] = []
+    x = max(14.0, width * 0.035)
+    y = max(28.0, height * 0.045)
+    font_size = max(12.0, min(22.0, width / 70.0))
+    line_gap = font_size * 1.35
+    used: set[str] = set()
+    for block in blocks:
+        text = block.text.strip()
+        if not text or text in seen_texts or text in used:
+            continue
+        used.add(text)
+        class_name = "dynamic" if _is_dynamic_text(text) else "ocr-overlay"
+        out.append(
+            f'<text class="{class_name}" x="{x:.1f}" y="{y + (len(used) - 1) * line_gap:.1f}" '
+            f'font-size="{font_size:.1f}" text-anchor="start">{_esc(text)}</text>'
+        )
+        if y + len(used) * line_gap > height - font_size:
+            break
     return out
 
 

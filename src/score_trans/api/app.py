@@ -24,6 +24,7 @@ def create_app() -> FastAPI:
 
     # Register routers
     from .routers import health, convert, recognize, render, pipeline, files, history
+    from .routers import export as export_router
     from .routers import settings as settings_router
 
     app.include_router(health.router)
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(recognize.router)
     app.include_router(render.router)
     app.include_router(pipeline.router)
+    app.include_router(export_router.router)
     app.include_router(files.router)
     app.include_router(history.router)
     app.include_router(settings_router.router)

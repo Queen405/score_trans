@@ -202,7 +202,12 @@ def parse_openai_compatible_response(response: dict[str, Any]) -> list[OCRTextBl
     if not isinstance(payload, dict):
         raise OCRError("OCR provider JSON response must be an object or list.")
 
-    raw_blocks = payload.get("text_blocks", payload.get("blocks", []))
+    raw_blocks = find_text_blocks_payload(payload)
+    if raw_blocks is None:
+        text = text_from_payload(payload)
+        if text:
+            return plain_text_to_blocks(text)
+        raise OCRError("OCR provider JSON must contain a text block list.")
     if not isinstance(raw_blocks, list):
         raise OCRError("OCR provider JSON must contain a text_blocks list.")
     return coerce_text_block_list(raw_blocks)
@@ -249,6 +254,51 @@ def plain_text_to_blocks(text: str) -> list[OCRTextBlock]:
         OCRTextBlock(text=line, role=infer_text_role(line))
         for line in cleaned_plain_text_lines(text)
     ]
+
+
+def find_text_blocks_payload(payload: dict[str, Any]) -> list[Any] | None:
+    for key in ("text_blocks", "blocks", "items", "texts", "detections", "results", "lines", "words"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+        if isinstance(value, dict):
+            nested = find_text_blocks_payload(value)
+            if nested is not None:
+                return nested
+
+    for key in ("data", "result", "output", "ocr"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+        if isinstance(value, dict):
+            nested = find_text_blocks_payload(value)
+            if nested is not None:
+                return nested
+
+    if text_from_raw_block(payload):
+        return [payload]
+
+    return None
+
+
+def text_from_payload(payload: dict[str, Any]) -> str:
+    for key in ("text", "content", "markdown", "data", "result", "output", "ocr"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return ""
+
+
+def text_from_raw_block(raw: dict[str, Any]) -> str:
+    for key in ("text", "content", "value", "label", "transcription", "markdown"):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+        if value is not None and not isinstance(value, (dict, list)):
+            text = str(value).strip()
+            if text:
+                return text
+    return ""
 
 
 def cleaned_plain_text_lines(text: str) -> list[str]:
@@ -314,13 +364,13 @@ def coerce_text_block(raw: Any) -> OCRTextBlock:
     if not isinstance(raw, dict):
         raise OCRError("Each OCR text block must be an object.")
 
-    text = str(raw.get("text", ""))
-    bbox = coerce_bbox(raw.get("bbox"))
+    text = text_from_raw_block(raw)
+    bbox = coerce_bbox(first_present(raw, ("bbox", "bbox_2d", "box", "bounding_box", "boundingBox", "position", "rect", "coordinates", "points")))
     confidence = raw.get("confidence")
     if confidence is not None:
         confidence = float(confidence)
 
-    role = raw.get("role") or infer_text_role(text)
+    role = normalize_text_role(raw.get("role") or raw.get("type") or raw.get("category"), text)
     if role not in TextRole.__args__:
         role = infer_text_role(text)
 
@@ -329,13 +379,84 @@ def coerce_text_block(raw: Any) -> OCRTextBlock:
         bbox=bbox,
         confidence=confidence,
         role=role,
-        measure_number=raw.get("measure_number"),
+        measure_number=raw.get("measure_number") or raw.get("measure"),
     )
+
+
+def first_present(raw: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if key in raw and raw[key] is not None:
+            return raw[key]
+    return None
+
+
+def normalize_text_role(value: Any, text: str) -> TextRole:
+    role = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "tempo": "expression",
+        "dynamic": "expression",
+        "dynamics": "expression",
+        "expression_text": "expression",
+        "bar_number": "measure_number",
+        "measure": "measure_number",
+        "measure_no": "measure_number",
+        "measure_num": "measure_number",
+        "lyrics": "lyric",
+        "annotation": "other",
+        "unknown": "other",
+    }
+    normalized = aliases.get(role, role)
+    if normalized in TextRole.__args__:
+        return normalized  # type: ignore[return-value]
+    return infer_text_role(text)
 
 
 def coerce_bbox(raw: Any) -> tuple[float, float, float, float] | None:
     if raw is None:
         return None
-    if not isinstance(raw, (list, tuple)) or len(raw) != 4:
+    if isinstance(raw, dict):
+        nested = first_present(raw, ("bbox", "bbox_2d", "box", "bounding_box", "boundingBox", "coordinates", "points"))
+        if nested is not None and nested is not raw:
+            return coerce_bbox(nested)
+        if all(key in raw for key in ("x1", "y1", "x2", "y2")):
+            return (float(raw["x1"]), float(raw["y1"]), float(raw["x2"]), float(raw["y2"]))
+        if all(key in raw for key in ("left", "top", "right", "bottom")):
+            return (float(raw["left"]), float(raw["top"]), float(raw["right"]), float(raw["bottom"]))
+        if all(key in raw for key in ("x", "y", "width", "height")):
+            x = float(raw["x"])
+            y = float(raw["y"])
+            return (x, y, x + float(raw["width"]), y + float(raw["height"]))
+        if all(key in raw for key in ("x", "y", "w", "h")):
+            x = float(raw["x"])
+            y = float(raw["y"])
+            return (x, y, x + float(raw["w"]), y + float(raw["h"]))
+        return None
+    if isinstance(raw, (list, tuple)) and len(raw) == 4 and all(
+        isinstance(value, (int, float, str)) for value in raw
+    ):
+        return tuple(float(value) for value in raw)
+    return coerce_bbox_points(raw)
+
+
+def coerce_bbox_points(raw: Any) -> tuple[float, float, float, float] | None:
+    if not isinstance(raw, (list, tuple)):
         raise OCRError("OCR bbox must contain four numbers.")
-    return tuple(float(value) for value in raw)
+
+    if len(raw) == 8 and all(isinstance(value, (int, float, str)) for value in raw):
+        xs = [float(value) for value in raw[0::2]]
+        ys = [float(value) for value in raw[1::2]]
+        return (min(xs), min(ys), max(xs), max(ys))
+
+    points: list[tuple[float, float]] = []
+    for point in raw:
+        if isinstance(point, dict) and "x" in point and "y" in point:
+            points.append((float(point["x"]), float(point["y"])))
+        elif isinstance(point, (list, tuple)) and len(point) >= 2:
+            points.append((float(point[0]), float(point[1])))
+
+    if points:
+        xs = [point[0] for point in points]
+        ys = [point[1] for point in points]
+        return (min(xs), min(ys), max(xs), max(ys))
+
+    raise OCRError("OCR bbox must contain four numbers.")

@@ -155,6 +155,30 @@ def test_parse_openai_compatible_response_coerces_blocks() -> None:
     ]
 
 
+def test_parse_openai_compatible_response_accepts_common_bbox_aliases() -> None:
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "content": (
+                        '{"result":{"items":['
+                        '{"content":"Allegro","bbox_2d":[[10,20],[80,20],[80,44],[10,44]],"type":"tempo"},'
+                        '{"label":"7","box":{"x":1,"y":2,"w":3,"h":4},"type":"bar_number"}'
+                        "]}}"
+                    )
+                }
+            }
+        ]
+    }
+
+    blocks = parse_openai_compatible_response(response)
+
+    assert blocks == [
+        OCRTextBlock("Allegro", bbox=(10.0, 20.0, 80.0, 44.0), role="expression"),
+        OCRTextBlock("7", bbox=(1.0, 2.0, 4.0, 6.0), role="measure_number"),
+    ]
+
+
 def test_parse_openai_compatible_response_accepts_plain_text() -> None:
     response = {
         "choices": [

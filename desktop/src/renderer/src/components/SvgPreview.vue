@@ -2,7 +2,7 @@
   <div class="svg-preview" v-if="svgUrl">
     <div ref="containerRef" class="preview-viewport">
       <div class="zp-inner">
-        <img :src="svgUrl" :width="imgW" :height="imgH" @load="onImgLoad" />
+        <img :key="svgUrl" :src="svgUrl" :style="imageStyle" @load="onImgLoad" />
       </div>
     </div>
     <div class="zoom-bar">
@@ -30,6 +30,10 @@ const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
+const imageStyle = computed(() => ({
+  width: imgW.value > 0 ? `${imgW.value}px` : 'auto',
+  height: imgH.value > 0 ? `${imgH.value}px` : 'auto',
+}))
 
 function onImgLoad(e: Event) {
   const img = e.target as HTMLImageElement

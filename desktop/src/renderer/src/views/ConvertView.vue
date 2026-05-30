@@ -384,6 +384,7 @@ async function renderSvg(): Promise<void> {
     })
     store.setSvg(result.svg_file_id)
     finalSvgFileId.value = result.svg_file_id
+    isViewingFinal.value = true
     log.addLog('已渲染 SVG')
     message.success('渲染完成')
   } catch (e: unknown) {

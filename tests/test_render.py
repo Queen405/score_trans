@@ -74,6 +74,22 @@ def test_render_score_page_svg_places_ocr_text_block_at_bbox() -> None:
     assert 8.0 <= float(ocr_text.attrib["font-size"]) <= 24.0
 
 
+def test_render_score_page_svg_keeps_bboxless_ocr_text_visible() -> None:
+    score = _simple_score(
+        JianpuEvent(kind="note", duration=Fraction(1, 1), pitches=[JianpuPitch(1)], start=Fraction(0, 1)),
+        text_blocks=[TextBlock("原谱标题", role="title")],
+    )
+
+    svg = render_score_page_svg(score, page_width=600, page_height=800)
+    root = _svg_root(svg)
+    ocr_text = next(text for text in _svg_elements(root, "text") if text.text == "原谱标题")
+
+    assert "原谱标题" in svg
+    assert ocr_text.attrib["class"] == "ocr-overlay"
+    assert float(ocr_text.attrib["x"]) > 0
+    assert float(ocr_text.attrib["y"]) > 0
+
+
 def test_render_score_page_svg_uses_ocr_measure_number_without_overlay_duplicate() -> None:
     musicxml = jianpu_to_musicxml("key=C\ntime=4/4\n1 2 | 3 4 |")
     score = musicxml_to_score(musicxml)
