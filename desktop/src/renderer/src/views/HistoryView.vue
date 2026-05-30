@@ -124,13 +124,12 @@ import { ref, onMounted } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
 import { historyApi } from '../api/history'
-import { getFileURL } from '../api/client'
+import { fileExists } from '../api/client'
 import type { HistoryEntry } from '../models/types'
 import {
   CheckmarkCircleOutline,
   CloseCircleOutline,
   TimeOutline,
-  DocumentTextOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
 import {
@@ -190,22 +189,56 @@ async function handleDeleteAll(): Promise<void> {
 }
 
 async function handleRestore(entry: HistoryEntry): Promise<void> {
+  const warnings: string[] = []
+
   // Restore file references to task store
   if (entry.input_file_id) {
-    store.setInputFile(entry.input_file_name, entry.input_file_id)
+    if (await fileExists(entry.input_file_id)) {
+      store.setInputFile(entry.input_file_name, entry.input_file_id)
+    } else {
+      warnings.push('原始输入文件已失效')
+    }
   }
+
   if (entry.musicxml_file_id) {
-    store.setMusicxml(entry.musicxml_file_id, '')
+    if (await fileExists(entry.musicxml_file_id)) {
+      store.setMusicxml(entry.musicxml_file_id, '')
+    } else {
+      store.setMusicxml('', '')
+      warnings.push('MusicXML 文件已失效')
+    }
   }
+
   if (entry.jianpu_text) {
     store.setJianpu(entry.jianpu_text)
   }
+
   if (entry.svg_file_id) {
-    store.setSvg(entry.svg_file_id)
+    if (await fileExists(entry.svg_file_id)) {
+      store.setSvg(entry.svg_file_id)
+    } else {
+      store.setSvg('')
+      warnings.push('SVG 文件已失效')
+    }
   }
+
   if (entry.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(entry.input_file_name)) {
-    store.setOriginalFile(entry.input_file_name, entry.input_file_id)
+    if (await fileExists(entry.input_file_id)) {
+      store.setOriginalFile(entry.input_file_name, entry.input_file_id)
+    } else {
+      store.clearOriginalFile()
+    }
+  } else {
+    store.clearOriginalFile()
   }
+
+  if (warnings.length) {
+    const warningText = warnings.join('，')
+    log.addLog(`历史恢复部分失效：${warningText}`, 'warn')
+    message.warning(`${warningText}，请重新识别或重新上传。`)
+    return
+  }
+
   message.success('已恢复到工作区')
 }
 

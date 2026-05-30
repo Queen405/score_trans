@@ -10,6 +10,7 @@
 
         <n-layout-header bordered class="app-header">
           <div class="titlebar" role="banner">
+            <div class="titlebar-drag-bar" aria-hidden="true"></div>
             <div class="titlebar-drag-region">
               <div class="header-brand">
                 <div class="brand-glyph" aria-hidden="true">♪</div>
@@ -434,9 +435,20 @@ body {
   display: flex;
   align-items: center;
   position: relative;
-  min-height: 52px;
+  min-height: 56px;
+  padding-top: 8px;
   padding-right: 124px;
   gap: 14px;
+}
+
+.titlebar-drag-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 124px;
+  height: 18px;
+  -webkit-app-region: drag;
+  app-region: drag;
 }
 
 .titlebar-drag-region {
@@ -507,9 +519,8 @@ body {
 
 .window-controls {
   position: absolute;
-  top: 50%;
+  top: 0;
   right: 0;
-  transform: translateY(-50%);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -647,8 +658,14 @@ body {
   }
 
   .titlebar {
-    min-height: 46px;
+    min-height: 50px;
+    padding-top: 6px;
     padding-right: 116px;
+  }
+
+  .titlebar-drag-bar {
+    right: 116px;
+    height: 16px;
   }
 
   .brand-subtitle {

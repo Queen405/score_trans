@@ -6,11 +6,33 @@
           <h3>智能识别入口</h3>
           <p>上传扫描页，快速得到 MusicXML 与简谱成果</p>
         </div>
+        <div class="page-switcher" v-if="store.pageCount">
+          <n-button size="small" secondary :disabled="!store.canPrevPage || store.isBusy" @click="store.prevPage()">
+            上一页
+          </n-button>
+          <n-tag size="small" :bordered="false" round>
+            第 {{ store.currentPageIndex + 1 }} / {{ store.pageCount }} 页
+          </n-tag>
+          <n-button size="small" secondary :disabled="!store.canNextPage || store.isBusy" @click="store.nextPage()">
+            下一页
+          </n-button>
+        </div>
       </div>
 
       <div class="upload-section">
         <file-uploader :disabled="store.isBusy" @uploaded="onFileUploaded" />
       </div>
+
+      <n-progress
+        v-if="store.isBusy"
+        type="line"
+        :percentage="progressPercent"
+        :indicator-placement="'inside'"
+        processing
+        class="process-progress"
+      >
+        {{ progressText }}
+      </n-progress>
 
       <n-space class="action-bar" :size="10" wrap>
         <n-button
@@ -22,18 +44,18 @@
           size="large"
         >
           <template #icon><n-icon><ScanOutline /></n-icon></template>
-          识别为 MusicXML
+          识别并自动填充对照编辑
         </n-button>
         <n-button
           class="action-btn"
           type="info"
-          @click="recognizeAndExport"
+          @click="recognizeAllPages"
           :loading="store.isBusy"
-          :disabled="store.isBusy || !store.hasInput"
+          :disabled="store.isBusy || !store.pageCount"
           size="large"
         >
           <template #icon><n-icon><FlashOutline /></n-icon></template>
-          一键识别并导出简谱
+          批量识别全部页面
         </n-button>
         <n-button class="action-btn" @click="openMusicXml" :disabled="store.isBusy" size="large" secondary>
           <template #icon><n-icon><DocumentAttachOutline /></n-icon></template>
@@ -46,6 +68,12 @@
           <n-tag type="success" round :bordered="false" size="medium">
             <template #icon><n-icon><CheckmarkCircleOutline /></n-icon></template>
             已选择：{{ store.inputFileName }}
+          </n-tag>
+          <n-tag v-if="store.currentPage?.status === 'failed'" type="error" round :bordered="false" size="medium">
+            识别失败
+          </n-tag>
+          <n-tag v-else-if="store.currentPage?.status === 'completed'" type="info" round :bordered="false" size="medium">
+            已生成简谱与渲染
           </n-tag>
         </div>
       </transition>
@@ -68,10 +96,10 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
-import { recognizeApi } from '../api/recognize'
 import { pipelineApi } from '../api/pipeline'
 import { historyApi } from '../api/history'
 import { uploadFile, getFileURL } from '../api/client'
@@ -82,40 +110,70 @@ import {
   DocumentAttachOutline,
   CheckmarkCircleOutline,
 } from '@vicons/ionicons5'
-import { NSpace, NButton, NTag, NCard, NCode, NIcon, useMessage } from 'naive-ui'
+import { NSpace, NButton, NTag, NCard, NCode, NIcon, NProgress, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const log = useLogStore()
 const settings = useSettingsStore()
 const message = useMessage()
+const progressPercent = ref(0)
+const progressText = ref('等待开始')
 
 async function onFileUploaded(fileId: string, fileName: string): Promise<void> {
   if (store.isBusy) return
-  store.setInputFile(fileName, fileId)
+  store.addInputPage(fileName, fileId)
+  log.addLog(`已加入页面：${fileName}`)
+}
+
+function setProgress(percent: number, text: string): void {
+  progressPercent.value = Math.max(0, Math.min(100, Math.round(percent)))
+  progressText.value = text
+}
+
+async function runPipelineForPage(pageIndex: number): Promise<void> {
+  const page = store.pages[pageIndex]
+  if (!page?.inputFileId || !page.inputFileName) return
+
+  store.selectPage(pageIndex)
+  store.setCurrentPageStatus('processing')
+  const sourceFileId = page.inputFileId
+  const sourceFileName = page.inputFileName
+
+  setProgress(8, `读取文件：${sourceFileName}`)
+  const resp = await fetch(getFileURL(sourceFileId))
+  const blob = await resp.blob()
+
+  setProgress(24, '识别与转换中')
+  const result = await pipelineApi.run(
+    new File([blob], sourceFileName),
+    settings.targetKey,
+    settings.startMeasureNumber ?? undefined,
+  )
+
+  setProgress(82, '写入对照编辑结果')
+  store.setMusicxml(result.musicxml_file_id, '')
+  setRecognizedOriginal(sourceFileName, sourceFileId)
+  store.setJianpu(result.jianpu_text)
+  store.setSvg(result.svg_file_id)
+  store.setCurrentPageStatus('completed')
+
+  await saveHistory(sourceFileName, sourceFileId, result.musicxml_file_id, result.jianpu_text, result.svg_file_id)
+  log.addLog(`识别完成：${sourceFileName}`)
 }
 
 async function recognize(): Promise<void> {
-  const sourceFileId = store.inputFileId
-  const sourceFileName = store.inputFileName
-  if (!sourceFileId || !sourceFileName) return
+  const pageIndex = store.currentPageIndex
+  if (pageIndex < 0 || !store.hasInput) return
 
   store.setBusy(true)
   try {
-    const resp = await fetch(getFileURL(sourceFileId))
-    const blob = await resp.blob()
-    const result = await recognizeApi.recognize(
-      new File([blob], sourceFileName),
-      settings.targetKey,
-      settings.startMeasureNumber ?? undefined,
-    )
-    store.setMusicxml(result.musicxml_file_id, '')
-    setRecognizedOriginal(sourceFileName, sourceFileId)
-    // Save to history
-    await saveHistory(sourceFileName, sourceFileId, result.musicxml_file_id, '', '')
-    log.addLog(`OMR 完成：${result.musicxml_filename}`)
-    message.success('识别完成')
+    setProgress(0, '准备识别')
+    await runPipelineForPage(pageIndex)
+    setProgress(100, '识别完成')
+    message.success('已自动填充对照编辑并完成渲染')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
+    store.setCurrentPageStatus('failed', msg)
     log.addError(`识别失败：${msg}`)
     message.error(msg)
   } finally {
@@ -123,31 +181,36 @@ async function recognize(): Promise<void> {
   }
 }
 
-async function recognizeAndExport(): Promise<void> {
-  const sourceFileId = store.inputFileId
-  const sourceFileName = store.inputFileName
-  if (!sourceFileId || !sourceFileName) return
+async function recognizeAllPages(): Promise<void> {
+  const indexes = store.pages
+    .map((page, index) => ({ page, index }))
+    .filter((entry) => !!entry.page.inputFileId)
+    .map((entry) => entry.index)
+  if (!indexes.length) return
 
   store.setBusy(true)
   try {
-    const resp = await fetch(getFileURL(sourceFileId))
-    const blob = await resp.blob()
-    const result = await pipelineApi.run(
-      new File([blob], sourceFileName),
-      settings.targetKey,
-      settings.startMeasureNumber ?? undefined,
-    )
-    store.setMusicxml(result.musicxml_file_id, '')
-    setRecognizedOriginal(sourceFileName, sourceFileId)
-    store.setJianpu(result.jianpu_text)
-    store.setSvg(result.svg_file_id)
-    // Save to history
-    await saveHistory(sourceFileName, sourceFileId, result.musicxml_file_id, result.jianpu_text, result.svg_file_id)
-    log.addLog('流水线完成')
-    message.success('识别并导出完成')
+    setProgress(0, '准备批量识别')
+    for (let i = 0; i < indexes.length; i += 1) {
+      const pageIndex = indexes[i]
+      const start = (i / indexes.length) * 100
+      const end = ((i + 1) / indexes.length) * 100
+      setProgress(start, `处理第 ${i + 1} / ${indexes.length} 页`)
+      try {
+        await runPipelineForPage(pageIndex)
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        store.selectPage(pageIndex)
+        store.setCurrentPageStatus('failed', msg)
+        log.addError(`第 ${i + 1} 页失败：${msg}`)
+      }
+      setProgress(end, `已完成 ${i + 1} / ${indexes.length} 页`)
+    }
+    setProgress(100, '批量识别完成')
+    message.success('批量识别完成，请在对照编辑中翻页查看')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    log.addError(`流水线失败：${msg}`)
+    log.addError(`批量识别失败：${msg}`)
     message.error(msg)
   } finally {
     store.setBusy(false)
@@ -164,13 +227,17 @@ async function openMusicXml(): Promise<void> {
     store.setBusy(true)
     try {
       const result = await uploadFile(file)
-      store.setInputFile(file.name, result.file_id)
+      const idx = store.addInputPage(file.name, result.file_id)
+      store.selectPage(idx)
       store.setMusicxml(result.file_id, '')
+      store.setCurrentPageStatus('completed')
       store.clearOriginalFile()
       log.addLog(`已打开 MusicXML：${file.name}`)
+      message.success('已加入新页面')
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       log.addError(`打开失败：${msg}`)
+      message.error(msg)
     } finally {
       store.setBusy(false)
     }
@@ -207,7 +274,6 @@ async function saveHistory(
       status: 'completed',
     })
   } catch {
-    // Non-critical — don't block the user flow
     log.addLog('历史记录保存失败（不影响结果）')
   }
 }
@@ -231,7 +297,15 @@ async function saveHistory(
 .panel-head {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 14px;
+}
+
+.page-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .panel-head h3 {
@@ -254,6 +328,10 @@ async function saveHistory(
   margin-bottom: 10px;
 }
 
+.process-progress {
+  margin: 8px 0 14px;
+}
+
 .action-btn {
   border-radius: 12px;
   min-width: 168px;
@@ -267,6 +345,9 @@ async function saveHistory(
 
 .file-tag {
   margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .preview-card {

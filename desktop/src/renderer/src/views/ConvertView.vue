@@ -2,8 +2,21 @@
   <div class="convert-view">
     <section class="toolbar panel">
       <div class="panel-head">
-        <h3>对照编辑工作区</h3>
-        <p>从识别到回转，统一在同一画布完成</p>
+        <div>
+          <h3>对照编辑工作区</h3>
+          <p>从识别到回转，统一在同一画布完成</p>
+        </div>
+        <div class="page-switcher" v-if="store.pageCount">
+          <n-button size="small" secondary :disabled="!store.canPrevPage || store.isBusy" @click="store.prevPage()">
+            上一页
+          </n-button>
+          <n-tag size="small" round :bordered="false" type="info">
+            第 {{ store.currentPageIndex + 1 }} / {{ store.pageCount }} 页
+          </n-tag>
+          <n-button size="small" secondary :disabled="!store.canNextPage || store.isBusy" @click="store.nextPage()">
+            下一页
+          </n-button>
+        </div>
       </div>
       <n-space :size="10" wrap class="toolbar-actions">
         <n-button
@@ -28,9 +41,15 @@
           <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
           简谱 → MusicXML
         </n-button>
-        <n-button class="tool-btn" @click="saveJianpu" :disabled="!store.jianpuText" size="large" secondary>
+        <n-button
+          class="tool-btn"
+          @click="saveJianpu"
+          :disabled="!store.jianpuText && !store.pages.some((p) => !!p.jianpuText)"
+          size="large"
+          secondary
+        >
           <template #icon><n-icon><DownloadOutline /></n-icon></template>
-          保存简谱
+          {{ store.pageCount > 1 ? '保存全部简谱' : '保存简谱' }}
         </n-button>
         <n-button
           class="tool-btn"
@@ -113,6 +132,7 @@ import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
+import { ApiError } from '../api/client'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
@@ -138,6 +158,22 @@ watch(() => store.jianpuText, (v) => { jianpuText.value = v })
 watch(jianpuText, (v) => { store.setJianpu(v) })
 watch(() => store.svgFileId, (v) => { finalSvgFileId.value = v })
 
+function resolveMissingFileId(message: string): string | null {
+  const match = message.match(/文件不存在[:：]\s*([A-Za-z0-9_-]+)/)
+  return match?.[1] ?? null
+}
+
+function handleMissingMusicxml(errorMessage: string): string {
+  const missingId = resolveMissingFileId(errorMessage)
+  if (!missingId || missingId !== store.musicxmlFileId) {
+    return errorMessage
+  }
+
+  store.setMusicxml('', store.musicxmlText)
+  finalSvgFileId.value = ''
+  return '当前 MusicXML 引用已失效，请回到“识别”页重新识别或重新打开 MusicXML 文件。'
+}
+
 async function musicxmlToJianpu(): Promise<void> {
   store.setBusy(true)
   try {
@@ -150,7 +186,8 @@ async function musicxmlToJianpu(): Promise<void> {
     log.addLog('已转换为简谱')
     message.success('转换完成')
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
+    const raw = e instanceof Error ? e.message : String(e)
+    const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
     log.addError(`转换失败：${msg}`)
     message.error(msg)
   } finally {
@@ -176,14 +213,37 @@ async function jianpuToMusicxml(): Promise<void> {
 }
 
 function saveJianpu(): void {
-  const blob = new Blob([store.jianpuText], { type: 'text/plain;charset=utf-8' })
+  const allTexts = store.pages
+    .map((page, index) => ({
+      index,
+      name: page.inputFileName || `page-${index + 1}`,
+      text: page.jianpuText,
+    }))
+    .filter((entry) => entry.text.trim().length > 0)
+
+  const payload =
+    allTexts.length > 1
+      ? allTexts
+          .map(
+            (entry) =>
+              `# Page ${entry.index + 1}: ${entry.name}\n${entry.text.trim()}`,
+          )
+          .join('\n\n')
+      : (store.jianpuText || allTexts[0]?.text || '').trim()
+
+  if (!payload) {
+    message.warning('暂无可保存的简谱内容')
+    return
+  }
+
+  const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'jianpu.txt'
+  a.download = allTexts.length > 1 ? 'jianpu_pages.txt' : 'jianpu.txt'
   a.click()
   URL.revokeObjectURL(url)
-  log.addLog('已保存简谱文本')
+  log.addLog(allTexts.length > 1 ? `已保存 ${allTexts.length} 页简谱文本` : '已保存简谱文本')
   message.success('已保存')
 }
 
@@ -199,7 +259,8 @@ async function renderSvg(): Promise<void> {
     log.addLog('已渲染简谱 SVG')
     message.success('渲染完成')
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
+    const raw = e instanceof Error ? e.message : String(e)
+    const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
     log.addError(`渲染失败：${msg}`)
     message.error(msg)
   } finally {
@@ -233,7 +294,8 @@ async function toggleFinalView(): Promise<void> {
     isViewingFinal.value = true
     log.addLog(store.hasMusicxml ? '已生成最终渲染 SVG' : '已从简谱文本渲染 SVG')
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
+    const raw = e instanceof Error ? e.message : String(e)
+    const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
     log.addError(`最终渲染失败：${msg}`)
     message.error(msg)
   } finally {
@@ -262,7 +324,17 @@ async function toggleFinalView(): Promise<void> {
 }
 
 .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 10px;
+}
+
+.page-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .panel-head h3 {
@@ -406,6 +478,16 @@ async function toggleFinalView(): Promise<void> {
 }
 
 @media (max-width: 920px) {
+  .panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-switcher {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .tool-btn {
     min-width: 100%;
   }

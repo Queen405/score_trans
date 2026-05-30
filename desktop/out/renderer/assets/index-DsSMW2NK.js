@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-DajSeIqB.js"(exports, module) {
+  "assets/index-DsSMW2NK.js"(exports, module) {
     /**
     * @vue/shared v3.5.35
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -8104,6 +8104,23 @@ var require_index_001 = __commonJS({
       useStore.$id = id;
       return useStore;
     }
+    function createPage(seed) {
+      const random = Math.random().toString(36).slice(2, 8);
+      return {
+        id: `${Date.now().toString(36)}-${random}`,
+        inputFileName: "",
+        inputFileId: "",
+        originalFileName: "",
+        originalFileId: "",
+        musicxmlFileId: "",
+        musicxmlText: "",
+        jianpuText: "",
+        svgFileId: "",
+        status: "pending",
+        errorMessage: "",
+        ...seed
+      };
+    }
     const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       const inputFileName = /* @__PURE__ */ ref("");
       const inputFileId = /* @__PURE__ */ ref("");
@@ -8114,21 +8131,94 @@ var require_index_001 = __commonJS({
       const jianpuText = /* @__PURE__ */ ref("");
       const svgFileId = /* @__PURE__ */ ref("");
       const isBusy = /* @__PURE__ */ ref(false);
+      const pages = /* @__PURE__ */ ref([]);
+      const currentPageIndex = /* @__PURE__ */ ref(-1);
+      function syncCurrentFromPage() {
+        const page = pages.value[currentPageIndex.value];
+        if (!page) {
+          inputFileName.value = "";
+          inputFileId.value = "";
+          originalFileName.value = "";
+          originalFileId.value = "";
+          musicxmlFileId.value = "";
+          musicxmlText.value = "";
+          jianpuText.value = "";
+          svgFileId.value = "";
+          return;
+        }
+        inputFileName.value = page.inputFileName;
+        inputFileId.value = page.inputFileId;
+        originalFileName.value = page.originalFileName;
+        originalFileId.value = page.originalFileId;
+        musicxmlFileId.value = page.musicxmlFileId;
+        musicxmlText.value = page.musicxmlText;
+        jianpuText.value = page.jianpuText;
+        svgFileId.value = page.svgFileId;
+      }
+      function patchCurrentPage(patch) {
+        const idx = currentPageIndex.value;
+        if (idx < 0 || idx >= pages.value.length) return;
+        pages.value[idx] = { ...pages.value[idx], ...patch };
+      }
+      function addInputPage(name, fileId) {
+        const page = createPage({
+          inputFileName: name,
+          inputFileId: fileId,
+          status: "pending"
+        });
+        pages.value.push(page);
+        currentPageIndex.value = pages.value.length - 1;
+        syncCurrentFromPage();
+        return currentPageIndex.value;
+      }
+      function selectPage(index) {
+        if (index < 0 || index >= pages.value.length) return;
+        currentPageIndex.value = index;
+        syncCurrentFromPage();
+      }
+      function nextPage() {
+        selectPage(currentPageIndex.value + 1);
+      }
+      function prevPage() {
+        selectPage(currentPageIndex.value - 1);
+      }
       const hasMusicxml = computed(() => !!musicxmlFileId.value);
       const hasInput = computed(() => !!inputFileId.value);
       const hasOriginal = computed(() => !!originalFileId.value);
+      const pageCount = computed(() => pages.value.length);
+      const currentPage = computed(() => pages.value[currentPageIndex.value] ?? null);
+      const canPrevPage = computed(() => currentPageIndex.value > 0);
+      const canNextPage = computed(() => currentPageIndex.value >= 0 && currentPageIndex.value < pages.value.length - 1);
       function setInputFile(name, fileId) {
+        if (currentPageIndex.value < 0 || currentPageIndex.value >= pages.value.length) {
+          addInputPage(name, fileId);
+          return;
+        }
         inputFileName.value = name;
         inputFileId.value = fileId;
         clearDerived();
+        patchCurrentPage({
+          inputFileName: name,
+          inputFileId: fileId,
+          originalFileName: "",
+          originalFileId: "",
+          musicxmlFileId: "",
+          musicxmlText: "",
+          jianpuText: "",
+          svgFileId: "",
+          status: "pending",
+          errorMessage: ""
+        });
       }
       function setOriginalFile(name, fileId) {
         originalFileName.value = name;
         originalFileId.value = fileId;
+        patchCurrentPage({ originalFileName: name, originalFileId: fileId });
       }
       function clearOriginalFile() {
         originalFileName.value = "";
         originalFileId.value = "";
+        patchCurrentPage({ originalFileName: "", originalFileId: "" });
       }
       function clearDerived() {
         clearOriginalFile();
@@ -8136,16 +8226,30 @@ var require_index_001 = __commonJS({
         musicxmlText.value = "";
         jianpuText.value = "";
         svgFileId.value = "";
+        patchCurrentPage({
+          musicxmlFileId: "",
+          musicxmlText: "",
+          jianpuText: "",
+          svgFileId: "",
+          status: "pending",
+          errorMessage: ""
+        });
       }
       function setMusicxml(fileId, text) {
         musicxmlFileId.value = fileId;
         musicxmlText.value = text;
+        patchCurrentPage({ musicxmlFileId: fileId, musicxmlText: text });
       }
       function setJianpu(text) {
         jianpuText.value = text;
+        patchCurrentPage({ jianpuText: text });
       }
       function setSvg(fileId) {
         svgFileId.value = fileId;
+        patchCurrentPage({ svgFileId: fileId });
+      }
+      function setCurrentPageStatus(status, errorMessage = "") {
+        patchCurrentPage({ status, errorMessage });
       }
       function setBusy(value) {
         isBusy.value = value;
@@ -8160,6 +8264,8 @@ var require_index_001 = __commonJS({
         jianpuText.value = "";
         svgFileId.value = "";
         isBusy.value = false;
+        pages.value = [];
+        currentPageIndex.value = -1;
       }
       return {
         inputFileName,
@@ -8171,9 +8277,19 @@ var require_index_001 = __commonJS({
         jianpuText,
         svgFileId,
         isBusy,
+        pages,
+        currentPageIndex,
         hasMusicxml,
         hasInput,
         hasOriginal,
+        pageCount,
+        currentPage,
+        canPrevPage,
+        canNextPage,
+        addInputPage,
+        selectPage,
+        nextPage,
+        prevPage,
         setInputFile,
         setOriginalFile,
         clearOriginalFile,
@@ -8181,6 +8297,7 @@ var require_index_001 = __commonJS({
         setMusicxml,
         setJianpu,
         setSvg,
+        setCurrentPageStatus,
         setBusy,
         reset
       };
@@ -8218,10 +8335,12 @@ var require_index_001 = __commonJS({
     async function apiFetch(path, options) {
       const response = await fetch(`${getBaseURL()}${path}`, options);
       if (!response.ok) {
-        const error2 = await response.json().catch(() => ({
-          error: `HTTP ${response.status}`
-        }));
-        throw new ApiError(error2.error || `HTTP ${response.status}`, error2.stage, error2.detail);
+        const payload = await response.json().catch(() => ({}));
+        const rawMessage = payload.error ?? payload.detail;
+        const message = typeof rawMessage === "string" ? rawMessage : rawMessage ? JSON.stringify(rawMessage) : `HTTP ${response.status}`;
+        const stage = typeof payload.stage === "string" ? payload.stage : void 0;
+        const detail = typeof payload.detail === "string" ? payload.detail : payload.detail ? JSON.stringify(payload.detail) : void 0;
+        throw new ApiError(message, stage, detail);
       }
       return response.json();
     }
@@ -8235,6 +8354,18 @@ var require_index_001 = __commonJS({
     }
     function getFileURL(fileId) {
       return `${getBaseURL()}/files/${fileId}`;
+    }
+    async function fileExists(fileId) {
+      if (!fileId) return false;
+      const url = getFileURL(fileId);
+      const head = await fetch(url, { method: "HEAD" });
+      if (head.ok) return true;
+      if (head.status !== 405) return false;
+      const probe = await fetch(url, {
+        method: "GET",
+        headers: { Range: "bytes=0-0" }
+      });
+      return probe.ok;
     }
     const settingsApi = {
       get() {
@@ -8302,17 +8433,6 @@ var require_index_001 = __commonJS({
         save
       };
     });
-    const recognizeApi = {
-      recognize(file, targetKey = "C", startMeasureNumber) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("target_key", targetKey);
-        if (startMeasureNumber !== void 0) {
-          formData.append("start_measure_number", String(startMeasureNumber));
-        }
-        return apiFetch("/recognize", { method: "POST", body: formData });
-      }
-    };
     const pipelineApi = {
       run(file, targetKey = "C", startMeasureNumber, title) {
         const formData = new FormData();
@@ -8381,11 +8501,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$l = [_hoisted_2$y, _hoisted_3$s];
+    const _hoisted_4$m = [_hoisted_2$y, _hoisted_3$s];
     const ArrowBackOutline = /* @__PURE__ */ defineComponent({
       name: "ArrowBackOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$B, _hoisted_4$l);
+        return openBlock(), createElementBlock("svg", _hoisted_1$B, _hoisted_4$m);
       }
     });
     const _hoisted_1$A = {
@@ -8421,11 +8541,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$k = [_hoisted_2$x, _hoisted_3$r];
+    const _hoisted_4$l = [_hoisted_2$x, _hoisted_3$r];
     const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
       name: "ArrowForwardOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_4$k);
+        return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_4$l);
       }
     });
     const _hoisted_1$z = {
@@ -8460,11 +8580,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$j = [_hoisted_2$w, _hoisted_3$q];
+    const _hoisted_4$k = [_hoisted_2$w, _hoisted_3$q];
     const CheckmarkCircleOutline = /* @__PURE__ */ defineComponent({
       name: "CheckmarkCircleOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_4$j);
+        return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_4$k);
       }
     });
     const _hoisted_1$y = {
@@ -8499,7 +8619,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$j = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8513,11 +8633,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$e = [_hoisted_2$v, _hoisted_3$p, _hoisted_4$i];
+    const _hoisted_5$f = [_hoisted_2$v, _hoisted_3$p, _hoisted_4$j];
     const CloseCircleOutline = /* @__PURE__ */ defineComponent({
       name: "CloseCircleOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_5$e);
+        return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_5$f);
       }
     });
     const _hoisted_1$x = {
@@ -8553,11 +8673,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$h = [_hoisted_2$u, _hoisted_3$o];
+    const _hoisted_4$i = [_hoisted_2$u, _hoisted_3$o];
     const CloseOutline = /* @__PURE__ */ defineComponent({
       name: "CloseOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_4$h);
+        return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_4$i);
       }
     });
     const _hoisted_1$w = {
@@ -8593,7 +8713,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$g = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$h = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8607,11 +8727,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$d = [_hoisted_2$t, _hoisted_3$n, _hoisted_4$g];
+    const _hoisted_5$e = [_hoisted_2$t, _hoisted_3$n, _hoisted_4$h];
     const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
       name: "CloudDownloadOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_5$d);
+        return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_5$e);
       }
     });
     const _hoisted_1$v = {
@@ -8647,7 +8767,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$f = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$g = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8661,11 +8781,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$c = [_hoisted_2$s, _hoisted_3$m, _hoisted_4$f];
+    const _hoisted_5$d = [_hoisted_2$s, _hoisted_3$m, _hoisted_4$g];
     const CloudUploadOutline = /* @__PURE__ */ defineComponent({
       name: "CloudUploadOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_5$c);
+        return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_5$d);
       }
     });
     const _hoisted_1$u = {
@@ -8701,11 +8821,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$e = [_hoisted_2$r, _hoisted_3$l];
+    const _hoisted_4$f = [_hoisted_2$r, _hoisted_3$l];
     const CodeOutline = /* @__PURE__ */ defineComponent({
       name: "CodeOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$e);
+        return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$f);
       }
     });
     const _hoisted_1$t = {
@@ -8754,7 +8874,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M160 80v152a23.69 23.69 0 0 1-24 24c-12 0-24-9.1-24-24V88c0-30.59 16.57-56 48-56s48 24.8 48 55.38v138.75c0 43-27.82 77.87-72 77.87s-72-34.86-72-77.87V144",
@@ -8768,11 +8888,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$b = [_hoisted_2$p, _hoisted_3$k, _hoisted_4$d];
+    const _hoisted_5$c = [_hoisted_2$p, _hoisted_3$k, _hoisted_4$e];
     const DocumentAttachOutline = /* @__PURE__ */ defineComponent({
       name: "DocumentAttachOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_5$b);
+        return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_5$c);
       }
     });
     const _hoisted_1$r = {
@@ -8807,7 +8927,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8821,7 +8941,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_5$b = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8835,7 +8955,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$6 = [_hoisted_2$o, _hoisted_3$j, _hoisted_4$c, _hoisted_5$a];
+    const _hoisted_6$6 = [_hoisted_2$o, _hoisted_3$j, _hoisted_4$d, _hoisted_5$b];
     const DocumentTextOutline = /* @__PURE__ */ defineComponent({
       name: "DocumentTextOutline",
       render: function render2(_ctx, _cache) {
@@ -8875,7 +8995,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8889,11 +9009,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$9 = [_hoisted_2$n, _hoisted_3$i, _hoisted_4$b];
+    const _hoisted_5$a = [_hoisted_2$n, _hoisted_3$i, _hoisted_4$c];
     const DownloadOutline = /* @__PURE__ */ defineComponent({
       name: "DownloadOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_5$9);
+        return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_5$a);
       }
     });
     const _hoisted_1$p = {
@@ -8941,11 +9061,11 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 512 512"
     };
     const _hoisted_2$k = /* @__PURE__ */ createStaticVNode('<path d="M256 48C141.13 48 48 141.13 48 256s93.13 208 208 208s208-93.13 208-208S370.87 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M256 48c-58.07 0-112.67 93.13-112.67 208S197.93 464 256 464s112.67-93.13 112.67-208S314.07 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M117.33 117.33c38.24 27.15 86.38 43.34 138.67 43.34s100.43-16.19 138.67-43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path d="M394.67 394.67c-38.24-27.15-86.38-43.34-138.67-43.34s-100.43 16.19-138.67 43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M256 48v416"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M464 256H48"></path>', 6);
-    const _hoisted_8$3 = [_hoisted_2$k];
+    const _hoisted_8$4 = [_hoisted_2$k];
     const GlobeOutline = /* @__PURE__ */ defineComponent({
       name: "GlobeOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_8$3);
+        return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_8$4);
       }
     });
     const _hoisted_1$m = {
@@ -8999,7 +9119,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$a = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M304 335.79l-90.66-90.49a32 32 0 0 0-43.87-1.3L48 352",
@@ -9013,7 +9133,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$8 = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_5$9 = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M224 432l123.34-123.34a32 32 0 0 1 43.11-2L464 368",
@@ -9027,7 +9147,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$5 = [_hoisted_2$i, _hoisted_3$g, _hoisted_4$a, _hoisted_5$8];
+    const _hoisted_6$5 = [_hoisted_2$i, _hoisted_3$g, _hoisted_4$b, _hoisted_5$9];
     const ImageOutline = /* @__PURE__ */ defineComponent({
       name: "ImageOutline",
       render: function render2(_ctx, _cache) {
@@ -9092,11 +9212,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$9 = [_hoisted_2$g, _hoisted_3$e];
+    const _hoisted_4$a = [_hoisted_2$g, _hoisted_3$e];
     const MusicalNotesOutline = /* @__PURE__ */ defineComponent({
       name: "MusicalNotesOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_4$9);
+        return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_4$a);
       }
     });
     const _hoisted_1$i = {
@@ -9184,7 +9304,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$8 = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$9 = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M176 448h-56a56 56 0 0 1-56-56v-56",
@@ -9198,7 +9318,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$7 = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_5$8 = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M64 176v-56a56 56 0 0 1 56-56h56",
@@ -9212,7 +9332,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$4 = [_hoisted_2$d, _hoisted_3$b, _hoisted_4$8, _hoisted_5$7];
+    const _hoisted_6$4 = [_hoisted_2$d, _hoisted_3$b, _hoisted_4$9, _hoisted_5$8];
     const ScanOutline = /* @__PURE__ */ defineComponent({
       name: "ScanOutline",
       render: function render2(_ctx, _cache) {
@@ -9278,7 +9398,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$7 = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$8 = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -9292,11 +9412,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$6 = [_hoisted_2$b, _hoisted_3$9, _hoisted_4$7];
+    const _hoisted_5$7 = [_hoisted_2$b, _hoisted_3$9, _hoisted_4$8];
     const SyncOutline = /* @__PURE__ */ defineComponent({
       name: "SyncOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_5$6);
+        return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_5$7);
       }
     });
     const _hoisted_1$d = {
@@ -9336,7 +9456,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$6 = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$7 = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -9350,11 +9470,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$5 = [_hoisted_2$a, _hoisted_3$8, _hoisted_4$6];
+    const _hoisted_5$6 = [_hoisted_2$a, _hoisted_3$8, _hoisted_4$7];
     const TerminalOutline = /* @__PURE__ */ defineComponent({
       name: "TerminalOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_5$5);
+        return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_5$6);
       }
     });
     const _hoisted_1$c = {
@@ -9389,11 +9509,11 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$5 = [_hoisted_2$9, _hoisted_3$7];
+    const _hoisted_4$6 = [_hoisted_2$9, _hoisted_3$7];
     const TimeOutline = /* @__PURE__ */ defineComponent({
       name: "TimeOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_4$5);
+        return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_4$6);
       }
     });
     const _hoisted_1$b = {
@@ -9402,11 +9522,11 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 512 512"
     };
     const _hoisted_2$8 = /* @__PURE__ */ createStaticVNode('<path d="M112 112l20 320c.95 18.49 14.4 32 32 32h184c17.67 0 30.87-13.51 32-32l20-320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M80 112h352" fill="currentColor"></path><path d="M192 112V72h0a23.93 23.93 0 0 1 24-24h80a23.93 23.93 0 0 1 24 24h0v40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 176v224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M184 176l8 224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M328 176l-8 224"></path>', 6);
-    const _hoisted_8$2 = [_hoisted_2$8];
+    const _hoisted_8$3 = [_hoisted_2$8];
     const TrashOutline = /* @__PURE__ */ defineComponent({
       name: "TrashOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$b, _hoisted_8$2);
+        return openBlock(), createElementBlock("svg", _hoisted_1$b, _hoisted_8$3);
       }
     });
     function useFileUpload() {
@@ -41602,8 +41722,13 @@ ${style2}
     };
     const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-89bca261"]]);
     const _hoisted_1$9 = { class: "recognize-view" };
-    const _hoisted_2$6 = { class: "upload-section" };
+    const _hoisted_2$6 = { class: "panel-head" };
     const _hoisted_3$6 = {
+      key: 0,
+      class: "page-switcher"
+    };
+    const _hoisted_4$5 = { class: "upload-section" };
+    const _hoisted_5$5 = {
       key: 0,
       class: "file-tag"
     };
@@ -41614,59 +41739,86 @@ ${style2}
         const log = useLogStore();
         const settings = useSettingsStore();
         const message = useMessage();
+        const progressPercent = /* @__PURE__ */ ref(0);
+        const progressText = /* @__PURE__ */ ref("等待开始");
         async function onFileUploaded(fileId, fileName) {
           if (store.isBusy) return;
-          store.setInputFile(fileName, fileId);
+          store.addInputPage(fileName, fileId);
+          log.addLog(`已加入页面：${fileName}`);
+        }
+        function setProgress(percent2, text) {
+          progressPercent.value = Math.max(0, Math.min(100, Math.round(percent2)));
+          progressText.value = text;
+        }
+        async function runPipelineForPage(pageIndex) {
+          const page = store.pages[pageIndex];
+          if (!page?.inputFileId || !page.inputFileName) return;
+          store.selectPage(pageIndex);
+          store.setCurrentPageStatus("processing");
+          const sourceFileId = page.inputFileId;
+          const sourceFileName = page.inputFileName;
+          setProgress(8, `读取文件：${sourceFileName}`);
+          const resp = await fetch(getFileURL(sourceFileId));
+          const blob = await resp.blob();
+          setProgress(24, "识别与转换中");
+          const result = await pipelineApi.run(
+            new File([blob], sourceFileName),
+            settings.targetKey,
+            settings.startMeasureNumber ?? void 0
+          );
+          setProgress(82, "写入对照编辑结果");
+          store.setMusicxml(result.musicxml_file_id, "");
+          setRecognizedOriginal(sourceFileName, sourceFileId);
+          store.setJianpu(result.jianpu_text);
+          store.setSvg(result.svg_file_id);
+          store.setCurrentPageStatus("completed");
+          await saveHistory(sourceFileName, sourceFileId, result.musicxml_file_id, result.jianpu_text, result.svg_file_id);
+          log.addLog(`识别完成：${sourceFileName}`);
         }
         async function recognize() {
-          const sourceFileId = store.inputFileId;
-          const sourceFileName = store.inputFileName;
-          if (!sourceFileId || !sourceFileName) return;
+          const pageIndex = store.currentPageIndex;
+          if (pageIndex < 0 || !store.hasInput) return;
           store.setBusy(true);
           try {
-            const resp = await fetch(getFileURL(sourceFileId));
-            const blob = await resp.blob();
-            const result = await recognizeApi.recognize(
-              new File([blob], sourceFileName),
-              settings.targetKey,
-              settings.startMeasureNumber ?? void 0
-            );
-            store.setMusicxml(result.musicxml_file_id, "");
-            setRecognizedOriginal(sourceFileName, sourceFileId);
-            await saveHistory(sourceFileName, sourceFileId, result.musicxml_file_id, "", "");
-            log.addLog(`OMR 完成：${result.musicxml_filename}`);
-            message.success("识别完成");
+            setProgress(0, "准备识别");
+            await runPipelineForPage(pageIndex);
+            setProgress(100, "识别完成");
+            message.success("已自动填充对照编辑并完成渲染");
           } catch (e) {
             const msg2 = e instanceof Error ? e.message : String(e);
+            store.setCurrentPageStatus("failed", msg2);
             log.addError(`识别失败：${msg2}`);
             message.error(msg2);
           } finally {
             store.setBusy(false);
           }
         }
-        async function recognizeAndExport() {
-          const sourceFileId = store.inputFileId;
-          const sourceFileName = store.inputFileName;
-          if (!sourceFileId || !sourceFileName) return;
+        async function recognizeAllPages() {
+          const indexes = store.pages.map((page, index) => ({ page, index })).filter((entry) => !!entry.page.inputFileId).map((entry) => entry.index);
+          if (!indexes.length) return;
           store.setBusy(true);
           try {
-            const resp = await fetch(getFileURL(sourceFileId));
-            const blob = await resp.blob();
-            const result = await pipelineApi.run(
-              new File([blob], sourceFileName),
-              settings.targetKey,
-              settings.startMeasureNumber ?? void 0
-            );
-            store.setMusicxml(result.musicxml_file_id, "");
-            setRecognizedOriginal(sourceFileName, sourceFileId);
-            store.setJianpu(result.jianpu_text);
-            store.setSvg(result.svg_file_id);
-            await saveHistory(sourceFileName, sourceFileId, result.musicxml_file_id, result.jianpu_text, result.svg_file_id);
-            log.addLog("流水线完成");
-            message.success("识别并导出完成");
+            setProgress(0, "准备批量识别");
+            for (let i = 0; i < indexes.length; i += 1) {
+              const pageIndex = indexes[i];
+              const start = i / indexes.length * 100;
+              const end = (i + 1) / indexes.length * 100;
+              setProgress(start, `处理第 ${i + 1} / ${indexes.length} 页`);
+              try {
+                await runPipelineForPage(pageIndex);
+              } catch (e) {
+                const msg2 = e instanceof Error ? e.message : String(e);
+                store.selectPage(pageIndex);
+                store.setCurrentPageStatus("failed", msg2);
+                log.addError(`第 ${i + 1} 页失败：${msg2}`);
+              }
+              setProgress(end, `已完成 ${i + 1} / ${indexes.length} 页`);
+            }
+            setProgress(100, "批量识别完成");
+            message.success("批量识别完成，请在对照编辑中翻页查看");
           } catch (e) {
             const msg2 = e instanceof Error ? e.message : String(e);
-            log.addError(`流水线失败：${msg2}`);
+            log.addError(`批量识别失败：${msg2}`);
             message.error(msg2);
           } finally {
             store.setBusy(false);
@@ -41682,13 +41834,17 @@ ${style2}
             store.setBusy(true);
             try {
               const result = await uploadFile(file);
-              store.setInputFile(file.name, result.file_id);
+              const idx = store.addInputPage(file.name, result.file_id);
+              store.selectPage(idx);
               store.setMusicxml(result.file_id, "");
+              store.setCurrentPageStatus("completed");
               store.clearOriginalFile();
               log.addLog(`已打开 MusicXML：${file.name}`);
+              message.success("已加入新页面");
             } catch (e) {
               const msg2 = e instanceof Error ? e.message : String(e);
               log.addError(`打开失败：${msg2}`);
+              message.error(msg2);
             } finally {
               store.setBusy(false);
             }
@@ -41726,18 +41882,65 @@ ${style2}
               bordered: false
             }, {
               default: withCtx(() => [
-                _cache[3] || (_cache[3] = createBaseVNode("div", { class: "panel-head" }, [
-                  createBaseVNode("div", null, [
+                createBaseVNode("div", _hoisted_2$6, [
+                  _cache[4] || (_cache[4] = createBaseVNode("div", null, [
                     createBaseVNode("h3", null, "智能识别入口"),
                     createBaseVNode("p", null, "上传扫描页，快速得到 MusicXML 与简谱成果")
-                  ])
-                ], -1)),
-                createBaseVNode("div", _hoisted_2$6, [
+                  ], -1)),
+                  unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_3$6, [
+                    createVNode(unref(Button), {
+                      size: "small",
+                      secondary: "",
+                      disabled: !unref(store).canPrevPage || unref(store).isBusy,
+                      onClick: _cache[0] || (_cache[0] = ($event) => unref(store).prevPage())
+                    }, {
+                      default: withCtx(() => [..._cache[2] || (_cache[2] = [
+                        createTextVNode(" 上一页 ", -1)
+                      ])]),
+                      _: 1
+                    }, 8, ["disabled"]),
+                    createVNode(unref(NTag), {
+                      size: "small",
+                      bordered: false,
+                      round: ""
+                    }, {
+                      default: withCtx(() => [
+                        createTextVNode(" 第 " + toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount) + " 页 ", 1)
+                      ]),
+                      _: 1
+                    }),
+                    createVNode(unref(Button), {
+                      size: "small",
+                      secondary: "",
+                      disabled: !unref(store).canNextPage || unref(store).isBusy,
+                      onClick: _cache[1] || (_cache[1] = ($event) => unref(store).nextPage())
+                    }, {
+                      default: withCtx(() => [..._cache[3] || (_cache[3] = [
+                        createTextVNode(" 下一页 ", -1)
+                      ])]),
+                      _: 1
+                    }, 8, ["disabled"])
+                  ])) : createCommentVNode("", true)
+                ]),
+                createBaseVNode("div", _hoisted_4$5, [
                   createVNode(FileUploader, {
                     disabled: unref(store).isBusy,
                     onUploaded: onFileUploaded
                   }, null, 8, ["disabled"])
                 ]),
+                unref(store).isBusy ? (openBlock(), createBlock(unref(NProgress), {
+                  key: 0,
+                  type: "line",
+                  percentage: progressPercent.value,
+                  "indicator-placement": "inside",
+                  processing: "",
+                  class: "process-progress"
+                }, {
+                  default: withCtx(() => [
+                    createTextVNode(toDisplayString(progressText.value), 1)
+                  ]),
+                  _: 1
+                }, 8, ["percentage"])) : createCommentVNode("", true),
                 createVNode(unref(NSpace), {
                   class: "action-bar",
                   size: 10,
@@ -41761,16 +41964,16 @@ ${style2}
                         })
                       ]),
                       default: withCtx(() => [
-                        _cache[0] || (_cache[0] = createTextVNode(" 识别为 MusicXML ", -1))
+                        _cache[5] || (_cache[5] = createTextVNode(" 识别并自动填充对照编辑 ", -1))
                       ]),
                       _: 1
                     }, 8, ["loading", "disabled"]),
                     createVNode(unref(Button), {
                       class: "action-btn",
                       type: "info",
-                      onClick: recognizeAndExport,
+                      onClick: recognizeAllPages,
                       loading: unref(store).isBusy,
-                      disabled: unref(store).isBusy || !unref(store).hasInput,
+                      disabled: unref(store).isBusy || !unref(store).pageCount,
                       size: "large"
                     }, {
                       icon: withCtx(() => [
@@ -41782,7 +41985,7 @@ ${style2}
                         })
                       ]),
                       default: withCtx(() => [
-                        _cache[1] || (_cache[1] = createTextVNode(" 一键识别并导出简谱 ", -1))
+                        _cache[6] || (_cache[6] = createTextVNode(" 批量识别全部页面 ", -1))
                       ]),
                       _: 1
                     }, 8, ["loading", "disabled"]),
@@ -41802,7 +42005,7 @@ ${style2}
                         })
                       ]),
                       default: withCtx(() => [
-                        _cache[2] || (_cache[2] = createTextVNode(" 打开 MusicXML ", -1))
+                        _cache[7] || (_cache[7] = createTextVNode(" 打开 MusicXML ", -1))
                       ]),
                       _: 1
                     }, 8, ["disabled"])
@@ -41811,7 +42014,7 @@ ${style2}
                 }),
                 createVNode(Transition, { name: "fade" }, {
                   default: withCtx(() => [
-                    unref(store).inputFileName ? (openBlock(), createElementBlock("div", _hoisted_3$6, [
+                    unref(store).inputFileName ? (openBlock(), createElementBlock("div", _hoisted_5$5, [
                       createVNode(unref(NTag), {
                         type: "success",
                         round: "",
@@ -41830,7 +42033,30 @@ ${style2}
                           createTextVNode(" 已选择：" + toDisplayString(unref(store).inputFileName), 1)
                         ]),
                         _: 1
-                      })
+                      }),
+                      unref(store).currentPage?.status === "failed" ? (openBlock(), createBlock(unref(NTag), {
+                        key: 0,
+                        type: "error",
+                        round: "",
+                        bordered: false,
+                        size: "medium"
+                      }, {
+                        default: withCtx(() => [..._cache[8] || (_cache[8] = [
+                          createTextVNode(" 识别失败 ", -1)
+                        ])]),
+                        _: 1
+                      })) : unref(store).currentPage?.status === "completed" ? (openBlock(), createBlock(unref(NTag), {
+                        key: 1,
+                        type: "info",
+                        round: "",
+                        bordered: false,
+                        size: "medium"
+                      }, {
+                        default: withCtx(() => [..._cache[9] || (_cache[9] = [
+                          createTextVNode(" 已生成简谱与渲染 ", -1)
+                        ])]),
+                        _: 1
+                      })) : createCommentVNode("", true)
                     ])) : createCommentVNode("", true)
                   ]),
                   _: 1
@@ -41852,7 +42078,7 @@ ${style2}
                       bordered: false,
                       type: "info"
                     }, {
-                      default: withCtx(() => [..._cache[4] || (_cache[4] = [
+                      default: withCtx(() => [..._cache[10] || (_cache[10] = [
                         createTextVNode("XML", -1)
                       ])]),
                       _: 1
@@ -41874,7 +42100,7 @@ ${style2}
         };
       }
     });
-    const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-38e80b21"]]);
+    const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-72ba47bd"]]);
     const convertApi = {
       musicxmlToJianpu(req) {
         return apiFetch("/convert/musicxml-to-jianpu", {
@@ -42055,14 +42281,19 @@ ${style2}
     const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["__scopeId", "data-v-24ffeb7a"]]);
     const _hoisted_1$5 = { class: "convert-view" };
     const _hoisted_2$3 = { class: "toolbar panel" };
-    const _hoisted_3$3 = { class: "editor-layout" };
-    const _hoisted_4$3 = { class: "left-panel" };
-    const _hoisted_5$3 = { class: "right-panel" };
-    const _hoisted_6$2 = {
+    const _hoisted_3$3 = { class: "panel-head" };
+    const _hoisted_4$3 = {
+      key: 0,
+      class: "page-switcher"
+    };
+    const _hoisted_5$3 = { class: "editor-layout" };
+    const _hoisted_6$2 = { class: "left-panel" };
+    const _hoisted_7$2 = { class: "right-panel" };
+    const _hoisted_8$2 = {
       key: 1,
       class: "empty-hint"
     };
-    const _hoisted_7$2 = { class: "panel-footnote" };
+    const _hoisted_9$2 = { class: "panel-footnote" };
     const _sfc_main$5 = /* @__PURE__ */ defineComponent({
       __name: "ConvertView",
       setup(__props) {
@@ -42083,6 +42314,19 @@ ${style2}
         watch(() => store.svgFileId, (v) => {
           finalSvgFileId.value = v;
         });
+        function resolveMissingFileId(message2) {
+          const match2 = message2.match(/文件不存在[:：]\s*([A-Za-z0-9_-]+)/);
+          return match2?.[1] ?? null;
+        }
+        function handleMissingMusicxml(errorMessage) {
+          const missingId = resolveMissingFileId(errorMessage);
+          if (!missingId || missingId !== store.musicxmlFileId) {
+            return errorMessage;
+          }
+          store.setMusicxml("", store.musicxmlText);
+          finalSvgFileId.value = "";
+          return "当前 MusicXML 引用已失效，请回到“识别”页重新识别或重新打开 MusicXML 文件。";
+        }
         async function musicxmlToJianpu() {
           store.setBusy(true);
           try {
@@ -42095,7 +42339,8 @@ ${style2}
             log.addLog("已转换为简谱");
             message.success("转换完成");
           } catch (e) {
-            const msg2 = e instanceof Error ? e.message : String(e);
+            const raw = e instanceof Error ? e.message : String(e);
+            const msg2 = e instanceof ApiError ? handleMissingMusicxml(raw) : raw;
             log.addError(`转换失败：${msg2}`);
             message.error(msg2);
           } finally {
@@ -42119,14 +42364,27 @@ ${style2}
           }
         }
         function saveJianpu() {
-          const blob = new Blob([store.jianpuText], { type: "text/plain;charset=utf-8" });
+          const allTexts = store.pages.map((page, index) => ({
+            index,
+            name: page.inputFileName || `page-${index + 1}`,
+            text: page.jianpuText
+          })).filter((entry) => entry.text.trim().length > 0);
+          const payload = allTexts.length > 1 ? allTexts.map(
+            (entry) => `# Page ${entry.index + 1}: ${entry.name}
+${entry.text.trim()}`
+          ).join("\n\n") : (store.jianpuText || allTexts[0]?.text || "").trim();
+          if (!payload) {
+            message.warning("暂无可保存的简谱内容");
+            return;
+          }
+          const blob = new Blob([payload], { type: "text/plain;charset=utf-8" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = "jianpu.txt";
+          a.download = allTexts.length > 1 ? "jianpu_pages.txt" : "jianpu.txt";
           a.click();
           URL.revokeObjectURL(url);
-          log.addLog("已保存简谱文本");
+          log.addLog(allTexts.length > 1 ? `已保存 ${allTexts.length} 页简谱文本` : "已保存简谱文本");
           message.success("已保存");
         }
         async function renderSvg() {
@@ -42141,7 +42399,8 @@ ${style2}
             log.addLog("已渲染简谱 SVG");
             message.success("渲染完成");
           } catch (e) {
-            const msg2 = e instanceof Error ? e.message : String(e);
+            const raw = e instanceof Error ? e.message : String(e);
+            const msg2 = e instanceof ApiError ? handleMissingMusicxml(raw) : raw;
             log.addError(`渲染失败：${msg2}`);
             message.error(msg2);
           } finally {
@@ -42170,7 +42429,8 @@ ${style2}
             isViewingFinal.value = true;
             log.addLog(store.hasMusicxml ? "已生成最终渲染 SVG" : "已从简谱文本渲染 SVG");
           } catch (e) {
-            const msg2 = e instanceof Error ? e.message : String(e);
+            const raw = e instanceof Error ? e.message : String(e);
+            const msg2 = e instanceof ApiError ? handleMissingMusicxml(raw) : raw;
             log.addError(`最终渲染失败：${msg2}`);
             message.error(msg2);
           } finally {
@@ -42179,13 +42439,51 @@ ${style2}
           }
         }
         return (_ctx, _cache) => {
+          const _component_n_tag = resolveComponent("n-tag");
           const _component_n_text = resolveComponent("n-text");
           return openBlock(), createElementBlock("div", _hoisted_1$5, [
             createBaseVNode("section", _hoisted_2$3, [
-              _cache[5] || (_cache[5] = createBaseVNode("div", { class: "panel-head" }, [
-                createBaseVNode("h3", null, "对照编辑工作区"),
-                createBaseVNode("p", null, "从识别到回转，统一在同一画布完成")
-              ], -1)),
+              createBaseVNode("div", _hoisted_3$3, [
+                _cache[5] || (_cache[5] = createBaseVNode("div", null, [
+                  createBaseVNode("h3", null, "对照编辑工作区"),
+                  createBaseVNode("p", null, "从识别到回转，统一在同一画布完成")
+                ], -1)),
+                unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_4$3, [
+                  createVNode(unref(Button), {
+                    size: "small",
+                    secondary: "",
+                    disabled: !unref(store).canPrevPage || unref(store).isBusy,
+                    onClick: _cache[0] || (_cache[0] = ($event) => unref(store).prevPage())
+                  }, {
+                    default: withCtx(() => [..._cache[3] || (_cache[3] = [
+                      createTextVNode(" 上一页 ", -1)
+                    ])]),
+                    _: 1
+                  }, 8, ["disabled"]),
+                  createVNode(_component_n_tag, {
+                    size: "small",
+                    round: "",
+                    bordered: false,
+                    type: "info"
+                  }, {
+                    default: withCtx(() => [
+                      createTextVNode(" 第 " + toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount) + " 页 ", 1)
+                    ]),
+                    _: 1
+                  }),
+                  createVNode(unref(Button), {
+                    size: "small",
+                    secondary: "",
+                    disabled: !unref(store).canNextPage || unref(store).isBusy,
+                    onClick: _cache[1] || (_cache[1] = ($event) => unref(store).nextPage())
+                  }, {
+                    default: withCtx(() => [..._cache[4] || (_cache[4] = [
+                      createTextVNode(" 下一页 ", -1)
+                    ])]),
+                    _: 1
+                  }, 8, ["disabled"])
+                ])) : createCommentVNode("", true)
+              ]),
               createVNode(unref(NSpace), {
                 size: 10,
                 wrap: "",
@@ -42209,7 +42507,7 @@ ${style2}
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[1] || (_cache[1] = createTextVNode(" MusicXML → 简谱 ", -1))
+                      _cache[6] || (_cache[6] = createTextVNode(" MusicXML → 简谱 ", -1))
                     ]),
                     _: 1
                   }, 8, ["loading", "disabled"]),
@@ -42230,14 +42528,14 @@ ${style2}
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[2] || (_cache[2] = createTextVNode(" 简谱 → MusicXML ", -1))
+                      _cache[7] || (_cache[7] = createTextVNode(" 简谱 → MusicXML ", -1))
                     ]),
                     _: 1
                   }, 8, ["loading", "disabled"]),
                   createVNode(unref(Button), {
                     class: "tool-btn",
                     onClick: saveJianpu,
-                    disabled: !unref(store).jianpuText,
+                    disabled: !unref(store).jianpuText && !unref(store).pages.some((p2) => !!p2.jianpuText),
                     size: "large",
                     secondary: ""
                   }, {
@@ -42250,7 +42548,7 @@ ${style2}
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[3] || (_cache[3] = createTextVNode(" 保存简谱 ", -1))
+                      createTextVNode(" " + toDisplayString(unref(store).pageCount > 1 ? "保存全部简谱" : "保存简谱"), 1)
                     ]),
                     _: 1
                   }, 8, ["disabled"]),
@@ -42272,7 +42570,7 @@ ${style2}
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[4] || (_cache[4] = createTextVNode(" 导出 SVG ", -1))
+                      _cache[8] || (_cache[8] = createTextVNode(" 导出 SVG ", -1))
                     ]),
                     _: 1
                   }, 8, ["loading", "disabled"])
@@ -42280,15 +42578,15 @@ ${style2}
                 _: 1
               })
             ]),
-            createBaseVNode("section", _hoisted_3$3, [
-              createBaseVNode("article", _hoisted_4$3, [
+            createBaseVNode("section", _hoisted_5$3, [
+              createBaseVNode("article", _hoisted_6$2, [
                 createVNode(unref(NCard), {
                   title: unref(store).originalFileName ? `原始五线谱 · ${unref(store).originalFileName}` : "原始五线谱",
                   size: "small",
                   class: "panel-card",
                   bordered: false
                 }, {
-                  footer: withCtx(() => [..._cache[6] || (_cache[6] = [
+                  footer: withCtx(() => [..._cache[9] || (_cache[9] = [
                     createBaseVNode("span", { class: "panel-footnote" }, "原图按容器自动缩放，完整可见", -1)
                   ])]),
                   default: withCtx(() => [
@@ -42300,7 +42598,7 @@ ${style2}
                   _: 1
                 }, 8, ["title"])
               ]),
-              createBaseVNode("article", _hoisted_5$3, [
+              createBaseVNode("article", _hoisted_7$2, [
                 createVNode(unref(NCard), {
                   title: isViewingFinal.value ? "最终渲染" : "简谱编辑",
                   size: "small",
@@ -42324,13 +42622,13 @@ ${style2}
                     }, 8, ["loading", "disabled"])
                   ]),
                   footer: withCtx(() => [
-                    createBaseVNode("span", _hoisted_7$2, toDisplayString(isViewingFinal.value ? "渲染结果自动适配，无需滚动" : "编辑区按工作区高度自动铺满"), 1)
+                    createBaseVNode("span", _hoisted_9$2, toDisplayString(isViewingFinal.value ? "渲染结果自动适配，无需滚动" : "编辑区按工作区高度自动铺满"), 1)
                   ]),
                   default: withCtx(() => [
                     isViewingFinal.value && finalSvgFileId.value ? (openBlock(), createBlock(SvgPreview, {
                       key: 0,
                       "svg-file-id": finalSvgFileId.value
-                    }, null, 8, ["svg-file-id"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_6$2, [
+                    }, null, 8, ["svg-file-id"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_8$2, [
                       createVNode(unref(NIcon), {
                         size: "40",
                         depth: 3
@@ -42341,7 +42639,7 @@ ${style2}
                         _: 1
                       }),
                       createVNode(_component_n_text, { depth: "3" }, {
-                        default: withCtx(() => [..._cache[7] || (_cache[7] = [
+                        default: withCtx(() => [..._cache[10] || (_cache[10] = [
                           createTextVNode("暂无渲染结果", -1)
                         ])]),
                         _: 1
@@ -42349,7 +42647,7 @@ ${style2}
                     ])) : (openBlock(), createBlock(JianpuEditor, {
                       key: 2,
                       modelValue: jianpuText.value,
-                      "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => jianpuText.value = $event)
+                      "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => jianpuText.value = $event)
                     }, null, 8, ["modelValue"]))
                   ]),
                   _: 1
@@ -42360,7 +42658,7 @@ ${style2}
         };
       }
     });
-    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-fe5a958e"]]);
+    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-c15787de"]]);
     const exportApi = {
       exportScore(req) {
         return apiFetch("/export", {
@@ -42653,20 +42951,47 @@ ${style2}
           }
         }
         async function handleRestore(entry) {
+          const warnings = [];
           if (entry.input_file_id) {
-            store.setInputFile(entry.input_file_name, entry.input_file_id);
+            if (await fileExists(entry.input_file_id)) {
+              store.setInputFile(entry.input_file_name, entry.input_file_id);
+            } else {
+              warnings.push("原始输入文件已失效");
+            }
           }
           if (entry.musicxml_file_id) {
-            store.setMusicxml(entry.musicxml_file_id, "");
+            if (await fileExists(entry.musicxml_file_id)) {
+              store.setMusicxml(entry.musicxml_file_id, "");
+            } else {
+              store.setMusicxml("", "");
+              warnings.push("MusicXML 文件已失效");
+            }
           }
           if (entry.jianpu_text) {
             store.setJianpu(entry.jianpu_text);
           }
           if (entry.svg_file_id) {
-            store.setSvg(entry.svg_file_id);
+            if (await fileExists(entry.svg_file_id)) {
+              store.setSvg(entry.svg_file_id);
+            } else {
+              store.setSvg("");
+              warnings.push("SVG 文件已失效");
+            }
           }
           if (entry.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(entry.input_file_name)) {
-            store.setOriginalFile(entry.input_file_name, entry.input_file_id);
+            if (await fileExists(entry.input_file_id)) {
+              store.setOriginalFile(entry.input_file_name, entry.input_file_id);
+            } else {
+              store.clearOriginalFile();
+            }
+          } else {
+            store.clearOriginalFile();
+          }
+          if (warnings.length) {
+            const warningText = warnings.join("，");
+            log.addLog(`历史恢复部分失效：${warningText}`, "warn");
+            message.warning(`${warningText}，请重新识别或重新上传。`);
+            return;
           }
           message.success("已恢复到工作区");
         }
@@ -42933,7 +43258,7 @@ ${style2}
         };
       }
     });
-    const HistoryView = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-67689ff2"]]);
+    const HistoryView = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-db27b3dd"]]);
     const _hoisted_1$1 = { class: "settings-view" };
     const _sfc_main$1 = /* @__PURE__ */ defineComponent({
       __name: "SettingsView",
@@ -43372,7 +43697,7 @@ ${style2}
                     class: normalizeClass(["app-shell", prefersDark.value ? "theme-dark" : "theme-light"])
                   }, {
                     default: withCtx(() => [
-                      _cache[11] || (_cache[11] = createBaseVNode("div", {
+                      _cache[12] || (_cache[12] = createBaseVNode("div", {
                         class: "aurora-layer",
                         "aria-hidden": "true"
                       }, [
@@ -43386,6 +43711,10 @@ ${style2}
                       }, {
                         default: withCtx(() => [
                           createBaseVNode("div", _hoisted_1, [
+                            _cache[6] || (_cache[6] = createBaseVNode("div", {
+                              class: "titlebar-drag-bar",
+                              "aria-hidden": "true"
+                            }, null, -1)),
                             createBaseVNode("div", _hoisted_2, [
                               createBaseVNode("div", _hoisted_3, [
                                 _cache[2] || (_cache[2] = createBaseVNode("div", {
@@ -43532,7 +43861,7 @@ ${style2}
                                         ]),
                                         _: 1
                                       }),
-                                      _cache[6] || (_cache[6] = createBaseVNode("span", null, "识别", -1))
+                                      _cache[7] || (_cache[7] = createBaseVNode("span", null, "识别", -1))
                                     ])
                                   ]),
                                   default: withCtx(() => [
@@ -43549,7 +43878,7 @@ ${style2}
                                         ]),
                                         _: 1
                                       }),
-                                      _cache[7] || (_cache[7] = createBaseVNode("span", null, "对照编辑", -1))
+                                      _cache[8] || (_cache[8] = createBaseVNode("span", null, "对照编辑", -1))
                                     ])
                                   ]),
                                   default: withCtx(() => [
@@ -43566,7 +43895,7 @@ ${style2}
                                         ]),
                                         _: 1
                                       }),
-                                      _cache[8] || (_cache[8] = createBaseVNode("span", null, "导出", -1))
+                                      _cache[9] || (_cache[9] = createBaseVNode("span", null, "导出", -1))
                                     ])
                                   ]),
                                   default: withCtx(() => [
@@ -43583,7 +43912,7 @@ ${style2}
                                         ]),
                                         _: 1
                                       }),
-                                      _cache[9] || (_cache[9] = createBaseVNode("span", null, "历史", -1))
+                                      _cache[10] || (_cache[10] = createBaseVNode("span", null, "历史", -1))
                                     ])
                                   ]),
                                   default: withCtx(() => [
@@ -43600,7 +43929,7 @@ ${style2}
                                         ]),
                                         _: 1
                                       }),
-                                      _cache[10] || (_cache[10] = createBaseVNode("span", null, "设置", -1))
+                                      _cache[11] || (_cache[11] = createBaseVNode("span", null, "设置", -1))
                                     ])
                                   ]),
                                   default: withCtx(() => [
