@@ -1,5 +1,0 @@
-{"t":0,"agent":"aaad72c","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"a59dea5","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"a26ccdb","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"system","event":"skill_invoked","skill_name":"frontend-design:frontend-design"}
-{"t":0,"agent":"af75e79","agent_type":"unknown","event":"agent_stop","success":true}

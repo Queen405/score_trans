@@ -24,10 +24,23 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   const response = await fetch(`${getBaseURL()}${path}`, options)
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({
-      error: `HTTP ${response.status}`,
-    }))
-    throw new ApiError(error.error || `HTTP ${response.status}`, error.stage, error.detail)
+    const payload = await response.json().catch(() => ({} as Record<string, unknown>))
+    const rawMessage = payload.error ?? payload.detail
+    const message =
+      typeof rawMessage === 'string'
+        ? rawMessage
+        : rawMessage
+          ? JSON.stringify(rawMessage)
+          : `HTTP ${response.status}`
+    const stage = typeof payload.stage === 'string' ? payload.stage : undefined
+    const detail =
+      typeof payload.detail === 'string'
+        ? payload.detail
+        : payload.detail
+          ? JSON.stringify(payload.detail)
+          : undefined
+
+    throw new ApiError(message, stage, detail)
   }
 
   return response.json()
