@@ -76,7 +76,7 @@
             <template #icon><n-icon><DownloadOutline /></n-icon></template>
             保存
           </n-button>
-          <n-button size="small" @click="renderSvg" :loading="store.isBusy" :disabled="!store.hasMusicxml" secondary>
+          <n-button size="small" @click="renderSvg" :loading="store.isBusy" :disabled="store.isBusy || !canRenderCurrentScore" secondary>
             <template #icon><n-icon><ImageOutline /></n-icon></template>
             SVG
           </n-button>
@@ -107,7 +107,7 @@
         <div class="ws-panel ws-right">
           <div class="ws-panel-head">
             <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
-            <n-button size="tiny" quaternary @click="toggleFinalView" :loading="isRenderingFinal" :disabled="store.isBusy || (!store.hasMusicxml && !jianpuText)">
+            <n-button size="tiny" quaternary @click="toggleFinalView" :loading="isRenderingFinal" :disabled="store.isBusy || !canRenderCurrentScore">
               {{ isViewingFinal ? '编辑' : '渲染' }}
             </n-button>
           </div>
@@ -126,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
@@ -160,6 +160,9 @@ const log = useLogStore()
 const message = useMessage()
 
 const jianpuText = ref(store.jianpuText)
+const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
+const canRenderCurrentScore = computed(() => store.jianpuDirty ? hasJianpuText.value : store.hasMusicxml || hasJianpuText.value)
+const shouldRenderFromEditedText = computed(() => hasJianpuText.value && (!store.hasMusicxml || store.jianpuDirty))
 const isViewingFinal = ref(false)
 const isRenderingFinal = ref(false)
 const finalSvgFileId = ref(store.svgFileId)
@@ -177,8 +180,12 @@ const expandedBatchId = ref<number | null>(null)
 const expandedPages = ref<HistoryPage[]>([])
 const loadingBatch = ref(false)
 
-watch(() => store.jianpuText, (v) => { jianpuText.value = v })
-watch(jianpuText, (v) => { store.setJianpu(v) })
+watch(() => store.jianpuText, (v) => {
+  if (v !== jianpuText.value) jianpuText.value = v
+})
+watch(jianpuText, (v) => {
+  if (v !== store.jianpuText) store.setJianpu(v, true)
+})
 watch(() => store.svgFileId, (v) => { finalSvgFileId.value = v })
 
 onMounted(() => loadHistory())
@@ -228,8 +235,17 @@ async function toggleBatchExpand(batchId: number): Promise<void> {
 
 async function handleRestorePage(page: HistoryPage): Promise<void> {
   const batchId = expandedBatchId.value
-  const allPages = expandedPages.value
-  if (!batchId || !allPages.length) return
+  if (!batchId) return
+
+  let allPages = expandedPages.value
+  try {
+    const batch: HistoryBatch = await historyApi.get(batchId)
+    allPages = batch.pages
+    expandedPages.value = batch.pages
+  } catch (e: unknown) {
+    log.addError(`刷新历史详情失败：${e instanceof Error ? e.message : String(e)}`)
+  }
+  if (!allPages.length) return
 
   const pageIndex = allPages.findIndex((p) => p.id === page.id)
   const warnings: string[] = []
@@ -252,6 +268,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       inputFileId: r.inputOk ? r.page.input_file_id : '',
       originalFileName: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_name : '',
       originalFileId: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_id : '',
+      historyPageId: r.page.id,
       musicxmlFileId: r.musicxmlOk ? r.page.musicxml_file_id : '',
       jianpuText: r.page.jianpu_text || '',
       svgFileId: r.svgOk ? r.page.svg_file_id : '',
@@ -262,6 +279,12 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
 
   if (warnings.length) { message.warning(warnings.join('；')); return }
   message.success(`已恢复 ${allPages.length} 页`)
+}
+
+function replaceExpandedHistoryPage(page: HistoryPage): void {
+  const index = expandedPages.value.findIndex((entry) => entry.id === page.id)
+  if (index < 0) return
+  expandedPages.value[index] = page
 }
 
 function formatTime(iso: string): string {
@@ -342,6 +365,7 @@ async function jianpuToMusicxml(): Promise<void> {
   try {
     const result = await convertApi.jianpuToMusicxml({ jianpu_text: jianpuText.value })
     store.setMusicxml(result.musicxml_file_id, result.musicxml_text)
+    store.markJianpuClean()
     store.clearOriginalFile()
     log.addLog('已生成 MusicXML')
     message.success('转换完成')
@@ -376,14 +400,17 @@ function saveJianpu(): void {
 async function renderSvg(): Promise<void> {
   store.setBusy(true)
   try {
-    const result = await renderApi.jianpuSvg({
-      musicxml_file_id: store.musicxmlFileId,
-      page_image_file_id: store.originalFileId || undefined,
-      target_key: settings.targetKey,
-      start_measure_number: settings.startMeasureNumber ?? undefined,
-    })
+    const result = shouldRenderFromEditedText.value
+      ? await renderApi.jianpuTextSvg({ jianpu_text: jianpuText.value, title: '简谱' })
+      : await renderApi.jianpuSvg({
+          musicxml_file_id: store.musicxmlFileId,
+          page_image_file_id: store.originalFileId || undefined,
+          target_key: settings.targetKey,
+          start_measure_number: settings.startMeasureNumber ?? undefined,
+        })
     store.setSvg(result.svg_file_id)
     finalSvgFileId.value = result.svg_file_id
+    await persistRenderedHistory(result.svg_file_id)
     isViewingFinal.value = true
     log.addLog('已渲染 SVG')
     message.success('渲染完成')
@@ -402,16 +429,17 @@ async function toggleFinalView(): Promise<void> {
   isRenderingFinal.value = true
   store.setBusy(true)
   try {
-    const result = store.hasMusicxml
-      ? await renderApi.finalOutput({
+    const result = shouldRenderFromEditedText.value
+      ? await renderApi.jianpuTextSvg({ jianpu_text: jianpuText.value, title: '简谱' })
+      : await renderApi.finalOutput({
           musicxml_file_id: store.musicxmlFileId,
           page_image_file_id: store.originalFileId || undefined,
           target_key: settings.targetKey,
           start_measure_number: settings.startMeasureNumber ?? undefined,
         })
-      : await renderApi.jianpuTextSvg({ jianpu_text: jianpuText.value, title: '简谱' })
     finalSvgFileId.value = result.svg_file_id
     store.setSvg(result.svg_file_id)
+    await persistRenderedHistory(result.svg_file_id)
     isViewingFinal.value = true
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
@@ -421,6 +449,39 @@ async function toggleFinalView(): Promise<void> {
   } finally {
     store.setBusy(false)
     isRenderingFinal.value = false
+  }
+}
+
+async function persistRenderedHistory(svgFileId: string): Promise<void> {
+  const payload = {
+    musicxml_file_id: store.musicxmlFileId,
+    jianpu_text: jianpuText.value,
+    svg_file_id: svgFileId,
+    status: 'completed',
+    error_message: '',
+  }
+
+  if (store.historyPageId) {
+    const updated = await historyApi.updatePage(store.historyPageId, payload)
+    replaceExpandedHistoryPage(updated)
+    return
+  }
+
+  const created = await historyApi.create({
+    pages: [{
+      input_file_name: store.inputFileName,
+      input_file_id: store.inputFileId,
+      musicxml_file_id: store.musicxmlFileId,
+      jianpu_text: jianpuText.value,
+      svg_file_id: svgFileId,
+      status: 'completed',
+      error_message: '',
+    }],
+  })
+  const pageId = created.pages[0]?.id
+  if (pageId) {
+    store.setHistoryPageId(pageId)
+    await loadHistory()
   }
 }
 </script>

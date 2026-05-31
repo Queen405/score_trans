@@ -15,7 +15,7 @@ from .uploads import UploadManager
 
 
 def get_config() -> ToolConfig:
-    return ToolConfig.from_env()
+    return ToolConfig.from_db()
 
 
 _upload_manager: UploadManager | None = None

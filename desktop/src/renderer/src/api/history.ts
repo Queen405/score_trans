@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { HistoryBatch, HistoryBatchListItem, HistoryCreateRequest } from '../models/types'
+import type { HistoryBatch, HistoryBatchListItem, HistoryCreateRequest, HistoryPage, HistoryPageUpdateRequest } from '../models/types'
 
 export const historyApi = {
   list(): Promise<HistoryBatchListItem[]> {
@@ -13,6 +13,14 @@ export const historyApi = {
   create(req: HistoryCreateRequest): Promise<HistoryBatch> {
     return apiFetch('/history', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  updatePage(id: number, req: HistoryPageUpdateRequest): Promise<HistoryPage> {
+    return apiFetch(`/history/pages/${id}`, {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
     })

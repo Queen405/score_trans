@@ -16,7 +16,7 @@ class UploadManager:
     """Manages uploaded files: save, lookup, register, cleanup."""
 
     def __init__(self, config: ToolConfig | None = None) -> None:
-        self.config = config or ToolConfig.from_env()
+        self.config = config or ToolConfig.from_db()
         self.base_dir = self.config.work_dir / "uploads"
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._index_path = self.base_dir / "index.json"

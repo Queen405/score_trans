@@ -14,6 +14,7 @@ def test_render_routes_are_registered() -> None:
     assert "/render/final-output" in paths
     assert "/render/preserving-layout" in paths
     assert "/export" in paths
+    assert "/history/pages/{page_id}" in paths
 
 
 def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:

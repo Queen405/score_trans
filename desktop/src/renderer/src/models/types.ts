@@ -178,3 +178,11 @@ export interface HistoryCreateRequest {
     error_message?: string
   }[]
 }
+
+export interface HistoryPageUpdateRequest {
+  musicxml_file_id?: string
+  jianpu_text?: string
+  svg_file_id?: string
+  status?: string
+  error_message?: string
+}

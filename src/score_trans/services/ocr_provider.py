@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
-import os
 import re
 import urllib.error
 import urllib.request
@@ -12,12 +11,8 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from ..domain.models import OCRTextBlock, TextRole
-from .env_file import DISABLE_DOTENV_ENV, load_project_env
 
 
-OCR_API_KEY_ENV = "SCORE_TRANS_OCR_API_KEY"
-OCR_BASE_URL_ENV = "SCORE_TRANS_OCR_BASE_URL"
-OCR_MODEL_ENV = "SCORE_TRANS_OCR_MODEL"
 DEFAULT_OCR_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_OCR_MODEL = "deepseek-ai/DeepSeek-OCR"
 
@@ -57,20 +52,14 @@ class OpenAICompatibleOCRProvider:
         timeout: float = 60.0,
         dry_run: bool = False,
     ) -> None:
-        explicit_api_key = os.environ.get(OCR_API_KEY_ENV)
-        explicit_base_url = os.environ.get(OCR_BASE_URL_ENV)
-        explicit_model = os.environ.get(OCR_MODEL_ENV)
-        load_project_env()
         persisted = persisted_ocr_settings()
         self.base_url = (
             base_url
-            or explicit_base_url
             or persisted.get("ocr_base_url")
-            or os.environ.get(OCR_BASE_URL_ENV)
             or DEFAULT_OCR_BASE_URL
         ).rstrip("/")
-        self.model = model or explicit_model or persisted.get("ocr_model") or os.environ.get(OCR_MODEL_ENV) or DEFAULT_OCR_MODEL
-        self.api_key = explicit_api_key or persisted.get("ocr_api_key") or os.environ.get(OCR_API_KEY_ENV)
+        self.model = model or persisted.get("ocr_model") or DEFAULT_OCR_MODEL
+        self.api_key = persisted.get("ocr_api_key")
         self.timeout = timeout
         self.dry_run = dry_run
 
@@ -98,13 +87,12 @@ class OpenAICompatibleOCRProvider:
         return parse_openai_compatible_response(json.loads(body))
 
     def build_request(self, image_path: str | Path) -> OCRRequest:
-        load_project_env()
         path = Path(image_path)
         if not path.is_file():
             raise FileNotFoundError(path)
 
         if not self.api_key and not self.dry_run:
-            raise OCRError(f"Set {OCR_API_KEY_ENV} before calling the OCR provider.")
+            raise OCRError("OCR API key not configured. Set it in Settings.")
 
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -150,12 +138,10 @@ def is_deepseek_ocr_model(model: str) -> bool:
 
 
 def persisted_ocr_settings() -> dict[str, str]:
-    if os.environ.get(DISABLE_DOTENV_ENV):
-        return {}
     try:
         from .settings_db import SettingsDB
 
-        return SettingsDB().get_all()
+        return SettingsDB.default().get_all()
     except Exception:
         return {}
 

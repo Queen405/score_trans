@@ -19,6 +19,14 @@ class PageCreate(BaseModel):
     error_message: str = ""
 
 
+class PageUpdate(BaseModel):
+    musicxml_file_id: str | None = None
+    jianpu_text: str | None = None
+    svg_file_id: str | None = None
+    status: str | None = None
+    error_message: str | None = None
+
+
 class PageResponse(BaseModel):
     id: int
     input_file_name: str
@@ -119,6 +127,21 @@ def get_history(batch_id: int):
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     return _batch_to_response(batch)
+
+
+@router.patch("/pages/{page_id}", response_model=PageResponse)
+def update_history_page(page_id: int, req: PageUpdate):
+    page = _service.update_page(
+        page_id,
+        musicxml_file_id=req.musicxml_file_id,
+        jianpu_text=req.jianpu_text,
+        svg_file_id=req.svg_file_id,
+        status=req.status,
+        error_message=req.error_message,
+    )
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    return _page_to_response(page)
 
 
 @router.delete("/{batch_id}")

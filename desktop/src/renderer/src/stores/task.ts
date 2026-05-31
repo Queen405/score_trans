@@ -5,6 +5,7 @@ export type TaskPageStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 export interface TaskPage {
   id: string
+  historyPageId: number | null
   inputFileName: string
   inputFileId: string
   originalFileName: string
@@ -12,6 +13,7 @@ export interface TaskPage {
   musicxmlFileId: string
   musicxmlText: string
   jianpuText: string
+  jianpuDirty: boolean
   svgFileId: string
   status: TaskPageStatus
   errorMessage: string
@@ -21,6 +23,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
   const random = Math.random().toString(36).slice(2, 8)
   return {
     id: `${Date.now().toString(36)}-${random}`,
+    historyPageId: null,
     inputFileName: '',
     inputFileId: '',
     originalFileName: '',
@@ -28,6 +31,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     musicxmlFileId: '',
     musicxmlText: '',
     jianpuText: '',
+    jianpuDirty: false,
     svgFileId: '',
     status: 'pending',
     errorMessage: '',
@@ -44,32 +48,38 @@ export const useTaskStore = defineStore('task', () => {
   const musicxmlFileId = ref('')
   const musicxmlText = ref('')
   const jianpuText = ref('')
+  const jianpuDirty = ref(false)
   const svgFileId = ref('')
   const isBusy = ref(false)
   const pages = ref<TaskPage[]>([])
   const currentPageIndex = ref(-1)
+  const historyPageId = ref<number | null>(null)
 
   function syncCurrentFromPage(): void {
     const page = pages.value[currentPageIndex.value]
     if (!page) {
       inputFileName.value = ''
+      historyPageId.value = null
       inputFileId.value = ''
       originalFileName.value = ''
       originalFileId.value = ''
       musicxmlFileId.value = ''
       musicxmlText.value = ''
       jianpuText.value = ''
+      jianpuDirty.value = false
       svgFileId.value = ''
       return
     }
 
     inputFileName.value = page.inputFileName
+    historyPageId.value = page.historyPageId
     inputFileId.value = page.inputFileId
     originalFileName.value = page.originalFileName
     originalFileId.value = page.originalFileId
     musicxmlFileId.value = page.musicxmlFileId
     musicxmlText.value = page.musicxmlText
     jianpuText.value = page.jianpuText
+    jianpuDirty.value = page.jianpuDirty
     svgFileId.value = page.svgFileId
   }
 
@@ -82,6 +92,7 @@ export const useTaskStore = defineStore('task', () => {
   function addInputPage(name: string, fileId: string): number {
     const page = createPage({
       inputFileName: name,
+      historyPageId: null,
       inputFileId: fileId,
       status: 'pending',
     })
@@ -122,16 +133,19 @@ export const useTaskStore = defineStore('task', () => {
     }
 
     inputFileName.value = name
+    historyPageId.value = null
     inputFileId.value = fileId
     clearDerived()
     patchCurrentPage({
       inputFileName: name,
+      historyPageId: null,
       inputFileId: fileId,
       originalFileName: '',
       originalFileId: '',
       musicxmlFileId: '',
       musicxmlText: '',
       jianpuText: '',
+      jianpuDirty: false,
       svgFileId: '',
       status: 'pending',
       errorMessage: '',
@@ -155,11 +169,13 @@ export const useTaskStore = defineStore('task', () => {
     musicxmlFileId.value = ''
     musicxmlText.value = ''
     jianpuText.value = ''
+    jianpuDirty.value = false
     svgFileId.value = ''
     patchCurrentPage({
       musicxmlFileId: '',
       musicxmlText: '',
       jianpuText: '',
+      jianpuDirty: false,
       svgFileId: '',
       status: 'pending',
       errorMessage: '',
@@ -172,14 +188,33 @@ export const useTaskStore = defineStore('task', () => {
     patchCurrentPage({ musicxmlFileId: fileId, musicxmlText: text })
   }
 
-  function setJianpu(text: string) {
+  function setJianpu(text: string, dirty = false) {
     jianpuText.value = text
-    patchCurrentPage({ jianpuText: text })
+    jianpuDirty.value = dirty
+    patchCurrentPage({ jianpuText: text, jianpuDirty: dirty })
+  }
+
+  function markJianpuClean() {
+    jianpuDirty.value = false
+    patchCurrentPage({ jianpuDirty: false })
   }
 
   function setSvg(fileId: string) {
     svgFileId.value = fileId
     patchCurrentPage({ svgFileId: fileId })
+  }
+
+  function setHistoryPageId(id: number | null) {
+    historyPageId.value = id
+    patchCurrentPage({ historyPageId: id })
+  }
+
+  function setPageHistoryPageId(index: number, id: number | null) {
+    if (index < 0 || index >= pages.value.length) return
+    pages.value[index] = { ...pages.value[index], historyPageId: id }
+    if (index === currentPageIndex.value) {
+      historyPageId.value = id
+    }
   }
 
   function removePage(index: number): void {
@@ -206,12 +241,14 @@ export const useTaskStore = defineStore('task', () => {
 
   function reset() {
     inputFileName.value = ''
+    historyPageId.value = null
     inputFileId.value = ''
     originalFileName.value = ''
     originalFileId.value = ''
     musicxmlFileId.value = ''
     musicxmlText.value = ''
     jianpuText.value = ''
+    jianpuDirty.value = false
     svgFileId.value = ''
     isBusy.value = false
     pages.value = []
@@ -221,12 +258,14 @@ export const useTaskStore = defineStore('task', () => {
   function loadBatch(
     batchPages: {
       inputFileName: string
+      historyPageId?: number | null
       inputFileId: string
       originalFileName?: string
       originalFileId?: string
       musicxmlFileId?: string
       musicxmlText?: string
       jianpuText?: string
+      jianpuDirty?: boolean
       svgFileId?: string
       status?: TaskPageStatus
     }[],
@@ -234,12 +273,14 @@ export const useTaskStore = defineStore('task', () => {
   ) {
     pages.value = batchPages.map((p) => createPage({
       inputFileName: p.inputFileName,
+      historyPageId: p.historyPageId ?? null,
       inputFileId: p.inputFileId,
       originalFileName: p.originalFileName ?? '',
       originalFileId: p.originalFileId ?? '',
       musicxmlFileId: p.musicxmlFileId ?? '',
       musicxmlText: p.musicxmlText ?? '',
       jianpuText: p.jianpuText ?? '',
+      jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
       status: (p.status ?? 'completed') as TaskPageStatus,
     }))
@@ -250,12 +291,14 @@ export const useTaskStore = defineStore('task', () => {
 
   return {
     inputFileName,
+    historyPageId,
     inputFileId,
     originalFileName,
     originalFileId,
     musicxmlFileId,
     musicxmlText,
     jianpuText,
+    jianpuDirty,
     svgFileId,
     isBusy,
     pages,
@@ -277,7 +320,10 @@ export const useTaskStore = defineStore('task', () => {
     clearDerived,
     setMusicxml,
     setJianpu,
+    markJianpuClean,
     setSvg,
+    setHistoryPageId,
+    setPageHistoryPageId,
     removePage,
     setCurrentPageStatus,
     setBusy,

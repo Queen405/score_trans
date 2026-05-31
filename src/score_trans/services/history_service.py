@@ -127,6 +127,46 @@ class HistoryService:
             row = conn.execute("SELECT * FROM history_batch WHERE id = ?", (batch_id,)).fetchone()
             return self._row_to_batch(conn, row)
 
+    def update_page(
+        self,
+        page_id: int,
+        *,
+        jianpu_text: str | None = None,
+        svg_file_id: str | None = None,
+        musicxml_file_id: str | None = None,
+        status: str | None = None,
+        error_message: str | None = None,
+    ) -> HistoryPage | None:
+        updates: list[str] = []
+        values: list[str | int] = []
+        for field, value in (
+            ("jianpu_text", jianpu_text),
+            ("svg_file_id", svg_file_id),
+            ("musicxml_file_id", musicxml_file_id),
+            ("status", status),
+            ("error_message", error_message),
+        ):
+            if value is not None:
+                updates.append(f"{field} = ?")
+                values.append(value)
+
+        with self._connect() as conn:
+            exists = conn.execute(
+                "SELECT id, batch_id FROM history_page WHERE id = ?", (page_id,)
+            ).fetchone()
+            if not exists:
+                return None
+            if updates:
+                values.append(page_id)
+                conn.execute(
+                    f"UPDATE history_page SET {', '.join(updates)} WHERE id = ?",
+                    values,
+                )
+                self._refresh_batch_status(conn, exists["batch_id"])
+                conn.commit()
+            row = conn.execute("SELECT * FROM history_page WHERE id = ?", (page_id,)).fetchone()
+            return self._row_to_page(row)
+
     def delete_batch(self, batch_id: int) -> bool:
         with self._connect() as conn:
             cursor = conn.execute("DELETE FROM history_batch WHERE id = ?", (batch_id,))
@@ -138,6 +178,16 @@ class HistoryService:
             cursor = conn.execute("DELETE FROM history_batch")
             conn.commit()
             return cursor.rowcount
+
+    def _refresh_batch_status(self, conn: sqlite3.Connection, batch_id: int) -> None:
+        rows = conn.execute(
+            "SELECT status FROM history_page WHERE batch_id = ?", (batch_id,)
+        ).fetchall()
+        status = "failed" if any(row["status"] != "completed" for row in rows) else "completed"
+        conn.execute(
+            "UPDATE history_batch SET status = ?, page_count = ? WHERE id = ?",
+            (status, len(rows), batch_id),
+        )
 
     def _row_to_batch(self, conn: sqlite3.Connection, row: sqlite3.Row) -> HistoryBatch:
         batch = HistoryBatch(

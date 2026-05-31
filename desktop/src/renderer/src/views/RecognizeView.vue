@@ -142,6 +142,7 @@ function setProgress(percent: number, text: string): void {
 }
 
 interface PageResult {
+  page_index: number
   input_file_name: string
   input_file_id: string
   musicxml_file_id: string
@@ -158,7 +159,7 @@ async function runPipelineForPage(
 ): Promise<PageResult> {
   const page = store.pages[pageIndex]
   if (!page?.inputFileId || !page.inputFileName) {
-    return { input_file_name: '', input_file_id: '', musicxml_file_id: '', jianpu_text: '', svg_file_id: '', status: 'failed', error_message: '无输入文件' }
+    return { page_index: pageIndex, input_file_name: '', input_file_id: '', musicxml_file_id: '', jianpu_text: '', svg_file_id: '', status: 'failed', error_message: '无输入文件' }
   }
 
   const mapPercent = (p: number) => rangeStart + (p / 100) * (rangeEnd - rangeStart)
@@ -192,6 +193,7 @@ async function runPipelineForPage(
   log.addLog(`识别完成：${sourceFileName}`)
 
   return {
+    page_index: pageIndex,
     input_file_name: sourceFileName,
     input_file_id: sourceFileId,
     musicxml_file_id: result.musicxml_file_id,
@@ -205,7 +207,7 @@ async function runPipelineForPage(
 async function saveHistoryBatch(pageResults: PageResult[]): Promise<void> {
   if (!pageResults.length) return
   try {
-    await historyApi.create({
+    const created = await historyApi.create({
       pages: pageResults.map((r) => ({
         input_file_name: r.input_file_name,
         input_file_id: r.input_file_id,
@@ -215,6 +217,10 @@ async function saveHistoryBatch(pageResults: PageResult[]): Promise<void> {
         status: r.status,
         error_message: r.error_message,
       })),
+    })
+    created.pages.forEach((page, index) => {
+      const pageIndex = pageResults[index]?.page_index
+      if (typeof pageIndex === 'number') store.setPageHistoryPageId(pageIndex, page.id)
     })
   } catch { /* ignore */ }
 }
@@ -235,6 +241,7 @@ async function recognize(): Promise<void> {
     const msg = e instanceof Error ? e.message : String(e)
     store.setCurrentPageStatus('failed', msg)
     results.push({
+      page_index: pageIndex,
       input_file_name: store.pages[pageIndex]?.inputFileName ?? '',
       input_file_id: store.pages[pageIndex]?.inputFileId ?? '',
       musicxml_file_id: '', jianpu_text: '', svg_file_id: '',
@@ -272,6 +279,7 @@ async function recognizeAllPages(): Promise<void> {
         store.selectPage(pageIndex)
         store.setCurrentPageStatus('failed', msg)
         results.push({
+          page_index: pageIndex,
           input_file_name: store.pages[pageIndex]?.inputFileName ?? '',
           input_file_id: store.pages[pageIndex]?.inputFileId ?? '',
           musicxml_file_id: '', jianpu_text: '', svg_file_id: '',

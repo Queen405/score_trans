@@ -4,9 +4,6 @@ import os
 import pytest
 
 from score_trans.services.ocr_provider import (
-    OCR_API_KEY_ENV,
-    OCR_BASE_URL_ENV,
-    OCR_MODEL_ENV,
     DEFAULT_OCR_MODEL,
     OCRError,
     MockOCRProvider,
@@ -34,8 +31,10 @@ def test_mock_provider_feeds_text_layer(tmp_path) -> None:
 
 
 def test_openai_provider_builds_dry_run_request_without_key(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv(DISABLE_DOTENV_ENV, "1")
-    monkeypatch.delenv(OCR_API_KEY_ENV, raising=False)
+    monkeypatch.setattr(
+        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        lambda: {},
+    )
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
     provider = OpenAICompatibleOCRProvider(base_url="https://example.test/v1", dry_run=True)
@@ -51,7 +50,10 @@ def test_openai_provider_builds_dry_run_request_without_key(tmp_path, monkeypatc
 
 
 def test_openai_provider_reads_api_key_from_environment(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv(OCR_API_KEY_ENV, "test-key")
+    monkeypatch.setattr(
+        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        lambda: {"ocr_api_key": "test-key"},
+    )
     image = tmp_path / "score.jpg"
     image.write_bytes(b"abc")
 
@@ -61,7 +63,10 @@ def test_openai_provider_reads_api_key_from_environment(tmp_path, monkeypatch) -
 
 
 def test_non_deepseek_ocr_provider_requests_json_response(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv(DISABLE_DOTENV_ENV, "1")
+    monkeypatch.setattr(
+        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        lambda: {},
+    )
     image = tmp_path / "score.jpg"
     image.write_bytes(b"abc")
 
@@ -71,10 +76,6 @@ def test_non_deepseek_ocr_provider_requests_json_response(tmp_path, monkeypatch)
 
 
 def test_openai_provider_reads_persisted_settings_db(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv(DISABLE_DOTENV_ENV, raising=False)
-    monkeypatch.delenv(OCR_API_KEY_ENV, raising=False)
-    monkeypatch.delenv(OCR_BASE_URL_ENV, raising=False)
-    monkeypatch.delenv(OCR_MODEL_ENV, raising=False)
     monkeypatch.setattr(
         "score_trans.services.ocr_provider.persisted_ocr_settings",
         lambda: {
@@ -94,18 +95,22 @@ def test_openai_provider_reads_persisted_settings_db(tmp_path, monkeypatch) -> N
 
 
 def test_openai_provider_requires_key_when_not_dry_run(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv(DISABLE_DOTENV_ENV, "1")
-    monkeypatch.delenv(OCR_API_KEY_ENV, raising=False)
+    monkeypatch.setattr(
+        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        lambda: {},
+    )
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
 
-    with pytest.raises(OCRError, match=OCR_API_KEY_ENV):
+    with pytest.raises(OCRError, match="OCR API key"):
         OpenAICompatibleOCRProvider().build_request(image)
 
 
 def test_default_ocr_model_is_deepseek_ocr(monkeypatch) -> None:
-    monkeypatch.setenv(DISABLE_DOTENV_ENV, "1")
-    monkeypatch.delenv(OCR_MODEL_ENV, raising=False)
+    monkeypatch.setattr(
+        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        lambda: {},
+    )
 
     provider = OpenAICompatibleOCRProvider(dry_run=True)
 
@@ -122,12 +127,12 @@ def test_project_env_loader_populates_missing_values(tmp_path, monkeypatch) -> N
         encoding="utf-8",
     )
     monkeypatch.delenv("SCORE_TRANS_OCR_BASE_URL", raising=False)
-    monkeypatch.delenv(OCR_MODEL_ENV, raising=False)
+    monkeypatch.delenv("SCORE_TRANS_OCR_MODEL", raising=False)
 
     load_project_env(env_file)
 
     assert os.environ["SCORE_TRANS_OCR_BASE_URL"] == "https://example.test/v1"
-    assert os.environ[OCR_MODEL_ENV] == "deepseek-ai/DeepSeek-OCR"
+    assert os.environ["SCORE_TRANS_OCR_MODEL"] == "deepseek-ai/DeepSeek-OCR"
 
 
 def test_parse_openai_compatible_response_coerces_blocks() -> None:
