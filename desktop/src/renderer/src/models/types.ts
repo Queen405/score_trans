@@ -87,12 +87,6 @@ export interface PipelineResponse {
   svg_file_id: string
 }
 
-export interface ExportRequest {
-  musicxml_file_id: string
-  output_format?: 'pdf' | 'png' | 'mid'
-  filename?: string
-}
-
 export interface ExportResponse {
   file_id: string
   filename: string

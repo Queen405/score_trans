@@ -1,38 +1,53 @@
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from ..dependencies import get_export, get_upload_manager
-from ..schemas import ExportRequest, ExportResponse
+from ..schemas import ExportResponse
 from ..uploads import UploadManager
+from ...services.export_service import png_pages_to_pdf
 from ...use_cases import ExportScoreUseCase
 
 router = APIRouter(prefix="/export", tags=["export"])
 
 
-@router.post("", response_model=ExportResponse)
-async def export_score(
-    req: ExportRequest,
+@router.post("/midi", response_model=ExportResponse)
+async def export_midi(
+    musicxml_file_id: str,
+    filename: str | None = None,
     uc: ExportScoreUseCase = Depends(get_export),
     uploads: UploadManager = Depends(get_upload_manager),
 ):
-    musicxml_path = uploads.get_path(req.musicxml_file_id)
+    musicxml_path = uploads.get_path(musicxml_file_id)
     if not musicxml_path or not musicxml_path.exists():
-        raise HTTPException(404, f"MusicXML 文件不存在：{req.musicxml_file_id}")
+        raise HTTPException(404, f"MusicXML 文件不存在：{musicxml_file_id}")
 
-    filename = _export_filename(musicxml_path, req.output_format, req.filename)
-    output_path = uploads.base_dir / f"{uuid.uuid4().hex[:12]}{Path(filename).suffix}"
+    out_name = filename or f"{musicxml_path.stem}.mid"
+    output_path = uploads.base_dir / f"{uuid.uuid4().hex[:12]}.mid"
     uc.execute(musicxml_path, output_path)
     file_id = uploads.register(output_path)
+    return ExportResponse(file_id=file_id, filename=out_name)
+
+
+@router.post("/pdf", response_model=ExportResponse)
+async def export_pdf(
+    files: list[UploadFile] = File(..., description="PNG images, one per page"),
+    filename: str = "jianpu.pdf",
+    uploads: UploadManager = Depends(get_upload_manager),
+):
+    if not files:
+        raise HTTPException(400, "至少需要一个 PNG 图片")
+
+    png_pages: list[bytes] = []
+    for f in files:
+        data = await f.read()
+        if not data[:8].startswith(b"\x89PNG"):
+            raise HTTPException(400, f"文件 {f.filename} 不是有效的 PNG")
+        png_pages.append(data)
+
+    output_path = uploads.base_dir / f"{uuid.uuid4().hex[:12]}.pdf"
+    png_pages_to_pdf(png_pages, output_path)
+    file_id = uploads.register(output_path)
     return ExportResponse(file_id=file_id, filename=filename)
-
-
-def _export_filename(source_path: Path, output_format: str, requested: str | None) -> str:
-    fmt = "mid" if output_format == "midi" else output_format
-    suffix = ".mid" if fmt == "mid" else f".{fmt}"
-    raw_name = Path(requested).name if requested else f"{source_path.stem}{suffix}"
-    safe_name = raw_name or f"{source_path.stem}{suffix}"
-    return f"{Path(safe_name).stem}{suffix}"

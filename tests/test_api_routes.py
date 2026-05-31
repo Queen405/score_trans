@@ -2,8 +2,7 @@ import asyncio
 from pathlib import Path
 
 from score_trans.api.app import create_app
-from score_trans.api.routers.export import export_score
-from score_trans.api.schemas import ExportRequest
+from score_trans.api.routers.export import export_midi
 from score_trans.api.uploads import UploadManager
 from score_trans.services.settings import ToolConfig
 
@@ -13,7 +12,8 @@ def test_render_routes_are_registered() -> None:
 
     assert "/render/final-output" in paths
     assert "/render/preserving-layout" in paths
-    assert "/export" in paths
+    assert "/export/pdf" in paths
+    assert "/export/midi" in paths
     assert "/history/pages/{page_id}" in paths
 
 
@@ -55,7 +55,7 @@ class FakeExportUseCase:
         return Path(output_file)
 
 
-def test_export_route_writes_and_registers_downloadable_file(tmp_path) -> None:
+def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> None:
     config = ToolConfig(work_dir=tmp_path / "work")
     uploads = UploadManager(config)
     source = tmp_path / "score.musicxml"
@@ -64,12 +64,12 @@ def test_export_route_writes_and_registers_downloadable_file(tmp_path) -> None:
     fake_export = FakeExportUseCase()
 
     response = asyncio.run(
-        export_score(
-            ExportRequest(musicxml_file_id=musicxml_id, output_format="pdf"),
+        export_midi(
+            musicxml_file_id=musicxml_id,
             uc=fake_export,
             uploads=uploads,
         )
     )
 
-    assert response.filename == "score.pdf"
+    assert response.filename == "score.mid"
     assert uploads.get_path(response.file_id).read_bytes() == b"exported"

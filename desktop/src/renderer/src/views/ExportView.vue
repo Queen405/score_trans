@@ -1,42 +1,50 @@
 <template>
   <div class="export-view">
     <h2>导出</h2>
-    <p class="subtitle">导出简谱为 PDF、PNG 或 MIDI 文件</p>
+    <p class="subtitle">导出简谱为 PDF、PNG、SVG 或 MIDI 文件</p>
 
     <div class="export-section">
       <div class="export-row">
+        <n-select
+          v-model:value="exportFormat"
+          :options="formatOptions"
+          style="width: 120px"
+        />
+        <n-button
+          type="primary"
+          @click="doExport"
+          :loading="store.isBusy"
+          :disabled="!canExport"
+        >
+          <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
+          {{ exportLabel }}
+        </n-button>
         <n-button
           @click="saveMusicxml"
           :disabled="!store.hasMusicxml"
           secondary
         >
           <template #icon><n-icon><DocumentTextOutline /></n-icon></template>
-          保存 MusicXML
+          MusicXML
         </n-button>
-        <n-button
-          type="primary"
-          @click="exportScore"
-          :loading="store.isBusy"
-          :disabled="!store.hasMusicxml"
-        >
-          <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
-          导出
-        </n-button>
-        <n-select
-          v-model:value="exportFormat"
-          :options="formatOptions"
-          style="width: 120px"
-        />
       </div>
+      <p v-if="store.pageCount > 1 && exportFormat === 'pdf'" class="batch-hint">
+        当前共 {{ store.pageCount }} 页，将合并为一个 PDF 文件
+      </p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
-import { exportApi } from '../api/export'
+import {
+  exportApi,
+  svgToPngBlob,
+  downloadSvg,
+  downloadBlob,
+} from '../api/export'
 import { getFileURL } from '../api/client'
 import { DocumentTextOutline, CloudDownloadOutline } from '@vicons/ionicons5'
 import { NButton, NSelect, NIcon, useMessage } from 'naive-ui'
@@ -49,8 +57,19 @@ const exportFormat = ref('pdf')
 const formatOptions = [
   { label: 'PDF', value: 'pdf' },
   { label: 'PNG', value: 'png' },
+  { label: 'SVG', value: 'svg' },
   { label: 'MIDI', value: 'mid' },
 ]
+
+const canExport = computed(() => {
+  if (exportFormat.value === 'mid') return store.hasMusicxml
+  return store.pages.some((p) => !!p.svgFileId)
+})
+
+const exportLabel = computed(() => {
+  if (store.pageCount > 1 && exportFormat.value === 'pdf') return '导出全部为 PDF'
+  return '导出'
+})
 
 function saveMusicxml(): void {
   const url = getFileURL(store.musicxmlFileId)
@@ -61,20 +80,47 @@ function saveMusicxml(): void {
   log.addLog('已保存 MusicXML')
 }
 
-async function exportScore(): Promise<void> {
+async function doExport(): Promise<void> {
   store.setBusy(true)
   try {
-    const result = await exportApi.exportScore({
-      musicxml_file_id: store.musicxmlFileId,
-      output_format: exportFormat.value as 'pdf' | 'png' | 'mid',
-    })
-    const url = exportApi.getDownloadURL(result.file_id)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = result.filename
-    a.click()
-    log.addLog(`导出完成：${result.filename}`)
-    message.success('导出完成')
+    const fmt = exportFormat.value
+
+    if (fmt === 'svg') {
+      const svgId = store.svgFileId
+      if (!svgId) throw new Error('没有可导出的 SVG')
+      downloadSvg(svgId)
+      log.addLog('已导出 SVG')
+      message.success('导出完成')
+      return
+    }
+
+    if (fmt === 'png') {
+      const svgId = store.svgFileId
+      if (!svgId) throw new Error('没有可导出的 SVG')
+      const url = getFileURL(svgId)
+      const blob = await svgToPngBlob(url)
+      downloadBlob(blob, 'jianpu.png')
+      log.addLog('已导出 PNG')
+      message.success('导出完成')
+      return
+    }
+
+    if (fmt === 'pdf') {
+      await exportPdfBatch()
+      return
+    }
+
+    if (fmt === 'mid') {
+      if (!store.musicxmlFileId) throw new Error('没有可导出的 MusicXML')
+      const result = await exportApi.exportMidi(store.musicxmlFileId)
+      const url = exportApi.getDownloadURL(result.file_id)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.filename
+      a.click()
+      log.addLog('已导出 MIDI')
+      message.success('导出完成')
+    }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     log.addError(`导出失败：${msg}`)
@@ -82,6 +128,28 @@ async function exportScore(): Promise<void> {
   } finally {
     store.setBusy(false)
   }
+}
+
+async function exportPdfBatch(): Promise<void> {
+  const pages = store.pages.filter((p) => !!p.svgFileId)
+  if (pages.length === 0) throw new Error('没有可导出的页面')
+
+  const pngBlobs: Blob[] = []
+  for (let i = 0; i < pages.length; i++) {
+    const svgUrl = getFileURL(pages[i].svgFileId)
+    const blob = await svgToPngBlob(svgUrl)
+    pngBlobs.push(blob)
+    log.addLog(`渲染页面 ${i + 1}/${pages.length}`)
+  }
+
+  const result = await exportApi.exportPdf(pngBlobs)
+  const url = exportApi.getDownloadURL(result.file_id)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = result.filename
+  a.click()
+  log.addLog(`已导出 PDF（${pages.length} 页）`)
+  message.success('导出完成')
 }
 </script>
 
@@ -115,5 +183,11 @@ async function exportScore(): Promise<void> {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.batch-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 8px 0 0;
 }
 </style>

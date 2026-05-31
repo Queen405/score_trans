@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from fractions import Fraction
+from io import BytesIO
 from pathlib import Path
 
+import fitz
 import mido
-from reportlab.graphics import renderPM, renderPDF
-from svglib.svglib import svg2rlg
 
 from ..domain.jianpu import KEY_TO_TONIC, MAJOR_SCALE
 from ..domain.models import JianpuPitch, JianpuScore
@@ -29,30 +29,27 @@ def _duration_to_ticks(duration: Fraction, beat_type: int) -> int:
     return max(1, int(quarters * _TICKS_PER_BEAT))
 
 
+def png_pages_to_pdf(png_pages: list[bytes], output_path: Path) -> Path:
+    doc = fitz.open()
+    for png_data in png_pages:
+        src_doc = fitz.open("png", png_data)
+        page_rect = src_doc[0].rect
+        w, h = page_rect.width, page_rect.height
+        page = doc.new_page(width=w, height=h)
+        page.insert_image(fitz.Rect(0, 0, w, h), pixmap=src_doc[0].get_pixmap())
+        src_doc.close()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(str(output_path))
+    doc.close()
+    return output_path
+
+
 class ExportService:
     def __init__(self, render_service: RenderService | None = None) -> None:
         self.render_service = render_service or RenderService()
 
     def export_svg(self, score: JianpuScore, output_path: Path, title: str | None = None) -> Path:
         self.render_service.render_score_svg(score, output_path, title=title)
-        return output_path
-
-    def export_pdf(self, score: JianpuScore, output_path: Path, title: str | None = None) -> Path:
-        svg_path = output_path.with_suffix(".svg")
-        self.export_svg(score, svg_path, title=title)
-        drawing = svg2rlg(str(svg_path))
-        if drawing is None:
-            raise RuntimeError(f"无法解析 SVG 文件：{svg_path}")
-        renderPDF.drawToFile(drawing, str(output_path))
-        return output_path
-
-    def export_png(self, score: JianpuScore, output_path: Path, title: str | None = None) -> Path:
-        svg_path = output_path.with_suffix(".svg")
-        self.export_svg(score, svg_path, title=title)
-        drawing = svg2rlg(str(svg_path))
-        if drawing is None:
-            raise RuntimeError(f"无法解析 SVG 文件：{svg_path}")
-        renderPM.drawToFile(drawing, str(output_path), fmt="PNG")
         return output_path
 
     def export_midi(self, score: JianpuScore, output_path: Path) -> Path:
@@ -89,12 +86,8 @@ class ExportService:
 
     def export(self, score: JianpuScore, output_path: Path, title: str | None = None) -> Path:
         fmt = output_path.suffix.lower()
-        if fmt == ".pdf":
-            return self.export_pdf(score, output_path, title=title)
-        if fmt == ".png":
-            return self.export_png(score, output_path, title=title)
-        if fmt in (".mid", ".midi"):
-            return self.export_midi(score, output_path)
         if fmt == ".svg":
             return self.export_svg(score, output_path, title=title)
-        raise ValueError(f"不支持的导出格式：{fmt}")
+        if fmt in (".mid", ".midi"):
+            return self.export_midi(score, output_path)
+        raise ValueError(f"导出为 {fmt} 需要前端提供 PNG 数据")

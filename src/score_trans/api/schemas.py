@@ -109,12 +109,6 @@ class PipelineResponse(BaseModel):
 
 # ── 导出 ──────────────────────────────────────────────────────────────────────
 
-class ExportRequest(BaseModel):
-    musicxml_file_id: str
-    output_format: str = Field("pdf", pattern=r"^(pdf|png|mid|midi)$")
-    filename: str | None = None
-
-
 class ExportResponse(BaseModel):
     file_id: str
     filename: str
