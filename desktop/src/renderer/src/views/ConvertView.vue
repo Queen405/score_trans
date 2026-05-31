@@ -161,8 +161,7 @@ const message = useMessage()
 
 const jianpuText = ref(store.jianpuText)
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
-const canRenderCurrentScore = computed(() => store.jianpuDirty ? hasJianpuText.value : store.hasMusicxml || hasJianpuText.value)
-const shouldRenderFromEditedText = computed(() => hasJianpuText.value && (!store.hasMusicxml || store.jianpuDirty))
+const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
 const isViewingFinal = ref(false)
 const isRenderingFinal = ref(false)
 const finalSvgFileId = ref(store.svgFileId)
@@ -400,7 +399,7 @@ function saveJianpu(): void {
 async function renderSvg(): Promise<void> {
   store.setBusy(true)
   try {
-    const result = shouldRenderFromEditedText.value
+    const result = hasJianpuText.value
       ? await renderApi.jianpuTextSvg({ jianpu_text: jianpuText.value, title: '简谱' })
       : await renderApi.jianpuSvg({
           musicxml_file_id: store.musicxmlFileId,
@@ -429,7 +428,7 @@ async function toggleFinalView(): Promise<void> {
   isRenderingFinal.value = true
   store.setBusy(true)
   try {
-    const result = shouldRenderFromEditedText.value
+    const result = hasJianpuText.value
       ? await renderApi.jianpuTextSvg({ jianpu_text: jianpuText.value, title: '简谱' })
       : await renderApi.finalOutput({
           musicxml_file_id: store.musicxmlFileId,
