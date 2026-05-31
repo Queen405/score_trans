@@ -49,14 +49,14 @@ class FakeExportUseCase:
     def __init__(self) -> None:
         self.calls = []
 
-    def execute(self, musicxml_file, output_file, config):
-        self.calls.append((Path(musicxml_file), Path(output_file), config))
+    def execute(self, musicxml_file, output_file, **kwargs):
+        self.calls.append((Path(musicxml_file), Path(output_file), kwargs))
         Path(output_file).write_bytes(b"exported")
         return Path(output_file)
 
 
 def test_export_route_writes_and_registers_downloadable_file(tmp_path) -> None:
-    config = ToolConfig(work_dir=tmp_path / "work", musescore_path="fake-musescore")
+    config = ToolConfig(work_dir=tmp_path / "work")
     uploads = UploadManager(config)
     source = tmp_path / "score.musicxml"
     source.write_text("<score-partwise/>", encoding="utf-8")
@@ -67,11 +67,9 @@ def test_export_route_writes_and_registers_downloadable_file(tmp_path) -> None:
         export_score(
             ExportRequest(musicxml_file_id=musicxml_id, output_format="pdf"),
             uc=fake_export,
-            config=config,
             uploads=uploads,
         )
     )
 
     assert response.filename == "score.pdf"
     assert uploads.get_path(response.file_id).read_bytes() == b"exported"
-    assert fake_export.calls[0][2].musescore_path == "fake-musescore"

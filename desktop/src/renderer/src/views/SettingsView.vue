@@ -11,11 +11,6 @@
           <template #prefix><n-icon size="14"><TerminalOutline /></n-icon></template>
         </n-input>
 
-        <label>MuseScore 路径</label>
-        <n-input v-model:value="settings.musescorePath" placeholder="musescore 或 MuseScore4.exe 路径" size="small">
-          <template #prefix><n-icon size="14"><MusicalNotesOutline /></n-icon></template>
-        </n-input>
-
         <label>JDK / JAVA_HOME</label>
         <n-input v-model:value="settings.javaHome" placeholder="JDK 25 路径" size="small">
           <template #prefix><n-icon size="14"><CodeOutline /></n-icon></template>
@@ -90,7 +85,6 @@ import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import {
   TerminalOutline,
-  MusicalNotesOutline,
   KeyOutline,
   GlobeOutline,
   HardwareChipOutline,

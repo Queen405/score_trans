@@ -5,10 +5,9 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..dependencies import get_config, get_export, get_upload_manager
+from ..dependencies import get_export, get_upload_manager
 from ..schemas import ExportRequest, ExportResponse
 from ..uploads import UploadManager
-from ...services.settings import ToolConfig
 from ...use_cases import ExportScoreUseCase
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -18,7 +17,6 @@ router = APIRouter(prefix="/export", tags=["export"])
 async def export_score(
     req: ExportRequest,
     uc: ExportScoreUseCase = Depends(get_export),
-    config: ToolConfig = Depends(get_config),
     uploads: UploadManager = Depends(get_upload_manager),
 ):
     musicxml_path = uploads.get_path(req.musicxml_file_id)
@@ -27,7 +25,7 @@ async def export_score(
 
     filename = _export_filename(musicxml_path, req.output_format, req.filename)
     output_path = uploads.base_dir / f"{uuid.uuid4().hex[:12]}{Path(filename).suffix}"
-    uc.execute(musicxml_path, output_path, config)
+    uc.execute(musicxml_path, output_path)
     file_id = uploads.register(output_path)
     return ExportResponse(file_id=file_id, filename=filename)
 

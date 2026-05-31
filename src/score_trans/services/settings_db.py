@@ -11,7 +11,6 @@ TABLE_NAME = "settings"
 
 _DEFAULTS: dict[str, str] = {
     "audiveris_path": "",
-    "musescore_path": "",
     "java_home": "",
     "output_dir": "",
     "omr_preprocess": "1",

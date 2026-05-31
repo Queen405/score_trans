@@ -1,7 +1,7 @@
 <template>
   <div class="export-view">
     <h2>导出</h2>
-    <p class="subtitle">导出 MusicXML 或交给 MuseScore 生成成品文件</p>
+    <p class="subtitle">导出简谱为 PDF、PNG 或 MIDI 文件</p>
 
     <div class="export-section">
       <div class="export-row">
@@ -20,7 +20,7 @@
           :disabled="!store.hasMusicxml"
         >
           <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
-          MuseScore 导出
+          导出
         </n-button>
         <n-select
           v-model:value="exportFormat"

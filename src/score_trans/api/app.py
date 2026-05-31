@@ -40,11 +40,9 @@ def create_app() -> FastAPI:
     # Exception handlers — unified error format
     @app.exception_handler(ExternalToolError)
     async def external_tool_error_handler(request: Request, exc: ExternalToolError):
-        msg = str(exc).lower()
-        stage = "audiveris" if "audiveris" in msg else "musescore"
         return JSONResponse(
             status_code=502,
-            content={"error": str(exc), "stage": stage},
+            content={"error": str(exc), "stage": "audiveris"},
         )
 
     @app.exception_handler(OCRError)

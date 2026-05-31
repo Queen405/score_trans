@@ -16,7 +16,6 @@ def _resp() -> SettingsResponse:
     all_settings = _db.get_all()
     return SettingsResponse(
         audiveris_path=all_settings.get("audiveris_path", ""),
-        musescore_path=all_settings.get("musescore_path", ""),
         java_home=all_settings.get("java_home", ""),
         work_dir=str(get_config().work_dir),
         output_dir=all_settings.get("output_dir", ""),
@@ -45,10 +44,6 @@ async def update_settings(
     if req.audiveris_path is not None:
         _db.set("audiveris_path", req.audiveris_path)
         config.audiveris_path = req.audiveris_path
-
-    if req.musescore_path is not None:
-        _db.set("musescore_path", req.musescore_path)
-        config.musescore_path = req.musescore_path
 
     if req.java_home is not None:
         _db.set("java_home", req.java_home)

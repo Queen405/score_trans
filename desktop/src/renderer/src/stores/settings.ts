@@ -4,7 +4,6 @@ import { settingsApi } from '../api/settings'
 
 export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
-  const musescorePath = ref('')
   const javaHome = ref('')
   const targetKey = ref('C')
   const startMeasureNumber = ref<number | null>(null)
@@ -22,7 +21,6 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       const data = await settingsApi.get()
       audiverisPath.value = data.audiveris_path
-      musescorePath.value = data.musescore_path
       javaHome.value = data.java_home
       outputDir.value = data.output_dir ?? ''
       ocrApiKey.value = data.ocr_api_key ?? ''
@@ -41,7 +39,6 @@ export const useSettingsStore = defineStore('settings', () => {
   async function save(): Promise<void> {
     await settingsApi.update({
       audiveris_path: audiverisPath.value,
-      musescore_path: musescorePath.value,
       java_home: javaHome.value,
       output_dir: outputDir.value,
       ocr_api_key: ocrApiKey.value || undefined,
@@ -55,7 +52,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     audiverisPath,
-    musescorePath,
     javaHome,
     targetKey,
     startMeasureNumber,

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
-import os
-from urllib.parse import urlparse
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .image_preprocessing import prepare_omr_input
 from .settings import ToolConfig
@@ -84,17 +84,6 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
     if not candidates:
         raise ExternalToolError("Audiveris 已执行，但没有找到 MusicXML 输出文件。")
     return candidates[0]
-
-
-def export_with_musescore(musicxml_file: Path, output_file: Path, config: ToolConfig) -> Path:
-    musicxml_file = musicxml_file.resolve()
-    output_file = output_file.resolve()
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    args = [config.musescore_path or "musescore", "-o", str(output_file), str(musicxml_file)]
-    _run(args)
-    if not output_file.exists():
-        raise ExternalToolError("MuseScore 已执行，但没有找到导出文件。")
-    return output_file
 
 
 def find_tool(name: str) -> str | None:

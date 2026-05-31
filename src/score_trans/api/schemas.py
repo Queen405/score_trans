@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,7 @@ class ErrorResponse(BaseModel):
     detail: str | None = None
     stage: str | None = Field(
         None,
-        description="出错阶段：audiveris / musescore / ocr / convert / render",
+        description="出错阶段：audiveris / ocr / convert / render / export",
     )
 
 
@@ -124,7 +124,6 @@ class ExportResponse(BaseModel):
 
 class SettingsResponse(BaseModel):
     audiveris_path: str
-    musescore_path: str
     java_home: str
     work_dir: str
     target_key: str = "C"
@@ -140,7 +139,6 @@ class SettingsResponse(BaseModel):
 
 class SettingsUpdateRequest(BaseModel):
     audiveris_path: str | None = None
-    musescore_path: str | None = None
     java_home: str | None = None
     output_dir: str | None = None
     ocr_api_key: str | None = None

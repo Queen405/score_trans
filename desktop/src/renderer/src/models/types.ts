@@ -1,7 +1,7 @@
 export interface ErrorResponse {
   error: string
   detail?: string
-  stage?: 'audiveris' | 'musescore' | 'ocr' | 'convert' | 'render' | 'upload'
+  stage?: 'audiveris' | 'ocr' | 'convert' | 'render' | 'export' | 'upload'
 }
 
 export interface UploadResponse {
@@ -100,7 +100,6 @@ export interface ExportResponse {
 
 export interface SettingsResponse {
   audiveris_path: string
-  musescore_path: string
   java_home: string
   work_dir: string
   target_key?: string
@@ -116,7 +115,6 @@ export interface SettingsResponse {
 
 export interface SettingsUpdateRequest {
   audiveris_path?: string
-  musescore_path?: string
   java_home?: string
   output_dir?: string
   ocr_api_key?: string

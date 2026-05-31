@@ -13,7 +13,6 @@ LOCAL_AUDIVERIS_GRADLE = LOCAL_AUDIVERIS_DIR / "gradlew.bat"
 @dataclass(slots=True)
 class ToolConfig:
     audiveris_path: str = ""
-    musescore_path: str = ""
     java_home: str = ""
     work_dir: Path = Path("work")
     omr_preprocess: bool = True
@@ -30,7 +29,6 @@ class ToolConfig:
         )
         return cls(
             audiveris_path=db.get("audiveris_path") or default_audiveris,
-            musescore_path=db.get("musescore_path") or "musescore",
             java_home=db.get("java_home"),
             work_dir=Path(db.get("work_dir") or str(PROJECT_ROOT / "work")),
             omr_preprocess=db.get_bool("omr_preprocess", True),
