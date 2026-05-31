@@ -93,3 +93,32 @@ class RenderJianpuTextUseCase:
 
     def execute(self, input_path: str | Path, output_path: str | Path, *, title: str = "简谱") -> Path:
         return self.render_service.render_text_svg(input_path, output_path, title=title)
+
+    def execute_page(
+        self,
+        input_path: str | Path,
+        output_path: str | Path,
+        *,
+        page_width: float,
+        page_height: float,
+        image_path: str | Path | None = None,
+        ocr_provider: OCRProvider | None = None,
+        text_blocks=None,
+        title: str = "简谱",
+    ) -> Path:
+        blocks = text_blocks
+        if blocks is None and image_path is not None:
+            provider = ocr_provider
+            if provider is None:
+                from ..services.ocr_provider import OpenAICompatibleOCRProvider
+
+                provider = OpenAICompatibleOCRProvider()
+            blocks = provider.recognize(Path(image_path))
+        return self.render_service.render_text_page_svg(
+            input_path,
+            output_path,
+            page_width=page_width,
+            page_height=page_height,
+            title=title,
+            text_blocks=blocks or [],
+        )

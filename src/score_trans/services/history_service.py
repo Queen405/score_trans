@@ -17,6 +17,7 @@ class HistoryPage:
     input_file_id: str = ""
     musicxml_file_id: str = ""
     jianpu_text: str = ""
+    ocr_text: str = ""
     svg_file_id: str = ""
     status: str = "completed"
     error_message: str = ""
@@ -49,6 +50,7 @@ class HistoryService:
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='history_batch'"
             ).fetchall()
             if rows:
+                self._migrate_db(conn)
                 return
             conn.execute("DROP TABLE IF EXISTS history")
             conn.execute(
@@ -70,6 +72,7 @@ class HistoryService:
                     input_file_id TEXT NOT NULL DEFAULT '',
                     musicxml_file_id TEXT NOT NULL DEFAULT '',
                     jianpu_text TEXT NOT NULL DEFAULT '',
+                    ocr_text TEXT NOT NULL DEFAULT '',
                     svg_file_id TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'completed',
                     error_message TEXT NOT NULL DEFAULT ''
@@ -103,8 +106,8 @@ class HistoryService:
                     """
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id, musicxml_file_id,
-                         jianpu_text, svg_file_id, status, error_message)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                         jianpu_text, ocr_text, svg_file_id, status, error_message)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -112,6 +115,7 @@ class HistoryService:
                         page.input_file_id,
                         page.musicxml_file_id,
                         page.jianpu_text,
+                        page.ocr_text,
                         page.svg_file_id,
                         page.status,
                         page.error_message,
@@ -132,6 +136,7 @@ class HistoryService:
         page_id: int,
         *,
         jianpu_text: str | None = None,
+        ocr_text: str | None = None,
         svg_file_id: str | None = None,
         musicxml_file_id: str | None = None,
         status: str | None = None,
@@ -141,6 +146,7 @@ class HistoryService:
         values: list[str | int] = []
         for field, value in (
             ("jianpu_text", jianpu_text),
+            ("ocr_text", ocr_text),
             ("svg_file_id", svg_file_id),
             ("musicxml_file_id", musicxml_file_id),
             ("status", status),
@@ -189,6 +195,13 @@ class HistoryService:
             (status, len(rows), batch_id),
         )
 
+    @staticmethod
+    def _migrate_db(conn: sqlite3.Connection) -> None:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(history_page)").fetchall()}
+        if "ocr_text" not in columns:
+            conn.execute("ALTER TABLE history_page ADD COLUMN ocr_text TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+
     def _row_to_batch(self, conn: sqlite3.Connection, row: sqlite3.Row) -> HistoryBatch:
         batch = HistoryBatch(
             id=row["id"],
@@ -211,6 +224,7 @@ class HistoryService:
             input_file_id=row["input_file_id"],
             musicxml_file_id=row["musicxml_file_id"],
             jianpu_text=row["jianpu_text"],
+            ocr_text=row["ocr_text"] if "ocr_text" in row.keys() else "",
             svg_file_id=row["svg_file_id"],
             status=row["status"],
             error_message=row["error_message"],

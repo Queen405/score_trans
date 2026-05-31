@@ -12,12 +12,16 @@ class ConvertMusicXmlToJianpuUseCase:
         *,
         target_key: str = "C",
         start_measure_number: int | None = None,
+        image_path: str | Path | None = None,
+        ocr_provider: OCRProvider | None = None,
     ) -> str:
         return score_to_jianpu_text(
             self.build_score(
                 musicxml_path,
                 target_key=target_key,
                 start_measure_number=start_measure_number,
+                image_path=image_path,
+                ocr_provider=ocr_provider,
             )
         )
 

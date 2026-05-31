@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,7 +17,9 @@ from ..schemas import (
     RenderJianpuTextSvgResponse,
 )
 from ..uploads import UploadManager
+from ...domain.models import TextBlock
 from ...services.image_info import image_dimensions
+from ...services.ocr_provider import OpenAICompatibleOCRProvider
 from ...use_cases import RenderJianpuTextUseCase, RenderMusicXmlJianpuUseCase
 
 router = APIRouter(prefix="/render", tags=["render"])
@@ -85,11 +88,76 @@ async def render_jianpu_text_svg(
 
     svg_name = f"{uuid.uuid4().hex[:12]}.svg"
     svg_path = uploads.base_dir / svg_name
+    ocr_blocks: list[TextBlock] | None = None
 
-    uc.execute(input_path, svg_path, title=req.title)
+    if req.page_image_file_id:
+        image_path = uploads.get_path(req.page_image_file_id)
+        if not image_path or not image_path.exists():
+            raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+        page_width, page_height = image_dimensions(image_path)
+        ocr_blocks = _parse_ocr_text(req.ocr_text) if req.ocr_text else OpenAICompatibleOCRProvider().recognize(image_path)
+        uc.execute_page(
+            input_path,
+            svg_path,
+            page_width=page_width,
+            page_height=page_height,
+            image_path=image_path,
+            text_blocks=ocr_blocks if req.include_ocr_text else [],
+            title=req.title,
+        )
+    else:
+        uc.execute(input_path, svg_path, title=req.title)
 
     svg_id = uploads.register(svg_path)
-    return RenderJianpuTextSvgResponse(svg_file_id=svg_id)
+    return RenderJianpuTextSvgResponse(
+        svg_file_id=svg_id,
+        ocr_text=_serialize_ocr_text(ocr_blocks) if ocr_blocks is not None else None,
+    )
+
+
+def _parse_ocr_text(payload: str) -> list[TextBlock]:
+    try:
+        raw = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, f"OCR 数据不是有效 JSON：{exc.msg}") from exc
+    if not isinstance(raw, list):
+        raise HTTPException(400, "OCR 数据必须是数组")
+
+    blocks: list[TextBlock] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        text = str(item.get("text") or "").strip()
+        if not text:
+            continue
+        bbox_raw = item.get("bbox")
+        bbox = None
+        if isinstance(bbox_raw, list | tuple) and len(bbox_raw) == 4:
+            try:
+                bbox = tuple(float(v) for v in bbox_raw)
+            except (TypeError, ValueError):
+                bbox = None
+        role = item.get("role") or "other"
+        if role not in {"title", "instrument", "lyric", "expression", "footer", "measure_number", "other"}:
+            role = "other"
+        blocks.append(TextBlock(text=text, bbox=bbox, role=role))
+    return blocks
+
+
+def _serialize_ocr_text(blocks: list[TextBlock]) -> str:
+    return json.dumps(
+        [
+            {
+                "id": f"ocr-{index}",
+                "text": block.text,
+                "bbox": list(block.bbox) if block.bbox is not None else None,
+                "role": block.role,
+            }
+            for index, block in enumerate(blocks)
+            if block.text.strip()
+        ],
+        ensure_ascii=False,
+    )
 
 
 @router.post("/preserving-layout", response_model=PreservingLayoutResponse)

@@ -29,10 +29,17 @@ async def musicxml_to_jianpu(
     if not path or not path.exists():
         raise HTTPException(404, f"文件不存在：{req.musicxml_file_id}")
 
+    image_path = None
+    if req.page_image_file_id:
+        image_path = uploads.get_path(req.page_image_file_id)
+        if not image_path or not image_path.exists():
+            raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+
     jianpu_text = uc.execute(
         path,
         target_key=req.target_key,
         start_measure_number=req.start_measure_number,
+        image_path=image_path,
     )
     return MusicXmlToJianpuResponse(jianpu_text=jianpu_text)
 

@@ -96,6 +96,7 @@ import { pipelineApi } from '../api/pipeline'
 import { historyApi } from '../api/history'
 import { getFileURL } from '../api/client'
 import type { HistoryCreateRequest } from '../models/types'
+import { splitJianpuAndOcr } from '../utils/ocrText'
 import FileUploader from '../components/FileUploader.vue'
 import {
   ScanOutline,
@@ -147,6 +148,7 @@ interface PageResult {
   input_file_id: string
   musicxml_file_id: string
   jianpu_text: string
+  ocr_text: string
   svg_file_id: string
   status: string
   error_message: string
@@ -159,7 +161,7 @@ async function runPipelineForPage(
 ): Promise<PageResult> {
   const page = store.pages[pageIndex]
   if (!page?.inputFileId || !page.inputFileName) {
-    return { page_index: pageIndex, input_file_name: '', input_file_id: '', musicxml_file_id: '', jianpu_text: '', svg_file_id: '', status: 'failed', error_message: '无输入文件' }
+    return { page_index: pageIndex, input_file_name: '', input_file_id: '', musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '', status: 'failed', error_message: '无输入文件' }
   }
 
   const mapPercent = (p: number) => rangeStart + (p / 100) * (rangeEnd - rangeStart)
@@ -187,7 +189,9 @@ async function runPipelineForPage(
   } else {
     store.clearOriginalFile()
   }
-  store.setJianpu(result.jianpu_text)
+  const split = splitJianpuAndOcr(result.jianpu_text)
+  store.setJianpu(split.jianpuText)
+  store.setOcrText(split.ocrText)
   store.setSvg(result.svg_file_id)
   store.setCurrentPageStatus('completed')
   log.addLog(`识别完成：${sourceFileName}`)
@@ -197,7 +201,8 @@ async function runPipelineForPage(
     input_file_name: sourceFileName,
     input_file_id: sourceFileId,
     musicxml_file_id: result.musicxml_file_id,
-    jianpu_text: result.jianpu_text,
+    jianpu_text: split.jianpuText,
+    ocr_text: split.ocrText,
     svg_file_id: result.svg_file_id,
     status: 'completed',
     error_message: '',
@@ -213,6 +218,7 @@ async function saveHistoryBatch(pageResults: PageResult[]): Promise<void> {
         input_file_id: r.input_file_id,
         musicxml_file_id: r.musicxml_file_id,
         jianpu_text: r.jianpu_text,
+        ocr_text: r.ocr_text,
         svg_file_id: r.svg_file_id,
         status: r.status,
         error_message: r.error_message,
@@ -244,7 +250,7 @@ async function recognize(): Promise<void> {
       page_index: pageIndex,
       input_file_name: store.pages[pageIndex]?.inputFileName ?? '',
       input_file_id: store.pages[pageIndex]?.inputFileId ?? '',
-      musicxml_file_id: '', jianpu_text: '', svg_file_id: '',
+      musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '',
       status: 'failed', error_message: msg,
     })
     log.addError(`识别失败：${msg}`)
@@ -282,7 +288,7 @@ async function recognizeAllPages(): Promise<void> {
           page_index: pageIndex,
           input_file_name: store.pages[pageIndex]?.inputFileName ?? '',
           input_file_id: store.pages[pageIndex]?.inputFileId ?? '',
-          musicxml_file_id: '', jianpu_text: '', svg_file_id: '',
+          musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '',
           status: 'failed', error_message: msg,
         })
         log.addError(`第 ${i + 1} 页失败：${msg}`)

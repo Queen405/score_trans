@@ -4,7 +4,9 @@ import xml.etree.ElementTree as ET
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.domain.models import JianpuEvent, JianpuMeasure, JianpuPitch, JianpuScore, TextBlock
 from score_trans.domain.musicxml import musicxml_to_score
+from score_trans.services.ocr_provider import MockOCRProvider
 from score_trans.services.rendering import RenderOptions, render_jianpu_svg, render_score_page_svg, render_score_svg
+from score_trans.use_cases.render_jianpu import RenderJianpuTextUseCase
 
 
 def _svg_root(svg: str) -> ET.Element:
@@ -55,6 +57,78 @@ def test_render_score_page_svg_preserves_requested_page_size() -> None:
     assert root.attrib["width"] == "1240"
     assert root.attrib["height"] == "1754"
     assert root.attrib["viewBox"] == "0 0 1240 1754"
+
+
+def test_render_jianpu_text_page_runs_ocr_and_preserves_bbox(tmp_path) -> None:
+    text_path = tmp_path / "score.txt"
+    image_path = tmp_path / "score.png"
+    output_path = tmp_path / "score.svg"
+    text_path.write_text("key=C\ntime=4/4\n1 2 |", encoding="utf-8")
+    image_path.write_bytes(b"fake image")
+    provider = MockOCRProvider([TextBlock("歌词", bbox=(40, 70, 90, 92), role="lyric")])
+
+    RenderJianpuTextUseCase().execute_page(
+        text_path,
+        output_path,
+        page_width=320,
+        page_height=480,
+        image_path=image_path,
+        ocr_provider=provider,
+    )
+
+    svg = output_path.read_text(encoding="utf-8")
+    root = _svg_root(svg)
+    ocr_text = next(text for text in _svg_elements(root, "text") if text.text == "歌词")
+    assert provider.calls == [image_path]
+    assert root.attrib["width"] == "320"
+    assert root.attrib["height"] == "480"
+    assert ocr_text.attrib["class"] == "ocr-overlay"
+    assert float(ocr_text.attrib["x"]) == 40.0
+    assert 70.0 < float(ocr_text.attrib["y"]) <= 92.0
+
+
+def test_render_jianpu_text_page_uses_editable_text_directives(tmp_path) -> None:
+    text_path = tmp_path / "score.txt"
+    image_path = tmp_path / "score.png"
+    output_path = tmp_path / "score.svg"
+    text_path.write_text("key=C\ntime=4/4\n1 2 |\n\n@text 40 70 90 92 lyric 改后的歌词", encoding="utf-8")
+    image_path.write_bytes(b"fake image")
+    provider = MockOCRProvider([TextBlock("旧歌词", bbox=(40, 70, 90, 92), role="lyric")])
+
+    RenderJianpuTextUseCase().execute_page(
+        text_path,
+        output_path,
+        page_width=320,
+        page_height=480,
+        image_path=image_path,
+        ocr_provider=provider,
+    )
+
+    svg = output_path.read_text(encoding="utf-8")
+    assert "改后的歌词" in svg
+    assert "旧歌词" not in svg
+
+
+def test_render_jianpu_text_page_supports_chord_tokens(tmp_path) -> None:
+    text_path = tmp_path / "score.txt"
+    image_path = tmp_path / "score.png"
+    output_path = tmp_path / "score.svg"
+    text_path.write_text("key=C\ntime=4/4\n[3/+#2/] |", encoding="utf-8")
+    image_path.write_bytes(b"fake image")
+
+    RenderJianpuTextUseCase().execute_page(
+        text_path,
+        output_path,
+        page_width=320,
+        page_height=480,
+        image_path=image_path,
+        ocr_provider=MockOCRProvider([]),
+    )
+
+    svg = output_path.read_text(encoding="utf-8")
+    assert ">3<" in svg
+    assert ">#</text>" in svg
+    assert ">2<" in svg
 
 
 def test_render_score_page_svg_places_ocr_text_block_at_bbox() -> None:

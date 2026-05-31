@@ -14,6 +14,7 @@ class PageCreate(BaseModel):
     input_file_id: str = ""
     musicxml_file_id: str = ""
     jianpu_text: str = ""
+    ocr_text: str = ""
     svg_file_id: str = ""
     status: str = "completed"
     error_message: str = ""
@@ -22,6 +23,7 @@ class PageCreate(BaseModel):
 class PageUpdate(BaseModel):
     musicxml_file_id: str | None = None
     jianpu_text: str | None = None
+    ocr_text: str | None = None
     svg_file_id: str | None = None
     status: str | None = None
     error_message: str | None = None
@@ -33,6 +35,7 @@ class PageResponse(BaseModel):
     input_file_id: str
     musicxml_file_id: str
     jianpu_text: str
+    ocr_text: str
     svg_file_id: str
     status: str
     error_message: str
@@ -69,6 +72,7 @@ def _page_to_response(p: HistoryPage) -> PageResponse:
         input_file_id=p.input_file_id,
         musicxml_file_id=p.musicxml_file_id,
         jianpu_text=p.jianpu_text,
+        ocr_text=p.ocr_text,
         svg_file_id=p.svg_file_id,
         status=p.status,
         error_message=p.error_message,
@@ -111,6 +115,7 @@ def create_batch(req: BatchCreateRequest):
             input_file_id=p.input_file_id,
             musicxml_file_id=p.musicxml_file_id,
             jianpu_text=p.jianpu_text,
+            ocr_text=p.ocr_text,
             svg_file_id=p.svg_file_id,
             status=p.status,
             error_message=p.error_message,
@@ -135,6 +140,7 @@ def update_history_page(page_id: int, req: PageUpdate):
         page_id,
         musicxml_file_id=req.musicxml_file_id,
         jianpu_text=req.jianpu_text,
+        ocr_text=req.ocr_text,
         svg_file_id=req.svg_file_id,
         status=req.status,
         error_message=req.error_message,

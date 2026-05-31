@@ -26,6 +26,7 @@ class UploadResponse(BaseModel):
 
 class MusicXmlToJianpuRequest(BaseModel):
     musicxml_file_id: str
+    page_image_file_id: str | None = None
     target_key: str = "C"
     start_measure_number: int | None = None
 
@@ -63,11 +64,15 @@ class RenderJianpuSvgResponse(BaseModel):
 class RenderJianpuTextSvgRequest(BaseModel):
     jianpu_text: str | None = None
     jianpu_file_id: str | None = None
+    page_image_file_id: str | None = None
+    ocr_text: str | None = None
+    include_ocr_text: bool = True
     title: str = "简谱"
 
 
 class RenderJianpuTextSvgResponse(BaseModel):
     svg_file_id: str
+    ocr_text: str | None = None
 
 
 class FinalRenderRequest(BaseModel):

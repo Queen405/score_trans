@@ -15,6 +15,7 @@ from ..domain.models import OCRTextBlock, TextRole
 
 DEFAULT_OCR_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_OCR_MODEL = "deepseek-ai/DeepSeek-OCR"
+DEFAULT_OCR_FALLBACK_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
 
 
 class OCRError(RuntimeError):
@@ -59,12 +60,19 @@ class OpenAICompatibleOCRProvider:
             or DEFAULT_OCR_BASE_URL
         ).rstrip("/")
         self.model = model or persisted.get("ocr_model") or DEFAULT_OCR_MODEL
+        self.fallback_model = persisted.get("ocr_fallback_model") or DEFAULT_OCR_FALLBACK_MODEL
         self.api_key = persisted.get("ocr_api_key")
         self.timeout = timeout
         self.dry_run = dry_run
 
     def recognize(self, image_path: str | Path) -> list[OCRTextBlock]:
-        request = self.build_request(image_path)
+        blocks = self._recognize_with_model(image_path, self.model)
+        if _ocr_blocks_are_useful(blocks) or not is_deepseek_ocr_model(self.model):
+            return blocks
+        return self._recognize_with_model(image_path, self.fallback_model)
+
+    def _recognize_with_model(self, image_path: str | Path, model: str) -> list[OCRTextBlock]:
+        request = self.build_request(image_path, model=model)
         if self.dry_run:
             return []
 
@@ -86,8 +94,9 @@ class OpenAICompatibleOCRProvider:
 
         return parse_openai_compatible_response(json.loads(body))
 
-    def build_request(self, image_path: str | Path) -> OCRRequest:
+    def build_request(self, image_path: str | Path, *, model: str | None = None) -> OCRRequest:
         path = Path(image_path)
+        selected_model = model or self.model
         if not path.is_file():
             raise FileNotFoundError(path)
 
@@ -99,14 +108,14 @@ class OpenAICompatibleOCRProvider:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         payload: dict[str, Any] = {
-            "model": self.model,
+            "model": selected_model,
             "messages": [
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
-                            "text": ocr_prompt_for_model(self.model),
+                            "text": ocr_prompt_for_model(selected_model),
                         },
                         {
                             "type": "image_url",
@@ -116,8 +125,9 @@ class OpenAICompatibleOCRProvider:
                 }
             ],
             "temperature": 0,
+            "max_tokens": 2048,
         }
-        if not is_deepseek_ocr_model(self.model):
+        if not is_deepseek_ocr_model(selected_model):
             payload["response_format"] = {"type": "json_object"}
 
         return OCRRequest(
@@ -135,6 +145,16 @@ def image_to_data_url(path: Path) -> str:
 
 def is_deepseek_ocr_model(model: str) -> bool:
     return model.lower().endswith("/deepseek-ocr") or model.lower() == "deepseek-ocr"
+
+
+def _ocr_blocks_are_useful(blocks: list[OCRTextBlock]) -> bool:
+    for block in blocks:
+        text = block.text.strip()
+        if not text or text in {"}", "{", "[]"}:
+            continue
+        if block.bbox is not None or re.search(r"[\w\u4e00-\u9fff]", text):
+            return True
+    return False
 
 
 def persisted_ocr_settings() -> dict[str, str]:

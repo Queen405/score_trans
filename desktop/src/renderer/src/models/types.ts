@@ -12,6 +12,7 @@ export interface UploadResponse {
 
 export interface MusicXmlToJianpuRequest {
   musicxml_file_id: string
+  page_image_file_id?: string
   target_key?: string
   start_measure_number?: number
 }
@@ -47,11 +48,15 @@ export interface RenderJianpuSvgResponse {
 export interface RenderJianpuTextSvgRequest {
   jianpu_text?: string
   jianpu_file_id?: string
+  page_image_file_id?: string
+  ocr_text?: string
+  include_ocr_text?: boolean
   title?: string
 }
 
 export interface RenderJianpuTextSvgResponse {
   svg_file_id: string
+  ocr_text?: string
 }
 
 export interface FinalOutputRequest {
@@ -146,6 +151,7 @@ export interface HistoryPage {
   input_file_id: string
   musicxml_file_id: string
   jianpu_text: string
+  ocr_text: string
   svg_file_id: string
   status: string
   error_message: string
@@ -173,6 +179,7 @@ export interface HistoryCreateRequest {
     input_file_id?: string
     musicxml_file_id?: string
     jianpu_text?: string
+    ocr_text?: string
     svg_file_id?: string
     status?: string
     error_message?: string
@@ -182,6 +189,7 @@ export interface HistoryCreateRequest {
 export interface HistoryPageUpdateRequest {
   musicxml_file_id?: string
   jianpu_text?: string
+  ocr_text?: string
   svg_file_id?: string
   status?: string
   error_message?: string

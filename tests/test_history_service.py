@@ -17,13 +17,16 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
     updated = service.update_page(
         page_id,
         jianpu_text="key=C\ntime=4/4\n3 4 |",
+        ocr_text='[{"text":"词","bbox":[1,2,3,4],"role":"lyric"}]',
         svg_file_id="svg-new",
     )
 
     assert updated is not None
     assert updated.jianpu_text == "key=C\ntime=4/4\n3 4 |"
+    assert updated.ocr_text == '[{"text":"词","bbox":[1,2,3,4],"role":"lyric"}]'
     assert updated.svg_file_id == "svg-new"
     assert service.get_batch(batch.id).pages[0].jianpu_text == updated.jianpu_text
+    assert service.get_batch(batch.id).pages[0].ocr_text == updated.ocr_text
 
 
 def test_update_page_missing_returns_none(tmp_path) -> None:

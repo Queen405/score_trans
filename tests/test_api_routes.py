@@ -23,6 +23,28 @@ def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:
     assert "page_image_file_id" in schema["properties"]
 
 
+def test_musicxml_to_jianpu_request_accepts_page_image_for_ocr_text() -> None:
+    schema = create_app().openapi()["components"]["schemas"]["MusicXmlToJianpuRequest"]
+
+    assert "page_image_file_id" in schema["properties"]
+
+
+def test_jianpu_text_svg_request_accepts_page_image_for_ocr_overlay() -> None:
+    schema = create_app().openapi()["components"]["schemas"]["RenderJianpuTextSvgRequest"]
+
+    assert "page_image_file_id" in schema["properties"]
+    assert "ocr_text" in schema["properties"]
+    assert "include_ocr_text" in schema["properties"]
+
+
+def test_history_page_schema_persists_ocr_text() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+
+    assert "ocr_text" in schemas["PageCreate"]["properties"]
+    assert "ocr_text" in schemas["PageUpdate"]["properties"]
+    assert "ocr_text" in schemas["PageResponse"]["properties"]
+
+
 class FakeExportUseCase:
     def __init__(self) -> None:
         self.calls = []

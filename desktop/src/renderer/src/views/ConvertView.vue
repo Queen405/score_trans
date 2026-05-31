@@ -72,15 +72,6 @@
             <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
             简谱 → XML
           </n-button>
-          <n-button size="small" @click="saveJianpu" :disabled="!store.jianpuText && !store.pages.some((p) => !!p.jianpuText)" secondary>
-            <template #icon><n-icon><DownloadOutline /></n-icon></template>
-            保存
-          </n-button>
-          <n-button size="small" @click="renderSvg" :loading="store.isBusy" :disabled="store.isBusy || !canRenderCurrentScore" secondary>
-            <template #icon><n-icon><ImageOutline /></n-icon></template>
-            SVG
-          </n-button>
-          <div class="toolbar-sep" />
           <n-button size="small" @click="saveMusicxml" :disabled="!store.hasMusicxml" secondary>
             <template #icon><n-icon><DocumentTextOutline /></n-icon></template>
             MusicXML
@@ -107,12 +98,23 @@
         <div class="ws-panel ws-right">
           <div class="ws-panel-head">
             <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
-            <n-button size="tiny" quaternary @click="toggleFinalView" :loading="isRenderingFinal" :disabled="store.isBusy || !canRenderCurrentScore">
-              {{ isViewingFinal ? '编辑' : '渲染' }}
-            </n-button>
+            <div class="panel-head-actions">
+              <n-button size="tiny" quaternary @click="saveJianpu" :loading="store.isBusy" :disabled="store.isBusy || !canSaveCurrentPage">
+                保存
+              </n-button>
+              <n-button size="tiny" quaternary @click="toggleFinalView" :loading="isRenderingFinal" :disabled="store.isBusy || !canRenderCurrentScore">
+                {{ isViewingFinal ? '编辑' : '渲染' }}
+              </n-button>
+            </div>
           </div>
           <div class="ws-panel-body">
-            <svg-preview v-if="isViewingFinal && finalSvgFileId" :svg-file-id="finalSvgFileId" />
+            <svg-preview
+              v-if="isViewingFinal && finalSvgFileId"
+              :svg-file-id="finalSvgFileId"
+              :ocr-text="store.ocrText"
+              editable-ocr
+              @update:ocr-text="handleOcrTextUpdate"
+            />
             <div v-else-if="isViewingFinal" class="empty-hint">
               <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
               <span>暂无渲染</span>
@@ -139,10 +141,10 @@ import type { HistoryBatchListItem, HistoryBatch, HistoryPage } from '../models/
 import JianpuEditor from '../components/JianpuEditor.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
+import { splitJianpuAndOcr } from '../utils/ocrText'
 import {
   ArrowForwardOutline,
   ArrowBackOutline,
-  DownloadOutline,
   ImageOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
@@ -162,6 +164,7 @@ const message = useMessage()
 const jianpuText = ref(store.jianpuText)
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
+const canSaveCurrentPage = computed(() => hasJianpuText.value || store.hasMusicxml || !!store.ocrText.trim() || !!store.svgFileId)
 const isViewingFinal = ref(false)
 const isRenderingFinal = ref(false)
 const finalSvgFileId = ref(store.svgFileId)
@@ -269,12 +272,14 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       originalFileId: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_id : '',
       historyPageId: r.page.id,
       musicxmlFileId: r.musicxmlOk ? r.page.musicxml_file_id : '',
-      jianpuText: r.page.jianpu_text || '',
+      jianpuText: splitJianpuAndOcr(r.page.jianpu_text || '').jianpuText,
+      ocrText: r.page.ocr_text || splitJianpuAndOcr(r.page.jianpu_text || '').ocrText,
       svgFileId: r.svgOk ? r.page.svg_file_id : '',
       status: r.page.status as any,
     })),
     pageIndex >= 0 ? pageIndex : 0,
   )
+  isViewingFinal.value = false
 
   if (warnings.length) { message.warning(warnings.join('；')); return }
   message.success(`已恢复 ${allPages.length} 页`)
@@ -343,10 +348,13 @@ async function musicxmlToJianpu(): Promise<void> {
   try {
     const result = await convertApi.musicxmlToJianpu({
       musicxml_file_id: store.musicxmlFileId,
+      page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
       start_measure_number: settings.startMeasureNumber ?? undefined,
     })
-    store.setJianpu(result.jianpu_text)
+    const split = splitJianpuAndOcr(result.jianpu_text)
+    store.setJianpu(split.jianpuText)
+    store.setOcrText(split.ocrText)
     log.addLog('已转换为简谱')
     message.success('转换完成')
   } catch (e: unknown) {
@@ -377,30 +385,47 @@ async function jianpuToMusicxml(): Promise<void> {
   }
 }
 
-function saveJianpu(): void {
-  const allTexts = store.pages
-    .map((page, index) => ({ index, name: page.inputFileName || `page-${index + 1}`, text: page.jianpuText }))
-    .filter((entry) => entry.text.trim().length > 0)
-  const payload = allTexts.length > 1
-    ? allTexts.map((entry) => `# Page ${entry.index + 1}: ${entry.name}\n${entry.text.trim()}`).join('\n\n')
-    : (store.jianpuText || allTexts[0]?.text || '').trim()
-  if (!payload) { message.warning('暂无可保存内容'); return }
-  const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = allTexts.length > 1 ? 'jianpu_pages.txt' : 'jianpu.txt'
-  a.click()
-  URL.revokeObjectURL(url)
-  log.addLog('已保存简谱')
-  message.success('已保存')
+async function saveJianpu(): Promise<void> {
+  if (!canSaveCurrentPage.value) {
+    message.warning('暂无可保存内容')
+    return
+  }
+  store.setBusy(true)
+  try {
+    await persistRenderedHistory(finalSvgFileId.value || store.svgFileId || '')
+    store.markJianpuClean()
+    log.addLog('已保存 OMR、简谱和 OCR 信息')
+    message.success('已保存')
+  } catch (e: unknown) {
+    const raw = e instanceof Error ? e.message : String(e)
+    log.addError(`保存失败：${raw}`)
+    message.error(raw)
+  } finally {
+    store.setBusy(false)
+  }
 }
+
+function handleOcrTextUpdate(value: string): void {
+  store.setOcrText(value, true)
+}
+
+function applyReturnedOcr(value?: string | null): void {
+  if (!value || store.ocrText.trim()) return
+  store.setOcrText(value)
+}
+
 
 async function renderSvg(): Promise<void> {
   store.setBusy(true)
   try {
     const result = hasJianpuText.value
-      ? await renderApi.jianpuTextSvg({ jianpu_text: jianpuText.value, title: '简谱' })
+      ? await renderApi.jianpuTextSvg({
+          jianpu_text: jianpuText.value,
+          page_image_file_id: store.originalFileId || undefined,
+          ocr_text: store.ocrText || undefined,
+          include_ocr_text: false,
+          title: '简谱',
+        })
       : await renderApi.jianpuSvg({
           musicxml_file_id: store.musicxmlFileId,
           page_image_file_id: store.originalFileId || undefined,
@@ -408,9 +433,9 @@ async function renderSvg(): Promise<void> {
           start_measure_number: settings.startMeasureNumber ?? undefined,
         })
     store.setSvg(result.svg_file_id)
-    finalSvgFileId.value = result.svg_file_id
-    await persistRenderedHistory(result.svg_file_id)
-    isViewingFinal.value = true
+      finalSvgFileId.value = result.svg_file_id
+      applyReturnedOcr('ocr_text' in result ? result.ocr_text : undefined)
+      isViewingFinal.value = true
     log.addLog('已渲染 SVG')
     message.success('渲染完成')
   } catch (e: unknown) {
@@ -429,7 +454,13 @@ async function toggleFinalView(): Promise<void> {
   store.setBusy(true)
   try {
     const result = hasJianpuText.value
-      ? await renderApi.jianpuTextSvg({ jianpu_text: jianpuText.value, title: '简谱' })
+      ? await renderApi.jianpuTextSvg({
+          jianpu_text: jianpuText.value,
+          page_image_file_id: store.originalFileId || undefined,
+          ocr_text: store.ocrText || undefined,
+          include_ocr_text: false,
+          title: '简谱',
+        })
       : await renderApi.finalOutput({
           musicxml_file_id: store.musicxmlFileId,
           page_image_file_id: store.originalFileId || undefined,
@@ -437,9 +468,9 @@ async function toggleFinalView(): Promise<void> {
           start_measure_number: settings.startMeasureNumber ?? undefined,
         })
     finalSvgFileId.value = result.svg_file_id
-    store.setSvg(result.svg_file_id)
-    await persistRenderedHistory(result.svg_file_id)
-    isViewingFinal.value = true
+      store.setSvg(result.svg_file_id)
+      applyReturnedOcr('ocr_text' in result ? result.ocr_text : undefined)
+      isViewingFinal.value = true
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
@@ -455,6 +486,7 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
   const payload = {
     musicxml_file_id: store.musicxmlFileId,
     jianpu_text: jianpuText.value,
+    ocr_text: store.ocrText,
     svg_file_id: svgFileId,
     status: 'completed',
     error_message: '',
@@ -472,6 +504,7 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
       input_file_id: store.inputFileId,
       musicxml_file_id: store.musicxmlFileId,
       jianpu_text: jianpuText.value,
+      ocr_text: store.ocrText,
       svg_file_id: svgFileId,
       status: 'completed',
       error_message: '',

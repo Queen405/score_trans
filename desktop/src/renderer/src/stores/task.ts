@@ -13,6 +13,7 @@ export interface TaskPage {
   musicxmlFileId: string
   musicxmlText: string
   jianpuText: string
+  ocrText: string
   jianpuDirty: boolean
   svgFileId: string
   status: TaskPageStatus
@@ -31,6 +32,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     musicxmlFileId: '',
     musicxmlText: '',
     jianpuText: '',
+    ocrText: '',
     jianpuDirty: false,
     svgFileId: '',
     status: 'pending',
@@ -48,6 +50,7 @@ export const useTaskStore = defineStore('task', () => {
   const musicxmlFileId = ref('')
   const musicxmlText = ref('')
   const jianpuText = ref('')
+  const ocrText = ref('')
   const jianpuDirty = ref(false)
   const svgFileId = ref('')
   const isBusy = ref(false)
@@ -66,6 +69,7 @@ export const useTaskStore = defineStore('task', () => {
       musicxmlFileId.value = ''
       musicxmlText.value = ''
       jianpuText.value = ''
+      ocrText.value = ''
       jianpuDirty.value = false
       svgFileId.value = ''
       return
@@ -79,6 +83,7 @@ export const useTaskStore = defineStore('task', () => {
     musicxmlFileId.value = page.musicxmlFileId
     musicxmlText.value = page.musicxmlText
     jianpuText.value = page.jianpuText
+    ocrText.value = page.ocrText
     jianpuDirty.value = page.jianpuDirty
     svgFileId.value = page.svgFileId
   }
@@ -145,6 +150,7 @@ export const useTaskStore = defineStore('task', () => {
       musicxmlFileId: '',
       musicxmlText: '',
       jianpuText: '',
+      ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
       status: 'pending',
@@ -169,12 +175,14 @@ export const useTaskStore = defineStore('task', () => {
     musicxmlFileId.value = ''
     musicxmlText.value = ''
     jianpuText.value = ''
+    ocrText.value = ''
     jianpuDirty.value = false
     svgFileId.value = ''
     patchCurrentPage({
       musicxmlFileId: '',
       musicxmlText: '',
       jianpuText: '',
+      ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
       status: 'pending',
@@ -192,6 +200,12 @@ export const useTaskStore = defineStore('task', () => {
     jianpuText.value = text
     jianpuDirty.value = dirty
     patchCurrentPage({ jianpuText: text, jianpuDirty: dirty })
+  }
+
+  function setOcrText(text: string, dirty = false) {
+    ocrText.value = text
+    if (dirty) jianpuDirty.value = true
+    patchCurrentPage({ ocrText: text, jianpuDirty: dirty ? true : jianpuDirty.value })
   }
 
   function markJianpuClean() {
@@ -248,6 +262,7 @@ export const useTaskStore = defineStore('task', () => {
     musicxmlFileId.value = ''
     musicxmlText.value = ''
     jianpuText.value = ''
+    ocrText.value = ''
     jianpuDirty.value = false
     svgFileId.value = ''
     isBusy.value = false
@@ -265,6 +280,7 @@ export const useTaskStore = defineStore('task', () => {
       musicxmlFileId?: string
       musicxmlText?: string
       jianpuText?: string
+      ocrText?: string
       jianpuDirty?: boolean
       svgFileId?: string
       status?: TaskPageStatus
@@ -280,6 +296,7 @@ export const useTaskStore = defineStore('task', () => {
       musicxmlFileId: p.musicxmlFileId ?? '',
       musicxmlText: p.musicxmlText ?? '',
       jianpuText: p.jianpuText ?? '',
+      ocrText: p.ocrText ?? '',
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
       status: (p.status ?? 'completed') as TaskPageStatus,
@@ -298,6 +315,7 @@ export const useTaskStore = defineStore('task', () => {
     musicxmlFileId,
     musicxmlText,
     jianpuText,
+    ocrText,
     jianpuDirty,
     svgFileId,
     isBusy,
@@ -320,6 +338,7 @@ export const useTaskStore = defineStore('task', () => {
     clearDerived,
     setMusicxml,
     setJianpu,
+    setOcrText,
     markJianpuClean,
     setSvg,
     setHistoryPageId,

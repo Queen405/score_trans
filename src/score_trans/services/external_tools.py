@@ -36,6 +36,11 @@ def _run(args: list[str], cwd: Path | None = None, env: dict[str, str] | None = 
         )
     except FileNotFoundError as exc:
         raise ExternalToolError(f"找不到外部程序：{args[0]}") from exc
+    except PermissionError as exc:
+        raise ExternalToolError(
+            f"无法执行外部程序（权限被拒绝或路径无效）：{args[0]}\n"
+            f"请检查设置中的路径是否正确。"
+        ) from exc
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr or ""
         stdout = exc.stdout or ""

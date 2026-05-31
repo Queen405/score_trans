@@ -79,13 +79,69 @@ def render_jianpu_svg(jianpu_text: str | JianpuScore, options: RenderOptions | N
     if isinstance(jianpu_text, JianpuScore):
         return render_score_svg(jianpu_text, options)
     options = options or RenderOptions()
-    key, time, body = _split_header(jianpu_text)
+    clean_text, _directives = _extract_text_directives(jianpu_text)
+    key, time, body = _split_header(clean_text)
     beat_count = _beats_from_time(time)
     layouts = [
         _text_measure_layout(measure, index, beat_count, options)
         for index, measure in enumerate(_split_measures(body), start=1)
     ]
     return _render_layouts(layouts, options, options.title, f"1={key}    {time}")
+
+
+def render_jianpu_page_svg(
+    jianpu_text: str,
+    *,
+    page_width: float,
+    page_height: float,
+    title: str = "简谱",
+    text_blocks: list[TextBlock] | None = None,
+    options: RenderOptions | None = None,
+) -> str:
+    width = max(1, int(round(page_width)))
+    height = max(1, int(round(page_height)))
+    base_options = options or RenderOptions(title=title, width=width)
+    margin = min(72, max(4, int(width * 0.045)))
+    margin = min(margin, max(1, width // 6))
+    clean_text, directive_blocks = _extract_text_directives(jianpu_text)
+    positioned_blocks = directive_blocks or (text_blocks or [])
+    key, time, body = _split_header(clean_text)
+    beat_count = _beats_from_time(time)
+    measure_start = _first_ocr_measure_number(positioned_blocks) or 1
+    layouts = [
+        _text_measure_layout(measure, index, beat_count, base_options)
+        for index, measure in enumerate(_split_measures(body), start=measure_start)
+    ]
+    rows = _layout_rows(layouts, replace(base_options, width=width, margin=margin))
+    top = max(78.0, height * 0.13)
+    bottom = max(36.0, height * 0.08)
+    available = max(120.0, height - top - bottom)
+    line_height = available / max(1, len(rows))
+    page_options = RenderOptions(
+        title=title,
+        width=width,
+        margin=margin,
+        line_height=max(108, int(line_height)),
+        min_measure_width=base_options.min_measure_width,
+        max_measure_width=max(base_options.max_measure_width, width - margin * 2),
+        beat_gap=base_options.beat_gap,
+        show_measure_numbers=base_options.show_measure_numbers,
+    )
+    rows = _layout_rows(layouts, page_options)
+
+    out = _svg_page_header(page_options, width, height)
+    y = top
+    for row in rows:
+        x = float(page_options.margin)
+        for index, measure in enumerate(row):
+            out.extend(_render_measure(measure, x, int(y), measure.width, page_options, draw_start_bar=index == 0))
+            x += measure.width
+        y += page_options.line_height
+        if y > height - bottom:
+            break
+    out.extend(_render_positioned_text_blocks(positioned_blocks, width, height, include_measure_numbers=False))
+    out.append("</svg>")
+    return "\n".join(out)
 
 
 def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -> str:
@@ -149,6 +205,27 @@ def render_score_page_svg(
 
 def render_jianpu_file_to_svg(input_path: Path, output_path: Path, title: str = "简谱") -> Path:
     svg = render_jianpu_svg(input_path.read_text(encoding="utf-8"), RenderOptions(title=title))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(svg, encoding="utf-8")
+    return output_path
+
+
+def render_jianpu_page_file_to_svg(
+    input_path: Path,
+    output_path: Path,
+    *,
+    page_width: float,
+    page_height: float,
+    title: str = "简谱",
+    text_blocks: list[TextBlock] | None = None,
+) -> Path:
+    svg = render_jianpu_page_svg(
+        input_path.read_text(encoding="utf-8"),
+        page_width=page_width,
+        page_height=page_height,
+        title=title,
+        text_blocks=text_blocks,
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
     return output_path
@@ -329,6 +406,26 @@ def _score_measure_layout(measure, options: RenderOptions) -> MeasureLayout:
         options,
         errors=list(getattr(measure, "validation_errors", [])),
     )
+
+
+def _first_ocr_measure_number(blocks: list[TextBlock]) -> int | None:
+    candidates = [
+        (index, block, int(block.text.strip()))
+        for index, block in enumerate(blocks)
+        if block.role == "measure_number" and block.text.strip().isdigit()
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=_text_block_reading_order)
+    return candidates[0][2]
+
+
+def _text_block_reading_order(candidate: tuple[int, TextBlock, int]) -> tuple[int, float, float, int]:
+    index, block, _number = candidate
+    if block.bbox is None:
+        return (1, 0.0, 0.0, index)
+    x1, y1, _x2, _y2 = block.bbox
+    return (0, y1, x1, index)
 
 
 def _measure_render_items(measure: Any, beat_count: int) -> list[list[RenderItem]]:
@@ -1224,6 +1321,36 @@ def _split_header(text: str) -> tuple[str, str, str]:
         elif stripped:
             body_lines.append(stripped)
     return key, time, " ".join(body_lines)
+
+
+def _extract_text_directives(text: str) -> tuple[str, list[TextBlock]]:
+    lines: list[str] = []
+    blocks: list[TextBlock] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("@text "):
+            block = _parse_text_directive(stripped)
+            if block is not None:
+                blocks.append(block)
+            continue
+        lines.append(line)
+    return "\n".join(lines), blocks
+
+
+def _parse_text_directive(line: str) -> TextBlock | None:
+    parts = line.split(maxsplit=6)
+    if len(parts) < 7:
+        return None
+    _mark, x1, y1, x2, y2, role, text = parts
+    bbox = None
+    if "-" not in {x1, y1, x2, y2}:
+        try:
+            bbox = (float(x1), float(y1), float(x2), float(y2))
+        except ValueError:
+            bbox = None
+    if role not in {"title", "instrument", "lyric", "expression", "footer", "measure_number", "other"}:
+        role = "other"
+    return TextBlock(text=text.strip(), bbox=bbox, role=role)
 
 
 def _split_measures(body: str) -> list[str]:
