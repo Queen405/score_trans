@@ -26,6 +26,14 @@
             <span :class="['hist-dot', batch.status === 'completed' ? 'ok' : 'err']" />
             <span class="hist-batch-name">{{ batch.first_file_name || '未知' }}</span>
             <span class="hist-batch-count" v-if="batch.page_count > 1">{{ batch.page_count }}页</span>
+            <n-popconfirm @positive-click="handleDeleteBatch(batch.id)" :show-icon="false">
+              <template #trigger>
+                <button class="hist-delete" type="button" title="删除该历史记录" @click.stop>
+                  <n-icon size="12"><TrashOutline /></n-icon>
+                </button>
+              </template>
+              确定删除这次历史记录？
+            </n-popconfirm>
             <n-icon size="12" class="hist-expand-icon" :class="{ rotated: expandedBatchId === batch.id }">
               <ChevronForwardOutline />
             </n-icon>
@@ -134,10 +142,11 @@ import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
-import { exportApi } from '../api/export'
+import { downloadBlob, exportApi, svgToPngBlob } from '../api/export'
 import { historyApi } from '../api/history'
 import { ApiError, getFileURL, fileExists } from '../api/client'
 import type { HistoryBatchListItem, HistoryBatch, HistoryPage } from '../models/types'
+import type { TaskPage } from '../stores/task'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
@@ -216,6 +225,22 @@ async function handleDeleteAll(): Promise<void> {
   message.success('已清空')
 }
 
+async function handleDeleteBatch(batchId: number): Promise<void> {
+  try {
+    await historyApi.deleteOne(batchId)
+    histBatches.value = histBatches.value.filter((batch) => batch.id !== batchId)
+    if (expandedBatchId.value === batchId) {
+      expandedBatchId.value = null
+      expandedPages.value = []
+    }
+    message.success('已删除')
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.addError(`删除历史失败：${msg}`)
+    message.error(msg)
+  }
+}
+
 async function toggleBatchExpand(batchId: number): Promise<void> {
   if (expandedBatchId.value === batchId) {
     expandedBatchId.value = null
@@ -263,17 +288,35 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       return { page: p, inputOk, musicxmlOk, svgOk }
     }),
   )
+  const migratedPages = await Promise.all(
+    resolved.map(async (r) => {
+      const split = splitJianpuAndOcr(r.page.jianpu_text || '')
+      let jianpu = split.jianpuText
+      if (jianpu.trim()) {
+        try {
+          const normalized = await renderApi.normalizeJianpuText({ jianpu_text: jianpu, title: '简谱' })
+          jianpu = normalized.jianpu_text
+          if (jianpu !== r.page.jianpu_text) {
+            r.page.jianpu_text = jianpu
+          }
+        } catch (e: unknown) {
+          log.addError(`历史简谱迁移失败：${e instanceof Error ? e.message : String(e)}`)
+        }
+      }
+      return { ...r, split, jianpu }
+    }),
+  )
 
   store.loadBatch(
-    resolved.map((r) => ({
+    migratedPages.map((r) => ({
       inputFileName: r.inputOk ? r.page.input_file_name : '',
       inputFileId: r.inputOk ? r.page.input_file_id : '',
       originalFileName: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_name : '',
       originalFileId: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_id : '',
       historyPageId: r.page.id,
       musicxmlFileId: r.musicxmlOk ? r.page.musicxml_file_id : '',
-      jianpuText: splitJianpuAndOcr(r.page.jianpu_text || '').jianpuText,
-      ocrText: r.page.ocr_text || splitJianpuAndOcr(r.page.jianpu_text || '').ocrText,
+      jianpuText: r.jianpu,
+      ocrText: r.page.ocr_text || r.split.ocrText,
       svgFileId: r.svgOk ? r.page.svg_file_id : '',
       status: r.page.status as any,
     })),
@@ -324,15 +367,36 @@ function saveMusicxml(): void {
 async function exportScore(): Promise<void> {
   store.setBusy(true)
   try {
-    const result = await exportApi.exportScore({
-      musicxml_file_id: store.musicxmlFileId,
-      output_format: exportFormat.value as 'pdf' | 'png' | 'mid',
-    })
-    const url = exportApi.getDownloadURL(result.file_id)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = result.filename
-    a.click()
+    const format = exportFormat.value
+    if (format === 'mid') {
+      const page = currentExportPage()
+      const result = page.jianpuText.trim()
+        ? await exportApi.exportMidiText({ jianpu_text: page.jianpuText, filename: 'score.mid', title: '简谱' })
+        : await exportApi.exportMidi(store.musicxmlFileId, 'score.mid')
+      downloadFile(result.file_id, result.filename)
+      log.addLog(`导出完成：${result.filename}`)
+      message.success('导出完成')
+      return
+    }
+
+    if (format === 'png') {
+      const svgFileId = await renderExportSvg(currentExportPage())
+      const png = await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2)
+      downloadBlob(png, 'jianpu.png')
+      log.addLog('导出完成：jianpu.png')
+      message.success('导出完成')
+      return
+    }
+
+    const pages = exportPages()
+    if (!pages.length) throw new Error('暂无可导出的页面')
+    const pngPages: Blob[] = []
+    for (const page of pages) {
+      const svgFileId = await renderExportSvg(page)
+      pngPages.push(await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2))
+    }
+    const result = await exportApi.exportPdf(pngPages, 'jianpu.pdf')
+    downloadFile(result.file_id, result.filename)
     log.addLog(`导出完成：${result.filename}`)
     message.success('导出完成')
   } catch (e: unknown) {
@@ -341,6 +405,74 @@ async function exportScore(): Promise<void> {
   } finally {
     store.setBusy(false)
   }
+}
+
+function downloadFile(fileId: string, filename: string): void {
+  const url = exportApi.getDownloadURL(fileId)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+}
+
+function currentExportPage(): TaskPage {
+  const page = store.currentPage
+  return {
+    ...(page ?? {
+      id: 'current',
+      historyPageId: store.historyPageId,
+      inputFileName: store.inputFileName,
+      inputFileId: store.inputFileId,
+      originalFileName: store.originalFileName,
+      originalFileId: store.originalFileId,
+      musicxmlFileId: store.musicxmlFileId,
+      musicxmlText: store.musicxmlText,
+      jianpuText: store.jianpuText,
+      ocrText: store.ocrText,
+      jianpuDirty: store.jianpuDirty,
+      svgFileId: store.svgFileId,
+      status: 'completed',
+      errorMessage: '',
+    }),
+    jianpuText: jianpuText.value,
+    ocrText: store.ocrText,
+    svgFileId: finalSvgFileId.value || store.svgFileId,
+  } as TaskPage
+}
+
+function exportPages(): TaskPage[] {
+  if (!store.pages.length) return [currentExportPage()]
+  return store.pages.map((page, index) => (
+    index === store.currentPageIndex ? currentExportPage() : page
+  ))
+}
+
+async function renderExportSvg(page: TaskPage): Promise<string> {
+  if (page.jianpuText.trim()) {
+    const result = await renderApi.jianpuTextSvg({
+      jianpu_text: page.jianpuText,
+      page_image_file_id: page.originalFileId || page.inputFileId || undefined,
+      ocr_text: page.ocrText || undefined,
+      include_ocr_text: true,
+      title: '简谱',
+    })
+    if (result.jianpu_text && page.id === store.currentPage?.id) {
+      jianpuText.value = result.jianpu_text
+      store.setJianpu(result.jianpu_text)
+    }
+    return result.svg_file_id
+  }
+  if (page.svgFileId) return page.svgFileId
+  if (page.musicxmlFileId) {
+    const result = await renderApi.jianpuSvg({
+      musicxml_file_id: page.musicxmlFileId,
+      page_image_file_id: page.originalFileId || page.inputFileId || undefined,
+      target_key: settings.targetKey,
+      start_measure_number: settings.startMeasureNumber ?? undefined,
+    })
+    return result.svg_file_id
+  }
+  throw new Error(`页面 ${page.inputFileName || ''} 暂无可导出的渲染结果`)
 }
 
 async function musicxmlToJianpu(): Promise<void> {
@@ -434,6 +566,10 @@ async function renderSvg(): Promise<void> {
         })
     store.setSvg(result.svg_file_id)
       finalSvgFileId.value = result.svg_file_id
+      if ('jianpu_text' in result && result.jianpu_text) {
+        jianpuText.value = result.jianpu_text
+        store.setJianpu(result.jianpu_text)
+      }
       applyReturnedOcr('ocr_text' in result ? result.ocr_text : undefined)
       isViewingFinal.value = true
     log.addLog('已渲染 SVG')
@@ -469,6 +605,10 @@ async function toggleFinalView(): Promise<void> {
         })
     finalSvgFileId.value = result.svg_file_id
       store.setSvg(result.svg_file_id)
+      if ('jianpu_text' in result && result.jianpu_text) {
+        jianpuText.value = result.jianpu_text
+        store.setJianpu(result.jianpu_text)
+      }
       applyReturnedOcr('ocr_text' in result ? result.ocr_text : undefined)
       isViewingFinal.value = true
   } catch (e: unknown) {
@@ -483,9 +623,18 @@ async function toggleFinalView(): Promise<void> {
 }
 
 async function persistRenderedHistory(svgFileId: string): Promise<void> {
+  let normalizedJianpu = jianpuText.value
+  if (normalizedJianpu.trim()) {
+    const normalized = await renderApi.normalizeJianpuText({ jianpu_text: normalizedJianpu, title: '简谱' })
+    normalizedJianpu = normalized.jianpu_text
+    if (normalizedJianpu !== jianpuText.value) {
+      jianpuText.value = normalizedJianpu
+      store.setJianpu(normalizedJianpu)
+    }
+  }
   const payload = {
     musicxml_file_id: store.musicxmlFileId,
-    jianpu_text: jianpuText.value,
+    jianpu_text: normalizedJianpu,
     ocr_text: store.ocrText,
     svg_file_id: svgFileId,
     status: 'completed',
@@ -503,7 +652,7 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
       input_file_name: store.inputFileName,
       input_file_id: store.inputFileId,
       musicxml_file_id: store.musicxmlFileId,
-      jianpu_text: jianpuText.value,
+      jianpu_text: normalizedJianpu,
       ocr_text: store.ocrText,
       svg_file_id: svgFileId,
       status: 'completed',
@@ -593,6 +742,25 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
 
 .hist-batch-head:hover {
   background: var(--accent-light);
+}
+
+.hist-delete {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.hist-delete:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--danger);
 }
 
 .hist-dot {
@@ -777,6 +945,12 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+}
+
+.panel-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .panel-filename {

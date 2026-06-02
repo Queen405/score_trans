@@ -1,4 +1,4 @@
-from .models import (
+from ..models.score import (
     Beat,
     Event,
     JianpuBeat,

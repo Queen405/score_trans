@@ -1,8 +1,8 @@
 from score_trans.domain.jianpu import jianpu_to_musicxml
-from score_trans.domain.models import Event, JianpuEvent, TextBlock
 from score_trans.domain.musicxml import musicxml_to_score, score_to_jianpu_text
-from score_trans.services.ocr_provider import MockOCRProvider
-from score_trans.use_cases.convert_to_jianpu import ConvertMusicXmlToJianpuUseCase
+from score_trans.exec.convert.actions import MusicXmlToJianpuAction
+from score_trans.models.score import Event, JianpuEvent, TextBlock
+from score_trans.services.ocr.provider import MockOCRProvider
 
 
 def test_musicxml_to_score_respects_start_measure_number() -> None:
@@ -29,7 +29,7 @@ def test_musicxml_to_score_can_transpose_target_key() -> None:
     score = musicxml_to_score(xml, target_key="D")
     text = score_to_jianpu_text(score)
 
-    assert "key=D" in text
+    assert "1=D" in text
     assert "b7, 1 2 b3" in text
 
 
@@ -82,7 +82,7 @@ def test_convert_to_jianpu_includes_positioned_ocr_text(tmp_path) -> None:
     image_path.write_bytes(b"fake image")
     provider = MockOCRProvider([TextBlock("歌词 一", bbox=(10, 20, 50, 32), role="lyric")])
 
-    text = ConvertMusicXmlToJianpuUseCase().execute(musicxml_path, image_path=image_path, ocr_provider=provider)
+    text = MusicXmlToJianpuAction().execute(musicxml_path, image_path=image_path, ocr_provider=provider)
 
     assert provider.calls == [image_path]
     assert "@text 10 20 50 32 lyric 歌词 一" in text

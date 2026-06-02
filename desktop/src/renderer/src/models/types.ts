@@ -57,6 +57,16 @@ export interface RenderJianpuTextSvgRequest {
 export interface RenderJianpuTextSvgResponse {
   svg_file_id: string
   ocr_text?: string
+  jianpu_text?: string
+}
+
+export interface NormalizeJianpuTextRequest {
+  jianpu_text: string
+  title?: string
+}
+
+export interface NormalizeJianpuTextResponse {
+  jianpu_text: string
 }
 
 export interface FinalOutputRequest {
@@ -90,6 +100,12 @@ export interface PipelineResponse {
 export interface ExportResponse {
   file_id: string
   filename: string
+}
+
+export interface ExportMidiTextRequest {
+  jianpu_text: string
+  filename?: string
+  title?: string
 }
 
 export interface SettingsResponse {

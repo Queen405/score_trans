@@ -2,11 +2,11 @@ from fractions import Fraction
 import xml.etree.ElementTree as ET
 
 from score_trans.domain.jianpu import jianpu_to_musicxml
-from score_trans.domain.models import JianpuEvent, JianpuMeasure, JianpuPitch, JianpuScore, TextBlock
 from score_trans.domain.musicxml import musicxml_to_score
-from score_trans.services.ocr_provider import MockOCRProvider
-from score_trans.services.rendering import RenderOptions, render_jianpu_svg, render_score_page_svg, render_score_svg
-from score_trans.use_cases.render_jianpu import RenderJianpuTextUseCase
+from score_trans.exec.render.actions import RenderJianpuTextAction
+from score_trans.models.score import JianpuEvent, JianpuMeasure, JianpuPitch, JianpuScore, TextBlock
+from score_trans.services.ocr.provider import MockOCRProvider
+from score_trans.services.render.rendering import RenderOptions, render_jianpu_svg, render_score_page_svg, render_score_svg
 
 
 def _svg_root(svg: str) -> ET.Element:
@@ -67,7 +67,7 @@ def test_render_jianpu_text_page_runs_ocr_and_preserves_bbox(tmp_path) -> None:
     image_path.write_bytes(b"fake image")
     provider = MockOCRProvider([TextBlock("歌词", bbox=(40, 70, 90, 92), role="lyric")])
 
-    RenderJianpuTextUseCase().execute_page(
+    RenderJianpuTextAction().execute_page(
         text_path,
         output_path,
         page_width=320,
@@ -95,7 +95,7 @@ def test_render_jianpu_text_page_uses_editable_text_directives(tmp_path) -> None
     image_path.write_bytes(b"fake image")
     provider = MockOCRProvider([TextBlock("旧歌词", bbox=(40, 70, 90, 92), role="lyric")])
 
-    RenderJianpuTextUseCase().execute_page(
+    RenderJianpuTextAction().execute_page(
         text_path,
         output_path,
         page_width=320,
@@ -116,7 +116,7 @@ def test_render_jianpu_text_page_supports_chord_tokens(tmp_path) -> None:
     text_path.write_text("key=C\ntime=4/4\n[3/+#2/] |", encoding="utf-8")
     image_path.write_bytes(b"fake image")
 
-    RenderJianpuTextUseCase().execute_page(
+    RenderJianpuTextAction().execute_page(
         text_path,
         output_path,
         page_width=320,

@@ -15,10 +15,12 @@
 
 ```text
 src/score_trans/
-  domain/       纯领域模型和 MusicXML/简谱领域入口
-  services/     外部工具、文件、渲染、OCR、设置等技术服务
-  use_cases/    用户动作：识别、转换、渲染、导出、完整流水线
-  api/          FastAPI 路由、上传文件管理和接口 DTO
+  api/          FastAPI 路由层：只声明 HTTP 接口并委托 exec
+  exec/         执行层：识别、转换、渲染、导出、历史、设置等业务编排
+  services/     服务层：按模块放文件、渲染、OCR、外部工具等可复用服务
+  dao/          数据访问层：SQLite 建表、迁移、查询和 row mapping
+  models/       数据参数层：DTO、配置、实体、简谱结构模型
+  domain/       纯简谱/MusicXML 算法入口，不做 I/O
 desktop/        Electron + Vue3 桌面前端
 ```
 
@@ -143,7 +145,7 @@ audiveris -batch -export -output <output_dir> <input_file>
 musescore -o <output_file> <musicxml_file>
 ```
 
-如果你的本地版本命令参数不同，可以在 `src/score_trans/services/external_tools.py` 里调整命令模板。
+如果你的本地版本命令参数不同，可以在 `src/score_trans/services/recognize/external_tools.py` 里调整命令模板。
 
 ## OCR 文字层
 

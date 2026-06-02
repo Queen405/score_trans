@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from score_trans.services.ocr_provider import (
+from score_trans.services.ocr.provider import (
     DEFAULT_OCR_MODEL,
     OCRError,
     MockOCRProvider,
@@ -12,8 +12,8 @@ from score_trans.services.ocr_provider import (
     is_deepseek_ocr_model,
     parse_openai_compatible_response,
 )
-from score_trans.services.ocr_service import OCRService
-from score_trans.services.env_file import DISABLE_DOTENV_ENV, load_project_env
+from score_trans.services.common.env_file import DISABLE_DOTENV_ENV, load_project_env
+from score_trans.services.ocr.service import OCRService
 
 
 def test_mock_provider_feeds_text_layer(tmp_path) -> None:
@@ -32,7 +32,7 @@ def test_mock_provider_feeds_text_layer(tmp_path) -> None:
 
 def test_openai_provider_builds_dry_run_request_without_key(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        "score_trans.services.ocr.provider.persisted_ocr_settings",
         lambda: {},
     )
     image = tmp_path / "score.png"
@@ -51,7 +51,7 @@ def test_openai_provider_builds_dry_run_request_without_key(tmp_path, monkeypatc
 
 def test_openai_provider_reads_api_key_from_environment(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        "score_trans.services.ocr.provider.persisted_ocr_settings",
         lambda: {"ocr_api_key": "test-key"},
     )
     image = tmp_path / "score.jpg"
@@ -64,7 +64,7 @@ def test_openai_provider_reads_api_key_from_environment(tmp_path, monkeypatch) -
 
 def test_non_deepseek_ocr_provider_requests_json_response(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        "score_trans.services.ocr.provider.persisted_ocr_settings",
         lambda: {},
     )
     image = tmp_path / "score.jpg"
@@ -75,9 +75,9 @@ def test_non_deepseek_ocr_provider_requests_json_response(tmp_path, monkeypatch)
     assert request.payload["response_format"] == {"type": "json_object"}
 
 
-def test_openai_provider_reads_persisted_settings_db(tmp_path, monkeypatch) -> None:
+def test_openai_provider_reads_persisted_settings(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        "score_trans.services.ocr.provider.persisted_ocr_settings",
         lambda: {
             "ocr_api_key": "persisted-key",
             "ocr_base_url": "https://persisted.example/v1",
@@ -96,7 +96,7 @@ def test_openai_provider_reads_persisted_settings_db(tmp_path, monkeypatch) -> N
 
 def test_openai_provider_requires_key_when_not_dry_run(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        "score_trans.services.ocr.provider.persisted_ocr_settings",
         lambda: {},
     )
     image = tmp_path / "score.png"
@@ -108,7 +108,7 @@ def test_openai_provider_requires_key_when_not_dry_run(tmp_path, monkeypatch) ->
 
 def test_default_ocr_model_is_deepseek_ocr(monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr_provider.persisted_ocr_settings",
+        "score_trans.services.ocr.provider.persisted_ocr_settings",
         lambda: {},
     )
 

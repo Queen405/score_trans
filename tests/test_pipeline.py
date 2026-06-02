@@ -3,11 +3,11 @@ from pathlib import Path
 from PIL import Image
 
 from score_trans.domain.jianpu import jianpu_to_musicxml
-from score_trans.domain.models import OCRTextBlock
-from score_trans.services.ocr_provider import MockOCRProvider
-from score_trans.services.settings import ToolConfig
-from score_trans.use_cases.convert_to_jianpu import ConvertMusicXmlToJianpuUseCase
-from score_trans.use_cases.full_pipeline import FullPipelineUseCase
+from score_trans.exec.convert.actions import MusicXmlToJianpuAction
+from score_trans.exec.pipeline.actions import FullPipelineAction
+from score_trans.models.score import OCRTextBlock
+from score_trans.models.settings.config import ToolConfig
+from score_trans.services.ocr.provider import MockOCRProvider
 
 
 class FakeRecognizer:
@@ -31,7 +31,7 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
     recognized.write_text(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 |"), encoding="utf-8")
     recognizer = FakeRecognizer(source, recognized)
 
-    outputs = FullPipelineUseCase(recognizer=recognizer).execute(
+    outputs = FullPipelineAction(recognizer=recognizer).execute(
         source,
         tmp_path / "out",
         config=ToolConfig(audiveris_path="fake-audiveris"),
@@ -42,8 +42,8 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
 
     assert outputs.musicxml_path.name == "scan.musicxml"
     assert outputs.musicxml_path.exists()
-    assert outputs.jianpu_text_path.read_text(encoding="utf-8").startswith("key=C\ntime=4/4")
-    assert "0-" in outputs.jianpu_text_path.read_text(encoding="utf-8")
+    assert outputs.jianpu_text_path.read_text(encoding="utf-8").startswith("title=Pipeline Test\n1=C\n4/4")
+    assert "h0" in outputs.jianpu_text_path.read_text(encoding="utf-8")
     svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")
     assert "Pipeline Test" in svg
     assert ">118</text>" in svg
@@ -60,7 +60,7 @@ def test_full_pipeline_runs_ocr_for_image_and_preserves_text_layer(tmp_path) -> 
         [OCRTextBlock("原谱标题", bbox=(24, 18, 120, 42), confidence=0.95, role="title")]
     )
 
-    outputs = FullPipelineUseCase(recognizer=recognizer).execute(
+    outputs = FullPipelineAction(recognizer=recognizer).execute(
         source,
         tmp_path / "out",
         config=ToolConfig(audiveris_path="fake-audiveris"),
@@ -83,7 +83,7 @@ def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> No
     image.write_bytes(b"fake image")
     provider = MockOCRProvider([OCRTextBlock("42", role="measure_number")])
 
-    score = ConvertMusicXmlToJianpuUseCase().build_score(musicxml, image_path=image, ocr_provider=provider)
+    score = MusicXmlToJianpuAction().build_score(musicxml, image_path=image, ocr_provider=provider)
 
     assert [measure.display_number for measure in score.measures] == [42, 43]
     assert provider.calls == [image]
@@ -101,7 +101,7 @@ def test_ocr_measure_number_uses_reading_order_not_smallest_number(tmp_path) -> 
         ]
     )
 
-    score = ConvertMusicXmlToJianpuUseCase().build_score(musicxml, image_path=image, ocr_provider=provider)
+    score = MusicXmlToJianpuAction().build_score(musicxml, image_path=image, ocr_provider=provider)
 
     assert [measure.display_number for measure in score.measures] == [118, 119]
     assert [measure.text_blocks[0].text for measure in score.measures] == ["118", "119"]

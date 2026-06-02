@@ -35,54 +35,33 @@ ruff check src/ tests/
 
 ```
 src/score_trans/
-  domain/          Pure domain models & conversion logic (no I/O, no UI)
-    models.py      JianpuScore, Measure, Beat, Event, JianpuPitch, TextBlock
-    jianpu.py      Low-level Jianpu ↔ MusicXML text conversion (two-way)
-    musicxml.py    Structured MusicXML → JianpuScore parsing + score → jianpu text
-  services/        Infrastructure / external tool wrappers
-    file_service.py      File I/O abstraction
-    settings.py          ToolConfig (env vars, paths)
-    env_file.py          .env loader (SCORE_TRANS_* variables)
-    external_tools.py    subprocess wrapper for Audiveris & MuseScore CLI
-    audiveris_service.py OMR recognition service
-    musescore_service.py Score export service
-    render_service.py    SVG render facade
-    rendering.py         SVG generation engine (all layout, beams, spanners)
-    ocr_service.py       OCR abstraction (unused directly, protocol only)
-    ocr_provider.py      OpenAI-compatible OCR client + response parsing
-    settings_service.py  Persistence for tool config
-  use_cases/       User-facing operations (one class per action)
-    convert_to_jianpu.py   MusicXML → JianpuScore (with optional OCR overlay)
-    convert_to_musicxml.py Jianpu text → MusicXML XML string
-    recognize_score.py     Image/PDF → MusicXML via Audiveris
-    render_jianpu.py       Render Jianpu text or MusicXML → SVG
-    render_score.py        (placeholder, not yet created)
-    export_score.py        MusicXML → PDF/PNG/MIDI via MuseScore
-    full_pipeline.py       Recognize + convert + render in one pass
-  api/             FastAPI boundary
-    app.py                app factory
-    routers/              HTTP endpoints
-    schemas.py            Pydantic DTOs
-    uploads.py            uploaded/generated file registry
+  api/             FastAPI boundary. Routes only bind HTTP and delegate to exec.
+  exec/            Business orchestration by module (convert/render/recognize/export/pipeline/files/history/settings).
+  services/        Reusable service functions by module (files, render, OCR, external tools, settings, history).
+  dao/             SQLite persistence only: table setup, migration, queries, row mapping.
+  models/          Pydantic DTOs, dataclass entities, ToolConfig, and JianpuScore structures.
+  domain/          Pure Jianpu/MusicXML algorithms only (no I/O, no services, no UI).
 desktop/          Electron + Vue3 frontend
 ```
 
 ### Key Architectural Rules
 
-- **`domain/` has zero dependencies** on services, UI, or I/O. All music theory helpers (`FIFTHS_TO_KEY`, `KEY_TO_TONIC`, `MAJOR_SCALE`) live there.
-- **`use_cases/`** are the public API surface. Each has an `execute()` method and accepts optional service dependencies for testing.
-- **`api/routers/`** are the HTTP boundary. Routers validate IDs/files, then delegate to use cases.
+- Dependency direction is **`api -> exec -> services -> dao/domain/models`**.
+- **`api/`** must not import `services`, `domain`, or `dao`; architecture tests enforce this.
+- **`exec/`** owns request-level business flow: file ID checks, output naming, registration, OCR parsing, history normalization, and response assembly.
+- **`dao/`** must not import `api`, `exec`, or `services`; it only depends on standard library and `models`.
+- **`domain/`** has zero dependencies on services, UI, or I/O. All music theory helpers (`FIFTHS_TO_KEY`, `KEY_TO_TONIC`, `MAJOR_SCALE`) live there.
 - **`desktop/src/renderer/`** is the active desktop UI. Keep UI state in Pinia stores and call typed API wrappers.
-- **`services/rendering.py`** is the SVG engine (~800 lines). It takes either raw jianpu text or a `JianpuScore` and produces self-contained SVG with beams, ties, slurs, chords, and measure layout.
+- **`services/render/rendering.py`** is the SVG engine. It takes either raw jianpu text or a `JianpuScore` and produces self-contained SVG with beams, ties, slurs, chords, and measure layout.
 
 ## Data Flow
 
-1. **Image/PDF → MusicXML**: `RecognizeScoreUseCase` → `AudiverisService` → `external_tools.recognize_with_audiveris()` (subprocess)
-2. **MusicXML → JianpuScore**: `ConvertMusicXmlToJianpuUseCase.build_score()` → `domain/musicxml.musicxml_path_to_score()` parses XML into structured `JianpuScore` with `Measure`/`Beat`/`Event` hierarchy
+1. **Image/PDF → MusicXML**: `RecognizeScoreAction` → `AudiverisService` → `services/recognize/external_tools.recognize_with_audiveris()` (subprocess)
+2. **MusicXML → JianpuScore**: `MusicXmlToJianpuAction.build_score()` → `domain/musicxml.musicxml_path_to_score()` parses XML into structured `JianpuScore` with `Measure`/`Beat`/`Event` hierarchy
 3. **JianpuScore → Jianpu text**: `domain/musicxml.score_to_jianpu_text()` flattens to the simple text format
 4. **JianpuScore → SVG**: `rendering.render_score_svg()` layouts measures in rows, renders notes/beams/spanners per measure
 5. **Jianpu text → MusicXML**: `domain/jianpu.parse_jianpu()` + `jianpu_to_musicxml()` tokenizes and emits XML
-6. **Full pipeline**: `FullPipelineUseCase` chains recognize → convert → render → write all outputs
+6. **Full pipeline**: `FullPipelineAction` chains recognize → convert → render → write all outputs
 
 ## Environment Variables
 

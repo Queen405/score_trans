@@ -99,12 +99,13 @@ function selectBlock(id: string): void {
 function ocrBlockStyle(block: OcrTextBlock) {
   const bbox = block.bbox ?? [12, 12, 120, 36]
   const [x1, y1, x2, y2] = scaleBBoxToImage(bbox)
+  const fontSize = block.fontSize ?? Math.max(10, (y2 - y1) * 0.78)
   return {
     left: `${x1}px`,
     top: `${y1}px`,
     width: `${Math.max(24, x2 - x1)}px`,
     height: `${Math.max(18, y2 - y1)}px`,
-    fontSize: `${Math.max(10, Math.min(34, (y2 - y1) * 0.78))}px`,
+    fontSize: `${fontSize}px`,
     cursor: props.editableOcr ? 'move' : 'default',
     pointerEvents: props.editableOcr ? 'auto' : 'none',
   }
@@ -143,6 +144,7 @@ function addBlockAtCursor(event: MouseEvent): void {
     text: '',
     bbox: normalizeBBoxFromImage([point.x, point.y, point.x + width, point.y + height]),
     role: 'other',
+    fontSize: Number((height * 0.78).toFixed(1)),
   }
   ocrBlocks.value = [...ocrBlocks.value, block]
   selectedId.value = id
@@ -192,6 +194,7 @@ function onDragMove(event: MouseEvent): void {
         Math.max(resizing.startBbox[0] + minW, resizing.startBbox[2] + dx),
         Math.max(resizing.startBbox[1] + minH, resizing.startBbox[3] + dy),
       ]),
+      fontSize: Number((Math.max(minH, resizing.startBbox[3] + dy - resizing.startBbox[1]) * 0.78).toFixed(1)),
     }, false)
     return
   }

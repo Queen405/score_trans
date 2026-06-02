@@ -2,9 +2,10 @@ import asyncio
 from pathlib import Path
 
 from score_trans.api.app import create_app
-from score_trans.api.routers.export import export_midi
-from score_trans.api.uploads import UploadManager
-from score_trans.services.settings import ToolConfig
+from score_trans.api.export.routes import export_midi
+from score_trans.exec.export.actions import ExportActions
+from score_trans.models.settings.config import ToolConfig
+from score_trans.services.files.upload_service import UploadService
 
 
 def test_render_routes_are_registered() -> None:
@@ -57,7 +58,7 @@ class FakeExportUseCase:
 
 def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> None:
     config = ToolConfig(work_dir=tmp_path / "work")
-    uploads = UploadManager(config)
+    uploads = UploadService(config)
     source = tmp_path / "score.musicxml"
     source.write_text("<score-partwise/>", encoding="utf-8")
     musicxml_id = uploads.register(source)
@@ -66,8 +67,7 @@ def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> N
     response = asyncio.run(
         export_midi(
             musicxml_file_id=musicxml_id,
-            uc=fake_export,
-            uploads=uploads,
+            actions=ExportActions(uploads=uploads, exporter=fake_export),
         )
     )
 

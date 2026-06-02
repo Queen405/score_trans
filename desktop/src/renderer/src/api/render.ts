@@ -4,6 +4,8 @@ import type {
   RenderJianpuSvgResponse,
   RenderJianpuTextSvgRequest,
   RenderJianpuTextSvgResponse,
+  NormalizeJianpuTextRequest,
+  NormalizeJianpuTextResponse,
   FinalOutputRequest,
   FinalOutputResponse,
 } from '../models/types'
@@ -27,6 +29,14 @@ export const renderApi = {
 
   finalOutput(req: FinalOutputRequest): Promise<FinalOutputResponse> {
     return apiFetch('/render/final-output', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  normalizeJianpuText(req: NormalizeJianpuTextRequest): Promise<NormalizeJianpuTextResponse> {
+    return apiFetch('/render/normalize-jianpu-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),

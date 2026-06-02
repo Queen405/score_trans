@@ -1,4 +1,5 @@
-from score_trans.services.history_service import HistoryPage, HistoryService
+from score_trans.models.history.entities import HistoryPage
+from score_trans.services.history.history_service import HistoryService
 
 
 def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:

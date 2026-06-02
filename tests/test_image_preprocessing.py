@@ -4,10 +4,10 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from score_trans.services import external_tools
-from score_trans.services.external_tools import CommandResult, recognize_with_audiveris
-from score_trans.services.image_preprocessing import ImagePreprocessOptions, prepare_omr_input, preprocess_score_image
-from score_trans.services.settings import ToolConfig
+from score_trans.models.settings.config import ToolConfig
+from score_trans.services.recognize import external_tools
+from score_trans.services.recognize.external_tools import CommandResult, recognize_with_audiveris
+from score_trans.services.recognize.image_preprocessing import ImagePreprocessOptions, prepare_omr_input, preprocess_score_image
 
 
 def _sample_score_image(path: Path, *, size: tuple[int, int] = (120, 180)) -> None:

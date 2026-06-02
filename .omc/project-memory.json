@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1780150479767,
+  "lastScanned": 1780381685281,
   "projectRoot": "D:\\CODE\\MyProjects\\score_trans",
   "techStack": {
     "languages": [
@@ -16,6 +16,11 @@
     ],
     "frameworks": [
       {
+        "name": "fastapi",
+        "version": null,
+        "category": "backend"
+      },
+      {
         "name": "pytest",
         "version": null,
         "category": "testing"
@@ -26,7 +31,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd \"D:/CODE/MyProjects/score_trans\" && .venv/Scripts/python.exe -m pytest tests/ -x -q 2>&1 | tail -5",
+    "testCommand": "pytest",
     "lintCommand": "ruff check",
     "devCommand": null,
     "scripts": {}
@@ -42,7 +47,6 @@
     "workspaces": [],
     "mainDirectories": [
       "examples",
-      "scripts",
       "src",
       "tests"
     ],
@@ -50,72 +54,108 @@
   },
   "customNotes": [],
   "directoryMap": {
+    "desktop": {
+      "path": "desktop",
+      "purpose": null,
+      "fileCount": 9,
+      "lastAccessed": 1780381685258,
+      "keyFiles": [
+        "electron-builder.yml",
+        "electron.vite.config.ts",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
+      ]
+    },
     "examples": {
       "path": "examples",
       "purpose": "Example code",
       "fileCount": 2,
-      "lastAccessed": 1780150479705,
+      "lastAccessed": 1780381685259,
       "keyFiles": [
         "5.瑞雪迎春 - 分谱.pdf",
         "simple_jianpu.txt"
-      ]
-    },
-    "scripts": {
-      "path": "scripts",
-      "purpose": "Build/utility scripts",
-      "fileCount": 2,
-      "lastAccessed": 1780150479706,
-      "keyFiles": [
-        "check_audiveris.ps1",
-        "inspect_mxl.py"
       ]
     },
     "src": {
       "path": "src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1780150479707,
+      "lastAccessed": 1780381685260,
       "keyFiles": []
     },
     "tests": {
       "path": "tests",
       "purpose": "Test files",
-      "fileCount": 6,
-      "lastAccessed": 1780150479708,
+      "fileCount": 9,
+      "lastAccessed": 1780381685260,
       "keyFiles": [
+        "test_api_routes.py",
         "test_convert.py",
-        "test_jianpu.py",
-        "test_mvvm.py",
-        "test_ocr.py",
-        "test_pipeline.py"
+        "test_history_service.py",
+        "test_image_preprocessing.py",
+        "test_jianpu.py"
       ]
     },
     "third_party": {
       "path": "third_party",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1780150479708,
+      "lastAccessed": 1780381685260,
       "keyFiles": []
     },
     "work": {
       "path": "work",
       "purpose": null,
-      "fileCount": 22,
-      "lastAccessed": 1780150479709,
+      "fileCount": 13,
+      "lastAccessed": 1780381685261,
       "keyFiles": [
-        "clean_mvvm_verify.svg",
-        "mvvm_verify_jianpu.svg",
-        "mvvm_verify_jianpu.txt",
-        "ocr_smoke.png",
-        "ruixue_sheet10_beamed_jianpu.png"
+        "full_test.mid",
+        "full_test.pdf",
+        "full_test.png",
+        "full_test.svg",
+        "history.db"
       ]
+    },
+    "desktop\\node_modules": {
+      "path": "desktop\\node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 2,
+      "lastAccessed": 1780381685262,
+      "keyFiles": []
+    },
+    "desktop\\out": {
+      "path": "desktop\\out",
+      "purpose": "Build output",
+      "fileCount": 0,
+      "lastAccessed": 1780381685262,
+      "keyFiles": []
+    },
+    "desktop\\src": {
+      "path": "desktop\\src",
+      "purpose": "Source code",
+      "fileCount": 0,
+      "lastAccessed": 1780381685262,
+      "keyFiles": []
     }
   },
   "hotPaths": [
     {
+      "path": "",
+      "accessCount": 30,
+      "lastAccessed": 1780330361326,
+      "type": "directory"
+    },
+    {
       "path": "ELECTRON_VUE_FASTAPI_MVVM_PLAN.md",
       "accessCount": 13,
       "lastAccessed": 1780155886519,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\models.py",
+      "accessCount": 13,
+      "lastAccessed": 1780330425319,
       "type": "file"
     },
     {
@@ -125,9 +165,129 @@
       "type": "directory"
     },
     {
+      "path": "pyproject.toml",
+      "accessCount": 11,
+      "lastAccessed": 1780330114282,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\convert_to_jianpu.py",
+      "accessCount": 11,
+      "lastAccessed": 1780330424496,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\jianpu.py",
+      "accessCount": 11,
+      "lastAccessed": 1780330425278,
+      "type": "file"
+    },
+    {
       "path": "src\\score_trans\\viewmodels\\main_window_vm.py",
       "accessCount": 10,
       "lastAccessed": 1780165979337,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\ocr_provider.py",
+      "accessCount": 10,
+      "lastAccessed": 1780330374146,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\dependencies.py",
+      "accessCount": 10,
+      "lastAccessed": 1780330982816,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\audiveris_service.py",
+      "accessCount": 9,
+      "lastAccessed": 1780330368433,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\settings.py",
+      "accessCount": 9,
+      "lastAccessed": 1780330373968,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\recognize.py",
+      "accessCount": 9,
+      "lastAccessed": 1780330410512,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\full_pipeline.py",
+      "accessCount": 9,
+      "lastAccessed": 1780330425175,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\musicxml.py",
+      "accessCount": 9,
+      "lastAccessed": 1780330425774,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\pipeline.py",
+      "accessCount": 8,
+      "lastAccessed": 1780330409530,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\render_service.py",
+      "accessCount": 8,
+      "lastAccessed": 1780330410116,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\rendering.py",
+      "accessCount": 8,
+      "lastAccessed": 1780330410570,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\recognize_score.py",
+      "accessCount": 8,
+      "lastAccessed": 1780330424900,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\env_file.py",
+      "accessCount": 7,
+      "lastAccessed": 1780330368333,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\tasks.py",
+      "accessCount": 7,
+      "lastAccessed": 1780330406543,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\external_tools.py",
+      "accessCount": 7,
+      "lastAccessed": 1780330410217,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\render.py",
+      "accessCount": 7,
+      "lastAccessed": 1780330410438,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\render_jianpu.py",
+      "accessCount": 7,
+      "lastAccessed": 1780330424828,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\export_score.py",
+      "accessCount": 7,
+      "lastAccessed": 1780330425151,
       "type": "file"
     },
     {
@@ -137,15 +297,57 @@
       "type": "file"
     },
     {
+      "path": "src\\score_trans\\api\\routers\\__init__.py",
+      "accessCount": 6,
+      "lastAccessed": 1780330406416,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\files.py",
+      "accessCount": 6,
+      "lastAccessed": 1780330406646,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\__init__.py",
+      "accessCount": 6,
+      "lastAccessed": 1780330423917,
+      "type": "file"
+    },
+    {
       "path": "C:\\Users\\15732\\.claude\\settings.json",
       "accessCount": 5,
       "lastAccessed": 1780151290716,
       "type": "file"
     },
     {
-      "path": "pyproject.toml",
+      "path": "CLAUDE.md",
       "accessCount": 5,
-      "lastAccessed": 1780156685977,
+      "lastAccessed": 1780328386940,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\schemas.py",
+      "accessCount": 5,
+      "lastAccessed": 1780330376868,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\services\\__init__.py",
+      "accessCount": 5,
+      "lastAccessed": 1780330404462,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\api\\routers\\convert.py",
+      "accessCount": 5,
+      "lastAccessed": 1780330406512,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\use_cases\\convert_to_musicxml.py",
+      "accessCount": 5,
+      "lastAccessed": 1780330425234,
       "type": "file"
     },
     {
@@ -155,39 +357,45 @@
       "type": "file"
     },
     {
-      "path": "",
-      "accessCount": 3,
-      "lastAccessed": 1780154462431,
-      "type": "directory"
-    },
-    {
-      "path": "src\\score_trans\\domain\\models.py",
-      "accessCount": 3,
-      "lastAccessed": 1780155240869,
+      "path": "src\\score_trans\\__init__.py",
+      "accessCount": 4,
+      "lastAccessed": 1780330366975,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\services\\audiveris_service.py",
-      "accessCount": 3,
-      "lastAccessed": 1780155249591,
+      "path": "src\\score_trans\\api\\uploads.py",
+      "accessCount": 4,
+      "lastAccessed": 1780330377163,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\services\\ocr_provider.py",
-      "accessCount": 3,
-      "lastAccessed": 1780163418006,
+      "path": "src\\score_trans\\api\\__init__.py",
+      "accessCount": 4,
+      "lastAccessed": 1780330397469,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\services\\settings.py",
-      "accessCount": 3,
-      "lastAccessed": 1780163418785,
+      "path": "src\\score_trans\\services\\file_service.py",
+      "accessCount": 4,
+      "lastAccessed": 1780330404267,
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\use_cases\\convert_to_jianpu.py",
+      "path": "src\\score_trans\\api\\routers\\health.py",
+      "accessCount": 4,
+      "lastAccessed": 1780330406454,
+      "type": "file"
+    },
+    {
+      "path": "src\\score_trans\\domain\\__init__.py",
+      "accessCount": 4,
+      "lastAccessed": 1780330425266,
+      "type": "file"
+    },
+    {
+      "path": "requirements.txt",
       "accessCount": 3,
-      "lastAccessed": 1780163424256,
+      "lastAccessed": 1780329922988,
       "type": "file"
     },
     {
@@ -203,69 +411,9 @@
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\domain\\jianpu.py",
-      "accessCount": 2,
-      "lastAccessed": 1780155241000,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\domain\\musicxml.py",
-      "accessCount": 2,
-      "lastAccessed": 1780155241108,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\use_cases\\full_pipeline.py",
-      "accessCount": 2,
-      "lastAccessed": 1780155255041,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\use_cases\\recognize_score.py",
-      "accessCount": 2,
-      "lastAccessed": 1780155274763,
-      "type": "file"
-    },
-    {
       "path": "README.md",
       "accessCount": 2,
       "lastAccessed": 1780155275433,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\use_cases\\__init__.py",
-      "accessCount": 2,
-      "lastAccessed": 1780156143766,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\routers\\files.py",
-      "accessCount": 2,
-      "lastAccessed": 1780156674098,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\dependencies.py",
-      "accessCount": 2,
-      "lastAccessed": 1780157001137,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\use_cases\\render_jianpu.py",
-      "accessCount": 2,
-      "lastAccessed": 1780161770151,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\env_file.py",
-      "accessCount": 2,
-      "lastAccessed": 1780163423848,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\routers\\__init__.py",
-      "accessCount": 2,
-      "lastAccessed": 1780166741665,
       "type": "file"
     },
     {
@@ -275,63 +423,9 @@
       "type": "file"
     },
     {
-      "path": "requirements.txt",
-      "accessCount": 1,
-      "lastAccessed": 1780152061624,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155238952,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\domain\\__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155241325,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155247485,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\file_service.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155247865,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\render_service.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155249389,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\rendering.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155249474,
-      "type": "file"
-    },
-    {
       "path": "src\\score_trans\\services\\musescore_service.py",
       "accessCount": 1,
       "lastAccessed": 1780155249991,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\use_cases\\convert_to_musicxml.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155255444,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\services\\external_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155258214,
       "type": "file"
     },
     {
@@ -341,75 +435,9 @@
       "type": "file"
     },
     {
-      "path": "src\\score_trans\\use_cases\\export_score.py",
-      "accessCount": 1,
-      "lastAccessed": 1780155275109,
-      "type": "file"
-    },
-    {
-      "path": "CLAUDE.md",
-      "accessCount": 1,
-      "lastAccessed": 1780155325338,
-      "type": "file"
-    },
-    {
       "path": "C:\\Users\\15732\\.claude\\plans\\sunny-meandering-key.md",
       "accessCount": 1,
       "lastAccessed": 1780155565254,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156541275,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\routers\\health.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156543011,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\schemas.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156555163,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\uploads.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156573784,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\tasks.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156586365,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\routers\\convert.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156620751,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\routers\\recognize.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156625778,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\routers\\render.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156637424,
-      "type": "file"
-    },
-    {
-      "path": "src\\score_trans\\api\\routers\\pipeline.py",
-      "accessCount": 1,
-      "lastAccessed": 1780156643001,
       "type": "file"
     }
   ],

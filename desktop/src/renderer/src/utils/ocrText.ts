@@ -3,6 +3,7 @@ export interface OcrTextBlock {
   text: string
   bbox: number[] | null
   role: string
+  fontSize?: number
 }
 
 export function parseOcrText(payload: string): OcrTextBlock[] {
@@ -18,6 +19,9 @@ export function parseOcrText(payload: string): OcrTextBlock[] {
           ? item.bbox.map((value: unknown) => Number(value))
           : null,
         role: String(item?.role || 'other'),
+        fontSize: Number.isFinite(Number(item?.fontSize ?? item?.font_size))
+          ? Number(item?.fontSize ?? item?.font_size)
+          : undefined,
       }))
       .filter((block) => block.text.trim().length > 0)
   } catch {
@@ -32,6 +36,7 @@ export function serializeOcrText(blocks: OcrTextBlock[]): string {
       text: block.text,
       bbox: block.bbox,
       role: block.role || 'other',
+      fontSize: block.fontSize,
     }))
     .filter((block) => block.text.trim().length > 0)
   return clean.length ? JSON.stringify(clean) : ''
@@ -57,6 +62,7 @@ export function splitJianpuAndOcr(text: string): { jianpuText: string; ocrText: 
       text: content,
       bbox,
       role,
+      fontSize: bbox ? Number(Math.max(8, (bbox[3] - bbox[1]) * 0.78).toFixed(1)) : undefined,
     })
   })
   return {

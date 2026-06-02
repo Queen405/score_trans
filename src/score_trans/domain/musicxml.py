@@ -6,7 +6,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from .jianpu import FIFTHS_TO_KEY, KEY_TO_TONIC, MAJOR_SCALE, STEP_TO_SEMITONE
-from .models import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
+from ..models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
 
 def musicxml_path_to_score(
@@ -83,7 +83,9 @@ def musicxml_to_score(
 
 
 def score_to_jianpu_text(score: JianpuScore) -> str:
-    lines = [f"key={score.target_key}", f"time={score.beats}/{score.beat_type}"]
+    lines = [f"1={score.target_key}", f"{score.beats}/{score.beat_type}"]
+    if score.title and score.title != "简谱":
+        lines.insert(0, f"title={score.title}")
     measures = []
     for measure in score.measures:
         events = measure.events
@@ -263,13 +265,40 @@ def _note_pitch(note: ET.Element, ns: str, target_key: str) -> JianpuPitch | Non
 
 
 def _event_to_token(event: Event) -> str:
-    suffix = _duration_suffix(event.duration)
+    prefix, suffix = _duration_parts(event.duration)
     if event.kind == "rest":
-        return "0" + suffix
-    tokens = [_pitch_to_token(pitch) + suffix for pitch in event.pitches]
+        return prefix + "0" + suffix
+    tokens = [_pitch_to_token(pitch) for pitch in event.pitches]
     if len(tokens) > 1:
-        return "[" + "+".join(tokens) + "]"
-    return tokens[0] if tokens else "?"
+        return prefix + "[" + "+".join(tokens) + "]" + suffix
+    return prefix + tokens[0] + suffix if tokens else "?"
+
+
+def _duration_parts(duration: Fraction) -> tuple[str, str]:
+    dotted_base = None
+    for base in (Fraction(4, 1), Fraction(2, 1), Fraction(1, 1), Fraction(1, 2), Fraction(1, 4), Fraction(1, 8)):
+        if duration == base + base / 2:
+            dotted_base = base
+            break
+    if dotted_base is not None:
+        prefix, suffix = _duration_parts(dotted_base)
+        return prefix, suffix + "."
+    exact = {
+        Fraction(4, 1): ("w", ""),
+        Fraction(2, 1): ("h", ""),
+        Fraction(1, 1): ("", ""),
+        Fraction(1, 2): ("q", ""),
+        Fraction(1, 4): ("s", ""),
+        Fraction(1, 8): ("d", ""),
+    }
+    if duration in exact:
+        return exact[duration]
+    if duration >= 1:
+        whole = int(duration)
+        remain = duration - whole
+        prefix, suffix = _duration_parts(remain) if remain else ("", "")
+        return prefix, suffix + "-" * max(0, whole - 1)
+    return ("", "")
 
 
 def _pitch_to_token(pitch: JianpuPitch) -> str:

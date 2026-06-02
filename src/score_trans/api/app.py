@@ -4,8 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from ..services.external_tools import ExternalToolError
-from ..services.ocr_provider import OCRError
+from ..models.common.errors import ExternalToolError, OCRError
 
 
 def create_app() -> FastAPI:
@@ -23,9 +22,15 @@ def create_app() -> FastAPI:
     )
 
     # Register routers
-    from .routers import health, convert, recognize, render, pipeline, files, history
-    from .routers import export as export_router
-    from .routers import settings as settings_router
+    from .health import routes as health
+    from .convert import routes as convert
+    from .recognize import routes as recognize
+    from .render import routes as render
+    from .pipeline import routes as pipeline
+    from .files import routes as files
+    from .history import routes as history
+    from .export import routes as export_router
+    from .settings import routes as settings_router
 
     app.include_router(health.router)
     app.include_router(convert.router)

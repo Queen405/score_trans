@@ -4,7 +4,7 @@
       type="textarea"
       :value="modelValue"
       @update:value="$emit('update:modelValue', $event)"
-      placeholder="key=C&#10;time=4/4&#10;1 2 3 4 | 5 6 7 1' |"
+      placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 q3 q4 | h[1+3+5] \\p |&#10;L: 春 风 又 绿"
       :rows="8"
       font="monospace"
       class="jianpu-input"

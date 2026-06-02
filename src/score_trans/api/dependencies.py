@@ -1,64 +1,42 @@
 from __future__ import annotations
 
-from ..services.settings import ToolConfig
-from ..use_cases import (
-    ConvertJianpuToMusicXmlUseCase,
-    ConvertMusicXmlToJianpuUseCase,
-    ExportScoreUseCase,
-    FullPipelineUseCase,
-    RecognizeScoreUseCase,
-    RenderJianpuTextUseCase,
-    RenderMusicXmlJianpuUseCase,
-)
-from .tasks import TaskManager
-from .uploads import UploadManager
+from ..exec.convert.actions import ConvertActions
+from ..exec.export.actions import ExportActions
+from ..exec.files.actions import FileActions
+from ..exec.history.actions import HistoryActions
+from ..exec.pipeline.actions import PipelineActions
+from ..exec.recognize.actions import RecognizeActions
+from ..exec.render.actions import RenderActions
+from ..exec.settings.actions import SettingsActions
 
 
-def get_config() -> ToolConfig:
-    return ToolConfig.from_db()
+def get_convert_actions() -> ConvertActions:
+    return ConvertActions()
 
 
-_upload_manager: UploadManager | None = None
-_task_manager: TaskManager | None = None
+def get_export_actions() -> ExportActions:
+    return ExportActions()
 
 
-def get_upload_manager() -> UploadManager:
-    global _upload_manager
-    if _upload_manager is None:
-        _upload_manager = UploadManager()
-    return _upload_manager
+def get_file_actions() -> FileActions:
+    return FileActions()
 
 
-def get_task_manager() -> TaskManager:
-    global _task_manager
-    if _task_manager is None:
-        _task_manager = TaskManager()
-    return _task_manager
+def get_history_actions() -> HistoryActions:
+    return HistoryActions()
 
 
-def get_convert_to_jianpu() -> ConvertMusicXmlToJianpuUseCase:
-    return ConvertMusicXmlToJianpuUseCase()
+def get_pipeline_actions() -> PipelineActions:
+    return PipelineActions()
 
 
-def get_convert_to_musicxml() -> ConvertJianpuToMusicXmlUseCase:
-    return ConvertJianpuToMusicXmlUseCase()
+def get_recognize_actions() -> RecognizeActions:
+    return RecognizeActions()
 
 
-def get_recognize() -> RecognizeScoreUseCase:
-    return RecognizeScoreUseCase()
+def get_render_actions() -> RenderActions:
+    return RenderActions()
 
 
-def get_render_jianpu() -> RenderMusicXmlJianpuUseCase:
-    return RenderMusicXmlJianpuUseCase()
-
-
-def get_render_text() -> RenderJianpuTextUseCase:
-    return RenderJianpuTextUseCase()
-
-
-def get_pipeline() -> FullPipelineUseCase:
-    return FullPipelineUseCase()
-
-
-def get_export() -> ExportScoreUseCase:
-    return ExportScoreUseCase()
+def get_settings_actions() -> SettingsActions:
+    return SettingsActions()
