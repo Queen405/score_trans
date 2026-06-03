@@ -70,6 +70,26 @@
       </div>
     </div>
 
+    <div class="sv-section">
+      <div class="sv-section-title">AI 视觉转写</div>
+      <div class="sv-grid">
+        <label>API Key</label>
+        <n-input v-model:value="settings.aiApiKey" type="password" show-password-on="click" :placeholder="settings.aiApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
+          <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+        </n-input>
+
+        <label>Base URL</label>
+        <n-input v-model:value="settings.aiBaseUrl" placeholder="https://api.siliconflow.cn/v1" size="small">
+          <template #prefix><n-icon size="14"><GlobeOutline /></n-icon></template>
+        </n-input>
+
+        <label>视觉模型</label>
+        <n-input v-model:value="settings.aiModel" placeholder="Qwen/Qwen3-VL-8B-Instruct" size="small">
+          <template #prefix><n-icon size="14"><HardwareChipOutline /></n-icon></template>
+        </n-input>
+      </div>
+    </div>
+
     <div class="sv-footer">
       <n-button type="primary" @click="save">
         <template #icon><n-icon><SaveOutline /></n-icon></template>

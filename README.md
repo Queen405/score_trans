@@ -90,6 +90,7 @@ python -m pytest
 - `POST /convert/jianpu-to-musicxml`：简谱文本 -> MusicXML
 - `POST /render/jianpu-svg`：MusicXML -> 简谱 SVG
 - `POST /pipeline`：一键完成识别+转换+渲染
+- `POST /ai/transcribe`：图片/PDF -> AI 简谱草稿；PDF 会先转为逐页图片
 
 ## 外部工具配置
 
@@ -160,6 +161,20 @@ $env:SCORE_TRANS_OCR_MODEL="deepseek-ai/DeepSeek-OCR"
 默认 provider 使用 OpenAI-compatible 的 `chat/completions` 请求格式，适配 SiliconFlow / DeepSeek OCR。最终渲染会同步读取 OMR 生成的 MusicXML 和 OCR 文字层；如果 OCR 返回 `bbox`，文字会按原页面坐标叠回 SVG，并保持原页面尺寸。测试和离线开发可以使用 `MockOCRProvider`，或者把 `OpenAICompatibleOCRProvider(dry_run=True)` 用于只构造请求、不发起网络调用。
 
 图片页执行“识别并自动填充”或“批量识别全部”时会同时跑 OMR 和 OCR，生成的 SVG 会把 OCR 文字原样放回 bbox 对应位置。普通“SVG”渲染如果当前页有原始图片，也会带上 OCR 文字层；没有配置 OCR key 时会直接提示配置错误，避免静默漏字。
+
+## AI 视觉转写
+
+“AI 视觉转写”是一条独立于 Audiveris 的快速草稿流程：上传图片或 PDF 后，后端会把 PDF 用 PyMuPDF 渲染成逐页 PNG，再通过 LangChain 调用 OpenAI-compatible 视觉模型，直接生成项目简谱语法文本。图片输入会沿用原始 `file_id`；PDF 输入会把每页 PNG 注册成新的 `file_id`，前端会展开成多个可编辑页面。
+
+配置可以在设置页填写，也可以使用环境变量：
+
+```powershell
+$env:SCORE_TRANS_AI_API_KEY="你的视觉模型 API key"
+$env:SCORE_TRANS_AI_BASE_URL="https://api.siliconflow.cn/v1"
+$env:SCORE_TRANS_AI_MODEL="Qwen/Qwen3-VL-8B-Instruct"
+```
+
+AI 输出会先按项目简谱语法校验和规范化；如果某页存在语法错误或小节超拍，界面会保留草稿并显示 warning，方便人工校对。
 
 ## 简谱输入格式
 

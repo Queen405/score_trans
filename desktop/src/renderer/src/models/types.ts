@@ -1,7 +1,7 @@
 export interface ErrorResponse {
   error: string
   detail?: string
-  stage?: 'audiveris' | 'ocr' | 'convert' | 'render' | 'export' | 'upload'
+  stage?: 'audiveris' | 'ocr' | 'ai' | 'convert' | 'render' | 'export' | 'upload'
 }
 
 export interface UploadResponse {
@@ -97,6 +97,41 @@ export interface PipelineResponse {
   svg_file_id: string
 }
 
+export interface AiTranscribeRequest {
+  file_id: string
+  target_key?: string
+  title?: string
+  render_dpi?: number
+  max_pages?: number
+  prompt?: string
+  normalize?: boolean
+}
+
+export interface AiTranscribedPage {
+  page_index: number
+  page_image_file_id: string
+  page_image_filename: string
+  title?: string | null
+  key?: string | null
+  meter?: string | null
+  tempo?: string | null
+  jianpu_text: string
+  warnings: string[]
+  validation_errors: string[]
+  confidence?: number | null
+}
+
+export interface AiTranscribeResponse {
+  source_file_id: string
+  source_filename: string
+  target_key: string
+  title?: string | null
+  merged_jianpu_text: string
+  jianpu_file_id: string
+  pages: AiTranscribedPage[]
+  warnings: string[]
+}
+
 export interface ExportResponse {
   file_id: string
   filename: string
@@ -118,6 +153,10 @@ export interface SettingsResponse {
   ocr_api_key_set?: boolean
   ocr_base_url?: string
   ocr_model?: string
+  ai_api_key?: string
+  ai_api_key_set?: boolean
+  ai_base_url?: string
+  ai_model?: string
   omr_preprocess?: boolean
   omr_preprocess_long_edge?: number
   omr_preprocess_binarize?: boolean
@@ -130,6 +169,9 @@ export interface SettingsUpdateRequest {
   ocr_api_key?: string
   ocr_base_url?: string
   ocr_model?: string
+  ai_api_key?: string
+  ai_base_url?: string
+  ai_model?: string
   omr_preprocess?: boolean
   omr_preprocess_long_edge?: number
   omr_preprocess_binarize?: boolean

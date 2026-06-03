@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1780381685281,
-  "projectRoot": "D:\\CODE\\MyProjects\\score_trans",
+  "lastScanned": 1780483364559,
+  "projectRoot": "d:\\CODE\\MyProjects\\score_trans",
   "techStack": {
     "languages": [
       {
@@ -58,7 +58,7 @@
       "path": "desktop",
       "purpose": null,
       "fileCount": 9,
-      "lastAccessed": 1780381685258,
+      "lastAccessed": 1780483364530,
       "keyFiles": [
         "electron-builder.yml",
         "electron.vite.config.ts",
@@ -71,7 +71,7 @@
       "path": "examples",
       "purpose": "Example code",
       "fileCount": 2,
-      "lastAccessed": 1780381685259,
+      "lastAccessed": 1780483364531,
       "keyFiles": [
         "5.瑞雪迎春 - 分谱.pdf",
         "simple_jianpu.txt"
@@ -81,34 +81,34 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1780381685260,
+      "lastAccessed": 1780483364531,
       "keyFiles": []
     },
     "tests": {
       "path": "tests",
       "purpose": "Test files",
-      "fileCount": 9,
-      "lastAccessed": 1780381685260,
+      "fileCount": 11,
+      "lastAccessed": 1780483364532,
       "keyFiles": [
+        "test_ai_transcription.py",
         "test_api_routes.py",
+        "test_architecture.py",
         "test_convert.py",
-        "test_history_service.py",
-        "test_image_preprocessing.py",
-        "test_jianpu.py"
+        "test_history_service.py"
       ]
     },
     "third_party": {
       "path": "third_party",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1780381685260,
+      "lastAccessed": 1780483364532,
       "keyFiles": []
     },
     "work": {
       "path": "work",
       "purpose": null,
-      "fileCount": 13,
-      "lastAccessed": 1780381685261,
+      "fileCount": 11,
+      "lastAccessed": 1780483364533,
       "keyFiles": [
         "full_test.mid",
         "full_test.pdf",
@@ -121,21 +121,21 @@
       "path": "desktop\\node_modules",
       "purpose": "Dependencies",
       "fileCount": 2,
-      "lastAccessed": 1780381685262,
+      "lastAccessed": 1780483364533,
       "keyFiles": []
     },
     "desktop\\out": {
       "path": "desktop\\out",
       "purpose": "Build output",
       "fileCount": 0,
-      "lastAccessed": 1780381685262,
+      "lastAccessed": 1780483364534,
       "keyFiles": []
     },
     "desktop\\src": {
       "path": "desktop\\src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1780381685262,
+      "lastAccessed": 1780483364534,
       "keyFiles": []
     }
   },

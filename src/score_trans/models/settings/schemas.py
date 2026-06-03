@@ -13,6 +13,10 @@ class SettingsResponse(BaseModel):
     ocr_api_key_set: bool = False
     ocr_base_url: str = "https://api.siliconflow.cn/v1"
     ocr_model: str = "deepseek-ai/DeepSeek-OCR"
+    ai_api_key: str = ""
+    ai_api_key_set: bool = False
+    ai_base_url: str = "https://api.siliconflow.cn/v1"
+    ai_model: str = "Qwen/Qwen3-VL-8B-Instruct"
     omr_preprocess: bool = True
     omr_preprocess_long_edge: int = 3600
     omr_preprocess_binarize: bool = False
@@ -25,7 +29,9 @@ class SettingsUpdateRequest(BaseModel):
     ocr_api_key: str | None = None
     ocr_base_url: str | None = None
     ocr_model: str | None = None
+    ai_api_key: str | None = None
+    ai_base_url: str | None = None
+    ai_model: str | None = None
     omr_preprocess: bool | None = None
     omr_preprocess_long_edge: int | None = None
     omr_preprocess_binarize: bool | None = None
-

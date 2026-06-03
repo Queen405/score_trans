@@ -19,6 +19,9 @@ _DEFAULTS: dict[str, str] = {
     "ocr_api_key": "",
     "ocr_base_url": "https://api.siliconflow.cn/v1",
     "ocr_model": "deepseek-ai/DeepSeek-OCR",
+    "ai_api_key": "",
+    "ai_base_url": "https://api.siliconflow.cn/v1",
+    "ai_model": "Qwen/Qwen3-VL-8B-Instruct",
 }
 
 

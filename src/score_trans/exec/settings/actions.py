@@ -37,6 +37,15 @@ class SettingsActions:
         if req.ocr_model is not None:
             self.service.set("ocr_model", req.ocr_model)
 
+        if req.ai_api_key is not None:
+            self.service.set("ai_api_key", req.ai_api_key)
+
+        if req.ai_base_url is not None:
+            self.service.set("ai_base_url", req.ai_base_url)
+
+        if req.ai_model is not None:
+            self.service.set("ai_model", req.ai_model)
+
         if req.omr_preprocess is not None:
             self.service.set("omr_preprocess", "1" if req.omr_preprocess else "0")
             config.omr_preprocess = req.omr_preprocess
@@ -63,8 +72,11 @@ class SettingsActions:
             ocr_api_key_set=bool(all_settings.get("ocr_api_key", "")),
             ocr_base_url=all_settings.get("ocr_base_url", "https://api.siliconflow.cn/v1"),
             ocr_model=all_settings.get("ocr_model", "deepseek-ai/DeepSeek-OCR"),
+            ai_api_key=all_settings.get("ai_api_key", ""),
+            ai_api_key_set=bool(all_settings.get("ai_api_key", "")),
+            ai_base_url=all_settings.get("ai_base_url", "https://api.siliconflow.cn/v1"),
+            ai_model=all_settings.get("ai_model", "Qwen/Qwen3-VL-8B-Instruct"),
             omr_preprocess=self.service.get_bool("omr_preprocess", True),
             omr_preprocess_long_edge=self.service.get_int("omr_preprocess_long_edge", 3600),
             omr_preprocess_binarize=self.service.get_bool("omr_preprocess_binarize", False),
         )
-

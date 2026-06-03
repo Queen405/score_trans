@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..exec.ai.actions import AiActions
 from ..exec.convert.actions import ConvertActions
 from ..exec.export.actions import ExportActions
 from ..exec.files.actions import FileActions
@@ -8,6 +9,10 @@ from ..exec.pipeline.actions import PipelineActions
 from ..exec.recognize.actions import RecognizeActions
 from ..exec.render.actions import RenderActions
 from ..exec.settings.actions import SettingsActions
+
+
+def get_ai_actions() -> AiActions:
+    return AiActions()
 
 
 def get_convert_actions() -> ConvertActions:

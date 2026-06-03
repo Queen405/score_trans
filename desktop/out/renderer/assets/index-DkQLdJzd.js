@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-DngC-6s9.js"(exports, module) {
+  "assets/index-DkQLdJzd.js"(exports, module) {
     /**
     * @vue/shared v3.5.35
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -8707,12 +8707,12 @@ var require_index_001 = __commonJS({
         ocrText: serializeOcrText(blocks)
       };
     }
-    const _hoisted_1$v = {
+    const _hoisted_1$w = {
       xmlns: "http://www.w3.org/2000/svg",
       "xmlns:xlink": "http://www.w3.org/1999/xlink",
       viewBox: "0 0 512 512"
     };
-    const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8726,7 +8726,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_3$r = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8740,9 +8740,49 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$k = [_hoisted_2$t, _hoisted_3$q];
+    const _hoisted_4$l = [_hoisted_2$u, _hoisted_3$r];
     const ArrowBackOutline = /* @__PURE__ */ defineComponent({
       name: "ArrowBackOutline",
+      render: function render2(_ctx, _cache) {
+        return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_4$l);
+      }
+    });
+    const _hoisted_1$v = {
+      xmlns: "http://www.w3.org/2000/svg",
+      "xmlns:xlink": "http://www.w3.org/1999/xlink",
+      viewBox: "0 0 512 512"
+    };
+    const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "48",
+        d: "M268 112l144 144l-144 144"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "48",
+        d: "M392 256H100"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_4$k = [_hoisted_2$t, _hoisted_3$q];
+    const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
+      name: "ArrowForwardOutline",
       render: function render2(_ctx, _cache) {
         return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_4$k);
       }
@@ -8760,31 +8800,17 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "48",
-        d: "M268 112l144 144l-144 144"
+        d: "M328 112L184 256l144 144"
       },
       null,
       -1
       /* HOISTED */
     );
-    const _hoisted_3$p = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "48",
-        d: "M392 256H100"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_4$j = [_hoisted_2$s, _hoisted_3$p];
-    const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
-      name: "ArrowForwardOutline",
+    const _hoisted_3$p = [_hoisted_2$s];
+    const ChevronBackOutline = /* @__PURE__ */ defineComponent({
+      name: "ChevronBackOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$j);
+        return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_3$p);
       }
     });
     const _hoisted_1$t = {
@@ -8800,15 +8826,15 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "48",
-        d: "M328 112L184 256l144 144"
+        d: "M184 112l144 144l-144 144"
       },
       null,
       -1
       /* HOISTED */
     );
     const _hoisted_3$o = [_hoisted_2$r];
-    const ChevronBackOutline = /* @__PURE__ */ defineComponent({
-      name: "ChevronBackOutline",
+    const ChevronForwardOutline = /* @__PURE__ */ defineComponent({
+      name: "ChevronForwardOutline",
       render: function render2(_ctx, _cache) {
         return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_3$o);
       }
@@ -8825,32 +8851,6 @@ var require_index_001 = __commonJS({
         stroke: "currentColor",
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
-        "stroke-width": "48",
-        d: "M184 112l144 144l-144 144"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_3$n = [_hoisted_2$q];
-    const ChevronForwardOutline = /* @__PURE__ */ defineComponent({
-      name: "ChevronForwardOutline",
-      render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_3$n);
-      }
-    });
-    const _hoisted_1$r = {
-      xmlns: "http://www.w3.org/2000/svg",
-      "xmlns:xlink": "http://www.w3.org/1999/xlink",
-      viewBox: "0 0 512 512"
-    };
-    const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
         "stroke-width": "32",
         d: "M368 368L144 144"
       },
@@ -8858,7 +8858,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_3$n = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -8872,11 +8872,65 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$i = [_hoisted_2$p, _hoisted_3$m];
+    const _hoisted_4$j = [_hoisted_2$q, _hoisted_3$n];
     const CloseOutline = /* @__PURE__ */ defineComponent({
       name: "CloseOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_4$i);
+        return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_4$j);
+      }
+    });
+    const _hoisted_1$r = {
+      xmlns: "http://www.w3.org/2000/svg",
+      "xmlns:xlink": "http://www.w3.org/1999/xlink",
+      viewBox: "0 0 512 512"
+    };
+    const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        d: "M320 336h76c55 0 100-21.21 100-75.6s-53-73.47-96-75.6C391.11 99.74 329 48 256 48c-69 0-113.44 45.79-128 91.2c-60 5.7-112 35.88-112 98.4S70 336 136 336h56",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "32"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "32",
+        d: "M192 400.1l64 63.9l64-63.9"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "32",
+        d: "M256 224v224.03"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_5$d = [_hoisted_2$p, _hoisted_3$m, _hoisted_4$i];
+    const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
+      name: "CloudDownloadOutline",
+      render: function render2(_ctx, _cache) {
+        return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_5$d);
       }
     });
     const _hoisted_1$q = {
@@ -8887,7 +8941,7 @@ var require_index_001 = __commonJS({
     const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
       "path",
       {
-        d: "M320 336h76c55 0 100-21.21 100-75.6s-53-73.47-96-75.6C391.11 99.74 329 48 256 48c-69 0-113.44 45.79-128 91.2c-60 5.7-112 35.88-112 98.4S70 336 136 336h56",
+        d: "M320 367.79h76c55 0 100-29.21 100-83.6s-53-81.47-96-83.6c-8.89-85.06-71-136.8-144-136.8c-69 0-113.44 45.79-128 91.2c-60 5.7-112 43.88-112 106.4s54 106.4 120 106.4h56",
         fill: "none",
         stroke: "currentColor",
         "stroke-linecap": "round",
@@ -8906,7 +8960,7 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "32",
-        d: "M192 400.1l64 63.9l64-63.9"
+        d: "M320 255.79l-64-64l-64 64"
       },
       null,
       -1
@@ -8920,15 +8974,15 @@ var require_index_001 = __commonJS({
         "stroke-linecap": "round",
         "stroke-linejoin": "round",
         "stroke-width": "32",
-        d: "M256 224v224.03"
+        d: "M256 448.21V207.79"
       },
       null,
       -1
       /* HOISTED */
     );
     const _hoisted_5$c = [_hoisted_2$o, _hoisted_3$l, _hoisted_4$h];
-    const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
-      name: "CloudDownloadOutline",
+    const CloudUploadOutline = /* @__PURE__ */ defineComponent({
+      name: "CloudUploadOutline",
       render: function render2(_ctx, _cache) {
         return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_5$c);
       }
@@ -8939,60 +8993,6 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 512 512"
     };
     const _hoisted_2$n = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        d: "M320 367.79h76c55 0 100-29.21 100-83.6s-53-81.47-96-83.6c-8.89-85.06-71-136.8-144-136.8c-69 0-113.44 45.79-128 91.2c-60 5.7-112 43.88-112 106.4s54 106.4 120 106.4h56",
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "32"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_3$k = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "32",
-        d: "M320 255.79l-64-64l-64 64"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_4$g = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "32",
-        d: "M256 448.21V207.79"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_5$b = [_hoisted_2$n, _hoisted_3$k, _hoisted_4$g];
-    const CloudUploadOutline = /* @__PURE__ */ defineComponent({
-      name: "CloudUploadOutline",
-      render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_5$b);
-      }
-    });
-    const _hoisted_1$o = {
-      xmlns: "http://www.w3.org/2000/svg",
-      "xmlns:xlink": "http://www.w3.org/1999/xlink",
-      viewBox: "0 0 512 512"
-    };
-    const _hoisted_2$m = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -9006,7 +9006,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_3$k = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -9020,9 +9020,48 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$f = [_hoisted_2$m, _hoisted_3$j];
+    const _hoisted_4$g = [_hoisted_2$n, _hoisted_3$k];
     const CodeOutline = /* @__PURE__ */ defineComponent({
       name: "CodeOutline",
+      render: function render2(_ctx, _cache) {
+        return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_4$g);
+      }
+    });
+    const _hoisted_1$o = {
+      xmlns: "http://www.w3.org/2000/svg",
+      "xmlns:xlink": "http://www.w3.org/1999/xlink",
+      viewBox: "0 0 512 512"
+    };
+    const _hoisted_2$m = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        d: "M416 221.25V416a48 48 0 0 1-48 48H144a48 48 0 0 1-48-48V96a48 48 0 0 1 48-48h98.75a32 32 0 0 1 22.62 9.37l141.26 141.26a32 32 0 0 1 9.37 22.62z",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linejoin": "round",
+        "stroke-width": "32"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        d: "M256 56v120a32 32 0 0 0 32 32h120",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "32"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_4$f = [_hoisted_2$m, _hoisted_3$j];
+    const DocumentOutline = /* @__PURE__ */ defineComponent({
+      name: "DocumentOutline",
       render: function render2(_ctx, _cache) {
         return openBlock(), createElementBlock("svg", _hoisted_1$o, _hoisted_4$f);
       }
@@ -9059,46 +9098,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_4$e = [_hoisted_2$l, _hoisted_3$i];
-    const DocumentOutline = /* @__PURE__ */ defineComponent({
-      name: "DocumentOutline",
-      render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_4$e);
-      }
-    });
-    const _hoisted_1$m = {
-      xmlns: "http://www.w3.org/2000/svg",
-      "xmlns:xlink": "http://www.w3.org/1999/xlink",
-      viewBox: "0 0 512 512"
-    };
-    const _hoisted_2$k = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        d: "M416 221.25V416a48 48 0 0 1-48 48H144a48 48 0 0 1-48-48V96a48 48 0 0 1 48-48h98.75a32 32 0 0 1 22.62 9.37l141.26 141.26a32 32 0 0 1 9.37 22.62z",
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linejoin": "round",
-        "stroke-width": "32"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_3$h = /* @__PURE__ */ createBaseVNode(
-      "path",
-      {
-        d: "M256 56v120a32 32 0 0 0 32 32h120",
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-width": "32"
-      },
-      null,
-      -1
-      /* HOISTED */
-    );
-    const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -9112,7 +9112,7 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_5$b = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         fill: "none",
@@ -9126,19 +9126,19 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_6$8 = [_hoisted_2$k, _hoisted_3$h, _hoisted_4$d, _hoisted_5$a];
+    const _hoisted_6$8 = [_hoisted_2$l, _hoisted_3$i, _hoisted_4$e, _hoisted_5$b];
     const DocumentTextOutline = /* @__PURE__ */ defineComponent({
       name: "DocumentTextOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_6$8);
+        return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_6$8);
       }
     });
-    const _hoisted_1$l = {
+    const _hoisted_1$m = {
       xmlns: "http://www.w3.org/2000/svg",
       "xmlns:xlink": "http://www.w3.org/1999/xlink",
       viewBox: "0 0 512 512"
     };
-    const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
+    const _hoisted_2$k = /* @__PURE__ */ createBaseVNode(
       "path",
       {
         d: "M315.27 33L96 304h128l-31.51 173.23a2.36 2.36 0 0 0 2.33 2.77h0a2.36 2.36 0 0 0 1.89-.95L416 208H288l31.66-173.25a2.45 2.45 0 0 0-2.44-2.75h0a2.42 2.42 0 0 0-1.95 1z",
@@ -9152,11 +9152,24 @@ var require_index_001 = __commonJS({
       -1
       /* HOISTED */
     );
-    const _hoisted_3$g = [_hoisted_2$j];
+    const _hoisted_3$h = [_hoisted_2$k];
     const FlashOutline = /* @__PURE__ */ defineComponent({
       name: "FlashOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_3$g);
+        return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_3$h);
+      }
+    });
+    const _hoisted_1$l = {
+      xmlns: "http://www.w3.org/2000/svg",
+      "xmlns:xlink": "http://www.w3.org/1999/xlink",
+      viewBox: "0 0 512 512"
+    };
+    const _hoisted_2$j = /* @__PURE__ */ createStaticVNode('<path d="M256 48C141.13 48 48 141.13 48 256s93.13 208 208 208s208-93.13 208-208S370.87 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M256 48c-58.07 0-112.67 93.13-112.67 208S197.93 464 256 464s112.67-93.13 112.67-208S314.07 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M117.33 117.33c38.24 27.15 86.38 43.34 138.67 43.34s100.43-16.19 138.67-43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path d="M394.67 394.67c-38.24-27.15-86.38-43.34-138.67-43.34s-100.43 16.19-138.67 43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M256 48v416"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M464 256H48"></path>', 6);
+    const _hoisted_8$6 = [_hoisted_2$j];
+    const GlobeOutline = /* @__PURE__ */ defineComponent({
+      name: "GlobeOutline",
+      render: function render2(_ctx, _cache) {
+        return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_8$6);
       }
     });
     const _hoisted_1$k = {
@@ -9164,12 +9177,12 @@ var require_index_001 = __commonJS({
       "xmlns:xlink": "http://www.w3.org/1999/xlink",
       viewBox: "0 0 512 512"
     };
-    const _hoisted_2$i = /* @__PURE__ */ createStaticVNode('<path d="M256 48C141.13 48 48 141.13 48 256s93.13 208 208 208s208-93.13 208-208S370.87 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M256 48c-58.07 0-112.67 93.13-112.67 208S197.93 464 256 464s112.67-93.13 112.67-208S314.07 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M117.33 117.33c38.24 27.15 86.38 43.34 138.67 43.34s100.43-16.19 138.67-43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path d="M394.67 394.67c-38.24-27.15-86.38-43.34-138.67-43.34s-100.43 16.19-138.67 43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M256 48v416"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M464 256H48"></path>', 6);
-    const _hoisted_8$6 = [_hoisted_2$i];
-    const GlobeOutline = /* @__PURE__ */ defineComponent({
-      name: "GlobeOutline",
+    const _hoisted_2$i = /* @__PURE__ */ createStaticVNode('<rect x="80" y="80" width="352" height="352" rx="48" ry="48" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><rect x="144" y="144" width="224" height="224" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 176h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 176h32"></path>', 14);
+    const _hoisted_16$2 = [_hoisted_2$i];
+    const HardwareChipOutline = /* @__PURE__ */ defineComponent({
+      name: "HardwareChipOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_8$6);
+        return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_16$2);
       }
     });
     const _hoisted_1$j = {
@@ -9177,12 +9190,50 @@ var require_index_001 = __commonJS({
       "xmlns:xlink": "http://www.w3.org/1999/xlink",
       viewBox: "0 0 512 512"
     };
-    const _hoisted_2$h = /* @__PURE__ */ createStaticVNode('<rect x="80" y="80" width="352" height="352" rx="48" ry="48" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><rect x="144" y="144" width="224" height="224" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 176h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 176h32"></path>', 14);
-    const _hoisted_16$2 = [_hoisted_2$h];
-    const HardwareChipOutline = /* @__PURE__ */ defineComponent({
-      name: "HardwareChipOutline",
+    const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        d: "M256 80a176 176 0 1 0 176 176A176 176 0 0 0 256 80z",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-miterlimit": "10",
+        "stroke-width": "32"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_3$g = /* @__PURE__ */ createBaseVNode(
+      "path",
+      {
+        d: "M200 202.29s.84-17.5 19.57-32.57C230.68 160.77 244 158.18 256 158c10.93-.14 20.69 1.67 26.53 4.45c10 4.76 29.47 16.38 29.47 41.09c0 26-17 37.81-36.37 50.8S251 281.43 251 296",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-linecap": "round",
+        "stroke-miterlimit": "10",
+        "stroke-width": "28"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
+      "circle",
+      {
+        cx: "250",
+        cy: "348",
+        r: "20",
+        fill: "currentColor"
+      },
+      null,
+      -1
+      /* HOISTED */
+    );
+    const _hoisted_5$a = [_hoisted_2$h, _hoisted_3$g, _hoisted_4$d];
+    const HelpCircleOutline = /* @__PURE__ */ defineComponent({
+      name: "HelpCircleOutline",
       render: function render2(_ctx, _cache) {
-        return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_16$2);
+        return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_5$a);
       }
     });
     const _hoisted_1$i = {
@@ -10925,6 +10976,9 @@ ${unwrappedProps}
         };
       }
     }
+    function hasInstance() {
+      return getCurrentInstance() !== null;
+    }
     const isBrowser$2 = typeof window !== "undefined";
     let fontsReady;
     let isFontReady;
@@ -10957,6 +11011,96 @@ ${unwrappedProps}
       onBeforeUnmount(() => {
         deactivated = true;
       });
+    }
+    const mousePositionRef = /* @__PURE__ */ ref(null);
+    function clickHandler(e) {
+      if (e.clientX > 0 || e.clientY > 0) {
+        mousePositionRef.value = {
+          x: e.clientX,
+          y: e.clientY
+        };
+      } else {
+        const { target } = e;
+        if (target instanceof Element) {
+          const { left, top, width, height } = target.getBoundingClientRect();
+          if (left > 0 || top > 0) {
+            mousePositionRef.value = {
+              x: left + width / 2,
+              y: top + height / 2
+            };
+          } else {
+            mousePositionRef.value = { x: 0, y: 0 };
+          }
+        } else {
+          mousePositionRef.value = null;
+        }
+      }
+    }
+    let usedCount$1 = 0;
+    let managable$1 = true;
+    function useClickPosition() {
+      if (!isBrowser$2)
+        return /* @__PURE__ */ readonly(/* @__PURE__ */ ref(null));
+      if (usedCount$1 === 0)
+        on("click", document, clickHandler, true);
+      const setup = () => {
+        usedCount$1 += 1;
+      };
+      if (managable$1 && (managable$1 = hasInstance())) {
+        onBeforeMount(setup);
+        onBeforeUnmount(() => {
+          usedCount$1 -= 1;
+          if (usedCount$1 === 0)
+            off("click", document, clickHandler, true);
+        });
+      } else {
+        setup();
+      }
+      return /* @__PURE__ */ readonly(mousePositionRef);
+    }
+    const clickedTimeRef = /* @__PURE__ */ ref(void 0);
+    let usedCount = 0;
+    function handleClick() {
+      clickedTimeRef.value = Date.now();
+    }
+    let managable = true;
+    function useClicked(timeout) {
+      if (!isBrowser$2)
+        return /* @__PURE__ */ readonly(/* @__PURE__ */ ref(false));
+      const clickedRef = /* @__PURE__ */ ref(false);
+      let timerId = null;
+      function clearTimer() {
+        if (timerId !== null)
+          window.clearTimeout(timerId);
+      }
+      function clickedHandler() {
+        clearTimer();
+        clickedRef.value = true;
+        timerId = window.setTimeout(() => {
+          clickedRef.value = false;
+        }, timeout);
+      }
+      if (usedCount === 0) {
+        on("click", window, handleClick, true);
+      }
+      const setup = () => {
+        usedCount += 1;
+        on("click", window, clickedHandler, true);
+      };
+      if (managable && (managable = hasInstance())) {
+        onBeforeMount(setup);
+        onBeforeUnmount(() => {
+          usedCount -= 1;
+          if (usedCount === 0) {
+            off("click", window, handleClick, true);
+          }
+          off("click", window, clickedHandler, true);
+          clearTimer();
+        });
+      } else {
+        setup();
+      }
+      return /* @__PURE__ */ readonly(clickedRef);
     }
     function useMergedState(controlledStateRef, uncontrolledStateRef) {
       watch(controlledStateRef, (value) => {
@@ -10999,6 +11143,8 @@ ${unwrappedProps}
     const internalSelectionMenuBodyInjectionKey = createInjectionKey("n-internal-select-menu-body");
     const drawerBodyInjectionKey = createInjectionKey("n-drawer-body");
     const modalBodyInjectionKey = createInjectionKey("n-modal-body");
+    const modalProviderInjectionKey = createInjectionKey("n-modal-provider");
+    const modalInjectionKey = createInjectionKey("n-modal");
     const popoverBodyInjectionKey = createInjectionKey("n-popover-body");
     const teleportDisabled = "__disabled__";
     function useAdjustedTo(props) {
@@ -11044,6 +11190,94 @@ ${unwrappedProps}
       default: void 0
     };
     const isBrowser$1 = typeof document !== "undefined" && typeof window !== "undefined";
+    const isComposingRef = /* @__PURE__ */ ref(false);
+    function compositionStartHandler() {
+      isComposingRef.value = true;
+    }
+    function compositionEndHandler() {
+      isComposingRef.value = false;
+    }
+    let mountedCount = 0;
+    function useIsComposing() {
+      if (isBrowser$1) {
+        onBeforeMount(() => {
+          if (!mountedCount) {
+            window.addEventListener("compositionstart", compositionStartHandler);
+            window.addEventListener("compositionend", compositionEndHandler);
+          }
+          mountedCount++;
+        });
+        onBeforeUnmount(() => {
+          if (mountedCount <= 1) {
+            window.removeEventListener("compositionstart", compositionStartHandler);
+            window.removeEventListener("compositionend", compositionEndHandler);
+            mountedCount = 0;
+          } else {
+            mountedCount--;
+          }
+        });
+      }
+      return isComposingRef;
+    }
+    let lockCount = 0;
+    let originalMarginRight = "";
+    let originalOverflow = "";
+    let originalOverflowX = "";
+    let originalOverflowY = "";
+    const lockHtmlScrollRightCompensationRef = /* @__PURE__ */ ref("0px");
+    function useLockHtmlScroll(lockRef) {
+      if (typeof document === "undefined") return;
+      const el = document.documentElement;
+      let watchStopHandle;
+      let activated = false;
+      const unlock = () => {
+        el.style.marginRight = originalMarginRight;
+        el.style.overflow = originalOverflow;
+        el.style.overflowX = originalOverflowX;
+        el.style.overflowY = originalOverflowY;
+        lockHtmlScrollRightCompensationRef.value = "0px";
+      };
+      onMounted(() => {
+        watchStopHandle = watch(lockRef, (value) => {
+          if (value) {
+            if (!lockCount) {
+              const scrollbarWidth = window.innerWidth - el.offsetWidth;
+              if (scrollbarWidth > 0) {
+                originalMarginRight = el.style.marginRight;
+                el.style.marginRight = `${scrollbarWidth}px`;
+                lockHtmlScrollRightCompensationRef.value = `${scrollbarWidth}px`;
+              }
+              originalOverflow = el.style.overflow;
+              originalOverflowX = el.style.overflowX;
+              originalOverflowY = el.style.overflowY;
+              el.style.overflow = "hidden";
+              el.style.overflowX = "hidden";
+              el.style.overflowY = "hidden";
+            }
+            activated = true;
+            lockCount++;
+          } else {
+            lockCount--;
+            if (!lockCount) {
+              unlock();
+            }
+            activated = false;
+          }
+        }, {
+          immediate: true
+        });
+      });
+      onBeforeUnmount(() => {
+        watchStopHandle === null || watchStopHandle === void 0 ? void 0 : watchStopHandle();
+        if (activated) {
+          lockCount--;
+          if (!lockCount) {
+            unlock();
+          }
+          activated = false;
+        }
+      });
+    }
     function useReactivated(callback) {
       const isDeactivatedRef = {
         isDeactivated: false
@@ -11959,7 +12193,7 @@ ${style2}
           };
       }
     }
-    const style$p = c([
+    const style$r = c([
       c(".v-binder-follower-container", {
         position: "absolute",
         left: "0",
@@ -12041,7 +12275,7 @@ ${style2}
           }
         });
         const ssrAdapter2 = useSsrAdapter();
-        style$p.mount({
+        style$r.mount({
           id: "vueuc/binder",
           head: true,
           anchorMetaName: cssrAnchorMetaName$1,
@@ -13329,7 +13563,7 @@ ${style2}
       }
     });
     const hiddenAttr = "v-hidden";
-    const style$o = c("[v-hidden]", {
+    const style$q = c("[v-hidden]", {
       display: "none!important"
     });
     const VOverflow = /* @__PURE__ */ defineComponent({
@@ -13430,7 +13664,7 @@ ${style2}
           }
         }
         const ssrAdapter2 = useSsrAdapter();
-        style$o.mount({
+        style$q.mount({
           id: "vueuc/overflow",
           head: true,
           anchorMetaName: cssrAnchorMetaName$1,
@@ -13809,6 +14043,9 @@ ${style2}
     function markEventEffectPerformed(event) {
       eventSet.add(event);
     }
+    function eventEffectNotPerformed(event) {
+      return !eventSet.has(event);
+    }
     function getTitleAttribute(value) {
       switch (typeof value) {
         case "string":
@@ -13864,6 +14101,18 @@ ${style2}
       const slot = slots[slotName];
       if (!slot) {
         warn("getFirstSlotVNode", `slot[${slotName}] is empty`);
+        return null;
+      }
+      const slotContent = flatten$1(slot(props));
+      if (slotContent.length === 1) {
+        return slotContent[0];
+      } else {
+        warn("getFirstSlotVNode", `slot[${slotName}] should have exactly one child`);
+        return null;
+      }
+    }
+    function getFirstSlotVNodeWithTypedProps(slotName, slot, props) {
+      if (!slot) {
         return null;
       }
       const slotContent = flatten$1(slot(props));
@@ -16546,7 +16795,7 @@ ${style2}
       themeOverrides: Object,
       builtinThemeOverrides: Object
     };
-    const style$n = cB("base-icon", `
+    const style$p = cB("base-icon", `
  height: 1em;
  width: 1em;
  line-height: 1em;
@@ -16580,7 +16829,7 @@ ${style2}
         onMouseup: Function
       },
       setup(props) {
-        useStyle("-base-icon", style$n, /* @__PURE__ */ toRef(props, "clsPrefix"));
+        useStyle("-base-icon", style$p, /* @__PURE__ */ toRef(props, "clsPrefix"));
       },
       render() {
         return h("i", {
@@ -17000,7 +17249,7 @@ ${style2}
         transition
       })];
     }
-    const style$m = cB("base-clear", `
+    const style$o = cB("base-clear", `
  flex-shrink: 0;
  height: 1em;
  width: 1em;
@@ -17040,7 +17289,7 @@ ${style2}
         onClear: Function
       },
       setup(props) {
-        useStyle("-base-clear", style$m, /* @__PURE__ */ toRef(props, "clsPrefix"));
+        useStyle("-base-clear", style$o, /* @__PURE__ */ toRef(props, "clsPrefix"));
         return {
           handleMouseDown(e) {
             e.preventDefault();
@@ -17074,7 +17323,7 @@ ${style2}
         }));
       }
     });
-    const style$l = cB("base-close", `
+    const style$n = cB("base-close", `
  display: flex;
  align-items: center;
  justify-content: center;
@@ -17143,7 +17392,7 @@ ${style2}
         absolute: Boolean
       },
       setup(props) {
-        useStyle("-base-close", style$l, /* @__PURE__ */ toRef(props, "clsPrefix"));
+        useStyle("-base-close", style$n, /* @__PURE__ */ toRef(props, "clsPrefix"));
         return () => {
           const {
             clsPrefix,
@@ -17296,7 +17545,7 @@ ${style2}
         });
       }
     });
-    const style$k = c$1([c$1("@keyframes rotator", `
+    const style$m = c$1([c$1("@keyframes rotator", `
  0% {
  -webkit-transform: rotate(0deg);
  transform: rotate(0deg);
@@ -17360,7 +17609,7 @@ ${style2}
         }
       }, exposedLoadingProps),
       setup(props) {
-        useStyle("-base-loading", style$k, /* @__PURE__ */ toRef(props, "clsPrefix"));
+        useStyle("-base-loading", style$m, /* @__PURE__ */ toRef(props, "clsPrefix"));
       },
       render() {
         const {
@@ -17811,7 +18060,7 @@ ${style2}
       common: derived$1,
       self: self$_
     };
-    const style$j = cB("scrollbar", `
+    const style$l = cB("scrollbar", `
  overflow: hidden;
  position: relative;
  z-index: auto;
@@ -17955,7 +18204,7 @@ ${style2}
         let memoMouseX = 0;
         let memoMouseY = 0;
         const isIos2 = useIsIos();
-        const themeRef = useTheme("Scrollbar", "-scrollbar", style$j, scrollbarLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Scrollbar", "-scrollbar", style$l, scrollbarLight, props, mergedClsPrefixRef);
         const yBarSizeRef = computed(() => {
           const {
             value: containerHeight
@@ -19314,7 +19563,7 @@ ${style2}
       common: derived$1,
       self: self$Z
     };
-    const style$i = cB("empty", `
+    const style$k = cB("empty", `
  display: flex;
  flex-direction: column;
  align-items: center;
@@ -19364,7 +19613,7 @@ ${style2}
           inlineThemeDisabled,
           mergedComponentPropsRef
         } = useConfig(props);
-        const themeRef = useTheme("Empty", "-empty", style$i, emptyLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Empty", "-empty", style$k, emptyLight, props, mergedClsPrefixRef);
         const {
           localeRef
         } = useLocale("Empty");
@@ -19623,7 +19872,7 @@ ${style2}
           if (!pendingTmNode) return false;
           return props.tmNode.key === pendingTmNode.key;
         });
-        function handleClick(e) {
+        function handleClick2(e) {
           const {
             tmNode
           } = props;
@@ -19684,7 +19933,7 @@ ${style2}
           renderOption: renderOptionRef,
           handleMouseMove,
           handleMouseEnter,
-          handleClick
+          handleClick: handleClick2
         };
       },
       render() {
@@ -19700,7 +19949,7 @@ ${style2}
           nodeProps,
           renderOption,
           renderLabel,
-          handleClick,
+          handleClick: handleClick2,
           handleMouseEnter,
           handleMouseMove
         } = this;
@@ -19716,7 +19965,7 @@ ${style2}
             [`${clsPrefix}-base-select-option--show-checkmark`]: showCheckmark
           }],
           style: [(attrs === null || attrs === void 0 ? void 0 : attrs.style) || "", rawNode.style || ""],
-          onClick: mergeEventHandlers([handleClick, attrs === null || attrs === void 0 ? void 0 : attrs.onClick]),
+          onClick: mergeEventHandlers([handleClick2, attrs === null || attrs === void 0 ? void 0 : attrs.onClick]),
           onMouseenter: mergeEventHandlers([handleMouseEnter, attrs === null || attrs === void 0 ? void 0 : attrs.onMouseenter]),
           onMousemove: mergeEventHandlers([handleMouseMove, attrs === null || attrs === void 0 ? void 0 : attrs.onMousemove])
         }), h("div", {
@@ -19758,7 +20007,7 @@ ${style2}
         transform: `${originalTransform} scale(1)`
       })];
     }
-    const style$h = cB("base-select-menu", `
+    const style$j = cB("base-select-menu", `
  line-height: 1.5;
  outline: none;
  z-index: 0;
@@ -19945,7 +20194,7 @@ ${style2}
           mergedComponentPropsRef
         } = useConfig(props);
         const rtlEnabledRef = useRtl("InternalSelectMenu", mergedRtlRef, mergedClsPrefixRef);
-        const themeRef = useTheme("InternalSelectMenu", "-internal-select-menu", style$h, internalSelectMenuLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
+        const themeRef = useTheme("InternalSelectMenu", "-internal-select-menu", style$j, internalSelectMenuLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
         const selfRef = /* @__PURE__ */ ref(null);
         const virtualListRef = /* @__PURE__ */ ref(null);
         const scrollbarRef = /* @__PURE__ */ ref(null);
@@ -20413,7 +20662,7 @@ ${style2}
       right: "left"
     };
     const arrowSize = "var(--n-arrow-height) * 1.414";
-    const style$g = c$1([cB("popover", `
+    const style$i = c$1([cB("popover", `
  transition:
  box-shadow .3s var(--n-bezier),
  background-color .3s var(--n-bezier),
@@ -20628,7 +20877,7 @@ ${style2}
           inlineThemeDisabled,
           mergedRtlRef
         } = useConfig(props);
-        const themeRef = useTheme("Popover", "-popover", style$g, popoverLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Popover", "-popover", style$i, popoverLight, props, mergedClsPrefixRef);
         const rtlEnabledRef = useRtl("Popover", mergedRtlRef, mergedClsPrefixRef);
         const followerRef = /* @__PURE__ */ ref(null);
         const NPopover2 = inject("NPopover");
@@ -21199,7 +21448,7 @@ ${style2}
           }
           (_a = props.onClickoutside) === null || _a === void 0 ? void 0 : _a.call(props, e);
         }
-        function handleClick() {
+        function handleClick2() {
           if (props.trigger === "click" && !getMergedDisabled()) {
             clearShowTimer();
             clearHideTimer();
@@ -21253,7 +21502,7 @@ ${style2}
           mergedShowArrow: mergedShowArrowRef,
           getMergedShow,
           setShow,
-          handleClick,
+          handleClick: handleClick2,
           handleMouseEnter,
           handleMouseLeave,
           handleFocus,
@@ -21754,7 +22003,7 @@ ${style2}
         default: void 0
       }
     };
-    const style$f = cB("tag", `
+    const style$h = cB("tag", `
  --n-close-margin: var(--n-close-margin-top) var(--n-close-margin-right) var(--n-close-margin-bottom) var(--n-close-margin-left);
  white-space: nowrap;
  position: relative;
@@ -21869,11 +22118,11 @@ ${style2}
           var _a, _b;
           return props.size || ((_b = (_a = mergedComponentPropsRef === null || mergedComponentPropsRef === void 0 ? void 0 : mergedComponentPropsRef.value) === null || _a === void 0 ? void 0 : _a.Tag) === null || _b === void 0 ? void 0 : _b.size) || "medium";
         });
-        const themeRef = useTheme("Tag", "-tag", style$f, tagLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Tag", "-tag", style$h, tagLight, props, mergedClsPrefixRef);
         provide(tagInjectionKey, {
           roundRef: /* @__PURE__ */ toRef(props, "round")
         });
-        function handleClick() {
+        function handleClick2() {
           if (!props.disabled) {
             if (props.checkable) {
               const {
@@ -22018,7 +22267,7 @@ ${style2}
           mergedClsPrefix: mergedClsPrefixRef,
           contentRef,
           mergedBordered: mergedBorderedRef,
-          handleClick,
+          handleClick: handleClick2,
           handleCloseClick,
           cssVars: inlineThemeDisabled ? void 0 : cssVarsRef,
           themeClass: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.themeClass,
@@ -22354,7 +22603,7 @@ ${style2}
       },
       self: self$V
     });
-    const style$e = c$1([cB("base-selection", `
+    const style$g = c$1([cB("base-selection", `
  --n-padding-single: var(--n-padding-single-top) var(--n-padding-single-right) var(--n-padding-single-bottom) var(--n-padding-single-left);
  --n-padding-multiple: var(--n-padding-multiple-top) var(--n-padding-multiple-right) var(--n-padding-multiple-bottom) var(--n-padding-multiple-left);
  position: relative;
@@ -22644,7 +22893,7 @@ ${style2}
         const showTagsPopoverRef = /* @__PURE__ */ ref(false);
         const patternInputFocusedRef = /* @__PURE__ */ ref(false);
         const hoverRef = /* @__PURE__ */ ref(false);
-        const themeRef = useTheme("InternalSelection", "-internal-selection", style$e, internalSelectionLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
+        const themeRef = useTheme("InternalSelection", "-internal-selection", style$g, internalSelectionLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
         const mergedClearableRef = computed(() => {
           return props.clearable && !props.disabled && (hoverRef.value || props.active);
         });
@@ -22764,9 +23013,9 @@ ${style2}
         function handleDeleteOption(option) {
           doDeleteOption(option);
         }
-        const isComposingRef = /* @__PURE__ */ ref(false);
+        const isComposingRef2 = /* @__PURE__ */ ref(false);
         function handlePatternKeyDown(e) {
-          if (e.key === "Backspace" && !isComposingRef.value) {
+          if (e.key === "Backspace" && !isComposingRef2.value) {
             if (!props.pattern.length) {
               const {
                 selectedOptions
@@ -22788,7 +23037,7 @@ ${style2}
             syncMirrorWidth();
           }
           if (props.ignoreComposition) {
-            if (!isComposingRef.value) {
+            if (!isComposingRef2.value) {
               doPatternInput(e);
             } else {
               cachedInputEvent = e;
@@ -22798,10 +23047,10 @@ ${style2}
           }
         }
         function handleCompositionStart() {
-          isComposingRef.value = true;
+          isComposingRef2.value = true;
         }
         function handleCompositionEnd() {
-          isComposingRef.value = false;
+          isComposingRef2.value = false;
           if (props.ignoreComposition) {
             doPatternInput(cachedInputEvent);
           }
@@ -23057,7 +23306,7 @@ ${style2}
           label: labelRef,
           selected: selectedRef,
           showTagsPanel: showTagsPopoverRef,
-          isComposing: isComposingRef,
+          isComposing: isComposingRef2,
           // dom ref
           counterRef,
           counterWrapperRef,
@@ -23383,7 +23632,7 @@ ${style2}
  margin-right ${duration2} ${cubicBezierEaseInOut$1};
  `)];
     }
-    const style$d = cB("base-wave", `
+    const style$f = cB("base-wave", `
  position: absolute;
  left: 0;
  right: 0;
@@ -23400,7 +23649,7 @@ ${style2}
         }
       },
       setup(props) {
-        useStyle("-base-wave", style$d, /* @__PURE__ */ toRef(props, "clsPrefix"));
+        useStyle("-base-wave", style$f, /* @__PURE__ */ toRef(props, "clsPrefix"));
         const selfRef = /* @__PURE__ */ ref(null);
         const activeRef = /* @__PURE__ */ ref(false);
         let animationTimerId = null;
@@ -23865,7 +24114,7 @@ ${style2}
       self: self$S
     });
     const inputInjectionKey = createInjectionKey("n-input");
-    const style$c = cB("input", `
+    const style$e = cB("input", `
  max-width: 100%;
  cursor: text;
  line-height: 1.5;
@@ -24343,7 +24592,7 @@ ${style2}
           mergedRtlRef,
           mergedComponentPropsRef
         } = useConfig(props);
-        const themeRef = useTheme("Input", "-input", style$c, inputLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Input", "-input", style$e, inputLight, props, mergedClsPrefixRef);
         if (isSafari) {
           useStyle("-input-safari", safariStyle, mergedClsPrefixRef);
         }
@@ -24385,7 +24634,7 @@ ${style2}
         } = formItem;
         const focusedRef = /* @__PURE__ */ ref(false);
         const hoverRef = /* @__PURE__ */ ref(false);
-        const isComposingRef = /* @__PURE__ */ ref(false);
+        const isComposingRef2 = /* @__PURE__ */ ref(false);
         const activatedRef = /* @__PURE__ */ ref(false);
         let syncSource = null;
         const mergedPlaceholderRef = computed(() => {
@@ -24409,7 +24658,7 @@ ${style2}
         const showPlaceholder1Ref = computed(() => {
           const {
             value: isComposing
-          } = isComposingRef;
+          } = isComposingRef2;
           const {
             value: mergedValue
           } = mergedValueRef;
@@ -24421,7 +24670,7 @@ ${style2}
         const showPlaceholder2Ref = computed(() => {
           const {
             value: isComposing
-          } = isComposingRef;
+          } = isComposingRef2;
           const {
             value: mergedValue
           } = mergedValueRef;
@@ -24619,10 +24868,10 @@ ${style2}
           if (onWrapperBlur) call(onWrapperBlur, e);
         }
         function handleCompositionStart() {
-          isComposingRef.value = true;
+          isComposingRef2.value = true;
         }
         function handleCompositionEnd(e) {
-          isComposingRef.value = false;
+          isComposingRef2.value = false;
           if (e.target === inputEl2Ref.value) {
             handleInput(e, 1);
           } else {
@@ -24633,7 +24882,7 @@ ${style2}
           const targetValue = e.target.value;
           syncMirror(targetValue);
           if (e instanceof InputEvent && !e.isComposing) {
-            isComposingRef.value = false;
+            isComposingRef2.value = false;
           }
           if (props.type === "textarea") {
             const {
@@ -24644,7 +24893,7 @@ ${style2}
             }
           }
           syncSource = targetValue;
-          if (isComposingRef.value) return;
+          if (isComposingRef2.value) return;
           focusedInputCursorControl.recordCursor();
           const isIncomingValueValid = allowInput(targetValue);
           if (isIncomingValueValid) {
@@ -24766,7 +25015,7 @@ ${style2}
         function handleChange(e, index) {
           handleInput(e, index, "change");
         }
-        function handleClick(e) {
+        function handleClick2(e) {
           doClick(e);
         }
         function handleClear(e) {
@@ -25029,7 +25278,7 @@ ${style2}
           wrapperElRef,
           inputElRef,
           textareaElRef,
-          isCompositing: isComposingRef,
+          isCompositing: isComposingRef2,
           clear: clearValue,
           focus,
           blur,
@@ -25180,7 +25429,7 @@ ${style2}
           showPlaceholder1: showPlaceholder1Ref,
           showPlaceholder2: showPlaceholder2Ref,
           mergedFocus: mergedFocusRef,
-          isComposing: isComposingRef,
+          isComposing: isComposingRef2,
           activated: activatedRef,
           showClearButton,
           mergedSize: mergedSizeRef,
@@ -25205,7 +25454,7 @@ ${style2}
           handleMouseLeave,
           handleMouseDown,
           handleChange,
-          handleClick,
+          handleClick: handleClick2,
           handleClear,
           handlePasswordToggleClick,
           handlePasswordToggleMousedown,
@@ -26020,7 +26269,7 @@ ${style2}
         return commonSelf;
       }
     };
-    const style$b = c$1([cB("button", `
+    const style$d = c$1([cB("button", `
  margin: 0;
  font-weight: var(--n-font-weight);
  line-height: 1;
@@ -26286,7 +26535,7 @@ ${style2}
             });
           }
         };
-        const handleClick = (e) => {
+        const handleClick2 = (e) => {
           var _a;
           if (!props.disabled && !props.loading) {
             const {
@@ -26320,7 +26569,7 @@ ${style2}
         const handleBlur = () => {
           enterPressedRef.value = false;
         };
-        const themeRef = useTheme("Button", "-button", style$b, buttonLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Button", "-button", style$d, buttonLight, props, mergedClsPrefixRef);
         const rtlEnabledRef = useRtl("Button", mergedRtlRef, mergedClsPrefixRef);
         const cssVarsRef = computed(() => {
           const theme = themeRef.value;
@@ -26562,7 +26811,7 @@ ${style2}
           handleKeydown,
           handleBlur,
           handleKeyup,
-          handleClick,
+          handleClick: handleClick2,
           customColorCssVars: computed(() => {
             const {
               color
@@ -26766,6 +27015,7 @@ ${style2}
       });
     }
     const cardLight = {
+      name: "Card",
       common: derived,
       self: self$L
     };
@@ -26792,7 +27042,7 @@ ${style2}
  padding: 0 var(--n-padding-left) var(--n-padding-bottom) var(--n-padding-left);
  font-size: var(--n-font-size);
 `);
-    const style$a = c$1([cB("card", `
+    const style$c = c$1([cB("card", `
  font-size: var(--n-font-size);
  line-height: var(--n-line-height);
  display: flex;
@@ -26949,6 +27199,7 @@ ${style2}
       headerExtra: Function,
       closeFocusable: Boolean
     };
+    const cardBasePropKeys = keysOf(cardBaseProps);
     const cardProps = Object.assign(Object.assign({}, useTheme.props), cardBaseProps);
     const NCard = /* @__PURE__ */ defineComponent({
       name: "Card",
@@ -26969,7 +27220,7 @@ ${style2}
           mergedRtlRef,
           mergedComponentPropsRef
         } = useConfig(props);
-        const themeRef = useTheme("Card", "-card", style$a, cardLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Card", "-card", style$c, cardLight, props, mergedClsPrefixRef);
         const rtlEnabledRef = useRtl("Card", mergedRtlRef, mergedClsPrefixRef);
         const mergedSizeRef = computed(() => {
           var _a, _b;
@@ -27330,7 +27581,7 @@ ${style2}
       common: derived,
       self: self$H
     };
-    const style$9 = c$1([cB("code", `
+    const style$b = c$1([cB("code", `
  font-size: var(--n-font-size);
  font-family: var(--n-font-family);
  `, [cM("show-line-numbers", `
@@ -27506,7 +27757,7 @@ ${style2}
         watch(/* @__PURE__ */ toRef(props, "language"), setCode);
         watch(/* @__PURE__ */ toRef(props, "code"), setCode);
         if (!internalNoHighlight) watch(hljsRef, setCode);
-        const themeRef = useTheme("Code", "-code", style$9, codeLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Code", "-code", style$b, codeLight, props, mergedClsPrefixRef);
         const cssVarsRef = computed(() => {
           const {
             common: {
@@ -27917,7 +28168,7 @@ ${style2}
       },
       self: self$D
     };
-    const style$8 = c$1([cB("select", `
+    const style$a = c$1([cB("select", `
  z-index: auto;
  outline: none;
  width: 100%;
@@ -28066,7 +28317,7 @@ ${style2}
           inlineThemeDisabled,
           mergedComponentPropsRef
         } = useConfig(props);
-        const themeRef = useTheme("Select", "-select", style$8, selectLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Select", "-select", style$a, selectLight, props, mergedClsPrefixRef);
         const uncontrolledValueRef = /* @__PURE__ */ ref(props.defaultValue);
         const controlledValueRef = /* @__PURE__ */ toRef(props, "value");
         const mergedValueRef = useMergedState(controlledValueRef, uncontrolledValueRef);
@@ -29365,7 +29616,7 @@ ${style2}
       common: derived$1,
       self: self$y
     };
-    const style$7 = cB("icon", `
+    const style$9 = cB("icon", `
  height: 1em;
  width: 1em;
  line-height: 1em;
@@ -29400,7 +29651,7 @@ ${style2}
           mergedClsPrefixRef,
           inlineThemeDisabled
         } = useConfig(props);
-        const themeRef = useTheme("Icon", "-icon", style$7, iconLight, props, mergedClsPrefixRef);
+        const themeRef = useTheme("Icon", "-icon", style$9, iconLight, props, mergedClsPrefixRef);
         const cssVarsRef = computed(() => {
           const {
             depth
@@ -29682,6 +29933,7 @@ ${style2}
       common: derived$1,
       self: self$v
     };
+    const dialogProviderInjectionKey = createInjectionKey("n-dialog-provider");
     const commonVars$6 = {
       titleFontSize: "18px",
       padding: "16px 28px 20px 28px",
@@ -29738,6 +29990,14 @@ ${style2}
         titleFontWeight: fontWeightStrong
       });
     }
+    const dialogLight = createTheme({
+      name: "Dialog",
+      common: derived,
+      peers: {
+        Button: buttonLight
+      },
+      self: self$u
+    });
     const dialogDark = {
       name: "Dialog",
       common: derived$1,
@@ -29746,6 +30006,323 @@ ${style2}
       },
       self: self$u
     };
+    const dialogProps = {
+      icon: Function,
+      type: {
+        type: String,
+        default: "default"
+      },
+      title: [String, Function],
+      closable: {
+        type: Boolean,
+        default: true
+      },
+      negativeText: String,
+      positiveText: String,
+      positiveButtonProps: Object,
+      negativeButtonProps: Object,
+      content: [String, Function],
+      action: Function,
+      showIcon: {
+        type: Boolean,
+        default: true
+      },
+      loading: Boolean,
+      bordered: Boolean,
+      iconPlacement: String,
+      titleClass: [String, Array],
+      titleStyle: [String, Object],
+      contentClass: [String, Array],
+      contentStyle: [String, Object],
+      actionClass: [String, Array],
+      actionStyle: [String, Object],
+      onPositiveClick: Function,
+      onNegativeClick: Function,
+      onClose: Function,
+      closeFocusable: Boolean
+    };
+    const dialogPropKeys = keysOf(dialogProps);
+    const style$8 = c$1([cB("dialog", `
+ --n-icon-margin: var(--n-icon-margin-top) var(--n-icon-margin-right) var(--n-icon-margin-bottom) var(--n-icon-margin-left);
+ word-break: break-word;
+ line-height: var(--n-line-height);
+ position: relative;
+ background: var(--n-color);
+ color: var(--n-text-color);
+ box-sizing: border-box;
+ margin: auto;
+ border-radius: var(--n-border-radius);
+ padding: var(--n-padding);
+ transition: 
+ border-color .3s var(--n-bezier),
+ background-color .3s var(--n-bezier),
+ color .3s var(--n-bezier);
+ `, [cE("icon", `
+ color: var(--n-icon-color);
+ `), cM("bordered", `
+ border: var(--n-border);
+ `), cM("icon-top", [cE("close", `
+ margin: var(--n-close-margin);
+ `), cE("icon", `
+ margin: var(--n-icon-margin);
+ `), cE("content", `
+ text-align: center;
+ `), cE("title", `
+ justify-content: center;
+ `), cE("action", `
+ justify-content: center;
+ `)]), cM("icon-left", [cE("icon", `
+ margin: var(--n-icon-margin);
+ `), cM("closable", [cE("title", `
+ padding-right: calc(var(--n-close-size) + 6px);
+ `)])]), cE("close", `
+ position: absolute;
+ right: 0;
+ top: 0;
+ margin: var(--n-close-margin);
+ transition:
+ background-color .3s var(--n-bezier),
+ color .3s var(--n-bezier);
+ z-index: 1;
+ `), cE("content", `
+ font-size: var(--n-font-size);
+ margin: var(--n-content-margin);
+ position: relative;
+ word-break: break-word;
+ `, [cM("last", "margin-bottom: 0;")]), cE("action", `
+ display: flex;
+ justify-content: flex-end;
+ `, [c$1("> *:not(:last-child)", `
+ margin-right: var(--n-action-space);
+ `)]), cE("icon", `
+ font-size: var(--n-icon-size);
+ transition: color .3s var(--n-bezier);
+ `), cE("title", `
+ transition: color .3s var(--n-bezier);
+ display: flex;
+ align-items: center;
+ font-size: var(--n-title-font-size);
+ font-weight: var(--n-title-font-weight);
+ color: var(--n-title-text-color);
+ `), cB("dialog-icon-container", `
+ display: flex;
+ justify-content: center;
+ `)]), insideModal(cB("dialog", `
+ width: 446px;
+ max-width: calc(100vw - 32px);
+ `)), cB("dialog", [asModal(`
+ width: 446px;
+ max-width: calc(100vw - 32px);
+ `)])]);
+    const iconRenderMap$1 = {
+      default: () => h(InfoIcon, null),
+      info: () => h(InfoIcon, null),
+      success: () => h(SuccessIcon, null),
+      warning: () => h(WarningIcon, null),
+      error: () => h(ErrorIcon, null)
+    };
+    const NDialog = /* @__PURE__ */ defineComponent({
+      name: "Dialog",
+      alias: [
+        "NimbusConfirmCard",
+        // deprecated
+        "Confirm"
+        // deprecated
+      ],
+      props: Object.assign(Object.assign({}, useTheme.props), dialogProps),
+      slots: Object,
+      setup(props) {
+        const {
+          mergedComponentPropsRef,
+          mergedClsPrefixRef,
+          inlineThemeDisabled,
+          mergedRtlRef
+        } = useConfig(props);
+        const rtlEnabledRef = useRtl("Dialog", mergedRtlRef, mergedClsPrefixRef);
+        const mergedIconPlacementRef = computed(() => {
+          var _a, _b;
+          const {
+            iconPlacement
+          } = props;
+          return iconPlacement || ((_b = (_a = mergedComponentPropsRef === null || mergedComponentPropsRef === void 0 ? void 0 : mergedComponentPropsRef.value) === null || _a === void 0 ? void 0 : _a.Dialog) === null || _b === void 0 ? void 0 : _b.iconPlacement) || "left";
+        });
+        function handlePositiveClick(e) {
+          const {
+            onPositiveClick
+          } = props;
+          if (onPositiveClick) onPositiveClick(e);
+        }
+        function handleNegativeClick(e) {
+          const {
+            onNegativeClick
+          } = props;
+          if (onNegativeClick) onNegativeClick(e);
+        }
+        function handleCloseClick() {
+          const {
+            onClose
+          } = props;
+          if (onClose) onClose();
+        }
+        const themeRef = useTheme("Dialog", "-dialog", style$8, dialogLight, props, mergedClsPrefixRef);
+        const cssVarsRef = computed(() => {
+          const {
+            type
+          } = props;
+          const iconPlacement = mergedIconPlacementRef.value;
+          const {
+            common: {
+              cubicBezierEaseInOut: cubicBezierEaseInOut2
+            },
+            self: {
+              fontSize: fontSize2,
+              lineHeight: lineHeight2,
+              border,
+              titleTextColor,
+              textColor,
+              color,
+              closeBorderRadius,
+              closeColorHover,
+              closeColorPressed,
+              closeIconColor,
+              closeIconColorHover,
+              closeIconColorPressed,
+              closeIconSize,
+              borderRadius,
+              titleFontWeight,
+              titleFontSize,
+              padding,
+              iconSize,
+              actionSpace,
+              contentMargin,
+              closeSize,
+              [iconPlacement === "top" ? "iconMarginIconTop" : "iconMargin"]: iconMargin,
+              [iconPlacement === "top" ? "closeMarginIconTop" : "closeMargin"]: closeMargin,
+              [createKey("iconColor", type)]: iconColor
+            }
+          } = themeRef.value;
+          const iconMarginDiscrete = getMargin(iconMargin);
+          return {
+            "--n-font-size": fontSize2,
+            "--n-icon-color": iconColor,
+            "--n-bezier": cubicBezierEaseInOut2,
+            "--n-close-margin": closeMargin,
+            "--n-icon-margin-top": iconMarginDiscrete.top,
+            "--n-icon-margin-right": iconMarginDiscrete.right,
+            "--n-icon-margin-bottom": iconMarginDiscrete.bottom,
+            "--n-icon-margin-left": iconMarginDiscrete.left,
+            "--n-icon-size": iconSize,
+            "--n-close-size": closeSize,
+            "--n-close-icon-size": closeIconSize,
+            "--n-close-border-radius": closeBorderRadius,
+            "--n-close-color-hover": closeColorHover,
+            "--n-close-color-pressed": closeColorPressed,
+            "--n-close-icon-color": closeIconColor,
+            "--n-close-icon-color-hover": closeIconColorHover,
+            "--n-close-icon-color-pressed": closeIconColorPressed,
+            "--n-color": color,
+            "--n-text-color": textColor,
+            "--n-border-radius": borderRadius,
+            "--n-padding": padding,
+            "--n-line-height": lineHeight2,
+            "--n-border": border,
+            "--n-content-margin": contentMargin,
+            "--n-title-font-size": titleFontSize,
+            "--n-title-font-weight": titleFontWeight,
+            "--n-title-text-color": titleTextColor,
+            "--n-action-space": actionSpace
+          };
+        });
+        const themeClassHandle = inlineThemeDisabled ? useThemeClass("dialog", computed(() => `${props.type[0]}${mergedIconPlacementRef.value[0]}`), cssVarsRef, props) : void 0;
+        return {
+          mergedClsPrefix: mergedClsPrefixRef,
+          rtlEnabled: rtlEnabledRef,
+          mergedIconPlacement: mergedIconPlacementRef,
+          mergedTheme: themeRef,
+          handlePositiveClick,
+          handleNegativeClick,
+          handleCloseClick,
+          cssVars: inlineThemeDisabled ? void 0 : cssVarsRef,
+          themeClass: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.themeClass,
+          onRender: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.onRender
+        };
+      },
+      render() {
+        var _a;
+        const {
+          bordered,
+          mergedIconPlacement,
+          cssVars,
+          closable,
+          showIcon,
+          title,
+          content,
+          action,
+          negativeText,
+          positiveText,
+          positiveButtonProps,
+          negativeButtonProps,
+          handlePositiveClick,
+          handleNegativeClick,
+          mergedTheme,
+          loading,
+          type,
+          mergedClsPrefix
+        } = this;
+        (_a = this.onRender) === null || _a === void 0 ? void 0 : _a.call(this);
+        const icon = showIcon ? h(NBaseIcon, {
+          clsPrefix: mergedClsPrefix,
+          class: `${mergedClsPrefix}-dialog__icon`
+        }, {
+          default: () => resolveWrappedSlot(this.$slots.icon, (children) => children || (this.icon ? render(this.icon) : iconRenderMap$1[this.type]()))
+        }) : null;
+        const actionNode = resolveWrappedSlot(this.$slots.action, (children) => children || positiveText || negativeText || action ? h("div", {
+          class: [`${mergedClsPrefix}-dialog__action`, this.actionClass],
+          style: this.actionStyle
+        }, children || (action ? [render(action)] : [this.negativeText && h(Button, Object.assign({
+          theme: mergedTheme.peers.Button,
+          themeOverrides: mergedTheme.peerOverrides.Button,
+          ghost: true,
+          size: "small",
+          onClick: handleNegativeClick
+        }, negativeButtonProps), {
+          default: () => render(this.negativeText)
+        }), this.positiveText && h(Button, Object.assign({
+          theme: mergedTheme.peers.Button,
+          themeOverrides: mergedTheme.peerOverrides.Button,
+          size: "small",
+          type: type === "default" ? "primary" : type,
+          disabled: loading,
+          loading,
+          onClick: handlePositiveClick
+        }, positiveButtonProps), {
+          default: () => render(this.positiveText)
+        })])) : null);
+        return h("div", {
+          class: [`${mergedClsPrefix}-dialog`, this.themeClass, this.closable && `${mergedClsPrefix}-dialog--closable`, `${mergedClsPrefix}-dialog--icon-${mergedIconPlacement}`, bordered && `${mergedClsPrefix}-dialog--bordered`, this.rtlEnabled && `${mergedClsPrefix}-dialog--rtl`],
+          style: cssVars,
+          role: "dialog"
+        }, closable ? resolveWrappedSlot(this.$slots.close, (node) => {
+          const classNames = [`${mergedClsPrefix}-dialog__close`, this.rtlEnabled && `${mergedClsPrefix}-dialog--rtl`];
+          return node ? h("div", {
+            class: classNames
+          }, node) : h(NBaseClose, {
+            focusable: this.closeFocusable,
+            clsPrefix: mergedClsPrefix,
+            class: classNames,
+            onClick: this.handleCloseClick
+          });
+        }) : null, showIcon && mergedIconPlacement === "top" ? h("div", {
+          class: `${mergedClsPrefix}-dialog-icon-container`
+        }, icon) : null, h("div", {
+          class: [`${mergedClsPrefix}-dialog__title`, this.titleClass],
+          style: this.titleStyle
+        }, showIcon && mergedIconPlacement === "left" ? icon : null, resolveSlot(this.$slots.header, () => [render(title)])), h("div", {
+          class: [`${mergedClsPrefix}-dialog__content`, actionNode ? "" : `${mergedClsPrefix}-dialog__content--last`, this.contentClass],
+          style: this.contentStyle
+        }, resolveSlot(this.$slots.default, () => [render(content)])), actionNode);
+      }
+    });
     function self$t(vars) {
       const {
         modalColor,
@@ -29758,6 +30335,16 @@ ${style2}
         boxShadow: boxShadow3
       };
     }
+    const modalLight = createTheme({
+      name: "Modal",
+      common: derived,
+      peers: {
+        Scrollbar: scrollbarLight,
+        Dialog: dialogLight,
+        Card: cardLight
+      },
+      self: self$t
+    });
     const modalDark = {
       name: "Modal",
       common: derived$1,
@@ -29768,6 +30355,771 @@ ${style2}
       },
       self: self$t
     };
+    const DRAGGABLE_CLASS = "n-draggable";
+    function useDragModal(draggablePropsRef, options) {
+      let cleanup;
+      const draggableRef = computed(() => {
+        return draggablePropsRef.value !== false;
+      });
+      const draggableClassRef = computed(() => {
+        return draggableRef.value ? DRAGGABLE_CLASS : "";
+      });
+      const boundsToWindowRef = computed(() => {
+        const draggableProps = draggablePropsRef.value;
+        if (draggableProps === true || draggableProps === false) {
+          return true;
+        } else if (draggableProps) {
+          return draggableProps.bounds !== "none";
+        } else {
+          return true;
+        }
+      });
+      function startDrag(modal) {
+        const header = modal.querySelector(`.${DRAGGABLE_CLASS}`);
+        if (!header || !draggableClassRef.value) {
+          return;
+        }
+        let maxMoveX = 0;
+        let minMoveX = 0;
+        let maxMoveY = 0;
+        let minMoveY = 0;
+        let prevMoveY = 0;
+        let prevMoveX = 0;
+        let mousedownEvent;
+        let rafId = null;
+        let pendingPosition = null;
+        function handleMouseDown(event) {
+          event.preventDefault();
+          mousedownEvent = event;
+          const {
+            x,
+            y,
+            right,
+            bottom
+          } = modal.getBoundingClientRect();
+          minMoveX = x;
+          minMoveY = y;
+          maxMoveX = window.innerWidth - right;
+          maxMoveY = window.innerHeight - bottom;
+          const {
+            left,
+            top
+          } = modal.style;
+          prevMoveY = +top.slice(0, -2);
+          prevMoveX = +left.slice(0, -2);
+        }
+        function updatePosition() {
+          if (pendingPosition) {
+            modal.style.top = `${pendingPosition.y}px`;
+            modal.style.left = `${pendingPosition.x}px`;
+            pendingPosition = null;
+          }
+          rafId = null;
+        }
+        function handleMouseMove(event) {
+          if (!mousedownEvent) return;
+          const {
+            clientX: downX,
+            clientY: downY
+          } = mousedownEvent;
+          let moveX = event.clientX - downX;
+          let moveY = event.clientY - downY;
+          if (boundsToWindowRef.value) {
+            if (moveX > maxMoveX) {
+              moveX = maxMoveX;
+            } else if (-moveX > minMoveX) {
+              moveX = -minMoveX;
+            }
+            if (moveY > maxMoveY) {
+              moveY = maxMoveY;
+            } else if (-moveY > minMoveY) {
+              moveY = -minMoveY;
+            }
+          }
+          const x = moveX + prevMoveX;
+          const y = moveY + prevMoveY;
+          pendingPosition = {
+            x,
+            y
+          };
+          if (!rafId) {
+            rafId = requestAnimationFrame(updatePosition);
+          }
+        }
+        function handleMouseUp() {
+          mousedownEvent = void 0;
+          if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+          }
+          if (pendingPosition) {
+            modal.style.top = `${pendingPosition.y}px`;
+            modal.style.left = `${pendingPosition.x}px`;
+            pendingPosition = null;
+          }
+          options.onEnd(modal);
+        }
+        on("mousedown", header, handleMouseDown);
+        on("mousemove", window, handleMouseMove);
+        on("mouseup", window, handleMouseUp);
+        cleanup = () => {
+          if (rafId) {
+            cancelAnimationFrame(rafId);
+          }
+          off("mousedown", header, handleMouseDown);
+          off("mousemove", window, handleMouseMove);
+          off("mouseup", window, handleMouseUp);
+        };
+      }
+      function stopDrag() {
+        if (cleanup) {
+          cleanup();
+          cleanup = void 0;
+        }
+      }
+      onUnmounted(stopDrag);
+      return {
+        stopDrag,
+        startDrag,
+        draggableRef,
+        draggableClassRef
+      };
+    }
+    const presetProps = Object.assign(Object.assign({}, cardBaseProps), dialogProps);
+    const presetPropsKeys = keysOf(presetProps);
+    const NModalBodyWrapper = /* @__PURE__ */ defineComponent({
+      name: "ModalBody",
+      inheritAttrs: false,
+      slots: Object,
+      props: Object.assign(Object.assign({
+        show: {
+          type: Boolean,
+          required: true
+        },
+        preset: String,
+        displayDirective: {
+          type: String,
+          required: true
+        },
+        trapFocus: {
+          type: Boolean,
+          default: true
+        },
+        autoFocus: {
+          type: Boolean,
+          default: true
+        },
+        blockScroll: Boolean,
+        draggable: {
+          type: [Boolean, Object],
+          default: false
+        },
+        maskHidden: Boolean
+      }, presetProps), {
+        renderMask: Function,
+        // events
+        onClickoutside: Function,
+        onBeforeLeave: {
+          type: Function,
+          required: true
+        },
+        onAfterLeave: {
+          type: Function,
+          required: true
+        },
+        onPositiveClick: {
+          type: Function,
+          required: true
+        },
+        onNegativeClick: {
+          type: Function,
+          required: true
+        },
+        onClose: {
+          type: Function,
+          required: true
+        },
+        onAfterEnter: Function,
+        onEsc: Function
+      }),
+      setup(props) {
+        const bodyRef = /* @__PURE__ */ ref(null);
+        const scrollbarRef = /* @__PURE__ */ ref(null);
+        const displayedRef = /* @__PURE__ */ ref(props.show);
+        const transformOriginXRef = /* @__PURE__ */ ref(null);
+        const transformOriginYRef = /* @__PURE__ */ ref(null);
+        const NModal2 = inject(modalInjectionKey);
+        let mousePosition = null;
+        watch(/* @__PURE__ */ toRef(props, "show"), (value) => {
+          if (value) {
+            mousePosition = NModal2.getMousePosition();
+          }
+        }, {
+          immediate: true
+        });
+        const {
+          stopDrag,
+          startDrag,
+          draggableRef,
+          draggableClassRef
+        } = useDragModal(/* @__PURE__ */ toRef(props, "draggable"), {
+          onEnd: (el) => {
+            syncTransformOrigin(el);
+          }
+        });
+        const dialogTitleClassRef = computed(() => {
+          return normalizeClass([props.titleClass, draggableClassRef.value]);
+        });
+        const cardHeaderClassRef = computed(() => {
+          return normalizeClass([props.headerClass, draggableClassRef.value]);
+        });
+        watch(/* @__PURE__ */ toRef(props, "show"), (value) => {
+          if (value) displayedRef.value = true;
+        });
+        useLockHtmlScroll(computed(() => props.blockScroll && displayedRef.value));
+        function styleTransformOrigin() {
+          if (NModal2.transformOriginRef.value === "center") {
+            return "";
+          }
+          const {
+            value: transformOriginX
+          } = transformOriginXRef;
+          const {
+            value: transformOriginY
+          } = transformOriginYRef;
+          if (transformOriginX === null || transformOriginY === null) {
+            return "";
+          } else if (scrollbarRef.value) {
+            const scrollTop = scrollbarRef.value.containerScrollTop;
+            return `${transformOriginX}px ${transformOriginY + scrollTop}px`;
+          }
+          return "";
+        }
+        function syncTransformOrigin(el) {
+          if (NModal2.transformOriginRef.value === "center") {
+            return;
+          }
+          if (!mousePosition) {
+            return;
+          }
+          if (!scrollbarRef.value) return;
+          const scrollTop = scrollbarRef.value.containerScrollTop;
+          const {
+            offsetLeft,
+            offsetTop
+          } = el;
+          const top = mousePosition.y;
+          const left = mousePosition.x;
+          transformOriginXRef.value = -(offsetLeft - left);
+          transformOriginYRef.value = -(offsetTop - top - scrollTop);
+          el.style.transformOrigin = styleTransformOrigin();
+        }
+        function handleEnter(el) {
+          void nextTick(() => {
+            syncTransformOrigin(el);
+          });
+        }
+        function handleBeforeLeave(el) {
+          el.style.transformOrigin = styleTransformOrigin();
+          props.onBeforeLeave();
+        }
+        function handleAfterEnter(el) {
+          const element = el;
+          draggableRef.value && startDrag(element);
+          props.onAfterEnter && props.onAfterEnter(element);
+        }
+        function handleAfterLeave() {
+          displayedRef.value = false;
+          transformOriginXRef.value = null;
+          transformOriginYRef.value = null;
+          stopDrag();
+          props.onAfterLeave();
+        }
+        function handleCloseClick() {
+          const {
+            onClose
+          } = props;
+          if (onClose) {
+            onClose();
+          }
+        }
+        function handleNegativeClick() {
+          props.onNegativeClick();
+        }
+        function handlePositiveClick() {
+          props.onPositiveClick();
+        }
+        const childNodeRef = /* @__PURE__ */ ref(null);
+        watch(childNodeRef, (node) => {
+          if (node) {
+            void nextTick(() => {
+              const el = node.el;
+              if (el && bodyRef.value !== el) {
+                bodyRef.value = el;
+              }
+            });
+          }
+        });
+        provide(modalBodyInjectionKey, bodyRef);
+        provide(drawerBodyInjectionKey, null);
+        provide(popoverBodyInjectionKey, null);
+        return {
+          mergedTheme: NModal2.mergedThemeRef,
+          appear: NModal2.appearRef,
+          isMounted: NModal2.isMountedRef,
+          mergedClsPrefix: NModal2.mergedClsPrefixRef,
+          bodyRef,
+          scrollbarRef,
+          draggableClass: draggableClassRef,
+          displayed: displayedRef,
+          childNodeRef,
+          cardHeaderClass: cardHeaderClassRef,
+          dialogTitleClass: dialogTitleClassRef,
+          handlePositiveClick,
+          handleNegativeClick,
+          handleCloseClick,
+          handleAfterEnter,
+          handleAfterLeave,
+          handleBeforeLeave,
+          handleEnter
+        };
+      },
+      render() {
+        const {
+          $slots,
+          $attrs,
+          handleEnter,
+          handleAfterEnter,
+          handleAfterLeave,
+          handleBeforeLeave,
+          preset,
+          mergedClsPrefix
+        } = this;
+        let childNode = null;
+        if (!preset) {
+          childNode = getFirstSlotVNodeWithTypedProps("default", $slots.default, {
+            draggableClass: this.draggableClass
+          });
+          if (!childNode) {
+            warn("modal", "default slot is empty");
+            return;
+          }
+          childNode = cloneVNode(childNode);
+          childNode.props = mergeProps({
+            class: `${mergedClsPrefix}-modal`
+          }, $attrs, childNode.props || {});
+        }
+        return this.displayDirective === "show" || this.displayed || this.show ? withDirectives(h("div", {
+          role: "none",
+          class: [`${mergedClsPrefix}-modal-body-wrapper`, this.maskHidden && `${mergedClsPrefix}-modal-body-wrapper--mask-hidden`]
+        }, h(Scrollbar, {
+          ref: "scrollbarRef",
+          theme: this.mergedTheme.peers.Scrollbar,
+          themeOverrides: this.mergedTheme.peerOverrides.Scrollbar,
+          contentClass: `${mergedClsPrefix}-modal-scroll-content`
+        }, {
+          default: () => {
+            var _a;
+            return [(_a = this.renderMask) === null || _a === void 0 ? void 0 : _a.call(this), h(FocusTrap, {
+              disabled: !this.trapFocus || this.maskHidden,
+              active: this.show,
+              onEsc: this.onEsc,
+              autoFocus: this.autoFocus
+            }, {
+              default: () => {
+                var _a2;
+                return h(Transition, {
+                  name: "fade-in-scale-up-transition",
+                  appear: (_a2 = this.appear) !== null && _a2 !== void 0 ? _a2 : this.isMounted,
+                  onEnter: handleEnter,
+                  onAfterEnter: handleAfterEnter,
+                  onAfterLeave: handleAfterLeave,
+                  onBeforeLeave: handleBeforeLeave
+                }, {
+                  default: () => {
+                    const dirs = [[vShow, this.show]];
+                    const {
+                      onClickoutside
+                    } = this;
+                    if (onClickoutside) {
+                      dirs.push([clickoutside, this.onClickoutside, void 0, {
+                        capture: true
+                      }]);
+                    }
+                    return withDirectives(this.preset === "confirm" || this.preset === "dialog" ? h(NDialog, Object.assign({}, this.$attrs, {
+                      class: [`${mergedClsPrefix}-modal`, this.$attrs.class],
+                      ref: "bodyRef",
+                      theme: this.mergedTheme.peers.Dialog,
+                      themeOverrides: this.mergedTheme.peerOverrides.Dialog
+                    }, keep(this.$props, dialogPropKeys), {
+                      titleClass: this.dialogTitleClass,
+                      "aria-modal": "true"
+                    }), $slots) : this.preset === "card" ? h(NCard, Object.assign({}, this.$attrs, {
+                      ref: "bodyRef",
+                      class: [`${mergedClsPrefix}-modal`, this.$attrs.class],
+                      theme: this.mergedTheme.peers.Card,
+                      themeOverrides: this.mergedTheme.peerOverrides.Card
+                    }, keep(this.$props, cardBasePropKeys), {
+                      headerClass: this.cardHeaderClass,
+                      "aria-modal": "true",
+                      role: "dialog"
+                    }), $slots) : this.childNodeRef = childNode, dirs);
+                  }
+                });
+              }
+            })];
+          }
+        })), [[vShow, this.displayDirective === "if" || this.displayed || this.show]]) : null;
+      }
+    });
+    const style$7 = c$1([cB("modal-container", `
+ position: fixed;
+ left: 0;
+ top: 0;
+ height: 0;
+ width: 0;
+ display: flex;
+ `), cB("modal-mask", `
+ position: fixed;
+ left: 0;
+ right: 0;
+ top: 0;
+ bottom: 0;
+ background-color: rgba(0, 0, 0, .4);
+ `, [fadeInTransition({
+      enterDuration: ".25s",
+      leaveDuration: ".25s",
+      enterCubicBezier: "var(--n-bezier-ease-out)",
+      leaveCubicBezier: "var(--n-bezier-ease-out)"
+    })]), cB("modal-body-wrapper", `
+ position: fixed;
+ left: 0;
+ right: 0;
+ top: 0;
+ bottom: 0;
+ overflow: visible;
+ `, [cB("modal-scroll-content", `
+ min-height: 100%;
+ display: flex;
+ position: relative;
+ `), cM("mask-hidden", `pointer-events: none;`, [cB("modal-scroll-content", [c$1("> *", `
+ pointer-events: all;
+ `)])])]), cB("modal", `
+ position: relative;
+ align-self: center;
+ color: var(--n-text-color);
+ margin: auto;
+ box-shadow: var(--n-box-shadow);
+ `, [fadeInScaleUpTransition({
+      duration: ".25s",
+      enterScale: ".5"
+    }), c$1(`.${DRAGGABLE_CLASS}`, `
+ cursor: move;
+ user-select: none;
+ `)])]);
+    const modalProps = Object.assign(Object.assign(Object.assign(Object.assign({}, useTheme.props), {
+      show: Boolean,
+      showMask: {
+        type: Boolean,
+        default: true
+      },
+      maskClosable: {
+        type: Boolean,
+        default: true
+      },
+      preset: String,
+      to: [String, Object],
+      displayDirective: {
+        type: String,
+        default: "if"
+      },
+      transformOrigin: {
+        type: String,
+        default: "mouse"
+      },
+      zIndex: Number,
+      autoFocus: {
+        type: Boolean,
+        default: true
+      },
+      trapFocus: {
+        type: Boolean,
+        default: true
+      },
+      closeOnEsc: {
+        type: Boolean,
+        default: true
+      },
+      blockScroll: {
+        type: Boolean,
+        default: true
+      }
+    }), presetProps), {
+      draggable: [Boolean, Object],
+      // events
+      onEsc: Function,
+      "onUpdate:show": [Function, Array],
+      onUpdateShow: [Function, Array],
+      onAfterEnter: Function,
+      onBeforeLeave: Function,
+      onAfterLeave: Function,
+      onClose: Function,
+      onPositiveClick: Function,
+      onNegativeClick: Function,
+      onMaskClick: Function,
+      // private
+      internalDialog: Boolean,
+      internalModal: Boolean,
+      internalAppear: {
+        type: Boolean,
+        default: void 0
+      },
+      // deprecated
+      overlayStyle: [String, Object],
+      onBeforeHide: Function,
+      onAfterHide: Function,
+      onHide: Function,
+      unstableShowMask: {
+        type: Boolean,
+        default: void 0
+      }
+    });
+    const NModal = /* @__PURE__ */ defineComponent({
+      name: "Modal",
+      inheritAttrs: false,
+      props: modalProps,
+      slots: Object,
+      setup(props) {
+        const containerRef = /* @__PURE__ */ ref(null);
+        const {
+          mergedClsPrefixRef,
+          namespaceRef,
+          inlineThemeDisabled
+        } = useConfig(props);
+        const themeRef = useTheme("Modal", "-modal", style$7, modalLight, props, mergedClsPrefixRef);
+        const clickedRef = useClicked(64);
+        const clickedPositionRef = useClickPosition();
+        const isMountedRef = isMounted();
+        const NDialogProvider = props.internalDialog ? inject(dialogProviderInjectionKey, null) : null;
+        const NModalProvider = props.internalModal ? inject(modalProviderInjectionKey, null) : null;
+        const isComposingRef2 = useIsComposing();
+        function doUpdateShow(show) {
+          const {
+            onUpdateShow,
+            "onUpdate:show": _onUpdateShow,
+            onHide
+          } = props;
+          if (onUpdateShow) call(onUpdateShow, show);
+          if (_onUpdateShow) call(_onUpdateShow, show);
+          if (onHide && !show) onHide(show);
+        }
+        function handleCloseClick() {
+          const {
+            onClose
+          } = props;
+          if (onClose) {
+            void Promise.resolve(onClose()).then((value) => {
+              if (value === false) return;
+              doUpdateShow(false);
+            });
+          } else {
+            doUpdateShow(false);
+          }
+        }
+        function handlePositiveClick() {
+          const {
+            onPositiveClick
+          } = props;
+          if (onPositiveClick) {
+            void Promise.resolve(onPositiveClick()).then((value) => {
+              if (value === false) return;
+              doUpdateShow(false);
+            });
+          } else {
+            doUpdateShow(false);
+          }
+        }
+        function handleNegativeClick() {
+          const {
+            onNegativeClick
+          } = props;
+          if (onNegativeClick) {
+            void Promise.resolve(onNegativeClick()).then((value) => {
+              if (value === false) return;
+              doUpdateShow(false);
+            });
+          } else {
+            doUpdateShow(false);
+          }
+        }
+        function handleBeforeLeave() {
+          const {
+            onBeforeLeave,
+            onBeforeHide
+          } = props;
+          if (onBeforeLeave) call(onBeforeLeave);
+          if (onBeforeHide) onBeforeHide();
+        }
+        function handleAfterLeave() {
+          const {
+            onAfterLeave,
+            onAfterHide
+          } = props;
+          if (onAfterLeave) call(onAfterLeave);
+          if (onAfterHide) onAfterHide();
+        }
+        function handleClickoutside(e) {
+          var _a;
+          const {
+            onMaskClick
+          } = props;
+          if (onMaskClick) {
+            onMaskClick(e);
+          }
+          if (props.maskClosable) {
+            if ((_a = containerRef.value) === null || _a === void 0 ? void 0 : _a.contains(getPreciseEventTarget(e))) {
+              doUpdateShow(false);
+            }
+          }
+        }
+        function handleEsc(e) {
+          var _a;
+          (_a = props.onEsc) === null || _a === void 0 ? void 0 : _a.call(props);
+          if (props.show && props.closeOnEsc && eventEffectNotPerformed(e)) {
+            if (!isComposingRef2.value) {
+              doUpdateShow(false);
+            }
+          }
+        }
+        provide(modalInjectionKey, {
+          getMousePosition: () => {
+            const mergedProvider = NDialogProvider || NModalProvider;
+            if (mergedProvider) {
+              const {
+                clickedRef: clickedRef2,
+                clickedPositionRef: clickedPositionRef2
+              } = mergedProvider;
+              if (clickedRef2.value && clickedPositionRef2.value) {
+                return clickedPositionRef2.value;
+              }
+            }
+            if (clickedRef.value) {
+              return clickedPositionRef.value;
+            }
+            return null;
+          },
+          mergedClsPrefixRef,
+          mergedThemeRef: themeRef,
+          isMountedRef,
+          appearRef: /* @__PURE__ */ toRef(props, "internalAppear"),
+          transformOriginRef: /* @__PURE__ */ toRef(props, "transformOrigin")
+        });
+        const cssVarsRef = computed(() => {
+          const {
+            common: {
+              cubicBezierEaseOut: cubicBezierEaseOut2
+            },
+            self: {
+              boxShadow,
+              color,
+              textColor
+            }
+          } = themeRef.value;
+          return {
+            "--n-bezier-ease-out": cubicBezierEaseOut2,
+            "--n-box-shadow": boxShadow,
+            "--n-color": color,
+            "--n-text-color": textColor
+          };
+        });
+        const themeClassHandle = inlineThemeDisabled ? useThemeClass("theme-class", void 0, cssVarsRef, props) : void 0;
+        return {
+          mergedClsPrefix: mergedClsPrefixRef,
+          namespace: namespaceRef,
+          isMounted: isMountedRef,
+          containerRef,
+          presetProps: computed(() => {
+            const pickedProps = keep(props, presetPropsKeys);
+            return pickedProps;
+          }),
+          handleEsc,
+          handleAfterLeave,
+          handleClickoutside,
+          handleBeforeLeave,
+          doUpdateShow,
+          handleNegativeClick,
+          handlePositiveClick,
+          handleCloseClick,
+          cssVars: inlineThemeDisabled ? void 0 : cssVarsRef,
+          themeClass: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.themeClass,
+          onRender: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.onRender
+        };
+      },
+      render() {
+        const {
+          mergedClsPrefix
+        } = this;
+        return h(LazyTeleport, {
+          to: this.to,
+          show: this.show
+        }, {
+          default: () => {
+            var _a;
+            (_a = this.onRender) === null || _a === void 0 ? void 0 : _a.call(this);
+            const {
+              showMask
+            } = this;
+            return withDirectives(h("div", {
+              role: "none",
+              ref: "containerRef",
+              class: [`${mergedClsPrefix}-modal-container`, this.themeClass, this.namespace],
+              style: this.cssVars
+            }, h(NModalBodyWrapper, Object.assign({
+              style: this.overlayStyle
+            }, this.$attrs, {
+              ref: "bodyWrapper",
+              displayDirective: this.displayDirective,
+              show: this.show,
+              preset: this.preset,
+              autoFocus: this.autoFocus,
+              trapFocus: this.trapFocus,
+              draggable: this.draggable,
+              blockScroll: this.blockScroll,
+              maskHidden: !showMask
+            }, this.presetProps, {
+              onEsc: this.handleEsc,
+              onClose: this.handleCloseClick,
+              onNegativeClick: this.handleNegativeClick,
+              onPositiveClick: this.handlePositiveClick,
+              onBeforeLeave: this.handleBeforeLeave,
+              onAfterEnter: this.onAfterEnter,
+              onAfterLeave: this.handleAfterLeave,
+              onClickoutside: showMask ? void 0 : this.handleClickoutside,
+              renderMask: showMask ? () => {
+                var _a2;
+                return h(Transition, {
+                  name: "fade-in-transition",
+                  key: "mask",
+                  appear: (_a2 = this.internalAppear) !== null && _a2 !== void 0 ? _a2 : this.isMounted
+                }, {
+                  default: () => {
+                    return this.show ? h("div", {
+                      "aria-hidden": true,
+                      ref: "containerRef",
+                      class: `${mergedClsPrefix}-modal-mask`,
+                      onClick: this.handleClickoutside
+                    }) : null;
+                  }
+                });
+              } : void 0
+            }), this.$slots)), [[zindexable, {
+              zIndex: this.zIndex,
+              enabled: this.show
+            }]]);
+          }
+        });
+      }
+    });
     const loadingBarDark = {
       name: "LoadingBar",
       common: derived$1,
@@ -35232,7 +36584,7 @@ ${style2}
           } = formItem;
           nTriggerFormBlur();
         }
-        function handleClick() {
+        function handleClick2() {
           if (props.loading || mergedDisabledRef.value) return;
           if (mergedValueRef.value !== props.checkedValue) {
             doUpdateValue(props.checkedValue);
@@ -35333,7 +36685,7 @@ ${style2}
           return mergedSizeRef.value[0];
         }), cssVarsRef, props) : void 0;
         return {
-          handleClick,
+          handleClick: handleClick2,
           handleBlur,
           handleFocus,
           handleKeyup,
@@ -37213,7 +38565,7 @@ ${style2}
       Marquee: marqueeDark
     };
     const _hoisted_1$8 = { class: "upload-inner" };
-    const _sfc_main$8 = /* @__PURE__ */ defineComponent({
+    const _sfc_main$9 = /* @__PURE__ */ defineComponent({
       __name: "FileUploader",
       props: {
         disabled: { type: Boolean }
@@ -37271,7 +38623,7 @@ ${style2}
       }
       return target;
     };
-    const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-942ff299"]]);
+    const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-942ff299"]]);
     const _hoisted_1$7 = { class: "recognize-view" };
     const _hoisted_2$6 = { class: "rv-header" };
     const _hoisted_3$6 = {
@@ -37290,7 +38642,7 @@ ${style2}
     const _hoisted_10$4 = ["src", "alt"];
     const _hoisted_11$2 = { class: "page-label" };
     const _hoisted_12$2 = { class: "page-name" };
-    const _sfc_main$7 = /* @__PURE__ */ defineComponent({
+    const _sfc_main$8 = /* @__PURE__ */ defineComponent({
       __name: "RecognizeView",
       setup(__props) {
         const store = useTaskStore();
@@ -37628,7 +38980,7 @@ ${style2}
         };
       }
     });
-    const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-139a5a1e"]]);
+    const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-139a5a1e"]]);
     const convertApi = {
       musicxmlToJianpu(req) {
         return apiFetch("/convert/musicxml-to-jianpu", {
@@ -37731,7 +39083,7 @@ ${style2}
       URL.revokeObjectURL(url);
     }
     const _hoisted_1$6 = { class: "editor-shell" };
-    const _sfc_main$6 = /* @__PURE__ */ defineComponent({
+    const _sfc_main$7 = /* @__PURE__ */ defineComponent({
       __name: "JianpuEditor",
       props: {
         modelValue: {}
@@ -37753,7 +39105,266 @@ ${style2}
         };
       }
     });
-    const JianpuEditor = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["__scopeId", "data-v-e6555c5a"]]);
+    const JianpuEditor = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-e6555c5a"]]);
+    const _sfc_main$6 = /* @__PURE__ */ defineComponent({
+      __name: "JianpuSyntaxGuide",
+      props: {
+        show: { type: Boolean }
+      },
+      emits: ["update:show"],
+      setup(__props) {
+        return (_ctx, _cache) => {
+          return openBlock(), createBlock(unref(NModal), {
+            show: __props.show,
+            preset: "dialog",
+            class: "syntax-guide-modal",
+            title: "简谱编辑语法说明",
+            "show-icon": false,
+            "positive-text": "知道了",
+            onPositiveClick: _cache[0] || (_cache[0] = ($event) => _ctx.$emit("update:show", false)),
+            "onUpdate:show": _cache[1] || (_cache[1] = ($event) => _ctx.$emit("update:show", $event))
+          }, {
+            default: withCtx(() => [..._cache[2] || (_cache[2] = [
+              createBaseVNode("div", { class: "guide-shell" }, [
+                createBaseVNode("div", { class: "guide-intro" }, [
+                  createBaseVNode("p", null, "编辑器使用项目自研简谱语法，借鉴文本谱编辑工具的写法：先写调号和拍号，再按小节输入音符。OCR 文字不写在这里，仍在渲染画面中单独拖动、缩放和保存。")
+                ]),
+                createBaseVNode("div", { class: "guide-section" }, [
+                  createBaseVNode("h3", null, "快速开始"),
+                  createBaseVNode("pre", null, [
+                    createBaseVNode("code", null, "title=瑞雪迎春\n1=C\n4/4\n1 2 q3 q4 | h[1+3+5] \\p |\nL: 春 风 又 绿")
+                  ])
+                ]),
+                createBaseVNode("div", { class: "guide-grid" }, [
+                  createBaseVNode("section", null, [
+                    createBaseVNode("h3", null, "头部"),
+                    createBaseVNode("table", null, [
+                      createBaseVNode("tbody", null, [
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "title=瑞雪迎春")
+                          ]),
+                          createBaseVNode("td", null, "谱名，可选")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "1=C")
+                          ]),
+                          createBaseVNode("td", null, "调号，必写或默认 C")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "4/4")
+                          ]),
+                          createBaseVNode("td", null, "拍号，必写或默认 4/4")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "tempo=85")
+                          ]),
+                          createBaseVNode("td", null, "速度，可选")
+                        ])
+                      ])
+                    ])
+                  ]),
+                  createBaseVNode("section", null, [
+                    createBaseVNode("h3", null, "音符"),
+                    createBaseVNode("table", null, [
+                      createBaseVNode("tbody", null, [
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "1 2 3")
+                          ]),
+                          createBaseVNode("td", null, "基础音级")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "0")
+                          ]),
+                          createBaseVNode("td", null, "休止符")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "#1 b2 n7")
+                          ]),
+                          createBaseVNode("td", null, "升、降、还原")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "1' 1,")
+                          ]),
+                          createBaseVNode("td", null, "高八度、低八度")
+                        ])
+                      ])
+                    ])
+                  ]),
+                  createBaseVNode("section", null, [
+                    createBaseVNode("h3", null, "时值"),
+                    createBaseVNode("table", null, [
+                      createBaseVNode("tbody", null, [
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "w1")
+                          ]),
+                          createBaseVNode("td", null, "全音符")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "h1")
+                          ]),
+                          createBaseVNode("td", null, "二分音符")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "1")
+                          ]),
+                          createBaseVNode("td", null, "四分音符")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "q1 s1 d1")
+                          ]),
+                          createBaseVNode("td", null, "八分、十六分、三十二分")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "1. q2.")
+                          ]),
+                          createBaseVNode("td", null, "附点")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "1- 1---")
+                          ]),
+                          createBaseVNode("td", null, "延长")
+                        ])
+                      ])
+                    ])
+                  ]),
+                  createBaseVNode("section", null, [
+                    createBaseVNode("h3", null, "和弦与小节"),
+                    createBaseVNode("table", null, [
+                      createBaseVNode("tbody", null, [
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "[1+3+5]")
+                          ]),
+                          createBaseVNode("td", null, "和弦")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "q[#2+4'+6]")
+                          ]),
+                          createBaseVNode("td", null, "带时值、升降、八度的和弦")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "| || |: :|")
+                          ]),
+                          createBaseVNode("td", null, "普通、终止、反复小节线")
+                        ])
+                      ])
+                    ])
+                  ])
+                ]),
+                createBaseVNode("div", { class: "guide-grid lower" }, [
+                  createBaseVNode("section", null, [
+                    createBaseVNode("h3", null, "连线、歌词、力度"),
+                    createBaseVNode("table", null, [
+                      createBaseVNode("tbody", null, [
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "1~ 1")
+                          ]),
+                          createBaseVNode("td", null, "延音线")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "(1 2 3)")
+                          ]),
+                          createBaseVNode("td", null, "圆滑线")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "L: 春 风 又 绿")
+                          ]),
+                          createBaseVNode("td", null, "歌词行，按音符顺序匹配")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "\\p \\mp \\f \\ff")
+                          ]),
+                          createBaseVNode("td", null, "力度标记")
+                        ]),
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("td", null, [
+                            createBaseVNode("code", null, "^tr ^> ^-")
+                          ]),
+                          createBaseVNode("td", null, "颤音、重音、保持音")
+                        ])
+                      ])
+                    ])
+                  ]),
+                  createBaseVNode("section", null, [
+                    createBaseVNode("h3", null, "常见错误"),
+                    createBaseVNode("ul", null, [
+                      createBaseVNode("li", null, [
+                        createBaseVNode("code", null, "key=C"),
+                        createTextVNode("、"),
+                        createBaseVNode("code", null, "time=4/4"),
+                        createTextVNode(" 是旧写法，保存或打开历史时会自动迁移。")
+                      ]),
+                      createBaseVNode("li", null, [
+                        createBaseVNode("code", null, "1/"),
+                        createTextVNode("、"),
+                        createBaseVNode("code", null, "1//"),
+                        createTextVNode(" 是旧时值，推荐写成 "),
+                        createBaseVNode("code", null, "q1"),
+                        createTextVNode("、"),
+                        createBaseVNode("code", null, "s1"),
+                        createTextVNode("。")
+                      ]),
+                      createBaseVNode("li", null, [
+                        createTextVNode("和弦时值写在和弦前，例如 "),
+                        createBaseVNode("code", null, "q[1+3+5]"),
+                        createTextVNode("，不要写成 "),
+                        createBaseVNode("code", null, "[1/+3/]"),
+                        createTextVNode("。")
+                      ]),
+                      createBaseVNode("li", null, "OCR 文字不要写入简谱编辑器，在渲染界面中直接编辑和拖动。")
+                    ])
+                  ])
+                ]),
+                createBaseVNode("div", { class: "guide-section refs" }, [
+                  createBaseVNode("h3", null, "参考资料"),
+                  createBaseVNode("p", null, "说明结构参考了 LilyPond 的“文本输入、学习手册、语法参考”分层，abcjs 对 ABC 标准兼容性/例外的说明方式，以及 VexTab 教程的逐步示例和可写性导向。"),
+                  createBaseVNode("div", { class: "ref-links" }, [
+                    createBaseVNode("a", {
+                      href: "https://lilypond.org/manuals",
+                      target: "_blank"
+                    }, "LilyPond Manuals"),
+                    createBaseVNode("a", {
+                      href: "https://docs.abcjs.net/overview/abc-notation",
+                      target: "_blank"
+                    }, "abcjs ABC Notation"),
+                    createBaseVNode("a", {
+                      href: "https://www.vexflow.com/vextab/tutorial.html",
+                      target: "_blank"
+                    }, "VexTab Tutorial"),
+                    createBaseVNode("a", {
+                      href: "https://github.com/ssb22/jianpu-ly",
+                      target: "_blank"
+                    }, "jianpu-ly")
+                  ])
+                ])
+              ], -1)
+            ])]),
+            _: 1
+          }, 8, ["show"]);
+        };
+      }
+    });
+    const JianpuSyntaxGuide = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["__scopeId", "data-v-61193071"]]);
     function useZoomPan(container) {
       const scale = /* @__PURE__ */ ref(1);
       const tx = /* @__PURE__ */ ref(0);
@@ -38358,6 +39969,7 @@ ${style2}
         const isViewingFinal = /* @__PURE__ */ ref(false);
         const isRenderingFinal = /* @__PURE__ */ ref(false);
         const finalSvgFileId = /* @__PURE__ */ ref(store.svgFileId);
+        const syntaxGuideOpen = /* @__PURE__ */ ref(false);
         const exportFormat = /* @__PURE__ */ ref("pdf");
         const formatOptions = [
           { label: "PDF", value: "pdf" },
@@ -38781,7 +40393,7 @@ ${style2}
               class: normalizeClass(["ws-history", { open: historyOpen.value }])
             }, [
               createBaseVNode("div", _hoisted_2$3, [
-                _cache[6] || (_cache[6] = createBaseVNode("span", { class: "ws-hist-title" }, "历史", -1)),
+                _cache[8] || (_cache[8] = createBaseVNode("span", { class: "ws-hist-title" }, "历史", -1)),
                 createBaseVNode("div", _hoisted_3$3, [
                   createVNode(unref(Button), {
                     size: "tiny",
@@ -38822,14 +40434,14 @@ ${style2}
                       }, 8, ["disabled"])
                     ]),
                     default: withCtx(() => [
-                      _cache[5] || (_cache[5] = createTextVNode(" 确定删除所有历史记录？ ", -1))
+                      _cache[7] || (_cache[7] = createTextVNode(" 确定删除所有历史记录？ ", -1))
                     ]),
                     _: 1
                   })
                 ])
               ]),
               createBaseVNode("div", _hoisted_4$3, [
-                !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$2, [..._cache[7] || (_cache[7] = [
+                !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$2, [..._cache[9] || (_cache[9] = [
                   createBaseVNode("span", null, "暂无记录", -1)
                 ])])) : createCommentVNode("", true),
                 (openBlock(true), createElementBlock(Fragment, null, renderList(histBatches.value, (batch2) => {
@@ -38867,7 +40479,7 @@ ${style2}
                           ])
                         ]),
                         default: withCtx(() => [
-                          _cache[8] || (_cache[8] = createTextVNode(" 确定删除这次历史记录？ ", -1))
+                          _cache[10] || (_cache[10] = createTextVNode(" 确定删除这次历史记录？ ", -1))
                         ]),
                         _: 1
                       }, 8, ["onPositiveClick"]),
@@ -38969,7 +40581,7 @@ ${style2}
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[9] || (_cache[9] = createTextVNode(" XML → 简谱 ", -1))
+                      _cache[11] || (_cache[11] = createTextVNode(" XML → 简谱 ", -1))
                     ]),
                     _: 1
                   }, 8, ["loading", "disabled"]),
@@ -38989,7 +40601,7 @@ ${style2}
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[10] || (_cache[10] = createTextVNode(" 简谱 → XML ", -1))
+                      _cache[12] || (_cache[12] = createTextVNode(" 简谱 → XML ", -1))
                     ]),
                     _: 1
                   }, 8, ["loading", "disabled"]),
@@ -39008,7 +40620,7 @@ ${style2}
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[11] || (_cache[11] = createTextVNode(" MusicXML ", -1))
+                      _cache[13] || (_cache[13] = createTextVNode(" MusicXML ", -1))
                     ]),
                     _: 1
                   }, 8, ["disabled"]),
@@ -39028,7 +40640,7 @@ ${style2}
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[12] || (_cache[12] = createTextVNode(" 导出 ", -1))
+                      _cache[14] || (_cache[14] = createTextVNode(" 导出 ", -1))
                     ]),
                     _: 1
                   }, 8, ["loading", "disabled"]),
@@ -39044,7 +40656,7 @@ ${style2}
               createBaseVNode("div", _hoisted_20, [
                 createBaseVNode("div", _hoisted_21, [
                   createBaseVNode("div", _hoisted_22, [
-                    _cache[13] || (_cache[13] = createBaseVNode("span", null, "原始五线谱", -1)),
+                    _cache[15] || (_cache[15] = createBaseVNode("span", null, "原始五线谱", -1)),
                     unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_23, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
                   ]),
                   createBaseVNode("div", _hoisted_24, [
@@ -39061,11 +40673,29 @@ ${style2}
                       createVNode(unref(Button), {
                         size: "tiny",
                         quaternary: "",
+                        onClick: _cache[4] || (_cache[4] = ($event) => syntaxGuideOpen.value = true)
+                      }, {
+                        icon: withCtx(() => [
+                          createVNode(unref(NIcon), { size: "13" }, {
+                            default: withCtx(() => [
+                              createVNode(unref(HelpCircleOutline))
+                            ]),
+                            _: 1
+                          })
+                        ]),
+                        default: withCtx(() => [
+                          _cache[16] || (_cache[16] = createTextVNode(" 语法说明 ", -1))
+                        ]),
+                        _: 1
+                      }),
+                      createVNode(unref(Button), {
+                        size: "tiny",
+                        quaternary: "",
                         onClick: saveJianpu,
                         loading: unref(store).isBusy,
                         disabled: unref(store).isBusy || !canSaveCurrentPage.value
                       }, {
-                        default: withCtx(() => [..._cache[14] || (_cache[14] = [
+                        default: withCtx(() => [..._cache[17] || (_cache[17] = [
                           createTextVNode(" 保存 ", -1)
                         ])]),
                         _: 1
@@ -39101,21 +40731,25 @@ ${style2}
                         ]),
                         _: 1
                       }),
-                      _cache[15] || (_cache[15] = createBaseVNode("span", null, "暂无渲染", -1))
+                      _cache[18] || (_cache[18] = createBaseVNode("span", null, "暂无渲染", -1))
                     ])) : (openBlock(), createBlock(JianpuEditor, {
                       key: 2,
                       modelValue: jianpuText.value,
-                      "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => jianpuText.value = $event)
+                      "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => jianpuText.value = $event)
                     }, null, 8, ["modelValue"]))
                   ])
                 ])
               ])
-            ])
+            ]),
+            createVNode(JianpuSyntaxGuide, {
+              show: syntaxGuideOpen.value,
+              "onUpdate:show": _cache[6] || (_cache[6] = ($event) => syntaxGuideOpen.value = $event)
+            }, null, 8, ["show"])
           ]);
         };
       }
     });
-    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-6fe7cf50"]]);
+    const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-754187d1"]]);
     const _hoisted_1$2 = { class: "settings-view" };
     const _hoisted_2$2 = { class: "sv-section" };
     const _hoisted_3$2 = { class: "sv-grid" };

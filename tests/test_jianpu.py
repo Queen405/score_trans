@@ -85,3 +85,17 @@ def test_legacy_text_migrates_to_new_syntax() -> None:
     assert "q2" in migrated
     assert "q[3+#2]" in migrated
     assert normalize_jianpu_text(migrated).startswith("1=C\n4/4")
+
+
+def test_ai_output_measure_labels_are_ignored() -> None:
+    normalized = normalize_jianpu_text("title=中阮\n1=C\n4/4\n272: 3' 3' 2' 2' | 1' 1' 7 7 |")
+
+    assert "272:" not in normalized
+    assert "3' 3' 2' 2'" in normalized
+
+
+def test_ai_chord_duration_inside_brackets_is_normalized() -> None:
+    normalized = normalize_jianpu_text("1=C\n4/4\n[q1+3+5] [q1+3+5] [q1+3+5] [q1+3+5] |")
+
+    assert "q[" in normalized
+    assert "[q1" not in normalized

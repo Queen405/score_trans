@@ -3,3 +3,6 @@ uvicorn>=0.29
 python-multipart>=0.0.9
 pytest>=8
 pillow>=10.0
+pymupdf>=1.25
+langchain>=1.0
+langchain-openai>=1.0

@@ -107,6 +107,10 @@
           <div class="ws-panel-head">
             <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
             <div class="panel-head-actions">
+              <n-button size="tiny" quaternary @click="syntaxGuideOpen = true">
+                <template #icon><n-icon size="13"><HelpCircleOutline /></n-icon></template>
+                语法说明
+              </n-button>
               <n-button size="tiny" quaternary @click="saveJianpu" :loading="store.isBusy" :disabled="store.isBusy || !canSaveCurrentPage">
                 保存
               </n-button>
@@ -132,6 +136,7 @@
         </div>
       </div>
     </div>
+    <jianpu-syntax-guide v-model:show="syntaxGuideOpen" />
   </div>
 </template>
 
@@ -148,6 +153,7 @@ import { ApiError, getFileURL, fileExists } from '../api/client'
 import type { HistoryBatchListItem, HistoryBatch, HistoryPage } from '../models/types'
 import type { TaskPage } from '../stores/task'
 import JianpuEditor from '../components/JianpuEditor.vue'
+import JianpuSyntaxGuide from '../components/JianpuSyntaxGuide.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
@@ -162,6 +168,7 @@ import {
   TimeOutline,
   RefreshOutline,
   TrashOutline,
+  HelpCircleOutline,
 } from '@vicons/ionicons5'
 import { NButton, NSelect, NIcon, NPopconfirm, useMessage } from 'naive-ui'
 
@@ -177,6 +184,7 @@ const canSaveCurrentPage = computed(() => hasJianpuText.value || store.hasMusicx
 const isViewingFinal = ref(false)
 const isRenderingFinal = ref(false)
 const finalSvgFileId = ref(store.svgFileId)
+const syntaxGuideOpen = ref(false)
 const exportFormat = ref('pdf')
 const formatOptions = [
   { label: 'PDF', value: 'pdf' },

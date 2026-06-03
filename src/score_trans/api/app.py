@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from ..models.common.errors import ExternalToolError, OCRError
+from ..models.common.errors import AITranscriptionError, ExternalToolError, OCRError
 
 
 def create_app() -> FastAPI:
@@ -22,6 +22,7 @@ def create_app() -> FastAPI:
     )
 
     # Register routers
+    from .ai import routes as ai
     from .health import routes as health
     from .convert import routes as convert
     from .recognize import routes as recognize
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
     from .export import routes as export_router
     from .settings import routes as settings_router
 
+    app.include_router(ai.router)
     app.include_router(health.router)
     app.include_router(convert.router)
     app.include_router(recognize.router)
@@ -55,6 +57,13 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=502,
             content={"error": str(exc), "stage": "ocr"},
+        )
+
+    @app.exception_handler(AITranscriptionError)
+    async def ai_transcription_error_handler(request: Request, exc: AITranscriptionError):
+        return JSONResponse(
+            status_code=502,
+            content={"error": str(exc), "stage": "ai"},
         )
 
     @app.exception_handler(ValueError)

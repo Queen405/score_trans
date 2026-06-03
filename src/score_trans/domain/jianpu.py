@@ -300,6 +300,10 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
         stripped = raw_line.strip()
         if not stripped or stripped.startswith("#"):
             continue
+        raw_line = _strip_leading_measure_label(raw_line)
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
         if stripped.startswith("L:"):
             lyrics.extend(part for part in stripped[2:].strip().split() if part)
             continue
@@ -323,8 +327,21 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             saw_time = True
             continue
         for match in re.finditer(r"\|\||\|:|:\||\||[^\s|]+", raw_line):
-            tokens.append(_Token(match.group(0), line_no, match.start() + 1))
+            raw_token = match.group(0)
+            if _is_measure_label_token(raw_token):
+                continue
+            if saw_time and re.fullmatch(r"\d+/\d+", raw_token.strip()):
+                continue
+            tokens.append(_Token(raw_token, line_no, match.start() + 1))
     return options, tokens, lyrics
+
+
+def _strip_leading_measure_label(line: str) -> str:
+    return re.sub(r"^\s*\d+[.:：]\s*", "", line, count=1)
+
+
+def _is_measure_label_token(token: str) -> bool:
+    return bool(re.fullmatch(r"\d+[.:：]", token.strip()))
 
 
 def _parse_event_token(token: _Token) -> Event:
@@ -353,6 +370,7 @@ def _parse_event_token(token: _Token) -> Event:
         parts = [part.strip() for part in work[1:-1].split("+") if part.strip()]
         if not parts:
             raise _syntax_error(token, "和弦不能为空，请写成 [1+3+5]")
+        duration, parts = _normalize_chord_duration_parts(duration, parts)
         event = Event(kind="note", duration=duration, pitches=[_parse_pitch(part, token) for part in parts])
         event.pitches.sort(key=lambda pitch: pitch.rank, reverse=True)
     elif work == "0":
@@ -365,6 +383,19 @@ def _parse_event_token(token: _Token) -> Event:
     event.slur_start = slur_start
     event.slur_stop = slur_stop
     return event
+
+
+def _normalize_chord_duration_parts(duration: Fraction, parts: list[str]) -> tuple[Fraction, list[str]]:
+    detected_duration: Fraction | None = None
+    normalized: list[str] = []
+    for part in parts:
+        part_duration, pitch = _consume_duration_prefix(part)
+        if pitch != part:
+            detected_duration = detected_duration or part_duration
+        normalized.append(pitch)
+    if detected_duration is None:
+        return duration, parts
+    return detected_duration, normalized
 
 
 def _parse_pitch(raw: str, token: _Token) -> JianpuPitch:

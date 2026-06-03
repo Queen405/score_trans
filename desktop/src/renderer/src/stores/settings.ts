@@ -12,6 +12,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const ocrApiKeySet = ref(false)
   const ocrBaseUrl = ref('https://api.siliconflow.cn/v1')
   const ocrModel = ref('deepseek-ai/DeepSeek-OCR')
+  const aiApiKey = ref('')
+  const aiApiKeySet = ref(false)
+  const aiBaseUrl = ref('https://api.siliconflow.cn/v1')
+  const aiModel = ref('Qwen/Qwen3-VL-8B-Instruct')
   const omrPreprocess = ref(true)
   const omrPreprocessLongEdge = ref(3600)
   const omrPreprocessBinarize = ref(false)
@@ -27,6 +31,10 @@ export const useSettingsStore = defineStore('settings', () => {
       ocrApiKeySet.value = data.ocr_api_key_set ?? false
       ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
       ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'
+      aiApiKey.value = data.ai_api_key ?? ''
+      aiApiKeySet.value = data.ai_api_key_set ?? false
+      aiBaseUrl.value = data.ai_base_url ?? 'https://api.siliconflow.cn/v1'
+      aiModel.value = data.ai_model ?? 'Qwen/Qwen3-VL-8B-Instruct'
       omrPreprocess.value = data.omr_preprocess ?? true
       omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600
       omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false
@@ -44,6 +52,9 @@ export const useSettingsStore = defineStore('settings', () => {
       ocr_api_key: ocrApiKey.value || undefined,
       ocr_base_url: ocrBaseUrl.value,
       ocr_model: ocrModel.value,
+      ai_api_key: aiApiKey.value || undefined,
+      ai_base_url: aiBaseUrl.value,
+      ai_model: aiModel.value,
       omr_preprocess: omrPreprocess.value,
       omr_preprocess_long_edge: omrPreprocessLongEdge.value,
       omr_preprocess_binarize: omrPreprocessBinarize.value,
@@ -60,6 +71,10 @@ export const useSettingsStore = defineStore('settings', () => {
     ocrApiKeySet,
     ocrBaseUrl,
     ocrModel,
+    aiApiKey,
+    aiApiKeySet,
+    aiBaseUrl,
+    aiModel,
     omrPreprocess,
     omrPreprocessLongEdge,
     omrPreprocessBinarize,

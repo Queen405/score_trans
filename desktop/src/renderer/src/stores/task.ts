@@ -20,6 +20,22 @@ export interface TaskPage {
   errorMessage: string
 }
 
+export interface TaskPageInput {
+  inputFileName: string
+  historyPageId?: number | null
+  inputFileId: string
+  originalFileName?: string
+  originalFileId?: string
+  musicxmlFileId?: string
+  musicxmlText?: string
+  jianpuText?: string
+  ocrText?: string
+  jianpuDirty?: boolean
+  svgFileId?: string
+  status?: TaskPageStatus
+  errorMessage?: string
+}
+
 function createPage(seed?: Partial<TaskPage>): TaskPage {
   const random = Math.random().toString(36).slice(2, 8)
   return {
@@ -245,6 +261,33 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
+  function replacePage(index: number, replacementPages: TaskPageInput[], selectOffset = 0): void {
+    if (index < 0 || index >= pages.value.length) return
+    const nextPages = replacementPages.map((p) => createPage({
+      inputFileName: p.inputFileName,
+      historyPageId: p.historyPageId ?? null,
+      inputFileId: p.inputFileId,
+      originalFileName: p.originalFileName ?? '',
+      originalFileId: p.originalFileId ?? '',
+      musicxmlFileId: p.musicxmlFileId ?? '',
+      musicxmlText: p.musicxmlText ?? '',
+      jianpuText: p.jianpuText ?? '',
+      ocrText: p.ocrText ?? '',
+      jianpuDirty: p.jianpuDirty ?? false,
+      svgFileId: p.svgFileId ?? '',
+      status: (p.status ?? 'completed') as TaskPageStatus,
+      errorMessage: p.errorMessage ?? '',
+    }))
+    pages.value.splice(index, 1, ...nextPages)
+    if (!pages.value.length) {
+      currentPageIndex.value = -1
+      syncCurrentFromPage()
+      return
+    }
+    currentPageIndex.value = Math.max(0, Math.min(index + selectOffset, pages.value.length - 1))
+    syncCurrentFromPage()
+  }
+
   function setCurrentPageStatus(status: TaskPageStatus, errorMessage = '') {
     patchCurrentPage({ status, errorMessage })
   }
@@ -270,23 +313,7 @@ export const useTaskStore = defineStore('task', () => {
     currentPageIndex.value = -1
   }
 
-  function loadBatch(
-    batchPages: {
-      inputFileName: string
-      historyPageId?: number | null
-      inputFileId: string
-      originalFileName?: string
-      originalFileId?: string
-      musicxmlFileId?: string
-      musicxmlText?: string
-      jianpuText?: string
-      ocrText?: string
-      jianpuDirty?: boolean
-      svgFileId?: string
-      status?: TaskPageStatus
-    }[],
-    selectIndex: number,
-  ) {
+  function loadBatch(batchPages: TaskPageInput[], selectIndex: number) {
     pages.value = batchPages.map((p) => createPage({
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
@@ -300,6 +327,7 @@ export const useTaskStore = defineStore('task', () => {
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
       status: (p.status ?? 'completed') as TaskPageStatus,
+      errorMessage: p.errorMessage ?? '',
     }))
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))
     currentPageIndex.value = idx
@@ -344,6 +372,7 @@ export const useTaskStore = defineStore('task', () => {
     setHistoryPageId,
     setPageHistoryPageId,
     removePage,
+    replacePage,
     setCurrentPageStatus,
     setBusy,
     reset,
