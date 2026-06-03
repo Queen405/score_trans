@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from ...config import CONFIG_DIR
 from ...models.common.paths import PROJECT_ROOT
 
 DISABLE_DOTENV_ENV = "SCORE_TRANS_DISABLE_DOTENV"
@@ -12,7 +13,12 @@ def load_project_env(path: str | Path | None = None, *, override: bool = False) 
     if path is None and os.environ.get(DISABLE_DOTENV_ENV):
         return
 
-    env_path = Path(path) if path is not None else PROJECT_ROOT / ".env"
+    if path is not None:
+        env_path = Path(path)
+    else:
+        env_path = CONFIG_DIR / ".env"
+        if not env_path.is_file():
+            env_path = PROJECT_ROOT / ".env"
     if not env_path.is_file():
         return
 
