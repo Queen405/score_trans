@@ -7,7 +7,7 @@ from score_trans.exec.convert.actions import MusicXmlToJianpuAction
 from score_trans.exec.pipeline.actions import FullPipelineAction
 from score_trans.models.score import OCRTextBlock
 from score_trans.models.settings.config import ToolConfig
-from score_trans.services.ocr.provider import MockOCRProvider
+from score_trans.services.ocr.providers import MockOCRProvider
 
 
 class FakeRecognizer:

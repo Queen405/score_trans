@@ -128,14 +128,8 @@ def render_jianpu_page_svg(
     y = top
     for row in rows:
         x = float(page_options.margin)
-        open_tie = None
-        open_slur = None
         for index, measure in enumerate(row):
-            measure_out, open_tie, open_slur = _render_measure(
-                measure, x, int(y), measure.width, page_options,
-                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
-            )
-            out.extend(measure_out)
+            out.extend(_render_measure(measure, x, int(y), measure.width, page_options, draw_start_bar=index == 0))
             x += measure.width
         y += page_options.line_height
         if y > height - bottom:
@@ -193,14 +187,8 @@ def render_score_page_svg(
     y = top
     for row in rows:
         x = float(page_options.margin)
-        open_tie = None
-        open_slur = None
         for index, measure in enumerate(row):
-            measure_out, open_tie, open_slur = _render_measure(
-                measure, x, int(y), measure.width, page_options,
-                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
-            )
-            out.extend(measure_out)
+            out.extend(_render_measure(measure, x, int(y), measure.width, page_options, draw_start_bar=index == 0))
             x += measure.width
         y += page_options.line_height
         if y > height - bottom:
@@ -279,14 +267,8 @@ def _render_layouts(
                 f'x2="{options.margin + row_width:.1f}" y2="{y + 44}"/>'
             )
         x = float(options.margin)
-        open_tie = None
-        open_slur = None
         for index, measure in enumerate(row):
-            measure_out, open_tie, open_slur = _render_measure(
-                measure, x, y, measure.width, options,
-                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
-            )
-            out.extend(measure_out)
+            out.extend(_render_measure(measure, x, y, measure.width, options, draw_start_bar=index == 0))
             x += measure.width
         y += options.line_height
     if footer_text:
@@ -537,9 +519,7 @@ def _render_measure(
     options: RenderOptions,
     *,
     draw_start_bar: bool,
-    open_tie: tuple[RenderItem, float, float] | None = None,
-    open_slur: tuple[RenderItem, float, float] | None = None,
-) -> tuple[list[str], tuple[RenderItem, float, float] | None, tuple[RenderItem, float, float] | None]:
+) -> list[str]:
     out = [f'<g class="measure" data-number="{_esc(str(measure.number))}" data-width="{width:.1f}">']
     if options.show_measure_numbers:
         out.append(f'<text class="measure-no" x="{x + 6:.1f}" y="{y - 62}">{_esc(str(measure.number))}</text>')
@@ -565,8 +545,7 @@ def _render_measure(
         measure_slots.extend(slots)
         beat_x += beat_width + options.beat_gap * scale
     out.extend(_render_beams(measure_slots, y))
-    spanner_out, open_tie, open_slur = _render_spanners(measure_slots, y, open_tie=open_tie, open_slur=open_slur)
-    out.extend(spanner_out)
+    out.extend(_render_spanners(measure_slots, y))
     out.extend(_render_measure_text_blocks(measure.source, x, y, width, measure_slots))
     if measure.errors:
         out.append(f'<text class="measure-no error" x="{x + 6:.1f}" y="{y + 80}">{_esc("; ".join(measure.errors))}</text>')
@@ -575,13 +554,12 @@ def _render_measure(
     else:
         out.append(_bar_line(x + width, y))
     out.append("</g>")
-    return out, open_tie, open_slur
+    return out
 
 
 def _render_beat_items(items: list[RenderItem], x: float, width: float, y: int) -> list[str]:
     slots = _item_slots(items, x, width)
-    spanner_out, _open_tie, _open_slur = _render_spanners(slots, y)
-    return _render_slot_items(slots, y) + _render_beams(slots, y) + spanner_out
+    return _render_slot_items(slots, y) + _render_beams(slots, y) + _render_spanners(slots, y)
 
 
 def _item_slots(items: list[RenderItem], x: float, width: float) -> list[tuple[RenderItem, float, float]]:

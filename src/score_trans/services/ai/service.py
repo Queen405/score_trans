@@ -8,7 +8,8 @@ from ...domain.jianpu import parse_jianpu_score
 from ...domain.musicxml import score_to_jianpu_text
 from ...models.common.errors import AITranscriptionError
 from ..recognize.image_preprocessing import IMAGE_SUFFIXES
-from .provider import LangChainVisionJianpuProvider, VisionJianpuProvider, VisionPageResult
+from .base import VisionJianpuProvider, VisionPageResult
+from .registry import create_provider
 
 
 @dataclass(slots=True)
@@ -35,8 +36,14 @@ class AiTranscriptionResult:
 
 
 class AiTranscriptionService:
-    def __init__(self, provider: VisionJianpuProvider | None = None) -> None:
-        self.provider = provider or LangChainVisionJianpuProvider()
+    def __init__(
+        self,
+        provider: VisionJianpuProvider | str | None = None,
+    ) -> None:
+        if isinstance(provider, VisionJianpuProvider):
+            self.provider = provider
+        else:
+            self.provider = create_provider(provider)
 
     def transcribe(
         self,

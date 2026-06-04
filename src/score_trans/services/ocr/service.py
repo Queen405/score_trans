@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ...models.score import OCRTextBlock
-from .provider import OCRProvider, OpenAICompatibleOCRProvider
+from .protocols import OCRProvider
+from .providers import OpenAICompatibleOCRProvider
 
 
 @dataclass(slots=True)

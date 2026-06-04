@@ -5,7 +5,7 @@ from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.domain.musicxml import musicxml_to_score
 from score_trans.exec.render.actions import RenderJianpuTextAction
 from score_trans.models.score import JianpuEvent, JianpuMeasure, JianpuPitch, JianpuScore, TextBlock
-from score_trans.services.ocr.provider import MockOCRProvider
+from score_trans.services.ocr.providers import MockOCRProvider
 from score_trans.services.render.rendering import RenderOptions, render_jianpu_svg, render_score_page_svg, render_score_svg
 
 

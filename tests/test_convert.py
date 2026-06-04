@@ -2,7 +2,7 @@ from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.domain.musicxml import musicxml_to_score, score_to_jianpu_text
 from score_trans.exec.convert.actions import MusicXmlToJianpuAction
 from score_trans.models.score import Event, JianpuEvent, TextBlock
-from score_trans.services.ocr.provider import MockOCRProvider
+from score_trans.services.ocr.providers import MockOCRProvider
 
 
 def test_musicxml_to_score_respects_start_measure_number() -> None:

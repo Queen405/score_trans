@@ -6,7 +6,8 @@ from score_trans.api.app import create_app
 from score_trans.exec.ai.actions import AiActions
 from score_trans.models.ai.schemas import AiTranscribeRequest
 from score_trans.models.settings.config import ToolConfig
-from score_trans.services.ai.provider import MockVisionJianpuProvider, VisionPageResult, parse_vision_page_result
+from score_trans.services.ai.base import VisionPageResult, parse_vision_page_result
+from score_trans.services.ai.providers.mock import MockVisionJianpuProvider
 from score_trans.services.ai.service import AiTranscriptionService, ensure_jianpu_header, render_pdf_pages
 from score_trans.services.files.upload_service import UploadService
 

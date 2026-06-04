@@ -7,7 +7,7 @@ from pathlib import Path
 import fitz
 import mido
 
-from ...domain.jianpu import KEY_TO_TONIC, MAJOR_SCALE
+from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
 from ...models.score import JianpuPitch, JianpuScore
 from ..render.render_service import RenderService
 
