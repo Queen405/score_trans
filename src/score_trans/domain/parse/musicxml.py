@@ -38,7 +38,6 @@ def musicxml_to_score(
     score = JianpuScore(title=extracted_title, target_key=target_key)
     if extracted_title:
         score.text_blocks.append(TextBlock(text=extracted_title, role="title"))
-    score.text_blocks.extend(_extract_part_names(root, ns))
     current_key = "C"
     current_beats = 4
     current_beat_type = 4

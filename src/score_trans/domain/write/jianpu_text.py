@@ -33,7 +33,7 @@ def score_to_jianpu_text(score: JianpuScore) -> str:
     lines.append(" | ".join(measures) + (" |" if measures else ""))
     if lyrics:
         lines.append(f"L: {' '.join(lyrics)}")
-    text_lines = [_text_block_to_directive(block) for block in score.text_blocks if block.text.strip()]
+    text_lines = [_text_block_to_directive(block) for block in score.text_blocks if block.text.strip() and block.role != "instrument"]
     if text_lines:
         lines.append("")
         lines.extend(text_lines)

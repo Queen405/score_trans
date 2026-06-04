@@ -669,6 +669,8 @@ def _render_positioned_text_blocks(
     for block in blocks:
         if not block.text:
             continue
+        if block.role == "instrument":
+            continue
         if block.role == "measure_number" and not include_measure_numbers:
             continue
         if block.bbox is None:
