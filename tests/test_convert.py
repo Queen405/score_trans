@@ -6,7 +6,7 @@ from score_trans.services.ocr.provider import MockOCRProvider
 
 
 def test_musicxml_to_score_respects_start_measure_number() -> None:
-    xml = jianpu_to_musicxml("key=C\ntime=4/4\n1 2 3 4 |")
+    xml = jianpu_to_musicxml("1=C\n4/4\n1 2 3 4 |")
 
     score = musicxml_to_score(xml, start_measure_number=118)
 
@@ -14,7 +14,7 @@ def test_musicxml_to_score_respects_start_measure_number() -> None:
 
 
 def test_musicxml_to_score_pads_incomplete_measure() -> None:
-    xml = jianpu_to_musicxml("key=C\ntime=4/4\n1 2 |")
+    xml = jianpu_to_musicxml("1=C\n4/4\n1 2 |")
 
     score = musicxml_to_score(xml)
 
@@ -24,7 +24,7 @@ def test_musicxml_to_score_pads_incomplete_measure() -> None:
 
 
 def test_musicxml_to_score_can_transpose_target_key() -> None:
-    xml = jianpu_to_musicxml("key=C\ntime=4/4\n1 2 3 4 |")
+    xml = jianpu_to_musicxml("1=C\n4/4\n1 2 3 4 |")
 
     score = musicxml_to_score(xml, target_key="D")
     text = score_to_jianpu_text(score)
@@ -42,7 +42,7 @@ def test_model_exports_structured_ast_names_and_compat_aliases() -> None:
 
 
 def test_musicxml_to_score_marks_overfull_measure() -> None:
-    xml = jianpu_to_musicxml("key=C\ntime=4/4\n1 2 3 4 5 |")
+    xml = jianpu_to_musicxml("1=C\n4/4\n1 2 3 4 5 |")
 
     measure = musicxml_to_score(xml).measures[0]
 
@@ -78,7 +78,7 @@ def test_musicxml_to_score_preserves_non_numeric_measure_number() -> None:
 def test_convert_to_jianpu_includes_positioned_ocr_text(tmp_path) -> None:
     musicxml_path = tmp_path / "score.musicxml"
     image_path = tmp_path / "score.png"
-    musicxml_path.write_text(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 3 4 |"), encoding="utf-8")
+    musicxml_path.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 3 4 |"), encoding="utf-8")
     image_path.write_bytes(b"fake image")
     provider = MockOCRProvider([TextBlock("歌词 一", bbox=(10, 20, 50, 32), role="lyric")])
 

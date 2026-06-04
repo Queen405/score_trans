@@ -28,7 +28,7 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
     source = tmp_path / "scan.pdf"
     source.write_bytes(b"%PDF-1.4")
     recognized = tmp_path / "audiveris-output.musicxml"
-    recognized.write_text(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 |"), encoding="utf-8")
+    recognized.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), encoding="utf-8")
     recognizer = FakeRecognizer(source, recognized)
 
     outputs = FullPipelineAction(recognizer=recognizer).execute(
@@ -54,7 +54,7 @@ def test_full_pipeline_runs_ocr_for_image_and_preserves_text_layer(tmp_path) -> 
     source = tmp_path / "scan.png"
     Image.new("RGB", (320, 480), "white").save(source)
     recognized = tmp_path / "audiveris-output.musicxml"
-    recognized.write_text(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 |"), encoding="utf-8")
+    recognized.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), encoding="utf-8")
     recognizer = FakeRecognizer(source, recognized)
     provider = MockOCRProvider(
         [OCRTextBlock("原谱标题", bbox=(24, 18, 120, 42), confidence=0.95, role="title")]
@@ -79,7 +79,7 @@ def test_full_pipeline_runs_ocr_for_image_and_preserves_text_layer(tmp_path) -> 
 def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> None:
     musicxml = tmp_path / "score.musicxml"
     image = tmp_path / "score.png"
-    musicxml.write_text(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 | 3 4 |"), encoding="utf-8")
+    musicxml.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 | 3 4 |"), encoding="utf-8")
     image.write_bytes(b"fake image")
     provider = MockOCRProvider([OCRTextBlock("42", role="measure_number")])
 
@@ -92,7 +92,7 @@ def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> No
 def test_ocr_measure_number_uses_reading_order_not_smallest_number(tmp_path) -> None:
     musicxml = tmp_path / "score.musicxml"
     image = tmp_path / "score.png"
-    musicxml.write_text(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 | 3 4 |"), encoding="utf-8")
+    musicxml.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 | 3 4 |"), encoding="utf-8")
     image.write_bytes(b"fake image")
     provider = MockOCRProvider(
         [

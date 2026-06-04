@@ -78,7 +78,7 @@ def test_render_pdf_pages_creates_one_png_per_page(tmp_path: Path) -> None:
     assert all(page.generated for page in pages)
 
 
-def test_ai_header_cleanup_accepts_legacy_field_values() -> None:
+def test_ai_header_cleanup_ignores_legacy_field_values() -> None:
     text = ensure_jianpu_header(
         "1 2 3 4 |",
         target_key="key=G",
@@ -86,7 +86,7 @@ def test_ai_header_cleanup_accepts_legacy_field_values() -> None:
         title=None,
     )
 
-    assert text.startswith("1=G\n3/4\n")
+    assert text.startswith("1=C\n4/4\n")
 
 
 def test_ai_plain_text_response_falls_back_to_jianpu_text() -> None:

@@ -57,6 +57,7 @@ class Event:
     staff: str | None = None
     start: Fraction | None = None
     generated: bool = False
+    source_token: str | None = None
 
     @property
     def is_chord(self) -> bool:
@@ -84,6 +85,8 @@ class Measure:
     beat_type: int = 4
     source_key: str = "C"
     target_key: str = "C"
+    repeat_start: bool = False
+    repeat_end: bool = False
 
     def __init__(
         self,
@@ -98,6 +101,8 @@ class Measure:
         beat_type: int = 4,
         source_key: str = "C",
         target_key: str = "C",
+        repeat_start: bool = False,
+        repeat_end: bool = False,
         display_number: str | int | None = None,
     ) -> None:
         if display_measure_number is None:
@@ -113,6 +118,8 @@ class Measure:
         self.beat_type = beat_type
         self.source_key = source_key
         self.target_key = target_key
+        self.repeat_start = repeat_start
+        self.repeat_end = repeat_end
 
     @property
     def display_number(self) -> str | int:

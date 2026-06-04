@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ...domain.jianpu import parse_jianpu_score
+from ...domain.jianpu_tokens import PREFIX_SLASHES, consume_duration_prefix, duration_affixes, token_duration
 from ...models.score import JianpuEvent, JianpuPitch, JianpuScore, TextBlock
 
 
@@ -464,7 +465,7 @@ def _split_rest_across_beats(
         pieces.append(
             (
                 beat_index,
-                RenderItem(token="0" + _duration_suffix(chunk), duration=chunk, generated=event.generated, start=cursor),
+                RenderItem(token=_duration_token("0", chunk), duration=chunk, generated=event.generated, start=cursor),
             )
         )
         remaining -= chunk
@@ -501,9 +502,9 @@ def _beat_visual_width(items: list[RenderItem]) -> float:
 
 def _token_visual_width(token: str) -> float:
     token = token.strip().strip("()~")
-    if token.startswith("[") and token.endswith("]"):
-        parts = [part.strip() for part in token[1:-1].split("+") if part.strip()]
-        extension = max((_parse_note(part).extension for part in parts), default=0)
+    chord = _parse_chord_token(token)
+    if chord is not None:
+        _notes, _slashes, _dotted, extension = chord
         return 42 + extension * 16
     note = _parse_note(token)
     accidental_space = 12 if _split_accidental(note.display)[0] else 0
@@ -522,7 +523,9 @@ def _render_measure(
     out = [f'<g class="measure" data-number="{_esc(str(measure.number))}" data-width="{width:.1f}">']
     if options.show_measure_numbers:
         out.append(f'<text class="measure-no" x="{x + 6:.1f}" y="{y - 62}">{_esc(str(measure.number))}</text>')
-    if draw_start_bar:
+    if getattr(measure.source, "repeat_start", False):
+        out.extend(_repeat_start_bar(x, y))
+    elif draw_start_bar:
         out.append(_bar_line(x, y))
     content_x = x + 26
     content_width = max(32.0, width - 56)
@@ -546,7 +549,10 @@ def _render_measure(
     out.extend(_render_measure_text_blocks(measure.source, x, y, width, measure_slots))
     if measure.errors:
         out.append(f'<text class="measure-no error" x="{x + 6:.1f}" y="{y + 80}">{_esc("; ".join(measure.errors))}</text>')
-    out.append(_bar_line(x + width, y))
+    if getattr(measure.source, "repeat_end", False):
+        out.extend(_repeat_end_bar(x + width, y))
+    else:
+        out.append(_bar_line(x + width, y))
     out.append("</g>")
     return out
 
@@ -768,6 +774,24 @@ def _bar_line(x: float, y: int) -> str:
     return f'<line class="bar" x1="{x:.1f}" y1="{y - 50}" x2="{x:.1f}" y2="{y + 58}"/>'
 
 
+def _repeat_start_bar(x: float, y: int) -> list[str]:
+    return [
+        f'<line class="bar" x1="{x:.1f}" y1="{y - 50}" x2="{x:.1f}" y2="{y + 58}" stroke-width="3.0"/>',
+        f'<line class="bar" x1="{x + 6:.1f}" y1="{y - 50}" x2="{x + 6:.1f}" y2="{y + 58}"/>',
+        f'<circle class="octave-dot" cx="{x + 14:.1f}" cy="{y - 12}" r="2.8"/>',
+        f'<circle class="octave-dot" cx="{x + 14:.1f}" cy="{y + 20}" r="2.8"/>',
+    ]
+
+
+def _repeat_end_bar(x: float, y: int) -> list[str]:
+    return [
+        f'<circle class="octave-dot" cx="{x - 14:.1f}" cy="{y - 12}" r="2.8"/>',
+        f'<circle class="octave-dot" cx="{x - 14:.1f}" cy="{y + 20}" r="2.8"/>',
+        f'<line class="bar" x1="{x - 6:.1f}" y1="{y - 50}" x2="{x - 6:.1f}" y2="{y + 58}"/>',
+        f'<line class="bar" x1="{x:.1f}" y1="{y - 50}" x2="{x:.1f}" y2="{y + 58}" stroke-width="3.0"/>',
+    ]
+
+
 def _render_beams(slots: list[tuple[RenderItem, float, float]], y: int) -> list[str]:
     out: list[str] = []
     for level in range(1, 4):
@@ -796,18 +820,17 @@ def _render_beam_run(run: list[tuple[RenderItem, float, float]], y: int, level: 
 
 def _beamable_slashes(token: str) -> int:
     token = token.strip().strip("()~")
-    if token.startswith("[") and token.endswith("]"):
-        notes = [_parse_note(part.strip()) for part in token[1:-1].split("+") if part.strip()]
-        if not notes:
-            return 0
-        return max((note.slashes for note in notes), default=0)
+    chord = _parse_chord_token(token)
+    if chord is not None:
+        _notes, slashes, _dotted, _extension = chord
+        return slashes
     note = _parse_note(token)
     return note.slashes
 
 
 def _beam_half_width(token: str) -> float:
     token = token.strip().strip("()~")
-    return 18.0 if token.startswith("[") and token.endswith("]") else 15.0
+    return 18.0 if _parse_chord_token(token) is not None else 15.0
 
 
 def _beam_y(token: str, y: int, level: int) -> float:
@@ -815,7 +838,7 @@ def _beam_y(token: str, y: int, level: int) -> float:
 
 
 def _event_to_item(event: JianpuEvent) -> RenderItem:
-    token = "0" + _duration_suffix(event.duration) if event.kind == "rest" else _event_token(event)
+    token = event.source_token or (_duration_token("0", event.duration) if event.kind == "rest" else _event_token(event))
     return RenderItem(
         token=token,
         duration=event.duration,
@@ -1036,12 +1059,12 @@ def _arc_between(class_name: str, x1: float, x2: float, y: float, height: float)
 
 
 def _event_token(event: JianpuEvent) -> str:
-    suffix = _duration_suffix(event.duration)
     pitches = sorted(event.pitches, key=lambda pitch: pitch.rank, reverse=True)
-    tokens = [_pitch_token(pitch) + suffix for pitch in pitches]
+    tokens = [_pitch_token(pitch) for pitch in pitches]
+    prefix, suffix = duration_affixes(event.duration)
     if len(tokens) > 1:
-        return "[" + "+".join(tokens) + "]"
-    return tokens[0] if tokens else "?"
+        return prefix + "[" + "+".join(tokens) + "]" + suffix
+    return prefix + tokens[0] + suffix if tokens else "?"
 
 
 def _pitch_token(pitch: JianpuPitch) -> str:
@@ -1052,24 +1075,9 @@ def _pitch_token(pitch: JianpuPitch) -> str:
     return f"{accidental}{pitch.degree}{octave}"
 
 
-def _duration_suffix(duration: Fraction) -> str:
-    if duration == Fraction(3, 2):
-        return "."
-    if duration == Fraction(3, 4):
-        return "/."
-    if duration == Fraction(3, 8):
-        return "//."
-    if duration >= 1:
-        whole = int(duration)
-        remain = duration - whole
-        return "-" * max(0, whole - 1) + (_duration_suffix(remain) if remain else "")
-    if duration == Fraction(1, 2):
-        return "/"
-    if duration == Fraction(1, 4):
-        return "//"
-    if duration == Fraction(1, 8):
-        return "///"
-    return ""
+def _duration_token(body: str, duration: Fraction) -> str:
+    prefix, suffix = duration_affixes(duration)
+    return prefix + body + suffix
 
 
 def _render_token(
@@ -1087,7 +1095,7 @@ def _render_token(
     tie_stop = token.startswith("~")
     tie_start = token.endswith("~")
     token = token.strip("~")
-    if token.startswith("[") and token.endswith("]"):
+    if _parse_chord_token(token) is not None:
         out = _render_chord(token, cx, y, generated=generated, suppress_duration=suppress_duration)
     else:
         out = _render_note_shape(_parse_note(token), cx, y, generated=generated, suppress_duration=suppress_duration)
@@ -1114,11 +1122,11 @@ def _render_chord(
     generated: bool = False,
     suppress_duration: bool = False,
 ) -> list[str]:
-    notes = sorted(
-        (_parse_note(part.strip()) for part in token[1:-1].split("+") if part.strip()),
-        key=lambda note: note.rank,
-        reverse=True,
-    )
+    chord = _parse_chord_token(token)
+    if chord is None:
+        return []
+    notes, slashes, dotted, extension = chord
+    notes = sorted(notes, key=lambda note: note.rank, reverse=True)
     if not notes:
         return []
     gap = CHORD_GAP
@@ -1126,9 +1134,6 @@ def _render_chord(
     out: list[str] = []
     for index, note in enumerate(notes):
         out.extend(_render_note_shape(note, cx, int(top_y + index * gap), generated=generated, suppress_duration=True))
-    slashes = max(note.slashes for note in notes)
-    dotted = any(note.dotted for note in notes)
-    extension = max(note.extension for note in notes)
     underline_y = _duration_line_y(token, y, 1)
     if not suppress_duration:
         for line in range(min(3, slashes)):
@@ -1188,8 +1193,9 @@ def _split_accidental(display: str) -> tuple[str, str]:
 
 def _token_metrics(token: str, y: int) -> dict[str, float]:
     token = token.strip().strip("()~")
-    if token.startswith("[") and token.endswith("]"):
-        notes = [_parse_note(part.strip()) for part in token[1:-1].split("+") if part.strip()]
+    chord = _parse_chord_token(token)
+    if chord is not None:
+        notes, slashes, _dotted, extension = chord
         if not notes:
             return {"top": y - 28.0, "bottom": y + 14.0}
         gap = CHORD_GAP
@@ -1201,8 +1207,6 @@ def _token_metrics(token: str, y: int) -> dict[str, float]:
             tops.append(_note_visual_top(note, note_y))
             bottoms.append(_note_visual_bottom(note, note_y, include_duration=False))
         bottom = max(bottoms)
-        slashes = max((note.slashes for note in notes), default=0)
-        extension = max((note.extension for note in notes), default=0)
         underline_y = top_y + gap * max(0, len(notes) - 1) + 18
         if slashes:
             bottom = max(bottom, underline_y + (min(3, slashes) - 1) * 6 + 4)
@@ -1233,8 +1237,9 @@ def _note_visual_bottom(note: NoteShape, y: int, *, include_duration: bool) -> f
 
 def _duration_line_y(token: str, y: int, level: int) -> float:
     token = token.strip().strip("()~")
-    if token.startswith("[") and token.endswith("]"):
-        notes = [_parse_note(part.strip()) for part in token[1:-1].split("+") if part.strip()]
+    chord = _parse_chord_token(token)
+    if chord is not None:
+        notes, _slashes, _dotted, _extension = chord
         if not notes:
             return y + 10 + (level - 1) * 6
         top_y = y - (len(notes) - 1) * CHORD_GAP / 2
@@ -1262,13 +1267,15 @@ def _low_octave_dot_y(y: int, index: int) -> float:
 
 def _parse_note(token: str) -> NoteShape:
     token = token.strip().strip("()~")
-    slashes = token.count("/")
+    prefix = token[0] if token and token[0] in PREFIX_SLASHES and token[0] else ""
+    _duration, token = consume_duration_prefix(token)
+    slashes = PREFIX_SLASHES.get(prefix, 0)
     octave_up = token.count("'")
     octave_down = token.count(",")
     dotted = "." in token
     extension_match = re.search(r"(-*)$", token)
     extension = len(extension_match.group(1)) if extension_match else 0
-    display = token.replace("'", "").replace(",", "").replace("/", "").replace(".", "")
+    display = token.replace("'", "").replace(",", "").replace(".", "")
     display = re.sub(r"((?:bb|[#bnx♮])?[0-7])[-]*$", r"\1", display)
     degree_match = re.search(r"([0-7])", display)
     degree = int(degree_match.group(1)) if degree_match else 0
@@ -1284,41 +1291,25 @@ def _parse_note(token: str) -> NoteShape:
     )
 
 
-def _token_duration(token: str) -> Fraction:
+def _parse_chord_token(token: str) -> tuple[list[NoteShape], int, bool, int] | None:
     token = token.strip().strip("()~")
-    if token.startswith("[") and token.endswith("]"):
-        parts = [part.strip() for part in token[1:-1].split("+") if part.strip()]
-        return min((_token_duration(part) for part in parts), default=Fraction(1, 1))
-    extension_match = re.search(r"(-*)$", token)
+    prefix = token[0] if token and token[0] in PREFIX_SLASHES and token[0] else ""
+    _duration, work = consume_duration_prefix(token)
+    extension_match = re.search(r"(-*)$", work)
     extension = len(extension_match.group(1)) if extension_match else 0
-    token = token.rstrip("-")
-    slashes = token.count("/")
-    duration = Fraction(1, 2**slashes)
-    if "." in token:
-        duration += duration / 2
-    return duration + extension
+    work = work.rstrip("-")
+    dotted = work.endswith(".")
+    if dotted:
+        work = work[:-1]
+    if not (work.startswith("[") and work.endswith("]")):
+        return None
+    notes = [_parse_note(part.strip()) for part in work[1:-1].split("+") if part.strip()]
+    slashes = max([PREFIX_SLASHES.get(prefix, 0), *(note.slashes for note in notes)], default=0)
+    return notes, slashes, dotted, extension
 
 
-def _beats_from_time(time: str) -> int:
-    try:
-        return max(1, int(time.split("/", 1)[0]))
-    except (ValueError, TypeError):
-        return 4
-
-
-def _split_header(text: str) -> tuple[str, str, str]:
-    key = "C"
-    time = "4/4"
-    body_lines: list[str] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("key="):
-            key = stripped.split("=", 1)[1]
-        elif stripped.startswith("time="):
-            time = stripped.split("=", 1)[1]
-        elif stripped:
-            body_lines.append(stripped)
-    return key, time, " ".join(body_lines)
+def _token_duration(token: str) -> Fraction:
+    return token_duration(token)
 
 
 def _extract_text_directives(text: str) -> tuple[str, list[TextBlock]]:

@@ -169,16 +169,7 @@ def clean_jianpu_text(text: str) -> str:
             lines = lines[:-1]
         stripped = "\n".join(lines).strip()
 
-    migrated: list[str] = []
-    for raw in stripped.splitlines():
-        line = raw.strip()
-        if re.match(r"(?i)^key\s*=", line):
-            migrated.append(f"1={line.split('=', 1)[1].strip()}")
-        elif re.match(r"(?i)^time\s*=", line):
-            migrated.append(line.split("=", 1)[1].strip())
-        else:
-            migrated.append(raw)
-    return "\n".join(migrated).strip()
+    return stripped
 
 
 def ensure_jianpu_header(
@@ -212,18 +203,20 @@ def normalize_key_value(value: str | None) -> str | None:
     work = value.strip()
     if "=" in work:
         left, right = [part.strip() for part in work.split("=", 1)]
-        if left.lower() in {"1", "key"}:
+        if left == "1":
             work = right
+        else:
+            return None
     return work or None
 
 
 def normalize_meter_value(value: str | None) -> str | None:
     if not value:
         return None
-    match = re.search(r"\d+\s*/\s*\d+", value)
+    match = re.fullmatch(r"\s*\d+\s*/\s*\d+\s*", value)
     if not match:
         return None
-    return match.group(0).replace(" ", "")
+    return value.replace(" ", "")
 
 
 def validate_jianpu_text(

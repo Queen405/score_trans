@@ -30,15 +30,29 @@ def _simple_score(*events: JianpuEvent, text_blocks: list[TextBlock] | None = No
 
 
 def test_render_jianpu_svg_contains_title_and_notes() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n1 2 | 3 4 |")
+    svg = render_jianpu_svg("1=C\n4/4\n1 2 | 3 4 |")
 
     assert "<svg" in svg
     assert "1=C" in svg
     assert ">1<" in svg
 
 
+def test_render_new_syntax_repeat_marks_and_semantics() -> None:
+    svg = render_jianpu_svg("title=完整\n1=C\n4/4\n|: \\f ^> q[#3'+5] 1~ ~1 (s2 s3) :|\nL: 春 风 又 绿")
+
+    assert "完整" in svg
+    assert 'stroke-width="3.0"' in svg
+    assert '>f</text>' in svg
+    assert 'class="articulation"' in svg
+    assert '>#</text>' in svg
+    assert 'class="tie"' in svg
+    assert 'class="slur"' in svg
+    assert 'class="duration-line beam-line"' in svg
+    assert '>春</text>' in svg
+
+
 def test_render_score_svg_uses_display_measure_number() -> None:
-    score = musicxml_to_score(jianpu_to_musicxml("key=C\ntime=4/4\n1 2 |"), start_measure_number=118)
+    score = musicxml_to_score(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), start_measure_number=118)
 
     svg = render_score_svg(score)
 
@@ -63,7 +77,7 @@ def test_render_jianpu_text_page_runs_ocr_and_preserves_bbox(tmp_path) -> None:
     text_path = tmp_path / "score.txt"
     image_path = tmp_path / "score.png"
     output_path = tmp_path / "score.svg"
-    text_path.write_text("key=C\ntime=4/4\n1 2 |", encoding="utf-8")
+    text_path.write_text("1=C\n4/4\n1 2 |", encoding="utf-8")
     image_path.write_bytes(b"fake image")
     provider = MockOCRProvider([TextBlock("歌词", bbox=(40, 70, 90, 92), role="lyric")])
 
@@ -91,7 +105,7 @@ def test_render_jianpu_text_page_uses_editable_text_directives(tmp_path) -> None
     text_path = tmp_path / "score.txt"
     image_path = tmp_path / "score.png"
     output_path = tmp_path / "score.svg"
-    text_path.write_text("key=C\ntime=4/4\n1 2 |\n\n@text 40 70 90 92 lyric 改后的歌词", encoding="utf-8")
+    text_path.write_text("1=C\n4/4\n1 2 |\n\n@text 40 70 90 92 lyric 改后的歌词", encoding="utf-8")
     image_path.write_bytes(b"fake image")
     provider = MockOCRProvider([TextBlock("旧歌词", bbox=(40, 70, 90, 92), role="lyric")])
 
@@ -113,7 +127,7 @@ def test_render_jianpu_text_page_supports_chord_tokens(tmp_path) -> None:
     text_path = tmp_path / "score.txt"
     image_path = tmp_path / "score.png"
     output_path = tmp_path / "score.svg"
-    text_path.write_text("key=C\ntime=4/4\n[3/+#2/] |", encoding="utf-8")
+    text_path.write_text("1=C\n4/4\nq[3+#2] |", encoding="utf-8")
     image_path.write_bytes(b"fake image")
 
     RenderJianpuTextAction().execute_page(
@@ -165,7 +179,7 @@ def test_render_score_page_svg_keeps_bboxless_ocr_text_visible() -> None:
 
 
 def test_render_score_page_svg_uses_ocr_measure_number_without_overlay_duplicate() -> None:
-    musicxml = jianpu_to_musicxml("key=C\ntime=4/4\n1 2 | 3 4 |")
+    musicxml = jianpu_to_musicxml("1=C\n4/4\n1 2 | 3 4 |")
     score = musicxml_to_score(musicxml)
     score.text_blocks.append(TextBlock("88", bbox=(12, 20, 28, 38), role="measure_number"))
     for index, measure in enumerate(score.measures):
@@ -316,7 +330,7 @@ def test_musicxml_explicit_accidentals_render_as_separate_symbols() -> None:
 
 
 def test_render_text_uses_publication_marks() -> None:
-    svg = render_jianpu_svg("key=D\ntime=4/4\n1/ 2. 3- 4~ | ~4 (5 6) |")
+    svg = render_jianpu_svg("1=D\n4/4\nq1 2. 3- 4~ | ~4 (5 6) |")
 
     assert "duration-line" in svg
     assert "rhythm-dot" in svg
@@ -331,7 +345,7 @@ def test_render_text_uses_publication_marks() -> None:
 
 def test_render_can_show_editing_guides_when_requested() -> None:
     svg = render_jianpu_svg(
-        "key=D\ntime=4/4\n1 2 3 4 |",
+        "1=D\n4/4\n1 2 3 4 |",
         RenderOptions(show_beat_guides=True, show_staff_guides=True),
     )
 
@@ -340,7 +354,7 @@ def test_render_can_show_editing_guides_when_requested() -> None:
 
 
 def test_render_chord_orders_notes_from_high_to_low() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n[1+7'+3] |")
+    svg = render_jianpu_svg("1=C\n4/4\n[1+7'+3] |")
 
     note_lines = [line for line in svg.splitlines() if 'class="note"' in line]
 
@@ -388,7 +402,7 @@ def test_render_structured_ast_score() -> None:
 
 def test_dense_measure_gets_more_width_than_empty_measure() -> None:
     svg = render_jianpu_svg(
-        "key=C\ntime=4/4\n0--- | 1// 2// 1// 2// 5// 6// 5// 6// 1// 2// 5// 6// 5// 6// 1'// 2'// |"
+        "1=C\n4/4\n0--- | s1 s2 s1 s2 s5 s6 s5 s6 s1 s2 s5 s6 s5 s6 s1' s2' |"
     )
 
     widths = []
@@ -401,33 +415,33 @@ def test_dense_measure_gets_more_width_than_empty_measure() -> None:
 
 
 def test_consecutive_eighth_notes_share_beam_lines() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n1/ 2/ 3/ 4/ |")
+    svg = render_jianpu_svg("1=C\n4/4\nq1 q2 q3 q4 |")
 
     assert svg.count('class="duration-line beam-line"') == 1
     assert '<line class="duration-line" x1=' not in svg
 
 
 def test_consecutive_sixteenth_notes_share_two_beam_lines() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n1// 2// 3// 4// |")
+    svg = render_jianpu_svg("1=C\n4/4\ns1 s2 s3 s4 |")
 
     assert svg.count('class="duration-line beam-line"') == 2
 
 
 def test_rests_inside_short_note_group_share_beam_lines() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n0/ 6/ 0/ 6/ |")
+    svg = render_jianpu_svg("1=C\n4/4\nq0 q6 q0 q6 |")
 
     assert svg.count('class="duration-line beam-line"') == 1
     assert '<line class="duration-line" x1=' not in svg
 
 
 def test_quarter_notes_break_beam_groups() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n1/ 2/ 3 4/ |")
+    svg = render_jianpu_svg("1=C\n4/4\nq1 q2 3 q4 |")
 
     assert svg.count('class="duration-line beam-line"') == 2
 
 
 def test_accidentals_are_rendered_smaller_than_note_digits() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\nb6 #4 |")
+    svg = render_jianpu_svg("1=C\n4/4\nb6 #4 |")
 
     assert '.accidental { font-size: 13px' in svg
     assert '<text class="accidental"' in svg
@@ -438,7 +452,7 @@ def test_accidentals_are_rendered_smaller_than_note_digits() -> None:
 
 
 def test_text_tie_and_slur_arcs_stay_close_to_noteheads() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n1'~ (2' 3') |")
+    svg = render_jianpu_svg("1=C\n4/4\n1'~ (2' 3') |")
 
     assert 'class="tie"' in svg
     assert 'class="slur"' in svg
@@ -566,7 +580,7 @@ def test_musicxml_full_measure_rest_is_split_into_visible_beats() -> None:
 
 
 def test_low_octave_duration_line_sits_below_low_dot() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n5,/ |")
+    svg = render_jianpu_svg("1=C\n4/4\nq5, |")
 
     dot_line = next(line for line in svg.splitlines() if 'class="octave-dot"' in line)
     beam_line = next(line for line in svg.splitlines() if 'class="duration-line beam-line"' in line)
@@ -577,7 +591,7 @@ def test_low_octave_duration_line_sits_below_low_dot() -> None:
 
 
 def test_low_octave_dot_sits_close_to_notehead() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n1, |")
+    svg = render_jianpu_svg("1=C\n4/4\n1, |")
 
     note_line = next(line for line in svg.splitlines() if 'class="note"' in line and ">1<" in line)
     dot_line = next(line for line in svg.splitlines() if 'class="octave-dot"' in line)
@@ -588,7 +602,7 @@ def test_low_octave_dot_sits_close_to_notehead() -> None:
 
 
 def test_extension_line_sits_at_note_height_not_below_note() -> None:
-    svg = render_jianpu_svg("key=C\ntime=4/4\n2--- |")
+    svg = render_jianpu_svg("1=C\n4/4\n2--- |")
 
     note_line = next(line for line in svg.splitlines() if 'class="note"' in line)
     extension_line = next(line for line in svg.splitlines() if 'class="extension-line"' in line)

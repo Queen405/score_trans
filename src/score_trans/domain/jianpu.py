@@ -8,6 +8,7 @@ from fractions import Fraction
 from pathlib import Path
 from zipfile import ZipFile
 
+from .jianpu_tokens import DURATION_PREFIXES, consume_duration_prefix
 from ..models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
 
@@ -64,14 +65,7 @@ KEY_TO_TONIC = {
 }
 DEGREE_TO_MAJOR_OFFSET = {index + 1: offset for index, offset in enumerate(MAJOR_SCALE)}
 
-_DURATION_PREFIXES = {
-    "w": Fraction(4, 1),
-    "h": Fraction(2, 1),
-    "q": Fraction(1, 2),
-    "s": Fraction(1, 4),
-    "d": Fraction(1, 8),
-}
-_DURATION_TO_PREFIX = {value: key for key, value in _DURATION_PREFIXES.items()}
+_DURATION_TO_PREFIX = {value: key for key, value in DURATION_PREFIXES.items()}
 _DYNAMICS = {"p", "pp", "ppp", "mp", "mf", "f", "ff", "fff", "sfz", "fp"}
 
 
@@ -144,7 +138,7 @@ def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
 
 
 def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
-    normalized = migrate_legacy_jianpu(text)
+    normalized = text
     options, token_lines, lyrics = _read_new_syntax(normalized)
     if title and options.title == "简谱":
         options.title = title
@@ -157,10 +151,11 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     pending_articulations: list[str] = []
     open_slur = False
     measure_number = 1
+    next_repeat_start = False
 
     def flush_measure() -> None:
-        nonlocal current_events, current_blocks, cursor, measure_number
-        if not current_events and not current_blocks and score.measures:
+        nonlocal current_events, current_blocks, cursor, measure_number, next_repeat_start
+        if not current_events and not current_blocks:
             return
         measure = Measure(
             source_number=str(measure_number),
@@ -171,6 +166,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             beat_type=score.beat_type,
             source_key=score.source_key,
             target_key=score.target_key,
+            repeat_start=next_repeat_start,
         )
         _normalize_parsed_measure(measure, score)
         score.measures.append(measure)
@@ -178,11 +174,21 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         current_blocks = []
         cursor = Fraction(0, 1)
         measure_number += 1
+        next_repeat_start = False
 
     for token in token_lines:
         raw = token.value
-        if raw in {"|", "||", "|:", ":|"}:
+        if raw in {"|", "||"}:
             flush_measure()
+            continue
+        if raw == "|:":
+            flush_measure()
+            next_repeat_start = True
+            continue
+        if raw == ":|":
+            flush_measure()
+            if score.measures:
+                score.measures[-1].repeat_end = True
             continue
         if raw.startswith("\\"):
             dynamic = raw[1:]
@@ -195,6 +201,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             continue
 
         event = _parse_event_token(token)
+        event.source_token = raw
         event.start = cursor
         if pending_dynamic:
             event.dynamic = pending_dynamic
@@ -223,37 +230,6 @@ def normalize_jianpu_text(text: str, *, title: str | None = None) -> str:
     from .musicxml import score_to_jianpu_text
 
     return score_to_jianpu_text(parse_jianpu_score(text, title=title))
-
-
-def migrate_legacy_jianpu(text: str) -> str:
-    if not _looks_legacy(text):
-        return text
-
-    out: list[str] = []
-    body: list[str] = []
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            if body:
-                body.append("")
-            continue
-        if line.startswith("@text"):
-            continue
-        lower = line.lower()
-        if lower.startswith("key="):
-            out.append(f"1={line.split('=', 1)[1].strip()}")
-            continue
-        if lower.startswith("time="):
-            out.append(line.split("=", 1)[1].strip())
-            continue
-        migrated_parts: list[str] = []
-        for part in re.findall(r"\|\||\|:|:\||\||[^\s|]+", line):
-            if part == "-" and migrated_parts:
-                migrated_parts[-1] += "-"
-                continue
-            migrated_parts.append(_migrate_legacy_token(part))
-        body.append(" ".join(migrated_parts))
-    return "\n".join(out + body)
 
 
 def score_to_musicxml(score: JianpuScore, title: str = "Jianpu Import") -> str:
@@ -370,7 +346,6 @@ def _parse_event_token(token: _Token) -> Event:
         parts = [part.strip() for part in work[1:-1].split("+") if part.strip()]
         if not parts:
             raise _syntax_error(token, "和弦不能为空，请写成 [1+3+5]")
-        duration, parts = _normalize_chord_duration_parts(duration, parts)
         event = Event(kind="note", duration=duration, pitches=[_parse_pitch(part, token) for part in parts])
         event.pitches.sort(key=lambda pitch: pitch.rank, reverse=True)
     elif work == "0":
@@ -383,19 +358,6 @@ def _parse_event_token(token: _Token) -> Event:
     event.slur_start = slur_start
     event.slur_stop = slur_stop
     return event
-
-
-def _normalize_chord_duration_parts(duration: Fraction, parts: list[str]) -> tuple[Fraction, list[str]]:
-    detected_duration: Fraction | None = None
-    normalized: list[str] = []
-    for part in parts:
-        part_duration, pitch = _consume_duration_prefix(part)
-        if pitch != part:
-            detected_duration = detected_duration or part_duration
-        normalized.append(pitch)
-    if detected_duration is None:
-        return duration, parts
-    return detected_duration, normalized
 
 
 def _parse_pitch(raw: str, token: _Token) -> JianpuPitch:
@@ -438,9 +400,7 @@ def _parse_pitch(raw: str, token: _Token) -> JianpuPitch:
 
 
 def _consume_duration_prefix(token: str) -> tuple[Fraction, str]:
-    if token and token[0] in _DURATION_PREFIXES:
-        return _DURATION_PREFIXES[token[0]], token[1:]
-    return Fraction(1, 1), token
+    return consume_duration_prefix(token)
 
 
 def _normalize_parsed_measure(measure: Measure, score: JianpuScore) -> None:
@@ -527,44 +487,6 @@ def _fraction_to_type(duration: Fraction) -> tuple[str, bool]:
         if duration == value + value / 2:
             return name, True
     return "quarter", False
-
-
-def _looks_legacy(text: str) -> bool:
-    if re.search(r"(?im)^\s*(key|time)\s*=", text):
-        return True
-    body = "\n".join(line for line in text.splitlines() if not re.fullmatch(r"\s*\d+/\d+\s*", line))
-    return bool(re.search(r"(^|\s)(?:[#[bnx♮]*[0-7]',*,*|0)/+\.?-*", body))
-
-
-def _migrate_legacy_token(token: str) -> str:
-    if token in {"|", "||", "|:", ":|"}:
-        return token
-    if token.startswith("[") and token.endswith("]"):
-        parts = [_migrate_legacy_note(part) for part in token[1:-1].split("+") if part.strip()]
-        durations = [prefix for prefix, _note in parts if prefix]
-        notes = [note for _prefix, note in parts]
-        prefix = durations[0] if durations and all(item == durations[0] for item in durations) else ""
-        return f"{prefix}[{'+'.join(notes)}]"
-    prefix, note = _migrate_legacy_note(token)
-    return prefix + note
-
-
-def _migrate_legacy_note(token: str) -> tuple[str, str]:
-    work = token.strip()
-    suffix = ""
-    dotted = ""
-    extension = ""
-    while work.endswith("-"):
-        extension += "-"
-        work = work[:-1]
-    if work.endswith("."):
-        dotted = "."
-        work = work[:-1]
-    while work.endswith("/"):
-        suffix += "/"
-        work = work[:-1]
-    prefix = {"/": "q", "//": "s", "///": "d"}.get(suffix, "")
-    return prefix, work + dotted + extension
 
 
 def _duration_prefix(duration: Fraction) -> str:

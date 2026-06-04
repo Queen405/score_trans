@@ -5,6 +5,7 @@ from fractions import Fraction
 from pathlib import Path
 from zipfile import ZipFile
 
+from .jianpu_tokens import duration_affixes
 from .jianpu import FIFTHS_TO_KEY, KEY_TO_TONIC, MAJOR_SCALE, STEP_TO_SEMITONE
 from ..models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
@@ -87,11 +88,26 @@ def score_to_jianpu_text(score: JianpuScore) -> str:
     if score.title and score.title != "简谱":
         lines.insert(0, f"title={score.title}")
     measures = []
+    lyrics: list[str] = []
     for measure in score.measures:
         events = measure.events
-        tokens = [_event_to_token(event) for event in events]
-        measures.append(" ".join(tokens))
+        tokens = []
+        for event in events:
+            if event.dynamic:
+                tokens.append(f"\\{event.dynamic}")
+            for articulation in event.articulations or ([event.articulation] if event.articulation else []):
+                mark = _articulation_token(articulation)
+                if mark:
+                    tokens.append(f"^{mark}")
+            tokens.append(_event_to_token(event))
+            if event.lyric:
+                lyrics.append(event.lyric)
+        prefix = "|: " if getattr(measure, "repeat_start", False) else ""
+        suffix = " :|" if getattr(measure, "repeat_end", False) else ""
+        measures.append(prefix + " ".join(tokens) + suffix)
     lines.append(" | ".join(measures) + (" |" if measures else ""))
+    if lyrics:
+        lines.append(f"L: {' '.join(lyrics)}")
     text_lines = [_text_block_to_directive(block) for block in score.text_blocks if block.text.strip()]
     if text_lines:
         lines.append("")
@@ -267,38 +283,35 @@ def _note_pitch(note: ET.Element, ns: str, target_key: str) -> JianpuPitch | Non
 def _event_to_token(event: Event) -> str:
     prefix, suffix = _duration_parts(event.duration)
     if event.kind == "rest":
-        return prefix + "0" + suffix
-    tokens = [_pitch_to_token(pitch) for pitch in event.pitches]
-    if len(tokens) > 1:
-        return prefix + "[" + "+".join(tokens) + "]" + suffix
-    return prefix + tokens[0] + suffix if tokens else "?"
+        body = "0"
+    else:
+        tokens = [_pitch_to_token(pitch) for pitch in event.pitches]
+        body = "[" + "+".join(tokens) + "]" if len(tokens) > 1 else tokens[0] if tokens else "?"
+    body = prefix + body + suffix
+    if event.tie_stop:
+        body = "~" + body
+    if event.slur_start:
+        body = "(" + body
+    if event.slur_stop:
+        body = body + ")"
+    if event.tie_start:
+        body = body + "~"
+    return body
 
 
 def _duration_parts(duration: Fraction) -> tuple[str, str]:
-    dotted_base = None
-    for base in (Fraction(4, 1), Fraction(2, 1), Fraction(1, 1), Fraction(1, 2), Fraction(1, 4), Fraction(1, 8)):
-        if duration == base + base / 2:
-            dotted_base = base
-            break
-    if dotted_base is not None:
-        prefix, suffix = _duration_parts(dotted_base)
-        return prefix, suffix + "."
-    exact = {
-        Fraction(4, 1): ("w", ""),
-        Fraction(2, 1): ("h", ""),
-        Fraction(1, 1): ("", ""),
-        Fraction(1, 2): ("q", ""),
-        Fraction(1, 4): ("s", ""),
-        Fraction(1, 8): ("d", ""),
-    }
-    if duration in exact:
-        return exact[duration]
-    if duration >= 1:
-        whole = int(duration)
-        remain = duration - whole
-        prefix, suffix = _duration_parts(remain) if remain else ("", "")
-        return prefix, suffix + "-" * max(0, whole - 1)
-    return ("", "")
+    return duration_affixes(duration)
+
+
+def _articulation_token(name: str) -> str | None:
+    return {
+        "accent": ">",
+        "strong-accent": ">",
+        "staccato": ".",
+        "tenuto": "-",
+        "trill-mark": "tr",
+        "fermata": "fermata",
+    }.get(name, name if name else None)
 
 
 def _pitch_to_token(pitch: JianpuPitch) -> str:
