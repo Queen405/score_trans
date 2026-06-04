@@ -1,5 +1,6 @@
 <template>
   <n-upload
+    ref="uploadRef"
     :custom-request="handleUpload"
     :show-file-list="false"
     :disabled="disabled"
@@ -20,6 +21,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { CloudUploadOutline } from '@vicons/ionicons5'
 import { useFileUpload } from '../composables/useFileUpload'
 import { useLogStore } from '../stores/log'
@@ -35,6 +37,7 @@ defineProps<{
 
 const { upload } = useFileUpload()
 const log = useLogStore()
+const uploadRef = ref<InstanceType<typeof NUpload> | null>(null)
 
 async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   log.addLog(`正在上传：${file.file.name}`)
@@ -42,6 +45,7 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   if (result) {
     log.addLog(`上传成功：${result.filename}`)
     emit('uploaded', result.file_id, result.filename)
+    uploadRef.value?.clear()
   }
 }
 </script>

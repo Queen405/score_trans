@@ -19,7 +19,6 @@ def consume_duration_prefix(token: str) -> tuple[Fraction, str]:
         return DURATION_PREFIXES[token[0]], token[1:]
     return Fraction(1, 1), token
 
-
 def duration_affixes(duration: Fraction) -> tuple[str, str]:
     dotted_base = None
     for base in (Fraction(4, 1), Fraction(2, 1), Fraction(1, 1), Fraction(1, 2), Fraction(1, 4), Fraction(1, 8)):
