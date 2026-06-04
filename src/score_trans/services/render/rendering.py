@@ -128,8 +128,14 @@ def render_jianpu_page_svg(
     y = top
     for row in rows:
         x = float(page_options.margin)
+        open_tie = None
+        open_slur = None
         for index, measure in enumerate(row):
-            out.extend(_render_measure(measure, x, int(y), measure.width, page_options, draw_start_bar=index == 0))
+            measure_out, open_tie, open_slur = _render_measure(
+                measure, x, int(y), measure.width, page_options,
+                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+            )
+            out.extend(measure_out)
             x += measure.width
         y += page_options.line_height
         if y > height - bottom:
@@ -187,8 +193,14 @@ def render_score_page_svg(
     y = top
     for row in rows:
         x = float(page_options.margin)
+        open_tie = None
+        open_slur = None
         for index, measure in enumerate(row):
-            out.extend(_render_measure(measure, x, int(y), measure.width, page_options, draw_start_bar=index == 0))
+            measure_out, open_tie, open_slur = _render_measure(
+                measure, x, int(y), measure.width, page_options,
+                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+            )
+            out.extend(measure_out)
             x += measure.width
         y += page_options.line_height
         if y > height - bottom:
@@ -267,8 +279,14 @@ def _render_layouts(
                 f'x2="{options.margin + row_width:.1f}" y2="{y + 44}"/>'
             )
         x = float(options.margin)
+        open_tie = None
+        open_slur = None
         for index, measure in enumerate(row):
-            out.extend(_render_measure(measure, x, y, measure.width, options, draw_start_bar=index == 0))
+            measure_out, open_tie, open_slur = _render_measure(
+                measure, x, y, measure.width, options,
+                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+            )
+            out.extend(measure_out)
             x += measure.width
         y += options.line_height
     if footer_text:
