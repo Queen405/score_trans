@@ -964,11 +964,10 @@ def _mark_display(name: str) -> str:
 def _render_spanners(
     slots: list[tuple[RenderItem, float, float]],
     y: int,
-    *,
-    open_tie: tuple[RenderItem, float, float] | None = None,
-    open_slur: tuple[RenderItem, float, float] | None = None,
-) -> tuple[list[str], tuple[RenderItem, float, float] | None, tuple[RenderItem, float, float] | None]:
+) -> list[str]:
     out: list[str] = []
+    open_tie: tuple[RenderItem, float, float] | None = None
+    open_slur: tuple[RenderItem, float, float] | None = None
     for item, cx, slot_width in slots:
         current = (item, cx, slot_width)
         if item.tie_stop:
@@ -991,7 +990,7 @@ def _render_spanners(
         out.append(_render_tie_arc(open_tie, None, y))
     if open_slur is not None:
         out.append(_render_slur_arc(open_slur, None, y))
-    return out, open_tie, open_slur
+    return out
 
 
 def _render_tie_arc(
