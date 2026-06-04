@@ -519,7 +519,9 @@ def _render_measure(
     options: RenderOptions,
     *,
     draw_start_bar: bool,
-) -> list[str]:
+    open_tie: tuple[RenderItem, float, float] | None = None,
+    open_slur: tuple[RenderItem, float, float] | None = None,
+) -> tuple[list[str], tuple[RenderItem, float, float] | None, tuple[RenderItem, float, float] | None]:
     out = [f'<g class="measure" data-number="{_esc(str(measure.number))}" data-width="{width:.1f}">']
     if options.show_measure_numbers:
         out.append(f'<text class="measure-no" x="{x + 6:.1f}" y="{y - 62}">{_esc(str(measure.number))}</text>')
@@ -545,7 +547,8 @@ def _render_measure(
         measure_slots.extend(slots)
         beat_x += beat_width + options.beat_gap * scale
     out.extend(_render_beams(measure_slots, y))
-    out.extend(_render_spanners(measure_slots, y))
+    spanner_out, open_tie, open_slur = _render_spanners(measure_slots, y, open_tie=open_tie, open_slur=open_slur)
+    out.extend(spanner_out)
     out.extend(_render_measure_text_blocks(measure.source, x, y, width, measure_slots))
     if measure.errors:
         out.append(f'<text class="measure-no error" x="{x + 6:.1f}" y="{y + 80}">{_esc("; ".join(measure.errors))}</text>')
@@ -554,12 +557,13 @@ def _render_measure(
     else:
         out.append(_bar_line(x + width, y))
     out.append("</g>")
-    return out
+    return out, open_tie, open_slur
 
 
 def _render_beat_items(items: list[RenderItem], x: float, width: float, y: int) -> list[str]:
     slots = _item_slots(items, x, width)
-    return _render_slot_items(slots, y) + _render_beams(slots, y) + _render_spanners(slots, y)
+    spanner_out, _open_tie, _open_slur = _render_spanners(slots, y)
+    return _render_slot_items(slots, y) + _render_beams(slots, y) + spanner_out
 
 
 def _item_slots(items: list[RenderItem], x: float, width: float) -> list[tuple[RenderItem, float, float]]:
@@ -961,10 +965,14 @@ def _mark_display(name: str) -> str:
     }.get(normalized, name)
 
 
-def _render_spanners(slots: list[tuple[RenderItem, float, float]], y: int) -> list[str]:
+def _render_spanners(
+    slots: list[tuple[RenderItem, float, float]],
+    y: int,
+    *,
+    open_tie: tuple[RenderItem, float, float] | None = None,
+    open_slur: tuple[RenderItem, float, float] | None = None,
+) -> tuple[list[str], tuple[RenderItem, float, float] | None, tuple[RenderItem, float, float] | None]:
     out: list[str] = []
-    open_tie: tuple[RenderItem, float, float] | None = None
-    open_slur: tuple[RenderItem, float, float] | None = None
     for item, cx, slot_width in slots:
         current = (item, cx, slot_width)
         if item.tie_stop:
@@ -987,7 +995,7 @@ def _render_spanners(slots: list[tuple[RenderItem, float, float]], y: int) -> li
         out.append(_render_tie_arc(open_tie, None, y))
     if open_slur is not None:
         out.append(_render_slur_arc(open_slur, None, y))
-    return out
+    return out, open_tie, open_slur
 
 
 def _render_tie_arc(
@@ -1088,29 +1096,11 @@ def _render_token(
     generated: bool = False,
     suppress_duration: bool = False,
 ) -> list[str]:
-    token = token.strip()
-    slur_start = token.startswith("(")
-    slur_stop = token.endswith(")")
-    token = token.strip("()")
-    tie_stop = token.startswith("~")
-    tie_start = token.endswith("~")
-    token = token.strip("~")
+    token = token.strip().strip("()~")
     if _parse_chord_token(token) is not None:
         out = _render_chord(token, cx, y, generated=generated, suppress_duration=suppress_duration)
     else:
         out = _render_note_shape(_parse_note(token), cx, y, generated=generated, suppress_duration=suppress_duration)
-    if tie_start:
-        metrics = _token_metrics(token, y)
-        out.append(_arc("tie", cx + 10, metrics["bottom"] + 5, max(34.0, min(68.0, _token_visual_width(token) + 16)), 9, forward=True))
-    if tie_stop:
-        metrics = _token_metrics(token, y)
-        out.append(_arc("tie", cx - 52, metrics["bottom"] + 5, 42, 9, forward=True))
-    if slur_start:
-        metrics = _token_metrics(token, y)
-        out.append(_arc("slur", cx - 10, metrics["top"] - 18, 74, -16, forward=True))
-    if slur_stop:
-        metrics = _token_metrics(token, y)
-        out.append(_arc("slur", cx - 72, metrics["top"] - 18, 74, -16, forward=True))
     return out
 
 

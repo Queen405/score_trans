@@ -79,15 +79,6 @@
       </div>
     </div>
 
-    <n-card
-      v-if="store.musicxmlText"
-      title="MusicXML 预览"
-      size="small"
-      :bordered="true"
-      class="rv-preview"
-    >
-      <n-code :code="store.musicxmlText" language="xml" word-wrap />
-    </n-card>
   </div>
 </template>
 
@@ -112,7 +103,7 @@ import {
   ChevronForwardOutline,
   DocumentOutline,
 } from '@vicons/ionicons5'
-import { NButton, NTag, NCard, NCode, NIcon, NProgress, NSwitch, useMessage } from 'naive-ui'
+import { NButton, NTag, NIcon, NProgress, NSwitch, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const log = useLogStore()

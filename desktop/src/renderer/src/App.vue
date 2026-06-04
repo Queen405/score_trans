@@ -44,9 +44,9 @@
 
           <main class="main-area">
             <div class="main-content">
-              <recognize-view v-if="activeTab === 'recognize'" />
-              <convert-view v-else-if="activeTab === 'convert'" />
-              <settings-view v-else-if="activeTab === 'settings'" />
+              <recognize-view v-show="activeTab === 'recognize'" />
+              <convert-view v-show="activeTab === 'convert'" />
+              <settings-view v-show="activeTab === 'settings'" />
             </div>
             <div :class="['log-drawer', { open: logOpen }]">
               <button class="log-toggle" @click="logOpen = !logOpen">

@@ -64,7 +64,6 @@ export const useTaskStore = defineStore('task', () => {
   const originalFileName = ref('')
   const originalFileId = ref('')
   const musicxmlFileId = ref('')
-  const musicxmlText = ref('')
   const jianpuText = ref('')
   const ocrText = ref('')
   const jianpuDirty = ref(false)
@@ -97,7 +96,6 @@ export const useTaskStore = defineStore('task', () => {
     originalFileName.value = page.originalFileName
     originalFileId.value = page.originalFileId
     musicxmlFileId.value = page.musicxmlFileId
-    musicxmlText.value = page.musicxmlText
     jianpuText.value = page.jianpuText
     ocrText.value = page.ocrText
     jianpuDirty.value = page.jianpuDirty
@@ -189,14 +187,12 @@ export const useTaskStore = defineStore('task', () => {
   function clearDerived() {
     clearOriginalFile()
     musicxmlFileId.value = ''
-    musicxmlText.value = ''
     jianpuText.value = ''
     ocrText.value = ''
     jianpuDirty.value = false
     svgFileId.value = ''
     patchCurrentPage({
       musicxmlFileId: '',
-      musicxmlText: '',
       jianpuText: '',
       ocrText: '',
       jianpuDirty: false,
@@ -208,7 +204,6 @@ export const useTaskStore = defineStore('task', () => {
 
   function setMusicxml(fileId: string, text: string) {
     musicxmlFileId.value = fileId
-    musicxmlText.value = text
     patchCurrentPage({ musicxmlFileId: fileId, musicxmlText: text })
   }
 
@@ -303,7 +298,6 @@ export const useTaskStore = defineStore('task', () => {
     originalFileName.value = ''
     originalFileId.value = ''
     musicxmlFileId.value = ''
-    musicxmlText.value = ''
     jianpuText.value = ''
     ocrText.value = ''
     jianpuDirty.value = false
@@ -341,7 +335,6 @@ export const useTaskStore = defineStore('task', () => {
     originalFileName,
     originalFileId,
     musicxmlFileId,
-    musicxmlText,
     jianpuText,
     ocrText,
     jianpuDirty,
