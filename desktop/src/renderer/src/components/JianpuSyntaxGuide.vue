@@ -157,13 +157,18 @@ defineEmits<{ 'update:show': [value: boolean] }>()
   max-width: min(1080px, calc(100vw - 96px));
 }
 
+:global(.syntax-guide-modal.n-dialog .n-dialog__content) {
+  max-height: calc(85vh - 120px) !important;
+  overflow: auto !important;
+  padding-bottom: 12px;
+}
+
 .guide-shell {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-height: min(72vh, 760px);
-  overflow: auto;
   padding-right: 4px;
+  padding-bottom: 4px;
 }
 
 /* ── Intro ── */

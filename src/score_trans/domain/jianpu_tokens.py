@@ -4,14 +4,12 @@ from fractions import Fraction
 
 
 DURATION_PREFIXES = {
-    "w": Fraction(4, 1),
-    "h": Fraction(2, 1),
     "q": Fraction(1, 2),
     "s": Fraction(1, 4),
     "d": Fraction(1, 8),
 }
 
-PREFIX_SLASHES = {"": 0, "w": 0, "h": 0, "q": 1, "s": 2, "d": 3}
+PREFIX_SLASHES = {"": 0, "q": 1, "s": 2, "d": 3}
 
 
 def consume_duration_prefix(token: str) -> tuple[Fraction, str]:
@@ -29,8 +27,6 @@ def duration_affixes(duration: Fraction) -> tuple[str, str]:
         prefix, suffix = duration_affixes(dotted_base)
         return prefix, suffix + "."
     exact = {
-        Fraction(4, 1): ("w", ""),
-        Fraction(2, 1): ("h", ""),
         Fraction(1, 1): ("", ""),
         Fraction(1, 2): ("q", ""),
         Fraction(1, 4): ("s", ""),
