@@ -1268,11 +1268,13 @@ def _parse_note(token: str) -> NoteShape:
     prefix = token[0] if token and token[0] in PREFIX_SLASHES and token[0] else ""
     _duration, token = consume_duration_prefix(token)
     slashes = PREFIX_SLASHES.get(prefix, 0)
+    w_h_extension = 3 if prefix == "w" else 1 if prefix == "h" else 0
     octave_up = token.count("'")
     octave_down = token.count(",")
     dotted = "." in token
     extension_match = re.search(r"(-*)$", token)
     extension = len(extension_match.group(1)) if extension_match else 0
+    extension += w_h_extension
     display = token.replace("'", "").replace(",", "").replace(".", "")
     display = re.sub(r"((?:bb|[#bnx♮])?[0-7])[-]*$", r"\1", display)
     degree_match = re.search(r"([0-7])", display)
@@ -1293,8 +1295,10 @@ def _parse_chord_token(token: str) -> tuple[list[NoteShape], int, bool, int] | N
     token = token.strip().strip("()~")
     prefix = token[0] if token and token[0] in PREFIX_SLASHES and token[0] else ""
     _duration, work = consume_duration_prefix(token)
+    w_h_extension = 3 if prefix == "w" else 1 if prefix == "h" else 0
     extension_match = re.search(r"(-*)$", work)
     extension = len(extension_match.group(1)) if extension_match else 0
+    extension += w_h_extension
     work = work.rstrip("-")
     dotted = work.endswith(".")
     if dotted:

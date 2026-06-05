@@ -128,16 +128,18 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
 
       <div class="guide-section quick-ref">
         <h3>速查表</h3>
-        <div class="ref-grid">
-          <div><code>1</code>–<code>7</code> 音级　<code>0</code> 休止</div>
-          <div><code>'</code> <code>,</code> 八度　<code>#</code> <code>b</code> <code>x</code> <code>bb</code> 升降</div>
-          <div><code>q</code> <code>s</code> <code>d</code> <code>h</code> <code>w</code> 时值前缀</div>
-          <div><code>.</code> 附点　<code>~</code> 延音线　<code>( )</code> 连音线</div>
-          <div><code>[a+b]</code> 和弦　<code>| || |: :|</code> 小节线</div>
-          <div><code>*N</code> 重复 N 次　小节号累加 N</div>
-          <div><code>\p \f</code> 力度　<code>^. ^> ^- ^tr</code> 演奏法</div>
-          <div><code>L:</code> 歌词　<code>#</code> 注释</div>
-        </div>
+        <table>
+          <tbody>
+            <tr><td><code>1</code>–<code>7</code></td><td>音级（do–si）</td><td><code>0</code></td><td>休止符</td></tr>
+            <tr><td><code>'</code> <code>,</code></td><td>高 / 低八度</td><td><code>#</code> <code>b</code> <code>x</code> <code>bb</code></td><td>升 / 降 / 重升 / 重降</td></tr>
+            <tr><td><code>q</code> <code>s</code> <code>d</code></td><td>八 / 十六 / 三十二分音符</td><td><code>h</code> <code>w</code></td><td>二 / 全音符</td></tr>
+            <tr><td><code>.</code></td><td>附点</td><td><code>~</code></td><td>延音线</td></tr>
+            <tr><td><code>( )</code></td><td>连音线（圆滑奏）</td><td><code>[a+b]</code></td><td>和弦</td></tr>
+            <tr><td><code>| || |: :|</code></td><td>小节线 / 终止线 / 反复</td><td><code>*N</code></td><td>重复 N 次</td></tr>
+            <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^tr</code></td><td>断奏 / 重音 / 保持 / 颤音</td></tr>
+            <tr><td><code>L:</code></td><td>歌词行</td><td><code>#</code></td><td>注释行</td></tr>
+          </tbody>
+        </table>
       </div>
 
     </div>
@@ -241,20 +243,24 @@ h3::before {
 pre {
   margin: 0;
   padding: 14px 16px;
-  overflow: auto;
   border-radius: 8px;
   background: #0f172a;
   border: 1px solid #1e293b;
   line-height: 1.7;
   color: #e2e8f0;
   font-size: 12.5px;
+  white-space: pre-wrap !important;
+  word-wrap: break-word;
+  overflow-x: hidden;
 }
 
 pre code {
-  background: transparent;
-  padding: 0;
-  border: none;
-  color: inherit;
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  color: inherit !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
 }
 
 /* Inline code as pills */
@@ -331,29 +337,18 @@ td:first-child code {
   border-left: 2px solid var(--text-tertiary);
 }
 
-/* ── Quick Ref as tags ── */
-.quick-ref .ref-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* ── Quick Ref table ── */
+.quick-ref table {
+  font-size: 12px;
 }
 
-.quick-ref .ref-grid div {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  background: var(--bg-base);
-  border: 1px solid var(--border-soft);
-  border-radius: 20px;
-  font-size: 11.5px;
-  color: var(--text-secondary);
-  line-height: 1.4;
+.quick-ref td {
+  padding: 5px 6px;
 }
 
-.quick-ref .ref-grid div code {
-  font-size: 11px;
-  padding: 0 3px;
+.quick-ref td:first-child {
+  width: auto;
+  white-space: nowrap;
 }
 
 /* ── Grid Layout ── */
