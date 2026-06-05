@@ -443,7 +443,7 @@ def test_quarter_notes_break_beam_groups() -> None:
 def test_accidentals_are_rendered_smaller_than_note_digits() -> None:
     svg = render_jianpu_svg("1=C\n4/4\nb6 #4 |")
 
-    assert '.accidental { font-size: 13px' in svg
+    assert '.accidental { font-size: 18px' in svg
     assert '<text class="accidental"' in svg
     assert '>b</text>' in svg
     assert '>#</text>' in svg

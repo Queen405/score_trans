@@ -96,6 +96,36 @@ time=4/4
 - `'`: octave up; `,`: octave down; `#`/`b`: accidentals
 - `-`: extend previous note by one quarter; `/`: halve duration; `.`: dotted
 
+## Documentation
+
+- `docs/architecture.md` — 后端架构概览（技术栈、分层、API 端点、数据流）
+- `docs/file-by-file.md` — 逐层逐文件分析索引
+- `docs/issues.md` — 已知问题清单与改进路线图（已人工验证，标注误报）
+
+## Known Issues
+
+### exec 层大量使用 HTTPException（系统性架构违规）
+`exec/` 层 7 个 actions.py 文件中共有 20 处 `from fastapi import HTTPException` 并直接抛出。这违反了 `api -> exec -> services` 的分层方向，导致 exec 层无法在非 FastAPI 上下文（如 CLI、单元测试）中复用。
+
+短期 workaround：保持现状（测试已 mock）。长期应改为在 exec 层抛业务异常（`ValueError`, `FileNotFoundError`, `OCRError` 等），由 `api/` 层的路由统一转换为 HTTP 响应。
+
+### 长耗时路由阻塞事件循环
+`POST /pipeline`、`POST /recognize`、`POST /ai/transcribe` 内部包含 subprocess（Audiveris 可能运行数分钟）或多页 LLM 调用，当前同步执行会阻塞 FastAPI worker。应使用 `asyncio.to_thread()` 或后台任务 + SSE 进度流。
+
+### DI 工厂无缓存
+`api/dependencies.py` 每次请求都创建新的 Actions 实例，连带内部的 Service 和 DAO 也重复初始化。`SettingsDao.default()` 单例缓解了 settings 的问题，但 `UploadService` 每次都重新加载 `index.json`。
+
+### 依赖项隔离不足
+`langchain` / `langchain-openai` 是重型依赖，仅用于 AI 转录功能，但已声明为核心依赖。应考虑移至 `[ai]` optional extra。
+
+## Development Notes
+
+- 修改代码前先运行 `python -m pytest` 确保基线通过。
+- 添加新环境变量时，同步更新 `src/score_trans/config/env.example`。
+- `services/render/rendering.py` 是单文件 SVG 引擎（~1430 行），修改 beam/tie/slur 逻辑时需同步检查 `tests/test_render.py` 中的 SVG 字符串断言（测试较脆弱）。
+- `domain/` 层必须保持零 I/O（无文件读写、无网络调用、无 print），架构测试 `test_architecture.py` 会强制执行。
+- 使用 `os.getenv()` 读取配置时，优先在模块顶部定义常量（如 `DEFAULT_XXX = os.getenv(...)`），避免在函数体内每次调用都读取环境变量。
+
 ## Future Direction
 
 The old PySide6 Python GUI has been removed. `ELECTRON_VUE_FASTAPI_MVVM_PLAN.md` is historical planning context only; the active app is Electron + Vue3 + FastAPI.

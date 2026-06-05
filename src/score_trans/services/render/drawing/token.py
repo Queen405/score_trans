@@ -75,7 +75,7 @@ def _render_note_shape(
     note_x = cx + (4 if accidental else 0)
     out: list[str] = []
     if accidental:
-        out.append(f'<text class="accidental" x="{cx - 11.5:.1f}" y="{y - 6}" text-anchor="middle">{_esc(accidental)}</text>')
+        out.append(f'<text class="accidental" x="{cx - 5:.1f}" y="{y - 14}" text-anchor="middle">{_esc(accidental)}</text>')
     out.append(f'<text class="{note_class}" x="{note_x:.1f}" y="{y}" text-anchor="middle">{_esc(body)}</text>')
     if not suppress_duration:
         for line in range(min(3, note.slashes)):
