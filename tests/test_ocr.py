@@ -1,5 +1,6 @@
 import base64
 import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -26,80 +27,94 @@ def test_mock_provider_feeds_text_layer(tmp_path) -> None:
     assert provider.calls == [image]
 
 
-def test_openai_provider_builds_dry_run_request_without_key(tmp_path, monkeypatch) -> None:
+def test_ocr_provider_dry_run_returns_empty(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         "score_trans.services.ocr.utils.persisted_ocr_settings",
         lambda: {},
     )
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
-    provider = OpenAICompatibleOCRProvider(base_url="https://example.test/v1", dry_run=True)
-
-    request = provider.build_request(image)
-
-    assert request.endpoint == "https://example.test/v1/chat/completions"
-    assert "Authorization" not in request.headers
-    assert "response_format" not in request.payload
-    image_url = request.payload["messages"][0]["content"][1]["image_url"]["url"]
-    assert image_url == f"data:image/png;base64,{base64.b64encode(b'abc').decode('ascii')}"
+    provider = OpenAICompatibleOCRProvider(dry_run=True)
     assert provider.recognize(image) == []
 
 
-def test_openai_provider_reads_api_key_from_environment(tmp_path, monkeypatch) -> None:
+def test_ocr_provider_requires_api_key(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "score_trans.services.ocr.utils.persisted_ocr_settings",
+        lambda: {},
+    )
+    image = tmp_path / "score.png"
+    image.write_bytes(b"abc")
+    provider = OpenAICompatibleOCRProvider()
+    with pytest.raises(OCRError, match="OCR API key"):
+        provider.recognize(image)
+
+
+def test_ocr_provider_invokes_langchain_with_correct_params(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         "score_trans.services.ocr.utils.persisted_ocr_settings",
         lambda: {"ocr_api_key": "test-key"},
     )
-    image = tmp_path / "score.jpg"
+    image = tmp_path / "score.png"
     image.write_bytes(b"abc")
 
-    request = OpenAICompatibleOCRProvider().build_request(image)
+    mock_chat = MagicMock()
+    mock_chat.invoke.return_value = MagicMock(content='{"text_blocks":[{"text":"A","role":"other"}]}')
 
-    assert request.headers["Authorization"] == "Bearer test-key"
+    with patch("langchain_openai.ChatOpenAI", return_value=mock_chat):
+        provider = OpenAICompatibleOCRProvider(base_url="https://example.test/v1", model="Qwen/Qwen3-VL-8B-Instruct")
+        blocks = provider.recognize(image)
+
+    mock_chat.invoke.assert_called_once()
+    assert blocks[0].text == "A"
 
 
-def test_non_deepseek_ocr_provider_requests_json_response(tmp_path, monkeypatch) -> None:
+def test_ocr_provider_json_object_for_non_deepseek(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         "score_trans.services.ocr.utils.persisted_ocr_settings",
-        lambda: {},
-    )
-    image = tmp_path / "score.jpg"
-    image.write_bytes(b"abc")
-
-    request = OpenAICompatibleOCRProvider(model="Qwen/Qwen3-VL-8B-Instruct", dry_run=True).build_request(image)
-
-    assert request.payload["response_format"] == {"type": "json_object"}
-
-
-def test_openai_provider_reads_persisted_settings(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(
-        "score_trans.services.ocr.utils.persisted_ocr_settings",
-        lambda: {
-            "ocr_api_key": "persisted-key",
-            "ocr_base_url": "https://persisted.example/v1",
-            "ocr_model": "Qwen/Qwen3-VL-8B-Instruct",
-        },
-    )
-    image = tmp_path / "score.jpg"
-    image.write_bytes(b"abc")
-
-    request = OpenAICompatibleOCRProvider().build_request(image)
-
-    assert request.endpoint == "https://persisted.example/v1/chat/completions"
-    assert request.headers["Authorization"] == "Bearer persisted-key"
-    assert request.payload["model"] == "Qwen/Qwen3-VL-8B-Instruct"
-
-
-def test_openai_provider_requires_key_when_not_dry_run(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(
-        "score_trans.services.ocr.utils.persisted_ocr_settings",
-        lambda: {},
+        lambda: {"ocr_api_key": "test-key"},
     )
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
 
-    with pytest.raises(OCRError, match="OCR API key"):
-        OpenAICompatibleOCRProvider().build_request(image)
+    mock_chat = MagicMock()
+    mock_chat.invoke.return_value = MagicMock(content='{"text_blocks":[]}')
+
+    with patch("langchain_openai.ChatOpenAI", return_value=mock_chat) as mock_cls:
+        provider = OpenAICompatibleOCRProvider(model="Qwen/Qwen3-VL-8B-Instruct")
+        provider.recognize(image)
+
+    _, kwargs = mock_cls.call_args
+    assert kwargs["model_kwargs"] == {"response_format": {"type": "json_object"}}
+
+
+def test_ocr_provider_fallback_on_useless_blocks(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "score_trans.services.ocr.utils.persisted_ocr_settings",
+        lambda: {
+            "ocr_api_key": "test-key",
+            "ocr_model": "deepseek-ai/DeepSeek-OCR",
+            "ocr_fallback_model": "Qwen/Qwen3-VL-8B-Instruct",
+        },
+    )
+    image = tmp_path / "score.png"
+    image.write_bytes(b"abc")
+
+    def make_mock_chat(**kwargs) -> MagicMock:
+        mock = MagicMock()
+        model = kwargs.get("model", "")
+        if "deepseek" in model:
+            mock.invoke.return_value = MagicMock(content='{"text_blocks":[]}')
+        else:
+            mock.invoke.return_value = MagicMock(content='{"text_blocks":[{"text":"A","role":"other"}]}')
+        return mock
+
+    with patch("langchain_openai.ChatOpenAI", side_effect=make_mock_chat):
+        provider = OpenAICompatibleOCRProvider()
+        blocks = provider.recognize(image)
+
+    assert len(blocks) == 1
+    assert blocks[0].text == "A"
 
 
 def test_default_ocr_model_is_deepseek_ocr(monkeypatch) -> None:

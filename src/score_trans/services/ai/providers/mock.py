@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ...base import VisionPageResult, VisionJianpuProvider
-from ...registry import register_provider
+from ..core.registry import register_provider
+from ..core.schemas import VisionPageResult
 
 
 class MockVisionJianpuProvider:

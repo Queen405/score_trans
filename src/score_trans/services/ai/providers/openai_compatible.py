@@ -2,21 +2,19 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
 
-from ...base import (
+from ..core.parsing import parse_vision_page_result
+from ..core.prompts import (
     DEFAULT_AI_BASE_URL,
     DEFAULT_AI_MODEL,
-    VisionPageResult,
-    VisionJianpuProvider,
-    build_jianpu_prompt,
-    image_to_data_url,
-    parse_vision_page_result,
-    persisted_ai_settings,
     _load_prompt_config,
+    build_jianpu_prompt,
+    persisted_ai_settings,
 )
-from ...registry import register_provider
-from .....models.common.errors import AITranscriptionError
+from ..core.registry import register_provider
+from ..core.schemas import VisionPageResult
+from ....utils.media import image_to_data_url
+from ....models.common.errors import AITranscriptionError
 
 
 class LangChainVisionJianpuProvider:
