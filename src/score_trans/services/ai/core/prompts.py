@@ -1,14 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 
 from ....config import CONFIG_DIR
 from ....models.common.errors import AITranscriptionError
-
-
-DEFAULT_AI_BASE_URL = os.getenv("SCORE_TRANS_AI_BASE_URL", "https://api.siliconflow.cn/v1")
-DEFAULT_AI_MODEL = os.getenv("SCORE_TRANS_AI_MODEL", "Qwen/Qwen3-VL-8B-Instruct")
 
 _PROMPT_CONFIG: dict[str, str] | None = None
 

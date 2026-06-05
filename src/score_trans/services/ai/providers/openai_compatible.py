@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
+from ..core.config import (
+    AI_API_KEY,
+    AI_BASE_URL,
+    AI_MODEL,
+    AI_SYSTEM_MSG,
+    AI_TEMPERATURE,
+    AI_TIMEOUT,
+)
 from ..core.parsing import parse_vision_page_result
 from ..core.prompts import (
-    DEFAULT_AI_BASE_URL,
-    DEFAULT_AI_MODEL,
     _load_prompt_config,
     build_jianpu_prompt,
     persisted_ai_settings,
@@ -24,27 +29,24 @@ class LangChainVisionJianpuProvider:
         base_url: str | None = None,
         model: str | None = None,
         api_key: str | None = None,
-        timeout: float = float(os.getenv("SCORE_TRANS_AI_TIMEOUT", "120.0")),
+        timeout: float = AI_TIMEOUT,
         dry_run: bool = False,
     ) -> None:
         persisted = persisted_ai_settings()
         self.base_url = (
             base_url
-            or os.getenv("SCORE_TRANS_AI_BASE_URL")
             or persisted.get("ai_base_url")
-            or DEFAULT_AI_BASE_URL
+            or AI_BASE_URL
         ).rstrip("/")
         self.model = (
             model
-            or os.getenv("SCORE_TRANS_AI_MODEL")
             or persisted.get("ai_model")
-            or DEFAULT_AI_MODEL
+            or AI_MODEL
         )
         self.api_key = (
             api_key
-            or os.getenv("SCORE_TRANS_AI_API_KEY")
             or persisted.get("ai_api_key")
-            or ""
+            or AI_API_KEY
         )
         self.timeout = timeout
         self.dry_run = dry_run
@@ -93,12 +95,17 @@ class LangChainVisionJianpuProvider:
             model=self.model,
             base_url=self.base_url,
             api_key=self.api_key,
-            temperature=float(os.getenv("SCORE_TRANS_AI_TEMPERATURE", "0")),
+            temperature=AI_TEMPERATURE,
             timeout=self.timeout,
             model_kwargs={"response_format": {"type": "json_object"}},
         )
+        system_message = (
+            _load_prompt_config().get("system_message")
+            or AI_SYSTEM_MSG
+            or "You are a careful sheet-music to numbered-notation transcription agent."
+        )
         messages = [
-            SystemMessage(content=_load_prompt_config().get("system_message", os.getenv("SCORE_TRANS_AI_SYSTEM_MSG", "You are a careful sheet-music to numbered-notation transcription agent."))),
+            SystemMessage(content=system_message),
             HumanMessage(
                 content=[
                     {"type": "text", "text": prompt},
