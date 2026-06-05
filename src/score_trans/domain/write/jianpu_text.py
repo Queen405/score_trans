@@ -28,8 +28,10 @@ def score_to_jianpu_text(score: JianpuScore) -> str:
             if event.lyric:
                 lyrics.append(event.lyric)
         prefix = "|: " if getattr(measure, "repeat_start", False) else ""
+        repeat_count = getattr(measure, "repeat_count", 1)
+        repeat_suffix = f" *{repeat_count}" if repeat_count > 1 else ""
         suffix = " :|" if getattr(measure, "repeat_end", False) else ""
-        measures.append(prefix + " ".join(tokens) + suffix)
+        measures.append(prefix + " ".join(tokens) + repeat_suffix + suffix)
     lines.append(" | ".join(measures) + (" |" if measures else ""))
     if lyrics:
         lines.append(f"L: {' '.join(lyrics)}")

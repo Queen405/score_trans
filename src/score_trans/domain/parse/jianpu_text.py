@@ -74,12 +74,13 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     cursor = Fraction(0, 1)
     pending_dynamic: str | None = None
     pending_articulations: list[str] = []
+    pending_repeat_count: int = 1
     open_slur = False
     measure_number = 1
     next_repeat_start = False
 
     def flush_measure() -> None:
-        nonlocal current_events, current_blocks, cursor, measure_number, next_repeat_start
+        nonlocal current_events, current_blocks, cursor, measure_number, next_repeat_start, pending_repeat_count
         if not current_events and not current_blocks:
             return
         measure = Measure(
@@ -92,6 +93,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             source_key=score.source_key,
             target_key=score.target_key,
             repeat_start=next_repeat_start,
+            repeat_count=pending_repeat_count,
         )
         _normalize_parsed_measure(measure, score)
         score.measures.append(measure)
@@ -100,6 +102,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         cursor = Fraction(0, 1)
         measure_number += 1
         next_repeat_start = False
+        pending_repeat_count = 1
 
     for token in token_lines:
         raw = token.value
@@ -114,6 +117,9 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             flush_measure()
             if score.measures:
                 score.measures[-1].repeat_end = True
+            continue
+        if re.fullmatch(r"\*\d+", raw):
+            pending_repeat_count = max(1, int(raw[1:]))
             continue
         if raw.startswith("\\"):
             dynamic = raw[1:]
@@ -148,6 +154,10 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         flush_measure()
 
     _apply_lyrics(score, lyrics)
+    current_number = 1
+    for measure in score.measures:
+        measure.display_number = current_number
+        current_number += measure.repeat_count
     return score
 
 

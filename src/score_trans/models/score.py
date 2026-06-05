@@ -87,6 +87,7 @@ class Measure:
     target_key: str = "C"
     repeat_start: bool = False
     repeat_end: bool = False
+    repeat_count: int = 1
 
     def __init__(
         self,
@@ -104,6 +105,7 @@ class Measure:
         repeat_start: bool = False,
         repeat_end: bool = False,
         display_number: str | int | None = None,
+        repeat_count: int = 1,
     ) -> None:
         if display_measure_number is None:
             display_measure_number = display_number if display_number is not None else source_number
@@ -120,6 +122,7 @@ class Measure:
         self.target_key = target_key
         self.repeat_start = repeat_start
         self.repeat_end = repeat_end
+        self.repeat_count = repeat_count
 
     @property
     def display_number(self) -> str | int:

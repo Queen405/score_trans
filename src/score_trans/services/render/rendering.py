@@ -109,8 +109,10 @@ def render_jianpu_page_svg(
         measure_start = start_measure_number
     else:
         measure_start = _first_ocr_measure_number(positioned_blocks) or 1
-    for index, measure in enumerate(score.measures):
-        measure.display_number = measure_start + index
+    current_number = measure_start
+    for measure in score.measures:
+        measure.display_number = current_number
+        current_number += getattr(measure, "repeat_count", 1)
     layouts = [_score_measure_layout(measure, base_options) for measure in score.measures]
     rows = _layout_rows(layouts, replace(base_options, width=width, margin=margin))
     top = max(78.0, height * 0.13)
@@ -530,6 +532,9 @@ def _render_measure(
     out = [f'<g class="measure" data-number="{_esc(str(measure.number))}" data-width="{width:.1f}">']
     if options.show_measure_numbers:
         out.append(f'<text class="measure-no" x="{x + 6:.1f}" y="{y - 62}">{_esc(str(measure.number))}</text>')
+    repeat_count = getattr(measure.source, "repeat_count", 1)
+    if repeat_count > 1:
+        out.append(f'<text class="repeat-count" x="{x + width - 6:.1f}" y="{y - 62}" text-anchor="end" font-size="11" fill="#868686">*{repeat_count}</text>')
     if getattr(measure.source, "repeat_start", False):
         out.extend(_repeat_start_bar(x, y))
     elif draw_start_bar:

@@ -114,6 +114,18 @@
           <div class="ws-panel-head">
             <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
             <div class="panel-head-actions">
+              <div class="panel-head-meta">
+                <span class="meta-label">起始小节</span>
+                <n-input-number
+                  :value="store.startMeasureNumber"
+                  @update:value="handleStartMeasureChange"
+                  placeholder="自动"
+                  :min="1"
+                  clearable
+                  size="tiny"
+                  style="width: 70px"
+                />
+              </div>
               <n-button size="tiny" quaternary @click="syntaxGuideOpen = true">
                 <template #icon><n-icon size="13"><HelpCircleOutline /></n-icon></template>
                 语法说明
@@ -605,6 +617,13 @@ async function renderSvg(): Promise<void> {
   }
 }
 
+async function handleStartMeasureChange(value: number | null): Promise<void> {
+  store.setPageStartMeasureNumber(value)
+  if (isViewingFinal.value && finalSvgFileId.value) {
+    await renderSvg()
+  }
+}
+
 async function toggleFinalView(): Promise<void> {
   if (isViewingFinal.value) { isViewingFinal.value = false; return }
   isRenderingFinal.value = true
@@ -973,6 +992,24 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.panel-head-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  padding-right: 6px;
+  border-right: 1px solid var(--border-soft);
+}
+
+.meta-label {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .panel-filename {

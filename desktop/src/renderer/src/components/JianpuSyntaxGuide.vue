@@ -77,6 +77,8 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
               <tr><td><code>|</code></td><td>小节线</td></tr>
               <tr><td><code>||</code></td><td>终止线</td></tr>
               <tr><td><code>|: :|</code></td><td>反复起止</td></tr>
+              <tr><td><code>*2</code></td><td>重复 2 次（小节号 +2）</td></tr>
+              <tr><td><code>*10</code></td><td>重复 10 次（小节号 +10）</td></tr>
             </tbody>
           </table>
         </section>
@@ -132,6 +134,7 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
           <div><code>q</code> <code>s</code> <code>d</code> <code>h</code> <code>w</code> 时值前缀</div>
           <div><code>.</code> 附点　<code>~</code> 延音线　<code>( )</code> 连音线</div>
           <div><code>[a+b]</code> 和弦　<code>| || |: :|</code> 小节线</div>
+          <div><code>*N</code> 重复 N 次　小节号累加 N</div>
           <div><code>\p \f</code> 力度　<code>^. ^> ^- ^tr</code> 演奏法</div>
           <div><code>L:</code> 歌词　<code>#</code> 注释</div>
         </div>
@@ -157,26 +160,198 @@ defineEmits<{ 'update:show': [value: boolean] }>()
 .guide-shell {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   max-height: min(72vh, 760px);
   overflow: auto;
   padding-right: 4px;
 }
 
+/* ── Intro ── */
 .guide-intro p {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.7;
+  font-size: 13px;
 }
 
+/* ── Sections ── */
 .guide-section,
 .guide-grid section {
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  padding: 12px;
-  background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  position: relative;
+  overflow: hidden;
 }
 
+.guide-section::before,
+.guide-grid section::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+
+/* Category colors via section nth-child */
+.guide-grid section:nth-child(1)::before { background: #3b82f6; }
+.guide-grid section:nth-child(2)::before { background: #10b981; }
+.guide-grid section:nth-child(3)::before { background: #f59e0b; }
+.guide-grid section:nth-child(4)::before { background: #8b5cf6; }
+.guide-grid.lower section:nth-child(1)::before { background: #ef4444; }
+.guide-grid.lower section:nth-child(2)::before { background: #06b6d4; }
+.guide-section::before { background: #6366f1; }
+
+h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+h3::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.guide-grid section:nth-child(1) h3::before { background: #3b82f6; }
+.guide-grid section:nth-child(2) h3::before { background: #10b981; }
+.guide-grid section:nth-child(3) h3::before { background: #f59e0b; }
+.guide-grid section:nth-child(4) h3::before { background: #8b5cf6; }
+.guide-grid.lower section:nth-child(1) h3::before { background: #ef4444; }
+.guide-grid.lower section:nth-child(2) h3::before { background: #06b6d4; }
+.guide-section h3::before { background: #6366f1; }
+
+/* ── Code blocks ── */
+pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  line-height: 1.7;
+  color: #e2e8f0;
+  font-size: 12.5px;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  color: inherit;
+}
+
+/* Inline code as pills */
+code {
+  font-family: 'Cascadia Code', 'Consolas', 'SF Mono', monospace;
+  font-size: 11.5px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  white-space: nowrap;
+}
+
+/* ── Tables ── */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+}
+
+tr {
+  transition: background 0.12s ease;
+}
+
+tr:hover td {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+td {
+  padding: 7px 8px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  vertical-align: middle;
+}
+
+tr:first-child td {
+  border-top: none;
+}
+
+tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--bg-base) 50%, transparent);
+}
+
+td:first-child {
+  width: 44%;
+  padding-left: 2px;
+  font-weight: 500;
+}
+
+td:first-child code {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #e2e8f0;
+}
+
+.dark td:first-child code {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+/* ── Notes ── */
+.section-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: var(--bg-base);
+  border-radius: 6px;
+  border-left: 2px solid var(--text-tertiary);
+}
+
+/* ── Quick Ref as tags ── */
+.quick-ref .ref-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-ref .ref-grid div {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-soft);
+  border-radius: 20px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.quick-ref .ref-grid div code {
+  font-size: 11px;
+  padding: 0 3px;
+}
+
+/* ── Grid Layout ── */
 .guide-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(360px, 1fr));
@@ -187,87 +362,6 @@ defineEmits<{ 'update:show': [value: boolean] }>()
   grid-template-columns: repeat(2, minmax(360px, 1fr));
 }
 
-h3 {
-  margin: 0 0 9px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-pre {
-  margin: 0;
-  padding: 12px;
-  overflow: auto;
-  border-radius: var(--radius-sm);
-  background: var(--bg-base);
-  border: 1px solid var(--border-soft);
-  line-height: 1.7;
-}
-
-code {
-  font-family: 'Cascadia Code', 'Consolas', monospace;
-  font-size: 12px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-td {
-  padding: 5px 0;
-  border-top: 1px solid var(--border-soft);
-  color: var(--text-secondary);
-  line-height: 1.5;
-  vertical-align: top;
-}
-
-tr:first-child td {
-  border-top: 0;
-}
-
-td:first-child {
-  width: 42%;
-  color: var(--text-primary);
-  padding-right: 8px;
-  white-space: nowrap;
-}
-
-.section-note {
-  margin: 8px 0 0;
-  font-size: 11.5px;
-  color: var(--text-tertiary);
-  line-height: 1.5;
-}
-
-ul {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-.guide-section.warn {
-  background: color-mix(in srgb, var(--warn-bg, #fff8e1) 60%, transparent);
-  border-color: color-mix(in srgb, var(--warn-border, #ffe082) 60%, transparent);
-}
-
-.guide-section.warn h3 {
-  color: var(--warn-text, #e65100);
-}
-
-.quick-ref .ref-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px 16px;
-}
-
-.quick-ref .ref-grid div {
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 @media (max-width: 760px) {
   .guide-grid,
   .guide-grid.lower {
@@ -275,11 +369,7 @@ ul {
   }
 
   td:first-child {
-    width: 46%;
-  }
-
-  .quick-ref .ref-grid {
-    grid-template-columns: 1fr;
+    width: 48%;
   }
 }
 </style>
