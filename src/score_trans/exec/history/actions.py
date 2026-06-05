@@ -43,6 +43,7 @@ class HistoryActions:
                 jianpu_text=_normalize_history_text(p.jianpu_text),
                 ocr_text=p.ocr_text,
                 svg_file_id=p.svg_file_id,
+                start_measure_number=p.start_measure_number,
                 status=p.status,
                 error_message=p.error_message,
             )
@@ -64,6 +65,7 @@ class HistoryActions:
             jianpu_text=_normalize_history_text(req.jianpu_text) if req.jianpu_text is not None else None,
             ocr_text=req.ocr_text,
             svg_file_id=req.svg_file_id,
+            start_measure_number=req.start_measure_number,
             status=req.status,
             error_message=req.error_message,
         )
@@ -97,6 +99,7 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         jianpu_text=page.jianpu_text,
         ocr_text=page.ocr_text,
         svg_file_id=page.svg_file_id,
+        start_measure_number=page.start_measure_number,
         status=page.status,
         error_message=page.error_message,
     )

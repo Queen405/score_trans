@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -48,8 +49,8 @@ def build_request(
                 ],
             }
         ],
-        "temperature": 0,
-        "max_tokens": 2048,
+        "temperature": float(os.getenv("SCORE_TRANS_OCR_TEMPERATURE", "0")),
+        "max_tokens": int(os.getenv("SCORE_TRANS_OCR_MAX_TOKENS", "2048")),
     }
     if not is_deepseek_ocr_model(model):
         payload["response_format"] = {"type": "json_object"}

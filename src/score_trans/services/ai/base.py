@@ -14,8 +14,8 @@ from ...utils.json_parsing import content_to_text, parse_json_content
 from ...utils.media import image_to_data_url
 
 
-DEFAULT_AI_BASE_URL = "https://api.siliconflow.cn/v1"
-DEFAULT_AI_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
+DEFAULT_AI_BASE_URL = os.getenv("SCORE_TRANS_AI_BASE_URL", "https://api.siliconflow.cn/v1")
+DEFAULT_AI_MODEL = os.getenv("SCORE_TRANS_AI_MODEL", "Qwen/Qwen3-VL-8B-Instruct")
 
 _PROMPT_CONFIG: dict[str, str] | None = None
 

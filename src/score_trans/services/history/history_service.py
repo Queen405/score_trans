@@ -27,6 +27,7 @@ class HistoryService:
         ocr_text: str | None = None,
         svg_file_id: str | None = None,
         musicxml_file_id: str | None = None,
+        start_measure_number: int | None = None,
         status: str | None = None,
         error_message: str | None = None,
     ) -> HistoryPage | None:
@@ -36,6 +37,7 @@ class HistoryService:
             ocr_text=ocr_text,
             svg_file_id=svg_file_id,
             musicxml_file_id=musicxml_file_id,
+            start_measure_number=start_measure_number,
             status=status,
             error_message=error_message,
         )

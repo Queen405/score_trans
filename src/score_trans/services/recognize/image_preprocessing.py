@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,9 +10,9 @@ IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 
 @dataclass(slots=True)
 class ImagePreprocessOptions:
-    target_long_edge: int = 3600
-    binarize: bool = False
-    dpi: int = 300
+    target_long_edge: int = int(os.getenv("SCORE_TRANS_OMR_PREPROCESS_LONG_EDGE", "3600"))
+    binarize: bool = os.getenv("SCORE_TRANS_OMR_PREPROCESS_BINARIZE", "0").lower() in ("1", "true", "yes", "on")
+    dpi: int = int(os.getenv("SCORE_TRANS_OMR_DPI", "300"))
 
 
 def prepare_omr_input(input_path: Path, output_dir: Path, config) -> Path:
@@ -22,7 +23,7 @@ def prepare_omr_input(input_path: Path, output_dir: Path, config) -> Path:
         png_path = target_dir / f"{input_path.stem}_page_001.png"
         from ...utils.pdf import pdf_page_to_png
 
-        pdf_page_to_png(input_path, png_path, dpi=220)
+        pdf_page_to_png(input_path, png_path, dpi=int(os.getenv("SCORE_TRANS_PDF_RENDER_DPI", "220")))
         input_path = png_path
 
     if not getattr(config, "omr_preprocess", True):
@@ -52,9 +53,13 @@ def preprocess_score_image(input_path: Path, output_path: Path, options: ImagePr
         image = ImageOps.exif_transpose(original).convert("L")
 
     image = _crop_white_margin(image)
-    image = ImageOps.autocontrast(image, cutoff=1)
+    image = ImageOps.autocontrast(image, cutoff=int(os.getenv("SCORE_TRANS_OMR_AUTOCONTRAST_CUTOFF", "1")))
     image = _resize_to_long_edge(image, options.target_long_edge)
-    image = image.filter(ImageFilter.UnsharpMask(radius=1.0, percent=120, threshold=4))
+    image = image.filter(ImageFilter.UnsharpMask(
+        radius=float(os.getenv("SCORE_TRANS_OMR_SHARPEN_RADIUS", "1.0")),
+        percent=int(os.getenv("SCORE_TRANS_OMR_SHARPEN_PERCENT", "120")),
+        threshold=int(os.getenv("SCORE_TRANS_OMR_SHARPEN_THRESHOLD", "4")),
+    ))
     if options.binarize:
         image = _binarize_otsu(image)
 
@@ -64,7 +69,7 @@ def preprocess_score_image(input_path: Path, output_path: Path, options: ImagePr
 
 
 def _crop_white_margin(image):
-    threshold = 246
+    threshold = int(os.getenv("SCORE_TRANS_OMR_CROP_THRESHOLD", "246"))
     mask = image.point(lambda pixel: 0 if pixel >= threshold else 255, mode="L")
     bbox = mask.getbbox()
     if bbox is None:
@@ -75,7 +80,9 @@ def _crop_white_margin(image):
     if (right - left) * (bottom - top) < width * height * 0.2:
         return image
 
-    pad = max(12, int(max(width, height) * 0.012))
+    pad_min = int(os.getenv("SCORE_TRANS_OMR_CROP_PAD_MIN", "12"))
+    pad_ratio = float(os.getenv("SCORE_TRANS_OMR_CROP_PAD_RATIO", "0.012"))
+    pad = max(pad_min, int(max(width, height) * pad_ratio))
     left = max(0, left - pad)
     top = max(0, top - pad)
     right = min(width, right + pad)

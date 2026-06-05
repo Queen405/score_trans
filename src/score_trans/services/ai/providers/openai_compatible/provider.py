@@ -26,7 +26,7 @@ class LangChainVisionJianpuProvider:
         base_url: str | None = None,
         model: str | None = None,
         api_key: str | None = None,
-        timeout: float = 120.0,
+        timeout: float = float(os.getenv("SCORE_TRANS_AI_TIMEOUT", "120.0")),
         dry_run: bool = False,
     ) -> None:
         persisted = persisted_ai_settings()
@@ -95,12 +95,12 @@ class LangChainVisionJianpuProvider:
             model=self.model,
             base_url=self.base_url,
             api_key=self.api_key,
-            temperature=0,
+            temperature=float(os.getenv("SCORE_TRANS_AI_TEMPERATURE", "0")),
             timeout=self.timeout,
             model_kwargs={"response_format": {"type": "json_object"}},
         )
         messages = [
-            SystemMessage(content=_load_prompt_config().get("system_message", "You are a careful sheet-music to numbered-notation transcription agent.")),
+            SystemMessage(content=_load_prompt_config().get("system_message", os.getenv("SCORE_TRANS_AI_SYSTEM_MSG", "You are a careful sheet-music to numbered-notation transcription agent."))),
             HumanMessage(
                 content=[
                     {"type": "text", "text": prompt},

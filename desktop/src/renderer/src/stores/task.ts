@@ -16,6 +16,7 @@ export interface TaskPage {
   ocrText: string
   jianpuDirty: boolean
   svgFileId: string
+  startMeasureNumber: number | null
   status: TaskPageStatus
   errorMessage: string
 }
@@ -32,6 +33,7 @@ export interface TaskPageInput {
   ocrText?: string
   jianpuDirty?: boolean
   svgFileId?: string
+  startMeasureNumber?: number | null
   status?: TaskPageStatus
   errorMessage?: string
 }
@@ -50,8 +52,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     jianpuText: '',
     ocrText: '',
     jianpuDirty: false,
-    svgFileId: '',
-    status: 'pending',
+    svgFileId: '',    startMeasureNumber: null,    status: 'pending',
     errorMessage: '',
     ...seed,
   }
@@ -68,6 +69,7 @@ export const useTaskStore = defineStore('task', () => {
   const ocrText = ref('')
   const jianpuDirty = ref(false)
   const svgFileId = ref('')
+  const startMeasureNumber = ref<number | null>(null)
   const isBusy = ref(false)
   const pages = ref<TaskPage[]>([])
   const currentPageIndex = ref(-1)
@@ -87,6 +89,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText.value = ''
       jianpuDirty.value = false
       svgFileId.value = ''
+      startMeasureNumber.value = null
       return
     }
 
@@ -100,6 +103,7 @@ export const useTaskStore = defineStore('task', () => {
     ocrText.value = page.ocrText
     jianpuDirty.value = page.jianpuDirty
     svgFileId.value = page.svgFileId
+    startMeasureNumber.value = page.startMeasureNumber
   }
 
   function patchCurrentPage(patch: Partial<TaskPage>): void {
@@ -167,6 +171,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
+      startMeasureNumber: null,
       status: 'pending',
       errorMessage: '',
     })
@@ -191,12 +196,14 @@ export const useTaskStore = defineStore('task', () => {
     ocrText.value = ''
     jianpuDirty.value = false
     svgFileId.value = ''
+    startMeasureNumber.value = null
     patchCurrentPage({
       musicxmlFileId: '',
       jianpuText: '',
       ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
+      startMeasureNumber: null,
       status: 'pending',
       errorMessage: '',
     })
@@ -227,6 +234,11 @@ export const useTaskStore = defineStore('task', () => {
   function setSvg(fileId: string) {
     svgFileId.value = fileId
     patchCurrentPage({ svgFileId: fileId })
+  }
+
+  function setPageStartMeasureNumber(value: number | null) {
+    startMeasureNumber.value = value
+    patchCurrentPage({ startMeasureNumber: value })
   }
 
   function setHistoryPageId(id: number | null) {
@@ -270,6 +282,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText: p.ocrText ?? '',
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
+      startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       errorMessage: p.errorMessage ?? '',
     }))
@@ -302,6 +315,7 @@ export const useTaskStore = defineStore('task', () => {
     ocrText.value = ''
     jianpuDirty.value = false
     svgFileId.value = ''
+    startMeasureNumber.value = null
     isBusy.value = false
     pages.value = []
     currentPageIndex.value = -1
@@ -320,6 +334,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText: p.ocrText ?? '',
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
+      startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       errorMessage: p.errorMessage ?? '',
     }))
@@ -339,6 +354,7 @@ export const useTaskStore = defineStore('task', () => {
     ocrText,
     jianpuDirty,
     svgFileId,
+    startMeasureNumber,
     isBusy,
     pages,
     currentPageIndex,
@@ -362,6 +378,7 @@ export const useTaskStore = defineStore('task', () => {
     setOcrText,
     markJianpuClean,
     setSvg,
+    setPageStartMeasureNumber,
     setHistoryPageId,
     setPageHistoryPageId,
     removePage,

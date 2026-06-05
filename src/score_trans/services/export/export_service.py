@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from fractions import Fraction
 from io import BytesIO
 from pathlib import Path
@@ -11,7 +12,7 @@ from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
 from ...models.score import JianpuPitch, JianpuScore
 from ..render.render_service import RenderService
 
-_TICKS_PER_BEAT = 480
+_TICKS_PER_BEAT = int(os.getenv("SCORE_TRANS_MIDI_TICKS_PER_BEAT", "480"))
 
 
 def _pitch_to_midi(pitch: JianpuPitch, key: str) -> int:
@@ -57,7 +58,7 @@ class ExportService:
         track = mido.MidiTrack()
         mid.tracks.append(track)
 
-        tempo = mido.bpm2tempo(120)
+        tempo = mido.bpm2tempo(int(os.getenv("SCORE_TRANS_MIDI_DEFAULT_BPM", "120")))
         track.append(mido.MetaMessage("set_tempo", tempo=tempo, time=0))
 
         key = score.target_key
@@ -75,7 +76,7 @@ class ExportService:
                 ticks = _duration_to_ticks(event.duration, beat_type)
                 for i, pitch in enumerate(event.pitches):
                     midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
-                    track.append(mido.Message("note_on", note=midi_note, velocity=80, time=0))
+                    track.append(mido.Message("note_on", note=midi_note, velocity=int(os.getenv("SCORE_TRANS_MIDI_DEFAULT_VELOCITY", "80")), time=0))
                 for i, pitch in enumerate(event.pitches):
                     midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
                     track.append(mido.Message("note_off", note=midi_note, velocity=0, time=ticks if i == 0 else 0))

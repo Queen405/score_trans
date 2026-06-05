@@ -29,6 +29,13 @@
       {{ progressText }}
     </n-progress>
 
+    <MeasureNumberPicker
+      v-model:show="pickerShow"
+      :options="pickerOptions"
+      @confirm="onPickerConfirm"
+      @cancel="onPickerCancel"
+    />
+
     <div class="rv-actions">
       <n-button
         type="primary"
@@ -88,6 +95,7 @@ import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
 import { pipelineApi } from '../api/pipeline'
+import { renderApi } from '../api/render'
 import { aiApi } from '../api/ai'
 import { historyApi } from '../api/history'
 import { getFileURL } from '../api/client'
@@ -95,6 +103,7 @@ import type { AiTranscribedPage, HistoryCreateRequest } from '../models/types'
 import type { TaskPageInput } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import FileUploader from '../components/FileUploader.vue'
+import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import {
   ScanOutline,
   FlashOutline,
@@ -112,6 +121,34 @@ const message = useMessage()
 const progressPercent = ref(0)
 const progressText = ref('等待开始')
 const aiVisionEnabled = ref(false)
+
+const pickerShow = ref(false)
+const pickerOptions = ref<number[]>([])
+let pickerResolve: ((value: number | null) => void) | null = null
+
+function openMeasurePicker(options: number[]): Promise<number | null> {
+  return new Promise((resolve) => {
+    pickerOptions.value = options
+    pickerShow.value = true
+    pickerResolve = resolve
+  })
+}
+
+function onPickerConfirm(value: number): void {
+  pickerShow.value = false
+  if (pickerResolve) {
+    pickerResolve(value)
+    pickerResolve = null
+  }
+}
+
+function onPickerCancel(): void {
+  pickerShow.value = false
+  if (pickerResolve) {
+    pickerResolve(null)
+    pickerResolve = null
+  }
+}
 
 function isPreviewable(fileName: string): boolean {
   return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
@@ -177,7 +214,7 @@ async function runPipelineForPage(
   const result = await pipelineApi.run(
     new File([blob], sourceFileName),
     settings.targetKey,
-    settings.startMeasureNumber ?? undefined,
+    page.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
   )
 
   setProgress(mapPercent(82), '写入结果')
@@ -190,7 +227,28 @@ async function runPipelineForPage(
   const split = splitJianpuAndOcr(result.jianpu_text)
   store.setJianpu(split.jianpuText)
   store.setOcrText(split.ocrText)
-  store.setSvg(result.svg_file_id)
+  let svgFileId = result.svg_file_id
+  store.setSvg(svgFileId)
+
+  if (result.ocr_measure_numbers.length > 0) {
+    setProgress(mapPercent(85), '选择起始小节号')
+    const chosen = await openMeasurePicker(result.ocr_measure_numbers)
+    if (chosen != null) {
+      store.setPageStartMeasureNumber(chosen)
+      if (chosen !== result.ocr_measure_numbers[0]) {
+        setProgress(mapPercent(90), '重新渲染')
+        const renderResult = await renderApi.jianpuSvg({
+          musicxml_file_id: result.musicxml_file_id,
+          page_image_file_id: sourceFileId,
+          target_key: settings.targetKey,
+          start_measure_number: chosen,
+        })
+        svgFileId = renderResult.svg_file_id
+        store.setSvg(svgFileId)
+      }
+    }
+  }
+
   store.setCurrentPageStatus('completed')
   log.addLog(`识别完成：${sourceFileName}`)
 
@@ -201,7 +259,7 @@ async function runPipelineForPage(
     musicxml_file_id: result.musicxml_file_id,
     jianpu_text: split.jianpuText,
     ocr_text: split.ocrText,
-    svg_file_id: result.svg_file_id,
+    svg_file_id: svgFileId,
     status: 'completed',
     error_message: '',
   }
@@ -211,16 +269,20 @@ async function saveHistoryBatch(pageResults: PageResult[]): Promise<void> {
   if (!pageResults.length) return
   try {
     const created = await historyApi.create({
-      pages: pageResults.map((r) => ({
-        input_file_name: r.input_file_name,
-        input_file_id: r.input_file_id,
-        musicxml_file_id: r.musicxml_file_id,
-        jianpu_text: r.jianpu_text,
-        ocr_text: r.ocr_text,
-        svg_file_id: r.svg_file_id,
-        status: r.status,
-        error_message: r.error_message,
-      })),
+      pages: pageResults.map((r) => {
+        const page = store.pages[r.page_index]
+        return {
+          input_file_name: r.input_file_name,
+          input_file_id: r.input_file_id,
+          musicxml_file_id: r.musicxml_file_id,
+          jianpu_text: r.jianpu_text,
+          ocr_text: r.ocr_text,
+          svg_file_id: r.svg_file_id,
+          start_measure_number: page?.startMeasureNumber ?? null,
+          status: r.status,
+          error_message: r.error_message,
+        }
+      }),
     })
     created.pages.forEach((page, index) => {
       const pageIndex = pageResults[index]?.page_index

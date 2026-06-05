@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
@@ -56,7 +57,7 @@ class FileActions:
             stem = pdf_path.stem
             for i in range(len(doc)):
                 page = doc.load_page(i)
-                pix = page.get_pixmap(dpi=200)
+                pix = page.get_pixmap(dpi=int(os.getenv("SCORE_TRANS_UPLOAD_PDF_DPI", "200")))
                 img_filename = f"{stem}_page_{i + 1:03d}.png"
                 img_path = pdf_path.parent / img_filename
                 pix.save(str(img_path))

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,15 +10,17 @@ from ..models.common.errors import AITranscriptionError, ExternalToolError, OCRE
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Score Trans API", version="0.1.0")
+    app = FastAPI(
+        title=os.getenv("SCORE_TRANS_API_TITLE", "Score Trans API"),
+        version=os.getenv("SCORE_TRANS_API_VERSION", "0.1.0"),
+    )
 
     # CORS — development only. Production Electron uses file:// or custom scheme.
+    _raw_origins = os.getenv("SCORE_TRANS_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    allow_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-        ],
+        allow_origins=allow_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )

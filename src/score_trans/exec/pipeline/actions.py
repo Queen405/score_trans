@@ -27,6 +27,7 @@ class ScorePipelineOutputs:
     musicxml_path: Path
     jianpu_text_path: Path
     jianpu_svg_path: Path
+    ocr_measure_numbers: list[int]
 
 
 class FullPipelineAction:
@@ -82,11 +83,13 @@ class FullPipelineAction:
             )
         else:
             self.renderer.render_score_svg(score, svg_path, title=title or score.title)
+        ocr_measure_numbers = _extract_ocr_measure_numbers(score)
         return ScorePipelineOutputs(
             input_path=source,
             musicxml_path=musicxml_path,
             jianpu_text_path=text_path,
             jianpu_svg_path=svg_path,
+            ocr_measure_numbers=ocr_measure_numbers,
         )
 
 
@@ -137,6 +140,7 @@ class PipelineActions:
             jianpu_text=jianpu_text,
             jianpu_file_id=jianpu_id,
             svg_file_id=svg_id,
+            ocr_measure_numbers=outputs.ocr_measure_numbers,
         )
 
 
@@ -146,6 +150,15 @@ def _copy_musicxml_output(path: Path, output_dir: Path, stem: str) -> Path:
     if path.resolve() != target.resolve():
         shutil.copy2(path, target)
     return target
+
+
+def _extract_ocr_measure_numbers(score) -> list[int]:
+    numbers = sorted({
+        int(block.text.strip())
+        for block in getattr(score, "text_blocks", [])
+        if getattr(block, "role", None) == "measure_number" and block.text.strip().isdigit()
+    })
+    return numbers
 
 
 def _is_ocr_image(path: Path) -> bool:

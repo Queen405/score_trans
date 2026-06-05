@@ -9,4 +9,5 @@ class PipelineResponse(BaseModel):
     jianpu_text: str
     jianpu_file_id: str
     svg_file_id: str
+    ocr_measure_numbers: list[int] = []
 

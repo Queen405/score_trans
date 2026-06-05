@@ -58,7 +58,7 @@ class MusicXmlToJianpuAction:
             provider = ocr_provider or OpenAICompatibleOCRProvider()
             blocks = provider.recognize(Path(image_path))
             score.text_blocks.extend(blocks)
-            _apply_measure_number_ocr(score, blocks)
+            _apply_measure_number_ocr(score, blocks, start_measure_number=start_measure_number)
         return score
 
 
@@ -119,16 +119,19 @@ class ConvertActions:
         return JianpuToMusicXmlResponse(musicxml_text=xml_text, musicxml_file_id=musicxml_id)
 
 
-def _apply_measure_number_ocr(score: JianpuScore, blocks) -> None:
+def _apply_measure_number_ocr(score: JianpuScore, blocks, *, start_measure_number: int | None = None) -> None:
     candidates = [
         (index, block, int(block.text.strip()))
         for index, block in enumerate(blocks)
         if block.role == "measure_number" and block.text.strip().isdigit()
     ]
-    if not candidates:
+    if not candidates and start_measure_number is None:
         return
-    candidates.sort(key=_measure_number_candidate_key)
-    start = candidates[0][2]
+    if start_measure_number is not None:
+        start = start_measure_number
+    else:
+        candidates.sort(key=_measure_number_candidate_key)
+        start = candidates[0][2]
     for index, measure in enumerate(score.measures):
         display_number = start + index
         measure.display_number = display_number

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from pydantic import BaseModel, Field
 
 
@@ -7,7 +9,7 @@ class AiTranscribeRequest(BaseModel):
     file_id: str
     target_key: str = "C"
     title: str | None = None
-    render_dpi: int = Field(default=220, ge=72, le=400)
+    render_dpi: int = Field(default=int(os.getenv("SCORE_TRANS_PDF_RENDER_DPI", "220")), ge=72, le=400)
     max_pages: int | None = Field(default=None, ge=1, le=100)
     prompt: str | None = None
     normalize: bool = True

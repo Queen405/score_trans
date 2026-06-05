@@ -22,6 +22,7 @@ class RenderJianpuTextSvgRequest(BaseModel):
     ocr_text: str | None = None
     include_ocr_text: bool = True
     title: str = "简谱"
+    start_measure_number: int | None = None
 
 
 class RenderJianpuTextSvgResponse(BaseModel):

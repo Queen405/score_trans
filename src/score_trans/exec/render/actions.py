@@ -127,6 +127,7 @@ class RenderJianpuTextAction:
         ocr_provider: OCRProvider | None = None,
         text_blocks: list[TextBlock] | None = None,
         title: str = "简谱",
+        start_measure_number: int | None = None,
     ) -> Path:
         blocks = text_blocks
         if blocks is None and image_path is not None:
@@ -139,6 +140,7 @@ class RenderJianpuTextAction:
             page_height=page_height,
             title=title,
             text_blocks=blocks or [],
+            start_measure_number=start_measure_number,
         )
 
 
@@ -216,6 +218,7 @@ class RenderActions:
                 image_path=image_path,
                 text_blocks=ocr_blocks if req.include_ocr_text else [],
                 title=req.title,
+                start_measure_number=req.start_measure_number,
             )
         else:
             self.text_renderer.execute(input_path, svg_path, title=req.title)

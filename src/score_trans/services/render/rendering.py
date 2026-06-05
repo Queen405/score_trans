@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import os
 import re
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
@@ -12,25 +13,25 @@ from ...domain.jianpu_tokens import PREFIX_SLASHES, consume_duration_prefix, dur
 from ...models.score import JianpuEvent, JianpuPitch, JianpuScore, TextBlock
 
 
-CHORD_GAP = 38
-LOW_OCTAVE_DOT_OFFSET = 18
-OCTAVE_DOT_GAP = 8
+CHORD_GAP = int(os.getenv("SCORE_TRANS_RENDER_CHORD_GAP", "38"))
+LOW_OCTAVE_DOT_OFFSET = int(os.getenv("SCORE_TRANS_RENDER_OCTAVE_DOT_OFFSET", "18"))
+OCTAVE_DOT_GAP = int(os.getenv("SCORE_TRANS_RENDER_OCTAVE_DOT_GAP", "8"))
 
 
 @dataclass(slots=True)
 class RenderOptions:
-    title: str = "简谱"
-    width: int = 1600
-    margin: int = 72
-    measure_width: int = 330
-    line_height: int = 180
-    font_family: str = "Microsoft YaHei, SimSun, Arial, sans-serif"
-    min_measure_width: int = 112
-    max_measure_width: int = 1100
-    beat_gap: int = 14
-    show_beat_guides: bool = False
-    show_staff_guides: bool = False
-    show_measure_numbers: bool = True
+    title: str = os.getenv("SCORE_TRANS_RENDER_TITLE", "简谱")
+    width: int = int(os.getenv("SCORE_TRANS_RENDER_WIDTH", "1600"))
+    margin: int = int(os.getenv("SCORE_TRANS_RENDER_MARGIN", "72"))
+    measure_width: int = int(os.getenv("SCORE_TRANS_RENDER_MEASURE_WIDTH", "330"))
+    line_height: int = int(os.getenv("SCORE_TRANS_RENDER_LINE_HEIGHT", "180"))
+    font_family: str = os.getenv("SCORE_TRANS_RENDER_FONT", "Microsoft YaHei, SimSun, Arial, sans-serif")
+    min_measure_width: int = int(os.getenv("SCORE_TRANS_RENDER_MIN_MEASURE_WIDTH", "112"))
+    max_measure_width: int = int(os.getenv("SCORE_TRANS_RENDER_MAX_MEASURE_WIDTH", "1100"))
+    beat_gap: int = int(os.getenv("SCORE_TRANS_RENDER_BEAT_GAP", "14"))
+    show_beat_guides: bool = os.getenv("SCORE_TRANS_RENDER_SHOW_BEAT_GUIDES", "0").lower() in ("1", "true", "yes", "on")
+    show_staff_guides: bool = os.getenv("SCORE_TRANS_RENDER_SHOW_STAFF_GUIDES", "0").lower() in ("1", "true", "yes", "on")
+    show_measure_numbers: bool = os.getenv("SCORE_TRANS_RENDER_SHOW_MEASURE_NUMBERS", "1").lower() in ("1", "true", "yes", "on")
 
 
 @dataclass(slots=True)
@@ -93,6 +94,7 @@ def render_jianpu_page_svg(
     title: str = "简谱",
     text_blocks: list[TextBlock] | None = None,
     options: RenderOptions | None = None,
+    start_measure_number: int | None = None,
 ) -> str:
     width = max(1, int(round(page_width)))
     height = max(1, int(round(page_height)))
@@ -103,7 +105,10 @@ def render_jianpu_page_svg(
     score = parse_jianpu_score(clean_text, title=title)
     positioned_blocks = directive_blocks or (text_blocks or [])
     score.text_blocks.extend(positioned_blocks)
-    measure_start = _first_ocr_measure_number(positioned_blocks) or 1
+    if start_measure_number is not None:
+        measure_start = start_measure_number
+    else:
+        measure_start = _first_ocr_measure_number(positioned_blocks) or 1
     for index, measure in enumerate(score.measures):
         measure.display_number = measure_start + index
     layouts = [_score_measure_layout(measure, base_options) for measure in score.measures]
@@ -213,6 +218,7 @@ def render_jianpu_page_file_to_svg(
     page_height: float,
     title: str = "简谱",
     text_blocks: list[TextBlock] | None = None,
+    start_measure_number: int | None = None,
 ) -> Path:
     svg = render_jianpu_page_svg(
         input_path.read_text(encoding="utf-8"),
@@ -220,6 +226,7 @@ def render_jianpu_page_file_to_svg(
         page_height=page_height,
         title=title,
         text_blocks=text_blocks,
+        start_measure_number=start_measure_number,
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")

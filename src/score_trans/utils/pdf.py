@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+
+_DEFAULT_PDF_DPI = int(os.getenv("SCORE_TRANS_PDF_RENDER_DPI", "220"))
 
 
 def pdf_page_to_png(
@@ -10,7 +13,7 @@ def pdf_page_to_png(
     output_path: Path,
     *,
     page_index: int = 0,
-    dpi: int = 220,
+    dpi: int = _DEFAULT_PDF_DPI,
 ) -> Path:
     """Render a single PDF page to PNG."""
     try:
@@ -30,7 +33,7 @@ def pdf_to_png_pages(
     pdf_path: Path,
     output_dir: Path,
     *,
-    dpi: int = 220,
+    dpi: int = _DEFAULT_PDF_DPI,
     max_pages: int | None = None,
 ) -> list[Path]:
     """Render all (or limited) PDF pages to PNG files. Returns list of output paths."""

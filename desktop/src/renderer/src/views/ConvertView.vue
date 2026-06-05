@@ -335,6 +335,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       jianpuText: r.jianpu,
       ocrText: r.page.ocr_text || r.split.ocrText,
       svgFileId: r.svgOk ? r.page.svg_file_id : '',
+      startMeasureNumber: r.page.start_measure_number ?? null,
       status: r.page.status as any,
     })),
     pageIndex >= 0 ? pageIndex : 0,
@@ -485,7 +486,7 @@ async function renderExportSvg(page: TaskPage): Promise<string> {
       musicxml_file_id: page.musicxmlFileId,
       page_image_file_id: page.originalFileId || page.inputFileId || undefined,
       target_key: settings.targetKey,
-      start_measure_number: settings.startMeasureNumber ?? undefined,
+      start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
     })
     return result.svg_file_id
   }
@@ -499,7 +500,7 @@ async function musicxmlToJianpu(): Promise<void> {
       musicxml_file_id: store.musicxmlFileId,
       page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
-      start_measure_number: settings.startMeasureNumber ?? undefined,
+      start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
     })
     const split = splitJianpuAndOcr(result.jianpu_text)
     store.setJianpu(split.jianpuText)
@@ -576,12 +577,13 @@ async function renderSvg(): Promise<void> {
           ocr_text: store.ocrText || undefined,
           include_ocr_text: false,
           title: '简谱',
+          start_measure_number: store.startMeasureNumber ?? undefined,
         })
       : await renderApi.jianpuSvg({
           musicxml_file_id: store.musicxmlFileId,
           page_image_file_id: store.originalFileId || undefined,
           target_key: settings.targetKey,
-          start_measure_number: settings.startMeasureNumber ?? undefined,
+          start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
         })
     store.setSvg(result.svg_file_id)
       finalSvgFileId.value = result.svg_file_id
@@ -615,12 +617,13 @@ async function toggleFinalView(): Promise<void> {
           ocr_text: store.ocrText || undefined,
           include_ocr_text: false,
           title: '简谱',
+          start_measure_number: store.startMeasureNumber ?? undefined,
         })
       : await renderApi.finalOutput({
           musicxml_file_id: store.musicxmlFileId,
           page_image_file_id: store.originalFileId || undefined,
           target_key: settings.targetKey,
-          start_measure_number: settings.startMeasureNumber ?? undefined,
+          start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
         })
     finalSvgFileId.value = result.svg_file_id
       store.setSvg(result.svg_file_id)

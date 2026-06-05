@@ -11,53 +11,59 @@
   >
     <div class="guide-shell">
       <div class="guide-intro">
-        <p>编辑器使用项目自研简谱语法，借鉴文本谱编辑工具的写法：先写调号和拍号，再按小节输入音符。OCR 文字不写在这里，仍在渲染画面中单独拖动、缩放和保存。</p>
+        <p>使用纯文本描述简谱，渲染为 SVG 谱面。设计理念：<strong>看到什么符号，就输入什么符号</strong>。</p>
       </div>
 
       <div class="guide-section">
         <h3>快速开始</h3>
-        <pre><code>title=瑞雪迎春
+        <pre><code>title=小星星
 1=C
 4/4
-1 2 q3 q4 | h[1+3+5] \p |
-L: 春 风 又 绿</code></pre>
+tempo=100
+
+1 1 5 5 | 6 6 h5 | 4 4 3 3 | 2 2 h1 |
+L: 一 闪 一 闪 亮 晶 晶</code></pre>
       </div>
 
       <div class="guide-grid">
         <section>
-          <h3>头部</h3>
+          <h3>谱面信息</h3>
           <table>
             <tbody>
-              <tr><td><code>title=瑞雪迎春</code></td><td>谱名，可选</td></tr>
-              <tr><td><code>1=C</code></td><td>调号，必写或默认 C</td></tr>
-              <tr><td><code>4/4</code></td><td>拍号，必写或默认 4/4</td></tr>
-              <tr><td><code>tempo=85</code></td><td>速度，可选</td></tr>
+              <tr><td><code>1=C</code></td><td>调号（大调主音）</td></tr>
+              <tr><td><code>4/4</code></td><td>拍号</td></tr>
+              <tr><td><code>title=名称</code></td><td>谱名，可选</td></tr>
+              <tr><td><code>tempo=120</code></td><td>速度（BPM），可选</td></tr>
             </tbody>
           </table>
         </section>
 
         <section>
-          <h3>音符</h3>
+          <h3>音符与八度</h3>
           <table>
             <tbody>
-              <tr><td><code>1 2 3</code></td><td>基础音级</td></tr>
+              <tr><td><code>1</code>–<code>7</code></td><td>do–si 七个音级</td></tr>
               <tr><td><code>0</code></td><td>休止符</td></tr>
-              <tr><td><code>#1 b2 n7</code></td><td>升、降、还原</td></tr>
-              <tr><td><code>1' 1,</code></td><td>高八度、低八度</td></tr>
+              <tr><td><code>1'</code> <code>2'</code></td><td>高八度（上加点）</td></tr>
+              <tr><td><code>1,</code> <code>2,</code></td><td>低八度（下加点）</td></tr>
+              <tr><td><code>#1</code> <code>b7</code></td><td>升、降半音</td></tr>
+              <tr><td><code>x4</code> <code>bb7</code></td><td>重升、重降</td></tr>
             </tbody>
           </table>
         </section>
 
         <section>
-          <h3>时值</h3>
+          <h3>时值控制</h3>
           <table>
             <tbody>
-              <tr><td><code>w1</code></td><td>全音符</td></tr>
-              <tr><td><code>h1</code></td><td>二分音符</td></tr>
-              <tr><td><code>1</code></td><td>四分音符</td></tr>
-              <tr><td><code>q1 s1 d1</code></td><td>八分、十六分、三十二分</td></tr>
-              <tr><td><code>1. q2.</code></td><td>附点</td></tr>
-              <tr><td><code>1- 1---</code></td><td>延长</td></tr>
+              <tr><td><code>w1</code></td><td>全音符（4 拍）</td></tr>
+              <tr><td><code>h1</code></td><td>二分音符（2 拍）</td></tr>
+              <tr><td><code>1</code></td><td>四分音符（1 拍，默认）</td></tr>
+              <tr><td><code>q1</code></td><td>八分音符（½ 拍）</td></tr>
+              <tr><td><code>s1</code></td><td>十六分音符（¼ 拍）</td></tr>
+              <tr><td><code>d1</code></td><td>三十二分音符（⅛ 拍）</td></tr>
+              <tr><td><code>5.</code></td><td>附点（延长自身一半）</td></tr>
+              <tr><td><code>5~</code> / <code>~5</code></td><td>延音线起 / 止</td></tr>
             </tbody>
           </table>
         </section>
@@ -66,9 +72,11 @@ L: 春 风 又 绿</code></pre>
           <h3>和弦与小节</h3>
           <table>
             <tbody>
-              <tr><td><code>[1+3+5]</code></td><td>和弦</td></tr>
-              <tr><td><code>q[#2+4'+6]</code></td><td>带时值、升降、八度的和弦</td></tr>
-              <tr><td><code>| || |: :|</code></td><td>普通、终止、反复小节线</td></tr>
+              <tr><td><code>[1+3+5]</code></td><td>和弦（音纵向排列）</td></tr>
+              <tr><td><code>q[1+3+5]</code></td><td>带时值的和弦</td></tr>
+              <tr><td><code>|</code></td><td>小节线</td></tr>
+              <tr><td><code>||</code></td><td>终止线</td></tr>
+              <tr><td><code>|: :|</code></td><td>反复起止</td></tr>
             </tbody>
           </table>
         </section>
@@ -76,39 +84,59 @@ L: 春 风 又 绿</code></pre>
 
       <div class="guide-grid lower">
         <section>
-          <h3>连线、歌词、力度</h3>
+          <h3>装饰标记</h3>
           <table>
             <tbody>
-              <tr><td><code>1~ 1</code></td><td>延音线</td></tr>
-              <tr><td><code>(1 2 3)</code></td><td>圆滑线</td></tr>
-              <tr><td><code>L: 春 风 又 绿</code></td><td>歌词行，按音符顺序匹配</td></tr>
-              <tr><td><code>\p \mp \f \ff</code></td><td>力度标记</td></tr>
-              <tr><td><code>^tr ^&gt; ^-</code></td><td>颤音、重音、保持音</td></tr>
+              <tr><td><code>(1 2 3)</code></td><td>连音线（圆滑奏）</td></tr>
+              <tr><td><code>\p</code> <code>\f</code></td><td>弱 / 强</td></tr>
+              <tr><td><code>\mp</code> <code>\mf</code></td><td>中弱 / 中强</td></tr>
+              <tr><td><code>\ff</code> <code>\sfz</code></td><td>很强 / 突强</td></tr>
+              <tr><td><code>^.</code></td><td>断奏（staccato）</td></tr>
+              <tr><td><code>^></code></td><td>重音（accent）</td></tr>
+              <tr><td><code>^-</code></td><td>保持（tenuto）</td></tr>
+              <tr><td><code>^tr</code></td><td>颤音（trill）</td></tr>
             </tbody>
           </table>
         </section>
 
         <section>
-          <h3>常见错误</h3>
-          <ul>
-            <li><code>key=C</code>、<code>time=4/4</code> 是旧写法，保存或打开历史时会自动迁移。</li>
-            <li><code>1/</code>、<code>1//</code> 是旧时值，推荐写成 <code>q1</code>、<code>s1</code>。</li>
-            <li>和弦时值写在和弦前，例如 <code>q[1+3+5]</code>，不要写成 <code>[1/+3/]</code>。</li>
-            <li>OCR 文字不要写入简谱编辑器，在渲染界面中直接编辑和拖动。</li>
-          </ul>
+          <h3>歌词与注释</h3>
+          <table>
+            <tbody>
+              <tr><td><code>L: 春 风 又 绿</code></td><td>歌词行，按音符顺序匹配</td></tr>
+              <tr><td><code># 注释内容</code></td><td>注释行，解析时忽略</td></tr>
+            </tbody>
+          </table>
+          <p class="section-note">歌词与音符按顺序一一对应；休止符不分配歌词。</p>
         </section>
       </div>
 
-      <div class="guide-section refs">
-        <h3>参考资料</h3>
-        <p>说明结构参考了 LilyPond 的“文本输入、学习手册、语法参考”分层，abcjs 对 ABC 标准兼容性/例外的说明方式，以及 VexTab 教程的逐步示例和可写性导向。</p>
-        <div class="ref-links">
-          <a href="https://lilypond.org/manuals" target="_blank">LilyPond Manuals</a>
-          <a href="https://docs.abcjs.net/overview/abc-notation" target="_blank">abcjs ABC Notation</a>
-          <a href="https://www.vexflow.com/vextab/tutorial.html" target="_blank">VexTab Tutorial</a>
-          <a href="https://github.com/ssb22/jianpu-ly" target="_blank">jianpu-ly</a>
+      <div class="guide-section">
+        <h3>完整示例</h3>
+        <pre><code>title=练习曲
+1=G
+4/4
+
+\mf 1 2 3 4 | q5 q5 q3 q1 q5 q5 q3 q1 | h2. q3 q4 | w1 |
+L: 春 眠 不 觉 晓 处 处 闻 啼 鸟 飞 飞 飞 去 去 去
+
+\p (5 6 5 4) | 3 2 1 ~1 | 2 3 4 3 | h2 h0 |
+L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
+      </div>
+
+      <div class="guide-section quick-ref">
+        <h3>速查表</h3>
+        <div class="ref-grid">
+          <div><code>1</code>–<code>7</code> 音级　<code>0</code> 休止</div>
+          <div><code>'</code> <code>,</code> 八度　<code>#</code> <code>b</code> <code>x</code> <code>bb</code> 升降</div>
+          <div><code>q</code> <code>s</code> <code>d</code> <code>h</code> <code>w</code> 时值前缀</div>
+          <div><code>.</code> 附点　<code>~</code> 延音线　<code>( )</code> 连音线</div>
+          <div><code>[a+b]</code> 和弦　<code>| || |: :|</code> 小节线</div>
+          <div><code>\p \f</code> 力度　<code>^. ^> ^- ^tr</code> 演奏法</div>
+          <div><code>L:</code> 歌词　<code>#</code> 注释</div>
         </div>
       </div>
+
     </div>
   </n-modal>
 </template>
@@ -135,8 +163,7 @@ defineEmits<{ 'update:show': [value: boolean] }>()
   padding-right: 4px;
 }
 
-.guide-intro p,
-.refs p {
+.guide-intro p {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.7;
@@ -157,7 +184,7 @@ defineEmits<{ 'update:show': [value: boolean] }>()
 }
 
 .guide-grid.lower {
-  grid-template-columns: minmax(420px, 1.1fr) minmax(360px, 0.9fr);
+  grid-template-columns: repeat(2, minmax(360px, 1fr));
 }
 
 h3 {
@@ -188,7 +215,7 @@ table {
 }
 
 td {
-  padding: 6px 0;
+  padding: 5px 0;
   border-top: 1px solid var(--border-soft);
   color: var(--text-secondary);
   line-height: 1.5;
@@ -200,10 +227,17 @@ tr:first-child td {
 }
 
 td:first-child {
-  width: 38%;
+  width: 42%;
   color: var(--text-primary);
-  padding-right: 10px;
+  padding-right: 8px;
   white-space: nowrap;
+}
+
+.section-note {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
 }
 
 ul {
@@ -213,20 +247,25 @@ ul {
   line-height: 1.7;
 }
 
-.ref-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+.guide-section.warn {
+  background: color-mix(in srgb, var(--warn-bg, #fff8e1) 60%, transparent);
+  border-color: color-mix(in srgb, var(--warn-border, #ffe082) 60%, transparent);
 }
 
-.ref-links a {
-  color: var(--accent);
-  text-decoration: none;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  padding: 5px 8px;
-  background: var(--bg-base);
+.guide-section.warn h3 {
+  color: var(--warn-text, #e65100);
+}
+
+.quick-ref .ref-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 16px;
+}
+
+.quick-ref .ref-grid div {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 @media (max-width: 760px) {
@@ -236,7 +275,11 @@ ul {
   }
 
   td:first-child {
-    width: 42%;
+    width: 46%;
+  }
+
+  .quick-ref .ref-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

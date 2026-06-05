@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
 from ...models.score import OCRTextBlock
 
 
-DEFAULT_OCR_BASE_URL = "https://api.siliconflow.cn/v1"
-DEFAULT_OCR_MODEL = "deepseek-ai/DeepSeek-OCR"
-DEFAULT_OCR_FALLBACK_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
+DEFAULT_OCR_BASE_URL = os.getenv("SCORE_TRANS_OCR_BASE_URL", "https://api.siliconflow.cn/v1")
+DEFAULT_OCR_MODEL = os.getenv("SCORE_TRANS_OCR_MODEL", "deepseek-ai/DeepSeek-OCR")
+DEFAULT_OCR_FALLBACK_MODEL = os.getenv("SCORE_TRANS_OCR_FALLBACK_MODEL", "Qwen/Qwen3-VL-8B-Instruct")
 
 
 def is_deepseek_ocr_model(model: str) -> bool:

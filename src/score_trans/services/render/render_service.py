@@ -42,6 +42,7 @@ class RenderService:
         page_height: float,
         title: str = "简谱",
         text_blocks=None,
+        start_measure_number: int | None = None,
     ) -> Path:
         return render_jianpu_page_file_to_svg(
             Path(input_path),
@@ -50,4 +51,5 @@ class RenderService:
             page_height=page_height,
             title=title,
             text_blocks=text_blocks,
+            start_measure_number=start_measure_number,
         )

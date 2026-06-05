@@ -50,8 +50,7 @@ class HistoryDao:
                     musicxml_file_id TEXT NOT NULL DEFAULT '',
                     jianpu_text TEXT NOT NULL DEFAULT '',
                     ocr_text TEXT NOT NULL DEFAULT '',
-                    svg_file_id TEXT NOT NULL DEFAULT '',
-                    status TEXT NOT NULL DEFAULT 'completed',
+                    svg_file_id TEXT NOT NULL DEFAULT '',                    start_measure_number INTEGER,                    status TEXT NOT NULL DEFAULT 'completed',
                     error_message TEXT NOT NULL DEFAULT ''
                 )
                 """
@@ -83,8 +82,9 @@ class HistoryDao:
                     """
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id, musicxml_file_id,
-                         jianpu_text, ocr_text, svg_file_id, status, error_message)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         jianpu_text, ocr_text, svg_file_id, start_measure_number,
+                         status, error_message)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -94,6 +94,7 @@ class HistoryDao:
                         page.jianpu_text,
                         page.ocr_text,
                         page.svg_file_id,
+                        page.start_measure_number,
                         page.status,
                         page.error_message,
                     ),
@@ -116,6 +117,7 @@ class HistoryDao:
         ocr_text: str | None = None,
         svg_file_id: str | None = None,
         musicxml_file_id: str | None = None,
+        start_measure_number: int | None = None,
         status: str | None = None,
         error_message: str | None = None,
     ) -> HistoryPage | None:
@@ -126,6 +128,7 @@ class HistoryDao:
             ("ocr_text", ocr_text),
             ("svg_file_id", svg_file_id),
             ("musicxml_file_id", musicxml_file_id),
+            ("start_measure_number", start_measure_number),
             ("status", status),
             ("error_message", error_message),
         ):
@@ -178,6 +181,9 @@ class HistoryDao:
         if "ocr_text" not in columns:
             conn.execute("ALTER TABLE history_page ADD COLUMN ocr_text TEXT NOT NULL DEFAULT ''")
             conn.commit()
+        if "start_measure_number" not in columns:
+            conn.execute("ALTER TABLE history_page ADD COLUMN start_measure_number INTEGER")
+            conn.commit()
 
     def _row_to_batch(self, conn: sqlite3.Connection, row: sqlite3.Row) -> HistoryBatch:
         batch = HistoryBatch(
@@ -203,6 +209,7 @@ class HistoryDao:
             jianpu_text=row["jianpu_text"],
             ocr_text=row["ocr_text"] if "ocr_text" in row.keys() else "",
             svg_file_id=row["svg_file_id"],
+            start_measure_number=row["start_measure_number"] if "start_measure_number" in row.keys() else None,
             status=row["status"],
             error_message=row["error_message"],
         )

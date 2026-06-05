@@ -59,6 +59,7 @@ export interface RenderJianpuTextSvgRequest {
   ocr_text?: string
   include_ocr_text?: boolean
   title?: string
+  start_measure_number?: number
 }
 
 export interface RenderJianpuTextSvgResponse {
@@ -102,6 +103,7 @@ export interface PipelineResponse {
   jianpu_text: string
   jianpu_file_id: string
   svg_file_id: string
+  ocr_measure_numbers: number[]
 }
 
 export interface AiTranscribeRequest {
@@ -210,6 +212,7 @@ export interface HistoryPage {
   jianpu_text: string
   ocr_text: string
   svg_file_id: string
+  start_measure_number: number | null
   status: string
   error_message: string
 }
@@ -238,6 +241,7 @@ export interface HistoryCreateRequest {
     jianpu_text?: string
     ocr_text?: string
     svg_file_id?: string
+    start_measure_number?: number | null
     status?: string
     error_message?: string
   }[]
@@ -248,6 +252,7 @@ export interface HistoryPageUpdateRequest {
   jianpu_text?: string
   ocr_text?: string
   svg_file_id?: string
+  start_measure_number?: number | null
   status?: string
   error_message?: string
 }

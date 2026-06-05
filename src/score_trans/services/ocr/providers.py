@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +33,7 @@ class OpenAICompatibleOCRProvider:
         *,
         base_url: str | None = None,
         model: str | None = None,
-        timeout: float = 60.0,
+        timeout: float = float(os.getenv("SCORE_TRANS_OCR_TIMEOUT", "60.0")),
         dry_run: bool = False,
     ) -> None:
         from .utils import persisted_ocr_settings
