@@ -128,42 +128,30 @@ def prepare_score_pages(
 ) -> list[PreparedScorePage]:
     suffix = input_path.suffix.lower()
     if suffix == ".pdf":
-        return render_pdf_pages(input_path, output_dir, dpi=dpi, max_pages=max_pages)
+        return _render_pdf_pages(input_path, output_dir, dpi=dpi, max_pages=max_pages)
     if suffix in IMAGE_SUFFIXES:
         return [PreparedScorePage(page_index=0, image_path=input_path, generated=False)]
     raise AITranscriptionError(f"Unsupported AI transcription input type: {suffix or input_path.name}")
 
 
-def render_pdf_pages(
+def _render_pdf_pages(
     pdf_path: Path,
     output_dir: Path,
     *,
     dpi: int = 220,
     max_pages: int | None = None,
 ) -> list[PreparedScorePage]:
-    try:
-        import fitz
-    except ImportError as exc:  # pragma: no cover - dependency guard
-        raise AITranscriptionError("Install pymupdf to render PDF pages for AI transcription.") from exc
+    from ...utils.pdf import pdf_to_png_pages
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    pages: list[PreparedScorePage] = []
-    with fitz.open(pdf_path) as doc:
-        page_count = len(doc)
-        limit = min(page_count, max_pages) if max_pages else page_count
-        for index in range(limit):
-            page = doc.load_page(index)
-            pixmap = page.get_pixmap(dpi=dpi, alpha=False)
-            image_path = output_dir / f"{pdf_path.stem}_page_{index + 1:03d}.png"
-            pixmap.save(image_path)
-            pages.append(
-                PreparedScorePage(
-                    page_index=index,
-                    image_path=image_path,
-                    generated=True,
-                )
-            )
-    return pages
+    try:
+        paths = pdf_to_png_pages(pdf_path, output_dir, dpi=dpi, max_pages=max_pages)
+    except RuntimeError as exc:
+        raise AITranscriptionError(str(exc)) from exc
+
+    return [
+        PreparedScorePage(page_index=index, image_path=path, generated=True)
+        for index, path in enumerate(paths)
+    ]
 
 
 def clean_jianpu_text(text: str) -> str:

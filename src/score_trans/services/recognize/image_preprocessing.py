@@ -15,6 +15,16 @@ class ImagePreprocessOptions:
 
 
 def prepare_omr_input(input_path: Path, output_dir: Path, config) -> Path:
+    # Always render PDF to PNG first (forced conversion)
+    if input_path.suffix.lower() == ".pdf":
+        target_dir = output_dir / "_preprocessed"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        png_path = target_dir / f"{input_path.stem}_page_001.png"
+        from ...utils.pdf import pdf_page_to_png
+
+        pdf_page_to_png(input_path, png_path, dpi=220)
+        input_path = png_path
+
     if not getattr(config, "omr_preprocess", True):
         return input_path
     if input_path.suffix.lower() not in IMAGE_SUFFIXES:

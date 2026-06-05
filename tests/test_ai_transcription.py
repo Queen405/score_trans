@@ -8,7 +8,8 @@ from score_trans.models.ai.schemas import AiTranscribeRequest
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.ai.base import VisionPageResult, parse_vision_page_result
 from score_trans.services.ai.providers.mock import MockVisionJianpuProvider
-from score_trans.services.ai.service import AiTranscriptionService, ensure_jianpu_header, render_pdf_pages
+from score_trans.services.ai.service import AiTranscriptionService, ensure_jianpu_header
+from score_trans.utils.pdf import pdf_to_png_pages
 from score_trans.services.files.upload_service import UploadService
 
 
@@ -61,7 +62,7 @@ def test_ai_action_transcribes_uploaded_image_with_mock_provider(tmp_path: Path)
     assert response.pages[0].warnings == ["第二小节看不清"]
 
 
-def test_render_pdf_pages_creates_one_png_per_page(tmp_path: Path) -> None:
+def test_pdf_to_png_pages_creates_one_png_per_page(tmp_path: Path) -> None:
     import fitz
 
     pdf_path = tmp_path / "score.pdf"
@@ -72,11 +73,10 @@ def test_render_pdf_pages_creates_one_png_per_page(tmp_path: Path) -> None:
     doc.save(pdf_path)
     doc.close()
 
-    pages = render_pdf_pages(pdf_path, tmp_path / "pages", dpi=72)
+    paths = pdf_to_png_pages(pdf_path, tmp_path / "pages", dpi=72)
 
-    assert [page.page_index for page in pages] == [0, 1]
-    assert all(page.image_path.exists() for page in pages)
-    assert all(page.generated for page in pages)
+    assert len(paths) == 2
+    assert all(path.exists() for path in paths)
 
 
 def test_ai_header_cleanup_ignores_legacy_field_values() -> None:
