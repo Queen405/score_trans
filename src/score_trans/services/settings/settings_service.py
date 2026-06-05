@@ -1,7 +1,15 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
+
+from score_trans.config.settings import (
+    AUDIVERIS_PATH,
+    JAVA_HOME,
+    OMR_PREPROCESS,
+    OMR_PREPROCESS_BINARIZE,
+    OMR_PREPROCESS_LONG_EDGE,
+    WORK_DIR,
+)
 
 from ...dao.settings.settings_dao import SettingsDao
 from ...models.common.paths import PROJECT_ROOT
@@ -13,16 +21,14 @@ _LOCAL_AUDIVERIS_GRADLE = _LOCAL_AUDIVERIS_DIR / "gradlew.bat"
 
 
 def _default_audiveris_path() -> str:
-    env = os.getenv("SCORE_TRANS_AUDIVERIS", "")
-    if env:
-        return env
+    if AUDIVERIS_PATH:
+        return AUDIVERIS_PATH
     return str(_LOCAL_AUDIVERIS_GRADLE) if _LOCAL_AUDIVERIS_GRADLE.exists() else "audiveris"
 
 
 def _default_work_dir() -> Path:
-    env = os.getenv("SCORE_TRANS_WORKDIR", "")
-    if env:
-        return Path(env)
+    if WORK_DIR:
+        return Path(WORK_DIR)
     return PROJECT_ROOT / "work"
 
 
@@ -33,11 +39,11 @@ class SettingsService:
     def load(self) -> ToolConfig:
         return ToolConfig(
             audiveris_path=self.dao.get("audiveris_path") or _default_audiveris_path(),
-            java_home=self.dao.get("java_home") or os.getenv("SCORE_TRANS_JAVA_HOME", ""),
+            java_home=self.dao.get("java_home") or JAVA_HOME,
             work_dir=Path(self.dao.get("work_dir") or str(_default_work_dir())),
-            omr_preprocess=self.dao.get_bool("omr_preprocess", os.getenv("SCORE_TRANS_OMR_PREPROCESS", "1").lower() in ("1", "true", "yes", "on")),
-            omr_preprocess_long_edge=self.dao.get_int("omr_preprocess_long_edge", int(os.getenv("SCORE_TRANS_OMR_PREPROCESS_LONG_EDGE", "3600"))),
-            omr_preprocess_binarize=self.dao.get_bool("omr_preprocess_binarize", os.getenv("SCORE_TRANS_OMR_PREPROCESS_BINARIZE", "0").lower() in ("1", "true", "yes", "on")),
+            omr_preprocess=self.dao.get_bool("omr_preprocess", OMR_PREPROCESS),
+            omr_preprocess_long_edge=self.dao.get_int("omr_preprocess_long_edge", OMR_PREPROCESS_LONG_EDGE),
+            omr_preprocess_binarize=self.dao.get_bool("omr_preprocess_binarize", OMR_PREPROCESS_BINARIZE),
         )
 
     def get_all(self) -> dict[str, str]:

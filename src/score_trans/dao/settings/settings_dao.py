@@ -1,8 +1,22 @@
 from __future__ import annotations
 
-import os
 import sqlite3
 from pathlib import Path
+
+from score_trans.config.settings import (
+    AI_API_KEY,
+    AI_BASE_URL,
+    AI_MODEL,
+    AUDIVERIS_PATH,
+    JAVA_HOME,
+    OCR_API_KEY,
+    OCR_BASE_URL,
+    OCR_MODEL,
+    OMR_PREPROCESS,
+    OMR_PREPROCESS_BINARIZE,
+    OMR_PREPROCESS_LONG_EDGE,
+    OUTPUT_DIR,
+)
 
 from ...models.common.paths import PROJECT_ROOT
 
@@ -11,18 +25,18 @@ DEFAULT_DB_PATH = PROJECT_ROOT / "work" / "settings.db"
 TABLE_NAME = "settings"
 
 _DEFAULTS: dict[str, str] = {
-    "audiveris_path": os.getenv("SCORE_TRANS_AUDIVERIS", ""),
-    "java_home": os.getenv("SCORE_TRANS_JAVA_HOME", ""),
-    "output_dir": os.getenv("SCORE_TRANS_OUTPUT_DIR", ""),
-    "omr_preprocess": os.getenv("SCORE_TRANS_OMR_PREPROCESS", "1"),
-    "omr_preprocess_long_edge": os.getenv("SCORE_TRANS_OMR_PREPROCESS_LONG_EDGE", "3600"),
-    "omr_preprocess_binarize": os.getenv("SCORE_TRANS_OMR_PREPROCESS_BINARIZE", "0"),
-    "ocr_api_key": os.getenv("SCORE_TRANS_OCR_API_KEY", ""),
-    "ocr_base_url": os.getenv("SCORE_TRANS_OCR_BASE_URL", "https://api.siliconflow.cn/v1"),
-    "ocr_model": os.getenv("SCORE_TRANS_OCR_MODEL", "deepseek-ai/DeepSeek-OCR"),
-    "ai_api_key": os.getenv("SCORE_TRANS_AI_API_KEY", ""),
-    "ai_base_url": os.getenv("SCORE_TRANS_AI_BASE_URL", "https://api.siliconflow.cn/v1"),
-    "ai_model": os.getenv("SCORE_TRANS_AI_MODEL", "Qwen/Qwen3-VL-8B-Instruct"),
+    "audiveris_path": AUDIVERIS_PATH,
+    "java_home": JAVA_HOME,
+    "output_dir": OUTPUT_DIR,
+    "omr_preprocess": "1" if OMR_PREPROCESS else "0",
+    "omr_preprocess_long_edge": str(OMR_PREPROCESS_LONG_EDGE),
+    "omr_preprocess_binarize": "1" if OMR_PREPROCESS_BINARIZE else "0",
+    "ocr_api_key": OCR_API_KEY,
+    "ocr_base_url": OCR_BASE_URL,
+    "ocr_model": OCR_MODEL,
+    "ai_api_key": AI_API_KEY,
+    "ai_base_url": AI_BASE_URL,
+    "ai_model": AI_MODEL,
 }
 
 

@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+import os
+
+from score_trans.utils.env import load_project_env
+
+# Load project .env once before reading any configuration variables.
+load_project_env()
+
+
+def _s(name: str) -> str:
+    """Required string environment variable."""
+    return os.environ[name]
+
+
+def _s_or(name: str, default: str = "") -> str:
+    """Optional string environment variable."""
+    return os.getenv(name, default)
+
+
+def _i(name: str) -> int:
+    """Required integer environment variable."""
+    return int(os.environ[name])
+
+
+def _f(name: str) -> float:
+    """Required float environment variable."""
+    return float(os.environ[name])
+
+
+def _b(name: str) -> bool:
+    """Required boolean environment variable."""
+    return os.environ[name].lower() in ("1", "true", "yes", "on")
+
+
+# API
+API_TITLE: str = _s("SCORE_TRANS_API_TITLE")
+API_VERSION: str = _s("SCORE_TRANS_API_VERSION")
+CORS_ORIGINS: str = _s("SCORE_TRANS_CORS_ORIGINS")
+
+# Paths (optional, code provides fallbacks when empty)
+AUDIVERIS_PATH: str = _s_or("SCORE_TRANS_AUDIVERIS")
+WORK_DIR: str = _s_or("SCORE_TRANS_WORKDIR")
+JAVA_HOME: str = _s_or("SCORE_TRANS_JAVA_HOME")
+OUTPUT_DIR: str = _s_or("SCORE_TRANS_OUTPUT_DIR")
+
+# AI
+AI_BASE_URL: str = _s("SCORE_TRANS_AI_BASE_URL")
+AI_MODEL: str = _s("SCORE_TRANS_AI_MODEL")
+AI_API_KEY: str = _s_or("SCORE_TRANS_AI_API_KEY")
+AI_TIMEOUT: float = _f("SCORE_TRANS_AI_TIMEOUT")
+AI_TEMPERATURE: float = _f("SCORE_TRANS_AI_TEMPERATURE")
+AI_SYSTEM_MSG: str = _s_or("SCORE_TRANS_AI_SYSTEM_MSG")
+
+# OCR
+OCR_BASE_URL: str = _s("SCORE_TRANS_OCR_BASE_URL")
+OCR_MODEL: str = _s("SCORE_TRANS_OCR_MODEL")
+OCR_FALLBACK_MODEL: str = _s("SCORE_TRANS_OCR_FALLBACK_MODEL")
+OCR_API_KEY: str = _s_or("SCORE_TRANS_OCR_API_KEY")
+OCR_TIMEOUT: float = _f("SCORE_TRANS_OCR_TIMEOUT")
+OCR_MAX_TOKENS: int = _i("SCORE_TRANS_OCR_MAX_TOKENS")
+OCR_TEMPERATURE: float = _f("SCORE_TRANS_OCR_TEMPERATURE")
+
+# OMR
+OMR_PREPROCESS: bool = _b("SCORE_TRANS_OMR_PREPROCESS")
+OMR_PREPROCESS_LONG_EDGE: int = _i("SCORE_TRANS_OMR_PREPROCESS_LONG_EDGE")
+OMR_PREPROCESS_BINARIZE: bool = _b("SCORE_TRANS_OMR_PREPROCESS_BINARIZE")
+OMR_DPI: int = _i("SCORE_TRANS_OMR_DPI")
+OMR_AUTOCONTRAST_CUTOFF: int = _i("SCORE_TRANS_OMR_AUTOCONTRAST_CUTOFF")
+OMR_SHARPEN_RADIUS: float = _f("SCORE_TRANS_OMR_SHARPEN_RADIUS")
+OMR_SHARPEN_PERCENT: int = _i("SCORE_TRANS_OMR_SHARPEN_PERCENT")
+OMR_SHARPEN_THRESHOLD: int = _i("SCORE_TRANS_OMR_SHARPEN_THRESHOLD")
+OMR_CROP_THRESHOLD: int = _i("SCORE_TRANS_OMR_CROP_THRESHOLD")
+OMR_CROP_PAD_MIN: int = _i("SCORE_TRANS_OMR_CROP_PAD_MIN")
+OMR_CROP_PAD_RATIO: float = _f("SCORE_TRANS_OMR_CROP_PAD_RATIO")
+
+# PDF
+PDF_RENDER_DPI: int = _i("SCORE_TRANS_PDF_RENDER_DPI")
+UPLOAD_PDF_DPI: int = _i("SCORE_TRANS_UPLOAD_PDF_DPI")
+
+# Render
+RENDER_CHORD_GAP: int = _i("SCORE_TRANS_RENDER_CHORD_GAP")
+RENDER_OCTAVE_DOT_OFFSET: int = _i("SCORE_TRANS_RENDER_OCTAVE_DOT_OFFSET")
+RENDER_OCTAVE_DOT_GAP: int = _i("SCORE_TRANS_RENDER_OCTAVE_DOT_GAP")
+RENDER_TITLE: str = _s("SCORE_TRANS_RENDER_TITLE")
+RENDER_WIDTH: int = _i("SCORE_TRANS_RENDER_WIDTH")
+RENDER_MARGIN: int = _i("SCORE_TRANS_RENDER_MARGIN")
+RENDER_MEASURE_WIDTH: int = _i("SCORE_TRANS_RENDER_MEASURE_WIDTH")
+RENDER_LINE_HEIGHT: int = _i("SCORE_TRANS_RENDER_LINE_HEIGHT")
+RENDER_FONT: str = _s("SCORE_TRANS_RENDER_FONT")
+RENDER_MIN_MEASURE_WIDTH: int = _i("SCORE_TRANS_RENDER_MIN_MEASURE_WIDTH")
+RENDER_MAX_MEASURE_WIDTH: int = _i("SCORE_TRANS_RENDER_MAX_MEASURE_WIDTH")
+RENDER_BEAT_GAP: int = _i("SCORE_TRANS_RENDER_BEAT_GAP")
+RENDER_SHOW_BEAT_GUIDES: bool = _b("SCORE_TRANS_RENDER_SHOW_BEAT_GUIDES")
+RENDER_SHOW_STAFF_GUIDES: bool = _b("SCORE_TRANS_RENDER_SHOW_STAFF_GUIDES")
+RENDER_SHOW_MEASURE_NUMBERS: bool = _b("SCORE_TRANS_RENDER_SHOW_MEASURE_NUMBERS")
+
+# MIDI
+MIDI_TICKS_PER_BEAT: int = _i("SCORE_TRANS_MIDI_TICKS_PER_BEAT")
+MIDI_DEFAULT_BPM: int = _i("SCORE_TRANS_MIDI_DEFAULT_BPM")
+MIDI_DEFAULT_VELOCITY: int = _i("SCORE_TRANS_MIDI_DEFAULT_VELOCITY")

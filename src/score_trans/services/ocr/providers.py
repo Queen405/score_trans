@@ -1,8 +1,20 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
+
+from score_trans.config.settings import (
+    OCR_BASE_URL as DEFAULT_OCR_BASE_URL,
+)
+from score_trans.config.settings import (
+    OCR_FALLBACK_MODEL as DEFAULT_OCR_FALLBACK_MODEL,
+)
+from score_trans.config.settings import (
+    OCR_MAX_TOKENS,
+    OCR_MODEL as DEFAULT_OCR_MODEL,
+    OCR_TEMPERATURE,
+    OCR_TIMEOUT,
+)
 
 from ...models.common.errors import OCRError
 from ...models.score import OCRTextBlock
@@ -11,9 +23,6 @@ from .client import ocr_prompt_for_model
 from .parser import parse_openai_compatible_response, plain_text_to_blocks
 from .protocols import OCRProvider
 from .utils import (
-    DEFAULT_OCR_BASE_URL,
-    DEFAULT_OCR_FALLBACK_MODEL,
-    DEFAULT_OCR_MODEL,
     _ocr_blocks_are_useful,
     is_deepseek_ocr_model,
 )
@@ -35,7 +44,7 @@ class OpenAICompatibleOCRProvider:
         *,
         base_url: str | None = None,
         model: str | None = None,
-        timeout: float = float(os.getenv("SCORE_TRANS_OCR_TIMEOUT", "60.0")),
+        timeout: float = OCR_TIMEOUT,
         dry_run: bool = False,
     ) -> None:
         from .utils import persisted_ocr_settings
@@ -65,9 +74,9 @@ class OpenAICompatibleOCRProvider:
                 model=resolved,
                 base_url=self.base_url,
                 api_key=self.api_key,
-                temperature=float(os.getenv("SCORE_TRANS_OCR_TEMPERATURE", "0")),
+                temperature=OCR_TEMPERATURE,
                 timeout=self.timeout,
-                max_tokens=int(os.getenv("SCORE_TRANS_OCR_MAX_TOKENS", "2048")),
+                max_tokens=OCR_MAX_TOKENS,
                 **kwargs,
             )
         return self._chat

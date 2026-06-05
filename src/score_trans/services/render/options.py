@@ -1,20 +1,34 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
+
+from score_trans.config.settings import (
+    RENDER_BEAT_GAP,
+    RENDER_FONT,
+    RENDER_LINE_HEIGHT,
+    RENDER_MARGIN,
+    RENDER_MAX_MEASURE_WIDTH,
+    RENDER_MEASURE_WIDTH,
+    RENDER_MIN_MEASURE_WIDTH,
+    RENDER_SHOW_BEAT_GUIDES,
+    RENDER_SHOW_MEASURE_NUMBERS,
+    RENDER_SHOW_STAFF_GUIDES,
+    RENDER_TITLE,
+    RENDER_WIDTH,
+)
 
 
 @dataclass(slots=True)
 class RenderOptions:
-    title: str = os.getenv("SCORE_TRANS_RENDER_TITLE", "简谱")
-    width: int = int(os.getenv("SCORE_TRANS_RENDER_WIDTH", "1600"))
-    margin: int = int(os.getenv("SCORE_TRANS_RENDER_MARGIN", "72"))
-    measure_width: int = int(os.getenv("SCORE_TRANS_RENDER_MEASURE_WIDTH", "330"))
-    line_height: int = int(os.getenv("SCORE_TRANS_RENDER_LINE_HEIGHT", "180"))
-    font_family: str = os.getenv("SCORE_TRANS_RENDER_FONT", "Microsoft YaHei, SimSun, Arial, sans-serif")
-    min_measure_width: int = int(os.getenv("SCORE_TRANS_RENDER_MIN_MEASURE_WIDTH", "112"))
-    max_measure_width: int = int(os.getenv("SCORE_TRANS_RENDER_MAX_MEASURE_WIDTH", "1100"))
-    beat_gap: int = int(os.getenv("SCORE_TRANS_RENDER_BEAT_GAP", "14"))
-    show_beat_guides: bool = os.getenv("SCORE_TRANS_RENDER_SHOW_BEAT_GUIDES", "0").lower() in ("1", "true", "yes", "on")
-    show_staff_guides: bool = os.getenv("SCORE_TRANS_RENDER_SHOW_STAFF_GUIDES", "0").lower() in ("1", "true", "yes", "on")
-    show_measure_numbers: bool = os.getenv("SCORE_TRANS_RENDER_SHOW_MEASURE_NUMBERS", "1").lower() in ("1", "true", "yes", "on")
+    title: str = RENDER_TITLE
+    width: int = RENDER_WIDTH
+    margin: int = RENDER_MARGIN
+    measure_width: int = RENDER_MEASURE_WIDTH
+    line_height: int = RENDER_LINE_HEIGHT
+    font_family: str = RENDER_FONT
+    min_measure_width: int = RENDER_MIN_MEASURE_WIDTH
+    max_measure_width: int = RENDER_MAX_MEASURE_WIDTH
+    beat_gap: int = RENDER_BEAT_GAP
+    show_beat_guides: bool = RENDER_SHOW_BEAT_GUIDES
+    show_staff_guides: bool = RENDER_SHOW_STAFF_GUIDES
+    show_measure_numbers: bool = RENDER_SHOW_MEASURE_NUMBERS

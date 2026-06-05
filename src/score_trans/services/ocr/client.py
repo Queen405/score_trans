@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+
+from score_trans.config.settings import OCR_MAX_TOKENS, OCR_TEMPERATURE
 
 from ...models.common.errors import OCRError
 from ...utils.media import image_to_data_url
@@ -49,8 +50,8 @@ def build_request(
                 ],
             }
         ],
-        "temperature": float(os.getenv("SCORE_TRANS_OCR_TEMPERATURE", "0")),
-        "max_tokens": int(os.getenv("SCORE_TRANS_OCR_MAX_TOKENS", "2048")),
+        "temperature": OCR_TEMPERATURE,
+        "max_tokens": OCR_MAX_TOKENS,
     }
     if not is_deepseek_ocr_model(model):
         payload["response_format"] = {"type": "json_object"}

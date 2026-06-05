@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-_DEFAULT_PDF_DPI = int(os.getenv("SCORE_TRANS_PDF_RENDER_DPI", "220"))
+from score_trans.config.settings import PDF_RENDER_DPI as _DEFAULT_PDF_DPI
 
 
 def pdf_page_to_png(
