@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import base64
 import json
-import mimetypes
 import os
 import re
 from pathlib import Path
@@ -12,6 +10,8 @@ from pydantic import BaseModel, Field
 
 from ...config import CONFIG_DIR
 from ...models.common.errors import AITranscriptionError
+from ...utils.json_parsing import content_to_text, parse_json_content
+from ...utils.media import image_to_data_url
 
 
 DEFAULT_AI_BASE_URL = "https://api.siliconflow.cn/v1"
@@ -73,12 +73,6 @@ def persisted_ai_settings() -> dict[str, str]:
         return SettingsService().get_all()
     except Exception:
         return {}
-
-
-def image_to_data_url(path: Path) -> str:
-    mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
 
 
 def build_jianpu_prompt(
@@ -144,30 +138,4 @@ def looks_like_jianpu_text(text: str) -> bool:
     return bool(re.search(r"(^|\s)(?:[whqsd]?[#bnx]?[1-7][',]*|[whqsd]?0|\[[^\]]+\])(\s|\||$)", text))
 
 
-def parse_json_content(content: Any) -> Any:
-    if isinstance(content, dict):
-        return content
-    text = content_to_text(content)
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-        if not match:
-            raise
-        return json.loads(match.group(0))
 
-
-def content_to_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content.strip()
-    if isinstance(content, list):
-        parts: list[str] = []
-        for item in content:
-            if isinstance(item, dict) and isinstance(item.get("text"), str):
-                parts.append(item["text"])
-        return "\n".join(parts).strip()
-    if isinstance(content, BaseModel):
-        return content.model_dump_json()
-    if content is None:
-        return ""
-    return str(content).strip()

@@ -34,13 +34,6 @@ def persisted_ocr_settings() -> dict[str, str]:
         return {}
 
 
-def first_present(raw: dict[str, Any], keys: tuple[str, ...]) -> Any:
-    for key in keys:
-        if key in raw and raw[key] is not None:
-            return raw[key]
-    return None
-
-
 def _font_size_from_raw(raw: dict[str, Any]) -> float | None:
     value = raw.get("fontSize", raw.get("font_size"))
     if value is None:

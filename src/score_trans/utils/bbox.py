@@ -1,16 +1,16 @@
+"""Bounding-box coercion utilities."""
+
 from __future__ import annotations
 
 from typing import Any
 
-from ...models.common.errors import OCRError
-from .utils import first_present
-
 
 def coerce_bbox(raw: Any) -> tuple[float, float, float, float] | None:
+    """Coerce various bbox formats into (x1, y1, x2, y2)."""
     if raw is None:
         return None
     if isinstance(raw, dict):
-        nested = first_present(
+        nested = _first_present(
             raw,
             ("bbox", "bbox_2d", "box", "bounding_box", "boundingBox", "coordinates", "points"),
         )
@@ -42,8 +42,9 @@ def coerce_bbox(raw: Any) -> tuple[float, float, float, float] | None:
 
 
 def coerce_bbox_points(raw: Any) -> tuple[float, float, float, float] | None:
+    """Coerce a list of points into a bbox."""
     if not isinstance(raw, (list, tuple)):
-        raise OCRError("OCR bbox must contain four numbers.")
+        return None
 
     if len(raw) == 8 and all(isinstance(value, (int, float, str)) for value in raw):
         xs = [float(value) for value in raw[0::2]]
@@ -62,4 +63,11 @@ def coerce_bbox_points(raw: Any) -> tuple[float, float, float, float] | None:
         ys = [point[1] for point in points]
         return (min(xs), min(ys), max(xs), max(ys))
 
-    raise OCRError("OCR bbox must contain four numbers.")
+    return None
+
+
+def _first_present(raw: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if key in raw and raw[key] is not None:
+            return raw[key]
+    return None

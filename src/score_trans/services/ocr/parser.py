@@ -6,13 +6,12 @@ from typing import Any
 
 from ...models.common.errors import OCRError
 from ...models.score import OCRTextBlock, TextRole
-from .bbox import coerce_bbox
-from .text import (
-    cleaned_plain_text_lines,
-    infer_text_role,
-    normalize_text_role,
-)
-from .utils import _font_size_from_raw, first_present
+from ...utils.bbox import coerce_bbox
+from ...utils.dict_tools import first_present
+from ...utils.json_parsing import content_to_text, parse_json_content
+from ...utils.text import cleaned_plain_text_lines
+from .text import infer_text_role, normalize_text_role
+from .utils import _font_size_from_raw
 
 
 def plain_text_to_blocks(text: str) -> list[OCRTextBlock]:
@@ -49,32 +48,6 @@ def parse_openai_compatible_response(response: dict[str, Any]) -> list[OCRTextBl
     if not isinstance(raw_blocks, list):
         raise OCRError("OCR provider JSON must contain a text_blocks list.")
     return coerce_text_block_list(raw_blocks)
-
-
-def parse_json_content(content: Any) -> Any:
-    if isinstance(content, dict):
-        return content
-    text = content_to_text(content)
-
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-        if not match:
-            raise
-        parsed = json.loads(match.group(0))
-
-    return parsed
-
-
-def content_to_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        return "\n".join(part.get("text", "") for part in content if isinstance(part, dict))
-    if isinstance(content, dict):
-        return json.dumps(content, ensure_ascii=False)
-    raise OCRError("OCR provider message content is not text.")
 
 
 def coerce_text_block_list(raw_blocks: list[Any]) -> list[OCRTextBlock]:

@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-import base64
 import json
-import mimetypes
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 from ...models.common.errors import OCRError
+from ...utils.media import image_to_data_url
 from .protocols import OCRRequest
 from .utils import is_deepseek_ocr_model
-
-
-def image_to_data_url(path: Path) -> str:
-    mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
 
 
 def build_request(
