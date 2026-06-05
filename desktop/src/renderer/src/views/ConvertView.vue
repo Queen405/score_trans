@@ -582,29 +582,34 @@ function applyReturnedOcr(value?: string | null): void {
 async function renderSvg(): Promise<void> {
   store.setBusy(true)
   try {
-    const result = hasJianpuText.value
-      ? await renderApi.jianpuTextSvg({
-          jianpu_text: jianpuText.value,
-          page_image_file_id: store.originalFileId || undefined,
-          ocr_text: store.ocrText || undefined,
-          include_ocr_text: false,
-          title: '简谱',
-          start_measure_number: store.startMeasureNumber ?? undefined,
-        })
-      : await renderApi.jianpuSvg({
-          musicxml_file_id: store.musicxmlFileId,
-          page_image_file_id: store.originalFileId || undefined,
-          target_key: settings.targetKey,
-          start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
-        })
-    store.setSvg(result.svg_file_id)
+    if (hasJianpuText.value) {
+      const result = await renderApi.jianpuTextSvg({
+        jianpu_text: jianpuText.value,
+        page_image_file_id: store.originalFileId || undefined,
+        ocr_text: store.ocrText || undefined,
+        include_ocr_text: false,
+        title: '简谱',
+        start_measure_number: store.startMeasureNumber ?? undefined,
+      })
+      store.setSvg(result.svg_file_id)
       finalSvgFileId.value = result.svg_file_id
-      if ('jianpu_text' in result && result.jianpu_text) {
+      if (result.jianpu_text) {
         jianpuText.value = result.jianpu_text
         store.setJianpu(result.jianpu_text)
       }
-      applyReturnedOcr('ocr_text' in result ? result.ocr_text : undefined)
+      applyReturnedOcr(result.ocr_text)
       isViewingFinal.value = true
+    } else {
+      const result = await renderApi.jianpuSvg({
+        musicxml_file_id: store.musicxmlFileId,
+        page_image_file_id: store.originalFileId || undefined,
+        target_key: settings.targetKey,
+        start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
+      })
+      store.setSvg(result.svg_file_id)
+      finalSvgFileId.value = result.svg_file_id
+      isViewingFinal.value = true
+    }
     log.addLog('已渲染 SVG')
     message.success('渲染完成')
   } catch (e: unknown) {
