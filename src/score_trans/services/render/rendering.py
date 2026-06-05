@@ -808,7 +808,6 @@ def _render_beams(slots: list[tuple[RenderItem, float, float]], y: int) -> list[
         out.extend(_render_beam_run(run, y, level))
     return out
 
-
 def _render_beam_run(run: list[tuple[RenderItem, float, float]], y: int, level: int) -> list[str]:
     if not run:
         return []

@@ -44,7 +44,13 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   const result = await upload(file.file)
   if (result) {
     log.addLog(`上传成功：${result.filename}`)
-    emit('uploaded', result.file_id, result.filename)
+    if (result.pages && result.pages.length > 0) {
+      for (const page of result.pages) {
+        emit('uploaded', page.file_id, page.filename)
+      }
+    } else {
+      emit('uploaded', result.file_id, result.filename)
+    }
     uploadRef.value?.clear()
   }
 }

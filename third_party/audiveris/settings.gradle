@@ -26,23 +26,5 @@ pluginManagement {
 // Name for the project
 rootProject.name = 'Audiveris'
 
-// Application
+// Application (batch-mode only)
 include 'app'
-
-// Installer for Linux
-include 'flatpak'
-
-if (startParameter.projectProperties['isFlatpak'] == 'true') {
-    println "Initialization. isFlatpak is set, skipping useless subprojects"
-} else {
-    println "Initialization. isFlatpak is not set"
-
-    // Documentation
-    include 'docs'
-
-    // Multi-OS packaging
-    include 'packaging'
-
-    // Generation of schemas-based documentation
-    include 'schemas'
-}

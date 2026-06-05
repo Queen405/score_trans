@@ -10,9 +10,6 @@
 
 plugins {
     id 'application'
-
-    // Needed to retrieve all dependencies for flatpak
-    id 'io.github.jwharm.flatpak-gradle-generator' version '1.7.0'
 }
 
 //------------
@@ -445,31 +442,7 @@ if (JavaVersion.current().isJava8Compatible()) {
     }
 }
 
-//---------
-// Flatpak
-//---------
 
-// Configure the flatpakGradleGenerator plugin task
-def depsFile = file('build/dependencies.json')
-tasks.flatpakGradleGenerator {
-    description = "Collects all dependencies for Flatpak"
-    outputFile = depsFile
-    downloadDirectory = 'dependencies'
-
-    // outputs.files = depsFile
-    doFirst { logger.info("app. Generating dependencies") }
-    doLast { logger.info("app. Dependencies generated") }
-}
-
-configurations {
-    sharedConfiguration {
-        canBeResolved = false
-    }
-}
-
-artifacts {
-    sharedConfiguration(depsFile)
-}
 
 //-----------
 // Utilities

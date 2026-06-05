@@ -4,10 +4,17 @@ export interface ErrorResponse {
   stage?: 'audiveris' | 'ocr' | 'ai' | 'convert' | 'render' | 'export' | 'upload'
 }
 
+export interface UploadPage {
+  file_id: string
+  filename: string
+  page_index: number
+}
+
 export interface UploadResponse {
   file_id: string
   filename: string
   size: number
+  pages?: UploadPage[]
 }
 
 export interface MusicXmlToJianpuRequest {
