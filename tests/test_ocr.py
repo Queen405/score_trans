@@ -6,10 +6,10 @@ import pytest
 
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
-from score_trans.services.ocr.parser import parse_openai_compatible_response
+from score_trans.services.ocr.parsing import parse_openai_compatible_response
 from score_trans.services.ocr.providers import MockOCRProvider, OpenAICompatibleOCRProvider
-from score_trans.services.ocr.utils import DEFAULT_OCR_MODEL, is_deepseek_ocr_model
-from score_trans.services.common.env_file import DISABLE_DOTENV_ENV, load_project_env
+from score_trans.services.ocr.core import DEFAULT_OCR_MODEL, is_deepseek_ocr_model
+from score_trans.utils.env import DISABLE_DOTENV_ENV, load_project_env
 from score_trans.services.ocr.service import OCRService
 
 
@@ -29,7 +29,7 @@ def test_mock_provider_feeds_text_layer(tmp_path) -> None:
 
 def test_ocr_provider_dry_run_returns_empty(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr.utils.persisted_ocr_settings",
+        "score_trans.services.ocr.core.persisted_ocr_settings",
         lambda: {},
     )
     image = tmp_path / "score.png"
@@ -40,7 +40,7 @@ def test_ocr_provider_dry_run_returns_empty(tmp_path, monkeypatch) -> None:
 
 def test_ocr_provider_requires_api_key(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr.utils.persisted_ocr_settings",
+        "score_trans.services.ocr.core.persisted_ocr_settings",
         lambda: {},
     )
     image = tmp_path / "score.png"
@@ -52,7 +52,7 @@ def test_ocr_provider_requires_api_key(tmp_path, monkeypatch) -> None:
 
 def test_ocr_provider_invokes_langchain_with_correct_params(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr.utils.persisted_ocr_settings",
+        "score_trans.services.ocr.core.persisted_ocr_settings",
         lambda: {"ocr_api_key": "test-key"},
     )
     image = tmp_path / "score.png"
@@ -71,7 +71,7 @@ def test_ocr_provider_invokes_langchain_with_correct_params(tmp_path, monkeypatc
 
 def test_ocr_provider_json_object_for_non_deepseek(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr.utils.persisted_ocr_settings",
+        "score_trans.services.ocr.core.persisted_ocr_settings",
         lambda: {"ocr_api_key": "test-key"},
     )
     image = tmp_path / "score.png"
@@ -90,7 +90,7 @@ def test_ocr_provider_json_object_for_non_deepseek(tmp_path, monkeypatch) -> Non
 
 def test_ocr_provider_fallback_on_useless_blocks(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr.utils.persisted_ocr_settings",
+        "score_trans.services.ocr.core.persisted_ocr_settings",
         lambda: {
             "ocr_api_key": "test-key",
             "ocr_model": "deepseek-ai/DeepSeek-OCR",
@@ -119,7 +119,7 @@ def test_ocr_provider_fallback_on_useless_blocks(tmp_path, monkeypatch) -> None:
 
 def test_default_ocr_model_is_deepseek_ocr(monkeypatch) -> None:
     monkeypatch.setattr(
-        "score_trans.services.ocr.utils.persisted_ocr_settings",
+        "score_trans.services.ocr.core.persisted_ocr_settings",
         lambda: {},
     )
 

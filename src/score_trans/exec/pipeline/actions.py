@@ -13,7 +13,7 @@ from ...models.settings.config import ToolConfig
 from ...services.files.file_service import FileService
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
-from ...services.ocr.protocols import OCRProvider
+from ...services.ocr.core import OCRProvider
 from ...services.recognize.image_preprocessing import IMAGE_SUFFIXES
 from ...services.render.render_service import RenderService
 from ...services.settings.settings_service import SettingsService

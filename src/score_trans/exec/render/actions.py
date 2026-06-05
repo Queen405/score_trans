@@ -22,7 +22,7 @@ from ...models.render.schemas import (
 from ...models.score import JianpuScore, TextBlock
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
-from ...services.ocr.protocols import OCRProvider
+from ...services.ocr.core import OCRProvider
 from ...services.ocr.providers import OpenAICompatibleOCRProvider
 from ...services.render.render_service import RenderService
 from ..convert.actions import MusicXmlToJianpuAction

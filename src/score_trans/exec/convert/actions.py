@@ -16,7 +16,7 @@ from ...models.convert.schemas import (
 from ...models.score import JianpuScore
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
-from ...services.ocr.protocols import OCRProvider
+from ...services.ocr.core import OCRProvider
 from ...services.ocr.providers import OpenAICompatibleOCRProvider
 
 
