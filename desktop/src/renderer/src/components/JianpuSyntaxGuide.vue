@@ -340,15 +340,29 @@ td:first-child code {
 /* ── Quick Ref table ── */
 .quick-ref table {
   font-size: 12px;
+  table-layout: fixed;
+  width: 100%;
 }
 
 .quick-ref td {
   padding: 5px 6px;
+  vertical-align: middle;
 }
 
-.quick-ref td:first-child {
-  width: auto;
+.quick-ref td:nth-child(1),
+.quick-ref td:nth-child(3) {
+  width: 18%;
   white-space: nowrap;
+  font-weight: 500;
+}
+
+.quick-ref td:nth-child(2),
+.quick-ref td:nth-child(4) {
+  width: 32%;
+}
+
+.quick-ref td:nth-child(3) {
+  padding-left: 12px;
 }
 
 /* ── Grid Layout ── */

@@ -514,10 +514,10 @@ def _token_visual_width(token: str) -> float:
     chord = _parse_chord_token(token)
     if chord is not None:
         _notes, _slashes, _dotted, extension = chord
-        return 42 + extension * 16
+        return 42 + extension * 32
     note = _parse_note(token)
     accidental_space = 12 if _split_accidental(note.display)[0] else 0
-    return 30 + accidental_space + note.extension * 16 + (8 if note.dotted else 0)
+    return 30 + accidental_space + note.extension * 32 + (8 if note.dotted else 0)
 
 
 def _render_measure(
@@ -1142,8 +1142,8 @@ def _render_chord(
     if dotted:
         out.append(f'<circle class="rhythm-dot" cx="{cx + 22:.1f}" cy="{top_y - 8:.1f}" r="3.0"/>')
     for mark in range(min(3, extension)):
-        start = cx + 22 + mark * 16
-        out.append(f'<line class="extension-line" x1="{start:.1f}" y1="{y - 9:.1f}" x2="{start + 28:.1f}" y2="{y - 9:.1f}"/>')
+        start = cx + 22 + mark * 32
+        out.append(f'<line class="extension-line" x1="{start:.1f}" y1="{y - 9:.1f}" x2="{start + 30:.1f}" y2="{y - 9:.1f}"/>')
     return out
 
 
@@ -1177,8 +1177,8 @@ def _render_note_shape(
         out.append(f'<circle class="rhythm-dot" cx="{cx + 20:.1f}" cy="{y - 8}" r="3.0"/>')
     if not suppress_duration:
         for mark in range(min(3, note.extension)):
-            start = cx + 20 + mark * 16
-            out.append(f'<line class="extension-line" x1="{start:.1f}" y1="{y - 9:.1f}" x2="{start + 28:.1f}" y2="{y - 9:.1f}"/>')
+            start = cx + 20 + mark * 32
+            out.append(f'<line class="extension-line" x1="{start:.1f}" y1="{y - 9:.1f}" x2="{start + 30:.1f}" y2="{y - 9:.1f}"/>')
     return out
 
 
