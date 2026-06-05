@@ -28,13 +28,13 @@ $env:VITE_BACKEND_URL="http://127.0.0.1:19200"
 pnpm dev
 
 # Lint
-ruff check src/ tests/
+ruff check backend/ tests/
 ```
 
 ## Architecture
 
 ```
-src/score_trans/
+backend/score_trans/
   api/             FastAPI boundary. Routes only bind HTTP and delegate to exec.
   exec/            Business orchestration by module (convert/render/recognize/export/pipeline/files/history/settings).
   services/        Reusable service functions by module (files, render, OCR, external tools, settings, history).
@@ -121,7 +121,7 @@ time=4/4
 ## Development Notes
 
 - 修改代码前先运行 `python -m pytest` 确保基线通过。
-- 添加新环境变量时，同步更新 `src/score_trans/config/env.example`。
+- 添加新环境变量时，同步更新 `backend/score_trans/config/env.example`。
 - `services/render/rendering.py` 是单文件 SVG 引擎（~1430 行），修改 beam/tie/slur 逻辑时需同步检查 `tests/test_render.py` 中的 SVG 字符串断言（测试较脆弱）。
 - `domain/` 层必须保持零 I/O（无文件读写、无网络调用、无 print），架构测试 `test_architecture.py` 会强制执行。
 - 使用 `os.getenv()` 读取配置时，优先在模块顶部定义常量（如 `DEFAULT_XXX = os.getenv(...)`），避免在函数体内每次调用都读取环境变量。

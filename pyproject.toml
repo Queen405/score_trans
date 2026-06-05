@@ -23,8 +23,8 @@ test = ["pytest>=8"]
 api = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["backend"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["backend"]
 testpaths = ["tests"]

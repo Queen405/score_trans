@@ -118,8 +118,8 @@ class BackendProcess {
       const projectRoot = resolveProjectRoot();
       const localPython = path.join(projectRoot, ".venv", "Scripts", "python.exe");
       const pythonExe = fs.existsSync(localPython) ? localPython : "python";
-      const srcPath = path.join(projectRoot, "src");
-      const pythonPath = [srcPath, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter);
+      const backendPath = path.join(projectRoot, "backend");
+      const pythonPath = [backendPath, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter);
       this.process = child_process.spawn(pythonExe, [
         "-m",
         "uvicorn",
@@ -234,7 +234,7 @@ function resolveProjectRoot() {
     process.cwd(),
     path.resolve(process.cwd(), "..")
   ];
-  const found = candidates.find((candidate) => fs.existsSync(path.join(candidate, "src", "score_trans")));
+  const found = candidates.find((candidate) => fs.existsSync(path.join(candidate, "backend", "score_trans")));
   return found ?? process.cwd();
 }
 async function findAvailablePort(startPort) {

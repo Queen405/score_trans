@@ -14,7 +14,7 @@
 当前桌面界面只保留 Electron + Vue3，Python 侧只保留 FastAPI 后端、领域逻辑和外部工具编排：
 
 ```text
-src/score_trans/
+backend/score_trans/
   api/          FastAPI 路由层：只声明 HTTP 接口并委托 exec
   exec/         执行层：识别、转换、渲染、导出、历史、设置等业务编排
   services/     服务层：按模块放文件、渲染、OCR、外部工具等可复用服务
@@ -146,7 +146,7 @@ audiveris -batch -export -output <output_dir> <input_file>
 musescore -o <output_file> <musicxml_file>
 ```
 
-如果你的本地版本命令参数不同，可以在 `src/score_trans/services/recognize/external_tools.py` 里调整命令模板。
+如果你的本地版本命令参数不同，可以在 `backend/score_trans/services/recognize/external_tools.py` 里调整命令模板。
 
 ## OCR 文字层
 

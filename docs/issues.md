@@ -25,7 +25,7 @@
 
 ### 1. AI Provider 相对导入点数错误
 - **位置**: `services/ai/providers/openai_compatible/provider.py`
-- **问题**: `from .....models.common.errors` 使用了 5 个点，从 `services/ai/providers/openai_compatible/` 退回 5 级会到达 `src/` 而非 `score_trans/`。正确应为 4 个点（`....models`）。
+- **问题**: `from .....models.common.errors` 使用了 5 个点，从 `services/ai/providers/openai_compatible/` 退回 5 级会到达 `backend/` 而非 `score_trans/`。正确应为 4 个点（`....models`）。
 - **影响**: 运行时 `ImportError`，AI 转录功能可能不可用。
 - **建议**: 验证实际导入路径，修正点数。
 

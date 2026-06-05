@@ -2,7 +2,7 @@
 
 > 接 [architecture.md](./architecture.md)
 
-## 1. API 层 (`src/score_trans/api/`)
+## 1. API 层 (`backend/score_trans/api/`)
 
 ### `app.py` (~78 行)
 FastAPI 应用工厂。注册 10 个路由模块、CORS 中间件、4 个全局异常处理器。
@@ -35,7 +35,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 2. Exec 层 (`src/score_trans/exec/`)
+## 2. Exec 层 (`backend/score_trans/exec/`)
 
 ### `ai/actions.py` (~88 行)
 | 类 | 方法 |
@@ -97,7 +97,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 3. Services 层 (`src/score_trans/services/`)
+## 3. Services 层 (`backend/score_trans/services/`)
 
 ### OCR 服务 (`services/ocr/`)
 
@@ -161,7 +161,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 4. Domain 层 (`src/score_trans/domain/`)
+## 4. Domain 层 (`backend/score_trans/domain/`)
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
@@ -177,7 +177,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 5. Models 层 (`src/score_trans/models/`)
+## 5. Models 层 (`backend/score_trans/models/`)
 
 ### 核心领域模型
 - `score.py` (~165 行)：`TextBlock`, `JianpuPitch`, `Event`, `Beat`, `Measure`, `JianpuScore`
@@ -207,7 +207,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 6. DAO 层 (`src/score_trans/dao/`)
+## 6. DAO 层 (`backend/score_trans/dao/`)
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
@@ -216,7 +216,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 7. Utils 层 (`src/score_trans/utils/`)
+## 7. Utils 层 (`backend/score_trans/utils/`)
 
 | 文件 | 行数 | 职责 |
 |---|---|---|

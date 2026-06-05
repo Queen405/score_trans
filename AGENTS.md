@@ -25,10 +25,10 @@ python -m pytest tests/test_render.py
 python -m pytest tests/test_architecture.py
 
 # Lint
-ruff check src/ tests/
+ruff check backend/ tests/
 
 # Run FastAPI backend
-$env:PYTHONPATH="src"
+$env:PYTHONPATH="backend"
 .venv/Scripts/python.exe -m uvicorn score_trans.api.app:create_app --factory --reload --host 127.0.0.1 --port 19200
 ```
 
@@ -66,7 +66,7 @@ Dependency direction is strictly **api → exec → services → dao / domain / 
 
 ## Environment Variables
 
-Configured via `.env` or environment. See `src/score_trans/config/env.example` for the full list.
+Configured via `.env` or environment. See `backend/score_trans/config/env.example` for the full list.
 
 Key variables:
 - `SCORE_TRANS_AUDIVERIS` — Audiveris path (default: `third_party/audiveris/gradlew.bat`)
