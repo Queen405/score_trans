@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ...models.score import JianpuScore
-from .rendering import (
+from . import (
     render_jianpu_file_to_svg,
     render_jianpu_page_file_to_svg,
     render_score_file_to_svg,
