@@ -28,8 +28,15 @@ def _default_audiveris_path() -> str:
 
 def _default_work_dir() -> Path:
     if WORK_DIR:
-        return Path(WORK_DIR)
+        return _resolve_work_dir(WORK_DIR)
     return PROJECT_ROOT / "work"
+
+
+def _resolve_work_dir(value: str | Path) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return PROJECT_ROOT / path
 
 
 class SettingsService:
@@ -40,7 +47,7 @@ class SettingsService:
         return ToolConfig(
             audiveris_path=self.dao.get("audiveris_path") or _default_audiveris_path(),
             java_home=self.dao.get("java_home") or JAVA_HOME,
-            work_dir=Path(self.dao.get("work_dir") or str(_default_work_dir())),
+            work_dir=_resolve_work_dir(self.dao.get("work_dir") or _default_work_dir()),
             omr_preprocess=self.dao.get_bool("omr_preprocess", OMR_PREPROCESS),
             omr_preprocess_long_edge=self.dao.get_int("omr_preprocess_long_edge", OMR_PREPROCESS_LONG_EDGE),
             omr_preprocess_binarize=self.dao.get_bool("omr_preprocess_binarize", OMR_PREPROCESS_BINARIZE),

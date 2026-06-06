@@ -14,6 +14,9 @@ from ..exec.tasks.actions import TaskActions
 from ..models.common.errors import AITranscriptionError, ExternalToolError, OCRError
 
 
+LOCAL_DEV_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _init_task_state(app)
@@ -37,6 +40,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
+        allow_origin_regex=LOCAL_DEV_ORIGIN_REGEX,
         allow_methods=["*"],
         allow_headers=["*"],
     )

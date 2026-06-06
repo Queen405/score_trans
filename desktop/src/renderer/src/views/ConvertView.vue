@@ -299,47 +299,34 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   if (!batchId) return
 
   let allPages = expandedPages.value
-  try {
-    const batch: HistoryBatch = await historyApi.get(batchId)
-    allPages = batch.pages
-    expandedPages.value = batch.pages
-  } catch (e: unknown) {
-    log.addError(`刷新历史详情失败：${e instanceof Error ? e.message : String(e)}`)
+  let pageIndex = allPages.findIndex((p) => p.id === page.id)
+  if (!allPages.length || pageIndex < 0) {
+    try {
+      const batch: HistoryBatch = await historyApi.get(batchId)
+      allPages = batch.pages
+      expandedPages.value = batch.pages
+      pageIndex = allPages.findIndex((p) => p.id === page.id)
+    } catch (e: unknown) {
+      log.addError(`刷新历史详情失败：${e instanceof Error ? e.message : String(e)}`)
+    }
   }
   if (!allPages.length) return
 
-  const pageIndex = allPages.findIndex((p) => p.id === page.id)
   const warnings: string[] = []
-
-  const resolved = await Promise.all(
-    allPages.map(async (p) => {
-      const inputOk = p.input_file_id ? await fileExists(p.input_file_id) : false
-      const musicxmlOk = p.musicxml_file_id ? await fileExists(p.musicxml_file_id) : false
-      const svgOk = p.svg_file_id ? await fileExists(p.svg_file_id) : false
-      if (p.input_file_id && !inputOk) warnings.push(`${p.input_file_name}：原始文件已失效`)
-      if (p.musicxml_file_id && !musicxmlOk) warnings.push(`${p.input_file_name}：MusicXML 已失效`)
-      if (p.svg_file_id && !svgOk) warnings.push(`${p.input_file_name}：SVG 已失效`)
-      return { page: p, inputOk, musicxmlOk, svgOk }
-    }),
-  )
-  const migratedPages = await Promise.all(
-    resolved.map(async (r) => {
-      const split = splitJianpuAndOcr(r.page.jianpu_text || '')
-      let jianpu = split.jianpuText
-      if (jianpu.trim()) {
-        try {
-          const normalized = await renderApi.normalizeJianpuText({ jianpu_text: jianpu, title: '简谱' })
-          jianpu = normalized.jianpu_text
-          if (jianpu !== r.page.jianpu_text) {
-            r.page.jianpu_text = jianpu
-          }
-        } catch (e: unknown) {
-          log.addError(`历史简谱迁移失败：${e instanceof Error ? e.message : String(e)}`)
+  const selectedChecks = pageIndex >= 0
+    ? await checkHistoryPageFiles(allPages[pageIndex], warnings)
+    : null
+  const migratedPages = allPages.map((p, index) => {
+    const split = splitJianpuAndOcr(p.jianpu_text || '')
+    const checks = index === pageIndex && selectedChecks
+      ? selectedChecks
+      : {
+          inputOk: !!p.input_file_id,
+          musicxmlOk: !!p.musicxml_file_id,
+          svgOk: !!p.svg_file_id,
         }
-      }
-      return { ...r, split, jianpu }
-    }),
-  )
+    return { page: p, split, jianpu: split.jianpuText, ...checks }
+  })
 
   store.loadBatch(
     migratedPages.map((r) => ({
@@ -361,6 +348,22 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
 
   if (warnings.length) { message.warning(warnings.join('；')); return }
   message.success(`已恢复 ${allPages.length} 页`)
+}
+
+async function checkHistoryPageFiles(page: HistoryPage, warnings: string[]): Promise<{
+  inputOk: boolean
+  musicxmlOk: boolean
+  svgOk: boolean
+}> {
+  const [inputOk, musicxmlOk, svgOk] = await Promise.all([
+    page.input_file_id ? fileExists(page.input_file_id) : Promise.resolve(false),
+    page.musicxml_file_id ? fileExists(page.musicxml_file_id) : Promise.resolve(false),
+    page.svg_file_id ? fileExists(page.svg_file_id) : Promise.resolve(false),
+  ])
+  if (page.input_file_id && !inputOk) warnings.push(`${page.input_file_name}：原始文件已失效`)
+  if (page.musicxml_file_id && !musicxmlOk) warnings.push(`${page.input_file_name}：MusicXML 已失效`)
+  if (page.svg_file_id && !svgOk) warnings.push(`${page.input_file_name}：SVG 已失效`)
+  return { inputOk, musicxmlOk, svgOk }
 }
 
 function replaceExpandedHistoryPage(page: HistoryPage): void {

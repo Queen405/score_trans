@@ -59,16 +59,28 @@ export function getFileURL(fileId: string): string {
   return `${getBaseURL()}/files/${fileId}`
 }
 
+async function probeFile(url: string, options: RequestInit): Promise<boolean | null> {
+  try {
+    const res = await fetch(url, { cache: 'no-store', ...options })
+    if (res.ok || res.status === 206) return true
+    if (res.status === 404 || res.status === 410) return false
+    return null
+  } catch {
+    return null
+  }
+}
+
 export async function fileExists(fileId: string): Promise<boolean> {
   if (!fileId) return false
 
   const url = getFileURL(fileId)
-  try {
-    const res = await fetch(url, { method: 'HEAD' })
-    return res.ok
-  } catch {
-    return false
-  }
+  const head = await probeFile(url, { method: 'HEAD' })
+  if (head !== null) return head
+
+  const ranged = await probeFile(url, { method: 'GET', headers: { Range: 'bytes=0-0' } })
+  if (ranged !== null) return ranged
+
+  return true
 }
 
 export { getBaseURL as BASE_URL }

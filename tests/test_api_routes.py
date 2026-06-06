@@ -3,9 +3,11 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from score_trans.api.dependencies import get_file_actions
 from score_trans.api.app import create_app
 from score_trans.api.export.routes import export_midi
 from score_trans.exec.export.actions import ExportActions
+from score_trans.exec.files.actions import FileActions
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 
@@ -57,6 +59,24 @@ def test_tasks_stream_allows_vite_dev_origin() -> None:
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_file_download_allows_local_dev_origin_on_any_port(tmp_path: Path) -> None:
+    app = create_app()
+    config = ToolConfig(work_dir=tmp_path / "work")
+    uploads = UploadService(config)
+    source = tmp_path / "page.png"
+    source.write_bytes(b"png")
+    file_id = uploads.register(source)
+    app.dependency_overrides[get_file_actions] = lambda: FileActions(uploads=uploads)
+
+    response = TestClient(app).get(
+        f"/files/{file_id}",
+        headers={"Origin": "http://localhost:58123"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:58123"
 
 
 class FakeExportUseCase:

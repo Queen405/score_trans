@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fastapi import UploadFile
 
+from ...models.common.paths import PROJECT_ROOT
 from ...models.settings.config import ToolConfig
 from ..settings.settings_service import SettingsService
 
@@ -18,7 +19,10 @@ class UploadService:
 
     def __init__(self, config: ToolConfig | None = None) -> None:
         self.config = config or SettingsService().load()
-        self.base_dir = self.config.work_dir / "uploads"
+        work_dir = self.config.work_dir
+        if not work_dir.is_absolute():
+            work_dir = PROJECT_ROOT / work_dir
+        self.base_dir = (work_dir / "uploads").resolve()
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._index_path = self.base_dir / "index.json"
         self._files: dict[str, Path] = {}
@@ -41,17 +45,27 @@ class UploadService:
         for key, value in raw.items():
             if not isinstance(key, str) or not isinstance(value, str):
                 continue
-            path = Path(value)
+            path = self._resolve_index_path(Path(value))
             if path.exists():
                 restored[key] = path
 
         with self._lock:
             self._files = restored
 
+    def _resolve_index_path(self, path: Path) -> Path:
+        if path.is_absolute():
+            return path.resolve()
+
+        project_path = PROJECT_ROOT / path
+        if project_path.exists():
+            return project_path.resolve()
+
+        return path.resolve()
+
     def _persist_index(self) -> None:
         with self._lock:
             serializable = {
-                file_id: str(path)
+                file_id: str(path.resolve())
                 for file_id, path in self._files.items()
                 if path.exists()
             }
@@ -89,7 +103,7 @@ class UploadService:
 
     def register(self, path: Path) -> str:
         """Register an existing local file and return its file_id."""
-        src_path = Path(path)
+        src_path = self._resolve_index_path(Path(path))
         if not src_path.exists():
             raise FileNotFoundError(f"文件不存在，无法注册：{src_path}")
 
