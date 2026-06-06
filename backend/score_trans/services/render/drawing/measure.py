@@ -4,12 +4,26 @@ from typing import Any
 
 from ..models.layout import MeasureLayout, RenderItem
 from ..options import RenderOptions
+from ..utils.metrics import _token_metrics
 from ..utils.text import _esc
 from ..utils.bars import _bar_line, _repeat_end_bar, _repeat_start_bar
 from .beams import _render_beams
 from .beat import _render_slot_items
-from .spanners import _render_spanners
+from .spanners import _render_spanners, _finish_open_spanners
 from .text import _render_measure_text_blocks
+
+_MARK_ABOVE_TOKEN = 36  # highest technical mark above token visual top
+_MEASURE_NO_GAP = 10  # clearance between measure number and highest element
+
+
+def _measure_number_y(measure: MeasureLayout, y: int) -> int:
+    """Compute the y-coordinate for the measure number, avoiding overlap with notes."""
+    min_top = float(y)
+    for beat in measure.beats:
+        for item in beat.items:
+            top = _token_metrics(item.token, y)["top"]
+            min_top = min(min_top, top)
+    return min(min_top - _MARK_ABOVE_TOKEN - _MEASURE_NO_GAP, y - 62)
 
 
 def _render_measure(
@@ -20,15 +34,20 @@ def _render_measure(
     options: RenderOptions,
     *,
     draw_start_bar: bool,
-) -> list[str]:
+    open_tie=None,
+    open_slur=None,
+) -> tuple[list[str], object, object]:
     from ..layout.beat import _item_slots
+    from .spanners import Slot
 
     out = [f'<g class="measure" data-number="{_esc(str(measure.number))}" data-width="{width:.1f}">']
     if options.show_measure_numbers:
-        out.append(f'<text class="measure-no" x="{x + 6:.1f}" y="{y - 62}">{_esc(str(measure.number))}</text>')
+        no_y = _measure_number_y(measure, y)
+        out.append(f'<text class="measure-no" x="{x + 6:.1f}" y="{no_y}">{_esc(str(measure.number))}</text>')
     repeat_count = getattr(measure.source, "repeat_count", 1)
     if repeat_count > 1:
-        out.append(f'<text class="repeat-count" x="{x + width - 6:.1f}" y="{y - 62}" text-anchor="end">*{repeat_count}</text>')
+        rc_y = _measure_number_y(measure, y)
+        out.append(f'<text class="repeat-count" x="{x + width - 6:.1f}" y="{rc_y}" text-anchor="end">*{repeat_count}</text>')
     if getattr(measure.source, "repeat_start", False):
         out.extend(_repeat_start_bar(x, y))
     elif draw_start_bar:
@@ -51,7 +70,10 @@ def _render_measure(
         measure_slots.extend(slots)
         beat_x += beat_width + options.beat_gap * scale
     out.extend(_render_beams(measure_slots, y))
-    out.extend(_render_spanners(measure_slots, y))
+    spanner_svg, new_tie, new_slur = _render_spanners(
+        measure_slots, y, open_tie=open_tie, open_slur=open_slur,
+    )
+    out.extend(spanner_svg)
     out.extend(_render_measure_text_blocks(measure.source, x, y, width, measure_slots))
     if measure.errors:
         out.append(f'<text class="measure-no error" x="{x + 6:.1f}" y="{y + 80}">{_esc("; ".join(measure.errors))}</text>')
@@ -60,4 +82,4 @@ def _render_measure(
     else:
         out.append(_bar_line(x + width, y))
     out.append("</g>")
-    return out
+    return out, new_tie, new_slur

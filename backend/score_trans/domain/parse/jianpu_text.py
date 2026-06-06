@@ -76,6 +76,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     pending_articulations: list[str] = []
     pending_repeat_count: int = 1
     open_slur = False
+    open_tie = False
     measure_number = 1
     next_repeat_start = False
 
@@ -147,6 +148,14 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         if raw.endswith(")") and open_slur:
             event.slur_stop = True
             open_slur = False
+        # Propagate tie across measures: if a previous note had tie_start,
+        # the next note automatically receives tie_stop even without explicit ~
+        if open_tie and not event.tie_stop:
+            event.tie_stop = True
+        if event.tie_start:
+            open_tie = True
+        elif event.tie_stop:
+            open_tie = False
         current_events.append(event)
         cursor += event.duration
 

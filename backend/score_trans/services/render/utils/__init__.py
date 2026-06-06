@@ -16,7 +16,7 @@ __all__ = [
     "_note_visual_bottom",
     "_duration_line_y",
     "_note_duration_line_y",
-    "_low_octave_dot_y",
+    "_note_center_offset",
     "_measure_text_x",
     "_slot_has_dynamic",
     "_slot_has_lyric",

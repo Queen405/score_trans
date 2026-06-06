@@ -3,6 +3,31 @@ from __future__ import annotations
 from ..constants import CHORD_GAP
 from ..models.shapes import NoteShape
 from ..parsing.tokens import _parse_chord_token, _parse_note
+from .helpers import _split_accidental
+
+OCTAVE_DOT_CLEARANCE = 3  # keep octave dots a few pixels inside their visual neighbors
+
+
+def _note_center_offset(note: NoteShape) -> float:
+    """Approximate horizontal center offset of a note head relative to its anchor."""
+    accidental, body = _split_accidental(note.display)
+    width = (8 if accidental else 0) + (14 if len(body) == 1 and body in "12" else 8 * max(1, len(body)))
+    return width / 2
+
+
+def _high_octave_dot_y(note_y: int, dot_index: int, upper_bound: float | None) -> float:
+    y = note_y - 26 - dot_index * 9
+    if upper_bound is not None:
+        y = min(y, upper_bound - OCTAVE_DOT_CLEARANCE - dot_index * 3)
+    return y
+
+
+def _low_octave_dot_y(note_y: int, dot_index: int, lower_bound: float | None = None) -> float:
+    from ..constants import LOW_OCTAVE_DOT_OFFSET, OCTAVE_DOT_GAP
+    y = note_y + LOW_OCTAVE_DOT_OFFSET + dot_index * OCTAVE_DOT_GAP
+    if lower_bound is not None:
+        y = max(y, lower_bound + OCTAVE_DOT_CLEARANCE + dot_index * 3)
+    return y
 
 
 def _token_metrics(token: str, y: int) -> dict[str, float]:
@@ -48,10 +73,6 @@ def _note_visual_bottom(note: NoteShape, y: int, *, include_duration: bool) -> f
         bottom = max(bottom, y + 34)
     return bottom
 
-
-def _low_octave_dot_y(y: int, index: int) -> float:
-    from ..constants import LOW_OCTAVE_DOT_OFFSET, OCTAVE_DOT_GAP
-    return y + LOW_OCTAVE_DOT_OFFSET + index * OCTAVE_DOT_GAP
 
 
 def _note_duration_line_y(note: NoteShape, y: int, level: int) -> float:

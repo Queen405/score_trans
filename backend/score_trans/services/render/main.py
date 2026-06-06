@@ -7,6 +7,7 @@ from typing import Any
 from ...domain.jianpu import parse_jianpu_score
 from ...models.score import JianpuScore, TextBlock
 from .drawing.measure import _render_measure
+from .drawing.spanners import _finish_open_spanners
 from .drawing.text import _render_positioned_text_blocks
 from .layout.measure import _score_measure_layout
 from .layout.rows import _layout_rows
@@ -74,9 +75,16 @@ def render_jianpu_page_svg(
     y = top
     for row in rows:
         x = float(page_options.margin)
+        open_tie = None
+        open_slur = None
         for index, measure in enumerate(row):
-            out.extend(_render_measure(measure, x, int(y), measure.width, page_options, draw_start_bar=index == 0))
+            svg_lines, open_tie, open_slur = _render_measure(
+                measure, x, int(y), measure.width, page_options,
+                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+            )
+            out.extend(svg_lines)
             x += measure.width
+        out.extend(_finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur))
         y += page_options.line_height
         if y > height - bottom:
             break
@@ -133,9 +141,16 @@ def render_score_page_svg(
     y = top
     for row in rows:
         x = float(page_options.margin)
+        open_tie = None
+        open_slur = None
         for index, measure in enumerate(row):
-            out.extend(_render_measure(measure, x, int(y), measure.width, page_options, draw_start_bar=index == 0))
+            svg_lines, open_tie, open_slur = _render_measure(
+                measure, x, int(y), measure.width, page_options,
+                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+            )
+            out.extend(svg_lines)
             x += measure.width
+        out.extend(_finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur))
         y += page_options.line_height
         if y > height - bottom:
             break
@@ -215,9 +230,16 @@ def _render_layouts(
                 f'x2="{options.margin + row_width:.1f}" y2="{y + 44}"/>'
             )
         x = float(options.margin)
+        open_tie = None
+        open_slur = None
         for index, measure in enumerate(row):
-            out.extend(_render_measure(measure, x, y, measure.width, options, draw_start_bar=index == 0))
+            svg_lines, open_tie, open_slur = _render_measure(
+                measure, x, y, measure.width, options,
+                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+            )
+            out.extend(svg_lines)
             x += measure.width
+        out.extend(_finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur))
         y += options.line_height
     if footer_text:
         out.append(f'<text class="ocr-text" x="{options.margin}" y="{height - options.margin + 8}">{_esc(footer_text)}</text>')

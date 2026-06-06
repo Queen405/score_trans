@@ -6,7 +6,7 @@ from ..parsing.tokens import _parse_chord_token, _parse_note
 from ..utils.geometry import _duration_line_y
 from ..utils.helpers import _split_accidental
 from ..utils.text import _esc
-from ..utils.metrics import _low_octave_dot_y, _note_duration_line_y
+from ..utils.metrics import _high_octave_dot_y, _low_octave_dot_y, _note_center_offset, _note_duration_line_y, _note_visual_bottom, _note_visual_top
 
 
 def _render_token(
@@ -44,9 +44,28 @@ def _render_chord(
         return []
     gap = CHORD_GAP
     top_y = y - (len(notes) - 1) * gap / 2
+    note_positions = [(note, int(top_y + index * gap)) for index, note in enumerate(notes)]
     out: list[str] = []
-    for index, note in enumerate(notes):
-        out.extend(_render_note_shape(note, cx, int(top_y + index * gap), generated=generated, suppress_duration=True))
+    for note, note_y in note_positions:
+        dot_cx = cx + _note_center_offset(note) - 4
+        upper_bound = None
+        lower_bound = None
+        for neighbor, neighbor_y in note_positions:
+            if neighbor is note:
+                continue
+            if neighbor.rank > note.rank:
+                upper_bound = (
+                    _note_visual_bottom(neighbor, neighbor_y, include_duration=False)
+                    if upper_bound is None
+                    else max(upper_bound, _note_visual_bottom(neighbor, neighbor_y, include_duration=False))
+                )
+            elif neighbor.rank < note.rank:
+                lower_bound = (
+                    _note_visual_top(neighbor, neighbor_y)
+                    if lower_bound is None
+                    else min(lower_bound, _note_visual_top(neighbor, neighbor_y))
+                )
+        out.extend(_render_note_shape(note, cx, note_y, generated=generated, suppress_duration=True, dot_cx=dot_cx, upper_bound=upper_bound, lower_bound=lower_bound))
     underline_y = _duration_line_y(token, y, 1)
     if not suppress_duration:
         for line in range(min(3, slashes)):
@@ -69,10 +88,14 @@ def _render_note_shape(
     *,
     generated: bool = False,
     suppress_duration: bool = False,
+    dot_cx: float | None = None,
+    upper_bound: float | None = None,
+    lower_bound: float | None = None,
 ) -> list[str]:
     note_class = "note generated" if generated else "note"
     accidental, body = _split_accidental(note.display)
     note_x = cx + (4 if accidental else 0)
+    dot_x = dot_cx if dot_cx is not None else cx
     out: list[str] = []
     if accidental:
         out.append(f'<text class="accidental" x="{cx - 5:.1f}" y="{y - 14}" text-anchor="middle">{_esc(accidental)}</text>')
@@ -85,9 +108,11 @@ def _render_note_shape(
                 f'x2="{cx + 13:.1f}" y2="{line_y:.1f}"/>'
             )
     for dot in range(min(3, note.octave_up)):
-        out.append(f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y - 30 - dot * 9}" r="3.0"/>')
+        dot_y = _high_octave_dot_y(y, dot, upper_bound)
+        out.append(f'<circle class="octave-dot" cx="{dot_x:.1f}" cy="{dot_y:.1f}" r="3.0"/>')
     for dot in range(min(3, note.octave_down)):
-        out.append(f'<circle class="octave-dot" cx="{cx:.1f}" cy="{_low_octave_dot_y(y, dot):.1f}" r="3.0"/>')
+        dot_y = _low_octave_dot_y(y, dot, lower_bound)
+        out.append(f'<circle class="octave-dot" cx="{dot_x:.1f}" cy="{dot_y:.1f}" r="3.0"/>')
     if note.dotted:
         out.append(f'<circle class="rhythm-dot" cx="{cx + 20:.1f}" cy="{y - 8}" r="3.0"/>')
     if not suppress_duration:

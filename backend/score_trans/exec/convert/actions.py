@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from fastapi import HTTPException
+
 
 from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
 from ...domain.musicxml import musicxml_path_to_score, score_to_jianpu_text
@@ -86,13 +86,13 @@ class ConvertActions:
     def musicxml_to_jianpu_response(self, req: MusicXmlToJianpuRequest) -> MusicXmlToJianpuResponse:
         path = self.uploads.get_path(req.musicxml_file_id)
         if not path or not path.exists():
-            raise HTTPException(404, f"文件不存在：{req.musicxml_file_id}")
+            raise FileNotFoundError(f"文件不存在：{req.musicxml_file_id}")
 
         image_path = None
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+                raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
 
         jianpu_text = self.musicxml_to_jianpu.execute(
             path,
@@ -108,10 +108,10 @@ class ConvertActions:
         elif req.jianpu_file_id:
             path = self.uploads.get_path(req.jianpu_file_id)
             if not path or not path.exists():
-                raise HTTPException(404, f"文件不存在：{req.jianpu_file_id}")
+                raise FileNotFoundError(f"文件不存在：{req.jianpu_file_id}")
             xml_text = self.jianpu_to_musicxml.execute_file(path, title=req.title)
         else:
-            raise HTTPException(400, "必须提供 jianpu_text 或 jianpu_file_id")
+            raise ValueError("必须提供 jianpu_text 或 jianpu_file_id")
 
         out_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.musicxml"
         self.file_service.write_text(out_path, xml_text)

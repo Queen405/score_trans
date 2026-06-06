@@ -3,32 +3,54 @@ from __future__ import annotations
 from ..models.layout import RenderItem
 from ..utils.metrics import _token_metrics
 
+# Type alias for a slot: (RenderItem, center_x, slot_width)
+Slot = tuple[RenderItem, float, float]
+
 
 def _render_spanners(
-    slots: list[tuple[RenderItem, float, float]],
+    slots: list[Slot],
     y: int,
-) -> list[str]:
+    *,
+    open_tie: Slot | None = None,
+    open_slur: Slot | None = None,
+) -> tuple[list[str], Slot | None, Slot | None]:
+    """Render tie/slur arcs for a single measure's slots.
+
+    Returns (svg_fragments, remaining_open_tie, remaining_open_slur) so the
+    caller can carry open spanner state across measures on the same row.
+    """
     out: list[str] = []
-    open_tie: tuple[RenderItem, float, float] | None = None
-    open_slur: tuple[RenderItem, float, float] | None = None
+    cur_tie = open_tie
+    cur_slur = open_slur
     for item, cx, slot_width in slots:
         current = (item, cx, slot_width)
         if item.tie_stop:
-            if open_tie is None:
+            if cur_tie is None:
                 out.append(_render_tie_arc(None, current, y))
             else:
-                out.append(_render_tie_arc(open_tie, current, y))
-                open_tie = None
+                out.append(_render_tie_arc(cur_tie, current, y))
+                cur_tie = None
         if item.slur_stop:
-            if open_slur is None:
+            if cur_slur is None:
                 out.append(_render_slur_arc(None, current, y))
             else:
-                out.append(_render_slur_arc(open_slur, current, y))
-                open_slur = None
+                out.append(_render_slur_arc(cur_slur, current, y))
+                cur_slur = None
         if item.tie_start:
-            open_tie = current
+            cur_tie = current
         if item.slur_start:
-            open_slur = current
+            cur_slur = current
+    return out, cur_tie, cur_slur
+
+
+def _finish_open_spanners(
+    y: int,
+    *,
+    open_tie: Slot | None = None,
+    open_slur: Slot | None = None,
+) -> list[str]:
+    """Render dangling open tie/slur arcs at the end of a row."""
+    out: list[str] = []
     if open_tie is not None:
         out.append(_render_tie_arc(open_tie, None, y))
     if open_slur is not None:
