@@ -112,7 +112,7 @@
                   :min="1"
                   clearable
                   size="tiny"
-                  style="width: 70px"
+                  style="width: 100px"
                 />
               </div>
               <n-button size="tiny" quaternary @click="syntaxGuideOpen = true">
@@ -675,6 +675,7 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
     jianpu_text: normalizedJianpu,
     ocr_text: store.ocrText,
     svg_file_id: svgFileId,
+    start_measure_number: store.startMeasureNumber ?? null,
     status: 'completed',
     error_message: '',
   }
