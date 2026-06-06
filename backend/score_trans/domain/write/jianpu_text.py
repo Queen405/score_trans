@@ -32,7 +32,8 @@ def score_to_jianpu_text(score: JianpuScore) -> str:
         repeat_suffix = f" *{repeat_count}" if repeat_count > 1 else ""
         suffix = " :|" if getattr(measure, "repeat_end", False) else ""
         measures.append(prefix + " ".join(tokens) + repeat_suffix + suffix)
-    lines.append(" | ".join(measures) + (" |" if measures else ""))
+    for m in measures:
+        lines.append(m + " |")
     if lyrics:
         lines.append(f"L: {' '.join(lyrics)}")
     text_lines = [_text_block_to_directive(block) for block in score.text_blocks if block.text.strip() and block.role != "instrument"]

@@ -139,7 +139,7 @@
               <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
               <span>暂无渲染</span>
             </div>
-            <jianpu-editor v-else v-model="jianpuText" />
+            <jianpu-editor v-else v-model="jianpuText" :start-measure-number="store.startMeasureNumber ?? 1" />
           </div>
         </div>
       </div>
