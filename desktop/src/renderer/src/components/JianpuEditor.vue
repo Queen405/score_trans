@@ -122,7 +122,16 @@ const measureNumbers = computed(() => {
   let measureCount = props.startMeasureNumber ?? 1
   return lines.map((line) => {
     const trimmed = line.trim()
-    // 跳过元数据、空行、歌词、表情记号行
+    // 包含 | 的就是小节（即使以 \ 开头如 \f）
+    if (trimmed.includes('|')) {
+      // 检测重复次数 *x
+      const match = trimmed.match(/\*\s*(\d+)$/)
+      const repeatCount = match ? parseInt(match[1], 10) : 1
+      const currentNumber = measureCount
+      measureCount += repeatCount
+      return currentNumber
+    }
+    // 跳过元数据、空行、歌词、纯表情记号行
     if (
       !trimmed ||
       /^key\s*=/i.test(trimmed) ||
@@ -133,14 +142,6 @@ const measureNumbers = computed(() => {
       /^\\/.test(trimmed)
     ) {
       return 0
-    }
-    if (trimmed.includes('|')) {
-      // 检测重复次数 *x
-      const match = trimmed.match(/\*\s*(\d+)$/)
-      const repeatCount = match ? parseInt(match[1], 10) : 1
-      const currentNumber = measureCount
-      measureCount += repeatCount
-      return currentNumber
     }
     return 0
   })
