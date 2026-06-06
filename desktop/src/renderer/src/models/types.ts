@@ -97,6 +97,11 @@ export interface RecognizeResponse {
   musicxml_filename: string
 }
 
+export interface TaskSubmitResponse {
+  task_id: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+}
+
 export interface PipelineResponse {
   task_id?: string
   musicxml_file_id: string
@@ -175,6 +180,8 @@ export interface SettingsUpdateRequest {
   audiveris_path?: string
   java_home?: string
   output_dir?: string
+  target_key?: string
+  work_dir?: string
   ocr_api_key?: string
   ocr_base_url?: string
   ocr_model?: string

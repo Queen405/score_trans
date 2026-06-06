@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { PipelineResponse } from '../models/types'
+import type { TaskSubmitResponse } from '../models/types'
 
 export const pipelineApi = {
   run(
@@ -7,7 +7,7 @@ export const pipelineApi = {
     targetKey = 'C',
     startMeasureNumber?: number,
     title?: string,
-  ): Promise<PipelineResponse> {
+  ): Promise<TaskSubmitResponse> {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('target_key', targetKey)

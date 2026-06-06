@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import type { SSEProgressEvent } from '../models/types'
 
 export type TaskPageStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -74,6 +75,8 @@ export const useTaskStore = defineStore('task', () => {
   const pages = ref<TaskPage[]>([])
   const currentPageIndex = ref(-1)
   const historyPageId = ref<number | null>(null)
+  const currentTaskId = ref<string | null>(null)
+  const taskStatus = ref<SSEProgressEvent['status']>('pending')
 
   function syncCurrentFromPage(): void {
     const page = pages.value[currentPageIndex.value]
@@ -304,6 +307,15 @@ export const useTaskStore = defineStore('task', () => {
     isBusy.value = value
   }
 
+  function setCurrentTask(taskId: string | null, status: SSEProgressEvent['status'] = 'pending') {
+    currentTaskId.value = taskId
+    taskStatus.value = status
+  }
+
+  function setTaskStatus(status: SSEProgressEvent['status']) {
+    taskStatus.value = status
+  }
+
   function reset() {
     inputFileName.value = ''
     historyPageId.value = null
@@ -319,6 +331,8 @@ export const useTaskStore = defineStore('task', () => {
     isBusy.value = false
     pages.value = []
     currentPageIndex.value = -1
+    currentTaskId.value = null
+    taskStatus.value = 'pending'
   }
 
   function loadBatch(batchPages: TaskPageInput[], selectIndex: number) {
@@ -358,6 +372,8 @@ export const useTaskStore = defineStore('task', () => {
     isBusy,
     pages,
     currentPageIndex,
+    currentTaskId,
+    taskStatus,
     hasMusicxml,
     hasInput,
     hasOriginal,
@@ -385,6 +401,8 @@ export const useTaskStore = defineStore('task', () => {
     replacePage,
     setCurrentPageStatus,
     setBusy,
+    setCurrentTask,
+    setTaskStatus,
     reset,
     loadBatch,
   }

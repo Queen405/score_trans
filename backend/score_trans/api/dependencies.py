@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from fastapi import Request
+
 from ..exec.ai.actions import AiActions
 from ..exec.convert.actions import ConvertActions
 from ..exec.export.actions import ExportActions
@@ -9,6 +11,7 @@ from ..exec.pipeline.actions import PipelineActions
 from ..exec.recognize.actions import RecognizeActions
 from ..exec.render.actions import RenderActions
 from ..exec.settings.actions import SettingsActions
+from ..exec.tasks.actions import TaskActions
 
 
 def get_ai_actions() -> AiActions:
@@ -45,3 +48,11 @@ def get_render_actions() -> RenderActions:
 
 def get_settings_actions() -> SettingsActions:
     return SettingsActions()
+
+
+def get_task_actions(request: Request) -> TaskActions:
+    actions = getattr(request.app.state, "task_actions", None)
+    if actions is None:
+        actions = TaskActions()
+        request.app.state.task_actions = actions
+    return actions

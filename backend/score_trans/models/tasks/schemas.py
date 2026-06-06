@@ -14,3 +14,7 @@ class SSEProgressEvent(BaseModel):
     error: str | None = None
     result: dict[str, Any] | None = None
 
+
+class TaskSubmitResponse(BaseModel):
+    task_id: str
+    status: str = "pending"

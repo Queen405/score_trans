@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from score_trans.config.settings import API_TITLE, API_VERSION, CORS_ORIGINS
 
+from ..exec.tasks.actions import TaskActions
 from ..models.common.errors import AITranscriptionError, ExternalToolError, OCRError
 
 
@@ -14,6 +15,7 @@ def create_app() -> FastAPI:
         title=API_TITLE,
         version=API_VERSION,
     )
+    app.state.task_actions = TaskActions()
 
     # CORS — development only. Production Electron uses file:// or custom scheme.
     _raw_origins = CORS_ORIGINS
@@ -36,6 +38,7 @@ def create_app() -> FastAPI:
     from .history import routes as history
     from .export import routes as export_router
     from .settings import routes as settings_router
+    from .tasks import routes as tasks
 
     app.include_router(ai.router)
     app.include_router(health.router)
@@ -47,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(files.router)
     app.include_router(history.router)
     app.include_router(settings_router.router)
+    app.include_router(tasks.router)
 
     # Exception handlers — unified error format
     @app.exception_handler(ExternalToolError)
@@ -75,6 +79,13 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=400,
             content={"error": str(exc), "stage": "convert"},
+        )
+
+    @app.exception_handler(FileNotFoundError)
+    async def file_not_found_error_handler(request: Request, exc: FileNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={"error": str(exc), "stage": "files"},
         )
 
     return app

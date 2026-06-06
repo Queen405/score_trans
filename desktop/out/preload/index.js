@@ -102,6 +102,9 @@ const api = {
     return () => {
       electron.ipcRenderer.removeListener("window:maximized-changed", listener);
     };
+  },
+  selectDirectory: async () => {
+    return electron.ipcRenderer.invoke("dialog:select-directory");
   }
 };
 if (process.contextIsolated) {

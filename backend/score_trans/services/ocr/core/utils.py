@@ -30,7 +30,7 @@ def _ocr_blocks_are_useful(blocks: list[OCRTextBlock]) -> bool:
 
 def persisted_ocr_settings() -> dict[str, str]:
     try:
-        from ..settings.settings_service import SettingsService
+        from ...settings.settings_service import SettingsService
 
         return SettingsService().get_all()
     except Exception:

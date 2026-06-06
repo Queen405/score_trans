@@ -16,6 +16,8 @@ def test_render_routes_are_registered() -> None:
     assert "/export/pdf" in paths
     assert "/export/midi" in paths
     assert "/history/pages/{page_id}" in paths
+    assert "/tasks/{task_id}" in paths
+    assert "/tasks/{task_id}/stream" in paths
 
 
 def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:

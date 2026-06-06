@@ -6,7 +6,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
   const javaHome = ref('')
   const targetKey = ref('C')
-  const startMeasureNumber = ref<number | null>(null)
   const outputDir = ref('')
   const ocrApiKey = ref('')
   const ocrApiKeySet = ref(false)
@@ -26,6 +25,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const data = await settingsApi.get()
       audiverisPath.value = data.audiveris_path
       javaHome.value = data.java_home
+      targetKey.value = data.target_key ?? 'C'
       outputDir.value = data.output_dir ?? ''
       ocrApiKey.value = data.ocr_api_key ?? ''
       ocrApiKeySet.value = data.ocr_api_key_set ?? false
@@ -49,6 +49,7 @@ export const useSettingsStore = defineStore('settings', () => {
       audiveris_path: audiverisPath.value,
       java_home: javaHome.value,
       output_dir: outputDir.value,
+      target_key: targetKey.value,
       ocr_api_key: ocrApiKey.value || undefined,
       ocr_base_url: ocrBaseUrl.value,
       ocr_model: ocrModel.value,
@@ -65,7 +66,6 @@ export const useSettingsStore = defineStore('settings', () => {
     audiverisPath,
     javaHome,
     targetKey,
-    startMeasureNumber,
     outputDir,
     ocrApiKey,
     ocrApiKeySet,

@@ -26,6 +26,9 @@ const api = {
       ipcRenderer.removeListener('window:maximized-changed', listener)
     }
   },
+  selectDirectory: async (): Promise<string | null> => {
+    return ipcRenderer.invoke('dialog:select-directory')
+  },
 }
 
 if (process.contextIsolated) {

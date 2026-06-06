@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "score_trans"
+SRC_ROOT = Path(__file__).resolve().parents[1] / "backend" / "score_trans"
 
 
 def _python_files(path: Path) -> list[Path]:
@@ -56,4 +56,3 @@ def test_dao_layer_does_not_import_api_exec_or_services() -> None:
             offenders.append(str(file.relative_to(SRC_ROOT)))
 
     assert offenders == []
-

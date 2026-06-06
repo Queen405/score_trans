@@ -342,6 +342,14 @@ electron.app.whenReady().then(async () => {
   electron.ipcMain.handle("window:close", () => {
     mainWindow?.close();
   });
+  electron.ipcMain.handle("dialog:select-directory", async () => {
+    if (!mainWindow) return null;
+    const result = await electron.dialog.showOpenDialog(mainWindow, {
+      properties: ["openDirectory"]
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
   createWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) {

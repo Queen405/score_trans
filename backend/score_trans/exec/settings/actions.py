@@ -28,6 +28,12 @@ class SettingsActions:
         if req.output_dir is not None:
             self.service.set("output_dir", req.output_dir)
 
+        if req.target_key is not None:
+            self.service.set("target_key", req.target_key)
+
+        if req.work_dir is not None:
+            self.service.set("work_dir", req.work_dir)
+
         if req.ocr_api_key is not None:
             self.service.set("ocr_api_key", req.ocr_api_key)
 
@@ -68,6 +74,7 @@ class SettingsActions:
             java_home=all_settings.get("java_home", ""),
             work_dir=str(self.service.load().work_dir),
             output_dir=all_settings.get("output_dir", ""),
+            target_key=all_settings.get("target_key", "C"),
             ocr_api_key=all_settings.get("ocr_api_key", ""),
             ocr_api_key_set=bool(all_settings.get("ocr_api_key", "")),
             ocr_base_url=all_settings.get("ocr_base_url", "https://api.siliconflow.cn/v1"),

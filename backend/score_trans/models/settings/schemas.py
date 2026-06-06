@@ -36,6 +36,8 @@ class SettingsUpdateRequest(BaseModel):
     audiveris_path: str | None = None
     java_home: str | None = None
     output_dir: str | None = None
+    target_key: str | None = None
+    work_dir: str | None = None
     ocr_api_key: str | None = None
     ocr_base_url: str | None = None
     ocr_model: str | None = None

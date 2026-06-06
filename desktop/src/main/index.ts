@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { BackendProcess } from './backend'
@@ -109,6 +109,15 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('window:close', () => {
     mainWindow?.close()
+  })
+
+  ipcMain.handle('dialog:select-directory', async () => {
+    if (!mainWindow) return null
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
   })
 
   // Create the main window

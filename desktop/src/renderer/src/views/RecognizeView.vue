@@ -97,9 +97,16 @@ import { useSettingsStore } from '../stores/settings'
 import { pipelineApi } from '../api/pipeline'
 import { renderApi } from '../api/render'
 import { aiApi } from '../api/ai'
+import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
 import { getFileURL } from '../api/client'
-import type { AiTranscribedPage, HistoryCreateRequest } from '../models/types'
+import type {
+  AiTranscribeResponse,
+  AiTranscribedPage,
+  HistoryCreateRequest,
+  PipelineResponse,
+  SSEProgressEvent,
+} from '../models/types'
 import type { TaskPageInput } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import FileUploader from '../components/FileUploader.vue'
@@ -177,6 +184,35 @@ function setProgress(percent: number, text: string): void {
   progressText.value = text
 }
 
+async function waitForTaskResult<T>(
+  taskId: string,
+  rangeStart = 0,
+  rangeEnd = 100,
+): Promise<T> {
+  store.setCurrentTask(taskId)
+  try {
+    const completed = await tasksApi.stream(taskId, (event) => {
+      store.setTaskStatus(event.status)
+      setProgress(mapTaskPercent(event, rangeStart, rangeEnd), taskProgressText(event))
+    })
+    if (!completed.result) {
+      throw new Error('任务完成但没有返回结果')
+    }
+    return completed.result as T
+  } finally {
+    store.setCurrentTask(null, store.taskStatus)
+  }
+}
+
+function mapTaskPercent(event: SSEProgressEvent, rangeStart: number, rangeEnd: number): number {
+  return rangeStart + (event.percent / 100) * (rangeEnd - rangeStart)
+}
+
+function taskProgressText(event: SSEProgressEvent): string {
+  if (event.status === 'failed') return event.error || event.message || '任务失败'
+  return event.message || event.stage || '处理中'
+}
+
 interface PageResult {
   page_index: number
   input_file_name: string
@@ -210,12 +246,13 @@ async function runPipelineForPage(
   const resp = await fetch(getFileURL(sourceFileId))
   const blob = await resp.blob()
 
-  setProgress(mapPercent(24), '识别与转换中')
-  const result = await pipelineApi.run(
+  setProgress(mapPercent(18), '提交后台识别任务')
+  const submitted = await pipelineApi.run(
     new File([blob], sourceFileName),
     settings.targetKey,
-    page.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
+    page.startMeasureNumber ?? undefined,
   )
+  const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, mapPercent(24), mapPercent(82))
 
   setProgress(mapPercent(82), '写入结果')
   store.setMusicxml(result.musicxml_file_id, '')
@@ -360,11 +397,12 @@ async function runAiForPage(
   store.setCurrentPageStatus('processing')
   setProgress(mapPercent(8), `AI 读取：${sourcePage.inputFileName}`)
 
-  const response = await aiApi.transcribe({
+  const submitted = await aiApi.transcribe({
     file_id: sourcePage.inputFileId,
     target_key: settings.targetKey,
     normalize: true,
   })
+  const response = await waitForTaskResult<AiTranscribeResponse>(submitted.task_id, mapPercent(12), mapPercent(75))
   if (!response.pages.length) throw new Error('AI 未返回任何页面')
 
   setProgress(mapPercent(75), '写入 AI 草稿')

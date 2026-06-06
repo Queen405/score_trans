@@ -1,12 +1,12 @@
 import { apiFetch } from './client'
-import type { RecognizeResponse } from '../models/types'
+import type { TaskSubmitResponse } from '../models/types'
 
 export const recognizeApi = {
   recognize(
     file: File,
     targetKey = 'C',
     startMeasureNumber?: number,
-  ): Promise<RecognizeResponse> {
+  ): Promise<TaskSubmitResponse> {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('target_key', targetKey)

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import shutil
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 
 from ...domain.musicxml import score_to_jianpu_text
 from ...models.pipeline.schemas import PipelineResponse
@@ -19,6 +20,8 @@ from ...services.render.render_service import RenderService
 from ...services.settings.settings_service import SettingsService
 from ..convert.actions import MusicXmlToJianpuAction
 from ..recognize.actions import RecognizeScoreAction
+
+ProgressCallback = Callable[[str, int, str], None]
 
 
 @dataclass(slots=True)
@@ -53,13 +56,17 @@ class FullPipelineAction:
         start_measure_number: int | None = None,
         title: str | None = None,
         ocr_provider: OCRProvider | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> ScorePipelineOutputs:
         source = Path(input_path).resolve()
         out_dir = Path(output_dir).resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
+        _report(progress_callback, "omr", 10, "准备 OMR 识别")
         recognized = self.recognizer.execute(source, out_dir / "omr", config)
+        _report(progress_callback, "omr", 45, "OMR 识别完成")
         musicxml_path = _copy_musicxml_output(Path(recognized), out_dir, source.stem)
         ocr_image_path = source if _is_ocr_image(source) else None
+        _report(progress_callback, "convert", 55, "转换 MusicXML")
         score = self.converter.build_score(
             musicxml_path,
             target_key=target_key,
@@ -69,9 +76,11 @@ class FullPipelineAction:
         )
         if title:
             score.title = title
+        _report(progress_callback, "convert", 72, "生成简谱文本")
         text_path = out_dir / f"{source.stem}_jianpu.txt"
         self.file_service.write_text(text_path, score_to_jianpu_text(score))
         svg_path = out_dir / f"{source.stem}_jianpu.svg"
+        _report(progress_callback, "render", 82, "渲染简谱 SVG")
         if ocr_image_path is not None:
             page_width, page_height = image_dimensions(ocr_image_path)
             self.renderer.render_score_page_svg(
@@ -84,6 +93,7 @@ class FullPipelineAction:
         else:
             self.renderer.render_score_svg(score, svg_path, title=title or score.title)
         ocr_measure_numbers = _extract_ocr_measure_numbers(score)
+        _report(progress_callback, "render", 94, "渲染完成")
         return ScorePipelineOutputs(
             input_path=source,
             musicxml_path=musicxml_path,
@@ -113,13 +123,36 @@ class PipelineActions:
         target_key: str = "C",
         start_measure_number: int | None = None,
         title: str | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> PipelineResponse:
-        config = self.settings.load()
+        input_path = self.save_upload(file)
+        return self.run_pipeline_from_path(
+            input_path,
+            target_key=target_key,
+            start_measure_number=start_measure_number,
+            title=title,
+            progress_callback=progress_callback,
+        )
+
+    def save_upload(self, file: UploadFile) -> Path:
         file_id = self.uploads.save(file)
         input_path = self.uploads.get_path(file_id)
         if not input_path:
-            raise HTTPException(500, "文件保存失败")
+            raise FileNotFoundError("文件保存失败")
+        return input_path
 
+    def run_pipeline_from_path(
+        self,
+        input_path: str | Path,
+        *,
+        target_key: str = "C",
+        start_measure_number: int | None = None,
+        title: str | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> PipelineResponse:
+        config = self.settings.load()
+
+        _report(progress_callback, "pipeline", 5, "创建输出目录")
         output_dir = config.work_dir / "pipeline" / uuid.uuid4().hex[:12]
         output_dir.mkdir(parents=True, exist_ok=True)
         outputs = self.pipeline.execute(
@@ -129,8 +162,10 @@ class PipelineActions:
             target_key=target_key,
             start_measure_number=start_measure_number,
             title=title,
+            progress_callback=progress_callback,
         )
 
+        _report(progress_callback, "pipeline", 96, "注册输出文件")
         musicxml_id = self.uploads.register(outputs.musicxml_path)
         jianpu_id = self.uploads.register(outputs.jianpu_text_path)
         svg_id = self.uploads.register(outputs.jianpu_svg_path)
@@ -163,4 +198,9 @@ def _extract_ocr_measure_numbers(score) -> list[int]:
 
 def _is_ocr_image(path: Path) -> bool:
     return path.suffix.lower() in IMAGE_SUFFIXES
+
+
+def _report(progress_callback: ProgressCallback | None, stage: str, percent: int, message: str) -> None:
+    if progress_callback is not None:
+        progress_callback(stage, percent, message)
 

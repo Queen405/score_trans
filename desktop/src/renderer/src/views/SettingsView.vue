@@ -24,9 +24,6 @@
         <label>简谱调</label>
         <n-input v-model:value="settings.targetKey" placeholder="C" size="small" style="width: 80px" />
 
-        <label>起始小节号</label>
-        <n-input-number v-model:value="settings.startMeasureNumber" placeholder="留空" clearable size="small" style="width: 140px" />
-
         <label>默认导出路径</label>
         <n-input v-model:value="settings.outputDir" placeholder="留空则每次手动选择" size="small">
           <template #suffix>
@@ -138,9 +135,9 @@ async function save(): Promise<void> {
   }
 }
 
-function selectOutputDir(): void {
-  const path = prompt('请输入导出路径：', settings.outputDir)
-  if (path !== null) settings.outputDir = path
+async function selectOutputDir(): Promise<void> {
+  const result = await (window as any).api.selectDirectory()
+  if (result) settings.outputDir = result
 }
 </script>
 

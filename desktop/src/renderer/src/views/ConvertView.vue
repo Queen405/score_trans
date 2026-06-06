@@ -189,7 +189,7 @@ import {
   TrashOutline,
   HelpCircleOutline,
 } from '@vicons/ionicons5'
-import { NButton, NSelect, NIcon, NCode, NPopconfirm, useMessage } from 'naive-ui'
+import { NButton, NSelect, NIcon, NCode, NPopconfirm, NInputNumber, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const settings = useSettingsStore()

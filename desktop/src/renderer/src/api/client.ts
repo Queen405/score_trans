@@ -63,16 +63,15 @@ export async function fileExists(fileId: string): Promise<boolean> {
   if (!fileId) return false
 
   const url = getFileURL(fileId)
-  const head = await fetch(url, { method: 'HEAD' })
-  if (head.ok) return true
-
-  if (head.status !== 405) return false
-
-  const probe = await fetch(url, {
-    method: 'GET',
-    headers: { Range: 'bytes=0-0' },
-  })
-  return probe.ok
+  try {
+    const probe = await fetch(url, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+    })
+    return probe.ok
+  } catch {
+    return false
+  }
 }
 
 export { getBaseURL as BASE_URL }
