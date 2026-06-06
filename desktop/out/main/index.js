@@ -1,10 +1,10 @@
 "use strict";
 const electron = require("electron");
 const path = require("path");
+const fs = require("fs");
 const child_process = require("child_process");
 const http = require("http");
 const net = require("net");
-const fs = require("fs");
 const is = {
   dev: !electron.app.isPackaged
 };
@@ -259,6 +259,8 @@ let mainWindow = null;
 let backend = null;
 let quitting = false;
 function createWindow(baseURL) {
+  const iconPath = path.join(__dirname, "../../build/icon.ico");
+  const iconPng = path.join(__dirname, "../../build/icon.png");
   mainWindow = new electron.BrowserWindow({
     width: 1200,
     height: 800,
@@ -267,6 +269,7 @@ function createWindow(baseURL) {
     frame: false,
     autoHideMenuBar: true,
     show: false,
+    ...fs.existsSync(iconPath) ? { icon: iconPath } : fs.existsSync(iconPng) ? { icon: iconPng } : {},
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       nodeIntegration: false,

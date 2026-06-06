@@ -6,6 +6,7 @@ from ..utils.articulations import _render_articulation
 from ..utils.helpers import _mark_display
 from ..utils.positioning import _technique_mark, _technique_mark_x, _technique_mark_y, _upper_mark_anchor_y
 from ..utils.text import _esc
+from ..utils.metrics import _token_metrics
 from .beams import _render_beams, _beamable_slashes
 from .spanners import _render_spanners
 from .token import _render_token
@@ -28,7 +29,8 @@ def _render_slot_items(slots: list[tuple[RenderItem, float, float]], y: int) -> 
 def _render_item(item: RenderItem, cx: float, y: int, slot_width: float, *, suppress_duration: bool = False) -> list[str]:
     out = _render_token(item.token, cx, y, generated=item.generated, suppress_duration=suppress_duration)
     if item.dynamic:
-        out.append(f'<text class="dynamic" x="{cx:.1f}" y="{y + 58}" text-anchor="middle">{_esc(item.dynamic)}</text>')
+        bottom = _token_metrics(item.token, y)["bottom"]
+        out.append(f'<text class="dynamic" x="{cx:.1f}" y="{bottom + 30:.1f}" text-anchor="middle">{_esc(item.dynamic)}</text>')
     for index, mark in enumerate(_technique_marks(item)):
         out.append(
             f'<text class="technique-mark" x="{_technique_mark_x(item.token, cx):.1f}" '
@@ -51,7 +53,8 @@ def _render_item(item: RenderItem, cx: float, y: int, slot_width: float, *, supp
             f'text-anchor="middle">{_esc(_mark_display(technical))}</text>'
         )
     if item.lyric:
-        out.append(f'<text class="lyric" x="{cx:.1f}" y="{y + 48}" text-anchor="middle">{_esc(item.lyric)}</text>')
+        bottom = _token_metrics(item.token, y)["bottom"]
+        out.append(f'<text class="lyric" x="{cx:.1f}" y="{bottom + 18:.1f}" text-anchor="middle">{_esc(item.lyric)}</text>')
     return out
 
 

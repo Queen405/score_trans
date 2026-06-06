@@ -4,7 +4,7 @@
       <div :class="['app-shell', prefersDark ? 'theme-dark' : 'theme-light']">
         <div class="titlebar" role="banner">
           <div class="titlebar-left">
-            <span class="app-icon">♪</span>
+            <img class="app-icon-img" src="./assets/icon.png" alt="Score Trans" />
             <span class="app-title">Score Trans</span>
           </div>
           <div class="titlebar-drag" />
@@ -336,17 +336,11 @@ body {
   flex-shrink: 0;
 }
 
-.app-icon {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
+.app-icon-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .app-title {

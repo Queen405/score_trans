@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import { existsSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { BackendProcess } from './backend'
 
@@ -8,6 +9,8 @@ let backend: BackendProcess | null = null
 let quitting = false
 
 function createWindow(baseURL: string): void {
+  const iconPath = join(__dirname, '../../build/icon.ico')
+  const iconPng = join(__dirname, '../../build/icon.png')
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -16,6 +19,7 @@ function createWindow(baseURL: string): void {
     frame: false,
     autoHideMenuBar: true,
     show: false,
+    ...(existsSync(iconPath) ? { icon: iconPath } : existsSync(iconPng) ? { icon: iconPng } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,

@@ -94,11 +94,11 @@ def _render_note_shape(
 ) -> list[str]:
     note_class = "note generated" if generated else "note"
     accidental, body = _split_accidental(note.display)
-    note_x = cx + (4 if accidental else 0)
+    note_x = cx + (2 if accidental else 0)
     dot_x = dot_cx if dot_cx is not None else cx
     out: list[str] = []
     if accidental:
-        out.append(f'<text class="accidental" x="{cx - 5:.1f}" y="{y - 14}" text-anchor="middle">{_esc(accidental)}</text>')
+        out.append(f'<text class="accidental" x="{cx - 12:.1f}" y="{y - 14}" text-anchor="middle">{_esc(accidental)}</text>')
     out.append(f'<text class="{note_class}" x="{note_x:.1f}" y="{y}" text-anchor="middle">{_esc(body)}</text>')
     if not suppress_duration:
         for line in range(min(3, note.slashes)):
@@ -107,12 +107,15 @@ def _render_note_shape(
                 f'<line class="duration-line" x1="{cx - 13:.1f}" y1="{line_y:.1f}" '
                 f'x2="{cx + 13:.1f}" y2="{line_y:.1f}"/>'
             )
+    dot_spacing = 8  # horizontal gap between octave dots
     for dot in range(min(3, note.octave_up)):
         dot_y = _high_octave_dot_y(y, dot, upper_bound)
-        out.append(f'<circle class="octave-dot" cx="{dot_x:.1f}" cy="{dot_y:.1f}" r="3.0"/>')
+        this_dot_x = dot_x + (dot - (note.octave_up - 1) / 2) * dot_spacing
+        out.append(f'<circle class="octave-dot" cx="{this_dot_x:.1f}" cy="{dot_y:.1f}" r="2.2"/>')
     for dot in range(min(3, note.octave_down)):
         dot_y = _low_octave_dot_y(y, dot, lower_bound)
-        out.append(f'<circle class="octave-dot" cx="{dot_x:.1f}" cy="{dot_y:.1f}" r="3.0"/>')
+        this_dot_x = dot_x + (dot - (note.octave_down - 1) / 2) * dot_spacing
+        out.append(f'<circle class="octave-dot" cx="{this_dot_x:.1f}" cy="{dot_y:.1f}" r="2.2"/>')
     if note.dotted:
         out.append(f'<circle class="rhythm-dot" cx="{cx + 20:.1f}" cy="{y - 8}" r="3.0"/>')
     if not suppress_duration:

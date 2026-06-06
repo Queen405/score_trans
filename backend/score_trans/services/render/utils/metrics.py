@@ -11,22 +11,22 @@ OCTAVE_DOT_CLEARANCE = 3  # keep octave dots a few pixels inside their visual ne
 def _note_center_offset(note: NoteShape) -> float:
     """Approximate horizontal center offset of a note head relative to its anchor."""
     accidental, body = _split_accidental(note.display)
-    width = (8 if accidental else 0) + (14 if len(body) == 1 and body in "12" else 8 * max(1, len(body)))
+    width = (12 if accidental else 0) + (14 if len(body) == 1 and body in "12" else 8 * max(1, len(body)))
     return width / 2
 
 
 def _high_octave_dot_y(note_y: int, dot_index: int, upper_bound: float | None) -> float:
-    y = note_y - 26 - dot_index * 9
+    y = note_y - 28
     if upper_bound is not None:
-        y = min(y, upper_bound - OCTAVE_DOT_CLEARANCE - dot_index * 3)
+        y = min(y, upper_bound - OCTAVE_DOT_CLEARANCE)
     return y
 
 
 def _low_octave_dot_y(note_y: int, dot_index: int, lower_bound: float | None = None) -> float:
-    from ..constants import LOW_OCTAVE_DOT_OFFSET, OCTAVE_DOT_GAP
-    y = note_y + LOW_OCTAVE_DOT_OFFSET + dot_index * OCTAVE_DOT_GAP
+    from ..constants import LOW_OCTAVE_DOT_OFFSET
+    y = note_y + max(6, LOW_OCTAVE_DOT_OFFSET - 12)
     if lower_bound is not None:
-        y = max(y, lower_bound + OCTAVE_DOT_CLEARANCE + dot_index * 3)
+        y = max(y, lower_bound + OCTAVE_DOT_CLEARANCE)
     return y
 
 
@@ -59,7 +59,7 @@ def _token_metrics(token: str, y: int) -> dict[str, float]:
 def _note_visual_top(note: NoteShape, y: int) -> float:
     top = float(y - 28)
     if note.octave_up:
-        top = min(top, y - 30 - (note.octave_up - 1) * 9 - 4)
+        top = min(top, y - 34)
     return top
 
 

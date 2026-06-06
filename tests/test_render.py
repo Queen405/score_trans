@@ -598,7 +598,7 @@ def test_low_octave_dot_sits_close_to_notehead() -> None:
     note_y = float(note_line.split('y="')[1].split('"')[0])
     dot_y = float(dot_line.split('cy="')[1].split('"')[0])
 
-    assert 15 <= dot_y - note_y <= 20
+    assert 4 <= dot_y - note_y <= 10
 
 
 def test_extension_line_sits_at_note_height_not_below_note() -> None:
