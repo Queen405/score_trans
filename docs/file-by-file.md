@@ -2,7 +2,7 @@
 
 > 接 [architecture.md](./architecture.md)
 
-## 1. API 层 (`backend/score_trans/api/`)
+## 1. API 层 (`src/score_trans/api/`)
 
 ### `app.py` (~78 行)
 FastAPI 应用工厂。注册 10 个路由模块、CORS 中间件、4 个全局异常处理器。
@@ -35,7 +35,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 2. Exec 层 (`backend/score_trans/exec/`)
+## 2. Exec 层 (`src/score_trans/exec/`)
 
 ### `ai/actions.py` (~88 行)
 | 类 | 方法 |
@@ -97,7 +97,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 3. Services 层 (`backend/score_trans/services/`)
+## 3. Services 层 (`src/score_trans/services/`)
 
 ### OCR 服务 (`services/ocr/`)
 
@@ -133,33 +133,8 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `main.py` | ~203 | 入口函数（render_jianpu_svg / render_score_svg / page 变体） |
-| `render_service.py` | ~49 | 门面，委托给 main 模块的文件输出变体 |
-| `options.py` | ~30 | RenderOptions dataclass |
-| `constants.py` | 9 | 渲染常量（CHORD_GAP / OCTAVE_DOT_GAP 等） |
-| `drawing/measure.py` | ~58 | 单小节 SVG 组装 |
-| `drawing/beat.py` | ~57 | 拍内音符项渲染 |
-| `drawing/token.py` | ~90 | 单 token/和弦渲染 |
-| `drawing/beams.py` | ~39 | 符杠渲染 |
-| `drawing/spanners.py` | ~93 | 延音线/圆滑线弧线渲染 |
-| `drawing/text.py` | ~111 | 文本块渲染（OCR/表情/歌词） |
-| `layout/measure.py` | ~51 | 单小节布局计算 |
-| `layout/rows.py` | ~33 | 行排列 + 拉伸 |
-| `layout/beat.py` | ~31 | 拍内视觉宽度 + 分配 |
-| `items/factory.py` | ~33 | Event → RenderItem 转换 |
-| `items/grouping.py` | ~78 | 小节 events 按拍分组 |
-| `models/layout.py` | ~31 | RenderItem / BeatLayout / MeasureLayout |
-| `models/shapes.py` | 11 | NoteShape dataclass |
-| `parsing/tokens.py` | ~46 | token 字符串解析 |
-| `parsing/events.py` | ~27 | Event → token 序列化 |
-| `svg/header.py` | ~67 | SVG defs + CSS 样式 |
-| `utils/geometry.py` | ~27 | 时值线 y 坐标计算 |
-| `utils/metrics.py` | ~50 | token 视觉边界 |
-| `utils/helpers.py` | ~55 | 辅助函数（bbox/accidental 等） |
-| `utils/bars.py` | ~17 | 小节线渲染 |
-| `utils/positioning.py` | ~52 | 文本/技法标记定位 |
-| `utils/articulations.py` | 18 | 演奏记号 SVG |
-| `utils/text.py` | ~35 | 文本转义/拆分 |
+| `render_service.py` | ~53 | 门面，委托给 rendering 模块 |
+| `rendering.py` | **~1430** | SVG 渲染引擎核心（排版、布局、beam、spanner） |
 
 ### Export 服务 (`services/export/`)
 
@@ -186,7 +161,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 4. Domain 层 (`backend/score_trans/domain/`)
+## 4. Domain 层 (`src/score_trans/domain/`)
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
@@ -202,7 +177,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 5. Models 层 (`backend/score_trans/models/`)
+## 5. Models 层 (`src/score_trans/models/`)
 
 ### 核心领域模型
 - `score.py` (~165 行)：`TextBlock`, `JianpuPitch`, `Event`, `Beat`, `Measure`, `JianpuScore`
@@ -232,7 +207,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 6. DAO 层 (`backend/score_trans/dao/`)
+## 6. DAO 层 (`src/score_trans/dao/`)
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
@@ -241,7 +216,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 
 ---
 
-## 7. Utils 层 (`backend/score_trans/utils/`)
+## 7. Utils 层 (`src/score_trans/utils/`)
 
 | 文件 | 行数 | 职责 |
 |---|---|---|

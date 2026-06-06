@@ -25,7 +25,7 @@
 
 ### 1. AI Provider 相对导入点数错误
 - **位置**: `services/ai/providers/openai_compatible/provider.py`
-- **问题**: `from .....models.common.errors` 使用了 5 个点，从 `services/ai/providers/openai_compatible/` 退回 5 级会到达 `backend/` 而非 `score_trans/`。正确应为 4 个点（`....models`）。
+- **问题**: `from .....models.common.errors` 使用了 5 个点，从 `services/ai/providers/openai_compatible/` 退回 5 级会到达 `src/` 而非 `score_trans/`。正确应为 4 个点（`....models`）。
 - **影响**: 运行时 `ImportError`，AI 转录功能可能不可用。
 - **建议**: 验证实际导入路径，修正点数。
 
@@ -37,7 +37,7 @@
 - **建议**: 重写为 asyncio-native 方案，或改用 `asyncio.Queue` 的线程安全替代品。
 
 ### ~~3. ~~❌ rendering.py beam 位置计算~~（误报）
-- **位置**: `services/render/drawing/beams.py` — `_render_beam_run`
+- **位置**: `services/render/rendering.py` — `_render_beam_run`
 - **原始判断**: beam 的 y 坐标使用 `max(...)` 取所有音符的最大 y 值，应使用 `min(...)`。
 - **验证结果**: **误报**。简谱中 duration line（减时线/beam）画在音符**下方**。SVG 坐标系 y 向下增大，`_duration_line_y` 返回值越大 = 越低。`max(...)` 将所有音符的 beam 对齐到最低那条线，确保 beam 不会穿过任何音符，这是**正确的渲染行为**。
 
@@ -122,7 +122,7 @@
 
 | 文件 | 符号 | 说明 | 验证状态 |
 |---|---|---|---|
-| ~~`jianpu_tokens.py`~~ | ~~`PREFIX_SLASHES`~~ | ~~未被任何代码引用~~ | ❌ **误报**：`parsing/tokens.py` 有引用 |
+| ~~`jianpu_tokens.py`~~ | ~~`PREFIX_SLASHES`~~ | ~~未被任何代码引用~~ | ❌ **误报**：`rendering.py` 有 5 处引用 |
 | `xml_utils.py` | `_read_mxl()` | 已被 `_read_musicxml` 替代 | ✅ 确认 |
 | ~~`xml_utils.py`~~ | ~~`_first_child_name()`~~ | ~~未调用~~ | ❌ **误报**：`parse/musicxml.py` 有 import |
 | ~~`write/jianpu_text.py`~~ | ~~`_duration_suffix()`~~ | ~~旧斜杠写法~~ | ❌ **误报**：`_duration_suffix` 在自身内部递归调用 |
@@ -131,13 +131,13 @@
 | `parse/musicxml.py` | `_extract_part_names()` | 未调用 | ✅ 确认 |
 | ~~`dict_tools.py`~~ | ~~`first_present()`~~ | ~~未调用~~ | ❌ **误报**：`ocr/parser.py` 和 `ai/service.py` 有引用 |
 | `models/common/schemas.py` | `ErrorResponse` | `app.py` 直接构造 dict 而非使用此 schema | ✅ 确认 |
-| ~~`models/tasks/*`~~ | ~~`TaskProgress`, `TaskStatus`, `SSEProgressEvent`~~ | ~~完全未使用（为未来异步任务预留）~~ | ✅ 已修复：后台识别任务流已接入 |
+| `models/tasks/*` | `TaskProgress`, `TaskStatus`, `SSEProgressEvent` | 完全未使用（为未来异步任务预留） | ✅ 确认 |
 | `exec/ai/actions.py` | `AiActions.get_config()` | 未被路由调用 | ✅ 确认 |
 | `exec/settings/actions.py` | `SettingsActions.get_config()` | 未被路由调用 | ✅ 确认 |
 | `external_tools.py` | `find_tool()` | 定义但未调用 | ✅ 确认 |
 | `convert/schemas.py` | `MusicXmlToJianpuResponse.jianpu_file_id` | 始终返回 None | ✅ 确认 |
-| ~~`pipeline/schemas.py`~~ | ~~`PipelineResponse.task_id`~~ | ~~始终返回 None~~ | ✅ 已修复：任务提交改用 `TaskSubmitResponse` |
-| ~~`recognize/schemas.py`~~ | ~~`RecognizeResponse.task_id`~~ | ~~始终返回 None~~ | ✅ 已修复：任务提交改用 `TaskSubmitResponse` |
+| `pipeline/schemas.py` | `PipelineResponse.task_id` | 始终返回 None | ✅ 确认 |
+| `recognize/schemas.py` | `RecognizeResponse.task_id` | 始终返回 None | ✅ 确认 |
 
 ---
 
@@ -146,9 +146,9 @@
 | 位置 A | 位置 B | 重复内容 |
 |---|---|---|
 | `utils/bbox.py:_first_present` | `utils/dict_tools.py:first_present` | 逻辑相同但 `first_present` 已被 `ocr/parser.py` 引用，非死代码 |
-| `svg/header.py:_svg_header` | `svg/header.py:_svg_page_header` | 大段重复 CSS 样式 |
+| `rendering.py:_svg_header` | `rendering.py:_svg_page_header` | 大段重复 CSS 样式 |
 | `ocr/text.py:infer_text_role` | `parse/musicxml.py:_is_dynamic_name` | 力度标记集合不一致 |
-| `domain/constants.py:DYNAMICS` | `utils/helpers.py:_is_dynamic_text` | 力度集合不同（10 项 vs 17 项） |
+| `domain/constants.py:DYNAMICS` | `rendering.py:_is_dynamic_text` | 力度集合不同（10 项 vs 17 项） |
 | `ai/service.py:extract_header/strip_header` | `domain/parse/jianpu_text.py:_read_new_syntax` | 头信息解析逻辑重复 |
 
 ---
@@ -175,7 +175,7 @@
 | DAO 每次操作 open/close SQLite 连接 | `dao/history/history_dao.py`, `dao/settings/settings_dao.py` |
 | 环境变量函数体内每次读取（20+ 处） | 分散在多处 |
 | 正则未预编译 | `ocr/text.py`, `parse/jianpu_text.py` |
-| `render/` 模块化渲染，无缓存 | `services/render/` |
+| `rendering.py` 1430 行单文件，渲染无缓存 | `services/render/rendering.py` |
 | `cleanup_old` 每个过期目录写一次 index.json | `upload_service.py` |
 
 ---
@@ -188,7 +188,7 @@
 | `domain/parse/musicxml.py` | **好** | 缺多声部测试 |
 | `domain/write/` | 中 | 仅通过 roundtrip 间接覆盖 |
 | `exec/` 层 | 中 | `settings`, `files` 的 Actions 未直接测试 |
-| `services/render/` | **好** | beam/tie/slur 细节未覆盖 |
+| `services/render/rendering.py` | **好** | beam/tie/slur 细节未覆盖 |
 | `services/tasks/` | **无** | 完全未测试 |
 | `services/ai/` | 好 | LangChain provider 未集成测试 |
 | `utils/*` | **低** | 无直接单元测试 |
