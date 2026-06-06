@@ -29,17 +29,6 @@ export interface MusicXmlToJianpuResponse {
   jianpu_file_id?: string
 }
 
-export interface JianpuToMusicXmlRequest {
-  jianpu_text?: string
-  jianpu_file_id?: string
-  title?: string
-}
-
-export interface JianpuToMusicXmlResponse {
-  musicxml_text: string
-  musicxml_file_id: string
-}
-
 export interface RenderJianpuSvgRequest {
   musicxml_file_id: string
   page_image_file_id?: string

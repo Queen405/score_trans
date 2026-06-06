@@ -68,7 +68,7 @@ def _render_tie_arc(
     assert start_item is not None and stop_item is not None
     start_metrics = _token_metrics(start_item.token, y)
     stop_metrics = _token_metrics(stop_item.token, y)
-    arc_y = max(start_metrics["bottom"], stop_metrics["bottom"]) + 50
+    arc_y = max(start_metrics["bottom"], stop_metrics["bottom"]) + 13
     if start is None:
         x1 = stop_cx - max(34.0, min(54.0, stop_slot + 12))
         x2 = stop_cx - 8

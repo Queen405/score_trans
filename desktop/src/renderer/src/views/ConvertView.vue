@@ -76,10 +76,6 @@
             <template #icon><n-icon><ArrowForwardOutline /></n-icon></template>
             XML → 简谱
           </n-button>
-          <n-button size="small" @click="jianpuToMusicxml" :loading="store.isBusy" :disabled="!jianpuText" secondary>
-            <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
-            简谱 → XML
-          </n-button>
           <n-button size="small" type="primary" @click="exportScore" :loading="store.isBusy" :disabled="!store.hasMusicxml">
             <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
             导出
@@ -167,7 +163,6 @@ import SvgPreview from '../components/SvgPreview.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { listenHistoryUpdated } from '../utils/historyEvents'
 import { ArrowForwardOutline,
-  ArrowBackOutline,
   ImageOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
@@ -516,24 +511,6 @@ async function musicxmlToJianpu(): Promise<void> {
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
-    log.addError(`转换失败：${msg}`)
-    message.error(msg)
-  } finally {
-    store.setBusy(false)
-  }
-}
-
-async function jianpuToMusicxml(): Promise<void> {
-  store.setBusy(true)
-  try {
-    const result = await convertApi.jianpuToMusicxml({ jianpu_text: jianpuText.value })
-    store.setMusicxml(result.musicxml_file_id, '')
-    store.markJianpuClean()
-    store.clearOriginalFile()
-    log.addLog('已生成 MusicXML')
-    message.success('转换完成')
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
     log.addError(`转换失败：${msg}`)
     message.error(msg)
   } finally {

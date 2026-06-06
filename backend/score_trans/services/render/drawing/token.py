@@ -6,7 +6,7 @@ from ..parsing.tokens import _parse_chord_token, _parse_note
 from ..utils.geometry import _duration_line_y
 from ..utils.helpers import _split_accidental
 from ..utils.text import _esc
-from ..utils.metrics import _high_octave_dot_y, _low_octave_dot_y, _note_center_offset, _note_duration_line_y, _note_visual_bottom, _note_visual_top
+from ..utils.metrics import _high_octave_dot_y, _low_octave_dot_y, _note_center_offset, _note_duration_line_y
 
 
 def _render_token(
@@ -46,26 +46,28 @@ def _render_chord(
     top_y = y - (len(notes) - 1) * gap / 2
     note_positions = [(note, int(top_y + index * gap)) for index, note in enumerate(notes)]
     out: list[str] = []
+    rendered_dot_ys: list[float] = []
+    DOT_CLEARANCE = 5  # minimum gap between any two octave dots
     for note, note_y in note_positions:
         dot_cx = cx + _note_center_offset(note) - 4
-        upper_bound = None
+        # Find the lowest existing dot above this note's natural dot area
+        natural_low_y = _low_octave_dot_y(note_y, 0)
         lower_bound = None
-        for neighbor, neighbor_y in note_positions:
-            if neighbor is note:
-                continue
-            if neighbor.rank > note.rank:
-                upper_bound = (
-                    _note_visual_bottom(neighbor, neighbor_y, include_duration=False)
-                    if upper_bound is None
-                    else max(upper_bound, _note_visual_bottom(neighbor, neighbor_y, include_duration=False))
-                )
-            elif neighbor.rank < note.rank:
-                lower_bound = (
-                    _note_visual_top(neighbor, neighbor_y)
-                    if lower_bound is None
-                    else min(lower_bound, _note_visual_top(neighbor, neighbor_y))
-                )
+        for existing_y in rendered_dot_ys:
+            if existing_y >= natural_low_y and existing_y - natural_low_y < DOT_CLEARANCE:
+                lower_bound = max(lower_bound or 0, existing_y)
+        # Find the highest existing dot below this note's natural high dot area
+        natural_high_y = _high_octave_dot_y(note_y, 0, None)
+        upper_bound = None
+        for existing_y in rendered_dot_ys:
+            if existing_y <= natural_high_y and natural_high_y - existing_y < DOT_CLEARANCE:
+                upper_bound = min(upper_bound or float("inf"), existing_y)
         out.extend(_render_note_shape(note, cx, note_y, generated=generated, suppress_duration=True, dot_cx=dot_cx, upper_bound=upper_bound, lower_bound=lower_bound))
+        # Track rendered dot positions
+        for dot in range(min(3, note.octave_up)):
+            rendered_dot_ys.append(_high_octave_dot_y(note_y, dot, upper_bound))
+        for dot in range(min(3, note.octave_down)):
+            rendered_dot_ys.append(_low_octave_dot_y(note_y, dot, lower_bound))
     underline_y = _duration_line_y(token, y, 1)
     if not suppress_duration:
         for line in range(min(3, slashes)):
