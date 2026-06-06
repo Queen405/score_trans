@@ -31,19 +31,51 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const gutterRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
+/** 当前光标前的 | 是否是独立小节线（非 ||、|:、:| 的一部分） */
+function isStandaloneBarline(value: string, cursor: number): boolean {
+  if (cursor > 0 && value[cursor - 1] === '|') {
+    const before = cursor >= 2 ? value[cursor - 2] : ''
+    const after = cursor < value.length ? value[cursor] : ''
+    if (before === ':' || before === '|') return false
+    if (after === '|' || after === ':') return false
+    return true
+  }
+  return false
+}
+
 function onInput(e: Event): void {
   const target = e.target as HTMLTextAreaElement
   const value = target.value
   const cursor = target.selectionStart
 
-  // 刚输入了 | 且后面不是换行符，自动换行
-  if (cursor > 0 && value[cursor - 1] === '|' && (cursor >= value.length || value[cursor] !== '\n')) {
+  // 输入了 |：检查是否是独立小节线，自动换行
+  if (isStandaloneBarline(value, cursor) && (cursor >= value.length || value[cursor] !== '\n')) {
     const newValue = value.slice(0, cursor) + '\n' + value.slice(cursor)
     emit('update:modelValue', newValue)
     nextTick(() => {
       const el = textareaRef.value
       if (el) {
         el.selectionStart = el.selectionEnd = cursor + 1
+      }
+    })
+    return
+  }
+
+  // 输入了 |: 中的 :——撤回之前 | 的自动换行
+  if (
+    cursor > 0 &&
+    value[cursor - 1] === ':' &&
+    cursor >= 2 &&
+    value[cursor - 2] === '|' &&
+    cursor < value.length &&
+    value[cursor] === '\n'
+  ) {
+    const newValue = value.slice(0, cursor) + value.slice(cursor + 1)
+    emit('update:modelValue', newValue)
+    nextTick(() => {
+      const el = textareaRef.value
+      if (el) {
+        el.selectionStart = el.selectionEnd = cursor
       }
     })
     return
@@ -65,7 +97,8 @@ function needsFormat(text: string): boolean {
     if (!trimmed) continue
     // 包含 | 的就是小节（即使以 \ 开头），只检查是否需要按 | 分割
     if (trimmed.includes('|')) {
-      if (/\|\S/.test(line)) return true
+      // 检测独立 | 后紧跟非空格（如 3|4），但排除 ||、|:、:|
+      if (/(?<![:\s|])\|(?![\s|:])/.test(line)) return true
       continue
     }
     if (
@@ -91,11 +124,15 @@ function formatMeasures(text: string): string {
       result.push(line)
       continue
     }
-    // 包含 | 的就是小节行，需要按 | 分割
+    // 包含 | 的就是小节行，需要按 | 分割（仅在独立小节线处拆分，保留 ||、|:、:|）
     if (trimmed.includes('|')) {
-      const formatted = trimmed.replace(/\|/g, '|\n')
-      const parts = formatted.split('\n').map((l) => l.trim()).filter((l) => l !== '')
-      result.push(...parts)
+      const parts = trimmed.split(/(?<![:|])\|(?![|:])/)
+      for (let i = 0; i < parts.length; i++) {
+        const seg = parts[i].trim()
+        if (!seg) continue
+        // 独立 | 在 split 中被消费，非末尾段需补回
+        result.push(i < parts.length - 1 ? seg + '|' : seg)
+      }
       continue
     }
     if (

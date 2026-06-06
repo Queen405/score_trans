@@ -60,6 +60,7 @@ def _svg_page_header(options: RenderOptions, width: int, height: int) -> list[st
         ".slur { fill: none; stroke: #171717; stroke-width: 1.3; stroke-linecap: round; }",
         ".octave-dot, .rhythm-dot { fill: #171717; }",
         ".generated { fill: #818181; }",
+        ".error { fill: #b3261e; }",
         ".lyric { font-size: 18px; fill: #5f5a52; }",
         ".dynamic { font-size: 22px; font-style: italic; font-weight: 650; }",
         ".ornament { font-size: 15px; fill: #171717; }",
