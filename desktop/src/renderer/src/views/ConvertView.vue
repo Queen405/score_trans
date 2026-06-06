@@ -139,6 +139,10 @@
           </div>
         </div>
       </div>
+      <jianpu-player
+        :musicxml-file-id="store.musicxmlFileId"
+        :jianpu-text="jianpuText"
+      />
     </div>
     <jianpu-syntax-guide v-model:show="syntaxGuideOpen" />
   </div>
@@ -157,6 +161,7 @@ import { ApiError, fileExists } from '../api/client'
 import type { HistoryBatchListItem, HistoryBatch, HistoryPage } from '../models/types'
 import type { TaskPage } from '../stores/task'
 import JianpuEditor from '../components/JianpuEditor.vue'
+import JianpuPlayer from '../components/JianpuPlayer.vue'
 import JianpuSyntaxGuide from '../components/JianpuSyntaxGuide.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'

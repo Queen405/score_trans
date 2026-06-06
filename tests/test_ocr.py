@@ -58,14 +58,18 @@ def test_ocr_provider_invokes_langchain_with_correct_params(tmp_path, monkeypatc
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
 
-    mock_chat = MagicMock()
-    mock_chat.invoke.return_value = MagicMock(content='{"text_blocks":[{"text":"A","role":"other"}]}')
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {
+        "choices": [{"message": {"content": '{"text_blocks":[{"text":"A","role":"other"}]}'}}]
+    }
 
-    with patch("langchain_openai.ChatOpenAI", return_value=mock_chat):
+    with patch("httpx.post", return_value=mock_resp) as mock_post:
         provider = OpenAICompatibleOCRProvider(base_url="https://example.test/v1", model="Qwen/Qwen3-VL-8B-Instruct")
         blocks = provider.recognize(image)
 
-    mock_chat.invoke.assert_called_once()
+    mock_post.assert_called_once()
     assert blocks[0].text == "A"
 
 
@@ -77,15 +81,20 @@ def test_ocr_provider_json_object_for_non_deepseek(tmp_path, monkeypatch) -> Non
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
 
-    mock_chat = MagicMock()
-    mock_chat.invoke.return_value = MagicMock(content='{"text_blocks":[]}')
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {
+        "choices": [{"message": {"content": '{"text_blocks":[]}'}}]
+    }
 
-    with patch("langchain_openai.ChatOpenAI", return_value=mock_chat) as mock_cls:
+    with patch("httpx.post", return_value=mock_resp) as mock_post:
         provider = OpenAICompatibleOCRProvider(model="Qwen/Qwen3-VL-8B-Instruct")
         provider.recognize(image)
 
-    _, kwargs = mock_cls.call_args
-    assert kwargs["model_kwargs"] == {"response_format": {"type": "json_object"}}
+    _, kwargs = mock_post.call_args
+    body = kwargs["json"]
+    assert body["response_format"] == {"type": "json_object"}
 
 
 def test_ocr_provider_fallback_on_useless_blocks(tmp_path, monkeypatch) -> None:
@@ -100,16 +109,25 @@ def test_ocr_provider_fallback_on_useless_blocks(tmp_path, monkeypatch) -> None:
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
 
-    def make_mock_chat(**kwargs) -> MagicMock:
-        mock = MagicMock()
-        model = kwargs.get("model", "")
-        if "deepseek" in model:
-            mock.invoke.return_value = MagicMock(content='{"text_blocks":[]}')
-        else:
-            mock.invoke.return_value = MagicMock(content='{"text_blocks":[{"text":"A","role":"other"}]}')
-        return mock
+    call_count = 0
 
-    with patch("langchain_openai.ChatOpenAI", side_effect=make_mock_chat):
+    def fake_post(url, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = MagicMock()
+        if call_count == 1:
+            mock_resp.json.return_value = {
+                "choices": [{"message": {"content": '{"text_blocks":[]}'}}]
+            }
+        else:
+            mock_resp.json.return_value = {
+                "choices": [{"message": {"content": '{"text_blocks":[{"text":"A","role":"other"}]}'}}]
+            }
+        return mock_resp
+
+    with patch("httpx.post", side_effect=fake_post):
         provider = OpenAICompatibleOCRProvider()
         blocks = provider.recognize(image)
 

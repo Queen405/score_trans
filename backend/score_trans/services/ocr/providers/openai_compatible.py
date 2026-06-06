@@ -20,13 +20,14 @@ from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
 from score_trans.utils.json_parsing import content_to_text
 from score_trans.utils.media import image_to_data_url
-from ..client import ocr_prompt_for_model
+from ..client.client import ocr_prompt_for_model
 from ..core.utils import (
     _ocr_blocks_are_useful,
     is_deepseek_ocr_model,
 )
 from ..parsing import parse_openai_compatible_response
 from ..parsing.parser import plain_text_to_blocks
+from ._http import chat_completions
 
 
 class OpenAICompatibleOCRProvider:
@@ -51,37 +52,14 @@ class OpenAICompatibleOCRProvider:
         self.api_key = persisted.get("ocr_api_key") or ""
         self.timeout = timeout
         self.dry_run = dry_run
-        self._chat: Any = None
-
-    def _get_chat(self, model: str | None = None) -> Any:
-        """延迟初始化并复用 ChatOpenAI 实例。"""
-        if self._chat is None:
-            from langchain_openai import ChatOpenAI
-            resolved = model or self.model
-            kwargs: dict[str, Any] = {}
-            if not is_deepseek_ocr_model(resolved):
-                kwargs["model_kwargs"] = {"response_format": {"type": "json_object"}}
-            self._chat = ChatOpenAI(
-                model=resolved,
-                base_url=self.base_url,
-                api_key=self.api_key,
-                temperature=OCR_TEMPERATURE,
-                timeout=self.timeout,
-                max_tokens=OCR_MAX_TOKENS,
-                **kwargs,
-            )
-        return self._chat
 
     def recognize(self, image_path: str | Path) -> list[OCRTextBlock]:
         blocks = self._recognize_with_model(image_path, self.model)
         if _ocr_blocks_are_useful(blocks) or not is_deepseek_ocr_model(self.model):
             return blocks
-        self._chat = None
         return self._recognize_with_model(image_path, self.fallback_model)
 
     def _recognize_with_model(self, image_path: str | Path, model: str) -> list[OCRTextBlock]:
-        from langchain_core.messages import HumanMessage
-
         path = Path(image_path)
         if not path.is_file():
             raise FileNotFoundError(path)
@@ -92,22 +70,34 @@ class OpenAICompatibleOCRProvider:
         if self.dry_run:
             return []
 
-        chat = self._get_chat(model)
         prompt = ocr_prompt_for_model(model)
+        messages: list[dict[str, Any]] = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": image_to_data_url(path)}},
+                ],
+            }
+        ]
 
-        message = HumanMessage(
-            content=[
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": image_to_data_url(path)}},
-            ]
-        )
+        extra: dict[str, Any] = {}
+        if not is_deepseek_ocr_model(model):
+            extra["response_format"] = {"type": "json_object"}
 
         try:
-            response = chat.invoke([message])
+            content = chat_completions(
+                base_url=self.base_url,
+                api_key=self.api_key,
+                model=model,
+                messages=messages,
+                temperature=OCR_TEMPERATURE,
+                max_tokens=OCR_MAX_TOKENS,
+                timeout=self.timeout,
+                **extra,
+            )
         except Exception as exc:
             raise OCRError(f"OCR request failed: {exc}") from exc
-
-        content = getattr(response, "content", str(response))
 
         try:
             return parse_openai_compatible_response(

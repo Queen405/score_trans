@@ -18,11 +18,12 @@ from ..core.prompts import (
 )
 from ..core.registry import register_provider
 from ..core.schemas import VisionPageResult
+from ._http import chat_completions
 from ....utils.media import image_to_data_url
 from ....models.common.errors import AITranscriptionError
 
 
-class LangChainVisionJianpuProvider:
+class OpenAICompatibleVisionProvider:
     def __init__(
         self,
         *,
@@ -78,48 +79,40 @@ class LangChainVisionJianpuProvider:
                 key=target_key,
                 meter="4/4",
                 jianpu_text=f"title={title or 'AI 简谱'}\n1={target_key}\n4/4\n1 2 3 4 |",
-                warnings=["dry_run: LangChain request was not sent"],
+                warnings=["dry_run: request was not sent"],
                 confidence=1.0,
             )
 
-        try:
-            from langchain_core.messages import HumanMessage, SystemMessage
-            from langchain_openai import ChatOpenAI
-        except ImportError as exc:
-            raise AITranscriptionError(
-                "LangChain vision dependencies are not installed. "
-                "Install langchain and langchain-openai."
-            ) from exc
-
-        llm = ChatOpenAI(
-            model=self.model,
-            base_url=self.base_url,
-            api_key=self.api_key,
-            temperature=AI_TEMPERATURE,
-            timeout=self.timeout,
-            model_kwargs={"response_format": {"type": "json_object"}},
-        )
         system_message = (
             _load_prompt_config().get("system_message")
             or AI_SYSTEM_MSG
             or "You are a careful sheet-music to numbered-notation transcription agent."
         )
         messages = [
-            SystemMessage(content=system_message),
-            HumanMessage(
-                content=[
+            {"role": "system", "content": system_message},
+            {
+                "role": "user",
+                "content": [
                     {"type": "text", "text": prompt},
                     {"type": "image_url", "image_url": {"url": image_to_data_url(path)}},
-                ]
-            ),
+                ],
+            },
         ]
         try:
-            response = llm.invoke(messages)
+            content = chat_completions(
+                base_url=self.base_url,
+                api_key=self.api_key,
+                model=self.model,
+                messages=messages,
+                temperature=AI_TEMPERATURE,
+                timeout=self.timeout,
+                response_format={"type": "json_object"},
+            )
         except Exception as exc:
             raise AITranscriptionError(f"AI transcription request failed: {exc}") from exc
 
-        return parse_vision_page_result(getattr(response, "content", response))
+        return parse_vision_page_result(content)
 
 
-register_provider("openai_compatible", LangChainVisionJianpuProvider)
-register_provider("siliconflow", LangChainVisionJianpuProvider)
+register_provider("openai_compatible", OpenAICompatibleVisionProvider)
+register_provider("siliconflow", OpenAICompatibleVisionProvider)

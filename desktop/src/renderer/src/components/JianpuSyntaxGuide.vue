@@ -356,6 +356,20 @@ td:first-child code {
   font-weight: 500;
 }
 
+.quick-ref td:nth-child(1) code,
+.quick-ref td:nth-child(3) code {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #e2e8f0;
+}
+
+.dark .quick-ref td:nth-child(1) code,
+.dark .quick-ref td:nth-child(3) code {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
 .quick-ref td:nth-child(2),
 .quick-ref td:nth-child(4) {
   width: 32%;
