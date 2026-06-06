@@ -63,6 +63,11 @@ function needsFormat(text: string): boolean {
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
+    // 包含 | 的就是小节（即使以 \ 开头），只检查是否需要按 | 分割
+    if (trimmed.includes('|')) {
+      if (/\|\S/.test(line)) return true
+      continue
+    }
     if (
       /^key\s*=/i.test(trimmed) ||
       /^time\s*=/i.test(trimmed) ||
@@ -73,8 +78,6 @@ function needsFormat(text: string): boolean {
     ) {
       continue
     }
-    // | 后面紧跟非空白字符，说明同一行还有别的小节
-    if (/\|\S/.test(line)) return true
   }
   return false
 }
@@ -88,6 +91,13 @@ function formatMeasures(text: string): string {
       result.push(line)
       continue
     }
+    // 包含 | 的就是小节行，需要按 | 分割
+    if (trimmed.includes('|')) {
+      const formatted = trimmed.replace(/\|/g, '|\n')
+      const parts = formatted.split('\n').map((l) => l.trim()).filter((l) => l !== '')
+      result.push(...parts)
+      continue
+    }
     if (
       /^key\s*=/i.test(trimmed) ||
       /^time\s*=/i.test(trimmed) ||
@@ -99,9 +109,7 @@ function formatMeasures(text: string): string {
       result.push(line)
       continue
     }
-    const formatted = trimmed.replace(/\|(?!\n)/g, '|\n')
-    const parts = formatted.split('\n').map((l) => l.trim()).filter((l) => l !== '')
-    result.push(...parts)
+    result.push(line)
   }
   return result.join('\n')
 }
