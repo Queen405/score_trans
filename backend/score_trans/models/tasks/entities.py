@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+ProgressCallback = Callable[[str, int, str], None]
 
 
 class TaskStatus(str, Enum):
@@ -21,4 +25,11 @@ class TaskProgress:
     message: str = ""
     result: dict[str, Any] | None = None
     error: str | None = None
+    created_at: float = field(default_factory=time.monotonic)
+    updated_at: float = field(default_factory=time.monotonic)
+    expires_at: float | None = None
 
+
+def report_progress(progress_callback: ProgressCallback | None, stage: str, percent: int, message: str) -> None:
+    if progress_callback is not None:
+        progress_callback(stage, percent, message)

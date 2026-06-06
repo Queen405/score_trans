@@ -115,6 +115,16 @@ export const useTaskStore = defineStore('task', () => {
     pages.value[idx] = { ...pages.value[idx], ...patch }
   }
 
+  function patchPageById(pageId: string, patch: Partial<TaskPage>): boolean {
+    const idx = pages.value.findIndex((page) => page.id === pageId)
+    if (idx < 0) return false
+    pages.value[idx] = { ...pages.value[idx], ...patch }
+    if (idx === currentPageIndex.value) {
+      syncCurrentFromPage()
+    }
+    return true
+  }
+
   function addInputPage(name: string, fileId: string): number {
     const page = createPage({
       inputFileName: name,
@@ -132,6 +142,13 @@ export const useTaskStore = defineStore('task', () => {
     if (index < 0 || index >= pages.value.length) return
     currentPageIndex.value = index
     syncCurrentFromPage()
+  }
+
+  function selectPageById(pageId: string): number {
+    const idx = pages.value.findIndex((page) => page.id === pageId)
+    if (idx < 0) return -1
+    selectPage(idx)
+    return idx
   }
 
   function nextPage(): void {
@@ -299,6 +316,13 @@ export const useTaskStore = defineStore('task', () => {
     syncCurrentFromPage()
   }
 
+  function replacePageById(pageId: string, replacementPages: TaskPageInput[], selectOffset = 0): boolean {
+    const index = pages.value.findIndex((page) => page.id === pageId)
+    if (index < 0) return false
+    replacePage(index, replacementPages, selectOffset)
+    return true
+  }
+
   function setCurrentPageStatus(status: TaskPageStatus, errorMessage = '') {
     patchCurrentPage({ status, errorMessage })
   }
@@ -383,8 +407,10 @@ export const useTaskStore = defineStore('task', () => {
     canNextPage,
     addInputPage,
     selectPage,
+    selectPageById,
     nextPage,
     prevPage,
+    patchPageById,
     setInputFile,
     setOriginalFile,
     clearOriginalFile,
@@ -399,6 +425,7 @@ export const useTaskStore = defineStore('task', () => {
     setPageHistoryPageId,
     removePage,
     replacePage,
+    replacePageById,
     setCurrentPageStatus,
     setBusy,
     setCurrentTask,

@@ -124,6 +124,11 @@ async function handleDeleteAll(): Promise<void> {
 }
 
 async function handleRestore(entry: HistoryEntry): Promise<void> {
+  if (store.isBusy) {
+    message.warning('识别任务进行中，完成后再恢复历史记录。')
+    return
+  }
+
   const warnings: string[] = []
 
   if (entry.input_file_id) {

@@ -290,6 +290,11 @@ async function toggleBatchExpand(batchId: number): Promise<void> {
 }
 
 async function handleRestorePage(page: HistoryPage): Promise<void> {
+  if (store.isBusy) {
+    message.warning('识别任务进行中，完成后再恢复历史记录。')
+    return
+  }
+
   const batchId = expandedBatchId.value
   if (!batchId) return
 

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import UploadFile
 
 from ...models.recognize.schemas import RecognizeResponse
 from ...models.settings.config import ToolConfig
+from ...models.tasks.entities import ProgressCallback, report_progress
 from ...services.files.upload_service import UploadService
 from ...services.recognize.audiveris_service import AudiverisService
 from ...services.settings.settings_service import SettingsService
-
-ProgressCallback = Callable[[str, int, str], None]
 
 
 class RecognizeScoreAction:
@@ -26,9 +24,9 @@ class RecognizeScoreAction:
         *,
         progress_callback: ProgressCallback | None = None,
     ) -> Path:
-        _report(progress_callback, "omr", 15, "启动 Audiveris")
+        report_progress(progress_callback, "omr", 15, "启动 Audiveris")
         result = self.audiveris_service.recognize(input_file, output_dir, config)
-        _report(progress_callback, "omr", 85, "Audiveris 输出 MusicXML")
+        report_progress(progress_callback, "omr", 85, "Audiveris 输出 MusicXML")
         return result
 
 
@@ -47,15 +45,11 @@ class RecognizeActions:
         self,
         file: UploadFile,
         *,
-        target_key: str = "C",
-        start_measure_number: int | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> RecognizeResponse:
         input_path = self.save_upload(file)
         return self.recognize_from_path(
             input_path,
-            target_key=target_key,
-            start_measure_number=start_measure_number,
             progress_callback=progress_callback,
         )
 
@@ -70,28 +64,20 @@ class RecognizeActions:
         self,
         input_path: str | Path,
         *,
-        target_key: str = "C",
-        start_measure_number: int | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> RecognizeResponse:
-        _ = (target_key, start_measure_number)
         config = self.settings.load()
 
-        _report(progress_callback, "recognize", 5, "准备 OMR 识别")
+        report_progress(progress_callback, "recognize", 5, "准备 OMR 识别")
         musicxml_path = self.recognizer.execute(
             input_path,
             config.work_dir / "audiveris",
             config,
             progress_callback=progress_callback,
         )
-        _report(progress_callback, "recognize", 92, "注册 MusicXML 文件")
+        report_progress(progress_callback, "recognize", 92, "注册 MusicXML 文件")
         musicxml_id = self.uploads.register(musicxml_path)
         return RecognizeResponse(
             musicxml_file_id=musicxml_id,
             musicxml_filename=musicxml_path.name,
         )
-
-
-def _report(progress_callback: ProgressCallback | None, stage: str, percent: int, message: str) -> None:
-    if progress_callback is not None:
-        progress_callback(stage, percent, message)

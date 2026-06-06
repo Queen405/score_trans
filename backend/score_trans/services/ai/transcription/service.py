@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 
 from ....models.common.errors import AITranscriptionError
+from ....models.tasks.entities import ProgressCallback, report_progress
 from ..core.protocols import VisionJianpuProvider
 from ..core.registry import create_provider
 from ..core.schemas import AiTranscriptionResult, TranscribedScorePage
@@ -11,8 +11,6 @@ from .merging import first_present, merge_page_jianpu_texts
 from .normalization import clean_jianpu_text, ensure_jianpu_header
 from .preparation import prepare_score_pages
 from .validation import validate_jianpu_text
-
-ProgressCallback = Callable[[str, int, str], None]
 
 
 class AiTranscriptionService:
@@ -42,7 +40,7 @@ class AiTranscriptionService:
         out_dir = Path(output_dir).resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        _report(progress_callback, "ai_prepare", 10, "准备乐谱页面")
+        report_progress(progress_callback, "ai_prepare", 10, "准备乐谱页面")
         prepared_pages = prepare_score_pages(
             source,
             out_dir / "pages",
@@ -52,13 +50,13 @@ class AiTranscriptionService:
         if not prepared_pages:
             raise AITranscriptionError(f"No transcribable score pages found in {source}")
 
-        _report(progress_callback, "ai_prepare", 20, f"已准备 {len(prepared_pages)} 页")
+        report_progress(progress_callback, "ai_prepare", 20, f"已准备 {len(prepared_pages)} 页")
         pages: list[TranscribedScorePage] = []
         warnings: list[str] = []
         total_pages = len(prepared_pages)
         for index, prepared in enumerate(prepared_pages):
             start_percent = 20 + int(index / total_pages * 60)
-            _report(
+            report_progress(
                 progress_callback,
                 "ai_transcribe",
                 start_percent,
@@ -97,14 +95,14 @@ class AiTranscriptionService:
                 )
             )
             end_percent = 20 + int((index + 1) / total_pages * 60)
-            _report(
+            report_progress(
                 progress_callback,
                 "ai_transcribe",
                 end_percent,
                 f"第 {prepared.page_index + 1} 页转写完成",
             )
 
-        _report(progress_callback, "ai_merge", 84, "合并 AI 转写结果")
+        report_progress(progress_callback, "ai_merge", 84, "合并 AI 转写结果")
         merged = merge_page_jianpu_texts(
             [page.jianpu_text for page in pages],
             target_key=target_key,
@@ -116,8 +114,3 @@ class AiTranscriptionService:
             merged_jianpu_text=merged,
             warnings=warnings,
         )
-
-
-def _report(progress_callback: ProgressCallback | None, stage: str, percent: int, message: str) -> None:
-    if progress_callback is not None:
-        progress_callback(stage, percent, message)

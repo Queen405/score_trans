@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -10,12 +14,22 @@ from ..exec.tasks.actions import TaskActions
 from ..models.common.errors import AITranscriptionError, ExternalToolError, OCRError
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    _init_task_state(app)
+    try:
+        yield
+    finally:
+        await _wait_for_background_tasks(app)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title=API_TITLE,
         version=API_VERSION,
+        lifespan=lifespan,
     )
-    app.state.task_actions = TaskActions()
+    _init_task_state(app)
 
     # CORS — development only. Production Electron uses file:// or custom scheme.
     _raw_origins = CORS_ORIGINS
@@ -89,3 +103,16 @@ def create_app() -> FastAPI:
         )
 
     return app
+
+
+def _init_task_state(app: FastAPI) -> None:
+    if getattr(app.state, "task_actions", None) is None:
+        app.state.task_actions = TaskActions()
+    if getattr(app.state, "background_tasks", None) is None:
+        app.state.background_tasks = set()
+
+
+async def _wait_for_background_tasks(app: FastAPI) -> None:
+    background_tasks = getattr(app.state, "background_tasks", set())
+    while background_tasks:
+        await asyncio.gather(*list(background_tasks), return_exceptions=True)

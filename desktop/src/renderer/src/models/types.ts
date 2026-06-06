@@ -92,7 +92,6 @@ export interface FinalOutputResponse {
 }
 
 export interface RecognizeResponse {
-  task_id?: string
   musicxml_file_id: string
   musicxml_filename: string
 }
@@ -103,7 +102,6 @@ export interface TaskSubmitResponse {
 }
 
 export interface PipelineResponse {
-  task_id?: string
   musicxml_file_id: string
   jianpu_text: string
   jianpu_file_id: string

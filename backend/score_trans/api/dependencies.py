@@ -53,6 +53,5 @@ def get_settings_actions() -> SettingsActions:
 def get_task_actions(request: Request) -> TaskActions:
     actions = getattr(request.app.state, "task_actions", None)
     if actions is None:
-        actions = TaskActions()
-        request.app.state.task_actions = actions
+        raise RuntimeError("TaskActions is not initialized")
     return actions

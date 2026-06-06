@@ -48,8 +48,6 @@ class UploadService:
         with self._lock:
             self._files = restored
 
-        self._persist_index()
-
     def _persist_index(self) -> None:
         with self._lock:
             serializable = {
@@ -60,10 +58,12 @@ class UploadService:
             self._files = {file_id: Path(path) for file_id, path in serializable.items()}
 
         try:
-            self._index_path.write_text(
+            tmp_path = self._index_path.with_suffix(".tmp")
+            tmp_path.write_text(
                 json.dumps(serializable, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+            tmp_path.replace(self._index_path)
         except OSError:
             # Persistence is best-effort; runtime behavior still relies on memory and fallback scan.
             return

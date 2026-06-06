@@ -5,7 +5,8 @@ import json
 
 from pydantic import BaseModel
 
-from score_trans.api.tasks.background import run_sync_task
+from score_trans.api.app import create_app
+from score_trans.api.tasks.background import run_sync_task, schedule_background_task
 from score_trans.exec.tasks.actions import TaskActions
 from score_trans.models.tasks.entities import TaskStatus
 from score_trans.services.tasks.task_service import TaskManager
@@ -72,3 +73,37 @@ def test_run_sync_task_updates_task_to_completed() -> None:
     assert event["status"] == "completed"
     assert event["percent"] == 100
     assert event["result"] == {"value": "done"}
+
+
+def test_task_manager_cleans_expired_terminal_tasks() -> None:
+    clock = {"now": 100.0}
+    manager = TaskManager(terminal_ttl_seconds=10, time_func=lambda: clock["now"])
+    task_id = manager.create_task()
+
+    asyncio.run(manager.complete(task_id, {"ok": True}))
+    assert manager.get_progress(task_id) is not None
+
+    clock["now"] = 111.0
+
+    assert manager.cleanup_expired() == 1
+    assert manager.get_progress(task_id) is None
+
+
+def test_schedule_background_task_tracks_until_done() -> None:
+    async def scenario() -> tuple[int, int]:
+        app = create_app()
+
+        async def work() -> None:
+            await asyncio.sleep(0)
+
+        task = schedule_background_task(app, "abc123", work())
+        before = len(app.state.background_tasks)
+        await task
+        await asyncio.sleep(0)
+        after = len(app.state.background_tasks)
+        return before, after
+
+    before, after = asyncio.run(scenario())
+
+    assert before == 1
+    assert after == 0

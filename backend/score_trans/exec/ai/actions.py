@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
 from pathlib import Path
 
 from ...models.ai.schemas import AiTranscribeRequest, AiTranscribeResponse, AiTranscribedPage
 from ...models.settings.config import ToolConfig
+from ...models.tasks.entities import ProgressCallback, report_progress
 from ...services.ai.service import AiTranscriptionService
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.settings.settings_service import SettingsService
-
-ProgressCallback = Callable[[str, int, str], None]
 
 
 class AiActions:
@@ -39,7 +37,7 @@ class AiActions:
 
         config = self.settings.load()
         output_dir = config.work_dir / "ai_transcribe" / uuid.uuid4().hex[:12]
-        _report(progress_callback, "ai", 5, "准备 AI 转写")
+        report_progress(progress_callback, "ai", 5, "准备 AI 转写")
         result = self.transcriber.transcribe(
             source,
             output_dir,
@@ -52,12 +50,12 @@ class AiActions:
             progress_callback=progress_callback,
         )
 
-        _report(progress_callback, "ai", 88, "写入 AI 草稿")
+        report_progress(progress_callback, "ai", 88, "写入 AI 草稿")
         jianpu_path = output_dir / f"{source.stem}_ai_jianpu.txt"
         self.file_service.write_text(jianpu_path, result.merged_jianpu_text)
         jianpu_file_id = self.uploads.register(jianpu_path)
 
-        _report(progress_callback, "ai", 94, "注册 AI 页面")
+        report_progress(progress_callback, "ai", 94, "注册 AI 页面")
         pages: list[AiTranscribedPage] = []
         for page in result.pages:
             image_file_id = self._register_page_image(
@@ -113,8 +111,3 @@ def _first_page_title(pages: list[AiTranscribedPage]) -> str | None:
         if page.title:
             return page.title
     return None
-
-
-def _report(progress_callback: ProgressCallback | None, stage: str, percent: int, message: str) -> None:
-    if progress_callback is not None:
-        progress_callback(stage, percent, message)

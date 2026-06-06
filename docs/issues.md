@@ -131,13 +131,13 @@
 | `parse/musicxml.py` | `_extract_part_names()` | 未调用 | ✅ 确认 |
 | ~~`dict_tools.py`~~ | ~~`first_present()`~~ | ~~未调用~~ | ❌ **误报**：`ocr/parser.py` 和 `ai/service.py` 有引用 |
 | `models/common/schemas.py` | `ErrorResponse` | `app.py` 直接构造 dict 而非使用此 schema | ✅ 确认 |
-| `models/tasks/*` | `TaskProgress`, `TaskStatus`, `SSEProgressEvent` | 完全未使用（为未来异步任务预留） | ✅ 确认 |
+| ~~`models/tasks/*`~~ | ~~`TaskProgress`, `TaskStatus`, `SSEProgressEvent`~~ | ~~完全未使用（为未来异步任务预留）~~ | ✅ 已修复：后台识别任务流已接入 |
 | `exec/ai/actions.py` | `AiActions.get_config()` | 未被路由调用 | ✅ 确认 |
 | `exec/settings/actions.py` | `SettingsActions.get_config()` | 未被路由调用 | ✅ 确认 |
 | `external_tools.py` | `find_tool()` | 定义但未调用 | ✅ 确认 |
 | `convert/schemas.py` | `MusicXmlToJianpuResponse.jianpu_file_id` | 始终返回 None | ✅ 确认 |
-| `pipeline/schemas.py` | `PipelineResponse.task_id` | 始终返回 None | ✅ 确认 |
-| `recognize/schemas.py` | `RecognizeResponse.task_id` | 始终返回 None | ✅ 确认 |
+| ~~`pipeline/schemas.py`~~ | ~~`PipelineResponse.task_id`~~ | ~~始终返回 None~~ | ✅ 已修复：任务提交改用 `TaskSubmitResponse` |
+| ~~`recognize/schemas.py`~~ | ~~`RecognizeResponse.task_id`~~ | ~~始终返回 None~~ | ✅ 已修复：任务提交改用 `TaskSubmitResponse` |
 
 ---
 

@@ -1,6 +1,8 @@
 import asyncio
 from pathlib import Path
 
+from fastapi.testclient import TestClient
+
 from score_trans.api.app import create_app
 from score_trans.api.export.routes import export_midi
 from score_trans.exec.export.actions import ExportActions
@@ -46,6 +48,16 @@ def test_history_page_schema_persists_ocr_text() -> None:
     assert "ocr_text" in schemas["PageCreate"]["properties"]
     assert "ocr_text" in schemas["PageUpdate"]["properties"]
     assert "ocr_text" in schemas["PageResponse"]["properties"]
+
+
+def test_tasks_stream_allows_vite_dev_origin() -> None:
+    response = TestClient(create_app()).get(
+        "/tasks/missing/stream",
+        headers={"Origin": "http://localhost:5173"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 
 class FakeExportUseCase:

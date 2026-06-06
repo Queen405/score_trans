@@ -68,7 +68,7 @@
         :class="['page-card', { active: index === store.currentPageIndex }]"
         @click="store.selectPage(index)"
       >
-        <button class="page-del" type="button" @click.stop="removePage(index)">
+        <button class="page-del" type="button" :disabled="store.isBusy" @click.stop="removePage(index)">
           <n-icon size="12"><CloseOutline /></n-icon>
         </button>
         <div class="page-thumb">
@@ -107,7 +107,7 @@ import type {
   PipelineResponse,
   SSEProgressEvent,
 } from '../models/types'
-import type { TaskPageInput } from '../stores/task'
+import type { TaskPage, TaskPageInput } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import FileUploader from '../components/FileUploader.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
@@ -167,6 +167,7 @@ function statusText(status: string): string {
 }
 
 function removePage(index: number): void {
+  if (store.isBusy) return
   const page = store.pages[index]
   if (!page) return
   store.removePage(index)
@@ -215,6 +216,7 @@ function taskProgressText(event: SSEProgressEvent): string {
 
 interface PageResult {
   page_index: number
+  page_id: string
   input_file_name: string
   input_file_id: string
   musicxml_file_id: string
@@ -232,12 +234,15 @@ async function runPipelineForPage(
 ): Promise<PageResult> {
   const page = store.pages[pageIndex]
   if (!page?.inputFileId || !page.inputFileName) {
-    return { page_index: pageIndex, input_file_name: '', input_file_id: '', musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '', status: 'failed', error_message: '无输入文件' }
+    return { page_index: pageIndex, page_id: '', input_file_name: '', input_file_id: '', musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '', status: 'failed', error_message: '无输入文件' }
   }
 
   const mapPercent = (p: number) => rangeStart + (p / 100) * (rangeEnd - rangeStart)
 
-  store.selectPage(pageIndex)
+  const pageId = page.id
+  if (store.selectPageById(pageId) < 0) {
+    throw new Error(`页面已从工作区移除：${page.inputFileName}`)
+  }
   store.setCurrentPageStatus('processing')
   const sourceFileId = page.inputFileId
   const sourceFileName = page.inputFileName
@@ -255,6 +260,10 @@ async function runPipelineForPage(
   const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, mapPercent(24), mapPercent(82))
 
   setProgress(mapPercent(82), '写入结果')
+  const resultPageIndex = store.selectPageById(pageId)
+  if (resultPageIndex < 0) {
+    throw new Error(`页面已从工作区移除：${sourceFileName}`)
+  }
   store.setMusicxml(result.musicxml_file_id, '')
   if (isPreviewable(sourceFileName)) {
     store.setOriginalFile(sourceFileName, sourceFileId)
@@ -290,7 +299,8 @@ async function runPipelineForPage(
   log.addLog(`识别完成：${sourceFileName}`)
 
   return {
-    page_index: pageIndex,
+    page_index: resultPageIndex,
+    page_id: pageId,
     input_file_name: sourceFileName,
     input_file_id: sourceFileId,
     musicxml_file_id: result.musicxml_file_id,
@@ -307,7 +317,7 @@ async function saveHistoryBatch(pageResults: PageResult[]): Promise<void> {
   try {
     const created = await historyApi.create({
       pages: pageResults.map((r) => {
-        const page = store.pages[r.page_index]
+        const page = store.pages.find((entry) => entry.id === r.page_id) ?? store.pages[r.page_index]
         return {
           input_file_name: r.input_file_name,
           input_file_id: r.input_file_id,
@@ -322,8 +332,10 @@ async function saveHistoryBatch(pageResults: PageResult[]): Promise<void> {
       }),
     })
     created.pages.forEach((page, index) => {
-      const pageIndex = pageResults[index]?.page_index
-      if (typeof pageIndex === 'number') store.setPageHistoryPageId(pageIndex, page.id)
+      const result = pageResults[index]
+      if (!result) return
+      if (result.page_id && store.patchPageById(result.page_id, { historyPageId: page.id })) return
+      if (typeof result.page_index === 'number') store.setPageHistoryPageId(result.page_index, page.id)
     })
   } catch { /* ignore */ }
 }
@@ -350,13 +362,18 @@ function collectAiWarnings(pages: AiTranscribedPage[], responseWarnings: string[
   ]
 }
 
-function replaceTaskPage(pageIndex: number, aiPages: TaskPageInput[]): void {
+function replaceTaskPage(pageId: string, pageIndex: number, aiPages: TaskPageInput[]): TaskPage[] {
   const maybeStore = store as unknown as {
+    replacePageById?: (pageId: string, replacementPages: TaskPageInput[], selectOffset?: number) => boolean
     replacePage?: (index: number, replacementPages: TaskPageInput[], selectOffset?: number) => void
+  }
+  if (typeof maybeStore.replacePageById === 'function' && maybeStore.replacePageById(pageId, aiPages)) {
+    const start = store.currentPageIndex
+    return store.pages.slice(start, start + aiPages.length)
   }
   if (typeof maybeStore.replacePage === 'function') {
     maybeStore.replacePage(pageIndex, aiPages)
-    return
+    return store.pages.slice(pageIndex, pageIndex + aiPages.length)
   }
 
   const existingPages: TaskPageInput[] = store.pages.map((page) => ({
@@ -379,6 +396,7 @@ function replaceTaskPage(pageIndex: number, aiPages: TaskPageInput[]): void {
     ...aiPages,
     ...existingPages.slice(pageIndex + 1),
   ], pageIndex)
+  return store.pages.slice(pageIndex, pageIndex + aiPages.length)
 }
 
 async function runAiForPage(
@@ -390,10 +408,13 @@ async function runAiForPage(
   if (!sourcePage?.inputFileId || !sourcePage.inputFileName) {
     throw new Error('无输入文件')
   }
+  const sourcePageId = sourcePage.id
 
   const mapPercent = (p: number) => rangeStart + (p / 100) * (rangeEnd - rangeStart)
 
-  store.selectPage(pageIndex)
+  if (store.selectPageById(sourcePageId) < 0) {
+    throw new Error(`页面已从工作区移除：${sourcePage.inputFileName}`)
+  }
   store.setCurrentPageStatus('processing')
   setProgress(mapPercent(8), `AI 读取：${sourcePage.inputFileName}`)
 
@@ -404,6 +425,10 @@ async function runAiForPage(
   })
   const response = await waitForTaskResult<AiTranscribeResponse>(submitted.task_id, mapPercent(12), mapPercent(75))
   if (!response.pages.length) throw new Error('AI 未返回任何页面')
+  const currentIndex = store.selectPageById(sourcePageId)
+  if (currentIndex < 0) {
+    throw new Error(`页面已从工作区移除：${sourcePage.inputFileName}`)
+  }
 
   setProgress(mapPercent(75), '写入 AI 草稿')
   const aiPages: TaskPageInput[] = response.pages.map((page) => {
@@ -424,12 +449,14 @@ async function runAiForPage(
       errorMessage: aiPageErrorMessage(page),
     }
   })
-  replaceTaskPage(pageIndex, aiPages)
+  const insertedPages = replaceTaskPage(sourcePageId, currentIndex, aiPages)
 
   const pageResults: PageResult[] = response.pages.map((page, offset) => {
     const label = aiPageLabel(response.source_filename, page, response.pages.length)
+    const insertedPage = insertedPages[offset]
     return {
-      page_index: pageIndex + offset,
+      page_index: currentIndex + offset,
+      page_id: insertedPage?.id ?? '',
       input_file_name: label,
       input_file_id: page.page_image_file_id,
       musicxml_file_id: '',
@@ -470,6 +497,7 @@ async function recognizeWithAi(): Promise<void> {
     store.setCurrentPageStatus('failed', msg)
     results.push({
       page_index: pageIndex,
+      page_id: sourcePage.id,
       input_file_name: sourcePage.inputFileName,
       input_file_id: sourcePage.inputFileId,
       musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '',
@@ -515,6 +543,7 @@ async function recognizeAllWithAi(): Promise<void> {
         }
         results.push({
           page_index: resultIndex,
+          page_id: target.id,
           input_file_name: target.name,
           input_file_id: target.fileId,
           musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '',
@@ -562,6 +591,7 @@ async function recognize(): Promise<void> {
     store.setCurrentPageStatus('failed', msg)
     results.push({
       page_index: pageIndex,
+      page_id: store.pages[pageIndex]?.id ?? '',
       input_file_name: store.pages[pageIndex]?.inputFileName ?? '',
       input_file_id: store.pages[pageIndex]?.inputFileId ?? '',
       musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '',
@@ -581,38 +611,44 @@ async function recognizeAllPages(): Promise<void> {
     return
   }
 
-  const indexes = store.pages
-    .map((page, index) => ({ page, index }))
-    .filter((entry) => !!entry.page.inputFileId)
-    .map((entry) => entry.index)
-  if (!indexes.length) return
+  const targets = store.pages
+    .filter((page) => !!page.inputFileId)
+    .map((page) => ({ id: page.id, name: page.inputFileName, fileId: page.inputFileId }))
+  if (!targets.length) return
 
   store.setBusy(true)
   const results: PageResult[] = []
   try {
     setProgress(0, '准备批量识别')
-    for (let i = 0; i < indexes.length; i += 1) {
-      const pageIndex = indexes[i]
-      const rangeStart = (i / indexes.length) * 100
-      const rangeEnd = ((i + 1) / indexes.length) * 100
-      setProgress(rangeStart, `处理第 ${i + 1} / ${indexes.length} 页`)
+    for (let i = 0; i < targets.length; i += 1) {
+      const target = targets[i]
+      const pageIndex = store.pages.findIndex((page) => page.id === target.id)
+      if (pageIndex < 0) continue
+      const rangeStart = (i / targets.length) * 100
+      const rangeEnd = ((i + 1) / targets.length) * 100
+      setProgress(rangeStart, `处理第 ${i + 1} / ${targets.length} 页`)
       try {
         const r = await runPipelineForPage(pageIndex, rangeStart, rangeEnd)
         results.push(r)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        store.selectPage(pageIndex)
-        store.setCurrentPageStatus('failed', msg)
+        const foundIndex = store.pages.findIndex((page) => page.id === target.id)
+        const resultIndex = foundIndex >= 0 ? foundIndex : pageIndex
+        if (foundIndex >= 0) {
+          store.selectPage(foundIndex)
+          store.setCurrentPageStatus('failed', msg)
+        }
         results.push({
-          page_index: pageIndex,
-          input_file_name: store.pages[pageIndex]?.inputFileName ?? '',
-          input_file_id: store.pages[pageIndex]?.inputFileId ?? '',
+          page_index: resultIndex,
+          page_id: target.id,
+          input_file_name: target.name,
+          input_file_id: target.fileId,
           musicxml_file_id: '', jianpu_text: '', ocr_text: '', svg_file_id: '',
           status: 'failed', error_message: msg,
         })
         log.addError(`第 ${i + 1} 页失败：${msg}`)
       }
-      setProgress(rangeEnd, `已完成 ${i + 1} / ${indexes.length} 页`)
+      setProgress(rangeEnd, `已完成 ${i + 1} / ${targets.length} 页`)
     }
     setProgress(100, '批量识别完成')
     message.success('批量识别完成')
@@ -750,6 +786,11 @@ async function recognizeAllPages(): Promise<void> {
 .page-del:hover {
   background: var(--danger);
   color: #fff;
+}
+
+.page-del:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 .page-thumb {

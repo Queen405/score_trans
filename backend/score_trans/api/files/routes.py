@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, UploadFile, Request
+from fastapi.responses import FileResponse, Response
 
 from ..dependencies import get_file_actions
 from ...exec.files.actions import FileActions
@@ -25,6 +25,18 @@ async def download_file(
 ):
     path, media_type = actions.download_file(file_id)
     return FileResponse(path, media_type=media_type, filename=path.name)
+
+
+@router.head("/{file_id}")
+async def head_file(
+    file_id: str,
+    actions: FileActions = Depends(get_file_actions),
+):
+    path, media_type = actions.download_file(file_id)
+    return Response(
+        status_code=200,
+        headers={"Content-Type": media_type, "Content-Length": str(path.stat().st_size)},
+    )
 
 
 @router.delete("/{file_id}")
