@@ -60,7 +60,7 @@ Dependency direction is strictly **api → exec → services → dao / domain / 
 
 ## Critical Pitfalls
 
-- **`services/render/rendering.py`** is a ~1430-line SVG engine. It has fragile string assertions in `tests/test_render.py`. Always run `python -m pytest tests/test_render.py` after any rendering change.
+- **`services/render/`** is the modularized SVG engine (~1300 lines across `main.py`, `drawing/`, `layout/`, `parsing/`, `models/`, `svg/`, `utils/`). It has fragile string assertions in `tests/test_render.py`. Always run `python -m pytest tests/test_render.py` after any rendering change.
 - **Electron auto-starts the FastAPI backend** via `desktop/src/main/backend.ts`. Ensure `.venv` exists before launching the desktop app in development mode.
 - **Audiveris requires JDK 25**. Set `SCORE_TRANS_JAVA_HOME` (default: `E:\ENV\JAVA\JDK25`) or place JDK at that path.
 - **Long-running routes block the event loop**: `/pipeline`, `/recognize`, and `/ai/transcribe` invoke subprocesses or LLM calls synchronously. If modifying these, consider `asyncio.to_thread()` or background tasks.

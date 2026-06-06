@@ -52,14 +52,14 @@ desktop/          Electron + Vue3 frontend
 - **`dao/`** must not import `api`, `exec`, or `services`; it only depends on standard library and `models`.
 - **`domain/`** has zero dependencies on services, UI, or I/O. All music theory helpers (`FIFTHS_TO_KEY`, `KEY_TO_TONIC`, `MAJOR_SCALE`) live there.
 - **`desktop/src/renderer/`** is the active desktop UI. Keep UI state in Pinia stores and call typed API wrappers.
-- **`services/render/rendering.py`** is the SVG engine. It takes either raw jianpu text or a `JianpuScore` and produces self-contained SVG with beams, ties, slurs, chords, and measure layout.
+- **`services/render/`** is the modularized SVG engine. `main.py` exposes entry points; `layout/` handles measure/row layout; `drawing/` renders notes, beams, spanners, text; `parsing/` tokenizes note strings; `models/` holds layout/shape dataclasses; `svg/` generates headers/CSS; `utils/` provides geometry, metrics, and bar helpers. It takes either raw jianpu text or a `JianpuScore` and produces self-contained SVG with beams, ties, slurs, chords, and measure layout.
 
 ## Data Flow
 
 1. **Image/PDF → MusicXML**: `RecognizeScoreAction` → `AudiverisService` → `services/recognize/external_tools.recognize_with_audiveris()` (subprocess)
 2. **MusicXML → JianpuScore**: `MusicXmlToJianpuAction.build_score()` → `domain/musicxml.musicxml_path_to_score()` parses XML into structured `JianpuScore` with `Measure`/`Beat`/`Event` hierarchy
 3. **JianpuScore → Jianpu text**: `domain/musicxml.score_to_jianpu_text()` flattens to the simple text format
-4. **JianpuScore → SVG**: `rendering.render_score_svg()` layouts measures in rows, renders notes/beams/spanners per measure
+4. **JianpuScore → SVG**: `services/render/main.render_score_svg()` layouts measures in rows, renders notes/beams/spanners per measure
 5. **Jianpu text → MusicXML**: `domain/jianpu.parse_jianpu()` + `jianpu_to_musicxml()` tokenizes and emits XML
 6. **Full pipeline**: `FullPipelineAction` chains recognize → convert → render → write all outputs
 
@@ -122,7 +122,7 @@ time=4/4
 
 - 修改代码前先运行 `python -m pytest` 确保基线通过。
 - 添加新环境变量时，同步更新 `backend/score_trans/config/env.example`。
-- `services/render/rendering.py` 是单文件 SVG 引擎（~1430 行），修改 beam/tie/slur 逻辑时需同步检查 `tests/test_render.py` 中的 SVG 字符串断言（测试较脆弱）。
+- `services/render/` 是模块化 SVG 引擎（`drawing/beams.py`、`drawing/spanners.py`、`drawing/token.py` 等），修改 beam/tie/slur 逻辑时需同步检查 `tests/test_render.py` 中的 SVG 字符串断言（测试较脆弱）。
 - `domain/` 层必须保持零 I/O（无文件读写、无网络调用、无 print），架构测试 `test_architecture.py` 会强制执行。
 - 使用 `os.getenv()` 读取配置时，优先在模块顶部定义常量（如 `DEFAULT_XXX = os.getenv(...)`），避免在函数体内每次调用都读取环境变量。
 

@@ -28,7 +28,7 @@ def _render_measure(
         out.append(f'<text class="measure-no" x="{x + 6:.1f}" y="{y - 62}">{_esc(str(measure.number))}</text>')
     repeat_count = getattr(measure.source, "repeat_count", 1)
     if repeat_count > 1:
-        out.append(f'<text class="repeat-count" x="{x + width - 6:.1f}" y="{y - 62}" text-anchor="end" font-size="11" fill="#868686">*{repeat_count}</text>')
+        out.append(f'<text class="repeat-count" x="{x + width - 6:.1f}" y="{y - 62}" text-anchor="end">*{repeat_count}</text>')
     if getattr(measure.source, "repeat_start", False):
         out.extend(_repeat_start_bar(x, y))
     elif draw_start_bar:

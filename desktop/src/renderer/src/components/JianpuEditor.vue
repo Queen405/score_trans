@@ -132,8 +132,9 @@ const measureNumbers = computed(() => {
     const trimmed = line.trim()
     // 包含 | 的就是小节（即使以 \ 开头如 \f）
     if (trimmed.includes('|')) {
-      // 检测重复次数 *x
-      const match = trimmed.match(/\*\s*(\d+)$/)
+      // 检测重复次数 *x（去掉行尾 | 后再匹配）
+      const withoutBar = trimmed.replace(/\|$/, '').trim()
+      const match = withoutBar.match(/\*\s*(\d+)$/)
       const repeatCount = match ? parseInt(match[1], 10) : 1
       const currentNumber = measureCount
       measureCount += repeatCount

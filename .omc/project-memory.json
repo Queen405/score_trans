@@ -1,0 +1,148 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1780736591679,
+  "projectRoot": "D:\\CODE\\MyProjects\\score_trans",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "pyproject.toml",
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "fastapi",
+        "version": null,
+        "category": "backend"
+      },
+      {
+        "name": "pytest",
+        "version": null,
+        "category": "testing"
+      }
+    ],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": "pytest",
+    "lintCommand": "ruff check",
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "examples",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "backend": {
+      "path": "backend",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1780736591652,
+      "keyFiles": []
+    },
+    "desktop": {
+      "path": "desktop",
+      "purpose": null,
+      "fileCount": 10,
+      "lastAccessed": 1780736591652,
+      "keyFiles": [
+        "AGENTS.md",
+        "electron-builder.yml",
+        "electron.vite.config.ts",
+        "package.json",
+        "pnpm-lock.yaml"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 3,
+      "lastAccessed": 1780736591652,
+      "keyFiles": [
+        "architecture.md",
+        "file-by-file.md",
+        "issues.md"
+      ]
+    },
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 2,
+      "lastAccessed": 1780736591653,
+      "keyFiles": [
+        "5.瑞雪迎春 - 分谱.pdf",
+        "simple_jianpu.txt"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 12,
+      "lastAccessed": 1780736591653,
+      "keyFiles": [
+        "test_ai_transcription.py",
+        "test_api_routes.py",
+        "test_architecture.py",
+        "test_convert.py",
+        "test_history_service.py"
+      ]
+    },
+    "third_party": {
+      "path": "third_party",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1780736591654,
+      "keyFiles": []
+    },
+    "work": {
+      "path": "work",
+      "purpose": null,
+      "fileCount": 15,
+      "lastAccessed": 1780736591654,
+      "keyFiles": [
+        "full_test.mid",
+        "full_test.pdf",
+        "full_test.png",
+        "full_test.svg",
+        "history.db"
+      ]
+    },
+    "desktop\\node_modules": {
+      "path": "desktop\\node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 2,
+      "lastAccessed": 1780736591655,
+      "keyFiles": []
+    },
+    "desktop\\out": {
+      "path": "desktop\\out",
+      "purpose": "Build output",
+      "fileCount": 0,
+      "lastAccessed": 1780736591655,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}
