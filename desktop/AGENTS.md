@@ -1,0 +1,87 @@
+# AGENTS.md — Desktop (Electron + Vue 3)
+
+## Stack
+
+- **Electron 33** + **Vue 3.5** (Composition API, `<script setup>`) + **TypeScript**
+- **Pinia** (Composition API style `defineStore`) + **Naive UI** + **@vicons/ionicons5**
+- **electron-vite** 构建，**electron-builder** 打包（Windows NSIS）
+- **pnpm** 包管理
+
+## Directory Structure
+
+```
+desktop/src/
+  main/               Electron 主进程
+    index.ts           窗口创建、IPC handler、app 生命周期
+    backend.ts         BackendProcess：启动 FastAPI 后端（开发用 uvicorn，生产用 exe）
+  preload/
+    index.ts           contextBridge 暴露 window.api（最小化/最大化/关闭、获取后端 URL、选择目录）
+  renderer/src/
+    main.ts            createApp + Pinia（无 Naive UI 全局注册，组件按需 import）
+    App.vue            根组件：自定义标题栏、侧边栏导航、日志抽屉
+    api/               按模块封装的 fetch 客户端（client.ts, convert.ts, pipeline.ts, render.ts, export.ts, ai.ts, history.ts, settings.ts）
+    stores/            Pinia stores（task.ts, settings.ts, log.ts）
+    views/             页面组件（RecognizeView, ConvertView, SettingsView, HistoryView, ExportView）
+    components/        通用组件（FileUploader, JianpuEditor, SvgPreview, OriginalPreview, LogPanel, MeasureNumberPicker, JianpuSyntaxGuide）
+    models/types.ts    手动维护的 TypeScript 接口（请求/响应 DTO）
+    composables/       可复用组合函数
+    utils/             工具函数（ocrText.ts 等）
+```
+
+## Key Patterns
+
+### Naive UI 组件导入
+**Naive UI 不做全局注册**，每个 `.vue` 文件按需 import：
+```ts
+import { NButton, NIcon, NCode, NInputNumber, useMessage } from 'naive-ui'
+```
+添加新页面时，务必在 `<script setup>` 中 import 所有用到的 Naive UI 组件。
+
+### API 调用
+- 统一通过 `api/` 目录下的封装函数，不要直接 `fetch`
+- `api/client.ts` 提供 `apiFetch<T>()`、`getFileURL()`、`fileExists()`、`uploadFile()`
+- 后端地址从 `window.api.getBackendURL()`（Electron）或 `VITE_BACKEND_URL`（开发浏览器）获取
+
+### Pinia Store 约定
+- `task.ts` 是核心状态：管理多页输入（`pages[]`, `currentPageIndex`），当前页数据同步到顶层 refs（`inputFileId`, `jianpuText` 等）
+- `settings.ts` 管理全局配置，`load()` 从后端读取，`save()` 写回
+- `log.ts` 收集运行日志，`errorCount` 计算属性用于 badge 显示
+
+### 页面导航
+App.vue 用 `activeTab` + `v-show` 切换三个主视图（recognize / convert / settings），不做路由。
+
+### 文件存在检测
+`fileExists(fileId)` 发 HEAD 请求到 `GET /files/{id}`，后端返回 200/404。
+
+### IPC 通信
+preload 暴露 `window.api`，主进程通过 `ipcMain.handle` 处理。当前只有窗口控制和目录选择。
+
+## Adding a New View
+
+1. 在 `views/` 创建 `XxxView.vue`，使用 `<script setup lang="ts">`
+2. 在 `views/` 中按需 import Naive UI 组件（不要依赖全局注册）
+3. 在 `App.vue` 的 `navItems` 数组中添加导航项，`activeTab` 中添加新 key
+4. 如果需要后端 API，在 `api/` 下添加封装函数
+5. 如果需要持久状态，在 `stores/` 下创建 Pinia store
+
+## Common Pitfalls
+
+- **`n-input-number` 未注册**：ConvertView 中用到 `NInputNumber` 但忘记 import，会导致组件不渲染且控制台 warn。添加任何 Naive UI 组件都要确认 import。
+- **CORS**：开发模式前端跑在 `localhost:5173`，后端在 `127.0.0.1:19200/19201`。后端已配置 CORS，但 HEAD 请求返回 405 时响应不带 CORS 头会触发浏览器 block。
+- **`fileExists` 竞态**：`UploadService` 每次请求新建实例，`index.json` 并发写入可能导致索引丢失，`fileExists` 返回 false。已在后端修复为原子写入。
+- **窗口控制**：`frame: false` 自定义标题栏，`window.api.minimizeWindow()` 等通过 IPC 调用。
+- **主题**：跟随系统 `prefers-color-scheme`，通过 `prefersDark` ref 切换 `theme-dark` / `theme-light` class。
+
+## Build & Run
+
+```bash
+# 开发（需先启动后端）
+cd desktop
+pnpm dev
+
+# 构建
+pnpm build
+
+# 类型检查
+vue-tsc --noEmit
+```

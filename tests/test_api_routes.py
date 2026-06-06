@@ -21,7 +21,6 @@ def test_render_routes_are_registered() -> None:
     assert "/tasks/{task_id}" in paths
     assert "/tasks/{task_id}/stream" in paths
 
-
 def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:
     schema = create_app().openapi()["components"]["schemas"]["RenderJianpuSvgRequest"]
 
@@ -68,7 +67,6 @@ class FakeExportUseCase:
         self.calls.append((Path(musicxml_file), Path(output_file), kwargs))
         Path(output_file).write_bytes(b"exported")
         return Path(output_file)
-
 
 def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> None:
     config = ToolConfig(work_dir=tmp_path / "work")

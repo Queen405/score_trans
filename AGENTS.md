@@ -8,6 +8,7 @@ Score Trans is a Windows desktop app for converting between Western staff notati
 - Architecture overview: [docs/architecture.md](docs/architecture.md)
 - File-by-file index: [docs/file-by-file.md](docs/file-by-file.md)
 - Known issues & roadmap: [docs/issues.md](docs/issues.md)
+- Frontend development guide: [desktop/AGENTS.md](desktop/AGENTS.md)
 
 ## Build and Test
 
