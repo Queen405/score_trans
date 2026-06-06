@@ -9,6 +9,7 @@ Score Trans is a Windows desktop app for converting between Western staff notati
 - File-by-file index: [docs/file-by-file.md](docs/file-by-file.md)
 - Known issues & roadmap: [docs/issues.md](docs/issues.md)
 - Frontend development guide: [desktop/AGENTS.md](desktop/AGENTS.md)
+- Frontend testing: Run `pnpm test:unit` for Vitest unit tests, `pnpm test:e2e` for Playwright E2E tests. E2E tests require backend running on port 19200.
 
 ## Build and Test
 
@@ -41,29 +42,41 @@ pnpm dev
 ```
 
 ## Architecture Rules
+Import permissions (no reverse imports are permitted):
 
-Dependency direction is strictly **api → exec → services → dao / domain / models**.
+- `api/` may import from `exec/` and `models/`.
+- `exec/` may import from `services/` and `models/`.
+- `services/` may import from `dao/`, `domain/`, and `models/`.
+- `dao/` and `domain/` may only import from `models/` and standard libraries.
+- All layers (`api/`, `exec/`, `services/`, `dao/`, `domain/`) may import from `models/`. `models/` must not import from any other project module.
 
-- **`api/`** must not import `services`, `domain`, or `dao`. Architecture tests in `tests/test_architecture.py` enforce this.
-- **`exec/`** owns request-level business flow. **Do not add new `HTTPException` imports here** — this is a known systemic violation (20 instances across 7 files). Use standard exceptions (`ValueError`, `FileNotFoundError`, `OCRError`) and let `api/` routes convert them to HTTP responses.
-- **`dao/`** must not import `api`, `exec`, or `services`. It only depends on standard library and `models/`.
-- **`domain/`** must have **zero I/O** (no file read/write, no network calls, no `print`). Architecture tests enforce this.
+Architecture tests in `tests/test_architecture.py` enforce these rules.
+
+- **`models/`** contains cross-cutting DTOs, exceptions (`OCRError`, `ExternalToolError`), and protocol definitions usable by all layers. **`domain/`** contains business logic and domain-specific computations with zero I/O. Place shared data structures in `models/`; place business rules and calculations in `domain/`.
+- **`exec/`** owns request-level business flow. **Do not add new `HTTPException` imports here** — this is a known systemic violation (20 instances across 7 files). Existing HTTPException imports in `exec/` are technical debt — do NOT add new ones, and do NOT refactor existing ones unless explicitly asked. When modifying files with existing violations, leave them unchanged. Use standard exceptions (`ValueError`, `FileNotFoundError`, `OCRError`) in new or modified code and let `api/` routes convert them to HTTP responses.
 
 ## Key Conventions
 
 - `from __future__ import annotations` appears at the top of nearly every Python file.
 - Type hints are required; use `|` union syntax (e.g., `str | Path`).
 - `@dataclass(slots=True)` is the standard for DTOs, config objects, and domain entities.
-- Environment variables are read **once at module top** as constants (e.g., `CHORD_GAP = int(os.getenv("SCORE_TRANS_RENDER_CHORD_GAP", "38"))`), not inside functions.
+- Environment variables must be read at module global scope (not inside functions or classes). Use `os.getenv` with an explicit default only for optional variables (e.g., `CHORD_GAP = int(os.getenv("SCORE_TRANS_RENDER_CHORD_GAP", "38"))`); use `os.environ[var]` for required variables to fail fast. If a required environment variable is missing or malformed at import time, raise `ValueError` with the variable name and expected format.
 - Custom exceptions live in `models/common/errors.py`: `ExternalToolError`, `OCRError`, `AITranscriptionError`.
 - The frontend uses Vue 3 Composition API (`<script setup>`) + Pinia + Naive UI. API calls go through typed wrappers in `desktop/src/renderer/api/`.
+- Frontend error handling: API wrappers must return `{ data, error }` tuples, never throw. Components display errors via Naive UI `useMessage()`. Pinia stores handle async state with explicit `loading`/`error` flags.
 
 ## Critical Pitfalls
 
-- **`services/render/`** is the modularized SVG engine (~1300 lines across `main.py`, `drawing/`, `layout/`, `parsing/`, `models/`, `svg/`, `utils/`). It has fragile string assertions in `tests/test_render.py`. Always run `python -m pytest tests/test_render.py` after any rendering change.
-- **Electron auto-starts the FastAPI backend** via `desktop/src/main/backend.ts`. Ensure `.venv` exists before launching the desktop app in development mode.
-- **Audiveris requires JDK 25**. Set `SCORE_TRANS_JAVA_HOME` (default: `E:\ENV\JAVA\JDK25`) or place JDK at that path.
-- **Long-running routes block the event loop**: `/pipeline`, `/recognize`, and `/ai/transcribe` invoke subprocesses or LLM calls synchronously. If modifying these, consider `asyncio.to_thread()` or background tasks.
+When modifying specific areas, follow these rules:
+
+| If you change... | Then you must... |
+|------------------|------------------|
+| `services/render/` | Run `python -m pytest tests/test_render.py` — the SVG engine (~1300 lines) has fragile string assertions |
+| `desktop/src/main/backend.ts` or launching app | Verify `.venv` exists — Electron auto-starts the FastAPI backend |
+| Audiveris integration or OMR | Verify `SCORE_TRANS_JAVA_HOME` exists and contains `bin/java.exe`. If invalid, raise `ExternalToolError` with diagnostic message. Do not defer this check to first invocation |
+| `/pipeline`, `/recognize`, `/ai/transcribe` | Use `asyncio.to_thread()` when the route must return the result to the caller; use FastAPI `BackgroundTasks` only for fire-and-forget operations. Never use synchronous blocking calls directly in async route handlers |
+
+- **Audiveris requires JDK 25**. Set `SCORE_TRANS_JAVA_HOME` (default on Windows: `E:/ENV/JAVA/JDK25`; use forward slashes or `pathlib.Path` for cross-platform compatibility) or place JDK at that path.
 
 ## Environment Variables
 
