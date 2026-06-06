@@ -66,11 +66,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
 import { historyApi } from '../api/history'
 import { fileExists } from '../api/client'
+import { listenHistoryUpdated } from '../utils/historyEvents'
 import type { HistoryEntry } from '../models/types'
 import {
   CheckmarkCircleOutline,
@@ -86,8 +87,17 @@ const message = useMessage()
 
 const entries = ref<HistoryEntry[]>([])
 const loading = ref(false)
+let stopHistoryUpdatedListener: (() => void) | null = null
 
-onMounted(() => loadHistory())
+onMounted(() => {
+  loadHistory()
+  stopHistoryUpdatedListener = listenHistoryUpdated(loadHistory)
+})
+
+onUnmounted(() => {
+  stopHistoryUpdatedListener?.()
+  stopHistoryUpdatedListener = null
+})
 
 async function loadHistory(): Promise<void> {
   loading.value = true
@@ -130,9 +140,14 @@ async function handleRestore(entry: HistoryEntry): Promise<void> {
   }
 
   const warnings: string[] = []
+  const [inputOk, musicxmlOk, svgOk] = await Promise.all([
+    entry.input_file_id ? fileExists(entry.input_file_id) : Promise.resolve(false),
+    entry.musicxml_file_id ? fileExists(entry.musicxml_file_id) : Promise.resolve(false),
+    entry.svg_file_id ? fileExists(entry.svg_file_id) : Promise.resolve(false),
+  ])
 
   if (entry.input_file_id) {
-    if (await fileExists(entry.input_file_id)) {
+    if (inputOk) {
       store.setInputFile(entry.input_file_name, entry.input_file_id)
     } else {
       warnings.push('原始输入文件已失效')
@@ -140,7 +155,7 @@ async function handleRestore(entry: HistoryEntry): Promise<void> {
   }
 
   if (entry.musicxml_file_id) {
-    if (await fileExists(entry.musicxml_file_id)) {
+    if (musicxmlOk) {
       store.setMusicxml(entry.musicxml_file_id, '')
     } else {
       store.setMusicxml('', '')
@@ -151,7 +166,7 @@ async function handleRestore(entry: HistoryEntry): Promise<void> {
   if (entry.jianpu_text) store.setJianpu(entry.jianpu_text)
 
   if (entry.svg_file_id) {
-    if (await fileExists(entry.svg_file_id)) {
+    if (svgOk) {
       store.setSvg(entry.svg_file_id)
     } else {
       store.setSvg('')
@@ -160,7 +175,7 @@ async function handleRestore(entry: HistoryEntry): Promise<void> {
   }
 
   if (entry.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(entry.input_file_name)) {
-    if (await fileExists(entry.input_file_id)) {
+    if (inputOk) {
       store.setOriginalFile(entry.input_file_name, entry.input_file_id)
     } else {
       store.clearOriginalFile()

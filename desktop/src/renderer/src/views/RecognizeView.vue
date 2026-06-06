@@ -109,6 +109,7 @@ import type {
 } from '../models/types'
 import type { TaskPage, TaskPageInput } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
+import { notifyHistoryUpdated } from '../utils/historyEvents'
 import FileUploader from '../components/FileUploader.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import {
@@ -337,6 +338,7 @@ async function saveHistoryBatch(pageResults: PageResult[]): Promise<void> {
       if (result.page_id && store.patchPageById(result.page_id, { historyPageId: page.id })) return
       if (typeof result.page_index === 'number') store.setPageHistoryPageId(result.page_index, page.id)
     })
+    notifyHistoryUpdated()
   } catch { /* ignore */ }
 }
 

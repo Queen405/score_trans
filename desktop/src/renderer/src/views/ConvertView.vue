@@ -80,10 +80,6 @@
             <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
             简谱 → XML
           </n-button>
-          <n-button size="small" @click="saveMusicxml" :disabled="!store.hasMusicxml" secondary>
-            <template #icon><n-icon><DocumentTextOutline /></n-icon></template>
-            MusicXML
-          </n-button>
           <n-button size="small" type="primary" @click="exportScore" :loading="store.isBusy" :disabled="!store.hasMusicxml">
             <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
             导出
@@ -95,18 +91,11 @@
       <div class="ws-layout">
         <div class="ws-panel ws-left">
           <div class="ws-panel-head">
-            <span>{{ generatedXmlText ? 'MusicXML' : '原始五线谱' }}</span>
-            <span v-if="store.originalFileName && !generatedXmlText" class="panel-filename">{{ store.originalFileName }}</span>
+            <span>原始五线谱</span>
+            <span v-if="store.originalFileName" class="panel-filename">{{ store.originalFileName }}</span>
           </div>
           <div class="ws-panel-body">
-            <n-code
-              v-if="generatedXmlText"
-              :code="generatedXmlText"
-              language="xml"
-              word-wrap
-              style="height: 100%; overflow: auto;"
-            />
-            <original-preview v-else :file-id="store.originalFileId" :file-name="store.originalFileName" />
+            <original-preview :file-id="store.originalFileId" :file-name="store.originalFileName" />
           </div>
         </div>
 
@@ -160,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
@@ -168,7 +157,7 @@ import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
 import { downloadBlob, exportApi, svgToPngBlob } from '../api/export'
 import { historyApi } from '../api/history'
-import { ApiError, getFileURL, fileExists } from '../api/client'
+import { ApiError, fileExists } from '../api/client'
 import type { HistoryBatchListItem, HistoryBatch, HistoryPage } from '../models/types'
 import type { TaskPage } from '../stores/task'
 import JianpuEditor from '../components/JianpuEditor.vue'
@@ -176,20 +165,19 @@ import JianpuSyntaxGuide from '../components/JianpuSyntaxGuide.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
-import {
-  ArrowForwardOutline,
+import { listenHistoryUpdated } from '../utils/historyEvents'
+import { ArrowForwardOutline,
   ArrowBackOutline,
   ImageOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
-  DocumentTextOutline,
   CloudDownloadOutline,
   TimeOutline,
   RefreshOutline,
   TrashOutline,
   HelpCircleOutline,
 } from '@vicons/ionicons5'
-import { NButton, NSelect, NIcon, NCode, NPopconfirm, NInputNumber, useMessage } from 'naive-ui'
+import { NButton, NSelect, NIcon, NPopconfirm, NInputNumber, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
 const settings = useSettingsStore()
@@ -197,7 +185,6 @@ const log = useLogStore()
 const message = useMessage()
 
 const jianpuText = ref(store.jianpuText)
-const generatedXmlText = ref('')
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
 const canSaveCurrentPage = computed(() => hasJianpuText.value || store.hasMusicxml || !!store.ocrText.trim() || !!store.svgFileId)
@@ -218,6 +205,7 @@ const histLoading = ref(false)
 const expandedBatchId = ref<number | null>(null)
 const expandedPages = ref<HistoryPage[]>([])
 const loadingBatch = ref(false)
+let stopHistoryUpdatedListener: (() => void) | null = null
 
 watch(() => store.jianpuText, (v) => {
   if (v !== jianpuText.value) jianpuText.value = v
@@ -226,9 +214,16 @@ watch(jianpuText, (v) => {
   if (v !== store.jianpuText) store.setJianpu(v, true)
 })
 watch(() => store.svgFileId, (v) => { finalSvgFileId.value = v })
-watch(() => store.currentPageIndex, () => { generatedXmlText.value = '' })
 
-onMounted(() => loadHistory())
+onMounted(() => {
+  loadHistory()
+  stopHistoryUpdatedListener = listenHistoryUpdated(loadHistory)
+})
+
+onUnmounted(() => {
+  stopHistoryUpdatedListener?.()
+  stopHistoryUpdatedListener = null
+})
 
 function toggleHistory() {
   historyOpen.value = !historyOpen.value
@@ -393,15 +388,6 @@ function handleMissingMusicxml(errorMessage: string): string {
   return '当前 MusicXML 引用已失效，请回到"识别"页重新识别。'
 }
 
-function saveMusicxml(): void {
-  const url = getFileURL(store.musicxmlFileId)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'score.musicxml'
-  a.click()
-  log.addLog('已保存 MusicXML')
-}
-
 async function exportScore(): Promise<void> {
   store.setBusy(true)
   try {
@@ -525,7 +511,6 @@ async function musicxmlToJianpu(): Promise<void> {
     const split = splitJianpuAndOcr(result.jianpu_text)
     store.setJianpu(split.jianpuText)
     store.setOcrText(split.ocrText)
-    generatedXmlText.value = ''
     log.addLog('已转换为简谱')
     message.success('转换完成')
   } catch (e: unknown) {
@@ -543,7 +528,6 @@ async function jianpuToMusicxml(): Promise<void> {
   try {
     const result = await convertApi.jianpuToMusicxml({ jianpu_text: jianpuText.value })
     store.setMusicxml(result.musicxml_file_id, '')
-    generatedXmlText.value = result.musicxml_text
     store.markJianpuClean()
     store.clearOriginalFile()
     log.addLog('已生成 MusicXML')
