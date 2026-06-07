@@ -2,7 +2,8 @@
   <div class="svg-preview" v-if="svgUrl">
     <div ref="containerRef" class="preview-viewport" @dblclick="addBlockAtCursor">
       <div class="zp-inner">
-        <img :key="svgUrl" :src="svgUrl" :style="imageStyle" @load="onImgLoad" />
+        <div v-if="svgText" :key="svgUrl" class="svg-inline" v-html="svgText" />
+        <div v-else class="svg-loading">加载中...</div>
         <button
           v-for="block in ocrBlocks"
           :key="block.id"
@@ -51,9 +52,15 @@ import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
 import { parseOcrText, serializeOcrText, type OcrTextBlock } from '../utils/ocrText'
 
-const props = withDefaults(defineProps<{ svgFileId: string; ocrText?: string; editableOcr?: boolean }>(), {
+const props = withDefaults(defineProps<{
+  svgFileId: string
+  ocrText?: string
+  editableOcr?: boolean
+  currentNoteIndex?: number
+}>(), {
   ocrText: '',
   editableOcr: false,
+  currentNoteIndex: -1,
 })
 const emit = defineEmits<{ 'update:ocrText': [value: string] }>()
 const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : ''))
@@ -62,10 +69,12 @@ const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
+const svgText = ref('')
 const selectedId = ref('')
 const editingId = ref('')
 const editingText = ref('')
 const ocrBlocks = ref<OcrTextBlock[]>([])
+let svgLoadGeneration = 0
 let dragging: {
   id: string
   startClientX: number
@@ -78,20 +87,6 @@ let resizing: {
   startClientY: number
   startBbox: number[]
 } | null = null
-const imageStyle = computed(() => ({
-  width: imgW.value > 0 ? `${imgW.value}px` : 'auto',
-  height: imgH.value > 0 ? `${imgH.value}px` : 'auto',
-}))
-
-function onImgLoad(e: Event) {
-  const img = e.target as HTMLImageElement
-  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-    imgW.value = img.naturalWidth
-    imgH.value = img.naturalHeight
-  }
-  requestAnimationFrame(() => zp.fitToView())
-}
-
 function selectBlock(id: string): void {
   selectedId.value = id
 }
@@ -268,14 +263,122 @@ function onKeyDown(event: KeyboardEvent): void {
   removeBlock(selectedId.value)
 }
 
-watch(svgUrl, async (url) => {
-  if (url) {
-    imgW.value = 0
-    imgH.value = 0
+async function loadSvg(url: string): Promise<void> {
+  const generation = ++svgLoadGeneration
+  svgText.value = ''
+  imgW.value = 0
+  imgH.value = 0
+  clearPlaybackHighlight()
+  zp.unbind()
+
+  if (!url) return
+
+  try {
+    const response = await fetch(url, { cache: 'no-store' })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const text = await response.text()
+    if (generation !== svgLoadGeneration) return
+
+    const size = readSvgSize(text)
+    imgW.value = size.width
+    imgH.value = size.height
+    svgText.value = text
+
     await nextTick()
-    zp.unbind()
     zp.bind()
+    requestAnimationFrame(() => {
+      zp.fitToView()
+      applyPlaybackHighlight(false)
+    })
+  } catch {
+    if (generation !== svgLoadGeneration) return
+    svgText.value = ''
   }
+}
+
+function readSvgSize(text: string): { width: number; height: number } {
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
+  const svg = doc.documentElement
+  const viewBox = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number)
+  const viewBoxWidth = viewBox.length === 4 && Number.isFinite(viewBox[2]) ? viewBox[2] : 0
+  const viewBoxHeight = viewBox.length === 4 && Number.isFinite(viewBox[3]) ? viewBox[3] : 0
+  return {
+    width: parseSvgLength(svg.getAttribute('width')) || viewBoxWidth || 800,
+    height: parseSvgLength(svg.getAttribute('height')) || viewBoxHeight || 600,
+  }
+}
+
+function parseSvgLength(value: string | null): number {
+  if (!value) return 0
+  const match = value.match(/^-?\d+(?:\.\d+)?/)
+  return match ? Number(match[0]) : 0
+}
+
+function svgRoot(): SVGSVGElement | null {
+  return containerRef.value?.querySelector<SVGSVGElement>('.zp-inner svg') ?? null
+}
+
+function clearPlaybackHighlight(): void {
+  svgRoot()?.querySelectorAll('.playback-current').forEach((node) => {
+    node.classList.remove('playback-current')
+  })
+}
+
+function applyPlaybackHighlight(reveal: boolean): void {
+  const svg = svgRoot()
+  if (!svg) return
+
+  svg.querySelectorAll('.playback-current').forEach((node) => {
+    node.classList.remove('playback-current')
+  })
+
+  if (props.currentNoteIndex < 0) return
+  const target = svg.querySelector<SVGGElement>(`.playback-note[data-note-index="${props.currentNoteIndex}"]`)
+  if (!target) return
+
+  target.classList.add('playback-current')
+  if (reveal) keepTargetVisible(target)
+}
+
+function keepTargetVisible(target: SVGGraphicsElement): void {
+  const viewport = containerRef.value
+  if (!viewport) return
+
+  let box: DOMRect
+  try {
+    box = target.getBBox()
+  } catch {
+    return
+  }
+
+  const margin = 32
+  const scale = zp.scale.value
+  const left = zp.tx.value + box.x * scale
+  const right = zp.tx.value + (box.x + box.width) * scale
+  const top = zp.ty.value + box.y * scale
+  const bottom = zp.ty.value + (box.y + box.height) * scale
+
+  if (left < margin) {
+    zp.tx.value += margin - left
+  } else if (right > viewport.clientWidth - margin) {
+    zp.tx.value -= right - (viewport.clientWidth - margin)
+  }
+
+  if (top < margin) {
+    zp.ty.value += margin - top
+  } else if (bottom > viewport.clientHeight - margin) {
+    zp.ty.value -= bottom - (viewport.clientHeight - margin)
+  }
+
+  zp.applyTransform()
+}
+
+watch(svgUrl, (url) => {
+  void loadSvg(url)
+}, { immediate: true })
+
+watch(() => props.currentNoteIndex, () => {
+  nextTick(() => applyPlaybackHighlight(true))
 })
 
 watch(() => props.ocrText, (value) => {
@@ -283,7 +386,14 @@ watch(() => props.ocrText, (value) => {
 }, { immediate: true })
 
 onMounted(() => {
-  if (svgUrl.value) zp.bind()
+  if (svgText.value) {
+    zp.unbind()
+    zp.bind()
+    requestAnimationFrame(() => {
+      zp.fitToView()
+      applyPlaybackHighlight(false)
+    })
+  }
   window.addEventListener('mousemove', onDragMove)
   window.addEventListener('mouseup', endDrag)
   window.addEventListener('keydown', onKeyDown)
@@ -321,10 +431,47 @@ onUnmounted(() => {
   display: inline-block;
 }
 
-.zp-inner img {
+.svg-inline,
+.svg-inline :deep(svg) {
   display: block;
+}
+
+.svg-inline :deep(svg) {
   max-width: none;
   max-height: none;
+}
+
+.svg-inline :deep(.playback-note.playback-current .note),
+.svg-inline :deep(.playback-note.playback-current .accidental),
+.svg-inline :deep(.playback-note.playback-current .dynamic),
+.svg-inline :deep(.playback-note.playback-current .ornament),
+.svg-inline :deep(.playback-note.playback-current .technical),
+.svg-inline :deep(.playback-note.playback-current .technique-mark),
+.svg-inline :deep(.playback-note.playback-current .lyric) {
+  fill: #d97706;
+}
+
+.svg-inline :deep(.playback-note.playback-current .duration-line),
+.svg-inline :deep(.playback-note.playback-current .extension-line),
+.svg-inline :deep(.playback-note.playback-current .tie),
+.svg-inline :deep(.playback-note.playback-current .slur),
+.svg-inline :deep(.playback-note.playback-current .articulation) {
+  stroke: #d97706;
+}
+
+.svg-inline :deep(.playback-note.playback-current .octave-dot),
+.svg-inline :deep(.playback-note.playback-current .rhythm-dot) {
+  fill: #d97706;
+}
+
+.svg-loading {
+  width: 160px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
 }
 
 .ocr-edit-block {

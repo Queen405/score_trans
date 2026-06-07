@@ -201,6 +201,9 @@ function looseEqual(a, b) {
   }
   return String(a) === String(b);
 }
+function looseIndexOf(arr, val) {
+  return arr.findIndex((item) => looseEqual(item, val));
+}
 const isRef$1 = (val) => {
   return !!(val && val["__v_isRef"] === true);
 };
@@ -3618,7 +3621,7 @@ function applyOptions(instance) {
     beforeUnmount,
     destroyed,
     unmounted,
-    render: render24,
+    render: render27,
     renderTracked,
     renderTriggered,
     errorCaptured,
@@ -3717,8 +3720,8 @@ function applyOptions(instance) {
       instance.exposed = {};
     }
   }
-  if (render24 && instance.render === NOOP) {
-    instance.render = render24;
+  if (render27 && instance.render === NOOP) {
+    instance.render = render27;
   }
   if (inheritAttrs != null) {
     instance.inheritAttrs = inheritAttrs;
@@ -3950,7 +3953,7 @@ function createAppContext() {
   };
 }
 let uid$1 = 0;
-function createAppAPI(render24, hydrate) {
+function createAppAPI(render27, hydrate) {
   return function createApp2(rootComponent, rootProps = null) {
     if (!isFunction$2(rootComponent)) {
       rootComponent = extend({}, rootComponent);
@@ -4018,7 +4021,7 @@ function createAppAPI(render24, hydrate) {
             namespace2 = void 0;
           }
           {
-            render24(vnode, rootContainer, namespace2);
+            render27(vnode, rootContainer, namespace2);
           }
           isMounted2 = true;
           app2._container = rootContainer;
@@ -4036,7 +4039,7 @@ function createAppAPI(render24, hydrate) {
             app2._instance,
             16
           );
-          render24(null, app2._container);
+          render27(null, app2._container);
           delete app2._container.__vue_app__;
         }
       },
@@ -4168,7 +4171,7 @@ function renderComponentRoot(instance) {
     slots,
     attrs,
     emit: emit2,
-    render: render24,
+    render: render27,
     renderCache,
     props,
     data,
@@ -4193,7 +4196,7 @@ function renderComponentRoot(instance) {
         }
       }) : proxyToUse;
       result = normalizeVNode(
-        render24.call(
+        render27.call(
           thisProxy,
           proxyToUse,
           renderCache,
@@ -4205,10 +4208,10 @@ function renderComponentRoot(instance) {
       );
       fallthroughAttrs = attrs;
     } else {
-      const render25 = Component;
+      const render28 = Component;
       if (false) ;
       result = normalizeVNode(
-        render25.length > 1 ? render25(
+        render28.length > 1 ? render28(
           false ? /* @__PURE__ */ shallowReadonly(props) : props,
           false ? {
             get attrs() {
@@ -4218,7 +4221,7 @@ function renderComponentRoot(instance) {
             slots,
             emit: emit2
           } : { attrs, slots, emit: emit2 }
-        ) : render25(
+        ) : render28(
           false ? /* @__PURE__ */ shallowReadonly(props) : props,
           null
         )
@@ -5960,7 +5963,7 @@ function baseCreateRenderer(options, createHydrationFns) {
     return teleportEnd ? hostNextSibling(teleportEnd) : el;
   };
   let isFlushing = false;
-  const render24 = (vnode, container, namespace2) => {
+  const render27 = (vnode, container, namespace2) => {
     let instance;
     if (vnode == null) {
       if (container._vnode) {
@@ -6000,9 +6003,9 @@ function baseCreateRenderer(options, createHydrationFns) {
   };
   let hydrate;
   return {
-    render: render24,
+    render: render27,
     hydrate,
-    createApp: createAppAPI(render24)
+    createApp: createAppAPI(render27)
   };
 }
 function resolveChildrenNamespace({ type, props }, currentNamespace) {
@@ -6613,13 +6616,13 @@ function setupStatefulComponent(instance, isSSR) {
   const Component = instance.type;
   instance.accessCache = /* @__PURE__ */ Object.create(null);
   instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers);
-  const { setup: setup2 } = Component;
-  if (setup2) {
+  const { setup } = Component;
+  if (setup) {
     pauseTracking();
-    const setupContext = instance.setupContext = setup2.length > 1 ? createSetupContext(instance) : null;
+    const setupContext = instance.setupContext = setup.length > 1 ? createSetupContext(instance) : null;
     const reset = setCurrentInstance(instance);
     const setupResult = callWithErrorHandling(
-      setup2,
+      setup,
       instance,
       0,
       [
@@ -7741,6 +7744,68 @@ const vModelText = {
     el.value = newValue;
   }
 };
+const vModelCheckbox = {
+  // #4096 array checkboxes need to be deep traversed
+  deep: true,
+  created(el, _, vnode) {
+    el[assignKey] = getModelAssigner(vnode);
+    addEventListener(el, "change", () => {
+      const modelValue = el._modelValue;
+      const elementValue = getValue$1(el);
+      const checked = el.checked;
+      const assign2 = el[assignKey];
+      if (isArray$2(modelValue)) {
+        const index = looseIndexOf(modelValue, elementValue);
+        const found = index !== -1;
+        if (checked && !found) {
+          assign2(modelValue.concat(elementValue));
+        } else if (!checked && found) {
+          const filtered = [...modelValue];
+          filtered.splice(index, 1);
+          assign2(filtered);
+        }
+      } else if (isSet(modelValue)) {
+        const cloned = new Set(modelValue);
+        if (checked) {
+          cloned.add(elementValue);
+        } else {
+          cloned.delete(elementValue);
+        }
+        assign2(cloned);
+      } else {
+        assign2(getCheckboxValue(el, checked));
+      }
+    });
+  },
+  // set initial checked on mount to wait for true-value/false-value
+  mounted: setChecked,
+  beforeUpdate(el, binding, vnode) {
+    el[assignKey] = getModelAssigner(vnode);
+    setChecked(el, binding, vnode);
+  }
+};
+function setChecked(el, { value, oldValue }, vnode) {
+  el._modelValue = value;
+  let checked;
+  if (isArray$2(value)) {
+    checked = looseIndexOf(value, vnode.props.value) > -1;
+  } else if (isSet(value)) {
+    checked = value.has(vnode.props.value);
+  } else {
+    if (value === oldValue) return;
+    checked = looseEqual(value, getCheckboxValue(el, true));
+  }
+  if (el.checked !== checked) {
+    el.checked = checked;
+  }
+}
+function getValue$1(el) {
+  return "_value" in el ? el._value : el.value;
+}
+function getCheckboxValue(el, checked) {
+  const key = checked ? "_trueValue" : "_falseValue";
+  return key in el ? el[key] : checked;
+}
 const systemModifiers = ["ctrl", "shift", "alt", "meta"];
 const modifierGuards = {
   stop: (e) => e.stopPropagation(),
@@ -7945,7 +8010,7 @@ function createOptionsStore(id, options, pinia, hot) {
   const { state, actions, getters } = options;
   const initialState = pinia.state.value[id];
   let store;
-  function setup2() {
+  function setup() {
     if (!initialState && true) {
       {
         pinia.state.value[id] = state ? state() : {};
@@ -7961,10 +8026,10 @@ function createOptionsStore(id, options, pinia, hot) {
       return computedGetters;
     }, {}));
   }
-  store = createSetupStore(id, setup2, options, pinia, hot, true);
+  store = createSetupStore(id, setup, options, pinia, hot, true);
   return store;
 }
-function createSetupStore($id, setup2, options = {}, pinia, hot, isOptionsStore) {
+function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) {
   let scope;
   const optionsForPlugin = assign({ actions: {} }, options);
   const $subscribeOptions = { deep: true };
@@ -8095,7 +8160,7 @@ function createSetupStore($id, setup2, options = {}, pinia, hot, isOptionsStore)
   const store = /* @__PURE__ */ reactive(partialStore);
   pinia._s.set($id, store);
   const runWithContext = pinia._a && pinia._a.runWithContext || fallbackRunWithContext;
-  const setupStore = runWithContext(() => pinia._e.run(() => (scope = effectScope()).run(() => setup2({ action }))));
+  const setupStore = runWithContext(() => pinia._e.run(() => (scope = effectScope()).run(() => setup({ action }))));
   for (const key in setupStore) {
     const prop = setupStore[key];
     if (/* @__PURE__ */ isRef(prop) && !isComputed(prop) || /* @__PURE__ */ isReactive(prop)) {
@@ -8150,13 +8215,13 @@ function createSetupStore($id, setup2, options = {}, pinia, hot, isOptionsStore)
 }
 /*! #__NO_SIDE_EFFECTS__ */
 // @__NO_SIDE_EFFECTS__
-function defineStore(idOrOptions, setup2, setupOptions) {
+function defineStore(idOrOptions, setup, setupOptions) {
   let id;
   let options;
-  const isSetupStore = typeof setup2 === "function";
+  const isSetupStore = typeof setup === "function";
   if (typeof idOrOptions === "string") {
     id = idOrOptions;
-    options = isSetupStore ? setupOptions : setup2;
+    options = isSetupStore ? setupOptions : setup;
   } else {
     options = idOrOptions;
     id = idOrOptions.id;
@@ -8171,7 +8236,7 @@ function defineStore(idOrOptions, setup2, setupOptions) {
     pinia = activePinia;
     if (!pinia._s.has(id)) {
       if (isSetupStore) {
-        createSetupStore(id, setup2, options, pinia);
+        createSetupStore(id, setup, options, pinia);
       } else {
         createOptionsStore(id, options, pinia);
       }
@@ -8188,6 +8253,7 @@ function createPage(seed) {
   return {
     id: `${Date.now().toString(36)}-${random}`,
     historyPageId: null,
+    taskId: "",
     inputFileName: "",
     inputFileId: "",
     originalFileName: "",
@@ -8200,6 +8266,8 @@ function createPage(seed) {
     svgFileId: "",
     startMeasureNumber: null,
     status: "pending",
+    progressPercent: 0,
+    progressMessage: "",
     errorMessage: "",
     ...seed
   };
@@ -8221,6 +8289,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   const historyPageId = /* @__PURE__ */ ref(null);
   const currentTaskId = /* @__PURE__ */ ref(null);
   const taskStatus = /* @__PURE__ */ ref("pending");
+  const backgroundTaskCount = /* @__PURE__ */ ref(0);
   function syncCurrentFromPage() {
     const page = pages.value[currentPageIndex.value];
     if (!page) {
@@ -8300,6 +8369,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   const currentPage = computed(() => pages.value[currentPageIndex.value] ?? null);
   const canPrevPage = computed(() => currentPageIndex.value > 0);
   const canNextPage = computed(() => currentPageIndex.value >= 0 && currentPageIndex.value < pages.value.length - 1);
+  const activePageTaskCount = computed(() => pages.value.filter((page) => page.status === "processing").length);
   function setInputFile(name, fileId) {
     if (currentPageIndex.value < 0 || currentPageIndex.value >= pages.value.length) {
       addInputPage(name, fileId);
@@ -8323,6 +8393,9 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       svgFileId: "",
       startMeasureNumber: null,
       status: "pending",
+      taskId: "",
+      progressPercent: 0,
+      progressMessage: "",
       errorMessage: ""
     });
   }
@@ -8352,6 +8425,9 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       svgFileId: "",
       startMeasureNumber: null,
       status: "pending",
+      taskId: "",
+      progressPercent: 0,
+      progressMessage: "",
       errorMessage: ""
     });
   }
@@ -8410,6 +8486,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     const nextPages = replacementPages.map((p2) => createPage({
       inputFileName: p2.inputFileName,
       historyPageId: p2.historyPageId ?? null,
+      taskId: p2.taskId ?? "",
       inputFileId: p2.inputFileId,
       originalFileName: p2.originalFileName ?? "",
       originalFileId: p2.originalFileId ?? "",
@@ -8421,6 +8498,8 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       svgFileId: p2.svgFileId ?? "",
       startMeasureNumber: p2.startMeasureNumber ?? null,
       status: p2.status ?? "completed",
+      progressPercent: p2.progressPercent ?? 0,
+      progressMessage: p2.progressMessage ?? "",
       errorMessage: p2.errorMessage ?? ""
     }));
     pages.value.splice(index, 1, ...nextPages);
@@ -8438,8 +8517,40 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     replacePage(index, replacementPages, selectOffset);
     return true;
   }
+  function replacePageByIdKeepingSelection(pageId, replacementPages) {
+    const index = pages.value.findIndex((page) => page.id === pageId);
+    if (index < 0) return [];
+    const selectedPageId = currentPage.value?.id ?? "";
+    const nextPages = replacementPages.map((p2) => createPage({
+      inputFileName: p2.inputFileName,
+      historyPageId: p2.historyPageId ?? null,
+      taskId: p2.taskId ?? "",
+      inputFileId: p2.inputFileId,
+      originalFileName: p2.originalFileName ?? "",
+      originalFileId: p2.originalFileId ?? "",
+      musicxmlFileId: p2.musicxmlFileId ?? "",
+      musicxmlText: p2.musicxmlText ?? "",
+      jianpuText: p2.jianpuText ?? "",
+      ocrText: p2.ocrText ?? "",
+      jianpuDirty: p2.jianpuDirty ?? false,
+      svgFileId: p2.svgFileId ?? "",
+      startMeasureNumber: p2.startMeasureNumber ?? null,
+      status: p2.status ?? "completed",
+      progressPercent: p2.progressPercent ?? 0,
+      progressMessage: p2.progressMessage ?? "",
+      errorMessage: p2.errorMessage ?? ""
+    }));
+    pages.value.splice(index, 1, ...nextPages);
+    const selectedIndex = pages.value.findIndex((page) => page.id === selectedPageId);
+    currentPageIndex.value = selectedIndex >= 0 ? selectedIndex : Math.max(0, Math.min(index, pages.value.length - 1));
+    syncCurrentFromPage();
+    return nextPages;
+  }
   function setCurrentPageStatus(status, errorMessage = "") {
     patchCurrentPage({ status, errorMessage });
+  }
+  function setPageStatus(pageId, status, errorMessage = "") {
+    return patchPageById(pageId, { status, errorMessage });
   }
   function setBusy(value) {
     isBusy.value = value;
@@ -8450,6 +8561,12 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   }
   function setTaskStatus(status) {
     taskStatus.value = status;
+  }
+  function beginBackgroundTask() {
+    backgroundTaskCount.value += 1;
+  }
+  function endBackgroundTask() {
+    backgroundTaskCount.value = Math.max(0, backgroundTaskCount.value - 1);
   }
   function reset() {
     inputFileName.value = "";
@@ -8468,11 +8585,13 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     currentPageIndex.value = -1;
     currentTaskId.value = null;
     taskStatus.value = "pending";
+    backgroundTaskCount.value = 0;
   }
   function loadBatch(batchPages, selectIndex) {
     pages.value = batchPages.map((p2) => createPage({
       inputFileName: p2.inputFileName,
       historyPageId: p2.historyPageId ?? null,
+      taskId: p2.taskId ?? "",
       inputFileId: p2.inputFileId,
       originalFileName: p2.originalFileName ?? "",
       originalFileId: p2.originalFileId ?? "",
@@ -8484,6 +8603,8 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       svgFileId: p2.svgFileId ?? "",
       startMeasureNumber: p2.startMeasureNumber ?? null,
       status: p2.status ?? "completed",
+      progressPercent: p2.progressPercent ?? 0,
+      progressMessage: p2.progressMessage ?? "",
       errorMessage: p2.errorMessage ?? ""
     }));
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1));
@@ -8507,6 +8628,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     currentPageIndex,
     currentTaskId,
     taskStatus,
+    backgroundTaskCount,
     hasMusicxml,
     hasInput,
     hasOriginal,
@@ -8514,6 +8636,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     currentPage,
     canPrevPage,
     canNextPage,
+    activePageTaskCount,
     addInputPage,
     selectPage,
     selectPageById,
@@ -8535,10 +8658,14 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     removePage,
     replacePage,
     replacePageById,
+    replacePageByIdKeepingSelection,
     setCurrentPageStatus,
+    setPageStatus,
     setBusy,
     setCurrentTask,
     setTaskStatus,
+    beginBackgroundTask,
+    endBackgroundTask,
     reset,
     loadBatch
   };
@@ -8641,6 +8768,10 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const aiApiKeySet = /* @__PURE__ */ ref(false);
   const aiBaseUrl = /* @__PURE__ */ ref("https://api.siliconflow.cn/v1");
   const aiModel = /* @__PURE__ */ ref("Qwen/Qwen3-VL-8B-Instruct");
+  const assistantApiKey = /* @__PURE__ */ ref("");
+  const assistantApiKeySet = /* @__PURE__ */ ref(false);
+  const assistantBaseUrl = /* @__PURE__ */ ref("https://dashscope.aliyuncs.com/compatible-mode/v1");
+  const assistantModel = /* @__PURE__ */ ref("deepseek-v4-flash");
   const omrPreprocess = /* @__PURE__ */ ref(true);
   const omrPreprocessLongEdge = /* @__PURE__ */ ref(3600);
   const omrPreprocessBinarize = /* @__PURE__ */ ref(false);
@@ -8660,6 +8791,10 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
       aiApiKeySet.value = data.ai_api_key_set ?? false;
       aiBaseUrl.value = data.ai_base_url ?? "https://api.siliconflow.cn/v1";
       aiModel.value = data.ai_model ?? "Qwen/Qwen3-VL-8B-Instruct";
+      assistantApiKey.value = data.assistant_api_key ?? "";
+      assistantApiKeySet.value = data.assistant_api_key_set ?? false;
+      assistantBaseUrl.value = data.assistant_base_url ?? "https://dashscope.aliyuncs.com/compatible-mode/v1";
+      assistantModel.value = data.assistant_model ?? "deepseek-v4-flash";
       omrPreprocess.value = data.omr_preprocess ?? true;
       omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600;
       omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false;
@@ -8680,6 +8815,9 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
       ai_api_key: aiApiKey.value || void 0,
       ai_base_url: aiBaseUrl.value,
       ai_model: aiModel.value,
+      assistant_api_key: assistantApiKey.value || void 0,
+      assistant_base_url: assistantBaseUrl.value,
+      assistant_model: assistantModel.value,
       omr_preprocess: omrPreprocess.value,
       omr_preprocess_long_edge: omrPreprocessLongEdge.value,
       omr_preprocess_binarize: omrPreprocessBinarize.value
@@ -8698,6 +8836,10 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     aiApiKeySet,
     aiBaseUrl,
     aiModel,
+    assistantApiKey,
+    assistantApiKeySet,
+    assistantBaseUrl,
+    assistantModel,
     omrPreprocess,
     omrPreprocessLongEdge,
     omrPreprocessBinarize,
@@ -8720,39 +8862,32 @@ const pipelineApi = {
     return apiFetch("/pipeline", { method: "POST", body: formData });
   }
 };
-const renderApi = {
-  jianpuSvg(req) {
-    return apiFetch("/render/jianpu-svg", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  },
-  jianpuTextSvg(req) {
-    return apiFetch("/render/jianpu-text-svg", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  },
-  finalOutput(req) {
-    return apiFetch("/render/final-output", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  },
-  normalizeJianpuText(req) {
-    return apiFetch("/render/normalize-jianpu-text", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  }
-};
 const aiApi = {
   transcribe(req) {
     return apiFetch("/ai/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  listChatSessions() {
+    return apiFetch("/ai/chat/sessions");
+  },
+  createChatSession(title) {
+    return apiFetch("/ai/chat/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title })
+    });
+  },
+  getChatMessages(sessionId) {
+    return apiFetch(`/ai/chat/sessions/${sessionId}/messages`);
+  },
+  deleteChatSession(sessionId) {
+    return apiFetch(`/ai/chat/sessions/${sessionId}`, { method: "DELETE" });
+  },
+  chat(req) {
+    return apiFetch("/ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req)
@@ -8882,12 +9017,52 @@ function listenHistoryUpdated(callback) {
   window.addEventListener(HISTORY_UPDATED_EVENT, handler2);
   return () => window.removeEventListener(HISTORY_UPDATED_EVENT, handler2);
 }
-const _hoisted_1$w = {
+const _hoisted_1$z = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$y = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M256 112v288"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M400 256H112"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$n = [_hoisted_2$y, _hoisted_3$v];
+const AddOutline = /* @__PURE__ */ defineComponent({
+  name: "AddOutline",
+  render: function render(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_4$n);
+  }
+});
+const _hoisted_1$y = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$x = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -8901,7 +9076,7 @@ const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$u = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -8915,19 +9090,81 @@ const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$k = [_hoisted_2$u, _hoisted_3$q];
+const _hoisted_4$m = [_hoisted_2$x, _hoisted_3$u];
 const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
   name: "ArrowForwardOutline",
-  render: function render(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_4$k);
+  render: function render2(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_4$m);
   }
 });
-const _hoisted_1$v = {
+const _hoisted_1$x = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$w = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M87.48 380c1.2-4.38-1.43-10.47-3.94-14.86a42.63 42.63 0 0 0-2.54-3.8a199.81 199.81 0 0 1-33-110C47.64 139.09 140.72 48 255.82 48C356.2 48 440 117.54 459.57 209.85a199 199 0 0 1 4.43 41.64c0 112.41-89.49 204.93-204.59 204.93c-18.31 0-43-4.6-56.47-8.37s-26.92-8.77-30.39-10.11a31.14 31.14 0 0 0-11.13-2.07a30.7 30.7 0 0 0-12.08 2.43L81.5 462.78a15.92 15.92 0 0 1-4.66 1.22a9.61 9.61 0 0 1-9.58-9.74a15.85 15.85 0 0 1 .6-3.29z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-miterlimit": "10",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$t = /* @__PURE__ */ createBaseVNode(
+  "circle",
+  {
+    cx: "160",
+    cy: "256",
+    r: "32",
+    fill: "currentColor"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$l = /* @__PURE__ */ createBaseVNode(
+  "circle",
+  {
+    cx: "256",
+    cy: "256",
+    r: "32",
+    fill: "currentColor"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_5$f = /* @__PURE__ */ createBaseVNode(
+  "circle",
+  {
+    cx: "352",
+    cy: "256",
+    r: "32",
+    fill: "currentColor"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_6$a = [_hoisted_2$w, _hoisted_3$t, _hoisted_4$l, _hoisted_5$f];
+const ChatbubbleEllipsesOutline = /* @__PURE__ */ defineComponent({
+  name: "ChatbubbleEllipsesOutline",
+  render: function render3(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_6$a);
+  }
+});
+const _hoisted_1$w = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$v = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -8941,19 +9178,19 @@ const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$p = [_hoisted_2$t];
+const _hoisted_3$s = [_hoisted_2$v];
 const ChevronBackOutline = /* @__PURE__ */ defineComponent({
   name: "ChevronBackOutline",
-  render: function render2(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_3$p);
+  render: function render4(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_3$s);
   }
 });
-const _hoisted_1$u = {
+const _hoisted_1$v = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -8967,19 +9204,19 @@ const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$o = [_hoisted_2$s];
+const _hoisted_3$r = [_hoisted_2$u];
 const ChevronForwardOutline = /* @__PURE__ */ defineComponent({
   name: "ChevronForwardOutline",
-  render: function render3(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_3$o);
+  render: function render5(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_3$r);
   }
 });
-const _hoisted_1$t = {
+const _hoisted_1$u = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -8993,7 +9230,7 @@ const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$n = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9007,19 +9244,19 @@ const _hoisted_3$n = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$j = [_hoisted_2$r, _hoisted_3$n];
+const _hoisted_4$k = [_hoisted_2$t, _hoisted_3$q];
 const CloseOutline = /* @__PURE__ */ defineComponent({
   name: "CloseOutline",
-  render: function render4(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_4$j);
+  render: function render6(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$k);
   }
 });
-const _hoisted_1$s = {
+const _hoisted_1$t = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$q = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M320 336h76c55 0 100-21.21 100-75.6s-53-73.47-96-75.6C391.11 99.74 329 48 256 48c-69 0-113.44 45.79-128 91.2c-60 5.7-112 35.88-112 98.4S70 336 136 336h56",
@@ -9033,7 +9270,7 @@ const _hoisted_2$q = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$p = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9047,7 +9284,7 @@ const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$j = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9061,19 +9298,19 @@ const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$d = [_hoisted_2$q, _hoisted_3$m, _hoisted_4$i];
+const _hoisted_5$e = [_hoisted_2$s, _hoisted_3$p, _hoisted_4$j];
 const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
   name: "CloudDownloadOutline",
-  render: function render5(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_5$d);
+  render: function render7(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_5$e);
   }
 });
-const _hoisted_1$r = {
+const _hoisted_1$s = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M320 367.79h76c55 0 100-29.21 100-83.6s-53-81.47-96-83.6c-8.89-85.06-71-136.8-144-136.8c-69 0-113.44 45.79-128 91.2c-60 5.7-112 43.88-112 106.4s54 106.4 120 106.4h56",
@@ -9087,7 +9324,7 @@ const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$l = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$o = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9101,7 +9338,7 @@ const _hoisted_3$l = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$h = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9115,19 +9352,19 @@ const _hoisted_4$h = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$c = [_hoisted_2$p, _hoisted_3$l, _hoisted_4$h];
+const _hoisted_5$d = [_hoisted_2$r, _hoisted_3$o, _hoisted_4$i];
 const CloudUploadOutline = /* @__PURE__ */ defineComponent({
   name: "CloudUploadOutline",
-  render: function render6(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_5$c);
+  render: function render8(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_5$d);
   }
 });
-const _hoisted_1$q = {
+const _hoisted_1$r = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$q = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9141,7 +9378,7 @@ const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$k = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$n = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9155,19 +9392,19 @@ const _hoisted_3$k = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$g = [_hoisted_2$o, _hoisted_3$k];
+const _hoisted_4$h = [_hoisted_2$q, _hoisted_3$n];
 const CodeOutline = /* @__PURE__ */ defineComponent({
   name: "CodeOutline",
-  render: function render7(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_4$g);
+  render: function render9(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_4$h);
   }
 });
-const _hoisted_1$p = {
+const _hoisted_1$q = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$n = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M416 221.25V416a48 48 0 0 1-48 48H144a48 48 0 0 1-48-48V96a48 48 0 0 1 48-48h98.75a32 32 0 0 1 22.62 9.37l141.26 141.26a32 32 0 0 1 9.37 22.62z",
@@ -9180,7 +9417,7 @@ const _hoisted_2$n = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M256 56v120a32 32 0 0 0 32 32h120",
@@ -9194,19 +9431,19 @@ const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$f = [_hoisted_2$n, _hoisted_3$j];
+const _hoisted_4$g = [_hoisted_2$p, _hoisted_3$m];
 const DocumentOutline = /* @__PURE__ */ defineComponent({
   name: "DocumentOutline",
-  render: function render8(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_4$f);
+  render: function render10(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_4$g);
   }
 });
-const _hoisted_1$o = {
+const _hoisted_1$p = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$m = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M315.27 33L96 304h128l-31.51 173.23a2.36 2.36 0 0 0 2.33 2.77h0a2.36 2.36 0 0 0 1.89-.95L416 208H288l31.66-173.25a2.45 2.45 0 0 0-2.44-2.75h0a2.42 2.42 0 0 0-1.95 1z",
@@ -9220,11 +9457,24 @@ const _hoisted_2$m = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$i = [_hoisted_2$m];
+const _hoisted_3$l = [_hoisted_2$o];
 const FlashOutline = /* @__PURE__ */ defineComponent({
   name: "FlashOutline",
-  render: function render9(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$o, _hoisted_3$i);
+  render: function render11(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_3$l);
+  }
+});
+const _hoisted_1$o = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$n = /* @__PURE__ */ createStaticVNode('<path d="M256 48C141.13 48 48 141.13 48 256s93.13 208 208 208s208-93.13 208-208S370.87 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M256 48c-58.07 0-112.67 93.13-112.67 208S197.93 464 256 464s112.67-93.13 112.67-208S314.07 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M117.33 117.33c38.24 27.15 86.38 43.34 138.67 43.34s100.43-16.19 138.67-43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path d="M394.67 394.67c-38.24-27.15-86.38-43.34-138.67-43.34s-100.43 16.19-138.67 43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M256 48v416"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M464 256H48"></path>', 6);
+const _hoisted_8$8 = [_hoisted_2$n];
+const GlobeOutline = /* @__PURE__ */ defineComponent({
+  name: "GlobeOutline",
+  render: function render12(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$o, _hoisted_8$8);
   }
 });
 const _hoisted_1$n = {
@@ -9232,12 +9482,12 @@ const _hoisted_1$n = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$l = /* @__PURE__ */ createStaticVNode('<path d="M256 48C141.13 48 48 141.13 48 256s93.13 208 208 208s208-93.13 208-208S370.87 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M256 48c-58.07 0-112.67 93.13-112.67 208S197.93 464 256 464s112.67-93.13 112.67-208S314.07 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M117.33 117.33c38.24 27.15 86.38 43.34 138.67 43.34s100.43-16.19 138.67-43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path d="M394.67 394.67c-38.24-27.15-86.38-43.34-138.67-43.34s-100.43 16.19-138.67 43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M256 48v416"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M464 256H48"></path>', 6);
-const _hoisted_8$7 = [_hoisted_2$l];
-const GlobeOutline = /* @__PURE__ */ defineComponent({
-  name: "GlobeOutline",
-  render: function render10(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_8$7);
+const _hoisted_2$m = /* @__PURE__ */ createStaticVNode('<rect x="80" y="80" width="352" height="352" rx="48" ry="48" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><rect x="144" y="144" width="224" height="224" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 176h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 176h32"></path>', 14);
+const _hoisted_16$2 = [_hoisted_2$m];
+const HardwareChipOutline = /* @__PURE__ */ defineComponent({
+  name: "HardwareChipOutline",
+  render: function render13(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_16$2);
   }
 });
 const _hoisted_1$m = {
@@ -9245,20 +9495,7 @@ const _hoisted_1$m = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$k = /* @__PURE__ */ createStaticVNode('<rect x="80" y="80" width="352" height="352" rx="48" ry="48" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><rect x="144" y="144" width="224" height="224" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 176h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 176h32"></path>', 14);
-const _hoisted_16$2 = [_hoisted_2$k];
-const HardwareChipOutline = /* @__PURE__ */ defineComponent({
-  name: "HardwareChipOutline",
-  render: function render11(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_16$2);
-  }
-});
-const _hoisted_1$l = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$l = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M256 80a176 176 0 1 0 176 176A176 176 0 0 0 256 80z",
@@ -9271,7 +9508,7 @@ const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$h = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$k = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M200 202.29s.84-17.5 19.57-32.57C230.68 160.77 244 158.18 256 158c10.93-.14 20.69 1.67 26.53 4.45c10 4.76 29.47 16.38 29.47 41.09c0 26-17 37.81-36.37 50.8S251 281.43 251 296",
@@ -9285,7 +9522,7 @@ const _hoisted_3$h = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$f = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "250",
@@ -9297,19 +9534,19 @@ const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$b = [_hoisted_2$j, _hoisted_3$h, _hoisted_4$e];
+const _hoisted_5$c = [_hoisted_2$l, _hoisted_3$k, _hoisted_4$f];
 const HelpCircleOutline = /* @__PURE__ */ defineComponent({
   name: "HelpCircleOutline",
-  render: function render12(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_5$b);
+  render: function render14(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_5$c);
   }
 });
-const _hoisted_1$k = {
+const _hoisted_1$l = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$i = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$k = /* @__PURE__ */ createBaseVNode(
   "rect",
   {
     x: "48",
@@ -9327,7 +9564,7 @@ const _hoisted_2$i = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$g = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "336",
@@ -9342,7 +9579,7 @@ const _hoisted_3$g = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M304 335.79l-90.66-90.49a32 32 0 0 0-43.87-1.3L48 352",
@@ -9356,7 +9593,7 @@ const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
+const _hoisted_5$b = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M224 432l123.34-123.34a32 32 0 0 1 43.11-2L464 368",
@@ -9370,19 +9607,19 @@ const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$8 = [_hoisted_2$i, _hoisted_3$g, _hoisted_4$d, _hoisted_5$a];
+const _hoisted_6$9 = [_hoisted_2$k, _hoisted_3$j, _hoisted_4$e, _hoisted_5$b];
 const ImageOutline = /* @__PURE__ */ defineComponent({
   name: "ImageOutline",
-  render: function render13(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_6$8);
+  render: function render15(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_6$9);
   }
 });
-const _hoisted_1$j = {
+const _hoisted_1$k = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M218.1 167.17c0 13 0 25.6 4.1 37.4c-43.1 50.6-156.9 184.3-167.5 194.5a20.17 20.17 0 0 0-6.7 15c0 8.5 5.2 16.7 9.6 21.3c6.6 6.9 34.8 33 40 28c15.4-15 18.5-19 24.8-25.2c9.5-9.3-1-28.3 2.3-36s6.8-9.2 12.5-10.4s15.8 2.9 23.7 3c8.3.1 12.8-3.4 19-9.2c5-4.6 8.6-8.9 8.7-15.6c.2-9-12.8-20.9-3.1-30.4s23.7 6.2 34 5s22.8-15.5 24.1-21.6s-11.7-21.8-9.7-30.7c.7-3 6.8-10 11.4-11s25 6.9 29.6 5.9c5.6-1.2 12.1-7.1 17.4-10.4c15.5 6.7 29.6 9.4 47.7 9.4c68.5 0 124-53.4 124-119.2S408.5 48 340 48s-121.9 53.37-121.9 119.17zM400 144a32 32 0 1 1-32-32a32 32 0 0 1 32 32z",
@@ -9395,19 +9632,19 @@ const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$f = [_hoisted_2$h];
+const _hoisted_3$i = [_hoisted_2$j];
 const KeyOutline = /* @__PURE__ */ defineComponent({
   name: "KeyOutline",
-  render: function render14(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_3$f);
+  render: function render16(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_3$i);
   }
 });
-const _hoisted_1$i = {
+const _hoisted_1$j = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$g = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$i = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M320 146s24.36-12-64-12a160 160 0 1 0 160 160",
@@ -9421,7 +9658,7 @@ const _hoisted_2$g = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$e = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$h = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9435,19 +9672,19 @@ const _hoisted_3$e = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$c = [_hoisted_2$g, _hoisted_3$e];
+const _hoisted_4$d = [_hoisted_2$i, _hoisted_3$h];
 const RefreshOutline = /* @__PURE__ */ defineComponent({
   name: "RefreshOutline",
-  render: function render15(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$i, _hoisted_4$c);
+  render: function render17(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_4$d);
   }
 });
-const _hoisted_1$h = {
+const _hoisted_1$i = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$f = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M380.93 57.37A32 32 0 0 0 358.3 48H94.22A46.21 46.21 0 0 0 48 94.22v323.56A46.21 46.21 0 0 0 94.22 464h323.56A46.36 46.36 0 0 0 464 417.78V153.7a32 32 0 0 0-9.37-22.63zM256 416a64 64 0 1 1 64-64a63.92 63.92 0 0 1-64 64zm48-224H112a16 16 0 0 1-16-16v-64a16 16 0 0 1 16-16h192a16 16 0 0 1 16 16v64a16 16 0 0 1-16 16z",
@@ -9461,19 +9698,19 @@ const _hoisted_2$f = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$d = [_hoisted_2$f];
+const _hoisted_3$g = [_hoisted_2$h];
 const SaveOutline = /* @__PURE__ */ defineComponent({
   name: "SaveOutline",
-  render: function render16(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$h, _hoisted_3$d);
+  render: function render18(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$i, _hoisted_3$g);
   }
 });
-const _hoisted_1$g = {
+const _hoisted_1$h = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$e = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$g = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M336 448h56a56 56 0 0 0 56-56v-56",
@@ -9487,7 +9724,7 @@ const _hoisted_2$e = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$c = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$f = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M448 176v-56a56 56 0 0 0-56-56h-56",
@@ -9501,7 +9738,7 @@ const _hoisted_3$c = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M176 448h-56a56 56 0 0 1-56-56v-56",
@@ -9515,7 +9752,7 @@ const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$9 = /* @__PURE__ */ createBaseVNode(
+const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M64 176v-56a56 56 0 0 1 56-56h56",
@@ -9529,11 +9766,37 @@ const _hoisted_5$9 = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$7 = [_hoisted_2$e, _hoisted_3$c, _hoisted_4$b, _hoisted_5$9];
+const _hoisted_6$8 = [_hoisted_2$g, _hoisted_3$f, _hoisted_4$c, _hoisted_5$a];
 const ScanOutline = /* @__PURE__ */ defineComponent({
   name: "ScanOutline",
-  render: function render17(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_6$7);
+  render: function render19(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$h, _hoisted_6$8);
+  }
+});
+const _hoisted_1$g = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$f = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M470.3 271.15L43.16 447.31a7.83 7.83 0 0 1-11.16-7V327a8 8 0 0 1 6.51-7.86l247.62-47c17.36-3.29 17.36-28.15 0-31.44l-247.63-47a8 8 0 0 1-6.5-7.85V72.59c0-5.74 5.88-10.26 11.16-8L470.3 241.76a16 16 0 0 1 0 29.39z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$e = [_hoisted_2$f];
+const SendOutline = /* @__PURE__ */ defineComponent({
+  name: "SendOutline",
+  render: function render20(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_3$e);
   }
 });
 const _hoisted_1$f = {
@@ -9541,7 +9804,7 @@ const _hoisted_1$f = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$d = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$e = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M262.29 192.31a64 64 0 1 0 57.4 57.4a64.13 64.13 0 0 0-57.4-57.4zM416.39 256a154.34 154.34 0 0 1-1.53 20.79l45.21 35.46a10.81 10.81 0 0 1 2.45 13.75l-42.77 74a10.81 10.81 0 0 1-13.14 4.59l-44.9-18.08a16.11 16.11 0 0 0-15.17 1.75A164.48 164.48 0 0 1 325 400.8a15.94 15.94 0 0 0-8.82 12.14l-6.73 47.89a11.08 11.08 0 0 1-10.68 9.17h-85.54a11.11 11.11 0 0 1-10.69-8.87l-6.72-47.82a16.07 16.07 0 0 0-9-12.22a155.3 155.3 0 0 1-21.46-12.57a16 16 0 0 0-15.11-1.71l-44.89 18.07a10.81 10.81 0 0 1-13.14-4.58l-42.77-74a10.8 10.8 0 0 1 2.45-13.75l38.21-30a16.05 16.05 0 0 0 6-14.08c-.36-4.17-.58-8.33-.58-12.5s.21-8.27.58-12.35a16 16 0 0 0-6.07-13.94l-38.19-30A10.81 10.81 0 0 1 49.48 186l42.77-74a10.81 10.81 0 0 1 13.14-4.59l44.9 18.08a16.11 16.11 0 0 0 15.17-1.75A164.48 164.48 0 0 1 187 111.2a15.94 15.94 0 0 0 8.82-12.14l6.73-47.89A11.08 11.08 0 0 1 213.23 42h85.54a11.11 11.11 0 0 1 10.69 8.87l6.72 47.82a16.07 16.07 0 0 0 9 12.22a155.3 155.3 0 0 1 21.46 12.57a16 16 0 0 0 15.11 1.71l44.89-18.07a10.81 10.81 0 0 1 13.14 4.58l42.77 74a10.8 10.8 0 0 1-2.45 13.75l-38.21 30a16.05 16.05 0 0 0-6.05 14.08c.33 4.14.55 8.3.55 12.47z",
@@ -9555,11 +9818,11 @@ const _hoisted_2$d = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$b = [_hoisted_2$d];
+const _hoisted_3$d = [_hoisted_2$e];
 const SettingsOutline = /* @__PURE__ */ defineComponent({
   name: "SettingsOutline",
-  render: function render18(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$f, _hoisted_3$b);
+  render: function render21(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$f, _hoisted_3$d);
   }
 });
 const _hoisted_1$e = {
@@ -9567,7 +9830,7 @@ const _hoisted_1$e = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$c = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$d = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M434.67 285.59v-29.8c0-98.73-80.24-178.79-179.2-178.79a179 179 0 0 0-140.14 67.36m-38.53 82v29.8C76.8 355 157 435 256 435a180.45 180.45 0 0 0 140-66.92",
@@ -9581,7 +9844,7 @@ const _hoisted_2$c = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$a = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$c = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9595,7 +9858,7 @@ const _hoisted_3$a = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$a = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9609,11 +9872,11 @@ const _hoisted_4$a = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$8 = [_hoisted_2$c, _hoisted_3$a, _hoisted_4$a];
+const _hoisted_5$9 = [_hoisted_2$d, _hoisted_3$c, _hoisted_4$b];
 const SyncOutline = /* @__PURE__ */ defineComponent({
   name: "SyncOutline",
-  render: function render19(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_5$8);
+  render: function render22(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_5$9);
   }
 });
 const _hoisted_1$d = {
@@ -9621,7 +9884,7 @@ const _hoisted_1$d = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$b = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$c = /* @__PURE__ */ createBaseVNode(
   "rect",
   {
     x: "32",
@@ -9639,7 +9902,7 @@ const _hoisted_2$b = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$9 = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$b = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9653,7 +9916,7 @@ const _hoisted_3$9 = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$9 = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$a = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9667,11 +9930,11 @@ const _hoisted_4$9 = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$7 = [_hoisted_2$b, _hoisted_3$9, _hoisted_4$9];
+const _hoisted_5$8 = [_hoisted_2$c, _hoisted_3$b, _hoisted_4$a];
 const TerminalOutline = /* @__PURE__ */ defineComponent({
   name: "TerminalOutline",
-  render: function render20(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_5$7);
+  render: function render23(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_5$8);
   }
 });
 const _hoisted_1$c = {
@@ -9679,7 +9942,7 @@ const _hoisted_1$c = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$a = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$b = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M256 64C150 64 64 150 64 256s86 192 192 192s192-86 192-192S362 64 256 64z",
@@ -9692,7 +9955,7 @@ const _hoisted_2$a = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$8 = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$a = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9706,11 +9969,11 @@ const _hoisted_3$8 = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$8 = [_hoisted_2$a, _hoisted_3$8];
+const _hoisted_4$9 = [_hoisted_2$b, _hoisted_3$a];
 const TimeOutline = /* @__PURE__ */ defineComponent({
   name: "TimeOutline",
-  render: function render21(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_4$8);
+  render: function render24(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_4$9);
   }
 });
 const _hoisted_1$b = {
@@ -9718,12 +9981,12 @@ const _hoisted_1$b = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$9 = /* @__PURE__ */ createStaticVNode('<path d="M112 112l20 320c.95 18.49 14.4 32 32 32h184c17.67 0 30.87-13.51 32-32l20-320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M80 112h352" fill="currentColor"></path><path d="M192 112V72h0a23.93 23.93 0 0 1 24-24h80a23.93 23.93 0 0 1 24 24h0v40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 176v224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M184 176l8 224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M328 176l-8 224"></path>', 6);
-const _hoisted_8$6 = [_hoisted_2$9];
+const _hoisted_2$a = /* @__PURE__ */ createStaticVNode('<path d="M112 112l20 320c.95 18.49 14.4 32 32 32h184c17.67 0 30.87-13.51 32-32l20-320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M80 112h352" fill="currentColor"></path><path d="M192 112V72h0a23.93 23.93 0 0 1 24-24h80a23.93 23.93 0 0 1 24 24h0v40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 176v224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M184 176l8 224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M328 176l-8 224"></path>', 6);
+const _hoisted_8$7 = [_hoisted_2$a];
 const TrashOutline = /* @__PURE__ */ defineComponent({
   name: "TrashOutline",
-  render: function render22(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$b, _hoisted_8$6);
+  render: function render25(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$b, _hoisted_8$7);
   }
 });
 function useFileUpload() {
@@ -10352,13 +10615,6 @@ function getMargin(value, position) {
   if (position === void 0)
     return margin;
   return margin[position];
-}
-function getGap(value, orient) {
-  const [rowGap, colGap] = value.split(" ");
-  return {
-    row: rowGap,
-    col: colGap || rowGap
-  };
 }
 const colors = {
   aliceblue: "#F0F8FF",
@@ -11118,18 +11374,18 @@ function useClickPosition() {
     return /* @__PURE__ */ readonly(/* @__PURE__ */ ref(null));
   if (usedCount$1 === 0)
     on("click", document, clickHandler, true);
-  const setup2 = () => {
+  const setup = () => {
     usedCount$1 += 1;
   };
   if (managable$1 && (managable$1 = hasInstance())) {
-    onBeforeMount(setup2);
+    onBeforeMount(setup);
     onBeforeUnmount(() => {
       usedCount$1 -= 1;
       if (usedCount$1 === 0)
         off("click", document, clickHandler, true);
     });
   } else {
-    setup2();
+    setup();
   }
   return /* @__PURE__ */ readonly(mousePositionRef);
 }
@@ -11158,12 +11414,12 @@ function useClicked(timeout) {
   if (usedCount === 0) {
     on("click", window, handleClick, true);
   }
-  const setup2 = () => {
+  const setup = () => {
     usedCount += 1;
     on("click", window, clickedHandler, true);
   };
   if (managable && (managable = hasInstance())) {
-    onBeforeMount(setup2);
+    onBeforeMount(setup);
     onBeforeUnmount(() => {
       usedCount -= 1;
       if (usedCount === 0) {
@@ -11173,7 +11429,7 @@ function useClicked(timeout) {
       clearTimer();
     });
   } else {
-    setup2();
+    setup();
   }
   return /* @__PURE__ */ readonly(clickedRef);
 }
@@ -11374,7 +11630,7 @@ function useReactivated(callback) {
   });
   return isDeactivatedRef;
 }
-function getSlot$1(scope, slots, slotName = "default") {
+function getSlot(scope, slots, slotName = "default") {
   const slot = slots[slotName];
   if (slot === void 0) {
     throw new Error(`[vueuc/${scope}]: slot[${slotName}] is empty.`);
@@ -11582,7 +11838,7 @@ const Binder = /* @__PURE__ */ defineComponent({
     };
   },
   render() {
-    return getSlot$1("binder", this.$slots);
+    return getSlot("binder", this.$slots);
   }
 });
 const VTarget = /* @__PURE__ */ defineComponent({
@@ -11940,10 +12196,10 @@ const LazyTeleport = /* @__PURE__ */ defineComponent({
     };
   },
   render() {
-    return this.showTeleport ? this.disabled ? getSlot$1("lazy-teleport", this.$slots) : h(Teleport, {
+    return this.showTeleport ? this.disabled ? getSlot("lazy-teleport", this.$slots) : h(Teleport, {
       disabled: this.disabled,
       to: this.mergedTo
-    }, getSlot$1("lazy-teleport", this.$slots)) : null;
+    }, getSlot("lazy-teleport", this.$slots)) : null;
   }
 });
 const oppositionPositions = {
@@ -12268,7 +12524,7 @@ function getOffset(placement, offsetRect, targetRect, offsetTopToStandardPlaceme
       };
   }
 }
-const style$t = c([
+const style$s = c([
   c(".v-binder-follower-container", {
     position: "absolute",
     left: "0",
@@ -12350,7 +12606,7 @@ const VFollower = /* @__PURE__ */ defineComponent({
       }
     });
     const ssrAdapter2 = useSsrAdapter();
-    style$t.mount({
+    style$s.mount({
       id: "vueuc/binder",
       head: true,
       anchorMetaName: cssrAnchorMetaName$1,
@@ -13638,7 +13894,7 @@ const VVirtualList = /* @__PURE__ */ defineComponent({
   }
 });
 const hiddenAttr = "v-hidden";
-const style$s = c("[v-hidden]", {
+const style$r = c("[v-hidden]", {
   display: "none!important"
 });
 const VOverflow = /* @__PURE__ */ defineComponent({
@@ -13739,7 +13995,7 @@ const VOverflow = /* @__PURE__ */ defineComponent({
       }
     }
     const ssrAdapter2 = useSsrAdapter();
-    style$s.mount({
+    style$r.mount({
       id: "vueuc/overflow",
       head: true,
       anchorMetaName: cssrAnchorMetaName$1,
@@ -14198,12 +14454,6 @@ function getFirstSlotVNodeWithTypedProps(slotName, slot, props) {
     return null;
   }
 }
-function getSlot(instance, slotName = "default", fallback = []) {
-  const slots = instance.$slots;
-  const slot = slots[slotName];
-  if (slot === void 0) return fallback;
-  return slot();
-}
 function keep(object, keys2 = [], rest) {
   const keepedObject = {};
   keys2.forEach((key) => {
@@ -14236,7 +14486,7 @@ function omit(object, keys2 = [], rest) {
   });
   return Object.assign(omitedObject, rest);
 }
-function render23(r, ...args) {
+function render26(r, ...args) {
   if (typeof r === "function") {
     return r(...args);
   } else if (typeof r === "string") {
@@ -16870,7 +17120,7 @@ useTheme.props = {
   themeOverrides: Object,
   builtinThemeOverrides: Object
 };
-const style$r = cB("base-icon", `
+const style$q = cB("base-icon", `
  height: 1em;
  width: 1em;
  line-height: 1em;
@@ -16904,7 +17154,7 @@ const NBaseIcon = /* @__PURE__ */ defineComponent({
     onMouseup: Function
   },
   setup(props) {
-    useStyle("-base-icon", style$r, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-icon", style$q, /* @__PURE__ */ toRef(props, "clsPrefix"));
   },
   render() {
     return h("i", {
@@ -17324,7 +17574,7 @@ function iconSwitchTransition({
     transition
   })];
 }
-const style$q = cB("base-clear", `
+const style$p = cB("base-clear", `
  flex-shrink: 0;
  height: 1em;
  width: 1em;
@@ -17364,7 +17614,7 @@ const NBaseClear = /* @__PURE__ */ defineComponent({
     onClear: Function
   },
   setup(props) {
-    useStyle("-base-clear", style$q, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-clear", style$p, /* @__PURE__ */ toRef(props, "clsPrefix"));
     return {
       handleMouseDown(e) {
         e.preventDefault();
@@ -17398,7 +17648,7 @@ const NBaseClear = /* @__PURE__ */ defineComponent({
     }));
   }
 });
-const style$p = cB("base-close", `
+const style$o = cB("base-close", `
  display: flex;
  align-items: center;
  justify-content: center;
@@ -17467,7 +17717,7 @@ const NBaseClose = /* @__PURE__ */ defineComponent({
     absolute: Boolean
   },
   setup(props) {
-    useStyle("-base-close", style$p, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-close", style$o, /* @__PURE__ */ toRef(props, "clsPrefix"));
     return () => {
       const {
         clsPrefix,
@@ -17620,7 +17870,7 @@ const FocusDetector = /* @__PURE__ */ defineComponent({
     });
   }
 });
-const style$o = c$1([c$1("@keyframes rotator", `
+const style$n = c$1([c$1("@keyframes rotator", `
  0% {
  -webkit-transform: rotate(0deg);
  transform: rotate(0deg);
@@ -17684,7 +17934,7 @@ const NBaseLoading = /* @__PURE__ */ defineComponent({
     }
   }, exposedLoadingProps),
   setup(props) {
-    useStyle("-base-loading", style$o, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-loading", style$n, /* @__PURE__ */ toRef(props, "clsPrefix"));
   },
   render() {
     const {
@@ -18109,7 +18359,7 @@ const commonVars$d = {
   railInsetVerticalLeft: "2px auto 2px 4px",
   railColor: "transparent"
 };
-function self$10(vars) {
+function self$_(vars) {
   const {
     scrollbarColor,
     scrollbarColorHover,
@@ -18128,14 +18378,14 @@ function self$10(vars) {
 const scrollbarLight = {
   name: "Scrollbar",
   common: derived,
-  self: self$10
+  self: self$_
 };
 const scrollbarDark = {
   name: "Scrollbar",
   common: derived$1,
-  self: self$10
+  self: self$_
 };
-const style$n = cB("scrollbar", `
+const style$m = cB("scrollbar", `
  overflow: hidden;
  position: relative;
  z-index: auto;
@@ -18279,7 +18529,7 @@ const Scrollbar = /* @__PURE__ */ defineComponent({
     let memoMouseX = 0;
     let memoMouseY = 0;
     const isIos2 = useIsIos();
-    const themeRef = useTheme("Scrollbar", "-scrollbar", style$n, scrollbarLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Scrollbar", "-scrollbar", style$m, scrollbarLight, props, mergedClsPrefixRef);
     const yBarSizeRef = computed(() => {
       const {
         value: containerHeight
@@ -19606,7 +19856,7 @@ const commonVars$c = {
   iconSizeLarge: "46px",
   iconSizeHuge: "52px"
 };
-function self$$(vars) {
+function self$Z(vars) {
   const {
     textColorDisabled,
     iconColor,
@@ -19631,14 +19881,14 @@ function self$$(vars) {
 const emptyLight = {
   name: "Empty",
   common: derived,
-  self: self$$
+  self: self$Z
 };
 const emptyDark = {
   name: "Empty",
   common: derived$1,
-  self: self$$
+  self: self$Z
 };
-const style$m = cB("empty", `
+const style$l = cB("empty", `
  display: flex;
  flex-direction: column;
  align-items: center;
@@ -19688,7 +19938,7 @@ const NEmpty = /* @__PURE__ */ defineComponent({
       inlineThemeDisabled,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("Empty", "-empty", style$m, emptyLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Empty", "-empty", style$l, emptyLight, props, mergedClsPrefixRef);
     const {
       localeRef
     } = useLocale("Empty");
@@ -19781,7 +20031,7 @@ const commonVariables$m = {
   optionPaddingHuge: "0 12px",
   loadingSize: "18px"
 };
-function self$_(vars) {
+function self$Y(vars) {
   const {
     borderRadius,
     popoverColor,
@@ -19839,7 +20089,7 @@ const internalSelectMenuLight = createTheme({
     Scrollbar: scrollbarLight,
     Empty: emptyLight
   },
-  self: self$_
+  self: self$Y
 });
 const internalSelectMenuDark = {
   name: "InternalSelectMenu",
@@ -19848,7 +20098,7 @@ const internalSelectMenuDark = {
     Scrollbar: scrollbarDark,
     Empty: emptyDark
   },
-  self: self$_
+  self: self$Y
 };
 const NSelectGroupHeader = /* @__PURE__ */ defineComponent({
   name: "NBaseSelectGroupHeader",
@@ -19887,7 +20137,7 @@ const NSelectGroupHeader = /* @__PURE__ */ defineComponent({
       }
     } = this;
     const attrs = nodeProps === null || nodeProps === void 0 ? void 0 : nodeProps(rawNode);
-    const children = renderLabel ? renderLabel(rawNode, false) : render23(rawNode[this.labelField], rawNode, false);
+    const children = renderLabel ? renderLabel(rawNode, false) : render26(rawNode[this.labelField], rawNode, false);
     const node = h("div", Object.assign({}, attrs, {
       class: [`${clsPrefix}-base-select-group-header`, attrs === null || attrs === void 0 ? void 0 : attrs.class]
     }), children);
@@ -20029,7 +20279,7 @@ const NSelectOption = /* @__PURE__ */ defineComponent({
       handleMouseMove
     } = this;
     const checkmark = renderCheckMark(isSelected, clsPrefix);
-    const children = renderLabel ? [renderLabel(rawNode, isSelected), showCheckmark && checkmark] : [render23(rawNode[this.labelField], rawNode, isSelected), showCheckmark && checkmark];
+    const children = renderLabel ? [renderLabel(rawNode, isSelected), showCheckmark && checkmark] : [render26(rawNode[this.labelField], rawNode, isSelected), showCheckmark && checkmark];
     const attrs = nodeProps === null || nodeProps === void 0 ? void 0 : nodeProps(rawNode);
     const node = h("div", Object.assign({}, attrs, {
       class: [`${clsPrefix}-base-select-option`, rawNode.class, attrs === null || attrs === void 0 ? void 0 : attrs.class, {
@@ -20082,7 +20332,7 @@ function fadeInScaleUpTransition({
     transform: `${originalTransform} scale(1)`
   })];
 }
-const style$l = cB("base-select-menu", `
+const style$k = cB("base-select-menu", `
  line-height: 1.5;
  outline: none;
  z-index: 0;
@@ -20269,7 +20519,7 @@ const NInternalSelectMenu = /* @__PURE__ */ defineComponent({
       mergedComponentPropsRef
     } = useConfig(props);
     const rtlEnabledRef = useRtl("InternalSelectMenu", mergedRtlRef, mergedClsPrefixRef);
-    const themeRef = useTheme("InternalSelectMenu", "-internal-select-menu", style$l, internalSelectMenuLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    const themeRef = useTheme("InternalSelectMenu", "-internal-select-menu", style$k, internalSelectMenuLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
     const selfRef = /* @__PURE__ */ ref(null);
     const virtualListRef = /* @__PURE__ */ ref(null);
     const scrollbarRef = /* @__PURE__ */ ref(null);
@@ -20696,7 +20946,7 @@ const commonVariables$l = {
   arrowHeight: "6px",
   padding: "8px 14px"
 };
-function self$Z(vars) {
+function self$X(vars) {
   const {
     boxShadow2,
     popoverColor,
@@ -20720,7 +20970,7 @@ const popoverLight = createTheme({
   peers: {
     Scrollbar: scrollbarLight
   },
-  self: self$Z
+  self: self$X
 });
 const popoverDark = {
   name: "Popover",
@@ -20728,7 +20978,7 @@ const popoverDark = {
   peers: {
     Scrollbar: scrollbarDark
   },
-  self: self$Z
+  self: self$X
 };
 const oppositePlacement = {
   top: "bottom",
@@ -20737,7 +20987,7 @@ const oppositePlacement = {
   right: "left"
 };
 const arrowSize = "var(--n-arrow-height) * 1.414";
-const style$k = c$1([cB("popover", `
+const style$j = c$1([cB("popover", `
  transition:
  box-shadow .3s var(--n-bezier),
  background-color .3s var(--n-bezier),
@@ -20952,7 +21202,7 @@ const NPopoverBody = /* @__PURE__ */ defineComponent({
       inlineThemeDisabled,
       mergedRtlRef
     } = useConfig(props);
-    const themeRef = useTheme("Popover", "-popover", style$k, popoverLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Popover", "-popover", style$j, popoverLight, props, mergedClsPrefixRef);
     const rtlEnabledRef = useRtl("Popover", mergedRtlRef, mergedClsPrefixRef);
     const followerRef = /* @__PURE__ */ ref(null);
     const NPopover2 = inject("NPopover");
@@ -21897,7 +22147,7 @@ const tagDark = {
     });
   }
 };
-function self$Y(vars) {
+function self$W(vars) {
   const {
     textColor2,
     primaryColorHover,
@@ -22062,7 +22312,7 @@ function self$Y(vars) {
 }
 const tagLight = {
   common: derived,
-  self: self$Y
+  self: self$W
 };
 const commonProps = {
   color: Object,
@@ -22078,7 +22328,7 @@ const commonProps = {
     default: void 0
   }
 };
-const style$j = cB("tag", `
+const style$i = cB("tag", `
  --n-close-margin: var(--n-close-margin-top) var(--n-close-margin-right) var(--n-close-margin-bottom) var(--n-close-margin-left);
  white-space: nowrap;
  position: relative;
@@ -22193,7 +22443,7 @@ const NTag = /* @__PURE__ */ defineComponent({
       var _a, _b;
       return props.size || ((_b = (_a = mergedComponentPropsRef === null || mergedComponentPropsRef === void 0 ? void 0 : mergedComponentPropsRef.value) === null || _a === void 0 ? void 0 : _a.Tag) === null || _b === void 0 ? void 0 : _b.size) || "medium";
     });
-    const themeRef = useTheme("Tag", "-tag", style$j, tagLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Tag", "-tag", style$i, tagLight, props, mergedClsPrefixRef);
     provide(tagInjectionKey, {
       roundRef: /* @__PURE__ */ toRef(props, "round")
     });
@@ -22572,7 +22822,7 @@ const internalSelectionDark = {
     });
   }
 };
-function self$X(vars) {
+function self$V(vars) {
   const {
     borderRadius,
     textColor2,
@@ -22676,9 +22926,9 @@ const internalSelectionLight = createTheme({
   peers: {
     Popover: popoverLight
   },
-  self: self$X
+  self: self$V
 });
-const style$i = c$1([cB("base-selection", `
+const style$h = c$1([cB("base-selection", `
  --n-padding-single: var(--n-padding-single-top) var(--n-padding-single-right) var(--n-padding-single-bottom) var(--n-padding-single-left);
  --n-padding-multiple: var(--n-padding-multiple-top) var(--n-padding-multiple-right) var(--n-padding-multiple-bottom) var(--n-padding-multiple-left);
  position: relative;
@@ -22968,7 +23218,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
     const showTagsPopoverRef = /* @__PURE__ */ ref(false);
     const patternInputFocusedRef = /* @__PURE__ */ ref(false);
     const hoverRef = /* @__PURE__ */ ref(false);
-    const themeRef = useTheme("InternalSelection", "-internal-selection", style$i, internalSelectionLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    const themeRef = useTheme("InternalSelection", "-internal-selection", style$h, internalSelectionLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
     const mergedClearableRef = computed(() => {
       return props.clearable && !props.disabled && (hoverRef.value || props.active);
     });
@@ -22977,7 +23227,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
         option: props.selectedOption,
         handleClose: () => {
         }
-      }) : props.renderLabel ? props.renderLabel(props.selectedOption, true) : render23(props.selectedOption[props.labelField], props.selectedOption, true) : props.placeholder;
+      }) : props.renderLabel ? props.renderLabel(props.selectedOption, true) : render26(props.selectedOption[props.labelField], props.selectedOption, true) : props.placeholder;
     });
     const labelRef = computed(() => {
       const option = props.selectedOption;
@@ -23478,7 +23728,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
         internalCloseIsButtonTag: false,
         internalCloseFocusable: false
       }, {
-        default: () => renderLabel ? renderLabel(option, true) : render23(option[labelField], option, true)
+        default: () => renderLabel ? renderLabel(option, true) : render26(option[labelField], option, true)
       }));
       const createOriginalTagNodes = () => (maxTagCountNumeric ? this.selectedOptions.slice(0, maxTagCount) : this.selectedOptions).map(createTag);
       const input = filterable ? h("div", {
@@ -23622,7 +23872,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
           option: this.selectedOption,
           handleClose: () => {
           }
-        }) : renderLabel ? renderLabel(this.selectedOption, true) : render23(this.label, this.selectedOption, true))) : null, showPlaceholder ? h("div", {
+        }) : renderLabel ? renderLabel(this.selectedOption, true) : render26(this.label, this.selectedOption, true))) : null, showPlaceholder ? h("div", {
           class: `${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`,
           key: "placeholder"
         }, h("div", {
@@ -23643,7 +23893,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
           option: this.selectedOption,
           handleClose: () => {
           }
-        }) : renderLabel ? renderLabel(this.selectedOption, true) : render23(this.label, this.selectedOption, true))) : h("div", {
+        }) : renderLabel ? renderLabel(this.selectedOption, true) : render26(this.label, this.selectedOption, true))) : h("div", {
           class: `${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`,
           key: "placeholder"
         }, h("div", {
@@ -23707,7 +23957,7 @@ function fadeInWidthExpandTransition({
  margin-right ${duration2} ${cubicBezierEaseInOut$1};
  `)];
 }
-const style$h = cB("base-wave", `
+const style$g = cB("base-wave", `
  position: absolute;
  left: 0;
  right: 0;
@@ -23724,7 +23974,7 @@ const NBaseWave = /* @__PURE__ */ defineComponent({
     }
   },
   setup(props) {
-    useStyle("-base-wave", style$h, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-wave", style$g, /* @__PURE__ */ toRef(props, "clsPrefix"));
     const selfRef = /* @__PURE__ */ ref(null);
     const activeRef = /* @__PURE__ */ ref(false);
     let animationTimerId = null;
@@ -23927,7 +24177,7 @@ const commonVars$a = {
   linkPadding: "0 0 0 16px",
   railWidth: "4px"
 };
-function self$W(vars) {
+function self$U(vars) {
   const {
     borderRadius,
     railColor,
@@ -23952,7 +24202,7 @@ function self$W(vars) {
 const anchorDark = {
   name: "Anchor",
   common: derived$1,
-  self: self$W
+  self: self$U
 };
 const isChrome = isBrowser$1 && "chrome" in window;
 isBrowser$1 && navigator.userAgent.includes("Firefox");
@@ -23964,7 +24214,7 @@ const commonVariables$i = {
   paddingLarge: "0 14px",
   clearSize: "16px"
 };
-function self$V(vars) {
+function self$T(vars) {
   const {
     textColor2,
     textColor3,
@@ -24076,9 +24326,9 @@ const inputDark = createTheme({
   peers: {
     Scrollbar: scrollbarDark
   },
-  self: self$V
+  self: self$T
 });
-function self$U(vars) {
+function self$S(vars) {
   const {
     textColor2,
     textColor3,
@@ -24186,10 +24436,10 @@ const inputLight = createTheme({
   peers: {
     Scrollbar: scrollbarLight
   },
-  self: self$U
+  self: self$S
 });
 const inputInjectionKey = createInjectionKey("n-input");
-const style$g = cB("input", `
+const style$f = cB("input", `
  max-width: 100%;
  cursor: text;
  line-height: 1.5;
@@ -24667,7 +24917,7 @@ const NInput = /* @__PURE__ */ defineComponent({
       mergedRtlRef,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("Input", "-input", style$g, inputLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Input", "-input", style$f, inputLight, props, mergedClsPrefixRef);
     if (isSafari) {
       useStyle("-input-safari", safariStyle, mergedClsPrefixRef);
     }
@@ -25846,7 +26096,7 @@ function createValOptMap(options, valueField, childrenField) {
   });
   return valOptMap;
 }
-function self$T(vars) {
+function self$R(vars) {
   const {
     boxShadow2
   } = vars;
@@ -25861,7 +26111,7 @@ const autoCompleteDark = {
     InternalSelectMenu: internalSelectMenuDark,
     Input: inputDark
   },
-  self: self$T
+  self: self$R
 };
 const isImageSupportNativeLazy = isBrowser$1 && "loading" in document.createElement("img");
 function resolveOptionsAndHash(options = {}) {
@@ -25941,7 +26191,7 @@ const observeIntersection = (el, options, shouldStartLoadingRef) => {
   shouldStartLoadingRefMap.set(el, shouldStartLoadingRef);
   return unobserve;
 };
-function self$S(vars) {
+function self$Q(vars) {
   const {
     borderRadius,
     avatarColor,
@@ -25972,9 +26222,9 @@ function self$S(vars) {
 const avatarDark = {
   name: "Avatar",
   common: derived$1,
-  self: self$S
+  self: self$Q
 };
-function self$R() {
+function self$P() {
   return {
     gap: "-12px"
   };
@@ -25985,7 +26235,7 @@ const avatarGroupDark = {
   peers: {
     Avatar: avatarDark
   },
-  self: self$R
+  self: self$P
 };
 const commonVariables$h = {
   width: "44px",
@@ -26040,7 +26290,7 @@ const badgeDark = {
 const commonVariables$g = {
   fontWeightActive: "400"
 };
-function self$Q(vars) {
+function self$O(vars) {
   const {
     fontSize: fontSize2,
     textColor3,
@@ -26065,7 +26315,7 @@ function self$Q(vars) {
 const breadcrumbDark = {
   name: "Breadcrumb",
   common: derived$1,
-  self: self$Q
+  self: self$O
 };
 function createHoverColor(rgb) {
   return composite(rgb, [255, 255, 255, 0.16]);
@@ -26093,7 +26343,7 @@ const commonVariables$f = {
   iconSizeLarge: "20px",
   rippleDuration: ".6s"
 };
-function self$P(vars) {
+function self$N(vars) {
   const {
     heightTiny,
     heightSmall,
@@ -26330,13 +26580,13 @@ function self$P(vars) {
 const buttonLight = {
   name: "Button",
   common: derived,
-  self: self$P
+  self: self$N
 };
 const buttonDark = {
   name: "Button",
   common: derived$1,
   self(vars) {
-    const commonSelf = self$P(vars);
+    const commonSelf = self$N(vars);
     commonSelf.waveOpacity = "0.8";
     commonSelf.colorOpacitySecondary = "0.16";
     commonSelf.colorOpacitySecondaryHover = "0.2";
@@ -26344,7 +26594,7 @@ const buttonDark = {
     return commonSelf;
   }
 };
-const style$f = c$1([cB("button", `
+const style$e = c$1([cB("button", `
  margin: 0;
  font-weight: var(--n-font-weight);
  line-height: 1;
@@ -26644,7 +26894,7 @@ const Button = /* @__PURE__ */ defineComponent({
     const handleBlur = () => {
       enterPressedRef.value = false;
     };
-    const themeRef = useTheme("Button", "-button", style$f, buttonLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Button", "-button", style$e, buttonLight, props, mergedClsPrefixRef);
     const rtlEnabledRef = useRtl("Button", mergedRtlRef, mergedClsPrefixRef);
     const cssVarsRef = computed(() => {
       const theme = themeRef.value;
@@ -26981,7 +27231,7 @@ const XButton = Button;
 const commonVariables$e = {
   titleFontSize: "22px"
 };
-function self$O(vars) {
+function self$M(vars) {
   const {
     borderRadius,
     fontSize: fontSize2,
@@ -27026,7 +27276,7 @@ const calendarDark = {
   peers: {
     Button: buttonDark
   },
-  self: self$O
+  self: self$M
 };
 const commonVariables$d = {
   paddingSmall: "12px 16px 12px",
@@ -27040,7 +27290,7 @@ const commonVariables$d = {
   closeIconSize: "18px",
   closeSize: "22px"
 };
-function self$N(vars) {
+function self$L(vars) {
   const {
     primaryColor,
     borderRadius,
@@ -27092,13 +27342,13 @@ function self$N(vars) {
 const cardLight = {
   name: "Card",
   common: derived,
-  self: self$N
+  self: self$L
 };
 const cardDark = {
   name: "Card",
   common: derived$1,
   self(vars) {
-    const commonSelf = self$N(vars);
+    const commonSelf = self$L(vars);
     const {
       cardColor,
       modalColor,
@@ -27117,7 +27367,7 @@ const contentBaseStyle = cB("card-content", `
  padding: 0 var(--n-padding-left) var(--n-padding-bottom) var(--n-padding-left);
  font-size: var(--n-font-size);
 `);
-const style$e = c$1([cB("card", `
+const style$d = c$1([cB("card", `
  font-size: var(--n-font-size);
  line-height: var(--n-line-height);
  display: flex;
@@ -27295,7 +27545,7 @@ const NCard = /* @__PURE__ */ defineComponent({
       mergedRtlRef,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("Card", "-card", style$e, cardLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Card", "-card", style$d, cardLight, props, mergedClsPrefixRef);
     const rtlEnabledRef = useRtl("Card", mergedRtlRef, mergedClsPrefixRef);
     const mergedSizeRef = computed(() => {
       var _a, _b;
@@ -27473,7 +27723,7 @@ const NCard = /* @__PURE__ */ defineComponent({
     }));
   }
 });
-function self$M() {
+function self$K() {
   return {
     dotSize: "8px",
     dotColor: "rgba(255, 255, 255, .3)",
@@ -27487,7 +27737,7 @@ function self$M() {
 const carouselDark = {
   name: "Carousel",
   common: derived$1,
-  self: self$M
+  self: self$K
 };
 const commonVariables$c = {
   sizeSmall: "14px",
@@ -27496,7 +27746,7 @@ const commonVariables$c = {
   labelPadding: "0 8px",
   labelFontWeight: "400"
 };
-function self$L(vars) {
+function self$J(vars) {
   const {
     baseColor,
     inputColorDisabled,
@@ -27548,13 +27798,13 @@ const checkboxDark = {
     const {
       cardColor
     } = vars;
-    const commonSelf = self$L(vars);
+    const commonSelf = self$J(vars);
     commonSelf.color = "#0000";
     commonSelf.checkMarkColor = cardColor;
     return commonSelf;
   }
 };
-function self$K(vars) {
+function self$I(vars) {
   const {
     borderRadius,
     boxShadow2,
@@ -27596,7 +27846,7 @@ const cascaderDark = {
     Checkbox: checkboxDark,
     Empty: emptyLight
   },
-  self: self$K
+  self: self$I
 };
 const codeDark = {
   name: "Code",
@@ -27627,7 +27877,7 @@ const codeDark = {
     };
   }
 };
-function self$J(vars) {
+function self$H(vars) {
   const {
     fontWeight,
     textColor1,
@@ -27653,9 +27903,9 @@ function self$J(vars) {
 const collapseDark = {
   name: "Collapse",
   common: derived$1,
-  self: self$J
+  self: self$H
 };
-function self$I(vars) {
+function self$G(vars) {
   const {
     cubicBezierEaseInOut: cubicBezierEaseInOut2
   } = vars;
@@ -27666,9 +27916,9 @@ function self$I(vars) {
 const collapseTransitionDark = {
   name: "CollapseTransition",
   common: derived$1,
-  self: self$I
+  self: self$G
 };
-function self$H(vars) {
+function self$F(vars) {
   const {
     fontSize: fontSize2,
     boxShadow2,
@@ -27707,7 +27957,7 @@ const colorPickerDark = {
     Input: inputDark,
     Button: buttonDark
   },
-  self: self$H
+  self: self$F
 };
 const configProviderProps = {
   abstract: Boolean,
@@ -27920,7 +28170,7 @@ const popselect = {
     InternalSelectMenu: internalSelectMenuDark
   }
 };
-function self$G(vars) {
+function self$E(vars) {
   const {
     boxShadow2
   } = vars;
@@ -27935,7 +28185,7 @@ const selectLight = createTheme({
     InternalSelection: internalSelectionLight,
     InternalSelectMenu: internalSelectMenuLight
   },
-  self: self$G
+  self: self$E
 });
 const selectDark = {
   name: "Select",
@@ -27944,9 +28194,9 @@ const selectDark = {
     InternalSelection: internalSelectionDark,
     InternalSelectMenu: internalSelectMenuDark
   },
-  self: self$G
+  self: self$E
 };
-const style$d = c$1([cB("select", `
+const style$c = c$1([cB("select", `
  z-index: auto;
  outline: none;
  width: 100%;
@@ -28095,7 +28345,7 @@ const NSelect = /* @__PURE__ */ defineComponent({
       inlineThemeDisabled,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("Select", "-select", style$d, selectLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Select", "-select", style$c, selectLight, props, mergedClsPrefixRef);
     const uncontrolledValueRef = /* @__PURE__ */ ref(props.defaultValue);
     const controlledValueRef = /* @__PURE__ */ toRef(props, "value");
     const mergedValueRef = useMergedState(controlledValueRef, uncontrolledValueRef);
@@ -28914,7 +29164,7 @@ const commonVariables$b = {
   prefixMarginLarge: "0 8px 0 0",
   suffixMarginLarge: "0 0 0 8px"
 };
-function self$F(vars) {
+function self$D(vars) {
   const {
     textColor2,
     primaryColor,
@@ -28989,7 +29239,7 @@ const paginationDark = {
     const borderColorActive = changeColor(primaryColor, {
       alpha: Number(opacity3)
     });
-    const commonSelf = self$F(vars);
+    const commonSelf = self$D(vars);
     commonSelf.itemBorderActive = `1px solid ${borderColorActive}`;
     commonSelf.itemBorderDisabled = "1px solid #0000";
     return commonSelf;
@@ -29018,7 +29268,7 @@ const commonVariables$a = {
   optionIconPrefixWidthLarge: "40px",
   optionIconPrefixWidthHuge: "40px"
 };
-function self$E(vars) {
+function self$C(vars) {
   const {
     primaryColor,
     textColor2,
@@ -29089,7 +29339,7 @@ const dropdownDark = {
       primaryColor,
       popoverColor
     } = vars;
-    const commonSelf = self$E(vars);
+    const commonSelf = self$C(vars);
     commonSelf.colorInverted = popoverColor;
     commonSelf.optionColorActive = changeColor(primaryColor, {
       alpha: 0.15
@@ -29123,7 +29373,7 @@ const tooltipDark = {
     });
   }
 };
-function self$D(vars) {
+function self$B(vars) {
   const {
     borderRadius,
     boxShadow2,
@@ -29142,7 +29392,7 @@ const tooltipLight = createTheme({
   peers: {
     Popover: popoverLight
   },
-  self: self$D
+  self: self$B
 });
 const ellipsisDark = {
   name: "Ellipsis",
@@ -29219,67 +29469,6 @@ const radioDark = {
     });
   }
 };
-function self$C(vars) {
-  const {
-    borderColor,
-    primaryColor,
-    baseColor,
-    textColorDisabled,
-    inputColorDisabled,
-    textColor2,
-    opacityDisabled,
-    borderRadius,
-    fontSizeSmall,
-    fontSizeMedium,
-    fontSizeLarge,
-    heightSmall,
-    heightMedium,
-    heightLarge,
-    lineHeight: lineHeight2
-  } = vars;
-  return Object.assign(Object.assign({}, commonVariables$9), {
-    labelLineHeight: lineHeight2,
-    buttonHeightSmall: heightSmall,
-    buttonHeightMedium: heightMedium,
-    buttonHeightLarge: heightLarge,
-    fontSizeSmall,
-    fontSizeMedium,
-    fontSizeLarge,
-    boxShadow: `inset 0 0 0 1px ${borderColor}`,
-    boxShadowActive: `inset 0 0 0 1px ${primaryColor}`,
-    boxShadowFocus: `inset 0 0 0 1px ${primaryColor}, 0 0 0 2px ${changeColor(primaryColor, {
-      alpha: 0.2
-    })}`,
-    boxShadowHover: `inset 0 0 0 1px ${primaryColor}`,
-    boxShadowDisabled: `inset 0 0 0 1px ${borderColor}`,
-    color: baseColor,
-    colorDisabled: inputColorDisabled,
-    colorActive: "#0000",
-    textColor: textColor2,
-    textColorDisabled,
-    dotColorActive: primaryColor,
-    dotColorDisabled: borderColor,
-    buttonBorderColor: borderColor,
-    buttonBorderColorActive: primaryColor,
-    buttonBorderColorHover: borderColor,
-    buttonColor: baseColor,
-    buttonColorActive: baseColor,
-    buttonTextColor: textColor2,
-    buttonTextColorActive: primaryColor,
-    buttonTextColorHover: primaryColor,
-    opacityDisabled,
-    buttonBoxShadowFocus: `inset 0 0 0 1px ${primaryColor}, 0 0 0 2px ${changeColor(primaryColor, {
-      alpha: 0.3
-    })}`,
-    buttonBoxShadowHover: "inset 0 0 0 1px #0000",
-    buttonBoxShadow: "inset 0 0 0 1px #0000",
-    buttonBorderRadius: borderRadius
-  });
-}
-const radioLight = {
-  common: derived,
-  self: self$C
-};
 const commonVariables$8 = {
   thPaddingSmall: "8px",
   thPaddingMedium: "12px",
@@ -29296,7 +29485,7 @@ const commonVariables$8 = {
   actionPadding: "8px 12px",
   actionButtonMargin: "0 8px 0 0"
 };
-function self$B(vars) {
+function self$A(vars) {
   const {
     cardColor,
     modalColor,
@@ -29380,639 +29569,12 @@ const dataTableDark = {
     Dropdown: dropdownDark
   },
   self(vars) {
-    const commonSelf = self$B(vars);
+    const commonSelf = self$A(vars);
     commonSelf.boxShadowAfter = "inset 12px 0 8px -12px rgba(0, 0, 0, .36)";
     commonSelf.boxShadowBefore = "inset -12px 0 8px -12px rgba(0, 0, 0, .36)";
     return commonSelf;
   }
 };
-const style$c = cB("radio", `
- line-height: var(--n-label-line-height);
- outline: none;
- position: relative;
- user-select: none;
- -webkit-user-select: none;
- display: inline-flex;
- align-items: flex-start;
- flex-wrap: nowrap;
- font-size: var(--n-font-size);
- word-break: break-word;
-`, [cM("checked", [cE("dot", `
- background-color: var(--n-color-active);
- `)]), cE("dot-wrapper", `
- position: relative;
- flex-shrink: 0;
- flex-grow: 0;
- width: var(--n-radio-size);
- `), cB("radio-input", `
- position: absolute;
- border: 0;
- width: 0;
- height: 0;
- opacity: 0;
- margin: 0;
- `), cE("dot", `
- position: absolute;
- top: 50%;
- left: 0;
- transform: translateY(-50%);
- height: var(--n-radio-size);
- width: var(--n-radio-size);
- background: var(--n-color);
- box-shadow: var(--n-box-shadow);
- border-radius: 50%;
- transition:
- background-color .3s var(--n-bezier),
- box-shadow .3s var(--n-bezier);
- `, [c$1("&::before", `
- content: "";
- opacity: 0;
- position: absolute;
- left: 4px;
- top: 4px;
- height: calc(100% - 8px);
- width: calc(100% - 8px);
- border-radius: 50%;
- transform: scale(.8);
- background: var(--n-dot-color-active);
- transition: 
- opacity .3s var(--n-bezier),
- background-color .3s var(--n-bezier),
- transform .3s var(--n-bezier);
- `), cM("checked", {
-  boxShadow: "var(--n-box-shadow-active)"
-}, [c$1("&::before", `
- opacity: 1;
- transform: scale(1);
- `)])]), cE("label", `
- color: var(--n-text-color);
- padding: var(--n-label-padding);
- font-weight: var(--n-label-font-weight);
- display: inline-block;
- transition: color .3s var(--n-bezier);
- `), cNotM("disabled", `
- cursor: pointer;
- `, [c$1("&:hover", [cE("dot", {
-  boxShadow: "var(--n-box-shadow-hover)"
-})]), cM("focus", [c$1("&:not(:active)", [cE("dot", {
-  boxShadow: "var(--n-box-shadow-focus)"
-})])])]), cM("disabled", `
- cursor: not-allowed;
- `, [cE("dot", {
-  boxShadow: "var(--n-box-shadow-disabled)",
-  backgroundColor: "var(--n-color-disabled)"
-}, [c$1("&::before", {
-  backgroundColor: "var(--n-dot-color-disabled)"
-}), cM("checked", `
- opacity: 1;
- `)]), cE("label", {
-  color: "var(--n-text-color-disabled)"
-}), cB("radio-input", `
- cursor: not-allowed;
- `)])]);
-const radioBaseProps = {
-  name: String,
-  value: {
-    type: [String, Number, Boolean],
-    default: "on"
-  },
-  checked: {
-    type: Boolean,
-    default: void 0
-  },
-  defaultChecked: Boolean,
-  disabled: {
-    type: Boolean,
-    default: void 0
-  },
-  label: String,
-  size: String,
-  onUpdateChecked: [Function, Array],
-  "onUpdate:checked": [Function, Array],
-  // deprecated
-  checkedValue: {
-    type: Boolean,
-    default: void 0
-  }
-};
-const radioGroupInjectionKey = createInjectionKey("n-radio-group");
-function setup(props) {
-  const NRadioGroup2 = inject(radioGroupInjectionKey, null);
-  const {
-    mergedClsPrefixRef,
-    mergedComponentPropsRef
-  } = useConfig(props);
-  const formItem = useFormItem(props, {
-    mergedSize(NFormItem) {
-      var _a, _b;
-      const {
-        size: size2
-      } = props;
-      if (size2 !== void 0) return size2;
-      if (NRadioGroup2) {
-        const {
-          mergedSizeRef: {
-            value: mergedSize
-          }
-        } = NRadioGroup2;
-        if (mergedSize !== void 0) {
-          return mergedSize;
-        }
-      }
-      if (NFormItem) {
-        return NFormItem.mergedSize.value;
-      }
-      const configSize = (_b = (_a = mergedComponentPropsRef === null || mergedComponentPropsRef === void 0 ? void 0 : mergedComponentPropsRef.value) === null || _a === void 0 ? void 0 : _a.Radio) === null || _b === void 0 ? void 0 : _b.size;
-      if (configSize) return configSize;
-      return "medium";
-    },
-    mergedDisabled(NFormItem) {
-      if (props.disabled) return true;
-      if (NRadioGroup2 === null || NRadioGroup2 === void 0 ? void 0 : NRadioGroup2.disabledRef.value) return true;
-      if (NFormItem === null || NFormItem === void 0 ? void 0 : NFormItem.disabled.value) return true;
-      return false;
-    }
-  });
-  const {
-    mergedSizeRef,
-    mergedDisabledRef
-  } = formItem;
-  const inputRef = /* @__PURE__ */ ref(null);
-  const labelRef = /* @__PURE__ */ ref(null);
-  const uncontrolledCheckedRef = /* @__PURE__ */ ref(props.defaultChecked);
-  const controlledCheckedRef = /* @__PURE__ */ toRef(props, "checked");
-  const mergedCheckedRef = useMergedState(controlledCheckedRef, uncontrolledCheckedRef);
-  const renderSafeCheckedRef = useMemo(() => {
-    if (NRadioGroup2) return NRadioGroup2.valueRef.value === props.value;
-    return mergedCheckedRef.value;
-  });
-  const mergedNameRef = useMemo(() => {
-    const {
-      name
-    } = props;
-    if (name !== void 0) return name;
-    if (NRadioGroup2) return NRadioGroup2.nameRef.value;
-  });
-  const focusRef = /* @__PURE__ */ ref(false);
-  function doUpdateChecked() {
-    if (NRadioGroup2) {
-      const {
-        doUpdateValue
-      } = NRadioGroup2;
-      const {
-        value
-      } = props;
-      call(doUpdateValue, value);
-    } else {
-      const {
-        onUpdateChecked,
-        "onUpdate:checked": _onUpdateChecked
-      } = props;
-      const {
-        nTriggerFormInput,
-        nTriggerFormChange
-      } = formItem;
-      if (onUpdateChecked) call(onUpdateChecked, true);
-      if (_onUpdateChecked) call(_onUpdateChecked, true);
-      nTriggerFormInput();
-      nTriggerFormChange();
-      uncontrolledCheckedRef.value = true;
-    }
-  }
-  function toggle() {
-    if (mergedDisabledRef.value) return;
-    if (!renderSafeCheckedRef.value) {
-      doUpdateChecked();
-    }
-  }
-  function handleRadioInputChange() {
-    toggle();
-    if (inputRef.value) {
-      inputRef.value.checked = renderSafeCheckedRef.value;
-    }
-  }
-  function handleRadioInputBlur() {
-    focusRef.value = false;
-  }
-  function handleRadioInputFocus() {
-    focusRef.value = true;
-  }
-  return {
-    mergedClsPrefix: NRadioGroup2 ? NRadioGroup2.mergedClsPrefixRef : mergedClsPrefixRef,
-    inputRef,
-    labelRef,
-    mergedName: mergedNameRef,
-    mergedDisabled: mergedDisabledRef,
-    renderSafeChecked: renderSafeCheckedRef,
-    focus: focusRef,
-    mergedSize: mergedSizeRef,
-    handleRadioInputChange,
-    handleRadioInputBlur,
-    handleRadioInputFocus
-  };
-}
-const radioProps = Object.assign(Object.assign({}, useTheme.props), radioBaseProps);
-const NRadio = /* @__PURE__ */ defineComponent({
-  name: "Radio",
-  props: radioProps,
-  setup(props) {
-    const radio = setup(props);
-    const themeRef = useTheme("Radio", "-radio", style$c, radioLight, props, radio.mergedClsPrefix);
-    const cssVarsRef = computed(() => {
-      const {
-        mergedSize: {
-          value: size2
-        }
-      } = radio;
-      const {
-        common: {
-          cubicBezierEaseInOut: cubicBezierEaseInOut2
-        },
-        self: {
-          boxShadow,
-          boxShadowActive,
-          boxShadowDisabled,
-          boxShadowFocus,
-          boxShadowHover,
-          color,
-          colorDisabled,
-          colorActive,
-          textColor,
-          textColorDisabled,
-          dotColorActive,
-          dotColorDisabled,
-          labelPadding,
-          labelLineHeight,
-          labelFontWeight,
-          [createKey("fontSize", size2)]: fontSize2,
-          [createKey("radioSize", size2)]: radioSize
-        }
-      } = themeRef.value;
-      return {
-        "--n-bezier": cubicBezierEaseInOut2,
-        "--n-label-line-height": labelLineHeight,
-        "--n-label-font-weight": labelFontWeight,
-        "--n-box-shadow": boxShadow,
-        "--n-box-shadow-active": boxShadowActive,
-        "--n-box-shadow-disabled": boxShadowDisabled,
-        "--n-box-shadow-focus": boxShadowFocus,
-        "--n-box-shadow-hover": boxShadowHover,
-        "--n-color": color,
-        "--n-color-active": colorActive,
-        "--n-color-disabled": colorDisabled,
-        "--n-dot-color-active": dotColorActive,
-        "--n-dot-color-disabled": dotColorDisabled,
-        "--n-font-size": fontSize2,
-        "--n-radio-size": radioSize,
-        "--n-text-color": textColor,
-        "--n-text-color-disabled": textColorDisabled,
-        "--n-label-padding": labelPadding
-      };
-    });
-    const {
-      inlineThemeDisabled,
-      mergedClsPrefixRef,
-      mergedRtlRef
-    } = useConfig(props);
-    const rtlEnabledRef = useRtl("Radio", mergedRtlRef, mergedClsPrefixRef);
-    const themeClassHandle = inlineThemeDisabled ? useThemeClass("radio", computed(() => radio.mergedSize.value[0]), cssVarsRef, props) : void 0;
-    return Object.assign(radio, {
-      rtlEnabled: rtlEnabledRef,
-      cssVars: inlineThemeDisabled ? void 0 : cssVarsRef,
-      themeClass: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.themeClass,
-      onRender: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.onRender
-    });
-  },
-  render() {
-    const {
-      $slots,
-      mergedClsPrefix,
-      onRender,
-      label
-    } = this;
-    onRender === null || onRender === void 0 ? void 0 : onRender();
-    return h("label", {
-      class: [`${mergedClsPrefix}-radio`, this.themeClass, this.rtlEnabled && `${mergedClsPrefix}-radio--rtl`, this.mergedDisabled && `${mergedClsPrefix}-radio--disabled`, this.renderSafeChecked && `${mergedClsPrefix}-radio--checked`, this.focus && `${mergedClsPrefix}-radio--focus`],
-      style: this.cssVars
-    }, h("div", {
-      class: `${mergedClsPrefix}-radio__dot-wrapper`
-    }, " ", h("div", {
-      class: [`${mergedClsPrefix}-radio__dot`, this.renderSafeChecked && `${mergedClsPrefix}-radio__dot--checked`]
-    }), h("input", {
-      ref: "inputRef",
-      type: "radio",
-      class: `${mergedClsPrefix}-radio-input`,
-      value: this.value,
-      name: this.mergedName,
-      checked: this.renderSafeChecked,
-      disabled: this.mergedDisabled,
-      onChange: this.handleRadioInputChange,
-      onFocus: this.handleRadioInputFocus,
-      onBlur: this.handleRadioInputBlur
-    })), resolveWrappedSlot($slots.default, (children) => {
-      if (!children && !label) return null;
-      return h("div", {
-        ref: "labelRef",
-        class: `${mergedClsPrefix}-radio__label`
-      }, children || label);
-    }));
-  }
-});
-const style$b = cB("radio-group", `
- display: inline-block;
- font-size: var(--n-font-size);
-`, [cE("splitor", `
- display: inline-block;
- vertical-align: bottom;
- width: 1px;
- transition:
- background-color .3s var(--n-bezier),
- opacity .3s var(--n-bezier);
- background: var(--n-button-border-color);
- `, [cM("checked", {
-  backgroundColor: "var(--n-button-border-color-active)"
-}), cM("disabled", {
-  opacity: "var(--n-opacity-disabled)"
-})]), cM("button-group", `
- white-space: nowrap;
- height: var(--n-height);
- line-height: var(--n-height);
- `, [cB("radio-button", {
-  height: "var(--n-height)",
-  lineHeight: "var(--n-height)"
-}), cE("splitor", {
-  height: "var(--n-height)"
-})]), cB("radio-button", `
- vertical-align: bottom;
- outline: none;
- position: relative;
- user-select: none;
- -webkit-user-select: none;
- display: inline-block;
- box-sizing: border-box;
- padding-left: 14px;
- padding-right: 14px;
- white-space: nowrap;
- transition:
- background-color .3s var(--n-bezier),
- opacity .3s var(--n-bezier),
- border-color .3s var(--n-bezier),
- color .3s var(--n-bezier);
- background: var(--n-button-color);
- color: var(--n-button-text-color);
- border-top: 1px solid var(--n-button-border-color);
- border-bottom: 1px solid var(--n-button-border-color);
- `, [cB("radio-input", `
- pointer-events: none;
- position: absolute;
- border: 0;
- border-radius: inherit;
- left: 0;
- right: 0;
- top: 0;
- bottom: 0;
- opacity: 0;
- z-index: 1;
- `), cE("state-border", `
- z-index: 1;
- pointer-events: none;
- position: absolute;
- box-shadow: var(--n-button-box-shadow);
- transition: box-shadow .3s var(--n-bezier);
- left: -1px;
- bottom: -1px;
- right: -1px;
- top: -1px;
- `), c$1("&:first-child", `
- border-top-left-radius: var(--n-button-border-radius);
- border-bottom-left-radius: var(--n-button-border-radius);
- border-left: 1px solid var(--n-button-border-color);
- `, [cE("state-border", `
- border-top-left-radius: var(--n-button-border-radius);
- border-bottom-left-radius: var(--n-button-border-radius);
- `)]), c$1("&:last-child", `
- border-top-right-radius: var(--n-button-border-radius);
- border-bottom-right-radius: var(--n-button-border-radius);
- border-right: 1px solid var(--n-button-border-color);
- `, [cE("state-border", `
- border-top-right-radius: var(--n-button-border-radius);
- border-bottom-right-radius: var(--n-button-border-radius);
- `)]), cNotM("disabled", `
- cursor: pointer;
- `, [c$1("&:hover", [cE("state-border", `
- transition: box-shadow .3s var(--n-bezier);
- box-shadow: var(--n-button-box-shadow-hover);
- `), cNotM("checked", {
-  color: "var(--n-button-text-color-hover)"
-})]), cM("focus", [c$1("&:not(:active)", [cE("state-border", {
-  boxShadow: "var(--n-button-box-shadow-focus)"
-})])])]), cM("checked", `
- background: var(--n-button-color-active);
- color: var(--n-button-text-color-active);
- border-color: var(--n-button-border-color-active);
- `), cM("disabled", `
- cursor: not-allowed;
- opacity: var(--n-opacity-disabled);
- `)])]);
-function mapSlot(defaultSlot, value, clsPrefix) {
-  var _a;
-  const children = [];
-  let isButtonGroup = false;
-  for (let i = 0; i < defaultSlot.length; ++i) {
-    const wrappedInstance = defaultSlot[i];
-    const name = (_a = wrappedInstance.type) === null || _a === void 0 ? void 0 : _a.name;
-    if (name === "RadioButton") {
-      isButtonGroup = true;
-    }
-    const instanceProps = wrappedInstance.props;
-    if (name !== "RadioButton") {
-      children.push(wrappedInstance);
-      continue;
-    }
-    if (i === 0) {
-      children.push(wrappedInstance);
-    } else {
-      const lastInstanceProps = children[children.length - 1].props;
-      const lastInstanceChecked = value === lastInstanceProps.value;
-      const lastInstanceDisabled = lastInstanceProps.disabled;
-      const currentInstanceChecked = value === instanceProps.value;
-      const currentInstanceDisabled = instanceProps.disabled;
-      const lastInstancePriority = (lastInstanceChecked ? 2 : 0) + (!lastInstanceDisabled ? 1 : 0);
-      const currentInstancePriority = (currentInstanceChecked ? 2 : 0) + (!currentInstanceDisabled ? 1 : 0);
-      const lastInstanceClass = {
-        [`${clsPrefix}-radio-group__splitor--disabled`]: lastInstanceDisabled,
-        [`${clsPrefix}-radio-group__splitor--checked`]: lastInstanceChecked
-      };
-      const currentInstanceClass = {
-        [`${clsPrefix}-radio-group__splitor--disabled`]: currentInstanceDisabled,
-        [`${clsPrefix}-radio-group__splitor--checked`]: currentInstanceChecked
-      };
-      const splitorClass = lastInstancePriority < currentInstancePriority ? currentInstanceClass : lastInstanceClass;
-      children.push(h("div", {
-        class: [`${clsPrefix}-radio-group__splitor`, splitorClass]
-      }), wrappedInstance);
-    }
-  }
-  return {
-    children,
-    isButtonGroup
-  };
-}
-const radioGroupProps = Object.assign(Object.assign({}, useTheme.props), {
-  name: String,
-  value: [String, Number, Boolean],
-  defaultValue: {
-    type: [String, Number, Boolean],
-    default: null
-  },
-  size: String,
-  disabled: {
-    type: Boolean,
-    default: void 0
-  },
-  "onUpdate:value": [Function, Array],
-  onUpdateValue: [Function, Array]
-});
-const NRadioGroup = /* @__PURE__ */ defineComponent({
-  name: "RadioGroup",
-  props: radioGroupProps,
-  setup(props) {
-    const selfElRef = /* @__PURE__ */ ref(null);
-    const {
-      mergedSizeRef,
-      mergedDisabledRef,
-      nTriggerFormChange,
-      nTriggerFormInput,
-      nTriggerFormBlur,
-      nTriggerFormFocus
-    } = useFormItem(props);
-    const {
-      mergedClsPrefixRef,
-      inlineThemeDisabled,
-      mergedRtlRef
-    } = useConfig(props);
-    const themeRef = useTheme("Radio", "-radio-group", style$b, radioLight, props, mergedClsPrefixRef);
-    const uncontrolledValueRef = /* @__PURE__ */ ref(props.defaultValue);
-    const controlledValueRef = /* @__PURE__ */ toRef(props, "value");
-    const mergedValueRef = useMergedState(controlledValueRef, uncontrolledValueRef);
-    function doUpdateValue(value) {
-      const {
-        onUpdateValue,
-        "onUpdate:value": _onUpdateValue
-      } = props;
-      if (onUpdateValue) {
-        call(onUpdateValue, value);
-      }
-      if (_onUpdateValue) {
-        call(_onUpdateValue, value);
-      }
-      uncontrolledValueRef.value = value;
-      nTriggerFormChange();
-      nTriggerFormInput();
-    }
-    function handleFocusin(e) {
-      const {
-        value: selfEl
-      } = selfElRef;
-      if (!selfEl) return;
-      if (selfEl.contains(e.relatedTarget)) return;
-      nTriggerFormFocus();
-    }
-    function handleFocusout(e) {
-      const {
-        value: selfEl
-      } = selfElRef;
-      if (!selfEl) return;
-      if (selfEl.contains(e.relatedTarget)) return;
-      nTriggerFormBlur();
-    }
-    provide(radioGroupInjectionKey, {
-      mergedClsPrefixRef,
-      nameRef: /* @__PURE__ */ toRef(props, "name"),
-      valueRef: mergedValueRef,
-      disabledRef: mergedDisabledRef,
-      mergedSizeRef,
-      doUpdateValue
-    });
-    const rtlEnabledRef = useRtl("Radio", mergedRtlRef, mergedClsPrefixRef);
-    const cssVarsRef = computed(() => {
-      const {
-        value: size2
-      } = mergedSizeRef;
-      const {
-        common: {
-          cubicBezierEaseInOut: cubicBezierEaseInOut2
-        },
-        self: {
-          buttonBorderColor,
-          buttonBorderColorActive,
-          buttonBorderRadius,
-          buttonBoxShadow,
-          buttonBoxShadowFocus,
-          buttonBoxShadowHover,
-          buttonColor,
-          buttonColorActive,
-          buttonTextColor,
-          buttonTextColorActive,
-          buttonTextColorHover,
-          opacityDisabled,
-          [createKey("buttonHeight", size2)]: height,
-          [createKey("fontSize", size2)]: fontSize2
-        }
-      } = themeRef.value;
-      return {
-        "--n-font-size": fontSize2,
-        "--n-bezier": cubicBezierEaseInOut2,
-        "--n-button-border-color": buttonBorderColor,
-        "--n-button-border-color-active": buttonBorderColorActive,
-        "--n-button-border-radius": buttonBorderRadius,
-        "--n-button-box-shadow": buttonBoxShadow,
-        "--n-button-box-shadow-focus": buttonBoxShadowFocus,
-        "--n-button-box-shadow-hover": buttonBoxShadowHover,
-        "--n-button-color": buttonColor,
-        "--n-button-color-active": buttonColorActive,
-        "--n-button-text-color": buttonTextColor,
-        "--n-button-text-color-hover": buttonTextColorHover,
-        "--n-button-text-color-active": buttonTextColorActive,
-        "--n-height": height,
-        "--n-opacity-disabled": opacityDisabled
-      };
-    });
-    const themeClassHandle = inlineThemeDisabled ? useThemeClass("radio-group", computed(() => mergedSizeRef.value[0]), cssVarsRef, props) : void 0;
-    return {
-      selfElRef,
-      rtlEnabled: rtlEnabledRef,
-      mergedClsPrefix: mergedClsPrefixRef,
-      mergedValue: mergedValueRef,
-      handleFocusout,
-      handleFocusin,
-      cssVars: inlineThemeDisabled ? void 0 : cssVarsRef,
-      themeClass: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.themeClass,
-      onRender: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.onRender
-    };
-  },
-  render() {
-    var _a;
-    const {
-      mergedValue,
-      mergedClsPrefix,
-      handleFocusin,
-      handleFocusout
-    } = this;
-    const {
-      children,
-      isButtonGroup
-    } = mapSlot(flatten$2(getSlot(this)), mergedValue, mergedClsPrefix);
-    (_a = this.onRender) === null || _a === void 0 ? void 0 : _a.call(this);
-    return h("div", {
-      onFocusin: handleFocusin,
-      onFocusout: handleFocusout,
-      ref: "selfElRef",
-      class: [`${mergedClsPrefix}-radio-group`, this.rtlEnabled && `${mergedClsPrefix}-radio-group--rtl`, this.themeClass, isButtonGroup && `${mergedClsPrefix}-radio-group--button-group`],
-      style: this.cssVars
-    }, children);
-  }
-});
 const tooltipProps = Object.assign(Object.assign({}, popoverBaseProps), useTheme.props);
 const NTooltip = /* @__PURE__ */ defineComponent({
   name: "Tooltip",
@@ -30055,7 +29617,7 @@ const NTooltip = /* @__PURE__ */ defineComponent({
     }), this.$slots);
   }
 });
-function self$A(vars) {
+function self$z(vars) {
   const {
     textColorBase,
     opacity1,
@@ -30075,14 +29637,14 @@ function self$A(vars) {
 }
 const iconLight = {
   common: derived,
-  self: self$A
+  self: self$z
 };
 const iconDark$1 = {
   name: "Icon",
   common: derived$1,
-  self: self$A
+  self: self$z
 };
-const style$a = cB("icon", `
+const style$b = cB("icon", `
  height: 1em;
  width: 1em;
  line-height: 1em;
@@ -30117,7 +29679,7 @@ const NIcon = /* @__PURE__ */ defineComponent({
       mergedClsPrefixRef,
       inlineThemeDisabled
     } = useConfig(props);
-    const themeRef = useTheme("Icon", "-icon", style$a, iconLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Icon", "-icon", style$b, iconLight, props, mergedClsPrefixRef);
     const cssVarsRef = computed(() => {
       const {
         depth
@@ -30193,7 +29755,7 @@ const commonVars$8 = {
   itemWidth: "52px",
   panelActionPadding: "8px 0"
 };
-function self$z(vars) {
+function self$y(vars) {
   const {
     popoverColor,
     textColor2,
@@ -30228,7 +29790,7 @@ const timePickerDark = {
     Button: buttonDark,
     Input: inputDark
   },
-  self: self$z
+  self: self$y
 };
 const commonVars$7 = {
   itemSize: "24px",
@@ -30269,7 +29831,7 @@ const commonVars$7 = {
   calendarRightPaddingYearrange: "0",
   calendarRightPaddingWeek: "0"
 };
-function self$y(vars) {
+function self$x(vars) {
   const {
     hoverColor,
     fontSize: fontSize2,
@@ -30334,7 +29896,7 @@ const datePickerDark = {
       hoverColor,
       primaryColor
     } = vars;
-    const commonSelf = self$y(vars);
+    const commonSelf = self$x(vars);
     commonSelf.itemColorDisabled = composite(popoverColor, hoverColor);
     commonSelf.itemColorIncluded = changeColor(primaryColor, {
       alpha: 0.15
@@ -30357,7 +29919,7 @@ const commonVariables$7 = {
   tdPaddingMedium: "0 0 12px 0",
   tdPaddingLarge: "0 0 16px 0"
 };
-function self$x(vars) {
+function self$w(vars) {
   const {
     tableHeaderColor,
     textColor2,
@@ -30397,7 +29959,7 @@ function self$x(vars) {
 const descriptionsDark = {
   name: "Descriptions",
   common: derived$1,
-  self: self$x
+  self: self$w
 };
 const dialogProviderInjectionKey = createInjectionKey("n-dialog-provider");
 const commonVars$6 = {
@@ -30413,7 +29975,7 @@ const commonVars$6 = {
   closeMargin: "20px 26px 0 0",
   closeMarginIconTop: "10px 16px 0 0"
 };
-function self$w(vars) {
+function self$v(vars) {
   const {
     textColor1,
     textColor2,
@@ -30462,7 +30024,7 @@ const dialogLight = createTheme({
   peers: {
     Button: buttonLight
   },
-  self: self$w
+  self: self$v
 });
 const dialogDark = {
   name: "Dialog",
@@ -30470,7 +30032,7 @@ const dialogDark = {
   peers: {
     Button: buttonDark
   },
-  self: self$w
+  self: self$v
 };
 const dialogProps = {
   icon: Function,
@@ -30508,7 +30070,7 @@ const dialogProps = {
   closeFocusable: Boolean
 };
 const dialogPropKeys = keysOf(dialogProps);
-const style$9 = c$1([cB("dialog", `
+const style$a = c$1([cB("dialog", `
  --n-icon-margin: var(--n-icon-margin-top) var(--n-icon-margin-right) var(--n-icon-margin-bottom) var(--n-icon-margin-left);
  word-break: break-word;
  line-height: var(--n-line-height);
@@ -30630,7 +30192,7 @@ const NDialog = /* @__PURE__ */ defineComponent({
       } = props;
       if (onClose) onClose();
     }
-    const themeRef = useTheme("Dialog", "-dialog", style$9, dialogLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Dialog", "-dialog", style$a, dialogLight, props, mergedClsPrefixRef);
     const cssVarsRef = computed(() => {
       const {
         type
@@ -30740,19 +30302,19 @@ const NDialog = /* @__PURE__ */ defineComponent({
       clsPrefix: mergedClsPrefix,
       class: `${mergedClsPrefix}-dialog__icon`
     }, {
-      default: () => resolveWrappedSlot(this.$slots.icon, (children) => children || (this.icon ? render23(this.icon) : iconRenderMap$1[this.type]()))
+      default: () => resolveWrappedSlot(this.$slots.icon, (children) => children || (this.icon ? render26(this.icon) : iconRenderMap$1[this.type]()))
     }) : null;
     const actionNode = resolveWrappedSlot(this.$slots.action, (children) => children || positiveText || negativeText || action ? h("div", {
       class: [`${mergedClsPrefix}-dialog__action`, this.actionClass],
       style: this.actionStyle
-    }, children || (action ? [render23(action)] : [this.negativeText && h(Button, Object.assign({
+    }, children || (action ? [render26(action)] : [this.negativeText && h(Button, Object.assign({
       theme: mergedTheme.peers.Button,
       themeOverrides: mergedTheme.peerOverrides.Button,
       ghost: true,
       size: "small",
       onClick: handleNegativeClick
     }, negativeButtonProps), {
-      default: () => render23(this.negativeText)
+      default: () => render26(this.negativeText)
     }), this.positiveText && h(Button, Object.assign({
       theme: mergedTheme.peers.Button,
       themeOverrides: mergedTheme.peerOverrides.Button,
@@ -30762,7 +30324,7 @@ const NDialog = /* @__PURE__ */ defineComponent({
       loading,
       onClick: handlePositiveClick
     }, positiveButtonProps), {
-      default: () => render23(this.positiveText)
+      default: () => render26(this.positiveText)
     })])) : null);
     return h("div", {
       class: [`${mergedClsPrefix}-dialog`, this.themeClass, this.closable && `${mergedClsPrefix}-dialog--closable`, `${mergedClsPrefix}-dialog--icon-${mergedIconPlacement}`, bordered && `${mergedClsPrefix}-dialog--bordered`, this.rtlEnabled && `${mergedClsPrefix}-dialog--rtl`],
@@ -30783,13 +30345,13 @@ const NDialog = /* @__PURE__ */ defineComponent({
     }, icon) : null, h("div", {
       class: [`${mergedClsPrefix}-dialog__title`, this.titleClass],
       style: this.titleStyle
-    }, showIcon && mergedIconPlacement === "left" ? icon : null, resolveSlot(this.$slots.header, () => [render23(title)])), h("div", {
+    }, showIcon && mergedIconPlacement === "left" ? icon : null, resolveSlot(this.$slots.header, () => [render26(title)])), h("div", {
       class: [`${mergedClsPrefix}-dialog__content`, actionNode ? "" : `${mergedClsPrefix}-dialog__content--last`, this.contentClass],
       style: this.contentStyle
-    }, resolveSlot(this.$slots.default, () => [render23(content)])), actionNode);
+    }, resolveSlot(this.$slots.default, () => [render26(content)])), actionNode);
   }
 });
-function self$v(vars) {
+function self$u(vars) {
   const {
     modalColor,
     textColor2,
@@ -30809,7 +30371,7 @@ const modalLight = createTheme({
     Dialog: dialogLight,
     Card: cardLight
   },
-  self: self$v
+  self: self$u
 });
 const modalDark = {
   name: "Modal",
@@ -30819,7 +30381,7 @@ const modalDark = {
     Dialog: dialogDark,
     Card: cardDark
   },
-  self: self$v
+  self: self$u
 };
 const DRAGGABLE_CLASS = "n-draggable";
 function useDragModal(draggablePropsRef, options) {
@@ -31238,7 +30800,7 @@ const NModalBodyWrapper = /* @__PURE__ */ defineComponent({
     })), [[vShow, this.displayDirective === "if" || this.displayed || this.show]]) : null;
   }
 });
-const style$8 = c$1([cB("modal-container", `
+const style$9 = c$1([cB("modal-container", `
  position: fixed;
  left: 0;
  top: 0;
@@ -31362,7 +30924,7 @@ const NModal = /* @__PURE__ */ defineComponent({
       namespaceRef,
       inlineThemeDisabled
     } = useConfig(props);
-    const themeRef = useTheme("Modal", "-modal", style$8, modalLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Modal", "-modal", style$9, modalLight, props, mergedClsPrefixRef);
     const clickedRef = useClicked(64);
     const clickedPositionRef = useClickPosition();
     const isMountedRef = isMounted();
@@ -31614,7 +31176,7 @@ const commonVariables$6 = {
   iconSize: "20px",
   fontSize: "14px"
 };
-function self$u(vars) {
+function self$t(vars) {
   const {
     textColor2,
     closeIconColor,
@@ -31696,12 +31258,12 @@ function self$u(vars) {
 }
 const messageLight = {
   common: derived,
-  self: self$u
+  self: self$t
 };
 const messageDark = {
   name: "Message",
   common: derived$1,
-  self: self$u
+  self: self$t
 };
 const messageProps = {
   icon: Function,
@@ -31721,7 +31283,7 @@ const messageProps = {
   onMouseenter: Function,
   onMouseleave: Function
 };
-const style$7 = c$1([cB("message-wrapper", `
+const style$8 = c$1([cB("message-wrapper", `
  margin: var(--n-margin);
  z-index: 0;
  transform-origin: top center;
@@ -31847,7 +31409,7 @@ const NMessage = /* @__PURE__ */ defineComponent({
       mergedClsPrefixRef
     } = inject(messageProviderInjectionKey);
     const rtlEnabledRef = useRtl("Message", mergedRtlRef, mergedClsPrefixRef);
-    const themeRef = useTheme("Message", "-message", style$7, messageLight, messageProviderProps2, mergedClsPrefixRef);
+    const themeRef = useTheme("Message", "-message", style$8, messageLight, messageProviderProps2, mergedClsPrefixRef);
     const cssVarsRef = computed(() => {
       const {
         type
@@ -31961,7 +31523,7 @@ const NMessage = /* @__PURE__ */ defineComponent({
       default: () => iconNode
     })) : null, h("div", {
       class: `${mergedClsPrefix}-message__content`
-    }, render23(content)), closable ? h(NBaseClose, {
+    }, render26(content)), closable ? h(NBaseClose, {
       clsPrefix: mergedClsPrefix,
       class: `${mergedClsPrefix}-message__close`,
       onClick: handleClose,
@@ -31969,7 +31531,7 @@ const NMessage = /* @__PURE__ */ defineComponent({
     }) : null));
   }
 });
-function createIconVNode(icon, type, clsPrefix, spinProps) {
+function createIconVNode(icon, type, clsPrefix, spinProps2) {
   if (typeof icon === "function") {
     return icon();
   } else {
@@ -31977,7 +31539,7 @@ function createIconVNode(icon, type, clsPrefix, spinProps) {
       clsPrefix,
       strokeWidth: 24,
       scale: 0.85
-    }, spinProps)) : iconRenderMap[type]();
+    }, spinProps2)) : iconRenderMap[type]();
     if (!innerIcon) return null;
     return h(NBaseIcon, {
       clsPrefix,
@@ -32233,7 +31795,7 @@ const commonVars$5 = {
   metaFontSize: "12px",
   descriptionFontSize: "12px"
 };
-function self$t(vars) {
+function self$s(vars) {
   const {
     textColor2,
     successColor,
@@ -32284,9 +31846,9 @@ const notificationDark = {
   peers: {
     Scrollbar: scrollbarDark
   },
-  self: self$t
+  self: self$s
 };
-function self$s(vars) {
+function self$r(vars) {
   const {
     textColor1,
     dividerColor,
@@ -32301,9 +31863,9 @@ function self$s(vars) {
 const dividerDark = {
   name: "Divider",
   common: derived$1,
-  self: self$s
+  self: self$r
 };
-function self$r(vars) {
+function self$q(vars) {
   const {
     modalColor,
     textColor1,
@@ -32351,7 +31913,7 @@ const drawerDark = {
   peers: {
     Scrollbar: scrollbarDark
   },
-  self: self$r
+  self: self$q
 };
 const commonVariables$5 = {
   actionMargin: "0 0 0 20px",
@@ -32379,168 +31941,6 @@ const spaceDark = {
     return commonVars$4;
   }
 };
-function self$q() {
-  return commonVars$4;
-}
-const spaceLight = {
-  self: self$q
-};
-let supportFlexGap;
-function ensureSupportFlexGap() {
-  if (!isBrowser$1) return true;
-  if (supportFlexGap === void 0) {
-    const flex = document.createElement("div");
-    flex.style.display = "flex";
-    flex.style.flexDirection = "column";
-    flex.style.rowGap = "1px";
-    flex.appendChild(document.createElement("div"));
-    flex.appendChild(document.createElement("div"));
-    document.body.appendChild(flex);
-    const isSupported = flex.scrollHeight === 1;
-    document.body.removeChild(flex);
-    return supportFlexGap = isSupported;
-  }
-  return supportFlexGap;
-}
-const spaceProps = Object.assign(Object.assign({}, useTheme.props), {
-  align: String,
-  justify: {
-    type: String,
-    default: "start"
-  },
-  inline: Boolean,
-  vertical: Boolean,
-  reverse: Boolean,
-  size: [String, Number, Array],
-  wrapItem: {
-    type: Boolean,
-    default: true
-  },
-  itemClass: String,
-  itemStyle: [String, Object],
-  wrap: {
-    type: Boolean,
-    default: true
-  },
-  // internal
-  internalUseGap: {
-    type: Boolean,
-    default: void 0
-  }
-});
-const NSpace = /* @__PURE__ */ defineComponent({
-  name: "Space",
-  props: spaceProps,
-  setup(props) {
-    const {
-      mergedClsPrefixRef,
-      mergedRtlRef,
-      mergedComponentPropsRef
-    } = useConfig(props);
-    const mergedSizeRef = computed(() => {
-      var _a, _b;
-      return props.size || ((_b = (_a = mergedComponentPropsRef === null || mergedComponentPropsRef === void 0 ? void 0 : mergedComponentPropsRef.value) === null || _a === void 0 ? void 0 : _a.Space) === null || _b === void 0 ? void 0 : _b.size) || "medium";
-    });
-    const themeRef = useTheme("Space", "-space", void 0, spaceLight, props, mergedClsPrefixRef);
-    const rtlEnabledRef = useRtl("Space", mergedRtlRef, mergedClsPrefixRef);
-    return {
-      useGap: ensureSupportFlexGap(),
-      rtlEnabled: rtlEnabledRef,
-      mergedClsPrefix: mergedClsPrefixRef,
-      margin: computed(() => {
-        const size2 = mergedSizeRef.value;
-        if (Array.isArray(size2)) {
-          return {
-            horizontal: size2[0],
-            vertical: size2[1]
-          };
-        }
-        if (typeof size2 === "number") {
-          return {
-            horizontal: size2,
-            vertical: size2
-          };
-        }
-        const {
-          self: {
-            [createKey("gap", size2)]: gap
-          }
-        } = themeRef.value;
-        const {
-          row,
-          col
-        } = getGap(gap);
-        return {
-          horizontal: depx(col),
-          vertical: depx(row)
-        };
-      })
-    };
-  },
-  render() {
-    const {
-      vertical,
-      reverse,
-      align,
-      inline,
-      justify,
-      itemClass,
-      itemStyle,
-      margin,
-      wrap,
-      mergedClsPrefix,
-      rtlEnabled,
-      useGap,
-      wrapItem,
-      internalUseGap
-    } = this;
-    const children = flatten$2(getSlot(this), false);
-    if (!children.length) return null;
-    const horizontalMargin = `${margin.horizontal}px`;
-    const semiHorizontalMargin = `${margin.horizontal / 2}px`;
-    const verticalMargin = `${margin.vertical}px`;
-    const semiVerticalMargin = `${margin.vertical / 2}px`;
-    const lastIndex = children.length - 1;
-    const isJustifySpace = justify.startsWith("space-");
-    return h("div", {
-      role: "none",
-      class: [`${mergedClsPrefix}-space`, rtlEnabled && `${mergedClsPrefix}-space--rtl`],
-      style: {
-        display: inline ? "inline-flex" : "flex",
-        flexDirection: (() => {
-          if (vertical && !reverse) return "column";
-          if (vertical && reverse) return "column-reverse";
-          if (!vertical && reverse) return "row-reverse";
-          else return "row";
-        })(),
-        justifyContent: ["start", "end"].includes(justify) ? `flex-${justify}` : justify,
-        flexWrap: !wrap || vertical ? "nowrap" : "wrap",
-        marginTop: useGap || vertical ? "" : `-${semiVerticalMargin}`,
-        marginBottom: useGap || vertical ? "" : `-${semiVerticalMargin}`,
-        alignItems: align,
-        gap: useGap ? `${margin.vertical}px ${margin.horizontal}px` : ""
-      }
-    }, !wrapItem && (useGap || internalUseGap) ? children : children.map((child, index) => child.type === Comment ? child : h("div", {
-      role: "none",
-      class: itemClass,
-      style: [itemStyle, {
-        maxWidth: "100%"
-      }, useGap ? "" : vertical ? {
-        marginBottom: index !== lastIndex ? verticalMargin : ""
-      } : rtlEnabled ? {
-        marginLeft: isJustifySpace ? justify === "space-between" && index === lastIndex ? "" : semiHorizontalMargin : index !== lastIndex ? horizontalMargin : "",
-        marginRight: isJustifySpace ? justify === "space-between" && index === 0 ? "" : semiHorizontalMargin : "",
-        paddingTop: semiVerticalMargin,
-        paddingBottom: semiVerticalMargin
-      } : {
-        marginRight: isJustifySpace ? justify === "space-between" && index === lastIndex ? "" : semiHorizontalMargin : index !== lastIndex ? horizontalMargin : "",
-        marginLeft: isJustifySpace ? justify === "space-between" && index === 0 ? "" : semiHorizontalMargin : "",
-        paddingTop: semiVerticalMargin,
-        paddingBottom: semiVerticalMargin
-      }]
-    }, child)));
-  }
-});
 const dynamicTagsDark = {
   name: "DynamicTags",
   common: derived$1,
@@ -33247,6 +32647,10 @@ function self$f(vars) {
     opacitySpinning: opacityDisabled
   };
 }
+const spinLight = {
+  common: derived,
+  self: self$f
+};
 const spinDark = {
   name: "Spin",
   common: derived$1,
@@ -34123,7 +33527,7 @@ const imagePreviewSharedProps = Object.assign(Object.assign({}, useTheme.props),
   renderToolbar: Function
 });
 const imageContextKey = createInjectionKey("n-image");
-const style$6 = c$1([c$1("body >", [cB("image-container", "position: fixed;")]), cB("image-preview-container", `
+const style$7 = c$1([c$1("body >", [cB("image-container", "position: fixed;")]), cB("image-preview-container", `
  position: fixed;
  left: 0;
  right: 0;
@@ -34206,7 +33610,7 @@ const NImagePreview = /* @__PURE__ */ defineComponent({
     const {
       mergedClsPrefixRef
     } = useConfig(props);
-    const themeRef = useTheme("Image", "-image", style$6, imageLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Image", "-image", style$7, imageLight, props, mergedClsPrefixRef);
     let thumbnailEl = null;
     const previewRef = /* @__PURE__ */ ref(null);
     const previewWrapperRef = /* @__PURE__ */ ref(null);
@@ -35142,7 +34546,7 @@ const NImage = /* @__PURE__ */ defineComponent({
     }), !loaded && placeholderNode);
   }
 });
-const style$5 = c$1([cB("input-number-suffix", `
+const style$6 = c$1([cB("input-number-suffix", `
  display: inline-block;
  margin-right: 10px;
  `), cB("input-number-prefix", `
@@ -35256,7 +34660,7 @@ const NInputNumber = /* @__PURE__ */ defineComponent({
       mergedRtlRef,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("InputNumber", "-input-number", style$5, inputNumberLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("InputNumber", "-input-number", style$6, inputNumberLight, props, mergedClsPrefixRef);
     const {
       localeRef
     } = useLocale("InputNumber");
@@ -36043,7 +35447,7 @@ const PopconfirmPanel = /* @__PURE__ */ defineComponent({
     }, actionContentNode) : null);
   }
 });
-const style$4 = cB("popconfirm", [cE("body", `
+const style$5 = cB("popconfirm", [cE("body", `
  font-size: var(--n-font-size);
  display: flex;
  align-items: center;
@@ -36084,7 +35488,7 @@ const NPopconfirm = /* @__PURE__ */ defineComponent({
     const {
       mergedClsPrefixRef
     } = useConfig();
-    const themeRef = useTheme("Popconfirm", "-popconfirm", style$4, popconfirmLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Popconfirm", "-popconfirm", style$5, popconfirmLight, props, mergedClsPrefixRef);
     const popoverInstRef = /* @__PURE__ */ ref(null);
     function handlePositiveClick(e) {
       var _a;
@@ -36612,7 +36016,7 @@ const MultipleCircle = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const style$3 = c$1([cB("progress", {
+const style$4 = c$1([cB("progress", {
   display: "inline-block"
 }, [cB("progress-icon", `
  color: var(--n-icon-color);
@@ -36862,7 +36266,7 @@ const NProgress = /* @__PURE__ */ defineComponent({
       mergedClsPrefixRef,
       inlineThemeDisabled
     } = useConfig(props);
-    const themeRef = useTheme("Progress", "-progress", style$3, progressLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Progress", "-progress", style$4, progressLight, props, mergedClsPrefixRef);
     const cssVarsRef = computed(() => {
       const {
         status
@@ -37021,7 +36425,7 @@ const skeletonDark = {
     };
   }
 };
-const style$2 = c$1([cB("slider", `
+const style$3 = c$1([cB("slider", `
  display: block;
  padding: calc((var(--n-handle-size) - var(--n-rail-height)) / 2) 0;
  position: relative;
@@ -37262,7 +36666,7 @@ const NSlider = /* @__PURE__ */ defineComponent({
       namespaceRef,
       inlineThemeDisabled
     } = useConfig(props);
-    const themeRef = useTheme("Slider", "-slider", style$2, sliderLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Slider", "-slider", style$3, sliderLight, props, mergedClsPrefixRef);
     const handleRailRef = /* @__PURE__ */ ref(null);
     const [handleRefs, setHandleRefs] = useRefs();
     const [followerRefs, setFollowerRefs] = useRefs();
@@ -37879,6 +37283,198 @@ const NSlider = /* @__PURE__ */ defineComponent({
       class: `${mergedClsPrefix}-slider-mark`,
       style: mark.style
     }, typeof mark.label === "function" ? mark.label() : mark.label))) : null));
+  }
+});
+const style$2 = c$1([c$1("@keyframes spin-rotate", `
+ from {
+ transform: rotate(0);
+ }
+ to {
+ transform: rotate(360deg);
+ }
+ `), cB("spin-container", `
+ position: relative;
+ `, [cB("spin-body", `
+ position: absolute;
+ top: 50%;
+ left: 50%;
+ transform: translateX(-50%) translateY(-50%);
+ `, [fadeInTransition()])]), cB("spin-body", `
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ flex-direction: column;
+ `), cB("spin", `
+ display: inline-flex;
+ height: var(--n-size);
+ width: var(--n-size);
+ font-size: var(--n-size);
+ color: var(--n-color);
+ `, [cM("rotate", `
+ animation: spin-rotate 2s linear infinite;
+ `)]), cB("spin-description", `
+ display: inline-block;
+ font-size: var(--n-font-size);
+ color: var(--n-text-color);
+ transition: color .3s var(--n-bezier);
+ margin-top: 8px;
+ `), cB("spin-content", `
+ opacity: 1;
+ transition: opacity .3s var(--n-bezier);
+ pointer-events: all;
+ `, [cM("spinning", `
+ user-select: none;
+ -webkit-user-select: none;
+ pointer-events: none;
+ opacity: var(--n-opacity-spinning);
+ `)])]);
+const STROKE_WIDTH = {
+  small: 20,
+  medium: 18,
+  large: 16
+};
+const spinProps = Object.assign(Object.assign(Object.assign({}, useTheme.props), {
+  contentClass: String,
+  contentStyle: [Object, String],
+  description: String,
+  size: {
+    type: [String, Number],
+    default: "medium"
+  },
+  show: {
+    type: Boolean,
+    default: true
+  },
+  rotate: {
+    type: Boolean,
+    default: true
+  },
+  spinning: {
+    type: Boolean,
+    validator: () => {
+      return true;
+    },
+    default: void 0
+  },
+  delay: Number
+}), exposedLoadingProps);
+const NSpin = /* @__PURE__ */ defineComponent({
+  name: "Spin",
+  props: spinProps,
+  slots: Object,
+  setup(props) {
+    const {
+      mergedClsPrefixRef,
+      inlineThemeDisabled
+    } = useConfig(props);
+    const themeRef = useTheme("Spin", "-spin", style$2, spinLight, props, mergedClsPrefixRef);
+    const cssVarsRef = computed(() => {
+      const {
+        size: spinSize
+      } = props;
+      const {
+        common: {
+          cubicBezierEaseInOut: cubicBezierEaseInOut2
+        },
+        self: self2
+      } = themeRef.value;
+      const {
+        opacitySpinning,
+        color,
+        textColor
+      } = self2;
+      const size2 = typeof spinSize === "number" ? pxfy(spinSize) : self2[createKey("size", spinSize)];
+      return {
+        "--n-bezier": cubicBezierEaseInOut2,
+        "--n-opacity-spinning": opacitySpinning,
+        "--n-size": size2,
+        "--n-color": color,
+        "--n-text-color": textColor
+      };
+    });
+    const themeClassHandle = inlineThemeDisabled ? useThemeClass("spin", computed(() => {
+      const {
+        size: size2
+      } = props;
+      return typeof size2 === "number" ? String(size2) : size2[0];
+    }), cssVarsRef, props) : void 0;
+    const compitableShow = useCompitable(props, ["spinning", "show"]);
+    const activeRef = /* @__PURE__ */ ref(false);
+    watchEffect((onCleanup) => {
+      let timerId;
+      if (compitableShow.value) {
+        const {
+          delay
+        } = props;
+        if (delay) {
+          timerId = window.setTimeout(() => {
+            activeRef.value = true;
+          }, delay);
+          onCleanup(() => {
+            clearTimeout(timerId);
+          });
+          return;
+        }
+      }
+      activeRef.value = compitableShow.value;
+    });
+    return {
+      mergedClsPrefix: mergedClsPrefixRef,
+      active: activeRef,
+      mergedStrokeWidth: computed(() => {
+        const {
+          strokeWidth
+        } = props;
+        if (strokeWidth !== void 0) return strokeWidth;
+        const {
+          size: size2
+        } = props;
+        return STROKE_WIDTH[typeof size2 === "number" ? "medium" : size2];
+      }),
+      cssVars: inlineThemeDisabled ? void 0 : cssVarsRef,
+      themeClass: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.themeClass,
+      onRender: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.onRender
+    };
+  },
+  render() {
+    var _a, _b;
+    const {
+      $slots,
+      mergedClsPrefix,
+      description
+    } = this;
+    const rotate = $slots.icon && this.rotate;
+    const descriptionNode = (description || $slots.description) && h("div", {
+      class: `${mergedClsPrefix}-spin-description`
+    }, description || ((_a = $slots.description) === null || _a === void 0 ? void 0 : _a.call($slots)));
+    const icon = $slots.icon ? h("div", {
+      class: [`${mergedClsPrefix}-spin-body`, this.themeClass]
+    }, h("div", {
+      class: [`${mergedClsPrefix}-spin`, rotate && `${mergedClsPrefix}-spin--rotate`],
+      style: $slots.default ? "" : this.cssVars
+    }, $slots.icon()), descriptionNode) : h("div", {
+      class: [`${mergedClsPrefix}-spin-body`, this.themeClass]
+    }, h(NBaseLoading, {
+      clsPrefix: mergedClsPrefix,
+      style: $slots.default ? "" : this.cssVars,
+      stroke: this.stroke,
+      "stroke-width": this.mergedStrokeWidth,
+      radius: this.radius,
+      scale: this.scale,
+      class: `${mergedClsPrefix}-spin`
+    }), descriptionNode);
+    (_b = this.onRender) === null || _b === void 0 ? void 0 : _b.call(this);
+    return $slots.default ? h("div", {
+      class: [`${mergedClsPrefix}-spin-container`, this.themeClass],
+      style: this.cssVars
+    }, h("div", {
+      class: [`${mergedClsPrefix}-spin-content`, this.active && `${mergedClsPrefix}-spin-content--spinning`, this.contentClass],
+      style: this.contentStyle
+    }, $slots), h(Transition, {
+      name: "fade-in-transition"
+    }, {
+      default: () => this.active ? icon : null
+    })) : icon;
   }
 });
 const splitDark = {
@@ -40165,308 +39761,345 @@ const _export_sfc = (sfc, props) => {
   return target;
 };
 const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["__scopeId", "data-v-5243b188"]]);
-const _hoisted_1$9 = { class: "picker-shell" };
-const _sfc_main$a = /* @__PURE__ */ defineComponent({
-  __name: "MeasureNumberPicker",
-  props: {
-    show: { type: Boolean },
-    options: {}
-  },
-  emits: ["update:show", "confirm", "cancel"],
-  setup(__props, { emit: __emit }) {
-    const props = __props;
-    const emit2 = __emit;
-    const selectedValue = /* @__PURE__ */ ref(0);
-    const customValue = /* @__PURE__ */ ref(null);
-    watch(
-      () => props.show,
-      (visible) => {
-        if (visible && props.options.length) {
-          selectedValue.value = props.options[0];
-          customValue.value = null;
-        }
-      },
-      { immediate: true }
-    );
-    function handleConfirm() {
-      if (selectedValue.value === -1) {
-        if (customValue.value != null && customValue.value >= 1) {
-          emit2("confirm", customValue.value);
-        }
-      } else {
-        emit2("confirm", selectedValue.value);
-      }
-      emit2("update:show", false);
-    }
-    function handleCancel() {
-      emit2("cancel");
-      emit2("update:show", false);
-    }
-    return (_ctx, _cache) => {
-      return openBlock(), createBlock(unref(NModal), {
-        show: __props.show,
-        preset: "dialog",
-        title: "选择起始小节号",
-        "positive-text": "确定",
-        "negative-text": "取消",
-        "show-icon": false,
-        onPositiveClick: handleConfirm,
-        onNegativeClick: handleCancel,
-        "onUpdate:show": _cache[2] || (_cache[2] = ($event) => _ctx.$emit("update:show", $event))
-      }, {
-        default: withCtx(() => [
-          createBaseVNode("div", _hoisted_1$9, [
-            _cache[4] || (_cache[4] = createBaseVNode("p", { class: "picker-desc" }, "OCR 识别到本页以下小节号，请选择本页的起始小节号：", -1)),
-            createVNode(unref(NRadioGroup), {
-              value: selectedValue.value,
-              "onUpdate:value": _cache[1] || (_cache[1] = ($event) => selectedValue.value = $event),
-              class: "picker-options"
-            }, {
-              default: withCtx(() => [
-                createVNode(unref(NSpace), { vertical: "" }, {
-                  default: withCtx(() => [
-                    (openBlock(true), createElementBlock(Fragment, null, renderList(__props.options, (num) => {
-                      return openBlock(), createBlock(unref(NRadio), {
-                        key: num,
-                        value: num
-                      }, {
-                        default: withCtx(() => [
-                          createTextVNode(" 第 " + toDisplayString(num) + " 小节 ", 1)
-                        ]),
-                        _: 2
-                      }, 1032, ["value"]);
-                    }), 128)),
-                    createVNode(unref(NRadio), { value: -1 }, {
-                      default: withCtx(() => [
-                        createVNode(unref(NSpace), { align: "center" }, {
-                          default: withCtx(() => [
-                            _cache[3] || (_cache[3] = createBaseVNode("span", null, "自定义", -1)),
-                            createVNode(unref(NInputNumber), {
-                              value: customValue.value,
-                              "onUpdate:value": _cache[0] || (_cache[0] = ($event) => customValue.value = $event),
-                              disabled: selectedValue.value !== -1,
-                              placeholder: "输入数字",
-                              min: 1,
-                              size: "small",
-                              style: { "width": "120px" }
-                            }, null, 8, ["value", "disabled"])
-                          ]),
-                          _: 1
-                        })
-                      ]),
-                      _: 1
-                    })
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value"])
-          ])
-        ]),
-        _: 1
-      }, 8, ["show"]);
-    };
-  }
-});
-const MeasureNumberPicker = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-7c733fdf"]]);
-const _hoisted_1$8 = { class: "recognize-view" };
-const _hoisted_2$8 = { class: "rv-header" };
-const _hoisted_3$7 = {
+const _hoisted_1$9 = { class: "recognize-view" };
+const _hoisted_2$9 = { class: "rv-header" };
+const _hoisted_3$9 = {
   key: 0,
   class: "page-nav"
 };
-const _hoisted_4$7 = { class: "page-indicator" };
-const _hoisted_5$6 = { class: "rv-actions" };
-const _hoisted_6$6 = { class: "ai-switch" };
-const _hoisted_7$6 = {
+const _hoisted_4$8 = { class: "page-indicator" };
+const _hoisted_5$7 = { class: "rv-actions" };
+const _hoisted_6$7 = { class: "ai-switch" };
+const _hoisted_7$7 = {
   key: 1,
   class: "pages-strip"
 };
-const _hoisted_8$5 = ["onClick"];
-const _hoisted_9$5 = ["disabled", "onClick"];
-const _hoisted_10$5 = { class: "page-thumb" };
-const _hoisted_11$4 = ["src", "alt"];
-const _hoisted_12$4 = { class: "page-label" };
-const _hoisted_13$3 = { class: "page-name" };
-const _sfc_main$9 = /* @__PURE__ */ defineComponent({
+const _hoisted_8$6 = ["onClick"];
+const _hoisted_9$6 = ["disabled", "onClick"];
+const _hoisted_10$6 = { class: "page-thumb" };
+const _hoisted_11$6 = ["src", "alt"];
+const _hoisted_12$5 = { class: "page-label" };
+const _hoisted_13$5 = { class: "page-name" };
+const _hoisted_14$5 = {
+  key: 0,
+  class: "page-mini-progress"
+};
+const _sfc_main$a = /* @__PURE__ */ defineComponent({
   __name: "RecognizeView",
   setup(__props) {
     const store = useTaskStore();
     const log2 = useLogStore();
     const settings = useSettingsStore();
     const message = useMessage();
-    const progressPercent = /* @__PURE__ */ ref(0);
-    const progressText = /* @__PURE__ */ ref("等待开始");
     const aiVisionEnabled = /* @__PURE__ */ ref(false);
-    const pickerShow = /* @__PURE__ */ ref(false);
-    const pickerOptions = /* @__PURE__ */ ref([]);
-    let pickerResolve = null;
-    function openMeasurePicker(options) {
-      return new Promise((resolve2) => {
-        pickerOptions.value = options;
-        pickerShow.value = true;
-        pickerResolve = resolve2;
-      });
-    }
-    function onPickerConfirm(value) {
-      pickerShow.value = false;
-      if (pickerResolve) {
-        pickerResolve(value);
-        pickerResolve = null;
+    const activePages = computed(() => store.pages.filter((page) => page.status === "processing"));
+    const currentPageProcessing = computed(() => store.currentPage?.status === "processing");
+    const pendingRecognizableCount = computed(() => store.pages.filter((page) => isStartablePage(page)).length);
+    const overallProgressPercent = computed(() => {
+      if (!activePages.value.length) return 0;
+      const total = activePages.value.reduce((sum, page) => sum + page.progressPercent, 0);
+      return Math.round(total / activePages.value.length);
+    });
+    const overallProgressText = computed(() => {
+      if (activePages.value.length === 1) {
+        return activePages.value[0].progressMessage || "后台处理中";
       }
-    }
-    function onPickerCancel() {
-      pickerShow.value = false;
-      if (pickerResolve) {
-        pickerResolve(null);
-        pickerResolve = null;
-      }
-    }
+      return `${activePages.value.length} 个后台任务并行处理中`;
+    });
     function isPreviewable(fileName) {
       return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName);
     }
-    function statusText(status) {
-      const map2 = { completed: "完成", failed: "失败", processing: "处理中", pending: "待处理" };
-      return map2[status] ?? "";
+    function isStartablePage(page) {
+      return !!page.inputFileId && page.status !== "processing";
+    }
+    function statusText(page) {
+      if (page.status === "processing") {
+        return page.progressPercent > 0 ? `${Math.round(page.progressPercent)}%` : "处理中";
+      }
+      const map2 = { completed: "完成", failed: "失败", pending: "待处理" };
+      return map2[page.status] ?? "";
     }
     function removePage(index) {
-      if (store.isBusy) return;
       const page = store.pages[index];
       if (!page) return;
+      if (page.status === "processing") {
+        message.warning("后台识别中的页面暂不能移除");
+        return;
+      }
       store.removePage(index);
       log2.addLog(`已移除：${page.inputFileName}`);
     }
     async function onFileUploaded(fileId, fileName) {
-      if (store.isBusy) return;
       store.addInputPage(fileName, fileId);
       log2.addLog(`已加入：${fileName}`);
     }
-    function setProgress(percent2, text) {
-      progressPercent.value = Math.max(0, Math.min(100, Math.round(percent2)));
-      progressText.value = text;
+    async function recognize() {
+      const page = store.currentPage;
+      if (!page || !isStartablePage(page)) return;
+      await submitRecognitionTargets([targetFromPage(page)], aiVisionEnabled.value ? "ai" : "omr");
     }
-    async function waitForTaskResult(taskId, rangeStart = 0, rangeEnd = 100) {
-      store.setCurrentTask(taskId);
-      try {
-        const completed = await tasksApi.stream(taskId, (event) => {
-          store.setTaskStatus(event.status);
-          setProgress(mapTaskPercent(event, rangeStart, rangeEnd), taskProgressText(event));
-        });
-        if (!completed.result) {
-          throw new Error("任务完成但没有返回结果");
-        }
-        return completed.result;
-      } finally {
-        store.setCurrentTask(null, store.taskStatus);
-      }
+    async function recognizeAllPages() {
+      const targets = store.pages.filter((page) => isStartablePage(page)).map(targetFromPage);
+      if (!targets.length) return;
+      await submitRecognitionTargets(targets, aiVisionEnabled.value ? "ai" : "omr");
     }
-    function mapTaskPercent(event, rangeStart, rangeEnd) {
-      return rangeStart + event.percent / 100 * (rangeEnd - rangeStart);
-    }
-    function taskProgressText(event) {
-      if (event.status === "failed") return event.error || event.message || "任务失败";
-      return event.message || event.stage || "处理中";
-    }
-    async function runPipelineForPage(pageIndex, rangeStart = 0, rangeEnd = 100) {
-      const page = store.pages[pageIndex];
-      if (!page?.inputFileId || !page.inputFileName) {
-        return { page_index: pageIndex, page_id: "", input_file_name: "", input_file_id: "", musicxml_file_id: "", jianpu_text: "", ocr_text: "", svg_file_id: "", status: "failed", error_message: "无输入文件" };
-      }
-      const mapPercent = (p2) => rangeStart + p2 / 100 * (rangeEnd - rangeStart);
-      const pageId = page.id;
-      if (store.selectPageById(pageId) < 0) {
-        throw new Error(`页面已从工作区移除：${page.inputFileName}`);
-      }
-      store.setCurrentPageStatus("processing");
-      const sourceFileId = page.inputFileId;
-      const sourceFileName = page.inputFileName;
-      setProgress(mapPercent(8), `读取：${sourceFileName}`);
-      const resp = await fetch(getFileURL(sourceFileId));
-      const blob = await resp.blob();
-      setProgress(mapPercent(18), "提交后台识别任务");
-      const submitted = await pipelineApi.run(
-        new File([blob], sourceFileName),
-        settings.targetKey,
-        page.startMeasureNumber ?? void 0
-      );
-      const result = await waitForTaskResult(submitted.task_id, mapPercent(24), mapPercent(82));
-      setProgress(mapPercent(82), "写入结果");
-      const resultPageIndex = store.selectPageById(pageId);
-      if (resultPageIndex < 0) {
-        throw new Error(`页面已从工作区移除：${sourceFileName}`);
-      }
-      store.setMusicxml(result.musicxml_file_id, "");
-      if (isPreviewable(sourceFileName)) {
-        store.setOriginalFile(sourceFileName, sourceFileId);
-      } else {
-        store.clearOriginalFile();
-      }
-      const split = splitJianpuAndOcr(result.jianpu_text);
-      store.setJianpu(split.jianpuText);
-      store.setOcrText(split.ocrText);
-      let svgFileId = result.svg_file_id;
-      store.setSvg(svgFileId);
-      if (result.ocr_measure_numbers.length > 0) {
-        setProgress(mapPercent(85), "选择起始小节号");
-        const chosen = await openMeasurePicker(result.ocr_measure_numbers);
-        if (chosen != null) {
-          store.setPageStartMeasureNumber(chosen);
-          if (chosen !== result.ocr_measure_numbers[0]) {
-            setProgress(mapPercent(90), "重新渲染");
-            const renderResult = await renderApi.jianpuSvg({
-              musicxml_file_id: result.musicxml_file_id,
-              page_image_file_id: sourceFileId,
-              target_key: settings.targetKey,
-              start_measure_number: chosen
-            });
-            svgFileId = renderResult.svg_file_id;
-            store.setSvg(svgFileId);
-          }
-        }
-      }
-      store.setCurrentPageStatus("completed");
-      log2.addLog(`识别完成：${sourceFileName}`);
+    function targetFromPage(page) {
       return {
-        page_index: resultPageIndex,
-        page_id: pageId,
-        input_file_name: sourceFileName,
-        input_file_id: sourceFileId,
-        musicxml_file_id: result.musicxml_file_id,
-        jianpu_text: split.jianpuText,
-        ocr_text: split.ocrText,
-        svg_file_id: svgFileId,
-        status: "completed",
-        error_message: ""
+        pageId: page.id,
+        inputFileName: page.inputFileName,
+        inputFileId: page.inputFileId,
+        startMeasureNumber: page.startMeasureNumber
       };
     }
-    async function saveHistoryBatch(pageResults) {
-      if (!pageResults.length) return;
+    async function submitRecognitionTargets(targets, mode) {
+      const historyPageIds = await createPendingHistory(targets);
+      const label = mode === "ai" ? "AI 视觉检测" : "OMR 识别";
+      for (const target of targets) {
+        const historyPageId = historyPageIds.get(target.pageId) ?? null;
+        store.beginBackgroundTask();
+        const run = mode === "ai" ? runAiTarget(target, historyPageId) : runPipelineTarget(target, historyPageId);
+        void run.finally(() => {
+          store.endBackgroundTask();
+        });
+      }
+      message.success(`已提交 ${targets.length} 个${label}后台任务`);
+    }
+    async function createPendingHistory(targets) {
+      const result = /* @__PURE__ */ new Map();
       try {
         const created = await historyApi.create({
-          pages: pageResults.map((r) => {
-            const page = store.pages.find((entry) => entry.id === r.page_id) ?? store.pages[r.page_index];
-            return {
-              input_file_name: r.input_file_name,
-              input_file_id: r.input_file_id,
-              musicxml_file_id: r.musicxml_file_id,
-              jianpu_text: r.jianpu_text,
-              ocr_text: r.ocr_text,
-              svg_file_id: r.svg_file_id,
-              start_measure_number: page?.startMeasureNumber ?? null,
-              status: r.status,
-              error_message: r.error_message
-            };
-          })
+          pages: targets.map((target) => ({
+            input_file_name: target.inputFileName,
+            input_file_id: target.inputFileId,
+            start_measure_number: target.startMeasureNumber,
+            status: "processing",
+            error_message: ""
+          }))
         });
         created.pages.forEach((page, index) => {
-          const result = pageResults[index];
-          if (!result) return;
-          if (result.page_id && store.patchPageById(result.page_id, { historyPageId: page.id })) return;
-          if (typeof result.page_index === "number") store.setPageHistoryPageId(result.page_index, page.id);
+          const target = targets[index];
+          if (!target) return;
+          result.set(target.pageId, page.id);
+          store.patchPageById(target.pageId, { historyPageId: page.id });
         });
         notifyHistoryUpdated();
-      } catch {
+      } catch (error2) {
+        log2.addLog(`创建后台历史记录失败：${errorMessage(error2)}`, "warn");
+      }
+      return result;
+    }
+    async function runPipelineTarget(target, historyPageId) {
+      markPageProcessing(target, "读取输入文件", 3);
+      try {
+        const resp = await fetch(getFileURL(target.inputFileId));
+        if (!resp.ok) throw new Error(`读取文件失败：${resp.status}`);
+        const blob = await resp.blob();
+        markPageProcessing(target, "提交 OMR 后台任务", 8);
+        const submitted = await pipelineApi.run(
+          new File([blob], target.inputFileName),
+          settings.targetKey,
+          target.startMeasureNumber ?? void 0
+        );
+        store.patchPageById(target.pageId, { taskId: submitted.task_id });
+        const result = await waitForTaskResult(submitted.task_id, target.pageId);
+        const split = splitJianpuAndOcr(result.jianpu_text);
+        const pageResult = {
+          input_file_name: target.inputFileName,
+          input_file_id: target.inputFileId,
+          musicxml_file_id: result.musicxml_file_id,
+          jianpu_text: split.jianpuText,
+          ocr_text: split.ocrText,
+          svg_file_id: result.svg_file_id,
+          start_measure_number: target.startMeasureNumber,
+          status: "completed",
+          error_message: ""
+        };
+        store.patchPageById(target.pageId, {
+          musicxmlFileId: result.musicxml_file_id,
+          musicxmlText: "",
+          jianpuText: split.jianpuText,
+          ocrText: split.ocrText,
+          jianpuDirty: false,
+          svgFileId: result.svg_file_id,
+          originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : "",
+          originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : "",
+          taskId: "",
+          status: "completed",
+          progressPercent: 100,
+          progressMessage: "识别完成",
+          errorMessage: ""
+        });
+        await persistPageResult(target, pageResult, historyPageId);
+        log2.addLog(`识别完成：${target.inputFileName}`);
+        message.success(`识别完成：${target.inputFileName}`);
+      } catch (error2) {
+        await failTarget(target, historyPageId, error2, "识别失败");
+      }
+    }
+    async function runAiTarget(target, historyPageId) {
+      markPageProcessing(target, "提交 AI 视觉检测任务", 5);
+      try {
+        const submitted = await aiApi.transcribe({
+          file_id: target.inputFileId,
+          target_key: settings.targetKey,
+          normalize: true
+        });
+        store.patchPageById(target.pageId, { taskId: submitted.task_id });
+        const response = await waitForTaskResult(submitted.task_id, target.pageId);
+        if (!response.pages.length) throw new Error("AI 未返回任何页面");
+        const warnings = collectAiWarnings(response.pages, response.warnings);
+        applyAiResult(target, response, historyPageId);
+        const pageResult = {
+          input_file_name: target.inputFileName,
+          input_file_id: target.inputFileId,
+          musicxml_file_id: "",
+          jianpu_text: response.merged_jianpu_text,
+          ocr_text: "",
+          svg_file_id: "",
+          start_measure_number: target.startMeasureNumber,
+          status: "completed",
+          error_message: warnings.join("；")
+        };
+        await persistPageResult(target, pageResult, historyPageId);
+        log2.addLog(`AI 转写完成：${target.inputFileName}`);
+        if (warnings.length) {
+          message.warning(warnings.slice(0, 3).join("；"));
+        } else {
+          message.success(`AI 转写完成：${target.inputFileName}`);
+        }
+      } catch (error2) {
+        await failTarget(target, historyPageId, error2, "AI 转写失败");
+      }
+    }
+    function applyAiResult(target, response, historyPageId) {
+      if (response.pages.length === 1) {
+        const page = response.pages[0];
+        const warningText = aiPageErrorMessage(page);
+        store.patchPageById(target.pageId, {
+          inputFileName: aiPageLabel(response.source_filename, page, response.pages.length),
+          inputFileId: page.page_image_file_id,
+          originalFileName: aiPageLabel(response.source_filename, page, response.pages.length),
+          originalFileId: page.page_image_file_id,
+          musicxmlFileId: "",
+          musicxmlText: "",
+          jianpuText: page.jianpu_text,
+          ocrText: "",
+          jianpuDirty: false,
+          svgFileId: "",
+          taskId: "",
+          status: "completed",
+          progressPercent: 100,
+          progressMessage: "AI 转写完成",
+          errorMessage: warningText
+        });
+        return;
+      }
+      const aiPages = response.pages.map((page, index) => {
+        const label = aiPageLabel(response.source_filename, page, response.pages.length);
+        return {
+          inputFileName: label,
+          historyPageId: index === 0 ? historyPageId : null,
+          inputFileId: page.page_image_file_id,
+          originalFileName: label,
+          originalFileId: page.page_image_file_id,
+          musicxmlFileId: "",
+          musicxmlText: "",
+          jianpuText: page.jianpu_text,
+          ocrText: "",
+          jianpuDirty: false,
+          svgFileId: "",
+          status: "completed",
+          progressPercent: 100,
+          progressMessage: "AI 转写完成",
+          errorMessage: aiPageErrorMessage(page)
+        };
+      });
+      store.replacePageByIdKeepingSelection(target.pageId, aiPages);
+    }
+    async function waitForTaskResult(taskId, pageId) {
+      const completed = await tasksApi.stream(taskId, (event) => {
+        updatePageProgress(pageId, event);
+      });
+      if (!completed.result) {
+        throw new Error("任务完成但没有返回结果");
+      }
+      return completed.result;
+    }
+    function updatePageProgress(pageId, event) {
+      const failed = event.status === "failed";
+      store.patchPageById(pageId, {
+        taskId: event.task_id,
+        status: failed ? "failed" : "processing",
+        progressPercent: Math.max(0, Math.min(99, Math.round(event.percent))),
+        progressMessage: taskProgressText(event),
+        errorMessage: failed ? taskProgressText(event) : ""
+      });
+    }
+    function markPageProcessing(target, messageText, percent2) {
+      store.patchPageById(target.pageId, {
+        status: "processing",
+        progressPercent: percent2,
+        progressMessage: messageText,
+        errorMessage: ""
+      });
+    }
+    async function failTarget(target, historyPageId, error2, prefix2) {
+      const msg2 = errorMessage(error2);
+      store.patchPageById(target.pageId, {
+        taskId: "",
+        status: "failed",
+        progressPercent: 100,
+        progressMessage: msg2,
+        errorMessage: msg2
+      });
+      await persistPageResult(target, {
+        input_file_name: target.inputFileName,
+        input_file_id: target.inputFileId,
+        musicxml_file_id: "",
+        jianpu_text: "",
+        ocr_text: "",
+        svg_file_id: "",
+        start_measure_number: target.startMeasureNumber,
+        status: "failed",
+        error_message: msg2
+      }, historyPageId);
+      log2.addError(`${prefix2}：${target.inputFileName}：${msg2}`);
+      message.error(`${target.inputFileName}：${msg2}`);
+    }
+    async function persistPageResult(target, result, historyPageId) {
+      try {
+        if (historyPageId) {
+          await historyApi.updatePage(historyPageId, {
+            musicxml_file_id: result.musicxml_file_id,
+            jianpu_text: result.jianpu_text,
+            ocr_text: result.ocr_text,
+            svg_file_id: result.svg_file_id,
+            start_measure_number: result.start_measure_number,
+            status: result.status,
+            error_message: result.error_message
+          });
+        } else {
+          const created = await historyApi.create({
+            pages: [{
+              input_file_name: result.input_file_name,
+              input_file_id: result.input_file_id,
+              musicxml_file_id: result.musicxml_file_id,
+              jianpu_text: result.jianpu_text,
+              ocr_text: result.ocr_text,
+              svg_file_id: result.svg_file_id,
+              start_measure_number: result.start_measure_number,
+              status: result.status,
+              error_message: result.error_message
+            }]
+          });
+          const pageId = created.pages[0]?.id;
+          if (pageId) {
+            store.patchPageById(target.pageId, { historyPageId: pageId });
+          }
+        }
+        notifyHistoryUpdated();
+      } catch (error2) {
+        log2.addLog(`保存后台历史结果失败：${errorMessage(error2)}`, "warn");
       }
     }
     function aiPageLabel(sourceName, page, totalPages) {
@@ -40483,304 +40116,25 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
         ...pages.flatMap((page) => [...page.validation_errors, ...page.warnings])
       ];
     }
-    function replaceTaskPage(pageId, pageIndex, aiPages) {
-      const maybeStore = store;
-      if (typeof maybeStore.replacePageById === "function" && maybeStore.replacePageById(pageId, aiPages)) {
-        const start2 = store.currentPageIndex;
-        return store.pages.slice(start2, start2 + aiPages.length);
-      }
-      if (typeof maybeStore.replacePage === "function") {
-        maybeStore.replacePage(pageIndex, aiPages);
-        return store.pages.slice(pageIndex, pageIndex + aiPages.length);
-      }
-      const existingPages = store.pages.map((page) => ({
-        inputFileName: page.inputFileName,
-        historyPageId: page.historyPageId,
-        inputFileId: page.inputFileId,
-        originalFileName: page.originalFileName,
-        originalFileId: page.originalFileId,
-        musicxmlFileId: page.musicxmlFileId,
-        musicxmlText: page.musicxmlText,
-        jianpuText: page.jianpuText,
-        ocrText: page.ocrText,
-        jianpuDirty: page.jianpuDirty,
-        svgFileId: page.svgFileId,
-        status: page.status,
-        errorMessage: page.errorMessage
-      }));
-      store.loadBatch([
-        ...existingPages.slice(0, pageIndex),
-        ...aiPages,
-        ...existingPages.slice(pageIndex + 1)
-      ], pageIndex);
-      return store.pages.slice(pageIndex, pageIndex + aiPages.length);
+    function taskProgressText(event) {
+      if (event.status === "failed") return event.error || event.message || "任务失败";
+      return event.message || event.stage || "处理中";
     }
-    async function runAiForPage(pageIndex, rangeStart = 0, rangeEnd = 100) {
-      const sourcePage = store.pages[pageIndex];
-      if (!sourcePage?.inputFileId || !sourcePage.inputFileName) {
-        throw new Error("无输入文件");
-      }
-      const sourcePageId = sourcePage.id;
-      const mapPercent = (p2) => rangeStart + p2 / 100 * (rangeEnd - rangeStart);
-      if (store.selectPageById(sourcePageId) < 0) {
-        throw new Error(`页面已从工作区移除：${sourcePage.inputFileName}`);
-      }
-      store.setCurrentPageStatus("processing");
-      setProgress(mapPercent(8), `AI 读取：${sourcePage.inputFileName}`);
-      const submitted = await aiApi.transcribe({
-        file_id: sourcePage.inputFileId,
-        target_key: settings.targetKey,
-        normalize: true
-      });
-      const response = await waitForTaskResult(submitted.task_id, mapPercent(12), mapPercent(75));
-      if (!response.pages.length) throw new Error("AI 未返回任何页面");
-      const currentIndex = store.selectPageById(sourcePageId);
-      if (currentIndex < 0) {
-        throw new Error(`页面已从工作区移除：${sourcePage.inputFileName}`);
-      }
-      setProgress(mapPercent(75), "写入 AI 草稿");
-      const aiPages = response.pages.map((page) => {
-        const label = aiPageLabel(response.source_filename, page, response.pages.length);
-        return {
-          inputFileName: label,
-          historyPageId: null,
-          inputFileId: page.page_image_file_id,
-          originalFileName: label,
-          originalFileId: page.page_image_file_id,
-          musicxmlFileId: "",
-          musicxmlText: "",
-          jianpuText: page.jianpu_text,
-          ocrText: "",
-          jianpuDirty: false,
-          svgFileId: "",
-          status: "completed",
-          errorMessage: aiPageErrorMessage(page)
-        };
-      });
-      const insertedPages = replaceTaskPage(sourcePageId, currentIndex, aiPages);
-      const pageResults = response.pages.map((page, offset) => {
-        const label = aiPageLabel(response.source_filename, page, response.pages.length);
-        const insertedPage = insertedPages[offset];
-        return {
-          page_index: currentIndex + offset,
-          page_id: insertedPage?.id ?? "",
-          input_file_name: label,
-          input_file_id: page.page_image_file_id,
-          musicxml_file_id: "",
-          jianpu_text: page.jianpu_text,
-          ocr_text: "",
-          svg_file_id: "",
-          status: "completed",
-          error_message: aiPageErrorMessage(page)
-        };
-      });
-      log2.addLog(`AI 转写完成：${response.source_filename}`);
-      return {
-        pageResults,
-        warnings: collectAiWarnings(response.pages, response.warnings)
-      };
-    }
-    async function recognizeWithAi() {
-      const pageIndex = store.currentPageIndex;
-      const sourcePage = store.pages[pageIndex];
-      if (pageIndex < 0 || !sourcePage?.inputFileId) return;
-      store.setBusy(true);
-      const results = [];
-      try {
-        setProgress(0, "准备 AI 转写");
-        const aiResult = await runAiForPage(pageIndex, 0, 100);
-        results.push(...aiResult.pageResults);
-        setProgress(100, "AI 转写完成");
-        if (aiResult.warnings.length) {
-          message.warning(aiResult.warnings.slice(0, 3).join("；"));
-        } else {
-          message.success("AI 转写完成");
-        }
-      } catch (e) {
-        const msg2 = e instanceof Error ? e.message : String(e);
-        store.setCurrentPageStatus("failed", msg2);
-        results.push({
-          page_index: pageIndex,
-          page_id: sourcePage.id,
-          input_file_name: sourcePage.inputFileName,
-          input_file_id: sourcePage.inputFileId,
-          musicxml_file_id: "",
-          jianpu_text: "",
-          ocr_text: "",
-          svg_file_id: "",
-          status: "failed",
-          error_message: msg2
-        });
-        log2.addError(`AI 转写失败：${msg2}`);
-        message.error(msg2);
-      } finally {
-        await saveHistoryBatch(results);
-        store.setBusy(false);
-      }
-    }
-    async function recognizeAllWithAi() {
-      const targets = store.pages.filter((page) => !!page.inputFileId).map((page) => ({ id: page.id, name: page.inputFileName, fileId: page.inputFileId }));
-      if (!targets.length) return;
-      store.setBusy(true);
-      const results = [];
-      const warnings = [];
-      try {
-        setProgress(0, "准备批量 AI 转写");
-        for (let i = 0; i < targets.length; i += 1) {
-          const target = targets[i];
-          const pageIndex = store.pages.findIndex((page) => page.id === target.id);
-          if (pageIndex < 0) continue;
-          const rangeStart = i / targets.length * 100;
-          const rangeEnd = (i + 1) / targets.length * 100;
-          setProgress(rangeStart, `AI 处理第 ${i + 1} / ${targets.length} 页`);
-          try {
-            const aiResult = await runAiForPage(pageIndex, rangeStart, rangeEnd);
-            results.push(...aiResult.pageResults);
-            warnings.push(...aiResult.warnings);
-          } catch (e) {
-            const msg2 = e instanceof Error ? e.message : String(e);
-            const foundIndex = store.pages.findIndex((page) => page.id === target.id);
-            const resultIndex = foundIndex >= 0 ? foundIndex : i;
-            if (foundIndex >= 0) {
-              store.selectPage(foundIndex);
-              store.setCurrentPageStatus("failed", msg2);
-            }
-            results.push({
-              page_index: resultIndex,
-              page_id: target.id,
-              input_file_name: target.name,
-              input_file_id: target.fileId,
-              musicxml_file_id: "",
-              jianpu_text: "",
-              ocr_text: "",
-              svg_file_id: "",
-              status: "failed",
-              error_message: msg2
-            });
-            log2.addError(`第 ${i + 1} 页 AI 转写失败：${msg2}`);
-          }
-          setProgress(rangeEnd, `已完成 ${i + 1} / ${targets.length} 页`);
-        }
-        setProgress(100, "批量 AI 转写完成");
-        if (warnings.length) {
-          message.warning(warnings.slice(0, 3).join("；"));
-        } else {
-          message.success("批量 AI 转写完成");
-        }
-      } catch (e) {
-        const msg2 = e instanceof Error ? e.message : String(e);
-        log2.addError(`批量 AI 转写失败：${msg2}`);
-        message.error(msg2);
-      } finally {
-        await saveHistoryBatch(results);
-        store.setBusy(false);
-      }
-    }
-    async function recognize() {
-      if (aiVisionEnabled.value) {
-        await recognizeWithAi();
-        return;
-      }
-      const pageIndex = store.currentPageIndex;
-      if (pageIndex < 0 || !store.hasInput) return;
-      store.setBusy(true);
-      const results = [];
-      try {
-        setProgress(0, "准备识别");
-        const r = await runPipelineForPage(pageIndex, 0, 100);
-        results.push(r);
-        setProgress(100, "完成");
-        message.success("识别完成");
-      } catch (e) {
-        const msg2 = e instanceof Error ? e.message : String(e);
-        store.setCurrentPageStatus("failed", msg2);
-        results.push({
-          page_index: pageIndex,
-          page_id: store.pages[pageIndex]?.id ?? "",
-          input_file_name: store.pages[pageIndex]?.inputFileName ?? "",
-          input_file_id: store.pages[pageIndex]?.inputFileId ?? "",
-          musicxml_file_id: "",
-          jianpu_text: "",
-          ocr_text: "",
-          svg_file_id: "",
-          status: "failed",
-          error_message: msg2
-        });
-        log2.addError(`识别失败：${msg2}`);
-        message.error(msg2);
-      } finally {
-        await saveHistoryBatch(results);
-        store.setBusy(false);
-      }
-    }
-    async function recognizeAllPages() {
-      if (aiVisionEnabled.value) {
-        await recognizeAllWithAi();
-        return;
-      }
-      const targets = store.pages.filter((page) => !!page.inputFileId).map((page) => ({ id: page.id, name: page.inputFileName, fileId: page.inputFileId }));
-      if (!targets.length) return;
-      store.setBusy(true);
-      const results = [];
-      try {
-        setProgress(0, "准备批量识别");
-        for (let i = 0; i < targets.length; i += 1) {
-          const target = targets[i];
-          const pageIndex = store.pages.findIndex((page) => page.id === target.id);
-          if (pageIndex < 0) continue;
-          const rangeStart = i / targets.length * 100;
-          const rangeEnd = (i + 1) / targets.length * 100;
-          setProgress(rangeStart, `处理第 ${i + 1} / ${targets.length} 页`);
-          try {
-            const r = await runPipelineForPage(pageIndex, rangeStart, rangeEnd);
-            results.push(r);
-          } catch (e) {
-            const msg2 = e instanceof Error ? e.message : String(e);
-            const foundIndex = store.pages.findIndex((page) => page.id === target.id);
-            const resultIndex = foundIndex >= 0 ? foundIndex : pageIndex;
-            if (foundIndex >= 0) {
-              store.selectPage(foundIndex);
-              store.setCurrentPageStatus("failed", msg2);
-            }
-            results.push({
-              page_index: resultIndex,
-              page_id: target.id,
-              input_file_name: target.name,
-              input_file_id: target.fileId,
-              musicxml_file_id: "",
-              jianpu_text: "",
-              ocr_text: "",
-              svg_file_id: "",
-              status: "failed",
-              error_message: msg2
-            });
-            log2.addError(`第 ${i + 1} 页失败：${msg2}`);
-          }
-          setProgress(rangeEnd, `已完成 ${i + 1} / ${targets.length} 页`);
-        }
-        setProgress(100, "批量识别完成");
-        message.success("批量识别完成");
-      } catch (e) {
-        const msg2 = e instanceof Error ? e.message : String(e);
-        log2.addError(`批量识别失败：${msg2}`);
-        message.error(msg2);
-      } finally {
-        await saveHistoryBatch(results);
-        store.setBusy(false);
-      }
+    function errorMessage(error2) {
+      return error2 instanceof Error ? error2.message : String(error2);
     }
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("div", _hoisted_1$8, [
-        createBaseVNode("div", _hoisted_2$8, [
-          _cache[4] || (_cache[4] = createBaseVNode("div", { class: "rv-title" }, [
+      return openBlock(), createElementBlock("div", _hoisted_1$9, [
+        createBaseVNode("div", _hoisted_2$9, [
+          _cache[3] || (_cache[3] = createBaseVNode("div", { class: "rv-title" }, [
             createBaseVNode("h2", null, "智能识别"),
             createBaseVNode("p", null, "上传乐谱图片或 PDF，快速得到简谱成果")
           ], -1)),
-          unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_3$7, [
+          unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_3$9, [
             createVNode(unref(Button), {
               size: "small",
               quaternary: "",
-              disabled: !unref(store).canPrevPage || unref(store).isBusy,
+              disabled: !unref(store).canPrevPage,
               onClick: _cache[0] || (_cache[0] = ($event) => unref(store).prevPage())
             }, {
               icon: withCtx(() => [
@@ -40793,11 +40147,11 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["disabled"]),
-            createBaseVNode("span", _hoisted_4$7, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
+            createBaseVNode("span", _hoisted_4$8, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
             createVNode(unref(Button), {
               size: "small",
               quaternary: "",
-              disabled: !unref(store).canNextPage || unref(store).isBusy,
+              disabled: !unref(store).canNextPage,
               onClick: _cache[1] || (_cache[1] = ($event) => unref(store).nextPage())
             }, {
               icon: withCtx(() => [
@@ -40812,36 +40166,26 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
             }, 8, ["disabled"])
           ])) : createCommentVNode("", true)
         ]),
-        createVNode(FileUploader, {
-          disabled: unref(store).isBusy,
-          onUploaded: onFileUploaded
-        }, null, 8, ["disabled"]),
-        unref(store).isBusy ? (openBlock(), createBlock(unref(NProgress), {
+        createVNode(FileUploader, { onUploaded: onFileUploaded }),
+        unref(store).activePageTaskCount ? (openBlock(), createBlock(unref(NProgress), {
           key: 0,
           type: "line",
-          percentage: progressPercent.value,
+          percentage: overallProgressPercent.value,
           "indicator-placement": "inside",
           processing: "",
           class: "rv-progress"
         }, {
           default: withCtx(() => [
-            createTextVNode(toDisplayString(progressText.value), 1)
+            createTextVNode(toDisplayString(overallProgressText.value), 1)
           ]),
           _: 1
         }, 8, ["percentage"])) : createCommentVNode("", true),
-        createVNode(MeasureNumberPicker, {
-          show: pickerShow.value,
-          "onUpdate:show": _cache[2] || (_cache[2] = ($event) => pickerShow.value = $event),
-          options: pickerOptions.value,
-          onConfirm: onPickerConfirm,
-          onCancel: onPickerCancel
-        }, null, 8, ["show", "options"]),
-        createBaseVNode("div", _hoisted_5$6, [
+        createBaseVNode("div", _hoisted_5$7, [
           createVNode(unref(Button), {
             type: "primary",
             onClick: recognize,
-            loading: unref(store).isBusy,
-            disabled: unref(store).isBusy || !unref(store).hasInput
+            loading: currentPageProcessing.value,
+            disabled: !unref(store).hasInput || currentPageProcessing.value
           }, {
             icon: withCtx(() => [
               createVNode(unref(NIcon), null, {
@@ -40852,14 +40196,14 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
               })
             ]),
             default: withCtx(() => [
-              _cache[5] || (_cache[5] = createTextVNode(" 识别并自动填充 ", -1))
+              _cache[4] || (_cache[4] = createTextVNode(" 识别并自动填充 ", -1))
             ]),
             _: 1
           }, 8, ["loading", "disabled"]),
           createVNode(unref(Button), {
             onClick: recognizeAllPages,
-            loading: unref(store).isBusy,
-            disabled: unref(store).isBusy || !unref(store).pageCount,
+            loading: unref(store).activePageTaskCount > 0,
+            disabled: !pendingRecognizableCount.value,
             secondary: ""
           }, {
             icon: withCtx(() => [
@@ -40871,31 +40215,30 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
               })
             ]),
             default: withCtx(() => [
-              _cache[6] || (_cache[6] = createTextVNode(" 批量识别全部 ", -1))
+              _cache[5] || (_cache[5] = createTextVNode(" 批量识别全部 ", -1))
             ]),
             _: 1
           }, 8, ["loading", "disabled"]),
-          createBaseVNode("div", _hoisted_6$6, [
-            _cache[7] || (_cache[7] = createBaseVNode("span", null, "AI 视觉检测", -1)),
+          createBaseVNode("div", _hoisted_6$7, [
+            _cache[6] || (_cache[6] = createBaseVNode("span", null, "AI 视觉检测", -1)),
             createVNode(unref(NSwitch), {
               value: aiVisionEnabled.value,
-              "onUpdate:value": _cache[3] || (_cache[3] = ($event) => aiVisionEnabled.value = $event),
-              size: "small",
-              disabled: unref(store).isBusy
-            }, null, 8, ["value", "disabled"])
+              "onUpdate:value": _cache[2] || (_cache[2] = ($event) => aiVisionEnabled.value = $event),
+              size: "small"
+            }, null, 8, ["value"])
           ])
         ]),
-        unref(store).pages.length ? (openBlock(), createElementBlock("div", _hoisted_7$6, [
+        unref(store).pages.length ? (openBlock(), createElementBlock("div", _hoisted_7$7, [
           (openBlock(true), createElementBlock(Fragment, null, renderList(unref(store).pages, (page, index) => {
             return openBlock(), createElementBlock("div", {
               key: page.id,
-              class: normalizeClass(["page-card", { active: index === unref(store).currentPageIndex }]),
+              class: normalizeClass(["page-card", page.status, { active: index === unref(store).currentPageIndex }]),
               onClick: ($event) => unref(store).selectPage(index)
             }, [
               createBaseVNode("button", {
                 class: "page-del",
                 type: "button",
-                disabled: unref(store).isBusy,
+                disabled: page.status === "processing",
                 onClick: withModifiers(($event) => removePage(index), ["stop"])
               }, [
                 createVNode(unref(NIcon), { size: "12" }, {
@@ -40904,13 +40247,13 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
                   ]),
                   _: 1
                 })
-              ], 8, _hoisted_9$5),
-              createBaseVNode("div", _hoisted_10$5, [
+              ], 8, _hoisted_9$6),
+              createBaseVNode("div", _hoisted_10$6, [
                 isPreviewable(page.inputFileName) ? (openBlock(), createElementBlock("img", {
                   key: 0,
                   src: unref(getFileURL)(page.inputFileId),
                   alt: page.inputFileName
-                }, null, 8, _hoisted_11$4)) : (openBlock(), createBlock(unref(NIcon), {
+                }, null, 8, _hoisted_11$6)) : (openBlock(), createBlock(unref(NIcon), {
                   key: 1,
                   size: "20",
                   class: "page-icon"
@@ -40921,23 +40264,58 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
                   _: 1
                 }))
               ]),
-              createBaseVNode("div", _hoisted_12$4, [
-                createBaseVNode("span", _hoisted_13$3, toDisplayString(page.inputFileName), 1),
+              createBaseVNode("div", _hoisted_12$5, [
+                createBaseVNode("span", _hoisted_13$5, toDisplayString(page.inputFileName), 1),
                 createBaseVNode("span", {
                   class: normalizeClass(["page-status", page.status])
-                }, toDisplayString(statusText(page.status)), 3)
-              ])
-            ], 10, _hoisted_8$5);
+                }, toDisplayString(statusText(page)), 3)
+              ]),
+              page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_14$5, [
+                createBaseVNode("span", {
+                  style: normalizeStyle({ width: `${Math.max(4, page.progressPercent)}%` })
+                }, null, 4)
+              ])) : createCommentVNode("", true)
+            ], 10, _hoisted_8$6);
           }), 128))
         ])) : createCommentVNode("", true)
       ]);
     };
   }
 });
-const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-c02b87a3"]]);
+const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-c583960b"]]);
 const convertApi = {
   musicxmlToJianpu(req) {
     return apiFetch("/convert/musicxml-to-jianpu", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  }
+};
+const renderApi = {
+  jianpuSvg(req) {
+    return apiFetch("/render/jianpu-svg", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  jianpuTextSvg(req) {
+    return apiFetch("/render/jianpu-text-svg", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  finalOutput(req) {
+    return apiFetch("/render/final-output", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  normalizeJianpuText(req) {
+    return apiFetch("/render/normalize-jianpu-text", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req)
@@ -40999,13 +40377,70 @@ function downloadBlob(blob, filename) {
   a.click();
   URL.revokeObjectURL(url);
 }
-const _hoisted_1$7 = { class: "editor-shell" };
-const _hoisted_2$7 = ["value"];
-const _sfc_main$8 = /* @__PURE__ */ defineComponent({
+const TOKEN_PATTERN = /\|\||\|:|:\||\||[^\s|]+/g;
+const DURATION_PREFIX_PATTERN = /^[whqsd]/;
+const PITCH_PATTERN = /^(?:(?:bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/;
+function findJianpuNoteSpans(text) {
+  const spans = [];
+  let noteIndex = 0;
+  text.split("\n").forEach((line, lineIndex) => {
+    if (isMetadataLine(line)) return;
+    for (const match2 of line.matchAll(TOKEN_PATTERN)) {
+      const token = match2[0];
+      if (!isPlayableToken(token)) continue;
+      const startColumn = match2.index ?? 0;
+      spans.push({
+        index: noteIndex,
+        line: lineIndex,
+        startColumn,
+        endColumn: startColumn + token.length,
+        token
+      });
+      noteIndex += 1;
+    }
+  });
+  return spans;
+}
+function isMetadataLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) return true;
+  if (trimmed.startsWith("L:") || trimmed.startsWith("@text ")) return true;
+  if (/^(title|tempo)\s*=/.test(trimmed)) return true;
+  if (/^1\s*=/.test(trimmed)) return true;
+  if (/^(key|time)\s*=/i.test(trimmed)) return true;
+  return /^\d+\/\d+$/.test(trimmed);
+}
+function isPlayableToken(token) {
+  if (token === "|" || token === "||" || token === "|:" || token === ":|" || /^\*\d+$/.test(token) || /^\d+[.:：]$/.test(token) || /^\d+\/\d+$/.test(token) || token.startsWith("\\") || token.startsWith("^")) {
+    return false;
+  }
+  const work = stripEventDecorations(token);
+  if (!work || work === "0" || work === "-") return false;
+  if (work.startsWith("[") && work.endsWith("]")) {
+    return work.slice(1, -1).split("+").some((part) => PITCH_PATTERN.test(part.trim()));
+  }
+  return PITCH_PATTERN.test(work);
+}
+function stripEventDecorations(token) {
+  let work = token.trim();
+  while (work.startsWith("(")) work = work.slice(1);
+  while (work.endsWith(")")) work = work.slice(0, -1);
+  if (work.startsWith("~")) work = work.slice(1);
+  if (work.endsWith("~")) work = work.slice(0, -1);
+  if (DURATION_PREFIX_PATTERN.test(work)) work = work.slice(1);
+  while (work.endsWith("-")) work = work.slice(0, -1);
+  if (work.endsWith(".")) work = work.slice(0, -1);
+  return work;
+}
+const _hoisted_1$8 = { class: "editor-shell" };
+const _hoisted_2$8 = { class: "editor-main" };
+const _hoisted_3$8 = ["value"];
+const _sfc_main$9 = /* @__PURE__ */ defineComponent({
   __name: "JianpuEditor",
   props: {
     modelValue: {},
-    startMeasureNumber: {}
+    startMeasureNumber: {},
+    currentNoteIndex: { default: -1 }
   },
   emits: ["update:modelValue"],
   setup(__props, { emit: __emit }) {
@@ -41013,6 +40448,30 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
     const emit2 = __emit;
     const gutterRef = /* @__PURE__ */ ref(null);
     const textareaRef = /* @__PURE__ */ ref(null);
+    const scrollTop = /* @__PURE__ */ ref(0);
+    const scrollLeft = /* @__PURE__ */ ref(0);
+    const editorMetrics = /* @__PURE__ */ ref({
+      charWidth: 7.8,
+      lineHeight: 22.75,
+      paddingLeft: 10,
+      paddingTop: 8
+    });
+    let resizeObserver = null;
+    const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue));
+    const activeNoteSpan = computed(() => props.currentNoteIndex >= 0 ? noteSpans.value.find((span) => span.index === props.currentNoteIndex) ?? null : null);
+    const playbackHighlightStyle = computed(() => {
+      const span = activeNoteSpan.value;
+      if (!span) return null;
+      const metrics = editorMetrics.value;
+      const top = metrics.paddingTop + span.line * metrics.lineHeight - scrollTop.value;
+      const left = metrics.paddingLeft + span.startColumn * metrics.charWidth - scrollLeft.value;
+      const width = Math.max(metrics.charWidth, (span.endColumn - span.startColumn) * metrics.charWidth);
+      return {
+        transform: `translate(${left}px, ${top}px)`,
+        width: `${width}px`,
+        height: `${metrics.lineHeight}px`
+      };
+    });
     function isStandaloneBarline(value, cursor) {
       if (cursor > 0 && value[cursor - 1] === "|") {
         const before = cursor >= 2 ? value[cursor - 2] : "";
@@ -41052,9 +40511,8 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
       emit2("update:modelValue", value);
     }
     function syncScroll(e) {
-      if (gutterRef.value) {
-        gutterRef.value.scrollTop = e.target.scrollTop;
-      }
+      const target = e.target;
+      syncScrollPosition(target);
     }
     function needsFormat(text) {
       const lines = text.split("\n");
@@ -41126,8 +40584,68 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
         return 0;
       });
     });
+    watch(activeNoteSpan, (span) => {
+      if (!span) return;
+      nextTick(() => scrollNoteIntoView(span));
+    });
+    onMounted(() => {
+      refreshEditorMetrics();
+      if (textareaRef.value) {
+        syncScrollPosition(textareaRef.value);
+        resizeObserver = new ResizeObserver(refreshEditorMetrics);
+        resizeObserver.observe(textareaRef.value);
+      }
+    });
+    onUnmounted(() => {
+      resizeObserver?.disconnect();
+      resizeObserver = null;
+    });
+    function syncScrollPosition(target) {
+      scrollTop.value = target.scrollTop;
+      scrollLeft.value = target.scrollLeft;
+      if (gutterRef.value) {
+        gutterRef.value.scrollTop = target.scrollTop;
+      }
+    }
+    function refreshEditorMetrics() {
+      const el = textareaRef.value;
+      if (!el) return;
+      const style2 = window.getComputedStyle(el);
+      const canvas = document.createElement("canvas");
+      const context2 = canvas.getContext("2d");
+      if (context2) {
+        context2.font = `${style2.fontStyle} ${style2.fontWeight} ${style2.fontSize} ${style2.fontFamily}`;
+      }
+      const fontSize2 = parseFloat(style2.fontSize) || 13;
+      editorMetrics.value = {
+        charWidth: context2?.measureText("0").width || fontSize2 * 0.6,
+        lineHeight: parseFloat(style2.lineHeight) || fontSize2 * 1.75,
+        paddingLeft: parseFloat(style2.paddingLeft) || 0,
+        paddingTop: parseFloat(style2.paddingTop) || 0
+      };
+    }
+    function scrollNoteIntoView(span) {
+      const el = textareaRef.value;
+      if (!el) return;
+      const metrics = editorMetrics.value;
+      const top = metrics.paddingTop + span.line * metrics.lineHeight;
+      const bottom = top + metrics.lineHeight;
+      const left = metrics.paddingLeft + span.startColumn * metrics.charWidth;
+      const right = metrics.paddingLeft + span.endColumn * metrics.charWidth;
+      if (top < el.scrollTop) {
+        el.scrollTop = Math.max(0, top - metrics.lineHeight);
+      } else if (bottom > el.scrollTop + el.clientHeight) {
+        el.scrollTop = bottom - el.clientHeight + metrics.lineHeight;
+      }
+      if (left < el.scrollLeft) {
+        el.scrollLeft = Math.max(0, left - metrics.charWidth * 2);
+      } else if (right > el.scrollLeft + el.clientWidth) {
+        el.scrollLeft = right - el.clientWidth + metrics.charWidth * 2;
+      }
+      syncScrollPosition(el);
+    }
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("div", _hoisted_1$7, [
+      return openBlock(), createElementBlock("div", _hoisted_1$8, [
         createBaseVNode("div", {
           class: "editor-gutter",
           ref_key: "gutterRef",
@@ -41140,21 +40658,28 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
             }, toDisplayString(num > 0 ? num : ""), 3);
           }), 128))
         ], 512),
-        createBaseVNode("textarea", {
-          ref_key: "textareaRef",
-          ref: textareaRef,
-          value: __props.modelValue,
-          onInput,
-          onScroll: syncScroll,
-          placeholder: "title=瑞雪迎春\n1=C\n4/4\n1 2 q3 q4 | h[1+3+5] \\p |\nL: 春 风 又 绿",
-          class: "editor-textarea",
-          spellcheck: "false"
-        }, null, 40, _hoisted_2$7)
+        createBaseVNode("div", _hoisted_2$8, [
+          createBaseVNode("textarea", {
+            ref_key: "textareaRef",
+            ref: textareaRef,
+            value: __props.modelValue,
+            onInput,
+            onScroll: syncScroll,
+            placeholder: "title=瑞雪迎春\n1=C\n4/4\n1 2 q3 q4 | h[1+3+5] \\p |\nL: 春 风 又 绿",
+            class: "editor-textarea",
+            spellcheck: "false"
+          }, null, 40, _hoisted_3$8),
+          playbackHighlightStyle.value ? (openBlock(), createElementBlock("div", {
+            key: 0,
+            class: "editor-playback-highlight",
+            style: normalizeStyle(playbackHighlightStyle.value)
+          }, null, 4)) : createCommentVNode("", true)
+        ])
       ]);
     };
   }
 });
-const JianpuEditor = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-5a6fde78"]]);
+const JianpuEditor = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-cafe400a"]]);
 const version = "15.1.22";
 const createExtendedExponentialRampToValueAutomationEvent = (value, endTime, insertTime) => {
   return { endTime, insertTime, type: "exponentialRampToValue", value };
@@ -60201,6 +59726,7 @@ function usePlayer(options = {}) {
   const currentNoteIndex = /* @__PURE__ */ ref(-1);
   const synth = /* @__PURE__ */ shallowRef(null);
   const notes = [];
+  const noteGroups = [];
   let midiData = null;
   let animationId = null;
   let scheduledIds = [];
@@ -60233,6 +59759,9 @@ function usePlayer(options = {}) {
     isLoading.value = true;
     error2.value = null;
     isReady.value = false;
+    currentNoteIndex.value = -1;
+    notes.length = 0;
+    noteGroups.length = 0;
     try {
       await ensureAudioContext();
       const response = await fetch(url);
@@ -60243,7 +59772,6 @@ function usePlayer(options = {}) {
       if (!options.defaultBpm) {
         bpm.value = originalBpm;
       }
-      notes.length = 0;
       let maxEnd = 0;
       for (const track2 of midiData.tracks) {
         for (const note of track2.notes) {
@@ -60259,6 +59787,7 @@ function usePlayer(options = {}) {
         }
       }
       notes.sort((a, b) => a.time - b.time);
+      rebuildNoteGroups();
       duration2.value = maxEnd;
       loopEnd.value = maxEnd;
       isReady.value = true;
@@ -60383,13 +59912,36 @@ function usePlayer(options = {}) {
   }
   function updateCurrentNoteIndex(time2) {
     let idx = -1;
-    for (let i = notes.length - 1; i >= 0; i--) {
-      if (notes[i].time <= time2) {
+    const epsilon = 0.02;
+    for (let i = noteGroups.length - 1; i >= 0; i--) {
+      const group = noteGroups[i];
+      if (time2 + epsilon >= group.time && time2 <= group.endTime + epsilon) {
         idx = i;
         break;
       }
+      if (group.time < time2) break;
     }
     currentNoteIndex.value = idx;
+  }
+  function rebuildNoteGroups() {
+    noteGroups.length = 0;
+    const sameStartEpsilon = 1e-3;
+    for (const note of notes) {
+      const endTime = note.time + note.duration;
+      const previous = noteGroups[noteGroups.length - 1];
+      if (previous && Math.abs(previous.time - note.time) <= sameStartEpsilon) {
+        previous.notes.push(note);
+        previous.endTime = Math.max(previous.endTime, endTime);
+        previous.duration = previous.endTime - previous.time;
+        continue;
+      }
+      noteGroups.push({
+        time: note.time,
+        duration: note.duration,
+        endTime,
+        notes: [note]
+      });
+    }
   }
   if (options.midiUrl) {
     watch(options.midiUrl, (url) => {
@@ -60408,6 +59960,7 @@ function usePlayer(options = {}) {
     }
     midiData = null;
     notes.length = 0;
+    noteGroups.length = 0;
     isReady.value = false;
   }
   onUnmounted(() => {
@@ -60429,6 +59982,7 @@ function usePlayer(options = {}) {
     currentTimeFormatted,
     durationFormatted,
     notes,
+    noteGroups,
     // Actions
     loadMidi,
     play,
@@ -60454,51 +60008,51 @@ function formatTime(seconds) {
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
-const _hoisted_1$6 = {
+const _hoisted_1$7 = {
   key: 0,
   class: "jianpu-player"
 };
-const _hoisted_2$6 = { class: "player-left" };
-const _hoisted_3$6 = ["disabled", "title"];
-const _hoisted_4$6 = {
+const _hoisted_2$7 = { class: "player-left" };
+const _hoisted_3$7 = ["disabled", "title"];
+const _hoisted_4$7 = {
   key: 0,
   viewBox: "0 0 24 24",
   fill: "currentColor"
 };
-const _hoisted_5$5 = {
+const _hoisted_5$6 = {
   key: 1,
   viewBox: "0 0 24 24",
   fill: "currentColor"
 };
-const _hoisted_6$5 = ["disabled"];
-const _hoisted_7$5 = { class: "player-time" };
-const _hoisted_8$4 = { class: "player-center" };
-const _hoisted_9$4 = { class: "progress-track" };
-const _hoisted_10$4 = { class: "player-right" };
-const _hoisted_11$3 = {
+const _hoisted_6$6 = ["disabled"];
+const _hoisted_7$6 = { class: "player-time" };
+const _hoisted_8$5 = { class: "player-center" };
+const _hoisted_9$5 = { class: "progress-track" };
+const _hoisted_10$5 = { class: "player-right" };
+const _hoisted_11$5 = {
   class: "tempo-control",
   title: "速度"
 };
-const _hoisted_12$3 = {
+const _hoisted_12$4 = {
   class: "volume-control",
   title: "音量"
 };
-const _hoisted_13$2 = {
+const _hoisted_13$4 = {
   key: 0,
   viewBox: "0 0 24 24",
   fill: "currentColor"
 };
-const _hoisted_14$2 = {
+const _hoisted_14$4 = {
   key: 1,
   viewBox: "0 0 24 24",
   fill: "currentColor"
 };
-const _hoisted_15$2 = {
+const _hoisted_15$3 = {
   key: 2,
   viewBox: "0 0 24 24",
   fill: "currentColor"
 };
-const _sfc_main$7 = /* @__PURE__ */ defineComponent({
+const _sfc_main$8 = /* @__PURE__ */ defineComponent({
   __name: "JianpuPlayer",
   props: {
     musicxmlFileId: {},
@@ -60519,25 +60073,6 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     });
     const isMuted = /* @__PURE__ */ ref(false);
     let lastVolumeRatio = 0.8;
-    let noteCheckId = null;
-    let lastNoteIdx = -1;
-    function startNoteWatcher() {
-      stopNoteWatcher();
-      const tick = () => {
-        if (player.currentNoteIndex.value !== lastNoteIdx) {
-          lastNoteIdx = player.currentNoteIndex.value;
-          emit2("update:currentNoteIndex", lastNoteIdx);
-        }
-        noteCheckId = requestAnimationFrame(tick);
-      };
-      noteCheckId = requestAnimationFrame(tick);
-    }
-    function stopNoteWatcher() {
-      if (noteCheckId !== null) {
-        cancelAnimationFrame(noteCheckId);
-        noteCheckId = null;
-      }
-    }
     let currentLoadId = "";
     let loadGeneration = 0;
     async function loadFromProps() {
@@ -60577,11 +60112,12 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     async function togglePlay() {
       if (player.isPlaying.value) {
         player.pause();
-        stopNoteWatcher();
       } else {
         await player.play();
-        startNoteWatcher();
       }
+    }
+    function stopPlayback() {
+      player.stop();
     }
     function handleBpmChange(value) {
       if (value != null) player.setBpm(value);
@@ -60630,7 +60166,6 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
       void loadFromProps();
     });
     onUnmounted(() => {
-      stopNoteWatcher();
       if (jianpuDebounce) {
         clearTimeout(jianpuDebounce);
         jianpuDebounce = null;
@@ -60638,9 +60173,11 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
       onProgressUp();
     });
     let jianpuDebounce = null;
+    watch(player.currentNoteIndex, (index) => {
+      emit2("update:currentNoteIndex", index);
+    }, { immediate: true });
     watch(() => [props.midiFileId, props.musicxmlFileId], () => {
       player.stop();
-      stopNoteWatcher();
       if (jianpuDebounce) {
         clearTimeout(jianpuDebounce);
         jianpuDebounce = null;
@@ -60653,32 +60190,31 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
       jianpuDebounce = setTimeout(() => {
         jianpuDebounce = null;
         player.stop();
-        stopNoteWatcher();
         currentLoadId = "";
         void loadFromProps();
       }, 600);
     });
     return (_ctx, _cache) => {
-      return visible.value ? (openBlock(), createElementBlock("div", _hoisted_1$6, [
-        createBaseVNode("div", _hoisted_2$6, [
+      return visible.value ? (openBlock(), createElementBlock("div", _hoisted_1$7, [
+        createBaseVNode("div", _hoisted_2$7, [
           createBaseVNode("button", {
             class: "player-btn play-btn",
             disabled: !unref(player).isReady.value,
             onClick: togglePlay,
             title: unref(player).isPlaying.value ? "暂停" : "播放"
           }, [
-            !unref(player).isPlaying.value ? (openBlock(), createElementBlock("svg", _hoisted_4$6, [..._cache[2] || (_cache[2] = [
+            !unref(player).isPlaying.value ? (openBlock(), createElementBlock("svg", _hoisted_4$7, [..._cache[1] || (_cache[1] = [
               createBaseVNode("path", { d: "M8 5v14l11-7z" }, null, -1)
-            ])])) : (openBlock(), createElementBlock("svg", _hoisted_5$5, [..._cache[3] || (_cache[3] = [
+            ])])) : (openBlock(), createElementBlock("svg", _hoisted_5$6, [..._cache[2] || (_cache[2] = [
               createBaseVNode("path", { d: "M6 19h4V5H6v14zm8-14v14h4V5h-4z" }, null, -1)
             ])]))
-          ], 8, _hoisted_3$6),
+          ], 8, _hoisted_3$7),
           createBaseVNode("button", {
             class: "player-btn",
             disabled: !unref(player).isReady.value,
-            onClick: _cache[0] || (_cache[0] = ($event) => unref(player).stop()),
+            onClick: stopPlayback,
             title: "停止"
-          }, [..._cache[4] || (_cache[4] = [
+          }, [..._cache[3] || (_cache[3] = [
             createBaseVNode("svg", {
               viewBox: "0 0 24 24",
               fill: "currentColor"
@@ -60690,17 +60226,17 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
                 height: "12"
               })
             ], -1)
-          ])], 8, _hoisted_6$5),
-          createBaseVNode("span", _hoisted_7$5, toDisplayString(unref(player).currentTimeFormatted.value) + " / " + toDisplayString(unref(player).durationFormatted.value), 1)
+          ])], 8, _hoisted_6$6),
+          createBaseVNode("span", _hoisted_7$6, toDisplayString(unref(player).currentTimeFormatted.value) + " / " + toDisplayString(unref(player).durationFormatted.value), 1)
         ]),
-        createBaseVNode("div", _hoisted_8$4, [
+        createBaseVNode("div", _hoisted_8$5, [
           createBaseVNode("div", {
             class: "progress-bar",
             ref_key: "progressRef",
             ref: progressRef,
             onMousedown: onProgressDown
           }, [
-            createBaseVNode("div", _hoisted_9$4, [
+            createBaseVNode("div", _hoisted_9$5, [
               createBaseVNode("div", {
                 class: "progress-fill",
                 style: normalizeStyle({ width: `${unref(player).progress.value * 100}%` })
@@ -60712,9 +60248,9 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             ])
           ], 544)
         ]),
-        createBaseVNode("div", _hoisted_10$4, [
-          createBaseVNode("div", _hoisted_11$3, [
-            _cache[6] || (_cache[6] = createBaseVNode("svg", {
+        createBaseVNode("div", _hoisted_10$5, [
+          createBaseVNode("div", _hoisted_11$5, [
+            _cache[5] || (_cache[5] = createBaseVNode("svg", {
               class: "tempo-icon",
               viewBox: "0 0 24 24",
               fill: "currentColor"
@@ -60730,12 +60266,12 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
               style: { "width": "64px" },
               "show-button": false
             }, null, 8, ["value"]),
-            _cache[7] || (_cache[7] = createBaseVNode("span", { class: "tempo-unit" }, "BPM", -1)),
+            _cache[6] || (_cache[6] = createBaseVNode("span", { class: "tempo-unit" }, "BPM", -1)),
             createBaseVNode("button", {
               class: "player-btn-sm",
-              onClick: _cache[1] || (_cache[1] = ($event) => unref(player).resetBpm()),
+              onClick: _cache[0] || (_cache[0] = ($event) => unref(player).resetBpm()),
               title: "重置速度"
-            }, [..._cache[5] || (_cache[5] = [
+            }, [..._cache[4] || (_cache[4] = [
               createBaseVNode("svg", {
                 viewBox: "0 0 24 24",
                 fill: "currentColor"
@@ -60744,16 +60280,16 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
               ], -1)
             ])])
           ]),
-          createBaseVNode("div", _hoisted_12$3, [
+          createBaseVNode("div", _hoisted_12$4, [
             createBaseVNode("button", {
               class: "player-btn-sm",
               onClick: toggleMute
             }, [
-              isMuted.value || unref(player).volume.value <= -50 ? (openBlock(), createElementBlock("svg", _hoisted_13$2, [..._cache[8] || (_cache[8] = [
+              isMuted.value || unref(player).volume.value <= -50 ? (openBlock(), createElementBlock("svg", _hoisted_13$4, [..._cache[7] || (_cache[7] = [
                 createBaseVNode("path", { d: "M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" }, null, -1)
-              ])])) : unref(player).volume.value < -10 ? (openBlock(), createElementBlock("svg", _hoisted_14$2, [..._cache[9] || (_cache[9] = [
+              ])])) : unref(player).volume.value < -10 ? (openBlock(), createElementBlock("svg", _hoisted_14$4, [..._cache[8] || (_cache[8] = [
                 createBaseVNode("path", { d: "M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" }, null, -1)
-              ])])) : (openBlock(), createElementBlock("svg", _hoisted_15$2, [..._cache[10] || (_cache[10] = [
+              ])])) : (openBlock(), createElementBlock("svg", _hoisted_15$3, [..._cache[9] || (_cache[9] = [
                 createBaseVNode("path", { d: "M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" }, null, -1)
               ])]))
             ]),
@@ -60772,8 +60308,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const JianpuPlayer = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-182be262"]]);
-const _sfc_main$6 = /* @__PURE__ */ defineComponent({
+const JianpuPlayer = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-1378ca78"]]);
+const _sfc_main$7 = /* @__PURE__ */ defineComponent({
   __name: "JianpuSyntaxGuide",
   props: {
     show: { type: Boolean }
@@ -61197,7 +60733,7 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const JianpuSyntaxGuide = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["__scopeId", "data-v-e2960137"]]);
+const JianpuSyntaxGuide = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-e2960137"]]);
 function useZoomPan(container) {
   const scale = /* @__PURE__ */ ref(1);
   const tx = /* @__PURE__ */ ref(0);
@@ -61235,6 +60771,13 @@ function useZoomPan(container) {
     if (iframe) {
       contentW = iframe.clientWidth || 800;
       contentH = iframe.clientHeight || 600;
+      return true;
+    }
+    const svg = el.querySelector(".zp-inner svg");
+    if (svg) {
+      const viewBox = svg.viewBox.baseVal;
+      contentW = svg.width.baseVal.value || viewBox.width || 800;
+      contentH = svg.height.baseVal.value || viewBox.height || 600;
       return true;
     }
     return false;
@@ -61335,20 +60878,20 @@ function useZoomPan(container) {
   }
   return { scale, tx, ty, reset, fitToView, bind, unbind, applyTransform };
 }
-const _hoisted_1$5 = { class: "original-preview" };
-const _hoisted_2$5 = { class: "zp-inner" };
-const _hoisted_3$5 = ["src", "title"];
-const _hoisted_4$5 = ["src", "alt", "width", "height"];
-const _hoisted_5$4 = {
+const _hoisted_1$6 = { class: "original-preview" };
+const _hoisted_2$6 = { class: "zp-inner" };
+const _hoisted_3$6 = ["src", "title"];
+const _hoisted_4$6 = ["src", "alt", "width", "height"];
+const _hoisted_5$5 = {
   key: 0,
   class: "empty-overlay"
 };
-const _hoisted_6$4 = {
+const _hoisted_6$5 = {
   key: 1,
   class: "zoom-bar"
 };
-const _hoisted_7$4 = { class: "zoom-label" };
-const _sfc_main$5 = /* @__PURE__ */ defineComponent({
+const _hoisted_7$5 = { class: "zoom-label" };
+const _sfc_main$6 = /* @__PURE__ */ defineComponent({
   __name: "OriginalPreview",
   props: {
     fileId: {},
@@ -61385,28 +60928,28 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
     onMounted(() => zp.bind());
     onUnmounted(() => zp.unbind());
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("div", _hoisted_1$5, [
+      return openBlock(), createElementBlock("div", _hoisted_1$6, [
         createBaseVNode("div", {
           ref_key: "containerRef",
           ref: containerRef,
           class: "preview-viewport"
         }, [
-          createBaseVNode("div", _hoisted_2$5, [
+          createBaseVNode("div", _hoisted_2$6, [
             fileUrl.value && isPdf.value ? (openBlock(), createElementBlock("iframe", {
               key: 0,
               src: pdfFitUrl.value,
               title: __props.fileName
-            }, null, 8, _hoisted_3$5)) : fileUrl.value && isImage.value ? (openBlock(), createElementBlock("img", {
+            }, null, 8, _hoisted_3$6)) : fileUrl.value && isImage.value ? (openBlock(), createElementBlock("img", {
               key: 1,
               src: fileUrl.value,
               alt: __props.fileName,
               width: imgW.value,
               height: imgH.value,
               onLoad: onImgLoad
-            }, null, 40, _hoisted_4$5)) : createCommentVNode("", true)
+            }, null, 40, _hoisted_4$6)) : createCommentVNode("", true)
           ])
         ], 512),
-        !fileUrl.value ? (openBlock(), createElementBlock("div", _hoisted_5$4, [
+        !fileUrl.value ? (openBlock(), createElementBlock("div", _hoisted_5$5, [
           createVNode(unref(NIcon), {
             size: "32",
             depth: 3
@@ -61418,8 +60961,8 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
           }),
           _cache[1] || (_cache[1] = createBaseVNode("span", null, "上传图片或 PDF 后对照原始五线谱", -1))
         ])) : createCommentVNode("", true),
-        fileUrl.value ? (openBlock(), createElementBlock("div", _hoisted_6$4, [
-          createBaseVNode("span", _hoisted_7$4, toDisplayString(Math.round(unref(zp).scale.value * 100)) + "%", 1),
+        fileUrl.value ? (openBlock(), createElementBlock("div", _hoisted_6$5, [
+          createBaseVNode("span", _hoisted_7$5, toDisplayString(Math.round(unref(zp).scale.value * 100)) + "%", 1),
           createBaseVNode("button", {
             class: "zoom-btn",
             onClick: _cache[0] || (_cache[0] = ($event) => unref(zp).reset()),
@@ -61430,29 +60973,34 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const OriginalPreview = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-ec9dd309"]]);
-const _hoisted_1$4 = {
+const OriginalPreview = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["__scopeId", "data-v-ec9dd309"]]);
+const _hoisted_1$5 = {
   key: 0,
   class: "svg-preview"
 };
-const _hoisted_2$4 = { class: "zp-inner" };
-const _hoisted_3$4 = ["src"];
-const _hoisted_4$4 = ["onMousedown", "onDblclick", "onClick"];
-const _hoisted_5$3 = ["onKeydown"];
-const _hoisted_6$3 = { key: 1 };
-const _hoisted_7$3 = ["onMousedown"];
-const _hoisted_8$3 = { class: "zoom-bar" };
-const _hoisted_9$3 = { class: "zoom-label" };
-const _hoisted_10$3 = {
+const _hoisted_2$5 = { class: "zp-inner" };
+const _hoisted_3$5 = ["innerHTML"];
+const _hoisted_4$5 = {
+  key: 1,
+  class: "svg-loading"
+};
+const _hoisted_5$4 = ["onMousedown", "onDblclick", "onClick"];
+const _hoisted_6$4 = ["onKeydown"];
+const _hoisted_7$4 = { key: 1 };
+const _hoisted_8$4 = ["onMousedown"];
+const _hoisted_9$4 = { class: "zoom-bar" };
+const _hoisted_10$4 = { class: "zoom-label" };
+const _hoisted_11$4 = {
   key: 1,
   class: "svg-empty"
 };
-const _sfc_main$4 = /* @__PURE__ */ defineComponent({
+const _sfc_main$5 = /* @__PURE__ */ defineComponent({
   __name: "SvgPreview",
   props: {
     svgFileId: {},
     ocrText: { default: "" },
-    editableOcr: { type: Boolean, default: false }
+    editableOcr: { type: Boolean, default: false },
+    currentNoteIndex: { default: -1 }
   },
   emits: ["update:ocrText"],
   setup(__props, { emit: __emit }) {
@@ -61463,24 +61011,14 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     const zp = useZoomPan(containerRef);
     const imgW = /* @__PURE__ */ ref(0);
     const imgH = /* @__PURE__ */ ref(0);
+    const svgText = /* @__PURE__ */ ref("");
     const selectedId = /* @__PURE__ */ ref("");
     const editingId = /* @__PURE__ */ ref("");
     const editingText = /* @__PURE__ */ ref("");
     const ocrBlocks = /* @__PURE__ */ ref([]);
+    let svgLoadGeneration = 0;
     let dragging = null;
     let resizing = null;
-    const imageStyle = computed(() => ({
-      width: imgW.value > 0 ? `${imgW.value}px` : "auto",
-      height: imgH.value > 0 ? `${imgH.value}px` : "auto"
-    }));
-    function onImgLoad(e) {
-      const img = e.target;
-      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-        imgW.value = img.naturalWidth;
-        imgH.value = img.naturalHeight;
-      }
-      requestAnimationFrame(() => zp.fitToView());
-    }
     function selectBlock(id) {
       selectedId.value = id;
     }
@@ -61640,20 +61178,115 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       event.preventDefault();
       removeBlock(selectedId.value);
     }
-    watch(svgUrl, async (url) => {
-      if (url) {
-        imgW.value = 0;
-        imgH.value = 0;
+    async function loadSvg(url) {
+      const generation = ++svgLoadGeneration;
+      svgText.value = "";
+      imgW.value = 0;
+      imgH.value = 0;
+      clearPlaybackHighlight();
+      zp.unbind();
+      if (!url) return;
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        if (generation !== svgLoadGeneration) return;
+        const size2 = readSvgSize(text);
+        imgW.value = size2.width;
+        imgH.value = size2.height;
+        svgText.value = text;
         await nextTick();
-        zp.unbind();
         zp.bind();
+        requestAnimationFrame(() => {
+          zp.fitToView();
+          applyPlaybackHighlight(false);
+        });
+      } catch {
+        if (generation !== svgLoadGeneration) return;
+        svgText.value = "";
       }
+    }
+    function readSvgSize(text) {
+      const doc2 = new DOMParser().parseFromString(text, "image/svg+xml");
+      const svg = doc2.documentElement;
+      const viewBox = (svg.getAttribute("viewBox") || "").split(/\s+/).map(Number);
+      const viewBoxWidth = viewBox.length === 4 && Number.isFinite(viewBox[2]) ? viewBox[2] : 0;
+      const viewBoxHeight = viewBox.length === 4 && Number.isFinite(viewBox[3]) ? viewBox[3] : 0;
+      return {
+        width: parseSvgLength(svg.getAttribute("width")) || viewBoxWidth || 800,
+        height: parseSvgLength(svg.getAttribute("height")) || viewBoxHeight || 600
+      };
+    }
+    function parseSvgLength(value) {
+      if (!value) return 0;
+      const match2 = value.match(/^-?\d+(?:\.\d+)?/);
+      return match2 ? Number(match2[0]) : 0;
+    }
+    function svgRoot() {
+      return containerRef.value?.querySelector(".zp-inner svg") ?? null;
+    }
+    function clearPlaybackHighlight() {
+      svgRoot()?.querySelectorAll(".playback-current").forEach((node) => {
+        node.classList.remove("playback-current");
+      });
+    }
+    function applyPlaybackHighlight(reveal) {
+      const svg = svgRoot();
+      if (!svg) return;
+      svg.querySelectorAll(".playback-current").forEach((node) => {
+        node.classList.remove("playback-current");
+      });
+      if (props.currentNoteIndex < 0) return;
+      const target = svg.querySelector(`.playback-note[data-note-index="${props.currentNoteIndex}"]`);
+      if (!target) return;
+      target.classList.add("playback-current");
+      if (reveal) keepTargetVisible(target);
+    }
+    function keepTargetVisible(target) {
+      const viewport = containerRef.value;
+      if (!viewport) return;
+      let box;
+      try {
+        box = target.getBBox();
+      } catch {
+        return;
+      }
+      const margin = 32;
+      const scale = zp.scale.value;
+      const left = zp.tx.value + box.x * scale;
+      const right = zp.tx.value + (box.x + box.width) * scale;
+      const top = zp.ty.value + box.y * scale;
+      const bottom = zp.ty.value + (box.y + box.height) * scale;
+      if (left < margin) {
+        zp.tx.value += margin - left;
+      } else if (right > viewport.clientWidth - margin) {
+        zp.tx.value -= right - (viewport.clientWidth - margin);
+      }
+      if (top < margin) {
+        zp.ty.value += margin - top;
+      } else if (bottom > viewport.clientHeight - margin) {
+        zp.ty.value -= bottom - (viewport.clientHeight - margin);
+      }
+      zp.applyTransform();
+    }
+    watch(svgUrl, (url) => {
+      void loadSvg(url);
+    }, { immediate: true });
+    watch(() => props.currentNoteIndex, () => {
+      nextTick(() => applyPlaybackHighlight(true));
     });
     watch(() => props.ocrText, (value) => {
       ocrBlocks.value = parseOcrText(value || "");
     }, { immediate: true });
     onMounted(() => {
-      if (svgUrl.value) zp.bind();
+      if (svgText.value) {
+        zp.unbind();
+        zp.bind();
+        requestAnimationFrame(() => {
+          zp.fitToView();
+          applyPlaybackHighlight(false);
+        });
+      }
       window.addEventListener("mousemove", onDragMove);
       window.addEventListener("mouseup", endDrag);
       window.addEventListener("keydown", onKeyDown);
@@ -61665,20 +61298,19 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       window.removeEventListener("keydown", onKeyDown);
     });
     return (_ctx, _cache) => {
-      return svgUrl.value ? (openBlock(), createElementBlock("div", _hoisted_1$4, [
+      return svgUrl.value ? (openBlock(), createElementBlock("div", _hoisted_1$5, [
         createBaseVNode("div", {
           ref_key: "containerRef",
           ref: containerRef,
           class: "preview-viewport",
           onDblclick: addBlockAtCursor
         }, [
-          createBaseVNode("div", _hoisted_2$4, [
-            (openBlock(), createElementBlock("img", {
+          createBaseVNode("div", _hoisted_2$5, [
+            svgText.value ? (openBlock(), createElementBlock("div", {
               key: svgUrl.value,
-              src: svgUrl.value,
-              style: normalizeStyle(imageStyle.value),
-              onLoad: onImgLoad
-            }, null, 44, _hoisted_3$4)),
+              class: "svg-inline",
+              innerHTML: svgText.value
+            }, null, 8, _hoisted_3$5)) : (openBlock(), createElementBlock("div", _hoisted_4$5, "加载中...")),
             (openBlock(true), createElementBlock(Fragment, null, renderList(ocrBlocks.value, (block) => {
               return openBlock(), createElementBlock("button", {
                 key: block.id,
@@ -61702,27 +61334,27 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                     withKeys(withModifiers(cancelEditing, ["prevent"]), ["esc"])
                   ],
                   onBlur: commitEditing
-                }, null, 40, _hoisted_5$3)), [
+                }, null, 40, _hoisted_6$4)), [
                   [vModelText, editingText.value]
-                ]) : (openBlock(), createElementBlock("span", _hoisted_6$3, toDisplayString(block.text), 1)),
+                ]) : (openBlock(), createElementBlock("span", _hoisted_7$4, toDisplayString(block.text), 1)),
                 __props.editableOcr && selectedId.value === block.id && editingId.value !== block.id ? (openBlock(), createElementBlock("span", {
                   key: 2,
                   class: "ocr-resize-handle",
                   onMousedown: withModifiers(($event) => startResize(block, $event), ["stop", "prevent"])
-                }, null, 40, _hoisted_7$3)) : createCommentVNode("", true)
-              ], 46, _hoisted_4$4);
+                }, null, 40, _hoisted_8$4)) : createCommentVNode("", true)
+              ], 46, _hoisted_5$4);
             }), 128))
           ])
         ], 544),
-        createBaseVNode("div", _hoisted_8$3, [
-          createBaseVNode("span", _hoisted_9$3, toDisplayString(Math.round(unref(zp).scale.value * 100)) + "%", 1),
+        createBaseVNode("div", _hoisted_9$4, [
+          createBaseVNode("span", _hoisted_10$4, toDisplayString(Math.round(unref(zp).scale.value * 100)) + "%", 1),
           createBaseVNode("button", {
             class: "zoom-btn",
             onClick: _cache[3] || (_cache[3] = ($event) => unref(zp).reset()),
             title: "适应窗口"
           }, "适应")
         ])
-      ])) : (openBlock(), createElementBlock("div", _hoisted_10$3, [
+      ])) : (openBlock(), createElementBlock("div", _hoisted_11$4, [
         createVNode(unref(NIcon), {
           size: "32",
           depth: 3
@@ -61737,34 +61369,34 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-083fbf13"]]);
-const _hoisted_1$3 = { class: "workspace" };
-const _hoisted_2$3 = { class: "ws-hist-head" };
-const _hoisted_3$3 = { class: "ws-hist-actions" };
-const _hoisted_4$3 = { class: "ws-hist-body" };
-const _hoisted_5$2 = {
+const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-694a657e"]]);
+const _hoisted_1$4 = { class: "workspace" };
+const _hoisted_2$4 = { class: "ws-hist-head" };
+const _hoisted_3$4 = { class: "ws-hist-actions" };
+const _hoisted_4$4 = { class: "ws-hist-body" };
+const _hoisted_5$3 = {
   key: 0,
   class: "hist-empty"
 };
-const _hoisted_6$2 = ["onClick"];
-const _hoisted_7$2 = { class: "hist-batch-name" };
-const _hoisted_8$2 = {
+const _hoisted_6$3 = ["onClick"];
+const _hoisted_7$3 = { class: "hist-batch-name" };
+const _hoisted_8$3 = {
   key: 0,
   class: "hist-batch-count"
 };
-const _hoisted_9$2 = { class: "hist-batch-meta" };
-const _hoisted_10$2 = {
+const _hoisted_9$3 = { class: "hist-batch-meta" };
+const _hoisted_10$3 = {
   key: 0,
   class: "hist-pages"
 };
-const _hoisted_11$2 = {
+const _hoisted_11$3 = {
   key: 0,
   class: "hist-loading"
 };
-const _hoisted_12$2 = ["onClick"];
-const _hoisted_13$1 = { class: "hist-page-name" };
-const _hoisted_14$1 = { class: "ws-main" };
-const _hoisted_15$1 = { class: "ws-toolbar" };
+const _hoisted_12$3 = ["onClick"];
+const _hoisted_13$3 = { class: "hist-page-name" };
+const _hoisted_14$3 = { class: "ws-main" };
+const _hoisted_15$2 = { class: "ws-toolbar" };
 const _hoisted_16$1 = { class: "ws-toolbar-left" };
 const _hoisted_17 = {
   key: 0,
@@ -61789,7 +61421,7 @@ const _hoisted_30 = {
   key: 1,
   class: "empty-hint"
 };
-const _sfc_main$3 = /* @__PURE__ */ defineComponent({
+const _sfc_main$4 = /* @__PURE__ */ defineComponent({
   __name: "ConvertView",
   setup(__props) {
     const store = useTaskStore();
@@ -61798,6 +61430,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     const message = useMessage();
     const jianpuText = /* @__PURE__ */ ref(store.jianpuText);
     const hasJianpuText = computed(() => jianpuText.value.trim().length > 0);
+    const currentNoteIndex = /* @__PURE__ */ ref(-1);
     const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml);
     const canSaveCurrentPage = computed(() => hasJianpuText.value || store.hasMusicxml || !!store.ocrText.trim() || !!store.svgFileId);
     const isViewingFinal = /* @__PURE__ */ ref(false);
@@ -61825,6 +61458,9 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     });
     watch(() => store.svgFileId, (v) => {
       finalSvgFileId.value = v;
+    });
+    watch(() => store.currentPageIndex, () => {
+      currentNoteIndex.value = -1;
     });
     onMounted(() => {
       loadHistory();
@@ -61964,6 +61600,11 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       if (isNaN(d.getTime())) return iso;
       const p2 = (n) => String(n).padStart(2, "0");
       return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    }
+    function historyStatusClass(status) {
+      if (status === "completed") return "ok";
+      if (status === "processing" || status === "pending") return "processing";
+      return "err";
     }
     function resolveMissingFileId(msg2) {
       const match2 = msg2.match(/文件不存在[:：]\s*([A-Za-z0-9_-]+)/);
@@ -62255,13 +61896,13 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       }
     }
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("div", _hoisted_1$3, [
+      return openBlock(), createElementBlock("div", _hoisted_1$4, [
         createBaseVNode("div", {
           class: normalizeClass(["ws-history", { open: historyOpen.value }])
         }, [
-          createBaseVNode("div", _hoisted_2$3, [
-            _cache[8] || (_cache[8] = createBaseVNode("span", { class: "ws-hist-title" }, "历史", -1)),
-            createBaseVNode("div", _hoisted_3$3, [
+          createBaseVNode("div", _hoisted_2$4, [
+            _cache[9] || (_cache[9] = createBaseVNode("span", { class: "ws-hist-title" }, "历史", -1)),
+            createBaseVNode("div", _hoisted_3$4, [
               createVNode(unref(Button), {
                 size: "tiny",
                 quaternary: "",
@@ -62301,14 +61942,14 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                   }, 8, ["disabled"])
                 ]),
                 default: withCtx(() => [
-                  _cache[7] || (_cache[7] = createTextVNode(" 确定删除所有历史记录？ ", -1))
+                  _cache[8] || (_cache[8] = createTextVNode(" 确定删除所有历史记录？ ", -1))
                 ]),
                 _: 1
               })
             ])
           ]),
-          createBaseVNode("div", _hoisted_4$3, [
-            !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$2, [..._cache[9] || (_cache[9] = [
+          createBaseVNode("div", _hoisted_4$4, [
+            !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$3, [..._cache[10] || (_cache[10] = [
               createBaseVNode("span", null, "暂无记录", -1)
             ])])) : createCommentVNode("", true),
             (openBlock(true), createElementBlock(Fragment, null, renderList(histBatches.value, (batch2) => {
@@ -62321,10 +61962,10 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                   onClick: ($event) => toggleBatchExpand(batch2.id)
                 }, [
                   createBaseVNode("span", {
-                    class: normalizeClass(["hist-dot", batch2.status === "completed" ? "ok" : "err"])
+                    class: normalizeClass(["hist-dot", historyStatusClass(batch2.status)])
                   }, null, 2),
-                  createBaseVNode("span", _hoisted_7$2, toDisplayString(batch2.first_file_name || "未知"), 1),
-                  batch2.page_count > 1 ? (openBlock(), createElementBlock("span", _hoisted_8$2, toDisplayString(batch2.page_count) + "页", 1)) : createCommentVNode("", true),
+                  createBaseVNode("span", _hoisted_7$3, toDisplayString(batch2.first_file_name || "未知"), 1),
+                  batch2.page_count > 1 ? (openBlock(), createElementBlock("span", _hoisted_8$3, toDisplayString(batch2.page_count) + "页", 1)) : createCommentVNode("", true),
                   createVNode(unref(NPopconfirm), {
                     onPositiveClick: ($event) => handleDeleteBatch(batch2.id),
                     "show-icon": false
@@ -62346,7 +61987,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       ])
                     ]),
                     default: withCtx(() => [
-                      _cache[10] || (_cache[10] = createTextVNode(" 确定删除这次历史记录？ ", -1))
+                      _cache[11] || (_cache[11] = createTextVNode(" 确定删除这次历史记录？ ", -1))
                     ]),
                     _: 1
                   }, 8, ["onPositiveClick"]),
@@ -62359,10 +62000,10 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                     ]),
                     _: 1
                   }, 8, ["class"])
-                ], 8, _hoisted_6$2),
-                createBaseVNode("div", _hoisted_9$2, toDisplayString(formatTime2(batch2.created_at)), 1),
-                expandedBatchId.value === batch2.id ? (openBlock(), createElementBlock("div", _hoisted_10$2, [
-                  loadingBatch.value ? (openBlock(), createElementBlock("div", _hoisted_11$2, "加载中...")) : createCommentVNode("", true),
+                ], 8, _hoisted_6$3),
+                createBaseVNode("div", _hoisted_9$3, toDisplayString(formatTime2(batch2.created_at)), 1),
+                expandedBatchId.value === batch2.id ? (openBlock(), createElementBlock("div", _hoisted_10$3, [
+                  loadingBatch.value ? (openBlock(), createElementBlock("div", _hoisted_11$3, "加载中...")) : createCommentVNode("", true),
                   (openBlock(true), createElementBlock(Fragment, null, renderList(expandedPages.value, (page, pi) => {
                     return openBlock(), createElementBlock("div", {
                       key: page.id,
@@ -62370,18 +62011,18 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       onClick: ($event) => handleRestorePage(page)
                     }, [
                       createBaseVNode("span", {
-                        class: normalizeClass(["hist-dot small", page.status === "completed" ? "ok" : "err"])
+                        class: normalizeClass(["hist-dot small", historyStatusClass(page.status)])
                       }, null, 2),
-                      createBaseVNode("span", _hoisted_13$1, toDisplayString(page.input_file_name || `第${pi + 1}页`), 1)
-                    ], 8, _hoisted_12$2);
+                      createBaseVNode("span", _hoisted_13$3, toDisplayString(page.input_file_name || `第${pi + 1}页`), 1)
+                    ], 8, _hoisted_12$3);
                   }), 128))
                 ])) : createCommentVNode("", true)
               ]);
             }), 128))
           ])
         ], 2),
-        createBaseVNode("div", _hoisted_14$1, [
-          createBaseVNode("div", _hoisted_15$1, [
+        createBaseVNode("div", _hoisted_14$3, [
+          createBaseVNode("div", _hoisted_15$2, [
             createBaseVNode("div", _hoisted_16$1, [
               createBaseVNode("button", {
                 class: "hist-toggle",
@@ -62448,7 +62089,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                   })
                 ]),
                 default: withCtx(() => [
-                  _cache[11] || (_cache[11] = createTextVNode(" XML → 简谱 ", -1))
+                  _cache[12] || (_cache[12] = createTextVNode(" XML → 简谱 ", -1))
                 ]),
                 _: 1
               }, 8, ["loading", "disabled"]),
@@ -62468,7 +62109,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                   })
                 ]),
                 default: withCtx(() => [
-                  _cache[12] || (_cache[12] = createTextVNode(" 导出 ", -1))
+                  _cache[13] || (_cache[13] = createTextVNode(" 导出 ", -1))
                 ]),
                 _: 1
               }, 8, ["loading", "disabled"]),
@@ -62484,7 +62125,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
           createBaseVNode("div", _hoisted_20, [
             createBaseVNode("div", _hoisted_21, [
               createBaseVNode("div", _hoisted_22, [
-                _cache[13] || (_cache[13] = createBaseVNode("span", null, "原始五线谱", -1)),
+                _cache[14] || (_cache[14] = createBaseVNode("span", null, "原始五线谱", -1)),
                 unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_23, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
               ]),
               createBaseVNode("div", _hoisted_24, [
@@ -62499,7 +62140,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                 createBaseVNode("span", null, toDisplayString(isViewingFinal.value ? "最终渲染" : "简谱编辑"), 1),
                 createBaseVNode("div", _hoisted_27, [
                   createBaseVNode("div", _hoisted_28, [
-                    _cache[14] || (_cache[14] = createBaseVNode("span", { class: "meta-label" }, "起始小节", -1)),
+                    _cache[15] || (_cache[15] = createBaseVNode("span", { class: "meta-label" }, "起始小节", -1)),
                     createVNode(unref(NInputNumber), {
                       value: unref(store).startMeasureNumber,
                       "onUpdate:value": handleStartMeasureChange,
@@ -62524,7 +62165,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[15] || (_cache[15] = createTextVNode(" 语法说明 ", -1))
+                      _cache[16] || (_cache[16] = createTextVNode(" 语法说明 ", -1))
                     ]),
                     _: 1
                   }),
@@ -62535,7 +62176,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                     loading: unref(store).isBusy,
                     disabled: unref(store).isBusy || !canSaveCurrentPage.value
                   }, {
-                    default: withCtx(() => [..._cache[16] || (_cache[16] = [
+                    default: withCtx(() => [..._cache[17] || (_cache[17] = [
                       createTextVNode(" 保存 ", -1)
                     ])]),
                     _: 1
@@ -62559,9 +62200,10 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                   key: 0,
                   "svg-file-id": finalSvgFileId.value,
                   "ocr-text": unref(store).ocrText,
+                  "current-note-index": currentNoteIndex.value,
                   "editable-ocr": "",
                   "onUpdate:ocrText": handleOcrTextUpdate
-                }, null, 8, ["svg-file-id", "ocr-text"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_30, [
+                }, null, 8, ["svg-file-id", "ocr-text", "current-note-index"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_30, [
                   createVNode(unref(NIcon), {
                     size: "32",
                     depth: 3
@@ -62571,43 +62213,47 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                     ]),
                     _: 1
                   }),
-                  _cache[17] || (_cache[17] = createBaseVNode("span", null, "暂无渲染", -1))
+                  _cache[18] || (_cache[18] = createBaseVNode("span", null, "暂无渲染", -1))
                 ])) : (openBlock(), createBlock(JianpuEditor, {
                   key: 2,
                   modelValue: jianpuText.value,
                   "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => jianpuText.value = $event),
-                  "start-measure-number": unref(store).startMeasureNumber ?? 1
-                }, null, 8, ["modelValue", "start-measure-number"]))
+                  "start-measure-number": unref(store).startMeasureNumber ?? 1,
+                  "current-note-index": currentNoteIndex.value
+                }, null, 8, ["modelValue", "start-measure-number", "current-note-index"]))
               ])
             ])
           ]),
           createVNode(JianpuPlayer, {
             "musicxml-file-id": unref(store).musicxmlFileId,
-            "jianpu-text": jianpuText.value
+            "jianpu-text": jianpuText.value,
+            "onUpdate:currentNoteIndex": _cache[6] || (_cache[6] = ($event) => currentNoteIndex.value = $event)
           }, null, 8, ["musicxml-file-id", "jianpu-text"])
         ]),
         createVNode(JianpuSyntaxGuide, {
           show: syntaxGuideOpen.value,
-          "onUpdate:show": _cache[6] || (_cache[6] = ($event) => syntaxGuideOpen.value = $event)
+          "onUpdate:show": _cache[7] || (_cache[7] = ($event) => syntaxGuideOpen.value = $event)
         }, null, 8, ["show"])
       ]);
     };
   }
 });
-const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-c54795d5"]]);
-const _hoisted_1$2 = { class: "settings-view" };
-const _hoisted_2$2 = { class: "sv-section" };
-const _hoisted_3$2 = { class: "sv-grid" };
-const _hoisted_4$2 = { class: "sv-section" };
-const _hoisted_5$1 = { class: "sv-grid" };
-const _hoisted_6$1 = { class: "sv-section" };
-const _hoisted_7$1 = { class: "sv-grid" };
-const _hoisted_8$1 = { class: "sv-section" };
-const _hoisted_9$1 = { class: "sv-grid" };
-const _hoisted_10$1 = { class: "sv-section" };
-const _hoisted_11$1 = { class: "sv-grid" };
-const _hoisted_12$1 = { class: "sv-footer" };
-const _sfc_main$2 = /* @__PURE__ */ defineComponent({
+const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-99fa9920"]]);
+const _hoisted_1$3 = { class: "settings-view" };
+const _hoisted_2$3 = { class: "sv-section" };
+const _hoisted_3$3 = { class: "sv-grid" };
+const _hoisted_4$3 = { class: "sv-section" };
+const _hoisted_5$2 = { class: "sv-grid" };
+const _hoisted_6$2 = { class: "sv-section" };
+const _hoisted_7$2 = { class: "sv-grid" };
+const _hoisted_8$2 = { class: "sv-section" };
+const _hoisted_9$2 = { class: "sv-grid" };
+const _hoisted_10$2 = { class: "sv-section" };
+const _hoisted_11$2 = { class: "sv-grid" };
+const _hoisted_12$2 = { class: "sv-section" };
+const _hoisted_13$2 = { class: "sv-grid" };
+const _hoisted_14$2 = { class: "sv-footer" };
+const _sfc_main$3 = /* @__PURE__ */ defineComponent({
   __name: "SettingsView",
   setup(__props) {
     const settings = useSettingsStore();
@@ -62630,13 +62276,13 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       if (result) settings.outputDir = result;
     }
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("div", _hoisted_1$2, [
-        _cache[33] || (_cache[33] = createBaseVNode("h2", null, "设置", -1)),
-        _cache[34] || (_cache[34] = createBaseVNode("p", { class: "subtitle" }, "调整识别引擎、导出路径与 OCR 服务参数", -1)),
-        createBaseVNode("div", _hoisted_2$2, [
-          _cache[15] || (_cache[15] = createBaseVNode("div", { class: "sv-section-title" }, "外部工具", -1)),
-          createBaseVNode("div", _hoisted_3$2, [
-            _cache[13] || (_cache[13] = createBaseVNode("label", null, "Audiveris 路径", -1)),
+      return openBlock(), createElementBlock("div", _hoisted_1$3, [
+        _cache[40] || (_cache[40] = createBaseVNode("h2", null, "设置", -1)),
+        _cache[41] || (_cache[41] = createBaseVNode("p", { class: "subtitle" }, "调整识别引擎、导出路径、OCR 与 AI 服务参数", -1)),
+        createBaseVNode("div", _hoisted_2$3, [
+          _cache[18] || (_cache[18] = createBaseVNode("div", { class: "sv-section-title" }, "外部工具", -1)),
+          createBaseVNode("div", _hoisted_3$3, [
+            _cache[16] || (_cache[16] = createBaseVNode("label", null, "Audiveris 路径", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).audiverisPath,
               "onUpdate:value": _cache[0] || (_cache[0] = ($event) => unref(settings).audiverisPath = $event),
@@ -62653,7 +62299,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value"]),
-            _cache[14] || (_cache[14] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
+            _cache[17] || (_cache[17] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).javaHome,
               "onUpdate:value": _cache[1] || (_cache[1] = ($event) => unref(settings).javaHome = $event),
@@ -62672,10 +62318,10 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             }, 8, ["value"])
           ])
         ]),
-        createBaseVNode("div", _hoisted_4$2, [
-          _cache[19] || (_cache[19] = createBaseVNode("div", { class: "sv-section-title" }, "转换设置", -1)),
-          createBaseVNode("div", _hoisted_5$1, [
-            _cache[17] || (_cache[17] = createBaseVNode("label", null, "简谱调", -1)),
+        createBaseVNode("div", _hoisted_4$3, [
+          _cache[22] || (_cache[22] = createBaseVNode("div", { class: "sv-section-title" }, "转换设置", -1)),
+          createBaseVNode("div", _hoisted_5$2, [
+            _cache[20] || (_cache[20] = createBaseVNode("label", null, "简谱调", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).targetKey,
               "onUpdate:value": _cache[2] || (_cache[2] = ($event) => unref(settings).targetKey = $event),
@@ -62683,7 +62329,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               size: "small",
               style: { "width": "80px" }
             }, null, 8, ["value"]),
-            _cache[18] || (_cache[18] = createBaseVNode("label", null, "默认导出路径", -1)),
+            _cache[21] || (_cache[21] = createBaseVNode("label", null, "默认导出路径", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).outputDir,
               "onUpdate:value": _cache[3] || (_cache[3] = ($event) => unref(settings).outputDir = $event),
@@ -62696,7 +62342,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                   quaternary: "",
                   onClick: selectOutputDir
                 }, {
-                  default: withCtx(() => [..._cache[16] || (_cache[16] = [
+                  default: withCtx(() => [..._cache[19] || (_cache[19] = [
                     createTextVNode("浏览", -1)
                   ])]),
                   _: 1
@@ -62706,16 +62352,16 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             }, 8, ["value"])
           ])
         ]),
-        createBaseVNode("div", _hoisted_6$1, [
-          _cache[23] || (_cache[23] = createBaseVNode("div", { class: "sv-section-title" }, "识别预处理", -1)),
-          createBaseVNode("div", _hoisted_7$1, [
-            _cache[20] || (_cache[20] = createBaseVNode("label", null, "启用", -1)),
+        createBaseVNode("div", _hoisted_6$2, [
+          _cache[26] || (_cache[26] = createBaseVNode("div", { class: "sv-section-title" }, "识别预处理", -1)),
+          createBaseVNode("div", _hoisted_7$2, [
+            _cache[23] || (_cache[23] = createBaseVNode("label", null, "启用", -1)),
             createVNode(unref(NSwitch), {
               value: unref(settings).omrPreprocess,
               "onUpdate:value": _cache[4] || (_cache[4] = ($event) => unref(settings).omrPreprocess = $event),
               size: "small"
             }, null, 8, ["value"]),
-            _cache[21] || (_cache[21] = createBaseVNode("label", null, "目标长边", -1)),
+            _cache[24] || (_cache[24] = createBaseVNode("label", null, "目标长边", -1)),
             createVNode(unref(NInputNumber), {
               value: unref(settings).omrPreprocessLongEdge,
               "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).omrPreprocessLongEdge = $event),
@@ -62724,7 +62370,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               size: "small",
               style: { "width": "140px" }
             }, null, 8, ["value"]),
-            _cache[22] || (_cache[22] = createBaseVNode("label", null, "黑白化", -1)),
+            _cache[25] || (_cache[25] = createBaseVNode("label", null, "黑白化", -1)),
             createVNode(unref(NSwitch), {
               value: unref(settings).omrPreprocessBinarize,
               "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).omrPreprocessBinarize = $event),
@@ -62732,10 +62378,10 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             }, null, 8, ["value"])
           ])
         ]),
-        createBaseVNode("div", _hoisted_8$1, [
-          _cache[27] || (_cache[27] = createBaseVNode("div", { class: "sv-section-title" }, "OCR 设置", -1)),
-          createBaseVNode("div", _hoisted_9$1, [
-            _cache[24] || (_cache[24] = createBaseVNode("label", null, "API Key", -1)),
+        createBaseVNode("div", _hoisted_8$2, [
+          _cache[30] || (_cache[30] = createBaseVNode("div", { class: "sv-section-title" }, "OCR 设置", -1)),
+          createBaseVNode("div", _hoisted_9$2, [
+            _cache[27] || (_cache[27] = createBaseVNode("label", null, "API Key", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).ocrApiKey,
               "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).ocrApiKey = $event),
@@ -62754,7 +62400,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value", "placeholder"]),
-            _cache[25] || (_cache[25] = createBaseVNode("label", null, "Base URL", -1)),
+            _cache[28] || (_cache[28] = createBaseVNode("label", null, "Base URL", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).ocrBaseUrl,
               "onUpdate:value": _cache[8] || (_cache[8] = ($event) => unref(settings).ocrBaseUrl = $event),
@@ -62771,7 +62417,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value"]),
-            _cache[26] || (_cache[26] = createBaseVNode("label", null, "模型", -1)),
+            _cache[29] || (_cache[29] = createBaseVNode("label", null, "模型", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).ocrModel,
               "onUpdate:value": _cache[9] || (_cache[9] = ($event) => unref(settings).ocrModel = $event),
@@ -62790,10 +62436,10 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             }, 8, ["value"])
           ])
         ]),
-        createBaseVNode("div", _hoisted_10$1, [
-          _cache[31] || (_cache[31] = createBaseVNode("div", { class: "sv-section-title" }, "AI 视觉转写", -1)),
-          createBaseVNode("div", _hoisted_11$1, [
-            _cache[28] || (_cache[28] = createBaseVNode("label", null, "API Key", -1)),
+        createBaseVNode("div", _hoisted_10$2, [
+          _cache[34] || (_cache[34] = createBaseVNode("div", { class: "sv-section-title" }, "AI 视觉转写", -1)),
+          createBaseVNode("div", _hoisted_11$2, [
+            _cache[31] || (_cache[31] = createBaseVNode("label", null, "API Key", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).aiApiKey,
               "onUpdate:value": _cache[10] || (_cache[10] = ($event) => unref(settings).aiApiKey = $event),
@@ -62812,7 +62458,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value", "placeholder"]),
-            _cache[29] || (_cache[29] = createBaseVNode("label", null, "Base URL", -1)),
+            _cache[32] || (_cache[32] = createBaseVNode("label", null, "Base URL", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).aiBaseUrl,
               "onUpdate:value": _cache[11] || (_cache[11] = ($event) => unref(settings).aiBaseUrl = $event),
@@ -62829,7 +62475,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value"]),
-            _cache[30] || (_cache[30] = createBaseVNode("label", null, "视觉模型", -1)),
+            _cache[33] || (_cache[33] = createBaseVNode("label", null, "视觉模型", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).aiModel,
               "onUpdate:value": _cache[12] || (_cache[12] = ($event) => unref(settings).aiModel = $event),
@@ -62848,7 +62494,65 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             }, 8, ["value"])
           ])
         ]),
-        createBaseVNode("div", _hoisted_12$1, [
+        createBaseVNode("div", _hoisted_12$2, [
+          _cache[38] || (_cache[38] = createBaseVNode("div", { class: "sv-section-title" }, "工作台 AI 助手", -1)),
+          createBaseVNode("div", _hoisted_13$2, [
+            _cache[35] || (_cache[35] = createBaseVNode("label", null, "百炼 Key", -1)),
+            createVNode(unref(NInput), {
+              value: unref(settings).assistantApiKey,
+              "onUpdate:value": _cache[13] || (_cache[13] = ($event) => unref(settings).assistantApiKey = $event),
+              type: "password",
+              "show-password-on": "click",
+              placeholder: unref(settings).assistantApiKeySet ? "已保存（留空不更新）" : "百炼 API Key",
+              size: "small"
+            }, {
+              prefix: withCtx(() => [
+                createVNode(unref(NIcon), { size: "14" }, {
+                  default: withCtx(() => [
+                    createVNode(unref(KeyOutline))
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            }, 8, ["value", "placeholder"]),
+            _cache[36] || (_cache[36] = createBaseVNode("label", null, "Base URL", -1)),
+            createVNode(unref(NInput), {
+              value: unref(settings).assistantBaseUrl,
+              "onUpdate:value": _cache[14] || (_cache[14] = ($event) => unref(settings).assistantBaseUrl = $event),
+              placeholder: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+              size: "small"
+            }, {
+              prefix: withCtx(() => [
+                createVNode(unref(NIcon), { size: "14" }, {
+                  default: withCtx(() => [
+                    createVNode(unref(GlobeOutline))
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            }, 8, ["value"]),
+            _cache[37] || (_cache[37] = createBaseVNode("label", null, "模型", -1)),
+            createVNode(unref(NInput), {
+              value: unref(settings).assistantModel,
+              "onUpdate:value": _cache[15] || (_cache[15] = ($event) => unref(settings).assistantModel = $event),
+              placeholder: "deepseek-v4-flash",
+              size: "small"
+            }, {
+              prefix: withCtx(() => [
+                createVNode(unref(NIcon), { size: "14" }, {
+                  default: withCtx(() => [
+                    createVNode(unref(HardwareChipOutline))
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            }, 8, ["value"])
+          ])
+        ]),
+        createBaseVNode("div", _hoisted_14$2, [
           createVNode(unref(Button), {
             type: "primary",
             onClick: save
@@ -62862,7 +62566,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               })
             ]),
             default: withCtx(() => [
-              _cache[32] || (_cache[32] = createTextVNode(" 保存配置 ", -1))
+              _cache[39] || (_cache[39] = createTextVNode(" 保存配置 ", -1))
             ]),
             _: 1
           })
@@ -62871,7 +62575,376 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-a02fc7ac"]]);
+const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-6e81e4a0"]]);
+const useAssistantStore = /* @__PURE__ */ defineStore("assistant", () => {
+  const sessions = /* @__PURE__ */ ref([]);
+  const messages = /* @__PURE__ */ ref([]);
+  const currentSessionId = /* @__PURE__ */ ref("");
+  const loading = /* @__PURE__ */ ref(false);
+  const sending = /* @__PURE__ */ ref(false);
+  const error2 = /* @__PURE__ */ ref("");
+  async function loadSessions() {
+    loading.value = true;
+    error2.value = "";
+    try {
+      sessions.value = await aiApi.listChatSessions();
+      if (!currentSessionId.value && sessions.value.length) {
+        await selectSession(sessions.value[0].id);
+      }
+    } catch (e) {
+      error2.value = e instanceof Error ? e.message : String(e);
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function selectSession(sessionId) {
+    currentSessionId.value = sessionId;
+    loading.value = true;
+    error2.value = "";
+    try {
+      messages.value = await aiApi.getChatMessages(sessionId);
+    } catch (e) {
+      error2.value = e instanceof Error ? e.message : String(e);
+      messages.value = [];
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function createSession() {
+    loading.value = true;
+    error2.value = "";
+    try {
+      const session = await aiApi.createChatSession();
+      sessions.value = [session, ...sessions.value.filter((item) => item.id !== session.id)];
+      currentSessionId.value = session.id;
+      messages.value = [];
+    } catch (e) {
+      error2.value = e instanceof Error ? e.message : String(e);
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function deleteSession(sessionId) {
+    await aiApi.deleteChatSession(sessionId);
+    sessions.value = sessions.value.filter((session) => session.id !== sessionId);
+    if (currentSessionId.value === sessionId) {
+      currentSessionId.value = "";
+      messages.value = [];
+      if (sessions.value.length) await selectSession(sessions.value[0].id);
+    }
+  }
+  async function send(message, jianpuText) {
+    const text = message.trim();
+    if (!text || sending.value) return;
+    const tempId = -Date.now();
+    messages.value.push({
+      id: tempId,
+      session_id: currentSessionId.value,
+      role: "user",
+      content: text,
+      created_at: ""
+    });
+    sending.value = true;
+    error2.value = "";
+    try {
+      const response = await aiApi.chat({
+        message: text,
+        session_id: currentSessionId.value || void 0,
+        jianpu_text: jianpuText?.trim() || void 0
+      });
+      currentSessionId.value = response.session_id;
+      messages.value = response.messages;
+      sessions.value = await aiApi.listChatSessions();
+    } catch (e) {
+      error2.value = e instanceof Error ? e.message : String(e);
+      messages.value = messages.value.filter((item) => item.id !== tempId);
+      throw e;
+    } finally {
+      sending.value = false;
+    }
+  }
+  return {
+    sessions,
+    messages,
+    currentSessionId,
+    loading,
+    sending,
+    error: error2,
+    loadSessions,
+    selectSession,
+    createSession,
+    deleteSession,
+    send
+  };
+});
+const _hoisted_1$2 = { class: "ai-assistant" };
+const _hoisted_2$2 = { class: "ai-sessions-head" };
+const _hoisted_3$2 = { class: "ai-session-list" };
+const _hoisted_4$2 = ["onClick", "onKeydown"];
+const _hoisted_5$1 = {
+  key: 0,
+  class: "ai-empty-small"
+};
+const _hoisted_6$1 = { class: "ai-chat" };
+const _hoisted_7$1 = { class: "ai-head" };
+const _hoisted_8$1 = { class: "ai-head-left" };
+const _hoisted_9$1 = {
+  key: 0,
+  class: "ai-center"
+};
+const _hoisted_10$1 = {
+  key: 1,
+  class: "ai-empty"
+};
+const _hoisted_11$1 = { class: "ai-message-content" };
+const _hoisted_12$1 = {
+  key: 3,
+  class: "ai-message assistant pending"
+};
+const _hoisted_13$1 = { class: "ai-compose" };
+const _hoisted_14$1 = { class: "ai-context" };
+const _hoisted_15$1 = { class: "ai-input-row" };
+const _sfc_main$2 = /* @__PURE__ */ defineComponent({
+  __name: "AiAssistant",
+  setup(__props) {
+    const assistant = useAssistantStore();
+    const task = useTaskStore();
+    const message = useMessage();
+    const open = /* @__PURE__ */ ref(false);
+    const sessionsOpen = /* @__PURE__ */ ref(true);
+    const draft = /* @__PURE__ */ ref("");
+    const includeCurrentJianpu = /* @__PURE__ */ ref(true);
+    const messageBody = /* @__PURE__ */ ref(null);
+    onMounted(() => {
+      assistant.loadSessions();
+    });
+    watch(
+      () => [assistant.messages.length, assistant.sending, open.value],
+      () => {
+        nextTick(scrollToBottom);
+      }
+    );
+    function openPanel() {
+      open.value = true;
+      if (!assistant.sessions.length) assistant.loadSessions();
+      nextTick(scrollToBottom);
+    }
+    async function send() {
+      const text = draft.value.trim();
+      if (!text) return;
+      draft.value = "";
+      try {
+        await assistant.send(text, includeCurrentJianpu.value ? task.jianpuText : void 0);
+      } catch (e) {
+        const msg2 = e instanceof Error ? e.message : String(e);
+        message.error(msg2);
+      }
+    }
+    async function deleteSession(sessionId) {
+      try {
+        await assistant.deleteSession(sessionId);
+        message.success("已删除");
+      } catch (e) {
+        message.error(e instanceof Error ? e.message : String(e));
+      }
+    }
+    function scrollToBottom() {
+      const el = messageBody.value;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    }
+    return (_ctx, _cache) => {
+      return openBlock(), createElementBlock("div", _hoisted_1$2, [
+        !open.value ? (openBlock(), createElementBlock("button", {
+          key: 0,
+          class: "ai-fab",
+          type: "button",
+          title: "AI 助手",
+          onClick: openPanel
+        }, [
+          createVNode(unref(NIcon), { size: "22" }, {
+            default: withCtx(() => [
+              createVNode(unref(ChatbubbleEllipsesOutline))
+            ]),
+            _: 1
+          })
+        ])) : (openBlock(), createElementBlock("div", {
+          key: 1,
+          class: normalizeClass(["ai-panel", { "sessions-collapsed": !sessionsOpen.value }])
+        }, [
+          createBaseVNode("aside", {
+            class: normalizeClass(["ai-sessions", { hidden: !sessionsOpen.value }])
+          }, [
+            createBaseVNode("div", _hoisted_2$2, [
+              _cache[6] || (_cache[6] = createBaseVNode("span", null, "对话", -1)),
+              createVNode(unref(Button), {
+                size: "tiny",
+                quaternary: "",
+                disabled: unref(assistant).loading,
+                onClick: _cache[0] || (_cache[0] = ($event) => unref(assistant).createSession())
+              }, {
+                icon: withCtx(() => [
+                  createVNode(unref(NIcon), null, {
+                    default: withCtx(() => [
+                      createVNode(unref(AddOutline))
+                    ]),
+                    _: 1
+                  })
+                ]),
+                _: 1
+              }, 8, ["disabled"])
+            ]),
+            createBaseVNode("div", _hoisted_3$2, [
+              (openBlock(true), createElementBlock(Fragment, null, renderList(unref(assistant).sessions, (session) => {
+                return openBlock(), createElementBlock("div", {
+                  key: session.id,
+                  class: normalizeClass(["ai-session-item", { active: session.id === unref(assistant).currentSessionId }]),
+                  role: "button",
+                  tabindex: "0",
+                  onClick: ($event) => unref(assistant).selectSession(session.id),
+                  onKeydown: withKeys(withModifiers(($event) => unref(assistant).selectSession(session.id), ["prevent"]), ["enter"])
+                }, [
+                  createBaseVNode("span", null, toDisplayString(session.title), 1),
+                  createVNode(unref(NPopconfirm), {
+                    "show-icon": false,
+                    onPositiveClick: ($event) => deleteSession(session.id)
+                  }, {
+                    trigger: withCtx(() => [
+                      createBaseVNode("button", {
+                        class: "ai-session-delete",
+                        type: "button",
+                        title: "删除",
+                        onClick: _cache[1] || (_cache[1] = withModifiers(() => {
+                        }, ["stop"]))
+                      }, [
+                        createVNode(unref(NIcon), { size: "13" }, {
+                          default: withCtx(() => [
+                            createVNode(unref(TrashOutline))
+                          ]),
+                          _: 1
+                        })
+                      ])
+                    ]),
+                    default: withCtx(() => [
+                      _cache[7] || (_cache[7] = createTextVNode(" 删除这段对话？ ", -1))
+                    ]),
+                    _: 1
+                  }, 8, ["onPositiveClick"])
+                ], 42, _hoisted_4$2);
+              }), 128)),
+              !unref(assistant).sessions.length && !unref(assistant).loading ? (openBlock(), createElementBlock("div", _hoisted_5$1, "暂无对话")) : createCommentVNode("", true)
+            ])
+          ], 2),
+          createBaseVNode("section", _hoisted_6$1, [
+            createBaseVNode("header", _hoisted_7$1, [
+              createBaseVNode("div", _hoisted_8$1, [
+                createBaseVNode("button", {
+                  class: "ai-icon-btn",
+                  type: "button",
+                  title: "历史",
+                  onClick: _cache[2] || (_cache[2] = ($event) => sessionsOpen.value = !sessionsOpen.value)
+                }, [
+                  createVNode(unref(NIcon), null, {
+                    default: withCtx(() => [
+                      createVNode(unref(TimeOutline))
+                    ]),
+                    _: 1
+                  })
+                ]),
+                _cache[8] || (_cache[8] = createBaseVNode("span", null, "AI 助手", -1))
+              ]),
+              createBaseVNode("button", {
+                class: "ai-icon-btn",
+                type: "button",
+                title: "收起",
+                onClick: _cache[3] || (_cache[3] = ($event) => open.value = false)
+              }, [
+                createVNode(unref(NIcon), null, {
+                  default: withCtx(() => [
+                    createVNode(unref(CloseOutline))
+                  ]),
+                  _: 1
+                })
+              ])
+            ]),
+            createBaseVNode("div", {
+              ref_key: "messageBody",
+              ref: messageBody,
+              class: "ai-messages"
+            }, [
+              unref(assistant).loading ? (openBlock(), createElementBlock("div", _hoisted_9$1, [
+                createVNode(unref(NSpin), { size: "small" })
+              ])) : !unref(assistant).messages.length ? (openBlock(), createElementBlock("div", _hoisted_10$1, [
+                createVNode(unref(NIcon), { size: "32" }, {
+                  default: withCtx(() => [
+                    createVNode(unref(ChatbubbleEllipsesOutline))
+                  ]),
+                  _: 1
+                }),
+                _cache[9] || (_cache[9] = createBaseVNode("span", null, "可以问我简谱语法、转写修正或当前文本的问题。", -1))
+              ])) : (openBlock(true), createElementBlock(Fragment, { key: 2 }, renderList(unref(assistant).messages, (message2) => {
+                return openBlock(), createElementBlock("div", {
+                  key: message2.id,
+                  class: normalizeClass(["ai-message", message2.role])
+                }, [
+                  createBaseVNode("div", _hoisted_11$1, toDisplayString(message2.content), 1)
+                ], 2);
+              }), 128)),
+              unref(assistant).sending ? (openBlock(), createElementBlock("div", _hoisted_12$1, [..._cache[10] || (_cache[10] = [
+                createBaseVNode("div", { class: "ai-typing" }, [
+                  createBaseVNode("span"),
+                  createBaseVNode("span"),
+                  createBaseVNode("span")
+                ], -1)
+              ])])) : createCommentVNode("", true)
+            ], 512),
+            createBaseVNode("div", _hoisted_13$1, [
+              createBaseVNode("label", _hoisted_14$1, [
+                withDirectives(createBaseVNode("input", {
+                  "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => includeCurrentJianpu.value = $event),
+                  type: "checkbox"
+                }, null, 512), [
+                  [vModelCheckbox, includeCurrentJianpu.value]
+                ]),
+                _cache[11] || (_cache[11] = createBaseVNode("span", null, "附带当前简谱", -1))
+              ]),
+              createBaseVNode("div", _hoisted_15$1, [
+                createVNode(unref(NInput), {
+                  value: draft.value,
+                  "onUpdate:value": _cache[5] || (_cache[5] = ($event) => draft.value = $event),
+                  type: "textarea",
+                  size: "small",
+                  autosize: { minRows: 1, maxRows: 4 },
+                  placeholder: "问点什么...",
+                  disabled: unref(assistant).sending,
+                  onKeydown: withKeys(withModifiers(send, ["exact", "prevent"]), ["enter"])
+                }, null, 8, ["value", "disabled", "onKeydown"]),
+                createVNode(unref(Button), {
+                  type: "primary",
+                  size: "small",
+                  loading: unref(assistant).sending,
+                  disabled: !draft.value.trim(),
+                  onClick: send
+                }, {
+                  icon: withCtx(() => [
+                    createVNode(unref(NIcon), null, {
+                      default: withCtx(() => [
+                        createVNode(unref(SendOutline))
+                      ]),
+                      _: 1
+                    })
+                  ]),
+                  _: 1
+                }, 8, ["loading", "disabled"])
+              ])
+            ])
+          ])
+        ], 2))
+      ]);
+    };
+  }
+});
+const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-de7a6b1e"]]);
 const _hoisted_1$1 = { class: "log-panel" };
 const _hoisted_2$1 = { class: "log-ts" };
 const _hoisted_3$1 = { class: "log-msg" };
@@ -62953,7 +63026,7 @@ const _hoisted_11 = { class: "sidebar-footer" };
 const _hoisted_12 = {
   key: 0,
   class: "busy-indicator",
-  title: "处理中…"
+  title: "后台处理中…"
 };
 const _hoisted_13 = { class: "main-area" };
 const _hoisted_14 = { class: "main-content" };
@@ -63217,7 +63290,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
                       }), 64))
                     ]),
                     createBaseVNode("div", _hoisted_11, [
-                      unref(store).isBusy ? (openBlock(), createElementBlock("div", _hoisted_12)) : createCommentVNode("", true)
+                      unref(store).isBusy || unref(store).backgroundTaskCount ? (openBlock(), createElementBlock("div", _hoisted_12)) : createCommentVNode("", true)
                     ])
                   ]),
                   createBaseVNode("main", _hoisted_13, [
@@ -63230,7 +63303,8 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
                       ]),
                       withDirectives(createVNode(SettingsView, null, null, 512), [
                         [vShow, activeTab.value === "settings"]
-                      ])
+                      ]),
+                      activeTab.value === "convert" ? (openBlock(), createBlock(AiAssistant, { key: 0 })) : createCommentVNode("", true)
                     ]),
                     createBaseVNode("div", {
                       class: normalizeClass(["log-drawer", { open: logOpen.value }])

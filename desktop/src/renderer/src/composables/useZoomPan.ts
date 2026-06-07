@@ -42,6 +42,13 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
       contentH = iframe.clientHeight || 600
       return true
     }
+    const svg = el.querySelector<SVGSVGElement>('.zp-inner svg')
+    if (svg) {
+      const viewBox = svg.viewBox.baseVal
+      contentW = svg.width.baseVal.value || viewBox.width || 800
+      contentH = svg.height.baseVal.value || viewBox.height || 600
+      return true
+    }
     return false
   }
 

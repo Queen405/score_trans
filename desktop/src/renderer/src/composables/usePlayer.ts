@@ -10,6 +10,13 @@ export interface PlayerNote {
   velocity: number
 }
 
+export interface PlayerNoteGroup {
+  time: number
+  duration: number
+  endTime: number
+  notes: PlayerNote[]
+}
+
 export interface UsePlayerOptions {
   /** MIDI file URL to load automatically */
   midiUrl?: Ref<string>
@@ -37,6 +44,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   // ── Internal ──
   const synth = shallowRef<Tone.PolySynth | null>(null)
   const notes: PlayerNote[] = []
+  const noteGroups: PlayerNoteGroup[] = []
   let midiData: Midi | null = null
   let animationId: number | null = null
   let scheduledIds: number[] = []
@@ -76,6 +84,9 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     isLoading.value = true
     error.value = null
     isReady.value = false
+    currentNoteIndex.value = -1
+    notes.length = 0
+    noteGroups.length = 0
 
     try {
       await ensureAudioContext()
@@ -92,8 +103,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
         bpm.value = originalBpm
       }
 
-      // Extract notes from first track with notes
-      notes.length = 0
+      // Extract notes from all tracks.
       let maxEnd = 0
       for (const track of midiData.tracks) {
         for (const note of track.notes) {
@@ -111,6 +121,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
 
       // Sort by time for highlighting
       notes.sort((a, b) => a.time - b.time)
+      rebuildNoteGroups()
 
       duration.value = maxEnd
       loopEnd.value = maxEnd
@@ -264,15 +275,41 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   }
 
   function updateCurrentNoteIndex(time: number): void {
-    // Find the last note whose start time <= current time
+    // Find the note/chord group that is currently sounding.
     let idx = -1
-    for (let i = notes.length - 1; i >= 0; i--) {
-      if (notes[i].time <= time) {
+    const epsilon = 0.02
+    for (let i = noteGroups.length - 1; i >= 0; i--) {
+      const group = noteGroups[i]
+      if (time + epsilon >= group.time && time <= group.endTime + epsilon) {
         idx = i
         break
       }
+      if (group.time < time) break
     }
     currentNoteIndex.value = idx
+  }
+
+  function rebuildNoteGroups(): void {
+    noteGroups.length = 0
+    const sameStartEpsilon = 0.001
+
+    for (const note of notes) {
+      const endTime = note.time + note.duration
+      const previous = noteGroups[noteGroups.length - 1]
+      if (previous && Math.abs(previous.time - note.time) <= sameStartEpsilon) {
+        previous.notes.push(note)
+        previous.endTime = Math.max(previous.endTime, endTime)
+        previous.duration = previous.endTime - previous.time
+        continue
+      }
+
+      noteGroups.push({
+        time: note.time,
+        duration: note.duration,
+        endTime,
+        notes: [note],
+      })
+    }
   }
 
   // ── Watch URL changes ──
@@ -295,6 +332,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     }
     midiData = null
     notes.length = 0
+    noteGroups.length = 0
     isReady.value = false
   }
 
@@ -318,6 +356,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     currentTimeFormatted,
     durationFormatted,
     notes,
+    noteGroups,
 
     // Actions
     loadMidi,

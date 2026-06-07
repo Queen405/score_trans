@@ -1,7 +1,7 @@
 <template>
   <div class="settings-view">
     <h2>设置</h2>
-    <p class="subtitle">调整识别引擎、导出路径与 OCR 服务参数</p>
+    <p class="subtitle">调整识别引擎、导出路径、OCR 与 AI 服务参数</p>
 
     <div class="sv-section">
       <div class="sv-section-title">外部工具</div>
@@ -82,6 +82,26 @@
 
         <label>视觉模型</label>
         <n-input v-model:value="settings.aiModel" placeholder="Qwen/Qwen3-VL-8B-Instruct" size="small">
+          <template #prefix><n-icon size="14"><HardwareChipOutline /></n-icon></template>
+        </n-input>
+      </div>
+    </div>
+
+    <div class="sv-section">
+      <div class="sv-section-title">工作台 AI 助手</div>
+      <div class="sv-grid">
+        <label>百炼 Key</label>
+        <n-input v-model:value="settings.assistantApiKey" type="password" show-password-on="click" :placeholder="settings.assistantApiKeySet ? '已保存（留空不更新）' : '百炼 API Key'" size="small">
+          <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+        </n-input>
+
+        <label>Base URL</label>
+        <n-input v-model:value="settings.assistantBaseUrl" placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1" size="small">
+          <template #prefix><n-icon size="14"><GlobeOutline /></n-icon></template>
+        </n-input>
+
+        <label>模型</label>
+        <n-input v-model:value="settings.assistantModel" placeholder="deepseek-v4-flash" size="small">
           <template #prefix><n-icon size="14"><HardwareChipOutline /></n-icon></template>
         </n-input>
       </div>

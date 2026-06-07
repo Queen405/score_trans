@@ -10,26 +10,71 @@
         {{ num > 0 ? num : '' }}
       </div>
     </div>
-    <textarea
-      ref="textareaRef"
-      :value="modelValue"
-      @input="onInput"
-      @scroll="syncScroll"
-      placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 q3 q4 | h[1+3+5] \p |&#10;L: 春 风 又 绿"
-      class="editor-textarea"
-      spellcheck="false"
-    />
+    <div class="editor-main">
+      <textarea
+        ref="textareaRef"
+        :value="modelValue"
+        @input="onInput"
+        @scroll="syncScroll"
+        placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 q3 q4 | h[1+3+5] \p |&#10;L: 春 风 又 绿"
+        class="editor-textarea"
+        spellcheck="false"
+      />
+      <div
+        v-if="playbackHighlightStyle"
+        class="editor-playback-highlight"
+        :style="playbackHighlightStyle"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick, watch } from 'vue'
+import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
 
-const props = defineProps<{ modelValue: string; startMeasureNumber?: number }>()
+const props = withDefaults(defineProps<{
+  modelValue: string
+  startMeasureNumber?: number
+  currentNoteIndex?: number
+}>(), {
+  currentNoteIndex: -1,
+})
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const gutterRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const scrollTop = ref(0)
+const scrollLeft = ref(0)
+const editorMetrics = ref({
+  charWidth: 7.8,
+  lineHeight: 22.75,
+  paddingLeft: 10,
+  paddingTop: 8,
+})
+let resizeObserver: ResizeObserver | null = null
+
+const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
+const activeNoteSpan = computed(() => (
+  props.currentNoteIndex >= 0
+    ? noteSpans.value.find((span) => span.index === props.currentNoteIndex) ?? null
+    : null
+))
+const playbackHighlightStyle = computed(() => {
+  const span = activeNoteSpan.value
+  if (!span) return null
+
+  const metrics = editorMetrics.value
+  const top = metrics.paddingTop + span.line * metrics.lineHeight - scrollTop.value
+  const left = metrics.paddingLeft + span.startColumn * metrics.charWidth - scrollLeft.value
+  const width = Math.max(metrics.charWidth, (span.endColumn - span.startColumn) * metrics.charWidth)
+
+  return {
+    transform: `translate(${left}px, ${top}px)`,
+    width: `${width}px`,
+    height: `${metrics.lineHeight}px`,
+  }
+})
 
 /** 当前光标前的 | 是否是独立小节线（非 ||、|:、:| 的一部分） */
 function isStandaloneBarline(value: string, cursor: number): boolean {
@@ -85,9 +130,8 @@ function onInput(e: Event): void {
 }
 
 function syncScroll(e: Event): void {
-  if (gutterRef.value) {
-    gutterRef.value.scrollTop = (e.target as HTMLTextAreaElement).scrollTop
-  }
+  const target = e.target as HTMLTextAreaElement
+  syncScrollPosition(target)
 }
 
 function needsFormat(text: string): boolean {
@@ -192,6 +236,77 @@ const measureNumbers = computed(() => {
     return 0
   })
 })
+
+watch(activeNoteSpan, (span) => {
+  if (!span) return
+  nextTick(() => scrollNoteIntoView(span))
+})
+
+onMounted(() => {
+  refreshEditorMetrics()
+  if (textareaRef.value) {
+    syncScrollPosition(textareaRef.value)
+    resizeObserver = new ResizeObserver(refreshEditorMetrics)
+    resizeObserver.observe(textareaRef.value)
+  }
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
+function syncScrollPosition(target: HTMLTextAreaElement): void {
+  scrollTop.value = target.scrollTop
+  scrollLeft.value = target.scrollLeft
+  if (gutterRef.value) {
+    gutterRef.value.scrollTop = target.scrollTop
+  }
+}
+
+function refreshEditorMetrics(): void {
+  const el = textareaRef.value
+  if (!el) return
+
+  const style = window.getComputedStyle(el)
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (context) {
+    context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  }
+  const fontSize = parseFloat(style.fontSize) || 13
+  editorMetrics.value = {
+    charWidth: context?.measureText('0').width || fontSize * 0.6,
+    lineHeight: parseFloat(style.lineHeight) || fontSize * 1.75,
+    paddingLeft: parseFloat(style.paddingLeft) || 0,
+    paddingTop: parseFloat(style.paddingTop) || 0,
+  }
+}
+
+function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn: number }): void {
+  const el = textareaRef.value
+  if (!el) return
+
+  const metrics = editorMetrics.value
+  const top = metrics.paddingTop + span.line * metrics.lineHeight
+  const bottom = top + metrics.lineHeight
+  const left = metrics.paddingLeft + span.startColumn * metrics.charWidth
+  const right = metrics.paddingLeft + span.endColumn * metrics.charWidth
+
+  if (top < el.scrollTop) {
+    el.scrollTop = Math.max(0, top - metrics.lineHeight)
+  } else if (bottom > el.scrollTop + el.clientHeight) {
+    el.scrollTop = bottom - el.clientHeight + metrics.lineHeight
+  }
+
+  if (left < el.scrollLeft) {
+    el.scrollLeft = Math.max(0, left - metrics.charWidth * 2)
+  } else if (right > el.scrollLeft + el.clientWidth) {
+    el.scrollLeft = right - el.clientWidth + metrics.charWidth * 2
+  }
+
+  syncScrollPosition(el)
+}
 </script>
 
 <style scoped>
@@ -200,6 +315,15 @@ const measureNumbers = computed(() => {
   min-height: 0;
   display: flex;
   flex-direction: row;
+  overflow: hidden;
+}
+
+.editor-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  position: relative;
   overflow: hidden;
 }
 
@@ -246,6 +370,17 @@ const measureNumbers = computed(() => {
   white-space: pre;
   overflow-wrap: normal;
   overflow-x: auto;
+}
+
+.editor-playback-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 3px;
+  background: rgba(217, 119, 6, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.52);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .editor-textarea::placeholder {

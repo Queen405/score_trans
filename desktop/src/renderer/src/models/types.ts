@@ -133,6 +133,33 @@ export interface AiTranscribeResponse {
   warnings: string[]
 }
 
+export interface AiChatMessage {
+  id: number
+  session_id: string
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
+export interface AiChatSession {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AiChatRequest {
+  message: string
+  session_id?: string
+  jianpu_text?: string
+}
+
+export interface AiChatResponse {
+  session_id: string
+  message: AiChatMessage
+  messages: AiChatMessage[]
+}
+
 export interface ExportResponse {
   file_id: string
   filename: string
@@ -158,6 +185,10 @@ export interface SettingsResponse {
   ai_api_key_set?: boolean
   ai_base_url?: string
   ai_model?: string
+  assistant_api_key?: string
+  assistant_api_key_set?: boolean
+  assistant_base_url?: string
+  assistant_model?: string
   omr_preprocess?: boolean
   omr_preprocess_long_edge?: number
   omr_preprocess_binarize?: boolean
@@ -175,6 +206,9 @@ export interface SettingsUpdateRequest {
   ai_api_key?: string
   ai_base_url?: string
   ai_model?: string
+  assistant_api_key?: string
+  assistant_base_url?: string
+  assistant_model?: string
   omr_preprocess?: boolean
   omr_preprocess_long_edge?: number
   omr_preprocess_binarize?: boolean

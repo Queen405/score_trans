@@ -15,6 +15,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const aiApiKeySet = ref(false)
   const aiBaseUrl = ref('https://api.siliconflow.cn/v1')
   const aiModel = ref('Qwen/Qwen3-VL-8B-Instruct')
+  const assistantApiKey = ref('')
+  const assistantApiKeySet = ref(false)
+  const assistantBaseUrl = ref('https://dashscope.aliyuncs.com/compatible-mode/v1')
+  const assistantModel = ref('deepseek-v4-flash')
   const omrPreprocess = ref(true)
   const omrPreprocessLongEdge = ref(3600)
   const omrPreprocessBinarize = ref(false)
@@ -35,6 +39,10 @@ export const useSettingsStore = defineStore('settings', () => {
       aiApiKeySet.value = data.ai_api_key_set ?? false
       aiBaseUrl.value = data.ai_base_url ?? 'https://api.siliconflow.cn/v1'
       aiModel.value = data.ai_model ?? 'Qwen/Qwen3-VL-8B-Instruct'
+      assistantApiKey.value = data.assistant_api_key ?? ''
+      assistantApiKeySet.value = data.assistant_api_key_set ?? false
+      assistantBaseUrl.value = data.assistant_base_url ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+      assistantModel.value = data.assistant_model ?? 'deepseek-v4-flash'
       omrPreprocess.value = data.omr_preprocess ?? true
       omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600
       omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false
@@ -56,6 +64,9 @@ export const useSettingsStore = defineStore('settings', () => {
       ai_api_key: aiApiKey.value || undefined,
       ai_base_url: aiBaseUrl.value,
       ai_model: aiModel.value,
+      assistant_api_key: assistantApiKey.value || undefined,
+      assistant_base_url: assistantBaseUrl.value,
+      assistant_model: assistantModel.value,
       omr_preprocess: omrPreprocess.value,
       omr_preprocess_long_edge: omrPreprocessLongEdge.value,
       omr_preprocess_binarize: omrPreprocessBinarize.value,
@@ -75,6 +86,10 @@ export const useSettingsStore = defineStore('settings', () => {
     aiApiKeySet,
     aiBaseUrl,
     aiModel,
+    assistantApiKey,
+    assistantApiKeySet,
+    assistantBaseUrl,
+    assistantModel,
     omrPreprocess,
     omrPreprocessLongEdge,
     omrPreprocessBinarize,

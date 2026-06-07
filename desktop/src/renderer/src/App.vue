@@ -38,7 +38,7 @@
               </button>
             </div>
             <div class="sidebar-footer">
-              <div v-if="store.isBusy" class="busy-indicator" title="处理中…" />
+              <div v-if="store.isBusy || store.backgroundTaskCount" class="busy-indicator" title="后台处理中…" />
             </div>
           </nav>
 
@@ -47,6 +47,7 @@
               <recognize-view v-show="activeTab === 'recognize'" />
               <convert-view v-show="activeTab === 'convert'" />
               <settings-view v-show="activeTab === 'settings'" />
+              <ai-assistant v-if="activeTab === 'convert'" />
             </div>
             <div :class="['log-drawer', { open: logOpen }]">
               <button class="log-toggle" @click="logOpen = !logOpen">
@@ -73,6 +74,7 @@ import { useLogStore } from './stores/log'
 import RecognizeView from './views/RecognizeView.vue'
 import ConvertView from './views/ConvertView.vue'
 import SettingsView from './views/SettingsView.vue'
+import AiAssistant from './components/AiAssistant.vue'
 import LogPanel from './components/LogPanel.vue'
 import {
   ScanOutline,

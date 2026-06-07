@@ -3,10 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from score_trans.api.app import create_app
+from score_trans.dao.ai.chat_dao import AiChatDao
+from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.ai.actions import AiActions
 from score_trans.models.ai.schemas import AiTranscribeRequest
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.ai.base import VisionPageResult, parse_vision_page_result
+from score_trans.services.ai.chat_service import AiChatService, MAX_CONTEXT_MESSAGES
 from score_trans.services.ai.providers.mock import MockVisionJianpuProvider
 from score_trans.services.ai.service import AiTranscriptionService, ensure_jianpu_header
 from score_trans.utils.pdf import pdf_to_png_pages
@@ -28,6 +31,16 @@ def test_ai_transcribe_route_is_registered() -> None:
     assert "/ai/transcribe" in paths
     assert "file_id" in schema["properties"]
     assert "render_dpi" in schema["properties"]
+
+
+def test_ai_chat_routes_are_registered() -> None:
+    paths = set(create_app().openapi()["paths"])
+    schema = create_app().openapi()["components"]["schemas"]["AiChatRequest"]
+
+    assert "/ai/chat" in paths
+    assert "/ai/chat/sessions" in paths
+    assert "/ai/chat/sessions/{session_id}/messages" in paths
+    assert "jianpu_text" in schema["properties"]
 
 
 def test_ai_action_transcribes_uploaded_image_with_mock_provider(tmp_path: Path) -> None:
@@ -95,3 +108,42 @@ def test_ai_plain_text_response_falls_back_to_jianpu_text() -> None:
 
     assert result.jianpu_text.startswith("title=中阮")
     assert result.warnings
+
+
+def test_ai_chat_injects_jianpu_syntax_and_limits_memory(tmp_path: Path, monkeypatch) -> None:
+    captured_messages = []
+
+    def fake_chat_completions(**kwargs):
+        captured_messages.append(kwargs["messages"])
+        return "已检查"
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.chat_service.chat_completions",
+        fake_chat_completions,
+    )
+    settings = SettingsDao(tmp_path / "settings.db")
+    settings.set("assistant_api_key", "test-key")
+    settings.set("assistant_base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+    settings.set("assistant_model", "deepseek-v4-flash")
+    service = AiChatService(
+        dao=AiChatDao(tmp_path / "ai_chat.db"),
+        settings=settings,
+    )
+    session = service.create_session()
+    for index in range(21):
+        service.dao.add_message(session.id, "user", f"旧问题 {index}")
+        service.dao.add_message(session.id, "assistant", f"旧回答 {index}")
+
+    service.send_message(
+        "帮我检查和弦",
+        session_id=session.id,
+        jianpu_text="1=C\n4/4\n[1,3,5] |",
+    )
+
+    messages = captured_messages[-1]
+    assert messages[0]["role"] == "system"
+    assert "项目简谱语法" in messages[0]["content"]
+    assert "[1+3+5]" in messages[0]["content"]
+    assert len(messages[1:]) == MAX_CONTEXT_MESSAGES
+    assert "【当前工作台简谱文本】" in messages[-1]["content"]
+    assert "[1,3,5]" in messages[-1]["content"]

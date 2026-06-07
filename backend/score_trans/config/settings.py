@@ -52,6 +52,14 @@ AI_TIMEOUT: float = _f("SCORE_TRANS_AI_TIMEOUT")
 AI_TEMPERATURE: float = _f("SCORE_TRANS_AI_TEMPERATURE")
 AI_SYSTEM_MSG: str = _s_or("SCORE_TRANS_AI_SYSTEM_MSG")
 
+# Workbench AI assistant
+ASSISTANT_BASE_URL: str = _s_or(
+    "SCORE_TRANS_ASSISTANT_BASE_URL",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+)
+ASSISTANT_MODEL: str = _s_or("SCORE_TRANS_ASSISTANT_MODEL", "deepseek-v4-flash")
+ASSISTANT_API_KEY: str = _s_or("SCORE_TRANS_ASSISTANT_API_KEY")
+
 # OCR
 OCR_BASE_URL: str = _s("SCORE_TRANS_OCR_BASE_URL")
 OCR_MODEL: str = _s("SCORE_TRANS_OCR_MODEL")

@@ -14,6 +14,9 @@ from ...models.settings.config import ToolConfig
 from ..settings.settings_service import SettingsService
 
 
+_INDEX_LOCK = threading.Lock()
+
+
 class UploadService:
     """Manages uploaded files: save, lookup, register, cleanup."""
 
@@ -62,25 +65,40 @@ class UploadService:
 
         return path.resolve()
 
-    def _persist_index(self) -> None:
+    def _persist_index(self, *, remove_ids: set[str] | None = None) -> None:
+        remove_ids = remove_ids or set()
         with self._lock:
-            serializable = {
+            current = {
                 file_id: str(path.resolve())
                 for file_id, path in self._files.items()
-                if path.exists()
+                if file_id not in remove_ids and path.exists()
             }
-            self._files = {file_id: Path(path) for file_id, path in serializable.items()}
 
-        try:
-            tmp_path = self._index_path.with_suffix(".tmp")
-            tmp_path.write_text(
-                json.dumps(serializable, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            tmp_path.replace(self._index_path)
-        except OSError:
-            # Persistence is best-effort; runtime behavior still relies on memory and fallback scan.
-            return
+        with _INDEX_LOCK:
+            existing = _read_index(self._index_path)
+            serializable = {
+                **existing,
+                **current,
+            }
+            serializable = {
+                file_id: path
+                for file_id, path in serializable.items()
+                if file_id not in remove_ids and Path(path).exists()
+            }
+
+            try:
+                tmp_path = self._index_path.with_suffix(".tmp")
+                tmp_path.write_text(
+                    json.dumps(serializable, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                tmp_path.replace(self._index_path)
+            except OSError:
+                # Persistence is best-effort; runtime behavior still relies on memory and fallback scan.
+                return
+
+        with self._lock:
+            self._files = {file_id: Path(path) for file_id, path in serializable.items()}
 
     def save(self, upload_file: UploadFile) -> str:
         """Save an uploaded file and return its file_id."""
@@ -156,7 +174,7 @@ class UploadService:
         """Remove a file entry and its upload directory if applicable."""
         with self._lock:
             path = self._files.pop(file_id, None)
-        self._persist_index()
+        self._persist_index(remove_ids={file_id})
 
         if path is None:
             return
@@ -187,3 +205,19 @@ class UploadService:
         if path and path.exists():
             return path.stat().st_size
         return None
+
+
+def _read_index(index_path: Path) -> dict[str, str]:
+    if not index_path.exists():
+        return {}
+    try:
+        raw = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        key: value
+        for key, value in raw.items()
+        if isinstance(key, str) and isinstance(value, str)
+    }

@@ -23,7 +23,7 @@
         </div>
         <div v-for="batch in histBatches" :key="batch.id" class="hist-batch">
           <div class="hist-batch-head" @click="toggleBatchExpand(batch.id)">
-            <span :class="['hist-dot', batch.status === 'completed' ? 'ok' : 'err']" />
+            <span :class="['hist-dot', historyStatusClass(batch.status)]" />
             <span class="hist-batch-name">{{ batch.first_file_name || '未知' }}</span>
             <span class="hist-batch-count" v-if="batch.page_count > 1">{{ batch.page_count }}页</span>
             <n-popconfirm @positive-click="handleDeleteBatch(batch.id)" :show-icon="false">
@@ -47,7 +47,7 @@
               class="hist-page-item"
               @click="handleRestorePage(page)"
             >
-              <span :class="['hist-dot small', page.status === 'completed' ? 'ok' : 'err']" />
+              <span :class="['hist-dot small', historyStatusClass(page.status)]" />
               <span class="hist-page-name">{{ page.input_file_name || `第${pi + 1}页` }}</span>
             </div>
           </div>
@@ -128,6 +128,7 @@
               v-if="isViewingFinal && finalSvgFileId"
               :svg-file-id="finalSvgFileId"
               :ocr-text="store.ocrText"
+              :current-note-index="currentNoteIndex"
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
             />
@@ -135,13 +136,19 @@
               <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
               <span>暂无渲染</span>
             </div>
-            <jianpu-editor v-else v-model="jianpuText" :start-measure-number="store.startMeasureNumber ?? 1" />
+            <jianpu-editor
+              v-else
+              v-model="jianpuText"
+              :start-measure-number="store.startMeasureNumber ?? 1"
+              :current-note-index="currentNoteIndex"
+            />
           </div>
         </div>
       </div>
       <jianpu-player
         :musicxml-file-id="store.musicxmlFileId"
         :jianpu-text="jianpuText"
+        @update:current-note-index="currentNoteIndex = $event"
       />
     </div>
     <jianpu-syntax-guide v-model:show="syntaxGuideOpen" />
@@ -186,6 +193,7 @@ const message = useMessage()
 
 const jianpuText = ref(store.jianpuText)
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
+const currentNoteIndex = ref(-1)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
 const canSaveCurrentPage = computed(() => hasJianpuText.value || store.hasMusicxml || !!store.ocrText.trim() || !!store.svgFileId)
 const isViewingFinal = ref(false)
@@ -214,6 +222,7 @@ watch(jianpuText, (v) => {
   if (v !== store.jianpuText) store.setJianpu(v, true)
 })
 watch(() => store.svgFileId, (v) => { finalSvgFileId.value = v })
+watch(() => store.currentPageIndex, () => { currentNoteIndex.value = -1 })
 
 onMounted(() => {
   loadHistory()
@@ -373,6 +382,12 @@ function formatTime(iso: string): string {
   if (isNaN(d.getTime())) return iso
   const p = (n: number) => String(n).padStart(2, '0')
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+function historyStatusClass(status: string): string {
+  if (status === 'completed') return 'ok'
+  if (status === 'processing' || status === 'pending') return 'processing'
+  return 'err'
 }
 
 function resolveMissingFileId(msg: string): string | null {
@@ -798,6 +813,7 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
 
 .hist-dot.ok { background: var(--success); }
 .hist-dot.err { background: var(--danger); }
+.hist-dot.processing { background: var(--warning); }
 
 .hist-batch-name {
   flex: 1;

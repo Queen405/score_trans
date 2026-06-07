@@ -5,7 +5,7 @@
         <svg v-if="!player.isPlaying.value" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
         <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
       </button>
-      <button class="player-btn" :disabled="!player.isReady.value" @click="player.stop()" title="停止">
+      <button class="player-btn" :disabled="!player.isReady.value" @click="stopPlayback" title="停止">
         <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" /></svg>
       </button>
       <span class="player-time">{{ player.currentTimeFormatted.value }} / {{ player.durationFormatted.value }}</span>
@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { NInputNumber, NSlider } from 'naive-ui'
 import { usePlayer } from '../composables/usePlayer'
 import { getFileURL } from '../api/client'
@@ -89,29 +89,6 @@ const volumeRatio = computed(() => {
 
 const isMuted = ref(false)
 let lastVolumeRatio = 0.8
-
-// Track note changes
-let noteCheckId: number | null = null
-let lastNoteIdx = -1
-
-function startNoteWatcher(): void {
-  stopNoteWatcher()
-  const tick = () => {
-    if (player.currentNoteIndex.value !== lastNoteIdx) {
-      lastNoteIdx = player.currentNoteIndex.value
-      emit('update:currentNoteIndex', lastNoteIdx)
-    }
-    noteCheckId = requestAnimationFrame(tick)
-  }
-  noteCheckId = requestAnimationFrame(tick)
-}
-
-function stopNoteWatcher(): void {
-  if (noteCheckId !== null) {
-    cancelAnimationFrame(noteCheckId)
-    noteCheckId = null
-  }
-}
 
 // Load MIDI when source changes
 let currentLoadId = ''
@@ -161,11 +138,13 @@ async function loadFromProps(): Promise<void> {
 async function togglePlay(): Promise<void> {
   if (player.isPlaying.value) {
     player.pause()
-    stopNoteWatcher()
   } else {
     await player.play()
-    startNoteWatcher()
   }
+}
+
+function stopPlayback(): void {
+  player.stop()
 }
 
 function handleBpmChange(value: number | null): void {
@@ -226,18 +205,19 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  stopNoteWatcher()
   if (jianpuDebounce) { clearTimeout(jianpuDebounce); jianpuDebounce = null }
   onProgressUp()
 })
 
 // Watch for source changes (debounce jianpuText since user may be typing)
-import { watch } from 'vue'
 let jianpuDebounce: ReturnType<typeof setTimeout> | null = null
+
+watch(player.currentNoteIndex, (index) => {
+  emit('update:currentNoteIndex', index)
+}, { immediate: true })
 
 watch(() => [props.midiFileId, props.musicxmlFileId], () => {
   player.stop()
-  stopNoteWatcher()
   if (jianpuDebounce) { clearTimeout(jianpuDebounce); jianpuDebounce = null }
   currentLoadId = ''
   void loadFromProps()
@@ -248,7 +228,6 @@ watch(() => props.jianpuText, () => {
   jianpuDebounce = setTimeout(() => {
     jianpuDebounce = null
     player.stop()
-    stopNoteWatcher()
     currentLoadId = ''
     void loadFromProps()
   }, 600)

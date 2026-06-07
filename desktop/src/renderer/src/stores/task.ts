@@ -7,6 +7,7 @@ export type TaskPageStatus = 'pending' | 'processing' | 'completed' | 'failed'
 export interface TaskPage {
   id: string
   historyPageId: number | null
+  taskId: string
   inputFileName: string
   inputFileId: string
   originalFileName: string
@@ -19,12 +20,15 @@ export interface TaskPage {
   svgFileId: string
   startMeasureNumber: number | null
   status: TaskPageStatus
+  progressPercent: number
+  progressMessage: string
   errorMessage: string
 }
 
 export interface TaskPageInput {
   inputFileName: string
   historyPageId?: number | null
+  taskId?: string
   inputFileId: string
   originalFileName?: string
   originalFileId?: string
@@ -36,6 +40,8 @@ export interface TaskPageInput {
   svgFileId?: string
   startMeasureNumber?: number | null
   status?: TaskPageStatus
+  progressPercent?: number
+  progressMessage?: string
   errorMessage?: string
 }
 
@@ -44,6 +50,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
   return {
     id: `${Date.now().toString(36)}-${random}`,
     historyPageId: null,
+    taskId: '',
     inputFileName: '',
     inputFileId: '',
     originalFileName: '',
@@ -53,7 +60,11 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     jianpuText: '',
     ocrText: '',
     jianpuDirty: false,
-    svgFileId: '',    startMeasureNumber: null,    status: 'pending',
+    svgFileId: '',
+    startMeasureNumber: null,
+    status: 'pending',
+    progressPercent: 0,
+    progressMessage: '',
     errorMessage: '',
     ...seed,
   }
@@ -77,6 +88,7 @@ export const useTaskStore = defineStore('task', () => {
   const historyPageId = ref<number | null>(null)
   const currentTaskId = ref<string | null>(null)
   const taskStatus = ref<SSEProgressEvent['status']>('pending')
+  const backgroundTaskCount = ref(0)
 
   function syncCurrentFromPage(): void {
     const page = pages.value[currentPageIndex.value]
@@ -167,6 +179,7 @@ export const useTaskStore = defineStore('task', () => {
   const currentPage = computed(() => pages.value[currentPageIndex.value] ?? null)
   const canPrevPage = computed(() => currentPageIndex.value > 0)
   const canNextPage = computed(() => currentPageIndex.value >= 0 && currentPageIndex.value < pages.value.length - 1)
+  const activePageTaskCount = computed(() => pages.value.filter((page) => page.status === 'processing').length)
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
@@ -193,6 +206,9 @@ export const useTaskStore = defineStore('task', () => {
       svgFileId: '',
       startMeasureNumber: null,
       status: 'pending',
+      taskId: '',
+      progressPercent: 0,
+      progressMessage: '',
       errorMessage: '',
     })
   }
@@ -225,6 +241,9 @@ export const useTaskStore = defineStore('task', () => {
       svgFileId: '',
       startMeasureNumber: null,
       status: 'pending',
+      taskId: '',
+      progressPercent: 0,
+      progressMessage: '',
       errorMessage: '',
     })
   }
@@ -293,6 +312,7 @@ export const useTaskStore = defineStore('task', () => {
     const nextPages = replacementPages.map((p) => createPage({
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
+      taskId: p.taskId ?? '',
       inputFileId: p.inputFileId,
       originalFileName: p.originalFileName ?? '',
       originalFileId: p.originalFileId ?? '',
@@ -304,6 +324,8 @@ export const useTaskStore = defineStore('task', () => {
       svgFileId: p.svgFileId ?? '',
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
+      progressPercent: p.progressPercent ?? 0,
+      progressMessage: p.progressMessage ?? '',
       errorMessage: p.errorMessage ?? '',
     }))
     pages.value.splice(index, 1, ...nextPages)
@@ -323,8 +345,44 @@ export const useTaskStore = defineStore('task', () => {
     return true
   }
 
+  function replacePageByIdKeepingSelection(pageId: string, replacementPages: TaskPageInput[]): TaskPage[] {
+    const index = pages.value.findIndex((page) => page.id === pageId)
+    if (index < 0) return []
+    const selectedPageId = currentPage.value?.id ?? ''
+    const nextPages = replacementPages.map((p) => createPage({
+      inputFileName: p.inputFileName,
+      historyPageId: p.historyPageId ?? null,
+      taskId: p.taskId ?? '',
+      inputFileId: p.inputFileId,
+      originalFileName: p.originalFileName ?? '',
+      originalFileId: p.originalFileId ?? '',
+      musicxmlFileId: p.musicxmlFileId ?? '',
+      musicxmlText: p.musicxmlText ?? '',
+      jianpuText: p.jianpuText ?? '',
+      ocrText: p.ocrText ?? '',
+      jianpuDirty: p.jianpuDirty ?? false,
+      svgFileId: p.svgFileId ?? '',
+      startMeasureNumber: p.startMeasureNumber ?? null,
+      status: (p.status ?? 'completed') as TaskPageStatus,
+      progressPercent: p.progressPercent ?? 0,
+      progressMessage: p.progressMessage ?? '',
+      errorMessage: p.errorMessage ?? '',
+    }))
+    pages.value.splice(index, 1, ...nextPages)
+    const selectedIndex = pages.value.findIndex((page) => page.id === selectedPageId)
+    currentPageIndex.value = selectedIndex >= 0
+      ? selectedIndex
+      : Math.max(0, Math.min(index, pages.value.length - 1))
+    syncCurrentFromPage()
+    return nextPages
+  }
+
   function setCurrentPageStatus(status: TaskPageStatus, errorMessage = '') {
     patchCurrentPage({ status, errorMessage })
+  }
+
+  function setPageStatus(pageId: string, status: TaskPageStatus, errorMessage = ''): boolean {
+    return patchPageById(pageId, { status, errorMessage })
   }
 
   function setBusy(value: boolean) {
@@ -338,6 +396,14 @@ export const useTaskStore = defineStore('task', () => {
 
   function setTaskStatus(status: SSEProgressEvent['status']) {
     taskStatus.value = status
+  }
+
+  function beginBackgroundTask(): void {
+    backgroundTaskCount.value += 1
+  }
+
+  function endBackgroundTask(): void {
+    backgroundTaskCount.value = Math.max(0, backgroundTaskCount.value - 1)
   }
 
   function reset() {
@@ -357,12 +423,14 @@ export const useTaskStore = defineStore('task', () => {
     currentPageIndex.value = -1
     currentTaskId.value = null
     taskStatus.value = 'pending'
+    backgroundTaskCount.value = 0
   }
 
   function loadBatch(batchPages: TaskPageInput[], selectIndex: number) {
     pages.value = batchPages.map((p) => createPage({
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
+      taskId: p.taskId ?? '',
       inputFileId: p.inputFileId,
       originalFileName: p.originalFileName ?? '',
       originalFileId: p.originalFileId ?? '',
@@ -374,6 +442,8 @@ export const useTaskStore = defineStore('task', () => {
       svgFileId: p.svgFileId ?? '',
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
+      progressPercent: p.progressPercent ?? 0,
+      progressMessage: p.progressMessage ?? '',
       errorMessage: p.errorMessage ?? '',
     }))
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))
@@ -398,6 +468,7 @@ export const useTaskStore = defineStore('task', () => {
     currentPageIndex,
     currentTaskId,
     taskStatus,
+    backgroundTaskCount,
     hasMusicxml,
     hasInput,
     hasOriginal,
@@ -405,6 +476,7 @@ export const useTaskStore = defineStore('task', () => {
     currentPage,
     canPrevPage,
     canNextPage,
+    activePageTaskCount,
     addInputPage,
     selectPage,
     selectPageById,
@@ -426,10 +498,14 @@ export const useTaskStore = defineStore('task', () => {
     removePage,
     replacePage,
     replacePageById,
+    replacePageByIdKeepingSelection,
     setCurrentPageStatus,
+    setPageStatus,
     setBusy,
     setCurrentTask,
     setTaskStatus,
+    beginBackgroundTask,
+    endBackgroundTask,
     reset,
     loadBatch,
   }

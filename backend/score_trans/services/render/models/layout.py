@@ -21,6 +21,7 @@ class RenderItem:
     articulations: list[str] = field(default_factory=list)
     ornaments: list[str] = field(default_factory=list)
     technical: list[str] = field(default_factory=list)
+    playback_index: int | None = None
 
 
 @dataclass(slots=True)

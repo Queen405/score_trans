@@ -34,3 +34,20 @@ def test_update_page_missing_returns_none(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
 
     assert service.update_page(404, jianpu_text="1 2 |") is None
+
+
+def test_batch_status_tracks_background_pages(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch([
+        HistoryPage(input_file_name="a.png", input_file_id="input-1", status="processing"),
+        HistoryPage(input_file_name="b.png", input_file_id="input-2", status="pending"),
+    ])
+
+    assert batch.status == "processing"
+
+    first, second = batch.pages
+    service.update_page(first.id, status="completed")
+    assert service.get_batch(batch.id).status == "processing"
+
+    service.update_page(second.id, status="failed", error_message="bad input")
+    assert service.get_batch(batch.id).status == "failed"

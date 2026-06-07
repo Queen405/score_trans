@@ -37,6 +37,20 @@ def test_render_jianpu_svg_contains_title_and_notes() -> None:
     assert ">1<" in svg
 
 
+def test_render_jianpu_svg_marks_playback_note_indices() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\n1 [3+5] 0 q6 |")
+    root = _svg_root(svg)
+    groups = [
+        group
+        for group in _svg_elements(root, "g")
+        if group.attrib.get("class") == "playback-note"
+    ]
+
+    assert [group.attrib["data-note-index"] for group in groups] == ["0", "1", "2"]
+    assert groups[1].attrib["data-note-token"] == "[3+5]"
+    assert "playback-note.playback-current" in svg
+
+
 def test_render_new_syntax_repeat_marks_and_semantics() -> None:
     svg = render_jianpu_svg("title=完整\n1=C\n4/4\n|: \\f ^> q[#3'+5] 1~ ~1 (s2 s3) :|\nL: 春 风 又 绿")
 

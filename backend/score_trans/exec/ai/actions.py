@@ -3,9 +3,11 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+from ...models.ai.entities import AiChatMessage, AiChatSession
 from ...models.ai.schemas import AiTranscribeRequest, AiTranscribeResponse, AiTranscribedPage
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
+from ...services.ai.chat_service import AiChatService
 from ...services.ai.service import AiTranscriptionService
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
@@ -18,11 +20,13 @@ class AiActions:
         uploads: UploadService | None = None,
         settings: SettingsService | None = None,
         transcriber: AiTranscriptionService | None = None,
+        chat: AiChatService | None = None,
         file_service: FileService | None = None,
     ) -> None:
         self.uploads = uploads or UploadService()
         self.settings = settings or SettingsService()
         self.transcriber = transcriber or AiTranscriptionService()
+        self.chat = chat
         self.file_service = file_service or FileService()
 
     def transcribe_score(
@@ -104,6 +108,39 @@ class AiActions:
 
     def get_config(self) -> ToolConfig:
         return self.settings.load()
+
+    def list_chat_sessions(self) -> list[AiChatSession]:
+        return self._chat().list_sessions()
+
+    def create_chat_session(self, title: str | None = None) -> AiChatSession:
+        return self._chat().create_session(title)
+
+    def get_chat_messages(self, session_id: str) -> list[AiChatMessage]:
+        return self._chat().get_messages(session_id)
+
+    def delete_chat_session(self, session_id: str) -> dict[str, bool]:
+        deleted = self._chat().delete_session(session_id)
+        if not deleted:
+            raise FileNotFoundError(f"AI 会话不存在：{session_id}")
+        return {"ok": True}
+
+    def send_chat_message(
+        self,
+        message: str,
+        *,
+        session_id: str | None = None,
+        jianpu_text: str | None = None,
+    ) -> tuple[str, AiChatMessage, list[AiChatMessage]]:
+        return self._chat().send_message(
+            message,
+            session_id=session_id,
+            jianpu_text=jianpu_text,
+        )
+
+    def _chat(self) -> AiChatService:
+        if self.chat is None:
+            self.chat = AiChatService()
+        return self.chat
 
 
 def _first_page_title(pages: list[AiTranscribedPage]) -> str | None:

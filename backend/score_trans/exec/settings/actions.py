@@ -52,6 +52,15 @@ class SettingsActions:
         if req.ai_model is not None:
             self.service.set("ai_model", req.ai_model)
 
+        if req.assistant_api_key is not None:
+            self.service.set("assistant_api_key", req.assistant_api_key)
+
+        if req.assistant_base_url is not None:
+            self.service.set("assistant_base_url", req.assistant_base_url)
+
+        if req.assistant_model is not None:
+            self.service.set("assistant_model", req.assistant_model)
+
         if req.omr_preprocess is not None:
             self.service.set("omr_preprocess", "1" if req.omr_preprocess else "0")
             config.omr_preprocess = req.omr_preprocess
@@ -83,6 +92,10 @@ class SettingsActions:
             ai_api_key_set=bool(all_settings.get("ai_api_key", "")),
             ai_base_url=all_settings.get("ai_base_url", "https://api.siliconflow.cn/v1"),
             ai_model=all_settings.get("ai_model", "Qwen/Qwen3-VL-8B-Instruct"),
+            assistant_api_key=all_settings.get("assistant_api_key", ""),
+            assistant_api_key_set=bool(all_settings.get("assistant_api_key", "")),
+            assistant_base_url=all_settings.get("assistant_base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+            assistant_model=all_settings.get("assistant_model", "deepseek-v4-flash"),
             omr_preprocess=self.service.get_bool("omr_preprocess", True),
             omr_preprocess_long_edge=self.service.get_int("omr_preprocess_long_edge", 3600),
             omr_preprocess_binarize=self.service.get_bool("omr_preprocess_binarize", False),

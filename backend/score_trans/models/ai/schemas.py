@@ -38,3 +38,34 @@ class AiTranscribeResponse(BaseModel):
     jianpu_file_id: str
     pages: list[AiTranscribedPage]
     warnings: list[str] = Field(default_factory=list)
+
+
+class AiChatMessageResponse(BaseModel):
+    id: int
+    session_id: str
+    role: str
+    content: str
+    created_at: str
+
+
+class AiChatSessionResponse(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
+class AiChatSessionCreateRequest(BaseModel):
+    title: str | None = None
+
+
+class AiChatRequest(BaseModel):
+    message: str = Field(min_length=1)
+    session_id: str | None = None
+    jianpu_text: str | None = None
+
+
+class AiChatResponse(BaseModel):
+    session_id: str
+    message: AiChatMessageResponse
+    messages: list[AiChatMessageResponse]

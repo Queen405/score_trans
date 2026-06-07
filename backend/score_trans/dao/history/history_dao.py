@@ -99,8 +99,7 @@ class HistoryDao:
                         page.error_message,
                     ),
                 )
-            has_error = any(p.status != "completed" for p in pages)
-            batch_status = "failed" if has_error else "completed"
+            batch_status = _batch_status([p.status for p in pages])
             conn.execute(
                 "UPDATE history_batch SET status = ? WHERE id = ?",
                 (batch_status, batch_id),
@@ -169,7 +168,7 @@ class HistoryDao:
         rows = conn.execute(
             "SELECT status FROM history_page WHERE batch_id = ?", (batch_id,)
         ).fetchall()
-        status = "failed" if any(row["status"] != "completed" for row in rows) else "completed"
+        status = _batch_status([row["status"] for row in rows])
         conn.execute(
             "UPDATE history_batch SET status = ?, page_count = ? WHERE id = ?",
             (status, len(rows), batch_id),
@@ -213,3 +212,13 @@ class HistoryDao:
             status=row["status"],
             error_message=row["error_message"],
         )
+
+
+def _batch_status(statuses: list[str]) -> str:
+    active_statuses = {"pending", "processing"}
+    known_statuses = {"completed", "failed", *active_statuses}
+    if any(status == "failed" or status not in known_statuses for status in statuses):
+        return "failed"
+    if any(status in active_statuses for status in statuses):
+        return "processing"
+    return "completed"

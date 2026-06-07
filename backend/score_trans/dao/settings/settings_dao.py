@@ -7,6 +7,9 @@ from score_trans.config.settings import (
     AI_API_KEY,
     AI_BASE_URL,
     AI_MODEL,
+    ASSISTANT_API_KEY,
+    ASSISTANT_BASE_URL,
+    ASSISTANT_MODEL,
     AUDIVERIS_PATH,
     JAVA_HOME,
     OCR_API_KEY,
@@ -37,6 +40,9 @@ _DEFAULTS: dict[str, str] = {
     "ai_api_key": AI_API_KEY,
     "ai_base_url": AI_BASE_URL,
     "ai_model": AI_MODEL,
+    "assistant_api_key": ASSISTANT_API_KEY,
+    "assistant_base_url": ASSISTANT_BASE_URL,
+    "assistant_model": ASSISTANT_MODEL,
 }
 
 

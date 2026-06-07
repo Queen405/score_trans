@@ -13,6 +13,7 @@ from .layout.measure import _score_measure_layout
 from .layout.rows import _layout_rows
 from .models.layout import MeasureLayout
 from .options import RenderOptions
+from .parsing.tokens import _parse_chord_token, _parse_note
 from .svg.header import _svg_header, _svg_page_header
 from .utils.helpers import _first_ocr_measure_number
 from .utils.text import _esc, _extract_text_directives
@@ -53,7 +54,7 @@ def render_jianpu_page_svg(
     for measure in score.measures:
         measure.display_number = current_number
         current_number += getattr(measure, "repeat_count", 1)
-    layouts = [_score_measure_layout(measure, base_options) for measure in score.measures]
+    layouts = _score_layouts_with_playback_indices(score, base_options)
     rows = _layout_rows(layouts, replace(base_options, width=width, margin=margin))
     top = max(78.0, height * 0.13)
     bottom = max(36.0, height * 0.08)
@@ -95,7 +96,7 @@ def render_jianpu_page_svg(
 
 def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -> str:
     options = options or RenderOptions(title=score.title)
-    layouts = [_score_measure_layout(measure, options) for measure in score.measures]
+    layouts = _score_layouts_with_playback_indices(score, options)
     text_blocks = [block.text for block in score.text_blocks if block.text]
     return _render_layouts(
         layouts,
@@ -119,7 +120,7 @@ def render_score_page_svg(
     base_options = options or RenderOptions(title=title or score.title, width=width)
     margin = min(72, max(4, int(width * 0.045)))
     margin = min(margin, max(1, width // 6))
-    layouts = [_score_measure_layout(measure, base_options) for measure in score.measures]
+    layouts = _score_layouts_with_playback_indices(score, base_options)
     rows = _layout_rows(layouts, replace(base_options, width=width, margin=margin))
     top = max(78.0, height * 0.13)
     bottom = max(36.0, height * 0.08)
@@ -245,3 +246,28 @@ def _render_layouts(
         out.append(f'<text class="ocr-text" x="{options.margin}" y="{height - options.margin + 8}">{_esc(footer_text)}</text>')
     out.append("</svg>")
     return "\n".join(out)
+
+
+def _score_layouts_with_playback_indices(score: JianpuScore, options: RenderOptions) -> list[MeasureLayout]:
+    layouts: list[MeasureLayout] = []
+    playback_index = 0
+    for measure in score.measures:
+        layout = _score_measure_layout(measure, options)
+        for beat in layout.beats:
+            for item in beat.items:
+                if not _is_playable_note_token(item.token):
+                    continue
+                item.playback_index = playback_index
+                playback_index += 1
+        layouts.append(layout)
+    return layouts
+
+
+def _is_playable_note_token(token: str) -> bool:
+    work = token.strip().strip("()~")
+    if not work or work == "-":
+        return False
+    if _parse_chord_token(work) is not None:
+        return True
+    note = _parse_note(work)
+    return any(ch in "1234567" for ch in note.display)

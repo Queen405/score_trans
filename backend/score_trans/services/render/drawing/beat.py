@@ -55,6 +55,12 @@ def _render_item(item: RenderItem, cx: float, y: int, slot_width: float, *, supp
     if item.lyric:
         bottom = _token_metrics(item.token, y)["bottom"]
         out.append(f'<text class="lyric" x="{cx:.1f}" y="{bottom + 18:.1f}" text-anchor="middle">{_esc(item.lyric)}</text>')
+    if item.playback_index is not None:
+        return [
+            f'<g class="playback-note" data-note-index="{item.playback_index}" data-note-token="{_esc(item.token)}">',
+            *out,
+            "</g>",
+        ]
     return out
 
 
