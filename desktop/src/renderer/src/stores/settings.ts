@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { settingsApi } from '../api/settings'
+import { settingsApi, type SettingsQuery } from '../api/settings'
 import type { LlmProviderOption, SettingsResponse } from '../models/types'
+
+type ProviderKind = 'ocr' | 'ai' | 'assistant'
 
 export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
@@ -30,6 +32,11 @@ export const useSettingsStore = defineStore('settings', () => {
   const omrPreprocessLongEdge = ref(3600)
   const omrPreprocessBinarize = ref(false)
   const loaded = ref(false)
+  const providerLoadVersion = {
+    ocr: 0,
+    ai: 0,
+    assistant: 0,
+  }
 
   async function load(): Promise<void> {
     try {
@@ -60,6 +67,15 @@ export const useSettingsStore = defineStore('settings', () => {
     applySettings(data)
   }
 
+  async function loadProviderDetails(kind: ProviderKind): Promise<void> {
+    const provider = selectedProvider(kind)
+    const version = providerLoadVersion[kind] + 1
+    providerLoadVersion[kind] = version
+    const data = await settingsApi.get(providerQuery(kind, provider))
+    if (providerLoadVersion[kind] !== version || selectedProvider(kind) !== provider) return
+    applyProviderSettings(kind, data)
+  }
+
   function applySettings(data: SettingsResponse): void {
     audiverisPath.value = data.audiveris_path
     javaHome.value = data.java_home
@@ -86,6 +102,42 @@ export const useSettingsStore = defineStore('settings', () => {
     omrPreprocess.value = data.omr_preprocess ?? true
     omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600
     omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false
+  }
+
+  function selectedProvider(kind: ProviderKind): string {
+    if (kind === 'ocr') return ocrProvider.value
+    if (kind === 'ai') return aiProvider.value
+    return assistantProvider.value
+  }
+
+  function providerQuery(kind: ProviderKind, provider: string): SettingsQuery {
+    if (kind === 'ocr') return { ocr_provider: provider }
+    if (kind === 'ai') return { ai_provider: provider }
+    return { assistant_provider: provider }
+  }
+
+  function applyProviderSettings(kind: ProviderKind, data: SettingsResponse): void {
+    if (kind === 'ocr') {
+      ocrProvider.value = data.ocr_provider ?? ocrProvider.value
+      ocrApiKey.value = data.ocr_api_key ?? ''
+      ocrApiKeySet.value = data.ocr_api_key_set ?? false
+      ocrBaseUrl.value = data.ocr_base_url ?? ocrBaseUrl.value
+      ocrModel.value = data.ocr_model ?? ocrModel.value
+      return
+    }
+    if (kind === 'ai') {
+      aiProvider.value = data.ai_provider ?? aiProvider.value
+      aiApiKey.value = data.ai_api_key ?? ''
+      aiApiKeySet.value = data.ai_api_key_set ?? false
+      aiBaseUrl.value = data.ai_base_url ?? aiBaseUrl.value
+      aiModel.value = data.ai_model ?? aiModel.value
+      return
+    }
+    assistantProvider.value = data.assistant_provider ?? assistantProvider.value
+    assistantApiKey.value = data.assistant_api_key ?? ''
+    assistantApiKeySet.value = data.assistant_api_key_set ?? false
+    assistantBaseUrl.value = data.assistant_base_url ?? assistantBaseUrl.value
+    assistantModel.value = data.assistant_model ?? assistantModel.value
   }
 
   return {
@@ -117,5 +169,6 @@ export const useSettingsStore = defineStore('settings', () => {
     loaded,
     load,
     save,
+    loadProviderDetails,
   }
 })

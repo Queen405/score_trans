@@ -18,6 +18,7 @@ from ..core.prompts import (
 from ..core.registry import register_provider
 from ..core.schemas import VisionPageResult
 from ._http import chat_completions
+from ...settings.api_keys import provider_api_key
 from ...settings.provider_profiles import resolve_provider_profile_or_default
 from ....utils.media import image_to_data_url
 from ....models.common.errors import AITranscriptionError
@@ -47,7 +48,7 @@ class DashScopeVisionProvider:
             or _BASE_URL
         ).rstrip("/")
         self.model = model or (profile.model if profile_matches else "") or _DEFAULT_MODEL
-        self.api_key = api_key or persisted.get("ai_api_key") or AI_API_KEY
+        self.api_key = api_key or provider_api_key(persisted, "ai", profile.id) or AI_API_KEY
         self.timeout = timeout
         self.dry_run = dry_run
 

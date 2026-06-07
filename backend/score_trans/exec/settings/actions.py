@@ -8,6 +8,7 @@ from ...services.settings.provider_profiles import (
     resolve_provider_profile,
     resolve_provider_profile_or_default,
 )
+from ...services.settings.api_keys import provider_api_key, provider_api_key_name
 from ...services.settings.settings_service import SettingsService
 
 
@@ -18,8 +19,18 @@ class SettingsActions:
     def get_config(self) -> ToolConfig:
         return self.service.load()
 
-    def get_settings(self) -> SettingsResponse:
-        return self._response()
+    def get_settings(
+        self,
+        *,
+        ocr_provider: str | None = None,
+        ai_provider: str | None = None,
+        assistant_provider: str | None = None,
+    ) -> SettingsResponse:
+        return self._response(
+            ocr_provider=ocr_provider,
+            ai_provider=ai_provider,
+            assistant_provider=assistant_provider,
+        )
 
     def update_settings(self, req: SettingsUpdateRequest) -> SettingsResponse:
         config = self.service.load()
@@ -40,26 +51,27 @@ class SettingsActions:
         if req.work_dir is not None:
             self.service.set("work_dir", req.work_dir)
 
-        if req.ocr_api_key is not None:
-            current_ocr_provider = all_settings.get("ocr_provider", "")
-            self._set_api_key("ocr", current_ocr_provider, req.ocr_api_key)
-
         if req.ocr_provider is not None:
             self._set_provider("ocr", req.ocr_provider)
-
-        if req.ai_api_key is not None:
-            current_ai_provider = all_settings.get("ai_provider", "")
-            self._set_api_key("ai", current_ai_provider, req.ai_api_key)
 
         if req.ai_provider is not None:
             self._set_provider("ai", req.ai_provider)
 
-        if req.assistant_api_key is not None:
-            current_asst_provider = all_settings.get("assistant_provider", "")
-            self._set_api_key("assistant", current_asst_provider, req.assistant_api_key)
-
         if req.assistant_provider is not None:
             self._set_provider("assistant", req.assistant_provider)
+
+        if req.ocr_api_key is not None:
+            self._set_api_key("ocr", self._current_provider_id("ocr"), req.ocr_api_key)
+
+        if req.ai_api_key is not None:
+            self._set_api_key("ai", self._current_provider_id("ai"), req.ai_api_key)
+
+        if req.assistant_api_key is not None:
+            self._set_api_key(
+                "assistant",
+                self._current_provider_id("assistant"),
+                req.assistant_api_key,
+            )
 
         if req.omr_preprocess is not None:
             self.service.set("omr_preprocess", "1" if req.omr_preprocess else "0")
@@ -76,22 +88,29 @@ class SettingsActions:
 
         return self._response()
 
+    def _current_provider_id(self, kind: LlmProviderKind) -> str:
+        return self.service.get_all().get(f"{kind}_provider", "")
+
+    def _migrate_kind_api_key(self, kind: LlmProviderKind, provider_id: str) -> None:
+        if not provider_id:
+            return
+        all_settings = self.service.get_all()
+        key = all_settings.get(f"{kind}_api_key", "")
+        provider_key_name = provider_api_key_name(provider_id)
+        if key and not all_settings.get(provider_key_name, ""):
+            self.service.set(provider_key_name, key)
+
+    def _sync_kind_api_key(self, kind: LlmProviderKind, provider_id: str) -> None:
+        all_settings = self.service.get_all()
+        self.service.set(f"{kind}_api_key", all_settings.get(provider_api_key_name(provider_id), ""))
+
     def _set_api_key(self, kind: LlmProviderKind, provider_id: str, key: str) -> None:
-        """Save API key for a specific provider, using per-provider storage."""
         if provider_id:
-            self.service.set(f"{provider_id}_api_key", key)
-        # Also keep the kind-level key as fallback for backward compatibility
+            self.service.set(provider_api_key_name(provider_id), key)
         self.service.set(f"{kind}_api_key", key)
 
-    def _get_api_key(self, kind: LlmProviderKind, provider_id: str) -> tuple[str, bool]:
-        """Get API key for a specific provider, with fallback to kind-level key."""
-        provider_key = self.service.get(f"{provider_id}_api_key", "")
-        if provider_key:
-            return provider_key, True
-        kind_key = self.service.get(f"{kind}_api_key", "")
-        return kind_key, bool(kind_key)
-
     def _set_provider(self, kind: LlmProviderKind, provider_id: str) -> LlmProviderProfile:
+        self._migrate_kind_api_key(kind, self._current_provider_id(kind))
         profile = resolve_provider_profile(kind, provider_id)
         prefix = kind
         self.service.set(f"{prefix}_provider", profile.id)
@@ -99,19 +118,38 @@ class SettingsActions:
         self.service.set(f"{prefix}_model", profile.model)
         if kind == "ocr":
             self.service.set("ocr_fallback_model", profile.fallback_model)
+        self._sync_kind_api_key(kind, profile.id)
         return profile
 
-    def _response(self) -> SettingsResponse:
+    def _response(
+        self,
+        *,
+        ocr_provider: str | None = None,
+        ai_provider: str | None = None,
+        assistant_provider: str | None = None,
+    ) -> SettingsResponse:
         all_settings = self.service.get_all()
-        ocr_profile = resolve_provider_profile_or_default("ocr", all_settings.get("ocr_provider"))
-        ai_profile = resolve_provider_profile_or_default("ai", all_settings.get("ai_provider"))
-        assistant_profile = resolve_provider_profile_or_default(
+        saved_ocr_profile = resolve_provider_profile_or_default("ocr", all_settings.get("ocr_provider"))
+        saved_ai_profile = resolve_provider_profile_or_default("ai", all_settings.get("ai_provider"))
+        saved_assistant_profile = resolve_provider_profile_or_default(
             "assistant",
             all_settings.get("assistant_provider"),
         )
-        ocr_api_key, ocr_api_key_set = self._get_api_key("ocr", ocr_profile.id)
-        ai_api_key, ai_api_key_set = self._get_api_key("ai", ai_profile.id)
-        assistant_api_key, assistant_api_key_set = self._get_api_key("assistant", assistant_profile.id)
+        key_settings = {
+            **all_settings,
+            "ocr_provider": saved_ocr_profile.id,
+            "ai_provider": saved_ai_profile.id,
+            "assistant_provider": saved_assistant_profile.id,
+        }
+        ocr_profile = resolve_provider_profile_or_default("ocr", ocr_provider or saved_ocr_profile.id)
+        ai_profile = resolve_provider_profile_or_default("ai", ai_provider or saved_ai_profile.id)
+        assistant_profile = resolve_provider_profile_or_default(
+            "assistant",
+            assistant_provider or saved_assistant_profile.id,
+        )
+        ocr_api_key = provider_api_key(key_settings, "ocr", ocr_profile.id)
+        ai_api_key = provider_api_key(key_settings, "ai", ai_profile.id)
+        assistant_api_key = provider_api_key(key_settings, "assistant", assistant_profile.id)
         return SettingsResponse(
             audiveris_path=all_settings.get("audiveris_path", ""),
             java_home=all_settings.get("java_home", ""),
@@ -121,19 +159,19 @@ class SettingsActions:
             ocr_provider=ocr_profile.id,
             ocr_provider_options=_provider_options("ocr"),
             ocr_api_key=ocr_api_key,
-            ocr_api_key_set=ocr_api_key_set,
+            ocr_api_key_set=bool(ocr_api_key),
             ocr_base_url=ocr_profile.base_url,
             ocr_model=ocr_profile.model,
             ai_provider=ai_profile.id,
             ai_provider_options=_provider_options("ai"),
             ai_api_key=ai_api_key,
-            ai_api_key_set=ai_api_key_set,
+            ai_api_key_set=bool(ai_api_key),
             ai_base_url=ai_profile.base_url,
             ai_model=ai_profile.model,
             assistant_provider=assistant_profile.id,
             assistant_provider_options=_provider_options("assistant"),
             assistant_api_key=assistant_api_key,
-            assistant_api_key_set=assistant_api_key_set,
+            assistant_api_key_set=bool(assistant_api_key),
             assistant_base_url=assistant_profile.base_url,
             assistant_model=assistant_profile.model,
             omr_preprocess=self.service.get_bool("omr_preprocess", True),

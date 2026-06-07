@@ -15,6 +15,7 @@ from ...dao.ai.chat_dao import AiChatDao
 from ...dao.settings.settings_dao import SettingsDao
 from ...models.ai.entities import AiChatMessage, AiChatSession
 from ...models.common.errors import AITranscriptionError
+from ..settings.api_keys import provider_api_key
 from ..settings.provider_profiles import resolve_provider_profile_or_default
 from .core.prompts import build_jianpu_assistant_system_prompt
 from .providers._http import chat_completion_chunks, chat_completions
@@ -120,7 +121,7 @@ class AiChatService:
     ) -> str:
         api_key, base_url, model = self._provider_settings()
         if not api_key:
-            raise AITranscriptionError("工作台 AI API key 未配置，请在设置中填写百炼 API Key。")
+            raise AITranscriptionError("工作台 AI API key 未配置，请在设置中填写 API Key。")
 
         messages = self._build_messages(
             session_id,
@@ -150,7 +151,7 @@ class AiChatService:
     ) -> Iterator[str]:
         api_key, base_url, model = self._provider_settings()
         if not api_key:
-            raise AITranscriptionError("工作台 AI API key 未配置，请在设置中填写百炼 API Key。")
+            raise AITranscriptionError("工作台 AI API key 未配置，请在设置中填写 API Key。")
 
         messages = self._build_messages(
             session_id,
@@ -193,11 +194,7 @@ class AiChatService:
             "assistant",
             settings.get("assistant_provider"),
         )
-        api_key = (
-            settings.get("assistant_api_key")
-            or settings.get("ai_api_key")
-            or ASSISTANT_API_KEY
-        )
+        api_key = provider_api_key(settings, "assistant", profile.id) or ASSISTANT_API_KEY
         base_url = (profile.base_url or ASSISTANT_BASE_URL).rstrip("/")
         model = profile.model or ASSISTANT_MODEL
         return api_key, base_url, model

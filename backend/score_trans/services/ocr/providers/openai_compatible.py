@@ -18,6 +18,7 @@ from score_trans.config.settings import (
 
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
+from score_trans.services.settings.api_keys import provider_api_key
 from score_trans.services.settings.provider_profiles import resolve_provider_profile_or_default
 from score_trans.utils.json_parsing import content_to_text
 from score_trans.utils.media import image_to_data_url
@@ -59,7 +60,7 @@ class OpenAICompatibleOCRProvider:
             or persisted.get("ocr_fallback_model")
             or DEFAULT_OCR_FALLBACK_MODEL
         )
-        self.api_key = api_key or persisted.get("ocr_api_key") or ""
+        self.api_key = api_key or provider_api_key(persisted, "ocr", profile.id) or ""
         self.timeout = timeout
         self.dry_run = dry_run
 

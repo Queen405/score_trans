@@ -10,8 +10,17 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 
 @router.get("", response_model=SettingsResponse)
-async def get_settings(actions: SettingsActions = Depends(get_settings_actions)):
-    return actions.get_settings()
+async def get_settings(
+    ocr_provider: str | None = None,
+    ai_provider: str | None = None,
+    assistant_provider: str | None = None,
+    actions: SettingsActions = Depends(get_settings_actions),
+):
+    return actions.get_settings(
+        ocr_provider=ocr_provider,
+        ai_provider=ai_provider,
+        assistant_provider=assistant_provider,
+    )
 
 
 @router.put("", response_model=SettingsResponse)
@@ -20,4 +29,3 @@ async def update_settings(
     actions: SettingsActions = Depends(get_settings_actions),
 ):
     return actions.update_settings(req)
-

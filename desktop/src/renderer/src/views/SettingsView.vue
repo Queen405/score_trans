@@ -153,10 +153,25 @@ const message = useMessage()
 
 onMounted(() => settings.load())
 
-// When provider changes, reload settings to get the correct API key for the new provider
-watch(() => settings.ocrProvider, () => { if (settings.loaded) settings.load() })
-watch(() => settings.aiProvider, () => { if (settings.loaded) settings.load() })
-watch(() => settings.assistantProvider, () => { if (settings.loaded) settings.load() })
+watch(() => settings.ocrProvider, () => {
+  if (settings.loaded) void refreshProviderDetails('ocr')
+})
+watch(() => settings.aiProvider, () => {
+  if (settings.loaded) void refreshProviderDetails('ai')
+})
+watch(() => settings.assistantProvider, () => {
+  if (settings.loaded) void refreshProviderDetails('assistant')
+})
+
+async function refreshProviderDetails(kind: 'ocr' | 'ai' | 'assistant'): Promise<void> {
+  try {
+    await settings.loadProviderDetails(kind)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.addError(`加载 Provider 配置失败：${msg}`)
+    message.error(msg)
+  }
+}
 
 async function save(): Promise<void> {
   try {
