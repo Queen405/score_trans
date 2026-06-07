@@ -162,6 +162,7 @@ const panelStyle = computed(() => ({
 
 const FAB_SIZE = 46
 const FAB_MARGIN = 10
+const FAB_SNAP_DISTANCE = 72
 const FAB_POSITION_KEY = 'score-trans-ai-assistant-fab'
 const PANEL_GAP = 10
 let fabDrag:
@@ -230,7 +231,7 @@ function handleFabPointerUp(event: PointerEvent): void {
   const moved = fabDrag.moved
   endFabDrag(event)
   if (moved) {
-    snapFabToEdge()
+    settleFabPosition()
   } else {
     openPanel()
   }
@@ -238,7 +239,7 @@ function handleFabPointerUp(event: PointerEvent): void {
 
 function handleFabPointerCancel(event: PointerEvent): void {
   endFabDrag(event)
-  snapFabToEdge()
+  settleFabPosition()
 }
 
 function endFabDrag(event: PointerEvent): void {
@@ -262,7 +263,7 @@ function initFabPosition(): void {
   }
   fabLeft.value = defaultFabLeft()
   fabTop.value = defaultFabTop()
-  snapFabToEdge()
+  settleFabPosition()
 }
 
 function handleWindowResize(): void {
@@ -272,12 +273,15 @@ function handleWindowResize(): void {
   persistFabPosition()
 }
 
-function snapFabToEdge(): void {
-  const centerX = fabLeft.value + FAB_SIZE / 2
-  fabLeft.value = centerX < window.innerWidth / 2
-    ? FAB_MARGIN
-    : window.innerWidth - FAB_SIZE - FAB_MARGIN
+function settleFabPosition(): void {
+  const maxLeft = window.innerWidth - FAB_SIZE - FAB_MARGIN
+  fabLeft.value = clamp(fabLeft.value, FAB_MARGIN, maxLeft)
   fabTop.value = clamp(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+  if (fabLeft.value <= FAB_SNAP_DISTANCE) {
+    fabLeft.value = FAB_MARGIN
+  } else if (window.innerWidth - fabLeft.value - FAB_SIZE <= FAB_SNAP_DISTANCE) {
+    fabLeft.value = maxLeft
+  }
   persistFabPosition()
 }
 

@@ -62800,6 +62800,7 @@ const _hoisted_18 = { class: "ai-context" };
 const _hoisted_19 = { class: "ai-input-row" };
 const FAB_SIZE = 46;
 const FAB_MARGIN = 10;
+const FAB_SNAP_DISTANCE = 72;
 const FAB_POSITION_KEY = "score-trans-ai-assistant-fab";
 const PANEL_GAP = 10;
 const _sfc_main$2 = /* @__PURE__ */ defineComponent({
@@ -62882,14 +62883,14 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       const moved = fabDrag.moved;
       endFabDrag(event);
       if (moved) {
-        snapFabToEdge();
+        settleFabPosition();
       } else {
         openPanel();
       }
     }
     function handleFabPointerCancel(event) {
       endFabDrag(event);
-      snapFabToEdge();
+      settleFabPosition();
     }
     function endFabDrag(event) {
       const target = event.currentTarget;
@@ -62911,7 +62912,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       }
       fabLeft.value = defaultFabLeft();
       fabTop.value = defaultFabTop();
-      snapFabToEdge();
+      settleFabPosition();
     }
     function handleWindowResize() {
       fabLeft.value = clamp2(fabLeft.value, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
@@ -62919,10 +62920,15 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       if (open.value) positionPanelNearFab();
       persistFabPosition();
     }
-    function snapFabToEdge() {
-      const centerX = fabLeft.value + FAB_SIZE / 2;
-      fabLeft.value = centerX < window.innerWidth / 2 ? FAB_MARGIN : window.innerWidth - FAB_SIZE - FAB_MARGIN;
+    function settleFabPosition() {
+      const maxLeft = window.innerWidth - FAB_SIZE - FAB_MARGIN;
+      fabLeft.value = clamp2(fabLeft.value, FAB_MARGIN, maxLeft);
       fabTop.value = clamp2(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+      if (fabLeft.value <= FAB_SNAP_DISTANCE) {
+        fabLeft.value = FAB_MARGIN;
+      } else if (window.innerWidth - fabLeft.value - FAB_SIZE <= FAB_SNAP_DISTANCE) {
+        fabLeft.value = maxLeft;
+      }
       persistFabPosition();
     }
     function persistFabPosition() {
@@ -63316,7 +63322,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-cb222a11"]]);
+const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-f76181f3"]]);
 const _hoisted_1$1 = { class: "log-panel" };
 const _hoisted_2$1 = { class: "log-ts" };
 const _hoisted_3$1 = { class: "log-msg" };
