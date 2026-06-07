@@ -62801,6 +62801,7 @@ const _hoisted_19 = { class: "ai-input-row" };
 const FAB_SIZE = 46;
 const FAB_MARGIN = 10;
 const FAB_POSITION_KEY = "score-trans-ai-assistant-fab";
+const PANEL_GAP = 10;
 const _sfc_main$2 = /* @__PURE__ */ defineComponent({
   __name: "AiAssistant",
   setup(__props) {
@@ -62818,10 +62819,18 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     const isFabDragging = /* @__PURE__ */ ref(false);
     const fabLeft = /* @__PURE__ */ ref(0);
     const fabTop = /* @__PURE__ */ ref(0);
+    const panelLeft = /* @__PURE__ */ ref(24);
+    const panelTop = /* @__PURE__ */ ref(48);
     const showTyping = computed(() => assistant.sending && !assistant.messages.some((item) => item.role === "assistant" && item.id < 0 && item.content.trim()));
     const fabStyle = computed(() => ({
       left: `${fabLeft.value}px`,
       top: `${fabTop.value}px`
+    }));
+    const panelStyle = computed(() => ({
+      left: `${panelLeft.value}px`,
+      top: `${panelTop.value}px`,
+      right: "auto",
+      bottom: "auto"
     }));
     let fabDrag = null;
     onMounted(() => {
@@ -62840,6 +62849,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       }
     );
     function openPanel() {
+      positionPanelNearFab();
       open.value = true;
       autoScrollEnabled.value = true;
       if (!assistant.sessions.length) assistant.loadSessions();
@@ -62906,6 +62916,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     function handleWindowResize() {
       fabLeft.value = clamp2(fabLeft.value, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
       fabTop.value = clamp2(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+      if (open.value) positionPanelNearFab();
       persistFabPosition();
     }
     function snapFabToEdge() {
@@ -62924,7 +62935,29 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       return window.innerHeight - FAB_SIZE - 48;
     }
     function clamp2(value, min, max) {
+      if (max < min) return min;
       return Math.min(max, Math.max(min, value));
+    }
+    function positionPanelNearFab() {
+      const size2 = getPanelSize();
+      const anchorCenterX = fabLeft.value + FAB_SIZE / 2;
+      const preferLeftSide = anchorCenterX < window.innerWidth / 2;
+      const nextLeft = preferLeftSide ? fabLeft.value : fabLeft.value + FAB_SIZE - size2.width;
+      const nextTop = fabTop.value + FAB_SIZE / 2 - size2.height / 2;
+      panelLeft.value = clamp2(nextLeft, PANEL_GAP, window.innerWidth - size2.width - PANEL_GAP);
+      panelTop.value = clamp2(nextTop, PANEL_GAP, window.innerHeight - size2.height - PANEL_GAP);
+    }
+    function getPanelSize() {
+      if (window.innerWidth <= 760) {
+        return {
+          width: Math.max(0, window.innerWidth - 28),
+          height: Math.max(0, window.innerHeight - 92)
+        };
+      }
+      return {
+        width: Math.min(760, window.innerWidth - 96),
+        height: Math.min(620, window.innerHeight - 116)
+      };
     }
     async function send() {
       const text = draft.value.trim();
@@ -62956,12 +62989,23 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       if (!el) return;
       autoScrollEnabled.value = isNearBottom(el);
     }
-    function handleMessagesClick(event) {
+    function handleMessagesPointerDown(event) {
       const target = event.target;
       const button = target?.closest(".ai-think-toggle");
       if (!button) return;
       event.preventDefault();
       event.stopPropagation();
+      toggleThinkButton(button);
+    }
+    function handleMessagesKeydown(event) {
+      const target = event.target;
+      const button = target?.closest(".ai-think-toggle");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleThinkButton(button);
+    }
+    function toggleThinkButton(button) {
       const messageId = Number(button.dataset.messageId);
       if (!Number.isFinite(messageId)) return;
       setThinkOpen(messageId, !openThinkMessageIds.value.has(messageId));
@@ -62989,7 +63033,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
         if (showThinking.value) {
           const label = thinkOpen ? "收起深度思考" : "展开深度思考";
           parts.push(
-            `<div class="ai-think ${thinkOpen ? "open" : ""}"><button class="ai-think-toggle" type="button" data-message-id="${messageId}" aria-expanded="${thinkOpen ? "true" : "false"}">${label}</button>` + (thinkOpen ? `<div class="ai-think-body">${renderMarkdown(match2[1] ?? "")}</div>` : "") + "</div>"
+            `<div class="ai-think ${thinkOpen ? "open" : ""}"><button class="ai-think-toggle" type="button" data-message-id="${messageId}" aria-expanded="${thinkOpen ? "true" : "false"}" tabindex="0">${label}</button>` + (thinkOpen ? `<div class="ai-think-body">${renderMarkdown(match2[1] ?? "")}</div>` : "") + "</div>"
           );
         }
         lastIndex = thinkRe.lastIndex;
@@ -63078,7 +63122,8 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
           })
         ], 38)) : (openBlock(), createElementBlock("div", {
           key: 1,
-          class: normalizeClass(["ai-panel", { "sessions-collapsed": !sessionsOpen.value }])
+          class: normalizeClass(["ai-panel", { "sessions-collapsed": !sessionsOpen.value }]),
+          style: normalizeStyle(panelStyle.value)
         }, [
           createBaseVNode("aside", {
             class: normalizeClass(["ai-sessions", { hidden: !sessionsOpen.value }])
@@ -63191,7 +63236,8 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ref: messageBody,
               class: "ai-messages",
               onScroll: handleMessagesScroll,
-              onClick: handleMessagesClick
+              onPointerdownCapture: handleMessagesPointerDown,
+              onKeydownCapture: withKeys(handleMessagesKeydown, ["enter"])
             }, [
               unref(assistant).loading ? (openBlock(), createElementBlock("div", _hoisted_11$1, [
                 createVNode(unref(NSpin), { size: "small" })
@@ -63265,12 +63311,12 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ])
             ])
           ])
-        ], 2))
+        ], 6))
       ]);
     };
   }
 });
-const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-531866b5"]]);
+const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-cb222a11"]]);
 const _hoisted_1$1 = { class: "log-panel" };
 const _hoisted_2$1 = { class: "log-ts" };
 const _hoisted_3$1 = { class: "log-msg" };

@@ -14,7 +14,7 @@
       <n-icon size="22"><ChatbubbleEllipsesOutline /></n-icon>
     </button>
 
-    <div v-else :class="['ai-panel', { 'sessions-collapsed': !sessionsOpen }]">
+    <div v-else :class="['ai-panel', { 'sessions-collapsed': !sessionsOpen }]" :style="panelStyle">
       <aside :class="['ai-sessions', { hidden: !sessionsOpen }]">
         <div class="ai-sessions-head">
           <span>对话</span>
@@ -65,7 +65,7 @@
           </div>
         </header>
 
-        <div ref="messageBody" class="ai-messages" @scroll="handleMessagesScroll" @click="handleMessagesClick">
+        <div ref="messageBody" class="ai-messages" @scroll="handleMessagesScroll" @pointerdown.capture="handleMessagesPointerDown" @keydown.enter.capture="handleMessagesKeydown">
           <div v-if="assistant.loading" class="ai-center">
             <n-spin size="small" />
           </div>
@@ -143,6 +143,8 @@ const openThinkMessageIds = ref<Set<number>>(new Set())
 const isFabDragging = ref(false)
 const fabLeft = ref(0)
 const fabTop = ref(0)
+const panelLeft = ref(24)
+const panelTop = ref(48)
 const showTyping = computed(() => (
   assistant.sending &&
   !assistant.messages.some((item) => item.role === 'assistant' && item.id < 0 && item.content.trim())
@@ -151,10 +153,17 @@ const fabStyle = computed(() => ({
   left: `${fabLeft.value}px`,
   top: `${fabTop.value}px`,
 }))
+const panelStyle = computed(() => ({
+  left: `${panelLeft.value}px`,
+  top: `${panelTop.value}px`,
+  right: 'auto',
+  bottom: 'auto',
+}))
 
 const FAB_SIZE = 46
 const FAB_MARGIN = 10
 const FAB_POSITION_KEY = 'score-trans-ai-assistant-fab'
+const PANEL_GAP = 10
 let fabDrag:
   | {
       pointerId: number
@@ -185,6 +194,7 @@ watch(
 )
 
 function openPanel(): void {
+  positionPanelNearFab()
   open.value = true
   autoScrollEnabled.value = true
   if (!assistant.sessions.length) assistant.loadSessions()
@@ -258,6 +268,7 @@ function initFabPosition(): void {
 function handleWindowResize(): void {
   fabLeft.value = clamp(fabLeft.value, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN)
   fabTop.value = clamp(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+  if (open.value) positionPanelNearFab()
   persistFabPosition()
 }
 
@@ -283,7 +294,33 @@ function defaultFabTop(): number {
 }
 
 function clamp(value: number, min: number, max: number): number {
+  if (max < min) return min
   return Math.min(max, Math.max(min, value))
+}
+
+function positionPanelNearFab(): void {
+  const size = getPanelSize()
+  const anchorCenterX = fabLeft.value + FAB_SIZE / 2
+  const preferLeftSide = anchorCenterX < window.innerWidth / 2
+  const nextLeft = preferLeftSide
+    ? fabLeft.value
+    : fabLeft.value + FAB_SIZE - size.width
+  const nextTop = fabTop.value + FAB_SIZE / 2 - size.height / 2
+  panelLeft.value = clamp(nextLeft, PANEL_GAP, window.innerWidth - size.width - PANEL_GAP)
+  panelTop.value = clamp(nextTop, PANEL_GAP, window.innerHeight - size.height - PANEL_GAP)
+}
+
+function getPanelSize(): { width: number; height: number } {
+  if (window.innerWidth <= 760) {
+    return {
+      width: Math.max(0, window.innerWidth - 28),
+      height: Math.max(0, window.innerHeight - 92),
+    }
+  }
+  return {
+    width: Math.min(760, window.innerWidth - 96),
+    height: Math.min(620, window.innerHeight - 116),
+  }
 }
 
 async function send(): Promise<void> {
@@ -320,13 +357,25 @@ function handleMessagesScroll(): void {
   autoScrollEnabled.value = isNearBottom(el)
 }
 
-function handleMessagesClick(event: MouseEvent): void {
+function handleMessagesPointerDown(event: PointerEvent): void {
   const target = event.target as HTMLElement | null
   const button = target?.closest('.ai-think-toggle') as HTMLButtonElement | null
   if (!button) return
   event.preventDefault()
   event.stopPropagation()
+  toggleThinkButton(button)
+}
 
+function handleMessagesKeydown(event: KeyboardEvent): void {
+  const target = event.target as HTMLElement | null
+  const button = target?.closest('.ai-think-toggle') as HTMLButtonElement | null
+  if (!button) return
+  event.preventDefault()
+  event.stopPropagation()
+  toggleThinkButton(button)
+}
+
+function toggleThinkButton(button: HTMLButtonElement): void {
   const messageId = Number(button.dataset.messageId)
   if (!Number.isFinite(messageId)) return
   setThinkOpen(messageId, !openThinkMessageIds.value.has(messageId))
@@ -358,7 +407,7 @@ function renderAssistantMessage(text: string, messageId: number): string {
       const label = thinkOpen ? '收起深度思考' : '展开深度思考'
       parts.push(
         `<div class="ai-think ${thinkOpen ? 'open' : ''}">` +
-          `<button class="ai-think-toggle" type="button" data-message-id="${messageId}" aria-expanded="${thinkOpen ? 'true' : 'false'}">${label}</button>` +
+          `<button class="ai-think-toggle" type="button" data-message-id="${messageId}" aria-expanded="${thinkOpen ? 'true' : 'false'}" tabindex="0">${label}</button>` +
           (thinkOpen ? `<div class="ai-think-body">${renderMarkdown(match[1] ?? '')}</div>` : '') +
         '</div>',
       )
