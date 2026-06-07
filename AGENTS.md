@@ -42,6 +42,12 @@ $env:PYTHONPATH="backend"
 cd desktop
 $env:VITE_BACKEND_URL="http://127.0.0.1:19200"
 pnpm dev
+
+# Lint
+pnpm lint
+
+# Type check
+npx vue-tsc --noEmit
 ```
 
 ## Architecture Rules

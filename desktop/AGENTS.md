@@ -82,6 +82,9 @@ pnpm dev
 # 构建
 pnpm build
 
+# Lint
+pnpm lint
+
 # 类型检查
 vue-tsc --noEmit
 ```

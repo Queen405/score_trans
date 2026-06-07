@@ -18,13 +18,19 @@ Run the full verification pipeline for the Score Trans project. Execute steps in
 
 If format check fails, run with `--diff` to show what needs fixing. Do NOT auto-fix — report to the user.
 
-### 2. Typecheck (Frontend)
+### 2. Lint (Frontend)
+
+```bash
+cd desktop && pnpm lint
+```
+
+### 3. Typecheck (Frontend)
 
 ```bash
 cd desktop && npx vue-tsc --noEmit
 ```
 
-### 3. Backend tests
+### 4. Backend tests
 
 ```bash
 .venv/Scripts/python.exe -m pytest

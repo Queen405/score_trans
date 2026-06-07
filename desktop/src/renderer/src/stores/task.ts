@@ -6,6 +6,9 @@ export type TaskPageStatus = 'pending' | 'processing' | 'waiting' | 'completed' 
 
 export interface TaskPage {
   id: string
+  batchId: string
+  batchLabel: string
+  batchSealed: boolean
   historyPageId: number | null
   taskId: string
   inputFileName: string
@@ -28,6 +31,9 @@ export interface TaskPage {
 
 export interface TaskPageInput {
   inputFileName: string
+  batchId?: string
+  batchLabel?: string
+  batchSealed?: boolean
   historyPageId?: number | null
   taskId?: string
   inputFileId: string
@@ -51,6 +57,9 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
   const random = Math.random().toString(36).slice(2, 8)
   return {
     id: `${Date.now().toString(36)}-${random}`,
+    batchId: '',
+    batchLabel: '',
+    batchSealed: false,
     historyPageId: null,
     taskId: '',
     inputFileName: '',
@@ -88,6 +97,7 @@ export const useTaskStore = defineStore('task', () => {
   const isBusy = ref(false)
   const pages = ref<TaskPage[]>([])
   const currentPageIndex = ref(-1)
+  const currentBatchId = ref<string | null>(null)
   const historyPageId = ref<number | null>(null)
   const currentTaskId = ref<string | null>(null)
   const taskStatus = ref<SSEProgressEvent['status']>('pending')
@@ -124,6 +134,33 @@ export const useTaskStore = defineStore('task', () => {
     startMeasureNumber.value = page.startMeasureNumber
   }
 
+  // ── Batch computeds ──
+  const batches = computed(() => {
+    const map = new Map<string, { id: string; label: string; sealed: boolean; pages: TaskPage[] }>()
+    for (const page of pages.value) {
+      if (!page.batchId) continue
+      let batch = map.get(page.batchId)
+      if (!batch) {
+        batch = { id: page.batchId, label: page.batchLabel, sealed: page.batchSealed, pages: [] }
+        map.set(page.batchId, batch)
+      }
+      batch.pages.push(page)
+    }
+    return [...map.values()]
+  })
+
+  const currentBatchPages = computed(() =>
+    currentBatchId.value
+      ? pages.value.filter((p) => p.batchId === currentBatchId.value)
+      : pages.value,
+  )
+
+  function toGlobalIndex(batchLocalIndex: number): number {
+    const batchPages = currentBatchPages.value
+    if (batchLocalIndex < 0 || batchLocalIndex >= batchPages.length) return -1
+    return pages.value.indexOf(batchPages[batchLocalIndex])
+  }
+
   function patchCurrentPage(patch: Partial<TaskPage>): void {
     const idx = currentPageIndex.value
     if (idx < 0 || idx >= pages.value.length) return
@@ -141,12 +178,28 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   function addInputPage(name: string, fileId: string): number {
+    // Find current draft batch (unsealed) or create a new batch ID
+    let bid = currentBatchId.value
+    const currentBatch = bid ? batches.value.find((b) => b.id === bid) : undefined
+    if (!bid || !currentBatch || currentBatch.sealed) {
+      const random = Math.random().toString(36).slice(2, 8)
+      bid = `batch-${Date.now().toString(36)}-${random}`
+      currentBatchId.value = bid
+    }
     const page = createPage({
+      batchId: bid,
+      batchLabel: name,
+      batchSealed: false,
       inputFileName: name,
       historyPageId: null,
       inputFileId: fileId,
       status: 'pending',
     })
+    // Update batch label if this is the first page in the batch
+    const existingBatchPages = pages.value.filter((p) => p.batchId === bid)
+    if (existingBatchPages.length > 0) {
+      page.batchLabel = existingBatchPages[0]!.batchLabel
+    }
     pages.value.push(page)
     currentPageIndex.value = pages.value.length - 1
     syncCurrentFromPage()
@@ -167,22 +220,34 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   function nextPage(): void {
-    selectPage(currentPageIndex.value + 1)
+    const localIdx = currentBatchPages.value.indexOf(pages.value[currentPageIndex.value])
+    if (localIdx >= 0 && localIdx < currentBatchPages.value.length - 1) {
+      selectPage(toGlobalIndex(localIdx + 1))
+    }
   }
 
   function prevPage(): void {
-    selectPage(currentPageIndex.value - 1)
+    const localIdx = currentBatchPages.value.indexOf(pages.value[currentPageIndex.value])
+    if (localIdx > 0) {
+      selectPage(toGlobalIndex(localIdx - 1))
+    }
   }
 
   // ── Computed ──
   const hasMusicxml = computed(() => !!musicxmlFileId.value)
   const hasInput = computed(() => !!inputFileId.value)
   const hasOriginal = computed(() => !!originalFileId.value)
-  const pageCount = computed(() => pages.value.length)
+  const pageCount = computed(() => currentBatchPages.value.length)
   const currentPage = computed(() => pages.value[currentPageIndex.value] ?? null)
-  const canPrevPage = computed(() => currentPageIndex.value > 0)
-  const canNextPage = computed(() => currentPageIndex.value >= 0 && currentPageIndex.value < pages.value.length - 1)
-  const activePageTaskCount = computed(() => pages.value.filter((page) => page.status === 'processing').length)
+  const canPrevPage = computed(() => {
+    const localIdx = currentBatchPages.value.indexOf(pages.value[currentPageIndex.value])
+    return localIdx > 0
+  })
+  const canNextPage = computed(() => {
+    const localIdx = currentBatchPages.value.indexOf(pages.value[currentPageIndex.value])
+    return localIdx >= 0 && localIdx < currentBatchPages.value.length - 1
+  })
+  const activePageTaskCount = computed(() => currentBatchPages.value.filter((page) => page.status === 'processing').length)
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
@@ -314,7 +379,11 @@ export const useTaskStore = defineStore('task', () => {
 
   function replacePage(index: number, replacementPages: TaskPageInput[], selectOffset = 0): void {
     if (index < 0 || index >= pages.value.length) return
+    const sourcePage = pages.value[index]!
     const nextPages = replacementPages.map((p) => createPage({
+      batchId: p.batchId || sourcePage.batchId,
+      batchLabel: p.batchLabel || sourcePage.batchLabel,
+      batchSealed: p.batchSealed ?? sourcePage.batchSealed,
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
       taskId: p.taskId ?? '',
@@ -354,8 +423,12 @@ export const useTaskStore = defineStore('task', () => {
   function replacePageByIdKeepingSelection(pageId: string, replacementPages: TaskPageInput[]): TaskPage[] {
     const index = pages.value.findIndex((page) => page.id === pageId)
     if (index < 0) return []
+    const sourcePage = pages.value[index]!
     const selectedPageId = currentPage.value?.id ?? ''
     const nextPages = replacementPages.map((p) => createPage({
+      batchId: p.batchId || sourcePage.batchId,
+      batchLabel: p.batchLabel || sourcePage.batchLabel,
+      batchSealed: p.batchSealed ?? sourcePage.batchSealed,
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
       taskId: p.taskId ?? '',
@@ -413,6 +486,24 @@ export const useTaskStore = defineStore('task', () => {
     backgroundTaskCount.value = Math.max(0, backgroundTaskCount.value - 1)
   }
 
+  function selectBatch(batchId: string): void {
+    currentBatchId.value = batchId
+    const firstPageIdx = pages.value.findIndex((p) => p.batchId === batchId)
+    if (firstPageIdx >= 0) {
+      currentPageIndex.value = firstPageIdx
+      syncCurrentFromPage()
+    }
+  }
+
+  function sealCurrentBatch(): void {
+    if (!currentBatchId.value) return
+    for (let i = 0; i < pages.value.length; i++) {
+      if (pages.value[i].batchId === currentBatchId.value) {
+        pages.value[i] = { ...pages.value[i], batchSealed: true }
+      }
+    }
+  }
+
   function reset() {
     inputFileName.value = ''
     historyPageId.value = null
@@ -428,13 +519,20 @@ export const useTaskStore = defineStore('task', () => {
     isBusy.value = false
     pages.value = []
     currentPageIndex.value = -1
+    currentBatchId.value = null
     currentTaskId.value = null
     taskStatus.value = 'pending'
     backgroundTaskCount.value = 0
   }
 
   function loadBatch(batchPages: TaskPageInput[], selectIndex: number) {
+    const random = Math.random().toString(36).slice(2, 8)
+    const bid = `batch-${Date.now().toString(36)}-${random}`
+    const firstLabel = batchPages[0]?.inputFileName ?? '历史记录'
     pages.value = batchPages.map((p) => createPage({
+      batchId: bid,
+      batchLabel: p.batchLabel ?? firstLabel,
+      batchSealed: true,
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
       taskId: p.taskId ?? '',
@@ -454,6 +552,7 @@ export const useTaskStore = defineStore('task', () => {
       measureNumberOptions: p.measureNumberOptions ?? [],
       errorMessage: p.errorMessage ?? '',
     }))
+    currentBatchId.value = bid
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))
     currentPageIndex.value = idx
     syncCurrentFromPage()
@@ -474,6 +573,9 @@ export const useTaskStore = defineStore('task', () => {
     isBusy,
     pages,
     currentPageIndex,
+    currentBatchId,
+    batches,
+    currentBatchPages,
     currentTaskId,
     taskStatus,
     backgroundTaskCount,
@@ -514,6 +616,8 @@ export const useTaskStore = defineStore('task', () => {
     setTaskStatus,
     beginBackgroundTask,
     endBackgroundTask,
+    selectBatch,
+    sealCurrentBatch,
     reset,
     loadBatch,
   }

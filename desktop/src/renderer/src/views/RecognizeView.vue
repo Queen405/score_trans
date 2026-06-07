@@ -5,14 +5,24 @@
         <h2>智能识别</h2>
         <p>上传乐谱图片或 PDF，快速得到简谱成果</p>
       </div>
-      <div v-if="store.pageCount" class="page-nav">
-        <n-button size="small" quaternary :disabled="!store.canPrevPage" @click="store.prevPage()">
-          <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
-        </n-button>
-        <span class="page-indicator">{{ store.currentPageIndex + 1 }} / {{ store.pageCount }}</span>
-        <n-button size="small" quaternary :disabled="!store.canNextPage" @click="store.nextPage()">
-          <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
-        </n-button>
+      <div class="rv-header-right">
+        <n-select
+          v-if="store.batches.length > 1"
+          :value="store.currentBatchId"
+          :options="batchOptions"
+          size="small"
+          style="width: 160px"
+          @update:value="store.selectBatch($event)"
+        />
+        <div v-if="store.pageCount" class="page-nav">
+          <n-button size="small" quaternary :disabled="!store.canPrevPage" @click="store.prevPage()">
+            <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
+          </n-button>
+          <span class="page-indicator">{{ currentBatchLocalIndex + 1 }} / {{ store.pageCount }}</span>
+          <n-button size="small" quaternary :disabled="!store.canNextPage" @click="store.nextPage()">
+            <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
+          </n-button>
+        </div>
       </div>
     </div>
 
@@ -61,19 +71,19 @@
       </div>
     </div>
 
-    <div v-if="store.pages.length" class="pages-strip">
+    <div v-if="store.currentBatchPages.length" class="pages-strip">
       <div
-        v-for="(page, index) in store.pages"
+        v-for="page in store.currentBatchPages"
         :key="page.id"
-        :class="['page-card', page.status, { active: index === store.currentPageIndex }]"
-        @click="store.selectPage(index)"
+        :class="['page-card', page.status, { active: page.id === store.currentPage?.id }]"
+        @click="store.selectPageById(page.id)"
       >
         <button
           v-if="page.status !== 'waiting'"
           class="page-del"
           type="button"
           :disabled="page.status === 'processing'"
-          @click.stop="removePage(index)"
+          @click.stop="removePageById(page.id)"
         >
           <n-icon size="12"><CloseOutline /></n-icon>
         </button>
@@ -138,7 +148,7 @@ import {
   ChevronForwardOutline,
   DocumentOutline,
 } from '@vicons/ionicons5'
-import { NButton, NIcon, NProgress, NSwitch, useMessage } from 'naive-ui'
+import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
 
 type RecognitionMode = 'omr' | 'ai'
 
@@ -170,9 +180,18 @@ const pickerShow = ref(false)
 const pickerOptions = ref<number[]>([])
 const pickerPageId = ref<string | null>(null)
 
-const activePages = computed(() => store.pages.filter((page) => page.status === 'processing'))
+const batchOptions = computed(() =>
+  store.batches.map((b, i) => ({
+    label: b.sealed ? `批次 ${i + 1}：${b.label}` : `草稿：${b.label}`,
+    value: b.id,
+  })),
+)
+const currentBatchLocalIndex = computed(() =>
+  store.currentBatchPages.indexOf(store.currentPage!),
+)
+const activePages = computed(() => store.currentBatchPages.filter((page) => page.status === 'processing'))
 const currentPageProcessing = computed(() => store.currentPage?.status === 'processing')
-const pendingRecognizableCount = computed(() => store.pages.filter((page) => isStartablePage(page)).length)
+const pendingRecognizableCount = computed(() => store.currentBatchPages.filter((page) => isStartablePage(page)).length)
 const overallProgressPercent = computed(() => {
   if (!activePages.value.length) return 0
   const total = activePages.value.reduce((sum, page) => sum + page.progressPercent, 0)
@@ -201,14 +220,15 @@ function statusText(page: TaskPage): string {
   return map[page.status] ?? ''
 }
 
-function removePage(index: number): void {
-  const page = store.pages[index]
-  if (!page) return
+function removePageById(pageId: string): void {
+  const idx = store.pages.findIndex((p) => p.id === pageId)
+  if (idx < 0) return
+  const page = store.pages[idx]!
   if (page.status === 'processing') {
     message.warning('后台识别中的页面暂不能移除')
     return
   }
-  store.removePage(index)
+  store.removePage(idx)
   log.addLog(`已移除：${page.inputFileName}`)
 }
 
@@ -248,7 +268,7 @@ async function recognize(): Promise<void> {
 }
 
 async function recognizeAllPages(): Promise<void> {
-  const targets = store.pages
+  const targets = store.currentBatchPages
     .filter((page) => isStartablePage(page))
     .map(targetFromPage)
   if (!targets.length) return
@@ -265,6 +285,7 @@ function targetFromPage(page: TaskPage): RecognitionTarget {
 }
 
 async function submitRecognitionTargets(targets: RecognitionTarget[], mode: RecognitionMode): Promise<void> {
+  store.sealCurrentBatch()
   const historyPageIds = await createPendingHistory(targets)
   const label = mode === 'ai' ? 'AI 视觉检测' : 'OMR 识别'
 
@@ -664,6 +685,12 @@ function errorMessage(error: unknown): string {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.rv-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .rv-header h2 {

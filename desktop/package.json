@@ -2,14 +2,13 @@
   "name": "score-trans-desktop",
   "version": "0.1.0",
   "description": "Score Trans - 五线谱/简谱互转桌面应用",
-  "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
-    "lint": "eslint src/"
+    "lint": "eslint --config eslint.config.mjs src/"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",

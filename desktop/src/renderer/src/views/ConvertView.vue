@@ -67,7 +67,7 @@
             <n-button size="small" quaternary :disabled="!store.canPrevPage || store.isBusy" @click="store.prevPage()">
               <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
             </n-button>
-            <span class="page-indicator">{{ store.currentPageIndex + 1 }} / {{ store.pageCount }}</span>
+            <span class="page-indicator">{{ currentBatchLocalIndex + 1 }} / {{ store.pageCount }}</span>
             <n-button size="small" quaternary :disabled="!store.canNextPage || store.isBusy" @click="store.nextPage()">
               <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
             </n-button>
@@ -216,6 +216,10 @@ const expandedBatchId = ref<number | null>(null)
 const expandedPages = ref<HistoryPage[]>([])
 const loadingBatch = ref(false)
 let stopHistoryUpdatedListener: (() => void) | null = null
+
+const currentBatchLocalIndex = computed(() =>
+  store.currentBatchPages.indexOf(store.currentPage!),
+)
 
 watch(() => store.jianpuText, (v) => {
   if (v !== jianpuText.value) jianpuText.value = v
@@ -494,10 +498,10 @@ function currentExportPage(): TaskPage {
 }
 
 function exportPages(): TaskPage[] {
-  if (!store.pages.length) return [currentExportPage()]
-  return store.pages.map((page, index) => (
-    index === store.currentPageIndex ? currentExportPage() : page
-  ))
+  if (!store.currentBatchPages.length) return [currentExportPage()]
+  return store.currentBatchPages.map((page) =>
+    page.id === store.currentPage?.id ? currentExportPage() : page,
+  )
 }
 
 async function renderExportSvg(page: TaskPage): Promise<string> {
