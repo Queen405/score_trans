@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from typing import Any
 
 from ...config.settings import (
@@ -15,7 +16,7 @@ from ...dao.settings.settings_dao import SettingsDao
 from ...models.ai.entities import AiChatMessage, AiChatSession
 from ...models.common.errors import AITranscriptionError
 from .core.prompts import build_jianpu_assistant_system_prompt
-from .providers._http import chat_completions
+from .providers._http import chat_completion_chunks, chat_completions
 
 MEMORY_ROUNDS = 20
 MAX_CONTEXT_MESSAGES = MEMORY_ROUNDS * 2
@@ -71,6 +72,37 @@ class AiChatService:
         assistant_msg = self.dao.add_message(session.id, "assistant", assistant_text)
         return session.id, assistant_msg, self.dao.list_messages(session.id)
 
+    def stream_message(
+        self,
+        message: str,
+        *,
+        session_id: str | None = None,
+        jianpu_text: str | None = None,
+    ) -> Iterator[tuple[str, str | AiChatMessage | list[AiChatMessage]]]:
+        clean_message = message.strip()
+        if not clean_message:
+            raise ValueError("消息不能为空")
+
+        session = self._ensure_session(session_id)
+        was_empty = len(self.dao.list_messages(session.id)) == 0
+        user_msg = self.dao.add_message(session.id, "user", clean_message)
+        if was_empty:
+            self.dao.update_session_title(session.id, _title_from_message(clean_message))
+
+        yield "session", session.id
+        chunks: list[str] = []
+        for chunk in self._stream_model(
+            session.id,
+            current_user_message_id=user_msg.id,
+            jianpu_text=jianpu_text,
+        ):
+            chunks.append(chunk)
+            yield "delta", chunk
+
+        assistant_msg = self.dao.add_message(session.id, "assistant", "".join(chunks))
+        yield "message", assistant_msg
+        yield "messages", self.dao.list_messages(session.id)
+
     def _ensure_session(self, session_id: str | None) -> AiChatSession:
         if session_id:
             session = self.dao.get_session(session_id)
@@ -89,14 +121,11 @@ class AiChatService:
         if not api_key:
             raise AITranscriptionError("工作台 AI API key 未配置，请在设置中填写百炼 API Key。")
 
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": build_jianpu_assistant_system_prompt()}
-        ]
-        for memory in self.dao.recent_messages(session_id, MAX_CONTEXT_MESSAGES):
-            content = memory.content
-            if memory.id == current_user_message_id and jianpu_text and jianpu_text.strip():
-                content = _with_jianpu_context(content, jianpu_text)
-            messages.append({"role": memory.role, "content": content})
+        messages = self._build_messages(
+            session_id,
+            current_user_message_id=current_user_message_id,
+            jianpu_text=jianpu_text,
+        )
 
         try:
             return chat_completions(
@@ -110,6 +139,52 @@ class AiChatService:
             )
         except Exception as exc:
             raise AITranscriptionError(f"工作台 AI 请求失败：{exc}") from exc
+
+    def _stream_model(
+        self,
+        session_id: str,
+        *,
+        current_user_message_id: int,
+        jianpu_text: str | None,
+    ) -> Iterator[str]:
+        api_key, base_url, model = self._provider_settings()
+        if not api_key:
+            raise AITranscriptionError("工作台 AI API key 未配置，请在设置中填写百炼 API Key。")
+
+        messages = self._build_messages(
+            session_id,
+            current_user_message_id=current_user_message_id,
+            jianpu_text=jianpu_text,
+        )
+        try:
+            yield from chat_completion_chunks(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                messages=messages,
+                temperature=AI_TEMPERATURE,
+                timeout=AI_TIMEOUT,
+                max_tokens=MAX_ASSISTANT_TOKENS,
+            )
+        except Exception as exc:
+            raise AITranscriptionError(f"工作台 AI 请求失败：{exc}") from exc
+
+    def _build_messages(
+        self,
+        session_id: str,
+        *,
+        current_user_message_id: int,
+        jianpu_text: str | None,
+    ) -> list[dict[str, Any]]:
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": build_jianpu_assistant_system_prompt()}
+        ]
+        for memory in self.dao.recent_messages(session_id, MAX_CONTEXT_MESSAGES):
+            content = memory.content
+            if memory.id == current_user_message_id and jianpu_text and jianpu_text.strip():
+                content = _with_jianpu_context(content, jianpu_text)
+            messages.append({"role": memory.role, "content": content})
+        return messages
 
     def _provider_settings(self) -> tuple[str, str, str]:
         settings = self.settings.get_all()

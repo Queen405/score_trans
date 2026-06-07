@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
 
 from ...models.ai.entities import AiChatMessage, AiChatSession
@@ -132,6 +133,19 @@ class AiActions:
         jianpu_text: str | None = None,
     ) -> tuple[str, AiChatMessage, list[AiChatMessage]]:
         return self._chat().send_message(
+            message,
+            session_id=session_id,
+            jianpu_text=jianpu_text,
+        )
+
+    def stream_chat_message(
+        self,
+        message: str,
+        *,
+        session_id: str | None = None,
+        jianpu_text: str | None = None,
+    ) -> Iterator[tuple[str, str | AiChatMessage | list[AiChatMessage]]]:
+        return self._chat().stream_message(
             message,
             session_id=session_id,
             jianpu_text=jianpu_text,

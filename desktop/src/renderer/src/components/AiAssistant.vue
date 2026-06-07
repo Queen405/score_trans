@@ -1,6 +1,16 @@
 <template>
   <div class="ai-assistant">
-    <button v-if="!open" class="ai-fab" type="button" title="AI 助手" @click="openPanel">
+    <button
+      v-if="!open"
+      :class="['ai-fab', { dragging: isFabDragging }]"
+      :style="fabStyle"
+      type="button"
+      title="AI 助手"
+      @pointerdown="handleFabPointerDown"
+      @pointermove="handleFabPointerMove"
+      @pointerup="handleFabPointerUp"
+      @pointercancel="handleFabPointerCancel"
+    >
       <n-icon size="22"><ChatbubbleEllipsesOutline /></n-icon>
     </button>
 
@@ -49,7 +59,7 @@
           </button>
         </header>
 
-        <div ref="messageBody" class="ai-messages">
+        <div ref="messageBody" class="ai-messages" @scroll="handleMessagesScroll" @click.capture="handleMessagesClick">
           <div v-if="assistant.loading" class="ai-center">
             <n-spin size="small" />
           </div>
@@ -62,10 +72,12 @@
             v-else
             :key="message.id"
             :class="['ai-message', message.role]"
+            :data-message-id="message.id"
           >
-            <div class="ai-message-content">{{ message.content }}</div>
+            <div v-if="message.role === 'assistant'" class="ai-message-content ai-md" v-html="renderAssistantMessage(message.content, message.id)" />
+            <div v-else class="ai-message-content">{{ message.content }}</div>
           </div>
-          <div v-if="assistant.sending" class="ai-message assistant pending">
+          <div v-if="showTyping" class="ai-message assistant pending">
             <div class="ai-typing"><span /><span /><span /></div>
           </div>
         </div>
@@ -96,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useAssistantStore } from '../stores/assistant'
 import { useTaskStore } from '../stores/task'
@@ -119,28 +131,159 @@ const sessionsOpen = ref(true)
 const draft = ref('')
 const includeCurrentJianpu = ref(true)
 const messageBody = ref<HTMLElement | null>(null)
+const autoScrollEnabled = ref(true)
+const openThinkMessageIds = ref<Set<number>>(new Set())
+const isFabDragging = ref(false)
+const fabLeft = ref(0)
+const fabTop = ref(0)
+const showTyping = computed(() => (
+  assistant.sending &&
+  !assistant.messages.some((item) => item.role === 'assistant' && item.id < 0 && item.content.trim())
+))
+const fabStyle = computed(() => ({
+  left: `${fabLeft.value}px`,
+  top: `${fabTop.value}px`,
+}))
+
+const FAB_SIZE = 46
+const FAB_MARGIN = 10
+const FAB_POSITION_KEY = 'score-trans-ai-assistant-fab'
+let fabDrag:
+  | {
+      pointerId: number
+      startX: number
+      startY: number
+      startLeft: number
+      startTop: number
+      moved: boolean
+    }
+  | null = null
 
 onMounted(() => {
+  initFabPosition()
+  window.addEventListener('resize', handleWindowResize)
   assistant.loadSessions()
 })
 
+onUnmounted(() => {
+  window.removeEventListener('resize', handleWindowResize)
+})
+
 watch(
-  () => [assistant.messages.length, assistant.sending, open.value],
+  () => [assistant.messages.map((item) => `${item.id}:${item.content.length}`).join('|'), assistant.sending, open.value],
   () => {
+    if (!open.value || !autoScrollEnabled.value) return
     nextTick(scrollToBottom)
   },
 )
 
 function openPanel(): void {
   open.value = true
+  autoScrollEnabled.value = true
   if (!assistant.sessions.length) assistant.loadSessions()
   nextTick(scrollToBottom)
+}
+
+function handleFabPointerDown(event: PointerEvent): void {
+  if (event.button !== 0) return
+  const target = event.currentTarget as HTMLElement
+  target.setPointerCapture(event.pointerId)
+  isFabDragging.value = true
+  fabDrag = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startLeft: fabLeft.value,
+    startTop: fabTop.value,
+    moved: false,
+  }
+}
+
+function handleFabPointerMove(event: PointerEvent): void {
+  if (!fabDrag || fabDrag.pointerId !== event.pointerId) return
+  const dx = event.clientX - fabDrag.startX
+  const dy = event.clientY - fabDrag.startY
+  if (Math.abs(dx) > 4 || Math.abs(dy) > 4) fabDrag.moved = true
+  fabLeft.value = clamp(fabDrag.startLeft + dx, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN)
+  fabTop.value = clamp(fabDrag.startTop + dy, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+}
+
+function handleFabPointerUp(event: PointerEvent): void {
+  if (!fabDrag || fabDrag.pointerId !== event.pointerId) return
+  const moved = fabDrag.moved
+  endFabDrag(event)
+  if (moved) {
+    snapFabToEdge()
+  } else {
+    openPanel()
+  }
+}
+
+function handleFabPointerCancel(event: PointerEvent): void {
+  endFabDrag(event)
+  snapFabToEdge()
+}
+
+function endFabDrag(event: PointerEvent): void {
+  const target = event.currentTarget as HTMLElement
+  if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
+  isFabDragging.value = false
+  fabDrag = null
+}
+
+function initFabPosition(): void {
+  const saved = localStorage.getItem(FAB_POSITION_KEY)
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved) as { left?: number; top?: number }
+      fabLeft.value = clamp(parsed.left ?? defaultFabLeft(), FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN)
+      fabTop.value = clamp(parsed.top ?? defaultFabTop(), FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+      return
+    } catch {
+      localStorage.removeItem(FAB_POSITION_KEY)
+    }
+  }
+  fabLeft.value = defaultFabLeft()
+  fabTop.value = defaultFabTop()
+  snapFabToEdge()
+}
+
+function handleWindowResize(): void {
+  fabLeft.value = clamp(fabLeft.value, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN)
+  fabTop.value = clamp(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+  persistFabPosition()
+}
+
+function snapFabToEdge(): void {
+  const centerX = fabLeft.value + FAB_SIZE / 2
+  fabLeft.value = centerX < window.innerWidth / 2
+    ? FAB_MARGIN
+    : window.innerWidth - FAB_SIZE - FAB_MARGIN
+  fabTop.value = clamp(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+  persistFabPosition()
+}
+
+function persistFabPosition(): void {
+  localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ left: fabLeft.value, top: fabTop.value }))
+}
+
+function defaultFabLeft(): number {
+  return window.innerWidth - FAB_SIZE - 24
+}
+
+function defaultFabTop(): number {
+  return window.innerHeight - FAB_SIZE - 48
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 async function send(): Promise<void> {
   const text = draft.value.trim()
   if (!text) return
   draft.value = ''
+  autoScrollEnabled.value = true
   try {
     await assistant.send(text, includeCurrentJianpu.value ? task.jianpuText : undefined)
   } catch (e: unknown) {
@@ -163,17 +306,145 @@ function scrollToBottom(): void {
   if (!el) return
   el.scrollTop = el.scrollHeight
 }
+
+function handleMessagesScroll(): void {
+  const el = messageBody.value
+  if (!el) return
+  autoScrollEnabled.value = isNearBottom(el)
+}
+
+function handleMessagesClick(event: MouseEvent): void {
+  const target = event.target as HTMLElement | null
+  const summary = target?.closest('summary')
+  const details = summary?.closest('details.ai-think') as HTMLDetailsElement | null
+  const messageEl = summary?.closest('.ai-message') as HTMLElement | null
+  if (!summary || !details || !messageEl) return
+
+  const messageId = Number(messageEl.dataset.messageId)
+  if (!Number.isFinite(messageId)) return
+  window.setTimeout(() => {
+    setThinkOpen(messageId, details.open)
+  }, 0)
+}
+
+function isNearBottom(el: HTMLElement): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= 48
+}
+
+function setThinkOpen(messageId: number, openValue: boolean): void {
+  const next = new Set(openThinkMessageIds.value)
+  if (openValue) next.add(messageId)
+  else next.delete(messageId)
+  openThinkMessageIds.value = next
+}
+
+function renderAssistantMessage(text: string, messageId: number): string {
+  if (!text) return ''
+  const parts: string[] = []
+  const thinkRe = /<think>([\s\S]*?)(?:<\/think>|$)/gi
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  const openAttr = openThinkMessageIds.value.has(messageId) ? ' open' : ''
+  while ((match = thinkRe.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(renderMarkdown(text.slice(lastIndex, match.index)))
+    }
+    parts.push(
+      `<details class="ai-think"${openAttr}><summary>深度思考</summary><div class="ai-think-body">${renderMarkdown(match[1] ?? '')}</div></details>`,
+    )
+    lastIndex = thinkRe.lastIndex
+  }
+  if (lastIndex < text.length) parts.push(renderMarkdown(text.slice(lastIndex)))
+  return parts.join('')
+}
+
+function renderMarkdown(source: string): string {
+  if (!source.trim()) return ''
+  const blocks: string[] = []
+  const inlineCodes: string[] = []
+  let text = source.replace(/```(\w*)\n?([\s\S]*?)(?:```|$)/g, (_match, lang: string, code: string) => {
+    const cls = lang ? ` class="language-${escapeAttr(lang)}"` : ''
+    blocks.push(`<pre><code${cls}>${escapeHtml(code.trimEnd())}</code></pre>`)
+    return `@@AI_BLOCK_${blocks.length - 1}@@`
+  })
+  text = text.replace(/`([^`]+)`/g, (_match, code: string) => {
+    inlineCodes.push(`<code>${escapeHtml(code)}</code>`)
+    return `@@AI_INLINE_${inlineCodes.length - 1}@@`
+  })
+  text = escapeHtml(text)
+  text = text
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+  text = text.replace(/@@AI_INLINE_(\d+)@@/g, (_match, index: string) => inlineCodes[Number(index)] ?? '')
+  text = text.replace(/@@AI_BLOCK_(\d+)@@/g, (_match, index: string) => blocks[Number(index)] ?? '')
+  text = renderMarkdownTables(text)
+  return wrapMarkdownBlocks(text)
+}
+
+function renderMarkdownTables(text: string): string {
+  return text.replace(/((?:^\|.*\|\s*$\n?){2,})/gm, (table: string) => {
+    const lines = table.trim().split(/\r?\n/)
+    if (lines.length < 2 || !/^\|[\s\-:|]+\|$/.test(lines[1].trim())) return table
+    const headers = splitTableRow(lines[0])
+    const rows = lines.slice(2).map(splitTableRow).filter((row) => row.length)
+    if (!headers.length || !rows.length) return table
+    return [
+      '<div class="ai-table"><table><thead><tr>',
+      headers.map((cell) => `<th>${cell}</th>`).join(''),
+      '</tr></thead><tbody>',
+      rows.map((row) => `<tr>${headers.map((_h, index) => `<td>${row[index] ?? ''}</td>`).join('')}</tr>`).join(''),
+      '</tbody></table></div>',
+    ].join('')
+  })
+}
+
+function splitTableRow(line: string): string[] {
+  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim())
+}
+
+function wrapMarkdownBlocks(text: string): string {
+  return text.split(/\n{2,}/).map((block) => {
+    const trimmed = block.trim()
+    if (!trimmed) return ''
+    if (/^<(h[1-3]|pre|div class="ai-table")/.test(trimmed)) return trimmed
+    const lines = trimmed.split(/\r?\n/)
+    if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+      return `<ul>${lines.map((line) => `<li>${line.replace(/^\s*[-*]\s+/, '')}</li>`).join('')}</ul>`
+    }
+    if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
+      return `<ol>${lines.map((line) => `<li>${line.replace(/^\s*\d+\.\s+/, '')}</li>`).join('')}</ol>`
+    }
+    return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`
+  }).join('')
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function escapeAttr(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '')
+}
 </script>
 
 <style scoped>
 .ai-assistant {
   position: fixed;
-  right: 24px;
-  bottom: 48px;
+  inset: 0;
   z-index: 30;
+  pointer-events: none;
 }
 
 .ai-fab {
+  position: fixed;
   width: 46px;
   height: 46px;
   border: 1px solid var(--border);
@@ -185,7 +456,9 @@ function scrollToBottom(): void {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  touch-action: none;
+  pointer-events: auto;
+  transition: left 0.22s cubic-bezier(0.16, 1, 0.3, 1), top 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s ease, border-color 0.15s ease;
 }
 
 .ai-fab:hover {
@@ -193,7 +466,15 @@ function scrollToBottom(): void {
   transform: translateY(-1px);
 }
 
+.ai-fab.dragging {
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  transform: scale(0.98);
+}
+
 .ai-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 48px;
   width: min(760px, calc(100vw - 96px));
   height: min(620px, calc(100vh - 116px));
   min-height: 420px;
@@ -204,6 +485,7 @@ function scrollToBottom(): void {
   background: var(--bg-elevated);
   box-shadow: 0 18px 56px rgba(20, 27, 45, 0.22);
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .ai-sessions {
@@ -384,6 +666,128 @@ function scrollToBottom(): void {
   overflow-wrap: anywhere;
 }
 
+.ai-md {
+  white-space: normal;
+}
+
+:deep(.ai-md p) {
+  margin: 0 0 8px;
+}
+
+:deep(.ai-md p:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.ai-md h1),
+:deep(.ai-md h2),
+:deep(.ai-md h3) {
+  margin: 10px 0 6px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+:deep(.ai-md h1) { font-size: 16px; }
+:deep(.ai-md h2) { font-size: 15px; }
+:deep(.ai-md h3) { font-size: 14px; }
+
+:deep(.ai-md code) {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.92em;
+  background: rgba(127, 127, 127, 0.14);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+:deep(.ai-md pre) {
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: #171a20;
+  color: #e9ecef;
+  overflow-x: auto;
+}
+
+:deep(.ai-md pre code) {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+:deep(.ai-md ul),
+:deep(.ai-md ol) {
+  margin: 6px 0 8px;
+  padding-left: 18px;
+}
+
+:deep(.ai-md li) {
+  margin: 2px 0;
+}
+
+:deep(.ai-md a) {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+:deep(.ai-md a:hover) {
+  text-decoration: underline;
+}
+
+:deep(.ai-think) {
+  margin: 0 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+}
+
+:deep(.ai-think summary) {
+  cursor: pointer;
+  user-select: none;
+  padding: 7px 9px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  list-style: none;
+}
+
+:deep(.ai-think summary::-webkit-details-marker) {
+  display: none;
+}
+
+:deep(.ai-think summary::before) {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+
+:deep(.ai-think[open] summary::before) {
+  transform: rotate(90deg);
+}
+
+:deep(.ai-think-body) {
+  padding: 0 9px 9px;
+  color: var(--text-secondary);
+  border-top: 1px dashed var(--border);
+}
+
+:deep(.ai-table) {
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+:deep(.ai-table table) {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+:deep(.ai-table th),
+:deep(.ai-table td) {
+  border: 1px solid var(--border);
+  padding: 5px 7px;
+  text-align: left;
+}
+
 .ai-message.pending {
   min-width: 56px;
 }
@@ -442,11 +846,12 @@ function scrollToBottom(): void {
 
 @media (max-width: 760px) {
   .ai-assistant {
-    right: 14px;
-    bottom: 42px;
+    inset: 0;
   }
 
   .ai-panel {
+    right: 14px;
+    bottom: 42px;
     width: calc(100vw - 28px);
     height: calc(100vh - 92px);
     min-height: 360px;

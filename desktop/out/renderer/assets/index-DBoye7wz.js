@@ -8892,8 +8892,71 @@ const aiApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req)
     });
+  },
+  async streamChat(req, handlers) {
+    const response = await fetch(`${getBaseURL()}/ai/chat/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      const rawMessage = payload.error ?? payload.detail;
+      throw new ApiError(typeof rawMessage === "string" ? rawMessage : `HTTP ${response.status}`);
+    }
+    if (!response.body) throw new ApiError("浏览器不支持流式响应");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() ?? "";
+      for (const block of blocks) {
+        handleSseBlock(block, handlers);
+      }
+    }
+    if (buffer.trim()) handleSseBlock(buffer, handlers);
   }
 };
+function handleSseBlock(block, handlers) {
+  const parsed = parseSseBlock(block);
+  if (!parsed) return;
+  if (parsed.event === "session") {
+    const sessionId = typeof parsed.data.session_id === "string" ? parsed.data.session_id : "";
+    if (sessionId) handlers.onSession?.(sessionId);
+    return;
+  }
+  if (parsed.event === "delta") {
+    const content = typeof parsed.data.content === "string" ? parsed.data.content : "";
+    if (content) handlers.onDelta?.(content);
+    return;
+  }
+  if (parsed.event === "done") {
+    handlers.onDone?.(parsed.data);
+    return;
+  }
+  if (parsed.event === "error") {
+    const error2 = typeof parsed.data.error === "string" ? parsed.data.error : "AI 响应中断";
+    throw new ApiError(error2);
+  }
+}
+function parseSseBlock(block) {
+  let event = "message";
+  const dataLines = [];
+  for (const line of block.split(/\r?\n/)) {
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+  }
+  if (!dataLines.length) return null;
+  try {
+    return { event, data: JSON.parse(dataLines.join("\n")) };
+  } catch {
+    return null;
+  }
+}
 const tasksApi = {
   get(taskId) {
     return apiFetch(`/tasks/${taskId}`);
@@ -9483,11 +9546,11 @@ const _hoisted_1$n = {
   viewBox: "0 0 512 512"
 };
 const _hoisted_2$m = /* @__PURE__ */ createStaticVNode('<rect x="80" y="80" width="352" height="352" rx="48" ry="48" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><rect x="144" y="144" width="224" height="224" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 176h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 176h32"></path>', 14);
-const _hoisted_16$2 = [_hoisted_2$m];
+const _hoisted_16$3 = [_hoisted_2$m];
 const HardwareChipOutline = /* @__PURE__ */ defineComponent({
   name: "HardwareChipOutline",
   render: function render13(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_16$2);
+    return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_16$3);
   }
 });
 const _hoisted_1$m = {
@@ -61397,8 +61460,8 @@ const _hoisted_12$3 = ["onClick"];
 const _hoisted_13$3 = { class: "hist-page-name" };
 const _hoisted_14$3 = { class: "ws-main" };
 const _hoisted_15$2 = { class: "ws-toolbar" };
-const _hoisted_16$1 = { class: "ws-toolbar-left" };
-const _hoisted_17 = {
+const _hoisted_16$2 = { class: "ws-toolbar-left" };
+const _hoisted_17$1 = {
   key: 0,
   class: "page-nav"
 };
@@ -62023,7 +62086,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         ], 2),
         createBaseVNode("div", _hoisted_14$3, [
           createBaseVNode("div", _hoisted_15$2, [
-            createBaseVNode("div", _hoisted_16$1, [
+            createBaseVNode("div", _hoisted_16$2, [
               createBaseVNode("button", {
                 class: "hist-toggle",
                 title: "历史记录",
@@ -62036,7 +62099,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   _: 1
                 })
               ]),
-              unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_17, [
+              unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_17$1, [
                 createVNode(unref(Button), {
                   size: "small",
                   quaternary: "",
@@ -62637,6 +62700,7 @@ const useAssistantStore = /* @__PURE__ */ defineStore("assistant", () => {
     const text = message.trim();
     if (!text || sending.value) return;
     const tempId = -Date.now();
+    const tempAssistantId = tempId - 1;
     messages.value.push({
       id: tempId,
       session_id: currentSessionId.value,
@@ -62644,20 +62708,40 @@ const useAssistantStore = /* @__PURE__ */ defineStore("assistant", () => {
       content: text,
       created_at: ""
     });
+    messages.value.push({
+      id: tempAssistantId,
+      session_id: currentSessionId.value,
+      role: "assistant",
+      content: "",
+      created_at: ""
+    });
     sending.value = true;
     error2.value = "";
     try {
-      const response = await aiApi.chat({
-        message: text,
-        session_id: currentSessionId.value || void 0,
-        jianpu_text: jianpuText?.trim() || void 0
-      });
-      currentSessionId.value = response.session_id;
-      messages.value = response.messages;
+      await aiApi.streamChat(
+        {
+          message: text,
+          session_id: currentSessionId.value || void 0,
+          jianpu_text: jianpuText?.trim() || void 0
+        },
+        {
+          onSession(sessionId) {
+            currentSessionId.value = sessionId;
+            messages.value = messages.value.map((item) => item.id < 0 ? { ...item, session_id: sessionId } : item);
+          },
+          onDelta(content) {
+            const target = messages.value.find((item) => item.id === tempAssistantId);
+            if (target) target.content += content;
+          },
+          onDone(response) {
+            messages.value = response.messages;
+          }
+        }
+      );
       sessions.value = await aiApi.listChatSessions();
     } catch (e) {
       error2.value = e instanceof Error ? e.message : String(e);
-      messages.value = messages.value.filter((item) => item.id !== tempId);
+      messages.value = messages.value.filter((item) => item.id !== tempId && item.id !== tempAssistantId);
       throw e;
     } finally {
       sending.value = false;
@@ -62696,14 +62780,22 @@ const _hoisted_10$1 = {
   key: 1,
   class: "ai-empty"
 };
-const _hoisted_11$1 = { class: "ai-message-content" };
-const _hoisted_12$1 = {
+const _hoisted_11$1 = ["data-message-id"];
+const _hoisted_12$1 = ["innerHTML"];
+const _hoisted_13$1 = {
+  key: 1,
+  class: "ai-message-content"
+};
+const _hoisted_14$1 = {
   key: 3,
   class: "ai-message assistant pending"
 };
-const _hoisted_13$1 = { class: "ai-compose" };
-const _hoisted_14$1 = { class: "ai-context" };
-const _hoisted_15$1 = { class: "ai-input-row" };
+const _hoisted_15$1 = { class: "ai-compose" };
+const _hoisted_16$1 = { class: "ai-context" };
+const _hoisted_17 = { class: "ai-input-row" };
+const FAB_SIZE = 46;
+const FAB_MARGIN = 10;
+const FAB_POSITION_KEY = "score-trans-ai-assistant-fab";
 const _sfc_main$2 = /* @__PURE__ */ defineComponent({
   __name: "AiAssistant",
   setup(__props) {
@@ -62715,24 +62807,124 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     const draft = /* @__PURE__ */ ref("");
     const includeCurrentJianpu = /* @__PURE__ */ ref(true);
     const messageBody = /* @__PURE__ */ ref(null);
+    const autoScrollEnabled = /* @__PURE__ */ ref(true);
+    const openThinkMessageIds = /* @__PURE__ */ ref(/* @__PURE__ */ new Set());
+    const isFabDragging = /* @__PURE__ */ ref(false);
+    const fabLeft = /* @__PURE__ */ ref(0);
+    const fabTop = /* @__PURE__ */ ref(0);
+    const showTyping = computed(() => assistant.sending && !assistant.messages.some((item) => item.role === "assistant" && item.id < 0 && item.content.trim()));
+    const fabStyle = computed(() => ({
+      left: `${fabLeft.value}px`,
+      top: `${fabTop.value}px`
+    }));
+    let fabDrag = null;
     onMounted(() => {
+      initFabPosition();
+      window.addEventListener("resize", handleWindowResize);
       assistant.loadSessions();
     });
+    onUnmounted(() => {
+      window.removeEventListener("resize", handleWindowResize);
+    });
     watch(
-      () => [assistant.messages.length, assistant.sending, open.value],
+      () => [assistant.messages.map((item) => `${item.id}:${item.content.length}`).join("|"), assistant.sending, open.value],
       () => {
+        if (!open.value || !autoScrollEnabled.value) return;
         nextTick(scrollToBottom);
       }
     );
     function openPanel() {
       open.value = true;
+      autoScrollEnabled.value = true;
       if (!assistant.sessions.length) assistant.loadSessions();
       nextTick(scrollToBottom);
+    }
+    function handleFabPointerDown(event) {
+      if (event.button !== 0) return;
+      const target = event.currentTarget;
+      target.setPointerCapture(event.pointerId);
+      isFabDragging.value = true;
+      fabDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startLeft: fabLeft.value,
+        startTop: fabTop.value,
+        moved: false
+      };
+    }
+    function handleFabPointerMove(event) {
+      if (!fabDrag || fabDrag.pointerId !== event.pointerId) return;
+      const dx = event.clientX - fabDrag.startX;
+      const dy = event.clientY - fabDrag.startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) fabDrag.moved = true;
+      fabLeft.value = clamp2(fabDrag.startLeft + dx, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
+      fabTop.value = clamp2(fabDrag.startTop + dy, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+    }
+    function handleFabPointerUp(event) {
+      if (!fabDrag || fabDrag.pointerId !== event.pointerId) return;
+      const moved = fabDrag.moved;
+      endFabDrag(event);
+      if (moved) {
+        snapFabToEdge();
+      } else {
+        openPanel();
+      }
+    }
+    function handleFabPointerCancel(event) {
+      endFabDrag(event);
+      snapFabToEdge();
+    }
+    function endFabDrag(event) {
+      const target = event.currentTarget;
+      if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId);
+      isFabDragging.value = false;
+      fabDrag = null;
+    }
+    function initFabPosition() {
+      const saved = localStorage.getItem(FAB_POSITION_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          fabLeft.value = clamp2(parsed.left ?? defaultFabLeft(), FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
+          fabTop.value = clamp2(parsed.top ?? defaultFabTop(), FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+          return;
+        } catch {
+          localStorage.removeItem(FAB_POSITION_KEY);
+        }
+      }
+      fabLeft.value = defaultFabLeft();
+      fabTop.value = defaultFabTop();
+      snapFabToEdge();
+    }
+    function handleWindowResize() {
+      fabLeft.value = clamp2(fabLeft.value, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
+      fabTop.value = clamp2(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+      persistFabPosition();
+    }
+    function snapFabToEdge() {
+      const centerX = fabLeft.value + FAB_SIZE / 2;
+      fabLeft.value = centerX < window.innerWidth / 2 ? FAB_MARGIN : window.innerWidth - FAB_SIZE - FAB_MARGIN;
+      fabTop.value = clamp2(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+      persistFabPosition();
+    }
+    function persistFabPosition() {
+      localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ left: fabLeft.value, top: fabTop.value }));
+    }
+    function defaultFabLeft() {
+      return window.innerWidth - FAB_SIZE - 24;
+    }
+    function defaultFabTop() {
+      return window.innerHeight - FAB_SIZE - 48;
+    }
+    function clamp2(value, min, max) {
+      return Math.min(max, Math.max(min, value));
     }
     async function send() {
       const text = draft.value.trim();
       if (!text) return;
       draft.value = "";
+      autoScrollEnabled.value = true;
       try {
         await assistant.send(text, includeCurrentJianpu.value ? task.jianpuText : void 0);
       } catch (e) {
@@ -62753,14 +62945,123 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       if (!el) return;
       el.scrollTop = el.scrollHeight;
     }
+    function handleMessagesScroll() {
+      const el = messageBody.value;
+      if (!el) return;
+      autoScrollEnabled.value = isNearBottom(el);
+    }
+    function handleMessagesClick(event) {
+      const target = event.target;
+      const summary = target?.closest("summary");
+      const details = summary?.closest("details.ai-think");
+      const messageEl = summary?.closest(".ai-message");
+      if (!summary || !details || !messageEl) return;
+      const messageId = Number(messageEl.dataset.messageId);
+      if (!Number.isFinite(messageId)) return;
+      window.setTimeout(() => {
+        setThinkOpen(messageId, details.open);
+      }, 0);
+    }
+    function isNearBottom(el) {
+      return el.scrollHeight - el.scrollTop - el.clientHeight <= 48;
+    }
+    function setThinkOpen(messageId, openValue) {
+      const next = new Set(openThinkMessageIds.value);
+      if (openValue) next.add(messageId);
+      else next.delete(messageId);
+      openThinkMessageIds.value = next;
+    }
+    function renderAssistantMessage(text, messageId) {
+      if (!text) return "";
+      const parts = [];
+      const thinkRe = /<think>([\s\S]*?)(?:<\/think>|$)/gi;
+      let lastIndex = 0;
+      let match2;
+      const openAttr = openThinkMessageIds.value.has(messageId) ? " open" : "";
+      while ((match2 = thinkRe.exec(text)) !== null) {
+        if (match2.index > lastIndex) {
+          parts.push(renderMarkdown(text.slice(lastIndex, match2.index)));
+        }
+        parts.push(
+          `<details class="ai-think"${openAttr}><summary>深度思考</summary><div class="ai-think-body">${renderMarkdown(match2[1] ?? "")}</div></details>`
+        );
+        lastIndex = thinkRe.lastIndex;
+      }
+      if (lastIndex < text.length) parts.push(renderMarkdown(text.slice(lastIndex)));
+      return parts.join("");
+    }
+    function renderMarkdown(source) {
+      if (!source.trim()) return "";
+      const blocks = [];
+      const inlineCodes = [];
+      let text = source.replace(/```(\w*)\n?([\s\S]*?)(?:```|$)/g, (_match, lang, code) => {
+        const cls = lang ? ` class="language-${escapeAttr(lang)}"` : "";
+        blocks.push(`<pre><code${cls}>${escapeHtml(code.trimEnd())}</code></pre>`);
+        return `@@AI_BLOCK_${blocks.length - 1}@@`;
+      });
+      text = text.replace(/`([^`]+)`/g, (_match, code) => {
+        inlineCodes.push(`<code>${escapeHtml(code)}</code>`);
+        return `@@AI_INLINE_${inlineCodes.length - 1}@@`;
+      });
+      text = escapeHtml(text);
+      text = text.replace(/^### (.+)$/gm, "<h3>$1</h3>").replace(/^## (.+)$/gm, "<h2>$1</h2>").replace(/^# (.+)$/gm, "<h1>$1</h1>").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>").replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+      text = text.replace(/@@AI_INLINE_(\d+)@@/g, (_match, index) => inlineCodes[Number(index)] ?? "");
+      text = text.replace(/@@AI_BLOCK_(\d+)@@/g, (_match, index) => blocks[Number(index)] ?? "");
+      text = renderMarkdownTables(text);
+      return wrapMarkdownBlocks(text);
+    }
+    function renderMarkdownTables(text) {
+      return text.replace(/((?:^\|.*\|\s*$\n?){2,})/gm, (table) => {
+        const lines = table.trim().split(/\r?\n/);
+        if (lines.length < 2 || !/^\|[\s\-:|]+\|$/.test(lines[1].trim())) return table;
+        const headers = splitTableRow(lines[0]);
+        const rows = lines.slice(2).map(splitTableRow).filter((row) => row.length);
+        if (!headers.length || !rows.length) return table;
+        return [
+          '<div class="ai-table"><table><thead><tr>',
+          headers.map((cell) => `<th>${cell}</th>`).join(""),
+          "</tr></thead><tbody>",
+          rows.map((row) => `<tr>${headers.map((_h, index) => `<td>${row[index] ?? ""}</td>`).join("")}</tr>`).join(""),
+          "</tbody></table></div>"
+        ].join("");
+      });
+    }
+    function splitTableRow(line) {
+      return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+    }
+    function wrapMarkdownBlocks(text) {
+      return text.split(/\n{2,}/).map((block) => {
+        const trimmed = block.trim();
+        if (!trimmed) return "";
+        if (/^<(h[1-3]|pre|div class="ai-table")/.test(trimmed)) return trimmed;
+        const lines = trimmed.split(/\r?\n/);
+        if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+          return `<ul>${lines.map((line) => `<li>${line.replace(/^\s*[-*]\s+/, "")}</li>`).join("")}</ul>`;
+        }
+        if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
+          return `<ol>${lines.map((line) => `<li>${line.replace(/^\s*\d+\.\s+/, "")}</li>`).join("")}</ol>`;
+        }
+        return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
+      }).join("");
+    }
+    function escapeHtml(value) {
+      return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function escapeAttr(value) {
+      return value.replace(/[^a-zA-Z0-9_-]/g, "");
+    }
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$2, [
         !open.value ? (openBlock(), createElementBlock("button", {
           key: 0,
-          class: "ai-fab",
+          class: normalizeClass(["ai-fab", { dragging: isFabDragging.value }]),
+          style: normalizeStyle(fabStyle.value),
           type: "button",
           title: "AI 助手",
-          onClick: openPanel
+          onPointerdown: handleFabPointerDown,
+          onPointermove: handleFabPointerMove,
+          onPointerup: handleFabPointerUp,
+          onPointercancel: handleFabPointerCancel
         }, [
           createVNode(unref(NIcon), { size: "22" }, {
             default: withCtx(() => [
@@ -62768,7 +63069,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             ]),
             _: 1
           })
-        ])) : (openBlock(), createElementBlock("div", {
+        ], 38)) : (openBlock(), createElementBlock("div", {
           key: 1,
           class: normalizeClass(["ai-panel", { "sessions-collapsed": !sessionsOpen.value }])
         }, [
@@ -62870,7 +63171,9 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               ref_key: "messageBody",
               ref: messageBody,
-              class: "ai-messages"
+              class: "ai-messages",
+              onScroll: handleMessagesScroll,
+              onClickCapture: handleMessagesClick
             }, [
               unref(assistant).loading ? (openBlock(), createElementBlock("div", _hoisted_9$1, [
                 createVNode(unref(NSpin), { size: "small" })
@@ -62885,21 +63188,26 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ])) : (openBlock(true), createElementBlock(Fragment, { key: 2 }, renderList(unref(assistant).messages, (message2) => {
                 return openBlock(), createElementBlock("div", {
                   key: message2.id,
-                  class: normalizeClass(["ai-message", message2.role])
+                  class: normalizeClass(["ai-message", message2.role]),
+                  "data-message-id": message2.id
                 }, [
-                  createBaseVNode("div", _hoisted_11$1, toDisplayString(message2.content), 1)
-                ], 2);
+                  message2.role === "assistant" ? (openBlock(), createElementBlock("div", {
+                    key: 0,
+                    class: "ai-message-content ai-md",
+                    innerHTML: renderAssistantMessage(message2.content, message2.id)
+                  }, null, 8, _hoisted_12$1)) : (openBlock(), createElementBlock("div", _hoisted_13$1, toDisplayString(message2.content), 1))
+                ], 10, _hoisted_11$1);
               }), 128)),
-              unref(assistant).sending ? (openBlock(), createElementBlock("div", _hoisted_12$1, [..._cache[10] || (_cache[10] = [
+              showTyping.value ? (openBlock(), createElementBlock("div", _hoisted_14$1, [..._cache[10] || (_cache[10] = [
                 createBaseVNode("div", { class: "ai-typing" }, [
                   createBaseVNode("span"),
                   createBaseVNode("span"),
                   createBaseVNode("span")
                 ], -1)
               ])])) : createCommentVNode("", true)
-            ], 512),
-            createBaseVNode("div", _hoisted_13$1, [
-              createBaseVNode("label", _hoisted_14$1, [
+            ], 544),
+            createBaseVNode("div", _hoisted_15$1, [
+              createBaseVNode("label", _hoisted_16$1, [
                 withDirectives(createBaseVNode("input", {
                   "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => includeCurrentJianpu.value = $event),
                   type: "checkbox"
@@ -62908,7 +63216,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                 ]),
                 _cache[11] || (_cache[11] = createBaseVNode("span", null, "附带当前简谱", -1))
               ]),
-              createBaseVNode("div", _hoisted_15$1, [
+              createBaseVNode("div", _hoisted_17, [
                 createVNode(unref(NInput), {
                   value: draft.value,
                   "onUpdate:value": _cache[5] || (_cache[5] = ($event) => draft.value = $event),
@@ -62944,7 +63252,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-de7a6b1e"]]);
+const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-2e774691"]]);
 const _hoisted_1$1 = { class: "log-panel" };
 const _hoisted_2$1 = { class: "log-ts" };
 const _hoisted_3$1 = { class: "log-msg" };

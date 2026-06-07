@@ -38,6 +38,7 @@ def test_ai_chat_routes_are_registered() -> None:
     schema = create_app().openapi()["components"]["schemas"]["AiChatRequest"]
 
     assert "/ai/chat" in paths
+    assert "/ai/chat/stream" in paths
     assert "/ai/chat/sessions" in paths
     assert "/ai/chat/sessions/{session_id}/messages" in paths
     assert "jianpu_text" in schema["properties"]
@@ -147,3 +148,30 @@ def test_ai_chat_injects_jianpu_syntax_and_limits_memory(tmp_path: Path, monkeyp
     assert len(messages[1:]) == MAX_CONTEXT_MESSAGES
     assert "【当前工作台简谱文本】" in messages[-1]["content"]
     assert "[1,3,5]" in messages[-1]["content"]
+
+
+def test_ai_chat_stream_persists_streamed_response(tmp_path: Path, monkeypatch) -> None:
+    def fake_chat_completion_chunks(**kwargs):
+        yield "<think>检查和弦分隔符</think>"
+        yield "\n\n应改为 [1+3+5]。"
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.chat_service.chat_completion_chunks",
+        fake_chat_completion_chunks,
+    )
+    settings = SettingsDao(tmp_path / "settings.db")
+    settings.set("assistant_api_key", "test-key")
+    service = AiChatService(
+        dao=AiChatDao(tmp_path / "ai_chat.db"),
+        settings=settings,
+    )
+
+    events = list(service.stream_message("检查 [1,3,5]"))
+
+    assert events[0][0] == "session"
+    assert ("delta", "<think>检查和弦分隔符</think>") in events
+    assert events[-1][0] == "messages"
+    messages = events[-1][1]
+    assert not isinstance(messages, str)
+    assert messages[-1].role == "assistant"
+    assert "[1+3+5]" in messages[-1].content

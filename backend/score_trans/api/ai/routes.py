@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from collections.abc import Iterator
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 
 from ..dependencies import get_ai_actions, get_task_actions
 from ..tasks.background import run_sync_task, schedule_background_task
@@ -86,6 +90,49 @@ async def send_chat_message(
     )
 
 
+@router.post("/chat/stream")
+async def stream_chat_message(
+    req: AiChatRequest,
+    actions: AiActions = Depends(get_ai_actions),
+):
+    def events() -> Iterator[str]:
+        final_message: AiChatMessage | None = None
+        try:
+            for event, payload in actions.stream_chat_message(
+                req.message,
+                session_id=req.session_id,
+                jianpu_text=req.jianpu_text,
+            ):
+                if event == "session":
+                    yield _sse("session", {"session_id": payload})
+                elif event == "delta":
+                    yield _sse("delta", {"content": payload})
+                elif event == "message" and isinstance(payload, AiChatMessage):
+                    final_message = payload
+                elif event == "messages" and isinstance(payload, list):
+                    yield _sse(
+                        "done",
+                        {
+                            "session_id": final_message.session_id if final_message else "",
+                            "message": _message_response(final_message).model_dump()
+                            if final_message
+                            else None,
+                            "messages": [
+                                _message_response(message).model_dump()
+                                for message in payload
+                            ],
+                        },
+                    )
+        except Exception as exc:
+            yield _sse("error", {"error": str(exc)})
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 def _session_response(session: AiChatSession) -> AiChatSessionResponse:
     return AiChatSessionResponse(
         id=session.id,
@@ -103,3 +150,8 @@ def _message_response(message: AiChatMessage) -> AiChatMessageResponse:
         content=message.content,
         created_at=message.created_at,
     )
+
+
+def _sse(event: str, data: dict[str, Any]) -> str:
+    payload = json.dumps(data, ensure_ascii=False)
+    return f"event: {event}\ndata: {payload}\n\n"

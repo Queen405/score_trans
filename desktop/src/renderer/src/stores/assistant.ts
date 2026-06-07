@@ -70,6 +70,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     if (!text || sending.value) return
 
     const tempId = -Date.now()
+    const tempAssistantId = tempId - 1
     messages.value.push({
       id: tempId,
       session_id: currentSessionId.value,
@@ -77,20 +78,42 @@ export const useAssistantStore = defineStore('assistant', () => {
       content: text,
       created_at: '',
     })
+    messages.value.push({
+      id: tempAssistantId,
+      session_id: currentSessionId.value,
+      role: 'assistant',
+      content: '',
+      created_at: '',
+    })
     sending.value = true
     error.value = ''
     try {
-      const response = await aiApi.chat({
-        message: text,
-        session_id: currentSessionId.value || undefined,
-        jianpu_text: jianpuText?.trim() || undefined,
-      })
-      currentSessionId.value = response.session_id
-      messages.value = response.messages
+      await aiApi.streamChat(
+        {
+          message: text,
+          session_id: currentSessionId.value || undefined,
+          jianpu_text: jianpuText?.trim() || undefined,
+        },
+        {
+          onSession(sessionId) {
+            currentSessionId.value = sessionId
+            messages.value = messages.value.map((item) => (
+              item.id < 0 ? { ...item, session_id: sessionId } : item
+            ))
+          },
+          onDelta(content) {
+            const target = messages.value.find((item) => item.id === tempAssistantId)
+            if (target) target.content += content
+          },
+          onDone(response) {
+            messages.value = response.messages
+          },
+        },
+      )
       sessions.value = await aiApi.listChatSessions()
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : String(e)
-      messages.value = messages.value.filter((item) => item.id !== tempId)
+      messages.value = messages.value.filter((item) => item.id !== tempId && item.id !== tempAssistantId)
       throw e
     } finally {
       sending.value = false
@@ -111,4 +134,3 @@ export const useAssistantStore = defineStore('assistant', () => {
     send,
   }
 })
-
