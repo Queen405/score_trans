@@ -339,7 +339,7 @@
   color: var(--text-placeholder, #666);
 }
 
-.jianpu-player[data-v-1378ca78] {
+.jianpu-player[data-v-26360505] {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -349,13 +349,13 @@
   height: 48px;
   flex-shrink: 0;
 }
-.player-left[data-v-1378ca78] {
+.player-left[data-v-26360505] {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
 }
-.player-btn[data-v-1378ca78] {
+.player-btn[data-v-26360505] {
   width: 32px;
   height: 32px;
   border: none;
@@ -369,44 +369,44 @@
   padding: 0;
   transition: background 0.15s, color 0.15s;
 }
-.player-btn[data-v-1378ca78]:hover:not(:disabled) {
+.player-btn[data-v-26360505]:hover:not(:disabled) {
   background: var(--hover-color, rgba(0,0,0,0.06));
 }
-.player-btn[data-v-1378ca78]:disabled {
+.player-btn[data-v-26360505]:disabled {
   opacity: 0.35;
   cursor: default;
 }
-.player-btn svg[data-v-1378ca78] {
+.player-btn svg[data-v-26360505] {
   width: 20px;
   height: 20px;
 }
-.play-btn[data-v-1378ca78] {
+.play-btn[data-v-26360505] {
   width: 36px;
   height: 36px;
   background: var(--primary-color, #4c6ef5);
   color: #fff;
 }
-.play-btn[data-v-1378ca78]:hover:not(:disabled) {
+.play-btn[data-v-26360505]:hover:not(:disabled) {
   background: var(--primary-color-hover, #5c7aff);
 }
-.play-btn svg[data-v-1378ca78] {
+.play-btn svg[data-v-26360505] {
   width: 22px;
   height: 22px;
 }
-.player-time[data-v-1378ca78] {
+.player-time[data-v-26360505] {
   font-size: 12px;
   color: var(--text-2, #868e96);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   min-width: 80px;
 }
-.player-center[data-v-1378ca78] {
+.player-center[data-v-26360505] {
   flex: 1;
   display: flex;
   align-items: center;
   min-width: 0;
 }
-.progress-bar[data-v-1378ca78] {
+.progress-bar[data-v-26360505] {
   width: 100%;
   height: 24px;
   display: flex;
@@ -414,14 +414,14 @@
   cursor: pointer;
   padding: 0 4px;
 }
-.progress-track[data-v-1378ca78] {
+.progress-track[data-v-26360505] {
   position: relative;
   width: 100%;
   height: 4px;
   background: var(--border, #e9ecef);
   border-radius: 2px;
 }
-.progress-fill[data-v-1378ca78] {
+.progress-fill[data-v-26360505] {
   position: absolute;
   left: 0;
   top: 0;
@@ -430,7 +430,7 @@
   border-radius: 2px;
   transition: width 0.05s linear;
 }
-.progress-thumb[data-v-1378ca78] {
+.progress-thumb[data-v-26360505] {
   position: absolute;
   top: 50%;
   width: 12px;
@@ -441,35 +441,35 @@
   opacity: 0;
   transition: opacity 0.15s;
 }
-.progress-bar:hover .progress-thumb[data-v-1378ca78] {
+.progress-bar:hover .progress-thumb[data-v-26360505] {
   opacity: 1;
 }
-.progress-bar:hover .progress-track[data-v-1378ca78] {
+.progress-bar:hover .progress-track[data-v-26360505] {
   height: 6px;
 }
-.player-right[data-v-1378ca78] {
+.player-right[data-v-26360505] {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
 }
-.tempo-control[data-v-1378ca78] {
+.tempo-control[data-v-26360505] {
   display: flex;
   align-items: center;
   gap: 4px;
 }
-.tempo-icon[data-v-1378ca78] {
+.tempo-icon[data-v-26360505] {
   width: 16px;
   height: 16px;
   color: var(--text-2, #868e96);
   flex-shrink: 0;
 }
-.tempo-unit[data-v-1378ca78] {
+.tempo-unit[data-v-26360505] {
   font-size: 11px;
   color: var(--text-3, #adb5bd);
   flex-shrink: 0;
 }
-.player-btn-sm[data-v-1378ca78] {
+.player-btn-sm[data-v-26360505] {
   width: 22px;
   height: 22px;
   border: none;
@@ -483,25 +483,25 @@
   padding: 0;
   transition: background 0.15s, color 0.15s;
 }
-.player-btn-sm[data-v-1378ca78]:hover {
+.player-btn-sm[data-v-26360505]:hover {
   background: var(--hover-color, rgba(0,0,0,0.06));
   color: var(--text-1, #212529);
 }
-.player-btn-sm svg[data-v-1378ca78] {
+.player-btn-sm svg[data-v-26360505] {
   width: 14px;
   height: 14px;
 }
-.volume-control[data-v-1378ca78] {
+.volume-control[data-v-26360505] {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
 /* Dark theme adjustments */
-.theme-dark .player-btn[data-v-1378ca78]:hover:not(:disabled) {
+.theme-dark .player-btn[data-v-26360505]:hover:not(:disabled) {
   background: rgba(255,255,255,0.08);
 }
-.theme-dark .player-btn-sm[data-v-1378ca78]:hover {
+.theme-dark .player-btn-sm[data-v-26360505]:hover {
   background: rgba(255,255,255,0.08);
 }
 

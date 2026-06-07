@@ -4,8 +4,8 @@ from pathlib import Path
 
 from ....dao.settings.settings_dao import SettingsDao
 from ....models.common.errors import AITranscriptionError
-from ....models.settings.provider_profiles import resolve_provider_profile, resolve_provider_profile_or_default
 from ....models.tasks.entities import ProgressCallback, report_progress
+from ...settings.provider_profiles import resolve_provider_profile, resolve_provider_profile_or_default
 from ..core.protocols import VisionJianpuProvider
 from ..core.registry import create_provider
 from ..core.schemas import AiTranscriptionResult, TranscribedScorePage

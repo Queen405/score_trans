@@ -5,8 +5,8 @@ import pytest
 from score_trans.api.app import create_app
 from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.settings.actions import SettingsActions
-from score_trans.models.settings.provider_profiles import DASHSCOPE_BASE_URL, XIAOMI_MIMO_BASE_URL
 from score_trans.models.settings.schemas import SettingsUpdateRequest
+from score_trans.services.settings.provider_profiles import resolve_provider_profile
 from score_trans.services.settings.settings_service import SettingsService
 
 
@@ -36,17 +36,19 @@ def test_settings_provider_update_resolves_fixed_profiles(tmp_path) -> None:
             assistant_provider="dashscope_qwen_plus",
         )
     )
+    ocr_profile = resolve_provider_profile("ocr", "dashscope_qwen_vl_ocr")
+    ai_profile = resolve_provider_profile("ai", "xiaomi_mimo_v25")
 
     assert response.ocr_provider == "dashscope_qwen_vl_ocr"
-    assert response.ocr_base_url == DASHSCOPE_BASE_URL
-    assert response.ocr_model == "qwen-vl-ocr"
+    assert response.ocr_base_url == ocr_profile.base_url
+    assert response.ocr_model == ocr_profile.model
     assert response.ai_provider == "xiaomi_mimo_v25"
-    assert response.ai_base_url == XIAOMI_MIMO_BASE_URL
-    assert response.ai_model == "mimo-v2.5"
+    assert response.ai_base_url == ai_profile.base_url
+    assert response.ai_model == ai_profile.model
     assert response.assistant_provider == "dashscope_qwen_plus"
     assert response.assistant_model == "qwen-plus"
-    assert dao.get("ocr_base_url") == DASHSCOPE_BASE_URL
-    assert dao.get("ai_model") == "mimo-v2.5"
+    assert dao.get("ocr_base_url") == ocr_profile.base_url
+    assert dao.get("ai_model") == ai_profile.model
     assert dao.get("assistant_model") == "qwen-plus"
 
 

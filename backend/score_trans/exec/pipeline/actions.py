@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from fastapi import UploadFile
 
@@ -11,6 +13,7 @@ from ...domain.musicxml import score_to_jianpu_text
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
+from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.files.file_service import FileService
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
@@ -20,6 +23,8 @@ from ...services.render.render_service import RenderService
 from ...services.settings.settings_service import SettingsService
 from ..convert.actions import MusicXmlToJianpuAction
 from ..recognize.actions import RecognizeScoreAction
+from ..tasks.actions import TaskActions
+from ..tasks.background import run_sync_task, schedule_background_task
 
 
 @dataclass(slots=True)
@@ -138,6 +143,31 @@ class PipelineActions:
         if not input_path:
             raise FileNotFoundError("文件保存失败")
         return input_path
+
+    async def submit_pipeline_task(
+        self,
+        app: Any,
+        file: UploadFile,
+        *,
+        tasks: TaskActions,
+        target_key: str = "C",
+        start_measure_number: int | None = None,
+        title: str | None = None,
+    ) -> TaskSubmitResponse:
+        input_path = await asyncio.to_thread(self.save_upload, file)
+        task_id = tasks.create_task()
+
+        def action(progress: ProgressCallback):
+            return self.run_pipeline_from_path(
+                input_path,
+                target_key=target_key,
+                start_measure_number=start_measure_number,
+                title=title,
+                progress_callback=progress,
+            )
+
+        schedule_background_task(app, task_id, run_sync_task(task_id, tasks, action))
+        return TaskSubmitResponse(task_id=task_id)
 
     def run_pipeline_from_path(
         self,

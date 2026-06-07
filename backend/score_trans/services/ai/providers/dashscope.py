@@ -18,9 +18,9 @@ from ..core.prompts import (
 from ..core.registry import register_provider
 from ..core.schemas import VisionPageResult
 from ._http import chat_completions
+from ...settings.provider_profiles import resolve_provider_profile_or_default
 from ....utils.media import image_to_data_url
 from ....models.common.errors import AITranscriptionError
-from ....models.settings.provider_profiles import resolve_provider_profile_or_default
 
 _BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 _DEFAULT_MODEL = "qwen-vl-max"

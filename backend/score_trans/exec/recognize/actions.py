@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from typing import Any
 
 from fastapi import UploadFile
 
 from ...models.recognize.schemas import RecognizeResponse
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
+from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.files.upload_service import UploadService
 from ...services.recognize.audiveris_service import AudiverisService
 from ...services.settings.settings_service import SettingsService
+from ..tasks.actions import TaskActions
+from ..tasks.background import run_sync_task, schedule_background_task
 
 
 class RecognizeScoreAction:
@@ -59,6 +64,25 @@ class RecognizeActions:
         if not input_path:
             raise FileNotFoundError("文件保存失败")
         return input_path
+
+    async def submit_recognize_task(
+        self,
+        app: Any,
+        file: UploadFile,
+        *,
+        tasks: TaskActions,
+    ) -> TaskSubmitResponse:
+        input_path = await asyncio.to_thread(self.save_upload, file)
+        task_id = tasks.create_task()
+
+        def action(progress: ProgressCallback):
+            return self.recognize_from_path(
+                input_path,
+                progress_callback=progress,
+            )
+
+        schedule_background_task(app, task_id, run_sync_task(task_id, tasks, action))
+        return TaskSubmitResponse(task_id=task_id)
 
     def recognize_from_path(
         self,

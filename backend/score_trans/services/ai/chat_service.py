@@ -15,7 +15,7 @@ from ...dao.ai.chat_dao import AiChatDao
 from ...dao.settings.settings_dao import SettingsDao
 from ...models.ai.entities import AiChatMessage, AiChatSession
 from ...models.common.errors import AITranscriptionError
-from ...models.settings.provider_profiles import resolve_provider_profile_or_default
+from ..settings.provider_profiles import resolve_provider_profile_or_default
 from .core.prompts import build_jianpu_assistant_system_prompt
 from .providers._http import chat_completion_chunks, chat_completions
 

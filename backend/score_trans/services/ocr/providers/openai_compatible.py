@@ -18,7 +18,7 @@ from score_trans.config.settings import (
 
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
-from score_trans.models.settings.provider_profiles import resolve_provider_profile_or_default
+from score_trans.services.settings.provider_profiles import resolve_provider_profile_or_default
 from score_trans.utils.json_parsing import content_to_text
 from score_trans.utils.media import image_to_data_url
 from ..client.client import ocr_prompt_for_model

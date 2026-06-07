@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from score_trans.dao.settings.settings_dao import SettingsDao
-from score_trans.models.settings.provider_profiles import resolve_provider_profile_or_default
+from score_trans.services.settings.provider_profiles import resolve_provider_profile_or_default
 
 from ..core.protocols import OCRProvider
 from .dashscope import DashScopeOCRProvider

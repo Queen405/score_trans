@@ -61512,7 +61512,7 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const JianpuPlayer = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-1378ca78"]]);
+const JianpuPlayer = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-26360505"]]);
 const _sfc_main$7 = /* @__PURE__ */ defineComponent({
   __name: "JianpuSyntaxGuide",
   props: {

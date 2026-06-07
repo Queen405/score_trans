@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, UploadFile, Request
+from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import FileResponse, Response
 
 from ..dependencies import get_file_actions
@@ -45,4 +45,3 @@ async def delete_file(
     actions: FileActions = Depends(get_file_actions),
 ):
     return actions.delete_file(file_id)
-

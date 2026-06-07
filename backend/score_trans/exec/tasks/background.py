@@ -5,15 +5,13 @@ import threading
 from collections.abc import Callable, Coroutine
 from typing import Any
 
-from fastapi import FastAPI
-
-from ...exec.tasks.actions import TaskActions
 from ...models.tasks.entities import ProgressCallback, TaskStatus
+from .actions import TaskActions
 
 SyncTask = Callable[[ProgressCallback], Any]
 
 
-def schedule_background_task(app: FastAPI, task_id: str, coro: Coroutine[Any, Any, None]) -> asyncio.Task[None]:
+def schedule_background_task(app: Any, task_id: str, coro: Coroutine[Any, Any, None]) -> asyncio.Task[None]:
     background_tasks = getattr(app.state, "background_tasks", None)
     if background_tasks is None:
         raise RuntimeError("Background task registry is not initialized")

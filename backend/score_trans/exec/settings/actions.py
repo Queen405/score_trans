@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from ...models.settings.provider_profiles import (
-    LlmProviderKind,
-    LlmProviderProfile,
+from ...models.settings.config import ToolConfig
+from ...models.settings.schemas import LlmProviderOption, SettingsResponse, SettingsUpdateRequest
+from ...models.settings.provider_profiles import LlmProviderKind, LlmProviderProfile
+from ...services.settings.provider_profiles import (
     provider_profiles,
     resolve_provider_profile,
     resolve_provider_profile_or_default,
 )
-from ...models.settings.config import ToolConfig
-from ...models.settings.schemas import LlmProviderOption, SettingsResponse, SettingsUpdateRequest
 from ...services.settings.settings_service import SettingsService
 
 
