@@ -23,7 +23,7 @@ from ...models.score import JianpuScore, TextBlock
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
-from ...services.ocr.providers import OpenAICompatibleOCRProvider
+from ...services.ocr.providers import create_configured_ocr_provider
 from ...services.render.render_service import RenderService
 from ..convert.actions import MusicXmlToJianpuAction
 
@@ -131,7 +131,7 @@ class RenderJianpuTextAction:
     ) -> Path:
         blocks = text_blocks
         if blocks is None and image_path is not None:
-            provider = ocr_provider or OpenAICompatibleOCRProvider()
+            provider = ocr_provider or create_configured_ocr_provider()
             blocks = provider.recognize(Path(image_path))
         return self.render_service.render_text_page_svg(
             input_path,
@@ -209,7 +209,11 @@ class RenderActions:
             if not image_path or not image_path.exists():
                 raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
             page_width, page_height = image_dimensions(image_path)
-            ocr_blocks = _parse_ocr_text(req.ocr_text) if req.ocr_text else OpenAICompatibleOCRProvider().recognize(image_path)
+            ocr_blocks = (
+                _parse_ocr_text(req.ocr_text)
+                if req.ocr_text
+                else create_configured_ocr_provider().recognize(image_path)
+            )
             self.text_renderer.execute_page(
                 input_path,
                 svg_path,

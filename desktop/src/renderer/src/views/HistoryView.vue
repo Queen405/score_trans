@@ -35,7 +35,7 @@
       >
         <div class="hv-card-top">
           <div class="hv-card-name">
-            <span :class="['status-dot', entry.status === 'completed' ? 'ok' : 'err']" />
+            <span :class="['status-dot', statusClass(entry.status)]" />
             <span>{{ entry.input_file_name || '未知文件' }}</span>
           </div>
           <div class="hv-card-actions" @click.stop>
@@ -202,7 +202,16 @@ function formatTime(iso: string): string {
 }
 
 function statusLabel(status: string): string {
-  return status === 'completed' ? '成功' : '失败'
+  if (status === 'completed') return '成功'
+  if (status === 'waiting') return '待选择'
+  if (status === 'processing' || status === 'pending') return '处理中'
+  return '失败'
+}
+
+function statusClass(status: string): string {
+  if (status === 'completed') return 'ok'
+  if (status === 'waiting' || status === 'processing' || status === 'pending') return 'waiting'
+  return 'err'
 }
 </script>
 
@@ -299,6 +308,7 @@ function statusLabel(status: string): string {
 }
 
 .status-dot.ok { background: var(--success); }
+.status-dot.waiting { background: var(--warning); }
 .status-dot.err { background: var(--danger); }
 
 .hv-card-meta {
@@ -319,7 +329,10 @@ function statusLabel(status: string): string {
 }
 
 .hv-status.completed { color: var(--success); }
-.hv-status:not(.completed) { color: var(--danger); }
+.hv-status.waiting,
+.hv-status.processing,
+.hv-status.pending { color: var(--warning); }
+.hv-status:not(.completed):not(.waiting):not(.processing):not(.pending) { color: var(--danger); }
 
 .hv-card-flags {
   display: flex;

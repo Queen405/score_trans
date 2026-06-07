@@ -18,6 +18,7 @@ from score_trans.config.settings import (
 
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
+from score_trans.models.settings.provider_profiles import resolve_provider_profile_or_default
 from score_trans.utils.json_parsing import content_to_text
 from score_trans.utils.media import image_to_data_url
 from ..client.client import ocr_prompt_for_model
@@ -36,20 +37,29 @@ class OpenAICompatibleOCRProvider:
         *,
         base_url: str | None = None,
         model: str | None = None,
+        api_key: str | None = None,
+        fallback_model: str | None = None,
         timeout: float = OCR_TIMEOUT,
         dry_run: bool = False,
     ) -> None:
         from ..core import persisted_ocr_settings
 
         persisted = persisted_ocr_settings()
+        profile = resolve_provider_profile_or_default("ocr", persisted.get("ocr_provider"))
+        profile_matches = profile.provider == "openai_compatible"
         self.base_url = (
             base_url
-            or persisted.get("ocr_base_url")
+            or (profile.base_url if profile_matches else "")
             or DEFAULT_OCR_BASE_URL
         ).rstrip("/")
-        self.model = model or persisted.get("ocr_model") or DEFAULT_OCR_MODEL
-        self.fallback_model = persisted.get("ocr_fallback_model") or DEFAULT_OCR_FALLBACK_MODEL
-        self.api_key = persisted.get("ocr_api_key") or ""
+        self.model = model or (profile.model if profile_matches else "") or DEFAULT_OCR_MODEL
+        self.fallback_model = (
+            fallback_model
+            or (profile.fallback_model if profile_matches else "")
+            or persisted.get("ocr_fallback_model")
+            or DEFAULT_OCR_FALLBACK_MODEL
+        )
+        self.api_key = api_key or persisted.get("ocr_api_key") or ""
         self.timeout = timeout
         self.dry_run = dry_run
 

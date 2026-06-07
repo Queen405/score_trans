@@ -215,10 +215,12 @@ class HistoryDao:
 
 
 def _batch_status(statuses: list[str]) -> str:
-    active_statuses = {"pending", "processing"}
+    active_statuses = {"pending", "processing", "waiting"}
     known_statuses = {"completed", "failed", *active_statuses}
     if any(status == "failed" or status not in known_statuses for status in statuses):
         return "failed"
+    if any(status == "waiting" for status in statuses):
+        return "waiting"
     if any(status in active_statuses for status in statuses):
         return "processing"
     return "completed"

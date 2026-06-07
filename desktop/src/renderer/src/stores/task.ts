@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { SSEProgressEvent } from '../models/types'
 
-export type TaskPageStatus = 'pending' | 'processing' | 'completed' | 'failed'
+export type TaskPageStatus = 'pending' | 'processing' | 'waiting' | 'completed' | 'failed'
 
 export interface TaskPage {
   id: string
@@ -22,6 +22,7 @@ export interface TaskPage {
   status: TaskPageStatus
   progressPercent: number
   progressMessage: string
+  measureNumberOptions: number[]
   errorMessage: string
 }
 
@@ -42,6 +43,7 @@ export interface TaskPageInput {
   status?: TaskPageStatus
   progressPercent?: number
   progressMessage?: string
+  measureNumberOptions?: number[]
   errorMessage?: string
 }
 
@@ -65,6 +67,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     status: 'pending',
     progressPercent: 0,
     progressMessage: '',
+    measureNumberOptions: [],
     errorMessage: '',
     ...seed,
   }
@@ -209,6 +212,7 @@ export const useTaskStore = defineStore('task', () => {
       taskId: '',
       progressPercent: 0,
       progressMessage: '',
+      measureNumberOptions: [],
       errorMessage: '',
     })
   }
@@ -244,6 +248,7 @@ export const useTaskStore = defineStore('task', () => {
       taskId: '',
       progressPercent: 0,
       progressMessage: '',
+      measureNumberOptions: [],
       errorMessage: '',
     })
   }
@@ -326,6 +331,7 @@ export const useTaskStore = defineStore('task', () => {
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
       progressMessage: p.progressMessage ?? '',
+      measureNumberOptions: p.measureNumberOptions ?? [],
       errorMessage: p.errorMessage ?? '',
     }))
     pages.value.splice(index, 1, ...nextPages)
@@ -366,6 +372,7 @@ export const useTaskStore = defineStore('task', () => {
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
       progressMessage: p.progressMessage ?? '',
+      measureNumberOptions: p.measureNumberOptions ?? [],
       errorMessage: p.errorMessage ?? '',
     }))
     pages.value.splice(index, 1, ...nextPages)
@@ -444,6 +451,7 @@ export const useTaskStore = defineStore('task', () => {
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
       progressMessage: p.progressMessage ?? '',
+      measureNumberOptions: p.measureNumberOptions ?? [],
       errorMessage: p.errorMessage ?? '',
     }))
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))

@@ -6616,13 +6616,13 @@ function setupStatefulComponent(instance, isSSR) {
   const Component = instance.type;
   instance.accessCache = /* @__PURE__ */ Object.create(null);
   instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers);
-  const { setup } = Component;
-  if (setup) {
+  const { setup: setup2 } = Component;
+  if (setup2) {
     pauseTracking();
-    const setupContext = instance.setupContext = setup.length > 1 ? createSetupContext(instance) : null;
+    const setupContext = instance.setupContext = setup2.length > 1 ? createSetupContext(instance) : null;
     const reset = setCurrentInstance(instance);
     const setupResult = callWithErrorHandling(
-      setup,
+      setup2,
       instance,
       0,
       [
@@ -8010,7 +8010,7 @@ function createOptionsStore(id, options, pinia, hot) {
   const { state, actions, getters } = options;
   const initialState = pinia.state.value[id];
   let store;
-  function setup() {
+  function setup2() {
     if (!initialState && true) {
       {
         pinia.state.value[id] = state ? state() : {};
@@ -8026,10 +8026,10 @@ function createOptionsStore(id, options, pinia, hot) {
       return computedGetters;
     }, {}));
   }
-  store = createSetupStore(id, setup, options, pinia, hot, true);
+  store = createSetupStore(id, setup2, options, pinia, hot, true);
   return store;
 }
-function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) {
+function createSetupStore($id, setup2, options = {}, pinia, hot, isOptionsStore) {
   let scope;
   const optionsForPlugin = assign({ actions: {} }, options);
   const $subscribeOptions = { deep: true };
@@ -8160,7 +8160,7 @@ function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) 
   const store = /* @__PURE__ */ reactive(partialStore);
   pinia._s.set($id, store);
   const runWithContext = pinia._a && pinia._a.runWithContext || fallbackRunWithContext;
-  const setupStore = runWithContext(() => pinia._e.run(() => (scope = effectScope()).run(() => setup({ action }))));
+  const setupStore = runWithContext(() => pinia._e.run(() => (scope = effectScope()).run(() => setup2({ action }))));
   for (const key in setupStore) {
     const prop = setupStore[key];
     if (/* @__PURE__ */ isRef(prop) && !isComputed(prop) || /* @__PURE__ */ isReactive(prop)) {
@@ -8215,13 +8215,13 @@ function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) 
 }
 /*! #__NO_SIDE_EFFECTS__ */
 // @__NO_SIDE_EFFECTS__
-function defineStore(idOrOptions, setup, setupOptions) {
+function defineStore(idOrOptions, setup2, setupOptions) {
   let id;
   let options;
-  const isSetupStore = typeof setup === "function";
+  const isSetupStore = typeof setup2 === "function";
   if (typeof idOrOptions === "string") {
     id = idOrOptions;
-    options = isSetupStore ? setupOptions : setup;
+    options = isSetupStore ? setupOptions : setup2;
   } else {
     options = idOrOptions;
     id = idOrOptions.id;
@@ -8236,7 +8236,7 @@ function defineStore(idOrOptions, setup, setupOptions) {
     pinia = activePinia;
     if (!pinia._s.has(id)) {
       if (isSetupStore) {
-        createSetupStore(id, setup, options, pinia);
+        createSetupStore(id, setup2, options, pinia);
       } else {
         createOptionsStore(id, options, pinia);
       }
@@ -8268,6 +8268,7 @@ function createPage(seed) {
     status: "pending",
     progressPercent: 0,
     progressMessage: "",
+    measureNumberOptions: [],
     errorMessage: "",
     ...seed
   };
@@ -8396,6 +8397,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       taskId: "",
       progressPercent: 0,
       progressMessage: "",
+      measureNumberOptions: [],
       errorMessage: ""
     });
   }
@@ -8428,6 +8430,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       taskId: "",
       progressPercent: 0,
       progressMessage: "",
+      measureNumberOptions: [],
       errorMessage: ""
     });
   }
@@ -8500,6 +8503,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       status: p2.status ?? "completed",
       progressPercent: p2.progressPercent ?? 0,
       progressMessage: p2.progressMessage ?? "",
+      measureNumberOptions: p2.measureNumberOptions ?? [],
       errorMessage: p2.errorMessage ?? ""
     }));
     pages.value.splice(index, 1, ...nextPages);
@@ -8538,6 +8542,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       status: p2.status ?? "completed",
       progressPercent: p2.progressPercent ?? 0,
       progressMessage: p2.progressMessage ?? "",
+      measureNumberOptions: p2.measureNumberOptions ?? [],
       errorMessage: p2.errorMessage ?? ""
     }));
     pages.value.splice(index, 1, ...nextPages);
@@ -8605,6 +8610,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       status: p2.status ?? "completed",
       progressPercent: p2.progressPercent ?? 0,
       progressMessage: p2.progressMessage ?? "",
+      measureNumberOptions: p2.measureNumberOptions ?? [],
       errorMessage: p2.errorMessage ?? ""
     }));
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1));
@@ -8760,14 +8766,20 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const javaHome = /* @__PURE__ */ ref("");
   const targetKey = /* @__PURE__ */ ref("C");
   const outputDir = /* @__PURE__ */ ref("");
+  const ocrProvider = /* @__PURE__ */ ref("siliconflow_deepseek_ocr");
+  const ocrProviderOptions = /* @__PURE__ */ ref([]);
   const ocrApiKey = /* @__PURE__ */ ref("");
   const ocrApiKeySet = /* @__PURE__ */ ref(false);
   const ocrBaseUrl = /* @__PURE__ */ ref("https://api.siliconflow.cn/v1");
   const ocrModel = /* @__PURE__ */ ref("deepseek-ai/DeepSeek-OCR");
+  const aiProvider = /* @__PURE__ */ ref("siliconflow_qwen3_vl_8b");
+  const aiProviderOptions = /* @__PURE__ */ ref([]);
   const aiApiKey = /* @__PURE__ */ ref("");
   const aiApiKeySet = /* @__PURE__ */ ref(false);
   const aiBaseUrl = /* @__PURE__ */ ref("https://api.siliconflow.cn/v1");
   const aiModel = /* @__PURE__ */ ref("Qwen/Qwen3-VL-8B-Instruct");
+  const assistantProvider = /* @__PURE__ */ ref("dashscope_deepseek_v4_flash");
+  const assistantProviderOptions = /* @__PURE__ */ ref([]);
   const assistantApiKey = /* @__PURE__ */ ref("");
   const assistantApiKeySet = /* @__PURE__ */ ref(false);
   const assistantBaseUrl = /* @__PURE__ */ ref("https://dashscope.aliyuncs.com/compatible-mode/v1");
@@ -8779,63 +8791,76 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   async function load() {
     try {
       const data = await settingsApi.get();
-      audiverisPath.value = data.audiveris_path;
-      javaHome.value = data.java_home;
-      targetKey.value = data.target_key ?? "C";
-      outputDir.value = data.output_dir ?? "";
-      ocrApiKey.value = data.ocr_api_key ?? "";
-      ocrApiKeySet.value = data.ocr_api_key_set ?? false;
-      ocrBaseUrl.value = data.ocr_base_url ?? "https://api.siliconflow.cn/v1";
-      ocrModel.value = data.ocr_model ?? "deepseek-ai/DeepSeek-OCR";
-      aiApiKey.value = data.ai_api_key ?? "";
-      aiApiKeySet.value = data.ai_api_key_set ?? false;
-      aiBaseUrl.value = data.ai_base_url ?? "https://api.siliconflow.cn/v1";
-      aiModel.value = data.ai_model ?? "Qwen/Qwen3-VL-8B-Instruct";
-      assistantApiKey.value = data.assistant_api_key ?? "";
-      assistantApiKeySet.value = data.assistant_api_key_set ?? false;
-      assistantBaseUrl.value = data.assistant_base_url ?? "https://dashscope.aliyuncs.com/compatible-mode/v1";
-      assistantModel.value = data.assistant_model ?? "deepseek-v4-flash";
-      omrPreprocess.value = data.omr_preprocess ?? true;
-      omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600;
-      omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false;
+      applySettings(data);
       loaded.value = true;
     } catch (e) {
       console.error("Failed to load settings:", e);
     }
   }
   async function save() {
-    await settingsApi.update({
+    const data = await settingsApi.update({
       audiveris_path: audiverisPath.value,
       java_home: javaHome.value,
       output_dir: outputDir.value,
       target_key: targetKey.value,
+      ocr_provider: ocrProvider.value,
       ocr_api_key: ocrApiKey.value || void 0,
-      ocr_base_url: ocrBaseUrl.value,
-      ocr_model: ocrModel.value,
+      ai_provider: aiProvider.value,
       ai_api_key: aiApiKey.value || void 0,
-      ai_base_url: aiBaseUrl.value,
-      ai_model: aiModel.value,
+      assistant_provider: assistantProvider.value,
       assistant_api_key: assistantApiKey.value || void 0,
-      assistant_base_url: assistantBaseUrl.value,
-      assistant_model: assistantModel.value,
       omr_preprocess: omrPreprocess.value,
       omr_preprocess_long_edge: omrPreprocessLongEdge.value,
       omr_preprocess_binarize: omrPreprocessBinarize.value
     });
+    applySettings(data);
+  }
+  function applySettings(data) {
+    audiverisPath.value = data.audiveris_path;
+    javaHome.value = data.java_home;
+    targetKey.value = data.target_key ?? "C";
+    outputDir.value = data.output_dir ?? "";
+    ocrProvider.value = data.ocr_provider ?? "siliconflow_deepseek_ocr";
+    ocrProviderOptions.value = data.ocr_provider_options ?? [];
+    ocrApiKey.value = data.ocr_api_key ?? "";
+    ocrApiKeySet.value = data.ocr_api_key_set ?? false;
+    ocrBaseUrl.value = data.ocr_base_url ?? "https://api.siliconflow.cn/v1";
+    ocrModel.value = data.ocr_model ?? "deepseek-ai/DeepSeek-OCR";
+    aiProvider.value = data.ai_provider ?? "siliconflow_qwen3_vl_8b";
+    aiProviderOptions.value = data.ai_provider_options ?? [];
+    aiApiKey.value = data.ai_api_key ?? "";
+    aiApiKeySet.value = data.ai_api_key_set ?? false;
+    aiBaseUrl.value = data.ai_base_url ?? "https://api.siliconflow.cn/v1";
+    aiModel.value = data.ai_model ?? "Qwen/Qwen3-VL-8B-Instruct";
+    assistantProvider.value = data.assistant_provider ?? "dashscope_deepseek_v4_flash";
+    assistantProviderOptions.value = data.assistant_provider_options ?? [];
+    assistantApiKey.value = data.assistant_api_key ?? "";
+    assistantApiKeySet.value = data.assistant_api_key_set ?? false;
+    assistantBaseUrl.value = data.assistant_base_url ?? "https://dashscope.aliyuncs.com/compatible-mode/v1";
+    assistantModel.value = data.assistant_model ?? "deepseek-v4-flash";
+    omrPreprocess.value = data.omr_preprocess ?? true;
+    omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600;
+    omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false;
   }
   return {
     audiverisPath,
     javaHome,
     targetKey,
     outputDir,
+    ocrProvider,
+    ocrProviderOptions,
     ocrApiKey,
     ocrApiKeySet,
     ocrBaseUrl,
     ocrModel,
+    aiProvider,
+    aiProviderOptions,
     aiApiKey,
     aiApiKeySet,
     aiBaseUrl,
     aiModel,
+    assistantProvider,
+    assistantProviderOptions,
     assistantApiKey,
     assistantApiKeySet,
     assistantBaseUrl,
@@ -8860,6 +8885,36 @@ const pipelineApi = {
       formData.append("title", title);
     }
     return apiFetch("/pipeline", { method: "POST", body: formData });
+  }
+};
+const renderApi = {
+  jianpuSvg(req) {
+    return apiFetch("/render/jianpu-svg", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  jianpuTextSvg(req) {
+    return apiFetch("/render/jianpu-text-svg", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  finalOutput(req) {
+    return apiFetch("/render/final-output", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  normalizeJianpuText(req) {
+    return apiFetch("/render/normalize-jianpu-text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
   }
 };
 const aiApi = {
@@ -9080,7 +9135,7 @@ function listenHistoryUpdated(callback) {
   window.addEventListener(HISTORY_UPDATED_EVENT, handler2);
   return () => window.removeEventListener(HISTORY_UPDATED_EVENT, handler2);
 }
-const _hoisted_1$z = {
+const _hoisted_1$A = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9099,7 +9154,7 @@ const _hoisted_2$y = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$w = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9113,11 +9168,60 @@ const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$n = [_hoisted_2$y, _hoisted_3$v];
+const _hoisted_4$o = [_hoisted_2$y, _hoisted_3$w];
 const AddOutline = /* @__PURE__ */ defineComponent({
   name: "AddOutline",
   render: function render(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_4$n);
+    return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_4$o);
+  }
+});
+const _hoisted_1$z = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$x = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-miterlimit": "10",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M250.26 166.05L256 288l5.73-121.95a5.74 5.74 0 0 0-5.79-6h0a5.74 5.74 0 0 0-5.68 6z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$n = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M256 367.91a20 20 0 1 1 20-20a20 20 0 0 1-20 20z",
+    fill: "currentColor"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_5$g = [_hoisted_2$x, _hoisted_3$v, _hoisted_4$n];
+const AlertCircleOutline = /* @__PURE__ */ defineComponent({
+  name: "AlertCircleOutline",
+  render: function render2(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_5$g);
   }
 });
 const _hoisted_1$y = {
@@ -9125,7 +9229,7 @@ const _hoisted_1$y = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$x = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$w = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9153,10 +9257,10 @@ const _hoisted_3$u = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$m = [_hoisted_2$x, _hoisted_3$u];
+const _hoisted_4$m = [_hoisted_2$w, _hoisted_3$u];
 const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
   name: "ArrowForwardOutline",
-  render: function render2(_ctx, _cache) {
+  render: function render3(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_4$m);
   }
 });
@@ -9165,7 +9269,7 @@ const _hoisted_1$x = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$w = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$v = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M87.48 380c1.2-4.38-1.43-10.47-3.94-14.86a42.63 42.63 0 0 0-2.54-3.8a199.81 199.81 0 0 1-33-110C47.64 139.09 140.72 48 255.82 48C356.2 48 440 117.54 459.57 209.85a199 199 0 0 1 4.43 41.64c0 112.41-89.49 204.93-204.59 204.93c-18.31 0-43-4.6-56.47-8.37s-26.92-8.77-30.39-10.11a31.14 31.14 0 0 0-11.13-2.07a30.7 30.7 0 0 0-12.08 2.43L81.5 462.78a15.92 15.92 0 0 1-4.66 1.22a9.61 9.61 0 0 1-9.58-9.74a15.85 15.85 0 0 1 .6-3.29z",
@@ -9215,10 +9319,10 @@ const _hoisted_5$f = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$a = [_hoisted_2$w, _hoisted_3$t, _hoisted_4$l, _hoisted_5$f];
+const _hoisted_6$a = [_hoisted_2$v, _hoisted_3$t, _hoisted_4$l, _hoisted_5$f];
 const ChatbubbleEllipsesOutline = /* @__PURE__ */ defineComponent({
   name: "ChatbubbleEllipsesOutline",
-  render: function render3(_ctx, _cache) {
+  render: function render4(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_6$a);
   }
 });
@@ -9227,7 +9331,7 @@ const _hoisted_1$w = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$v = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9241,10 +9345,10 @@ const _hoisted_2$v = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$s = [_hoisted_2$v];
+const _hoisted_3$s = [_hoisted_2$u];
 const ChevronBackOutline = /* @__PURE__ */ defineComponent({
   name: "ChevronBackOutline",
-  render: function render4(_ctx, _cache) {
+  render: function render5(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_3$s);
   }
 });
@@ -9253,7 +9357,7 @@ const _hoisted_1$v = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9267,10 +9371,10 @@ const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$r = [_hoisted_2$u];
+const _hoisted_3$r = [_hoisted_2$t];
 const ChevronForwardOutline = /* @__PURE__ */ defineComponent({
   name: "ChevronForwardOutline",
-  render: function render5(_ctx, _cache) {
+  render: function render6(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_3$r);
   }
 });
@@ -9279,7 +9383,7 @@ const _hoisted_1$u = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9307,10 +9411,10 @@ const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$k = [_hoisted_2$t, _hoisted_3$q];
+const _hoisted_4$k = [_hoisted_2$s, _hoisted_3$q];
 const CloseOutline = /* @__PURE__ */ defineComponent({
   name: "CloseOutline",
-  render: function render6(_ctx, _cache) {
+  render: function render7(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$k);
   }
 });
@@ -9319,7 +9423,7 @@ const _hoisted_1$t = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M320 336h76c55 0 100-21.21 100-75.6s-53-73.47-96-75.6C391.11 99.74 329 48 256 48c-69 0-113.44 45.79-128 91.2c-60 5.7-112 35.88-112 98.4S70 336 136 336h56",
@@ -9361,10 +9465,10 @@ const _hoisted_4$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$e = [_hoisted_2$s, _hoisted_3$p, _hoisted_4$j];
+const _hoisted_5$e = [_hoisted_2$r, _hoisted_3$p, _hoisted_4$j];
 const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
   name: "CloudDownloadOutline",
-  render: function render7(_ctx, _cache) {
+  render: function render8(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_5$e);
   }
 });
@@ -9373,7 +9477,7 @@ const _hoisted_1$s = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$q = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M320 367.79h76c55 0 100-29.21 100-83.6s-53-81.47-96-83.6c-8.89-85.06-71-136.8-144-136.8c-69 0-113.44 45.79-128 91.2c-60 5.7-112 43.88-112 106.4s54 106.4 120 106.4h56",
@@ -9415,10 +9519,10 @@ const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$d = [_hoisted_2$r, _hoisted_3$o, _hoisted_4$i];
+const _hoisted_5$d = [_hoisted_2$q, _hoisted_3$o, _hoisted_4$i];
 const CloudUploadOutline = /* @__PURE__ */ defineComponent({
   name: "CloudUploadOutline",
-  render: function render8(_ctx, _cache) {
+  render: function render9(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_5$d);
   }
 });
@@ -9427,7 +9531,7 @@ const _hoisted_1$r = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$q = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9455,10 +9559,10 @@ const _hoisted_3$n = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$h = [_hoisted_2$q, _hoisted_3$n];
+const _hoisted_4$h = [_hoisted_2$p, _hoisted_3$n];
 const CodeOutline = /* @__PURE__ */ defineComponent({
   name: "CodeOutline",
-  render: function render9(_ctx, _cache) {
+  render: function render10(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_4$h);
   }
 });
@@ -9467,7 +9571,7 @@ const _hoisted_1$q = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M416 221.25V416a48 48 0 0 1-48 48H144a48 48 0 0 1-48-48V96a48 48 0 0 1 48-48h98.75a32 32 0 0 1 22.62 9.37l141.26 141.26a32 32 0 0 1 9.37 22.62z",
@@ -9494,10 +9598,10 @@ const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$g = [_hoisted_2$p, _hoisted_3$m];
+const _hoisted_4$g = [_hoisted_2$o, _hoisted_3$m];
 const DocumentOutline = /* @__PURE__ */ defineComponent({
   name: "DocumentOutline",
-  render: function render10(_ctx, _cache) {
+  render: function render11(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_4$g);
   }
 });
@@ -9506,7 +9610,7 @@ const _hoisted_1$p = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$n = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M315.27 33L96 304h128l-31.51 173.23a2.36 2.36 0 0 0 2.33 2.77h0a2.36 2.36 0 0 0 1.89-.95L416 208H288l31.66-173.25a2.45 2.45 0 0 0-2.44-2.75h0a2.42 2.42 0 0 0-1.95 1z",
@@ -9520,10 +9624,10 @@ const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$l = [_hoisted_2$o];
+const _hoisted_3$l = [_hoisted_2$n];
 const FlashOutline = /* @__PURE__ */ defineComponent({
   name: "FlashOutline",
-  render: function render11(_ctx, _cache) {
+  render: function render12(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_3$l);
   }
 });
@@ -9532,28 +9636,15 @@ const _hoisted_1$o = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$n = /* @__PURE__ */ createStaticVNode('<path d="M256 48C141.13 48 48 141.13 48 256s93.13 208 208 208s208-93.13 208-208S370.87 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M256 48c-58.07 0-112.67 93.13-112.67 208S197.93 464 256 464s112.67-93.13 112.67-208S314.07 48 256 48z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"></path><path d="M117.33 117.33c38.24 27.15 86.38 43.34 138.67 43.34s100.43-16.19 138.67-43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path d="M394.67 394.67c-38.24-27.15-86.38-43.34-138.67-43.34s-100.43 16.19-138.67 43.34" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M256 48v416"></path><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M464 256H48"></path>', 6);
-const _hoisted_8$8 = [_hoisted_2$n];
-const GlobeOutline = /* @__PURE__ */ defineComponent({
-  name: "GlobeOutline",
-  render: function render12(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$o, _hoisted_8$8);
-  }
-});
-const _hoisted_1$n = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
 const _hoisted_2$m = /* @__PURE__ */ createStaticVNode('<rect x="80" y="80" width="352" height="352" rx="48" ry="48" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><rect x="144" y="144" width="224" height="224" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 176h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 176h32"></path>', 14);
-const _hoisted_16$3 = [_hoisted_2$m];
+const _hoisted_16$4 = [_hoisted_2$m];
 const HardwareChipOutline = /* @__PURE__ */ defineComponent({
   name: "HardwareChipOutline",
   render: function render13(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_16$3);
+    return openBlock(), createElementBlock("svg", _hoisted_1$o, _hoisted_16$4);
   }
 });
-const _hoisted_1$m = {
+const _hoisted_1$n = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9601,10 +9692,10 @@ const _hoisted_5$c = [_hoisted_2$l, _hoisted_3$k, _hoisted_4$f];
 const HelpCircleOutline = /* @__PURE__ */ defineComponent({
   name: "HelpCircleOutline",
   render: function render14(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_5$c);
+    return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_5$c);
   }
 });
-const _hoisted_1$l = {
+const _hoisted_1$m = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9674,10 +9765,10 @@ const _hoisted_6$9 = [_hoisted_2$k, _hoisted_3$j, _hoisted_4$e, _hoisted_5$b];
 const ImageOutline = /* @__PURE__ */ defineComponent({
   name: "ImageOutline",
   render: function render15(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_6$9);
+    return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_6$9);
   }
 });
-const _hoisted_1$k = {
+const _hoisted_1$l = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9699,10 +9790,10 @@ const _hoisted_3$i = [_hoisted_2$j];
 const KeyOutline = /* @__PURE__ */ defineComponent({
   name: "KeyOutline",
   render: function render16(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_3$i);
+    return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_3$i);
   }
 });
-const _hoisted_1$j = {
+const _hoisted_1$k = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9739,10 +9830,10 @@ const _hoisted_4$d = [_hoisted_2$i, _hoisted_3$h];
 const RefreshOutline = /* @__PURE__ */ defineComponent({
   name: "RefreshOutline",
   render: function render17(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_4$d);
+    return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_4$d);
   }
 });
-const _hoisted_1$i = {
+const _hoisted_1$j = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9765,10 +9856,10 @@ const _hoisted_3$g = [_hoisted_2$h];
 const SaveOutline = /* @__PURE__ */ defineComponent({
   name: "SaveOutline",
   render: function render18(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$i, _hoisted_3$g);
+    return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_3$g);
   }
 });
-const _hoisted_1$h = {
+const _hoisted_1$i = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9833,10 +9924,10 @@ const _hoisted_6$8 = [_hoisted_2$g, _hoisted_3$f, _hoisted_4$c, _hoisted_5$a];
 const ScanOutline = /* @__PURE__ */ defineComponent({
   name: "ScanOutline",
   render: function render19(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$h, _hoisted_6$8);
+    return openBlock(), createElementBlock("svg", _hoisted_1$i, _hoisted_6$8);
   }
 });
-const _hoisted_1$g = {
+const _hoisted_1$h = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9859,10 +9950,10 @@ const _hoisted_3$e = [_hoisted_2$f];
 const SendOutline = /* @__PURE__ */ defineComponent({
   name: "SendOutline",
   render: function render20(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_3$e);
+    return openBlock(), createElementBlock("svg", _hoisted_1$h, _hoisted_3$e);
   }
 });
-const _hoisted_1$f = {
+const _hoisted_1$g = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9885,10 +9976,10 @@ const _hoisted_3$d = [_hoisted_2$e];
 const SettingsOutline = /* @__PURE__ */ defineComponent({
   name: "SettingsOutline",
   render: function render21(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$f, _hoisted_3$d);
+    return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_3$d);
   }
 });
-const _hoisted_1$e = {
+const _hoisted_1$f = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9939,10 +10030,10 @@ const _hoisted_5$9 = [_hoisted_2$d, _hoisted_3$c, _hoisted_4$b];
 const SyncOutline = /* @__PURE__ */ defineComponent({
   name: "SyncOutline",
   render: function render22(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_5$9);
+    return openBlock(), createElementBlock("svg", _hoisted_1$f, _hoisted_5$9);
   }
 });
-const _hoisted_1$d = {
+const _hoisted_1$e = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -9997,10 +10088,10 @@ const _hoisted_5$8 = [_hoisted_2$c, _hoisted_3$b, _hoisted_4$a];
 const TerminalOutline = /* @__PURE__ */ defineComponent({
   name: "TerminalOutline",
   render: function render23(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_5$8);
+    return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_5$8);
   }
 });
-const _hoisted_1$c = {
+const _hoisted_1$d = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -10036,10 +10127,10 @@ const _hoisted_4$9 = [_hoisted_2$b, _hoisted_3$a];
 const TimeOutline = /* @__PURE__ */ defineComponent({
   name: "TimeOutline",
   render: function render24(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_4$9);
+    return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_4$9);
   }
 });
-const _hoisted_1$b = {
+const _hoisted_1$c = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
@@ -10049,7 +10140,7 @@ const _hoisted_8$7 = [_hoisted_2$a];
 const TrashOutline = /* @__PURE__ */ defineComponent({
   name: "TrashOutline",
   render: function render25(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$b, _hoisted_8$7);
+    return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_8$7);
   }
 });
 function useFileUpload() {
@@ -10678,6 +10769,13 @@ function getMargin(value, position) {
   if (position === void 0)
     return margin;
   return margin[position];
+}
+function getGap(value, orient) {
+  const [rowGap, colGap] = value.split(" ");
+  return {
+    row: rowGap,
+    col: colGap || rowGap
+  };
 }
 const colors = {
   aliceblue: "#F0F8FF",
@@ -11437,18 +11535,18 @@ function useClickPosition() {
     return /* @__PURE__ */ readonly(/* @__PURE__ */ ref(null));
   if (usedCount$1 === 0)
     on("click", document, clickHandler, true);
-  const setup = () => {
+  const setup2 = () => {
     usedCount$1 += 1;
   };
   if (managable$1 && (managable$1 = hasInstance())) {
-    onBeforeMount(setup);
+    onBeforeMount(setup2);
     onBeforeUnmount(() => {
       usedCount$1 -= 1;
       if (usedCount$1 === 0)
         off("click", document, clickHandler, true);
     });
   } else {
-    setup();
+    setup2();
   }
   return /* @__PURE__ */ readonly(mousePositionRef);
 }
@@ -11477,12 +11575,12 @@ function useClicked(timeout) {
   if (usedCount === 0) {
     on("click", window, handleClick, true);
   }
-  const setup = () => {
+  const setup2 = () => {
     usedCount += 1;
     on("click", window, clickedHandler, true);
   };
   if (managable && (managable = hasInstance())) {
-    onBeforeMount(setup);
+    onBeforeMount(setup2);
     onBeforeUnmount(() => {
       usedCount -= 1;
       if (usedCount === 0) {
@@ -11492,7 +11590,7 @@ function useClicked(timeout) {
       clearTimer();
     });
   } else {
-    setup();
+    setup2();
   }
   return /* @__PURE__ */ readonly(clickedRef);
 }
@@ -11693,7 +11791,7 @@ function useReactivated(callback) {
   });
   return isDeactivatedRef;
 }
-function getSlot(scope, slots, slotName = "default") {
+function getSlot$1(scope, slots, slotName = "default") {
   const slot = slots[slotName];
   if (slot === void 0) {
     throw new Error(`[vueuc/${scope}]: slot[${slotName}] is empty.`);
@@ -11901,7 +11999,7 @@ const Binder = /* @__PURE__ */ defineComponent({
     };
   },
   render() {
-    return getSlot("binder", this.$slots);
+    return getSlot$1("binder", this.$slots);
   }
 });
 const VTarget = /* @__PURE__ */ defineComponent({
@@ -12259,10 +12357,10 @@ const LazyTeleport = /* @__PURE__ */ defineComponent({
     };
   },
   render() {
-    return this.showTeleport ? this.disabled ? getSlot("lazy-teleport", this.$slots) : h(Teleport, {
+    return this.showTeleport ? this.disabled ? getSlot$1("lazy-teleport", this.$slots) : h(Teleport, {
       disabled: this.disabled,
       to: this.mergedTo
-    }, getSlot("lazy-teleport", this.$slots)) : null;
+    }, getSlot$1("lazy-teleport", this.$slots)) : null;
   }
 });
 const oppositionPositions = {
@@ -12587,7 +12685,7 @@ function getOffset(placement, offsetRect, targetRect, offsetTopToStandardPlaceme
       };
   }
 }
-const style$s = c([
+const style$u = c([
   c(".v-binder-follower-container", {
     position: "absolute",
     left: "0",
@@ -12669,7 +12767,7 @@ const VFollower = /* @__PURE__ */ defineComponent({
       }
     });
     const ssrAdapter2 = useSsrAdapter();
-    style$s.mount({
+    style$u.mount({
       id: "vueuc/binder",
       head: true,
       anchorMetaName: cssrAnchorMetaName$1,
@@ -13957,7 +14055,7 @@ const VVirtualList = /* @__PURE__ */ defineComponent({
   }
 });
 const hiddenAttr = "v-hidden";
-const style$r = c("[v-hidden]", {
+const style$t = c("[v-hidden]", {
   display: "none!important"
 });
 const VOverflow = /* @__PURE__ */ defineComponent({
@@ -14058,7 +14156,7 @@ const VOverflow = /* @__PURE__ */ defineComponent({
       }
     }
     const ssrAdapter2 = useSsrAdapter();
-    style$r.mount({
+    style$t.mount({
       id: "vueuc/overflow",
       head: true,
       anchorMetaName: cssrAnchorMetaName$1,
@@ -14516,6 +14614,12 @@ function getFirstSlotVNodeWithTypedProps(slotName, slot, props) {
     warn$1("getFirstSlotVNode", `slot[${slotName}] should have exactly one child`);
     return null;
   }
+}
+function getSlot(instance, slotName = "default", fallback = []) {
+  const slots = instance.$slots;
+  const slot = slots[slotName];
+  if (slot === void 0) return fallback;
+  return slot();
 }
 function keep(object, keys2 = [], rest) {
   const keepedObject = {};
@@ -17183,7 +17287,7 @@ useTheme.props = {
   themeOverrides: Object,
   builtinThemeOverrides: Object
 };
-const style$q = cB("base-icon", `
+const style$s = cB("base-icon", `
  height: 1em;
  width: 1em;
  line-height: 1em;
@@ -17217,7 +17321,7 @@ const NBaseIcon = /* @__PURE__ */ defineComponent({
     onMouseup: Function
   },
   setup(props) {
-    useStyle("-base-icon", style$q, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-icon", style$s, /* @__PURE__ */ toRef(props, "clsPrefix"));
   },
   render() {
     return h("i", {
@@ -17637,7 +17741,7 @@ function iconSwitchTransition({
     transition
   })];
 }
-const style$p = cB("base-clear", `
+const style$r = cB("base-clear", `
  flex-shrink: 0;
  height: 1em;
  width: 1em;
@@ -17677,7 +17781,7 @@ const NBaseClear = /* @__PURE__ */ defineComponent({
     onClear: Function
   },
   setup(props) {
-    useStyle("-base-clear", style$p, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-clear", style$r, /* @__PURE__ */ toRef(props, "clsPrefix"));
     return {
       handleMouseDown(e) {
         e.preventDefault();
@@ -17711,7 +17815,7 @@ const NBaseClear = /* @__PURE__ */ defineComponent({
     }));
   }
 });
-const style$o = cB("base-close", `
+const style$q = cB("base-close", `
  display: flex;
  align-items: center;
  justify-content: center;
@@ -17780,7 +17884,7 @@ const NBaseClose = /* @__PURE__ */ defineComponent({
     absolute: Boolean
   },
   setup(props) {
-    useStyle("-base-close", style$o, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-close", style$q, /* @__PURE__ */ toRef(props, "clsPrefix"));
     return () => {
       const {
         clsPrefix,
@@ -17933,7 +18037,7 @@ const FocusDetector = /* @__PURE__ */ defineComponent({
     });
   }
 });
-const style$n = c$1([c$1("@keyframes rotator", `
+const style$p = c$1([c$1("@keyframes rotator", `
  0% {
  -webkit-transform: rotate(0deg);
  transform: rotate(0deg);
@@ -17997,7 +18101,7 @@ const NBaseLoading = /* @__PURE__ */ defineComponent({
     }
   }, exposedLoadingProps),
   setup(props) {
-    useStyle("-base-loading", style$n, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-loading", style$p, /* @__PURE__ */ toRef(props, "clsPrefix"));
   },
   render() {
     const {
@@ -18422,7 +18526,7 @@ const commonVars$d = {
   railInsetVerticalLeft: "2px auto 2px 4px",
   railColor: "transparent"
 };
-function self$_(vars) {
+function self$10(vars) {
   const {
     scrollbarColor,
     scrollbarColorHover,
@@ -18441,14 +18545,14 @@ function self$_(vars) {
 const scrollbarLight = {
   name: "Scrollbar",
   common: derived,
-  self: self$_
+  self: self$10
 };
 const scrollbarDark = {
   name: "Scrollbar",
   common: derived$1,
-  self: self$_
+  self: self$10
 };
-const style$m = cB("scrollbar", `
+const style$o = cB("scrollbar", `
  overflow: hidden;
  position: relative;
  z-index: auto;
@@ -18592,7 +18696,7 @@ const Scrollbar = /* @__PURE__ */ defineComponent({
     let memoMouseX = 0;
     let memoMouseY = 0;
     const isIos2 = useIsIos();
-    const themeRef = useTheme("Scrollbar", "-scrollbar", style$m, scrollbarLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Scrollbar", "-scrollbar", style$o, scrollbarLight, props, mergedClsPrefixRef);
     const yBarSizeRef = computed(() => {
       const {
         value: containerHeight
@@ -19919,7 +20023,7 @@ const commonVars$c = {
   iconSizeLarge: "46px",
   iconSizeHuge: "52px"
 };
-function self$Z(vars) {
+function self$$(vars) {
   const {
     textColorDisabled,
     iconColor,
@@ -19944,14 +20048,14 @@ function self$Z(vars) {
 const emptyLight = {
   name: "Empty",
   common: derived,
-  self: self$Z
+  self: self$$
 };
 const emptyDark = {
   name: "Empty",
   common: derived$1,
-  self: self$Z
+  self: self$$
 };
-const style$l = cB("empty", `
+const style$n = cB("empty", `
  display: flex;
  flex-direction: column;
  align-items: center;
@@ -20001,7 +20105,7 @@ const NEmpty = /* @__PURE__ */ defineComponent({
       inlineThemeDisabled,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("Empty", "-empty", style$l, emptyLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Empty", "-empty", style$n, emptyLight, props, mergedClsPrefixRef);
     const {
       localeRef
     } = useLocale("Empty");
@@ -20094,7 +20198,7 @@ const commonVariables$m = {
   optionPaddingHuge: "0 12px",
   loadingSize: "18px"
 };
-function self$Y(vars) {
+function self$_(vars) {
   const {
     borderRadius,
     popoverColor,
@@ -20152,7 +20256,7 @@ const internalSelectMenuLight = createTheme({
     Scrollbar: scrollbarLight,
     Empty: emptyLight
   },
-  self: self$Y
+  self: self$_
 });
 const internalSelectMenuDark = {
   name: "InternalSelectMenu",
@@ -20161,7 +20265,7 @@ const internalSelectMenuDark = {
     Scrollbar: scrollbarDark,
     Empty: emptyDark
   },
-  self: self$Y
+  self: self$_
 };
 const NSelectGroupHeader = /* @__PURE__ */ defineComponent({
   name: "NBaseSelectGroupHeader",
@@ -20395,7 +20499,7 @@ function fadeInScaleUpTransition({
     transform: `${originalTransform} scale(1)`
   })];
 }
-const style$k = cB("base-select-menu", `
+const style$m = cB("base-select-menu", `
  line-height: 1.5;
  outline: none;
  z-index: 0;
@@ -20582,7 +20686,7 @@ const NInternalSelectMenu = /* @__PURE__ */ defineComponent({
       mergedComponentPropsRef
     } = useConfig(props);
     const rtlEnabledRef = useRtl("InternalSelectMenu", mergedRtlRef, mergedClsPrefixRef);
-    const themeRef = useTheme("InternalSelectMenu", "-internal-select-menu", style$k, internalSelectMenuLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    const themeRef = useTheme("InternalSelectMenu", "-internal-select-menu", style$m, internalSelectMenuLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
     const selfRef = /* @__PURE__ */ ref(null);
     const virtualListRef = /* @__PURE__ */ ref(null);
     const scrollbarRef = /* @__PURE__ */ ref(null);
@@ -21009,7 +21113,7 @@ const commonVariables$l = {
   arrowHeight: "6px",
   padding: "8px 14px"
 };
-function self$X(vars) {
+function self$Z(vars) {
   const {
     boxShadow2,
     popoverColor,
@@ -21033,7 +21137,7 @@ const popoverLight = createTheme({
   peers: {
     Scrollbar: scrollbarLight
   },
-  self: self$X
+  self: self$Z
 });
 const popoverDark = {
   name: "Popover",
@@ -21041,7 +21145,7 @@ const popoverDark = {
   peers: {
     Scrollbar: scrollbarDark
   },
-  self: self$X
+  self: self$Z
 };
 const oppositePlacement = {
   top: "bottom",
@@ -21050,7 +21154,7 @@ const oppositePlacement = {
   right: "left"
 };
 const arrowSize = "var(--n-arrow-height) * 1.414";
-const style$j = c$1([cB("popover", `
+const style$l = c$1([cB("popover", `
  transition:
  box-shadow .3s var(--n-bezier),
  background-color .3s var(--n-bezier),
@@ -21265,7 +21369,7 @@ const NPopoverBody = /* @__PURE__ */ defineComponent({
       inlineThemeDisabled,
       mergedRtlRef
     } = useConfig(props);
-    const themeRef = useTheme("Popover", "-popover", style$j, popoverLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Popover", "-popover", style$l, popoverLight, props, mergedClsPrefixRef);
     const rtlEnabledRef = useRtl("Popover", mergedRtlRef, mergedClsPrefixRef);
     const followerRef = /* @__PURE__ */ ref(null);
     const NPopover2 = inject("NPopover");
@@ -22210,7 +22314,7 @@ const tagDark = {
     });
   }
 };
-function self$W(vars) {
+function self$Y(vars) {
   const {
     textColor2,
     primaryColorHover,
@@ -22375,7 +22479,7 @@ function self$W(vars) {
 }
 const tagLight = {
   common: derived,
-  self: self$W
+  self: self$Y
 };
 const commonProps = {
   color: Object,
@@ -22391,7 +22495,7 @@ const commonProps = {
     default: void 0
   }
 };
-const style$i = cB("tag", `
+const style$k = cB("tag", `
  --n-close-margin: var(--n-close-margin-top) var(--n-close-margin-right) var(--n-close-margin-bottom) var(--n-close-margin-left);
  white-space: nowrap;
  position: relative;
@@ -22506,7 +22610,7 @@ const NTag = /* @__PURE__ */ defineComponent({
       var _a, _b;
       return props.size || ((_b = (_a = mergedComponentPropsRef === null || mergedComponentPropsRef === void 0 ? void 0 : mergedComponentPropsRef.value) === null || _a === void 0 ? void 0 : _a.Tag) === null || _b === void 0 ? void 0 : _b.size) || "medium";
     });
-    const themeRef = useTheme("Tag", "-tag", style$i, tagLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Tag", "-tag", style$k, tagLight, props, mergedClsPrefixRef);
     provide(tagInjectionKey, {
       roundRef: /* @__PURE__ */ toRef(props, "round")
     });
@@ -22885,7 +22989,7 @@ const internalSelectionDark = {
     });
   }
 };
-function self$V(vars) {
+function self$X(vars) {
   const {
     borderRadius,
     textColor2,
@@ -22989,9 +23093,9 @@ const internalSelectionLight = createTheme({
   peers: {
     Popover: popoverLight
   },
-  self: self$V
+  self: self$X
 });
-const style$h = c$1([cB("base-selection", `
+const style$j = c$1([cB("base-selection", `
  --n-padding-single: var(--n-padding-single-top) var(--n-padding-single-right) var(--n-padding-single-bottom) var(--n-padding-single-left);
  --n-padding-multiple: var(--n-padding-multiple-top) var(--n-padding-multiple-right) var(--n-padding-multiple-bottom) var(--n-padding-multiple-left);
  position: relative;
@@ -23281,7 +23385,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
     const showTagsPopoverRef = /* @__PURE__ */ ref(false);
     const patternInputFocusedRef = /* @__PURE__ */ ref(false);
     const hoverRef = /* @__PURE__ */ ref(false);
-    const themeRef = useTheme("InternalSelection", "-internal-selection", style$h, internalSelectionLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    const themeRef = useTheme("InternalSelection", "-internal-selection", style$j, internalSelectionLight, props, /* @__PURE__ */ toRef(props, "clsPrefix"));
     const mergedClearableRef = computed(() => {
       return props.clearable && !props.disabled && (hoverRef.value || props.active);
     });
@@ -24020,7 +24124,7 @@ function fadeInWidthExpandTransition({
  margin-right ${duration2} ${cubicBezierEaseInOut$1};
  `)];
 }
-const style$g = cB("base-wave", `
+const style$i = cB("base-wave", `
  position: absolute;
  left: 0;
  right: 0;
@@ -24037,7 +24141,7 @@ const NBaseWave = /* @__PURE__ */ defineComponent({
     }
   },
   setup(props) {
-    useStyle("-base-wave", style$g, /* @__PURE__ */ toRef(props, "clsPrefix"));
+    useStyle("-base-wave", style$i, /* @__PURE__ */ toRef(props, "clsPrefix"));
     const selfRef = /* @__PURE__ */ ref(null);
     const activeRef = /* @__PURE__ */ ref(false);
     let animationTimerId = null;
@@ -24240,7 +24344,7 @@ const commonVars$a = {
   linkPadding: "0 0 0 16px",
   railWidth: "4px"
 };
-function self$U(vars) {
+function self$W(vars) {
   const {
     borderRadius,
     railColor,
@@ -24265,7 +24369,7 @@ function self$U(vars) {
 const anchorDark = {
   name: "Anchor",
   common: derived$1,
-  self: self$U
+  self: self$W
 };
 const isChrome = isBrowser$1 && "chrome" in window;
 isBrowser$1 && navigator.userAgent.includes("Firefox");
@@ -24277,7 +24381,7 @@ const commonVariables$i = {
   paddingLarge: "0 14px",
   clearSize: "16px"
 };
-function self$T(vars) {
+function self$V(vars) {
   const {
     textColor2,
     textColor3,
@@ -24389,9 +24493,9 @@ const inputDark = createTheme({
   peers: {
     Scrollbar: scrollbarDark
   },
-  self: self$T
+  self: self$V
 });
-function self$S(vars) {
+function self$U(vars) {
   const {
     textColor2,
     textColor3,
@@ -24499,10 +24603,10 @@ const inputLight = createTheme({
   peers: {
     Scrollbar: scrollbarLight
   },
-  self: self$S
+  self: self$U
 });
 const inputInjectionKey = createInjectionKey("n-input");
-const style$f = cB("input", `
+const style$h = cB("input", `
  max-width: 100%;
  cursor: text;
  line-height: 1.5;
@@ -24980,7 +25084,7 @@ const NInput = /* @__PURE__ */ defineComponent({
       mergedRtlRef,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("Input", "-input", style$f, inputLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Input", "-input", style$h, inputLight, props, mergedClsPrefixRef);
     if (isSafari) {
       useStyle("-input-safari", safariStyle, mergedClsPrefixRef);
     }
@@ -26159,7 +26263,7 @@ function createValOptMap(options, valueField, childrenField) {
   });
   return valOptMap;
 }
-function self$R(vars) {
+function self$T(vars) {
   const {
     boxShadow2
   } = vars;
@@ -26174,7 +26278,7 @@ const autoCompleteDark = {
     InternalSelectMenu: internalSelectMenuDark,
     Input: inputDark
   },
-  self: self$R
+  self: self$T
 };
 const isImageSupportNativeLazy = isBrowser$1 && "loading" in document.createElement("img");
 function resolveOptionsAndHash(options = {}) {
@@ -26254,7 +26358,7 @@ const observeIntersection = (el, options, shouldStartLoadingRef) => {
   shouldStartLoadingRefMap.set(el, shouldStartLoadingRef);
   return unobserve;
 };
-function self$Q(vars) {
+function self$S(vars) {
   const {
     borderRadius,
     avatarColor,
@@ -26285,9 +26389,9 @@ function self$Q(vars) {
 const avatarDark = {
   name: "Avatar",
   common: derived$1,
-  self: self$Q
+  self: self$S
 };
-function self$P() {
+function self$R() {
   return {
     gap: "-12px"
   };
@@ -26298,7 +26402,7 @@ const avatarGroupDark = {
   peers: {
     Avatar: avatarDark
   },
-  self: self$P
+  self: self$R
 };
 const commonVariables$h = {
   width: "44px",
@@ -26353,7 +26457,7 @@ const badgeDark = {
 const commonVariables$g = {
   fontWeightActive: "400"
 };
-function self$O(vars) {
+function self$Q(vars) {
   const {
     fontSize: fontSize2,
     textColor3,
@@ -26378,7 +26482,7 @@ function self$O(vars) {
 const breadcrumbDark = {
   name: "Breadcrumb",
   common: derived$1,
-  self: self$O
+  self: self$Q
 };
 function createHoverColor(rgb) {
   return composite(rgb, [255, 255, 255, 0.16]);
@@ -26406,7 +26510,7 @@ const commonVariables$f = {
   iconSizeLarge: "20px",
   rippleDuration: ".6s"
 };
-function self$N(vars) {
+function self$P(vars) {
   const {
     heightTiny,
     heightSmall,
@@ -26643,13 +26747,13 @@ function self$N(vars) {
 const buttonLight = {
   name: "Button",
   common: derived,
-  self: self$N
+  self: self$P
 };
 const buttonDark = {
   name: "Button",
   common: derived$1,
   self(vars) {
-    const commonSelf = self$N(vars);
+    const commonSelf = self$P(vars);
     commonSelf.waveOpacity = "0.8";
     commonSelf.colorOpacitySecondary = "0.16";
     commonSelf.colorOpacitySecondaryHover = "0.2";
@@ -26657,7 +26761,7 @@ const buttonDark = {
     return commonSelf;
   }
 };
-const style$e = c$1([cB("button", `
+const style$g = c$1([cB("button", `
  margin: 0;
  font-weight: var(--n-font-weight);
  line-height: 1;
@@ -26957,7 +27061,7 @@ const Button = /* @__PURE__ */ defineComponent({
     const handleBlur = () => {
       enterPressedRef.value = false;
     };
-    const themeRef = useTheme("Button", "-button", style$e, buttonLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Button", "-button", style$g, buttonLight, props, mergedClsPrefixRef);
     const rtlEnabledRef = useRtl("Button", mergedRtlRef, mergedClsPrefixRef);
     const cssVarsRef = computed(() => {
       const theme = themeRef.value;
@@ -27294,7 +27398,7 @@ const XButton = Button;
 const commonVariables$e = {
   titleFontSize: "22px"
 };
-function self$M(vars) {
+function self$O(vars) {
   const {
     borderRadius,
     fontSize: fontSize2,
@@ -27339,7 +27443,7 @@ const calendarDark = {
   peers: {
     Button: buttonDark
   },
-  self: self$M
+  self: self$O
 };
 const commonVariables$d = {
   paddingSmall: "12px 16px 12px",
@@ -27353,7 +27457,7 @@ const commonVariables$d = {
   closeIconSize: "18px",
   closeSize: "22px"
 };
-function self$L(vars) {
+function self$N(vars) {
   const {
     primaryColor,
     borderRadius,
@@ -27405,13 +27509,13 @@ function self$L(vars) {
 const cardLight = {
   name: "Card",
   common: derived,
-  self: self$L
+  self: self$N
 };
 const cardDark = {
   name: "Card",
   common: derived$1,
   self(vars) {
-    const commonSelf = self$L(vars);
+    const commonSelf = self$N(vars);
     const {
       cardColor,
       modalColor,
@@ -27430,7 +27534,7 @@ const contentBaseStyle = cB("card-content", `
  padding: 0 var(--n-padding-left) var(--n-padding-bottom) var(--n-padding-left);
  font-size: var(--n-font-size);
 `);
-const style$d = c$1([cB("card", `
+const style$f = c$1([cB("card", `
  font-size: var(--n-font-size);
  line-height: var(--n-line-height);
  display: flex;
@@ -27608,7 +27712,7 @@ const NCard = /* @__PURE__ */ defineComponent({
       mergedRtlRef,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("Card", "-card", style$d, cardLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Card", "-card", style$f, cardLight, props, mergedClsPrefixRef);
     const rtlEnabledRef = useRtl("Card", mergedRtlRef, mergedClsPrefixRef);
     const mergedSizeRef = computed(() => {
       var _a, _b;
@@ -27786,7 +27890,7 @@ const NCard = /* @__PURE__ */ defineComponent({
     }));
   }
 });
-function self$K() {
+function self$M() {
   return {
     dotSize: "8px",
     dotColor: "rgba(255, 255, 255, .3)",
@@ -27800,7 +27904,7 @@ function self$K() {
 const carouselDark = {
   name: "Carousel",
   common: derived$1,
-  self: self$K
+  self: self$M
 };
 const commonVariables$c = {
   sizeSmall: "14px",
@@ -27809,7 +27913,7 @@ const commonVariables$c = {
   labelPadding: "0 8px",
   labelFontWeight: "400"
 };
-function self$J(vars) {
+function self$L(vars) {
   const {
     baseColor,
     inputColorDisabled,
@@ -27861,13 +27965,13 @@ const checkboxDark = {
     const {
       cardColor
     } = vars;
-    const commonSelf = self$J(vars);
+    const commonSelf = self$L(vars);
     commonSelf.color = "#0000";
     commonSelf.checkMarkColor = cardColor;
     return commonSelf;
   }
 };
-function self$I(vars) {
+function self$K(vars) {
   const {
     borderRadius,
     boxShadow2,
@@ -27909,7 +28013,7 @@ const cascaderDark = {
     Checkbox: checkboxDark,
     Empty: emptyLight
   },
-  self: self$I
+  self: self$K
 };
 const codeDark = {
   name: "Code",
@@ -27940,7 +28044,7 @@ const codeDark = {
     };
   }
 };
-function self$H(vars) {
+function self$J(vars) {
   const {
     fontWeight,
     textColor1,
@@ -27966,9 +28070,9 @@ function self$H(vars) {
 const collapseDark = {
   name: "Collapse",
   common: derived$1,
-  self: self$H
+  self: self$J
 };
-function self$G(vars) {
+function self$I(vars) {
   const {
     cubicBezierEaseInOut: cubicBezierEaseInOut2
   } = vars;
@@ -27979,9 +28083,9 @@ function self$G(vars) {
 const collapseTransitionDark = {
   name: "CollapseTransition",
   common: derived$1,
-  self: self$G
+  self: self$I
 };
-function self$F(vars) {
+function self$H(vars) {
   const {
     fontSize: fontSize2,
     boxShadow2,
@@ -28020,7 +28124,7 @@ const colorPickerDark = {
     Input: inputDark,
     Button: buttonDark
   },
-  self: self$F
+  self: self$H
 };
 const configProviderProps = {
   abstract: Boolean,
@@ -28233,7 +28337,7 @@ const popselect = {
     InternalSelectMenu: internalSelectMenuDark
   }
 };
-function self$E(vars) {
+function self$G(vars) {
   const {
     boxShadow2
   } = vars;
@@ -28248,7 +28352,7 @@ const selectLight = createTheme({
     InternalSelection: internalSelectionLight,
     InternalSelectMenu: internalSelectMenuLight
   },
-  self: self$E
+  self: self$G
 });
 const selectDark = {
   name: "Select",
@@ -28257,9 +28361,9 @@ const selectDark = {
     InternalSelection: internalSelectionDark,
     InternalSelectMenu: internalSelectMenuDark
   },
-  self: self$E
+  self: self$G
 };
-const style$c = c$1([cB("select", `
+const style$e = c$1([cB("select", `
  z-index: auto;
  outline: none;
  width: 100%;
@@ -28408,7 +28512,7 @@ const NSelect = /* @__PURE__ */ defineComponent({
       inlineThemeDisabled,
       mergedComponentPropsRef
     } = useConfig(props);
-    const themeRef = useTheme("Select", "-select", style$c, selectLight, props, mergedClsPrefixRef);
+    const themeRef = useTheme("Select", "-select", style$e, selectLight, props, mergedClsPrefixRef);
     const uncontrolledValueRef = /* @__PURE__ */ ref(props.defaultValue);
     const controlledValueRef = /* @__PURE__ */ toRef(props, "value");
     const mergedValueRef = useMergedState(controlledValueRef, uncontrolledValueRef);
@@ -29227,7 +29331,7 @@ const commonVariables$b = {
   prefixMarginLarge: "0 8px 0 0",
   suffixMarginLarge: "0 0 0 8px"
 };
-function self$D(vars) {
+function self$F(vars) {
   const {
     textColor2,
     primaryColor,
@@ -29302,7 +29406,7 @@ const paginationDark = {
     const borderColorActive = changeColor(primaryColor, {
       alpha: Number(opacity3)
     });
-    const commonSelf = self$D(vars);
+    const commonSelf = self$F(vars);
     commonSelf.itemBorderActive = `1px solid ${borderColorActive}`;
     commonSelf.itemBorderDisabled = "1px solid #0000";
     return commonSelf;
@@ -29331,7 +29435,7 @@ const commonVariables$a = {
   optionIconPrefixWidthLarge: "40px",
   optionIconPrefixWidthHuge: "40px"
 };
-function self$C(vars) {
+function self$E(vars) {
   const {
     primaryColor,
     textColor2,
@@ -29402,7 +29506,7 @@ const dropdownDark = {
       primaryColor,
       popoverColor
     } = vars;
-    const commonSelf = self$C(vars);
+    const commonSelf = self$E(vars);
     commonSelf.colorInverted = popoverColor;
     commonSelf.optionColorActive = changeColor(primaryColor, {
       alpha: 0.15
@@ -29436,7 +29540,7 @@ const tooltipDark = {
     });
   }
 };
-function self$B(vars) {
+function self$D(vars) {
   const {
     borderRadius,
     boxShadow2,
@@ -29455,7 +29559,7 @@ const tooltipLight = createTheme({
   peers: {
     Popover: popoverLight
   },
-  self: self$B
+  self: self$D
 });
 const ellipsisDark = {
   name: "Ellipsis",
@@ -29532,6 +29636,67 @@ const radioDark = {
     });
   }
 };
+function self$C(vars) {
+  const {
+    borderColor,
+    primaryColor,
+    baseColor,
+    textColorDisabled,
+    inputColorDisabled,
+    textColor2,
+    opacityDisabled,
+    borderRadius,
+    fontSizeSmall,
+    fontSizeMedium,
+    fontSizeLarge,
+    heightSmall,
+    heightMedium,
+    heightLarge,
+    lineHeight: lineHeight2
+  } = vars;
+  return Object.assign(Object.assign({}, commonVariables$9), {
+    labelLineHeight: lineHeight2,
+    buttonHeightSmall: heightSmall,
+    buttonHeightMedium: heightMedium,
+    buttonHeightLarge: heightLarge,
+    fontSizeSmall,
+    fontSizeMedium,
+    fontSizeLarge,
+    boxShadow: `inset 0 0 0 1px ${borderColor}`,
+    boxShadowActive: `inset 0 0 0 1px ${primaryColor}`,
+    boxShadowFocus: `inset 0 0 0 1px ${primaryColor}, 0 0 0 2px ${changeColor(primaryColor, {
+      alpha: 0.2
+    })}`,
+    boxShadowHover: `inset 0 0 0 1px ${primaryColor}`,
+    boxShadowDisabled: `inset 0 0 0 1px ${borderColor}`,
+    color: baseColor,
+    colorDisabled: inputColorDisabled,
+    colorActive: "#0000",
+    textColor: textColor2,
+    textColorDisabled,
+    dotColorActive: primaryColor,
+    dotColorDisabled: borderColor,
+    buttonBorderColor: borderColor,
+    buttonBorderColorActive: primaryColor,
+    buttonBorderColorHover: borderColor,
+    buttonColor: baseColor,
+    buttonColorActive: baseColor,
+    buttonTextColor: textColor2,
+    buttonTextColorActive: primaryColor,
+    buttonTextColorHover: primaryColor,
+    opacityDisabled,
+    buttonBoxShadowFocus: `inset 0 0 0 1px ${primaryColor}, 0 0 0 2px ${changeColor(primaryColor, {
+      alpha: 0.3
+    })}`,
+    buttonBoxShadowHover: "inset 0 0 0 1px #0000",
+    buttonBoxShadow: "inset 0 0 0 1px #0000",
+    buttonBorderRadius: borderRadius
+  });
+}
+const radioLight = {
+  common: derived,
+  self: self$C
+};
 const commonVariables$8 = {
   thPaddingSmall: "8px",
   thPaddingMedium: "12px",
@@ -29548,7 +29713,7 @@ const commonVariables$8 = {
   actionPadding: "8px 12px",
   actionButtonMargin: "0 8px 0 0"
 };
-function self$A(vars) {
+function self$B(vars) {
   const {
     cardColor,
     modalColor,
@@ -29632,12 +29797,639 @@ const dataTableDark = {
     Dropdown: dropdownDark
   },
   self(vars) {
-    const commonSelf = self$A(vars);
+    const commonSelf = self$B(vars);
     commonSelf.boxShadowAfter = "inset 12px 0 8px -12px rgba(0, 0, 0, .36)";
     commonSelf.boxShadowBefore = "inset -12px 0 8px -12px rgba(0, 0, 0, .36)";
     return commonSelf;
   }
 };
+const style$d = cB("radio", `
+ line-height: var(--n-label-line-height);
+ outline: none;
+ position: relative;
+ user-select: none;
+ -webkit-user-select: none;
+ display: inline-flex;
+ align-items: flex-start;
+ flex-wrap: nowrap;
+ font-size: var(--n-font-size);
+ word-break: break-word;
+`, [cM("checked", [cE("dot", `
+ background-color: var(--n-color-active);
+ `)]), cE("dot-wrapper", `
+ position: relative;
+ flex-shrink: 0;
+ flex-grow: 0;
+ width: var(--n-radio-size);
+ `), cB("radio-input", `
+ position: absolute;
+ border: 0;
+ width: 0;
+ height: 0;
+ opacity: 0;
+ margin: 0;
+ `), cE("dot", `
+ position: absolute;
+ top: 50%;
+ left: 0;
+ transform: translateY(-50%);
+ height: var(--n-radio-size);
+ width: var(--n-radio-size);
+ background: var(--n-color);
+ box-shadow: var(--n-box-shadow);
+ border-radius: 50%;
+ transition:
+ background-color .3s var(--n-bezier),
+ box-shadow .3s var(--n-bezier);
+ `, [c$1("&::before", `
+ content: "";
+ opacity: 0;
+ position: absolute;
+ left: 4px;
+ top: 4px;
+ height: calc(100% - 8px);
+ width: calc(100% - 8px);
+ border-radius: 50%;
+ transform: scale(.8);
+ background: var(--n-dot-color-active);
+ transition: 
+ opacity .3s var(--n-bezier),
+ background-color .3s var(--n-bezier),
+ transform .3s var(--n-bezier);
+ `), cM("checked", {
+  boxShadow: "var(--n-box-shadow-active)"
+}, [c$1("&::before", `
+ opacity: 1;
+ transform: scale(1);
+ `)])]), cE("label", `
+ color: var(--n-text-color);
+ padding: var(--n-label-padding);
+ font-weight: var(--n-label-font-weight);
+ display: inline-block;
+ transition: color .3s var(--n-bezier);
+ `), cNotM("disabled", `
+ cursor: pointer;
+ `, [c$1("&:hover", [cE("dot", {
+  boxShadow: "var(--n-box-shadow-hover)"
+})]), cM("focus", [c$1("&:not(:active)", [cE("dot", {
+  boxShadow: "var(--n-box-shadow-focus)"
+})])])]), cM("disabled", `
+ cursor: not-allowed;
+ `, [cE("dot", {
+  boxShadow: "var(--n-box-shadow-disabled)",
+  backgroundColor: "var(--n-color-disabled)"
+}, [c$1("&::before", {
+  backgroundColor: "var(--n-dot-color-disabled)"
+}), cM("checked", `
+ opacity: 1;
+ `)]), cE("label", {
+  color: "var(--n-text-color-disabled)"
+}), cB("radio-input", `
+ cursor: not-allowed;
+ `)])]);
+const radioBaseProps = {
+  name: String,
+  value: {
+    type: [String, Number, Boolean],
+    default: "on"
+  },
+  checked: {
+    type: Boolean,
+    default: void 0
+  },
+  defaultChecked: Boolean,
+  disabled: {
+    type: Boolean,
+    default: void 0
+  },
+  label: String,
+  size: String,
+  onUpdateChecked: [Function, Array],
+  "onUpdate:checked": [Function, Array],
+  // deprecated
+  checkedValue: {
+    type: Boolean,
+    default: void 0
+  }
+};
+const radioGroupInjectionKey = createInjectionKey("n-radio-group");
+function setup(props) {
+  const NRadioGroup2 = inject(radioGroupInjectionKey, null);
+  const {
+    mergedClsPrefixRef,
+    mergedComponentPropsRef
+  } = useConfig(props);
+  const formItem = useFormItem(props, {
+    mergedSize(NFormItem) {
+      var _a, _b;
+      const {
+        size: size2
+      } = props;
+      if (size2 !== void 0) return size2;
+      if (NRadioGroup2) {
+        const {
+          mergedSizeRef: {
+            value: mergedSize
+          }
+        } = NRadioGroup2;
+        if (mergedSize !== void 0) {
+          return mergedSize;
+        }
+      }
+      if (NFormItem) {
+        return NFormItem.mergedSize.value;
+      }
+      const configSize = (_b = (_a = mergedComponentPropsRef === null || mergedComponentPropsRef === void 0 ? void 0 : mergedComponentPropsRef.value) === null || _a === void 0 ? void 0 : _a.Radio) === null || _b === void 0 ? void 0 : _b.size;
+      if (configSize) return configSize;
+      return "medium";
+    },
+    mergedDisabled(NFormItem) {
+      if (props.disabled) return true;
+      if (NRadioGroup2 === null || NRadioGroup2 === void 0 ? void 0 : NRadioGroup2.disabledRef.value) return true;
+      if (NFormItem === null || NFormItem === void 0 ? void 0 : NFormItem.disabled.value) return true;
+      return false;
+    }
+  });
+  const {
+    mergedSizeRef,
+    mergedDisabledRef
+  } = formItem;
+  const inputRef = /* @__PURE__ */ ref(null);
+  const labelRef = /* @__PURE__ */ ref(null);
+  const uncontrolledCheckedRef = /* @__PURE__ */ ref(props.defaultChecked);
+  const controlledCheckedRef = /* @__PURE__ */ toRef(props, "checked");
+  const mergedCheckedRef = useMergedState(controlledCheckedRef, uncontrolledCheckedRef);
+  const renderSafeCheckedRef = useMemo(() => {
+    if (NRadioGroup2) return NRadioGroup2.valueRef.value === props.value;
+    return mergedCheckedRef.value;
+  });
+  const mergedNameRef = useMemo(() => {
+    const {
+      name
+    } = props;
+    if (name !== void 0) return name;
+    if (NRadioGroup2) return NRadioGroup2.nameRef.value;
+  });
+  const focusRef = /* @__PURE__ */ ref(false);
+  function doUpdateChecked() {
+    if (NRadioGroup2) {
+      const {
+        doUpdateValue
+      } = NRadioGroup2;
+      const {
+        value
+      } = props;
+      call(doUpdateValue, value);
+    } else {
+      const {
+        onUpdateChecked,
+        "onUpdate:checked": _onUpdateChecked
+      } = props;
+      const {
+        nTriggerFormInput,
+        nTriggerFormChange
+      } = formItem;
+      if (onUpdateChecked) call(onUpdateChecked, true);
+      if (_onUpdateChecked) call(_onUpdateChecked, true);
+      nTriggerFormInput();
+      nTriggerFormChange();
+      uncontrolledCheckedRef.value = true;
+    }
+  }
+  function toggle() {
+    if (mergedDisabledRef.value) return;
+    if (!renderSafeCheckedRef.value) {
+      doUpdateChecked();
+    }
+  }
+  function handleRadioInputChange() {
+    toggle();
+    if (inputRef.value) {
+      inputRef.value.checked = renderSafeCheckedRef.value;
+    }
+  }
+  function handleRadioInputBlur() {
+    focusRef.value = false;
+  }
+  function handleRadioInputFocus() {
+    focusRef.value = true;
+  }
+  return {
+    mergedClsPrefix: NRadioGroup2 ? NRadioGroup2.mergedClsPrefixRef : mergedClsPrefixRef,
+    inputRef,
+    labelRef,
+    mergedName: mergedNameRef,
+    mergedDisabled: mergedDisabledRef,
+    renderSafeChecked: renderSafeCheckedRef,
+    focus: focusRef,
+    mergedSize: mergedSizeRef,
+    handleRadioInputChange,
+    handleRadioInputBlur,
+    handleRadioInputFocus
+  };
+}
+const radioProps = Object.assign(Object.assign({}, useTheme.props), radioBaseProps);
+const NRadio = /* @__PURE__ */ defineComponent({
+  name: "Radio",
+  props: radioProps,
+  setup(props) {
+    const radio = setup(props);
+    const themeRef = useTheme("Radio", "-radio", style$d, radioLight, props, radio.mergedClsPrefix);
+    const cssVarsRef = computed(() => {
+      const {
+        mergedSize: {
+          value: size2
+        }
+      } = radio;
+      const {
+        common: {
+          cubicBezierEaseInOut: cubicBezierEaseInOut2
+        },
+        self: {
+          boxShadow,
+          boxShadowActive,
+          boxShadowDisabled,
+          boxShadowFocus,
+          boxShadowHover,
+          color,
+          colorDisabled,
+          colorActive,
+          textColor,
+          textColorDisabled,
+          dotColorActive,
+          dotColorDisabled,
+          labelPadding,
+          labelLineHeight,
+          labelFontWeight,
+          [createKey("fontSize", size2)]: fontSize2,
+          [createKey("radioSize", size2)]: radioSize
+        }
+      } = themeRef.value;
+      return {
+        "--n-bezier": cubicBezierEaseInOut2,
+        "--n-label-line-height": labelLineHeight,
+        "--n-label-font-weight": labelFontWeight,
+        "--n-box-shadow": boxShadow,
+        "--n-box-shadow-active": boxShadowActive,
+        "--n-box-shadow-disabled": boxShadowDisabled,
+        "--n-box-shadow-focus": boxShadowFocus,
+        "--n-box-shadow-hover": boxShadowHover,
+        "--n-color": color,
+        "--n-color-active": colorActive,
+        "--n-color-disabled": colorDisabled,
+        "--n-dot-color-active": dotColorActive,
+        "--n-dot-color-disabled": dotColorDisabled,
+        "--n-font-size": fontSize2,
+        "--n-radio-size": radioSize,
+        "--n-text-color": textColor,
+        "--n-text-color-disabled": textColorDisabled,
+        "--n-label-padding": labelPadding
+      };
+    });
+    const {
+      inlineThemeDisabled,
+      mergedClsPrefixRef,
+      mergedRtlRef
+    } = useConfig(props);
+    const rtlEnabledRef = useRtl("Radio", mergedRtlRef, mergedClsPrefixRef);
+    const themeClassHandle = inlineThemeDisabled ? useThemeClass("radio", computed(() => radio.mergedSize.value[0]), cssVarsRef, props) : void 0;
+    return Object.assign(radio, {
+      rtlEnabled: rtlEnabledRef,
+      cssVars: inlineThemeDisabled ? void 0 : cssVarsRef,
+      themeClass: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.themeClass,
+      onRender: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.onRender
+    });
+  },
+  render() {
+    const {
+      $slots,
+      mergedClsPrefix,
+      onRender,
+      label
+    } = this;
+    onRender === null || onRender === void 0 ? void 0 : onRender();
+    return h("label", {
+      class: [`${mergedClsPrefix}-radio`, this.themeClass, this.rtlEnabled && `${mergedClsPrefix}-radio--rtl`, this.mergedDisabled && `${mergedClsPrefix}-radio--disabled`, this.renderSafeChecked && `${mergedClsPrefix}-radio--checked`, this.focus && `${mergedClsPrefix}-radio--focus`],
+      style: this.cssVars
+    }, h("div", {
+      class: `${mergedClsPrefix}-radio__dot-wrapper`
+    }, " ", h("div", {
+      class: [`${mergedClsPrefix}-radio__dot`, this.renderSafeChecked && `${mergedClsPrefix}-radio__dot--checked`]
+    }), h("input", {
+      ref: "inputRef",
+      type: "radio",
+      class: `${mergedClsPrefix}-radio-input`,
+      value: this.value,
+      name: this.mergedName,
+      checked: this.renderSafeChecked,
+      disabled: this.mergedDisabled,
+      onChange: this.handleRadioInputChange,
+      onFocus: this.handleRadioInputFocus,
+      onBlur: this.handleRadioInputBlur
+    })), resolveWrappedSlot($slots.default, (children) => {
+      if (!children && !label) return null;
+      return h("div", {
+        ref: "labelRef",
+        class: `${mergedClsPrefix}-radio__label`
+      }, children || label);
+    }));
+  }
+});
+const style$c = cB("radio-group", `
+ display: inline-block;
+ font-size: var(--n-font-size);
+`, [cE("splitor", `
+ display: inline-block;
+ vertical-align: bottom;
+ width: 1px;
+ transition:
+ background-color .3s var(--n-bezier),
+ opacity .3s var(--n-bezier);
+ background: var(--n-button-border-color);
+ `, [cM("checked", {
+  backgroundColor: "var(--n-button-border-color-active)"
+}), cM("disabled", {
+  opacity: "var(--n-opacity-disabled)"
+})]), cM("button-group", `
+ white-space: nowrap;
+ height: var(--n-height);
+ line-height: var(--n-height);
+ `, [cB("radio-button", {
+  height: "var(--n-height)",
+  lineHeight: "var(--n-height)"
+}), cE("splitor", {
+  height: "var(--n-height)"
+})]), cB("radio-button", `
+ vertical-align: bottom;
+ outline: none;
+ position: relative;
+ user-select: none;
+ -webkit-user-select: none;
+ display: inline-block;
+ box-sizing: border-box;
+ padding-left: 14px;
+ padding-right: 14px;
+ white-space: nowrap;
+ transition:
+ background-color .3s var(--n-bezier),
+ opacity .3s var(--n-bezier),
+ border-color .3s var(--n-bezier),
+ color .3s var(--n-bezier);
+ background: var(--n-button-color);
+ color: var(--n-button-text-color);
+ border-top: 1px solid var(--n-button-border-color);
+ border-bottom: 1px solid var(--n-button-border-color);
+ `, [cB("radio-input", `
+ pointer-events: none;
+ position: absolute;
+ border: 0;
+ border-radius: inherit;
+ left: 0;
+ right: 0;
+ top: 0;
+ bottom: 0;
+ opacity: 0;
+ z-index: 1;
+ `), cE("state-border", `
+ z-index: 1;
+ pointer-events: none;
+ position: absolute;
+ box-shadow: var(--n-button-box-shadow);
+ transition: box-shadow .3s var(--n-bezier);
+ left: -1px;
+ bottom: -1px;
+ right: -1px;
+ top: -1px;
+ `), c$1("&:first-child", `
+ border-top-left-radius: var(--n-button-border-radius);
+ border-bottom-left-radius: var(--n-button-border-radius);
+ border-left: 1px solid var(--n-button-border-color);
+ `, [cE("state-border", `
+ border-top-left-radius: var(--n-button-border-radius);
+ border-bottom-left-radius: var(--n-button-border-radius);
+ `)]), c$1("&:last-child", `
+ border-top-right-radius: var(--n-button-border-radius);
+ border-bottom-right-radius: var(--n-button-border-radius);
+ border-right: 1px solid var(--n-button-border-color);
+ `, [cE("state-border", `
+ border-top-right-radius: var(--n-button-border-radius);
+ border-bottom-right-radius: var(--n-button-border-radius);
+ `)]), cNotM("disabled", `
+ cursor: pointer;
+ `, [c$1("&:hover", [cE("state-border", `
+ transition: box-shadow .3s var(--n-bezier);
+ box-shadow: var(--n-button-box-shadow-hover);
+ `), cNotM("checked", {
+  color: "var(--n-button-text-color-hover)"
+})]), cM("focus", [c$1("&:not(:active)", [cE("state-border", {
+  boxShadow: "var(--n-button-box-shadow-focus)"
+})])])]), cM("checked", `
+ background: var(--n-button-color-active);
+ color: var(--n-button-text-color-active);
+ border-color: var(--n-button-border-color-active);
+ `), cM("disabled", `
+ cursor: not-allowed;
+ opacity: var(--n-opacity-disabled);
+ `)])]);
+function mapSlot(defaultSlot, value, clsPrefix) {
+  var _a;
+  const children = [];
+  let isButtonGroup = false;
+  for (let i = 0; i < defaultSlot.length; ++i) {
+    const wrappedInstance = defaultSlot[i];
+    const name = (_a = wrappedInstance.type) === null || _a === void 0 ? void 0 : _a.name;
+    if (name === "RadioButton") {
+      isButtonGroup = true;
+    }
+    const instanceProps = wrappedInstance.props;
+    if (name !== "RadioButton") {
+      children.push(wrappedInstance);
+      continue;
+    }
+    if (i === 0) {
+      children.push(wrappedInstance);
+    } else {
+      const lastInstanceProps = children[children.length - 1].props;
+      const lastInstanceChecked = value === lastInstanceProps.value;
+      const lastInstanceDisabled = lastInstanceProps.disabled;
+      const currentInstanceChecked = value === instanceProps.value;
+      const currentInstanceDisabled = instanceProps.disabled;
+      const lastInstancePriority = (lastInstanceChecked ? 2 : 0) + (!lastInstanceDisabled ? 1 : 0);
+      const currentInstancePriority = (currentInstanceChecked ? 2 : 0) + (!currentInstanceDisabled ? 1 : 0);
+      const lastInstanceClass = {
+        [`${clsPrefix}-radio-group__splitor--disabled`]: lastInstanceDisabled,
+        [`${clsPrefix}-radio-group__splitor--checked`]: lastInstanceChecked
+      };
+      const currentInstanceClass = {
+        [`${clsPrefix}-radio-group__splitor--disabled`]: currentInstanceDisabled,
+        [`${clsPrefix}-radio-group__splitor--checked`]: currentInstanceChecked
+      };
+      const splitorClass = lastInstancePriority < currentInstancePriority ? currentInstanceClass : lastInstanceClass;
+      children.push(h("div", {
+        class: [`${clsPrefix}-radio-group__splitor`, splitorClass]
+      }), wrappedInstance);
+    }
+  }
+  return {
+    children,
+    isButtonGroup
+  };
+}
+const radioGroupProps = Object.assign(Object.assign({}, useTheme.props), {
+  name: String,
+  value: [String, Number, Boolean],
+  defaultValue: {
+    type: [String, Number, Boolean],
+    default: null
+  },
+  size: String,
+  disabled: {
+    type: Boolean,
+    default: void 0
+  },
+  "onUpdate:value": [Function, Array],
+  onUpdateValue: [Function, Array]
+});
+const NRadioGroup = /* @__PURE__ */ defineComponent({
+  name: "RadioGroup",
+  props: radioGroupProps,
+  setup(props) {
+    const selfElRef = /* @__PURE__ */ ref(null);
+    const {
+      mergedSizeRef,
+      mergedDisabledRef,
+      nTriggerFormChange,
+      nTriggerFormInput,
+      nTriggerFormBlur,
+      nTriggerFormFocus
+    } = useFormItem(props);
+    const {
+      mergedClsPrefixRef,
+      inlineThemeDisabled,
+      mergedRtlRef
+    } = useConfig(props);
+    const themeRef = useTheme("Radio", "-radio-group", style$c, radioLight, props, mergedClsPrefixRef);
+    const uncontrolledValueRef = /* @__PURE__ */ ref(props.defaultValue);
+    const controlledValueRef = /* @__PURE__ */ toRef(props, "value");
+    const mergedValueRef = useMergedState(controlledValueRef, uncontrolledValueRef);
+    function doUpdateValue(value) {
+      const {
+        onUpdateValue,
+        "onUpdate:value": _onUpdateValue
+      } = props;
+      if (onUpdateValue) {
+        call(onUpdateValue, value);
+      }
+      if (_onUpdateValue) {
+        call(_onUpdateValue, value);
+      }
+      uncontrolledValueRef.value = value;
+      nTriggerFormChange();
+      nTriggerFormInput();
+    }
+    function handleFocusin(e) {
+      const {
+        value: selfEl
+      } = selfElRef;
+      if (!selfEl) return;
+      if (selfEl.contains(e.relatedTarget)) return;
+      nTriggerFormFocus();
+    }
+    function handleFocusout(e) {
+      const {
+        value: selfEl
+      } = selfElRef;
+      if (!selfEl) return;
+      if (selfEl.contains(e.relatedTarget)) return;
+      nTriggerFormBlur();
+    }
+    provide(radioGroupInjectionKey, {
+      mergedClsPrefixRef,
+      nameRef: /* @__PURE__ */ toRef(props, "name"),
+      valueRef: mergedValueRef,
+      disabledRef: mergedDisabledRef,
+      mergedSizeRef,
+      doUpdateValue
+    });
+    const rtlEnabledRef = useRtl("Radio", mergedRtlRef, mergedClsPrefixRef);
+    const cssVarsRef = computed(() => {
+      const {
+        value: size2
+      } = mergedSizeRef;
+      const {
+        common: {
+          cubicBezierEaseInOut: cubicBezierEaseInOut2
+        },
+        self: {
+          buttonBorderColor,
+          buttonBorderColorActive,
+          buttonBorderRadius,
+          buttonBoxShadow,
+          buttonBoxShadowFocus,
+          buttonBoxShadowHover,
+          buttonColor,
+          buttonColorActive,
+          buttonTextColor,
+          buttonTextColorActive,
+          buttonTextColorHover,
+          opacityDisabled,
+          [createKey("buttonHeight", size2)]: height,
+          [createKey("fontSize", size2)]: fontSize2
+        }
+      } = themeRef.value;
+      return {
+        "--n-font-size": fontSize2,
+        "--n-bezier": cubicBezierEaseInOut2,
+        "--n-button-border-color": buttonBorderColor,
+        "--n-button-border-color-active": buttonBorderColorActive,
+        "--n-button-border-radius": buttonBorderRadius,
+        "--n-button-box-shadow": buttonBoxShadow,
+        "--n-button-box-shadow-focus": buttonBoxShadowFocus,
+        "--n-button-box-shadow-hover": buttonBoxShadowHover,
+        "--n-button-color": buttonColor,
+        "--n-button-color-active": buttonColorActive,
+        "--n-button-text-color": buttonTextColor,
+        "--n-button-text-color-hover": buttonTextColorHover,
+        "--n-button-text-color-active": buttonTextColorActive,
+        "--n-height": height,
+        "--n-opacity-disabled": opacityDisabled
+      };
+    });
+    const themeClassHandle = inlineThemeDisabled ? useThemeClass("radio-group", computed(() => mergedSizeRef.value[0]), cssVarsRef, props) : void 0;
+    return {
+      selfElRef,
+      rtlEnabled: rtlEnabledRef,
+      mergedClsPrefix: mergedClsPrefixRef,
+      mergedValue: mergedValueRef,
+      handleFocusout,
+      handleFocusin,
+      cssVars: inlineThemeDisabled ? void 0 : cssVarsRef,
+      themeClass: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.themeClass,
+      onRender: themeClassHandle === null || themeClassHandle === void 0 ? void 0 : themeClassHandle.onRender
+    };
+  },
+  render() {
+    var _a;
+    const {
+      mergedValue,
+      mergedClsPrefix,
+      handleFocusin,
+      handleFocusout
+    } = this;
+    const {
+      children,
+      isButtonGroup
+    } = mapSlot(flatten$2(getSlot(this)), mergedValue, mergedClsPrefix);
+    (_a = this.onRender) === null || _a === void 0 ? void 0 : _a.call(this);
+    return h("div", {
+      onFocusin: handleFocusin,
+      onFocusout: handleFocusout,
+      ref: "selfElRef",
+      class: [`${mergedClsPrefix}-radio-group`, this.rtlEnabled && `${mergedClsPrefix}-radio-group--rtl`, this.themeClass, isButtonGroup && `${mergedClsPrefix}-radio-group--button-group`],
+      style: this.cssVars
+    }, children);
+  }
+});
 const tooltipProps = Object.assign(Object.assign({}, popoverBaseProps), useTheme.props);
 const NTooltip = /* @__PURE__ */ defineComponent({
   name: "Tooltip",
@@ -29680,7 +30472,7 @@ const NTooltip = /* @__PURE__ */ defineComponent({
     }), this.$slots);
   }
 });
-function self$z(vars) {
+function self$A(vars) {
   const {
     textColorBase,
     opacity1,
@@ -29700,12 +30492,12 @@ function self$z(vars) {
 }
 const iconLight = {
   common: derived,
-  self: self$z
+  self: self$A
 };
 const iconDark$1 = {
   name: "Icon",
   common: derived$1,
-  self: self$z
+  self: self$A
 };
 const style$b = cB("icon", `
  height: 1em;
@@ -29818,7 +30610,7 @@ const commonVars$8 = {
   itemWidth: "52px",
   panelActionPadding: "8px 0"
 };
-function self$y(vars) {
+function self$z(vars) {
   const {
     popoverColor,
     textColor2,
@@ -29853,7 +30645,7 @@ const timePickerDark = {
     Button: buttonDark,
     Input: inputDark
   },
-  self: self$y
+  self: self$z
 };
 const commonVars$7 = {
   itemSize: "24px",
@@ -29894,7 +30686,7 @@ const commonVars$7 = {
   calendarRightPaddingYearrange: "0",
   calendarRightPaddingWeek: "0"
 };
-function self$x(vars) {
+function self$y(vars) {
   const {
     hoverColor,
     fontSize: fontSize2,
@@ -29959,7 +30751,7 @@ const datePickerDark = {
       hoverColor,
       primaryColor
     } = vars;
-    const commonSelf = self$x(vars);
+    const commonSelf = self$y(vars);
     commonSelf.itemColorDisabled = composite(popoverColor, hoverColor);
     commonSelf.itemColorIncluded = changeColor(primaryColor, {
       alpha: 0.15
@@ -29982,7 +30774,7 @@ const commonVariables$7 = {
   tdPaddingMedium: "0 0 12px 0",
   tdPaddingLarge: "0 0 16px 0"
 };
-function self$w(vars) {
+function self$x(vars) {
   const {
     tableHeaderColor,
     textColor2,
@@ -30022,7 +30814,7 @@ function self$w(vars) {
 const descriptionsDark = {
   name: "Descriptions",
   common: derived$1,
-  self: self$w
+  self: self$x
 };
 const dialogProviderInjectionKey = createInjectionKey("n-dialog-provider");
 const commonVars$6 = {
@@ -30038,7 +30830,7 @@ const commonVars$6 = {
   closeMargin: "20px 26px 0 0",
   closeMarginIconTop: "10px 16px 0 0"
 };
-function self$v(vars) {
+function self$w(vars) {
   const {
     textColor1,
     textColor2,
@@ -30087,7 +30879,7 @@ const dialogLight = createTheme({
   peers: {
     Button: buttonLight
   },
-  self: self$v
+  self: self$w
 });
 const dialogDark = {
   name: "Dialog",
@@ -30095,7 +30887,7 @@ const dialogDark = {
   peers: {
     Button: buttonDark
   },
-  self: self$v
+  self: self$w
 };
 const dialogProps = {
   icon: Function,
@@ -30414,7 +31206,7 @@ const NDialog = /* @__PURE__ */ defineComponent({
     }, resolveSlot(this.$slots.default, () => [render26(content)])), actionNode);
   }
 });
-function self$u(vars) {
+function self$v(vars) {
   const {
     modalColor,
     textColor2,
@@ -30434,7 +31226,7 @@ const modalLight = createTheme({
     Dialog: dialogLight,
     Card: cardLight
   },
-  self: self$u
+  self: self$v
 });
 const modalDark = {
   name: "Modal",
@@ -30444,7 +31236,7 @@ const modalDark = {
     Dialog: dialogDark,
     Card: cardDark
   },
-  self: self$u
+  self: self$v
 };
 const DRAGGABLE_CLASS = "n-draggable";
 function useDragModal(draggablePropsRef, options) {
@@ -31239,7 +32031,7 @@ const commonVariables$6 = {
   iconSize: "20px",
   fontSize: "14px"
 };
-function self$t(vars) {
+function self$u(vars) {
   const {
     textColor2,
     closeIconColor,
@@ -31321,12 +32113,12 @@ function self$t(vars) {
 }
 const messageLight = {
   common: derived,
-  self: self$t
+  self: self$u
 };
 const messageDark = {
   name: "Message",
   common: derived$1,
-  self: self$t
+  self: self$u
 };
 const messageProps = {
   icon: Function,
@@ -31858,7 +32650,7 @@ const commonVars$5 = {
   metaFontSize: "12px",
   descriptionFontSize: "12px"
 };
-function self$s(vars) {
+function self$t(vars) {
   const {
     textColor2,
     successColor,
@@ -31909,9 +32701,9 @@ const notificationDark = {
   peers: {
     Scrollbar: scrollbarDark
   },
-  self: self$s
+  self: self$t
 };
-function self$r(vars) {
+function self$s(vars) {
   const {
     textColor1,
     dividerColor,
@@ -31926,9 +32718,9 @@ function self$r(vars) {
 const dividerDark = {
   name: "Divider",
   common: derived$1,
-  self: self$r
+  self: self$s
 };
-function self$q(vars) {
+function self$r(vars) {
   const {
     modalColor,
     textColor1,
@@ -31976,7 +32768,7 @@ const drawerDark = {
   peers: {
     Scrollbar: scrollbarDark
   },
-  self: self$q
+  self: self$r
 };
 const commonVariables$5 = {
   actionMargin: "0 0 0 20px",
@@ -32004,6 +32796,168 @@ const spaceDark = {
     return commonVars$4;
   }
 };
+function self$q() {
+  return commonVars$4;
+}
+const spaceLight = {
+  self: self$q
+};
+let supportFlexGap;
+function ensureSupportFlexGap() {
+  if (!isBrowser$1) return true;
+  if (supportFlexGap === void 0) {
+    const flex = document.createElement("div");
+    flex.style.display = "flex";
+    flex.style.flexDirection = "column";
+    flex.style.rowGap = "1px";
+    flex.appendChild(document.createElement("div"));
+    flex.appendChild(document.createElement("div"));
+    document.body.appendChild(flex);
+    const isSupported = flex.scrollHeight === 1;
+    document.body.removeChild(flex);
+    return supportFlexGap = isSupported;
+  }
+  return supportFlexGap;
+}
+const spaceProps = Object.assign(Object.assign({}, useTheme.props), {
+  align: String,
+  justify: {
+    type: String,
+    default: "start"
+  },
+  inline: Boolean,
+  vertical: Boolean,
+  reverse: Boolean,
+  size: [String, Number, Array],
+  wrapItem: {
+    type: Boolean,
+    default: true
+  },
+  itemClass: String,
+  itemStyle: [String, Object],
+  wrap: {
+    type: Boolean,
+    default: true
+  },
+  // internal
+  internalUseGap: {
+    type: Boolean,
+    default: void 0
+  }
+});
+const NSpace = /* @__PURE__ */ defineComponent({
+  name: "Space",
+  props: spaceProps,
+  setup(props) {
+    const {
+      mergedClsPrefixRef,
+      mergedRtlRef,
+      mergedComponentPropsRef
+    } = useConfig(props);
+    const mergedSizeRef = computed(() => {
+      var _a, _b;
+      return props.size || ((_b = (_a = mergedComponentPropsRef === null || mergedComponentPropsRef === void 0 ? void 0 : mergedComponentPropsRef.value) === null || _a === void 0 ? void 0 : _a.Space) === null || _b === void 0 ? void 0 : _b.size) || "medium";
+    });
+    const themeRef = useTheme("Space", "-space", void 0, spaceLight, props, mergedClsPrefixRef);
+    const rtlEnabledRef = useRtl("Space", mergedRtlRef, mergedClsPrefixRef);
+    return {
+      useGap: ensureSupportFlexGap(),
+      rtlEnabled: rtlEnabledRef,
+      mergedClsPrefix: mergedClsPrefixRef,
+      margin: computed(() => {
+        const size2 = mergedSizeRef.value;
+        if (Array.isArray(size2)) {
+          return {
+            horizontal: size2[0],
+            vertical: size2[1]
+          };
+        }
+        if (typeof size2 === "number") {
+          return {
+            horizontal: size2,
+            vertical: size2
+          };
+        }
+        const {
+          self: {
+            [createKey("gap", size2)]: gap
+          }
+        } = themeRef.value;
+        const {
+          row,
+          col
+        } = getGap(gap);
+        return {
+          horizontal: depx(col),
+          vertical: depx(row)
+        };
+      })
+    };
+  },
+  render() {
+    const {
+      vertical,
+      reverse,
+      align,
+      inline,
+      justify,
+      itemClass,
+      itemStyle,
+      margin,
+      wrap,
+      mergedClsPrefix,
+      rtlEnabled,
+      useGap,
+      wrapItem,
+      internalUseGap
+    } = this;
+    const children = flatten$2(getSlot(this), false);
+    if (!children.length) return null;
+    const horizontalMargin = `${margin.horizontal}px`;
+    const semiHorizontalMargin = `${margin.horizontal / 2}px`;
+    const verticalMargin = `${margin.vertical}px`;
+    const semiVerticalMargin = `${margin.vertical / 2}px`;
+    const lastIndex = children.length - 1;
+    const isJustifySpace = justify.startsWith("space-");
+    return h("div", {
+      role: "none",
+      class: [`${mergedClsPrefix}-space`, rtlEnabled && `${mergedClsPrefix}-space--rtl`],
+      style: {
+        display: inline ? "inline-flex" : "flex",
+        flexDirection: (() => {
+          if (vertical && !reverse) return "column";
+          if (vertical && reverse) return "column-reverse";
+          if (!vertical && reverse) return "row-reverse";
+          else return "row";
+        })(),
+        justifyContent: ["start", "end"].includes(justify) ? `flex-${justify}` : justify,
+        flexWrap: !wrap || vertical ? "nowrap" : "wrap",
+        marginTop: useGap || vertical ? "" : `-${semiVerticalMargin}`,
+        marginBottom: useGap || vertical ? "" : `-${semiVerticalMargin}`,
+        alignItems: align,
+        gap: useGap ? `${margin.vertical}px ${margin.horizontal}px` : ""
+      }
+    }, !wrapItem && (useGap || internalUseGap) ? children : children.map((child, index) => child.type === Comment ? child : h("div", {
+      role: "none",
+      class: itemClass,
+      style: [itemStyle, {
+        maxWidth: "100%"
+      }, useGap ? "" : vertical ? {
+        marginBottom: index !== lastIndex ? verticalMargin : ""
+      } : rtlEnabled ? {
+        marginLeft: isJustifySpace ? justify === "space-between" && index === lastIndex ? "" : semiHorizontalMargin : index !== lastIndex ? horizontalMargin : "",
+        marginRight: isJustifySpace ? justify === "space-between" && index === 0 ? "" : semiHorizontalMargin : "",
+        paddingTop: semiVerticalMargin,
+        paddingBottom: semiVerticalMargin
+      } : {
+        marginRight: isJustifySpace ? justify === "space-between" && index === lastIndex ? "" : semiHorizontalMargin : index !== lastIndex ? horizontalMargin : "",
+        marginLeft: isJustifySpace ? justify === "space-between" && index === 0 ? "" : semiHorizontalMargin : "",
+        paddingTop: semiVerticalMargin,
+        paddingBottom: semiVerticalMargin
+      }]
+    }, child)));
+  }
+});
 const dynamicTagsDark = {
   name: "DynamicTags",
   common: derived$1,
@@ -39754,8 +40708,8 @@ const darkTheme = {
   FloatButtonGroup: floatButtonGroupDark,
   Marquee: marqueeDark
 };
-const _hoisted_1$a = { class: "upload-inner" };
-const _sfc_main$b = /* @__PURE__ */ defineComponent({
+const _hoisted_1$b = { class: "upload-inner" };
+const _sfc_main$c = /* @__PURE__ */ defineComponent({
   __name: "FileUploader",
   props: {
     disabled: { type: Boolean }
@@ -39795,7 +40749,7 @@ const _sfc_main$b = /* @__PURE__ */ defineComponent({
         default: withCtx(() => [
           createVNode(unref(NUploadDragger), { class: "upload-zone" }, {
             default: withCtx(() => [
-              createBaseVNode("div", _hoisted_1$a, [
+              createBaseVNode("div", _hoisted_1$b, [
                 createVNode(unref(NIcon), { size: "28" }, {
                   default: withCtx(() => [
                     createVNode(unref(CloudUploadOutline))
@@ -39823,7 +40777,112 @@ const _export_sfc = (sfc, props) => {
   }
   return target;
 };
-const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["__scopeId", "data-v-5243b188"]]);
+const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["__scopeId", "data-v-5243b188"]]);
+const _hoisted_1$a = { class: "picker-shell" };
+const _sfc_main$b = /* @__PURE__ */ defineComponent({
+  __name: "MeasureNumberPicker",
+  props: {
+    show: { type: Boolean },
+    options: {}
+  },
+  emits: ["update:show", "confirm", "cancel"],
+  setup(__props, { emit: __emit }) {
+    const props = __props;
+    const emit2 = __emit;
+    const selectedValue = /* @__PURE__ */ ref(0);
+    const customValue = /* @__PURE__ */ ref(null);
+    watch(
+      () => props.show,
+      (visible) => {
+        if (visible && props.options.length) {
+          selectedValue.value = props.options[0];
+          customValue.value = null;
+        }
+      },
+      { immediate: true }
+    );
+    function handleConfirm() {
+      if (selectedValue.value === -1) {
+        if (customValue.value != null && customValue.value >= 1) {
+          emit2("confirm", customValue.value);
+        }
+      } else {
+        emit2("confirm", selectedValue.value);
+      }
+      emit2("update:show", false);
+    }
+    function handleCancel() {
+      emit2("cancel");
+      emit2("update:show", false);
+    }
+    return (_ctx, _cache) => {
+      return openBlock(), createBlock(unref(NModal), {
+        show: __props.show,
+        preset: "dialog",
+        title: "选择起始小节号",
+        "positive-text": "确定",
+        "negative-text": "取消",
+        "show-icon": false,
+        onPositiveClick: handleConfirm,
+        onNegativeClick: handleCancel,
+        "onUpdate:show": _cache[2] || (_cache[2] = ($event) => _ctx.$emit("update:show", $event))
+      }, {
+        default: withCtx(() => [
+          createBaseVNode("div", _hoisted_1$a, [
+            _cache[4] || (_cache[4] = createBaseVNode("p", { class: "picker-desc" }, "OCR 识别到本页以下小节号，请选择本页的起始小节号：", -1)),
+            createVNode(unref(NRadioGroup), {
+              value: selectedValue.value,
+              "onUpdate:value": _cache[1] || (_cache[1] = ($event) => selectedValue.value = $event),
+              class: "picker-options"
+            }, {
+              default: withCtx(() => [
+                createVNode(unref(NSpace), { vertical: "" }, {
+                  default: withCtx(() => [
+                    (openBlock(true), createElementBlock(Fragment, null, renderList(__props.options, (num) => {
+                      return openBlock(), createBlock(unref(NRadio), {
+                        key: num,
+                        value: num
+                      }, {
+                        default: withCtx(() => [
+                          createTextVNode(" 第 " + toDisplayString(num) + " 小节 ", 1)
+                        ]),
+                        _: 2
+                      }, 1032, ["value"]);
+                    }), 128)),
+                    createVNode(unref(NRadio), { value: -1 }, {
+                      default: withCtx(() => [
+                        createVNode(unref(NSpace), { align: "center" }, {
+                          default: withCtx(() => [
+                            _cache[3] || (_cache[3] = createBaseVNode("span", null, "自定义", -1)),
+                            createVNode(unref(NInputNumber), {
+                              value: customValue.value,
+                              "onUpdate:value": _cache[0] || (_cache[0] = ($event) => customValue.value = $event),
+                              disabled: selectedValue.value !== -1,
+                              placeholder: "输入数字",
+                              min: 1,
+                              size: "small",
+                              style: { "width": "120px" }
+                            }, null, 8, ["value", "disabled"])
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    })
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            }, 8, ["value"])
+          ])
+        ]),
+        _: 1
+      }, 8, ["show"]);
+    };
+  }
+});
+const MeasureNumberPicker = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["__scopeId", "data-v-7c733fdf"]]);
 const _hoisted_1$9 = { class: "recognize-view" };
 const _hoisted_2$9 = { class: "rv-header" };
 const _hoisted_3$9 = {
@@ -39839,12 +40898,13 @@ const _hoisted_7$7 = {
 };
 const _hoisted_8$6 = ["onClick"];
 const _hoisted_9$6 = ["disabled", "onClick"];
-const _hoisted_10$6 = { class: "page-thumb" };
-const _hoisted_11$6 = ["src", "alt"];
-const _hoisted_12$5 = { class: "page-label" };
-const _hoisted_13$5 = { class: "page-name" };
-const _hoisted_14$5 = {
-  key: 0,
+const _hoisted_10$6 = ["onClick"];
+const _hoisted_11$6 = { class: "page-thumb" };
+const _hoisted_12$5 = ["src", "alt"];
+const _hoisted_13$5 = { class: "page-label" };
+const _hoisted_14$5 = { class: "page-name" };
+const _hoisted_15$5 = {
+  key: 2,
   class: "page-mini-progress"
 };
 const _sfc_main$a = /* @__PURE__ */ defineComponent({
@@ -39855,6 +40915,9 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     const settings = useSettingsStore();
     const message = useMessage();
     const aiVisionEnabled = /* @__PURE__ */ ref(false);
+    const pickerShow = /* @__PURE__ */ ref(false);
+    const pickerOptions = /* @__PURE__ */ ref([]);
+    const pickerPageId = /* @__PURE__ */ ref(null);
     const activePages = computed(() => store.pages.filter((page) => page.status === "processing"));
     const currentPageProcessing = computed(() => store.currentPage?.status === "processing");
     const pendingRecognizableCount = computed(() => store.pages.filter((page) => isStartablePage(page)).length);
@@ -39873,13 +40936,13 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName);
     }
     function isStartablePage(page) {
-      return !!page.inputFileId && page.status !== "processing";
+      return !!page.inputFileId && page.status !== "processing" && page.status !== "waiting";
     }
     function statusText(page) {
       if (page.status === "processing") {
         return page.progressPercent > 0 ? `${Math.round(page.progressPercent)}%` : "处理中";
       }
-      const map2 = { completed: "完成", failed: "失败", pending: "待处理" };
+      const map2 = { completed: "完成", failed: "失败", pending: "待处理", waiting: "待选择" };
       return map2[page.status] ?? "";
     }
     function removePage(index) {
@@ -39895,6 +40958,27 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     async function onFileUploaded(fileId, fileName) {
       store.addInputPage(fileName, fileId);
       log2.addLog(`已加入：${fileName}`);
+    }
+    function openMeasurePickerForPage(page) {
+      if (page.status !== "waiting") return;
+      if (!page.measureNumberOptions.length) {
+        message.warning("没有可选的小节号候选");
+        return;
+      }
+      pickerPageId.value = page.id;
+      pickerOptions.value = page.measureNumberOptions;
+      pickerShow.value = true;
+    }
+    async function onPickerConfirm(value) {
+      const pageId = pickerPageId.value;
+      pickerShow.value = false;
+      pickerPageId.value = null;
+      if (!pageId) return;
+      await applyMeasureSelection(pageId, value);
+    }
+    function onPickerCancel() {
+      pickerShow.value = false;
+      pickerPageId.value = null;
     }
     async function recognize() {
       const page = store.currentPage;
@@ -39966,6 +41050,9 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         store.patchPageById(target.pageId, { taskId: submitted.task_id });
         const result = await waitForTaskResult(submitted.task_id, target.pageId);
         const split = splitJianpuAndOcr(result.jianpu_text);
+        const needsMeasureChoice = target.startMeasureNumber == null && result.ocr_measure_numbers.length > 0;
+        const resultStatus = needsMeasureChoice ? "waiting" : "completed";
+        const waitingMessage = needsMeasureChoice ? waitingMeasureMessage(result.ocr_measure_numbers) : "";
         const pageResult = {
           input_file_name: target.inputFileName,
           input_file_id: target.inputFileId,
@@ -39974,8 +41061,8 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           ocr_text: split.ocrText,
           svg_file_id: result.svg_file_id,
           start_measure_number: target.startMeasureNumber,
-          status: "completed",
-          error_message: ""
+          status: resultStatus,
+          error_message: waitingMessage
         };
         store.patchPageById(target.pageId, {
           musicxmlFileId: result.musicxml_file_id,
@@ -39987,16 +41074,75 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : "",
           originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : "",
           taskId: "",
+          status: resultStatus,
+          progressPercent: 100,
+          progressMessage: needsMeasureChoice ? "等待选择起始小节号" : "识别完成",
+          measureNumberOptions: needsMeasureChoice ? result.ocr_measure_numbers : [],
+          errorMessage: waitingMessage
+        });
+        await persistPageResult(target, pageResult, historyPageId);
+        if (needsMeasureChoice) {
+          log2.addLog(`等待选择起始小节号：${target.inputFileName}`, "warn");
+          message.warning(`等待选择起始小节号：${target.inputFileName}`);
+        } else {
+          log2.addLog(`识别完成：${target.inputFileName}`);
+          message.success(`识别完成：${target.inputFileName}`);
+        }
+      } catch (error2) {
+        await failTarget(target, historyPageId, error2, "识别失败");
+      }
+    }
+    async function applyMeasureSelection(pageId, selected) {
+      const page = store.pages.find((entry) => entry.id === pageId);
+      if (!page) return;
+      store.patchPageById(pageId, {
+        status: "processing",
+        startMeasureNumber: selected,
+        progressPercent: 92,
+        progressMessage: "应用起始小节号",
+        errorMessage: ""
+      });
+      let svgFileId = page.svgFileId;
+      try {
+        if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
+          const rendered = await renderApi.jianpuSvg({
+            musicxml_file_id: page.musicxmlFileId,
+            page_image_file_id: page.originalFileId || page.inputFileId || void 0,
+            target_key: settings.targetKey,
+            start_measure_number: selected
+          });
+          svgFileId = rendered.svg_file_id;
+        }
+        store.patchPageById(pageId, {
+          svgFileId,
           status: "completed",
           progressPercent: 100,
           progressMessage: "识别完成",
+          measureNumberOptions: [],
           errorMessage: ""
         });
-        await persistPageResult(target, pageResult, historyPageId);
-        log2.addLog(`识别完成：${target.inputFileName}`);
-        message.success(`识别完成：${target.inputFileName}`);
+        await persistPageResult(targetFromPage({ ...page, startMeasureNumber: selected }), {
+          input_file_name: page.inputFileName,
+          input_file_id: page.inputFileId,
+          musicxml_file_id: page.musicxmlFileId,
+          jianpu_text: page.jianpuText,
+          ocr_text: page.ocrText,
+          svg_file_id: svgFileId,
+          start_measure_number: selected,
+          status: "completed",
+          error_message: ""
+        }, page.historyPageId);
+        log2.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`);
+        message.success("已应用起始小节号");
       } catch (error2) {
-        await failTarget(target, historyPageId, error2, "识别失败");
+        const msg2 = errorMessage(error2);
+        store.patchPageById(pageId, {
+          status: "waiting",
+          progressPercent: 100,
+          progressMessage: "等待选择起始小节号",
+          errorMessage: msg2
+        });
+        message.error(msg2);
       }
     }
     async function runAiTarget(target, historyPageId) {
@@ -40183,13 +41329,16 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       if (event.status === "failed") return event.error || event.message || "任务失败";
       return event.message || event.stage || "处理中";
     }
+    function waitingMeasureMessage(options) {
+      return `等待选择起始小节号：${options.join("、")}`;
+    }
     function errorMessage(error2) {
       return error2 instanceof Error ? error2.message : String(error2);
     }
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$9, [
         createBaseVNode("div", _hoisted_2$9, [
-          _cache[3] || (_cache[3] = createBaseVNode("div", { class: "rv-title" }, [
+          _cache[4] || (_cache[4] = createBaseVNode("div", { class: "rv-title" }, [
             createBaseVNode("h2", null, "智能识别"),
             createBaseVNode("p", null, "上传乐谱图片或 PDF，快速得到简谱成果")
           ], -1)),
@@ -40243,6 +41392,13 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           ]),
           _: 1
         }, 8, ["percentage"])) : createCommentVNode("", true),
+        createVNode(MeasureNumberPicker, {
+          show: pickerShow.value,
+          "onUpdate:show": _cache[2] || (_cache[2] = ($event) => pickerShow.value = $event),
+          options: pickerOptions.value,
+          onConfirm: onPickerConfirm,
+          onCancel: onPickerCancel
+        }, null, 8, ["show", "options"]),
         createBaseVNode("div", _hoisted_5$7, [
           createVNode(unref(Button), {
             type: "primary",
@@ -40259,7 +41415,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
               })
             ]),
             default: withCtx(() => [
-              _cache[4] || (_cache[4] = createTextVNode(" 识别并自动填充 ", -1))
+              _cache[5] || (_cache[5] = createTextVNode(" 识别并自动填充 ", -1))
             ]),
             _: 1
           }, 8, ["loading", "disabled"]),
@@ -40278,15 +41434,15 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
               })
             ]),
             default: withCtx(() => [
-              _cache[5] || (_cache[5] = createTextVNode(" 批量识别全部 ", -1))
+              _cache[6] || (_cache[6] = createTextVNode(" 批量识别全部 ", -1))
             ]),
             _: 1
           }, 8, ["loading", "disabled"]),
           createBaseVNode("div", _hoisted_6$7, [
-            _cache[6] || (_cache[6] = createBaseVNode("span", null, "AI 视觉检测", -1)),
+            _cache[7] || (_cache[7] = createBaseVNode("span", null, "AI 视觉检测", -1)),
             createVNode(unref(NSwitch), {
               value: aiVisionEnabled.value,
-              "onUpdate:value": _cache[2] || (_cache[2] = ($event) => aiVisionEnabled.value = $event),
+              "onUpdate:value": _cache[3] || (_cache[3] = ($event) => aiVisionEnabled.value = $event),
               size: "small"
             }, null, 8, ["value"])
           ])
@@ -40298,7 +41454,8 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
               class: normalizeClass(["page-card", page.status, { active: index === unref(store).currentPageIndex }]),
               onClick: ($event) => unref(store).selectPage(index)
             }, [
-              createBaseVNode("button", {
+              page.status !== "waiting" ? (openBlock(), createElementBlock("button", {
+                key: 0,
                 class: "page-del",
                 type: "button",
                 disabled: page.status === "processing",
@@ -40310,13 +41467,27 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                   ]),
                   _: 1
                 })
-              ], 8, _hoisted_9$6),
-              createBaseVNode("div", _hoisted_10$6, [
+              ], 8, _hoisted_9$6)) : (openBlock(), createElementBlock("button", {
+                key: 1,
+                class: "page-waiting-action",
+                type: "button",
+                title: "选择起始小节号",
+                onClick: withModifiers(($event) => openMeasurePickerForPage(page), ["stop"])
+              }, [
+                createVNode(unref(NIcon), { size: "12" }, {
+                  default: withCtx(() => [
+                    createVNode(unref(AlertCircleOutline))
+                  ]),
+                  _: 1
+                }),
+                _cache[8] || (_cache[8] = createBaseVNode("span", null, "待选择", -1))
+              ], 8, _hoisted_10$6)),
+              createBaseVNode("div", _hoisted_11$6, [
                 isPreviewable(page.inputFileName) ? (openBlock(), createElementBlock("img", {
                   key: 0,
                   src: unref(getFileURL)(page.inputFileId),
                   alt: page.inputFileName
-                }, null, 8, _hoisted_11$6)) : (openBlock(), createBlock(unref(NIcon), {
+                }, null, 8, _hoisted_12$5)) : (openBlock(), createBlock(unref(NIcon), {
                   key: 1,
                   size: "20",
                   class: "page-icon"
@@ -40327,13 +41498,13 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                   _: 1
                 }))
               ]),
-              createBaseVNode("div", _hoisted_12$5, [
-                createBaseVNode("span", _hoisted_13$5, toDisplayString(page.inputFileName), 1),
+              createBaseVNode("div", _hoisted_13$5, [
+                createBaseVNode("span", _hoisted_14$5, toDisplayString(page.inputFileName), 1),
                 createBaseVNode("span", {
                   class: normalizeClass(["page-status", page.status])
                 }, toDisplayString(statusText(page)), 3)
               ]),
-              page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_14$5, [
+              page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_15$5, [
                 createBaseVNode("span", {
                   style: normalizeStyle({ width: `${Math.max(4, page.progressPercent)}%` })
                 }, null, 4)
@@ -40345,40 +41516,10 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-c583960b"]]);
+const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-ad8f6116"]]);
 const convertApi = {
   musicxmlToJianpu(req) {
     return apiFetch("/convert/musicxml-to-jianpu", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  }
-};
-const renderApi = {
-  jianpuSvg(req) {
-    return apiFetch("/render/jianpu-svg", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  },
-  jianpuTextSvg(req) {
-    return apiFetch("/render/jianpu-text-svg", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  },
-  finalOutput(req) {
-    return apiFetch("/render/final-output", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  },
-  normalizeJianpuText(req) {
-    return apiFetch("/render/normalize-jianpu-text", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req)
@@ -60110,7 +61251,7 @@ const _hoisted_14$4 = {
   viewBox: "0 0 24 24",
   fill: "currentColor"
 };
-const _hoisted_15$3 = {
+const _hoisted_15$4 = {
   key: 2,
   viewBox: "0 0 24 24",
   fill: "currentColor"
@@ -60352,7 +61493,7 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
                 createBaseVNode("path", { d: "M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" }, null, -1)
               ])])) : unref(player).volume.value < -10 ? (openBlock(), createElementBlock("svg", _hoisted_14$4, [..._cache[8] || (_cache[8] = [
                 createBaseVNode("path", { d: "M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" }, null, -1)
-              ])])) : (openBlock(), createElementBlock("svg", _hoisted_15$3, [..._cache[9] || (_cache[9] = [
+              ])])) : (openBlock(), createElementBlock("svg", _hoisted_15$4, [..._cache[9] || (_cache[9] = [
                 createBaseVNode("path", { d: "M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" }, null, -1)
               ])]))
             ]),
@@ -61447,40 +62588,48 @@ const _hoisted_8$3 = {
   key: 0,
   class: "hist-batch-count"
 };
-const _hoisted_9$3 = { class: "hist-batch-meta" };
-const _hoisted_10$3 = {
+const _hoisted_9$3 = {
+  key: 1,
+  class: "hist-waiting-label"
+};
+const _hoisted_10$3 = { class: "hist-batch-meta" };
+const _hoisted_11$3 = {
   key: 0,
   class: "hist-pages"
 };
-const _hoisted_11$3 = {
+const _hoisted_12$3 = {
   key: 0,
   class: "hist-loading"
 };
-const _hoisted_12$3 = ["onClick"];
-const _hoisted_13$3 = { class: "hist-page-name" };
-const _hoisted_14$3 = { class: "ws-main" };
-const _hoisted_15$2 = { class: "ws-toolbar" };
-const _hoisted_16$2 = { class: "ws-toolbar-left" };
-const _hoisted_17$1 = {
+const _hoisted_13$3 = ["onClick"];
+const _hoisted_14$3 = { class: "hist-page-name" };
+const _hoisted_15$3 = {
+  key: 0,
+  class: "hist-waiting-label"
+};
+const _hoisted_16$3 = { class: "ws-main" };
+const _hoisted_17$2 = { class: "ws-toolbar" };
+const _hoisted_18$1 = { class: "ws-toolbar-left" };
+const _hoisted_19$1 = {
   key: 0,
   class: "page-nav"
 };
-const _hoisted_18$1 = { class: "page-indicator" };
-const _hoisted_19$1 = { class: "ws-toolbar-right" };
-const _hoisted_20 = { class: "ws-layout" };
-const _hoisted_21 = { class: "ws-panel ws-left" };
-const _hoisted_22 = { class: "ws-panel-head" };
-const _hoisted_23 = {
+const _hoisted_20 = { class: "page-indicator" };
+const _hoisted_21 = { class: "ws-toolbar-right" };
+const _hoisted_22 = { class: "ws-layout" };
+const _hoisted_23 = { class: "ws-panel ws-left" };
+const _hoisted_24 = { class: "ws-panel-head" };
+const _hoisted_25 = {
   key: 0,
   class: "panel-filename"
 };
-const _hoisted_24 = { class: "ws-panel-body" };
-const _hoisted_25 = { class: "ws-panel ws-right" };
-const _hoisted_26 = { class: "ws-panel-head" };
-const _hoisted_27 = { class: "panel-head-actions" };
-const _hoisted_28 = { class: "panel-head-meta" };
-const _hoisted_29 = { class: "ws-panel-body" };
-const _hoisted_30 = {
+const _hoisted_26 = { class: "ws-panel-body" };
+const _hoisted_27 = { class: "ws-panel ws-right" };
+const _hoisted_28 = { class: "ws-panel-head" };
+const _hoisted_29 = { class: "panel-head-actions" };
+const _hoisted_30 = { class: "panel-head-meta" };
+const _hoisted_31 = { class: "ws-panel-body" };
+const _hoisted_32 = {
   key: 1,
   class: "empty-hint"
 };
@@ -61630,7 +62779,9 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           ocrText: r.page.ocr_text || r.split.ocrText,
           svgFileId: r.svgOk ? r.page.svg_file_id : "",
           startMeasureNumber: r.page.start_measure_number ?? null,
-          status: r.page.status
+          status: r.page.status,
+          measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
+          errorMessage: r.page.error_message
         })),
         pageIndex >= 0 ? pageIndex : 0
       );
@@ -61666,8 +62817,15 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     }
     function historyStatusClass(status) {
       if (status === "completed") return "ok";
-      if (status === "processing" || status === "pending") return "processing";
+      if (status === "processing" || status === "pending" || status === "waiting") return "processing";
       return "err";
+    }
+    function isWaitingStatus(status) {
+      return status === "waiting";
+    }
+    function parseWaitingMeasureOptions(messageText) {
+      if (!messageText.includes("等待选择起始小节号")) return [];
+      return Array.from(messageText.matchAll(/\d+/g), (match2) => Number(match2[0])).filter((value) => Number.isFinite(value) && value > 0);
     }
     function resolveMissingFileId(msg2) {
       const match2 = msg2.match(/文件不存在[:：]\s*([A-Za-z0-9_-]+)/);
@@ -62029,6 +63187,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   }, null, 2),
                   createBaseVNode("span", _hoisted_7$3, toDisplayString(batch2.first_file_name || "未知"), 1),
                   batch2.page_count > 1 ? (openBlock(), createElementBlock("span", _hoisted_8$3, toDisplayString(batch2.page_count) + "页", 1)) : createCommentVNode("", true),
+                  isWaitingStatus(batch2.status) ? (openBlock(), createElementBlock("span", _hoisted_9$3, "待选择")) : createCommentVNode("", true),
                   createVNode(unref(NPopconfirm), {
                     onPositiveClick: ($event) => handleDeleteBatch(batch2.id),
                     "show-icon": false
@@ -62064,9 +63223,9 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                     _: 1
                   }, 8, ["class"])
                 ], 8, _hoisted_6$3),
-                createBaseVNode("div", _hoisted_9$3, toDisplayString(formatTime2(batch2.created_at)), 1),
-                expandedBatchId.value === batch2.id ? (openBlock(), createElementBlock("div", _hoisted_10$3, [
-                  loadingBatch.value ? (openBlock(), createElementBlock("div", _hoisted_11$3, "加载中...")) : createCommentVNode("", true),
+                createBaseVNode("div", _hoisted_10$3, toDisplayString(formatTime2(batch2.created_at)), 1),
+                expandedBatchId.value === batch2.id ? (openBlock(), createElementBlock("div", _hoisted_11$3, [
+                  loadingBatch.value ? (openBlock(), createElementBlock("div", _hoisted_12$3, "加载中...")) : createCommentVNode("", true),
                   (openBlock(true), createElementBlock(Fragment, null, renderList(expandedPages.value, (page, pi) => {
                     return openBlock(), createElementBlock("div", {
                       key: page.id,
@@ -62076,17 +63235,18 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                       createBaseVNode("span", {
                         class: normalizeClass(["hist-dot small", historyStatusClass(page.status)])
                       }, null, 2),
-                      createBaseVNode("span", _hoisted_13$3, toDisplayString(page.input_file_name || `第${pi + 1}页`), 1)
-                    ], 8, _hoisted_12$3);
+                      createBaseVNode("span", _hoisted_14$3, toDisplayString(page.input_file_name || `第${pi + 1}页`), 1),
+                      isWaitingStatus(page.status) ? (openBlock(), createElementBlock("span", _hoisted_15$3, "待选择")) : createCommentVNode("", true)
+                    ], 8, _hoisted_13$3);
                   }), 128))
                 ])) : createCommentVNode("", true)
               ]);
             }), 128))
           ])
         ], 2),
-        createBaseVNode("div", _hoisted_14$3, [
-          createBaseVNode("div", _hoisted_15$2, [
-            createBaseVNode("div", _hoisted_16$2, [
+        createBaseVNode("div", _hoisted_16$3, [
+          createBaseVNode("div", _hoisted_17$2, [
+            createBaseVNode("div", _hoisted_18$1, [
               createBaseVNode("button", {
                 class: "hist-toggle",
                 title: "历史记录",
@@ -62099,7 +63259,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   _: 1
                 })
               ]),
-              unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_17$1, [
+              unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_19$1, [
                 createVNode(unref(Button), {
                   size: "small",
                   quaternary: "",
@@ -62116,7 +63276,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   ]),
                   _: 1
                 }, 8, ["disabled"]),
-                createBaseVNode("span", _hoisted_18$1, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
+                createBaseVNode("span", _hoisted_20, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
                 createVNode(unref(Button), {
                   size: "small",
                   quaternary: "",
@@ -62135,7 +63295,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                 }, 8, ["disabled"])
               ])) : createCommentVNode("", true)
             ]),
-            createBaseVNode("div", _hoisted_19$1, [
+            createBaseVNode("div", _hoisted_21, [
               createVNode(unref(Button), {
                 size: "small",
                 onClick: musicxmlToJianpu,
@@ -62185,24 +63345,24 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
               }, null, 8, ["value"])
             ])
           ]),
-          createBaseVNode("div", _hoisted_20, [
-            createBaseVNode("div", _hoisted_21, [
-              createBaseVNode("div", _hoisted_22, [
-                _cache[14] || (_cache[14] = createBaseVNode("span", null, "原始五线谱", -1)),
-                unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_23, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
-              ]),
+          createBaseVNode("div", _hoisted_22, [
+            createBaseVNode("div", _hoisted_23, [
               createBaseVNode("div", _hoisted_24, [
+                _cache[14] || (_cache[14] = createBaseVNode("span", null, "原始五线谱", -1)),
+                unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_25, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
+              ]),
+              createBaseVNode("div", _hoisted_26, [
                 createVNode(OriginalPreview, {
                   "file-id": unref(store).originalFileId,
                   "file-name": unref(store).originalFileName
                 }, null, 8, ["file-id", "file-name"])
               ])
             ]),
-            createBaseVNode("div", _hoisted_25, [
-              createBaseVNode("div", _hoisted_26, [
+            createBaseVNode("div", _hoisted_27, [
+              createBaseVNode("div", _hoisted_28, [
                 createBaseVNode("span", null, toDisplayString(isViewingFinal.value ? "最终渲染" : "简谱编辑"), 1),
-                createBaseVNode("div", _hoisted_27, [
-                  createBaseVNode("div", _hoisted_28, [
+                createBaseVNode("div", _hoisted_29, [
+                  createBaseVNode("div", _hoisted_30, [
                     _cache[15] || (_cache[15] = createBaseVNode("span", { class: "meta-label" }, "起始小节", -1)),
                     createVNode(unref(NInputNumber), {
                       value: unref(store).startMeasureNumber,
@@ -62258,7 +63418,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   }, 8, ["loading", "disabled"])
                 ])
               ]),
-              createBaseVNode("div", _hoisted_29, [
+              createBaseVNode("div", _hoisted_31, [
                 isViewingFinal.value && finalSvgFileId.value ? (openBlock(), createBlock(SvgPreview, {
                   key: 0,
                   "svg-file-id": finalSvgFileId.value,
@@ -62266,7 +63426,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   "current-note-index": currentNoteIndex.value,
                   "editable-ocr": "",
                   "onUpdate:ocrText": handleOcrTextUpdate
-                }, null, 8, ["svg-file-id", "ocr-text", "current-note-index"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_30, [
+                }, null, 8, ["svg-file-id", "ocr-text", "current-note-index"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_32, [
                   createVNode(unref(NIcon), {
                     size: "32",
                     depth: 3
@@ -62301,7 +63461,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-99fa9920"]]);
+const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-d0d3d860"]]);
 const _hoisted_1$3 = { class: "settings-view" };
 const _hoisted_2$3 = { class: "sv-section" };
 const _hoisted_3$3 = { class: "sv-grid" };
@@ -62311,11 +63471,14 @@ const _hoisted_6$2 = { class: "sv-section" };
 const _hoisted_7$2 = { class: "sv-grid" };
 const _hoisted_8$2 = { class: "sv-section" };
 const _hoisted_9$2 = { class: "sv-grid" };
-const _hoisted_10$2 = { class: "sv-section" };
-const _hoisted_11$2 = { class: "sv-grid" };
-const _hoisted_12$2 = { class: "sv-section" };
-const _hoisted_13$2 = { class: "sv-grid" };
-const _hoisted_14$2 = { class: "sv-footer" };
+const _hoisted_10$2 = { class: "provider-detail" };
+const _hoisted_11$2 = { class: "sv-section" };
+const _hoisted_12$2 = { class: "sv-grid" };
+const _hoisted_13$2 = { class: "provider-detail" };
+const _hoisted_14$2 = { class: "sv-section" };
+const _hoisted_15$2 = { class: "sv-grid" };
+const _hoisted_16$2 = { class: "provider-detail" };
+const _hoisted_17$1 = { class: "sv-footer" };
 const _sfc_main$3 = /* @__PURE__ */ defineComponent({
   __name: "SettingsView",
   setup(__props) {
@@ -62338,14 +63501,23 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       const result = await window.api.selectDirectory();
       if (result) settings.outputDir = result;
     }
+    function providerSelectOptions(options) {
+      return options.map((option) => ({
+        label: option.label,
+        value: option.id
+      }));
+    }
+    function selectedProviderModel(options, selected) {
+      return options.find((option) => option.id === selected)?.model ?? "";
+    }
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$3, [
-        _cache[40] || (_cache[40] = createBaseVNode("h2", null, "设置", -1)),
-        _cache[41] || (_cache[41] = createBaseVNode("p", { class: "subtitle" }, "调整识别引擎、导出路径、OCR 与 AI 服务参数", -1)),
+        _cache[37] || (_cache[37] = createBaseVNode("h2", null, "设置", -1)),
+        _cache[38] || (_cache[38] = createBaseVNode("p", { class: "subtitle" }, "调整识别引擎、导出路径、OCR 与 AI 服务参数", -1)),
         createBaseVNode("div", _hoisted_2$3, [
-          _cache[18] || (_cache[18] = createBaseVNode("div", { class: "sv-section-title" }, "外部工具", -1)),
+          _cache[15] || (_cache[15] = createBaseVNode("div", { class: "sv-section-title" }, "外部工具", -1)),
           createBaseVNode("div", _hoisted_3$3, [
-            _cache[16] || (_cache[16] = createBaseVNode("label", null, "Audiveris 路径", -1)),
+            _cache[13] || (_cache[13] = createBaseVNode("label", null, "Audiveris 路径", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).audiverisPath,
               "onUpdate:value": _cache[0] || (_cache[0] = ($event) => unref(settings).audiverisPath = $event),
@@ -62362,7 +63534,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value"]),
-            _cache[17] || (_cache[17] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
+            _cache[14] || (_cache[14] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).javaHome,
               "onUpdate:value": _cache[1] || (_cache[1] = ($event) => unref(settings).javaHome = $event),
@@ -62382,9 +63554,9 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
           ])
         ]),
         createBaseVNode("div", _hoisted_4$3, [
-          _cache[22] || (_cache[22] = createBaseVNode("div", { class: "sv-section-title" }, "转换设置", -1)),
+          _cache[19] || (_cache[19] = createBaseVNode("div", { class: "sv-section-title" }, "转换设置", -1)),
           createBaseVNode("div", _hoisted_5$2, [
-            _cache[20] || (_cache[20] = createBaseVNode("label", null, "简谱调", -1)),
+            _cache[17] || (_cache[17] = createBaseVNode("label", null, "简谱调", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).targetKey,
               "onUpdate:value": _cache[2] || (_cache[2] = ($event) => unref(settings).targetKey = $event),
@@ -62392,7 +63564,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               size: "small",
               style: { "width": "80px" }
             }, null, 8, ["value"]),
-            _cache[21] || (_cache[21] = createBaseVNode("label", null, "默认导出路径", -1)),
+            _cache[18] || (_cache[18] = createBaseVNode("label", null, "默认导出路径", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).outputDir,
               "onUpdate:value": _cache[3] || (_cache[3] = ($event) => unref(settings).outputDir = $event),
@@ -62405,7 +63577,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                   quaternary: "",
                   onClick: selectOutputDir
                 }, {
-                  default: withCtx(() => [..._cache[19] || (_cache[19] = [
+                  default: withCtx(() => [..._cache[16] || (_cache[16] = [
                     createTextVNode("浏览", -1)
                   ])]),
                   _: 1
@@ -62416,15 +63588,15 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
           ])
         ]),
         createBaseVNode("div", _hoisted_6$2, [
-          _cache[26] || (_cache[26] = createBaseVNode("div", { class: "sv-section-title" }, "识别预处理", -1)),
+          _cache[23] || (_cache[23] = createBaseVNode("div", { class: "sv-section-title" }, "识别预处理", -1)),
           createBaseVNode("div", _hoisted_7$2, [
-            _cache[23] || (_cache[23] = createBaseVNode("label", null, "启用", -1)),
+            _cache[20] || (_cache[20] = createBaseVNode("label", null, "启用", -1)),
             createVNode(unref(NSwitch), {
               value: unref(settings).omrPreprocess,
               "onUpdate:value": _cache[4] || (_cache[4] = ($event) => unref(settings).omrPreprocess = $event),
               size: "small"
             }, null, 8, ["value"]),
-            _cache[24] || (_cache[24] = createBaseVNode("label", null, "目标长边", -1)),
+            _cache[21] || (_cache[21] = createBaseVNode("label", null, "目标长边", -1)),
             createVNode(unref(NInputNumber), {
               value: unref(settings).omrPreprocessLongEdge,
               "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).omrPreprocessLongEdge = $event),
@@ -62433,7 +63605,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               size: "small",
               style: { "width": "140px" }
             }, null, 8, ["value"]),
-            _cache[25] || (_cache[25] = createBaseVNode("label", null, "黑白化", -1)),
+            _cache[22] || (_cache[22] = createBaseVNode("label", null, "黑白化", -1)),
             createVNode(unref(NSwitch), {
               value: unref(settings).omrPreprocessBinarize,
               "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).omrPreprocessBinarize = $event),
@@ -62442,9 +63614,9 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
           ])
         ]),
         createBaseVNode("div", _hoisted_8$2, [
-          _cache[30] || (_cache[30] = createBaseVNode("div", { class: "sv-section-title" }, "OCR 设置", -1)),
+          _cache[27] || (_cache[27] = createBaseVNode("div", { class: "sv-section-title" }, "OCR 设置", -1)),
           createBaseVNode("div", _hoisted_9$2, [
-            _cache[27] || (_cache[27] = createBaseVNode("label", null, "API Key", -1)),
+            _cache[24] || (_cache[24] = createBaseVNode("label", null, "API Key", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).ocrApiKey,
               "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).ocrApiKey = $event),
@@ -62463,49 +63635,32 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value", "placeholder"]),
-            _cache[28] || (_cache[28] = createBaseVNode("label", null, "Base URL", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).ocrBaseUrl,
-              "onUpdate:value": _cache[8] || (_cache[8] = ($event) => unref(settings).ocrBaseUrl = $event),
-              placeholder: "https://api.siliconflow.cn/v1",
+            _cache[25] || (_cache[25] = createBaseVNode("label", null, "Provider", -1)),
+            createVNode(unref(NSelect), {
+              value: unref(settings).ocrProvider,
+              "onUpdate:value": _cache[8] || (_cache[8] = ($event) => unref(settings).ocrProvider = $event),
+              options: providerSelectOptions(unref(settings).ocrProviderOptions),
               size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(GlobeOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value"]),
-            _cache[29] || (_cache[29] = createBaseVNode("label", null, "模型", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).ocrModel,
-              "onUpdate:value": _cache[9] || (_cache[9] = ($event) => unref(settings).ocrModel = $event),
-              placeholder: "deepseek-ai/DeepSeek-OCR",
-              size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(HardwareChipOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value"])
+            }, null, 8, ["value", "options"]),
+            _cache[26] || (_cache[26] = createBaseVNode("label", null, "模型", -1)),
+            createBaseVNode("div", _hoisted_10$2, [
+              createVNode(unref(NIcon), { size: "14" }, {
+                default: withCtx(() => [
+                  createVNode(unref(HardwareChipOutline))
+                ]),
+                _: 1
+              }),
+              createTextVNode(" " + toDisplayString(selectedProviderModel(unref(settings).ocrProviderOptions, unref(settings).ocrProvider)), 1)
+            ])
           ])
         ]),
-        createBaseVNode("div", _hoisted_10$2, [
-          _cache[34] || (_cache[34] = createBaseVNode("div", { class: "sv-section-title" }, "AI 视觉转写", -1)),
-          createBaseVNode("div", _hoisted_11$2, [
-            _cache[31] || (_cache[31] = createBaseVNode("label", null, "API Key", -1)),
+        createBaseVNode("div", _hoisted_11$2, [
+          _cache[31] || (_cache[31] = createBaseVNode("div", { class: "sv-section-title" }, "AI 视觉转写", -1)),
+          createBaseVNode("div", _hoisted_12$2, [
+            _cache[28] || (_cache[28] = createBaseVNode("label", null, "API Key", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).aiApiKey,
-              "onUpdate:value": _cache[10] || (_cache[10] = ($event) => unref(settings).aiApiKey = $event),
+              "onUpdate:value": _cache[9] || (_cache[9] = ($event) => unref(settings).aiApiKey = $event),
               type: "password",
               "show-password-on": "click",
               placeholder: unref(settings).aiApiKeySet ? "已保存（留空不更新）" : "API Key",
@@ -62521,49 +63676,32 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value", "placeholder"]),
-            _cache[32] || (_cache[32] = createBaseVNode("label", null, "Base URL", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).aiBaseUrl,
-              "onUpdate:value": _cache[11] || (_cache[11] = ($event) => unref(settings).aiBaseUrl = $event),
-              placeholder: "https://api.siliconflow.cn/v1",
+            _cache[29] || (_cache[29] = createBaseVNode("label", null, "Provider", -1)),
+            createVNode(unref(NSelect), {
+              value: unref(settings).aiProvider,
+              "onUpdate:value": _cache[10] || (_cache[10] = ($event) => unref(settings).aiProvider = $event),
+              options: providerSelectOptions(unref(settings).aiProviderOptions),
               size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(GlobeOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value"]),
-            _cache[33] || (_cache[33] = createBaseVNode("label", null, "视觉模型", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).aiModel,
-              "onUpdate:value": _cache[12] || (_cache[12] = ($event) => unref(settings).aiModel = $event),
-              placeholder: "Qwen/Qwen3-VL-8B-Instruct",
-              size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(HardwareChipOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value"])
+            }, null, 8, ["value", "options"]),
+            _cache[30] || (_cache[30] = createBaseVNode("label", null, "视觉模型", -1)),
+            createBaseVNode("div", _hoisted_13$2, [
+              createVNode(unref(NIcon), { size: "14" }, {
+                default: withCtx(() => [
+                  createVNode(unref(HardwareChipOutline))
+                ]),
+                _: 1
+              }),
+              createTextVNode(" " + toDisplayString(selectedProviderModel(unref(settings).aiProviderOptions, unref(settings).aiProvider)), 1)
+            ])
           ])
         ]),
-        createBaseVNode("div", _hoisted_12$2, [
-          _cache[38] || (_cache[38] = createBaseVNode("div", { class: "sv-section-title" }, "工作台 AI 助手", -1)),
-          createBaseVNode("div", _hoisted_13$2, [
-            _cache[35] || (_cache[35] = createBaseVNode("label", null, "百炼 Key", -1)),
+        createBaseVNode("div", _hoisted_14$2, [
+          _cache[35] || (_cache[35] = createBaseVNode("div", { class: "sv-section-title" }, "工作台 AI 助手", -1)),
+          createBaseVNode("div", _hoisted_15$2, [
+            _cache[32] || (_cache[32] = createBaseVNode("label", null, "百炼 Key", -1)),
             createVNode(unref(NInput), {
               value: unref(settings).assistantApiKey,
-              "onUpdate:value": _cache[13] || (_cache[13] = ($event) => unref(settings).assistantApiKey = $event),
+              "onUpdate:value": _cache[11] || (_cache[11] = ($event) => unref(settings).assistantApiKey = $event),
               type: "password",
               "show-password-on": "click",
               placeholder: unref(settings).assistantApiKeySet ? "已保存（留空不更新）" : "百炼 API Key",
@@ -62579,43 +63717,26 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               ]),
               _: 1
             }, 8, ["value", "placeholder"]),
-            _cache[36] || (_cache[36] = createBaseVNode("label", null, "Base URL", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).assistantBaseUrl,
-              "onUpdate:value": _cache[14] || (_cache[14] = ($event) => unref(settings).assistantBaseUrl = $event),
-              placeholder: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            _cache[33] || (_cache[33] = createBaseVNode("label", null, "Provider", -1)),
+            createVNode(unref(NSelect), {
+              value: unref(settings).assistantProvider,
+              "onUpdate:value": _cache[12] || (_cache[12] = ($event) => unref(settings).assistantProvider = $event),
+              options: providerSelectOptions(unref(settings).assistantProviderOptions),
               size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(GlobeOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value"]),
-            _cache[37] || (_cache[37] = createBaseVNode("label", null, "模型", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).assistantModel,
-              "onUpdate:value": _cache[15] || (_cache[15] = ($event) => unref(settings).assistantModel = $event),
-              placeholder: "deepseek-v4-flash",
-              size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(HardwareChipOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value"])
+            }, null, 8, ["value", "options"]),
+            _cache[34] || (_cache[34] = createBaseVNode("label", null, "模型", -1)),
+            createBaseVNode("div", _hoisted_16$2, [
+              createVNode(unref(NIcon), { size: "14" }, {
+                default: withCtx(() => [
+                  createVNode(unref(HardwareChipOutline))
+                ]),
+                _: 1
+              }),
+              createTextVNode(" " + toDisplayString(selectedProviderModel(unref(settings).assistantProviderOptions, unref(settings).assistantProvider)), 1)
+            ])
           ])
         ]),
-        createBaseVNode("div", _hoisted_14$2, [
+        createBaseVNode("div", _hoisted_17$1, [
           createVNode(unref(Button), {
             type: "primary",
             onClick: save
@@ -62629,7 +63750,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               })
             ]),
             default: withCtx(() => [
-              _cache[39] || (_cache[39] = createTextVNode(" 保存配置 ", -1))
+              _cache[36] || (_cache[36] = createTextVNode(" 保存配置 ", -1))
             ]),
             _: 1
           })
@@ -62638,7 +63759,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-6e81e4a0"]]);
+const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-ed4fafbe"]]);
 const useAssistantStore = /* @__PURE__ */ defineStore("assistant", () => {
   const sessions = /* @__PURE__ */ ref([]);
   const messages = /* @__PURE__ */ ref([]);
@@ -62800,7 +63921,7 @@ const _hoisted_18 = { class: "ai-context" };
 const _hoisted_19 = { class: "ai-input-row" };
 const FAB_SIZE = 46;
 const FAB_MARGIN = 10;
-const FAB_SNAP_DISTANCE = 72;
+const FAB_SNAP_DISTANCE = 104;
 const FAB_POSITION_KEY = "score-trans-ai-assistant-fab";
 const PANEL_GAP = 10;
 const _sfc_main$2 = /* @__PURE__ */ defineComponent({
@@ -62833,6 +63954,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       right: "auto",
       bottom: "auto"
     }));
+    const FAB_DOCKED_VISIBLE_WIDTH = FAB_SIZE / 2;
     let fabDrag = null;
     onMounted(() => {
       initFabPosition();
@@ -62875,7 +63997,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       const dx = event.clientX - fabDrag.startX;
       const dy = event.clientY - fabDrag.startY;
       if (Math.abs(dx) > 4 || Math.abs(dy) > 4) fabDrag.moved = true;
-      fabLeft.value = clamp2(fabDrag.startLeft + dx, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
+      fabLeft.value = clamp2(fabDrag.startLeft + dx, dockedFabLeft(), dockedFabRight());
       fabTop.value = clamp2(fabDrag.startTop + dy, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
     }
     function handleFabPointerUp(event) {
@@ -62903,8 +64025,9 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          fabLeft.value = clamp2(parsed.left ?? defaultFabLeft(), FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
+          fabLeft.value = clamp2(parsed.left ?? defaultFabLeft(), dockedFabLeft(), dockedFabRight());
           fabTop.value = clamp2(parsed.top ?? defaultFabTop(), FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+          settleFabPosition();
           return;
         } catch {
           localStorage.removeItem(FAB_POSITION_KEY);
@@ -62915,21 +64038,29 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       settleFabPosition();
     }
     function handleWindowResize() {
-      fabLeft.value = clamp2(fabLeft.value, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
-      fabTop.value = clamp2(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+      settleFabPosition();
       if (open.value) positionPanelNearFab();
-      persistFabPosition();
     }
     function settleFabPosition() {
-      const maxLeft = window.innerWidth - FAB_SIZE - FAB_MARGIN;
-      fabLeft.value = clamp2(fabLeft.value, FAB_MARGIN, maxLeft);
+      fabLeft.value = clamp2(fabLeft.value, dockedFabLeft(), dockedFabRight());
       fabTop.value = clamp2(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
       if (fabLeft.value <= FAB_SNAP_DISTANCE) {
-        fabLeft.value = FAB_MARGIN;
+        fabLeft.value = dockedFabLeft();
       } else if (window.innerWidth - fabLeft.value - FAB_SIZE <= FAB_SNAP_DISTANCE) {
-        fabLeft.value = maxLeft;
+        fabLeft.value = dockedFabRight();
+      } else {
+        fabLeft.value = clamp2(fabLeft.value, FAB_MARGIN, freeFabRight());
       }
       persistFabPosition();
+    }
+    function dockedFabLeft() {
+      return FAB_DOCKED_VISIBLE_WIDTH - FAB_SIZE;
+    }
+    function dockedFabRight() {
+      return window.innerWidth - FAB_DOCKED_VISIBLE_WIDTH;
+    }
+    function freeFabRight() {
+      return window.innerWidth - FAB_SIZE - FAB_MARGIN;
     }
     function persistFabPosition() {
       localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ left: fabLeft.value, top: fabTop.value }));
@@ -63322,7 +64453,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-f76181f3"]]);
+const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-ed523ae6"]]);
 const _hoisted_1$1 = { class: "log-panel" };
 const _hoisted_2$1 = { class: "log-ts" };
 const _hoisted_3$1 = { class: "log-msg" };

@@ -162,7 +162,8 @@ const panelStyle = computed(() => ({
 
 const FAB_SIZE = 46
 const FAB_MARGIN = 10
-const FAB_SNAP_DISTANCE = 72
+const FAB_SNAP_DISTANCE = 104
+const FAB_DOCKED_VISIBLE_WIDTH = FAB_SIZE / 2
 const FAB_POSITION_KEY = 'score-trans-ai-assistant-fab'
 const PANEL_GAP = 10
 let fabDrag:
@@ -222,7 +223,7 @@ function handleFabPointerMove(event: PointerEvent): void {
   const dx = event.clientX - fabDrag.startX
   const dy = event.clientY - fabDrag.startY
   if (Math.abs(dx) > 4 || Math.abs(dy) > 4) fabDrag.moved = true
-  fabLeft.value = clamp(fabDrag.startLeft + dx, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN)
+  fabLeft.value = clamp(fabDrag.startLeft + dx, dockedFabLeft(), dockedFabRight())
   fabTop.value = clamp(fabDrag.startTop + dy, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
 }
 
@@ -254,8 +255,9 @@ function initFabPosition(): void {
   if (saved) {
     try {
       const parsed = JSON.parse(saved) as { left?: number; top?: number }
-      fabLeft.value = clamp(parsed.left ?? defaultFabLeft(), FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN)
+      fabLeft.value = clamp(parsed.left ?? defaultFabLeft(), dockedFabLeft(), dockedFabRight())
       fabTop.value = clamp(parsed.top ?? defaultFabTop(), FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+      settleFabPosition()
       return
     } catch {
       localStorage.removeItem(FAB_POSITION_KEY)
@@ -267,22 +269,33 @@ function initFabPosition(): void {
 }
 
 function handleWindowResize(): void {
-  fabLeft.value = clamp(fabLeft.value, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN)
-  fabTop.value = clamp(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+  settleFabPosition()
   if (open.value) positionPanelNearFab()
-  persistFabPosition()
 }
 
 function settleFabPosition(): void {
-  const maxLeft = window.innerWidth - FAB_SIZE - FAB_MARGIN
-  fabLeft.value = clamp(fabLeft.value, FAB_MARGIN, maxLeft)
+  fabLeft.value = clamp(fabLeft.value, dockedFabLeft(), dockedFabRight())
   fabTop.value = clamp(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
   if (fabLeft.value <= FAB_SNAP_DISTANCE) {
-    fabLeft.value = FAB_MARGIN
+    fabLeft.value = dockedFabLeft()
   } else if (window.innerWidth - fabLeft.value - FAB_SIZE <= FAB_SNAP_DISTANCE) {
-    fabLeft.value = maxLeft
+    fabLeft.value = dockedFabRight()
+  } else {
+    fabLeft.value = clamp(fabLeft.value, FAB_MARGIN, freeFabRight())
   }
   persistFabPosition()
+}
+
+function dockedFabLeft(): number {
+  return FAB_DOCKED_VISIBLE_WIDTH - FAB_SIZE
+}
+
+function dockedFabRight(): number {
+  return window.innerWidth - FAB_DOCKED_VISIBLE_WIDTH
+}
+
+function freeFabRight(): number {
+  return window.innerWidth - FAB_SIZE - FAB_MARGIN
 }
 
 function persistFabPosition(): void {

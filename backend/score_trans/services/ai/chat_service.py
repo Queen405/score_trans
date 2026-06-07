@@ -15,6 +15,7 @@ from ...dao.ai.chat_dao import AiChatDao
 from ...dao.settings.settings_dao import SettingsDao
 from ...models.ai.entities import AiChatMessage, AiChatSession
 from ...models.common.errors import AITranscriptionError
+from ...models.settings.provider_profiles import resolve_provider_profile_or_default
 from .core.prompts import build_jianpu_assistant_system_prompt
 from .providers._http import chat_completion_chunks, chat_completions
 
@@ -188,16 +189,17 @@ class AiChatService:
 
     def _provider_settings(self) -> tuple[str, str, str]:
         settings = self.settings.get_all()
+        profile = resolve_provider_profile_or_default(
+            "assistant",
+            settings.get("assistant_provider"),
+        )
         api_key = (
             settings.get("assistant_api_key")
             or settings.get("ai_api_key")
             or ASSISTANT_API_KEY
         )
-        base_url = (
-            settings.get("assistant_base_url")
-            or ASSISTANT_BASE_URL
-        ).rstrip("/")
-        model = settings.get("assistant_model") or ASSISTANT_MODEL
+        base_url = (profile.base_url or ASSISTANT_BASE_URL).rstrip("/")
+        model = profile.model or ASSISTANT_MODEL
         return api_key, base_url, model
 
 

@@ -1,20 +1,27 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { settingsApi } from '../api/settings'
+import type { LlmProviderOption, SettingsResponse } from '../models/types'
 
 export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
   const javaHome = ref('')
   const targetKey = ref('C')
   const outputDir = ref('')
+  const ocrProvider = ref('siliconflow_deepseek_ocr')
+  const ocrProviderOptions = ref<LlmProviderOption[]>([])
   const ocrApiKey = ref('')
   const ocrApiKeySet = ref(false)
   const ocrBaseUrl = ref('https://api.siliconflow.cn/v1')
   const ocrModel = ref('deepseek-ai/DeepSeek-OCR')
+  const aiProvider = ref('siliconflow_qwen3_vl_8b')
+  const aiProviderOptions = ref<LlmProviderOption[]>([])
   const aiApiKey = ref('')
   const aiApiKeySet = ref(false)
   const aiBaseUrl = ref('https://api.siliconflow.cn/v1')
   const aiModel = ref('Qwen/Qwen3-VL-8B-Instruct')
+  const assistantProvider = ref('dashscope_deepseek_v4_flash')
+  const assistantProviderOptions = ref<LlmProviderOption[]>([])
   const assistantApiKey = ref('')
   const assistantApiKeySet = ref(false)
   const assistantBaseUrl = ref('https://dashscope.aliyuncs.com/compatible-mode/v1')
@@ -27,25 +34,7 @@ export const useSettingsStore = defineStore('settings', () => {
   async function load(): Promise<void> {
     try {
       const data = await settingsApi.get()
-      audiverisPath.value = data.audiveris_path
-      javaHome.value = data.java_home
-      targetKey.value = data.target_key ?? 'C'
-      outputDir.value = data.output_dir ?? ''
-      ocrApiKey.value = data.ocr_api_key ?? ''
-      ocrApiKeySet.value = data.ocr_api_key_set ?? false
-      ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
-      ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'
-      aiApiKey.value = data.ai_api_key ?? ''
-      aiApiKeySet.value = data.ai_api_key_set ?? false
-      aiBaseUrl.value = data.ai_base_url ?? 'https://api.siliconflow.cn/v1'
-      aiModel.value = data.ai_model ?? 'Qwen/Qwen3-VL-8B-Instruct'
-      assistantApiKey.value = data.assistant_api_key ?? ''
-      assistantApiKeySet.value = data.assistant_api_key_set ?? false
-      assistantBaseUrl.value = data.assistant_base_url ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-      assistantModel.value = data.assistant_model ?? 'deepseek-v4-flash'
-      omrPreprocess.value = data.omr_preprocess ?? true
-      omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600
-      omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false
+      applySettings(data)
       loaded.value = true
     } catch (e) {
       console.error('Failed to load settings:', e)
@@ -53,24 +42,50 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function save(): Promise<void> {
-    await settingsApi.update({
+    const data = await settingsApi.update({
       audiveris_path: audiverisPath.value,
       java_home: javaHome.value,
       output_dir: outputDir.value,
       target_key: targetKey.value,
+      ocr_provider: ocrProvider.value,
       ocr_api_key: ocrApiKey.value || undefined,
-      ocr_base_url: ocrBaseUrl.value,
-      ocr_model: ocrModel.value,
+      ai_provider: aiProvider.value,
       ai_api_key: aiApiKey.value || undefined,
-      ai_base_url: aiBaseUrl.value,
-      ai_model: aiModel.value,
+      assistant_provider: assistantProvider.value,
       assistant_api_key: assistantApiKey.value || undefined,
-      assistant_base_url: assistantBaseUrl.value,
-      assistant_model: assistantModel.value,
       omr_preprocess: omrPreprocess.value,
       omr_preprocess_long_edge: omrPreprocessLongEdge.value,
       omr_preprocess_binarize: omrPreprocessBinarize.value,
     })
+    applySettings(data)
+  }
+
+  function applySettings(data: SettingsResponse): void {
+    audiverisPath.value = data.audiveris_path
+    javaHome.value = data.java_home
+    targetKey.value = data.target_key ?? 'C'
+    outputDir.value = data.output_dir ?? ''
+    ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
+    ocrProviderOptions.value = data.ocr_provider_options ?? []
+    ocrApiKey.value = data.ocr_api_key ?? ''
+    ocrApiKeySet.value = data.ocr_api_key_set ?? false
+    ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
+    ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'
+    aiProvider.value = data.ai_provider ?? 'siliconflow_qwen3_vl_8b'
+    aiProviderOptions.value = data.ai_provider_options ?? []
+    aiApiKey.value = data.ai_api_key ?? ''
+    aiApiKeySet.value = data.ai_api_key_set ?? false
+    aiBaseUrl.value = data.ai_base_url ?? 'https://api.siliconflow.cn/v1'
+    aiModel.value = data.ai_model ?? 'Qwen/Qwen3-VL-8B-Instruct'
+    assistantProvider.value = data.assistant_provider ?? 'dashscope_deepseek_v4_flash'
+    assistantProviderOptions.value = data.assistant_provider_options ?? []
+    assistantApiKey.value = data.assistant_api_key ?? ''
+    assistantApiKeySet.value = data.assistant_api_key_set ?? false
+    assistantBaseUrl.value = data.assistant_base_url ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+    assistantModel.value = data.assistant_model ?? 'deepseek-v4-flash'
+    omrPreprocess.value = data.omr_preprocess ?? true
+    omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600
+    omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false
   }
 
   return {
@@ -78,14 +93,20 @@ export const useSettingsStore = defineStore('settings', () => {
     javaHome,
     targetKey,
     outputDir,
+    ocrProvider,
+    ocrProviderOptions,
     ocrApiKey,
     ocrApiKeySet,
     ocrBaseUrl,
     ocrModel,
+    aiProvider,
+    aiProviderOptions,
     aiApiKey,
     aiApiKeySet,
     aiBaseUrl,
     aiModel,
+    assistantProvider,
+    assistantProviderOptions,
     assistantApiKey,
     assistantApiKeySet,
     assistantBaseUrl,

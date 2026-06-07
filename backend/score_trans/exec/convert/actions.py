@@ -17,7 +17,7 @@ from ...models.score import JianpuScore
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
-from ...services.ocr.providers import OpenAICompatibleOCRProvider
+from ...services.ocr.providers import create_configured_ocr_provider
 
 
 class MusicXmlToJianpuAction:
@@ -55,7 +55,7 @@ class MusicXmlToJianpuAction:
             start_measure_number=start_measure_number,
         )
         if image_path is not None:
-            provider = ocr_provider or OpenAICompatibleOCRProvider()
+            provider = ocr_provider or create_configured_ocr_provider()
             blocks = provider.recognize(Path(image_path))
             score.text_blocks.extend(blocks)
             _apply_measure_number_ocr(score, blocks, start_measure_number=start_measure_number)

@@ -26,6 +26,7 @@
             <span :class="['hist-dot', historyStatusClass(batch.status)]" />
             <span class="hist-batch-name">{{ batch.first_file_name || '未知' }}</span>
             <span class="hist-batch-count" v-if="batch.page_count > 1">{{ batch.page_count }}页</span>
+            <span v-if="isWaitingStatus(batch.status)" class="hist-waiting-label">待选择</span>
             <n-popconfirm @positive-click="handleDeleteBatch(batch.id)" :show-icon="false">
               <template #trigger>
                 <button class="hist-delete" type="button" title="删除该历史记录" @click.stop>
@@ -49,6 +50,7 @@
             >
               <span :class="['hist-dot small', historyStatusClass(page.status)]" />
               <span class="hist-page-name">{{ page.input_file_name || `第${pi + 1}页` }}</span>
+              <span v-if="isWaitingStatus(page.status)" class="hist-waiting-label">待选择</span>
             </div>
           </div>
         </div>
@@ -345,6 +347,8 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       svgFileId: r.svgOk ? r.page.svg_file_id : '',
       startMeasureNumber: r.page.start_measure_number ?? null,
       status: r.page.status as any,
+      measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
+      errorMessage: r.page.error_message,
     })),
     pageIndex >= 0 ? pageIndex : 0,
   )
@@ -386,8 +390,18 @@ function formatTime(iso: string): string {
 
 function historyStatusClass(status: string): string {
   if (status === 'completed') return 'ok'
-  if (status === 'processing' || status === 'pending') return 'processing'
+  if (status === 'processing' || status === 'pending' || status === 'waiting') return 'processing'
   return 'err'
+}
+
+function isWaitingStatus(status: string): boolean {
+  return status === 'waiting'
+}
+
+function parseWaitingMeasureOptions(messageText: string): number[] {
+  if (!messageText.includes('等待选择起始小节号')) return []
+  return Array.from(messageText.matchAll(/\d+/g), (match) => Number(match[0]))
+    .filter((value) => Number.isFinite(value) && value > 0)
 }
 
 function resolveMissingFileId(msg: string): string | null {
@@ -832,6 +846,16 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
   padding: 1px 5px;
   border-radius: 8px;
   flex-shrink: 0;
+}
+
+.hist-waiting-label {
+  font-size: 10px;
+  color: #1f2937;
+  background: var(--warning);
+  padding: 1px 5px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  font-weight: 600;
 }
 
 .hist-expand-icon {

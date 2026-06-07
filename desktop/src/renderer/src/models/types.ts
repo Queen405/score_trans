@@ -171,20 +171,35 @@ export interface ExportMidiTextRequest {
   title?: string
 }
 
+export interface LlmProviderOption {
+  id: string
+  label: string
+  provider: string
+  base_url: string
+  model: string
+  description?: string
+}
+
 export interface SettingsResponse {
   audiveris_path: string
   java_home: string
   work_dir: string
   target_key?: string
   output_dir?: string
+  ocr_provider?: string
+  ocr_provider_options?: LlmProviderOption[]
   ocr_api_key?: string
   ocr_api_key_set?: boolean
   ocr_base_url?: string
   ocr_model?: string
+  ai_provider?: string
+  ai_provider_options?: LlmProviderOption[]
   ai_api_key?: string
   ai_api_key_set?: boolean
   ai_base_url?: string
   ai_model?: string
+  assistant_provider?: string
+  assistant_provider_options?: LlmProviderOption[]
   assistant_api_key?: string
   assistant_api_key_set?: boolean
   assistant_base_url?: string
@@ -200,15 +215,12 @@ export interface SettingsUpdateRequest {
   output_dir?: string
   target_key?: string
   work_dir?: string
+  ocr_provider?: string
   ocr_api_key?: string
-  ocr_base_url?: string
-  ocr_model?: string
+  ai_provider?: string
   ai_api_key?: string
-  ai_base_url?: string
-  ai_model?: string
+  assistant_provider?: string
   assistant_api_key?: string
-  assistant_base_url?: string
-  assistant_model?: string
   omr_preprocess?: boolean
   omr_preprocess_long_edge?: number
   omr_preprocess_binarize?: boolean

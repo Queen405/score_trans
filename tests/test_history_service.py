@@ -40,14 +40,17 @@ def test_batch_status_tracks_background_pages(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch([
         HistoryPage(input_file_name="a.png", input_file_id="input-1", status="processing"),
-        HistoryPage(input_file_name="b.png", input_file_id="input-2", status="pending"),
+        HistoryPage(input_file_name="b.png", input_file_id="input-2", status="waiting"),
     ])
 
-    assert batch.status == "processing"
+    assert batch.status == "waiting"
 
     first, second = batch.pages
     service.update_page(first.id, status="completed")
-    assert service.get_batch(batch.id).status == "processing"
+    assert service.get_batch(batch.id).status == "waiting"
+
+    service.update_page(second.id, status="completed")
+    assert service.get_batch(batch.id).status == "completed"
 
     service.update_page(second.id, status="failed", error_message="bad input")
     assert service.get_batch(batch.id).status == "failed"

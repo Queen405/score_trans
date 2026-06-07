@@ -21,6 +21,7 @@ from ..core.schemas import VisionPageResult
 from ._http import chat_completions
 from ....utils.media import image_to_data_url
 from ....models.common.errors import AITranscriptionError
+from ....models.settings.provider_profiles import resolve_provider_profile_or_default
 
 
 class OpenAICompatibleVisionProvider:
@@ -34,14 +35,16 @@ class OpenAICompatibleVisionProvider:
         dry_run: bool = False,
     ) -> None:
         persisted = persisted_ai_settings()
+        profile = resolve_provider_profile_or_default("ai", persisted.get("ai_provider"))
+        profile_matches = profile.provider == "openai_compatible"
         self.base_url = (
             base_url
-            or persisted.get("ai_base_url")
+            or (profile.base_url if profile_matches else "")
             or AI_BASE_URL
         ).rstrip("/")
         self.model = (
             model
-            or persisted.get("ai_model")
+            or (profile.model if profile_matches else "")
             or AI_MODEL
         )
         self.api_key = (

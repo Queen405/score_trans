@@ -55,15 +55,18 @@
           <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
         </n-input>
 
-        <label>Base URL</label>
-        <n-input v-model:value="settings.ocrBaseUrl" placeholder="https://api.siliconflow.cn/v1" size="small">
-          <template #prefix><n-icon size="14"><GlobeOutline /></n-icon></template>
-        </n-input>
+        <label>Provider</label>
+        <n-select
+          v-model:value="settings.ocrProvider"
+          :options="providerSelectOptions(settings.ocrProviderOptions)"
+          size="small"
+        />
 
         <label>模型</label>
-        <n-input v-model:value="settings.ocrModel" placeholder="deepseek-ai/DeepSeek-OCR" size="small">
-          <template #prefix><n-icon size="14"><HardwareChipOutline /></n-icon></template>
-        </n-input>
+        <div class="provider-detail">
+          <n-icon size="14"><HardwareChipOutline /></n-icon>
+          {{ selectedProviderModel(settings.ocrProviderOptions, settings.ocrProvider) }}
+        </div>
       </div>
     </div>
 
@@ -75,15 +78,18 @@
           <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
         </n-input>
 
-        <label>Base URL</label>
-        <n-input v-model:value="settings.aiBaseUrl" placeholder="https://api.siliconflow.cn/v1" size="small">
-          <template #prefix><n-icon size="14"><GlobeOutline /></n-icon></template>
-        </n-input>
+        <label>Provider</label>
+        <n-select
+          v-model:value="settings.aiProvider"
+          :options="providerSelectOptions(settings.aiProviderOptions)"
+          size="small"
+        />
 
         <label>视觉模型</label>
-        <n-input v-model:value="settings.aiModel" placeholder="Qwen/Qwen3-VL-8B-Instruct" size="small">
-          <template #prefix><n-icon size="14"><HardwareChipOutline /></n-icon></template>
-        </n-input>
+        <div class="provider-detail">
+          <n-icon size="14"><HardwareChipOutline /></n-icon>
+          {{ selectedProviderModel(settings.aiProviderOptions, settings.aiProvider) }}
+        </div>
       </div>
     </div>
 
@@ -95,15 +101,18 @@
           <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
         </n-input>
 
-        <label>Base URL</label>
-        <n-input v-model:value="settings.assistantBaseUrl" placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1" size="small">
-          <template #prefix><n-icon size="14"><GlobeOutline /></n-icon></template>
-        </n-input>
+        <label>Provider</label>
+        <n-select
+          v-model:value="settings.assistantProvider"
+          :options="providerSelectOptions(settings.assistantProviderOptions)"
+          size="small"
+        />
 
         <label>模型</label>
-        <n-input v-model:value="settings.assistantModel" placeholder="deepseek-v4-flash" size="small">
-          <template #prefix><n-icon size="14"><HardwareChipOutline /></n-icon></template>
-        </n-input>
+        <div class="provider-detail">
+          <n-icon size="14"><HardwareChipOutline /></n-icon>
+          {{ selectedProviderModel(settings.assistantProviderOptions, settings.assistantProvider) }}
+        </div>
       </div>
     </div>
 
@@ -123,7 +132,6 @@ import { useLogStore } from '../stores/log'
 import {
   TerminalOutline,
   KeyOutline,
-  GlobeOutline,
   HardwareChipOutline,
   SaveOutline,
   CodeOutline,
@@ -131,11 +139,13 @@ import {
 import {
   NInput,
   NInputNumber,
+  NSelect,
   NSwitch,
   NButton,
   NIcon,
   useMessage,
 } from 'naive-ui'
+import type { LlmProviderOption } from '../models/types'
 
 const settings = useSettingsStore()
 const log = useLogStore()
@@ -158,6 +168,17 @@ async function save(): Promise<void> {
 async function selectOutputDir(): Promise<void> {
   const result = await (window as any).api.selectDirectory()
   if (result) settings.outputDir = result
+}
+
+function providerSelectOptions(options: LlmProviderOption[]): { label: string; value: string }[] {
+  return options.map((option) => ({
+    label: option.label,
+    value: option.id,
+  }))
+}
+
+function selectedProviderModel(options: LlmProviderOption[], selected: string): string {
+  return options.find((option) => option.id === selected)?.model ?? ''
 }
 </script>
 
@@ -208,6 +229,17 @@ async function selectOutputDir(): Promise<void> {
   font-size: 13px;
   color: var(--text-secondary);
   text-align: right;
+}
+
+.provider-detail {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
 }
 
 .sv-footer {

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ....dao.settings.settings_dao import SettingsDao
 from ....models.common.errors import AITranscriptionError
+from ....models.settings.provider_profiles import resolve_provider_profile, resolve_provider_profile_or_default
 from ....models.tasks.entities import ProgressCallback, report_progress
 from ..core.protocols import VisionJianpuProvider
 from ..core.registry import create_provider
@@ -20,8 +22,16 @@ class AiTranscriptionService:
     ) -> None:
         if isinstance(provider, VisionJianpuProvider):
             self.provider = provider
+        elif provider:
+            self.provider = _create_named_or_profile_provider(provider)
         else:
-            self.provider = create_provider(provider)
+            settings = SettingsDao.default().get_all()
+            profile = resolve_provider_profile_or_default("ai", settings.get("ai_provider"))
+            self.provider = create_provider(
+                profile.provider,
+                base_url=profile.base_url,
+                model=profile.model,
+            )
 
     def transcribe(
         self,
@@ -114,3 +124,15 @@ class AiTranscriptionService:
             merged_jianpu_text=merged,
             warnings=warnings,
         )
+
+
+def _create_named_or_profile_provider(provider: str) -> VisionJianpuProvider:
+    try:
+        profile = resolve_provider_profile("ai", provider)
+    except ValueError:
+        return create_provider(provider)
+    return create_provider(
+        profile.provider,
+        base_url=profile.base_url,
+        model=profile.model,
+    )

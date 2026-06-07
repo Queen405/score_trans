@@ -1,7 +1,14 @@
 from __future__ import annotations
 
+from ...models.settings.provider_profiles import (
+    LlmProviderKind,
+    LlmProviderProfile,
+    provider_profiles,
+    resolve_provider_profile,
+    resolve_provider_profile_or_default,
+)
 from ...models.settings.config import ToolConfig
-from ...models.settings.schemas import SettingsResponse, SettingsUpdateRequest
+from ...models.settings.schemas import LlmProviderOption, SettingsResponse, SettingsUpdateRequest
 from ...services.settings.settings_service import SettingsService
 
 
@@ -37,29 +44,20 @@ class SettingsActions:
         if req.ocr_api_key is not None:
             self.service.set("ocr_api_key", req.ocr_api_key)
 
-        if req.ocr_base_url is not None:
-            self.service.set("ocr_base_url", req.ocr_base_url)
-
-        if req.ocr_model is not None:
-            self.service.set("ocr_model", req.ocr_model)
+        if req.ocr_provider is not None:
+            self._set_provider("ocr", req.ocr_provider)
 
         if req.ai_api_key is not None:
             self.service.set("ai_api_key", req.ai_api_key)
 
-        if req.ai_base_url is not None:
-            self.service.set("ai_base_url", req.ai_base_url)
-
-        if req.ai_model is not None:
-            self.service.set("ai_model", req.ai_model)
+        if req.ai_provider is not None:
+            self._set_provider("ai", req.ai_provider)
 
         if req.assistant_api_key is not None:
             self.service.set("assistant_api_key", req.assistant_api_key)
 
-        if req.assistant_base_url is not None:
-            self.service.set("assistant_base_url", req.assistant_base_url)
-
-        if req.assistant_model is not None:
-            self.service.set("assistant_model", req.assistant_model)
+        if req.assistant_provider is not None:
+            self._set_provider("assistant", req.assistant_provider)
 
         if req.omr_preprocess is not None:
             self.service.set("omr_preprocess", "1" if req.omr_preprocess else "0")
@@ -76,27 +74,63 @@ class SettingsActions:
 
         return self._response()
 
+    def _set_provider(self, kind: LlmProviderKind, provider_id: str) -> LlmProviderProfile:
+        profile = resolve_provider_profile(kind, provider_id)
+        prefix = kind
+        self.service.set(f"{prefix}_provider", profile.id)
+        self.service.set(f"{prefix}_base_url", profile.base_url)
+        self.service.set(f"{prefix}_model", profile.model)
+        if kind == "ocr":
+            self.service.set("ocr_fallback_model", profile.fallback_model)
+        return profile
+
     def _response(self) -> SettingsResponse:
         all_settings = self.service.get_all()
+        ocr_profile = resolve_provider_profile_or_default("ocr", all_settings.get("ocr_provider"))
+        ai_profile = resolve_provider_profile_or_default("ai", all_settings.get("ai_provider"))
+        assistant_profile = resolve_provider_profile_or_default(
+            "assistant",
+            all_settings.get("assistant_provider"),
+        )
         return SettingsResponse(
             audiveris_path=all_settings.get("audiveris_path", ""),
             java_home=all_settings.get("java_home", ""),
             work_dir=str(self.service.load().work_dir),
             output_dir=all_settings.get("output_dir", ""),
             target_key=all_settings.get("target_key", "C"),
+            ocr_provider=ocr_profile.id,
+            ocr_provider_options=_provider_options("ocr"),
             ocr_api_key=all_settings.get("ocr_api_key", ""),
             ocr_api_key_set=bool(all_settings.get("ocr_api_key", "")),
-            ocr_base_url=all_settings.get("ocr_base_url", "https://api.siliconflow.cn/v1"),
-            ocr_model=all_settings.get("ocr_model", "deepseek-ai/DeepSeek-OCR"),
+            ocr_base_url=ocr_profile.base_url,
+            ocr_model=ocr_profile.model,
+            ai_provider=ai_profile.id,
+            ai_provider_options=_provider_options("ai"),
             ai_api_key=all_settings.get("ai_api_key", ""),
             ai_api_key_set=bool(all_settings.get("ai_api_key", "")),
-            ai_base_url=all_settings.get("ai_base_url", "https://api.siliconflow.cn/v1"),
-            ai_model=all_settings.get("ai_model", "Qwen/Qwen3-VL-8B-Instruct"),
+            ai_base_url=ai_profile.base_url,
+            ai_model=ai_profile.model,
+            assistant_provider=assistant_profile.id,
+            assistant_provider_options=_provider_options("assistant"),
             assistant_api_key=all_settings.get("assistant_api_key", ""),
             assistant_api_key_set=bool(all_settings.get("assistant_api_key", "")),
-            assistant_base_url=all_settings.get("assistant_base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
-            assistant_model=all_settings.get("assistant_model", "deepseek-v4-flash"),
+            assistant_base_url=assistant_profile.base_url,
+            assistant_model=assistant_profile.model,
             omr_preprocess=self.service.get_bool("omr_preprocess", True),
             omr_preprocess_long_edge=self.service.get_int("omr_preprocess_long_edge", 3600),
             omr_preprocess_binarize=self.service.get_bool("omr_preprocess_binarize", False),
         )
+
+
+def _provider_options(kind: LlmProviderKind) -> list[LlmProviderOption]:
+    return [
+        LlmProviderOption(
+            id=profile.id,
+            label=profile.label,
+            provider=profile.provider,
+            base_url=profile.base_url,
+            model=profile.model,
+            description=profile.description,
+        )
+        for profile in provider_profiles(kind)
+    ]

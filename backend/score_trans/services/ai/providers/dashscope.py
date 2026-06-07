@@ -5,8 +5,6 @@ from pathlib import Path
 
 from ..core.config import (
     AI_API_KEY,
-    AI_BASE_URL,
-    AI_MODEL,
     AI_SYSTEM_MSG,
     AI_TEMPERATURE,
     AI_TIMEOUT,
@@ -22,6 +20,7 @@ from ..core.schemas import VisionPageResult
 from ._http import chat_completions
 from ....utils.media import image_to_data_url
 from ....models.common.errors import AITranscriptionError
+from ....models.settings.provider_profiles import resolve_provider_profile_or_default
 
 _BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 _DEFAULT_MODEL = "qwen-vl-max"
@@ -40,12 +39,14 @@ class DashScopeVisionProvider:
         dry_run: bool = False,
     ) -> None:
         persisted = persisted_ai_settings()
+        profile = resolve_provider_profile_or_default("ai", persisted.get("ai_provider"))
+        profile_matches = profile.provider == "dashscope"
         self.base_url = (
             base_url
-            or persisted.get("ai_base_url")
+            or (profile.base_url if profile_matches else "")
             or _BASE_URL
         ).rstrip("/")
-        self.model = model or persisted.get("ai_model") or _DEFAULT_MODEL
+        self.model = model or (profile.model if profile_matches else "") or _DEFAULT_MODEL
         self.api_key = api_key or persisted.get("ai_api_key") or AI_API_KEY
         self.timeout = timeout
         self.dry_run = dry_run

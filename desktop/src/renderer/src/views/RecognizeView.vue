@@ -29,6 +29,13 @@
       {{ overallProgressText }}
     </n-progress>
 
+    <MeasureNumberPicker
+      v-model:show="pickerShow"
+      :options="pickerOptions"
+      @confirm="onPickerConfirm"
+      @cancel="onPickerCancel"
+    />
+
     <div class="rv-actions">
       <n-button
         type="primary"
@@ -61,8 +68,24 @@
         :class="['page-card', page.status, { active: index === store.currentPageIndex }]"
         @click="store.selectPage(index)"
       >
-        <button class="page-del" type="button" :disabled="page.status === 'processing'" @click.stop="removePage(index)">
+        <button
+          v-if="page.status !== 'waiting'"
+          class="page-del"
+          type="button"
+          :disabled="page.status === 'processing'"
+          @click.stop="removePage(index)"
+        >
           <n-icon size="12"><CloseOutline /></n-icon>
+        </button>
+        <button
+          v-else
+          class="page-waiting-action"
+          type="button"
+          title="选择起始小节号"
+          @click.stop="openMeasurePickerForPage(page)"
+        >
+          <n-icon size="12"><AlertCircleOutline /></n-icon>
+          <span>待选择</span>
         </button>
         <div class="page-thumb">
           <img
@@ -90,6 +113,7 @@ import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
 import { pipelineApi } from '../api/pipeline'
+import { renderApi } from '../api/render'
 import { aiApi } from '../api/ai'
 import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
@@ -104,10 +128,12 @@ import type { TaskPage, TaskPageInput } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { notifyHistoryUpdated } from '../utils/historyEvents'
 import FileUploader from '../components/FileUploader.vue'
+import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import {
   ScanOutline,
   FlashOutline,
   CloseOutline,
+  AlertCircleOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
   DocumentOutline,
@@ -140,6 +166,9 @@ const log = useLogStore()
 const settings = useSettingsStore()
 const message = useMessage()
 const aiVisionEnabled = ref(false)
+const pickerShow = ref(false)
+const pickerOptions = ref<number[]>([])
+const pickerPageId = ref<string | null>(null)
 
 const activePages = computed(() => store.pages.filter((page) => page.status === 'processing'))
 const currentPageProcessing = computed(() => store.currentPage?.status === 'processing')
@@ -161,14 +190,14 @@ function isPreviewable(fileName: string): boolean {
 }
 
 function isStartablePage(page: TaskPage): boolean {
-  return !!page.inputFileId && page.status !== 'processing'
+  return !!page.inputFileId && page.status !== 'processing' && page.status !== 'waiting'
 }
 
 function statusText(page: TaskPage): string {
   if (page.status === 'processing') {
     return page.progressPercent > 0 ? `${Math.round(page.progressPercent)}%` : '处理中'
   }
-  const map: Record<string, string> = { completed: '完成', failed: '失败', pending: '待处理' }
+  const map: Record<string, string> = { completed: '完成', failed: '失败', pending: '待处理', waiting: '待选择' }
   return map[page.status] ?? ''
 }
 
@@ -186,6 +215,30 @@ function removePage(index: number): void {
 async function onFileUploaded(fileId: string, fileName: string): Promise<void> {
   store.addInputPage(fileName, fileId)
   log.addLog(`已加入：${fileName}`)
+}
+
+function openMeasurePickerForPage(page: TaskPage): void {
+  if (page.status !== 'waiting') return
+  if (!page.measureNumberOptions.length) {
+    message.warning('没有可选的小节号候选')
+    return
+  }
+  pickerPageId.value = page.id
+  pickerOptions.value = page.measureNumberOptions
+  pickerShow.value = true
+}
+
+async function onPickerConfirm(value: number): Promise<void> {
+  const pageId = pickerPageId.value
+  pickerShow.value = false
+  pickerPageId.value = null
+  if (!pageId) return
+  await applyMeasureSelection(pageId, value)
+}
+
+function onPickerCancel(): void {
+  pickerShow.value = false
+  pickerPageId.value = null
 }
 
 async function recognize(): Promise<void> {
@@ -271,6 +324,11 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
 
     const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, target.pageId)
     const split = splitJianpuAndOcr(result.jianpu_text)
+    const needsMeasureChoice = target.startMeasureNumber == null && result.ocr_measure_numbers.length > 0
+    const resultStatus = needsMeasureChoice ? 'waiting' : 'completed'
+    const waitingMessage = needsMeasureChoice
+      ? waitingMeasureMessage(result.ocr_measure_numbers)
+      : ''
     const pageResult: PageResult = {
       input_file_name: target.inputFileName,
       input_file_id: target.inputFileId,
@@ -279,8 +337,8 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       ocr_text: split.ocrText,
       svg_file_id: result.svg_file_id,
       start_measure_number: target.startMeasureNumber,
-      status: 'completed',
-      error_message: '',
+      status: resultStatus,
+      error_message: waitingMessage,
     }
 
     store.patchPageById(target.pageId, {
@@ -293,16 +351,79 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
       originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
       taskId: '',
+      status: resultStatus,
+      progressPercent: 100,
+      progressMessage: needsMeasureChoice ? '等待选择起始小节号' : '识别完成',
+      measureNumberOptions: needsMeasureChoice ? result.ocr_measure_numbers : [],
+      errorMessage: waitingMessage,
+    })
+    await persistPageResult(target, pageResult, historyPageId)
+    if (needsMeasureChoice) {
+      log.addLog(`等待选择起始小节号：${target.inputFileName}`, 'warn')
+      message.warning(`等待选择起始小节号：${target.inputFileName}`)
+    } else {
+      log.addLog(`识别完成：${target.inputFileName}`)
+      message.success(`识别完成：${target.inputFileName}`)
+    }
+  } catch (error: unknown) {
+    await failTarget(target, historyPageId, error, '识别失败')
+  }
+}
+
+async function applyMeasureSelection(pageId: string, selected: number): Promise<void> {
+  const page = store.pages.find((entry) => entry.id === pageId)
+  if (!page) return
+
+  store.patchPageById(pageId, {
+    status: 'processing',
+    startMeasureNumber: selected,
+    progressPercent: 92,
+    progressMessage: '应用起始小节号',
+    errorMessage: '',
+  })
+
+  let svgFileId = page.svgFileId
+  try {
+    if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
+      const rendered = await renderApi.jianpuSvg({
+        musicxml_file_id: page.musicxmlFileId,
+        page_image_file_id: page.originalFileId || page.inputFileId || undefined,
+        target_key: settings.targetKey,
+        start_measure_number: selected,
+      })
+      svgFileId = rendered.svg_file_id
+    }
+
+    store.patchPageById(pageId, {
+      svgFileId,
       status: 'completed',
       progressPercent: 100,
       progressMessage: '识别完成',
+      measureNumberOptions: [],
       errorMessage: '',
     })
-    await persistPageResult(target, pageResult, historyPageId)
-    log.addLog(`识别完成：${target.inputFileName}`)
-    message.success(`识别完成：${target.inputFileName}`)
+    await persistPageResult(targetFromPage({ ...page, startMeasureNumber: selected }), {
+      input_file_name: page.inputFileName,
+      input_file_id: page.inputFileId,
+      musicxml_file_id: page.musicxmlFileId,
+      jianpu_text: page.jianpuText,
+      ocr_text: page.ocrText,
+      svg_file_id: svgFileId,
+      start_measure_number: selected,
+      status: 'completed',
+      error_message: '',
+    }, page.historyPageId)
+    log.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`)
+    message.success('已应用起始小节号')
   } catch (error: unknown) {
-    await failTarget(target, historyPageId, error, '识别失败')
+    const msg = errorMessage(error)
+    store.patchPageById(pageId, {
+      status: 'waiting',
+      progressPercent: 100,
+      progressMessage: '等待选择起始小节号',
+      errorMessage: msg,
+    })
+    message.error(msg)
   }
 }
 
@@ -518,6 +639,10 @@ function taskProgressText(event: SSEProgressEvent): string {
   return event.message || event.stage || '处理中'
 }
 
+function waitingMeasureMessage(options: number[]): string {
+  return `等待选择起始小节号：${options.join('、')}`
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -623,6 +748,11 @@ function errorMessage(error: unknown): string {
   border-color: var(--warning);
 }
 
+.page-card.waiting {
+  border-color: var(--warning);
+  box-shadow: 0 0 0 1px rgba(250, 176, 5, 0.35);
+}
+
 .page-card.failed {
   border-color: var(--danger);
 }
@@ -659,6 +789,31 @@ function errorMessage(error: unknown): string {
 .page-del:disabled {
   cursor: not-allowed;
   opacity: 0.35;
+}
+
+.page-waiting-action {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--warning);
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 6px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  z-index: 2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.page-waiting-action:hover {
+  filter: brightness(0.96);
 }
 
 .page-thumb {
@@ -704,6 +859,7 @@ function errorMessage(error: unknown): string {
 .page-status.completed { color: var(--success); }
 .page-status.failed { color: var(--danger); }
 .page-status.processing { color: var(--warning); }
+.page-status.waiting { color: var(--warning); }
 
 .page-mini-progress {
   height: 2px;

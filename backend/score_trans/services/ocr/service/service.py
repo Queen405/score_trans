@@ -5,7 +5,7 @@ from pathlib import Path
 
 from score_trans.models.score import OCRTextBlock
 from ..core.protocols import OCRProvider
-from ..providers import OpenAICompatibleOCRProvider
+from ..providers import create_configured_ocr_provider
 
 
 @dataclass(slots=True)
@@ -20,7 +20,7 @@ class OCRTextLayer:
 
 class OCRService:
     def __init__(self, provider: OCRProvider | None = None) -> None:
-        self.provider = provider or OpenAICompatibleOCRProvider()
+        self.provider = provider or create_configured_ocr_provider()
 
     def recognize_text_blocks(self, image_path: str | Path) -> list[OCRTextBlock]:
         return self.provider.recognize(Path(image_path))

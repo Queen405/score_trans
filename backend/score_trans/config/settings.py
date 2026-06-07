@@ -45,14 +45,16 @@ JAVA_HOME: str = _s_or("SCORE_TRANS_JAVA_HOME")
 OUTPUT_DIR: str = _s_or("SCORE_TRANS_OUTPUT_DIR")
 
 # AI
-AI_BASE_URL: str = _s("SCORE_TRANS_AI_BASE_URL")
-AI_MODEL: str = _s("SCORE_TRANS_AI_MODEL")
+AI_PROVIDER: str = _s_or("SCORE_TRANS_AI_PROVIDER", "siliconflow_qwen3_vl_8b")
+AI_BASE_URL: str = _s_or("SCORE_TRANS_AI_BASE_URL", "https://api.siliconflow.cn/v1")
+AI_MODEL: str = _s_or("SCORE_TRANS_AI_MODEL", "Qwen/Qwen3-VL-8B-Instruct")
 AI_API_KEY: str = _s_or("SCORE_TRANS_AI_API_KEY")
 AI_TIMEOUT: float = _f("SCORE_TRANS_AI_TIMEOUT")
 AI_TEMPERATURE: float = _f("SCORE_TRANS_AI_TEMPERATURE")
 AI_SYSTEM_MSG: str = _s_or("SCORE_TRANS_AI_SYSTEM_MSG")
 
 # Workbench AI assistant
+ASSISTANT_PROVIDER: str = _s_or("SCORE_TRANS_ASSISTANT_PROVIDER", "dashscope_deepseek_v4_flash")
 ASSISTANT_BASE_URL: str = _s_or(
     "SCORE_TRANS_ASSISTANT_BASE_URL",
     "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -61,9 +63,10 @@ ASSISTANT_MODEL: str = _s_or("SCORE_TRANS_ASSISTANT_MODEL", "deepseek-v4-flash")
 ASSISTANT_API_KEY: str = _s_or("SCORE_TRANS_ASSISTANT_API_KEY")
 
 # OCR
-OCR_BASE_URL: str = _s("SCORE_TRANS_OCR_BASE_URL")
-OCR_MODEL: str = _s("SCORE_TRANS_OCR_MODEL")
-OCR_FALLBACK_MODEL: str = _s("SCORE_TRANS_OCR_FALLBACK_MODEL")
+OCR_PROVIDER: str = _s_or("SCORE_TRANS_OCR_PROVIDER", "siliconflow_deepseek_ocr")
+OCR_BASE_URL: str = _s_or("SCORE_TRANS_OCR_BASE_URL", "https://api.siliconflow.cn/v1")
+OCR_MODEL: str = _s_or("SCORE_TRANS_OCR_MODEL", "deepseek-ai/DeepSeek-OCR")
+OCR_FALLBACK_MODEL: str = _s_or("SCORE_TRANS_OCR_FALLBACK_MODEL", "Qwen/Qwen3-VL-8B-Instruct")
 OCR_API_KEY: str = _s_or("SCORE_TRANS_OCR_API_KEY")
 OCR_TIMEOUT: float = _f("SCORE_TRANS_OCR_TIMEOUT")
 OCR_MAX_TOKENS: int = _i("SCORE_TRANS_OCR_MAX_TOKENS")
