@@ -61465,8 +61465,8 @@ const _hoisted_17$1 = {
   key: 0,
   class: "page-nav"
 };
-const _hoisted_18 = { class: "page-indicator" };
-const _hoisted_19 = { class: "ws-toolbar-right" };
+const _hoisted_18$1 = { class: "page-indicator" };
+const _hoisted_19$1 = { class: "ws-toolbar-right" };
 const _hoisted_20 = { class: "ws-layout" };
 const _hoisted_21 = { class: "ws-panel ws-left" };
 const _hoisted_22 = { class: "ws-panel-head" };
@@ -62116,7 +62116,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   ]),
                   _: 1
                 }, 8, ["disabled"]),
-                createBaseVNode("span", _hoisted_18, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
+                createBaseVNode("span", _hoisted_18$1, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
                 createVNode(unref(Button), {
                   size: "small",
                   quaternary: "",
@@ -62135,7 +62135,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                 }, 8, ["disabled"])
               ])) : createCommentVNode("", true)
             ]),
-            createBaseVNode("div", _hoisted_19, [
+            createBaseVNode("div", _hoisted_19$1, [
               createVNode(unref(Button), {
                 size: "small",
                 onClick: musicxmlToJianpu,
@@ -62772,27 +62772,32 @@ const _hoisted_5$1 = {
 const _hoisted_6$1 = { class: "ai-chat" };
 const _hoisted_7$1 = { class: "ai-head" };
 const _hoisted_8$1 = { class: "ai-head-left" };
-const _hoisted_9$1 = {
+const _hoisted_9$1 = { class: "ai-head-actions" };
+const _hoisted_10$1 = {
+  class: "ai-think-master",
+  title: "显示或隐藏深度思考"
+};
+const _hoisted_11$1 = {
   key: 0,
   class: "ai-center"
 };
-const _hoisted_10$1 = {
+const _hoisted_12$1 = {
   key: 1,
   class: "ai-empty"
 };
-const _hoisted_11$1 = ["data-message-id"];
-const _hoisted_12$1 = ["innerHTML"];
-const _hoisted_13$1 = {
+const _hoisted_13$1 = ["data-message-id"];
+const _hoisted_14$1 = ["innerHTML"];
+const _hoisted_15$1 = {
   key: 1,
   class: "ai-message-content"
 };
-const _hoisted_14$1 = {
+const _hoisted_16$1 = {
   key: 3,
   class: "ai-message assistant pending"
 };
-const _hoisted_15$1 = { class: "ai-compose" };
-const _hoisted_16$1 = { class: "ai-context" };
-const _hoisted_17 = { class: "ai-input-row" };
+const _hoisted_17 = { class: "ai-compose" };
+const _hoisted_18 = { class: "ai-context" };
+const _hoisted_19 = { class: "ai-input-row" };
 const FAB_SIZE = 46;
 const FAB_MARGIN = 10;
 const FAB_POSITION_KEY = "score-trans-ai-assistant-fab";
@@ -62808,6 +62813,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     const includeCurrentJianpu = /* @__PURE__ */ ref(true);
     const messageBody = /* @__PURE__ */ ref(null);
     const autoScrollEnabled = /* @__PURE__ */ ref(true);
+    const showThinking = /* @__PURE__ */ ref(true);
     const openThinkMessageIds = /* @__PURE__ */ ref(/* @__PURE__ */ new Set());
     const isFabDragging = /* @__PURE__ */ ref(false);
     const fabLeft = /* @__PURE__ */ ref(0);
@@ -62952,15 +62958,13 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     }
     function handleMessagesClick(event) {
       const target = event.target;
-      const summary = target?.closest("summary");
-      const details = summary?.closest("details.ai-think");
-      const messageEl = summary?.closest(".ai-message");
-      if (!summary || !details || !messageEl) return;
-      const messageId = Number(messageEl.dataset.messageId);
+      const button = target?.closest(".ai-think-toggle");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const messageId = Number(button.dataset.messageId);
       if (!Number.isFinite(messageId)) return;
-      window.setTimeout(() => {
-        setThinkOpen(messageId, details.open);
-      }, 0);
+      setThinkOpen(messageId, !openThinkMessageIds.value.has(messageId));
     }
     function isNearBottom(el) {
       return el.scrollHeight - el.scrollTop - el.clientHeight <= 48;
@@ -62977,14 +62981,17 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       const thinkRe = /<think>([\s\S]*?)(?:<\/think>|$)/gi;
       let lastIndex = 0;
       let match2;
-      const openAttr = openThinkMessageIds.value.has(messageId) ? " open" : "";
+      const thinkOpen = openThinkMessageIds.value.has(messageId);
       while ((match2 = thinkRe.exec(text)) !== null) {
         if (match2.index > lastIndex) {
           parts.push(renderMarkdown(text.slice(lastIndex, match2.index)));
         }
-        parts.push(
-          `<details class="ai-think"${openAttr}><summary>深度思考</summary><div class="ai-think-body">${renderMarkdown(match2[1] ?? "")}</div></details>`
-        );
+        if (showThinking.value) {
+          const label = thinkOpen ? "收起深度思考" : "展开深度思考";
+          parts.push(
+            `<div class="ai-think ${thinkOpen ? "open" : ""}"><button class="ai-think-toggle" type="button" data-message-id="${messageId}" aria-expanded="${thinkOpen ? "true" : "false"}">${label}</button>` + (thinkOpen ? `<div class="ai-think-body">${renderMarkdown(match2[1] ?? "")}</div>` : "") + "</div>"
+          );
+        }
         lastIndex = thinkRe.lastIndex;
       }
       if (lastIndex < text.length) parts.push(renderMarkdown(text.slice(lastIndex)));
@@ -63077,7 +63084,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["ai-sessions", { hidden: !sessionsOpen.value }])
           }, [
             createBaseVNode("div", _hoisted_2$2, [
-              _cache[6] || (_cache[6] = createBaseVNode("span", null, "对话", -1)),
+              _cache[7] || (_cache[7] = createBaseVNode("span", null, "对话", -1)),
               createVNode(unref(Button), {
                 size: "tiny",
                 quaternary: "",
@@ -63127,7 +63134,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                       ])
                     ]),
                     default: withCtx(() => [
-                      _cache[7] || (_cache[7] = createTextVNode(" 删除这段对话？ ", -1))
+                      _cache[8] || (_cache[8] = createTextVNode(" 删除这段对话？ ", -1))
                     ]),
                     _: 1
                   }, 8, ["onPositiveClick"])
@@ -63152,20 +63159,31 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                     _: 1
                   })
                 ]),
-                _cache[8] || (_cache[8] = createBaseVNode("span", null, "AI 助手", -1))
+                _cache[9] || (_cache[9] = createBaseVNode("span", null, "AI 助手", -1))
               ]),
-              createBaseVNode("button", {
-                class: "ai-icon-btn",
-                type: "button",
-                title: "收起",
-                onClick: _cache[3] || (_cache[3] = ($event) => open.value = false)
-              }, [
-                createVNode(unref(NIcon), null, {
-                  default: withCtx(() => [
-                    createVNode(unref(CloseOutline))
+              createBaseVNode("div", _hoisted_9$1, [
+                createBaseVNode("label", _hoisted_10$1, [
+                  withDirectives(createBaseVNode("input", {
+                    "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => showThinking.value = $event),
+                    type: "checkbox"
+                  }, null, 512), [
+                    [vModelCheckbox, showThinking.value]
                   ]),
-                  _: 1
-                })
+                  _cache[10] || (_cache[10] = createBaseVNode("span", null, "思考", -1))
+                ]),
+                createBaseVNode("button", {
+                  class: "ai-icon-btn",
+                  type: "button",
+                  title: "收起",
+                  onClick: _cache[4] || (_cache[4] = ($event) => open.value = false)
+                }, [
+                  createVNode(unref(NIcon), null, {
+                    default: withCtx(() => [
+                      createVNode(unref(CloseOutline))
+                    ]),
+                    _: 1
+                  })
+                ])
               ])
             ]),
             createBaseVNode("div", {
@@ -63173,18 +63191,18 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ref: messageBody,
               class: "ai-messages",
               onScroll: handleMessagesScroll,
-              onClickCapture: handleMessagesClick
+              onClick: handleMessagesClick
             }, [
-              unref(assistant).loading ? (openBlock(), createElementBlock("div", _hoisted_9$1, [
+              unref(assistant).loading ? (openBlock(), createElementBlock("div", _hoisted_11$1, [
                 createVNode(unref(NSpin), { size: "small" })
-              ])) : !unref(assistant).messages.length ? (openBlock(), createElementBlock("div", _hoisted_10$1, [
+              ])) : !unref(assistant).messages.length ? (openBlock(), createElementBlock("div", _hoisted_12$1, [
                 createVNode(unref(NIcon), { size: "32" }, {
                   default: withCtx(() => [
                     createVNode(unref(ChatbubbleEllipsesOutline))
                   ]),
                   _: 1
                 }),
-                _cache[9] || (_cache[9] = createBaseVNode("span", null, "可以问我简谱语法、转写修正或当前文本的问题。", -1))
+                _cache[11] || (_cache[11] = createBaseVNode("span", null, "可以问我简谱语法、转写修正或当前文本的问题。", -1))
               ])) : (openBlock(true), createElementBlock(Fragment, { key: 2 }, renderList(unref(assistant).messages, (message2) => {
                 return openBlock(), createElementBlock("div", {
                   key: message2.id,
@@ -63195,10 +63213,10 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                     key: 0,
                     class: "ai-message-content ai-md",
                     innerHTML: renderAssistantMessage(message2.content, message2.id)
-                  }, null, 8, _hoisted_12$1)) : (openBlock(), createElementBlock("div", _hoisted_13$1, toDisplayString(message2.content), 1))
-                ], 10, _hoisted_11$1);
+                  }, null, 8, _hoisted_14$1)) : (openBlock(), createElementBlock("div", _hoisted_15$1, toDisplayString(message2.content), 1))
+                ], 10, _hoisted_13$1);
               }), 128)),
-              showTyping.value ? (openBlock(), createElementBlock("div", _hoisted_14$1, [..._cache[10] || (_cache[10] = [
+              showTyping.value ? (openBlock(), createElementBlock("div", _hoisted_16$1, [..._cache[12] || (_cache[12] = [
                 createBaseVNode("div", { class: "ai-typing" }, [
                   createBaseVNode("span"),
                   createBaseVNode("span"),
@@ -63206,20 +63224,20 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                 ], -1)
               ])])) : createCommentVNode("", true)
             ], 544),
-            createBaseVNode("div", _hoisted_15$1, [
-              createBaseVNode("label", _hoisted_16$1, [
+            createBaseVNode("div", _hoisted_17, [
+              createBaseVNode("label", _hoisted_18, [
                 withDirectives(createBaseVNode("input", {
-                  "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => includeCurrentJianpu.value = $event),
+                  "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => includeCurrentJianpu.value = $event),
                   type: "checkbox"
                 }, null, 512), [
                   [vModelCheckbox, includeCurrentJianpu.value]
                 ]),
-                _cache[11] || (_cache[11] = createBaseVNode("span", null, "附带当前简谱", -1))
+                _cache[13] || (_cache[13] = createBaseVNode("span", null, "附带当前简谱", -1))
               ]),
-              createBaseVNode("div", _hoisted_17, [
+              createBaseVNode("div", _hoisted_19, [
                 createVNode(unref(NInput), {
                   value: draft.value,
-                  "onUpdate:value": _cache[5] || (_cache[5] = ($event) => draft.value = $event),
+                  "onUpdate:value": _cache[6] || (_cache[6] = ($event) => draft.value = $event),
                   type: "textarea",
                   size: "small",
                   autosize: { minRows: 1, maxRows: 4 },
@@ -63252,7 +63270,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-2e774691"]]);
+const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-531866b5"]]);
 const _hoisted_1$1 = { class: "log-panel" };
 const _hoisted_2$1 = { class: "log-ts" };
 const _hoisted_3$1 = { class: "log-msg" };

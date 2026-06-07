@@ -54,12 +54,18 @@
             </button>
             <span>AI 助手</span>
           </div>
-          <button class="ai-icon-btn" type="button" title="收起" @click="open = false">
-            <n-icon><CloseOutline /></n-icon>
-          </button>
+          <div class="ai-head-actions">
+            <label class="ai-think-master" title="显示或隐藏深度思考">
+              <input v-model="showThinking" type="checkbox" />
+              <span>思考</span>
+            </label>
+            <button class="ai-icon-btn" type="button" title="收起" @click="open = false">
+              <n-icon><CloseOutline /></n-icon>
+            </button>
+          </div>
         </header>
 
-        <div ref="messageBody" class="ai-messages" @scroll="handleMessagesScroll" @click.capture="handleMessagesClick">
+        <div ref="messageBody" class="ai-messages" @scroll="handleMessagesScroll" @click="handleMessagesClick">
           <div v-if="assistant.loading" class="ai-center">
             <n-spin size="small" />
           </div>
@@ -132,6 +138,7 @@ const draft = ref('')
 const includeCurrentJianpu = ref(true)
 const messageBody = ref<HTMLElement | null>(null)
 const autoScrollEnabled = ref(true)
+const showThinking = ref(true)
 const openThinkMessageIds = ref<Set<number>>(new Set())
 const isFabDragging = ref(false)
 const fabLeft = ref(0)
@@ -315,16 +322,14 @@ function handleMessagesScroll(): void {
 
 function handleMessagesClick(event: MouseEvent): void {
   const target = event.target as HTMLElement | null
-  const summary = target?.closest('summary')
-  const details = summary?.closest('details.ai-think') as HTMLDetailsElement | null
-  const messageEl = summary?.closest('.ai-message') as HTMLElement | null
-  if (!summary || !details || !messageEl) return
+  const button = target?.closest('.ai-think-toggle') as HTMLButtonElement | null
+  if (!button) return
+  event.preventDefault()
+  event.stopPropagation()
 
-  const messageId = Number(messageEl.dataset.messageId)
+  const messageId = Number(button.dataset.messageId)
   if (!Number.isFinite(messageId)) return
-  window.setTimeout(() => {
-    setThinkOpen(messageId, details.open)
-  }, 0)
+  setThinkOpen(messageId, !openThinkMessageIds.value.has(messageId))
 }
 
 function isNearBottom(el: HTMLElement): boolean {
@@ -344,14 +349,20 @@ function renderAssistantMessage(text: string, messageId: number): string {
   const thinkRe = /<think>([\s\S]*?)(?:<\/think>|$)/gi
   let lastIndex = 0
   let match: RegExpExecArray | null
-  const openAttr = openThinkMessageIds.value.has(messageId) ? ' open' : ''
+  const thinkOpen = openThinkMessageIds.value.has(messageId)
   while ((match = thinkRe.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(renderMarkdown(text.slice(lastIndex, match.index)))
     }
-    parts.push(
-      `<details class="ai-think"${openAttr}><summary>深度思考</summary><div class="ai-think-body">${renderMarkdown(match[1] ?? '')}</div></details>`,
-    )
+    if (showThinking.value) {
+      const label = thinkOpen ? '收起深度思考' : '展开深度思考'
+      parts.push(
+        `<div class="ai-think ${thinkOpen ? 'open' : ''}">` +
+          `<button class="ai-think-toggle" type="button" data-message-id="${messageId}" aria-expanded="${thinkOpen ? 'true' : 'false'}">${label}</button>` +
+          (thinkOpen ? `<div class="ai-think-body">${renderMarkdown(match[1] ?? '')}</div>` : '') +
+        '</div>',
+      )
+    }
     lastIndex = thinkRe.lastIndex
   }
   if (lastIndex < text.length) parts.push(renderMarkdown(text.slice(lastIndex)))
@@ -587,6 +598,27 @@ function escapeAttr(value: string): string {
   gap: 8px;
 }
 
+.ai-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-think-master {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.ai-think-master input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .ai-icon-btn {
   width: 28px;
   height: 28px;
@@ -739,28 +771,27 @@ function escapeAttr(value: string): string {
   background: var(--bg-elevated);
 }
 
-:deep(.ai-think summary) {
+:deep(.ai-think-toggle) {
+  width: 100%;
+  border: 0;
+  background: transparent;
   cursor: pointer;
   user-select: none;
   padding: 7px 9px;
   color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 600;
-  list-style: none;
+  text-align: left;
 }
 
-:deep(.ai-think summary::-webkit-details-marker) {
-  display: none;
-}
-
-:deep(.ai-think summary::before) {
+:deep(.ai-think-toggle::before) {
   content: '▸';
   display: inline-block;
   margin-right: 6px;
   transition: transform 0.15s ease;
 }
 
-:deep(.ai-think[open] summary::before) {
+:deep(.ai-think.open .ai-think-toggle::before) {
   transform: rotate(90deg);
 }
 
