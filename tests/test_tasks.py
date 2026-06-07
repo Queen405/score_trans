@@ -6,7 +6,7 @@ import json
 from pydantic import BaseModel
 
 from score_trans.api.app import create_app
-from score_trans.api.tasks.background import run_sync_task, schedule_background_task
+from score_trans.exec.tasks.background import run_sync_task, schedule_background_task
 from score_trans.exec.tasks.actions import TaskActions
 from score_trans.models.tasks.entities import TaskStatus
 from score_trans.services.tasks.task_service import TaskManager

@@ -10,6 +10,22 @@ from ...models.tasks.schemas import SSEProgressEvent
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
+@router.get("/events")
+async def global_task_events(
+    actions: TaskActions = Depends(get_task_actions),
+):
+    """Global SSE stream for ALL task state changes. Frontend connects once on app load."""
+    return StreamingResponse(
+        actions.global_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/{task_id}", response_model=SSEProgressEvent)
 async def get_task(
     task_id: str,

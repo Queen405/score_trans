@@ -44,6 +44,9 @@ class TaskActions:
     def stream(self, task_id: str) -> AsyncGenerator[str, None]:
         return self.manager.stream(task_id)
 
+    def global_events(self) -> AsyncGenerator[str, None]:
+        return self.manager.global_events()
+
 
 def _progress_to_event(progress: TaskProgress) -> SSEProgressEvent:
     return SSEProgressEvent(

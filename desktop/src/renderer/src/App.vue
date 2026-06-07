@@ -71,6 +71,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { GlobalThemeOverrides } from 'naive-ui'
 import { useTaskStore } from './stores/task'
 import { useLogStore } from './stores/log'
+import { useTaskEvents } from './composables/useTaskEvents'
 import RecognizeView from './views/RecognizeView.vue'
 import ConvertView from './views/ConvertView.vue'
 import SettingsView from './views/SettingsView.vue'
@@ -85,6 +86,10 @@ import { darkTheme, NConfigProvider, NMessageProvider } from 'naive-ui'
 
 const store = useTaskStore()
 const logStore = useLogStore()
+
+// Global SSE: push task completion events → triggers history refresh everywhere
+useTaskEvents()
+
 const activeTab = ref<'recognize' | 'convert' | 'settings'>('recognize')
 const logOpen = ref(false)
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
