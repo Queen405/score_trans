@@ -96,8 +96,8 @@
     <div class="sv-section">
       <div class="sv-section-title">工作台 AI 助手</div>
       <div class="sv-grid">
-        <label>百炼 Key</label>
-        <n-input v-model:value="settings.assistantApiKey" type="password" show-password-on="click" :placeholder="settings.assistantApiKeySet ? '已保存（留空不更新）' : '百炼 API Key'" size="small">
+        <label>API Key</label>
+        <n-input v-model:value="settings.assistantApiKey" type="password" show-password-on="click" :placeholder="settings.assistantApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
           <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
         </n-input>
 
@@ -126,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import {
@@ -152,6 +152,11 @@ const log = useLogStore()
 const message = useMessage()
 
 onMounted(() => settings.load())
+
+// When provider changes, reload settings to get the correct API key for the new provider
+watch(() => settings.ocrProvider, () => { if (settings.loaded) settings.load() })
+watch(() => settings.aiProvider, () => { if (settings.loaded) settings.load() })
+watch(() => settings.assistantProvider, () => { if (settings.loaded) settings.load() })
 
 async function save(): Promise<void> {
   try {
