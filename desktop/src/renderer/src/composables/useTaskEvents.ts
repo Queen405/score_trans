@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted } from 'vue'
-import { getBaseURL } from '../api/client'
+import { BASE_URL } from '../api/client'
 import { notifyHistoryUpdated } from '../utils/historyEvents'
 import type { SSEProgressEvent } from '../models/types'
 
@@ -7,17 +7,22 @@ import type { SSEProgressEvent } from '../models/types'
  * Connects to the global /tasks/events SSE stream on mount.
  * When a task reaches a terminal state (completed / failed), fires
  * notifyHistoryUpdated() so that any open history panel refreshes.
- *
- * This replaces the need for per-task SSE reconnection after page refresh
- * and provides real-time cross-component task awareness.
  */
 export function useTaskEvents() {
   let es: EventSource | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let disposed = false
 
   function connect() {
-    const base = getBaseURL()
-    es = new EventSource(`${base}/tasks/events`)
+    if (disposed) return
+    try {
+      const url = `${BASE_URL()}/tasks/events`
+      es = new EventSource(url)
+    } catch {
+      // EventSource constructor failed (invalid URL etc.) — retry later
+      reconnectTimer = setTimeout(connect, 5000)
+      return
+    }
 
     es.onmessage = (e: MessageEvent) => {
       let event: SSEProgressEvent
@@ -35,15 +40,19 @@ export function useTaskEvents() {
       // Auto-reconnect with back-off
       es?.close()
       es = null
-      reconnectTimer = setTimeout(connect, 5000)
+      if (!disposed) {
+        reconnectTimer = setTimeout(connect, 5000)
+      }
     }
   }
 
+  // Delay initial connection so the renderer can finish mounting first
   onMounted(() => {
-    connect()
+    reconnectTimer = setTimeout(connect, 2000)
   })
 
   onUnmounted(() => {
+    disposed = true
     es?.close()
     es = null
     if (reconnectTimer) {
