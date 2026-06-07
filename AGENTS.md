@@ -1,15 +1,17 @@
+# AGENTS.md
+
+This file provides guidance to the AI agent when working with code in this repository.
+
 # AGENTS.md — Score Trans
 
 ## Project Overview
 
 Score Trans is a Windows desktop app for converting between Western staff notation (五线谱) and Jianpu (简谱, numbered musical notation). It uses OMR (Audiveris) to recognize score images/PDFs into MusicXML, then converts between MusicXML and Jianpu text/SVG.
 
-- Full project context: [CLAUDE.md](CLAUDE.md)
 - Architecture overview: [docs/architecture.md](docs/architecture.md)
 - File-by-file index: [docs/file-by-file.md](docs/file-by-file.md)
 - Known issues & roadmap: [docs/issues.md](docs/issues.md)
 - Frontend development guide: [desktop/AGENTS.md](desktop/AGENTS.md)
-- Frontend testing: Run `pnpm test:unit` for Vitest unit tests, `pnpm test:e2e` for Playwright E2E tests. E2E tests require backend running on port 19200.
 
 ## Build and Test
 
@@ -26,8 +28,9 @@ python -m pytest
 python -m pytest tests/test_render.py
 python -m pytest tests/test_architecture.py
 
-# Lint
-ruff check backend/ tests/
+# Format and lint
+.venv/Scripts/python.exe -m ruff format backend/ tests/
+.venv/Scripts/python.exe -m ruff check --fix backend/ tests/
 
 # Run FastAPI backend
 $env:PYTHONPATH="backend"
@@ -64,6 +67,8 @@ Architecture tests in `tests/test_architecture.py` enforce these rules.
 - Custom exceptions live in `models/common/errors.py`: `ExternalToolError`, `OCRError`, `AITranscriptionError`.
 - The frontend uses Vue 3 Composition API (`<script setup>`) + Pinia + Naive UI. API calls go through typed wrappers in `desktop/src/renderer/api/`.
 - Frontend error handling: API wrappers must return `{ data, error }` tuples, never throw. Components display errors via Naive UI `useMessage()`. Pinia stores handle async state with explicit `loading`/`error` flags.
+- Commit messages use Chinese conventional commits: `feat: 添加XXX功能`, `fix: 修复XXX`, `refactor: 重构XXX`.
+- Frontend tests (vitest, playwright) are not yet set up despite being mentioned in desktop/AGENTS.md.
 
 ## Critical Pitfalls
 

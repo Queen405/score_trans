@@ -85,3 +85,5 @@ pnpm build
 # 类型检查
 vue-tsc --noEmit
 ```
+
+> **Note**: Frontend tests (`pnpm test:unit`, `pnpm test:e2e`) are not yet configured. No vitest or playwright setup exists.

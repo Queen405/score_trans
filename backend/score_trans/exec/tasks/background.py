@@ -10,6 +10,9 @@ from .actions import TaskActions
 
 SyncTask = Callable[[ProgressCallback], Any]
 
+# Limit concurrent Audiveris OMR tasks to avoid overwhelming system resources.
+OMR_SEMAPHORE = asyncio.Semaphore(2)
+
 
 def schedule_background_task(app: Any, task_id: str, coro: Coroutine[Any, Any, None]) -> asyncio.Task[None]:
     background_tasks = getattr(app.state, "background_tasks", None)
@@ -22,7 +25,13 @@ def schedule_background_task(app: Any, task_id: str, coro: Coroutine[Any, Any, N
     return task
 
 
-async def run_sync_task(task_id: str, tasks: TaskActions, action: SyncTask) -> None:
+async def run_sync_task(
+    task_id: str,
+    tasks: TaskActions,
+    action: SyncTask,
+    *,
+    semaphore: asyncio.Semaphore | None = None,
+) -> None:
     loop = asyncio.get_running_loop()
     cancelled = threading.Event()
     await tasks.start(task_id)
@@ -46,7 +55,11 @@ async def run_sync_task(task_id: str, tasks: TaskActions, action: SyncTask) -> N
             return
 
     try:
-        result = await asyncio.to_thread(action, progress)
+        if semaphore is not None:
+            async with semaphore:
+                result = await asyncio.to_thread(action, progress)
+        else:
+            result = await asyncio.to_thread(action, progress)
     except asyncio.CancelledError:
         cancelled.set()
         await tasks.fail(task_id, "任务被服务关闭中断")

@@ -254,10 +254,23 @@ function initFabPosition(): void {
   const saved = localStorage.getItem(FAB_POSITION_KEY)
   if (saved) {
     try {
-      const parsed = JSON.parse(saved) as { left?: number; top?: number }
-      fabLeft.value = clamp(parsed.left ?? defaultFabLeft(), dockedFabLeft(), dockedFabRight())
-      fabTop.value = clamp(parsed.top ?? defaultFabTop(), FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
-      settleFabPosition()
+      const parsed = JSON.parse(saved) as { relX?: number; relY?: number; left?: number; top?: number }
+      let relX = parsed.relX
+      let relY = parsed.relY
+
+      // 兼容旧格式（绝对像素）
+      if (relX === undefined && parsed.left !== undefined) {
+        const maxW = Math.max(1, window.innerWidth - FAB_SIZE)
+        relX = (parsed.left ?? 0) / maxW
+      }
+      if (relY === undefined && parsed.top !== undefined) {
+        const maxH = Math.max(1, window.innerHeight - FAB_SIZE)
+        relY = (parsed.top ?? 0) / maxH
+      }
+
+      const { left, top } = fromRelative(relX ?? 1, relY ?? 1)
+      fabLeft.value = clamp(left, FAB_MARGIN, freeFabRight())
+      fabTop.value = clamp(top, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
       return
     } catch {
       localStorage.removeItem(FAB_POSITION_KEY)
@@ -265,11 +278,10 @@ function initFabPosition(): void {
   }
   fabLeft.value = defaultFabLeft()
   fabTop.value = defaultFabTop()
-  settleFabPosition()
 }
 
 function handleWindowResize(): void {
-  settleFabPosition()
+  initFabPosition()
   if (open.value) positionPanelNearFab()
 }
 
@@ -299,7 +311,26 @@ function freeFabRight(): number {
 }
 
 function persistFabPosition(): void {
-  localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ left: fabLeft.value, top: fabTop.value }))
+  const { relX, relY } = toRelative(fabLeft.value, fabTop.value)
+  localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ relX, relY }))
+}
+
+function toRelative(left: number, top: number): { relX: number; relY: number } {
+  const maxW = Math.max(1, window.innerWidth - FAB_SIZE)
+  const maxH = Math.max(1, window.innerHeight - FAB_SIZE)
+  return {
+    relX: left / maxW,
+    relY: top / maxH,
+  }
+}
+
+function fromRelative(relX: number, relY: number): { left: number; top: number } {
+  const maxW = Math.max(1, window.innerWidth - FAB_SIZE)
+  const maxH = Math.max(1, window.innerHeight - FAB_SIZE)
+  return {
+    left: relX * maxW,
+    top: relY * maxH,
+  }
 }
 
 function defaultFabLeft(): number {

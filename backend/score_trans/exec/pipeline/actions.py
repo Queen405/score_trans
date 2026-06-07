@@ -24,7 +24,7 @@ from ...services.settings.settings_service import SettingsService
 from ..convert.actions import MusicXmlToJianpuAction
 from ..recognize.actions import RecognizeScoreAction
 from ..tasks.actions import TaskActions
-from ..tasks.background import run_sync_task, schedule_background_task
+from ..tasks.background import OMR_SEMAPHORE, run_sync_task, schedule_background_task
 
 
 @dataclass(slots=True)
@@ -166,7 +166,7 @@ class PipelineActions:
                 progress_callback=progress,
             )
 
-        schedule_background_task(app, task_id, run_sync_task(task_id, tasks, action))
+        schedule_background_task(app, task_id, run_sync_task(task_id, tasks, action, semaphore=OMR_SEMAPHORE))
         return TaskSubmitResponse(task_id=task_id)
 
     def run_pipeline_from_path(
