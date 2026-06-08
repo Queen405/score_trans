@@ -89,7 +89,7 @@ def _articulation_token(name: str) -> str | None:
         "tenuto": "-",
         "trill-mark": "tr",
         "fermata": "fermata",
-        "tremolo": "轮",
+        "tremolo": "l",
     }.get(name, name if name else None)
 
 

@@ -369,8 +369,8 @@ def _articulation_name(raw: str) -> str:
 
 
 def _ornament_name(raw: str) -> str | None:
-    normalized = raw.strip().lower().replace("_", "-").replace(" ", "-")
-    if normalized in {"tremolo", "roll", "rolled", "lun", "lun-yin", "轮", "轮音"}:
+    normalized = raw.strip().lower()
+    if normalized == "l":
         return "tremolo"
     return None
 

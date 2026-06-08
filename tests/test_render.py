@@ -314,7 +314,7 @@ def test_musicxml_tremolo_renders_zhongruan_roll_mark_below_right() -> None:
 def test_jianpu_text_roll_mark_renders_below_right() -> None:
     from score_trans.domain.parse.jianpu_text import parse_jianpu_score
 
-    text = "1=C\n4/4\n^轮 1 2 3 4 |"
+    text = "1=C\n4/4\n^l 1 2 3 4 |"
     score = parse_jianpu_score(text)
     svg = render_score_svg(score)
     root = _svg_root(svg)
@@ -332,11 +332,11 @@ def test_jianpu_text_roll_mark_roundtrip() -> None:
     from score_trans.domain.parse.jianpu_text import parse_jianpu_score
     from score_trans.domain.write.jianpu_text import score_to_jianpu_text
 
-    text = "1=C\n4/4\n^轮 1 2 3 4 |"
+    text = "1=C\n4/4\n^l 1 2 3 4 |"
     score = parse_jianpu_score(text)
     out = score_to_jianpu_text(score)
 
-    assert "^轮" in out
+    assert "^l" in out
     assert "class=\"lyric\"" not in out
     score2 = parse_jianpu_score(out)
     assert score2.measures[0].events[0].ornaments == ["tremolo"]

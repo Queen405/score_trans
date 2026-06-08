@@ -41,7 +41,6 @@ def _mark_display(name: str) -> str:
         "turn": "turn",
         "delayed-turn": "turn",
         "inverted-turn": "turn",
-        "tremolo": "轮",
         "up-bow": "up-bow",
         "down-bow": "down-bow",
         "harmonic": "harm.",

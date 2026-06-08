@@ -40,16 +40,10 @@ def _upper_mark_anchor_y(token: str, y: int) -> float:
 
 
 def _technique_mark(name: str) -> str | None:
-    normalized = name.strip().lower().replace("_", "-").replace(" ", "-")
-    return {
-        "tremolo": "轮",
-        "roll": "轮",
-        "rolled": "轮",
-        "lun": "轮",
-        "lun-yin": "轮",
-        "轮": "轮",
-        "轮音": "轮",
-    }.get(normalized)
+    normalized = name.strip().lower()
+    if normalized == "tremolo":
+        return "轮"
+    return None
 
 
 def _technique_mark_x(token: str, cx: float) -> float:
