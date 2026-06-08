@@ -41,7 +41,7 @@
           </div>
           <div class="hist-batch-meta">{{ formatTime(batch.created_at) }}</div>
           <div v-if="expandedBatchId === batch.id" class="hist-pages">
-            <div v-if="loadingBatch" class="hist-loading">加载中...</div>
+            <div v-if="loadingBatchId === batch.id" class="hist-loading">加载中...</div>
             <div
               v-for="(page, pi) in expandedPages"
               :key="page.id"
@@ -172,7 +172,8 @@ import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
 import { downloadBlob, exportApi, svgToPngBlob } from '../api/export'
 import { historyApi } from '../api/history'
-import { ApiError, fileExists } from '../api/client'
+import { ApiError } from '../api/client'
+import { filesApi } from '../api/files'
 import type { HistoryBatchListItem, HistoryBatch, HistoryPage } from '../models/types'
 import type { TaskPage } from '../stores/task'
 import JianpuEditor from '../components/JianpuEditor.vue'
@@ -182,8 +183,13 @@ import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
-import { notifyHistoryUpdated } from '../utils/historyEvents'
-import { listenHistoryUpdated } from '../utils/historyEvents'
+import {
+  listenHistoryPagePatched,
+  listenHistoryUpdated,
+  notifyHistoryPagePatched,
+  notifyHistoryUpdated,
+  type HistoryPagePatchDetail,
+} from '../utils/historyEvents'
 import { ArrowForwardOutline,
   ImageOutline,
   ChevronBackOutline,
@@ -222,11 +228,16 @@ const histBatches = ref<HistoryBatchListItem[]>([])
 const histLoading = ref(false)
 const expandedBatchId = ref<number | null>(null)
 const expandedPages = ref<HistoryPage[]>([])
-const loadingBatch = ref(false)
+const loadingBatchId = ref<number | null>(null)
 const histPickerShow = ref(false)
 const histPickerOptions = ref<number[]>([])
 const histPickerPage = ref<HistoryPage | null>(null)
 let stopHistoryUpdatedListener: (() => void) | null = null
+let stopHistoryPagePatchedListener: (() => void) | null = null
+let historyListRequestSeq = 0
+let historyDetailRequestSeq = 0
+let restoreCheckSeq = 0
+const locallyUpdatingHistoryPageIds = new Set<number>()
 
 const currentBatchLocalIndex = computed(() =>
   store.currentBatchPages.indexOf(store.currentPage!),
@@ -244,11 +255,14 @@ watch(() => store.currentPageIndex, () => { currentNoteIndex.value = -1 })
 onMounted(() => {
   loadHistory()
   stopHistoryUpdatedListener = listenHistoryUpdated(loadHistory)
+  stopHistoryPagePatchedListener = listenHistoryPagePatched(handleHistoryPagePatched)
 })
 
 onUnmounted(() => {
   stopHistoryUpdatedListener?.()
   stopHistoryUpdatedListener = null
+  stopHistoryPagePatchedListener?.()
+  stopHistoryPagePatchedListener = null
 })
 
 function toggleHistory() {
@@ -257,25 +271,25 @@ function toggleHistory() {
 }
 
 async function loadHistory(): Promise<void> {
+  const seq = ++historyListRequestSeq
   histLoading.value = true
   try {
-    histBatches.value = await historyApi.list()
-    // Refresh expanded pages if a batch is open, so in-progress tasks update live
+    const batches = await historyApi.list()
+    if (seq !== historyListRequestSeq) return
+    histBatches.value = batches
+    syncExpandedBatchSummary()
     const openId = expandedBatchId.value
     if (openId !== null) {
-      try {
-        const batch: HistoryBatch = await historyApi.get(openId)
-        if (expandedBatchId.value === openId) {
-          expandedPages.value = batch.pages
-        }
-      } catch {
-        // best-effort; don't block the list refresh
-      }
+      void refreshExpandedBatch(openId, { clear: false, showLoading: false })
     }
   } catch (e: unknown) {
-    log.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`)
+    if (seq === historyListRequestSeq) {
+      log.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`)
+    }
   } finally {
-    histLoading.value = false
+    if (seq === historyListRequestSeq) {
+      histLoading.value = false
+    }
   }
 }
 
@@ -284,6 +298,8 @@ async function handleDeleteAll(): Promise<void> {
   histBatches.value = []
   expandedBatchId.value = null
   expandedPages.value = []
+  loadingBatchId.value = null
+  historyDetailRequestSeq++
   message.success('已清空')
 }
 
@@ -294,6 +310,8 @@ async function handleDeleteBatch(batchId: number): Promise<void> {
     if (expandedBatchId.value === batchId) {
       expandedBatchId.value = null
       expandedPages.value = []
+      loadingBatchId.value = null
+      historyDetailRequestSeq++
     }
     message.success('已删除')
   } catch (e: unknown) {
@@ -307,24 +325,40 @@ async function toggleBatchExpand(batchId: number): Promise<void> {
   if (expandedBatchId.value === batchId) {
     expandedBatchId.value = null
     expandedPages.value = []
+    loadingBatchId.value = null
+    historyDetailRequestSeq++
     return
   }
   expandedBatchId.value = batchId
-  expandedPages.value = [] // Clear immediately to avoid showing stale pages from previous batch
-  loadingBatch.value = true
+  await refreshExpandedBatch(batchId, { clear: true, showLoading: true })
+}
+
+async function refreshExpandedBatch(
+  batchId: number,
+  options: { clear: boolean; showLoading: boolean },
+): Promise<void> {
+  const seq = ++historyDetailRequestSeq
+  if (options.clear) {
+    expandedPages.value = []
+  }
+  if (options.showLoading) {
+    loadingBatchId.value = batchId
+  }
   try {
     const batch: HistoryBatch = await historyApi.get(batchId)
-    // Guard: only apply if user hasn't clicked away to a different batch
-    if (expandedBatchId.value === batchId) {
-      expandedPages.value = batch.pages
+    if (seq === historyDetailRequestSeq && expandedBatchId.value === batchId) {
+      expandedPages.value = mergeLockedHistoryPages(batch.pages)
+      syncExpandedBatchSummary(batchId)
     }
   } catch (e: unknown) {
-    log.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`)
-    if (expandedBatchId.value === batchId) {
+    if (seq === historyDetailRequestSeq && expandedBatchId.value === batchId) {
+      log.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`)
       expandedPages.value = []
     }
   } finally {
-    loadingBatch.value = false
+    if (seq === historyDetailRequestSeq && loadingBatchId.value === batchId) {
+      loadingBatchId.value = null
+    }
   }
 }
 
@@ -354,33 +388,22 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   }
   if (!allPages.length) return
 
-  const warnings: string[] = []
-  const selectedChecks = pageIndex >= 0
-    ? await checkHistoryPageFiles(allPages[pageIndex], warnings)
-    : null
-  const migratedPages = allPages.map((p, index) => {
+  const migratedPages = allPages.map((p) => {
     const split = splitJianpuAndOcr(p.jianpu_text || '')
-    const checks = index === pageIndex && selectedChecks
-      ? selectedChecks
-      : {
-          inputOk: !!p.input_file_id,
-          musicxmlOk: !!p.musicxml_file_id,
-          svgOk: !!p.svg_file_id,
-        }
-    return { page: p, split, jianpu: split.jianpuText, ...checks }
+    return { page: p, split, jianpu: split.jianpuText }
   })
 
   store.loadBatch(
     migratedPages.map((r) => ({
-      inputFileName: r.inputOk ? r.page.input_file_name : '',
-      inputFileId: r.inputOk ? r.page.input_file_id : '',
-      originalFileName: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_name : '',
-      originalFileId: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_id : '',
+      inputFileName: r.page.input_file_name,
+      inputFileId: r.page.input_file_id,
+      originalFileName: isPreviewableHistoryFile(r.page.input_file_name) ? r.page.input_file_name : '',
+      originalFileId: isPreviewableHistoryFile(r.page.input_file_name) ? r.page.input_file_id : '',
       historyPageId: r.page.id,
-      musicxmlFileId: r.musicxmlOk ? r.page.musicxml_file_id : '',
+      musicxmlFileId: r.page.musicxml_file_id,
       jianpuText: r.jianpu,
       ocrText: r.page.ocr_text || r.split.ocrText,
-      svgFileId: r.svgOk ? r.page.svg_file_id : '',
+      svgFileId: r.page.svg_file_id,
       startMeasureNumber: r.page.start_measure_number ?? null,
       status: r.page.status as any,
       measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
@@ -389,31 +412,120 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     pageIndex >= 0 ? pageIndex : 0,
   )
   isViewingFinal.value = false
+  void validateRestoredBatchFiles(allPages)
 
-  if (warnings.length) { message.warning(warnings.join('；')); return }
   message.success(`已恢复 ${allPages.length} 页`)
 }
 
-async function checkHistoryPageFiles(page: HistoryPage, warnings: string[]): Promise<{
-  inputOk: boolean
-  musicxmlOk: boolean
-  svgOk: boolean
-}> {
-  const [inputOk, musicxmlOk, svgOk] = await Promise.all([
-    page.input_file_id ? fileExists(page.input_file_id) : Promise.resolve(false),
-    page.musicxml_file_id ? fileExists(page.musicxml_file_id) : Promise.resolve(false),
-    page.svg_file_id ? fileExists(page.svg_file_id) : Promise.resolve(false),
-  ])
-  if (page.input_file_id && !inputOk) warnings.push(`${page.input_file_name}：原始文件已失效`)
-  if (page.musicxml_file_id && !musicxmlOk) warnings.push(`${page.input_file_name}：MusicXML 已失效`)
-  if (page.svg_file_id && !svgOk) warnings.push(`${page.input_file_name}：SVG 已失效`)
-  return { inputOk, musicxmlOk, svgOk }
+async function validateRestoredBatchFiles(pages: HistoryPage[]): Promise<void> {
+  const seq = ++restoreCheckSeq
+  const fileIds = pages
+    .flatMap((entry) => [entry.input_file_id, entry.musicxml_file_id, entry.svg_file_id])
+    .filter(Boolean)
+  if (!fileIds.length) return
+
+  try {
+    const exists = await filesApi.existsMany(fileIds)
+    if (seq !== restoreCheckSeq) return
+    const warnings: string[] = []
+    for (const entry of pages) {
+      const patch: Partial<TaskPage> = {}
+      if (entry.input_file_id && !exists[entry.input_file_id]) {
+        patch.inputFileId = ''
+        patch.originalFileId = ''
+        patch.originalFileName = ''
+        warnings.push(`${entry.input_file_name}：原始文件已失效`)
+      }
+      if (entry.musicxml_file_id && !exists[entry.musicxml_file_id]) {
+        patch.musicxmlFileId = ''
+        warnings.push(`${entry.input_file_name}：MusicXML 已失效`)
+      }
+      if (entry.svg_file_id && !exists[entry.svg_file_id]) {
+        patch.svgFileId = ''
+        warnings.push(`${entry.input_file_name}：SVG 已失效`)
+      }
+      if (Object.keys(patch).length) {
+        store.patchPageByHistoryPageId(entry.id, patch)
+      }
+    }
+    if (warnings.length) {
+      log.addLog(`历史恢复部分失效：${warnings.join('，')}`, 'warn')
+      message.warning(`${warnings.join('；')}，请重新识别或重新上传。`)
+    }
+  } catch (e: unknown) {
+    if (seq === restoreCheckSeq) {
+      log.addLog(`校验历史文件失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
+    }
+  }
 }
 
 function replaceExpandedHistoryPage(page: HistoryPage): void {
   const index = expandedPages.value.findIndex((entry) => entry.id === page.id)
   if (index < 0) return
-  expandedPages.value[index] = page
+  expandedPages.value = expandedPages.value.map((entry) => (
+    entry.id === page.id ? page : entry
+  ))
+  syncExpandedBatchSummary()
+}
+
+function mergeLockedHistoryPages(pages: HistoryPage[]): HistoryPage[] {
+  if (!locallyUpdatingHistoryPageIds.size) return pages
+  return pages.map((page) => {
+    if (!locallyUpdatingHistoryPageIds.has(page.id)) return page
+    return expandedPages.value.find((localPage) => localPage.id === page.id) ?? page
+  })
+}
+
+function handleHistoryPagePatched(detail: HistoryPagePatchDetail): void {
+  applyExpandedHistoryPagePatch(detail.id, detail.patch)
+}
+
+function applyExpandedHistoryPagePatch(
+  pageId: number,
+  patch: HistoryPagePatchDetail['patch'],
+): boolean {
+  const page = expandedPages.value.find((entry) => entry.id === pageId)
+  if (!page) return false
+  replaceExpandedHistoryPage({ ...page, ...patch })
+  return true
+}
+
+function syncExpandedBatchSummary(batchId = expandedBatchId.value): void {
+  if (batchId === null || !expandedPages.value.length) return
+  const status = batchStatus(expandedPages.value.map((page) => page.status))
+  const firstFileName = expandedPages.value[0]?.input_file_name ?? ''
+  histBatches.value = histBatches.value.map((batch) => (
+    batch.id === batchId
+      ? {
+          ...batch,
+          status,
+          page_count: expandedPages.value.length,
+          first_file_name: firstFileName || batch.first_file_name,
+        }
+      : batch
+  ))
+}
+
+function batchStatus(statuses: string[]): string {
+  if (statuses.some((status) => status === 'failed')) return 'failed'
+  if (statuses.some((status) => status === 'waiting')) return 'waiting'
+  if (statuses.some((status) => status === 'processing' || status === 'pending')) return 'processing'
+  return 'completed'
+}
+
+function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDetail {
+  return {
+    id: page.id,
+    patch: {
+      musicxml_file_id: page.musicxml_file_id,
+      jianpu_text: page.jianpu_text,
+      ocr_text: page.ocr_text,
+      svg_file_id: page.svg_file_id,
+      start_measure_number: page.start_measure_number,
+      status: page.status,
+      error_message: page.error_message,
+    },
+  }
 }
 
 function formatTime(iso: string): string {
@@ -432,6 +544,10 @@ function historyStatusClass(status: string): string {
 
 function isWaitingStatus(status: string): boolean {
   return status === 'waiting'
+}
+
+function isPreviewableHistoryFile(fileName: string): boolean {
+  return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
 }
 
 function parseWaitingMeasureOptions(messageText: string): number[] {
@@ -464,6 +580,17 @@ async function onHistPickerConfirm(selected: number): Promise<void> {
 }
 
 async function applyHistoryMeasureSelection(page: HistoryPage, selected: number): Promise<void> {
+  locallyUpdatingHistoryPageIds.add(page.id)
+  const processingPage: HistoryPage = {
+    ...page,
+    start_measure_number: selected,
+    status: 'processing',
+    error_message: '正在重新渲染',
+  }
+  replaceExpandedHistoryPage(processingPage)
+  syncStoreFromHistoryPage(processingPage)
+  notifyHistoryPagePatched(historyPagePatchFromPage(processingPage))
+
   try {
     let svgFileId = page.svg_file_id
     const options = parseWaitingMeasureOptions(page.error_message)
@@ -483,13 +610,47 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
       error_message: '',
     })
     replaceExpandedHistoryPage(updated)
+    syncStoreFromHistoryPage(updated)
+    notifyHistoryPagePatched(historyPagePatchFromPage(updated))
     notifyHistoryUpdated()
     message.success('已应用起始小节号')
   } catch (e: unknown) {
+    replaceExpandedHistoryPage(page)
+    syncStoreFromHistoryPage(page)
+    notifyHistoryPagePatched(historyPagePatchFromPage(page))
     const msg = e instanceof Error ? e.message : String(e)
     message.error(msg)
     log.addError(`选择小节号失败：${msg}`)
+  } finally {
+    locallyUpdatingHistoryPageIds.delete(page.id)
   }
+}
+
+function syncStoreFromHistoryPage(page: HistoryPage): void {
+  const split = splitJianpuAndOcr(page.jianpu_text || '')
+  store.patchPageByHistoryPageId(page.id, {
+    historyPageId: page.id,
+    inputFileName: page.input_file_name,
+    inputFileId: page.input_file_id,
+    originalFileName: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_name : '',
+    originalFileId: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_id : '',
+    musicxmlFileId: page.musicxml_file_id,
+    jianpuText: split.jianpuText,
+    ocrText: page.ocr_text || split.ocrText,
+    svgFileId: page.svg_file_id,
+    startMeasureNumber: page.start_measure_number ?? null,
+    status: page.status as any,
+    progressPercent: page.status === 'processing' ? 99 : 100,
+    progressMessage: page.status === 'waiting'
+      ? '等待选择起始小节号'
+      : page.status === 'completed'
+        ? '识别完成'
+        : page.status === 'processing'
+          ? (page.error_message || '正在重新渲染')
+          : page.error_message,
+    measureNumberOptions: page.status === 'waiting' ? parseWaitingMeasureOptions(page.error_message) : [],
+    errorMessage: page.error_message,
+  })
 }
 
 function resolveMissingFileId(msg: string): string | null {

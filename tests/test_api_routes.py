@@ -23,6 +23,7 @@ def test_render_routes_are_registered() -> None:
     assert "/tasks/{task_id}" in paths
     assert "/tasks/{task_id}/stream" in paths
 
+
 def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:
     schema = create_app().openapi()["components"]["schemas"]["RenderJianpuSvgRequest"]
 
@@ -36,7 +37,9 @@ def test_musicxml_to_jianpu_request_accepts_page_image_for_ocr_text() -> None:
 
 
 def test_jianpu_text_svg_request_accepts_page_image_for_ocr_overlay() -> None:
-    schema = create_app().openapi()["components"]["schemas"]["RenderJianpuTextSvgRequest"]
+    schema = create_app().openapi()["components"]["schemas"][
+        "RenderJianpuTextSvgRequest"
+    ]
 
     assert "page_image_file_id" in schema["properties"]
     assert "ocr_text" in schema["properties"]
@@ -79,6 +82,30 @@ def test_file_download_allows_local_dev_origin_on_any_port(tmp_path: Path) -> No
     assert response.headers["access-control-allow-origin"] == "http://localhost:58123"
 
 
+def test_files_exist_route_returns_batch_existence(tmp_path: Path) -> None:
+    app = create_app()
+    config = ToolConfig(work_dir=tmp_path / "work")
+    uploads = UploadService(config)
+    source = tmp_path / "page.png"
+    source.write_bytes(b"png")
+    file_id = uploads.register(source)
+    app.dependency_overrides[get_file_actions] = lambda: FileActions(uploads=uploads)
+
+    response = TestClient(app).post(
+        "/files/exists",
+        json={"file_ids": [file_id, "missing", ""]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "files": {
+            file_id: True,
+            "missing": False,
+            "": False,
+        }
+    }
+
+
 class FakeExportUseCase:
     def __init__(self) -> None:
         self.calls = []
@@ -87,6 +114,7 @@ class FakeExportUseCase:
         self.calls.append((Path(musicxml_file), Path(output_file), kwargs))
         Path(output_file).write_bytes(b"exported")
         return Path(output_file)
+
 
 def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> None:
     config = ToolConfig(work_dir=tmp_path / "work")

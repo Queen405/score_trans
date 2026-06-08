@@ -36,7 +36,7 @@
         <div class="hv-card-top">
           <div class="hv-card-name">
             <span :class="['status-dot', statusClass(entry.status)]" />
-            <span>{{ entry.input_file_name || '未知文件' }}</span>
+            <span>{{ entry.first_file_name || '未知文件' }}</span>
           </div>
           <div class="hv-card-actions" @click.stop>
             <n-popconfirm @positive-click="handleDelete(entry.id)" :show-icon="false">
@@ -52,14 +52,9 @@
           <span :class="['hv-status', entry.status]">{{ statusLabel(entry.status) }}</span>
         </div>
         <div class="hv-card-flags">
-          <span v-if="entry.musicxml_file_id" class="flag">MusicXML</span>
-          <span v-if="entry.jianpu_text" class="flag">简谱</span>
-          <span v-if="entry.svg_file_id" class="flag">SVG</span>
+          <span class="flag">{{ entry.page_count }} 页</span>
+          <span v-if="entry.status === 'waiting'" class="flag">待选择</span>
         </div>
-        <div v-if="entry.jianpu_text" class="hv-preview">
-          <code>{{ entry.jianpu_text.slice(0, 120) }}</code>
-        </div>
-        <div v-if="entry.error_message" class="hv-error">{{ entry.error_message }}</div>
       </div>
     </div>
   </div>
@@ -70,12 +65,12 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
 import { historyApi } from '../api/history'
-import { fileExists } from '../api/client'
+import { filesApi } from '../api/files'
 import { listenHistoryUpdated } from '../utils/historyEvents'
-import type { HistoryEntry } from '../models/types'
+import { splitJianpuAndOcr } from '../utils/ocrText'
+import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/types'
+import type { TaskPage } from '../stores/task'
 import {
-  CheckmarkCircleOutline,
-  CloseCircleOutline,
   TimeOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
@@ -85,9 +80,10 @@ const store = useTaskStore()
 const log = useLogStore()
 const message = useMessage()
 
-const entries = ref<HistoryEntry[]>([])
+const entries = ref<HistoryBatchListItem[]>([])
 const loading = ref(false)
 let stopHistoryUpdatedListener: (() => void) | null = null
+let restoreCheckSeq = 0
 
 onMounted(() => {
   loadHistory()
@@ -133,64 +129,98 @@ async function handleDeleteAll(): Promise<void> {
   }
 }
 
-async function handleRestore(entry: HistoryEntry): Promise<void> {
+async function handleRestore(entry: HistoryBatchListItem): Promise<void> {
   if (store.isBusy) {
     message.warning('识别任务进行中，完成后再恢复历史记录。')
     return
   }
 
-  const warnings: string[] = []
-  const [inputOk, musicxmlOk, svgOk] = await Promise.all([
-    entry.input_file_id ? fileExists(entry.input_file_id) : Promise.resolve(false),
-    entry.musicxml_file_id ? fileExists(entry.musicxml_file_id) : Promise.resolve(false),
-    entry.svg_file_id ? fileExists(entry.svg_file_id) : Promise.resolve(false),
-  ])
-
-  if (entry.input_file_id) {
-    if (inputOk) {
-      store.setInputFile(entry.input_file_name, entry.input_file_id)
-    } else {
-      warnings.push('原始输入文件已失效')
-    }
-  }
-
-  if (entry.musicxml_file_id) {
-    if (musicxmlOk) {
-      store.setMusicxml(entry.musicxml_file_id, '')
-    } else {
-      store.setMusicxml('', '')
-      warnings.push('MusicXML 文件已失效')
-    }
-  }
-
-  if (entry.jianpu_text) store.setJianpu(entry.jianpu_text)
-
-  if (entry.svg_file_id) {
-    if (svgOk) {
-      store.setSvg(entry.svg_file_id)
-    } else {
-      store.setSvg('')
-      warnings.push('SVG 文件已失效')
-    }
-  }
-
-  if (entry.input_file_id && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(entry.input_file_name)) {
-    if (inputOk) {
-      store.setOriginalFile(entry.input_file_name, entry.input_file_id)
-    } else {
-      store.clearOriginalFile()
-    }
-  } else {
-    store.clearOriginalFile()
-  }
-
-  if (warnings.length) {
-    log.addLog(`历史恢复部分失效：${warnings.join('，')}`, 'warn')
-    message.warning(`${warnings.join('，')}，请重新识别或重新上传。`)
+  let batch: HistoryBatch
+  try {
+    batch = await historyApi.get(entry.id)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.addError(`加载历史详情失败：${msg}`)
+    message.error(msg)
     return
   }
 
-  message.success('已恢复到工作区')
+  const pages = batch.pages
+  if (!pages.length) return
+  store.loadBatch(
+    pages.map((page) => {
+      const split = splitJianpuAndOcr(page.jianpu_text || '')
+      return {
+        inputFileName: page.input_file_name,
+        inputFileId: page.input_file_id,
+        originalFileName: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_name : '',
+        originalFileId: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_id : '',
+        historyPageId: page.id,
+        musicxmlFileId: page.musicxml_file_id,
+        jianpuText: split.jianpuText,
+        ocrText: page.ocr_text || split.ocrText,
+        svgFileId: page.svg_file_id,
+        startMeasureNumber: page.start_measure_number ?? null,
+        status: page.status as any,
+        measureNumberOptions: parseWaitingMeasureOptions(page.error_message),
+        errorMessage: page.error_message,
+      }
+    }),
+    0,
+  )
+  void validateRestoredBatchFiles(pages)
+  message.success(`已恢复 ${pages.length} 页`)
+}
+
+async function validateRestoredBatchFiles(pages: HistoryPage[]): Promise<void> {
+  const seq = ++restoreCheckSeq
+  const fileIds = pages
+    .flatMap((page) => [page.input_file_id, page.musicxml_file_id, page.svg_file_id])
+    .filter(Boolean)
+  if (!fileIds.length) return
+  try {
+    const exists = await filesApi.existsMany(fileIds)
+    if (seq !== restoreCheckSeq) return
+    const warnings: string[] = []
+    for (const page of pages) {
+      const patch: Partial<TaskPage> = {}
+      if (page.input_file_id && !exists[page.input_file_id]) {
+        patch.inputFileId = ''
+        patch.originalFileId = ''
+        patch.originalFileName = ''
+        warnings.push(`${page.input_file_name}：原始文件已失效`)
+      }
+      if (page.musicxml_file_id && !exists[page.musicxml_file_id]) {
+        patch.musicxmlFileId = ''
+        warnings.push(`${page.input_file_name}：MusicXML 已失效`)
+      }
+      if (page.svg_file_id && !exists[page.svg_file_id]) {
+        patch.svgFileId = ''
+        warnings.push(`${page.input_file_name}：SVG 已失效`)
+      }
+      if (Object.keys(patch).length) {
+        store.patchPageByHistoryPageId(page.id, patch)
+      }
+    }
+    if (warnings.length) {
+      log.addLog(`历史恢复部分失效：${warnings.join('，')}`, 'warn')
+      message.warning(`${warnings.join('；')}，请重新识别或重新上传。`)
+    }
+  } catch (e: unknown) {
+    if (seq === restoreCheckSeq) {
+      log.addLog(`校验历史文件失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
+    }
+  }
+}
+
+function isPreviewableHistoryFile(fileName: string): boolean {
+  return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
+}
+
+function parseWaitingMeasureOptions(messageText: string): number[] {
+  if (!messageText.includes('等待选择起始小节号')) return []
+  return Array.from(messageText.matchAll(/\d+/g), (match) => Number(match[0]))
+    .filter((value) => Number.isFinite(value) && value > 0)
 }
 
 function formatTime(iso: string): string {

@@ -1,31 +1,44 @@
 <template>
-  <n-upload
-    ref="uploadRef"
-    :custom-request="handleUpload"
-    :show-file-list="false"
-    :disabled="disabled"
-    accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt"
-    directory-dnd
-    multiple
-  >
-    <n-upload-dragger class="upload-zone">
-      <div class="upload-inner">
-        <n-icon size="28"><CloudUploadOutline /></n-icon>
-        <div class="upload-text">
-          <span class="upload-title">点击或拖拽文件到此处</span>
-          <span class="upload-hint">支持多选 · PDF / PNG / JPG / TIF / MusicXML</span>
+  <div class="upload-container">
+    <n-upload
+      ref="uploadRef"
+      :custom-request="handleUpload"
+      :show-file-list="false"
+      :disabled="disabled || uploading"
+      accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt"
+      directory-dnd
+      multiple
+    >
+      <n-upload-dragger class="upload-zone">
+        <div class="upload-inner">
+          <n-icon size="28"><CloudUploadOutline /></n-icon>
+          <div class="upload-text">
+            <span class="upload-title">{{ uploadStatusText }}</span>
+            <span class="upload-hint">支持多选 · PDF / PNG / JPG / TIF / MusicXML</span>
+          </div>
         </div>
-      </div>
-    </n-upload-dragger>
-  </n-upload>
+      </n-upload-dragger>
+    </n-upload>
+    <n-progress
+      v-if="uploading"
+      type="line"
+      :percentage="progress"
+      :show-indicator="true"
+      :indicator-placement="'inside'"
+      :processing="phase === 'processing'"
+      class="upload-progress"
+    >
+      {{ progress }}%
+    </n-progress>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { CloudUploadOutline } from '@vicons/ionicons5'
 import { useFileUpload } from '../composables/useFileUpload'
 import { useLogStore } from '../stores/log'
-import { NUpload, NUploadDragger, NIcon } from 'naive-ui'
+import { NUpload, NUploadDragger, NIcon, NProgress } from 'naive-ui'
 
 const emit = defineEmits<{
   uploaded: [fileId: string, fileName: string]
@@ -35,9 +48,14 @@ defineProps<{
   disabled?: boolean
 }>()
 
-const { upload } = useFileUpload()
+const { upload, uploading, progress, phase } = useFileUpload()
 const log = useLogStore()
 const uploadRef = ref<InstanceType<typeof NUpload> | null>(null)
+
+const uploadStatusText = computed(() => {
+  if (!uploading.value) return '点击或拖拽文件到此处'
+  return phase.value === 'processing' ? '正在解析...' : '正在上传...'
+})
 
 async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   log.addLog(`正在上传：${file.file.name}`)
@@ -57,6 +75,12 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
 </script>
 
 <style scoped>
+.upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .upload-zone {
   border-radius: var(--radius-lg) !important;
   border: 1.5px dashed var(--border) !important;
@@ -96,5 +120,9 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
 .upload-hint {
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+.upload-progress {
+  margin: 0;
 }
 </style>

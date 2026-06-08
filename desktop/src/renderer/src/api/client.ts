@@ -46,12 +46,48 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   return response.json()
 }
 
-export async function uploadFile(file: File): Promise<UploadResponse> {
-  const formData = new FormData()
-  formData.append('file', file)
-  return apiFetch<UploadResponse>('/files/upload', {
-    method: 'POST',
-    body: formData,
+export type UploadProgressCallback = (percent: number, phase: 'upload' | 'processing') => void
+
+export async function uploadFile(
+  file: File,
+  onProgress?: UploadProgressCallback,
+): Promise<UploadResponse> {
+  if (!onProgress) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiFetch<UploadResponse>('/files/upload', {
+      method: 'POST',
+      body: formData,
+    })
+  }
+  return new Promise<UploadResponse>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${getBaseURL()}/files/upload`)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        // Cap upload phase at 85% — remaining 15% is server-side processing
+        onProgress(Math.min(85, Math.round((e.loaded / e.total) * 85)), 'upload')
+      }
+    }
+    xhr.upload.onload = () => {
+      // All bytes sent, server is now processing (e.g. PDF → images)
+      onProgress(85, 'processing')
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100, 'processing')
+        try { resolve(JSON.parse(xhr.responseText) as UploadResponse) }
+        catch { reject(new ApiError('Invalid JSON response')) }
+      } else {
+        let msg = `HTTP ${xhr.status}`
+        try { msg = JSON.parse(xhr.responseText).error ?? msg } catch { /* ignore */ }
+        reject(new ApiError(msg))
+      }
+    }
+    xhr.onerror = () => reject(new ApiError('网络错误'))
+    const formData = new FormData()
+    formData.append('file', file)
+    xhr.send(formData)
   })
 }
 

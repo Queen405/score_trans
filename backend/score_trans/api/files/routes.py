@@ -5,7 +5,11 @@ from fastapi.responses import FileResponse, Response
 
 from ..dependencies import get_file_actions
 from ...exec.files.actions import FileActions
-from ...models.files.schemas import UploadResponse
+from ...models.files.schemas import (
+    FilesExistRequest,
+    FilesExistResponse,
+    UploadResponse,
+)
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -16,6 +20,14 @@ async def upload_file(
     actions: FileActions = Depends(get_file_actions),
 ):
     return actions.upload_file(file)
+
+
+@router.post("/exists", response_model=FilesExistResponse)
+async def files_exist(
+    req: FilesExistRequest,
+    actions: FileActions = Depends(get_file_actions),
+):
+    return actions.files_exist(req.file_ids)
 
 
 @router.get("/{file_id}")
@@ -35,7 +47,10 @@ async def head_file(
     path, media_type = actions.download_file(file_id)
     return Response(
         status_code=200,
-        headers={"Content-Type": media_type, "Content-Length": str(path.stat().st_size)},
+        headers={
+            "Content-Type": media_type,
+            "Content-Length": str(path.stat().st_size),
+        },
     )
 
 

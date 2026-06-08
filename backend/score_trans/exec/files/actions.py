@@ -6,7 +6,7 @@ from fastapi import HTTPException, UploadFile
 
 from score_trans.config.settings import UPLOAD_PDF_DPI
 
-from ...models.files.schemas import UploadPage, UploadResponse
+from ...models.files.schemas import FilesExistResponse, UploadPage, UploadResponse
 from ...services.files.upload_service import UploadService
 
 
@@ -44,7 +44,9 @@ class FileActions:
         if path and path.suffix.lower() == ".pdf":
             pages = self._pdf_to_images(path)
 
-        return UploadResponse(file_id=file_id, filename=file.filename, size=size, pages=pages)
+        return UploadResponse(
+            file_id=file_id, filename=file.filename, size=size, pages=pages
+        )
 
     def _pdf_to_images(self, pdf_path: Path) -> list[UploadPage] | None:
         try:
@@ -78,7 +80,13 @@ class FileActions:
         media_type = MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
         return path, media_type
 
+    def files_exist(self, file_ids: list[str]) -> FilesExistResponse:
+        unique_ids = list(dict.fromkeys(file_id for file_id in file_ids if file_id))
+        exists = self.uploads.exists_many(unique_ids)
+        return FilesExistResponse(
+            files={file_id: exists.get(file_id, False) for file_id in file_ids}
+        )
+
     def delete_file(self, file_id: str) -> dict[str, str]:
         self.uploads.cleanup(file_id)
         return {"status": "deleted"}
-

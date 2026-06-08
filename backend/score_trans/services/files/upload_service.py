@@ -15,6 +15,7 @@ from ..settings.settings_service import SettingsService
 
 
 _INDEX_LOCK = threading.Lock()
+_INDEX_CACHE: dict[Path, tuple[int, int, dict[str, Path]]] = {}
 
 
 class UploadService:
@@ -36,6 +37,15 @@ class UploadService:
         if not self._index_path.exists():
             return
 
+        stat = self._index_path.stat()
+        cache_key = (stat.st_mtime_ns, stat.st_size)
+        with _INDEX_LOCK:
+            cached = _INDEX_CACHE.get(self._index_path)
+            if cached and cached[0] == cache_key[0] and cached[1] == cache_key[1]:
+                with self._lock:
+                    self._files = dict(cached[2])
+                return
+
         try:
             raw = json.loads(self._index_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -54,6 +64,13 @@ class UploadService:
 
         with self._lock:
             self._files = restored
+
+        with _INDEX_LOCK:
+            _INDEX_CACHE[self._index_path] = (
+                cache_key[0],
+                cache_key[1],
+                dict(restored),
+            )
 
     def _resolve_index_path(self, path: Path) -> Path:
         if path.is_absolute():
@@ -93,12 +110,20 @@ class UploadService:
                     encoding="utf-8",
                 )
                 tmp_path.replace(self._index_path)
+                stat = self._index_path.stat()
+                _INDEX_CACHE[self._index_path] = (
+                    stat.st_mtime_ns,
+                    stat.st_size,
+                    {file_id: Path(path) for file_id, path in serializable.items()},
+                )
             except OSError:
                 # Persistence is best-effort; runtime behavior still relies on memory and fallback scan.
                 return
 
         with self._lock:
-            self._files = {file_id: Path(path) for file_id, path in serializable.items()}
+            self._files = {
+                file_id: Path(path) for file_id, path in serializable.items()
+            }
 
     def save(self, upload_file: UploadFile) -> str:
         """Save an uploaded file and return its file_id."""
@@ -160,7 +185,9 @@ class UploadService:
         if not fallback_dir.is_dir():
             return None
 
-        candidates = sorted((p for p in fallback_dir.iterdir() if p.is_file()), key=lambda p: p.name)
+        candidates = sorted(
+            (p for p in fallback_dir.iterdir() if p.is_file()), key=lambda p: p.name
+        )
         if not candidates:
             return None
 
@@ -191,7 +218,9 @@ class UploadService:
             if entry.is_dir() and entry.stat().st_mtime < cutoff:
                 # Remove from mapping
                 with self._lock:
-                    to_remove = [fid for fid, p in self._files.items() if p.is_relative_to(entry)]
+                    to_remove = [
+                        fid for fid, p in self._files.items() if p.is_relative_to(entry)
+                    ]
                     for fid in to_remove:
                         self._files.pop(fid, None)
                 self._persist_index()
@@ -205,6 +234,10 @@ class UploadService:
         if path and path.exists():
             return path.stat().st_size
         return None
+
+    def exists_many(self, file_ids: list[str]) -> dict[str, bool]:
+        """Return existence for multiple file IDs with one UploadService/index load."""
+        return {file_id: self.get_path(file_id) is not None for file_id in file_ids}
 
 
 def _read_index(index_path: Path) -> dict[str, str]:

@@ -26,3 +26,11 @@ class HistoryBatch:
     status: str = "completed"
     pages: list[HistoryPage] = field(default_factory=list)
 
+
+@dataclass(slots=True)
+class HistoryBatchSummary:
+    id: int = 0
+    created_at: str = ""
+    page_count: int = 0
+    status: str = "completed"
+    first_file_name: str = ""

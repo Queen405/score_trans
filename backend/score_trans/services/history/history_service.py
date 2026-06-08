@@ -3,15 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...dao.history.history_dao import HistoryDao
-from ...models.history.entities import HistoryBatch, HistoryPage
+from ...models.history.entities import HistoryBatch, HistoryBatchSummary, HistoryPage
 
 
 class HistoryService:
-    def __init__(self, db_path: str | Path | None = None, dao: HistoryDao | None = None) -> None:
+    def __init__(
+        self, db_path: str | Path | None = None, dao: HistoryDao | None = None
+    ) -> None:
         self.dao = dao or HistoryDao(db_path)
 
     def list_batches(self) -> list[HistoryBatch]:
         return self.dao.list_batches()
+
+    def list_batch_summaries(self) -> list[HistoryBatchSummary]:
+        return self.dao.list_batch_summaries()
 
     def get_batch(self, batch_id: int) -> HistoryBatch | None:
         return self.dao.get_batch(batch_id)
@@ -47,4 +52,3 @@ class HistoryService:
 
     def delete_all(self) -> int:
         return self.dao.delete_all()
-

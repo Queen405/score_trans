@@ -54,11 +54,11 @@
       <n-button
         type="primary"
         @click="recognize"
-        :loading="currentPageProcessing"
-        :disabled="!store.hasInput || currentPageProcessing"
+        :loading="recognizeButtonLoading"
+        :disabled="recognizeButtonDisabled"
       >
         <template #icon><n-icon><ScanOutline /></n-icon></template>
-        识别并自动填充
+        {{ recognizeButtonText }}
       </n-button>
       <n-button
         @click="recognizeAllPages"
@@ -73,15 +73,22 @@
         <span>AI 视觉检测</span>
         <n-switch v-model:value="aiVisionEnabled" size="small" />
       </div>
+      <span v-if="selectedPageCount" class="selection-count">已选 {{ selectedPageCount }}</span>
     </div>
 
     <div v-if="store.currentBatchPages.length" class="pages-strip">
       <div
         v-for="page in store.currentBatchPages"
         :key="page.id"
-        :class="['page-card', page.status, { active: page.id === store.currentPage?.id }]"
-        @click="store.selectPageById(page.id)"
+        :class="['page-card', page.status, {
+          active: page.id === store.currentPage?.id,
+          selected: isPageSelected(page.id),
+        }]"
+        @click="handlePageCardClick(page)"
       >
+        <n-icon v-if="isPageSelected(page.id)" size="14" class="page-selected-mark">
+          <CheckmarkCircleOutline />
+        </n-icon>
         <button
           v-if="page.status !== 'waiting'"
           class="page-del"
@@ -103,7 +110,7 @@
         </button>
         <div class="page-thumb">
           <img
-            v-if="isPreviewable(page.inputFileName)"
+            v-if="active && isPreviewable(page.inputFileName)"
             :src="getFileURL(page.inputFileId)"
             :alt="page.inputFileName"
           />
@@ -135,12 +142,13 @@ import { getFileURL } from '../api/client'
 import type {
   AiTranscribeResponse,
   AiTranscribedPage,
+  HistoryPage,
   PipelineResponse,
   SSEProgressEvent,
 } from '../models/types'
-import type { TaskPage, TaskPageInput } from '../stores/task'
+import type { TaskPage, TaskPageInput, TaskPageStatus } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
-import { notifyHistoryUpdated } from '../utils/historyEvents'
+import { notifyHistoryPagePatched, notifyHistoryUpdated, type HistoryPagePatchDetail } from '../utils/historyEvents'
 import FileUploader from '../components/FileUploader.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import {
@@ -150,6 +158,7 @@ import {
   AlertCircleOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
+  CheckmarkCircleOutline,
   DocumentOutline,
 } from '@vicons/ionicons5'
 import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
@@ -183,6 +192,13 @@ const aiVisionEnabled = ref(false)
 const pickerShow = ref(false)
 const pickerOptions = ref<number[]>([])
 const pickerPageId = ref<string | null>(null)
+const selectedPageIds = ref<Set<string>>(new Set())
+
+withDefaults(defineProps<{
+  active?: boolean
+}>(), {
+  active: true,
+})
 
 const batchOptions = computed(() =>
   store.batches.map((b, i) => ({
@@ -195,8 +211,31 @@ const currentBatchLocalIndex = computed(() =>
 )
 const activePages = computed(() => store.currentBatchPages.filter((page) => page.status === 'processing'))
 const waitingPageCount = computed(() => store.currentBatchPages.filter((page) => page.status === 'waiting').length)
-const currentPageProcessing = computed(() => store.currentPage?.status === 'processing')
 const pendingRecognizableCount = computed(() => store.currentBatchPages.filter((page) => isStartablePage(page)).length)
+const selectedPages = computed(() =>
+  store.currentBatchPages.filter((page) => selectedPageIds.value.has(page.id)),
+)
+const selectedPageCount = computed(() => selectedPages.value.length)
+const selectedProcessingCount = computed(() =>
+  selectedPages.value.filter((page) => page.status === 'processing').length,
+)
+const recognizeTargetPages = computed(() => {
+  const selectedStartable = selectedPages.value.filter((page) => isStartablePage(page))
+  if (selectedPages.value.length) return selectedStartable
+  const page = store.currentPage
+  return page && isStartablePage(page) ? [page] : []
+})
+const recognizeButtonLoading = computed(() =>
+  selectedPages.value.length
+    ? selectedProcessingCount.value > 0 && recognizeTargetPages.value.length === 0
+    : store.currentPage?.status === 'processing',
+)
+const recognizeButtonDisabled = computed(() => recognizeTargetPages.value.length === 0)
+const recognizeButtonText = computed(() =>
+  selectedPages.value.length
+    ? `识别选中 ${recognizeTargetPages.value.length || selectedPages.value.length} 张`
+    : '识别并自动填充',
+)
 const overallProgressPercent = computed(() => {
   if (!activePages.value.length) return 0
   const total = activePages.value.reduce((sum, page) => sum + page.progressPercent, 0)
@@ -225,6 +264,28 @@ function statusText(page: TaskPage): string {
   return map[page.status] ?? ''
 }
 
+function isPageSelected(pageId: string): boolean {
+  return selectedPageIds.value.has(pageId)
+}
+
+function handlePageCardClick(page: TaskPage): void {
+  store.selectPageById(page.id)
+  const next = new Set(selectedPageIds.value)
+  if (next.has(page.id)) {
+    next.delete(page.id)
+  } else {
+    next.add(page.id)
+  }
+  selectedPageIds.value = next
+}
+
+function removePageSelection(pageId: string): void {
+  if (!selectedPageIds.value.has(pageId)) return
+  const next = new Set(selectedPageIds.value)
+  next.delete(pageId)
+  selectedPageIds.value = next
+}
+
 function removePageById(pageId: string): void {
   const idx = store.pages.findIndex((p) => p.id === pageId)
   if (idx < 0) return
@@ -233,6 +294,7 @@ function removePageById(pageId: string): void {
     message.warning('后台识别中的页面暂不能移除')
     return
   }
+  removePageSelection(pageId)
   store.removePage(idx)
   log.addLog(`已移除：${page.inputFileName}`)
 }
@@ -267,9 +329,9 @@ function onPickerCancel(): void {
 }
 
 async function recognize(): Promise<void> {
-  const page = store.currentPage
-  if (!page || !isStartablePage(page)) return
-  await submitRecognitionTargets([targetFromPage(page)], aiVisionEnabled.value ? 'ai' : 'omr')
+  const targets = recognizeTargetPages.value.map(targetFromPage)
+  if (!targets.length) return
+  await submitRecognitionTargets(targets, aiVisionEnabled.value ? 'ai' : 'omr')
 }
 
 async function recognizeAllPages(): Promise<void> {
@@ -407,6 +469,16 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
     progressMessage: '应用起始小节号',
     errorMessage: '',
   })
+  if (page.historyPageId) {
+    notifyHistoryPagePatched({
+      id: page.historyPageId,
+      patch: {
+        start_measure_number: selected,
+        status: 'processing',
+        error_message: '正在重新渲染',
+      },
+    })
+  }
 
   let svgFileId = page.svgFileId
   try {
@@ -449,6 +521,16 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       progressMessage: '等待选择起始小节号',
       errorMessage: msg,
     })
+    if (page.historyPageId) {
+      notifyHistoryPagePatched({
+        id: page.historyPageId,
+        patch: {
+          start_measure_number: page.startMeasureNumber,
+          status: 'waiting',
+          error_message: page.errorMessage,
+        },
+      })
+    }
     message.error(msg)
   }
 }
@@ -609,7 +691,7 @@ async function persistPageResult(
 ): Promise<void> {
   try {
     if (historyPageId) {
-      await historyApi.updatePage(historyPageId, {
+      const updated = await historyApi.updatePage(historyPageId, {
         musicxml_file_id: result.musicxml_file_id,
         jianpu_text: result.jianpu_text,
         ocr_text: result.ocr_text,
@@ -618,6 +700,8 @@ async function persistPageResult(
         status: result.status,
         error_message: result.error_message,
       })
+      syncStoreFromHistoryPage(target.pageId, updated)
+      notifyHistoryPagePatched(historyPagePatchFromPage(updated))
     } else {
       const created = await historyApi.create({
         pages: [{
@@ -636,10 +720,56 @@ async function persistPageResult(
       if (pageId) {
         store.patchPageById(target.pageId, { historyPageId: pageId })
       }
+      const createdPage = created.pages[0]
+      if (createdPage) {
+        syncStoreFromHistoryPage(target.pageId, createdPage)
+        notifyHistoryPagePatched(historyPagePatchFromPage(createdPage))
+      }
     }
     notifyHistoryUpdated()
   } catch (error: unknown) {
     log.addLog(`保存后台历史结果失败：${errorMessage(error)}`, 'warn')
+  }
+}
+
+function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
+  const options = parseWaitingMeasureOptions(page.error_message)
+  const patch = {
+    historyPageId: page.id,
+    musicxmlFileId: page.musicxml_file_id,
+    jianpuText: page.jianpu_text,
+    ocrText: page.ocr_text,
+    svgFileId: page.svg_file_id,
+    startMeasureNumber: page.start_measure_number,
+    status: page.status as TaskPageStatus,
+    progressPercent: page.status === 'processing' ? 99 : 100,
+    progressMessage: page.status === 'waiting'
+      ? '等待选择起始小节号'
+      : page.status === 'completed'
+        ? '识别完成'
+        : page.status === 'processing'
+          ? (page.error_message || '正在重新渲染')
+          : page.error_message,
+    measureNumberOptions: page.status === 'waiting' ? options : [],
+    errorMessage: page.error_message,
+  }
+  if (!store.patchPageById(pageId, patch)) {
+    store.patchPageByHistoryPageId(page.id, patch)
+  }
+}
+
+function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDetail {
+  return {
+    id: page.id,
+    patch: {
+      musicxml_file_id: page.musicxml_file_id,
+      jianpu_text: page.jianpu_text,
+      ocr_text: page.ocr_text,
+      svg_file_id: page.svg_file_id,
+      start_measure_number: page.start_measure_number,
+      status: page.status,
+      error_message: page.error_message,
+    },
   }
 }
 
@@ -667,6 +797,12 @@ function taskProgressText(event: SSEProgressEvent): string {
 
 function waitingMeasureMessage(options: number[]): string {
   return `等待选择起始小节号：${options.join('、')}`
+}
+
+function parseWaitingMeasureOptions(messageText: string): number[] {
+  if (!messageText.includes('等待选择起始小节号')) return []
+  return Array.from(messageText.matchAll(/\d+/g), (match) => Number(match[0]))
+    .filter((value) => Number.isFinite(value) && value > 0)
 }
 
 function errorMessage(error: unknown): string {
@@ -757,6 +893,19 @@ function errorMessage(error: unknown): string {
   font-size: 12px;
 }
 
+.selection-count {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--accent-light);
+  border-radius: var(--radius-sm);
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .pages-strip {
   display: flex;
   gap: 10px;
@@ -785,6 +934,15 @@ function errorMessage(error: unknown): string {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+.page-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.page-card.selected.active {
+  box-shadow: 0 0 0 1px var(--accent), 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
 .page-card.processing {
   border-color: var(--warning);
 }
@@ -796,6 +954,17 @@ function errorMessage(error: unknown): string {
 
 .page-card.failed {
   border-color: var(--danger);
+}
+
+.page-selected-mark {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  color: var(--accent);
+  background: var(--bg-elevated);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .page-del {

@@ -177,6 +177,17 @@ export const useTaskStore = defineStore('task', () => {
     return true
   }
 
+  function patchPageByHistoryPageId(historyId: number | null, patch: Partial<TaskPage>): boolean {
+    if (!historyId) return false
+    const idx = pages.value.findIndex((page) => page.historyPageId === historyId)
+    if (idx < 0) return false
+    pages.value[idx] = { ...pages.value[idx], ...patch }
+    if (idx === currentPageIndex.value) {
+      syncCurrentFromPage()
+    }
+    return true
+  }
+
   function addInputPage(name: string, fileId: string): number {
     // Find current draft batch (unsealed) or create a new batch ID
     let bid = currentBatchId.value
@@ -593,6 +604,7 @@ export const useTaskStore = defineStore('task', () => {
     nextPage,
     prevPage,
     patchPageById,
+    patchPageByHistoryPageId,
     setInputFile,
     setOriginalFile,
     clearOriginalFile,

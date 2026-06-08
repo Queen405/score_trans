@@ -44,7 +44,7 @@
 
           <main class="main-area">
             <div class="main-content">
-              <recognize-view v-show="activeTab === 'recognize'" />
+              <recognize-view v-show="activeTab === 'recognize'" :active="activeTab === 'recognize'" />
               <convert-view v-show="activeTab === 'convert'" />
               <settings-view v-show="activeTab === 'settings'" />
               <ai-assistant v-if="activeTab === 'convert'" />

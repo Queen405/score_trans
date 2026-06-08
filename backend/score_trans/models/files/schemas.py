@@ -15,3 +15,10 @@ class UploadResponse(BaseModel):
     size: int
     pages: list[UploadPage] | None = None
 
+
+class FilesExistRequest(BaseModel):
+    file_ids: list[str]
+
+
+class FilesExistResponse(BaseModel):
+    files: dict[str, bool]

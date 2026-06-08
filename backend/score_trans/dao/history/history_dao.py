@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 
 from ...models.common.paths import PROJECT_ROOT
-from ...models.history.entities import HistoryBatch, HistoryPage
+from ...models.history.entities import HistoryBatch, HistoryBatchSummary, HistoryPage
 
 DEFAULT_DB_PATH = PROJECT_ROOT / "work" / "history.db"
 
@@ -19,6 +19,8 @@ class HistoryDao:
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
         return conn
 
     def _init_db(self) -> None:
@@ -55,7 +57,42 @@ class HistoryDao:
                 )
                 """
             )
+            self._ensure_indexes(conn)
             conn.commit()
+
+    def list_batch_summaries(self) -> list[HistoryBatchSummary]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    b.id,
+                    b.created_at,
+                    b.page_count,
+                    b.status,
+                    COALESCE(
+                        (
+                            SELECT p.input_file_name
+                            FROM history_page p
+                            WHERE p.batch_id = b.id
+                            ORDER BY p.id
+                            LIMIT 1
+                        ),
+                        ''
+                    ) AS first_file_name
+                FROM history_batch b
+                ORDER BY b.id DESC
+                """
+            ).fetchall()
+            return [
+                HistoryBatchSummary(
+                    id=row["id"],
+                    created_at=row["created_at"],
+                    page_count=row["page_count"],
+                    status=row["status"],
+                    first_file_name=row["first_file_name"],
+                )
+                for row in rows
+            ]
 
     def list_batches(self) -> list[HistoryBatch]:
         with self._connect() as conn:
@@ -75,7 +112,9 @@ class HistoryDao:
 
     def create_batch(self, pages: list[HistoryPage]) -> HistoryBatch:
         with self._connect() as conn:
-            cursor = conn.execute("INSERT INTO history_batch (page_count) VALUES (?)", (len(pages),))
+            cursor = conn.execute(
+                "INSERT INTO history_batch (page_count) VALUES (?)", (len(pages),)
+            )
             batch_id = cursor.lastrowid
             for page in pages:
                 conn.execute(
@@ -105,7 +144,9 @@ class HistoryDao:
                 (batch_status, batch_id),
             )
             conn.commit()
-            row = conn.execute("SELECT * FROM history_batch WHERE id = ?", (batch_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
             return self._row_to_batch(conn, row)
 
     def update_page(
@@ -149,7 +190,9 @@ class HistoryDao:
                 )
                 self._refresh_batch_status(conn, exists["batch_id"])
                 conn.commit()
-            row = conn.execute("SELECT * FROM history_page WHERE id = ?", (page_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM history_page WHERE id = ?", (page_id,)
+            ).fetchone()
             return self._row_to_page(row)
 
     def delete_batch(self, batch_id: int) -> bool:
@@ -176,13 +219,30 @@ class HistoryDao:
 
     @staticmethod
     def _migrate_db(conn: sqlite3.Connection) -> None:
-        columns = {row["name"] for row in conn.execute("PRAGMA table_info(history_page)").fetchall()}
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(history_page)").fetchall()
+        }
         if "ocr_text" not in columns:
-            conn.execute("ALTER TABLE history_page ADD COLUMN ocr_text TEXT NOT NULL DEFAULT ''")
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN ocr_text TEXT NOT NULL DEFAULT ''"
+            )
             conn.commit()
         if "start_measure_number" not in columns:
-            conn.execute("ALTER TABLE history_page ADD COLUMN start_measure_number INTEGER")
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN start_measure_number INTEGER"
+            )
             conn.commit()
+        HistoryDao._ensure_indexes(conn)
+
+    @staticmethod
+    def _ensure_indexes(conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_history_page_batch_id_id
+            ON history_page(batch_id, id)
+            """
+        )
 
     def _row_to_batch(self, conn: sqlite3.Connection, row: sqlite3.Row) -> HistoryBatch:
         batch = HistoryBatch(
@@ -208,7 +268,9 @@ class HistoryDao:
             jianpu_text=row["jianpu_text"],
             ocr_text=row["ocr_text"] if "ocr_text" in row.keys() else "",
             svg_file_id=row["svg_file_id"],
-            start_measure_number=row["start_measure_number"] if "start_measure_number" in row.keys() else None,
+            start_measure_number=row["start_measure_number"]
+            if "start_measure_number" in row.keys()
+            else None,
             status=row["status"],
             error_message=row["error_message"],
         )

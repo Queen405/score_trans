@@ -1,8 +1,8 @@
 <template>
   <div class="ai-assistant">
     <button
-      v-if="!open"
-      :class="['ai-fab', { dragging: isFabDragging }]"
+      v-show="showFab"
+      :class="['ai-fab', { dragging: isFabDragging }, animationClass('fab')]"
       :style="fabStyle"
       type="button"
       title="AI 助手"
@@ -14,7 +14,11 @@
       <n-icon size="22"><ChatbubbleEllipsesOutline /></n-icon>
     </button>
 
-    <div v-else :class="['ai-panel', { 'sessions-collapsed': !sessionsOpen }]" :style="panelStyle">
+    <div
+      v-if="showPanel"
+      :class="['ai-panel', { 'sessions-collapsed': !sessionsOpen }, animationClass('panel')]"
+      :style="panelAnimStyle"
+    >
       <aside :class="['ai-sessions', { hidden: !sessionsOpen }]">
         <div class="ai-sessions-head">
           <span>对话</span>
@@ -59,7 +63,7 @@
               <input v-model="showThinking" type="checkbox" />
               <span>思考</span>
             </label>
-            <button class="ai-icon-btn" type="button" title="收起" @click="open = false">
+            <button class="ai-icon-btn" type="button" title="收起" @click="closePanel">
               <n-icon><CloseOutline /></n-icon>
             </button>
           </div>
@@ -132,7 +136,7 @@ const assistant = useAssistantStore()
 const task = useTaskStore()
 const message = useMessage()
 
-const open = ref(false)
+const open = computed(() => animPhase.value === 'open' || animPhase.value === 'opening')
 const sessionsOpen = ref(true)
 const draft = ref('')
 const includeCurrentJianpu = ref(true)
@@ -159,6 +163,73 @@ const panelStyle = computed(() => ({
   right: 'auto',
   bottom: 'auto',
 }))
+
+// Transition state — single source of truth
+type AnimPhase = 'idle' | 'opening' | 'open' | 'closing'
+const ANIM_MS = 280
+const animPhase = ref<AnimPhase>('idle')
+const showPanel = ref(false)
+const animOrigin = ref({ x: 0, y: 0 })
+
+/** FAB is visible when not in the 'open' phase (i.e. idle, opening, closing). */
+const showFab = computed(() => animPhase.value !== 'open')
+
+/** Panel is mounted during 'opening', 'open', 'closing'. */
+watch(animPhase, (phase) => {
+  if (phase === 'opening' || phase === 'closing') {
+    showPanel.value = true
+  }
+})
+
+/** Compute transform-origin for the panel based on the FAB's current position. */
+const panelAnimStyle = computed(() => {
+  const base = { ...panelStyle.value }
+  if (animPhase.value === 'opening' || animPhase.value === 'closing') {
+    base.transformOrigin = `${animOrigin.value.x}px ${animOrigin.value.y}px`
+  }
+  return base
+})
+
+function animationClass(target: 'fab' | 'panel'): string {
+  switch (animPhase.value) {
+    case 'opening': return target === 'fab' ? 'anim-fab-exit' : 'anim-panel-enter'
+    case 'closing': return target === 'fab' ? 'anim-fab-enter' : 'anim-panel-exit'
+    default: return ''
+  }
+}
+
+function finishAnim(phase: AnimPhase): void {
+  if (animPhase.value !== phase) return // user clicked during animation
+  if (phase === 'opening') {
+    animPhase.value = 'open'
+  } else {
+    showPanel.value = false
+    animPhase.value = 'idle'
+  }
+}
+
+function openPanel(): void {
+  positionPanelNearFab()
+  animOrigin.value = {
+    x: fabLeft.value + FAB_SIZE / 2 - panelLeft.value,
+    y: fabTop.value + FAB_SIZE / 2 - panelTop.value,
+  }
+  animPhase.value = 'opening'
+  autoScrollEnabled.value = true
+  if (!assistant.sessions.length) assistant.loadSessions()
+  nextTick(scrollToBottom)
+  setTimeout(() => finishAnim('opening'), ANIM_MS)
+}
+
+function closePanel(): void {
+  positionPanelNearFab()
+  animOrigin.value = {
+    x: fabLeft.value + FAB_SIZE / 2 - panelLeft.value,
+    y: fabTop.value + FAB_SIZE / 2 - panelTop.value,
+  }
+  animPhase.value = 'closing'
+  setTimeout(() => finishAnim('closing'), ANIM_MS)
+}
 
 const FAB_SIZE = 46
 const FAB_MARGIN = 10
@@ -225,14 +296,6 @@ watch(
     nextTick(scrollToBottom)
   },
 )
-
-function openPanel(): void {
-  positionPanelNearFab()
-  open.value = true
-  autoScrollEnabled.value = true
-  if (!assistant.sessions.length) assistant.loadSessions()
-  nextTick(scrollToBottom)
-}
 
 function handleFabPointerDown(event: PointerEvent): void {
   if (event.button !== 0) return
@@ -623,6 +686,44 @@ function escapeAttr(value: string): string {
 .ai-fab.dragging {
   transition: transform 0.15s ease, border-color 0.15s ease;
   transform: scale(0.98);
+}
+
+/* ── Transition animations ── */
+
+.ai-fab.anim-fab-exit {
+  animation: fab-exit 280ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+.ai-fab.anim-fab-enter {
+  animation: fab-enter 280ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+.ai-panel.anim-panel-enter {
+  animation: panel-enter 280ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+.ai-panel.anim-panel-exit {
+  animation: panel-exit 280ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+@keyframes fab-exit {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.4); }
+}
+
+@keyframes fab-enter {
+  0% { opacity: 0; transform: scale(0.4); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes panel-enter {
+  0% { opacity: 0; transform: scale(0.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes panel-exit {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.3); }
 }
 
 .ai-panel {

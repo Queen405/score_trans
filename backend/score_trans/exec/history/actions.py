@@ -20,19 +20,16 @@ class HistoryActions:
         self.service = service or HistoryService()
 
     def list_history(self) -> list[BatchListItem]:
-        result = []
-        for batch in self.service.list_batches():
-            first_name = batch.pages[0].input_file_name if batch.pages else ""
-            result.append(
-                BatchListItem(
-                    id=batch.id,
-                    created_at=batch.created_at,
-                    page_count=batch.page_count,
-                    status=batch.status,
-                    first_file_name=first_name,
-                )
+        return [
+            BatchListItem(
+                id=batch.id,
+                created_at=batch.created_at,
+                page_count=batch.page_count,
+                status=batch.status,
+                first_file_name=batch.first_file_name,
             )
-        return result
+            for batch in self.service.list_batch_summaries()
+        ]
 
     def create_batch(self, req: BatchCreateRequest) -> BatchResponse:
         pages = [
@@ -55,14 +52,15 @@ class HistoryActions:
         batch = self.service.get_batch(batch_id)
         if not batch:
             raise HTTPException(status_code=404, detail="Batch not found")
-        self._migrate_batch_texts(batch)
         return _batch_to_response(batch)
 
     def update_history_page(self, page_id: int, req: PageUpdate) -> PageResponse:
         page = self.service.update_page(
             page_id,
             musicxml_file_id=req.musicxml_file_id,
-            jianpu_text=_normalize_history_text(req.jianpu_text) if req.jianpu_text is not None else None,
+            jianpu_text=_normalize_history_text(req.jianpu_text)
+            if req.jianpu_text is not None
+            else None,
             ocr_text=req.ocr_text,
             svg_file_id=req.svg_file_id,
             start_measure_number=req.start_measure_number,
@@ -122,4 +120,3 @@ def _normalize_history_text(text: str) -> str:
         return normalize_jianpu_text(text)
     except ValueError:
         return text
-
