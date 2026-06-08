@@ -66,7 +66,7 @@ import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
 import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
-import { listenHistoryUpdated } from '../utils/historyEvents'
+import { listenHistoryUpdated, listenHistoryPagePatched, type HistoryPagePatchDetail } from '../utils/historyEvents'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/types'
 import type { TaskPage } from '../stores/task'
@@ -83,16 +83,21 @@ const message = useMessage()
 const entries = ref<HistoryBatchListItem[]>([])
 const loading = ref(false)
 let stopHistoryUpdatedListener: (() => void) | null = null
+let stopHistoryPagePatchedListener: (() => void) | null = null
 let restoreCheckSeq = 0
+let pagePatchReloadTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   loadHistory()
   stopHistoryUpdatedListener = listenHistoryUpdated(loadHistory)
+  stopHistoryPagePatchedListener = listenHistoryPagePatched(handlePagePatched)
 })
 
 onUnmounted(() => {
   stopHistoryUpdatedListener?.()
   stopHistoryUpdatedListener = null
+  stopHistoryPagePatchedListener?.()
+  stopHistoryPagePatchedListener = null
 })
 
 async function loadHistory(): Promise<void> {
@@ -105,6 +110,15 @@ async function loadHistory(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+function handlePagePatched(detail: HistoryPagePatchDetail): void {
+  if (!detail.patch.status) return
+  if (pagePatchReloadTimer) clearTimeout(pagePatchReloadTimer)
+  pagePatchReloadTimer = setTimeout(() => {
+    pagePatchReloadTimer = null
+    void loadHistory()
+  }, 500)
 }
 
 async function handleDelete(id: number): Promise<void> {
@@ -168,7 +182,7 @@ async function handleRestore(entry: HistoryBatchListItem): Promise<void> {
     }),
     0,
   )
-  void validateRestoredBatchFiles(pages)
+  await validateRestoredBatchFiles(pages)
   message.success(`已恢复 ${pages.length} 页`)
 }
 

@@ -5,9 +5,27 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from ..dependencies import get_pipeline_actions, get_task_actions
 from ...exec.pipeline.actions import PipelineActions
 from ...exec.tasks.actions import TaskActions
+from ...models.pipeline.schemas import PipelineByFileIdRequest
 from ...models.tasks.schemas import TaskSubmitResponse
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
+
+
+@router.post("/by-file-id", response_model=TaskSubmitResponse)
+async def run_pipeline_by_file_id(
+    request: Request,
+    req: PipelineByFileIdRequest,
+    actions: PipelineActions = Depends(get_pipeline_actions),
+    tasks: TaskActions = Depends(get_task_actions),
+):
+    return await actions.submit_pipeline_task_by_file_id(
+        request.app,
+        req.file_id,
+        tasks=tasks,
+        target_key=req.target_key,
+        start_measure_number=req.start_measure_number,
+        title=req.title,
+    )
 
 
 @router.post("", response_model=TaskSubmitResponse)

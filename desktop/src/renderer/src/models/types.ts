@@ -90,6 +90,13 @@ export interface TaskSubmitResponse {
   status: 'pending' | 'running' | 'completed' | 'failed'
 }
 
+export interface PipelineByFileIdRequest {
+  file_id: string
+  target_key: string
+  start_measure_number?: number | null
+  title?: string | null
+}
+
 export interface PipelineResponse {
   musicxml_file_id: string
   jianpu_text: string

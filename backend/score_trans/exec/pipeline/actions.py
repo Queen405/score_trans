@@ -144,6 +144,35 @@ class PipelineActions:
             raise FileNotFoundError("文件保存失败")
         return input_path
 
+    async def submit_pipeline_task_by_file_id(
+        self,
+        app: Any,
+        file_id: str,
+        *,
+        tasks: TaskActions,
+        target_key: str = "C",
+        start_measure_number: int | None = None,
+        title: str | None = None,
+    ) -> TaskSubmitResponse:
+        input_path = self.uploads.get_path(file_id)
+        if not input_path or not input_path.exists():
+            raise FileNotFoundError(f"文件不存在：{file_id}")
+        task_id = tasks.create_task()
+
+        def action(progress: ProgressCallback):
+            return self.run_pipeline_from_path(
+                input_path,
+                target_key=target_key,
+                start_measure_number=start_measure_number,
+                title=title,
+                progress_callback=progress,
+            )
+
+        schedule_background_task(
+            app, task_id, run_sync_task(task_id, tasks, action, semaphore=OMR_SEMAPHORE)
+        )
+        return TaskSubmitResponse(task_id=task_id)
+
     async def submit_pipeline_task(
         self,
         app: Any,
@@ -166,7 +195,9 @@ class PipelineActions:
                 progress_callback=progress,
             )
 
-        schedule_background_task(app, task_id, run_sync_task(task_id, tasks, action, semaphore=OMR_SEMAPHORE))
+        schedule_background_task(
+            app, task_id, run_sync_task(task_id, tasks, action, semaphore=OMR_SEMAPHORE)
+        )
         return TaskSubmitResponse(task_id=task_id)
 
     def run_pipeline_from_path(
@@ -208,7 +239,11 @@ class PipelineActions:
 
 
 def _copy_musicxml_output(path: Path, output_dir: Path, stem: str) -> Path:
-    suffix = path.suffix if path.suffix.lower() in {".musicxml", ".mxl", ".xml"} else ".musicxml"
+    suffix = (
+        path.suffix
+        if path.suffix.lower() in {".musicxml", ".mxl", ".xml"}
+        else ".musicxml"
+    )
     target = output_dir / f"{stem}{suffix}"
     if path.resolve() != target.resolve():
         shutil.copy2(path, target)
@@ -216,14 +251,16 @@ def _copy_musicxml_output(path: Path, output_dir: Path, stem: str) -> Path:
 
 
 def _extract_ocr_measure_numbers(score) -> list[int]:
-    numbers = sorted({
-        int(block.text.strip())
-        for block in getattr(score, "text_blocks", [])
-        if getattr(block, "role", None) == "measure_number" and block.text.strip().isdigit()
-    })
+    numbers = sorted(
+        {
+            int(block.text.strip())
+            for block in getattr(score, "text_blocks", [])
+            if getattr(block, "role", None) == "measure_number"
+            and block.text.strip().isdigit()
+        }
+    )
     return numbers
 
 
 def _is_ocr_image(path: Path) -> bool:
     return path.suffix.lower() in IMAGE_SUFFIXES
-

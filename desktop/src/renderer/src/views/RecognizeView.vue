@@ -90,7 +90,16 @@
           <CheckmarkCircleOutline />
         </n-icon>
         <button
-          v-if="page.status !== 'waiting'"
+          v-if="page.status === 'failed' && !page.inputFileId"
+          class="page-reupload"
+          type="button"
+          title="重新上传"
+          @click.stop="reuploadForPage(page)"
+        >
+          <n-icon size="12"><CloudUploadOutline /></n-icon>
+        </button>
+        <button
+          v-else-if="page.status !== 'waiting'"
           class="page-del"
           type="button"
           :disabled="page.status === 'processing'"
@@ -139,7 +148,7 @@ import { aiApi } from '../api/ai'
 import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
-import { getFileURL, getBaseURL } from '../api/client'
+import { getFileURL } from '../api/client'
 import type {
   AiTranscribeResponse,
   AiTranscribedPage,
@@ -150,6 +159,7 @@ import type {
 import type { TaskPage, TaskPageInput, TaskPageStatus } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { notifyHistoryPagePatched, notifyHistoryUpdated, type HistoryPagePatchDetail } from '../utils/historyEvents'
+import { useFileUpload } from '../composables/useFileUpload'
 import FileUploader from '../components/FileUploader.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import {
@@ -160,6 +170,7 @@ import {
   ChevronBackOutline,
   ChevronForwardOutline,
   CheckmarkCircleOutline,
+  CloudUploadOutline,
   DocumentOutline,
 } from '@vicons/ionicons5'
 import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
@@ -194,6 +205,7 @@ const pickerShow = ref(false)
 const pickerOptions = ref<number[]>([])
 const pickerPageId = ref<string | null>(null)
 const selectedPageIds = ref<Set<string>>(new Set())
+const reupload = useFileUpload()
 
 withDefaults(defineProps<{
   active?: boolean
@@ -261,6 +273,9 @@ function statusText(page: TaskPage): string {
   if (page.status === 'processing') {
     return page.progressPercent > 0 ? `${Math.round(page.progressPercent)}%` : '处理中'
   }
+  if (page.status === 'failed' && !page.inputFileId) {
+    return '需重新上传'
+  }
   const map: Record<string, string> = { completed: '完成', failed: '失败', pending: '待处理', waiting: '待选择' }
   return map[page.status] ?? ''
 }
@@ -303,6 +318,48 @@ function removePageById(pageId: string): void {
 async function onFileUploaded(fileId: string, fileName: string): Promise<void> {
   store.addInputPage(fileName, fileId)
   log.addLog(`已加入：${fileName}`)
+}
+
+function reuploadForPage(page: TaskPage): void {
+  if (reupload.uploading.value) return
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt'
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    log.addLog(`正在重新上传：${file.name}`)
+    const result = await reupload.upload(file)
+    if (result) {
+      let fileId: string
+      let fileName: string
+      if (result.pages && result.pages.length > 0) {
+        fileId = result.pages[0].file_id
+        fileName = result.pages[0].filename
+      } else {
+        fileId = result.file_id
+        fileName = result.filename
+      }
+      const previewable = isPreviewable(fileName)
+      store.patchPageById(page.id, {
+        inputFileId: fileId,
+        inputFileName: fileName,
+        originalFileId: previewable ? fileId : '',
+        originalFileName: previewable ? fileName : '',
+        musicxmlFileId: '',
+        musicxmlText: '',
+        jianpuText: '',
+        ocrText: '',
+        svgFileId: '',
+        status: 'pending',
+        errorMessage: '',
+      })
+      log.addLog(`重新上传成功：${fileName}`)
+    } else {
+      message.error('重新上传失败')
+    }
+  }
+  input.click()
 }
 
 function openMeasurePickerForPage(page: TaskPage): void {
@@ -387,6 +444,18 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
   })
   if (hasUnsealedPage) store.sealCurrentBatch()
   const historyPageIds = await createPendingHistory(targets)
+
+  // Update existing history pages to 'processing' for re-recognition
+  for (const target of targets) {
+    const historyPageId = historyPageIds.get(target.pageId)
+    if (historyPageId) {
+      try {
+        await historyApi.updatePage(historyPageId, { status: 'processing', error_message: '' })
+      } catch { /* best-effort */ }
+    }
+  }
+  notifyHistoryUpdated()
+
   const label = mode === 'ai' ? 'AI 视觉检测' : 'OMR 识别'
 
   for (const target of targets) {
@@ -440,41 +509,19 @@ async function createPendingHistory(targets: RecognitionTarget[]): Promise<Map<s
 async function runPipelineTarget(target: RecognitionTarget, historyPageId: number | null): Promise<void> {
   markPageProcessing(target, '读取输入文件', 3)
   try {
-    let resp: Response | undefined
-    let triedFileId = target.inputFileId
-    try {
-      resp = await fetch(getFileURL(target.inputFileId))
-    } catch {
-      // Try fallback originalFileId if different
-      const page = store.pages.find((p) => p.id === target.pageId)
-      if (page?.originalFileId && page.originalFileId !== target.inputFileId) {
-        triedFileId = page.originalFileId
-        try {
-          resp = await fetch(getFileURL(page.originalFileId))
-        } catch {
-          // fall through to error handling below
-        }
-      }
-    }
-    if (!resp || !resp.ok) {
-      // Distinguish between "backend not running" and "file gone"
-      let hint = ''
-      try {
-        await fetch(getBaseURL() + '/health')
-        hint = '（输入文件已被清理，请重新上传图片后再识别）'
-      } catch {
-        hint = '（后端未启动，请在终端启动后端或重启应用）'
-      }
-      throw new Error(`无法读取输入文件（尝试 file_id=${triedFileId}）${hint}`)
-    }
-    const blob = await resp.blob()
-
     markPageProcessing(target, '提交 OMR 后台任务', 8)
-    const submitted = await pipelineApi.run(
-      new File([blob], target.inputFileName),
-      settings.targetKey,
-      target.startMeasureNumber ?? undefined,
-    )
+
+    let submitted: { task_id: string }
+    if (target.inputFileId) {
+      // Submit directly by file_id — no need to download and re-upload
+      submitted = await pipelineApi.runByFileId({
+        file_id: target.inputFileId,
+        target_key: settings.targetKey,
+        start_measure_number: target.startMeasureNumber ?? null,
+      })
+    } else {
+      throw new Error('无输入文件 ID，请重新上传图片')
+    }
     store.patchPageById(target.pageId, { taskId: submitted.task_id })
 
     const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, target.pageId)
@@ -745,6 +792,16 @@ function updatePageProgress(pageId: string, event: SSEProgressEvent): void {
     progressMessage: taskProgressText(event),
     errorMessage: failed ? taskProgressText(event) : '',
   })
+  const page = store.pages.find((p) => p.id === pageId)
+  if (page?.historyPageId) {
+    notifyHistoryPagePatched({
+      id: page.historyPageId,
+      patch: {
+        status: failed ? 'failed' : 'processing',
+        error_message: failed ? taskProgressText(event) : '',
+      },
+    })
+  }
 }
 
 function markPageProcessing(target: RecognitionTarget, messageText: string, percent: number): void {
@@ -754,6 +811,13 @@ function markPageProcessing(target: RecognitionTarget, messageText: string, perc
     progressMessage: messageText,
     errorMessage: '',
   })
+  const page = store.pages.find((p) => p.id === target.pageId)
+  if (page?.historyPageId) {
+    notifyHistoryPagePatched({
+      id: page.historyPageId,
+      patch: { status: 'processing', error_message: '' },
+    })
+  }
 }
 
 async function failTarget(
@@ -1115,6 +1179,29 @@ function errorMessage(error: unknown): string {
 
 .page-card:hover .page-del {
   opacity: 1;
+}
+
+.page-reupload {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.page-reupload:hover {
+  filter: brightness(0.9);
 }
 
 .page-del:hover {
