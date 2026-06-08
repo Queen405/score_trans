@@ -11,3 +11,5 @@ INFO:     127.0.0.1:1621 - "GET /history HTTP/1.1" 200 OK
 INFO:     127.0.0.1:1624 - "GET /history/73 HTTP/1.1" 200 OK
 INFO:     127.0.0.1:1625 - "GET /history/74 HTTP/1.1" 200 OK
 INFO:     127.0.0.1:1623 - "GET /history/75 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12453 - "GET /settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11558 - "GET /history HTTP/1.1" 200 OK

@@ -45,8 +45,8 @@
             <div
               v-for="(page, pi) in expandedPages"
               :key="page.id"
-              class="hist-page-item"
-              @click="handleRestorePage(page)"
+              :class="['hist-page-item', { 'hist-page-waiting': isWaitingStatus(page.status) }]"
+              @click="handleHistoryPageClick(page)"
             >
               <span :class="['hist-dot small', historyStatusClass(page.status)]" />
               <span class="hist-page-name">{{ page.input_file_name || `第${pi + 1}页` }}</span>
@@ -154,6 +154,12 @@
       />
     </div>
     <jianpu-syntax-guide v-model:show="syntaxGuideOpen" />
+    <MeasureNumberPicker
+      v-model:show="histPickerShow"
+      :options="histPickerOptions"
+      @confirm="onHistPickerConfirm"
+      @cancel="histPickerShow = false"
+    />
   </div>
 </template>
 
@@ -174,7 +180,9 @@ import JianpuPlayer from '../components/JianpuPlayer.vue'
 import JianpuSyntaxGuide from '../components/JianpuSyntaxGuide.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
+import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
+import { notifyHistoryUpdated } from '../utils/historyEvents'
 import { listenHistoryUpdated } from '../utils/historyEvents'
 import { ArrowForwardOutline,
   ImageOutline,
@@ -215,6 +223,9 @@ const histLoading = ref(false)
 const expandedBatchId = ref<number | null>(null)
 const expandedPages = ref<HistoryPage[]>([])
 const loadingBatch = ref(false)
+const histPickerShow = ref(false)
+const histPickerOptions = ref<number[]>([])
+const histPickerPage = ref<HistoryPage | null>(null)
 let stopHistoryUpdatedListener: (() => void) | null = null
 
 const currentBatchLocalIndex = computed(() =>
@@ -249,6 +260,18 @@ async function loadHistory(): Promise<void> {
   histLoading.value = true
   try {
     histBatches.value = await historyApi.list()
+    // Refresh expanded pages if a batch is open, so in-progress tasks update live
+    const openId = expandedBatchId.value
+    if (openId !== null) {
+      try {
+        const batch: HistoryBatch = await historyApi.get(openId)
+        if (expandedBatchId.value === openId) {
+          expandedPages.value = batch.pages
+        }
+      } catch {
+        // best-effort; don't block the list refresh
+      }
+    }
   } catch (e: unknown) {
     log.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`)
   } finally {
@@ -287,13 +310,19 @@ async function toggleBatchExpand(batchId: number): Promise<void> {
     return
   }
   expandedBatchId.value = batchId
+  expandedPages.value = [] // Clear immediately to avoid showing stale pages from previous batch
   loadingBatch.value = true
   try {
     const batch: HistoryBatch = await historyApi.get(batchId)
-    expandedPages.value = batch.pages
+    // Guard: only apply if user hasn't clicked away to a different batch
+    if (expandedBatchId.value === batchId) {
+      expandedPages.value = batch.pages
+    }
   } catch (e: unknown) {
     log.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`)
-    expandedPages.value = []
+    if (expandedBatchId.value === batchId) {
+      expandedPages.value = []
+    }
   } finally {
     loadingBatch.value = false
   }
@@ -313,8 +342,11 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   if (!allPages.length || pageIndex < 0) {
     try {
       const batch: HistoryBatch = await historyApi.get(batchId)
-      allPages = batch.pages
-      expandedPages.value = batch.pages
+      // Only update if user hasn't switched to a different batch during await
+      if (expandedBatchId.value === batchId) {
+        allPages = batch.pages
+        expandedPages.value = batch.pages
+      }
       pageIndex = allPages.findIndex((p) => p.id === page.id)
     } catch (e: unknown) {
       log.addError(`刷新历史详情失败：${e instanceof Error ? e.message : String(e)}`)
@@ -406,6 +438,58 @@ function parseWaitingMeasureOptions(messageText: string): number[] {
   if (!messageText.includes('等待选择起始小节号')) return []
   return Array.from(messageText.matchAll(/\d+/g), (match) => Number(match[0]))
     .filter((value) => Number.isFinite(value) && value > 0)
+}
+
+function handleHistoryPageClick(page: HistoryPage): void {
+  if (isWaitingStatus(page.status)) {
+    const options = parseWaitingMeasureOptions(page.error_message)
+    if (!options.length) {
+      message.warning('没有可选的小节号候选')
+      return
+    }
+    histPickerPage.value = page
+    histPickerOptions.value = options
+    histPickerShow.value = true
+  } else {
+    handleRestorePage(page)
+  }
+}
+
+async function onHistPickerConfirm(selected: number): Promise<void> {
+  const page = histPickerPage.value
+  histPickerShow.value = false
+  histPickerPage.value = null
+  if (!page) return
+  await applyHistoryMeasureSelection(page, selected)
+}
+
+async function applyHistoryMeasureSelection(page: HistoryPage, selected: number): Promise<void> {
+  try {
+    let svgFileId = page.svg_file_id
+    const options = parseWaitingMeasureOptions(page.error_message)
+    if (page.musicxml_file_id && selected !== options[0]) {
+      const rendered = await renderApi.jianpuSvg({
+        musicxml_file_id: page.musicxml_file_id,
+        page_image_file_id: page.input_file_id || undefined,
+        target_key: settings.targetKey,
+        start_measure_number: selected,
+      })
+      svgFileId = rendered.svg_file_id
+    }
+    const updated = await historyApi.updatePage(page.id, {
+      start_measure_number: selected,
+      svg_file_id: svgFileId,
+      status: 'completed',
+      error_message: '',
+    })
+    replaceExpandedHistoryPage(updated)
+    notifyHistoryUpdated()
+    message.success('已应用起始小节号')
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    message.error(msg)
+    log.addError(`选择小节号失败：${msg}`)
+  }
 }
 
 function resolveMissingFileId(msg: string): string | null {
@@ -900,6 +984,14 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
 
 .hist-page-item:hover {
   background: var(--accent-light);
+}
+
+.hist-page-waiting {
+  background: var(--accent-light);
+}
+
+.hist-page-waiting:hover {
+  background: var(--accent-light-hover, var(--accent-light));
 }
 
 .hist-page-name {

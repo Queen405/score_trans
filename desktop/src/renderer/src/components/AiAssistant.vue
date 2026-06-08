@@ -163,9 +163,40 @@ const panelStyle = computed(() => ({
 const FAB_SIZE = 46
 const FAB_MARGIN = 10
 const FAB_SNAP_DISTANCE = 104
-const FAB_DOCKED_VISIBLE_WIDTH = FAB_SIZE / 2
 const FAB_POSITION_KEY = 'score-trans-ai-assistant-fab'
 const PANEL_GAP = 10
+const FAB_DOCK_REVEAL = FAB_SIZE / 2 // pixels visible when half-docked
+
+/** Layout boundaries — FAB must stay inside the main content area (right of sidebar, below titlebar). */
+const SIDEBAR_WIDTH = 52
+const TITLEBAR_HEIGHT = 38
+
+/** Fully inside left boundary. */
+function fabBoundsLeft(): number {
+  return SIDEBAR_WIDTH + FAB_MARGIN
+}
+/** Fully inside right boundary. */
+function fabBoundsRight(): number {
+  return window.innerWidth - FAB_SIZE - FAB_MARGIN
+}
+/** Fully inside top boundary. */
+function fabBoundsTop(): number {
+  return TITLEBAR_HEIGHT + FAB_MARGIN
+}
+/** Fully inside bottom boundary. */
+function fabBoundsBottom(): number {
+  return window.innerHeight - FAB_SIZE - FAB_MARGIN
+}
+
+/** Half-docked left (FAB peeks from left edge of main content). */
+function dockLeft(): number {
+  return SIDEBAR_WIDTH + FAB_DOCK_REVEAL - FAB_SIZE
+}
+/** Half-docked right. */
+function dockRight(): number {
+  return window.innerWidth - FAB_DOCK_REVEAL
+}
+
 let fabDrag:
   | {
       pointerId: number
@@ -223,8 +254,8 @@ function handleFabPointerMove(event: PointerEvent): void {
   const dx = event.clientX - fabDrag.startX
   const dy = event.clientY - fabDrag.startY
   if (Math.abs(dx) > 4 || Math.abs(dy) > 4) fabDrag.moved = true
-  fabLeft.value = clamp(fabDrag.startLeft + dx, dockedFabLeft(), dockedFabRight())
-  fabTop.value = clamp(fabDrag.startTop + dy, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+  fabLeft.value = clamp(fabDrag.startLeft + dx, dockLeft(), dockRight())
+  fabTop.value = clamp(fabDrag.startTop + dy, fabBoundsTop(), fabBoundsBottom())
 }
 
 function handleFabPointerUp(event: PointerEvent): void {
@@ -254,7 +285,28 @@ function initFabPosition(): void {
   const saved = localStorage.getItem(FAB_POSITION_KEY)
   if (saved) {
     try {
-      const parsed = JSON.parse(saved) as { relX?: number; relY?: number; left?: number; top?: number }
+      const parsed = JSON.parse(saved) as {
+        relX?: number; relY?: number; left?: number; top?: number
+        dock?: 'left' | 'right' | null
+      }
+      // Restore half-dock state if saved
+      if (parsed.dock === 'left') {
+        fabLeft.value = dockLeft()
+        fabTop.value = clamp(
+          parsed.relY !== undefined ? fromRelative(0, parsed.relY).top : fabBoundsTop(),
+          fabBoundsTop(), fabBoundsBottom(),
+        )
+        return
+      }
+      if (parsed.dock === 'right') {
+        fabLeft.value = dockRight()
+        fabTop.value = clamp(
+          parsed.relY !== undefined ? fromRelative(0, parsed.relY).top : fabBoundsTop(),
+          fabBoundsTop(), fabBoundsBottom(),
+        )
+        return
+      }
+
       let relX = parsed.relX
       let relY = parsed.relY
 
@@ -269,8 +321,8 @@ function initFabPosition(): void {
       }
 
       const { left, top } = fromRelative(relX ?? 1, relY ?? 1)
-      fabLeft.value = clamp(left, FAB_MARGIN, freeFabRight())
-      fabTop.value = clamp(top, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
+      fabLeft.value = clamp(left, fabBoundsLeft(), fabBoundsRight())
+      fabTop.value = clamp(top, fabBoundsTop(), fabBoundsBottom())
       return
     } catch {
       localStorage.removeItem(FAB_POSITION_KEY)
@@ -286,33 +338,27 @@ function handleWindowResize(): void {
 }
 
 function settleFabPosition(): void {
-  fabLeft.value = clamp(fabLeft.value, dockedFabLeft(), dockedFabRight())
-  fabTop.value = clamp(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN)
-  if (fabLeft.value <= FAB_SNAP_DISTANCE) {
-    fabLeft.value = dockedFabLeft()
-  } else if (window.innerWidth - fabLeft.value - FAB_SIZE <= FAB_SNAP_DISTANCE) {
-    fabLeft.value = dockedFabRight()
+  // Allow snapping to half-dock on left/right edges of main content
+  const dockLeftEdge = fabBoundsLeft()
+  const dockRightEdge = fabBoundsRight()
+
+  let dock: 'left' | 'right' | null = null
+  if (fabLeft.value - dockLeftEdge <= FAB_SNAP_DISTANCE) {
+    fabLeft.value = dockLeft()
+    dock = 'left'
+  } else if (dockRightEdge - fabLeft.value <= FAB_SNAP_DISTANCE) {
+    fabLeft.value = dockRight()
+    dock = 'right'
   } else {
-    fabLeft.value = clamp(fabLeft.value, FAB_MARGIN, freeFabRight())
+    fabLeft.value = clamp(fabLeft.value, fabBoundsLeft(), fabBoundsRight())
   }
-  persistFabPosition()
+  fabTop.value = clamp(fabTop.value, fabBoundsTop(), fabBoundsBottom())
+  persistFabPosition(dock)
 }
 
-function dockedFabLeft(): number {
-  return FAB_DOCKED_VISIBLE_WIDTH - FAB_SIZE
-}
-
-function dockedFabRight(): number {
-  return window.innerWidth - FAB_DOCKED_VISIBLE_WIDTH
-}
-
-function freeFabRight(): number {
-  return window.innerWidth - FAB_SIZE - FAB_MARGIN
-}
-
-function persistFabPosition(): void {
+function persistFabPosition(dock?: 'left' | 'right' | null): void {
   const { relX, relY } = toRelative(fabLeft.value, fabTop.value)
-  localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ relX, relY }))
+  localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ relX, relY, dock: dock ?? null }))
 }
 
 function toRelative(left: number, top: number): { relX: number; relY: number } {
@@ -334,11 +380,11 @@ function fromRelative(relX: number, relY: number): { left: number; top: number }
 }
 
 function defaultFabLeft(): number {
-  return window.innerWidth - FAB_SIZE - 24
+  return dockRight()
 }
 
 function defaultFabTop(): number {
-  return window.innerHeight - FAB_SIZE - 48
+  return fabBoundsBottom()
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -349,13 +395,13 @@ function clamp(value: number, min: number, max: number): number {
 function positionPanelNearFab(): void {
   const size = getPanelSize()
   const anchorCenterX = fabLeft.value + FAB_SIZE / 2
-  const preferLeftSide = anchorCenterX < window.innerWidth / 2
+  const preferLeftSide = anchorCenterX < (SIDEBAR_WIDTH + window.innerWidth) / 2
   const nextLeft = preferLeftSide
     ? fabLeft.value
     : fabLeft.value + FAB_SIZE - size.width
   const nextTop = fabTop.value + FAB_SIZE / 2 - size.height / 2
-  panelLeft.value = clamp(nextLeft, PANEL_GAP, window.innerWidth - size.width - PANEL_GAP)
-  panelTop.value = clamp(nextTop, PANEL_GAP, window.innerHeight - size.height - PANEL_GAP)
+  panelLeft.value = clamp(nextLeft, SIDEBAR_WIDTH + PANEL_GAP, window.innerWidth - size.width - PANEL_GAP)
+  panelTop.value = clamp(nextTop, TITLEBAR_HEIGHT + PANEL_GAP, window.innerHeight - size.height - PANEL_GAP)
 }
 
 function getPanelSize(): { width: number; height: number } {

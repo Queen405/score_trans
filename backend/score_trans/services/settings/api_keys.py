@@ -14,10 +14,9 @@ def provider_api_key(
     kind: LlmProviderKind,
     provider_id: str,
 ) -> str:
+    # 1. Provider-specific key (e.g. "xiaomi_mimo_v25_api_key")
     key = settings.get(provider_api_key_name(provider_id), "")
     if key:
         return key
-    saved_provider_id = settings.get(f"{kind}_provider", "")
-    if not saved_provider_id or saved_provider_id == provider_id:
-        return settings.get(f"{kind}_api_key", "")
-    return ""
+    # 2. Generic kind key (e.g. "ai_api_key") — always try as fallback
+    return settings.get(f"{kind}_api_key", "")

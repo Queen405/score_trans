@@ -39,6 +39,10 @@
       {{ overallProgressText }}
     </n-progress>
 
+    <div v-if="waitingPageCount" class="rv-waiting-banner">
+      {{ waitingPageCount }} 个页面等待选择起始小节号，点击卡片上的"待选择"按钮进行操作
+    </div>
+
     <MeasureNumberPicker
       v-model:show="pickerShow"
       :options="pickerOptions"
@@ -190,6 +194,7 @@ const currentBatchLocalIndex = computed(() =>
   store.currentBatchPages.indexOf(store.currentPage!),
 )
 const activePages = computed(() => store.currentBatchPages.filter((page) => page.status === 'processing'))
+const waitingPageCount = computed(() => store.currentBatchPages.filter((page) => page.status === 'waiting').length)
 const currentPageProcessing = computed(() => store.currentPage?.status === 'processing')
 const pendingRecognizableCount = computed(() => store.currentBatchPages.filter((page) => isStartablePage(page)).length)
 const overallProgressPercent = computed(() => {
@@ -721,6 +726,15 @@ function errorMessage(error: unknown): string {
 
 .rv-progress {
   margin: 0;
+}
+
+.rv-waiting-banner {
+  padding: 8px 12px;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 .rv-actions {

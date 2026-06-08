@@ -333,6 +333,8 @@ body {
   app-region: drag;
   flex-shrink: 0;
   user-select: none;
+  position: relative;
+  z-index: 35;
 }
 
 .titlebar-left {
@@ -411,6 +413,8 @@ body {
   justify-content: space-between;
   flex-shrink: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.04);
+  position: relative;
+  z-index: 35;
 }
 
 .sidebar-nav {
