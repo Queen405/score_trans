@@ -35,12 +35,17 @@ def _render_item(item: RenderItem, cx: float, y: int, slot_width: float, *, supp
         tx = _technique_mark_x(item.token, cx)
         ty = _technique_mark_y(item.token, y) + index * 17
         if mark == "轮":
+            base_x = cx + 8
+            base_y = _technique_mark_y(item.token, y)
+            line_len = 10
+            gap = 5
+            rise = 4
             d = " ".join(
-                f"M {tx + i * 3.5:.1f} {ty - 7:.1f} L {tx + 8 + i * 3.5:.1f} {ty + 2:.1f}"
+                f"M {base_x:.1f} {base_y + i * gap:.1f} L {base_x + line_len:.1f} {base_y - rise + i * gap:.1f}"
                 for i in range(3)
             )
             out.append(
-                f'<path class="technique-mark" d="{d}" stroke="#171717" stroke-width="1.5" fill="none"/>'
+                f'<path class="technique-mark" d="{d}" stroke="#171717" stroke-width="1.8" fill="none"/>'
             )
         else:
             out.append(
