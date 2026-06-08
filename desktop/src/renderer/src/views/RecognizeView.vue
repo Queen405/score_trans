@@ -138,7 +138,8 @@ import { renderApi } from '../api/render'
 import { aiApi } from '../api/ai'
 import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
-import { getFileURL } from '../api/client'
+import { filesApi } from '../api/files'
+import { getFileURL, getBaseURL } from '../api/client'
 import type {
   AiTranscribeResponse,
   AiTranscribedPage,
@@ -343,16 +344,48 @@ async function recognizeAllPages(): Promise<void> {
 }
 
 function targetFromPage(page: TaskPage): RecognitionTarget {
+  // Prefer originalFileId for re-recognition if the input temp file was cleaned up
+  const fileId = page.originalFileId || page.inputFileId
   return {
     pageId: page.id,
     inputFileName: page.inputFileName,
-    inputFileId: page.inputFileId,
+    inputFileId: fileId,
     startMeasureNumber: page.startMeasureNumber,
   }
 }
 
 async function submitRecognitionTargets(targets: RecognitionTarget[], mode: RecognitionMode): Promise<void> {
-  store.sealCurrentBatch()
+  // Check file existence before starting recognition
+  const fileIds = targets.map((t) => t.inputFileId).filter(Boolean)
+  if (fileIds.length) {
+    try {
+      const exists = await filesApi.existsMany(fileIds)
+      const missing = targets.filter((t) => !exists[t.inputFileId])
+      if (missing.length) {
+        message.error(
+          `${missing.length} 个页面的原始文件已丢失（后端重启或已清理），请重新上传：${missing.map((t) => t.inputFileName).join('、')}`
+        )
+        for (const t of missing) {
+          store.patchPageById(t.pageId, {
+            status: 'failed',
+            errorMessage: '原始文件已丢失，请重新上传',
+          })
+        }
+        // Only continue with files that still exist
+        targets = targets.filter((t) => exists[t.inputFileId])
+        if (!targets.length) return
+      }
+    } catch {
+      // If backend is down, failTarget will catch it later
+    }
+  }
+
+  // Only seal the batch if any target belongs to an unsealed batch (new upload scenario)
+  const hasUnsealedPage = targets.some((t) => {
+    const page = store.pages.find((p) => p.id === t.pageId)
+    return page && !page.batchSealed
+  })
+  if (hasUnsealedPage) store.sealCurrentBatch()
   const historyPageIds = await createPendingHistory(targets)
   const label = mode === 'ai' ? 'AI 视觉检测' : 'OMR 识别'
 
@@ -372,9 +405,18 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
 
 async function createPendingHistory(targets: RecognitionTarget[]): Promise<Map<string, number>> {
   const result = new Map<string, number>()
+  // Reuse existing historyPageId for re-recognition
+  for (const target of targets) {
+    const page = store.pages.find((p) => p.id === target.pageId)
+    if (page?.historyPageId) {
+      result.set(target.pageId, page.historyPageId)
+    }
+  }
+  const newTargets = targets.filter((t) => !result.has(t.pageId))
+  if (!newTargets.length) return result
   try {
     const created = await historyApi.create({
-      pages: targets.map((target) => ({
+      pages: newTargets.map((target) => ({
         input_file_name: target.inputFileName,
         input_file_id: target.inputFileId,
         start_measure_number: target.startMeasureNumber,
@@ -383,7 +425,7 @@ async function createPendingHistory(targets: RecognitionTarget[]): Promise<Map<s
       })),
     })
     created.pages.forEach((page, index) => {
-      const target = targets[index]
+      const target = newTargets[index]
       if (!target) return
       result.set(target.pageId, page.id)
       store.patchPageById(target.pageId, { historyPageId: page.id })
@@ -398,8 +440,33 @@ async function createPendingHistory(targets: RecognitionTarget[]): Promise<Map<s
 async function runPipelineTarget(target: RecognitionTarget, historyPageId: number | null): Promise<void> {
   markPageProcessing(target, '读取输入文件', 3)
   try {
-    const resp = await fetch(getFileURL(target.inputFileId))
-    if (!resp.ok) throw new Error(`读取文件失败：${resp.status}`)
+    let resp: Response | undefined
+    let triedFileId = target.inputFileId
+    try {
+      resp = await fetch(getFileURL(target.inputFileId))
+    } catch {
+      // Try fallback originalFileId if different
+      const page = store.pages.find((p) => p.id === target.pageId)
+      if (page?.originalFileId && page.originalFileId !== target.inputFileId) {
+        triedFileId = page.originalFileId
+        try {
+          resp = await fetch(getFileURL(page.originalFileId))
+        } catch {
+          // fall through to error handling below
+        }
+      }
+    }
+    if (!resp || !resp.ok) {
+      // Distinguish between "backend not running" and "file gone"
+      let hint = ''
+      try {
+        await fetch(getBaseURL() + '/health')
+        hint = '（输入文件已被清理，请重新上传图片后再识别）'
+      } catch {
+        hint = '（后端未启动，请在终端启动后端或重启应用）'
+      }
+      throw new Error(`无法读取输入文件（尝试 file_id=${triedFileId}）${hint}`)
+    }
     const blob = await resp.blob()
 
     markPageProcessing(target, '提交 OMR 后台任务', 8)
@@ -695,7 +762,10 @@ async function failTarget(
   error: unknown,
   prefix: string,
 ): Promise<void> {
-  const msg = errorMessage(error)
+  let msg = errorMessage(error)
+  if (msg === 'Failed to fetch') {
+    msg = '后端未启动或网络异常，请检查后端是否在运行'
+  }
   store.patchPageById(target.pageId, {
     taskId: '',
     status: 'failed',

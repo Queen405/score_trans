@@ -705,13 +705,24 @@ async function exportScore(): Promise<void> {
     const pages = exportPages()
     if (!pages.length) throw new Error('暂无可导出的页面')
     const pngPages: Blob[] = []
+    const skippedPages: string[] = []
     for (const page of pages) {
-      const svgFileId = await renderExportSvg(page)
-      pngPages.push(await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2))
+      try {
+        const svgFileId = await renderExportSvg(page)
+        pngPages.push(await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2))
+      } catch {
+        skippedPages.push(page.inputFileName || '未命名页')
+      }
     }
+    if (!pngPages.length) throw new Error('所有页面导出失败，无可用内容')
     const result = await exportApi.exportPdf(pngPages, 'jianpu.pdf')
     downloadFile(result.file_id, result.filename)
-    log.addLog(`导出完成：${result.filename}`)
+    if (skippedPages.length) {
+      log.addLog(`导出完成（跳过 ${skippedPages.length} 页失败页）：${result.filename}`)
+      message.warning(`已跳过 ${skippedPages.length} 页失败页：${skippedPages.join('、')}`)
+    } else {
+      log.addLog(`导出完成：${result.filename}`)
+    }
     message.success('导出完成')
   } catch (e: unknown) {
     log.addError(`导出失败：${e instanceof Error ? e.message : String(e)}`)

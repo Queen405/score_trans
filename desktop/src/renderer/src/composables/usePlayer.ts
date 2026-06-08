@@ -191,6 +191,17 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     stopPositionTracking()
   }
 
+  function unload(): void {
+    stop()
+    clearSchedule()
+    midiData = null
+    notes.length = 0
+    noteGroups.length = 0
+    duration.value = 0
+    isReady.value = false
+    error.value = null
+  }
+
   function seekTo(ratio: number): void {
     const target = ratio * duration.value
     Tone.getTransport().seconds = target
@@ -363,6 +374,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     play,
     pause,
     stop,
+    unload,
     seekTo,
     seekToTime,
     setBpm,

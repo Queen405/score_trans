@@ -74,7 +74,7 @@ class HistoryDao:
                             SELECT p.input_file_name
                             FROM history_page p
                             WHERE p.batch_id = b.id
-                            ORDER BY p.id
+                            ORDER BY p.input_file_name ASC
                             LIMIT 1
                         ),
                         ''
@@ -252,7 +252,7 @@ class HistoryDao:
             status=row["status"],
         )
         page_rows = conn.execute(
-            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY id", (batch.id,)
+            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY input_file_name ASC", (batch.id,)
         ).fetchall()
         batch.pages = [self._row_to_page(pr) for pr in page_rows]
         return batch

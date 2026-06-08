@@ -118,7 +118,8 @@ async function loadFromProps(): Promise<void> {
       const url = getFileURL(result.file_id)
       await player.loadMidi(url)
     } catch {
-      // silent fail - player will show as not ready
+      // Syntax invalid or generation failed — reset player so stale MIDI is not playable
+      if (gen === loadGeneration) player.unload()
     }
     return
   }

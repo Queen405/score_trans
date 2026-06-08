@@ -1,6 +1,6 @@
 import type { UploadResponse } from '../models/types'
 
-function getBaseURL(): string {
+export function getBaseURL(): string {
   return (
     (window as any)?.api?.getBackendURL?.() ||
     import.meta.env.VITE_BACKEND_URL ||

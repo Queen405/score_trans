@@ -34,9 +34,12 @@ def create_app() -> FastAPI:
     )
     _init_task_state(app)
 
-    # CORS — development only. Production Electron uses file:// or custom scheme.
+    # CORS — development + Electron production (file:// / null origin).
     _raw_origins = CORS_ORIGINS
     allow_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+    # Electron packaged app loads from file:// or custom protocol, whose Origin is "null".
+    if "null" not in allow_origins:
+        allow_origins.append("null")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
