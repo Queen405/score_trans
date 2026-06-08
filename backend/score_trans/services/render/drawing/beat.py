@@ -32,10 +32,21 @@ def _render_item(item: RenderItem, cx: float, y: int, slot_width: float, *, supp
         bottom = _token_metrics(item.token, y)["bottom"]
         out.append(f'<text class="dynamic" x="{cx:.1f}" y="{bottom + 30:.1f}" text-anchor="middle">{_esc(item.dynamic)}</text>')
     for index, mark in enumerate(_technique_marks(item)):
-        out.append(
-            f'<text class="technique-mark" x="{_technique_mark_x(item.token, cx):.1f}" '
-            f'y="{_technique_mark_y(item.token, y) + index * 17:.1f}" text-anchor="start">{_esc(mark)}</text>'
-        )
+        tx = _technique_mark_x(item.token, cx)
+        ty = _technique_mark_y(item.token, y) + index * 17
+        if mark == "轮":
+            d = " ".join(
+                f"M {tx + i * 3.5:.1f} {ty - 7:.1f} L {tx + 8 + i * 3.5:.1f} {ty + 2:.1f}"
+                for i in range(3)
+            )
+            out.append(
+                f'<path class="technique-mark" d="{d}" stroke="#171717" stroke-width="1.5" fill="none"/>'
+            )
+        else:
+            out.append(
+                f'<text class="technique-mark" x="{tx:.1f}" '
+                f'y="{ty:.1f}" text-anchor="start">{_esc(mark)}</text>'
+            )
     upper_anchor_y = _upper_mark_anchor_y(item.token, y)
     articulations = item.articulations or ([item.articulation] if item.articulation else [])
     for index, articulation in enumerate(articulations[:4]):

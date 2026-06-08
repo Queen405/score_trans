@@ -269,6 +269,14 @@ def test_musicxml_direction_marks_attach_to_note_and_positioned_words() -> None:
     assert 'class="articulation"' in svg
 
 
+def _path_first_m(path_d: str) -> tuple[float, float]:
+    import re
+    m = re.search(r"M\s+([\d.]+)\s+([\d.]+)", path_d)
+    if m:
+        return float(m.group(1)), float(m.group(2))
+    return 0.0, 0.0
+
+
 def test_musicxml_tremolo_renders_zhongruan_roll_mark_below_right() -> None:
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
@@ -294,13 +302,45 @@ def test_musicxml_tremolo_renders_zhongruan_roll_mark_below_right() -> None:
     score = musicxml_to_score(xml)
     svg = render_score_svg(score)
     root = _svg_root(svg)
-    roll = next(text for text in _svg_elements(root, "text") if text.text == "轮")
+    roll = next(el for el in _svg_elements(root, "path") if el.attrib.get("class") == "technique-mark")
     note = next(text for text in _svg_elements(root, "text") if text.attrib.get("class") == "note" and text.text == "2")
 
-    assert roll.attrib["class"] == "technique-mark"
-    assert float(roll.attrib["x"]) > float(note.attrib["x"])
-    assert float(roll.attrib["y"]) > float(note.attrib["y"])
+    roll_x, roll_y = _path_first_m(roll.attrib["d"])
+    assert roll_x > float(note.attrib["x"])
+    assert roll_y > float(note.attrib["y"])
     assert "trem." not in svg
+
+
+def test_jianpu_text_roll_mark_renders_below_right() -> None:
+    from score_trans.domain.parse.jianpu_text import parse_jianpu_score
+
+    text = "1=C\n4/4\n^轮 1 2 3 4 |"
+    score = parse_jianpu_score(text)
+    svg = render_score_svg(score)
+    root = _svg_root(svg)
+
+    roll = next(el for el in _svg_elements(root, "path") if el.attrib.get("class") == "technique-mark")
+    note = next(text for text in _svg_elements(root, "text") if text.attrib.get("class") == "note" and text.text == "1")
+
+    roll_x, roll_y = _path_first_m(roll.attrib["d"])
+    assert roll_x > float(note.attrib["x"])
+    assert roll_y > float(note.attrib["y"])
+    assert "轮" not in svg
+
+
+def test_jianpu_text_roll_mark_roundtrip() -> None:
+    from score_trans.domain.parse.jianpu_text import parse_jianpu_score
+    from score_trans.domain.write.jianpu_text import score_to_jianpu_text
+
+    text = "1=C\n4/4\n^轮 1 2 3 4 |"
+    score = parse_jianpu_score(text)
+    out = score_to_jianpu_text(score)
+
+    assert "^轮" in out
+    assert "class=\"lyric\"" not in out
+    score2 = parse_jianpu_score(out)
+    assert score2.measures[0].events[0].ornaments == ["tremolo"]
+    assert score2.measures[0].events[0].articulations == []
 
 
 def test_musicxml_explicit_accidentals_render_as_separate_symbols() -> None:

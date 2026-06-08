@@ -18,12 +18,14 @@ def score_to_jianpu_text(score: JianpuScore) -> str:
         for event in events:
             if event.dynamic:
                 tokens.append(f"\\{event.dynamic}")
-            for articulation in event.articulations or (
+            all_marks = list(event.articulations or (
                 [event.articulation] if event.articulation else []
-            ):
-                mark = _articulation_token(articulation)
-                if mark:
-                    tokens.append(f"^{mark}")
+            ))
+            all_marks.extend(event.ornaments or [])
+            for mark in all_marks:
+                token = _articulation_token(mark)
+                if token:
+                    tokens.append(f"^{token}")
             tokens.append(_event_to_token(event))
             if event.lyric:
                 lyrics.append(event.lyric)
@@ -87,6 +89,7 @@ def _articulation_token(name: str) -> str | None:
         "tenuto": "-",
         "trill-mark": "tr",
         "fermata": "fermata",
+        "tremolo": "轮",
     }.get(name, name if name else None)
 
 

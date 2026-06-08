@@ -74,6 +74,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     cursor = Fraction(0, 1)
     pending_dynamic: str | None = None
     pending_articulations: list[str] = []
+    pending_ornaments: list[str] = []
     pending_repeat_count: int = 1
     open_slur = False
     open_tie = False
@@ -129,7 +130,12 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             pending_dynamic = dynamic
             continue
         if raw.startswith("^"):
-            pending_articulations.append(_articulation_name(raw[1:]))
+            name = raw[1:]
+            ornament = _ornament_name(name)
+            if ornament:
+                pending_ornaments.append(ornament)
+            else:
+                pending_articulations.append(_articulation_name(name))
             continue
 
         event = _parse_event_token(token)
@@ -142,6 +148,9 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             event.articulations = pending_articulations
             event.articulation = pending_articulations[0]
             pending_articulations = []
+        if pending_ornaments:
+            event.ornaments = pending_ornaments
+            pending_ornaments = []
         if raw.startswith("("):
             event.slur_start = True
             open_slur = True
@@ -357,6 +366,13 @@ def _articulation_name(raw: str) -> str:
         ".": "staccato",
         "tr": "trill-mark",
     }.get(raw, raw)
+
+
+def _ornament_name(raw: str) -> str | None:
+    normalized = raw.strip().lower().replace("_", "-").replace(" ", "-")
+    if normalized in {"tremolo", "roll", "rolled", "lun", "lun-yin", "轮", "轮音"}:
+        return "tremolo"
+    return None
 
 
 def _syntax_error(token: _Token, message: str) -> ValueError:
