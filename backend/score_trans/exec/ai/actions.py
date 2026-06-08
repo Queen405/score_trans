@@ -93,6 +93,7 @@ class AiActions:
                     meter=page.result.meter,
                     tempo=page.result.tempo,
                     jianpu_text=page.jianpu_text,
+                    measure_number_candidates=page.measure_number_candidates,
                     warnings=page.result.warnings,
                     validation_errors=page.validation_errors,
                     confidence=page.result.confidence,
@@ -147,14 +148,20 @@ class AiActions:
     def create_chat_session(self, title: str | None = None) -> AiChatSession:
         return self._chat().create_session(title)
 
-    def create_chat_session_response(self, title: str | None = None) -> AiChatSessionResponse:
+    def create_chat_session_response(
+        self, title: str | None = None
+    ) -> AiChatSessionResponse:
         return _session_response(self.create_chat_session(title))
 
     def get_chat_messages(self, session_id: str) -> list[AiChatMessage]:
         return self._chat().get_messages(session_id)
 
-    def get_chat_message_responses(self, session_id: str) -> list[AiChatMessageResponse]:
-        return [_message_response(message) for message in self.get_chat_messages(session_id)]
+    def get_chat_message_responses(
+        self, session_id: str
+    ) -> list[AiChatMessageResponse]:
+        return [
+            _message_response(message) for message in self.get_chat_messages(session_id)
+        ]
 
     def delete_chat_session(self, session_id: str) -> dict[str, bool]:
         deleted = self._chat().delete_session(session_id)
@@ -187,7 +194,9 @@ class AiActions:
             messages=[_message_response(message) for message in messages],
         )
 
-    async def send_chat_message_response_async(self, req: AiChatRequest) -> AiChatResponse:
+    async def send_chat_message_response_async(
+        self, req: AiChatRequest
+    ) -> AiChatResponse:
         return await asyncio.to_thread(self.send_chat_message_response, req)
 
     def stream_chat_message(
@@ -221,7 +230,9 @@ class AiActions:
                     yield _sse(
                         "done",
                         {
-                            "session_id": final_message.session_id if final_message else "",
+                            "session_id": final_message.session_id
+                            if final_message
+                            else "",
                             "message": _message_response(final_message).model_dump()
                             if final_message
                             else None,

@@ -44,7 +44,9 @@ def test_ai_chat_routes_are_registered() -> None:
     assert "jianpu_text" in schema["properties"]
 
 
-def test_ai_action_transcribes_uploaded_image_with_mock_provider(tmp_path: Path) -> None:
+def test_ai_action_transcribes_uploaded_image_with_mock_provider(
+    tmp_path: Path,
+) -> None:
     config = ToolConfig(work_dir=tmp_path / "work")
     uploads = UploadService(config)
     source = tmp_path / "score.png"
@@ -57,6 +59,7 @@ def test_ai_action_transcribes_uploaded_image_with_mock_provider(tmp_path: Path)
                 key="C",
                 meter="4/4",
                 jianpu_text="1=C\n4/4\n1 1 5 5 |",
+                measure_number_candidates=[9, 10],
                 warnings=["第二小节看不清"],
                 confidence=0.86,
             )
@@ -68,11 +71,16 @@ def test_ai_action_transcribes_uploaded_image_with_mock_provider(tmp_path: Path)
         transcriber=AiTranscriptionService(provider),
     )
 
-    response = actions.transcribe_score(AiTranscribeRequest(file_id=file_id, target_key="C"))
+    response = actions.transcribe_score(
+        AiTranscribeRequest(file_id=file_id, target_key="C")
+    )
 
     assert response.pages[0].page_image_file_id == file_id
     assert "1 1 5 5" in response.pages[0].jianpu_text
-    assert "1 1 5 5" in uploads.get_path(response.jianpu_file_id).read_text(encoding="utf-8")
+    assert "1 1 5 5" in uploads.get_path(response.jianpu_file_id).read_text(
+        encoding="utf-8"
+    )
+    assert response.pages[0].measure_number_candidates == [9, 10]
     assert response.pages[0].warnings == ["第二小节看不清"]
 
 
@@ -111,7 +119,21 @@ def test_ai_plain_text_response_falls_back_to_jianpu_text() -> None:
     assert result.warnings
 
 
-def test_ai_chat_injects_jianpu_syntax_and_limits_memory(tmp_path: Path, monkeypatch) -> None:
+def test_ai_json_response_accepts_measure_number_candidates() -> None:
+    result = parse_vision_page_result(
+        {
+            "jianpu_text": "1=C\n4/4\n1 2 3 4 |",
+            "measure_number_candidates": [17],
+            "warnings": [],
+        }
+    )
+
+    assert result.measure_number_candidates == [17]
+
+
+def test_ai_chat_injects_jianpu_syntax_and_limits_memory(
+    tmp_path: Path, monkeypatch
+) -> None:
     captured_messages = []
 
     def fake_chat_completions(**kwargs):
@@ -124,7 +146,9 @@ def test_ai_chat_injects_jianpu_syntax_and_limits_memory(tmp_path: Path, monkeyp
     )
     settings = SettingsDao(tmp_path / "settings.db")
     settings.set("assistant_api_key", "test-key")
-    settings.set("assistant_base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+    settings.set(
+        "assistant_base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
     settings.set("assistant_model", "deepseek-v4-flash")
     service = AiChatService(
         dao=AiChatDao(tmp_path / "ai_chat.db"),

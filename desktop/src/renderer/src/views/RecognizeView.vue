@@ -481,6 +481,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
   }
 
   let svgFileId = page.svgFileId
+  let jianpuText = page.jianpuText
   try {
     if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
       const rendered = await renderApi.jianpuSvg({
@@ -490,10 +491,21 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         start_measure_number: selected,
       })
       svgFileId = rendered.svg_file_id
+    } else if (!page.musicxmlFileId && page.jianpuText.trim()) {
+      const rendered = await renderApi.jianpuTextSvg({
+        jianpu_text: page.jianpuText,
+        page_image_file_id: page.originalFileId || page.inputFileId || undefined,
+        include_ocr_text: false,
+        title: page.inputFileName || 'AI 简谱',
+        start_measure_number: selected,
+      })
+      svgFileId = rendered.svg_file_id
+      jianpuText = rendered.jianpu_text || page.jianpuText
     }
 
     store.patchPageById(pageId, {
       svgFileId,
+      jianpuText,
       status: 'completed',
       progressPercent: 100,
       progressMessage: '识别完成',
@@ -504,7 +516,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       input_file_name: page.inputFileName,
       input_file_id: page.inputFileId,
       musicxml_file_id: page.musicxmlFileId,
-      jianpu_text: page.jianpuText,
+      jianpu_text: jianpuText,
       ocr_text: page.ocrText,
       svg_file_id: svgFileId,
       start_measure_number: selected,
@@ -549,7 +561,11 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
     if (!response.pages.length) throw new Error('AI 未返回任何页面')
 
     const warnings = collectAiWarnings(response.pages, response.warnings)
-    applyAiResult(target, response, historyPageId)
+    const measureOptions = target.startMeasureNumber == null ? aiMeasureOptions(response) : []
+    const needsMeasureChoice = measureOptions.length > 0
+    const resultStatus = needsMeasureChoice ? 'waiting' : 'completed'
+    const waitingMessage = needsMeasureChoice ? waitingMeasureMessage(measureOptions) : ''
+    applyAiResult(target, response, historyPageId, resultStatus, measureOptions)
 
     const pageResult: PageResult = {
       input_file_name: target.inputFileName,
@@ -559,14 +575,18 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
       ocr_text: '',
       svg_file_id: '',
       start_measure_number: target.startMeasureNumber,
-      status: 'completed',
-      error_message: warnings.join('；'),
+      status: resultStatus,
+      error_message: waitingMessage || warnings.join('；'),
     }
     await persistPageResult(target, pageResult, historyPageId)
-    log.addLog(`AI 转写完成：${target.inputFileName}`)
-    if (warnings.length) {
+    if (needsMeasureChoice) {
+      log.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, 'warn')
+      message.warning(`AI 转写等待选择起始小节号：${target.inputFileName}`)
+    } else if (warnings.length) {
+      log.addLog(`AI 转写完成：${target.inputFileName}`)
       message.warning(warnings.slice(0, 3).join('；'))
     } else {
+      log.addLog(`AI 转写完成：${target.inputFileName}`)
       message.success(`AI 转写完成：${target.inputFileName}`)
     }
   } catch (error: unknown) {
@@ -578,10 +598,17 @@ function applyAiResult(
   target: RecognitionTarget,
   response: AiTranscribeResponse,
   historyPageId: number | null,
+  resultStatus: TaskPageStatus,
+  measureOptions: number[],
 ): void {
   if (response.pages.length === 1) {
     const page = response.pages[0]
-    const warningText = aiPageErrorMessage(page)
+    const pageMeasureOptions = resultStatus === 'waiting'
+      ? aiPageMeasureOptions(page, measureOptions)
+      : []
+    const messageText = resultStatus === 'waiting'
+      ? waitingMeasureMessage(pageMeasureOptions)
+      : aiPageErrorMessage(page)
     store.patchPageById(target.pageId, {
       inputFileName: aiPageLabel(response.source_filename, page, response.pages.length),
       inputFileId: page.page_image_file_id,
@@ -594,16 +621,20 @@ function applyAiResult(
       jianpuDirty: false,
       svgFileId: '',
       taskId: '',
-      status: 'completed',
+      status: resultStatus,
       progressPercent: 100,
-      progressMessage: 'AI 转写完成',
-      errorMessage: warningText,
+      progressMessage: resultStatus === 'waiting' ? '等待选择起始小节号' : 'AI 转写完成',
+      measureNumberOptions: pageMeasureOptions,
+      errorMessage: messageText,
     })
     return
   }
 
   const aiPages: TaskPageInput[] = response.pages.map((page, index) => {
     const label = aiPageLabel(response.source_filename, page, response.pages.length)
+    const pageMeasureOptions = resultStatus === 'waiting'
+      ? aiPageMeasureOptions(page, measureOptions)
+      : []
     return {
       inputFileName: label,
       historyPageId: index === 0 ? historyPageId : null,
@@ -616,10 +647,13 @@ function applyAiResult(
       ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
-      status: 'completed',
+      status: resultStatus,
       progressPercent: 100,
-      progressMessage: 'AI 转写完成',
-      errorMessage: aiPageErrorMessage(page),
+      progressMessage: resultStatus === 'waiting' ? '等待选择起始小节号' : 'AI 转写完成',
+      measureNumberOptions: pageMeasureOptions,
+      errorMessage: resultStatus === 'waiting'
+        ? waitingMeasureMessage(pageMeasureOptions)
+        : aiPageErrorMessage(page),
     }
   })
   store.replacePageByIdKeepingSelection(target.pageId, aiPages)
@@ -781,6 +815,28 @@ function aiPageLabel(sourceName: string, page: AiTranscribedPage, totalPages: nu
 
 function aiPageErrorMessage(page: AiTranscribedPage): string {
   return [...page.validation_errors, ...page.warnings].join('；')
+}
+
+function aiMeasureOptions(response: AiTranscribeResponse): number[] {
+  const values = uniquePositiveNumbers(
+    response.pages.flatMap((page) => page.measure_number_candidates || []),
+  )
+  return values.length ? values : [1]
+}
+
+function aiPageMeasureOptions(page: AiTranscribedPage, fallback: number[]): number[] {
+  const values = uniquePositiveNumbers(page.measure_number_candidates || [])
+  return values.length ? values : fallback
+}
+
+function uniquePositiveNumbers(values: number[]): number[] {
+  const result: number[] = []
+  for (const value of values) {
+    if (!Number.isFinite(value) || value < 1) continue
+    const rounded = Math.round(value)
+    if (!result.includes(rounded)) result.push(rounded)
+  }
+  return result
 }
 
 function collectAiWarnings(pages: AiTranscribedPage[], responseWarnings: string[]): string[] {

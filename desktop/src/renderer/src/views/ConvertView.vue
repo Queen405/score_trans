@@ -593,6 +593,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
 
   try {
     let svgFileId = page.svg_file_id
+    let jianpuText = page.jianpu_text
     const options = parseWaitingMeasureOptions(page.error_message)
     if (page.musicxml_file_id && selected !== options[0]) {
       const rendered = await renderApi.jianpuSvg({
@@ -602,9 +603,20 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
         start_measure_number: selected,
       })
       svgFileId = rendered.svg_file_id
+    } else if (!page.musicxml_file_id && page.jianpu_text.trim()) {
+      const rendered = await renderApi.jianpuTextSvg({
+        jianpu_text: page.jianpu_text,
+        page_image_file_id: page.input_file_id || undefined,
+        include_ocr_text: false,
+        title: page.input_file_name || 'AI 简谱',
+        start_measure_number: selected,
+      })
+      svgFileId = rendered.svg_file_id
+      jianpuText = rendered.jianpu_text || page.jianpu_text
     }
     const updated = await historyApi.updatePage(page.id, {
       start_measure_number: selected,
+      jianpu_text: jianpuText,
       svg_file_id: svgFileId,
       status: 'completed',
       error_message: '',

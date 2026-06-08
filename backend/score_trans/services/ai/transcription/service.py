@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from ....dao.settings.settings_dao import SettingsDao
 from ....models.common.errors import AITranscriptionError
 from ....models.tasks.entities import ProgressCallback, report_progress
-from ...settings.provider_profiles import resolve_provider_profile, resolve_provider_profile_or_default
+from ...settings.provider_profiles import (
+    resolve_provider_profile,
+    resolve_provider_profile_or_default,
+)
 from ..core.protocols import VisionJianpuProvider
 from ..core.registry import create_provider
 from ..core.schemas import AiTranscriptionResult, TranscribedScorePage
@@ -26,7 +30,9 @@ class AiTranscriptionService:
             self.provider = _create_named_or_profile_provider(provider)
         else:
             settings = SettingsDao.default().get_all()
-            profile = resolve_provider_profile_or_default("ai", settings.get("ai_provider"))
+            profile = resolve_provider_profile_or_default(
+                "ai", settings.get("ai_provider")
+            )
             self.provider = create_provider(
                 profile.provider,
                 base_url=profile.base_url,
@@ -58,9 +64,13 @@ class AiTranscriptionService:
             max_pages=max_pages,
         )
         if not prepared_pages:
-            raise AITranscriptionError(f"No transcribable score pages found in {source}")
+            raise AITranscriptionError(
+                f"No transcribable score pages found in {source}"
+            )
 
-        report_progress(progress_callback, "ai_prepare", 20, f"已准备 {len(prepared_pages)} 页")
+        report_progress(
+            progress_callback, "ai_prepare", 20, f"已准备 {len(prepared_pages)} 页"
+        )
         pages: list[TranscribedScorePage] = []
         warnings: list[str] = []
         total_pages = len(prepared_pages)
@@ -78,6 +88,9 @@ class AiTranscriptionService:
                 title=title,
                 page_index=prepared.page_index,
                 extra_prompt=extra_prompt,
+            )
+            measure_number_candidates = _measure_number_candidates(
+                result.measure_number_candidates, result.jianpu_text
             )
             page_text = ensure_jianpu_header(
                 clean_jianpu_text(result.jianpu_text),
@@ -101,6 +114,7 @@ class AiTranscriptionService:
                     prepared=prepared,
                     result=result,
                     jianpu_text=normalized_text,
+                    measure_number_candidates=measure_number_candidates,
                     validation_errors=validation_errors,
                 )
             )
@@ -136,3 +150,15 @@ def _create_named_or_profile_provider(provider: str) -> VisionJianpuProvider:
         base_url=profile.base_url,
         model=profile.model,
     )
+
+
+def _measure_number_candidates(explicit: list[int], raw_text: str) -> list[int]:
+    values: list[int] = []
+    for value in explicit:
+        if value > 0 and value not in values:
+            values.append(value)
+    for match in re.finditer(r"(?m)^\s*(\d{1,4})[.:：]\s+", raw_text):
+        value = int(match.group(1))
+        if value > 0 and value not in values:
+            values.append(value)
+    return values[:8]

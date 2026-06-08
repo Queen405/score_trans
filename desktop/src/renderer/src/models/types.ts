@@ -117,6 +117,7 @@ export interface AiTranscribedPage {
   meter?: string | null
   tempo?: string | null
   jianpu_text: string
+  measure_number_candidates: number[]
   warnings: string[]
   validation_errors: string[]
   confidence?: number | null
