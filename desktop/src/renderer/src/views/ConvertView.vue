@@ -1099,7 +1099,15 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
 
 .hist-dot.ok { background: var(--success); }
 .hist-dot.err { background: var(--danger); }
-.hist-dot.processing { background: var(--warning); }
+.hist-dot.processing {
+  background: var(--warning);
+  animation: pulse-blink 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.2); }
+}
 
 .hist-batch-name {
   flex: 1;
