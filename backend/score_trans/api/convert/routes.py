@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends
 
 from ..dependencies import get_convert_actions
@@ -19,7 +21,7 @@ async def musicxml_to_jianpu(
     req: MusicXmlToJianpuRequest,
     actions: ConvertActions = Depends(get_convert_actions),
 ):
-    return actions.musicxml_to_jianpu_response(req)
+    return await asyncio.to_thread(actions.musicxml_to_jianpu_response, req)
 
 
 @router.post("/jianpu-to-musicxml", response_model=JianpuToMusicXmlResponse)
@@ -27,5 +29,4 @@ async def jianpu_to_musicxml(
     req: JianpuToMusicXmlRequest,
     actions: ConvertActions = Depends(get_convert_actions),
 ):
-    return actions.jianpu_to_musicxml_response(req)
-
+    return await asyncio.to_thread(actions.jianpu_to_musicxml_response, req)

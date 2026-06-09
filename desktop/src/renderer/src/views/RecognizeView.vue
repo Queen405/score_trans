@@ -646,10 +646,17 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
           status: 'processing',
           error_message: '',
         })
+        notifyHistoryPagePatched({
+          id: historyPageId,
+          patch: {
+            start_measure_number: target.startMeasureNumber,
+            status: 'processing',
+            error_message: '',
+          },
+        })
       } catch { /* best-effort */ }
     }
   }
-  notifyHistoryUpdated()
 
   const label = mode === 'ai' ? 'AI 视觉检测' : 'OMR 识别'
 
@@ -856,7 +863,6 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         })
         syncStoreFromHistoryPage(pageId, updated)
         notifyHistoryPagePatched(historyPagePatchFromPage(updated))
-        notifyHistoryUpdated()
       } catch (persistError: unknown) {
         log.addLog(`保存小节号失败状态失败：${errorMessage(persistError)}`, 'warn')
         notifyHistoryPagePatched({
@@ -1134,8 +1140,8 @@ async function persistPageResult(
         syncStoreFromHistoryPage(target.pageId, createdPage)
         notifyHistoryPagePatched(historyPagePatchFromPage(createdPage))
       }
+      notifyHistoryUpdated()
     }
-    notifyHistoryUpdated()
   } catch (error: unknown) {
     log.addLog(`保存后台历史结果失败：${errorMessage(error)}`, 'warn')
   }

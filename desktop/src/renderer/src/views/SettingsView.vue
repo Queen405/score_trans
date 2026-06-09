@@ -1,5 +1,6 @@
 <template>
   <div class="settings-view">
+  <div class="sv-content">
     <div class="sv-header">
       <div class="sv-header-text">
         <h2>设置</h2>
@@ -11,7 +12,7 @@
       </n-button>
     </div>
 
-        <div class="sv-grid-layout">
+    <div class="sv-grid-layout">
       <n-card class="sv-card" :bordered="true" size="small">
         <div class="sv-card-title">
           <n-icon size="16" class="sv-card-icon"><BuildOutline /></n-icon>
@@ -150,6 +151,7 @@
       </n-card>
     </div>
   </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -242,9 +244,19 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
 
 <style scoped>
 .settings-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
   width: 100%;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 24px;
+}
+
+.sv-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 .sv-header {
@@ -271,7 +283,8 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
-  align-items: start;
+  align-items: center;
+  align-content: center;
 }
 
 .sv-grid-layout > .sv-card {

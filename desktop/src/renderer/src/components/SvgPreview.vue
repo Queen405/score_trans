@@ -3,6 +3,7 @@
     <div ref="containerRef" class="preview-viewport" @dblclick="addBlockAtCursor">
       <div class="zp-inner">
         <div v-if="svgText" :key="svgUrl" class="svg-inline" v-html="svgText" />
+        <div v-else-if="svgError" class="svg-loading svg-error">{{ svgError }}</div>
         <div v-else class="svg-loading">加载中...</div>
         <button
           v-for="block in ocrBlocks"
@@ -70,6 +71,7 @@ const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
 const svgText = ref('')
+const svgError = ref('')
 const selectedId = ref('')
 const editingId = ref('')
 const editingText = ref('')
@@ -266,6 +268,7 @@ function onKeyDown(event: KeyboardEvent): void {
 async function loadSvg(url: string): Promise<void> {
   const generation = ++svgLoadGeneration
   svgText.value = ''
+  svgError.value = ''
   imgW.value = 0
   imgH.value = 0
   clearPlaybackHighlight()
@@ -273,8 +276,10 @@ async function loadSvg(url: string): Promise<void> {
 
   if (!url) return
 
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 15000)
   try {
-    const response = await fetch(url, { cache: 'no-store' })
+    const response = await fetch(url, { cache: 'no-store', signal: controller.signal })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const text = await response.text()
     if (generation !== svgLoadGeneration) return
@@ -293,6 +298,9 @@ async function loadSvg(url: string): Promise<void> {
   } catch {
     if (generation !== svgLoadGeneration) return
     svgText.value = ''
+    svgError.value = 'SVG 加载失败'
+  } finally {
+    window.clearTimeout(timeout)
   }
 }
 
@@ -472,6 +480,10 @@ onUnmounted(() => {
   justify-content: center;
   color: var(--text-tertiary);
   font-size: 12px;
+}
+
+.svg-error {
+  color: var(--danger, #ef4444);
 }
 
 .ocr-edit-block {

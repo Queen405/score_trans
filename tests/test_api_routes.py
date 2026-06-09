@@ -1,13 +1,16 @@
 import asyncio
 from pathlib import Path
+import time
 
 from fastapi.testclient import TestClient
 
 from score_trans.api.dependencies import get_file_actions
 from score_trans.api.app import create_app
 from score_trans.api.export.routes import export_midi
+from score_trans.api.render.routes import render_jianpu_svg
 from score_trans.exec.export.actions import ExportActions
 from score_trans.exec.files.actions import FileActions
+from score_trans.models.render.schemas import RenderJianpuSvgRequest, RenderJianpuSvgResponse
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 
@@ -28,6 +31,37 @@ def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:
     schema = create_app().openapi()["components"]["schemas"]["RenderJianpuSvgRequest"]
 
     assert "page_image_file_id" in schema["properties"]
+
+
+class SlowRenderActions:
+    def render_jianpu_svg(
+        self,
+        req: RenderJianpuSvgRequest,
+    ) -> RenderJianpuSvgResponse:
+        time.sleep(0.2)
+        return RenderJianpuSvgResponse(svg_file_id=f"rendered-{req.musicxml_file_id}")
+
+
+def test_render_route_offloads_blocking_render_work() -> None:
+    async def scenario() -> tuple[float, bool, str]:
+        start = time.perf_counter()
+        task = asyncio.create_task(
+            render_jianpu_svg(
+                RenderJianpuSvgRequest(musicxml_file_id="score"),
+                actions=SlowRenderActions(),
+            )
+        )
+        await asyncio.sleep(0.01)
+        elapsed = time.perf_counter() - start
+        still_running = not task.done()
+        result = await task
+        return elapsed, still_running, result.svg_file_id
+
+    elapsed, still_running, svg_file_id = asyncio.run(scenario())
+
+    assert elapsed < 0.1
+    assert still_running
+    assert svg_file_id == "rendered-score"
 
 
 def test_musicxml_to_jianpu_request_accepts_page_image_for_ocr_text() -> None:

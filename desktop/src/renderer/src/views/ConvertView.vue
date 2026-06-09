@@ -188,7 +188,6 @@ import {
   listenHistoryPagePatched,
   listenHistoryUpdated,
   notifyHistoryPagePatched,
-  notifyHistoryUpdated,
   type HistoryPagePatchDetail,
 } from '../utils/historyEvents'
 import { ArrowForwardOutline,
@@ -485,7 +484,9 @@ function mergeLockedHistoryPages(pages: HistoryPage[]): HistoryPage[] {
 }
 
 function handleHistoryPagePatched(detail: HistoryPagePatchDetail): void {
-  applyExpandedHistoryPagePatch(detail.id, detail.patch)
+  if (applyExpandedHistoryPagePatch(detail.id, detail.patch) && loadingBatchId.value === expandedBatchId.value) {
+    loadingBatchId.value = null
+  }
 }
 
 function applyExpandedHistoryPagePatch(
@@ -643,7 +644,6 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
     replaceExpandedHistoryPage(updated)
     syncStoreFromHistoryPage(updated)
     notifyHistoryPagePatched(historyPagePatchFromPage(updated))
-    notifyHistoryUpdated()
     message.success('已应用起始小节号')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -663,7 +663,6 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
       replaceExpandedHistoryPage(updated)
       syncStoreFromHistoryPage(updated)
       notifyHistoryPagePatched(historyPagePatchFromPage(updated))
-      notifyHistoryUpdated()
     } catch (persistError: unknown) {
       replaceExpandedHistoryPage(failedPage)
       syncStoreFromHistoryPage(failedPage)

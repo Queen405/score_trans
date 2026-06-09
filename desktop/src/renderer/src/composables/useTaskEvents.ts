@@ -1,12 +1,11 @@
 import { onMounted, onUnmounted } from 'vue'
 import { BASE_URL } from '../api/client'
-import { notifyHistoryUpdated } from '../utils/historyEvents'
-import type { SSEProgressEvent } from '../models/types'
 
 /**
  * Connects to the global /tasks/events SSE stream on mount.
- * When a task reaches a terminal state (completed / failed), fires
- * notifyHistoryUpdated() so that any open history panel refreshes.
+ * Page-level task handlers patch visible history rows directly; this
+ * connection keeps the backend event stream warm without forcing full
+ * history reloads while render work is still being persisted.
  */
 export function useTaskEvents() {
   let es: EventSource | null = null
@@ -22,18 +21,6 @@ export function useTaskEvents() {
       // EventSource constructor failed (invalid URL etc.) — retry later
       reconnectTimer = setTimeout(connect, 5000)
       return
-    }
-
-    es.onmessage = (e: MessageEvent) => {
-      let event: SSEProgressEvent
-      try {
-        event = JSON.parse(e.data as string)
-      } catch {
-        return
-      }
-      if (event.status === 'completed' || event.status === 'failed') {
-        notifyHistoryUpdated()
-      }
     }
 
     es.onerror = () => {
