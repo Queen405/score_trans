@@ -403,11 +403,13 @@ async function recognizeAllPages(): Promise<void> {
 function targetFromPage(page: TaskPage): RecognitionTarget {
   // Prefer originalFileId for re-recognition if the input temp file was cleaned up
   const fileId = page.originalFileId || page.inputFileId
+  // Always reset startMeasureNumber to null so re-recognition can
+  // re-detect OCR measure numbers and prompt the user to choose.
   return {
     pageId: page.id,
     inputFileName: page.inputFileName,
     inputFileId: fileId,
-    startMeasureNumber: page.startMeasureNumber,
+    startMeasureNumber: null,
   }
 }
 
