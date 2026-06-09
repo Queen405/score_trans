@@ -45,10 +45,9 @@
 
 ## 二、中严重度 Bug
 
-### 4. `_cfg_value` 错误消息非 f-string
-- **位置**: `services/ai/base.py`
-- **问题**: 错误消息 `"请在 {CONFIG_DIR / 'ai_prompt.json'} 中配置。"` 缺少 `f` 前缀，`{CONFIG_DIR}` 不会展开。
-- **建议**: 改为 `f"请在 {CONFIG_DIR / 'ai_prompt.json'} 中配置。"`
+### 4. ~~`_cfg_value` 错误消息非 f-string~~ (已修复)
+- **位置**: `services/ai/core/prompts.py`
+- **状态**: 已修复，同时将 `ai_prompt.json` 迁移为 `ai_prompt.yaml`。
 
 ### 5. OCR confidence 解析无保护
 - **位置**: `services/ocr/parser.py` — `coerce_text_block`

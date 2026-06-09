@@ -29,7 +29,7 @@ services/    → 9 个服务模块（ocr, ai, render, recognize, export, files, 
 domain/      → 纯算法（parse/, write/, constants, xml_utils）
 models/      → Pydantic DTO + dataclass 实体
 dao/         → 2 个 SQLite DAO（history, settings）
-config/      → .env 加载 + ai_prompt.json
+config/      → .env 加载 + ai_prompt.yaml
 utils/       → 7 个工具模块
 ```
 
