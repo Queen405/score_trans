@@ -276,6 +276,13 @@ import type {
 import type { TaskPage, TaskPageInput, TaskPageStatus } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { notifyHistoryPagePatched, notifyHistoryUpdated, type HistoryPagePatchDetail } from '../utils/historyEvents'
+import {
+  clearLiveRecognitionPage,
+  getLiveRecognitionHistoryPageId,
+  liveRecognitionTaskPatch,
+  registerLiveRecognitionPage,
+  updateLiveRecognitionPage,
+} from '../utils/liveRecognitionState'
 import { useFileUpload } from '../composables/useFileUpload'
 import FileUploader from '../components/FileUploader.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
@@ -566,7 +573,7 @@ function onPickerCancel(): void {
 }
 
 async function recognize(): Promise<void> {
-  const targets = recognizeTargetPages.value.map(targetFromPage)
+  const targets = recognizeTargetPages.value.map((page) => targetFromPage(page, { resetStartMeasure: true }))
   if (!targets.length) return
   await submitRecognitionTargets(targets, aiVisionEnabled.value ? 'ai' : 'omr')
 }
@@ -574,19 +581,19 @@ async function recognize(): Promise<void> {
 async function recognizeAllPages(): Promise<void> {
   const targets = store.currentBatchPages
     .filter((page) => isStartablePage(page))
-    .map(targetFromPage)
+    .map((page) => targetFromPage(page, { resetStartMeasure: true }))
   if (!targets.length) return
   await submitRecognitionTargets(targets, aiVisionEnabled.value ? 'ai' : 'omr')
 }
 
-function targetFromPage(page: TaskPage): RecognitionTarget {
+function targetFromPage(page: TaskPage, options: { resetStartMeasure?: boolean } = {}): RecognitionTarget {
   // Prefer originalFileId for re-recognition if the input temp file was cleaned up
   const fileId = page.originalFileId || page.inputFileId
   return {
     pageId: page.id,
     inputFileName: page.inputFileName,
     inputFileId: fileId,
-    startMeasureNumber: page.startMeasureNumber ?? null,
+    startMeasureNumber: options.resetStartMeasure ? null : (page.startMeasureNumber ?? null),
   }
 }
 
@@ -628,8 +635,17 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
   for (const target of targets) {
     const historyPageId = historyPageIds.get(target.pageId)
     if (historyPageId) {
+      registerLiveRecognitionPage(target.pageId, historyPageId)
+      patchRecognitionPage(target.pageId, {
+        startMeasureNumber: target.startMeasureNumber,
+        historyPageId,
+      })
       try {
-        await historyApi.updatePage(historyPageId, { status: 'processing', error_message: '' })
+        await historyApi.updatePage(historyPageId, {
+          start_measure_number: target.startMeasureNumber,
+          status: 'processing',
+          error_message: '',
+        })
       } catch { /* best-effort */ }
     }
   }
@@ -677,6 +693,7 @@ async function createPendingHistory(targets: RecognitionTarget[]): Promise<Map<s
       if (!target) return
       result.set(target.pageId, page.id)
       store.patchPageById(target.pageId, { historyPageId: page.id })
+      registerLiveRecognitionPage(target.pageId, page.id)
     })
     notifyHistoryUpdated()
   } catch (error: unknown) {
@@ -701,7 +718,8 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
     } else {
       throw new Error('无输入文件 ID，请重新上传图片')
     }
-    store.patchPageById(target.pageId, { taskId: submitted.task_id })
+    patchRecognitionPage(target.pageId, { taskId: submitted.task_id })
+    updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id })
 
     const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, target.pageId)
     const split = splitJianpuAndOcr(result.jianpu_text)
@@ -722,7 +740,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       error_message: waitingMessage,
     }
 
-    store.patchPageById(target.pageId, {
+    patchRecognitionPage(target.pageId, {
       musicxmlFileId: result.musicxml_file_id,
       musicxmlText: '',
       jianpuText: split.jianpuText,
@@ -739,6 +757,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       errorMessage: waitingMessage,
     })
     await persistPageResult(target, pageResult, historyPageId)
+    clearLiveRecognitionPage(target.pageId)
     if (needsMeasureChoice) {
       log.addLog(`等待选择起始小节号：${target.inputFileName}`, 'warn')
       message.warning(`等待选择起始小节号：${target.inputFileName}`)
@@ -862,7 +881,8 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
       target_key: settings.targetKey,
       normalize: true,
     })
-    store.patchPageById(target.pageId, { taskId: submitted.task_id })
+    patchRecognitionPage(target.pageId, { taskId: submitted.task_id })
+    updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id })
 
     const response = await waitForTaskResult<AiTranscribeResponse>(submitted.task_id, target.pageId)
     if (!response.pages.length) throw new Error('AI 未返回任何页面')
@@ -886,6 +906,7 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
       error_message: waitingMessage || warnings.join('；'),
     }
     await persistPageResult(target, pageResult, historyPageId)
+    clearLiveRecognitionPage(target.pageId)
     if (needsMeasureChoice) {
       log.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, 'warn')
       message.warning(`AI 转写等待选择起始小节号：${target.inputFileName}`)
@@ -916,7 +937,7 @@ function applyAiResult(
     const messageText = resultStatus === 'waiting'
       ? waitingMeasureMessage(pageMeasureOptions)
       : aiPageErrorMessage(page)
-    store.patchPageById(target.pageId, {
+    patchRecognitionPage(target.pageId, {
       inputFileName: aiPageLabel(response.source_filename, page, response.pages.length),
       inputFileId: page.page_image_file_id,
       originalFileName: aiPageLabel(response.source_filename, page, response.pages.length),
@@ -976,19 +997,36 @@ async function waitForTaskResult<T>(taskId: string, pageId: string): Promise<T> 
   return completed.result as T
 }
 
+function patchRecognitionPage(pageId: string, patch: Partial<TaskPage>): void {
+  if (store.patchPageById(pageId, patch)) return
+  const historyPageId = getLiveRecognitionHistoryPageId(pageId)
+  if (historyPageId) {
+    store.patchPageByHistoryPageId(historyPageId, patch)
+  }
+}
+
 function updatePageProgress(pageId: string, event: SSEProgressEvent): void {
   const failed = event.status === 'failed'
-  store.patchPageById(pageId, {
+  const patch: Partial<TaskPage> = {
     taskId: event.task_id,
     status: failed ? 'failed' : 'processing',
     progressPercent: Math.max(0, Math.min(99, Math.round(event.percent))),
     progressMessage: taskProgressText(event),
     errorMessage: failed ? taskProgressText(event) : '',
+  }
+  patchRecognitionPage(pageId, patch)
+  updateLiveRecognitionPage(pageId, {
+    taskId: event.task_id,
+    status: failed ? 'failed' : 'processing',
+    progressPercent: patch.progressPercent ?? 0,
+    progressMessage: patch.progressMessage ?? '',
+    errorMessage: patch.errorMessage ?? '',
   })
   const page = store.pages.find((p) => p.id === pageId)
-  if (page?.historyPageId) {
+  const historyPageId = page?.historyPageId ?? getLiveRecognitionHistoryPageId(pageId)
+  if (historyPageId) {
     notifyHistoryPagePatched({
-      id: page.historyPageId,
+      id: historyPageId,
       patch: {
         status: failed ? 'failed' : 'processing',
         error_message: failed ? taskProgressText(event) : '',
@@ -998,16 +1036,25 @@ function updatePageProgress(pageId: string, event: SSEProgressEvent): void {
 }
 
 function markPageProcessing(target: RecognitionTarget, messageText: string, percent: number): void {
-  store.patchPageById(target.pageId, {
+  const patch: Partial<TaskPage> = {
+    status: 'processing',
+    startMeasureNumber: target.startMeasureNumber,
+    progressPercent: percent,
+    progressMessage: messageText,
+    errorMessage: '',
+  }
+  patchRecognitionPage(target.pageId, patch)
+  updateLiveRecognitionPage(target.pageId, {
     status: 'processing',
     progressPercent: percent,
     progressMessage: messageText,
     errorMessage: '',
   })
   const page = store.pages.find((p) => p.id === target.pageId)
-  if (page?.historyPageId) {
+  const historyPageId = page?.historyPageId ?? getLiveRecognitionHistoryPageId(target.pageId)
+  if (historyPageId) {
     notifyHistoryPagePatched({
-      id: page.historyPageId,
+      id: historyPageId,
       patch: { status: 'processing', error_message: '' },
     })
   }
@@ -1023,7 +1070,7 @@ async function failTarget(
   if (msg === 'Failed to fetch') {
     msg = '后端未启动或网络异常，请检查后端是否在运行'
   }
-  store.patchPageById(target.pageId, {
+  patchRecognitionPage(target.pageId, {
     taskId: '',
     status: 'failed',
     progressPercent: 100,
@@ -1041,6 +1088,7 @@ async function failTarget(
     status: 'failed',
     error_message: msg,
   }, historyPageId)
+  clearLiveRecognitionPage(target.pageId)
   log.addError(`${prefix}：${target.inputFileName}：${msg}`)
   message.error(`${target.inputFileName}：${msg}`)
 }
@@ -1113,6 +1161,7 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
           : page.error_message,
     measureNumberOptions: page.status === 'waiting' ? options : [],
     errorMessage: page.error_message,
+    ...liveRecognitionTaskPatch(page.id, page.status),
   }
   if (!store.patchPageById(pageId, patch)) {
     store.patchPageByHistoryPageId(page.id, patch)
@@ -1233,11 +1282,11 @@ function errorMessage(error: unknown): string {
 /* ── Dashboard Grid ── */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
-  grid-template-rows: minmax(220px, max-content) minmax(280px, 1fr);
-  gap: clamp(16px, 2vw, 24px);
+  grid-template-columns: repeat(2, minmax(420px, 1fr));
+  grid-template-rows: minmax(280px, auto) minmax(0, 1fr);
+  gap: 24px;
   flex: 1;
-  min-height: min-content;
+  min-height: 0;
   align-items: stretch;
 }
 
@@ -1245,19 +1294,25 @@ function errorMessage(error: unknown): string {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: clamp(12px, 2cqw, 28px);
+  padding: 24px 28px;
   display: flex;
   flex-direction: column;
-  gap: clamp(10px, 2cqw, 24px);
-  height: auto;
+  gap: 20px;
+  height: 100%;
   min-height: 0;
-  overflow: visible;
-  container-type: size;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.card-stats,
+.card-recognition,
+.card-stats {
+  min-height: 280px;
+  overflow: visible;
+}
+
 .card-uploads,
 .card-activity {
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1265,7 +1320,7 @@ function errorMessage(error: unknown): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(4px, 1cqw, 8px);
+  gap: 12px;
   flex-shrink: 0;
   min-width: 0;
 }
@@ -1273,13 +1328,15 @@ function errorMessage(error: unknown): string {
 .card-title {
   display: flex;
   align-items: center;
-  gap: clamp(4px, 1cqw, 10px);
-  font-size: clamp(13px, 4cqw, 17px);
+  gap: 10px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .card-title :deep(.n-icon) {
@@ -1290,13 +1347,16 @@ function errorMessage(error: unknown): string {
 .card-header-right {
   display: flex;
   align-items: center;
-  gap: clamp(4px, 1cqw, 8px);
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
   flex-shrink: 0;
   min-width: 0;
 }
 
 .batch-select {
-  width: clamp(80px, 25cqw, 160px);
+  width: 160px;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -1318,6 +1378,10 @@ function errorMessage(error: unknown): string {
   overflow: visible;
 }
 
+.card-recognition .card-body {
+  flex: 0 0 auto;
+}
+
 .card-footer {
   display: flex;
   align-items: center;
@@ -1328,16 +1392,21 @@ function errorMessage(error: unknown): string {
   flex-shrink: 0;
 }
 
+.card-recognition .card-footer {
+  margin-top: auto;
+}
+
 .page-nav {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .page-indicator {
-  font-size: clamp(9px, 2.5cqw, 12px);
+  font-size: 12px;
   color: var(--text-tertiary);
-  min-width: clamp(28px, 8cqw, 40px);
+  min-width: 40px;
   text-align: center;
 }
 
@@ -1380,36 +1449,31 @@ function errorMessage(error: unknown): string {
   font-weight: 500;
 }
 
-/* ── Stats ── */
-.card-stats {
-  container-type: size;
-}
-
 .stats-body {
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 2cqh, 16px);
+  gap: 14px;
   flex: 1;
   justify-content: center;
   min-height: 0;
-  container-type: size;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .stats-ring-wrap {
   display: flex;
   align-items: center;
-  gap: clamp(8px, 3cqw, 24px);
-  min-height: 0;
+  gap: 18px;
   flex: 1;
-  overflow: hidden;
-  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  justify-content: flex-start;
 }
 
 .stats-ring {
   position: relative;
-  width: clamp(48px, min(28cqw, 28cqh), 120px);
-  height: clamp(48px, min(28cqw, 28cqh), 120px);
+  width: 76px;
+  height: 76px;
   flex-shrink: 0;
 }
 
@@ -1447,14 +1511,14 @@ function errorMessage(error: unknown): string {
 }
 
 .ring-total {
-  font-size: clamp(12px, 3cqw, 20px);
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1;
 }
 
 .ring-label {
-  font-size: clamp(8px, 1.8cqw, 11px);
+  font-size: 11px;
   color: var(--text-tertiary);
   margin-top: 2px;
 }
@@ -1462,7 +1526,7 @@ function errorMessage(error: unknown): string {
 .stats-legend {
   display: flex;
   flex-direction: column;
-  gap: clamp(4px, 1.5cqh, 10px);
+  gap: 8px;
   flex: 1;
   min-width: 0;
   justify-content: center;
@@ -1471,13 +1535,13 @@ function errorMessage(error: unknown): string {
 .legend-item {
   display: flex;
   align-items: center;
-  gap: clamp(6px, 2cqw, 10px);
-  font-size: clamp(10px, 2.5cqw, 13px);
+  gap: 10px;
+  font-size: 13px;
 }
 
 .legend-dot {
-  width: clamp(6px, 1.6cqw, 10px);
-  height: clamp(6px, 1.6cqw, 10px);
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -1499,14 +1563,15 @@ function errorMessage(error: unknown): string {
 .legend-value {
   color: var(--text-primary);
   font-weight: 600;
-  min-width: clamp(16px, 5cqw, 32px);
+  min-width: 28px;
   text-align: right;
 }
 
 .stats-mini-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(8px, 2cqw, 14px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-self: stretch;
   flex-shrink: 0;
 }
 
@@ -1514,61 +1579,26 @@ function errorMessage(error: unknown): string {
   background: var(--bg-surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
-  padding: clamp(6px, 1.8cqh, 16px);
+  padding: 8px 12px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: clamp(2px, 1cqh, 6px);
-  min-height: 0;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
 }
 
 .mini-card-value {
-  font-size: clamp(14px, 4cqw, 24px);
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
+  line-height: 1;
 }
 
 .mini-card-label {
-  font-size: clamp(9px, 2cqw, 12px);
+  font-size: 12px;
   color: var(--text-tertiary);
-}
-
-@container (max-width: 220px) {
-  .stats-ring-wrap {
-    flex-direction: column;
-    gap: 6px;
-    justify-content: center;
-  }
-  .stats-ring {
-    width: clamp(40px, 45cqw, 80px);
-    height: clamp(40px, 45cqw, 80px);
-  }
-  .stats-legend {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 4px 10px;
-    justify-content: center;
-  }
-  .legend-item {
-    font-size: 10px;
-    gap: 4px;
-  }
-  .legend-text {
-    display: none;
-  }
-  .stats-mini-cards {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .mini-card {
-    padding: 6px;
-  }
-  .mini-card-value {
-    font-size: 14px;
-  }
-  .mini-card-label {
-    font-size: 9px;
-  }
+  line-height: 1.2;
 }
 
 /* ── Uploads ── */
@@ -1869,10 +1899,73 @@ function errorMessage(error: unknown): string {
   flex: 1;
 }
 
-@media (max-width: 960px) {
+@media (max-height: 840px) and (min-width: 1181px) {
+  .dashboard-grid {
+    grid-template-rows: minmax(260px, auto) minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .dashboard-card {
+    padding: 20px 24px;
+    gap: 16px;
+  }
+
+  .card-recognition,
+  .card-stats {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 1180px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
+  }
+
+  .dashboard-card {
+    height: auto;
+  }
+
+  .card-recognition,
+  .card-stats {
+    min-height: 260px;
+  }
+
+  .card-uploads,
+  .card-activity {
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 720px) {
+  .recognize-view {
+    padding: 0 12px 8px;
+  }
+
+  .dashboard-card {
+    padding: 18px;
+  }
+
+  .card-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .card-header-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .stats-ring-wrap {
+    flex-wrap: wrap;
+  }
+
+  .stats-mini-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .uploads-list {
+    grid-template-columns: 1fr;
   }
 }
 </style>

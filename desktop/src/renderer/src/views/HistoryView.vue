@@ -68,6 +68,7 @@ import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
 import { listenHistoryUpdated, listenHistoryPagePatched, type HistoryPagePatchDetail } from '../utils/historyEvents'
 import { splitJianpuAndOcr } from '../utils/ocrText'
+import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/types'
 import type { TaskPage } from '../stores/task'
 import {
@@ -180,6 +181,7 @@ async function handleRestore(entry: HistoryBatchListItem): Promise<void> {
         status: page.status as any,
         measureNumberOptions: parseWaitingMeasureOptions(page.error_message),
         errorMessage: page.error_message,
+        ...liveRecognitionTaskPatch(page.id, page.status),
       }
     }),
     0,

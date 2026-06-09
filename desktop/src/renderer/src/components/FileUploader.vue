@@ -79,6 +79,12 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.upload-container :deep(.n-upload) {
+  width: 100%;
 }
 
 .upload-zone {
@@ -86,6 +92,10 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   border: 1.5px dashed var(--border) !important;
   background: var(--bg-elevated) !important;
   transition: border-color 0.2s ease, background-color 0.2s ease;
+  min-height: 118px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
 }
 
 .upload-zone:hover {
@@ -96,8 +106,12 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
 .upload-inner {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 16px;
-  padding: 20px 24px;
+  width: 100%;
+  min-width: 0;
+  padding: 24px;
   color: var(--text-tertiary);
 }
 
@@ -109,20 +123,37 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .upload-title {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
+  line-height: 1.4;
 }
 
 .upload-hint {
   font-size: 12px;
   color: var(--text-tertiary);
+  line-height: 1.4;
+  white-space: normal;
 }
 
 .upload-progress {
   margin: 0;
+}
+
+@media (max-width: 720px) {
+  .upload-zone {
+    min-height: 132px;
+  }
+
+  .upload-inner {
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px;
+    text-align: center;
+  }
 }
 </style>

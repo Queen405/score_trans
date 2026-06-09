@@ -183,6 +183,7 @@ import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
+import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import {
   listenHistoryPagePatched,
   listenHistoryUpdated,
@@ -410,6 +411,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       status: r.page.status as any,
       measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
       errorMessage: r.page.error_message,
+      ...liveRecognitionTaskPatch(r.page.id, r.page.status),
     })),
     pageIndex >= 0 ? pageIndex : 0,
   )
@@ -695,6 +697,7 @@ function syncStoreFromHistoryPage(page: HistoryPage): void {
           : page.error_message,
     measureNumberOptions: page.status === 'waiting' ? parseWaitingMeasureOptions(page.error_message) : [],
     errorMessage: page.error_message,
+    ...liveRecognitionTaskPatch(page.id, page.status),
   })
 }
 
