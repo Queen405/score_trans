@@ -84,6 +84,39 @@ def test_ai_action_transcribes_uploaded_image_with_mock_provider(
     assert response.pages[0].warnings == ["第二小节看不清"]
 
 
+def test_ai_action_normalizes_dotted_duration_prefix_variant(
+    tmp_path: Path,
+) -> None:
+    config = ToolConfig(work_dir=tmp_path / "work")
+    uploads = UploadService(config)
+    source = tmp_path / "score.png"
+    source.write_bytes(b"fake png")
+    file_id = uploads.register(source)
+    provider = MockVisionJianpuProvider(
+        [
+            VisionPageResult(
+                key="C",
+                meter="4/4",
+                jianpu_text="1=C\n4/4\nh.4' 1 |",
+            )
+        ]
+    )
+    actions = AiActions(
+        uploads=uploads,
+        settings=FakeSettings(config),  # type: ignore[arg-type]
+        transcriber=AiTranscriptionService(provider),
+    )
+
+    response = actions.transcribe_score(
+        AiTranscribeRequest(file_id=file_id, target_key="C")
+    )
+
+    saved_text = uploads.get_path(response.jianpu_file_id).read_text(encoding="utf-8")
+    assert "h4'." in response.pages[0].jianpu_text
+    assert "h.4'" not in response.pages[0].jianpu_text
+    assert "h4'." in saved_text
+
+
 def test_pdf_to_png_pages_creates_one_png_per_page(tmp_path: Path) -> None:
     import fitz
 

@@ -159,6 +159,28 @@ def test_render_jianpu_text_page_supports_chord_tokens(tmp_path) -> None:
     assert ">2<" in svg
 
 
+def test_render_jianpu_text_page_accepts_ai_dotted_duration_prefix_variant(tmp_path) -> None:
+    text_path = tmp_path / "score.txt"
+    image_path = tmp_path / "score.png"
+    output_path = tmp_path / "score.svg"
+    text_path.write_text("1=C\n4/4\nh.4' 1 |", encoding="utf-8")
+    image_path.write_bytes(b"fake image")
+
+    RenderJianpuTextAction().execute_page(
+        text_path,
+        output_path,
+        page_width=320,
+        page_height=480,
+        image_path=image_path,
+        ocr_provider=MockOCRProvider([]),
+        start_measure_number=5,
+    )
+
+    svg = output_path.read_text(encoding="utf-8")
+    assert ">5</text>" in svg
+    assert ">4</text>" in svg
+
+
 def test_render_score_page_svg_places_ocr_text_block_at_bbox() -> None:
     score = _simple_score(
         JianpuEvent(kind="note", duration=Fraction(1, 1), pitches=[JianpuPitch(1)], start=Fraction(0, 1)),

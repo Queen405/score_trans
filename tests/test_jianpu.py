@@ -101,6 +101,15 @@ def test_chord_duration_prefix_before_brackets_is_supported() -> None:
     assert "[q1" not in normalized
 
 
+def test_ai_dotted_duration_prefix_variant_is_normalized() -> None:
+    normalized = normalize_jianpu_text("1=C\n4/4\nh.4' |")
+    score = parse_jianpu_score(normalized)
+
+    assert "h4'." in normalized
+    assert "h.4'" not in normalized
+    assert score.measures[0].events[0].duration == Fraction(3, 1)
+
+
 def test_score_to_jianpu_text_preserves_marks_and_lyrics() -> None:
     score = parse_jianpu_score("title=完整\n1=C\n4/4\n|: \\mf ^> (q1~ ~q1) q[1+3+5] q0 :|\nL: 春 风")
     text = score_to_jianpu_text(score)

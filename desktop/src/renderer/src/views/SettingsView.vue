@@ -53,13 +53,6 @@
               size="small"
             />
           </div>
-          <div class="sv-form-item">
-            <label>模型</label>
-            <div class="provider-detail">
-              <n-icon size="14"><HardwareChipOutline /></n-icon>
-              <span>{{ selectedProviderModel(settings.ocrProviderOptions, settings.ocrProvider) }}</span>
-            </div>
-          </div>
         </div>
       </n-card>
 
@@ -109,13 +102,6 @@
               size="small"
             />
           </div>
-          <div class="sv-form-item">
-            <label>视觉模型</label>
-            <div class="provider-detail">
-              <n-icon size="14"><HardwareChipOutline /></n-icon>
-              <span>{{ selectedProviderModel(settings.aiProviderOptions, settings.aiProvider) }}</span>
-            </div>
-          </div>
         </div>
       </n-card>
 
@@ -160,13 +146,6 @@
               size="small"
             />
           </div>
-          <div class="sv-form-item">
-            <label>模型</label>
-            <div class="provider-detail">
-              <n-icon size="14"><HardwareChipOutline /></n-icon>
-              <span>{{ selectedProviderModel(settings.assistantProviderOptions, settings.assistantProvider) }}</span>
-            </div>
-          </div>
         </div>
       </n-card>
     </div>
@@ -181,7 +160,6 @@ import {
   BuildOutline,
   NewspaperOutline,
   EyeOutline,
-  HardwareChipOutline,
   SaveOutline,
   CodeOutline,
   KeyOutline,
@@ -260,10 +238,6 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
     value: option.id,
   }))
 }
-
-function selectedProviderModel(options: LlmProviderOption[], selected: string): string {
-  return options.find((option) => option.id === selected)?.model ?? ''
-}
 </script>
 
 <style scoped>
@@ -296,8 +270,8 @@ function selectedProviderModel(options: LlmProviderOption[], selected: string): 
 .sv-grid-layout {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(3, 1fr);
   gap: 24px;
+  align-items: start;
 }
 
 .sv-grid-layout > .sv-card {
@@ -313,20 +287,20 @@ function selectedProviderModel(options: LlmProviderOption[], selected: string): 
 }
 
 .sv-card {
-  --n-padding-left: 20px;
-  --n-padding-right: 20px;
-  --n-padding-top: 18px;
-  --n-padding-bottom: 18px;
+  --n-padding-left: 28px;
+  --n-padding-right: 28px;
+  --n-padding-top: 24px;
+  --n-padding-bottom: 24px;
 }
 
 .sv-card-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--accent);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .sv-card-icon {
@@ -336,7 +310,7 @@ function selectedProviderModel(options: LlmProviderOption[], selected: string): 
 .sv-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   flex: 1;
 }
 
@@ -360,18 +334,6 @@ function selectedProviderModel(options: LlmProviderOption[], selected: string): 
   font-size: 13px;
   color: var(--text-secondary);
   min-width: 80px;
-}
-
-.provider-detail {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.4;
-  word-break: break-all;
-  min-height: 32px;
-  padding: 4px 0;
 }
 
 @media (max-width: 720px) {

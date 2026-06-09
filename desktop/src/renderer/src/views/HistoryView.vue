@@ -6,7 +6,7 @@
         <p class="subtitle">共 {{ entries.length }} 条记录</p>
       </div>
       <div class="hv-actions">
-        <n-button size="small" secondary @click="loadHistory" :loading="loading">刷新</n-button>
+        <n-button size="small" secondary @click="loadHistory()" :loading="loading">刷新</n-button>
         <n-popconfirm @positive-click="handleDeleteAll" :show-icon="false">
           <template #trigger>
             <n-button type="error" size="small" :disabled="!entries.length" secondary>清空全部</n-button>
@@ -89,7 +89,7 @@ let pagePatchReloadTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   loadHistory()
-  stopHistoryUpdatedListener = listenHistoryUpdated(loadHistory)
+  stopHistoryUpdatedListener = listenHistoryUpdated(() => loadHistory(false))
   stopHistoryPagePatchedListener = listenHistoryPagePatched(handlePagePatched)
 })
 
@@ -100,8 +100,10 @@ onUnmounted(() => {
   stopHistoryPagePatchedListener = null
 })
 
-async function loadHistory(): Promise<void> {
-  loading.value = true
+async function loadHistory(showLoading = true): Promise<void> {
+  if (showLoading || !entries.value.length) {
+    loading.value = true
+  }
   try {
     entries.value = await historyApi.list()
   } catch (e: unknown) {
@@ -117,7 +119,7 @@ function handlePagePatched(detail: HistoryPagePatchDetail): void {
   if (pagePatchReloadTimer) clearTimeout(pagePatchReloadTimer)
   pagePatchReloadTimer = setTimeout(() => {
     pagePatchReloadTimer = null
-    void loadHistory()
+    void loadHistory(false)
   }, 500)
 }
 
@@ -232,8 +234,10 @@ function isPreviewableHistoryFile(fileName: string): boolean {
 }
 
 function parseWaitingMeasureOptions(messageText: string): number[] {
-  if (!messageText.includes('等待选择起始小节号')) return []
-  return Array.from(messageText.matchAll(/\d+/g), (match) => Number(match[0]))
+  const match = messageText.match(/等待选择起始小节号[:：]\s*([0-9\s、,，]+)/)
+  if (!match) return []
+  const optionsText = match[1] ?? ''
+  return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0]))
     .filter((value) => Number.isFinite(value) && value > 0)
 }
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 import re
 
-from ..jianpu_tokens import consume_duration_prefix
+from ..jianpu_tokens import DURATION_PREFIXES, consume_duration_prefix
 from ..constants import DYNAMICS
 from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
@@ -244,7 +244,12 @@ def _parse_event_token(token: _Token) -> Event:
     tie_start = work.endswith("~")
     if tie_start:
         work = work[:-1]
+    has_duration_prefix = bool(work) and work[0] in DURATION_PREFIXES
     duration, work = _consume_duration_prefix(work)
+    prefix_dotted = has_duration_prefix and work.startswith(".") and len(work) > 1
+    if prefix_dotted:
+        duration += duration / 2
+        work = work[1:]
     while work.endswith("-"):
         duration += Fraction(1, 1)
         work = work[:-1]
@@ -264,7 +269,7 @@ def _parse_event_token(token: _Token) -> Event:
         event = Event(kind="rest", duration=duration)
     else:
         event = Event(kind="note", duration=duration, pitches=[_parse_pitch(work, token)])
-    event.dotted = 1 if dotted else 0
+    event.dotted = 1 if dotted or prefix_dotted else 0
     event.tie_start = tie_start
     event.tie_stop = tie_stop
     event.slur_start = slur_start

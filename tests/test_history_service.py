@@ -66,6 +66,34 @@ def test_batch_status_tracks_background_pages(tmp_path) -> None:
     assert service.get_batch(batch.id).status == "failed"
 
 
+def test_measure_selection_failure_update_does_not_leave_processing_status(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(
+                input_file_name="score.png",
+                input_file_id="input-1",
+                status="processing",
+                error_message="正在重新渲染",
+            )
+        ]
+    )
+    page = batch.pages[0]
+
+    updated = service.update_page(
+        page.id,
+        start_measure_number=5,
+        status="waiting",
+        error_message="选择小节号失败：bad token",
+    )
+
+    assert updated is not None
+    assert updated.status == "waiting"
+    assert updated.start_measure_number == 5
+    assert "bad token" in updated.error_message
+    assert service.get_batch(batch.id).status == "waiting"
+
+
 def test_list_batch_summaries_do_not_load_page_payloads(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
     large_text = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 1000)

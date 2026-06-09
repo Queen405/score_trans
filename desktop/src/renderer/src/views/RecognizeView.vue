@@ -27,7 +27,7 @@
               :value="store.currentBatchId"
               :options="batchOptions"
               size="small"
-              style="width: 160px"
+              class="batch-select"
               @update:value="store.selectBatch($event)"
             />
             <div v-if="store.pageCount" class="page-nav">
@@ -582,13 +582,11 @@ async function recognizeAllPages(): Promise<void> {
 function targetFromPage(page: TaskPage): RecognitionTarget {
   // Prefer originalFileId for re-recognition if the input temp file was cleaned up
   const fileId = page.originalFileId || page.inputFileId
-  // Always reset startMeasureNumber to null so re-recognition can
-  // re-detect OCR measure numbers and prompt the user to choose.
   return {
     pageId: page.id,
     inputFileName: page.inputFileName,
     inputFileId: fileId,
-    startMeasureNumber: null,
+    startMeasureNumber: page.startMeasureNumber ?? null,
   }
 }
 
@@ -822,21 +820,35 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
     message.success('已应用起始小节号')
   } catch (error: unknown) {
     const msg = errorMessage(error)
+    const failedMessage = failedMeasureSelectionMessage(page.measureNumberOptions, msg)
     store.patchPageById(pageId, {
       status: 'waiting',
       progressPercent: 100,
       progressMessage: '等待选择起始小节号',
-      errorMessage: msg,
+      measureNumberOptions: page.measureNumberOptions,
+      errorMessage: failedMessage,
     })
     if (page.historyPageId) {
-      notifyHistoryPagePatched({
-        id: page.historyPageId,
-        patch: {
-          start_measure_number: page.startMeasureNumber,
+      try {
+        const updated = await historyApi.updatePage(page.historyPageId, {
+          start_measure_number: selected,
           status: 'waiting',
-          error_message: page.errorMessage,
-        },
-      })
+          error_message: failedMessage,
+        })
+        syncStoreFromHistoryPage(pageId, updated)
+        notifyHistoryPagePatched(historyPagePatchFromPage(updated))
+        notifyHistoryUpdated()
+      } catch (persistError: unknown) {
+        log.addLog(`保存小节号失败状态失败：${errorMessage(persistError)}`, 'warn')
+        notifyHistoryPagePatched({
+          id: page.historyPageId,
+          patch: {
+            start_measure_number: selected,
+            status: 'waiting',
+            error_message: failedMessage,
+          },
+        })
+      }
     }
     message.error(msg)
   }
@@ -1170,9 +1182,16 @@ function waitingMeasureMessage(options: number[]): string {
   return `等待选择起始小节号：${options.join('、')}`
 }
 
+function failedMeasureSelectionMessage(options: number[], msg: string): string {
+  const prefix = options.length ? `${waitingMeasureMessage(options)}；` : ''
+  return `${prefix}选择小节号失败：${msg}`
+}
+
 function parseWaitingMeasureOptions(messageText: string): number[] {
-  if (!messageText.includes('等待选择起始小节号')) return []
-  return Array.from(messageText.matchAll(/\d+/g), (match) => Number(match[0]))
+  const match = messageText.match(/等待选择起始小节号[:：]\s*([0-9\s、,，]+)/)
+  if (!match) return []
+  const optionsText = match[1] ?? ''
+  return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0]))
     .filter((value) => Number.isFinite(value) && value > 0)
 }
 
@@ -1214,23 +1233,31 @@ function errorMessage(error: unknown): string {
 /* ── Dashboard Grid ── */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 24px;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  grid-template-rows: minmax(220px, max-content) minmax(280px, 1fr);
+  gap: clamp(16px, 2vw, 24px);
   flex: 1;
-  min-height: 0;
+  min-height: min-content;
+  align-items: stretch;
 }
 
 .dashboard-card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 28px;
+  padding: clamp(12px, 2cqw, 28px);
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  height: 100%;
+  gap: clamp(10px, 2cqw, 24px);
+  height: auto;
   min-height: 0;
+  overflow: visible;
+  container-type: size;
+}
+
+.card-stats,
+.card-uploads,
+.card-activity {
   overflow: hidden;
 }
 
@@ -1238,27 +1265,48 @@ function errorMessage(error: unknown): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: clamp(4px, 1cqw, 8px);
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .card-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 17px;
+  gap: clamp(4px, 1cqw, 10px);
+  font-size: clamp(13px, 4cqw, 17px);
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-title :deep(.n-icon) {
   color: var(--accent);
+  flex-shrink: 0;
 }
 
 .card-header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: clamp(4px, 1cqw, 8px);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.batch-select {
+  width: clamp(80px, 25cqw, 160px);
+  min-width: 0;
+}
+
+.batch-select :deep(.n-base-selection) {
+  min-width: 0;
+}
+
+.batch-select :deep(.n-base-selection-label) {
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .card-body {
@@ -1267,7 +1315,7 @@ function errorMessage(error: unknown): string {
   gap: 16px;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .card-footer {
@@ -1287,9 +1335,9 @@ function errorMessage(error: unknown): string {
 }
 
 .page-indicator {
-  font-size: 12px;
+  font-size: clamp(9px, 2.5cqw, 12px);
   color: var(--text-tertiary);
-  min-width: 40px;
+  min-width: clamp(28px, 8cqw, 40px);
   text-align: center;
 }
 
@@ -1333,24 +1381,35 @@ function errorMessage(error: unknown): string {
 }
 
 /* ── Stats ── */
+.card-stats {
+  container-type: size;
+}
+
 .stats-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: clamp(6px, 2cqh, 16px);
   flex: 1;
   justify-content: center;
+  min-height: 0;
+  container-type: size;
+  overflow: hidden;
 }
 
 .stats-ring-wrap {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: clamp(8px, 3cqw, 24px);
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  justify-content: center;
 }
 
 .stats-ring {
   position: relative;
-  width: 170px;
-  height: 170px;
+  width: clamp(48px, min(28cqw, 28cqh), 120px);
+  height: clamp(48px, min(28cqw, 28cqh), 120px);
   flex-shrink: 0;
 }
 
@@ -1358,6 +1417,7 @@ function errorMessage(error: unknown): string {
   width: 100%;
   height: 100%;
   transform: rotate(-90deg);
+  display: block;
 }
 
 .ring-bg {
@@ -1387,14 +1447,14 @@ function errorMessage(error: unknown): string {
 }
 
 .ring-total {
-  font-size: 28px;
+  font-size: clamp(12px, 3cqw, 20px);
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1;
 }
 
 .ring-label {
-  font-size: 12px;
+  font-size: clamp(8px, 1.8cqw, 11px);
   color: var(--text-tertiary);
   margin-top: 2px;
 }
@@ -1402,20 +1462,22 @@ function errorMessage(error: unknown): string {
 .stats-legend {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: clamp(4px, 1.5cqh, 10px);
   flex: 1;
+  min-width: 0;
+  justify-content: center;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 15px;
+  gap: clamp(6px, 2cqw, 10px);
+  font-size: clamp(10px, 2.5cqw, 13px);
 }
 
 .legend-dot {
-  width: 14px;
-  height: 14px;
+  width: clamp(6px, 1.6cqw, 10px);
+  height: clamp(6px, 1.6cqw, 10px);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -1428,41 +1490,85 @@ function errorMessage(error: unknown): string {
 .legend-text {
   color: var(--text-secondary);
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .legend-value {
   color: var(--text-primary);
   font-weight: 600;
-  min-width: 32px;
+  min-width: clamp(16px, 5cqw, 32px);
   text-align: right;
 }
 
 .stats-mini-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: clamp(8px, 2cqw, 14px);
+  flex-shrink: 0;
 }
 
 .mini-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
-  padding: 24px;
+  padding: clamp(6px, 1.8cqh, 16px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: clamp(2px, 1cqh, 6px);
+  min-height: 0;
 }
 
 .mini-card-value {
-  font-size: 32px;
+  font-size: clamp(14px, 4cqw, 24px);
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .mini-card-label {
-  font-size: 14px;
+  font-size: clamp(9px, 2cqw, 12px);
   color: var(--text-tertiary);
+}
+
+@container (max-width: 220px) {
+  .stats-ring-wrap {
+    flex-direction: column;
+    gap: 6px;
+    justify-content: center;
+  }
+  .stats-ring {
+    width: clamp(40px, 45cqw, 80px);
+    height: clamp(40px, 45cqw, 80px);
+  }
+  .stats-legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    justify-content: center;
+  }
+  .legend-item {
+    font-size: 10px;
+    gap: 4px;
+  }
+  .legend-text {
+    display: none;
+  }
+  .stats-mini-cards {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .mini-card {
+    padding: 6px;
+  }
+  .mini-card-value {
+    font-size: 14px;
+  }
+  .mini-card-label {
+    font-size: 9px;
+  }
 }
 
 /* ── Uploads ── */

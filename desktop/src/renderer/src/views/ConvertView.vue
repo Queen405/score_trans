@@ -4,7 +4,7 @@
       <div class="ws-hist-head">
         <span class="ws-hist-title">历史</span>
         <div class="ws-hist-actions">
-          <n-button size="tiny" quaternary @click="loadHistory" :loading="histLoading">
+          <n-button size="tiny" quaternary @click="loadHistory()" :loading="histLoading">
             <template #icon><n-icon size="14"><RefreshOutline /></n-icon></template>
           </n-button>
           <n-popconfirm @positive-click="handleDeleteAll" :show-icon="false">
@@ -254,7 +254,7 @@ watch(() => store.currentPageIndex, () => { currentNoteIndex.value = -1 })
 
 onMounted(() => {
   loadHistory()
-  stopHistoryUpdatedListener = listenHistoryUpdated(loadHistory)
+  stopHistoryUpdatedListener = listenHistoryUpdated(() => loadHistory(false))
   stopHistoryPagePatchedListener = listenHistoryPagePatched(handleHistoryPagePatched)
 })
 
@@ -267,12 +267,14 @@ onUnmounted(() => {
 
 function toggleHistory() {
   historyOpen.value = !historyOpen.value
-  if (historyOpen.value) loadHistory()
+  if (historyOpen.value) loadHistory(false)
 }
 
-async function loadHistory(): Promise<void> {
+async function loadHistory(showLoading = true): Promise<void> {
   const seq = ++historyListRequestSeq
-  histLoading.value = true
+  if (showLoading || !histBatches.value.length) {
+    histLoading.value = true
+  }
   try {
     const batches = await historyApi.list()
     if (seq !== historyListRequestSeq) return
@@ -551,9 +553,20 @@ function isPreviewableHistoryFile(fileName: string): boolean {
 }
 
 function parseWaitingMeasureOptions(messageText: string): number[] {
-  if (!messageText.includes('等待选择起始小节号')) return []
-  return Array.from(messageText.matchAll(/\d+/g), (match) => Number(match[0]))
+  const match = messageText.match(/等待选择起始小节号[:：]\s*([0-9\s、,，]+)/)
+  if (!match) return []
+  const optionsText = match[1] ?? ''
+  return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0]))
     .filter((value) => Number.isFinite(value) && value > 0)
+}
+
+function waitingMeasureMessage(options: number[]): string {
+  return `等待选择起始小节号：${options.join('、')}`
+}
+
+function failedMeasureSelectionMessage(options: number[], msg: string): string {
+  const prefix = options.length ? `${waitingMeasureMessage(options)}；` : ''
+  return `${prefix}选择小节号失败：${msg}`
 }
 
 function handleHistoryPageClick(page: HistoryPage): void {
@@ -591,10 +604,10 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
   syncStoreFromHistoryPage(processingPage)
   notifyHistoryPagePatched(historyPagePatchFromPage(processingPage))
 
+  const options = parseWaitingMeasureOptions(page.error_message)
   try {
     let svgFileId = page.svg_file_id
     let jianpuText = page.jianpu_text
-    const options = parseWaitingMeasureOptions(page.error_message)
     if (page.musicxml_file_id && selected !== options[0]) {
       const rendered = await renderApi.jianpuSvg({
         musicxml_file_id: page.musicxml_file_id,
@@ -627,10 +640,30 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
     notifyHistoryUpdated()
     message.success('已应用起始小节号')
   } catch (e: unknown) {
-    replaceExpandedHistoryPage(page)
-    syncStoreFromHistoryPage(page)
-    notifyHistoryPagePatched(historyPagePatchFromPage(page))
     const msg = e instanceof Error ? e.message : String(e)
+    const failedMessage = failedMeasureSelectionMessage(options, msg)
+    const failedPage: HistoryPage = {
+      ...page,
+      start_measure_number: selected,
+      status: 'waiting',
+      error_message: failedMessage,
+    }
+    try {
+      const updated = await historyApi.updatePage(page.id, {
+        start_measure_number: selected,
+        status: 'waiting',
+        error_message: failedMessage,
+      })
+      replaceExpandedHistoryPage(updated)
+      syncStoreFromHistoryPage(updated)
+      notifyHistoryPagePatched(historyPagePatchFromPage(updated))
+      notifyHistoryUpdated()
+    } catch (persistError: unknown) {
+      replaceExpandedHistoryPage(failedPage)
+      syncStoreFromHistoryPage(failedPage)
+      notifyHistoryPagePatched(historyPagePatchFromPage(failedPage))
+      log.addLog(`保存小节号失败状态失败：${persistError instanceof Error ? persistError.message : String(persistError)}`, 'warn')
+    }
     message.error(msg)
     log.addError(`选择小节号失败：${msg}`)
   } finally {
