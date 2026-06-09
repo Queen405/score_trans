@@ -18,4 +18,10 @@ def _render_articulation(name: str, cx: float, y: int) -> list[str]:
         return [f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y - 37}" r="2.5"/>']
     if normalized == "tenuto":
         return [f'<line class="articulation" x1="{cx - 8:.1f}" y1="{y - 36}" x2="{cx + 8:.1f}" y2="{y - 36}"/>']
+    if normalized == "trill-mark":
+        sx = cx - 6
+        return [
+            f'<path class="articulation" d="M {sx:.1f} {y - 38:.1f} '
+            f'q 3 -4, 6 0 q 3 4, 6 0"/>'
+        ]
     return [f'<text class="lyric" x="{cx:.1f}" y="{y - 38}" text-anchor="middle">{_esc(name)}</text>']

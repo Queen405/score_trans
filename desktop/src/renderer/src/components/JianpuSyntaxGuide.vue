@@ -96,7 +96,8 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
               <tr><td><code>^.</code></td><td>断奏（staccato）</td></tr>
               <tr><td><code>^></code></td><td>重音（accent）</td></tr>
               <tr><td><code>^-</code></td><td>保持（tenuto）</td></tr>
-              <tr><td><code>^tr</code></td><td>颤音（trill）</td></tr>
+              <tr><td><code>^r</code></td><td>颤音（trill）</td></tr>
+              <tr><td><code>^f</code></td><td>延音记号（fermata）</td></tr>
               <tr><td><code>^l</code></td><td>轮指（tremolo）</td></tr>
             </tbody>
           </table>
@@ -137,7 +138,7 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
             <tr><td><code>.</code></td><td>附点</td><td><code>~</code></td><td>延音线</td></tr>
             <tr><td><code>( )</code></td><td>连音线（圆滑奏）</td><td><code>[a+b]</code></td><td>和弦</td></tr>
             <tr><td><code>| || |: :|</code></td><td>小节线 / 终止线 / 反复</td><td><code>*N</code></td><td>重复 N 次</td></tr>
-            <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^tr ^l</code></td><td>断奏 / 重音 / 保持 / 颤音 / 轮指</td></tr>
+            <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^r ^f ^l</code></td><td>断奏 / 重音 / 保持 / 颤音 / 延音 / 轮指</td></tr>
             <tr><td><code>L:</code></td><td>歌词行</td><td><code>#</code></td><td>注释行</td></tr>
           </tbody>
         </table>

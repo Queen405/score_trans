@@ -87,8 +87,8 @@ def _articulation_token(name: str) -> str | None:
         "strong-accent": ">",
         "staccato": ".",
         "tenuto": "-",
-        "trill-mark": "tr",
-        "fermata": "fermata",
+        "trill-mark": "r",
+        "fermata": "f",
         "tremolo": "l",
     }.get(name, name if name else None)
 

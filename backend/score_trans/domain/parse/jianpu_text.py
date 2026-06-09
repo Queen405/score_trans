@@ -364,7 +364,8 @@ def _articulation_name(raw: str) -> str:
         ">": "accent",
         "-": "tenuto",
         ".": "staccato",
-        "tr": "trill-mark",
+        "r": "trill-mark",
+        "f": "fermata",
     }.get(raw, raw)
 
 

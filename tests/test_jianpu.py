@@ -64,7 +64,7 @@ def test_musicxml_file_to_jianpu_reads_mxl(tmp_path) -> None:
 
 
 def test_parse_new_project_syntax_chords_lyrics_and_marks() -> None:
-    score = parse_jianpu_score("title=瑞雪迎春\n1=D\n4/4\nq1 #2. ^tr [1+3+5] \\f 4~ | ~4 (5 6) |\nL: 春 风 又 绿")
+    score = parse_jianpu_score("title=瑞雪迎春\n1=D\n4/4\nq1 #2. ^r [1+3+5] \\f 4~ | ~4 (5 6) |\nL: 春 风 又 绿")
 
     assert score.title == "瑞雪迎春"
     assert score.target_key == "D"
