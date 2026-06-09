@@ -268,9 +268,9 @@ function selectedProviderModel(options: LlmProviderOption[], selected: string): 
 
 <style scoped>
 .settings-view {
-  max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
-  padding: 0 12px;
+  padding: 0 24px;
 }
 
 .sv-header {
@@ -297,7 +297,7 @@ function selectedProviderModel(options: LlmProviderOption[], selected: string): 
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 20px;
+  gap: 24px;
 }
 
 .sv-grid-layout > .sv-card {

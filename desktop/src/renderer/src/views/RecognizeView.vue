@@ -3,44 +3,7 @@
     <div class="rv-header">
       <div class="rv-title">
         <h2>智能识别</h2>
-        <p>上传乐谱图片或 PDF，快速得到简谱成果</p>
       </div>
-      <div class="rv-header-right">
-        <n-select
-          v-if="store.batches.length > 1"
-          :value="store.currentBatchId"
-          :options="batchOptions"
-          size="small"
-          style="width: 160px"
-          @update:value="store.selectBatch($event)"
-        />
-        <div v-if="store.pageCount" class="page-nav">
-          <n-button size="small" quaternary :disabled="!store.canPrevPage" @click="store.prevPage()">
-            <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
-          </n-button>
-          <span class="page-indicator">{{ currentBatchLocalIndex + 1 }} / {{ store.pageCount }}</span>
-          <n-button size="small" quaternary :disabled="!store.canNextPage" @click="store.nextPage()">
-            <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
-          </n-button>
-        </div>
-      </div>
-    </div>
-
-    <file-uploader @uploaded="onFileUploaded" />
-
-    <n-progress
-      v-if="store.activePageTaskCount"
-      type="line"
-      :percentage="overallProgressPercent"
-      :indicator-placement="'inside'"
-      processing
-      class="rv-progress"
-    >
-      {{ overallProgressText }}
-    </n-progress>
-
-    <div v-if="waitingPageCount" class="rv-waiting-banner">
-      {{ waitingPageCount }} 个页面等待选择起始小节号，点击卡片上的"待选择"按钮进行操作
     </div>
 
     <MeasureNumberPicker
@@ -50,87 +13,241 @@
       @cancel="onPickerCancel"
     />
 
-    <div class="rv-actions">
-      <n-button
-        type="primary"
-        @click="recognize"
-        :loading="recognizeButtonLoading"
-        :disabled="recognizeButtonDisabled"
-      >
-        <template #icon><n-icon><ScanOutline /></n-icon></template>
-        {{ recognizeButtonText }}
-      </n-button>
-      <n-button
-        @click="recognizeAllPages"
-        :loading="store.activePageTaskCount > 0"
-        :disabled="!pendingRecognizableCount"
-        secondary
-      >
-        <template #icon><n-icon><FlashOutline /></n-icon></template>
-        批量识别全部
-      </n-button>
-      <div class="ai-switch">
-        <span>AI 视觉检测</span>
-        <n-switch v-model:value="aiVisionEnabled" size="small" />
+    <div class="dashboard-grid">
+      <!-- 智能识别 -->
+      <div class="dashboard-card card-recognition">
+        <div class="card-header">
+          <div class="card-title">
+            <n-icon size="18"><ScanOutline /></n-icon>
+            <span>智能识别</span>
+          </div>
+          <div class="card-header-right">
+            <n-select
+              v-if="store.batches.length > 1"
+              :value="store.currentBatchId"
+              :options="batchOptions"
+              size="small"
+              style="width: 160px"
+              @update:value="store.selectBatch($event)"
+            />
+            <div v-if="store.pageCount" class="page-nav">
+              <n-button size="small" quaternary :disabled="!store.canPrevPage" @click="store.prevPage()">
+                <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
+              </n-button>
+              <span class="page-indicator">{{ currentBatchLocalIndex + 1 }} / {{ store.pageCount }}</span>
+              <n-button size="small" quaternary :disabled="!store.canNextPage" @click="store.nextPage()">
+                <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
+              </n-button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <file-uploader @uploaded="onFileUploaded" />
+          <n-progress
+            v-if="store.activePageTaskCount"
+            type="line"
+            :percentage="overallProgressPercent"
+            :indicator-placement="'inside'"
+            processing
+            class="rv-progress"
+          >
+            {{ overallProgressText }}
+          </n-progress>
+          <div v-if="waitingPageCount" class="rv-waiting-banner">
+            {{ waitingPageCount }} 个页面等待选择起始小节号，点击卡片上的"待选择"按钮进行操作
+          </div>
+        </div>
+        <div class="card-footer">
+          <n-button
+            type="primary"
+            size="small"
+            @click="recognize"
+            :loading="recognizeButtonLoading"
+            :disabled="recognizeButtonDisabled"
+          >
+            <template #icon><n-icon><ScanOutline /></n-icon></template>
+            {{ recognizeButtonText }}
+          </n-button>
+          <n-button
+            size="small"
+            @click="recognizeAllPages"
+            :loading="store.activePageTaskCount > 0"
+            :disabled="!pendingRecognizableCount"
+            secondary
+          >
+            <template #icon><n-icon><FlashOutline /></n-icon></template>
+            批量识别全部
+          </n-button>
+          <div class="ai-switch">
+            <span>AI 视觉检测</span>
+            <n-switch v-model:value="aiVisionEnabled" size="small" />
+          </div>
+          <span v-if="selectedPageCount" class="selection-count">已选 {{ selectedPageCount }}</span>
+        </div>
       </div>
-      <span v-if="selectedPageCount" class="selection-count">已选 {{ selectedPageCount }}</span>
-    </div>
 
-    <div v-if="store.currentBatchPages.length" class="pages-strip">
-      <div
-        v-for="page in store.currentBatchPages"
-        :key="page.id"
-        :class="['page-card', page.status, {
-          active: page.id === store.currentPage?.id,
-          selected: isPageSelected(page.id),
-        }]"
-        @click="handlePageCardClick(page)"
-      >
-        <n-icon v-if="isPageSelected(page.id)" size="14" class="page-selected-mark">
-          <CheckmarkCircleOutline />
-        </n-icon>
-        <button
-          v-if="page.status === 'failed' && !page.inputFileId"
-          class="page-reupload"
-          type="button"
-          title="重新上传"
-          @click.stop="reuploadForPage(page)"
-        >
-          <n-icon size="12"><CloudUploadOutline /></n-icon>
-        </button>
-        <button
-          v-else-if="page.status !== 'waiting'"
-          class="page-del"
-          type="button"
-          :disabled="page.status === 'processing'"
-          @click.stop="removePageById(page.id)"
-        >
-          <n-icon size="12"><CloseOutline /></n-icon>
-        </button>
-        <button
-          v-else
-          class="page-waiting-action"
-          type="button"
-          title="选择起始小节号"
-          @click.stop="openMeasurePickerForPage(page)"
-        >
-          <n-icon size="12"><AlertCircleOutline /></n-icon>
-          <span>待选择</span>
-        </button>
-        <div class="page-thumb">
-          <img
-            v-if="active && isPreviewable(page.inputFileName)"
-            :src="getFileURL(page.inputFileId)"
-            :alt="page.inputFileName"
-          />
-          <n-icon v-else size="20" class="page-icon"><DocumentOutline /></n-icon>
+      <!-- 项目统计 -->
+      <div class="dashboard-card card-stats">
+        <div class="card-title">项目统计</div>
+        <div class="stats-body">
+          <div class="stats-ring-wrap">
+            <div class="stats-ring">
+              <svg viewBox="0 0 36 36">
+                <path
+                  class="ring-bg"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  v-if="statsTotal > 0"
+                  class="ring-segment ring-completed"
+                  :stroke-dasharray="`${(statsCompleted / statsTotal) * 100} ${100 - (statsCompleted / statsTotal) * 100}`"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  v-if="statsTotal > 0"
+                  class="ring-segment ring-processing"
+                  :stroke-dasharray="`${(statsProcessing / statsTotal) * 100} ${100 - (statsProcessing / statsTotal) * 100}`"
+                  :stroke-dashoffset="`${-(statsCompleted / statsTotal) * 100}`"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  v-if="statsTotal > 0"
+                  class="ring-segment ring-failed"
+                  :stroke-dasharray="`${(statsFailed / statsTotal) * 100} ${100 - (statsFailed / statsTotal) * 100}`"
+                  :stroke-dashoffset="`${-((statsCompleted + statsProcessing) / statsTotal) * 100}`"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div class="ring-center">
+                <span class="ring-total">{{ statsTotal }}</span>
+                <span class="ring-label">总计</span>
+              </div>
+            </div>
+            <div class="stats-legend">
+              <div class="legend-item">
+                <span class="legend-dot dot-completed" />
+                <span class="legend-text">完成</span>
+                <span class="legend-value">{{ statsCompleted }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-processing" />
+                <span class="legend-text">处理中</span>
+                <span class="legend-value">{{ statsProcessing }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-failed" />
+                <span class="legend-text">失败</span>
+                <span class="legend-value">{{ statsFailed }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-waiting" />
+                <span class="legend-text">等待</span>
+                <span class="legend-value">{{ statsWaiting }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="stats-mini-cards">
+            <div class="mini-card">
+              <span class="mini-card-value">{{ statsCompleted }}</span>
+              <span class="mini-card-label">完成数</span>
+            </div>
+            <div class="mini-card">
+              <span class="mini-card-value">{{ statsFailed }}</span>
+              <span class="mini-card-label">失败数</span>
+            </div>
+          </div>
         </div>
-        <div class="page-label">
-          <span class="page-name">{{ page.inputFileName }}</span>
-          <span :class="['page-status', page.status]">{{ statusText(page) }}</span>
+      </div>
+
+      <!-- 最近上传 -->
+      <div class="dashboard-card card-uploads">
+        <div class="card-title">最近上传</div>
+        <div v-if="store.currentBatchPages.length" class="uploads-list">
+          <div
+            v-for="page in store.currentBatchPages"
+            :key="page.id"
+            :class="['upload-card', page.status, {
+              active: page.id === store.currentPage?.id,
+              selected: isPageSelected(page.id),
+            }]"
+            @click="handlePageCardClick(page)"
+          >
+            <n-icon v-if="isPageSelected(page.id)" size="14" class="upload-selected-mark">
+              <CheckmarkCircleOutline />
+            </n-icon>
+            <button
+              v-if="page.status === 'failed' && !page.inputFileId"
+              class="upload-reupload"
+              type="button"
+              title="重新上传"
+              @click.stop="reuploadForPage(page)"
+            >
+              <n-icon size="12"><CloudUploadOutline /></n-icon>
+            </button>
+            <button
+              v-else-if="page.status !== 'waiting'"
+              class="upload-del"
+              type="button"
+              :disabled="page.status === 'processing'"
+              @click.stop="removePageById(page.id)"
+            >
+              <n-icon size="12"><CloseOutline /></n-icon>
+            </button>
+            <button
+              v-else
+              class="upload-waiting-action"
+              type="button"
+              title="选择起始小节号"
+              @click.stop="openMeasurePickerForPage(page)"
+            >
+              <n-icon size="12"><AlertCircleOutline /></n-icon>
+              <span>待选择</span>
+            </button>
+            <div class="upload-thumb">
+              <img
+                v-if="active && isPreviewable(page.inputFileName)"
+                :src="getFileURL(page.inputFileId)"
+                :alt="page.inputFileName"
+              />
+              <n-icon v-else size="24" class="upload-icon"><DocumentOutline /></n-icon>
+            </div>
+            <div class="upload-info">
+              <span class="upload-name">{{ page.inputFileName }}</span>
+              <span :class="['upload-status', page.status]">{{ statusText(page) }}</span>
+            </div>
+            <div v-if="page.status === 'processing'" class="upload-mini-progress">
+              <span :style="{ width: `${Math.max(4, page.progressPercent)}%` }" />
+            </div>
+          </div>
         </div>
-        <div v-if="page.status === 'processing'" class="page-mini-progress">
-          <span :style="{ width: `${Math.max(4, page.progressPercent)}%` }" />
+        <div v-else class="uploads-empty">
+          <n-icon size="32" class="empty-icon"><CloudUploadOutline /></n-icon>
+          <span>暂无上传文件</span>
+        </div>
+      </div>
+
+      <!-- 最近活动 -->
+      <div class="dashboard-card card-activity">
+        <div class="card-title">最近活动</div>
+        <div v-if="recentActivities.length" class="activity-list">
+          <div
+            v-for="activity in recentActivities"
+            :key="activity.id"
+            class="activity-item"
+          >
+            <div :class="['activity-icon', activity.level]">
+              <n-icon size="14">
+                <component :is="activityIcon(activity.level)" />
+              </n-icon>
+            </div>
+            <div class="activity-content">
+              <span class="activity-name">{{ activity.message }}</span>
+              <span class="activity-time">{{ activity.time }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="activity-empty">
+          <span>暂无活动记录</span>
         </div>
       </div>
     </div>
@@ -172,6 +289,11 @@ import {
   CheckmarkCircleOutline,
   CloudUploadOutline,
   DocumentOutline,
+  CheckmarkDoneOutline,
+  WarningOutline,
+  TimeOutline,
+  CloseCircleOutline,
+  InformationCircleOutline,
 } from '@vicons/ionicons5'
 import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
 
@@ -212,6 +334,63 @@ withDefaults(defineProps<{
 }>(), {
   active: true,
 })
+
+// ── Statistics ──
+const statsTotal = computed(() => store.currentBatchPages.length)
+const statsCompleted = computed(() => store.currentBatchPages.filter((p) => p.status === 'completed').length)
+const statsProcessing = computed(() => store.currentBatchPages.filter((p) => p.status === 'processing').length)
+const statsFailed = computed(() => store.currentBatchPages.filter((p) => p.status === 'failed').length)
+const statsWaiting = computed(() => store.currentBatchPages.filter((p) => p.status === 'waiting').length)
+
+// ── Recent Activity ──
+interface ActivityItem {
+  id: string
+  message: string
+  time: string
+  level: 'info' | 'warn' | 'error' | 'success'
+}
+
+const recentActivities = computed((): ActivityItem[] => {
+  const pages = store.currentBatchPages
+  const activities: ActivityItem[] = []
+  for (const page of [...pages].reverse().slice(0, 8)) {
+    let message = ''
+    let level: ActivityItem['level'] = 'info'
+    if (page.status === 'completed') {
+      message = `Processed: ${page.inputFileName}`
+      level = 'success'
+    } else if (page.status === 'failed') {
+      message = `Failed: ${page.inputFileName}`
+      level = 'error'
+    } else if (page.status === 'processing') {
+      message = `Processing: ${page.inputFileName}`
+      level = 'info'
+    } else if (page.status === 'waiting') {
+      message = `Waiting: ${page.inputFileName}`
+      level = 'warn'
+    } else {
+      message = `Pending: ${page.inputFileName}`
+      level = 'info'
+    }
+    activities.push({
+      id: page.id,
+      message,
+      time: page.progressMessage || statusText(page),
+      level,
+    })
+  }
+  return activities
+})
+
+function activityIcon(level: ActivityItem['level']) {
+  switch (level) {
+    case 'success': return CheckmarkDoneOutline
+    case 'error': return CloseCircleOutline
+    case 'warn': return WarningOutline
+    case 'info': return InformationCircleOutline
+    default: return TimeOutline
+  }
+}
 
 const batchOptions = computed(() =>
   store.batches.map((b, i) => ({
@@ -1007,10 +1186,9 @@ function errorMessage(error: unknown): string {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 900px;
-  margin: 0 auto;
-  min-height: 100%;
-  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0 24px 8px;
 }
 
 .rv-header {
@@ -1020,14 +1198,8 @@ function errorMessage(error: unknown): string {
   gap: 12px;
 }
 
-.rv-header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .rv-header h2 {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
@@ -1037,6 +1209,75 @@ function errorMessage(error: unknown): string {
   font-size: 13px;
   color: var(--text-tertiary);
   margin: 4px 0 0;
+}
+
+/* ── Dashboard Grid ── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+}
+
+.dashboard-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-title :deep(.n-icon) {
+  color: var(--accent);
+}
+
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  flex-shrink: 0;
 }
 
 .page-nav {
@@ -1065,28 +1306,21 @@ function errorMessage(error: unknown): string {
   line-height: 1.5;
 }
 
-.rv-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .ai-switch {
-  min-height: 32px;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px;
+  gap: 6px;
+  padding: 0 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
+  background: var(--bg-base);
   color: var(--text-secondary);
   font-size: 12px;
 }
 
 .selection-count {
-  min-height: 32px;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
@@ -1098,76 +1332,223 @@ function errorMessage(error: unknown): string {
   font-weight: 500;
 }
 
-.pages-strip {
+/* ── Stats ── */
+.stats-body {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 4px 0;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  justify-content: center;
 }
 
-.page-card {
-  width: 110px;
+.stats-ring-wrap {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.stats-ring {
+  position: relative;
+  width: 170px;
+  height: 170px;
+  flex-shrink: 0;
+}
+
+.stats-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 3;
+}
+
+.ring-segment {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+
+.ring-completed { stroke: var(--success); }
+.ring-processing { stroke: var(--warning); }
+.ring-failed { stroke: var(--danger); }
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-total {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.ring-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.stats-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 15px;
+}
+
+.legend-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-completed { background: var(--success); }
+.dot-processing { background: var(--warning); }
+.dot-failed { background: var(--danger); }
+.dot-waiting { background: #868e96; }
+
+.legend-text {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.legend-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  min-width: 32px;
+  text-align: right;
+}
+
+.stats-mini-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.mini-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.mini-card-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mini-card-label {
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+/* ── Uploads ── */
+.uploads-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-content: flex-start;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.uploads-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 0;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  flex: 1;
+  justify-content: center;
+}
+
+.empty-icon {
+  color: var(--border);
+}
+
+.upload-card {
   position: relative;
   cursor: pointer;
   border-radius: var(--radius-md);
   border: 1.5px solid var(--border);
-  background: var(--bg-elevated);
-  padding: 6px;
+  background: var(--bg-base);
+  padding: 12px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
 }
 
-.page-card:hover {
+.upload-card:hover {
   border-color: var(--accent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.page-card.active {
+.upload-card.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
 
-.page-card.selected {
+.upload-card.selected {
   border-color: var(--accent);
   background: var(--accent-light);
 }
 
-.page-card.selected.active {
-  box-shadow: 0 0 0 1px var(--accent), 0 3px 10px rgba(0, 0, 0, 0.08);
-}
-
-.page-card.processing {
+.upload-card.processing {
   border-color: var(--warning);
 }
 
-.page-card.waiting {
+.upload-card.waiting {
   border-color: var(--warning);
-  box-shadow: 0 0 0 1px rgba(250, 176, 5, 0.35);
 }
 
-.page-card.failed {
+.upload-card.failed {
   border-color: var(--danger);
 }
 
-.page-selected-mark {
+.upload-selected-mark {
   position: absolute;
   top: 4px;
   left: 4px;
   z-index: 2;
   color: var(--accent);
-  background: var(--bg-elevated);
+  background: var(--bg-base);
   border-radius: 999px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-.page-del {
+.upload-del {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 4px;
+  right: 4px;
   width: 20px;
   height: 20px;
   border: 0;
   border-radius: 50%;
-  background: var(--bg-base);
+  background: var(--bg-elevated);
   color: var(--text-tertiary);
   display: flex;
   align-items: center;
@@ -1179,14 +1560,24 @@ function errorMessage(error: unknown): string {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.page-card:hover .page-del {
+.upload-card:hover .upload-del {
   opacity: 1;
 }
 
-.page-reupload {
+.upload-del:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.upload-del:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.upload-reupload {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 4px;
+  right: 4px;
   width: 20px;
   height: 20px;
   border: 0;
@@ -1202,24 +1593,14 @@ function errorMessage(error: unknown): string {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.page-reupload:hover {
+.upload-reupload:hover {
   filter: brightness(0.9);
 }
 
-.page-del:hover {
-  background: var(--danger);
-  color: #fff;
-}
-
-.page-del:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
-}
-
-.page-waiting-action {
+.upload-waiting-action {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 4px;
+  right: 4px;
   height: 20px;
   border: 0;
   border-radius: 999px;
@@ -1237,13 +1618,13 @@ function errorMessage(error: unknown): string {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
 
-.page-waiting-action:hover {
+.upload-waiting-action:hover {
   filter: brightness(0.96);
 }
 
-.page-thumb {
+.upload-thumb {
   width: 100%;
-  height: 64px;
+  aspect-ratio: 4 / 3;
   border-radius: var(--radius-sm);
   overflow: hidden;
   display: flex;
@@ -1252,49 +1633,51 @@ function errorMessage(error: unknown): string {
   background: var(--bg-surface);
 }
 
-.page-thumb img {
+.upload-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.page-icon {
+.upload-icon {
   color: var(--text-tertiary);
 }
 
-.page-label {
-  margin-top: 4px;
-  text-align: center;
+.upload-info {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.page-name {
-  display: block;
-  font-size: 10px;
+.upload-name {
+  font-size: 13px;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.page-status {
-  font-size: 10px;
+.upload-status {
+  font-size: 12px;
   color: var(--text-tertiary);
 }
 
-.page-status.completed { color: var(--success); }
-.page-status.failed { color: var(--danger); }
-.page-status.processing { color: var(--warning); }
-.page-status.waiting { color: var(--warning); }
+.upload-status.completed { color: var(--success); }
+.upload-status.failed { color: var(--danger); }
+.upload-status.processing { color: var(--warning); }
+.upload-status.waiting { color: var(--warning); }
 
-.page-mini-progress {
-  height: 2px;
-  margin-top: 5px;
+.upload-mini-progress {
+  height: 3px;
+  margin-top: 8px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--bg-surface);
 }
 
-.page-mini-progress span {
+.upload-mini-progress span {
   display: block;
   height: 100%;
   border-radius: inherit;
@@ -1302,7 +1685,88 @@ function errorMessage(error: unknown): string {
   transition: width 0.2s ease;
 }
 
-.rv-preview {
-  border-radius: var(--radius-lg);
+/* ── Activity ── */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.activity-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.activity-icon.success {
+  background: rgba(64, 192, 87, 0.12);
+  color: var(--success);
+}
+
+.activity-icon.error {
+  background: rgba(250, 82, 82, 0.12);
+  color: var(--danger);
+}
+
+.activity-icon.warn {
+  background: rgba(250, 176, 5, 0.12);
+  color: var(--warning);
+}
+
+.activity-icon.info {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.activity-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.activity-name {
+  font-size: 15px;
+  color: var(--text-secondary);
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.activity-time {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.activity-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 0;
+  color: var(--text-tertiary);
+  font-size: 15px;
+  flex: 1;
+}
+
+@media (max-width: 960px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
 }
 </style>

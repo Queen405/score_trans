@@ -104,7 +104,7 @@ def main():
     test_images = images[:3]
     print(f"Testing {len(test_images)} of {len(images)} images...")
 
-    provider = XiaomiMiMoProvider()
+    provider = XiaomiMiMoProvider(timeout=300)
 
     results = []
     for img in test_images:
