@@ -20,6 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest>=8"]
 api = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
+build = ["pyinstaller>=6", "pywin32>=306"]
 
 [tool.setuptools.packages.find]
 where = ["backend"]

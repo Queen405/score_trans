@@ -3334,6 +3334,9 @@ function onErrorCaptured(hook, target = currentInstance) {
   injectHook("ec", hook, target);
 }
 const COMPONENTS = "components";
+function resolveComponent(name, maybeSelfReference) {
+  return resolveAsset(COMPONENTS, name, true, maybeSelfReference) || name;
+}
 const NULL_DYNAMIC_COMPONENT = /* @__PURE__ */ Symbol.for("v-ndc");
 function resolveDynamicComponent(component) {
   if (isString$1(component)) {
@@ -3621,7 +3624,7 @@ function applyOptions(instance) {
     beforeUnmount,
     destroyed,
     unmounted,
-    render: render27,
+    render: render36,
     renderTracked,
     renderTriggered,
     errorCaptured,
@@ -3720,8 +3723,8 @@ function applyOptions(instance) {
       instance.exposed = {};
     }
   }
-  if (render27 && instance.render === NOOP) {
-    instance.render = render27;
+  if (render36 && instance.render === NOOP) {
+    instance.render = render36;
   }
   if (inheritAttrs != null) {
     instance.inheritAttrs = inheritAttrs;
@@ -3953,7 +3956,7 @@ function createAppContext() {
   };
 }
 let uid$1 = 0;
-function createAppAPI(render27, hydrate) {
+function createAppAPI(render36, hydrate) {
   return function createApp2(rootComponent, rootProps = null) {
     if (!isFunction$2(rootComponent)) {
       rootComponent = extend({}, rootComponent);
@@ -4021,7 +4024,7 @@ function createAppAPI(render27, hydrate) {
             namespace2 = void 0;
           }
           {
-            render27(vnode, rootContainer, namespace2);
+            render36(vnode, rootContainer, namespace2);
           }
           isMounted2 = true;
           app2._container = rootContainer;
@@ -4039,7 +4042,7 @@ function createAppAPI(render27, hydrate) {
             app2._instance,
             16
           );
-          render27(null, app2._container);
+          render36(null, app2._container);
           delete app2._container.__vue_app__;
         }
       },
@@ -4171,7 +4174,7 @@ function renderComponentRoot(instance) {
     slots,
     attrs,
     emit: emit2,
-    render: render27,
+    render: render36,
     renderCache,
     props,
     data,
@@ -4196,7 +4199,7 @@ function renderComponentRoot(instance) {
         }
       }) : proxyToUse;
       result = normalizeVNode(
-        render27.call(
+        render36.call(
           thisProxy,
           proxyToUse,
           renderCache,
@@ -4208,10 +4211,10 @@ function renderComponentRoot(instance) {
       );
       fallthroughAttrs = attrs;
     } else {
-      const render28 = Component;
+      const render210 = Component;
       if (false) ;
       result = normalizeVNode(
-        render28.length > 1 ? render28(
+        render210.length > 1 ? render210(
           false ? /* @__PURE__ */ shallowReadonly(props) : props,
           false ? {
             get attrs() {
@@ -4221,7 +4224,7 @@ function renderComponentRoot(instance) {
             slots,
             emit: emit2
           } : { attrs, slots, emit: emit2 }
-        ) : render28(
+        ) : render210(
           false ? /* @__PURE__ */ shallowReadonly(props) : props,
           null
         )
@@ -5963,7 +5966,7 @@ function baseCreateRenderer(options, createHydrationFns) {
     return teleportEnd ? hostNextSibling(teleportEnd) : el;
   };
   let isFlushing = false;
-  const render27 = (vnode, container, namespace2) => {
+  const render36 = (vnode, container, namespace2) => {
     let instance;
     if (vnode == null) {
       if (container._vnode) {
@@ -6003,9 +6006,9 @@ function baseCreateRenderer(options, createHydrationFns) {
   };
   let hydrate;
   return {
-    render: render27,
+    render: render36,
     hydrate,
-    createApp: createAppAPI(render27)
+    createApp: createAppAPI(render36)
   };
 }
 function resolveChildrenNamespace({ type, props }, currentNamespace) {
@@ -8252,6 +8255,9 @@ function createPage(seed) {
   const random = Math.random().toString(36).slice(2, 8);
   return {
     id: `${Date.now().toString(36)}-${random}`,
+    batchId: "",
+    batchLabel: "",
+    batchSealed: false,
     historyPageId: null,
     taskId: "",
     inputFileName: "",
@@ -8287,6 +8293,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   const isBusy = /* @__PURE__ */ ref(false);
   const pages = /* @__PURE__ */ ref([]);
   const currentPageIndex = /* @__PURE__ */ ref(-1);
+  const currentBatchId = /* @__PURE__ */ ref(null);
   const historyPageId = /* @__PURE__ */ ref(null);
   const currentTaskId = /* @__PURE__ */ ref(null);
   const taskStatus = /* @__PURE__ */ ref("pending");
@@ -8320,6 +8327,27 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     svgFileId.value = page.svgFileId;
     startMeasureNumber.value = page.startMeasureNumber;
   }
+  const batches = computed(() => {
+    const map2 = /* @__PURE__ */ new Map();
+    for (const page of pages.value) {
+      if (!page.batchId) continue;
+      let batch2 = map2.get(page.batchId);
+      if (!batch2) {
+        batch2 = { id: page.batchId, label: page.batchLabel, sealed: page.batchSealed, pages: [] };
+        map2.set(page.batchId, batch2);
+      }
+      batch2.pages.push(page);
+    }
+    return [...map2.values()];
+  });
+  const currentBatchPages = computed(
+    () => currentBatchId.value ? pages.value.filter((p2) => p2.batchId === currentBatchId.value) : pages.value
+  );
+  function toGlobalIndex(batchLocalIndex) {
+    const batchPages = currentBatchPages.value;
+    if (batchLocalIndex < 0 || batchLocalIndex >= batchPages.length) return -1;
+    return pages.value.indexOf(batchPages[batchLocalIndex]);
+  }
   function patchCurrentPage(patch) {
     const idx = currentPageIndex.value;
     if (idx < 0 || idx >= pages.value.length) return;
@@ -8334,13 +8362,37 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     }
     return true;
   }
+  function patchPageByHistoryPageId(historyId, patch) {
+    if (!historyId) return false;
+    const idx = pages.value.findIndex((page) => page.historyPageId === historyId);
+    if (idx < 0) return false;
+    pages.value[idx] = { ...pages.value[idx], ...patch };
+    if (idx === currentPageIndex.value) {
+      syncCurrentFromPage();
+    }
+    return true;
+  }
   function addInputPage(name, fileId) {
+    let bid = currentBatchId.value;
+    const currentBatch = bid ? batches.value.find((b) => b.id === bid) : void 0;
+    if (!bid || !currentBatch || currentBatch.sealed) {
+      const random = Math.random().toString(36).slice(2, 8);
+      bid = `batch-${Date.now().toString(36)}-${random}`;
+      currentBatchId.value = bid;
+    }
     const page = createPage({
+      batchId: bid,
+      batchLabel: name,
+      batchSealed: false,
       inputFileName: name,
       historyPageId: null,
       inputFileId: fileId,
       status: "pending"
     });
+    const existingBatchPages = pages.value.filter((p2) => p2.batchId === bid);
+    if (existingBatchPages.length > 0) {
+      page.batchLabel = existingBatchPages[0].batchLabel;
+    }
     pages.value.push(page);
     currentPageIndex.value = pages.value.length - 1;
     syncCurrentFromPage();
@@ -8358,19 +8410,31 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     return idx;
   }
   function nextPage() {
-    selectPage(currentPageIndex.value + 1);
+    const localIdx = currentBatchPages.value.indexOf(pages.value[currentPageIndex.value]);
+    if (localIdx >= 0 && localIdx < currentBatchPages.value.length - 1) {
+      selectPage(toGlobalIndex(localIdx + 1));
+    }
   }
   function prevPage() {
-    selectPage(currentPageIndex.value - 1);
+    const localIdx = currentBatchPages.value.indexOf(pages.value[currentPageIndex.value]);
+    if (localIdx > 0) {
+      selectPage(toGlobalIndex(localIdx - 1));
+    }
   }
   const hasMusicxml = computed(() => !!musicxmlFileId.value);
   const hasInput = computed(() => !!inputFileId.value);
   const hasOriginal = computed(() => !!originalFileId.value);
-  const pageCount = computed(() => pages.value.length);
+  const pageCount = computed(() => currentBatchPages.value.length);
   const currentPage = computed(() => pages.value[currentPageIndex.value] ?? null);
-  const canPrevPage = computed(() => currentPageIndex.value > 0);
-  const canNextPage = computed(() => currentPageIndex.value >= 0 && currentPageIndex.value < pages.value.length - 1);
-  const activePageTaskCount = computed(() => pages.value.filter((page) => page.status === "processing").length);
+  const canPrevPage = computed(() => {
+    const localIdx = currentBatchPages.value.indexOf(pages.value[currentPageIndex.value]);
+    return localIdx > 0;
+  });
+  const canNextPage = computed(() => {
+    const localIdx = currentBatchPages.value.indexOf(pages.value[currentPageIndex.value]);
+    return localIdx >= 0 && localIdx < currentBatchPages.value.length - 1;
+  });
+  const activePageTaskCount = computed(() => currentBatchPages.value.filter((page) => page.status === "processing").length);
   function setInputFile(name, fileId) {
     if (currentPageIndex.value < 0 || currentPageIndex.value >= pages.value.length) {
       addInputPage(name, fileId);
@@ -8486,7 +8550,11 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   }
   function replacePage(index, replacementPages, selectOffset = 0) {
     if (index < 0 || index >= pages.value.length) return;
+    const sourcePage = pages.value[index];
     const nextPages = replacementPages.map((p2) => createPage({
+      batchId: p2.batchId || sourcePage.batchId,
+      batchLabel: p2.batchLabel || sourcePage.batchLabel,
+      batchSealed: p2.batchSealed ?? sourcePage.batchSealed,
       inputFileName: p2.inputFileName,
       historyPageId: p2.historyPageId ?? null,
       taskId: p2.taskId ?? "",
@@ -8524,8 +8592,12 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   function replacePageByIdKeepingSelection(pageId, replacementPages) {
     const index = pages.value.findIndex((page) => page.id === pageId);
     if (index < 0) return [];
+    const sourcePage = pages.value[index];
     const selectedPageId = currentPage.value?.id ?? "";
     const nextPages = replacementPages.map((p2) => createPage({
+      batchId: p2.batchId || sourcePage.batchId,
+      batchLabel: p2.batchLabel || sourcePage.batchLabel,
+      batchSealed: p2.batchSealed ?? sourcePage.batchSealed,
       inputFileName: p2.inputFileName,
       historyPageId: p2.historyPageId ?? null,
       taskId: p2.taskId ?? "",
@@ -8573,6 +8645,22 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   function endBackgroundTask() {
     backgroundTaskCount.value = Math.max(0, backgroundTaskCount.value - 1);
   }
+  function selectBatch(batchId) {
+    currentBatchId.value = batchId;
+    const firstPageIdx = pages.value.findIndex((p2) => p2.batchId === batchId);
+    if (firstPageIdx >= 0) {
+      currentPageIndex.value = firstPageIdx;
+      syncCurrentFromPage();
+    }
+  }
+  function sealCurrentBatch() {
+    if (!currentBatchId.value) return;
+    for (let i = 0; i < pages.value.length; i++) {
+      if (pages.value[i].batchId === currentBatchId.value) {
+        pages.value[i] = { ...pages.value[i], batchSealed: true };
+      }
+    }
+  }
   function reset() {
     inputFileName.value = "";
     historyPageId.value = null;
@@ -8588,12 +8676,19 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     isBusy.value = false;
     pages.value = [];
     currentPageIndex.value = -1;
+    currentBatchId.value = null;
     currentTaskId.value = null;
     taskStatus.value = "pending";
     backgroundTaskCount.value = 0;
   }
   function loadBatch(batchPages, selectIndex) {
+    const random = Math.random().toString(36).slice(2, 8);
+    const bid = `batch-${Date.now().toString(36)}-${random}`;
+    const firstLabel = batchPages[0]?.inputFileName ?? "历史记录";
     pages.value = batchPages.map((p2) => createPage({
+      batchId: bid,
+      batchLabel: p2.batchLabel ?? firstLabel,
+      batchSealed: true,
       inputFileName: p2.inputFileName,
       historyPageId: p2.historyPageId ?? null,
       taskId: p2.taskId ?? "",
@@ -8613,6 +8708,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       measureNumberOptions: p2.measureNumberOptions ?? [],
       errorMessage: p2.errorMessage ?? ""
     }));
+    currentBatchId.value = bid;
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1));
     currentPageIndex.value = idx;
     syncCurrentFromPage();
@@ -8632,6 +8728,9 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     isBusy,
     pages,
     currentPageIndex,
+    currentBatchId,
+    batches,
+    currentBatchPages,
     currentTaskId,
     taskStatus,
     backgroundTaskCount,
@@ -8649,6 +8748,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     nextPage,
     prevPage,
     patchPageById,
+    patchPageByHistoryPageId,
     setInputFile,
     setOriginalFile,
     clearOriginalFile,
@@ -8672,6 +8772,8 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     setTaskStatus,
     beginBackgroundTask,
     endBackgroundTask,
+    selectBatch,
+    sealCurrentBatch,
     reset,
     loadBatch
   };
@@ -8719,39 +8821,60 @@ async function apiFetch(path, options) {
   }
   return response.json();
 }
-async function uploadFile(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  return apiFetch("/files/upload", {
-    method: "POST",
-    body: formData
+async function uploadFile(file, onProgress) {
+  if (!onProgress) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiFetch("/files/upload", {
+      method: "POST",
+      body: formData
+    });
+  }
+  return new Promise((resolve2, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${getBaseURL()}/files/upload`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.min(85, Math.round(e.loaded / e.total * 85)), "upload");
+      }
+    };
+    xhr.upload.onload = () => {
+      onProgress(85, "processing");
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100, "processing");
+        try {
+          resolve2(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new ApiError("Invalid JSON response"));
+        }
+      } else {
+        let msg2 = `HTTP ${xhr.status}`;
+        try {
+          msg2 = JSON.parse(xhr.responseText).error ?? msg2;
+        } catch {
+        }
+        reject(new ApiError(msg2));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError("网络错误"));
+    const formData = new FormData();
+    formData.append("file", file);
+    xhr.send(formData);
   });
 }
 function getFileURL(fileId) {
   return `${getBaseURL()}/files/${fileId}`;
 }
-async function probeFile(url, options) {
-  try {
-    const res = await fetch(url, { cache: "no-store", ...options });
-    if (res.ok || res.status === 206) return true;
-    if (res.status === 404 || res.status === 410) return false;
-    return null;
-  } catch {
-    return null;
-  }
-}
-async function fileExists(fileId) {
-  if (!fileId) return false;
-  const url = getFileURL(fileId);
-  const head = await probeFile(url, { method: "HEAD" });
-  if (head !== null) return head;
-  const ranged = await probeFile(url, { method: "GET", headers: { Range: "bytes=0-0" } });
-  if (ranged !== null) return ranged;
-  return true;
-}
 const settingsApi = {
-  get() {
-    return apiFetch("/settings");
+  get(query = {}) {
+    const params = new URLSearchParams();
+    if (query.ocr_provider) params.set("ocr_provider", query.ocr_provider);
+    if (query.ai_provider) params.set("ai_provider", query.ai_provider);
+    if (query.assistant_provider) params.set("assistant_provider", query.assistant_provider);
+    const suffix2 = params.toString();
+    return apiFetch(`/settings${suffix2 ? `?${suffix2}` : ""}`);
   },
   update(req) {
     return apiFetch("/settings", {
@@ -8772,12 +8895,12 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const ocrApiKeySet = /* @__PURE__ */ ref(false);
   const ocrBaseUrl = /* @__PURE__ */ ref("https://api.siliconflow.cn/v1");
   const ocrModel = /* @__PURE__ */ ref("deepseek-ai/DeepSeek-OCR");
-  const aiProvider = /* @__PURE__ */ ref("siliconflow_qwen3_vl_8b");
+  const aiProvider = /* @__PURE__ */ ref("xiaomi_mimo_v25");
   const aiProviderOptions = /* @__PURE__ */ ref([]);
   const aiApiKey = /* @__PURE__ */ ref("");
   const aiApiKeySet = /* @__PURE__ */ ref(false);
-  const aiBaseUrl = /* @__PURE__ */ ref("https://api.siliconflow.cn/v1");
-  const aiModel = /* @__PURE__ */ ref("Qwen/Qwen3-VL-8B-Instruct");
+  const aiBaseUrl = /* @__PURE__ */ ref("https://api.xiaomimimo.com/v1");
+  const aiModel = /* @__PURE__ */ ref("mimo-v2.5");
   const assistantProvider = /* @__PURE__ */ ref("dashscope_deepseek_v4_flash");
   const assistantProviderOptions = /* @__PURE__ */ ref([]);
   const assistantApiKey = /* @__PURE__ */ ref("");
@@ -8788,6 +8911,11 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const omrPreprocessLongEdge = /* @__PURE__ */ ref(3600);
   const omrPreprocessBinarize = /* @__PURE__ */ ref(false);
   const loaded = /* @__PURE__ */ ref(false);
+  const providerLoadVersion = {
+    ocr: 0,
+    ai: 0,
+    assistant: 0
+  };
   async function load() {
     try {
       const data = await settingsApi.get();
@@ -8815,6 +8943,14 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     });
     applySettings(data);
   }
+  async function loadProviderDetails(kind) {
+    const provider = selectedProvider(kind);
+    const version2 = providerLoadVersion[kind] + 1;
+    providerLoadVersion[kind] = version2;
+    const data = await settingsApi.get(providerQuery(kind, provider));
+    if (providerLoadVersion[kind] !== version2 || selectedProvider(kind) !== provider) return;
+    applyProviderSettings(kind, data);
+  }
   function applySettings(data) {
     audiverisPath.value = data.audiveris_path;
     javaHome.value = data.java_home;
@@ -8826,12 +8962,12 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     ocrApiKeySet.value = data.ocr_api_key_set ?? false;
     ocrBaseUrl.value = data.ocr_base_url ?? "https://api.siliconflow.cn/v1";
     ocrModel.value = data.ocr_model ?? "deepseek-ai/DeepSeek-OCR";
-    aiProvider.value = data.ai_provider ?? "siliconflow_qwen3_vl_8b";
+    aiProvider.value = data.ai_provider ?? "xiaomi_mimo_v25";
     aiProviderOptions.value = data.ai_provider_options ?? [];
     aiApiKey.value = data.ai_api_key ?? "";
     aiApiKeySet.value = data.ai_api_key_set ?? false;
-    aiBaseUrl.value = data.ai_base_url ?? "https://api.siliconflow.cn/v1";
-    aiModel.value = data.ai_model ?? "Qwen/Qwen3-VL-8B-Instruct";
+    aiBaseUrl.value = data.ai_base_url ?? "https://api.xiaomimimo.com/v1";
+    aiModel.value = data.ai_model ?? "mimo-v2.5";
     assistantProvider.value = data.assistant_provider ?? "dashscope_deepseek_v4_flash";
     assistantProviderOptions.value = data.assistant_provider_options ?? [];
     assistantApiKey.value = data.assistant_api_key ?? "";
@@ -8841,6 +8977,39 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     omrPreprocess.value = data.omr_preprocess ?? true;
     omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600;
     omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false;
+  }
+  function selectedProvider(kind) {
+    if (kind === "ocr") return ocrProvider.value;
+    if (kind === "ai") return aiProvider.value;
+    return assistantProvider.value;
+  }
+  function providerQuery(kind, provider) {
+    if (kind === "ocr") return { ocr_provider: provider };
+    if (kind === "ai") return { ai_provider: provider };
+    return { assistant_provider: provider };
+  }
+  function applyProviderSettings(kind, data) {
+    if (kind === "ocr") {
+      ocrProvider.value = data.ocr_provider ?? ocrProvider.value;
+      ocrApiKey.value = data.ocr_api_key ?? "";
+      ocrApiKeySet.value = data.ocr_api_key_set ?? false;
+      ocrBaseUrl.value = data.ocr_base_url ?? ocrBaseUrl.value;
+      ocrModel.value = data.ocr_model ?? ocrModel.value;
+      return;
+    }
+    if (kind === "ai") {
+      aiProvider.value = data.ai_provider ?? aiProvider.value;
+      aiApiKey.value = data.ai_api_key ?? "";
+      aiApiKeySet.value = data.ai_api_key_set ?? false;
+      aiBaseUrl.value = data.ai_base_url ?? aiBaseUrl.value;
+      aiModel.value = data.ai_model ?? aiModel.value;
+      return;
+    }
+    assistantProvider.value = data.assistant_provider ?? assistantProvider.value;
+    assistantApiKey.value = data.assistant_api_key ?? "";
+    assistantApiKeySet.value = data.assistant_api_key_set ?? false;
+    assistantBaseUrl.value = data.assistant_base_url ?? assistantBaseUrl.value;
+    assistantModel.value = data.assistant_model ?? assistantModel.value;
   }
   return {
     audiverisPath,
@@ -8870,7 +9039,8 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     omrPreprocessBinarize,
     loaded,
     load,
-    save
+    save,
+    loadProviderDetails
   };
 });
 const pipelineApi = {
@@ -8885,6 +9055,13 @@ const pipelineApi = {
       formData.append("title", title);
     }
     return apiFetch("/pipeline", { method: "POST", body: formData });
+  },
+  runByFileId(req) {
+    return apiFetch("/pipeline/by-file-id", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
   }
 };
 const renderApi = {
@@ -9072,6 +9249,18 @@ const historyApi = {
     return apiFetch("/history", { method: "DELETE" });
   }
 };
+const filesApi = {
+  async existsMany(fileIds) {
+    const uniqueIds = [...new Set(fileIds.filter(Boolean))];
+    if (!uniqueIds.length) return {};
+    const response = await apiFetch("/files/exists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_ids: uniqueIds })
+    });
+    return response.files;
+  }
+};
 function parseOcrText(payload) {
   if (!payload.trim()) return [];
   try {
@@ -9125,22 +9314,122 @@ function splitJianpuAndOcr(text) {
   };
 }
 const HISTORY_UPDATED_EVENT = "score-trans:history-updated";
+const HISTORY_PAGE_PATCHED_EVENT = "score-trans:history-page-patched";
 function notifyHistoryUpdated() {
   window.dispatchEvent(new CustomEvent(HISTORY_UPDATED_EVENT));
 }
-function listenHistoryUpdated(callback) {
+function notifyHistoryPagePatched(detail) {
+  window.dispatchEvent(new CustomEvent(HISTORY_PAGE_PATCHED_EVENT, { detail }));
+}
+function listenHistoryUpdated(callback, debounceMs = 300) {
+  let timer = null;
   const handler2 = () => {
-    void callback();
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      void callback();
+    }, debounceMs);
   };
   window.addEventListener(HISTORY_UPDATED_EVENT, handler2);
-  return () => window.removeEventListener(HISTORY_UPDATED_EVENT, handler2);
+  return () => {
+    if (timer) clearTimeout(timer);
+    window.removeEventListener(HISTORY_UPDATED_EVENT, handler2);
+  };
 }
-const _hoisted_1$A = {
+function listenHistoryPagePatched(callback) {
+  const handler2 = (event) => {
+    callback(event.detail);
+  };
+  window.addEventListener(HISTORY_PAGE_PATCHED_EVENT, handler2);
+  return () => {
+    window.removeEventListener(HISTORY_PAGE_PATCHED_EVENT, handler2);
+  };
+}
+const pageToHistory = /* @__PURE__ */ new Map();
+const statesByHistory = /* @__PURE__ */ new Map();
+function registerLiveRecognitionPage(pageId, historyPageId) {
+  if (!historyPageId) return;
+  pageToHistory.set(pageId, historyPageId);
+  if (!statesByHistory.has(historyPageId)) {
+    statesByHistory.set(historyPageId, {
+      historyPageId,
+      taskId: "",
+      status: "processing",
+      progressPercent: 0,
+      progressMessage: "",
+      errorMessage: ""
+    });
+  }
+}
+function getLiveRecognitionHistoryPageId(pageId) {
+  return pageToHistory.get(pageId) ?? null;
+}
+function updateLiveRecognitionPage(pageId, patch) {
+  const historyPageId = pageToHistory.get(pageId);
+  if (!historyPageId) return;
+  const current = statesByHistory.get(historyPageId) ?? {
+    historyPageId,
+    taskId: "",
+    status: "processing",
+    progressPercent: 0,
+    progressMessage: "",
+    errorMessage: ""
+  };
+  statesByHistory.set(historyPageId, { ...current, ...patch });
+}
+function clearLiveRecognitionPage(pageId) {
+  const historyPageId = pageToHistory.get(pageId);
+  pageToHistory.delete(pageId);
+  if (historyPageId) {
+    statesByHistory.delete(historyPageId);
+  }
+}
+function liveRecognitionTaskPatch(historyPageId, historyStatus) {
+  if (historyStatus !== "processing" && historyStatus !== "pending") return {};
+  const state = statesByHistory.get(historyPageId);
+  if (!state || state.status !== "processing") return {};
+  return {
+    taskId: state.taskId,
+    status: state.status,
+    progressPercent: state.progressPercent,
+    progressMessage: state.progressMessage,
+    errorMessage: state.errorMessage
+  };
+}
+function useFileUpload() {
+  const uploading = /* @__PURE__ */ ref(false);
+  const progress = /* @__PURE__ */ ref(0);
+  const phase = /* @__PURE__ */ ref("upload");
+  const error2 = /* @__PURE__ */ ref(null);
+  async function upload(file) {
+    uploading.value = true;
+    error2.value = null;
+    progress.value = 0;
+    phase.value = "upload";
+    try {
+      const onProgress = (pct, p2) => {
+        progress.value = pct;
+        phase.value = p2;
+      };
+      const result = await uploadFile(file, onProgress);
+      progress.value = 100;
+      return result;
+    } catch (e) {
+      const msg2 = e instanceof Error ? e.message : String(e);
+      error2.value = msg2;
+      return null;
+    } finally {
+      uploading.value = false;
+    }
+  }
+  return { uploading, progress, phase, error: error2, upload };
+}
+const _hoisted_1$J = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$y = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$I = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9154,7 +9443,7 @@ const _hoisted_2$y = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$w = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$F = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9168,19 +9457,19 @@ const _hoisted_3$w = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$o = [_hoisted_2$y, _hoisted_3$w];
+const _hoisted_4$x = [_hoisted_2$I, _hoisted_3$F];
 const AddOutline = /* @__PURE__ */ defineComponent({
   name: "AddOutline",
   render: function render(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_4$o);
+    return openBlock(), createElementBlock("svg", _hoisted_1$J, _hoisted_4$x);
   }
 });
-const _hoisted_1$z = {
+const _hoisted_1$I = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$x = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$H = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192z",
@@ -9193,7 +9482,7 @@ const _hoisted_2$x = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$E = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M250.26 166.05L256 288l5.73-121.95a5.74 5.74 0 0 0-5.79-6h0a5.74 5.74 0 0 0-5.68 6z",
@@ -9207,7 +9496,7 @@ const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$n = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$w = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M256 367.91a20 20 0 1 1 20-20a20 20 0 0 1-20 20z",
@@ -9217,19 +9506,19 @@ const _hoisted_4$n = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$g = [_hoisted_2$x, _hoisted_3$v, _hoisted_4$n];
+const _hoisted_5$k = [_hoisted_2$H, _hoisted_3$E, _hoisted_4$w];
 const AlertCircleOutline = /* @__PURE__ */ defineComponent({
   name: "AlertCircleOutline",
   render: function render2(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_5$g);
+    return openBlock(), createElementBlock("svg", _hoisted_1$I, _hoisted_5$k);
   }
 });
-const _hoisted_1$y = {
+const _hoisted_1$H = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$w = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$G = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9243,7 +9532,7 @@ const _hoisted_2$w = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$u = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$D = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9257,19 +9546,57 @@ const _hoisted_3$u = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$m = [_hoisted_2$w, _hoisted_3$u];
+const _hoisted_4$v = [_hoisted_2$G, _hoisted_3$D];
 const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
   name: "ArrowForwardOutline",
   render: function render3(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_4$m);
+    return openBlock(), createElementBlock("svg", _hoisted_1$H, _hoisted_4$v);
   }
 });
-const _hoisted_1$x = {
+const _hoisted_1$G = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$v = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$F = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M393.87 190a32.1 32.1 0 0 1-45.25 0l-26.57-26.57a32.09 32.09 0 0 1 0-45.26L382.19 58a1 1 0 0 0-.3-1.64c-38.82-16.64-89.15-8.16-121.11 23.57c-30.58 30.35-32.32 76-21.12 115.84a31.93 31.93 0 0 1-9.06 32.08L64 380a48.17 48.17 0 1 0 68 68l153.86-167a31.93 31.93 0 0 1 31.6-9.13c39.54 10.59 84.54 8.6 114.72-21.19c32.49-32 39.5-88.56 23.75-120.93a1 1 0 0 0-1.6-.26z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-miterlimit": "10",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$C = /* @__PURE__ */ createBaseVNode(
+  "circle",
+  {
+    cx: "96",
+    cy: "416",
+    r: "16",
+    fill: "currentColor"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$u = [_hoisted_2$F, _hoisted_3$C];
+const BuildOutline = /* @__PURE__ */ defineComponent({
+  name: "BuildOutline",
+  render: function render4(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$G, _hoisted_4$u);
+  }
+});
+const _hoisted_1$F = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$E = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M87.48 380c1.2-4.38-1.43-10.47-3.94-14.86a42.63 42.63 0 0 0-2.54-3.8a199.81 199.81 0 0 1-33-110C47.64 139.09 140.72 48 255.82 48C356.2 48 440 117.54 459.57 209.85a199 199 0 0 1 4.43 41.64c0 112.41-89.49 204.93-204.59 204.93c-18.31 0-43-4.6-56.47-8.37s-26.92-8.77-30.39-10.11a31.14 31.14 0 0 0-11.13-2.07a30.7 30.7 0 0 0-12.08 2.43L81.5 462.78a15.92 15.92 0 0 1-4.66 1.22a9.61 9.61 0 0 1-9.58-9.74a15.85 15.85 0 0 1 .6-3.29z",
@@ -9283,7 +9610,7 @@ const _hoisted_2$v = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$t = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$B = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "160",
@@ -9295,7 +9622,7 @@ const _hoisted_3$t = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$l = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$t = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "256",
@@ -9307,7 +9634,7 @@ const _hoisted_4$l = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$f = /* @__PURE__ */ createBaseVNode(
+const _hoisted_5$j = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "352",
@@ -9319,19 +9646,112 @@ const _hoisted_5$f = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$a = [_hoisted_2$v, _hoisted_3$t, _hoisted_4$l, _hoisted_5$f];
+const _hoisted_6$c = [_hoisted_2$E, _hoisted_3$B, _hoisted_4$t, _hoisted_5$j];
 const ChatbubbleEllipsesOutline = /* @__PURE__ */ defineComponent({
   name: "ChatbubbleEllipsesOutline",
-  render: function render4(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_6$a);
+  render: function render5(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$F, _hoisted_6$c);
   }
 });
-const _hoisted_1$w = {
+const _hoisted_1$E = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$D = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-miterlimit": "10",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$A = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M352 176L217.6 336L160 272"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$s = [_hoisted_2$D, _hoisted_3$A];
+const CheckmarkCircleOutline = /* @__PURE__ */ defineComponent({
+  name: "CheckmarkCircleOutline",
+  render: function render6(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$E, _hoisted_4$s);
+  }
+});
+const _hoisted_1$D = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$C = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M464 128L240 384l-96-96"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$z = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M144 384l-96-96"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$r = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M368 128L232 284"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_5$i = [_hoisted_2$C, _hoisted_3$z, _hoisted_4$r];
+const CheckmarkDoneOutline = /* @__PURE__ */ defineComponent({
+  name: "CheckmarkDoneOutline",
+  render: function render7(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$D, _hoisted_5$i);
+  }
+});
+const _hoisted_1$C = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$B = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9345,19 +9765,19 @@ const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$s = [_hoisted_2$u];
+const _hoisted_3$y = [_hoisted_2$B];
 const ChevronBackOutline = /* @__PURE__ */ defineComponent({
   name: "ChevronBackOutline",
-  render: function render5(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_3$s);
+  render: function render8(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$C, _hoisted_3$y);
   }
 });
-const _hoisted_1$v = {
+const _hoisted_1$B = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$A = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9371,19 +9791,72 @@ const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$r = [_hoisted_2$t];
+const _hoisted_3$x = [_hoisted_2$A];
 const ChevronForwardOutline = /* @__PURE__ */ defineComponent({
   name: "ChevronForwardOutline",
-  render: function render6(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_3$r);
+  render: function render9(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$B, _hoisted_3$x);
   }
 });
-const _hoisted_1$u = {
+const _hoisted_1$A = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$z = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-miterlimit": "10",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$w = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M320 320L192 192"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$q = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M192 320l128-128"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_5$h = [_hoisted_2$z, _hoisted_3$w, _hoisted_4$q];
+const CloseCircleOutline = /* @__PURE__ */ defineComponent({
+  name: "CloseCircleOutline",
+  render: function render10(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_5$h);
+  }
+});
+const _hoisted_1$z = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$y = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9397,7 +9870,7 @@ const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9411,19 +9884,19 @@ const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$k = [_hoisted_2$s, _hoisted_3$q];
+const _hoisted_4$p = [_hoisted_2$y, _hoisted_3$v];
 const CloseOutline = /* @__PURE__ */ defineComponent({
   name: "CloseOutline",
-  render: function render7(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$k);
+  render: function render11(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_4$p);
   }
 });
-const _hoisted_1$t = {
+const _hoisted_1$y = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$x = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M320 336h76c55 0 100-21.21 100-75.6s-53-73.47-96-75.6C391.11 99.74 329 48 256 48c-69 0-113.44 45.79-128 91.2c-60 5.7-112 35.88-112 98.4S70 336 136 336h56",
@@ -9437,7 +9910,7 @@ const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$p = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$u = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9451,7 +9924,7 @@ const _hoisted_3$p = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$j = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$o = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9465,11 +9938,211 @@ const _hoisted_4$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$e = [_hoisted_2$r, _hoisted_3$p, _hoisted_4$j];
+const _hoisted_5$g = [_hoisted_2$x, _hoisted_3$u, _hoisted_4$o];
 const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
   name: "CloudDownloadOutline",
-  render: function render8(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_5$e);
+  render: function render12(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_5$g);
+  }
+});
+const _hoisted_1$x = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$w = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M320 367.79h76c55 0 100-29.21 100-83.6s-53-81.47-96-83.6c-8.89-85.06-71-136.8-144-136.8c-69 0-113.44 45.79-128 91.2c-60 5.7-112 43.88-112 106.4s54 106.4 120 106.4h56",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$t = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M320 255.79l-64-64l-64 64"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$n = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M256 448.21V207.79"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_5$f = [_hoisted_2$w, _hoisted_3$t, _hoisted_4$n];
+const CloudUploadOutline = /* @__PURE__ */ defineComponent({
+  name: "CloudUploadOutline",
+  render: function render13(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_5$f);
+  }
+});
+const _hoisted_1$w = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$v = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M160 368L32 256l128-112"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$s = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M352 368l128-112l-128-112"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$m = [_hoisted_2$v, _hoisted_3$s];
+const CodeOutline = /* @__PURE__ */ defineComponent({
+  name: "CodeOutline",
+  render: function render14(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_4$m);
+  }
+});
+const _hoisted_1$v = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M416 221.25V416a48 48 0 0 1-48 48H144a48 48 0 0 1-48-48V96a48 48 0 0 1 48-48h98.75a32 32 0 0 1 22.62 9.37l141.26 141.26a32 32 0 0 1 9.37 22.62z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linejoin": "round",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$r = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M256 56v120a32 32 0 0 0 32 32h120",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$l = [_hoisted_2$u, _hoisted_3$r];
+const DocumentOutline = /* @__PURE__ */ defineComponent({
+  name: "DocumentOutline",
+  render: function render15(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_4$l);
+  }
+});
+const _hoisted_1$u = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M255.66 112c-77.94 0-157.89 45.11-220.83 135.33a16 16 0 0 0-.27 17.77C82.92 340.8 161.8 400 255.66 400c92.84 0 173.34-59.38 221.79-135.25a16.14 16.14 0 0 0 0-17.47C428.89 172.28 347.8 112 255.66 112z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
+  "circle",
+  {
+    cx: "256",
+    cy: "256",
+    r: "80",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-miterlimit": "10",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$k = [_hoisted_2$t, _hoisted_3$q];
+const EyeOutline = /* @__PURE__ */ defineComponent({
+  name: "EyeOutline",
+  render: function render16(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_4$k);
+  }
+});
+const _hoisted_1$t = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M315.27 33L96 304h128l-31.51 173.23a2.36 2.36 0 0 0 2.33 2.77h0a2.36 2.36 0 0 0 1.89-.95L416 208H288l31.66-173.25a2.45 2.45 0 0 0-2.44-2.75h0a2.42 2.42 0 0 0-1.95 1z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$p = [_hoisted_2$s];
+const FlashOutline = /* @__PURE__ */ defineComponent({
+  name: "FlashOutline",
+  render: function render17(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_3$p);
   }
 });
 const _hoisted_1$s = {
@@ -9477,10 +10150,10 @@ const _hoisted_1$s = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$q = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
   "path",
   {
-    d: "M320 367.79h76c55 0 100-29.21 100-83.6s-53-81.47-96-83.6c-8.89-85.06-71-136.8-144-136.8c-69 0-113.44 45.79-128 91.2c-60 5.7-112 43.88-112 106.4s54 106.4 120 106.4h56",
+    d: "M440 432H72a40 40 0 0 1-40-40V120a40 40 0 0 1 40-40h75.89a40 40 0 0 1 22.19 6.72l27.84 18.56a40 40 0 0 0 22.19 6.72H440a40 40 0 0 1 40 40v240a40 40 0 0 1-40 40z",
     fill: "none",
     stroke: "currentColor",
     "stroke-linecap": "round",
@@ -9499,31 +10172,17 @@ const _hoisted_3$o = /* @__PURE__ */ createBaseVNode(
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "stroke-width": "32",
-    d: "M320 255.79l-64-64l-64 64"
+    d: "M32 192h448"
   },
   null,
   -1
   /* HOISTED */
 );
-const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32",
-    d: "M256 448.21V207.79"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_5$d = [_hoisted_2$q, _hoisted_3$o, _hoisted_4$i];
-const CloudUploadOutline = /* @__PURE__ */ defineComponent({
-  name: "CloudUploadOutline",
-  render: function render9(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_5$d);
+const _hoisted_4$j = [_hoisted_2$r, _hoisted_3$o];
+const FolderOutline = /* @__PURE__ */ defineComponent({
+  name: "FolderOutline",
+  render: function render18(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_4$j);
   }
 });
 const _hoisted_1$r = {
@@ -9531,125 +10190,7 @@ const _hoisted_1$r = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32",
-    d: "M160 368L32 256l128-112"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_3$n = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32",
-    d: "M352 368l128-112l-128-112"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_4$h = [_hoisted_2$p, _hoisted_3$n];
-const CodeOutline = /* @__PURE__ */ defineComponent({
-  name: "CodeOutline",
-  render: function render10(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_4$h);
-  }
-});
-const _hoisted_1$q = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    d: "M416 221.25V416a48 48 0 0 1-48 48H144a48 48 0 0 1-48-48V96a48 48 0 0 1 48-48h98.75a32 32 0 0 1 22.62 9.37l141.26 141.26a32 32 0 0 1 9.37 22.62z",
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linejoin": "round",
-    "stroke-width": "32"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    d: "M256 56v120a32 32 0 0 0 32 32h120",
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_4$g = [_hoisted_2$o, _hoisted_3$m];
-const DocumentOutline = /* @__PURE__ */ defineComponent({
-  name: "DocumentOutline",
-  render: function render11(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_4$g);
-  }
-});
-const _hoisted_1$p = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$n = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    d: "M315.27 33L96 304h128l-31.51 173.23a2.36 2.36 0 0 0 2.33 2.77h0a2.36 2.36 0 0 0 1.89-.95L416 208H288l31.66-173.25a2.45 2.45 0 0 0-2.44-2.75h0a2.42 2.42 0 0 0-1.95 1z",
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_3$l = [_hoisted_2$n];
-const FlashOutline = /* @__PURE__ */ defineComponent({
-  name: "FlashOutline",
-  render: function render12(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_3$l);
-  }
-});
-const _hoisted_1$o = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$m = /* @__PURE__ */ createStaticVNode('<rect x="80" y="80" width="352" height="352" rx="48" ry="48" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><rect x="144" y="144" width="224" height="224" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 176h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 176h32"></path>', 14);
-const _hoisted_16$4 = [_hoisted_2$m];
-const HardwareChipOutline = /* @__PURE__ */ defineComponent({
-  name: "HardwareChipOutline",
-  render: function render13(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$o, _hoisted_16$4);
-  }
-});
-const _hoisted_1$n = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$l = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$q = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M256 80a176 176 0 1 0 176 176A176 176 0 0 0 256 80z",
@@ -9662,7 +10203,7 @@ const _hoisted_2$l = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$k = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$n = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M200 202.29s.84-17.5 19.57-32.57C230.68 160.77 244 158.18 256 158c10.93-.14 20.69 1.67 26.53 4.45c10 4.76 29.47 16.38 29.47 41.09c0 26-17 37.81-36.37 50.8S251 281.43 251 296",
@@ -9676,7 +10217,7 @@ const _hoisted_3$k = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$f = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "250",
@@ -9688,19 +10229,19 @@ const _hoisted_4$f = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$c = [_hoisted_2$l, _hoisted_3$k, _hoisted_4$f];
+const _hoisted_5$e = [_hoisted_2$q, _hoisted_3$n, _hoisted_4$i];
 const HelpCircleOutline = /* @__PURE__ */ defineComponent({
   name: "HelpCircleOutline",
-  render: function render14(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_5$c);
+  render: function render19(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_5$e);
   }
 });
-const _hoisted_1$m = {
+const _hoisted_1$q = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$k = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$p = /* @__PURE__ */ createBaseVNode(
   "rect",
   {
     x: "48",
@@ -9718,7 +10259,7 @@ const _hoisted_2$k = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "336",
@@ -9733,7 +10274,7 @@ const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$h = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M304 335.79l-90.66-90.49a32 32 0 0 0-43.87-1.3L48 352",
@@ -9747,7 +10288,7 @@ const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$b = /* @__PURE__ */ createBaseVNode(
+const _hoisted_5$d = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M224 432l123.34-123.34a32 32 0 0 1 43.11-2L464 368",
@@ -9761,19 +10302,82 @@ const _hoisted_5$b = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$9 = [_hoisted_2$k, _hoisted_3$j, _hoisted_4$e, _hoisted_5$b];
+const _hoisted_6$b = [_hoisted_2$p, _hoisted_3$m, _hoisted_4$h, _hoisted_5$d];
 const ImageOutline = /* @__PURE__ */ defineComponent({
   name: "ImageOutline",
-  render: function render15(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_6$9);
+  render: function render20(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_6$b);
   }
 });
-const _hoisted_1$l = {
+const _hoisted_1$p = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$o = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M248 64C146.39 64 64 146.39 64 248s82.39 184 184 184s184-82.39 184-184S349.61 64 248 64z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-miterlimit": "10",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$l = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M220 220h32v116"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$g = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-miterlimit": "10",
+    "stroke-width": "32",
+    d: "M208 340h88"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_5$c = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M248 130a26 26 0 1 0 26 26a26 26 0 0 0-26-26z",
+    fill: "currentColor"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_6$a = [_hoisted_2$o, _hoisted_3$l, _hoisted_4$g, _hoisted_5$c];
+const InformationCircleOutline = /* @__PURE__ */ defineComponent({
+  name: "InformationCircleOutline",
+  render: function render21(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_6$a);
+  }
+});
+const _hoisted_1$o = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$n = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M218.1 167.17c0 13 0 25.6 4.1 37.4c-43.1 50.6-156.9 184.3-167.5 194.5a20.17 20.17 0 0 0-6.7 15c0 8.5 5.2 16.7 9.6 21.3c6.6 6.9 34.8 33 40 28c15.4-15 18.5-19 24.8-25.2c9.5-9.3-1-28.3 2.3-36s6.8-9.2 12.5-10.4s15.8 2.9 23.7 3c8.3.1 12.8-3.4 19-9.2c5-4.6 8.6-8.9 8.7-15.6c.2-9-12.8-20.9-3.1-30.4s23.7 6.2 34 5s22.8-15.5 24.1-21.6s-11.7-21.8-9.7-30.7c.7-3 6.8-10 11.4-11s25 6.9 29.6 5.9c5.6-1.2 12.1-7.1 17.4-10.4c15.5 6.7 29.6 9.4 47.7 9.4c68.5 0 124-53.4 124-119.2S408.5 48 340 48s-121.9 53.37-121.9 119.17zM400 144a32 32 0 1 1-32-32a32 32 0 0 1 32 32z",
@@ -9786,19 +10390,45 @@ const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$i = [_hoisted_2$j];
+const _hoisted_3$k = [_hoisted_2$n];
 const KeyOutline = /* @__PURE__ */ defineComponent({
   name: "KeyOutline",
-  render: function render16(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_3$i);
+  render: function render22(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$o, _hoisted_3$k);
   }
 });
-const _hoisted_1$k = {
+const _hoisted_1$n = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$i = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$m = /* @__PURE__ */ createStaticVNode('<path d="M368 415.86V72a24.07 24.07 0 0 0-24-24H72a24.07 24.07 0 0 0-24 24v352a40.12 40.12 0 0 0 40 40h328" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></path><path d="M416 464h0a48 48 0 0 1-48-48V128h72a24 24 0 0 1 24 24v264a48 48 0 0 1-48 48z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M240 128h64"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M240 192h64"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M112 256h192"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M112 320h192"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M112 384h192"></path><path d="M176 208h-64a16 16 0 0 1-16-16v-64a16 16 0 0 1 16-16h64a16 16 0 0 1 16 16v64a16 16 0 0 1-16 16z" fill="currentColor"></path>', 8);
+const _hoisted_10$7 = [_hoisted_2$m];
+const NewspaperOutline = /* @__PURE__ */ defineComponent({
+  name: "NewspaperOutline",
+  render: function render23(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_10$7);
+  }
+});
+const _hoisted_1$m = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$l = /* @__PURE__ */ createStaticVNode('<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M368 128h80"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M64 128h240"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M368 384h80"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M64 384h240"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M208 256h240"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M64 256h80"></path><circle cx="336" cy="128" r="32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></circle><circle cx="176" cy="256" r="32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></circle><circle cx="336" cy="384" r="32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></circle>', 9);
+const _hoisted_11$7 = [_hoisted_2$l];
+const OptionsOutline = /* @__PURE__ */ defineComponent({
+  name: "OptionsOutline",
+  render: function render24(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_11$7);
+  }
+});
+const _hoisted_1$l = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$k = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M320 146s24.36-12-64-12a160 160 0 1 0 160 160",
@@ -9812,7 +10442,7 @@ const _hoisted_2$i = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$h = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9826,19 +10456,19 @@ const _hoisted_3$h = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$d = [_hoisted_2$i, _hoisted_3$h];
+const _hoisted_4$f = [_hoisted_2$k, _hoisted_3$j];
 const RefreshOutline = /* @__PURE__ */ defineComponent({
   name: "RefreshOutline",
-  render: function render17(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_4$d);
+  render: function render25(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_4$f);
   }
 });
-const _hoisted_1$j = {
+const _hoisted_1$k = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M380.93 57.37A32 32 0 0 0 358.3 48H94.22A46.21 46.21 0 0 0 48 94.22v323.56A46.21 46.21 0 0 0 94.22 464h323.56A46.36 46.36 0 0 0 464 417.78V153.7a32 32 0 0 0-9.37-22.63zM256 416a64 64 0 1 1 64-64a63.92 63.92 0 0 1-64 64zm48-224H112a16 16 0 0 1-16-16v-64a16 16 0 0 1 16-16h192a16 16 0 0 1 16 16v64a16 16 0 0 1-16 16z",
@@ -9852,19 +10482,19 @@ const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$g = [_hoisted_2$h];
+const _hoisted_3$i = [_hoisted_2$j];
 const SaveOutline = /* @__PURE__ */ defineComponent({
   name: "SaveOutline",
-  render: function render18(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_3$g);
+  render: function render26(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_3$i);
   }
 });
-const _hoisted_1$i = {
+const _hoisted_1$j = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$g = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$i = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M336 448h56a56 56 0 0 0 56-56v-56",
@@ -9878,7 +10508,7 @@ const _hoisted_2$g = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$f = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$h = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M448 176v-56a56 56 0 0 0-56-56h-56",
@@ -9892,7 +10522,7 @@ const _hoisted_3$f = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M176 448h-56a56 56 0 0 1-56-56v-56",
@@ -9906,7 +10536,7 @@ const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
+const _hoisted_5$b = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M64 176v-56a56 56 0 0 1 56-56h56",
@@ -9920,19 +10550,19 @@ const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$8 = [_hoisted_2$g, _hoisted_3$f, _hoisted_4$c, _hoisted_5$a];
+const _hoisted_6$9 = [_hoisted_2$i, _hoisted_3$h, _hoisted_4$e, _hoisted_5$b];
 const ScanOutline = /* @__PURE__ */ defineComponent({
   name: "ScanOutline",
-  render: function render19(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$i, _hoisted_6$8);
+  render: function render27(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_6$9);
   }
 });
-const _hoisted_1$h = {
+const _hoisted_1$i = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$f = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M470.3 271.15L43.16 447.31a7.83 7.83 0 0 1-11.16-7V327a8 8 0 0 1 6.51-7.86l247.62-47c17.36-3.29 17.36-28.15 0-31.44l-247.63-47a8 8 0 0 1-6.5-7.85V72.59c0-5.74 5.88-10.26 11.16-8L470.3 241.76a16 16 0 0 1 0 29.39z",
@@ -9946,19 +10576,19 @@ const _hoisted_2$f = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$e = [_hoisted_2$f];
+const _hoisted_3$g = [_hoisted_2$h];
 const SendOutline = /* @__PURE__ */ defineComponent({
   name: "SendOutline",
-  render: function render20(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$h, _hoisted_3$e);
+  render: function render28(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$i, _hoisted_3$g);
   }
 });
-const _hoisted_1$g = {
+const _hoisted_1$h = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$e = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$g = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M262.29 192.31a64 64 0 1 0 57.4 57.4a64.13 64.13 0 0 0-57.4-57.4zM416.39 256a154.34 154.34 0 0 1-1.53 20.79l45.21 35.46a10.81 10.81 0 0 1 2.45 13.75l-42.77 74a10.81 10.81 0 0 1-13.14 4.59l-44.9-18.08a16.11 16.11 0 0 0-15.17 1.75A164.48 164.48 0 0 1 325 400.8a15.94 15.94 0 0 0-8.82 12.14l-6.73 47.89a11.08 11.08 0 0 1-10.68 9.17h-85.54a11.11 11.11 0 0 1-10.69-8.87l-6.72-47.82a16.07 16.07 0 0 0-9-12.22a155.3 155.3 0 0 1-21.46-12.57a16 16 0 0 0-15.11-1.71l-44.89 18.07a10.81 10.81 0 0 1-13.14-4.58l-42.77-74a10.8 10.8 0 0 1 2.45-13.75l38.21-30a16.05 16.05 0 0 0 6-14.08c-.36-4.17-.58-8.33-.58-12.5s.21-8.27.58-12.35a16 16 0 0 0-6.07-13.94l-38.19-30A10.81 10.81 0 0 1 49.48 186l42.77-74a10.81 10.81 0 0 1 13.14-4.59l44.9 18.08a16.11 16.11 0 0 0 15.17-1.75A164.48 164.48 0 0 1 187 111.2a15.94 15.94 0 0 0 8.82-12.14l6.73-47.89A11.08 11.08 0 0 1 213.23 42h85.54a11.11 11.11 0 0 1 10.69 8.87l6.72 47.82a16.07 16.07 0 0 0 9 12.22a155.3 155.3 0 0 1 21.46 12.57a16 16 0 0 0 15.11 1.71l44.89-18.07a10.81 10.81 0 0 1 13.14 4.58l42.77 74a10.8 10.8 0 0 1-2.45 13.75l-38.21 30a16.05 16.05 0 0 0-6.05 14.08c.33 4.14.55 8.3.55 12.47z",
@@ -9972,11 +10602,79 @@ const _hoisted_2$e = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$d = [_hoisted_2$e];
+const _hoisted_3$f = [_hoisted_2$g];
 const SettingsOutline = /* @__PURE__ */ defineComponent({
   name: "SettingsOutline",
-  render: function render21(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_3$d);
+  render: function render29(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$h, _hoisted_3$f);
+  }
+});
+const _hoisted_1$g = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$f = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M304 48l112 112l-112 112"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$e = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M398.87 160H96"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M208 464L96 352l112-112"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M114 352h302"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_6$8 = [_hoisted_2$f, _hoisted_3$e, _hoisted_4$d, _hoisted_5$a];
+const SwapHorizontalOutline = /* @__PURE__ */ defineComponent({
+  name: "SwapHorizontalOutline",
+  render: function render30(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_6$8);
   }
 });
 const _hoisted_1$f = {
@@ -9984,7 +10682,7 @@ const _hoisted_1$f = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$d = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$e = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M434.67 285.59v-29.8c0-98.73-80.24-178.79-179.2-178.79a179 179 0 0 0-140.14 67.36m-38.53 82v29.8C76.8 355 157 435 256 435a180.45 180.45 0 0 0 140-66.92",
@@ -9992,6 +10690,59 @@ const _hoisted_2$d = /* @__PURE__ */ createBaseVNode(
     stroke: "currentColor",
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
+    "stroke-width": "32"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_3$d = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M32 256l44-44l46 44"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "32",
+    d: "M480 256l-44 44l-46-44"
+  },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_5$9 = [_hoisted_2$e, _hoisted_3$d, _hoisted_4$c];
+const SyncOutline = /* @__PURE__ */ defineComponent({
+  name: "SyncOutline",
+  render: function render31(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$f, _hoisted_5$9);
+  }
+});
+const _hoisted_1$e = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$d = /* @__PURE__ */ createBaseVNode(
+  "path",
+  {
+    d: "M256 64C150 64 64 150 64 256s86 192 192 192s192-86 192-192S362 64 256 64z",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-miterlimit": "10",
     "stroke-width": "32"
   },
   null,
@@ -10006,49 +10757,44 @@ const _hoisted_3$c = /* @__PURE__ */ createBaseVNode(
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "stroke-width": "32",
-    d: "M32 256l44-44l46 44"
+    d: "M256 128v144h96"
   },
   null,
   -1
   /* HOISTED */
 );
-const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32",
-    d: "M480 256l-44 44l-46-44"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_5$9 = [_hoisted_2$d, _hoisted_3$c, _hoisted_4$b];
-const SyncOutline = /* @__PURE__ */ defineComponent({
-  name: "SyncOutline",
-  render: function render22(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$f, _hoisted_5$9);
+const _hoisted_4$b = [_hoisted_2$d, _hoisted_3$c];
+const TimeOutline = /* @__PURE__ */ defineComponent({
+  name: "TimeOutline",
+  render: function render32(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_4$b);
   }
 });
-const _hoisted_1$e = {
+const _hoisted_1$d = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$c = /* @__PURE__ */ createBaseVNode(
-  "rect",
+const _hoisted_2$c = /* @__PURE__ */ createStaticVNode('<path d="M112 112l20 320c.95 18.49 14.4 32 32 32h184c17.67 0 30.87-13.51 32-32l20-320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M80 112h352" fill="currentColor"></path><path d="M192 112V72h0a23.93 23.93 0 0 1 24-24h80a23.93 23.93 0 0 1 24 24h0v40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 176v224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M184 176l8 224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M328 176l-8 224"></path>', 6);
+const _hoisted_8$7 = [_hoisted_2$c];
+const TrashOutline = /* @__PURE__ */ defineComponent({
+  name: "TrashOutline",
+  render: function render33(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_8$7);
+  }
+});
+const _hoisted_1$c = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$b = /* @__PURE__ */ createBaseVNode(
+  "path",
   {
-    x: "32",
-    y: "48",
-    width: "448",
-    height: "416",
-    rx: "48",
-    ry: "48",
+    d: "M85.57 446.25h340.86a32 32 0 0 0 28.17-47.17L284.18 82.58c-12.09-22.44-44.27-22.44-56.36 0L57.4 399.08a32 32 0 0 0 28.17 47.17z",
     fill: "none",
     stroke: "currentColor",
+    "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "stroke-width": "32"
   },
@@ -10059,12 +10805,12 @@ const _hoisted_2$c = /* @__PURE__ */ createBaseVNode(
 const _hoisted_3$b = /* @__PURE__ */ createBaseVNode(
   "path",
   {
+    d: "M250.26 195.39l5.74 122l5.73-121.95a5.74 5.74 0 0 0-5.79-6h0a5.74 5.74 0 0 0-5.68 5.95z",
     fill: "none",
     stroke: "currentColor",
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
-    "stroke-width": "32",
-    d: "M96 112l80 64l-80 64"
+    "stroke-width": "32"
   },
   null,
   -1
@@ -10073,98 +10819,20 @@ const _hoisted_3$b = /* @__PURE__ */ createBaseVNode(
 const _hoisted_4$a = /* @__PURE__ */ createBaseVNode(
   "path",
   {
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32",
-    d: "M192 240h64"
+    d: "M256 397.25a20 20 0 1 1 20-20a20 20 0 0 1-20 20z",
+    fill: "currentColor"
   },
   null,
   -1
   /* HOISTED */
 );
-const _hoisted_5$8 = [_hoisted_2$c, _hoisted_3$b, _hoisted_4$a];
-const TerminalOutline = /* @__PURE__ */ defineComponent({
-  name: "TerminalOutline",
-  render: function render23(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_5$8);
+const _hoisted_5$8 = [_hoisted_2$b, _hoisted_3$b, _hoisted_4$a];
+const WarningOutline = /* @__PURE__ */ defineComponent({
+  name: "WarningOutline",
+  render: function render34(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_5$8);
   }
 });
-const _hoisted_1$d = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$b = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    d: "M256 64C150 64 64 150 64 256s86 192 192 192s192-86 192-192S362 64 256 64z",
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-miterlimit": "10",
-    "stroke-width": "32"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_3$a = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32",
-    d: "M256 128v144h96"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_4$9 = [_hoisted_2$b, _hoisted_3$a];
-const TimeOutline = /* @__PURE__ */ defineComponent({
-  name: "TimeOutline",
-  render: function render24(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_4$9);
-  }
-});
-const _hoisted_1$c = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$a = /* @__PURE__ */ createStaticVNode('<path d="M112 112l20 320c.95 18.49 14.4 32 32 32h184c17.67 0 30.87-13.51 32-32l20-320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M80 112h352" fill="currentColor"></path><path d="M192 112V72h0a23.93 23.93 0 0 1 24-24h80a23.93 23.93 0 0 1 24 24h0v40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 176v224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M184 176l8 224"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M328 176l-8 224"></path>', 6);
-const _hoisted_8$7 = [_hoisted_2$a];
-const TrashOutline = /* @__PURE__ */ defineComponent({
-  name: "TrashOutline",
-  render: function render25(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_8$7);
-  }
-});
-function useFileUpload() {
-  const uploading = /* @__PURE__ */ ref(false);
-  const progress = /* @__PURE__ */ ref(0);
-  const error2 = /* @__PURE__ */ ref(null);
-  async function upload(file) {
-    uploading.value = true;
-    error2.value = null;
-    progress.value = 0;
-    try {
-      const result = await uploadFile(file);
-      progress.value = 100;
-      return result;
-    } catch (e) {
-      const msg2 = e instanceof Error ? e.message : String(e);
-      error2.value = msg2;
-      return null;
-    } finally {
-      uploading.value = false;
-    }
-  }
-  return { uploading, progress, error: error2, upload };
-}
 function plugin$1(options) {
   let _bPrefix = ".";
   let _ePrefix = "__";
@@ -14653,7 +15321,7 @@ function omit(object, keys2 = [], rest) {
   });
   return Object.assign(omitedObject, rest);
 }
-function render26(r, ...args) {
+function render35(r, ...args) {
   if (typeof r === "function") {
     return r(...args);
   } else if (typeof r === "string") {
@@ -20304,7 +20972,7 @@ const NSelectGroupHeader = /* @__PURE__ */ defineComponent({
       }
     } = this;
     const attrs = nodeProps === null || nodeProps === void 0 ? void 0 : nodeProps(rawNode);
-    const children = renderLabel ? renderLabel(rawNode, false) : render26(rawNode[this.labelField], rawNode, false);
+    const children = renderLabel ? renderLabel(rawNode, false) : render35(rawNode[this.labelField], rawNode, false);
     const node = h("div", Object.assign({}, attrs, {
       class: [`${clsPrefix}-base-select-group-header`, attrs === null || attrs === void 0 ? void 0 : attrs.class]
     }), children);
@@ -20446,7 +21114,7 @@ const NSelectOption = /* @__PURE__ */ defineComponent({
       handleMouseMove
     } = this;
     const checkmark = renderCheckMark(isSelected, clsPrefix);
-    const children = renderLabel ? [renderLabel(rawNode, isSelected), showCheckmark && checkmark] : [render26(rawNode[this.labelField], rawNode, isSelected), showCheckmark && checkmark];
+    const children = renderLabel ? [renderLabel(rawNode, isSelected), showCheckmark && checkmark] : [render35(rawNode[this.labelField], rawNode, isSelected), showCheckmark && checkmark];
     const attrs = nodeProps === null || nodeProps === void 0 ? void 0 : nodeProps(rawNode);
     const node = h("div", Object.assign({}, attrs, {
       class: [`${clsPrefix}-base-select-option`, rawNode.class, attrs === null || attrs === void 0 ? void 0 : attrs.class, {
@@ -23394,7 +24062,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
         option: props.selectedOption,
         handleClose: () => {
         }
-      }) : props.renderLabel ? props.renderLabel(props.selectedOption, true) : render26(props.selectedOption[props.labelField], props.selectedOption, true) : props.placeholder;
+      }) : props.renderLabel ? props.renderLabel(props.selectedOption, true) : render35(props.selectedOption[props.labelField], props.selectedOption, true) : props.placeholder;
     });
     const labelRef = computed(() => {
       const option = props.selectedOption;
@@ -23895,7 +24563,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
         internalCloseIsButtonTag: false,
         internalCloseFocusable: false
       }, {
-        default: () => renderLabel ? renderLabel(option, true) : render26(option[labelField], option, true)
+        default: () => renderLabel ? renderLabel(option, true) : render35(option[labelField], option, true)
       }));
       const createOriginalTagNodes = () => (maxTagCountNumeric ? this.selectedOptions.slice(0, maxTagCount) : this.selectedOptions).map(createTag);
       const input = filterable ? h("div", {
@@ -24039,7 +24707,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
           option: this.selectedOption,
           handleClose: () => {
           }
-        }) : renderLabel ? renderLabel(this.selectedOption, true) : render26(this.label, this.selectedOption, true))) : null, showPlaceholder ? h("div", {
+        }) : renderLabel ? renderLabel(this.selectedOption, true) : render35(this.label, this.selectedOption, true))) : null, showPlaceholder ? h("div", {
           class: `${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`,
           key: "placeholder"
         }, h("div", {
@@ -24060,7 +24728,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
           option: this.selectedOption,
           handleClose: () => {
           }
-        }) : renderLabel ? renderLabel(this.selectedOption, true) : render26(this.label, this.selectedOption, true))) : h("div", {
+        }) : renderLabel ? renderLabel(this.selectedOption, true) : render35(this.label, this.selectedOption, true))) : h("div", {
           class: `${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`,
           key: "placeholder"
         }, h("div", {
@@ -31157,19 +31825,19 @@ const NDialog = /* @__PURE__ */ defineComponent({
       clsPrefix: mergedClsPrefix,
       class: `${mergedClsPrefix}-dialog__icon`
     }, {
-      default: () => resolveWrappedSlot(this.$slots.icon, (children) => children || (this.icon ? render26(this.icon) : iconRenderMap$1[this.type]()))
+      default: () => resolveWrappedSlot(this.$slots.icon, (children) => children || (this.icon ? render35(this.icon) : iconRenderMap$1[this.type]()))
     }) : null;
     const actionNode = resolveWrappedSlot(this.$slots.action, (children) => children || positiveText || negativeText || action ? h("div", {
       class: [`${mergedClsPrefix}-dialog__action`, this.actionClass],
       style: this.actionStyle
-    }, children || (action ? [render26(action)] : [this.negativeText && h(Button, Object.assign({
+    }, children || (action ? [render35(action)] : [this.negativeText && h(Button, Object.assign({
       theme: mergedTheme.peers.Button,
       themeOverrides: mergedTheme.peerOverrides.Button,
       ghost: true,
       size: "small",
       onClick: handleNegativeClick
     }, negativeButtonProps), {
-      default: () => render26(this.negativeText)
+      default: () => render35(this.negativeText)
     }), this.positiveText && h(Button, Object.assign({
       theme: mergedTheme.peers.Button,
       themeOverrides: mergedTheme.peerOverrides.Button,
@@ -31179,7 +31847,7 @@ const NDialog = /* @__PURE__ */ defineComponent({
       loading,
       onClick: handlePositiveClick
     }, positiveButtonProps), {
-      default: () => render26(this.positiveText)
+      default: () => render35(this.positiveText)
     })])) : null);
     return h("div", {
       class: [`${mergedClsPrefix}-dialog`, this.themeClass, this.closable && `${mergedClsPrefix}-dialog--closable`, `${mergedClsPrefix}-dialog--icon-${mergedIconPlacement}`, bordered && `${mergedClsPrefix}-dialog--bordered`, this.rtlEnabled && `${mergedClsPrefix}-dialog--rtl`],
@@ -31200,10 +31868,10 @@ const NDialog = /* @__PURE__ */ defineComponent({
     }, icon) : null, h("div", {
       class: [`${mergedClsPrefix}-dialog__title`, this.titleClass],
       style: this.titleStyle
-    }, showIcon && mergedIconPlacement === "left" ? icon : null, resolveSlot(this.$slots.header, () => [render26(title)])), h("div", {
+    }, showIcon && mergedIconPlacement === "left" ? icon : null, resolveSlot(this.$slots.header, () => [render35(title)])), h("div", {
       class: [`${mergedClsPrefix}-dialog__content`, actionNode ? "" : `${mergedClsPrefix}-dialog__content--last`, this.contentClass],
       style: this.contentStyle
-    }, resolveSlot(this.$slots.default, () => [render26(content)])), actionNode);
+    }, resolveSlot(this.$slots.default, () => [render35(content)])), actionNode);
   }
 });
 function self$v(vars) {
@@ -32378,7 +33046,7 @@ const NMessage = /* @__PURE__ */ defineComponent({
       default: () => iconNode
     })) : null, h("div", {
       class: `${mergedClsPrefix}-message__content`
-    }, render26(content)), closable ? h(NBaseClose, {
+    }, render35(content)), closable ? h(NBaseClose, {
       clsPrefix: mergedClsPrefix,
       class: `${mergedClsPrefix}-message__close`,
       onClick: handleClose,
@@ -40708,7 +41376,10 @@ const darkTheme = {
   FloatButtonGroup: floatButtonGroupDark,
   Marquee: marqueeDark
 };
-const _hoisted_1$b = { class: "upload-inner" };
+const _hoisted_1$b = { class: "upload-container" };
+const _hoisted_2$a = { class: "upload-inner" };
+const _hoisted_3$a = { class: "upload-text" };
+const _hoisted_4$9 = { class: "upload-title" };
 const _sfc_main$c = /* @__PURE__ */ defineComponent({
   __name: "FileUploader",
   props: {
@@ -40717,9 +41388,13 @@ const _sfc_main$c = /* @__PURE__ */ defineComponent({
   emits: ["uploaded"],
   setup(__props, { emit: __emit }) {
     const emit2 = __emit;
-    const { upload } = useFileUpload();
+    const { upload, uploading, progress, phase } = useFileUpload();
     const log2 = useLogStore();
     const uploadRef = /* @__PURE__ */ ref(null);
+    const uploadStatusText = computed(() => {
+      if (!uploading.value) return "点击或拖拽文件到此处";
+      return phase.value === "processing" ? "正在解析..." : "正在上传...";
+    });
     async function handleUpload({ file }) {
       log2.addLog(`正在上传：${file.file.name}`);
       const result = await upload(file.file);
@@ -40736,37 +41411,53 @@ const _sfc_main$c = /* @__PURE__ */ defineComponent({
       }
     }
     return (_ctx, _cache) => {
-      return openBlock(), createBlock(unref(NUpload), {
-        ref_key: "uploadRef",
-        ref: uploadRef,
-        "custom-request": handleUpload,
-        "show-file-list": false,
-        disabled: __props.disabled,
-        accept: ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt",
-        "directory-dnd": "",
-        multiple: ""
-      }, {
-        default: withCtx(() => [
-          createVNode(unref(NUploadDragger), { class: "upload-zone" }, {
-            default: withCtx(() => [
-              createBaseVNode("div", _hoisted_1$b, [
-                createVNode(unref(NIcon), { size: "28" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(CloudUploadOutline))
-                  ]),
-                  _: 1
-                }),
-                _cache[0] || (_cache[0] = createBaseVNode("div", { class: "upload-text" }, [
-                  createBaseVNode("span", { class: "upload-title" }, "点击或拖拽文件到此处"),
-                  createBaseVNode("span", { class: "upload-hint" }, "支持多选 · PDF / PNG / JPG / TIF / MusicXML")
-                ], -1))
-              ])
-            ]),
-            _: 1
-          })
-        ]),
-        _: 1
-      }, 8, ["disabled"]);
+      return openBlock(), createElementBlock("div", _hoisted_1$b, [
+        createVNode(unref(NUpload), {
+          ref_key: "uploadRef",
+          ref: uploadRef,
+          "custom-request": handleUpload,
+          "show-file-list": false,
+          disabled: __props.disabled || unref(uploading),
+          accept: ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt",
+          "directory-dnd": "",
+          multiple: ""
+        }, {
+          default: withCtx(() => [
+            createVNode(unref(NUploadDragger), { class: "upload-zone" }, {
+              default: withCtx(() => [
+                createBaseVNode("div", _hoisted_2$a, [
+                  createVNode(unref(NIcon), { size: "28" }, {
+                    default: withCtx(() => [
+                      createVNode(unref(CloudUploadOutline))
+                    ]),
+                    _: 1
+                  }),
+                  createBaseVNode("div", _hoisted_3$a, [
+                    createBaseVNode("span", _hoisted_4$9, toDisplayString(uploadStatusText.value), 1),
+                    _cache[0] || (_cache[0] = createBaseVNode("span", { class: "upload-hint" }, "支持多选 · PDF / PNG / JPG / TIF / MusicXML", -1))
+                  ])
+                ])
+              ]),
+              _: 1
+            })
+          ]),
+          _: 1
+        }, 8, ["disabled"]),
+        unref(uploading) ? (openBlock(), createBlock(unref(NProgress), {
+          key: 0,
+          type: "line",
+          percentage: unref(progress),
+          "show-indicator": true,
+          "indicator-placement": "inside",
+          processing: unref(phase) === "processing",
+          class: "upload-progress"
+        }, {
+          default: withCtx(() => [
+            createTextVNode(toDisplayString(unref(progress)) + "% ", 1)
+          ]),
+          _: 1
+        }, 8, ["percentage", "processing"])) : createCommentVNode("", true)
+      ]);
     };
   }
 });
@@ -40777,7 +41468,7 @@ const _export_sfc = (sfc, props) => {
   }
   return target;
 };
-const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["__scopeId", "data-v-5243b188"]]);
+const FileUploader = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["__scopeId", "data-v-c22697c9"]]);
 const _hoisted_1$a = { class: "picker-shell" };
 const _sfc_main$b = /* @__PURE__ */ defineComponent({
   __name: "MeasureNumberPicker",
@@ -40829,7 +41520,7 @@ const _sfc_main$b = /* @__PURE__ */ defineComponent({
       }, {
         default: withCtx(() => [
           createBaseVNode("div", _hoisted_1$a, [
-            _cache[4] || (_cache[4] = createBaseVNode("p", { class: "picker-desc" }, "OCR 识别到本页以下小节号，请选择本页的起始小节号：", -1)),
+            _cache[4] || (_cache[4] = createBaseVNode("p", { class: "picker-desc" }, "识别到本页以下小节号，请选择本页的起始小节号：", -1)),
             createVNode(unref(NRadioGroup), {
               value: selectedValue.value,
               "onUpdate:value": _cache[1] || (_cache[1] = ($event) => selectedValue.value = $event),
@@ -40882,33 +41573,91 @@ const _sfc_main$b = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const MeasureNumberPicker = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["__scopeId", "data-v-7c733fdf"]]);
+const MeasureNumberPicker = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["__scopeId", "data-v-21c346a3"]]);
 const _hoisted_1$9 = { class: "recognize-view" };
-const _hoisted_2$9 = { class: "rv-header" };
-const _hoisted_3$9 = {
-  key: 0,
-  class: "page-nav"
-};
-const _hoisted_4$8 = { class: "page-indicator" };
-const _hoisted_5$7 = { class: "rv-actions" };
-const _hoisted_6$7 = { class: "ai-switch" };
+const _hoisted_2$9 = { class: "dashboard-grid" };
+const _hoisted_3$9 = { class: "dashboard-card card-recognition" };
+const _hoisted_4$8 = { class: "card-header" };
+const _hoisted_5$7 = { class: "card-title" };
+const _hoisted_6$7 = { class: "card-header-right" };
 const _hoisted_7$7 = {
   key: 1,
-  class: "pages-strip"
+  class: "page-nav"
 };
-const _hoisted_8$6 = ["onClick"];
-const _hoisted_9$6 = ["disabled", "onClick"];
-const _hoisted_10$6 = ["onClick"];
-const _hoisted_11$6 = { class: "page-thumb" };
-const _hoisted_12$5 = ["src", "alt"];
-const _hoisted_13$5 = { class: "page-label" };
-const _hoisted_14$5 = { class: "page-name" };
-const _hoisted_15$5 = {
-  key: 2,
-  class: "page-mini-progress"
+const _hoisted_8$6 = { class: "page-indicator" };
+const _hoisted_9$6 = { class: "card-body" };
+const _hoisted_10$6 = {
+  key: 1,
+  class: "rv-waiting-banner"
+};
+const _hoisted_11$6 = { class: "card-footer" };
+const _hoisted_12$6 = { class: "ai-switch" };
+const _hoisted_13$5 = {
+  key: 0,
+  class: "selection-count"
+};
+const _hoisted_14$5 = { class: "dashboard-card card-stats" };
+const _hoisted_15$5 = { class: "stats-body" };
+const _hoisted_16$4 = { class: "stats-ring-wrap" };
+const _hoisted_17$3 = { class: "stats-ring" };
+const _hoisted_18$3 = { viewBox: "0 0 36 36" };
+const _hoisted_19$3 = ["stroke-dasharray"];
+const _hoisted_20$2 = ["stroke-dasharray", "stroke-dashoffset"];
+const _hoisted_21$2 = ["stroke-dasharray", "stroke-dashoffset"];
+const _hoisted_22$2 = { class: "ring-center" };
+const _hoisted_23$2 = { class: "ring-total" };
+const _hoisted_24$2 = { class: "stats-legend" };
+const _hoisted_25$2 = { class: "legend-item" };
+const _hoisted_26$2 = { class: "legend-value" };
+const _hoisted_27$2 = { class: "legend-item" };
+const _hoisted_28$2 = { class: "legend-value" };
+const _hoisted_29$2 = { class: "legend-item" };
+const _hoisted_30$1 = { class: "legend-value" };
+const _hoisted_31$1 = { class: "legend-item" };
+const _hoisted_32$1 = { class: "legend-value" };
+const _hoisted_33 = { class: "stats-mini-cards" };
+const _hoisted_34 = { class: "mini-card" };
+const _hoisted_35 = { class: "mini-card-value" };
+const _hoisted_36 = { class: "mini-card" };
+const _hoisted_37 = { class: "mini-card-value" };
+const _hoisted_38 = { class: "dashboard-card card-uploads" };
+const _hoisted_39 = {
+  key: 0,
+  class: "uploads-list"
+};
+const _hoisted_40 = ["onClick"];
+const _hoisted_41 = ["onClick"];
+const _hoisted_42 = ["disabled", "onClick"];
+const _hoisted_43 = ["onClick"];
+const _hoisted_44 = { class: "upload-thumb" };
+const _hoisted_45 = ["src", "alt"];
+const _hoisted_46 = { class: "upload-info" };
+const _hoisted_47 = { class: "upload-name" };
+const _hoisted_48 = {
+  key: 4,
+  class: "upload-mini-progress"
+};
+const _hoisted_49 = {
+  key: 1,
+  class: "uploads-empty"
+};
+const _hoisted_50 = { class: "dashboard-card card-activity" };
+const _hoisted_51 = {
+  key: 0,
+  class: "activity-list"
+};
+const _hoisted_52 = { class: "activity-content" };
+const _hoisted_53 = { class: "activity-name" };
+const _hoisted_54 = { class: "activity-time" };
+const _hoisted_55 = {
+  key: 1,
+  class: "activity-empty"
 };
 const _sfc_main$a = /* @__PURE__ */ defineComponent({
   __name: "RecognizeView",
+  props: {
+    active: { type: Boolean, default: true }
+  },
   setup(__props) {
     const store = useTaskStore();
     const log2 = useLogStore();
@@ -40918,9 +41667,90 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     const pickerShow = /* @__PURE__ */ ref(false);
     const pickerOptions = /* @__PURE__ */ ref([]);
     const pickerPageId = /* @__PURE__ */ ref(null);
-    const activePages = computed(() => store.pages.filter((page) => page.status === "processing"));
-    const currentPageProcessing = computed(() => store.currentPage?.status === "processing");
-    const pendingRecognizableCount = computed(() => store.pages.filter((page) => isStartablePage(page)).length);
+    const selectedPageIds = /* @__PURE__ */ ref(/* @__PURE__ */ new Set());
+    const reupload = useFileUpload();
+    const statsTotal = computed(() => store.currentBatchPages.length);
+    const statsCompleted = computed(() => store.currentBatchPages.filter((p2) => p2.status === "completed").length);
+    const statsProcessing = computed(() => store.currentBatchPages.filter((p2) => p2.status === "processing").length);
+    const statsFailed = computed(() => store.currentBatchPages.filter((p2) => p2.status === "failed").length);
+    const statsWaiting = computed(() => store.currentBatchPages.filter((p2) => p2.status === "waiting").length);
+    const recentActivities = computed(() => {
+      const pages = store.currentBatchPages;
+      const activities = [];
+      for (const page of [...pages].reverse().slice(0, 8)) {
+        let message2 = "";
+        let level = "info";
+        if (page.status === "completed") {
+          message2 = `Processed: ${page.inputFileName}`;
+          level = "success";
+        } else if (page.status === "failed") {
+          message2 = `Failed: ${page.inputFileName}`;
+          level = "error";
+        } else if (page.status === "processing") {
+          message2 = `Processing: ${page.inputFileName}`;
+          level = "info";
+        } else if (page.status === "waiting") {
+          message2 = `Waiting: ${page.inputFileName}`;
+          level = "warn";
+        } else {
+          message2 = `Pending: ${page.inputFileName}`;
+          level = "info";
+        }
+        activities.push({
+          id: page.id,
+          message: message2,
+          time: page.progressMessage || statusText(page),
+          level
+        });
+      }
+      return activities;
+    });
+    function activityIcon(level) {
+      switch (level) {
+        case "success":
+          return CheckmarkDoneOutline;
+        case "error":
+          return CloseCircleOutline;
+        case "warn":
+          return WarningOutline;
+        case "info":
+          return InformationCircleOutline;
+        default:
+          return TimeOutline;
+      }
+    }
+    const batchOptions = computed(
+      () => store.batches.map((b, i) => ({
+        label: b.sealed ? `批次 ${i + 1}：${b.label}` : `草稿：${b.label}`,
+        value: b.id
+      }))
+    );
+    const currentBatchLocalIndex = computed(
+      () => store.currentBatchPages.indexOf(store.currentPage)
+    );
+    const activePages = computed(() => store.currentBatchPages.filter((page) => page.status === "processing"));
+    const waitingPageCount = computed(() => store.currentBatchPages.filter((page) => page.status === "waiting").length);
+    const pendingRecognizableCount = computed(() => store.currentBatchPages.filter((page) => isStartablePage(page)).length);
+    const selectedPages = computed(
+      () => store.currentBatchPages.filter((page) => selectedPageIds.value.has(page.id))
+    );
+    const selectedPageCount = computed(() => selectedPages.value.length);
+    const selectedProcessingCount = computed(
+      () => selectedPages.value.filter((page) => page.status === "processing").length
+    );
+    const recognizeTargetPages = computed(() => {
+      const selectedStartable = selectedPages.value.filter((page2) => isStartablePage(page2));
+      if (selectedPages.value.length) return selectedStartable;
+      const page = store.currentPage;
+      return page && isStartablePage(page) ? [page] : [];
+    });
+    const recognizeButtonLoading = computed(
+      () => selectedPages.value.length ? selectedProcessingCount.value > 0 && recognizeTargetPages.value.length === 0 : store.currentPage?.status === "processing"
+    );
+    const recognizeButtonDisabled = computed(() => recognizeTargetPages.value.length === 0);
+    const recognizeButtonText = computed(
+      () => selectedPages.value.length ? `识别选中 ${recognizeTargetPages.value.length || selectedPages.value.length} 张` : "识别并自动填充"
+    );
     const overallProgressPercent = computed(() => {
       if (!activePages.value.length) return 0;
       const total = activePages.value.reduce((sum, page) => sum + page.progressPercent, 0);
@@ -40942,22 +41772,87 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       if (page.status === "processing") {
         return page.progressPercent > 0 ? `${Math.round(page.progressPercent)}%` : "处理中";
       }
+      if (page.status === "failed" && !page.inputFileId) {
+        return "需重新上传";
+      }
       const map2 = { completed: "完成", failed: "失败", pending: "待处理", waiting: "待选择" };
       return map2[page.status] ?? "";
     }
-    function removePage(index) {
-      const page = store.pages[index];
-      if (!page) return;
+    function isPageSelected(pageId) {
+      return selectedPageIds.value.has(pageId);
+    }
+    function handlePageCardClick(page) {
+      store.selectPageById(page.id);
+      const next = new Set(selectedPageIds.value);
+      if (next.has(page.id)) {
+        next.delete(page.id);
+      } else {
+        next.add(page.id);
+      }
+      selectedPageIds.value = next;
+    }
+    function removePageSelection(pageId) {
+      if (!selectedPageIds.value.has(pageId)) return;
+      const next = new Set(selectedPageIds.value);
+      next.delete(pageId);
+      selectedPageIds.value = next;
+    }
+    function removePageById(pageId) {
+      const idx = store.pages.findIndex((p2) => p2.id === pageId);
+      if (idx < 0) return;
+      const page = store.pages[idx];
       if (page.status === "processing") {
         message.warning("后台识别中的页面暂不能移除");
         return;
       }
-      store.removePage(index);
+      removePageSelection(pageId);
+      store.removePage(idx);
       log2.addLog(`已移除：${page.inputFileName}`);
     }
     async function onFileUploaded(fileId, fileName) {
       store.addInputPage(fileName, fileId);
       log2.addLog(`已加入：${fileName}`);
+    }
+    function reuploadForPage(page) {
+      if (reupload.uploading.value) return;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.musicxml,.xml,.mxl,.txt";
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        log2.addLog(`正在重新上传：${file.name}`);
+        const result = await reupload.upload(file);
+        if (result) {
+          let fileId;
+          let fileName;
+          if (result.pages && result.pages.length > 0) {
+            fileId = result.pages[0].file_id;
+            fileName = result.pages[0].filename;
+          } else {
+            fileId = result.file_id;
+            fileName = result.filename;
+          }
+          const previewable = isPreviewable(fileName);
+          store.patchPageById(page.id, {
+            inputFileId: fileId,
+            inputFileName: fileName,
+            originalFileId: previewable ? fileId : "",
+            originalFileName: previewable ? fileName : "",
+            musicxmlFileId: "",
+            musicxmlText: "",
+            jianpuText: "",
+            ocrText: "",
+            svgFileId: "",
+            status: "pending",
+            errorMessage: ""
+          });
+          log2.addLog(`重新上传成功：${fileName}`);
+        } else {
+          message.error("重新上传失败");
+        }
+      };
+      input.click();
     }
     function openMeasurePickerForPage(page) {
       if (page.status !== "waiting") return;
@@ -40981,25 +41876,78 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       pickerPageId.value = null;
     }
     async function recognize() {
-      const page = store.currentPage;
-      if (!page || !isStartablePage(page)) return;
-      await submitRecognitionTargets([targetFromPage(page)], aiVisionEnabled.value ? "ai" : "omr");
-    }
-    async function recognizeAllPages() {
-      const targets = store.pages.filter((page) => isStartablePage(page)).map(targetFromPage);
+      const targets = recognizeTargetPages.value.map((page) => targetFromPage(page, { resetStartMeasure: true }));
       if (!targets.length) return;
       await submitRecognitionTargets(targets, aiVisionEnabled.value ? "ai" : "omr");
     }
-    function targetFromPage(page) {
+    async function recognizeAllPages() {
+      const targets = store.currentBatchPages.filter((page) => isStartablePage(page)).map((page) => targetFromPage(page, { resetStartMeasure: true }));
+      if (!targets.length) return;
+      await submitRecognitionTargets(targets, aiVisionEnabled.value ? "ai" : "omr");
+    }
+    function targetFromPage(page, options = {}) {
+      const fileId = page.originalFileId || page.inputFileId;
       return {
         pageId: page.id,
         inputFileName: page.inputFileName,
-        inputFileId: page.inputFileId,
-        startMeasureNumber: page.startMeasureNumber
+        inputFileId: fileId,
+        startMeasureNumber: options.resetStartMeasure ? null : page.startMeasureNumber ?? null
       };
     }
     async function submitRecognitionTargets(targets, mode) {
+      const fileIds = targets.map((t) => t.inputFileId).filter(Boolean);
+      if (fileIds.length) {
+        try {
+          const exists2 = await filesApi.existsMany(fileIds);
+          const missing = targets.filter((t) => !exists2[t.inputFileId]);
+          if (missing.length) {
+            message.error(
+              `${missing.length} 个页面的原始文件已丢失（后端重启或已清理），请重新上传：${missing.map((t) => t.inputFileName).join("、")}`
+            );
+            for (const t of missing) {
+              store.patchPageById(t.pageId, {
+                status: "failed",
+                errorMessage: "原始文件已丢失，请重新上传"
+              });
+            }
+            targets = targets.filter((t) => exists2[t.inputFileId]);
+            if (!targets.length) return;
+          }
+        } catch {
+        }
+      }
+      const hasUnsealedPage = targets.some((t) => {
+        const page = store.pages.find((p2) => p2.id === t.pageId);
+        return page && !page.batchSealed;
+      });
+      if (hasUnsealedPage) store.sealCurrentBatch();
       const historyPageIds = await createPendingHistory(targets);
+      for (const target of targets) {
+        const historyPageId = historyPageIds.get(target.pageId);
+        if (historyPageId) {
+          registerLiveRecognitionPage(target.pageId, historyPageId);
+          patchRecognitionPage(target.pageId, {
+            startMeasureNumber: target.startMeasureNumber,
+            historyPageId
+          });
+          try {
+            await historyApi.updatePage(historyPageId, {
+              start_measure_number: target.startMeasureNumber,
+              status: "processing",
+              error_message: ""
+            });
+            notifyHistoryPagePatched({
+              id: historyPageId,
+              patch: {
+                start_measure_number: target.startMeasureNumber,
+                status: "processing",
+                error_message: ""
+              }
+            });
+          } catch {
+          }
+        }
+      }
       const label = mode === "ai" ? "AI 视觉检测" : "OMR 识别";
       for (const target of targets) {
         const historyPageId = historyPageIds.get(target.pageId) ?? null;
@@ -41013,9 +41961,17 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     }
     async function createPendingHistory(targets) {
       const result = /* @__PURE__ */ new Map();
+      for (const target of targets) {
+        const page = store.pages.find((p2) => p2.id === target.pageId);
+        if (page?.historyPageId) {
+          result.set(target.pageId, page.historyPageId);
+        }
+      }
+      const newTargets = targets.filter((t) => !result.has(t.pageId));
+      if (!newTargets.length) return result;
       try {
         const created = await historyApi.create({
-          pages: targets.map((target) => ({
+          pages: newTargets.map((target) => ({
             input_file_name: target.inputFileName,
             input_file_id: target.inputFileId,
             start_measure_number: target.startMeasureNumber,
@@ -41024,10 +41980,11 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           }))
         });
         created.pages.forEach((page, index) => {
-          const target = targets[index];
+          const target = newTargets[index];
           if (!target) return;
           result.set(target.pageId, page.id);
           store.patchPageById(target.pageId, { historyPageId: page.id });
+          registerLiveRecognitionPage(target.pageId, page.id);
         });
         notifyHistoryUpdated();
       } catch (error2) {
@@ -41038,16 +41995,19 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     async function runPipelineTarget(target, historyPageId) {
       markPageProcessing(target, "读取输入文件", 3);
       try {
-        const resp = await fetch(getFileURL(target.inputFileId));
-        if (!resp.ok) throw new Error(`读取文件失败：${resp.status}`);
-        const blob = await resp.blob();
         markPageProcessing(target, "提交 OMR 后台任务", 8);
-        const submitted = await pipelineApi.run(
-          new File([blob], target.inputFileName),
-          settings.targetKey,
-          target.startMeasureNumber ?? void 0
-        );
-        store.patchPageById(target.pageId, { taskId: submitted.task_id });
+        let submitted;
+        if (target.inputFileId) {
+          submitted = await pipelineApi.runByFileId({
+            file_id: target.inputFileId,
+            target_key: settings.targetKey,
+            start_measure_number: target.startMeasureNumber ?? null
+          });
+        } else {
+          throw new Error("无输入文件 ID，请重新上传图片");
+        }
+        patchRecognitionPage(target.pageId, { taskId: submitted.task_id });
+        updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id });
         const result = await waitForTaskResult(submitted.task_id, target.pageId);
         const split = splitJianpuAndOcr(result.jianpu_text);
         const needsMeasureChoice = target.startMeasureNumber == null && result.ocr_measure_numbers.length > 0;
@@ -41064,7 +42024,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           status: resultStatus,
           error_message: waitingMessage
         };
-        store.patchPageById(target.pageId, {
+        patchRecognitionPage(target.pageId, {
           musicxmlFileId: result.musicxml_file_id,
           musicxmlText: "",
           jianpuText: split.jianpuText,
@@ -41081,6 +42041,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           errorMessage: waitingMessage
         });
         await persistPageResult(target, pageResult, historyPageId);
+        clearLiveRecognitionPage(target.pageId);
         if (needsMeasureChoice) {
           log2.addLog(`等待选择起始小节号：${target.inputFileName}`, "warn");
           message.warning(`等待选择起始小节号：${target.inputFileName}`);
@@ -41102,7 +42063,18 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         progressMessage: "应用起始小节号",
         errorMessage: ""
       });
+      if (page.historyPageId) {
+        notifyHistoryPagePatched({
+          id: page.historyPageId,
+          patch: {
+            start_measure_number: selected,
+            status: "processing",
+            error_message: "正在重新渲染"
+          }
+        });
+      }
       let svgFileId = page.svgFileId;
+      let jianpuText = page.jianpuText;
       try {
         if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
           const rendered = await renderApi.jianpuSvg({
@@ -41112,9 +42084,20 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
             start_measure_number: selected
           });
           svgFileId = rendered.svg_file_id;
+        } else if (!page.musicxmlFileId && page.jianpuText.trim()) {
+          const rendered = await renderApi.jianpuTextSvg({
+            jianpu_text: page.jianpuText,
+            page_image_file_id: page.originalFileId || page.inputFileId || void 0,
+            include_ocr_text: false,
+            title: page.inputFileName || "AI 简谱",
+            start_measure_number: selected
+          });
+          svgFileId = rendered.svg_file_id;
+          jianpuText = rendered.jianpu_text || page.jianpuText;
         }
         store.patchPageById(pageId, {
           svgFileId,
+          jianpuText,
           status: "completed",
           progressPercent: 100,
           progressMessage: "识别完成",
@@ -41125,7 +42108,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           input_file_name: page.inputFileName,
           input_file_id: page.inputFileId,
           musicxml_file_id: page.musicxmlFileId,
-          jianpu_text: page.jianpuText,
+          jianpu_text: jianpuText,
           ocr_text: page.ocrText,
           svg_file_id: svgFileId,
           start_measure_number: selected,
@@ -41136,12 +42119,35 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         message.success("已应用起始小节号");
       } catch (error2) {
         const msg2 = errorMessage(error2);
+        const failedMessage = failedMeasureSelectionMessage(page.measureNumberOptions, msg2);
         store.patchPageById(pageId, {
           status: "waiting",
           progressPercent: 100,
           progressMessage: "等待选择起始小节号",
-          errorMessage: msg2
+          measureNumberOptions: page.measureNumberOptions,
+          errorMessage: failedMessage
         });
+        if (page.historyPageId) {
+          try {
+            const updated = await historyApi.updatePage(page.historyPageId, {
+              start_measure_number: selected,
+              status: "waiting",
+              error_message: failedMessage
+            });
+            syncStoreFromHistoryPage(pageId, updated);
+            notifyHistoryPagePatched(historyPagePatchFromPage(updated));
+          } catch (persistError) {
+            log2.addLog(`保存小节号失败状态失败：${errorMessage(persistError)}`, "warn");
+            notifyHistoryPagePatched({
+              id: page.historyPageId,
+              patch: {
+                start_measure_number: selected,
+                status: "waiting",
+                error_message: failedMessage
+              }
+            });
+          }
+        }
         message.error(msg2);
       }
     }
@@ -41153,11 +42159,16 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           target_key: settings.targetKey,
           normalize: true
         });
-        store.patchPageById(target.pageId, { taskId: submitted.task_id });
+        patchRecognitionPage(target.pageId, { taskId: submitted.task_id });
+        updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id });
         const response = await waitForTaskResult(submitted.task_id, target.pageId);
         if (!response.pages.length) throw new Error("AI 未返回任何页面");
         const warnings = collectAiWarnings(response.pages, response.warnings);
-        applyAiResult(target, response, historyPageId);
+        const measureOptions = target.startMeasureNumber == null ? aiMeasureOptions(response) : [];
+        const needsMeasureChoice = measureOptions.length > 0;
+        const resultStatus = needsMeasureChoice ? "waiting" : "completed";
+        const waitingMessage = needsMeasureChoice ? waitingMeasureMessage(measureOptions) : "";
+        applyAiResult(target, response, historyPageId, resultStatus, measureOptions);
         const pageResult = {
           input_file_name: target.inputFileName,
           input_file_id: target.inputFileId,
@@ -41166,25 +42177,31 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           ocr_text: "",
           svg_file_id: "",
           start_measure_number: target.startMeasureNumber,
-          status: "completed",
-          error_message: warnings.join("；")
+          status: resultStatus,
+          error_message: waitingMessage || warnings.join("；")
         };
         await persistPageResult(target, pageResult, historyPageId);
-        log2.addLog(`AI 转写完成：${target.inputFileName}`);
-        if (warnings.length) {
+        clearLiveRecognitionPage(target.pageId);
+        if (needsMeasureChoice) {
+          log2.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, "warn");
+          message.warning(`AI 转写等待选择起始小节号：${target.inputFileName}`);
+        } else if (warnings.length) {
+          log2.addLog(`AI 转写完成：${target.inputFileName}`);
           message.warning(warnings.slice(0, 3).join("；"));
         } else {
+          log2.addLog(`AI 转写完成：${target.inputFileName}`);
           message.success(`AI 转写完成：${target.inputFileName}`);
         }
       } catch (error2) {
         await failTarget(target, historyPageId, error2, "AI 转写失败");
       }
     }
-    function applyAiResult(target, response, historyPageId) {
+    function applyAiResult(target, response, historyPageId, resultStatus, measureOptions) {
       if (response.pages.length === 1) {
         const page = response.pages[0];
-        const warningText = aiPageErrorMessage(page);
-        store.patchPageById(target.pageId, {
+        const pageMeasureOptions = resultStatus === "waiting" ? aiPageMeasureOptions(page, measureOptions) : [];
+        const messageText = resultStatus === "waiting" ? waitingMeasureMessage(pageMeasureOptions) : aiPageErrorMessage(page);
+        patchRecognitionPage(target.pageId, {
           inputFileName: aiPageLabel(response.source_filename, page, response.pages.length),
           inputFileId: page.page_image_file_id,
           originalFileName: aiPageLabel(response.source_filename, page, response.pages.length),
@@ -41196,15 +42213,17 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           jianpuDirty: false,
           svgFileId: "",
           taskId: "",
-          status: "completed",
+          status: resultStatus,
           progressPercent: 100,
-          progressMessage: "AI 转写完成",
-          errorMessage: warningText
+          progressMessage: resultStatus === "waiting" ? "等待选择起始小节号" : "AI 转写完成",
+          measureNumberOptions: pageMeasureOptions,
+          errorMessage: messageText
         });
         return;
       }
       const aiPages = response.pages.map((page, index) => {
         const label = aiPageLabel(response.source_filename, page, response.pages.length);
+        const pageMeasureOptions = resultStatus === "waiting" ? aiPageMeasureOptions(page, measureOptions) : [];
         return {
           inputFileName: label,
           historyPageId: index === 0 ? historyPageId : null,
@@ -41217,10 +42236,11 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           ocrText: "",
           jianpuDirty: false,
           svgFileId: "",
-          status: "completed",
+          status: resultStatus,
           progressPercent: 100,
-          progressMessage: "AI 转写完成",
-          errorMessage: aiPageErrorMessage(page)
+          progressMessage: resultStatus === "waiting" ? "等待选择起始小节号" : "AI 转写完成",
+          measureNumberOptions: pageMeasureOptions,
+          errorMessage: resultStatus === "waiting" ? waitingMeasureMessage(pageMeasureOptions) : aiPageErrorMessage(page)
         };
       });
       store.replacePageByIdKeepingSelection(target.pageId, aiPages);
@@ -41234,27 +42254,72 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       }
       return completed.result;
     }
+    function patchRecognitionPage(pageId, patch) {
+      if (store.patchPageById(pageId, patch)) return;
+      const historyPageId = getLiveRecognitionHistoryPageId(pageId);
+      if (historyPageId) {
+        store.patchPageByHistoryPageId(historyPageId, patch);
+      }
+    }
     function updatePageProgress(pageId, event) {
       const failed = event.status === "failed";
-      store.patchPageById(pageId, {
+      const patch = {
         taskId: event.task_id,
         status: failed ? "failed" : "processing",
         progressPercent: Math.max(0, Math.min(99, Math.round(event.percent))),
         progressMessage: taskProgressText(event),
         errorMessage: failed ? taskProgressText(event) : ""
+      };
+      patchRecognitionPage(pageId, patch);
+      updateLiveRecognitionPage(pageId, {
+        taskId: event.task_id,
+        status: failed ? "failed" : "processing",
+        progressPercent: patch.progressPercent ?? 0,
+        progressMessage: patch.progressMessage ?? "",
+        errorMessage: patch.errorMessage ?? ""
       });
+      const page = store.pages.find((p2) => p2.id === pageId);
+      const historyPageId = page?.historyPageId ?? getLiveRecognitionHistoryPageId(pageId);
+      if (historyPageId) {
+        notifyHistoryPagePatched({
+          id: historyPageId,
+          patch: {
+            status: failed ? "failed" : "processing",
+            error_message: failed ? taskProgressText(event) : ""
+          }
+        });
+      }
     }
     function markPageProcessing(target, messageText, percent2) {
-      store.patchPageById(target.pageId, {
+      const patch = {
+        status: "processing",
+        startMeasureNumber: target.startMeasureNumber,
+        progressPercent: percent2,
+        progressMessage: messageText,
+        errorMessage: ""
+      };
+      patchRecognitionPage(target.pageId, patch);
+      updateLiveRecognitionPage(target.pageId, {
         status: "processing",
         progressPercent: percent2,
         progressMessage: messageText,
         errorMessage: ""
       });
+      const page = store.pages.find((p2) => p2.id === target.pageId);
+      const historyPageId = page?.historyPageId ?? getLiveRecognitionHistoryPageId(target.pageId);
+      if (historyPageId) {
+        notifyHistoryPagePatched({
+          id: historyPageId,
+          patch: { status: "processing", error_message: "" }
+        });
+      }
     }
     async function failTarget(target, historyPageId, error2, prefix2) {
-      const msg2 = errorMessage(error2);
-      store.patchPageById(target.pageId, {
+      let msg2 = errorMessage(error2);
+      if (msg2 === "Failed to fetch") {
+        msg2 = "后端未启动或网络异常，请检查后端是否在运行";
+      }
+      patchRecognitionPage(target.pageId, {
         taskId: "",
         status: "failed",
         progressPercent: 100,
@@ -41272,13 +42337,14 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         status: "failed",
         error_message: msg2
       }, historyPageId);
+      clearLiveRecognitionPage(target.pageId);
       log2.addError(`${prefix2}：${target.inputFileName}：${msg2}`);
       message.error(`${target.inputFileName}：${msg2}`);
     }
     async function persistPageResult(target, result, historyPageId) {
       try {
         if (historyPageId) {
-          await historyApi.updatePage(historyPageId, {
+          const updated = await historyApi.updatePage(historyPageId, {
             musicxml_file_id: result.musicxml_file_id,
             jianpu_text: result.jianpu_text,
             ocr_text: result.ocr_text,
@@ -41287,6 +42353,8 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
             status: result.status,
             error_message: result.error_message
           });
+          syncStoreFromHistoryPage(target.pageId, updated);
+          notifyHistoryPagePatched(historyPagePatchFromPage(updated));
         } else {
           const created = await historyApi.create({
             pages: [{
@@ -41305,11 +42373,50 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           if (pageId) {
             store.patchPageById(target.pageId, { historyPageId: pageId });
           }
+          const createdPage = created.pages[0];
+          if (createdPage) {
+            syncStoreFromHistoryPage(target.pageId, createdPage);
+            notifyHistoryPagePatched(historyPagePatchFromPage(createdPage));
+          }
+          notifyHistoryUpdated();
         }
-        notifyHistoryUpdated();
       } catch (error2) {
         log2.addLog(`保存后台历史结果失败：${errorMessage(error2)}`, "warn");
       }
+    }
+    function syncStoreFromHistoryPage(pageId, page) {
+      const options = parseWaitingMeasureOptions(page.error_message);
+      const patch = {
+        historyPageId: page.id,
+        musicxmlFileId: page.musicxml_file_id,
+        jianpuText: page.jianpu_text,
+        ocrText: page.ocr_text,
+        svgFileId: page.svg_file_id,
+        startMeasureNumber: page.start_measure_number,
+        status: page.status,
+        progressPercent: page.status === "processing" ? 99 : 100,
+        progressMessage: page.status === "waiting" ? "等待选择起始小节号" : page.status === "completed" ? "识别完成" : page.status === "processing" ? page.error_message || "正在重新渲染" : page.error_message,
+        measureNumberOptions: page.status === "waiting" ? options : [],
+        errorMessage: page.error_message,
+        ...liveRecognitionTaskPatch(page.id, page.status)
+      };
+      if (!store.patchPageById(pageId, patch)) {
+        store.patchPageByHistoryPageId(page.id, patch);
+      }
+    }
+    function historyPagePatchFromPage(page) {
+      return {
+        id: page.id,
+        patch: {
+          musicxml_file_id: page.musicxml_file_id,
+          jianpu_text: page.jianpu_text,
+          ocr_text: page.ocr_text,
+          svg_file_id: page.svg_file_id,
+          start_measure_number: page.start_measure_number,
+          status: page.status,
+          error_message: page.error_message
+        }
+      };
     }
     function aiPageLabel(sourceName, page, totalPages) {
       if (totalPages <= 1 && !/\.pdf$/i.test(sourceName)) return sourceName;
@@ -41318,6 +42425,25 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     }
     function aiPageErrorMessage(page) {
       return [...page.validation_errors, ...page.warnings].join("；");
+    }
+    function aiMeasureOptions(response) {
+      const values = uniquePositiveNumbers(
+        response.pages.flatMap((page) => page.measure_number_candidates || [])
+      );
+      return values.length ? values : [1];
+    }
+    function aiPageMeasureOptions(page, fallback) {
+      const values = uniquePositiveNumbers(page.measure_number_candidates || []);
+      return values.length ? values : fallback;
+    }
+    function uniquePositiveNumbers(values) {
+      const result = [];
+      for (const value of values) {
+        if (!Number.isFinite(value) || value < 1) continue;
+        const rounded = Math.round(value);
+        if (!result.includes(rounded)) result.push(rounded);
+      }
+      return result;
     }
     function collectAiWarnings(pages, responseWarnings) {
       return [
@@ -41332,191 +42458,370 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     function waitingMeasureMessage(options) {
       return `等待选择起始小节号：${options.join("、")}`;
     }
+    function failedMeasureSelectionMessage(options, msg2) {
+      const prefix2 = options.length ? `${waitingMeasureMessage(options)}；` : "";
+      return `${prefix2}选择小节号失败：${msg2}`;
+    }
+    function parseWaitingMeasureOptions(messageText) {
+      const match2 = messageText.match(/等待选择起始小节号[:：]\s*([0-9\s、,，]+)/);
+      if (!match2) return [];
+      const optionsText = match2[1] ?? "";
+      return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0])).filter((value) => Number.isFinite(value) && value > 0);
+    }
     function errorMessage(error2) {
       return error2 instanceof Error ? error2.message : String(error2);
     }
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$9, [
-        createBaseVNode("div", _hoisted_2$9, [
-          _cache[4] || (_cache[4] = createBaseVNode("div", { class: "rv-title" }, [
-            createBaseVNode("h2", null, "智能识别"),
-            createBaseVNode("p", null, "上传乐谱图片或 PDF，快速得到简谱成果")
-          ], -1)),
-          unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_3$9, [
-            createVNode(unref(Button), {
-              size: "small",
-              quaternary: "",
-              disabled: !unref(store).canPrevPage,
-              onClick: _cache[0] || (_cache[0] = ($event) => unref(store).prevPage())
-            }, {
-              icon: withCtx(() => [
-                createVNode(unref(NIcon), null, {
-                  default: withCtx(() => [
-                    createVNode(unref(ChevronBackOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["disabled"]),
-            createBaseVNode("span", _hoisted_4$8, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
-            createVNode(unref(Button), {
-              size: "small",
-              quaternary: "",
-              disabled: !unref(store).canNextPage,
-              onClick: _cache[1] || (_cache[1] = ($event) => unref(store).nextPage())
-            }, {
-              icon: withCtx(() => [
-                createVNode(unref(NIcon), null, {
-                  default: withCtx(() => [
-                    createVNode(unref(ChevronForwardOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["disabled"])
-          ])) : createCommentVNode("", true)
-        ]),
-        createVNode(FileUploader, { onUploaded: onFileUploaded }),
-        unref(store).activePageTaskCount ? (openBlock(), createBlock(unref(NProgress), {
-          key: 0,
-          type: "line",
-          percentage: overallProgressPercent.value,
-          "indicator-placement": "inside",
-          processing: "",
-          class: "rv-progress"
-        }, {
-          default: withCtx(() => [
-            createTextVNode(toDisplayString(overallProgressText.value), 1)
-          ]),
-          _: 1
-        }, 8, ["percentage"])) : createCommentVNode("", true),
+        _cache[26] || (_cache[26] = createBaseVNode("div", { class: "rv-header" }, [
+          createBaseVNode("div", { class: "rv-title" }, [
+            createBaseVNode("h2", null, "智能识别")
+          ])
+        ], -1)),
         createVNode(MeasureNumberPicker, {
           show: pickerShow.value,
-          "onUpdate:show": _cache[2] || (_cache[2] = ($event) => pickerShow.value = $event),
+          "onUpdate:show": _cache[0] || (_cache[0] = ($event) => pickerShow.value = $event),
           options: pickerOptions.value,
           onConfirm: onPickerConfirm,
           onCancel: onPickerCancel
         }, null, 8, ["show", "options"]),
-        createBaseVNode("div", _hoisted_5$7, [
-          createVNode(unref(Button), {
-            type: "primary",
-            onClick: recognize,
-            loading: currentPageProcessing.value,
-            disabled: !unref(store).hasInput || currentPageProcessing.value
-          }, {
-            icon: withCtx(() => [
-              createVNode(unref(NIcon), null, {
-                default: withCtx(() => [
-                  createVNode(unref(ScanOutline))
-                ]),
-                _: 1
-              })
-            ]),
-            default: withCtx(() => [
-              _cache[5] || (_cache[5] = createTextVNode(" 识别并自动填充 ", -1))
-            ]),
-            _: 1
-          }, 8, ["loading", "disabled"]),
-          createVNode(unref(Button), {
-            onClick: recognizeAllPages,
-            loading: unref(store).activePageTaskCount > 0,
-            disabled: !pendingRecognizableCount.value,
-            secondary: ""
-          }, {
-            icon: withCtx(() => [
-              createVNode(unref(NIcon), null, {
-                default: withCtx(() => [
-                  createVNode(unref(FlashOutline))
-                ]),
-                _: 1
-              })
-            ]),
-            default: withCtx(() => [
-              _cache[6] || (_cache[6] = createTextVNode(" 批量识别全部 ", -1))
-            ]),
-            _: 1
-          }, 8, ["loading", "disabled"]),
-          createBaseVNode("div", _hoisted_6$7, [
-            _cache[7] || (_cache[7] = createBaseVNode("span", null, "AI 视觉检测", -1)),
-            createVNode(unref(NSwitch), {
-              value: aiVisionEnabled.value,
-              "onUpdate:value": _cache[3] || (_cache[3] = ($event) => aiVisionEnabled.value = $event),
-              size: "small"
-            }, null, 8, ["value"])
-          ])
-        ]),
-        unref(store).pages.length ? (openBlock(), createElementBlock("div", _hoisted_7$7, [
-          (openBlock(true), createElementBlock(Fragment, null, renderList(unref(store).pages, (page, index) => {
-            return openBlock(), createElementBlock("div", {
-              key: page.id,
-              class: normalizeClass(["page-card", page.status, { active: index === unref(store).currentPageIndex }]),
-              onClick: ($event) => unref(store).selectPage(index)
-            }, [
-              page.status !== "waiting" ? (openBlock(), createElementBlock("button", {
-                key: 0,
-                class: "page-del",
-                type: "button",
-                disabled: page.status === "processing",
-                onClick: withModifiers(($event) => removePage(index), ["stop"])
-              }, [
-                createVNode(unref(NIcon), { size: "12" }, {
+        createBaseVNode("div", _hoisted_2$9, [
+          createBaseVNode("div", _hoisted_3$9, [
+            createBaseVNode("div", _hoisted_4$8, [
+              createBaseVNode("div", _hoisted_5$7, [
+                createVNode(unref(NIcon), { size: "18" }, {
                   default: withCtx(() => [
-                    createVNode(unref(CloseOutline))
-                  ]),
-                  _: 1
-                })
-              ], 8, _hoisted_9$6)) : (openBlock(), createElementBlock("button", {
-                key: 1,
-                class: "page-waiting-action",
-                type: "button",
-                title: "选择起始小节号",
-                onClick: withModifiers(($event) => openMeasurePickerForPage(page), ["stop"])
-              }, [
-                createVNode(unref(NIcon), { size: "12" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(AlertCircleOutline))
+                    createVNode(unref(ScanOutline))
                   ]),
                   _: 1
                 }),
-                _cache[8] || (_cache[8] = createBaseVNode("span", null, "待选择", -1))
-              ], 8, _hoisted_10$6)),
-              createBaseVNode("div", _hoisted_11$6, [
-                isPreviewable(page.inputFileName) ? (openBlock(), createElementBlock("img", {
+                _cache[5] || (_cache[5] = createBaseVNode("span", null, "智能识别", -1))
+              ]),
+              createBaseVNode("div", _hoisted_6$7, [
+                unref(store).batches.length > 1 ? (openBlock(), createBlock(unref(NSelect), {
                   key: 0,
-                  src: unref(getFileURL)(page.inputFileId),
-                  alt: page.inputFileName
-                }, null, 8, _hoisted_12$5)) : (openBlock(), createBlock(unref(NIcon), {
-                  key: 1,
-                  size: "20",
-                  class: "page-icon"
-                }, {
-                  default: withCtx(() => [
-                    createVNode(unref(DocumentOutline))
+                  value: unref(store).currentBatchId,
+                  options: batchOptions.value,
+                  size: "small",
+                  class: "batch-select",
+                  "onUpdate:value": _cache[1] || (_cache[1] = ($event) => unref(store).selectBatch($event))
+                }, null, 8, ["value", "options"])) : createCommentVNode("", true),
+                unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_7$7, [
+                  createVNode(unref(Button), {
+                    size: "small",
+                    quaternary: "",
+                    disabled: !unref(store).canPrevPage,
+                    onClick: _cache[2] || (_cache[2] = ($event) => unref(store).prevPage())
+                  }, {
+                    icon: withCtx(() => [
+                      createVNode(unref(NIcon), null, {
+                        default: withCtx(() => [
+                          createVNode(unref(ChevronBackOutline))
+                        ]),
+                        _: 1
+                      })
+                    ]),
+                    _: 1
+                  }, 8, ["disabled"]),
+                  createBaseVNode("span", _hoisted_8$6, toDisplayString(currentBatchLocalIndex.value + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
+                  createVNode(unref(Button), {
+                    size: "small",
+                    quaternary: "",
+                    disabled: !unref(store).canNextPage,
+                    onClick: _cache[3] || (_cache[3] = ($event) => unref(store).nextPage())
+                  }, {
+                    icon: withCtx(() => [
+                      createVNode(unref(NIcon), null, {
+                        default: withCtx(() => [
+                          createVNode(unref(ChevronForwardOutline))
+                        ]),
+                        _: 1
+                      })
+                    ]),
+                    _: 1
+                  }, 8, ["disabled"])
+                ])) : createCommentVNode("", true)
+              ])
+            ]),
+            createBaseVNode("div", _hoisted_9$6, [
+              createVNode(FileUploader, { onUploaded: onFileUploaded }),
+              unref(store).activePageTaskCount ? (openBlock(), createBlock(unref(NProgress), {
+                key: 0,
+                type: "line",
+                percentage: overallProgressPercent.value,
+                "indicator-placement": "inside",
+                processing: "",
+                class: "rv-progress"
+              }, {
+                default: withCtx(() => [
+                  createTextVNode(toDisplayString(overallProgressText.value), 1)
+                ]),
+                _: 1
+              }, 8, ["percentage"])) : createCommentVNode("", true),
+              waitingPageCount.value ? (openBlock(), createElementBlock("div", _hoisted_10$6, toDisplayString(waitingPageCount.value) + ' 个页面等待选择起始小节号，点击卡片上的"待选择"按钮进行操作 ', 1)) : createCommentVNode("", true)
+            ]),
+            createBaseVNode("div", _hoisted_11$6, [
+              createVNode(unref(Button), {
+                type: "primary",
+                size: "small",
+                onClick: recognize,
+                loading: recognizeButtonLoading.value,
+                disabled: recognizeButtonDisabled.value
+              }, {
+                icon: withCtx(() => [
+                  createVNode(unref(NIcon), null, {
+                    default: withCtx(() => [
+                      createVNode(unref(ScanOutline))
+                    ]),
+                    _: 1
+                  })
+                ]),
+                default: withCtx(() => [
+                  createTextVNode(" " + toDisplayString(recognizeButtonText.value), 1)
+                ]),
+                _: 1
+              }, 8, ["loading", "disabled"]),
+              createVNode(unref(Button), {
+                size: "small",
+                onClick: recognizeAllPages,
+                loading: unref(store).activePageTaskCount > 0,
+                disabled: !pendingRecognizableCount.value,
+                secondary: ""
+              }, {
+                icon: withCtx(() => [
+                  createVNode(unref(NIcon), null, {
+                    default: withCtx(() => [
+                      createVNode(unref(FlashOutline))
+                    ]),
+                    _: 1
+                  })
+                ]),
+                default: withCtx(() => [
+                  _cache[6] || (_cache[6] = createTextVNode(" 批量识别全部 ", -1))
+                ]),
+                _: 1
+              }, 8, ["loading", "disabled"]),
+              createBaseVNode("div", _hoisted_12$6, [
+                _cache[7] || (_cache[7] = createBaseVNode("span", null, "AI 视觉检测", -1)),
+                createVNode(unref(NSwitch), {
+                  value: aiVisionEnabled.value,
+                  "onUpdate:value": _cache[4] || (_cache[4] = ($event) => aiVisionEnabled.value = $event),
+                  size: "small"
+                }, null, 8, ["value"])
+              ]),
+              selectedPageCount.value ? (openBlock(), createElementBlock("span", _hoisted_13$5, "已选 " + toDisplayString(selectedPageCount.value), 1)) : createCommentVNode("", true)
+            ])
+          ]),
+          createBaseVNode("div", _hoisted_14$5, [
+            _cache[20] || (_cache[20] = createBaseVNode("div", { class: "card-title" }, "项目统计", -1)),
+            createBaseVNode("div", _hoisted_15$5, [
+              createBaseVNode("div", _hoisted_16$4, [
+                createBaseVNode("div", _hoisted_17$3, [
+                  (openBlock(), createElementBlock("svg", _hoisted_18$3, [
+                    _cache[8] || (_cache[8] = createBaseVNode("path", {
+                      class: "ring-bg",
+                      d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    }, null, -1)),
+                    statsTotal.value > 0 ? (openBlock(), createElementBlock("path", {
+                      key: 0,
+                      class: "ring-segment ring-completed",
+                      "stroke-dasharray": `${statsCompleted.value / statsTotal.value * 100} ${100 - statsCompleted.value / statsTotal.value * 100}`,
+                      d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    }, null, 8, _hoisted_19$3)) : createCommentVNode("", true),
+                    statsTotal.value > 0 ? (openBlock(), createElementBlock("path", {
+                      key: 1,
+                      class: "ring-segment ring-processing",
+                      "stroke-dasharray": `${statsProcessing.value / statsTotal.value * 100} ${100 - statsProcessing.value / statsTotal.value * 100}`,
+                      "stroke-dashoffset": `${-(statsCompleted.value / statsTotal.value) * 100}`,
+                      d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    }, null, 8, _hoisted_20$2)) : createCommentVNode("", true),
+                    statsTotal.value > 0 ? (openBlock(), createElementBlock("path", {
+                      key: 2,
+                      class: "ring-segment ring-failed",
+                      "stroke-dasharray": `${statsFailed.value / statsTotal.value * 100} ${100 - statsFailed.value / statsTotal.value * 100}`,
+                      "stroke-dashoffset": `${-((statsCompleted.value + statsProcessing.value) / statsTotal.value) * 100}`,
+                      d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    }, null, 8, _hoisted_21$2)) : createCommentVNode("", true)
+                  ])),
+                  createBaseVNode("div", _hoisted_22$2, [
+                    createBaseVNode("span", _hoisted_23$2, toDisplayString(statsTotal.value), 1),
+                    _cache[9] || (_cache[9] = createBaseVNode("span", { class: "ring-label" }, "总计", -1))
+                  ])
+                ]),
+                createBaseVNode("div", _hoisted_24$2, [
+                  createBaseVNode("div", _hoisted_25$2, [
+                    _cache[10] || (_cache[10] = createBaseVNode("span", { class: "legend-dot dot-completed" }, null, -1)),
+                    _cache[11] || (_cache[11] = createBaseVNode("span", { class: "legend-text" }, "完成", -1)),
+                    createBaseVNode("span", _hoisted_26$2, toDisplayString(statsCompleted.value), 1)
                   ]),
-                  _: 1
-                }))
+                  createBaseVNode("div", _hoisted_27$2, [
+                    _cache[12] || (_cache[12] = createBaseVNode("span", { class: "legend-dot dot-processing" }, null, -1)),
+                    _cache[13] || (_cache[13] = createBaseVNode("span", { class: "legend-text" }, "处理中", -1)),
+                    createBaseVNode("span", _hoisted_28$2, toDisplayString(statsProcessing.value), 1)
+                  ]),
+                  createBaseVNode("div", _hoisted_29$2, [
+                    _cache[14] || (_cache[14] = createBaseVNode("span", { class: "legend-dot dot-failed" }, null, -1)),
+                    _cache[15] || (_cache[15] = createBaseVNode("span", { class: "legend-text" }, "失败", -1)),
+                    createBaseVNode("span", _hoisted_30$1, toDisplayString(statsFailed.value), 1)
+                  ]),
+                  createBaseVNode("div", _hoisted_31$1, [
+                    _cache[16] || (_cache[16] = createBaseVNode("span", { class: "legend-dot dot-waiting" }, null, -1)),
+                    _cache[17] || (_cache[17] = createBaseVNode("span", { class: "legend-text" }, "等待", -1)),
+                    createBaseVNode("span", _hoisted_32$1, toDisplayString(statsWaiting.value), 1)
+                  ])
+                ])
               ]),
-              createBaseVNode("div", _hoisted_13$5, [
-                createBaseVNode("span", _hoisted_14$5, toDisplayString(page.inputFileName), 1),
-                createBaseVNode("span", {
-                  class: normalizeClass(["page-status", page.status])
-                }, toDisplayString(statusText(page)), 3)
-              ]),
-              page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_15$5, [
-                createBaseVNode("span", {
-                  style: normalizeStyle({ width: `${Math.max(4, page.progressPercent)}%` })
-                }, null, 4)
-              ])) : createCommentVNode("", true)
-            ], 10, _hoisted_8$6);
-          }), 128))
-        ])) : createCommentVNode("", true)
+              createBaseVNode("div", _hoisted_33, [
+                createBaseVNode("div", _hoisted_34, [
+                  createBaseVNode("span", _hoisted_35, toDisplayString(statsCompleted.value), 1),
+                  _cache[18] || (_cache[18] = createBaseVNode("span", { class: "mini-card-label" }, "完成数", -1))
+                ]),
+                createBaseVNode("div", _hoisted_36, [
+                  createBaseVNode("span", _hoisted_37, toDisplayString(statsFailed.value), 1),
+                  _cache[19] || (_cache[19] = createBaseVNode("span", { class: "mini-card-label" }, "失败数", -1))
+                ])
+              ])
+            ])
+          ]),
+          createBaseVNode("div", _hoisted_38, [
+            _cache[23] || (_cache[23] = createBaseVNode("div", { class: "card-title" }, "最近上传", -1)),
+            unref(store).currentBatchPages.length ? (openBlock(), createElementBlock("div", _hoisted_39, [
+              (openBlock(true), createElementBlock(Fragment, null, renderList(unref(store).currentBatchPages, (page) => {
+                return openBlock(), createElementBlock("div", {
+                  key: page.id,
+                  class: normalizeClass(["upload-card", page.status, {
+                    active: page.id === unref(store).currentPage?.id,
+                    selected: isPageSelected(page.id)
+                  }]),
+                  onClick: ($event) => handlePageCardClick(page)
+                }, [
+                  isPageSelected(page.id) ? (openBlock(), createBlock(unref(NIcon), {
+                    key: 0,
+                    size: "14",
+                    class: "upload-selected-mark"
+                  }, {
+                    default: withCtx(() => [
+                      createVNode(unref(CheckmarkCircleOutline))
+                    ]),
+                    _: 1
+                  })) : createCommentVNode("", true),
+                  page.status === "failed" && !page.inputFileId ? (openBlock(), createElementBlock("button", {
+                    key: 1,
+                    class: "upload-reupload",
+                    type: "button",
+                    title: "重新上传",
+                    onClick: withModifiers(($event) => reuploadForPage(page), ["stop"])
+                  }, [
+                    createVNode(unref(NIcon), { size: "12" }, {
+                      default: withCtx(() => [
+                        createVNode(unref(CloudUploadOutline))
+                      ]),
+                      _: 1
+                    })
+                  ], 8, _hoisted_41)) : page.status !== "waiting" ? (openBlock(), createElementBlock("button", {
+                    key: 2,
+                    class: "upload-del",
+                    type: "button",
+                    disabled: page.status === "processing",
+                    onClick: withModifiers(($event) => removePageById(page.id), ["stop"])
+                  }, [
+                    createVNode(unref(NIcon), { size: "12" }, {
+                      default: withCtx(() => [
+                        createVNode(unref(CloseOutline))
+                      ]),
+                      _: 1
+                    })
+                  ], 8, _hoisted_42)) : (openBlock(), createElementBlock("button", {
+                    key: 3,
+                    class: "upload-waiting-action",
+                    type: "button",
+                    title: "选择起始小节号",
+                    onClick: withModifiers(($event) => openMeasurePickerForPage(page), ["stop"])
+                  }, [
+                    createVNode(unref(NIcon), { size: "12" }, {
+                      default: withCtx(() => [
+                        createVNode(unref(AlertCircleOutline))
+                      ]),
+                      _: 1
+                    }),
+                    _cache[21] || (_cache[21] = createBaseVNode("span", null, "待选择", -1))
+                  ], 8, _hoisted_43)),
+                  createBaseVNode("div", _hoisted_44, [
+                    __props.active && isPreviewable(page.inputFileName) ? (openBlock(), createElementBlock("img", {
+                      key: 0,
+                      src: unref(getFileURL)(page.inputFileId),
+                      alt: page.inputFileName
+                    }, null, 8, _hoisted_45)) : (openBlock(), createBlock(unref(NIcon), {
+                      key: 1,
+                      size: "24",
+                      class: "upload-icon"
+                    }, {
+                      default: withCtx(() => [
+                        createVNode(unref(DocumentOutline))
+                      ]),
+                      _: 1
+                    }))
+                  ]),
+                  createBaseVNode("div", _hoisted_46, [
+                    createBaseVNode("span", _hoisted_47, toDisplayString(page.inputFileName), 1),
+                    createBaseVNode("span", {
+                      class: normalizeClass(["upload-status", page.status])
+                    }, toDisplayString(statusText(page)), 3)
+                  ]),
+                  page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_48, [
+                    createBaseVNode("span", {
+                      style: normalizeStyle({ width: `${Math.max(4, page.progressPercent)}%` })
+                    }, null, 4)
+                  ])) : createCommentVNode("", true)
+                ], 10, _hoisted_40);
+              }), 128))
+            ])) : (openBlock(), createElementBlock("div", _hoisted_49, [
+              createVNode(unref(NIcon), {
+                size: "32",
+                class: "empty-icon"
+              }, {
+                default: withCtx(() => [
+                  createVNode(unref(CloudUploadOutline))
+                ]),
+                _: 1
+              }),
+              _cache[22] || (_cache[22] = createBaseVNode("span", null, "暂无上传文件", -1))
+            ]))
+          ]),
+          createBaseVNode("div", _hoisted_50, [
+            _cache[25] || (_cache[25] = createBaseVNode("div", { class: "card-title" }, "最近活动", -1)),
+            recentActivities.value.length ? (openBlock(), createElementBlock("div", _hoisted_51, [
+              (openBlock(true), createElementBlock(Fragment, null, renderList(recentActivities.value, (activity) => {
+                return openBlock(), createElementBlock("div", {
+                  key: activity.id,
+                  class: "activity-item"
+                }, [
+                  createBaseVNode("div", {
+                    class: normalizeClass(["activity-icon", activity.level])
+                  }, [
+                    createVNode(unref(NIcon), { size: "14" }, {
+                      default: withCtx(() => [
+                        (openBlock(), createBlock(resolveDynamicComponent(activityIcon(activity.level))))
+                      ]),
+                      _: 2
+                    }, 1024)
+                  ], 2),
+                  createBaseVNode("div", _hoisted_52, [
+                    createBaseVNode("span", _hoisted_53, toDisplayString(activity.message), 1),
+                    createBaseVNode("span", _hoisted_54, toDisplayString(activity.time), 1)
+                  ])
+                ]);
+              }), 128))
+            ])) : (openBlock(), createElementBlock("div", _hoisted_55, [..._cache[24] || (_cache[24] = [
+              createBaseVNode("span", null, "暂无活动记录", -1)
+            ])]))
+          ])
+        ])
       ]);
     };
   }
 });
-const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-ad8f6116"]]);
+const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-267f2017"]]);
 const convertApi = {
   musicxmlToJianpu(req) {
     return apiFetch("/convert/musicxml-to-jianpu", {
@@ -61048,6 +62353,16 @@ function usePlayer(options = {}) {
     currentNoteIndex.value = -1;
     stopPositionTracking();
   }
+  function unload() {
+    stop();
+    clearSchedule();
+    midiData = null;
+    notes.length = 0;
+    noteGroups.length = 0;
+    duration2.value = 0;
+    isReady.value = false;
+    error2.value = null;
+  }
   function seekTo(ratio) {
     const target = ratio * duration2.value;
     getTransport().seconds = target;
@@ -61192,6 +62507,7 @@ function usePlayer(options = {}) {
     play,
     pause,
     stop,
+    unload,
     seekTo,
     seekToTime,
     setBpm,
@@ -61237,7 +62553,7 @@ const _hoisted_11$5 = {
   class: "tempo-control",
   title: "速度"
 };
-const _hoisted_12$4 = {
+const _hoisted_12$5 = {
   class: "volume-control",
   title: "音量"
 };
@@ -61300,6 +62616,7 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
           const url = getFileURL(result.file_id);
           await player.loadMidi(url);
         } catch {
+          if (gen === loadGeneration) player.unload();
         }
         return;
       }
@@ -61484,7 +62801,7 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
               ], -1)
             ])])
           ]),
-          createBaseVNode("div", _hoisted_12$4, [
+          createBaseVNode("div", _hoisted_12$5, [
             createBaseVNode("button", {
               class: "player-btn-sm",
               onClick: toggleMute
@@ -61512,7 +62829,7 @@ const _sfc_main$8 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const JianpuPlayer = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-26360505"]]);
+const JianpuPlayer = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["__scopeId", "data-v-77145796"]]);
 const _sfc_main$7 = /* @__PURE__ */ defineComponent({
   __name: "JianpuSyntaxGuide",
   props: {
@@ -61793,9 +63110,21 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
                     ]),
                     createBaseVNode("tr", null, [
                       createBaseVNode("td", null, [
-                        createBaseVNode("code", null, "^tr")
+                        createBaseVNode("code", null, "^r")
                       ]),
                       createBaseVNode("td", null, "颤音（trill）")
+                    ]),
+                    createBaseVNode("tr", null, [
+                      createBaseVNode("td", null, [
+                        createBaseVNode("code", null, "^f")
+                      ]),
+                      createBaseVNode("td", null, "延音记号（fermata）")
+                    ]),
+                    createBaseVNode("tr", null, [
+                      createBaseVNode("td", null, [
+                        createBaseVNode("code", null, "^l")
+                      ]),
+                      createBaseVNode("td", null, "轮指（tremolo）")
                     ])
                   ])
                 ])
@@ -61913,9 +63242,9 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
                     ]),
                     createBaseVNode("td", null, "弱 / 强"),
                     createBaseVNode("td", null, [
-                      createBaseVNode("code", null, "^. ^> ^- ^tr")
+                      createBaseVNode("code", null, "^. ^> ^- ^r ^f ^l")
                     ]),
-                    createBaseVNode("td", null, "断奏 / 重音 / 保持 / 颤音")
+                    createBaseVNode("td", null, "断奏 / 重音 / 保持 / 颤音 / 延音 / 轮指")
                   ]),
                   createBaseVNode("tr", null, [
                     createBaseVNode("td", null, [
@@ -61937,7 +63266,7 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const JianpuSyntaxGuide = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-e2960137"]]);
+const JianpuSyntaxGuide = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-0afa772b"]]);
 function useZoomPan(container) {
   const scale = /* @__PURE__ */ ref(1);
   const tx = /* @__PURE__ */ ref(0);
@@ -62186,15 +63515,19 @@ const _hoisted_2$5 = { class: "zp-inner" };
 const _hoisted_3$5 = ["innerHTML"];
 const _hoisted_4$5 = {
   key: 1,
+  class: "svg-loading svg-error"
+};
+const _hoisted_5$4 = {
+  key: 2,
   class: "svg-loading"
 };
-const _hoisted_5$4 = ["onMousedown", "onDblclick", "onClick"];
-const _hoisted_6$4 = ["onKeydown"];
-const _hoisted_7$4 = { key: 1 };
-const _hoisted_8$4 = ["onMousedown"];
-const _hoisted_9$4 = { class: "zoom-bar" };
-const _hoisted_10$4 = { class: "zoom-label" };
-const _hoisted_11$4 = {
+const _hoisted_6$4 = ["onMousedown", "onDblclick", "onClick"];
+const _hoisted_7$4 = ["onKeydown"];
+const _hoisted_8$4 = { key: 1 };
+const _hoisted_9$4 = ["onMousedown"];
+const _hoisted_10$4 = { class: "zoom-bar" };
+const _hoisted_11$4 = { class: "zoom-label" };
+const _hoisted_12$4 = {
   key: 1,
   class: "svg-empty"
 };
@@ -62216,6 +63549,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
     const imgW = /* @__PURE__ */ ref(0);
     const imgH = /* @__PURE__ */ ref(0);
     const svgText = /* @__PURE__ */ ref("");
+    const svgError = /* @__PURE__ */ ref("");
     const selectedId = /* @__PURE__ */ ref("");
     const editingId = /* @__PURE__ */ ref("");
     const editingText = /* @__PURE__ */ ref("");
@@ -62385,13 +63719,16 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
     async function loadSvg(url) {
       const generation = ++svgLoadGeneration;
       svgText.value = "";
+      svgError.value = "";
       imgW.value = 0;
       imgH.value = 0;
       clearPlaybackHighlight();
       zp.unbind();
       if (!url) return;
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15e3);
       try {
-        const response = await fetch(url, { cache: "no-store" });
+        const response = await fetch(url, { cache: "no-store", signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const text = await response.text();
         if (generation !== svgLoadGeneration) return;
@@ -62408,6 +63745,9 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
       } catch {
         if (generation !== svgLoadGeneration) return;
         svgText.value = "";
+        svgError.value = "SVG 加载失败";
+      } finally {
+        window.clearTimeout(timeout);
       }
     }
     function readSvgSize(text) {
@@ -62514,7 +63854,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
               key: svgUrl.value,
               class: "svg-inline",
               innerHTML: svgText.value
-            }, null, 8, _hoisted_3$5)) : (openBlock(), createElementBlock("div", _hoisted_4$5, "加载中...")),
+            }, null, 8, _hoisted_3$5)) : svgError.value ? (openBlock(), createElementBlock("div", _hoisted_4$5, toDisplayString(svgError.value), 1)) : (openBlock(), createElementBlock("div", _hoisted_5$4, "加载中...")),
             (openBlock(true), createElementBlock(Fragment, null, renderList(ocrBlocks.value, (block) => {
               return openBlock(), createElementBlock("button", {
                 key: block.id,
@@ -62538,27 +63878,27 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
                     withKeys(withModifiers(cancelEditing, ["prevent"]), ["esc"])
                   ],
                   onBlur: commitEditing
-                }, null, 40, _hoisted_6$4)), [
+                }, null, 40, _hoisted_7$4)), [
                   [vModelText, editingText.value]
-                ]) : (openBlock(), createElementBlock("span", _hoisted_7$4, toDisplayString(block.text), 1)),
+                ]) : (openBlock(), createElementBlock("span", _hoisted_8$4, toDisplayString(block.text), 1)),
                 __props.editableOcr && selectedId.value === block.id && editingId.value !== block.id ? (openBlock(), createElementBlock("span", {
                   key: 2,
                   class: "ocr-resize-handle",
                   onMousedown: withModifiers(($event) => startResize(block, $event), ["stop", "prevent"])
-                }, null, 40, _hoisted_8$4)) : createCommentVNode("", true)
-              ], 46, _hoisted_5$4);
+                }, null, 40, _hoisted_9$4)) : createCommentVNode("", true)
+              ], 46, _hoisted_6$4);
             }), 128))
           ])
         ], 544),
-        createBaseVNode("div", _hoisted_9$4, [
-          createBaseVNode("span", _hoisted_10$4, toDisplayString(Math.round(unref(zp).scale.value * 100)) + "%", 1),
+        createBaseVNode("div", _hoisted_10$4, [
+          createBaseVNode("span", _hoisted_11$4, toDisplayString(Math.round(unref(zp).scale.value * 100)) + "%", 1),
           createBaseVNode("button", {
             class: "zoom-btn",
             onClick: _cache[3] || (_cache[3] = ($event) => unref(zp).reset()),
             title: "适应窗口"
           }, "适应")
         ])
-      ])) : (openBlock(), createElementBlock("div", _hoisted_11$4, [
+      ])) : (openBlock(), createElementBlock("div", _hoisted_12$4, [
         createVNode(unref(NIcon), {
           size: "32",
           depth: 3
@@ -62573,7 +63913,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-694a657e"]]);
+const SvgPreview = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["__scopeId", "data-v-d1c98e4e"]]);
 const _hoisted_1$4 = { class: "workspace" };
 const _hoisted_2$4 = { class: "ws-hist-head" };
 const _hoisted_3$4 = { class: "ws-hist-actions" };
@@ -62609,24 +63949,24 @@ const _hoisted_15$3 = {
 };
 const _hoisted_16$3 = { class: "ws-main" };
 const _hoisted_17$2 = { class: "ws-toolbar" };
-const _hoisted_18$1 = { class: "ws-toolbar-left" };
-const _hoisted_19$1 = {
+const _hoisted_18$2 = { class: "ws-toolbar-left" };
+const _hoisted_19$2 = {
   key: 0,
   class: "page-nav"
 };
-const _hoisted_20 = { class: "page-indicator" };
-const _hoisted_21 = { class: "ws-toolbar-right" };
-const _hoisted_22 = { class: "ws-layout" };
-const _hoisted_23 = { class: "ws-panel ws-left" };
-const _hoisted_24 = { class: "ws-panel-head" };
-const _hoisted_25 = {
+const _hoisted_20$1 = { class: "page-indicator" };
+const _hoisted_21$1 = { class: "ws-toolbar-right" };
+const _hoisted_22$1 = { class: "ws-layout" };
+const _hoisted_23$1 = { class: "ws-panel ws-left" };
+const _hoisted_24$1 = { class: "ws-panel-head" };
+const _hoisted_25$1 = {
   key: 0,
   class: "panel-filename"
 };
-const _hoisted_26 = { class: "ws-panel-body" };
-const _hoisted_27 = { class: "ws-panel ws-right" };
-const _hoisted_28 = { class: "ws-panel-head" };
-const _hoisted_29 = { class: "panel-head-actions" };
+const _hoisted_26$1 = { class: "ws-panel-body" };
+const _hoisted_27$1 = { class: "ws-panel ws-right" };
+const _hoisted_28$1 = { class: "ws-panel-head" };
+const _hoisted_29$1 = { class: "panel-head-actions" };
 const _hoisted_30 = { class: "panel-head-meta" };
 const _hoisted_31 = { class: "ws-panel-body" };
 const _hoisted_32 = {
@@ -62660,8 +64000,19 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     const histLoading = /* @__PURE__ */ ref(false);
     const expandedBatchId = /* @__PURE__ */ ref(null);
     const expandedPages = /* @__PURE__ */ ref([]);
-    const loadingBatch = /* @__PURE__ */ ref(false);
+    const loadingBatchId = /* @__PURE__ */ ref(null);
+    const histPickerShow = /* @__PURE__ */ ref(false);
+    const histPickerOptions = /* @__PURE__ */ ref([]);
+    const histPickerPage = /* @__PURE__ */ ref(null);
     let stopHistoryUpdatedListener = null;
+    let stopHistoryPagePatchedListener = null;
+    let historyListRequestSeq = 0;
+    let historyDetailRequestSeq = 0;
+    let restoreCheckSeq = 0;
+    const locallyUpdatingHistoryPageIds = /* @__PURE__ */ new Set();
+    const currentBatchLocalIndex = computed(
+      () => store.currentBatchPages.indexOf(store.currentPage)
+    );
     watch(() => store.jianpuText, (v) => {
       if (v !== jianpuText.value) jianpuText.value = v;
     });
@@ -62676,24 +64027,42 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     });
     onMounted(() => {
       loadHistory();
-      stopHistoryUpdatedListener = listenHistoryUpdated(loadHistory);
+      stopHistoryUpdatedListener = listenHistoryUpdated(() => loadHistory(false, { refreshExpanded: false }));
+      stopHistoryPagePatchedListener = listenHistoryPagePatched(handleHistoryPagePatched);
     });
     onUnmounted(() => {
       stopHistoryUpdatedListener?.();
       stopHistoryUpdatedListener = null;
+      stopHistoryPagePatchedListener?.();
+      stopHistoryPagePatchedListener = null;
     });
     function toggleHistory() {
       historyOpen.value = !historyOpen.value;
-      if (historyOpen.value) loadHistory();
+      if (historyOpen.value) loadHistory(false, { refreshExpanded: false });
     }
-    async function loadHistory() {
-      histLoading.value = true;
+    async function loadHistory(showLoading = true, options = {}) {
+      const seq = ++historyListRequestSeq;
+      const refreshExpanded = options.refreshExpanded ?? showLoading;
+      if (showLoading) {
+        histLoading.value = true;
+      }
       try {
-        histBatches.value = await historyApi.list();
+        const batches = await historyApi.list();
+        if (seq !== historyListRequestSeq) return;
+        histBatches.value = batches;
+        syncExpandedBatchSummary();
+        const openId = expandedBatchId.value;
+        if (openId !== null && refreshExpanded) {
+          void refreshExpandedBatch(openId, { clear: false, showLoading: false });
+        }
       } catch (e) {
-        log2.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`);
+        if (seq === historyListRequestSeq) {
+          log2.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`);
+        }
       } finally {
-        histLoading.value = false;
+        if (seq === historyListRequestSeq) {
+          histLoading.value = false;
+        }
       }
     }
     async function handleDeleteAll() {
@@ -62701,6 +64070,8 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       histBatches.value = [];
       expandedBatchId.value = null;
       expandedPages.value = [];
+      loadingBatchId.value = null;
+      historyDetailRequestSeq++;
       message.success("已清空");
     }
     async function handleDeleteBatch(batchId) {
@@ -62710,6 +64081,8 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         if (expandedBatchId.value === batchId) {
           expandedBatchId.value = null;
           expandedPages.value = [];
+          loadingBatchId.value = null;
+          historyDetailRequestSeq++;
         }
         message.success("已删除");
       } catch (e) {
@@ -62722,18 +64095,36 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       if (expandedBatchId.value === batchId) {
         expandedBatchId.value = null;
         expandedPages.value = [];
+        loadingBatchId.value = null;
+        historyDetailRequestSeq++;
         return;
       }
       expandedBatchId.value = batchId;
-      loadingBatch.value = true;
+      await refreshExpandedBatch(batchId, { clear: true, showLoading: true });
+    }
+    async function refreshExpandedBatch(batchId, options) {
+      const seq = ++historyDetailRequestSeq;
+      if (options.clear) {
+        expandedPages.value = [];
+      }
+      if (options.showLoading) {
+        loadingBatchId.value = batchId;
+      }
       try {
         const batch2 = await historyApi.get(batchId);
-        expandedPages.value = batch2.pages;
+        if (seq === historyDetailRequestSeq && expandedBatchId.value === batchId) {
+          expandedPages.value = mergeLockedHistoryPages(batch2.pages);
+          syncExpandedBatchSummary(batchId);
+        }
       } catch (e) {
-        log2.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`);
-        expandedPages.value = [];
+        if (seq === historyDetailRequestSeq && expandedBatchId.value === batchId) {
+          log2.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`);
+          expandedPages.value = [];
+        }
       } finally {
-        loadingBatch.value = false;
+        if (seq === historyDetailRequestSeq && loadingBatchId.value === batchId) {
+          loadingBatchId.value = null;
+        }
       }
     }
     async function handleRestorePage(page) {
@@ -62748,65 +64139,135 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       if (!allPages.length || pageIndex < 0) {
         try {
           const batch2 = await historyApi.get(batchId);
-          allPages = batch2.pages;
-          expandedPages.value = batch2.pages;
+          if (expandedBatchId.value === batchId) {
+            allPages = batch2.pages;
+            expandedPages.value = batch2.pages;
+          }
           pageIndex = allPages.findIndex((p2) => p2.id === page.id);
         } catch (e) {
           log2.addError(`刷新历史详情失败：${e instanceof Error ? e.message : String(e)}`);
         }
       }
       if (!allPages.length) return;
-      const warnings = [];
-      const selectedChecks = pageIndex >= 0 ? await checkHistoryPageFiles(allPages[pageIndex], warnings) : null;
-      const migratedPages = allPages.map((p2, index) => {
+      const migratedPages = allPages.map((p2) => {
         const split = splitJianpuAndOcr(p2.jianpu_text || "");
-        const checks = index === pageIndex && selectedChecks ? selectedChecks : {
-          inputOk: !!p2.input_file_id,
-          musicxmlOk: !!p2.musicxml_file_id,
-          svgOk: !!p2.svg_file_id
-        };
-        return { page: p2, split, jianpu: split.jianpuText, ...checks };
+        return { page: p2, split, jianpu: split.jianpuText };
       });
       store.loadBatch(
         migratedPages.map((r) => ({
-          inputFileName: r.inputOk ? r.page.input_file_name : "",
-          inputFileId: r.inputOk ? r.page.input_file_id : "",
-          originalFileName: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_name : "",
-          originalFileId: r.inputOk && /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(r.page.input_file_name) ? r.page.input_file_id : "",
+          inputFileName: r.page.input_file_name,
+          inputFileId: r.page.input_file_id,
+          originalFileName: isPreviewableHistoryFile(r.page.input_file_name) ? r.page.input_file_name : "",
+          originalFileId: isPreviewableHistoryFile(r.page.input_file_name) ? r.page.input_file_id : "",
           historyPageId: r.page.id,
-          musicxmlFileId: r.musicxmlOk ? r.page.musicxml_file_id : "",
+          musicxmlFileId: r.page.musicxml_file_id,
           jianpuText: r.jianpu,
           ocrText: r.page.ocr_text || r.split.ocrText,
-          svgFileId: r.svgOk ? r.page.svg_file_id : "",
+          svgFileId: r.page.svg_file_id,
           startMeasureNumber: r.page.start_measure_number ?? null,
           status: r.page.status,
           measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
-          errorMessage: r.page.error_message
+          errorMessage: r.page.error_message,
+          ...liveRecognitionTaskPatch(r.page.id, r.page.status)
         })),
         pageIndex >= 0 ? pageIndex : 0
       );
       isViewingFinal.value = false;
-      if (warnings.length) {
-        message.warning(warnings.join("；"));
-        return;
-      }
+      void validateRestoredBatchFiles(allPages);
       message.success(`已恢复 ${allPages.length} 页`);
     }
-    async function checkHistoryPageFiles(page, warnings) {
-      const [inputOk, musicxmlOk, svgOk] = await Promise.all([
-        page.input_file_id ? fileExists(page.input_file_id) : Promise.resolve(false),
-        page.musicxml_file_id ? fileExists(page.musicxml_file_id) : Promise.resolve(false),
-        page.svg_file_id ? fileExists(page.svg_file_id) : Promise.resolve(false)
-      ]);
-      if (page.input_file_id && !inputOk) warnings.push(`${page.input_file_name}：原始文件已失效`);
-      if (page.musicxml_file_id && !musicxmlOk) warnings.push(`${page.input_file_name}：MusicXML 已失效`);
-      if (page.svg_file_id && !svgOk) warnings.push(`${page.input_file_name}：SVG 已失效`);
-      return { inputOk, musicxmlOk, svgOk };
+    async function validateRestoredBatchFiles(pages) {
+      const seq = ++restoreCheckSeq;
+      const fileIds = pages.flatMap((entry) => [entry.input_file_id, entry.musicxml_file_id, entry.svg_file_id]).filter(Boolean);
+      if (!fileIds.length) return;
+      try {
+        const exists2 = await filesApi.existsMany(fileIds);
+        if (seq !== restoreCheckSeq) return;
+        const warnings = [];
+        for (const entry of pages) {
+          const patch = {};
+          if (entry.input_file_id && !exists2[entry.input_file_id]) {
+            patch.inputFileId = "";
+            patch.originalFileId = "";
+            patch.originalFileName = "";
+            warnings.push(`${entry.input_file_name}：原始文件已失效`);
+          }
+          if (entry.musicxml_file_id && !exists2[entry.musicxml_file_id]) {
+            patch.musicxmlFileId = "";
+            warnings.push(`${entry.input_file_name}：MusicXML 已失效`);
+          }
+          if (entry.svg_file_id && !exists2[entry.svg_file_id]) {
+            patch.svgFileId = "";
+            warnings.push(`${entry.input_file_name}：SVG 已失效`);
+          }
+          if (Object.keys(patch).length) {
+            store.patchPageByHistoryPageId(entry.id, patch);
+          }
+        }
+        if (warnings.length) {
+          log2.addLog(`历史恢复部分失效：${warnings.join("，")}`, "warn");
+          message.warning(`${warnings.join("；")}，请重新识别或重新上传。`);
+        }
+      } catch (e) {
+        if (seq === restoreCheckSeq) {
+          log2.addLog(`校验历史文件失败：${e instanceof Error ? e.message : String(e)}`, "warn");
+        }
+      }
     }
     function replaceExpandedHistoryPage(page) {
       const index = expandedPages.value.findIndex((entry) => entry.id === page.id);
       if (index < 0) return;
-      expandedPages.value[index] = page;
+      expandedPages.value = expandedPages.value.map((entry) => entry.id === page.id ? page : entry);
+      syncExpandedBatchSummary();
+    }
+    function mergeLockedHistoryPages(pages) {
+      if (!locallyUpdatingHistoryPageIds.size) return pages;
+      return pages.map((page) => {
+        if (!locallyUpdatingHistoryPageIds.has(page.id)) return page;
+        return expandedPages.value.find((localPage) => localPage.id === page.id) ?? page;
+      });
+    }
+    function handleHistoryPagePatched(detail) {
+      if (applyExpandedHistoryPagePatch(detail.id, detail.patch) && loadingBatchId.value === expandedBatchId.value) {
+        loadingBatchId.value = null;
+      }
+    }
+    function applyExpandedHistoryPagePatch(pageId, patch) {
+      const page = expandedPages.value.find((entry) => entry.id === pageId);
+      if (!page) return false;
+      replaceExpandedHistoryPage({ ...page, ...patch });
+      return true;
+    }
+    function syncExpandedBatchSummary(batchId = expandedBatchId.value) {
+      if (batchId === null || !expandedPages.value.length) return;
+      const status = batchStatus(expandedPages.value.map((page) => page.status));
+      const firstFileName = expandedPages.value[0]?.input_file_name ?? "";
+      histBatches.value = histBatches.value.map((batch2) => batch2.id === batchId ? {
+        ...batch2,
+        status,
+        page_count: expandedPages.value.length,
+        first_file_name: firstFileName || batch2.first_file_name
+      } : batch2);
+    }
+    function batchStatus(statuses) {
+      if (statuses.some((status) => status === "failed")) return "failed";
+      if (statuses.some((status) => status === "waiting")) return "waiting";
+      if (statuses.some((status) => status === "processing" || status === "pending")) return "processing";
+      return "completed";
+    }
+    function historyPagePatchFromPage(page) {
+      return {
+        id: page.id,
+        patch: {
+          musicxml_file_id: page.musicxml_file_id,
+          jianpu_text: page.jianpu_text,
+          ocr_text: page.ocr_text,
+          svg_file_id: page.svg_file_id,
+          start_measure_number: page.start_measure_number,
+          status: page.status,
+          error_message: page.error_message
+        }
+      };
     }
     function formatTime2(iso) {
       if (!iso) return "";
@@ -62823,9 +64284,138 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     function isWaitingStatus(status) {
       return status === "waiting";
     }
+    function isPreviewableHistoryFile(fileName) {
+      return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName);
+    }
     function parseWaitingMeasureOptions(messageText) {
-      if (!messageText.includes("等待选择起始小节号")) return [];
-      return Array.from(messageText.matchAll(/\d+/g), (match2) => Number(match2[0])).filter((value) => Number.isFinite(value) && value > 0);
+      const match2 = messageText.match(/等待选择起始小节号[:：]\s*([0-9\s、,，]+)/);
+      if (!match2) return [];
+      const optionsText = match2[1] ?? "";
+      return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0])).filter((value) => Number.isFinite(value) && value > 0);
+    }
+    function waitingMeasureMessage(options) {
+      return `等待选择起始小节号：${options.join("、")}`;
+    }
+    function failedMeasureSelectionMessage(options, msg2) {
+      const prefix2 = options.length ? `${waitingMeasureMessage(options)}；` : "";
+      return `${prefix2}选择小节号失败：${msg2}`;
+    }
+    function handleHistoryPageClick(page) {
+      if (isWaitingStatus(page.status)) {
+        const options = parseWaitingMeasureOptions(page.error_message);
+        if (!options.length) {
+          message.warning("没有可选的小节号候选");
+          return;
+        }
+        histPickerPage.value = page;
+        histPickerOptions.value = options;
+        histPickerShow.value = true;
+      } else {
+        handleRestorePage(page);
+      }
+    }
+    async function onHistPickerConfirm(selected) {
+      const page = histPickerPage.value;
+      histPickerShow.value = false;
+      histPickerPage.value = null;
+      if (!page) return;
+      await applyHistoryMeasureSelection(page, selected);
+    }
+    async function applyHistoryMeasureSelection(page, selected) {
+      locallyUpdatingHistoryPageIds.add(page.id);
+      const processingPage = {
+        ...page,
+        start_measure_number: selected,
+        status: "processing",
+        error_message: "正在重新渲染"
+      };
+      replaceExpandedHistoryPage(processingPage);
+      syncStoreFromHistoryPage(processingPage);
+      notifyHistoryPagePatched(historyPagePatchFromPage(processingPage));
+      const options = parseWaitingMeasureOptions(page.error_message);
+      try {
+        let svgFileId = page.svg_file_id;
+        let jianpuText2 = page.jianpu_text;
+        if (page.musicxml_file_id && selected !== options[0]) {
+          const rendered = await renderApi.jianpuSvg({
+            musicxml_file_id: page.musicxml_file_id,
+            page_image_file_id: page.input_file_id || void 0,
+            target_key: settings.targetKey,
+            start_measure_number: selected
+          });
+          svgFileId = rendered.svg_file_id;
+        } else if (!page.musicxml_file_id && page.jianpu_text.trim()) {
+          const rendered = await renderApi.jianpuTextSvg({
+            jianpu_text: page.jianpu_text,
+            page_image_file_id: page.input_file_id || void 0,
+            include_ocr_text: false,
+            title: page.input_file_name || "AI 简谱",
+            start_measure_number: selected
+          });
+          svgFileId = rendered.svg_file_id;
+          jianpuText2 = rendered.jianpu_text || page.jianpu_text;
+        }
+        const updated = await historyApi.updatePage(page.id, {
+          start_measure_number: selected,
+          jianpu_text: jianpuText2,
+          svg_file_id: svgFileId,
+          status: "completed",
+          error_message: ""
+        });
+        replaceExpandedHistoryPage(updated);
+        syncStoreFromHistoryPage(updated);
+        notifyHistoryPagePatched(historyPagePatchFromPage(updated));
+        message.success("已应用起始小节号");
+      } catch (e) {
+        const msg2 = e instanceof Error ? e.message : String(e);
+        const failedMessage = failedMeasureSelectionMessage(options, msg2);
+        const failedPage = {
+          ...page,
+          start_measure_number: selected,
+          status: "waiting",
+          error_message: failedMessage
+        };
+        try {
+          const updated = await historyApi.updatePage(page.id, {
+            start_measure_number: selected,
+            status: "waiting",
+            error_message: failedMessage
+          });
+          replaceExpandedHistoryPage(updated);
+          syncStoreFromHistoryPage(updated);
+          notifyHistoryPagePatched(historyPagePatchFromPage(updated));
+        } catch (persistError) {
+          replaceExpandedHistoryPage(failedPage);
+          syncStoreFromHistoryPage(failedPage);
+          notifyHistoryPagePatched(historyPagePatchFromPage(failedPage));
+          log2.addLog(`保存小节号失败状态失败：${persistError instanceof Error ? persistError.message : String(persistError)}`, "warn");
+        }
+        message.error(msg2);
+        log2.addError(`选择小节号失败：${msg2}`);
+      } finally {
+        locallyUpdatingHistoryPageIds.delete(page.id);
+      }
+    }
+    function syncStoreFromHistoryPage(page) {
+      const split = splitJianpuAndOcr(page.jianpu_text || "");
+      store.patchPageByHistoryPageId(page.id, {
+        historyPageId: page.id,
+        inputFileName: page.input_file_name,
+        inputFileId: page.input_file_id,
+        originalFileName: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_name : "",
+        originalFileId: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_id : "",
+        musicxmlFileId: page.musicxml_file_id,
+        jianpuText: split.jianpuText,
+        ocrText: page.ocr_text || split.ocrText,
+        svgFileId: page.svg_file_id,
+        startMeasureNumber: page.start_measure_number ?? null,
+        status: page.status,
+        progressPercent: page.status === "processing" ? 99 : 100,
+        progressMessage: page.status === "waiting" ? "等待选择起始小节号" : page.status === "completed" ? "识别完成" : page.status === "processing" ? page.error_message || "正在重新渲染" : page.error_message,
+        measureNumberOptions: page.status === "waiting" ? parseWaitingMeasureOptions(page.error_message) : [],
+        errorMessage: page.error_message,
+        ...liveRecognitionTaskPatch(page.id, page.status)
+      });
     }
     function resolveMissingFileId(msg2) {
       const match2 = msg2.match(/文件不存在[:：]\s*([A-Za-z0-9_-]+)/);
@@ -62861,13 +64451,24 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         const pages = exportPages();
         if (!pages.length) throw new Error("暂无可导出的页面");
         const pngPages = [];
+        const skippedPages = [];
         for (const page of pages) {
-          const svgFileId = await renderExportSvg(page);
-          pngPages.push(await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2));
+          try {
+            const svgFileId = await renderExportSvg(page);
+            pngPages.push(await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2));
+          } catch {
+            skippedPages.push(page.inputFileName || "未命名页");
+          }
         }
+        if (!pngPages.length) throw new Error("所有页面导出失败，无可用内容");
         const result = await exportApi.exportPdf(pngPages, "jianpu.pdf");
         downloadFile(result.file_id, result.filename);
-        log2.addLog(`导出完成：${result.filename}`);
+        if (skippedPages.length) {
+          log2.addLog(`导出完成（跳过 ${skippedPages.length} 页失败页）：${result.filename}`);
+          message.warning(`已跳过 ${skippedPages.length} 页失败页：${skippedPages.join("、")}`);
+        } else {
+          log2.addLog(`导出完成：${result.filename}`);
+        }
         message.success("导出完成");
       } catch (e) {
         log2.addError(`导出失败：${e instanceof Error ? e.message : String(e)}`);
@@ -62908,8 +64509,10 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       };
     }
     function exportPages() {
-      if (!store.pages.length) return [currentExportPage()];
-      return store.pages.map((page, index) => index === store.currentPageIndex ? currentExportPage() : page);
+      if (!store.currentBatchPages.length) return [currentExportPage()];
+      return store.currentBatchPages.map(
+        (page) => page.id === store.currentPage?.id ? currentExportPage() : page
+      );
     }
     async function renderExportSvg(page) {
       if (page.jianpuText.trim()) {
@@ -63122,12 +64725,12 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           class: normalizeClass(["ws-history", { open: historyOpen.value }])
         }, [
           createBaseVNode("div", _hoisted_2$4, [
-            _cache[9] || (_cache[9] = createBaseVNode("span", { class: "ws-hist-title" }, "历史", -1)),
+            _cache[12] || (_cache[12] = createBaseVNode("span", { class: "ws-hist-title" }, "历史", -1)),
             createBaseVNode("div", _hoisted_3$4, [
               createVNode(unref(Button), {
                 size: "tiny",
                 quaternary: "",
-                onClick: loadHistory,
+                onClick: _cache[0] || (_cache[0] = ($event) => loadHistory()),
                 loading: histLoading.value
               }, {
                 icon: withCtx(() => [
@@ -63163,14 +64766,14 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   }, 8, ["disabled"])
                 ]),
                 default: withCtx(() => [
-                  _cache[8] || (_cache[8] = createTextVNode(" 确定删除所有历史记录？ ", -1))
+                  _cache[11] || (_cache[11] = createTextVNode(" 确定删除所有历史记录？ ", -1))
                 ]),
                 _: 1
               })
             ])
           ]),
           createBaseVNode("div", _hoisted_4$4, [
-            !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$3, [..._cache[10] || (_cache[10] = [
+            !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$3, [..._cache[13] || (_cache[13] = [
               createBaseVNode("span", null, "暂无记录", -1)
             ])])) : createCommentVNode("", true),
             (openBlock(true), createElementBlock(Fragment, null, renderList(histBatches.value, (batch2) => {
@@ -63197,7 +64800,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                         class: "hist-delete",
                         type: "button",
                         title: "删除该历史记录",
-                        onClick: _cache[0] || (_cache[0] = withModifiers(() => {
+                        onClick: _cache[1] || (_cache[1] = withModifiers(() => {
                         }, ["stop"]))
                       }, [
                         createVNode(unref(NIcon), { size: "12" }, {
@@ -63209,7 +64812,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                       ])
                     ]),
                     default: withCtx(() => [
-                      _cache[11] || (_cache[11] = createTextVNode(" 确定删除这次历史记录？ ", -1))
+                      _cache[14] || (_cache[14] = createTextVNode(" 确定删除这次历史记录？ ", -1))
                     ]),
                     _: 1
                   }, 8, ["onPositiveClick"]),
@@ -63225,19 +64828,19 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                 ], 8, _hoisted_6$3),
                 createBaseVNode("div", _hoisted_10$3, toDisplayString(formatTime2(batch2.created_at)), 1),
                 expandedBatchId.value === batch2.id ? (openBlock(), createElementBlock("div", _hoisted_11$3, [
-                  loadingBatch.value ? (openBlock(), createElementBlock("div", _hoisted_12$3, "加载中...")) : createCommentVNode("", true),
+                  loadingBatchId.value === batch2.id ? (openBlock(), createElementBlock("div", _hoisted_12$3, "加载中...")) : createCommentVNode("", true),
                   (openBlock(true), createElementBlock(Fragment, null, renderList(expandedPages.value, (page, pi) => {
                     return openBlock(), createElementBlock("div", {
                       key: page.id,
-                      class: "hist-page-item",
-                      onClick: ($event) => handleRestorePage(page)
+                      class: normalizeClass(["hist-page-item", { "hist-page-waiting": isWaitingStatus(page.status) }]),
+                      onClick: ($event) => handleHistoryPageClick(page)
                     }, [
                       createBaseVNode("span", {
                         class: normalizeClass(["hist-dot small", historyStatusClass(page.status)])
                       }, null, 2),
                       createBaseVNode("span", _hoisted_14$3, toDisplayString(page.input_file_name || `第${pi + 1}页`), 1),
                       isWaitingStatus(page.status) ? (openBlock(), createElementBlock("span", _hoisted_15$3, "待选择")) : createCommentVNode("", true)
-                    ], 8, _hoisted_13$3);
+                    ], 10, _hoisted_13$3);
                   }), 128))
                 ])) : createCommentVNode("", true)
               ]);
@@ -63246,7 +64849,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         ], 2),
         createBaseVNode("div", _hoisted_16$3, [
           createBaseVNode("div", _hoisted_17$2, [
-            createBaseVNode("div", _hoisted_18$1, [
+            createBaseVNode("div", _hoisted_18$2, [
               createBaseVNode("button", {
                 class: "hist-toggle",
                 title: "历史记录",
@@ -63259,12 +64862,12 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   _: 1
                 })
               ]),
-              unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_19$1, [
+              unref(store).pageCount ? (openBlock(), createElementBlock("div", _hoisted_19$2, [
                 createVNode(unref(Button), {
                   size: "small",
                   quaternary: "",
                   disabled: !unref(store).canPrevPage || unref(store).isBusy,
-                  onClick: _cache[1] || (_cache[1] = ($event) => unref(store).prevPage())
+                  onClick: _cache[2] || (_cache[2] = ($event) => unref(store).prevPage())
                 }, {
                   icon: withCtx(() => [
                     createVNode(unref(NIcon), null, {
@@ -63276,12 +64879,12 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   ]),
                   _: 1
                 }, 8, ["disabled"]),
-                createBaseVNode("span", _hoisted_20, toDisplayString(unref(store).currentPageIndex + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
+                createBaseVNode("span", _hoisted_20$1, toDisplayString(currentBatchLocalIndex.value + 1) + " / " + toDisplayString(unref(store).pageCount), 1),
                 createVNode(unref(Button), {
                   size: "small",
                   quaternary: "",
                   disabled: !unref(store).canNextPage || unref(store).isBusy,
-                  onClick: _cache[2] || (_cache[2] = ($event) => unref(store).nextPage())
+                  onClick: _cache[3] || (_cache[3] = ($event) => unref(store).nextPage())
                 }, {
                   icon: withCtx(() => [
                     createVNode(unref(NIcon), null, {
@@ -63295,7 +64898,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                 }, 8, ["disabled"])
               ])) : createCommentVNode("", true)
             ]),
-            createBaseVNode("div", _hoisted_21, [
+            createBaseVNode("div", _hoisted_21$1, [
               createVNode(unref(Button), {
                 size: "small",
                 onClick: musicxmlToJianpu,
@@ -63312,7 +64915,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   })
                 ]),
                 default: withCtx(() => [
-                  _cache[12] || (_cache[12] = createTextVNode(" XML → 简谱 ", -1))
+                  _cache[15] || (_cache[15] = createTextVNode(" XML → 简谱 ", -1))
                 ]),
                 _: 1
               }, 8, ["loading", "disabled"]),
@@ -63332,38 +64935,38 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   })
                 ]),
                 default: withCtx(() => [
-                  _cache[13] || (_cache[13] = createTextVNode(" 导出 ", -1))
+                  _cache[16] || (_cache[16] = createTextVNode(" 导出 ", -1))
                 ]),
                 _: 1
               }, 8, ["loading", "disabled"]),
               createVNode(unref(NSelect), {
                 value: exportFormat.value,
-                "onUpdate:value": _cache[3] || (_cache[3] = ($event) => exportFormat.value = $event),
+                "onUpdate:value": _cache[4] || (_cache[4] = ($event) => exportFormat.value = $event),
                 options: formatOptions,
                 size: "small",
                 style: { "width": "96px" }
               }, null, 8, ["value"])
             ])
           ]),
-          createBaseVNode("div", _hoisted_22, [
-            createBaseVNode("div", _hoisted_23, [
-              createBaseVNode("div", _hoisted_24, [
-                _cache[14] || (_cache[14] = createBaseVNode("span", null, "原始五线谱", -1)),
-                unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_25, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
+          createBaseVNode("div", _hoisted_22$1, [
+            createBaseVNode("div", _hoisted_23$1, [
+              createBaseVNode("div", _hoisted_24$1, [
+                _cache[17] || (_cache[17] = createBaseVNode("span", null, "原始五线谱", -1)),
+                unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_25$1, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
               ]),
-              createBaseVNode("div", _hoisted_26, [
+              createBaseVNode("div", _hoisted_26$1, [
                 createVNode(OriginalPreview, {
                   "file-id": unref(store).originalFileId,
                   "file-name": unref(store).originalFileName
                 }, null, 8, ["file-id", "file-name"])
               ])
             ]),
-            createBaseVNode("div", _hoisted_27, [
-              createBaseVNode("div", _hoisted_28, [
+            createBaseVNode("div", _hoisted_27$1, [
+              createBaseVNode("div", _hoisted_28$1, [
                 createBaseVNode("span", null, toDisplayString(isViewingFinal.value ? "最终渲染" : "简谱编辑"), 1),
-                createBaseVNode("div", _hoisted_29, [
+                createBaseVNode("div", _hoisted_29$1, [
                   createBaseVNode("div", _hoisted_30, [
-                    _cache[15] || (_cache[15] = createBaseVNode("span", { class: "meta-label" }, "起始小节", -1)),
+                    _cache[18] || (_cache[18] = createBaseVNode("span", { class: "meta-label" }, "起始小节", -1)),
                     createVNode(unref(NInputNumber), {
                       value: unref(store).startMeasureNumber,
                       "onUpdate:value": handleStartMeasureChange,
@@ -63377,7 +64980,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   createVNode(unref(Button), {
                     size: "tiny",
                     quaternary: "",
-                    onClick: _cache[4] || (_cache[4] = ($event) => syntaxGuideOpen.value = true)
+                    onClick: _cache[5] || (_cache[5] = ($event) => syntaxGuideOpen.value = true)
                   }, {
                     icon: withCtx(() => [
                       createVNode(unref(NIcon), { size: "13" }, {
@@ -63388,7 +64991,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[16] || (_cache[16] = createTextVNode(" 语法说明 ", -1))
+                      _cache[19] || (_cache[19] = createTextVNode(" 语法说明 ", -1))
                     ]),
                     _: 1
                   }),
@@ -63399,7 +65002,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                     loading: unref(store).isBusy,
                     disabled: unref(store).isBusy || !canSaveCurrentPage.value
                   }, {
-                    default: withCtx(() => [..._cache[17] || (_cache[17] = [
+                    default: withCtx(() => [..._cache[20] || (_cache[20] = [
                       createTextVNode(" 保存 ", -1)
                     ])]),
                     _: 1
@@ -63436,11 +65039,11 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                     ]),
                     _: 1
                   }),
-                  _cache[18] || (_cache[18] = createBaseVNode("span", null, "暂无渲染", -1))
+                  _cache[21] || (_cache[21] = createBaseVNode("span", null, "暂无渲染", -1))
                 ])) : (openBlock(), createBlock(JianpuEditor, {
                   key: 2,
                   modelValue: jianpuText.value,
-                  "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => jianpuText.value = $event),
+                  "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => jianpuText.value = $event),
                   "start-measure-number": unref(store).startMeasureNumber ?? 1,
                   "current-note-index": currentNoteIndex.value
                 }, null, 8, ["modelValue", "start-measure-number", "current-note-index"]))
@@ -63450,42 +65053,88 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           createVNode(JianpuPlayer, {
             "musicxml-file-id": unref(store).musicxmlFileId,
             "jianpu-text": jianpuText.value,
-            "onUpdate:currentNoteIndex": _cache[6] || (_cache[6] = ($event) => currentNoteIndex.value = $event)
+            "onUpdate:currentNoteIndex": _cache[7] || (_cache[7] = ($event) => currentNoteIndex.value = $event)
           }, null, 8, ["musicxml-file-id", "jianpu-text"])
         ]),
         createVNode(JianpuSyntaxGuide, {
           show: syntaxGuideOpen.value,
-          "onUpdate:show": _cache[7] || (_cache[7] = ($event) => syntaxGuideOpen.value = $event)
-        }, null, 8, ["show"])
+          "onUpdate:show": _cache[8] || (_cache[8] = ($event) => syntaxGuideOpen.value = $event)
+        }, null, 8, ["show"]),
+        createVNode(MeasureNumberPicker, {
+          show: histPickerShow.value,
+          "onUpdate:show": _cache[9] || (_cache[9] = ($event) => histPickerShow.value = $event),
+          options: histPickerOptions.value,
+          onConfirm: onHistPickerConfirm,
+          onCancel: _cache[10] || (_cache[10] = ($event) => histPickerShow.value = false)
+        }, null, 8, ["show", "options"])
       ]);
     };
   }
 });
-const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-d0d3d860"]]);
+const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-a9f9a4c9"]]);
 const _hoisted_1$3 = { class: "settings-view" };
-const _hoisted_2$3 = { class: "sv-section" };
-const _hoisted_3$3 = { class: "sv-grid" };
-const _hoisted_4$3 = { class: "sv-section" };
-const _hoisted_5$2 = { class: "sv-grid" };
-const _hoisted_6$2 = { class: "sv-section" };
-const _hoisted_7$2 = { class: "sv-grid" };
-const _hoisted_8$2 = { class: "sv-section" };
-const _hoisted_9$2 = { class: "sv-grid" };
-const _hoisted_10$2 = { class: "provider-detail" };
-const _hoisted_11$2 = { class: "sv-section" };
-const _hoisted_12$2 = { class: "sv-grid" };
-const _hoisted_13$2 = { class: "provider-detail" };
-const _hoisted_14$2 = { class: "sv-section" };
-const _hoisted_15$2 = { class: "sv-grid" };
-const _hoisted_16$2 = { class: "provider-detail" };
-const _hoisted_17$1 = { class: "sv-footer" };
+const _hoisted_2$3 = { class: "sv-content" };
+const _hoisted_3$3 = { class: "sv-header" };
+const _hoisted_4$3 = { class: "sv-grid-layout" };
+const _hoisted_5$2 = { class: "sv-card-title" };
+const _hoisted_6$2 = { class: "sv-form" };
+const _hoisted_7$2 = { class: "sv-form-item" };
+const _hoisted_8$2 = { class: "sv-form-item" };
+const _hoisted_9$2 = { class: "sv-card-title" };
+const _hoisted_10$2 = { class: "sv-form" };
+const _hoisted_11$2 = { class: "sv-form-item" };
+const _hoisted_12$2 = { class: "sv-form-item" };
+const _hoisted_13$2 = { class: "sv-card-title" };
+const _hoisted_14$2 = { class: "sv-form" };
+const _hoisted_15$2 = { class: "sv-form-item" };
+const _hoisted_16$2 = { class: "sv-form-item" };
+const _hoisted_17$1 = { class: "sv-card-title" };
+const _hoisted_18$1 = { class: "sv-form" };
+const _hoisted_19$1 = { class: "sv-form-item" };
+const _hoisted_20 = { class: "sv-form-item" };
+const _hoisted_21 = { class: "sv-card-title" };
+const _hoisted_22 = { class: "sv-form" };
+const _hoisted_23 = { class: "sv-form-item sv-form-item-inline" };
+const _hoisted_24 = { class: "sv-form-item" };
+const _hoisted_25 = { class: "sv-form-item sv-form-item-inline" };
+const _hoisted_26 = { class: "sv-card-title" };
+const _hoisted_27 = { class: "sv-form" };
+const _hoisted_28 = { class: "sv-form-item" };
+const _hoisted_29 = { class: "sv-form-item" };
 const _sfc_main$3 = /* @__PURE__ */ defineComponent({
   __name: "SettingsView",
   setup(__props) {
     const settings = useSettingsStore();
     const log2 = useLogStore();
     const message = useMessage();
+    const keyOptions = [
+      { label: "C", value: "C" },
+      { label: "D", value: "D" },
+      { label: "E", value: "E" },
+      { label: "F", value: "F" },
+      { label: "G", value: "G" },
+      { label: "A", value: "A" },
+      { label: "B", value: "B" }
+    ];
     onMounted(() => settings.load());
+    watch(() => settings.ocrProvider, () => {
+      if (settings.loaded) void refreshProviderDetails("ocr");
+    });
+    watch(() => settings.aiProvider, () => {
+      if (settings.loaded) void refreshProviderDetails("ai");
+    });
+    watch(() => settings.assistantProvider, () => {
+      if (settings.loaded) void refreshProviderDetails("assistant");
+    });
+    async function refreshProviderDetails(kind) {
+      try {
+        await settings.loadProviderDetails(kind);
+      } catch (e) {
+        const msg2 = e instanceof Error ? e.message : String(e);
+        log2.addError(`加载 Provider 配置失败：${msg2}`);
+        message.error(msg2);
+      }
+    }
     async function save() {
       try {
         await settings.save();
@@ -63507,259 +65156,368 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
         value: option.id
       }));
     }
-    function selectedProviderModel(options, selected) {
-      return options.find((option) => option.id === selected)?.model ?? "";
-    }
     return (_ctx, _cache) => {
+      const _component_HardwareChipOutline = resolveComponent("HardwareChipOutline");
       return openBlock(), createElementBlock("div", _hoisted_1$3, [
-        _cache[37] || (_cache[37] = createBaseVNode("h2", null, "设置", -1)),
-        _cache[38] || (_cache[38] = createBaseVNode("p", { class: "subtitle" }, "调整识别引擎、导出路径、OCR 与 AI 服务参数", -1)),
         createBaseVNode("div", _hoisted_2$3, [
-          _cache[15] || (_cache[15] = createBaseVNode("div", { class: "sv-section-title" }, "外部工具", -1)),
           createBaseVNode("div", _hoisted_3$3, [
-            _cache[13] || (_cache[13] = createBaseVNode("label", null, "Audiveris 路径", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).audiverisPath,
-              "onUpdate:value": _cache[0] || (_cache[0] = ($event) => unref(settings).audiverisPath = $event),
-              placeholder: "audiveris 或 gradlew.bat 路径",
-              size: "small"
+            _cache[14] || (_cache[14] = createBaseVNode("div", { class: "sv-header-text" }, [
+              createBaseVNode("h2", null, "设置"),
+              createBaseVNode("p", { class: "subtitle" }, "调整识别引擎、导出路径、OCR 与 AI 服务参数")
+            ], -1)),
+            createVNode(unref(Button), {
+              type: "primary",
+              size: "medium",
+              onClick: save
             }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
+              icon: withCtx(() => [
+                createVNode(unref(NIcon), null, {
                   default: withCtx(() => [
-                    createVNode(unref(TerminalOutline))
+                    createVNode(unref(SaveOutline))
                   ]),
                   _: 1
                 })
               ]),
-              _: 1
-            }, 8, ["value"]),
-            _cache[14] || (_cache[14] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).javaHome,
-              "onUpdate:value": _cache[1] || (_cache[1] = ($event) => unref(settings).javaHome = $event),
-              placeholder: "JDK 25 路径",
-              size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(CodeOutline))
-                  ]),
-                  _: 1
-                })
+              default: withCtx(() => [
+                _cache[13] || (_cache[13] = createTextVNode(" 保存配置 ", -1))
               ]),
               _: 1
-            }, 8, ["value"])
-          ])
-        ]),
-        createBaseVNode("div", _hoisted_4$3, [
-          _cache[19] || (_cache[19] = createBaseVNode("div", { class: "sv-section-title" }, "转换设置", -1)),
-          createBaseVNode("div", _hoisted_5$2, [
-            _cache[17] || (_cache[17] = createBaseVNode("label", null, "简谱调", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).targetKey,
-              "onUpdate:value": _cache[2] || (_cache[2] = ($event) => unref(settings).targetKey = $event),
-              placeholder: "C",
-              size: "small",
-              style: { "width": "80px" }
-            }, null, 8, ["value"]),
-            _cache[18] || (_cache[18] = createBaseVNode("label", null, "默认导出路径", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).outputDir,
-              "onUpdate:value": _cache[3] || (_cache[3] = ($event) => unref(settings).outputDir = $event),
-              placeholder: "留空则每次手动选择",
+            })
+          ]),
+          createBaseVNode("div", _hoisted_4$3, [
+            createVNode(unref(NCard), {
+              class: "sv-card",
+              bordered: true,
               size: "small"
             }, {
-              suffix: withCtx(() => [
-                createVNode(unref(Button), {
-                  size: "tiny",
-                  quaternary: "",
-                  onClick: selectOutputDir
-                }, {
-                  default: withCtx(() => [..._cache[16] || (_cache[16] = [
-                    createTextVNode("浏览", -1)
-                  ])]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value"])
-          ])
-        ]),
-        createBaseVNode("div", _hoisted_6$2, [
-          _cache[23] || (_cache[23] = createBaseVNode("div", { class: "sv-section-title" }, "识别预处理", -1)),
-          createBaseVNode("div", _hoisted_7$2, [
-            _cache[20] || (_cache[20] = createBaseVNode("label", null, "启用", -1)),
-            createVNode(unref(NSwitch), {
-              value: unref(settings).omrPreprocess,
-              "onUpdate:value": _cache[4] || (_cache[4] = ($event) => unref(settings).omrPreprocess = $event),
-              size: "small"
-            }, null, 8, ["value"]),
-            _cache[21] || (_cache[21] = createBaseVNode("label", null, "目标长边", -1)),
-            createVNode(unref(NInputNumber), {
-              value: unref(settings).omrPreprocessLongEdge,
-              "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).omrPreprocessLongEdge = $event),
-              min: 0,
-              step: 200,
-              size: "small",
-              style: { "width": "140px" }
-            }, null, 8, ["value"]),
-            _cache[22] || (_cache[22] = createBaseVNode("label", null, "黑白化", -1)),
-            createVNode(unref(NSwitch), {
-              value: unref(settings).omrPreprocessBinarize,
-              "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).omrPreprocessBinarize = $event),
-              size: "small"
-            }, null, 8, ["value"])
-          ])
-        ]),
-        createBaseVNode("div", _hoisted_8$2, [
-          _cache[27] || (_cache[27] = createBaseVNode("div", { class: "sv-section-title" }, "OCR 设置", -1)),
-          createBaseVNode("div", _hoisted_9$2, [
-            _cache[24] || (_cache[24] = createBaseVNode("label", null, "API Key", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).ocrApiKey,
-              "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).ocrApiKey = $event),
-              type: "password",
-              "show-password-on": "click",
-              placeholder: unref(settings).ocrApiKeySet ? "已保存（留空不更新）" : "API Key",
-              size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(KeyOutline))
-                  ]),
-                  _: 1
-                })
-              ]),
-              _: 1
-            }, 8, ["value", "placeholder"]),
-            _cache[25] || (_cache[25] = createBaseVNode("label", null, "Provider", -1)),
-            createVNode(unref(NSelect), {
-              value: unref(settings).ocrProvider,
-              "onUpdate:value": _cache[8] || (_cache[8] = ($event) => unref(settings).ocrProvider = $event),
-              options: providerSelectOptions(unref(settings).ocrProviderOptions),
-              size: "small"
-            }, null, 8, ["value", "options"]),
-            _cache[26] || (_cache[26] = createBaseVNode("label", null, "模型", -1)),
-            createBaseVNode("div", _hoisted_10$2, [
-              createVNode(unref(NIcon), { size: "14" }, {
-                default: withCtx(() => [
-                  createVNode(unref(HardwareChipOutline))
+              default: withCtx(() => [
+                createBaseVNode("div", _hoisted_5$2, [
+                  createVNode(unref(NIcon), {
+                    size: "16",
+                    class: "sv-card-icon"
+                  }, {
+                    default: withCtx(() => [
+                      createVNode(unref(BuildOutline))
+                    ]),
+                    _: 1
+                  }),
+                  _cache[15] || (_cache[15] = createBaseVNode("span", null, "外部工具", -1))
                 ]),
-                _: 1
-              }),
-              createTextVNode(" " + toDisplayString(selectedProviderModel(unref(settings).ocrProviderOptions, unref(settings).ocrProvider)), 1)
-            ])
-          ])
-        ]),
-        createBaseVNode("div", _hoisted_11$2, [
-          _cache[31] || (_cache[31] = createBaseVNode("div", { class: "sv-section-title" }, "AI 视觉转写", -1)),
-          createBaseVNode("div", _hoisted_12$2, [
-            _cache[28] || (_cache[28] = createBaseVNode("label", null, "API Key", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).aiApiKey,
-              "onUpdate:value": _cache[9] || (_cache[9] = ($event) => unref(settings).aiApiKey = $event),
-              type: "password",
-              "show-password-on": "click",
-              placeholder: unref(settings).aiApiKeySet ? "已保存（留空不更新）" : "API Key",
-              size: "small"
-            }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(KeyOutline))
+                createBaseVNode("div", _hoisted_6$2, [
+                  createBaseVNode("div", _hoisted_7$2, [
+                    _cache[16] || (_cache[16] = createBaseVNode("label", null, "Audiveris 路径", -1)),
+                    createVNode(unref(NInput), {
+                      value: unref(settings).audiverisPath,
+                      "onUpdate:value": _cache[0] || (_cache[0] = ($event) => unref(settings).audiverisPath = $event),
+                      placeholder: "audiveris 或 gradlew.bat 路径",
+                      size: "small"
+                    }, {
+                      prefix: withCtx(() => [
+                        createVNode(unref(NIcon), { size: "14" }, {
+                          default: withCtx(() => [
+                            createVNode(unref(FolderOutline))
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["value"])
                   ]),
-                  _: 1
-                })
+                  createBaseVNode("div", _hoisted_8$2, [
+                    _cache[17] || (_cache[17] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
+                    createVNode(unref(NInput), {
+                      value: unref(settings).javaHome,
+                      "onUpdate:value": _cache[1] || (_cache[1] = ($event) => unref(settings).javaHome = $event),
+                      placeholder: "JDK 25 路径",
+                      size: "small"
+                    }, {
+                      prefix: withCtx(() => [
+                        createVNode(unref(NIcon), { size: "14" }, {
+                          default: withCtx(() => [
+                            createVNode(unref(CodeOutline))
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["value"])
+                  ])
+                ])
               ]),
               _: 1
-            }, 8, ["value", "placeholder"]),
-            _cache[29] || (_cache[29] = createBaseVNode("label", null, "Provider", -1)),
-            createVNode(unref(NSelect), {
-              value: unref(settings).aiProvider,
-              "onUpdate:value": _cache[10] || (_cache[10] = ($event) => unref(settings).aiProvider = $event),
-              options: providerSelectOptions(unref(settings).aiProviderOptions),
-              size: "small"
-            }, null, 8, ["value", "options"]),
-            _cache[30] || (_cache[30] = createBaseVNode("label", null, "视觉模型", -1)),
-            createBaseVNode("div", _hoisted_13$2, [
-              createVNode(unref(NIcon), { size: "14" }, {
-                default: withCtx(() => [
-                  createVNode(unref(HardwareChipOutline))
-                ]),
-                _: 1
-              }),
-              createTextVNode(" " + toDisplayString(selectedProviderModel(unref(settings).aiProviderOptions, unref(settings).aiProvider)), 1)
-            ])
-          ])
-        ]),
-        createBaseVNode("div", _hoisted_14$2, [
-          _cache[35] || (_cache[35] = createBaseVNode("div", { class: "sv-section-title" }, "工作台 AI 助手", -1)),
-          createBaseVNode("div", _hoisted_15$2, [
-            _cache[32] || (_cache[32] = createBaseVNode("label", null, "百炼 Key", -1)),
-            createVNode(unref(NInput), {
-              value: unref(settings).assistantApiKey,
-              "onUpdate:value": _cache[11] || (_cache[11] = ($event) => unref(settings).assistantApiKey = $event),
-              type: "password",
-              "show-password-on": "click",
-              placeholder: unref(settings).assistantApiKeySet ? "已保存（留空不更新）" : "百炼 API Key",
+            }),
+            createVNode(unref(NCard), {
+              class: "sv-card",
+              bordered: true,
               size: "small"
             }, {
-              prefix: withCtx(() => [
-                createVNode(unref(NIcon), { size: "14" }, {
-                  default: withCtx(() => [
-                    createVNode(unref(KeyOutline))
+              default: withCtx(() => [
+                createBaseVNode("div", _hoisted_9$2, [
+                  createVNode(unref(NIcon), {
+                    size: "16",
+                    class: "sv-card-icon"
+                  }, {
+                    default: withCtx(() => [
+                      createVNode(unref(NewspaperOutline))
+                    ]),
+                    _: 1
+                  }),
+                  _cache[18] || (_cache[18] = createBaseVNode("span", null, "OCR 设置", -1))
+                ]),
+                createBaseVNode("div", _hoisted_10$2, [
+                  createBaseVNode("div", _hoisted_11$2, [
+                    _cache[19] || (_cache[19] = createBaseVNode("label", null, "API Key", -1)),
+                    createVNode(unref(NInput), {
+                      value: unref(settings).ocrApiKey,
+                      "onUpdate:value": _cache[2] || (_cache[2] = ($event) => unref(settings).ocrApiKey = $event),
+                      type: "password",
+                      "show-password-on": "click",
+                      placeholder: unref(settings).ocrApiKeySet ? "已保存（留空不更新）" : "API Key",
+                      size: "small"
+                    }, {
+                      prefix: withCtx(() => [
+                        createVNode(unref(NIcon), { size: "14" }, {
+                          default: withCtx(() => [
+                            createVNode(unref(KeyOutline))
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["value", "placeholder"])
                   ]),
-                  _: 1
-                })
+                  createBaseVNode("div", _hoisted_12$2, [
+                    _cache[20] || (_cache[20] = createBaseVNode("label", null, "Provider", -1)),
+                    createVNode(unref(NSelect), {
+                      value: unref(settings).ocrProvider,
+                      "onUpdate:value": _cache[3] || (_cache[3] = ($event) => unref(settings).ocrProvider = $event),
+                      options: providerSelectOptions(unref(settings).ocrProviderOptions),
+                      size: "small"
+                    }, null, 8, ["value", "options"])
+                  ])
+                ])
               ]),
               _: 1
-            }, 8, ["value", "placeholder"]),
-            _cache[33] || (_cache[33] = createBaseVNode("label", null, "Provider", -1)),
-            createVNode(unref(NSelect), {
-              value: unref(settings).assistantProvider,
-              "onUpdate:value": _cache[12] || (_cache[12] = ($event) => unref(settings).assistantProvider = $event),
-              options: providerSelectOptions(unref(settings).assistantProviderOptions),
+            }),
+            createVNode(unref(NCard), {
+              class: "sv-card",
+              bordered: true,
               size: "small"
-            }, null, 8, ["value", "options"]),
-            _cache[34] || (_cache[34] = createBaseVNode("label", null, "模型", -1)),
-            createBaseVNode("div", _hoisted_16$2, [
-              createVNode(unref(NIcon), { size: "14" }, {
-                default: withCtx(() => [
-                  createVNode(unref(HardwareChipOutline))
+            }, {
+              default: withCtx(() => [
+                createBaseVNode("div", _hoisted_13$2, [
+                  createVNode(unref(NIcon), {
+                    size: "16",
+                    class: "sv-card-icon"
+                  }, {
+                    default: withCtx(() => [
+                      createVNode(unref(SwapHorizontalOutline))
+                    ]),
+                    _: 1
+                  }),
+                  _cache[21] || (_cache[21] = createBaseVNode("span", null, "转换设置", -1))
                 ]),
-                _: 1
-              }),
-              createTextVNode(" " + toDisplayString(selectedProviderModel(unref(settings).assistantProviderOptions, unref(settings).assistantProvider)), 1)
-            ])
+                createBaseVNode("div", _hoisted_14$2, [
+                  createBaseVNode("div", _hoisted_15$2, [
+                    _cache[22] || (_cache[22] = createBaseVNode("label", null, "简谱调", -1)),
+                    createVNode(unref(NSelect), {
+                      value: unref(settings).targetKey,
+                      "onUpdate:value": _cache[4] || (_cache[4] = ($event) => unref(settings).targetKey = $event),
+                      options: keyOptions,
+                      size: "small",
+                      style: { "width": "80px" }
+                    }, null, 8, ["value"])
+                  ]),
+                  createBaseVNode("div", _hoisted_16$2, [
+                    _cache[24] || (_cache[24] = createBaseVNode("label", null, "默认导出路径", -1)),
+                    createVNode(unref(NInput), {
+                      value: unref(settings).outputDir,
+                      "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).outputDir = $event),
+                      placeholder: "留空则每次手动选择",
+                      size: "small"
+                    }, {
+                      suffix: withCtx(() => [
+                        createVNode(unref(Button), {
+                          size: "tiny",
+                          quaternary: "",
+                          onClick: selectOutputDir
+                        }, {
+                          default: withCtx(() => [..._cache[23] || (_cache[23] = [
+                            createTextVNode("浏览", -1)
+                          ])]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["value"])
+                  ])
+                ])
+              ]),
+              _: 1
+            }),
+            createVNode(unref(NCard), {
+              class: "sv-card",
+              bordered: true,
+              size: "small"
+            }, {
+              default: withCtx(() => [
+                createBaseVNode("div", _hoisted_17$1, [
+                  createVNode(unref(NIcon), {
+                    size: "16",
+                    class: "sv-card-icon"
+                  }, {
+                    default: withCtx(() => [
+                      createVNode(unref(EyeOutline))
+                    ]),
+                    _: 1
+                  }),
+                  _cache[25] || (_cache[25] = createBaseVNode("span", null, "AI 视觉转写", -1))
+                ]),
+                createBaseVNode("div", _hoisted_18$1, [
+                  createBaseVNode("div", _hoisted_19$1, [
+                    _cache[26] || (_cache[26] = createBaseVNode("label", null, "API Key", -1)),
+                    createVNode(unref(NInput), {
+                      value: unref(settings).aiApiKey,
+                      "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).aiApiKey = $event),
+                      type: "password",
+                      "show-password-on": "click",
+                      placeholder: unref(settings).aiApiKeySet ? "已保存（留空不更新）" : "API Key",
+                      size: "small"
+                    }, {
+                      prefix: withCtx(() => [
+                        createVNode(unref(NIcon), { size: "14" }, {
+                          default: withCtx(() => [
+                            createVNode(unref(KeyOutline))
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["value", "placeholder"])
+                  ]),
+                  createBaseVNode("div", _hoisted_20, [
+                    _cache[27] || (_cache[27] = createBaseVNode("label", null, "Provider", -1)),
+                    createVNode(unref(NSelect), {
+                      value: unref(settings).aiProvider,
+                      "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).aiProvider = $event),
+                      options: providerSelectOptions(unref(settings).aiProviderOptions),
+                      size: "small"
+                    }, null, 8, ["value", "options"])
+                  ])
+                ])
+              ]),
+              _: 1
+            }),
+            createVNode(unref(NCard), {
+              class: "sv-card",
+              bordered: true,
+              size: "small"
+            }, {
+              default: withCtx(() => [
+                createBaseVNode("div", _hoisted_21, [
+                  createVNode(unref(NIcon), {
+                    size: "16",
+                    class: "sv-card-icon"
+                  }, {
+                    default: withCtx(() => [
+                      createVNode(unref(OptionsOutline))
+                    ]),
+                    _: 1
+                  }),
+                  _cache[28] || (_cache[28] = createBaseVNode("span", null, "识别预处理", -1))
+                ]),
+                createBaseVNode("div", _hoisted_22, [
+                  createBaseVNode("div", _hoisted_23, [
+                    _cache[29] || (_cache[29] = createBaseVNode("label", null, "启用", -1)),
+                    createVNode(unref(NSwitch), {
+                      value: unref(settings).omrPreprocess,
+                      "onUpdate:value": _cache[8] || (_cache[8] = ($event) => unref(settings).omrPreprocess = $event),
+                      size: "small"
+                    }, null, 8, ["value"])
+                  ]),
+                  createBaseVNode("div", _hoisted_24, [
+                    _cache[30] || (_cache[30] = createBaseVNode("label", null, "目标长边", -1)),
+                    createVNode(unref(NInputNumber), {
+                      value: unref(settings).omrPreprocessLongEdge,
+                      "onUpdate:value": _cache[9] || (_cache[9] = ($event) => unref(settings).omrPreprocessLongEdge = $event),
+                      min: 0,
+                      step: 200,
+                      size: "small",
+                      style: { "width": "140px" }
+                    }, null, 8, ["value"])
+                  ]),
+                  createBaseVNode("div", _hoisted_25, [
+                    _cache[31] || (_cache[31] = createBaseVNode("label", null, "黑白化", -1)),
+                    createVNode(unref(NSwitch), {
+                      value: unref(settings).omrPreprocessBinarize,
+                      "onUpdate:value": _cache[10] || (_cache[10] = ($event) => unref(settings).omrPreprocessBinarize = $event),
+                      size: "small"
+                    }, null, 8, ["value"])
+                  ])
+                ])
+              ]),
+              _: 1
+            }),
+            createVNode(unref(NCard), {
+              class: "sv-card",
+              bordered: true,
+              size: "small"
+            }, {
+              default: withCtx(() => [
+                createBaseVNode("div", _hoisted_26, [
+                  createVNode(unref(NIcon), {
+                    size: "16",
+                    class: "sv-card-icon"
+                  }, {
+                    default: withCtx(() => [
+                      createVNode(_component_HardwareChipOutline)
+                    ]),
+                    _: 1
+                  }),
+                  _cache[32] || (_cache[32] = createBaseVNode("span", null, "工作台 AI 助手", -1))
+                ]),
+                createBaseVNode("div", _hoisted_27, [
+                  createBaseVNode("div", _hoisted_28, [
+                    _cache[33] || (_cache[33] = createBaseVNode("label", null, "API Key", -1)),
+                    createVNode(unref(NInput), {
+                      value: unref(settings).assistantApiKey,
+                      "onUpdate:value": _cache[11] || (_cache[11] = ($event) => unref(settings).assistantApiKey = $event),
+                      type: "password",
+                      "show-password-on": "click",
+                      placeholder: unref(settings).assistantApiKeySet ? "已保存（留空不更新）" : "API Key",
+                      size: "small"
+                    }, {
+                      prefix: withCtx(() => [
+                        createVNode(unref(NIcon), { size: "14" }, {
+                          default: withCtx(() => [
+                            createVNode(unref(KeyOutline))
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["value", "placeholder"])
+                  ]),
+                  createBaseVNode("div", _hoisted_29, [
+                    _cache[34] || (_cache[34] = createBaseVNode("label", null, "Provider", -1)),
+                    createVNode(unref(NSelect), {
+                      value: unref(settings).assistantProvider,
+                      "onUpdate:value": _cache[12] || (_cache[12] = ($event) => unref(settings).assistantProvider = $event),
+                      options: providerSelectOptions(unref(settings).assistantProviderOptions),
+                      size: "small"
+                    }, null, 8, ["value", "options"])
+                  ])
+                ])
+              ]),
+              _: 1
+            })
           ])
-        ]),
-        createBaseVNode("div", _hoisted_17$1, [
-          createVNode(unref(Button), {
-            type: "primary",
-            onClick: save
-          }, {
-            icon: withCtx(() => [
-              createVNode(unref(NIcon), null, {
-                default: withCtx(() => [
-                  createVNode(unref(SaveOutline))
-                ]),
-                _: 1
-              })
-            ]),
-            default: withCtx(() => [
-              _cache[36] || (_cache[36] = createTextVNode(" 保存配置 ", -1))
-            ]),
-            _: 1
-          })
         ])
       ]);
     };
   }
 });
-const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-ed4fafbe"]]);
+const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-cfb136b9"]]);
 const useAssistantStore = /* @__PURE__ */ defineStore("assistant", () => {
   const sessions = /* @__PURE__ */ ref([]);
   const messages = /* @__PURE__ */ ref([]);
@@ -63919,18 +65677,21 @@ const _hoisted_16$1 = {
 const _hoisted_17 = { class: "ai-compose" };
 const _hoisted_18 = { class: "ai-context" };
 const _hoisted_19 = { class: "ai-input-row" };
+const ANIM_MS = 280;
 const FAB_SIZE = 46;
 const FAB_MARGIN = 10;
 const FAB_SNAP_DISTANCE = 104;
 const FAB_POSITION_KEY = "score-trans-ai-assistant-fab";
 const PANEL_GAP = 10;
+const SIDEBAR_WIDTH = 52;
+const TITLEBAR_HEIGHT = 38;
 const _sfc_main$2 = /* @__PURE__ */ defineComponent({
   __name: "AiAssistant",
   setup(__props) {
     const assistant = useAssistantStore();
     const task = useTaskStore();
     const message = useMessage();
-    const open = /* @__PURE__ */ ref(false);
+    const open = computed(() => animPhase.value === "open" || animPhase.value === "opening");
     const sessionsOpen = /* @__PURE__ */ ref(true);
     const draft = /* @__PURE__ */ ref("");
     const includeCurrentJianpu = /* @__PURE__ */ ref(true);
@@ -63954,7 +65715,81 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       right: "auto",
       bottom: "auto"
     }));
-    const FAB_DOCKED_VISIBLE_WIDTH = FAB_SIZE / 2;
+    const animPhase = /* @__PURE__ */ ref("idle");
+    const showPanel = /* @__PURE__ */ ref(false);
+    const animOrigin = /* @__PURE__ */ ref({ x: 0, y: 0 });
+    const showFab = computed(() => animPhase.value !== "open");
+    watch(animPhase, (phase) => {
+      if (phase === "opening" || phase === "closing") {
+        showPanel.value = true;
+      }
+    });
+    const panelAnimStyle = computed(() => {
+      const base2 = { ...panelStyle.value };
+      if (animPhase.value === "opening" || animPhase.value === "closing") {
+        base2.transformOrigin = `${animOrigin.value.x}px ${animOrigin.value.y}px`;
+      }
+      return base2;
+    });
+    function animationClass(target) {
+      switch (animPhase.value) {
+        case "opening":
+          return target === "fab" ? "anim-fab-exit" : "anim-panel-enter";
+        case "closing":
+          return target === "fab" ? "anim-fab-enter" : "anim-panel-exit";
+        default:
+          return "";
+      }
+    }
+    function finishAnim(phase) {
+      if (animPhase.value !== phase) return;
+      if (phase === "opening") {
+        animPhase.value = "open";
+      } else {
+        showPanel.value = false;
+        animPhase.value = "idle";
+      }
+    }
+    function openPanel() {
+      positionPanelNearFab();
+      animOrigin.value = {
+        x: fabLeft.value + FAB_SIZE / 2 - panelLeft.value,
+        y: fabTop.value + FAB_SIZE / 2 - panelTop.value
+      };
+      animPhase.value = "opening";
+      autoScrollEnabled.value = true;
+      if (!assistant.sessions.length) assistant.loadSessions();
+      nextTick(scrollToBottom);
+      setTimeout(() => finishAnim("opening"), ANIM_MS);
+    }
+    function closePanel() {
+      positionPanelNearFab();
+      animOrigin.value = {
+        x: fabLeft.value + FAB_SIZE / 2 - panelLeft.value,
+        y: fabTop.value + FAB_SIZE / 2 - panelTop.value
+      };
+      animPhase.value = "closing";
+      setTimeout(() => finishAnim("closing"), ANIM_MS);
+    }
+    const FAB_DOCK_REVEAL = FAB_SIZE / 2;
+    function fabBoundsLeft() {
+      return SIDEBAR_WIDTH + FAB_MARGIN;
+    }
+    function fabBoundsRight() {
+      return window.innerWidth - FAB_SIZE - FAB_MARGIN;
+    }
+    function fabBoundsTop() {
+      return TITLEBAR_HEIGHT + FAB_MARGIN;
+    }
+    function fabBoundsBottom() {
+      return window.innerHeight - FAB_SIZE - FAB_MARGIN;
+    }
+    function dockLeft() {
+      return SIDEBAR_WIDTH + FAB_DOCK_REVEAL - FAB_SIZE;
+    }
+    function dockRight() {
+      return window.innerWidth - FAB_DOCK_REVEAL;
+    }
     let fabDrag = null;
     onMounted(() => {
       initFabPosition();
@@ -63971,13 +65806,6 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
         nextTick(scrollToBottom);
       }
     );
-    function openPanel() {
-      positionPanelNearFab();
-      open.value = true;
-      autoScrollEnabled.value = true;
-      if (!assistant.sessions.length) assistant.loadSessions();
-      nextTick(scrollToBottom);
-    }
     function handleFabPointerDown(event) {
       if (event.button !== 0) return;
       const target = event.currentTarget;
@@ -63997,8 +65825,8 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       const dx = event.clientX - fabDrag.startX;
       const dy = event.clientY - fabDrag.startY;
       if (Math.abs(dx) > 4 || Math.abs(dy) > 4) fabDrag.moved = true;
-      fabLeft.value = clamp2(fabDrag.startLeft + dx, dockedFabLeft(), dockedFabRight());
-      fabTop.value = clamp2(fabDrag.startTop + dy, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+      fabLeft.value = clamp2(fabDrag.startLeft + dx, dockLeft(), dockRight());
+      fabTop.value = clamp2(fabDrag.startTop + dy, fabBoundsTop(), fabBoundsBottom());
     }
     function handleFabPointerUp(event) {
       if (!fabDrag || fabDrag.pointerId !== event.pointerId) return;
@@ -64025,9 +65853,37 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          fabLeft.value = clamp2(parsed.left ?? defaultFabLeft(), dockedFabLeft(), dockedFabRight());
-          fabTop.value = clamp2(parsed.top ?? defaultFabTop(), FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
-          settleFabPosition();
+          if (parsed.dock === "left") {
+            fabLeft.value = dockLeft();
+            fabTop.value = clamp2(
+              parsed.relY !== void 0 ? fromRelative(0, parsed.relY).top : fabBoundsTop(),
+              fabBoundsTop(),
+              fabBoundsBottom()
+            );
+            return;
+          }
+          if (parsed.dock === "right") {
+            fabLeft.value = dockRight();
+            fabTop.value = clamp2(
+              parsed.relY !== void 0 ? fromRelative(0, parsed.relY).top : fabBoundsTop(),
+              fabBoundsTop(),
+              fabBoundsBottom()
+            );
+            return;
+          }
+          let relX = parsed.relX;
+          let relY = parsed.relY;
+          if (relX === void 0 && parsed.left !== void 0) {
+            const maxW = Math.max(1, window.innerWidth - FAB_SIZE);
+            relX = (parsed.left ?? 0) / maxW;
+          }
+          if (relY === void 0 && parsed.top !== void 0) {
+            const maxH = Math.max(1, window.innerHeight - FAB_SIZE);
+            relY = (parsed.top ?? 0) / maxH;
+          }
+          const { left, top } = fromRelative(relX ?? 1, relY ?? 1);
+          fabLeft.value = clamp2(left, fabBoundsLeft(), fabBoundsRight());
+          fabTop.value = clamp2(top, fabBoundsTop(), fabBoundsBottom());
           return;
         } catch {
           localStorage.removeItem(FAB_POSITION_KEY);
@@ -64035,41 +65891,52 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
       }
       fabLeft.value = defaultFabLeft();
       fabTop.value = defaultFabTop();
-      settleFabPosition();
     }
     function handleWindowResize() {
-      settleFabPosition();
+      initFabPosition();
       if (open.value) positionPanelNearFab();
     }
     function settleFabPosition() {
-      fabLeft.value = clamp2(fabLeft.value, dockedFabLeft(), dockedFabRight());
-      fabTop.value = clamp2(fabTop.value, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
-      if (fabLeft.value <= FAB_SNAP_DISTANCE) {
-        fabLeft.value = dockedFabLeft();
-      } else if (window.innerWidth - fabLeft.value - FAB_SIZE <= FAB_SNAP_DISTANCE) {
-        fabLeft.value = dockedFabRight();
+      const dockLeftEdge = fabBoundsLeft();
+      const dockRightEdge = fabBoundsRight();
+      let dock = null;
+      if (fabLeft.value - dockLeftEdge <= FAB_SNAP_DISTANCE) {
+        fabLeft.value = dockLeft();
+        dock = "left";
+      } else if (dockRightEdge - fabLeft.value <= FAB_SNAP_DISTANCE) {
+        fabLeft.value = dockRight();
+        dock = "right";
       } else {
-        fabLeft.value = clamp2(fabLeft.value, FAB_MARGIN, freeFabRight());
+        fabLeft.value = clamp2(fabLeft.value, fabBoundsLeft(), fabBoundsRight());
       }
-      persistFabPosition();
+      fabTop.value = clamp2(fabTop.value, fabBoundsTop(), fabBoundsBottom());
+      persistFabPosition(dock);
     }
-    function dockedFabLeft() {
-      return FAB_DOCKED_VISIBLE_WIDTH - FAB_SIZE;
+    function persistFabPosition(dock) {
+      const { relX, relY } = toRelative(fabLeft.value, fabTop.value);
+      localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ relX, relY, dock: dock ?? null }));
     }
-    function dockedFabRight() {
-      return window.innerWidth - FAB_DOCKED_VISIBLE_WIDTH;
+    function toRelative(left, top) {
+      const maxW = Math.max(1, window.innerWidth - FAB_SIZE);
+      const maxH = Math.max(1, window.innerHeight - FAB_SIZE);
+      return {
+        relX: left / maxW,
+        relY: top / maxH
+      };
     }
-    function freeFabRight() {
-      return window.innerWidth - FAB_SIZE - FAB_MARGIN;
-    }
-    function persistFabPosition() {
-      localStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ left: fabLeft.value, top: fabTop.value }));
+    function fromRelative(relX, relY) {
+      const maxW = Math.max(1, window.innerWidth - FAB_SIZE);
+      const maxH = Math.max(1, window.innerHeight - FAB_SIZE);
+      return {
+        left: relX * maxW,
+        top: relY * maxH
+      };
     }
     function defaultFabLeft() {
-      return window.innerWidth - FAB_SIZE - 24;
+      return dockRight();
     }
     function defaultFabTop() {
-      return window.innerHeight - FAB_SIZE - 48;
+      return fabBoundsBottom();
     }
     function clamp2(value, min, max) {
       if (max < min) return min;
@@ -64078,11 +65945,11 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     function positionPanelNearFab() {
       const size2 = getPanelSize();
       const anchorCenterX = fabLeft.value + FAB_SIZE / 2;
-      const preferLeftSide = anchorCenterX < window.innerWidth / 2;
+      const preferLeftSide = anchorCenterX < (SIDEBAR_WIDTH + window.innerWidth) / 2;
       const nextLeft = preferLeftSide ? fabLeft.value : fabLeft.value + FAB_SIZE - size2.width;
       const nextTop = fabTop.value + FAB_SIZE / 2 - size2.height / 2;
-      panelLeft.value = clamp2(nextLeft, PANEL_GAP, window.innerWidth - size2.width - PANEL_GAP);
-      panelTop.value = clamp2(nextTop, PANEL_GAP, window.innerHeight - size2.height - PANEL_GAP);
+      panelLeft.value = clamp2(nextLeft, SIDEBAR_WIDTH + PANEL_GAP, window.innerWidth - size2.width - PANEL_GAP);
+      panelTop.value = clamp2(nextTop, TITLEBAR_HEIGHT + PANEL_GAP, window.innerHeight - size2.height - PANEL_GAP);
     }
     function getPanelSize() {
       if (window.innerWidth <= 760) {
@@ -64240,9 +66107,8 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     }
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$2, [
-        !open.value ? (openBlock(), createElementBlock("button", {
-          key: 0,
-          class: normalizeClass(["ai-fab", { dragging: isFabDragging.value }]),
+        withDirectives(createBaseVNode("button", {
+          class: normalizeClass(["ai-fab", { dragging: isFabDragging.value }, animationClass("fab")]),
           style: normalizeStyle(fabStyle.value),
           type: "button",
           title: "AI 助手",
@@ -64257,16 +66123,19 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             ]),
             _: 1
           })
-        ], 38)) : (openBlock(), createElementBlock("div", {
-          key: 1,
-          class: normalizeClass(["ai-panel", { "sessions-collapsed": !sessionsOpen.value }]),
-          style: normalizeStyle(panelStyle.value)
+        ], 38), [
+          [vShow, showFab.value]
+        ]),
+        showPanel.value ? (openBlock(), createElementBlock("div", {
+          key: 0,
+          class: normalizeClass(["ai-panel", { "sessions-collapsed": !sessionsOpen.value }, animationClass("panel")]),
+          style: normalizeStyle(panelAnimStyle.value)
         }, [
           createBaseVNode("aside", {
             class: normalizeClass(["ai-sessions", { hidden: !sessionsOpen.value }])
           }, [
             createBaseVNode("div", _hoisted_2$2, [
-              _cache[7] || (_cache[7] = createBaseVNode("span", null, "对话", -1)),
+              _cache[6] || (_cache[6] = createBaseVNode("span", null, "对话", -1)),
               createVNode(unref(Button), {
                 size: "tiny",
                 quaternary: "",
@@ -64316,7 +66185,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                       ])
                     ]),
                     default: withCtx(() => [
-                      _cache[8] || (_cache[8] = createTextVNode(" 删除这段对话？ ", -1))
+                      _cache[7] || (_cache[7] = createTextVNode(" 删除这段对话？ ", -1))
                     ]),
                     _: 1
                   }, 8, ["onPositiveClick"])
@@ -64341,7 +66210,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                     _: 1
                   })
                 ]),
-                _cache[9] || (_cache[9] = createBaseVNode("span", null, "AI 助手", -1))
+                _cache[8] || (_cache[8] = createBaseVNode("span", null, "AI 助手", -1))
               ]),
               createBaseVNode("div", _hoisted_9$1, [
                 createBaseVNode("label", _hoisted_10$1, [
@@ -64351,13 +66220,13 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                   }, null, 512), [
                     [vModelCheckbox, showThinking.value]
                   ]),
-                  _cache[10] || (_cache[10] = createBaseVNode("span", null, "思考", -1))
+                  _cache[9] || (_cache[9] = createBaseVNode("span", null, "思考", -1))
                 ]),
                 createBaseVNode("button", {
                   class: "ai-icon-btn",
                   type: "button",
                   title: "收起",
-                  onClick: _cache[4] || (_cache[4] = ($event) => open.value = false)
+                  onClick: closePanel
                 }, [
                   createVNode(unref(NIcon), null, {
                     default: withCtx(() => [
@@ -64385,7 +66254,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                   ]),
                   _: 1
                 }),
-                _cache[11] || (_cache[11] = createBaseVNode("span", null, "可以问我简谱语法、转写修正或当前文本的问题。", -1))
+                _cache[10] || (_cache[10] = createBaseVNode("span", null, "可以问我简谱语法、转写修正或当前文本的问题。", -1))
               ])) : (openBlock(true), createElementBlock(Fragment, { key: 2 }, renderList(unref(assistant).messages, (message2) => {
                 return openBlock(), createElementBlock("div", {
                   key: message2.id,
@@ -64399,7 +66268,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                   }, null, 8, _hoisted_14$1)) : (openBlock(), createElementBlock("div", _hoisted_15$1, toDisplayString(message2.content), 1))
                 ], 10, _hoisted_13$1);
               }), 128)),
-              showTyping.value ? (openBlock(), createElementBlock("div", _hoisted_16$1, [..._cache[12] || (_cache[12] = [
+              showTyping.value ? (openBlock(), createElementBlock("div", _hoisted_16$1, [..._cache[11] || (_cache[11] = [
                 createBaseVNode("div", { class: "ai-typing" }, [
                   createBaseVNode("span"),
                   createBaseVNode("span"),
@@ -64410,17 +66279,17 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", _hoisted_17, [
               createBaseVNode("label", _hoisted_18, [
                 withDirectives(createBaseVNode("input", {
-                  "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => includeCurrentJianpu.value = $event),
+                  "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => includeCurrentJianpu.value = $event),
                   type: "checkbox"
                 }, null, 512), [
                   [vModelCheckbox, includeCurrentJianpu.value]
                 ]),
-                _cache[13] || (_cache[13] = createBaseVNode("span", null, "附带当前简谱", -1))
+                _cache[12] || (_cache[12] = createBaseVNode("span", null, "附带当前简谱", -1))
               ]),
               createBaseVNode("div", _hoisted_19, [
                 createVNode(unref(NInput), {
                   value: draft.value,
-                  "onUpdate:value": _cache[6] || (_cache[6] = ($event) => draft.value = $event),
+                  "onUpdate:value": _cache[5] || (_cache[5] = ($event) => draft.value = $event),
                   type: "textarea",
                   size: "small",
                   autosize: { minRows: 1, maxRows: 4 },
@@ -64448,12 +66317,12 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               ])
             ])
           ])
-        ], 6))
+        ], 6)) : createCommentVNode("", true)
       ]);
     };
   }
 });
-const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-ed523ae6"]]);
+const AiAssistant = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-26b0b0cf"]]);
 const _hoisted_1$1 = { class: "log-panel" };
 const _hoisted_2$1 = { class: "log-ts" };
 const _hoisted_3$1 = { class: "log-msg" };
@@ -64804,7 +66673,9 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
                   ]),
                   createBaseVNode("main", _hoisted_13, [
                     createBaseVNode("div", _hoisted_14, [
-                      withDirectives(createVNode(RecognizeView, null, null, 512), [
+                      withDirectives(createVNode(RecognizeView, {
+                        active: activeTab.value === "recognize"
+                      }, null, 8, ["active"]), [
                         [vShow, activeTab.value === "recognize"]
                       ]),
                       withDirectives(createVNode(ConvertView, null, null, 512), [

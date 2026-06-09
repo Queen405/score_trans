@@ -6,5 +6,6 @@ __pycache__/
 .env.local
 dist/
 build/
+build-resources/
 *.egg-info/
 work/
