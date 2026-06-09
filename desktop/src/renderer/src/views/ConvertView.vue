@@ -255,7 +255,7 @@ watch(() => store.currentPageIndex, () => { currentNoteIndex.value = -1 })
 
 onMounted(() => {
   loadHistory()
-  stopHistoryUpdatedListener = listenHistoryUpdated(() => loadHistory(false))
+  stopHistoryUpdatedListener = listenHistoryUpdated(() => loadHistory(false, { refreshExpanded: false }))
   stopHistoryPagePatchedListener = listenHistoryPagePatched(handleHistoryPagePatched)
 })
 
@@ -268,12 +268,16 @@ onUnmounted(() => {
 
 function toggleHistory() {
   historyOpen.value = !historyOpen.value
-  if (historyOpen.value) loadHistory(false)
+  if (historyOpen.value) loadHistory(false, { refreshExpanded: false })
 }
 
-async function loadHistory(showLoading = true): Promise<void> {
+async function loadHistory(
+  showLoading = true,
+  options: { refreshExpanded?: boolean } = {},
+): Promise<void> {
   const seq = ++historyListRequestSeq
-  if (showLoading || !histBatches.value.length) {
+  const refreshExpanded = options.refreshExpanded ?? showLoading
+  if (showLoading) {
     histLoading.value = true
   }
   try {
@@ -282,7 +286,7 @@ async function loadHistory(showLoading = true): Promise<void> {
     histBatches.value = batches
     syncExpandedBatchSummary()
     const openId = expandedBatchId.value
-    if (openId !== null) {
+    if (openId !== null && refreshExpanded) {
       void refreshExpandedBatch(openId, { clear: false, showLoading: false })
     }
   } catch (e: unknown) {

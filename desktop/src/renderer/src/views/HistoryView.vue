@@ -102,7 +102,7 @@ onUnmounted(() => {
 })
 
 async function loadHistory(showLoading = true): Promise<void> {
-  if (showLoading || !entries.value.length) {
+  if (showLoading) {
     loading.value = true
   }
   try {
