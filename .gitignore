@@ -9,3 +9,12 @@ build/
 build-resources/
 *.egg-info/
 work/
+
+# 打包相关
+build-app.py
+pyinstaller_entry.py
+pyinstaller.spec
+build-log.txt
+desktop/build-log.txt
+desktop/dist-electron/
+desktop/build/

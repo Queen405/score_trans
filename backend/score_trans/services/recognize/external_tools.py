@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from ...models.common.errors import ExternalToolError
+from ...models.common.paths import PROJECT_ROOT
 from ...models.settings.config import ToolConfig
 from .image_preprocessing import prepare_omr_input
 
@@ -97,6 +98,10 @@ def _java_env(config: ToolConfig) -> dict[str, str] | None:
     env = os.environ.copy()
     env["JAVA_HOME"] = str(java_home)
     env["PATH"] = str(java_home / "bin") + os.pathsep + env.get("PATH", "")
+    # 使用捆绑的 Gradle 缓存（打包时由 build-app.py 预填充）
+    bundled_gradle_home = PROJECT_ROOT / "third_party" / "gradle_home"
+    if bundled_gradle_home.exists():
+        env["GRADLE_USER_HOME"] = str(bundled_gradle_home)
     _apply_java_proxy_options(env)
     return env
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import yaml
@@ -14,8 +15,21 @@ def _load_prompt_config() -> dict[str, str]:
     global _PROMPT_CONFIG
     if _PROMPT_CONFIG is not None:
         return _PROMPT_CONFIG
-    config_path: Path = CONFIG_DIR / "ai_prompt.yaml"
-    if config_path.is_file():
+
+    # 优先查找用户自定义位置（CONFIG_DIR 旁），再查找 PyInstaller 打包位置
+    candidates = [CONFIG_DIR / "ai_prompt.yaml"]
+    if getattr(sys, "frozen", False):
+        # PyInstaller 把 datas 放在 _internal/score_trans/config/
+        bundled = Path(sys.executable).resolve().parent / "_internal" / "score_trans" / "config" / "ai_prompt.yaml"
+        candidates.insert(0, bundled)
+
+    config_path = None
+    for p in candidates:
+        if p.is_file():
+            config_path = p
+            break
+
+    if config_path:
         with open(config_path, encoding="utf-8") as f:
             _PROMPT_CONFIG = yaml.safe_load(f)
     else:

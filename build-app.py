@@ -77,7 +77,7 @@ def build_backend() -> None:
         print("    安装 PyInstaller ...")
         run([python, "-m", "pip", "install", "pyinstaller>=6"])
 
-    # Clean previous build
+    # Clean previous build (only PyInstaller's own output, not build-resources)
     for d in [PROJECT_ROOT / "build", PROJECT_ROOT / "dist"]:
         if d.exists():
             shutil.rmtree(d)
@@ -88,11 +88,18 @@ def build_backend() -> None:
         cwd=PROJECT_ROOT,
     )
 
-    # Copy output to build-resources/backend
+    # Copy output to build-resources/backend (using copy2 to resolve symlinks)
     pyinstaller_out = PROJECT_ROOT / "dist" / "backend"
     if BACKEND_DIST.exists():
         shutil.rmtree(BACKEND_DIST)
-    shutil.copytree(pyinstaller_out, BACKEND_DIST)
+    shutil.copytree(pyinstaller_out, BACKEND_DIST, copy_function=shutil.copy2)
+
+    # Copy .env (env.example as default config) into the backend bundle
+    env_example = PROJECT_ROOT / "backend" / "score_trans" / "config" / "env.example"
+    env_target = BACKEND_DIST / ".env"
+    if env_example.exists():
+        shutil.copy2(env_example, env_target)
+        print(f"    .env 已复制: {env_target}")
 
     exe = BACKEND_DIST / "backend.exe"
     size_mb = exe.stat().st_size / (1024 * 1024) if exe.exists() else 0
@@ -123,6 +130,131 @@ def setup_audiveris() -> None:
     print(f"    Audiveris 已复制: {dst}")
     print(f"    gradlew.bat 存在: {gradlew.exists()}")
 
+    # 清理 Audiveris 无用文件以减小体积
+    _cleanup_audiveris(dst)
+
+    # 预缓存 Gradle 发行版，避免用户环境下 SSL 证书问题导致下载失败
+    _cache_gradle(dst)
+
+
+def _cleanup_audiveris(audiveris_dir: Path) -> None:
+    """删除 Audiveris 中不需要的文件以减小打包体积。"""
+    removed_mb = 0.0
+
+    # 1. 删除 Gradle 构建缓存和 Eclipse 编译输出
+    for name in ["app/build", "app/bin", ".gradle"]:
+        target = audiveris_dir / name
+        if target.exists():
+            size = sum(f.stat().st_size for f in target.rglob("*") if f.is_file())
+            shutil.rmtree(target)
+            removed_mb += size / (1024 * 1024)
+
+    # 2. 删除文档文件
+    for name in ["README.md", "LICENSE", "CHANGELOG.md", ".gitignore"]:
+        target = audiveris_dir / name
+        if target.exists():
+            size = target.stat().st_size
+            target.unlink()
+            removed_mb += size / (1024 * 1024)
+
+    # 3. 删除源码中的测试目录（运行时不需要）
+    test_dir = audiveris_dir / "app" / "src" / "test"
+    if test_dir.exists():
+        size = sum(f.stat().st_size for f in test_dir.rglob("*") if f.is_file())
+        shutil.rmtree(test_dir)
+        removed_mb += size / (1024 * 1024)
+
+    if removed_mb > 0:
+        print(f"    清理 Audiveris 无用文件: {removed_mb:.1f} MB")
+
+
+def _cache_gradle(audiveris_dir: Path) -> None:
+    """将本地 Gradle 发行版复制到应用中，避免用户环境下 SSL 证书问题导致下载失败。
+    只保留解压目录和标记文件，去掉 ZIP 以减小体积。"""
+    import re
+    gradle_dist_dir = audiveris_dir / "gradle" / "wrapper"
+    wrapper_props = gradle_dist_dir / "gradle-wrapper.properties"
+    if not wrapper_props.exists():
+        print("    [WARNING] gradle-wrapper.properties 不存在，跳过 Gradle 缓存")
+        return
+
+    props_text = wrapper_props.read_text(encoding="utf-8")
+    version = None
+    for line in props_text.splitlines():
+        if line.startswith("distributionUrl="):
+            url = line.split("=", 1)[1].strip().replace("\\:", ":")
+            m = re.search(r"gradle-([\d.]+)-bin\.zip", url)
+            if m:
+                version = m.group(1)
+            break
+
+    if not version:
+        print("    [WARNING] 无法从 wrapper 配置提取 Gradle 版本")
+        return
+
+    print(f"    Gradle 版本: {version}")
+
+    # 查找本地 Gradle 缓存（~/.gradle/wrapper/dists/gradle-X.Y-bin/<hash>/）
+    local_gradle_cache = Path.home() / ".gradle" / "wrapper" / "dists" / f"gradle-{version}-bin"
+    if not local_gradle_cache.exists():
+        print(f"    [WARNING] 未找到本地 Gradle {version} 缓存，用户首次运行时需联网下载")
+        return
+
+    # 在 hash 子目录中查找解压目录
+    gradle_extracted_src = None
+    hash_dir = None
+
+    for hd in local_gradle_cache.iterdir():
+        if not hd.is_dir():
+            continue
+        hash_dir = hd
+        ext_candidate = hd / f"gradle-{version}"
+        if ext_candidate.exists() and (ext_candidate / "bin").is_dir():
+            gradle_extracted_src = ext_candidate
+
+    if not gradle_extracted_src:
+        print(f"    [WARNING] 未找到本地 Gradle {version} 解压目录，用户首次运行时需联网下载")
+        return
+
+    if not hash_dir:
+        print(f"    [WARNING] 未找到 Gradle 缓存 hash 目录")
+        return
+
+    hash_name = hash_dir.name
+    app_gradle_home = THIRD_PARTY / "gradle_home"
+    cache_dir = app_gradle_home / "wrapper" / "dists" / f"gradle-{version}-bin" / hash_name
+    ensure_dir(cache_dir)
+
+    # 复制解压目录
+    print(f"    本地 Gradle 解压目录: {gradle_extracted_src}")
+    gradle_extracted_dst = cache_dir / f"gradle-{version}"
+    if not gradle_extracted_dst.exists():
+        shutil.copytree(gradle_extracted_src, gradle_extracted_dst, copy_function=shutil.copy2)
+    print(f"    Gradle 已复制: {gradle_extracted_dst}")
+
+    # 创建标记文件（让 wrapper 认为已下载完成）
+    for suffix in [".ok", ".lck"]:
+        marker = cache_dir / f"gradle-{version}-bin.zip{suffix}"
+        if not marker.exists():
+            marker.touch()
+
+    # 去掉 wrapper 的 SHA-256 校验和 URL 验证（没有 ZIP 文件）
+    wrapper_props_target = audiveris_dir / "gradle" / "wrapper" / "gradle-wrapper.properties"
+    if wrapper_props_target.exists():
+        props = wrapper_props_target.read_text(encoding="utf-8")
+        changed = False
+        if "distributionSha256Sum=" in props:
+            props = props.replace("distributionSha256Sum=", "#distributionSha256Sum=")
+            changed = True
+        if "validateDistributionUrl=true" in props:
+            props = props.replace("validateDistributionUrl=true", "validateDistributionUrl=false")
+            changed = True
+        if changed:
+            wrapper_props_target.write_text(props, encoding="utf-8")
+            print("    已禁用 Gradle SHA-256 校验和 URL 验证")
+
+    print(f"    Gradle 缓存目录: {cache_dir}")
+
 
 # ---------------------------------------------------------------------------
 # Step 3 — Bundle JRE
@@ -144,7 +276,7 @@ def download_jre() -> None:
     java_home = str(LOCAL_JDK)
     if Path(java_home).exists() and (Path(java_home) / "bin" / "java.exe").exists():
         print(f"    复用本地 JDK 25: {java_home}")
-        shutil.copytree(java_home, JRE_DIR / "jdk")
+        shutil.copytree(java_home, JRE_DIR / "jdk", copy_function=shutil.copy2)
         print(f"    JRE 已复制: {JRE_DIR / 'jdk'}")
         return
 
@@ -152,7 +284,7 @@ def download_jre() -> None:
     env_java = os.environ.get("JAVA_HOME", "")
     if env_java and (Path(env_java) / "bin" / "java.exe").exists():
         print(f"    复用 JAVA_HOME: {env_java}")
-        shutil.copytree(env_java, JRE_DIR / "jdk")
+        shutil.copytree(env_java, JRE_DIR / "jdk", copy_function=shutil.copy2)
         print(f"    JRE 已复制: {JRE_DIR / 'jdk'}")
         return
 
@@ -204,9 +336,38 @@ def build_electron_frontend() -> None:
     print("=" * 60)
 
     desktop = PROJECT_ROOT / "desktop"
-    run(["pnpm", "install"], cwd=desktop)
-    run(["pnpm", "build"], cwd=desktop)
+    pnpm = _find_pnpm()
+    run([pnpm, "install"], cwd=desktop)
+    run([pnpm, "build"], cwd=desktop)
     print("    Electron 前端构建完成")
+
+
+def _find_pnpm() -> str:
+    """查找 pnpm 可执行文件，支持多种安装方式。"""
+    import shutil
+    # 确保常见 node/pnpm 目录在 PATH 中
+    extra_dirs = []
+    npm_prefix = Path(os.environ.get("APPDATA", "")) / "npm"
+    if npm_prefix.exists():
+        extra_dirs.append(str(npm_prefix))
+    for d in [Path.home() / "AppData" / "Local" / "pnpm", Path(r"E:\ENV\npm")]:
+        if d.exists() and str(d) not in os.environ.get("PATH", ""):
+            extra_dirs.append(str(d))
+    if extra_dirs:
+        os.environ["PATH"] = os.pathsep.join(extra_dirs) + os.pathsep + os.environ.get("PATH", "")
+
+    # 1. PATH 中的 pnpm
+    found = shutil.which("pnpm")
+    if found:
+        return found
+    # 2. npm 全局安装的 pnpm
+    npm_global = shutil.which("npm")
+    if npm_global:
+        pnpm_candidate = Path(npm_global).parent / "pnpm.cmd"
+        if pnpm_candidate.exists():
+            return str(pnpm_candidate)
+    print("    [ERROR] 找不到 pnpm，请先安装: npm install -g pnpm")
+    sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +380,8 @@ def package_electron() -> None:
     print("=" * 60)
 
     desktop = PROJECT_ROOT / "desktop"
-    run(["pnpm", "electron-builder", "build", "--win", "--config"], cwd=desktop)
+    pnpm = _find_pnpm()
+    run([pnpm, "electron-builder", "build", "--win", "--config"], cwd=desktop)
 
     dist = desktop / "dist-electron"
     print(f"\n    打包完成！输出目录: {dist}")

@@ -22,7 +22,7 @@ class AiTranscribedPage(BaseModel):
     title: str | None = None
     key: str | None = None
     meter: str | None = None
-    tempo: str | None = None
+    tempo: str | int | None = None
     jianpu_text: str
     measure_number_candidates: list[int] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

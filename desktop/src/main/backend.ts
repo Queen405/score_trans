@@ -46,11 +46,13 @@ export class BackendProcess {
         windowsHide: true,
       })
     } else {
-      const exePath = path.join(process.resourcesPath, 'backend', 'backend.exe')
+      const resourcesPath = process.resourcesPath
+      const exePath = path.join(resourcesPath, 'backend', 'backend.exe')
+      const backendCwd = path.join(resourcesPath, 'backend')
       this.process = spawn(exePath, [
         '--host', '127.0.0.1',
         '--port', String(this.port),
-      ], { stdio: 'pipe', windowsHide: true })
+      ], { stdio: 'pipe', windowsHide: true, cwd: backendCwd })
     }
 
     this.process.stdout?.on('data', (data: Buffer) => {
