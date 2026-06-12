@@ -18,3 +18,10 @@ build-log.txt
 desktop/build-log.txt
 desktop/dist-electron/
 desktop/build/
+*.tsbuildinfo
+
+# third_party 构建缓存
+third_party/audiveris/.gradle/
+third_party/audiveris/app/.gradle/
+third_party/audiveris/app/bin/
+third_party/audiveris/app/build/
