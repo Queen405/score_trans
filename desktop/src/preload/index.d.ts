@@ -6,6 +6,13 @@ interface BackendAPI {
   toggleMaximizeWindow(): Promise<boolean>
   isMaximized(): Promise<boolean>
   closeWindow(): Promise<void>
+  selectDirectory(): Promise<string | null>
+  getStoragePaths(): Promise<{ dataDir: string; cacheDir: string; configPath: string }>
+  setStoragePaths(paths: {
+    dataDir?: string
+    cacheDir?: string
+  }): Promise<{ dataDir: string; cacheDir: string; configPath: string }>
+  relaunchApp(): Promise<void>
   onMaximizedChanged(callback: (maximized: boolean) => void): () => void
 }
 

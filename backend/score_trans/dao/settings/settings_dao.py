@@ -25,9 +25,11 @@ from score_trans.config.settings import (
     OUTPUT_DIR,
 )
 
-from ...models.common.paths import PROJECT_ROOT
+from ...models.common.paths import LEGACY_WORK_DIR, USER_WORK_DIR
+from ..storage import migrate_legacy_sqlite
 
-DEFAULT_DB_PATH = PROJECT_ROOT / "work" / "settings.db"
+DEFAULT_DB_PATH = USER_WORK_DIR / "settings.db"
+LEGACY_DB_PATH = LEGACY_WORK_DIR / "settings.db"
 
 TABLE_NAME = "settings"
 
@@ -59,6 +61,8 @@ class SettingsDao:
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+        if db_path is None:
+            migrate_legacy_sqlite(self.db_path, LEGACY_DB_PATH)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 

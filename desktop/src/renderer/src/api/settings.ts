@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { SettingsResponse, SettingsUpdateRequest } from '../models/types'
+import type { CacheCleanupResponse, SettingsResponse, SettingsUpdateRequest } from '../models/types'
 
 export interface SettingsQuery {
   ocr_provider?: string
@@ -22,6 +22,12 @@ export const settingsApi = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
+    })
+  },
+
+  clearCache(): Promise<CacheCleanupResponse> {
+    return apiFetch('/settings/cache', {
+      method: 'DELETE',
     })
   },
 }

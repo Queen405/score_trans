@@ -9,7 +9,12 @@ from pathlib import Path
 
 from fastapi import UploadFile
 
-from ...models.common.paths import PROJECT_ROOT
+from ...models.common.paths import (
+    LEGACY_WORK_DIR,
+    PROJECT_ROOT,
+    USER_CACHE_ROOT,
+    USER_WORK_DIR,
+)
 from ...models.settings.config import ToolConfig
 from ..settings.settings_service import SettingsService
 
@@ -25,8 +30,9 @@ class UploadService:
         self.config = config or SettingsService().load()
         work_dir = self.config.work_dir
         if not work_dir.is_absolute():
-            work_dir = PROJECT_ROOT / work_dir
+            work_dir = USER_CACHE_ROOT / work_dir
         self.base_dir = (work_dir / "uploads").resolve()
+        _migrate_legacy_uploads(self.base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._index_path = self.base_dir / "index.json"
         self._files: dict[str, Path] = {}
@@ -75,6 +81,10 @@ class UploadService:
     def _resolve_index_path(self, path: Path) -> Path:
         if path.is_absolute():
             return path.resolve()
+
+        cache_path = USER_CACHE_ROOT / path
+        if cache_path.exists():
+            return cache_path.resolve()
 
         project_path = PROJECT_ROOT / path
         if project_path.exists():
@@ -254,3 +264,31 @@ def _read_index(index_path: Path) -> dict[str, str]:
         for key, value in raw.items()
         if isinstance(key, str) and isinstance(value, str)
     }
+
+
+def _migrate_legacy_uploads(target: Path) -> None:
+    for legacy in (LEGACY_WORK_DIR / "uploads", USER_WORK_DIR / "uploads"):
+        if not legacy.is_dir() or _same_path(target, legacy):
+            continue
+
+        target.mkdir(parents=True, exist_ok=True)
+        try:
+            for child in legacy.iterdir():
+                if child.name == "index.json":
+                    continue
+                destination = target / child.name
+                if destination.exists():
+                    continue
+                if child.is_dir():
+                    shutil.copytree(child, destination)
+                elif child.is_file():
+                    shutil.copy2(child, destination)
+        except OSError:
+            continue
+
+
+def _same_path(left: Path, right: Path) -> bool:
+    try:
+        return left.resolve() == right.resolve()
+    except OSError:
+        return False

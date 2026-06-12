@@ -4,14 +4,18 @@ import sqlite3
 from pathlib import Path
 
 from ...models.ai.entities import AiChatMessage, AiChatSession
-from ...models.common.paths import PROJECT_ROOT
+from ...models.common.paths import LEGACY_WORK_DIR, USER_WORK_DIR
+from ..storage import migrate_legacy_sqlite
 
-DEFAULT_DB_PATH = PROJECT_ROOT / "work" / "ai_chat.db"
+DEFAULT_DB_PATH = USER_WORK_DIR / "ai_chat.db"
+LEGACY_DB_PATH = LEGACY_WORK_DIR / "ai_chat.db"
 
 
 class AiChatDao:
     def __init__(self, db_path: str | Path | None = None) -> None:
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+        if db_path is None:
+            migrate_legacy_sqlite(self.db_path, LEGACY_DB_PATH)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
@@ -160,4 +164,3 @@ class AiChatDao:
             content=row["content"],
             created_at=row["created_at"],
         )
-

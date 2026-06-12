@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends
 
 from ..dependencies import get_settings_actions
 from ...exec.settings.actions import SettingsActions
-from ...models.settings.schemas import SettingsResponse, SettingsUpdateRequest
+from ...models.settings.schemas import (
+    CacheCleanupResponse,
+    SettingsResponse,
+    SettingsUpdateRequest,
+)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -29,3 +33,10 @@ async def update_settings(
     actions: SettingsActions = Depends(get_settings_actions),
 ):
     return actions.update_settings(req)
+
+
+@router.delete("/cache", response_model=CacheCleanupResponse)
+async def clear_cache(
+    actions: SettingsActions = Depends(get_settings_actions),
+):
+    return actions.clear_cache()

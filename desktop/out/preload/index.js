@@ -105,6 +105,15 @@ const api = {
   },
   selectDirectory: async () => {
     return electron.ipcRenderer.invoke("dialog:select-directory");
+  },
+  getStoragePaths: async () => {
+    return electron.ipcRenderer.invoke("storage:get");
+  },
+  setStoragePaths: async (paths) => {
+    return electron.ipcRenderer.invoke("storage:set", paths);
+  },
+  relaunchApp: async () => {
+    await electron.ipcRenderer.invoke("app:relaunch");
   }
 };
 if (process.contextIsolated) {

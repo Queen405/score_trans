@@ -12,7 +12,12 @@ from score_trans.config.settings import (
 )
 
 from ...dao.settings.settings_dao import SettingsDao
-from ...models.common.paths import PROJECT_ROOT
+from ...models.common.paths import (
+    LEGACY_WORK_DIR,
+    PROJECT_ROOT,
+    USER_CACHE_ROOT,
+    USER_WORK_DIR,
+)
 from ...models.settings.config import ToolConfig
 
 
@@ -26,7 +31,11 @@ _BUNDLED_JDK = PROJECT_ROOT / "third_party" / "jre" / "jdk"
 def _default_audiveris_path() -> str:
     if AUDIVERIS_PATH:
         return AUDIVERIS_PATH
-    return str(_LOCAL_AUDIVERIS_GRADLE) if _LOCAL_AUDIVERIS_GRADLE.exists() else "audiveris"
+    return (
+        str(_LOCAL_AUDIVERIS_GRADLE)
+        if _LOCAL_AUDIVERIS_GRADLE.exists()
+        else "audiveris"
+    )
 
 
 def _default_java_home() -> str:
@@ -42,14 +51,27 @@ def _default_java_home() -> str:
 def _default_work_dir() -> Path:
     if WORK_DIR:
         return _resolve_work_dir(WORK_DIR)
-    return PROJECT_ROOT / "work"
+    return USER_CACHE_ROOT
 
 
 def _resolve_work_dir(value: str | Path) -> Path:
     path = Path(value)
     if path.is_absolute():
-        return path
-    return PROJECT_ROOT / path
+        return _rewrite_legacy_work_dir(path)
+    if path == Path("work"):
+        return USER_CACHE_ROOT
+    return USER_CACHE_ROOT / path
+
+
+def _rewrite_legacy_work_dir(path: Path) -> Path:
+    try:
+        relative = path.resolve().relative_to(LEGACY_WORK_DIR.resolve())
+    except ValueError:
+        try:
+            relative = path.resolve().relative_to(USER_WORK_DIR.resolve())
+        except ValueError:
+            return path
+    return USER_CACHE_ROOT / relative
 
 
 class SettingsService:
@@ -62,8 +84,12 @@ class SettingsService:
             java_home=self.dao.get("java_home") or _default_java_home(),
             work_dir=_resolve_work_dir(self.dao.get("work_dir") or _default_work_dir()),
             omr_preprocess=self.dao.get_bool("omr_preprocess", OMR_PREPROCESS),
-            omr_preprocess_long_edge=self.dao.get_int("omr_preprocess_long_edge", OMR_PREPROCESS_LONG_EDGE),
-            omr_preprocess_binarize=self.dao.get_bool("omr_preprocess_binarize", OMR_PREPROCESS_BINARIZE),
+            omr_preprocess_long_edge=self.dao.get_int(
+                "omr_preprocess_long_edge", OMR_PREPROCESS_LONG_EDGE
+            ),
+            omr_preprocess_binarize=self.dao.get_bool(
+                "omr_preprocess_binarize", OMR_PREPROCESS_BINARIZE
+            ),
         )
 
     def get_all(self) -> dict[str, str]:

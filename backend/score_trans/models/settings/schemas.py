@@ -30,6 +30,9 @@ class LlmProviderOption(BaseModel):
 class SettingsResponse(BaseModel):
     audiveris_path: str
     java_home: str
+    data_dir: str
+    cache_dir: str
+    cache_size_bytes: int = 0
     work_dir: str
     target_key: str = "C"
     output_dir: str = ""
@@ -71,3 +74,12 @@ class SettingsUpdateRequest(BaseModel):
     omr_preprocess: bool | None = None
     omr_preprocess_long_edge: int | None = None
     omr_preprocess_binarize: bool | None = None
+
+
+class CacheCleanupResponse(BaseModel):
+    cache_dir: str
+    before_bytes: int
+    after_bytes: int
+    freed_bytes: int
+    removed_items: int
+    preserved_uploads: int

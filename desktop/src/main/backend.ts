@@ -4,6 +4,7 @@ import path from 'path'
 import http from 'http'
 import net from 'net'
 import { existsSync } from 'fs'
+import { loadStoragePaths } from './storage'
 
 const DEFAULT_PORT = 19200
 const HEALTH_CHECK_INTERVAL = 1000
@@ -24,6 +25,12 @@ export class BackendProcess {
     const isDev = !app.isPackaged
     this.port = await findAvailablePort(this.port)
     this.baseURL = `http://127.0.0.1:${this.port}`
+    const storagePaths = loadStoragePaths()
+    const backendEnv = {
+      ...process.env,
+      SCORE_TRANS_DATA_DIR: storagePaths.dataDir,
+      SCORE_TRANS_CACHE_DIR: storagePaths.cacheDir,
+    }
 
     if (isDev) {
       const projectRoot = resolveProjectRoot()
@@ -42,7 +49,7 @@ export class BackendProcess {
       ], {
         stdio: 'pipe',
         cwd: projectRoot,
-        env: { ...process.env, PYTHONPATH: pythonPath },
+        env: { ...backendEnv, PYTHONPATH: pythonPath },
         windowsHide: true,
       })
     } else {
@@ -52,7 +59,7 @@ export class BackendProcess {
       this.process = spawn(exePath, [
         '--host', '127.0.0.1',
         '--port', String(this.port),
-      ], { stdio: 'pipe', windowsHide: true, cwd: backendCwd })
+      ], { stdio: 'pipe', windowsHide: true, cwd: backendCwd, env: backendEnv })
     }
 
     this.process.stdout?.on('data', (data: Buffer) => {
@@ -119,7 +126,9 @@ export class BackendProcess {
       this.process.kill('SIGTERM')
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(() => {
-          try { this.process?.kill('SIGKILL') } catch {}
+          try { this.process?.kill('SIGKILL') } catch {
+            // process may already be dead
+          }
           resolve()
         }, SHUTDOWN_TIMEOUT)
         this.process?.on('exit', () => { clearTimeout(timeout); resolve() })

@@ -98,6 +98,109 @@ const optimizer = {
     });
   }
 };
+const USER_DATA_DIR_NAME = ".sorce_trans";
+const STORAGE_CONFIG_FILE = "storage-paths.json";
+const CACHE_DIR_NAME = "cache";
+const DB_FILE_NAMES = ["settings.db", "history.db", "ai_chat.db", "tasks.db"];
+function loadStoragePaths() {
+  const defaults = defaultStoragePaths();
+  const config = readStorageConfig(defaults.configPath);
+  const dataDir = normalizeDir(config.dataDir, defaults.dataDir);
+  const cacheDir = normalizeDir(config.cacheDir, path.join(dataDir, CACHE_DIR_NAME));
+  return { dataDir, cacheDir, configPath: defaults.configPath };
+}
+function saveStoragePaths(update) {
+  const previous = loadStoragePaths();
+  const dataDir = normalizeDir(update.dataDir, previous.dataDir);
+  const cacheDir = normalizeDir(update.cacheDir, previous.cacheDir);
+  const next = { dataDir, cacheDir, configPath: previous.configPath };
+  if (dataDir !== previous.dataDir) {
+    migrateDataFiles(previous.dataDir, dataDir);
+  }
+  if (cacheDir !== previous.cacheDir) {
+    copyDirectoryContents(previous.cacheDir, cacheDir);
+  }
+  fs.mkdirSync(path.dirname(previous.configPath), { recursive: true });
+  fs.writeFileSync(
+    previous.configPath,
+    `${JSON.stringify({ dataDir, cacheDir }, null, 2)}
+`,
+    "utf-8"
+  );
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(cacheDir, { recursive: true });
+  return next;
+}
+function defaultStoragePaths() {
+  const dataDir = path.join(electron.app.getPath("home"), USER_DATA_DIR_NAME);
+  return {
+    dataDir,
+    cacheDir: path.join(dataDir, CACHE_DIR_NAME),
+    configPath: path.join(dataDir, STORAGE_CONFIG_FILE)
+  };
+}
+function normalizeDir(value, fallback) {
+  if (typeof value !== "string" || !value.trim()) {
+    return path.resolve(fallback);
+  }
+  return path.resolve(value.trim());
+}
+function readStorageConfig(configPath) {
+  try {
+    const raw = fs.readFileSync(configPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+function migrateDataFiles(sourceDataDir, targetDataDir) {
+  for (const name of DB_FILE_NAMES) {
+    for (const suffix of ["", "-wal", "-shm"]) {
+      copyFileIfMissing(
+        path.join(sourceDataDir, "work", `${name}${suffix}`),
+        path.join(targetDataDir, "work", `${name}${suffix}`)
+      );
+    }
+  }
+}
+function copyDirectoryContents(source, target) {
+  if (!fs.existsSync(source) || path.resolve(source) === path.resolve(target)) {
+    return;
+  }
+  for (const child of fs.readdirSync(source)) {
+    copyPathIfMissing(path.join(source, child), path.join(target, child));
+  }
+}
+function copyPathIfMissing(source, target) {
+  if (fs.existsSync(target)) {
+    return;
+  }
+  try {
+    const stat = fs.statSync(source);
+    if (stat.isDirectory()) {
+      fs.mkdirSync(target, { recursive: true });
+      copyDirectoryContents(source, target);
+      return;
+    }
+    if (stat.isFile()) {
+      copyFileIfMissing(source, target);
+    }
+  } catch {
+    return;
+  }
+}
+function copyFileIfMissing(source, target) {
+  if (!fs.existsSync(source) || fs.existsSync(target)) {
+    return;
+  }
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(source, target);
+  } catch {
+    return;
+  }
+}
 const DEFAULT_PORT = 19200;
 const HEALTH_CHECK_INTERVAL = 1e3;
 const HEALTH_CHECK_TIMEOUT = 15e3;
@@ -114,6 +217,12 @@ class BackendProcess {
     const isDev = !electron.app.isPackaged;
     this.port = await findAvailablePort(this.port);
     this.baseURL = `http://127.0.0.1:${this.port}`;
+    const storagePaths = loadStoragePaths();
+    const backendEnv = {
+      ...process.env,
+      SCORE_TRANS_DATA_DIR: storagePaths.dataDir,
+      SCORE_TRANS_CACHE_DIR: storagePaths.cacheDir
+    };
     if (isDev) {
       const projectRoot = resolveProjectRoot();
       const localPython = path.join(projectRoot, ".venv", "Scripts", "python.exe");
@@ -133,7 +242,7 @@ class BackendProcess {
       ], {
         stdio: "pipe",
         cwd: projectRoot,
-        env: { ...process.env, PYTHONPATH: pythonPath },
+        env: { ...backendEnv, PYTHONPATH: pythonPath },
         windowsHide: true
       });
     } else {
@@ -145,7 +254,7 @@ class BackendProcess {
         "127.0.0.1",
         "--port",
         String(this.port)
-      ], { stdio: "pipe", windowsHide: true, cwd: backendCwd });
+      ], { stdio: "pipe", windowsHide: true, cwd: backendCwd, env: backendEnv });
     }
     this.process.stdout?.on("data", (data) => {
       console.log(`[backend] ${data.toString().trim()}`);
@@ -355,6 +464,16 @@ electron.app.whenReady().then(async () => {
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0];
   });
+  electron.ipcMain.handle("storage:get", () => {
+    return loadStoragePaths();
+  });
+  electron.ipcMain.handle("storage:set", (_event, paths) => {
+    return saveStoragePaths(paths ?? {});
+  });
+  electron.ipcMain.handle("app:relaunch", () => {
+    electron.app.relaunch();
+    electron.app.quit();
+  });
   createWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) {
@@ -377,6 +496,10 @@ electron.app.on("will-quit", async () => {
   electron.ipcMain.removeHandler("window:toggle-maximize");
   electron.ipcMain.removeHandler("window:is-maximized");
   electron.ipcMain.removeHandler("window:close");
+  electron.ipcMain.removeHandler("dialog:select-directory");
+  electron.ipcMain.removeHandler("storage:get");
+  electron.ipcMain.removeHandler("storage:set");
+  electron.ipcMain.removeHandler("app:relaunch");
 });
 electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

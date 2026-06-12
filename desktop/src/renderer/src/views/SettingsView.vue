@@ -85,6 +85,53 @@
 
       <n-card class="sv-card" :bordered="true" size="small">
         <div class="sv-card-title">
+          <n-icon size="16" class="sv-card-icon"><FolderOpenOutline /></n-icon>
+          <span>存储与缓存</span>
+        </div>
+        <div class="sv-form">
+          <div class="sv-form-item">
+            <label>用户数据路径</label>
+            <n-input v-model:value="settings.dataDir" placeholder="用户数据目录" size="small">
+              <template #suffix>
+                <n-button size="tiny" quaternary @click="selectDataDir">浏览</n-button>
+              </template>
+            </n-input>
+          </div>
+          <div class="sv-form-item">
+            <label>缓存路径</label>
+            <n-input v-model:value="settings.cacheDir" placeholder="缓存目录" size="small">
+              <template #suffix>
+                <n-button size="tiny" quaternary @click="selectCacheDir">浏览</n-button>
+              </template>
+            </n-input>
+          </div>
+          <div class="sv-storage-meta">
+            <span>缓存占用：{{ formatBytes(settings.cacheSizeBytes) }}</span>
+            <span>当前缓存：{{ settings.activeCacheDir }}</span>
+          </div>
+          <n-alert v-if="settings.storageRestartRequired" type="warning" size="small">
+            存储路径变更将在重启后生效。
+          </n-alert>
+          <div class="sv-actions-row">
+            <n-popconfirm @positive-click="clearCache">
+              <template #trigger>
+                <n-button size="small" secondary :loading="clearingCache">
+                  <template #icon><n-icon><TrashOutline /></n-icon></template>
+                  清理缓存
+                </n-button>
+              </template>
+              将删除中间文件和未被历史记录引用的上传副本。
+            </n-popconfirm>
+            <n-button v-if="settings.storageRestartRequired" type="primary" size="small" @click="restartApp">
+              <template #icon><n-icon><RefreshOutline /></n-icon></template>
+              重启应用
+            </n-button>
+          </div>
+        </div>
+      </n-card>
+
+      <n-card class="sv-card" :bordered="true" size="small">
+        <div class="sv-card-title">
           <n-icon size="16" class="sv-card-icon"><EyeOutline /></n-icon>
           <span>AI 视觉转写</span>
         </div>
@@ -155,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import {
@@ -166,8 +213,11 @@ import {
   CodeOutline,
   KeyOutline,
   FolderOutline,
+  FolderOpenOutline,
   SwapHorizontalOutline,
   OptionsOutline,
+  RefreshOutline,
+  TrashOutline,
 } from '@vicons/ionicons5'
 import {
   NInput,
@@ -177,6 +227,8 @@ import {
   NButton,
   NIcon,
   NCard,
+  NAlert,
+  NPopconfirm,
   useMessage,
 } from 'naive-ui'
 import type { LlmProviderOption } from '../models/types'
@@ -184,6 +236,7 @@ import type { LlmProviderOption } from '../models/types'
 const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
+const clearingCache = ref(false)
 
 const keyOptions = [
   { label: 'C', value: 'C' },
@@ -219,9 +272,9 @@ async function refreshProviderDetails(kind: 'ocr' | 'ai' | 'assistant'): Promise
 
 async function save(): Promise<void> {
   try {
-    await settings.save()
+    const restartNeeded = await settings.save()
     log.addLog('配置已保存')
-    message.success('配置已保存')
+    message.success(restartNeeded ? '配置已保存，存储路径将在重启后生效' : '配置已保存')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     log.addError(`保存失败：${msg}`)
@@ -232,6 +285,47 @@ async function save(): Promise<void> {
 async function selectOutputDir(): Promise<void> {
   const result = await (window as any).api.selectDirectory()
   if (result) settings.outputDir = result
+}
+
+async function selectDataDir(): Promise<void> {
+  const result = await (window as any).api.selectDirectory()
+  if (result) settings.dataDir = result
+}
+
+async function selectCacheDir(): Promise<void> {
+  const result = await (window as any).api.selectDirectory()
+  if (result) settings.cacheDir = result
+}
+
+async function clearCache(): Promise<void> {
+  clearingCache.value = true
+  try {
+    const result = await settings.clearCache()
+    log.addLog(`已清理缓存：${formatBytes(result.freed_bytes)}`)
+    message.success(`已清理 ${formatBytes(result.freed_bytes)}`)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.addError(`清理缓存失败：${msg}`)
+    message.error(msg)
+  } finally {
+    clearingCache.value = false
+  }
+}
+
+async function restartApp(): Promise<void> {
+  await settings.relaunchApp()
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
 }
 
 function providerSelectOptions(options: LlmProviderOption[]): { label: string; value: string }[] {
@@ -341,6 +435,22 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
 
 .sv-form-item.sv-form-item-inline label {
   min-width: unset;
+}
+
+.sv-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sv-storage-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  word-break: break-all;
 }
 
 .sv-form-item label {

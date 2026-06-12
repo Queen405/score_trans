@@ -3,14 +3,15 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from ...models.common.paths import PROJECT_ROOT
+from ...models.common.paths import LEGACY_WORK_DIR, USER_WORK_DIR
 from ...models.tasks.entities import TaskProgress, TaskStatus
+from ..storage import migrate_legacy_sqlite
 
-DEFAULT_DB_PATH = PROJECT_ROOT / "work" / "tasks.db"
+DEFAULT_DB_PATH = USER_WORK_DIR / "tasks.db"
+LEGACY_DB_PATH = LEGACY_WORK_DIR / "tasks.db"
 
 
 class TaskDao:
@@ -18,6 +19,8 @@ class TaskDao:
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+        if db_path is None:
+            migrate_legacy_sqlite(self.db_path, LEGACY_DB_PATH)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
@@ -48,7 +51,11 @@ class TaskDao:
             conn.commit()
 
     def save(self, progress: TaskProgress) -> None:
-        result_json = json.dumps(progress.result, ensure_ascii=False) if progress.result is not None else None
+        result_json = (
+            json.dumps(progress.result, ensure_ascii=False)
+            if progress.result is not None
+            else None
+        )
         with self._connect() as conn:
             conn.execute(
                 """

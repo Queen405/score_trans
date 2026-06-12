@@ -29,6 +29,15 @@ const api = {
   selectDirectory: async (): Promise<string | null> => {
     return ipcRenderer.invoke('dialog:select-directory')
   },
+  getStoragePaths: async (): Promise<{ dataDir: string; cacheDir: string; configPath: string }> => {
+    return ipcRenderer.invoke('storage:get')
+  },
+  setStoragePaths: async (paths: { dataDir?: string; cacheDir?: string }): Promise<{ dataDir: string; cacheDir: string; configPath: string }> => {
+    return ipcRenderer.invoke('storage:set', paths)
+  },
+  relaunchApp: async (): Promise<void> => {
+    await ipcRenderer.invoke('app:relaunch')
+  },
 }
 
 if (process.contextIsolated) {

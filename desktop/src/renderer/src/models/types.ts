@@ -191,6 +191,9 @@ export interface LlmProviderOption {
 export interface SettingsResponse {
   audiveris_path: string
   java_home: string
+  data_dir: string
+  cache_dir: string
+  cache_size_bytes: number
   work_dir: string
   target_key?: string
   output_dir?: string
@@ -232,6 +235,21 @@ export interface SettingsUpdateRequest {
   omr_preprocess?: boolean
   omr_preprocess_long_edge?: number
   omr_preprocess_binarize?: boolean
+}
+
+export interface CacheCleanupResponse {
+  cache_dir: string
+  before_bytes: number
+  after_bytes: number
+  freed_bytes: number
+  removed_items: number
+  preserved_uploads: number
+}
+
+export interface StoragePaths {
+  dataDir: string
+  cacheDir: string
+  configPath: string
 }
 
 export interface SSEProgressEvent {

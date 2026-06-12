@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+from ...models.common.paths import USER_DATA_ROOT
 from ...models.settings.config import ToolConfig
-from ...models.settings.schemas import LlmProviderOption, SettingsResponse, SettingsUpdateRequest
+from ...models.settings.schemas import (
+    CacheCleanupResponse,
+    LlmProviderOption,
+    SettingsResponse,
+    SettingsUpdateRequest,
+)
 from ...models.settings.provider_profiles import LlmProviderKind, LlmProviderProfile
 from ...services.settings.provider_profiles import (
     provider_profiles,
@@ -10,6 +16,7 @@ from ...services.settings.provider_profiles import (
 )
 from ...services.settings.api_keys import provider_api_key, provider_api_key_name
 from ...services.settings.settings_service import SettingsService
+from ...services.storage import CacheService
 
 
 class SettingsActions:
@@ -83,10 +90,23 @@ class SettingsActions:
             config.omr_preprocess_long_edge = value
 
         if req.omr_preprocess_binarize is not None:
-            self.service.set("omr_preprocess_binarize", "1" if req.omr_preprocess_binarize else "0")
+            self.service.set(
+                "omr_preprocess_binarize", "1" if req.omr_preprocess_binarize else "0"
+            )
             config.omr_preprocess_binarize = req.omr_preprocess_binarize
 
         return self._response()
+
+    def clear_cache(self) -> CacheCleanupResponse:
+        result = CacheService().clear()
+        return CacheCleanupResponse(
+            cache_dir=str(result.cache_dir),
+            before_bytes=result.before_bytes,
+            after_bytes=result.after_bytes,
+            freed_bytes=result.freed_bytes,
+            removed_items=result.removed_items,
+            preserved_uploads=result.preserved_uploads,
+        )
 
     def _current_provider_id(self, kind: LlmProviderKind) -> str:
         return self.service.get_all().get(f"{kind}_provider", "")
@@ -102,14 +122,18 @@ class SettingsActions:
 
     def _sync_kind_api_key(self, kind: LlmProviderKind, provider_id: str) -> None:
         all_settings = self.service.get_all()
-        self.service.set(f"{kind}_api_key", all_settings.get(provider_api_key_name(provider_id), ""))
+        self.service.set(
+            f"{kind}_api_key", all_settings.get(provider_api_key_name(provider_id), "")
+        )
 
     def _set_api_key(self, kind: LlmProviderKind, provider_id: str, key: str) -> None:
         if provider_id:
             self.service.set(provider_api_key_name(provider_id), key)
         self.service.set(f"{kind}_api_key", key)
 
-    def _set_provider(self, kind: LlmProviderKind, provider_id: str) -> LlmProviderProfile:
+    def _set_provider(
+        self, kind: LlmProviderKind, provider_id: str
+    ) -> LlmProviderProfile:
         self._migrate_kind_api_key(kind, self._current_provider_id(kind))
         profile = resolve_provider_profile(kind, provider_id)
         prefix = kind
@@ -129,8 +153,12 @@ class SettingsActions:
         assistant_provider: str | None = None,
     ) -> SettingsResponse:
         all_settings = self.service.get_all()
-        saved_ocr_profile = resolve_provider_profile_or_default("ocr", all_settings.get("ocr_provider"))
-        saved_ai_profile = resolve_provider_profile_or_default("ai", all_settings.get("ai_provider"))
+        saved_ocr_profile = resolve_provider_profile_or_default(
+            "ocr", all_settings.get("ocr_provider")
+        )
+        saved_ai_profile = resolve_provider_profile_or_default(
+            "ai", all_settings.get("ai_provider")
+        )
         saved_assistant_profile = resolve_provider_profile_or_default(
             "assistant",
             all_settings.get("assistant_provider"),
@@ -141,19 +169,30 @@ class SettingsActions:
             "ai_provider": saved_ai_profile.id,
             "assistant_provider": saved_assistant_profile.id,
         }
-        ocr_profile = resolve_provider_profile_or_default("ocr", ocr_provider or saved_ocr_profile.id)
-        ai_profile = resolve_provider_profile_or_default("ai", ai_provider or saved_ai_profile.id)
+        ocr_profile = resolve_provider_profile_or_default(
+            "ocr", ocr_provider or saved_ocr_profile.id
+        )
+        ai_profile = resolve_provider_profile_or_default(
+            "ai", ai_provider or saved_ai_profile.id
+        )
         assistant_profile = resolve_provider_profile_or_default(
             "assistant",
             assistant_provider or saved_assistant_profile.id,
         )
         ocr_api_key = provider_api_key(key_settings, "ocr", ocr_profile.id)
         ai_api_key = provider_api_key(key_settings, "ai", ai_profile.id)
-        assistant_api_key = provider_api_key(key_settings, "assistant", assistant_profile.id)
+        assistant_api_key = provider_api_key(
+            key_settings, "assistant", assistant_profile.id
+        )
+        config = self.service.load()
+        cache_size_bytes = CacheService(cache_dir=config.work_dir).size_bytes()
         return SettingsResponse(
             audiveris_path=all_settings.get("audiveris_path", ""),
             java_home=all_settings.get("java_home", ""),
-            work_dir=str(self.service.load().work_dir),
+            data_dir=str(USER_DATA_ROOT),
+            cache_dir=str(config.work_dir),
+            cache_size_bytes=cache_size_bytes,
+            work_dir=str(config.work_dir),
             output_dir=all_settings.get("output_dir", ""),
             target_key=all_settings.get("target_key", "C"),
             ocr_provider=ocr_profile.id,
@@ -175,8 +214,12 @@ class SettingsActions:
             assistant_base_url=assistant_profile.base_url,
             assistant_model=assistant_profile.model,
             omr_preprocess=self.service.get_bool("omr_preprocess", True),
-            omr_preprocess_long_edge=self.service.get_int("omr_preprocess_long_edge", 3600),
-            omr_preprocess_binarize=self.service.get_bool("omr_preprocess_binarize", False),
+            omr_preprocess_long_edge=self.service.get_int(
+                "omr_preprocess_long_edge", 3600
+            ),
+            omr_preprocess_binarize=self.service.get_bool(
+                "omr_preprocess_binarize", False
+            ),
         )
 
 

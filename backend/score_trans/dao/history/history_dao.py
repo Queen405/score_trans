@@ -3,15 +3,19 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from ...models.common.paths import PROJECT_ROOT
+from ...models.common.paths import LEGACY_WORK_DIR, USER_WORK_DIR
 from ...models.history.entities import HistoryBatch, HistoryBatchSummary, HistoryPage
+from ..storage import migrate_legacy_sqlite
 
-DEFAULT_DB_PATH = PROJECT_ROOT / "work" / "history.db"
+DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
+LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
 
 
 class HistoryDao:
     def __init__(self, db_path: str | Path | None = None) -> None:
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+        if db_path is None:
+            migrate_legacy_sqlite(self.db_path, LEGACY_DB_PATH)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
@@ -252,7 +256,8 @@ class HistoryDao:
             status=row["status"],
         )
         page_rows = conn.execute(
-            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY input_file_name ASC", (batch.id,)
+            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY input_file_name ASC",
+            (batch.id,),
         ).fetchall()
         batch.pages = [self._row_to_page(pr) for pr in page_rows]
         return batch

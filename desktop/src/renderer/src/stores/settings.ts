@@ -1,13 +1,20 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { settingsApi, type SettingsQuery } from '../api/settings'
-import type { LlmProviderOption, SettingsResponse } from '../models/types'
+import type { CacheCleanupResponse, LlmProviderOption, SettingsResponse, StoragePaths } from '../models/types'
 
 type ProviderKind = 'ocr' | 'ai' | 'assistant'
 
 export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
   const javaHome = ref('')
+  const dataDir = ref('')
+  const cacheDir = ref('')
+  const activeDataDir = ref('')
+  const activeCacheDir = ref('')
+  const storageConfigPath = ref('')
+  const cacheSizeBytes = ref(0)
+  const storageRestartRequired = ref(false)
   const targetKey = ref('C')
   const outputDir = ref('')
   const ocrProvider = ref('siliconflow_deepseek_ocr')
@@ -42,13 +49,16 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       const data = await settingsApi.get()
       applySettings(data)
+      await loadStoragePaths()
       loaded.value = true
     } catch (e) {
       console.error('Failed to load settings:', e)
     }
   }
 
-  async function save(): Promise<void> {
+  async function save(): Promise<boolean> {
+    const requestedDataDir = dataDir.value
+    const requestedCacheDir = cacheDir.value
     const data = await settingsApi.update({
       audiveris_path: audiverisPath.value,
       java_home: javaHome.value,
@@ -65,6 +75,22 @@ export const useSettingsStore = defineStore('settings', () => {
       omr_preprocess_binarize: omrPreprocessBinarize.value,
     })
     applySettings(data)
+    dataDir.value = requestedDataDir
+    cacheDir.value = requestedCacheDir
+    return await saveStoragePaths()
+  }
+
+  async function clearCache(): Promise<CacheCleanupResponse> {
+    const result = await settingsApi.clearCache()
+    cacheSizeBytes.value = result.after_bytes
+    return result
+  }
+
+  async function relaunchApp(): Promise<void> {
+    const api = (window as any).api
+    if (typeof api?.relaunchApp === 'function') {
+      await api.relaunchApp()
+    }
   }
 
   async function loadProviderDetails(kind: ProviderKind): Promise<void> {
@@ -79,6 +105,11 @@ export const useSettingsStore = defineStore('settings', () => {
   function applySettings(data: SettingsResponse): void {
     audiverisPath.value = data.audiveris_path
     javaHome.value = data.java_home
+    activeDataDir.value = data.data_dir ?? ''
+    activeCacheDir.value = data.cache_dir ?? data.work_dir ?? ''
+    cacheSizeBytes.value = data.cache_size_bytes ?? 0
+    if (!dataDir.value) dataDir.value = activeDataDir.value
+    if (!cacheDir.value) cacheDir.value = activeCacheDir.value
     targetKey.value = data.target_key ?? 'C'
     outputDir.value = data.output_dir ?? ''
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
@@ -102,6 +133,50 @@ export const useSettingsStore = defineStore('settings', () => {
     omrPreprocess.value = data.omr_preprocess ?? true
     omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600
     omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false
+  }
+
+  async function loadStoragePaths(): Promise<void> {
+    const api = (window as any).api
+    if (typeof api?.getStoragePaths !== 'function') {
+      dataDir.value = activeDataDir.value
+      cacheDir.value = activeCacheDir.value
+      storageRestartRequired.value = false
+      return
+    }
+
+    const paths = (await api.getStoragePaths()) as StoragePaths
+    applyStoragePaths(paths)
+  }
+
+  async function saveStoragePaths(): Promise<boolean> {
+    const api = (window as any).api
+    if (typeof api?.setStoragePaths !== 'function') {
+      return false
+    }
+    const beforeDataDir = activeDataDir.value
+    const beforeCacheDir = activeCacheDir.value
+    const paths = (await api.setStoragePaths({
+      dataDir: dataDir.value,
+      cacheDir: cacheDir.value,
+    })) as StoragePaths
+    applyStoragePaths(paths)
+    storageRestartRequired.value =
+      normalizePath(paths.dataDir) !== normalizePath(beforeDataDir) ||
+      normalizePath(paths.cacheDir) !== normalizePath(beforeCacheDir)
+    return storageRestartRequired.value
+  }
+
+  function applyStoragePaths(paths: StoragePaths): void {
+    dataDir.value = paths.dataDir
+    cacheDir.value = paths.cacheDir
+    storageConfigPath.value = paths.configPath
+    storageRestartRequired.value =
+      normalizePath(paths.dataDir) !== normalizePath(activeDataDir.value) ||
+      normalizePath(paths.cacheDir) !== normalizePath(activeCacheDir.value)
+  }
+
+  function normalizePath(value: string): string {
+    return value.trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
   }
 
   function selectedProvider(kind: ProviderKind): string {
@@ -143,6 +218,13 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     audiverisPath,
     javaHome,
+    dataDir,
+    cacheDir,
+    activeDataDir,
+    activeCacheDir,
+    storageConfigPath,
+    cacheSizeBytes,
+    storageRestartRequired,
     targetKey,
     outputDir,
     ocrProvider,
@@ -169,6 +251,8 @@ export const useSettingsStore = defineStore('settings', () => {
     loaded,
     load,
     save,
+    clearCache,
+    relaunchApp,
     loadProviderDetails,
   }
 })

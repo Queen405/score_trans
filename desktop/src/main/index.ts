@@ -3,6 +3,7 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { BackendProcess } from './backend'
+import { loadStoragePaths, saveStoragePaths, type StoragePathUpdate } from './storage'
 
 let mainWindow: BrowserWindow | null = null
 let backend: BackendProcess | null = null
@@ -124,6 +125,19 @@ app.whenReady().then(async () => {
     return result.filePaths[0]
   })
 
+  ipcMain.handle('storage:get', () => {
+    return loadStoragePaths()
+  })
+
+  ipcMain.handle('storage:set', (_event, paths: StoragePathUpdate) => {
+    return saveStoragePaths(paths ?? {})
+  })
+
+  ipcMain.handle('app:relaunch', () => {
+    app.relaunch()
+    app.quit()
+  })
+
   // Create the main window
   createWindow(backendURL)
 
@@ -150,6 +164,10 @@ app.on('will-quit', async () => {
   ipcMain.removeHandler('window:toggle-maximize')
   ipcMain.removeHandler('window:is-maximized')
   ipcMain.removeHandler('window:close')
+  ipcMain.removeHandler('dialog:select-directory')
+  ipcMain.removeHandler('storage:get')
+  ipcMain.removeHandler('storage:set')
+  ipcMain.removeHandler('app:relaunch')
 })
 
 app.on('window-all-closed', () => {
