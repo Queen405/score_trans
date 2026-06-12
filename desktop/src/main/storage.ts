@@ -28,6 +28,7 @@ export function loadStoragePaths(): StoragePaths {
 }
 
 export function configureElectronStoragePaths(): StoragePaths {
+  migrateLegacyStorageConfig()
   const paths = loadStoragePaths()
   const sessionDir = path.join(paths.cacheDir, ELECTRON_SESSION_DIR_NAME)
   fs.mkdirSync(sessionDir, { recursive: true })
@@ -64,8 +65,12 @@ function defaultStoragePaths(): StoragePaths {
   return {
     dataDir,
     cacheDir: path.join(dataDir, CACHE_DIR_NAME),
-    configPath: path.join(dataDir, STORAGE_CONFIG_FILE),
+    configPath: path.join(app.getPath('userData'), STORAGE_CONFIG_FILE),
   }
+}
+
+function legacyStorageConfigPath(): string {
+  return path.join(app.getPath('home'), USER_DATA_DIR_NAME, STORAGE_CONFIG_FILE)
 }
 
 function normalizeDir(value: unknown, fallback: string): string {
@@ -76,12 +81,35 @@ function normalizeDir(value: unknown, fallback: string): string {
 }
 
 function readStorageConfig(configPath: string): StoragePathUpdate {
+  const candidates = [configPath, legacyStorageConfigPath()]
+  for (const candidate of candidates) {
+    const config = readStorageConfigFile(candidate)
+    if (config) return config
+  }
+  return {}
+}
+
+function migrateLegacyStorageConfig(): void {
+  const defaults = defaultStoragePaths()
+  const legacy = legacyStorageConfigPath()
+  if (fs.existsSync(defaults.configPath) || !fs.existsSync(legacy)) {
+    return
+  }
+  try {
+    fs.mkdirSync(path.dirname(defaults.configPath), { recursive: true })
+    fs.copyFileSync(legacy, defaults.configPath)
+  } catch {
+    return
+  }
+}
+
+function readStorageConfigFile(configPath: string): StoragePathUpdate | null {
   try {
     const raw = fs.readFileSync(configPath, 'utf-8')
     const parsed = JSON.parse(raw) as StoragePathUpdate
-    return parsed && typeof parsed === 'object' ? parsed : {}
+    return parsed && typeof parsed === 'object' ? parsed : null
   } catch {
-    return {}
+    return null
   }
 }
 

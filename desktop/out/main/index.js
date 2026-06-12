@@ -111,6 +111,7 @@ function loadStoragePaths() {
   return { dataDir, cacheDir, configPath: defaults.configPath };
 }
 function configureElectronStoragePaths() {
+  migrateLegacyStorageConfig();
   const paths = loadStoragePaths();
   const sessionDir = path.join(paths.cacheDir, ELECTRON_SESSION_DIR_NAME);
   fs.mkdirSync(sessionDir, { recursive: true });
@@ -144,8 +145,11 @@ function defaultStoragePaths() {
   return {
     dataDir,
     cacheDir: path.join(dataDir, CACHE_DIR_NAME),
-    configPath: path.join(dataDir, STORAGE_CONFIG_FILE)
+    configPath: path.join(electron.app.getPath("userData"), STORAGE_CONFIG_FILE)
   };
+}
+function legacyStorageConfigPath() {
+  return path.join(electron.app.getPath("home"), USER_DATA_DIR_NAME, STORAGE_CONFIG_FILE);
 }
 function normalizeDir(value, fallback) {
   if (typeof value !== "string" || !value.trim()) {
@@ -154,12 +158,33 @@ function normalizeDir(value, fallback) {
   return path.resolve(value.trim());
 }
 function readStorageConfig(configPath) {
+  const candidates = [configPath, legacyStorageConfigPath()];
+  for (const candidate of candidates) {
+    const config = readStorageConfigFile(candidate);
+    if (config) return config;
+  }
+  return {};
+}
+function migrateLegacyStorageConfig() {
+  const defaults = defaultStoragePaths();
+  const legacy = legacyStorageConfigPath();
+  if (fs.existsSync(defaults.configPath) || !fs.existsSync(legacy)) {
+    return;
+  }
+  try {
+    fs.mkdirSync(path.dirname(defaults.configPath), { recursive: true });
+    fs.copyFileSync(legacy, defaults.configPath);
+  } catch {
+    return;
+  }
+}
+function readStorageConfigFile(configPath) {
   try {
     const raw = fs.readFileSync(configPath, "utf-8");
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
-    return {};
+    return null;
   }
 }
 function migrateDataFiles(sourceDataDir, targetDataDir) {
