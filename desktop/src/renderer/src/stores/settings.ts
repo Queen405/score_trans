@@ -14,6 +14,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const activeCacheDir = ref('')
   const storageConfigPath = ref('')
   const cacheSizeBytes = ref(0)
+  const cacheSizeAvailable = ref(false)
   const storageRestartRequired = ref(false)
   const targetKey = ref('C')
   const outputDir = ref('')
@@ -108,6 +109,7 @@ export const useSettingsStore = defineStore('settings', () => {
     activeDataDir.value = data.data_dir ?? ''
     activeCacheDir.value = data.cache_dir ?? data.work_dir ?? ''
     cacheSizeBytes.value = data.cache_size_bytes ?? 0
+    cacheSizeAvailable.value = Object.prototype.hasOwnProperty.call(data, 'cache_size_bytes')
     if (!dataDir.value) dataDir.value = activeDataDir.value
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value
     targetKey.value = data.target_key ?? 'C'
@@ -224,6 +226,7 @@ export const useSettingsStore = defineStore('settings', () => {
     activeCacheDir,
     storageConfigPath,
     cacheSizeBytes,
+    cacheSizeAvailable,
     storageRestartRequired,
     targetKey,
     outputDir,

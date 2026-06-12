@@ -106,7 +106,7 @@
             </n-input>
           </div>
           <div class="sv-storage-meta">
-            <span>缓存占用：{{ formatBytes(settings.cacheSizeBytes) }}</span>
+            <span>缓存占用：{{ cacheSizeLabel }}</span>
             <span>当前缓存：{{ settings.activeCacheDir }}</span>
           </div>
           <n-alert v-if="settings.storageRestartRequired" type="warning" size="small">
@@ -202,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import {
@@ -237,6 +237,9 @@ const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
 const clearingCache = ref(false)
+const cacheSizeLabel = computed(() =>
+  settings.cacheSizeAvailable ? formatBytes(settings.cacheSizeBytes) : '未获取（请重启应用）',
+)
 
 const keyOptions = [
   { label: 'C', value: 'C' },
@@ -283,17 +286,17 @@ async function save(): Promise<void> {
 }
 
 async function selectOutputDir(): Promise<void> {
-  const result = await (window as any).api.selectDirectory()
+  const result = await desktopApi().selectDirectory()
   if (result) settings.outputDir = result
 }
 
 async function selectDataDir(): Promise<void> {
-  const result = await (window as any).api.selectDirectory()
+  const result = await desktopApi().selectDirectory()
   if (result) settings.dataDir = result
 }
 
 async function selectCacheDir(): Promise<void> {
-  const result = await (window as any).api.selectDirectory()
+  const result = await desktopApi().selectDirectory()
   if (result) settings.cacheDir = result
 }
 
@@ -326,6 +329,10 @@ function formatBytes(bytes: number): string {
     unit += 1
   }
   return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
+}
+
+function desktopApi(): any {
+  return (globalThis as any).api
 }
 
 function providerSelectOptions(options: LlmProviderOption[]): { label: string; value: string }[] {

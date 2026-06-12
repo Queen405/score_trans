@@ -8898,6 +8898,7 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const activeCacheDir = /* @__PURE__ */ ref("");
   const storageConfigPath = /* @__PURE__ */ ref("");
   const cacheSizeBytes = /* @__PURE__ */ ref(0);
+  const cacheSizeAvailable = /* @__PURE__ */ ref(false);
   const storageRestartRequired = /* @__PURE__ */ ref(false);
   const targetKey = /* @__PURE__ */ ref("C");
   const outputDir = /* @__PURE__ */ ref("");
@@ -8986,6 +8987,7 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     activeDataDir.value = data.data_dir ?? "";
     activeCacheDir.value = data.cache_dir ?? data.work_dir ?? "";
     cacheSizeBytes.value = data.cache_size_bytes ?? 0;
+    cacheSizeAvailable.value = Object.prototype.hasOwnProperty.call(data, "cache_size_bytes");
     if (!dataDir.value) dataDir.value = activeDataDir.value;
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value;
     targetKey.value = data.target_key ?? "C";
@@ -9089,6 +9091,7 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     activeCacheDir,
     storageConfigPath,
     cacheSizeBytes,
+    cacheSizeAvailable,
     storageRestartRequired,
     targetKey,
     outputDir,
@@ -65717,6 +65720,9 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     const log2 = useLogStore();
     const message = useMessage();
     const clearingCache = /* @__PURE__ */ ref(false);
+    const cacheSizeLabel = computed(
+      () => settings.cacheSizeAvailable ? formatBytes(settings.cacheSizeBytes) : "未获取（请重启应用）"
+    );
     const keyOptions = [
       { label: "C", value: "C" },
       { label: "D", value: "D" },
@@ -65757,15 +65763,15 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       }
     }
     async function selectOutputDir() {
-      const result = await window.api.selectDirectory();
+      const result = await desktopApi().selectDirectory();
       if (result) settings.outputDir = result;
     }
     async function selectDataDir() {
-      const result = await window.api.selectDirectory();
+      const result = await desktopApi().selectDirectory();
       if (result) settings.dataDir = result;
     }
     async function selectCacheDir() {
-      const result = await window.api.selectDirectory();
+      const result = await desktopApi().selectDirectory();
       if (result) settings.cacheDir = result;
     }
     async function clearCache() {
@@ -65795,6 +65801,9 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
         unit += 1;
       }
       return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+    }
+    function desktopApi() {
+      return globalThis.api;
     }
     function providerSelectOptions(options) {
       return options.map((option) => ({
@@ -66067,7 +66076,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                     }, 8, ["value"])
                   ]),
                   createBaseVNode("div", _hoisted_21, [
-                    createBaseVNode("span", null, "缓存占用：" + toDisplayString(formatBytes(unref(settings).cacheSizeBytes)), 1),
+                    createBaseVNode("span", null, "缓存占用：" + toDisplayString(cacheSizeLabel.value), 1),
                     createBaseVNode("span", null, "当前缓存：" + toDisplayString(unref(settings).activeCacheDir), 1)
                   ]),
                   unref(settings).storageRestartRequired ? (openBlock(), createBlock(unref(NAlert), {
@@ -66293,7 +66302,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-62b2b75b"]]);
+const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-319e4944"]]);
 const useAssistantStore = /* @__PURE__ */ defineStore("assistant", () => {
   const sessions = /* @__PURE__ */ ref([]);
   const messages = /* @__PURE__ */ ref([]);
