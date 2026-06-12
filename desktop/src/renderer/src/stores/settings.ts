@@ -83,6 +83,10 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function clearCache(): Promise<CacheCleanupResponse> {
     const result = await settingsApi.clearCache()
+    const api = (globalThis as any).api
+    if (typeof api?.clearElectronCache === 'function') {
+      await api.clearElectronCache()
+    }
     cacheSizeBytes.value = result.after_bytes
     return result
   }

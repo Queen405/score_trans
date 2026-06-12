@@ -38,6 +38,9 @@ const api = {
   relaunchApp: async (): Promise<void> => {
     await ipcRenderer.invoke('app:relaunch')
   },
+  clearElectronCache: async (): Promise<void> => {
+    await ipcRenderer.invoke('cache:clear-electron')
+  },
 }
 
 if (process.contextIsolated) {

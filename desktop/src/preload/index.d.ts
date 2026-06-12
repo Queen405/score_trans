@@ -13,6 +13,7 @@ interface BackendAPI {
     cacheDir?: string
   }): Promise<{ dataDir: string; cacheDir: string; configPath: string }>
   relaunchApp(): Promise<void>
+  clearElectronCache(): Promise<void>
   onMaximizedChanged(callback: (maximized: boolean) => void): () => void
 }
 

@@ -101,6 +101,7 @@ const optimizer = {
 const USER_DATA_DIR_NAME = ".sorce_trans";
 const STORAGE_CONFIG_FILE = "storage-paths.json";
 const CACHE_DIR_NAME = "cache";
+const ELECTRON_SESSION_DIR_NAME = "electron-session";
 const DB_FILE_NAMES = ["settings.db", "history.db", "ai_chat.db", "tasks.db"];
 function loadStoragePaths() {
   const defaults = defaultStoragePaths();
@@ -108,6 +109,13 @@ function loadStoragePaths() {
   const dataDir = normalizeDir(config.dataDir, defaults.dataDir);
   const cacheDir = normalizeDir(config.cacheDir, path.join(dataDir, CACHE_DIR_NAME));
   return { dataDir, cacheDir, configPath: defaults.configPath };
+}
+function configureElectronStoragePaths() {
+  const paths = loadStoragePaths();
+  const sessionDir = path.join(paths.cacheDir, ELECTRON_SESSION_DIR_NAME);
+  fs.mkdirSync(sessionDir, { recursive: true });
+  electron.app.setPath("sessionData", sessionDir);
+  return paths;
 }
 function saveStoragePaths(update) {
   const previous = loadStoragePaths();
@@ -369,6 +377,7 @@ function isPortAvailable(port) {
 let mainWindow = null;
 let backend = null;
 let quitting = false;
+configureElectronStoragePaths();
 function createWindow(baseURL) {
   const iconPath = path.join(__dirname, "../../build/icon.ico");
   const iconPng = path.join(__dirname, "../../build/icon.png");
@@ -474,6 +483,10 @@ electron.app.whenReady().then(async () => {
     electron.app.relaunch();
     electron.app.quit();
   });
+  electron.ipcMain.handle("cache:clear-electron", async () => {
+    await electron.session.defaultSession.clearCache();
+    return { ok: true };
+  });
   createWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) {
@@ -500,6 +513,7 @@ electron.app.on("will-quit", async () => {
   electron.ipcMain.removeHandler("storage:get");
   electron.ipcMain.removeHandler("storage:set");
   electron.ipcMain.removeHandler("app:relaunch");
+  electron.ipcMain.removeHandler("cache:clear-electron");
 });
 electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

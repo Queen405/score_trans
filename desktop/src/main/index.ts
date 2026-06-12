@@ -1,13 +1,20 @@
-import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, dialog, session } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { BackendProcess } from './backend'
-import { loadStoragePaths, saveStoragePaths, type StoragePathUpdate } from './storage'
+import {
+  configureElectronStoragePaths,
+  loadStoragePaths,
+  saveStoragePaths,
+  type StoragePathUpdate,
+} from './storage'
 
 let mainWindow: BrowserWindow | null = null
 let backend: BackendProcess | null = null
 let quitting = false
+
+configureElectronStoragePaths()
 
 function createWindow(baseURL: string): void {
   const iconPath = join(__dirname, '../../build/icon.ico')
@@ -138,6 +145,11 @@ app.whenReady().then(async () => {
     app.quit()
   })
 
+  ipcMain.handle('cache:clear-electron', async () => {
+    await session.defaultSession.clearCache()
+    return { ok: true }
+  })
+
   // Create the main window
   createWindow(backendURL)
 
@@ -168,6 +180,7 @@ app.on('will-quit', async () => {
   ipcMain.removeHandler('storage:get')
   ipcMain.removeHandler('storage:set')
   ipcMain.removeHandler('app:relaunch')
+  ipcMain.removeHandler('cache:clear-electron')
 })
 
 app.on('window-all-closed', () => {

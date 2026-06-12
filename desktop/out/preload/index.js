@@ -114,6 +114,9 @@ const api = {
   },
   relaunchApp: async () => {
     await electron.ipcRenderer.invoke("app:relaunch");
+  },
+  clearElectronCache: async () => {
+    await electron.ipcRenderer.invoke("cache:clear-electron");
   }
 };
 if (process.contextIsolated) {

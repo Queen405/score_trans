@@ -5,6 +5,7 @@ import path from 'path'
 const USER_DATA_DIR_NAME = '.sorce_trans'
 const STORAGE_CONFIG_FILE = 'storage-paths.json'
 const CACHE_DIR_NAME = 'cache'
+const ELECTRON_SESSION_DIR_NAME = 'electron-session'
 const DB_FILE_NAMES = ['settings.db', 'history.db', 'ai_chat.db', 'tasks.db']
 
 export interface StoragePaths {
@@ -24,6 +25,14 @@ export function loadStoragePaths(): StoragePaths {
   const dataDir = normalizeDir(config.dataDir, defaults.dataDir)
   const cacheDir = normalizeDir(config.cacheDir, path.join(dataDir, CACHE_DIR_NAME))
   return { dataDir, cacheDir, configPath: defaults.configPath }
+}
+
+export function configureElectronStoragePaths(): StoragePaths {
+  const paths = loadStoragePaths()
+  const sessionDir = path.join(paths.cacheDir, ELECTRON_SESSION_DIR_NAME)
+  fs.mkdirSync(sessionDir, { recursive: true })
+  app.setPath('sessionData', sessionDir)
+  return paths
 }
 
 export function saveStoragePaths(update: StoragePathUpdate): StoragePaths {

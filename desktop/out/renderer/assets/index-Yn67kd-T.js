@@ -8964,6 +8964,10 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   }
   async function clearCache() {
     const result = await settingsApi.clearCache();
+    const api = globalThis.api;
+    if (typeof api?.clearElectronCache === "function") {
+      await api.clearElectronCache();
+    }
     cacheSizeBytes.value = result.after_bytes;
     return result;
   }
