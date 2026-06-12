@@ -5,7 +5,13 @@ from fractions import Fraction
 from pathlib import Path
 
 from ..constants import FIFTHS_TO_KEY, KEY_TO_TONIC, MAJOR_SCALE, STEP_TO_SEMITONE
-from ..xml_utils import _namespace, _q, _local_name, _text, _first_child_name, _read_musicxml
+from ..xml_utils import (
+    _namespace,
+    _q,
+    _local_name,
+    _text,
+    _read_musicxml,
+)
 from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
 
@@ -15,7 +21,9 @@ def musicxml_path_to_score(
     start_measure_number: int | None = None,
     title: str | None = None,
 ) -> JianpuScore:
-    return musicxml_to_score(_read_musicxml(path), target_key, start_measure_number, title)
+    return musicxml_to_score(
+        _read_musicxml(path), target_key, start_measure_number, title
+    )
 
 
 def read_musicxml_text(path: Path) -> str:
@@ -42,6 +50,7 @@ def musicxml_to_score(
     current_beats = 4
     current_beat_type = 4
     divisions = 1
+    initialized_score_time = False
 
     for index, xml_measure in enumerate(part.findall(_q(ns, "measure")), start=1):
         attrs = xml_measure.find(_q(ns, "attributes"))
@@ -51,12 +60,16 @@ def musicxml_to_score(
             if fifths is not None:
                 current_key = FIFTHS_TO_KEY.get(int(fifths), "C")
             beats_text = _text(attrs.find(f"{_q(ns, 'time')}/{_q(ns, 'beats')}"))
-            beat_type_text = _text(attrs.find(f"{_q(ns, 'time')}/{_q(ns, 'beat-type')}"))
+            beat_type_text = _text(
+                attrs.find(f"{_q(ns, 'time')}/{_q(ns, 'beat-type')}")
+            )
             if beats_text and beat_type_text:
                 current_beats = int(beats_text)
                 current_beat_type = int(beat_type_text)
-                score.beats = current_beats
-                score.beat_type = current_beat_type
+                if not initialized_score_time:
+                    score.beats = current_beats
+                    score.beat_type = current_beat_type
+                    initialized_score_time = True
             score.source_key = current_key
 
         display_number = (
@@ -95,7 +108,9 @@ def _extract_title(root: ET.Element, ns: str) -> str:
 
 def _extract_part_names(root: ET.Element, ns: str) -> list[TextBlock]:
     blocks: list[TextBlock] = []
-    for part_name in root.findall(f"{_q(ns, 'part-list')}/{_q(ns, 'score-part')}/{_q(ns, 'part-name')}"):
+    for part_name in root.findall(
+        f"{_q(ns, 'part-list')}/{_q(ns, 'score-part')}/{_q(ns, 'part-name')}"
+    ):
         text = _text(part_name)
         if text:
             blocks.append(TextBlock(text=text, role="instrument"))
@@ -122,6 +137,7 @@ def _read_measure_events(
     last_event: Event | None = None
     cursor = Fraction(0, 1)
     pending_dynamics: list[tuple[Fraction, str]] = []
+    active_tuplets: dict[str, str] = {}
     for child in list(xml_measure):
         tag = _local_name(child.tag)
         if tag == "backup":
@@ -134,7 +150,9 @@ def _read_measure_events(
             last_event = None
             continue
         if tag == "direction":
-            blocks = _direction_text_blocks(child, ns, measure.display_measure_number, cursor)
+            blocks = _direction_text_blocks(
+                child, ns, measure.display_measure_number, cursor
+            )
             measure.text_blocks.extend(blocks)
             pending_dynamics.extend(
                 (cursor, block.text.strip())
@@ -150,7 +168,11 @@ def _read_measure_events(
         if duration <= 0:
             duration = Fraction(1, 1)
 
-        if note.find(_q(ns, "chord")) is not None and last_event is not None and last_event.kind == "note":
+        if (
+            note.find(_q(ns, "chord")) is not None
+            and last_event is not None
+            and last_event.kind == "note"
+        ):
             pitch = _note_pitch(note, ns, target_key)
             if pitch:
                 last_event.pitches.append(pitch)
@@ -161,28 +183,47 @@ def _read_measure_events(
             event = Event(kind="rest", duration=duration)
         else:
             pitch = _note_pitch(note, ns, target_key)
-            event = Event(kind="note", duration=duration, pitches=[pitch] if pitch else [])
+            event = Event(
+                kind="note", duration=duration, pitches=[pitch] if pitch else []
+            )
         event.dotted = len(note.findall(_q(ns, "dot")))
-        event.tie_start = any(tie.get("type") == "start" for tie in note.findall(_q(ns, "tie")))
-        event.tie_stop = any(tie.get("type") == "stop" for tie in note.findall(_q(ns, "tie")))
+        event.tie_start = any(
+            tie.get("type") == "start" for tie in note.findall(_q(ns, "tie"))
+        )
+        event.tie_stop = any(
+            tie.get("type") == "stop" for tie in note.findall(_q(ns, "tie"))
+        )
         event.voice = _text(note.find(_q(ns, "voice")))
         event.staff = _text(note.find(_q(ns, "staff")))
         event.start = cursor
         notations = note.find(_q(ns, "notations"))
         if notations is not None:
             event.slur_start = any(
-                slur.get("type") == "start" for slur in notations.findall(_q(ns, "slur"))
+                slur.get("type") == "start"
+                for slur in notations.findall(_q(ns, "slur"))
             )
             event.slur_stop = any(
                 slur.get("type") == "stop" for slur in notations.findall(_q(ns, "slur"))
             )
-            event.articulations = _notation_marks(notations.find(_q(ns, "articulations")), ns)
+            event.articulations = _notation_marks(
+                notations.find(_q(ns, "articulations")), ns
+            )
             if notations.find(_q(ns, "fermata")) is not None:
                 event.articulations.insert(0, "fermata")
             event.articulation = event.articulations[0] if event.articulations else None
             event.ornaments = _notation_marks(notations.find(_q(ns, "ornaments")), ns)
             event.technical = _notation_marks(notations.find(_q(ns, "technical")), ns)
             event.dynamic = _dynamic_text(notations.find(_q(ns, "dynamics")), ns)
+            _apply_tuplet_notations(
+                event, notations, ns, measure.source_number, cursor, active_tuplets
+            )
+        time_modification = note.find(_q(ns, "time-modification"))
+        if time_modification is not None:
+            actual_notes = _text(time_modification.find(_q(ns, "actual-notes")))
+            if actual_notes and actual_notes.isdigit():
+                event.tuplet_count = int(actual_notes)
+                if event.tuplet_id is None and active_tuplets:
+                    event.tuplet_id = next(reversed(active_tuplets.values()))
         if event.dynamic is None:
             dynamic = _pending_dynamic_for_event(pending_dynamics, cursor)
             if dynamic:
@@ -208,6 +249,30 @@ def _read_measure_events(
         measure.events.append(event)
         last_event = event
         cursor += duration
+
+
+def _apply_tuplet_notations(
+    event: Event,
+    notations: ET.Element,
+    ns: str,
+    measure_number: str,
+    cursor: Fraction,
+    active_tuplets: dict[str, str],
+) -> None:
+    for tuplet in notations.findall(_q(ns, "tuplet")):
+        number = tuplet.get("number") or "1"
+        kind = tuplet.get("type")
+        if kind == "start":
+            group_id = f"{measure_number}:{number}:{cursor}"
+            active_tuplets[number] = group_id
+            event.tuplet_id = group_id
+            event.tuplet_start = True
+        elif number in active_tuplets:
+            event.tuplet_id = active_tuplets[number]
+        if kind == "stop":
+            event.tuplet_id = event.tuplet_id or active_tuplets.get(number)
+            event.tuplet_stop = True
+            active_tuplets.pop(number, None)
 
 
 def _normalize_measure(measure: Measure, beats: int, beat_type: int) -> None:
@@ -298,56 +363,92 @@ def _direction_text_blocks(
             if text:
                 blocks.append(
                     _measure_text_block(
-                        text, measure_number, start, words.get("placement") or placement, staff
+                        text,
+                        measure_number,
+                        start,
+                        words.get("placement") or placement,
+                        staff,
                     )
                 )
 
         for rehearsal in direction_type.findall(_q(ns, "rehearsal")):
             text = _text(rehearsal)
             if text:
-                blocks.append(_measure_text_block(text, measure_number, start, placement, staff))
+                blocks.append(
+                    _measure_text_block(text, measure_number, start, placement, staff)
+                )
 
         dynamics = direction_type.find(_q(ns, "dynamics"))
         dynamic = _dynamic_text(dynamics, ns)
         if dynamic:
             blocks.append(
                 _measure_text_block(
-                    dynamic, measure_number, start, dynamics.get("placement") or placement, staff
+                    dynamic,
+                    measure_number,
+                    start,
+                    dynamics.get("placement") or placement,
+                    staff,
                 )
             )
 
         metronome = direction_type.find(_q(ns, "metronome"))
         metronome_text = _metronome_text(metronome, ns)
         if metronome_text:
-            blocks.append(_measure_text_block(metronome_text, measure_number, start, placement, staff))
+            blocks.append(
+                _measure_text_block(
+                    metronome_text, measure_number, start, placement, staff
+                )
+            )
 
         wedge = direction_type.find(_q(ns, "wedge"))
         if wedge is not None:
             wedge_text = _wedge_text(wedge.get("type"))
             if wedge_text:
-                blocks.append(_measure_text_block(wedge_text, measure_number, start, placement, staff))
+                blocks.append(
+                    _measure_text_block(
+                        wedge_text, measure_number, start, placement, staff
+                    )
+                )
 
         pedal = direction_type.find(_q(ns, "pedal"))
         if pedal is not None:
             pedal_text = _pedal_text(pedal.get("type"))
             if pedal_text:
-                blocks.append(_measure_text_block(pedal_text, measure_number, start, placement, staff))
+                blocks.append(
+                    _measure_text_block(
+                        pedal_text, measure_number, start, placement, staff
+                    )
+                )
 
         octave_shift = direction_type.find(_q(ns, "octave-shift"))
         if octave_shift is not None:
-            shift_text = _octave_shift_text(octave_shift.get("type"), octave_shift.get("size"))
+            shift_text = _octave_shift_text(
+                octave_shift.get("type"), octave_shift.get("size")
+            )
             if shift_text:
                 blocks.append(
-                    _measure_text_block(shift_text, measure_number, start, placement, staff)
+                    _measure_text_block(
+                        shift_text, measure_number, start, placement, staff
+                    )
                 )
 
         for child in list(direction_type):
             name = _local_name(child.tag)
-            if name in {"words", "rehearsal", "dynamics", "metronome", "wedge", "pedal", "octave-shift"}:
+            if name in {
+                "words",
+                "rehearsal",
+                "dynamics",
+                "metronome",
+                "wedge",
+                "pedal",
+                "octave-shift",
+            }:
                 continue
             text = _text(child) or _direction_symbol_text(name)
             if text:
-                blocks.append(_measure_text_block(text, measure_number, start, placement, staff))
+                blocks.append(
+                    _measure_text_block(text, measure_number, start, placement, staff)
+                )
     return blocks
 
 
@@ -386,7 +487,11 @@ def _notation_marks(element: ET.Element | None, ns: str) -> list[str]:
         text = _text(child)
         if text and name in {"fingering", "string", "fret"}:
             marks.append(text)
-        elif text and name in {"other-technical", "other-ornament", "other-articulation"}:
+        elif text and name in {
+            "other-technical",
+            "other-ornament",
+            "other-articulation",
+        }:
             marks.append(text)
         else:
             marks.append(name.removeprefix(f"{{{ns}}}") if ns else name)
@@ -400,7 +505,11 @@ def _dynamic_text(dynamics: ET.Element | None, ns: str) -> str | None:
     text = _text(child)
     if text:
         return text
-    return _local_name(child.tag).removeprefix(f"{{{ns}}}") if ns else _local_name(child.tag)
+    return (
+        _local_name(child.tag).removeprefix(f"{{{ns}}}")
+        if ns
+        else _local_name(child.tag)
+    )
 
 
 def _metronome_text(metronome: ET.Element | None, ns: str) -> str | None:
@@ -448,8 +557,22 @@ def _direction_symbol_text(name: str) -> str | None:
 
 def _is_dynamic_name(text: str) -> bool:
     return text in {
-        "p", "pp", "ppp", "pppp", "f", "ff", "fff", "ffff",
-        "mp", "mf", "sf", "sfz", "sfp", "fp", "fz", "rfz",
+        "p",
+        "pp",
+        "ppp",
+        "pppp",
+        "f",
+        "ff",
+        "fff",
+        "ffff",
+        "mp",
+        "mf",
+        "sf",
+        "sfz",
+        "sfp",
+        "fp",
+        "fz",
+        "rfz",
     }
 
 

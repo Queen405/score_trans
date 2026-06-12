@@ -22,6 +22,11 @@ class RenderItem:
     ornaments: list[str] = field(default_factory=list)
     technical: list[str] = field(default_factory=list)
     playback_index: int | None = None
+    tuplet_id: str | None = None
+    tuplet_count: int | None = None
+    tuplet_index: int | None = None
+    tuplet_start: bool = False
+    tuplet_stop: bool = False
 
 
 @dataclass(slots=True)

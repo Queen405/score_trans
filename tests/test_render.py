@@ -4,9 +4,20 @@ import xml.etree.ElementTree as ET
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.domain.musicxml import musicxml_to_score
 from score_trans.exec.render.actions import RenderJianpuTextAction
-from score_trans.models.score import JianpuEvent, JianpuMeasure, JianpuPitch, JianpuScore, TextBlock
+from score_trans.models.score import (
+    JianpuEvent,
+    JianpuMeasure,
+    JianpuPitch,
+    JianpuScore,
+    TextBlock,
+)
 from score_trans.services.ocr.providers import MockOCRProvider
-from score_trans.services.render import RenderOptions, render_jianpu_svg, render_score_page_svg, render_score_svg
+from score_trans.services.render import (
+    RenderOptions,
+    render_jianpu_svg,
+    render_score_page_svg,
+    render_score_svg,
+)
 
 
 def _svg_root(svg: str) -> ET.Element:
@@ -17,8 +28,16 @@ def _svg_elements(root: ET.Element, tag: str) -> list[ET.Element]:
     return [element for element in root.iter() if element.tag.endswith(tag)]
 
 
-def _simple_score(*events: JianpuEvent, text_blocks: list[TextBlock] | None = None) -> JianpuScore:
-    score = JianpuScore(title="Rendered page", target_key="C", beats=4, beat_type=4, text_blocks=text_blocks or [])
+def _simple_score(
+    *events: JianpuEvent, text_blocks: list[TextBlock] | None = None
+) -> JianpuScore:
+    score = JianpuScore(
+        title="Rendered page",
+        target_key="C",
+        beats=4,
+        beat_type=4,
+        text_blocks=text_blocks or [],
+    )
     score.measures.append(
         JianpuMeasure(
             source_number="1",
@@ -52,21 +71,41 @@ def test_render_jianpu_svg_marks_playback_note_indices() -> None:
 
 
 def test_render_new_syntax_repeat_marks_and_semantics() -> None:
-    svg = render_jianpu_svg("title=完整\n1=C\n4/4\n|: \\f ^> q[#3'+5] 1~ ~1 (s2 s3) :|\nL: 春 风 又 绿")
+    svg = render_jianpu_svg(
+        "title=完整\n1=C\n4/4\n|: \\f ^> q[#3'+5] 1~ ~1 (s2 s3) :|\nL: 春 风 又 绿"
+    )
 
     assert "完整" in svg
     assert 'stroke-width="3.0"' in svg
-    assert '>f</text>' in svg
+    assert ">f</text>" in svg
     assert 'class="articulation"' in svg
-    assert '>#</text>' in svg
+    assert ">#</text>" in svg
     assert 'class="tie"' in svg
     assert 'class="slur"' in svg
     assert 'class="duration-line beam-line"' in svg
-    assert '>春</text>' in svg
+    assert ">春</text>" in svg
+
+
+def test_render_tuplet_group_shows_bracket_and_number() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\n$123$ 4 5 6 |")
+
+    assert 'class="tuplet-bracket"' in svg
+    assert 'class="tuplet-number"' in svg
+    assert ">3</text>" in svg
+
+
+def test_render_measure_level_key_and_time_signature_markers() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\n1 2 3 4 |\n1=G\n3/4\n1 2 3 |")
+
+    assert 'class="measure-attribute"' in svg
+    assert "1=G" in svg
+    assert "3/4" in svg
 
 
 def test_render_score_svg_uses_display_measure_number() -> None:
-    score = musicxml_to_score(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), start_measure_number=118)
+    score = musicxml_to_score(
+        jianpu_to_musicxml("1=C\n4/4\n1 2 |"), start_measure_number=118
+    )
 
     svg = render_score_svg(score)
 
@@ -76,7 +115,12 @@ def test_render_score_svg_uses_display_measure_number() -> None:
 
 def test_render_score_page_svg_preserves_requested_page_size() -> None:
     score = _simple_score(
-        JianpuEvent(kind="note", duration=Fraction(1, 1), pitches=[JianpuPitch(1)], start=Fraction(0, 1))
+        JianpuEvent(
+            kind="note",
+            duration=Fraction(1, 1),
+            pitches=[JianpuPitch(1)],
+            start=Fraction(0, 1),
+        )
     )
 
     svg = render_score_page_svg(score, page_width=1240, page_height=1754)
@@ -119,9 +163,13 @@ def test_render_jianpu_text_page_uses_editable_text_directives(tmp_path) -> None
     text_path = tmp_path / "score.txt"
     image_path = tmp_path / "score.png"
     output_path = tmp_path / "score.svg"
-    text_path.write_text("1=C\n4/4\n1 2 |\n\n@text 40 70 90 92 lyric 改后的歌词", encoding="utf-8")
+    text_path.write_text(
+        "1=C\n4/4\n1 2 |\n\n@text 40 70 90 92 lyric 改后的歌词", encoding="utf-8"
+    )
     image_path.write_bytes(b"fake image")
-    provider = MockOCRProvider([TextBlock("旧歌词", bbox=(40, 70, 90, 92), role="lyric")])
+    provider = MockOCRProvider(
+        [TextBlock("旧歌词", bbox=(40, 70, 90, 92), role="lyric")]
+    )
 
     RenderJianpuTextAction().execute_page(
         text_path,
@@ -159,7 +207,9 @@ def test_render_jianpu_text_page_supports_chord_tokens(tmp_path) -> None:
     assert ">2<" in svg
 
 
-def test_render_jianpu_text_page_accepts_ai_dotted_duration_prefix_variant(tmp_path) -> None:
+def test_render_jianpu_text_page_accepts_ai_dotted_duration_prefix_variant(
+    tmp_path,
+) -> None:
     text_path = tmp_path / "score.txt"
     image_path = tmp_path / "score.png"
     output_path = tmp_path / "score.svg"
@@ -183,13 +233,22 @@ def test_render_jianpu_text_page_accepts_ai_dotted_duration_prefix_variant(tmp_p
 
 def test_render_score_page_svg_places_ocr_text_block_at_bbox() -> None:
     score = _simple_score(
-        JianpuEvent(kind="note", duration=Fraction(1, 1), pitches=[JianpuPitch(1)], start=Fraction(0, 1)),
-        text_blocks=[TextBlock("Allegro sempre", bbox=(120, 40, 280, 64), role="expression")],
+        JianpuEvent(
+            kind="note",
+            duration=Fraction(1, 1),
+            pitches=[JianpuPitch(1)],
+            start=Fraction(0, 1),
+        ),
+        text_blocks=[
+            TextBlock("Allegro sempre", bbox=(120, 40, 280, 64), role="expression")
+        ],
     )
 
     svg = render_score_page_svg(score, page_width=600, page_height=800)
     root = _svg_root(svg)
-    ocr_text = next(text for text in _svg_elements(root, "text") if text.text == "Allegro sempre")
+    ocr_text = next(
+        text for text in _svg_elements(root, "text") if text.text == "Allegro sempre"
+    )
 
     assert "Allegro sempre" in svg
     assert ocr_text.attrib["class"] == "ocr-overlay"
@@ -200,13 +259,20 @@ def test_render_score_page_svg_places_ocr_text_block_at_bbox() -> None:
 
 def test_render_score_page_svg_keeps_bboxless_ocr_text_visible() -> None:
     score = _simple_score(
-        JianpuEvent(kind="note", duration=Fraction(1, 1), pitches=[JianpuPitch(1)], start=Fraction(0, 1)),
+        JianpuEvent(
+            kind="note",
+            duration=Fraction(1, 1),
+            pitches=[JianpuPitch(1)],
+            start=Fraction(0, 1),
+        ),
         text_blocks=[TextBlock("原谱标题", role="title")],
     )
 
     svg = render_score_page_svg(score, page_width=600, page_height=800)
     root = _svg_root(svg)
-    ocr_text = next(text for text in _svg_elements(root, "text") if text.text == "原谱标题")
+    ocr_text = next(
+        text for text in _svg_elements(root, "text") if text.text == "原谱标题"
+    )
 
     assert "原谱标题" in svg
     assert ocr_text.attrib["class"] == "ocr-overlay"
@@ -214,10 +280,14 @@ def test_render_score_page_svg_keeps_bboxless_ocr_text_visible() -> None:
     assert float(ocr_text.attrib["y"]) > 0
 
 
-def test_render_score_page_svg_uses_ocr_measure_number_without_overlay_duplicate() -> None:
+def test_render_score_page_svg_uses_ocr_measure_number_without_overlay_duplicate() -> (
+    None
+):
     musicxml = jianpu_to_musicxml("1=C\n4/4\n1 2 | 3 4 |")
     score = musicxml_to_score(musicxml)
-    score.text_blocks.append(TextBlock("88", bbox=(12, 20, 28, 38), role="measure_number"))
+    score.text_blocks.append(
+        TextBlock("88", bbox=(12, 20, 28, 38), role="measure_number")
+    )
     for index, measure in enumerate(score.measures):
         measure.display_number = 88 + index
 
@@ -225,9 +295,12 @@ def test_render_score_page_svg_uses_ocr_measure_number_without_overlay_duplicate
     root = _svg_root(svg)
     texts = _svg_elements(root, "text")
 
-    measure_numbers = [text.text for text in texts if text.attrib.get("class") == "measure-no"]
+    measure_numbers = [
+        text.text for text in texts if text.attrib.get("class") == "measure-no"
+    ]
     positioned_numbers = [
-        text for text in texts
+        text
+        for text in texts
         if text.text == "88" and text.attrib.get("class") in {"ocr-overlay", "dynamic"}
     ]
     assert measure_numbers[:2] == ["88", "89"]
@@ -251,7 +324,10 @@ def test_render_score_page_svg_renders_dynamic_and_fermata() -> None:
     text_elements = _svg_elements(root, "text")
     path_elements = _svg_elements(root, "path")
 
-    assert any(text.attrib.get("class") == "dynamic" and text.text == "f" for text in text_elements)
+    assert any(
+        text.attrib.get("class") == "dynamic" and text.text == "f"
+        for text in text_elements
+    )
     assert any(path.attrib.get("class") == "articulation" for path in path_elements)
 
 
@@ -284,15 +360,16 @@ def test_musicxml_direction_marks_attach_to_note_and_positioned_words() -> None:
     score = musicxml_to_score(xml)
     svg = render_score_svg(score)
 
-    assert '>f</text>' in svg
-    assert 'poco rit.' in svg
-    assert '>tr</text>' in svg
-    assert '>2</text>' in svg
+    assert ">f</text>" in svg
+    assert "poco rit." in svg
+    assert ">tr</text>" in svg
+    assert ">2</text>" in svg
     assert 'class="articulation"' in svg
 
 
 def _path_first_m(path_d: str) -> tuple[float, float]:
     import re
+
     m = re.search(r"M\s+([\d.]+)\s+([\d.]+)", path_d)
     if m:
         return float(m.group(1)), float(m.group(2))
@@ -324,8 +401,16 @@ def test_musicxml_tremolo_renders_zhongruan_roll_mark_below_right() -> None:
     score = musicxml_to_score(xml)
     svg = render_score_svg(score)
     root = _svg_root(svg)
-    roll = next(el for el in _svg_elements(root, "path") if el.attrib.get("class") == "technique-mark")
-    note = next(text for text in _svg_elements(root, "text") if text.attrib.get("class") == "note" and text.text == "2")
+    roll = next(
+        el
+        for el in _svg_elements(root, "path")
+        if el.attrib.get("class") == "technique-mark"
+    )
+    note = next(
+        text
+        for text in _svg_elements(root, "text")
+        if text.attrib.get("class") == "note" and text.text == "2"
+    )
 
     roll_x, roll_y = _path_first_m(roll.attrib["d"])
     assert roll_x > float(note.attrib["x"])
@@ -341,8 +426,16 @@ def test_jianpu_text_roll_mark_renders_below_right() -> None:
     svg = render_score_svg(score)
     root = _svg_root(svg)
 
-    roll = next(el for el in _svg_elements(root, "path") if el.attrib.get("class") == "technique-mark")
-    note = next(text for text in _svg_elements(root, "text") if text.attrib.get("class") == "note" and text.text == "1")
+    roll = next(
+        el
+        for el in _svg_elements(root, "path")
+        if el.attrib.get("class") == "technique-mark"
+    )
+    note = next(
+        text
+        for text in _svg_elements(root, "text")
+        if text.attrib.get("class") == "note" and text.text == "1"
+    )
 
     roll_x, roll_y = _path_first_m(roll.attrib["d"])
     assert roll_x > float(note.attrib["x"])
@@ -359,7 +452,7 @@ def test_jianpu_text_roll_mark_roundtrip() -> None:
     out = score_to_jianpu_text(score)
 
     assert "^l" in out
-    assert "class=\"lyric\"" not in out
+    assert 'class="lyric"' not in out
     score2 = parse_jianpu_score(out)
     assert score2.measures[0].events[0].ornaments == ["tremolo"]
     assert score2.measures[0].events[0].articulations == []
@@ -398,11 +491,11 @@ def test_musicxml_explicit_accidentals_render_as_separate_symbols() -> None:
     score = musicxml_to_score(xml)
     svg = render_score_svg(score)
 
-    assert '>#</text>' in svg
-    assert '>♮</text>' in svg
-    assert '>bb</text>' in svg
-    assert '>#4</text>' not in svg
-    assert '>n7</text>' not in svg
+    assert ">#</text>" in svg
+    assert ">♮</text>" in svg
+    assert ">bb</text>" in svg
+    assert ">#4</text>" not in svg
+    assert ">n7</text>" not in svg
 
 
 def test_render_text_uses_publication_marks() -> None:
@@ -519,12 +612,12 @@ def test_quarter_notes_break_beam_groups() -> None:
 def test_accidentals_are_rendered_smaller_than_note_digits() -> None:
     svg = render_jianpu_svg("1=C\n4/4\nb6 #4 |")
 
-    assert '.accidental { font-size: 18px' in svg
+    assert ".accidental { font-size: 18px" in svg
     assert '<text class="accidental"' in svg
-    assert '>b</text>' in svg
-    assert '>#</text>' in svg
-    assert '>b6</text>' not in svg
-    assert '>#4</text>' not in svg
+    assert ">b</text>" in svg
+    assert ">#</text>" in svg
+    assert ">b6</text>" not in svg
+    assert ">#4</text>" not in svg
 
 
 def test_text_tie_and_slur_arcs_stay_close_to_noteheads() -> None:
@@ -586,7 +679,9 @@ def test_chord_tie_sits_below_duration_lines() -> None:
     svg = render_score_svg(score)
 
     tie_line = next(line for line in svg.splitlines() if 'class="tie"' in line)
-    beam_line = next(line for line in svg.splitlines() if 'class="duration-line beam-line"' in line)
+    beam_line = next(
+        line for line in svg.splitlines() if 'class="duration-line beam-line"' in line
+    )
     tie_y = float(tie_line.split("M ")[1].split(" ")[1])
     beam_y = float(beam_line.split('y1="')[1].split('"')[0])
     assert tie_y > beam_y + 4
@@ -602,7 +697,11 @@ def test_chord_accent_sits_above_highest_note() -> None:
                 JianpuEvent(
                     kind="note",
                     duration=Fraction(1, 1),
-                    pitches=[JianpuPitch(1, octave=1), JianpuPitch(5), JianpuPitch(1, octave=-1)],
+                    pitches=[
+                        JianpuPitch(1, octave=1),
+                        JianpuPitch(5),
+                        JianpuPitch(1, octave=-1),
+                    ],
                     articulations=["accent"],
                     start=Fraction(0, 1),
                 ),
@@ -617,7 +716,11 @@ def test_chord_accent_sits_above_highest_note() -> None:
         for text in _svg_elements(root, "text")
         if text.attrib.get("class") == "note"
     ]
-    accent = next(path for path in _svg_elements(root, "path") if path.attrib.get("class") == "articulation")
+    accent = next(
+        path
+        for path in _svg_elements(root, "path")
+        if path.attrib.get("class") == "articulation"
+    )
     accent_y = float(accent.attrib["d"].split()[2])
 
     assert accent_y < min(note_ys) - 20
@@ -629,7 +732,14 @@ def test_generated_full_measure_rest_is_split_into_visible_beats() -> None:
         JianpuMeasure(
             source_number="1",
             duration=Fraction(4, 1),
-            events=[JianpuEvent(kind="rest", duration=Fraction(4, 1), start=Fraction(0, 1), generated=True)],
+            events=[
+                JianpuEvent(
+                    kind="rest",
+                    duration=Fraction(4, 1),
+                    start=Fraction(0, 1),
+                    generated=True,
+                )
+            ],
         )
     )
 
@@ -645,7 +755,9 @@ def test_musicxml_full_measure_rest_is_split_into_visible_beats() -> None:
         JianpuMeasure(
             source_number="1",
             duration=Fraction(4, 1),
-            events=[JianpuEvent(kind="rest", duration=Fraction(4, 1), start=Fraction(0, 1))],
+            events=[
+                JianpuEvent(kind="rest", duration=Fraction(4, 1), start=Fraction(0, 1))
+            ],
         )
     )
 
@@ -659,7 +771,9 @@ def test_low_octave_duration_line_sits_below_low_dot() -> None:
     svg = render_jianpu_svg("1=C\n4/4\nq5, |")
 
     dot_line = next(line for line in svg.splitlines() if 'class="octave-dot"' in line)
-    beam_line = next(line for line in svg.splitlines() if 'class="duration-line beam-line"' in line)
+    beam_line = next(
+        line for line in svg.splitlines() if 'class="duration-line beam-line"' in line
+    )
     dot_y = float(dot_line.split('cy="')[1].split('"')[0])
     beam_y = float(beam_line.split('y1="')[1].split('"')[0])
 
@@ -669,7 +783,9 @@ def test_low_octave_duration_line_sits_below_low_dot() -> None:
 def test_low_octave_dot_sits_close_to_notehead() -> None:
     svg = render_jianpu_svg("1=C\n4/4\n1, |")
 
-    note_line = next(line for line in svg.splitlines() if 'class="note"' in line and ">1<" in line)
+    note_line = next(
+        line for line in svg.splitlines() if 'class="note"' in line and ">1<" in line
+    )
     dot_line = next(line for line in svg.splitlines() if 'class="octave-dot"' in line)
     note_y = float(note_line.split('y="')[1].split('"')[0])
     dot_y = float(dot_line.split('cy="')[1].split('"')[0])
@@ -681,7 +797,9 @@ def test_extension_line_sits_at_note_height_not_below_note() -> None:
     svg = render_jianpu_svg("1=C\n4/4\n2--- |")
 
     note_line = next(line for line in svg.splitlines() if 'class="note"' in line)
-    extension_line = next(line for line in svg.splitlines() if 'class="extension-line"' in line)
+    extension_line = next(
+        line for line in svg.splitlines() if 'class="extension-line"' in line
+    )
     note_y = float(note_line.split('y="')[1].split('"')[0])
     extension_y = float(extension_line.split('y1="')[1].split('"')[0])
 

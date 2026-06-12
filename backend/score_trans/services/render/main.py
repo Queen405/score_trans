@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
 
 from ...domain.jianpu import parse_jianpu_score
 from ...models.score import JianpuScore, TextBlock
@@ -19,7 +18,9 @@ from .utils.helpers import _first_ocr_measure_number
 from .utils.text import _esc, _extract_text_directives
 
 
-def render_jianpu_svg(jianpu_text: str | JianpuScore, options: RenderOptions | None = None) -> str:
+def render_jianpu_svg(
+    jianpu_text: str | JianpuScore, options: RenderOptions | None = None
+) -> str:
     if isinstance(jianpu_text, JianpuScore):
         return render_score_svg(jianpu_text, options)
     options = options or RenderOptions()
@@ -74,22 +75,39 @@ def render_jianpu_page_svg(
 
     out = _svg_page_header(page_options, width, height)
     y = top
+    previous_attributes: tuple[str, int, int] | None = None
     for row in rows:
         x = float(page_options.margin)
         open_tie = None
         open_slur = None
         for index, measure in enumerate(row):
+            attribute_text, previous_attributes = _measure_attribute_text(
+                measure, previous_attributes
+            )
             svg_lines, open_tie, open_slur = _render_measure(
-                measure, x, int(y), measure.width, page_options,
-                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+                measure,
+                x,
+                int(y),
+                measure.width,
+                page_options,
+                draw_start_bar=index == 0,
+                attribute_text=attribute_text,
+                open_tie=open_tie,
+                open_slur=open_slur,
             )
             out.extend(svg_lines)
             x += measure.width
-        out.extend(_finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur))
+        out.extend(
+            _finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur)
+        )
         y += page_options.line_height
         if y > height - bottom:
             break
-    out.extend(_render_positioned_text_blocks(positioned_blocks, width, height, include_measure_numbers=False))
+    out.extend(
+        _render_positioned_text_blocks(
+            positioned_blocks, width, height, include_measure_numbers=False
+        )
+    )
     out.append("</svg>")
     return "\n".join(out)
 
@@ -140,28 +158,49 @@ def render_score_page_svg(
 
     out = _svg_page_header(page_options, width, height)
     y = top
+    previous_attributes: tuple[str, int, int] | None = None
     for row in rows:
         x = float(page_options.margin)
         open_tie = None
         open_slur = None
         for index, measure in enumerate(row):
+            attribute_text, previous_attributes = _measure_attribute_text(
+                measure, previous_attributes
+            )
             svg_lines, open_tie, open_slur = _render_measure(
-                measure, x, int(y), measure.width, page_options,
-                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+                measure,
+                x,
+                int(y),
+                measure.width,
+                page_options,
+                draw_start_bar=index == 0,
+                attribute_text=attribute_text,
+                open_tie=open_tie,
+                open_slur=open_slur,
             )
             out.extend(svg_lines)
             x += measure.width
-        out.extend(_finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur))
+        out.extend(
+            _finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur)
+        )
         y += page_options.line_height
         if y > height - bottom:
             break
-    out.extend(_render_positioned_text_blocks(score.text_blocks, width, height, include_measure_numbers=False))
+    out.extend(
+        _render_positioned_text_blocks(
+            score.text_blocks, width, height, include_measure_numbers=False
+        )
+    )
     out.append("</svg>")
     return "\n".join(out)
 
 
-def render_jianpu_file_to_svg(input_path: Path, output_path: Path, title: str = "简谱") -> Path:
-    svg = render_jianpu_svg(input_path.read_text(encoding="utf-8"), RenderOptions(title=title))
+def render_jianpu_file_to_svg(
+    input_path: Path, output_path: Path, title: str = "简谱"
+) -> Path:
+    svg = render_jianpu_svg(
+        input_path.read_text(encoding="utf-8"), RenderOptions(title=title)
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
     return output_path
@@ -190,7 +229,9 @@ def render_jianpu_page_file_to_svg(
     return output_path
 
 
-def render_score_file_to_svg(score: JianpuScore, output_path: Path, title: str | None = None) -> Path:
+def render_score_file_to_svg(
+    score: JianpuScore, output_path: Path, title: str | None = None
+) -> Path:
     svg = render_score_svg(score, RenderOptions(title=title or score.title))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
@@ -205,7 +246,9 @@ def render_score_page_file_to_svg(
     page_height: float,
     title: str | None = None,
 ) -> Path:
-    svg = render_score_page_svg(score, page_width=page_width, page_height=page_height, title=title)
+    svg = render_score_page_svg(
+        score, page_width=page_width, page_height=page_height, title=title
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
     return output_path
@@ -220,9 +263,15 @@ def _render_layouts(
 ) -> str:
     rows = _layout_rows(layouts, options)
     footer_height = 80 if footer_text else 0
-    height = options.margin * 2 + 126 + max(1, len(rows)) * options.line_height + footer_height
+    height = (
+        options.margin * 2
+        + 126
+        + max(1, len(rows)) * options.line_height
+        + footer_height
+    )
     out = _svg_header(options, height, title, meta)
     y = options.margin + 126
+    previous_attributes: tuple[str, int, int] | None = None
     for row in rows:
         row_width = sum(measure.width for measure in row)
         if options.show_staff_guides:
@@ -234,21 +283,37 @@ def _render_layouts(
         open_tie = None
         open_slur = None
         for index, measure in enumerate(row):
+            attribute_text, previous_attributes = _measure_attribute_text(
+                measure, previous_attributes
+            )
             svg_lines, open_tie, open_slur = _render_measure(
-                measure, x, y, measure.width, options,
-                draw_start_bar=index == 0, open_tie=open_tie, open_slur=open_slur,
+                measure,
+                x,
+                y,
+                measure.width,
+                options,
+                draw_start_bar=index == 0,
+                attribute_text=attribute_text,
+                open_tie=open_tie,
+                open_slur=open_slur,
             )
             out.extend(svg_lines)
             x += measure.width
-        out.extend(_finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur))
+        out.extend(
+            _finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur)
+        )
         y += options.line_height
     if footer_text:
-        out.append(f'<text class="ocr-text" x="{options.margin}" y="{height - options.margin + 8}">{_esc(footer_text)}</text>')
+        out.append(
+            f'<text class="ocr-text" x="{options.margin}" y="{height - options.margin + 8}">{_esc(footer_text)}</text>'
+        )
     out.append("</svg>")
     return "\n".join(out)
 
 
-def _score_layouts_with_playback_indices(score: JianpuScore, options: RenderOptions) -> list[MeasureLayout]:
+def _score_layouts_with_playback_indices(
+    score: JianpuScore, options: RenderOptions
+) -> list[MeasureLayout]:
     layouts: list[MeasureLayout] = []
     playback_index = 0
     for measure in score.measures:
@@ -261,6 +326,25 @@ def _score_layouts_with_playback_indices(score: JianpuScore, options: RenderOpti
                 playback_index += 1
         layouts.append(layout)
     return layouts
+
+
+def _measure_attribute_text(
+    measure: MeasureLayout,
+    previous: tuple[str, int, int] | None,
+) -> tuple[str | None, tuple[str, int, int]]:
+    source = measure.source
+    key = getattr(source, "target_key", "C")
+    beats = getattr(source, "beats_per_measure", 4)
+    beat_type = getattr(source, "beat_type", 4)
+    current = (key, beats, beat_type)
+    if previous is None:
+        return None, current
+    parts: list[str] = []
+    if key != previous[0]:
+        parts.append(f"1={key}")
+    if beats != previous[1] or beat_type != previous[2]:
+        parts.append(f"{beats}/{beat_type}")
+    return "  ".join(parts) if parts else None, current
 
 
 def _is_playable_note_token(token: str) -> bool:

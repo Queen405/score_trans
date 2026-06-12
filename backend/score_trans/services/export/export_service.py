@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fractions import Fraction
-from io import BytesIO
 from pathlib import Path
 
 import fitz
@@ -54,7 +53,9 @@ class ExportService:
     def __init__(self, render_service: RenderService | None = None) -> None:
         self.render_service = render_service or RenderService()
 
-    def export_svg(self, score: JianpuScore, output_path: Path, title: str | None = None) -> Path:
+    def export_svg(
+        self, score: JianpuScore, output_path: Path, title: str | None = None
+    ) -> Path:
         self.render_service.render_score_svg(score, output_path, title=title)
         return output_path
 
@@ -66,14 +67,15 @@ class ExportService:
         tempo = mido.bpm2tempo(MIDI_DEFAULT_BPM)
         track.append(mido.MetaMessage("set_tempo", tempo=tempo, time=0))
 
-        key = score.target_key
-        beat_type = score.beat_type
-
         for measure in score.measures:
+            key = getattr(measure, "target_key", score.target_key)
+            beat_type = getattr(measure, "beat_type", score.beat_type)
             for event in measure.events:
                 if event.kind == "rest":
                     ticks = _duration_to_ticks(event.duration, beat_type)
-                    track.append(mido.Message("note_off", note=0, velocity=0, time=ticks))
+                    track.append(
+                        mido.Message("note_off", note=0, velocity=0, time=ticks)
+                    )
                     continue
                 if not event.pitches:
                     continue
@@ -81,16 +83,32 @@ class ExportService:
                 ticks = _duration_to_ticks(event.duration, beat_type)
                 for i, pitch in enumerate(event.pitches):
                     midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
-                    track.append(mido.Message("note_on", note=midi_note, velocity=MIDI_DEFAULT_VELOCITY, time=0))
+                    track.append(
+                        mido.Message(
+                            "note_on",
+                            note=midi_note,
+                            velocity=MIDI_DEFAULT_VELOCITY,
+                            time=0,
+                        )
+                    )
                 for i, pitch in enumerate(event.pitches):
                     midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
-                    track.append(mido.Message("note_off", note=midi_note, velocity=0, time=ticks if i == 0 else 0))
+                    track.append(
+                        mido.Message(
+                            "note_off",
+                            note=midi_note,
+                            velocity=0,
+                            time=ticks if i == 0 else 0,
+                        )
+                    )
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         mid.save(str(output_path))
         return output_path
 
-    def export(self, score: JianpuScore, output_path: Path, title: str | None = None) -> Path:
+    def export(
+        self, score: JianpuScore, output_path: Path, title: str | None = None
+    ) -> Path:
         fmt = output_path.suffix.lower()
         if fmt == ".svg":
             return self.export_svg(score, output_path, title=title)

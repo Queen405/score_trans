@@ -16,7 +16,7 @@
         :value="modelValue"
         @input="onInput"
         @scroll="syncScroll"
-        placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 q3 q4 | h[1+3+5] \p |&#10;L: 春 风 又 绿"
+        placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 $345$ 4 |&#10;1=G&#10;3/4&#10;h[1+3+5] \p 4 |&#10;L: 春 风 又 绿"
         class="editor-textarea"
         spellcheck="false"
       />
@@ -141,8 +141,7 @@ function needsFormat(text: string): boolean {
     if (!trimmed) continue
     // 包含 | 的就是小节（即使以 \ 开头），只检查是否需要按 | 分割
     if (trimmed.includes('|')) {
-      // 检测独立 | 后紧跟非空格（如 3|4），但排除 ||、|:、:|
-      if (/(?<![:\s|])\|(?![\s|:])/.test(line)) return true
+      if (hasStandaloneBarBeforeMoreContent(line)) return true
       continue
     }
     if (
@@ -155,6 +154,18 @@ function needsFormat(text: string): boolean {
     ) {
       continue
     }
+  }
+  return false
+}
+
+function hasStandaloneBarBeforeMoreContent(line: string): boolean {
+  for (let i = 0; i < line.length; i += 1) {
+    if (line[i] !== '|') continue
+    const before = i > 0 ? line[i - 1] : ''
+    const after = i + 1 < line.length ? line[i + 1] : ''
+    if (before === ':' || before === '|') continue
+    if (after === '|' || after === ':') continue
+    if (line.slice(i + 1).trim().length > 0) return true
   }
   return false
 }
@@ -201,7 +212,10 @@ watch(
     if (!val) return
     if (!needsFormat(val)) return
     const formatted = formatMeasures(val)
+    if (formatted === val) return
+    const state = textareaState()
     emit('update:modelValue', formatted)
+    restoreTextareaState(state)
   },
   { immediate: true },
 )
@@ -281,6 +295,33 @@ function refreshEditorMetrics(): void {
     paddingLeft: parseFloat(style.paddingLeft) || 0,
     paddingTop: parseFloat(style.paddingTop) || 0,
   }
+}
+
+function textareaState(): { start: number; end: number; scrollTop: number; scrollLeft: number } | null {
+  const el = textareaRef.value
+  if (!el) return null
+  return {
+    start: el.selectionStart,
+    end: el.selectionEnd,
+    scrollTop: el.scrollTop,
+    scrollLeft: el.scrollLeft,
+  }
+}
+
+function restoreTextareaState(
+  state: { start: number; end: number; scrollTop: number; scrollLeft: number } | null,
+): void {
+  if (!state) return
+  nextTick(() => {
+    const el = textareaRef.value
+    if (!el) return
+    const max = el.value.length
+    el.selectionStart = Math.min(state.start, max)
+    el.selectionEnd = Math.min(state.end, max)
+    el.scrollTop = state.scrollTop
+    el.scrollLeft = state.scrollLeft
+    syncScrollPosition(el)
+  })
 }
 
 function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn: number }): void {

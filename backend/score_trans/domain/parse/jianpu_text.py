@@ -50,7 +50,13 @@ def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
             else:
                 pitch = event.pitches[0] if event.pitches else JianpuPitch(1)
                 tokens.append(
-                    ParsedToken("note", str(pitch.degree), event.duration, pitch.octave, pitch.accidental)
+                    ParsedToken(
+                        "note",
+                        str(pitch.degree),
+                        event.duration,
+                        pitch.octave,
+                        pitch.accidental,
+                    )
                 )
         tokens.append(ParsedToken("bar", "|"))
     return options, tokens
@@ -80,24 +86,33 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     open_tie = False
     measure_number = 1
     next_repeat_start = False
+    current_key = options.key
+    current_beats = options.beats
+    current_beat_type = options.beat_type
 
     def flush_measure() -> None:
-        nonlocal current_events, current_blocks, cursor, measure_number, next_repeat_start, pending_repeat_count
+        nonlocal \
+            current_events, \
+            current_blocks, \
+            cursor, \
+            measure_number, \
+            next_repeat_start, \
+            pending_repeat_count
         if not current_events and not current_blocks:
             return
         measure = Measure(
             source_number=str(measure_number),
-            duration=score.measure_duration,
+            duration=Fraction(current_beats * 4, current_beat_type),
             events=current_events,
             text_blocks=current_blocks,
-            beats_per_measure=score.beats,
-            beat_type=score.beat_type,
-            source_key=score.source_key,
-            target_key=score.target_key,
+            beats_per_measure=current_beats,
+            beat_type=current_beat_type,
+            source_key=current_key,
+            target_key=current_key,
             repeat_start=next_repeat_start,
             repeat_count=pending_repeat_count,
         )
-        _normalize_parsed_measure(measure, score)
+        _normalize_parsed_measure(measure)
         score.measures.append(measure)
         current_events = []
         current_blocks = []
@@ -106,39 +121,14 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         next_repeat_start = False
         pending_repeat_count = 1
 
-    for token in token_lines:
-        raw = token.value
-        if raw in {"|", "||"}:
-            flush_measure()
-            continue
-        if raw == "|:":
-            flush_measure()
-            next_repeat_start = True
-            continue
-        if raw == ":|":
-            flush_measure()
-            if score.measures:
-                score.measures[-1].repeat_end = True
-            continue
-        if re.fullmatch(r"\*\d+", raw):
-            pending_repeat_count = max(1, int(raw[1:]))
-            continue
-        if raw.startswith("\\"):
-            dynamic = raw[1:]
-            if dynamic not in DYNAMICS:
-                raise _syntax_error(token, f"不支持的力度标记：{raw}，请使用 \\p、\\mp、\\f、\\ff 等")
-            pending_dynamic = dynamic
-            continue
-        if raw.startswith("^"):
-            name = raw[1:]
-            ornament = _ornament_name(name)
-            if ornament:
-                pending_ornaments.append(ornament)
-            else:
-                pending_articulations.append(_articulation_name(name))
-            continue
-
-        event = _parse_event_token(token)
+    def append_event(event: Event, raw: str) -> None:
+        nonlocal \
+            cursor, \
+            pending_dynamic, \
+            pending_articulations, \
+            pending_ornaments, \
+            open_slur, \
+            open_tie
         event.source_token = raw
         event.start = cursor
         if pending_dynamic:
@@ -168,6 +158,58 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         current_events.append(event)
         cursor += event.duration
 
+    for token in token_lines:
+        raw = token.value
+        key_signature = _key_signature_value(raw)
+        if key_signature is not None:
+            if current_events or current_blocks:
+                flush_measure()
+            current_key = key_signature
+            continue
+        time_signature = _time_signature_value(raw)
+        if time_signature is not None:
+            if current_events or current_blocks:
+                flush_measure()
+            current_beats, current_beat_type = time_signature
+            continue
+        if raw in {"|", "||"}:
+            flush_measure()
+            continue
+        if raw == "|:":
+            flush_measure()
+            next_repeat_start = True
+            continue
+        if raw == ":|":
+            flush_measure()
+            if score.measures:
+                score.measures[-1].repeat_end = True
+            continue
+        if re.fullmatch(r"\*\d+", raw):
+            pending_repeat_count = max(1, int(raw[1:]))
+            continue
+        if raw.startswith("\\"):
+            dynamic = raw[1:]
+            if dynamic not in DYNAMICS:
+                raise _syntax_error(
+                    token, f"不支持的力度标记：{raw}，请使用 \\p、\\mp、\\f、\\ff 等"
+                )
+            pending_dynamic = dynamic
+            continue
+        if raw.startswith("^"):
+            name = raw[1:]
+            ornament = _ornament_name(name)
+            if ornament:
+                pending_ornaments.append(ornament)
+            else:
+                pending_articulations.append(_articulation_name(name))
+            continue
+        if raw.startswith("$") and raw.endswith("$"):
+            for event, source_token in _parse_tuplet_token(token):
+                append_event(event, source_token)
+            continue
+
+        append_event(_parse_event_token(token), raw)
+
     if current_events or current_blocks or not score.measures:
         flush_measure()
 
@@ -184,6 +226,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
     tokens: list[_Token] = []
     lyrics: list[str] = []
     saw_time = False
+    saw_score_tokens = False
     for line_no, raw_line in enumerate(text.splitlines(), start=1):
         stripped = raw_line.strip()
         if not stripped or stripped.startswith("#"):
@@ -195,10 +238,15 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
         if stripped.startswith("L:"):
             lyrics.extend(part for part in stripped[2:].strip().split() if part)
             continue
-        if "=" in stripped and not stripped.startswith(("|", ":", "[", "\\", "^")):
+        if "=" in stripped and not stripped.startswith(("|", ":", "[", "\\", "^", "$")):
             key, value = [part.strip() for part in stripped.split("=", 1)]
-            if key == "1":
-                options.key = value
+            if key == "1" and _is_key_name(value):
+                if saw_score_tokens:
+                    tokens.append(
+                        _Token(stripped, line_no, raw_line.find(stripped) + 1)
+                    )
+                else:
+                    options.key = value
                 continue
             if key == "title":
                 options.title = value or options.title
@@ -207,20 +255,34 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                 options.tempo = int(value)
                 continue
             if key.lower() in {"key", "time"}:
-                raise ValueError(f"第 {line_no} 行：旧语法 `{key}=` 已废弃，请使用 `1=C` 和 `4/4`")
+                raise ValueError(
+                    f"第 {line_no} 行：旧语法 `{key}=` 已废弃，请使用 `1=C` 和 `4/4`"
+                )
         if re.fullmatch(r"\d+/\d+", stripped) and not saw_time:
             beats, beat_type = stripped.split("/", 1)
-            options.beats = int(beats)
-            options.beat_type = int(beat_type)
-            saw_time = True
+            if saw_score_tokens:
+                tokens.append(_Token(stripped, line_no, raw_line.find(stripped) + 1))
+            else:
+                options.beats = int(beats)
+                options.beat_type = int(beat_type)
+                saw_time = True
             continue
-        for match in re.finditer(r"\|\||\|:|:\||\||[^\s|]+", raw_line):
+        for match in re.finditer(r"\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+", raw_line):
             raw_token = match.group(0)
             if _is_measure_label_token(raw_token):
                 continue
-            if saw_time and re.fullmatch(r"\d+/\d+", raw_token.strip()):
+            key_signature = _key_signature_value(raw_token)
+            if key_signature is not None and not saw_score_tokens:
+                options.key = key_signature
+                continue
+            time_signature = _time_signature_value(raw_token.strip())
+            if time_signature is not None and not saw_score_tokens:
+                options.beats, options.beat_type = time_signature
+                saw_time = True
                 continue
             tokens.append(_Token(raw_token, line_no, match.start() + 1))
+            if key_signature is None and time_signature is None:
+                saw_score_tokens = True
     return options, tokens, lyrics
 
 
@@ -230,6 +292,65 @@ def _strip_leading_measure_label(line: str) -> str:
 
 def _is_measure_label_token(token: str) -> bool:
     return bool(re.fullmatch(r"\d+[.:：]", token.strip()))
+
+
+def _key_signature_value(token: str) -> str | None:
+    match = re.fullmatch(r"1\s*=\s*([A-G](?:#|b)?)", token.strip())
+    return match.group(1) if match else None
+
+
+def _time_signature_value(token: str) -> tuple[int, int] | None:
+    match = re.fullmatch(r"(\d+)/(\d+)", token.strip())
+    if not match:
+        return None
+    beats = int(match.group(1))
+    beat_type = int(match.group(2))
+    if beats <= 0 or beat_type <= 0:
+        return None
+    return beats, beat_type
+
+
+def _is_key_name(value: str) -> bool:
+    return bool(re.fullmatch(r"[A-G](?:#|b)?", value.strip()))
+
+
+def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
+    body = token.value.strip()[1:-1].strip()
+    parts = _split_tuplet_body(body)
+    if len(parts) < 2:
+        raise _syntax_error(token, "连音组至少需要两个音符，例如 $123$ 或 $1 2 3$")
+    duration = Fraction(1, len(parts))
+    group_id = f"{token.line}:{token.column}"
+    events: list[tuple[Event, str]] = []
+    for index, part in enumerate(parts):
+        part_token = _Token(part, token.line, token.column + 1 + body.find(part))
+        event = _parse_event_token(part_token)
+        event.duration = duration
+        event.dotted = 0
+        event.tuplet_id = group_id
+        event.tuplet_count = len(parts)
+        event.tuplet_index = index
+        event.tuplet_start = index == 0
+        event.tuplet_stop = index == len(parts) - 1
+        events.append((event, part))
+    return events
+
+
+def _split_tuplet_body(body: str) -> list[str]:
+    if not body:
+        return []
+    if re.search(r"\s", body):
+        return [part for part in body.split() if part]
+    parts: list[str] = []
+    index = 0
+    pattern = re.compile(r"(?:bb|x|n|♮|#|b)?[0-7][',]*[#b]?")
+    while index < len(body):
+        match = pattern.match(body, index)
+        if match is None:
+            return [body]
+        parts.append(match.group(0))
+        index = match.end()
+    return parts
 
 
 def _parse_event_token(token: _Token) -> Event:
@@ -258,17 +379,26 @@ def _parse_event_token(token: _Token) -> Event:
         duration += duration / 2
         work = work[:-1]
     if "/" in work:
-        raise _syntax_error(token, f"旧时值写法 `{token.value}` 已废弃，请使用 q/s/d 前缀，例如 q1 或 q[1+3]")
+        raise _syntax_error(
+            token,
+            f"旧时值写法 `{token.value}` 已废弃，请使用 q/s/d 前缀，例如 q1 或 q[1+3]",
+        )
     if work.startswith("[") and work.endswith("]"):
         parts = [part.strip() for part in work[1:-1].split("+") if part.strip()]
         if not parts:
             raise _syntax_error(token, "和弦不能为空，请写成 [1+3+5]")
-        event = Event(kind="note", duration=duration, pitches=[_parse_pitch(part, token) for part in parts])
+        event = Event(
+            kind="note",
+            duration=duration,
+            pitches=[_parse_pitch(part, token) for part in parts],
+        )
         event.pitches.sort(key=lambda pitch: pitch.rank, reverse=True)
     elif work == "0":
         event = Event(kind="rest", duration=duration)
     else:
-        event = Event(kind="note", duration=duration, pitches=[_parse_pitch(work, token)])
+        event = Event(
+            kind="note", duration=duration, pitches=[_parse_pitch(work, token)]
+        )
     event.dotted = 1 if dotted or prefix_dotted else 0
     event.tie_start = tie_start
     event.tie_stop = tie_stop
@@ -316,30 +446,39 @@ def _parse_pitch(raw: str, token: _Token) -> JianpuPitch:
             token,
             f"不支持的简谱 token：{token.value}，请使用 1-7、0、#1、q1、[1+3+5] 等新语法",
         )
-    return JianpuPitch(int(value), octave=octave, accidental=accidental, accidental_text=accidental_text)
+    return JianpuPitch(
+        int(value),
+        octave=octave,
+        accidental=accidental,
+        accidental_text=accidental_text,
+    )
 
 
 def _consume_duration_prefix(token: str) -> tuple[Fraction, str]:
     return consume_duration_prefix(token)
 
 
-def _normalize_parsed_measure(measure: Measure, score: JianpuScore) -> None:
-    target = score.measure_duration
-    beat_duration = score.beat_duration
+def _normalize_parsed_measure(measure: Measure) -> None:
+    target = Fraction(measure.beats_per_measure * 4, measure.beat_type)
+    beat_duration = Fraction(4, measure.beat_type)
     measure.duration = target
     measure.beats = [
         Beat(index=i + 1, duration=beat_duration, start=i * beat_duration)
-        for i in range(score.beats)
+        for i in range(measure.beats_per_measure)
     ]
     cursor = Fraction(0, 1)
     for event in measure.events:
         if event.start is None:
             event.start = cursor
-        beat_index = min(score.beats - 1, max(0, int(event.start / beat_duration)))
+        beat_index = min(
+            measure.beats_per_measure - 1, max(0, int(event.start / beat_duration))
+        )
         measure.beats[beat_index].events.append(event)
         cursor = event.start + event.duration
     if measure.span_duration > target:
-        measure.validation_errors.append(f"小节超拍：实际 {measure.span_duration}，目标 {target}")
+        measure.validation_errors.append(
+            f"小节超拍：实际 {measure.span_duration}，目标 {target}"
+        )
 
 
 def _apply_lyrics(score: JianpuScore, lyrics: list[str]) -> None:

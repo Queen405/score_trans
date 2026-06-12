@@ -6,9 +6,10 @@ export interface JianpuNoteSpan {
   token: string
 }
 
-const TOKEN_PATTERN = /\|\||\|:|:\||\||[^\s|]+/g
+const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g
 const DURATION_PREFIX_PATTERN = /^[whqsd]/
 const PITCH_PATTERN = /^(?:(?:bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
+const TUPLET_PART_PATTERN = /(?:bb|x|n|♮|#|b)?[0-7][',]*[#b]?/g
 
 export function findJianpuNoteSpans(text: string): JianpuNoteSpan[] {
   const spans: JianpuNoteSpan[] = []
@@ -19,6 +20,20 @@ export function findJianpuNoteSpans(text: string): JianpuNoteSpan[] {
 
     for (const match of line.matchAll(TOKEN_PATTERN)) {
       const token = match[0]
+      if (isTupletToken(token)) {
+        for (const part of tupletPartSpans(token, match.index ?? 0)) {
+          if (!isPlayableToken(part.token)) continue
+          spans.push({
+            index: noteIndex,
+            line: lineIndex,
+            startColumn: part.startColumn,
+            endColumn: part.endColumn,
+            token: part.token,
+          })
+          noteIndex += 1
+        }
+        continue
+      }
       if (!isPlayableToken(token)) continue
 
       const startColumn = match.index ?? 0
@@ -34,6 +49,29 @@ export function findJianpuNoteSpans(text: string): JianpuNoteSpan[] {
   })
 
   return spans
+}
+
+function isTupletToken(token: string): boolean {
+  return token.startsWith('$') && token.endsWith('$') && token.length > 2
+}
+
+function tupletPartSpans(
+  token: string,
+  tokenStartColumn: number,
+): Array<{ token: string; startColumn: number; endColumn: number }> {
+  const body = token.slice(1, -1)
+  if (/\s/.test(body)) {
+    return Array.from(body.matchAll(/\S+/g), (match) => {
+      const part = match[0]
+      const startColumn = tokenStartColumn + 1 + (match.index ?? 0)
+      return { token: part, startColumn, endColumn: startColumn + part.length }
+    })
+  }
+  return Array.from(body.matchAll(TUPLET_PART_PATTERN), (match) => {
+    const part = match[0]
+    const startColumn = tokenStartColumn + 1 + (match.index ?? 0)
+    return { token: part, startColumn, endColumn: startColumn + part.length }
+  })
 }
 
 function isMetadataLine(line: string): boolean {

@@ -5,7 +5,9 @@ from fractions import Fraction
 from typing import Literal
 
 
-TextRole = Literal["title", "instrument", "lyric", "expression", "footer", "measure_number", "other"]
+TextRole = Literal[
+    "title", "instrument", "lyric", "expression", "footer", "measure_number", "other"
+]
 EventKind = Literal["note", "rest"]
 
 
@@ -58,6 +60,11 @@ class Event:
     start: Fraction | None = None
     generated: bool = False
     source_token: str | None = None
+    tuplet_id: str | None = None
+    tuplet_count: int | None = None
+    tuplet_index: int | None = None
+    tuplet_start: bool = False
+    tuplet_stop: bool = False
 
     @property
     def is_chord(self) -> bool:
@@ -108,14 +115,18 @@ class Measure:
         repeat_count: int = 1,
     ) -> None:
         if display_measure_number is None:
-            display_measure_number = display_number if display_number is not None else source_number
+            display_measure_number = (
+                display_number if display_number is not None else source_number
+            )
         self.source_number = source_number
         self.display_measure_number = display_measure_number
         self.duration = duration
         self.beats = beats if beats is not None else []
         self.events = events if events is not None else []
         self.text_blocks = text_blocks if text_blocks is not None else []
-        self.validation_errors = validation_errors if validation_errors is not None else []
+        self.validation_errors = (
+            validation_errors if validation_errors is not None else []
+        )
         self.beats_per_measure = beats_per_measure
         self.beat_type = beat_type
         self.source_key = source_key
@@ -138,7 +149,9 @@ class Measure:
 
     @property
     def span_duration(self) -> Fraction:
-        ends = ((event.start or Fraction(0, 1)) + event.duration for event in self.events)
+        ends = (
+            (event.start or Fraction(0, 1)) + event.duration for event in self.events
+        )
         return max(ends, default=Fraction(0, 1))
 
     @property

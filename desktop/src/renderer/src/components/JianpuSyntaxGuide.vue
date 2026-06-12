@@ -32,6 +32,8 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
             <tbody>
               <tr><td><code>1=C</code></td><td>调号（大调主音）</td></tr>
               <tr><td><code>4/4</code></td><td>拍号</td></tr>
+              <tr><td><code>1=G</code></td><td>写在小节前，后续小节转为 G 调</td></tr>
+              <tr><td><code>3/4</code></td><td>写在小节前，后续小节转为 3/4 拍</td></tr>
               <tr><td><code>title=名称</code></td><td>谱名，可选</td></tr>
               <tr><td><code>tempo=120</code></td><td>速度（BPM），可选</td></tr>
             </tbody>
@@ -64,6 +66,8 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
               <tr><td><code>d1</code></td><td>三十二分音符（⅛ 拍）</td></tr>
               <tr><td><code>5.</code></td><td>附点（延长自身一半）</td></tr>
               <tr><td><code>5~</code> / <code>~5</code></td><td>延音线起 / 止</td></tr>
+              <tr><td><code>$123$</code></td><td>3 连音，组内音符总共占 1 拍</td></tr>
+              <tr><td><code>$1234$</code></td><td>4 连音，组内音符总共占 1 拍</td></tr>
             </tbody>
           </table>
         </section>
@@ -136,6 +140,7 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
             <tr><td><code>'</code> <code>,</code></td><td>高 / 低八度</td><td><code>#</code> <code>b</code> <code>x</code> <code>bb</code></td><td>升 / 降 / 重升 / 重降</td></tr>
             <tr><td><code>q</code> <code>s</code> <code>d</code></td><td>八 / 十六 / 三十二分音符</td><td><code>h</code> <code>w</code></td><td>二 / 全音符</td></tr>
             <tr><td><code>.</code></td><td>附点</td><td><code>~</code></td><td>延音线</td></tr>
+            <tr><td><code>$123$</code></td><td>连音组（总共 1 拍）</td><td><code>1=G</code> <code>3/4</code></td><td>小节前改调 / 改拍</td></tr>
             <tr><td><code>( )</code></td><td>连音线（圆滑奏）</td><td><code>[a+b]</code></td><td>和弦</td></tr>
             <tr><td><code>| || |: :|</code></td><td>小节线 / 终止线 / 反复</td><td><code>*N</code></td><td>重复 N 次</td></tr>
             <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^r ^f ^l</code></td><td>断奏 / 重音 / 保持 / 颤音 / 延音 / 轮指</td></tr>

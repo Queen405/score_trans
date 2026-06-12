@@ -26,7 +26,9 @@ def _measure_render_items(measure: Any, beat_count: int) -> list[list[RenderItem
     for event in events:
         start = event.start if event.start is not None else cursor
         if event.kind == "rest" and event.duration > beat_duration:
-            for beat_index, item in _split_rest_across_beats(event, start, beat_count, beat_duration):
+            for beat_index, item in _split_rest_across_beats(
+                event, start, beat_count, beat_duration
+            ):
                 grouped[beat_index].append(item)
         elif event.kind == "note" and event.duration > beat_duration:
             remaining = event.duration
@@ -34,24 +36,36 @@ def _measure_render_items(measure: Any, beat_count: int) -> list[list[RenderItem
             first = True
             while remaining > 0:
                 chunk = min(remaining, beat_duration)
-                beat_index = min(beat_count - 1, max(0, int(item_start / beat_duration)))
+                beat_index = min(
+                    beat_count - 1, max(0, int(item_start / beat_duration))
+                )
                 token = _note_body_token(event) if first else "-"
-                grouped[beat_index].append(RenderItem(
-                    token=token,
-                    duration=chunk,
-                    start=item_start,
-                    generated=event.generated,
-                    lyric=event.lyric if first else None,
-                    tie_start=event.tie_start if first else False,
-                    tie_stop=event.tie_stop if first else False,
-                    slur_start=event.slur_start if first else False,
-                    slur_stop=event.slur_stop if first else False,
-                    dynamic=event.dynamic,
-                    articulation=event.articulation,
-                    articulations=list(getattr(event, "articulations", []) or ([event.articulation] if event.articulation else [])),
-                    ornaments=list(getattr(event, "ornaments", [])),
-                    technical=list(getattr(event, "technical", [])),
-                ))
+                grouped[beat_index].append(
+                    RenderItem(
+                        token=token,
+                        duration=chunk,
+                        start=item_start,
+                        generated=event.generated,
+                        lyric=event.lyric if first else None,
+                        tie_start=event.tie_start if first else False,
+                        tie_stop=event.tie_stop if first else False,
+                        slur_start=event.slur_start if first else False,
+                        slur_stop=event.slur_stop if first else False,
+                        dynamic=event.dynamic,
+                        articulation=event.articulation,
+                        articulations=list(
+                            getattr(event, "articulations", [])
+                            or ([event.articulation] if event.articulation else [])
+                        ),
+                        ornaments=list(getattr(event, "ornaments", [])),
+                        technical=list(getattr(event, "technical", [])),
+                        tuplet_id=event.tuplet_id,
+                        tuplet_count=event.tuplet_count,
+                        tuplet_index=event.tuplet_index,
+                        tuplet_start=event.tuplet_start if first else False,
+                        tuplet_stop=event.tuplet_stop if remaining == chunk else False,
+                    )
+                )
                 remaining -= chunk
                 item_start += chunk
                 first = False
@@ -78,7 +92,12 @@ def _split_rest_across_beats(
         pieces.append(
             (
                 beat_index,
-                RenderItem(token=_duration_token("0", chunk), duration=chunk, generated=event.generated, start=cursor),
+                RenderItem(
+                    token=_duration_token("0", chunk),
+                    duration=chunk,
+                    generated=event.generated,
+                    start=cursor,
+                ),
             )
         )
         remaining -= chunk
