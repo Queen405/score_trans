@@ -1,9 +1,21 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { settingsApi, type SettingsQuery } from '../api/settings'
-import type { CacheCleanupResponse, LlmProviderOption, SettingsResponse, StoragePaths } from '../models/types'
+import type { CacheCleanupResponse, LlmProviderOption, SettingsResponse, StoragePaths, ThemeMode } from '../models/types'
 
 type ProviderKind = 'ocr' | 'ai' | 'assistant'
+
+const THEME_MODE_KEY = 'score-trans-theme-mode'
+
+function loadThemeMode(): ThemeMode {
+  try {
+    const raw = localStorage.getItem(THEME_MODE_KEY)
+    if (raw === 'dark' || raw === 'light' || raw === 'system') return raw
+  } catch {
+    // ignore
+  }
+  return 'system'
+}
 
 export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
@@ -39,6 +51,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const omrPreprocess = ref(true)
   const omrPreprocessLongEdge = ref(3600)
   const omrPreprocessBinarize = ref(false)
+  const themeMode = ref<ThemeMode>(loadThemeMode())
   const loaded = ref(false)
   const providerLoadVersion = {
     ocr: 0,
@@ -54,6 +67,15 @@ export const useSettingsStore = defineStore('settings', () => {
       loaded.value = true
     } catch (e) {
       console.error('Failed to load settings:', e)
+    }
+  }
+
+  function setThemeMode(mode: ThemeMode): void {
+    themeMode.value = mode
+    try {
+      localStorage.setItem(THEME_MODE_KEY, mode)
+    } catch {
+      // ignore
     }
   }
 
@@ -255,11 +277,13 @@ export const useSettingsStore = defineStore('settings', () => {
     omrPreprocess,
     omrPreprocessLongEdge,
     omrPreprocessBinarize,
+    themeMode,
     loaded,
     load,
     save,
     clearCache,
     relaunchApp,
     loadProviderDetails,
+    setThemeMode,
   }
 })

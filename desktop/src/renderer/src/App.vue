@@ -1,7 +1,7 @@
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
-      <div :class="['app-shell', prefersDark ? 'theme-dark' : 'theme-light']">
+      <div :class="['app-shell', effectiveDark ? 'theme-dark' : 'theme-light']">
         <div class="titlebar" role="banner">
           <div class="titlebar-left">
             <img class="app-icon-img" src="./assets/icon.png" alt="Score Trans" />
@@ -71,6 +71,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { GlobalThemeOverrides } from 'naive-ui'
 import { useTaskStore } from './stores/task'
 import { useLogStore } from './stores/log'
+import { useSettingsStore } from './stores/settings'
 import RecognizeView from './views/RecognizeView.vue'
 import ConvertView from './views/ConvertView.vue'
 import SettingsView from './views/SettingsView.vue'
@@ -85,11 +86,12 @@ import { darkTheme, NConfigProvider, NMessageProvider } from 'naive-ui'
 
 const store = useTaskStore()
 const logStore = useLogStore()
+const settings = useSettingsStore()
 
 const activeTab = ref<'recognize' | 'convert' | 'settings'>('recognize')
 const logOpen = ref(false)
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-const prefersDark = ref(mediaQuery.matches)
+const systemPrefersDark = ref(mediaQuery.matches)
 const isMaximized = ref(false)
 let removeMaximizedListener: (() => void) | null = null
 
@@ -99,8 +101,13 @@ const navItems = [
   { key: 'settings' as const, label: '设置', icon: SettingsOutline },
 ]
 
+const effectiveDark = computed(() => {
+  if (settings.themeMode === 'system') return systemPrefersDark.value
+  return settings.themeMode === 'dark'
+})
+
 function handleThemeChange(event: MediaQueryListEvent): void {
-  prefersDark.value = event.matches
+  systemPrefersDark.value = event.matches
 }
 
 onMounted(() => {
@@ -150,7 +157,7 @@ function closeWindow(): void {
   void window.api.closeWindow()
 }
 
-const naiveTheme = computed(() => (prefersDark.value ? darkTheme : null))
+const naiveTheme = computed(() => (effectiveDark.value ? darkTheme : null))
 
 const lightThemeOverrides: GlobalThemeOverrides = {
   common: {
@@ -230,7 +237,7 @@ const darkThemeOverrides: GlobalThemeOverrides = {
   },
 }
 
-const themeOverrides = computed(() => (prefersDark.value ? darkThemeOverrides : lightThemeOverrides))
+const themeOverrides = computed(() => (effectiveDark.value ? darkThemeOverrides : lightThemeOverrides))
 </script>
 
 <style>

@@ -179,6 +179,8 @@ export interface ExportMidiTextRequest {
   title?: string
 }
 
+export type ThemeMode = 'dark' | 'light' | 'system'
+
 export interface LlmProviderOption {
   id: string
   label: string

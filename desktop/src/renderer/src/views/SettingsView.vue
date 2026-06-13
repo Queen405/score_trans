@@ -132,6 +132,25 @@
 
       <n-card class="sv-card" :bordered="true" size="small">
         <div class="sv-card-title">
+          <n-icon size="16" class="sv-card-icon"><SunnyOutline /></n-icon>
+          <span>外观</span>
+        </div>
+        <div class="sv-form">
+          <div class="sv-form-item">
+            <label>主题模式</label>
+            <n-select
+              v-model:value="settings.themeMode"
+              :options="themeModeOptions"
+              size="small"
+              style="width: 140px"
+              @update:value="settings.setThemeMode"
+            />
+          </div>
+        </div>
+      </n-card>
+
+      <n-card class="sv-card" :bordered="true" size="small">
+        <div class="sv-card-title">
           <n-icon size="16" class="sv-card-icon"><EyeOutline /></n-icon>
           <span>AI 视觉转写</span>
         </div>
@@ -218,6 +237,7 @@ import {
   OptionsOutline,
   RefreshOutline,
   TrashOutline,
+  SunnyOutline,
 } from '@vicons/ionicons5'
 import {
   NInput,
@@ -249,6 +269,12 @@ const keyOptions = [
   { label: 'G', value: 'G' },
   { label: 'A', value: 'A' },
   { label: 'B', value: 'B' },
+]
+
+const themeModeOptions = [
+  { label: '跟随系统', value: 'system' },
+  { label: '浅色模式', value: 'light' },
+  { label: '深色模式', value: 'dark' },
 ]
 
 onMounted(() => settings.load())

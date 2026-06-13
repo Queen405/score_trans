@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1780736591679,
+  "lastScanned": 1781242445354,
   "projectRoot": "D:\\CODE\\MyProjects\\score_trans",
   "techStack": {
     "languages": [
@@ -50,7 +50,10 @@
       "examples",
       "tests"
     ],
-    "gitBranches": null
+    "gitBranches": {
+      "defaultBranch": "master",
+      "branchingStrategy": null
+    }
   },
   "customNotes": [],
   "directoryMap": {
@@ -58,27 +61,48 @@
       "path": "backend",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1780736591652,
+      "lastAccessed": 1781242445224,
+      "keyFiles": []
+    },
+    "build": {
+      "path": "build",
+      "purpose": "Build output",
+      "fileCount": 0,
+      "lastAccessed": 1781242445228,
+      "keyFiles": []
+    },
+    "build-resources": {
+      "path": "build-resources",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1781242445231,
       "keyFiles": []
     },
     "desktop": {
       "path": "desktop",
       "purpose": null,
-      "fileCount": 10,
-      "lastAccessed": 1780736591652,
+      "fileCount": 13,
+      "lastAccessed": 1781242445234,
       "keyFiles": [
         "AGENTS.md",
+        "build-log.txt",
         "electron-builder.yml",
         "electron.vite.config.ts",
-        "package.json",
-        "pnpm-lock.yaml"
+        "eslint.config.mjs"
       ]
+    },
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 0,
+      "lastAccessed": 1781242445237,
+      "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 3,
-      "lastAccessed": 1780736591652,
+      "lastAccessed": 1781242445239,
       "keyFiles": [
         "architecture.md",
         "file-by-file.md",
@@ -89,7 +113,7 @@
       "path": "examples",
       "purpose": "Example code",
       "fileCount": 2,
-      "lastAccessed": 1780736591653,
+      "lastAccessed": 1781242445241,
       "keyFiles": [
         "5.瑞雪迎春 - 分谱.pdf",
         "simple_jianpu.txt"
@@ -98,48 +122,51 @@
     "tests": {
       "path": "tests",
       "purpose": "Test files",
-      "fileCount": 12,
-      "lastAccessed": 1780736591653,
+      "fileCount": 15,
+      "lastAccessed": 1781242445244,
       "keyFiles": [
         "test_ai_transcription.py",
         "test_api_routes.py",
         "test_architecture.py",
-        "test_convert.py",
-        "test_history_service.py"
+        "test_cache_service.py",
+        "test_convert.py"
       ]
     },
     "third_party": {
       "path": "third_party",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1780736591654,
+      "lastAccessed": 1781242445247,
       "keyFiles": []
     },
     "work": {
       "path": "work",
       "purpose": null,
-      "fileCount": 15,
-      "lastAccessed": 1780736591654,
+      "fileCount": 5,
+      "lastAccessed": 1781242445248,
       "keyFiles": [
+        "ai_chat.db",
         "full_test.mid",
-        "full_test.pdf",
-        "full_test.png",
-        "full_test.svg",
-        "history.db"
+        "history.db",
+        "settings.db",
+        "tasks.db"
+      ]
+    },
+    "desktop\\build": {
+      "path": "desktop\\build",
+      "purpose": "Build output",
+      "fileCount": 2,
+      "lastAccessed": 1781242445254,
+      "keyFiles": [
+        "icon.ico",
+        "icon.png"
       ]
     },
     "desktop\\node_modules": {
       "path": "desktop\\node_modules",
       "purpose": "Dependencies",
       "fileCount": 2,
-      "lastAccessed": 1780736591655,
-      "keyFiles": []
-    },
-    "desktop\\out": {
-      "path": "desktop\\out",
-      "purpose": "Build output",
-      "fileCount": 0,
-      "lastAccessed": 1780736591655,
+      "lastAccessed": 1781242445256,
       "keyFiles": []
     }
   },
