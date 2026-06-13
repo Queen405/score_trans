@@ -4,7 +4,6 @@
     <div class="sv-header">
       <div class="sv-header-text">
         <h2>设置</h2>
-        <p class="subtitle">调整识别引擎、导出路径、OCR 与 AI 服务参数</p>
       </div>
       <n-button type="primary" size="medium" @click="save">
         <template #icon><n-icon><SaveOutline /></n-icon></template>
@@ -13,208 +12,182 @@
     </div>
 
     <div class="sv-grid-layout">
-      <n-card class="sv-card" :bordered="true" size="small">
-        <div class="sv-card-title">
-          <n-icon size="16" class="sv-card-icon"><BuildOutline /></n-icon>
-          <span>外部工具</span>
-        </div>
-        <div class="sv-form">
-          <div class="sv-form-item">
-            <label>Audiveris 路径</label>
-            <n-input v-model:value="settings.audiverisPath" placeholder="audiveris 或 gradlew.bat 路径" size="small">
-              <template #prefix><n-icon size="14"><FolderOutline /></n-icon></template>
-            </n-input>
+      <div class="sv-col sv-col-left">
+        <n-card class="sv-card" :bordered="true" size="small">
+          <div class="sv-card-title">
+            <n-icon size="16" class="sv-card-icon"><NewspaperOutline /></n-icon>
+            <span>OCR 设置</span>
           </div>
-          <div class="sv-form-item">
-            <label>JDK / JAVA_HOME</label>
-            <n-input v-model:value="settings.javaHome" placeholder="JDK 25 路径" size="small">
-              <template #prefix><n-icon size="14"><CodeOutline /></n-icon></template>
-            </n-input>
+          <div class="sv-form">
+            <div class="sv-form-item">
+              <label>API Key</label>
+              <n-input v-model:value="settings.ocrApiKey" type="password" show-password-on="click" :placeholder="settings.ocrApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
+                <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+              </n-input>
+            </div>
+            <div class="sv-form-item">
+              <label>Provider</label>
+              <n-select
+                v-model:value="settings.ocrProvider"
+                :options="providerSelectOptions(settings.ocrProviderOptions)"
+                size="small"
+              />
+            </div>
           </div>
-        </div>
-      </n-card>
+        </n-card>
 
-      <n-card class="sv-card" :bordered="true" size="small">
-        <div class="sv-card-title">
-          <n-icon size="16" class="sv-card-icon"><NewspaperOutline /></n-icon>
-          <span>OCR 设置</span>
-        </div>
-        <div class="sv-form">
-          <div class="sv-form-item">
-            <label>API Key</label>
-            <n-input v-model:value="settings.ocrApiKey" type="password" show-password-on="click" :placeholder="settings.ocrApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-              <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
-            </n-input>
+        <n-card class="sv-card" :bordered="true" size="small">
+          <div class="sv-card-title">
+            <n-icon size="16" class="sv-card-icon"><EyeOutline /></n-icon>
+            <span>AI 视觉转写</span>
           </div>
-          <div class="sv-form-item">
-            <label>Provider</label>
-            <n-select
-              v-model:value="settings.ocrProvider"
-              :options="providerSelectOptions(settings.ocrProviderOptions)"
-              size="small"
-            />
+          <div class="sv-form">
+            <div class="sv-form-item">
+              <label>API Key</label>
+              <n-input v-model:value="settings.aiApiKey" type="password" show-password-on="click" :placeholder="settings.aiApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
+                <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+              </n-input>
+            </div>
+            <div class="sv-form-item">
+              <label>Provider</label>
+              <n-select
+                v-model:value="settings.aiProvider"
+                :options="providerSelectOptions(settings.aiProviderOptions)"
+                size="small"
+              />
+            </div>
           </div>
-        </div>
-      </n-card>
+        </n-card>
 
-      <n-card class="sv-card" :bordered="true" size="small">
-        <div class="sv-card-title">
-          <n-icon size="16" class="sv-card-icon"><SwapHorizontalOutline /></n-icon>
-          <span>转换设置</span>
-        </div>
-        <div class="sv-form">
-          <div class="sv-form-item">
-            <label>简谱调</label>
-            <n-select
-              v-model:value="settings.targetKey"
-              :options="keyOptions"
-              size="small"
-              style="width: 80px"
-            />
+        <n-card class="sv-card" :bordered="true" size="small">
+          <div class="sv-card-title">
+            <n-icon size="16" class="sv-card-icon"><HardwareChipOutline /></n-icon>
+            <span>工作台 AI 助手</span>
           </div>
-          <div class="sv-form-item">
-            <label>默认导出路径</label>
-            <n-input v-model:value="settings.outputDir" placeholder="留空则每次手动选择" size="small">
-              <template #suffix>
-                <n-button size="tiny" quaternary @click="selectOutputDir">浏览</n-button>
-              </template>
-            </n-input>
+          <div class="sv-form">
+            <div class="sv-form-item">
+              <label>API Key</label>
+              <n-input v-model:value="settings.assistantApiKey" type="password" show-password-on="click" :placeholder="settings.assistantApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
+                <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+              </n-input>
+            </div>
+            <div class="sv-form-item">
+              <label>Provider</label>
+              <n-select
+                v-model:value="settings.assistantProvider"
+                :options="providerSelectOptions(settings.assistantProviderOptions)"
+                size="small"
+              />
+            </div>
           </div>
-        </div>
-      </n-card>
+        </n-card>
+      </div>
 
-      <n-card class="sv-card" :bordered="true" size="small">
-        <div class="sv-card-title">
-          <n-icon size="16" class="sv-card-icon"><FolderOpenOutline /></n-icon>
-          <span>存储与缓存</span>
-        </div>
-        <div class="sv-form">
-          <div class="sv-form-item">
-            <label>用户数据路径</label>
-            <n-input v-model:value="settings.dataDir" placeholder="用户数据目录" size="small">
-              <template #suffix>
-                <n-button size="tiny" quaternary @click="selectDataDir">浏览</n-button>
-              </template>
-            </n-input>
+      <div class="sv-col sv-col-right">
+        <n-card class="sv-card" :bordered="true" size="small">
+          <div class="sv-card-title">
+            <n-icon size="16" class="sv-card-icon"><BuildOutline /></n-icon>
+            <span>外部工具与存储</span>
           </div>
-          <div class="sv-form-item">
-            <label>缓存路径</label>
-            <n-input v-model:value="settings.cacheDir" placeholder="缓存目录" size="small">
-              <template #suffix>
-                <n-button size="tiny" quaternary @click="selectCacheDir">浏览</n-button>
-              </template>
-            </n-input>
+          <div class="sv-form">
+            <div class="sv-form-item">
+              <label>Audiveris 路径</label>
+              <n-input v-model:value="settings.audiverisPath" placeholder="audiveris 或 gradlew.bat 路径" size="small">
+                <template #prefix><n-icon size="14"><FolderOutline /></n-icon></template>
+              </n-input>
+            </div>
+            <div class="sv-form-item">
+              <label>JDK / JAVA_HOME</label>
+              <n-input v-model:value="settings.javaHome" placeholder="JDK 25 路径" size="small">
+                <template #prefix><n-icon size="14"><CodeOutline /></n-icon></template>
+              </n-input>
+            </div>
+            <div class="sv-form-item">
+              <label>用户数据路径</label>
+              <n-input v-model:value="settings.dataDir" placeholder="用户数据目录" size="small">
+                <template #suffix>
+                  <n-button size="tiny" quaternary @click="selectDataDir">浏览</n-button>
+                </template>
+              </n-input>
+            </div>
+            <div class="sv-form-item">
+              <label>缓存路径</label>
+              <n-input v-model:value="settings.cacheDir" placeholder="缓存目录" size="small">
+                <template #suffix>
+                  <n-button size="tiny" quaternary @click="selectCacheDir">浏览</n-button>
+                </template>
+              </n-input>
+            </div>
+            <div class="sv-storage-meta">
+              <span>缓存占用：{{ cacheSizeLabel }}</span>
+              <span>当前缓存：{{ settings.activeCacheDir }}</span>
+            </div>
+            <n-alert v-if="settings.storageRestartRequired" type="warning" size="small">
+              存储路径变更将在重启后生效。
+            </n-alert>
+            <div class="sv-actions-row">
+              <n-popconfirm @positive-click="clearCache">
+                <template #trigger>
+                  <n-button size="small" secondary :loading="clearingCache">
+                    <template #icon><n-icon><TrashOutline /></n-icon></template>
+                    清理缓存
+                  </n-button>
+                </template>
+                将删除中间文件和未被历史记录引用的上传副本。
+              </n-popconfirm>
+              <n-button v-if="settings.storageRestartRequired" type="primary" size="small" @click="restartApp">
+                <template #icon><n-icon><RefreshOutline /></n-icon></template>
+                重启应用
+              </n-button>
+            </div>
           </div>
-          <div class="sv-storage-meta">
-            <span>缓存占用：{{ cacheSizeLabel }}</span>
-            <span>当前缓存：{{ settings.activeCacheDir }}</span>
-          </div>
-          <n-alert v-if="settings.storageRestartRequired" type="warning" size="small">
-            存储路径变更将在重启后生效。
-          </n-alert>
-          <div class="sv-actions-row">
-            <n-popconfirm @positive-click="clearCache">
-              <template #trigger>
-                <n-button size="small" secondary :loading="clearingCache">
-                  <template #icon><n-icon><TrashOutline /></n-icon></template>
-                  清理缓存
-                </n-button>
-              </template>
-              将删除中间文件和未被历史记录引用的上传副本。
-            </n-popconfirm>
-            <n-button v-if="settings.storageRestartRequired" type="primary" size="small" @click="restartApp">
-              <template #icon><n-icon><RefreshOutline /></n-icon></template>
-              重启应用
-            </n-button>
-          </div>
-        </div>
-      </n-card>
+        </n-card>
 
-      <n-card class="sv-card" :bordered="true" size="small">
-        <div class="sv-card-title">
-          <n-icon size="16" class="sv-card-icon"><SunnyOutline /></n-icon>
-          <span>外观</span>
-        </div>
-        <div class="sv-form">
-          <div class="sv-form-item">
-            <label>主题模式</label>
-            <n-select
-              v-model:value="settings.themeMode"
-              :options="themeModeOptions"
-              size="small"
-              style="width: 140px"
-              @update:value="settings.setThemeMode"
-            />
+        <n-card class="sv-card" :bordered="true" size="small">
+          <div class="sv-card-title">
+            <n-icon size="16" class="sv-card-icon"><SwapHorizontalOutline /></n-icon>
+            <span>转换设置</span>
           </div>
-        </div>
-      </n-card>
+          <div class="sv-form">
+            <div class="sv-form-item">
+              <label>简谱调</label>
+              <n-select
+                v-model:value="settings.targetKey"
+                :options="keyOptions"
+                size="small"
+                style="width: 80px"
+              />
+            </div>
+            <div class="sv-form-item">
+              <label>默认导出路径</label>
+              <n-input v-model:value="settings.outputDir" placeholder="留空则每次手动选择" size="small">
+                <template #suffix>
+                  <n-button size="tiny" quaternary @click="selectOutputDir">浏览</n-button>
+                </template>
+              </n-input>
+            </div>
+          </div>
+        </n-card>
 
-      <n-card class="sv-card" :bordered="true" size="small">
-        <div class="sv-card-title">
-          <n-icon size="16" class="sv-card-icon"><EyeOutline /></n-icon>
-          <span>AI 视觉转写</span>
-        </div>
-        <div class="sv-form">
-          <div class="sv-form-item">
-            <label>API Key</label>
-            <n-input v-model:value="settings.aiApiKey" type="password" show-password-on="click" :placeholder="settings.aiApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-              <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
-            </n-input>
+        <n-card class="sv-card" :bordered="true" size="small">
+          <div class="sv-card-title">
+            <n-icon size="16" class="sv-card-icon"><SunnyOutline /></n-icon>
+            <span>外观</span>
           </div>
-          <div class="sv-form-item">
-            <label>Provider</label>
-            <n-select
-              v-model:value="settings.aiProvider"
-              :options="providerSelectOptions(settings.aiProviderOptions)"
-              size="small"
-            />
+          <div class="sv-form">
+            <div class="sv-form-item">
+              <label>主题模式</label>
+              <n-select
+                v-model:value="settings.themeMode"
+                :options="themeModeOptions"
+                size="small"
+                style="width: 140px"
+                @update:value="settings.setThemeMode"
+              />
+            </div>
           </div>
-        </div>
-      </n-card>
-
-      <n-card class="sv-card" :bordered="true" size="small">
-        <div class="sv-card-title">
-          <n-icon size="16" class="sv-card-icon"><OptionsOutline /></n-icon>
-          <span>识别预处理</span>
-        </div>
-        <div class="sv-form">
-          <div class="sv-form-item sv-form-item-inline">
-            <label>启用</label>
-            <n-switch v-model:value="settings.omrPreprocess" size="small" />
-          </div>
-          <div class="sv-form-item">
-            <label>目标长边</label>
-            <n-input-number v-model:value="settings.omrPreprocessLongEdge" :min="0" :step="200" size="small" style="width: 140px" />
-          </div>
-          <div class="sv-form-item sv-form-item-inline">
-            <label>黑白化</label>
-            <n-switch v-model:value="settings.omrPreprocessBinarize" size="small" />
-          </div>
-        </div>
-      </n-card>
-
-      <n-card class="sv-card" :bordered="true" size="small">
-        <div class="sv-card-title">
-          <n-icon size="16" class="sv-card-icon"><HardwareChipOutline /></n-icon>
-          <span>工作台 AI 助手</span>
-        </div>
-        <div class="sv-form">
-          <div class="sv-form-item">
-            <label>API Key</label>
-            <n-input v-model:value="settings.assistantApiKey" type="password" show-password-on="click" :placeholder="settings.assistantApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-              <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
-            </n-input>
-          </div>
-          <div class="sv-form-item">
-            <label>Provider</label>
-            <n-select
-              v-model:value="settings.assistantProvider"
-              :options="providerSelectOptions(settings.assistantProviderOptions)"
-              size="small"
-            />
-          </div>
-        </div>
-      </n-card>
+        </n-card>
+      </div>
     </div>
   </div>
   </div>
@@ -232,18 +205,16 @@ import {
   CodeOutline,
   KeyOutline,
   FolderOutline,
-  FolderOpenOutline,
   SwapHorizontalOutline,
-  OptionsOutline,
   RefreshOutline,
   TrashOutline,
   SunnyOutline,
+  HardwareChipOutline,
+  OptionsOutline,
 } from '@vicons/ionicons5'
 import {
   NInput,
-  NInputNumber,
   NSelect,
-  NSwitch,
   NButton,
   NIcon,
   NCard,
@@ -408,19 +379,24 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
 
 .sv-grid-layout {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 4fr 6fr;
   gap: 24px;
-  align-items: center;
-  align-content: center;
+  align-items: start;
+  align-content: start;
 }
 
-.sv-grid-layout > .sv-card {
+.sv-col {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  gap: 24px;
 }
 
-.sv-grid-layout > .sv-card :deep(.n-card__content) {
+.sv-col > .sv-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.sv-col > .sv-card :deep(.n-card__content) {
   flex: 1;
   display: flex;
   flex-direction: column;

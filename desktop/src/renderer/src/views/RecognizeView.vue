@@ -82,6 +82,20 @@
             <span>AI 视觉检测</span>
             <n-switch v-model:value="aiVisionEnabled" size="small" />
           </div>
+          <div class="preprocess-inline">
+            <span class="preprocess-label">启用预处理</span>
+            <n-switch v-model:value="settings.omrPreprocess" size="small" />
+            <n-input-number
+              v-model:value="settings.omrPreprocessLongEdge"
+              :min="0"
+              :step="200"
+              size="small"
+              style="width: 110px"
+              :disabled="!settings.omrPreprocess"
+            />
+            <span class="preprocess-label">黑白化</span>
+            <n-switch v-model:value="settings.omrPreprocessBinarize" size="small" :disabled="!settings.omrPreprocess" />
+          </div>
           <span v-if="selectedPageCount" class="selection-count">已选 {{ selectedPageCount }}</span>
         </div>
       </div>
@@ -301,8 +315,9 @@ import {
   TimeOutline,
   CloseCircleOutline,
   InformationCircleOutline,
+  OptionsOutline,
 } from '@vicons/ionicons5'
-import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
+import { NButton, NIcon, NInputNumber, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
 
 type RecognitionMode = 'omr' | 'ai'
 
@@ -1322,6 +1337,34 @@ function errorMessage(error: unknown): string {
   overflow: hidden;
 }
 
+.preprocess-inline {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  font-size: 12px;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.preprocess-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.preprocess-inline .n-input-number {
+  min-width: 80px;
+  max-width: 110px;
+  flex: 1 1 auto;
+}
+
 .card-header {
   display: flex;
   align-items: center;
@@ -1400,6 +1443,23 @@ function errorMessage(error: unknown): string {
 
 .card-recognition .card-footer {
   margin-top: auto;
+  justify-content: flex-start;
+}
+
+.card-recognition .card-footer .preprocess-inline {
+  margin-left: auto;
+}
+
+@media (max-width: 920px) {
+  .card-recognition .card-footer {
+    gap: 8px;
+  }
+
+  .card-recognition .card-footer .preprocess-inline {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 .page-nav {
