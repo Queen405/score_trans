@@ -81,6 +81,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     pending_dynamic: str | None = None
     pending_articulations: list[str] = []
     pending_ornaments: list[str] = []
+    measure_articulations: list[str] = []
+    measure_ornaments: list[str] = []
     pending_repeat_count: int = 1
     open_slur = False
     open_tie = False
@@ -97,8 +99,12 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             cursor, \
             measure_number, \
             next_repeat_start, \
+            measure_articulations, \
+            measure_ornaments, \
             pending_repeat_count
         if not current_events and not current_blocks:
+            measure_articulations = []
+            measure_ornaments = []
             return
         measure = Measure(
             source_number=str(measure_number),
@@ -119,6 +125,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         cursor = Fraction(0, 1)
         measure_number += 1
         next_repeat_start = False
+        measure_articulations = []
+        measure_ornaments = []
         pending_repeat_count = 1
 
     def append_event(event: Event, raw: str) -> None:
@@ -134,13 +142,29 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         if pending_dynamic:
             event.dynamic = pending_dynamic
             pending_dynamic = None
-        if pending_articulations:
-            event.articulations = pending_articulations
-            event.articulation = pending_articulations[0]
-            pending_articulations = []
-        if pending_ornaments:
-            event.ornaments = pending_ornaments
-            pending_ornaments = []
+        event_articulations = list(
+            event.articulations or ([event.articulation] if event.articulation else [])
+        )
+        event_ornaments = list(event.ornaments)
+        if event.kind == "note":
+            event_articulations = _unique_marks(
+                event_articulations, measure_articulations, pending_articulations
+            )
+            event_ornaments = _unique_marks(
+                event_ornaments, measure_ornaments, pending_ornaments
+            )
+        else:
+            event_articulations = _unique_marks(
+                event_articulations, pending_articulations
+            )
+            event_ornaments = _unique_marks(event_ornaments, pending_ornaments)
+        if event_articulations:
+            event.articulations = event_articulations
+            event.articulation = event_articulations[0]
+        if event_ornaments:
+            event.ornaments = event_ornaments
+        pending_articulations = []
+        pending_ornaments = []
         if raw.startswith("("):
             event.slur_start = True
             open_slur = True
@@ -194,6 +218,25 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             continue
         if re.fullmatch(r"\*\d+", raw):
             pending_repeat_count = max(1, int(raw[1:]))
+            continue
+        measure_mark = _measure_level_mark(raw)
+        if measure_mark is not None:
+            kind, mark = measure_mark
+            if not mark:
+                raise _syntax_error(
+                    token,
+                    f"不支持的小节级演奏标记：{raw}。"
+                    "请使用 (^l)、(^.)、(^>)、(^r)、(^f)",
+                )
+            if current_events:
+                raise _syntax_error(
+                    token,
+                    f"小节级演奏标记 {raw} 必须写在当前小节第一个音符或休止符之前。",
+                )
+            if kind == "ornament":
+                _append_unique_mark(measure_ornaments, mark)
+            else:
+                _append_unique_mark(measure_articulations, mark)
             continue
         if raw.startswith("\\"):
             dynamic = raw[1:]
@@ -294,9 +337,8 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                         f"`{raw_token}` 已废弃，请使用 q/s/d 前缀，例如 q1 或 q[1+3]"
                     )
                 leading = raw_line[: match.start()]
-                leading_without_key = re.sub(
-                    r"1\s*=\s*[A-G](?:#|b)?", "", leading
-                ).strip()
+                leading_without_key = re.sub(r"1\s*=\s*[A-G](?:#|b)?", "", leading)
+                leading_without_key = leading_without_key.replace("|:", "").strip()
                 if leading_without_key:
                     raise ValueError(
                         f"第 {line_no} 行第 {match.start() + 1} 列：旧时值写法 "
@@ -309,9 +351,10 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
 
 
 def _is_key_or_time_token(token: str) -> bool:
-    return _key_signature_value(token) is not None or _time_signature_value(
-        token.strip()
-    ) is not None
+    return (
+        _key_signature_value(token) is not None
+        or _time_signature_value(token.strip()) is not None
+    )
 
 
 def _strip_leading_measure_label(line: str) -> str:
@@ -547,6 +590,32 @@ def _ornament_name(raw: str) -> str | None:
     if normalized == "l":
         return "tremolo"
     return None
+
+
+def _measure_level_mark(raw: str) -> tuple[str, str] | None:
+    match = re.fullmatch(r"\(\^([l.>rf])\)", raw)
+    if match is None:
+        if raw.startswith("(^") and raw.endswith(")"):
+            return "invalid", ""
+        return None
+    raw_name = match.group(1)
+    ornament = _ornament_name(raw_name)
+    if ornament:
+        return "ornament", ornament
+    return "articulation", _articulation_name(raw_name)
+
+
+def _append_unique_mark(target: list[str], mark: str) -> None:
+    if mark not in target:
+        target.append(mark)
+
+
+def _unique_marks(*mark_groups: list[str]) -> list[str]:
+    result: list[str] = []
+    for group in mark_groups:
+        for mark in group:
+            _append_unique_mark(result, mark)
+    return result
 
 
 def _syntax_error(token: _Token, message: str) -> ValueError:

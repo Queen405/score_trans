@@ -130,6 +130,66 @@ def test_parse_new_project_syntax_chords_lyrics_and_marks() -> None:
     assert score.measures[0].events[0].lyric == "春"
 
 
+def test_measure_level_tremolo_shorthand_matches_expanded_marks() -> None:
+    shorthand = parse_jianpu_score("1=C\n4/4\n(^l) q5 q1 q4 q5 h1'~ |")
+    expanded = parse_jianpu_score("1=C\n4/4\n^l q5 ^l q1 ^l q4 ^l q5 ^l h1'~ |")
+
+    assert [event.ornaments for event in shorthand.measures[0].events] == [
+        event.ornaments for event in expanded.measures[0].events
+    ]
+
+    normalized = normalize_jianpu_text("1=C\n4/4\n(^l) q5 q1 q4 q5 h1'~ |")
+
+    assert "(^l)" not in normalized
+    assert normalized.count("^l") == 5
+
+
+def test_measure_level_marks_apply_to_notes_and_chords_not_rests() -> None:
+    score = parse_jianpu_score(
+        "1=C\n4/4\n(^l) (^.) (^>) (^r) (^f) 1 [1+3+5] 0 2 |\n1 2 3 4 |"
+    )
+    first_measure = score.measures[0].events
+    second_measure = score.measures[1].events
+
+    expected_articulations = ["staccato", "accent", "trill-mark", "fermata"]
+    assert first_measure[0].articulations == expected_articulations
+    assert first_measure[0].ornaments == ["tremolo"]
+    assert first_measure[1].is_chord
+    assert first_measure[1].articulations == expected_articulations
+    assert first_measure[1].ornaments == ["tremolo"]
+    assert first_measure[2].kind == "rest"
+    assert first_measure[2].articulations == []
+    assert first_measure[2].ornaments == []
+    assert first_measure[3].articulations == expected_articulations
+    assert first_measure[3].ornaments == ["tremolo"]
+    assert all(event.articulations == [] for event in second_measure)
+    assert all(event.ornaments == [] for event in second_measure)
+
+
+def test_measure_level_mark_can_follow_repeat_key_and_time_changes() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n|: 1=G 3/4 (^>) 1 2 3 :|")
+    changed_measure = score.measures[1]
+
+    assert changed_measure.repeat_start is True
+    assert changed_measure.repeat_end is True
+    assert changed_measure.target_key == "G"
+    assert changed_measure.beats_per_measure == 3
+    assert all(event.articulations == ["accent"] for event in changed_measure.events)
+
+
+def test_measure_level_marks_dedupe_with_single_note_marks() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n(^l) (^>) ^l ^> 1 2 3 4 |")
+    first_event = score.measures[0].events[0]
+
+    assert first_event.articulations == ["accent"]
+    assert first_event.ornaments == ["tremolo"]
+
+
+def test_measure_level_mark_after_first_event_is_rejected() -> None:
+    with pytest.raises(ValueError, match="小节级演奏标记"):
+        parse_jianpu_score("1=C\n4/4\n1 (^l) 2 3 4 |")
+
+
 def test_legacy_text_is_rejected() -> None:
     try:
         parse_jianpu_score("key=C\ntime=4/4\n1 2/ 3 |")

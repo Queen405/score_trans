@@ -595,6 +595,19 @@ def test_consecutive_sixteenth_notes_share_two_beam_lines() -> None:
     assert svg.count('class="duration-line beam-line"') == 2
 
 
+def test_low_octave_eighth_beam_stays_separated_from_sixteenth_beam() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\nq3, s2 s3 4 5 6 |")
+    root = _svg_root(svg)
+    beam_ys = [
+        float(line.attrib["y1"])
+        for line in _svg_elements(root, "line")
+        if line.attrib.get("class") == "duration-line beam-line"
+    ]
+
+    assert len(beam_ys) == 2
+    assert beam_ys[1] >= beam_ys[0] + 5.5
+
+
 def test_rests_inside_short_note_group_share_beam_lines() -> None:
     svg = render_jianpu_svg("1=C\n4/4\nq0 q6 q0 q6 |")
 

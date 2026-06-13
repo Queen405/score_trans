@@ -103,6 +103,7 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
               <tr><td><code>^r</code></td><td>颤音（trill）</td></tr>
               <tr><td><code>^f</code></td><td>延音记号（fermata）</td></tr>
               <tr><td><code>^l</code></td><td>轮指（tremolo）</td></tr>
+              <tr><td><code>(^l)</code> <code>(^.)</code> <code>(^&gt;)</code> <code>(^r)</code> <code>(^f)</code></td><td>写在小节开头，作用于本小节所有音符与和弦</td></tr>
             </tbody>
           </table>
         </section>
@@ -144,6 +145,7 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
             <tr><td><code>( )</code></td><td>连音线（圆滑奏）</td><td><code>[a+b]</code></td><td>和弦</td></tr>
             <tr><td><code>| || |: :|</code></td><td>小节线 / 终止线 / 反复</td><td><code>*N</code></td><td>重复 N 次</td></tr>
             <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^r ^f ^l</code></td><td>断奏 / 重音 / 保持 / 颤音 / 延音 / 轮指</td></tr>
+            <tr><td><code>(^l)</code> 等</td><td>本小节所有音符加标记</td><td><code>0</code></td><td>休止符不继承小节级标记</td></tr>
             <tr><td><code>L:</code></td><td>歌词行</td><td><code>#</code></td><td>注释行</td></tr>
           </tbody>
         </table>
