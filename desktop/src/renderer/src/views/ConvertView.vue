@@ -75,8 +75,7 @@
         </div>
         <div class="ws-toolbar-right">
           <n-button size="small" @click="musicxmlToJianpu" :loading="store.isBusy" :disabled="!store.hasMusicxml" type="primary">
-            <template #icon><n-icon><ArrowForwardOutline /></n-icon></template>
-            XML → 简谱
+            重置简谱
           </n-button>
           <n-button size="small" type="primary" @click="exportScore" :loading="store.isBusy" :disabled="!store.hasMusicxml">
             <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>

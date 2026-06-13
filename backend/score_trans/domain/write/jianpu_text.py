@@ -33,11 +33,12 @@ def score_to_jianpu_text(score: JianpuScore) -> str:
         measure_key = getattr(measure, "target_key", current_key)
         measure_beats = getattr(measure, "beats_per_measure", current_beats)
         measure_beat_type = getattr(measure, "beat_type", current_beat_type)
+        lead_tokens: list[str] = []
         if measure_key != current_key:
-            measures.append(f"1={measure_key}")
+            lead_tokens.append(f"1={measure_key}")
             current_key = measure_key
         if measure_beats != current_beats or measure_beat_type != current_beat_type:
-            measures.append(f"{measure_beats}/{measure_beat_type}")
+            lead_tokens.append(f"{measure_beats}/{measure_beat_type}")
             current_beats = measure_beats
             current_beat_type = measure_beat_type
         events = measure.events
@@ -72,7 +73,8 @@ def score_to_jianpu_text(score: JianpuScore) -> str:
         repeat_count = getattr(measure, "repeat_count", 1)
         repeat_suffix = f" *{repeat_count}" if repeat_count > 1 else ""
         suffix = " :|" if getattr(measure, "repeat_end", False) else ""
-        measures.append(prefix + " ".join(tokens) + repeat_suffix + suffix)
+        body = " ".join([*lead_tokens, *tokens])
+        measures.append(prefix + body + repeat_suffix + suffix)
     for m in measures:
         lines.append(m + " |")
     if lyrics:
@@ -195,27 +197,3 @@ def _pitch_to_token(pitch: JianpuPitch) -> str:
         )
     octave = "'" * max(0, pitch.octave) + "," * max(0, -pitch.octave)
     return f"{accidental}{pitch.degree}{octave}"
-
-
-def _duration_suffix(duration: Fraction) -> str:
-    if duration == Fraction(3, 2):
-        return "."
-    if duration == Fraction(3, 4):
-        return "/."
-    if duration == Fraction(3, 8):
-        return "//."
-    if duration >= 1:
-        whole = int(duration)
-        remain = duration - whole
-        return (
-            "-" * max(0, whole - 1) + _duration_suffix(remain)
-            if remain
-            else "-" * max(0, whole - 1)
-        )
-    if duration == Fraction(1, 2):
-        return "/"
-    if duration == Fraction(1, 4):
-        return "//"
-    if duration == Fraction(1, 8):
-        return "///"
-    return f"({duration})"

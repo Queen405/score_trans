@@ -118,14 +118,10 @@
                 </template>
               </n-input>
             </div>
-            <div class="sv-storage-meta">
-              <span>缓存占用：{{ cacheSizeLabel }}</span>
-              <span>当前缓存：{{ settings.activeCacheDir }}</span>
-            </div>
-            <n-alert v-if="settings.storageRestartRequired" type="warning" size="small">
-              存储路径变更将在重启后生效。
-            </n-alert>
-            <div class="sv-actions-row">
+            <div class="sv-storage-meta-row">
+              <div class="sv-storage-meta">
+                <span>缓存占用：{{ cacheSizeLabel }}</span>
+              </div>
               <n-popconfirm @positive-click="clearCache">
                 <template #trigger>
                   <n-button size="small" secondary :loading="clearingCache">
@@ -135,6 +131,11 @@
                 </template>
                 将删除中间文件和未被历史记录引用的上传副本。
               </n-popconfirm>
+            </div>
+            <n-alert v-if="settings.storageRestartRequired" type="warning" size="small">
+              存储路径变更将在重启后生效。
+            </n-alert>
+            <div class="sv-actions-row">
               <n-button v-if="settings.storageRestartRequired" type="primary" size="small" @click="restartApp">
                 <template #icon><n-icon><RefreshOutline /></n-icon></template>
                 重启应用
@@ -343,7 +344,7 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
 <style scoped>
 .settings-view {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   min-height: 100%;
   width: 100%;
@@ -391,12 +392,34 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
   gap: 24px;
 }
 
+.sv-grid-layout {
+  display: grid;
+  grid-template-columns: 4fr 6fr;
+  gap: 24px;
+  align-items: stretch;
+  align-content: start;
+}
+
+.sv-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+}
+
 .sv-col > .sv-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sv-col > .sv-card :deep(.n-card__content) {
+  flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.sv-col > .sv-card :deep(.n-card__content) {
+.sv-col > .sv-card :deep(.n-card__content) > .sv-form {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -415,12 +438,12 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
   gap: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
 .sv-card-icon {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 .sv-form {
@@ -449,8 +472,17 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
 .sv-actions-row {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.sv-storage-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .sv-storage-meta {
@@ -460,6 +492,7 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
   font-size: 12px;
   color: var(--text-tertiary);
   word-break: break-all;
+  min-width: 0;
 }
 
 .sv-form-item label {

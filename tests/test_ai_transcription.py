@@ -84,9 +84,7 @@ def test_ai_action_transcribes_uploaded_image_with_mock_provider(
     assert response.pages[0].warnings == ["第二小节看不清"]
 
 
-def test_ai_action_normalizes_dotted_duration_prefix_variant(
-    tmp_path: Path,
-) -> None:
+def test_ai_action_flags_dotted_duration_prefix_variant(tmp_path: Path) -> None:
     config = ToolConfig(work_dir=tmp_path / "work")
     uploads = UploadService(config)
     source = tmp_path / "score.png"
@@ -111,10 +109,11 @@ def test_ai_action_normalizes_dotted_duration_prefix_variant(
         AiTranscribeRequest(file_id=file_id, target_key="C")
     )
 
-    saved_text = uploads.get_path(response.jianpu_file_id).read_text(encoding="utf-8")
-    assert "h4'." in response.pages[0].jianpu_text
-    assert "h.4'" not in response.pages[0].jianpu_text
-    assert "h4'." in saved_text
+    page = response.pages[0]
+    # The legacy `h.4'` (dot before degree) is no longer normalized — it is
+    # rejected by the parser and surfaced as a validation error instead.
+    assert page.jianpu_text == "1=C\n4/4\nh.4' 1 |"
+    assert any("附点" in err for err in page.validation_errors)
 
 
 def test_pdf_to_png_pages_creates_one_png_per_page(tmp_path: Path) -> None:

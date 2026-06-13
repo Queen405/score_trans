@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1781242445354,
+  "lastScanned": 1781352182657,
   "projectRoot": "D:\\CODE\\MyProjects\\score_trans",
   "techStack": {
     "languages": [
@@ -61,28 +61,28 @@
       "path": "backend",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1781242445224,
+      "lastAccessed": 1781352182633,
       "keyFiles": []
     },
     "build": {
       "path": "build",
       "purpose": "Build output",
       "fileCount": 0,
-      "lastAccessed": 1781242445228,
+      "lastAccessed": 1781352182634,
       "keyFiles": []
     },
     "build-resources": {
       "path": "build-resources",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1781242445231,
+      "lastAccessed": 1781352182634,
       "keyFiles": []
     },
     "desktop": {
       "path": "desktop",
       "purpose": null,
       "fileCount": 13,
-      "lastAccessed": 1781242445234,
+      "lastAccessed": 1781352182635,
       "keyFiles": [
         "AGENTS.md",
         "build-log.txt",
@@ -95,14 +95,14 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 0,
-      "lastAccessed": 1781242445237,
+      "lastAccessed": 1781352182635,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 3,
-      "lastAccessed": 1781242445239,
+      "lastAccessed": 1781352182635,
       "keyFiles": [
         "architecture.md",
         "file-by-file.md",
@@ -113,7 +113,7 @@
       "path": "examples",
       "purpose": "Example code",
       "fileCount": 2,
-      "lastAccessed": 1781242445241,
+      "lastAccessed": 1781352182636,
       "keyFiles": [
         "5.瑞雪迎春 - 分谱.pdf",
         "simple_jianpu.txt"
@@ -123,7 +123,7 @@
       "path": "tests",
       "purpose": "Test files",
       "fileCount": 15,
-      "lastAccessed": 1781242445244,
+      "lastAccessed": 1781352182636,
       "keyFiles": [
         "test_ai_transcription.py",
         "test_api_routes.py",
@@ -136,14 +136,14 @@
       "path": "third_party",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1781242445247,
+      "lastAccessed": 1781352182636,
       "keyFiles": []
     },
     "work": {
       "path": "work",
       "purpose": null,
       "fileCount": 5,
-      "lastAccessed": 1781242445248,
+      "lastAccessed": 1781352182637,
       "keyFiles": [
         "ai_chat.db",
         "full_test.mid",
@@ -156,7 +156,7 @@
       "path": "desktop\\build",
       "purpose": "Build output",
       "fileCount": 2,
-      "lastAccessed": 1781242445254,
+      "lastAccessed": 1781352182638,
       "keyFiles": [
         "icon.ico",
         "icon.png"
@@ -166,7 +166,7 @@
       "path": "desktop\\node_modules",
       "purpose": "Dependencies",
       "fileCount": 2,
-      "lastAccessed": 1781242445256,
+      "lastAccessed": 1781352182638,
       "keyFiles": []
     }
   },

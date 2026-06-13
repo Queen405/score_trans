@@ -162,14 +162,22 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         raw = token.value
         key_signature = _key_signature_value(raw)
         if key_signature is not None:
-            if current_events or current_blocks:
-                flush_measure()
+            if current_events:
+                raise _syntax_error(
+                    token,
+                    f"调号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
+                    "请把调号移到小节开头或紧跟在小节线 | 之后。",
+                )
             current_key = key_signature
             continue
         time_signature = _time_signature_value(raw)
         if time_signature is not None:
-            if current_events or current_blocks:
-                flush_measure()
+            if current_events:
+                raise _syntax_error(
+                    token,
+                    f"拍号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
+                    "请把拍号移到小节开头或紧跟在小节线 | 之后。",
+                )
             current_beats, current_beat_type = time_signature
             continue
         if raw in {"|", "||"}:
@@ -271,19 +279,39 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             raw_token = match.group(0)
             if _is_measure_label_token(raw_token):
                 continue
-            key_signature = _key_signature_value(raw_token)
-            if key_signature is not None and not saw_score_tokens:
-                options.key = key_signature
-                continue
-            time_signature = _time_signature_value(raw_token.strip())
-            if time_signature is not None and not saw_score_tokens:
-                options.beats, options.beat_type = time_signature
-                saw_time = True
-                continue
+            # 判断 `数字/数字` 是拍号还是旧时值写法：
+            #   - 分子为 1（如 1/2、1/4）几乎总是旧时值（音级+斜杠时值），
+            #     且 1 拍记法在简谱中无实际意义，一律按旧时值报错。
+            #   - 其余（3/4、6/8 等）在行首或紧跟调号 1=X 后视为合法拍号；
+            #     出现在其它位置（前面有音符）则是旧时值，报错。
+            # 这样 `1/2 3 4` 里的 `1/2` 会被拒绝，避免被静默当成拍号吞掉丢失音符。
+            ts = _time_signature_value(raw_token.strip())
+            if ts is not None:
+                beats, _beat_type = ts
+                if beats == 1:
+                    raise ValueError(
+                        f"第 {line_no} 行第 {match.start() + 1} 列：旧时值写法 "
+                        f"`{raw_token}` 已废弃，请使用 q/s/d 前缀，例如 q1 或 q[1+3]"
+                    )
+                leading = raw_line[: match.start()]
+                leading_without_key = re.sub(
+                    r"1\s*=\s*[A-G](?:#|b)?", "", leading
+                ).strip()
+                if leading_without_key:
+                    raise ValueError(
+                        f"第 {line_no} 行第 {match.start() + 1} 列：旧时值写法 "
+                        f"`{raw_token}` 已废弃，请使用 q/s/d 前缀，例如 q1 或 q[1+3]"
+                    )
             tokens.append(_Token(raw_token, line_no, match.start() + 1))
-            if key_signature is None and time_signature is None:
+            if not _is_key_or_time_token(raw_token):
                 saw_score_tokens = True
     return options, tokens, lyrics
+
+
+def _is_key_or_time_token(token: str) -> bool:
+    return _key_signature_value(token) is not None or _time_signature_value(
+        token.strip()
+    ) is not None
 
 
 def _strip_leading_measure_label(line: str) -> str:
@@ -367,10 +395,11 @@ def _parse_event_token(token: _Token) -> Event:
         work = work[:-1]
     has_duration_prefix = bool(work) and work[0] in DURATION_PREFIXES
     duration, work = _consume_duration_prefix(work)
-    prefix_dotted = has_duration_prefix and work.startswith(".") and len(work) > 1
-    if prefix_dotted:
-        duration += duration / 2
-        work = work[1:]
+    if has_duration_prefix and work.startswith("."):
+        raise _syntax_error(
+            token,
+            f"时值前缀后的附点 `{token.value}` 非法，附点必须写在音级之后，例如 h4'. 而不是 h.4'",
+        )
     while work.endswith("-"):
         duration += Fraction(1, 1)
         work = work[:-1]
@@ -399,7 +428,7 @@ def _parse_event_token(token: _Token) -> Event:
         event = Event(
             kind="note", duration=duration, pitches=[_parse_pitch(work, token)]
         )
-    event.dotted = 1 if dotted or prefix_dotted else 0
+    event.dotted = 1 if dotted else 0
     event.tie_start = tie_start
     event.tie_stop = tie_stop
     event.slur_start = slur_start

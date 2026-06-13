@@ -83,18 +83,18 @@
             <n-switch v-model:value="aiVisionEnabled" size="small" />
           </div>
           <div class="preprocess-inline">
-            <span class="preprocess-label">启用预处理</span>
             <n-switch v-model:value="settings.omrPreprocess" size="small" />
+            <span class="preprocess-label">预处理</span>
             <n-input-number
               v-model:value="settings.omrPreprocessLongEdge"
               :min="0"
               :step="200"
               size="small"
-              style="width: 110px"
+              style="width: 80px"
               :disabled="!settings.omrPreprocess"
             />
-            <span class="preprocess-label">黑白化</span>
             <n-switch v-model:value="settings.omrPreprocessBinarize" size="small" :disabled="!settings.omrPreprocess" />
+            <span class="preprocess-label">黑白化</span>
           </div>
           <span v-if="selectedPageCount" class="selection-count">已选 {{ selectedPageCount }}</span>
         </div>
@@ -118,7 +118,7 @@
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
                 <path
-                  v-if="statsTotal > 0"
+                  v-if="statsTotal > 0 && statsProcessing > 0"
                   class="ring-segment ring-processing"
                   :stroke-dasharray="`${(statsProcessing / statsTotal) * 100} ${100 - (statsProcessing / statsTotal) * 100}`"
                   :stroke-dashoffset="`${-(statsCompleted / statsTotal) * 100}`"
@@ -1559,7 +1559,6 @@ function errorMessage(error: unknown): string {
 .ring-segment {
   fill: none;
   stroke-width: 3;
-  stroke-linecap: round;
   transition: stroke-dasharray 0.4s ease;
 }
 

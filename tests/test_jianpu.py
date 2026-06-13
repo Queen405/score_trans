@@ -1,6 +1,8 @@
 from fractions import Fraction
 from zipfile import ZipFile
 
+import pytest
+
 from score_trans.domain.jianpu import (
     jianpu_to_musicxml,
     musicxml_file_to_jianpu,
@@ -48,6 +50,25 @@ def test_measure_level_key_and_time_signature_roundtrip_to_musicxml() -> None:
     assert "<fifths>1</fifths>" in xml
     assert xml.count("<time>") == 2
     assert "<beats>3</beats>" in xml
+
+
+def test_key_or_time_signature_after_notes_is_rejected() -> None:
+    # 拍号/调号必须写在该小节音符之前；写在音符后面会错误地切断当前小节。
+    # 行内的 `数字/数字`（如音符后的 3/4）会被分词阶段识别为旧时值写法而拒绝；
+    # 调号 1=F 在音符后则由主循环拒绝。
+    with pytest.raises(ValueError, match="旧时值写法"):
+        parse_jianpu_score("1=C\n4/4\n1 2 3 4 3/4 1 2 3 |")
+    with pytest.raises(ValueError, match="调号"):
+        parse_jianpu_score("1=C\n4/4\n1 2 3 4 1=F 1 2 3 |")
+
+
+def test_measure_level_signatures_roundtrip_without_empty_measures() -> None:
+    # 写出器不应把调号/拍号当作空小节单独成行（曾经的 bug：1=F |  3/4 |）。
+    normalized = normalize_jianpu_text("1=C\n4/4\n1 2 3 4 |\n1=G\n3/4\n1 2 3 |")
+
+    assert "1=G 3/4 1 2 3 |" in normalized
+    assert "1=G |" not in normalized
+    assert "3/4 |" not in normalized
 
 
 def test_jianpu_to_musicxml_contains_score() -> None:
@@ -118,6 +139,21 @@ def test_legacy_text_is_rejected() -> None:
         raise AssertionError("legacy syntax should be rejected")
 
 
+def test_legacy_slash_duration_is_rejected_not_swallowed_as_time_signature() -> None:
+    # `1/2`（分子为 1 的数字/数字）是旧时值写法，曾静默被当成 1/2 拍号吞掉丢失音符。
+    with pytest.raises(ValueError, match="旧时值写法"):
+        parse_jianpu_score("1=C\n4/4\n1/2 3 4 |")
+
+
+def test_measure_level_time_signature_after_key_is_supported() -> None:
+    # 合法的换调+换拍同行写法（也是写出器的输出格式），拍号紧跟调号后。
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n1=G 3/4 1 2 3 |")
+
+    assert score.measures[1].target_key == "G"
+    assert score.measures[1].beats_per_measure == 3
+    assert score.measures[1].beat_type == 4
+
+
 def test_ai_output_measure_labels_are_ignored() -> None:
     normalized = normalize_jianpu_text(
         "title=中阮\n1=C\n4/4\n272: 3' 3' 2' 2' | 1' 1' 7 7 |"
@@ -155,13 +191,14 @@ def test_tuplet_group_normalizes_back_to_dollar_syntax() -> None:
     assert "$1234$" in normalized
 
 
-def test_ai_dotted_duration_prefix_variant_is_normalized() -> None:
-    normalized = normalize_jianpu_text("1=C\n4/4\nh.4' |")
-    score = parse_jianpu_score(normalized)
-
-    assert "h4'." in normalized
-    assert "h.4'" not in normalized
-    assert score.measures[0].events[0].duration == Fraction(3, 1)
+def test_ai_dotted_duration_prefix_variant_is_rejected() -> None:
+    try:
+        parse_jianpu_score("1=C\n4/4\nh.4' |")
+    except ValueError as exc:
+        assert "附点" in str(exc)
+        assert "h4'." in str(exc)
+    else:
+        raise AssertionError("prefix-before-degree dotted `h.4'` should be rejected")
 
 
 def test_score_to_jianpu_text_preserves_marks_and_lyrics() -> None:
