@@ -103,6 +103,57 @@ def test_parse_explicit_accidental_tokens() -> None:
     assert [token.value for token in tokens[:5]] == ["7", "6", "4", "5", "3"]
 
 
+def test_line_start_sharp_note_is_not_treated_as_comment() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n#5 6 7 1' |\n2 3 4 5 |")
+
+    assert len(score.measures) == 2
+    first_event = score.measures[0].events[0]
+    assert first_event.source_token == "#5"
+    assert first_event.pitches[0].degree == 5
+    assert first_event.pitches[0].accidental == 1
+
+
+def test_double_slash_comments_are_ignored() -> None:
+    text = (
+        "// whole line comment\n"
+        "1=C // key comment\n"
+        "4/4 // time comment\n"
+        "#5 6 7 1' | // measure comment\n"
+        "// another comment\n"
+        "2 3 4 5 |"
+    )
+    normalized = normalize_jianpu_text(text)
+
+    assert "//" not in normalized
+    assert "#5 6 7 1' |" in normalized
+    assert "2 3 4 5 |" in normalized
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "# 注释内容\n1=C\n4/4\n1 2 3 4 |",
+        "1=C\n4/4\n# 5 6 7 1' |",
+    ],
+)
+def test_hash_comment_syntax_is_rejected(text: str) -> None:
+    with pytest.raises(ValueError, match="不再表示注释"):
+        parse_jianpu_score(text)
+
+
+def test_normalize_jianpu_text_can_force_accidental_mode() -> None:
+    text = "1=C\n4/4\nb7 #4 1 2 |"
+
+    assert "#6 #4 1 2 |" in normalize_jianpu_text(
+        text,
+        accidental_mode="sharp",
+    )
+    assert "b7 b5 1 2 |" in normalize_jianpu_text(
+        text,
+        accidental_mode="flat",
+    )
+
+
 def test_musicxml_file_to_jianpu_reads_mxl(tmp_path) -> None:
     xml = jianpu_to_musicxml("1=C\n4/4\n1 2 |")
     mxl = tmp_path / "score.mxl"

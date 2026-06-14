@@ -37,6 +37,7 @@ _DEFAULTS: dict[str, str] = {
     "audiveris_path": AUDIVERIS_PATH,
     "java_home": JAVA_HOME,
     "output_dir": OUTPUT_DIR,
+    "accidental_mode": "auto",
     "omr_preprocess": "1" if OMR_PREPROCESS else "0",
     "omr_preprocess_long_edge": str(OMR_PREPROCESS_LONG_EDGE),
     "omr_preprocess_binarize": "1" if OMR_PREPROCESS_BINARIZE else "0",

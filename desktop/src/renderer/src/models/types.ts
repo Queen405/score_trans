@@ -21,6 +21,7 @@ export interface MusicXmlToJianpuRequest {
   musicxml_file_id: string
   page_image_file_id?: string
   target_key?: string
+  accidental_mode?: AccidentalMode
   start_measure_number?: number
 }
 
@@ -33,6 +34,7 @@ export interface RenderJianpuSvgRequest {
   musicxml_file_id: string
   page_image_file_id?: string
   target_key?: string
+  accidental_mode?: AccidentalMode
   start_measure_number?: number
   title?: string
 }
@@ -70,6 +72,7 @@ export interface FinalOutputRequest {
   musicxml_file_id: string
   page_image_file_id?: string
   target_key?: string
+  accidental_mode?: AccidentalMode
   start_measure_number?: number
   title?: string
 }
@@ -93,6 +96,7 @@ export interface TaskSubmitResponse {
 export interface PipelineByFileIdRequest {
   file_id: string
   target_key: string
+  accidental_mode?: AccidentalMode
   start_measure_number?: number | null
   title?: string | null
 }
@@ -108,6 +112,7 @@ export interface PipelineResponse {
 export interface AiTranscribeRequest {
   file_id: string
   target_key?: string
+  accidental_mode?: AccidentalMode
   title?: string
   render_dpi?: number
   max_pages?: number
@@ -180,6 +185,7 @@ export interface ExportMidiTextRequest {
 }
 
 export type ThemeMode = 'dark' | 'light' | 'system'
+export type AccidentalMode = 'auto' | 'sharp' | 'flat'
 
 export interface LlmProviderOption {
   id: string
@@ -198,6 +204,7 @@ export interface SettingsResponse {
   cache_size_bytes: number
   work_dir: string
   target_key?: string
+  accidental_mode?: AccidentalMode
   output_dir?: string
   ocr_provider?: string
   ocr_provider_options?: LlmProviderOption[]
@@ -227,6 +234,7 @@ export interface SettingsUpdateRequest {
   java_home?: string
   output_dir?: string
   target_key?: string
+  accidental_mode?: AccidentalMode
   work_dir?: string
   ocr_provider?: string
   ocr_api_key?: string

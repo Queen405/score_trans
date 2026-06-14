@@ -61,6 +61,7 @@ class AiActions:
             source,
             output_dir,
             target_key=req.target_key,
+            accidental_mode=req.accidental_mode,
             title=req.title,
             render_dpi=req.render_dpi,
             max_pages=req.max_pages,

@@ -3,11 +3,17 @@ from __future__ import annotations
 from fractions import Fraction
 import re
 
+from ..accidentals import pitch_to_token
 from ..jianpu_tokens import duration_affixes
+from ...models.common.types import AccidentalMode
 from ...models.score import Event, JianpuPitch, JianpuScore, TextBlock
 
 
-def score_to_jianpu_text(score: JianpuScore) -> str:
+def score_to_jianpu_text(
+    score: JianpuScore,
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
     first_measure = score.measures[0] if score.measures else None
     current_key = (
         getattr(first_measure, "target_key", score.target_key)
@@ -59,13 +65,15 @@ def score_to_jianpu_text(score: JianpuScore) -> str:
                     tokens.append(f"^{token}")
             if event.tuplet_start and event.tuplet_count:
                 group = _collect_tuplet_events(events, index)
-                tokens.append(_tuplet_to_token(group))
+                tokens.append(
+                    _tuplet_to_token(group, accidental_mode=accidental_mode)
+                )
                 for group_event in group:
                     if group_event.lyric:
                         lyrics.append(group_event.lyric)
                 index += len(group)
                 continue
-            tokens.append(_event_to_token(event))
+            tokens.append(_event_to_token(event, accidental_mode=accidental_mode))
             if event.lyric:
                 lyrics.append(event.lyric)
             index += 1
@@ -103,12 +111,19 @@ def _fmt_num(value: float) -> str:
     return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
-def _event_to_token(event: Event) -> str:
+def _event_to_token(
+    event: Event,
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
     prefix, suffix = _duration_parts(event.duration)
     if event.kind == "rest":
         body = "0"
     else:
-        tokens = [_pitch_to_token(pitch) for pitch in event.pitches]
+        tokens = [
+            _pitch_to_token(pitch, accidental_mode=accidental_mode)
+            for pitch in event.pitches
+        ]
         body = (
             "[" + "+".join(tokens) + "]"
             if len(tokens) > 1
@@ -141,8 +156,15 @@ def _collect_tuplet_events(events: list[Event], start_index: int) -> list[Event]
     return group
 
 
-def _tuplet_to_token(events: list[Event]) -> str:
-    parts = [_event_to_tuplet_body(event) for event in events]
+def _tuplet_to_token(
+    events: list[Event],
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
+    parts = [
+        _event_to_tuplet_body(event, accidental_mode=accidental_mode)
+        for event in events
+    ]
     if all(re.fullmatch(r"(?:bb|x|n|♮|#|b)?[0-7][',]*[#b]?", part) for part in parts):
         body = "".join(parts)
     else:
@@ -150,11 +172,18 @@ def _tuplet_to_token(events: list[Event]) -> str:
     return f"${body}$"
 
 
-def _event_to_tuplet_body(event: Event) -> str:
+def _event_to_tuplet_body(
+    event: Event,
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
     if event.kind == "rest":
         body = "0"
     else:
-        tokens = [_pitch_to_token(pitch) for pitch in event.pitches]
+        tokens = [
+            _pitch_to_token(pitch, accidental_mode=accidental_mode)
+            for pitch in event.pitches
+        ]
         body = (
             "[" + "+".join(tokens) + "]"
             if len(tokens) > 1
@@ -189,11 +218,9 @@ def _articulation_token(name: str) -> str | None:
     }.get(name, name if name else None)
 
 
-def _pitch_to_token(pitch: JianpuPitch) -> str:
-    accidental = pitch.accidental_text
-    if accidental is None:
-        accidental = (
-            "#" if pitch.accidental > 0 else "b" if pitch.accidental < 0 else ""
-        )
-    octave = "'" * max(0, pitch.octave) + "," * max(0, -pitch.octave)
-    return f"{accidental}{pitch.degree}{octave}"
+def _pitch_to_token(
+    pitch: JianpuPitch,
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
+    return pitch_to_token(pitch, accidental_mode=accidental_mode)

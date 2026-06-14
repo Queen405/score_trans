@@ -15,14 +15,14 @@
       <div class="sv-col sv-col-left">
         <n-card class="sv-card" :bordered="true" size="small">
           <div class="sv-card-title">
-            <n-icon size="16" class="sv-card-icon"><NewspaperOutline /></n-icon>
+            <n-icon size="18" class="sv-card-icon"><NewspaperOutline /></n-icon>
             <span>OCR 设置</span>
           </div>
           <div class="sv-form">
             <div class="sv-form-item">
               <label>API Key</label>
               <n-input v-model:value="settings.ocrApiKey" type="password" show-password-on="click" :placeholder="settings.ocrApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-                <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+                <template #prefix><n-icon size="16"><KeyOutline /></n-icon></template>
               </n-input>
             </div>
             <div class="sv-form-item">
@@ -38,14 +38,14 @@
 
         <n-card class="sv-card" :bordered="true" size="small">
           <div class="sv-card-title">
-            <n-icon size="16" class="sv-card-icon"><EyeOutline /></n-icon>
+            <n-icon size="18" class="sv-card-icon"><EyeOutline /></n-icon>
             <span>AI 视觉转写</span>
           </div>
           <div class="sv-form">
             <div class="sv-form-item">
               <label>API Key</label>
               <n-input v-model:value="settings.aiApiKey" type="password" show-password-on="click" :placeholder="settings.aiApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-                <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+                <template #prefix><n-icon size="16"><KeyOutline /></n-icon></template>
               </n-input>
             </div>
             <div class="sv-form-item">
@@ -61,14 +61,14 @@
 
         <n-card class="sv-card" :bordered="true" size="small">
           <div class="sv-card-title">
-            <n-icon size="16" class="sv-card-icon"><HardwareChipOutline /></n-icon>
+            <n-icon size="18" class="sv-card-icon"><HardwareChipOutline /></n-icon>
             <span>工作台 AI 助手</span>
           </div>
           <div class="sv-form">
             <div class="sv-form-item">
               <label>API Key</label>
               <n-input v-model:value="settings.assistantApiKey" type="password" show-password-on="click" :placeholder="settings.assistantApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-                <template #prefix><n-icon size="14"><KeyOutline /></n-icon></template>
+                <template #prefix><n-icon size="16"><KeyOutline /></n-icon></template>
               </n-input>
             </div>
             <div class="sv-form-item">
@@ -86,20 +86,20 @@
       <div class="sv-col sv-col-right">
         <n-card class="sv-card" :bordered="true" size="small">
           <div class="sv-card-title">
-            <n-icon size="16" class="sv-card-icon"><BuildOutline /></n-icon>
+            <n-icon size="18" class="sv-card-icon"><BuildOutline /></n-icon>
             <span>外部工具与存储</span>
           </div>
           <div class="sv-form">
             <div class="sv-form-item">
               <label>Audiveris 路径</label>
               <n-input v-model:value="settings.audiverisPath" placeholder="audiveris 或 gradlew.bat 路径" size="small">
-                <template #prefix><n-icon size="14"><FolderOutline /></n-icon></template>
+                <template #prefix><n-icon size="16"><FolderOutline /></n-icon></template>
               </n-input>
             </div>
             <div class="sv-form-item">
               <label>JDK / JAVA_HOME</label>
               <n-input v-model:value="settings.javaHome" placeholder="JDK 25 路径" size="small">
-                <template #prefix><n-icon size="14"><CodeOutline /></n-icon></template>
+                <template #prefix><n-icon size="16"><CodeOutline /></n-icon></template>
               </n-input>
             </div>
             <div class="sv-form-item">
@@ -146,18 +146,29 @@
 
         <n-card class="sv-card" :bordered="true" size="small">
           <div class="sv-card-title">
-            <n-icon size="16" class="sv-card-icon"><SwapHorizontalOutline /></n-icon>
+            <n-icon size="18" class="sv-card-icon"><SwapHorizontalOutline /></n-icon>
             <span>转换设置</span>
           </div>
           <div class="sv-form">
-            <div class="sv-form-item">
-              <label>简谱调</label>
-              <n-select
-                v-model:value="settings.targetKey"
-                :options="keyOptions"
-                size="small"
-                style="width: 80px"
-              />
+            <div class="sv-conversion-row">
+              <div class="sv-form-item sv-form-item-compact">
+                <label>简谱调</label>
+                <n-select
+                  v-model:value="settings.targetKey"
+                  :options="keyOptions"
+                  size="small"
+                  style="width: 80px"
+                />
+              </div>
+              <div class="sv-form-item sv-form-item-compact">
+                <label>半音记谱</label>
+                <n-select
+                  v-model:value="settings.accidentalMode"
+                  :options="accidentalModeOptions"
+                  size="small"
+                  style="width: 140px"
+                />
+              </div>
             </div>
             <div class="sv-form-item">
               <label>默认导出路径</label>
@@ -172,7 +183,7 @@
 
         <n-card class="sv-card" :bordered="true" size="small">
           <div class="sv-card-title">
-            <n-icon size="16" class="sv-card-icon"><SunnyOutline /></n-icon>
+            <n-icon size="18" class="sv-card-icon"><SunnyOutline /></n-icon>
             <span>外观</span>
           </div>
           <div class="sv-form">
@@ -211,7 +222,6 @@ import {
   TrashOutline,
   SunnyOutline,
   HardwareChipOutline,
-  OptionsOutline,
 } from '@vicons/ionicons5'
 import {
   NInput,
@@ -241,6 +251,12 @@ const keyOptions = [
   { label: 'G', value: 'G' },
   { label: 'A', value: 'A' },
   { label: 'B', value: 'B' },
+]
+
+const accidentalModeOptions = [
+  { label: '自由记谱', value: 'auto' },
+  { label: '全部升号', value: 'sharp' },
+  { label: '全部降号', value: 'flat' },
 ]
 
 const themeModeOptions = [
@@ -436,10 +452,11 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
+  line-height: 20px;
   color: var(--text-primary);
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .sv-card-icon {
@@ -469,6 +486,17 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
   min-width: unset;
 }
 
+.sv-conversion-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sv-form-item.sv-form-item-compact {
+  flex: 0 0 auto;
+}
+
 .sv-actions-row {
   display: flex;
   align-items: center;
@@ -489,16 +517,42 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 18px;
   color: var(--text-tertiary);
   word-break: break-all;
   min-width: 0;
 }
 
 .sv-form-item label {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 18px;
   color: var(--text-secondary);
   min-width: 80px;
+}
+
+.sv-card :deep(.n-input),
+.sv-card :deep(.n-base-selection),
+.sv-card :deep(.n-button) {
+  font-size: 14px;
+}
+
+.sv-card :deep(.n-input__input-el),
+.sv-card :deep(.n-input__textarea-el),
+.sv-card :deep(.n-input__placeholder),
+.sv-card :deep(.n-base-selection-label__render-label),
+.sv-card :deep(.n-base-selection-placeholder),
+.sv-card :deep(.n-button__content),
+.sv-card :deep(.n-alert-body__content) {
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.sv-card :deep(.n-input__prefix),
+.sv-card :deep(.n-input__suffix),
+.sv-card :deep(.n-base-selection-suffix),
+.sv-card :deep(.n-button__icon) {
+  font-size: 16px;
 }
 
 @media (max-width: 720px) {

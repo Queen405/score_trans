@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from ..common.types import AccidentalMode
+
 
 class RenderJianpuSvgRequest(BaseModel):
     musicxml_file_id: str
     page_image_file_id: str | None = None
     target_key: str = "C"
+    accidental_mode: AccidentalMode = "auto"
     start_measure_number: int | None = None
     title: str | None = None
 
@@ -44,6 +47,7 @@ class FinalRenderRequest(BaseModel):
     musicxml_file_id: str
     page_image_file_id: str | None = None
     target_key: str = "C"
+    accidental_mode: AccidentalMode = "auto"
     start_measure_number: int | None = None
     title: str | None = None
 
@@ -58,6 +62,7 @@ class PreservingLayoutRequest(BaseModel):
     musicxml_file_id: str
     page_image_file_id: str
     target_key: str = "C"
+    accidental_mode: AccidentalMode = "auto"
     start_measure_number: int | None = None
     title: str | None = None
 
@@ -66,4 +71,3 @@ class PreservingLayoutResponse(BaseModel):
     svg_file_id: str
     page_width: float
     page_height: float
-

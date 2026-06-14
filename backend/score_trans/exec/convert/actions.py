@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
 from ...domain.musicxml import musicxml_path_to_score, score_to_jianpu_text
+from ...models.common.types import AccidentalMode
 from ...models.convert.schemas import (
     JianpuToMusicXmlRequest,
     JianpuToMusicXmlResponse,
@@ -26,6 +27,7 @@ class MusicXmlToJianpuAction:
         musicxml_path: str | Path,
         *,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -37,7 +39,8 @@ class MusicXmlToJianpuAction:
                 start_measure_number=start_measure_number,
                 image_path=image_path,
                 ocr_provider=ocr_provider,
-            )
+            ),
+            accidental_mode=accidental_mode,
         )
 
     def build_score(
@@ -97,6 +100,7 @@ class ConvertActions:
         jianpu_text = self.musicxml_to_jianpu.execute(
             path,
             target_key=req.target_key,
+            accidental_mode=req.accidental_mode,
             start_measure_number=req.start_measure_number,
             image_path=image_path,
         )

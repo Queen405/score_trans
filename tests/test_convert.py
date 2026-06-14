@@ -31,6 +31,14 @@ def test_musicxml_to_score_can_transpose_target_key() -> None:
 
     assert "1=D" in text
     assert "b7, 1 2 b3" in text
+    assert "#6, 1 2 #2" in score_to_jianpu_text(
+        score,
+        accidental_mode="sharp",
+    )
+    assert "b7, 1 2 b3" in score_to_jianpu_text(
+        score,
+        accidental_mode="flat",
+    )
 
 
 def test_model_exports_structured_ast_names_and_compat_aliases() -> None:

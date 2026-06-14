@@ -12,6 +12,7 @@ from score_trans.services.ai.base import VisionPageResult, parse_vision_page_res
 from score_trans.services.ai.chat_service import AiChatService, MAX_CONTEXT_MESSAGES
 from score_trans.services.ai.providers.mock import MockVisionJianpuProvider
 from score_trans.services.ai.service import AiTranscriptionService, ensure_jianpu_header
+from score_trans.services.ai.transcription.validation import validate_jianpu_text
 from score_trans.utils.pdf import pdf_to_png_pages
 from score_trans.services.files.upload_service import UploadService
 
@@ -161,6 +162,18 @@ def test_ai_json_response_accepts_measure_number_candidates() -> None:
     )
 
     assert result.measure_number_candidates == [17]
+
+
+def test_ai_validation_applies_accidental_mode() -> None:
+    text = "1=C\n4/4\nb7 #4 1 2 |"
+
+    sharp, sharp_errors = validate_jianpu_text(text, accidental_mode="sharp")
+    flat, flat_errors = validate_jianpu_text(text, accidental_mode="flat")
+
+    assert sharp_errors == []
+    assert flat_errors == []
+    assert "#6 #4 1 2 |" in sharp
+    assert "b7 b5 1 2 |" in flat
 
 
 def test_ai_chat_injects_jianpu_syntax_and_limits_memory(

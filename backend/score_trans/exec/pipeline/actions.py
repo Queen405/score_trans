@@ -10,6 +10,8 @@ from typing import Any
 from fastapi import UploadFile
 
 from ...domain.musicxml import score_to_jianpu_text
+from ...domain.accidentals import score_with_accidental_mode
+from ...models.common.types import AccidentalMode
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
@@ -56,6 +58,7 @@ class FullPipelineAction:
         *,
         config: ToolConfig,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -81,21 +84,31 @@ class FullPipelineAction:
             score.title = title
         report_progress(progress_callback, "convert", 72, "生成简谱文本")
         text_path = out_dir / f"{source.stem}_jianpu.txt"
-        self.file_service.write_text(text_path, score_to_jianpu_text(score))
+        self.file_service.write_text(
+            text_path,
+            score_to_jianpu_text(score, accidental_mode=accidental_mode),
+        )
+        render_score = score_with_accidental_mode(
+            score, accidental_mode=accidental_mode
+        )
         svg_path = out_dir / f"{source.stem}_jianpu.svg"
         report_progress(progress_callback, "render", 82, "渲染简谱 SVG")
         if ocr_image_path is not None:
             page_width, page_height = image_dimensions(ocr_image_path)
             self.renderer.render_score_page_svg(
-                score,
+                render_score,
                 svg_path,
                 page_width=page_width,
                 page_height=page_height,
-                title=title or score.title,
+                title=title or render_score.title,
             )
         else:
-            self.renderer.render_score_svg(score, svg_path, title=title or score.title)
-        ocr_measure_numbers = _extract_ocr_measure_numbers(score)
+            self.renderer.render_score_svg(
+                render_score,
+                svg_path,
+                title=title or render_score.title,
+            )
+        ocr_measure_numbers = _extract_ocr_measure_numbers(render_score)
         report_progress(progress_callback, "render", 94, "渲染完成")
         return ScorePipelineOutputs(
             input_path=source,
@@ -124,6 +137,7 @@ class PipelineActions:
         file: UploadFile,
         *,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -132,6 +146,7 @@ class PipelineActions:
         return self.run_pipeline_from_path(
             input_path,
             target_key=target_key,
+            accidental_mode=accidental_mode,
             start_measure_number=start_measure_number,
             title=title,
             progress_callback=progress_callback,
@@ -151,6 +166,7 @@ class PipelineActions:
         *,
         tasks: TaskActions,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
     ) -> TaskSubmitResponse:
@@ -163,6 +179,7 @@ class PipelineActions:
             return self.run_pipeline_from_path(
                 input_path,
                 target_key=target_key,
+                accidental_mode=accidental_mode,
                 start_measure_number=start_measure_number,
                 title=title,
                 progress_callback=progress,
@@ -180,6 +197,7 @@ class PipelineActions:
         *,
         tasks: TaskActions,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
     ) -> TaskSubmitResponse:
@@ -190,6 +208,7 @@ class PipelineActions:
             return self.run_pipeline_from_path(
                 input_path,
                 target_key=target_key,
+                accidental_mode=accidental_mode,
                 start_measure_number=start_measure_number,
                 title=title,
                 progress_callback=progress,
@@ -205,6 +224,7 @@ class PipelineActions:
         input_path: str | Path,
         *,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -219,6 +239,7 @@ class PipelineActions:
             output_dir,
             config=config,
             target_key=target_key,
+            accidental_mode=accidental_mode,
             start_measure_number=start_measure_number,
             title=title,
             progress_callback=progress_callback,

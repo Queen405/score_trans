@@ -16,9 +16,10 @@ export function findJianpuNoteSpans(text: string): JianpuNoteSpan[] {
   let noteIndex = 0
 
   text.split('\n').forEach((line, lineIndex) => {
-    if (isMetadataLine(line)) return
+    const code = stripInlineComment(line)
+    if (isMetadataLine(code)) return
 
-    for (const match of line.matchAll(TOKEN_PATTERN)) {
+    for (const match of code.matchAll(TOKEN_PATTERN)) {
       const token = match[0]
       if (isTupletToken(token)) {
         for (const part of tupletPartSpans(token, match.index ?? 0)) {
@@ -76,12 +77,18 @@ function tupletPartSpans(
 
 function isMetadataLine(line: string): boolean {
   const trimmed = line.trim()
-  if (!trimmed || trimmed.startsWith('#')) return true
+  if (!trimmed || trimmed.startsWith('//')) return true
   if (trimmed.startsWith('L:') || trimmed.startsWith('@text ')) return true
   if (/^(title|tempo)\s*=/.test(trimmed)) return true
   if (/^1\s*=/.test(trimmed)) return true
   if (/^(key|time)\s*=/i.test(trimmed)) return true
   return /^\d+\/\d+$/.test(trimmed)
+}
+
+function stripInlineComment(line: string): string {
+  const commentStart = line.indexOf('//')
+  if (commentStart < 0) return line
+  return line.slice(0, commentStart)
 }
 
 function isPlayableToken(token: string): boolean {

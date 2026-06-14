@@ -219,6 +219,12 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         if re.fullmatch(r"\*\d+", raw):
             pending_repeat_count = max(1, int(raw[1:]))
             continue
+        if raw == "#":
+            raise _syntax_error(
+                token,
+                "`#` 不再表示注释；注释请使用 `//`。"
+                "升号必须紧贴音级，例如 #5。",
+            )
         measure_mark = _measure_level_mark(raw)
         if measure_mark is not None:
             kind, mark = measure_mark
@@ -279,8 +285,9 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
     saw_time = False
     saw_score_tokens = False
     for line_no, raw_line in enumerate(text.splitlines(), start=1):
+        raw_line = _strip_inline_comment(raw_line)
         stripped = raw_line.strip()
-        if not stripped or stripped.startswith("#"):
+        if not stripped:
             continue
         raw_line = _strip_leading_measure_label(raw_line)
         stripped = raw_line.strip()
@@ -355,6 +362,13 @@ def _is_key_or_time_token(token: str) -> bool:
         _key_signature_value(token) is not None
         or _time_signature_value(token.strip()) is not None
     )
+
+
+def _strip_inline_comment(line: str) -> str:
+    comment_start = line.find("//")
+    if comment_start < 0:
+        return line
+    return line[:comment_start]
 
 
 def _strip_leading_measure_label(line: str) -> str:

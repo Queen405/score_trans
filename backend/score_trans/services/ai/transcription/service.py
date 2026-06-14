@@ -5,6 +5,7 @@ import re
 
 from ....dao.settings.settings_dao import SettingsDao
 from ....models.common.errors import AITranscriptionError
+from ....models.common.types import AccidentalMode
 from ....models.tasks.entities import ProgressCallback, report_progress
 from ...settings.provider_profiles import (
     resolve_provider_profile,
@@ -45,6 +46,7 @@ class AiTranscriptionService:
         output_dir: str | Path,
         *,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         title: str | None = None,
         render_dpi: int = 220,
         max_pages: int | None = None,
@@ -103,6 +105,7 @@ class AiTranscriptionService:
                 page_text,
                 title=result.title or title,
                 normalize=normalize,
+                accidental_mode=accidental_mode,
             )
             if validation_errors:
                 warnings.extend(

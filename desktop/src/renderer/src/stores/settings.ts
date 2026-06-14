@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { settingsApi, type SettingsQuery } from '../api/settings'
-import type { CacheCleanupResponse, LlmProviderOption, SettingsResponse, StoragePaths, ThemeMode } from '../models/types'
+import type { AccidentalMode, CacheCleanupResponse, LlmProviderOption, SettingsResponse, StoragePaths, ThemeMode } from '../models/types'
 
 type ProviderKind = 'ocr' | 'ai' | 'assistant'
 
@@ -29,6 +29,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const cacheSizeAvailable = ref(false)
   const storageRestartRequired = ref(false)
   const targetKey = ref('C')
+  const accidentalMode = ref<AccidentalMode>('auto')
   const outputDir = ref('')
   const ocrProvider = ref('siliconflow_deepseek_ocr')
   const ocrProviderOptions = ref<LlmProviderOption[]>([])
@@ -87,6 +88,7 @@ export const useSettingsStore = defineStore('settings', () => {
       java_home: javaHome.value,
       output_dir: outputDir.value,
       target_key: targetKey.value,
+      accidental_mode: accidentalMode.value,
       ocr_provider: ocrProvider.value,
       ocr_api_key: ocrApiKey.value || undefined,
       ai_provider: aiProvider.value,
@@ -139,6 +141,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!dataDir.value) dataDir.value = activeDataDir.value
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value
     targetKey.value = data.target_key ?? 'C'
+    accidentalMode.value = data.accidental_mode ?? 'auto'
     outputDir.value = data.output_dir ?? ''
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
     ocrProviderOptions.value = data.ocr_provider_options ?? []
@@ -255,6 +258,7 @@ export const useSettingsStore = defineStore('settings', () => {
     cacheSizeAvailable,
     storageRestartRequired,
     targetKey,
+    accidentalMode,
     outputDir,
     ocrProvider,
     ocrProviderOptions,

@@ -16,6 +16,7 @@ from score_trans.config.settings import (
     OMR_PREPROCESS_BINARIZE,
     OMR_PREPROCESS_LONG_EDGE,
 )
+from score_trans.models.common.types import AccidentalMode
 
 
 class LlmProviderOption(BaseModel):
@@ -35,6 +36,7 @@ class SettingsResponse(BaseModel):
     cache_size_bytes: int = 0
     work_dir: str
     target_key: str = "C"
+    accidental_mode: AccidentalMode = "auto"
     output_dir: str = ""
     ocr_provider: str = OCR_PROVIDER
     ocr_provider_options: list[LlmProviderOption] = Field(default_factory=list)
@@ -64,6 +66,7 @@ class SettingsUpdateRequest(BaseModel):
     java_home: str | None = None
     output_dir: str | None = None
     target_key: str | None = None
+    accidental_mode: AccidentalMode | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None
     ocr_api_key: str | None = None

@@ -7,6 +7,7 @@ from ...exec.pipeline.actions import PipelineActions
 from ...exec.tasks.actions import TaskActions
 from ...models.pipeline.schemas import PipelineByFileIdRequest
 from ...models.tasks.schemas import TaskSubmitResponse
+from ...models.common.types import AccidentalMode
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -23,6 +24,7 @@ async def run_pipeline_by_file_id(
         req.file_id,
         tasks=tasks,
         target_key=req.target_key,
+        accidental_mode=req.accidental_mode,
         start_measure_number=req.start_measure_number,
         title=req.title,
     )
@@ -33,6 +35,7 @@ async def run_pipeline(
     request: Request,
     file: UploadFile = File(...),
     target_key: str = Form("C"),
+    accidental_mode: AccidentalMode = Form("auto"),
     start_measure_number: int | None = Form(None),
     title: str | None = Form(None),
     actions: PipelineActions = Depends(get_pipeline_actions),
@@ -43,6 +46,7 @@ async def run_pipeline(
         file,
         tasks=tasks,
         target_key=target_key,
+        accidental_mode=accidental_mode,
         start_measure_number=start_measure_number,
         title=title,
     )

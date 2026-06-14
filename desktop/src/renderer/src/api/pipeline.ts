@@ -1,16 +1,18 @@
 import { apiFetch } from './client'
-import type { PipelineByFileIdRequest, TaskSubmitResponse } from '../models/types'
+import type { AccidentalMode, PipelineByFileIdRequest, TaskSubmitResponse } from '../models/types'
 
 export const pipelineApi = {
   run(
     file: File,
     targetKey = 'C',
+    accidentalMode: AccidentalMode = 'auto',
     startMeasureNumber?: number,
     title?: string,
   ): Promise<TaskSubmitResponse> {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('target_key', targetKey)
+    formData.append('accidental_mode', accidentalMode)
     if (startMeasureNumber !== undefined) {
       formData.append('start_measure_number', String(startMeasureNumber))
     }

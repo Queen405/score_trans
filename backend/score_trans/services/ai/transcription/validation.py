@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ....domain.jianpu import parse_jianpu_score
 from ....domain.musicxml import score_to_jianpu_text
+from ....models.common.types import AccidentalMode
 
 
 def validate_jianpu_text(
@@ -9,6 +10,7 @@ def validate_jianpu_text(
     *,
     title: str | None = None,
     normalize: bool = True,
+    accidental_mode: AccidentalMode = "auto",
 ) -> tuple[str, list[str]]:
     try:
         score = parse_jianpu_score(text, title=title)
@@ -22,4 +24,7 @@ def validate_jianpu_text(
     ]
     if not normalize:
         return text, validation_errors
-    return score_to_jianpu_text(score), validation_errors
+    return score_to_jianpu_text(
+        score,
+        accidental_mode=accidental_mode,
+    ), validation_errors

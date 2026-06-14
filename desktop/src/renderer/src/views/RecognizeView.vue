@@ -4,6 +4,7 @@
       <div class="rv-title">
         <h2>智能识别</h2>
       </div>
+      <span class="rv-header-text">欢迎加入吉林大学民乐团</span>
     </div>
 
     <MeasureNumberPicker
@@ -735,6 +736,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       submitted = await pipelineApi.runByFileId({
         file_id: target.inputFileId,
         target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
         start_measure_number: target.startMeasureNumber ?? null,
       })
     } else {
@@ -822,6 +824,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         musicxml_file_id: page.musicxmlFileId,
         page_image_file_id: page.originalFileId || page.inputFileId || undefined,
         target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
         start_measure_number: selected,
       })
       svgFileId = rendered.svg_file_id
@@ -900,6 +903,7 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
     const submitted = await aiApi.transcribe({
       file_id: target.inputFileId,
       target_key: settings.targetKey,
+      accidental_mode: settings.accidentalMode,
       normalize: true,
     })
     patchRecognitionPage(target.pageId, { taskId: submitted.task_id })
@@ -1283,8 +1287,13 @@ function errorMessage(error: unknown): string {
 .rv-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
+}
+
+.rv-title {
+  display: flex;
+  align-items: center;
 }
 
 .rv-header h2 {
@@ -1292,6 +1301,14 @@ function errorMessage(error: unknown): string {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+}
+
+.rv-header-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rv-header p {
@@ -1368,7 +1385,7 @@ function errorMessage(error: unknown): string {
 .card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   flex-shrink: 0;
   min-width: 0;
@@ -1401,6 +1418,7 @@ function errorMessage(error: unknown): string {
   flex-wrap: wrap;
   flex-shrink: 0;
   min-width: 0;
+  margin-left: auto;
 }
 
 .batch-select {

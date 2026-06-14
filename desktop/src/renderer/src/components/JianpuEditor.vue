@@ -88,13 +88,32 @@ function isStandaloneBarline(value: string, cursor: number): boolean {
   return false
 }
 
+function splitInlineComment(line: string): { code: string; comment: string } {
+  const commentStart = line.indexOf('//')
+  if (commentStart < 0) return { code: line, comment: '' }
+  return {
+    code: line.slice(0, commentStart),
+    comment: line.slice(commentStart),
+  }
+}
+
+function isCursorInLineComment(value: string, cursor: number): boolean {
+  const lineStart = value.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1
+  const linePrefix = value.slice(lineStart, cursor)
+  return linePrefix.includes('//')
+}
+
 function onInput(e: Event): void {
   const target = e.target as HTMLTextAreaElement
   const value = target.value
   const cursor = target.selectionStart
 
   // 输入了 |：检查是否是独立小节线，自动换行
-  if (isStandaloneBarline(value, cursor) && (cursor >= value.length || value[cursor] !== '\n')) {
+  if (
+    !isCursorInLineComment(value, cursor) &&
+    isStandaloneBarline(value, cursor) &&
+    (cursor >= value.length || value[cursor] !== '\n')
+  ) {
     const newValue = value.slice(0, cursor) + '\n' + value.slice(cursor)
     emit('update:modelValue', newValue)
     nextTick(() => {
@@ -137,11 +156,11 @@ function syncScroll(e: Event): void {
 function needsFormat(text: string): boolean {
   const lines = text.split('\n')
   for (const line of lines) {
-    const trimmed = line.trim()
+    const trimmed = splitInlineComment(line).code.trim()
     if (!trimmed) continue
     // 包含 | 的就是小节（即使以 \ 开头），只检查是否需要按 | 分割
     if (trimmed.includes('|')) {
-      if (hasStandaloneBarBeforeMoreContent(line)) return true
+      if (hasStandaloneBarBeforeMoreContent(trimmed)) return true
       continue
     }
     if (
@@ -174,7 +193,8 @@ function formatMeasures(text: string): string {
   const lines = text.split('\n')
   const result: string[] = []
   for (const line of lines) {
-    const trimmed = line.trimEnd()
+    const { code, comment } = splitInlineComment(line)
+    const trimmed = code.trimEnd()
     if (!trimmed) {
       result.push(line)
       continue
@@ -182,12 +202,17 @@ function formatMeasures(text: string): string {
     // 包含 | 的就是小节行，需要按 | 分割（仅在独立小节线处拆分，保留 ||、|:、:|）
     if (trimmed.includes('|')) {
       const parts = trimmed.split(/(?<![:|])\|(?![|:])/)
+      const emitted: string[] = []
       for (let i = 0; i < parts.length; i++) {
         const seg = parts[i].trim()
         if (!seg) continue
         // 独立 | 在 split 中被消费，非末尾段需补回
-        result.push(i < parts.length - 1 ? seg + '|' : seg)
+        emitted.push(i < parts.length - 1 ? seg + '|' : seg)
       }
+      if (comment && emitted.length) {
+        emitted[emitted.length - 1] = `${emitted[emitted.length - 1]} ${comment.trimStart()}`
+      }
+      result.push(...emitted)
       continue
     }
     if (
@@ -224,7 +249,7 @@ const measureNumbers = computed(() => {
   const lines = props.modelValue.split('\n')
   let measureCount = props.startMeasureNumber ?? 1
   return lines.map((line) => {
-    const trimmed = line.trim()
+    const trimmed = splitInlineComment(line).code.trim()
     // 包含 | 的就是小节（即使以 \ 开头如 \f）
     if (trimmed.includes('|')) {
       // 检测重复次数 *x（去掉行尾 | 后再匹配）

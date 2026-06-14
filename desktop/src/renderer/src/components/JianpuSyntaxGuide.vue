@@ -113,7 +113,7 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
           <table>
             <tbody>
               <tr><td><code>L: 春 风 又 绿</code></td><td>歌词行，按音符顺序匹配</td></tr>
-              <tr><td><code># 注释内容</code></td><td>注释行，解析时忽略</td></tr>
+              <tr><td><code>// 注释内容</code></td><td>注释到行尾，解析时忽略</td></tr>
             </tbody>
           </table>
           <p class="section-note">歌词与音符按顺序一一对应；休止符不分配歌词。</p>
@@ -146,7 +146,7 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
             <tr><td><code>| || |: :|</code></td><td>小节线 / 终止线 / 反复</td><td><code>*N</code></td><td>重复 N 次</td></tr>
             <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^r ^f ^l</code></td><td>断奏 / 重音 / 保持 / 颤音 / 延音 / 轮指</td></tr>
             <tr><td><code>(^l)</code> 等</td><td>本小节所有音符加标记</td><td><code>0</code></td><td>休止符不继承小节级标记</td></tr>
-            <tr><td><code>L:</code></td><td>歌词行</td><td><code>#</code></td><td>注释行</td></tr>
+            <tr><td><code>L:</code></td><td>歌词行</td><td><code>//</code></td><td>注释到行尾</td></tr>
           </tbody>
         </table>
       </div>

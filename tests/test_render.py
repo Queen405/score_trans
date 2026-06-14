@@ -1,11 +1,13 @@
 from fractions import Fraction
+from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import pytest
 
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.domain.musicxml import musicxml_to_score
-from score_trans.exec.render.actions import RenderJianpuTextAction
+from score_trans.exec.render.actions import RenderActions, RenderJianpuTextAction
+from score_trans.models.render.schemas import RenderJianpuTextSvgRequest
 from score_trans.models.score import (
     JianpuEvent,
     JianpuMeasure,
@@ -13,6 +15,8 @@ from score_trans.models.score import (
     JianpuScore,
     TextBlock,
 )
+from score_trans.models.settings.config import ToolConfig
+from score_trans.services.files.upload_service import UploadService
 from score_trans.services.ocr.providers import MockOCRProvider
 from score_trans.services.render import (
     RenderOptions,
@@ -228,6 +232,40 @@ def test_render_jianpu_text_page_rejects_ai_dotted_duration_prefix_variant(
             ocr_provider=MockOCRProvider([]),
             start_measure_number=5,
         )
+
+
+class RecordingTextRenderer:
+    def __init__(self) -> None:
+        self.input_text = ""
+
+    def execute(
+        self,
+        input_path: str | Path,
+        output_path: str | Path,
+        *,
+        title: str = "简谱",
+    ) -> Path:
+        self.input_text = Path(input_path).read_text(encoding="utf-8")
+        Path(output_path).write_text("<svg></svg>", encoding="utf-8")
+        return Path(output_path)
+
+
+def test_render_jianpu_text_svg_preserves_editor_comments_in_response(tmp_path) -> None:
+    renderer = RecordingTextRenderer()
+    actions = RenderActions(
+        uploads=UploadService(ToolConfig(work_dir=tmp_path / "work")),
+        text_renderer=renderer,
+    )
+    text = "1=C\n4/4\n// 保留这个注释\n#5 6 7 1' | // 行尾注释"
+
+    response = actions.render_jianpu_text_svg(
+        RenderJianpuTextSvgRequest(jianpu_text=text, title="简谱")
+    )
+
+    assert response.jianpu_text == text
+    assert "//" not in renderer.input_text
+    assert "#5 6 7 1' |" in renderer.input_text
+    assert actions.uploads.get_path(response.svg_file_id) is not None
 
 
 def test_render_score_page_svg_places_ocr_text_block_at_bbox() -> None:

@@ -31,6 +31,7 @@ def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:
     schema = create_app().openapi()["components"]["schemas"]["RenderJianpuSvgRequest"]
 
     assert "page_image_file_id" in schema["properties"]
+    assert "accidental_mode" in schema["properties"]
 
 
 class SlowRenderActions:
@@ -68,6 +69,18 @@ def test_musicxml_to_jianpu_request_accepts_page_image_for_ocr_text() -> None:
     schema = create_app().openapi()["components"]["schemas"]["MusicXmlToJianpuRequest"]
 
     assert "page_image_file_id" in schema["properties"]
+    assert "accidental_mode" in schema["properties"]
+
+
+def test_generation_requests_accept_accidental_mode() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+
+    assert "accidental_mode" in schemas["SettingsResponse"]["properties"]
+    assert "accidental_mode" in schemas["SettingsUpdateRequest"]["properties"]
+    assert "accidental_mode" in schemas["PipelineByFileIdRequest"]["properties"]
+    assert "accidental_mode" in schemas["FinalRenderRequest"]["properties"]
+    assert "accidental_mode" in schemas["PreservingLayoutRequest"]["properties"]
+    assert "accidental_mode" in schemas["AiTranscribeRequest"]["properties"]
 
 
 def test_jianpu_text_svg_request_accepts_page_image_for_ocr_overlay() -> None:

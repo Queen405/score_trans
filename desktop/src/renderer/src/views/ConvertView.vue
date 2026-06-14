@@ -619,6 +619,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
         musicxml_file_id: page.musicxml_file_id,
         page_image_file_id: page.input_file_id || undefined,
         target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
         start_measure_number: selected,
       })
       svgFileId = rendered.svg_file_id
@@ -831,6 +832,7 @@ async function renderExportSvg(page: TaskPage): Promise<string> {
       musicxml_file_id: page.musicxmlFileId,
       page_image_file_id: page.originalFileId || page.inputFileId || undefined,
       target_key: settings.targetKey,
+      accidental_mode: settings.accidentalMode,
       start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
     })
     return result.svg_file_id
@@ -845,6 +847,7 @@ async function musicxmlToJianpu(): Promise<void> {
       musicxml_file_id: store.musicxmlFileId,
       page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
+      accidental_mode: settings.accidentalMode,
       start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
     })
     const split = splitJianpuAndOcr(result.jianpu_text)
@@ -917,6 +920,7 @@ async function renderSvg(): Promise<void> {
         musicxml_file_id: store.musicxmlFileId,
         page_image_file_id: store.originalFileId || undefined,
         target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
         start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
       })
       store.setSvg(result.svg_file_id)
@@ -960,6 +964,7 @@ async function toggleFinalView(): Promise<void> {
           musicxml_file_id: store.musicxmlFileId,
           page_image_file_id: store.originalFileId || undefined,
           target_key: settings.targetKey,
+          accidental_mode: settings.accidentalMode,
           start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
         })
     finalSvgFileId.value = result.svg_file_id
@@ -982,18 +987,13 @@ async function toggleFinalView(): Promise<void> {
 }
 
 async function persistRenderedHistory(svgFileId: string): Promise<void> {
-  let normalizedJianpu = jianpuText.value
-  if (normalizedJianpu.trim()) {
-    const normalized = await renderApi.normalizeJianpuText({ jianpu_text: normalizedJianpu, title: '简谱' })
-    normalizedJianpu = normalized.jianpu_text
-    if (normalizedJianpu !== jianpuText.value) {
-      jianpuText.value = normalizedJianpu
-      store.setJianpu(normalizedJianpu)
-    }
+  const savedJianpu = jianpuText.value
+  if (savedJianpu.trim()) {
+    await renderApi.normalizeJianpuText({ jianpu_text: savedJianpu, title: '简谱' })
   }
   const payload = {
     musicxml_file_id: store.musicxmlFileId,
-    jianpu_text: normalizedJianpu,
+    jianpu_text: savedJianpu,
     ocr_text: store.ocrText,
     svg_file_id: svgFileId,
     start_measure_number: store.startMeasureNumber ?? null,
@@ -1012,7 +1012,7 @@ async function persistRenderedHistory(svgFileId: string): Promise<void> {
       input_file_name: store.inputFileName,
       input_file_id: store.inputFileId,
       musicxml_file_id: store.musicxmlFileId,
-      jianpu_text: normalizedJianpu,
+      jianpu_text: savedJianpu,
       ocr_text: store.ocrText,
       svg_file_id: svgFileId,
       status: 'completed',

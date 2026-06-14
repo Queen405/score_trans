@@ -6,7 +6,9 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
+from ...domain.accidentals import score_with_accidental_mode
 from ...domain.jianpu import normalize_jianpu_text
+from ...models.common.types import AccidentalMode
 from ...models.render.schemas import (
     FinalRenderRequest,
     FinalRenderResponse,
@@ -43,6 +45,7 @@ class RenderMusicXmlJianpuAction:
         output_path: str | Path,
         *,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
         image_path: str | Path | None = None,
@@ -51,6 +54,7 @@ class RenderMusicXmlJianpuAction:
         score = self.build_score(
             musicxml_path,
             target_key=target_key,
+            accidental_mode=accidental_mode,
             start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
@@ -66,6 +70,7 @@ class RenderMusicXmlJianpuAction:
         page_width: float,
         page_height: float,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
         image_path: str | Path | None = None,
@@ -74,6 +79,7 @@ class RenderMusicXmlJianpuAction:
         score = self.build_score(
             musicxml_path,
             target_key=target_key,
+            accidental_mode=accidental_mode,
             start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
@@ -92,6 +98,7 @@ class RenderMusicXmlJianpuAction:
         musicxml_path: str | Path,
         *,
         target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
         image_path: str | Path | None = None,
@@ -106,7 +113,7 @@ class RenderMusicXmlJianpuAction:
         )
         if title:
             score.title = title
-        return score
+        return score_with_accidental_mode(score, accidental_mode=accidental_mode)
 
 
 class RenderJianpuTextAction:
@@ -172,6 +179,7 @@ class RenderActions:
                 page_width=page_width,
                 page_height=page_height,
                 target_key=req.target_key,
+                accidental_mode=req.accidental_mode,
                 start_measure_number=req.start_measure_number,
                 image_path=image_path,
                 title=req.title,
@@ -181,6 +189,7 @@ class RenderActions:
                 path,
                 svg_path,
                 target_key=req.target_key,
+                accidental_mode=req.accidental_mode,
                 start_measure_number=req.start_measure_number,
                 title=req.title,
             )
@@ -230,7 +239,7 @@ class RenderActions:
         return RenderJianpuTextSvgResponse(
             svg_file_id=self.uploads.register(svg_path),
             ocr_text=_serialize_ocr_text(ocr_blocks) if ocr_blocks is not None else None,
-            jianpu_text=normalized_text,
+            jianpu_text=req.jianpu_text,
         )
 
     def normalize_jianpu_text(self, req: NormalizeJianpuTextRequest) -> NormalizeJianpuTextResponse:
@@ -274,6 +283,7 @@ class RenderActions:
             page_width=page_width,
             page_height=page_height,
             target_key=req.target_key,
+            accidental_mode=req.accidental_mode,
             start_measure_number=req.start_measure_number,
             image_path=image_path,
             title=req.title,

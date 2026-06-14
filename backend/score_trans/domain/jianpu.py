@@ -8,6 +8,7 @@ from .parse.musicxml import musicxml_to_score
 from .write.jianpu_text import score_to_jianpu_text
 from .write.musicxml import score_to_musicxml
 from .xml_utils import _read_musicxml
+from ..models.common.types import AccidentalMode
 
 __all__ = [
     "jianpu_file_to_musicxml",
@@ -25,8 +26,14 @@ def musicxml_file_to_jianpu(path: Path) -> str:
     return musicxml_to_jianpu(_read_musicxml(path))
 
 
-def musicxml_to_jianpu(xml_text: str) -> str:
-    return score_to_jianpu_text(musicxml_to_score(xml_text))
+def musicxml_to_jianpu(
+    xml_text: str,
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
+    return score_to_jianpu_text(
+        musicxml_to_score(xml_text), accidental_mode=accidental_mode
+    )
 
 
 def jianpu_file_to_musicxml(path: Path, title: str = "Jianpu Import") -> str:
@@ -38,8 +45,16 @@ def jianpu_to_musicxml(text: str, title: str = "Jianpu Import") -> str:
     return score_to_musicxml(score, title=title)
 
 
-def normalize_jianpu_text(text: str, *, title: str | None = None) -> str:
-    return score_to_jianpu_text(parse_jianpu_score(text, title=title))
+def normalize_jianpu_text(
+    text: str,
+    *,
+    title: str | None = None,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
+    return score_to_jianpu_text(
+        parse_jianpu_score(text, title=title),
+        accidental_mode=accidental_mode,
+    )
 
 
 def jianpu_to_html(jianpu_text: str) -> str:
