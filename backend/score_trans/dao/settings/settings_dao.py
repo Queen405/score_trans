@@ -37,6 +37,10 @@ _DEFAULTS: dict[str, str] = {
     "audiveris_path": AUDIVERIS_PATH,
     "java_home": JAVA_HOME,
     "output_dir": OUTPUT_DIR,
+    "target_key": "C",
+    "show_measure_numbers": "1",
+    "measure_number_mode": "all",
+    "jianpu_syntax_highlight": "0",
     "accidental_mode": "auto",
     "omr_preprocess": "1" if OMR_PREPROCESS else "0",
     "omr_preprocess_long_edge": str(OMR_PREPROCESS_LONG_EDGE),
@@ -89,6 +93,7 @@ class SettingsDao:
                 """
             )
             self._migrate_old_table(conn)
+            self._migrate_measure_number_mode(conn)
             for key, value in _DEFAULTS.items():
                 conn.execute(
                     f"INSERT OR IGNORE INTO {TABLE_NAME} (key, value) VALUES (?, ?)",
@@ -107,6 +112,29 @@ class SettingsDao:
                 (row["key"], row["value"]),
             )
         conn.execute("DROP TABLE IF EXISTS ocr_settings")
+
+    def _migrate_measure_number_mode(self, conn: sqlite3.Connection) -> None:
+        mode = conn.execute(
+            f"SELECT value FROM {TABLE_NAME} WHERE key = ?", ("measure_number_mode",)
+        ).fetchone()
+        if mode is not None:
+            return
+        show = conn.execute(
+            f"SELECT value FROM {TABLE_NAME} WHERE key = ?", ("show_measure_numbers",)
+        ).fetchone()
+        value = "all"
+        if show is not None and show["value"].strip().lower() in {
+            "0",
+            "false",
+            "no",
+            "off",
+            "",
+        }:
+            value = "none"
+        conn.execute(
+            f"INSERT INTO {TABLE_NAME} (key, value) VALUES (?, ?)",
+            ("measure_number_mode", value),
+        )
 
     def get(self, key: str, default: str = "") -> str:
         with self._connect() as conn:

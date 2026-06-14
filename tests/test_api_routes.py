@@ -5,14 +5,18 @@ import time
 from fastapi.testclient import TestClient
 
 from score_trans.api.dependencies import get_file_actions
+from score_trans.api.dependencies import get_settings_actions
 from score_trans.api.app import create_app
 from score_trans.api.export.routes import export_midi
 from score_trans.api.render.routes import render_jianpu_svg
 from score_trans.exec.export.actions import ExportActions
 from score_trans.exec.files.actions import FileActions
+from score_trans.exec.settings.actions import SettingsActions
+from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.models.render.schemas import RenderJianpuSvgRequest, RenderJianpuSvgResponse
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
+from score_trans.services.settings.settings_service import SettingsService
 
 
 def test_render_routes_are_registered() -> None:
@@ -81,6 +85,113 @@ def test_generation_requests_accept_accidental_mode() -> None:
     assert "accidental_mode" in schemas["FinalRenderRequest"]["properties"]
     assert "accidental_mode" in schemas["PreservingLayoutRequest"]["properties"]
     assert "accidental_mode" in schemas["AiTranscribeRequest"]["properties"]
+
+
+def test_generation_requests_accept_show_measure_numbers() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+
+    assert "show_measure_numbers" in schemas["SettingsResponse"]["properties"]
+    assert "measure_number_mode" in schemas["SettingsResponse"]["properties"]
+    assert "jianpu_syntax_highlight" in schemas["SettingsResponse"]["properties"]
+    assert "show_measure_numbers" in schemas["SettingsUpdateRequest"]["properties"]
+    assert "measure_number_mode" in schemas["SettingsUpdateRequest"]["properties"]
+    assert "jianpu_syntax_highlight" in schemas["SettingsUpdateRequest"]["properties"]
+    assert "show_measure_numbers" in schemas["PipelineByFileIdRequest"]["properties"]
+    assert "measure_number_mode" in schemas["PipelineByFileIdRequest"]["properties"]
+    assert "show_measure_numbers" in schemas["RenderJianpuSvgRequest"]["properties"]
+    assert "measure_number_mode" in schemas["RenderJianpuSvgRequest"]["properties"]
+    assert "show_measure_numbers" in schemas["RenderJianpuTextSvgRequest"]["properties"]
+    assert "measure_number_mode" in schemas["RenderJianpuTextSvgRequest"]["properties"]
+    assert "show_measure_numbers" in schemas["FinalRenderRequest"]["properties"]
+    assert "measure_number_mode" in schemas["FinalRenderRequest"]["properties"]
+    assert "show_measure_numbers" in schemas["PreservingLayoutRequest"]["properties"]
+    assert "measure_number_mode" in schemas["PreservingLayoutRequest"]["properties"]
+
+
+def test_target_key_schema_exposes_supported_keys() -> None:
+    property_schema = create_app().openapi()["components"]["schemas"][
+        "SettingsResponse"
+    ]["properties"]["target_key"]
+
+    assert property_schema["enum"] == [
+        "Cb",
+        "Gb",
+        "Db",
+        "Ab",
+        "Eb",
+        "Bb",
+        "F",
+        "C",
+        "G",
+        "D",
+        "A",
+        "E",
+        "B",
+        "F#",
+        "C#",
+    ]
+
+
+def test_settings_persists_show_measure_numbers(tmp_path: Path) -> None:
+    app = create_app()
+    dao = SettingsDao(tmp_path / "settings.db")
+    service = SettingsService(dao)
+    service.set("work_dir", str(tmp_path / "work"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+    client = TestClient(app)
+
+    response = client.get("/settings")
+    assert response.status_code == 200
+    assert response.json()["show_measure_numbers"] is True
+    assert response.json()["measure_number_mode"] == "all"
+
+    response = client.put(
+        "/settings", json={"measure_number_mode": "row_start", "target_key": "F#"}
+    )
+    assert response.status_code == 200
+    assert response.json()["show_measure_numbers"] is True
+    assert response.json()["measure_number_mode"] == "row_start"
+    assert response.json()["target_key"] == "F#"
+
+    response = client.get("/settings")
+    assert response.json()["measure_number_mode"] == "row_start"
+
+    response = client.put("/settings", json={"show_measure_numbers": False})
+    assert response.status_code == 200
+    assert response.json()["show_measure_numbers"] is False
+    assert response.json()["measure_number_mode"] == "none"
+
+
+def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
+    app = create_app()
+    dao = SettingsDao(tmp_path / "settings.db")
+    service = SettingsService(dao)
+    service.set("work_dir", str(tmp_path / "work"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+    client = TestClient(app)
+
+    response = client.get("/settings")
+    assert response.status_code == 200
+    assert response.json()["jianpu_syntax_highlight"] is False
+
+    response = client.put("/settings", json={"jianpu_syntax_highlight": True})
+    assert response.status_code == 200
+    assert response.json()["jianpu_syntax_highlight"] is True
+
+    response = client.get("/settings")
+    assert response.json()["jianpu_syntax_highlight"] is True
+
+
+def test_settings_rejects_unsupported_target_key(tmp_path: Path) -> None:
+    app = create_app()
+    dao = SettingsDao(tmp_path / "settings.db")
+    service = SettingsService(dao)
+    service.set("work_dir", str(tmp_path / "work"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+
+    response = TestClient(app).put("/settings", json={"target_key": "D#"})
+
+    assert response.status_code == 422
 
 
 def test_jianpu_text_svg_request_accepts_page_image_for_ocr_overlay() -> None:

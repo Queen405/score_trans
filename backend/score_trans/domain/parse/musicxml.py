@@ -36,6 +36,9 @@ def musicxml_to_score(
     start_measure_number: int | None = None,
     title: str | None = None,
 ) -> JianpuScore:
+    if target_key not in KEY_TO_TONIC:
+        raise ValueError(f"不支持的简谱调：{target_key}")
+
     root = ET.fromstring(xml_text)
     ns = _namespace(root.tag)
     part = root.find(_q(ns, "part"))
@@ -311,7 +314,7 @@ def _note_pitch(note: ET.Element, ns: str, target_key: str) -> JianpuPitch | Non
     octave = int(_text(pitch.find(_q(ns, "octave"))) or "4")
     accidental_text = _accidental_token(_text(note.find(_q(ns, "accidental"))))
     midi = (octave + 1) * 12 + STEP_TO_SEMITONE[step] + alter
-    tonic = KEY_TO_TONIC.get(target_key, 0)
+    tonic = KEY_TO_TONIC[target_key]
     relative = (midi - (60 + tonic)) % 12
     octave_shift = (midi - (60 + tonic)) // 12
     if relative in MAJOR_SCALE:

@@ -4,3 +4,39 @@ from typing import Literal
 
 
 AccidentalMode = Literal["auto", "sharp", "flat"]
+MeasureNumberMode = Literal["all", "row_start", "none"]
+TargetKey = Literal[
+    "Cb",
+    "Gb",
+    "Db",
+    "Ab",
+    "Eb",
+    "Bb",
+    "F",
+    "C",
+    "G",
+    "D",
+    "A",
+    "E",
+    "B",
+    "F#",
+    "C#",
+]
+
+SUPPORTED_TARGET_KEYS: tuple[TargetKey, ...] = (
+    "Cb",
+    "Gb",
+    "Db",
+    "Ab",
+    "Eb",
+    "Bb",
+    "F",
+    "C",
+    "G",
+    "D",
+    "A",
+    "E",
+    "B",
+    "F#",
+    "C#",
+)

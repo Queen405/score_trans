@@ -737,6 +737,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
         file_id: target.inputFileId,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        measure_number_mode: settings.measureNumberMode,
         start_measure_number: target.startMeasureNumber ?? null,
       })
     } else {
@@ -825,6 +826,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         page_image_file_id: page.originalFileId || page.inputFileId || undefined,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        measure_number_mode: settings.measureNumberMode,
         start_measure_number: selected,
       })
       svgFileId = rendered.svg_file_id
@@ -833,6 +835,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         jianpu_text: page.jianpuText,
         page_image_file_id: page.originalFileId || page.inputFileId || undefined,
         include_ocr_text: false,
+        measure_number_mode: settings.measureNumberMode,
         title: page.inputFileName || 'AI 简谱',
         start_measure_number: selected,
       })

@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.jianpu import normalize_jianpu_text
-from ...models.common.types import AccidentalMode
+from ...models.common.types import AccidentalMode, MeasureNumberMode
 from ...models.render.schemas import (
     FinalRenderRequest,
     FinalRenderResponse,
@@ -47,6 +47,8 @@ class RenderMusicXmlJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -60,7 +62,13 @@ class RenderMusicXmlJianpuAction:
             image_path=image_path,
             ocr_provider=ocr_provider,
         )
-        return self.render_service.render_score_svg(score, output_path, title=title or score.title)
+        return self.render_service.render_score_svg(
+            score,
+            output_path,
+            title=title or score.title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
 
     def execute_page(
         self,
@@ -72,6 +80,8 @@ class RenderMusicXmlJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -91,6 +101,8 @@ class RenderMusicXmlJianpuAction:
             page_width=page_width,
             page_height=page_height,
             title=title or score.title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
         )
 
     def build_score(
@@ -120,8 +132,22 @@ class RenderJianpuTextAction:
     def __init__(self, render_service: RenderService | None = None) -> None:
         self.render_service = render_service or RenderService()
 
-    def execute(self, input_path: str | Path, output_path: str | Path, *, title: str = "简谱") -> Path:
-        return self.render_service.render_text_svg(input_path, output_path, title=title)
+    def execute(
+        self,
+        input_path: str | Path,
+        output_path: str | Path,
+        *,
+        title: str = "简谱",
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
+    ) -> Path:
+        return self.render_service.render_text_svg(
+            input_path,
+            output_path,
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
 
     def execute_page(
         self,
@@ -135,6 +161,8 @@ class RenderJianpuTextAction:
         text_blocks: list[TextBlock] | None = None,
         title: str = "简谱",
         start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
     ) -> Path:
         blocks = text_blocks
         if blocks is None and image_path is not None:
@@ -148,6 +176,8 @@ class RenderJianpuTextAction:
             title=title,
             text_blocks=blocks or [],
             start_measure_number=start_measure_number,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
         )
 
 
@@ -181,6 +211,8 @@ class RenderActions:
                 target_key=req.target_key,
                 accidental_mode=req.accidental_mode,
                 start_measure_number=req.start_measure_number,
+                show_measure_numbers=_request_show_measure_numbers(req),
+                measure_number_mode=_request_measure_number_mode(req),
                 image_path=image_path,
                 title=req.title,
             )
@@ -191,6 +223,8 @@ class RenderActions:
                 target_key=req.target_key,
                 accidental_mode=req.accidental_mode,
                 start_measure_number=req.start_measure_number,
+                show_measure_numbers=_request_show_measure_numbers(req),
+                measure_number_mode=_request_measure_number_mode(req),
                 title=req.title,
             )
         return RenderJianpuSvgResponse(svg_file_id=self.uploads.register(svg_path))
@@ -232,9 +266,17 @@ class RenderActions:
                 text_blocks=ocr_blocks if req.include_ocr_text else [],
                 title=req.title,
                 start_measure_number=req.start_measure_number,
+                show_measure_numbers=_request_show_measure_numbers(req),
+                measure_number_mode=_request_measure_number_mode(req),
             )
         else:
-            self.text_renderer.execute(input_path, svg_path, title=req.title)
+            self.text_renderer.execute(
+                input_path,
+                svg_path,
+                title=req.title,
+                show_measure_numbers=_request_show_measure_numbers(req),
+                measure_number_mode=_request_measure_number_mode(req),
+            )
 
         return RenderJianpuTextSvgResponse(
             svg_file_id=self.uploads.register(svg_path),
@@ -285,6 +327,8 @@ class RenderActions:
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
             start_measure_number=req.start_measure_number,
+            show_measure_numbers=_request_show_measure_numbers(req),
+            measure_number_mode=_request_measure_number_mode(req),
             image_path=image_path,
             title=req.title,
         )
@@ -344,4 +388,18 @@ def _serialize_ocr_text(blocks: list[TextBlock]) -> str:
         ],
         ensure_ascii=False,
     )
+
+
+def _request_measure_number_mode(req) -> MeasureNumberMode:
+    if getattr(req, "show_measure_numbers", None) is False:
+        return "none"
+    return getattr(req, "measure_number_mode", "all")
+
+
+def _show_measure_numbers(mode: MeasureNumberMode) -> bool:
+    return mode != "none"
+
+
+def _request_show_measure_numbers(req) -> bool:
+    return _show_measure_numbers(_request_measure_number_mode(req))
 

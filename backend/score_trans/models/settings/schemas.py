@@ -16,7 +16,7 @@ from score_trans.config.settings import (
     OMR_PREPROCESS_BINARIZE,
     OMR_PREPROCESS_LONG_EDGE,
 )
-from score_trans.models.common.types import AccidentalMode
+from score_trans.models.common.types import AccidentalMode, MeasureNumberMode, TargetKey
 
 
 class LlmProviderOption(BaseModel):
@@ -35,8 +35,11 @@ class SettingsResponse(BaseModel):
     cache_dir: str
     cache_size_bytes: int = 0
     work_dir: str
-    target_key: str = "C"
+    target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
+    show_measure_numbers: bool = True
+    measure_number_mode: MeasureNumberMode = "all"
+    jianpu_syntax_highlight: bool = False
     output_dir: str = ""
     ocr_provider: str = OCR_PROVIDER
     ocr_provider_options: list[LlmProviderOption] = Field(default_factory=list)
@@ -65,8 +68,11 @@ class SettingsUpdateRequest(BaseModel):
     audiveris_path: str | None = None
     java_home: str | None = None
     output_dir: str | None = None
-    target_key: str | None = None
+    target_key: TargetKey | None = None
     accidental_mode: AccidentalMode | None = None
+    show_measure_numbers: bool | None = None
+    measure_number_mode: MeasureNumberMode | None = None
+    jianpu_syntax_highlight: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None
     ocr_api_key: str | None = None

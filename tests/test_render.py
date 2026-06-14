@@ -119,6 +119,39 @@ def test_render_score_svg_uses_display_measure_number() -> None:
     assert "generated" in svg
 
 
+def test_render_can_hide_measure_numbers_when_requested() -> None:
+    score = musicxml_to_score(
+        jianpu_to_musicxml("1=C\n4/4\n1 2 |"), start_measure_number=118
+    )
+
+    svg = render_score_svg(score, RenderOptions(show_measure_numbers=False))
+
+    assert 'class="measure-no"' not in svg
+    assert "generated" in svg
+
+
+def test_render_can_show_measure_numbers_only_at_row_start() -> None:
+    svg = render_jianpu_svg(
+        "1=C\n4/4\n1 2 | 3 4 | 5 6 |",
+        RenderOptions(
+            width=360,
+            margin=20,
+            min_measure_width=140,
+            max_measure_width=140,
+            measure_number_mode="row_start",
+        ),
+    )
+
+    root = _svg_root(svg)
+    measure_numbers = [
+        text.text
+        for text in _svg_elements(root, "text")
+        if text.attrib.get("class") == "measure-no"
+    ]
+
+    assert measure_numbers == ["1", "3"]
+
+
 def test_render_score_page_svg_preserves_requested_page_size() -> None:
     score = _simple_score(
         JianpuEvent(
@@ -237,6 +270,7 @@ def test_render_jianpu_text_page_rejects_ai_dotted_duration_prefix_variant(
 class RecordingTextRenderer:
     def __init__(self) -> None:
         self.input_text = ""
+        self.show_measure_numbers = True
 
     def execute(
         self,
@@ -244,8 +278,11 @@ class RecordingTextRenderer:
         output_path: str | Path,
         *,
         title: str = "简谱",
+        show_measure_numbers: bool = True,
+        measure_number_mode: str = "all",
     ) -> Path:
         self.input_text = Path(input_path).read_text(encoding="utf-8")
+        self.show_measure_numbers = show_measure_numbers
         Path(output_path).write_text("<svg></svg>", encoding="utf-8")
         return Path(output_path)
 

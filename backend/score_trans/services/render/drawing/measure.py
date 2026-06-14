@@ -33,6 +33,7 @@ def _render_measure(
     *,
     draw_start_bar: bool,
     attribute_text: str | None = None,
+    show_measure_number: bool | None = None,
     open_tie=None,
     open_slur=None,
 ) -> tuple[list[str], object, object]:
@@ -41,7 +42,9 @@ def _render_measure(
     out = [
         f'<g class="measure" data-number="{_esc(str(measure.number))}" data-width="{width:.1f}">'
     ]
-    if options.show_measure_numbers:
+    if options.show_measure_numbers and (
+        show_measure_number if show_measure_number is not None else True
+    ):
         no_y = _measure_number_y(measure, y)
         out.append(
             f'<text class="measure-no" x="{x + 6:.1f}" y="{no_y}">{_esc(str(measure.number))}</text>'

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { settingsApi, type SettingsQuery } from '../api/settings'
-import type { AccidentalMode, CacheCleanupResponse, LlmProviderOption, SettingsResponse, StoragePaths, ThemeMode } from '../models/types'
+import type { AccidentalMode, CacheCleanupResponse, LlmProviderOption, MeasureNumberMode, SettingsResponse, StoragePaths, TargetKey, ThemeMode } from '../models/types'
 
 type ProviderKind = 'ocr' | 'ai' | 'assistant'
 
@@ -28,8 +28,11 @@ export const useSettingsStore = defineStore('settings', () => {
   const cacheSizeBytes = ref(0)
   const cacheSizeAvailable = ref(false)
   const storageRestartRequired = ref(false)
-  const targetKey = ref('C')
+  const targetKey = ref<TargetKey>('C')
   const accidentalMode = ref<AccidentalMode>('auto')
+  const showMeasureNumbers = ref(true)
+  const measureNumberMode = ref<MeasureNumberMode>('all')
+  const jianpuSyntaxHighlight = ref(false)
   const outputDir = ref('')
   const ocrProvider = ref('siliconflow_deepseek_ocr')
   const ocrProviderOptions = ref<LlmProviderOption[]>([])
@@ -89,6 +92,9 @@ export const useSettingsStore = defineStore('settings', () => {
       output_dir: outputDir.value,
       target_key: targetKey.value,
       accidental_mode: accidentalMode.value,
+      show_measure_numbers: measureNumberMode.value !== 'none',
+      measure_number_mode: measureNumberMode.value,
+      jianpu_syntax_highlight: jianpuSyntaxHighlight.value,
       ocr_provider: ocrProvider.value,
       ocr_api_key: ocrApiKey.value || undefined,
       ai_provider: aiProvider.value,
@@ -142,6 +148,9 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value
     targetKey.value = data.target_key ?? 'C'
     accidentalMode.value = data.accidental_mode ?? 'auto'
+    measureNumberMode.value = data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
+    showMeasureNumbers.value = measureNumberMode.value !== 'none'
+    jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false
     outputDir.value = data.output_dir ?? ''
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
     ocrProviderOptions.value = data.ocr_provider_options ?? []
@@ -259,6 +268,9 @@ export const useSettingsStore = defineStore('settings', () => {
     storageRestartRequired,
     targetKey,
     accidentalMode,
+    showMeasureNumbers,
+    measureNumberMode,
+    jianpuSyntaxHighlight,
     outputDir,
     ocrProvider,
     ocrProviderOptions,

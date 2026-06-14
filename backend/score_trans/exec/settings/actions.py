@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from ...models.common.paths import USER_DATA_ROOT
-from ...models.common.types import AccidentalMode
+from ...models.common.types import (
+    AccidentalMode,
+    MeasureNumberMode,
+    SUPPORTED_TARGET_KEYS,
+    TargetKey,
+)
 from ...models.settings.config import ToolConfig
 from ...models.settings.schemas import (
     CacheCleanupResponse,
@@ -58,6 +63,29 @@ class SettingsActions:
 
         if req.accidental_mode is not None:
             self.service.set("accidental_mode", req.accidental_mode)
+
+        if req.show_measure_numbers is not None:
+            self.service.set(
+                "show_measure_numbers", "1" if req.show_measure_numbers else "0"
+            )
+            if req.measure_number_mode is None:
+                self.service.set(
+                    "measure_number_mode",
+                    "all" if req.show_measure_numbers else "none",
+                )
+
+        if req.measure_number_mode is not None:
+            self.service.set("measure_number_mode", req.measure_number_mode)
+            self.service.set(
+                "show_measure_numbers",
+                "0" if req.measure_number_mode == "none" else "1",
+            )
+
+        if req.jianpu_syntax_highlight is not None:
+            self.service.set(
+                "jianpu_syntax_highlight",
+                "1" if req.jianpu_syntax_highlight else "0",
+            )
 
         if req.work_dir is not None:
             self.service.set("work_dir", req.work_dir)
@@ -190,6 +218,10 @@ class SettingsActions:
         )
         config = self.service.load()
         cache_size_bytes = CacheService(cache_dir=config.work_dir).size_bytes()
+        measure_number_mode = _measure_number_mode(
+            all_settings.get("measure_number_mode"),
+            self.service.get_bool("show_measure_numbers", True),
+        )
         return SettingsResponse(
             audiveris_path=all_settings.get("audiveris_path", ""),
             java_home=all_settings.get("java_home", ""),
@@ -198,8 +230,13 @@ class SettingsActions:
             cache_size_bytes=cache_size_bytes,
             work_dir=str(config.work_dir),
             output_dir=all_settings.get("output_dir", ""),
-            target_key=all_settings.get("target_key", "C"),
+            target_key=_target_key(all_settings.get("target_key")),
             accidental_mode=_accidental_mode(all_settings.get("accidental_mode")),
+            show_measure_numbers=measure_number_mode != "none",
+            measure_number_mode=measure_number_mode,
+            jianpu_syntax_highlight=self.service.get_bool(
+                "jianpu_syntax_highlight", False
+            ),
             ocr_provider=ocr_profile.id,
             ocr_provider_options=_provider_options("ocr"),
             ocr_api_key=ocr_api_key,
@@ -246,3 +283,17 @@ def _accidental_mode(value: str | None) -> AccidentalMode:
     if value in {"auto", "sharp", "flat"}:
         return value
     return "auto"
+
+
+def _target_key(value: str | None) -> TargetKey:
+    if value in SUPPORTED_TARGET_KEYS:
+        return value
+    return "C"
+
+
+def _measure_number_mode(
+    value: str | None, show_measure_numbers: bool
+) -> MeasureNumberMode:
+    if value in {"all", "row_start", "none"}:
+        return value
+    return "all" if show_measure_numbers else "none"

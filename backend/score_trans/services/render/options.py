@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from score_trans.models.common.types import MeasureNumberMode
+
 from score_trans.config.settings import (
     RENDER_BEAT_GAP,
     RENDER_FONT,
@@ -32,3 +34,4 @@ class RenderOptions:
     show_beat_guides: bool = RENDER_SHOW_BEAT_GUIDES
     show_staff_guides: bool = RENDER_SHOW_STAFF_GUIDES
     show_measure_numbers: bool = RENDER_SHOW_MEASURE_NUMBERS
+    measure_number_mode: MeasureNumberMode = "all"

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from ...models.common.types import MeasureNumberMode
 from ...models.score import JianpuScore
 from . import (
     render_jianpu_file_to_svg,
@@ -10,8 +11,21 @@ from . import (
 
 
 class RenderService:
-    def render_score_svg(self, score: JianpuScore, output_path: str | Path, title: str | None = None) -> Path:
-        return render_score_file_to_svg(score, Path(output_path), title=title)
+    def render_score_svg(
+        self,
+        score: JianpuScore,
+        output_path: str | Path,
+        title: str | None = None,
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
+    ) -> Path:
+        return render_score_file_to_svg(
+            score,
+            Path(output_path),
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
 
     def render_score_page_svg(
         self,
@@ -21,6 +35,8 @@ class RenderService:
         page_width: float,
         page_height: float,
         title: str | None = None,
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
     ) -> Path:
         return render_score_page_file_to_svg(
             score,
@@ -28,10 +44,25 @@ class RenderService:
             page_width=page_width,
             page_height=page_height,
             title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
         )
 
-    def render_text_svg(self, input_path: str | Path, output_path: str | Path, title: str = "简谱") -> Path:
-        return render_jianpu_file_to_svg(Path(input_path), Path(output_path), title=title)
+    def render_text_svg(
+        self,
+        input_path: str | Path,
+        output_path: str | Path,
+        title: str = "简谱",
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
+    ) -> Path:
+        return render_jianpu_file_to_svg(
+            Path(input_path),
+            Path(output_path),
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
 
     def render_text_page_svg(
         self,
@@ -43,6 +74,8 @@ class RenderService:
         title: str = "简谱",
         text_blocks=None,
         start_measure_number: int | None = None,
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
     ) -> Path:
         return render_jianpu_page_file_to_svg(
             Path(input_path),
@@ -52,4 +85,6 @@ class RenderService:
             title=title,
             text_blocks=text_blocks,
             start_measure_number=start_measure_number,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
         )

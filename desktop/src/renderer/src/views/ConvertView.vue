@@ -142,6 +142,7 @@
               v-model="jianpuText"
               :start-measure-number="store.startMeasureNumber ?? 1"
               :current-note-index="currentNoteIndex"
+              :syntax-highlight="settings.jianpuSyntaxHighlight"
             />
           </div>
         </div>
@@ -252,6 +253,7 @@ watch(() => store.svgFileId, (v) => { finalSvgFileId.value = v })
 watch(() => store.currentPageIndex, () => { currentNoteIndex.value = -1 })
 
 onMounted(() => {
+  if (!settings.loaded) void settings.load()
   loadHistory()
   stopHistoryUpdatedListener = listenHistoryUpdated(() => loadHistory(false, { refreshExpanded: false }))
   stopHistoryPagePatchedListener = listenHistoryPagePatched(handleHistoryPagePatched)
@@ -620,6 +622,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
         page_image_file_id: page.input_file_id || undefined,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        measure_number_mode: settings.measureNumberMode,
         start_measure_number: selected,
       })
       svgFileId = rendered.svg_file_id
@@ -628,6 +631,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
         jianpu_text: page.jianpu_text,
         page_image_file_id: page.input_file_id || undefined,
         include_ocr_text: false,
+        measure_number_mode: settings.measureNumberMode,
         title: page.input_file_name || 'AI 简谱',
         start_measure_number: selected,
       })
@@ -818,6 +822,7 @@ async function renderExportSvg(page: TaskPage): Promise<string> {
       page_image_file_id: page.originalFileId || page.inputFileId || undefined,
       ocr_text: page.ocrText || undefined,
       include_ocr_text: true,
+      measure_number_mode: settings.measureNumberMode,
       title: '简谱',
     })
     if (result.jianpu_text && page.id === store.currentPage?.id) {
@@ -833,6 +838,7 @@ async function renderExportSvg(page: TaskPage): Promise<string> {
       page_image_file_id: page.originalFileId || page.inputFileId || undefined,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
+      measure_number_mode: settings.measureNumberMode,
       start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
     })
     return result.svg_file_id
@@ -848,6 +854,7 @@ async function musicxmlToJianpu(): Promise<void> {
       page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
+      measure_number_mode: settings.measureNumberMode,
       start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
     })
     const split = splitJianpuAndOcr(result.jianpu_text)
@@ -904,6 +911,7 @@ async function renderSvg(): Promise<void> {
         page_image_file_id: store.originalFileId || undefined,
         ocr_text: store.ocrText || undefined,
         include_ocr_text: false,
+        measure_number_mode: settings.measureNumberMode,
         title: '简谱',
         start_measure_number: store.startMeasureNumber ?? undefined,
       })
@@ -921,6 +929,7 @@ async function renderSvg(): Promise<void> {
         page_image_file_id: store.originalFileId || undefined,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        measure_number_mode: settings.measureNumberMode,
         start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
       })
       store.setSvg(result.svg_file_id)
@@ -957,6 +966,7 @@ async function toggleFinalView(): Promise<void> {
           page_image_file_id: store.originalFileId || undefined,
           ocr_text: store.ocrText || undefined,
           include_ocr_text: false,
+          measure_number_mode: settings.measureNumberMode,
           title: '简谱',
           start_measure_number: store.startMeasureNumber ?? undefined,
         })
@@ -965,6 +975,7 @@ async function toggleFinalView(): Promise<void> {
           page_image_file_id: store.originalFileId || undefined,
           target_key: settings.targetKey,
           accidental_mode: settings.accidentalMode,
+          measure_number_mode: settings.measureNumberMode,
           start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
         })
     finalSvgFileId.value = result.svg_file_id

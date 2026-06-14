@@ -11,13 +11,28 @@
       </div>
     </div>
     <div class="editor-main">
+      <div v-if="syntaxHighlight" class="editor-highlight" aria-hidden="true">
+        <div class="editor-highlight-content" :style="highlightScrollStyle">
+          <div
+            v-for="(line, lineIndex) in highlightedLines"
+            :key="lineIndex"
+            class="editor-highlight-line"
+          >
+            <span
+              v-for="(token, tokenIndex) in line"
+              :key="tokenIndex"
+              :class="`token-${token.type}`"
+            >{{ token.text }}</span>
+          </div>
+        </div>
+      </div>
       <textarea
         ref="textareaRef"
         :value="modelValue"
         @input="onInput"
         @scroll="syncScroll"
         placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 $345$ 4 |&#10;1=G&#10;3/4&#10;h[1+3+5] \p 4 |&#10;L: 春 风 又 绿"
-        class="editor-textarea"
+        :class="['editor-textarea', { 'syntax-highlight-enabled': syntaxHighlight }]"
         spellcheck="false"
       />
       <div
@@ -32,13 +47,16 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
+import { tokenizeJianpuLine } from '../utils/jianpuSyntax'
 
 const props = withDefaults(defineProps<{
   modelValue: string
   startMeasureNumber?: number
   currentNoteIndex?: number
+  syntaxHighlight?: boolean
 }>(), {
   currentNoteIndex: -1,
+  syntaxHighlight: false,
 })
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
@@ -55,6 +73,10 @@ const editorMetrics = ref({
 let resizeObserver: ResizeObserver | null = null
 
 const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
+const highlightedLines = computed(() => props.modelValue.split('\n').map(tokenizeJianpuLine))
+const highlightScrollStyle = computed(() => ({
+  transform: `translate(${-scrollLeft.value}px, ${-scrollTop.value}px)`,
+}))
 const activeNoteSpan = computed(() => (
   props.currentNoteIndex >= 0
     ? noteSpans.value.find((span) => span.index === props.currentNoteIndex) ?? null
@@ -393,6 +415,30 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   overflow: hidden;
 }
 
+.editor-highlight {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  padding: 8px 10px;
+  border-radius: 0 var(--radius-sm, 4px) var(--radius-sm, 4px) 0;
+  background: var(--bg-base, #fff);
+  color: var(--text-primary, #333);
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 22.75px;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.editor-highlight-content {
+  min-width: max-content;
+}
+
+.editor-highlight-line {
+  min-height: 22.75px;
+}
+
 .editor-gutter {
   width: 32px;
   flex-shrink: 0;
@@ -436,6 +482,18 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   white-space: pre;
   overflow-wrap: normal;
   overflow-x: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.editor-textarea.syntax-highlight-enabled {
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-primary, #333);
+}
+
+.editor-textarea.syntax-highlight-enabled::selection {
+  background: rgba(76, 110, 245, 0.26);
 }
 
 .editor-playback-highlight {
@@ -453,6 +511,18 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   color: var(--text-placeholder, #aaa);
 }
 
+.token-comment { color: #687076; }
+.token-metadata { color: #0550ae; }
+.token-note { color: #0969da; }
+.token-rest { color: #8250df; }
+.token-chord { color: #116329; }
+.token-tuplet { color: #953800; }
+.token-barline { color: #cf222e; }
+.token-repeat { color: #9a6700; }
+.token-dynamic { color: #1a7f37; }
+.token-ornament { color: #bc4c00; }
+.token-lyrics { color: #57606a; }
+
 /* Dark theme support */
 .theme-dark .editor-gutter {
   background: var(--bg-soft, #2a2a2a);
@@ -469,7 +539,34 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   color: var(--text-primary, #ddd);
 }
 
+.theme-dark .editor-highlight {
+  background: var(--bg-base, #1e1e1e);
+  color: var(--text-primary, #ddd);
+}
+
+.theme-dark .editor-textarea.syntax-highlight-enabled {
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-primary, #ddd);
+}
+
+.theme-dark .editor-textarea.syntax-highlight-enabled::selection {
+  background: rgba(116, 143, 252, 0.32);
+}
+
 .theme-dark .editor-textarea::placeholder {
   color: var(--text-placeholder, #666);
 }
+
+.theme-dark .token-comment { color: #6a9955; }
+.theme-dark .token-metadata { color: #569cd6; }
+.theme-dark .token-note { color: #9cdcfe; }
+.theme-dark .token-rest { color: #c586c0; }
+.theme-dark .token-chord { color: #4ec9b0; }
+.theme-dark .token-tuplet { color: #dcdcaa; }
+.theme-dark .token-barline { color: #d7ba7d; }
+.theme-dark .token-repeat { color: #b5cea8; }
+.theme-dark .token-dynamic { color: #ce9178; }
+.theme-dark .token-ornament { color: #d16969; }
+.theme-dark .token-lyrics { color: #c8c8c8; }
 </style>

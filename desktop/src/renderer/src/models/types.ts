@@ -20,7 +20,7 @@ export interface UploadResponse {
 export interface MusicXmlToJianpuRequest {
   musicxml_file_id: string
   page_image_file_id?: string
-  target_key?: string
+  target_key?: TargetKey
   accidental_mode?: AccidentalMode
   start_measure_number?: number
 }
@@ -33,8 +33,10 @@ export interface MusicXmlToJianpuResponse {
 export interface RenderJianpuSvgRequest {
   musicxml_file_id: string
   page_image_file_id?: string
-  target_key?: string
+  target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  show_measure_numbers?: boolean
+  measure_number_mode?: MeasureNumberMode
   start_measure_number?: number
   title?: string
 }
@@ -49,6 +51,8 @@ export interface RenderJianpuTextSvgRequest {
   page_image_file_id?: string
   ocr_text?: string
   include_ocr_text?: boolean
+  show_measure_numbers?: boolean
+  measure_number_mode?: MeasureNumberMode
   title?: string
   start_measure_number?: number
 }
@@ -71,8 +75,10 @@ export interface NormalizeJianpuTextResponse {
 export interface FinalOutputRequest {
   musicxml_file_id: string
   page_image_file_id?: string
-  target_key?: string
+  target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  show_measure_numbers?: boolean
+  measure_number_mode?: MeasureNumberMode
   start_measure_number?: number
   title?: string
 }
@@ -95,8 +101,10 @@ export interface TaskSubmitResponse {
 
 export interface PipelineByFileIdRequest {
   file_id: string
-  target_key: string
+  target_key: TargetKey
   accidental_mode?: AccidentalMode
+  show_measure_numbers?: boolean
+  measure_number_mode?: MeasureNumberMode
   start_measure_number?: number | null
   title?: string | null
 }
@@ -111,7 +119,7 @@ export interface PipelineResponse {
 
 export interface AiTranscribeRequest {
   file_id: string
-  target_key?: string
+  target_key?: TargetKey
   accidental_mode?: AccidentalMode
   title?: string
   render_dpi?: number
@@ -186,6 +194,23 @@ export interface ExportMidiTextRequest {
 
 export type ThemeMode = 'dark' | 'light' | 'system'
 export type AccidentalMode = 'auto' | 'sharp' | 'flat'
+export type MeasureNumberMode = 'all' | 'row_start' | 'none'
+export type TargetKey =
+  | 'Cb'
+  | 'Gb'
+  | 'Db'
+  | 'Ab'
+  | 'Eb'
+  | 'Bb'
+  | 'F'
+  | 'C'
+  | 'G'
+  | 'D'
+  | 'A'
+  | 'E'
+  | 'B'
+  | 'F#'
+  | 'C#'
 
 export interface LlmProviderOption {
   id: string
@@ -203,8 +228,11 @@ export interface SettingsResponse {
   cache_dir: string
   cache_size_bytes: number
   work_dir: string
-  target_key?: string
+  target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  show_measure_numbers?: boolean
+  measure_number_mode?: MeasureNumberMode
+  jianpu_syntax_highlight?: boolean
   output_dir?: string
   ocr_provider?: string
   ocr_provider_options?: LlmProviderOption[]
@@ -233,8 +261,11 @@ export interface SettingsUpdateRequest {
   audiveris_path?: string
   java_home?: string
   output_dir?: string
-  target_key?: string
+  target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  show_measure_numbers?: boolean
+  measure_number_mode?: MeasureNumberMode
+  jianpu_syntax_highlight?: boolean
   work_dir?: string
   ocr_provider?: string
   ocr_api_key?: string

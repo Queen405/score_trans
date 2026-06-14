@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ..common.types import AccidentalMode
+from ..common.types import AccidentalMode, TargetKey
 
 
 class MusicXmlToJianpuRequest(BaseModel):
     musicxml_file_id: str
     page_image_file_id: str | None = None
-    target_key: str = "C"
+    target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
     start_measure_number: int | None = None
 

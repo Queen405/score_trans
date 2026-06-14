@@ -169,6 +169,21 @@
                   style="width: 140px"
                 />
               </div>
+              <div class="sv-form-item sv-form-item-compact">
+                <label>小节号</label>
+                <n-select
+                  v-model:value="settings.measureNumberMode"
+                  :options="measureNumberModeOptions"
+                  size="small"
+                  style="width: 160px"
+                />
+              </div>
+              <div class="sv-form-item sv-form-item-compact sv-switch-setting">
+                <label>代码配色</label>
+                <div class="sv-switch-control">
+                  <n-switch v-model:value="settings.jianpuSyntaxHighlight" size="small" />
+                </div>
+              </div>
             </div>
             <div class="sv-form-item">
               <label>默认导出路径</label>
@@ -231,9 +246,10 @@ import {
   NCard,
   NAlert,
   NPopconfirm,
+  NSwitch,
   useMessage,
 } from 'naive-ui'
-import type { LlmProviderOption } from '../models/types'
+import type { LlmProviderOption, MeasureNumberMode, TargetKey } from '../models/types'
 
 const settings = useSettingsStore()
 const log = useLogStore()
@@ -243,20 +259,34 @@ const cacheSizeLabel = computed(() =>
   settings.cacheSizeAvailable ? formatBytes(settings.cacheSizeBytes) : '未获取（请重启应用）',
 )
 
-const keyOptions = [
-  { label: 'C', value: 'C' },
-  { label: 'D', value: 'D' },
-  { label: 'E', value: 'E' },
+const keyOptions: { label: string, value: TargetKey }[] = [
+  { label: 'Cb', value: 'Cb' },
+  { label: 'Gb', value: 'Gb' },
+  { label: 'Db', value: 'Db' },
+  { label: 'Ab', value: 'Ab' },
+  { label: 'Eb', value: 'Eb' },
+  { label: 'Bb', value: 'Bb' },
   { label: 'F', value: 'F' },
+  { label: 'C', value: 'C' },
   { label: 'G', value: 'G' },
+  { label: 'D', value: 'D' },
   { label: 'A', value: 'A' },
+  { label: 'E', value: 'E' },
   { label: 'B', value: 'B' },
+  { label: 'F#', value: 'F#' },
+  { label: 'C#', value: 'C#' },
 ]
 
 const accidentalModeOptions = [
   { label: '自由记谱', value: 'auto' },
   { label: '全部升号', value: 'sharp' },
   { label: '全部降号', value: 'flat' },
+]
+
+const measureNumberModeOptions: { label: string, value: MeasureNumberMode }[] = [
+  { label: '全部显示', value: 'all' },
+  { label: '每行首显示', value: 'row_start' },
+  { label: '隐藏', value: 'none' },
 ]
 
 const themeModeOptions = [
@@ -495,6 +525,16 @@ function providerSelectOptions(options: LlmProviderOption[]): { label: string; v
 
 .sv-form-item.sv-form-item-compact {
   flex: 0 0 auto;
+}
+
+.sv-switch-setting {
+  min-width: 72px;
+}
+
+.sv-switch-control {
+  height: 28px;
+  display: flex;
+  align-items: center;
 }
 
 .sv-actions-row {

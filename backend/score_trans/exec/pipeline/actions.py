@@ -11,7 +11,7 @@ from fastapi import UploadFile
 
 from ...domain.musicxml import score_to_jianpu_text
 from ...domain.accidentals import score_with_accidental_mode
-from ...models.common.types import AccidentalMode
+from ...models.common.types import AccidentalMode, MeasureNumberMode
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
@@ -60,6 +60,8 @@ class FullPipelineAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
         ocr_provider: OCRProvider | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -101,12 +103,16 @@ class FullPipelineAction:
                 page_width=page_width,
                 page_height=page_height,
                 title=title or render_score.title,
+                show_measure_numbers=show_measure_numbers,
+                measure_number_mode=measure_number_mode,
             )
         else:
             self.renderer.render_score_svg(
                 render_score,
                 svg_path,
                 title=title or render_score.title,
+                show_measure_numbers=show_measure_numbers,
+                measure_number_mode=measure_number_mode,
             )
         ocr_measure_numbers = _extract_ocr_measure_numbers(render_score)
         report_progress(progress_callback, "render", 94, "渲染完成")
@@ -139,6 +145,8 @@ class PipelineActions:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> PipelineResponse:
@@ -148,6 +156,8 @@ class PipelineActions:
             target_key=target_key,
             accidental_mode=accidental_mode,
             start_measure_number=start_measure_number,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
             title=title,
             progress_callback=progress_callback,
         )
@@ -168,6 +178,8 @@ class PipelineActions:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
     ) -> TaskSubmitResponse:
         input_path = self.uploads.get_path(file_id)
@@ -181,6 +193,8 @@ class PipelineActions:
                 target_key=target_key,
                 accidental_mode=accidental_mode,
                 start_measure_number=start_measure_number,
+                show_measure_numbers=show_measure_numbers,
+                measure_number_mode=measure_number_mode,
                 title=title,
                 progress_callback=progress,
             )
@@ -199,6 +213,8 @@ class PipelineActions:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
     ) -> TaskSubmitResponse:
         input_path = await asyncio.to_thread(self.save_upload, file)
@@ -210,6 +226,8 @@ class PipelineActions:
                 target_key=target_key,
                 accidental_mode=accidental_mode,
                 start_measure_number=start_measure_number,
+                show_measure_numbers=show_measure_numbers,
+                measure_number_mode=measure_number_mode,
                 title=title,
                 progress_callback=progress,
             )
@@ -226,6 +244,8 @@ class PipelineActions:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> PipelineResponse:
@@ -241,6 +261,8 @@ class PipelineActions:
             target_key=target_key,
             accidental_mode=accidental_mode,
             start_measure_number=start_measure_number,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
             title=title,
             progress_callback=progress_callback,
         )

@@ -4,6 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from ...domain.jianpu import parse_jianpu_score
+from ...models.common.types import MeasureNumberMode
 from ...models.score import JianpuScore, TextBlock
 from .drawing.measure import _render_measure
 from .drawing.spanners import _finish_open_spanners
@@ -70,6 +71,7 @@ def render_jianpu_page_svg(
         max_measure_width=max(base_options.max_measure_width, width - margin * 2),
         beat_gap=base_options.beat_gap,
         show_measure_numbers=base_options.show_measure_numbers,
+        measure_number_mode=base_options.measure_number_mode,
     )
     rows = _layout_rows(layouts, page_options)
 
@@ -92,6 +94,9 @@ def render_jianpu_page_svg(
                 page_options,
                 draw_start_bar=index == 0,
                 attribute_text=attribute_text,
+                show_measure_number=_should_show_measure_number(
+                    page_options, index
+                ),
                 open_tie=open_tie,
                 open_slur=open_slur,
             )
@@ -153,6 +158,7 @@ def render_score_page_svg(
         max_measure_width=max(base_options.max_measure_width, width - margin * 2),
         beat_gap=base_options.beat_gap,
         show_measure_numbers=base_options.show_measure_numbers,
+        measure_number_mode=base_options.measure_number_mode,
     )
     rows = _layout_rows(layouts, page_options)
 
@@ -175,6 +181,9 @@ def render_score_page_svg(
                 page_options,
                 draw_start_bar=index == 0,
                 attribute_text=attribute_text,
+                show_measure_number=_should_show_measure_number(
+                    page_options, index
+                ),
                 open_tie=open_tie,
                 open_slur=open_slur,
             )
@@ -196,11 +205,18 @@ def render_score_page_svg(
 
 
 def render_jianpu_file_to_svg(
-    input_path: Path, output_path: Path, title: str = "简谱"
+    input_path: Path,
+    output_path: Path,
+    title: str = "简谱",
+    show_measure_numbers: bool | None = None,
+    measure_number_mode: MeasureNumberMode | None = None,
 ) -> Path:
-    svg = render_jianpu_svg(
-        input_path.read_text(encoding="utf-8"), RenderOptions(title=title)
+    options = _render_options(
+        title=title,
+        show_measure_numbers=show_measure_numbers,
+        measure_number_mode=measure_number_mode,
     )
+    svg = render_jianpu_svg(input_path.read_text(encoding="utf-8"), options)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
     return output_path
@@ -215,7 +231,14 @@ def render_jianpu_page_file_to_svg(
     title: str = "简谱",
     text_blocks: list[TextBlock] | None = None,
     start_measure_number: int | None = None,
+    show_measure_numbers: bool | None = None,
+    measure_number_mode: MeasureNumberMode | None = None,
 ) -> Path:
+    options = _render_options(
+        title=title,
+        show_measure_numbers=show_measure_numbers,
+        measure_number_mode=measure_number_mode,
+    )
     svg = render_jianpu_page_svg(
         input_path.read_text(encoding="utf-8"),
         page_width=page_width,
@@ -223,6 +246,7 @@ def render_jianpu_page_file_to_svg(
         title=title,
         text_blocks=text_blocks,
         start_measure_number=start_measure_number,
+        options=options,
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
@@ -230,9 +254,18 @@ def render_jianpu_page_file_to_svg(
 
 
 def render_score_file_to_svg(
-    score: JianpuScore, output_path: Path, title: str | None = None
+    score: JianpuScore,
+    output_path: Path,
+    title: str | None = None,
+    show_measure_numbers: bool | None = None,
+    measure_number_mode: MeasureNumberMode | None = None,
 ) -> Path:
-    svg = render_score_svg(score, RenderOptions(title=title or score.title))
+    options = _render_options(
+        title=title or score.title,
+        show_measure_numbers=show_measure_numbers,
+        measure_number_mode=measure_number_mode,
+    )
+    svg = render_score_svg(score, options)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
     return output_path
@@ -245,9 +278,20 @@ def render_score_page_file_to_svg(
     page_width: float,
     page_height: float,
     title: str | None = None,
+    show_measure_numbers: bool | None = None,
+    measure_number_mode: MeasureNumberMode | None = None,
 ) -> Path:
+    options = _render_options(
+        title=title or score.title,
+        show_measure_numbers=show_measure_numbers,
+        measure_number_mode=measure_number_mode,
+    )
     svg = render_score_page_svg(
-        score, page_width=page_width, page_height=page_height, title=title
+        score,
+        page_width=page_width,
+        page_height=page_height,
+        title=title,
+        options=options,
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
@@ -294,6 +338,7 @@ def _render_layouts(
                 options,
                 draw_start_bar=index == 0,
                 attribute_text=attribute_text,
+                show_measure_number=_should_show_measure_number(options, index),
                 open_tie=open_tie,
                 open_slur=open_slur,
             )
@@ -309,6 +354,28 @@ def _render_layouts(
         )
     out.append("</svg>")
     return "\n".join(out)
+
+
+def _render_options(
+    *,
+    title: str,
+    show_measure_numbers: bool | None = None,
+    measure_number_mode: MeasureNumberMode | None = None,
+) -> RenderOptions:
+    mode = measure_number_mode or ("none" if show_measure_numbers is False else "all")
+    return RenderOptions(
+        title=title,
+        show_measure_numbers=mode != "none",
+        measure_number_mode=mode,
+    )
+
+
+def _should_show_measure_number(options: RenderOptions, measure_index: int) -> bool:
+    if not options.show_measure_numbers or options.measure_number_mode == "none":
+        return False
+    if options.measure_number_mode == "row_start":
+        return measure_index == 0
+    return True
 
 
 def _score_layouts_with_playback_indices(
