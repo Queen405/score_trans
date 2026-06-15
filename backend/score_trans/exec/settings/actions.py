@@ -81,6 +81,12 @@ class SettingsActions:
                 "0" if req.measure_number_mode == "none" else "1",
             )
 
+        if req.confirm_start_measure_number is not None:
+            self.service.set(
+                "confirm_start_measure_number",
+                "1" if req.confirm_start_measure_number else "0",
+            )
+
         if req.jianpu_syntax_highlight is not None:
             self.service.set(
                 "jianpu_syntax_highlight",
@@ -111,21 +117,6 @@ class SettingsActions:
                 self._current_provider_id("assistant"),
                 req.assistant_api_key,
             )
-
-        if req.omr_preprocess is not None:
-            self.service.set("omr_preprocess", "1" if req.omr_preprocess else "0")
-            config.omr_preprocess = req.omr_preprocess
-
-        if req.omr_preprocess_long_edge is not None:
-            value = max(0, req.omr_preprocess_long_edge)
-            self.service.set("omr_preprocess_long_edge", str(value))
-            config.omr_preprocess_long_edge = value
-
-        if req.omr_preprocess_binarize is not None:
-            self.service.set(
-                "omr_preprocess_binarize", "1" if req.omr_preprocess_binarize else "0"
-            )
-            config.omr_preprocess_binarize = req.omr_preprocess_binarize
 
         return self._response()
 
@@ -234,6 +225,9 @@ class SettingsActions:
             accidental_mode=_accidental_mode(all_settings.get("accidental_mode")),
             show_measure_numbers=measure_number_mode != "none",
             measure_number_mode=measure_number_mode,
+            confirm_start_measure_number=self.service.get_bool(
+                "confirm_start_measure_number", True
+            ),
             jianpu_syntax_highlight=self.service.get_bool(
                 "jianpu_syntax_highlight", False
             ),
@@ -255,13 +249,6 @@ class SettingsActions:
             assistant_api_key_set=bool(assistant_api_key),
             assistant_base_url=assistant_profile.base_url,
             assistant_model=assistant_profile.model,
-            omr_preprocess=self.service.get_bool("omr_preprocess", True),
-            omr_preprocess_long_edge=self.service.get_int(
-                "omr_preprocess_long_edge", 3600
-            ),
-            omr_preprocess_binarize=self.service.get_bool(
-                "omr_preprocess_binarize", False
-            ),
         )
 
 

@@ -39,17 +39,21 @@
 import { ref, computed } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
+import { useSettingsStore } from '../stores/settings'
 import {
   exportApi,
   svgToPngBlob,
   downloadSvg,
   downloadBlob,
 } from '../api/export'
+import { renderApi } from '../api/render'
 import { getFileURL } from '../api/client'
+import type { BatchRenderPageRequest, RenderedSvgPage } from '../models/types'
 import { DocumentTextOutline, CloudDownloadOutline } from '@vicons/ionicons5'
 import { NButton, NSelect, NIcon, useMessage } from 'naive-ui'
 
 const store = useTaskStore()
+const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
 
@@ -63,7 +67,9 @@ const formatOptions = [
 
 const canExport = computed(() => {
   if (exportFormat.value === 'mid') return store.hasMusicxml
-  return !!store.currentBatchRenderPageFileIds.length || store.pages.some((p) => !!p.svgFileId)
+  return !!store.currentBatchRenderPageFileIds.length
+    || !!store.currentBatchJianpuText.trim()
+    || store.pages.some((p) => !!p.svgFileId || !!p.musicxmlFileId || !!p.jianpuText.trim())
 })
 
 const exportLabel = computed(() => {
@@ -86,7 +92,7 @@ async function doExport(): Promise<void> {
     const fmt = exportFormat.value
 
     if (fmt === 'svg') {
-      const svgId = store.currentBatchRenderPageFileIds[0] || store.svgFileId
+      const svgId = (await ensureExportSvgIds())[0] || store.svgFileId
       if (!svgId) throw new Error('没有可导出的 SVG')
       downloadSvg(svgId)
       log.addLog('已导出 SVG')
@@ -95,7 +101,7 @@ async function doExport(): Promise<void> {
     }
 
     if (fmt === 'png') {
-      const svgId = store.currentBatchRenderPageFileIds[0] || store.svgFileId
+      const svgId = (await ensureExportSvgIds())[0] || store.svgFileId
       if (!svgId) throw new Error('没有可导出的 SVG')
       const url = getFileURL(svgId)
       const blob = await svgToPngBlob(url)
@@ -131,9 +137,7 @@ async function doExport(): Promise<void> {
 }
 
 async function exportPdfBatch(): Promise<void> {
-  const svgIds = store.currentBatchRenderPageFileIds.length
-    ? store.currentBatchRenderPageFileIds
-    : store.pages.flatMap((page) => page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : []))
+  const svgIds = await ensureExportSvgIds()
   if (svgIds.length === 0) throw new Error('没有可导出的页面')
 
   const pngBlobs: Blob[] = []
@@ -152,6 +156,86 @@ async function exportPdfBatch(): Promise<void> {
   a.click()
   log.addLog(`已导出 PDF（${svgIds.length} 页）`)
   message.success('导出完成')
+}
+
+async function ensureExportSvgIds(): Promise<string[]> {
+  if (!store.currentBatchRenderPageOcrDirty && store.currentBatchRenderPageFileIds.length) {
+    return store.currentBatchRenderPageFileIds
+  }
+  const pages = buildBatchRenderPages()
+  if (!pages.length) {
+    return store.pages.flatMap((page) =>
+      page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : []),
+    )
+  }
+  const result = await renderApi.batchA4({
+    pages,
+    source_pages: buildBatchRenderSourcePages(),
+    render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
+    target_key: settings.targetKey,
+    accidental_mode: settings.accidentalMode,
+    measure_number_mode: settings.measureNumberMode,
+    title: '简谱',
+  })
+  const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)
+  store.setBatchRenderPageFileIds(ids)
+  store.setBatchRenderPageOcrTexts(renderResponsePageOcrTexts(result.pages), false)
+  store.markBatchRenderPageOcrClean()
+  return ids
+}
+
+function buildBatchRenderPages(): BatchRenderPageRequest[] {
+  const batchText = store.currentBatchJianpuText.trim()
+  const batchPages = store.currentBatchPages.length ? store.currentBatchPages : store.pages
+  if (batchText) {
+    return [{
+      jianpu_text: store.currentBatchJianpuText,
+      include_ocr_text: false,
+      start_measure_number: batchPages[0]?.startMeasureNumber ?? undefined,
+      title: '简谱',
+    }]
+  }
+  return buildBatchRenderSourcePages()
+}
+
+function buildBatchRenderSourcePages(): BatchRenderPageRequest[] {
+  const batchPages = store.currentBatchPages.length ? store.currentBatchPages : store.pages
+  return batchPages
+    .map((page) => {
+      const sourceImageId = page.originalFileId || page.inputFileId || undefined
+      const start = page.startMeasureNumber ?? undefined
+      if (page.jianpuText.trim()) {
+        return {
+          input_file_name: page.inputFileName,
+          jianpu_text: page.jianpuText,
+          page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
+          start_measure_number: start,
+          title: '简谱',
+        }
+      }
+      if (page.musicxmlFileId) {
+        return {
+          input_file_name: page.inputFileName,
+          musicxml_file_id: page.musicxmlFileId,
+          page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
+          start_measure_number: start,
+          title: '简谱',
+        }
+      }
+      return null
+    })
+    .filter((page): page is BatchRenderPageRequest => page !== null)
+}
+
+function renderResponsePageOcrTexts(pages: RenderedSvgPage[]) {
+  return pages.map((page) => ({
+    page_index: page.page_index,
+    ocr_text: page.ocr_text || '',
+  }))
 }
 </script>
 

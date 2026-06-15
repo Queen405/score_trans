@@ -27,7 +27,7 @@ def merge_page_jianpu_texts(
     for index, text in enumerate(non_empty, start=1):
         stripped = strip_header(text)
         if stripped:
-            body.append(f"# Page {index}")
+            body.append(f"// Page {index}")
             body.append(stripped)
     return "\n".join(header + [""] + body).strip()
 

@@ -1,7 +1,9 @@
 import { apiFetch } from './client'
 import type {
   HistoryBatch,
+  HistoryBatchJianpuTextUpdateRequest,
   HistoryBatchListItem,
+  HistoryBatchRenderPageOcrTextsUpdateRequest,
   HistoryBatchRenderPagesUpdateRequest,
   HistoryCreateRequest,
   HistoryPage,
@@ -35,6 +37,22 @@ export const historyApi = {
 
   updateBatchRenderPages(id: number, req: HistoryBatchRenderPagesUpdateRequest): Promise<HistoryBatch> {
     return apiFetch(`/history/${id}/render-pages`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  updateBatchJianpuText(id: number, req: HistoryBatchJianpuTextUpdateRequest): Promise<HistoryBatch> {
+    return apiFetch(`/history/${id}/jianpu-text`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  updateBatchRenderPageOcrTexts(id: number, req: HistoryBatchRenderPageOcrTextsUpdateRequest): Promise<HistoryBatch> {
+    return apiFetch(`/history/${id}/render-page-ocr-texts`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),

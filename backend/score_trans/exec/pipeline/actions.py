@@ -11,7 +11,7 @@ from fastapi import UploadFile
 
 from ...domain.musicxml import score_to_jianpu_text
 from ...domain.accidentals import score_with_accidental_mode
-from ...models.common.types import AccidentalMode, MeasureNumberMode
+from ...models.common.types import AccidentalMode, IMAGE_SUFFIXES, MeasureNumberMode
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.render.schemas import RenderedSvgPage
 from ...models.settings.config import ToolConfig
@@ -20,7 +20,6 @@ from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
-from ...services.recognize.image_preprocessing import IMAGE_SUFFIXES
 from ...services.render.render_service import RenderService
 from ...services.settings.settings_service import SettingsService
 from ..convert.actions import MusicXmlToJianpuAction

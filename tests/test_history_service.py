@@ -1,6 +1,6 @@
 import sqlite3
 
-from score_trans.models.history.entities import HistoryPage
+from score_trans.models.history.entities import HistoryPage, HistoryRenderPageOcrText
 from score_trans.services.history.history_service import HistoryService
 
 
@@ -81,6 +81,56 @@ def test_batch_render_page_file_ids_are_saved_and_updated(tmp_path) -> None:
     assert updated.render_page_file_ids == ["a4-new"]
 
 
+def test_batch_render_page_ocr_texts_are_saved_and_updated(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", svg_file_id="legacy-svg")],
+        render_page_ocr_texts=[
+            HistoryRenderPageOcrText(page_index=0, ocr_text='[{"text":"第一页"}]'),
+        ],
+    )
+
+    loaded = service.get_batch(batch.id)
+    assert loaded is not None
+    assert loaded.render_page_ocr_texts[0].ocr_text == '[{"text":"第一页"}]'
+
+    updated = service.update_batch_render_page_ocr_texts(
+        batch.id,
+        [
+            HistoryRenderPageOcrText(page_index=0, ocr_text='[{"text":"改后"}]'),
+            HistoryRenderPageOcrText(page_index=1, ocr_text='[{"text":"第二页"}]'),
+        ],
+    )
+
+    assert updated is not None
+    assert [item.page_index for item in updated.render_page_ocr_texts] == [0, 1]
+    assert updated.render_page_ocr_texts[0].ocr_text == '[{"text":"改后"}]'
+
+
+def test_batch_jianpu_text_is_saved_and_updated_without_overwriting_pages(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(input_file_name="a.png", jianpu_text="1=C\n4/4\n1 2 |"),
+            HistoryPage(input_file_name="b.png", jianpu_text="1=C\n4/4\n3 4 |"),
+        ],
+        jianpu_text="1=C\n4/4\n1 2 |\n\n3 4 |",
+    )
+
+    assert service.get_batch(batch.id).jianpu_text == "1=C\n4/4\n1 2 |\n\n3 4 |"
+
+    updated = service.update_batch_jianpu_text(batch.id, "1=C\n4/4\n5 6 |")
+
+    assert updated is not None
+    assert updated.jianpu_text == "1=C\n4/4\n5 6 |"
+    loaded = service.get_batch(batch.id)
+    assert loaded is not None
+    assert [page.jianpu_text for page in loaded.pages] == [
+        "1=C\n4/4\n1 2 |",
+        "1=C\n4/4\n3 4 |",
+    ]
+
+
 def test_old_history_batch_falls_back_to_page_svg_ids(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch(
@@ -94,6 +144,68 @@ def test_old_history_batch_falls_back_to_page_svg_ids(tmp_path) -> None:
 
     assert loaded is not None
     assert loaded.render_page_file_ids == []
+
+
+def test_history_batch_migration_adds_empty_batch_jianpu_text(tmp_path) -> None:
+    db_path = tmp_path / "history.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE history_batch (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL DEFAULT '',
+                page_count INTEGER NOT NULL DEFAULT 1,
+                render_page_file_ids TEXT NOT NULL DEFAULT '["a4-old"]',
+                status TEXT NOT NULL DEFAULT 'completed'
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE history_page (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batch_id INTEGER NOT NULL,
+                input_file_name TEXT NOT NULL DEFAULT '',
+                input_file_id TEXT NOT NULL DEFAULT '',
+                musicxml_file_id TEXT NOT NULL DEFAULT '',
+                jianpu_text TEXT NOT NULL DEFAULT '',
+                ocr_text TEXT NOT NULL DEFAULT '',
+                svg_file_id TEXT NOT NULL DEFAULT '',
+                start_measure_number INTEGER,
+                status TEXT NOT NULL DEFAULT 'completed',
+                error_message TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        conn.execute("INSERT INTO history_batch DEFAULT VALUES")
+        conn.execute(
+            "INSERT INTO history_page (batch_id, input_file_name) VALUES (1, 'z.png')"
+        )
+
+    service = HistoryService(db_path)
+    loaded = service.get_batch(1)
+
+    assert loaded is not None
+    assert loaded.jianpu_text == ""
+    assert loaded.render_page_file_ids == ["a4-old"]
+    assert loaded.render_page_ocr_texts == []
+
+
+def test_history_batch_pages_keep_source_order_by_id(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(input_file_name="z-first.png", input_file_id="first"),
+            HistoryPage(input_file_name="a-second.png", input_file_id="second"),
+        ]
+    )
+
+    loaded = service.get_batch(batch.id)
+    summaries = service.list_batch_summaries()
+
+    assert loaded is not None
+    assert [page.input_file_id for page in loaded.pages] == ["first", "second"]
+    assert summaries[0].first_file_name == "z-first.png"
 
 
 def test_measure_selection_failure_update_does_not_leave_processing_status(tmp_path) -> None:

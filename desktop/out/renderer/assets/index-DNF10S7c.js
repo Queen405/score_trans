@@ -8256,6 +8256,7 @@ function createPage(seed) {
     batchLabel: "",
     batchSealed: false,
     historyPageId: null,
+    historyBatchId: null,
     taskId: "",
     inputFileName: "",
     inputFileId: "",
@@ -8267,6 +8268,7 @@ function createPage(seed) {
     ocrText: "",
     jianpuDirty: false,
     svgFileId: "",
+    svgFileIds: [],
     startMeasureNumber: null,
     status: "pending",
     progressPercent: 0,
@@ -8275,6 +8277,9 @@ function createPage(seed) {
     errorMessage: "",
     ...seed
   };
+}
+function mergeJianpuTexts(batchPages) {
+  return batchPages.map((page) => (page.jianpuText ?? "").trim()).filter(Boolean).join("\n\n");
 }
 const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   const inputFileName = /* @__PURE__ */ ref("");
@@ -8286,6 +8291,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   const ocrText = /* @__PURE__ */ ref("");
   const jianpuDirty = /* @__PURE__ */ ref(false);
   const svgFileId = /* @__PURE__ */ ref("");
+  const svgFileIds = /* @__PURE__ */ ref([]);
   const startMeasureNumber = /* @__PURE__ */ ref(null);
   const isBusy = /* @__PURE__ */ ref(false);
   const pages = /* @__PURE__ */ ref([]);
@@ -8295,11 +8301,17 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
   const currentTaskId = /* @__PURE__ */ ref(null);
   const taskStatus = /* @__PURE__ */ ref("pending");
   const backgroundTaskCount = /* @__PURE__ */ ref(0);
+  const batchRenderPageFileIds = /* @__PURE__ */ ref({});
+  const batchRenderPageOcrTexts = /* @__PURE__ */ ref({});
+  const batchRenderPageOcrDirty = /* @__PURE__ */ ref({});
+  const batchJianpuTexts = /* @__PURE__ */ ref({});
+  const batchJianpuDirty = /* @__PURE__ */ ref({});
   function syncCurrentFromPage() {
     const page = pages.value[currentPageIndex.value];
     if (!page) {
       inputFileName.value = "";
       historyPageId.value = null;
+      svgFileIds.value = [];
       inputFileId.value = "";
       originalFileName.value = "";
       originalFileId.value = "";
@@ -8322,6 +8334,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     ocrText.value = page.ocrText;
     jianpuDirty.value = page.jianpuDirty;
     svgFileId.value = page.svgFileId;
+    svgFileIds.value = page.svgFileIds.length ? page.svgFileIds : page.svgFileId ? [page.svgFileId] : [];
     startMeasureNumber.value = page.startMeasureNumber;
   }
   const batches = computed(() => {
@@ -8432,6 +8445,26 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     return localIdx >= 0 && localIdx < currentBatchPages.value.length - 1;
   });
   const activePageTaskCount = computed(() => currentBatchPages.value.filter((page) => page.status === "processing").length);
+  const currentBatchRenderPageFileIds = computed(() => {
+    const batchId = currentBatchId.value;
+    if (!batchId) return [];
+    return batchRenderPageFileIds.value[batchId] ?? [];
+  });
+  const currentBatchJianpuText = computed(() => {
+    const batchId = currentBatchId.value;
+    if (!batchId) return jianpuText.value;
+    return batchJianpuTexts.value[batchId] ?? "";
+  });
+  const currentBatchJianpuDirty = computed(() => {
+    const batchId = currentBatchId.value;
+    if (!batchId) return jianpuDirty.value;
+    return batchJianpuDirty.value[batchId] ?? false;
+  });
+  const currentBatchRenderPageOcrDirty = computed(() => {
+    const batchId = currentBatchId.value;
+    if (!batchId) return false;
+    return Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean);
+  });
   function setInputFile(name, fileId) {
     if (currentPageIndex.value < 0 || currentPageIndex.value >= pages.value.length) {
       addInputPage(name, fileId);
@@ -8444,6 +8477,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     patchCurrentPage({
       inputFileName: name,
       historyPageId: null,
+      historyBatchId: null,
       inputFileId: fileId,
       originalFileName: "",
       originalFileId: "",
@@ -8453,6 +8487,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       ocrText: "",
       jianpuDirty: false,
       svgFileId: "",
+      svgFileIds: [],
       startMeasureNumber: null,
       status: "pending",
       taskId: "",
@@ -8479,6 +8514,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     ocrText.value = "";
     jianpuDirty.value = false;
     svgFileId.value = "";
+    svgFileIds.value = [];
     startMeasureNumber.value = null;
     patchCurrentPage({
       musicxmlFileId: "",
@@ -8486,6 +8522,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       ocrText: "",
       jianpuDirty: false,
       svgFileId: "",
+      svgFileIds: [],
       startMeasureNumber: null,
       status: "pending",
       taskId: "",
@@ -8513,9 +8550,117 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     jianpuDirty.value = false;
     patchCurrentPage({ jianpuDirty: false });
   }
-  function setSvg(fileId) {
+  function setSvg(fileId, fileIds) {
+    const ids = fileIds ?? (fileId ? [fileId] : []);
     svgFileId.value = fileId;
-    patchCurrentPage({ svgFileId: fileId });
+    svgFileIds.value = ids;
+    patchCurrentPage({ svgFileId: fileId, svgFileIds: ids });
+  }
+  function setBatchRenderPageFileIds(fileIds, batchId = currentBatchId.value) {
+    if (!batchId) return;
+    batchRenderPageFileIds.value = {
+      ...batchRenderPageFileIds.value,
+      [batchId]: [...fileIds]
+    };
+  }
+  function setBatchRenderPageOcrText(pageIndex, text, dirty = true, batchId = currentBatchId.value) {
+    if (!batchId || pageIndex < 0) return;
+    batchRenderPageOcrTexts.value = {
+      ...batchRenderPageOcrTexts.value,
+      [batchId]: {
+        ...batchRenderPageOcrTexts.value[batchId] ?? {},
+        [pageIndex]: text
+      }
+    };
+    batchRenderPageOcrDirty.value = {
+      ...batchRenderPageOcrDirty.value,
+      [batchId]: {
+        ...batchRenderPageOcrDirty.value[batchId] ?? {},
+        [pageIndex]: dirty
+      }
+    };
+  }
+  function setBatchRenderPageOcrTexts(items, dirty = false, batchId = currentBatchId.value) {
+    if (!batchId) return;
+    const textMap = {};
+    const dirtyMap = {};
+    for (const item of items) {
+      if (item.page_index < 0) continue;
+      textMap[item.page_index] = item.ocr_text;
+      dirtyMap[item.page_index] = dirty;
+    }
+    batchRenderPageOcrTexts.value = {
+      ...batchRenderPageOcrTexts.value,
+      [batchId]: textMap
+    };
+    batchRenderPageOcrDirty.value = {
+      ...batchRenderPageOcrDirty.value,
+      [batchId]: dirtyMap
+    };
+  }
+  function batchRenderPageOcrTextFor(batchId, pageIndex) {
+    return batchRenderPageOcrTexts.value[batchId]?.[pageIndex] ?? "";
+  }
+  function currentBatchRenderPageOcrText(pageIndex) {
+    const batchId = currentBatchId.value;
+    if (!batchId) return "";
+    return batchRenderPageOcrTextFor(batchId, pageIndex);
+  }
+  function batchRenderPageOcrTextsFor(batchId) {
+    const entries = batchRenderPageOcrTexts.value[batchId] ?? {};
+    return Object.entries(entries).map(([pageIndex, text]) => ({
+      page_index: Number(pageIndex),
+      ocr_text: text
+    })).filter((item) => Number.isFinite(item.page_index) && item.page_index >= 0).sort((a, b) => a.page_index - b.page_index);
+  }
+  function currentBatchRenderPageOcrTextEntries() {
+    const batchId = currentBatchId.value;
+    if (!batchId) return [];
+    return batchRenderPageOcrTextsFor(batchId);
+  }
+  function isBatchRenderPageOcrDirty(batchId) {
+    return Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean);
+  }
+  function markBatchRenderPageOcrClean(batchId = currentBatchId.value) {
+    if (!batchId) return;
+    const entries = batchRenderPageOcrTexts.value[batchId] ?? {};
+    const cleanMap = Object.fromEntries(
+      Object.keys(entries).map((pageIndex) => [pageIndex, false])
+    );
+    batchRenderPageOcrDirty.value = {
+      ...batchRenderPageOcrDirty.value,
+      [batchId]: cleanMap
+    };
+  }
+  function setBatchJianpuText(text, dirty = true, batchId = currentBatchId.value) {
+    if (!batchId) {
+      setJianpu(text, dirty);
+      return;
+    }
+    batchJianpuTexts.value = {
+      ...batchJianpuTexts.value,
+      [batchId]: text
+    };
+    batchJianpuDirty.value = {
+      ...batchJianpuDirty.value,
+      [batchId]: dirty
+    };
+  }
+  function markBatchJianpuClean(batchId = currentBatchId.value) {
+    if (!batchId) {
+      markJianpuClean();
+      return;
+    }
+    batchJianpuDirty.value = {
+      ...batchJianpuDirty.value,
+      [batchId]: false
+    };
+  }
+  function batchJianpuTextFor(batchId) {
+    return batchJianpuTexts.value[batchId] ?? "";
+  }
+  function isBatchJianpuDirty(batchId) {
+    return batchJianpuDirty.value[batchId] ?? false;
   }
   function setPageStartMeasureNumber(value) {
     startMeasureNumber.value = value;
@@ -8554,6 +8699,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       batchSealed: p2.batchSealed ?? sourcePage.batchSealed,
       inputFileName: p2.inputFileName,
       historyPageId: p2.historyPageId ?? null,
+      historyBatchId: p2.historyBatchId ?? null,
       taskId: p2.taskId ?? "",
       inputFileId: p2.inputFileId,
       originalFileName: p2.originalFileName ?? "",
@@ -8564,6 +8710,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       ocrText: p2.ocrText ?? "",
       jianpuDirty: p2.jianpuDirty ?? false,
       svgFileId: p2.svgFileId ?? "",
+      svgFileIds: p2.svgFileIds ?? (p2.svgFileId ? [p2.svgFileId] : []),
       startMeasureNumber: p2.startMeasureNumber ?? null,
       status: p2.status ?? "completed",
       progressPercent: p2.progressPercent ?? 0,
@@ -8597,6 +8744,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       batchSealed: p2.batchSealed ?? sourcePage.batchSealed,
       inputFileName: p2.inputFileName,
       historyPageId: p2.historyPageId ?? null,
+      historyBatchId: p2.historyBatchId ?? null,
       taskId: p2.taskId ?? "",
       inputFileId: p2.inputFileId,
       originalFileName: p2.originalFileName ?? "",
@@ -8607,6 +8755,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       ocrText: p2.ocrText ?? "",
       jianpuDirty: p2.jianpuDirty ?? false,
       svgFileId: p2.svgFileId ?? "",
+      svgFileIds: p2.svgFileIds ?? (p2.svgFileId ? [p2.svgFileId] : []),
       startMeasureNumber: p2.startMeasureNumber ?? null,
       status: p2.status ?? "completed",
       progressPercent: p2.progressPercent ?? 0,
@@ -8669,6 +8818,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     ocrText.value = "";
     jianpuDirty.value = false;
     svgFileId.value = "";
+    svgFileIds.value = [];
     startMeasureNumber.value = null;
     isBusy.value = false;
     pages.value = [];
@@ -8677,8 +8827,13 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     currentTaskId.value = null;
     taskStatus.value = "pending";
     backgroundTaskCount.value = 0;
+    batchRenderPageFileIds.value = {};
+    batchRenderPageOcrTexts.value = {};
+    batchRenderPageOcrDirty.value = {};
+    batchJianpuTexts.value = {};
+    batchJianpuDirty.value = {};
   }
-  function loadBatch(batchPages, selectIndex) {
+  function loadBatch(batchPages, selectIndex, renderPageFileIds = [], batchJianpuText = "", renderPageOcrTexts = []) {
     const random = Math.random().toString(36).slice(2, 8);
     const bid = `batch-${Date.now().toString(36)}-${random}`;
     const firstLabel = batchPages[0]?.inputFileName ?? "历史记录";
@@ -8688,6 +8843,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       batchSealed: true,
       inputFileName: p2.inputFileName,
       historyPageId: p2.historyPageId ?? null,
+      historyBatchId: p2.historyBatchId ?? null,
       taskId: p2.taskId ?? "",
       inputFileId: p2.inputFileId,
       originalFileName: p2.originalFileName ?? "",
@@ -8698,6 +8854,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       ocrText: p2.ocrText ?? "",
       jianpuDirty: p2.jianpuDirty ?? false,
       svgFileId: p2.svgFileId ?? "",
+      svgFileIds: p2.svgFileIds ?? (p2.svgFileId ? [p2.svgFileId] : []),
       startMeasureNumber: p2.startMeasureNumber ?? null,
       status: p2.status ?? "completed",
       progressPercent: p2.progressPercent ?? 0,
@@ -8706,6 +8863,21 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
       errorMessage: p2.errorMessage ?? ""
     }));
     currentBatchId.value = bid;
+    if (renderPageFileIds.length) {
+      batchRenderPageFileIds.value = {
+        ...batchRenderPageFileIds.value,
+        [bid]: [...renderPageFileIds]
+      };
+    }
+    setBatchRenderPageOcrTexts(renderPageOcrTexts, false, bid);
+    batchJianpuTexts.value = {
+      ...batchJianpuTexts.value,
+      [bid]: batchJianpuText || mergeJianpuTexts(batchPages)
+    };
+    batchJianpuDirty.value = {
+      ...batchJianpuDirty.value,
+      [bid]: false
+    };
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1));
     currentPageIndex.value = idx;
     syncCurrentFromPage();
@@ -8721,6 +8893,7 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     ocrText,
     jianpuDirty,
     svgFileId,
+    svgFileIds,
     startMeasureNumber,
     isBusy,
     pages,
@@ -8739,6 +8912,10 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     canPrevPage,
     canNextPage,
     activePageTaskCount,
+    currentBatchRenderPageFileIds,
+    currentBatchRenderPageOcrDirty,
+    currentBatchJianpuText,
+    currentBatchJianpuDirty,
     addInputPage,
     selectPage,
     selectPageById,
@@ -8755,6 +8932,19 @@ const useTaskStore = /* @__PURE__ */ defineStore("task", () => {
     setOcrText,
     markJianpuClean,
     setSvg,
+    setBatchRenderPageFileIds,
+    setBatchRenderPageOcrText,
+    setBatchRenderPageOcrTexts,
+    batchRenderPageOcrTextFor,
+    currentBatchRenderPageOcrText,
+    batchRenderPageOcrTextsFor,
+    currentBatchRenderPageOcrTextEntries,
+    isBatchRenderPageOcrDirty,
+    markBatchRenderPageOcrClean,
+    setBatchJianpuText,
+    markBatchJianpuClean,
+    batchJianpuTextFor,
+    isBatchJianpuDirty,
     setPageStartMeasureNumber,
     setHistoryPageId,
     setPageHistoryPageId,
@@ -8910,6 +9100,7 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const accidentalMode = /* @__PURE__ */ ref("auto");
   const showMeasureNumbers = /* @__PURE__ */ ref(true);
   const measureNumberMode = /* @__PURE__ */ ref("all");
+  const confirmStartMeasureNumber = /* @__PURE__ */ ref(true);
   const jianpuSyntaxHighlight = /* @__PURE__ */ ref(false);
   const outputDir = /* @__PURE__ */ ref("");
   const ocrProvider = /* @__PURE__ */ ref("siliconflow_deepseek_ocr");
@@ -8930,9 +9121,6 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const assistantApiKeySet = /* @__PURE__ */ ref(false);
   const assistantBaseUrl = /* @__PURE__ */ ref("https://dashscope.aliyuncs.com/compatible-mode/v1");
   const assistantModel = /* @__PURE__ */ ref("deepseek-v4-flash");
-  const omrPreprocess = /* @__PURE__ */ ref(true);
-  const omrPreprocessLongEdge = /* @__PURE__ */ ref(3600);
-  const omrPreprocessBinarize = /* @__PURE__ */ ref(false);
   const themeMode = /* @__PURE__ */ ref(loadThemeMode());
   const loaded = /* @__PURE__ */ ref(false);
   const providerLoadVersion = {
@@ -8968,16 +9156,14 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
       accidental_mode: accidentalMode.value,
       show_measure_numbers: measureNumberMode.value !== "none",
       measure_number_mode: measureNumberMode.value,
+      confirm_start_measure_number: confirmStartMeasureNumber.value,
       jianpu_syntax_highlight: jianpuSyntaxHighlight.value,
       ocr_provider: ocrProvider.value,
       ocr_api_key: ocrApiKey.value || void 0,
       ai_provider: aiProvider.value,
       ai_api_key: aiApiKey.value || void 0,
       assistant_provider: assistantProvider.value,
-      assistant_api_key: assistantApiKey.value || void 0,
-      omr_preprocess: omrPreprocess.value,
-      omr_preprocess_long_edge: omrPreprocessLongEdge.value,
-      omr_preprocess_binarize: omrPreprocessBinarize.value
+      assistant_api_key: assistantApiKey.value || void 0
     });
     applySettings(data);
     dataDir.value = requestedDataDir;
@@ -9020,6 +9206,7 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     accidentalMode.value = data.accidental_mode ?? "auto";
     measureNumberMode.value = data.measure_number_mode ?? (data.show_measure_numbers === false ? "none" : "all");
     showMeasureNumbers.value = measureNumberMode.value !== "none";
+    confirmStartMeasureNumber.value = data.confirm_start_measure_number ?? true;
     jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false;
     outputDir.value = data.output_dir ?? "";
     ocrProvider.value = data.ocr_provider ?? "siliconflow_deepseek_ocr";
@@ -9040,9 +9227,6 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     assistantApiKeySet.value = data.assistant_api_key_set ?? false;
     assistantBaseUrl.value = data.assistant_base_url ?? "https://dashscope.aliyuncs.com/compatible-mode/v1";
     assistantModel.value = data.assistant_model ?? "deepseek-v4-flash";
-    omrPreprocess.value = data.omr_preprocess ?? true;
-    omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600;
-    omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false;
   }
   async function loadStoragePaths() {
     const api = window.api;
@@ -9127,6 +9311,7 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     accidentalMode,
     showMeasureNumbers,
     measureNumberMode,
+    confirmStartMeasureNumber,
     jianpuSyntaxHighlight,
     outputDir,
     ocrProvider,
@@ -9147,9 +9332,6 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     assistantApiKeySet,
     assistantBaseUrl,
     assistantModel,
-    omrPreprocess,
-    omrPreprocessLongEdge,
-    omrPreprocessBinarize,
     themeMode,
     loaded,
     load,
@@ -9205,8 +9387,24 @@ const renderApi = {
       body: JSON.stringify(req)
     });
   },
+  batchA4(req) {
+    return apiFetch("/render/batch-a4", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
   normalizeJianpuText(req) {
     return apiFetch("/render/normalize-jianpu-text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  }
+};
+const convertApi = {
+  musicxmlToJianpu(req) {
+    return apiFetch("/convert/musicxml-to-jianpu", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req)
@@ -9356,6 +9554,27 @@ const historyApi = {
   },
   updatePage(id, req) {
     return apiFetch(`/history/pages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  updateBatchRenderPages(id, req) {
+    return apiFetch(`/history/${id}/render-pages`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  updateBatchJianpuText(id, req) {
+    return apiFetch(`/history/${id}/jianpu-text`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+  },
+  updateBatchRenderPageOcrTexts(id, req) {
+    return apiFetch(`/history/${id}/render-page-ocr-texts`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req)
@@ -42063,65 +42282,64 @@ const _hoisted_10$6 = {
 };
 const _hoisted_11$6 = { class: "card-footer" };
 const _hoisted_12$6 = { class: "ai-switch" };
-const _hoisted_13$5 = { class: "preprocess-inline" };
-const _hoisted_14$5 = {
+const _hoisted_13$5 = {
   key: 0,
   class: "selection-count"
 };
-const _hoisted_15$5 = { class: "dashboard-card card-stats" };
-const _hoisted_16$4 = { class: "stats-body" };
-const _hoisted_17$3 = { class: "stats-ring-wrap" };
-const _hoisted_18$3 = { class: "stats-ring" };
-const _hoisted_19$3 = { viewBox: "0 0 36 36" };
-const _hoisted_20$2 = ["stroke-dasharray"];
+const _hoisted_14$5 = { class: "dashboard-card card-stats" };
+const _hoisted_15$5 = { class: "stats-body" };
+const _hoisted_16$4 = { class: "stats-ring-wrap" };
+const _hoisted_17$3 = { class: "stats-ring" };
+const _hoisted_18$3 = { viewBox: "0 0 36 36" };
+const _hoisted_19$3 = ["stroke-dasharray"];
+const _hoisted_20$2 = ["stroke-dasharray", "stroke-dashoffset"];
 const _hoisted_21$2 = ["stroke-dasharray", "stroke-dashoffset"];
-const _hoisted_22$2 = ["stroke-dasharray", "stroke-dashoffset"];
-const _hoisted_23$2 = { class: "ring-center" };
-const _hoisted_24$2 = { class: "ring-total" };
-const _hoisted_25$2 = { class: "stats-legend" };
-const _hoisted_26$2 = { class: "legend-item" };
-const _hoisted_27$2 = { class: "legend-value" };
-const _hoisted_28$2 = { class: "legend-item" };
-const _hoisted_29$2 = { class: "legend-value" };
-const _hoisted_30$2 = { class: "legend-item" };
-const _hoisted_31$2 = { class: "legend-value" };
-const _hoisted_32$2 = { class: "legend-item" };
-const _hoisted_33$1 = { class: "legend-value" };
-const _hoisted_34$1 = { class: "stats-mini-cards" };
-const _hoisted_35$1 = { class: "mini-card" };
-const _hoisted_36$1 = { class: "mini-card-value" };
-const _hoisted_37$1 = { class: "mini-card" };
-const _hoisted_38$1 = { class: "mini-card-value" };
-const _hoisted_39$1 = { class: "dashboard-card card-uploads" };
-const _hoisted_40 = {
+const _hoisted_22$2 = { class: "ring-center" };
+const _hoisted_23$2 = { class: "ring-total" };
+const _hoisted_24$2 = { class: "stats-legend" };
+const _hoisted_25$2 = { class: "legend-item" };
+const _hoisted_26$2 = { class: "legend-value" };
+const _hoisted_27$2 = { class: "legend-item" };
+const _hoisted_28$2 = { class: "legend-value" };
+const _hoisted_29$2 = { class: "legend-item" };
+const _hoisted_30$2 = { class: "legend-value" };
+const _hoisted_31$2 = { class: "legend-item" };
+const _hoisted_32$2 = { class: "legend-value" };
+const _hoisted_33$2 = { class: "stats-mini-cards" };
+const _hoisted_34$1 = { class: "mini-card" };
+const _hoisted_35$1 = { class: "mini-card-value" };
+const _hoisted_36$1 = { class: "mini-card" };
+const _hoisted_37$1 = { class: "mini-card-value" };
+const _hoisted_38$1 = { class: "dashboard-card card-uploads" };
+const _hoisted_39$1 = {
   key: 0,
   class: "uploads-list"
 };
-const _hoisted_41 = ["onClick"];
-const _hoisted_42 = ["onClick"];
-const _hoisted_43 = ["disabled", "onClick"];
-const _hoisted_44 = ["onClick"];
-const _hoisted_45 = { class: "upload-thumb" };
-const _hoisted_46 = ["src", "alt"];
-const _hoisted_47 = { class: "upload-info" };
-const _hoisted_48 = { class: "upload-name" };
-const _hoisted_49 = {
+const _hoisted_40$1 = ["onClick"];
+const _hoisted_41$1 = ["onClick"];
+const _hoisted_42 = ["disabled", "onClick"];
+const _hoisted_43 = ["onClick"];
+const _hoisted_44 = { class: "upload-thumb" };
+const _hoisted_45 = ["src", "alt"];
+const _hoisted_46 = { class: "upload-info" };
+const _hoisted_47 = { class: "upload-name" };
+const _hoisted_48 = {
   key: 4,
   class: "upload-mini-progress"
 };
-const _hoisted_50 = {
+const _hoisted_49 = {
   key: 1,
   class: "uploads-empty"
 };
-const _hoisted_51 = { class: "dashboard-card card-activity" };
-const _hoisted_52 = {
+const _hoisted_50 = { class: "dashboard-card card-activity" };
+const _hoisted_51 = {
   key: 0,
   class: "activity-list"
 };
-const _hoisted_53 = { class: "activity-content" };
-const _hoisted_54 = { class: "activity-name" };
-const _hoisted_55 = { class: "activity-time" };
-const _hoisted_56 = {
+const _hoisted_52 = { class: "activity-content" };
+const _hoisted_53 = { class: "activity-name" };
+const _hoisted_54 = { class: "activity-time" };
+const _hoisted_55 = {
   key: 1,
   class: "activity-empty"
 };
@@ -42150,8 +42368,8 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       const pages = store.currentBatchPages;
       const activities = [];
       for (const page of [...pages].reverse().slice(0, 8)) {
-        let message2 = "";
-        let level = "info";
+        let message2;
+        let level;
         if (page.status === "completed") {
           message2 = `Processed: ${page.inputFileName}`;
           level = "success";
@@ -42394,6 +42612,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       });
       if (hasUnsealedPage) store.sealCurrentBatch();
       const historyPageIds = await createPendingHistory(targets);
+      await clearBatchRenderPagesForTargets(targets);
       for (const target of targets) {
         const historyPageId = historyPageIds.get(target.pageId);
         if (historyPageId) {
@@ -42455,7 +42674,10 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           const target = newTargets[index];
           if (!target) return;
           result.set(target.pageId, page.id);
-          store.patchPageById(target.pageId, { historyPageId: page.id });
+          store.patchPageById(target.pageId, {
+            historyPageId: page.id,
+            historyBatchId: created.id
+          });
           registerLiveRecognitionPage(target.pageId, page.id);
         });
         notifyHistoryUpdated();
@@ -42483,20 +42705,26 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         patchRecognitionPage(target.pageId, { taskId: submitted.task_id });
         updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id });
         const result = await waitForTaskResult(submitted.task_id, target.pageId);
-        const split = splitJianpuAndOcr(result.jianpu_text);
-        const needsMeasureChoice = target.startMeasureNumber == null && result.ocr_measure_numbers.length > 0;
-        const resultStatus = needsMeasureChoice ? "waiting" : "completed";
-        const waitingMessage = needsMeasureChoice ? waitingMeasureMessage(result.ocr_measure_numbers) : "";
+        const decision = measureStartDecision(target, result.ocr_measure_numbers);
+        let split = splitJianpuAndOcr(result.jianpu_text);
+        let svgFileId = result.svg_file_id;
+        let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id);
+        if (decision.autoSelected && decision.startMeasureNumber !== null && result.musicxml_file_id) {
+          const rerendered = await renderMusicxmlPageWithStart(target, result.musicxml_file_id, decision.startMeasureNumber);
+          split = splitJianpuAndOcr(rerendered.jianpuText);
+          svgFileId = rerendered.svgFileId;
+          svgFileIds = rerendered.svgFileIds;
+        }
         const pageResult = {
           input_file_name: target.inputFileName,
           input_file_id: target.inputFileId,
           musicxml_file_id: result.musicxml_file_id,
           jianpu_text: split.jianpuText,
           ocr_text: split.ocrText,
-          svg_file_id: result.svg_file_id,
-          start_measure_number: target.startMeasureNumber,
-          status: resultStatus,
-          error_message: waitingMessage
+          svg_file_id: svgFileId,
+          start_measure_number: decision.startMeasureNumber,
+          status: decision.status,
+          error_message: decision.waitingMessage
         };
         patchRecognitionPage(target.pageId, {
           musicxmlFileId: result.musicxml_file_id,
@@ -42504,19 +42732,23 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           jianpuText: split.jianpuText,
           ocrText: split.ocrText,
           jianpuDirty: false,
-          svgFileId: result.svg_file_id,
+          svgFileId,
+          svgFileIds,
           originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : "",
           originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : "",
           taskId: "",
-          status: resultStatus,
+          startMeasureNumber: decision.startMeasureNumber,
+          status: decision.status,
           progressPercent: 100,
-          progressMessage: needsMeasureChoice ? "等待选择起始小节号" : "识别完成",
-          measureNumberOptions: needsMeasureChoice ? result.ocr_measure_numbers : [],
-          errorMessage: waitingMessage
+          progressMessage: decision.needsMeasureChoice ? "等待选择起始小节号" : "识别完成",
+          measureNumberOptions: decision.needsMeasureChoice ? decision.measureOptions : [],
+          errorMessage: decision.waitingMessage
         });
         await persistPageResult(target, pageResult, historyPageId);
+        await syncBatchJianpuTextForPage(target.pageId);
+        await maybeRenderCompletedBatchForPage(target.pageId);
         clearLiveRecognitionPage(target.pageId);
-        if (needsMeasureChoice) {
+        if (decision.needsMeasureChoice) {
           log2.addLog(`等待选择起始小节号：${target.inputFileName}`, "warn");
           message.warning(`等待选择起始小节号：${target.inputFileName}`);
         } else {
@@ -42548,9 +42780,21 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         });
       }
       let svgFileId = page.svgFileId;
+      let svgFileIds = page.svgFileIds.length ? page.svgFileIds : page.svgFileId ? [page.svgFileId] : [];
       let jianpuText = page.jianpuText;
+      let ocrText = page.ocrText;
       try {
         if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
+          const converted = await convertApi.musicxmlToJianpu({
+            musicxml_file_id: page.musicxmlFileId,
+            page_image_file_id: page.originalFileId || page.inputFileId || void 0,
+            target_key: settings.targetKey,
+            accidental_mode: settings.accidentalMode,
+            start_measure_number: selected
+          });
+          const split = splitJianpuAndOcr(converted.jianpu_text);
+          jianpuText = split.jianpuText;
+          ocrText = split.ocrText || page.ocrText;
           const rendered = await renderApi.jianpuSvg({
             musicxml_file_id: page.musicxmlFileId,
             page_image_file_id: page.originalFileId || page.inputFileId || void 0,
@@ -42560,6 +42804,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
             start_measure_number: selected
           });
           svgFileId = rendered.svg_file_id;
+          svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id);
         } else if (!page.musicxmlFileId && page.jianpuText.trim()) {
           const rendered = await renderApi.jianpuTextSvg({
             jianpu_text: page.jianpuText,
@@ -42570,28 +42815,34 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
             start_measure_number: selected
           });
           svgFileId = rendered.svg_file_id;
+          svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id);
           jianpuText = rendered.jianpu_text || page.jianpuText;
         }
         store.patchPageById(pageId, {
           svgFileId,
+          svgFileIds,
           jianpuText,
+          ocrText,
           status: "completed",
           progressPercent: 100,
           progressMessage: "识别完成",
           measureNumberOptions: [],
           errorMessage: ""
         });
+        store.setBatchRenderPageFileIds([], page.batchId);
         await persistPageResult(targetFromPage({ ...page, startMeasureNumber: selected }), {
           input_file_name: page.inputFileName,
           input_file_id: page.inputFileId,
           musicxml_file_id: page.musicxmlFileId,
           jianpu_text: jianpuText,
-          ocr_text: page.ocrText,
+          ocr_text: ocrText,
           svg_file_id: svgFileId,
           start_measure_number: selected,
           status: "completed",
           error_message: ""
         }, page.historyPageId);
+        await syncBatchJianpuTextForPage(pageId);
+        await maybeRenderCompletedBatchForPage(pageId);
         log2.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`);
         message.success("已应用起始小节号");
       } catch (error2) {
@@ -42642,25 +42893,45 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         const response = await waitForTaskResult(submitted.task_id, target.pageId);
         if (!response.pages.length) throw new Error("AI 未返回任何页面");
         const warnings = collectAiWarnings(response.pages, response.warnings);
-        const measureOptions = target.startMeasureNumber == null ? aiMeasureOptions(response) : [];
-        const needsMeasureChoice = measureOptions.length > 0;
-        const resultStatus = needsMeasureChoice ? "waiting" : "completed";
-        const waitingMessage = needsMeasureChoice ? waitingMeasureMessage(measureOptions) : "";
-        applyAiResult(target, response, historyPageId, resultStatus, measureOptions);
+        const decision = measureStartDecision(target, aiMeasureOptions(response));
+        let mergedJianpuText = response.merged_jianpu_text;
+        let svgFileId = "";
+        let svgFileIds = [];
+        if (decision.autoSelected && decision.startMeasureNumber !== null) {
+          const rendered = await renderApi.jianpuTextSvg({
+            jianpu_text: response.merged_jianpu_text,
+            page_image_file_id: target.inputFileId || void 0,
+            include_ocr_text: false,
+            measure_number_mode: settings.measureNumberMode,
+            title: target.inputFileName || "AI 简谱",
+            start_measure_number: decision.startMeasureNumber
+          });
+          mergedJianpuText = rendered.jianpu_text || response.merged_jianpu_text;
+          svgFileId = rendered.svg_file_id;
+          svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id);
+        }
+        const effectiveResponse = {
+          ...response,
+          merged_jianpu_text: mergedJianpuText,
+          pages: response.pages.length === 1 ? [{ ...response.pages[0], jianpu_text: mergedJianpuText }] : response.pages
+        };
+        applyAiResult(target, effectiveResponse, historyPageId, decision, svgFileId, svgFileIds);
         const pageResult = {
           input_file_name: target.inputFileName,
           input_file_id: target.inputFileId,
           musicxml_file_id: "",
-          jianpu_text: response.merged_jianpu_text,
+          jianpu_text: mergedJianpuText,
           ocr_text: "",
-          svg_file_id: "",
-          start_measure_number: target.startMeasureNumber,
-          status: resultStatus,
-          error_message: waitingMessage || warnings.join("；")
+          svg_file_id: svgFileId,
+          start_measure_number: decision.startMeasureNumber,
+          status: decision.status,
+          error_message: decision.waitingMessage || warnings.join("；")
         };
         await persistPageResult(target, pageResult, historyPageId);
+        await syncBatchJianpuTextForPage(target.pageId);
+        await maybeRenderCompletedBatchForPage(target.pageId);
         clearLiveRecognitionPage(target.pageId);
-        if (needsMeasureChoice) {
+        if (decision.needsMeasureChoice) {
           log2.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, "warn");
           message.warning(`AI 转写等待选择起始小节号：${target.inputFileName}`);
         } else if (warnings.length) {
@@ -42674,11 +42945,11 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         await failTarget(target, historyPageId, error2, "AI 转写失败");
       }
     }
-    function applyAiResult(target, response, historyPageId, resultStatus, measureOptions) {
+    function applyAiResult(target, response, historyPageId, decision, svgFileId = "", svgFileIds = []) {
       if (response.pages.length === 1) {
         const page = response.pages[0];
-        const pageMeasureOptions = resultStatus === "waiting" ? aiPageMeasureOptions(page, measureOptions) : [];
-        const messageText = resultStatus === "waiting" ? waitingMeasureMessage(pageMeasureOptions) : aiPageErrorMessage(page);
+        const pageMeasureOptions = decision.needsMeasureChoice ? aiPageMeasureOptions(page, decision.measureOptions) : [];
+        const messageText = decision.needsMeasureChoice ? waitingMeasureMessage(pageMeasureOptions) : aiPageErrorMessage(page);
         patchRecognitionPage(target.pageId, {
           inputFileName: aiPageLabel(response.source_filename, page, response.pages.length),
           inputFileId: page.page_image_file_id,
@@ -42689,11 +42960,13 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           jianpuText: page.jianpu_text,
           ocrText: "",
           jianpuDirty: false,
-          svgFileId: "",
+          svgFileId,
+          svgFileIds,
+          startMeasureNumber: decision.startMeasureNumber,
           taskId: "",
-          status: resultStatus,
+          status: decision.status,
           progressPercent: 100,
-          progressMessage: resultStatus === "waiting" ? "等待选择起始小节号" : "AI 转写完成",
+          progressMessage: decision.needsMeasureChoice ? "等待选择起始小节号" : "AI 转写完成",
           measureNumberOptions: pageMeasureOptions,
           errorMessage: messageText
         });
@@ -42701,10 +42974,12 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       }
       const aiPages = response.pages.map((page, index) => {
         const label = aiPageLabel(response.source_filename, page, response.pages.length);
-        const pageMeasureOptions = resultStatus === "waiting" ? aiPageMeasureOptions(page, measureOptions) : [];
+        const pageWaiting = decision.needsMeasureChoice && index === 0;
+        const pageMeasureOptions = pageWaiting ? aiPageMeasureOptions(page, decision.measureOptions) : [];
         return {
           inputFileName: label,
           historyPageId: index === 0 ? historyPageId : null,
+          historyBatchId: null,
           inputFileId: page.page_image_file_id,
           originalFileName: label,
           originalFileId: page.page_image_file_id,
@@ -42714,11 +42989,13 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           ocrText: "",
           jianpuDirty: false,
           svgFileId: "",
-          status: resultStatus,
+          svgFileIds: [],
+          startMeasureNumber: index === 0 ? decision.startMeasureNumber : null,
+          status: pageWaiting ? "waiting" : "completed",
           progressPercent: 100,
-          progressMessage: resultStatus === "waiting" ? "等待选择起始小节号" : "AI 转写完成",
+          progressMessage: pageWaiting ? "等待选择起始小节号" : "AI 转写完成",
           measureNumberOptions: pageMeasureOptions,
-          errorMessage: resultStatus === "waiting" ? waitingMeasureMessage(pageMeasureOptions) : aiPageErrorMessage(page)
+          errorMessage: pageWaiting ? waitingMeasureMessage(pageMeasureOptions) : aiPageErrorMessage(page)
         };
       });
       store.replacePageByIdKeepingSelection(target.pageId, aiPages);
@@ -42815,6 +43092,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         status: "failed",
         error_message: msg2
       }, historyPageId);
+      await clearBatchRenderPagesForPage(target.pageId);
       clearLiveRecognitionPage(target.pageId);
       log2.addError(`${prefix2}：${target.inputFileName}：${msg2}`);
       message.error(`${target.inputFileName}：${msg2}`);
@@ -42849,7 +43127,10 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           });
           const pageId = created.pages[0]?.id;
           if (pageId) {
-            store.patchPageById(target.pageId, { historyPageId: pageId });
+            store.patchPageById(target.pageId, {
+              historyPageId: pageId,
+              historyBatchId: created.id
+            });
           }
           const createdPage = created.pages[0];
           if (createdPage) {
@@ -42864,12 +43145,15 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     }
     function syncStoreFromHistoryPage(pageId, page) {
       const options = parseWaitingMeasureOptions(page.error_message);
+      const existing = store.pages.find((entry) => entry.id === pageId) ?? store.pages.find((entry) => entry.historyPageId === page.id);
       const patch = {
         historyPageId: page.id,
         musicxmlFileId: page.musicxml_file_id,
         jianpuText: page.jianpu_text,
         ocrText: page.ocr_text,
         svgFileId: page.svg_file_id,
+        svgFileIds: existing?.svgFileIds.length ? existing.svgFileIds : page.svg_file_id ? [page.svg_file_id] : [],
+        historyBatchId: page.batch_id ?? null,
         startMeasureNumber: page.start_measure_number,
         status: page.status,
         progressPercent: page.status === "processing" ? 99 : 100,
@@ -42905,10 +43189,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       return [...page.validation_errors, ...page.warnings].join("；");
     }
     function aiMeasureOptions(response) {
-      const values = uniquePositiveNumbers(
-        response.pages.flatMap((page) => page.measure_number_candidates || [])
-      );
-      return values.length ? values : [1];
+      return uniquePositiveNumbers(response.pages[0]?.measure_number_candidates || []);
     }
     function aiPageMeasureOptions(page, fallback) {
       const values = uniquePositiveNumbers(page.measure_number_candidates || []);
@@ -42922,6 +43203,63 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         if (!result.includes(rounded)) result.push(rounded);
       }
       return result;
+    }
+    function measureStartDecision(target, rawOptions) {
+      const measureOptions = uniquePositiveNumbers(rawOptions);
+      if (target.startMeasureNumber !== null || !isFirstBatchPage(target.pageId) || !measureOptions.length) {
+        return {
+          startMeasureNumber: target.startMeasureNumber,
+          status: "completed",
+          measureOptions: [],
+          waitingMessage: "",
+          needsMeasureChoice: false,
+          autoSelected: false
+        };
+      }
+      if (settings.confirmStartMeasureNumber) {
+        return {
+          startMeasureNumber: null,
+          status: "waiting",
+          measureOptions,
+          waitingMessage: waitingMeasureMessage(measureOptions),
+          needsMeasureChoice: true,
+          autoSelected: false
+        };
+      }
+      return {
+        startMeasureNumber: Math.min(...measureOptions),
+        status: "completed",
+        measureOptions: [],
+        waitingMessage: "",
+        needsMeasureChoice: false,
+        autoSelected: true
+      };
+    }
+    function isFirstBatchPage(pageId) {
+      const batchPages = batchPagesForPage(pageId);
+      return batchPages[0]?.id === pageId;
+    }
+    async function renderMusicxmlPageWithStart(target, musicxmlFileId, startMeasureNumber) {
+      const converted = await convertApi.musicxmlToJianpu({
+        musicxml_file_id: musicxmlFileId,
+        page_image_file_id: target.inputFileId || void 0,
+        target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
+        start_measure_number: startMeasureNumber
+      });
+      const rendered = await renderApi.jianpuSvg({
+        musicxml_file_id: musicxmlFileId,
+        page_image_file_id: target.inputFileId || void 0,
+        target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
+        measure_number_mode: settings.measureNumberMode,
+        start_measure_number: startMeasureNumber
+      });
+      return {
+        jianpuText: converted.jianpu_text,
+        svgFileId: rendered.svg_file_id,
+        svgFileIds: renderPageIds(rendered.pages, rendered.svg_file_id)
+      };
     }
     function collectAiWarnings(pages, responseWarnings) {
       return [
@@ -42946,12 +43284,189 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
       const optionsText = match2[1] ?? "";
       return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0])).filter((value) => Number.isFinite(value) && value > 0);
     }
+    function renderPageIds(pages, fallback) {
+      const ids = (pages ?? []).map((page) => page.svg_file_id).filter(Boolean);
+      return ids.length ? ids : fallback ? [fallback] : [];
+    }
+    async function maybeRenderCompletedBatchForPage(pageId) {
+      const batchPages = batchPagesForPage(pageId);
+      if (!batchPages.length) return;
+      const batchId = batchPages[0]?.batchId;
+      if (!batchPages.every((page) => page.status === "completed")) {
+        store.setBatchRenderPageFileIds([], batchId);
+        return;
+      }
+      await syncBatchJianpuTextForPage(pageId);
+      const pages = buildBatchRenderPages(batchPages);
+      if (!pages.length) {
+        store.setBatchRenderPageFileIds([], batchId);
+        return;
+      }
+      try {
+        const result = await renderApi.batchA4({
+          pages,
+          source_pages: buildBatchRenderSourcePages(batchPages),
+          render_page_ocr_texts: batchId ? store.batchRenderPageOcrTextsFor(batchId) : [],
+          target_key: settings.targetKey,
+          accidental_mode: settings.accidentalMode,
+          measure_number_mode: settings.measureNumberMode,
+          title: "简谱"
+        });
+        const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean);
+        store.setBatchRenderPageFileIds(ids, batchId);
+        if (batchId) {
+          store.setBatchRenderPageOcrTexts(renderResponsePageOcrTexts(result.pages), false, batchId);
+          store.markBatchRenderPageOcrClean(batchId);
+        }
+        const historyBatchId = historyBatchIdForPages(batchPages);
+        if (historyBatchId) {
+          const batchText = batchId ? store.batchJianpuTextFor(batchId) : "";
+          if (batchText) {
+            await historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: batchText });
+          }
+          const updated = await historyApi.updateBatchRenderPages(historyBatchId, {
+            render_page_file_ids: ids
+          });
+          store.setBatchRenderPageFileIds(updated.render_page_file_ids, batchId);
+          const ocrUpdated = await historyApi.updateBatchRenderPageOcrTexts(historyBatchId, {
+            pages: batchId ? store.batchRenderPageOcrTextsFor(batchId) : []
+          });
+          if (batchId) {
+            store.setBatchRenderPageOcrTexts(ocrUpdated.render_page_ocr_texts || [], false, batchId);
+          }
+          notifyHistoryUpdated();
+        }
+      } catch (error2) {
+        log2.addLog(`生成连续 A4 简谱失败：${errorMessage(error2)}`, "warn");
+      }
+    }
+    async function clearBatchRenderPagesForTargets(targets) {
+      const batchIds = /* @__PURE__ */ new Set();
+      for (const target of targets) {
+        const page = store.pages.find((entry) => entry.id === target.pageId);
+        if (page?.batchId) batchIds.add(page.batchId);
+      }
+      for (const batchId of batchIds) {
+        if (!store.isBatchJianpuDirty(batchId)) {
+          store.setBatchJianpuText("", false, batchId);
+        }
+        await clearBatchRenderPages(batchId);
+      }
+    }
+    async function clearBatchRenderPagesForPage(pageId) {
+      const page = store.pages.find((entry) => entry.id === pageId);
+      if (!page?.batchId) return;
+      await clearBatchRenderPages(page.batchId);
+    }
+    async function clearBatchRenderPages(batchId) {
+      store.setBatchRenderPageFileIds([], batchId);
+      const historyBatchId = historyBatchIdForPages(store.pages.filter((page) => page.batchId === batchId));
+      if (!historyBatchId) return;
+      try {
+        await historyApi.updateBatchRenderPages(historyBatchId, { render_page_file_ids: [] });
+        notifyHistoryUpdated();
+      } catch (error2) {
+        log2.addLog(`清理连续 A4 渲染页失败：${errorMessage(error2)}`, "warn");
+      }
+    }
+    function batchPagesForPage(pageId) {
+      const page = store.pages.find((entry) => entry.id === pageId);
+      if (!page?.batchId) return page ? [page] : [];
+      return store.pages.filter((entry) => entry.batchId === page.batchId);
+    }
+    function buildBatchRenderPages(batchPages) {
+      const batchId = batchPages[0]?.batchId;
+      const batchText = batchId ? store.batchJianpuTextFor(batchId).trim() : "";
+      if (batchText) {
+        return [{
+          jianpu_text: store.batchJianpuTextFor(batchId),
+          include_ocr_text: false,
+          start_measure_number: batchPages[0]?.startMeasureNumber ?? void 0,
+          title: "简谱"
+        }];
+      }
+      return batchPages.map((page) => {
+        const sourceImageId = page.originalFileId || page.inputFileId || void 0;
+        const start2 = page.startMeasureNumber ?? void 0;
+        if (page.jianpuText.trim()) {
+          return {
+            input_file_name: page.inputFileName,
+            jianpu_text: page.jianpuText,
+            page_image_file_id: sourceImageId,
+            ocr_text: page.ocrText || void 0,
+            include_ocr_text: false,
+            start_measure_number: start2
+          };
+        }
+        if (page.musicxmlFileId) {
+          return {
+            input_file_name: page.inputFileName,
+            musicxml_file_id: page.musicxmlFileId,
+            page_image_file_id: sourceImageId,
+            ocr_text: page.ocrText || void 0,
+            include_ocr_text: false,
+            start_measure_number: start2
+          };
+        }
+        return null;
+      }).filter((page) => page !== null);
+    }
+    function buildBatchRenderSourcePages(batchPages) {
+      return batchPages.map((page) => {
+        const sourceImageId = page.originalFileId || page.inputFileId || void 0;
+        const start2 = page.startMeasureNumber ?? void 0;
+        if (page.jianpuText.trim()) {
+          return {
+            input_file_name: page.inputFileName,
+            jianpu_text: page.jianpuText,
+            page_image_file_id: sourceImageId,
+            ocr_text: page.ocrText || void 0,
+            include_ocr_text: false,
+            start_measure_number: start2
+          };
+        }
+        if (page.musicxmlFileId) {
+          return {
+            input_file_name: page.inputFileName,
+            musicxml_file_id: page.musicxmlFileId,
+            page_image_file_id: sourceImageId,
+            ocr_text: page.ocrText || void 0,
+            include_ocr_text: false,
+            start_measure_number: start2
+          };
+        }
+        return null;
+      }).filter((page) => page !== null);
+    }
+    function renderResponsePageOcrTexts(pages) {
+      return (pages ?? []).map((page) => ({
+        page_index: page.page_index,
+        ocr_text: page.ocr_text || ""
+      }));
+    }
+    async function syncBatchJianpuTextForPage(pageId) {
+      const batchPages = batchPagesForPage(pageId);
+      const batchId = batchPages[0]?.batchId;
+      if (!batchId || store.isBatchJianpuDirty(batchId)) return;
+      const text = batchPages.map((page) => page.jianpuText.trim()).filter(Boolean).join("\n\n");
+      store.setBatchJianpuText(text, false, batchId);
+      const historyBatchId = historyBatchIdForPages(batchPages);
+      if (!historyBatchId) return;
+      try {
+        await historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: text });
+      } catch (error2) {
+        log2.addLog(`保存批次简谱文本失败：${errorMessage(error2)}`, "warn");
+      }
+    }
+    function historyBatchIdForPages(batchPages) {
+      return batchPages.find((page) => page.historyBatchId != null)?.historyBatchId ?? null;
+    }
     function errorMessage(error2) {
       return error2 instanceof Error ? error2.message : String(error2);
     }
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$9, [
-        _cache[31] || (_cache[31] = createBaseVNode("div", { class: "rv-header" }, [
+        _cache[26] || (_cache[26] = createBaseVNode("div", { class: "rv-header" }, [
           createBaseVNode("div", { class: "rv-title" }, [
             createBaseVNode("h2", null, "智能识别")
           ]),
@@ -42974,7 +43489,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                   ]),
                   _: 1
                 }),
-                _cache[8] || (_cache[8] = createBaseVNode("span", null, "智能识别", -1))
+                _cache[5] || (_cache[5] = createBaseVNode("span", null, "智能识别", -1))
               ]),
               createBaseVNode("div", _hoisted_6$7, [
                 unref(store).batches.length > 1 ? (openBlock(), createBlock(unref(NSelect), {
@@ -43076,52 +43591,28 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                   })
                 ]),
                 default: withCtx(() => [
-                  _cache[9] || (_cache[9] = createTextVNode(" 批量识别全部 ", -1))
+                  _cache[6] || (_cache[6] = createTextVNode(" 批量识别全部 ", -1))
                 ]),
                 _: 1
               }, 8, ["loading", "disabled"]),
               createBaseVNode("div", _hoisted_12$6, [
-                _cache[10] || (_cache[10] = createBaseVNode("span", null, "AI 视觉检测", -1)),
+                _cache[7] || (_cache[7] = createBaseVNode("span", null, "AI 视觉检测", -1)),
                 createVNode(unref(NSwitch), {
                   value: aiVisionEnabled.value,
                   "onUpdate:value": _cache[4] || (_cache[4] = ($event) => aiVisionEnabled.value = $event),
                   size: "small"
                 }, null, 8, ["value"])
               ]),
-              createBaseVNode("div", _hoisted_13$5, [
-                createVNode(unref(NSwitch), {
-                  value: unref(settings).omrPreprocess,
-                  "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).omrPreprocess = $event),
-                  size: "small"
-                }, null, 8, ["value"]),
-                _cache[11] || (_cache[11] = createBaseVNode("span", { class: "preprocess-label" }, "预处理", -1)),
-                createVNode(unref(NInputNumber), {
-                  value: unref(settings).omrPreprocessLongEdge,
-                  "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).omrPreprocessLongEdge = $event),
-                  min: 0,
-                  step: 200,
-                  size: "small",
-                  style: { "width": "80px" },
-                  disabled: !unref(settings).omrPreprocess
-                }, null, 8, ["value", "disabled"]),
-                createVNode(unref(NSwitch), {
-                  value: unref(settings).omrPreprocessBinarize,
-                  "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).omrPreprocessBinarize = $event),
-                  size: "small",
-                  disabled: !unref(settings).omrPreprocess
-                }, null, 8, ["value", "disabled"]),
-                _cache[12] || (_cache[12] = createBaseVNode("span", { class: "preprocess-label" }, "黑白化", -1))
-              ]),
-              selectedPageCount.value ? (openBlock(), createElementBlock("span", _hoisted_14$5, "已选 " + toDisplayString(selectedPageCount.value), 1)) : createCommentVNode("", true)
+              selectedPageCount.value ? (openBlock(), createElementBlock("span", _hoisted_13$5, "已选 " + toDisplayString(selectedPageCount.value), 1)) : createCommentVNode("", true)
             ])
           ]),
-          createBaseVNode("div", _hoisted_15$5, [
-            _cache[25] || (_cache[25] = createBaseVNode("div", { class: "card-title" }, "项目统计", -1)),
-            createBaseVNode("div", _hoisted_16$4, [
-              createBaseVNode("div", _hoisted_17$3, [
-                createBaseVNode("div", _hoisted_18$3, [
-                  (openBlock(), createElementBlock("svg", _hoisted_19$3, [
-                    _cache[13] || (_cache[13] = createBaseVNode("path", {
+          createBaseVNode("div", _hoisted_14$5, [
+            _cache[20] || (_cache[20] = createBaseVNode("div", { class: "card-title" }, "项目统计", -1)),
+            createBaseVNode("div", _hoisted_15$5, [
+              createBaseVNode("div", _hoisted_16$4, [
+                createBaseVNode("div", _hoisted_17$3, [
+                  (openBlock(), createElementBlock("svg", _hoisted_18$3, [
+                    _cache[8] || (_cache[8] = createBaseVNode("path", {
                       class: "ring-bg",
                       d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     }, null, -1)),
@@ -43130,65 +43621,65 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       class: "ring-segment ring-completed",
                       "stroke-dasharray": `${statsCompleted.value / statsTotal.value * 100} ${100 - statsCompleted.value / statsTotal.value * 100}`,
                       d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    }, null, 8, _hoisted_20$2)) : createCommentVNode("", true),
+                    }, null, 8, _hoisted_19$3)) : createCommentVNode("", true),
                     statsTotal.value > 0 && statsProcessing.value > 0 ? (openBlock(), createElementBlock("path", {
                       key: 1,
                       class: "ring-segment ring-processing",
                       "stroke-dasharray": `${statsProcessing.value / statsTotal.value * 100} ${100 - statsProcessing.value / statsTotal.value * 100}`,
                       "stroke-dashoffset": `${-(statsCompleted.value / statsTotal.value) * 100}`,
                       d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    }, null, 8, _hoisted_21$2)) : createCommentVNode("", true),
+                    }, null, 8, _hoisted_20$2)) : createCommentVNode("", true),
                     statsTotal.value > 0 ? (openBlock(), createElementBlock("path", {
                       key: 2,
                       class: "ring-segment ring-failed",
                       "stroke-dasharray": `${statsFailed.value / statsTotal.value * 100} ${100 - statsFailed.value / statsTotal.value * 100}`,
                       "stroke-dashoffset": `${-((statsCompleted.value + statsProcessing.value) / statsTotal.value) * 100}`,
                       d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    }, null, 8, _hoisted_22$2)) : createCommentVNode("", true)
+                    }, null, 8, _hoisted_21$2)) : createCommentVNode("", true)
                   ])),
-                  createBaseVNode("div", _hoisted_23$2, [
-                    createBaseVNode("span", _hoisted_24$2, toDisplayString(statsTotal.value), 1),
-                    _cache[14] || (_cache[14] = createBaseVNode("span", { class: "ring-label" }, "总计", -1))
+                  createBaseVNode("div", _hoisted_22$2, [
+                    createBaseVNode("span", _hoisted_23$2, toDisplayString(statsTotal.value), 1),
+                    _cache[9] || (_cache[9] = createBaseVNode("span", { class: "ring-label" }, "总计", -1))
                   ])
                 ]),
-                createBaseVNode("div", _hoisted_25$2, [
-                  createBaseVNode("div", _hoisted_26$2, [
-                    _cache[15] || (_cache[15] = createBaseVNode("span", { class: "legend-dot dot-completed" }, null, -1)),
-                    _cache[16] || (_cache[16] = createBaseVNode("span", { class: "legend-text" }, "完成", -1)),
-                    createBaseVNode("span", _hoisted_27$2, toDisplayString(statsCompleted.value), 1)
+                createBaseVNode("div", _hoisted_24$2, [
+                  createBaseVNode("div", _hoisted_25$2, [
+                    _cache[10] || (_cache[10] = createBaseVNode("span", { class: "legend-dot dot-completed" }, null, -1)),
+                    _cache[11] || (_cache[11] = createBaseVNode("span", { class: "legend-text" }, "完成", -1)),
+                    createBaseVNode("span", _hoisted_26$2, toDisplayString(statsCompleted.value), 1)
                   ]),
-                  createBaseVNode("div", _hoisted_28$2, [
-                    _cache[17] || (_cache[17] = createBaseVNode("span", { class: "legend-dot dot-processing" }, null, -1)),
-                    _cache[18] || (_cache[18] = createBaseVNode("span", { class: "legend-text" }, "处理中", -1)),
-                    createBaseVNode("span", _hoisted_29$2, toDisplayString(statsProcessing.value), 1)
+                  createBaseVNode("div", _hoisted_27$2, [
+                    _cache[12] || (_cache[12] = createBaseVNode("span", { class: "legend-dot dot-processing" }, null, -1)),
+                    _cache[13] || (_cache[13] = createBaseVNode("span", { class: "legend-text" }, "处理中", -1)),
+                    createBaseVNode("span", _hoisted_28$2, toDisplayString(statsProcessing.value), 1)
                   ]),
-                  createBaseVNode("div", _hoisted_30$2, [
-                    _cache[19] || (_cache[19] = createBaseVNode("span", { class: "legend-dot dot-failed" }, null, -1)),
-                    _cache[20] || (_cache[20] = createBaseVNode("span", { class: "legend-text" }, "失败", -1)),
-                    createBaseVNode("span", _hoisted_31$2, toDisplayString(statsFailed.value), 1)
+                  createBaseVNode("div", _hoisted_29$2, [
+                    _cache[14] || (_cache[14] = createBaseVNode("span", { class: "legend-dot dot-failed" }, null, -1)),
+                    _cache[15] || (_cache[15] = createBaseVNode("span", { class: "legend-text" }, "失败", -1)),
+                    createBaseVNode("span", _hoisted_30$2, toDisplayString(statsFailed.value), 1)
                   ]),
-                  createBaseVNode("div", _hoisted_32$2, [
-                    _cache[21] || (_cache[21] = createBaseVNode("span", { class: "legend-dot dot-waiting" }, null, -1)),
-                    _cache[22] || (_cache[22] = createBaseVNode("span", { class: "legend-text" }, "等待", -1)),
-                    createBaseVNode("span", _hoisted_33$1, toDisplayString(statsWaiting.value), 1)
+                  createBaseVNode("div", _hoisted_31$2, [
+                    _cache[16] || (_cache[16] = createBaseVNode("span", { class: "legend-dot dot-waiting" }, null, -1)),
+                    _cache[17] || (_cache[17] = createBaseVNode("span", { class: "legend-text" }, "等待", -1)),
+                    createBaseVNode("span", _hoisted_32$2, toDisplayString(statsWaiting.value), 1)
                   ])
                 ])
               ]),
-              createBaseVNode("div", _hoisted_34$1, [
-                createBaseVNode("div", _hoisted_35$1, [
-                  createBaseVNode("span", _hoisted_36$1, toDisplayString(statsCompleted.value), 1),
-                  _cache[23] || (_cache[23] = createBaseVNode("span", { class: "mini-card-label" }, "完成数", -1))
+              createBaseVNode("div", _hoisted_33$2, [
+                createBaseVNode("div", _hoisted_34$1, [
+                  createBaseVNode("span", _hoisted_35$1, toDisplayString(statsCompleted.value), 1),
+                  _cache[18] || (_cache[18] = createBaseVNode("span", { class: "mini-card-label" }, "完成数", -1))
                 ]),
-                createBaseVNode("div", _hoisted_37$1, [
-                  createBaseVNode("span", _hoisted_38$1, toDisplayString(statsFailed.value), 1),
-                  _cache[24] || (_cache[24] = createBaseVNode("span", { class: "mini-card-label" }, "失败数", -1))
+                createBaseVNode("div", _hoisted_36$1, [
+                  createBaseVNode("span", _hoisted_37$1, toDisplayString(statsFailed.value), 1),
+                  _cache[19] || (_cache[19] = createBaseVNode("span", { class: "mini-card-label" }, "失败数", -1))
                 ])
               ])
             ])
           ]),
-          createBaseVNode("div", _hoisted_39$1, [
-            _cache[28] || (_cache[28] = createBaseVNode("div", { class: "card-title" }, "最近上传", -1)),
-            unref(store).currentBatchPages.length ? (openBlock(), createElementBlock("div", _hoisted_40, [
+          createBaseVNode("div", _hoisted_38$1, [
+            _cache[23] || (_cache[23] = createBaseVNode("div", { class: "card-title" }, "最近上传", -1)),
+            unref(store).currentBatchPages.length ? (openBlock(), createElementBlock("div", _hoisted_39$1, [
               (openBlock(true), createElementBlock(Fragment, null, renderList(unref(store).currentBatchPages, (page) => {
                 return openBlock(), createElementBlock("div", {
                   key: page.id,
@@ -43221,7 +43712,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     })
-                  ], 8, _hoisted_42)) : page.status !== "waiting" ? (openBlock(), createElementBlock("button", {
+                  ], 8, _hoisted_41$1)) : page.status !== "waiting" ? (openBlock(), createElementBlock("button", {
                     key: 2,
                     class: "upload-del",
                     type: "button",
@@ -43234,7 +43725,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     })
-                  ], 8, _hoisted_43)) : (openBlock(), createElementBlock("button", {
+                  ], 8, _hoisted_42)) : (openBlock(), createElementBlock("button", {
                     key: 3,
                     class: "upload-waiting-action",
                     type: "button",
@@ -43247,14 +43738,14 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     }),
-                    _cache[26] || (_cache[26] = createBaseVNode("span", null, "待选择", -1))
-                  ], 8, _hoisted_44)),
-                  createBaseVNode("div", _hoisted_45, [
+                    _cache[21] || (_cache[21] = createBaseVNode("span", null, "待选择", -1))
+                  ], 8, _hoisted_43)),
+                  createBaseVNode("div", _hoisted_44, [
                     __props.active && isPreviewable(page.inputFileName) ? (openBlock(), createElementBlock("img", {
                       key: 0,
                       src: unref(getFileURL)(page.inputFileId),
                       alt: page.inputFileName
-                    }, null, 8, _hoisted_46)) : (openBlock(), createBlock(unref(NIcon), {
+                    }, null, 8, _hoisted_45)) : (openBlock(), createBlock(unref(NIcon), {
                       key: 1,
                       size: "24",
                       class: "upload-icon"
@@ -43265,20 +43756,20 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       _: 1
                     }))
                   ]),
-                  createBaseVNode("div", _hoisted_47, [
-                    createBaseVNode("span", _hoisted_48, toDisplayString(page.inputFileName), 1),
+                  createBaseVNode("div", _hoisted_46, [
+                    createBaseVNode("span", _hoisted_47, toDisplayString(page.inputFileName), 1),
                     createBaseVNode("span", {
                       class: normalizeClass(["upload-status", page.status])
                     }, toDisplayString(statusText(page)), 3)
                   ]),
-                  page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_49, [
+                  page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_48, [
                     createBaseVNode("span", {
                       style: normalizeStyle({ width: `${Math.max(4, page.progressPercent)}%` })
                     }, null, 4)
                   ])) : createCommentVNode("", true)
-                ], 10, _hoisted_41);
+                ], 10, _hoisted_40$1);
               }), 128))
-            ])) : (openBlock(), createElementBlock("div", _hoisted_50, [
+            ])) : (openBlock(), createElementBlock("div", _hoisted_49, [
               createVNode(unref(NIcon), {
                 size: "32",
                 class: "empty-icon"
@@ -43288,12 +43779,12 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                 ]),
                 _: 1
               }),
-              _cache[27] || (_cache[27] = createBaseVNode("span", null, "暂无上传文件", -1))
+              _cache[22] || (_cache[22] = createBaseVNode("span", null, "暂无上传文件", -1))
             ]))
           ]),
-          createBaseVNode("div", _hoisted_51, [
-            _cache[30] || (_cache[30] = createBaseVNode("div", { class: "card-title" }, "最近活动", -1)),
-            recentActivities.value.length ? (openBlock(), createElementBlock("div", _hoisted_52, [
+          createBaseVNode("div", _hoisted_50, [
+            _cache[25] || (_cache[25] = createBaseVNode("div", { class: "card-title" }, "最近活动", -1)),
+            recentActivities.value.length ? (openBlock(), createElementBlock("div", _hoisted_51, [
               (openBlock(true), createElementBlock(Fragment, null, renderList(recentActivities.value, (activity) => {
                 return openBlock(), createElementBlock("div", {
                   key: activity.id,
@@ -43309,13 +43800,13 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       _: 2
                     }, 1024)
                   ], 2),
-                  createBaseVNode("div", _hoisted_53, [
-                    createBaseVNode("span", _hoisted_54, toDisplayString(activity.message), 1),
-                    createBaseVNode("span", _hoisted_55, toDisplayString(activity.time), 1)
+                  createBaseVNode("div", _hoisted_52, [
+                    createBaseVNode("span", _hoisted_53, toDisplayString(activity.message), 1),
+                    createBaseVNode("span", _hoisted_54, toDisplayString(activity.time), 1)
                   ])
                 ]);
               }), 128))
-            ])) : (openBlock(), createElementBlock("div", _hoisted_56, [..._cache[29] || (_cache[29] = [
+            ])) : (openBlock(), createElementBlock("div", _hoisted_55, [..._cache[24] || (_cache[24] = [
               createBaseVNode("span", null, "暂无活动记录", -1)
             ])]))
           ])
@@ -43324,16 +43815,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-c52cba59"]]);
-const convertApi = {
-  musicxmlToJianpu(req) {
-    return apiFetch("/convert/musicxml-to-jianpu", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-  }
-};
+const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-e443e091"]]);
 const exportApi = {
   async exportMidi(musicxmlFileId, filename) {
     const params = new URLSearchParams({ musicxml_file_id: musicxmlFileId });
@@ -64731,8 +65213,12 @@ const _hoisted_27$1 = { class: "ws-panel ws-right" };
 const _hoisted_28$1 = { class: "ws-panel-head" };
 const _hoisted_29$1 = { class: "panel-head-actions" };
 const _hoisted_30$1 = { class: "panel-head-meta" };
-const _hoisted_31$1 = { class: "ws-panel-body" };
-const _hoisted_32$1 = {
+const _hoisted_31$1 = {
+  key: 0,
+  class: "render-page-nav"
+};
+const _hoisted_32$1 = { class: "ws-panel-body" };
+const _hoisted_33$1 = {
   key: 1,
   class: "empty-hint"
 };
@@ -64743,14 +65229,21 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     const settings = useSettingsStore();
     const log2 = useLogStore();
     const message = useMessage();
-    const jianpuText = /* @__PURE__ */ ref(store.jianpuText);
+    const jianpuText = /* @__PURE__ */ ref(store.currentBatchJianpuText);
     const hasJianpuText = computed(() => jianpuText.value.trim().length > 0);
     const currentNoteIndex = /* @__PURE__ */ ref(-1);
     const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml);
-    const canSaveCurrentPage = computed(() => hasJianpuText.value || store.hasMusicxml || !!store.ocrText.trim() || !!store.svgFileId);
+    const finalRenderPageOcrText = computed(
+      () => store.currentBatchRenderPageOcrText(finalRenderPageIndex.value)
+    );
+    const canSaveCurrentPage = computed(
+      () => hasJianpuText.value || store.hasMusicxml || !!store.ocrText.trim() || !!finalRenderPageOcrText.value.trim() || !!store.svgFileId
+    );
     const isViewingFinal = /* @__PURE__ */ ref(false);
     const isRenderingFinal = /* @__PURE__ */ ref(false);
-    const finalSvgFileId = /* @__PURE__ */ ref(store.svgFileId);
+    const finalSvgFileIds = /* @__PURE__ */ ref(store.currentBatchRenderPageFileIds.length ? [...store.currentBatchRenderPageFileIds] : currentPageSvgIds());
+    const finalRenderPageIndex = /* @__PURE__ */ ref(0);
+    const finalSvgFileId = computed(() => finalSvgFileIds.value[finalRenderPageIndex.value] ?? "");
     const syntaxGuideOpen = /* @__PURE__ */ ref(false);
     const exportFormat = /* @__PURE__ */ ref("pdf");
     const formatOptions = [
@@ -64776,17 +65269,28 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     const currentBatchLocalIndex = computed(
       () => store.currentBatchPages.indexOf(store.currentPage)
     );
-    watch(() => store.jianpuText, (v) => {
+    const batchStartMeasureNumber = computed(
+      () => firstBatchPage()?.startMeasureNumber ?? store.startMeasureNumber ?? null
+    );
+    watch(() => store.currentBatchJianpuText, (v) => {
       if (v !== jianpuText.value) jianpuText.value = v;
     });
     watch(jianpuText, (v) => {
-      if (v !== store.jianpuText) store.setJianpu(v, true);
+      if (v !== store.currentBatchJianpuText) {
+        store.setBatchJianpuText(v, true);
+        store.setBatchRenderPageFileIds([]);
+        setFinalSvgFileIds([]);
+      }
     });
-    watch(() => store.svgFileId, (v) => {
-      finalSvgFileId.value = v;
+    watch(() => store.svgFileIds, () => {
+      if (!isViewingFinal.value) finalSvgFileIds.value = currentPageSvgIds();
+    });
+    watch(() => store.currentBatchRenderPageFileIds, (ids) => {
+      if (ids.length) setFinalSvgFileIds(ids);
     });
     watch(() => store.currentPageIndex, () => {
       currentNoteIndex.value = -1;
+      if (!isViewingFinal.value) setFinalSvgFileIds(currentPageSvgIds());
     });
     onMounted(() => {
       if (!settings.loaded) void settings.load();
@@ -64899,18 +65403,20 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       const batchId = expandedBatchId.value;
       if (!batchId) return;
       let allPages = expandedPages.value;
+      let renderPageFileIds = [];
+      let batchJianpuText = "";
       let pageIndex = allPages.findIndex((p2) => p2.id === page.id);
-      if (!allPages.length || pageIndex < 0) {
-        try {
-          const batch2 = await historyApi.get(batchId);
-          if (expandedBatchId.value === batchId) {
-            allPages = batch2.pages;
-            expandedPages.value = batch2.pages;
-          }
-          pageIndex = allPages.findIndex((p2) => p2.id === page.id);
-        } catch (e) {
-          log2.addError(`刷新历史详情失败：${e instanceof Error ? e.message : String(e)}`);
+      try {
+        const batch2 = await historyApi.get(batchId);
+        renderPageFileIds = batch2.render_page_file_ids;
+        batchJianpuText = batch2.jianpu_text || "";
+        if (expandedBatchId.value === batchId) {
+          allPages = batch2.pages;
+          expandedPages.value = batch2.pages;
         }
+        pageIndex = allPages.findIndex((p2) => p2.id === page.id);
+      } catch (e) {
+        log2.addError(`刷新历史详情失败：${e instanceof Error ? e.message : String(e)}`);
       }
       if (!allPages.length) return;
       const migratedPages = allPages.map((p2) => {
@@ -64924,25 +65430,29 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           originalFileName: isPreviewableHistoryFile(r.page.input_file_name) ? r.page.input_file_name : "",
           originalFileId: isPreviewableHistoryFile(r.page.input_file_name) ? r.page.input_file_id : "",
           historyPageId: r.page.id,
+          historyBatchId: batchId,
           musicxmlFileId: r.page.musicxml_file_id,
           jianpuText: r.jianpu,
           ocrText: r.page.ocr_text || r.split.ocrText,
           svgFileId: r.page.svg_file_id,
+          svgFileIds: r.page.svg_file_id ? [r.page.svg_file_id] : [],
           startMeasureNumber: r.page.start_measure_number ?? null,
           status: r.page.status,
           measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
           errorMessage: r.page.error_message,
           ...liveRecognitionTaskPatch(r.page.id, r.page.status)
         })),
-        pageIndex >= 0 ? pageIndex : 0
+        pageIndex >= 0 ? pageIndex : 0,
+        renderPageFileIds,
+        batchJianpuText
       );
       isViewingFinal.value = false;
-      void validateRestoredBatchFiles(allPages);
+      void validateRestoredBatchFiles(allPages, renderPageFileIds);
       message.success(`已恢复 ${allPages.length} 页`);
     }
-    async function validateRestoredBatchFiles(pages) {
+    async function validateRestoredBatchFiles(pages, renderPageFileIds = []) {
       const seq = ++restoreCheckSeq;
-      const fileIds = pages.flatMap((entry) => [entry.input_file_id, entry.musicxml_file_id, entry.svg_file_id]).filter(Boolean);
+      const fileIds = pages.flatMap((entry) => [entry.input_file_id, entry.musicxml_file_id, entry.svg_file_id]).concat(renderPageFileIds).filter(Boolean);
       if (!fileIds.length) return;
       try {
         const exists2 = await filesApi.existsMany(fileIds);
@@ -64962,6 +65472,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           }
           if (entry.svg_file_id && !exists2[entry.svg_file_id]) {
             patch.svgFileId = "";
+            patch.svgFileIds = [];
             warnings.push(`${entry.input_file_name}：SVG 已失效`);
           }
           if (Object.keys(patch).length) {
@@ -65099,6 +65610,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       const options = parseWaitingMeasureOptions(page.error_message);
       try {
         let svgFileId = page.svg_file_id;
+        let svgFileIds = page.svg_file_id ? [page.svg_file_id] : [];
         let jianpuText2 = page.jianpu_text;
         if (page.musicxml_file_id && selected !== options[0]) {
           const rendered = await renderApi.jianpuSvg({
@@ -65110,6 +65622,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
             start_measure_number: selected
           });
           svgFileId = rendered.svg_file_id;
+          svgFileIds = renderResponsePageIds(rendered.pages, rendered.svg_file_id);
         } else if (!page.musicxml_file_id && page.jianpu_text.trim()) {
           const rendered = await renderApi.jianpuTextSvg({
             jianpu_text: page.jianpu_text,
@@ -65120,6 +65633,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
             start_measure_number: selected
           });
           svgFileId = rendered.svg_file_id;
+          svgFileIds = renderResponsePageIds(rendered.pages, rendered.svg_file_id);
           jianpuText2 = rendered.jianpu_text || page.jianpu_text;
         }
         const updated = await historyApi.updatePage(page.id, {
@@ -65131,6 +65645,9 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         });
         replaceExpandedHistoryPage(updated);
         syncStoreFromHistoryPage(updated);
+        store.patchPageByHistoryPageId(updated.id, { svgFileIds });
+        store.setBatchRenderPageFileIds([]);
+        setFinalSvgFileIds([]);
         notifyHistoryPagePatched(historyPagePatchFromPage(updated));
         message.success("已应用起始小节号");
       } catch (e) {
@@ -65175,6 +65692,8 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         jianpuText: split.jianpuText,
         ocrText: page.ocr_text || split.ocrText,
         svgFileId: page.svg_file_id,
+        svgFileIds: page.svg_file_id ? [page.svg_file_id] : [],
+        historyBatchId: page.batch_id ?? null,
         startMeasureNumber: page.start_measure_number ?? null,
         status: page.status,
         progressPercent: page.status === "processing" ? 99 : 100,
@@ -65192,7 +65711,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       const missingId = resolveMissingFileId(errorMessage);
       if (!missingId || missingId !== store.musicxmlFileId) return errorMessage;
       store.setMusicxml("", "");
-      finalSvgFileId.value = "";
+      setFinalSvgFileIds([]);
       return '当前 MusicXML 引用已失效，请回到"识别"页重新识别。';
     }
     async function exportScore() {
@@ -65208,23 +65727,24 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           return;
         }
         if (format2 === "png") {
-          const svgFileId = await renderExportSvg(currentExportPage());
+          const ids = await renderExportSvgIds();
+          const svgFileId = ids[Math.min(finalRenderPageIndex.value, ids.length - 1)];
+          if (!svgFileId) throw new Error("暂无可导出的 A4 页面");
           const png = await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2);
           downloadBlob(png, "jianpu.png");
           log2.addLog("导出完成：jianpu.png");
           message.success("导出完成");
           return;
         }
-        const pages = exportPages();
-        if (!pages.length) throw new Error("暂无可导出的页面");
+        const svgIds = await renderExportSvgIds();
+        if (!svgIds.length) throw new Error("暂无可导出的页面");
         const pngPages = [];
         const skippedPages = [];
-        for (const page of pages) {
+        for (let index = 0; index < svgIds.length; index++) {
           try {
-            const svgFileId = await renderExportSvg(page);
-            pngPages.push(await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2));
+            pngPages.push(await svgToPngBlob(exportApi.getDownloadURL(svgIds[index]), 2));
           } catch {
-            skippedPages.push(page.inputFileName || "未命名页");
+            skippedPages.push(index + 1);
           }
         }
         if (!pngPages.length) throw new Error("所有页面导出失败，无可用内容");
@@ -65232,7 +65752,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         downloadFile(result.file_id, result.filename);
         if (skippedPages.length) {
           log2.addLog(`导出完成（跳过 ${skippedPages.length} 页失败页）：${result.filename}`);
-          message.warning(`已跳过 ${skippedPages.length} 页失败页：${skippedPages.join("、")}`);
+          message.warning(`已跳过 ${skippedPages.length} 张 A4 页：${skippedPages.join("、")}`);
         } else {
           log2.addLog(`导出完成：${result.filename}`);
         }
@@ -65257,59 +65777,174 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         ...page ?? {
           id: "current",
           historyPageId: store.historyPageId,
+          historyBatchId: null,
           inputFileName: store.inputFileName,
           inputFileId: store.inputFileId,
           originalFileName: store.originalFileName,
           originalFileId: store.originalFileId,
           musicxmlFileId: store.musicxmlFileId,
           musicxmlText: store.currentPage?.musicxmlText ?? "",
-          jianpuText: store.jianpuText,
+          jianpuText: store.currentBatchJianpuText || store.jianpuText,
           ocrText: store.ocrText,
           jianpuDirty: store.jianpuDirty,
           svgFileId: store.svgFileId,
+          svgFileIds: store.svgFileIds,
+          startMeasureNumber: store.startMeasureNumber,
           status: "completed",
           errorMessage: ""
         },
         jianpuText: jianpuText.value,
         ocrText: store.ocrText,
-        svgFileId: finalSvgFileId.value || store.svgFileId
+        svgFileId: finalSvgFileId.value || store.svgFileId,
+        svgFileIds: finalSvgFileIds.value.length ? finalSvgFileIds.value : store.svgFileIds
       };
     }
-    function exportPages() {
+    function batchRenderSourcePages() {
       if (!store.currentBatchPages.length) return [currentExportPage()];
       return store.currentBatchPages.map(
         (page) => page.id === store.currentPage?.id ? currentExportPage() : page
       );
     }
-    async function renderExportSvg(page) {
-      if (page.jianpuText.trim()) {
-        const result = await renderApi.jianpuTextSvg({
-          jianpu_text: page.jianpuText,
-          page_image_file_id: page.originalFileId || page.inputFileId || void 0,
-          ocr_text: page.ocrText || void 0,
-          include_ocr_text: true,
-          measure_number_mode: settings.measureNumberMode,
+    async function renderExportSvgIds() {
+      if (store.currentBatchRenderPageOcrDirty) return renderFinalBatch();
+      if (finalSvgFileIds.value.length) return finalSvgFileIds.value;
+      if (store.currentBatchRenderPageFileIds.length) {
+        setFinalSvgFileIds(store.currentBatchRenderPageFileIds);
+        return finalSvgFileIds.value;
+      }
+      return renderFinalBatch();
+    }
+    async function renderFinalBatch() {
+      const pages = buildBatchRenderPages();
+      if (!pages.length) throw new Error("暂无可渲染的简谱内容");
+      const result = await renderApi.batchA4({
+        pages,
+        source_pages: buildBatchRenderSourcePages(),
+        render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
+        target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
+        measure_number_mode: settings.measureNumberMode,
+        title: "简谱"
+      });
+      const ids = renderResponsePageIds(result.pages, result.svg_file_id);
+      setFinalSvgFileIds(ids);
+      store.setBatchRenderPageFileIds(ids);
+      store.setBatchRenderPageOcrTexts(
+        renderResponsePageOcrTexts(result.pages),
+        false
+      );
+      await persistBatchRenderPages(ids);
+      await persistBatchRenderPageOcrTexts();
+      store.markBatchRenderPageOcrClean();
+      return ids;
+    }
+    function buildBatchRenderPages() {
+      const text = jianpuText.value.trim();
+      if (text) {
+        return [{
+          jianpu_text: jianpuText.value,
+          include_ocr_text: false,
+          start_measure_number: batchStartMeasureNumber.value ?? void 0,
           title: "简谱"
-        });
-        if (result.jianpu_text && page.id === store.currentPage?.id) {
-          jianpuText.value = result.jianpu_text;
-          store.setJianpu(result.jianpu_text);
+        }];
+      }
+      return batchRenderSourcePages().map((page) => {
+        const sourceImageId = page.originalFileId || page.inputFileId || void 0;
+        const start2 = page.startMeasureNumber ?? void 0;
+        if (page.jianpuText.trim()) {
+          return {
+            jianpu_text: page.jianpuText,
+            page_image_file_id: sourceImageId,
+            ocr_text: page.ocrText || void 0,
+            include_ocr_text: false,
+            start_measure_number: start2,
+            title: "简谱"
+          };
         }
-        return result.svg_file_id;
-      }
-      if (page.svgFileId) return page.svgFileId;
-      if (page.musicxmlFileId) {
-        const result = await renderApi.jianpuSvg({
-          musicxml_file_id: page.musicxmlFileId,
-          page_image_file_id: page.originalFileId || page.inputFileId || void 0,
-          target_key: settings.targetKey,
-          accidental_mode: settings.accidentalMode,
-          measure_number_mode: settings.measureNumberMode,
-          start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? void 0
+        if (page.musicxmlFileId) {
+          return {
+            musicxml_file_id: page.musicxmlFileId,
+            page_image_file_id: sourceImageId,
+            start_measure_number: start2,
+            title: "简谱"
+          };
+        }
+        return null;
+      }).filter((page) => page !== null);
+    }
+    function buildBatchRenderSourcePages() {
+      return batchRenderSourcePages().map((page) => {
+        const sourceImageId = page.originalFileId || page.inputFileId || void 0;
+        const start2 = page.startMeasureNumber ?? void 0;
+        if (page.jianpuText.trim()) {
+          return {
+            input_file_name: page.inputFileName,
+            jianpu_text: page.jianpuText,
+            page_image_file_id: sourceImageId,
+            ocr_text: page.ocrText || void 0,
+            include_ocr_text: false,
+            start_measure_number: start2,
+            title: "简谱"
+          };
+        }
+        if (page.musicxmlFileId) {
+          return {
+            input_file_name: page.inputFileName,
+            musicxml_file_id: page.musicxmlFileId,
+            page_image_file_id: sourceImageId,
+            ocr_text: page.ocrText || void 0,
+            include_ocr_text: false,
+            start_measure_number: start2,
+            title: "简谱"
+          };
+        }
+        return null;
+      }).filter((page) => page !== null);
+    }
+    function renderResponsePageIds(pages, fallback) {
+      const ids = (pages ?? []).map((page) => page.svg_file_id).filter(Boolean);
+      return ids.length ? ids : fallback ? [fallback] : [];
+    }
+    function renderResponsePageOcrTexts(pages) {
+      return (pages ?? []).map((page) => ({
+        page_index: page.page_index,
+        ocr_text: page.ocr_text || ""
+      }));
+    }
+    function currentPageSvgIds() {
+      return store.svgFileIds.length ? store.svgFileIds : store.svgFileId ? [store.svgFileId] : [];
+    }
+    function setFinalSvgFileIds(ids) {
+      finalSvgFileIds.value = [...ids];
+      finalRenderPageIndex.value = Math.max(
+        0,
+        Math.min(finalRenderPageIndex.value, finalSvgFileIds.value.length - 1)
+      );
+    }
+    function currentHistoryBatchId() {
+      return store.currentBatchPages.find((page) => page.historyBatchId)?.historyBatchId ?? null;
+    }
+    async function persistBatchRenderPages(ids, batchId = currentHistoryBatchId()) {
+      if (!batchId || !ids.length) return;
+      try {
+        const updated = await historyApi.updateBatchRenderPages(batchId, {
+          render_page_file_ids: ids
         });
-        return result.svg_file_id;
+        store.setBatchRenderPageFileIds(updated.render_page_file_ids);
+      } catch (e) {
+        log2.addLog(`保存连续 A4 渲染页失败：${e instanceof Error ? e.message : String(e)}`, "warn");
       }
-      throw new Error(`页面 ${page.inputFileName || ""} 暂无可导出的渲染结果`);
+    }
+    async function persistBatchRenderPageOcrTexts(batchId = currentHistoryBatchId()) {
+      if (!batchId) return;
+      try {
+        const updated = await historyApi.updateBatchRenderPageOcrTexts(batchId, {
+          pages: store.currentBatchRenderPageOcrTextEntries()
+        });
+        store.setBatchRenderPageOcrTexts(updated.render_page_ocr_texts || [], false);
+      } catch (e) {
+        log2.addLog(`保存连续 A4 文字层失败：${e instanceof Error ? e.message : String(e)}`, "warn");
+      }
     }
     async function musicxmlToJianpu() {
       store.setBusy(true);
@@ -65319,12 +65954,14 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           page_image_file_id: store.originalFileId || void 0,
           target_key: settings.targetKey,
           accidental_mode: settings.accidentalMode,
-          measure_number_mode: settings.measureNumberMode,
-          start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? void 0
+          start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? void 0
         });
         const split = splitJianpuAndOcr(result.jianpu_text);
         store.setJianpu(split.jianpuText);
+        store.setBatchJianpuText(split.jianpuText, false);
         store.setOcrText(split.ocrText);
+        store.setBatchRenderPageFileIds([]);
+        setFinalSvgFileIds([]);
         log2.addLog("已转换为简谱");
         message.success("转换完成");
       } catch (e) {
@@ -65343,8 +65980,10 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       }
       store.setBusy(true);
       try {
-        await persistRenderedHistory(finalSvgFileId.value || store.svgFileId || "");
-        store.markJianpuClean();
+        const ids = store.currentBatchRenderPageOcrDirty ? await renderFinalBatch() : finalSvgFileIds.value.length ? finalSvgFileIds.value : currentPageSvgIds();
+        await persistRenderedHistory(ids[0] || store.svgFileId || "", ids);
+        store.markBatchJianpuClean();
+        store.markBatchRenderPageOcrClean();
         log2.addLog("已保存 OMR、简谱和 OCR 信息");
         message.success("已保存");
       } catch (e) {
@@ -65356,46 +65995,13 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       }
     }
     function handleOcrTextUpdate(value) {
-      store.setOcrText(value, true);
-    }
-    function applyReturnedOcr(value) {
-      if (!value || store.ocrText.trim()) return;
-      store.setOcrText(value);
+      store.setBatchRenderPageOcrText(finalRenderPageIndex.value, value, true);
     }
     async function renderSvg() {
       store.setBusy(true);
       try {
-        if (hasJianpuText.value) {
-          const result = await renderApi.jianpuTextSvg({
-            jianpu_text: jianpuText.value,
-            page_image_file_id: store.originalFileId || void 0,
-            ocr_text: store.ocrText || void 0,
-            include_ocr_text: false,
-            measure_number_mode: settings.measureNumberMode,
-            title: "简谱",
-            start_measure_number: store.startMeasureNumber ?? void 0
-          });
-          store.setSvg(result.svg_file_id);
-          finalSvgFileId.value = result.svg_file_id;
-          if (result.jianpu_text) {
-            jianpuText.value = result.jianpu_text;
-            store.setJianpu(result.jianpu_text);
-          }
-          applyReturnedOcr(result.ocr_text);
-          isViewingFinal.value = true;
-        } else {
-          const result = await renderApi.jianpuSvg({
-            musicxml_file_id: store.musicxmlFileId,
-            page_image_file_id: store.originalFileId || void 0,
-            target_key: settings.targetKey,
-            accidental_mode: settings.accidentalMode,
-            measure_number_mode: settings.measureNumberMode,
-            start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? void 0
-          });
-          store.setSvg(result.svg_file_id);
-          finalSvgFileId.value = result.svg_file_id;
-          isViewingFinal.value = true;
-        }
+        await renderFinalBatch();
+        isViewingFinal.value = true;
         log2.addLog("已渲染 SVG");
         message.success("渲染完成");
       } catch (e) {
@@ -65408,7 +66014,14 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       }
     }
     async function handleStartMeasureChange(value) {
-      store.setPageStartMeasureNumber(value);
+      const first = firstBatchPage();
+      if (first?.id) {
+        store.patchPageById(first.id, { startMeasureNumber: value });
+      } else {
+        store.setPageStartMeasureNumber(value);
+      }
+      store.setBatchRenderPageFileIds([]);
+      setFinalSvgFileIds([]);
       if (isViewingFinal.value && finalSvgFileId.value) {
         await renderSvg();
       }
@@ -65421,29 +66034,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       isRenderingFinal.value = true;
       store.setBusy(true);
       try {
-        const result = hasJianpuText.value ? await renderApi.jianpuTextSvg({
-          jianpu_text: jianpuText.value,
-          page_image_file_id: store.originalFileId || void 0,
-          ocr_text: store.ocrText || void 0,
-          include_ocr_text: false,
-          measure_number_mode: settings.measureNumberMode,
-          title: "简谱",
-          start_measure_number: store.startMeasureNumber ?? void 0
-        }) : await renderApi.finalOutput({
-          musicxml_file_id: store.musicxmlFileId,
-          page_image_file_id: store.originalFileId || void 0,
-          target_key: settings.targetKey,
-          accidental_mode: settings.accidentalMode,
-          measure_number_mode: settings.measureNumberMode,
-          start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? void 0
-        });
-        finalSvgFileId.value = result.svg_file_id;
-        store.setSvg(result.svg_file_id);
-        if ("jianpu_text" in result && result.jianpu_text) {
-          jianpuText.value = result.jianpu_text;
-          store.setJianpu(result.jianpu_text);
-        }
-        applyReturnedOcr("ocr_text" in result ? result.ocr_text : void 0);
+        await renderFinalBatch();
         isViewingFinal.value = true;
       } catch (e) {
         const raw = e instanceof Error ? e.message : String(e);
@@ -65455,16 +66046,23 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
         isRenderingFinal.value = false;
       }
     }
-    async function persistRenderedHistory(svgFileId) {
+    async function persistRenderedHistory(svgFileId, renderPageFileIds) {
       const savedJianpu = jianpuText.value;
       if (savedJianpu.trim()) {
         await renderApi.normalizeJianpuText({ jianpu_text: savedJianpu, title: "简谱" });
       }
+      const historyBatchId = currentHistoryBatchId();
+      if (historyBatchId) {
+        await persistBatchJianpuText(historyBatchId, savedJianpu);
+      }
+      await persistFirstPageStartMeasure();
+      const sourcePageText = store.currentPage?.jianpuText ?? store.jianpuText;
+      const sourceSvgFileId = store.currentPage?.svgFileId || store.svgFileId || svgFileId;
       const payload = {
         musicxml_file_id: store.musicxmlFileId,
-        jianpu_text: savedJianpu,
+        jianpu_text: sourcePageText,
         ocr_text: store.ocrText,
-        svg_file_id: svgFileId,
+        svg_file_id: sourceSvgFileId,
         start_measure_number: store.startMeasureNumber ?? null,
         status: "completed",
         error_message: ""
@@ -65472,16 +66070,21 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       if (store.historyPageId) {
         const updated = await historyApi.updatePage(store.historyPageId, payload);
         replaceExpandedHistoryPage(updated);
+        await persistBatchRenderPages(renderPageFileIds);
+        await persistBatchRenderPageOcrTexts();
         return;
       }
       const created = await historyApi.create({
+        jianpu_text: savedJianpu,
+        render_page_file_ids: renderPageFileIds,
+        render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
         pages: [{
           input_file_name: store.inputFileName,
           input_file_id: store.inputFileId,
           musicxml_file_id: store.musicxmlFileId,
-          jianpu_text: savedJianpu,
+          jianpu_text: sourcePageText || savedJianpu,
           ocr_text: store.ocrText,
-          svg_file_id: svgFileId,
+          svg_file_id: sourceSvgFileId,
           status: "completed",
           error_message: ""
         }]
@@ -65489,7 +66092,32 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       const pageId = created.pages[0]?.id;
       if (pageId) {
         store.setHistoryPageId(pageId);
+        store.patchPageByHistoryPageId(pageId, { historyBatchId: created.id });
+        await persistBatchRenderPages(renderPageFileIds, created.id);
+        await persistBatchRenderPageOcrTexts(created.id);
         await loadHistory();
+      }
+    }
+    function firstBatchPage() {
+      return store.currentBatchPages[0] ?? store.currentPage;
+    }
+    async function persistBatchJianpuText(batchId, text) {
+      try {
+        await historyApi.updateBatchJianpuText(batchId, { jianpu_text: text });
+      } catch (e) {
+        log2.addLog(`保存批次简谱文本失败：${e instanceof Error ? e.message : String(e)}`, "warn");
+      }
+    }
+    async function persistFirstPageStartMeasure() {
+      const first = firstBatchPage();
+      if (!first?.historyPageId) return;
+      try {
+        const updated = await historyApi.updatePage(first.historyPageId, {
+          start_measure_number: first.startMeasureNumber ?? null
+        });
+        replaceExpandedHistoryPage(updated);
+      } catch (e) {
+        log2.addLog(`保存批次起始小节失败：${e instanceof Error ? e.message : String(e)}`, "warn");
       }
     }
     return (_ctx, _cache) => {
@@ -65498,7 +66126,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           class: normalizeClass(["ws-history", { open: historyOpen.value }])
         }, [
           createBaseVNode("div", _hoisted_2$4, [
-            _cache[12] || (_cache[12] = createBaseVNode("span", { class: "ws-hist-title" }, "历史", -1)),
+            _cache[14] || (_cache[14] = createBaseVNode("span", { class: "ws-hist-title" }, "历史", -1)),
             createBaseVNode("div", _hoisted_3$4, [
               createVNode(unref(Button), {
                 size: "tiny",
@@ -65539,14 +66167,14 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   }, 8, ["disabled"])
                 ]),
                 default: withCtx(() => [
-                  _cache[11] || (_cache[11] = createTextVNode(" 确定删除所有历史记录？ ", -1))
+                  _cache[13] || (_cache[13] = createTextVNode(" 确定删除所有历史记录？ ", -1))
                 ]),
                 _: 1
               })
             ])
           ]),
           createBaseVNode("div", _hoisted_4$4, [
-            !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$3, [..._cache[13] || (_cache[13] = [
+            !histLoading.value && !histBatches.value.length ? (openBlock(), createElementBlock("div", _hoisted_5$3, [..._cache[15] || (_cache[15] = [
               createBaseVNode("span", null, "暂无记录", -1)
             ])])) : createCommentVNode("", true),
             (openBlock(true), createElementBlock(Fragment, null, renderList(histBatches.value, (batch2) => {
@@ -65585,7 +66213,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                       ])
                     ]),
                     default: withCtx(() => [
-                      _cache[14] || (_cache[14] = createTextVNode(" 确定删除这次历史记录？ ", -1))
+                      _cache[16] || (_cache[16] = createTextVNode(" 确定删除这次历史记录？ ", -1))
                     ]),
                     _: 1
                   }, 8, ["onPositiveClick"]),
@@ -65679,7 +66307,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                 disabled: !unref(store).hasMusicxml,
                 type: "primary"
               }, {
-                default: withCtx(() => [..._cache[15] || (_cache[15] = [
+                default: withCtx(() => [..._cache[17] || (_cache[17] = [
                   createTextVNode(" 重置简谱 ", -1)
                 ])]),
                 _: 1
@@ -65700,7 +66328,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   })
                 ]),
                 default: withCtx(() => [
-                  _cache[16] || (_cache[16] = createTextVNode(" 导出 ", -1))
+                  _cache[18] || (_cache[18] = createTextVNode(" 导出 ", -1))
                 ]),
                 _: 1
               }, 8, ["loading", "disabled"]),
@@ -65716,7 +66344,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           createBaseVNode("div", _hoisted_22$1, [
             createBaseVNode("div", _hoisted_23$1, [
               createBaseVNode("div", _hoisted_24$1, [
-                _cache[17] || (_cache[17] = createBaseVNode("span", null, "原始五线谱", -1)),
+                _cache[19] || (_cache[19] = createBaseVNode("span", null, "原始五线谱", -1)),
                 unref(store).originalFileName ? (openBlock(), createElementBlock("span", _hoisted_25$1, toDisplayString(unref(store).originalFileName), 1)) : createCommentVNode("", true)
               ]),
               createBaseVNode("div", _hoisted_26$1, [
@@ -65731,9 +66359,9 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                 createBaseVNode("span", null, toDisplayString(isViewingFinal.value ? "最终渲染" : "简谱编辑"), 1),
                 createBaseVNode("div", _hoisted_29$1, [
                   createBaseVNode("div", _hoisted_30$1, [
-                    _cache[18] || (_cache[18] = createBaseVNode("span", { class: "meta-label" }, "起始小节", -1)),
+                    _cache[20] || (_cache[20] = createBaseVNode("span", { class: "meta-label" }, "起始小节", -1)),
                     createVNode(unref(NInputNumber), {
-                      value: unref(store).startMeasureNumber,
+                      value: batchStartMeasureNumber.value,
                       "onUpdate:value": handleStartMeasureChange,
                       placeholder: "自动",
                       min: 1,
@@ -65756,7 +66384,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                       })
                     ]),
                     default: withCtx(() => [
-                      _cache[19] || (_cache[19] = createTextVNode(" 语法说明 ", -1))
+                      _cache[21] || (_cache[21] = createTextVNode(" 语法说明 ", -1))
                     ]),
                     _: 1
                   }),
@@ -65767,7 +66395,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                     loading: unref(store).isBusy,
                     disabled: unref(store).isBusy || !canSaveCurrentPage.value
                   }, {
-                    default: withCtx(() => [..._cache[20] || (_cache[20] = [
+                    default: withCtx(() => [..._cache[22] || (_cache[22] = [
                       createTextVNode(" 保存 ", -1)
                     ])]),
                     _: 1
@@ -65783,18 +66411,53 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                       createTextVNode(toDisplayString(isViewingFinal.value ? "编辑" : "渲染"), 1)
                     ]),
                     _: 1
-                  }, 8, ["loading", "disabled"])
+                  }, 8, ["loading", "disabled"]),
+                  isViewingFinal.value && finalSvgFileIds.value.length > 1 ? (openBlock(), createElementBlock("div", _hoisted_31$1, [
+                    createVNode(unref(Button), {
+                      size: "tiny",
+                      quaternary: "",
+                      disabled: finalRenderPageIndex.value <= 0,
+                      onClick: _cache[6] || (_cache[6] = ($event) => finalRenderPageIndex.value--)
+                    }, {
+                      icon: withCtx(() => [
+                        createVNode(unref(NIcon), { size: "12" }, {
+                          default: withCtx(() => [
+                            createVNode(unref(ChevronBackOutline))
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["disabled"]),
+                    createBaseVNode("span", null, toDisplayString(finalRenderPageIndex.value + 1) + " / " + toDisplayString(finalSvgFileIds.value.length), 1),
+                    createVNode(unref(Button), {
+                      size: "tiny",
+                      quaternary: "",
+                      disabled: finalRenderPageIndex.value >= finalSvgFileIds.value.length - 1,
+                      onClick: _cache[7] || (_cache[7] = ($event) => finalRenderPageIndex.value++)
+                    }, {
+                      icon: withCtx(() => [
+                        createVNode(unref(NIcon), { size: "12" }, {
+                          default: withCtx(() => [
+                            createVNode(unref(ChevronForwardOutline))
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["disabled"])
+                  ])) : createCommentVNode("", true)
                 ])
               ]),
-              createBaseVNode("div", _hoisted_31$1, [
+              createBaseVNode("div", _hoisted_32$1, [
                 isViewingFinal.value && finalSvgFileId.value ? (openBlock(), createBlock(SvgPreview, {
                   key: 0,
                   "svg-file-id": finalSvgFileId.value,
-                  "ocr-text": unref(store).ocrText,
+                  "ocr-text": finalRenderPageOcrText.value,
                   "current-note-index": currentNoteIndex.value,
                   "editable-ocr": "",
                   "onUpdate:ocrText": handleOcrTextUpdate
-                }, null, 8, ["svg-file-id", "ocr-text", "current-note-index"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_32$1, [
+                }, null, 8, ["svg-file-id", "ocr-text", "current-note-index"])) : isViewingFinal.value ? (openBlock(), createElementBlock("div", _hoisted_33$1, [
                   createVNode(unref(NIcon), {
                     size: "32",
                     depth: 3
@@ -65804,12 +66467,12 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                     ]),
                     _: 1
                   }),
-                  _cache[21] || (_cache[21] = createBaseVNode("span", null, "暂无渲染", -1))
+                  _cache[23] || (_cache[23] = createBaseVNode("span", null, "暂无渲染", -1))
                 ])) : (openBlock(), createBlock(JianpuEditor, {
                   key: 2,
                   modelValue: jianpuText.value,
-                  "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => jianpuText.value = $event),
-                  "start-measure-number": unref(store).startMeasureNumber ?? 1,
+                  "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => jianpuText.value = $event),
+                  "start-measure-number": batchStartMeasureNumber.value ?? 1,
                   "current-note-index": currentNoteIndex.value,
                   "syntax-highlight": unref(settings).jianpuSyntaxHighlight
                 }, null, 8, ["modelValue", "start-measure-number", "current-note-index", "syntax-highlight"]))
@@ -65819,25 +66482,25 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           createVNode(JianpuPlayer, {
             "musicxml-file-id": unref(store).musicxmlFileId,
             "jianpu-text": jianpuText.value,
-            "onUpdate:currentNoteIndex": _cache[7] || (_cache[7] = ($event) => currentNoteIndex.value = $event)
+            "onUpdate:currentNoteIndex": _cache[9] || (_cache[9] = ($event) => currentNoteIndex.value = $event)
           }, null, 8, ["musicxml-file-id", "jianpu-text"])
         ]),
         createVNode(JianpuSyntaxGuide, {
           show: syntaxGuideOpen.value,
-          "onUpdate:show": _cache[8] || (_cache[8] = ($event) => syntaxGuideOpen.value = $event)
+          "onUpdate:show": _cache[10] || (_cache[10] = ($event) => syntaxGuideOpen.value = $event)
         }, null, 8, ["show"]),
         createVNode(MeasureNumberPicker, {
           show: histPickerShow.value,
-          "onUpdate:show": _cache[9] || (_cache[9] = ($event) => histPickerShow.value = $event),
+          "onUpdate:show": _cache[11] || (_cache[11] = ($event) => histPickerShow.value = $event),
           options: histPickerOptions.value,
           onConfirm: onHistPickerConfirm,
-          onCancel: _cache[10] || (_cache[10] = ($event) => histPickerShow.value = false)
+          onCancel: _cache[12] || (_cache[12] = ($event) => histPickerShow.value = false)
         }, null, 8, ["show", "options"])
       ]);
     };
   }
 });
-const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-bcfad769"]]);
+const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-52014588"]]);
 const _hoisted_1$3 = { class: "settings-view" };
 const _hoisted_2$3 = { class: "sv-content" };
 const _hoisted_3$3 = { class: "sv-header" };
@@ -65873,10 +66536,12 @@ const _hoisted_32 = { class: "sv-form-item sv-form-item-compact" };
 const _hoisted_33 = { class: "sv-form-item sv-form-item-compact" };
 const _hoisted_34 = { class: "sv-form-item sv-form-item-compact sv-switch-setting" };
 const _hoisted_35 = { class: "sv-switch-control" };
-const _hoisted_36 = { class: "sv-form-item" };
-const _hoisted_37 = { class: "sv-card-title" };
-const _hoisted_38 = { class: "sv-form" };
-const _hoisted_39 = { class: "sv-form-item" };
+const _hoisted_36 = { class: "sv-form-item sv-form-item-compact sv-switch-setting" };
+const _hoisted_37 = { class: "sv-switch-control" };
+const _hoisted_38 = { class: "sv-form-item" };
+const _hoisted_39 = { class: "sv-card-title" };
+const _hoisted_40 = { class: "sv-form" };
+const _hoisted_41 = { class: "sv-form-item" };
 const _sfc_main$3 = /* @__PURE__ */ defineComponent({
   __name: "SettingsView",
   setup(__props) {
@@ -66002,7 +66667,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       return openBlock(), createElementBlock("div", _hoisted_1$3, [
         createBaseVNode("div", _hoisted_2$3, [
           createBaseVNode("div", _hoisted_3$3, [
-            _cache[17] || (_cache[17] = createBaseVNode("div", { class: "sv-header-text" }, [
+            _cache[18] || (_cache[18] = createBaseVNode("div", { class: "sv-header-text" }, [
               createBaseVNode("h2", null, "设置")
             ], -1)),
             createVNode(unref(Button), {
@@ -66019,7 +66684,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                 })
               ]),
               default: withCtx(() => [
-                _cache[16] || (_cache[16] = createTextVNode(" 保存配置 ", -1))
+                _cache[17] || (_cache[17] = createTextVNode(" 保存配置 ", -1))
               ]),
               _: 1
             })
@@ -66042,11 +66707,11 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     }),
-                    _cache[18] || (_cache[18] = createBaseVNode("span", null, "OCR 设置", -1))
+                    _cache[19] || (_cache[19] = createBaseVNode("span", null, "OCR 设置", -1))
                   ]),
                   createBaseVNode("div", _hoisted_7$2, [
                     createBaseVNode("div", _hoisted_8$2, [
-                      _cache[19] || (_cache[19] = createBaseVNode("label", null, "API Key", -1)),
+                      _cache[20] || (_cache[20] = createBaseVNode("label", null, "API Key", -1)),
                       createVNode(unref(NInput), {
                         value: unref(settings).ocrApiKey,
                         "onUpdate:value": _cache[0] || (_cache[0] = ($event) => unref(settings).ocrApiKey = $event),
@@ -66067,7 +66732,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       }, 8, ["value", "placeholder"])
                     ]),
                     createBaseVNode("div", _hoisted_9$2, [
-                      _cache[20] || (_cache[20] = createBaseVNode("label", null, "Provider", -1)),
+                      _cache[21] || (_cache[21] = createBaseVNode("label", null, "Provider", -1)),
                       createVNode(unref(NSelect), {
                         value: unref(settings).ocrProvider,
                         "onUpdate:value": _cache[1] || (_cache[1] = ($event) => unref(settings).ocrProvider = $event),
@@ -66095,11 +66760,11 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     }),
-                    _cache[21] || (_cache[21] = createBaseVNode("span", null, "AI 视觉转写", -1))
+                    _cache[22] || (_cache[22] = createBaseVNode("span", null, "AI 视觉转写", -1))
                   ]),
                   createBaseVNode("div", _hoisted_11$2, [
                     createBaseVNode("div", _hoisted_12$2, [
-                      _cache[22] || (_cache[22] = createBaseVNode("label", null, "API Key", -1)),
+                      _cache[23] || (_cache[23] = createBaseVNode("label", null, "API Key", -1)),
                       createVNode(unref(NInput), {
                         value: unref(settings).aiApiKey,
                         "onUpdate:value": _cache[2] || (_cache[2] = ($event) => unref(settings).aiApiKey = $event),
@@ -66120,7 +66785,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       }, 8, ["value", "placeholder"])
                     ]),
                     createBaseVNode("div", _hoisted_13$2, [
-                      _cache[23] || (_cache[23] = createBaseVNode("label", null, "Provider", -1)),
+                      _cache[24] || (_cache[24] = createBaseVNode("label", null, "Provider", -1)),
                       createVNode(unref(NSelect), {
                         value: unref(settings).aiProvider,
                         "onUpdate:value": _cache[3] || (_cache[3] = ($event) => unref(settings).aiProvider = $event),
@@ -66148,11 +66813,11 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     }),
-                    _cache[24] || (_cache[24] = createBaseVNode("span", null, "工作台 AI 助手", -1))
+                    _cache[25] || (_cache[25] = createBaseVNode("span", null, "工作台 AI 助手", -1))
                   ]),
                   createBaseVNode("div", _hoisted_15$2, [
                     createBaseVNode("div", _hoisted_16$2, [
-                      _cache[25] || (_cache[25] = createBaseVNode("label", null, "API Key", -1)),
+                      _cache[26] || (_cache[26] = createBaseVNode("label", null, "API Key", -1)),
                       createVNode(unref(NInput), {
                         value: unref(settings).assistantApiKey,
                         "onUpdate:value": _cache[4] || (_cache[4] = ($event) => unref(settings).assistantApiKey = $event),
@@ -66173,7 +66838,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       }, 8, ["value", "placeholder"])
                     ]),
                     createBaseVNode("div", _hoisted_17$1, [
-                      _cache[26] || (_cache[26] = createBaseVNode("label", null, "Provider", -1)),
+                      _cache[27] || (_cache[27] = createBaseVNode("label", null, "Provider", -1)),
                       createVNode(unref(NSelect), {
                         value: unref(settings).assistantProvider,
                         "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).assistantProvider = $event),
@@ -66203,11 +66868,11 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     }),
-                    _cache[27] || (_cache[27] = createBaseVNode("span", null, "外部工具与存储", -1))
+                    _cache[28] || (_cache[28] = createBaseVNode("span", null, "外部工具与存储", -1))
                   ]),
                   createBaseVNode("div", _hoisted_20, [
                     createBaseVNode("div", _hoisted_21, [
-                      _cache[28] || (_cache[28] = createBaseVNode("label", null, "Audiveris 路径", -1)),
+                      _cache[29] || (_cache[29] = createBaseVNode("label", null, "Audiveris 路径", -1)),
                       createVNode(unref(NInput), {
                         value: unref(settings).audiverisPath,
                         "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).audiverisPath = $event),
@@ -66226,7 +66891,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       }, 8, ["value"])
                     ]),
                     createBaseVNode("div", _hoisted_22, [
-                      _cache[29] || (_cache[29] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
+                      _cache[30] || (_cache[30] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
                       createVNode(unref(NInput), {
                         value: unref(settings).javaHome,
                         "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).javaHome = $event),
@@ -66245,7 +66910,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       }, 8, ["value"])
                     ]),
                     createBaseVNode("div", _hoisted_23, [
-                      _cache[31] || (_cache[31] = createBaseVNode("label", null, "用户数据路径", -1)),
+                      _cache[32] || (_cache[32] = createBaseVNode("label", null, "用户数据路径", -1)),
                       createVNode(unref(NInput), {
                         value: unref(settings).dataDir,
                         "onUpdate:value": _cache[8] || (_cache[8] = ($event) => unref(settings).dataDir = $event),
@@ -66258,7 +66923,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                             quaternary: "",
                             onClick: selectDataDir
                           }, {
-                            default: withCtx(() => [..._cache[30] || (_cache[30] = [
+                            default: withCtx(() => [..._cache[31] || (_cache[31] = [
                               createTextVNode("浏览", -1)
                             ])]),
                             _: 1
@@ -66268,7 +66933,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       }, 8, ["value"])
                     ]),
                     createBaseVNode("div", _hoisted_24, [
-                      _cache[33] || (_cache[33] = createBaseVNode("label", null, "缓存路径", -1)),
+                      _cache[34] || (_cache[34] = createBaseVNode("label", null, "缓存路径", -1)),
                       createVNode(unref(NInput), {
                         value: unref(settings).cacheDir,
                         "onUpdate:value": _cache[9] || (_cache[9] = ($event) => unref(settings).cacheDir = $event),
@@ -66281,7 +66946,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                             quaternary: "",
                             onClick: selectCacheDir
                           }, {
-                            default: withCtx(() => [..._cache[32] || (_cache[32] = [
+                            default: withCtx(() => [..._cache[33] || (_cache[33] = [
                               createTextVNode("浏览", -1)
                             ])]),
                             _: 1
@@ -66310,13 +66975,13 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                               })
                             ]),
                             default: withCtx(() => [
-                              _cache[34] || (_cache[34] = createTextVNode(" 清理缓存 ", -1))
+                              _cache[35] || (_cache[35] = createTextVNode(" 清理缓存 ", -1))
                             ]),
                             _: 1
                           }, 8, ["loading"])
                         ]),
                         default: withCtx(() => [
-                          _cache[35] || (_cache[35] = createTextVNode(" 将删除中间文件和未被历史记录引用的上传副本。 ", -1))
+                          _cache[36] || (_cache[36] = createTextVNode(" 将删除中间文件和未被历史记录引用的上传副本。 ", -1))
                         ]),
                         _: 1
                       })
@@ -66326,7 +66991,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       type: "warning",
                       size: "small"
                     }, {
-                      default: withCtx(() => [..._cache[36] || (_cache[36] = [
+                      default: withCtx(() => [..._cache[37] || (_cache[37] = [
                         createTextVNode(" 存储路径变更将在重启后生效。 ", -1)
                       ])]),
                       _: 1
@@ -66347,7 +67012,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                           })
                         ]),
                         default: withCtx(() => [
-                          _cache[37] || (_cache[37] = createTextVNode(" 重启应用 ", -1))
+                          _cache[38] || (_cache[38] = createTextVNode(" 重启应用 ", -1))
                         ]),
                         _: 1
                       })) : createCommentVNode("", true)
@@ -66372,12 +67037,12 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     }),
-                    _cache[38] || (_cache[38] = createBaseVNode("span", null, "转换设置", -1))
+                    _cache[39] || (_cache[39] = createBaseVNode("span", null, "转换设置", -1))
                   ]),
                   createBaseVNode("div", _hoisted_29, [
                     createBaseVNode("div", _hoisted_30, [
                       createBaseVNode("div", _hoisted_31, [
-                        _cache[39] || (_cache[39] = createBaseVNode("label", null, "简谱调", -1)),
+                        _cache[40] || (_cache[40] = createBaseVNode("label", null, "简谱调", -1)),
                         createVNode(unref(NSelect), {
                           value: unref(settings).targetKey,
                           "onUpdate:value": _cache[10] || (_cache[10] = ($event) => unref(settings).targetKey = $event),
@@ -66387,7 +67052,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                         }, null, 8, ["value"])
                       ]),
                       createBaseVNode("div", _hoisted_32, [
-                        _cache[40] || (_cache[40] = createBaseVNode("label", null, "半音记谱", -1)),
+                        _cache[41] || (_cache[41] = createBaseVNode("label", null, "半音记谱", -1)),
                         createVNode(unref(NSelect), {
                           value: unref(settings).accidentalMode,
                           "onUpdate:value": _cache[11] || (_cache[11] = ($event) => unref(settings).accidentalMode = $event),
@@ -66397,7 +67062,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                         }, null, 8, ["value"])
                       ]),
                       createBaseVNode("div", _hoisted_33, [
-                        _cache[41] || (_cache[41] = createBaseVNode("label", null, "小节号", -1)),
+                        _cache[42] || (_cache[42] = createBaseVNode("label", null, "小节号", -1)),
                         createVNode(unref(NSelect), {
                           value: unref(settings).measureNumberMode,
                           "onUpdate:value": _cache[12] || (_cache[12] = ($event) => unref(settings).measureNumberMode = $event),
@@ -66407,21 +67072,31 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                         }, null, 8, ["value"])
                       ]),
                       createBaseVNode("div", _hoisted_34, [
-                        _cache[42] || (_cache[42] = createBaseVNode("label", null, "代码配色", -1)),
+                        _cache[43] || (_cache[43] = createBaseVNode("label", null, "确认起始小节", -1)),
                         createBaseVNode("div", _hoisted_35, [
                           createVNode(unref(NSwitch), {
+                            value: unref(settings).confirmStartMeasureNumber,
+                            "onUpdate:value": _cache[13] || (_cache[13] = ($event) => unref(settings).confirmStartMeasureNumber = $event),
+                            size: "small"
+                          }, null, 8, ["value"])
+                        ])
+                      ]),
+                      createBaseVNode("div", _hoisted_36, [
+                        _cache[44] || (_cache[44] = createBaseVNode("label", null, "代码配色", -1)),
+                        createBaseVNode("div", _hoisted_37, [
+                          createVNode(unref(NSwitch), {
                             value: unref(settings).jianpuSyntaxHighlight,
-                            "onUpdate:value": _cache[13] || (_cache[13] = ($event) => unref(settings).jianpuSyntaxHighlight = $event),
+                            "onUpdate:value": _cache[14] || (_cache[14] = ($event) => unref(settings).jianpuSyntaxHighlight = $event),
                             size: "small"
                           }, null, 8, ["value"])
                         ])
                       ])
                     ]),
-                    createBaseVNode("div", _hoisted_36, [
-                      _cache[44] || (_cache[44] = createBaseVNode("label", null, "默认导出路径", -1)),
+                    createBaseVNode("div", _hoisted_38, [
+                      _cache[46] || (_cache[46] = createBaseVNode("label", null, "默认导出路径", -1)),
                       createVNode(unref(NInput), {
                         value: unref(settings).outputDir,
-                        "onUpdate:value": _cache[14] || (_cache[14] = ($event) => unref(settings).outputDir = $event),
+                        "onUpdate:value": _cache[15] || (_cache[15] = ($event) => unref(settings).outputDir = $event),
                         placeholder: "留空则每次手动选择",
                         size: "small"
                       }, {
@@ -66431,7 +67106,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                             quaternary: "",
                             onClick: selectOutputDir
                           }, {
-                            default: withCtx(() => [..._cache[43] || (_cache[43] = [
+                            default: withCtx(() => [..._cache[45] || (_cache[45] = [
                               createTextVNode("浏览", -1)
                             ])]),
                             _: 1
@@ -66450,7 +67125,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                 size: "small"
               }, {
                 default: withCtx(() => [
-                  createBaseVNode("div", _hoisted_37, [
+                  createBaseVNode("div", _hoisted_39, [
                     createVNode(unref(NIcon), {
                       size: "18",
                       class: "sv-card-icon"
@@ -66460,15 +67135,15 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     }),
-                    _cache[45] || (_cache[45] = createBaseVNode("span", null, "外观", -1))
+                    _cache[47] || (_cache[47] = createBaseVNode("span", null, "外观", -1))
                   ]),
-                  createBaseVNode("div", _hoisted_38, [
-                    createBaseVNode("div", _hoisted_39, [
-                      _cache[46] || (_cache[46] = createBaseVNode("label", null, "主题模式", -1)),
+                  createBaseVNode("div", _hoisted_40, [
+                    createBaseVNode("div", _hoisted_41, [
+                      _cache[48] || (_cache[48] = createBaseVNode("label", null, "主题模式", -1)),
                       createVNode(unref(NSelect), {
                         value: unref(settings).themeMode,
                         "onUpdate:value": [
-                          _cache[15] || (_cache[15] = ($event) => unref(settings).themeMode = $event),
+                          _cache[16] || (_cache[16] = ($event) => unref(settings).themeMode = $event),
                           unref(settings).setThemeMode
                         ],
                         options: themeModeOptions,
@@ -66487,7 +67162,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-aa374999"]]);
+const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-e71750e4"]]);
 const useAssistantStore = /* @__PURE__ */ defineStore("assistant", () => {
   const sessions = /* @__PURE__ */ ref([]);
   const messages = /* @__PURE__ */ ref([]);

@@ -19,9 +19,6 @@ from score_trans.config.settings import (
     OCR_FALLBACK_MODEL,
     OCR_MODEL,
     OCR_PROVIDER,
-    OMR_PREPROCESS,
-    OMR_PREPROCESS_BINARIZE,
-    OMR_PREPROCESS_LONG_EDGE,
     OUTPUT_DIR,
 )
 
@@ -40,11 +37,9 @@ _DEFAULTS: dict[str, str] = {
     "target_key": "C",
     "show_measure_numbers": "1",
     "measure_number_mode": "all",
+    "confirm_start_measure_number": "1",
     "jianpu_syntax_highlight": "0",
     "accidental_mode": "auto",
-    "omr_preprocess": "1" if OMR_PREPROCESS else "0",
-    "omr_preprocess_long_edge": str(OMR_PREPROCESS_LONG_EDGE),
-    "omr_preprocess_binarize": "1" if OMR_PREPROCESS_BINARIZE else "0",
     "ocr_provider": OCR_PROVIDER,
     "ocr_api_key": OCR_API_KEY,
     "ocr_base_url": OCR_BASE_URL,

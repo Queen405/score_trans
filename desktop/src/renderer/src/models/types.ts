@@ -41,11 +41,24 @@ export interface RenderJianpuSvgRequest {
   title?: string
 }
 
+export interface RenderPageMeasureRange {
+  source_page_index: number
+  start_measure_number?: number | null
+  end_measure_number?: number | null
+}
+
+export interface RenderPageOcrText {
+  page_index: number
+  ocr_text: string
+}
+
 export interface RenderedSvgPage {
   svg_file_id: string
   page_index: number
   page_width: number
   page_height: number
+  measure_ranges?: RenderPageMeasureRange[]
+  ocr_text?: string | null
 }
 
 export interface RenderJianpuSvgResponse {
@@ -103,6 +116,7 @@ export interface BatchRenderPageRequest {
   musicxml_file_id?: string
   jianpu_text?: string
   jianpu_file_id?: string
+  input_file_name?: string
   page_image_file_id?: string
   ocr_text?: string
   include_ocr_text?: boolean
@@ -112,6 +126,8 @@ export interface BatchRenderPageRequest {
 
 export interface BatchRenderRequest {
   pages: BatchRenderPageRequest[]
+  source_pages?: BatchRenderPageRequest[]
+  render_page_ocr_texts?: RenderPageOcrText[]
   target_key?: TargetKey
   accidental_mode?: AccidentalMode
   show_measure_numbers?: boolean
@@ -270,6 +286,7 @@ export interface SettingsResponse {
   accidental_mode?: AccidentalMode
   show_measure_numbers?: boolean
   measure_number_mode?: MeasureNumberMode
+  confirm_start_measure_number?: boolean
   jianpu_syntax_highlight?: boolean
   output_dir?: string
   ocr_provider?: string
@@ -290,9 +307,6 @@ export interface SettingsResponse {
   assistant_api_key_set?: boolean
   assistant_base_url?: string
   assistant_model?: string
-  omr_preprocess?: boolean
-  omr_preprocess_long_edge?: number
-  omr_preprocess_binarize?: boolean
 }
 
 export interface SettingsUpdateRequest {
@@ -303,6 +317,7 @@ export interface SettingsUpdateRequest {
   accidental_mode?: AccidentalMode
   show_measure_numbers?: boolean
   measure_number_mode?: MeasureNumberMode
+  confirm_start_measure_number?: boolean
   jianpu_syntax_highlight?: boolean
   work_dir?: string
   ocr_provider?: string
@@ -311,9 +326,6 @@ export interface SettingsUpdateRequest {
   ai_api_key?: string
   assistant_provider?: string
   assistant_api_key?: string
-  omr_preprocess?: boolean
-  omr_preprocess_long_edge?: number
-  omr_preprocess_binarize?: boolean
 }
 
 export interface CacheCleanupResponse {
@@ -368,7 +380,9 @@ export interface HistoryBatch {
   created_at: string
   page_count: number
   status: string
+  jianpu_text: string
   render_page_file_ids: string[]
+  render_page_ocr_texts: RenderPageOcrText[]
   pages: HistoryPage[]
 }
 
@@ -382,6 +396,8 @@ export interface HistoryBatchListItem {
 
 export interface HistoryCreateRequest {
   render_page_file_ids?: string[]
+  render_page_ocr_texts?: RenderPageOcrText[]
+  jianpu_text?: string
   pages: {
     input_file_name?: string
     input_file_id?: string
@@ -407,4 +423,12 @@ export interface HistoryPageUpdateRequest {
 
 export interface HistoryBatchRenderPagesUpdateRequest {
   render_page_file_ids: string[]
+}
+
+export interface HistoryBatchJianpuTextUpdateRequest {
+  jianpu_text: string
+}
+
+export interface HistoryBatchRenderPageOcrTextsUpdateRequest {
+  pages: RenderPageOcrText[]
 }

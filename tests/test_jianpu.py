@@ -54,9 +54,7 @@ def test_measure_level_key_and_time_signature_roundtrip_to_musicxml() -> None:
 
 def test_key_or_time_signature_after_notes_is_rejected() -> None:
     # 拍号/调号必须写在该小节音符之前；写在音符后面会错误地切断当前小节。
-    # 行内的 `数字/数字`（如音符后的 3/4）会被分词阶段识别为旧时值写法而拒绝；
-    # 调号 1=F 在音符后则由主循环拒绝。
-    with pytest.raises(ValueError, match="旧时值写法"):
+    with pytest.raises(ValueError):
         parse_jianpu_score("1=C\n4/4\n1 2 3 4 3/4 1 2 3 |")
     with pytest.raises(ValueError, match="调号"):
         parse_jianpu_score("1=C\n4/4\n1 2 3 4 1=F 1 2 3 |")
@@ -128,17 +126,6 @@ def test_double_slash_comments_are_ignored() -> None:
     assert "#5 6 7 1' |" in normalized
     assert "2 3 4 5 |" in normalized
 
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "# 注释内容\n1=C\n4/4\n1 2 3 4 |",
-        "1=C\n4/4\n# 5 6 7 1' |",
-    ],
-)
-def test_hash_comment_syntax_is_rejected(text: str) -> None:
-    with pytest.raises(ValueError, match="不再表示注释"):
-        parse_jianpu_score(text)
 
 
 def test_normalize_jianpu_text_can_force_accidental_mode() -> None:
@@ -239,21 +226,6 @@ def test_measure_level_marks_dedupe_with_single_note_marks() -> None:
 def test_measure_level_mark_after_first_event_is_rejected() -> None:
     with pytest.raises(ValueError, match="小节级演奏标记"):
         parse_jianpu_score("1=C\n4/4\n1 (^l) 2 3 4 |")
-
-
-def test_legacy_text_is_rejected() -> None:
-    try:
-        parse_jianpu_score("key=C\ntime=4/4\n1 2/ 3 |")
-    except ValueError as exc:
-        assert "旧语法" in str(exc)
-    else:
-        raise AssertionError("legacy syntax should be rejected")
-
-
-def test_legacy_slash_duration_is_rejected_not_swallowed_as_time_signature() -> None:
-    # `1/2`（分子为 1 的数字/数字）是旧时值写法，曾静默被当成 1/2 拍号吞掉丢失音符。
-    with pytest.raises(ValueError, match="旧时值写法"):
-        parse_jianpu_score("1=C\n4/4\n1/2 3 4 |")
 
 
 def test_measure_level_time_signature_after_key_is_supported() -> None:

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .jianpu_tokens import DURATION_PREFIXES
-
 STEP_TO_SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 SEMITONE_TO_STEP = {
     0: ("C", 0),
@@ -55,5 +53,4 @@ KEY_TO_TONIC = {
 }
 DEGREE_TO_MAJOR_OFFSET = {index + 1: offset for index, offset in enumerate(MAJOR_SCALE)}
 
-DURATION_TO_PREFIX = {value: key for key, value in DURATION_PREFIXES.items()}
 DYNAMICS = {"p", "pp", "ppp", "mp", "mf", "f", "ff", "fff", "sfz", "fp"}

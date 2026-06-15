@@ -5,17 +5,20 @@ import time
 from fastapi.testclient import TestClient
 
 from score_trans.api.dependencies import get_file_actions
+from score_trans.api.dependencies import get_history_actions
 from score_trans.api.dependencies import get_settings_actions
 from score_trans.api.app import create_app
 from score_trans.api.export.routes import export_midi
 from score_trans.api.render.routes import render_jianpu_svg
 from score_trans.exec.export.actions import ExportActions
 from score_trans.exec.files.actions import FileActions
+from score_trans.exec.history.actions import HistoryActions
 from score_trans.exec.settings.actions import SettingsActions
 from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.models.render.schemas import RenderJianpuSvgRequest, RenderJianpuSvgResponse
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
+from score_trans.services.history.history_service import HistoryService
 from score_trans.services.settings.settings_service import SettingsService
 
 
@@ -27,6 +30,7 @@ def test_render_routes_are_registered() -> None:
     assert "/export/pdf" in paths
     assert "/export/midi" in paths
     assert "/history/pages/{page_id}" in paths
+    assert "/history/{batch_id}/render-page-ocr-texts" in paths
     assert "/tasks/{task_id}" in paths
     assert "/tasks/{task_id}/stream" in paths
 
@@ -92,9 +96,11 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
 
     assert "show_measure_numbers" in schemas["SettingsResponse"]["properties"]
     assert "measure_number_mode" in schemas["SettingsResponse"]["properties"]
+    assert "confirm_start_measure_number" in schemas["SettingsResponse"]["properties"]
     assert "jianpu_syntax_highlight" in schemas["SettingsResponse"]["properties"]
     assert "show_measure_numbers" in schemas["SettingsUpdateRequest"]["properties"]
     assert "measure_number_mode" in schemas["SettingsUpdateRequest"]["properties"]
+    assert "confirm_start_measure_number" in schemas["SettingsUpdateRequest"]["properties"]
     assert "jianpu_syntax_highlight" in schemas["SettingsUpdateRequest"]["properties"]
     assert "show_measure_numbers" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "measure_number_mode" in schemas["PipelineByFileIdRequest"]["properties"]
@@ -182,6 +188,26 @@ def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
     assert response.json()["jianpu_syntax_highlight"] is True
 
 
+def test_settings_persists_confirm_start_measure_number(tmp_path: Path) -> None:
+    app = create_app()
+    dao = SettingsDao(tmp_path / "settings.db")
+    service = SettingsService(dao)
+    service.set("work_dir", str(tmp_path / "work"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+    client = TestClient(app)
+
+    response = client.get("/settings")
+    assert response.status_code == 200
+    assert response.json()["confirm_start_measure_number"] is True
+
+    response = client.put("/settings", json={"confirm_start_measure_number": False})
+    assert response.status_code == 200
+    assert response.json()["confirm_start_measure_number"] is False
+
+    response = client.get("/settings")
+    assert response.json()["confirm_start_measure_number"] is False
+
+
 def test_settings_rejects_unsupported_target_key(tmp_path: Path) -> None:
     app = create_app()
     dao = SettingsDao(tmp_path / "settings.db")
@@ -210,6 +236,58 @@ def test_history_page_schema_persists_ocr_text() -> None:
     assert "ocr_text" in schemas["PageCreate"]["properties"]
     assert "ocr_text" in schemas["PageUpdate"]["properties"]
     assert "ocr_text" in schemas["PageResponse"]["properties"]
+
+
+def test_history_batch_schema_persists_batch_jianpu_text() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+
+    assert "jianpu_text" in schemas["BatchCreateRequest"]["properties"]
+    assert "jianpu_text" in schemas["BatchResponse"]["properties"]
+    assert "jianpu_text" in schemas["BatchJianpuTextUpdate"]["properties"]
+
+
+def test_batch_a4_schema_exposes_page_ranges_and_page_ocr_texts() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+
+    assert "source_pages" in schemas["BatchRenderRequest"]["properties"]
+    assert "render_page_ocr_texts" in schemas["BatchRenderRequest"]["properties"]
+    assert "measure_ranges" in schemas["RenderedSvgPage"]["properties"]
+    assert "ocr_text" in schemas["RenderedSvgPage"]["properties"]
+    assert "render_page_ocr_texts" in schemas["BatchCreateRequest"]["properties"]
+    assert "render_page_ocr_texts" in schemas["BatchResponse"]["properties"]
+    assert "pages" in schemas["BatchRenderPageOcrTextsUpdate"]["properties"]
+
+
+def test_history_batch_jianpu_text_endpoint_updates_batch_only(tmp_path: Path) -> None:
+    app = create_app()
+    service = HistoryService(tmp_path / "history.db")
+    app.dependency_overrides[get_history_actions] = lambda: HistoryActions(service)
+    client = TestClient(app)
+
+    response = client.post(
+        "/history",
+        json={
+            "jianpu_text": "1=C\n4/4\n1 2 |",
+            "pages": [
+                {
+                    "input_file_name": "a.png",
+                    "jianpu_text": "1=C\n4/4\n1 2 |",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 201
+    batch_id = response.json()["id"]
+
+    response = client.patch(
+        f"/history/{batch_id}/jianpu-text",
+        json={"jianpu_text": "1=C\n4/4\n3 4 |"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["jianpu_text"] == "1=C\n4/4\n3 4 |"
+    assert payload["pages"][0]["jianpu_text"] == "1=C\n4/4\n1 2 |"
 
 
 def test_tasks_stream_allows_vite_dev_origin() -> None:

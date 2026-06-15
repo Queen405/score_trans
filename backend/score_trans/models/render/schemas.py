@@ -5,11 +5,24 @@ from pydantic import BaseModel
 from ..common.types import AccidentalMode, MeasureNumberMode, TargetKey
 
 
+class RenderPageMeasureRange(BaseModel):
+    source_page_index: int
+    start_measure_number: int | None = None
+    end_measure_number: int | None = None
+
+
+class RenderPageOcrText(BaseModel):
+    page_index: int
+    ocr_text: str
+
+
 class RenderedSvgPage(BaseModel):
     svg_file_id: str
     page_index: int
     page_width: float
     page_height: float
+    measure_ranges: list[RenderPageMeasureRange] = []
+    ocr_text: str | None = None
 
 
 class RenderJianpuSvgRequest(BaseModel):
@@ -95,6 +108,7 @@ class BatchRenderPageRequest(BaseModel):
     musicxml_file_id: str | None = None
     jianpu_text: str | None = None
     jianpu_file_id: str | None = None
+    input_file_name: str | None = None
     page_image_file_id: str | None = None
     ocr_text: str | None = None
     include_ocr_text: bool = False
@@ -104,6 +118,8 @@ class BatchRenderPageRequest(BaseModel):
 
 class BatchRenderRequest(BaseModel):
     pages: list[BatchRenderPageRequest]
+    source_pages: list[BatchRenderPageRequest] = []
+    render_page_ocr_texts: list[RenderPageOcrText] = []
     target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
     show_measure_numbers: bool | None = None

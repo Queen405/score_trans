@@ -19,12 +19,20 @@ class HistoryPage:
 
 
 @dataclass(slots=True)
+class HistoryRenderPageOcrText:
+    page_index: int = 0
+    ocr_text: str = ""
+
+
+@dataclass(slots=True)
 class HistoryBatch:
     id: int = 0
     created_at: str = ""
     page_count: int = 0
     status: str = "completed"
+    jianpu_text: str = ""
     render_page_file_ids: list[str] = field(default_factory=list)
+    render_page_ocr_texts: list[HistoryRenderPageOcrText] = field(default_factory=list)
     pages: list[HistoryPage] = field(default_factory=list)
 
 

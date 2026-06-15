@@ -95,6 +95,7 @@ class Measure:
     repeat_start: bool = False
     repeat_end: bool = False
     repeat_count: int = 1
+    source_page_index: int | None = None
 
     def __init__(
         self,
@@ -113,6 +114,7 @@ class Measure:
         repeat_end: bool = False,
         display_number: str | int | None = None,
         repeat_count: int = 1,
+        source_page_index: int | None = None,
     ) -> None:
         if display_measure_number is None:
             display_measure_number = (
@@ -134,6 +136,7 @@ class Measure:
         self.repeat_start = repeat_start
         self.repeat_end = repeat_end
         self.repeat_count = repeat_count
+        self.source_page_index = source_page_index
 
     @property
     def display_number(self) -> str | int:

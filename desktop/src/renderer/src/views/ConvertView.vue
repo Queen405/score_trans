@@ -103,7 +103,7 @@
               <div class="panel-head-meta">
                 <span class="meta-label">起始小节</span>
                 <n-input-number
-                  :value="store.startMeasureNumber"
+                  :value="batchStartMeasureNumber"
                   @update:value="handleStartMeasureChange"
                   placeholder="自动"
                   :min="1"
@@ -137,7 +137,7 @@
             <svg-preview
               v-if="isViewingFinal && finalSvgFileId"
               :svg-file-id="finalSvgFileId"
-              :ocr-text="store.ocrText"
+              :ocr-text="finalRenderPageOcrText"
               :current-note-index="currentNoteIndex"
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
@@ -149,7 +149,7 @@
             <jianpu-editor
               v-else
               v-model="jianpuText"
-              :start-measure-number="store.startMeasureNumber ?? 1"
+              :start-measure-number="batchStartMeasureNumber ?? 1"
               :current-note-index="currentNoteIndex"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
             />
@@ -205,7 +205,7 @@ import {
   notifyHistoryPagePatched,
   type HistoryPagePatchDetail,
 } from '../utils/historyEvents'
-import { ArrowForwardOutline,
+import {
   ImageOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
@@ -222,11 +222,20 @@ const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
 
-const jianpuText = ref(store.jianpuText)
+const jianpuText = ref(store.currentBatchJianpuText)
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
-const canSaveCurrentPage = computed(() => hasJianpuText.value || store.hasMusicxml || !!store.ocrText.trim() || !!store.svgFileId)
+const finalRenderPageOcrText = computed(() =>
+  store.currentBatchRenderPageOcrText(finalRenderPageIndex.value),
+)
+const canSaveCurrentPage = computed(() =>
+  hasJianpuText.value
+  || store.hasMusicxml
+  || !!store.ocrText.trim()
+  || !!finalRenderPageOcrText.value.trim()
+  || !!store.svgFileId,
+)
 const isViewingFinal = ref(false)
 const isRenderingFinal = ref(false)
 const finalSvgFileIds = ref<string[]>(store.currentBatchRenderPageFileIds.length
@@ -261,13 +270,16 @@ const locallyUpdatingHistoryPageIds = new Set<number>()
 const currentBatchLocalIndex = computed(() =>
   store.currentBatchPages.indexOf(store.currentPage!),
 )
+const batchStartMeasureNumber = computed(() =>
+  firstBatchPage()?.startMeasureNumber ?? store.startMeasureNumber ?? null,
+)
 
-watch(() => store.jianpuText, (v) => {
+watch(() => store.currentBatchJianpuText, (v) => {
   if (v !== jianpuText.value) jianpuText.value = v
 })
 watch(jianpuText, (v) => {
-  if (v !== store.jianpuText) {
-    store.setJianpu(v, true)
+  if (v !== store.currentBatchJianpuText) {
+    store.setBatchJianpuText(v, true)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
   }
@@ -411,10 +423,14 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
 
   let allPages = expandedPages.value
   let renderPageFileIds: string[] = []
+  let batchJianpuText = ''
+  let renderPageOcrTexts: HistoryBatch['render_page_ocr_texts'] = []
   let pageIndex = allPages.findIndex((p) => p.id === page.id)
   try {
     const batch: HistoryBatch = await historyApi.get(batchId)
     renderPageFileIds = batch.render_page_file_ids
+    batchJianpuText = batch.jianpu_text || ''
+    renderPageOcrTexts = batch.render_page_ocr_texts || []
     if (expandedBatchId.value === batchId) {
       allPages = batch.pages
       expandedPages.value = batch.pages
@@ -451,6 +467,8 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     })),
     pageIndex >= 0 ? pageIndex : 0,
     renderPageFileIds,
+    batchJianpuText,
+    renderPageOcrTexts,
   )
   isViewingFinal.value = false
   void validateRestoredBatchFiles(allPages, renderPageFileIds)
@@ -842,7 +860,7 @@ function currentExportPage(): TaskPage {
       originalFileId: store.originalFileId,
       musicxmlFileId: store.musicxmlFileId,
       musicxmlText: store.currentPage?.musicxmlText ?? '',
-      jianpuText: store.jianpuText,
+      jianpuText: store.currentBatchJianpuText || store.jianpuText,
       ocrText: store.ocrText,
       jianpuDirty: store.jianpuDirty,
       svgFileId: store.svgFileId,
@@ -866,6 +884,7 @@ function batchRenderSourcePages(): TaskPage[] {
 }
 
 async function renderExportSvgIds(): Promise<string[]> {
+  if (store.currentBatchRenderPageOcrDirty) return renderFinalBatch()
   if (finalSvgFileIds.value.length) return finalSvgFileIds.value
   if (store.currentBatchRenderPageFileIds.length) {
     setFinalSvgFileIds(store.currentBatchRenderPageFileIds)
@@ -879,6 +898,8 @@ async function renderFinalBatch(): Promise<string[]> {
   if (!pages.length) throw new Error('暂无可渲染的简谱内容')
   const result = await renderApi.batchA4({
     pages,
+    source_pages: buildBatchRenderSourcePages(),
+    render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
     target_key: settings.targetKey,
     accidental_mode: settings.accidentalMode,
     measure_number_mode: settings.measureNumberMode,
@@ -887,12 +908,26 @@ async function renderFinalBatch(): Promise<string[]> {
   const ids = renderResponsePageIds(result.pages, result.svg_file_id)
   setFinalSvgFileIds(ids)
   store.setBatchRenderPageFileIds(ids)
-  store.setSvg(ids[0] || '', ids)
+  store.setBatchRenderPageOcrTexts(
+    renderResponsePageOcrTexts(result.pages),
+    false,
+  )
   await persistBatchRenderPages(ids)
+  await persistBatchRenderPageOcrTexts()
+  store.markBatchRenderPageOcrClean()
   return ids
 }
 
 function buildBatchRenderPages(): BatchRenderPageRequest[] {
+  const text = jianpuText.value.trim()
+  if (text) {
+    return [{
+      jianpu_text: jianpuText.value,
+      include_ocr_text: false,
+      start_measure_number: batchStartMeasureNumber.value ?? undefined,
+      title: '简谱',
+    }]
+  }
   return batchRenderSourcePages()
     .map((page) => {
       const sourceImageId = page.originalFileId || page.inputFileId || undefined
@@ -920,9 +955,48 @@ function buildBatchRenderPages(): BatchRenderPageRequest[] {
     .filter((page): page is BatchRenderPageRequest => page !== null)
 }
 
+function buildBatchRenderSourcePages(): BatchRenderPageRequest[] {
+  return batchRenderSourcePages()
+    .map((page) => {
+      const sourceImageId = page.originalFileId || page.inputFileId || undefined
+      const start = page.startMeasureNumber ?? undefined
+      if (page.jianpuText.trim()) {
+        return {
+          input_file_name: page.inputFileName,
+          jianpu_text: page.jianpuText,
+          page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
+          start_measure_number: start,
+          title: '简谱',
+        }
+      }
+      if (page.musicxmlFileId) {
+        return {
+          input_file_name: page.inputFileName,
+          musicxml_file_id: page.musicxmlFileId,
+          page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
+          start_measure_number: start,
+          title: '简谱',
+        }
+      }
+      return null
+    })
+    .filter((page): page is BatchRenderPageRequest => page !== null)
+}
+
 function renderResponsePageIds(pages: RenderedSvgPage[] | undefined, fallback: string): string[] {
   const ids = (pages ?? []).map((page) => page.svg_file_id).filter(Boolean)
   return ids.length ? ids : (fallback ? [fallback] : [])
+}
+
+function renderResponsePageOcrTexts(pages: RenderedSvgPage[] | undefined) {
+  return (pages ?? []).map((page) => ({
+    page_index: page.page_index,
+    ocr_text: page.ocr_text || '',
+  }))
 }
 
 function currentPageSvgIds(): string[] {
@@ -956,6 +1030,20 @@ async function persistBatchRenderPages(
   }
 }
 
+async function persistBatchRenderPageOcrTexts(
+  batchId: number | null = currentHistoryBatchId(),
+): Promise<void> {
+  if (!batchId) return
+  try {
+    const updated = await historyApi.updateBatchRenderPageOcrTexts(batchId, {
+      pages: store.currentBatchRenderPageOcrTextEntries(),
+    })
+    store.setBatchRenderPageOcrTexts(updated.render_page_ocr_texts || [], false)
+  } catch (e: unknown) {
+    log.addLog(`保存连续 A4 文字层失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
+  }
+}
+
 async function musicxmlToJianpu(): Promise<void> {
   store.setBusy(true)
   try {
@@ -964,12 +1052,14 @@ async function musicxmlToJianpu(): Promise<void> {
       page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
-      measure_number_mode: settings.measureNumberMode,
-      start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? undefined,
+      start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
     })
     const split = splitJianpuAndOcr(result.jianpu_text)
     store.setJianpu(split.jianpuText)
+    store.setBatchJianpuText(split.jianpuText, false)
     store.setOcrText(split.ocrText)
+    store.setBatchRenderPageFileIds([])
+    setFinalSvgFileIds([])
     log.addLog('已转换为简谱')
     message.success('转换完成')
   } catch (e: unknown) {
@@ -989,9 +1079,12 @@ async function saveJianpu(): Promise<void> {
   }
   store.setBusy(true)
   try {
-    const ids = finalSvgFileIds.value.length ? finalSvgFileIds.value : currentPageSvgIds()
+    const ids = store.currentBatchRenderPageOcrDirty
+      ? await renderFinalBatch()
+      : (finalSvgFileIds.value.length ? finalSvgFileIds.value : currentPageSvgIds())
     await persistRenderedHistory(ids[0] || store.svgFileId || '', ids)
-    store.markJianpuClean()
+    store.markBatchJianpuClean()
+    store.markBatchRenderPageOcrClean()
     log.addLog('已保存 OMR、简谱和 OCR 信息')
     message.success('已保存')
   } catch (e: unknown) {
@@ -1004,7 +1097,7 @@ async function saveJianpu(): Promise<void> {
 }
 
 function handleOcrTextUpdate(value: string): void {
-  store.setOcrText(value, true)
+  store.setBatchRenderPageOcrText(finalRenderPageIndex.value, value, true)
 }
 
 function applyReturnedOcr(value?: string | null): void {
@@ -1031,7 +1124,14 @@ async function renderSvg(): Promise<void> {
 }
 
 async function handleStartMeasureChange(value: number | null): Promise<void> {
-  store.setPageStartMeasureNumber(value)
+  const first = firstBatchPage()
+  if (first?.id) {
+    store.patchPageById(first.id, { startMeasureNumber: value })
+  } else {
+    store.setPageStartMeasureNumber(value)
+  }
+  store.setBatchRenderPageFileIds([])
+  setFinalSvgFileIds([])
   if (isViewingFinal.value && finalSvgFileId.value) {
     await renderSvg()
   }
@@ -1060,11 +1160,18 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
   if (savedJianpu.trim()) {
     await renderApi.normalizeJianpuText({ jianpu_text: savedJianpu, title: '简谱' })
   }
+  const historyBatchId = currentHistoryBatchId()
+  if (historyBatchId) {
+    await persistBatchJianpuText(historyBatchId, savedJianpu)
+  }
+  await persistFirstPageStartMeasure()
+  const sourcePageText = store.currentPage?.jianpuText ?? store.jianpuText
+  const sourceSvgFileId = store.currentPage?.svgFileId || store.svgFileId || svgFileId
   const payload = {
     musicxml_file_id: store.musicxmlFileId,
-    jianpu_text: savedJianpu,
+    jianpu_text: sourcePageText,
     ocr_text: store.ocrText,
-    svg_file_id: svgFileId,
+    svg_file_id: sourceSvgFileId,
     start_measure_number: store.startMeasureNumber ?? null,
     status: 'completed',
     error_message: '',
@@ -1074,17 +1181,21 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     const updated = await historyApi.updatePage(store.historyPageId, payload)
     replaceExpandedHistoryPage(updated)
     await persistBatchRenderPages(renderPageFileIds)
+    await persistBatchRenderPageOcrTexts()
     return
   }
 
   const created = await historyApi.create({
+    jianpu_text: savedJianpu,
+    render_page_file_ids: renderPageFileIds,
+    render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
     pages: [{
       input_file_name: store.inputFileName,
       input_file_id: store.inputFileId,
       musicxml_file_id: store.musicxmlFileId,
-      jianpu_text: savedJianpu,
+      jianpu_text: sourcePageText || savedJianpu,
       ocr_text: store.ocrText,
-      svg_file_id: svgFileId,
+      svg_file_id: sourceSvgFileId,
       status: 'completed',
       error_message: '',
     }],
@@ -1094,7 +1205,33 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     store.setHistoryPageId(pageId)
     store.patchPageByHistoryPageId(pageId, { historyBatchId: created.id })
     await persistBatchRenderPages(renderPageFileIds, created.id)
+    await persistBatchRenderPageOcrTexts(created.id)
     await loadHistory()
+  }
+}
+
+function firstBatchPage(): TaskPage | null {
+  return store.currentBatchPages[0] ?? store.currentPage
+}
+
+async function persistBatchJianpuText(batchId: number, text: string): Promise<void> {
+  try {
+    await historyApi.updateBatchJianpuText(batchId, { jianpu_text: text })
+  } catch (e: unknown) {
+    log.addLog(`保存批次简谱文本失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
+  }
+}
+
+async function persistFirstPageStartMeasure(): Promise<void> {
+  const first = firstBatchPage()
+  if (!first?.historyPageId) return
+  try {
+    const updated = await historyApi.updatePage(first.historyPageId, {
+      start_measure_number: first.startMeasureNumber ?? null,
+    })
+    replaceExpandedHistoryPage(updated)
+  } catch (e: unknown) {
+    log.addLog(`保存批次起始小节失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
   }
 }
 </script>

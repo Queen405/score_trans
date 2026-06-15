@@ -83,20 +83,6 @@
             <span>AI 视觉检测</span>
             <n-switch v-model:value="aiVisionEnabled" size="small" />
           </div>
-          <div class="preprocess-inline">
-            <n-switch v-model:value="settings.omrPreprocess" size="small" />
-            <span class="preprocess-label">预处理</span>
-            <n-input-number
-              v-model:value="settings.omrPreprocessLongEdge"
-              :min="0"
-              :step="200"
-              size="small"
-              style="width: 80px"
-              :disabled="!settings.omrPreprocess"
-            />
-            <n-switch v-model:value="settings.omrPreprocessBinarize" size="small" :disabled="!settings.omrPreprocess" />
-            <span class="preprocess-label">黑白化</span>
-          </div>
           <span v-if="selectedPageCount" class="selection-count">已选 {{ selectedPageCount }}</span>
         </div>
       </div>
@@ -276,6 +262,7 @@ import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
 import { pipelineApi } from '../api/pipeline'
 import { renderApi } from '../api/render'
+import { convertApi } from '../api/convert'
 import { aiApi } from '../api/ai'
 import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
@@ -317,9 +304,8 @@ import {
   TimeOutline,
   CloseCircleOutline,
   InformationCircleOutline,
-  OptionsOutline,
 } from '@vicons/ionicons5'
-import { NButton, NIcon, NInputNumber, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
+import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
 
 type RecognitionMode = 'omr' | 'ai'
 
@@ -340,6 +326,15 @@ interface PageResult {
   start_measure_number: number | null
   status: string
   error_message: string
+}
+
+interface MeasureStartDecision {
+  startMeasureNumber: number | null
+  status: TaskPageStatus
+  measureOptions: number[]
+  waitingMessage: string
+  needsMeasureChoice: boolean
+  autoSelected: boolean
 }
 
 const store = useTaskStore()
@@ -752,22 +747,26 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
     updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id })
 
     const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, target.pageId)
-    const split = splitJianpuAndOcr(result.jianpu_text)
-    const needsMeasureChoice = target.startMeasureNumber == null && result.ocr_measure_numbers.length > 0
-    const resultStatus = needsMeasureChoice ? 'waiting' : 'completed'
-    const waitingMessage = needsMeasureChoice
-      ? waitingMeasureMessage(result.ocr_measure_numbers)
-      : ''
+    const decision = measureStartDecision(target, result.ocr_measure_numbers)
+    let split = splitJianpuAndOcr(result.jianpu_text)
+    let svgFileId = result.svg_file_id
+    let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
+    if (decision.autoSelected && decision.startMeasureNumber !== null && result.musicxml_file_id) {
+      const rerendered = await renderMusicxmlPageWithStart(target, result.musicxml_file_id, decision.startMeasureNumber)
+      split = splitJianpuAndOcr(rerendered.jianpuText)
+      svgFileId = rerendered.svgFileId
+      svgFileIds = rerendered.svgFileIds
+    }
     const pageResult: PageResult = {
       input_file_name: target.inputFileName,
       input_file_id: target.inputFileId,
       musicxml_file_id: result.musicxml_file_id,
       jianpu_text: split.jianpuText,
       ocr_text: split.ocrText,
-      svg_file_id: result.svg_file_id,
-      start_measure_number: target.startMeasureNumber,
-      status: resultStatus,
-      error_message: waitingMessage,
+      svg_file_id: svgFileId,
+      start_measure_number: decision.startMeasureNumber,
+      status: decision.status,
+      error_message: decision.waitingMessage,
     }
 
     patchRecognitionPage(target.pageId, {
@@ -776,21 +775,23 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       jianpuText: split.jianpuText,
       ocrText: split.ocrText,
       jianpuDirty: false,
-      svgFileId: result.svg_file_id,
-      svgFileIds: renderPageIds(result.render_pages, result.svg_file_id),
+      svgFileId,
+      svgFileIds,
       originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
       originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
       taskId: '',
-      status: resultStatus,
+      startMeasureNumber: decision.startMeasureNumber,
+      status: decision.status,
       progressPercent: 100,
-      progressMessage: needsMeasureChoice ? '等待选择起始小节号' : '识别完成',
-      measureNumberOptions: needsMeasureChoice ? result.ocr_measure_numbers : [],
-      errorMessage: waitingMessage,
+      progressMessage: decision.needsMeasureChoice ? '等待选择起始小节号' : '识别完成',
+      measureNumberOptions: decision.needsMeasureChoice ? decision.measureOptions : [],
+      errorMessage: decision.waitingMessage,
     })
     await persistPageResult(target, pageResult, historyPageId)
+    await syncBatchJianpuTextForPage(target.pageId)
     await maybeRenderCompletedBatchForPage(target.pageId)
     clearLiveRecognitionPage(target.pageId)
-    if (needsMeasureChoice) {
+    if (decision.needsMeasureChoice) {
       log.addLog(`等待选择起始小节号：${target.inputFileName}`, 'warn')
       message.warning(`等待选择起始小节号：${target.inputFileName}`)
     } else {
@@ -827,8 +828,19 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
   let svgFileId = page.svgFileId
   let svgFileIds = page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : [])
   let jianpuText = page.jianpuText
+  let ocrText = page.ocrText
   try {
     if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
+      const converted = await convertApi.musicxmlToJianpu({
+        musicxml_file_id: page.musicxmlFileId,
+        page_image_file_id: page.originalFileId || page.inputFileId || undefined,
+        target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
+        start_measure_number: selected,
+      })
+      const split = splitJianpuAndOcr(converted.jianpu_text)
+      jianpuText = split.jianpuText
+      ocrText = split.ocrText || page.ocrText
       const rendered = await renderApi.jianpuSvg({
         musicxml_file_id: page.musicxmlFileId,
         page_image_file_id: page.originalFileId || page.inputFileId || undefined,
@@ -857,6 +869,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       svgFileId,
       svgFileIds,
       jianpuText,
+      ocrText,
       status: 'completed',
       progressPercent: 100,
       progressMessage: '识别完成',
@@ -869,12 +882,13 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       input_file_id: page.inputFileId,
       musicxml_file_id: page.musicxmlFileId,
       jianpu_text: jianpuText,
-      ocr_text: page.ocrText,
+      ocr_text: ocrText,
       svg_file_id: svgFileId,
       start_measure_number: selected,
       status: 'completed',
       error_message: '',
     }, page.historyPageId)
+    await syncBatchJianpuTextForPage(pageId)
     await maybeRenderCompletedBatchForPage(pageId)
     log.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`)
     message.success('已应用起始小节号')
@@ -929,27 +943,48 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
     if (!response.pages.length) throw new Error('AI 未返回任何页面')
 
     const warnings = collectAiWarnings(response.pages, response.warnings)
-    const measureOptions = target.startMeasureNumber == null ? aiMeasureOptions(response) : []
-    const needsMeasureChoice = measureOptions.length > 0
-    const resultStatus = needsMeasureChoice ? 'waiting' : 'completed'
-    const waitingMessage = needsMeasureChoice ? waitingMeasureMessage(measureOptions) : ''
-    applyAiResult(target, response, historyPageId, resultStatus, measureOptions)
+    const decision = measureStartDecision(target, aiMeasureOptions(response))
+    let mergedJianpuText = response.merged_jianpu_text
+    let svgFileId = ''
+    let svgFileIds: string[] = []
+    if (decision.autoSelected && decision.startMeasureNumber !== null) {
+      const rendered = await renderApi.jianpuTextSvg({
+        jianpu_text: response.merged_jianpu_text,
+        page_image_file_id: target.inputFileId || undefined,
+        include_ocr_text: false,
+        measure_number_mode: settings.measureNumberMode,
+        title: target.inputFileName || 'AI 简谱',
+        start_measure_number: decision.startMeasureNumber,
+      })
+      mergedJianpuText = rendered.jianpu_text || response.merged_jianpu_text
+      svgFileId = rendered.svg_file_id
+      svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id)
+    }
+    const effectiveResponse: AiTranscribeResponse = {
+      ...response,
+      merged_jianpu_text: mergedJianpuText,
+      pages: response.pages.length === 1
+        ? [{ ...response.pages[0]!, jianpu_text: mergedJianpuText }]
+        : response.pages,
+    }
+    applyAiResult(target, effectiveResponse, historyPageId, decision, svgFileId, svgFileIds)
 
     const pageResult: PageResult = {
       input_file_name: target.inputFileName,
       input_file_id: target.inputFileId,
       musicxml_file_id: '',
-      jianpu_text: response.merged_jianpu_text,
+      jianpu_text: mergedJianpuText,
       ocr_text: '',
-      svg_file_id: '',
-      start_measure_number: target.startMeasureNumber,
-      status: resultStatus,
-      error_message: waitingMessage || warnings.join('；'),
+      svg_file_id: svgFileId,
+      start_measure_number: decision.startMeasureNumber,
+      status: decision.status,
+      error_message: decision.waitingMessage || warnings.join('；'),
     }
     await persistPageResult(target, pageResult, historyPageId)
+    await syncBatchJianpuTextForPage(target.pageId)
     await maybeRenderCompletedBatchForPage(target.pageId)
     clearLiveRecognitionPage(target.pageId)
-    if (needsMeasureChoice) {
+    if (decision.needsMeasureChoice) {
       log.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, 'warn')
       message.warning(`AI 转写等待选择起始小节号：${target.inputFileName}`)
     } else if (warnings.length) {
@@ -968,15 +1003,16 @@ function applyAiResult(
   target: RecognitionTarget,
   response: AiTranscribeResponse,
   historyPageId: number | null,
-  resultStatus: TaskPageStatus,
-  measureOptions: number[],
+  decision: MeasureStartDecision,
+  svgFileId = '',
+  svgFileIds: string[] = [],
 ): void {
   if (response.pages.length === 1) {
     const page = response.pages[0]
-    const pageMeasureOptions = resultStatus === 'waiting'
-      ? aiPageMeasureOptions(page, measureOptions)
+    const pageMeasureOptions = decision.needsMeasureChoice
+      ? aiPageMeasureOptions(page, decision.measureOptions)
       : []
-    const messageText = resultStatus === 'waiting'
+    const messageText = decision.needsMeasureChoice
       ? waitingMeasureMessage(pageMeasureOptions)
       : aiPageErrorMessage(page)
     patchRecognitionPage(target.pageId, {
@@ -989,12 +1025,13 @@ function applyAiResult(
       jianpuText: page.jianpu_text,
       ocrText: '',
       jianpuDirty: false,
-      svgFileId: '',
-      svgFileIds: [],
+      svgFileId,
+      svgFileIds,
+      startMeasureNumber: decision.startMeasureNumber,
       taskId: '',
-      status: resultStatus,
+      status: decision.status,
       progressPercent: 100,
-      progressMessage: resultStatus === 'waiting' ? '等待选择起始小节号' : 'AI 转写完成',
+      progressMessage: decision.needsMeasureChoice ? '等待选择起始小节号' : 'AI 转写完成',
       measureNumberOptions: pageMeasureOptions,
       errorMessage: messageText,
     })
@@ -1003,8 +1040,9 @@ function applyAiResult(
 
   const aiPages: TaskPageInput[] = response.pages.map((page, index) => {
     const label = aiPageLabel(response.source_filename, page, response.pages.length)
-    const pageMeasureOptions = resultStatus === 'waiting'
-      ? aiPageMeasureOptions(page, measureOptions)
+    const pageWaiting = decision.needsMeasureChoice && index === 0
+    const pageMeasureOptions = pageWaiting
+      ? aiPageMeasureOptions(page, decision.measureOptions)
       : []
     return {
       inputFileName: label,
@@ -1020,11 +1058,12 @@ function applyAiResult(
       jianpuDirty: false,
       svgFileId: '',
       svgFileIds: [],
-      status: resultStatus,
+      startMeasureNumber: index === 0 ? decision.startMeasureNumber : null,
+      status: pageWaiting ? 'waiting' : 'completed',
       progressPercent: 100,
-      progressMessage: resultStatus === 'waiting' ? '等待选择起始小节号' : 'AI 转写完成',
+      progressMessage: pageWaiting ? '等待选择起始小节号' : 'AI 转写完成',
       measureNumberOptions: pageMeasureOptions,
-      errorMessage: resultStatus === 'waiting'
+      errorMessage: pageWaiting
         ? waitingMeasureMessage(pageMeasureOptions)
         : aiPageErrorMessage(page),
     }
@@ -1247,10 +1286,7 @@ function aiPageErrorMessage(page: AiTranscribedPage): string {
 }
 
 function aiMeasureOptions(response: AiTranscribeResponse): number[] {
-  const values = uniquePositiveNumbers(
-    response.pages.flatMap((page) => page.measure_number_candidates || []),
-  )
-  return values.length ? values : [1]
+  return uniquePositiveNumbers(response.pages[0]?.measure_number_candidates || [])
 }
 
 function aiPageMeasureOptions(page: AiTranscribedPage, fallback: number[]): number[] {
@@ -1266,6 +1302,70 @@ function uniquePositiveNumbers(values: number[]): number[] {
     if (!result.includes(rounded)) result.push(rounded)
   }
   return result
+}
+
+function measureStartDecision(target: RecognitionTarget, rawOptions: number[]): MeasureStartDecision {
+  const measureOptions = uniquePositiveNumbers(rawOptions)
+  if (target.startMeasureNumber !== null || !isFirstBatchPage(target.pageId) || !measureOptions.length) {
+    return {
+      startMeasureNumber: target.startMeasureNumber,
+      status: 'completed',
+      measureOptions: [],
+      waitingMessage: '',
+      needsMeasureChoice: false,
+      autoSelected: false,
+    }
+  }
+  if (settings.confirmStartMeasureNumber) {
+    return {
+      startMeasureNumber: null,
+      status: 'waiting',
+      measureOptions,
+      waitingMessage: waitingMeasureMessage(measureOptions),
+      needsMeasureChoice: true,
+      autoSelected: false,
+    }
+  }
+  return {
+    startMeasureNumber: Math.min(...measureOptions),
+    status: 'completed',
+    measureOptions: [],
+    waitingMessage: '',
+    needsMeasureChoice: false,
+    autoSelected: true,
+  }
+}
+
+function isFirstBatchPage(pageId: string): boolean {
+  const batchPages = batchPagesForPage(pageId)
+  return batchPages[0]?.id === pageId
+}
+
+async function renderMusicxmlPageWithStart(
+  target: RecognitionTarget,
+  musicxmlFileId: string,
+  startMeasureNumber: number,
+): Promise<{ jianpuText: string; svgFileId: string; svgFileIds: string[] }> {
+  const converted = await convertApi.musicxmlToJianpu({
+    musicxml_file_id: musicxmlFileId,
+    page_image_file_id: target.inputFileId || undefined,
+    target_key: settings.targetKey,
+    accidental_mode: settings.accidentalMode,
+    start_measure_number: startMeasureNumber,
+  })
+  const rendered = await renderApi.jianpuSvg({
+    musicxml_file_id: musicxmlFileId,
+    page_image_file_id: target.inputFileId || undefined,
+    target_key: settings.targetKey,
+    accidental_mode: settings.accidentalMode,
+    measure_number_mode: settings.measureNumberMode,
+    start_measure_number: startMeasureNumber,
+  })
+  return {
+    jianpuText: converted.jianpu_text,
+    svgFileId: rendered.svg_file_id,
+    svgFileIds: renderPageIds(rendered.pages, rendered.svg_file_id),
+  }
 }
 
 function collectAiWarnings(pages: AiTranscribedPage[], responseWarnings: string[]): string[] {
@@ -1311,8 +1411,9 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
     return
   }
 
+  await syncBatchJianpuTextForPage(pageId)
   const pages = buildBatchRenderPages(batchPages)
-  if (pages.length !== batchPages.length) {
+  if (!pages.length) {
     store.setBatchRenderPageFileIds([], batchId)
     return
   }
@@ -1320,6 +1421,8 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
   try {
     const result = await renderApi.batchA4({
       pages,
+      source_pages: buildBatchRenderSourcePages(batchPages),
+      render_page_ocr_texts: batchId ? store.batchRenderPageOcrTextsFor(batchId) : [],
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
       measure_number_mode: settings.measureNumberMode,
@@ -1327,12 +1430,26 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
     })
     const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)
     store.setBatchRenderPageFileIds(ids, batchId)
+    if (batchId) {
+      store.setBatchRenderPageOcrTexts(renderResponsePageOcrTexts(result.pages), false, batchId)
+      store.markBatchRenderPageOcrClean(batchId)
+    }
     const historyBatchId = historyBatchIdForPages(batchPages)
     if (historyBatchId) {
+      const batchText = batchId ? store.batchJianpuTextFor(batchId) : ''
+      if (batchText) {
+        await historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: batchText })
+      }
       const updated = await historyApi.updateBatchRenderPages(historyBatchId, {
         render_page_file_ids: ids,
       })
       store.setBatchRenderPageFileIds(updated.render_page_file_ids, batchId)
+      const ocrUpdated = await historyApi.updateBatchRenderPageOcrTexts(historyBatchId, {
+        pages: batchId ? store.batchRenderPageOcrTextsFor(batchId) : [],
+      })
+      if (batchId) {
+        store.setBatchRenderPageOcrTexts(ocrUpdated.render_page_ocr_texts || [], false, batchId)
+      }
       notifyHistoryUpdated()
     }
   } catch (error: unknown) {
@@ -1347,6 +1464,9 @@ async function clearBatchRenderPagesForTargets(targets: RecognitionTarget[]): Pr
     if (page?.batchId) batchIds.add(page.batchId)
   }
   for (const batchId of batchIds) {
+    if (!store.isBatchJianpuDirty(batchId)) {
+      store.setBatchJianpuText('', false, batchId)
+    }
     await clearBatchRenderPages(batchId)
   }
 }
@@ -1376,6 +1496,16 @@ function batchPagesForPage(pageId: string): TaskPage[] {
 }
 
 function buildBatchRenderPages(batchPages: TaskPage[]): BatchRenderPageRequest[] {
+  const batchId = batchPages[0]?.batchId
+  const batchText = batchId ? store.batchJianpuTextFor(batchId).trim() : ''
+  if (batchText) {
+    return [{
+      jianpu_text: store.batchJianpuTextFor(batchId!),
+      include_ocr_text: false,
+      start_measure_number: batchPages[0]?.startMeasureNumber ?? undefined,
+      title: '简谱',
+    }]
+  }
   return batchPages
     .map((page) => {
       const sourceImageId = page.originalFileId || page.inputFileId || undefined
@@ -1385,6 +1515,8 @@ function buildBatchRenderPages(batchPages: TaskPage[]): BatchRenderPageRequest[]
           input_file_name: page.inputFileName,
           jianpu_text: page.jianpuText,
           page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
           start_measure_number: start,
         }
       }
@@ -1393,12 +1525,69 @@ function buildBatchRenderPages(batchPages: TaskPage[]): BatchRenderPageRequest[]
           input_file_name: page.inputFileName,
           musicxml_file_id: page.musicxmlFileId,
           page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
           start_measure_number: start,
         }
       }
       return null
     })
     .filter((page): page is BatchRenderPageRequest => page !== null)
+}
+
+function buildBatchRenderSourcePages(batchPages: TaskPage[]): BatchRenderPageRequest[] {
+  return batchPages
+    .map((page) => {
+      const sourceImageId = page.originalFileId || page.inputFileId || undefined
+      const start = page.startMeasureNumber ?? undefined
+      if (page.jianpuText.trim()) {
+        return {
+          input_file_name: page.inputFileName,
+          jianpu_text: page.jianpuText,
+          page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
+          start_measure_number: start,
+        }
+      }
+      if (page.musicxmlFileId) {
+        return {
+          input_file_name: page.inputFileName,
+          musicxml_file_id: page.musicxmlFileId,
+          page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
+          start_measure_number: start,
+        }
+      }
+      return null
+    })
+    .filter((page): page is BatchRenderPageRequest => page !== null)
+}
+
+function renderResponsePageOcrTexts(pages: PipelineResponse['render_pages']) {
+  return (pages ?? []).map((page) => ({
+    page_index: page.page_index,
+    ocr_text: page.ocr_text || '',
+  }))
+}
+
+async function syncBatchJianpuTextForPage(pageId: string): Promise<void> {
+  const batchPages = batchPagesForPage(pageId)
+  const batchId = batchPages[0]?.batchId
+  if (!batchId || store.isBatchJianpuDirty(batchId)) return
+  const text = batchPages
+    .map((page) => page.jianpuText.trim())
+    .filter(Boolean)
+    .join('\n\n')
+  store.setBatchJianpuText(text, false, batchId)
+  const historyBatchId = historyBatchIdForPages(batchPages)
+  if (!historyBatchId) return
+  try {
+    await historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: text })
+  } catch (error: unknown) {
+    log.addLog(`保存批次简谱文本失败：${errorMessage(error)}`, 'warn')
+  }
 }
 
 function historyBatchIdForPages(batchPages: TaskPage[]): number | null {
@@ -1490,34 +1679,6 @@ function errorMessage(error: unknown): string {
   overflow: hidden;
 }
 
-.preprocess-inline {
-  min-height: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-base);
-  color: var(--text-secondary);
-  font-size: 12px;
-  flex-shrink: 1;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.preprocess-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.preprocess-inline .n-input-number {
-  min-width: 80px;
-  max-width: 110px;
-  flex: 1 1 auto;
-}
-
 .card-header {
   display: flex;
   align-items: center;
@@ -1600,19 +1761,9 @@ function errorMessage(error: unknown): string {
   justify-content: flex-start;
 }
 
-.card-recognition .card-footer .preprocess-inline {
-  margin-left: auto;
-}
-
 @media (max-width: 920px) {
   .card-recognition .card-footer {
     gap: 8px;
-  }
-
-  .card-recognition .card-footer .preprocess-inline {
-    margin-left: 0;
-    width: 100%;
-    justify-content: flex-end;
   }
 }
 

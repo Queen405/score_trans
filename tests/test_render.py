@@ -1,3 +1,4 @@
+import json
 from fractions import Fraction
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -7,7 +8,7 @@ import pytest
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.domain.musicxml import musicxml_to_score
 from score_trans.exec.render.actions import RenderActions, RenderJianpuTextAction
-from score_trans.models.render.schemas import RenderJianpuTextSvgRequest
+from score_trans.models.render.schemas import BatchRenderRequest, BatchRenderPageRequest, RenderJianpuTextSvgRequest
 from score_trans.models.score import (
     JianpuEvent,
     JianpuMeasure,
@@ -21,10 +22,12 @@ from score_trans.services.ocr.providers import MockOCRProvider
 from score_trans.services.render import (
     RenderOptions,
     render_jianpu_svg,
+    render_scores_a4_pages,
     render_scores_a4_svgs,
     render_score_page_svg,
     render_score_svg,
 )
+from score_trans.services.render.main import A4_LINE_HEIGHT
 
 
 def _svg_root(svg: str) -> ET.Element:
@@ -218,6 +221,102 @@ def test_render_scores_a4_svgs_continue_across_source_page_boundaries() -> None:
     assert "70" in second_page_numbers
     assert "71" in second_page_numbers
     assert all_numbers[:78] == [str(number) for number in range(1, 79)]
+
+
+def test_a4_fixed_layout_uses_larger_line_height() -> None:
+    assert A4_LINE_HEIGHT == 150
+
+
+def test_render_scores_a4_pages_report_source_measure_ranges() -> None:
+    first_source = _many_measure_score(1, 70)
+    second_source = _many_measure_score(71, 8)
+
+    pages = render_scores_a4_pages([first_source, second_source])
+
+    assert len(pages) >= 2
+    assert pages[0].measure_ranges[0].source_page_index == 0
+    assert any(
+        item.source_page_index == 1
+        and item.start_measure_number <= 71 <= item.end_measure_number
+        for item in pages[1].measure_ranges
+        if item.start_measure_number is not None and item.end_measure_number is not None
+    )
+
+
+def test_render_batch_a4_assigns_source_ocr_to_first_overlapping_final_page(tmp_path) -> None:
+    actions = RenderActions(uploads=UploadService(ToolConfig(work_dir=tmp_path / "work")))
+    combined = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 78)
+    first_source = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 70)
+    second_source = "1=C\n4/4\n" + ("5 6 7 1' |\n" * 8)
+
+    response = actions.render_batch_a4(
+        BatchRenderRequest(
+            pages=[BatchRenderPageRequest(jianpu_text=combined, start_measure_number=1)],
+            source_pages=[
+                BatchRenderPageRequest(
+                    jianpu_text=first_source,
+                    ocr_text=json.dumps(
+                        [
+                            {"text": "第一页文字", "bbox": [12, 30, 120, 54], "role": "lyric"},
+                            {"text": "88", "bbox": [4, 6, 20, 24], "role": "measure_number"},
+                        ],
+                        ensure_ascii=False,
+                    ),
+                    start_measure_number=1,
+                ),
+                BatchRenderPageRequest(
+                    jianpu_text=second_source,
+                    ocr_text=json.dumps(
+                        [{"text": "第二页文字", "bbox": [14, 32, 128, 58], "role": "expression"}],
+                        ensure_ascii=False,
+                    ),
+                ),
+            ],
+        )
+    )
+
+    assert len(response.pages) >= 2
+    first_ocr = response.pages[0].ocr_text or ""
+    second_ocr = response.pages[1].ocr_text or ""
+    assert "第一页文字" in first_ocr
+    assert "第二页文字" not in first_ocr
+    assert "第二页文字" in second_ocr
+    assert "88" not in first_ocr
+    first_svg = actions.uploads.get_path(response.pages[0].svg_file_id).read_text(encoding="utf-8")
+    second_svg = actions.uploads.get_path(response.pages[1].svg_file_id).read_text(encoding="utf-8")
+    assert "第一页文字" in first_svg
+    assert "第二页文字" in second_svg
+
+
+def test_render_batch_a4_saved_page_ocr_overrides_source_suggestion(tmp_path) -> None:
+    actions = RenderActions(uploads=UploadService(ToolConfig(work_dir=tmp_path / "work")))
+    text = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 12)
+    saved_ocr = json.dumps(
+        [{"text": "保存后的文字", "bbox": [84, 120, 200, 148], "role": "lyric"}],
+        ensure_ascii=False,
+    )
+
+    response = actions.render_batch_a4(
+        BatchRenderRequest(
+            pages=[BatchRenderPageRequest(jianpu_text=text, start_measure_number=1)],
+            source_pages=[
+                BatchRenderPageRequest(
+                    jianpu_text=text,
+                    ocr_text=json.dumps(
+                        [{"text": "识别文字", "bbox": [10, 20, 110, 44], "role": "lyric"}],
+                        ensure_ascii=False,
+                    ),
+                    start_measure_number=1,
+                )
+            ],
+            render_page_ocr_texts=[{"page_index": 0, "ocr_text": saved_ocr}],
+        )
+    )
+
+    assert response.pages[0].ocr_text == saved_ocr
+    svg = actions.uploads.get_path(response.pages[0].svg_file_id).read_text(encoding="utf-8")
+    assert "保存后的文字" in svg
+    assert "识别文字" not in svg
 
 
 def test_render_jianpu_text_page_runs_ocr_and_preserves_bbox(tmp_path) -> None:

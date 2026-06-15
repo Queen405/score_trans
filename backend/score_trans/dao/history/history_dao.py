@@ -5,7 +5,12 @@ import sqlite3
 from pathlib import Path
 
 from ...models.common.paths import LEGACY_WORK_DIR, USER_WORK_DIR
-from ...models.history.entities import HistoryBatch, HistoryBatchSummary, HistoryPage
+from ...models.history.entities import (
+    HistoryBatch,
+    HistoryBatchSummary,
+    HistoryPage,
+    HistoryRenderPageOcrText,
+)
 from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
@@ -43,7 +48,9 @@ class HistoryDao:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
                     page_count INTEGER NOT NULL DEFAULT 0,
+                    jianpu_text TEXT NOT NULL DEFAULT '',
                     render_page_file_ids TEXT NOT NULL DEFAULT '[]',
+                    render_page_ocr_texts TEXT NOT NULL DEFAULT '[]',
                     status TEXT NOT NULL DEFAULT 'completed'
                 )
                 """
@@ -58,7 +65,9 @@ class HistoryDao:
                     musicxml_file_id TEXT NOT NULL DEFAULT '',
                     jianpu_text TEXT NOT NULL DEFAULT '',
                     ocr_text TEXT NOT NULL DEFAULT '',
-                    svg_file_id TEXT NOT NULL DEFAULT '',                    start_measure_number INTEGER,                    status TEXT NOT NULL DEFAULT 'completed',
+                    svg_file_id TEXT NOT NULL DEFAULT '',
+                    start_measure_number INTEGER,
+                    status TEXT NOT NULL DEFAULT 'completed',
                     error_message TEXT NOT NULL DEFAULT ''
                 )
                 """
@@ -80,7 +89,7 @@ class HistoryDao:
                             SELECT p.input_file_name
                             FROM history_page p
                             WHERE p.batch_id = b.id
-                            ORDER BY p.input_file_name ASC
+                            ORDER BY p.id ASC
                             LIMIT 1
                         ),
                         ''
@@ -117,15 +126,25 @@ class HistoryDao:
             return self._row_to_batch(conn, row)
 
     def create_batch(
-        self, pages: list[HistoryPage], render_page_file_ids: list[str] | None = None
+        self,
+        pages: list[HistoryPage],
+        render_page_file_ids: list[str] | None = None,
+        jianpu_text: str = "",
+        render_page_ocr_texts: list[HistoryRenderPageOcrText] | None = None,
     ) -> HistoryBatch:
         with self._connect() as conn:
             cursor = conn.execute(
                 """
-                INSERT INTO history_batch (page_count, render_page_file_ids)
-                VALUES (?, ?)
+                INSERT INTO history_batch
+                    (page_count, jianpu_text, render_page_file_ids, render_page_ocr_texts)
+                VALUES (?, ?, ?, ?)
                 """,
-                (len(pages), _dump_render_page_file_ids(render_page_file_ids or [])),
+                (
+                    len(pages),
+                    jianpu_text,
+                    _dump_render_page_file_ids(render_page_file_ids or []),
+                    _dump_render_page_ocr_texts(render_page_ocr_texts or []),
+                ),
             )
             batch_id = cursor.lastrowid
             for page in pages:
@@ -173,6 +192,46 @@ class HistoryDao:
             conn.execute(
                 "UPDATE history_batch SET render_page_file_ids = ? WHERE id = ?",
                 (_dump_render_page_file_ids(render_page_file_ids), batch_id),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            return self._row_to_batch(conn, row)
+
+    def update_batch_jianpu_text(
+        self, batch_id: int, jianpu_text: str
+    ) -> HistoryBatch | None:
+        with self._connect() as conn:
+            exists = conn.execute(
+                "SELECT id FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            if not exists:
+                return None
+            conn.execute(
+                "UPDATE history_batch SET jianpu_text = ? WHERE id = ?",
+                (jianpu_text, batch_id),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            return self._row_to_batch(conn, row)
+
+    def update_batch_render_page_ocr_texts(
+        self,
+        batch_id: int,
+        render_page_ocr_texts: list[HistoryRenderPageOcrText],
+    ) -> HistoryBatch | None:
+        with self._connect() as conn:
+            exists = conn.execute(
+                "SELECT id FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            if not exists:
+                return None
+            conn.execute(
+                "UPDATE history_batch SET render_page_ocr_texts = ? WHERE id = ?",
+                (_dump_render_page_ocr_texts(render_page_ocr_texts), batch_id),
             )
             conn.commit()
             row = conn.execute(
@@ -273,6 +332,16 @@ class HistoryDao:
                 "ALTER TABLE history_batch ADD COLUMN render_page_file_ids TEXT NOT NULL DEFAULT '[]'"
             )
             conn.commit()
+        if "jianpu_text" not in batch_columns:
+            conn.execute(
+                "ALTER TABLE history_batch ADD COLUMN jianpu_text TEXT NOT NULL DEFAULT ''"
+            )
+            conn.commit()
+        if "render_page_ocr_texts" not in batch_columns:
+            conn.execute(
+                "ALTER TABLE history_batch ADD COLUMN render_page_ocr_texts TEXT NOT NULL DEFAULT '[]'"
+            )
+            conn.commit()
         HistoryDao._ensure_indexes(conn)
 
     @staticmethod
@@ -290,14 +359,20 @@ class HistoryDao:
             created_at=row["created_at"],
             page_count=row["page_count"],
             status=row["status"],
+            jianpu_text=row["jianpu_text"] if "jianpu_text" in row.keys() else "",
             render_page_file_ids=_load_render_page_file_ids(
                 row["render_page_file_ids"]
                 if "render_page_file_ids" in row.keys()
                 else "[]"
             ),
+            render_page_ocr_texts=_load_render_page_ocr_texts(
+                row["render_page_ocr_texts"]
+                if "render_page_ocr_texts" in row.keys()
+                else "[]"
+            ),
         )
         page_rows = conn.execute(
-            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY input_file_name ASC",
+            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY id ASC",
             (batch.id,),
         ).fetchall()
         batch.pages = [self._row_to_page(pr) for pr in page_rows]
@@ -346,3 +421,40 @@ def _load_render_page_file_ids(payload: str) -> list[str]:
     if not isinstance(raw, list):
         return []
     return [str(item) for item in raw if str(item)]
+
+
+def _dump_render_page_ocr_texts(items: list[HistoryRenderPageOcrText]) -> str:
+    return json.dumps(
+        [
+            {"page_index": int(item.page_index), "ocr_text": item.ocr_text}
+            for item in items
+            if item.page_index >= 0
+        ],
+        ensure_ascii=False,
+    )
+
+
+def _load_render_page_ocr_texts(payload: str) -> list[HistoryRenderPageOcrText]:
+    try:
+        raw = json.loads(payload or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(raw, list):
+        return []
+    items: list[HistoryRenderPageOcrText] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            page_index = int(entry.get("page_index", -1))
+        except (TypeError, ValueError):
+            continue
+        if page_index < 0:
+            continue
+        items.append(
+            HistoryRenderPageOcrText(
+                page_index=page_index,
+                ocr_text=str(entry.get("ocr_text") or ""),
+            )
+        )
+    return items

@@ -39,9 +39,16 @@ class PageResponse(BaseModel):
     error_message: str
 
 
+class RenderPageOcrText(BaseModel):
+    page_index: int
+    ocr_text: str
+
+
 class BatchCreateRequest(BaseModel):
     pages: list[PageCreate]
+    jianpu_text: str = ""
     render_page_file_ids: list[str] = []
+    render_page_ocr_texts: list[RenderPageOcrText] = []
 
 
 class BatchResponse(BaseModel):
@@ -49,7 +56,9 @@ class BatchResponse(BaseModel):
     created_at: str
     page_count: int
     status: str
+    jianpu_text: str = ""
     render_page_file_ids: list[str] = []
+    render_page_ocr_texts: list[RenderPageOcrText] = []
     pages: list[PageResponse]
 
 
@@ -67,3 +76,11 @@ class DeleteAllResponse(BaseModel):
 
 class BatchRenderPagesUpdate(BaseModel):
     render_page_file_ids: list[str]
+
+
+class BatchJianpuTextUpdate(BaseModel):
+    jianpu_text: str
+
+
+class BatchRenderPageOcrTextsUpdate(BaseModel):
+    pages: list[RenderPageOcrText]

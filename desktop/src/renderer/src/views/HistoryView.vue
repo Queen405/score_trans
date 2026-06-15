@@ -188,6 +188,8 @@ async function handleRestore(entry: HistoryBatchListItem): Promise<void> {
     }),
     0,
     batch.render_page_file_ids,
+    batch.jianpu_text || '',
+    batch.render_page_ocr_texts || [],
   )
   await validateRestoredBatchFiles(pages, batch.render_page_file_ids)
   message.success(`已恢复 ${pages.length} 页`)

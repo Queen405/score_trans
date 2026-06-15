@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { SSEProgressEvent } from '../models/types'
+import type { RenderPageOcrText, SSEProgressEvent } from '../models/types'
 
 export type TaskPageStatus = 'pending' | 'processing' | 'waiting' | 'completed' | 'failed'
 
@@ -88,6 +88,13 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
   }
 }
 
+function mergeJianpuTexts(batchPages: TaskPageInput[]): string {
+  return batchPages
+    .map((page) => (page.jianpuText ?? '').trim())
+    .filter(Boolean)
+    .join('\n\n')
+}
+
 export const useTaskStore = defineStore('task', () => {
   // ── State ──
   const inputFileName = ref('')
@@ -110,6 +117,10 @@ export const useTaskStore = defineStore('task', () => {
   const taskStatus = ref<SSEProgressEvent['status']>('pending')
   const backgroundTaskCount = ref(0)
   const batchRenderPageFileIds = ref<Record<string, string[]>>({})
+  const batchRenderPageOcrTexts = ref<Record<string, Record<number, string>>>({})
+  const batchRenderPageOcrDirty = ref<Record<string, Record<number, boolean>>>({})
+  const batchJianpuTexts = ref<Record<string, string>>({})
+  const batchJianpuDirty = ref<Record<string, boolean>>({})
 
   function syncCurrentFromPage(): void {
     const page = pages.value[currentPageIndex.value]
@@ -274,6 +285,21 @@ export const useTaskStore = defineStore('task', () => {
     if (!batchId) return []
     return batchRenderPageFileIds.value[batchId] ?? []
   })
+  const currentBatchJianpuText = computed(() => {
+    const batchId = currentBatchId.value
+    if (!batchId) return jianpuText.value
+    return batchJianpuTexts.value[batchId] ?? ''
+  })
+  const currentBatchJianpuDirty = computed(() => {
+    const batchId = currentBatchId.value
+    if (!batchId) return jianpuDirty.value
+    return batchJianpuDirty.value[batchId] ?? false
+  })
+  const currentBatchRenderPageOcrDirty = computed(() => {
+    const batchId = currentBatchId.value
+    if (!batchId) return false
+    return Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean)
+  })
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
@@ -383,6 +409,133 @@ export const useTaskStore = defineStore('task', () => {
       ...batchRenderPageFileIds.value,
       [batchId]: [...fileIds],
     }
+  }
+
+  function setBatchRenderPageOcrText(
+    pageIndex: number,
+    text: string,
+    dirty = true,
+    batchId = currentBatchId.value,
+  ): void {
+    if (!batchId || pageIndex < 0) return
+    batchRenderPageOcrTexts.value = {
+      ...batchRenderPageOcrTexts.value,
+      [batchId]: {
+        ...(batchRenderPageOcrTexts.value[batchId] ?? {}),
+        [pageIndex]: text,
+      },
+    }
+    batchRenderPageOcrDirty.value = {
+      ...batchRenderPageOcrDirty.value,
+      [batchId]: {
+        ...(batchRenderPageOcrDirty.value[batchId] ?? {}),
+        [pageIndex]: dirty,
+      },
+    }
+  }
+
+  function setBatchRenderPageOcrTexts(
+    items: RenderPageOcrText[],
+    dirty = false,
+    batchId = currentBatchId.value,
+  ): void {
+    if (!batchId) return
+    const textMap: Record<number, string> = {}
+    const dirtyMap: Record<number, boolean> = {}
+    for (const item of items) {
+      if (item.page_index < 0) continue
+      textMap[item.page_index] = item.ocr_text
+      dirtyMap[item.page_index] = dirty
+    }
+    batchRenderPageOcrTexts.value = {
+      ...batchRenderPageOcrTexts.value,
+      [batchId]: textMap,
+    }
+    batchRenderPageOcrDirty.value = {
+      ...batchRenderPageOcrDirty.value,
+      [batchId]: dirtyMap,
+    }
+  }
+
+  function batchRenderPageOcrTextFor(batchId: string, pageIndex: number): string {
+    return batchRenderPageOcrTexts.value[batchId]?.[pageIndex] ?? ''
+  }
+
+  function currentBatchRenderPageOcrText(pageIndex: number): string {
+    const batchId = currentBatchId.value
+    if (!batchId) return ''
+    return batchRenderPageOcrTextFor(batchId, pageIndex)
+  }
+
+  function batchRenderPageOcrTextsFor(batchId: string): RenderPageOcrText[] {
+    const entries = batchRenderPageOcrTexts.value[batchId] ?? {}
+    return Object.entries(entries)
+      .map(([pageIndex, text]) => ({
+        page_index: Number(pageIndex),
+        ocr_text: text,
+      }))
+      .filter((item) => Number.isFinite(item.page_index) && item.page_index >= 0)
+      .sort((a, b) => a.page_index - b.page_index)
+  }
+
+  function currentBatchRenderPageOcrTextEntries(): RenderPageOcrText[] {
+    const batchId = currentBatchId.value
+    if (!batchId) return []
+    return batchRenderPageOcrTextsFor(batchId)
+  }
+
+  function isBatchRenderPageOcrDirty(batchId: string): boolean {
+    return Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean)
+  }
+
+  function markBatchRenderPageOcrClean(batchId = currentBatchId.value): void {
+    if (!batchId) return
+    const entries = batchRenderPageOcrTexts.value[batchId] ?? {}
+    const cleanMap = Object.fromEntries(
+      Object.keys(entries).map((pageIndex) => [pageIndex, false]),
+    ) as Record<number, boolean>
+    batchRenderPageOcrDirty.value = {
+      ...batchRenderPageOcrDirty.value,
+      [batchId]: cleanMap,
+    }
+  }
+
+  function setBatchJianpuText(
+    text: string,
+    dirty = true,
+    batchId = currentBatchId.value,
+  ): void {
+    if (!batchId) {
+      setJianpu(text, dirty)
+      return
+    }
+    batchJianpuTexts.value = {
+      ...batchJianpuTexts.value,
+      [batchId]: text,
+    }
+    batchJianpuDirty.value = {
+      ...batchJianpuDirty.value,
+      [batchId]: dirty,
+    }
+  }
+
+  function markBatchJianpuClean(batchId = currentBatchId.value): void {
+    if (!batchId) {
+      markJianpuClean()
+      return
+    }
+    batchJianpuDirty.value = {
+      ...batchJianpuDirty.value,
+      [batchId]: false,
+    }
+  }
+
+  function batchJianpuTextFor(batchId: string): string {
+    return batchJianpuTexts.value[batchId] ?? ''
+  }
+
+  function isBatchJianpuDirty(batchId: string): boolean {
+    return batchJianpuDirty.value[batchId] ?? false
   }
 
   function setPageStartMeasureNumber(value: number | null) {
@@ -569,12 +722,18 @@ export const useTaskStore = defineStore('task', () => {
     taskStatus.value = 'pending'
     backgroundTaskCount.value = 0
     batchRenderPageFileIds.value = {}
+    batchRenderPageOcrTexts.value = {}
+    batchRenderPageOcrDirty.value = {}
+    batchJianpuTexts.value = {}
+    batchJianpuDirty.value = {}
   }
 
   function loadBatch(
     batchPages: TaskPageInput[],
     selectIndex: number,
     renderPageFileIds: string[] = [],
+    batchJianpuText = '',
+    renderPageOcrTexts: RenderPageOcrText[] = [],
   ) {
     const random = Math.random().toString(36).slice(2, 8)
     const bid = `batch-${Date.now().toString(36)}-${random}`
@@ -610,6 +769,15 @@ export const useTaskStore = defineStore('task', () => {
         ...batchRenderPageFileIds.value,
         [bid]: [...renderPageFileIds],
       }
+    }
+    setBatchRenderPageOcrTexts(renderPageOcrTexts, false, bid)
+    batchJianpuTexts.value = {
+      ...batchJianpuTexts.value,
+      [bid]: batchJianpuText || mergeJianpuTexts(batchPages),
+    }
+    batchJianpuDirty.value = {
+      ...batchJianpuDirty.value,
+      [bid]: false,
     }
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))
     currentPageIndex.value = idx
@@ -647,6 +815,9 @@ export const useTaskStore = defineStore('task', () => {
     canNextPage,
     activePageTaskCount,
     currentBatchRenderPageFileIds,
+    currentBatchRenderPageOcrDirty,
+    currentBatchJianpuText,
+    currentBatchJianpuDirty,
     addInputPage,
     selectPage,
     selectPageById,
@@ -664,6 +835,18 @@ export const useTaskStore = defineStore('task', () => {
     markJianpuClean,
     setSvg,
     setBatchRenderPageFileIds,
+    setBatchRenderPageOcrText,
+    setBatchRenderPageOcrTexts,
+    batchRenderPageOcrTextFor,
+    currentBatchRenderPageOcrText,
+    batchRenderPageOcrTextsFor,
+    currentBatchRenderPageOcrTextEntries,
+    isBatchRenderPageOcrDirty,
+    markBatchRenderPageOcrClean,
+    setBatchJianpuText,
+    markBatchJianpuClean,
+    batchJianpuTextFor,
+    isBatchJianpuDirty,
     setPageStartMeasureNumber,
     setHistoryPageId,
     setPageHistoryPageId,

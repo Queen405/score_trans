@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from io import BytesIO
 import json
 from pathlib import Path
+import sys
+from types import SimpleNamespace
 
 import score_trans.services.files.upload_service as upload_service_module
+from fastapi import UploadFile
+from score_trans.config.settings import UPLOAD_PDF_DPI
+from score_trans.exec.files.actions import FileActions
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 
@@ -32,6 +38,7 @@ def test_upload_manager_restores_legacy_relative_index_paths(
     tmp_path: Path, monkeypatch
 ) -> None:
     monkeypatch.setattr(upload_service_module, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(upload_service_module, "USER_CACHE_ROOT", tmp_path)
     uploads_dir = tmp_path / "work" / "uploads"
     file_dir = uploads_dir / "legacy123"
     file_dir.mkdir(parents=True)
@@ -125,3 +132,57 @@ def test_upload_manager_exists_many(tmp_path: Path) -> None:
         file_id: True,
         "missing": False,
     }
+
+
+def test_upload_pdf_still_returns_page_pngs(monkeypatch, tmp_path: Path) -> None:
+    seen_dpi: list[int] = []
+
+    class FakePixmap:
+        def __init__(self, page_index: int) -> None:
+            self.page_index = page_index
+
+        def save(self, path: str) -> None:
+            Path(path).write_bytes(f"png-{self.page_index}".encode("ascii"))
+
+    class FakePage:
+        def __init__(self, page_index: int) -> None:
+            self.page_index = page_index
+
+        def get_pixmap(self, *, dpi: int) -> FakePixmap:
+            seen_dpi.append(dpi)
+            return FakePixmap(self.page_index)
+
+    class FakeDocument:
+        def __len__(self) -> int:
+            return 2
+
+        def load_page(self, page_index: int) -> FakePage:
+            return FakePage(page_index)
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "fitz",
+        SimpleNamespace(open=lambda _path: FakeDocument()),
+    )
+
+    uploads = UploadService(ToolConfig(work_dir=tmp_path))
+    actions = FileActions(uploads)
+    upload = UploadFile(file=BytesIO(b"%PDF-1.4"), filename="score.pdf")
+
+    response = actions.upload_file(upload)
+
+    assert response.pages is not None
+    assert [page.page_index for page in response.pages] == [0, 1]
+    assert [page.filename for page in response.pages] == [
+        "score_page_001.png",
+        "score_page_002.png",
+    ]
+    assert seen_dpi == [UPLOAD_PDF_DPI, UPLOAD_PDF_DPI]
+    for page in response.pages:
+        path = uploads.get_path(page.file_id)
+        assert path is not None
+        assert path.suffix == ".png"
+        assert path.exists()

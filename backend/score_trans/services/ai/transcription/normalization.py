@@ -46,12 +46,8 @@ def normalize_key_value(value: str | None) -> str | None:
     if not value:
         return None
     work = value.strip()
-    if "=" in work:
-        left, right = [part.strip() for part in work.split("=", 1)]
-        if left == "1":
-            work = right
-        else:
-            return None
+    if work.startswith("1="):
+        work = work.split("=", 1)[1].strip()
     return work or None
 
 

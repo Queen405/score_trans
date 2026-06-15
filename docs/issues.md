@@ -7,7 +7,7 @@
 | 类别 | 当前数量 | 较上次变化 |
 |---|---|---|
 | 高严重度 Bug | 0 | ↓1（已修复 2 个） |
-| 中严重度 Bug | 5 | ↓1（`_cfg_value` 已修复） |
+| 中严重度 Bug | 4 | ↓2（`_cfg_value` 已修复，Python OMR 预处理链已移除） |
 | 低严重度问题 | 5+ | 持平 |
 | 架构违规 | 2 | 持平 |
 | 死代码符号 | 7（原 9，2 个随任务系统投入使用而消除） | ↓2 |
@@ -50,19 +50,13 @@
 - **影响**: 某些畸形 JPEG 输入会使进程挂死。
 - **建议**: 在 `length <= 2` 时 `break`；并增加读取失败后的安全退出条件。
 
-### 3. PDF 只渲染第一页
-- **位置**: `services/recognize/image_preprocessing.py` — `prepare_omr_input`
-- **问题**: 对 PDF 固定调用 `pdf_page_to_png(input_path, png_path, dpi=PDF_RENDER_DPI)`（默认 `page_index=0`），且输出文件名固定为 `_page_001.png`，多页 PDF 后续页面丢失。
-- **影响**: 多页乐谱 PDF 只能识别第一页。
-- **建议**: 改为渲染所有页（可复用 `utils/pdf.py:pdf_to_png_pages`）或在流程层面逐页调用。
-
-### 4. exec 层广泛使用 HTTPException（架构违规）
+### 3. exec 层广泛使用 HTTPException（架构违规）
 - **位置**: `exec/history/actions.py`、`exec/files/actions.py`、`exec/export/actions.py`、`exec/render/actions.py`（grep 仍有 20+ 处命中）
 - **问题**: exec 层直接 `from fastapi import HTTPException` 并抛出，违反分层架构。exec 不应依赖 FastAPI。
 - **影响**: exec 层无法在非 FastAPI 上下文（如 CLI、测试）中复用。
 - **建议**: 抛业务异常（如 `ValueError`、`FileNotFoundError`），由 API 层统一转换为 HTTP 响应。
 
-### 5. MIDI rest 语义不正确
+### 4. MIDI rest 语义不正确
 - **位置**: `services/export/export_service.py` — `export_midi`
 - **问题**: rest 事件发送 `mido.Message("note_off", note=0, velocity=0, time=ticks)`，语义上不是休止而是关闭 note 0。
 - **影响**: 功能上可生成有效 MIDI，但与标准休止语义不符；依赖接收端对 note 0 的容忍。
@@ -73,6 +67,10 @@
 #### ~~`_cfg_value` 错误消息非 f-string~~ ✅ 已修复
 - **位置**: `services/ai/core/prompts.py`
 - **状态**: 当前错误消息已使用 f-string，且配置已迁移为 `ai_prompt.yaml`。
+
+#### ~~PDF 预处理只渲染第一页~~ ✅ 已修复
+- **位置**: 原 Python OMR 预处理模块
+- **状态**: Python OMR 预处理链已移除。上传 PDF 仍在 `/files/upload` 中拆成逐页 PNG；直接识别 PDF 时交由 Audiveris 原生处理。
 
 #### ~~beat_type=0 时 ZeroDivisionError~~ ❌ 误报
 - **位置**: `domain/write/jianpu_text.py` — `score_to_jianpu_text`
@@ -198,19 +196,18 @@
 
 ### 立即修复（影响正确性或可能导致挂死/失败）
 1. JPEG 尺寸解析死循环（`services/files/image_info.py:_jpeg_dimensions`）
-2. PDF 预处理只渲染第一页（`services/recognize/image_preprocessing.py`）
-3. OCR confidence `float()` 未保护（`services/ocr/parsing/parser.py:coerce_text_block`）
+2. OCR confidence `float()` 未保护（`services/ocr/parsing/parser.py:coerce_text_block`）
 
 ### 短期清理（架构债与技术债）
-4. 清理 exec 层剩余 4 个文件的 `HTTPException`（`history/files/export/render`），改为业务异常
-5. `api/dependencies.py` 为 Actions 工厂添加 `@lru_cache` 或统一缓存到 `app.state`
-6. 清理确认的死代码符号（`_read_mxl`、`_duration_prefix`、`_extract_part_names`、`ErrorResponse`、`find_tool`、`get_config` 等）
-7. 统一 `DYNAMICS` 力度集合（`domain/constants.py` 与 `services/render/utils/helpers.py`）
-8. DAO 层引入连接池或至少复用连接
+3. 清理 exec 层剩余 4 个文件的 `HTTPException`（`history/files/export/render`），改为业务异常
+4. `api/dependencies.py` 为 Actions 工厂添加 `@lru_cache` 或统一缓存到 `app.state`
+5. 清理确认的死代码符号（`_read_mxl`、`_duration_prefix`、`_extract_part_names`、`ErrorResponse`、`find_tool`、`get_config` 等）
+6. 统一 `DYNAMICS` 力度集合（`domain/constants.py` 与 `services/render/utils/helpers.py`）
+7. DAO 层引入连接池或至少复用连接
 
 ### 中期改进
-9. 上传文件大小限制与类型校验
-10. AI prompt 输入转义/过滤，防止 prompt injection
-11. MIDI rest 改为标准语义（time 偏移累积）
-12. 补充 `utils/*`、`services/tasks/`、`services/ocr/parsing` 的单元测试
+8. 上传文件大小限制与类型校验
+9. AI prompt 输入转义/过滤，防止 prompt injection
+10. MIDI rest 改为标准语义（time 偏移累积）
+11. 补充 `utils/*`、`services/tasks/`、`services/ocr/parsing` 的单元测试
 13. `ErrorResponse` schema 应被 `api/app.py` 异常处理器使用

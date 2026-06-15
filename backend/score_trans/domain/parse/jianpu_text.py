@@ -219,12 +219,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         if re.fullmatch(r"\*\d+", raw):
             pending_repeat_count = max(1, int(raw[1:]))
             continue
-        if raw == "#":
-            raise _syntax_error(
-                token,
-                "`#` 不再表示注释；注释请使用 `//`。"
-                "升号必须紧贴音级，例如 #5。",
-            )
+
         measure_mark = _measure_level_mark(raw)
         if measure_mark is not None:
             kind, mark = measure_mark
@@ -312,10 +307,6 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             if key == "tempo":
                 options.tempo = int(value)
                 continue
-            if key.lower() in {"key", "time"}:
-                raise ValueError(
-                    f"第 {line_no} 行：旧语法 `{key}=` 已废弃，请使用 `1=C` 和 `4/4`"
-                )
         if re.fullmatch(r"\d+/\d+", stripped) and not saw_time:
             beats, beat_type = stripped.split("/", 1)
             if saw_score_tokens:
@@ -329,28 +320,6 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             raw_token = match.group(0)
             if _is_measure_label_token(raw_token):
                 continue
-            # 判断 `数字/数字` 是拍号还是旧时值写法：
-            #   - 分子为 1（如 1/2、1/4）几乎总是旧时值（音级+斜杠时值），
-            #     且 1 拍记法在简谱中无实际意义，一律按旧时值报错。
-            #   - 其余（3/4、6/8 等）在行首或紧跟调号 1=X 后视为合法拍号；
-            #     出现在其它位置（前面有音符）则是旧时值，报错。
-            # 这样 `1/2 3 4` 里的 `1/2` 会被拒绝，避免被静默当成拍号吞掉丢失音符。
-            ts = _time_signature_value(raw_token.strip())
-            if ts is not None:
-                beats, _beat_type = ts
-                if beats == 1:
-                    raise ValueError(
-                        f"第 {line_no} 行第 {match.start() + 1} 列：旧时值写法 "
-                        f"`{raw_token}` 已废弃，请使用 q/s/d 前缀，例如 q1 或 q[1+3]"
-                    )
-                leading = raw_line[: match.start()]
-                leading_without_key = re.sub(r"1\s*=\s*[A-G](?:#|b)?", "", leading)
-                leading_without_key = leading_without_key.replace("|:", "").strip()
-                if leading_without_key:
-                    raise ValueError(
-                        f"第 {line_no} 行第 {match.start() + 1} 列：旧时值写法 "
-                        f"`{raw_token}` 已废弃，请使用 q/s/d 前缀，例如 q1 或 q[1+3]"
-                    )
             tokens.append(_Token(raw_token, line_no, match.start() + 1))
             if not _is_key_or_time_token(raw_token):
                 saw_score_tokens = True
@@ -464,11 +433,6 @@ def _parse_event_token(token: _Token) -> Event:
     if dotted:
         duration += duration / 2
         work = work[:-1]
-    if "/" in work:
-        raise _syntax_error(
-            token,
-            f"旧时值写法 `{token.value}` 已废弃，请使用 q/s/d 前缀，例如 q1 或 q[1+3]",
-        )
     if work.startswith("[") and work.endswith("]"):
         parts = [part.strip() for part in work[1:-1].split("+") if part.strip()]
         if not parts:

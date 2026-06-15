@@ -179,6 +179,12 @@
                 />
               </div>
               <div class="sv-form-item sv-form-item-compact sv-switch-setting">
+                <label>确认起始小节</label>
+                <div class="sv-switch-control">
+                  <n-switch v-model:value="settings.confirmStartMeasureNumber" size="small" />
+                </div>
+              </div>
+              <div class="sv-form-item sv-form-item-compact sv-switch-setting">
                 <label>代码配色</label>
                 <div class="sv-switch-control">
                   <n-switch v-model:value="settings.jianpuSyntaxHighlight" size="small" />

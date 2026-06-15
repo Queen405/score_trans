@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ...domain.jianpu import parse_jianpu_score
@@ -22,10 +22,29 @@ A4_PAGE_WIDTH = 1240
 A4_PAGE_HEIGHT = 1754
 A4_STAFF_SPACE = 21.0
 A4_MARGIN = 84
-A4_LINE_HEIGHT = 126
+A4_LINE_HEIGHT = 150
 A4_MIN_MEASURE_WIDTH = int(A4_STAFF_SPACE * 8)
 A4_NOTE_MIN_GAP = A4_STAFF_SPACE * 0.5
 A4_DURATION_SPACING_RATIO = 1.5
+
+
+@dataclass(slots=True)
+class A4MeasureRange:
+    source_page_index: int
+    start_measure_number: int | None
+    end_measure_number: int | None
+
+
+@dataclass(slots=True)
+class RenderedA4Page:
+    svg: str
+    measure_ranges: list[A4MeasureRange]
+
+
+@dataclass(slots=True)
+class RenderedA4FilePage:
+    path: Path
+    measure_ranges: list[A4MeasureRange]
 
 
 def render_jianpu_svg(
@@ -233,7 +252,25 @@ def render_score_a4_svgs(
 def render_scores_a4_svgs(
     scores: list[JianpuScore],
     options: RenderOptions | None = None,
+    *,
+    page_text_blocks: dict[int, list[TextBlock]] | None = None,
 ) -> list[str]:
+    return [
+        page.svg
+        for page in render_scores_a4_pages(
+            scores,
+            options,
+            page_text_blocks=page_text_blocks,
+        )
+    ]
+
+
+def render_scores_a4_pages(
+    scores: list[JianpuScore],
+    options: RenderOptions | None = None,
+    *,
+    page_text_blocks: dict[int, list[TextBlock]] | None = None,
+) -> list[RenderedA4Page]:
     first_score = next((score for score in scores if score.measures), None)
     if first_score is None:
         first_score = scores[0] if scores else JianpuScore()
@@ -242,14 +279,19 @@ def render_scores_a4_svgs(
     rows = _layout_rows(layouts, page_options)
     row_pages = _paginate_rows(rows, page_options)
     meta = _score_meta(first_score)
+    text_blocks_by_page = page_text_blocks or {}
     return [
-        _render_a4_page(
-            page_rows,
-            page_options,
-            first_score.title,
-            meta,
-            page_index=index,
-            page_count=len(row_pages),
+        RenderedA4Page(
+            svg=_render_a4_page(
+                page_rows,
+                page_options,
+                first_score.title,
+                meta,
+                page_index=index,
+                page_count=len(row_pages),
+                text_blocks=text_blocks_by_page.get(index, []),
+            ),
+            measure_ranges=_measure_ranges_for_rows(page_rows),
         )
         for index, page_rows in enumerate(row_pages)
     ]
@@ -298,14 +340,39 @@ def render_scores_a4_pages_to_files(
     show_measure_numbers: bool | None = None,
     measure_number_mode: MeasureNumberMode | None = None,
 ) -> list[Path]:
+    return [
+        page.path
+        for page in render_scores_a4_page_results_to_files(
+            scores,
+            output_path,
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
+    ]
+
+
+def render_scores_a4_page_results_to_files(
+    scores: list[JianpuScore],
+    output_path: Path,
+    title: str | None = None,
+    show_measure_numbers: bool | None = None,
+    measure_number_mode: MeasureNumberMode | None = None,
+    *,
+    page_text_blocks: dict[int, list[TextBlock]] | None = None,
+) -> list[RenderedA4FilePage]:
     base_title = title or next((score.title for score in scores if score.title), "简谱")
     options = _render_options(
         title=base_title,
         show_measure_numbers=show_measure_numbers,
         measure_number_mode=measure_number_mode,
     )
-    svgs = render_scores_a4_svgs(scores, options)
-    return _write_svg_pages(svgs, output_path)
+    pages = render_scores_a4_pages(scores, options, page_text_blocks=page_text_blocks)
+    paths = _write_svg_pages([page.svg for page in pages], output_path)
+    return [
+        RenderedA4FilePage(path=path, measure_ranges=page.measure_ranges)
+        for path, page in zip(paths, pages, strict=True)
+    ]
 
 
 def render_jianpu_file_to_svg(
@@ -506,6 +573,7 @@ def _render_a4_page(
     *,
     page_index: int,
     page_count: int,
+    text_blocks: list[TextBlock] | None = None,
 ) -> str:
     out = _svg_header(options, A4_PAGE_HEIGHT, title, meta)
     y = options.margin + 126
@@ -548,8 +616,57 @@ def _render_a4_page(
             f'y="{A4_PAGE_HEIGHT - 34}" text-anchor="middle">'
             f"{page_index + 1} / {page_count}</text>"
         )
+    out.extend(
+        _render_positioned_text_blocks(
+            text_blocks or [],
+            A4_PAGE_WIDTH,
+            A4_PAGE_HEIGHT,
+            include_measure_numbers=False,
+        )
+    )
     out.append("</svg>")
     return "\n".join(out)
+
+
+def _measure_ranges_for_rows(
+    rows: list[list[MeasureLayout]],
+) -> list[A4MeasureRange]:
+    ranges: list[A4MeasureRange] = []
+    for row in rows:
+        for layout in row:
+            source = layout.source
+            source_index = getattr(source, "source_page_index", None)
+            if source_index is None:
+                source_index = 0
+            start = _measure_number_as_int(getattr(source, "display_number", None))
+            if start is None:
+                start = _measure_number_as_int(getattr(source, "source_number", None))
+            repeat_count = max(1, int(getattr(source, "repeat_count", 1) or 1))
+            end = start + repeat_count - 1 if start is not None else None
+            _append_measure_range(ranges, int(source_index), start, end)
+    return ranges
+
+
+def _append_measure_range(
+    ranges: list[A4MeasureRange],
+    source_page_index: int,
+    start: int | None,
+    end: int | None,
+) -> None:
+    if not ranges or ranges[-1].source_page_index != source_page_index:
+        ranges.append(A4MeasureRange(source_page_index, start, end))
+        return
+    previous = ranges[-1]
+    if previous.start_measure_number is None or start is None:
+        previous.start_measure_number = previous.start_measure_number or start
+        previous.end_measure_number = previous.end_measure_number or end
+        return
+    previous.end_measure_number = max(previous.end_measure_number or previous.start_measure_number, end or start)
+
+
+def _measure_number_as_int(value: object) -> int | None:
+    text = str(value or "").strip()
+    return int(text) if text.isdigit() else None
 
 
 def _write_svg_pages(svgs: list[str], output_path: Path) -> list[Path]:
@@ -607,8 +724,10 @@ def _scores_layouts_with_playback_indices(
 ) -> list[MeasureLayout]:
     layouts: list[MeasureLayout] = []
     playback_index = 0
-    for score in scores:
+    for source_page_index, score in enumerate(scores):
         for measure in score.measures:
+            if measure.source_page_index is None:
+                measure.source_page_index = source_page_index
             layout = _score_measure_layout(measure, options)
             for beat in layout.beats:
                 for item in beat.items:

@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 from ...models.common.errors import ExternalToolError
 from ...models.common.paths import PROJECT_ROOT
 from ...models.settings.config import ToolConfig
-from .image_preprocessing import prepare_omr_input
 
 
 @dataclass(slots=True)
@@ -52,7 +51,6 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
     input_file = input_file.resolve()
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    omr_input = prepare_omr_input(input_file, output_dir, config)
 
     audiveris_path = Path(config.audiveris_path)
     env = _java_env(config)
@@ -60,7 +58,7 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
         args = [
             str(audiveris_path),
             ":app:run",
-            f"-PcmdLineArgs=-batch,-export,-output,{output_dir},{omr_input}",
+            f"-PcmdLineArgs=-batch,-export,-output,{output_dir},{input_file}",
         ]
         _run(args, cwd=audiveris_path.parent, env=env)
     else:
@@ -70,7 +68,7 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
             "-export",
             "-output",
             str(output_dir),
-            str(omr_input),
+            str(input_file),
         ]
         _run(args, env=env)
 

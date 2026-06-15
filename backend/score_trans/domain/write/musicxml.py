@@ -9,7 +9,6 @@ from ..constants import (
     KEY_TO_TONIC,
     DEGREE_TO_MAJOR_OFFSET,
     SEMITONE_TO_STEP,
-    DURATION_TO_PREFIX,
 )
 from ..xml_utils import _indent
 from ...models.score import Event, JianpuPitch, JianpuScore
@@ -153,7 +152,4 @@ def _tuplet_normal_notes(actual_notes: int) -> int:
     return max(1, normal_notes)
 
 
-def _duration_prefix(duration: Fraction) -> str:
-    if duration == Fraction(1, 1):
-        return ""
-    return DURATION_TO_PREFIX.get(duration, "")
+

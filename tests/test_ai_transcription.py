@@ -134,17 +134,6 @@ def test_pdf_to_png_pages_creates_one_png_per_page(tmp_path: Path) -> None:
     assert all(path.exists() for path in paths)
 
 
-def test_ai_header_cleanup_ignores_legacy_field_values() -> None:
-    text = ensure_jianpu_header(
-        "1 2 3 4 |",
-        target_key="key=G",
-        meter="time=3/4",
-        title=None,
-    )
-
-    assert text.startswith("1=C\n4/4\n")
-
-
 def test_ai_plain_text_response_falls_back_to_jianpu_text() -> None:
     result = parse_vision_page_result("title=中阮\n1=C\n4/4\n1 2 3 4 |")
 

@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...dao.history.history_dao import HistoryDao
-from ...models.history.entities import HistoryBatch, HistoryBatchSummary, HistoryPage
+from ...models.history.entities import (
+    HistoryBatch,
+    HistoryBatchSummary,
+    HistoryPage,
+    HistoryRenderPageOcrText,
+)
 
 
 class HistoryService:
@@ -22,14 +27,38 @@ class HistoryService:
         return self.dao.get_batch(batch_id)
 
     def create_batch(
-        self, pages: list[HistoryPage], render_page_file_ids: list[str] | None = None
+        self,
+        pages: list[HistoryPage],
+        render_page_file_ids: list[str] | None = None,
+        jianpu_text: str = "",
+        render_page_ocr_texts: list[HistoryRenderPageOcrText] | None = None,
     ) -> HistoryBatch:
-        return self.dao.create_batch(pages, render_page_file_ids)
+        return self.dao.create_batch(
+            pages,
+            render_page_file_ids,
+            jianpu_text=jianpu_text,
+            render_page_ocr_texts=render_page_ocr_texts,
+        )
 
     def update_batch_render_pages(
         self, batch_id: int, render_page_file_ids: list[str]
     ) -> HistoryBatch | None:
         return self.dao.update_batch_render_pages(batch_id, render_page_file_ids)
+
+    def update_batch_jianpu_text(
+        self, batch_id: int, jianpu_text: str
+    ) -> HistoryBatch | None:
+        return self.dao.update_batch_jianpu_text(batch_id, jianpu_text)
+
+    def update_batch_render_page_ocr_texts(
+        self,
+        batch_id: int,
+        render_page_ocr_texts: list[HistoryRenderPageOcrText],
+    ) -> HistoryBatch | None:
+        return self.dao.update_batch_render_page_ocr_texts(
+            batch_id,
+            render_page_ocr_texts,
+        )
 
     def update_page(
         self,

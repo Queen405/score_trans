@@ -6,7 +6,7 @@ import re
 from ..accidentals import pitch_to_token
 from ..jianpu_tokens import duration_affixes
 from ...models.common.types import AccidentalMode
-from ...models.score import Event, JianpuPitch, JianpuScore, TextBlock
+from ...models.score import Event, JianpuPitch, JianpuScore
 
 
 def score_to_jianpu_text(
@@ -87,28 +87,7 @@ def score_to_jianpu_text(
         lines.append(m + " |")
     if lyrics:
         lines.append(f"L: {' '.join(lyrics)}")
-    text_lines = [
-        _text_block_to_directive(block)
-        for block in score.text_blocks
-        if block.text.strip() and block.role != "instrument"
-    ]
-    if text_lines:
-        lines.append("")
-        lines.extend(text_lines)
     return "\n".join(lines)
-
-
-def _text_block_to_directive(block: TextBlock) -> str:
-    text = " ".join(block.text.split())
-    role = block.role or "other"
-    if block.bbox is None:
-        return f"@text - - - - {role} {text}"
-    x1, y1, x2, y2 = block.bbox
-    return f"@text {_fmt_num(x1)} {_fmt_num(y1)} {_fmt_num(x2)} {_fmt_num(y2)} {role} {text}"
-
-
-def _fmt_num(value: float) -> str:
-    return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
 def _event_to_token(

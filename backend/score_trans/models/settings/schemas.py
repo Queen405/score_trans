@@ -12,9 +12,6 @@ from score_trans.config.settings import (
     OCR_BASE_URL,
     OCR_MODEL,
     OCR_PROVIDER,
-    OMR_PREPROCESS,
-    OMR_PREPROCESS_BINARIZE,
-    OMR_PREPROCESS_LONG_EDGE,
 )
 from score_trans.models.common.types import AccidentalMode, MeasureNumberMode, TargetKey
 
@@ -39,6 +36,7 @@ class SettingsResponse(BaseModel):
     accidental_mode: AccidentalMode = "auto"
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
+    confirm_start_measure_number: bool = True
     jianpu_syntax_highlight: bool = False
     output_dir: str = ""
     ocr_provider: str = OCR_PROVIDER
@@ -59,9 +57,6 @@ class SettingsResponse(BaseModel):
     assistant_api_key_set: bool = False
     assistant_base_url: str = ASSISTANT_BASE_URL
     assistant_model: str = ASSISTANT_MODEL
-    omr_preprocess: bool = OMR_PREPROCESS
-    omr_preprocess_long_edge: int = OMR_PREPROCESS_LONG_EDGE
-    omr_preprocess_binarize: bool = OMR_PREPROCESS_BINARIZE
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -72,6 +67,7 @@ class SettingsUpdateRequest(BaseModel):
     accidental_mode: AccidentalMode | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode | None = None
+    confirm_start_measure_number: bool | None = None
     jianpu_syntax_highlight: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None
@@ -80,9 +76,6 @@ class SettingsUpdateRequest(BaseModel):
     ai_api_key: str | None = None
     assistant_provider: str | None = None
     assistant_api_key: str | None = None
-    omr_preprocess: bool | None = None
-    omr_preprocess_long_edge: int | None = None
-    omr_preprocess_binarize: bool | None = None
 
 
 class CacheCleanupResponse(BaseModel):

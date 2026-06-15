@@ -32,6 +32,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const accidentalMode = ref<AccidentalMode>('auto')
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
+  const confirmStartMeasureNumber = ref(true)
   const jianpuSyntaxHighlight = ref(false)
   const outputDir = ref('')
   const ocrProvider = ref('siliconflow_deepseek_ocr')
@@ -52,9 +53,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const assistantApiKeySet = ref(false)
   const assistantBaseUrl = ref('https://dashscope.aliyuncs.com/compatible-mode/v1')
   const assistantModel = ref('deepseek-v4-flash')
-  const omrPreprocess = ref(true)
-  const omrPreprocessLongEdge = ref(3600)
-  const omrPreprocessBinarize = ref(false)
   const themeMode = ref<ThemeMode>(loadThemeMode())
   const loaded = ref(false)
   const providerLoadVersion = {
@@ -94,6 +92,7 @@ export const useSettingsStore = defineStore('settings', () => {
       accidental_mode: accidentalMode.value,
       show_measure_numbers: measureNumberMode.value !== 'none',
       measure_number_mode: measureNumberMode.value,
+      confirm_start_measure_number: confirmStartMeasureNumber.value,
       jianpu_syntax_highlight: jianpuSyntaxHighlight.value,
       ocr_provider: ocrProvider.value,
       ocr_api_key: ocrApiKey.value || undefined,
@@ -101,9 +100,6 @@ export const useSettingsStore = defineStore('settings', () => {
       ai_api_key: aiApiKey.value || undefined,
       assistant_provider: assistantProvider.value,
       assistant_api_key: assistantApiKey.value || undefined,
-      omr_preprocess: omrPreprocess.value,
-      omr_preprocess_long_edge: omrPreprocessLongEdge.value,
-      omr_preprocess_binarize: omrPreprocessBinarize.value,
     })
     applySettings(data)
     dataDir.value = requestedDataDir
@@ -150,6 +146,7 @@ export const useSettingsStore = defineStore('settings', () => {
     accidentalMode.value = data.accidental_mode ?? 'auto'
     measureNumberMode.value = data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
+    confirmStartMeasureNumber.value = data.confirm_start_measure_number ?? true
     jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false
     outputDir.value = data.output_dir ?? ''
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
@@ -170,9 +167,6 @@ export const useSettingsStore = defineStore('settings', () => {
     assistantApiKeySet.value = data.assistant_api_key_set ?? false
     assistantBaseUrl.value = data.assistant_base_url ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     assistantModel.value = data.assistant_model ?? 'deepseek-v4-flash'
-    omrPreprocess.value = data.omr_preprocess ?? true
-    omrPreprocessLongEdge.value = data.omr_preprocess_long_edge ?? 3600
-    omrPreprocessBinarize.value = data.omr_preprocess_binarize ?? false
   }
 
   async function loadStoragePaths(): Promise<void> {
@@ -270,6 +264,7 @@ export const useSettingsStore = defineStore('settings', () => {
     accidentalMode,
     showMeasureNumbers,
     measureNumberMode,
+    confirmStartMeasureNumber,
     jianpuSyntaxHighlight,
     outputDir,
     ocrProvider,
@@ -290,9 +285,6 @@ export const useSettingsStore = defineStore('settings', () => {
     assistantApiKeySet,
     assistantBaseUrl,
     assistantModel,
-    omrPreprocess,
-    omrPreprocessLongEdge,
-    omrPreprocessBinarize,
     themeMode,
     loaded,
     load,

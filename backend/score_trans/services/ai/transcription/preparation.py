@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ....models.common.errors import AITranscriptionError
-from ...recognize.image_preprocessing import IMAGE_SUFFIXES
+from ....models.common.types import IMAGE_SUFFIXES
 from ....utils.pdf import pdf_to_png_pages
 from ..core.schemas import PreparedScorePage
 

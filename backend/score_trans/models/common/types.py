@@ -40,3 +40,7 @@ SUPPORTED_TARGET_KEYS: tuple[TargetKey, ...] = (
     "F#",
     "C#",
 )
+
+IMAGE_SUFFIXES: frozenset[str] = frozenset(
+    {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+)

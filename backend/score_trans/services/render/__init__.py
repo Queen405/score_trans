@@ -1,4 +1,7 @@
 from .main import (
+    A4MeasureRange,
+    RenderedA4FilePage,
+    RenderedA4Page,
     render_jianpu_a4_files_to_svgs,
     render_jianpu_a4_svgs,
     render_jianpu_file_to_svg,
@@ -11,6 +14,8 @@ from .main import (
     render_score_page_file_to_svg,
     render_score_page_svg,
     render_score_svg,
+    render_scores_a4_page_results_to_files,
+    render_scores_a4_pages,
     render_scores_a4_pages_to_files,
     render_scores_a4_svgs,
 )
@@ -18,12 +23,16 @@ from .options import RenderOptions
 
 __all__ = [
     "RenderOptions",
+    "A4MeasureRange",
+    "RenderedA4Page",
+    "RenderedA4FilePage",
     "render_jianpu_svg",
     "render_jianpu_a4_svgs",
     "render_jianpu_page_svg",
     "render_score_svg",
     "render_score_a4_svgs",
     "render_scores_a4_svgs",
+    "render_scores_a4_pages",
     "render_score_page_svg",
     "render_jianpu_file_to_svg",
     "render_jianpu_a4_files_to_svgs",
@@ -31,5 +40,6 @@ __all__ = [
     "render_score_file_to_svg",
     "render_score_a4_pages_to_files",
     "render_scores_a4_pages_to_files",
+    "render_scores_a4_page_results_to_files",
     "render_score_page_file_to_svg",
 ]

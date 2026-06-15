@@ -3,15 +3,22 @@ from __future__ import annotations
 from fastapi import HTTPException
 
 from ...domain.jianpu import normalize_jianpu_text
-from ...models.history.entities import HistoryBatch, HistoryPage
+from ...models.history.entities import (
+    HistoryBatch,
+    HistoryPage,
+    HistoryRenderPageOcrText,
+)
 from ...models.history.schemas import (
     BatchCreateRequest,
+    BatchJianpuTextUpdate,
     BatchListItem,
+    BatchRenderPageOcrTextsUpdate,
     BatchRenderPagesUpdate,
     BatchResponse,
     DeleteAllResponse,
     PageResponse,
     PageUpdate,
+    RenderPageOcrText,
 )
 from ...services.history.history_service import HistoryService
 
@@ -48,7 +55,18 @@ class HistoryActions:
             for p in req.pages
         ]
         return _batch_to_response(
-            self.service.create_batch(pages, req.render_page_file_ids)
+            self.service.create_batch(
+                pages,
+                req.render_page_file_ids,
+                jianpu_text=_normalize_history_text(req.jianpu_text),
+                render_page_ocr_texts=[
+                    HistoryRenderPageOcrText(
+                        page_index=item.page_index,
+                        ocr_text=item.ocr_text,
+                    )
+                    for item in req.render_page_ocr_texts
+                ],
+            )
         )
 
     def get_history(self, batch_id: int) -> BatchResponse:
@@ -79,6 +97,33 @@ class HistoryActions:
     ) -> BatchResponse:
         batch = self.service.update_batch_render_pages(
             batch_id, req.render_page_file_ids
+        )
+        if not batch:
+            raise HTTPException(status_code=404, detail="Batch not found")
+        return _batch_to_response(batch)
+
+    def update_batch_jianpu_text(
+        self, batch_id: int, req: BatchJianpuTextUpdate
+    ) -> BatchResponse:
+        batch = self.service.update_batch_jianpu_text(
+            batch_id, _normalize_history_text(req.jianpu_text)
+        )
+        if not batch:
+            raise HTTPException(status_code=404, detail="Batch not found")
+        return _batch_to_response(batch)
+
+    def update_batch_render_page_ocr_texts(
+        self, batch_id: int, req: BatchRenderPageOcrTextsUpdate
+    ) -> BatchResponse:
+        batch = self.service.update_batch_render_page_ocr_texts(
+            batch_id,
+            [
+                HistoryRenderPageOcrText(
+                    page_index=item.page_index,
+                    ocr_text=item.ocr_text,
+                )
+                for item in req.pages
+            ],
         )
         if not batch:
             raise HTTPException(status_code=404, detail="Batch not found")
@@ -123,7 +168,15 @@ def _batch_to_response(batch: HistoryBatch) -> BatchResponse:
         created_at=batch.created_at,
         page_count=batch.page_count,
         status=batch.status,
+        jianpu_text=batch.jianpu_text,
         render_page_file_ids=_batch_render_page_file_ids(batch),
+        render_page_ocr_texts=[
+            RenderPageOcrText(
+                page_index=item.page_index,
+                ocr_text=item.ocr_text,
+            )
+            for item in batch.render_page_ocr_texts
+        ],
         pages=[_page_to_response(p) for p in batch.pages],
     )
 

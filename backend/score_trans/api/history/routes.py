@@ -6,7 +6,9 @@ from ..dependencies import get_history_actions
 from ...exec.history.actions import HistoryActions
 from ...models.history.schemas import (
     BatchCreateRequest,
+    BatchJianpuTextUpdate,
     BatchListItem,
+    BatchRenderPageOcrTextsUpdate,
     BatchRenderPagesUpdate,
     BatchResponse,
     DeleteAllResponse,
@@ -54,6 +56,24 @@ def update_batch_render_pages(
     actions: HistoryActions = Depends(get_history_actions),
 ):
     return actions.update_batch_render_pages(batch_id, req)
+
+
+@router.patch("/{batch_id}/jianpu-text", response_model=BatchResponse)
+def update_batch_jianpu_text(
+    batch_id: int,
+    req: BatchJianpuTextUpdate,
+    actions: HistoryActions = Depends(get_history_actions),
+):
+    return actions.update_batch_jianpu_text(batch_id, req)
+
+
+@router.patch("/{batch_id}/render-page-ocr-texts", response_model=BatchResponse)
+def update_batch_render_page_ocr_texts(
+    batch_id: int,
+    req: BatchRenderPageOcrTextsUpdate,
+    actions: HistoryActions = Depends(get_history_actions),
+):
+    return actions.update_batch_render_page_ocr_texts(batch_id, req)
 
 
 @router.delete("/{batch_id}")

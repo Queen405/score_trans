@@ -127,7 +127,6 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 |---|---|---|
 | `audiveris_service.py` | 8 | 薄封装 |
 | `external_tools.py` | ~110 | subprocess 调用封装 + 代理配置 |
-| `image_preprocessing.py` | ~145 | OMR 前图像预处理（裁白边、对比度、锐化、二值化） |
 
 ### Render 服务 (`services/render/`)
 

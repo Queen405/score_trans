@@ -5,9 +5,6 @@ from pathlib import Path
 from score_trans.config.settings import (
     AUDIVERIS_PATH,
     JAVA_HOME,
-    OMR_PREPROCESS,
-    OMR_PREPROCESS_BINARIZE,
-    OMR_PREPROCESS_LONG_EDGE,
     WORK_DIR,
 )
 
@@ -83,13 +80,6 @@ class SettingsService:
             audiveris_path=self.dao.get("audiveris_path") or _default_audiveris_path(),
             java_home=self.dao.get("java_home") or _default_java_home(),
             work_dir=_resolve_work_dir(self.dao.get("work_dir") or _default_work_dir()),
-            omr_preprocess=self.dao.get_bool("omr_preprocess", OMR_PREPROCESS),
-            omr_preprocess_long_edge=self.dao.get_int(
-                "omr_preprocess_long_edge", OMR_PREPROCESS_LONG_EDGE
-            ),
-            omr_preprocess_binarize=self.dao.get_bool(
-                "omr_preprocess_binarize", OMR_PREPROCESS_BINARIZE
-            ),
         )
 
     def get_all(self) -> dict[str, str]:

@@ -109,17 +109,6 @@ def _extract_title(root: ET.Element, ns: str) -> str:
     return _text(work_title) or _text(movement_title) or "简谱"
 
 
-def _extract_part_names(root: ET.Element, ns: str) -> list[TextBlock]:
-    blocks: list[TextBlock] = []
-    for part_name in root.findall(
-        f"{_q(ns, 'part-list')}/{_q(ns, 'score-part')}/{_q(ns, 'part-name')}"
-    ):
-        text = _text(part_name)
-        if text:
-            blocks.append(TextBlock(text=text, role="instrument"))
-    return blocks
-
-
 def _display_measure_number(measure: ET.Element, fallback: int) -> str | int:
     raw = measure.get("number")
     if raw is None or raw.strip() == "":

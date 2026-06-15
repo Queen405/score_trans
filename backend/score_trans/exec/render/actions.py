@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -23,15 +24,24 @@ from ...models.render.schemas import (
     RenderJianpuSvgResponse,
     RenderJianpuTextSvgRequest,
     RenderJianpuTextSvgResponse,
+    RenderPageMeasureRange,
     RenderedSvgPage,
 )
 from ...models.score import JianpuScore, TextBlock
+from ...services.render import A4MeasureRange
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.ocr.providers import create_configured_ocr_provider
 from ...services.render.render_service import RenderService
 from ..convert.actions import MusicXmlToJianpuAction
+
+
+@dataclass(slots=True)
+class _SourcePageRange:
+    source_page_index: int
+    start_measure_number: int | None
+    end_measure_number: int | None
 
 
 class RenderMusicXmlJianpuAction:
@@ -346,8 +356,82 @@ class RenderActions:
             raise HTTPException(400, "至少需要一个待渲染页面")
         scores: list[JianpuScore] = []
         starts: list[int | None] = []
-        for page in req.pages:
+        for index, page in enumerate(req.pages):
             score = self._build_batch_page_score(req, page)
+            _tag_score_source_page(score, index)
+            scores.append(score)
+            starts.append(page.start_measure_number)
+        _renumber_scores_continuously(scores, starts)
+        source_ranges = self._batch_source_ranges(req, scores)
+        layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
+            scores,
+            title=req.title,
+            show_measure_numbers=_request_show_measure_numbers(req),
+            measure_number_mode=_request_measure_number_mode(req),
+        )
+        measure_ranges_by_page = [
+            _page_measure_ranges(page.measure_ranges, source_ranges)
+            for page in layout_pages
+        ]
+        page_ocr_texts = _resolved_render_page_ocr_texts(
+            req,
+            measure_ranges_by_page,
+        )
+        page_text_blocks = {
+            page_index: _parse_ocr_text(ocr_text)
+            for page_index, ocr_text in page_ocr_texts.items()
+            if ocr_text.strip()
+        }
+        svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
+        rendered_pages = (
+            self.text_renderer.render_service.render_scores_a4_svg_page_results(
+                scores,
+                svg_path,
+                title=req.title,
+                show_measure_numbers=_request_show_measure_numbers(req),
+                measure_number_mode=_request_measure_number_mode(req),
+                page_text_blocks=page_text_blocks,
+            )
+        )
+        pages = self._register_rendered_page_results(
+            rendered_pages,
+            page_ocr_texts,
+            measure_ranges_by_page,
+        )
+        return BatchRenderResponse(
+            svg_file_id=pages[0].svg_file_id,
+            pages=pages,
+            page_width=pages[0].page_width,
+            page_height=pages[0].page_height,
+        )
+
+    def _batch_source_ranges(
+        self,
+        req: BatchRenderRequest,
+        rendered_scores: list[JianpuScore],
+    ) -> list["_SourcePageRange"]:
+        source_pages = req.source_pages or req.pages
+        if source_pages == req.pages:
+            return _source_ranges_for_scores(rendered_scores)
+        source_scores: list[JianpuScore] = []
+        source_starts: list[int | None] = []
+        for index, page in enumerate(source_pages):
+            score = self._build_batch_page_score(req, page)
+            _tag_score_source_page(score, index)
+            source_scores.append(score)
+            source_starts.append(page.start_measure_number)
+        _renumber_scores_continuously(source_scores, source_starts)
+        return _source_ranges_for_scores(source_scores)
+
+    def _render_batch_a4_without_page_ocr(
+        self,
+        req: BatchRenderRequest,
+    ) -> BatchRenderResponse:
+        scores: list[JianpuScore] = []
+        starts: list[int | None] = []
+        for index, page in enumerate(req.pages):
+            score = self._build_batch_page_score(req, page)
+            _tag_score_source_page(score, index)
             scores.append(score)
             starts.append(page.start_measure_number)
         _renumber_scores_continuously(scores, starts)
@@ -454,6 +538,8 @@ class RenderActions:
                 image_path = self.uploads.get_path(page.page_image_file_id)
                 if not image_path or not image_path.exists():
                     raise HTTPException(404, f"页面图片不存在：{page.page_image_file_id}")
+                if not page.include_ocr_text:
+                    image_path = None
             return self.musicxml_renderer.build_score(
                 musicxml_path,
                 target_key=req.target_key,
@@ -486,6 +572,30 @@ class RenderActions:
             )
             for index, path in enumerate(paths)
         ]
+
+    def _register_rendered_page_results(
+        self,
+        rendered_pages,
+        page_ocr_texts: dict[int, str],
+        measure_ranges_by_page: list[list[RenderPageMeasureRange]],
+    ) -> list[RenderedSvgPage]:
+        if not rendered_pages:
+            raise HTTPException(500, "渲染未生成任何 SVG 页面")
+        pages: list[RenderedSvgPage] = []
+        for index, rendered_page in enumerate(rendered_pages):
+            pages.append(
+                RenderedSvgPage(
+                    svg_file_id=self.uploads.register(rendered_page.path),
+                    page_index=index,
+                    page_width=1240,
+                    page_height=1754,
+                    measure_ranges=measure_ranges_by_page[index]
+                    if index < len(measure_ranges_by_page)
+                    else [],
+                    ocr_text=page_ocr_texts.get(index, ""),
+                )
+            )
+        return pages
 
 
 def _parse_ocr_text(payload: str) -> list[TextBlock]:
@@ -522,11 +632,11 @@ def _parse_ocr_text(payload: str) -> list[TextBlock]:
     return blocks
 
 
-def _serialize_ocr_text(blocks: list[TextBlock]) -> str:
+def _serialize_ocr_text(blocks: list[TextBlock], *, id_prefix: str = "ocr") -> str:
     return json.dumps(
         [
             {
-                "id": f"ocr-{index}",
+                "id": f"{id_prefix}-{index}",
                 "text": block.text,
                 "bbox": list(block.bbox) if block.bbox is not None else None,
                 "role": block.role,
@@ -537,6 +647,191 @@ def _serialize_ocr_text(blocks: list[TextBlock]) -> str:
         ],
         ensure_ascii=False,
     )
+
+
+def _tag_score_source_page(score: JianpuScore, source_page_index: int) -> None:
+    for measure in score.measures:
+        measure.source_page_index = source_page_index
+
+
+def _source_ranges_for_scores(scores: list[JianpuScore]) -> list[_SourcePageRange]:
+    ranges: list[_SourcePageRange] = []
+    for index, score in enumerate(scores):
+        starts: list[int] = []
+        ends: list[int] = []
+        for measure in score.measures:
+            start = _measure_number_as_int(measure.display_number)
+            if start is None:
+                continue
+            repeat_count = max(1, int(getattr(measure, "repeat_count", 1) or 1))
+            starts.append(start)
+            ends.append(start + repeat_count - 1)
+        ranges.append(
+            _SourcePageRange(
+                source_page_index=index,
+                start_measure_number=min(starts) if starts else None,
+                end_measure_number=max(ends) if ends else None,
+            )
+        )
+    return ranges
+
+
+def _page_measure_ranges(
+    page_ranges: list[A4MeasureRange],
+    source_ranges: list[_SourcePageRange],
+) -> list[RenderPageMeasureRange]:
+    page_start, page_end = _measure_bounds(page_ranges)
+    if page_start is None or page_end is None or not source_ranges:
+        return [
+            RenderPageMeasureRange(
+                source_page_index=item.source_page_index,
+                start_measure_number=item.start_measure_number,
+                end_measure_number=item.end_measure_number,
+            )
+            for item in page_ranges
+        ]
+    ranges: list[RenderPageMeasureRange] = []
+    for item in source_ranges:
+        if item.start_measure_number is None or item.end_measure_number is None:
+            continue
+        start = max(page_start, item.start_measure_number)
+        end = min(page_end, item.end_measure_number)
+        if start <= end:
+            ranges.append(
+                RenderPageMeasureRange(
+                    source_page_index=item.source_page_index,
+                    start_measure_number=start,
+                    end_measure_number=end,
+                )
+            )
+    return ranges or [
+        RenderPageMeasureRange(
+            source_page_index=item.source_page_index,
+            start_measure_number=item.start_measure_number,
+            end_measure_number=item.end_measure_number,
+        )
+        for item in page_ranges
+    ]
+
+
+def _measure_bounds(
+    ranges: list[A4MeasureRange],
+) -> tuple[int | None, int | None]:
+    starts = [
+        item.start_measure_number
+        for item in ranges
+        if item.start_measure_number is not None
+    ]
+    ends = [
+        item.end_measure_number
+        for item in ranges
+        if item.end_measure_number is not None
+    ]
+    if not starts or not ends:
+        return None, None
+    return min(starts), max(ends)
+
+
+def _resolved_render_page_ocr_texts(
+    req: BatchRenderRequest,
+    measure_ranges_by_page: list[list[RenderPageMeasureRange]],
+) -> dict[int, str]:
+    suggested = _suggested_render_page_ocr_texts(req, measure_ranges_by_page)
+    saved = {
+        item.page_index: item.ocr_text
+        for item in req.render_page_ocr_texts
+        if item.page_index >= 0
+    }
+    resolved: dict[int, str] = {}
+    for page_index in range(len(measure_ranges_by_page)):
+        resolved[page_index] = saved.get(page_index, suggested.get(page_index, ""))
+    for page_index, ocr_text in saved.items():
+        if page_index not in resolved:
+            resolved[page_index] = ocr_text
+    return resolved
+
+
+def _suggested_render_page_ocr_texts(
+    req: BatchRenderRequest,
+    measure_ranges_by_page: list[list[RenderPageMeasureRange]],
+) -> dict[int, str]:
+    source_pages = req.source_pages or req.pages
+    blocks_by_page: dict[int, list[TextBlock]] = {}
+    for source_index, source_page in enumerate(source_pages):
+        if not source_page.ocr_text:
+            continue
+        target_page_index = _first_render_page_for_source(
+            measure_ranges_by_page,
+            source_index,
+        )
+        if target_page_index is None:
+            target_page_index = min(source_index, max(0, len(measure_ranges_by_page) - 1))
+        source_blocks = _parse_ocr_text_lenient(source_page.ocr_text)
+        placed_blocks = _place_blocks_in_a4_safe_area(source_blocks)
+        if placed_blocks:
+            blocks_by_page.setdefault(target_page_index, []).extend(placed_blocks)
+    return {
+        page_index: _serialize_ocr_text(blocks, id_prefix=f"a4p{page_index}")
+        for page_index, blocks in blocks_by_page.items()
+    }
+
+
+def _first_render_page_for_source(
+    measure_ranges_by_page: list[list[RenderPageMeasureRange]],
+    source_page_index: int,
+) -> int | None:
+    for page_index, ranges in enumerate(measure_ranges_by_page):
+        if any(item.source_page_index == source_page_index for item in ranges):
+            return page_index
+    return None
+
+
+def _parse_ocr_text_lenient(payload: str) -> list[TextBlock]:
+    try:
+        return _parse_ocr_text(payload)
+    except HTTPException:
+        return []
+
+
+def _place_blocks_in_a4_safe_area(blocks: list[TextBlock]) -> list[TextBlock]:
+    placed: list[TextBlock] = []
+    for block in blocks:
+        text = block.text.strip()
+        if not text or block.role == "measure_number":
+            continue
+        font_size = _safe_font_size(block.font_size)
+        y1 = 120.0 + len(placed) * 30.0
+        if y1 > 1754 - 84:
+            break
+        width = _safe_block_width(block, font_size)
+        placed.append(
+            TextBlock(
+                text=text,
+                bbox=(84.0, y1, 84.0 + width, y1 + font_size * 1.35),
+                role=block.role,
+                font_size=font_size,
+            )
+        )
+    return placed
+
+
+def _safe_font_size(value: float | None) -> float:
+    if value is None:
+        return 20.0
+    return max(8.0, min(48.0, float(value)))
+
+
+def _safe_block_width(block: TextBlock, font_size: float) -> float:
+    if block.bbox is not None:
+        raw_width = abs(block.bbox[2] - block.bbox[0])
+    else:
+        raw_width = len(block.text.strip()) * font_size * 0.8
+    return max(80.0, min(1240 - 84 * 2, raw_width or 80.0))
+
+
+def _measure_number_as_int(value: object) -> int | None:
+    text = str(value or "").strip()
+    return int(text) if text.isdigit() else None
 
 
 def _request_measure_number_mode(req) -> MeasureNumberMode:
