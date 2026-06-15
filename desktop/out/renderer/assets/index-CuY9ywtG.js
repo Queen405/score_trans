@@ -3334,9 +3334,6 @@ function onErrorCaptured(hook, target = currentInstance) {
   injectHook("ec", hook, target);
 }
 const COMPONENTS = "components";
-function resolveComponent(name, maybeSelfReference) {
-  return resolveAsset(COMPONENTS, name, true, maybeSelfReference) || name;
-}
 const NULL_DYNAMIC_COMPONENT = /* @__PURE__ */ Symbol.for("v-ndc");
 function resolveDynamicComponent(component) {
   if (isString$1(component)) {
@@ -3624,7 +3621,7 @@ function applyOptions(instance) {
     beforeUnmount,
     destroyed,
     unmounted,
-    render: render37,
+    render: render36,
     renderTracked,
     renderTriggered,
     errorCaptured,
@@ -3723,8 +3720,8 @@ function applyOptions(instance) {
       instance.exposed = {};
     }
   }
-  if (render37 && instance.render === NOOP) {
-    instance.render = render37;
+  if (render36 && instance.render === NOOP) {
+    instance.render = render36;
   }
   if (inheritAttrs != null) {
     instance.inheritAttrs = inheritAttrs;
@@ -3956,7 +3953,7 @@ function createAppContext() {
   };
 }
 let uid$1 = 0;
-function createAppAPI(render37, hydrate) {
+function createAppAPI(render36, hydrate) {
   return function createApp2(rootComponent, rootProps = null) {
     if (!isFunction$2(rootComponent)) {
       rootComponent = extend({}, rootComponent);
@@ -4024,7 +4021,7 @@ function createAppAPI(render37, hydrate) {
             namespace2 = void 0;
           }
           {
-            render37(vnode, rootContainer, namespace2);
+            render36(vnode, rootContainer, namespace2);
           }
           isMounted2 = true;
           app2._container = rootContainer;
@@ -4042,7 +4039,7 @@ function createAppAPI(render37, hydrate) {
             app2._instance,
             16
           );
-          render37(null, app2._container);
+          render36(null, app2._container);
           delete app2._container.__vue_app__;
         }
       },
@@ -4174,7 +4171,7 @@ function renderComponentRoot(instance) {
     slots,
     attrs,
     emit: emit2,
-    render: render37,
+    render: render36,
     renderCache,
     props,
     data,
@@ -4199,7 +4196,7 @@ function renderComponentRoot(instance) {
         }
       }) : proxyToUse;
       result = normalizeVNode(
-        render37.call(
+        render36.call(
           thisProxy,
           proxyToUse,
           renderCache,
@@ -5966,7 +5963,7 @@ function baseCreateRenderer(options, createHydrationFns) {
     return teleportEnd ? hostNextSibling(teleportEnd) : el;
   };
   let isFlushing = false;
-  const render37 = (vnode, container, namespace2) => {
+  const render36 = (vnode, container, namespace2) => {
     let instance;
     if (vnode == null) {
       if (container._vnode) {
@@ -6006,9 +6003,9 @@ function baseCreateRenderer(options, createHydrationFns) {
   };
   let hydrate;
   return {
-    render: render37,
+    render: render36,
     hydrate,
-    createApp: createAppAPI(render37)
+    createApp: createAppAPI(render36)
   };
 }
 function resolveChildrenNamespace({ type, props }, currentNamespace) {
@@ -8889,6 +8886,15 @@ const settingsApi = {
     });
   }
 };
+const THEME_MODE_KEY = "score-trans-theme-mode";
+function loadThemeMode() {
+  try {
+    const raw = localStorage.getItem(THEME_MODE_KEY);
+    if (raw === "dark" || raw === "light" || raw === "system") return raw;
+  } catch {
+  }
+  return "system";
+}
 const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const audiverisPath = /* @__PURE__ */ ref("");
   const javaHome = /* @__PURE__ */ ref("");
@@ -8901,6 +8907,10 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const cacheSizeAvailable = /* @__PURE__ */ ref(false);
   const storageRestartRequired = /* @__PURE__ */ ref(false);
   const targetKey = /* @__PURE__ */ ref("C");
+  const accidentalMode = /* @__PURE__ */ ref("auto");
+  const showMeasureNumbers = /* @__PURE__ */ ref(true);
+  const measureNumberMode = /* @__PURE__ */ ref("all");
+  const jianpuSyntaxHighlight = /* @__PURE__ */ ref(false);
   const outputDir = /* @__PURE__ */ ref("");
   const ocrProvider = /* @__PURE__ */ ref("siliconflow_deepseek_ocr");
   const ocrProviderOptions = /* @__PURE__ */ ref([]);
@@ -8923,6 +8933,7 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
   const omrPreprocess = /* @__PURE__ */ ref(true);
   const omrPreprocessLongEdge = /* @__PURE__ */ ref(3600);
   const omrPreprocessBinarize = /* @__PURE__ */ ref(false);
+  const themeMode = /* @__PURE__ */ ref(loadThemeMode());
   const loaded = /* @__PURE__ */ ref(false);
   const providerLoadVersion = {
     ocr: 0,
@@ -8939,6 +8950,13 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
       console.error("Failed to load settings:", e);
     }
   }
+  function setThemeMode(mode) {
+    themeMode.value = mode;
+    try {
+      localStorage.setItem(THEME_MODE_KEY, mode);
+    } catch {
+    }
+  }
   async function save() {
     const requestedDataDir = dataDir.value;
     const requestedCacheDir = cacheDir.value;
@@ -8947,6 +8965,10 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
       java_home: javaHome.value,
       output_dir: outputDir.value,
       target_key: targetKey.value,
+      accidental_mode: accidentalMode.value,
+      show_measure_numbers: measureNumberMode.value !== "none",
+      measure_number_mode: measureNumberMode.value,
+      jianpu_syntax_highlight: jianpuSyntaxHighlight.value,
       ocr_provider: ocrProvider.value,
       ocr_api_key: ocrApiKey.value || void 0,
       ai_provider: aiProvider.value,
@@ -8995,6 +9017,10 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     if (!dataDir.value) dataDir.value = activeDataDir.value;
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value;
     targetKey.value = data.target_key ?? "C";
+    accidentalMode.value = data.accidental_mode ?? "auto";
+    measureNumberMode.value = data.measure_number_mode ?? (data.show_measure_numbers === false ? "none" : "all");
+    showMeasureNumbers.value = measureNumberMode.value !== "none";
+    jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false;
     outputDir.value = data.output_dir ?? "";
     ocrProvider.value = data.ocr_provider ?? "siliconflow_deepseek_ocr";
     ocrProviderOptions.value = data.ocr_provider_options ?? [];
@@ -9098,6 +9124,10 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     cacheSizeAvailable,
     storageRestartRequired,
     targetKey,
+    accidentalMode,
+    showMeasureNumbers,
+    measureNumberMode,
+    jianpuSyntaxHighlight,
     outputDir,
     ocrProvider,
     ocrProviderOptions,
@@ -9120,19 +9150,23 @@ const useSettingsStore = /* @__PURE__ */ defineStore("settings", () => {
     omrPreprocess,
     omrPreprocessLongEdge,
     omrPreprocessBinarize,
+    themeMode,
     loaded,
     load,
     save,
     clearCache,
     relaunchApp,
-    loadProviderDetails
+    loadProviderDetails,
+    setThemeMode
   };
 });
 const pipelineApi = {
-  run(file, targetKey = "C", startMeasureNumber, title) {
+  run(file, targetKey = "C", accidentalMode = "auto", startMeasureNumber, measureNumberMode = "all", title) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("target_key", targetKey);
+    formData.append("accidental_mode", accidentalMode);
+    formData.append("measure_number_mode", measureNumberMode);
     if (startMeasureNumber !== void 0) {
       formData.append("start_measure_number", String(startMeasureNumber));
     }
@@ -9509,12 +9543,12 @@ function useFileUpload() {
   }
   return { uploading, progress, phase, error: error2, upload };
 }
-const _hoisted_1$K = {
+const _hoisted_1$J = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$J = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$I = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9528,7 +9562,7 @@ const _hoisted_2$J = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$G = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$E = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9542,19 +9576,19 @@ const _hoisted_3$G = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$y = [_hoisted_2$J, _hoisted_3$G];
+const _hoisted_4$x = [_hoisted_2$I, _hoisted_3$E];
 const AddOutline = /* @__PURE__ */ defineComponent({
   name: "AddOutline",
   render: function render(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$K, _hoisted_4$y);
+    return openBlock(), createElementBlock("svg", _hoisted_1$J, _hoisted_4$x);
   }
 });
-const _hoisted_1$J = {
+const _hoisted_1$I = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$I = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$H = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192s192-86 192-192z",
@@ -9567,7 +9601,7 @@ const _hoisted_2$I = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$F = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$D = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M250.26 166.05L256 288l5.73-121.95a5.74 5.74 0 0 0-5.79-6h0a5.74 5.74 0 0 0-5.68 6z",
@@ -9581,7 +9615,7 @@ const _hoisted_3$F = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$x = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$w = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M256 367.91a20 20 0 1 1 20-20a20 20 0 0 1-20 20z",
@@ -9591,51 +9625,11 @@ const _hoisted_4$x = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$k = [_hoisted_2$I, _hoisted_3$F, _hoisted_4$x];
+const _hoisted_5$k = [_hoisted_2$H, _hoisted_3$D, _hoisted_4$w];
 const AlertCircleOutline = /* @__PURE__ */ defineComponent({
   name: "AlertCircleOutline",
   render: function render2(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$J, _hoisted_5$k);
-  }
-});
-const _hoisted_1$I = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$H = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "48",
-    d: "M268 112l144 144l-144 144"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_3$E = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "48",
-    d: "M392 256H100"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_4$w = [_hoisted_2$H, _hoisted_3$E];
-const ArrowForwardOutline = /* @__PURE__ */ defineComponent({
-  name: "ArrowForwardOutline",
-  render: function render3(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$I, _hoisted_4$w);
+    return openBlock(), createElementBlock("svg", _hoisted_1$I, _hoisted_5$k);
   }
 });
 const _hoisted_1$H = {
@@ -9657,7 +9651,7 @@ const _hoisted_2$G = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$D = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$C = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "96",
@@ -9669,10 +9663,10 @@ const _hoisted_3$D = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$v = [_hoisted_2$G, _hoisted_3$D];
+const _hoisted_4$v = [_hoisted_2$G, _hoisted_3$C];
 const BuildOutline = /* @__PURE__ */ defineComponent({
   name: "BuildOutline",
-  render: function render4(_ctx, _cache) {
+  render: function render3(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$H, _hoisted_4$v);
   }
 });
@@ -9695,7 +9689,7 @@ const _hoisted_2$F = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$C = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$B = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "160",
@@ -9731,10 +9725,10 @@ const _hoisted_5$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$c = [_hoisted_2$F, _hoisted_3$C, _hoisted_4$u, _hoisted_5$j];
+const _hoisted_6$c = [_hoisted_2$F, _hoisted_3$B, _hoisted_4$u, _hoisted_5$j];
 const ChatbubbleEllipsesOutline = /* @__PURE__ */ defineComponent({
   name: "ChatbubbleEllipsesOutline",
-  render: function render5(_ctx, _cache) {
+  render: function render4(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$G, _hoisted_6$c);
   }
 });
@@ -9756,7 +9750,7 @@ const _hoisted_2$E = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$B = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$A = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9770,10 +9764,10 @@ const _hoisted_3$B = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$t = [_hoisted_2$E, _hoisted_3$B];
+const _hoisted_4$t = [_hoisted_2$E, _hoisted_3$A];
 const CheckmarkCircleOutline = /* @__PURE__ */ defineComponent({
   name: "CheckmarkCircleOutline",
-  render: function render6(_ctx, _cache) {
+  render: function render5(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$F, _hoisted_4$t);
   }
 });
@@ -9796,7 +9790,7 @@ const _hoisted_2$D = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$A = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$z = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9824,10 +9818,10 @@ const _hoisted_4$s = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$i = [_hoisted_2$D, _hoisted_3$A, _hoisted_4$s];
+const _hoisted_5$i = [_hoisted_2$D, _hoisted_3$z, _hoisted_4$s];
 const CheckmarkDoneOutline = /* @__PURE__ */ defineComponent({
   name: "CheckmarkDoneOutline",
-  render: function render7(_ctx, _cache) {
+  render: function render6(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$E, _hoisted_5$i);
   }
 });
@@ -9850,11 +9844,11 @@ const _hoisted_2$C = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$z = [_hoisted_2$C];
+const _hoisted_3$y = [_hoisted_2$C];
 const ChevronBackOutline = /* @__PURE__ */ defineComponent({
   name: "ChevronBackOutline",
-  render: function render8(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$D, _hoisted_3$z);
+  render: function render7(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$D, _hoisted_3$y);
   }
 });
 const _hoisted_1$C = {
@@ -9876,11 +9870,11 @@ const _hoisted_2$B = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$y = [_hoisted_2$B];
+const _hoisted_3$x = [_hoisted_2$B];
 const ChevronForwardOutline = /* @__PURE__ */ defineComponent({
   name: "ChevronForwardOutline",
-  render: function render9(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$C, _hoisted_3$y);
+  render: function render8(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$C, _hoisted_3$x);
   }
 });
 const _hoisted_1$B = {
@@ -9901,7 +9895,7 @@ const _hoisted_2$A = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$x = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$w = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9929,10 +9923,10 @@ const _hoisted_4$r = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$h = [_hoisted_2$A, _hoisted_3$x, _hoisted_4$r];
+const _hoisted_5$h = [_hoisted_2$A, _hoisted_3$w, _hoisted_4$r];
 const CloseCircleOutline = /* @__PURE__ */ defineComponent({
   name: "CloseCircleOutline",
-  render: function render10(_ctx, _cache) {
+  render: function render9(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$B, _hoisted_5$h);
   }
 });
@@ -9955,7 +9949,7 @@ const _hoisted_2$z = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$w = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -9969,10 +9963,10 @@ const _hoisted_3$w = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$q = [_hoisted_2$z, _hoisted_3$w];
+const _hoisted_4$q = [_hoisted_2$z, _hoisted_3$v];
 const CloseOutline = /* @__PURE__ */ defineComponent({
   name: "CloseOutline",
-  render: function render11(_ctx, _cache) {
+  render: function render10(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$A, _hoisted_4$q);
   }
 });
@@ -9995,7 +9989,7 @@ const _hoisted_2$y = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$v = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$u = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -10023,10 +10017,10 @@ const _hoisted_4$p = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$g = [_hoisted_2$y, _hoisted_3$v, _hoisted_4$p];
+const _hoisted_5$g = [_hoisted_2$y, _hoisted_3$u, _hoisted_4$p];
 const CloudDownloadOutline = /* @__PURE__ */ defineComponent({
   name: "CloudDownloadOutline",
-  render: function render12(_ctx, _cache) {
+  render: function render11(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$z, _hoisted_5$g);
   }
 });
@@ -10049,7 +10043,7 @@ const _hoisted_2$x = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$u = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$t = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -10077,10 +10071,10 @@ const _hoisted_4$o = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$f = [_hoisted_2$x, _hoisted_3$u, _hoisted_4$o];
+const _hoisted_5$f = [_hoisted_2$x, _hoisted_3$t, _hoisted_4$o];
 const CloudUploadOutline = /* @__PURE__ */ defineComponent({
   name: "CloudUploadOutline",
-  render: function render13(_ctx, _cache) {
+  render: function render12(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$y, _hoisted_5$f);
   }
 });
@@ -10103,7 +10097,7 @@ const _hoisted_2$w = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$t = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$s = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -10117,10 +10111,10 @@ const _hoisted_3$t = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$n = [_hoisted_2$w, _hoisted_3$t];
+const _hoisted_4$n = [_hoisted_2$w, _hoisted_3$s];
 const CodeOutline = /* @__PURE__ */ defineComponent({
   name: "CodeOutline",
-  render: function render14(_ctx, _cache) {
+  render: function render13(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$x, _hoisted_4$n);
   }
 });
@@ -10142,7 +10136,7 @@ const _hoisted_2$v = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$s = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$r = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M256 56v120a32 32 0 0 0 32 32h120",
@@ -10156,10 +10150,10 @@ const _hoisted_3$s = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$m = [_hoisted_2$v, _hoisted_3$s];
+const _hoisted_4$m = [_hoisted_2$v, _hoisted_3$r];
 const DocumentOutline = /* @__PURE__ */ defineComponent({
   name: "DocumentOutline",
-  render: function render15(_ctx, _cache) {
+  render: function render14(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$w, _hoisted_4$m);
   }
 });
@@ -10182,7 +10176,7 @@ const _hoisted_2$u = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$r = /* @__PURE__ */ createBaseVNode(
+const _hoisted_3$q = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "256",
@@ -10197,10 +10191,10 @@ const _hoisted_3$r = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$l = [_hoisted_2$u, _hoisted_3$r];
+const _hoisted_4$l = [_hoisted_2$u, _hoisted_3$q];
 const EyeOutline = /* @__PURE__ */ defineComponent({
   name: "EyeOutline",
-  render: function render16(_ctx, _cache) {
+  render: function render15(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$v, _hoisted_4$l);
   }
 });
@@ -10223,11 +10217,11 @@ const _hoisted_2$t = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$q = [_hoisted_2$t];
+const _hoisted_3$p = [_hoisted_2$t];
 const FlashOutline = /* @__PURE__ */ defineComponent({
   name: "FlashOutline",
-  render: function render17(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_3$q);
+  render: function render16(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$u, _hoisted_3$p);
   }
 });
 const _hoisted_1$t = {
@@ -10236,46 +10230,6 @@ const _hoisted_1$t = {
   viewBox: "0 0 512 512"
 };
 const _hoisted_2$s = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    d: "M64 192v-72a40 40 0 0 1 40-40h75.89a40 40 0 0 1 22.19 6.72l27.84 18.56a40 40 0 0 0 22.19 6.72H408a40 40 0 0 1 40 40v40",
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_3$p = /* @__PURE__ */ createBaseVNode(
-  "path",
-  {
-    d: "M479.9 226.55L463.68 392a40 40 0 0 1-39.93 40H88.25a40 40 0 0 1-39.93-40L32.1 226.55A32 32 0 0 1 64 192h384.1a32 32 0 0 1 31.8 34.55z",
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "32"
-  },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_4$k = [_hoisted_2$s, _hoisted_3$p];
-const FolderOpenOutline = /* @__PURE__ */ defineComponent({
-  name: "FolderOpenOutline",
-  render: function render18(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_4$k);
-  }
-});
-const _hoisted_1$s = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$r = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M440 432H72a40 40 0 0 1-40-40V120a40 40 0 0 1 40-40h75.89a40 40 0 0 1 22.19 6.72l27.84 18.56a40 40 0 0 0 22.19 6.72H440a40 40 0 0 1 40 40v240a40 40 0 0 1-40 40z",
@@ -10303,11 +10257,24 @@ const _hoisted_3$o = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$j = [_hoisted_2$r, _hoisted_3$o];
+const _hoisted_4$k = [_hoisted_2$s, _hoisted_3$o];
 const FolderOutline = /* @__PURE__ */ defineComponent({
   name: "FolderOutline",
-  render: function render19(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_4$j);
+  render: function render17(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$t, _hoisted_4$k);
+  }
+});
+const _hoisted_1$s = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$r = /* @__PURE__ */ createStaticVNode('<rect x="80" y="80" width="352" height="352" rx="48" ry="48" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><rect x="144" y="144" width="224" height="224" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"></rect><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 80V48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M336 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M176 464v-32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M432 176h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 256h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 336h32"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M48 176h32"></path>', 14);
+const _hoisted_16$5 = [_hoisted_2$r];
+const HardwareChipOutline = /* @__PURE__ */ defineComponent({
+  name: "HardwareChipOutline",
+  render: function render18(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$s, _hoisted_16$5);
   }
 });
 const _hoisted_1$r = {
@@ -10342,7 +10309,7 @@ const _hoisted_3$n = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$j = /* @__PURE__ */ createBaseVNode(
   "circle",
   {
     cx: "250",
@@ -10354,10 +10321,10 @@ const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$e = [_hoisted_2$q, _hoisted_3$n, _hoisted_4$i];
+const _hoisted_5$e = [_hoisted_2$q, _hoisted_3$n, _hoisted_4$j];
 const HelpCircleOutline = /* @__PURE__ */ defineComponent({
   name: "HelpCircleOutline",
-  render: function render20(_ctx, _cache) {
+  render: function render19(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$r, _hoisted_5$e);
   }
 });
@@ -10399,7 +10366,7 @@ const _hoisted_3$m = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$h = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$i = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M304 335.79l-90.66-90.49a32 32 0 0 0-43.87-1.3L48 352",
@@ -10427,10 +10394,10 @@ const _hoisted_5$d = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$b = [_hoisted_2$p, _hoisted_3$m, _hoisted_4$h, _hoisted_5$d];
+const _hoisted_6$b = [_hoisted_2$p, _hoisted_3$m, _hoisted_4$i, _hoisted_5$d];
 const ImageOutline = /* @__PURE__ */ defineComponent({
   name: "ImageOutline",
-  render: function render21(_ctx, _cache) {
+  render: function render20(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$q, _hoisted_6$b);
   }
 });
@@ -10466,7 +10433,7 @@ const _hoisted_3$l = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$g = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$h = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -10490,10 +10457,10 @@ const _hoisted_5$c = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$a = [_hoisted_2$o, _hoisted_3$l, _hoisted_4$g, _hoisted_5$c];
+const _hoisted_6$a = [_hoisted_2$o, _hoisted_3$l, _hoisted_4$h, _hoisted_5$c];
 const InformationCircleOutline = /* @__PURE__ */ defineComponent({
   name: "InformationCircleOutline",
-  render: function render22(_ctx, _cache) {
+  render: function render21(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$p, _hoisted_6$a);
   }
 });
@@ -10518,7 +10485,7 @@ const _hoisted_2$n = /* @__PURE__ */ createBaseVNode(
 const _hoisted_3$k = [_hoisted_2$n];
 const KeyOutline = /* @__PURE__ */ defineComponent({
   name: "KeyOutline",
-  render: function render23(_ctx, _cache) {
+  render: function render22(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$o, _hoisted_3$k);
   }
 });
@@ -10531,7 +10498,7 @@ const _hoisted_2$m = /* @__PURE__ */ createStaticVNode('<path d="M368 415.86V72a
 const _hoisted_10$7 = [_hoisted_2$m];
 const NewspaperOutline = /* @__PURE__ */ defineComponent({
   name: "NewspaperOutline",
-  render: function render24(_ctx, _cache) {
+  render: function render23(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$n, _hoisted_10$7);
   }
 });
@@ -10540,20 +10507,7 @@ const _hoisted_1$m = {
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$l = /* @__PURE__ */ createStaticVNode('<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M368 128h80"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M64 128h240"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M368 384h80"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M64 384h240"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M208 256h240"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M64 256h80"></path><circle cx="336" cy="128" r="32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></circle><circle cx="176" cy="256" r="32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></circle><circle cx="336" cy="384" r="32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"></circle>', 9);
-const _hoisted_11$7 = [_hoisted_2$l];
-const OptionsOutline = /* @__PURE__ */ defineComponent({
-  name: "OptionsOutline",
-  render: function render25(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_11$7);
-  }
-});
-const _hoisted_1$l = {
-  xmlns: "http://www.w3.org/2000/svg",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  viewBox: "0 0 512 512"
-};
-const _hoisted_2$k = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$l = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M320 146s24.36-12-64-12a160 160 0 1 0 160 160",
@@ -10581,19 +10535,19 @@ const _hoisted_3$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$f = [_hoisted_2$k, _hoisted_3$j];
+const _hoisted_4$g = [_hoisted_2$l, _hoisted_3$j];
 const RefreshOutline = /* @__PURE__ */ defineComponent({
   name: "RefreshOutline",
-  render: function render26(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_4$f);
+  render: function render24(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$m, _hoisted_4$g);
   }
 });
-const _hoisted_1$k = {
+const _hoisted_1$l = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$k = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M380.93 57.37A32 32 0 0 0 358.3 48H94.22A46.21 46.21 0 0 0 48 94.22v323.56A46.21 46.21 0 0 0 94.22 464h323.56A46.36 46.36 0 0 0 464 417.78V153.7a32 32 0 0 0-9.37-22.63zM256 416a64 64 0 1 1 64-64a63.92 63.92 0 0 1-64 64zm48-224H112a16 16 0 0 1-16-16v-64a16 16 0 0 1 16-16h192a16 16 0 0 1 16 16v64a16 16 0 0 1-16 16z",
@@ -10607,19 +10561,19 @@ const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$i = [_hoisted_2$j];
+const _hoisted_3$i = [_hoisted_2$k];
 const SaveOutline = /* @__PURE__ */ defineComponent({
   name: "SaveOutline",
-  render: function render27(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_3$i);
+  render: function render25(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$l, _hoisted_3$i);
   }
 });
-const _hoisted_1$j = {
+const _hoisted_1$k = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$i = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$j = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M336 448h56a56 56 0 0 0 56-56v-56",
@@ -10647,7 +10601,7 @@ const _hoisted_3$h = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$f = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M176 448h-56a56 56 0 0 1-56-56v-56",
@@ -10675,19 +10629,19 @@ const _hoisted_5$b = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$9 = [_hoisted_2$i, _hoisted_3$h, _hoisted_4$e, _hoisted_5$b];
+const _hoisted_6$9 = [_hoisted_2$j, _hoisted_3$h, _hoisted_4$f, _hoisted_5$b];
 const ScanOutline = /* @__PURE__ */ defineComponent({
   name: "ScanOutline",
-  render: function render28(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_6$9);
+  render: function render26(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$k, _hoisted_6$9);
   }
 });
-const _hoisted_1$i = {
+const _hoisted_1$j = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$i = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M470.3 271.15L43.16 447.31a7.83 7.83 0 0 1-11.16-7V327a8 8 0 0 1 6.51-7.86l247.62-47c17.36-3.29 17.36-28.15 0-31.44l-247.63-47a8 8 0 0 1-6.5-7.85V72.59c0-5.74 5.88-10.26 11.16-8L470.3 241.76a16 16 0 0 1 0 29.39z",
@@ -10701,19 +10655,19 @@ const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$g = [_hoisted_2$h];
+const _hoisted_3$g = [_hoisted_2$i];
 const SendOutline = /* @__PURE__ */ defineComponent({
   name: "SendOutline",
-  render: function render29(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$i, _hoisted_3$g);
+  render: function render27(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$j, _hoisted_3$g);
   }
 });
-const _hoisted_1$h = {
+const _hoisted_1$i = {
   xmlns: "http://www.w3.org/2000/svg",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   viewBox: "0 0 512 512"
 };
-const _hoisted_2$g = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2$h = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M262.29 192.31a64 64 0 1 0 57.4 57.4a64.13 64.13 0 0 0-57.4-57.4zM416.39 256a154.34 154.34 0 0 1-1.53 20.79l45.21 35.46a10.81 10.81 0 0 1 2.45 13.75l-42.77 74a10.81 10.81 0 0 1-13.14 4.59l-44.9-18.08a16.11 16.11 0 0 0-15.17 1.75A164.48 164.48 0 0 1 325 400.8a15.94 15.94 0 0 0-8.82 12.14l-6.73 47.89a11.08 11.08 0 0 1-10.68 9.17h-85.54a11.11 11.11 0 0 1-10.69-8.87l-6.72-47.82a16.07 16.07 0 0 0-9-12.22a155.3 155.3 0 0 1-21.46-12.57a16 16 0 0 0-15.11-1.71l-44.89 18.07a10.81 10.81 0 0 1-13.14-4.58l-42.77-74a10.8 10.8 0 0 1 2.45-13.75l38.21-30a16.05 16.05 0 0 0 6-14.08c-.36-4.17-.58-8.33-.58-12.5s.21-8.27.58-12.35a16 16 0 0 0-6.07-13.94l-38.19-30A10.81 10.81 0 0 1 49.48 186l42.77-74a10.81 10.81 0 0 1 13.14-4.59l44.9 18.08a16.11 16.11 0 0 0 15.17-1.75A164.48 164.48 0 0 1 187 111.2a15.94 15.94 0 0 0 8.82-12.14l6.73-47.89A11.08 11.08 0 0 1 213.23 42h85.54a11.11 11.11 0 0 1 10.69 8.87l6.72 47.82a16.07 16.07 0 0 0 9 12.22a155.3 155.3 0 0 1 21.46 12.57a16 16 0 0 0 15.11 1.71l44.89-18.07a10.81 10.81 0 0 1 13.14 4.58l42.77 74a10.8 10.8 0 0 1-2.45 13.75l-38.21 30a16.05 16.05 0 0 0-6.05 14.08c.33 4.14.55 8.3.55 12.47z",
@@ -10727,11 +10681,24 @@ const _hoisted_2$g = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_3$f = [_hoisted_2$g];
+const _hoisted_3$f = [_hoisted_2$h];
 const SettingsOutline = /* @__PURE__ */ defineComponent({
   name: "SettingsOutline",
-  render: function render30(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$h, _hoisted_3$f);
+  render: function render28(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$i, _hoisted_3$f);
+  }
+});
+const _hoisted_1$h = {
+  xmlns: "http://www.w3.org/2000/svg",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  viewBox: "0 0 512 512"
+};
+const _hoisted_2$g = /* @__PURE__ */ createStaticVNode('<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M256 48v48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M256 416v48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M403.08 108.92l-33.94 33.94"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M142.86 369.14l-33.94 33.94"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M464 256h-48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M96 256H48"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M403.08 403.08l-33.94-33.94"></path><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M142.86 142.86l-33.94-33.94"></path><circle cx="256" cy="256" r="80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32"></circle>', 9);
+const _hoisted_11$7 = [_hoisted_2$g];
+const SunnyOutline = /* @__PURE__ */ defineComponent({
+  name: "SunnyOutline",
+  render: function render29(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$h, _hoisted_11$7);
   }
 });
 const _hoisted_1$g = {
@@ -10767,7 +10734,7 @@ const _hoisted_3$e = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$e = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -10795,10 +10762,10 @@ const _hoisted_5$a = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_6$8 = [_hoisted_2$f, _hoisted_3$e, _hoisted_4$d, _hoisted_5$a];
+const _hoisted_6$8 = [_hoisted_2$f, _hoisted_3$e, _hoisted_4$e, _hoisted_5$a];
 const SwapHorizontalOutline = /* @__PURE__ */ defineComponent({
   name: "SwapHorizontalOutline",
-  render: function render31(_ctx, _cache) {
+  render: function render30(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$g, _hoisted_6$8);
   }
 });
@@ -10835,7 +10802,7 @@ const _hoisted_3$d = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$d = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     fill: "none",
@@ -10849,10 +10816,10 @@ const _hoisted_4$c = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$9 = [_hoisted_2$e, _hoisted_3$d, _hoisted_4$c];
+const _hoisted_5$9 = [_hoisted_2$e, _hoisted_3$d, _hoisted_4$d];
 const SyncOutline = /* @__PURE__ */ defineComponent({
   name: "SyncOutline",
-  render: function render32(_ctx, _cache) {
+  render: function render31(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$f, _hoisted_5$9);
   }
 });
@@ -10888,11 +10855,11 @@ const _hoisted_3$c = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$b = [_hoisted_2$d, _hoisted_3$c];
+const _hoisted_4$c = [_hoisted_2$d, _hoisted_3$c];
 const TimeOutline = /* @__PURE__ */ defineComponent({
   name: "TimeOutline",
-  render: function render33(_ctx, _cache) {
-    return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_4$b);
+  render: function render32(_ctx, _cache) {
+    return openBlock(), createElementBlock("svg", _hoisted_1$e, _hoisted_4$c);
   }
 });
 const _hoisted_1$d = {
@@ -10904,7 +10871,7 @@ const _hoisted_2$c = /* @__PURE__ */ createStaticVNode('<path d="M112 112l20 320
 const _hoisted_8$7 = [_hoisted_2$c];
 const TrashOutline = /* @__PURE__ */ defineComponent({
   name: "TrashOutline",
-  render: function render34(_ctx, _cache) {
+  render: function render33(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$d, _hoisted_8$7);
   }
 });
@@ -10941,7 +10908,7 @@ const _hoisted_3$b = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_4$a = /* @__PURE__ */ createBaseVNode(
+const _hoisted_4$b = /* @__PURE__ */ createBaseVNode(
   "path",
   {
     d: "M256 397.25a20 20 0 1 1 20-20a20 20 0 0 1-20 20z",
@@ -10951,10 +10918,10 @@ const _hoisted_4$a = /* @__PURE__ */ createBaseVNode(
   -1
   /* HOISTED */
 );
-const _hoisted_5$8 = [_hoisted_2$b, _hoisted_3$b, _hoisted_4$a];
+const _hoisted_5$8 = [_hoisted_2$b, _hoisted_3$b, _hoisted_4$b];
 const WarningOutline = /* @__PURE__ */ defineComponent({
   name: "WarningOutline",
-  render: function render35(_ctx, _cache) {
+  render: function render34(_ctx, _cache) {
     return openBlock(), createElementBlock("svg", _hoisted_1$c, _hoisted_5$8);
   }
 });
@@ -15446,7 +15413,7 @@ function omit(object, keys2 = [], rest) {
   });
   return Object.assign(omitedObject, rest);
 }
-function render36(r, ...args) {
+function render35(r, ...args) {
   if (typeof r === "function") {
     return r(...args);
   } else if (typeof r === "string") {
@@ -21097,7 +21064,7 @@ const NSelectGroupHeader = /* @__PURE__ */ defineComponent({
       }
     } = this;
     const attrs = nodeProps === null || nodeProps === void 0 ? void 0 : nodeProps(rawNode);
-    const children = renderLabel ? renderLabel(rawNode, false) : render36(rawNode[this.labelField], rawNode, false);
+    const children = renderLabel ? renderLabel(rawNode, false) : render35(rawNode[this.labelField], rawNode, false);
     const node = h("div", Object.assign({}, attrs, {
       class: [`${clsPrefix}-base-select-group-header`, attrs === null || attrs === void 0 ? void 0 : attrs.class]
     }), children);
@@ -21239,7 +21206,7 @@ const NSelectOption = /* @__PURE__ */ defineComponent({
       handleMouseMove
     } = this;
     const checkmark = renderCheckMark(isSelected, clsPrefix);
-    const children = renderLabel ? [renderLabel(rawNode, isSelected), showCheckmark && checkmark] : [render36(rawNode[this.labelField], rawNode, isSelected), showCheckmark && checkmark];
+    const children = renderLabel ? [renderLabel(rawNode, isSelected), showCheckmark && checkmark] : [render35(rawNode[this.labelField], rawNode, isSelected), showCheckmark && checkmark];
     const attrs = nodeProps === null || nodeProps === void 0 ? void 0 : nodeProps(rawNode);
     const node = h("div", Object.assign({}, attrs, {
       class: [`${clsPrefix}-base-select-option`, rawNode.class, attrs === null || attrs === void 0 ? void 0 : attrs.class, {
@@ -24187,7 +24154,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
         option: props.selectedOption,
         handleClose: () => {
         }
-      }) : props.renderLabel ? props.renderLabel(props.selectedOption, true) : render36(props.selectedOption[props.labelField], props.selectedOption, true) : props.placeholder;
+      }) : props.renderLabel ? props.renderLabel(props.selectedOption, true) : render35(props.selectedOption[props.labelField], props.selectedOption, true) : props.placeholder;
     });
     const labelRef = computed(() => {
       const option = props.selectedOption;
@@ -24688,7 +24655,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
         internalCloseIsButtonTag: false,
         internalCloseFocusable: false
       }, {
-        default: () => renderLabel ? renderLabel(option, true) : render36(option[labelField], option, true)
+        default: () => renderLabel ? renderLabel(option, true) : render35(option[labelField], option, true)
       }));
       const createOriginalTagNodes = () => (maxTagCountNumeric ? this.selectedOptions.slice(0, maxTagCount) : this.selectedOptions).map(createTag);
       const input = filterable ? h("div", {
@@ -24832,7 +24799,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
           option: this.selectedOption,
           handleClose: () => {
           }
-        }) : renderLabel ? renderLabel(this.selectedOption, true) : render36(this.label, this.selectedOption, true))) : null, showPlaceholder ? h("div", {
+        }) : renderLabel ? renderLabel(this.selectedOption, true) : render35(this.label, this.selectedOption, true))) : null, showPlaceholder ? h("div", {
           class: `${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`,
           key: "placeholder"
         }, h("div", {
@@ -24853,7 +24820,7 @@ const NInternalSelection = /* @__PURE__ */ defineComponent({
           option: this.selectedOption,
           handleClose: () => {
           }
-        }) : renderLabel ? renderLabel(this.selectedOption, true) : render36(this.label, this.selectedOption, true))) : h("div", {
+        }) : renderLabel ? renderLabel(this.selectedOption, true) : render35(this.label, this.selectedOption, true))) : h("div", {
           class: `${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`,
           key: "placeholder"
         }, h("div", {
@@ -32329,19 +32296,19 @@ const NDialog = /* @__PURE__ */ defineComponent({
       clsPrefix: mergedClsPrefix,
       class: `${mergedClsPrefix}-dialog__icon`
     }, {
-      default: () => resolveWrappedSlot(this.$slots.icon, (children) => children || (this.icon ? render36(this.icon) : iconRenderMap$1[this.type]()))
+      default: () => resolveWrappedSlot(this.$slots.icon, (children) => children || (this.icon ? render35(this.icon) : iconRenderMap$1[this.type]()))
     }) : null;
     const actionNode = resolveWrappedSlot(this.$slots.action, (children) => children || positiveText || negativeText || action ? h("div", {
       class: [`${mergedClsPrefix}-dialog__action`, this.actionClass],
       style: this.actionStyle
-    }, children || (action ? [render36(action)] : [this.negativeText && h(Button, Object.assign({
+    }, children || (action ? [render35(action)] : [this.negativeText && h(Button, Object.assign({
       theme: mergedTheme.peers.Button,
       themeOverrides: mergedTheme.peerOverrides.Button,
       ghost: true,
       size: "small",
       onClick: handleNegativeClick
     }, negativeButtonProps), {
-      default: () => render36(this.negativeText)
+      default: () => render35(this.negativeText)
     }), this.positiveText && h(Button, Object.assign({
       theme: mergedTheme.peers.Button,
       themeOverrides: mergedTheme.peerOverrides.Button,
@@ -32351,7 +32318,7 @@ const NDialog = /* @__PURE__ */ defineComponent({
       loading,
       onClick: handlePositiveClick
     }, positiveButtonProps), {
-      default: () => render36(this.positiveText)
+      default: () => render35(this.positiveText)
     })])) : null);
     return h("div", {
       class: [`${mergedClsPrefix}-dialog`, this.themeClass, this.closable && `${mergedClsPrefix}-dialog--closable`, `${mergedClsPrefix}-dialog--icon-${mergedIconPlacement}`, bordered && `${mergedClsPrefix}-dialog--bordered`, this.rtlEnabled && `${mergedClsPrefix}-dialog--rtl`],
@@ -32372,10 +32339,10 @@ const NDialog = /* @__PURE__ */ defineComponent({
     }, icon) : null, h("div", {
       class: [`${mergedClsPrefix}-dialog__title`, this.titleClass],
       style: this.titleStyle
-    }, showIcon && mergedIconPlacement === "left" ? icon : null, resolveSlot(this.$slots.header, () => [render36(title)])), h("div", {
+    }, showIcon && mergedIconPlacement === "left" ? icon : null, resolveSlot(this.$slots.header, () => [render35(title)])), h("div", {
       class: [`${mergedClsPrefix}-dialog__content`, actionNode ? "" : `${mergedClsPrefix}-dialog__content--last`, this.contentClass],
       style: this.contentStyle
-    }, resolveSlot(this.$slots.default, () => [render36(content)])), actionNode);
+    }, resolveSlot(this.$slots.default, () => [render35(content)])), actionNode);
   }
 });
 function self$v(vars) {
@@ -33550,7 +33517,7 @@ const NMessage = /* @__PURE__ */ defineComponent({
       default: () => iconNode
     })) : null, h("div", {
       class: `${mergedClsPrefix}-message__content`
-    }, render36(content)), closable ? h(NBaseClose, {
+    }, render35(content)), closable ? h(NBaseClose, {
       clsPrefix: mergedClsPrefix,
       class: `${mergedClsPrefix}-message__close`,
       onClick: handleClose,
@@ -41883,7 +41850,7 @@ const darkTheme = {
 const _hoisted_1$b = { class: "upload-container" };
 const _hoisted_2$a = { class: "upload-inner" };
 const _hoisted_3$a = { class: "upload-text" };
-const _hoisted_4$9 = { class: "upload-title" };
+const _hoisted_4$a = { class: "upload-title" };
 const _sfc_main$c = /* @__PURE__ */ defineComponent({
   __name: "FileUploader",
   props: {
@@ -41937,7 +41904,7 @@ const _sfc_main$c = /* @__PURE__ */ defineComponent({
                     _: 1
                   }),
                   createBaseVNode("div", _hoisted_3$a, [
-                    createBaseVNode("span", _hoisted_4$9, toDisplayString(uploadStatusText.value), 1),
+                    createBaseVNode("span", _hoisted_4$a, toDisplayString(uploadStatusText.value), 1),
                     _cache[0] || (_cache[0] = createBaseVNode("span", { class: "upload-hint" }, "支持多选 · PDF / PNG / JPG / TIF / MusicXML", -1))
                   ])
                 ])
@@ -42081,7 +42048,7 @@ const MeasureNumberPicker = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["__scopeI
 const _hoisted_1$9 = { class: "recognize-view" };
 const _hoisted_2$9 = { class: "dashboard-grid" };
 const _hoisted_3$9 = { class: "dashboard-card card-recognition" };
-const _hoisted_4$8 = { class: "card-header" };
+const _hoisted_4$9 = { class: "card-header" };
 const _hoisted_5$7 = { class: "card-title" };
 const _hoisted_6$7 = { class: "card-header-right" };
 const _hoisted_7$7 = {
@@ -42096,64 +42063,65 @@ const _hoisted_10$6 = {
 };
 const _hoisted_11$6 = { class: "card-footer" };
 const _hoisted_12$6 = { class: "ai-switch" };
-const _hoisted_13$5 = {
+const _hoisted_13$5 = { class: "preprocess-inline" };
+const _hoisted_14$5 = {
   key: 0,
   class: "selection-count"
 };
-const _hoisted_14$5 = { class: "dashboard-card card-stats" };
-const _hoisted_15$5 = { class: "stats-body" };
-const _hoisted_16$4 = { class: "stats-ring-wrap" };
-const _hoisted_17$3 = { class: "stats-ring" };
-const _hoisted_18$3 = { viewBox: "0 0 36 36" };
-const _hoisted_19$3 = ["stroke-dasharray"];
-const _hoisted_20$2 = ["stroke-dasharray", "stroke-dashoffset"];
+const _hoisted_15$5 = { class: "dashboard-card card-stats" };
+const _hoisted_16$4 = { class: "stats-body" };
+const _hoisted_17$3 = { class: "stats-ring-wrap" };
+const _hoisted_18$3 = { class: "stats-ring" };
+const _hoisted_19$3 = { viewBox: "0 0 36 36" };
+const _hoisted_20$2 = ["stroke-dasharray"];
 const _hoisted_21$2 = ["stroke-dasharray", "stroke-dashoffset"];
-const _hoisted_22$2 = { class: "ring-center" };
-const _hoisted_23$2 = { class: "ring-total" };
-const _hoisted_24$2 = { class: "stats-legend" };
-const _hoisted_25$2 = { class: "legend-item" };
-const _hoisted_26$2 = { class: "legend-value" };
-const _hoisted_27$2 = { class: "legend-item" };
-const _hoisted_28$2 = { class: "legend-value" };
-const _hoisted_29$2 = { class: "legend-item" };
-const _hoisted_30$2 = { class: "legend-value" };
-const _hoisted_31$2 = { class: "legend-item" };
-const _hoisted_32$2 = { class: "legend-value" };
-const _hoisted_33$1 = { class: "stats-mini-cards" };
-const _hoisted_34$1 = { class: "mini-card" };
-const _hoisted_35$1 = { class: "mini-card-value" };
-const _hoisted_36 = { class: "mini-card" };
-const _hoisted_37 = { class: "mini-card-value" };
-const _hoisted_38 = { class: "dashboard-card card-uploads" };
-const _hoisted_39 = {
+const _hoisted_22$2 = ["stroke-dasharray", "stroke-dashoffset"];
+const _hoisted_23$2 = { class: "ring-center" };
+const _hoisted_24$2 = { class: "ring-total" };
+const _hoisted_25$2 = { class: "stats-legend" };
+const _hoisted_26$2 = { class: "legend-item" };
+const _hoisted_27$2 = { class: "legend-value" };
+const _hoisted_28$2 = { class: "legend-item" };
+const _hoisted_29$2 = { class: "legend-value" };
+const _hoisted_30$2 = { class: "legend-item" };
+const _hoisted_31$2 = { class: "legend-value" };
+const _hoisted_32$2 = { class: "legend-item" };
+const _hoisted_33$1 = { class: "legend-value" };
+const _hoisted_34$1 = { class: "stats-mini-cards" };
+const _hoisted_35$1 = { class: "mini-card" };
+const _hoisted_36$1 = { class: "mini-card-value" };
+const _hoisted_37$1 = { class: "mini-card" };
+const _hoisted_38$1 = { class: "mini-card-value" };
+const _hoisted_39$1 = { class: "dashboard-card card-uploads" };
+const _hoisted_40 = {
   key: 0,
   class: "uploads-list"
 };
-const _hoisted_40 = ["onClick"];
 const _hoisted_41 = ["onClick"];
-const _hoisted_42 = ["disabled", "onClick"];
-const _hoisted_43 = ["onClick"];
-const _hoisted_44 = { class: "upload-thumb" };
-const _hoisted_45 = ["src", "alt"];
-const _hoisted_46 = { class: "upload-info" };
-const _hoisted_47 = { class: "upload-name" };
-const _hoisted_48 = {
+const _hoisted_42 = ["onClick"];
+const _hoisted_43 = ["disabled", "onClick"];
+const _hoisted_44 = ["onClick"];
+const _hoisted_45 = { class: "upload-thumb" };
+const _hoisted_46 = ["src", "alt"];
+const _hoisted_47 = { class: "upload-info" };
+const _hoisted_48 = { class: "upload-name" };
+const _hoisted_49 = {
   key: 4,
   class: "upload-mini-progress"
 };
-const _hoisted_49 = {
+const _hoisted_50 = {
   key: 1,
   class: "uploads-empty"
 };
-const _hoisted_50 = { class: "dashboard-card card-activity" };
-const _hoisted_51 = {
+const _hoisted_51 = { class: "dashboard-card card-activity" };
+const _hoisted_52 = {
   key: 0,
   class: "activity-list"
 };
-const _hoisted_52 = { class: "activity-content" };
-const _hoisted_53 = { class: "activity-name" };
-const _hoisted_54 = { class: "activity-time" };
-const _hoisted_55 = {
+const _hoisted_53 = { class: "activity-content" };
+const _hoisted_54 = { class: "activity-name" };
+const _hoisted_55 = { class: "activity-time" };
+const _hoisted_56 = {
   key: 1,
   class: "activity-empty"
 };
@@ -42505,6 +42473,8 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
           submitted = await pipelineApi.runByFileId({
             file_id: target.inputFileId,
             target_key: settings.targetKey,
+            accidental_mode: settings.accidentalMode,
+            measure_number_mode: settings.measureNumberMode,
             start_measure_number: target.startMeasureNumber ?? null
           });
         } else {
@@ -42585,6 +42555,8 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
             musicxml_file_id: page.musicxmlFileId,
             page_image_file_id: page.originalFileId || page.inputFileId || void 0,
             target_key: settings.targetKey,
+            accidental_mode: settings.accidentalMode,
+            measure_number_mode: settings.measureNumberMode,
             start_measure_number: selected
           });
           svgFileId = rendered.svg_file_id;
@@ -42593,6 +42565,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
             jianpu_text: page.jianpuText,
             page_image_file_id: page.originalFileId || page.inputFileId || void 0,
             include_ocr_text: false,
+            measure_number_mode: settings.measureNumberMode,
             title: page.inputFileName || "AI 简谱",
             start_measure_number: selected
           });
@@ -42661,6 +42634,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         const submitted = await aiApi.transcribe({
           file_id: target.inputFileId,
           target_key: settings.targetKey,
+          accidental_mode: settings.accidentalMode,
           normalize: true
         });
         patchRecognitionPage(target.pageId, { taskId: submitted.task_id });
@@ -42977,10 +42951,11 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     }
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$9, [
-        _cache[26] || (_cache[26] = createBaseVNode("div", { class: "rv-header" }, [
+        _cache[31] || (_cache[31] = createBaseVNode("div", { class: "rv-header" }, [
           createBaseVNode("div", { class: "rv-title" }, [
             createBaseVNode("h2", null, "智能识别")
-          ])
+          ]),
+          createBaseVNode("span", { class: "rv-header-text" }, "欢迎加入吉林大学民乐团")
         ], -1)),
         createVNode(MeasureNumberPicker, {
           show: pickerShow.value,
@@ -42991,7 +42966,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
         }, null, 8, ["show", "options"]),
         createBaseVNode("div", _hoisted_2$9, [
           createBaseVNode("div", _hoisted_3$9, [
-            createBaseVNode("div", _hoisted_4$8, [
+            createBaseVNode("div", _hoisted_4$9, [
               createBaseVNode("div", _hoisted_5$7, [
                 createVNode(unref(NIcon), { size: "18" }, {
                   default: withCtx(() => [
@@ -42999,7 +42974,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                   ]),
                   _: 1
                 }),
-                _cache[5] || (_cache[5] = createBaseVNode("span", null, "智能识别", -1))
+                _cache[8] || (_cache[8] = createBaseVNode("span", null, "智能识别", -1))
               ]),
               createBaseVNode("div", _hoisted_6$7, [
                 unref(store).batches.length > 1 ? (openBlock(), createBlock(unref(NSelect), {
@@ -43101,28 +43076,52 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                   })
                 ]),
                 default: withCtx(() => [
-                  _cache[6] || (_cache[6] = createTextVNode(" 批量识别全部 ", -1))
+                  _cache[9] || (_cache[9] = createTextVNode(" 批量识别全部 ", -1))
                 ]),
                 _: 1
               }, 8, ["loading", "disabled"]),
               createBaseVNode("div", _hoisted_12$6, [
-                _cache[7] || (_cache[7] = createBaseVNode("span", null, "AI 视觉检测", -1)),
+                _cache[10] || (_cache[10] = createBaseVNode("span", null, "AI 视觉检测", -1)),
                 createVNode(unref(NSwitch), {
                   value: aiVisionEnabled.value,
                   "onUpdate:value": _cache[4] || (_cache[4] = ($event) => aiVisionEnabled.value = $event),
                   size: "small"
                 }, null, 8, ["value"])
               ]),
-              selectedPageCount.value ? (openBlock(), createElementBlock("span", _hoisted_13$5, "已选 " + toDisplayString(selectedPageCount.value), 1)) : createCommentVNode("", true)
+              createBaseVNode("div", _hoisted_13$5, [
+                createVNode(unref(NSwitch), {
+                  value: unref(settings).omrPreprocess,
+                  "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).omrPreprocess = $event),
+                  size: "small"
+                }, null, 8, ["value"]),
+                _cache[11] || (_cache[11] = createBaseVNode("span", { class: "preprocess-label" }, "预处理", -1)),
+                createVNode(unref(NInputNumber), {
+                  value: unref(settings).omrPreprocessLongEdge,
+                  "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).omrPreprocessLongEdge = $event),
+                  min: 0,
+                  step: 200,
+                  size: "small",
+                  style: { "width": "80px" },
+                  disabled: !unref(settings).omrPreprocess
+                }, null, 8, ["value", "disabled"]),
+                createVNode(unref(NSwitch), {
+                  value: unref(settings).omrPreprocessBinarize,
+                  "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).omrPreprocessBinarize = $event),
+                  size: "small",
+                  disabled: !unref(settings).omrPreprocess
+                }, null, 8, ["value", "disabled"]),
+                _cache[12] || (_cache[12] = createBaseVNode("span", { class: "preprocess-label" }, "黑白化", -1))
+              ]),
+              selectedPageCount.value ? (openBlock(), createElementBlock("span", _hoisted_14$5, "已选 " + toDisplayString(selectedPageCount.value), 1)) : createCommentVNode("", true)
             ])
           ]),
-          createBaseVNode("div", _hoisted_14$5, [
-            _cache[20] || (_cache[20] = createBaseVNode("div", { class: "card-title" }, "项目统计", -1)),
-            createBaseVNode("div", _hoisted_15$5, [
-              createBaseVNode("div", _hoisted_16$4, [
-                createBaseVNode("div", _hoisted_17$3, [
-                  (openBlock(), createElementBlock("svg", _hoisted_18$3, [
-                    _cache[8] || (_cache[8] = createBaseVNode("path", {
+          createBaseVNode("div", _hoisted_15$5, [
+            _cache[25] || (_cache[25] = createBaseVNode("div", { class: "card-title" }, "项目统计", -1)),
+            createBaseVNode("div", _hoisted_16$4, [
+              createBaseVNode("div", _hoisted_17$3, [
+                createBaseVNode("div", _hoisted_18$3, [
+                  (openBlock(), createElementBlock("svg", _hoisted_19$3, [
+                    _cache[13] || (_cache[13] = createBaseVNode("path", {
                       class: "ring-bg",
                       d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     }, null, -1)),
@@ -43131,65 +43130,65 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       class: "ring-segment ring-completed",
                       "stroke-dasharray": `${statsCompleted.value / statsTotal.value * 100} ${100 - statsCompleted.value / statsTotal.value * 100}`,
                       d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    }, null, 8, _hoisted_19$3)) : createCommentVNode("", true),
-                    statsTotal.value > 0 ? (openBlock(), createElementBlock("path", {
+                    }, null, 8, _hoisted_20$2)) : createCommentVNode("", true),
+                    statsTotal.value > 0 && statsProcessing.value > 0 ? (openBlock(), createElementBlock("path", {
                       key: 1,
                       class: "ring-segment ring-processing",
                       "stroke-dasharray": `${statsProcessing.value / statsTotal.value * 100} ${100 - statsProcessing.value / statsTotal.value * 100}`,
                       "stroke-dashoffset": `${-(statsCompleted.value / statsTotal.value) * 100}`,
                       d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    }, null, 8, _hoisted_20$2)) : createCommentVNode("", true),
+                    }, null, 8, _hoisted_21$2)) : createCommentVNode("", true),
                     statsTotal.value > 0 ? (openBlock(), createElementBlock("path", {
                       key: 2,
                       class: "ring-segment ring-failed",
                       "stroke-dasharray": `${statsFailed.value / statsTotal.value * 100} ${100 - statsFailed.value / statsTotal.value * 100}`,
                       "stroke-dashoffset": `${-((statsCompleted.value + statsProcessing.value) / statsTotal.value) * 100}`,
                       d: "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    }, null, 8, _hoisted_21$2)) : createCommentVNode("", true)
+                    }, null, 8, _hoisted_22$2)) : createCommentVNode("", true)
                   ])),
-                  createBaseVNode("div", _hoisted_22$2, [
-                    createBaseVNode("span", _hoisted_23$2, toDisplayString(statsTotal.value), 1),
-                    _cache[9] || (_cache[9] = createBaseVNode("span", { class: "ring-label" }, "总计", -1))
+                  createBaseVNode("div", _hoisted_23$2, [
+                    createBaseVNode("span", _hoisted_24$2, toDisplayString(statsTotal.value), 1),
+                    _cache[14] || (_cache[14] = createBaseVNode("span", { class: "ring-label" }, "总计", -1))
                   ])
                 ]),
-                createBaseVNode("div", _hoisted_24$2, [
-                  createBaseVNode("div", _hoisted_25$2, [
-                    _cache[10] || (_cache[10] = createBaseVNode("span", { class: "legend-dot dot-completed" }, null, -1)),
-                    _cache[11] || (_cache[11] = createBaseVNode("span", { class: "legend-text" }, "完成", -1)),
-                    createBaseVNode("span", _hoisted_26$2, toDisplayString(statsCompleted.value), 1)
+                createBaseVNode("div", _hoisted_25$2, [
+                  createBaseVNode("div", _hoisted_26$2, [
+                    _cache[15] || (_cache[15] = createBaseVNode("span", { class: "legend-dot dot-completed" }, null, -1)),
+                    _cache[16] || (_cache[16] = createBaseVNode("span", { class: "legend-text" }, "完成", -1)),
+                    createBaseVNode("span", _hoisted_27$2, toDisplayString(statsCompleted.value), 1)
                   ]),
-                  createBaseVNode("div", _hoisted_27$2, [
-                    _cache[12] || (_cache[12] = createBaseVNode("span", { class: "legend-dot dot-processing" }, null, -1)),
-                    _cache[13] || (_cache[13] = createBaseVNode("span", { class: "legend-text" }, "处理中", -1)),
-                    createBaseVNode("span", _hoisted_28$2, toDisplayString(statsProcessing.value), 1)
+                  createBaseVNode("div", _hoisted_28$2, [
+                    _cache[17] || (_cache[17] = createBaseVNode("span", { class: "legend-dot dot-processing" }, null, -1)),
+                    _cache[18] || (_cache[18] = createBaseVNode("span", { class: "legend-text" }, "处理中", -1)),
+                    createBaseVNode("span", _hoisted_29$2, toDisplayString(statsProcessing.value), 1)
                   ]),
-                  createBaseVNode("div", _hoisted_29$2, [
-                    _cache[14] || (_cache[14] = createBaseVNode("span", { class: "legend-dot dot-failed" }, null, -1)),
-                    _cache[15] || (_cache[15] = createBaseVNode("span", { class: "legend-text" }, "失败", -1)),
-                    createBaseVNode("span", _hoisted_30$2, toDisplayString(statsFailed.value), 1)
+                  createBaseVNode("div", _hoisted_30$2, [
+                    _cache[19] || (_cache[19] = createBaseVNode("span", { class: "legend-dot dot-failed" }, null, -1)),
+                    _cache[20] || (_cache[20] = createBaseVNode("span", { class: "legend-text" }, "失败", -1)),
+                    createBaseVNode("span", _hoisted_31$2, toDisplayString(statsFailed.value), 1)
                   ]),
-                  createBaseVNode("div", _hoisted_31$2, [
-                    _cache[16] || (_cache[16] = createBaseVNode("span", { class: "legend-dot dot-waiting" }, null, -1)),
-                    _cache[17] || (_cache[17] = createBaseVNode("span", { class: "legend-text" }, "等待", -1)),
-                    createBaseVNode("span", _hoisted_32$2, toDisplayString(statsWaiting.value), 1)
+                  createBaseVNode("div", _hoisted_32$2, [
+                    _cache[21] || (_cache[21] = createBaseVNode("span", { class: "legend-dot dot-waiting" }, null, -1)),
+                    _cache[22] || (_cache[22] = createBaseVNode("span", { class: "legend-text" }, "等待", -1)),
+                    createBaseVNode("span", _hoisted_33$1, toDisplayString(statsWaiting.value), 1)
                   ])
                 ])
               ]),
-              createBaseVNode("div", _hoisted_33$1, [
-                createBaseVNode("div", _hoisted_34$1, [
-                  createBaseVNode("span", _hoisted_35$1, toDisplayString(statsCompleted.value), 1),
-                  _cache[18] || (_cache[18] = createBaseVNode("span", { class: "mini-card-label" }, "完成数", -1))
+              createBaseVNode("div", _hoisted_34$1, [
+                createBaseVNode("div", _hoisted_35$1, [
+                  createBaseVNode("span", _hoisted_36$1, toDisplayString(statsCompleted.value), 1),
+                  _cache[23] || (_cache[23] = createBaseVNode("span", { class: "mini-card-label" }, "完成数", -1))
                 ]),
-                createBaseVNode("div", _hoisted_36, [
-                  createBaseVNode("span", _hoisted_37, toDisplayString(statsFailed.value), 1),
-                  _cache[19] || (_cache[19] = createBaseVNode("span", { class: "mini-card-label" }, "失败数", -1))
+                createBaseVNode("div", _hoisted_37$1, [
+                  createBaseVNode("span", _hoisted_38$1, toDisplayString(statsFailed.value), 1),
+                  _cache[24] || (_cache[24] = createBaseVNode("span", { class: "mini-card-label" }, "失败数", -1))
                 ])
               ])
             ])
           ]),
-          createBaseVNode("div", _hoisted_38, [
-            _cache[23] || (_cache[23] = createBaseVNode("div", { class: "card-title" }, "最近上传", -1)),
-            unref(store).currentBatchPages.length ? (openBlock(), createElementBlock("div", _hoisted_39, [
+          createBaseVNode("div", _hoisted_39$1, [
+            _cache[28] || (_cache[28] = createBaseVNode("div", { class: "card-title" }, "最近上传", -1)),
+            unref(store).currentBatchPages.length ? (openBlock(), createElementBlock("div", _hoisted_40, [
               (openBlock(true), createElementBlock(Fragment, null, renderList(unref(store).currentBatchPages, (page) => {
                 return openBlock(), createElementBlock("div", {
                   key: page.id,
@@ -43222,7 +43221,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     })
-                  ], 8, _hoisted_41)) : page.status !== "waiting" ? (openBlock(), createElementBlock("button", {
+                  ], 8, _hoisted_42)) : page.status !== "waiting" ? (openBlock(), createElementBlock("button", {
                     key: 2,
                     class: "upload-del",
                     type: "button",
@@ -43235,7 +43234,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     })
-                  ], 8, _hoisted_42)) : (openBlock(), createElementBlock("button", {
+                  ], 8, _hoisted_43)) : (openBlock(), createElementBlock("button", {
                     key: 3,
                     class: "upload-waiting-action",
                     type: "button",
@@ -43248,14 +43247,14 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       ]),
                       _: 1
                     }),
-                    _cache[21] || (_cache[21] = createBaseVNode("span", null, "待选择", -1))
-                  ], 8, _hoisted_43)),
-                  createBaseVNode("div", _hoisted_44, [
+                    _cache[26] || (_cache[26] = createBaseVNode("span", null, "待选择", -1))
+                  ], 8, _hoisted_44)),
+                  createBaseVNode("div", _hoisted_45, [
                     __props.active && isPreviewable(page.inputFileName) ? (openBlock(), createElementBlock("img", {
                       key: 0,
                       src: unref(getFileURL)(page.inputFileId),
                       alt: page.inputFileName
-                    }, null, 8, _hoisted_45)) : (openBlock(), createBlock(unref(NIcon), {
+                    }, null, 8, _hoisted_46)) : (openBlock(), createBlock(unref(NIcon), {
                       key: 1,
                       size: "24",
                       class: "upload-icon"
@@ -43266,20 +43265,20 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       _: 1
                     }))
                   ]),
-                  createBaseVNode("div", _hoisted_46, [
-                    createBaseVNode("span", _hoisted_47, toDisplayString(page.inputFileName), 1),
+                  createBaseVNode("div", _hoisted_47, [
+                    createBaseVNode("span", _hoisted_48, toDisplayString(page.inputFileName), 1),
                     createBaseVNode("span", {
                       class: normalizeClass(["upload-status", page.status])
                     }, toDisplayString(statusText(page)), 3)
                   ]),
-                  page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_48, [
+                  page.status === "processing" ? (openBlock(), createElementBlock("div", _hoisted_49, [
                     createBaseVNode("span", {
                       style: normalizeStyle({ width: `${Math.max(4, page.progressPercent)}%` })
                     }, null, 4)
                   ])) : createCommentVNode("", true)
-                ], 10, _hoisted_40);
+                ], 10, _hoisted_41);
               }), 128))
-            ])) : (openBlock(), createElementBlock("div", _hoisted_49, [
+            ])) : (openBlock(), createElementBlock("div", _hoisted_50, [
               createVNode(unref(NIcon), {
                 size: "32",
                 class: "empty-icon"
@@ -43289,12 +43288,12 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                 ]),
                 _: 1
               }),
-              _cache[22] || (_cache[22] = createBaseVNode("span", null, "暂无上传文件", -1))
+              _cache[27] || (_cache[27] = createBaseVNode("span", null, "暂无上传文件", -1))
             ]))
           ]),
-          createBaseVNode("div", _hoisted_50, [
-            _cache[25] || (_cache[25] = createBaseVNode("div", { class: "card-title" }, "最近活动", -1)),
-            recentActivities.value.length ? (openBlock(), createElementBlock("div", _hoisted_51, [
+          createBaseVNode("div", _hoisted_51, [
+            _cache[30] || (_cache[30] = createBaseVNode("div", { class: "card-title" }, "最近活动", -1)),
+            recentActivities.value.length ? (openBlock(), createElementBlock("div", _hoisted_52, [
               (openBlock(true), createElementBlock(Fragment, null, renderList(recentActivities.value, (activity) => {
                 return openBlock(), createElementBlock("div", {
                   key: activity.id,
@@ -43310,13 +43309,13 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
                       _: 2
                     }, 1024)
                   ], 2),
-                  createBaseVNode("div", _hoisted_52, [
-                    createBaseVNode("span", _hoisted_53, toDisplayString(activity.message), 1),
-                    createBaseVNode("span", _hoisted_54, toDisplayString(activity.time), 1)
+                  createBaseVNode("div", _hoisted_53, [
+                    createBaseVNode("span", _hoisted_54, toDisplayString(activity.message), 1),
+                    createBaseVNode("span", _hoisted_55, toDisplayString(activity.time), 1)
                   ])
                 ]);
               }), 128))
-            ])) : (openBlock(), createElementBlock("div", _hoisted_55, [..._cache[24] || (_cache[24] = [
+            ])) : (openBlock(), createElementBlock("div", _hoisted_56, [..._cache[29] || (_cache[29] = [
               createBaseVNode("span", null, "暂无活动记录", -1)
             ])]))
           ])
@@ -43325,7 +43324,7 @@ const _sfc_main$a = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-267f2017"]]);
+const RecognizeView = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__scopeId", "data-v-c52cba59"]]);
 const convertApi = {
   musicxmlToJianpu(req) {
     return apiFetch("/convert/musicxml-to-jianpu", {
@@ -43390,16 +43389,17 @@ function downloadBlob(blob, filename) {
   a.click();
   URL.revokeObjectURL(url);
 }
-const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g;
-const DURATION_PREFIX_PATTERN = /^[whqsd]/;
-const PITCH_PATTERN = /^(?:(?:bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/;
+const TOKEN_PATTERN$1 = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g;
+const DURATION_PREFIX_PATTERN$1 = /^[whqsd]/;
+const PITCH_PATTERN$1 = /^(?:(?:bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/;
 const TUPLET_PART_PATTERN = /(?:bb|x|n|♮|#|b)?[0-7][',]*[#b]?/g;
 function findJianpuNoteSpans(text) {
   const spans = [];
   let noteIndex = 0;
   text.split("\n").forEach((line, lineIndex) => {
-    if (isMetadataLine(line)) return;
-    for (const match2 of line.matchAll(TOKEN_PATTERN)) {
+    const code = stripInlineComment(line);
+    if (isMetadataLine$1(code)) return;
+    for (const match2 of code.matchAll(TOKEN_PATTERN$1)) {
       const token = match2[0];
       if (isTupletToken(token)) {
         for (const part of tupletPartSpans(token, match2.index ?? 0)) {
@@ -43447,25 +43447,104 @@ function tupletPartSpans(token, tokenStartColumn) {
     return { token: part, startColumn, endColumn: startColumn + part.length };
   });
 }
-function isMetadataLine(line) {
+function isMetadataLine$1(line) {
   const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith("#")) return true;
+  if (!trimmed || trimmed.startsWith("//")) return true;
   if (trimmed.startsWith("L:") || trimmed.startsWith("@text ")) return true;
   if (/^(title|tempo)\s*=/.test(trimmed)) return true;
   if (/^1\s*=/.test(trimmed)) return true;
   if (/^(key|time)\s*=/i.test(trimmed)) return true;
   return /^\d+\/\d+$/.test(trimmed);
 }
+function stripInlineComment(line) {
+  const commentStart = line.indexOf("//");
+  if (commentStart < 0) return line;
+  return line.slice(0, commentStart);
+}
 function isPlayableToken(token) {
   if (token === "|" || token === "||" || token === "|:" || token === ":|" || /^\*\d+$/.test(token) || /^\d+[.:：]$/.test(token) || /^\d+\/\d+$/.test(token) || token.startsWith("\\") || token.startsWith("^")) {
     return false;
   }
-  const work = stripEventDecorations(token);
+  const work = stripEventDecorations$1(token);
   if (!work || work === "0" || work === "-") return false;
   if (work.startsWith("[") && work.endsWith("]")) {
-    return work.slice(1, -1).split("+").some((part) => PITCH_PATTERN.test(part.trim()));
+    return work.slice(1, -1).split("+").some((part) => PITCH_PATTERN$1.test(part.trim()));
   }
-  return PITCH_PATTERN.test(work);
+  return PITCH_PATTERN$1.test(work);
+}
+function stripEventDecorations$1(token) {
+  let work = token.trim();
+  while (work.startsWith("(")) work = work.slice(1);
+  while (work.endsWith(")")) work = work.slice(0, -1);
+  if (work.startsWith("~")) work = work.slice(1);
+  if (work.endsWith("~")) work = work.slice(0, -1);
+  if (DURATION_PREFIX_PATTERN$1.test(work)) work = work.slice(1);
+  while (work.endsWith("-")) work = work.slice(0, -1);
+  if (work.endsWith(".")) work = work.slice(0, -1);
+  return work;
+}
+const TOKEN_PATTERN = /(\s+|\$[^$]*\$|\|\||\|:|:\||\||[^\s|]+)/g;
+const DURATION_PREFIX_PATTERN = /^[whqsd]/;
+const PITCH_PATTERN = /^(?:(?:bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/;
+function tokenizeJianpuLine(line) {
+  if (!line) return [];
+  const commentStart = line.indexOf("//");
+  const code = commentStart >= 0 ? line.slice(0, commentStart) : line;
+  const comment = commentStart >= 0 ? line.slice(commentStart) : "";
+  const codeTokens = tokenizeCodePart(code);
+  if (comment) {
+    codeTokens.push({ text: comment, type: "comment" });
+  }
+  return codeTokens;
+}
+function tokenizeCodePart(code) {
+  if (!code) return [];
+  const leadingWhitespace = code.match(/^\s*/)?.[0] ?? "";
+  const trimmedStart = code.slice(leadingWhitespace.length);
+  const trimmed = code.trim();
+  if (!trimmed) {
+    return [{ text: code, type: "plain" }];
+  }
+  if (trimmedStart.startsWith("L:")) {
+    return [
+      ...leadingWhitespace ? [{ text: leadingWhitespace, type: "plain" }] : [],
+      { text: trimmedStart, type: "lyrics" }
+    ];
+  }
+  if (isMetadataLine(trimmed)) {
+    return [
+      ...leadingWhitespace ? [{ text: leadingWhitespace, type: "plain" }] : [],
+      { text: trimmedStart, type: "metadata" }
+    ];
+  }
+  return Array.from(code.matchAll(TOKEN_PATTERN), (match2) => {
+    const text = match2[0];
+    return { text, type: classifyToken(text) };
+  });
+}
+function classifyToken(token) {
+  if (!token.trim()) return "plain";
+  if (token === "|" || token === "||" || token === "|:" || token === ":|") return "barline";
+  if (/^\*\d+$/.test(token)) return "repeat";
+  if (token.startsWith("\\")) return "dynamic";
+  if (token.startsWith("^") || token.startsWith("(^")) return "ornament";
+  if (token.startsWith("$") && token.endsWith("$") && token.length > 2) return "tuplet";
+  if (token === "0" || token === "-") return "rest";
+  const work = stripEventDecorations(token);
+  if (isChordToken(work)) return "chord";
+  if (work === "0" || work === "-") return "rest";
+  if (PITCH_PATTERN.test(work)) return "note";
+  return "plain";
+}
+function isMetadataLine(trimmed) {
+  if (/^(title|tempo)\s*=/.test(trimmed)) return true;
+  if (/^1\s*=/.test(trimmed)) return true;
+  if (/^(key|time)\s*=/i.test(trimmed)) return true;
+  return /^\d+\/\d+$/.test(trimmed);
+}
+function isChordToken(token) {
+  if (!token.startsWith("[") || !token.endsWith("]")) return false;
+  return token.slice(1, -1).split("+").some((part) => PITCH_PATTERN.test(stripEventDecorations(part.trim())));
 }
 function stripEventDecorations(token) {
   let work = token.trim();
@@ -43480,13 +43559,19 @@ function stripEventDecorations(token) {
 }
 const _hoisted_1$8 = { class: "editor-shell" };
 const _hoisted_2$8 = { class: "editor-main" };
-const _hoisted_3$8 = ["value"];
+const _hoisted_3$8 = {
+  key: 0,
+  class: "editor-highlight",
+  "aria-hidden": "true"
+};
+const _hoisted_4$8 = ["value"];
 const _sfc_main$9 = /* @__PURE__ */ defineComponent({
   __name: "JianpuEditor",
   props: {
     modelValue: {},
     startMeasureNumber: {},
-    currentNoteIndex: { default: -1 }
+    currentNoteIndex: { default: -1 },
+    syntaxHighlight: { type: Boolean, default: false }
   },
   emits: ["update:modelValue"],
   setup(__props, { emit: __emit }) {
@@ -43504,6 +43589,10 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
     });
     let resizeObserver = null;
     const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue));
+    const highlightedLines = computed(() => props.modelValue.split("\n").map(tokenizeJianpuLine));
+    const highlightScrollStyle = computed(() => ({
+      transform: `translate(${-scrollLeft.value}px, ${-scrollTop.value}px)`
+    }));
     const activeNoteSpan = computed(() => props.currentNoteIndex >= 0 ? noteSpans.value.find((span) => span.index === props.currentNoteIndex) ?? null : null);
     const playbackHighlightStyle = computed(() => {
       const span = activeNoteSpan.value;
@@ -43528,11 +43617,24 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
       }
       return false;
     }
+    function splitInlineComment(line) {
+      const commentStart = line.indexOf("//");
+      if (commentStart < 0) return { code: line, comment: "" };
+      return {
+        code: line.slice(0, commentStart),
+        comment: line.slice(commentStart)
+      };
+    }
+    function isCursorInLineComment(value, cursor) {
+      const lineStart = value.lastIndexOf("\n", Math.max(0, cursor - 1)) + 1;
+      const linePrefix = value.slice(lineStart, cursor);
+      return linePrefix.includes("//");
+    }
     function onInput(e) {
       const target = e.target;
       const value = target.value;
       const cursor = target.selectionStart;
-      if (isStandaloneBarline(value, cursor) && (cursor >= value.length || value[cursor] !== "\n")) {
+      if (!isCursorInLineComment(value, cursor) && isStandaloneBarline(value, cursor) && (cursor >= value.length || value[cursor] !== "\n")) {
         const newValue = value.slice(0, cursor) + "\n" + value.slice(cursor);
         emit2("update:modelValue", newValue);
         nextTick(() => {
@@ -43563,10 +43665,10 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
     function needsFormat(text) {
       const lines = text.split("\n");
       for (const line of lines) {
-        const trimmed = line.trim();
+        const trimmed = splitInlineComment(line).code.trim();
         if (!trimmed) continue;
         if (trimmed.includes("|")) {
-          if (hasStandaloneBarBeforeMoreContent(line)) return true;
+          if (hasStandaloneBarBeforeMoreContent(trimmed)) return true;
           continue;
         }
         if (/^key\s*=/i.test(trimmed) || /^time\s*=/i.test(trimmed) || /^title\s*=/i.test(trimmed) || /^tempo\s*=/i.test(trimmed) || /^L:/.test(trimmed) || /^\\/.test(trimmed)) {
@@ -43590,18 +43692,24 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
       const lines = text.split("\n");
       const result = [];
       for (const line of lines) {
-        const trimmed = line.trimEnd();
+        const { code, comment } = splitInlineComment(line);
+        const trimmed = code.trimEnd();
         if (!trimmed) {
           result.push(line);
           continue;
         }
         if (trimmed.includes("|")) {
           const parts = trimmed.split(/(?<![:|])\|(?![|:])/);
+          const emitted = [];
           for (let i = 0; i < parts.length; i++) {
             const seg = parts[i].trim();
             if (!seg) continue;
-            result.push(i < parts.length - 1 ? seg + "|" : seg);
+            emitted.push(i < parts.length - 1 ? seg + "|" : seg);
           }
+          if (comment && emitted.length) {
+            emitted[emitted.length - 1] = `${emitted[emitted.length - 1]} ${comment.trimStart()}`;
+          }
+          result.push(...emitted);
           continue;
         }
         if (/^key\s*=/i.test(trimmed) || /^time\s*=/i.test(trimmed) || /^title\s*=/i.test(trimmed) || /^tempo\s*=/i.test(trimmed) || /^L:/.test(trimmed) || /^\\/.test(trimmed)) {
@@ -43629,7 +43737,7 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
       const lines = props.modelValue.split("\n");
       let measureCount = props.startMeasureNumber ?? 1;
       return lines.map((line) => {
-        const trimmed = line.trim();
+        const trimmed = splitInlineComment(line).code.trim();
         if (trimmed.includes("|")) {
           const withoutBar = trimmed.replace(/\|$/, "").trim();
           const match2 = withoutBar.match(/\*\s*(\d+)$/);
@@ -43742,6 +43850,26 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
           }), 128))
         ], 512),
         createBaseVNode("div", _hoisted_2$8, [
+          __props.syntaxHighlight ? (openBlock(), createElementBlock("div", _hoisted_3$8, [
+            createBaseVNode("div", {
+              class: "editor-highlight-content",
+              style: normalizeStyle(highlightScrollStyle.value)
+            }, [
+              (openBlock(true), createElementBlock(Fragment, null, renderList(highlightedLines.value, (line, lineIndex) => {
+                return openBlock(), createElementBlock("div", {
+                  key: lineIndex,
+                  class: "editor-highlight-line"
+                }, [
+                  (openBlock(true), createElementBlock(Fragment, null, renderList(line, (token, tokenIndex) => {
+                    return openBlock(), createElementBlock("span", {
+                      key: tokenIndex,
+                      class: normalizeClass(`token-${token.type}`)
+                    }, toDisplayString(token.text), 3);
+                  }), 128))
+                ]);
+              }), 128))
+            ], 4)
+          ])) : createCommentVNode("", true),
           createBaseVNode("textarea", {
             ref_key: "textareaRef",
             ref: textareaRef,
@@ -43749,11 +43877,11 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
             onInput,
             onScroll: syncScroll,
             placeholder: "title=瑞雪迎春\n1=C\n4/4\n1 2 $345$ 4 |\n1=G\n3/4\nh[1+3+5] \\p 4 |\nL: 春 风 又 绿",
-            class: "editor-textarea",
+            class: normalizeClass(["editor-textarea", { "syntax-highlight-enabled": __props.syntaxHighlight }]),
             spellcheck: "false"
-          }, null, 40, _hoisted_3$8),
+          }, null, 42, _hoisted_4$8),
           playbackHighlightStyle.value ? (openBlock(), createElementBlock("div", {
-            key: 0,
+            key: 1,
             class: "editor-playback-highlight",
             style: normalizeStyle(playbackHighlightStyle.value)
           }, null, 4)) : createCommentVNode("", true)
@@ -43762,7 +43890,7 @@ const _sfc_main$9 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const JianpuEditor = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-050587bf"]]);
+const JianpuEditor = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["__scopeId", "data-v-69ab5bb6"]]);
 const version = "15.1.22";
 const createExtendedExponentialRampToValueAutomationEvent = (value, endTime, insertTime) => {
   return { endTime, insertTime, type: "exponentialRampToValue", value };
@@ -63723,6 +63851,20 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
                         createBaseVNode("code", null, "^l")
                       ]),
                       createBaseVNode("td", null, "轮指（tremolo）")
+                    ]),
+                    createBaseVNode("tr", null, [
+                      createBaseVNode("td", null, [
+                        createBaseVNode("code", null, "(^l)"),
+                        createTextVNode(),
+                        createBaseVNode("code", null, "(^.)"),
+                        createTextVNode(),
+                        createBaseVNode("code", null, "(^>)"),
+                        createTextVNode(),
+                        createBaseVNode("code", null, "(^r)"),
+                        createTextVNode(),
+                        createBaseVNode("code", null, "(^f)")
+                      ]),
+                      createBaseVNode("td", null, "写在小节开头，作用于本小节所有音符与和弦")
                     ])
                   ])
                 ])
@@ -63739,9 +63881,9 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
                     ]),
                     createBaseVNode("tr", null, [
                       createBaseVNode("td", null, [
-                        createBaseVNode("code", null, "# 注释内容")
+                        createBaseVNode("code", null, "// 注释内容")
                       ]),
-                      createBaseVNode("td", null, "注释行，解析时忽略")
+                      createBaseVNode("td", null, "注释到行尾，解析时忽略")
                     ])
                   ])
                 ]),
@@ -63858,13 +64000,24 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
                   ]),
                   createBaseVNode("tr", null, [
                     createBaseVNode("td", null, [
+                      createBaseVNode("code", null, "(^l)"),
+                      createTextVNode(" 等")
+                    ]),
+                    createBaseVNode("td", null, "本小节所有音符加标记"),
+                    createBaseVNode("td", null, [
+                      createBaseVNode("code", null, "0")
+                    ]),
+                    createBaseVNode("td", null, "休止符不继承小节级标记")
+                  ]),
+                  createBaseVNode("tr", null, [
+                    createBaseVNode("td", null, [
                       createBaseVNode("code", null, "L:")
                     ]),
                     createBaseVNode("td", null, "歌词行"),
                     createBaseVNode("td", null, [
-                      createBaseVNode("code", null, "#")
+                      createBaseVNode("code", null, "//")
                     ]),
-                    createBaseVNode("td", null, "注释行")
+                    createBaseVNode("td", null, "注释到行尾")
                   ])
                 ])
               ])
@@ -63876,7 +64029,7 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const JianpuSyntaxGuide = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-530f74e9"]]);
+const JianpuSyntaxGuide = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["__scopeId", "data-v-9d2d62fc"]]);
 function useZoomPan(container) {
   const scale = /* @__PURE__ */ ref(1);
   const tx = /* @__PURE__ */ ref(0);
@@ -64636,6 +64789,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       currentNoteIndex.value = -1;
     });
     onMounted(() => {
+      if (!settings.loaded) void settings.load();
       loadHistory();
       stopHistoryUpdatedListener = listenHistoryUpdated(() => loadHistory(false, { refreshExpanded: false }));
       stopHistoryPagePatchedListener = listenHistoryPagePatched(handleHistoryPagePatched);
@@ -64951,6 +65105,8 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
             musicxml_file_id: page.musicxml_file_id,
             page_image_file_id: page.input_file_id || void 0,
             target_key: settings.targetKey,
+            accidental_mode: settings.accidentalMode,
+            measure_number_mode: settings.measureNumberMode,
             start_measure_number: selected
           });
           svgFileId = rendered.svg_file_id;
@@ -64959,6 +65115,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
             jianpu_text: page.jianpu_text,
             page_image_file_id: page.input_file_id || void 0,
             include_ocr_text: false,
+            measure_number_mode: settings.measureNumberMode,
             title: page.input_file_name || "AI 简谱",
             start_measure_number: selected
           });
@@ -65131,6 +65288,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           page_image_file_id: page.originalFileId || page.inputFileId || void 0,
           ocr_text: page.ocrText || void 0,
           include_ocr_text: true,
+          measure_number_mode: settings.measureNumberMode,
           title: "简谱"
         });
         if (result.jianpu_text && page.id === store.currentPage?.id) {
@@ -65145,6 +65303,8 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           musicxml_file_id: page.musicxmlFileId,
           page_image_file_id: page.originalFileId || page.inputFileId || void 0,
           target_key: settings.targetKey,
+          accidental_mode: settings.accidentalMode,
+          measure_number_mode: settings.measureNumberMode,
           start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? void 0
         });
         return result.svg_file_id;
@@ -65158,6 +65318,8 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           musicxml_file_id: store.musicxmlFileId,
           page_image_file_id: store.originalFileId || void 0,
           target_key: settings.targetKey,
+          accidental_mode: settings.accidentalMode,
+          measure_number_mode: settings.measureNumberMode,
           start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? void 0
         });
         const split = splitJianpuAndOcr(result.jianpu_text);
@@ -65209,6 +65371,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
             page_image_file_id: store.originalFileId || void 0,
             ocr_text: store.ocrText || void 0,
             include_ocr_text: false,
+            measure_number_mode: settings.measureNumberMode,
             title: "简谱",
             start_measure_number: store.startMeasureNumber ?? void 0
           });
@@ -65225,6 +65388,8 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
             musicxml_file_id: store.musicxmlFileId,
             page_image_file_id: store.originalFileId || void 0,
             target_key: settings.targetKey,
+            accidental_mode: settings.accidentalMode,
+            measure_number_mode: settings.measureNumberMode,
             start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? void 0
           });
           store.setSvg(result.svg_file_id);
@@ -65261,12 +65426,15 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           page_image_file_id: store.originalFileId || void 0,
           ocr_text: store.ocrText || void 0,
           include_ocr_text: false,
+          measure_number_mode: settings.measureNumberMode,
           title: "简谱",
           start_measure_number: store.startMeasureNumber ?? void 0
         }) : await renderApi.finalOutput({
           musicxml_file_id: store.musicxmlFileId,
           page_image_file_id: store.originalFileId || void 0,
           target_key: settings.targetKey,
+          accidental_mode: settings.accidentalMode,
+          measure_number_mode: settings.measureNumberMode,
           start_measure_number: store.startMeasureNumber ?? settings.startMeasureNumber ?? void 0
         });
         finalSvgFileId.value = result.svg_file_id;
@@ -65288,18 +65456,13 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
       }
     }
     async function persistRenderedHistory(svgFileId) {
-      let normalizedJianpu = jianpuText.value;
-      if (normalizedJianpu.trim()) {
-        const normalized = await renderApi.normalizeJianpuText({ jianpu_text: normalizedJianpu, title: "简谱" });
-        normalizedJianpu = normalized.jianpu_text;
-        if (normalizedJianpu !== jianpuText.value) {
-          jianpuText.value = normalizedJianpu;
-          store.setJianpu(normalizedJianpu);
-        }
+      const savedJianpu = jianpuText.value;
+      if (savedJianpu.trim()) {
+        await renderApi.normalizeJianpuText({ jianpu_text: savedJianpu, title: "简谱" });
       }
       const payload = {
         musicxml_file_id: store.musicxmlFileId,
-        jianpu_text: normalizedJianpu,
+        jianpu_text: savedJianpu,
         ocr_text: store.ocrText,
         svg_file_id: svgFileId,
         start_measure_number: store.startMeasureNumber ?? null,
@@ -65316,7 +65479,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           input_file_name: store.inputFileName,
           input_file_id: store.inputFileId,
           musicxml_file_id: store.musicxmlFileId,
-          jianpu_text: normalizedJianpu,
+          jianpu_text: savedJianpu,
           ocr_text: store.ocrText,
           svg_file_id: svgFileId,
           status: "completed",
@@ -65516,17 +65679,9 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                 disabled: !unref(store).hasMusicxml,
                 type: "primary"
               }, {
-                icon: withCtx(() => [
-                  createVNode(unref(NIcon), null, {
-                    default: withCtx(() => [
-                      createVNode(unref(ArrowForwardOutline))
-                    ]),
-                    _: 1
-                  })
-                ]),
-                default: withCtx(() => [
-                  _cache[15] || (_cache[15] = createTextVNode(" XML → 简谱 ", -1))
-                ]),
+                default: withCtx(() => [..._cache[15] || (_cache[15] = [
+                  createTextVNode(" 重置简谱 ", -1)
+                ])]),
                 _: 1
               }, 8, ["loading", "disabled"]),
               createVNode(unref(Button), {
@@ -65655,8 +65810,9 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
                   modelValue: jianpuText.value,
                   "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => jianpuText.value = $event),
                   "start-measure-number": unref(store).startMeasureNumber ?? 1,
-                  "current-note-index": currentNoteIndex.value
-                }, null, 8, ["modelValue", "start-measure-number", "current-note-index"]))
+                  "current-note-index": currentNoteIndex.value,
+                  "syntax-highlight": unref(settings).jianpuSyntaxHighlight
+                }, null, 8, ["modelValue", "start-measure-number", "current-note-index", "syntax-highlight"]))
               ])
             ])
           ]),
@@ -65681,42 +65837,46 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-a9f9a4c9"]]);
+const ConvertView = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["__scopeId", "data-v-bcfad769"]]);
 const _hoisted_1$3 = { class: "settings-view" };
 const _hoisted_2$3 = { class: "sv-content" };
 const _hoisted_3$3 = { class: "sv-header" };
 const _hoisted_4$3 = { class: "sv-grid-layout" };
-const _hoisted_5$2 = { class: "sv-card-title" };
-const _hoisted_6$2 = { class: "sv-form" };
-const _hoisted_7$2 = { class: "sv-form-item" };
+const _hoisted_5$2 = { class: "sv-col sv-col-left" };
+const _hoisted_6$2 = { class: "sv-card-title" };
+const _hoisted_7$2 = { class: "sv-form" };
 const _hoisted_8$2 = { class: "sv-form-item" };
-const _hoisted_9$2 = { class: "sv-card-title" };
-const _hoisted_10$2 = { class: "sv-form" };
-const _hoisted_11$2 = { class: "sv-form-item" };
+const _hoisted_9$2 = { class: "sv-form-item" };
+const _hoisted_10$2 = { class: "sv-card-title" };
+const _hoisted_11$2 = { class: "sv-form" };
 const _hoisted_12$2 = { class: "sv-form-item" };
-const _hoisted_13$2 = { class: "sv-card-title" };
-const _hoisted_14$2 = { class: "sv-form" };
-const _hoisted_15$2 = { class: "sv-form-item" };
+const _hoisted_13$2 = { class: "sv-form-item" };
+const _hoisted_14$2 = { class: "sv-card-title" };
+const _hoisted_15$2 = { class: "sv-form" };
 const _hoisted_16$2 = { class: "sv-form-item" };
-const _hoisted_17$1 = { class: "sv-card-title" };
-const _hoisted_18$1 = { class: "sv-form" };
-const _hoisted_19$1 = { class: "sv-form-item" };
-const _hoisted_20 = { class: "sv-form-item" };
-const _hoisted_21 = { class: "sv-storage-meta" };
-const _hoisted_22 = { class: "sv-actions-row" };
-const _hoisted_23 = { class: "sv-card-title" };
-const _hoisted_24 = { class: "sv-form" };
-const _hoisted_25 = { class: "sv-form-item" };
-const _hoisted_26 = { class: "sv-form-item" };
-const _hoisted_27 = { class: "sv-card-title" };
-const _hoisted_28 = { class: "sv-form" };
-const _hoisted_29 = { class: "sv-form-item sv-form-item-inline" };
-const _hoisted_30 = { class: "sv-form-item" };
-const _hoisted_31 = { class: "sv-form-item sv-form-item-inline" };
-const _hoisted_32 = { class: "sv-card-title" };
-const _hoisted_33 = { class: "sv-form" };
-const _hoisted_34 = { class: "sv-form-item" };
-const _hoisted_35 = { class: "sv-form-item" };
+const _hoisted_17$1 = { class: "sv-form-item" };
+const _hoisted_18$1 = { class: "sv-col sv-col-right" };
+const _hoisted_19$1 = { class: "sv-card-title" };
+const _hoisted_20 = { class: "sv-form" };
+const _hoisted_21 = { class: "sv-form-item" };
+const _hoisted_22 = { class: "sv-form-item" };
+const _hoisted_23 = { class: "sv-form-item" };
+const _hoisted_24 = { class: "sv-form-item" };
+const _hoisted_25 = { class: "sv-storage-meta-row" };
+const _hoisted_26 = { class: "sv-storage-meta" };
+const _hoisted_27 = { class: "sv-actions-row" };
+const _hoisted_28 = { class: "sv-card-title" };
+const _hoisted_29 = { class: "sv-form" };
+const _hoisted_30 = { class: "sv-conversion-row" };
+const _hoisted_31 = { class: "sv-form-item sv-form-item-compact" };
+const _hoisted_32 = { class: "sv-form-item sv-form-item-compact" };
+const _hoisted_33 = { class: "sv-form-item sv-form-item-compact" };
+const _hoisted_34 = { class: "sv-form-item sv-form-item-compact sv-switch-setting" };
+const _hoisted_35 = { class: "sv-switch-control" };
+const _hoisted_36 = { class: "sv-form-item" };
+const _hoisted_37 = { class: "sv-card-title" };
+const _hoisted_38 = { class: "sv-form" };
+const _hoisted_39 = { class: "sv-form-item" };
 const _sfc_main$3 = /* @__PURE__ */ defineComponent({
   __name: "SettingsView",
   setup(__props) {
@@ -65728,13 +65888,36 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       () => settings.cacheSizeAvailable ? formatBytes(settings.cacheSizeBytes) : "未获取（请重启应用）"
     );
     const keyOptions = [
-      { label: "C", value: "C" },
-      { label: "D", value: "D" },
-      { label: "E", value: "E" },
+      { label: "Cb", value: "Cb" },
+      { label: "Gb", value: "Gb" },
+      { label: "Db", value: "Db" },
+      { label: "Ab", value: "Ab" },
+      { label: "Eb", value: "Eb" },
+      { label: "Bb", value: "Bb" },
       { label: "F", value: "F" },
+      { label: "C", value: "C" },
       { label: "G", value: "G" },
+      { label: "D", value: "D" },
       { label: "A", value: "A" },
-      { label: "B", value: "B" }
+      { label: "E", value: "E" },
+      { label: "B", value: "B" },
+      { label: "F#", value: "F#" },
+      { label: "C#", value: "C#" }
+    ];
+    const accidentalModeOptions = [
+      { label: "自由记谱", value: "auto" },
+      { label: "全部升号", value: "sharp" },
+      { label: "全部降号", value: "flat" }
+    ];
+    const measureNumberModeOptions = [
+      { label: "全部显示", value: "all" },
+      { label: "每行首显示", value: "row_start" },
+      { label: "隐藏", value: "none" }
+    ];
+    const themeModeOptions = [
+      { label: "跟随系统", value: "system" },
+      { label: "浅色模式", value: "light" },
+      { label: "深色模式", value: "dark" }
     ];
     onMounted(() => settings.load());
     watch(() => settings.ocrProvider, () => {
@@ -65816,13 +65999,11 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       }));
     }
     return (_ctx, _cache) => {
-      const _component_HardwareChipOutline = resolveComponent("HardwareChipOutline");
       return openBlock(), createElementBlock("div", _hoisted_1$3, [
         createBaseVNode("div", _hoisted_2$3, [
           createBaseVNode("div", _hoisted_3$3, [
-            _cache[16] || (_cache[16] = createBaseVNode("div", { class: "sv-header-text" }, [
-              createBaseVNode("h2", null, "设置"),
-              createBaseVNode("p", { class: "subtitle" }, "调整识别引擎、导出路径、OCR 与 AI 服务参数")
+            _cache[17] || (_cache[17] = createBaseVNode("div", { class: "sv-header-text" }, [
+              createBaseVNode("h2", null, "设置")
             ], -1)),
             createVNode(unref(Button), {
               type: "primary",
@@ -65838,475 +66019,475 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                 })
               ]),
               default: withCtx(() => [
-                _cache[15] || (_cache[15] = createTextVNode(" 保存配置 ", -1))
+                _cache[16] || (_cache[16] = createTextVNode(" 保存配置 ", -1))
               ]),
               _: 1
             })
           ]),
           createBaseVNode("div", _hoisted_4$3, [
-            createVNode(unref(NCard), {
-              class: "sv-card",
-              bordered: true,
-              size: "small"
-            }, {
-              default: withCtx(() => [
-                createBaseVNode("div", _hoisted_5$2, [
-                  createVNode(unref(NIcon), {
-                    size: "16",
-                    class: "sv-card-icon"
-                  }, {
-                    default: withCtx(() => [
-                      createVNode(unref(BuildOutline))
-                    ]),
-                    _: 1
-                  }),
-                  _cache[17] || (_cache[17] = createBaseVNode("span", null, "外部工具", -1))
-                ]),
-                createBaseVNode("div", _hoisted_6$2, [
-                  createBaseVNode("div", _hoisted_7$2, [
-                    _cache[18] || (_cache[18] = createBaseVNode("label", null, "Audiveris 路径", -1)),
-                    createVNode(unref(NInput), {
-                      value: unref(settings).audiverisPath,
-                      "onUpdate:value": _cache[0] || (_cache[0] = ($event) => unref(settings).audiverisPath = $event),
-                      placeholder: "audiveris 或 gradlew.bat 路径",
-                      size: "small"
+            createBaseVNode("div", _hoisted_5$2, [
+              createVNode(unref(NCard), {
+                class: "sv-card",
+                bordered: true,
+                size: "small"
+              }, {
+                default: withCtx(() => [
+                  createBaseVNode("div", _hoisted_6$2, [
+                    createVNode(unref(NIcon), {
+                      size: "18",
+                      class: "sv-card-icon"
                     }, {
-                      prefix: withCtx(() => [
-                        createVNode(unref(NIcon), { size: "14" }, {
-                          default: withCtx(() => [
-                            createVNode(unref(FolderOutline))
-                          ]),
-                          _: 1
-                        })
-                      ]),
-                      _: 1
-                    }, 8, ["value"])
-                  ]),
-                  createBaseVNode("div", _hoisted_8$2, [
-                    _cache[19] || (_cache[19] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
-                    createVNode(unref(NInput), {
-                      value: unref(settings).javaHome,
-                      "onUpdate:value": _cache[1] || (_cache[1] = ($event) => unref(settings).javaHome = $event),
-                      placeholder: "JDK 25 路径",
-                      size: "small"
-                    }, {
-                      prefix: withCtx(() => [
-                        createVNode(unref(NIcon), { size: "14" }, {
-                          default: withCtx(() => [
-                            createVNode(unref(CodeOutline))
-                          ]),
-                          _: 1
-                        })
-                      ]),
-                      _: 1
-                    }, 8, ["value"])
-                  ])
-                ])
-              ]),
-              _: 1
-            }),
-            createVNode(unref(NCard), {
-              class: "sv-card",
-              bordered: true,
-              size: "small"
-            }, {
-              default: withCtx(() => [
-                createBaseVNode("div", _hoisted_9$2, [
-                  createVNode(unref(NIcon), {
-                    size: "16",
-                    class: "sv-card-icon"
-                  }, {
-                    default: withCtx(() => [
-                      createVNode(unref(NewspaperOutline))
-                    ]),
-                    _: 1
-                  }),
-                  _cache[20] || (_cache[20] = createBaseVNode("span", null, "OCR 设置", -1))
-                ]),
-                createBaseVNode("div", _hoisted_10$2, [
-                  createBaseVNode("div", _hoisted_11$2, [
-                    _cache[21] || (_cache[21] = createBaseVNode("label", null, "API Key", -1)),
-                    createVNode(unref(NInput), {
-                      value: unref(settings).ocrApiKey,
-                      "onUpdate:value": _cache[2] || (_cache[2] = ($event) => unref(settings).ocrApiKey = $event),
-                      type: "password",
-                      "show-password-on": "click",
-                      placeholder: unref(settings).ocrApiKeySet ? "已保存（留空不更新）" : "API Key",
-                      size: "small"
-                    }, {
-                      prefix: withCtx(() => [
-                        createVNode(unref(NIcon), { size: "14" }, {
-                          default: withCtx(() => [
-                            createVNode(unref(KeyOutline))
-                          ]),
-                          _: 1
-                        })
-                      ]),
-                      _: 1
-                    }, 8, ["value", "placeholder"])
-                  ]),
-                  createBaseVNode("div", _hoisted_12$2, [
-                    _cache[22] || (_cache[22] = createBaseVNode("label", null, "Provider", -1)),
-                    createVNode(unref(NSelect), {
-                      value: unref(settings).ocrProvider,
-                      "onUpdate:value": _cache[3] || (_cache[3] = ($event) => unref(settings).ocrProvider = $event),
-                      options: providerSelectOptions(unref(settings).ocrProviderOptions),
-                      size: "small"
-                    }, null, 8, ["value", "options"])
-                  ])
-                ])
-              ]),
-              _: 1
-            }),
-            createVNode(unref(NCard), {
-              class: "sv-card",
-              bordered: true,
-              size: "small"
-            }, {
-              default: withCtx(() => [
-                createBaseVNode("div", _hoisted_13$2, [
-                  createVNode(unref(NIcon), {
-                    size: "16",
-                    class: "sv-card-icon"
-                  }, {
-                    default: withCtx(() => [
-                      createVNode(unref(SwapHorizontalOutline))
-                    ]),
-                    _: 1
-                  }),
-                  _cache[23] || (_cache[23] = createBaseVNode("span", null, "转换设置", -1))
-                ]),
-                createBaseVNode("div", _hoisted_14$2, [
-                  createBaseVNode("div", _hoisted_15$2, [
-                    _cache[24] || (_cache[24] = createBaseVNode("label", null, "简谱调", -1)),
-                    createVNode(unref(NSelect), {
-                      value: unref(settings).targetKey,
-                      "onUpdate:value": _cache[4] || (_cache[4] = ($event) => unref(settings).targetKey = $event),
-                      options: keyOptions,
-                      size: "small",
-                      style: { "width": "80px" }
-                    }, null, 8, ["value"])
-                  ]),
-                  createBaseVNode("div", _hoisted_16$2, [
-                    _cache[26] || (_cache[26] = createBaseVNode("label", null, "默认导出路径", -1)),
-                    createVNode(unref(NInput), {
-                      value: unref(settings).outputDir,
-                      "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).outputDir = $event),
-                      placeholder: "留空则每次手动选择",
-                      size: "small"
-                    }, {
-                      suffix: withCtx(() => [
-                        createVNode(unref(Button), {
-                          size: "tiny",
-                          quaternary: "",
-                          onClick: selectOutputDir
-                        }, {
-                          default: withCtx(() => [..._cache[25] || (_cache[25] = [
-                            createTextVNode("浏览", -1)
-                          ])]),
-                          _: 1
-                        })
-                      ]),
-                      _: 1
-                    }, 8, ["value"])
-                  ])
-                ])
-              ]),
-              _: 1
-            }),
-            createVNode(unref(NCard), {
-              class: "sv-card",
-              bordered: true,
-              size: "small"
-            }, {
-              default: withCtx(() => [
-                createBaseVNode("div", _hoisted_17$1, [
-                  createVNode(unref(NIcon), {
-                    size: "16",
-                    class: "sv-card-icon"
-                  }, {
-                    default: withCtx(() => [
-                      createVNode(unref(FolderOpenOutline))
-                    ]),
-                    _: 1
-                  }),
-                  _cache[27] || (_cache[27] = createBaseVNode("span", null, "存储与缓存", -1))
-                ]),
-                createBaseVNode("div", _hoisted_18$1, [
-                  createBaseVNode("div", _hoisted_19$1, [
-                    _cache[29] || (_cache[29] = createBaseVNode("label", null, "用户数据路径", -1)),
-                    createVNode(unref(NInput), {
-                      value: unref(settings).dataDir,
-                      "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).dataDir = $event),
-                      placeholder: "用户数据目录",
-                      size: "small"
-                    }, {
-                      suffix: withCtx(() => [
-                        createVNode(unref(Button), {
-                          size: "tiny",
-                          quaternary: "",
-                          onClick: selectDataDir
-                        }, {
-                          default: withCtx(() => [..._cache[28] || (_cache[28] = [
-                            createTextVNode("浏览", -1)
-                          ])]),
-                          _: 1
-                        })
-                      ]),
-                      _: 1
-                    }, 8, ["value"])
-                  ]),
-                  createBaseVNode("div", _hoisted_20, [
-                    _cache[31] || (_cache[31] = createBaseVNode("label", null, "缓存路径", -1)),
-                    createVNode(unref(NInput), {
-                      value: unref(settings).cacheDir,
-                      "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).cacheDir = $event),
-                      placeholder: "缓存目录",
-                      size: "small"
-                    }, {
-                      suffix: withCtx(() => [
-                        createVNode(unref(Button), {
-                          size: "tiny",
-                          quaternary: "",
-                          onClick: selectCacheDir
-                        }, {
-                          default: withCtx(() => [..._cache[30] || (_cache[30] = [
-                            createTextVNode("浏览", -1)
-                          ])]),
-                          _: 1
-                        })
-                      ]),
-                      _: 1
-                    }, 8, ["value"])
-                  ]),
-                  createBaseVNode("div", _hoisted_21, [
-                    createBaseVNode("span", null, "缓存占用：" + toDisplayString(cacheSizeLabel.value), 1),
-                    createBaseVNode("span", null, "当前缓存：" + toDisplayString(unref(settings).activeCacheDir), 1)
-                  ]),
-                  unref(settings).storageRestartRequired ? (openBlock(), createBlock(unref(NAlert), {
-                    key: 0,
-                    type: "warning",
-                    size: "small"
-                  }, {
-                    default: withCtx(() => [..._cache[32] || (_cache[32] = [
-                      createTextVNode(" 存储路径变更将在重启后生效。 ", -1)
-                    ])]),
-                    _: 1
-                  })) : createCommentVNode("", true),
-                  createBaseVNode("div", _hoisted_22, [
-                    createVNode(unref(NPopconfirm), { onPositiveClick: clearCache }, {
-                      trigger: withCtx(() => [
-                        createVNode(unref(Button), {
-                          size: "small",
-                          secondary: "",
-                          loading: clearingCache.value
-                        }, {
-                          icon: withCtx(() => [
-                            createVNode(unref(NIcon), null, {
-                              default: withCtx(() => [
-                                createVNode(unref(TrashOutline))
-                              ]),
-                              _: 1
-                            })
-                          ]),
-                          default: withCtx(() => [
-                            _cache[33] || (_cache[33] = createTextVNode(" 清理缓存 ", -1))
-                          ]),
-                          _: 1
-                        }, 8, ["loading"])
-                      ]),
                       default: withCtx(() => [
-                        _cache[34] || (_cache[34] = createTextVNode(" 将删除中间文件和未被历史记录引用的上传副本。 ", -1))
+                        createVNode(unref(NewspaperOutline))
                       ]),
                       _: 1
                     }),
-                    unref(settings).storageRestartRequired ? (openBlock(), createBlock(unref(Button), {
-                      key: 0,
-                      type: "primary",
-                      size: "small",
-                      onClick: restartApp
+                    _cache[18] || (_cache[18] = createBaseVNode("span", null, "OCR 设置", -1))
+                  ]),
+                  createBaseVNode("div", _hoisted_7$2, [
+                    createBaseVNode("div", _hoisted_8$2, [
+                      _cache[19] || (_cache[19] = createBaseVNode("label", null, "API Key", -1)),
+                      createVNode(unref(NInput), {
+                        value: unref(settings).ocrApiKey,
+                        "onUpdate:value": _cache[0] || (_cache[0] = ($event) => unref(settings).ocrApiKey = $event),
+                        type: "password",
+                        "show-password-on": "click",
+                        placeholder: unref(settings).ocrApiKeySet ? "已保存（留空不更新）" : "API Key",
+                        size: "small"
+                      }, {
+                        prefix: withCtx(() => [
+                          createVNode(unref(NIcon), { size: "16" }, {
+                            default: withCtx(() => [
+                              createVNode(unref(KeyOutline))
+                            ]),
+                            _: 1
+                          })
+                        ]),
+                        _: 1
+                      }, 8, ["value", "placeholder"])
+                    ]),
+                    createBaseVNode("div", _hoisted_9$2, [
+                      _cache[20] || (_cache[20] = createBaseVNode("label", null, "Provider", -1)),
+                      createVNode(unref(NSelect), {
+                        value: unref(settings).ocrProvider,
+                        "onUpdate:value": _cache[1] || (_cache[1] = ($event) => unref(settings).ocrProvider = $event),
+                        options: providerSelectOptions(unref(settings).ocrProviderOptions),
+                        size: "small"
+                      }, null, 8, ["value", "options"])
+                    ])
+                  ])
+                ]),
+                _: 1
+              }),
+              createVNode(unref(NCard), {
+                class: "sv-card",
+                bordered: true,
+                size: "small"
+              }, {
+                default: withCtx(() => [
+                  createBaseVNode("div", _hoisted_10$2, [
+                    createVNode(unref(NIcon), {
+                      size: "18",
+                      class: "sv-card-icon"
                     }, {
-                      icon: withCtx(() => [
-                        createVNode(unref(NIcon), null, {
-                          default: withCtx(() => [
-                            createVNode(unref(RefreshOutline))
-                          ]),
-                          _: 1
-                        })
-                      ]),
                       default: withCtx(() => [
-                        _cache[35] || (_cache[35] = createTextVNode(" 重启应用 ", -1))
+                        createVNode(unref(EyeOutline))
                       ]),
                       _: 1
-                    })) : createCommentVNode("", true)
-                  ])
-                ])
-              ]),
-              _: 1
-            }),
-            createVNode(unref(NCard), {
-              class: "sv-card",
-              bordered: true,
-              size: "small"
-            }, {
-              default: withCtx(() => [
-                createBaseVNode("div", _hoisted_23, [
-                  createVNode(unref(NIcon), {
-                    size: "16",
-                    class: "sv-card-icon"
-                  }, {
-                    default: withCtx(() => [
-                      createVNode(unref(EyeOutline))
+                    }),
+                    _cache[21] || (_cache[21] = createBaseVNode("span", null, "AI 视觉转写", -1))
+                  ]),
+                  createBaseVNode("div", _hoisted_11$2, [
+                    createBaseVNode("div", _hoisted_12$2, [
+                      _cache[22] || (_cache[22] = createBaseVNode("label", null, "API Key", -1)),
+                      createVNode(unref(NInput), {
+                        value: unref(settings).aiApiKey,
+                        "onUpdate:value": _cache[2] || (_cache[2] = ($event) => unref(settings).aiApiKey = $event),
+                        type: "password",
+                        "show-password-on": "click",
+                        placeholder: unref(settings).aiApiKeySet ? "已保存（留空不更新）" : "API Key",
+                        size: "small"
+                      }, {
+                        prefix: withCtx(() => [
+                          createVNode(unref(NIcon), { size: "16" }, {
+                            default: withCtx(() => [
+                              createVNode(unref(KeyOutline))
+                            ]),
+                            _: 1
+                          })
+                        ]),
+                        _: 1
+                      }, 8, ["value", "placeholder"])
                     ]),
-                    _: 1
-                  }),
-                  _cache[36] || (_cache[36] = createBaseVNode("span", null, "AI 视觉转写", -1))
+                    createBaseVNode("div", _hoisted_13$2, [
+                      _cache[23] || (_cache[23] = createBaseVNode("label", null, "Provider", -1)),
+                      createVNode(unref(NSelect), {
+                        value: unref(settings).aiProvider,
+                        "onUpdate:value": _cache[3] || (_cache[3] = ($event) => unref(settings).aiProvider = $event),
+                        options: providerSelectOptions(unref(settings).aiProviderOptions),
+                        size: "small"
+                      }, null, 8, ["value", "options"])
+                    ])
+                  ])
                 ]),
-                createBaseVNode("div", _hoisted_24, [
-                  createBaseVNode("div", _hoisted_25, [
-                    _cache[37] || (_cache[37] = createBaseVNode("label", null, "API Key", -1)),
-                    createVNode(unref(NInput), {
-                      value: unref(settings).aiApiKey,
-                      "onUpdate:value": _cache[8] || (_cache[8] = ($event) => unref(settings).aiApiKey = $event),
-                      type: "password",
-                      "show-password-on": "click",
-                      placeholder: unref(settings).aiApiKeySet ? "已保存（留空不更新）" : "API Key",
+                _: 1
+              }),
+              createVNode(unref(NCard), {
+                class: "sv-card",
+                bordered: true,
+                size: "small"
+              }, {
+                default: withCtx(() => [
+                  createBaseVNode("div", _hoisted_14$2, [
+                    createVNode(unref(NIcon), {
+                      size: "18",
+                      class: "sv-card-icon"
+                    }, {
+                      default: withCtx(() => [
+                        createVNode(unref(HardwareChipOutline))
+                      ]),
+                      _: 1
+                    }),
+                    _cache[24] || (_cache[24] = createBaseVNode("span", null, "工作台 AI 助手", -1))
+                  ]),
+                  createBaseVNode("div", _hoisted_15$2, [
+                    createBaseVNode("div", _hoisted_16$2, [
+                      _cache[25] || (_cache[25] = createBaseVNode("label", null, "API Key", -1)),
+                      createVNode(unref(NInput), {
+                        value: unref(settings).assistantApiKey,
+                        "onUpdate:value": _cache[4] || (_cache[4] = ($event) => unref(settings).assistantApiKey = $event),
+                        type: "password",
+                        "show-password-on": "click",
+                        placeholder: unref(settings).assistantApiKeySet ? "已保存（留空不更新）" : "API Key",
+                        size: "small"
+                      }, {
+                        prefix: withCtx(() => [
+                          createVNode(unref(NIcon), { size: "16" }, {
+                            default: withCtx(() => [
+                              createVNode(unref(KeyOutline))
+                            ]),
+                            _: 1
+                          })
+                        ]),
+                        _: 1
+                      }, 8, ["value", "placeholder"])
+                    ]),
+                    createBaseVNode("div", _hoisted_17$1, [
+                      _cache[26] || (_cache[26] = createBaseVNode("label", null, "Provider", -1)),
+                      createVNode(unref(NSelect), {
+                        value: unref(settings).assistantProvider,
+                        "onUpdate:value": _cache[5] || (_cache[5] = ($event) => unref(settings).assistantProvider = $event),
+                        options: providerSelectOptions(unref(settings).assistantProviderOptions),
+                        size: "small"
+                      }, null, 8, ["value", "options"])
+                    ])
+                  ])
+                ]),
+                _: 1
+              })
+            ]),
+            createBaseVNode("div", _hoisted_18$1, [
+              createVNode(unref(NCard), {
+                class: "sv-card",
+                bordered: true,
+                size: "small"
+              }, {
+                default: withCtx(() => [
+                  createBaseVNode("div", _hoisted_19$1, [
+                    createVNode(unref(NIcon), {
+                      size: "18",
+                      class: "sv-card-icon"
+                    }, {
+                      default: withCtx(() => [
+                        createVNode(unref(BuildOutline))
+                      ]),
+                      _: 1
+                    }),
+                    _cache[27] || (_cache[27] = createBaseVNode("span", null, "外部工具与存储", -1))
+                  ]),
+                  createBaseVNode("div", _hoisted_20, [
+                    createBaseVNode("div", _hoisted_21, [
+                      _cache[28] || (_cache[28] = createBaseVNode("label", null, "Audiveris 路径", -1)),
+                      createVNode(unref(NInput), {
+                        value: unref(settings).audiverisPath,
+                        "onUpdate:value": _cache[6] || (_cache[6] = ($event) => unref(settings).audiverisPath = $event),
+                        placeholder: "audiveris 或 gradlew.bat 路径",
+                        size: "small"
+                      }, {
+                        prefix: withCtx(() => [
+                          createVNode(unref(NIcon), { size: "16" }, {
+                            default: withCtx(() => [
+                              createVNode(unref(FolderOutline))
+                            ]),
+                            _: 1
+                          })
+                        ]),
+                        _: 1
+                      }, 8, ["value"])
+                    ]),
+                    createBaseVNode("div", _hoisted_22, [
+                      _cache[29] || (_cache[29] = createBaseVNode("label", null, "JDK / JAVA_HOME", -1)),
+                      createVNode(unref(NInput), {
+                        value: unref(settings).javaHome,
+                        "onUpdate:value": _cache[7] || (_cache[7] = ($event) => unref(settings).javaHome = $event),
+                        placeholder: "JDK 25 路径",
+                        size: "small"
+                      }, {
+                        prefix: withCtx(() => [
+                          createVNode(unref(NIcon), { size: "16" }, {
+                            default: withCtx(() => [
+                              createVNode(unref(CodeOutline))
+                            ]),
+                            _: 1
+                          })
+                        ]),
+                        _: 1
+                      }, 8, ["value"])
+                    ]),
+                    createBaseVNode("div", _hoisted_23, [
+                      _cache[31] || (_cache[31] = createBaseVNode("label", null, "用户数据路径", -1)),
+                      createVNode(unref(NInput), {
+                        value: unref(settings).dataDir,
+                        "onUpdate:value": _cache[8] || (_cache[8] = ($event) => unref(settings).dataDir = $event),
+                        placeholder: "用户数据目录",
+                        size: "small"
+                      }, {
+                        suffix: withCtx(() => [
+                          createVNode(unref(Button), {
+                            size: "tiny",
+                            quaternary: "",
+                            onClick: selectDataDir
+                          }, {
+                            default: withCtx(() => [..._cache[30] || (_cache[30] = [
+                              createTextVNode("浏览", -1)
+                            ])]),
+                            _: 1
+                          })
+                        ]),
+                        _: 1
+                      }, 8, ["value"])
+                    ]),
+                    createBaseVNode("div", _hoisted_24, [
+                      _cache[33] || (_cache[33] = createBaseVNode("label", null, "缓存路径", -1)),
+                      createVNode(unref(NInput), {
+                        value: unref(settings).cacheDir,
+                        "onUpdate:value": _cache[9] || (_cache[9] = ($event) => unref(settings).cacheDir = $event),
+                        placeholder: "缓存目录",
+                        size: "small"
+                      }, {
+                        suffix: withCtx(() => [
+                          createVNode(unref(Button), {
+                            size: "tiny",
+                            quaternary: "",
+                            onClick: selectCacheDir
+                          }, {
+                            default: withCtx(() => [..._cache[32] || (_cache[32] = [
+                              createTextVNode("浏览", -1)
+                            ])]),
+                            _: 1
+                          })
+                        ]),
+                        _: 1
+                      }, 8, ["value"])
+                    ]),
+                    createBaseVNode("div", _hoisted_25, [
+                      createBaseVNode("div", _hoisted_26, [
+                        createBaseVNode("span", null, "缓存占用：" + toDisplayString(cacheSizeLabel.value), 1)
+                      ]),
+                      createVNode(unref(NPopconfirm), { onPositiveClick: clearCache }, {
+                        trigger: withCtx(() => [
+                          createVNode(unref(Button), {
+                            size: "small",
+                            secondary: "",
+                            loading: clearingCache.value
+                          }, {
+                            icon: withCtx(() => [
+                              createVNode(unref(NIcon), null, {
+                                default: withCtx(() => [
+                                  createVNode(unref(TrashOutline))
+                                ]),
+                                _: 1
+                              })
+                            ]),
+                            default: withCtx(() => [
+                              _cache[34] || (_cache[34] = createTextVNode(" 清理缓存 ", -1))
+                            ]),
+                            _: 1
+                          }, 8, ["loading"])
+                        ]),
+                        default: withCtx(() => [
+                          _cache[35] || (_cache[35] = createTextVNode(" 将删除中间文件和未被历史记录引用的上传副本。 ", -1))
+                        ]),
+                        _: 1
+                      })
+                    ]),
+                    unref(settings).storageRestartRequired ? (openBlock(), createBlock(unref(NAlert), {
+                      key: 0,
+                      type: "warning",
                       size: "small"
                     }, {
-                      prefix: withCtx(() => [
-                        createVNode(unref(NIcon), { size: "14" }, {
-                          default: withCtx(() => [
-                            createVNode(unref(KeyOutline))
-                          ]),
-                          _: 1
-                        })
+                      default: withCtx(() => [..._cache[36] || (_cache[36] = [
+                        createTextVNode(" 存储路径变更将在重启后生效。 ", -1)
+                      ])]),
+                      _: 1
+                    })) : createCommentVNode("", true),
+                    createBaseVNode("div", _hoisted_27, [
+                      unref(settings).storageRestartRequired ? (openBlock(), createBlock(unref(Button), {
+                        key: 0,
+                        type: "primary",
+                        size: "small",
+                        onClick: restartApp
+                      }, {
+                        icon: withCtx(() => [
+                          createVNode(unref(NIcon), null, {
+                            default: withCtx(() => [
+                              createVNode(unref(RefreshOutline))
+                            ]),
+                            _: 1
+                          })
+                        ]),
+                        default: withCtx(() => [
+                          _cache[37] || (_cache[37] = createTextVNode(" 重启应用 ", -1))
+                        ]),
+                        _: 1
+                      })) : createCommentVNode("", true)
+                    ])
+                  ])
+                ]),
+                _: 1
+              }),
+              createVNode(unref(NCard), {
+                class: "sv-card",
+                bordered: true,
+                size: "small"
+              }, {
+                default: withCtx(() => [
+                  createBaseVNode("div", _hoisted_28, [
+                    createVNode(unref(NIcon), {
+                      size: "18",
+                      class: "sv-card-icon"
+                    }, {
+                      default: withCtx(() => [
+                        createVNode(unref(SwapHorizontalOutline))
                       ]),
                       _: 1
-                    }, 8, ["value", "placeholder"])
+                    }),
+                    _cache[38] || (_cache[38] = createBaseVNode("span", null, "转换设置", -1))
                   ]),
-                  createBaseVNode("div", _hoisted_26, [
-                    _cache[38] || (_cache[38] = createBaseVNode("label", null, "Provider", -1)),
-                    createVNode(unref(NSelect), {
-                      value: unref(settings).aiProvider,
-                      "onUpdate:value": _cache[9] || (_cache[9] = ($event) => unref(settings).aiProvider = $event),
-                      options: providerSelectOptions(unref(settings).aiProviderOptions),
-                      size: "small"
-                    }, null, 8, ["value", "options"])
-                  ])
-                ])
-              ]),
-              _: 1
-            }),
-            createVNode(unref(NCard), {
-              class: "sv-card",
-              bordered: true,
-              size: "small"
-            }, {
-              default: withCtx(() => [
-                createBaseVNode("div", _hoisted_27, [
-                  createVNode(unref(NIcon), {
-                    size: "16",
-                    class: "sv-card-icon"
-                  }, {
-                    default: withCtx(() => [
-                      createVNode(unref(OptionsOutline))
-                    ]),
-                    _: 1
-                  }),
-                  _cache[39] || (_cache[39] = createBaseVNode("span", null, "识别预处理", -1))
-                ]),
-                createBaseVNode("div", _hoisted_28, [
                   createBaseVNode("div", _hoisted_29, [
-                    _cache[40] || (_cache[40] = createBaseVNode("label", null, "启用", -1)),
-                    createVNode(unref(NSwitch), {
-                      value: unref(settings).omrPreprocess,
-                      "onUpdate:value": _cache[10] || (_cache[10] = ($event) => unref(settings).omrPreprocess = $event),
-                      size: "small"
-                    }, null, 8, ["value"])
-                  ]),
-                  createBaseVNode("div", _hoisted_30, [
-                    _cache[41] || (_cache[41] = createBaseVNode("label", null, "目标长边", -1)),
-                    createVNode(unref(NInputNumber), {
-                      value: unref(settings).omrPreprocessLongEdge,
-                      "onUpdate:value": _cache[11] || (_cache[11] = ($event) => unref(settings).omrPreprocessLongEdge = $event),
-                      min: 0,
-                      step: 200,
-                      size: "small",
-                      style: { "width": "140px" }
-                    }, null, 8, ["value"])
-                  ]),
-                  createBaseVNode("div", _hoisted_31, [
-                    _cache[42] || (_cache[42] = createBaseVNode("label", null, "黑白化", -1)),
-                    createVNode(unref(NSwitch), {
-                      value: unref(settings).omrPreprocessBinarize,
-                      "onUpdate:value": _cache[12] || (_cache[12] = ($event) => unref(settings).omrPreprocessBinarize = $event),
-                      size: "small"
-                    }, null, 8, ["value"])
-                  ])
-                ])
-              ]),
-              _: 1
-            }),
-            createVNode(unref(NCard), {
-              class: "sv-card",
-              bordered: true,
-              size: "small"
-            }, {
-              default: withCtx(() => [
-                createBaseVNode("div", _hoisted_32, [
-                  createVNode(unref(NIcon), {
-                    size: "16",
-                    class: "sv-card-icon"
-                  }, {
-                    default: withCtx(() => [
-                      createVNode(_component_HardwareChipOutline)
+                    createBaseVNode("div", _hoisted_30, [
+                      createBaseVNode("div", _hoisted_31, [
+                        _cache[39] || (_cache[39] = createBaseVNode("label", null, "简谱调", -1)),
+                        createVNode(unref(NSelect), {
+                          value: unref(settings).targetKey,
+                          "onUpdate:value": _cache[10] || (_cache[10] = ($event) => unref(settings).targetKey = $event),
+                          options: keyOptions,
+                          size: "small",
+                          style: { "width": "80px" }
+                        }, null, 8, ["value"])
+                      ]),
+                      createBaseVNode("div", _hoisted_32, [
+                        _cache[40] || (_cache[40] = createBaseVNode("label", null, "半音记谱", -1)),
+                        createVNode(unref(NSelect), {
+                          value: unref(settings).accidentalMode,
+                          "onUpdate:value": _cache[11] || (_cache[11] = ($event) => unref(settings).accidentalMode = $event),
+                          options: accidentalModeOptions,
+                          size: "small",
+                          style: { "width": "140px" }
+                        }, null, 8, ["value"])
+                      ]),
+                      createBaseVNode("div", _hoisted_33, [
+                        _cache[41] || (_cache[41] = createBaseVNode("label", null, "小节号", -1)),
+                        createVNode(unref(NSelect), {
+                          value: unref(settings).measureNumberMode,
+                          "onUpdate:value": _cache[12] || (_cache[12] = ($event) => unref(settings).measureNumberMode = $event),
+                          options: measureNumberModeOptions,
+                          size: "small",
+                          style: { "width": "160px" }
+                        }, null, 8, ["value"])
+                      ]),
+                      createBaseVNode("div", _hoisted_34, [
+                        _cache[42] || (_cache[42] = createBaseVNode("label", null, "代码配色", -1)),
+                        createBaseVNode("div", _hoisted_35, [
+                          createVNode(unref(NSwitch), {
+                            value: unref(settings).jianpuSyntaxHighlight,
+                            "onUpdate:value": _cache[13] || (_cache[13] = ($event) => unref(settings).jianpuSyntaxHighlight = $event),
+                            size: "small"
+                          }, null, 8, ["value"])
+                        ])
+                      ])
                     ]),
-                    _: 1
-                  }),
-                  _cache[43] || (_cache[43] = createBaseVNode("span", null, "工作台 AI 助手", -1))
+                    createBaseVNode("div", _hoisted_36, [
+                      _cache[44] || (_cache[44] = createBaseVNode("label", null, "默认导出路径", -1)),
+                      createVNode(unref(NInput), {
+                        value: unref(settings).outputDir,
+                        "onUpdate:value": _cache[14] || (_cache[14] = ($event) => unref(settings).outputDir = $event),
+                        placeholder: "留空则每次手动选择",
+                        size: "small"
+                      }, {
+                        suffix: withCtx(() => [
+                          createVNode(unref(Button), {
+                            size: "tiny",
+                            quaternary: "",
+                            onClick: selectOutputDir
+                          }, {
+                            default: withCtx(() => [..._cache[43] || (_cache[43] = [
+                              createTextVNode("浏览", -1)
+                            ])]),
+                            _: 1
+                          })
+                        ]),
+                        _: 1
+                      }, 8, ["value"])
+                    ])
+                  ])
                 ]),
-                createBaseVNode("div", _hoisted_33, [
-                  createBaseVNode("div", _hoisted_34, [
-                    _cache[44] || (_cache[44] = createBaseVNode("label", null, "API Key", -1)),
-                    createVNode(unref(NInput), {
-                      value: unref(settings).assistantApiKey,
-                      "onUpdate:value": _cache[13] || (_cache[13] = ($event) => unref(settings).assistantApiKey = $event),
-                      type: "password",
-                      "show-password-on": "click",
-                      placeholder: unref(settings).assistantApiKeySet ? "已保存（留空不更新）" : "API Key",
-                      size: "small"
+                _: 1
+              }),
+              createVNode(unref(NCard), {
+                class: "sv-card",
+                bordered: true,
+                size: "small"
+              }, {
+                default: withCtx(() => [
+                  createBaseVNode("div", _hoisted_37, [
+                    createVNode(unref(NIcon), {
+                      size: "18",
+                      class: "sv-card-icon"
                     }, {
-                      prefix: withCtx(() => [
-                        createVNode(unref(NIcon), { size: "14" }, {
-                          default: withCtx(() => [
-                            createVNode(unref(KeyOutline))
-                          ]),
-                          _: 1
-                        })
+                      default: withCtx(() => [
+                        createVNode(unref(SunnyOutline))
                       ]),
                       _: 1
-                    }, 8, ["value", "placeholder"])
+                    }),
+                    _cache[45] || (_cache[45] = createBaseVNode("span", null, "外观", -1))
                   ]),
-                  createBaseVNode("div", _hoisted_35, [
-                    _cache[45] || (_cache[45] = createBaseVNode("label", null, "Provider", -1)),
-                    createVNode(unref(NSelect), {
-                      value: unref(settings).assistantProvider,
-                      "onUpdate:value": _cache[14] || (_cache[14] = ($event) => unref(settings).assistantProvider = $event),
-                      options: providerSelectOptions(unref(settings).assistantProviderOptions),
-                      size: "small"
-                    }, null, 8, ["value", "options"])
+                  createBaseVNode("div", _hoisted_38, [
+                    createBaseVNode("div", _hoisted_39, [
+                      _cache[46] || (_cache[46] = createBaseVNode("label", null, "主题模式", -1)),
+                      createVNode(unref(NSelect), {
+                        value: unref(settings).themeMode,
+                        "onUpdate:value": [
+                          _cache[15] || (_cache[15] = ($event) => unref(settings).themeMode = $event),
+                          unref(settings).setThemeMode
+                        ],
+                        options: themeModeOptions,
+                        size: "small",
+                        style: { "width": "140px" }
+                      }, null, 8, ["value", "onUpdate:value"])
+                    ])
                   ])
-                ])
-              ]),
-              _: 1
-            })
+                ]),
+                _: 1
+              })
+            ])
           ])
         ])
       ]);
     };
   }
 });
-const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-319e4944"]]);
+const SettingsView = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-aa374999"]]);
 const useAssistantStore = /* @__PURE__ */ defineStore("assistant", () => {
   const sessions = /* @__PURE__ */ ref([]);
   const messages = /* @__PURE__ */ ref([]);
@@ -67207,10 +67388,11 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
   setup(__props) {
     const store = useTaskStore();
     const logStore = useLogStore();
+    const settings = useSettingsStore();
     const activeTab = /* @__PURE__ */ ref("recognize");
     const logOpen = /* @__PURE__ */ ref(false);
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const prefersDark = /* @__PURE__ */ ref(mediaQuery.matches);
+    const systemPrefersDark = /* @__PURE__ */ ref(mediaQuery.matches);
     const isMaximized = /* @__PURE__ */ ref(false);
     let removeMaximizedListener = null;
     const navItems = [
@@ -67218,8 +67400,12 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
       { key: "convert", label: "工作台", icon: SyncOutline },
       { key: "settings", label: "设置", icon: SettingsOutline }
     ];
+    const effectiveDark = computed(() => {
+      if (settings.themeMode === "system") return systemPrefersDark.value;
+      return settings.themeMode === "dark";
+    });
     function handleThemeChange(event) {
-      prefersDark.value = event.matches;
+      systemPrefersDark.value = event.matches;
     }
     onMounted(() => {
       if (typeof mediaQuery.addEventListener === "function") {
@@ -67258,7 +67444,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
     function closeWindow() {
       void window.api.closeWindow();
     }
-    const naiveTheme = computed(() => prefersDark.value ? darkTheme : null);
+    const naiveTheme = computed(() => effectiveDark.value ? darkTheme : null);
     const lightThemeOverrides = {
       common: {
         primaryColor: "#4c6ef5",
@@ -67335,7 +67521,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
         barColor: "#748ffc"
       }
     };
-    const themeOverrides = computed(() => prefersDark.value ? darkThemeOverrides : lightThemeOverrides);
+    const themeOverrides = computed(() => effectiveDark.value ? darkThemeOverrides : lightThemeOverrides);
     return (_ctx, _cache) => {
       return openBlock(), createBlock(unref(NConfigProvider), {
         theme: naiveTheme.value,
@@ -67345,7 +67531,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
           createVNode(unref(NMessageProvider), null, {
             default: withCtx(() => [
               createBaseVNode("div", {
-                class: normalizeClass(["app-shell", prefersDark.value ? "theme-dark" : "theme-light"])
+                class: normalizeClass(["app-shell", effectiveDark.value ? "theme-dark" : "theme-light"])
               }, [
                 createBaseVNode("div", _hoisted_1, [
                   _cache[5] || (_cache[5] = createBaseVNode("div", { class: "titlebar-left" }, [
