@@ -5,6 +5,13 @@ from pydantic import BaseModel
 from ..common.types import AccidentalMode, MeasureNumberMode, TargetKey
 
 
+class RenderedSvgPage(BaseModel):
+    svg_file_id: str
+    page_index: int
+    page_width: float
+    page_height: float
+
+
 class RenderJianpuSvgRequest(BaseModel):
     musicxml_file_id: str
     page_image_file_id: str | None = None
@@ -18,6 +25,7 @@ class RenderJianpuSvgRequest(BaseModel):
 
 class RenderJianpuSvgResponse(BaseModel):
     svg_file_id: str
+    pages: list[RenderedSvgPage] = []
 
 
 class RenderJianpuTextSvgRequest(BaseModel):
@@ -34,6 +42,7 @@ class RenderJianpuTextSvgRequest(BaseModel):
 
 class RenderJianpuTextSvgResponse(BaseModel):
     svg_file_id: str
+    pages: list[RenderedSvgPage] = []
     ocr_text: str | None = None
     jianpu_text: str | None = None
 
@@ -60,6 +69,7 @@ class FinalRenderRequest(BaseModel):
 
 class FinalRenderResponse(BaseModel):
     svg_file_id: str
+    pages: list[RenderedSvgPage] = []
     page_width: float
     page_height: float
 
@@ -77,5 +87,32 @@ class PreservingLayoutRequest(BaseModel):
 
 class PreservingLayoutResponse(BaseModel):
     svg_file_id: str
+    page_width: float
+    page_height: float
+
+
+class BatchRenderPageRequest(BaseModel):
+    musicxml_file_id: str | None = None
+    jianpu_text: str | None = None
+    jianpu_file_id: str | None = None
+    page_image_file_id: str | None = None
+    ocr_text: str | None = None
+    include_ocr_text: bool = False
+    start_measure_number: int | None = None
+    title: str | None = None
+
+
+class BatchRenderRequest(BaseModel):
+    pages: list[BatchRenderPageRequest]
+    target_key: TargetKey = "C"
+    accidental_mode: AccidentalMode = "auto"
+    show_measure_numbers: bool | None = None
+    measure_number_mode: MeasureNumberMode = "all"
+    title: str = "简谱"
+
+
+class BatchRenderResponse(BaseModel):
+    svg_file_id: str
+    pages: list[RenderedSvgPage]
     page_width: float
     page_height: float

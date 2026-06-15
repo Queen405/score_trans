@@ -24,6 +24,7 @@ class HistoryBatch:
     created_at: str = ""
     page_count: int = 0
     status: str = "completed"
+    render_page_file_ids: list[str] = field(default_factory=list)
     pages: list[HistoryPage] = field(default_factory=list)
 
 

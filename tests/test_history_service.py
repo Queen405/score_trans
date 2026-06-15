@@ -66,6 +66,36 @@ def test_batch_status_tracks_background_pages(tmp_path) -> None:
     assert service.get_batch(batch.id).status == "failed"
 
 
+def test_batch_render_page_file_ids_are_saved_and_updated(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", svg_file_id="legacy-svg")],
+        render_page_file_ids=["a4-1", "a4-2"],
+    )
+
+    assert service.get_batch(batch.id).render_page_file_ids == ["a4-1", "a4-2"]
+
+    updated = service.update_batch_render_pages(batch.id, ["a4-new"])
+
+    assert updated is not None
+    assert updated.render_page_file_ids == ["a4-new"]
+
+
+def test_old_history_batch_falls_back_to_page_svg_ids(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(input_file_name="a.png", svg_file_id="svg-a"),
+            HistoryPage(input_file_name="b.png", svg_file_id="svg-b"),
+        ]
+    )
+
+    loaded = service.get_batch(batch.id)
+
+    assert loaded is not None
+    assert loaded.render_page_file_ids == []
+
+
 def test_measure_selection_failure_update_does_not_leave_processing_status(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch(

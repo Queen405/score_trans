@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends
 from ..dependencies import get_render_actions
 from ...exec.render.actions import RenderActions
 from ...models.render.schemas import (
+    BatchRenderRequest,
+    BatchRenderResponse,
     FinalRenderRequest,
     FinalRenderResponse,
     NormalizeJianpuTextRequest,
@@ -44,6 +46,14 @@ async def normalize_jianpu_text_route(
     actions: RenderActions = Depends(get_render_actions),
 ):
     return await asyncio.to_thread(actions.normalize_jianpu_text, req)
+
+
+@router.post("/batch-a4", response_model=BatchRenderResponse)
+async def render_batch_a4(
+    req: BatchRenderRequest,
+    actions: RenderActions = Depends(get_render_actions),
+):
+    return await asyncio.to_thread(actions.render_batch_a4, req)
 
 
 @router.post("/preserving-layout", response_model=PreservingLayoutResponse)

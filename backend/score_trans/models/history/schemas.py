@@ -27,6 +27,7 @@ class PageUpdate(BaseModel):
 
 class PageResponse(BaseModel):
     id: int
+    batch_id: int
     input_file_name: str
     input_file_id: str
     musicxml_file_id: str
@@ -40,6 +41,7 @@ class PageResponse(BaseModel):
 
 class BatchCreateRequest(BaseModel):
     pages: list[PageCreate]
+    render_page_file_ids: list[str] = []
 
 
 class BatchResponse(BaseModel):
@@ -47,6 +49,7 @@ class BatchResponse(BaseModel):
     created_at: str
     page_count: int
     status: str
+    render_page_file_ids: list[str] = []
     pages: list[PageResponse]
 
 
@@ -61,3 +64,6 @@ class BatchListItem(BaseModel):
 class DeleteAllResponse(BaseModel):
     deleted_count: int
 
+
+class BatchRenderPagesUpdate(BaseModel):
+    render_page_file_ids: list[str]

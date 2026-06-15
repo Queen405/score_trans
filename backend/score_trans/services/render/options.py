@@ -31,6 +31,9 @@ class RenderOptions:
     min_measure_width: int = RENDER_MIN_MEASURE_WIDTH
     max_measure_width: int = RENDER_MAX_MEASURE_WIDTH
     beat_gap: int = RENDER_BEAT_GAP
+    staff_space: float = 21.0
+    note_min_gap: float = 9.0
+    duration_spacing_ratio: float = 1.0
     show_beat_guides: bool = RENDER_SHOW_BEAT_GUIDES
     show_staff_guides: bool = RENDER_SHOW_STAFF_GUIDES
     show_measure_numbers: bool = RENDER_SHOW_MEASURE_NUMBERS

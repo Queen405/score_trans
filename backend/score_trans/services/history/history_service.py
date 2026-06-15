@@ -21,8 +21,15 @@ class HistoryService:
     def get_batch(self, batch_id: int) -> HistoryBatch | None:
         return self.dao.get_batch(batch_id)
 
-    def create_batch(self, pages: list[HistoryPage]) -> HistoryBatch:
-        return self.dao.create_batch(pages)
+    def create_batch(
+        self, pages: list[HistoryPage], render_page_file_ids: list[str] | None = None
+    ) -> HistoryBatch:
+        return self.dao.create_batch(pages, render_page_file_ids)
+
+    def update_batch_render_pages(
+        self, batch_id: int, render_page_file_ids: list[str]
+    ) -> HistoryBatch | None:
+        return self.dao.update_batch_render_pages(batch_id, render_page_file_ids)
 
     def update_page(
         self,

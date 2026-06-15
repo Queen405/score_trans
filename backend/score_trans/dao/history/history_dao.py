@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -42,6 +43,7 @@ class HistoryDao:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
                     page_count INTEGER NOT NULL DEFAULT 0,
+                    render_page_file_ids TEXT NOT NULL DEFAULT '[]',
                     status TEXT NOT NULL DEFAULT 'completed'
                 )
                 """
@@ -114,10 +116,16 @@ class HistoryDao:
                 return None
             return self._row_to_batch(conn, row)
 
-    def create_batch(self, pages: list[HistoryPage]) -> HistoryBatch:
+    def create_batch(
+        self, pages: list[HistoryPage], render_page_file_ids: list[str] | None = None
+    ) -> HistoryBatch:
         with self._connect() as conn:
             cursor = conn.execute(
-                "INSERT INTO history_batch (page_count) VALUES (?)", (len(pages),)
+                """
+                INSERT INTO history_batch (page_count, render_page_file_ids)
+                VALUES (?, ?)
+                """,
+                (len(pages), _dump_render_page_file_ids(render_page_file_ids or [])),
             )
             batch_id = cursor.lastrowid
             for page in pages:
@@ -146,6 +154,25 @@ class HistoryDao:
             conn.execute(
                 "UPDATE history_batch SET status = ? WHERE id = ?",
                 (batch_status, batch_id),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            return self._row_to_batch(conn, row)
+
+    def update_batch_render_pages(
+        self, batch_id: int, render_page_file_ids: list[str]
+    ) -> HistoryBatch | None:
+        with self._connect() as conn:
+            exists = conn.execute(
+                "SELECT id FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            if not exists:
+                return None
+            conn.execute(
+                "UPDATE history_batch SET render_page_file_ids = ? WHERE id = ?",
+                (_dump_render_page_file_ids(render_page_file_ids), batch_id),
             )
             conn.commit()
             row = conn.execute(
@@ -237,6 +264,15 @@ class HistoryDao:
                 "ALTER TABLE history_page ADD COLUMN start_measure_number INTEGER"
             )
             conn.commit()
+        batch_columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(history_batch)").fetchall()
+        }
+        if "render_page_file_ids" not in batch_columns:
+            conn.execute(
+                "ALTER TABLE history_batch ADD COLUMN render_page_file_ids TEXT NOT NULL DEFAULT '[]'"
+            )
+            conn.commit()
         HistoryDao._ensure_indexes(conn)
 
     @staticmethod
@@ -254,6 +290,11 @@ class HistoryDao:
             created_at=row["created_at"],
             page_count=row["page_count"],
             status=row["status"],
+            render_page_file_ids=_load_render_page_file_ids(
+                row["render_page_file_ids"]
+                if "render_page_file_ids" in row.keys()
+                else "[]"
+            ),
         )
         page_rows = conn.execute(
             "SELECT * FROM history_page WHERE batch_id = ? ORDER BY input_file_name ASC",
@@ -291,3 +332,17 @@ def _batch_status(statuses: list[str]) -> str:
     if any(status in active_statuses for status in statuses):
         return "processing"
     return "completed"
+
+
+def _dump_render_page_file_ids(file_ids: list[str]) -> str:
+    return json.dumps([file_id for file_id in file_ids if file_id], ensure_ascii=False)
+
+
+def _load_render_page_file_ids(payload: str) -> list[str]:
+    try:
+        raw = json.loads(payload or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(raw, list):
+        return []
+    return [str(item) for item in raw if str(item)]

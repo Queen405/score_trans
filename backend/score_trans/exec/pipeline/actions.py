@@ -13,11 +13,11 @@ from ...domain.musicxml import score_to_jianpu_text
 from ...domain.accidentals import score_with_accidental_mode
 from ...models.common.types import AccidentalMode, MeasureNumberMode
 from ...models.pipeline.schemas import PipelineResponse
+from ...models.render.schemas import RenderedSvgPage
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
 from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.files.file_service import FileService
-from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.recognize.image_preprocessing import IMAGE_SUFFIXES
@@ -34,8 +34,12 @@ class ScorePipelineOutputs:
     input_path: Path
     musicxml_path: Path
     jianpu_text_path: Path
-    jianpu_svg_path: Path
+    jianpu_svg_paths: list[Path]
     ocr_measure_numbers: list[int]
+
+    @property
+    def jianpu_svg_path(self) -> Path:
+        return self.jianpu_svg_paths[0]
 
 
 class FullPipelineAction:
@@ -95,32 +99,20 @@ class FullPipelineAction:
         )
         svg_path = out_dir / f"{source.stem}_jianpu.svg"
         report_progress(progress_callback, "render", 82, "渲染简谱 SVG")
-        if ocr_image_path is not None:
-            page_width, page_height = image_dimensions(ocr_image_path)
-            self.renderer.render_score_page_svg(
-                render_score,
-                svg_path,
-                page_width=page_width,
-                page_height=page_height,
-                title=title or render_score.title,
-                show_measure_numbers=show_measure_numbers,
-                measure_number_mode=measure_number_mode,
-            )
-        else:
-            self.renderer.render_score_svg(
-                render_score,
-                svg_path,
-                title=title or render_score.title,
-                show_measure_numbers=show_measure_numbers,
-                measure_number_mode=measure_number_mode,
-            )
+        svg_paths = self.renderer.render_score_a4_svg_pages(
+            render_score,
+            svg_path,
+            title=title or render_score.title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
         ocr_measure_numbers = _extract_ocr_measure_numbers(render_score)
         report_progress(progress_callback, "render", 94, "渲染完成")
         return ScorePipelineOutputs(
             input_path=source,
             musicxml_path=musicxml_path,
             jianpu_text_path=text_path,
-            jianpu_svg_path=svg_path,
+            jianpu_svg_paths=svg_paths,
             ocr_measure_numbers=ocr_measure_numbers,
         )
 
@@ -270,13 +262,22 @@ class PipelineActions:
         report_progress(progress_callback, "pipeline", 96, "注册输出文件")
         musicxml_id = self.uploads.register(outputs.musicxml_path)
         jianpu_id = self.uploads.register(outputs.jianpu_text_path)
-        svg_id = self.uploads.register(outputs.jianpu_svg_path)
+        render_pages = [
+            RenderedSvgPage(
+                svg_file_id=self.uploads.register(path),
+                page_index=index,
+                page_width=1240,
+                page_height=1754,
+            )
+            for index, path in enumerate(outputs.jianpu_svg_paths)
+        ]
         jianpu_text = self.file_service.read_text(outputs.jianpu_text_path)
         return PipelineResponse(
             musicxml_file_id=musicxml_id,
             jianpu_text=jianpu_text,
             jianpu_file_id=jianpu_id,
-            svg_file_id=svg_id,
+            svg_file_id=render_pages[0].svg_file_id,
+            render_pages=render_pages,
             ocr_measure_numbers=outputs.ocr_measure_numbers,
         )
 

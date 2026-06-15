@@ -4,116 +4,115 @@
 
 ## 统计概览
 
-| 类别 | 数量 |
-|---|---|
-| 高严重度 Bug | 1 |
-| ~~误报已移除~~ | ~~2~~ |
-| 中严重度 Bug | 6 |
-| ~~误报已移除~~ | ~~2~~ |
-| 低严重度问题 | 5+ |
-| 架构违规 | 2 |
-| 死代码符号 | 9（原 16，7 个为误报） |
-| 代码坏味道 | 25+ |
-| 安全问题 | 6 |
-| 性能问题 | 7 |
+| 类别 | 当前数量 | 较上次变化 |
+|---|---|---|
+| 高严重度 Bug | 0 | ↓1（已修复 2 个） |
+| 中严重度 Bug | 5 | ↓1（`_cfg_value` 已修复） |
+| 低严重度问题 | 5+ | 持平 |
+| 架构违规 | 2 | 持平 |
+| 死代码符号 | 7（原 9，2 个随任务系统投入使用而消除） | ↓2 |
+| 代码坏味道 | 20+ | 略降 |
+| 安全问题 | 5 | ↓1（API key 不再明文返回） |
+| 性能问题 | 7 | 持平 |
 
-> **验证日期**：2026-06-05，所有条目已通过代码搜索验证。标记为 ❌ 的条目为原始分析中的误报，已确认实际代码行为正确或符号有实际引用。
+> **验证日期**：2026-06-15。本次基于 2026-06-05 报告逐条复核，代码较上次分析已有较大重构（特别是任务系统）。
 
 ---
 
 ## 一、高严重度 Bug
 
-### 1. AI Provider 相对导入点数错误
-- **位置**: `services/ai/providers/openai_compatible/provider.py`
-- **问题**: `from .....models.common.errors` 使用了 5 个点，从 `services/ai/providers/openai_compatible/` 退回 5 级会到达 `src/` 而非 `score_trans/`。正确应为 4 个点（`....models`）。
-- **影响**: 运行时 `ImportError`，AI 转录功能可能不可用。
-- **建议**: 验证实际导入路径，修正点数。
+当前高严重度 Bug 数量为 **0**。上次报告中的 2 个高严重度问题均已修复：
 
-### 2. TaskManager SSE 流式传输完全失效
+### ~~1. AI Provider 相对导入点数错误~~ ✅ 已修复
+- **位置**: `services/ai/providers/openai_compatible.py`（文件路径已重构，不再有 `provider.py` 嵌套目录）
+- **验证结果**: 当前使用 `from ....models.common.errors import AITranscriptionError`，路径正确，运行时无 `ImportError`。
+
+### ~~2. TaskManager SSE 流式传输完全失效~~ ✅ 已修复
 - **位置**: `services/tasks/task_service.py`
-- **问题**: `stream_sync` 方法在同步生成器中用 `asyncio.run()` 创建新事件循环来消费 `asyncio.Queue`，但 Queue 绑定到创建 TaskManager 时的事件循环，不同事件循环无法互相操作队列。
-- **影响**: SSE 进度流完全无法工作。
-- **状态**: 目前未被路由实际调用（死代码），但一旦启用就会失败。
-- **建议**: 重写为 asyncio-native 方案，或改用 `asyncio.Queue` 的线程安全替代品。
+- **验证结果**: 已重写为 asyncio-native 实现。`stream()` 与 `global_events()` 均为 async generator，通过 `asyncio.wait_for(queue.get(), ...)` 消费 Queue，不再使用 `asyncio.run()`。该问题已彻底消除。
 
-### ~~3. ~~❌ rendering.py beam 位置计算~~（误报）
-- **位置**: `services/render/drawing/beams.py` — `_render_beam_run`
-- **原始判断**: beam 的 y 坐标使用 `max(...)` 取所有音符的最大 y 值，应使用 `min(...)`。
-- **验证结果**: **误报**。简谱中 duration line（减时线/beam）画在音符**下方**。SVG 坐标系 y 向下增大，`_duration_line_y` 返回值越大 = 越低。`max(...)` 将所有音符的 beam 对齐到最低那条线，确保 beam 不会穿过任何音符，这是**正确的渲染行为**。
+### 历史误报
+- **rendering.py beam 位置计算**（2026-06-05 已标记为误报）：`services/render/drawing/beams.py` 中 `max(...)` 用于将 beam 对齐到最低音符下方，符合简谱 SVG 坐标系约定，行为正确。
 
 ---
 
 ## 二、中严重度 Bug
 
-### 4. ~~`_cfg_value` 错误消息非 f-string~~ (已修复)
-- **位置**: `services/ai/core/prompts.py`
-- **状态**: 已修复，同时将 `ai_prompt.json` 迁移为 `ai_prompt.yaml`。
+### 1. OCR confidence 解析无保护
+- **位置**: `services/ocr/parsing/parser.py` — `coerce_text_block`
+- **问题**: `confidence = float(confidence)` 对非数值字符串（如 "high"）抛 `ValueError` 未捕获。
+- **影响**: 单个异常块会导致整页 OCR 解析失败。
+- **建议**: 加 `try/except ValueError`，异常时回退为 `confidence = None`。
 
-### 5. OCR confidence 解析无保护
-- **位置**: `services/ocr/parser.py` — `coerce_text_block`
-- **问题**: `confidence = float(confidence)` 对非数值字符串（如 "high"）抛 ValueError 未捕获。
-- **建议**: 加 `try/except ValueError`。
-
-### 6. JPEG 解析死循环风险
+### 2. JPEG 解析死循环风险
 - **位置**: `services/files/image_info.py` — `_jpeg_dimensions`
-- **问题**: 段长度为 0 时 `max(0, -2) = 0`，`seek(0, 1)` 不移动指针导致死循环。
-- **建议**: 检测 `length <= 2` 时 break。
+- **问题**: 当 JPEG 段长度 `<= 2` 时，`handle.seek(max(0, length - 2), 1)` 不移动指针，导致 `while True` 死循环。
+- **影响**: 某些畸形 JPEG 输入会使进程挂死。
+- **建议**: 在 `length <= 2` 时 `break`；并增加读取失败后的安全退出条件。
 
-### 7. PDF 只渲染第一页
+### 3. PDF 只渲染第一页
 - **位置**: `services/recognize/image_preprocessing.py` — `prepare_omr_input`
-- **问题**: `pdf_page_to_png` 只渲染第一页（`page_001`），多页 PDF 后续页面丢失。
-- **建议**: 改为渲染所有页或至少提供选项。
+- **问题**: 对 PDF 固定调用 `pdf_page_to_png(input_path, png_path, dpi=PDF_RENDER_DPI)`（默认 `page_index=0`），且输出文件名固定为 `_page_001.png`，多页 PDF 后续页面丢失。
+- **影响**: 多页乐谱 PDF 只能识别第一页。
+- **建议**: 改为渲染所有页（可复用 `utils/pdf.py:pdf_to_png_pages`）或在流程层面逐页调用。
 
-### 8. exec 层广泛使用 HTTPException（架构违规）
-- **位置**: `exec/convert/actions.py`, `exec/files/actions.py`, `exec/pipeline/actions.py`, `exec/export/actions.py`, `exec/ai/actions.py`, `exec/recognize/actions.py`, `exec/render/actions.py`（共 7 个文件，20 处）
-- **问题**: exec 层大量直接 `from fastapi import HTTPException` 并抛出，违反分层架构。exec 不应依赖 FastAPI。
+### 4. exec 层广泛使用 HTTPException（架构违规）
+- **位置**: `exec/history/actions.py`、`exec/files/actions.py`、`exec/export/actions.py`、`exec/render/actions.py`（grep 仍有 20+ 处命中）
+- **问题**: exec 层直接 `from fastapi import HTTPException` 并抛出，违反分层架构。exec 不应依赖 FastAPI。
 - **影响**: exec 层无法在非 FastAPI 上下文（如 CLI、测试）中复用。
-- **建议**: 抛业务异常（如 `ValueError`, `FileNotFoundError`），由 API 层统一转换为 HTTP 响应。
+- **建议**: 抛业务异常（如 `ValueError`、`FileNotFoundError`），由 API 层统一转换为 HTTP 响应。
 
-### ~~9. ~~❌ beat_type=0 时 ZeroDivisionError~~（误报）
-- **位置**: `domain/write/jianpu_text.py` — `score_to_jianpu_text`
-- **原始判断**: `Fraction(beats * 4, 0)` 抛 ZeroDivisionError。
-- **验证结果**: **误报**。`score_to_jianpu_text` 中 `f"{score.beats}/{score.beat_type}"` 只做字符串拼接，不存在 `Fraction(beats * 4, beat_type)` 的调用。`beat_type` 始终由解析器赋值为正整数（默认 4），且在 Measure 层面使用时 `Fraction(4, beat_type)` 在 `_normalize_measure` 中调用——如果 `beat_type=0` 会在解析阶段就已报错，不会传播到 write 层。
-
-### ~~10. ~~❌ MusicXML 音高推导可能 ValueError~~（误报）
-- **位置**: `domain/parse/musicxml.py` — `_note_pitch`
-- **原始判断**: 不在大调音阶上的音符，`MAJOR_SCALE.index(...)` 可能抛 ValueError。
-- **验证结果**: **误报**。`MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11]` 覆盖大调 7 个音级。对于任意 `relative`（0-11），不在 MAJOR_SCALE 中的 5 个值 `[1, 3, 6, 8, 10]`，`(relative + 1) % 12` 一定在 MAJOR_SCALE 中（因为 +1 后变为 `[2, 4, 7, 9, 11]`，全部在集合内）。因此第 3 个分支**永远不会执行**，不存在 ValueError 风险。该分支可视为防御性代码。
-
-### 11. MIDI rest 语义不正确
+### 5. MIDI rest 语义不正确
 - **位置**: `services/export/export_service.py` — `export_midi`
-- **问题**: rest 事件发送 `note_off(note=0)`，语义不正确（应发送空白时间）。
-- **建议**: 改为 `track.append(mido.Message("note_off", note=0, velocity=0, time=ticks))` 保持当前行为（功能无害）或使用 `time` 偏移。
+- **问题**: rest 事件发送 `mido.Message("note_off", note=0, velocity=0, time=ticks)`，语义上不是休止而是关闭 note 0。
+- **影响**: 功能上可生成有效 MIDI，但与标准休止语义不符；依赖接收端对 note 0 的容忍。
+- **建议**: 将 rest 转换为后续事件的 `time` 偏移累积，不生成 note_off(note=0)。
+
+### 历史已修复/误报
+
+#### ~~`_cfg_value` 错误消息非 f-string~~ ✅ 已修复
+- **位置**: `services/ai/core/prompts.py`
+- **状态**: 当前错误消息已使用 f-string，且配置已迁移为 `ai_prompt.yaml`。
+
+#### ~~beat_type=0 时 ZeroDivisionError~~ ❌ 误报
+- **位置**: `domain/write/jianpu_text.py` — `score_to_jianpu_text`
+- **验证结果**: `score_to_jianpu_text` 中 `beat_type` 仅用于字符串拼接 `f"{score.beats}/{score.beat_type}"`，不存在 `Fraction(beats * 4, 0)` 调用。`beat_type=0` 会在解析阶段即报错。
+
+#### ~~MusicXML 音高推导可能 ValueError~~ ❌ 误报
+- **位置**: `domain/parse/musicxml.py` — `_note_pitch`
+- **验证结果**: 防御分支 `(relative + 1) % 12` 在数学上永远不会触发 `MAJOR_SCALE.index()` 失败。
 
 ---
 
 ## 三、架构违规
 
 ### 1. exec → api 反向依赖（系统性问题）
-- **位置**: `exec/` 层 7 个 actions.py 文件，共 20 处 `raise HTTPException(...)`
+- **位置**: `exec/` 层仍有 4 个 actions.py 文件直接 import/raise `HTTPException`：`exec/history/actions.py`、`exec/files/actions.py`、`exec/export/actions.py`、`exec/render/actions.py`（grep 命中 20+ 处）。`exec/convert/actions.py`、`exec/pipeline/actions.py`、`exec/ai/actions.py`、`exec/recognize/actions.py` 已无 `HTTPException` 导入。
 - **说明**: exec 层不应依赖 FastAPI。应改为抛业务异常，由 API 层统一转换。
 
 ### 2. services 内部循环引用
-- **位置**: `ocr/utils.py`, `ai/base.py`, `ai/providers/*/provider.py` → `settings_service`
-- **说明**: 通过局部导入绕过循环依赖，但违反单向依赖原则。
+- **位置**: `services/ocr/providers/__init__.py`、`services/ocr/providers/openai_compatible.py`、`services/ocr/providers/dashscope.py`、`services/ai/core/prompts.py` 仍导入 `services/settings/api_keys.py` 或 `services/settings/provider_profiles.py`
+- **说明**: 通过延迟/局部导入绕过循环依赖，但仍违反单向依赖原则。
 
 ---
 
 ## 四、同步阻塞路由
 
-| 路由 | 问题 | 建议 |
+| 路由 | 状态 | 说明 |
 |---|---|---|
-| `POST /pipeline` | Audiveris subprocess 可能耗时数分钟，阻塞事件循环 | 改用 `asyncio.to_thread()` 或后台任务 + SSE |
-| `POST /recognize` | 同上 | 同上 |
-| `POST /ai/transcribe` | 多页 LLM 调用，阻塞事件循环 | 同上 |
+| `POST /pipeline` | ✅ 已修复 | 路由改为提交后台任务并返回 `TaskSubmitResponse`，实际执行在 `exec/tasks/background.py:run_sync_task()` 中用 `asyncio.to_thread()` 进行，并受 `OMR_SEMAPHORE` 并发限制。 |
+| `POST /recognize` | ✅ 已修复 | 同上，已改为后台任务模式。 |
+| `POST /ai/transcribe` | ✅ 已修复 | 同上，LLM 多页转写改为后台任务模式。 |
+
+当前长耗时接口已统一为：先 `POST` 提交任务拿到 `task_id`，再通过 `GET /tasks/{task_id}` 或 SSE `/tasks/{task_id}/events` 轮询/流式获取进度。
 
 ---
 
 ## 五、DI 工厂无缓存
 
 - **位置**: `api/dependencies.py`
-- **问题**: 每次请求创建新 Actions 实例，内部 Service/DAO 重复初始化。
-- **建议**: 使用 `@lru_cache` 或 app state 单例。
+- **问题**: 8 个 `get_*_actions()` 工厂函数每次请求仍创建新 Actions 实例（仅 `TaskActions` 通过 `app.state` 缓存）。内部 Service/DAO 重复初始化，上传服务每次还会重新加载 `index.json`。
+- **建议**: 对无状态 Actions 使用 `@lru_cache` 或统一缓存到 `app.state`；UploadService 等可缓存实例避免重复读索引。
 
 ---
 
@@ -122,21 +121,21 @@
 | 文件 | 符号 | 说明 | 验证状态 |
 |---|---|---|---|
 | ~~`jianpu_tokens.py`~~ | ~~`PREFIX_SLASHES`~~ | ~~未被任何代码引用~~ | ❌ **误报**：`parsing/tokens.py` 有引用 |
-| `xml_utils.py` | `_read_mxl()` | 已被 `_read_musicxml` 替代 | ✅ 确认 |
+| `xml_utils.py` | `_read_mxl()` | 已被 `_read_musicxml` 替代 | ✅ 仍存在 |
 | ~~`xml_utils.py`~~ | ~~`_first_child_name()`~~ | ~~未调用~~ | ❌ **误报**：`parse/musicxml.py` 有 import |
 | ~~`write/jianpu_text.py`~~ | ~~`_duration_suffix()`~~ | ~~旧斜杠写法~~ | ❌ **误报**：`_duration_suffix` 在自身内部递归调用 |
 | ~~`write/jianpu_text.py`~~ | ~~`_fmt_num()`~~ | ~~定义但未调用~~ | ❌ **误报**：`_text_block_to_directive` 中有 4 处调用 |
-| `write/musicxml.py` | `_duration_prefix()` | 未使用 | ✅ 确认 |
-| `parse/musicxml.py` | `_extract_part_names()` | 未调用 | ✅ 确认 |
+| `write/musicxml.py` | `_duration_prefix()` | 未使用 | ✅ 仍存在 |
+| `parse/musicxml.py` | `_extract_part_names()` | 未调用 | ✅ 仍存在 |
 | ~~`dict_tools.py`~~ | ~~`first_present()`~~ | ~~未调用~~ | ❌ **误报**：`ocr/parser.py` 和 `ai/service.py` 有引用 |
-| `models/common/schemas.py` | `ErrorResponse` | `app.py` 直接构造 dict 而非使用此 schema | ✅ 确认 |
-| `models/tasks/*` | `TaskProgress`, `TaskStatus`, `SSEProgressEvent` | 完全未使用（为未来异步任务预留） | ✅ 确认 |
-| `exec/ai/actions.py` | `AiActions.get_config()` | 未被路由调用 | ✅ 确认 |
-| `exec/settings/actions.py` | `SettingsActions.get_config()` | 未被路由调用 | ✅ 确认 |
-| `external_tools.py` | `find_tool()` | 定义但未调用 | ✅ 确认 |
-| `convert/schemas.py` | `MusicXmlToJianpuResponse.jianpu_file_id` | 始终返回 None | ✅ 确认 |
-| `pipeline/schemas.py` | `PipelineResponse.task_id` | 始终返回 None | ✅ 确认 |
-| `recognize/schemas.py` | `RecognizeResponse.task_id` | 始终返回 None | ✅ 确认 |
+| `models/common/schemas.py` | `ErrorResponse` | `app.py` 直接构造 dict 而非使用此 schema | ✅ 仍存在 |
+| ~~`models/tasks/*`~~ | ~~`TaskProgress`, `TaskStatus`, `SSEProgressEvent`~~ | ~~完全未使用~~ | ❌ **误报**：任务系统重构后已大量使用 |
+| `exec/ai/actions.py` | `AiActions.get_config()` | 未被路由调用 | ✅ 仍存在 |
+| `exec/settings/actions.py` | `SettingsActions.get_config()` | 未被路由调用 | ✅ 仍存在 |
+| `external_tools.py` | `find_tool()` | 定义但未调用 | ✅ 仍存在 |
+| `convert/schemas.py` | `MusicXmlToJianpuResponse.jianpu_file_id` | 始终返回 None | ✅ 仍存在 |
+| `pipeline/schemas.py` | `PipelineResponse.task_id` | 始终返回 None | ✅ 仍存在 |
+| `recognize/schemas.py` | `RecognizeResponse.task_id` | 始终返回 None | ✅ 仍存在 |
 
 ---
 
@@ -144,38 +143,38 @@
 
 | 位置 A | 位置 B | 重复内容 |
 |---|---|---|
-| `utils/bbox.py:_first_present` | `utils/dict_tools.py:first_present` | 逻辑相同但 `first_present` 已被 `ocr/parser.py` 引用，非死代码 |
+| `utils/bbox.py:_first_present` | `utils/dict_tools.py:first_present` | 逻辑相同但 `first_present` 已被多处引用，非死代码 |
 | `svg/header.py:_svg_header` | `svg/header.py:_svg_page_header` | 大段重复 CSS 样式 |
-| `ocr/text.py:infer_text_role` | `parse/musicxml.py:_is_dynamic_name` | 力度标记集合不一致 |
-| `domain/constants.py:DYNAMICS` | `utils/helpers.py:_is_dynamic_text` | 力度集合不同（10 项 vs 17 项） |
-| `ai/service.py:extract_header/strip_header` | `domain/parse/jianpu_text.py:_read_new_syntax` | 头信息解析逻辑重复 |
+| `services/ocr/core/text.py:infer_text_role` | `domain/parse/musicxml.py:_is_dynamic_name` | 力度标记集合不一致 |
+| `domain/constants.py:DYNAMICS` | `services/render/utils/helpers.py:_is_dynamic_text` | 力度集合不同（10 项 vs 17 项） |
+| `services/ai/transcription/normalization.py:extract_header/strip_header` | `domain/parse/jianpu_text.py:_read_new_syntax` | 头信息解析逻辑重复 |
 
 ---
 
 ## 八、安全问题
 
-| 问题 | 位置 | 严重程度 |
-|---|---|---|
-| 无上传文件大小限制 | `upload_service.py:save` | 中 |
-| API key 明文返回 | `settings/schemas.py:SettingsResponse` | 中 |
-| Prompt injection（title/extra_prompt 直接插入 prompt） | `ai/base.py:build_jianpu_prompt` | 低 |
-| CORS `allow_methods=["*"]` 无生产开关 | `api/app.py` | 低 |
-| `json_parsing.py` 无大小限制的 `json.loads` | `utils/json_parsing.py` | 低 |
-| SSL 证书未显式验证 | `ocr/client.py:send_request` | 低 |
+| 问题 | 位置 | 严重程度 | 状态 |
+|---|---|---|---|
+| 无上传文件大小限制 | `upload_service.py:save` | 中 | ❌ 仍存在 |
+| ~~API key 明文返回~~ | ~~`settings/schemas.py:SettingsResponse`~~ | ~~中~~ | ✅ **已修复**：响应改为 `ocr_api_key_set` / `ai_api_key_set` / `assistant_api_key_set` 布尔标志 |
+| Prompt injection（title/extra_prompt 直接插入 prompt） | `services/ai/core/prompts.py:build_jianpu_prompt` | 低 | ❌ 仍存在 |
+| CORS `allow_methods=["*"]` 无生产开关 | `api/app.py` | 低 | ⚠️ 仍存在（来源可配置，但 methods/headers 仍全通） |
+| `json_parsing.py` 无大小限制的 `json.loads` | `utils/json_parsing.py` | 低 | ⚠️ 仍存在 |
+| SSL 证书未显式验证 | `services/ocr/client/client.py` 或 `services/ocr/providers/_http.py` | 低 | ⚠️ 仍存在 |
 
 ---
 
 ## 九、性能问题
 
-| 问题 | 位置 |
-|---|---|
-| 大图 base64 嵌入 JSON（无流式上传） | `ocr/client.py` |
-| 每次 OCR/AI 调用创建新 HTTP 客户端 | `ocr/providers.py`, `ai/providers/*/provider.py` |
-| DAO 每次操作 open/close SQLite 连接 | `dao/history/history_dao.py`, `dao/settings/settings_dao.py` |
-| 环境变量函数体内每次读取（20+ 处） | 分散在多处 |
-| 正则未预编译 | `ocr/text.py`, `parse/jianpu_text.py` |
-| `services/render/` 模块化渲染，无缓存 | `services/render/` |
-| `cleanup_old` 每个过期目录写一次 index.json | `upload_service.py` |
+| 问题 | 位置 | 状态 |
+|---|---|---|
+| 大图 base64 嵌入 JSON（无流式上传） | `services/ocr/client/client.py` 或 `services/ocr/providers/_http.py` | ❌ 仍存在 |
+| 每次 OCR/AI 调用创建新 HTTP 客户端 | `services/ocr/providers/`、`services/ai/providers/` | ❌ 仍存在 |
+| DAO 每次操作 open/close SQLite 连接 | `dao/history/history_dao.py`、`dao/settings/settings_dao.py` | ❌ 仍存在 |
+| 环境变量函数体内每次读取（20+ 处） | 分散在多处 | ❌ 仍存在 |
+| 正则未预编译 | `services/ocr/core/text.py`、`domain/parse/jianpu_text.py` | ❌ 仍存在 |
+| `services/render/` 模块化渲染，无缓存 | `services/render/` | ❌ 仍存在 |
+| `cleanup_old` 每个过期目录写一次 index.json | `services/files/upload_service.py` | ❌ 仍存在 |
 
 ---
 
@@ -186,31 +185,32 @@
 | `domain/parse/jianpu_text.py` | **好** | 缺错误路径测试 |
 | `domain/parse/musicxml.py` | **好** | 缺多声部测试 |
 | `domain/write/` | 中 | 仅通过 roundtrip 间接覆盖 |
-| `exec/` 层 | 中 | `settings`, `files` 的 Actions 未直接测试 |
+| `exec/` 层 | 中 | `settings`、`files` 的 Actions 未直接测试；任务提交流程未覆盖 |
 | `services/render/` | **好** | beam/tie/slur 细节未覆盖 |
-| `services/tasks/` | **无** | 完全未测试 |
-| `services/ai/` | 好 | LangChain provider 未集成测试 |
-| `utils/*` | **低** | 无直接单元测试 |
+| `services/tasks/` | **低** | 核心 `TaskManager` 和 `background.py` 仍缺单元测试 |
+| `services/ai/` | 好 | provider 集成测试不足；prompt 注入、规范化路径未覆盖 |
+| `utils/*` | **低** | `image_info.py`、`json_parsing.py`、`bbox.py` 等无直接单元测试 |
 | `config/*` | **无** | 无测试 |
 
 ---
 
 ## 十一、改进建议优先级
 
-### 立即修复
-1. 验证 AI provider 的相对导入点数（`.....models` → `....models`？）
-2. 清理 exec 层 HTTPException（7 个文件，20 处），改为业务异常
-3. 统一 `DYNAMICS` 力度集合
+### 立即修复（影响正确性或可能导致挂死/失败）
+1. JPEG 尺寸解析死循环（`services/files/image_info.py:_jpeg_dimensions`）
+2. PDF 预处理只渲染第一页（`services/recognize/image_preprocessing.py`）
+3. OCR confidence `float()` 未保护（`services/ocr/parsing/parser.py:coerce_text_block`）
 
-### 短期优化
-4. 将长耗时路由改为 `asyncio.to_thread()` 或后台任务
-5. `dependencies.py` 加 `@lru_cache` 或 app state 单例
-6. 清理真死代码（9 个确认符号）
-7. DAO 层引入连接池或至少复用连接
-8. 修复 `_cfg_value` f-string 缺失
+### 短期清理（架构债与技术债）
+4. 清理 exec 层剩余 4 个文件的 `HTTPException`（`history/files/export/render`），改为业务异常
+5. `api/dependencies.py` 为 Actions 工厂添加 `@lru_cache` 或统一缓存到 `app.state`
+6. 清理确认的死代码符号（`_read_mxl`、`_duration_prefix`、`_extract_part_names`、`ErrorResponse`、`find_tool`、`get_config` 等）
+7. 统一 `DYNAMICS` 力度集合（`domain/constants.py` 与 `services/render/utils/helpers.py`）
+8. DAO 层引入连接池或至少复用连接
 
 ### 中期改进
-9. `TaskManager` 重写为 asyncio-native
-10. 将 `langchain`/`langchain-openai` 移至 optional 依赖
-11. 补充 `utils/*` 和 `services/tasks/` 的单元测试
-12. `ErrorResponse` schema 应被 `app.py` 异常处理器使用
+9. 上传文件大小限制与类型校验
+10. AI prompt 输入转义/过滤，防止 prompt injection
+11. MIDI rest 改为标准语义（time 偏移累积）
+12. 补充 `utils/*`、`services/tasks/`、`services/ocr/parsing` 的单元测试
+13. `ErrorResponse` schema 应被 `api/app.py` 异常处理器使用

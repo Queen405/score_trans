@@ -79,7 +79,7 @@ def _render_measure(
                 f'<line class="beat-guide" x1="{beat_x:.1f}" y1="{y - 34}" '
                 f'x2="{beat_x:.1f}" y2="{y + 52}"/>'
             )
-        slots = _item_slots(beat.items, beat_x, beat_width)
+        slots = _item_slots(beat.items, beat_x, beat_width, options)
         out.extend(_render_slot_items(slots, y))
         measure_slots.extend(slots)
         beat_x += beat_width + options.beat_gap * scale

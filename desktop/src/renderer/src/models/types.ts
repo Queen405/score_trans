@@ -41,8 +41,16 @@ export interface RenderJianpuSvgRequest {
   title?: string
 }
 
+export interface RenderedSvgPage {
+  svg_file_id: string
+  page_index: number
+  page_width: number
+  page_height: number
+}
+
 export interface RenderJianpuSvgResponse {
   svg_file_id: string
+  pages?: RenderedSvgPage[]
 }
 
 export interface RenderJianpuTextSvgRequest {
@@ -59,6 +67,7 @@ export interface RenderJianpuTextSvgRequest {
 
 export interface RenderJianpuTextSvgResponse {
   svg_file_id: string
+  pages?: RenderedSvgPage[]
   ocr_text?: string
   jianpu_text?: string
 }
@@ -85,6 +94,34 @@ export interface FinalOutputRequest {
 
 export interface FinalOutputResponse {
   svg_file_id: string
+  pages?: RenderedSvgPage[]
+  page_width: number
+  page_height: number
+}
+
+export interface BatchRenderPageRequest {
+  musicxml_file_id?: string
+  jianpu_text?: string
+  jianpu_file_id?: string
+  page_image_file_id?: string
+  ocr_text?: string
+  include_ocr_text?: boolean
+  start_measure_number?: number
+  title?: string
+}
+
+export interface BatchRenderRequest {
+  pages: BatchRenderPageRequest[]
+  target_key?: TargetKey
+  accidental_mode?: AccidentalMode
+  show_measure_numbers?: boolean
+  measure_number_mode?: MeasureNumberMode
+  title?: string
+}
+
+export interface BatchRenderResponse {
+  svg_file_id: string
+  pages: RenderedSvgPage[]
   page_width: number
   page_height: number
 }
@@ -114,6 +151,7 @@ export interface PipelineResponse {
   jianpu_text: string
   jianpu_file_id: string
   svg_file_id: string
+  render_pages?: RenderedSvgPage[]
   ocr_measure_numbers: number[]
 }
 
@@ -313,6 +351,7 @@ export interface LogEntry {
 
 export interface HistoryPage {
   id: number
+  batch_id: number
   input_file_name: string
   input_file_id: string
   musicxml_file_id: string
@@ -329,6 +368,7 @@ export interface HistoryBatch {
   created_at: string
   page_count: number
   status: string
+  render_page_file_ids: string[]
   pages: HistoryPage[]
 }
 
@@ -341,6 +381,7 @@ export interface HistoryBatchListItem {
 }
 
 export interface HistoryCreateRequest {
+  render_page_file_ids?: string[]
   pages: {
     input_file_name?: string
     input_file_id?: string
@@ -362,4 +403,8 @@ export interface HistoryPageUpdateRequest {
   start_measure_number?: number | null
   status?: string
   error_message?: string
+}
+
+export interface HistoryBatchRenderPagesUpdateRequest {
+  render_page_file_ids: string[]
 }

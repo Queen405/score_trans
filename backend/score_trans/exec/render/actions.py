@@ -7,9 +7,12 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from ...domain.accidentals import score_with_accidental_mode
-from ...domain.jianpu import normalize_jianpu_text
+from ...domain.jianpu import normalize_jianpu_text, parse_jianpu_score
 from ...models.common.types import AccidentalMode, MeasureNumberMode
 from ...models.render.schemas import (
+    BatchRenderPageRequest,
+    BatchRenderRequest,
+    BatchRenderResponse,
     FinalRenderRequest,
     FinalRenderResponse,
     NormalizeJianpuTextRequest,
@@ -20,6 +23,7 @@ from ...models.render.schemas import (
     RenderJianpuSvgResponse,
     RenderJianpuTextSvgRequest,
     RenderJianpuTextSvgResponse,
+    RenderedSvgPage,
 )
 from ...models.score import JianpuScore, TextBlock
 from ...services.files.image_info import image_dimensions
@@ -105,6 +109,37 @@ class RenderMusicXmlJianpuAction:
             measure_number_mode=measure_number_mode,
         )
 
+    def execute_a4_pages(
+        self,
+        musicxml_path: str | Path,
+        output_path: str | Path,
+        *,
+        target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
+        start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
+        title: str | None = None,
+        image_path: str | Path | None = None,
+        ocr_provider: OCRProvider | None = None,
+    ) -> list[Path]:
+        score = self.build_score(
+            musicxml_path,
+            target_key=target_key,
+            accidental_mode=accidental_mode,
+            start_measure_number=start_measure_number,
+            title=title,
+            image_path=image_path,
+            ocr_provider=ocr_provider,
+        )
+        return self.render_service.render_score_a4_svg_pages(
+            score,
+            output_path,
+            title=title or score.title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
+
     def build_score(
         self,
         musicxml_path: str | Path,
@@ -180,6 +215,27 @@ class RenderJianpuTextAction:
             measure_number_mode=measure_number_mode,
         )
 
+    def execute_a4_pages(
+        self,
+        input_path: str | Path,
+        output_path: str | Path,
+        *,
+        title: str = "简谱",
+        start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: MeasureNumberMode = "all",
+    ) -> list[Path]:
+        score = parse_jianpu_score(Path(input_path).read_text(encoding="utf-8"), title=title)
+        if start_measure_number is not None:
+            _renumber_score(score, start_measure_number)
+        return self.render_service.render_score_a4_svg_pages(
+            score,
+            output_path,
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
+
 
 class RenderActions:
     def __init__(
@@ -198,36 +254,27 @@ class RenderActions:
             raise HTTPException(404, f"文件不存在：{req.musicxml_file_id}")
 
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
+        image_path = None
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
                 raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
-            page_width, page_height = image_dimensions(image_path)
-            self.musicxml_renderer.execute_page(
-                path,
-                svg_path,
-                page_width=page_width,
-                page_height=page_height,
-                target_key=req.target_key,
-                accidental_mode=req.accidental_mode,
-                start_measure_number=req.start_measure_number,
-                show_measure_numbers=_request_show_measure_numbers(req),
-                measure_number_mode=_request_measure_number_mode(req),
-                image_path=image_path,
-                title=req.title,
-            )
-        else:
-            self.musicxml_renderer.execute(
-                path,
-                svg_path,
-                target_key=req.target_key,
-                accidental_mode=req.accidental_mode,
-                start_measure_number=req.start_measure_number,
-                show_measure_numbers=_request_show_measure_numbers(req),
-                measure_number_mode=_request_measure_number_mode(req),
-                title=req.title,
-            )
-        return RenderJianpuSvgResponse(svg_file_id=self.uploads.register(svg_path))
+        paths = self.musicxml_renderer.execute_a4_pages(
+            path,
+            svg_path,
+            target_key=req.target_key,
+            accidental_mode=req.accidental_mode,
+            start_measure_number=req.start_measure_number,
+            show_measure_numbers=_request_show_measure_numbers(req),
+            measure_number_mode=_request_measure_number_mode(req),
+            image_path=image_path,
+            title=req.title,
+        )
+        pages = self._register_rendered_pages(paths)
+        return RenderJianpuSvgResponse(
+            svg_file_id=pages[0].svg_file_id,
+            pages=pages,
+        )
 
     def render_jianpu_text_svg(self, req: RenderJianpuTextSvgRequest) -> RenderJianpuTextSvgResponse:
         normalized_text: str | None = None
@@ -251,35 +298,32 @@ class RenderActions:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
                 raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
-            page_width, page_height = image_dimensions(image_path)
-            ocr_blocks = (
-                _parse_ocr_text(req.ocr_text)
-                if req.ocr_text
-                else create_configured_ocr_provider().recognize(image_path)
-            )
-            self.text_renderer.execute_page(
+            if req.ocr_text:
+                ocr_blocks = _parse_ocr_text(req.ocr_text)
+            elif req.include_ocr_text:
+                ocr_blocks = create_configured_ocr_provider().recognize(image_path)
+            paths = self.text_renderer.execute_a4_pages(
                 input_path,
                 svg_path,
-                page_width=page_width,
-                page_height=page_height,
-                image_path=image_path,
-                text_blocks=ocr_blocks if req.include_ocr_text else [],
                 title=req.title,
                 start_measure_number=req.start_measure_number,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
             )
         else:
-            self.text_renderer.execute(
+            paths = self.text_renderer.execute_a4_pages(
                 input_path,
                 svg_path,
                 title=req.title,
+                start_measure_number=req.start_measure_number,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
             )
+        pages = self._register_rendered_pages(paths)
 
         return RenderJianpuTextSvgResponse(
-            svg_file_id=self.uploads.register(svg_path),
+            svg_file_id=pages[0].svg_file_id,
+            pages=pages,
             ocr_text=_serialize_ocr_text(ocr_blocks) if ocr_blocks is not None else None,
             jianpu_text=req.jianpu_text,
         )
@@ -291,13 +335,70 @@ class RenderActions:
             raise HTTPException(400, str(exc)) from exc
 
     def render_preserving_layout(self, req: PreservingLayoutRequest) -> PreservingLayoutResponse:
-        response = self._render_final_page(req, require_page_image=True)
+        response = self._render_preserving_page(req, require_page_image=True)
         return PreservingLayoutResponse(**response.model_dump())
 
     def render_final_output(self, req: FinalRenderRequest) -> FinalRenderResponse:
-        return self._render_final_page(req, require_page_image=False)
+        return self._render_final_a4(req)
 
-    def _render_final_page(
+    def render_batch_a4(self, req: BatchRenderRequest) -> BatchRenderResponse:
+        if not req.pages:
+            raise HTTPException(400, "至少需要一个待渲染页面")
+        scores: list[JianpuScore] = []
+        starts: list[int | None] = []
+        for page in req.pages:
+            score = self._build_batch_page_score(req, page)
+            scores.append(score)
+            starts.append(page.start_measure_number)
+        _renumber_scores_continuously(scores, starts)
+        svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
+        paths = self.text_renderer.render_service.render_scores_a4_svg_pages(
+            scores,
+            svg_path,
+            title=req.title,
+            show_measure_numbers=_request_show_measure_numbers(req),
+            measure_number_mode=_request_measure_number_mode(req),
+        )
+        pages = self._register_rendered_pages(paths)
+        return BatchRenderResponse(
+            svg_file_id=pages[0].svg_file_id,
+            pages=pages,
+            page_width=pages[0].page_width,
+            page_height=pages[0].page_height,
+        )
+
+    def _render_final_a4(self, req: FinalRenderRequest) -> FinalRenderResponse:
+        musicxml_path = self.uploads.get_path(req.musicxml_file_id)
+        if not musicxml_path or not musicxml_path.exists():
+            raise HTTPException(404, f"MusicXML 文件不存在：{req.musicxml_file_id}")
+
+        image_path = None
+        if req.page_image_file_id:
+            image_path = self.uploads.get_path(req.page_image_file_id)
+            if not image_path or not image_path.exists():
+                raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+
+        svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
+        paths = self.musicxml_renderer.execute_a4_pages(
+            musicxml_path,
+            svg_path,
+            target_key=req.target_key,
+            accidental_mode=req.accidental_mode,
+            start_measure_number=req.start_measure_number,
+            show_measure_numbers=_request_show_measure_numbers(req),
+            measure_number_mode=_request_measure_number_mode(req),
+            image_path=image_path,
+            title=req.title,
+        )
+        pages = self._register_rendered_pages(paths)
+        return FinalRenderResponse(
+            svg_file_id=pages[0].svg_file_id,
+            pages=pages,
+            page_width=pages[0].page_width,
+            page_height=pages[0].page_height,
+        )
+
+    def _render_preserving_page(
         self,
         req: FinalRenderRequest | PreservingLayoutRequest,
         *,
@@ -334,9 +435,57 @@ class RenderActions:
         )
         return FinalRenderResponse(
             svg_file_id=self.uploads.register(svg_path),
+            pages=[],
             page_width=page_width,
             page_height=page_height,
         )
+
+    def _build_batch_page_score(
+        self,
+        req: BatchRenderRequest,
+        page: BatchRenderPageRequest,
+    ) -> JianpuScore:
+        if page.musicxml_file_id:
+            musicxml_path = self.uploads.get_path(page.musicxml_file_id)
+            if not musicxml_path or not musicxml_path.exists():
+                raise HTTPException(404, f"MusicXML 文件不存在：{page.musicxml_file_id}")
+            image_path = None
+            if page.page_image_file_id:
+                image_path = self.uploads.get_path(page.page_image_file_id)
+                if not image_path or not image_path.exists():
+                    raise HTTPException(404, f"页面图片不存在：{page.page_image_file_id}")
+            return self.musicxml_renderer.build_score(
+                musicxml_path,
+                target_key=req.target_key,
+                accidental_mode=req.accidental_mode,
+                start_measure_number=page.start_measure_number,
+                title=page.title or req.title,
+                image_path=image_path,
+            )
+        if page.jianpu_text or page.jianpu_file_id:
+            if page.jianpu_text:
+                text = page.jianpu_text
+            else:
+                input_path = self.uploads.get_path(page.jianpu_file_id or "")
+                if not input_path or not input_path.exists():
+                    raise HTTPException(404, f"文件不存在：{page.jianpu_file_id}")
+                text = input_path.read_text(encoding="utf-8")
+            score = parse_jianpu_score(text, title=page.title or req.title)
+            return score_with_accidental_mode(score, accidental_mode=req.accidental_mode)
+        raise HTTPException(400, "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id")
+
+    def _register_rendered_pages(self, paths: list[Path]) -> list[RenderedSvgPage]:
+        if not paths:
+            raise HTTPException(500, "渲染未生成任何 SVG 页面")
+        return [
+            RenderedSvgPage(
+                svg_file_id=self.uploads.register(path),
+                page_index=index,
+                page_width=1240,
+                page_height=1754,
+            )
+            for index, path in enumerate(paths)
+        ]
 
 
 def _parse_ocr_text(payload: str) -> list[TextBlock]:
@@ -402,4 +551,38 @@ def _show_measure_numbers(mode: MeasureNumberMode) -> bool:
 
 def _request_show_measure_numbers(req) -> bool:
     return _show_measure_numbers(_request_measure_number_mode(req))
+
+
+def _renumber_score(score: JianpuScore, start: int) -> None:
+    current = start
+    for measure in score.measures:
+        measure.display_number = current
+        for block in measure.text_blocks:
+            if block.role == "measure_number":
+                block.text = str(current)
+                block.measure_number = current
+        current += getattr(measure, "repeat_count", 1)
+
+
+def _renumber_scores_continuously(
+    scores: list[JianpuScore], starts: list[int | None]
+) -> None:
+    current: int | None = None
+    for score, requested_start in zip(scores, starts, strict=False):
+        if requested_start is not None:
+            current = requested_start
+        elif current is None:
+            current = _first_measure_number(score) or 1
+        _renumber_score(score, current)
+        current += sum(
+            getattr(measure, "repeat_count", 1) for measure in score.measures
+        )
+
+
+def _first_measure_number(score: JianpuScore) -> int | None:
+    for measure in score.measures:
+        raw = str(measure.display_number).strip()
+        if raw.isdigit():
+            return int(raw)
+    return None
 

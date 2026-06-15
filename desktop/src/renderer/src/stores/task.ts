@@ -10,6 +10,7 @@ export interface TaskPage {
   batchLabel: string
   batchSealed: boolean
   historyPageId: number | null
+  historyBatchId: number | null
   taskId: string
   inputFileName: string
   inputFileId: string
@@ -21,6 +22,7 @@ export interface TaskPage {
   ocrText: string
   jianpuDirty: boolean
   svgFileId: string
+  svgFileIds: string[]
   startMeasureNumber: number | null
   status: TaskPageStatus
   progressPercent: number
@@ -35,6 +37,7 @@ export interface TaskPageInput {
   batchLabel?: string
   batchSealed?: boolean
   historyPageId?: number | null
+  historyBatchId?: number | null
   taskId?: string
   inputFileId: string
   originalFileName?: string
@@ -45,6 +48,7 @@ export interface TaskPageInput {
   ocrText?: string
   jianpuDirty?: boolean
   svgFileId?: string
+  svgFileIds?: string[]
   startMeasureNumber?: number | null
   status?: TaskPageStatus
   progressPercent?: number
@@ -61,6 +65,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     batchLabel: '',
     batchSealed: false,
     historyPageId: null,
+    historyBatchId: null,
     taskId: '',
     inputFileName: '',
     inputFileId: '',
@@ -72,6 +77,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     ocrText: '',
     jianpuDirty: false,
     svgFileId: '',
+    svgFileIds: [],
     startMeasureNumber: null,
     status: 'pending',
     progressPercent: 0,
@@ -93,6 +99,7 @@ export const useTaskStore = defineStore('task', () => {
   const ocrText = ref('')
   const jianpuDirty = ref(false)
   const svgFileId = ref('')
+  const svgFileIds = ref<string[]>([])
   const startMeasureNumber = ref<number | null>(null)
   const isBusy = ref(false)
   const pages = ref<TaskPage[]>([])
@@ -102,12 +109,14 @@ export const useTaskStore = defineStore('task', () => {
   const currentTaskId = ref<string | null>(null)
   const taskStatus = ref<SSEProgressEvent['status']>('pending')
   const backgroundTaskCount = ref(0)
+  const batchRenderPageFileIds = ref<Record<string, string[]>>({})
 
   function syncCurrentFromPage(): void {
     const page = pages.value[currentPageIndex.value]
     if (!page) {
       inputFileName.value = ''
       historyPageId.value = null
+      svgFileIds.value = []
       inputFileId.value = ''
       originalFileName.value = ''
       originalFileId.value = ''
@@ -131,6 +140,7 @@ export const useTaskStore = defineStore('task', () => {
     ocrText.value = page.ocrText
     jianpuDirty.value = page.jianpuDirty
     svgFileId.value = page.svgFileId
+    svgFileIds.value = page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : [])
     startMeasureNumber.value = page.startMeasureNumber
   }
 
@@ -259,6 +269,11 @@ export const useTaskStore = defineStore('task', () => {
     return localIdx >= 0 && localIdx < currentBatchPages.value.length - 1
   })
   const activePageTaskCount = computed(() => currentBatchPages.value.filter((page) => page.status === 'processing').length)
+  const currentBatchRenderPageFileIds = computed(() => {
+    const batchId = currentBatchId.value
+    if (!batchId) return []
+    return batchRenderPageFileIds.value[batchId] ?? []
+  })
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
@@ -274,6 +289,7 @@ export const useTaskStore = defineStore('task', () => {
     patchCurrentPage({
       inputFileName: name,
       historyPageId: null,
+      historyBatchId: null,
       inputFileId: fileId,
       originalFileName: '',
       originalFileId: '',
@@ -283,6 +299,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
+      svgFileIds: [],
       startMeasureNumber: null,
       status: 'pending',
       taskId: '',
@@ -312,6 +329,7 @@ export const useTaskStore = defineStore('task', () => {
     ocrText.value = ''
     jianpuDirty.value = false
     svgFileId.value = ''
+    svgFileIds.value = []
     startMeasureNumber.value = null
     patchCurrentPage({
       musicxmlFileId: '',
@@ -319,6 +337,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
+      svgFileIds: [],
       startMeasureNumber: null,
       status: 'pending',
       taskId: '',
@@ -351,9 +370,19 @@ export const useTaskStore = defineStore('task', () => {
     patchCurrentPage({ jianpuDirty: false })
   }
 
-  function setSvg(fileId: string) {
+  function setSvg(fileId: string, fileIds?: string[]) {
+    const ids = fileIds ?? (fileId ? [fileId] : [])
     svgFileId.value = fileId
-    patchCurrentPage({ svgFileId: fileId })
+    svgFileIds.value = ids
+    patchCurrentPage({ svgFileId: fileId, svgFileIds: ids })
+  }
+
+  function setBatchRenderPageFileIds(fileIds: string[], batchId = currentBatchId.value): void {
+    if (!batchId) return
+    batchRenderPageFileIds.value = {
+      ...batchRenderPageFileIds.value,
+      [batchId]: [...fileIds],
+    }
   }
 
   function setPageStartMeasureNumber(value: number | null) {
@@ -397,6 +426,7 @@ export const useTaskStore = defineStore('task', () => {
       batchSealed: p.batchSealed ?? sourcePage.batchSealed,
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
+      historyBatchId: p.historyBatchId ?? null,
       taskId: p.taskId ?? '',
       inputFileId: p.inputFileId,
       originalFileName: p.originalFileName ?? '',
@@ -407,6 +437,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText: p.ocrText ?? '',
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
+      svgFileIds: p.svgFileIds ?? (p.svgFileId ? [p.svgFileId] : []),
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
@@ -442,6 +473,7 @@ export const useTaskStore = defineStore('task', () => {
       batchSealed: p.batchSealed ?? sourcePage.batchSealed,
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
+      historyBatchId: p.historyBatchId ?? null,
       taskId: p.taskId ?? '',
       inputFileId: p.inputFileId,
       originalFileName: p.originalFileName ?? '',
@@ -452,6 +484,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText: p.ocrText ?? '',
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
+      svgFileIds: p.svgFileIds ?? (p.svgFileId ? [p.svgFileId] : []),
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
@@ -526,6 +559,7 @@ export const useTaskStore = defineStore('task', () => {
     ocrText.value = ''
     jianpuDirty.value = false
     svgFileId.value = ''
+    svgFileIds.value = []
     startMeasureNumber.value = null
     isBusy.value = false
     pages.value = []
@@ -534,9 +568,14 @@ export const useTaskStore = defineStore('task', () => {
     currentTaskId.value = null
     taskStatus.value = 'pending'
     backgroundTaskCount.value = 0
+    batchRenderPageFileIds.value = {}
   }
 
-  function loadBatch(batchPages: TaskPageInput[], selectIndex: number) {
+  function loadBatch(
+    batchPages: TaskPageInput[],
+    selectIndex: number,
+    renderPageFileIds: string[] = [],
+  ) {
     const random = Math.random().toString(36).slice(2, 8)
     const bid = `batch-${Date.now().toString(36)}-${random}`
     const firstLabel = batchPages[0]?.inputFileName ?? '历史记录'
@@ -546,6 +585,7 @@ export const useTaskStore = defineStore('task', () => {
       batchSealed: true,
       inputFileName: p.inputFileName,
       historyPageId: p.historyPageId ?? null,
+      historyBatchId: p.historyBatchId ?? null,
       taskId: p.taskId ?? '',
       inputFileId: p.inputFileId,
       originalFileName: p.originalFileName ?? '',
@@ -556,6 +596,7 @@ export const useTaskStore = defineStore('task', () => {
       ocrText: p.ocrText ?? '',
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
+      svgFileIds: p.svgFileIds ?? (p.svgFileId ? [p.svgFileId] : []),
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
@@ -564,6 +605,12 @@ export const useTaskStore = defineStore('task', () => {
       errorMessage: p.errorMessage ?? '',
     }))
     currentBatchId.value = bid
+    if (renderPageFileIds.length) {
+      batchRenderPageFileIds.value = {
+        ...batchRenderPageFileIds.value,
+        [bid]: [...renderPageFileIds],
+      }
+    }
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))
     currentPageIndex.value = idx
     syncCurrentFromPage()
@@ -580,6 +627,7 @@ export const useTaskStore = defineStore('task', () => {
     ocrText,
     jianpuDirty,
     svgFileId,
+    svgFileIds,
     startMeasureNumber,
     isBusy,
     pages,
@@ -598,6 +646,7 @@ export const useTaskStore = defineStore('task', () => {
     canPrevPage,
     canNextPage,
     activePageTaskCount,
+    currentBatchRenderPageFileIds,
     addInputPage,
     selectPage,
     selectPageById,
@@ -614,6 +663,7 @@ export const useTaskStore = defineStore('task', () => {
     setOcrText,
     markJianpuClean,
     setSvg,
+    setBatchRenderPageFileIds,
     setPageStartMeasureNumber,
     setHistoryPageId,
     setPageHistoryPageId,

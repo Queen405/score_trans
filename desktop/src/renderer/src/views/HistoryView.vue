@@ -173,10 +173,12 @@ async function handleRestore(entry: HistoryBatchListItem): Promise<void> {
         originalFileName: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_name : '',
         originalFileId: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_id : '',
         historyPageId: page.id,
+        historyBatchId: batch.id,
         musicxmlFileId: page.musicxml_file_id,
         jianpuText: split.jianpuText,
         ocrText: page.ocr_text || split.ocrText,
         svgFileId: page.svg_file_id,
+        svgFileIds: page.svg_file_id ? [page.svg_file_id] : [],
         startMeasureNumber: page.start_measure_number ?? null,
         status: page.status as any,
         measureNumberOptions: parseWaitingMeasureOptions(page.error_message),
@@ -185,15 +187,20 @@ async function handleRestore(entry: HistoryBatchListItem): Promise<void> {
       }
     }),
     0,
+    batch.render_page_file_ids,
   )
-  await validateRestoredBatchFiles(pages)
+  await validateRestoredBatchFiles(pages, batch.render_page_file_ids)
   message.success(`已恢复 ${pages.length} 页`)
 }
 
-async function validateRestoredBatchFiles(pages: HistoryPage[]): Promise<void> {
+async function validateRestoredBatchFiles(
+  pages: HistoryPage[],
+  renderPageFileIds: string[] = [],
+): Promise<void> {
   const seq = ++restoreCheckSeq
   const fileIds = pages
     .flatMap((page) => [page.input_file_id, page.musicxml_file_id, page.svg_file_id])
+    .concat(renderPageFileIds)
     .filter(Boolean)
   if (!fileIds.length) return
   try {
@@ -214,11 +221,17 @@ async function validateRestoredBatchFiles(pages: HistoryPage[]): Promise<void> {
       }
       if (page.svg_file_id && !exists[page.svg_file_id]) {
         patch.svgFileId = ''
+        patch.svgFileIds = []
         warnings.push(`${page.input_file_name}：SVG 已失效`)
       }
       if (Object.keys(patch).length) {
         store.patchPageByHistoryPageId(page.id, patch)
       }
+    }
+    const validRenderIds = renderPageFileIds.filter((fileId) => exists[fileId])
+    if (validRenderIds.length !== renderPageFileIds.length) {
+      store.setBatchRenderPageFileIds(validRenderIds)
+      warnings.push('连续 A4 渲染页部分失效')
     }
     if (warnings.length) {
       log.addLog(`历史恢复部分失效：${warnings.join('，')}`, 'warn')

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ....domain.jianpu import parse_jianpu_score
 from ..models.layout import BeatLayout, MeasureLayout, RenderItem
 from ..options import RenderOptions
 from ..parsing.tokens import _token_duration
@@ -17,7 +16,7 @@ def _measure_layout(
     errors: list[str] | None = None,
 ) -> MeasureLayout:
     beats = [
-        BeatLayout(items=items, width=_beat_visual_width(items))
+        BeatLayout(items=items, width=_beat_visual_width(items, options))
         for items in grouped
     ]
     natural = 42 + sum(beat.width for beat in beats) + max(0, len(beats) - 1) * options.beat_gap

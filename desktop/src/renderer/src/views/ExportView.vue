@@ -63,7 +63,7 @@ const formatOptions = [
 
 const canExport = computed(() => {
   if (exportFormat.value === 'mid') return store.hasMusicxml
-  return store.pages.some((p) => !!p.svgFileId)
+  return !!store.currentBatchRenderPageFileIds.length || store.pages.some((p) => !!p.svgFileId)
 })
 
 const exportLabel = computed(() => {
@@ -86,7 +86,7 @@ async function doExport(): Promise<void> {
     const fmt = exportFormat.value
 
     if (fmt === 'svg') {
-      const svgId = store.svgFileId
+      const svgId = store.currentBatchRenderPageFileIds[0] || store.svgFileId
       if (!svgId) throw new Error('没有可导出的 SVG')
       downloadSvg(svgId)
       log.addLog('已导出 SVG')
@@ -95,7 +95,7 @@ async function doExport(): Promise<void> {
     }
 
     if (fmt === 'png') {
-      const svgId = store.svgFileId
+      const svgId = store.currentBatchRenderPageFileIds[0] || store.svgFileId
       if (!svgId) throw new Error('没有可导出的 SVG')
       const url = getFileURL(svgId)
       const blob = await svgToPngBlob(url)
@@ -131,15 +131,17 @@ async function doExport(): Promise<void> {
 }
 
 async function exportPdfBatch(): Promise<void> {
-  const pages = store.pages.filter((p) => !!p.svgFileId)
-  if (pages.length === 0) throw new Error('没有可导出的页面')
+  const svgIds = store.currentBatchRenderPageFileIds.length
+    ? store.currentBatchRenderPageFileIds
+    : store.pages.flatMap((page) => page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : []))
+  if (svgIds.length === 0) throw new Error('没有可导出的页面')
 
   const pngBlobs: Blob[] = []
-  for (let i = 0; i < pages.length; i++) {
-    const svgUrl = getFileURL(pages[i].svgFileId)
+  for (let i = 0; i < svgIds.length; i++) {
+    const svgUrl = getFileURL(svgIds[i])
     const blob = await svgToPngBlob(svgUrl)
     pngBlobs.push(blob)
-    log.addLog(`渲染页面 ${i + 1}/${pages.length}`)
+    log.addLog(`渲染页面 ${i + 1}/${svgIds.length}`)
   }
 
   const result = await exportApi.exportPdf(pngBlobs)
@@ -148,7 +150,7 @@ async function exportPdfBatch(): Promise<void> {
   a.href = url
   a.download = result.filename
   a.click()
-  log.addLog(`已导出 PDF（${pages.length} 页）`)
+  log.addLog(`已导出 PDF（${svgIds.length} 页）`)
   message.success('导出完成')
 }
 </script>

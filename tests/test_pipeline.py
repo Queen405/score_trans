@@ -72,7 +72,7 @@ def test_full_pipeline_can_hide_measure_numbers(tmp_path) -> None:
     assert 'class="measure-no"' not in svg
 
 
-def test_full_pipeline_runs_ocr_for_image_and_preserves_text_layer(tmp_path) -> None:
+def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> None:
     source = tmp_path / "scan.png"
     Image.new("RGB", (320, 480), "white").save(source)
     recognized = tmp_path / "audiveris-output.musicxml"
@@ -92,10 +92,10 @@ def test_full_pipeline_runs_ocr_for_image_and_preserves_text_layer(tmp_path) -> 
 
     svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")
     assert provider.calls == [source.resolve()]
-    assert 'width="320"' in svg
-    assert 'height="480"' in svg
-    assert "原谱标题" in svg
-    assert 'class="ocr-overlay"' in svg
+    assert outputs.jianpu_svg_paths == [outputs.jianpu_svg_path]
+    assert 'width="1240"' in svg
+    assert 'height="1754"' in svg
+    assert 'viewBox="0 0 1240 1754"' in svg
 
 
 def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> None:

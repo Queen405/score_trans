@@ -1,5 +1,7 @@
 import { apiFetch } from './client'
 import type {
+  BatchRenderRequest,
+  BatchRenderResponse,
   RenderJianpuSvgRequest,
   RenderJianpuSvgResponse,
   RenderJianpuTextSvgRequest,
@@ -29,6 +31,14 @@ export const renderApi = {
 
   finalOutput(req: FinalOutputRequest): Promise<FinalOutputResponse> {
     return apiFetch('/render/final-output', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  batchA4(req: BatchRenderRequest): Promise<BatchRenderResponse> {
+    return apiFetch('/render/batch-a4', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),

@@ -3,7 +3,7 @@ from __future__ import annotations
 from ..constants import CHORD_GAP
 from ..models.shapes import NoteShape
 from ..parsing.tokens import _parse_chord_token, _parse_note
-from .metrics import _low_octave_dot_y, _note_visual_bottom, _note_visual_top
+from .metrics import _low_octave_dot_y, _note_visual_bottom
 
 
 def _duration_line_y(token: str, y: int, level: int) -> float:

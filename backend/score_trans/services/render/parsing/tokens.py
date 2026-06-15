@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from fractions import Fraction
 import re
 
 from ....domain.jianpu_tokens import PREFIX_SLASHES, consume_duration_prefix

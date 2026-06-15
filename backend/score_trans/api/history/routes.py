@@ -7,6 +7,7 @@ from ...exec.history.actions import HistoryActions
 from ...models.history.schemas import (
     BatchCreateRequest,
     BatchListItem,
+    BatchRenderPagesUpdate,
     BatchResponse,
     DeleteAllResponse,
     PageResponse,
@@ -46,6 +47,15 @@ def update_history_page(
     return actions.update_history_page(page_id, req)
 
 
+@router.patch("/{batch_id}/render-pages", response_model=BatchResponse)
+def update_batch_render_pages(
+    batch_id: int,
+    req: BatchRenderPagesUpdate,
+    actions: HistoryActions = Depends(get_history_actions),
+):
+    return actions.update_batch_render_pages(batch_id, req)
+
+
 @router.delete("/{batch_id}")
 def delete_history(
     batch_id: int,
@@ -57,4 +67,3 @@ def delete_history(
 @router.delete("", response_model=DeleteAllResponse)
 def delete_all_history(actions: HistoryActions = Depends(get_history_actions)):
     return actions.delete_all_history()
-

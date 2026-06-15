@@ -3,10 +3,13 @@ from pathlib import Path
 from ...models.common.types import MeasureNumberMode
 from ...models.score import JianpuScore
 from . import (
+    render_jianpu_a4_files_to_svgs,
     render_jianpu_file_to_svg,
     render_jianpu_page_file_to_svg,
+    render_score_a4_pages_to_files,
     render_score_file_to_svg,
     render_score_page_file_to_svg,
+    render_scores_a4_pages_to_files,
 )
 
 
@@ -43,6 +46,38 @@ class RenderService:
             Path(output_path),
             page_width=page_width,
             page_height=page_height,
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
+
+    def render_score_a4_svg_pages(
+        self,
+        score: JianpuScore,
+        output_path: str | Path,
+        title: str | None = None,
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
+    ) -> list[Path]:
+        return render_score_a4_pages_to_files(
+            score,
+            Path(output_path),
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
+
+    def render_scores_a4_svg_pages(
+        self,
+        scores: list[JianpuScore],
+        output_path: str | Path,
+        title: str | None = None,
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
+    ) -> list[Path]:
+        return render_scores_a4_pages_to_files(
+            scores,
+            Path(output_path),
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
@@ -85,6 +120,22 @@ class RenderService:
             title=title,
             text_blocks=text_blocks,
             start_measure_number=start_measure_number,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
+
+    def render_texts_a4_svg_pages(
+        self,
+        input_paths: list[str | Path],
+        output_path: str | Path,
+        title: str = "简谱",
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
+    ) -> list[Path]:
+        return render_jianpu_a4_files_to_svgs(
+            [Path(path) for path in input_paths],
+            Path(output_path),
+            title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )

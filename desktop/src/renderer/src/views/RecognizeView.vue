@@ -284,6 +284,7 @@ import { getFileURL } from '../api/client'
 import type {
   AiTranscribeResponse,
   AiTranscribedPage,
+  BatchRenderPageRequest,
   HistoryPage,
   PipelineResponse,
   SSEProgressEvent,
@@ -377,8 +378,8 @@ const recentActivities = computed((): ActivityItem[] => {
   const pages = store.currentBatchPages
   const activities: ActivityItem[] = []
   for (const page of [...pages].reverse().slice(0, 8)) {
-    let message = ''
-    let level: ActivityItem['level'] = 'info'
+    let message: string
+    let level: ActivityItem['level']
     if (page.status === 'completed') {
       message = `Processed: ${page.inputFileName}`
       level = 'success'
@@ -646,6 +647,7 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
   })
   if (hasUnsealedPage) store.sealCurrentBatch()
   const historyPageIds = await createPendingHistory(targets)
+  await clearBatchRenderPagesForTargets(targets)
 
   // Update existing history pages to 'processing' for re-recognition
   for (const target of targets) {
@@ -715,7 +717,10 @@ async function createPendingHistory(targets: RecognitionTarget[]): Promise<Map<s
       const target = newTargets[index]
       if (!target) return
       result.set(target.pageId, page.id)
-      store.patchPageById(target.pageId, { historyPageId: page.id })
+      store.patchPageById(target.pageId, {
+        historyPageId: page.id,
+        historyBatchId: created.id,
+      })
       registerLiveRecognitionPage(target.pageId, page.id)
     })
     notifyHistoryUpdated()
@@ -772,6 +777,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       ocrText: split.ocrText,
       jianpuDirty: false,
       svgFileId: result.svg_file_id,
+      svgFileIds: renderPageIds(result.render_pages, result.svg_file_id),
       originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
       originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
       taskId: '',
@@ -782,6 +788,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       errorMessage: waitingMessage,
     })
     await persistPageResult(target, pageResult, historyPageId)
+    await maybeRenderCompletedBatchForPage(target.pageId)
     clearLiveRecognitionPage(target.pageId)
     if (needsMeasureChoice) {
       log.addLog(`等待选择起始小节号：${target.inputFileName}`, 'warn')
@@ -818,6 +825,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
   }
 
   let svgFileId = page.svgFileId
+  let svgFileIds = page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : [])
   let jianpuText = page.jianpuText
   try {
     if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
@@ -830,6 +838,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         start_measure_number: selected,
       })
       svgFileId = rendered.svg_file_id
+      svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id)
     } else if (!page.musicxmlFileId && page.jianpuText.trim()) {
       const rendered = await renderApi.jianpuTextSvg({
         jianpu_text: page.jianpuText,
@@ -840,11 +849,13 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         start_measure_number: selected,
       })
       svgFileId = rendered.svg_file_id
+      svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id)
       jianpuText = rendered.jianpu_text || page.jianpuText
     }
 
     store.patchPageById(pageId, {
       svgFileId,
+      svgFileIds,
       jianpuText,
       status: 'completed',
       progressPercent: 100,
@@ -852,6 +863,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       measureNumberOptions: [],
       errorMessage: '',
     })
+    store.setBatchRenderPageFileIds([], page.batchId)
     await persistPageResult(targetFromPage({ ...page, startMeasureNumber: selected }), {
       input_file_name: page.inputFileName,
       input_file_id: page.inputFileId,
@@ -863,6 +875,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       status: 'completed',
       error_message: '',
     }, page.historyPageId)
+    await maybeRenderCompletedBatchForPage(pageId)
     log.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`)
     message.success('已应用起始小节号')
   } catch (error: unknown) {
@@ -934,6 +947,7 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
       error_message: waitingMessage || warnings.join('；'),
     }
     await persistPageResult(target, pageResult, historyPageId)
+    await maybeRenderCompletedBatchForPage(target.pageId)
     clearLiveRecognitionPage(target.pageId)
     if (needsMeasureChoice) {
       log.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, 'warn')
@@ -976,6 +990,7 @@ function applyAiResult(
       ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
+      svgFileIds: [],
       taskId: '',
       status: resultStatus,
       progressPercent: 100,
@@ -994,6 +1009,7 @@ function applyAiResult(
     return {
       inputFileName: label,
       historyPageId: index === 0 ? historyPageId : null,
+      historyBatchId: null,
       inputFileId: page.page_image_file_id,
       originalFileName: label,
       originalFileId: page.page_image_file_id,
@@ -1003,6 +1019,7 @@ function applyAiResult(
       ocrText: '',
       jianpuDirty: false,
       svgFileId: '',
+      svgFileIds: [],
       status: resultStatus,
       progressPercent: 100,
       progressMessage: resultStatus === 'waiting' ? '等待选择起始小节号' : 'AI 转写完成',
@@ -1116,6 +1133,7 @@ async function failTarget(
     status: 'failed',
     error_message: msg,
   }, historyPageId)
+  await clearBatchRenderPagesForPage(target.pageId)
   clearLiveRecognitionPage(target.pageId)
   log.addError(`${prefix}：${target.inputFileName}：${msg}`)
   message.error(`${target.inputFileName}：${msg}`)
@@ -1155,7 +1173,10 @@ async function persistPageResult(
       })
       const pageId = created.pages[0]?.id
       if (pageId) {
-        store.patchPageById(target.pageId, { historyPageId: pageId })
+        store.patchPageById(target.pageId, {
+          historyPageId: pageId,
+          historyBatchId: created.id,
+        })
       }
       const createdPage = created.pages[0]
       if (createdPage) {
@@ -1171,12 +1192,16 @@ async function persistPageResult(
 
 function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
   const options = parseWaitingMeasureOptions(page.error_message)
+  const existing = store.pages.find((entry) => entry.id === pageId)
+    ?? store.pages.find((entry) => entry.historyPageId === page.id)
   const patch = {
     historyPageId: page.id,
     musicxmlFileId: page.musicxml_file_id,
     jianpuText: page.jianpu_text,
     ocrText: page.ocr_text,
     svgFileId: page.svg_file_id,
+    svgFileIds: existing?.svgFileIds.length ? existing.svgFileIds : (page.svg_file_id ? [page.svg_file_id] : []),
+    historyBatchId: page.batch_id ?? null,
     startMeasureNumber: page.start_measure_number,
     status: page.status as TaskPageStatus,
     progressPercent: page.status === 'processing' ? 99 : 100,
@@ -1270,6 +1295,114 @@ function parseWaitingMeasureOptions(messageText: string): number[] {
   const optionsText = match[1] ?? ''
   return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0]))
     .filter((value) => Number.isFinite(value) && value > 0)
+}
+
+function renderPageIds(pages: PipelineResponse['render_pages'], fallback: string): string[] {
+  const ids = (pages ?? []).map((page) => page.svg_file_id).filter(Boolean)
+  return ids.length ? ids : (fallback ? [fallback] : [])
+}
+
+async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
+  const batchPages = batchPagesForPage(pageId)
+  if (!batchPages.length) return
+  const batchId = batchPages[0]?.batchId
+  if (!batchPages.every((page) => page.status === 'completed')) {
+    store.setBatchRenderPageFileIds([], batchId)
+    return
+  }
+
+  const pages = buildBatchRenderPages(batchPages)
+  if (pages.length !== batchPages.length) {
+    store.setBatchRenderPageFileIds([], batchId)
+    return
+  }
+
+  try {
+    const result = await renderApi.batchA4({
+      pages,
+      target_key: settings.targetKey,
+      accidental_mode: settings.accidentalMode,
+      measure_number_mode: settings.measureNumberMode,
+      title: '简谱',
+    })
+    const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)
+    store.setBatchRenderPageFileIds(ids, batchId)
+    const historyBatchId = historyBatchIdForPages(batchPages)
+    if (historyBatchId) {
+      const updated = await historyApi.updateBatchRenderPages(historyBatchId, {
+        render_page_file_ids: ids,
+      })
+      store.setBatchRenderPageFileIds(updated.render_page_file_ids, batchId)
+      notifyHistoryUpdated()
+    }
+  } catch (error: unknown) {
+    log.addLog(`生成连续 A4 简谱失败：${errorMessage(error)}`, 'warn')
+  }
+}
+
+async function clearBatchRenderPagesForTargets(targets: RecognitionTarget[]): Promise<void> {
+  const batchIds = new Set<string>()
+  for (const target of targets) {
+    const page = store.pages.find((entry) => entry.id === target.pageId)
+    if (page?.batchId) batchIds.add(page.batchId)
+  }
+  for (const batchId of batchIds) {
+    await clearBatchRenderPages(batchId)
+  }
+}
+
+async function clearBatchRenderPagesForPage(pageId: string): Promise<void> {
+  const page = store.pages.find((entry) => entry.id === pageId)
+  if (!page?.batchId) return
+  await clearBatchRenderPages(page.batchId)
+}
+
+async function clearBatchRenderPages(batchId: string): Promise<void> {
+  store.setBatchRenderPageFileIds([], batchId)
+  const historyBatchId = historyBatchIdForPages(store.pages.filter((page) => page.batchId === batchId))
+  if (!historyBatchId) return
+  try {
+    await historyApi.updateBatchRenderPages(historyBatchId, { render_page_file_ids: [] })
+    notifyHistoryUpdated()
+  } catch (error: unknown) {
+    log.addLog(`清理连续 A4 渲染页失败：${errorMessage(error)}`, 'warn')
+  }
+}
+
+function batchPagesForPage(pageId: string): TaskPage[] {
+  const page = store.pages.find((entry) => entry.id === pageId)
+  if (!page?.batchId) return page ? [page] : []
+  return store.pages.filter((entry) => entry.batchId === page.batchId)
+}
+
+function buildBatchRenderPages(batchPages: TaskPage[]): BatchRenderPageRequest[] {
+  return batchPages
+    .map((page) => {
+      const sourceImageId = page.originalFileId || page.inputFileId || undefined
+      const start = page.startMeasureNumber ?? undefined
+      if (page.jianpuText.trim()) {
+        return {
+          input_file_name: page.inputFileName,
+          jianpu_text: page.jianpuText,
+          page_image_file_id: sourceImageId,
+          start_measure_number: start,
+        }
+      }
+      if (page.musicxmlFileId) {
+        return {
+          input_file_name: page.inputFileName,
+          musicxml_file_id: page.musicxmlFileId,
+          page_image_file_id: sourceImageId,
+          start_measure_number: start,
+        }
+      }
+      return null
+    })
+    .filter((page): page is BatchRenderPageRequest => page !== null)
+}
+
+function historyBatchIdForPages(batchPages: TaskPage[]): number | null {
+  return batchPages.find((page) => page.historyBatchId != null)?.historyBatchId ?? null
 }
 
 function errorMessage(error: unknown): string {

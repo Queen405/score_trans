@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from ..models.layout import RenderItem
-from ..parsing.tokens import _parse_chord_token, _parse_note
 from ..utils.articulations import _render_articulation
 from ..utils.helpers import _mark_display
 from ..utils.positioning import _technique_mark, _technique_mark_x, _technique_mark_y, _upper_mark_anchor_y
@@ -12,7 +11,9 @@ from .spanners import _render_spanners
 from .token import _render_token
 
 
-def _render_beat_items(items: list[RenderItem], x: float, width: float, y: int) -> list[str]:
+def _render_beat_items(
+    items: list[RenderItem], x: float, width: float, y: int
+) -> list[str]:
     from ..layout.beat import _item_slots
     slots = _item_slots(items, x, width)
     return _render_slot_items(slots, y) + _render_beams(slots, y) + _render_spanners(slots, y)

@@ -21,6 +21,7 @@ from score_trans.services.ocr.providers import MockOCRProvider
 from score_trans.services.render import (
     RenderOptions,
     render_jianpu_svg,
+    render_scores_a4_svgs,
     render_score_page_svg,
     render_score_svg,
 )
@@ -51,6 +52,27 @@ def _simple_score(
             events=list(events),
         )
     )
+    return score
+
+
+def _many_measure_score(start: int, count: int) -> JianpuScore:
+    score = JianpuScore(title="连续排版", target_key="C", beats=4, beat_type=4)
+    for offset in range(count):
+        number = start + offset
+        measure = JianpuMeasure(
+            source_number=str(number),
+            display_measure_number=number,
+            duration=Fraction(4, 1),
+            events=[
+                JianpuEvent(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(1)],
+                    start=Fraction(0, 1),
+                )
+            ],
+        )
+        score.measures.append(measure)
     return score
 
 
@@ -170,6 +192,34 @@ def test_render_score_page_svg_preserves_requested_page_size() -> None:
     assert root.attrib["viewBox"] == "0 0 1240 1754"
 
 
+def test_render_scores_a4_svgs_continue_across_source_page_boundaries() -> None:
+    first_source = _many_measure_score(1, 70)
+    second_source = _many_measure_score(71, 8)
+    third_source = _many_measure_score(79, 4)
+
+    pages = render_scores_a4_svgs([first_source, second_source, third_source])
+
+    assert len(pages) >= 2
+    first_root = _svg_root(pages[0])
+    second_root = _svg_root(pages[1])
+    first_page_numbers = [
+        element.attrib.get("data-number")
+        for element in first_root.iter()
+        if element.attrib.get("class") == "measure"
+    ]
+    second_page_numbers = [
+        element.attrib.get("data-number")
+        for element in second_root.iter()
+        if element.attrib.get("class") == "measure"
+    ]
+    all_numbers = [*first_page_numbers, *second_page_numbers]
+
+    assert "1" in first_page_numbers
+    assert "70" in second_page_numbers
+    assert "71" in second_page_numbers
+    assert all_numbers[:78] == [str(number) for number in range(1, 79)]
+
+
 def test_render_jianpu_text_page_runs_ocr_and_preserves_bbox(tmp_path) -> None:
     text_path = tmp_path / "score.txt"
     image_path = tmp_path / "score.png"
@@ -285,6 +335,26 @@ class RecordingTextRenderer:
         self.show_measure_numbers = show_measure_numbers
         Path(output_path).write_text("<svg></svg>", encoding="utf-8")
         return Path(output_path)
+
+    def execute_a4_pages(
+        self,
+        input_path: str | Path,
+        output_path: str | Path,
+        *,
+        title: str = "简谱",
+        start_measure_number: int | None = None,
+        show_measure_numbers: bool = True,
+        measure_number_mode: str = "all",
+    ) -> list[Path]:
+        return [
+            self.execute(
+                input_path,
+                output_path,
+                title=title,
+                show_measure_numbers=show_measure_numbers,
+                measure_number_mode=measure_number_mode,
+            )
+        ]
 
 
 def test_render_jianpu_text_svg_preserves_editor_comments_in_response(tmp_path) -> None:
