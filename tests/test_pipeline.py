@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from PIL import Image
@@ -42,7 +43,9 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
 
     assert outputs.musicxml_path.name == "scan.musicxml"
     assert outputs.musicxml_path.exists()
-    assert outputs.jianpu_text_path.read_text(encoding="utf-8").startswith("title=Pipeline Test\n1=C\n4/4")
+    assert outputs.jianpu_text_path.read_text(encoding="utf-8").startswith(
+        "title=Pipeline Test\n1=C\n4/4"
+    )
     assert "h0" in outputs.jianpu_text_path.read_text(encoding="utf-8")
     svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")
     assert "Pipeline Test" in svg
@@ -79,7 +82,12 @@ def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> Non
     recognized.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), encoding="utf-8")
     recognizer = FakeRecognizer(source, recognized)
     provider = MockOCRProvider(
-        [OCRTextBlock("原谱标题", bbox=(24, 18, 120, 42), confidence=0.95, role="title")]
+        [
+            OCRTextBlock(
+                "原谱标题", bbox=(24, 18, 120, 42), confidence=0.95, role="title"
+            ),
+            OCRTextBlock("42", bbox=(8, 10, 24, 28), role="measure_number"),
+        ]
     )
 
     outputs = FullPipelineAction(recognizer=recognizer).execute(
@@ -96,6 +104,8 @@ def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> Non
     assert 'width="1240"' in svg
     assert 'height="1754"' in svg
     assert 'viewBox="0 0 1240 1754"' in svg
+    ocr_blocks = json.loads(outputs.ocr_text)
+    assert [block["text"] for block in ocr_blocks] == ["原谱标题"]
 
 
 def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> None:
@@ -105,7 +115,9 @@ def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> No
     image.write_bytes(b"fake image")
     provider = MockOCRProvider([OCRTextBlock("42", role="measure_number")])
 
-    score = MusicXmlToJianpuAction().build_score(musicxml, image_path=image, ocr_provider=provider)
+    score = MusicXmlToJianpuAction().build_score(
+        musicxml, image_path=image, ocr_provider=provider
+    )
 
     assert [measure.display_number for measure in score.measures] == [42, 43]
     assert provider.calls == [image]
@@ -123,7 +135,9 @@ def test_ocr_measure_number_uses_reading_order_not_smallest_number(tmp_path) -> 
         ]
     )
 
-    score = MusicXmlToJianpuAction().build_score(musicxml, image_path=image, ocr_provider=provider)
+    score = MusicXmlToJianpuAction().build_score(
+        musicxml, image_path=image, ocr_provider=provider
+    )
 
     assert [measure.display_number for measure in score.measures] == [118, 119]
     assert [measure.text_blocks[0].text for measure in score.measures] == ["118", "119"]

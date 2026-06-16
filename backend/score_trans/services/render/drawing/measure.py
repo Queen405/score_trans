@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from ..models.layout import MeasureLayout, RenderItem
 from ..options import RenderOptions
+from ..utils.helpers import _mark_display
 from ..utils.metrics import _token_metrics
+from ..utils.positioning import _technique_mark
 from ..utils.text import _esc
 from ..utils.bars import _bar_line, _repeat_end_bar, _repeat_start_bar
 from .beams import _render_beams
@@ -12,6 +14,7 @@ from .text import _render_measure_text_blocks
 
 _MARK_ABOVE_TOKEN = 20  # highest technical mark above token visual top
 _MEASURE_NO_GAP = 4  # clearance between measure number and highest element
+_TUPLET_MARK_GAP = 9.0
 
 
 def _measure_number_y(measure: MeasureLayout, y: int, options: RenderOptions) -> int:
@@ -145,4 +148,69 @@ def _render_tuplets(
             f'<text class="tuplet-number" x="{mid:.1f}" y="{bracket_y + 4:.1f}" '
             f'text-anchor="middle">{count}</text>'
         )
+        out.extend(_render_tuplet_upper_marks(group_slots, bracket_y))
     return out
+
+
+def _render_tuplet_upper_marks(
+    group_slots: list[tuple[RenderItem, float, float]],
+    bracket_y: float,
+) -> list[str]:
+    out: list[str] = []
+    for item, cx, _width in group_slots:
+        layer = 0
+        articulations = item.articulations or (
+            [item.articulation] if item.articulation else []
+        )
+        for articulation in articulations[:4]:
+            mark_y = bracket_y - 14 - layer * _TUPLET_MARK_GAP
+            out.extend(_render_tuplet_articulation(articulation, cx, mark_y))
+            layer += 1
+        visible_ornaments = [
+            ornament for ornament in item.ornaments if _technique_mark(ornament) is None
+        ]
+        for ornament in visible_ornaments[:3]:
+            out.append(
+                f'<text class="ornament" x="{cx:.1f}" y="{bracket_y - 10 - layer * _TUPLET_MARK_GAP:.1f}" '
+                f'text-anchor="middle">{_esc(_mark_display(ornament))}</text>'
+            )
+            layer += 1
+        visible_technical = [
+            technical
+            for technical in item.technical
+            if _technique_mark(technical) is None
+        ]
+        for technical in visible_technical[:4]:
+            out.append(
+                f'<text class="technical" x="{cx:.1f}" y="{bracket_y - 10 - layer * _TUPLET_MARK_GAP:.1f}" '
+                f'text-anchor="middle">{_esc(_mark_display(technical))}</text>'
+            )
+            layer += 1
+    return out
+
+
+def _render_tuplet_articulation(name: str, cx: float, y: float) -> list[str]:
+    normalized = name.lower().replace("_", "-")
+    if normalized == "fermata":
+        return [
+            f'<path class="articulation" d="M {cx - 9:.1f} {y + 3:.1f} Q {cx:.1f} {y - 8:.1f}, {cx + 9:.1f} {y + 3:.1f}"/>',
+            f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y + 2:.1f}" r="2.2"/>',
+        ]
+    if normalized in {"accent", "strong-accent"}:
+        return [
+            f'<path class="articulation" d="M {cx - 8:.1f} {y - 4:.1f} L {cx + 8:.1f} {y:.1f} L {cx - 8:.1f} {y + 4:.1f}"/>'
+        ]
+    if normalized == "staccato":
+        return [f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y:.1f}" r="2.2"/>']
+    if normalized == "tenuto":
+        return [
+            f'<line class="articulation" x1="{cx - 7:.1f}" y1="{y:.1f}" x2="{cx + 7:.1f}" y2="{y:.1f}"/>'
+        ]
+    if normalized == "trill-mark":
+        sx = cx - 6
+        return [
+            f'<path class="articulation" d="M {sx:.1f} {y:.1f} q 3 -4, 6 0 q 3 4, 6 0"/>'
+        ]
+    return [
+        f'<text class="lyric" x="{cx:.1f}" y="{y:.1f}" text-anchor="middle">{_esc(name)}</text>'
+    ]

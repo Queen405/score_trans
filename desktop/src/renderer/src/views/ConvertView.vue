@@ -899,7 +899,7 @@ async function renderFinalBatch(): Promise<string[]> {
   const result = await renderApi.batchA4({
     pages,
     source_pages: buildBatchRenderSourcePages(),
-    render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
+    render_page_ocr_texts: currentRenderPageOcrTextsForRequest(),
     target_key: settings.targetKey,
     accidental_mode: settings.accidentalMode,
     measure_number_mode: settings.measureNumberMode,
@@ -999,6 +999,12 @@ function renderResponsePageOcrTexts(pages: RenderedSvgPage[] | undefined) {
   }))
 }
 
+function currentRenderPageOcrTextsForRequest() {
+  const entries = store.currentBatchRenderPageOcrTextEntries()
+  if (store.currentBatchRenderPageOcrDirty) return entries
+  return entries.filter((item) => item.ocr_text.trim())
+}
+
 function currentPageSvgIds(): string[] {
   return store.svgFileIds.length ? store.svgFileIds : (store.svgFileId ? [store.svgFileId] : [])
 }
@@ -1057,7 +1063,7 @@ async function musicxmlToJianpu(): Promise<void> {
     const split = splitJianpuAndOcr(result.jianpu_text)
     store.setJianpu(split.jianpuText)
     store.setBatchJianpuText(split.jianpuText, false)
-    store.setOcrText(split.ocrText)
+    store.setOcrText(split.ocrText || store.ocrText)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
     log.addLog('已转换为简谱')

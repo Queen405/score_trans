@@ -155,12 +155,52 @@ def test_render_tuplet_group_shows_bracket_and_number() -> None:
 
 
 def test_tuplet_group_spacing_is_tighter_than_plain_same_beat_notes() -> None:
-    options = RenderOptions(tuplet_gap_ratio=0.4)
+    options = RenderOptions(tuplet_gap_ratio=0.12, tuplet_slot_width_ratio=0.48)
 
-    tuplet_gap = _first_note_center_gap("$123$ 4 5 6", options)
+    tuplet_gap = _first_note_center_gap("$666666$ 1 2 3", options)
     plain_gap = _first_note_center_gap("q1 q2 3 4", options)
 
-    assert tuplet_gap < plain_gap
+    assert tuplet_gap < plain_gap * 0.5
+
+
+def test_tuplet_marks_render_above_tuplet_number() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\n$^.1 ^>2 ^.3 ^>4 ^.5 ^>6$ 1 2 3 |")
+    root = _svg_root(svg)
+    tuplet_number = next(
+        text
+        for text in _svg_elements(root, "text")
+        if text.attrib.get("class") == "tuplet-number"
+    )
+    articulation = next(
+        path
+        for path in _svg_elements(root, "path")
+        if path.attrib.get("class") == "articulation"
+    )
+    mark_y = _path_first_m(articulation.attrib["d"])[1]
+    number_y = float(tuplet_number.attrib["y"])
+
+    assert number_y > mark_y
+    assert number_y - mark_y < 28
+
+
+def test_first_row_tuplet_marks_clear_score_meta() -> None:
+    svg = render_jianpu_svg(
+        "title=月亮之上\n1=C\n4/4\n$^>7 ^.6 ^.6 ^.6 ^.7 ^.6$ "
+        "$^>7 ^.6 ^.6 ^.7 ^.6 ^.6$ |"
+    )
+    root = _svg_root(svg)
+    meta = next(
+        text
+        for text in _svg_elements(root, "text")
+        if text.attrib.get("class") == "meta"
+    )
+    articulation = next(
+        path
+        for path in _svg_elements(root, "path")
+        if path.attrib.get("class") == "articulation"
+    )
+
+    assert _path_first_m(articulation.attrib["d"])[1] > float(meta.attrib["y"]) + 8
 
 
 def test_render_measure_level_key_and_time_signature_markers() -> None:

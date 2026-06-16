@@ -171,7 +171,7 @@ async function ensureExportSvgIds(): Promise<string[]> {
   const result = await renderApi.batchA4({
     pages,
     source_pages: buildBatchRenderSourcePages(),
-    render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
+    render_page_ocr_texts: currentRenderPageOcrTextsForRequest(),
     target_key: settings.targetKey,
     accidental_mode: settings.accidentalMode,
     measure_number_mode: settings.measureNumberMode,
@@ -236,6 +236,12 @@ function renderResponsePageOcrTexts(pages: RenderedSvgPage[]) {
     page_index: page.page_index,
     ocr_text: page.ocr_text || '',
   }))
+}
+
+function currentRenderPageOcrTextsForRequest() {
+  const entries = store.currentBatchRenderPageOcrTextEntries()
+  if (store.currentBatchRenderPageOcrDirty) return entries
+  return entries.filter((item) => item.ocr_text.trim())
 }
 </script>
 

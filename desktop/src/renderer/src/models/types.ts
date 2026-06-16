@@ -169,6 +169,7 @@ export interface PipelineResponse {
   svg_file_id: string
   render_pages?: RenderedSvgPage[]
   ocr_measure_numbers: number[]
+  ocr_text?: string | null
 }
 
 export interface AiTranscribeRequest {

@@ -23,3 +23,4 @@ class PipelineResponse(BaseModel):
     svg_file_id: str
     render_pages: list[RenderedSvgPage] = []
     ocr_measure_numbers: list[int] = []
+    ocr_text: str = ""

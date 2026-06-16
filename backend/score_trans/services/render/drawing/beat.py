@@ -50,6 +50,7 @@ def _render_slot_items(
                 y,
                 slot,
                 suppress_duration=id(item) in beamed_ids,
+                suppress_upper_marks=item.tuplet_id is not None,
                 options=options,
             )
         )
@@ -63,6 +64,7 @@ def _render_item(
     slot_width: float,
     *,
     suppress_duration: bool = False,
+    suppress_upper_marks: bool = False,
     options: RenderOptions | None = None,
 ) -> list[str]:
     out = _render_token(
@@ -103,24 +105,29 @@ def _render_item(
     articulations = item.articulations or (
         [item.articulation] if item.articulation else []
     )
-    for index, articulation in enumerate(articulations[:4]):
-        out.extend(_render_articulation(articulation, cx, upper_anchor_y - index * 12))
+    if not suppress_upper_marks:
+        for index, articulation in enumerate(articulations[:4]):
+            out.extend(
+                _render_articulation(articulation, cx, upper_anchor_y - index * 12)
+            )
     visible_ornaments = [
         ornament for ornament in item.ornaments if _technique_mark(ornament) is None
     ]
-    for index, ornament in enumerate(visible_ornaments[:3]):
-        out.append(
-            f'<text class="ornament" x="{cx:.1f}" y="{upper_anchor_y - 46 - index * 14:.1f}" '
-            f'text-anchor="middle">{_esc(_mark_display(ornament))}</text>'
-        )
+    if not suppress_upper_marks:
+        for index, ornament in enumerate(visible_ornaments[:3]):
+            out.append(
+                f'<text class="ornament" x="{cx:.1f}" y="{upper_anchor_y - 46 - index * 14:.1f}" '
+                f'text-anchor="middle">{_esc(_mark_display(ornament))}</text>'
+            )
     visible_technical = [
         technical for technical in item.technical if _technique_mark(technical) is None
     ]
-    for index, technical in enumerate(visible_technical[:4]):
-        out.append(
-            f'<text class="technical" x="{cx:.1f}" y="{upper_anchor_y - 64 - index * 13:.1f}" '
-            f'text-anchor="middle">{_esc(_mark_display(technical))}</text>'
-        )
+    if not suppress_upper_marks:
+        for index, technical in enumerate(visible_technical[:4]):
+            out.append(
+                f'<text class="technical" x="{cx:.1f}" y="{upper_anchor_y - 64 - index * 13:.1f}" '
+                f'text-anchor="middle">{_esc(_mark_display(technical))}</text>'
+            )
     if item.lyric:
         bottom = _token_metrics(item.token, y, options)["bottom"]
         out.append(

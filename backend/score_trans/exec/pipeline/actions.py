@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import shutil
 import uuid
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from ...domain.accidentals import score_with_accidental_mode
 from ...models.common.types import AccidentalMode, IMAGE_SUFFIXES, MeasureNumberMode
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.render.schemas import RenderedSvgPage
+from ...models.score import TextBlock
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
 from ...models.tasks.schemas import TaskSubmitResponse
@@ -35,6 +37,7 @@ class ScorePipelineOutputs:
     jianpu_text_path: Path
     jianpu_svg_paths: list[Path]
     ocr_measure_numbers: list[int]
+    ocr_text: str = ""
 
     @property
     def jianpu_svg_path(self) -> Path:
@@ -106,6 +109,7 @@ class FullPipelineAction:
             measure_number_mode=measure_number_mode,
         )
         ocr_measure_numbers = _extract_ocr_measure_numbers(render_score)
+        ocr_text = _serialize_ocr_text_blocks(render_score.text_blocks)
         report_progress(progress_callback, "render", 94, "渲染完成")
         return ScorePipelineOutputs(
             input_path=source,
@@ -113,6 +117,7 @@ class FullPipelineAction:
             jianpu_text_path=text_path,
             jianpu_svg_paths=svg_paths,
             ocr_measure_numbers=ocr_measure_numbers,
+            ocr_text=ocr_text,
         )
 
 
@@ -267,6 +272,7 @@ class PipelineActions:
                 page_index=index,
                 page_width=1240,
                 page_height=1754,
+                ocr_text=outputs.ocr_text if index == 0 else "",
             )
             for index, path in enumerate(outputs.jianpu_svg_paths)
         ]
@@ -278,6 +284,7 @@ class PipelineActions:
             svg_file_id=render_pages[0].svg_file_id,
             render_pages=render_pages,
             ocr_measure_numbers=outputs.ocr_measure_numbers,
+            ocr_text=outputs.ocr_text,
         )
 
 
@@ -303,6 +310,31 @@ def _extract_ocr_measure_numbers(score) -> list[int]:
         }
     )
     return numbers
+
+
+def _serialize_ocr_text_blocks(blocks: list[TextBlock]) -> str:
+    visible_blocks = [
+        block
+        for block in blocks
+        if block.text.strip()
+        and block.role not in {"instrument", "measure_number"}
+        and (block.bbox is not None or block.confidence is not None)
+    ]
+    if not visible_blocks:
+        return ""
+    return json.dumps(
+        [
+            {
+                "id": f"ocr-{index}",
+                "text": block.text,
+                "bbox": list(block.bbox) if block.bbox is not None else None,
+                "role": block.role,
+                "fontSize": block.font_size,
+            }
+            for index, block in enumerate(visible_blocks)
+        ],
+        ensure_ascii=False,
+    )
 
 
 def _is_ocr_image(path: Path) -> bool:

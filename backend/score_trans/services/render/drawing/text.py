@@ -88,7 +88,9 @@ def _render_positioned_text_blocks(
             font_size = max(8.0, (y2 - y1) * 0.78)
         else:
             font_size = max(1.0, float(font_size))
-        class_name = "dynamic" if _is_dynamic_text(block.text) else "ocr-overlay"
+        class_name = (
+            "ocr-overlay dynamic" if _is_dynamic_text(block.text) else "ocr-overlay"
+        )
         out.append(
             f'<text class="{class_name}" x="{x1:.1f}" y="{y2 - font_size * 0.16:.1f}" '
             f'font-size="{font_size:.1f}" text-anchor="start">{_esc(block.text)}</text>'
@@ -116,7 +118,7 @@ def _render_unpositioned_text_blocks(
         if not text or text in seen_texts or text in used:
             continue
         used.add(text)
-        class_name = "dynamic" if _is_dynamic_text(text) else "ocr-overlay"
+        class_name = "ocr-overlay dynamic" if _is_dynamic_text(text) else "ocr-overlay"
         out.append(
             f'<text class="{class_name}" x="{x:.1f}" y="{y + (len(used) - 1) * line_gap:.1f}" '
             f'font-size="{font_size:.1f}" text-anchor="start">{_esc(text)}</text>'

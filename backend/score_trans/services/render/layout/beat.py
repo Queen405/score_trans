@@ -13,7 +13,7 @@ def _beat_visual_width(
         return 22.0
     return max(
         36.0,
-        sum(_token_visual_width(item.token, options) for item in items)
+        sum(_item_visual_width(item, options) for item in items)
         + sum(
             _inter_item_gap(left, right, options)
             for left, right in zip(items, items[1:])
@@ -47,6 +47,14 @@ def _token_visual_width(token: str, options: RenderOptions | None = None) -> flo
         + note.extension * body_width * 0.52 * duration_ratio
         + (body_width * 0.27 * duration_ratio if note.dotted else 0)
     )
+
+
+def _item_visual_width(item: RenderItem, options: RenderOptions | None = None) -> float:
+    width = _token_visual_width(item.token, options)
+    if item.tuplet_id:
+        ratio = options.tuplet_slot_width_ratio if options is not None else 0.54
+        return width * ratio
+    return width
 
 
 def _inter_item_gap(
@@ -83,6 +91,12 @@ def _token_slashes(token: str) -> int:
     return note.slashes
 
 
+def _is_compact_gap(left: RenderItem, right: RenderItem) -> bool:
+    if left.tuplet_id and left.tuplet_id == right.tuplet_id:
+        return True
+    return _token_slashes(left.token) >= 2 and _token_slashes(right.token) >= 2
+
+
 def _item_slots(
     items: list[RenderItem],
     x: float,
@@ -94,15 +108,33 @@ def _item_slots(
     gaps = [
         _inter_item_gap(left, right, options) for left, right in zip(items, items[1:])
     ]
-    natural = sum(_token_visual_width(item.token, options) for item in items) + sum(
-        gaps
-    )
-    scale = width / natural if natural > 0 else 1.0
-    cursor = x
+    item_widths = [_item_visual_width(item, options) for item in items]
+    natural = sum(item_widths) + sum(gaps)
+    if natural > 0 and width < natural:
+        scale = width / natural
+        item_widths = [item_width * scale for item_width in item_widths]
+        gaps = [gap * scale for gap in gaps]
+        cursor = x
+    else:
+        extra = max(0.0, width - natural)
+        stretchable = [
+            index
+            for index, (left, right) in enumerate(zip(items, items[1:]))
+            if not _is_compact_gap(left, right)
+        ]
+        if stretchable:
+            extra_gap = extra / len(stretchable)
+            gaps = [
+                gap + extra_gap if index in stretchable else gap
+                for index, gap in enumerate(gaps)
+            ]
+            cursor = x
+        else:
+            cursor = x + extra / 2
     slots: list[tuple[RenderItem, float, float]] = []
     for index, item in enumerate(items):
-        slot = _token_visual_width(item.token, options) * scale
+        slot = item_widths[index]
         slots.append((item, cursor + slot / 2, slot))
         if index < len(gaps):
-            cursor += slot + gaps[index] * scale
+            cursor += slot + gaps[index]
     return slots

@@ -27,7 +27,8 @@ A4_MIN_MEASURE_WIDTH = 250
 A4_NOTE_MIN_GAP = 5.6
 A4_SHORT_NOTE_GAP_RATIO = 0.25
 A4_SHORT_NOTE_SLOT_WIDTH_RATIO = 0.72
-A4_TUPLET_GAP_RATIO = 0.42
+A4_TUPLET_GAP_RATIO = 0.12
+A4_TUPLET_SLOT_WIDTH_RATIO = 0.48
 A4_DURATION_SPACING_RATIO = 1.0
 A4_BEAT_GAP = 8
 A4_CHORD_GAP = 32.0
@@ -568,6 +569,7 @@ def _a4_render_options(
         short_note_gap_ratio=A4_SHORT_NOTE_GAP_RATIO,
         short_note_slot_width_ratio=A4_SHORT_NOTE_SLOT_WIDTH_RATIO,
         tuplet_gap_ratio=A4_TUPLET_GAP_RATIO,
+        tuplet_slot_width_ratio=A4_TUPLET_SLOT_WIDTH_RATIO,
         duration_spacing_ratio=A4_DURATION_SPACING_RATIO,
         chord_gap=A4_CHORD_GAP,
         chord_token_width=A4_CHORD_TOKEN_WIDTH,

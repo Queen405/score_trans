@@ -2,7 +2,12 @@
   <div class="svg-preview" v-if="svgUrl">
     <div ref="containerRef" class="preview-viewport" @dblclick="addBlockAtCursor">
       <div class="zp-inner">
-        <div v-if="svgText" :key="svgUrl" class="svg-inline" v-html="svgText" />
+        <div
+          v-if="svgText"
+          :key="svgUrl"
+          :class="['svg-inline', { 'hide-static-ocr': shouldHideStaticOcr }]"
+          v-html="svgText"
+        />
         <div v-else-if="svgError" class="svg-loading svg-error">{{ svgError }}</div>
         <div v-else class="svg-loading">加载中...</div>
         <button
@@ -76,6 +81,7 @@ const selectedId = ref('')
 const editingId = ref('')
 const editingText = ref('')
 const ocrBlocks = ref<OcrTextBlock[]>([])
+const shouldHideStaticOcr = computed(() => props.editableOcr && ocrBlocks.value.length > 0)
 let svgLoadGeneration = 0
 let dragging: {
   id: string
@@ -447,6 +453,10 @@ onUnmounted(() => {
 .svg-inline :deep(svg) {
   max-width: none;
   max-height: none;
+}
+
+.svg-inline.hide-static-ocr :deep(.ocr-overlay) {
+  display: none;
 }
 
 .svg-inline :deep(.playback-note.playback-current .note),

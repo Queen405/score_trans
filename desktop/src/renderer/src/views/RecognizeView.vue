@@ -749,11 +749,13 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
     const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, target.pageId)
     const decision = measureStartDecision(target, result.ocr_measure_numbers)
     let split = splitJianpuAndOcr(result.jianpu_text)
+    let ocrText = returnedPipelineOcrText(result) || split.ocrText
     let svgFileId = result.svg_file_id
     let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
     if (decision.autoSelected && decision.startMeasureNumber !== null && result.musicxml_file_id) {
       const rerendered = await renderMusicxmlPageWithStart(target, result.musicxml_file_id, decision.startMeasureNumber)
       split = splitJianpuAndOcr(rerendered.jianpuText)
+      ocrText = ocrText || split.ocrText
       svgFileId = rerendered.svgFileId
       svgFileIds = rerendered.svgFileIds
     }
@@ -762,7 +764,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       input_file_id: target.inputFileId,
       musicxml_file_id: result.musicxml_file_id,
       jianpu_text: split.jianpuText,
-      ocr_text: split.ocrText,
+      ocr_text: ocrText,
       svg_file_id: svgFileId,
       start_measure_number: decision.startMeasureNumber,
       status: decision.status,
@@ -773,7 +775,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
       musicxmlFileId: result.musicxml_file_id,
       musicxmlText: '',
       jianpuText: split.jianpuText,
-      ocrText: split.ocrText,
+      ocrText,
       jianpuDirty: false,
       svgFileId,
       svgFileIds,
@@ -1422,7 +1424,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
     const result = await renderApi.batchA4({
       pages,
       source_pages: buildBatchRenderSourcePages(batchPages),
-      render_page_ocr_texts: batchId ? store.batchRenderPageOcrTextsFor(batchId) : [],
+      render_page_ocr_texts: batchRenderPageOcrTextsForRequest(batchId),
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
       measure_number_mode: settings.measureNumberMode,
@@ -1570,6 +1572,17 @@ function renderResponsePageOcrTexts(pages: PipelineResponse['render_pages']) {
     page_index: page.page_index,
     ocr_text: page.ocr_text || '',
   }))
+}
+
+function batchRenderPageOcrTextsForRequest(batchId: string | undefined) {
+  if (!batchId) return []
+  const entries = store.batchRenderPageOcrTextsFor(batchId)
+  if (store.isBatchRenderPageOcrDirty(batchId)) return entries
+  return entries.filter((item) => item.ocr_text.trim())
+}
+
+function returnedPipelineOcrText(result: PipelineResponse): string {
+  return result.ocr_text || result.render_pages?.find((page) => page.ocr_text)?.ocr_text || ''
 }
 
 async function syncBatchJianpuTextForPage(pageId: string): Promise<void> {

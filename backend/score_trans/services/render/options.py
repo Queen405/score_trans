@@ -36,7 +36,8 @@ class RenderOptions:
     note_min_gap: float = 9.0
     short_note_gap_ratio: float = 1.0
     short_note_slot_width_ratio: float = 1.0
-    tuplet_gap_ratio: float = 0.55
+    tuplet_gap_ratio: float = 0.16
+    tuplet_slot_width_ratio: float = 0.54
     duration_spacing_ratio: float = 1.0
     chord_gap: float = float(RENDER_CHORD_GAP)
     chord_token_width: float = 42.0
