@@ -3,7 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from score_trans.config.settings import (
+    AUDIVERIS_CONSTANTS,
+    AUDIVERIS_EXTRA_ARGS,
+    AUDIVERIS_FORCE,
     AUDIVERIS_PATH,
+    AUDIVERIS_SAVE,
+    AUDIVERIS_SHEETS,
+    AUDIVERIS_STEP,
+    AUDIVERIS_SWAP,
+    AUDIVERIS_TRANSCRIBE,
     JAVA_HOME,
     WORK_DIR,
 )
@@ -80,6 +88,14 @@ class SettingsService:
             audiveris_path=self.dao.get("audiveris_path") or _default_audiveris_path(),
             java_home=self.dao.get("java_home") or _default_java_home(),
             work_dir=_resolve_work_dir(self.dao.get("work_dir") or _default_work_dir()),
+            audiveris_step=AUDIVERIS_STEP,
+            audiveris_force=AUDIVERIS_FORCE,
+            audiveris_save=AUDIVERIS_SAVE,
+            audiveris_swap=AUDIVERIS_SWAP,
+            audiveris_transcribe=AUDIVERIS_TRANSCRIBE,
+            audiveris_sheets=AUDIVERIS_SHEETS,
+            audiveris_constants=AUDIVERIS_CONSTANTS,
+            audiveris_extra_args=AUDIVERIS_EXTRA_ARGS,
         )
 
     def get_all(self) -> dict[str, str]:

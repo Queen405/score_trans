@@ -8,10 +8,10 @@ from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.ai.actions import AiActions
 from score_trans.models.ai.schemas import AiTranscribeRequest
 from score_trans.models.settings.config import ToolConfig
-from score_trans.services.ai.base import VisionPageResult, parse_vision_page_result
+from score_trans.services.ai.core import VisionPageResult, parse_vision_page_result
 from score_trans.services.ai.chat_service import AiChatService, MAX_CONTEXT_MESSAGES
 from score_trans.services.ai.providers.mock import MockVisionJianpuProvider
-from score_trans.services.ai.service import AiTranscriptionService, ensure_jianpu_header
+from score_trans.services.ai.transcription import AiTranscriptionService
 from score_trans.services.ai.transcription.validation import validate_jianpu_text
 from score_trans.utils.pdf import pdf_to_png_pages
 from score_trans.services.files.upload_service import UploadService

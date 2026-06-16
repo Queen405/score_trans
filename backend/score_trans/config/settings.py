@@ -33,6 +33,12 @@ def _b(name: str) -> bool:
     return os.environ[name].lower() in ("1", "true", "yes", "on")
 
 
+def _b_or(name: str, default: bool = False) -> bool:
+    """Optional boolean environment variable."""
+    fallback = "1" if default else "0"
+    return os.getenv(name, fallback).lower() in ("1", "true", "yes", "on")
+
+
 # API
 API_TITLE: str = _s("SCORE_TRANS_API_TITLE")
 API_VERSION: str = _s("SCORE_TRANS_API_VERSION")
@@ -43,6 +49,16 @@ AUDIVERIS_PATH: str = _s_or("SCORE_TRANS_AUDIVERIS")
 WORK_DIR: str = _s_or("SCORE_TRANS_WORKDIR")
 JAVA_HOME: str = _s_or("SCORE_TRANS_JAVA_HOME")
 OUTPUT_DIR: str = _s_or("SCORE_TRANS_OUTPUT_DIR")
+
+# Audiveris / Java OMR command options
+AUDIVERIS_STEP: str = _s_or("SCORE_TRANS_AUDIVERIS_STEP")
+AUDIVERIS_FORCE: bool = _b_or("SCORE_TRANS_AUDIVERIS_FORCE")
+AUDIVERIS_SAVE: bool = _b_or("SCORE_TRANS_AUDIVERIS_SAVE")
+AUDIVERIS_SWAP: bool = _b_or("SCORE_TRANS_AUDIVERIS_SWAP")
+AUDIVERIS_TRANSCRIBE: bool = _b_or("SCORE_TRANS_AUDIVERIS_TRANSCRIBE")
+AUDIVERIS_SHEETS: str = _s_or("SCORE_TRANS_AUDIVERIS_SHEETS")
+AUDIVERIS_CONSTANTS: str = _s_or("SCORE_TRANS_AUDIVERIS_CONSTANTS")
+AUDIVERIS_EXTRA_ARGS: str = _s_or("SCORE_TRANS_AUDIVERIS_EXTRA_ARGS")
 
 # AI
 AI_PROVIDER: str = _s("SCORE_TRANS_AI_PROVIDER")

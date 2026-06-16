@@ -1,4 +1,3 @@
-import base64
 import os
 from unittest.mock import MagicMock, patch
 
@@ -9,7 +8,7 @@ from score_trans.models.score import OCRTextBlock
 from score_trans.services.ocr.parsing import parse_openai_compatible_response
 from score_trans.services.ocr.providers import MockOCRProvider, OpenAICompatibleOCRProvider
 from score_trans.services.ocr.core import DEFAULT_OCR_MODEL, is_deepseek_ocr_model
-from score_trans.utils.env import DISABLE_DOTENV_ENV, load_project_env
+from score_trans.utils.env import load_project_env
 from score_trans.services.ocr.service import OCRService
 
 

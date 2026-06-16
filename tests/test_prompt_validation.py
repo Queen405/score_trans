@@ -14,7 +14,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
 from score_trans.services.ai.providers.xiaomi_mimo import XiaomiMiMoProvider
 from score_trans.domain.parse.jianpu_text import parse_jianpu_score
-from score_trans.services.ai.core.parsing import parse_vision_page_result
 from score_trans.services.ai.transcription.normalization import clean_jianpu_text, ensure_jianpu_header
 
 PIC_DIR = Path(__file__).resolve().parent.parent / "examples" / "pic"

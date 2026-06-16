@@ -21,7 +21,7 @@ from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
 from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.ai.chat_service import AiChatService
-from ...services.ai.service import AiTranscriptionService
+from ...services.ai.transcription import AiTranscriptionService
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.settings.settings_service import SettingsService

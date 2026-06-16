@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -54,22 +55,16 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
 
     audiveris_path = Path(config.audiveris_path)
     env = _java_env(config)
+    audiveris_args = _audiveris_args(input_file, output_dir, config)
     if audiveris_path.name.lower() in {"gradlew", "gradlew.bat"}:
         args = [
             str(audiveris_path),
             ":app:run",
-            f"-PcmdLineArgs=-batch,-export,-output,{output_dir},{input_file}",
+            f"-PcmdLineArgs={','.join(audiveris_args)}",
         ]
         _run(args, cwd=audiveris_path.parent, env=env)
     else:
-        args = [
-            config.audiveris_path or "audiveris",
-            "-batch",
-            "-export",
-            "-output",
-            str(output_dir),
-            str(input_file),
-        ]
+        args = [config.audiveris_path or "audiveris", *audiveris_args]
         _run(args, env=env)
 
     candidates = (
@@ -80,6 +75,42 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
     if not candidates:
         raise ExternalToolError("Audiveris 已执行，但没有找到 MusicXML 输出文件。")
     return candidates[0]
+
+
+def _audiveris_args(input_file: Path, output_dir: Path, config: ToolConfig) -> list[str]:
+    args = ["-batch"]
+    if config.audiveris_step.strip():
+        args.extend(["-step", config.audiveris_step.strip()])
+    if config.audiveris_force:
+        args.append("-force")
+    if config.audiveris_save:
+        args.append("-save")
+    if config.audiveris_swap:
+        args.append("-swap")
+    if config.audiveris_transcribe:
+        args.append("-transcribe")
+    if config.audiveris_sheets.strip():
+        args.extend(["-sheets", config.audiveris_sheets.strip()])
+    for constant in _split_audiveris_constants(config.audiveris_constants):
+        args.extend(["-constant", constant])
+    args.extend(_split_extra_args(config.audiveris_extra_args))
+    args.extend(["-export", "-output", str(output_dir), str(input_file)])
+    return args
+
+
+def _split_audiveris_constants(raw: str) -> list[str]:
+    return [item.strip() for item in raw.replace("\n", ";").split(";") if item.strip()]
+
+
+def _split_extra_args(raw: str) -> list[str]:
+    if not raw.strip():
+        return []
+    try:
+        return shlex.split(raw)
+    except ValueError as exc:
+        raise ExternalToolError(
+            "SCORE_TRANS_AUDIVERIS_EXTRA_ARGS 格式错误，请检查引号是否成对。"
+        ) from exc
 
 
 def find_tool(name: str) -> str | None:
