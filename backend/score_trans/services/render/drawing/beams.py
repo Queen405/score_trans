@@ -1,19 +1,24 @@
 from __future__ import annotations
 
 from ..models.layout import RenderItem
+from ..options import RenderOptions
 from ..parsing.tokens import _parse_chord_token, _parse_note
 from ..utils.geometry import _duration_line_y
 
 BEAM_LINE_GAP = 6.0
 
 
-def _render_beams(slots: list[tuple[RenderItem, float, float]], y: int) -> list[str]:
+def _render_beams(
+    slots: list[tuple[RenderItem, float, float]],
+    y: int,
+    options: RenderOptions | None = None,
+) -> list[str]:
     out: list[str] = []
     parent_runs: list[tuple[int, int, float]] = []
     for level in range(1, 4):
         current_runs: list[tuple[int, int, float]] = []
         for start_index, end_index, run in _beam_runs(slots, level):
-            beam_y = _beam_run_y(run, y, level)
+            beam_y = _beam_run_y(run, y, level, options)
             parent_y = _parent_beam_y(parent_runs, start_index, end_index)
             if parent_y is not None:
                 beam_y = max(beam_y, parent_y + BEAM_LINE_GAP)
@@ -59,9 +64,12 @@ def _render_beam_run(
 
 
 def _beam_run_y(
-    run: list[tuple[RenderItem, float, float]], y: int, level: int
+    run: list[tuple[RenderItem, float, float]],
+    y: int,
+    level: int,
+    options: RenderOptions | None = None,
 ) -> float:
-    return max(_beam_y(item.token, y, level) for item, _, _ in run)
+    return max(_beam_y(item.token, y, level, options) for item, _, _ in run)
 
 
 def _parent_beam_y(
@@ -88,5 +96,10 @@ def _beam_half_width(token: str) -> float:
     return 18.0 if _parse_chord_token(token) is not None else 15.0
 
 
-def _beam_y(token: str, y: int, level: int) -> float:
-    return _duration_line_y(token, y, level)
+def _beam_y(
+    token: str,
+    y: int,
+    level: int,
+    options: RenderOptions | None = None,
+) -> float:
+    return _duration_line_y(token, y, level, options)

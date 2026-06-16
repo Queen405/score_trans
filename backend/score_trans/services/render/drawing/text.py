@@ -20,7 +20,9 @@ def _render_measure_text_blocks(
     blocks = [
         block
         for block in getattr(source, "text_blocks", [])
-        if block.text and block.role in {"expression", "other", "lyric"} and block.bbox is None
+        if block.text
+        and block.role in {"expression", "other", "lyric"}
+        and block.bbox is None
     ]
     out: list[str] = []
     seen: set[tuple[str, Fraction | None]] = set()
@@ -45,7 +47,9 @@ def _render_measure_text_blocks(
         lane = used_lanes.get(lane_key, 0)
         used_lanes[lane_key] = lane + 1
         text_y = base_y - lane * 18 if placement == "above" else base_y + lane * 20
-        out.append(f'<text class="{class_name}" x="{text_x:.1f}" y="{text_y:.1f}" text-anchor="{anchor}">{_esc(text)}</text>')
+        out.append(
+            f'<text class="{class_name}" x="{text_x:.1f}" y="{text_y:.1f}" text-anchor="{anchor}">{_esc(text)}</text>'
+        )
     return out
 
 
@@ -89,7 +93,9 @@ def _render_positioned_text_blocks(
             f'<text class="{class_name}" x="{x1:.1f}" y="{y2 - font_size * 0.16:.1f}" '
             f'font-size="{font_size:.1f}" text-anchor="start">{_esc(block.text)}</text>'
         )
-    out.extend(_render_unpositioned_text_blocks(unpositioned, width, height, seen_texts))
+    out.extend(
+        _render_unpositioned_text_blocks(unpositioned, width, height, seen_texts)
+    )
     return out
 
 

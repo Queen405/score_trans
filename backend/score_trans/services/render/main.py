@@ -21,11 +21,21 @@ from .utils.text import _esc, _extract_text_directives
 A4_PAGE_WIDTH = 1240
 A4_PAGE_HEIGHT = 1754
 A4_STAFF_SPACE = 21.0
-A4_MARGIN = 84
-A4_LINE_HEIGHT = 150
-A4_MIN_MEASURE_WIDTH = int(A4_STAFF_SPACE * 8)
-A4_NOTE_MIN_GAP = A4_STAFF_SPACE * 0.5
-A4_DURATION_SPACING_RATIO = 1.5
+A4_MARGIN = 64
+A4_LINE_HEIGHT = 126
+A4_MIN_MEASURE_WIDTH = 250
+A4_NOTE_MIN_GAP = 5.6
+A4_SHORT_NOTE_GAP_RATIO = 0.25
+A4_SHORT_NOTE_SLOT_WIDTH_RATIO = 0.72
+A4_TUPLET_GAP_RATIO = 0.42
+A4_DURATION_SPACING_RATIO = 1.0
+A4_BEAT_GAP = 8
+A4_CHORD_GAP = 32.0
+A4_CHORD_TOKEN_WIDTH = 34.0
+A4_NOTE_FONT_SIZE = 26.0
+A4_MEASURE_NUMBER_FONT_SIZE = 20.0
+A4_TITLE_BLOCK_HEIGHT = 116
+A4_BOTTOM_MARGIN = 50
 
 
 @dataclass(slots=True)
@@ -122,16 +132,19 @@ def render_jianpu_page_svg(
                 page_options,
                 draw_start_bar=index == 0,
                 attribute_text=attribute_text,
-                show_measure_number=_should_show_measure_number(
-                    page_options, index
-                ),
+                show_measure_number=_should_show_measure_number(page_options, index),
                 open_tie=open_tie,
                 open_slur=open_slur,
             )
             out.extend(svg_lines)
             x += measure.width
         out.extend(
-            _finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur)
+            _finish_open_spanners(
+                int(y),
+                open_tie=open_tie,
+                open_slur=open_slur,
+                options=page_options,
+            )
         )
         y += page_options.line_height
         if y > height - bottom:
@@ -209,16 +222,19 @@ def render_score_page_svg(
                 page_options,
                 draw_start_bar=index == 0,
                 attribute_text=attribute_text,
-                show_measure_number=_should_show_measure_number(
-                    page_options, index
-                ),
+                show_measure_number=_should_show_measure_number(page_options, index),
                 open_tie=open_tie,
                 open_slur=open_slur,
             )
             out.extend(svg_lines)
             x += measure.width
         out.extend(
-            _finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur)
+            _finish_open_spanners(
+                int(y),
+                open_tie=open_tie,
+                open_slur=open_slur,
+                options=page_options,
+            )
         )
         y += page_options.line_height
         if y > height - bottom:
@@ -516,7 +532,12 @@ def _render_layouts(
             out.extend(svg_lines)
             x += measure.width
         out.extend(
-            _finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur)
+            _finish_open_spanners(
+                int(y),
+                open_tie=open_tie,
+                open_slur=open_slur,
+                options=options,
+            )
         )
         y += options.line_height
     if footer_text:
@@ -541,10 +562,27 @@ def _a4_render_options(
         font_family=base.font_family,
         min_measure_width=A4_MIN_MEASURE_WIDTH,
         max_measure_width=max(A4_MIN_MEASURE_WIDTH, A4_PAGE_WIDTH - A4_MARGIN * 2),
-        beat_gap=max(base.beat_gap, int(A4_STAFF_SPACE * 0.5)),
+        beat_gap=A4_BEAT_GAP,
         staff_space=A4_STAFF_SPACE,
         note_min_gap=A4_NOTE_MIN_GAP,
+        short_note_gap_ratio=A4_SHORT_NOTE_GAP_RATIO,
+        short_note_slot_width_ratio=A4_SHORT_NOTE_SLOT_WIDTH_RATIO,
+        tuplet_gap_ratio=A4_TUPLET_GAP_RATIO,
         duration_spacing_ratio=A4_DURATION_SPACING_RATIO,
+        chord_gap=A4_CHORD_GAP,
+        chord_token_width=A4_CHORD_TOKEN_WIDTH,
+        note_font_size=A4_NOTE_FONT_SIZE,
+        accidental_font_size=16.0,
+        measure_number_font_size=A4_MEASURE_NUMBER_FONT_SIZE,
+        measure_attribute_font_size=16.0,
+        repeat_count_font_size=18.0,
+        tuplet_font_size=13.0,
+        lyric_font_size=16.0,
+        dynamic_font_size=19.0,
+        ornament_font_size=13.0,
+        technical_font_size=12.0,
+        technique_font_size=14.0,
+        compact_measure_layout=True,
         show_beat_guides=base.show_beat_guides,
         show_staff_guides=base.show_staff_guides,
         show_measure_numbers=base.show_measure_numbers and mode != "none",
@@ -557,12 +595,17 @@ def _paginate_rows(
 ) -> list[list[list[MeasureLayout]]]:
     if not rows:
         return [[]]
-    top = options.margin + 126
-    bottom = options.margin
-    rows_per_page = max(
-        1, int((A4_PAGE_HEIGHT - top - bottom) // options.line_height)
-    )
-    return [rows[index : index + rows_per_page] for index in range(0, len(rows), rows_per_page)]
+    top = _a4_score_top(options)
+    bottom = A4_BOTTOM_MARGIN
+    rows_per_page = max(1, int((A4_PAGE_HEIGHT - top - bottom) // options.line_height))
+    return [
+        rows[index : index + rows_per_page]
+        for index in range(0, len(rows), rows_per_page)
+    ]
+
+
+def _a4_score_top(options: RenderOptions) -> int:
+    return int(options.margin + A4_TITLE_BLOCK_HEIGHT)
 
 
 def _render_a4_page(
@@ -576,7 +619,7 @@ def _render_a4_page(
     text_blocks: list[TextBlock] | None = None,
 ) -> str:
     out = _svg_header(options, A4_PAGE_HEIGHT, title, meta)
-    y = options.margin + 126
+    y = _a4_score_top(options)
     previous_attributes: tuple[str, int, int] | None = None
     for row in rows:
         row_width = sum(measure.width for measure in row)
@@ -607,7 +650,12 @@ def _render_a4_page(
             out.extend(svg_lines)
             x += measure.width
         out.extend(
-            _finish_open_spanners(int(y), open_tie=open_tie, open_slur=open_slur)
+            _finish_open_spanners(
+                int(y),
+                open_tie=open_tie,
+                open_slur=open_slur,
+                options=options,
+            )
         )
         y += options.line_height
     if page_count > 1:
@@ -661,7 +709,9 @@ def _append_measure_range(
         previous.start_measure_number = previous.start_measure_number or start
         previous.end_measure_number = previous.end_measure_number or end
         return
-    previous.end_measure_number = max(previous.end_measure_number or previous.start_measure_number, end or start)
+    previous.end_measure_number = max(
+        previous.end_measure_number or previous.start_measure_number, end or start
+    )
 
 
 def _measure_number_as_int(value: object) -> int | None:
@@ -676,7 +726,9 @@ def _write_svg_pages(svgs: list[str], output_path: Path) -> list[Path]:
         page_path = (
             output_path
             if index == 0
-            else output_path.with_name(f"{output_path.stem}_p{index + 1}{output_path.suffix}")
+            else output_path.with_name(
+                f"{output_path.stem}_p{index + 1}{output_path.suffix}"
+            )
         )
         page_path.write_text(svg, encoding="utf-8")
         paths.append(page_path)
@@ -685,9 +737,21 @@ def _write_svg_pages(svgs: list[str], output_path: Path) -> list[Path]:
 
 def _score_meta(score: JianpuScore) -> str:
     first_measure = score.measures[0] if score.measures else None
-    key = getattr(first_measure, "target_key", score.target_key) if first_measure else score.target_key
-    beats = getattr(first_measure, "beats_per_measure", score.beats) if first_measure else score.beats
-    beat_type = getattr(first_measure, "beat_type", score.beat_type) if first_measure else score.beat_type
+    key = (
+        getattr(first_measure, "target_key", score.target_key)
+        if first_measure
+        else score.target_key
+    )
+    beats = (
+        getattr(first_measure, "beats_per_measure", score.beats)
+        if first_measure
+        else score.beats
+    )
+    beat_type = (
+        getattr(first_measure, "beat_type", score.beat_type)
+        if first_measure
+        else score.beat_type
+    )
     return f"1={key}    {beats}/{beat_type}"
 
 

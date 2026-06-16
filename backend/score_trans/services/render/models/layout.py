@@ -41,4 +41,7 @@ class MeasureLayout:
     number: str | int
     beats: list[BeatLayout]
     width: float
+    min_width: float = 0.0
+    ideal_width: float = 0.0
+    complexity: float = 1.0
     errors: list[str] = field(default_factory=list)

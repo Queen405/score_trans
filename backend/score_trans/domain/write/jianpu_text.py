@@ -52,6 +52,14 @@ def score_to_jianpu_text(
         index = 0
         while index < len(events):
             event = events[index]
+            if event.tuplet_start and event.tuplet_count:
+                group = _collect_tuplet_events(events, index)
+                tokens.append(_tuplet_to_token(group, accidental_mode=accidental_mode))
+                for group_event in group:
+                    if group_event.lyric:
+                        lyrics.append(group_event.lyric)
+                index += len(group)
+                continue
             if event.dynamic:
                 tokens.append(f"\\{event.dynamic}")
             all_marks = list(
@@ -63,16 +71,6 @@ def score_to_jianpu_text(
                 token = _articulation_token(mark)
                 if token:
                     tokens.append(f"^{token}")
-            if event.tuplet_start and event.tuplet_count:
-                group = _collect_tuplet_events(events, index)
-                tokens.append(
-                    _tuplet_to_token(group, accidental_mode=accidental_mode)
-                )
-                for group_event in group:
-                    if group_event.lyric:
-                        lyrics.append(group_event.lyric)
-                index += len(group)
-                continue
             tokens.append(_event_to_token(event, accidental_mode=accidental_mode))
             if event.lyric:
                 lyrics.append(event.lyric)
@@ -178,6 +176,18 @@ def _event_to_tuplet_body(
         body = body + ")"
     if event.tie_start:
         body = body + "~"
+    prefixes: list[str] = []
+    if event.dynamic:
+        prefixes.append(f"\\{event.dynamic}")
+    all_marks = list(
+        event.articulations or ([event.articulation] if event.articulation else [])
+    )
+    all_marks.extend(event.ornaments or [])
+    for mark in all_marks:
+        token = _articulation_token(mark)
+        if token:
+            prefixes.append(f"^{token}")
+    body = "".join(prefixes) + body
     return body
 
 

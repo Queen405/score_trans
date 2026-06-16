@@ -371,22 +371,70 @@ def _is_key_name(value: str) -> bool:
 def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
     body = token.value.strip()[1:-1].strip()
     parts = _split_tuplet_body(body)
-    if len(parts) < 2:
+    pending_dynamic: str | None = None
+    pending_articulations: list[str] = []
+    pending_ornaments: list[str] = []
+    parsed: list[tuple[Event, str]] = []
+    for part in parts:
+        mark = _tuplet_standalone_mark(part)
+        if mark is not None:
+            kind, name = mark
+            if kind == "dynamic":
+                pending_dynamic = name
+            elif kind == "ornament":
+                _append_unique_mark(pending_ornaments, name)
+            else:
+                _append_unique_mark(pending_articulations, name)
+            continue
+        inline_marks, event_part = _consume_tuplet_inline_marks(part)
+        if not event_part:
+            raise _syntax_error(token, f"连音组标记 {part} 后面必须跟随音符或休止符")
+        part_token = _Token(event_part, token.line, token.column + 1 + body.find(part))
+        event = _parse_event_token(part_token)
+        inline_articulations = [
+            name for kind, name in inline_marks if kind == "articulation"
+        ]
+        inline_ornaments = [name for kind, name in inline_marks if kind == "ornament"]
+        inline_dynamic = next(
+            (name for kind, name in reversed(inline_marks) if kind == "dynamic"),
+            None,
+        )
+        if inline_dynamic or pending_dynamic:
+            event.dynamic = inline_dynamic or pending_dynamic
+        event_articulations = list(
+            event.articulations or ([event.articulation] if event.articulation else [])
+        )
+        event_articulations = _unique_marks(
+            event_articulations,
+            pending_articulations,
+            inline_articulations,
+        )
+        if event_articulations:
+            event.articulations = event_articulations
+            event.articulation = event_articulations[0]
+        event.ornaments = _unique_marks(
+            list(event.ornaments),
+            pending_ornaments,
+            inline_ornaments,
+        )
+        pending_dynamic = None
+        pending_articulations = []
+        pending_ornaments = []
+        parsed.append((event, event_part))
+    if len(parsed) < 2:
         raise _syntax_error(token, "连音组至少需要两个音符，例如 $123$ 或 $1 2 3$")
-    duration = Fraction(1, len(parts))
+    duration = Fraction(1, len(parsed))
     group_id = f"{token.line}:{token.column}"
     events: list[tuple[Event, str]] = []
-    for index, part in enumerate(parts):
-        part_token = _Token(part, token.line, token.column + 1 + body.find(part))
-        event = _parse_event_token(part_token)
+    for index, (event, source_token) in enumerate(parsed):
         event.duration = duration
         event.dotted = 0
         event.tuplet_id = group_id
-        event.tuplet_count = len(parts)
+        event.tuplet_count = len(parsed)
         event.tuplet_index = index
         event.tuplet_start = index == 0
-        event.tuplet_stop = index == len(parts) - 1
-        events.append((event, part))
+        event.tuplet_stop = index == len(parsed) - 1
+        events.append((event, source_token))
     return events
 
 
@@ -397,14 +445,78 @@ def _split_tuplet_body(body: str) -> list[str]:
         return [part for part in body.split() if part]
     parts: list[str] = []
     index = 0
-    pattern = re.compile(r"(?:bb|x|n|♮|#|b)?[0-7][',]*[#b]?")
     while index < len(body):
-        match = pattern.match(body, index)
-        if match is None:
+        start = index
+        index = _consume_tuplet_mark_prefix(body, index)
+        match = re.match(
+            r"~?\(?(?:bb|x|n|♮|#|b)?[0-7][',]*(?:#|b)?\.?-*\)?~?", body[index:]
+        )
+        if match is None or not match.group(0):
             return [body]
-        parts.append(match.group(0))
-        index = match.end()
+        index += match.end()
+        parts.append(body[start:index])
     return parts
+
+
+def _consume_tuplet_mark_prefix(body: str, index: int) -> int:
+    while index < len(body):
+        if body.startswith("^", index) and index + 1 < len(body):
+            if body[index + 1] in {"l", ".", ">", "-", "r", "f"}:
+                index += 2
+                continue
+        if body.startswith("\\", index):
+            dynamic = _match_dynamic_prefix(body[index + 1 :])
+            if dynamic:
+                index += len(dynamic) + 1
+                continue
+        break
+    return index
+
+
+def _tuplet_standalone_mark(part: str) -> tuple[str, str] | None:
+    if part.startswith("\\"):
+        dynamic = part[1:]
+        if dynamic in DYNAMICS:
+            return "dynamic", dynamic
+        return None
+    if part.startswith("^") and len(part) == 2:
+        raw = part[1]
+        ornament = _ornament_name(raw)
+        if ornament:
+            return "ornament", ornament
+        return "articulation", _articulation_name(raw)
+    return None
+
+
+def _consume_tuplet_inline_marks(part: str) -> tuple[list[tuple[str, str]], str]:
+    marks: list[tuple[str, str]] = []
+    work = part.strip()
+    while work:
+        if work.startswith("^") and len(work) > 1:
+            raw = work[1]
+            if raw in {"l", ".", ">", "-", "r", "f"}:
+                ornament = _ornament_name(raw)
+                if ornament:
+                    marks.append(("ornament", ornament))
+                else:
+                    marks.append(("articulation", _articulation_name(raw)))
+                work = work[2:]
+                continue
+        if work.startswith("\\"):
+            dynamic = _match_dynamic_prefix(work[1:])
+            if dynamic:
+                marks.append(("dynamic", dynamic))
+                work = work[len(dynamic) + 1 :]
+                continue
+        break
+    return marks, work
+
+
+def _match_dynamic_prefix(value: str) -> str | None:
+    for dynamic in sorted(DYNAMICS, key=len, reverse=True):
+        if value.startswith(dynamic):
+            return dynamic
+    return None
 
 
 def _parse_event_token(token: _Token) -> Event:

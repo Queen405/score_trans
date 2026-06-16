@@ -2,21 +2,28 @@ from __future__ import annotations
 
 from ..constants import CHORD_GAP
 from ..models.shapes import NoteShape
+from ..options import RenderOptions
 from ..parsing.tokens import _parse_chord_token, _parse_note
 from .metrics import _low_octave_dot_y, _note_visual_bottom
 
 
-def _duration_line_y(token: str, y: int, level: int) -> float:
+def _duration_line_y(
+    token: str,
+    y: int,
+    level: int,
+    options: RenderOptions | None = None,
+) -> float:
     token = token.strip().strip("()~")
     chord = _parse_chord_token(token)
     if chord is not None:
         notes, _slashes, _dotted, _extension = chord
         if not notes:
             return y + 10 + (level - 1) * 6
-        top_y = y - (len(notes) - 1) * CHORD_GAP / 2
-        base = top_y + CHORD_GAP * max(0, len(notes) - 1) + 18
+        gap = options.chord_gap if options is not None else float(CHORD_GAP)
+        top_y = y - (len(notes) - 1) * gap / 2
+        base = top_y + gap * max(0, len(notes) - 1) + 18
         bottom = max(
-            _note_visual_bottom(note, int(top_y + index * CHORD_GAP), include_duration=False)
+            _note_visual_bottom(note, int(top_y + index * gap), include_duration=False)
             for index, note in enumerate(notes)
         )
         return max(base, bottom + 9) + (level - 1) * 6

@@ -97,7 +97,9 @@ class RenderService:
         *,
         page_text_blocks: dict[int, list[TextBlock]] | None = None,
     ) -> list[RenderedA4Page]:
-        mode = measure_number_mode or ("none" if show_measure_numbers is False else "all")
+        mode = measure_number_mode or (
+            "none" if show_measure_numbers is False else "all"
+        )
         return render_scores_a4_pages(
             scores,
             RenderOptions(

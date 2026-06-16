@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..constants import CHORD_GAP
 from ..models.shapes import NoteShape
+from ..options import RenderOptions
 from ..parsing.tokens import _parse_chord_token, _parse_note
 from .helpers import _split_accidental
 
@@ -11,7 +12,9 @@ OCTAVE_DOT_CLEARANCE = 3  # keep octave dots a few pixels inside their visual ne
 def _note_center_offset(note: NoteShape) -> float:
     """Approximate horizontal center offset of a note head relative to its anchor."""
     accidental, body = _split_accidental(note.display)
-    width = (12 if accidental else 0) + (14 if len(body) == 1 and body in "12" else 8 * max(1, len(body)))
+    width = (12 if accidental else 0) + (
+        14 if len(body) == 1 and body in "12" else 8 * max(1, len(body))
+    )
     return width / 2
 
 
@@ -22,22 +25,27 @@ def _high_octave_dot_y(note_y: int, dot_index: int, upper_bound: float | None) -
     return y
 
 
-def _low_octave_dot_y(note_y: int, dot_index: int, lower_bound: float | None = None) -> float:
+def _low_octave_dot_y(
+    note_y: int, dot_index: int, lower_bound: float | None = None
+) -> float:
     from ..constants import LOW_OCTAVE_DOT_OFFSET
+
     y = note_y + max(6, LOW_OCTAVE_DOT_OFFSET - 12)
     if lower_bound is not None:
         y = max(y, lower_bound + OCTAVE_DOT_CLEARANCE)
     return y
 
 
-def _token_metrics(token: str, y: int) -> dict[str, float]:
+def _token_metrics(
+    token: str, y: int, options: RenderOptions | None = None
+) -> dict[str, float]:
     token = token.strip().strip("()~")
     chord = _parse_chord_token(token)
     if chord is not None:
         notes, slashes, _dotted, extension = chord
         if not notes:
             return {"top": y - 28.0, "bottom": y + 14.0}
-        gap = CHORD_GAP
+        gap = _chord_gap(options)
         top_y = y - (len(notes) - 1) * gap / 2
         tops: list[float] = []
         bottoms: list[float] = []
@@ -53,7 +61,14 @@ def _token_metrics(token: str, y: int) -> dict[str, float]:
             bottom = max(bottom, underline_y + 21)
         return {"top": min(tops), "bottom": bottom}
     note = _parse_note(token)
-    return {"top": _note_visual_top(note, y), "bottom": _note_visual_bottom(note, y, include_duration=True)}
+    return {
+        "top": _note_visual_top(note, y),
+        "bottom": _note_visual_bottom(note, y, include_duration=True),
+    }
+
+
+def _chord_gap(options: RenderOptions | None = None) -> float:
+    return options.chord_gap if options is not None else float(CHORD_GAP)
 
 
 def _note_visual_top(note: NoteShape, y: int) -> float:
@@ -72,7 +87,6 @@ def _note_visual_bottom(note: NoteShape, y: int, *, include_duration: bool) -> f
     if include_duration and note.extension:
         bottom = max(bottom, y + 34)
     return bottom
-
 
 
 def _note_duration_line_y(note: NoteShape, y: int, level: int) -> float:

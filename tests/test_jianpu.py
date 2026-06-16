@@ -127,7 +127,6 @@ def test_double_slash_comments_are_ignored() -> None:
     assert "2 3 4 5 |" in normalized
 
 
-
 def test_normalize_jianpu_text_can_force_accidental_mode() -> None:
     text = "1=C\n4/4\nb7 #4 1 2 |"
 
@@ -272,6 +271,27 @@ def test_tuplet_group_normalizes_back_to_dollar_syntax() -> None:
     normalized = normalize_jianpu_text("1=C\n4/4\n$1234$ 1 2 3 |")
 
     assert "$1234$" in normalized
+
+
+def test_tuplet_group_accepts_note_marks_inside_dollar_syntax() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n$^.1 ^>2 ^-3$ 4 5 6 |")
+    events = score.measures[0].events[:3]
+
+    assert [event.duration for event in events] == [Fraction(1, 3)] * 3
+    assert [event.articulations for event in events] == [
+        ["staccato"],
+        ["accent"],
+        ["tenuto"],
+    ]
+    assert events[0].tuplet_start is True
+    assert events[2].tuplet_stop is True
+
+
+def test_tuplet_group_writes_note_marks_inside_dollar_syntax() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n$^.1 ^>2 ^-3$ 4 5 6 |")
+    text = score_to_jianpu_text(score)
+
+    assert "$^.1 ^>2 ^-3$" in text
 
 
 def test_ai_dotted_duration_prefix_variant_is_rejected() -> None:

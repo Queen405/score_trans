@@ -10,18 +10,18 @@ from .beat import _render_slot_items
 from .spanners import _render_spanners
 from .text import _render_measure_text_blocks
 
-_MARK_ABOVE_TOKEN = 36  # highest technical mark above token visual top
-_MEASURE_NO_GAP = 10  # clearance between measure number and highest element
+_MARK_ABOVE_TOKEN = 20  # highest technical mark above token visual top
+_MEASURE_NO_GAP = 4  # clearance between measure number and highest element
 
 
-def _measure_number_y(measure: MeasureLayout, y: int) -> int:
+def _measure_number_y(measure: MeasureLayout, y: int, options: RenderOptions) -> int:
     """Compute the y-coordinate for the measure number, avoiding overlap with notes."""
     min_top = float(y)
     for beat in measure.beats:
         for item in beat.items:
-            top = _token_metrics(item.token, y)["top"]
+            top = _token_metrics(item.token, y, options)["top"]
             min_top = min(min_top, top)
-    return min(min_top - _MARK_ABOVE_TOKEN - _MEASURE_NO_GAP, y - 62)
+    return int(min(min_top - _MARK_ABOVE_TOKEN - _MEASURE_NO_GAP, y - 44))
 
 
 def _render_measure(
@@ -45,7 +45,7 @@ def _render_measure(
     if options.show_measure_numbers and (
         show_measure_number if show_measure_number is not None else True
     ):
-        no_y = _measure_number_y(measure, y)
+        no_y = _measure_number_y(measure, y, options)
         out.append(
             f'<text class="measure-no" x="{x + 6:.1f}" y="{no_y}">{_esc(str(measure.number))}</text>'
         )
@@ -55,7 +55,7 @@ def _render_measure(
         )
     repeat_count = getattr(measure.source, "repeat_count", 1)
     if repeat_count > 1:
-        rc_y = _measure_number_y(measure, y)
+        rc_y = _measure_number_y(measure, y, options)
         out.append(
             f'<text class="repeat-count" x="{x + width - 6:.1f}" y="{rc_y}" text-anchor="end">*{repeat_count}</text>'
         )
@@ -80,16 +80,17 @@ def _render_measure(
                 f'x2="{beat_x:.1f}" y2="{y + 52}"/>'
             )
         slots = _item_slots(beat.items, beat_x, beat_width, options)
-        out.extend(_render_slot_items(slots, y))
+        out.extend(_render_slot_items(slots, y, options))
         measure_slots.extend(slots)
         beat_x += beat_width + options.beat_gap * scale
-    out.extend(_render_beams(measure_slots, y))
-    out.extend(_render_tuplets(measure_slots, y))
+    out.extend(_render_beams(measure_slots, y, options))
+    out.extend(_render_tuplets(measure_slots, y, options))
     spanner_svg, new_tie, new_slur = _render_spanners(
         measure_slots,
         y,
         open_tie=open_tie,
         open_slur=open_slur,
+        options=options,
     )
     out.extend(spanner_svg)
     out.extend(_render_measure_text_blocks(measure.source, x, y, width, measure_slots))
@@ -105,7 +106,11 @@ def _render_measure(
     return out, new_tie, new_slur
 
 
-def _render_tuplets(slots: list[tuple[RenderItem, float, float]], y: int) -> list[str]:
+def _render_tuplets(
+    slots: list[tuple[RenderItem, float, float]],
+    y: int,
+    options: RenderOptions,
+) -> list[str]:
     groups: dict[str, list[tuple[RenderItem, float, float]]] = {}
     for slot in slots:
         item, _cx, _slot_width = slot
@@ -123,7 +128,8 @@ def _render_tuplets(slots: list[tuple[RenderItem, float, float]], y: int) -> lis
         x1 = first_cx - min(18.0, first_width / 2)
         x2 = last_cx + min(18.0, last_width / 2)
         top = min(
-            _token_metrics(item.token, y)["top"] for item, _cx, _width in group_slots
+            _token_metrics(item.token, y, options)["top"]
+            for item, _cx, _width in group_slots
         )
         bracket_y = top - 18
         tick = 7

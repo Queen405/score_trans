@@ -21,7 +21,17 @@ def _parse_note(token: str) -> NoteShape:
     display = re.sub(r"((?:bb|[#bnx♮])?[0-7])[-]*$", r"\1", display)
     degree_match = re.search(r"([0-7])", display)
     degree = int(degree_match.group(1)) if degree_match else 0
-    accidental = 0.2 if display.startswith("x") else 0.1 if "#" in display else -0.2 if display.startswith("bb") else -0.1 if "b" in display else 0
+    accidental = (
+        0.2
+        if display.startswith("x")
+        else 0.1
+        if "#" in display
+        else -0.2
+        if display.startswith("bb")
+        else -0.1
+        if "b" in display
+        else 0
+    )
     return NoteShape(
         display=display,
         slashes=slashes,
@@ -45,11 +55,16 @@ def _parse_chord_token(token: str) -> tuple[list[NoteShape], int, bool, int] | N
         work = work[:-1]
     if not (work.startswith("[") and work.endswith("]")):
         return None
-    notes = [_parse_note(part.strip()) for part in work[1:-1].split("+") if part.strip()]
-    slashes = max([PREFIX_SLASHES.get(prefix, 0), *(note.slashes for note in notes)], default=0)
+    notes = [
+        _parse_note(part.strip()) for part in work[1:-1].split("+") if part.strip()
+    ]
+    slashes = max(
+        [PREFIX_SLASHES.get(prefix, 0), *(note.slashes for note in notes)], default=0
+    )
     return notes, slashes, dotted, extension
 
 
 def _token_duration(token: str) -> Fraction:
     from ....domain.jianpu_tokens import token_duration as _td
+
     return _td(token)

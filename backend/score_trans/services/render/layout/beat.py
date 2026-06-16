@@ -9,33 +9,78 @@ from ..utils.helpers import _split_accidental
 def _beat_visual_width(
     items: list[RenderItem], options: RenderOptions | None = None
 ) -> float:
-    gap = options.note_min_gap if options is not None else 9.0
     if not items:
         return 22.0
     return max(
         36.0,
         sum(_token_visual_width(item.token, options) for item in items)
-        + max(0, len(items) - 1) * gap,
+        + sum(
+            _inter_item_gap(left, right, options)
+            for left, right in zip(items, items[1:])
+        ),
     )
 
 
 def _token_visual_width(token: str, options: RenderOptions | None = None) -> float:
     duration_ratio = options.duration_spacing_ratio if options is not None else 1.0
+    note_width = options.note_font_size if options is not None else 30.0
+    chord_width = options.chord_token_width if options is not None else 42.0
     token = token.strip().strip("()~")
     if token == "-":
-        return 30.0 * duration_ratio
+        return note_width * duration_ratio
     chord = _parse_chord_token(token)
     if chord is not None:
         _notes, _slashes, _dotted, extension = chord
-        return 42 + extension * 16 * duration_ratio
+        return chord_width + extension * note_width * 0.52 * duration_ratio
     note = _parse_note(token)
-    accidental_space = 12 if _split_accidental(note.display)[0] else 0
-    return (
-        30
-        + accidental_space
-        + note.extension * 16 * duration_ratio
-        + (8 * duration_ratio if note.dotted else 0)
+    body_width = note_width * _short_note_width_ratio(note.slashes, options)
+    accidental_space = (
+        max(9.0, options.accidental_font_size * 0.65)
+        if options is not None and _split_accidental(note.display)[0]
+        else 12
+        if _split_accidental(note.display)[0]
+        else 0
     )
+    return (
+        body_width
+        + accidental_space
+        + note.extension * body_width * 0.52 * duration_ratio
+        + (body_width * 0.27 * duration_ratio if note.dotted else 0)
+    )
+
+
+def _inter_item_gap(
+    left: RenderItem,
+    right: RenderItem,
+    options: RenderOptions | None = None,
+) -> float:
+    gap = options.note_min_gap if options is not None else 9.0
+    if left.tuplet_id and left.tuplet_id == right.tuplet_id:
+        ratio = options.tuplet_gap_ratio if options is not None else 0.55
+        return gap * ratio
+    if _token_slashes(left.token) >= 2 and _token_slashes(right.token) >= 2:
+        ratio = options.short_note_gap_ratio if options is not None else 1.0
+        return gap * ratio
+    return gap
+
+
+def _short_note_width_ratio(
+    slashes: int,
+    options: RenderOptions | None = None,
+) -> float:
+    if slashes < 2:
+        return 1.0
+    return options.short_note_slot_width_ratio if options is not None else 1.0
+
+
+def _token_slashes(token: str) -> int:
+    token = token.strip().strip("()~")
+    chord = _parse_chord_token(token)
+    if chord is not None:
+        _notes, slashes, _dotted, _extension = chord
+        return slashes
+    note = _parse_note(token)
+    return note.slashes
 
 
 def _item_slots(
@@ -46,13 +91,18 @@ def _item_slots(
 ) -> list[tuple[RenderItem, float, float]]:
     if not items:
         return []
-    gap = options.note_min_gap if options is not None else 9.0
-    natural = sum(_token_visual_width(item.token, options) for item in items) + max(0, len(items) - 1) * gap
+    gaps = [
+        _inter_item_gap(left, right, options) for left, right in zip(items, items[1:])
+    ]
+    natural = sum(_token_visual_width(item.token, options) for item in items) + sum(
+        gaps
+    )
     scale = width / natural if natural > 0 else 1.0
     cursor = x
     slots: list[tuple[RenderItem, float, float]] = []
-    for item in items:
+    for index, item in enumerate(items):
         slot = _token_visual_width(item.token, options) * scale
         slots.append((item, cursor + slot / 2, slot))
-        cursor += slot + gap * scale
+        if index < len(gaps):
+            cursor += slot + gaps[index] * scale
     return slots

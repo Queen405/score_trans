@@ -11,7 +11,9 @@ def _same_start(left: Fraction | None, right: Fraction | None) -> bool:
     return left == right
 
 
-def _scale_bbox(bbox: tuple[float, float, float, float], width: int, height: int) -> tuple[float, float, float, float]:
+def _scale_bbox(
+    bbox: tuple[float, float, float, float], width: int, height: int
+) -> tuple[float, float, float, float]:
     x1, y1, x2, y2 = bbox
     if max(abs(x1), abs(y1), abs(x2), abs(y2)) <= 1.5:
         return x1 * width, y1 * height, x2 * width, y2 * height
@@ -20,15 +22,36 @@ def _scale_bbox(bbox: tuple[float, float, float, float], width: int, height: int
 
 def _is_dynamic_text(text: str) -> bool:
     return text.strip() in {
-        "p", "pp", "ppp", "pppp", "f", "ff", "fff", "ffff",
-        "mp", "mf", "sf", "sfz", "sfp", "fp", "fz", "rfz",
+        "p",
+        "pp",
+        "ppp",
+        "pppp",
+        "f",
+        "ff",
+        "fff",
+        "ffff",
+        "mp",
+        "mf",
+        "sf",
+        "sfz",
+        "sfp",
+        "fp",
+        "fz",
+        "rfz",
     }
 
 
 def _split_accidental(display: str) -> tuple[str, str]:
-    for token, symbol in (("bb", "bb"), ("x", "x"), ("n", "♮"), ("♮", "♮"), ("#", "#"), ("b", "b")):
+    for token, symbol in (
+        ("bb", "bb"),
+        ("x", "x"),
+        ("n", "♮"),
+        ("♮", "♮"),
+        ("#", "#"),
+        ("b", "b"),
+    ):
         if display.startswith(token) and len(display) > len(token):
-            return symbol, display[len(token):]
+            return symbol, display[len(token) :]
     return "", display
 
 
@@ -50,7 +73,9 @@ def _mark_display(name: str) -> str:
     }.get(normalized, name)
 
 
-def _text_block_reading_order(candidate: tuple[int, TextBlock, int]) -> tuple[int, float, float, int]:
+def _text_block_reading_order(
+    candidate: tuple[int, TextBlock, int],
+) -> tuple[int, float, float, int]:
     index, block, _number = candidate
     if block.bbox is None:
         return (1, 0.0, 0.0, index)

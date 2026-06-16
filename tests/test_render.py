@@ -5,10 +5,14 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from score_trans.domain.jianpu import jianpu_to_musicxml
+from score_trans.domain.jianpu import jianpu_to_musicxml, parse_jianpu_score
 from score_trans.domain.musicxml import musicxml_to_score
 from score_trans.exec.render.actions import RenderActions, RenderJianpuTextAction
-from score_trans.models.render.schemas import BatchRenderRequest, BatchRenderPageRequest, RenderJianpuTextSvgRequest
+from score_trans.models.render.schemas import (
+    BatchRenderRequest,
+    BatchRenderPageRequest,
+    RenderJianpuTextSvgRequest,
+)
 from score_trans.models.score import (
     JianpuEvent,
     JianpuMeasure,
@@ -21,13 +25,21 @@ from score_trans.services.files.upload_service import UploadService
 from score_trans.services.ocr.providers import MockOCRProvider
 from score_trans.services.render import (
     RenderOptions,
+    render_jianpu_a4_svgs,
     render_jianpu_svg,
     render_scores_a4_pages,
     render_scores_a4_svgs,
     render_score_page_svg,
     render_score_svg,
 )
-from score_trans.services.render.main import A4_LINE_HEIGHT
+from score_trans.services.render.layout.measure import _score_measure_layout
+from score_trans.services.render.layout.beat import _item_slots
+from score_trans.services.render.layout.rows import _layout_rows
+from score_trans.services.render.main import (
+    A4_LINE_HEIGHT,
+    _a4_render_options,
+    _paginate_rows,
+)
 
 
 def _svg_root(svg: str) -> ET.Element:
@@ -79,6 +91,22 @@ def _many_measure_score(start: int, count: int) -> JianpuScore:
     return score
 
 
+def _a4_row_counts_for_repeated_measure(
+    measure_body: str,
+    *,
+    count: int = 12,
+) -> list[int]:
+    options = _a4_render_options(None, title="简谱")
+    text = f"1=C\n4/4\n{measure_body} |"
+
+    def make_layout():
+        score = parse_jianpu_score(text)
+        return _score_measure_layout(score.measures[0], options)
+
+    rows = _layout_rows([make_layout() for _ in range(count)], options)
+    return [len(row) for row in rows]
+
+
 def test_render_jianpu_svg_contains_title_and_notes() -> None:
     svg = render_jianpu_svg("1=C\n4/4\n1 2 | 3 4 |")
 
@@ -118,11 +146,21 @@ def test_render_new_syntax_repeat_marks_and_semantics() -> None:
 
 
 def test_render_tuplet_group_shows_bracket_and_number() -> None:
-    svg = render_jianpu_svg("1=C\n4/4\n$123$ 4 5 6 |")
+    svg = render_jianpu_svg("1=C\n4/4\n$^.1 ^>2 3$ 4 5 6 |")
 
     assert 'class="tuplet-bracket"' in svg
     assert 'class="tuplet-number"' in svg
+    assert 'class="articulation"' in svg
     assert ">3</text>" in svg
+
+
+def test_tuplet_group_spacing_is_tighter_than_plain_same_beat_notes() -> None:
+    options = RenderOptions(tuplet_gap_ratio=0.4)
+
+    tuplet_gap = _first_note_center_gap("$123$ 4 5 6", options)
+    plain_gap = _first_note_center_gap("q1 q2 3 4", options)
+
+    assert tuplet_gap < plain_gap
 
 
 def test_render_measure_level_key_and_time_signature_markers() -> None:
@@ -142,6 +180,23 @@ def test_render_score_svg_uses_display_measure_number() -> None:
 
     assert ">118<" in svg
     assert "generated" in svg
+
+
+def test_measure_number_stays_close_to_measure_top() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\n1' 2' 3' 4' |")
+    root = _svg_root(svg)
+    measure_no = next(
+        text
+        for text in _svg_elements(root, "text")
+        if text.attrib.get("class") == "measure-no"
+    )
+    first_note = next(
+        text
+        for text in _svg_elements(root, "text")
+        if text.attrib.get("class") == "note"
+    )
+
+    assert float(measure_no.attrib["y"]) > float(first_note.attrib["y"]) - 64
 
 
 def test_render_can_hide_measure_numbers_when_requested() -> None:
@@ -223,8 +278,82 @@ def test_render_scores_a4_svgs_continue_across_source_page_boundaries() -> None:
     assert all_numbers[:78] == [str(number) for number in range(1, 79)]
 
 
-def test_a4_fixed_layout_uses_larger_line_height() -> None:
-    assert A4_LINE_HEIGHT == 150
+def test_a4_compact_layout_uses_tighter_line_height() -> None:
+    assert A4_LINE_HEIGHT == 126
+
+
+def test_a4_compact_layout_hits_measure_capacity_targets() -> None:
+    assert _a4_row_counts_for_repeated_measure("1 2 3 4")[0] == 4
+    assert _a4_row_counts_for_repeated_measure("q1 q2 q3 q4 q5 q6 q7 q1'")[0] == 3
+    assert (
+        _a4_row_counts_for_repeated_measure(
+            "s1 s2 s3 s4 s5 s6 s7 s1' s1 s2 s3 s4 s5 s6 s7 s1'"
+        )[0]
+        == 2
+    )
+    assert (
+        _a4_row_counts_for_repeated_measure(
+            "q[3+3] q[3+3] q[3+3] q[3+3] q[3+3] q[3+3] q[3+3] q[3+3]"
+        )[0]
+        == 3
+    )
+
+
+def test_a4_compact_layout_tightens_only_consecutive_short_note_spacing() -> None:
+    options = _a4_render_options(None, title="简谱")
+
+    sixteenth_gap = _first_note_center_gap("s1 s2 s3 s4", options)
+    thirty_second_gap = _first_note_center_gap("d1 d2 d3 d4", options)
+    eighth_gap = _first_note_center_gap("q1 q2 q3 q4", options)
+
+    assert sixteenth_gap < options.note_font_size * 0.8
+    assert thirty_second_gap < options.note_font_size * 0.8
+    assert eighth_gap > options.note_font_size
+
+
+def _first_note_center_gap(measure_body: str, options: RenderOptions) -> float:
+    score = parse_jianpu_score(f"1=C\n4/4\n{measure_body} |")
+    layout = _score_measure_layout(score.measures[0], options)
+    slots = _item_slots(layout.beats[0].items, 0, layout.beats[0].width, options)
+    return slots[1][1] - slots[0][1]
+
+
+def test_a4_compact_layout_paginates_twelve_rows_per_page() -> None:
+    options = _a4_render_options(None, title="简谱")
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
+    layout = _score_measure_layout(score.measures[0], options)
+
+    pages = _paginate_rows([[layout] for _ in range(25)], options)
+
+    assert [len(page) for page in pages] == [12, 12, 1]
+
+
+def test_a4_compact_render_keeps_dense_symbols_legible() -> None:
+    svg = render_jianpu_a4_svgs(
+        "1=C\n4/4\nq5, q6, s1 s2 $345$ \\mf q[3+5] q[3+5] |\n1 2 3 4 5 |"
+    )[0]
+    root = _svg_root(svg)
+
+    assert ".note { font-size: 26px" in svg
+    assert ".measure-no { font-size: 20px" in svg
+    assert 'class="tuplet-bracket"' in svg
+    assert 'class="duration-line beam-line"' in svg
+    assert ">mf</text>" in svg
+    assert "小节超拍" in svg
+
+    dot_ys = [
+        float(circle.attrib["cy"])
+        for circle in _svg_elements(root, "circle")
+        if circle.attrib.get("class") == "octave-dot"
+    ]
+    beam_ys = [
+        float(line.attrib["y1"])
+        for line in _svg_elements(root, "line")
+        if line.attrib.get("class") == "duration-line beam-line"
+    ]
+    assert dot_ys
+    assert beam_ys
+    assert max(beam_ys) > max(dot_ys) + 6
 
 
 def test_render_scores_a4_pages_report_source_measure_ranges() -> None:
@@ -243,22 +372,36 @@ def test_render_scores_a4_pages_report_source_measure_ranges() -> None:
     )
 
 
-def test_render_batch_a4_assigns_source_ocr_to_first_overlapping_final_page(tmp_path) -> None:
-    actions = RenderActions(uploads=UploadService(ToolConfig(work_dir=tmp_path / "work")))
+def test_render_batch_a4_assigns_source_ocr_to_first_overlapping_final_page(
+    tmp_path,
+) -> None:
+    actions = RenderActions(
+        uploads=UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    )
     combined = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 78)
     first_source = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 70)
     second_source = "1=C\n4/4\n" + ("5 6 7 1' |\n" * 8)
 
     response = actions.render_batch_a4(
         BatchRenderRequest(
-            pages=[BatchRenderPageRequest(jianpu_text=combined, start_measure_number=1)],
+            pages=[
+                BatchRenderPageRequest(jianpu_text=combined, start_measure_number=1)
+            ],
             source_pages=[
                 BatchRenderPageRequest(
                     jianpu_text=first_source,
                     ocr_text=json.dumps(
                         [
-                            {"text": "第一页文字", "bbox": [12, 30, 120, 54], "role": "lyric"},
-                            {"text": "88", "bbox": [4, 6, 20, 24], "role": "measure_number"},
+                            {
+                                "text": "第一页文字",
+                                "bbox": [12, 30, 120, 54],
+                                "role": "lyric",
+                            },
+                            {
+                                "text": "88",
+                                "bbox": [4, 6, 20, 24],
+                                "role": "measure_number",
+                            },
                         ],
                         ensure_ascii=False,
                     ),
@@ -267,7 +410,13 @@ def test_render_batch_a4_assigns_source_ocr_to_first_overlapping_final_page(tmp_
                 BatchRenderPageRequest(
                     jianpu_text=second_source,
                     ocr_text=json.dumps(
-                        [{"text": "第二页文字", "bbox": [14, 32, 128, 58], "role": "expression"}],
+                        [
+                            {
+                                "text": "第二页文字",
+                                "bbox": [14, 32, 128, 58],
+                                "role": "expression",
+                            }
+                        ],
                         ensure_ascii=False,
                     ),
                 ),
@@ -282,14 +431,20 @@ def test_render_batch_a4_assigns_source_ocr_to_first_overlapping_final_page(tmp_
     assert "第二页文字" not in first_ocr
     assert "第二页文字" in second_ocr
     assert "88" not in first_ocr
-    first_svg = actions.uploads.get_path(response.pages[0].svg_file_id).read_text(encoding="utf-8")
-    second_svg = actions.uploads.get_path(response.pages[1].svg_file_id).read_text(encoding="utf-8")
+    first_svg = actions.uploads.get_path(response.pages[0].svg_file_id).read_text(
+        encoding="utf-8"
+    )
+    second_svg = actions.uploads.get_path(response.pages[1].svg_file_id).read_text(
+        encoding="utf-8"
+    )
     assert "第一页文字" in first_svg
     assert "第二页文字" in second_svg
 
 
 def test_render_batch_a4_saved_page_ocr_overrides_source_suggestion(tmp_path) -> None:
-    actions = RenderActions(uploads=UploadService(ToolConfig(work_dir=tmp_path / "work")))
+    actions = RenderActions(
+        uploads=UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    )
     text = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 12)
     saved_ocr = json.dumps(
         [{"text": "保存后的文字", "bbox": [84, 120, 200, 148], "role": "lyric"}],
@@ -303,7 +458,13 @@ def test_render_batch_a4_saved_page_ocr_overrides_source_suggestion(tmp_path) ->
                 BatchRenderPageRequest(
                     jianpu_text=text,
                     ocr_text=json.dumps(
-                        [{"text": "识别文字", "bbox": [10, 20, 110, 44], "role": "lyric"}],
+                        [
+                            {
+                                "text": "识别文字",
+                                "bbox": [10, 20, 110, 44],
+                                "role": "lyric",
+                            }
+                        ],
                         ensure_ascii=False,
                     ),
                     start_measure_number=1,
@@ -314,7 +475,9 @@ def test_render_batch_a4_saved_page_ocr_overrides_source_suggestion(tmp_path) ->
     )
 
     assert response.pages[0].ocr_text == saved_ocr
-    svg = actions.uploads.get_path(response.pages[0].svg_file_id).read_text(encoding="utf-8")
+    svg = actions.uploads.get_path(response.pages[0].svg_file_id).read_text(
+        encoding="utf-8"
+    )
     assert "保存后的文字" in svg
     assert "识别文字" not in svg
 
@@ -347,7 +510,7 @@ def test_render_jianpu_text_page_runs_ocr_and_preserves_bbox(tmp_path) -> None:
     assert 70.0 < float(ocr_text.attrib["y"]) <= 92.0
 
 
-def test_render_jianpu_text_page_uses_editable_text_directives(tmp_path) -> None:
+def test_render_jianpu_text_page_ignores_legacy_text_directives(tmp_path) -> None:
     text_path = tmp_path / "score.txt"
     image_path = tmp_path / "score.png"
     output_path = tmp_path / "score.svg"
@@ -369,8 +532,9 @@ def test_render_jianpu_text_page_uses_editable_text_directives(tmp_path) -> None
     )
 
     svg = output_path.read_text(encoding="utf-8")
-    assert "改后的歌词" in svg
-    assert "旧歌词" not in svg
+    assert "旧歌词" in svg
+    assert "改后的歌词" not in svg
+    assert "@text" not in svg
 
 
 def test_render_jianpu_text_page_supports_chord_tokens(tmp_path) -> None:
