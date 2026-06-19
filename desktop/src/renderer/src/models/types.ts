@@ -228,6 +228,7 @@ export interface AiChatRequest {
   message: string
   session_id?: string
   jianpu_text?: string
+  enable_thinking?: boolean
 }
 
 export interface AiChatResponse {

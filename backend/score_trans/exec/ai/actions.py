@@ -176,11 +176,13 @@ class AiActions:
         *,
         session_id: str | None = None,
         jianpu_text: str | None = None,
+        enable_thinking: bool | None = None,
     ) -> tuple[str, AiChatMessage, list[AiChatMessage]]:
         return self._chat().send_message(
             message,
             session_id=session_id,
             jianpu_text=jianpu_text,
+            enable_thinking=enable_thinking,
         )
 
     def send_chat_message_response(self, req: AiChatRequest) -> AiChatResponse:
@@ -188,6 +190,7 @@ class AiActions:
             req.message,
             session_id=req.session_id,
             jianpu_text=req.jianpu_text,
+            enable_thinking=req.enable_thinking,
         )
         return AiChatResponse(
             session_id=session_id,
@@ -206,11 +209,13 @@ class AiActions:
         *,
         session_id: str | None = None,
         jianpu_text: str | None = None,
+        enable_thinking: bool | None = None,
     ) -> Iterator[tuple[str, str | AiChatMessage | list[AiChatMessage]]]:
         return self._chat().stream_message(
             message,
             session_id=session_id,
             jianpu_text=jianpu_text,
+            enable_thinking=enable_thinking,
         )
 
     def stream_chat_events(self, req: AiChatRequest) -> Iterator[str]:
@@ -220,6 +225,7 @@ class AiActions:
                 req.message,
                 session_id=req.session_id,
                 jianpu_text=req.jianpu_text,
+                enable_thinking=req.enable_thinking,
             ):
                 if event == "session":
                     yield _sse("session", {"session_id": payload})

@@ -10,6 +10,7 @@ from score_trans.models.ai.schemas import AiTranscribeRequest
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.ai.core import VisionPageResult, parse_vision_page_result
 from score_trans.services.ai.chat_service import AiChatService, MAX_CONTEXT_MESSAGES
+from score_trans.services.ai.providers._http import chat_completions
 from score_trans.services.ai.providers.mock import MockVisionJianpuProvider
 from score_trans.services.ai.transcription import AiTranscriptionService
 from score_trans.services.ai.transcription.validation import validate_jianpu_text
@@ -43,6 +44,7 @@ def test_ai_chat_routes_are_registered() -> None:
     assert "/ai/chat/sessions" in paths
     assert "/ai/chat/sessions/{session_id}/messages" in paths
     assert "jianpu_text" in schema["properties"]
+    assert "enable_thinking" in schema["properties"]
 
 
 def test_ai_action_transcribes_uploaded_image_with_mock_provider(
@@ -208,8 +210,75 @@ def test_ai_chat_injects_jianpu_syntax_and_limits_memory(
     assert "[1,3,5]" in messages[-1]["content"]
 
 
+def test_ai_chat_forwards_disabled_thinking_to_provider(
+    tmp_path: Path, monkeypatch
+) -> None:
+    captured_kwargs = []
+
+    def fake_chat_completions(**kwargs):
+        captured_kwargs.append(kwargs)
+        return "直接回答"
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.chat_service.chat_completions",
+        fake_chat_completions,
+    )
+    settings = SettingsDao(tmp_path / "settings.db")
+    settings.set("assistant_api_key", "test-key")
+    service = AiChatService(
+        dao=AiChatDao(tmp_path / "ai_chat.db"),
+        settings=settings,
+    )
+
+    service.send_message("帮我检查", enable_thinking=False)
+
+    assert captured_kwargs[-1]["enable_thinking"] is False
+
+
+def test_chat_completions_omits_thinking_param_until_explicitly_set(
+    monkeypatch,
+) -> None:
+    captured_bodies = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    def fake_post(*args, **kwargs):
+        captured_bodies.append(kwargs["json"])
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.providers._http.httpx.post",
+        fake_post,
+    )
+
+    chat_completions(
+        base_url="https://example.test/v1",
+        api_key="test-key",
+        model="test-model",
+        messages=[{"role": "user", "content": "hi"}],
+    )
+    chat_completions(
+        base_url="https://example.test/v1",
+        api_key="test-key",
+        model="test-model",
+        messages=[{"role": "user", "content": "hi"}],
+        enable_thinking=False,
+    )
+
+    assert "enable_thinking" not in captured_bodies[0]
+    assert captured_bodies[1]["enable_thinking"] is False
+
+
 def test_ai_chat_stream_persists_streamed_response(tmp_path: Path, monkeypatch) -> None:
+    captured_kwargs = []
+
     def fake_chat_completion_chunks(**kwargs):
+        captured_kwargs.append(kwargs)
         yield "<think>检查和弦分隔符</think>"
         yield "\n\n应改为 [1+3+5]。"
 
@@ -224,9 +293,10 @@ def test_ai_chat_stream_persists_streamed_response(tmp_path: Path, monkeypatch) 
         settings=settings,
     )
 
-    events = list(service.stream_message("检查 [1,3,5]"))
+    events = list(service.stream_message("检查 [1,3,5]", enable_thinking=False))
 
     assert events[0][0] == "session"
+    assert captured_kwargs[-1]["enable_thinking"] is False
     assert ("delta", "<think>检查和弦分隔符</think>") in events
     assert events[-1][0] == "messages"
     messages = events[-1][1]

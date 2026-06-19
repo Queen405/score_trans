@@ -55,6 +55,7 @@ class AiChatService:
         *,
         session_id: str | None = None,
         jianpu_text: str | None = None,
+        enable_thinking: bool | None = None,
     ) -> tuple[str, AiChatMessage, list[AiChatMessage]]:
         clean_message = message.strip()
         if not clean_message:
@@ -64,12 +65,15 @@ class AiChatService:
         was_empty = len(self.dao.list_messages(session.id)) == 0
         user_msg = self.dao.add_message(session.id, "user", clean_message)
         if was_empty:
-            self.dao.update_session_title(session.id, _title_from_message(clean_message))
+            self.dao.update_session_title(
+                session.id, _title_from_message(clean_message)
+            )
 
         assistant_text = self._call_model(
             session.id,
             current_user_message_id=user_msg.id,
             jianpu_text=jianpu_text,
+            enable_thinking=enable_thinking,
         )
         assistant_msg = self.dao.add_message(session.id, "assistant", assistant_text)
         return session.id, assistant_msg, self.dao.list_messages(session.id)
@@ -80,6 +84,7 @@ class AiChatService:
         *,
         session_id: str | None = None,
         jianpu_text: str | None = None,
+        enable_thinking: bool | None = None,
     ) -> Iterator[tuple[str, str | AiChatMessage | list[AiChatMessage]]]:
         clean_message = message.strip()
         if not clean_message:
@@ -89,7 +94,9 @@ class AiChatService:
         was_empty = len(self.dao.list_messages(session.id)) == 0
         user_msg = self.dao.add_message(session.id, "user", clean_message)
         if was_empty:
-            self.dao.update_session_title(session.id, _title_from_message(clean_message))
+            self.dao.update_session_title(
+                session.id, _title_from_message(clean_message)
+            )
 
         yield "session", session.id
         chunks: list[str] = []
@@ -97,6 +104,7 @@ class AiChatService:
             session.id,
             current_user_message_id=user_msg.id,
             jianpu_text=jianpu_text,
+            enable_thinking=enable_thinking,
         ):
             chunks.append(chunk)
             yield "delta", chunk
@@ -118,10 +126,13 @@ class AiChatService:
         *,
         current_user_message_id: int,
         jianpu_text: str | None,
+        enable_thinking: bool | None,
     ) -> str:
         api_key, base_url, model = self._provider_settings()
         if not api_key:
-            raise AITranscriptionError("工作台 AI API key 未配置，请在设置中填写 API Key。")
+            raise AITranscriptionError(
+                "工作台 AI API key 未配置，请在设置中填写 API Key。"
+            )
 
         messages = self._build_messages(
             session_id,
@@ -138,6 +149,7 @@ class AiChatService:
                 temperature=AI_TEMPERATURE,
                 timeout=AI_TIMEOUT,
                 max_tokens=MAX_ASSISTANT_TOKENS,
+                enable_thinking=enable_thinking,
             )
         except Exception as exc:
             raise AITranscriptionError(f"工作台 AI 请求失败：{exc}") from exc
@@ -148,10 +160,13 @@ class AiChatService:
         *,
         current_user_message_id: int,
         jianpu_text: str | None,
+        enable_thinking: bool | None,
     ) -> Iterator[str]:
         api_key, base_url, model = self._provider_settings()
         if not api_key:
-            raise AITranscriptionError("工作台 AI API key 未配置，请在设置中填写 API Key。")
+            raise AITranscriptionError(
+                "工作台 AI API key 未配置，请在设置中填写 API Key。"
+            )
 
         messages = self._build_messages(
             session_id,
@@ -167,6 +182,7 @@ class AiChatService:
                 temperature=AI_TEMPERATURE,
                 timeout=AI_TIMEOUT,
                 max_tokens=MAX_ASSISTANT_TOKENS,
+                enable_thinking=enable_thinking,
             )
         except Exception as exc:
             raise AITranscriptionError(f"工作台 AI 请求失败：{exc}") from exc
@@ -183,7 +199,11 @@ class AiChatService:
         ]
         for memory in self.dao.recent_messages(session_id, MAX_CONTEXT_MESSAGES):
             content = memory.content
-            if memory.id == current_user_message_id and jianpu_text and jianpu_text.strip():
+            if (
+                memory.id == current_user_message_id
+                and jianpu_text
+                and jianpu_text.strip()
+            ):
                 content = _with_jianpu_context(content, jianpu_text)
             messages.append({"role": memory.role, "content": content})
         return messages
@@ -194,7 +214,9 @@ class AiChatService:
             "assistant",
             settings.get("assistant_provider"),
         )
-        api_key = provider_api_key(settings, "assistant", profile.id) or ASSISTANT_API_KEY
+        api_key = (
+            provider_api_key(settings, "assistant", profile.id) or ASSISTANT_API_KEY
+        )
         base_url = (profile.base_url or ASSISTANT_BASE_URL).rstrip("/")
         model = profile.model or ASSISTANT_MODEL
         return api_key, base_url, model
@@ -211,10 +233,4 @@ def _with_jianpu_context(message: str, jianpu_text: str) -> str:
     context = jianpu_text.strip()
     if len(context) > MAX_JIANPU_CONTEXT_CHARS:
         context = context[:MAX_JIANPU_CONTEXT_CHARS] + "\n...（简谱上下文已截断）"
-    return (
-        "【当前工作台简谱文本】\n"
-        f"{context}\n\n"
-        "---\n"
-        "【用户问题】\n"
-        f"{message}"
-    )
+    return f"【当前工作台简谱文本】\n{context}\n\n---\n【用户问题】\n{message}"

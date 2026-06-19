@@ -59,7 +59,7 @@
             <span>AI 助手</span>
           </div>
           <div class="ai-head-actions">
-            <label class="ai-think-master" title="显示或隐藏深度思考">
+            <label class="ai-think-master" title="关闭后请求会禁用深度思考">
               <input v-model="showThinking" type="checkbox" />
               <span>思考</span>
             </label>
@@ -486,7 +486,11 @@ async function send(): Promise<void> {
   draft.value = ''
   autoScrollEnabled.value = true
   try {
-    await assistant.send(text, includeCurrentJianpu.value ? task.jianpuText : undefined)
+    await assistant.send(
+      text,
+      includeCurrentJianpu.value ? task.jianpuText : undefined,
+      showThinking.value ? undefined : false,
+    )
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     message.error(msg)

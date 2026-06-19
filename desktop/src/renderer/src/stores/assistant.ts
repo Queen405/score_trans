@@ -65,7 +65,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     }
   }
 
-  async function send(message: string, jianpuText?: string): Promise<void> {
+  async function send(message: string, jianpuText?: string, enableThinking?: boolean): Promise<void> {
     const text = message.trim()
     if (!text || sending.value) return
 
@@ -93,6 +93,7 @@ export const useAssistantStore = defineStore('assistant', () => {
           message: text,
           session_id: currentSessionId.value || undefined,
           jianpu_text: jianpuText?.trim() || undefined,
+          enable_thinking: enableThinking,
         },
         {
           onSession(sessionId) {

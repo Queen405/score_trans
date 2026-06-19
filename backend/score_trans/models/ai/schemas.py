@@ -66,6 +66,7 @@ class AiChatRequest(BaseModel):
     message: str = Field(min_length=1)
     session_id: str | None = None
     jianpu_text: str | None = None
+    enable_thinking: bool | None = None
 
 
 class AiChatResponse(BaseModel):
