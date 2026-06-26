@@ -1106,6 +1106,12 @@ function handleOcrTextUpdate(value: string): void {
   store.setBatchRenderPageOcrText(finalRenderPageIndex.value, value, true)
 }
 
+function applyReturnedOcr(value?: string | null): void {
+  if (!value || store.ocrText.trim()) return
+  store.setOcrText(value)
+}
+
+
 async function renderSvg(): Promise<void> {
   store.setBusy(true)
   try {

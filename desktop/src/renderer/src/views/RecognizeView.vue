@@ -857,12 +857,6 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       measureNumberOptions: [],
       errorMessage: '',
     })
-    updateLiveRecognitionPage(pageId, {
-      status: 'completed',
-      progressPercent: 100,
-      progressMessage: '识别完成',
-      errorMessage: '',
-    })
     store.setBatchRenderPageFileIds([], page.batchId)
     await persistPageResult(targetFromPage({ ...page, startMeasureNumber: selected }), {
       input_file_name: page.inputFileName,
@@ -877,7 +871,6 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
     }, page.historyPageId)
     await syncBatchJianpuTextForPage(pageId)
     await maybeRenderCompletedBatchForPage(pageId)
-    clearLiveRecognitionPage(pageId)
     log.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`)
     message.success('已应用起始小节号')
     const submission = findSubmissionForPage(pageId)
@@ -892,12 +885,6 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       progressPercent: 100,
       progressMessage: '等待选择起始小节号',
       measureNumberOptions: page.measureNumberOptions,
-      errorMessage: failedMessage,
-    })
-    updateLiveRecognitionPage(pageId, {
-      status: 'waiting',
-      progressPercent: 100,
-      progressMessage: '等待选择起始小节号',
       errorMessage: failedMessage,
     })
     if (page.historyPageId) {
@@ -1220,19 +1207,13 @@ async function reconcileSubmissionState(submission: SubmissionState): Promise<vo
       for (const target of submission.targets) {
         if (submission.decisionApplied.has(target.pageId)) continue
         const result = submission.results.get(target.pageId)
-        if (!result) continue
+        if (!result) return
         if (!result.success) {
           submission.decisionApplied.add(target.pageId)
           continue
         }
         const measureOptions = uniquePositiveNumbers(result.rawOptions)
-        const canAskForStartMeasure = submission.targets[0]?.pageId === target.pageId
-        if (
-          target.startMeasureNumber !== null
-          || measureOptions.length === 0
-          || !canAskForStartMeasure
-          || submission.heldFirst.size > 0
-        ) {
+        if (target.startMeasureNumber !== null || measureOptions.length === 0 || submission.heldFirst.size > 0) {
           const decision: MeasureStartDecision = {
             startMeasureNumber: target.startMeasureNumber,
             status: 'completed',
@@ -1251,11 +1232,11 @@ async function reconcileSubmissionState(submission: SubmissionState): Promise<vo
         }
         await result.applyDecision(partial)
         submission.decisionApplied.add(target.pageId)
+        if (partial.needsMeasureChoice) {
+          return
+        }
       }
     } while (submission.pendingReconcile)
-    if (!submission.targets.every((target) => submission.decisionApplied.has(target.pageId))) {
-      return
-    }
     const idx = activeSubmissions.value.indexOf(submission)
     if (idx >= 0) activeSubmissions.value.splice(idx, 1)
   } finally {
@@ -1271,28 +1252,14 @@ function makePipelineApplyDecision(
   return async (decision: MeasureStartDecision): Promise<void> => {
     const initialSplit = splitJianpuAndOcr(result.jianpu_text)
     if (decision.needsMeasureChoice) {
-      const ocrText = returnedPipelineOcrText(result) || initialSplit.ocrText
-      const svgFileId = result.svg_file_id
-      const svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
-      const pageResult: PageResult = {
-        input_file_name: target.inputFileName,
-        input_file_id: target.inputFileId,
-        musicxml_file_id: result.musicxml_file_id,
-        jianpu_text: initialSplit.jianpuText,
-        ocr_text: ocrText,
-        svg_file_id: svgFileId,
-        start_measure_number: decision.startMeasureNumber,
-        status: decision.status,
-        error_message: decision.waitingMessage,
-      }
       patchRecognitionPage(target.pageId, {
         musicxmlFileId: result.musicxml_file_id,
         musicxmlText: '',
         jianpuText: initialSplit.jianpuText,
-        ocrText,
+        ocrText: returnedPipelineOcrText(result) || initialSplit.ocrText,
         jianpuDirty: false,
-        svgFileId,
-        svgFileIds,
+        svgFileId: result.svg_file_id,
+        svgFileIds: renderPageIds(result.render_pages, result.svg_file_id),
         originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
         originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
         taskId: '',
@@ -1303,16 +1270,6 @@ function makePipelineApplyDecision(
         measureNumberOptions: decision.measureOptions,
         errorMessage: decision.waitingMessage,
       })
-      updateLiveRecognitionPage(target.pageId, {
-        status: 'waiting',
-        progressPercent: 100,
-        progressMessage: '等待选择起始小节号',
-        errorMessage: decision.waitingMessage,
-      })
-      await persistPageResult(target, pageResult, historyPageId)
-      await syncBatchJianpuTextForPage(target.pageId)
-      log.addLog(`等待选择起始小节号：${target.inputFileName}`, 'warn')
-      message.warning(`等待选择起始小节号：${target.inputFileName}`)
       return
     }
     let split = initialSplit
@@ -1355,12 +1312,6 @@ function makePipelineApplyDecision(
       measureNumberOptions: [],
       errorMessage: '',
     })
-    updateLiveRecognitionPage(target.pageId, {
-      status: 'completed',
-      progressPercent: 100,
-      progressMessage: '识别完成',
-      errorMessage: '',
-    })
     await persistPageResult(target, pageResult, historyPageId)
     await syncBatchJianpuTextForPage(target.pageId)
     await maybeRenderCompletedBatchForPage(target.pageId)
@@ -1378,17 +1329,6 @@ function makeAiApplyDecision(
 ): (decision: MeasureStartDecision) => Promise<void> {
   return async (decision: MeasureStartDecision): Promise<void> => {
     if (decision.needsMeasureChoice) {
-      const pageResult: PageResult = {
-        input_file_name: target.inputFileName,
-        input_file_id: target.inputFileId,
-        musicxml_file_id: '',
-        jianpu_text: response.merged_jianpu_text,
-        ocr_text: '',
-        svg_file_id: '',
-        start_measure_number: decision.startMeasureNumber,
-        status: decision.status,
-        error_message: decision.waitingMessage || warnings.join('；'),
-      }
       patchRecognitionPage(target.pageId, {
         inputFileName: target.inputFileName,
         inputFileId: target.inputFileId,
@@ -1409,16 +1349,6 @@ function makeAiApplyDecision(
         measureNumberOptions: decision.measureOptions,
         errorMessage: decision.waitingMessage,
       })
-      updateLiveRecognitionPage(target.pageId, {
-        status: 'waiting',
-        progressPercent: 100,
-        progressMessage: '等待选择起始小节号',
-        errorMessage: decision.waitingMessage,
-      })
-      await persistPageResult(target, pageResult, historyPageId)
-      await syncBatchJianpuTextForPage(target.pageId)
-      log.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, 'warn')
-      message.warning(`AI 转写等待选择起始小节号：${target.inputFileName}`)
       return
     }
     let mergedJianpuText = response.merged_jianpu_text
@@ -1455,12 +1385,6 @@ function makeAiApplyDecision(
       progressPercent: 100,
       progressMessage: 'AI 转写完成',
       measureNumberOptions: [],
-      errorMessage: warnings.join('；'),
-    })
-    updateLiveRecognitionPage(target.pageId, {
-      status: 'completed',
-      progressPercent: 100,
-      progressMessage: 'AI 转写完成',
       errorMessage: warnings.join('；'),
     })
     const pageResult: PageResult = {

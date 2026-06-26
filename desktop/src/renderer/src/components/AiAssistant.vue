@@ -51,7 +51,14 @@
       </aside>
 
       <section class="ai-chat">
-        <header class="ai-head">
+        <header
+          ref="panelHead"
+          :class="['ai-head', { grabbing: isPanelDragging }]"
+          @pointerdown="handlePanelPointerDown"
+          @pointermove="handlePanelPointerMove"
+          @pointerup="handlePanelPointerUp"
+          @pointercancel="handlePanelPointerCancel"
+        >
           <div class="ai-head-left">
             <button class="ai-icon-btn" type="button" title="历史" @click="sessionsOpen = !sessionsOpen">
               <n-icon><TimeOutline /></n-icon>
@@ -146,10 +153,13 @@ const autoScrollEnabled = ref(true)
 const showThinking = ref(true)
 const openThinkMessageIds = ref<Set<number>>(new Set())
 const isFabDragging = ref(false)
+const isPanelDragging = ref(false)
+const panelWasDragged = ref(false)
 const fabLeft = ref(0)
 const fabTop = ref(0)
 const panelLeft = ref(24)
 const panelTop = ref(48)
+const panelHead = ref<HTMLElement | null>(null)
 const showTyping = computed(() => (
   assistant.sending &&
   !assistant.messages.some((item) => item.role === 'assistant' && item.id < 0 && item.content.trim())
@@ -210,6 +220,7 @@ function finishAnim(phase: AnimPhase): void {
 }
 
 function openPanel(): void {
+  panelWasDragged.value = false
   positionPanelNearFab()
   animOrigin.value = {
     x: fabLeft.value + FAB_SIZE / 2 - panelLeft.value,
@@ -223,13 +234,28 @@ function openPanel(): void {
 }
 
 function closePanel(): void {
-  positionPanelNearFab()
+  if (panelWasDragged.value) {
+    anchorFabToPanel()
+  }
   animOrigin.value = {
     x: fabLeft.value + FAB_SIZE / 2 - panelLeft.value,
     y: fabTop.value + FAB_SIZE / 2 - panelTop.value,
   }
   animPhase.value = 'closing'
   setTimeout(() => finishAnim('closing'), ANIM_MS)
+}
+
+/** When closing the panel, move the FAB to the panel's current location so the bubble follows. */
+function anchorFabToPanel(): void {
+  const size = getPanelSize()
+  const preferLeftSide = panelLeft.value + size.width / 2 < (SIDEBAR_WIDTH + window.innerWidth) / 2
+  const nextLeft = preferLeftSide
+    ? panelLeft.value
+    : panelLeft.value + size.width - FAB_SIZE
+  const nextTop = panelTop.value + size.height / 2 - FAB_SIZE / 2
+  fabLeft.value = clamp(nextLeft, fabBoundsLeft(), fabBoundsRight())
+  fabTop.value = clamp(nextTop, fabBoundsTop(), fabBoundsBottom())
+  settleFabPosition()
 }
 
 const FAB_SIZE = 46
@@ -277,6 +303,16 @@ let fabDrag:
       startLeft: number
       startTop: number
       moved: boolean
+    }
+  | null = null
+
+let panelDrag:
+  | {
+      pointerId: number
+      startX: number
+      startY: number
+      startLeft: number
+      startTop: number
     }
   | null = null
 
@@ -343,6 +379,56 @@ function endFabDrag(event: PointerEvent): void {
   if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
   isFabDragging.value = false
   fabDrag = null
+}
+
+function handlePanelPointerDown(event: PointerEvent): void {
+  if (event.button !== 0) return
+  const target = event.target as HTMLElement | null
+  if (target?.closest('button, label, input, a')) return
+  panelHead.value?.setPointerCapture(event.pointerId)
+  isPanelDragging.value = true
+  panelDrag = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startLeft: panelLeft.value,
+    startTop: panelTop.value,
+  }
+}
+
+function handlePanelPointerMove(event: PointerEvent): void {
+  if (!panelDrag || panelDrag.pointerId !== event.pointerId) return
+  const dx = event.clientX - panelDrag.startX
+  const dy = event.clientY - panelDrag.startY
+  if (Math.abs(dx) > 4 || Math.abs(dy) > 4) panelWasDragged.value = true
+  const size = getPanelSize()
+  panelLeft.value = clamp(
+    panelDrag.startLeft + dx,
+    SIDEBAR_WIDTH + PANEL_GAP,
+    window.innerWidth - size.width - PANEL_GAP,
+  )
+  panelTop.value = clamp(
+    panelDrag.startTop + dy,
+    TITLEBAR_HEIGHT + PANEL_GAP,
+    window.innerHeight - size.height - PANEL_GAP,
+  )
+}
+
+function handlePanelPointerUp(event: PointerEvent): void {
+  if (!panelDrag || panelDrag.pointerId !== event.pointerId) return
+  endPanelDrag(event)
+}
+
+function handlePanelPointerCancel(event: PointerEvent): void {
+  endPanelDrag(event)
+}
+
+function endPanelDrag(event: PointerEvent): void {
+  if (panelHead.value?.hasPointerCapture(event.pointerId)) {
+    panelHead.value.releasePointerCapture(event.pointerId)
+  }
+  isPanelDragging.value = false
+  panelDrag = null
 }
 
 function initFabPosition(): void {
@@ -776,6 +862,12 @@ function escapeAttr(value: string): string {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
+  cursor: grab;
+  user-select: none;
+}
+
+.ai-head.grabbing {
+  cursor: grabbing;
 }
 
 .ai-session-list {
