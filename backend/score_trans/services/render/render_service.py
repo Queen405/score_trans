@@ -5,7 +5,6 @@ from ...models.score import JianpuScore, TextBlock
 from . import (
     RenderedA4FilePage,
     RenderedA4Page,
-    render_jianpu_a4_files_to_svgs,
     render_jianpu_file_to_svg,
     render_jianpu_page_file_to_svg,
     render_score_a4_pages_to_files,
@@ -166,22 +165,6 @@ class RenderService:
             title=title,
             text_blocks=text_blocks,
             start_measure_number=start_measure_number,
-            show_measure_numbers=show_measure_numbers,
-            measure_number_mode=measure_number_mode,
-        )
-
-    def render_texts_a4_svg_pages(
-        self,
-        input_paths: list[str | Path],
-        output_path: str | Path,
-        title: str = "简谱",
-        show_measure_numbers: bool | None = None,
-        measure_number_mode: MeasureNumberMode | None = None,
-    ) -> list[Path]:
-        return render_jianpu_a4_files_to_svgs(
-            [Path(path) for path in input_paths],
-            Path(output_path),
-            title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )

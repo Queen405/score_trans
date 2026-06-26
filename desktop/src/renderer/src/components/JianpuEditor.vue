@@ -55,6 +55,7 @@ const props = withDefaults(defineProps<{
   currentNoteIndex?: number
   syntaxHighlight?: boolean
 }>(), {
+  startMeasureNumber: 1,
   currentNoteIndex: -1,
   syntaxHighlight: false,
 })

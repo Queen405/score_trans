@@ -16,7 +16,7 @@ let quitting = false
 
 configureElectronStoragePaths()
 
-function createWindow(baseURL: string): void {
+function createWindow(): void {
   const iconPath = join(__dirname, '../../build/icon.ico')
   const iconPng = join(__dirname, '../../build/icon.png')
   mainWindow = new BrowserWindow({
@@ -151,11 +151,11 @@ app.whenReady().then(async () => {
   })
 
   // Create the main window
-  createWindow(backendURL)
+  createWindow()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow(backendURL)
+      createWindow()
     }
   })
 })

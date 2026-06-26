@@ -151,19 +151,19 @@ export const useSettingsStore = defineStore('settings', () => {
     outputDir.value = data.output_dir ?? ''
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
     ocrProviderOptions.value = data.ocr_provider_options ?? []
-    ocrApiKey.value = data.ocr_api_key ?? ''
+    ocrApiKey.value = ''
     ocrApiKeySet.value = data.ocr_api_key_set ?? false
     ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
     ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'
     aiProvider.value = data.ai_provider ?? 'xiaomi_mimo_v25'
     aiProviderOptions.value = data.ai_provider_options ?? []
-    aiApiKey.value = data.ai_api_key ?? ''
+    aiApiKey.value = ''
     aiApiKeySet.value = data.ai_api_key_set ?? false
     aiBaseUrl.value = data.ai_base_url ?? 'https://api.xiaomimimo.com/v1'
     aiModel.value = data.ai_model ?? 'mimo-v2.5'
     assistantProvider.value = data.assistant_provider ?? 'dashscope_deepseek_v4_flash'
     assistantProviderOptions.value = data.assistant_provider_options ?? []
-    assistantApiKey.value = data.assistant_api_key ?? ''
+    assistantApiKey.value = ''
     assistantApiKeySet.value = data.assistant_api_key_set ?? false
     assistantBaseUrl.value = data.assistant_base_url ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     assistantModel.value = data.assistant_model ?? 'deepseek-v4-flash'
@@ -228,7 +228,7 @@ export const useSettingsStore = defineStore('settings', () => {
   function applyProviderSettings(kind: ProviderKind, data: SettingsResponse): void {
     if (kind === 'ocr') {
       ocrProvider.value = data.ocr_provider ?? ocrProvider.value
-      ocrApiKey.value = data.ocr_api_key ?? ''
+      ocrApiKey.value = ''
       ocrApiKeySet.value = data.ocr_api_key_set ?? false
       ocrBaseUrl.value = data.ocr_base_url ?? ocrBaseUrl.value
       ocrModel.value = data.ocr_model ?? ocrModel.value
@@ -236,14 +236,14 @@ export const useSettingsStore = defineStore('settings', () => {
     }
     if (kind === 'ai') {
       aiProvider.value = data.ai_provider ?? aiProvider.value
-      aiApiKey.value = data.ai_api_key ?? ''
+      aiApiKey.value = ''
       aiApiKeySet.value = data.ai_api_key_set ?? false
       aiBaseUrl.value = data.ai_base_url ?? aiBaseUrl.value
       aiModel.value = data.ai_model ?? aiModel.value
       return
     }
     assistantProvider.value = data.assistant_provider ?? assistantProvider.value
-    assistantApiKey.value = data.assistant_api_key ?? ''
+    assistantApiKey.value = ''
     assistantApiKeySet.value = data.assistant_api_key_set ?? false
     assistantBaseUrl.value = data.assistant_base_url ?? assistantBaseUrl.value
     assistantModel.value = data.assistant_model ?? assistantModel.value

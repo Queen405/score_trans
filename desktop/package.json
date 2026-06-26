@@ -34,10 +34,5 @@
     "typescript-eslint": "^8.60.1",
     "vite": "^6.2.0",
     "vue-tsc": "^2.2.8"
-  },
-  "pnpm": {
-    "overrides": {
-      "date-fns": "^3.6.0"
-    }
   }
 }

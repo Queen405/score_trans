@@ -615,45 +615,6 @@ export const useTaskStore = defineStore('task', () => {
     return true
   }
 
-  function replacePageByIdKeepingSelection(pageId: string, replacementPages: TaskPageInput[]): TaskPage[] {
-    const index = pages.value.findIndex((page) => page.id === pageId)
-    if (index < 0) return []
-    const sourcePage = pages.value[index]!
-    const selectedPageId = currentPage.value?.id ?? ''
-    const nextPages = replacementPages.map((p) => createPage({
-      batchId: p.batchId || sourcePage.batchId,
-      batchLabel: p.batchLabel || sourcePage.batchLabel,
-      batchSealed: p.batchSealed ?? sourcePage.batchSealed,
-      inputFileName: p.inputFileName,
-      historyPageId: p.historyPageId ?? null,
-      historyBatchId: p.historyBatchId ?? null,
-      taskId: p.taskId ?? '',
-      inputFileId: p.inputFileId,
-      originalFileName: p.originalFileName ?? '',
-      originalFileId: p.originalFileId ?? '',
-      musicxmlFileId: p.musicxmlFileId ?? '',
-      musicxmlText: p.musicxmlText ?? '',
-      jianpuText: p.jianpuText ?? '',
-      ocrText: p.ocrText ?? '',
-      jianpuDirty: p.jianpuDirty ?? false,
-      svgFileId: p.svgFileId ?? '',
-      svgFileIds: p.svgFileIds ?? (p.svgFileId ? [p.svgFileId] : []),
-      startMeasureNumber: p.startMeasureNumber ?? null,
-      status: (p.status ?? 'completed') as TaskPageStatus,
-      progressPercent: p.progressPercent ?? 0,
-      progressMessage: p.progressMessage ?? '',
-      measureNumberOptions: p.measureNumberOptions ?? [],
-      errorMessage: p.errorMessage ?? '',
-    }))
-    pages.value.splice(index, 1, ...nextPages)
-    const selectedIndex = pages.value.findIndex((page) => page.id === selectedPageId)
-    currentPageIndex.value = selectedIndex >= 0
-      ? selectedIndex
-      : Math.max(0, Math.min(index, pages.value.length - 1))
-    syncCurrentFromPage()
-    return nextPages
-  }
-
   function setCurrentPageStatus(status: TaskPageStatus, errorMessage = '') {
     patchCurrentPage({ status, errorMessage })
   }
@@ -853,7 +814,6 @@ export const useTaskStore = defineStore('task', () => {
     removePage,
     replacePage,
     replacePageById,
-    replacePageByIdKeepingSelection,
     setCurrentPageStatus,
     setPageStatus,
     setBusy,

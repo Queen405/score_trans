@@ -12,6 +12,7 @@ from score_trans.domain.jianpu import (
     parse_jianpu_score,
 )
 from score_trans.domain.musicxml import score_to_jianpu_text
+from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 
 
 def test_parse_simple_jianpu() -> None:
@@ -318,3 +319,36 @@ def test_score_to_jianpu_text_preserves_marks_and_lyrics() -> None:
     assert "~q1)" in text
     assert "q[5+3+1]" in text
     assert "L: 春 风" in text
+
+
+def test_score_to_jianpu_text_only_writes_supported_mark_tokens() -> None:
+    score = JianpuScore(target_key="C", source_key="C", beats=4, beat_type=4)
+    score.measures.append(
+        Measure(
+            source_number="1",
+            duration=Fraction(4, 1),
+            events=[
+                Event(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(1)],
+                    articulations=["breath-mark", "accent"],
+                ),
+                Event(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(2)],
+                    ornaments=["tremolo", "turn"],
+                ),
+                Event(kind="rest", duration=Fraction(2, 1)),
+            ],
+        )
+    )
+
+    text = score_to_jianpu_text(score)
+
+    assert "^breath-mark" not in text
+    assert "^turn" not in text
+    assert "^> 1" in text
+    assert "^l 2" in text
+    parse_jianpu_score(text)

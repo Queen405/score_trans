@@ -7,7 +7,6 @@ from fastapi import HTTPException, UploadFile
 
 from ...domain.jianpu import parse_jianpu_score
 from ...models.export.schemas import ExportMidiTextRequest, ExportResponse
-from ...models.score import JianpuScore
 from ...services.export.export_service import ExportService, png_pages_to_pdf
 from ...services.files.upload_service import UploadService
 from ..convert.actions import MusicXmlToJianpuAction
@@ -42,17 +41,6 @@ class ExportScoreAction:
         if title:
             score.title = title
         return self.export_service.export(score, output_path, title=title)
-
-    def execute_from_score(
-        self,
-        score: JianpuScore,
-        output_file: str | Path,
-        title: str | None = None,
-    ) -> Path:
-        output_path = Path(output_file)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        return self.export_service.export(score, output_path, title=title)
-
 
 class ExportActions:
     def __init__(
@@ -98,4 +86,3 @@ class ExportActions:
         png_pages_to_pdf(png_pages, output_path)
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=filename)
-

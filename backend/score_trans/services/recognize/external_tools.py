@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import shlex
-import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -111,10 +110,6 @@ def _split_extra_args(raw: str) -> list[str]:
         raise ExternalToolError(
             "SCORE_TRANS_AUDIVERIS_EXTRA_ARGS 格式错误，请检查引号是否成对。"
         ) from exc
-
-
-def find_tool(name: str) -> str | None:
-    return shutil.which(name)
 
 
 def _java_env(config: ToolConfig) -> dict[str, str] | None:

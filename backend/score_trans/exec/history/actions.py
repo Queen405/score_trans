@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 
-from ...domain.jianpu import normalize_jianpu_text
 from ...models.history.entities import (
     HistoryBatch,
     HistoryPage,
@@ -45,7 +44,7 @@ class HistoryActions:
                 input_file_name=p.input_file_name,
                 input_file_id=p.input_file_id,
                 musicxml_file_id=p.musicxml_file_id,
-                jianpu_text=_normalize_history_text(p.jianpu_text),
+                jianpu_text=p.jianpu_text,
                 ocr_text=p.ocr_text,
                 svg_file_id=p.svg_file_id,
                 start_measure_number=p.start_measure_number,
@@ -58,7 +57,7 @@ class HistoryActions:
             self.service.create_batch(
                 pages,
                 req.render_page_file_ids,
-                jianpu_text=_normalize_history_text(req.jianpu_text),
+                jianpu_text=req.jianpu_text,
                 render_page_ocr_texts=[
                     HistoryRenderPageOcrText(
                         page_index=item.page_index,
@@ -79,9 +78,7 @@ class HistoryActions:
         page = self.service.update_page(
             page_id,
             musicxml_file_id=req.musicxml_file_id,
-            jianpu_text=_normalize_history_text(req.jianpu_text)
-            if req.jianpu_text is not None
-            else None,
+            jianpu_text=req.jianpu_text if req.jianpu_text is not None else None,
             ocr_text=req.ocr_text,
             svg_file_id=req.svg_file_id,
             start_measure_number=req.start_measure_number,
@@ -105,9 +102,7 @@ class HistoryActions:
     def update_batch_jianpu_text(
         self, batch_id: int, req: BatchJianpuTextUpdate
     ) -> BatchResponse:
-        batch = self.service.update_batch_jianpu_text(
-            batch_id, _normalize_history_text(req.jianpu_text)
-        )
+        batch = self.service.update_batch_jianpu_text(batch_id, req.jianpu_text)
         if not batch:
             raise HTTPException(status_code=404, detail="Batch not found")
         return _batch_to_response(batch)
@@ -136,14 +131,6 @@ class HistoryActions:
 
     def delete_all_history(self) -> DeleteAllResponse:
         return DeleteAllResponse(deleted_count=self.service.delete_all())
-
-    def _migrate_batch_texts(self, batch: HistoryBatch) -> None:
-        for page in batch.pages:
-            normalized = _normalize_history_text(page.jianpu_text)
-            if normalized != page.jianpu_text:
-                updated = self.service.update_page(page.id, jianpu_text=normalized)
-                if updated:
-                    page.jianpu_text = updated.jianpu_text
 
 
 def _page_to_response(page: HistoryPage) -> PageResponse:
@@ -185,12 +172,3 @@ def _batch_render_page_file_ids(batch: HistoryBatch) -> list[str]:
     if batch.render_page_file_ids:
         return batch.render_page_file_ids
     return [page.svg_file_id for page in batch.pages if page.svg_file_id]
-
-
-def _normalize_history_text(text: str) -> str:
-    if not text.strip():
-        return text
-    try:
-        return normalize_jianpu_text(text)
-    except ValueError:
-        return text

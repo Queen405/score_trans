@@ -84,6 +84,7 @@
             :class="['ai-message', message.role]"
             :data-message-id="message.id"
           >
+            <!-- eslint-disable-next-line vue/no-v-html -->
             <div v-if="message.role === 'assistant'" class="ai-message-content ai-md" v-html="renderAssistantMessage(message.content, message.id)" />
             <div v-else class="ai-message-content">{{ message.content }}</div>
           </div>
@@ -134,7 +135,7 @@ import { NButton, NIcon, NInput, NPopconfirm, NSpin } from 'naive-ui'
 
 const assistant = useAssistantStore()
 const task = useTaskStore()
-const message = useMessage()
+const notification = useMessage()
 
 const open = computed(() => animPhase.value === 'open' || animPhase.value === 'opening')
 const sessionsOpen = ref(true)
@@ -493,16 +494,16 @@ async function send(): Promise<void> {
     )
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    message.error(msg)
+    notification.error(msg)
   }
 }
 
 async function deleteSession(sessionId: string): Promise<void> {
   try {
     await assistant.deleteSession(sessionId)
-    message.success('已删除')
+    notification.success('已删除')
   } catch (e: unknown) {
-    message.error(e instanceof Error ? e.message : String(e))
+    notification.error(e instanceof Error ? e.message : String(e))
   }
 }
 

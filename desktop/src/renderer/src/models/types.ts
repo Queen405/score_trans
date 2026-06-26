@@ -1,9 +1,3 @@
-export interface ErrorResponse {
-  error: string
-  detail?: string
-  stage?: 'audiveris' | 'ocr' | 'ai' | 'convert' | 'render' | 'export' | 'upload'
-}
-
 export interface UploadPage {
   file_id: string
   filename: string
@@ -27,7 +21,6 @@ export interface MusicXmlToJianpuRequest {
 
 export interface MusicXmlToJianpuResponse {
   jianpu_text: string
-  jianpu_file_id?: string
 }
 
 export interface RenderJianpuSvgRequest {
@@ -293,19 +286,16 @@ export interface SettingsResponse {
   output_dir?: string
   ocr_provider?: string
   ocr_provider_options?: LlmProviderOption[]
-  ocr_api_key?: string
   ocr_api_key_set?: boolean
   ocr_base_url?: string
   ocr_model?: string
   ai_provider?: string
   ai_provider_options?: LlmProviderOption[]
-  ai_api_key?: string
   ai_api_key_set?: boolean
   ai_base_url?: string
   ai_model?: string
   assistant_provider?: string
   assistant_provider_options?: LlmProviderOption[]
-  assistant_api_key?: string
   assistant_api_key_set?: boolean
   assistant_base_url?: string
   assistant_model?: string

@@ -276,7 +276,7 @@ import type {
   PipelineResponse,
   SSEProgressEvent,
 } from '../models/types'
-import type { TaskPage, TaskPageInput, TaskPageStatus } from '../stores/task'
+import type { TaskPage, TaskPageStatus } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { notifyHistoryPagePatched, notifyHistoryUpdated, type HistoryPagePatchDetail } from '../utils/historyEvents'
 import {
@@ -337,6 +337,21 @@ interface MeasureStartDecision {
   autoSelected: boolean
 }
 
+interface SubmissionResult {
+  success: boolean
+  rawOptions: number[]
+  applyDecision: (decision: MeasureStartDecision) => Promise<void>
+}
+
+interface SubmissionState {
+  targets: RecognitionTarget[]
+  results: Map<string, SubmissionResult>
+  heldFirst: Set<string>
+  decisionApplied: Set<string>
+  reconciling: boolean
+  pendingReconcile: boolean
+}
+
 const store = useTaskStore()
 const log = useLogStore()
 const settings = useSettingsStore()
@@ -346,6 +361,7 @@ const pickerShow = ref(false)
 const pickerOptions = ref<number[]>([])
 const pickerPageId = ref<string | null>(null)
 const selectedPageIds = ref<Set<string>>(new Set())
+const activeSubmissions = ref<SubmissionState[]>([])
 const reupload = useFileUpload()
 
 withDefaults(defineProps<{
@@ -671,14 +687,24 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
     }
   }
 
+  const submission: SubmissionState = {
+    targets: [...targets],
+    results: new Map(),
+    heldFirst: new Set(),
+    decisionApplied: new Set(),
+    reconciling: false,
+    pendingReconcile: false,
+  }
+  activeSubmissions.value.push(submission)
+
   const label = mode === 'ai' ? 'AI 视觉检测' : 'OMR 识别'
 
   for (const target of targets) {
     const historyPageId = historyPageIds.get(target.pageId) ?? null
     store.beginBackgroundTask()
     const run = mode === 'ai'
-      ? runAiTarget(target, historyPageId)
-      : runPipelineTarget(target, historyPageId)
+      ? runAiTarget(target, historyPageId, submission)
+      : runPipelineTarget(target, historyPageId, submission)
     void run.finally(() => {
       store.endBackgroundTask()
     })
@@ -725,7 +751,7 @@ async function createPendingHistory(targets: RecognitionTarget[]): Promise<Map<s
   return result
 }
 
-async function runPipelineTarget(target: RecognitionTarget, historyPageId: number | null): Promise<void> {
+async function runPipelineTarget(target: RecognitionTarget, historyPageId: number | null, submission: SubmissionState): Promise<void> {
   markPageProcessing(target, '读取输入文件', 3)
   try {
     markPageProcessing(target, '提交 OMR 后台任务', 8)
@@ -747,61 +773,14 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
     updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id })
 
     const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, target.pageId)
-    const decision = measureStartDecision(target, result.ocr_measure_numbers)
-    let split = splitJianpuAndOcr(result.jianpu_text)
-    let ocrText = returnedPipelineOcrText(result) || split.ocrText
-    let svgFileId = result.svg_file_id
-    let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
-    if (decision.autoSelected && decision.startMeasureNumber !== null && result.musicxml_file_id) {
-      const rerendered = await renderMusicxmlPageWithStart(target, result.musicxml_file_id, decision.startMeasureNumber)
-      split = splitJianpuAndOcr(rerendered.jianpuText)
-      ocrText = ocrText || split.ocrText
-      svgFileId = rerendered.svgFileId
-      svgFileIds = rerendered.svgFileIds
-    }
-    const pageResult: PageResult = {
-      input_file_name: target.inputFileName,
-      input_file_id: target.inputFileId,
-      musicxml_file_id: result.musicxml_file_id,
-      jianpu_text: split.jianpuText,
-      ocr_text: ocrText,
-      svg_file_id: svgFileId,
-      start_measure_number: decision.startMeasureNumber,
-      status: decision.status,
-      error_message: decision.waitingMessage,
-    }
-
-    patchRecognitionPage(target.pageId, {
-      musicxmlFileId: result.musicxml_file_id,
-      musicxmlText: '',
-      jianpuText: split.jianpuText,
-      ocrText,
-      jianpuDirty: false,
-      svgFileId,
-      svgFileIds,
-      originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
-      originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
-      taskId: '',
-      startMeasureNumber: decision.startMeasureNumber,
-      status: decision.status,
-      progressPercent: 100,
-      progressMessage: decision.needsMeasureChoice ? '等待选择起始小节号' : '识别完成',
-      measureNumberOptions: decision.needsMeasureChoice ? decision.measureOptions : [],
-      errorMessage: decision.waitingMessage,
-    })
-    await persistPageResult(target, pageResult, historyPageId)
-    await syncBatchJianpuTextForPage(target.pageId)
-    await maybeRenderCompletedBatchForPage(target.pageId)
-    clearLiveRecognitionPage(target.pageId)
-    if (decision.needsMeasureChoice) {
-      log.addLog(`等待选择起始小节号：${target.inputFileName}`, 'warn')
-      message.warning(`等待选择起始小节号：${target.inputFileName}`)
-    } else {
-      log.addLog(`识别完成：${target.inputFileName}`)
-      message.success(`识别完成：${target.inputFileName}`)
-    }
+    const rawOptions = result.ocr_measure_numbers ?? []
+    const applyDecision = makePipelineApplyDecision(target, result, historyPageId)
+    submission.results.set(target.pageId, { success: true, rawOptions, applyDecision })
+    await reconcileSubmissionState(submission)
   } catch (error: unknown) {
     await failTarget(target, historyPageId, error, '识别失败')
+    submission.results.set(target.pageId, { success: false, rawOptions: [], applyDecision: async () => {} })
+    await reconcileSubmissionState(submission)
   }
 }
 
@@ -878,6 +857,12 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       measureNumberOptions: [],
       errorMessage: '',
     })
+    updateLiveRecognitionPage(pageId, {
+      status: 'completed',
+      progressPercent: 100,
+      progressMessage: '识别完成',
+      errorMessage: '',
+    })
     store.setBatchRenderPageFileIds([], page.batchId)
     await persistPageResult(targetFromPage({ ...page, startMeasureNumber: selected }), {
       input_file_name: page.inputFileName,
@@ -892,8 +877,13 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
     }, page.historyPageId)
     await syncBatchJianpuTextForPage(pageId)
     await maybeRenderCompletedBatchForPage(pageId)
+    clearLiveRecognitionPage(pageId)
     log.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`)
     message.success('已应用起始小节号')
+    const submission = findSubmissionForPage(pageId)
+    if (submission) {
+      void reconcileSubmissionState(submission)
+    }
   } catch (error: unknown) {
     const msg = errorMessage(error)
     const failedMessage = failedMeasureSelectionMessage(page.measureNumberOptions, msg)
@@ -902,6 +892,12 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       progressPercent: 100,
       progressMessage: '等待选择起始小节号',
       measureNumberOptions: page.measureNumberOptions,
+      errorMessage: failedMessage,
+    })
+    updateLiveRecognitionPage(pageId, {
+      status: 'waiting',
+      progressPercent: 100,
+      progressMessage: '等待选择起始小节号',
       errorMessage: failedMessage,
     })
     if (page.historyPageId) {
@@ -929,7 +925,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
   }
 }
 
-async function runAiTarget(target: RecognitionTarget, historyPageId: number | null): Promise<void> {
+async function runAiTarget(target: RecognitionTarget, historyPageId: number | null, submission: SubmissionState): Promise<void> {
   markPageProcessing(target, '提交 AI 视觉检测任务', 5)
   try {
     const submitted = await aiApi.transcribe({
@@ -945,132 +941,15 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
     if (!response.pages.length) throw new Error('AI 未返回任何页面')
 
     const warnings = collectAiWarnings(response.pages, response.warnings)
-    const decision = measureStartDecision(target, aiMeasureOptions(response))
-    let mergedJianpuText = response.merged_jianpu_text
-    let svgFileId = ''
-    let svgFileIds: string[] = []
-    if (decision.autoSelected && decision.startMeasureNumber !== null) {
-      const rendered = await renderApi.jianpuTextSvg({
-        jianpu_text: response.merged_jianpu_text,
-        page_image_file_id: target.inputFileId || undefined,
-        include_ocr_text: false,
-        measure_number_mode: settings.measureNumberMode,
-        title: target.inputFileName || 'AI 简谱',
-        start_measure_number: decision.startMeasureNumber,
-      })
-      mergedJianpuText = rendered.jianpu_text || response.merged_jianpu_text
-      svgFileId = rendered.svg_file_id
-      svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id)
-    }
-    const effectiveResponse: AiTranscribeResponse = {
-      ...response,
-      merged_jianpu_text: mergedJianpuText,
-      pages: response.pages.length === 1
-        ? [{ ...response.pages[0]!, jianpu_text: mergedJianpuText }]
-        : response.pages,
-    }
-    applyAiResult(target, effectiveResponse, historyPageId, decision, svgFileId, svgFileIds)
-
-    const pageResult: PageResult = {
-      input_file_name: target.inputFileName,
-      input_file_id: target.inputFileId,
-      musicxml_file_id: '',
-      jianpu_text: mergedJianpuText,
-      ocr_text: '',
-      svg_file_id: svgFileId,
-      start_measure_number: decision.startMeasureNumber,
-      status: decision.status,
-      error_message: decision.waitingMessage || warnings.join('；'),
-    }
-    await persistPageResult(target, pageResult, historyPageId)
-    await syncBatchJianpuTextForPage(target.pageId)
-    await maybeRenderCompletedBatchForPage(target.pageId)
-    clearLiveRecognitionPage(target.pageId)
-    if (decision.needsMeasureChoice) {
-      log.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, 'warn')
-      message.warning(`AI 转写等待选择起始小节号：${target.inputFileName}`)
-    } else if (warnings.length) {
-      log.addLog(`AI 转写完成：${target.inputFileName}`)
-      message.warning(warnings.slice(0, 3).join('；'))
-    } else {
-      log.addLog(`AI 转写完成：${target.inputFileName}`)
-      message.success(`AI 转写完成：${target.inputFileName}`)
-    }
+    const rawOptions = aiMeasureOptions(response)
+    const applyDecision = makeAiApplyDecision(target, response, historyPageId, warnings)
+    submission.results.set(target.pageId, { success: true, rawOptions, applyDecision })
+    await reconcileSubmissionState(submission)
   } catch (error: unknown) {
     await failTarget(target, historyPageId, error, 'AI 转写失败')
+    submission.results.set(target.pageId, { success: false, rawOptions: [], applyDecision: async () => {} })
+    await reconcileSubmissionState(submission)
   }
-}
-
-function applyAiResult(
-  target: RecognitionTarget,
-  response: AiTranscribeResponse,
-  historyPageId: number | null,
-  decision: MeasureStartDecision,
-  svgFileId = '',
-  svgFileIds: string[] = [],
-): void {
-  if (response.pages.length === 1) {
-    const page = response.pages[0]
-    const pageMeasureOptions = decision.needsMeasureChoice
-      ? aiPageMeasureOptions(page, decision.measureOptions)
-      : []
-    const messageText = decision.needsMeasureChoice
-      ? waitingMeasureMessage(pageMeasureOptions)
-      : aiPageErrorMessage(page)
-    patchRecognitionPage(target.pageId, {
-      inputFileName: aiPageLabel(response.source_filename, page, response.pages.length),
-      inputFileId: page.page_image_file_id,
-      originalFileName: aiPageLabel(response.source_filename, page, response.pages.length),
-      originalFileId: page.page_image_file_id,
-      musicxmlFileId: '',
-      musicxmlText: '',
-      jianpuText: page.jianpu_text,
-      ocrText: '',
-      jianpuDirty: false,
-      svgFileId,
-      svgFileIds,
-      startMeasureNumber: decision.startMeasureNumber,
-      taskId: '',
-      status: decision.status,
-      progressPercent: 100,
-      progressMessage: decision.needsMeasureChoice ? '等待选择起始小节号' : 'AI 转写完成',
-      measureNumberOptions: pageMeasureOptions,
-      errorMessage: messageText,
-    })
-    return
-  }
-
-  const aiPages: TaskPageInput[] = response.pages.map((page, index) => {
-    const label = aiPageLabel(response.source_filename, page, response.pages.length)
-    const pageWaiting = decision.needsMeasureChoice && index === 0
-    const pageMeasureOptions = pageWaiting
-      ? aiPageMeasureOptions(page, decision.measureOptions)
-      : []
-    return {
-      inputFileName: label,
-      historyPageId: index === 0 ? historyPageId : null,
-      historyBatchId: null,
-      inputFileId: page.page_image_file_id,
-      originalFileName: label,
-      originalFileId: page.page_image_file_id,
-      musicxmlFileId: '',
-      musicxmlText: '',
-      jianpuText: page.jianpu_text,
-      ocrText: '',
-      jianpuDirty: false,
-      svgFileId: '',
-      svgFileIds: [],
-      startMeasureNumber: index === 0 ? decision.startMeasureNumber : null,
-      status: pageWaiting ? 'waiting' : 'completed',
-      progressPercent: 100,
-      progressMessage: pageWaiting ? '等待选择起始小节号' : 'AI 转写完成',
-      measureNumberOptions: pageMeasureOptions,
-      errorMessage: pageWaiting
-        ? waitingMeasureMessage(pageMeasureOptions)
-        : aiPageErrorMessage(page),
-    }
-  })
-  store.replacePageByIdKeepingSelection(target.pageId, aiPages)
 }
 
 async function waitForTaskResult<T>(taskId: string, pageId: string): Promise<T> {
@@ -1277,23 +1156,8 @@ function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDetail {
   }
 }
 
-function aiPageLabel(sourceName: string, page: AiTranscribedPage, totalPages: number): string {
-  if (totalPages <= 1 && !/\.pdf$/i.test(sourceName)) return sourceName
-  const stem = sourceName.replace(/\.[^.]+$/, '')
-  return `${stem}_page_${String(page.page_index + 1).padStart(3, '0')}.png`
-}
-
-function aiPageErrorMessage(page: AiTranscribedPage): string {
-  return [...page.validation_errors, ...page.warnings].join('；')
-}
-
 function aiMeasureOptions(response: AiTranscribeResponse): number[] {
   return uniquePositiveNumbers(response.pages[0]?.measure_number_candidates || [])
-}
-
-function aiPageMeasureOptions(page: AiTranscribedPage, fallback: number[]): number[] {
-  const values = uniquePositiveNumbers(page.measure_number_candidates || [])
-  return values.length ? values : fallback
 }
 
 function uniquePositiveNumbers(values: number[]): number[] {
@@ -1306,11 +1170,11 @@ function uniquePositiveNumbers(values: number[]): number[] {
   return result
 }
 
-function measureStartDecision(target: RecognitionTarget, rawOptions: number[]): MeasureStartDecision {
+function measureStartDecision(rawOptions: number[]): MeasureStartDecision {
   const measureOptions = uniquePositiveNumbers(rawOptions)
-  if (target.startMeasureNumber !== null || !isFirstBatchPage(target.pageId) || !measureOptions.length) {
+  if (!measureOptions.length) {
     return {
-      startMeasureNumber: target.startMeasureNumber,
+      startMeasureNumber: null,
       status: 'completed',
       measureOptions: [],
       waitingMessage: '',
@@ -1338,9 +1202,290 @@ function measureStartDecision(target: RecognitionTarget, rawOptions: number[]): 
   }
 }
 
-function isFirstBatchPage(pageId: string): boolean {
-  const batchPages = batchPagesForPage(pageId)
-  return batchPages[0]?.id === pageId
+function findSubmissionForPage(pageId: string): SubmissionState | undefined {
+  return activeSubmissions.value.find((submission) =>
+    submission.targets.some((target) => target.pageId === pageId) || submission.heldFirst.has(pageId),
+  )
+}
+
+async function reconcileSubmissionState(submission: SubmissionState): Promise<void> {
+  if (submission.reconciling) {
+    submission.pendingReconcile = true
+    return
+  }
+  submission.reconciling = true
+  try {
+    do {
+      submission.pendingReconcile = false
+      for (const target of submission.targets) {
+        if (submission.decisionApplied.has(target.pageId)) continue
+        const result = submission.results.get(target.pageId)
+        if (!result) continue
+        if (!result.success) {
+          submission.decisionApplied.add(target.pageId)
+          continue
+        }
+        const measureOptions = uniquePositiveNumbers(result.rawOptions)
+        const canAskForStartMeasure = submission.targets[0]?.pageId === target.pageId
+        if (
+          target.startMeasureNumber !== null
+          || measureOptions.length === 0
+          || !canAskForStartMeasure
+          || submission.heldFirst.size > 0
+        ) {
+          const decision: MeasureStartDecision = {
+            startMeasureNumber: target.startMeasureNumber,
+            status: 'completed',
+            measureOptions: [],
+            waitingMessage: '',
+            needsMeasureChoice: false,
+            autoSelected: false,
+          }
+          await result.applyDecision(decision)
+          submission.decisionApplied.add(target.pageId)
+          continue
+        }
+        const partial = measureStartDecision(result.rawOptions)
+        if (partial.needsMeasureChoice) {
+          submission.heldFirst.add(target.pageId)
+        }
+        await result.applyDecision(partial)
+        submission.decisionApplied.add(target.pageId)
+      }
+    } while (submission.pendingReconcile)
+    if (!submission.targets.every((target) => submission.decisionApplied.has(target.pageId))) {
+      return
+    }
+    const idx = activeSubmissions.value.indexOf(submission)
+    if (idx >= 0) activeSubmissions.value.splice(idx, 1)
+  } finally {
+    submission.reconciling = false
+  }
+}
+
+function makePipelineApplyDecision(
+  target: RecognitionTarget,
+  result: PipelineResponse,
+  historyPageId: number | null,
+): (decision: MeasureStartDecision) => Promise<void> {
+  return async (decision: MeasureStartDecision): Promise<void> => {
+    const initialSplit = splitJianpuAndOcr(result.jianpu_text)
+    if (decision.needsMeasureChoice) {
+      const ocrText = returnedPipelineOcrText(result) || initialSplit.ocrText
+      const svgFileId = result.svg_file_id
+      const svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
+      const pageResult: PageResult = {
+        input_file_name: target.inputFileName,
+        input_file_id: target.inputFileId,
+        musicxml_file_id: result.musicxml_file_id,
+        jianpu_text: initialSplit.jianpuText,
+        ocr_text: ocrText,
+        svg_file_id: svgFileId,
+        start_measure_number: decision.startMeasureNumber,
+        status: decision.status,
+        error_message: decision.waitingMessage,
+      }
+      patchRecognitionPage(target.pageId, {
+        musicxmlFileId: result.musicxml_file_id,
+        musicxmlText: '',
+        jianpuText: initialSplit.jianpuText,
+        ocrText,
+        jianpuDirty: false,
+        svgFileId,
+        svgFileIds,
+        originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
+        originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
+        taskId: '',
+        startMeasureNumber: decision.startMeasureNumber,
+        status: decision.status,
+        progressPercent: 100,
+        progressMessage: '等待选择起始小节号',
+        measureNumberOptions: decision.measureOptions,
+        errorMessage: decision.waitingMessage,
+      })
+      updateLiveRecognitionPage(target.pageId, {
+        status: 'waiting',
+        progressPercent: 100,
+        progressMessage: '等待选择起始小节号',
+        errorMessage: decision.waitingMessage,
+      })
+      await persistPageResult(target, pageResult, historyPageId)
+      await syncBatchJianpuTextForPage(target.pageId)
+      log.addLog(`等待选择起始小节号：${target.inputFileName}`, 'warn')
+      message.warning(`等待选择起始小节号：${target.inputFileName}`)
+      return
+    }
+    let split = initialSplit
+    let ocrText = returnedPipelineOcrText(result) || split.ocrText
+    let svgFileId = result.svg_file_id
+    let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
+    if (decision.autoSelected && decision.startMeasureNumber !== null && result.musicxml_file_id) {
+      const rerendered = await renderMusicxmlPageWithStart(target, result.musicxml_file_id, decision.startMeasureNumber)
+      split = splitJianpuAndOcr(rerendered.jianpuText)
+      ocrText = ocrText || split.ocrText
+      svgFileId = rerendered.svgFileId
+      svgFileIds = rerendered.svgFileIds
+    }
+    const pageResult: PageResult = {
+      input_file_name: target.inputFileName,
+      input_file_id: target.inputFileId,
+      musicxml_file_id: result.musicxml_file_id,
+      jianpu_text: split.jianpuText,
+      ocr_text: ocrText,
+      svg_file_id: svgFileId,
+      start_measure_number: decision.startMeasureNumber,
+      status: decision.status,
+      error_message: decision.waitingMessage,
+    }
+    patchRecognitionPage(target.pageId, {
+      musicxmlFileId: result.musicxml_file_id,
+      musicxmlText: '',
+      jianpuText: split.jianpuText,
+      ocrText,
+      jianpuDirty: false,
+      svgFileId,
+      svgFileIds,
+      originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
+      originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
+      taskId: '',
+      startMeasureNumber: decision.startMeasureNumber,
+      status: decision.status,
+      progressPercent: 100,
+      progressMessage: '识别完成',
+      measureNumberOptions: [],
+      errorMessage: '',
+    })
+    updateLiveRecognitionPage(target.pageId, {
+      status: 'completed',
+      progressPercent: 100,
+      progressMessage: '识别完成',
+      errorMessage: '',
+    })
+    await persistPageResult(target, pageResult, historyPageId)
+    await syncBatchJianpuTextForPage(target.pageId)
+    await maybeRenderCompletedBatchForPage(target.pageId)
+    clearLiveRecognitionPage(target.pageId)
+    log.addLog(`识别完成：${target.inputFileName}`)
+    message.success(`识别完成：${target.inputFileName}`)
+  }
+}
+
+function makeAiApplyDecision(
+  target: RecognitionTarget,
+  response: AiTranscribeResponse,
+  historyPageId: number | null,
+  warnings: string[],
+): (decision: MeasureStartDecision) => Promise<void> {
+  return async (decision: MeasureStartDecision): Promise<void> => {
+    if (decision.needsMeasureChoice) {
+      const pageResult: PageResult = {
+        input_file_name: target.inputFileName,
+        input_file_id: target.inputFileId,
+        musicxml_file_id: '',
+        jianpu_text: response.merged_jianpu_text,
+        ocr_text: '',
+        svg_file_id: '',
+        start_measure_number: decision.startMeasureNumber,
+        status: decision.status,
+        error_message: decision.waitingMessage || warnings.join('；'),
+      }
+      patchRecognitionPage(target.pageId, {
+        inputFileName: target.inputFileName,
+        inputFileId: target.inputFileId,
+        originalFileName: target.inputFileName,
+        originalFileId: target.inputFileId,
+        musicxmlFileId: '',
+        musicxmlText: '',
+        jianpuText: response.merged_jianpu_text,
+        ocrText: '',
+        jianpuDirty: false,
+        svgFileId: '',
+        svgFileIds: [],
+        startMeasureNumber: decision.startMeasureNumber,
+        taskId: '',
+        status: decision.status,
+        progressPercent: 100,
+        progressMessage: '等待选择起始小节号',
+        measureNumberOptions: decision.measureOptions,
+        errorMessage: decision.waitingMessage,
+      })
+      updateLiveRecognitionPage(target.pageId, {
+        status: 'waiting',
+        progressPercent: 100,
+        progressMessage: '等待选择起始小节号',
+        errorMessage: decision.waitingMessage,
+      })
+      await persistPageResult(target, pageResult, historyPageId)
+      await syncBatchJianpuTextForPage(target.pageId)
+      log.addLog(`AI 转写等待选择起始小节号：${target.inputFileName}`, 'warn')
+      message.warning(`AI 转写等待选择起始小节号：${target.inputFileName}`)
+      return
+    }
+    let mergedJianpuText = response.merged_jianpu_text
+    let svgFileId = ''
+    let svgFileIds: string[] = []
+    if (decision.autoSelected && decision.startMeasureNumber !== null) {
+      const rendered = await renderApi.jianpuTextSvg({
+        jianpu_text: response.merged_jianpu_text,
+        page_image_file_id: target.inputFileId || undefined,
+        include_ocr_text: false,
+        measure_number_mode: settings.measureNumberMode,
+        title: target.inputFileName || 'AI 简谱',
+        start_measure_number: decision.startMeasureNumber,
+      })
+      mergedJianpuText = rendered.jianpu_text || response.merged_jianpu_text
+      svgFileId = rendered.svg_file_id
+      svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id)
+    }
+    patchRecognitionPage(target.pageId, {
+      inputFileName: target.inputFileName,
+      inputFileId: target.inputFileId,
+      originalFileName: target.inputFileName,
+      originalFileId: target.inputFileId,
+      musicxmlFileId: '',
+      musicxmlText: '',
+      jianpuText: mergedJianpuText,
+      ocrText: '',
+      jianpuDirty: false,
+      svgFileId,
+      svgFileIds,
+      startMeasureNumber: decision.startMeasureNumber,
+      taskId: '',
+      status: decision.status,
+      progressPercent: 100,
+      progressMessage: 'AI 转写完成',
+      measureNumberOptions: [],
+      errorMessage: warnings.join('；'),
+    })
+    updateLiveRecognitionPage(target.pageId, {
+      status: 'completed',
+      progressPercent: 100,
+      progressMessage: 'AI 转写完成',
+      errorMessage: warnings.join('；'),
+    })
+    const pageResult: PageResult = {
+      input_file_name: target.inputFileName,
+      input_file_id: target.inputFileId,
+      musicxml_file_id: '',
+      jianpu_text: mergedJianpuText,
+      ocr_text: '',
+      svg_file_id: svgFileId,
+      start_measure_number: decision.startMeasureNumber,
+      status: decision.status,
+      error_message: warnings.join('；'),
+    }
+    await persistPageResult(target, pageResult, historyPageId)
+    await syncBatchJianpuTextForPage(target.pageId)
+    await maybeRenderCompletedBatchForPage(target.pageId)
+    clearLiveRecognitionPage(target.pageId)
+    if (warnings.length) {
+      log.addLog(`AI 转写完成：${target.inputFileName}`)
+      message.warning(warnings.slice(0, 3).join('；'))
+    } else {
+      log.addLog(`AI 转写完成：${target.inputFileName}`)
+      message.success(`AI 转写完成：${target.inputFileName}`)
+    }
+  }
 }
 
 async function renderMusicxmlPageWithStart(

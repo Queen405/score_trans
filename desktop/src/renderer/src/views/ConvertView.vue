@@ -1106,12 +1106,6 @@ function handleOcrTextUpdate(value: string): void {
   store.setBatchRenderPageOcrText(finalRenderPageIndex.value, value, true)
 }
 
-function applyReturnedOcr(value?: string | null): void {
-  if (!value || store.ocrText.trim()) return
-  store.setOcrText(value)
-}
-
-
 async function renderSvg(): Promise<void> {
   store.setBusy(true)
   try {
@@ -1171,7 +1165,7 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     await persistBatchJianpuText(historyBatchId, savedJianpu)
   }
   await persistFirstPageStartMeasure()
-  const sourcePageText = store.currentPage?.jianpuText ?? store.jianpuText
+  const sourcePageText = savedJianpu || store.currentPage?.jianpuText || store.jianpuText
   const sourceSvgFileId = store.currentPage?.svgFileId || store.svgFileId || svgFileId
   const payload = {
     musicxml_file_id: store.musicxmlFileId,

@@ -2,12 +2,14 @@
   <div class="svg-preview" v-if="svgUrl">
     <div ref="containerRef" class="preview-viewport" @dblclick="addBlockAtCursor">
       <div class="zp-inner">
+        <!-- eslint-disable vue/no-v-html -->
         <div
           v-if="svgText"
           :key="svgUrl"
           :class="['svg-inline', { 'hide-static-ocr': shouldHideStaticOcr }]"
           v-html="svgText"
         />
+        <!-- eslint-enable vue/no-v-html -->
         <div v-else-if="svgError" class="svg-loading svg-error">{{ svgError }}</div>
         <div v-else class="svg-loading">加载中...</div>
         <button
@@ -289,11 +291,12 @@ async function loadSvg(url: string): Promise<void> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const text = await response.text()
     if (generation !== svgLoadGeneration) return
+    const safeText = sanitizeSvg(text)
 
-    const size = readSvgSize(text)
+    const size = readSvgSize(safeText)
     imgW.value = size.width
     imgH.value = size.height
-    svgText.value = text
+    svgText.value = safeText
 
     await nextTick()
     zp.bind()
@@ -308,6 +311,32 @@ async function loadSvg(url: string): Promise<void> {
   } finally {
     window.clearTimeout(timeout)
   }
+}
+
+function sanitizeSvg(text: string): string {
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
+  if (doc.querySelector('parsererror') || doc.documentElement.tagName.toLowerCase() !== 'svg') {
+    throw new Error('Invalid SVG')
+  }
+
+  doc.querySelectorAll('script, foreignObject, iframe, object, embed, link, meta').forEach((node) => {
+    node.remove()
+  })
+  doc.querySelectorAll('*').forEach((element) => {
+    for (const attr of Array.from(element.attributes)) {
+      const name = attr.name.toLowerCase()
+      const value = attr.value.trim().toLowerCase()
+      const urlLike = name === 'href' || name.endsWith(':href') || name === 'src'
+      if (name.startsWith('on') || (urlLike && unsafeSvgUrl(value))) {
+        element.removeAttribute(attr.name)
+      }
+    }
+  })
+  return doc.documentElement.outerHTML
+}
+
+function unsafeSvgUrl(value: string): boolean {
+  return value.startsWith('javascript:') || value.startsWith('data:text/html')
 }
 
 function readSvgSize(text: string): { width: number; height: number } {

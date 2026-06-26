@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import shutil
 import threading
-import time
 import uuid
 from pathlib import Path
 
@@ -219,31 +218,6 @@ class UploadService:
         # Only delete upload subdirectories, not arbitrary paths
         if path.parent.parent == self.base_dir and path.parent != self.base_dir:
             shutil.rmtree(path.parent, ignore_errors=True)
-
-    def cleanup_old(self, max_age_hours: int = 24) -> int:
-        """Remove upload directories older than max_age_hours. Returns count cleaned."""
-        cutoff = time.time() - max_age_hours * 3600
-        cleaned = 0
-        for entry in self.base_dir.iterdir():
-            if entry.is_dir() and entry.stat().st_mtime < cutoff:
-                # Remove from mapping
-                with self._lock:
-                    to_remove = [
-                        fid for fid, p in self._files.items() if p.is_relative_to(entry)
-                    ]
-                    for fid in to_remove:
-                        self._files.pop(fid, None)
-                self._persist_index()
-                shutil.rmtree(entry, ignore_errors=True)
-                cleaned += 1
-        return cleaned
-
-    def get_size(self, file_id: str) -> int | None:
-        """Return file size in bytes, or None if not found."""
-        path = self.get_path(file_id)
-        if path and path.exists():
-            return path.stat().st_size
-        return None
 
     def exists_many(self, file_ids: list[str]) -> dict[str, bool]:
         """Return existence for multiple file IDs with one UploadService/index load."""

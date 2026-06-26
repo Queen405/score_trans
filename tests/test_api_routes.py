@@ -15,7 +15,10 @@ from score_trans.exec.files.actions import FileActions
 from score_trans.exec.history.actions import HistoryActions
 from score_trans.exec.settings.actions import SettingsActions
 from score_trans.dao.settings.settings_dao import SettingsDao
-from score_trans.models.render.schemas import RenderJianpuSvgRequest, RenderJianpuSvgResponse
+from score_trans.models.render.schemas import (
+    RenderJianpuSvgRequest,
+    RenderJianpuSvgResponse,
+)
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 from score_trans.services.history.history_service import HistoryService
@@ -100,7 +103,9 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
     assert "jianpu_syntax_highlight" in schemas["SettingsResponse"]["properties"]
     assert "show_measure_numbers" in schemas["SettingsUpdateRequest"]["properties"]
     assert "measure_number_mode" in schemas["SettingsUpdateRequest"]["properties"]
-    assert "confirm_start_measure_number" in schemas["SettingsUpdateRequest"]["properties"]
+    assert (
+        "confirm_start_measure_number" in schemas["SettingsUpdateRequest"]["properties"]
+    )
     assert "jianpu_syntax_highlight" in schemas["SettingsUpdateRequest"]["properties"]
     assert "show_measure_numbers" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "measure_number_mode" in schemas["PipelineByFileIdRequest"]["properties"]
@@ -112,6 +117,19 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
     assert "measure_number_mode" in schemas["FinalRenderRequest"]["properties"]
     assert "show_measure_numbers" in schemas["PreservingLayoutRequest"]["properties"]
     assert "measure_number_mode" in schemas["PreservingLayoutRequest"]["properties"]
+
+
+def test_settings_response_schema_does_not_expose_api_keys() -> None:
+    properties = create_app().openapi()["components"]["schemas"]["SettingsResponse"][
+        "properties"
+    ]
+
+    assert "ocr_api_key" not in properties
+    assert "ai_api_key" not in properties
+    assert "assistant_api_key" not in properties
+    assert "ocr_api_key_set" in properties
+    assert "ai_api_key_set" in properties
+    assert "assistant_api_key_set" in properties
 
 
 def test_target_key_schema_exposes_supported_keys() -> None:
@@ -288,6 +306,51 @@ def test_history_batch_jianpu_text_endpoint_updates_batch_only(tmp_path: Path) -
     payload = response.json()
     assert payload["jianpu_text"] == "1=C\n4/4\n3 4 |"
     assert payload["pages"][0]["jianpu_text"] == "1=C\n4/4\n1 2 |"
+
+
+def test_history_endpoints_preserve_editor_comments_and_blank_lines(
+    tmp_path: Path,
+) -> None:
+    app = create_app()
+    service = HistoryService(tmp_path / "history.db")
+    app.dependency_overrides[get_history_actions] = lambda: HistoryActions(service)
+    client = TestClient(app)
+    raw_text = "1=C\n4/4\n// 用户注释\n\n1 2 3 4 | // 行尾注释"
+
+    response = client.post(
+        "/history",
+        json={
+            "jianpu_text": raw_text,
+            "pages": [
+                {
+                    "input_file_name": "a.png",
+                    "jianpu_text": raw_text,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    batch_id = payload["id"]
+    page_id = payload["pages"][0]["id"]
+    assert payload["jianpu_text"] == raw_text
+    assert payload["pages"][0]["jianpu_text"] == raw_text
+
+    updated_text = "1=C\n4/4\n1 2 3 4 |\n\n// 保存后的注释"
+    response = client.patch(
+        f"/history/{batch_id}/jianpu-text",
+        json={"jianpu_text": updated_text},
+    )
+    assert response.status_code == 200
+    assert response.json()["jianpu_text"] == updated_text
+
+    response = client.patch(
+        f"/history/pages/{page_id}",
+        json={"jianpu_text": updated_text},
+    )
+    assert response.status_code == 200
+    assert response.json()["jianpu_text"] == updated_text
 
 
 def test_tasks_stream_allows_vite_dev_origin() -> None:

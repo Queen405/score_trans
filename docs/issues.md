@@ -6,16 +6,16 @@
 
 | 类别 | 当前数量 | 较上次变化 |
 |---|---|---|
-| 高严重度 Bug | 0 | ↓1（已修复 2 个） |
+| 高严重度 Bug | 0 | 持平 |
 | 中严重度 Bug | 4 | ↓2（`_cfg_value` 已修复，Python OMR 预处理链已移除） |
 | 低严重度问题 | 5+ | 持平 |
 | 架构违规 | 2 | 持平 |
-| 死代码符号 | 7（原 9，2 个随任务系统投入使用而消除） | ↓2 |
+| 死代码符号 | 0（本轮确认项已清理） | ↓7 |
 | 代码坏味道 | 20+ | 略降 |
 | 安全问题 | 5 | ↓1（API key 不再明文返回） |
-| 性能问题 | 7 | 持平 |
+| 性能问题 | 6 | ↓1（未使用的 `cleanup_old` 已清理） |
 
-> **验证日期**：2026-06-15。本次基于 2026-06-05 报告逐条复核，代码较上次分析已有较大重构（特别是任务系统）。
+> **验证日期**：2026-06-26。本次基于 2026-06-15 报告继续复核，并清理已确认死代码与错误状态记录。
 
 ---
 
@@ -119,21 +119,21 @@
 | 文件 | 符号 | 说明 | 验证状态 |
 |---|---|---|---|
 | ~~`jianpu_tokens.py`~~ | ~~`PREFIX_SLASHES`~~ | ~~未被任何代码引用~~ | ❌ **误报**：`parsing/tokens.py` 有引用 |
-| `xml_utils.py` | `_read_mxl()` | 已被 `_read_musicxml` 替代 | ✅ 仍存在 |
-| ~~`xml_utils.py`~~ | ~~`_first_child_name()`~~ | ~~未调用~~ | ❌ **误报**：`parse/musicxml.py` 有 import |
+| ~~`xml_utils.py`~~ | ~~`_read_mxl()`~~ | ~~已被 `_read_musicxml` 替代~~ | ✅ 已清理 |
+| ~~`xml_utils.py`~~ | ~~`_first_child_name()`~~ | ~~未调用~~ | ✅ 已清理：此前“有 import”的说明不再适用，当前无引用 |
 | ~~`write/jianpu_text.py`~~ | ~~`_duration_suffix()`~~ | ~~旧斜杠写法~~ | ❌ **误报**：`_duration_suffix` 在自身内部递归调用 |
 | ~~`write/jianpu_text.py`~~ | ~~`_fmt_num()`~~ | ~~定义但未调用~~ | ❌ **误报**：`_text_block_to_directive` 中有 4 处调用 |
-| `write/musicxml.py` | `_duration_prefix()` | 未使用 | ✅ 仍存在 |
-| `parse/musicxml.py` | `_extract_part_names()` | 未调用 | ✅ 仍存在 |
+| ~~`write/musicxml.py`~~ | ~~`_duration_prefix()`~~ | ~~未使用~~ | ✅ 已清理 |
+| ~~`parse/musicxml.py`~~ | ~~`_extract_part_names()`~~ | ~~未调用~~ | ✅ 已清理 |
 | ~~`dict_tools.py`~~ | ~~`first_present()`~~ | ~~未调用~~ | ❌ **误报**：`ocr/parser.py` 和 `ai/service.py` 有引用 |
-| `models/common/schemas.py` | `ErrorResponse` | `app.py` 直接构造 dict 而非使用此 schema | ✅ 仍存在 |
+| ~~`models/common/schemas.py`~~ | ~~`ErrorResponse`~~ | ~~`app.py` 直接构造 dict 而非使用此 schema~~ | ✅ 已清理 |
 | ~~`models/tasks/*`~~ | ~~`TaskProgress`, `TaskStatus`, `SSEProgressEvent`~~ | ~~完全未使用~~ | ❌ **误报**：任务系统重构后已大量使用 |
-| `exec/ai/actions.py` | `AiActions.get_config()` | 未被路由调用 | ✅ 仍存在 |
-| `exec/settings/actions.py` | `SettingsActions.get_config()` | 未被路由调用 | ✅ 仍存在 |
-| `external_tools.py` | `find_tool()` | 定义但未调用 | ✅ 仍存在 |
-| `convert/schemas.py` | `MusicXmlToJianpuResponse.jianpu_file_id` | 始终返回 None | ✅ 仍存在 |
-| `pipeline/schemas.py` | `PipelineResponse.task_id` | 始终返回 None | ✅ 仍存在 |
-| `recognize/schemas.py` | `RecognizeResponse.task_id` | 始终返回 None | ✅ 仍存在 |
+| ~~`exec/ai/actions.py`~~ | ~~`AiActions.get_config()`~~ | ~~未被路由调用~~ | ✅ 已清理 |
+| ~~`exec/settings/actions.py`~~ | ~~`SettingsActions.get_config()`~~ | ~~未被路由调用~~ | ✅ 已清理 |
+| ~~`external_tools.py`~~ | ~~`find_tool()`~~ | ~~定义但未调用~~ | ✅ 已清理 |
+| ~~`convert/schemas.py`~~ | ~~`MusicXmlToJianpuResponse.jianpu_file_id`~~ | ~~接口实际只返回 `jianpu_text`~~ | ✅ 已清理 |
+| ~~`pipeline/schemas.py`~~ | ~~`PipelineResponse.task_id`~~ | ~~始终返回 None~~ | ✅ 已清理：当前 schema 无此字段 |
+| ~~`recognize/schemas.py`~~ | ~~`RecognizeResponse.task_id`~~ | ~~始终返回 None~~ | ✅ 已清理：当前 schema 无此字段 |
 
 ---
 
@@ -172,7 +172,7 @@
 | 环境变量函数体内每次读取（20+ 处） | 分散在多处 | ❌ 仍存在 |
 | 正则未预编译 | `services/ocr/core/text.py`、`domain/parse/jianpu_text.py` | ❌ 仍存在 |
 | `services/render/` 模块化渲染，无缓存 | `services/render/` | ❌ 仍存在 |
-| `cleanup_old` 每个过期目录写一次 index.json | `services/files/upload_service.py` | ❌ 仍存在 |
+| ~~`cleanup_old` 每个过期目录写一次 index.json~~ | ~~`services/files/upload_service.py`~~ | ✅ 已清理：未使用的清理入口已删除 |
 
 ---
 
@@ -201,13 +201,11 @@
 ### 短期清理（架构债与技术债）
 3. 清理 exec 层剩余 4 个文件的 `HTTPException`（`history/files/export/render`），改为业务异常
 4. `api/dependencies.py` 为 Actions 工厂添加 `@lru_cache` 或统一缓存到 `app.state`
-5. 清理确认的死代码符号（`_read_mxl`、`_duration_prefix`、`_extract_part_names`、`ErrorResponse`、`find_tool`、`get_config` 等）
-6. 统一 `DYNAMICS` 力度集合（`domain/constants.py` 与 `services/render/utils/helpers.py`）
-7. DAO 层引入连接池或至少复用连接
+5. 统一 `DYNAMICS` 力度集合（`domain/constants.py` 与 `services/render/utils/helpers.py`）
+6. DAO 层引入连接池或至少复用连接
 
 ### 中期改进
 8. 上传文件大小限制与类型校验
 9. AI prompt 输入转义/过滤，防止 prompt injection
 10. MIDI rest 改为标准语义（time 偏移累积）
 11. 补充 `utils/*`、`services/tasks/`、`services/ocr/parsing` 的单元测试
-13. `ErrorResponse` schema 应被 `api/app.py` 异常处理器使用

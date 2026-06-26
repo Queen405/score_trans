@@ -41,19 +41,16 @@ class SettingsResponse(BaseModel):
     output_dir: str = ""
     ocr_provider: str = OCR_PROVIDER
     ocr_provider_options: list[LlmProviderOption] = Field(default_factory=list)
-    ocr_api_key: str = ""
     ocr_api_key_set: bool = False
     ocr_base_url: str = OCR_BASE_URL
     ocr_model: str = OCR_MODEL
     ai_provider: str = AI_PROVIDER
     ai_provider_options: list[LlmProviderOption] = Field(default_factory=list)
-    ai_api_key: str = ""
     ai_api_key_set: bool = False
     ai_base_url: str = AI_BASE_URL
     ai_model: str = AI_MODEL
     assistant_provider: str = ASSISTANT_PROVIDER
     assistant_provider_options: list[LlmProviderOption] = Field(default_factory=list)
-    assistant_api_key: str = ""
     assistant_api_key_set: bool = False
     assistant_base_url: str = ASSISTANT_BASE_URL
     assistant_model: str = ASSISTANT_MODEL

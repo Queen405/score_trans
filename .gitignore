@@ -18,6 +18,7 @@ build-log.txt
 desktop/build-log.txt
 desktop/dist-electron/
 desktop/build/
+desktop/out/
 *.tsbuildinfo
 
 # third_party 构建缓存

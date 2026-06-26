@@ -17,7 +17,6 @@ from ...models.ai.schemas import (
     AiTranscribeResponse,
     AiTranscribedPage,
 )
-from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
 from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.ai.chat_service import AiChatService
@@ -136,9 +135,6 @@ class AiActions:
         if not generated and image_path.resolve() == source_path.resolve():
             return source_file_id
         return self.uploads.register(image_path)
-
-    def get_config(self) -> ToolConfig:
-        return self.settings.load()
 
     def list_chat_sessions(self) -> list[AiChatSession]:
         return self._chat().list_sessions()

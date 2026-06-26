@@ -68,7 +68,7 @@ def score_to_jianpu_text(
             )
             all_marks.extend(event.ornaments or [])
             for mark in all_marks:
-                token = _articulation_token(mark)
+                token = _mark_token(mark)
                 if token:
                     tokens.append(f"^{token}")
             tokens.append(_event_to_token(event, accidental_mode=accidental_mode))
@@ -184,7 +184,7 @@ def _event_to_tuplet_body(
     )
     all_marks.extend(event.ornaments or [])
     for mark in all_marks:
-        token = _articulation_token(mark)
+        token = _mark_token(mark)
         if token:
             prefixes.append(f"^{token}")
     body = "".join(prefixes) + body
@@ -195,7 +195,8 @@ def _duration_parts(duration: Fraction) -> tuple[str, str]:
     return duration_affixes(duration)
 
 
-def _articulation_token(name: str) -> str | None:
+def _mark_token(name: str) -> str | None:
+    normalized = name.strip().lower().replace("_", "-").replace(" ", "-")
     return {
         "accent": ">",
         "strong-accent": ">",
@@ -204,7 +205,7 @@ def _articulation_token(name: str) -> str | None:
         "trill-mark": "r",
         "fermata": "f",
         "tremolo": "l",
-    }.get(name, name if name else None)
+    }.get(normalized)
 
 
 def _pitch_to_token(

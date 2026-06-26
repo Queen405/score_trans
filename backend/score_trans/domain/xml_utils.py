@@ -25,13 +25,6 @@ def _text(element: ET.Element | None) -> str | None:
     return element.text.strip()
 
 
-def _first_child_name(element: ET.Element | None, ns: str) -> str | None:
-    if element is None or len(element) == 0:
-        return None
-    tag = element[0].tag
-    return tag.removeprefix(f"{{{ns}}}") if ns else tag
-
-
 def _indent(element: ET.Element, level: int = 0) -> None:
     i = "\n" + level * "  "
     if len(element):
@@ -43,20 +36,6 @@ def _indent(element: ET.Element, level: int = 0) -> None:
             child.tail = i
     if level and (not element.tail or not element.tail.strip()):
         element.tail = i
-
-
-def _read_mxl(path: Path) -> str:
-    with ZipFile(path) as archive:
-        names = archive.namelist()
-        musicxml_names = [
-            name
-            for name in names
-            if name.lower().endswith((".xml", ".musicxml")) and not name.startswith("META-INF/")
-        ]
-        if not musicxml_names:
-            raise ValueError(f"MXL 文件中没有找到 MusicXML：{path}")
-        with archive.open(musicxml_names[0]) as handle:
-            return handle.read().decode("utf-8")
 
 
 def _mxl_rootfile_name(archive: ZipFile) -> str:

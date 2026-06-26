@@ -7,7 +7,6 @@ from ...models.common.types import (
     SUPPORTED_TARGET_KEYS,
     TargetKey,
 )
-from ...models.settings.config import ToolConfig
 from ...models.settings.schemas import (
     CacheCleanupResponse,
     LlmProviderOption,
@@ -28,9 +27,6 @@ from ...services.storage import CacheService
 class SettingsActions:
     def __init__(self, service: SettingsService | None = None) -> None:
         self.service = service or SettingsService()
-
-    def get_config(self) -> ToolConfig:
-        return self.service.load()
 
     def get_settings(
         self,
@@ -233,19 +229,16 @@ class SettingsActions:
             ),
             ocr_provider=ocr_profile.id,
             ocr_provider_options=_provider_options("ocr"),
-            ocr_api_key=ocr_api_key,
             ocr_api_key_set=bool(ocr_api_key),
             ocr_base_url=ocr_profile.base_url,
             ocr_model=ocr_profile.model,
             ai_provider=ai_profile.id,
             ai_provider_options=_provider_options("ai"),
-            ai_api_key=ai_api_key,
             ai_api_key_set=bool(ai_api_key),
             ai_base_url=ai_profile.base_url,
             ai_model=ai_profile.model,
             assistant_provider=assistant_profile.id,
             assistant_provider_options=_provider_options("assistant"),
-            assistant_api_key=assistant_api_key,
             assistant_api_key_set=bool(assistant_api_key),
             assistant_base_url=assistant_profile.base_url,
             assistant_model=assistant_profile.model,

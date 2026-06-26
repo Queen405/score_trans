@@ -87,11 +87,6 @@ class TaskManager:
             self._queues[task_id] = asyncio.Queue()
         return progress
 
-    def list_active_tasks(self) -> list[TaskProgress]:
-        """Return all non-expired tasks for the global events endpoint initial snapshot."""
-        self.cleanup_expired()
-        return list(self._tasks.values())
-
     async def update(self, task_id: str, **kwargs: Any) -> None:
         self.cleanup_expired()
         progress = self._tasks.get(task_id)

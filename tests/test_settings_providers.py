@@ -6,6 +6,7 @@ from score_trans.api.app import create_app
 from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.settings.actions import SettingsActions
 from score_trans.models.settings.schemas import SettingsUpdateRequest
+from score_trans.services.settings.api_keys import provider_api_key_name
 from score_trans.services.settings.provider_profiles import provider_profiles, resolve_provider_profile
 from score_trans.services.settings.settings_service import SettingsService
 
@@ -28,28 +29,32 @@ def test_settings_update_schema_only_accepts_provider_ids() -> None:
 def test_settings_provider_update_resolves_fixed_profiles(tmp_path) -> None:
     dao = SettingsDao(tmp_path / "settings.db")
     actions = SettingsActions(SettingsService(dao))
+    ocr_profile = provider_profiles("ocr")[0]
+    ai_profile = provider_profiles("ai")[0]
+    assistant_profile = provider_profiles("assistant")[0]
 
     response = actions.update_settings(
         SettingsUpdateRequest(
-            ocr_provider="dashscope_qwen_vl_ocr",
-            ai_provider="xiaomi_mimo_v25",
-            assistant_provider="dashscope_qwen_plus",
+            ocr_provider=ocr_profile.id,
+            ai_provider=ai_profile.id,
+            assistant_provider=assistant_profile.id,
         )
     )
-    ocr_profile = resolve_provider_profile("ocr", "dashscope_qwen_vl_ocr")
-    ai_profile = resolve_provider_profile("ai", "xiaomi_mimo_v25")
+    resolved_ocr = resolve_provider_profile("ocr", ocr_profile.id)
+    resolved_ai = resolve_provider_profile("ai", ai_profile.id)
+    resolved_assistant = resolve_provider_profile("assistant", assistant_profile.id)
 
-    assert response.ocr_provider == "dashscope_qwen_vl_ocr"
-    assert response.ocr_base_url == ocr_profile.base_url
-    assert response.ocr_model == ocr_profile.model
-    assert response.ai_provider == "xiaomi_mimo_v25"
-    assert response.ai_base_url == ai_profile.base_url
-    assert response.ai_model == ai_profile.model
-    assert response.assistant_provider == "dashscope_qwen_plus"
-    assert response.assistant_model == "qwen-plus"
-    assert dao.get("ocr_base_url") == ocr_profile.base_url
-    assert dao.get("ai_model") == ai_profile.model
-    assert dao.get("assistant_model") == "qwen-plus"
+    assert response.ocr_provider == resolved_ocr.id
+    assert response.ocr_base_url == resolved_ocr.base_url
+    assert response.ocr_model == resolved_ocr.model
+    assert response.ai_provider == resolved_ai.id
+    assert response.ai_base_url == resolved_ai.base_url
+    assert response.ai_model == resolved_ai.model
+    assert response.assistant_provider == resolved_assistant.id
+    assert response.assistant_model == resolved_assistant.model
+    assert dao.get("ocr_base_url") == resolved_ocr.base_url
+    assert dao.get("ai_model") == resolved_ai.model
+    assert dao.get("assistant_model") == resolved_assistant.model
 
 
 def test_settings_rejects_unknown_provider(tmp_path) -> None:
@@ -63,34 +68,30 @@ def test_settings_saves_api_keys_per_provider(tmp_path) -> None:
     dao = SettingsDao(tmp_path / "settings.db")
     dao.set("ocr_api_key", "")
     actions = SettingsActions(SettingsService(dao))
-    first, second = provider_profiles("ocr")[:2]
+    first = provider_profiles("ocr")[0]
 
-    actions.update_settings(
+    response = actions.update_settings(
         SettingsUpdateRequest(
             ocr_provider=first.id,
             ocr_api_key="first-key",
         )
     )
-    response = actions.update_settings(
-        SettingsUpdateRequest(
-            ocr_provider=second.id,
-            ocr_api_key="second-key",
-        )
-    )
 
-    assert response.ocr_provider == second.id
-    assert response.ocr_api_key == "second-key"
-    assert dao.get(f"{first.id}_api_key") == "first-key"
-    assert dao.get(f"{second.id}_api_key") == "second-key"
-    assert actions.get_settings(ocr_provider=first.id).ocr_api_key == "first-key"
-    assert actions.get_settings(ocr_provider=second.id).ocr_api_key == "second-key"
+    assert response.ocr_provider == first.id
+    assert response.ocr_api_key_set is True
+    assert "ocr_api_key" not in response.model_dump()
+    assert dao.get(provider_api_key_name(first.id)) == "first-key"
+    assert actions.get_settings(ocr_provider=first.id).ocr_api_key_set is True
 
 
 def test_settings_provider_switch_without_key_does_not_reuse_previous_key(tmp_path) -> None:
     dao = SettingsDao(tmp_path / "settings.db")
     dao.set("ocr_api_key", "")
     actions = SettingsActions(SettingsService(dao))
-    first, second = provider_profiles("ocr")[:2]
+    profiles = provider_profiles("ocr")
+    if len(profiles) < 2:
+        pytest.skip("requires at least two configured OCR providers")
+    first, second = profiles[:2]
 
     actions.update_settings(
         SettingsUpdateRequest(
@@ -101,5 +102,6 @@ def test_settings_provider_switch_without_key_does_not_reuse_previous_key(tmp_pa
     response = actions.update_settings(SettingsUpdateRequest(ocr_provider=second.id))
 
     assert response.ocr_provider == second.id
-    assert response.ocr_api_key == ""
-    assert actions.get_settings(ocr_provider=first.id).ocr_api_key == "first-key"
+    assert response.ocr_api_key_set is False
+    assert dao.get(provider_api_key_name(first.id)) == "first-key"
+    assert actions.get_settings(ocr_provider=first.id).ocr_api_key_set is True

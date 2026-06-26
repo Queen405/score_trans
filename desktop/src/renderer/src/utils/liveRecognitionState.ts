@@ -62,7 +62,7 @@ export function liveRecognitionTaskPatch(
 ): Partial<Pick<TaskPageInput, 'taskId' | 'status' | 'progressPercent' | 'progressMessage' | 'errorMessage'>> {
   if (historyStatus !== 'processing' && historyStatus !== 'pending') return {}
   const state = statesByHistory.get(historyPageId)
-  if (!state || state.status !== 'processing') return {}
+  if (!state) return {}
   return {
     taskId: state.taskId,
     status: state.status,

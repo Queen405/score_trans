@@ -40,7 +40,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 ### `ai/actions.py` (~88 行)
 | 类 | 方法 |
 |---|---|
-| `AiActions` | `transcribe_score(req)`, `_register_page_image(...)`, `get_config()` |
+| `AiActions` | `transcribe_score(req)`, `_register_page_image(...)` |
 
 ### `convert/actions.py` (~126 行)
 | 类 | 方法 |
@@ -54,7 +54,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 ### `export/actions.py` (~96 行)
 | 类 | 方法 |
 |---|---|
-| `ExportScoreAction` | `execute(...)`, `execute_from_score(...)` |
+| `ExportScoreAction` | `execute(...)` |
 | `ExportActions` | `export_midi(...)`, `export_midi_text(req)`, `export_pdf(...)` |
 
 ### `files/actions.py` (~76 行)
@@ -65,7 +65,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 ### `history/actions.py` (~102 行)
 | 类 | 方法 |
 |---|---|
-| `HistoryActions` | `list_history()`, `create_batch(req)`, `get_history(batch_id)`, `update_history_page(page_id, req)`, `delete_history(batch_id)`, `delete_all_history()`, `_migrate_batch_texts(batch)` |
+| `HistoryActions` | `list_history()`, `create_batch(req)`, `get_history(batch_id)`, `update_history_page(page_id, req)`, `delete_history(batch_id)`, `delete_all_history()` |
 
 ### `pipeline/actions.py` (~166 行)
 | 类 | 方法 |
@@ -93,7 +93,7 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 ### `settings/actions.py` (~78 行)
 | 类 | 方法 |
 |---|---|
-| `SettingsActions` | `get_config()`, `get_settings()`, `update_settings(req)`, `_response()` |
+| `SettingsActions` | `get_settings()`, `update_settings(req)`, `_response()` |
 
 ---
 
@@ -227,7 +227,6 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 - `tasks/entities.py`：`TaskStatus` Enum, `TaskProgress` dataclass
 - `common/errors.py`：`ExternalToolError`, `OCRError`, `AITranscriptionError`
 - `common/paths.py`：`PROJECT_ROOT`
-- `common/schemas.py`：`ErrorResponse`（未使用）
 
 ---
 

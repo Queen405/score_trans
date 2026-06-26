@@ -100,10 +100,6 @@ def provider_profiles(kind: LlmProviderKind) -> tuple[LlmProviderProfile, ...]:
     return _PROFILES[kind]
 
 
-def default_provider_id(kind: LlmProviderKind) -> str:
-    return _DEFAULTS[kind]
-
-
 def resolve_provider_profile(
     kind: LlmProviderKind,
     provider_id: str | None,
