@@ -34,10 +34,48 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
     assert service.get_batch(batch.id).pages[0].ocr_text == updated.ocr_text
 
 
+def test_history_page_persists_background_task_id(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(
+                input_file_name="score.png",
+                input_file_id="input-1",
+                task_id="task-running",
+                status="processing",
+            )
+        ]
+    )
+
+    assert batch.pages[0].task_id == "task-running"
+
+    updated = service.update_page(batch.pages[0].id, task_id="")
+
+    assert updated is not None
+    assert updated.task_id == ""
+
+
 def test_update_page_missing_returns_none(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
 
     assert service.update_page(404, jianpu_text="1 2 |") is None
+
+
+def test_get_history_page_returns_single_page(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(input_file_name="first.png", status="waiting"),
+            HistoryPage(input_file_name="second.png", status="completed"),
+        ]
+    )
+
+    page = service.get_page(batch.pages[1].id)
+
+    assert page is not None
+    assert page.input_file_name == "second.png"
+    assert page.batch_id == batch.id
+    assert service.get_page(404) is None
 
 
 def test_batch_status_tracks_background_pages(tmp_path) -> None:

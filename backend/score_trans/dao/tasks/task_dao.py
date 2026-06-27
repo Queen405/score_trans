@@ -93,7 +93,7 @@ class TaskDao:
 
     def load_active(self, now: float | None = None) -> list[TaskProgress]:
         """Load non-expired tasks for recovery on startup."""
-        now = now or time.monotonic()
+        now = time.time() if now is None else now
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM task_state WHERE expires_at IS NULL OR expires_at > ?",
@@ -107,7 +107,7 @@ class TaskDao:
             conn.commit()
 
     def delete_expired(self, now: float | None = None) -> int:
-        now = now or time.monotonic()
+        now = time.time() if now is None else now
         with self._connect() as conn:
             cursor = conn.execute(
                 "DELETE FROM task_state WHERE expires_at IS NOT NULL AND expires_at <= ?",

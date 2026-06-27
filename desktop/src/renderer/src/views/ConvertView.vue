@@ -216,6 +216,8 @@ import {
   updateJianpuPageStart,
 } from '../utils/jianpuPageSections'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
+import { createRequestEpoch } from '../utils/asyncCoordination'
+import { historyPageOpenAction } from '../utils/historyPageState'
 import {
   listenHistoryPagePatched,
   listenHistoryUpdated,
@@ -280,9 +282,11 @@ const histPickerPage = ref<HistoryPage | null>(null)
 let stopHistoryUpdatedListener: (() => void) | null = null
 let stopHistoryPagePatchedListener: (() => void) | null = null
 let historyListRequestSeq = 0
-let historyDetailRequestSeq = 0
+const historyDetailEpoch = createRequestEpoch()
 let restoreCheckSeq = 0
 const locallyUpdatingHistoryPageIds = new Set<number>()
+const checkingHistoryPageIds = new Set<number>()
+const selectingHistoryPageIds = new Set<number>()
 
 const currentBatchLocalIndex = computed(() =>
   store.currentBatchPages.indexOf(store.currentPage!),
@@ -367,7 +371,7 @@ async function handleDeleteAll(): Promise<void> {
   expandedBatchId.value = null
   expandedPages.value = []
   loadingBatchId.value = null
-  historyDetailRequestSeq++
+  historyDetailEpoch.invalidate()
   message.success('已清空')
 }
 
@@ -379,7 +383,7 @@ async function handleDeleteBatch(batchId: number): Promise<void> {
       expandedBatchId.value = null
       expandedPages.value = []
       loadingBatchId.value = null
-      historyDetailRequestSeq++
+      historyDetailEpoch.invalidate()
     }
     message.success('已删除')
   } catch (e: unknown) {
@@ -394,7 +398,7 @@ async function toggleBatchExpand(batchId: number): Promise<void> {
     expandedBatchId.value = null
     expandedPages.value = []
     loadingBatchId.value = null
-    historyDetailRequestSeq++
+    historyDetailEpoch.invalidate()
     return
   }
   expandedBatchId.value = batchId
@@ -405,7 +409,7 @@ async function refreshExpandedBatch(
   batchId: number,
   options: { clear: boolean; showLoading: boolean },
 ): Promise<void> {
-  const seq = ++historyDetailRequestSeq
+  const requestToken = historyDetailEpoch.begin()
   if (options.clear) {
     expandedPages.value = []
   }
@@ -414,17 +418,17 @@ async function refreshExpandedBatch(
   }
   try {
     const batch: HistoryBatch = await historyApi.get(batchId)
-    if (seq === historyDetailRequestSeq && expandedBatchId.value === batchId) {
+    if (historyDetailEpoch.isCurrent(requestToken) && expandedBatchId.value === batchId) {
       expandedPages.value = mergeLockedHistoryPages(batch.pages)
       syncExpandedBatchSummary(batchId)
     }
   } catch (e: unknown) {
-    if (seq === historyDetailRequestSeq && expandedBatchId.value === batchId) {
+    if (historyDetailEpoch.isCurrent(requestToken) && expandedBatchId.value === batchId) {
       log.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`)
       expandedPages.value = []
     }
   } finally {
-    if (seq === historyDetailRequestSeq && loadingBatchId.value === batchId) {
+    if (historyDetailEpoch.isCurrent(requestToken) && loadingBatchId.value === batchId) {
       loadingBatchId.value = null
     }
   }
@@ -445,7 +449,8 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   let renderPageOcrTexts: HistoryBatch['render_page_ocr_texts'] = []
   let pageIndex = allPages.findIndex((p) => p.id === page.id)
   try {
-    const batch: HistoryBatch = await historyApi.get(batchId)
+    const batch = await fetchStableHistoryBatch(batchId)
+    if (!batch) return
     renderPageFileIds = batch.render_page_file_ids
     batchJianpuText = batch.jianpu_text || ''
     renderPageOcrTexts = batch.render_page_ocr_texts || []
@@ -477,6 +482,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       ocrText: r.page.ocr_text || r.split.ocrText,
       svgFileId: r.page.svg_file_id,
       svgFileIds: r.page.svg_file_id ? [r.page.svg_file_id] : [],
+      taskId: r.page.task_id || '',
       startMeasureNumber: r.page.start_measure_number ?? null,
       status: r.page.status as any,
       measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
@@ -492,6 +498,20 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   void validateRestoredBatchFiles(allPages, renderPageFileIds)
 
   message.success(`已恢复 ${allPages.length} 页`)
+}
+
+async function fetchStableHistoryBatch(batchId: number): Promise<HistoryBatch | null> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const requestToken = historyDetailEpoch.begin()
+    const batch = await historyApi.get(batchId)
+    if (expandedBatchId.value !== batchId) return null
+    if (historyDetailEpoch.isCurrent(requestToken)) {
+      if (loadingBatchId.value === batchId) loadingBatchId.value = null
+      return batch
+    }
+  }
+  message.info('历史页面状态正在更新，请稍后重试')
+  return null
 }
 
 async function validateRestoredBatchFiles(
@@ -559,9 +579,11 @@ function mergeLockedHistoryPages(pages: HistoryPage[]): HistoryPage[] {
 }
 
 function handleHistoryPagePatched(detail: HistoryPagePatchDetail): void {
-  if (applyExpandedHistoryPagePatch(detail.id, detail.patch) && loadingBatchId.value === expandedBatchId.value) {
+  historyDetailEpoch.invalidate()
+  if (loadingBatchId.value === expandedBatchId.value) {
     loadingBatchId.value = null
   }
+  applyExpandedHistoryPagePatch(detail.id, detail.patch)
 }
 
 function applyExpandedHistoryPagePatch(
@@ -601,6 +623,7 @@ function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDetail {
   return {
     id: page.id,
     patch: {
+      task_id: page.task_id,
       musicxml_file_id: page.musicxml_file_id,
       jianpu_text: page.jianpu_text,
       ocr_text: page.ocr_text,
@@ -651,18 +674,42 @@ function failedMeasureSelectionMessage(options: number[], msg: string): string {
   return `${prefix}选择小节号失败：${msg}`
 }
 
-function handleHistoryPageClick(page: HistoryPage): void {
-  if (isWaitingStatus(page.status)) {
-    const options = parseWaitingMeasureOptions(page.error_message)
-    if (!options.length) {
-      message.warning('没有可选的小节号候选')
+async function handleHistoryPageClick(page: HistoryPage): Promise<void> {
+  if (checkingHistoryPageIds.has(page.id) || selectingHistoryPageIds.has(page.id)) return
+  if (!isWaitingStatus(page.status)) {
+    await handleRestorePage(page)
+    return
+  }
+
+  checkingHistoryPageIds.add(page.id)
+  historyDetailEpoch.invalidate()
+  try {
+    const latest = await historyApi.getPage(page.id)
+    replaceExpandedHistoryPage(latest)
+    syncStoreFromHistoryPage(latest)
+    const action = historyPageOpenAction(latest.status)
+    if (action === 'choose') {
+      const options = parseWaitingMeasureOptions(latest.error_message)
+      if (!options.length) {
+        message.warning('没有可选的小节号候选')
+        return
+      }
+      histPickerPage.value = latest
+      histPickerOptions.value = options
+      histPickerShow.value = true
       return
     }
-    histPickerPage.value = page
-    histPickerOptions.value = options
-    histPickerShow.value = true
-  } else {
-    handleRestorePage(page)
+    if (action === 'wait') {
+      message.info('页面状态已更新，正在处理中')
+      return
+    }
+    await handleRestorePage(latest)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    message.error(`无法确认页面最新状态：${msg}`)
+    log.addError(`确认历史页面状态失败：${msg}`)
+  } finally {
+    checkingHistoryPageIds.delete(page.id)
   }
 }
 
@@ -675,7 +722,10 @@ async function onHistPickerConfirm(selected: number): Promise<void> {
 }
 
 async function applyHistoryMeasureSelection(page: HistoryPage, selected: number): Promise<void> {
+  if (selectingHistoryPageIds.has(page.id)) return
+  selectingHistoryPageIds.add(page.id)
   locallyUpdatingHistoryPageIds.add(page.id)
+  historyDetailEpoch.invalidate()
   const processingPage: HistoryPage = {
     ...page,
     start_measure_number: selected,
@@ -716,6 +766,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
       jianpuText = rendered.jianpu_text || page.jianpu_text
     }
     const updated = await historyApi.updatePage(page.id, {
+      task_id: '',
       start_measure_number: selected,
       jianpu_text: jianpuText,
       svg_file_id: svgFileId,
@@ -740,6 +791,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
     }
     try {
       const updated = await historyApi.updatePage(page.id, {
+        task_id: '',
         start_measure_number: selected,
         status: 'waiting',
         error_message: failedMessage,
@@ -757,6 +809,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
     log.addError(`选择小节号失败：${msg}`)
   } finally {
     locallyUpdatingHistoryPageIds.delete(page.id)
+    selectingHistoryPageIds.delete(page.id)
   }
 }
 
@@ -773,6 +826,7 @@ function syncStoreFromHistoryPage(page: HistoryPage): void {
     ocrText: page.ocr_text || split.ocrText,
     svgFileId: page.svg_file_id,
     svgFileIds: page.svg_file_id ? [page.svg_file_id] : [],
+    taskId: page.task_id || '',
     historyBatchId: page.batch_id ?? null,
     startMeasureNumber: page.start_measure_number ?? null,
     status: page.status as any,

@@ -179,6 +179,7 @@ async function handleRestore(entry: HistoryBatchListItem): Promise<void> {
         ocrText: page.ocr_text || split.ocrText,
         svgFileId: page.svg_file_id,
         svgFileIds: page.svg_file_id ? [page.svg_file_id] : [],
+        taskId: page.task_id || '',
         startMeasureNumber: page.start_measure_number ?? null,
         status: page.status as any,
         measureNumberOptions: parseWaitingMeasureOptions(page.error_message),

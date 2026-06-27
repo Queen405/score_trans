@@ -40,6 +40,14 @@ def get_history(
     return actions.get_history(batch_id)
 
 
+@router.get("/pages/{page_id}", response_model=PageResponse)
+def get_history_page(
+    page_id: int,
+    actions: HistoryActions = Depends(get_history_actions),
+):
+    return actions.get_history_page(page_id)
+
+
 @router.patch("/pages/{page_id}", response_model=PageResponse)
 def update_history_page(
     page_id: int,

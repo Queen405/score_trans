@@ -43,6 +43,7 @@ class HistoryActions:
             HistoryPage(
                 input_file_name=p.input_file_name,
                 input_file_id=p.input_file_id,
+                task_id=p.task_id,
                 musicxml_file_id=p.musicxml_file_id,
                 jianpu_text=p.jianpu_text,
                 ocr_text=p.ocr_text,
@@ -74,9 +75,16 @@ class HistoryActions:
             raise HTTPException(status_code=404, detail="Batch not found")
         return _batch_to_response(batch)
 
+    def get_history_page(self, page_id: int) -> PageResponse:
+        page = self.service.get_page(page_id)
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        return _page_to_response(page)
+
     def update_history_page(self, page_id: int, req: PageUpdate) -> PageResponse:
         page = self.service.update_page(
             page_id,
+            task_id=req.task_id,
             musicxml_file_id=req.musicxml_file_id,
             jianpu_text=req.jianpu_text if req.jianpu_text is not None else None,
             ocr_text=req.ocr_text,
@@ -139,6 +147,7 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         batch_id=page.batch_id,
         input_file_name=page.input_file_name,
         input_file_id=page.input_file_id,
+        task_id=page.task_id,
         musicxml_file_id=page.musicxml_file_id,
         jianpu_text=page.jianpu_text,
         ocr_text=page.ocr_text,

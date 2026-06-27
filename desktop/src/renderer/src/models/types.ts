@@ -358,6 +358,7 @@ export interface HistoryPage {
   batch_id: number
   input_file_name: string
   input_file_id: string
+  task_id: string
   musicxml_file_id: string
   jianpu_text: string
   ocr_text: string
@@ -393,6 +394,7 @@ export interface HistoryCreateRequest {
   pages: {
     input_file_name?: string
     input_file_id?: string
+    task_id?: string
     musicxml_file_id?: string
     jianpu_text?: string
     ocr_text?: string
@@ -404,6 +406,7 @@ export interface HistoryCreateRequest {
 }
 
 export interface HistoryPageUpdateRequest {
+  task_id?: string
   musicxml_file_id?: string
   jianpu_text?: string
   ocr_text?: string

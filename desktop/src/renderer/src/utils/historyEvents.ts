@@ -4,6 +4,7 @@ export const HISTORY_PAGE_PATCHED_EVENT = 'score-trans:history-page-patched'
 export interface HistoryPagePatchDetail {
   id: number
   patch: {
+    task_id?: string
     musicxml_file_id?: string
     jianpu_text?: string
     ocr_text?: string

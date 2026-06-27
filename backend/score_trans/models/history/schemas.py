@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class PageCreate(BaseModel):
     input_file_name: str = ""
     input_file_id: str = ""
+    task_id: str = ""
     musicxml_file_id: str = ""
     jianpu_text: str = ""
     ocr_text: str = ""
@@ -16,6 +17,7 @@ class PageCreate(BaseModel):
 
 
 class PageUpdate(BaseModel):
+    task_id: str | None = None
     musicxml_file_id: str | None = None
     jianpu_text: str | None = None
     ocr_text: str | None = None
@@ -30,6 +32,7 @@ class PageResponse(BaseModel):
     batch_id: int
     input_file_name: str
     input_file_id: str
+    task_id: str
     musicxml_file_id: str
     jianpu_text: str
     ocr_text: str

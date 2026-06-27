@@ -254,6 +254,9 @@ def test_history_page_schema_persists_ocr_text() -> None:
     assert "ocr_text" in schemas["PageCreate"]["properties"]
     assert "ocr_text" in schemas["PageUpdate"]["properties"]
     assert "ocr_text" in schemas["PageResponse"]["properties"]
+    assert "task_id" in schemas["PageCreate"]["properties"]
+    assert "task_id" in schemas["PageUpdate"]["properties"]
+    assert "task_id" in schemas["PageResponse"]["properties"]
 
 
 def test_history_batch_schema_persists_batch_jianpu_text() -> None:
@@ -351,6 +354,41 @@ def test_history_endpoints_preserve_editor_comments_and_blank_lines(
     )
     assert response.status_code == 200
     assert response.json()["jianpu_text"] == updated_text
+
+
+def test_history_page_endpoint_returns_latest_page_and_404(tmp_path: Path) -> None:
+    app = create_app()
+    service = HistoryService(tmp_path / "history.db")
+    app.dependency_overrides[get_history_actions] = lambda: HistoryActions(service)
+    client = TestClient(app)
+    created = client.post(
+        "/history",
+        json={
+            "pages": [
+                {
+                    "input_file_name": "score.png",
+                    "status": "waiting",
+                    "error_message": "等待选择起始小节号：7、9",
+                }
+            ]
+        },
+    ).json()
+    page_id = created["pages"][0]["id"]
+    client.patch(
+        f"/history/pages/{page_id}",
+        json={
+            "start_measure_number": 9,
+            "status": "completed",
+            "error_message": "",
+        },
+    )
+
+    response = client.get(f"/history/pages/{page_id}")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+    assert response.json()["start_measure_number"] == 9
+    assert client.get("/history/pages/404").status_code == 404
 
 
 def test_tasks_stream_allows_vite_dev_origin() -> None:

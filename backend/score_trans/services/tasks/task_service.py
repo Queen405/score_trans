@@ -39,7 +39,7 @@ class TaskManager:
         self,
         *,
         terminal_ttl_seconds: float = DEFAULT_TASK_TTL_SECONDS,
-        time_func=time.monotonic,
+        time_func=time.time,
         dao: TaskDao | None = None,
     ) -> None:
         self._tasks: dict[str, TaskProgress] = {}
@@ -54,13 +54,19 @@ class TaskManager:
     def _recover_tasks(self) -> None:
         """Recover non-expired tasks from SQLite on startup."""
         try:
-            active = self._dao.load_active(self._time())
+            now = self._time()
+            active = self._dao.load_active(now)
             for progress in active:
+                if progress.status not in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+                    message = "任务因后端服务重启而中断，请重新识别"
+                    progress.status = TaskStatus.FAILED
+                    progress.message = message
+                    progress.error = message
+                    progress.updated_at = now
+                    progress.expires_at = now + self._terminal_ttl_seconds
+                    self._persist(progress)
                 self._tasks[progress.task_id] = progress
                 self._queues[progress.task_id] = asyncio.Queue()
-                if progress.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
-                    # Already terminal — just keep for querying, no queue consumer needed
-                    pass
             if active:
                 _logger.info("Recovered %d task(s) from SQLite", len(active))
         except Exception:

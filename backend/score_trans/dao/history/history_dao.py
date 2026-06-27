@@ -62,6 +62,7 @@ class HistoryDao:
                     batch_id INTEGER NOT NULL REFERENCES history_batch(id) ON DELETE CASCADE,
                     input_file_name TEXT NOT NULL DEFAULT '',
                     input_file_id TEXT NOT NULL DEFAULT '',
+                    task_id TEXT NOT NULL DEFAULT '',
                     musicxml_file_id TEXT NOT NULL DEFAULT '',
                     jianpu_text TEXT NOT NULL DEFAULT '',
                     ocr_text TEXT NOT NULL DEFAULT '',
@@ -125,6 +126,15 @@ class HistoryDao:
                 return None
             return self._row_to_batch(conn, row)
 
+    def get_page(self, page_id: int) -> HistoryPage | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM history_page WHERE id = ?", (page_id,)
+            ).fetchone()
+            if not row:
+                return None
+            return self._row_to_page(row)
+
     def create_batch(
         self,
         pages: list[HistoryPage],
@@ -151,15 +161,16 @@ class HistoryDao:
                 conn.execute(
                     """
                     INSERT INTO history_page
-                        (batch_id, input_file_name, input_file_id, musicxml_file_id,
+                        (batch_id, input_file_name, input_file_id, task_id, musicxml_file_id,
                          jianpu_text, ocr_text, svg_file_id, start_measure_number,
                          status, error_message)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
                         page.input_file_name,
                         page.input_file_id,
+                        page.task_id,
                         page.musicxml_file_id,
                         page.jianpu_text,
                         page.ocr_text,
@@ -243,6 +254,7 @@ class HistoryDao:
         self,
         page_id: int,
         *,
+        task_id: str | None = None,
         jianpu_text: str | None = None,
         ocr_text: str | None = None,
         svg_file_id: str | None = None,
@@ -254,6 +266,7 @@ class HistoryDao:
         updates: list[str] = []
         values: list[str | int] = []
         for field, value in (
+            ("task_id", task_id),
             ("jianpu_text", jianpu_text),
             ("ocr_text", ocr_text),
             ("svg_file_id", svg_file_id),
@@ -316,6 +329,11 @@ class HistoryDao:
         if "ocr_text" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN ocr_text TEXT NOT NULL DEFAULT ''"
+            )
+            conn.commit()
+        if "task_id" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN task_id TEXT NOT NULL DEFAULT ''"
             )
             conn.commit()
         if "start_measure_number" not in columns:
@@ -385,6 +403,7 @@ class HistoryDao:
             batch_id=row["batch_id"],
             input_file_name=row["input_file_name"],
             input_file_id=row["input_file_id"],
+            task_id=row["task_id"] if "task_id" in row.keys() else "",
             musicxml_file_id=row["musicxml_file_id"],
             jianpu_text=row["jianpu_text"],
             ocr_text=row["ocr_text"] if "ocr_text" in row.keys() else "",

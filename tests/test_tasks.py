@@ -6,6 +6,7 @@ import json
 from pydantic import BaseModel
 
 from score_trans.api.app import create_app
+from score_trans.dao.tasks.task_dao import TaskDao
 from score_trans.exec.tasks.background import run_sync_task, schedule_background_task
 from score_trans.exec.tasks.actions import TaskActions
 from score_trans.models.tasks.entities import TaskStatus
@@ -87,6 +88,33 @@ def test_task_manager_cleans_expired_terminal_tasks() -> None:
 
     assert manager.cleanup_expired() == 1
     assert manager.get_progress(task_id) is None
+
+
+def test_task_manager_marks_interrupted_tasks_failed_on_recovery(tmp_path) -> None:
+    dao = TaskDao(tmp_path / "tasks.db")
+    interrupted = TaskManager(dao=dao, time_func=lambda: 100.0)
+    task_id = interrupted.create_task()
+    asyncio.run(
+        interrupted.update(
+            task_id,
+            status=TaskStatus.RUNNING,
+            stage="omr",
+            percent=99,
+            message="识别中",
+        )
+    )
+
+    recovered = TaskManager(
+        dao=dao,
+        time_func=lambda: 200.0,
+        terminal_ttl_seconds=30.0,
+    ).get_progress(task_id)
+
+    assert recovered is not None
+    assert recovered.status == TaskStatus.FAILED
+    assert recovered.percent == 99
+    assert recovered.expires_at == 230.0
+    assert "重启" in (recovered.error or "")
 
 
 def test_schedule_background_task_tracks_until_done() -> None:

@@ -25,8 +25,8 @@ class TaskProgress:
     message: str = ""
     result: dict[str, Any] | None = None
     error: str | None = None
-    created_at: float = field(default_factory=time.monotonic)
-    updated_at: float = field(default_factory=time.monotonic)
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
     expires_at: float | None = None
 
 

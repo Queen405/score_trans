@@ -9,6 +9,9 @@ import type {
   HistoryPage,
   HistoryPageUpdateRequest,
 } from '../models/types'
+import { createKeyedAsyncQueue } from '../utils/asyncCoordination'
+
+const pageUpdateQueue = createKeyedAsyncQueue<number>()
 
 export const historyApi = {
   list(): Promise<HistoryBatchListItem[]> {
@@ -17,6 +20,10 @@ export const historyApi = {
 
   get(id: number): Promise<HistoryBatch> {
     return apiFetch(`/history/${id}`)
+  },
+
+  getPage(id: number): Promise<HistoryPage> {
+    return apiFetch(`/history/pages/${id}`)
   },
 
   create(req: HistoryCreateRequest): Promise<HistoryBatch> {
@@ -28,11 +35,13 @@ export const historyApi = {
   },
 
   updatePage(id: number, req: HistoryPageUpdateRequest): Promise<HistoryPage> {
-    return apiFetch(`/history/pages/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-    })
+    return pageUpdateQueue.enqueue(id, () =>
+      apiFetch(`/history/pages/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+      }),
+    )
   },
 
   updateBatchRenderPages(id: number, req: HistoryBatchRenderPagesUpdateRequest): Promise<HistoryBatch> {

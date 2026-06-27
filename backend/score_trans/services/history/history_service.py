@@ -26,6 +26,9 @@ class HistoryService:
     def get_batch(self, batch_id: int) -> HistoryBatch | None:
         return self.dao.get_batch(batch_id)
 
+    def get_page(self, page_id: int) -> HistoryPage | None:
+        return self.dao.get_page(page_id)
+
     def create_batch(
         self,
         pages: list[HistoryPage],
@@ -64,6 +67,7 @@ class HistoryService:
         self,
         page_id: int,
         *,
+        task_id: str | None = None,
         jianpu_text: str | None = None,
         ocr_text: str | None = None,
         svg_file_id: str | None = None,
@@ -74,6 +78,7 @@ class HistoryService:
     ) -> HistoryPage | None:
         return self.dao.update_page(
             page_id,
+            task_id=task_id,
             jianpu_text=jianpu_text,
             ocr_text=ocr_text,
             svg_file_id=svg_file_id,
