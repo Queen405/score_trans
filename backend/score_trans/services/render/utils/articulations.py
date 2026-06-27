@@ -3,6 +3,13 @@ from __future__ import annotations
 from .text import _esc
 
 
+def _render_staccato(cx: float, cy: float, size: float = 4.5) -> str:
+    return (
+        f'<path class="staccato" d="M {cx - size:.1f} {cy - size:.1f} '
+        f'L {cx + size:.1f} {cy - size:.1f} L {cx:.1f} {cy + size:.1f} Z"/>'
+    )
+
+
 def _render_articulation(name: str, cx: float, y: int) -> list[str]:
     normalized = name.lower().replace("_", "-")
     if normalized == "fermata":
@@ -15,7 +22,7 @@ def _render_articulation(name: str, cx: float, y: int) -> list[str]:
             f'<path class="articulation" d="M {cx - 9:.1f} {y - 37} L {cx + 9:.1f} {y - 32} L {cx - 9:.1f} {y - 27}"/>'
         ]
     if normalized == "staccato":
-        return [f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y - 37}" r="2.5"/>']
+        return [_render_staccato(cx, y - 37)]
     if normalized == "tenuto":
         return [
             f'<line class="articulation" x1="{cx - 8:.1f}" y1="{y - 36}" x2="{cx + 8:.1f}" y2="{y - 36}"/>'

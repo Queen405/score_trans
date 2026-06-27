@@ -22,7 +22,8 @@ A4_PAGE_WIDTH = 1240
 A4_PAGE_HEIGHT = 1754
 A4_STAFF_SPACE = 21.0
 A4_MARGIN = 64
-A4_LINE_HEIGHT = 126
+A4_LINE_HEIGHT = 160
+A4_ROW_BOTTOM_EXTENT = 80
 A4_MIN_MEASURE_WIDTH = 250
 A4_NOTE_MIN_GAP = 5.6
 A4_SHORT_NOTE_GAP_RATIO = 0.25
@@ -599,7 +600,11 @@ def _paginate_rows(
         return [[]]
     top = _a4_score_top(options)
     bottom = A4_BOTTOM_MARGIN
-    rows_per_page = max(1, int((A4_PAGE_HEIGHT - top - bottom) // options.line_height))
+    baseline_span = max(
+        0,
+        A4_PAGE_HEIGHT - top - bottom - A4_ROW_BOTTOM_EXTENT,
+    )
+    rows_per_page = max(1, int(baseline_span // options.line_height) + 1)
     return [
         rows[index : index + rows_per_page]
         for index in range(0, len(rows), rows_per_page)

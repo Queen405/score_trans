@@ -1,45 +1,63 @@
 <template>
   <div class="editor-shell">
-    <div class="editor-gutter" ref="gutterRef">
-      <div
-        v-for="(num, i) in measureNumbers"
-        :key="i"
-        class="editor-gutter-line"
-        :class="{ 'has-number': num > 0 }"
+    <div v-if="showPageSummary" class="editor-pages">
+      <button
+        v-for="page in pageSummaries"
+        :key="`${page.pageNumber}-${page.markerLineIndex}`"
+        type="button"
+        class="editor-page-link"
+        :title="page.inputFileName || `第 ${page.pageNumber} 页`"
+        @click="scrollToPage(page.markerLineIndex)"
       >
-        {{ num > 0 ? num : '' }}
-      </div>
+        <span class="editor-page-number">P{{ page.pageNumber }}</span>
+        <span class="editor-page-range">{{ pageRangeText(page) }}</span>
+      </button>
     </div>
-    <div class="editor-main">
-      <div v-if="syntaxHighlight" class="editor-highlight" aria-hidden="true">
-        <div class="editor-highlight-content" :style="highlightScrollStyle">
-          <div
-            v-for="(line, lineIndex) in highlightedLines"
-            :key="lineIndex"
-            class="editor-highlight-line"
-          >
-            <span
-              v-for="(token, tokenIndex) in line"
-              :key="tokenIndex"
-              :class="`token-${token.type}`"
-            >{{ token.text }}</span>
-          </div>
+    <div class="editor-body">
+      <div class="editor-gutter" ref="gutterRef">
+        <div
+          v-for="(label, i) in measureLabels"
+          :key="i"
+          class="editor-gutter-line"
+          :class="{
+            'has-number': !!label && !label.startsWith('P'),
+            'page-marker': label.startsWith('P'),
+          }"
+        >
+          {{ label }}
         </div>
       </div>
-      <textarea
-        ref="textareaRef"
-        :value="modelValue"
-        @input="onInput"
-        @scroll="syncScroll"
-        placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 $345$ 4 |&#10;1=G&#10;3/4&#10;h[1+3+5] \p 4 |&#10;L: 春 风 又 绿"
-        :class="['editor-textarea', { 'syntax-highlight-enabled': syntaxHighlight }]"
-        spellcheck="false"
-      />
-      <div
-        v-if="playbackHighlightStyle"
-        class="editor-playback-highlight"
-        :style="playbackHighlightStyle"
-      />
+      <div class="editor-main">
+        <div v-if="syntaxHighlight" class="editor-highlight" aria-hidden="true">
+          <div class="editor-highlight-content" :style="highlightScrollStyle">
+            <div
+              v-for="(line, lineIndex) in highlightedLines"
+              :key="lineIndex"
+              class="editor-highlight-line"
+            >
+              <span
+                v-for="(token, tokenIndex) in line"
+                :key="tokenIndex"
+                :class="`token-${token.type}`"
+              >{{ token.text }}</span>
+            </div>
+          </div>
+        </div>
+        <textarea
+          ref="textareaRef"
+          :value="modelValue"
+          @input="onInput"
+          @scroll="syncScroll"
+          placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 $345$ 4 |&#10;1=G&#10;3/4&#10;h[1+3+5] \p 4 |&#10;L: 春 风 又 绿"
+          :class="['editor-textarea', { 'syntax-highlight-enabled': syntaxHighlight }]"
+          spellcheck="false"
+        />
+        <div
+          v-if="playbackHighlightStyle"
+          class="editor-playback-highlight"
+          :style="playbackHighlightStyle"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -48,6 +66,12 @@
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
 import { tokenizeJianpuLine } from '../utils/jianpuSyntax'
+import {
+  hasJianpuPageMarkers,
+  jianpuGutterLabels,
+  jianpuPageSummaries,
+  type JianpuPageSummary,
+} from '../utils/jianpuPageSections'
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -268,36 +292,29 @@ watch(
   { immediate: true },
 )
 
-const measureNumbers = computed(() => {
-  const lines = props.modelValue.split('\n')
-  let measureCount = props.startMeasureNumber ?? 1
-  return lines.map((line) => {
-    const trimmed = splitInlineComment(line).code.trim()
-    // 包含 | 的就是小节（即使以 \ 开头如 \f）
-    if (trimmed.includes('|')) {
-      // 检测重复次数 *x（去掉行尾 | 后再匹配）
-      const withoutBar = trimmed.replace(/\|$/, '').trim()
-      const match = withoutBar.match(/\*\s*(\d+)$/)
-      const repeatCount = match ? parseInt(match[1], 10) : 1
-      const currentNumber = measureCount
-      measureCount += repeatCount
-      return currentNumber
-    }
-    // 跳过元数据、空行、歌词、纯表情记号行
-    if (
-      !trimmed ||
-      /^key\s*=/i.test(trimmed) ||
-      /^time\s*=/i.test(trimmed) ||
-      /^title\s*=/i.test(trimmed) ||
-      /^tempo\s*=/i.test(trimmed) ||
-      /^L:/.test(trimmed) ||
-      /^\\/.test(trimmed)
-    ) {
-      return 0
-    }
-    return 0
-  })
-})
+const measureLabels = computed(() =>
+  jianpuGutterLabels(props.modelValue, props.startMeasureNumber ?? 1),
+)
+const pageSummaries = computed(() =>
+  jianpuPageSummaries(props.modelValue, props.startMeasureNumber ?? 1),
+)
+const showPageSummary = computed(() =>
+  hasJianpuPageMarkers(props.modelValue) && pageSummaries.value.length > 0,
+)
+
+function pageRangeText(page: JianpuPageSummary): string {
+  if (page.endMeasureNumber === null) return `${page.startMeasureNumber}+`
+  if (page.endMeasureNumber === page.startMeasureNumber) return String(page.startMeasureNumber)
+  return `${page.startMeasureNumber}-${page.endMeasureNumber}`
+}
+
+function scrollToPage(markerLineIndex: number): void {
+  const el = textareaRef.value
+  if (!el || markerLineIndex < 0) return
+  el.scrollTop = Math.max(0, markerLineIndex * editorMetrics.value.lineHeight)
+  syncScrollPosition(el)
+  el.focus()
+}
 
 watch(activeNoteSpan, (span) => {
   if (!span) return
@@ -403,6 +420,56 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-pages {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  background: var(--bg-soft, #f5f5f5);
+}
+
+.editor-page-link {
+  height: 24px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--text-secondary, #555);
+  font: inherit;
+  cursor: pointer;
+}
+
+.editor-page-link:hover {
+  border-color: var(--border-color, #d0d0d0);
+  background: var(--bg-base, #fff);
+}
+
+.editor-page-number {
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.editor-page-range {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--text-muted, #777);
+}
+
+.editor-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
   flex-direction: row;
   overflow: hidden;
 }
@@ -441,7 +508,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 }
 
 .editor-gutter {
-  width: 32px;
+  width: 42px;
   flex-shrink: 0;
   overflow: hidden;
   background: var(--bg-soft, #f5f5f5);
@@ -465,6 +532,11 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 .editor-gutter-line.has-number {
   color: var(--text-primary, #333);
   font-weight: 500;
+}
+
+.editor-gutter-line.page-marker {
+  color: var(--primary-color, #2563eb);
+  font-weight: 600;
 }
 
 .editor-textarea {
@@ -533,6 +605,24 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 
 .theme-dark .editor-gutter-line.has-number {
   color: var(--text-primary, #ddd);
+}
+
+.theme-dark .editor-pages {
+  background: var(--bg-soft, #2a2a2a);
+  border-color: var(--border-color, #444);
+}
+
+.theme-dark .editor-page-link:hover {
+  background: var(--bg-base, #1e1e1e);
+  border-color: var(--border-color, #555);
+}
+
+.theme-dark .editor-page-number {
+  color: var(--text-primary, #ddd);
+}
+
+.theme-dark .editor-gutter-line.page-marker {
+  color: #7aa2f7;
 }
 
 .theme-dark .editor-textarea {

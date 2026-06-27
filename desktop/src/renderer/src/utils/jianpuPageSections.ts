@@ -1,0 +1,287 @@
+export interface JianpuPageSource {
+  inputFileName?: string
+  jianpuText?: string
+  startMeasureNumber?: number | null
+}
+
+export interface JianpuPageSection {
+  pageIndex: number
+  inputFileName: string
+  startMeasureNumber: number | null
+  body: string
+  markerLine: string
+  markerLineIndex: number
+}
+
+export interface JianpuPageSummary {
+  pageIndex: number
+  pageNumber: number
+  inputFileName: string
+  startMeasureNumber: number
+  endMeasureNumber: number | null
+  measureCount: number
+  markerLineIndex: number
+}
+
+interface JianpuPageMarker {
+  pageNumber: number
+  inputFileName: string
+  startMeasureNumber: number | null
+}
+
+const PAGE_MARKER_PATTERN = /^\s*\/\/\s*@page\s+(\d+)\s+start=(auto|\d+)(?:\s+name=(.+?))?\s*$/
+
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n?/g, '\n')
+}
+
+function parseMarkerName(rawName: string | undefined): string {
+  if (!rawName) return ''
+  const value = rawName.trim()
+  if (!value.startsWith('"')) return value
+  try {
+    const parsed = JSON.parse(value)
+    return typeof parsed === 'string' ? parsed : value
+  } catch {
+    return value.slice(1, value.endsWith('"') ? -1 : undefined)
+  }
+}
+
+export function parseJianpuPageMarker(line: string): JianpuPageMarker | null {
+  const match = line.match(PAGE_MARKER_PATTERN)
+  if (!match) return null
+  const pageNumber = Number(match[1])
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) return null
+  const rawStart = match[2]
+  const startMeasureNumber = rawStart === 'auto' ? null : Number(rawStart)
+  if (startMeasureNumber !== null && (!Number.isInteger(startMeasureNumber) || startMeasureNumber < 1)) {
+    return null
+  }
+  return {
+    pageNumber,
+    inputFileName: parseMarkerName(match[3]),
+    startMeasureNumber,
+  }
+}
+
+export function formatJianpuPageMarker(
+  pageNumber: number,
+  startMeasureNumber: number | null,
+  inputFileName = '',
+): string {
+  const start = startMeasureNumber === null ? 'auto' : String(startMeasureNumber)
+  const name = inputFileName ? ` name=${JSON.stringify(inputFileName)}` : ''
+  return `// @page ${pageNumber} start=${start}${name}`
+}
+
+export function hasJianpuPageMarkers(text: string): boolean {
+  return normalizeLineEndings(text).split('\n').some((line) => parseJianpuPageMarker(line) !== null)
+}
+
+export function parseJianpuPageSections(text: string): JianpuPageSection[] {
+  const normalized = normalizeLineEndings(text)
+  const lines = normalized.split('\n')
+  const markers = lines.flatMap((line, lineIndex) => {
+    const marker = parseJianpuPageMarker(line)
+    return marker ? [{ marker, line, lineIndex }] : []
+  })
+
+  if (!markers.length) {
+    return [{
+      pageIndex: 0,
+      inputFileName: '',
+      startMeasureNumber: null,
+      body: normalized,
+      markerLine: '',
+      markerLineIndex: -1,
+    }]
+  }
+
+  return markers.map(({ marker, line, lineIndex }, index) => {
+    const nextLineIndex = markers[index + 1]?.lineIndex ?? lines.length
+    let body = lines.slice(lineIndex + 1, nextLineIndex).join('\n')
+    if (index === 0 && lineIndex > 0) {
+      const prefix = lines.slice(0, lineIndex).join('\n')
+      body = body ? `${prefix}\n${body}` : prefix
+    }
+    return {
+      pageIndex: marker.pageNumber - 1,
+      inputFileName: marker.inputFileName,
+      startMeasureNumber: marker.startMeasureNumber,
+      body,
+      markerLine: line,
+      markerLineIndex: lineIndex,
+    }
+  })
+}
+
+export function serializeJianpuPageSections(sections: JianpuPageSection[]): string {
+  return sections
+    .map((section, order) => {
+      const pageNumber = section.pageIndex >= 0 ? section.pageIndex + 1 : order + 1
+      const marker = formatJianpuPageMarker(
+        pageNumber,
+        section.startMeasureNumber,
+        section.inputFileName,
+      )
+      return section.body ? `${marker}\n${normalizeLineEndings(section.body)}` : marker
+    })
+    .join('\n')
+}
+
+export function composeJianpuPageText(pages: JianpuPageSource[]): string {
+  return serializeJianpuPageSections(pages.map((page, pageIndex) => ({
+    pageIndex,
+    inputFileName: page.inputFileName ?? '',
+    startMeasureNumber: page.startMeasureNumber ?? null,
+    body: normalizeLineEndings(page.jianpuText ?? ''),
+    markerLine: '',
+    markerLineIndex: -1,
+  })))
+}
+
+export function migrateLegacyJianpuPageText(
+  batchText: string,
+  pages: JianpuPageSource[],
+): string {
+  if (hasJianpuPageMarkers(batchText)) return normalizeLineEndings(batchText)
+  if (!pages.length) return normalizeLineEndings(batchText)
+
+  const normalizedBatchText = normalizeLineEndings(batchText)
+  if (!normalizedBatchText.trim()) return composeJianpuPageText(pages)
+
+  const legacyMergedText = pages
+    .map((page) => normalizeLineEndings(page.jianpuText ?? '').trim())
+    .filter(Boolean)
+    .join('\n\n')
+  if (legacyMergedText === normalizedBatchText.trim()) {
+    return composeJianpuPageText(pages)
+  }
+
+  return composeJianpuPageText(pages.map((page, pageIndex) => ({
+    ...page,
+    jianpuText: pageIndex === 0 ? normalizedBatchText : '',
+  })))
+}
+
+export function updateJianpuPageStart(
+  text: string,
+  pageIndex: number,
+  startMeasureNumber: number | null,
+  fallbackName = '',
+): string {
+  const sections = parseJianpuPageSections(text)
+  const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
+  if (!section) return text
+  section.pageIndex = pageIndex
+  section.startMeasureNumber = startMeasureNumber
+  if (!section.inputFileName) section.inputFileName = fallbackName
+  return serializeJianpuPageSections(sections)
+}
+
+export function jianpuSectionBodyForPage(text: string, pageIndex: number): string {
+  const sections = parseJianpuPageSections(text)
+  return sections.find((section) => section.pageIndex === pageIndex)?.body
+    ?? sections[pageIndex]?.body
+    ?? ''
+}
+
+export function replaceJianpuSectionBody(
+  text: string,
+  pageIndex: number,
+  body: string,
+  source: JianpuPageSource = {},
+): string {
+  const sections = parseJianpuPageSections(text)
+  const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
+  if (section) {
+    section.pageIndex = pageIndex
+    section.body = normalizeLineEndings(body)
+    if (!section.inputFileName) section.inputFileName = source.inputFileName ?? ''
+    return serializeJianpuPageSections(sections)
+  }
+
+  sections.push({
+    pageIndex,
+    inputFileName: source.inputFileName ?? '',
+    startMeasureNumber: source.startMeasureNumber ?? null,
+    body: normalizeLineEndings(body),
+    markerLine: '',
+    markerLineIndex: -1,
+  })
+  sections.sort((left, right) => left.pageIndex - right.pageIndex)
+  return serializeJianpuPageSections(sections)
+}
+
+export function removeJianpuPageSection(text: string, pageIndex: number): string {
+  if (!hasJianpuPageMarkers(text)) return pageIndex === 0 ? '' : text
+  const sections = parseJianpuPageSections(text)
+  const removeIndex = sections.findIndex((section) => section.pageIndex === pageIndex)
+  const resolvedIndex = removeIndex >= 0 ? removeIndex : pageIndex
+  if (resolvedIndex < 0 || resolvedIndex >= sections.length) return text
+  sections.splice(resolvedIndex, 1)
+  sections.forEach((section, index) => {
+    section.pageIndex = index
+  })
+  return serializeJianpuPageSections(sections)
+}
+
+function splitInlineComment(line: string): string {
+  const commentStart = line.indexOf('//')
+  return commentStart < 0 ? line : line.slice(0, commentStart)
+}
+
+export function jianpuMeasureCount(text: string): number {
+  return normalizeLineEndings(text).split('\n').reduce((total, line) => {
+    const code = splitInlineComment(line).trim()
+    if (!code.includes('|')) return total
+    const withoutBar = code.replace(/\|$/, '').trim()
+    const repeatMatch = withoutBar.match(/\*\s*(\d+)$/)
+    return total + (repeatMatch ? Number(repeatMatch[1]) : 1)
+  }, 0)
+}
+
+export function jianpuPageSummaries(
+  text: string,
+  fallbackStartMeasureNumber = 1,
+): JianpuPageSummary[] {
+  const sections = parseJianpuPageSections(text)
+  let nextMeasureNumber = Math.max(1, fallbackStartMeasureNumber)
+  return sections.map((section, order) => {
+    const startMeasureNumber = section.startMeasureNumber ?? nextMeasureNumber
+    const measureCount = jianpuMeasureCount(section.body)
+    const endMeasureNumber = measureCount ? startMeasureNumber + measureCount - 1 : null
+    nextMeasureNumber = startMeasureNumber + measureCount
+    return {
+      pageIndex: section.pageIndex,
+      pageNumber: section.pageIndex >= 0 ? section.pageIndex + 1 : order + 1,
+      inputFileName: section.inputFileName,
+      startMeasureNumber,
+      endMeasureNumber,
+      measureCount,
+      markerLineIndex: section.markerLineIndex,
+    }
+  })
+}
+
+export function jianpuGutterLabels(
+  text: string,
+  fallbackStartMeasureNumber = 1,
+): string[] {
+  let measureNumber = Math.max(1, fallbackStartMeasureNumber)
+  return normalizeLineEndings(text).split('\n').map((line) => {
+    const marker = parseJianpuPageMarker(line)
+    if (marker) {
+      if (marker.startMeasureNumber !== null) measureNumber = marker.startMeasureNumber
+      return `P${marker.pageNumber}`
+    }
+
+    const code = splitInlineComment(line).trim()
+    if (!code.includes('|')) return ''
+    const currentNumber = measureNumber
+    const withoutBar = code.replace(/\|$/, '').trim()
+    const repeatMatch = withoutBar.match(/\*\s*(\d+)$/)
+    measureNumber += repeatMatch ? Number(repeatMatch[1]) : 1
+    return String(currentNumber)
+  })
+}

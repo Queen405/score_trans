@@ -278,6 +278,10 @@ import type {
 } from '../models/types'
 import type { TaskPage, TaskPageStatus } from '../stores/task'
 import { splitJianpuAndOcr } from '../utils/ocrText'
+import {
+  composeJianpuPageText,
+  parseJianpuPageSections,
+} from '../utils/jianpuPageSections'
 import { notifyHistoryPagePatched, notifyHistoryUpdated, type HistoryPagePatchDetail } from '../utils/historyEvents'
 import {
   clearLiveRecognitionPage,
@@ -363,6 +367,7 @@ const pickerPageId = ref<string | null>(null)
 const selectedPageIds = ref<Set<string>>(new Set())
 const activeSubmissions = ref<SubmissionState[]>([])
 const reupload = useFileUpload()
+const batchRenderInFlight = new Map<string, Promise<void>>()
 
 withDefaults(defineProps<{
   active?: boolean
@@ -870,7 +875,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       error_message: '',
     }, page.historyPageId)
     await syncBatchJianpuTextForPage(pageId)
-    await maybeRenderCompletedBatchForPage(pageId)
+    void maybeRenderCompletedBatchForPage(pageId)
     log.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`)
     message.success('已应用起始小节号')
     const submission = findSubmissionForPage(pageId)
@@ -1213,7 +1218,13 @@ async function reconcileSubmissionState(submission: SubmissionState): Promise<vo
           continue
         }
         const measureOptions = uniquePositiveNumbers(result.rawOptions)
-        if (target.startMeasureNumber !== null || measureOptions.length === 0 || submission.heldFirst.size > 0) {
+        const canAskForStartMeasure = submission.targets[0]?.pageId === target.pageId
+        if (
+          !canAskForStartMeasure
+          || target.startMeasureNumber !== null
+          || measureOptions.length === 0
+          || submission.heldFirst.size > 0
+        ) {
           const decision: MeasureStartDecision = {
             startMeasureNumber: target.startMeasureNumber,
             status: 'completed',
@@ -1314,7 +1325,7 @@ function makePipelineApplyDecision(
     })
     await persistPageResult(target, pageResult, historyPageId)
     await syncBatchJianpuTextForPage(target.pageId)
-    await maybeRenderCompletedBatchForPage(target.pageId)
+    void maybeRenderCompletedBatchForPage(target.pageId)
     clearLiveRecognitionPage(target.pageId)
     log.addLog(`识别完成：${target.inputFileName}`)
     message.success(`识别完成：${target.inputFileName}`)
@@ -1400,7 +1411,7 @@ function makeAiApplyDecision(
     }
     await persistPageResult(target, pageResult, historyPageId)
     await syncBatchJianpuTextForPage(target.pageId)
-    await maybeRenderCompletedBatchForPage(target.pageId)
+    void maybeRenderCompletedBatchForPage(target.pageId)
     clearLiveRecognitionPage(target.pageId)
     if (warnings.length) {
       log.addLog(`AI 转写完成：${target.inputFileName}`)
@@ -1481,50 +1492,64 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
     store.setBatchRenderPageFileIds([], batchId)
     return
   }
+  if (!batchId) return
 
-  await syncBatchJianpuTextForPage(pageId)
-  const pages = buildBatchRenderPages(batchPages)
-  if (!pages.length) {
-    store.setBatchRenderPageFileIds([], batchId)
-    return
-  }
+  const currentRender = batchRenderInFlight.get(batchId)
+  if (currentRender) return currentRender
 
-  try {
-    const result = await renderApi.batchA4({
-      pages,
-      source_pages: buildBatchRenderSourcePages(batchPages),
-      render_page_ocr_texts: batchRenderPageOcrTextsForRequest(batchId),
-      target_key: settings.targetKey,
-      accidental_mode: settings.accidentalMode,
-      measure_number_mode: settings.measureNumberMode,
-      title: '简谱',
-    })
-    const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)
-    store.setBatchRenderPageFileIds(ids, batchId)
-    if (batchId) {
+  const render = (async () => {
+    await syncBatchJianpuTextForPage(pageId)
+    if (store.batchJianpuPendingPageIdsFor(batchId).length) {
+      store.setBatchRenderPageFileIds([], batchId)
+      return
+    }
+    const pages = buildBatchRenderPages(batchPages)
+    if (!pages.length) {
+      store.setBatchRenderPageFileIds([], batchId)
+      return
+    }
+
+    try {
+      const result = await renderApi.batchA4({
+        pages,
+        source_pages: buildBatchRenderSourcePages(batchPages),
+        render_page_ocr_texts: batchRenderPageOcrTextsForRequest(batchId),
+        target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
+        measure_number_mode: settings.measureNumberMode,
+        title: '简谱',
+      })
+      const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)
+      store.setBatchRenderPageFileIds(ids, batchId)
       store.setBatchRenderPageOcrTexts(renderResponsePageOcrTexts(result.pages), false, batchId)
       store.markBatchRenderPageOcrClean(batchId)
-    }
-    const historyBatchId = historyBatchIdForPages(batchPages)
-    if (historyBatchId) {
-      const batchText = batchId ? store.batchJianpuTextFor(batchId) : ''
-      if (batchText) {
-        await historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: batchText })
-      }
-      const updated = await historyApi.updateBatchRenderPages(historyBatchId, {
-        render_page_file_ids: ids,
-      })
-      store.setBatchRenderPageFileIds(updated.render_page_file_ids, batchId)
-      const ocrUpdated = await historyApi.updateBatchRenderPageOcrTexts(historyBatchId, {
-        pages: batchId ? store.batchRenderPageOcrTextsFor(batchId) : [],
-      })
-      if (batchId) {
+      const historyBatchId = historyBatchIdForPages(batchPages)
+      if (historyBatchId) {
+        const batchText = store.batchJianpuTextFor(batchId)
+        if (batchText) {
+          await historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: batchText })
+        }
+        const updated = await historyApi.updateBatchRenderPages(historyBatchId, {
+          render_page_file_ids: ids,
+        })
+        store.setBatchRenderPageFileIds(updated.render_page_file_ids, batchId)
+        const ocrUpdated = await historyApi.updateBatchRenderPageOcrTexts(historyBatchId, {
+          pages: store.batchRenderPageOcrTextsFor(batchId),
+        })
         store.setBatchRenderPageOcrTexts(ocrUpdated.render_page_ocr_texts || [], false, batchId)
+        notifyHistoryUpdated()
       }
-      notifyHistoryUpdated()
+    } catch (error: unknown) {
+      log.addLog(`生成连续 A4 简谱失败：${errorMessage(error)}`, 'warn')
     }
-  } catch (error: unknown) {
-    log.addLog(`生成连续 A4 简谱失败：${errorMessage(error)}`, 'warn')
+  })()
+  batchRenderInFlight.set(batchId, render)
+  try {
+    await render
+  } finally {
+    if (batchRenderInFlight.get(batchId) === render) {
+      batchRenderInFlight.delete(batchId)
+    }
   }
 }
 
@@ -1568,32 +1593,46 @@ function batchPagesForPage(pageId: string): TaskPage[] {
 
 function buildBatchRenderPages(batchPages: TaskPage[]): BatchRenderPageRequest[] {
   const batchId = batchPages[0]?.batchId
-  const batchText = batchId ? store.batchJianpuTextFor(batchId).trim() : ''
-  if (batchText) {
-    return [{
-      jianpu_text: store.batchJianpuTextFor(batchId!),
-      include_ocr_text: false,
-      start_measure_number: batchPages[0]?.startMeasureNumber ?? undefined,
-      title: '简谱',
-    }]
+  const batchText = batchId ? store.batchJianpuTextFor(batchId) : ''
+  if (batchText.trim()) {
+    return buildSectionRenderPages(batchPages, batchText)
   }
-  return batchPages
-    .map((page) => {
-      const sourceImageId = page.originalFileId || page.inputFileId || undefined
-      const start = page.startMeasureNumber ?? undefined
-      if (page.jianpuText.trim()) {
+  return buildPageRenderRequests(batchPages)
+}
+
+function buildBatchRenderSourcePages(batchPages: TaskPage[]): BatchRenderPageRequest[] {
+  const batchId = batchPages[0]?.batchId
+  const batchText = batchId ? store.batchJianpuTextFor(batchId) : ''
+  return batchText.trim()
+    ? buildSectionRenderPages(batchPages, batchText)
+    : buildPageRenderRequests(batchPages)
+}
+
+function buildSectionRenderPages(
+  batchPages: TaskPage[],
+  batchText: string,
+): BatchRenderPageRequest[] {
+  return parseJianpuPageSections(batchText)
+    .map((section, order) => {
+      const page = batchPages[section.pageIndex] ?? batchPages[order]
+      const sourceImageId = page?.originalFileId || page?.inputFileId || undefined
+      const start = section.startMeasureNumber
+        ?? (!section.markerLine && order === 0
+          ? (page?.startMeasureNumber ?? undefined)
+          : undefined)
+      if (section.body.trim()) {
         return {
-          input_file_name: page.inputFileName,
-          jianpu_text: page.jianpuText,
+          input_file_name: section.inputFileName || page?.inputFileName,
+          jianpu_text: section.body,
           page_image_file_id: sourceImageId,
-          ocr_text: page.ocrText || undefined,
+          ocr_text: page?.ocrText || undefined,
           include_ocr_text: false,
           start_measure_number: start,
         }
       }
-      if (page.musicxmlFileId) {
+      if (page?.musicxmlFileId) {
         return {
-          input_file_name: page.inputFileName,
+          input_file_name: section.inputFileName || page.inputFileName,
           musicxml_file_id: page.musicxmlFileId,
           page_image_file_id: sourceImageId,
           ocr_text: page.ocrText || undefined,
@@ -1606,7 +1645,7 @@ function buildBatchRenderPages(batchPages: TaskPage[]): BatchRenderPageRequest[]
     .filter((page): page is BatchRenderPageRequest => page !== null)
 }
 
-function buildBatchRenderSourcePages(batchPages: TaskPage[]): BatchRenderPageRequest[] {
+function buildPageRenderRequests(batchPages: TaskPage[]): BatchRenderPageRequest[] {
   return batchPages
     .map((page) => {
       const sourceImageId = page.originalFileId || page.inputFileId || undefined
@@ -1657,11 +1696,12 @@ function returnedPipelineOcrText(result: PipelineResponse): string {
 async function syncBatchJianpuTextForPage(pageId: string): Promise<void> {
   const batchPages = batchPagesForPage(pageId)
   const batchId = batchPages[0]?.batchId
-  if (!batchId || store.isBatchJianpuDirty(batchId)) return
-  const text = batchPages
-    .map((page) => page.jianpuText.trim())
-    .filter(Boolean)
-    .join('\n\n')
+  if (!batchId) return
+  if (store.isBatchJianpuDirty(batchId)) {
+    store.markBatchJianpuPagePending(pageId, batchId)
+    return
+  }
+  const text = composeJianpuPageText(batchPages)
   store.setBatchJianpuText(text, false, batchId)
   const historyBatchId = historyBatchIdForPages(batchPages)
   if (!historyBatchId) return

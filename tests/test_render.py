@@ -36,8 +36,12 @@ from score_trans.services.render.layout.measure import _score_measure_layout
 from score_trans.services.render.layout.beat import _item_slots
 from score_trans.services.render.layout.rows import _layout_rows
 from score_trans.services.render.main import (
+    A4_BOTTOM_MARGIN,
     A4_LINE_HEIGHT,
+    A4_PAGE_HEIGHT,
+    A4_ROW_BOTTOM_EXTENT,
     _a4_render_options,
+    _a4_score_top,
     _paginate_rows,
 )
 
@@ -145,12 +149,32 @@ def test_render_new_syntax_repeat_marks_and_semantics() -> None:
     assert ">春</text>" in svg
 
 
+def test_staccato_uses_triangle_distinct_from_high_octave_dot() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\n^. 1 2' |")
+    root = _svg_root(svg)
+    staccato_paths = [
+        path
+        for path in _svg_elements(root, "path")
+        if path.attrib.get("class") == "staccato"
+    ]
+    octave_dots = [
+        circle
+        for circle in _svg_elements(root, "circle")
+        if circle.attrib.get("class") == "octave-dot"
+    ]
+
+    assert len(staccato_paths) == 1
+    assert staccato_paths[0].attrib["d"].endswith(" Z")
+    assert len(octave_dots) == 1
+
+
 def test_render_tuplet_group_shows_bracket_and_number() -> None:
     svg = render_jianpu_svg("1=C\n4/4\n$^.1 ^>2 3$ 4 5 6 |")
 
     assert 'class="tuplet-bracket"' in svg
     assert 'class="tuplet-number"' in svg
     assert 'class="articulation"' in svg
+    assert 'class="staccato"' in svg
     assert ">3</text>" in svg
 
 
@@ -318,8 +342,8 @@ def test_render_scores_a4_svgs_continue_across_source_page_boundaries() -> None:
     assert all_numbers[:78] == [str(number) for number in range(1, 79)]
 
 
-def test_a4_compact_layout_uses_tighter_line_height() -> None:
-    assert A4_LINE_HEIGHT == 126
+def test_a4_layout_uses_increased_line_height() -> None:
+    assert A4_LINE_HEIGHT == 160
 
 
 def test_a4_compact_layout_hits_measure_capacity_targets() -> None:
@@ -358,14 +382,27 @@ def _first_note_center_gap(measure_body: str, options: RenderOptions) -> float:
     return slots[1][1] - slots[0][1]
 
 
-def test_a4_compact_layout_paginates_twelve_rows_per_page() -> None:
+def test_a4_layout_paginates_ten_rows_per_page() -> None:
     options = _a4_render_options(None, title="简谱")
     score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
     layout = _score_measure_layout(score.measures[0], options)
 
     pages = _paginate_rows([[layout] for _ in range(25)], options)
 
-    assert [len(page) for page in pages] == [12, 12, 1]
+    assert [len(page) for page in pages] == [10, 10, 5]
+
+
+def test_a4_full_page_rows_reach_bottom_safe_area() -> None:
+    options = _a4_render_options(None, title="简谱")
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
+    layout = _score_measure_layout(score.measures[0], options)
+
+    first_page = _paginate_rows([[layout] for _ in range(10)], options)[0]
+    last_baseline = _a4_score_top(options) + (len(first_page) - 1) * options.line_height
+    remaining = A4_PAGE_HEIGHT - A4_BOTTOM_MARGIN - last_baseline - A4_ROW_BOTTOM_EXTENT
+
+    assert len(first_page) == 10
+    assert 0 <= remaining < 8
 
 
 def test_a4_compact_render_keeps_dense_symbols_legible() -> None:

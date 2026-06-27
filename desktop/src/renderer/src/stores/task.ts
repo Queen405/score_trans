@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { RenderPageOcrText, SSEProgressEvent } from '../models/types'
+import {
+  composeJianpuPageText,
+  migrateLegacyJianpuPageText,
+  removeJianpuPageSection,
+} from '../utils/jianpuPageSections'
 
 export type TaskPageStatus = 'pending' | 'processing' | 'waiting' | 'completed' | 'failed'
 
@@ -89,10 +94,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
 }
 
 function mergeJianpuTexts(batchPages: TaskPageInput[]): string {
-  return batchPages
-    .map((page) => (page.jianpuText ?? '').trim())
-    .filter(Boolean)
-    .join('\n\n')
+  return composeJianpuPageText(batchPages)
 }
 
 export const useTaskStore = defineStore('task', () => {
@@ -121,6 +123,7 @@ export const useTaskStore = defineStore('task', () => {
   const batchRenderPageOcrDirty = ref<Record<string, Record<number, boolean>>>({})
   const batchJianpuTexts = ref<Record<string, string>>({})
   const batchJianpuDirty = ref<Record<string, boolean>>({})
+  const batchJianpuPendingPageIds = ref<Record<string, string[]>>({})
 
   function syncCurrentFromPage(): void {
     const page = pages.value[currentPageIndex.value]
@@ -294,6 +297,11 @@ export const useTaskStore = defineStore('task', () => {
     const batchId = currentBatchId.value
     if (!batchId) return jianpuDirty.value
     return batchJianpuDirty.value[batchId] ?? false
+  })
+  const currentBatchJianpuPendingPageIds = computed(() => {
+    const batchId = currentBatchId.value
+    if (!batchId) return []
+    return batchJianpuPendingPageIds.value[batchId] ?? []
   })
   const currentBatchRenderPageOcrDirty = computed(() => {
     const batchId = currentBatchId.value
@@ -517,6 +525,12 @@ export const useTaskStore = defineStore('task', () => {
       ...batchJianpuDirty.value,
       [batchId]: dirty,
     }
+    if (!dirty) {
+      batchJianpuPendingPageIds.value = {
+        ...batchJianpuPendingPageIds.value,
+        [batchId]: [],
+      }
+    }
   }
 
   function markBatchJianpuClean(batchId = currentBatchId.value): void {
@@ -536,6 +550,28 @@ export const useTaskStore = defineStore('task', () => {
 
   function isBatchJianpuDirty(batchId: string): boolean {
     return batchJianpuDirty.value[batchId] ?? false
+  }
+
+  function batchJianpuPendingPageIdsFor(batchId: string): string[] {
+    return batchJianpuPendingPageIds.value[batchId] ?? []
+  }
+
+  function markBatchJianpuPagePending(pageId: string, batchId = currentBatchId.value): void {
+    if (!batchId || !pageId) return
+    const pending = batchJianpuPendingPageIds.value[batchId] ?? []
+    if (pending.includes(pageId)) return
+    batchJianpuPendingPageIds.value = {
+      ...batchJianpuPendingPageIds.value,
+      [batchId]: [...pending, pageId],
+    }
+  }
+
+  function clearBatchJianpuPendingPages(batchId = currentBatchId.value): void {
+    if (!batchId) return
+    batchJianpuPendingPageIds.value = {
+      ...batchJianpuPendingPageIds.value,
+      [batchId]: [],
+    }
   }
 
   function setPageStartMeasureNumber(value: number | null) {
@@ -558,9 +594,32 @@ export const useTaskStore = defineStore('task', () => {
 
   function removePage(index: number): void {
     if (index < 0 || index >= pages.value.length) return
+    const removedPage = pages.value[index]!
+    const batchLocalIndex = pages.value
+      .filter((page) => page.batchId === removedPage.batchId)
+      .indexOf(removedPage)
     pages.value.splice(index, 1)
+    if (removedPage.batchId) {
+      const batchText = batchJianpuTexts.value[removedPage.batchId] ?? ''
+      if (batchText) {
+        setBatchJianpuText(
+          removeJianpuPageSection(batchText, batchLocalIndex),
+          true,
+          removedPage.batchId,
+        )
+      }
+      setBatchRenderPageFileIds([], removedPage.batchId)
+      batchJianpuPendingPageIds.value = {
+        ...batchJianpuPendingPageIds.value,
+        [removedPage.batchId]: (batchJianpuPendingPageIds.value[removedPage.batchId] ?? [])
+          .filter((pageId) => pageId !== removedPage.id),
+      }
+    }
     if (pages.value.length === 0) {
       currentPageIndex.value = -1
+      syncCurrentFromPage()
+    } else if (currentPageIndex.value > index) {
+      currentPageIndex.value -= 1
       syncCurrentFromPage()
     } else if (currentPageIndex.value >= pages.value.length) {
       currentPageIndex.value = pages.value.length - 1
@@ -687,6 +746,7 @@ export const useTaskStore = defineStore('task', () => {
     batchRenderPageOcrDirty.value = {}
     batchJianpuTexts.value = {}
     batchJianpuDirty.value = {}
+    batchJianpuPendingPageIds.value = {}
   }
 
   function loadBatch(
@@ -734,11 +794,15 @@ export const useTaskStore = defineStore('task', () => {
     setBatchRenderPageOcrTexts(renderPageOcrTexts, false, bid)
     batchJianpuTexts.value = {
       ...batchJianpuTexts.value,
-      [bid]: batchJianpuText || mergeJianpuTexts(batchPages),
+      [bid]: migrateLegacyJianpuPageText(batchJianpuText, batchPages),
     }
     batchJianpuDirty.value = {
       ...batchJianpuDirty.value,
       [bid]: false,
+    }
+    batchJianpuPendingPageIds.value = {
+      ...batchJianpuPendingPageIds.value,
+      [bid]: [],
     }
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))
     currentPageIndex.value = idx
@@ -779,6 +843,7 @@ export const useTaskStore = defineStore('task', () => {
     currentBatchRenderPageOcrDirty,
     currentBatchJianpuText,
     currentBatchJianpuDirty,
+    currentBatchJianpuPendingPageIds,
     addInputPage,
     selectPage,
     selectPageById,
@@ -808,6 +873,9 @@ export const useTaskStore = defineStore('task', () => {
     markBatchJianpuClean,
     batchJianpuTextFor,
     isBatchJianpuDirty,
+    batchJianpuPendingPageIdsFor,
+    markBatchJianpuPagePending,
+    clearBatchJianpuPendingPages,
     setPageStartMeasureNumber,
     setHistoryPageId,
     setPageHistoryPageId,

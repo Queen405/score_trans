@@ -507,7 +507,8 @@ onUnmounted(() => {
 }
 
 .svg-inline :deep(.playback-note.playback-current .octave-dot),
-.svg-inline :deep(.playback-note.playback-current .rhythm-dot) {
+.svg-inline :deep(.playback-note.playback-current .rhythm-dot),
+.svg-inline :deep(.playback-note.playback-current .staccato) {
   fill: #d97706;
 }
 

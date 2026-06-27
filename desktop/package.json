@@ -8,7 +8,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
-    "lint": "eslint --config eslint.config.mjs src/"
+    "lint": "eslint --config eslint.config.mjs src/",
+    "test:utils": "node --test scripts/test-jianpu-page-sections.mjs"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",

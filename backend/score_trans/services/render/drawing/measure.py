@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..models.layout import MeasureLayout, RenderItem
 from ..options import RenderOptions
+from ..utils.articulations import _render_staccato
 from ..utils.helpers import _mark_display
 from ..utils.metrics import _token_metrics
 from ..utils.positioning import _technique_mark
@@ -201,7 +202,7 @@ def _render_tuplet_articulation(name: str, cx: float, y: float) -> list[str]:
             f'<path class="articulation" d="M {cx - 8:.1f} {y - 4:.1f} L {cx + 8:.1f} {y:.1f} L {cx - 8:.1f} {y + 4:.1f}"/>'
         ]
     if normalized == "staccato":
-        return [f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y:.1f}" r="2.2"/>']
+        return [_render_staccato(cx, y, size=4.0)]
     if normalized == "tenuto":
         return [
             f'<line class="articulation" x1="{cx - 7:.1f}" y1="{y:.1f}" x2="{cx + 7:.1f}" y2="{y:.1f}"/>'

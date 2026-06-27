@@ -112,6 +112,16 @@
                   style="width: 100px"
                 />
               </div>
+              <n-button
+                v-if="store.currentBatchJianpuPendingPageIds.length"
+                size="tiny"
+                type="warning"
+                secondary
+                @click="mergePendingRecognitionResults"
+              >
+                <template #icon><n-icon size="13"><RefreshOutline /></n-icon></template>
+                合入识别结果
+              </n-button>
               <n-button size="tiny" quaternary @click="syntaxGuideOpen = true">
                 <template #icon><n-icon size="13"><HelpCircleOutline /></n-icon></template>
                 语法说明
@@ -198,6 +208,13 @@ import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
+import {
+  composeJianpuPageText,
+  hasJianpuPageMarkers,
+  parseJianpuPageSections,
+  replaceJianpuSectionBody,
+  updateJianpuPageStart,
+} from '../utils/jianpuPageSections'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import {
   listenHistoryPagePatched,
@@ -283,6 +300,7 @@ watch(jianpuText, (v) => {
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
   }
+  syncPageStartsFromEditor(v)
 })
 watch(() => store.svgFileIds, () => {
   if (!isViewingFinal.value) finalSvgFileIds.value = currentPageSvgIds()
@@ -883,6 +901,34 @@ function batchRenderSourcePages(): TaskPage[] {
   )
 }
 
+function syncPageStartsFromEditor(text: string): void {
+  if (!hasJianpuPageMarkers(text)) return
+  const sections = parseJianpuPageSections(text)
+  const batchPages = store.currentBatchPages
+  if (sections.length !== batchPages.length) return
+  sections.forEach((section, order) => {
+    const page = batchPages[section.pageIndex] ?? batchPages[order]
+    if (page && page.startMeasureNumber !== section.startMeasureNumber) {
+      store.patchPageById(page.id, { startMeasureNumber: section.startMeasureNumber })
+    }
+  })
+}
+
+function mergePendingRecognitionResults(): void {
+  const pendingIds = new Set(store.currentBatchJianpuPendingPageIds)
+  if (!pendingIds.size) return
+  let merged = jianpuText.value
+  store.currentBatchPages.forEach((page, pageIndex) => {
+    if (!pendingIds.has(page.id)) return
+    merged = replaceJianpuSectionBody(merged, pageIndex, page.jianpuText, page)
+  })
+  store.setBatchJianpuText(merged, true)
+  store.clearBatchJianpuPendingPages()
+  store.setBatchRenderPageFileIds([])
+  setFinalSvgFileIds([])
+  message.success(`已合入 ${pendingIds.size} 页识别结果`)
+}
+
 async function renderExportSvgIds(): Promise<string[]> {
   if (store.currentBatchRenderPageOcrDirty) return renderFinalBatch()
   if (finalSvgFileIds.value.length) return finalSvgFileIds.value
@@ -919,21 +965,57 @@ async function renderFinalBatch(): Promise<string[]> {
 }
 
 function buildBatchRenderPages(): BatchRenderPageRequest[] {
-  const text = jianpuText.value.trim()
-  if (text) {
-    return [{
-      jianpu_text: jianpuText.value,
-      include_ocr_text: false,
-      start_measure_number: batchStartMeasureNumber.value ?? undefined,
-      title: '简谱',
-    }]
+  if (jianpuText.value.trim()) {
+    return buildSectionRenderPages(jianpuText.value)
   }
+  return buildPageRenderRequests()
+}
+
+function buildSectionRenderPages(text: string): BatchRenderPageRequest[] {
+  const batchPages = batchRenderSourcePages()
+  return parseJianpuPageSections(text)
+    .map((section, order) => {
+      const page = batchPages[section.pageIndex] ?? batchPages[order]
+      const sourceImageId = page?.originalFileId || page?.inputFileId || undefined
+      const start = section.startMeasureNumber
+        ?? (!section.markerLine && order === 0
+          ? (page?.startMeasureNumber ?? undefined)
+          : undefined)
+      if (section.body.trim()) {
+        return {
+          input_file_name: section.inputFileName || page?.inputFileName,
+          jianpu_text: section.body,
+          page_image_file_id: sourceImageId,
+          ocr_text: page?.ocrText || undefined,
+          include_ocr_text: false,
+          start_measure_number: start,
+          title: '简谱',
+        }
+      }
+      if (page?.musicxmlFileId) {
+        return {
+          input_file_name: section.inputFileName || page.inputFileName,
+          musicxml_file_id: page.musicxmlFileId,
+          page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
+          start_measure_number: start,
+          title: '简谱',
+        }
+      }
+      return null
+    })
+    .filter((page): page is BatchRenderPageRequest => page !== null)
+}
+
+function buildPageRenderRequests(): BatchRenderPageRequest[] {
   return batchRenderSourcePages()
     .map((page) => {
       const sourceImageId = page.originalFileId || page.inputFileId || undefined
       const start = page.startMeasureNumber ?? undefined
       if (page.jianpuText.trim()) {
         return {
+          input_file_name: page.inputFileName,
           jianpu_text: page.jianpuText,
           page_image_file_id: sourceImageId,
           ocr_text: page.ocrText || undefined,
@@ -944,8 +1026,11 @@ function buildBatchRenderPages(): BatchRenderPageRequest[] {
       }
       if (page.musicxmlFileId) {
         return {
+          input_file_name: page.inputFileName,
           musicxml_file_id: page.musicxmlFileId,
           page_image_file_id: sourceImageId,
+          ocr_text: page.ocrText || undefined,
+          include_ocr_text: false,
           start_measure_number: start,
           title: '简谱',
         }
@@ -956,35 +1041,9 @@ function buildBatchRenderPages(): BatchRenderPageRequest[] {
 }
 
 function buildBatchRenderSourcePages(): BatchRenderPageRequest[] {
-  return batchRenderSourcePages()
-    .map((page) => {
-      const sourceImageId = page.originalFileId || page.inputFileId || undefined
-      const start = page.startMeasureNumber ?? undefined
-      if (page.jianpuText.trim()) {
-        return {
-          input_file_name: page.inputFileName,
-          jianpu_text: page.jianpuText,
-          page_image_file_id: sourceImageId,
-          ocr_text: page.ocrText || undefined,
-          include_ocr_text: false,
-          start_measure_number: start,
-          title: '简谱',
-        }
-      }
-      if (page.musicxmlFileId) {
-        return {
-          input_file_name: page.inputFileName,
-          musicxml_file_id: page.musicxmlFileId,
-          page_image_file_id: sourceImageId,
-          ocr_text: page.ocrText || undefined,
-          include_ocr_text: false,
-          start_measure_number: start,
-          title: '简谱',
-        }
-      }
-      return null
-    })
-    .filter((page): page is BatchRenderPageRequest => page !== null)
+  return jianpuText.value.trim()
+    ? buildSectionRenderPages(jianpuText.value)
+    : buildPageRenderRequests()
 }
 
 function renderResponsePageIds(pages: RenderedSvgPage[] | undefined, fallback: string): string[] {
@@ -1062,7 +1121,7 @@ async function musicxmlToJianpu(): Promise<void> {
     })
     const split = splitJianpuAndOcr(result.jianpu_text)
     store.setJianpu(split.jianpuText)
-    store.setBatchJianpuText(split.jianpuText, false)
+    store.setBatchJianpuText(composeJianpuPageText(store.currentBatchPages), false)
     store.setOcrText(split.ocrText || store.ocrText)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
@@ -1129,18 +1188,17 @@ async function renderSvg(): Promise<void> {
   }
 }
 
-async function handleStartMeasureChange(value: number | null): Promise<void> {
+function handleStartMeasureChange(value: number | null): void {
   const first = firstBatchPage()
   if (first?.id) {
     store.patchPageById(first.id, { startMeasureNumber: value })
   } else {
     store.setPageStartMeasureNumber(value)
   }
+  const baseText = jianpuText.value || composeJianpuPageText(store.currentBatchPages)
+  jianpuText.value = updateJianpuPageStart(baseText, 0, value, first?.inputFileName ?? '')
   store.setBatchRenderPageFileIds([])
   setFinalSvgFileIds([])
-  if (isViewingFinal.value && finalSvgFileId.value) {
-    await renderSvg()
-  }
 }
 
 async function toggleFinalView(): Promise<void> {
@@ -1166,19 +1224,26 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
   if (savedJianpu.trim()) {
     await renderApi.normalizeJianpuText({ jianpu_text: savedJianpu, title: '简谱' })
   }
+  const sections = parseJianpuPageSections(savedJianpu)
+  const currentPageIndex = Math.max(0, currentBatchLocalIndex.value)
+  const currentSection = sections.find((section) => section.pageIndex === currentPageIndex)
+    ?? sections[currentPageIndex]
   const historyBatchId = currentHistoryBatchId()
   if (historyBatchId) {
     await persistBatchJianpuText(historyBatchId, savedJianpu)
   }
-  await persistFirstPageStartMeasure()
-  const sourcePageText = savedJianpu || store.currentPage?.jianpuText || store.jianpuText
+  const sourcePageText = currentSection?.body
+    ?? store.currentPage?.jianpuText
+    ?? store.jianpuText
   const sourceSvgFileId = store.currentPage?.svgFileId || store.svgFileId || svgFileId
   const payload = {
     musicxml_file_id: store.musicxmlFileId,
     jianpu_text: sourcePageText,
     ocr_text: store.ocrText,
     svg_file_id: sourceSvgFileId,
-    start_measure_number: store.startMeasureNumber ?? null,
+    start_measure_number: currentSection
+      ? currentSection.startMeasureNumber
+      : (store.startMeasureNumber ?? null),
     status: 'completed',
     error_message: '',
   }
@@ -1186,33 +1251,73 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
   if (store.historyPageId) {
     const updated = await historyApi.updatePage(store.historyPageId, payload)
     replaceExpandedHistoryPage(updated)
+    await persistOtherHistoryPageSections(savedJianpu, store.historyPageId)
     await persistBatchRenderPages(renderPageFileIds)
     await persistBatchRenderPageOcrTexts()
     return
   }
 
+  const batchPages = store.currentBatchPages.length
+    ? store.currentBatchPages
+    : [currentExportPage()]
   const created = await historyApi.create({
     jianpu_text: savedJianpu,
     render_page_file_ids: renderPageFileIds,
     render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
-    pages: [{
-      input_file_name: store.inputFileName,
-      input_file_id: store.inputFileId,
-      musicxml_file_id: store.musicxmlFileId,
-      jianpu_text: sourcePageText || savedJianpu,
-      ocr_text: store.ocrText,
-      svg_file_id: sourceSvgFileId,
-      status: 'completed',
-      error_message: '',
-    }],
+    pages: batchPages.map((page, pageIndex) => {
+      const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
+      return {
+        input_file_name: page.inputFileName,
+        input_file_id: page.inputFileId,
+        musicxml_file_id: page.musicxmlFileId,
+        jianpu_text: section?.body ?? page.jianpuText,
+        ocr_text: page.ocrText,
+        svg_file_id: page.svgFileId || (pageIndex === currentPageIndex ? sourceSvgFileId : ''),
+        start_measure_number: section
+          ? section.startMeasureNumber
+          : (page.startMeasureNumber ?? null),
+        status: 'completed',
+        error_message: '',
+      }
+    }),
   })
-  const pageId = created.pages[0]?.id
+  created.pages.forEach((createdPage, pageIndex) => {
+    const page = batchPages[pageIndex]
+    if (!page) return
+    store.patchPageById(page.id, {
+      historyPageId: createdPage.id,
+      historyBatchId: created.id,
+      jianpuText: createdPage.jianpu_text,
+      startMeasureNumber: createdPage.start_measure_number,
+    })
+  })
+  const pageId = created.pages[currentPageIndex]?.id ?? created.pages[0]?.id
   if (pageId) {
-    store.setHistoryPageId(pageId)
-    store.patchPageByHistoryPageId(pageId, { historyBatchId: created.id })
     await persistBatchRenderPages(renderPageFileIds, created.id)
     await persistBatchRenderPageOcrTexts(created.id)
     await loadHistory()
+  }
+}
+
+async function persistOtherHistoryPageSections(
+  text: string,
+  currentHistoryPageId: number,
+): Promise<void> {
+  const sections = parseJianpuPageSections(text)
+  for (let pageIndex = 0; pageIndex < store.currentBatchPages.length; pageIndex += 1) {
+    const page = store.currentBatchPages[pageIndex]
+    const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
+    if (!page || !section) continue
+    store.patchPageById(page.id, {
+      jianpuText: section.body,
+      startMeasureNumber: section.startMeasureNumber,
+    })
+    if (!page.historyPageId || page.historyPageId === currentHistoryPageId) continue
+    const updated = await historyApi.updatePage(page.historyPageId, {
+      jianpu_text: section.body,
+      start_measure_number: section.startMeasureNumber,
+    })
+    replaceExpandedHistoryPage(updated)
   }
 }
 
@@ -1228,18 +1333,6 @@ async function persistBatchJianpuText(batchId: number, text: string): Promise<vo
   }
 }
 
-async function persistFirstPageStartMeasure(): Promise<void> {
-  const first = firstBatchPage()
-  if (!first?.historyPageId) return
-  try {
-    const updated = await historyApi.updatePage(first.historyPageId, {
-      start_measure_number: first.startMeasureNumber ?? null,
-    })
-    replaceExpandedHistoryPage(updated)
-  } catch (e: unknown) {
-    log.addLog(`保存批次起始小节失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
-  }
-}
 </script>
 
 <style scoped>
