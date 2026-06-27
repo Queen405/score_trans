@@ -58,9 +58,115 @@ OMR 相关参数全部集中在 `backend/score_trans/config/.env` 中，分为�
 
 
 
-## 3. 参数详解
+## 3. Audiveris CLI 参数对照
 
-### 3.1 外部工具路径
+Score Trans 并不直接暴露 Audiveris 的命令行界面，而是把相关选项封装成了 `.env` 中的环境变量。实际运行时，后端会按以下规则拼接出 Audiveris CLI 参数：
+
+```python
+args = ["-batch"]
+if config.audiveris_step:    args += ["-step", step]
+if config.audiveris_force:   args += ["-force"]
+if config.audiveris_save:    args += ["-save"]
+if config.audiveris_swap:    args += ["-swap"]
+if config.audiveris_transcribe: args += ["-transcribe"]
+if config.audiveris_sheets:  args += ["-sheets", sheets]
+for c in constants:          args += ["-constant", c]
+args += extra_args
+args += ["-export", "-output", output_dir, input_file]
+```
+
+### 3.1 已映射的 Audiveris CLI 参数
+
+| Audiveris CLI 参数 | 对应环境变量 | 默认值 | 说明 |
+|---|---|---|---|
+| `-batch` | 固定启用 | — | 批处理模式，不启动 GUI |
+| `-step <STEP>` | `SCORE_TRANS_AUDIVERIS_STEP` | 空 | 只执行到指定处理步骤 |
+| `-force` | `SCORE_TRANS_AUDIVERIS_FORCE` | 未启用 | 强制重新识别 |
+| `-save` | `SCORE_TRANS_AUDIVERIS_SAVE` | 未启用 | 保存 `.omr` 工程文件 |
+| `-swap` | `SCORE_TRANS_AUDIVERIS_SWAP` | 未启用 | 交换声部 |
+| `-transcribe` | `SCORE_TRANS_AUDIVERIS_TRANSCRIBE` | 未启用 | 输出内部转录结果 |
+| `-sheets <SPEC>` | `SCORE_TRANS_AUDIVERIS_SHEETS` | 空 | 指定处理的乐谱页 |
+| `-constant <KEY=VALUE>` | `SCORE_TRANS_AUDIVERIS_CONSTANTS` | 空 | 设置 Audiveris 内部常量 |
+| `-export` | 固定启用 | — | 导出 MusicXML |
+| `-output <DIR>` | 由代码生成 | `work/audiveris/...` | 输出目录 |
+| 任意参数 | `SCORE_TRANS_AUDIVERIS_EXTRA_ARGS` | 空 | 兜底追加 |
+
+### 3.2 实际命令示例
+
+以 Gradle Wrapper 启动方式为例，若设置了 `SCORE_TRANS_AUDIVERIS_STEP=BINARY` 和 `SCORE_TRANS_AUDIVERIS_FORCE=1`，后端会生成类似命令：
+
+```bash
+gradlew.bat :app:run -PcmdLineArgs=-batch,-step,BINARY,-force,-export,-output,work/audiveris/xxx,page.png
+```
+
+若使用独立可执行文件，则类似：
+
+```bash
+audiveris -batch -step BINARY -force -export -output work/audiveris/xxx page.png
+```
+
+### 3.3 支持的 `-step` 取值
+
+Audiveris 的完整处理流水线包含多个步骤，可用 `-step` 提前终止：
+
+| 步骤名 | 说明 |
+|---|---|
+| `LOAD` | 加载输入图像 |
+| `BINARY` | 二值化 |
+| `SCALE` | 估算谱线间距 |
+| `GRID` | 检测谱表系统 |
+| `HEADERS` | 识别谱号、调号、拍号 |
+| `STEM_SEEDS` | 识别符干种子 |
+| `BEAMS` | 识别符杠 |
+| `LEDGERS` | 识别加线 |
+| `HEADS` | 识别符头 |
+| `STEMS` | 识别符干 |
+| `REDUCTION` | 合并符头与符干 |
+| `CUE_BEAMS` | 识别弱拍符杠 |
+| `TEXTS` | 识别文本 |
+| `MEASURES` | 识别小节 |
+| `CHORDS` | 识别和弦 |
+| `CURVES` | 识别连音线、圆滑线 |
+| `SYMBOLS` | 识别其他符号 |
+| `LINKS` | 链接符号关系 |
+| `RHYTHMS` | 节奏分析 |
+| `PAGE` | 完整页面处理 |
+
+> 默认不指定 `-step` 时，Audiveris 会跑完整个流水线。
+
+### 3.4 `-constant` 常用项
+
+Audiveris 内部有大量可调整的算法常量，格式为 `-constant key=value`。多个常量用 `;` 分隔写入环境变量。
+
+| 常量名 | 示例值 | 说明 |
+|---|---|---|
+| `minDurDivisor` | `2` | 最小时值除数 |
+| `maxPageWidth` | `4000` | 页面最大宽度像素 |
+| `maxLyricsCount` | `8` | 最大歌词行数 |
+| `beamMinSlope` | `0.05` | 符杠最小斜率 |
+
+> 完整常量列表和含义请参考 [Audiveris 官方文档](https://audiveris.github.io/audiveris/) 或源码中的 `omr/constant` 包。
+
+### 3.5 Audiveris 原生参数速查
+
+除 Score Trans 已映射的参数外，Audiveris 还支持一些原生 CLI 参数。当环境变量无法满足需求时，可通过 `SCORE_TRANS_AUDIVERIS_EXTRA_ARGS` 追加。常见选项包括：
+
+| 原生参数 | 说明 |
+|---|---|
+| `-help` | 打印帮助信息 |
+| `-version` | 打印版本信息 |
+| `-run <CLASS>` | 运行指定 Java 类 |
+| `-option <KEY=VALUE>` | 设置某些运行期选项 |
+| `-debug` | 提高日志详细程度 |
+| `-verbose` | 输出更多信息 |
+
+> 建议先在本地命令行运行 `audiveris -help` 或 `gradlew.bat :app:run -PcmdLineArgs=-help` 查看当前版本支持的完整参数列表。
+
+---
+
+## 4. 参数详解
+
+### 4.1 外部工具路径
 
 #### `SCORE_TRANS_AUDIVERIS`
 
@@ -108,7 +214,60 @@ OMR 相关参数全部集中在 `backend/score_trans/config/.env` 中，分为�
 
 ---
 
-### 3.2 Audiveris 执行选项
+
+---
+
+## 4. 参数详解
+
+### 4.1 外部工具路径
+
+#### `SCORE_TRANS_AUDIVERIS`
+
+- **含义**：Audiveris 的启动入口。
+- **默认值**：`third_party/audiveris/gradlew.bat`
+- **格式要求**：
+  - Windows 下通常为 `gradlew.bat` 或编译后的 `audiveris.exe`。
+  - 使用 Gradle Wrapper 时，代码会自动使用 `:app:run` 任务启动。
+  - 使用独立可执行文件时，直接作为命令调用。
+- **常见配置**：
+  ```env
+  # 使用源码/Wrapper（开发环境）
+  SCORE_TRANS_AUDIVERIS=third_party/audiveris/gradlew.bat
+
+  # 使用已编译的独立可执行文件
+  SCORE_TRANS_AUDIVERIS=C:/Tools/Audiveris/bin/audiveris.exe
+  ```
+- **注意事项**：路径中的反斜杠建议写成正斜杠，或使用双反斜杠，避免转义问题。
+
+#### `SCORE_TRANS_JAVA_HOME`
+
+- **含义**：Audiveris 运行依赖的 JDK 根目录。
+- **默认值**：`E:/ENV/JAVA/JDK25`
+- **要求**：必须是 **JDK 25**，Audiveris 对 Java 版本要求较严格。
+- **校验逻辑**：启动时会检查 `{JAVA_HOME}/bin/java.exe` 是否存在；不存在会抛出 `ExternalToolError`。
+- **常见配置**：
+  ```env
+  SCORE_TRANS_JAVA_HOME=E:/ENV/JAVA/JDK25
+  # 或
+  SCORE_TRANS_JAVA_HOME=C:/Program Files/Java/jdk-25
+  ```
+
+#### `SCORE_TRANS_WORKDIR`
+
+- **含义**：工作目录根路径，用于存放上传文件、识别中间产物、历史记录等。
+- **默认值**：`work`
+- **效果**：后端会在此目录下创建 `uploads/`、`pipeline/`、`audiveris/`、`history/` 等子目录。
+- **建议**：确保该目录所在磁盘有足够空间，Audiveris 识别过程中可能产生较大临时文件。
+
+#### `SCORE_TRANS_OUTPUT_DIR`
+
+- **含义**：额外输出目录。
+- **默认值**：空（使用 `SCORE_TRANS_WORKDIR`）
+- **效果**：留空时，所有输出都放在工作目录下；否则可作为辅助输出位置。
+
+---
+
+### 4.2 Audiveris 执行选项
 
 这些参数最终会被翻译成 Audiveris 命令行参数。代码中的映射关系如下：
 
