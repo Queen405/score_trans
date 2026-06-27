@@ -19,7 +19,13 @@ desktop/build-log.txt
 desktop/dist-electron/
 desktop/build/
 desktop/out/
+website/
 *.tsbuildinfo
+
+# 官方介绍网站（无需上传 GitHub，本地独立部署）
+website/node_modules/
+website/dist/
+website/.vite/
 
 # third_party 构建缓存
 third_party/audiveris/.gradle/

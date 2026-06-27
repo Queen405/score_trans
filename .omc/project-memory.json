@@ -1,0 +1,199 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1782565382375,
+  "projectRoot": "D:\\CODE\\MyProjects\\score_trans",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "pyproject.toml",
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "fastapi",
+        "version": null,
+        "category": "backend"
+      },
+      {
+        "name": "pytest",
+        "version": null,
+        "category": "testing"
+      }
+    ],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": "pytest",
+    "lintCommand": "ruff check",
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "examples",
+      "scripts",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "master",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "backend": {
+      "path": "backend",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1782565382341,
+      "keyFiles": []
+    },
+    "build": {
+      "path": "build",
+      "purpose": "Build output",
+      "fileCount": 0,
+      "lastAccessed": 1782565382341,
+      "keyFiles": []
+    },
+    "build-resources": {
+      "path": "build-resources",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1782565382342,
+      "keyFiles": []
+    },
+    "desktop": {
+      "path": "desktop",
+      "purpose": null,
+      "fileCount": 13,
+      "lastAccessed": 1782565382343,
+      "keyFiles": [
+        "AGENTS.md",
+        "build-log.txt",
+        "electron-builder.yml",
+        "electron.vite.config.ts",
+        "eslint.config.mjs"
+      ]
+    },
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 0,
+      "lastAccessed": 1782565382343,
+      "keyFiles": []
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 4,
+      "lastAccessed": 1782565382344,
+      "keyFiles": [
+        "architecture.md",
+        "file-by-file.md",
+        "issues.md",
+        "omr_parameters_manual.md"
+      ]
+    },
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 2,
+      "lastAccessed": 1782565382344,
+      "keyFiles": [
+        "5.瑞雪迎春 - 分谱.pdf",
+        "simple_jianpu.txt"
+      ]
+    },
+    "resources": {
+      "path": "resources",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1782565382344,
+      "keyFiles": [
+        "1.jpg",
+        "2.jpg",
+        "3.jpg",
+        "4.jpg",
+        "5.jpg"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1782565382345,
+      "keyFiles": [
+        "prompt_validation.py"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 14,
+      "lastAccessed": 1782565382345,
+      "keyFiles": [
+        "test_ai_transcription.py",
+        "test_api_routes.py",
+        "test_architecture.py",
+        "test_cache_service.py",
+        "test_convert.py"
+      ]
+    },
+    "third_party": {
+      "path": "third_party",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1782565382346,
+      "keyFiles": []
+    },
+    "work": {
+      "path": "work",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1782565382346,
+      "keyFiles": [
+        "ai_chat.db",
+        "full_test.mid",
+        "history.db",
+        "settings.db",
+        "tasks.db"
+      ]
+    },
+    "desktop\\build": {
+      "path": "desktop\\build",
+      "purpose": "Build output",
+      "fileCount": 2,
+      "lastAccessed": 1782565382347,
+      "keyFiles": [
+        "icon.ico",
+        "icon.png"
+      ]
+    },
+    "desktop\\node_modules": {
+      "path": "desktop\\node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 2,
+      "lastAccessed": 1782565382348,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}
