@@ -42,7 +42,11 @@ function createWindow(): void {
   mainWindow.removeMenu()
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    if (isAllowedExternalURL(details.url)) {
+      void shell.openExternal(details.url)
+    } else {
+      console.warn(`[main] Blocked external URL: ${details.url}`)
+    }
     return { action: 'deny' }
   })
 
@@ -90,6 +94,13 @@ app.whenReady().then(async () => {
     await backend.start()
   } catch (err) {
     console.error('[main] Failed to start backend:', err)
+    dialog.showErrorBox(
+      '后端启动失败',
+      `Score Trans 后端无法启动，应用即将退出。\n\n${errorMessage(err)}`,
+    )
+    await cleanupBackend()
+    app.quit()
+    return
   }
 
   const backendURL = backend.getBaseURL()
@@ -188,3 +199,16 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+function isAllowedExternalURL(value: string): boolean {
+  try {
+    const protocol = new URL(value).protocol
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}

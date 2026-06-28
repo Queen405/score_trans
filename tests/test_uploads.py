@@ -34,6 +34,38 @@ def test_upload_manager_persists_registered_mapping(tmp_path: Path) -> None:
     assert restored_path.read_text(encoding="utf-8") == "<score-partwise/>"
 
 
+def test_explicit_work_dir_skips_global_legacy_migration(
+    tmp_path: Path, monkeypatch
+) -> None:
+    def fail_migration(_target: Path) -> None:
+        raise AssertionError("custom work directories must not import global legacy files")
+
+    monkeypatch.setattr(
+        upload_service_module,
+        "_migrate_legacy_uploads_once",
+        fail_migration,
+    )
+
+    UploadService(ToolConfig(work_dir=tmp_path / "work"))
+
+
+def test_default_legacy_migration_runs_once_per_target(
+    tmp_path: Path, monkeypatch
+) -> None:
+    target = (tmp_path / "uploads").resolve()
+    migrated: list[Path] = []
+    monkeypatch.setattr(
+        upload_service_module,
+        "_migrate_legacy_uploads",
+        lambda path: migrated.append(path),
+    )
+
+    upload_service_module._migrate_legacy_uploads_once(target)
+    upload_service_module._migrate_legacy_uploads_once(target)
+
+    assert migrated == [target]
+
+
 def test_upload_manager_restores_legacy_relative_index_paths(
     tmp_path: Path, monkeypatch
 ) -> None:

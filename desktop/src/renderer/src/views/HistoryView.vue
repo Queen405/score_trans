@@ -67,6 +67,10 @@ import { useLogStore } from '../stores/log'
 import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
 import { listenHistoryUpdated, listenHistoryPagePatched, type HistoryPagePatchDetail } from '../utils/historyEvents'
+import {
+  isPreviewableHistoryFile,
+  parseWaitingMeasureOptions,
+} from '../utils/historyPageState'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/types'
@@ -245,18 +249,6 @@ async function validateRestoredBatchFiles(
       log.addLog(`校验历史文件失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
     }
   }
-}
-
-function isPreviewableHistoryFile(fileName: string): boolean {
-  return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
-}
-
-function parseWaitingMeasureOptions(messageText: string): number[] {
-  const match = messageText.match(/等待选择起始小节号[:：]\s*([0-9\s、,，]+)/)
-  if (!match) return []
-  const optionsText = match[1] ?? ''
-  return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0]))
-    .filter((value) => Number.isFinite(value) && value > 0)
 }
 
 function formatTime(iso: string): string {

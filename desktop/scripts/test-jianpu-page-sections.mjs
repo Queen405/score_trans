@@ -256,3 +256,19 @@ test('only the latest waiting history state opens the measure picker', () => {
   assert.equal(historyPageState.historyPageOpenAction('pending'), 'wait')
   assert.equal(historyPageState.historyPageOpenAction('failed'), 'restore')
 })
+
+test('waiting measure messages roundtrip through history state', () => {
+  const message = historyPageState.waitingMeasureMessage([8, 12, 16])
+
+  assert.equal(message, '等待选择起始小节号：8、12、16')
+  assert.deepEqual(historyPageState.parseWaitingMeasureOptions(message), [8, 12, 16])
+  assert.equal(
+    historyPageState.failedMeasureSelectionMessage([8, 12], '网络错误'),
+    '等待选择起始小节号：8、12；选择小节号失败：网络错误',
+  )
+})
+
+test('history preview support is defined in one place', () => {
+  assert.equal(historyPageState.isPreviewableHistoryFile('score.PDF'), true)
+  assert.equal(historyPageState.isPreviewableHistoryFile('score.musicxml'), false)
+})

@@ -294,7 +294,13 @@ import {
   composeJianpuPageText,
   parseJianpuPageSections,
 } from '../utils/jianpuPageSections'
-import { notifyHistoryPagePatched, notifyHistoryUpdated, type HistoryPagePatchDetail } from '../utils/historyEvents'
+import { notifyHistoryPagePatched, notifyHistoryUpdated } from '../utils/historyEvents'
+import {
+  failedMeasureSelectionMessage,
+  historyPagePatchFromPage,
+  parseWaitingMeasureOptions,
+  waitingMeasureMessage,
+} from '../utils/historyPageState'
 import {
   clearLiveRecognitionPage,
   getLiveRecognitionHistoryPageId,
@@ -1336,22 +1342,6 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
   }
 }
 
-function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDetail {
-  return {
-    id: page.id,
-    patch: {
-      task_id: page.task_id,
-      musicxml_file_id: page.musicxml_file_id,
-      jianpu_text: page.jianpu_text,
-      ocr_text: page.ocr_text,
-      svg_file_id: page.svg_file_id,
-      start_measure_number: page.start_measure_number,
-      status: page.status,
-      error_message: page.error_message,
-    },
-  }
-}
-
 function aiMeasureOptions(response: AiTranscribeResponse): number[] {
   return uniquePositiveNumbers(response.pages[0]?.measure_number_candidates || [])
 }
@@ -1711,23 +1701,6 @@ function collectAiWarnings(pages: AiTranscribedPage[], responseWarnings: string[
 function taskProgressText(event: SSEProgressEvent): string {
   if (event.status === 'failed') return event.error || event.message || '任务失败'
   return event.message || event.stage || '处理中'
-}
-
-function waitingMeasureMessage(options: number[]): string {
-  return `等待选择起始小节号：${options.join('、')}`
-}
-
-function failedMeasureSelectionMessage(options: number[], msg: string): string {
-  const prefix = options.length ? `${waitingMeasureMessage(options)}；` : ''
-  return `${prefix}选择小节号失败：${msg}`
-}
-
-function parseWaitingMeasureOptions(messageText: string): number[] {
-  const match = messageText.match(/等待选择起始小节号[:：]\s*([0-9\s、,，]+)/)
-  if (!match) return []
-  const optionsText = match[1] ?? ''
-  return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0]))
-    .filter((value) => Number.isFinite(value) && value > 0)
 }
 
 function renderPageIds(pages: PipelineResponse['render_pages'], fallback: string): string[] {

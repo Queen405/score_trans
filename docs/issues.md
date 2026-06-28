@@ -15,7 +15,7 @@
 | 安全问题 | 5 | ↓1（API key 不再明文返回） |
 | 性能问题 | 6 | ↓1（未使用的 `cleanup_old` 已清理） |
 
-> **验证日期**：2026-06-26。本次基于 2026-06-15 报告继续复核，并清理已确认死代码与错误状态记录。
+> **验证日期**：2026-06-28。本次基于 2026-06-15 报告继续复核，并清理已确认死代码与错误状态记录。
 
 ---
 
@@ -106,11 +106,12 @@
 
 ---
 
-## 五、DI 工厂无缓存
+## 五、DI 工厂重复初始化（已缓解）
 
 - **位置**: `api/dependencies.py`
-- **问题**: 8 个 `get_*_actions()` 工厂函数每次请求仍创建新 Actions 实例（仅 `TaskActions` 通过 `app.state` 缓存）。内部 Service/DAO 重复初始化，上传服务每次还会重新加载 `index.json`。
-- **建议**: 对无状态 Actions 使用 `@lru_cache` 或统一缓存到 `app.state`；UploadService 等可缓存实例避免重复读索引。
+- **状态**: Actions 仍按请求创建，以保留 AI 供应商设置即时生效的语义；其依赖的文件、设置、历史和文件读写 Module 已通过 `exec/composition.py` 进行进程级复用。
+- **修复**: `UploadService` 的旧目录迁移仅在默认运行目录启用，并对同一目标每进程最多执行一次；显式测试/自定义目录不再复制全局旧缓存。
+- **验证**: 全量后端测试由超过 3 分钟未完成降至约 10 秒。
 
 ---
 
@@ -185,7 +186,7 @@
 | `domain/write/` | 中 | 仅通过 roundtrip 间接覆盖 |
 | `exec/` 层 | 中 | `settings`、`files` 的 Actions 未直接测试；任务提交流程未覆盖 |
 | `services/render/` | **好** | beam/tie/slur 细节未覆盖 |
-| `services/tasks/` | **低** | 核心 `TaskManager` 和 `background.py` 仍缺单元测试 |
+| `services/tasks/` | 中 | 已覆盖进度、完成、过期、恢复和后台调度；仍缺并发与 SSE 背压测试 |
 | `services/ai/` | 好 | provider 集成测试不足；prompt 注入、规范化路径未覆盖 |
 | `utils/*` | **低** | `image_info.py`、`json_parsing.py`、`bbox.py` 等无直接单元测试 |
 | `config/*` | **无** | 无测试 |
@@ -200,7 +201,7 @@
 
 ### 短期清理（架构债与技术债）
 3. 清理 exec 层剩余 4 个文件的 `HTTPException`（`history/files/export/render`），改为业务异常
-4. `api/dependencies.py` 为 Actions 工厂添加 `@lru_cache` 或统一缓存到 `app.state`
+4. ~~消除 `api/dependencies.py` 下持久化 Module 的重复初始化~~ ✅ 已通过 `exec/composition.py` 复用
 5. 统一 `DYNAMICS` 力度集合（`domain/constants.py` 与 `services/render/utils/helpers.py`）
 6. DAO 层引入连接池或至少复用连接
 

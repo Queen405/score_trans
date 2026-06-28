@@ -20,18 +20,22 @@ from ..settings.settings_service import SettingsService
 
 _INDEX_LOCK = threading.Lock()
 _INDEX_CACHE: dict[Path, tuple[int, int, dict[str, Path]]] = {}
+_MIGRATION_LOCK = threading.Lock()
+_MIGRATED_UPLOAD_DIRS: set[Path] = set()
 
 
 class UploadService:
     """Manages uploaded files: save, lookup, register, cleanup."""
 
     def __init__(self, config: ToolConfig | None = None) -> None:
+        migrate_legacy = config is None
         self.config = config or SettingsService().load()
         work_dir = self.config.work_dir
         if not work_dir.is_absolute():
             work_dir = USER_CACHE_ROOT / work_dir
         self.base_dir = (work_dir / "uploads").resolve()
-        _migrate_legacy_uploads(self.base_dir)
+        if migrate_legacy:
+            _migrate_legacy_uploads_once(self.base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._index_path = self.base_dir / "index.json"
         self._files: dict[str, Path] = {}
@@ -259,6 +263,15 @@ def _migrate_legacy_uploads(target: Path) -> None:
                     shutil.copy2(child, destination)
         except OSError:
             continue
+
+
+def _migrate_legacy_uploads_once(target: Path) -> None:
+    resolved_target = target.resolve()
+    with _MIGRATION_LOCK:
+        if resolved_target in _MIGRATED_UPLOAD_DIRS:
+            return
+        _migrate_legacy_uploads(resolved_target)
+        _MIGRATED_UPLOAD_DIRS.add(resolved_target)
 
 
 def _same_path(left: Path, right: Path) -> bool:

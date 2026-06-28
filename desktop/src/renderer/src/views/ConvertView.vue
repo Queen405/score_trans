@@ -217,7 +217,13 @@ import {
 } from '../utils/jianpuPageSections'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
-import { historyPageOpenAction } from '../utils/historyPageState'
+import {
+  failedMeasureSelectionMessage,
+  historyPageOpenAction,
+  historyPagePatchFromPage,
+  isPreviewableHistoryFile,
+  parseWaitingMeasureOptions,
+} from '../utils/historyPageState'
 import {
   listenHistoryPagePatched,
   listenHistoryUpdated,
@@ -619,22 +625,6 @@ function batchStatus(statuses: string[]): string {
   return 'completed'
 }
 
-function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDetail {
-  return {
-    id: page.id,
-    patch: {
-      task_id: page.task_id,
-      musicxml_file_id: page.musicxml_file_id,
-      jianpu_text: page.jianpu_text,
-      ocr_text: page.ocr_text,
-      svg_file_id: page.svg_file_id,
-      start_measure_number: page.start_measure_number,
-      status: page.status,
-      error_message: page.error_message,
-    },
-  }
-}
-
 function formatTime(iso: string): string {
   if (!iso) return ''
   const d = new Date(iso.replace(' ', 'T'))
@@ -651,27 +641,6 @@ function historyStatusClass(status: string): string {
 
 function isWaitingStatus(status: string): boolean {
   return status === 'waiting'
-}
-
-function isPreviewableHistoryFile(fileName: string): boolean {
-  return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
-}
-
-function parseWaitingMeasureOptions(messageText: string): number[] {
-  const match = messageText.match(/等待选择起始小节号[:：]\s*([0-9\s、,，]+)/)
-  if (!match) return []
-  const optionsText = match[1] ?? ''
-  return Array.from(optionsText.matchAll(/\d+/g), (valueMatch) => Number(valueMatch[0]))
-    .filter((value) => Number.isFinite(value) && value > 0)
-}
-
-function waitingMeasureMessage(options: number[]): string {
-  return `等待选择起始小节号：${options.join('、')}`
-}
-
-function failedMeasureSelectionMessage(options: number[], msg: string): string {
-  const prefix = options.length ? `${waitingMeasureMessage(options)}；` : ''
-  return `${prefix}选择小节号失败：${msg}`
 }
 
 async function handleHistoryPageClick(page: HistoryPage): Promise<void> {
