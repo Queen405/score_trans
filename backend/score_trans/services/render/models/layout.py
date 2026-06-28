@@ -18,6 +18,7 @@ class RenderItem:
     slur_stop: bool = False
     slide_start: bool = False
     slide_stop: bool = False
+    slide_direction: str | None = None
     dynamic: str | None = None
     articulation: str | None = None
     articulations: list[str] = field(default_factory=list)

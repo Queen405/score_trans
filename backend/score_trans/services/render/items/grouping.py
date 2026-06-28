@@ -51,6 +51,9 @@ def _measure_render_items(measure: Any, beat_count: int) -> list[list[RenderItem
                         tie_stop=event.tie_stop if first else False,
                         slur_start=event.slur_start if first else False,
                         slur_stop=event.slur_stop if first else False,
+                        slide_start=event.slide_start if first else False,
+                        slide_stop=event.slide_stop if first else False,
+                        slide_direction=event.slide_direction,
                         dynamic=event.dynamic,
                         articulation=event.articulation,
                         articulations=list(

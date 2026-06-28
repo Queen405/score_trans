@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ....models.common.types import InstrumentProfile
+from ....models.common.types import InstrumentProfile, normalize_instrument_profile
 
 
 def clean_jianpu_text(text: str) -> str:
@@ -27,6 +27,7 @@ def ensure_jianpu_header(
     tempo: str | int | None = None,
     instrument_profile: InstrumentProfile = "general",
 ) -> str:
+    instrument_profile = normalize_instrument_profile(instrument_profile)
     lines = [
         line.rstrip()
         for line in text.splitlines()

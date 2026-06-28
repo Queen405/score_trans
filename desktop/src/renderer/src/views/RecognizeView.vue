@@ -400,7 +400,8 @@ const instrumentOptions = computed(() => {
     : [
         { id: 'general', name: '普通' },
         { id: 'erhu', name: '二胡' },
-        { id: 'zhongruan', name: '中阮' },
+        { id: 'ruan', name: '阮' },
+        { id: 'guzheng', name: '古筝' },
       ]
   return profiles.map((profile) => ({
     label: profile.name,
@@ -701,7 +702,8 @@ function targetFromPage(page: TaskPage, options: { resetStartMeasure?: boolean }
 }
 
 function instrumentProfileFromText(text: string): InstrumentProfile | null {
-  const match = text.match(/^\s*instrument\s*=\s*(general|erhu|zhongruan)\s*$/m)
+  const match = text.match(/^\s*instrument\s*=\s*(general|erhu|ruan|zhongruan|guzheng)\s*$/m)
+  if (match?.[1] === 'zhongruan') return 'ruan'
   return (match?.[1] as InstrumentProfile | undefined) ?? null
 }
 

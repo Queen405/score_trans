@@ -25,6 +25,7 @@ def _event_to_item(event: JianpuEvent) -> RenderItem:
         slur_stop=event.slur_stop,
         slide_start=event.slide_start,
         slide_stop=event.slide_stop,
+        slide_direction=event.slide_direction,
         dynamic=event.dynamic,
         articulation=event.articulation,
         articulations=list(

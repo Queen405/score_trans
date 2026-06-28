@@ -94,8 +94,8 @@ def _mark_content(renderer: str, mark_id: str, x: float, y: float) -> list[str]:
     if renderer == "throw-bow":
         return [
             f'<path class="performance-symbol" d="M {x - 6:.1f} {y - 5:.1f} '
-            f'Q {x + 1:.1f} {y - 7:.1f}, {x + 2:.1f} {y:.1f} '
-            f'Q {x + 3:.1f} {y + 7:.1f}, {x - 4:.1f} {y + 6:.1f} '
+            f"Q {x + 1:.1f} {y - 7:.1f}, {x + 2:.1f} {y:.1f} "
+            f"Q {x + 3:.1f} {y + 7:.1f}, {x - 4:.1f} {y + 6:.1f} "
             f'M {x + 2:.1f} {y + 1:.1f} L {x + 7:.1f} {y - 3:.1f}"/>'
         ]
     if renderer == "fingering":
@@ -111,7 +111,7 @@ def _mark_content(renderer: str, mark_id: str, x: float, y: float) -> list[str]:
     if renderer == "artificial-harmonic":
         return [
             f'<path class="performance-symbol" d="M {x:.1f} {y - 6:.1f} '
-            f'L {x + 5:.1f} {y:.1f} L {x:.1f} {y + 6:.1f} '
+            f"L {x + 5:.1f} {y:.1f} L {x:.1f} {y + 6:.1f} "
             f'L {x - 5:.1f} {y:.1f} Z"/>'
         ]
     if renderer == "pluck":
@@ -122,18 +122,22 @@ def _mark_content(renderer: str, mark_id: str, x: float, y: float) -> list[str]:
     if renderer == "scoop":
         return [
             f'<path class="performance-symbol" d="M {x - 7:.1f} {y + 6:.1f} '
-            f'Q {x - 1:.1f} {y + 6:.1f}, {x + 6:.1f} {y - 6:.1f}"/>'
+            f"Q {x - 1:.1f} {y + 6:.1f}, {x + 6:.1f} {y - 6:.1f} "
+            f"M {x + 1:.1f} {y - 5:.1f} L {x + 6:.1f} {y - 6:.1f} "
+            f'L {x + 5:.1f} {y - 1:.1f}"/>'
         ]
     if renderer == "plop":
         return [
             f'<path class="performance-symbol" d="M {x - 7:.1f} {y - 6:.1f} '
-            f'Q {x - 1:.1f} {y - 6:.1f}, {x + 6:.1f} {y + 6:.1f}"/>'
+            f"Q {x - 1:.1f} {y - 6:.1f}, {x + 6:.1f} {y + 6:.1f} "
+            f"M {x + 1:.1f} {y + 5:.1f} L {x + 6:.1f} {y + 6:.1f} "
+            f'L {x + 5:.1f} {y + 1:.1f}"/>'
         ]
     if renderer == "finger-pad-slide":
         return [
             f'<path class="performance-symbol" d="M {x - 6:.1f} {y + 5:.1f} '
-            f'Q {x - 1:.1f} {y - 6:.1f}, {x + 4:.1f} {y + 3:.1f} '
-            f'M {x - 2:.1f} {y + 6:.1f} Q {x + 3:.1f} {y - 5:.1f}, '
+            f"Q {x - 1:.1f} {y - 6:.1f}, {x + 4:.1f} {y + 3:.1f} "
+            f"M {x - 2:.1f} {y + 6:.1f} Q {x + 3:.1f} {y - 5:.1f}, "
             f'{x + 8:.1f} {y + 2:.1f}"/>'
         ]
     if renderer in {"doit", "falloff"}:
@@ -146,7 +150,7 @@ def _mark_content(renderer: str, mark_id: str, x: float, y: float) -> list[str]:
         direction = 1 if renderer == "lower-return-slide" else -1
         return [
             f'<path class="performance-symbol" d="M {x - 7:.1f} {y:.1f} '
-            f'Q {x + 2:.1f} {y + direction * 10:.1f}, {x + 8:.1f} {y + direction * 3:.1f} '
+            f"Q {x + 2:.1f} {y + direction * 10:.1f}, {x + 8:.1f} {y + direction * 3:.1f} "
             f'Q {x + 4:.1f} {y + direction:.1f}, {x + 1:.1f} {y:.1f}"/>'
         ]
     if renderer in {"upper-trill", "lower-trill"}:
@@ -173,12 +177,99 @@ def _mark_content(renderer: str, mark_id: str, x: float, y: float) -> list[str]:
     if renderer == "breath-mark":
         return [
             f'<path class="performance-symbol-fill" d="M {x - 2:.1f} {y - 3:.1f} '
-            f'Q {x + 4:.1f} {y - 2:.1f}, {x + 1:.1f} {y + 7:.1f} '
+            f"Q {x + 4:.1f} {y - 2:.1f}, {x + 1:.1f} {y + 7:.1f} "
             f'Q {x - 1:.1f} {y + 4:.1f}, {x + 1:.1f} {y:.1f} Z"/>'
         ]
     if renderer == "hook-string":
         return [
             f'<path class="performance-symbol" d="M {x - 3:.1f} {y - 7:.1f} '
             f'V {y + 4:.1f} Q {x - 2:.1f} {y + 8:.1f}, {x + 5:.1f} {y + 4:.1f}"/>'
+        ]
+    if renderer == "guzheng-sweep-tremolo":
+        return [
+            f'<path class="performance-symbol" d="M {x - 11:.1f} {y - 4:.1f} '
+            f"q 3 -5 6 0 h 3 q 3 5 6 0 "
+            f"M {x - 11:.1f} {y + 5:.1f} q 3 -5 6 0 h 3 q 3 5 6 0 "
+            f'M {x - 7:.1f} {y - 8:.1f} v 4 M {x + 7:.1f} {y + 1:.1f} v 4"/>'
+        ]
+    if renderer == "string-sweep":
+        return [
+            f'<path class="performance-symbol" d="M {x - 8:.1f} {y + 10:.1f} '
+            f"L {x + 8:.1f} {y - 10:.1f} "
+            f"M {x + 2:.1f} {y - 9:.1f} L {x + 8:.1f} {y - 10:.1f} "
+            f"L {x + 7:.1f} {y - 4:.1f} "
+            f"M {x - 7:.1f} {y + 4:.1f} L {x - 1:.1f} {y + 9:.1f} "
+            f"M {x - 3:.1f} {y - 1:.1f} L {x + 3:.1f} {y + 4:.1f} "
+            f'M {x + 1:.1f} {y - 6:.1f} L {x + 7:.1f} {y - 1:.1f}"/>'
+        ]
+    if renderer == "guzheng-double-tuo":
+        return [
+            f'<path class="performance-symbol" d="M {x - 10:.1f} {y + 6:.1f} '
+            f"V {y - 4:.1f} H {x - 3:.1f} Q {x:.1f} {y - 4:.1f}, "
+            f"{x:.1f} {y - 1:.1f} V {y + 2:.1f} "
+            f"M {x - 1:.1f} {y + 6:.1f} V {y - 4:.1f} H {x + 6:.1f} "
+            f'Q {x + 9:.1f} {y - 4:.1f}, {x + 9:.1f} {y - 1:.1f} V {y + 2:.1f}"/>'
+        ]
+    if renderer == "guzheng-double-mo":
+        return [
+            f'<path class="performance-symbol" d="M {x - 7:.1f} {y - 6:.1f} '
+            f"L {x + 2:.1f} {y + 5:.1f} M {x - 1:.1f} {y - 7:.1f} "
+            f'L {x + 8:.1f} {y + 4:.1f}"/>'
+        ]
+    if renderer == "arpeggio":
+        return [
+            f'<path class="performance-symbol" d="M {x:.1f} {y - 15:.1f} '
+            f'q -5 3 0 6 q 5 3 0 6 q -5 3 0 6 q 5 3 0 6 q -5 3 0 6"/>'
+        ]
+    if renderer == "ornament-note":
+        return [
+            f'<ellipse class="performance-symbol" cx="{x - 2:.1f}" '
+            f'cy="{y + 4:.1f}" rx="3.8" ry="2.8" '
+            f'transform="rotate(-18 {x - 2:.1f} {y + 4:.1f})"/>',
+            f'<path class="performance-symbol" d="M {x + 1:.1f} {y + 3:.1f} '
+            f'V {y - 9:.1f} Q {x + 8:.1f} {y - 6:.1f}, '
+            f'{x + 5:.1f} {y - 1:.1f}"/>',
+        ]
+    if renderer == "guzheng-board-front-flower":
+        return [
+            f'<path class="performance-symbol" d="M {x:.1f} {y - 10:.1f} '
+            f"V {y + 2:.1f} M {x - 6:.1f} {y - 7:.1f} L {x + 6:.1f} {y - 1:.1f} "
+            f"M {x + 6:.1f} {y - 7:.1f} L {x - 6:.1f} {y - 1:.1f} "
+            f"M {x - 7:.1f} {y + 5:.1f} H {x + 7:.1f} "
+            f'M {x - 5:.1f} {y + 9:.1f} H {x + 5:.1f}"/>'
+        ]
+    if renderer == "guzheng-on-beat-flower":
+        return [
+            f'<path class="performance-symbol" d="M {x:.1f} {y - 9:.1f} '
+            f"V {y + 9:.1f} M {x - 9:.1f} {y:.1f} H {x + 9:.1f} "
+            f"M {x - 6.5:.1f} {y - 6.5:.1f} L {x + 6.5:.1f} {y + 6.5:.1f} "
+            f'M {x + 6.5:.1f} {y - 6.5:.1f} L {x - 6.5:.1f} {y + 6.5:.1f}"/>'
+        ]
+    if renderer in {"guzheng-ascending-scrape", "guzheng-descending-scrape"}:
+        direction = -1 if renderer == "guzheng-ascending-scrape" else 1
+        end_y = y + direction * 10
+        start_y = y - direction * 8
+        return [
+            f'<path class="performance-symbol" d="M {x - 9:.1f} {start_y:.1f} '
+            f"L {x + 9:.1f} {end_y:.1f} "
+            f"M {x + 3:.1f} {end_y - direction * 1:.1f} L {x + 9:.1f} {end_y:.1f} "
+            f'L {x + 8:.1f} {end_y - direction * 6:.1f}"/>'
+        ]
+    if renderer == "guzheng-vibrato":
+        return [
+            f'<path class="performance-symbol" d="M {x - 11:.1f} {y:.1f} '
+            f'q 3 -4 6 0 q 3 4 6 0 q 3 -4 6 0 q 3 4 6 0"/>'
+        ]
+    if renderer in {
+        "guzheng-ornament-up-slide",
+        "guzheng-ornament-down-slide",
+    }:
+        direction = -1 if renderer == "guzheng-ornament-up-slide" else 1
+        return [
+            f'<path class="performance-symbol" d="M {x - 7:.1f} {y - direction * 6:.1f} '
+            f"H {x - 1:.1f} V {y + direction * 1:.1f} "
+            f"Q {x + 4:.1f} {y + direction * 8:.1f}, "
+            f"{x + 8:.1f} {y + direction * 2:.1f} "
+            f'M {x - 6:.1f} {y - direction * 2:.1f} H {x - 2:.1f}"/>'
         ]
     return []

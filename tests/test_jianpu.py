@@ -12,6 +12,7 @@ from score_trans.domain.jianpu import (
     parse_jianpu_score,
 )
 from score_trans.domain.musicxml import score_to_jianpu_text
+from score_trans.domain.performance_marks import PERFORMANCE_MARKS
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 
 
@@ -394,9 +395,7 @@ def test_erhu_profile_marks_parse_normalize_and_dedupe() -> None:
 
 
 def test_continuous_slide_marks_previous_and_target_notes() -> None:
-    score = parse_jianpu_score(
-        "instrument=erhu\n1=C\n4/4\n1 2 3 4 |\n^lh 5 6 7 1 |"
-    )
+    score = parse_jianpu_score("instrument=erhu\n1=C\n4/4\n1 2 3 4 |\n^lh 5 6 7 1 |")
     start = score.measures[0].events[-1]
     stop = score.measures[1].events[0]
 
@@ -408,3 +407,115 @@ def test_continuous_slide_marks_previous_and_target_notes() -> None:
 def test_continuous_slide_requires_a_previous_note() -> None:
     with pytest.raises(ValueError, match="没有可连接的起始音"):
         parse_jianpu_score("instrument=erhu\n1=C\n4/4\n^lh 1 2 3 4 |")
+
+
+def test_guzheng_marks_parse_with_reused_canonical_ids() -> None:
+    score = parse_jianpu_score(
+        "instrument=guzheng\n1=C\n4/4\n"
+        "^l ^sy ^sx ^zr ^bq ^zb ^sg ^xg ^cy ^sh ^xh ^zs ^zx 1 |\n"
+        "^st [3+5] ^sm [1+2] ^py [1+3+5] 2 |"
+    )
+    first = score.measures[0].events[0]
+    chord_events = score.measures[1].events[:3]
+
+    assert score.instrument_profile == "guzheng"
+    assert first.ornaments == ["tremolo"]
+    assert {
+        "guzheng-sweep-tremolo",
+        "string-sweep",
+        "natural-harmonic",
+        "guzheng-board-front-flower",
+        "guzheng-on-beat-flower",
+        "guzheng-ascending-scrape",
+        "guzheng-descending-scrape",
+        "guzheng-vibrato",
+        "scoop",
+        "plop",
+        "guzheng-ornament-up-slide",
+        "guzheng-ornament-down-slide",
+    } == set(first.technical)
+    assert chord_events[0].technical == ["guzheng-double-tuo"]
+    assert chord_events[1].technical == ["guzheng-double-mo"]
+    assert chord_events[2].technical == ["arpeggio"]
+
+
+def test_ruan_marks_parse_and_legacy_profile_normalizes() -> None:
+    score = parse_jianpu_score(
+        "instrument=ruan\n1=C\n4/4\n"
+        "^l ^sx ^zr ^zy 1 2 3 4 |\n"
+        "3 ^lh 5 ^py [1+3+5] 2 |"
+    )
+    first = score.measures[0].events[0]
+
+    assert score.instrument_profile == "ruan"
+    assert first.ornaments == ["tremolo", "ornament-note"]
+    assert first.technical == ["string-sweep", "natural-harmonic"]
+    assert score.measures[1].events[0].slide_start is True
+    assert score.measures[1].events[1].slide_stop is True
+    assert score.measures[1].events[2].technical == ["arpeggio"]
+
+    legacy = parse_jianpu_score(
+        "instrument=zhongruan\n1=C\n4/4\n^l 1 2 3 4 |"
+    )
+    assert legacy.instrument_profile == "ruan"
+    assert "instrument=ruan" in score_to_jianpu_text(legacy)
+
+
+def test_ruan_arpeggio_requires_a_chord() -> None:
+    with pytest.raises(ValueError, match="必须跟随和弦"):
+        parse_jianpu_score("instrument=ruan\n1=C\n4/4\n^py 1 2 3 4 |")
+
+
+@pytest.mark.parametrize("token", ["st", "sm", "py"])
+def test_guzheng_chord_only_marks_reject_single_notes(token: str) -> None:
+    with pytest.raises(ValueError, match="必须跟随和弦"):
+        parse_jianpu_score(f"instrument=guzheng\n1=C\n4/4\n^{token} 1 2 3 4 |")
+
+
+def test_guzheng_continuous_slide_infers_direction() -> None:
+    score = parse_jianpu_score("instrument=guzheng\n1=C\n4/4\n3 ^lh 5 5 ^lh 3 |")
+    events = score.measures[0].events
+
+    assert [event.slide_direction for event in events] == [
+        "up",
+        "up",
+        "down",
+        "down",
+    ]
+
+
+def test_guzheng_continuous_slide_rejects_ambiguous_endpoints() -> None:
+    with pytest.raises(ValueError, match="起止音高不能相同"):
+        parse_jianpu_score("instrument=guzheng\n1=C\n4/4\n3 ^lh 3 2 1 |")
+    with pytest.raises(ValueError, match="只能连接两个单音"):
+        parse_jianpu_score("instrument=guzheng\n1=C\n4/4\n[1+3] ^lh 5 2 1 |")
+
+
+def test_guzheng_flower_marks_preserve_written_note_duration() -> None:
+    score = parse_jianpu_score("instrument=guzheng\n1=C\n4/4\n^bq q3 ^zb h4 q1 2 |")
+    events = score.measures[0].events
+
+    assert events[0].duration == Fraction(1, 2)
+    assert events[1].duration == Fraction(2, 1)
+
+
+def test_performance_mark_tokens_are_unique_and_new_tokens_are_short() -> None:
+    tokens = [mark.token for mark in PERFORMANCE_MARKS]
+    guzheng_tokens = {
+        "sy",
+        "sx",
+        "st",
+        "sm",
+        "py",
+        "bq",
+        "zb",
+        "sg",
+        "xg",
+        "cy",
+        "zs",
+        "zx",
+    }
+
+    assert len(tokens) == len(set(tokens))
+    assert guzheng_tokens <= set(tokens)
+    assert all(token.isalpha() and 1 <= len(token) <= 2 for token in guzheng_tokens)

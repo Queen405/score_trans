@@ -679,48 +679,6 @@ export type components = {
             /** Updated At */
             updated_at: string;
         };
-        /** AiTranscribedPage */
-        AiTranscribedPage: {
-            /**
-             * Confidence
-             * @default null
-             */
-            confidence?: number | null;
-            /** Jianpu Text */
-            jianpu_text: string;
-            /**
-             * Key
-             * @default null
-             */
-            key?: string | null;
-            /** Measure Number Candidates */
-            measure_number_candidates?: number[];
-            /**
-             * Meter
-             * @default null
-             */
-            meter?: string | null;
-            /** Page Image File Id */
-            page_image_file_id: string;
-            /** Page Image Filename */
-            page_image_filename: string;
-            /** Page Index */
-            page_index: number;
-            /**
-             * Tempo
-             * @default null
-             */
-            tempo?: string | number | null;
-            /**
-             * Title
-             * @default null
-             */
-            title?: string | null;
-            /** Validation Errors */
-            validation_errors?: string[];
-            /** Warnings */
-            warnings?: string[];
-        };
         /** AiTranscribeRequest */
         AiTranscribeRequest: {
             /**
@@ -736,7 +694,7 @@ export type components = {
              * @default general
              * @enum {string}
              */
-            instrument_profile?: "general" | "erhu" | "zhongruan";
+            instrument_profile?: "general" | "erhu" | "zhongruan" | "guzheng";
             /** Max Pages */
             max_pages?: number | null;
             /**
@@ -748,7 +706,7 @@ export type components = {
             prompt?: string | null;
             /**
              * Render Dpi
-             * @default 300
+             * @default 220
              */
             render_dpi?: number;
             /**
@@ -759,28 +717,6 @@ export type components = {
             target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
             /** Title */
             title?: string | null;
-        };
-        /** AiTranscribeResponse */
-        AiTranscribeResponse: {
-            /** Jianpu File Id */
-            jianpu_file_id: string;
-            /** Merged Jianpu Text */
-            merged_jianpu_text: string;
-            /** Pages */
-            pages: components["schemas"]["AiTranscribedPage"][];
-            /** Source File Id */
-            source_file_id: string;
-            /** Source Filename */
-            source_filename: string;
-            /** Target Key */
-            target_key: string;
-            /**
-             * Title
-             * @default null
-             */
-            title?: string | null;
-            /** Warnings */
-            warnings?: string[];
         };
         /** BatchCreateRequest */
         BatchCreateRequest: {
@@ -863,7 +799,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan") | null;
+            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
             /**
              * Measure Number Mode
              * @default all
@@ -963,7 +899,7 @@ export type components = {
              * @default general
              * @enum {string}
              */
-            instrument_profile?: "general" | "erhu" | "zhongruan";
+            instrument_profile?: "general" | "erhu" | "zhongruan" | "guzheng";
             /**
              * Measure Number Mode
              * @default all
@@ -1054,7 +990,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan") | null;
+            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
             /**
              * Measure Number Mode
              * @default all
@@ -1105,7 +1041,7 @@ export type components = {
              * Id
              * @enum {string}
              */
-            id: "general" | "erhu" | "zhongruan";
+            id: "general" | "erhu" | "zhongruan" | "guzheng";
             /** Marks */
             marks?: components["schemas"]["PerformanceMarkCatalogItem"][];
             /** Name */
@@ -1159,7 +1095,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan") | null;
+            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
             /** Musicxml File Id */
             musicxml_file_id: string;
             /** Page Image File Id */
@@ -1303,6 +1239,11 @@ export type components = {
             placement: string;
             /** Syntax */
             syntax: string;
+            /**
+             * Target
+             * @default pitched
+             */
+            target?: string;
         };
         /** PipelineByFileIdRequest */
         PipelineByFileIdRequest: {
@@ -1319,7 +1260,7 @@ export type components = {
              * @default general
              * @enum {string}
              */
-            instrument_profile?: "general" | "erhu" | "zhongruan";
+            instrument_profile?: "general" | "erhu" | "zhongruan" | "guzheng";
             /**
              * Measure Number Mode
              * @default all
@@ -1339,32 +1280,6 @@ export type components = {
             /** Title */
             title?: string | null;
         };
-        /** PipelineResponse */
-        PipelineResponse: {
-            /** Jianpu File Id */
-            jianpu_file_id: string;
-            /** Jianpu Text */
-            jianpu_text: string;
-            /** Musicxml File Id */
-            musicxml_file_id: string;
-            /**
-             * Ocr Measure Numbers
-             * @default []
-             */
-            ocr_measure_numbers?: number[];
-            /**
-             * Ocr Text
-             * @default
-             */
-            ocr_text?: string;
-            /**
-             * Render Pages
-             * @default []
-             */
-            render_pages?: components["schemas"]["RenderedSvgPage"][];
-            /** Svg File Id */
-            svg_file_id: string;
-        };
         /** PreservingLayoutRequest */
         PreservingLayoutRequest: {
             /**
@@ -1374,7 +1289,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan") | null;
+            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
             /**
              * Measure Number Mode
              * @default all
@@ -1407,13 +1322,6 @@ export type components = {
             /** Svg File Id */
             svg_file_id: string;
         };
-        /** RecognizeResponse */
-        RecognizeResponse: {
-            /** Musicxml File Id */
-            musicxml_file_id: string;
-            /** Musicxml Filename */
-            musicxml_filename: string;
-        };
         /** RenderedSvgPage */
         RenderedSvgPage: {
             /**
@@ -1421,10 +1329,7 @@ export type components = {
              * @default []
              */
             measure_ranges?: components["schemas"]["RenderPageMeasureRange"][];
-            /**
-             * Ocr Text
-             * @default null
-             */
+            /** Ocr Text */
             ocr_text?: string | null;
             /** Page Height */
             page_height: number;
@@ -1444,7 +1349,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan") | null;
+            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
             /**
              * Measure Number Mode
              * @default all
@@ -1525,17 +1430,11 @@ export type components = {
         };
         /** RenderPageMeasureRange */
         RenderPageMeasureRange: {
-            /**
-             * End Measure Number
-             * @default null
-             */
+            /** End Measure Number */
             end_measure_number?: number | null;
             /** Source Page Index */
             source_page_index: number;
-            /**
-             * Start Measure Number
-             * @default null
-             */
+            /** Start Measure Number */
             start_measure_number?: number | null;
         };
         /** RenderPageOcrText */

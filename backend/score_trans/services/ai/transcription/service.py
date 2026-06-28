@@ -6,7 +6,11 @@ import re
 from ....dao.settings.settings_dao import SettingsDao
 from ....models.common.errors import AITranscriptionError
 from ....domain.performance_marks import instrument_prompt
-from ....models.common.types import AccidentalMode, InstrumentProfile
+from ....models.common.types import (
+    AccidentalMode,
+    InstrumentProfile,
+    normalize_instrument_profile,
+)
 from ....models.tasks.entities import ProgressCallback, report_progress
 from ...settings.provider_profiles import (
     resolve_provider_profile,
@@ -56,6 +60,7 @@ class AiTranscriptionService:
         normalize: bool = True,
         progress_callback: ProgressCallback | None = None,
     ) -> AiTranscriptionResult:
+        instrument_profile = normalize_instrument_profile(instrument_profile)
         source = Path(input_path).resolve()
         out_dir = Path(output_dir).resolve()
         out_dir.mkdir(parents=True, exist_ok=True)

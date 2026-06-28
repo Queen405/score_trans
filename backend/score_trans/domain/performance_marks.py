@@ -3,12 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from ..models.common.types import InstrumentProfile
+from ..models.common.types import InstrumentProfile, normalize_instrument_profile
 from ..models.score import Event
 
 
-MarkCategory = Literal["articulation", "ornament", "technical"]
+MarkCategory = Literal["articulation", "ornament", "technical", "spanner"]
 MarkPlacement = Literal["above", "left", "right", "below-right"]
+MarkTarget = Literal["pitched", "chord"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,7 +20,12 @@ class PerformanceMark:
     renderer: str
     labels: tuple[tuple[InstrumentProfile, str], ...]
     description: str
-    profiles: tuple[InstrumentProfile, ...] = ("general", "erhu", "zhongruan")
+    profiles: tuple[InstrumentProfile, ...] = (
+        "general",
+        "erhu",
+        "ruan",
+        "guzheng",
+    )
     aliases: tuple[str, ...] = ()
     musicxml_section: str | None = None
     musicxml_name: str | None = None
@@ -27,6 +33,11 @@ class PerformanceMark:
     placement: MarkPlacement = "above"
     measure_scope: bool = False
     recommended_in_general: bool = True
+    syntax: str | None = None
+    visual_width: float = 18.0
+    visual_height: float = 16.0
+    stack_gap: float = 2.0
+    target: MarkTarget = "pitched"
 
     def label_for(self, profile: InstrumentProfile) -> str:
         labels = dict(self.labels)
@@ -64,7 +75,7 @@ PERFORMANCE_MARKS: tuple[PerformanceMark, ...] = (
         (
             ("general", "断音"),
             ("erhu", "顿弓（跳弓）"),
-            ("zhongruan", "断音"),
+            ("ruan", "断音"),
         ),
         "使用实心倒三角表示短促而有弹性的音。",
         musicxml_section="articulations",
@@ -100,15 +111,35 @@ PERFORMANCE_MARKS: tuple[PerformanceMark, ...] = (
         "three-slash",
         (
             ("erhu", "颤弓（抖弓）"),
-            ("zhongruan", "轮指"),
+            ("ruan", "轮指"),
+            ("guzheng", "摇指"),
         ),
         "三条平行短斜线；名称由乐器模式决定。",
-        profiles=("erhu", "zhongruan"),
+        profiles=("erhu", "ruan", "guzheng"),
         musicxml_section="ornaments",
         musicxml_name="tremolo",
         placement="below-right",
         measure_scope=True,
         recommended_in_general=False,
+    ),
+    PerformanceMark(
+        "continuous-slide",
+        "lh",
+        "spanner",
+        "directional-slide",
+        (
+            ("erhu", "连线滑音"),
+            ("ruan", "滑音"),
+            ("guzheng", "有时值滑音"),
+        ),
+        "连接前一个音和目标音；古筝模式根据两端音高决定上滑或下滑。",
+        profiles=("erhu", "ruan", "guzheng"),
+        musicxml_section="notations",
+        musicxml_name="slide",
+        recommended_in_general=False,
+        syntax="3 ^lh 5",
+        visual_width=36.0,
+        visual_height=18.0,
     ),
     PerformanceMark(
         "down-bow",
@@ -164,9 +195,13 @@ PERFORMANCE_MARKS: tuple[PerformanceMark, ...] = (
         "zr",
         "technical",
         "natural-harmonic",
-        (("erhu", "自然泛音"),),
+        (
+            ("erhu", "自然泛音"),
+            ("ruan", "泛音"),
+            ("guzheng", "泛音"),
+        ),
         "小型空心正圆。",
-        profiles=("erhu",),
+        profiles=("erhu", "ruan", "guzheng"),
         aliases=("harmonic",),
         musicxml_section="technical",
         musicxml_name="harmonic",
@@ -198,9 +233,12 @@ PERFORMANCE_MARKS: tuple[PerformanceMark, ...] = (
         "sh",
         "technical",
         "scoop",
-        (("erhu", "上滑音"),),
+        (
+            ("erhu", "上滑音"),
+            ("guzheng", "上滑音"),
+        ),
         "音符左侧的短上扬弧线。",
-        profiles=("erhu",),
+        profiles=("erhu", "guzheng"),
         musicxml_section="articulations",
         musicxml_name="scoop",
         placement="left",
@@ -210,9 +248,12 @@ PERFORMANCE_MARKS: tuple[PerformanceMark, ...] = (
         "xh",
         "technical",
         "plop",
-        (("erhu", "下滑音"),),
+        (
+            ("erhu", "下滑音"),
+            ("guzheng", "下滑音"),
+        ),
         "音符左侧的短下落弧线。",
-        profiles=("erhu",),
+        profiles=("erhu", "guzheng"),
         musicxml_section="articulations",
         musicxml_name="plop",
         placement="left",
@@ -362,11 +403,206 @@ PERFORMANCE_MARKS: tuple[PerformanceMark, ...] = (
         musicxml_section="technical",
         custom_musicxml="erhu:hook-string",
     ),
+    PerformanceMark(
+        "guzheng-sweep-tremolo",
+        "sy",
+        "technical",
+        "guzheng-sweep-tremolo",
+        (("guzheng", "扫摇"),),
+        "中指扫弦并与大拇指摇指结合的成组短回钩符号。",
+        profiles=("guzheng",),
+        aliases=("guzheng:sweep-tremolo",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:sweep-tremolo",
+        visual_width=24.0,
+        visual_height=18.0,
+    ),
+    PerformanceMark(
+        "string-sweep",
+        "sx",
+        "technical",
+        "string-sweep",
+        (
+            ("ruan", "扫弦"),
+            ("guzheng", "扫弦"),
+        ),
+        "带三条横档的斜向扫弦箭头。",
+        profiles=("ruan", "guzheng"),
+        aliases=(
+            "guzheng-string-sweep",
+            "guzheng:string-sweep",
+            "ruan:string-sweep",
+        ),
+        musicxml_section="technical",
+        custom_musicxml="score-trans:string-sweep",
+        placement="right",
+        visual_width=24.0,
+        visual_height=24.0,
+    ),
+    PerformanceMark(
+        "guzheng-double-tuo",
+        "st",
+        "technical",
+        "guzheng-double-tuo",
+        (("guzheng", "双托"),),
+        "大拇指同时向外弹奏相邻两弦的双折钩符号。",
+        profiles=("guzheng",),
+        aliases=("guzheng:double-tuo",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:double-tuo",
+        visual_width=22.0,
+        target="chord",
+    ),
+    PerformanceMark(
+        "guzheng-double-mo",
+        "sm",
+        "technical",
+        "guzheng-double-mo",
+        (("guzheng", "双抹"),),
+        "食指同时向里弹奏相邻两弦的两条平行短斜线。",
+        profiles=("guzheng",),
+        aliases=("guzheng:double-mo",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:double-mo",
+        target="chord",
+    ),
+    PerformanceMark(
+        "arpeggio",
+        "py",
+        "technical",
+        "arpeggio",
+        (
+            ("ruan", "琶音"),
+            ("guzheng", "琶音"),
+        ),
+        "和弦左侧的竖向波浪线，表示各音按顺序弹奏。",
+        profiles=("ruan", "guzheng"),
+        aliases=("arpeggiate",),
+        musicxml_section="notations",
+        musicxml_name="arpeggiate",
+        placement="left",
+        visual_width=12.0,
+        visual_height=30.0,
+        target="chord",
+    ),
+    PerformanceMark(
+        "ornament-note",
+        "zy",
+        "ornament",
+        "ornament-note",
+        (("ruan", "装饰音"),),
+        "音符上方的小型装饰音符号，用于提示短小的旋律润饰。",
+        profiles=("ruan",),
+        aliases=("ruan:ornament-note",),
+        musicxml_section="ornaments",
+        custom_musicxml="ruan:ornament-note",
+        visual_width=14.0,
+        visual_height=20.0,
+    ),
+    PerformanceMark(
+        "guzheng-board-front-flower",
+        "bq",
+        "technical",
+        "guzheng-board-front-flower",
+        (("guzheng", "花指板前花"),),
+        "大拇指快速连续托弦且不另占时值的小花形符号。",
+        profiles=("guzheng",),
+        aliases=("guzheng:board-front-flower",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:board-front-flower",
+        visual_height=20.0,
+    ),
+    PerformanceMark(
+        "guzheng-on-beat-flower",
+        "zb",
+        "technical",
+        "guzheng-on-beat-flower",
+        (("guzheng", "花指正板花"),),
+        "使用被标记音符时值的八向花形符号。",
+        profiles=("guzheng",),
+        aliases=("guzheng:on-beat-flower",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:on-beat-flower",
+        visual_height=20.0,
+    ),
+    PerformanceMark(
+        "guzheng-ascending-scrape",
+        "sg",
+        "technical",
+        "guzheng-ascending-scrape",
+        (("guzheng", "上行刮奏"),),
+        "由低音向高音刮奏的右上方向箭头，标在音群起点。",
+        profiles=("guzheng",),
+        aliases=("guzheng:ascending-scrape",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:ascending-scrape",
+        placement="right",
+        visual_width=24.0,
+        visual_height=22.0,
+    ),
+    PerformanceMark(
+        "guzheng-descending-scrape",
+        "xg",
+        "technical",
+        "guzheng-descending-scrape",
+        (("guzheng", "下行刮奏"),),
+        "由高音向低音刮奏的右下方向箭头，标在音群起点。",
+        profiles=("guzheng",),
+        aliases=("guzheng:descending-scrape",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:descending-scrape",
+        placement="right",
+        visual_width=24.0,
+        visual_height=22.0,
+    ),
+    PerformanceMark(
+        "guzheng-vibrato",
+        "cy",
+        "technical",
+        "guzheng-vibrato",
+        (("guzheng", "颤音"),),
+        "左手轻颤琴弦的三段短波浪线，不使用 tr 字样。",
+        profiles=("guzheng",),
+        aliases=("guzheng:vibrato",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:vibrato",
+        visual_width=24.0,
+    ),
+    PerformanceMark(
+        "guzheng-ornament-up-slide",
+        "zs",
+        "technical",
+        "guzheng-ornament-up-slide",
+        (("guzheng", "装饰音上滑音"),),
+        "先弹后按的紧凑上行折钩。",
+        profiles=("guzheng",),
+        aliases=("guzheng:ornament-up-slide",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:ornament-up-slide",
+        placement="right",
+    ),
+    PerformanceMark(
+        "guzheng-ornament-down-slide",
+        "zx",
+        "technical",
+        "guzheng-ornament-down-slide",
+        (("guzheng", "装饰音下滑音"),),
+        "先按后弹的紧凑下行折钩。",
+        profiles=("guzheng",),
+        aliases=("guzheng:ornament-down-slide",),
+        musicxml_section="technical",
+        custom_musicxml="guzheng:ornament-down-slide",
+        placement="right",
+    ),
 )
 
 
 _BY_ID = {mark.id: mark for mark in PERFORMANCE_MARKS}
 _BY_TOKEN = {mark.token: mark for mark in PERFORMANCE_MARKS}
+if len(_BY_ID) != len(PERFORMANCE_MARKS):
+    raise ValueError("演奏标记规范 ID 必须全局唯一")
+if len(_BY_TOKEN) != len(PERFORMANCE_MARKS):
+    raise ValueError("演奏标记文本 token 必须全局唯一")
 _BY_ALIAS = {
     alias.strip().lower().replace("_", "-").replace(" ", "-"): mark
     for mark in PERFORMANCE_MARKS
@@ -419,6 +655,8 @@ def normalize_event_marks(event: Event) -> None:
                 if mark_id in seen:
                     continue
                 mark = _BY_ID[mark_id]
+                if mark.category == "spanner":
+                    continue
                 categorized[mark.category].append(mark.id)
                 seen.add(mark.id)
                 continue
@@ -449,6 +687,7 @@ def event_mark_ids(
 
 
 def profile_marks(profile: InstrumentProfile) -> list[PerformanceMark]:
+    profile = normalize_instrument_profile(profile)
     marks: list[PerformanceMark] = []
     for mark in PERFORMANCE_MARKS:
         if profile == "general":
@@ -461,25 +700,40 @@ def profile_marks(profile: InstrumentProfile) -> list[PerformanceMark]:
 
 
 def instrument_prompt(profile: InstrumentProfile) -> str:
+    profile = normalize_instrument_profile(profile)
     if profile == "general":
         return (
-            "当前为普通识别模式。不要猜测二胡、中阮等乐器专属技巧，"
+            "当前为普通识别模式。不要猜测二胡、阮、古筝等乐器专属技巧，"
             "只输出通用简谱标记。"
         )
-    display_name = "二胡" if profile == "erhu" else "中阮"
+    display_name = {
+        "erhu": "二胡",
+        "ruan": "阮",
+        "guzheng": "古筝",
+    }[profile]
     rows = [
-        f"^{mark.token}={mark.label_for(profile)}"
+        f"{mark.syntax or f'^{mark.token}'}={mark.label_for(profile)}"
         for mark in profile_marks(profile)
         if profile in mark.profiles and mark.token
     ]
     extra = "；".join(rows)
     range_rule = (
-        "连线滑音写成“3 ^lh 5”，^lh 放在目标音前；"
-        "整小节颤弓可在小节开头写 (^l)。"
+        "连线滑音写成“3 ^lh 5”，^lh 放在目标音前；整小节颤弓可在小节开头写 (^l)。"
         if profile == "erhu"
-        else "整小节轮指可在小节开头写 (^l)。"
+        else (
+            "滑音写成“3 ^lh 5”，^lh 放在目标音前；"
+            "琶音后必须是和弦；"
+            "整小节轮指可在小节开头写 (^l)。"
+            if profile == "ruan"
+            else (
+                "有时值滑音写成“3 ^lh 5”或“5 ^lh 3”，^lh 放在目标音前；"
+                "双托、双抹和琶音后必须是和弦；"
+                "上、下行刮奏只标记音群第一个音；"
+                "整小节摇指可在小节开头写 (^l)。"
+            )
+        )
     )
     return (
         f"当前为{display_name}识别模式。识别图片中的演奏技巧并使用以下语法："
-        f"{extra}。{range_rule}不要输出长颤音波浪线。"
+        f"{extra}。{range_rule}只使用目录中列出的技巧，不要输出长颤音波浪线。"
     )

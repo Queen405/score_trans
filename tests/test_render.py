@@ -872,7 +872,7 @@ def _path_first_m(path_d: str) -> tuple[float, float]:
     return 0.0, 0.0
 
 
-def test_musicxml_tremolo_renders_zhongruan_roll_mark_below_right() -> None:
+def test_musicxml_tremolo_renders_ruan_roll_mark_below_right() -> None:
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
   <part-list><score-part id="P1"><part-name>中阮</part-name></score-part></part-list>
@@ -897,6 +897,7 @@ def test_musicxml_tremolo_renders_zhongruan_roll_mark_below_right() -> None:
     score = musicxml_to_score(xml)
     svg = render_score_svg(score)
     root = _svg_root(svg)
+    assert score.instrument_profile == "ruan"
     roll = next(
         el
         for el in _svg_elements(root, "path")
@@ -1371,10 +1372,84 @@ def test_continuous_slide_renders_dangling_segments_across_rows() -> None:
     ]
 
     assert len(slides) == 2
-    assert all(
-        slide.attrib.get("data-mark") == "continuous-slide"
-        for slide in slides
+    assert all(slide.attrib.get("data-mark") == "continuous-slide" for slide in slides)
+
+
+def test_guzheng_performance_marks_render_with_canonical_ids() -> None:
+    text = (Path(__file__).parent / "fixtures" / "guzheng_marks.jianpu").read_text(
+        encoding="utf-8"
     )
+    root = _svg_root(render_jianpu_svg(text))
+    groups = [
+        element
+        for element in _svg_elements(root, "g")
+        if element.attrib.get("class") == "performance-mark"
+    ]
+    mark_ids = [element.attrib.get("data-mark") for element in groups]
+
+    assert len(mark_ids) == len(set(mark_ids))
+    assert {
+        "tremolo",
+        "guzheng-sweep-tremolo",
+        "string-sweep",
+        "natural-harmonic",
+        "guzheng-board-front-flower",
+        "guzheng-on-beat-flower",
+        "guzheng-ascending-scrape",
+        "guzheng-descending-scrape",
+        "guzheng-vibrato",
+        "scoop",
+        "plop",
+        "guzheng-ornament-up-slide",
+        "guzheng-ornament-down-slide",
+        "guzheng-double-tuo",
+        "guzheng-double-mo",
+        "arpeggio",
+    } == set(mark_ids)
+
+
+def test_ruan_performance_marks_reuse_shared_renderers() -> None:
+    root = _svg_root(
+        render_jianpu_svg(
+            "instrument=ruan\n1=C\n4/4\n"
+            "^l ^sx ^zr ^zy 1 ^py [1+3+5] 2 3 |"
+        )
+    )
+    mark_ids = {
+        element.attrib.get("data-mark")
+        for element in _svg_elements(root, "g")
+        if element.attrib.get("class") == "performance-mark"
+    }
+
+    assert {
+        "tremolo",
+        "string-sweep",
+        "natural-harmonic",
+        "ornament-note",
+        "arpeggio",
+    } <= mark_ids
+
+
+def test_guzheng_directional_slides_keep_direction_across_rows() -> None:
+    from score_trans.services.render.options import RenderOptions
+
+    text = "instrument=guzheng\n1=C\n4/4\n3 2 1 5 |\n^lh 6 5 ^lh 3 1 |"
+    svg = render_jianpu_svg(
+        text,
+        RenderOptions(width=360, min_measure_width=250, max_measure_width=250),
+    )
+    root = _svg_root(svg)
+    slides = [
+        path
+        for path in _svg_elements(root, "path")
+        if path.attrib.get("class") == "slide"
+    ]
+
+    assert [slide.attrib.get("data-direction") for slide in slides] == [
+        "up",
+        "up",
+        "down",
+    ]
 
 
 def test_unregistered_musicxml_marks_keep_text_fallback() -> None:

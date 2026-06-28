@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ...domain.jianpu import parse_jianpu_score
+from ...domain.performance_marks import event_mark_ids, get_performance_mark
 from ...models.common.types import MeasureNumberMode
 from ...models.score import JianpuScore, TextBlock
 from .drawing.measure import _render_measure
@@ -106,7 +107,7 @@ def render_jianpu_page_svg(
         title=title,
         width=width,
         margin=margin,
-        line_height=max(108, int(line_height)),
+        line_height=max(_content_min_line_height(layouts), int(line_height)),
         min_measure_width=base_options.min_measure_width,
         max_measure_width=max(base_options.max_measure_width, width - margin * 2),
         beat_gap=base_options.beat_gap,
@@ -199,7 +200,7 @@ def render_score_page_svg(
         title=title or score.title,
         width=width,
         margin=margin,
-        line_height=max(108, int(line_height)),
+        line_height=max(_content_min_line_height(layouts), int(line_height)),
         min_measure_width=base_options.min_measure_width,
         max_measure_width=max(base_options.max_measure_width, width - margin * 2),
         beat_gap=base_options.beat_gap,
@@ -300,6 +301,10 @@ def render_scores_a4_pages(
         first_score = scores[0] if scores else JianpuScore()
     page_options = _a4_render_options(options, title=first_score.title)
     layouts = _scores_layouts_with_playback_indices(scores, page_options)
+    page_options = replace(
+        page_options,
+        line_height=max(page_options.line_height, _content_min_line_height(layouts)),
+    )
     rows = _layout_rows(layouts, page_options)
     row_pages = _paginate_rows(rows, page_options)
     meta = _score_meta(first_score)
@@ -500,6 +505,10 @@ def _render_layouts(
     meta: str,
     footer_text: str | None = None,
 ) -> str:
+    options = replace(
+        options,
+        line_height=max(options.line_height, _content_min_line_height(layouts)),
+    )
     rows = _layout_rows(layouts, options)
     footer_height = 80 if footer_text else 0
     height = (
@@ -557,6 +566,29 @@ def _render_layouts(
         )
     out.append("</svg>")
     return "\n".join(out)
+
+
+def _content_min_line_height(layouts: list[MeasureLayout]) -> int:
+    max_upper_extent = 0.0
+    for measure in layouts:
+        for beat in measure.beats:
+            for item in beat.items:
+                mark_ids = event_mark_ids(
+                    list(
+                        item.articulations
+                        or ([item.articulation] if item.articulation else [])
+                    ),
+                    list(item.ornaments),
+                    list(item.technical),
+                )
+                upper_extent = sum(
+                    mark.visual_height + mark.stack_gap
+                    for mark_id in mark_ids
+                    if (mark := get_performance_mark(mark_id)) is not None
+                    and mark.placement == "above"
+                )
+                max_upper_extent = max(max_upper_extent, upper_extent)
+    return max(108, int(96 + max_upper_extent))
 
 
 def _a4_render_options(

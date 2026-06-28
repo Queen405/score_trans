@@ -1,11 +1,28 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 
 AccidentalMode = Literal["auto", "sharp", "flat"]
 MeasureNumberMode = Literal["all", "row_start", "none"]
-InstrumentProfile = Literal["general", "erhu", "zhongruan"]
+InstrumentProfile = Literal["general", "erhu", "ruan", "guzheng", "zhongruan"]
+SUPPORTED_INSTRUMENT_PROFILES: tuple[InstrumentProfile, ...] = (
+    "general",
+    "erhu",
+    "ruan",
+    "guzheng",
+)
+ACCEPTED_INSTRUMENT_PROFILES: tuple[InstrumentProfile, ...] = (
+    *SUPPORTED_INSTRUMENT_PROFILES,
+    "zhongruan",
+)
+
+
+def normalize_instrument_profile(profile: str) -> InstrumentProfile:
+    normalized = "ruan" if profile == "zhongruan" else profile
+    if normalized not in SUPPORTED_INSTRUMENT_PROFILES:
+        raise ValueError(f"不支持的乐器模式：{profile}")
+    return cast(InstrumentProfile, normalized)
 TargetKey = Literal[
     "Cb",
     "Gb",

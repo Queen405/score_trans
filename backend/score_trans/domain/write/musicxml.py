@@ -12,10 +12,12 @@ from ..constants import (
 )
 from ..performance_marks import event_mark_ids, get_performance_mark
 from ..xml_utils import _indent
+from ...models.common.types import normalize_instrument_profile
 from ...models.score import Event, JianpuPitch, JianpuScore
 
 
 def score_to_musicxml(score: JianpuScore, title: str = "Jianpu Import") -> str:
+    instrument_profile = normalize_instrument_profile(score.instrument_profile)
     divisions = _score_divisions(score)
     root = ET.Element("score-partwise", {"version": "4.0"})
     work = ET.SubElement(root, "work")
@@ -27,13 +29,14 @@ def score_to_musicxml(score: JianpuScore, title: str = "Jianpu Import") -> str:
         "miscellaneous-field",
         {"name": "score-trans-instrument-profile"},
     )
-    profile_field.text = score.instrument_profile
+    profile_field.text = instrument_profile
     part_list = ET.SubElement(root, "part-list")
     score_part = ET.SubElement(part_list, "score-part", {"id": "P1"})
     ET.SubElement(score_part, "part-name").text = {
         "erhu": "Erhu",
-        "zhongruan": "Zhongruan",
-    }.get(score.instrument_profile, "Music")
+        "ruan": "Ruan",
+        "guzheng": "Guzheng",
+    }.get(instrument_profile, "Music")
     part = ET.SubElement(root, "part", {"id": "P1"})
 
     previous_key: str | None = None
@@ -117,8 +120,7 @@ def _append_event_xml(
 
 def _append_notations(note: ET.Element, event: Event) -> None:
     articulations = list(
-        event.articulations
-        or ([event.articulation] if event.articulation else [])
+        event.articulations or ([event.articulation] if event.articulation else [])
     )
     marks = event_mark_ids(
         articulations,
@@ -243,6 +245,3 @@ def _tuplet_normal_notes(actual_notes: int) -> int:
     while normal_notes * 2 <= actual_notes:
         normal_notes *= 2
     return max(1, normal_notes)
-
-
-

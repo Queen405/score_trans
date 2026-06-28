@@ -65,6 +65,38 @@ def test_erhu_ai_transcription_injects_profile_prompt_and_metadata(
     assert "instrument=erhu" in response.merged_jianpu_text
 
 
+def test_guzheng_ai_transcription_injects_catalog_and_metadata(
+    tmp_path: Path,
+) -> None:
+    config = ToolConfig(work_dir=tmp_path / "work")
+    uploads = UploadService(config)
+    source = tmp_path / "guzheng.png"
+    source.write_bytes(b"fake png")
+    file_id = uploads.register(source)
+    provider = MockVisionJianpuProvider()
+    actions = AiActions(
+        uploads=uploads,
+        settings=FakeSettings(config),  # type: ignore[arg-type]
+        transcriber=AiTranscriptionService(provider),
+    )
+
+    response = actions.transcribe_score(
+        AiTranscribeRequest(
+            file_id=file_id,
+            target_key="C",
+            instrument_profile="guzheng",
+        )
+    )
+
+    prompt = provider.prompts[0] or ""
+    assert "古筝识别模式" in prompt
+    assert "^l=摇指" in prompt
+    assert "^sy=扫摇" in prompt
+    assert "^st=双托" in prompt
+    assert "双托、双抹和琶音后必须是和弦" in prompt
+    assert "instrument=guzheng" in response.merged_jianpu_text
+
+
 def test_ai_chat_routes_are_registered() -> None:
     paths = set(create_app().openapi()["paths"])
     schema = create_app().openapi()["components"]["schemas"]["AiChatRequest"]

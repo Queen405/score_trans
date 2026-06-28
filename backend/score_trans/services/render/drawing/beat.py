@@ -26,9 +26,7 @@ def _render_beat_items(
     from ..layout.beat import _item_slots
 
     slots = _item_slots(items, x, width, options)
-    spanners, _tie, _slur, _slide = _render_spanners(
-        slots, y, options=options
-    )
+    spanners, _tie, _slur, _slide = _render_spanners(slots, y, options=options)
     return (
         _render_slot_items(slots, y, options)
         + _render_beams(slots, y, options)
@@ -82,6 +80,8 @@ def _render_item(
             f'<text class="dynamic" x="{cx:.1f}" y="{bottom + 30:.1f}" text-anchor="middle">{_esc(item.dynamic)}</text>'
         )
     placement_layers: dict[str, int] = {}
+    placement_offsets: dict[str, float] = {}
+    token_top = _token_metrics(item.token, y, options)["top"]
     for mark_id in _performance_mark_ids(item):
         mark = get_performance_mark(mark_id)
         if mark is None:
@@ -89,6 +89,11 @@ def _render_item(
         if suppress_upper_marks and mark.placement == "above":
             continue
         layer = placement_layers.get(mark.placement, 0)
+        anchor_y = None
+        if mark.placement == "above":
+            offset = placement_offsets.get("above", 0.0)
+            anchor_y = token_top - 13 - offset
+            placement_offsets["above"] = offset + mark.visual_height + mark.stack_gap
         out.extend(
             _render_performance_mark(
                 mark_id,
@@ -97,20 +102,20 @@ def _render_item(
                 y,
                 layer,
                 options,
+                anchor_y=anchor_y,
             )
         )
         placement_layers[mark.placement] = layer + 1
     if not suppress_upper_marks:
-        unknown_layer = placement_layers.get("above", 0)
-        top = _token_metrics(item.token, y, options)["top"]
+        unknown_offset = placement_offsets.get("above", 0.0)
         for category, name in _unknown_mark_entries(item):
             mark_class = "technical" if category == "technical" else "ornament"
             out.append(
                 f'<text class="{mark_class}" x="{cx:.1f}" '
-                f'y="{top - 9 - unknown_layer * 16:.1f}" '
+                f'y="{token_top - 9 - unknown_offset:.1f}" '
                 f'text-anchor="middle">{_esc(_mark_display(name))}</text>'
             )
-            unknown_layer += 1
+            unknown_offset += 16
     if item.lyric:
         bottom = _token_metrics(item.token, y, options)["bottom"]
         out.append(

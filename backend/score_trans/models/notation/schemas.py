@@ -12,6 +12,7 @@ class PerformanceMarkCatalogItem(BaseModel):
     description: str
     category: str
     placement: str
+    target: str = "pitched"
 
 
 class SyntaxExample(BaseModel):

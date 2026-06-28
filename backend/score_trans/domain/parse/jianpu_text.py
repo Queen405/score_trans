@@ -8,10 +8,17 @@ from ..jianpu_tokens import DURATION_PREFIXES, consume_duration_prefix
 from ..constants import DYNAMICS
 from ..performance_marks import (
     PERFORMANCE_MARKS,
+    event_mark_ids,
+    get_performance_mark,
     mark_for_token,
     normalize_event_marks,
 )
-from ...models.common.types import InstrumentProfile
+from ...models.common.types import (
+    ACCEPTED_INSTRUMENT_PROFILES,
+    SUPPORTED_INSTRUMENT_PROFILES,
+    InstrumentProfile,
+    normalize_instrument_profile,
+)
 from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
 
@@ -195,6 +202,11 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             if last_pitched_event is None:
                 raise ValueError("连线滑音 ^lh 前没有可连接的起始音")
             last_pitched_event.slide_start = True
+            _set_slide_direction(
+                last_pitched_event,
+                event,
+                instrument_profile=options.instrument_profile,
+            )
         if raw.startswith("("):
             event.slur_start = True
             open_slur = True
@@ -209,11 +221,12 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             open_tie = True
         elif event.tie_stop:
             open_tie = False
+        normalize_event_marks(event)
+        _validate_instrument_mark_target(event, options.instrument_profile)
         current_events.append(event)
         cursor += event.duration
         if event.kind == "note":
             last_pitched_event = event
-        normalize_event_marks(event)
 
     for token in token_lines:
         raw = token.value
@@ -282,10 +295,10 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             continue
         if raw.startswith("^"):
             name = raw[1:]
-            if name == "lh":
+            kind, mark = _mark_kind_name(name)
+            if kind == "spanner":
                 pending_slide = True
                 continue
-            kind, mark = _mark_kind_name(name)
             if kind == "ornament":
                 pending_ornaments.append(mark)
             elif kind == "technical":
@@ -348,12 +361,12 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                 options.tempo = int(value)
                 continue
             if key == "instrument":
-                if value not in {"general", "erhu", "zhongruan"}:
+                if value not in ACCEPTED_INSTRUMENT_PROFILES:
                     raise ValueError(
                         f"第 {line_no} 行：不支持的乐器模式 {value}，"
-                        "请使用 general、erhu 或 zhongruan"
+                        "请使用 " + "、".join(SUPPORTED_INSTRUMENT_PROFILES)
                     )
-                options.instrument_profile = value
+                options.instrument_profile = normalize_instrument_profile(value)
                 continue
         if re.fullmatch(r"\d+/\d+", stripped) and not saw_time:
             beats, beat_type = stripped.split("/", 1)
@@ -434,7 +447,7 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
                 _append_unique_mark(pending_ornaments, name)
             elif kind == "technical":
                 _append_unique_mark(pending_technical, name)
-            elif kind == "slide":
+            elif kind == "spanner":
                 pending_technical.append("__slide_from_previous__")
             else:
                 _append_unique_mark(pending_articulations, name)
@@ -448,11 +461,9 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
             name for kind, name in inline_marks if kind == "articulation"
         ]
         inline_ornaments = [name for kind, name in inline_marks if kind == "ornament"]
-        inline_technical = [
-            name for kind, name in inline_marks if kind == "technical"
-        ]
+        inline_technical = [name for kind, name in inline_marks if kind == "technical"]
         has_slide = "__slide_from_previous__" in pending_technical or any(
-            kind == "slide" for kind, _name in inline_marks
+            kind == "spanner" for kind, _name in inline_marks
         )
         inline_dynamic = next(
             (name for kind, name in reversed(inline_marks) if kind == "dynamic"),
@@ -478,11 +489,7 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         )
         event.technical = _unique_marks(
             list(event.technical),
-            [
-                mark
-                for mark in pending_technical
-                if mark != "__slide_from_previous__"
-            ],
+            [mark for mark in pending_technical if mark != "__slide_from_previous__"],
             inline_technical,
         )
         event.slide_stop = has_slide
@@ -553,8 +560,6 @@ def _tuplet_standalone_mark(part: str) -> tuple[str, str] | None:
         return None
     if part.startswith("^"):
         raw = part[1:]
-        if raw == "lh":
-            return "slide", "continuous-slide"
         if mark_for_token(raw):
             return _mark_kind_name(raw)
     return None
@@ -567,10 +572,7 @@ def _consume_tuplet_inline_marks(part: str) -> tuple[list[tuple[str, str]], str]
         if work.startswith("^") and len(work) > 1:
             raw = _match_mark_token(work[1:])
             if raw:
-                if raw == "lh":
-                    marks.append(("slide", "continuous-slide"))
-                else:
-                    marks.append(_mark_kind_name(raw))
+                marks.append(_mark_kind_name(raw))
                 work = work[len(raw) + 1 :]
                 continue
         if work.startswith("\\"):
@@ -778,11 +780,60 @@ def _mark_kind_name(raw: str) -> tuple[str, str]:
 
 _MARK_TOKENS = tuple(
     sorted(
-        {mark.token for mark in PERFORMANCE_MARKS} | {"lh"},
+        {mark.token for mark in PERFORMANCE_MARKS},
         key=len,
         reverse=True,
     )
 )
+
+
+def _set_slide_direction(
+    start: Event,
+    stop: Event,
+    *,
+    instrument_profile: InstrumentProfile,
+) -> None:
+    if len(start.pitches) != 1 or len(stop.pitches) != 1:
+        if instrument_profile == "guzheng":
+            raise ValueError("古筝有时值滑音 ^lh 只能连接两个单音，不能连接和弦")
+        return
+    start_rank = start.pitches[0].rank
+    stop_rank = stop.pitches[0].rank
+    if start_rank == stop_rank:
+        if instrument_profile == "guzheng":
+            raise ValueError("古筝有时值滑音 ^lh 的起止音高不能相同")
+        return
+    direction = "up" if stop_rank > start_rank else "down"
+    start.slide_direction = direction
+    stop.slide_direction = direction
+
+
+def _validate_instrument_mark_target(
+    event: Event,
+    instrument_profile: InstrumentProfile,
+) -> None:
+    if instrument_profile not in {"guzheng", "ruan"}:
+        return
+    mark_ids = event_mark_ids(
+        list(event.articulations),
+        list(event.ornaments),
+        list(event.technical),
+    )
+    for mark_id in mark_ids:
+        mark = get_performance_mark(mark_id)
+        if mark is None or not any(
+            profile == instrument_profile for profile, _label in mark.labels
+        ):
+            continue
+        label = mark.label_for(instrument_profile)
+        if event.kind != "note":
+            raise ValueError(
+                f"{label}演奏标记 ^{mark.token} 后必须跟随音符"
+            )
+        if mark.target == "chord" and not event.is_chord:
+            raise ValueError(
+                f"演奏标记 ^{mark.token}（{label}）后必须跟随和弦，例如 [3+5]"
+            )
 
 
 def _match_mark_token(value: str) -> str | None:

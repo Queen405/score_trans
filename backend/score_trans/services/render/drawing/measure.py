@@ -27,14 +27,14 @@ def _measure_number_y(measure: MeasureLayout, y: int, options: RenderOptions) ->
     for beat in measure.beats:
         for item in beat.items:
             top = _token_metrics(item.token, y, options)["top"]
-            upper_mark_count = sum(
-                1
+            upper_mark_extent = sum(
+                mark.visual_height + mark.stack_gap
                 for mark_id in _performance_mark_ids(item)
                 if (mark := get_performance_mark(mark_id)) is not None
                 and mark.placement == "above"
             )
-            upper_mark_count += len(_unknown_mark_entries(item))
-            min_top = min(min_top, top - max(0, upper_mark_count) * 16)
+            upper_mark_extent += len(_unknown_mark_entries(item)) * 16
+            min_top = min(min_top, top - max(0, upper_mark_extent))
     return int(min(min_top - _MARK_ABOVE_TOKEN - _MEASURE_NO_GAP, y - 44))
 
 
@@ -174,11 +174,12 @@ def _render_tuplet_upper_marks(
     out: list[str] = []
     for item, cx, _width in group_slots:
         layer = 0
+        stack_offset = 0.0
         for mark_id in _performance_mark_ids(item):
             mark = get_performance_mark(mark_id)
             if mark is None or mark.placement != "above":
                 continue
-            mark_y = bracket_y - 14 - layer * _TUPLET_MARK_GAP
+            mark_y = bracket_y - 14 - stack_offset
             out.extend(
                 _render_performance_mark(
                     mark_id,
@@ -191,12 +192,14 @@ def _render_tuplet_upper_marks(
                 )
             )
             layer += 1
+            stack_offset += mark.visual_height + mark.stack_gap
         for category, name in _unknown_mark_entries(item):
             mark_class = "technical" if category == "technical" else "ornament"
-            mark_y = bracket_y - 10 - layer * _TUPLET_MARK_GAP
+            mark_y = bracket_y - 10 - stack_offset
             out.append(
                 f'<text class="{mark_class}" x="{cx:.1f}" y="{mark_y:.1f}" '
                 f'text-anchor="middle">{_esc(name)}</text>'
             )
             layer += 1
+            stack_offset += _TUPLET_MARK_GAP
     return out

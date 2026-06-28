@@ -156,12 +156,23 @@ def _render_slide_curve(
             x1 = center - 15
             x2 = center + 15
     width = x2 - x1
+    direction = start_item.slide_direction or stop_item.slide_direction
+    if direction == "down":
+        start_offset, end_offset = -5.0, 5.0
+        control_1, control_2 = -3.0, 3.0
+    elif direction == "up":
+        start_offset, end_offset = 5.0, -5.0
+        control_1, control_2 = 3.0, -3.0
+    else:
+        start_offset, end_offset = 4.0, -4.0
+        control_1, control_2 = -5.0, 5.0
+    direction_attr = f' data-direction="{direction}"' if direction else ""
     return (
-        f'<path class="slide" data-mark="continuous-slide" '
-        f'd="M {x1:.1f} {curve_y + 4:.1f} '
-        f'C {x1 + width * 0.3:.1f} {curve_y - 5:.1f}, '
-        f'{x1 + width * 0.7:.1f} {curve_y + 5:.1f}, '
-        f'{x2:.1f} {curve_y - 4:.1f}"/>'
+        f'<path class="slide" data-mark="continuous-slide"{direction_attr} '
+        f'd="M {x1:.1f} {curve_y + start_offset:.1f} '
+        f"C {x1 + width * 0.3:.1f} {curve_y + control_1:.1f}, "
+        f"{x1 + width * 0.7:.1f} {curve_y + control_2:.1f}, "
+        f'{x2:.1f} {curve_y + end_offset:.1f}"/>'
     )
 
 

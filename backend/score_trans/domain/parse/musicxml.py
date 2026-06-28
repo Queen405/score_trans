@@ -13,7 +13,11 @@ from ..xml_utils import (
     _text,
     _read_musicxml,
 )
-from ...models.common.types import InstrumentProfile
+from ...models.common.types import (
+    ACCEPTED_INSTRUMENT_PROFILES,
+    InstrumentProfile,
+    normalize_instrument_profile,
+)
 from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
 
@@ -57,8 +61,11 @@ def musicxml_to_score(
     score = JianpuScore(
         title=extracted_title,
         target_key=target_key,
-        instrument_profile=instrument_profile
-        or _extract_instrument_profile(root, ns),
+        instrument_profile=(
+            normalize_instrument_profile(instrument_profile)
+            if instrument_profile
+            else _extract_instrument_profile(root, ns)
+        ),
     )
     if extracted_title:
         score.text_blocks.append(TextBlock(text=extracted_title, role="title"))
@@ -113,6 +120,7 @@ def musicxml_to_score(
         _normalize_measure(measure, current_beats, current_beat_type)
         score.measures.append(measure)
 
+    _restore_slide_directions(score)
     return score
 
 
@@ -122,27 +130,29 @@ def _extract_title(root: ET.Element, ns: str) -> str:
     return _text(work_title) or _text(movement_title) or "简谱"
 
 
-def _extract_instrument_profile(
-    root: ET.Element, ns: str
-) -> InstrumentProfile:
+def _extract_instrument_profile(root: ET.Element, ns: str) -> InstrumentProfile:
     for field in root.findall(f".//{_q(ns, 'miscellaneous-field')}"):
         name = (field.get("name") or "").strip().lower()
         value = (_text(field) or "").strip().lower()
-        if name in {
-            "score-trans-instrument-profile",
-            "score-trans:instrument-profile",
-        } and value in {"general", "erhu", "zhongruan"}:
-            return value
+        if (
+            name
+            in {
+                "score-trans-instrument-profile",
+                "score-trans:instrument-profile",
+            }
+            and value in ACCEPTED_INSTRUMENT_PROFILES
+        ):
+            return normalize_instrument_profile(value)
     part_name = _text(
-        root.find(
-            f"{_q(ns, 'part-list')}/{_q(ns, 'score-part')}/{_q(ns, 'part-name')}"
-        )
+        root.find(f"{_q(ns, 'part-list')}/{_q(ns, 'score-part')}/{_q(ns, 'part-name')}")
     )
     normalized = (part_name or "").strip().lower()
     if normalized in {"二胡", "erhu"}:
         return "erhu"
-    if normalized in {"中阮", "zhongruan", "zhong ruan"}:
-        return "zhongruan"
+    if normalized in {"阮", "中阮", "ruan", "zhongruan", "zhong ruan"}:
+        return "ruan"
+    if normalized in {"古筝", "guzheng", "zheng"}:
+        return "guzheng"
     return "general"
 
 
@@ -250,6 +260,8 @@ def _read_measure_events(
             event.articulation = event.articulations[0] if event.articulations else None
             event.ornaments = _notation_marks(notations.find(_q(ns, "ornaments")), ns)
             event.technical = _notation_marks(notations.find(_q(ns, "technical")), ns)
+            if notations.find(_q(ns, "arpeggiate")) is not None:
+                event.technical.append("arpeggio")
             event.dynamic = _dynamic_text(notations.find(_q(ns, "dynamics")), ns)
             _apply_tuplet_notations(
                 event, notations, ns, measure.source_number, cursor, active_tuplets
@@ -287,6 +299,29 @@ def _read_measure_events(
         measure.events.append(event)
         last_event = event
         cursor += duration
+
+
+def _restore_slide_directions(score: JianpuScore) -> None:
+    open_slide: Event | None = None
+    for measure in score.measures:
+        for event in measure.events:
+            if event.slide_stop and open_slide is not None:
+                _infer_slide_direction(open_slide, event)
+                open_slide = None
+            if event.slide_start:
+                open_slide = event
+
+
+def _infer_slide_direction(start: Event, stop: Event) -> None:
+    if len(start.pitches) != 1 or len(stop.pitches) != 1:
+        return
+    start_rank = start.pitches[0].rank
+    stop_rank = stop.pitches[0].rank
+    if start_rank == stop_rank:
+        return
+    direction = "up" if stop_rank > start_rank else "down"
+    start.slide_direction = direction
+    stop.slide_direction = direction
 
 
 def _apply_tuplet_notations(

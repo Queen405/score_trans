@@ -477,20 +477,94 @@ def test_instrument_profile_catalog_uses_contextual_tremolo_labels() -> None:
 
     assert response.status_code == 200
     profiles = {profile["id"]: profile for profile in response.json()}
-    assert set(profiles) == {"general", "erhu", "zhongruan"}
-    assert all(
-        mark["id"] != "tremolo" for mark in profiles["general"]["marks"]
-    )
+    assert set(profiles) == {"general", "erhu", "ruan", "guzheng"}
+    assert all(mark["id"] != "tremolo" for mark in profiles["general"]["marks"])
     erhu_tremolo = next(
-        mark
-        for mark in profiles["erhu"]["marks"]
-        if mark["id"] == "tremolo"
+        mark for mark in profiles["erhu"]["marks"] if mark["id"] == "tremolo"
     )
-    zhongruan_tremolo = next(
-        mark
-        for mark in profiles["zhongruan"]["marks"]
-        if mark["id"] == "tremolo"
+    ruan_tremolo = next(
+        mark for mark in profiles["ruan"]["marks"] if mark["id"] == "tremolo"
+    )
+    guzheng_tremolo = next(
+        mark for mark in profiles["guzheng"]["marks"] if mark["id"] == "tremolo"
     )
     assert erhu_tremolo["name"] == "颤弓（抖弓）"
-    assert zhongruan_tremolo["name"] == "轮指"
+    assert ruan_tremolo["name"] == "轮指"
+    assert guzheng_tremolo["name"] == "摇指"
     assert profiles["erhu"]["range_examples"][0]["syntax"].startswith("(^l)")
+    guzheng_ids = {
+        mark["id"]
+        for mark in profiles["guzheng"]["marks"]
+        if mark["id"]
+        in {
+            "tremolo",
+            "guzheng-sweep-tremolo",
+            "string-sweep",
+            "natural-harmonic",
+            "guzheng-double-tuo",
+            "guzheng-double-mo",
+            "arpeggio",
+            "guzheng-board-front-flower",
+            "guzheng-on-beat-flower",
+            "guzheng-ascending-scrape",
+            "guzheng-descending-scrape",
+            "guzheng-vibrato",
+            "scoop",
+            "plop",
+            "guzheng-ornament-up-slide",
+            "guzheng-ornament-down-slide",
+            "continuous-slide",
+        }
+    }
+    assert len(guzheng_ids) == 17
+    ruan_marks = {
+        mark["id"]: mark["name"]
+        for mark in profiles["ruan"]["marks"]
+        if mark["id"]
+        in {
+            "tremolo",
+            "string-sweep",
+            "natural-harmonic",
+            "continuous-slide",
+            "ornament-note",
+            "arpeggio",
+        }
+    }
+    assert ruan_marks == {
+        "tremolo": "轮指",
+        "string-sweep": "扫弦",
+        "natural-harmonic": "泛音",
+        "continuous-slide": "滑音",
+        "ornament-note": "装饰音",
+        "arpeggio": "琶音",
+    }
+    assert (
+        next(
+            mark
+            for mark in profiles["guzheng"]["marks"]
+            if mark["id"] == "natural-harmonic"
+        )["syntax"]
+        == "^zr"
+    )
+    excluded_names = {
+        "大指摇",
+        "食指摇",
+        "柱音",
+        "游摇",
+        "逗号",
+        "句号",
+        "分号",
+        "大撮",
+        "小撮",
+        "分指双托",
+        "三指轮",
+        "四指轮",
+        "重颤音",
+        "回滑音",
+        "点音",
+        "按音",
+        "左手大拇指按滑符号",
+    }
+    assert excluded_names.isdisjoint(
+        mark["name"] for mark in profiles["guzheng"]["marks"]
+    )

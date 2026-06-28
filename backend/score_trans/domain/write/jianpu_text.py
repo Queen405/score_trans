@@ -6,8 +6,10 @@ import re
 from ..accidentals import pitch_to_token
 from ..jianpu_tokens import duration_affixes
 from ..performance_marks import event_mark_ids, mark_token
-from ...models.common.types import AccidentalMode
+from ...models.common.types import AccidentalMode, normalize_instrument_profile
 from ...models.score import Event, JianpuPitch, JianpuScore
+
+_CONTINUOUS_SLIDE_TOKEN = mark_token("continuous-slide") or "lh"
 
 
 def score_to_jianpu_text(
@@ -32,8 +34,9 @@ def score_to_jianpu_text(
         else score.beat_type
     )
     lines = [f"1={current_key}", f"{current_beats}/{current_beat_type}"]
-    if score.instrument_profile != "general":
-        lines.insert(0, f"instrument={score.instrument_profile}")
+    instrument_profile = normalize_instrument_profile(score.instrument_profile)
+    if instrument_profile != "general":
+        lines.insert(0, f"instrument={instrument_profile}")
     if score.title and score.title != "简谱":
         lines.insert(0, f"title={score.title}")
     measures = []
@@ -78,7 +81,7 @@ def score_to_jianpu_text(
                 if token:
                     tokens.append(f"^{token}")
             if event.slide_stop:
-                tokens.append("^lh")
+                tokens.append(f"^{_CONTINUOUS_SLIDE_TOKEN}")
             tokens.append(_event_to_token(event, accidental_mode=accidental_mode))
             if event.lyric:
                 lyrics.append(event.lyric)
@@ -199,7 +202,7 @@ def _event_to_tuplet_body(
         if token:
             prefixes.append(f"^{token}")
     if event.slide_stop:
-        prefixes.append("^lh")
+        prefixes.append(f"^{_CONTINUOUS_SLIDE_TOKEN}")
     body = "".join(prefixes) + body
     return body
 

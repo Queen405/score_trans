@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from ....models.common.types import InstrumentProfile
+from ....models.common.types import InstrumentProfile, normalize_instrument_profile
 
 
 def merge_page_jianpu_texts(
@@ -12,6 +12,7 @@ def merge_page_jianpu_texts(
     title: str | None = None,
     instrument_profile: InstrumentProfile = "general",
 ) -> str:
+    instrument_profile = normalize_instrument_profile(instrument_profile)
     non_empty = [text for text in page_texts if text.strip()]
     if not non_empty:
         profile_line = (

@@ -35,7 +35,7 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
               <tr><td><code>1=G</code></td><td>写在小节前，后续小节转为 G 调</td></tr>
               <tr><td><code>3/4</code></td><td>写在小节前，后续小节转为 3/4 拍</td></tr>
               <tr><td><code>title=名称</code></td><td>谱名，可选</td></tr>
-              <tr><td><code>instrument=erhu</code></td><td>乐器模式：普通 general / 二胡 erhu / 中阮 zhongruan</td></tr>
+              <tr><td><code>instrument=erhu</code></td><td>乐器模式：普通 general / 二胡 erhu / 阮 ruan / 古筝 guzheng</td></tr>
               <tr><td><code>tempo=120</code></td><td>速度（BPM），可选</td></tr>
             </tbody>
           </table>
@@ -175,7 +175,8 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
             <tr><td><code>( )</code></td><td>连音线（圆滑奏）</td><td><code>[a+b]</code></td><td>和弦</td></tr>
             <tr><td><code>| || |: :|</code></td><td>小节线 / 终止线 / 反复</td><td><code>*N</code></td><td>重复 N 次</td></tr>
             <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^r ^f</code></td><td>通用演奏标记</td></tr>
-            <tr><td><code>instrument=erhu</code></td><td>二胡模式</td><td><code>instrument=zhongruan</code></td><td>中阮模式</td></tr>
+            <tr><td><code>instrument=erhu</code></td><td>二胡模式</td><td><code>instrument=ruan</code></td><td>阮模式</td></tr>
+            <tr><td><code>instrument=guzheng</code></td><td>古筝模式</td><td></td><td></td></tr>
             <tr><td><code>L:</code></td><td>歌词行</td><td><code>//</code></td><td>注释到行尾</td></tr>
           </tbody>
         </table>

@@ -130,11 +130,54 @@ def test_erhu_marks_and_profile_roundtrip_through_musicxml() -> None:
 
 
 def test_chord_performance_mark_is_written_only_once() -> None:
-    xml = jianpu_to_musicxml(
-        "instrument=erhu\n1=C\n4/4\n^lg [1+3+5] 2 3 4 |"
-    )
+    xml = jianpu_to_musicxml("instrument=erhu\n1=C\n4/4\n^lg [1+3+5] 2 3 4 |")
     root = ET.fromstring(xml)
 
     assert len(root.findall(".//down-bow")) == 1
 
 
+def test_guzheng_marks_musicxml_round_trip_and_chord_marks_write_once() -> None:
+    source = (
+        "instrument=guzheng\n1=C\n4/4\n"
+        "^l ^sy ^sx ^zr ^bq ^zb ^sg ^xg ^cy ^sh ^xh ^zs ^zx 3 2 1 7 |\n"
+        "^st [3+5] ^sm [1+2] ^py [1+3+5] 3 |\n"
+        "3 ^lh 5 5 ^lh 3 |"
+    )
+    xml = jianpu_to_musicxml(source)
+    root = ET.fromstring(xml)
+    restored = score_to_jianpu_text(musicxml_to_score(xml))
+
+    assert root.findtext(".//part-name") == "Guzheng"
+    assert len(root.findall(".//arpeggiate")) == 1
+    assert xml.count("guzheng:double-tuo") == 1
+    assert xml.count("guzheng:double-mo") == 1
+    assert xml.count("guzheng:sweep-tremolo") == 1
+    assert "instrument=guzheng" in restored
+    for token in (
+        "^l",
+        "^sy",
+        "^sx",
+        "^zr",
+        "^bq",
+        "^zb",
+        "^sg",
+        "^xg",
+        "^cy",
+        "^sh",
+        "^xh",
+        "^zs",
+        "^zx",
+        "^st",
+        "^sm",
+        "^py",
+        "^lh",
+    ):
+        assert token in restored
+    restored_score = musicxml_to_score(xml)
+    slide_events = restored_score.measures[2].events[:4]
+    assert [event.slide_direction for event in slide_events] == [
+        "up",
+        "up",
+        "down",
+        "down",
+    ]

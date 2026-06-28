@@ -11,6 +11,7 @@ TextRole = Literal[
     "title", "instrument", "lyric", "expression", "footer", "measure_number", "other"
 ]
 EventKind = Literal["note", "rest"]
+SlideDirection = Literal["up", "down"]
 
 
 @dataclass(slots=True)
@@ -53,6 +54,7 @@ class Event:
     slur_stop: bool = False
     slide_start: bool = False
     slide_stop: bool = False
+    slide_direction: SlideDirection | None = None
     lyric: str | None = None
     dynamic: str | None = None
     articulation: str | None = None
