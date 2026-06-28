@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, type ApiResult } from './client'
 import type { CacheCleanupResponse, SettingsResponse, SettingsUpdateRequest } from '../models/types'
 
 export interface SettingsQuery {
@@ -8,7 +8,7 @@ export interface SettingsQuery {
 }
 
 export const settingsApi = {
-  get(query: SettingsQuery = {}): Promise<SettingsResponse> {
+  get(query: SettingsQuery = {}): Promise<ApiResult<SettingsResponse>> {
     const params = new URLSearchParams()
     if (query.ocr_provider) params.set('ocr_provider', query.ocr_provider)
     if (query.ai_provider) params.set('ai_provider', query.ai_provider)
@@ -17,7 +17,7 @@ export const settingsApi = {
     return apiFetch(`/settings${suffix ? `?${suffix}` : ''}`)
   },
 
-  update(req: SettingsUpdateRequest): Promise<SettingsResponse> {
+  update(req: SettingsUpdateRequest): Promise<ApiResult<SettingsResponse>> {
     return apiFetch('/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -25,7 +25,7 @@ export const settingsApi = {
     })
   },
 
-  clearCache(): Promise<CacheCleanupResponse> {
+  clearCache(): Promise<ApiResult<CacheCleanupResponse>> {
     return apiFetch('/settings/cache', {
       method: 'DELETE',
     })

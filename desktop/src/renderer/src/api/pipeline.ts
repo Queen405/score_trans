@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, type ApiResult } from './client'
 import type {
   AccidentalMode,
   InstrumentProfile,
@@ -17,7 +17,7 @@ export const pipelineApi = {
     startMeasureNumber?: number,
     measureNumberMode: MeasureNumberMode = 'all',
     title?: string,
-  ): Promise<TaskSubmitResponse> {
+  ): Promise<ApiResult<TaskSubmitResponse>> {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('target_key', targetKey)
@@ -33,7 +33,7 @@ export const pipelineApi = {
     return apiFetch('/pipeline', { method: 'POST', body: formData })
   },
 
-  runByFileId(req: PipelineByFileIdRequest): Promise<TaskSubmitResponse> {
+  runByFileId(req: PipelineByFileIdRequest): Promise<ApiResult<TaskSubmitResponse>> {
     return apiFetch('/pipeline/by-file-id', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

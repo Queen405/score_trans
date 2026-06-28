@@ -1,3 +1,4 @@
+import { requireData } from '../api/client'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { settingsApi, type SettingsQuery } from '../api/settings'
@@ -63,7 +64,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function load(): Promise<void> {
     try {
-      const data = await settingsApi.get()
+      const data = await requireData(settingsApi.get())
       applySettings(data)
       await loadStoragePaths()
       loaded.value = true
@@ -84,7 +85,7 @@ export const useSettingsStore = defineStore('settings', () => {
   async function save(): Promise<boolean> {
     const requestedDataDir = dataDir.value
     const requestedCacheDir = cacheDir.value
-    const data = await settingsApi.update({
+    const data = await requireData(settingsApi.update({
       audiveris_path: audiverisPath.value,
       java_home: javaHome.value,
       output_dir: outputDir.value,
@@ -100,7 +101,7 @@ export const useSettingsStore = defineStore('settings', () => {
       ai_api_key: aiApiKey.value || undefined,
       assistant_provider: assistantProvider.value,
       assistant_api_key: assistantApiKey.value || undefined,
-    })
+    }))
     applySettings(data)
     dataDir.value = requestedDataDir
     cacheDir.value = requestedCacheDir
@@ -108,7 +109,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function clearCache(): Promise<CacheCleanupResponse> {
-    const result = await settingsApi.clearCache()
+    const result = await requireData(settingsApi.clearCache())
     const api = (globalThis as any).api
     if (typeof api?.clearElectronCache === 'function') {
       await api.clearElectronCache()
@@ -128,7 +129,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const provider = selectedProvider(kind)
     const version = providerLoadVersion[kind] + 1
     providerLoadVersion[kind] = version
-    const data = await settingsApi.get(providerQuery(kind, provider))
+    const data = await requireData(settingsApi.get(providerQuery(kind, provider)))
     if (providerLoadVersion[kind] !== version || selectedProvider(kind) !== provider) return
     applyProviderSettings(kind, data)
   }

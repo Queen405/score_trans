@@ -1,6 +1,7 @@
 {
   "name": "score-trans-desktop",
   "version": "0.1.0",
+  "packageManager": "pnpm@11.7.0",
   "description": "Score Trans - 五线谱/简谱互转桌面应用",
   "main": "./out/main/index.js",
   "scripts": {
@@ -9,7 +10,10 @@
     "preview": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint --config eslint.config.mjs src/",
-    "test:utils": "node --test scripts/test-jianpu-page-sections.mjs"
+    "typecheck": "vue-tsc --noEmit",
+    "test:utils": "node --test scripts/test-jianpu-page-sections.mjs",
+    "generate:api-types": "node scripts/export-openapi.mjs && openapi-typescript ../build/openapi.json -o src/renderer/src/models/openapi.ts --export-type --alphabetize --default-non-nullable false",
+    "check:api-types": "node scripts/export-openapi.mjs && openapi-typescript ../build/openapi.json -o src/renderer/src/models/openapi.ts --export-type --alphabetize --default-non-nullable false --check"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
@@ -31,6 +35,7 @@
     "electron-vite": "^5.0.0",
     "eslint": "^10.4.1",
     "eslint-plugin-vue": "^10.9.2",
+    "openapi-typescript": "^7.13.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.60.1",
     "vite": "^6.2.0",

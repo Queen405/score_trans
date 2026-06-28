@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, type ApiResult } from './client'
 import type {
   BatchRenderRequest,
   BatchRenderResponse,
@@ -13,7 +13,7 @@ import type {
 } from '../models/types'
 
 export const renderApi = {
-  jianpuSvg(req: RenderJianpuSvgRequest): Promise<RenderJianpuSvgResponse> {
+  jianpuSvg(req: RenderJianpuSvgRequest): Promise<ApiResult<RenderJianpuSvgResponse>> {
     return apiFetch('/render/jianpu-svg', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -21,7 +21,7 @@ export const renderApi = {
     })
   },
 
-  jianpuTextSvg(req: RenderJianpuTextSvgRequest): Promise<RenderJianpuTextSvgResponse> {
+  jianpuTextSvg(req: RenderJianpuTextSvgRequest): Promise<ApiResult<RenderJianpuTextSvgResponse>> {
     return apiFetch('/render/jianpu-text-svg', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -29,7 +29,7 @@ export const renderApi = {
     })
   },
 
-  finalOutput(req: FinalOutputRequest): Promise<FinalOutputResponse> {
+  finalOutput(req: FinalOutputRequest): Promise<ApiResult<FinalOutputResponse>> {
     return apiFetch('/render/final-output', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -37,7 +37,7 @@ export const renderApi = {
     })
   },
 
-  batchA4(req: BatchRenderRequest): Promise<BatchRenderResponse> {
+  batchA4(req: BatchRenderRequest): Promise<ApiResult<BatchRenderResponse>> {
     return apiFetch('/render/batch-a4', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -45,7 +45,7 @@ export const renderApi = {
     })
   },
 
-  normalizeJianpuText(req: NormalizeJianpuTextRequest): Promise<NormalizeJianpuTextResponse> {
+  normalizeJianpuText(req: NormalizeJianpuTextRequest): Promise<ApiResult<NormalizeJianpuTextResponse>> {
     return apiFetch('/render/normalize-jianpu-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

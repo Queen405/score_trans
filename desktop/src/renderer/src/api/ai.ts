@@ -1,4 +1,11 @@
-import { ApiError, apiFetch, BASE_URL } from './client'
+import {
+  ApiError,
+  apiFailure,
+  apiFetch,
+  apiSuccess,
+  BASE_URL,
+  type ApiResult,
+} from './client'
 import type {
   AiChatMessage,
   AiChatRequest,
@@ -15,7 +22,7 @@ interface ChatStreamHandlers {
 }
 
 export const aiApi = {
-  transcribe(req: AiTranscribeRequest): Promise<TaskSubmitResponse> {
+  transcribe(req: AiTranscribeRequest): Promise<ApiResult<TaskSubmitResponse>> {
     return apiFetch('/ai/transcribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -23,11 +30,11 @@ export const aiApi = {
     })
   },
 
-  listChatSessions(): Promise<AiChatSession[]> {
+  listChatSessions(): Promise<ApiResult<AiChatSession[]>> {
     return apiFetch('/ai/chat/sessions')
   },
 
-  createChatSession(title?: string): Promise<AiChatSession> {
+  createChatSession(title?: string): Promise<ApiResult<AiChatSession>> {
     return apiFetch('/ai/chat/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -35,15 +42,15 @@ export const aiApi = {
     })
   },
 
-  getChatMessages(sessionId: string): Promise<AiChatMessage[]> {
+  getChatMessages(sessionId: string): Promise<ApiResult<AiChatMessage[]>> {
     return apiFetch(`/ai/chat/sessions/${sessionId}/messages`)
   },
 
-  deleteChatSession(sessionId: string): Promise<{ ok: boolean }> {
+  deleteChatSession(sessionId: string): Promise<ApiResult<{ ok: boolean }>> {
     return apiFetch(`/ai/chat/sessions/${sessionId}`, { method: 'DELETE' })
   },
 
-  chat(req: AiChatRequest): Promise<AiChatResponse> {
+  chat(req: AiChatRequest): Promise<ApiResult<AiChatResponse>> {
     return apiFetch('/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,35 +58,43 @@ export const aiApi = {
     })
   },
 
-  async streamChat(req: AiChatRequest, handlers: ChatStreamHandlers): Promise<void> {
-    const response = await fetch(`${BASE_URL()}/ai/chat/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-    })
+  async streamChat(
+    req: AiChatRequest,
+    handlers: ChatStreamHandlers,
+  ): Promise<ApiResult<void>> {
+    try {
+      const response = await fetch(`${BASE_URL()}/ai/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+      })
 
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({} as Record<string, unknown>))
-      const rawMessage = payload.error ?? payload.detail
-      throw new ApiError(typeof rawMessage === 'string' ? rawMessage : `HTTP ${response.status}`)
-    }
-    if (!response.body) throw new ApiError('浏览器不支持流式响应')
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const blocks = buffer.split('\n\n')
-      buffer = blocks.pop() ?? ''
-      for (const block of blocks) {
-        handleSseBlock(block, handlers)
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>))
+        const rawMessage = payload.error ?? payload.detail
+        throw new ApiError(typeof rawMessage === 'string' ? rawMessage : `HTTP ${response.status}`)
       }
+      if (!response.body) throw new ApiError('浏览器不支持流式响应')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const blocks = buffer.split('\n\n')
+        buffer = blocks.pop() ?? ''
+        for (const block of blocks) {
+          handleSseBlock(block, handlers)
+        }
+      }
+      if (buffer.trim()) handleSseBlock(buffer, handlers)
+      return apiSuccess(undefined)
+    } catch (error) {
+      return apiFailure(error)
     }
-    if (buffer.trim()) handleSseBlock(buffer, handlers)
   },
 }
 

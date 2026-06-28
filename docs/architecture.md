@@ -1,6 +1,6 @@
-# Score Trans 后端架构分析
+# Score Trans 项目架构
 
-> 生成日期：2026-06-05 | 分析工具：MiMo-V2.5-Pro 三代理深度扫描
+> 初始分析：2026-06-05 | 架构复核：2026-06-28
 
 ## 1. 项目概览
 
@@ -118,3 +118,37 @@ JianpuScore（乐谱）
 | MuseScore | MusicXML → PDF/PNG/MIDI 导出 | subprocess（CLI） |
 | 视觉 LLM | AI 转录乐谱→简谱 | HTTP API（LangChain） |
 | OCR API | 提取乐谱文字 | HTTP API（urllib） |
+
+## 8. 前端架构
+
+```
+Electron main / preload
+          ↓ IPC
+Vue views / components
+          ↓
+Pinia stores（workspace / settings / assistant / log）
+          ↓
+typed API adapters（统一返回 ApiResult<T>）
+          ↓
+FastAPI OpenAPI contract
+```
+
+- `stores/workspace.ts` 是 Score Workspace Module，集中维护 Source Page、Recognition Batch、历史记录身份和 Render Page 状态。
+- `utils/batchRender.ts` 集中构造批量渲染请求，避免 Recognize、Convert、Export 三个页面分别解释分页语义。
+- `models/openapi.ts` 由 FastAPI OpenAPI 自动生成；`models/contracts.ts` 提供稳定的前端语义别名，`models/types.ts` 只保留兼容重导出与纯前端类型。
+- `api/client.ts` 定义统一的 `{ data, error }` Interface；各 API adapter 不向组件抛异常，组件/Store 在工作流边界通过 `requireData()` 接回原有错误展示流程。
+
+## 9. 组合根与公开接口
+
+- `exec/composition.py` 是后端进程级组合根，复用上传、文件、历史和设置等有状态服务；请求级 Actions 仍由 `api/dependencies.py` 创建。
+- `services/render/__init__.py` 只公开渲染门面所需类型，具体 SVG 函数从 `services/render/main.py` 显式导入，减少包级 Interface 泄漏。
+- 根目录 `CONTEXT.md` 定义 Source Page、History Page、Render Page 等领域语言，避免“page”在跨层协作中继续混用。
+
+## 10. 自动化质量门禁
+
+`.github/workflows/ci.yml` 在 Windows 环境执行：
+
+1. Ruff 与全部 Pytest；
+2. ESLint、Vue TypeScript 类型检查与前端工具测试；
+3. OpenAPI 生成类型漂移检查；
+4. Electron/Vue 生产构建。

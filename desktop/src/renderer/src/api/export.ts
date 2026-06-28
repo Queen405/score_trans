@@ -1,14 +1,14 @@
-import { apiFetch, getFileURL } from './client'
+import { apiFetch, getFileURL, type ApiResult } from './client'
 import type { ExportMidiTextRequest, ExportResponse } from '../models/types'
 
 export const exportApi = {
-  async exportMidi(musicxmlFileId: string, filename?: string): Promise<ExportResponse> {
+  async exportMidi(musicxmlFileId: string, filename?: string): Promise<ApiResult<ExportResponse>> {
     const params = new URLSearchParams({ musicxml_file_id: musicxmlFileId })
     if (filename) params.set('filename', filename)
     return apiFetch(`/export/midi?${params.toString()}`, { method: 'POST' })
   },
 
-  async exportMidiText(req: ExportMidiTextRequest): Promise<ExportResponse> {
+  async exportMidiText(req: ExportMidiTextRequest): Promise<ApiResult<ExportResponse>> {
     return apiFetch('/export/midi-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -16,7 +16,7 @@ export const exportApi = {
     })
   },
 
-  async exportPdf(pngPages: Blob[], filename = 'jianpu.pdf'): Promise<ExportResponse> {
+  async exportPdf(pngPages: Blob[], filename = 'jianpu.pdf'): Promise<ApiResult<ExportResponse>> {
     const form = new FormData()
     form.append('filename', filename)
     for (let i = 0; i < pngPages.length; i++) {

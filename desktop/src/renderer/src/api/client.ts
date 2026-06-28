@@ -20,30 +20,48 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${getBaseURL()}${path}`, options)
+export type ApiResult<T> =
+  | { data: T; error: null }
+  | { data: null; error: ApiError }
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({} as Record<string, unknown>))
-    const rawMessage = payload.error ?? payload.detail
-    const message =
-      typeof rawMessage === 'string'
-        ? rawMessage
-        : rawMessage
-          ? JSON.stringify(rawMessage)
-          : `HTTP ${response.status}`
-    const stage = typeof payload.stage === 'string' ? payload.stage : undefined
-    const detail =
-      typeof payload.detail === 'string'
-        ? payload.detail
-        : payload.detail
-          ? JSON.stringify(payload.detail)
-          : undefined
-
-    throw new ApiError(message, stage, detail)
+export async function apiFetch<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(`${getBaseURL()}${path}`, options)
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>))
+      return apiFailure(apiErrorFromResponse(response.status, payload))
+    }
+    return apiSuccess(await response.json() as T)
+  } catch (error) {
+    return apiFailure(toApiError(error))
   }
+}
 
-  return response.json()
+export function apiSuccess<T>(data: T): ApiResult<T> {
+  return { data, error: null }
+}
+
+export function apiFailure<T = never>(error: unknown): ApiResult<T> {
+  return { data: null, error: toApiError(error) }
+}
+
+export async function toApiResult<T>(promise: Promise<T>): Promise<ApiResult<T>> {
+  try {
+    return apiSuccess(await promise)
+  } catch (error) {
+    return apiFailure(error)
+  }
+}
+
+export async function requireData<T>(
+  resultPromise: Promise<ApiResult<T>>,
+): Promise<T> {
+  const result = await resultPromise
+  if (result.error) throw result.error
+  return result.data
 }
 
 export type UploadProgressCallback = (percent: number, phase: 'upload' | 'processing') => void
@@ -51,14 +69,21 @@ export type UploadProgressCallback = (percent: number, phase: 'upload' | 'proces
 export async function uploadFile(
   file: File,
   onProgress?: UploadProgressCallback,
+): Promise<ApiResult<UploadResponse>> {
+  return toApiResult(uploadFileData(file, onProgress))
+}
+
+async function uploadFileData(
+  file: File,
+  onProgress?: UploadProgressCallback,
 ): Promise<UploadResponse> {
   if (!onProgress) {
     const formData = new FormData()
     formData.append('file', file)
-    return apiFetch<UploadResponse>('/files/upload', {
+    return requireData(apiFetch<UploadResponse>('/files/upload', {
       method: 'POST',
       body: formData,
-    })
+    }))
   }
   return new Promise<UploadResponse>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -89,6 +114,33 @@ export async function uploadFile(
     formData.append('file', file)
     xhr.send(formData)
   })
+}
+
+function apiErrorFromResponse(
+  status: number,
+  payload: Record<string, unknown>,
+): ApiError {
+  const rawMessage = payload.error ?? payload.detail
+  const message =
+    typeof rawMessage === 'string'
+      ? rawMessage
+      : rawMessage
+        ? JSON.stringify(rawMessage)
+        : `HTTP ${status}`
+  const stage = typeof payload.stage === 'string' ? payload.stage : undefined
+  const detail =
+    typeof payload.detail === 'string'
+      ? payload.detail
+      : payload.detail
+        ? JSON.stringify(payload.detail)
+        : undefined
+  return new ApiError(message, stage, detail)
+}
+
+function toApiError(error: unknown): ApiError {
+  if (error instanceof ApiError) return error
+  if (error instanceof Error) return new ApiError(error.message)
+  return new ApiError(String(error))
 }
 
 export function getFileURL(fileId: string): string {

@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, type ApiResult } from './client'
 import type {
   HistoryBatch,
   HistoryBatchJianpuTextUpdateRequest,
@@ -14,19 +14,19 @@ import { createKeyedAsyncQueue } from '../utils/asyncCoordination'
 const pageUpdateQueue = createKeyedAsyncQueue<number>()
 
 export const historyApi = {
-  list(): Promise<HistoryBatchListItem[]> {
+  list(): Promise<ApiResult<HistoryBatchListItem[]>> {
     return apiFetch('/history')
   },
 
-  get(id: number): Promise<HistoryBatch> {
+  get(id: number): Promise<ApiResult<HistoryBatch>> {
     return apiFetch(`/history/${id}`)
   },
 
-  getPage(id: number): Promise<HistoryPage> {
+  getPage(id: number): Promise<ApiResult<HistoryPage>> {
     return apiFetch(`/history/pages/${id}`)
   },
 
-  create(req: HistoryCreateRequest): Promise<HistoryBatch> {
+  create(req: HistoryCreateRequest): Promise<ApiResult<HistoryBatch>> {
     return apiFetch('/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -34,7 +34,7 @@ export const historyApi = {
     })
   },
 
-  updatePage(id: number, req: HistoryPageUpdateRequest): Promise<HistoryPage> {
+  updatePage(id: number, req: HistoryPageUpdateRequest): Promise<ApiResult<HistoryPage>> {
     return pageUpdateQueue.enqueue(id, () =>
       apiFetch(`/history/pages/${id}`, {
         method: 'PATCH',
@@ -44,7 +44,7 @@ export const historyApi = {
     )
   },
 
-  updateBatchRenderPages(id: number, req: HistoryBatchRenderPagesUpdateRequest): Promise<HistoryBatch> {
+  updateBatchRenderPages(id: number, req: HistoryBatchRenderPagesUpdateRequest): Promise<ApiResult<HistoryBatch>> {
     return apiFetch(`/history/${id}/render-pages`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -52,7 +52,7 @@ export const historyApi = {
     })
   },
 
-  updateBatchJianpuText(id: number, req: HistoryBatchJianpuTextUpdateRequest): Promise<HistoryBatch> {
+  updateBatchJianpuText(id: number, req: HistoryBatchJianpuTextUpdateRequest): Promise<ApiResult<HistoryBatch>> {
     return apiFetch(`/history/${id}/jianpu-text`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -60,7 +60,7 @@ export const historyApi = {
     })
   },
 
-  updateBatchRenderPageOcrTexts(id: number, req: HistoryBatchRenderPageOcrTextsUpdateRequest): Promise<HistoryBatch> {
+  updateBatchRenderPageOcrTexts(id: number, req: HistoryBatchRenderPageOcrTextsUpdateRequest): Promise<ApiResult<HistoryBatch>> {
     return apiFetch(`/history/${id}/render-page-ocr-texts`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -68,11 +68,11 @@ export const historyApi = {
     })
   },
 
-  deleteOne(id: number): Promise<{ ok: boolean }> {
+  deleteOne(id: number): Promise<ApiResult<{ ok: boolean }>> {
     return apiFetch(`/history/${id}`, { method: 'DELETE' })
   },
 
-  deleteAll(): Promise<{ deleted_count: number }> {
+  deleteAll(): Promise<ApiResult<{ deleted_count: number }>> {
     return apiFetch('/history', { method: 'DELETE' })
   },
 }

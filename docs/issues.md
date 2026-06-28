@@ -17,6 +17,16 @@
 
 > **验证日期**：2026-06-28。本次基于 2026-06-15 报告继续复核，并清理已确认死代码与错误状态记录。
 
+### 2026-06-28 架构改进记录
+
+- ✅ 后端持久化服务通过 `exec/composition.py` 进程级复用。
+- ✅ 前端核心状态由含混的 Task Store 更名为 Score Workspace Module，保留兼容导出。
+- ✅ Recognize / Convert / Export 的批量渲染请求构造集中到 `utils/batchRender.ts`。
+- ✅ 前端 DTO 改为从 FastAPI OpenAPI 自动生成，并增加 CI 漂移检查。
+- ✅ 所有异步 API adapter 统一返回 `{ data, error }`。
+- ✅ `services/render` 包级公开接口收窄到渲染门面和核心 DTO。
+- ✅ 新增 Windows CI，覆盖后端测试、前端类型检查、契约检查和生产构建。
+
 ---
 
 ## 一、高严重度 Bug

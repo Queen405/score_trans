@@ -61,7 +61,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { NInputNumber, NSlider } from 'naive-ui'
 import { usePlayer } from '../composables/usePlayer'
-import { getFileURL } from '../api/client'
+import { getFileURL, requireData } from '../api/client'
 import { exportApi } from '../api/export'
 
 const props = defineProps<{
@@ -109,11 +109,11 @@ async function loadFromProps(): Promise<void> {
   // Need to generate MIDI from backend
   if (props.jianpuText?.trim()) {
     try {
-      const result = await exportApi.exportMidiText({
+      const result = await requireData(exportApi.exportMidiText({
         jianpu_text: props.jianpuText,
         filename: 'player.mid',
         title: '简谱',
-      })
+      }))
       if (gen !== loadGeneration) return
       const url = getFileURL(result.file_id)
       await player.loadMidi(url)
@@ -126,7 +126,7 @@ async function loadFromProps(): Promise<void> {
 
   if (props.musicxmlFileId) {
     try {
-      const result = await exportApi.exportMidi(props.musicxmlFileId, 'player.mid')
+      const result = await requireData(exportApi.exportMidi(props.musicxmlFileId, 'player.mid'))
       if (gen !== loadGeneration) return
       const url = getFileURL(result.file_id)
       await player.loadMidi(url)

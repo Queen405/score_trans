@@ -184,23 +184,21 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { useTaskStore } from '../stores/task'
+import { useWorkspaceStore } from '../stores/workspace'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
 import { downloadBlob, exportApi, svgToPngBlob } from '../api/export'
 import { historyApi } from '../api/history'
-import { ApiError } from '../api/client'
+import { ApiError, requireData } from '../api/client'
 import { filesApi } from '../api/files'
 import type {
-  BatchRenderPageRequest,
   HistoryBatchListItem,
   HistoryBatch,
   HistoryPage,
-  RenderedSvgPage,
 } from '../models/types'
-import type { TaskPage } from '../stores/task'
+import type { TaskPage } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import JianpuPlayer from '../components/JianpuPlayer.vue'
 import JianpuSyntaxGuide from '../components/JianpuSyntaxGuide.vue'
@@ -217,6 +215,12 @@ import {
 } from '../utils/jianpuPageSections'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
+import {
+  buildBatchRenderRequests,
+  renderPageOcrTextsForRequest,
+  renderResponsePageIds,
+  renderResponsePageOcrTexts,
+} from '../utils/batchRender'
 import {
   failedMeasureSelectionMessage,
   historyPageOpenAction,
@@ -242,7 +246,7 @@ import {
 } from '@vicons/ionicons5'
 import { NButton, NSelect, NIcon, NPopconfirm, NInputNumber, useMessage } from 'naive-ui'
 
-const store = useTaskStore()
+const store = useWorkspaceStore()
 const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
@@ -352,7 +356,7 @@ async function loadHistory(
     histLoading.value = true
   }
   try {
-    const batches = await historyApi.list()
+    const batches = await requireData(historyApi.list())
     if (seq !== historyListRequestSeq) return
     histBatches.value = batches
     syncExpandedBatchSummary()
@@ -372,7 +376,7 @@ async function loadHistory(
 }
 
 async function handleDeleteAll(): Promise<void> {
-  await historyApi.deleteAll()
+  await requireData(historyApi.deleteAll())
   histBatches.value = []
   expandedBatchId.value = null
   expandedPages.value = []
@@ -383,7 +387,7 @@ async function handleDeleteAll(): Promise<void> {
 
 async function handleDeleteBatch(batchId: number): Promise<void> {
   try {
-    await historyApi.deleteOne(batchId)
+    await requireData(historyApi.deleteOne(batchId))
     histBatches.value = histBatches.value.filter((batch) => batch.id !== batchId)
     if (expandedBatchId.value === batchId) {
       expandedBatchId.value = null
@@ -423,7 +427,7 @@ async function refreshExpandedBatch(
     loadingBatchId.value = batchId
   }
   try {
-    const batch: HistoryBatch = await historyApi.get(batchId)
+    const batch: HistoryBatch = await requireData(historyApi.get(batchId))
     if (historyDetailEpoch.isCurrent(requestToken) && expandedBatchId.value === batchId) {
       expandedPages.value = mergeLockedHistoryPages(batch.pages)
       syncExpandedBatchSummary(batchId)
@@ -509,7 +513,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
 async function fetchStableHistoryBatch(batchId: number): Promise<HistoryBatch | null> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const requestToken = historyDetailEpoch.begin()
-    const batch = await historyApi.get(batchId)
+    const batch = await requireData(historyApi.get(batchId))
     if (expandedBatchId.value !== batchId) return null
     if (historyDetailEpoch.isCurrent(requestToken)) {
       if (loadingBatchId.value === batchId) loadingBatchId.value = null
@@ -532,7 +536,7 @@ async function validateRestoredBatchFiles(
   if (!fileIds.length) return
 
   try {
-    const exists = await filesApi.existsMany(fileIds)
+    const exists = await requireData(filesApi.existsMany(fileIds))
     if (seq !== restoreCheckSeq) return
     const warnings: string[] = []
     for (const entry of pages) {
@@ -653,7 +657,7 @@ async function handleHistoryPageClick(page: HistoryPage): Promise<void> {
   checkingHistoryPageIds.add(page.id)
   historyDetailEpoch.invalidate()
   try {
-    const latest = await historyApi.getPage(page.id)
+    const latest = await requireData(historyApi.getPage(page.id))
     replaceExpandedHistoryPage(latest)
     syncStoreFromHistoryPage(latest)
     const action = historyPageOpenAction(latest.status)
@@ -711,37 +715,37 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
     let svgFileIds = page.svg_file_id ? [page.svg_file_id] : []
     let jianpuText = page.jianpu_text
     if (page.musicxml_file_id && selected !== options[0]) {
-      const rendered = await renderApi.jianpuSvg({
+      const rendered = await requireData(renderApi.jianpuSvg({
         musicxml_file_id: page.musicxml_file_id,
         page_image_file_id: page.input_file_id || undefined,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
         measure_number_mode: settings.measureNumberMode,
         start_measure_number: selected,
-      })
+      }))
       svgFileId = rendered.svg_file_id
       svgFileIds = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
     } else if (!page.musicxml_file_id && page.jianpu_text.trim()) {
-      const rendered = await renderApi.jianpuTextSvg({
+      const rendered = await requireData(renderApi.jianpuTextSvg({
         jianpu_text: page.jianpu_text,
         page_image_file_id: page.input_file_id || undefined,
         include_ocr_text: false,
         measure_number_mode: settings.measureNumberMode,
         title: page.input_file_name || 'AI 简谱',
         start_measure_number: selected,
-      })
+      }))
       svgFileId = rendered.svg_file_id
       svgFileIds = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
       jianpuText = rendered.jianpu_text || page.jianpu_text
     }
-    const updated = await historyApi.updatePage(page.id, {
+    const updated = await requireData(historyApi.updatePage(page.id, {
       task_id: '',
       start_measure_number: selected,
       jianpu_text: jianpuText,
       svg_file_id: svgFileId,
       status: 'completed',
       error_message: '',
-    })
+    }))
     replaceExpandedHistoryPage(updated)
     syncStoreFromHistoryPage(updated)
     store.patchPageByHistoryPageId(updated.id, { svgFileIds })
@@ -759,12 +763,12 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
       error_message: failedMessage,
     }
     try {
-      const updated = await historyApi.updatePage(page.id, {
+      const updated = await requireData(historyApi.updatePage(page.id, {
         task_id: '',
         start_measure_number: selected,
         status: 'waiting',
         error_message: failedMessage,
-      })
+      }))
       replaceExpandedHistoryPage(updated)
       syncStoreFromHistoryPage(updated)
       notifyHistoryPagePatched(historyPagePatchFromPage(updated))
@@ -833,8 +837,8 @@ async function exportScore(): Promise<void> {
     if (format === 'mid') {
       const page = currentExportPage()
       const result = page.jianpuText.trim()
-        ? await exportApi.exportMidiText({ jianpu_text: page.jianpuText, filename: 'score.mid', title: '简谱' })
-        : await exportApi.exportMidi(store.musicxmlFileId, 'score.mid')
+        ? await requireData(exportApi.exportMidiText({ jianpu_text: page.jianpuText, filename: 'score.mid', title: '简谱' }))
+        : await requireData(exportApi.exportMidi(store.musicxmlFileId, 'score.mid'))
       downloadFile(result.file_id, result.filename)
       log.addLog(`导出完成：${result.filename}`)
       message.success('导出完成')
@@ -863,7 +867,7 @@ async function exportScore(): Promise<void> {
       }
     }
     if (!pngPages.length) throw new Error('所有页面导出失败，无可用内容')
-    const result = await exportApi.exportPdf(pngPages, 'jianpu.pdf')
+    const result = await requireData(exportApi.exportPdf(pngPages, 'jianpu.pdf'))
     downloadFile(result.file_id, result.filename)
     if (skippedPages.length) {
       log.addLog(`导出完成（跳过 ${skippedPages.length} 页失败页）：${result.filename}`)
@@ -965,7 +969,7 @@ async function renderExportSvgIds(): Promise<string[]> {
 async function renderFinalBatch(): Promise<string[]> {
   const pages = buildBatchRenderPages()
   if (!pages.length) throw new Error('暂无可渲染的简谱内容')
-  const result = await renderApi.batchA4({
+  const result = await requireData(renderApi.batchA4({
     pages,
     source_pages: buildBatchRenderSourcePages(),
     render_page_ocr_texts: currentRenderPageOcrTextsForRequest(),
@@ -973,7 +977,7 @@ async function renderFinalBatch(): Promise<string[]> {
     accidental_mode: settings.accidentalMode,
     measure_number_mode: settings.measureNumberMode,
     title: '简谱',
-  })
+  }))
   const ids = renderResponsePageIds(result.pages, result.svg_file_id)
   setFinalSvgFileIds(ids)
   store.setBatchRenderPageFileIds(ids)
@@ -987,104 +991,25 @@ async function renderFinalBatch(): Promise<string[]> {
   return ids
 }
 
-function buildBatchRenderPages(): BatchRenderPageRequest[] {
-  if (jianpuText.value.trim()) {
-    return buildSectionRenderPages(jianpuText.value)
-  }
-  return buildPageRenderRequests()
+function buildBatchRenderPages() {
+  return buildBatchRenderRequests(batchRenderSourcePages(), {
+    jianpuText: jianpuText.value,
+    title: '简谱',
+  })
 }
 
-function buildSectionRenderPages(text: string): BatchRenderPageRequest[] {
-  const batchPages = batchRenderSourcePages()
-  return parseJianpuPageSections(text)
-    .map((section, order) => {
-      const page = batchPages[section.pageIndex] ?? batchPages[order]
-      const sourceImageId = page?.originalFileId || page?.inputFileId || undefined
-      const start = section.startMeasureNumber
-        ?? (!section.markerLine && order === 0
-          ? (page?.startMeasureNumber ?? undefined)
-          : undefined)
-      if (section.body.trim()) {
-        return {
-          input_file_name: section.inputFileName || page?.inputFileName,
-          jianpu_text: section.body,
-          page_image_file_id: sourceImageId,
-          ocr_text: page?.ocrText || undefined,
-          include_ocr_text: false,
-          start_measure_number: start,
-          title: '简谱',
-        }
-      }
-      if (page?.musicxmlFileId) {
-        return {
-          input_file_name: section.inputFileName || page.inputFileName,
-          musicxml_file_id: page.musicxmlFileId,
-          page_image_file_id: sourceImageId,
-          ocr_text: page.ocrText || undefined,
-          include_ocr_text: false,
-          start_measure_number: start,
-          title: '简谱',
-        }
-      }
-      return null
-    })
-    .filter((page): page is BatchRenderPageRequest => page !== null)
-}
-
-function buildPageRenderRequests(): BatchRenderPageRequest[] {
-  return batchRenderSourcePages()
-    .map((page) => {
-      const sourceImageId = page.originalFileId || page.inputFileId || undefined
-      const start = page.startMeasureNumber ?? undefined
-      if (page.jianpuText.trim()) {
-        return {
-          input_file_name: page.inputFileName,
-          jianpu_text: page.jianpuText,
-          page_image_file_id: sourceImageId,
-          ocr_text: page.ocrText || undefined,
-          include_ocr_text: false,
-          start_measure_number: start,
-          title: '简谱',
-        }
-      }
-      if (page.musicxmlFileId) {
-        return {
-          input_file_name: page.inputFileName,
-          musicxml_file_id: page.musicxmlFileId,
-          page_image_file_id: sourceImageId,
-          ocr_text: page.ocrText || undefined,
-          include_ocr_text: false,
-          start_measure_number: start,
-          title: '简谱',
-        }
-      }
-      return null
-    })
-    .filter((page): page is BatchRenderPageRequest => page !== null)
-}
-
-function buildBatchRenderSourcePages(): BatchRenderPageRequest[] {
-  return jianpuText.value.trim()
-    ? buildSectionRenderPages(jianpuText.value)
-    : buildPageRenderRequests()
-}
-
-function renderResponsePageIds(pages: RenderedSvgPage[] | undefined, fallback: string): string[] {
-  const ids = (pages ?? []).map((page) => page.svg_file_id).filter(Boolean)
-  return ids.length ? ids : (fallback ? [fallback] : [])
-}
-
-function renderResponsePageOcrTexts(pages: RenderedSvgPage[] | undefined) {
-  return (pages ?? []).map((page) => ({
-    page_index: page.page_index,
-    ocr_text: page.ocr_text || '',
-  }))
+function buildBatchRenderSourcePages() {
+  return buildBatchRenderRequests(batchRenderSourcePages(), {
+    jianpuText: jianpuText.value,
+    title: '简谱',
+  })
 }
 
 function currentRenderPageOcrTextsForRequest() {
-  const entries = store.currentBatchRenderPageOcrTextEntries()
-  if (store.currentBatchRenderPageOcrDirty) return entries
-  return entries.filter((item) => item.ocr_text.trim())
+  return renderPageOcrTextsForRequest(
+    store.currentBatchRenderPageOcrTextEntries(),
+    store.currentBatchRenderPageOcrDirty,
+  )
 }
 
 function currentPageSvgIds(): string[] {
@@ -1109,9 +1034,9 @@ async function persistBatchRenderPages(
 ): Promise<void> {
   if (!batchId || !ids.length) return
   try {
-    const updated = await historyApi.updateBatchRenderPages(batchId, {
+    const updated = await requireData(historyApi.updateBatchRenderPages(batchId, {
       render_page_file_ids: ids,
-    })
+    }))
     store.setBatchRenderPageFileIds(updated.render_page_file_ids)
   } catch (e: unknown) {
     log.addLog(`保存连续 A4 渲染页失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
@@ -1123,9 +1048,9 @@ async function persistBatchRenderPageOcrTexts(
 ): Promise<void> {
   if (!batchId) return
   try {
-    const updated = await historyApi.updateBatchRenderPageOcrTexts(batchId, {
+    const updated = await requireData(historyApi.updateBatchRenderPageOcrTexts(batchId, {
       pages: store.currentBatchRenderPageOcrTextEntries(),
-    })
+    }))
     store.setBatchRenderPageOcrTexts(updated.render_page_ocr_texts || [], false)
   } catch (e: unknown) {
     log.addLog(`保存连续 A4 文字层失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
@@ -1135,13 +1060,13 @@ async function persistBatchRenderPageOcrTexts(
 async function musicxmlToJianpu(): Promise<void> {
   store.setBusy(true)
   try {
-    const result = await convertApi.musicxmlToJianpu({
+    const result = await requireData(convertApi.musicxmlToJianpu({
       musicxml_file_id: store.musicxmlFileId,
       page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
       start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
-    })
+    }))
     const split = splitJianpuAndOcr(result.jianpu_text)
     store.setJianpu(split.jianpuText)
     store.setBatchJianpuText(composeJianpuPageText(store.currentBatchPages), false)
@@ -1245,7 +1170,7 @@ async function toggleFinalView(): Promise<void> {
 async function persistRenderedHistory(svgFileId: string, renderPageFileIds: string[]): Promise<void> {
   const savedJianpu = jianpuText.value
   if (savedJianpu.trim()) {
-    await renderApi.normalizeJianpuText({ jianpu_text: savedJianpu, title: '简谱' })
+    await requireData(renderApi.normalizeJianpuText({ jianpu_text: savedJianpu, title: '简谱' }))
   }
   const sections = parseJianpuPageSections(savedJianpu)
   const currentPageIndex = Math.max(0, currentBatchLocalIndex.value)
@@ -1272,7 +1197,7 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
   }
 
   if (store.historyPageId) {
-    const updated = await historyApi.updatePage(store.historyPageId, payload)
+    const updated = await requireData(historyApi.updatePage(store.historyPageId, payload))
     replaceExpandedHistoryPage(updated)
     await persistOtherHistoryPageSections(savedJianpu, store.historyPageId)
     await persistBatchRenderPages(renderPageFileIds)
@@ -1283,7 +1208,7 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
   const batchPages = store.currentBatchPages.length
     ? store.currentBatchPages
     : [currentExportPage()]
-  const created = await historyApi.create({
+  const created = await requireData(historyApi.create({
     jianpu_text: savedJianpu,
     render_page_file_ids: renderPageFileIds,
     render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
@@ -1303,7 +1228,7 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
         error_message: '',
       }
     }),
-  })
+  }))
   created.pages.forEach((createdPage, pageIndex) => {
     const page = batchPages[pageIndex]
     if (!page) return
@@ -1336,10 +1261,10 @@ async function persistOtherHistoryPageSections(
       startMeasureNumber: section.startMeasureNumber,
     })
     if (!page.historyPageId || page.historyPageId === currentHistoryPageId) continue
-    const updated = await historyApi.updatePage(page.historyPageId, {
+    const updated = await requireData(historyApi.updatePage(page.historyPageId, {
       jianpu_text: section.body,
       start_measure_number: section.startMeasureNumber,
-    })
+    }))
     replaceExpandedHistoryPage(updated)
   }
 }
@@ -1350,7 +1275,7 @@ function firstBatchPage(): TaskPage | null {
 
 async function persistBatchJianpuText(batchId: number, text: string): Promise<void> {
   try {
-    await historyApi.updateBatchJianpuText(batchId, { jianpu_text: text })
+    await requireData(historyApi.updateBatchJianpuText(batchId, { jianpu_text: text }))
   } catch (e: unknown) {
     log.addLog(`保存批次简谱文本失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
   }

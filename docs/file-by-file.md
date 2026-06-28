@@ -15,8 +15,8 @@ FastAPI 应用工厂。注册 10 个路由模块、CORS 中间件、4 个全局�
 | `ai_transcription_error_handler` | AITranscriptionError → 502 |
 | `validation_error_handler` | ValueError → 400 |
 
-### `dependencies.py` (~36 行)
-FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建新实例。
+### `dependencies.py`
+FastAPI 请求级依赖注入工厂。Actions 按请求创建，其有状态服务依赖从 `exec/composition.py` 的进程级组合根取得。
 
 ### 路由模块
 
@@ -36,6 +36,9 @@ FastAPI 依赖注入工厂，9 个 `get_*_actions()` 函数，每次请求创建
 ---
 
 ## 2. Exec 层 (`src/score_trans/exec/`)
+
+### `composition.py`
+后端组合根，集中构造并复用上传、文件、历史和设置等有状态服务，避免依赖工厂重复执行初始化与旧目录迁移。
 
 ### `ai/actions.py` (~88 行)
 | 类 | 方法 |

@@ -37,7 +37,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useTaskStore } from '../stores/task'
+import { useWorkspaceStore } from '../stores/workspace'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
 import {
@@ -47,12 +47,17 @@ import {
   downloadBlob,
 } from '../api/export'
 import { renderApi } from '../api/render'
-import { getFileURL } from '../api/client'
-import type { BatchRenderPageRequest, RenderedSvgPage } from '../models/types'
+import { getFileURL, requireData } from '../api/client'
+import {
+  buildBatchRenderRequests,
+  buildSourcePageRenderRequests,
+  renderPageOcrTextsForRequest,
+  renderResponsePageOcrTexts,
+} from '../utils/batchRender'
 import { DocumentTextOutline, CloudDownloadOutline } from '@vicons/ionicons5'
 import { NButton, NSelect, NIcon, useMessage } from 'naive-ui'
 
-const store = useTaskStore()
+const store = useWorkspaceStore()
 const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
@@ -118,7 +123,7 @@ async function doExport(): Promise<void> {
 
     if (fmt === 'mid') {
       if (!store.musicxmlFileId) throw new Error('没有可导出的 MusicXML')
-      const result = await exportApi.exportMidi(store.musicxmlFileId)
+      const result = await requireData(exportApi.exportMidi(store.musicxmlFileId))
       const url = exportApi.getDownloadURL(result.file_id)
       const a = document.createElement('a')
       a.href = url
@@ -148,7 +153,7 @@ async function exportPdfBatch(): Promise<void> {
     log.addLog(`渲染页面 ${i + 1}/${svgIds.length}`)
   }
 
-  const result = await exportApi.exportPdf(pngBlobs)
+  const result = await requireData(exportApi.exportPdf(pngBlobs))
   const url = exportApi.getDownloadURL(result.file_id)
   const a = document.createElement('a')
   a.href = url
@@ -168,7 +173,7 @@ async function ensureExportSvgIds(): Promise<string[]> {
       page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : []),
     )
   }
-  const result = await renderApi.batchA4({
+  const result = await requireData(renderApi.batchA4({
     pages,
     source_pages: buildBatchRenderSourcePages(),
     render_page_ocr_texts: currentRenderPageOcrTextsForRequest(),
@@ -176,7 +181,7 @@ async function ensureExportSvgIds(): Promise<string[]> {
     accidental_mode: settings.accidentalMode,
     measure_number_mode: settings.measureNumberMode,
     title: '简谱',
-  })
+  }))
   const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)
   store.setBatchRenderPageFileIds(ids)
   store.setBatchRenderPageOcrTexts(renderResponsePageOcrTexts(result.pages), false)
@@ -184,64 +189,26 @@ async function ensureExportSvgIds(): Promise<string[]> {
   return ids
 }
 
-function buildBatchRenderPages(): BatchRenderPageRequest[] {
+function buildBatchRenderPages() {
   const batchText = store.currentBatchJianpuText.trim()
   const batchPages = store.currentBatchPages.length ? store.currentBatchPages : store.pages
-  if (batchText) {
-    return [{
-      jianpu_text: store.currentBatchJianpuText,
-      include_ocr_text: false,
-      start_measure_number: batchPages[0]?.startMeasureNumber ?? undefined,
-      title: '简谱',
-    }]
-  }
-  return buildBatchRenderSourcePages()
+  return buildBatchRenderRequests(batchPages, {
+    jianpuText: batchText,
+    title: '简谱',
+    combineJianpuText: true,
+  })
 }
 
-function buildBatchRenderSourcePages(): BatchRenderPageRequest[] {
+function buildBatchRenderSourcePages() {
   const batchPages = store.currentBatchPages.length ? store.currentBatchPages : store.pages
-  return batchPages
-    .map((page) => {
-      const sourceImageId = page.originalFileId || page.inputFileId || undefined
-      const start = page.startMeasureNumber ?? undefined
-      if (page.jianpuText.trim()) {
-        return {
-          input_file_name: page.inputFileName,
-          jianpu_text: page.jianpuText,
-          page_image_file_id: sourceImageId,
-          ocr_text: page.ocrText || undefined,
-          include_ocr_text: false,
-          start_measure_number: start,
-          title: '简谱',
-        }
-      }
-      if (page.musicxmlFileId) {
-        return {
-          input_file_name: page.inputFileName,
-          musicxml_file_id: page.musicxmlFileId,
-          page_image_file_id: sourceImageId,
-          ocr_text: page.ocrText || undefined,
-          include_ocr_text: false,
-          start_measure_number: start,
-          title: '简谱',
-        }
-      }
-      return null
-    })
-    .filter((page): page is BatchRenderPageRequest => page !== null)
-}
-
-function renderResponsePageOcrTexts(pages: RenderedSvgPage[]) {
-  return pages.map((page) => ({
-    page_index: page.page_index,
-    ocr_text: page.ocr_text || '',
-  }))
+  return buildSourcePageRenderRequests(batchPages, '简谱')
 }
 
 function currentRenderPageOcrTextsForRequest() {
-  const entries = store.currentBatchRenderPageOcrTextEntries()
-  if (store.currentBatchRenderPageOcrDirty) return entries
-  return entries.filter((item) => item.ocr_text.trim())
+  return renderPageOcrTextsForRequest(
+    store.currentBatchRenderPageOcrTextEntries(),
+    store.currentBatchRenderPageOcrDirty,
+  )
 }
 </script>
 

@@ -1,4 +1,10 @@
-import { apiFetch, BASE_URL } from './client'
+import {
+  apiFetch,
+  BASE_URL,
+  requireData,
+  toApiResult,
+  type ApiResult,
+} from './client'
 import type { SSEProgressEvent } from '../models/types'
 import { dispatchTaskProgress } from '../utils/taskEventState'
 
@@ -6,19 +12,19 @@ const TASK_POLL_INTERVAL_MS = 2_000
 const MAX_CONSECUTIVE_POLL_FAILURES = 30
 
 export const tasksApi = {
-  get(taskId: string): Promise<SSEProgressEvent> {
+  get(taskId: string): Promise<ApiResult<SSEProgressEvent>> {
     return apiFetch(`/tasks/${taskId}`)
   },
 
   stream(
     taskId: string,
     onEvent?: (event: SSEProgressEvent) => void,
-  ): Promise<SSEProgressEvent> {
-    return streamTask(taskId, onEvent)
+  ): Promise<ApiResult<SSEProgressEvent>> {
+    return toApiResult(streamTask(taskId, onEvent))
   },
 }
 
-export function streamTask(
+function streamTask(
   taskId: string,
   onEvent?: (event: SSEProgressEvent) => void,
 ): Promise<SSEProgressEvent> {
@@ -58,7 +64,7 @@ export function streamTask(
       if (settled || polling) return
       polling = true
       try {
-        const event = await apiFetch<SSEProgressEvent>(`/tasks/${taskId}`)
+        const event = await requireData(apiFetch<SSEProgressEvent>(`/tasks/${taskId}`))
         consecutivePollFailures = 0
         handleEvent(event)
       } catch (error) {

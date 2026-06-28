@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { uploadFile, type UploadProgressCallback } from '../api/client'
+import { requireData, uploadFile, type UploadProgressCallback } from '../api/client'
 import type { UploadResponse } from '../models/types'
 
 export function useFileUpload() {
@@ -18,7 +18,7 @@ export function useFileUpload() {
         progress.value = pct
         phase.value = p
       }
-      const result = await uploadFile(file, onProgress)
+      const result = await requireData(uploadFile(file, onProgress))
       progress.value = 100
       return result
     } catch (e: unknown) {

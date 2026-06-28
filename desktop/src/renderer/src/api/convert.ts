@@ -1,11 +1,11 @@
-import { apiFetch } from './client'
+import { apiFetch, type ApiResult } from './client'
 import type {
   MusicXmlToJianpuRequest,
   MusicXmlToJianpuResponse,
 } from '../models/types'
 
 export const convertApi = {
-  musicxmlToJianpu(req: MusicXmlToJianpuRequest): Promise<MusicXmlToJianpuResponse> {
+  musicxmlToJianpu(req: MusicXmlToJianpuRequest): Promise<ApiResult<MusicXmlToJianpuResponse>> {
     return apiFetch('/convert/musicxml-to-jianpu', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

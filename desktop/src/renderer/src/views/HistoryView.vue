@@ -61,8 +61,9 @@
 </template>
 
 <script setup lang="ts">
+import { requireData } from '../api/client'
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useTaskStore } from '../stores/task'
+import { useWorkspaceStore } from '../stores/workspace'
 import { useLogStore } from '../stores/log'
 import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
@@ -74,14 +75,14 @@ import {
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/types'
-import type { TaskPage } from '../stores/task'
+import type { TaskPage } from '../stores/workspace'
 import {
   TimeOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
 import { NButton, NIcon, NPopconfirm, NSpin, useMessage } from 'naive-ui'
 
-const store = useTaskStore()
+const store = useWorkspaceStore()
 const log = useLogStore()
 const message = useMessage()
 
@@ -110,7 +111,7 @@ async function loadHistory(showLoading = true): Promise<void> {
     loading.value = true
   }
   try {
-    entries.value = await historyApi.list()
+    entries.value = await requireData(historyApi.list())
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     log.addError(`加载历史失败：${msg}`)
@@ -130,7 +131,7 @@ function handlePagePatched(detail: HistoryPagePatchDetail): void {
 
 async function handleDelete(id: number): Promise<void> {
   try {
-    await historyApi.deleteOne(id)
+    await requireData(historyApi.deleteOne(id))
     entries.value = entries.value.filter((e) => e.id !== id)
     message.success('已删除')
   } catch (e: unknown) {
@@ -141,7 +142,7 @@ async function handleDelete(id: number): Promise<void> {
 
 async function handleDeleteAll(): Promise<void> {
   try {
-    await historyApi.deleteAll()
+    await requireData(historyApi.deleteAll())
     entries.value = []
     message.success('已清空')
   } catch (e: unknown) {
@@ -158,7 +159,7 @@ async function handleRestore(entry: HistoryBatchListItem): Promise<void> {
 
   let batch: HistoryBatch
   try {
-    batch = await historyApi.get(entry.id)
+    batch = await requireData(historyApi.get(entry.id))
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     log.addError(`加载历史详情失败：${msg}`)
@@ -211,7 +212,7 @@ async function validateRestoredBatchFiles(
     .filter(Boolean)
   if (!fileIds.length) return
   try {
-    const exists = await filesApi.existsMany(fileIds)
+    const exists = await requireData(filesApi.existsMany(fileIds))
     if (seq !== restoreCheckSeq) return
     const warnings: string[] = []
     for (const page of pages) {

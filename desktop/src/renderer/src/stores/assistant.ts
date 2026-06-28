@@ -1,3 +1,4 @@
+import { requireData } from '../api/client'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { aiApi } from '../api/ai'
@@ -15,7 +16,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     loading.value = true
     error.value = ''
     try {
-      sessions.value = await aiApi.listChatSessions()
+      sessions.value = await requireData(aiApi.listChatSessions())
       if (!currentSessionId.value && sessions.value.length) {
         await selectSession(sessions.value[0].id)
       }
@@ -31,7 +32,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     loading.value = true
     error.value = ''
     try {
-      messages.value = await aiApi.getChatMessages(sessionId)
+      messages.value = await requireData(aiApi.getChatMessages(sessionId))
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : String(e)
       messages.value = []
@@ -44,7 +45,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     loading.value = true
     error.value = ''
     try {
-      const session = await aiApi.createChatSession()
+      const session = await requireData(aiApi.createChatSession())
       sessions.value = [session, ...sessions.value.filter((item) => item.id !== session.id)]
       currentSessionId.value = session.id
       messages.value = []
@@ -56,7 +57,7 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   async function deleteSession(sessionId: string): Promise<void> {
-    await aiApi.deleteChatSession(sessionId)
+    await requireData(aiApi.deleteChatSession(sessionId))
     sessions.value = sessions.value.filter((session) => session.id !== sessionId)
     if (currentSessionId.value === sessionId) {
       currentSessionId.value = ''
@@ -88,7 +89,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     sending.value = true
     error.value = ''
     try {
-      await aiApi.streamChat(
+      await requireData(aiApi.streamChat(
         {
           message: text,
           session_id: currentSessionId.value || undefined,
@@ -110,8 +111,8 @@ export const useAssistantStore = defineStore('assistant', () => {
             messages.value = response.messages
           },
         },
-      )
-      sessions.value = await aiApi.listChatSessions()
+      ))
+      sessions.value = await requireData(aiApi.listChatSessions())
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : String(e)
       messages.value = messages.value.filter((item) => item.id !== tempId && item.id !== tempAssistantId)

@@ -1,4 +1,4 @@
-import type { TaskPageInput, TaskPageStatus } from '../stores/task'
+import type { TaskPageInput, TaskPageStatus } from '../stores/workspace'
 
 interface LiveRecognitionState {
   historyPageId: number

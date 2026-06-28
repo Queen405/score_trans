@@ -18,7 +18,27 @@ const compiled = ts.transpileModule(source, {
   },
   fileName: sourcePath,
 }).outputText
-const utils = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
+const utilsModuleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
+const utils = await import(utilsModuleUrl)
+
+const batchRenderSourcePath = path.resolve(
+  here,
+  '../src/renderer/src/utils/batchRender.ts',
+)
+const batchRenderSource = fs.readFileSync(batchRenderSourcePath, 'utf8')
+const batchRenderCompiled = ts.transpileModule(batchRenderSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: batchRenderSourcePath,
+}).outputText.replace(
+  "from './jianpuPageSections'",
+  `from '${utilsModuleUrl}'`,
+)
+const batchRender = await import(
+  `data:text/javascript;base64,${Buffer.from(batchRenderCompiled).toString('base64')}`
+)
 
 const taskStateSourcePath = path.resolve(
   here,
@@ -66,6 +86,22 @@ const historyPageStateCompiled = ts.transpileModule(historyPageStateSource, {
 }).outputText
 const historyPageState = await import(
   `data:text/javascript;base64,${Buffer.from(historyPageStateCompiled).toString('base64')}`
+)
+
+const apiClientSourcePath = path.resolve(
+  here,
+  '../src/renderer/src/api/client.ts',
+)
+const apiClientSource = fs.readFileSync(apiClientSourcePath, 'utf8')
+const apiClientCompiled = ts.transpileModule(apiClientSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: apiClientSourcePath,
+}).outputText
+const apiClient = await import(
+  `data:text/javascript;base64,${Buffer.from(apiClientCompiled).toString('base64')}`
 )
 
 test('page sections preserve comments and blank lines', () => {
@@ -271,4 +307,105 @@ test('waiting measure messages roundtrip through history state', () => {
 test('history preview support is defined in one place', () => {
   assert.equal(historyPageState.isPreviewableHistoryFile('score.PDF'), true)
   assert.equal(historyPageState.isPreviewableHistoryFile('score.musicxml'), false)
+})
+
+test('batch render requests preserve page-local source metadata', () => {
+  const pages = [
+    {
+      inputFileName: 'p1.png',
+      inputFileId: 'input-1',
+      originalFileId: 'original-1',
+      musicxmlFileId: 'xml-1',
+      jianpuText: '1 2 |',
+      ocrText: '文字一',
+      startMeasureNumber: 5,
+    },
+    {
+      inputFileName: 'p2.png',
+      inputFileId: 'input-2',
+      originalFileId: '',
+      musicxmlFileId: 'xml-2',
+      jianpuText: '3 4 |',
+      ocrText: '',
+      startMeasureNumber: null,
+    },
+  ]
+  const text = utils.composeJianpuPageText(pages)
+  const requests = batchRender.buildBatchRenderRequests(pages, {
+    jianpuText: text,
+    title: '简谱',
+  })
+
+  assert.equal(requests.length, 2)
+  assert.equal(requests[0].page_image_file_id, 'original-1')
+  assert.equal(requests[0].start_measure_number, 5)
+  assert.equal(requests[0].ocr_text, '文字一')
+  assert.equal(requests[1].page_image_file_id, 'input-2')
+  assert.equal(requests[1].jianpu_text, '3 4 |')
+})
+
+test('combined batch render keeps source pages separate', () => {
+  const pages = [
+    {
+      inputFileName: 'p1.png',
+      inputFileId: 'input-1',
+      originalFileId: '',
+      musicxmlFileId: 'xml-1',
+      jianpuText: '1 |',
+      ocrText: '',
+      startMeasureNumber: 9,
+    },
+  ]
+
+  assert.deepEqual(
+    batchRender.buildBatchRenderRequests(pages, {
+      jianpuText: '1 |\n2 |',
+      title: '简谱',
+      combineJianpuText: true,
+    }),
+    [{
+      jianpu_text: '1 |\n2 |',
+      include_ocr_text: false,
+      start_measure_number: 9,
+      title: '简谱',
+    }],
+  )
+  assert.equal(batchRender.buildSourcePageRenderRequests(pages, '简谱').length, 1)
+})
+
+test('render response helpers normalize fallback ids and OCR text', () => {
+  const pages = [
+    { svg_file_id: 'svg-1', page_index: 0, page_width: 1, page_height: 1 },
+  ]
+
+  assert.deepEqual(batchRender.renderResponsePageIds(pages, 'fallback'), ['svg-1'])
+  assert.deepEqual(batchRender.renderResponsePageIds([], 'fallback'), ['fallback'])
+  assert.deepEqual(
+    batchRender.renderResponsePageOcrTexts(pages),
+    [{ page_index: 0, ocr_text: '' }],
+  )
+})
+
+test('API wrappers return an error tuple instead of rejecting', async () => {
+  const previousWindow = globalThis.window
+  const previousFetch = globalThis.fetch
+  globalThis.window = {
+    api: {
+      getBackendURL: () => 'http://test.invalid',
+    },
+  }
+  globalThis.fetch = async () => {
+    throw new Error('network down')
+  }
+
+  try {
+    const result = await apiClient.apiFetch('/health')
+
+    assert.equal(result.data, null)
+    assert.equal(result.error?.message, 'network down')
+    await assert.rejects(apiClient.requireData(Promise.resolve(result)), /network down/)
+  } finally {
+    globalThis.window = previousWindow
+    globalThis.fetch = previousFetch
+  }
 })

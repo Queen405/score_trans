@@ -129,7 +129,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useAssistantStore } from '../stores/assistant'
-import { useTaskStore } from '../stores/task'
+import { useWorkspaceStore } from '../stores/workspace'
 import {
   AddOutline,
   ChatbubbleEllipsesOutline,
@@ -141,7 +141,7 @@ import {
 import { NButton, NIcon, NInput, NPopconfirm, NSpin } from 'naive-ui'
 
 const assistant = useAssistantStore()
-const task = useTaskStore()
+const task = useWorkspaceStore()
 const notification = useMessage()
 
 const open = computed(() => animPhase.value === 'open' || animPhase.value === 'opening')

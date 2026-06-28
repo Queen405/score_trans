@@ -20,10 +20,12 @@ desktop/src/
     main.ts            createApp + Pinia（无 Naive UI 全局注册，组件按需 import）
     App.vue            根组件：自定义标题栏、侧边栏导航、日志抽屉
     api/               按模块封装的 fetch 客户端（client.ts, convert.ts, pipeline.ts, render.ts, export.ts, ai.ts, history.ts, settings.ts）
-    stores/            Pinia stores（task.ts, settings.ts, log.ts）
+    stores/            Pinia stores（workspace.ts, settings.ts, assistant.ts, log.ts；task.ts 仅兼容旧导入）
     views/             页面组件（RecognizeView, ConvertView, SettingsView, HistoryView, ExportView）
     components/        通用组件（FileUploader, JianpuEditor, SvgPreview, OriginalPreview, LogPanel, MeasureNumberPicker, JianpuSyntaxGuide）
-    models/types.ts    手动维护的 TypeScript 接口（请求/响应 DTO）
+    models/openapi.ts  从 FastAPI OpenAPI 自动生成的原始类型（不要手工编辑）
+    models/contracts.ts 后端契约的语义化类型别名
+    models/types.ts    重导出后端契约，并保留少量纯前端类型
     composables/       可复用组合函数
     utils/             工具函数（ocrText.ts 等）
 ```
@@ -40,10 +42,13 @@ import { NButton, NIcon, NCode, NInputNumber, useMessage } from 'naive-ui'
 ### API 调用
 - 统一通过 `api/` 目录下的封装函数，不要直接 `fetch`
 - `api/client.ts` 提供 `apiFetch<T>()`、`getFileURL()`、`fileExists()`、`uploadFile()`
+- 异步 API wrapper 返回 `ApiResult<T>`（`{ data, error }`），wrapper 本身不得抛异常
+- 页面和 Store 可在现有 `try/catch` 工作流边界使用 `requireData()` 解包，再通过 Naive UI `useMessage()` 展示错误
 - 后端地址从 `window.api.getBackendURL()`（Electron）或 `VITE_BACKEND_URL`（开发浏览器）获取
+- 修改 Pydantic 请求/响应模型后运行 `pnpm generate:api-types`；CI 使用 `pnpm check:api-types` 检测契约漂移
 
 ### Pinia Store 约定
-- `task.ts` 是核心状态：管理多页输入（`pages[]`, `currentPageIndex`），当前页数据同步到顶层 refs（`inputFileId`, `jianpuText` 等）
+- `workspace.ts` 是核心 Score Workspace 状态：管理多页输入（`pages[]`, `currentPageIndex`），当前页数据同步到顶层 refs（`inputFileId`, `jianpuText` 等）
 - `settings.ts` 管理全局配置，`load()` 从后端读取，`save()` 写回
 - `log.ts` 收集运行日志，`errorCount` 计算属性用于 badge 显示
 
@@ -86,7 +91,14 @@ pnpm build
 pnpm lint
 
 # 类型检查
-vue-tsc --noEmit
+pnpm typecheck
+
+# 前端纯函数/状态工具测试
+pnpm test:utils
+
+# 生成或校验后端 API 契约
+pnpm generate:api-types
+pnpm check:api-types
 ```
 
-> **Note**: Frontend tests (`pnpm test:unit`, `pnpm test:e2e`) are not yet configured. No vitest or playwright setup exists.
+> **Note**: 当前已有基于 Node `node:test` 的工具与状态逻辑测试；组件级 Vitest 和 Playwright E2E 尚未配置。

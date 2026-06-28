@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ...models.common.types import MeasureNumberMode
 from ...models.score import JianpuScore, TextBlock
-from . import (
+from .main import (
     RenderedA4FilePage,
     RenderedA4Page,
     render_jianpu_file_to_svg,

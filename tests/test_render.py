@@ -23,8 +23,8 @@ from score_trans.models.score import (
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 from score_trans.services.ocr.providers import MockOCRProvider
-from score_trans.services.render import (
-    RenderOptions,
+from score_trans.services.render import RenderOptions
+from score_trans.services.render.main import (
     render_jianpu_a4_svgs,
     render_jianpu_svg,
     render_scores_a4_pages,
@@ -44,6 +44,18 @@ from score_trans.services.render.main import (
     _a4_score_top,
     _paginate_rows,
 )
+
+
+def test_render_package_exposes_narrow_interface() -> None:
+    from score_trans.services import render
+
+    assert set(render.__all__) == {
+        "A4MeasureRange",
+        "RenderedA4FilePage",
+        "RenderedA4Page",
+        "RenderOptions",
+        "RenderService",
+    }
 
 
 def _svg_root(svg: str) -> ET.Element:

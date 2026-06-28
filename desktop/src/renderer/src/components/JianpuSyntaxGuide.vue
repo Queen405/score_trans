@@ -186,6 +186,7 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
 </template>
 
 <script setup lang="ts">
+import { requireData } from '../api/client'
 import { onMounted, ref } from 'vue'
 import { NModal, NTabPane, NTabs } from 'naive-ui'
 import { notationApi } from '../api/notation'
@@ -200,7 +201,7 @@ const profileError = ref('')
 
 onMounted(async () => {
   try {
-    profiles.value = await notationApi.listInstrumentProfiles()
+    profiles.value = await requireData(notationApi.listInstrumentProfiles())
   } catch {
     profileError.value = '无法加载乐器演奏标记，请确认后端服务正在运行。'
   } finally {

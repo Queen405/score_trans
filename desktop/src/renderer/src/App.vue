@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { GlobalThemeOverrides } from 'naive-ui'
-import { useTaskStore } from './stores/task'
+import { useWorkspaceStore } from './stores/workspace'
 import { useLogStore } from './stores/log'
 import { useSettingsStore } from './stores/settings'
 import RecognizeView from './views/RecognizeView.vue'
@@ -84,7 +84,7 @@ import {
 } from '@vicons/ionicons5'
 import { darkTheme, NConfigProvider, NMessageProvider } from 'naive-ui'
 
-const store = useTaskStore()
+const store = useWorkspaceStore()
 const logStore = useLogStore()
 const settings = useSettingsStore()
 
