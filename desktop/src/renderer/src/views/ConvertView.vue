@@ -122,10 +122,6 @@
                 <template #icon><n-icon size="13"><RefreshOutline /></n-icon></template>
                 合入识别结果
               </n-button>
-              <n-button size="tiny" quaternary @click="syntaxGuideOpen = true">
-                <template #icon><n-icon size="13"><HelpCircleOutline /></n-icon></template>
-                语法说明
-              </n-button>
               <n-button size="tiny" quaternary @click="saveJianpu" :loading="store.isBusy" :disabled="store.isBusy || !canSaveCurrentPage">
                 保存
               </n-button>
@@ -172,7 +168,6 @@
         @update:current-note-index="currentNoteIndex = $event"
       />
     </div>
-    <jianpu-syntax-guide v-model:show="syntaxGuideOpen" />
     <MeasureNumberPicker
       v-model:show="histPickerShow"
       :options="histPickerOptions"
@@ -201,7 +196,6 @@ import type {
 import type { TaskPage } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import JianpuPlayer from '../components/JianpuPlayer.vue'
-import JianpuSyntaxGuide from '../components/JianpuSyntaxGuide.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import SvgPreview from '../components/SvgPreview.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
@@ -242,7 +236,6 @@ import {
   TimeOutline,
   RefreshOutline,
   TrashOutline,
-  HelpCircleOutline,
 } from '@vicons/ionicons5'
 import { NButton, NSelect, NIcon, NPopconfirm, NInputNumber, useMessage } from 'naive-ui'
 
@@ -272,7 +265,6 @@ const finalSvgFileIds = ref<string[]>(store.currentBatchRenderPageFileIds.length
   : currentPageSvgIds())
 const finalRenderPageIndex = ref(0)
 const finalSvgFileId = computed(() => finalSvgFileIds.value[finalRenderPageIndex.value] ?? '')
-const syntaxGuideOpen = ref(false)
 const exportFormat = ref('pdf')
 const formatOptions = [
   { label: 'PDF', value: 'pdf' },

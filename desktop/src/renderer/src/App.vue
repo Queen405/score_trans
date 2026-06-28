@@ -46,6 +46,7 @@
             <div class="main-content">
               <recognize-view v-show="activeTab === 'recognize'" :active="activeTab === 'recognize'" />
               <convert-view v-show="activeTab === 'convert'" />
+              <syntax-view v-show="activeTab === 'syntax'" :active="activeTab === 'syntax'" />
               <settings-view v-show="activeTab === 'settings'" />
               <ai-assistant v-if="activeTab === 'convert'" />
             </div>
@@ -74,10 +75,12 @@ import { useLogStore } from './stores/log'
 import { useSettingsStore } from './stores/settings'
 import RecognizeView from './views/RecognizeView.vue'
 import ConvertView from './views/ConvertView.vue'
+import SyntaxView from './views/SyntaxView.vue'
 import SettingsView from './views/SettingsView.vue'
 import AiAssistant from './components/AiAssistant.vue'
 import LogPanel from './components/LogPanel.vue'
 import {
+  BookOutline,
   ScanOutline,
   SyncOutline,
   SettingsOutline,
@@ -88,7 +91,7 @@ const store = useWorkspaceStore()
 const logStore = useLogStore()
 const settings = useSettingsStore()
 
-const activeTab = ref<'recognize' | 'convert' | 'settings'>('recognize')
+const activeTab = ref<'recognize' | 'convert' | 'syntax' | 'settings'>('recognize')
 const logOpen = ref(false)
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 const systemPrefersDark = ref(mediaQuery.matches)
@@ -98,6 +101,7 @@ let removeMaximizedListener: (() => void) | null = null
 const navItems = [
   { key: 'recognize' as const, label: '识别', icon: ScanOutline },
   { key: 'convert' as const, label: '工作台', icon: SyncOutline },
+  { key: 'syntax' as const, label: '语法', icon: BookOutline },
   { key: 'settings' as const, label: '设置', icon: SettingsOutline },
 ]
 
