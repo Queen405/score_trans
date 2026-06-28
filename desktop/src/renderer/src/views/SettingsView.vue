@@ -1,10 +1,9 @@
 <template>
   <div class="settings-view">
-    <n-config-provider :theme-overrides="settingsThemeOverrides">
-      <aside
-        class="sv-sidebar"
-        aria-label="设置分类"
-      >
+    <aside
+      class="sv-sidebar"
+      aria-label="设置分类"
+    >
         <div class="sv-sidebar-header">
           <span class="sv-sidebar-eyebrow">应用设置</span>
           <h2>设置</h2>
@@ -530,6 +529,7 @@ async function restartNow(): Promise<void> {
 .sv-panel-container {
   width: 100%;
   max-width: 920px;
+  margin-inline: auto;
 }
 
 .sv-panel {
@@ -721,6 +721,7 @@ async function restartNow(): Promise<void> {
   align-items: flex-start;
   gap: 16px;
   max-width: 680px;
+  margin-inline: auto;
   padding-top: 16px;
   color: var(--text-tertiary);
   font-size: 13px;
