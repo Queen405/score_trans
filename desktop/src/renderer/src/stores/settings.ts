@@ -1,10 +1,46 @@
 import { requireData } from '../api/client'
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { settingsApi, type SettingsQuery } from '../api/settings'
-import type { AccidentalMode, CacheCleanupResponse, LlmProviderOption, MeasureNumberMode, SettingsResponse, StoragePaths, TargetKey, ThemeMode } from '../models/types'
+import type {
+  AccidentalMode,
+  CacheCleanupResponse,
+  LlmProviderOption,
+  MeasureNumberMode,
+  SettingsResponse,
+  StoragePaths,
+  TargetKey,
+  ThemeMode,
+} from '../models/types'
 
-type ProviderKind = 'ocr' | 'ai' | 'assistant'
+export type ProviderKind = 'ocr' | 'ai' | 'assistant'
+
+export interface SettingsDraftProvider {
+  provider: string
+  apiKey: string
+}
+
+export interface SettingsDraft {
+  audiverisPath: string
+  javaHome: string
+  dataDir: string
+  cacheDir: string
+  targetKey: TargetKey
+  accidentalMode: AccidentalMode
+  measureNumberMode: MeasureNumberMode
+  confirmStartMeasureNumber: boolean
+  jianpuSyntaxHighlight: boolean
+  outputDir: string
+  providers: Record<ProviderKind, SettingsDraftProvider>
+  themeMode: ThemeMode
+}
+
+export interface ProviderDraftDetails {
+  provider: string
+  apiKeySet: boolean
+  baseUrl: string
+  model: string
+}
 
 const THEME_MODE_KEY = 'score-trans-theme-mode'
 
@@ -13,9 +49,18 @@ function loadThemeMode(): ThemeMode {
     const raw = localStorage.getItem(THEME_MODE_KEY)
     if (raw === 'dark' || raw === 'light' || raw === 'system') return raw
   } catch {
-    // ignore
+    // localStorage may be unavailable in restricted renderer contexts.
   }
   return 'system'
+}
+
+function emptyProviderDetails(): ProviderDraftDetails {
+  return {
+    provider: '',
+    apiKeySet: false,
+    baseUrl: '',
+    model: '',
+  }
 }
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -55,21 +100,201 @@ export const useSettingsStore = defineStore('settings', () => {
   const assistantBaseUrl = ref('https://dashscope.aliyuncs.com/compatible-mode/v1')
   const assistantModel = ref('deepseek-v4-flash')
   const themeMode = ref<ThemeMode>(loadThemeMode())
+
   const loaded = ref(false)
-  const providerLoadVersion = {
+  const loading = ref(false)
+  const loadError = ref<string | null>(null)
+  const saving = ref(false)
+  const saveError = ref<string | null>(null)
+  const draftReady = ref(false)
+  const draftBaseline = ref('')
+
+  const draft = reactive<SettingsDraft>({
+    audiverisPath: '',
+    javaHome: '',
+    dataDir: '',
+    cacheDir: '',
+    targetKey: 'C',
+    accidentalMode: 'auto',
+    measureNumberMode: 'all',
+    confirmStartMeasureNumber: true,
+    jianpuSyntaxHighlight: false,
+    outputDir: '',
+    providers: {
+      ocr: { provider: 'siliconflow_deepseek_ocr', apiKey: '' },
+      ai: { provider: 'xiaomi_mimo_v25', apiKey: '' },
+      assistant: { provider: 'dashscope_deepseek_v4_flash', apiKey: '' },
+    },
+    themeMode: themeMode.value,
+  })
+
+  const draftProviderDetails = reactive<Record<ProviderKind, ProviderDraftDetails>>({
+    ocr: emptyProviderDetails(),
+    ai: emptyProviderDetails(),
+    assistant: emptyProviderDetails(),
+  })
+  const providerDetailLoading = reactive<Record<ProviderKind, boolean>>({
+    ocr: false,
+    ai: false,
+    assistant: false,
+  })
+  const providerDetailError = reactive<Record<ProviderKind, string | null>>({
+    ocr: null,
+    ai: null,
+    assistant: null,
+  })
+  const providerLoadVersion: Record<ProviderKind, number> = {
     ocr: 0,
     ai: 0,
     assistant: 0,
   }
 
+  const draftDirty = computed(
+    () => draftReady.value && draftFingerprint(draft) !== draftBaseline.value,
+  )
+
   async function load(): Promise<void> {
+    if (loading.value) return
+    loading.value = true
+    loadError.value = null
     try {
       const data = await requireData(settingsApi.get())
       applySettings(data)
       await loadStoragePaths()
       loaded.value = true
-    } catch (e) {
-      console.error('Failed to load settings:', e)
+    } catch (error: unknown) {
+      loaded.value = false
+      loadError.value = errorMessage(error)
+      console.error('Failed to load settings:', error)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function beginEdit(): void {
+    assignDraft({
+      audiverisPath: audiverisPath.value,
+      javaHome: javaHome.value,
+      dataDir: dataDir.value,
+      cacheDir: cacheDir.value,
+      targetKey: targetKey.value,
+      accidentalMode: accidentalMode.value,
+      measureNumberMode: measureNumberMode.value,
+      confirmStartMeasureNumber: confirmStartMeasureNumber.value,
+      jianpuSyntaxHighlight: jianpuSyntaxHighlight.value,
+      outputDir: outputDir.value,
+      providers: {
+        ocr: { provider: ocrProvider.value, apiKey: '' },
+        ai: { provider: aiProvider.value, apiKey: '' },
+        assistant: { provider: assistantProvider.value, apiKey: '' },
+      },
+      themeMode: themeMode.value,
+    })
+
+    setDraftProviderDetails('ocr', {
+      provider: ocrProvider.value,
+      apiKeySet: ocrApiKeySet.value,
+      baseUrl: ocrBaseUrl.value,
+      model: ocrModel.value,
+    })
+    setDraftProviderDetails('ai', {
+      provider: aiProvider.value,
+      apiKeySet: aiApiKeySet.value,
+      baseUrl: aiBaseUrl.value,
+      model: aiModel.value,
+    })
+    setDraftProviderDetails('assistant', {
+      provider: assistantProvider.value,
+      apiKeySet: assistantApiKeySet.value,
+      baseUrl: assistantBaseUrl.value,
+      model: assistantModel.value,
+    })
+
+    providerDetailError.ocr = null
+    providerDetailError.ai = null
+    providerDetailError.assistant = null
+    draftReady.value = true
+    draftBaseline.value = draftFingerprint(draft)
+    saveError.value = null
+  }
+
+  function discardDraft(): void {
+    beginEdit()
+  }
+
+  async function applyDraft(): Promise<boolean> {
+    if (!draftReady.value) beginEdit()
+    const next = cloneDraft(draft)
+    saving.value = true
+    saveError.value = null
+
+    try {
+      const data = await requireData(
+        settingsApi.update({
+          audiveris_path: next.audiverisPath,
+          java_home: next.javaHome,
+          output_dir: next.outputDir,
+          target_key: next.targetKey,
+          accidental_mode: next.accidentalMode,
+          show_measure_numbers: next.measureNumberMode !== 'none',
+          measure_number_mode: next.measureNumberMode,
+          confirm_start_measure_number: next.confirmStartMeasureNumber,
+          jianpu_syntax_highlight: next.jianpuSyntaxHighlight,
+          ocr_provider: next.providers.ocr.provider,
+          ocr_api_key: next.providers.ocr.apiKey.trim() || undefined,
+          ai_provider: next.providers.ai.provider,
+          ai_api_key: next.providers.ai.apiKey.trim() || undefined,
+          assistant_provider: next.providers.assistant.provider,
+          assistant_api_key: next.providers.assistant.apiKey.trim() || undefined,
+        }),
+      )
+      const storageResult = await persistStoragePaths(next.dataDir, next.cacheDir)
+
+      applySettings(data)
+      applyStoragePaths(storageResult.paths)
+      storageRestartRequired.value = storageResult.restartRequired
+      setThemeMode(next.themeMode)
+      beginEdit()
+      return storageResult.restartRequired
+    } catch (error: unknown) {
+      saveError.value = errorMessage(error)
+      throw error
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function loadDraftProviderDetails(kind: ProviderKind): Promise<void> {
+    const provider = draft.providers[kind].provider
+    const version = providerLoadVersion[kind] + 1
+    providerLoadVersion[kind] = version
+    draft.providers[kind].apiKey = ''
+    setDraftProviderDetails(kind, {
+      provider,
+      apiKeySet: false,
+      baseUrl: '',
+      model: '',
+    })
+    providerDetailLoading[kind] = true
+    providerDetailError[kind] = null
+
+    try {
+      const data = await requireData(settingsApi.get(providerQuery(kind, provider)))
+      if (
+        providerLoadVersion[kind] !== version ||
+        draft.providers[kind].provider !== provider
+      ) {
+        return
+      }
+      setDraftProviderDetails(kind, providerDetailsFromResponse(kind, provider, data))
+    } catch (error: unknown) {
+      if (providerLoadVersion[kind] !== version) return
+      providerDetailError[kind] = errorMessage(error)
+      throw error
+    } finally {
+      if (providerLoadVersion[kind] === version) {
+        providerDetailLoading[kind] = false
+      }
     }
   }
 
@@ -78,34 +303,8 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       localStorage.setItem(THEME_MODE_KEY, mode)
     } catch {
-      // ignore
+      // Theme remains effective for the current session.
     }
-  }
-
-  async function save(): Promise<boolean> {
-    const requestedDataDir = dataDir.value
-    const requestedCacheDir = cacheDir.value
-    const data = await requireData(settingsApi.update({
-      audiveris_path: audiverisPath.value,
-      java_home: javaHome.value,
-      output_dir: outputDir.value,
-      target_key: targetKey.value,
-      accidental_mode: accidentalMode.value,
-      show_measure_numbers: measureNumberMode.value !== 'none',
-      measure_number_mode: measureNumberMode.value,
-      confirm_start_measure_number: confirmStartMeasureNumber.value,
-      jianpu_syntax_highlight: jianpuSyntaxHighlight.value,
-      ocr_provider: ocrProvider.value,
-      ocr_api_key: ocrApiKey.value || undefined,
-      ai_provider: aiProvider.value,
-      ai_api_key: aiApiKey.value || undefined,
-      assistant_provider: assistantProvider.value,
-      assistant_api_key: assistantApiKey.value || undefined,
-    }))
-    applySettings(data)
-    dataDir.value = requestedDataDir
-    cacheDir.value = requestedCacheDir
-    return await saveStoragePaths()
   }
 
   async function clearCache(): Promise<CacheCleanupResponse> {
@@ -125,15 +324,6 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  async function loadProviderDetails(kind: ProviderKind): Promise<void> {
-    const provider = selectedProvider(kind)
-    const version = providerLoadVersion[kind] + 1
-    providerLoadVersion[kind] = version
-    const data = await requireData(settingsApi.get(providerQuery(kind, provider)))
-    if (providerLoadVersion[kind] !== version || selectedProvider(kind) !== provider) return
-    applyProviderSettings(kind, data)
-  }
-
   function applySettings(data: SettingsResponse): void {
     audiverisPath.value = data.audiveris_path
     javaHome.value = data.java_home
@@ -145,7 +335,8 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value
     targetKey.value = data.target_key ?? 'C'
     accidentalMode.value = data.accidental_mode ?? 'auto'
-    measureNumberMode.value = data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
+    measureNumberMode.value =
+      data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
     confirmStartMeasureNumber.value = data.confirm_start_measure_number ?? true
     jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false
@@ -162,11 +353,13 @@ export const useSettingsStore = defineStore('settings', () => {
     aiApiKeySet.value = data.ai_api_key_set ?? false
     aiBaseUrl.value = data.ai_base_url ?? 'https://api.xiaomimimo.com/v1'
     aiModel.value = data.ai_model ?? 'mimo-v2.5'
-    assistantProvider.value = data.assistant_provider ?? 'dashscope_deepseek_v4_flash'
+    assistantProvider.value =
+      data.assistant_provider ?? 'dashscope_deepseek_v4_flash'
     assistantProviderOptions.value = data.assistant_provider_options ?? []
     assistantApiKey.value = ''
     assistantApiKeySet.value = data.assistant_api_key_set ?? false
-    assistantBaseUrl.value = data.assistant_base_url ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+    assistantBaseUrl.value =
+      data.assistant_base_url ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     assistantModel.value = data.assistant_model ?? 'deepseek-v4-flash'
   }
 
@@ -183,22 +376,32 @@ export const useSettingsStore = defineStore('settings', () => {
     applyStoragePaths(paths)
   }
 
-  async function saveStoragePaths(): Promise<boolean> {
+  async function persistStoragePaths(
+    requestedDataDir: string,
+    requestedCacheDir: string,
+  ): Promise<{ paths: StoragePaths; restartRequired: boolean }> {
     const api = (window as any).api
     if (typeof api?.setStoragePaths !== 'function') {
-      return false
+      return {
+        paths: {
+          dataDir: requestedDataDir,
+          cacheDir: requestedCacheDir,
+          configPath: storageConfigPath.value,
+        },
+        restartRequired: false,
+      }
     }
-    const beforeDataDir = activeDataDir.value
-    const beforeCacheDir = activeCacheDir.value
+
     const paths = (await api.setStoragePaths({
-      dataDir: dataDir.value,
-      cacheDir: cacheDir.value,
+      dataDir: requestedDataDir,
+      cacheDir: requestedCacheDir,
     })) as StoragePaths
-    applyStoragePaths(paths)
-    storageRestartRequired.value =
-      normalizePath(paths.dataDir) !== normalizePath(beforeDataDir) ||
-      normalizePath(paths.cacheDir) !== normalizePath(beforeCacheDir)
-    return storageRestartRequired.value
+    return {
+      paths,
+      restartRequired:
+        normalizePath(paths.dataDir) !== normalizePath(activeDataDir.value) ||
+        normalizePath(paths.cacheDir) !== normalizePath(activeCacheDir.value),
+    }
   }
 
   function applyStoragePaths(paths: StoragePaths): void {
@@ -210,44 +413,28 @@ export const useSettingsStore = defineStore('settings', () => {
       normalizePath(paths.cacheDir) !== normalizePath(activeCacheDir.value)
   }
 
-  function normalizePath(value: string): string {
-    return value.trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  function assignDraft(next: SettingsDraft): void {
+    draft.audiverisPath = next.audiverisPath
+    draft.javaHome = next.javaHome
+    draft.dataDir = next.dataDir
+    draft.cacheDir = next.cacheDir
+    draft.targetKey = next.targetKey
+    draft.accidentalMode = next.accidentalMode
+    draft.measureNumberMode = next.measureNumberMode
+    draft.confirmStartMeasureNumber = next.confirmStartMeasureNumber
+    draft.jianpuSyntaxHighlight = next.jianpuSyntaxHighlight
+    draft.outputDir = next.outputDir
+    draft.providers.ocr = { ...next.providers.ocr }
+    draft.providers.ai = { ...next.providers.ai }
+    draft.providers.assistant = { ...next.providers.assistant }
+    draft.themeMode = next.themeMode
   }
 
-  function selectedProvider(kind: ProviderKind): string {
-    if (kind === 'ocr') return ocrProvider.value
-    if (kind === 'ai') return aiProvider.value
-    return assistantProvider.value
-  }
-
-  function providerQuery(kind: ProviderKind, provider: string): SettingsQuery {
-    if (kind === 'ocr') return { ocr_provider: provider }
-    if (kind === 'ai') return { ai_provider: provider }
-    return { assistant_provider: provider }
-  }
-
-  function applyProviderSettings(kind: ProviderKind, data: SettingsResponse): void {
-    if (kind === 'ocr') {
-      ocrProvider.value = data.ocr_provider ?? ocrProvider.value
-      ocrApiKey.value = ''
-      ocrApiKeySet.value = data.ocr_api_key_set ?? false
-      ocrBaseUrl.value = data.ocr_base_url ?? ocrBaseUrl.value
-      ocrModel.value = data.ocr_model ?? ocrModel.value
-      return
-    }
-    if (kind === 'ai') {
-      aiProvider.value = data.ai_provider ?? aiProvider.value
-      aiApiKey.value = ''
-      aiApiKeySet.value = data.ai_api_key_set ?? false
-      aiBaseUrl.value = data.ai_base_url ?? aiBaseUrl.value
-      aiModel.value = data.ai_model ?? aiModel.value
-      return
-    }
-    assistantProvider.value = data.assistant_provider ?? assistantProvider.value
-    assistantApiKey.value = ''
-    assistantApiKeySet.value = data.assistant_api_key_set ?? false
-    assistantBaseUrl.value = data.assistant_base_url ?? assistantBaseUrl.value
-    assistantModel.value = data.assistant_model ?? assistantModel.value
+  function setDraftProviderDetails(
+    kind: ProviderKind,
+    details: ProviderDraftDetails,
+  ): void {
+    Object.assign(draftProviderDetails[kind], details)
   }
 
   return {
@@ -288,11 +475,81 @@ export const useSettingsStore = defineStore('settings', () => {
     assistantModel,
     themeMode,
     loaded,
+    loading,
+    loadError,
+    saving,
+    saveError,
+    draft,
+    draftReady,
+    draftDirty,
+    draftProviderDetails,
+    providerDetailLoading,
+    providerDetailError,
     load,
-    save,
+    beginEdit,
+    discardDraft,
+    applyDraft,
+    loadDraftProviderDetails,
     clearCache,
     relaunchApp,
-    loadProviderDetails,
     setThemeMode,
   }
 })
+
+function cloneDraft(draft: SettingsDraft): SettingsDraft {
+  return {
+    ...draft,
+    providers: {
+      ocr: { ...draft.providers.ocr },
+      ai: { ...draft.providers.ai },
+      assistant: { ...draft.providers.assistant },
+    },
+  }
+}
+
+function draftFingerprint(draft: SettingsDraft): string {
+  return JSON.stringify(draft)
+}
+
+function normalizePath(value: string): string {
+  return value.trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+}
+
+function providerQuery(kind: ProviderKind, provider: string): SettingsQuery {
+  if (kind === 'ocr') return { ocr_provider: provider }
+  if (kind === 'ai') return { ai_provider: provider }
+  return { assistant_provider: provider }
+}
+
+function providerDetailsFromResponse(
+  kind: ProviderKind,
+  provider: string,
+  data: SettingsResponse,
+): ProviderDraftDetails {
+  if (kind === 'ocr') {
+    return {
+      provider,
+      apiKeySet: data.ocr_api_key_set ?? false,
+      baseUrl: data.ocr_base_url ?? '',
+      model: data.ocr_model ?? '',
+    }
+  }
+  if (kind === 'ai') {
+    return {
+      provider,
+      apiKeySet: data.ai_api_key_set ?? false,
+      baseUrl: data.ai_base_url ?? '',
+      model: data.ai_model ?? '',
+    }
+  }
+  return {
+    provider,
+    apiKeySet: data.assistant_api_key_set ?? false,
+    baseUrl: data.assistant_base_url ?? '',
+    model: data.assistant_model ?? '',
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}

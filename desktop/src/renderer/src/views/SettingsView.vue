@@ -1,609 +1,837 @@
 <template>
   <div class="settings-view">
-  <div class="sv-content">
-    <div class="sv-header">
-      <div class="sv-header-text">
-        <h2>设置</h2>
-      </div>
-      <n-button type="primary" size="medium" @click="save">
-        <template #icon><n-icon><SaveOutline /></n-icon></template>
-        保存配置
-      </n-button>
-    </div>
+    <n-config-provider :theme-overrides="settingsThemeOverrides">
+      <aside
+        class="sv-sidebar"
+        aria-label="设置分类"
+      >
+        <div class="sv-sidebar-header">
+          <span class="sv-sidebar-eyebrow">应用设置</span>
+          <h2>设置</h2>
+        </div>
 
-    <div class="sv-grid-layout">
-      <div class="sv-col sv-col-left">
-        <n-card class="sv-card" :bordered="true" size="small">
-          <div class="sv-card-title">
-            <n-icon size="18" class="sv-card-icon"><NewspaperOutline /></n-icon>
-            <span>OCR 设置</span>
-          </div>
-          <div class="sv-form">
-            <div class="sv-form-item">
-              <label>API Key</label>
-              <n-input v-model:value="settings.ocrApiKey" type="password" show-password-on="click" :placeholder="settings.ocrApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-                <template #prefix><n-icon size="16"><KeyOutline /></n-icon></template>
-              </n-input>
-            </div>
-            <div class="sv-form-item">
-              <label>Provider</label>
-              <n-select
-                v-model:value="settings.ocrProvider"
-                :options="providerSelectOptions(settings.ocrProviderOptions)"
-                size="small"
-              />
-            </div>
-          </div>
-        </n-card>
+        <nav class="sv-category-list">
+          <button
+            v-for="category in categories"
+            :key="category.key"
+            type="button"
+            :class="['sv-category-button', { active: activeCategory === category.key }]"
+            :aria-current="activeCategory === category.key ? 'page' : undefined"
+            @click="activeCategory = category.key"
+          >
+            <n-icon size="18">
+              <component :is="category.icon" />
+            </n-icon>
+            <span>{{ category.label }}</span>
+          </button>
+        </nav>
 
-        <n-card class="sv-card" :bordered="true" size="small">
-          <div class="sv-card-title">
-            <n-icon size="18" class="sv-card-icon"><EyeOutline /></n-icon>
-            <span>AI 视觉转写</span>
-          </div>
-          <div class="sv-form">
-            <div class="sv-form-item">
-              <label>API Key</label>
-              <n-input v-model:value="settings.aiApiKey" type="password" show-password-on="click" :placeholder="settings.aiApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-                <template #prefix><n-icon size="16"><KeyOutline /></n-icon></template>
-              </n-input>
-            </div>
-            <div class="sv-form-item">
-              <label>Provider</label>
-              <n-select
-                v-model:value="settings.aiProvider"
-                :options="providerSelectOptions(settings.aiProviderOptions)"
-                size="small"
-              />
-            </div>
-          </div>
-        </n-card>
+        <div class="sv-sidebar-note">
+          设置修改会先保留为草稿，应用后才会影响工作区。
+        </div>
+      </aside>
 
-        <n-card class="sv-card" :bordered="true" size="small">
-          <div class="sv-card-title">
-            <n-icon size="18" class="sv-card-icon"><HardwareChipOutline /></n-icon>
-            <span>工作台 AI 助手</span>
-          </div>
-          <div class="sv-form">
-            <div class="sv-form-item">
-              <label>API Key</label>
-              <n-input v-model:value="settings.assistantApiKey" type="password" show-password-on="click" :placeholder="settings.assistantApiKeySet ? '已保存（留空不更新）' : 'API Key'" size="small">
-                <template #prefix><n-icon size="16"><KeyOutline /></n-icon></template>
-              </n-input>
+      <section class="sv-main">
+        <header class="sv-page-header">
+          <div>
+            <div class="sv-breadcrumb">
+              设置 / {{ activeCategoryMeta.label }}
             </div>
-            <div class="sv-form-item">
-              <label>Provider</label>
-              <n-select
-                v-model:value="settings.assistantProvider"
-                :options="providerSelectOptions(settings.assistantProviderOptions)"
-                size="small"
-              />
-            </div>
+            <h1>{{ activeCategoryMeta.label }}</h1>
+            <p>{{ activeCategoryMeta.description }}</p>
           </div>
-        </n-card>
-      </div>
+          <span
+            v-if="settings.draftDirty"
+            class="sv-dirty-indicator"
+          >
+            <span />
+            有未保存的更改
+          </span>
+        </header>
 
-      <div class="sv-col sv-col-right">
-        <n-card class="sv-card" :bordered="true" size="small">
-          <div class="sv-card-title">
-            <n-icon size="18" class="sv-card-icon"><BuildOutline /></n-icon>
-            <span>外部工具与存储</span>
+        <div class="sv-page-body">
+          <div
+            v-if="settings.loading"
+            class="sv-state-view"
+          >
+            <n-spin size="small" />
+            <span>正在加载设置…</span>
           </div>
-          <div class="sv-form">
-            <div class="sv-form-item">
-              <label>Audiveris 路径</label>
-              <n-input v-model:value="settings.audiverisPath" placeholder="audiveris 或 gradlew.bat 路径" size="small">
-                <template #prefix><n-icon size="16"><FolderOutline /></n-icon></template>
-              </n-input>
-            </div>
-            <div class="sv-form-item">
-              <label>JDK / JAVA_HOME</label>
-              <n-input v-model:value="settings.javaHome" placeholder="JDK 25 路径" size="small">
-                <template #prefix><n-icon size="16"><CodeOutline /></n-icon></template>
-              </n-input>
-            </div>
-            <div class="sv-form-item">
-              <label>用户数据路径</label>
-              <n-input v-model:value="settings.dataDir" placeholder="用户数据目录" size="small">
-                <template #suffix>
-                  <n-button size="tiny" quaternary @click="selectDataDir">浏览</n-button>
-                </template>
-              </n-input>
-            </div>
-            <div class="sv-form-item">
-              <label>缓存路径</label>
-              <n-input v-model:value="settings.cacheDir" placeholder="缓存目录" size="small">
-                <template #suffix>
-                  <n-button size="tiny" quaternary @click="selectCacheDir">浏览</n-button>
-                </template>
-              </n-input>
-            </div>
-            <div class="sv-storage-meta-row">
-              <div class="sv-storage-meta">
-                <span>缓存占用：{{ cacheSizeLabel }}</span>
-              </div>
-              <n-popconfirm @positive-click="clearCache">
-                <template #trigger>
-                  <n-button size="small" secondary :loading="clearingCache">
-                    <template #icon><n-icon><TrashOutline /></n-icon></template>
-                    清理缓存
-                  </n-button>
-                </template>
-                将删除中间文件和未被历史记录引用的上传副本。
-              </n-popconfirm>
-            </div>
-            <n-alert v-if="settings.storageRestartRequired" type="warning" size="small">
-              存储路径变更将在重启后生效。
+
+          <div
+            v-else-if="settings.loadError || !settings.loaded"
+            class="sv-state-view"
+          >
+            <n-alert
+              type="error"
+              title="无法加载设置"
+            >
+              {{ settings.loadError || '设置尚未加载。' }}
             </n-alert>
-            <div class="sv-actions-row">
-              <n-button v-if="settings.storageRestartRequired" type="primary" size="small" @click="restartApp">
-                <template #icon><n-icon><RefreshOutline /></n-icon></template>
-                重启应用
-              </n-button>
-            </div>
+            <n-button
+              size="small"
+              secondary
+              @click="retryLoad"
+            >
+              重新加载
+            </n-button>
           </div>
-        </n-card>
 
-        <n-card class="sv-card" :bordered="true" size="small">
-          <div class="sv-card-title">
-            <n-icon size="18" class="sv-card-icon"><SwapHorizontalOutline /></n-icon>
-            <span>转换设置</span>
+          <div
+            v-else-if="settings.draftReady"
+            class="sv-panel-container"
+          >
+            <component :is="activePanel" />
           </div>
-          <div class="sv-form">
-            <div class="sv-conversion-row">
-              <div class="sv-form-item sv-form-item-compact">
-                <label>简谱调</label>
-                <n-select
-                  v-model:value="settings.targetKey"
-                  :options="keyOptions"
-                  size="small"
-                  style="width: 80px"
-                />
-              </div>
-              <div class="sv-form-item sv-form-item-compact">
-                <label>半音记谱</label>
-                <n-select
-                  v-model:value="settings.accidentalMode"
-                  :options="accidentalModeOptions"
-                  size="small"
-                  style="width: 140px"
-                />
-              </div>
-              <div class="sv-form-item sv-form-item-compact">
-                <label>小节号</label>
-                <n-select
-                  v-model:value="settings.measureNumberMode"
-                  :options="measureNumberModeOptions"
-                  size="small"
-                  style="width: 160px"
-                />
-              </div>
-              <div class="sv-form-item sv-form-item-compact sv-switch-setting">
-                <label>确认起始小节</label>
-                <div class="sv-switch-control">
-                  <n-switch v-model:value="settings.confirmStartMeasureNumber" size="small" />
-                </div>
-              </div>
-              <div class="sv-form-item sv-form-item-compact sv-switch-setting">
-                <label>代码配色</label>
-                <div class="sv-switch-control">
-                  <n-switch v-model:value="settings.jianpuSyntaxHighlight" size="small" />
-                </div>
-              </div>
-            </div>
-            <div class="sv-form-item">
-              <label>默认导出路径</label>
-              <n-input v-model:value="settings.outputDir" placeholder="留空则每次手动选择" size="small">
-                <template #suffix>
-                  <n-button size="tiny" quaternary @click="selectOutputDir">浏览</n-button>
-                </template>
-              </n-input>
-            </div>
-          </div>
-        </n-card>
+        </div>
 
-        <n-card class="sv-card" :bordered="true" size="small">
-          <div class="sv-card-title">
-            <n-icon size="18" class="sv-card-icon"><SunnyOutline /></n-icon>
-            <span>外观</span>
+        <footer class="sv-footer">
+          <div
+            class="sv-footer-status"
+            role="status"
+          >
+            <span
+              v-if="settings.saveError"
+              class="is-error"
+            >{{ settings.saveError }}</span>
+            <span v-else-if="settings.draftDirty">更改尚未应用</span>
+            <span v-else-if="settings.storageRestartRequired">存储位置将在重启后生效</span>
+            <span v-else>所有更改均已保存</span>
           </div>
-          <div class="sv-form">
-            <div class="sv-form-item">
-              <label>主题模式</label>
-              <n-select
-                v-model:value="settings.themeMode"
-                :options="themeModeOptions"
-                size="small"
-                style="width: 140px"
-                @update:value="settings.setThemeMode"
-              />
-            </div>
+          <div class="sv-footer-actions">
+            <n-button
+              :disabled="settings.saving"
+              @click="cancel"
+            >
+              取消
+            </n-button>
+            <n-button
+              :disabled="!settings.draftDirty || settings.saving"
+              :loading="settings.saving && saveIntent === 'apply'"
+              @click="apply"
+            >
+              应用
+            </n-button>
+            <n-button
+              type="primary"
+              :disabled="!settings.draftDirty || settings.saving"
+              :loading="settings.saving && saveIntent === 'close'"
+              @click="saveAndClose"
+            >
+              保存更改
+            </n-button>
           </div>
-        </n-card>
-      </div>
-    </div>
-  </div>
+        </footer>
+      </section>
+
+      <n-modal
+        v-model:show="restartModalVisible"
+        preset="card"
+        class="sv-modal-card"
+        title="需要重启应用"
+        :bordered="false"
+        :mask-closable="false"
+      >
+        <p class="sv-modal-copy">
+          存储位置已经保存。重启后，新的用户数据和缓存目录才会生效。
+        </p>
+        <template #footer>
+          <div class="sv-modal-actions">
+            <n-button @click="restartLater">
+              稍后重启
+            </n-button>
+            <n-button
+              type="primary"
+              @click="restartNow"
+            >
+              立即重启
+            </n-button>
+          </div>
+        </template>
+      </n-modal>
+    </n-config-provider>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useSettingsStore } from '../stores/settings'
-import { useLogStore } from '../stores/log'
+import { computed, ref, watch, type Component } from 'vue'
+import type { GlobalThemeOverrides } from 'naive-ui'
 import {
-  BuildOutline,
-  NewspaperOutline,
-  EyeOutline,
-  SaveOutline,
-  CodeOutline,
-  KeyOutline,
-  FolderOutline,
-  SwapHorizontalOutline,
-  RefreshOutline,
-  TrashOutline,
-  SunnyOutline,
-  HardwareChipOutline,
-} from '@vicons/ionicons5'
-import {
-  NInput,
-  NSelect,
-  NButton,
-  NIcon,
-  NCard,
   NAlert,
-  NPopconfirm,
-  NSwitch,
+  NButton,
+  NConfigProvider,
+  NIcon,
+  NModal,
+  NSpin,
   useMessage,
 } from 'naive-ui'
-import type { LlmProviderOption, MeasureNumberMode, TargetKey } from '../models/types'
+import {
+  BuildOutline,
+  CloudOutline,
+  ColorPaletteOutline,
+  FolderOutline,
+  SwapHorizontalOutline,
+} from '@vicons/ionicons5'
+import { useLogStore } from '../stores/log'
+import { useSettingsStore } from '../stores/settings'
+import AppearanceSettingsPanel from '../components/settings/AppearanceSettingsPanel.vue'
+import ConversionSettingsPanel from '../components/settings/ConversionSettingsPanel.vue'
+import ServiceSettingsPanel from '../components/settings/ServiceSettingsPanel.vue'
+import StorageSettingsPanel from '../components/settings/StorageSettingsPanel.vue'
+import ToolPathsPanel from '../components/settings/ToolPathsPanel.vue'
+
+type SettingsCategory = 'services' | 'tools' | 'storage' | 'conversion' | 'appearance'
+type SaveIntent = 'apply' | 'close' | null
+
+interface CategoryDefinition {
+  key: SettingsCategory
+  label: string
+  description: string
+  icon: Component
+  panel: Component
+}
+
+const props = defineProps<{
+  active: boolean
+}>()
+
+const emit = defineEmits<{
+  close: []
+}>()
 
 const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
-const clearingCache = ref(false)
-const cacheSizeLabel = computed(() =>
-  settings.cacheSizeAvailable ? formatBytes(settings.cacheSizeBytes) : '未获取（请重启应用）',
+const activeCategory = ref<SettingsCategory>('services')
+const saveIntent = ref<SaveIntent>(null)
+const restartModalVisible = ref(false)
+
+const categories: CategoryDefinition[] = [
+  {
+    key: 'services',
+    label: '服务与模型',
+    description: '配置乐谱识别、视觉转写与工作台辅助服务。',
+    icon: CloudOutline,
+    panel: ServiceSettingsPanel,
+  },
+  {
+    key: 'tools',
+    label: '工具与路径',
+    description: '管理 Audiveris 与 Java 运行环境。',
+    icon: BuildOutline,
+    panel: ToolPathsPanel,
+  },
+  {
+    key: 'storage',
+    label: '文件与存储',
+    description: '设置应用数据、缓存位置并管理磁盘占用。',
+    icon: FolderOutline,
+    panel: StorageSettingsPanel,
+  },
+  {
+    key: 'conversion',
+    label: '转换与导出',
+    description: '设置简谱转换规则与默认导出位置。',
+    icon: SwapHorizontalOutline,
+    panel: ConversionSettingsPanel,
+  },
+  {
+    key: 'appearance',
+    label: '界面与外观',
+    description: '选择适合当前工作环境的界面主题。',
+    icon: ColorPaletteOutline,
+    panel: AppearanceSettingsPanel,
+  },
+]
+
+const activeCategoryMeta = computed(
+  () => categories.find((category) => category.key === activeCategory.value) ?? categories[0],
+)
+const activePanel = computed(() => activeCategoryMeta.value.panel)
+
+const settingsThemeOverrides: GlobalThemeOverrides = {
+  common: {
+    primaryColor: '#6f86b7',
+    primaryColorHover: '#8196c0',
+    primaryColorPressed: '#6077aa',
+    primaryColorSuppl: '#6f86b7',
+    borderRadius: '6px',
+    borderRadiusSmall: '5px',
+  },
+  Button: {
+    borderRadiusMedium: '6px',
+    borderRadiusSmall: '5px',
+  },
+  Input: {
+    borderRadius: '6px',
+    boxShadowFocus: '0 0 0 2px rgba(111, 134, 183, 0.14)',
+  },
+}
+
+watch(
+  () => props.active,
+  (active) => {
+    if (active) void prepareSettings()
+  },
+  { immediate: true },
 )
 
-const keyOptions: { label: string, value: TargetKey }[] = [
-  { label: 'Cb', value: 'Cb' },
-  { label: 'Gb', value: 'Gb' },
-  { label: 'Db', value: 'Db' },
-  { label: 'Ab', value: 'Ab' },
-  { label: 'Eb', value: 'Eb' },
-  { label: 'Bb', value: 'Bb' },
-  { label: 'F', value: 'F' },
-  { label: 'C', value: 'C' },
-  { label: 'G', value: 'G' },
-  { label: 'D', value: 'D' },
-  { label: 'A', value: 'A' },
-  { label: 'E', value: 'E' },
-  { label: 'B', value: 'B' },
-  { label: 'F#', value: 'F#' },
-  { label: 'C#', value: 'C#' },
-]
+watch(
+  () => settings.loaded,
+  (loaded) => {
+    if (props.active && loaded && !settings.draftReady) {
+      settings.beginEdit()
+    }
+  },
+)
 
-const accidentalModeOptions = [
-  { label: '自由记谱', value: 'auto' },
-  { label: '全部升号', value: 'sharp' },
-  { label: '全部降号', value: 'flat' },
-]
-
-const measureNumberModeOptions: { label: string, value: MeasureNumberMode }[] = [
-  { label: '全部显示', value: 'all' },
-  { label: '每行首显示', value: 'row_start' },
-  { label: '隐藏', value: 'none' },
-]
-
-const themeModeOptions = [
-  { label: '跟随系统', value: 'system' },
-  { label: '浅色模式', value: 'light' },
-  { label: '深色模式', value: 'dark' },
-]
-
-onMounted(() => settings.load())
-
-watch(() => settings.ocrProvider, () => {
-  if (settings.loaded) void refreshProviderDetails('ocr')
-})
-watch(() => settings.aiProvider, () => {
-  if (settings.loaded) void refreshProviderDetails('ai')
-})
-watch(() => settings.assistantProvider, () => {
-  if (settings.loaded) void refreshProviderDetails('assistant')
-})
-
-async function refreshProviderDetails(kind: 'ocr' | 'ai' | 'assistant'): Promise<void> {
-  try {
-    await settings.loadProviderDetails(kind)
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    log.addError(`加载 Provider 配置失败：${msg}`)
-    message.error(msg)
+async function prepareSettings(): Promise<void> {
+  if (!settings.loaded) await settings.load()
+  if (settings.loaded && (!settings.draftReady || !settings.draftDirty)) {
+    settings.beginEdit()
   }
 }
 
-async function save(): Promise<void> {
+async function retryLoad(): Promise<void> {
+  await settings.load()
+  if (settings.loaded) settings.beginEdit()
+}
+
+function cancel(): void {
+  settings.discardDraft()
+  emit('close')
+}
+
+async function apply(): Promise<void> {
+  await persist('apply')
+}
+
+async function saveAndClose(): Promise<void> {
+  const restartNeeded = await persist('close')
+  if (restartNeeded === false) emit('close')
+}
+
+async function persist(intent: Exclude<SaveIntent, null>): Promise<boolean | null> {
+  saveIntent.value = intent
   try {
-    const restartNeeded = await settings.save()
+    const restartNeeded = await settings.applyDraft()
     log.addLog('配置已保存')
     message.success(restartNeeded ? '配置已保存，存储路径将在重启后生效' : '配置已保存')
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    log.addError(`保存失败：${msg}`)
-    message.error(msg)
-  }
-}
-
-async function selectOutputDir(): Promise<void> {
-  const result = await desktopApi().selectDirectory()
-  if (result) settings.outputDir = result
-}
-
-async function selectDataDir(): Promise<void> {
-  const result = await desktopApi().selectDirectory()
-  if (result) settings.dataDir = result
-}
-
-async function selectCacheDir(): Promise<void> {
-  const result = await desktopApi().selectDirectory()
-  if (result) settings.cacheDir = result
-}
-
-async function clearCache(): Promise<void> {
-  clearingCache.value = true
-  try {
-    const result = await settings.clearCache()
-    log.addLog(`已清理缓存：${formatBytes(result.freed_bytes)}`)
-    message.success(`已清理 ${formatBytes(result.freed_bytes)}`)
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    log.addError(`清理缓存失败：${msg}`)
-    message.error(msg)
+    if (restartNeeded && intent === 'close') {
+      restartModalVisible.value = true
+      return null
+    }
+    return restartNeeded
+  } catch (error: unknown) {
+    const text = error instanceof Error ? error.message : String(error)
+    log.addError(`保存失败：${text}`)
+    message.error(text)
+    return null
   } finally {
-    clearingCache.value = false
+    saveIntent.value = null
   }
 }
 
-async function restartApp(): Promise<void> {
+function restartLater(): void {
+  restartModalVisible.value = false
+  emit('close')
+}
+
+async function restartNow(): Promise<void> {
   await settings.relaunchApp()
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  let value = bytes
-  let unit = 0
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit += 1
-  }
-  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
-}
-
-function desktopApi(): any {
-  return (globalThis as any).api
-}
-
-function providerSelectOptions(options: LlmProviderOption[]): { label: string; value: string }[] {
-  return options.map((option) => ({
-    label: option.label,
-    value: option.id,
-  }))
 }
 </script>
 
-<style scoped>
+<style>
 .settings-view {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  min-height: 100%;
+  --sv-accent: #5f739f;
+  --sv-accent-soft: rgba(95, 115, 159, 0.12);
+  --sv-accent-border: rgba(95, 115, 159, 0.28);
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  flex: 1;
   width: 100%;
-  margin: 0 auto;
-  padding: 24px;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  background: var(--bg-surface);
 }
 
-.sv-content {
+.theme-dark .settings-view {
+  --sv-accent: #788db8;
+  --sv-accent-soft: rgba(120, 141, 184, 0.14);
+  --sv-accent-border: rgba(120, 141, 184, 0.3);
+}
+
+.sv-sidebar {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  min-width: 0;
+  padding: 30px 16px 18px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
 }
 
-.sv-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
+.sv-sidebar-header {
+  padding: 0 12px 24px;
 }
 
-.sv-header-text h2 {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.subtitle {
-  font-size: 13px;
+.sv-sidebar-eyebrow {
+  display: block;
+  margin-bottom: 5px;
   color: var(--text-tertiary);
-  margin: 4px 0 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
 }
 
-.sv-grid-layout {
-  display: grid;
-  grid-template-columns: 4fr 6fr;
-  gap: 24px;
-  align-items: start;
-  align-content: start;
+.sv-sidebar-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.4px;
 }
 
-.sv-col {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.sv-grid-layout {
-  display: grid;
-  grid-template-columns: 4fr 6fr;
-  gap: 24px;
-  align-items: stretch;
-  align-content: start;
-}
-
-.sv-col {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  height: 100%;
-}
-
-.sv-col > .sv-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.sv-col > .sv-card :deep(.n-card__content) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.sv-col > .sv-card :deep(.n-card__content) > .sv-form {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.sv-card {
-  --n-padding-left: 28px;
-  --n-padding-right: 28px;
-  --n-padding-top: 24px;
-  --n-padding-bottom: 24px;
-}
-
-.sv-card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 20px;
-  color: var(--text-primary);
-  margin-bottom: 18px;
-}
-
-.sv-card-icon {
-  color: var(--text-primary);
-}
-
-.sv-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  flex: 1;
-}
-
-.sv-form-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sv-form-item.sv-form-item-inline {
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-.sv-form-item.sv-form-item-inline label {
-  min-width: unset;
-}
-
-.sv-conversion-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.sv-form-item.sv-form-item-compact {
-  flex: 0 0 auto;
-}
-
-.sv-switch-setting {
-  min-width: 72px;
-}
-
-.sv-switch-control {
-  height: 28px;
-  display: flex;
-  align-items: center;
-}
-
-.sv-actions-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.sv-storage-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.sv-storage-meta {
+.sv-category-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
-  line-height: 18px;
+}
+
+.sv-category-button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 0.14s ease,
+    background-color 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.sv-category-button:hover {
+  color: var(--text-primary);
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.sv-category-button.active {
+  color: var(--text-primary);
+  background: var(--sv-accent-soft);
+  border-color: var(--sv-accent-border);
+}
+
+.sv-category-button.active::before {
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--sv-accent);
+  content: '';
+}
+
+.sv-category-button .n-icon {
   color: var(--text-tertiary);
-  word-break: break-all;
+}
+
+.sv-category-button.active .n-icon {
+  color: var(--sv-accent);
+}
+
+.sv-sidebar-note {
+  margin-top: auto;
+  padding: 18px 12px 0;
+  border-top: 1px solid var(--border-light);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.sv-main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 68px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-surface);
+}
+
+.sv-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px 48px 24px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.sv-breadcrumb {
+  margin-bottom: 8px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.sv-page-header h1 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+
+.sv-page-header p {
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sv-dirty-indicator,
+.sv-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.sv-dirty-indicator {
+  margin-top: 28px;
+  color: var(--text-secondary);
+}
+
+.sv-dirty-indicator > span,
+.sv-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+.sv-page-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 30px 48px 48px;
+}
+
+.sv-panel-container {
+  width: 100%;
+  max-width: 920px;
+}
+
+.sv-panel {
+  width: 100%;
+}
+
+.sv-section {
   min-width: 0;
 }
 
-.sv-form-item label {
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--text-secondary);
-  min-width: 80px;
+.sv-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
 }
 
-.sv-card :deep(.n-input),
-.sv-card :deep(.n-base-selection),
-.sv-card :deep(.n-button) {
-  font-size: 14px;
-}
-
-.sv-card :deep(.n-input__input-el),
-.sv-card :deep(.n-input__textarea-el),
-.sv-card :deep(.n-input__placeholder),
-.sv-card :deep(.n-base-selection-label__render-label),
-.sv-card :deep(.n-base-selection-placeholder),
-.sv-card :deep(.n-button__content),
-.sv-card :deep(.n-alert-body__content) {
-  font-size: 14px;
-  line-height: 18px;
-}
-
-.sv-card :deep(.n-input__prefix),
-.sv-card :deep(.n-input__suffix),
-.sv-card :deep(.n-base-selection-suffix),
-.sv-card :deep(.n-button__icon) {
+.sv-section-heading h3 {
+  margin: 0;
+  color: var(--text-primary);
   font-size: 16px;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
-@media (max-width: 720px) {
-  .sv-grid-layout {
-    grid-template-columns: 1fr;
+.sv-section-heading p {
+  margin: 5px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.sv-section-divider {
+  width: 100%;
+  height: 1px;
+  margin: 28px 0;
+  background: var(--border);
+}
+
+.sv-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sv-form-row {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 560px);
+  align-items: start;
+  column-gap: 24px;
+  min-width: 0;
+}
+
+.sv-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding-top: 7px;
+}
+
+.sv-form-label label {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.sv-form-label span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.sv-form-control {
+  min-width: 0;
+}
+
+.sv-form-control > .n-input,
+.sv-form-control > .n-select,
+.sv-form-control > .n-radio-group {
+  width: 100%;
+  max-width: 560px;
+}
+
+.sv-form-control .n-input,
+.sv-form-control .n-base-selection {
+  font-size: 13px;
+}
+
+.sv-form-hint {
+  margin: 7px 0 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.sv-readonly-value {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--text-secondary);
+  font-family: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.sv-status {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+}
+
+.sv-status.is-saved {
+  color: var(--success);
+}
+
+.sv-status.is-pending {
+  color: var(--warning);
+}
+
+.sv-status.is-error {
+  color: var(--danger);
+}
+
+.sv-status.is-saved .sv-status-dot {
+  background: var(--success);
+}
+
+.sv-status.is-pending .sv-status-dot {
+  background: var(--warning);
+}
+
+.sv-status.is-error .sv-status-dot {
+  background: var(--danger);
+}
+
+.sv-status.is-empty .sv-status-dot,
+.sv-status.is-loading .sv-status-dot {
+  background: var(--text-tertiary);
+}
+
+.sv-storage-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 716px;
+  min-height: 58px;
+  padding: 12px 0;
+}
+
+.sv-storage-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sv-storage-summary span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.sv-storage-summary strong {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sv-inline-alert {
+  max-width: 716px;
+  margin-top: 18px;
+}
+
+.sv-alert-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sv-theme-options {
+  width: auto !important;
+}
+
+.sv-state-view {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 680px;
+  padding-top: 16px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.sv-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 32px 0 48px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.sv-footer-status {
+  min-width: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sv-footer-status .is-error {
+  color: var(--danger);
+}
+
+.sv-footer-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.sv-modal-card {
+  width: min(440px, calc(100vw - 48px));
+}
+
+.sv-modal-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.sv-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 980px) {
+  .settings-view {
+    grid-template-columns: 204px minmax(0, 1fr);
+  }
+
+  .sv-page-header {
+    padding: 28px 28px 22px;
+  }
+
+  .sv-page-body {
+    padding: 26px 28px 40px;
+  }
+
+  .sv-footer {
+    padding: 0 24px 0 28px;
+  }
+}
+
+@media (max-width: 820px) {
+  .settings-view {
+    grid-template-columns: 184px minmax(0, 1fr);
+  }
+
+  .sv-sidebar {
+    padding-inline: 10px;
+  }
+
+  .sv-sidebar-header,
+  .sv-sidebar-note {
+    padding-inline: 9px;
+  }
+
+  .sv-form-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 7px;
+  }
+
+  .sv-form-label {
+    padding-top: 0;
+  }
+
+  .sv-form-label span {
+    display: none;
+  }
+
+  .sv-page-header {
+    padding: 24px 20px 20px;
+  }
+
+  .sv-page-body {
+    padding: 22px 20px 32px;
+  }
+
+  .sv-footer {
+    padding: 0 16px 0 20px;
+  }
+
+  .sv-footer-status {
+    display: none;
   }
 }
 </style>

@@ -32,7 +32,7 @@
                 :key="item.key"
                 :class="['nav-btn', { active: activeTab === item.key }]"
                 :title="item.label"
-                @click="activeTab = item.key"
+                @click="selectTab(item.key)"
               >
                 <component :is="item.icon" />
               </button>
@@ -43,11 +43,15 @@
           </nav>
 
           <main class="main-area">
-            <div class="main-content">
+            <div :class="['main-content', { 'settings-active': activeTab === 'settings' }]">
               <recognize-view v-show="activeTab === 'recognize'" :active="activeTab === 'recognize'" />
               <convert-view v-show="activeTab === 'convert'" />
               <syntax-view v-show="activeTab === 'syntax'" :active="activeTab === 'syntax'" />
-              <settings-view v-show="activeTab === 'settings'" />
+              <settings-view
+                v-show="activeTab === 'settings'"
+                :active="activeTab === 'settings'"
+                @close="leaveSettings"
+              />
               <ai-assistant v-if="activeTab === 'convert'" />
             </div>
             <div :class="['log-drawer', { open: logOpen }]">
@@ -63,6 +67,27 @@
           </main>
         </div>
       </div>
+
+      <n-modal
+        v-model:show="discardModalVisible"
+        preset="card"
+        class="discard-settings-modal"
+        title="放弃未保存的更改？"
+        :bordered="false"
+        :mask-closable="false"
+      >
+        <p class="discard-settings-copy">
+          设置页中的修改还没有应用。放弃后，这些修改将无法恢复。
+        </p>
+        <template #footer>
+          <div class="discard-settings-actions">
+            <n-button @click="continueEditingSettings">继续编辑</n-button>
+            <n-button type="error" secondary @click="discardSettingsChanges">
+              放弃更改
+            </n-button>
+          </div>
+        </template>
+      </n-modal>
     </n-message-provider>
   </n-config-provider>
 </template>
@@ -85,13 +110,28 @@ import {
   SyncOutline,
   SettingsOutline,
 } from '@vicons/ionicons5'
-import { darkTheme, NConfigProvider, NMessageProvider } from 'naive-ui'
+import {
+  darkTheme,
+  NButton,
+  NConfigProvider,
+  NMessageProvider,
+  NModal,
+} from 'naive-ui'
+
+type AppTab = 'recognize' | 'convert' | 'syntax' | 'settings'
+type WorkspaceTab = Exclude<AppTab, 'settings'>
+type PendingNavigation =
+  | { kind: 'tab'; tab: AppTab }
+  | { kind: 'close' }
 
 const store = useWorkspaceStore()
 const logStore = useLogStore()
 const settings = useSettingsStore()
 
-const activeTab = ref<'recognize' | 'convert' | 'syntax' | 'settings'>('recognize')
+const activeTab = ref<AppTab>('recognize')
+const previousWorkspaceTab = ref<WorkspaceTab>('recognize')
+const discardModalVisible = ref(false)
+const pendingNavigation = ref<PendingNavigation | null>(null)
 const logOpen = ref(false)
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 const systemPrefersDark = ref(mediaQuery.matches)
@@ -158,7 +198,55 @@ function toggleMaximizeWindow(): void {
 }
 
 function closeWindow(): void {
+  if (activeTab.value === 'settings' && settings.draftDirty) {
+    pendingNavigation.value = { kind: 'close' }
+    discardModalVisible.value = true
+    return
+  }
   void window.api.closeWindow()
+}
+
+function selectTab(tab: AppTab): void {
+  if (tab === activeTab.value) return
+  if (activeTab.value === 'settings' && settings.draftDirty) {
+    pendingNavigation.value = { kind: 'tab', tab }
+    discardModalVisible.value = true
+    return
+  }
+  activateTab(tab)
+}
+
+function activateTab(tab: AppTab): void {
+  if (tab === 'settings') {
+    if (activeTab.value !== 'settings') {
+      previousWorkspaceTab.value = activeTab.value as WorkspaceTab
+    }
+  } else {
+    previousWorkspaceTab.value = tab
+  }
+  activeTab.value = tab
+}
+
+function leaveSettings(): void {
+  activateTab(previousWorkspaceTab.value)
+}
+
+function continueEditingSettings(): void {
+  pendingNavigation.value = null
+  discardModalVisible.value = false
+}
+
+function discardSettingsChanges(): void {
+  const navigation = pendingNavigation.value
+  settings.discardDraft()
+  pendingNavigation.value = null
+  discardModalVisible.value = false
+  if (!navigation) return
+  if (navigation.kind === 'close') {
+    void window.api.closeWindow()
+    return
+  }
+  activateTab(navigation.tab)
 }
 
 const naiveTheme = computed(() => (effectiveDark.value ? darkTheme : null))
@@ -502,6 +590,29 @@ body {
   min-height: 0;
   overflow: auto;
   padding: 20px 24px;
+}
+
+.main-content.settings-active {
+  display: flex;
+  overflow: hidden;
+  padding: 0;
+}
+
+.discard-settings-modal {
+  width: min(440px, calc(100vw - 48px));
+}
+
+.discard-settings-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.discard-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .log-drawer {
