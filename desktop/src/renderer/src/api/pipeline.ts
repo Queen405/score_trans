@@ -1,11 +1,19 @@
 import { apiFetch } from './client'
-import type { AccidentalMode, MeasureNumberMode, PipelineByFileIdRequest, TargetKey, TaskSubmitResponse } from '../models/types'
+import type {
+  AccidentalMode,
+  InstrumentProfile,
+  MeasureNumberMode,
+  PipelineByFileIdRequest,
+  TargetKey,
+  TaskSubmitResponse,
+} from '../models/types'
 
 export const pipelineApi = {
   run(
     file: File,
     targetKey: TargetKey = 'C',
     accidentalMode: AccidentalMode = 'auto',
+    instrumentProfile: InstrumentProfile = 'general',
     startMeasureNumber?: number,
     measureNumberMode: MeasureNumberMode = 'all',
     title?: string,
@@ -14,6 +22,7 @@ export const pipelineApi = {
     formData.append('file', file)
     formData.append('target_key', targetKey)
     formData.append('accidental_mode', accidentalMode)
+    formData.append('instrument_profile', instrumentProfile)
     formData.append('measure_number_mode', measureNumberMode)
     if (startMeasureNumber !== undefined) {
       formData.append('start_measure_number', String(startMeasureNumber))

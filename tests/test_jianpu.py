@@ -352,3 +352,59 @@ def test_score_to_jianpu_text_only_writes_supported_mark_tokens() -> None:
     assert "^> 1" in text
     assert "^l 2" in text
     parse_jianpu_score(text)
+
+
+def test_erhu_profile_marks_parse_normalize_and_dedupe() -> None:
+    text = (
+        "instrument=erhu\n1=C\n4/4\n"
+        "^lg ^tg ^pg ^1 ^zr ^rg ^bx ^sh ^xh ^dh ^ds ^dx "
+        "^hx ^hs ^sc ^xc ^kx ^nx ^wx ^jx ^gx ^lg 1 2 3 4 |"
+    )
+
+    score = parse_jianpu_score(text)
+    event = score.measures[0].events[0]
+    normalized = normalize_jianpu_text(text)
+
+    assert score.instrument_profile == "erhu"
+    assert event.technical.count("down-bow") == 1
+    assert set(event.technical) == {
+        "down-bow",
+        "up-bow",
+        "throw-bow",
+        "fingering-1",
+        "natural-harmonic",
+        "artificial-harmonic",
+        "pluck",
+        "scoop",
+        "plop",
+        "finger-pad-slide",
+        "doit",
+        "falloff",
+        "lower-return-slide",
+        "upper-return-slide",
+        "open-string",
+        "inner-string",
+        "outer-string",
+        "hook-string",
+    }
+    assert event.ornaments == ["upper-trill", "lower-trill"]
+    assert event.articulations == ["breath-mark"]
+    assert normalized.count("^lg") == 1
+    assert "instrument=erhu" in normalized
+
+
+def test_continuous_slide_marks_previous_and_target_notes() -> None:
+    score = parse_jianpu_score(
+        "instrument=erhu\n1=C\n4/4\n1 2 3 4 |\n^lh 5 6 7 1 |"
+    )
+    start = score.measures[0].events[-1]
+    stop = score.measures[1].events[0]
+
+    assert start.slide_start is True
+    assert stop.slide_stop is True
+    assert "^lh 5" in score_to_jianpu_text(score)
+
+
+def test_continuous_slide_requires_a_previous_note() -> None:
+    with pytest.raises(ValueError, match="没有可连接的起始音"):
+        parse_jianpu_score("instrument=erhu\n1=C\n4/4\n^lh 1 2 3 4 |")

@@ -3,13 +3,18 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from score_trans.config.settings import PDF_RENDER_DPI
-from score_trans.models.common.types import AccidentalMode, TargetKey
+from score_trans.models.common.types import (
+    AccidentalMode,
+    InstrumentProfile,
+    TargetKey,
+)
 
 
 class AiTranscribeRequest(BaseModel):
     file_id: str
     target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
+    instrument_profile: InstrumentProfile = "general"
     title: str | None = None
     render_dpi: int = Field(default=PDF_RENDER_DPI, ge=72, le=400)
     max_pages: int | None = Field(default=None, ge=1, le=100)

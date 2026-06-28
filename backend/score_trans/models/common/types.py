@@ -5,6 +5,7 @@ from typing import Literal
 
 AccidentalMode = Literal["auto", "sharp", "flat"]
 MeasureNumberMode = Literal["all", "row_start", "none"]
+InstrumentProfile = Literal["general", "erhu", "zhongruan"]
 TargetKey = Literal[
     "Cb",
     "Gb",

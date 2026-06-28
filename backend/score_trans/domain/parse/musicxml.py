@@ -5,6 +5,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from ..constants import FIFTHS_TO_KEY, KEY_TO_TONIC, MAJOR_SCALE, STEP_TO_SEMITONE
+from ..performance_marks import canonical_mark_id, normalize_event_marks
 from ..xml_utils import (
     _namespace,
     _q,
@@ -12,6 +13,7 @@ from ..xml_utils import (
     _text,
     _read_musicxml,
 )
+from ...models.common.types import InstrumentProfile
 from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
 
@@ -20,9 +22,14 @@ def musicxml_path_to_score(
     target_key: str = "C",
     start_measure_number: int | None = None,
     title: str | None = None,
+    instrument_profile: InstrumentProfile | None = None,
 ) -> JianpuScore:
     return musicxml_to_score(
-        _read_musicxml(path), target_key, start_measure_number, title
+        _read_musicxml(path),
+        target_key,
+        start_measure_number,
+        title,
+        instrument_profile,
     )
 
 
@@ -35,6 +42,7 @@ def musicxml_to_score(
     target_key: str = "C",
     start_measure_number: int | None = None,
     title: str | None = None,
+    instrument_profile: InstrumentProfile | None = None,
 ) -> JianpuScore:
     if target_key not in KEY_TO_TONIC:
         raise ValueError(f"不支持的简谱调：{target_key}")
@@ -46,7 +54,12 @@ def musicxml_to_score(
         return JianpuScore(title=title or "简谱", target_key=target_key)
 
     extracted_title = title or _extract_title(root, ns)
-    score = JianpuScore(title=extracted_title, target_key=target_key)
+    score = JianpuScore(
+        title=extracted_title,
+        target_key=target_key,
+        instrument_profile=instrument_profile
+        or _extract_instrument_profile(root, ns),
+    )
     if extracted_title:
         score.text_blocks.append(TextBlock(text=extracted_title, role="title"))
     current_key = "C"
@@ -107,6 +120,30 @@ def _extract_title(root: ET.Element, ns: str) -> str:
     work_title = root.find(f"{_q(ns, 'work')}/{_q(ns, 'work-title')}")
     movement_title = root.find(_q(ns, "movement-title"))
     return _text(work_title) or _text(movement_title) or "简谱"
+
+
+def _extract_instrument_profile(
+    root: ET.Element, ns: str
+) -> InstrumentProfile:
+    for field in root.findall(f".//{_q(ns, 'miscellaneous-field')}"):
+        name = (field.get("name") or "").strip().lower()
+        value = (_text(field) or "").strip().lower()
+        if name in {
+            "score-trans-instrument-profile",
+            "score-trans:instrument-profile",
+        } and value in {"general", "erhu", "zhongruan"}:
+            return value
+    part_name = _text(
+        root.find(
+            f"{_q(ns, 'part-list')}/{_q(ns, 'score-part')}/{_q(ns, 'part-name')}"
+        )
+    )
+    normalized = (part_name or "").strip().lower()
+    if normalized in {"二胡", "erhu"}:
+        return "erhu"
+    if normalized in {"中阮", "zhongruan", "zhong ruan"}:
+        return "zhongruan"
+    return "general"
 
 
 def _display_measure_number(measure: ET.Element, fallback: int) -> str | int:
@@ -197,6 +234,14 @@ def _read_measure_events(
             event.slur_stop = any(
                 slur.get("type") == "stop" for slur in notations.findall(_q(ns, "slur"))
             )
+            event.slide_start = any(
+                slide.get("type") == "start"
+                for slide in notations.findall(_q(ns, "slide"))
+            )
+            event.slide_stop = any(
+                slide.get("type") == "stop"
+                for slide in notations.findall(_q(ns, "slide"))
+            )
             event.articulations = _notation_marks(
                 notations.find(_q(ns, "articulations")), ns
             )
@@ -209,6 +254,7 @@ def _read_measure_events(
             _apply_tuplet_notations(
                 event, notations, ns, measure.source_number, cursor, active_tuplets
             )
+            normalize_event_marks(event)
         time_modification = note.find(_q(ns, "time-modification"))
         if time_modification is not None:
             actual_notes = _text(time_modification.find(_q(ns, "actual-notes")))
@@ -474,10 +520,20 @@ def _notation_marks(element: ET.Element | None, ns: str) -> list[str]:
     if element is None:
         return []
     marks: list[str] = []
+    section = _local_name(element.tag)
     for child in list(element):
         name = _local_name(child.tag)
         text = _text(child)
-        if text and name in {"fingering", "string", "fret"}:
+        if section == "ornaments" and name == "wavy-line":
+            continue
+        if section == "technical" and name == "harmonic":
+            if child.find(_q(ns, "artificial")) is not None:
+                marks.append("artificial-harmonic")
+            else:
+                marks.append("natural-harmonic")
+        elif text and name == "fingering" and text.strip() in {"1", "2", "3", "4"}:
+            marks.append(f"fingering-{text.strip()}")
+        elif text and name in {"string", "fret"}:
             marks.append(text)
         elif text and name in {
             "other-technical",
@@ -486,8 +542,14 @@ def _notation_marks(element: ET.Element | None, ns: str) -> list[str]:
         }:
             marks.append(text)
         else:
-            marks.append(name.removeprefix(f"{{{ns}}}") if ns else name)
-    return marks
+            marks.append(name)
+    result: list[str] = []
+    for mark in marks:
+        mark_id = canonical_mark_id(mark)
+        resolved = mark_id or mark
+        if resolved and resolved not in result:
+            result.append(resolved)
+    return result
 
 
 def _dynamic_text(dynamics: ET.Element | None, ns: str) -> str | None:

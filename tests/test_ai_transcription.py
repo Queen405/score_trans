@@ -33,6 +33,36 @@ def test_ai_transcribe_route_is_registered() -> None:
     assert "/ai/transcribe" in paths
     assert "file_id" in schema["properties"]
     assert "render_dpi" in schema["properties"]
+    assert schema["properties"]["instrument_profile"]["default"] == "general"
+
+
+def test_erhu_ai_transcription_injects_profile_prompt_and_metadata(
+    tmp_path: Path,
+) -> None:
+    config = ToolConfig(work_dir=tmp_path / "work")
+    uploads = UploadService(config)
+    source = tmp_path / "score.png"
+    source.write_bytes(b"fake png")
+    file_id = uploads.register(source)
+    provider = MockVisionJianpuProvider()
+    actions = AiActions(
+        uploads=uploads,
+        settings=FakeSettings(config),  # type: ignore[arg-type]
+        transcriber=AiTranscriptionService(provider),
+    )
+
+    response = actions.transcribe_score(
+        AiTranscribeRequest(
+            file_id=file_id,
+            target_key="C",
+            instrument_profile="erhu",
+        )
+    )
+
+    assert provider.prompts
+    assert "二胡识别模式" in (provider.prompts[0] or "")
+    assert "^lg=拉弓（出弓）" in (provider.prompts[0] or "")
+    assert "instrument=erhu" in response.merged_jianpu_text
 
 
 def test_ai_chat_routes_are_registered() -> None:

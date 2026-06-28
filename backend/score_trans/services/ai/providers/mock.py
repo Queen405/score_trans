@@ -10,6 +10,7 @@ class MockVisionJianpuProvider:
     def __init__(self, results: list[VisionPageResult] | None = None) -> None:
         self.results = list(results or [])
         self.calls: list[Path] = []
+        self.prompts: list[str | None] = []
 
     def transcribe_page(
         self,
@@ -21,6 +22,7 @@ class MockVisionJianpuProvider:
         extra_prompt: str | None = None,
     ) -> VisionPageResult:
         self.calls.append(Path(image_path))
+        self.prompts.append(extra_prompt)
         if self.results:
             return self.results[min(page_index, len(self.results) - 1)]
         return VisionPageResult(

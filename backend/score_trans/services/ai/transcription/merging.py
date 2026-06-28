@@ -2,22 +2,32 @@ from __future__ import annotations
 
 import re
 
+from ....models.common.types import InstrumentProfile
+
 
 def merge_page_jianpu_texts(
     page_texts: list[str],
     *,
     target_key: str = "C",
     title: str | None = None,
+    instrument_profile: InstrumentProfile = "general",
 ) -> str:
     non_empty = [text for text in page_texts if text.strip()]
     if not non_empty:
-        return f"1={target_key}\n4/4\n"
+        profile_line = (
+            f"instrument={instrument_profile}\n"
+            if instrument_profile != "general"
+            else ""
+        )
+        return f"{profile_line}1={target_key}\n4/4\n"
 
     first_header = extract_header(non_empty[0])
     header: list[str] = []
     resolved_title = title or first_header.get("title")
     if resolved_title:
         header.append(f"title={resolved_title}")
+    if instrument_profile != "general":
+        header.append(f"instrument={instrument_profile}")
     header.append(f"1={first_header.get('key') or target_key}")
     header.append(first_header.get("meter") or "4/4")
     if first_header.get("tempo"):
@@ -38,6 +48,8 @@ def extract_header(text: str) -> dict[str, str]:
         line = raw.strip()
         if line.startswith("title="):
             header["title"] = line.split("=", 1)[1].strip()
+        elif line.startswith("instrument="):
+            header["instrument"] = line.split("=", 1)[1].strip()
         elif line.startswith("1="):
             header["key"] = line.split("=", 1)[1].strip()
         elif line.startswith("tempo="):
@@ -53,6 +65,7 @@ def strip_header(text: str) -> str:
         line = raw.strip()
         if (
             line.startswith("title=")
+            or line.startswith("instrument=")
             or line.startswith("1=")
             or line.startswith("tempo=")
             or re.fullmatch(r"\d+\s*/\s*\d+", line)

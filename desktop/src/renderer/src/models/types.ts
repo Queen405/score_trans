@@ -16,6 +16,7 @@ export interface MusicXmlToJianpuRequest {
   page_image_file_id?: string
   target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  instrument_profile?: InstrumentProfile
   start_measure_number?: number
 }
 
@@ -28,6 +29,7 @@ export interface RenderJianpuSvgRequest {
   page_image_file_id?: string
   target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  instrument_profile?: InstrumentProfile
   show_measure_numbers?: boolean
   measure_number_mode?: MeasureNumberMode
   start_measure_number?: number
@@ -92,6 +94,7 @@ export interface FinalOutputRequest {
   page_image_file_id?: string
   target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  instrument_profile?: InstrumentProfile
   show_measure_numbers?: boolean
   measure_number_mode?: MeasureNumberMode
   start_measure_number?: number
@@ -123,6 +126,7 @@ export interface BatchRenderRequest {
   render_page_ocr_texts?: RenderPageOcrText[]
   target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  instrument_profile?: InstrumentProfile
   show_measure_numbers?: boolean
   measure_number_mode?: MeasureNumberMode
   title?: string
@@ -149,6 +153,7 @@ export interface PipelineByFileIdRequest {
   file_id: string
   target_key: TargetKey
   accidental_mode?: AccidentalMode
+  instrument_profile?: InstrumentProfile
   show_measure_numbers?: boolean
   measure_number_mode?: MeasureNumberMode
   start_measure_number?: number | null
@@ -169,6 +174,7 @@ export interface AiTranscribeRequest {
   file_id: string
   target_key?: TargetKey
   accidental_mode?: AccidentalMode
+  instrument_profile?: InstrumentProfile
   title?: string
   render_dpi?: number
   max_pages?: number
@@ -200,6 +206,28 @@ export interface AiTranscribeResponse {
   jianpu_file_id: string
   pages: AiTranscribedPage[]
   warnings: string[]
+}
+
+export interface PerformanceMarkCatalogItem {
+  id: string
+  syntax: string
+  name: string
+  description: string
+  category: string
+  placement: string
+}
+
+export interface SyntaxExample {
+  syntax: string
+  description: string
+}
+
+export interface InstrumentProfileCatalog {
+  id: InstrumentProfile
+  name: string
+  marks: PerformanceMarkCatalogItem[]
+  range_examples: SyntaxExample[]
+  combination_examples: SyntaxExample[]
 }
 
 export interface AiChatMessage {
@@ -244,6 +272,7 @@ export interface ExportMidiTextRequest {
 export type ThemeMode = 'dark' | 'light' | 'system'
 export type AccidentalMode = 'auto' | 'sharp' | 'flat'
 export type MeasureNumberMode = 'all' | 'row_start' | 'none'
+export type InstrumentProfile = 'general' | 'erhu' | 'zhongruan'
 export type TargetKey =
   | 'Cb'
   | 'Gb'

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
 from ...domain.musicxml import musicxml_path_to_score, score_to_jianpu_text
-from ...models.common.types import AccidentalMode
+from ...models.common.types import AccidentalMode, InstrumentProfile
 from ...models.convert.schemas import (
     JianpuToMusicXmlRequest,
     JianpuToMusicXmlResponse,
@@ -28,6 +28,7 @@ class MusicXmlToJianpuAction:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        instrument_profile: InstrumentProfile | None = None,
         start_measure_number: int | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -36,6 +37,7 @@ class MusicXmlToJianpuAction:
             self.build_score(
                 musicxml_path,
                 target_key=target_key,
+                instrument_profile=instrument_profile,
                 start_measure_number=start_measure_number,
                 image_path=image_path,
                 ocr_provider=ocr_provider,
@@ -48,6 +50,7 @@ class MusicXmlToJianpuAction:
         musicxml_path: str | Path,
         *,
         target_key: str = "C",
+        instrument_profile: InstrumentProfile | None = None,
         start_measure_number: int | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -56,6 +59,7 @@ class MusicXmlToJianpuAction:
             Path(musicxml_path),
             target_key=target_key,
             start_measure_number=start_measure_number,
+            instrument_profile=instrument_profile,
         )
         if image_path is not None:
             provider = ocr_provider or create_configured_ocr_provider()
@@ -101,6 +105,7 @@ class ConvertActions:
             path,
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
+            instrument_profile=req.instrument_profile,
             start_measure_number=req.start_measure_number,
             image_path=image_path,
         )

@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Literal
 
+from .common.types import InstrumentProfile
+
 
 TextRole = Literal[
     "title", "instrument", "lyric", "expression", "footer", "measure_number", "other"
@@ -49,6 +51,8 @@ class Event:
     tie_stop: bool = False
     slur_start: bool = False
     slur_stop: bool = False
+    slide_start: bool = False
+    slide_stop: bool = False
     lyric: str | None = None
     dynamic: str | None = None
     articulation: str | None = None
@@ -169,6 +173,7 @@ class JianpuScore:
     source_key: str = "C"
     beats: int = 4
     beat_type: int = 4
+    instrument_profile: InstrumentProfile = "general"
     measures: list[Measure] = field(default_factory=list)
     text_blocks: list[TextBlock] = field(default_factory=list)
     validation_errors: list[str] = field(default_factory=list)

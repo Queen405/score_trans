@@ -1,18 +1,17 @@
 from __future__ import annotations
 
+from ....domain.performance_marks import (
+    canonical_mark_id,
+    event_mark_ids,
+    get_performance_mark,
+)
 from ..models.layout import RenderItem
 from ..options import RenderOptions
-from ..utils.articulations import _render_articulation
-from ..utils.helpers import _mark_display
-from ..utils.positioning import (
-    _technique_mark,
-    _technique_mark_x,
-    _technique_mark_y,
-    _upper_mark_anchor_y,
-)
 from ..utils.text import _esc
 from ..utils.metrics import _token_metrics
+from ..utils.helpers import _mark_display
 from .beams import _render_beams, _beamable_slashes
+from .performance_marks import _render_performance_mark
 from .spanners import _render_spanners
 from .token import _render_token
 
@@ -27,7 +26,9 @@ def _render_beat_items(
     from ..layout.beat import _item_slots
 
     slots = _item_slots(items, x, width, options)
-    spanners, _tie, _slur = _render_spanners(slots, y, options=options)
+    spanners, _tie, _slur, _slide = _render_spanners(
+        slots, y, options=options
+    )
     return (
         _render_slot_items(slots, y, options)
         + _render_beams(slots, y, options)
@@ -80,54 +81,36 @@ def _render_item(
         out.append(
             f'<text class="dynamic" x="{cx:.1f}" y="{bottom + 30:.1f}" text-anchor="middle">{_esc(item.dynamic)}</text>'
         )
-    for index, mark in enumerate(_technique_marks(item)):
-        tx = _technique_mark_x(item.token, cx, options)
-        ty = _technique_mark_y(item.token, y, options) + index * 17
-        if mark == "轮":
-            base_x = cx + 8
-            base_y = _technique_mark_y(item.token, y, options)
-            line_len = 10
-            gap = 5
-            rise = 4
-            d = " ".join(
-                f"M {base_x:.1f} {base_y + i * gap:.1f} L {base_x + line_len:.1f} {base_y - rise + i * gap:.1f}"
-                for i in range(3)
+    placement_layers: dict[str, int] = {}
+    for mark_id in _performance_mark_ids(item):
+        mark = get_performance_mark(mark_id)
+        if mark is None:
+            continue
+        if suppress_upper_marks and mark.placement == "above":
+            continue
+        layer = placement_layers.get(mark.placement, 0)
+        out.extend(
+            _render_performance_mark(
+                mark_id,
+                item.token,
+                cx,
+                y,
+                layer,
+                options,
             )
-            out.append(
-                f'<path class="technique-mark" d="{d}" stroke="#171717" stroke-width="1.8" fill="none"/>'
-            )
-        else:
-            out.append(
-                f'<text class="technique-mark" x="{tx:.1f}" '
-                f'y="{ty:.1f}" text-anchor="start">{_esc(mark)}</text>'
-            )
-    upper_anchor_y = _upper_mark_anchor_y(item.token, y, options)
-    articulations = item.articulations or (
-        [item.articulation] if item.articulation else []
-    )
+        )
+        placement_layers[mark.placement] = layer + 1
     if not suppress_upper_marks:
-        for index, articulation in enumerate(articulations[:4]):
-            out.extend(
-                _render_articulation(articulation, cx, upper_anchor_y - index * 12)
-            )
-    visible_ornaments = [
-        ornament for ornament in item.ornaments if _technique_mark(ornament) is None
-    ]
-    if not suppress_upper_marks:
-        for index, ornament in enumerate(visible_ornaments[:3]):
+        unknown_layer = placement_layers.get("above", 0)
+        top = _token_metrics(item.token, y, options)["top"]
+        for category, name in _unknown_mark_entries(item):
+            mark_class = "technical" if category == "technical" else "ornament"
             out.append(
-                f'<text class="ornament" x="{cx:.1f}" y="{upper_anchor_y - 46 - index * 14:.1f}" '
-                f'text-anchor="middle">{_esc(_mark_display(ornament))}</text>'
+                f'<text class="{mark_class}" x="{cx:.1f}" '
+                f'y="{top - 9 - unknown_layer * 16:.1f}" '
+                f'text-anchor="middle">{_esc(_mark_display(name))}</text>'
             )
-    visible_technical = [
-        technical for technical in item.technical if _technique_mark(technical) is None
-    ]
-    if not suppress_upper_marks:
-        for index, technical in enumerate(visible_technical[:4]):
-            out.append(
-                f'<text class="technical" x="{cx:.1f}" y="{upper_anchor_y - 64 - index * 13:.1f}" '
-                f'text-anchor="middle">{_esc(_mark_display(technical))}</text>'
-            )
+            unknown_layer += 1
     if item.lyric:
         bottom = _token_metrics(item.token, y, options)["bottom"]
         out.append(
@@ -142,12 +125,28 @@ def _render_item(
     return out
 
 
-def _technique_marks(item: RenderItem) -> list[str]:
-    marks: list[str] = []
-    seen: set[str] = set()
-    for name in [*item.ornaments, *item.technical]:
-        mark = _technique_mark(name)
-        if mark and mark not in seen:
-            marks.append(mark)
-            seen.add(mark)
-    return marks
+def _performance_mark_ids(item: RenderItem) -> list[str]:
+    articulations = item.articulations or (
+        [item.articulation] if item.articulation else []
+    )
+    return event_mark_ids(
+        list(articulations),
+        list(item.ornaments),
+        list(item.technical),
+    )
+
+
+def _unknown_mark_entries(item: RenderItem) -> list[tuple[str, str]]:
+    articulations = item.articulations or (
+        [item.articulation] if item.articulation else []
+    )
+    result: list[tuple[str, str]] = []
+    for category, marks in (
+        ("articulation", articulations),
+        ("ornament", item.ornaments),
+        ("technical", item.technical),
+    ):
+        for mark in marks:
+            if canonical_mark_id(mark) is None:
+                result.append((category, mark))
+    return result

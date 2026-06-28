@@ -14,16 +14,18 @@ def _render_spanners(
     *,
     open_tie: Slot | None = None,
     open_slur: Slot | None = None,
+    open_slide: Slot | None = None,
     options: RenderOptions | None = None,
-) -> tuple[list[str], Slot | None, Slot | None]:
+) -> tuple[list[str], Slot | None, Slot | None, Slot | None]:
     """Render tie/slur arcs for a single measure's slots.
 
-    Returns (svg_fragments, remaining_open_tie, remaining_open_slur) so the
+    Returns SVG plus remaining tie, slur, and slide state so the
     caller can carry open spanner state across measures on the same row.
     """
     out: list[str] = []
     cur_tie = open_tie
     cur_slur = open_slur
+    cur_slide = open_slide
     for item, cx, slot_width in slots:
         current = (item, cx, slot_width)
         if item.tie_stop:
@@ -38,11 +40,19 @@ def _render_spanners(
             else:
                 out.append(_render_slur_arc(cur_slur, current, y, options))
                 cur_slur = None
+        if item.slide_stop:
+            if cur_slide is None:
+                out.append(_render_slide_curve(None, current, y, options))
+            else:
+                out.append(_render_slide_curve(cur_slide, current, y, options))
+                cur_slide = None
         if item.tie_start:
             cur_tie = current
         if item.slur_start:
             cur_slur = current
-    return out, cur_tie, cur_slur
+        if item.slide_start:
+            cur_slide = current
+    return out, cur_tie, cur_slur, cur_slide
 
 
 def _finish_open_spanners(
@@ -50,6 +60,7 @@ def _finish_open_spanners(
     *,
     open_tie: Slot | None = None,
     open_slur: Slot | None = None,
+    open_slide: Slot | None = None,
     options: RenderOptions | None = None,
 ) -> list[str]:
     """Render dangling open tie/slur arcs at the end of a row."""
@@ -58,6 +69,8 @@ def _finish_open_spanners(
         out.append(_render_tie_arc(open_tie, None, y, options))
     if open_slur is not None:
         out.append(_render_slur_arc(open_slur, None, y, options))
+    if open_slide is not None:
+        out.append(_render_slide_curve(open_slide, None, y, options))
     return out
 
 
@@ -115,6 +128,41 @@ def _render_slur_arc(
             x1 = center - 22
             x2 = center + 22
     return _arc_between("slur", x1, x2, arc_y, -max(14.0, min(26.0, (x2 - x1) / 8)))
+
+
+def _render_slide_curve(
+    start: tuple[RenderItem, float, float] | None,
+    stop: tuple[RenderItem, float, float] | None,
+    y: int,
+    options: RenderOptions | None = None,
+) -> str:
+    start_item, start_cx, start_slot = start if start is not None else stop  # type: ignore[misc]
+    stop_item, stop_cx, stop_slot = stop if stop is not None else start  # type: ignore[misc]
+    assert start_item is not None and stop_item is not None
+    _token_metrics(start_item.token, y, options)
+    _token_metrics(stop_item.token, y, options)
+    curve_y = y - 3
+    if start is None:
+        x1 = stop_cx - max(34.0, min(58.0, stop_slot + 14))
+        x2 = stop_cx - 10
+    elif stop is None:
+        x1 = start_cx + 10
+        x2 = start_cx + max(34.0, min(58.0, start_slot + 14))
+    else:
+        x1 = start_cx + 10
+        x2 = stop_cx - 10
+        if x2 - x1 < 22:
+            center = (start_cx + stop_cx) / 2
+            x1 = center - 15
+            x2 = center + 15
+    width = x2 - x1
+    return (
+        f'<path class="slide" data-mark="continuous-slide" '
+        f'd="M {x1:.1f} {curve_y + 4:.1f} '
+        f'C {x1 + width * 0.3:.1f} {curve_y - 5:.1f}, '
+        f'{x1 + width * 0.7:.1f} {curve_y + 5:.1f}, '
+        f'{x2:.1f} {curve_y - 4:.1f}"/>'
+    )
 
 
 def _arc(

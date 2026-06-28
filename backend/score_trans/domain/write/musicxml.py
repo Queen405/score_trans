@@ -10,18 +10,30 @@ from ..constants import (
     DEGREE_TO_MAJOR_OFFSET,
     SEMITONE_TO_STEP,
 )
+from ..performance_marks import event_mark_ids, get_performance_mark
 from ..xml_utils import _indent
 from ...models.score import Event, JianpuPitch, JianpuScore
 
 
 def score_to_musicxml(score: JianpuScore, title: str = "Jianpu Import") -> str:
     divisions = _score_divisions(score)
-    root = ET.Element("score-partwise", {"version": "3.1"})
+    root = ET.Element("score-partwise", {"version": "4.0"})
     work = ET.SubElement(root, "work")
     ET.SubElement(work, "work-title").text = title or score.title
+    identification = ET.SubElement(root, "identification")
+    miscellaneous = ET.SubElement(identification, "miscellaneous")
+    profile_field = ET.SubElement(
+        miscellaneous,
+        "miscellaneous-field",
+        {"name": "score-trans-instrument-profile"},
+    )
+    profile_field.text = score.instrument_profile
     part_list = ET.SubElement(root, "part-list")
     score_part = ET.SubElement(part_list, "score-part", {"id": "P1"})
-    ET.SubElement(score_part, "part-name").text = "Music"
+    ET.SubElement(score_part, "part-name").text = {
+        "erhu": "Erhu",
+        "zhongruan": "Zhongruan",
+    }.get(score.instrument_profile, "Music")
     part = ET.SubElement(root, "part", {"id": "P1"})
 
     previous_key: str | None = None
@@ -96,15 +108,96 @@ def _append_event_xml(
             ET.SubElement(note, "tie", {"type": "start"})
         if event.tie_stop:
             ET.SubElement(note, "tie", {"type": "stop"})
-        if (event.tuplet_start or event.tuplet_stop) and index == 0:
-            notations = ET.SubElement(note, "notations")
-            if event.tuplet_start:
-                ET.SubElement(notations, "tuplet", {"type": "start"})
-            if event.tuplet_stop:
-                ET.SubElement(notations, "tuplet", {"type": "stop"})
+        if index == 0:
+            _append_notations(note, event)
         if event.lyric and index == 0:
             lyric = ET.SubElement(note, "lyric")
             ET.SubElement(lyric, "text").text = event.lyric
+
+
+def _append_notations(note: ET.Element, event: Event) -> None:
+    articulations = list(
+        event.articulations
+        or ([event.articulation] if event.articulation else [])
+    )
+    marks = event_mark_ids(
+        articulations,
+        list(event.ornaments),
+        list(event.technical),
+    )
+    if not any(
+        (
+            marks,
+            event.slur_start,
+            event.slur_stop,
+            event.slide_start,
+            event.slide_stop,
+            event.tuplet_start,
+            event.tuplet_stop,
+            event.dynamic,
+        )
+    ):
+        return
+
+    notations = ET.SubElement(note, "notations")
+    if event.slur_stop:
+        ET.SubElement(notations, "slur", {"type": "stop"})
+    if event.slur_start:
+        ET.SubElement(notations, "slur", {"type": "start"})
+    if event.slide_stop:
+        ET.SubElement(notations, "slide", {"type": "stop"})
+    if event.slide_start:
+        ET.SubElement(notations, "slide", {"type": "start"})
+    if event.tuplet_start:
+        ET.SubElement(notations, "tuplet", {"type": "start"})
+    if event.tuplet_stop:
+        ET.SubElement(notations, "tuplet", {"type": "stop"})
+
+    groups: dict[str, ET.Element] = {}
+    for mark_id in marks:
+        mark = get_performance_mark(mark_id)
+        if mark is None or mark.musicxml_section is None:
+            continue
+        if mark.musicxml_section == "notations":
+            ET.SubElement(notations, mark.musicxml_name or mark.id)
+            continue
+        group = groups.get(mark.musicxml_section)
+        if group is None:
+            group = ET.SubElement(notations, mark.musicxml_section)
+            groups[mark.musicxml_section] = group
+        _append_mark_xml(group, mark_id)
+
+    if event.dynamic:
+        dynamics = ET.SubElement(notations, "dynamics")
+        ET.SubElement(dynamics, event.dynamic)
+
+
+def _append_mark_xml(parent: ET.Element, mark_id: str) -> None:
+    mark = get_performance_mark(mark_id)
+    if mark is None:
+        return
+    if mark.custom_musicxml:
+        element_name = {
+            "articulations": "other-articulation",
+            "ornaments": "other-ornament",
+        }.get(mark.musicxml_section or "", "other-technical")
+        ET.SubElement(parent, element_name).text = mark.custom_musicxml
+        return
+    name = mark.musicxml_name or mark.id
+    if mark_id == "tremolo":
+        ET.SubElement(parent, "tremolo", {"type": "single"}).text = "3"
+        return
+    if mark_id in {"natural-harmonic", "artificial-harmonic"}:
+        harmonic = ET.SubElement(parent, "harmonic")
+        ET.SubElement(
+            harmonic,
+            "natural" if mark_id == "natural-harmonic" else "artificial",
+        )
+        return
+    if mark_id.startswith("fingering-"):
+        ET.SubElement(parent, "fingering").text = mark_id.rsplit("-", 1)[-1]
+        return
+    ET.SubElement(parent, name)
 
 
 def _append_pitch_xml(

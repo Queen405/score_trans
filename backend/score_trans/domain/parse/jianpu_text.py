@@ -6,6 +6,12 @@ import re
 
 from ..jianpu_tokens import DURATION_PREFIXES, consume_duration_prefix
 from ..constants import DYNAMICS
+from ..performance_marks import (
+    PERFORMANCE_MARKS,
+    mark_for_token,
+    normalize_event_marks,
+)
+from ...models.common.types import InstrumentProfile
 from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
 
 
@@ -16,6 +22,7 @@ class JianpuOptions:
     beat_type: int = 4
     title: str = "简谱"
     tempo: int | None = None
+    instrument_profile: InstrumentProfile = "general"
 
 
 @dataclass(slots=True)
@@ -41,6 +48,7 @@ def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
         beats=score.beats,
         beat_type=score.beat_type,
         title=score.title,
+        instrument_profile=score.instrument_profile,
     )
     tokens: list[ParsedToken] = []
     for measure in score.measures:
@@ -73,6 +81,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         source_key=options.key,
         beats=options.beats,
         beat_type=options.beat_type,
+        instrument_profile=options.instrument_profile,
     )
 
     current_events: list[Event] = []
@@ -81,6 +90,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     pending_dynamic: str | None = None
     pending_articulations: list[str] = []
     pending_ornaments: list[str] = []
+    pending_technical: list[str] = []
+    pending_slide = False
     measure_articulations: list[str] = []
     measure_ornaments: list[str] = []
     pending_repeat_count: int = 1
@@ -91,6 +102,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     current_key = options.key
     current_beats = options.beats
     current_beat_type = options.beat_type
+    last_pitched_event: Event | None = None
 
     def flush_measure() -> None:
         nonlocal \
@@ -135,8 +147,11 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             pending_dynamic, \
             pending_articulations, \
             pending_ornaments, \
+            pending_technical, \
+            pending_slide, \
             open_slur, \
-            open_tie
+            open_tie, \
+            last_pitched_event
         event.source_token = raw
         event.start = cursor
         if pending_dynamic:
@@ -146,6 +161,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             event.articulations or ([event.articulation] if event.articulation else [])
         )
         event_ornaments = list(event.ornaments)
+        event_technical = list(event.technical)
         if event.kind == "note":
             event_articulations = _unique_marks(
                 event_articulations, measure_articulations, pending_articulations
@@ -153,18 +169,32 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             event_ornaments = _unique_marks(
                 event_ornaments, measure_ornaments, pending_ornaments
             )
+            event_technical = _unique_marks(event_technical, pending_technical)
         else:
             event_articulations = _unique_marks(
                 event_articulations, pending_articulations
             )
             event_ornaments = _unique_marks(event_ornaments, pending_ornaments)
+            event_technical = _unique_marks(event_technical, pending_technical)
         if event_articulations:
             event.articulations = event_articulations
             event.articulation = event_articulations[0]
         if event_ornaments:
             event.ornaments = event_ornaments
+        if event_technical:
+            event.technical = event_technical
         pending_articulations = []
         pending_ornaments = []
+        pending_technical = []
+        if pending_slide:
+            event.slide_stop = True
+            pending_slide = False
+        if event.slide_stop:
+            if event.kind != "note":
+                raise ValueError("连线滑音 ^lh 后必须跟随音符，不能跟休止符")
+            if last_pitched_event is None:
+                raise ValueError("连线滑音 ^lh 前没有可连接的起始音")
+            last_pitched_event.slide_start = True
         if raw.startswith("("):
             event.slur_start = True
             open_slur = True
@@ -181,6 +211,9 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             open_tie = False
         current_events.append(event)
         cursor += event.duration
+        if event.kind == "note":
+            last_pitched_event = event
+        normalize_event_marks(event)
 
     for token in token_lines:
         raw = token.value
@@ -249,11 +282,16 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             continue
         if raw.startswith("^"):
             name = raw[1:]
-            ornament = _ornament_name(name)
-            if ornament:
-                pending_ornaments.append(ornament)
+            if name == "lh":
+                pending_slide = True
+                continue
+            kind, mark = _mark_kind_name(name)
+            if kind == "ornament":
+                pending_ornaments.append(mark)
+            elif kind == "technical":
+                pending_technical.append(mark)
             else:
-                pending_articulations.append(_articulation_name(name))
+                pending_articulations.append(mark)
             continue
         if raw.startswith("$") and raw.endswith("$"):
             for event, source_token in _parse_tuplet_token(token):
@@ -262,6 +300,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
 
         append_event(_parse_event_token(token), raw)
 
+    if pending_slide:
+        raise ValueError("连线滑音 ^lh 后必须跟随目标音符")
     if current_events or current_blocks or not score.measures:
         flush_measure()
 
@@ -306,6 +346,14 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                 continue
             if key == "tempo":
                 options.tempo = int(value)
+                continue
+            if key == "instrument":
+                if value not in {"general", "erhu", "zhongruan"}:
+                    raise ValueError(
+                        f"第 {line_no} 行：不支持的乐器模式 {value}，"
+                        "请使用 general、erhu 或 zhongruan"
+                    )
+                options.instrument_profile = value
                 continue
         if re.fullmatch(r"\d+/\d+", stripped) and not saw_time:
             beats, beat_type = stripped.split("/", 1)
@@ -374,6 +422,7 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
     pending_dynamic: str | None = None
     pending_articulations: list[str] = []
     pending_ornaments: list[str] = []
+    pending_technical: list[str] = []
     parsed: list[tuple[Event, str]] = []
     for part in parts:
         mark = _tuplet_standalone_mark(part)
@@ -383,6 +432,10 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
                 pending_dynamic = name
             elif kind == "ornament":
                 _append_unique_mark(pending_ornaments, name)
+            elif kind == "technical":
+                _append_unique_mark(pending_technical, name)
+            elif kind == "slide":
+                pending_technical.append("__slide_from_previous__")
             else:
                 _append_unique_mark(pending_articulations, name)
             continue
@@ -395,6 +448,12 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
             name for kind, name in inline_marks if kind == "articulation"
         ]
         inline_ornaments = [name for kind, name in inline_marks if kind == "ornament"]
+        inline_technical = [
+            name for kind, name in inline_marks if kind == "technical"
+        ]
+        has_slide = "__slide_from_previous__" in pending_technical or any(
+            kind == "slide" for kind, _name in inline_marks
+        )
         inline_dynamic = next(
             (name for kind, name in reversed(inline_marks) if kind == "dynamic"),
             None,
@@ -417,9 +476,21 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
             pending_ornaments,
             inline_ornaments,
         )
+        event.technical = _unique_marks(
+            list(event.technical),
+            [
+                mark
+                for mark in pending_technical
+                if mark != "__slide_from_previous__"
+            ],
+            inline_technical,
+        )
+        event.slide_stop = has_slide
+        normalize_event_marks(event)
         pending_dynamic = None
         pending_articulations = []
         pending_ornaments = []
+        pending_technical = []
         parsed.append((event, event_part))
     if len(parsed) < 2:
         raise _syntax_error(token, "连音组至少需要两个音符，例如 $123$ 或 $1 2 3$")
@@ -461,8 +532,9 @@ def _split_tuplet_body(body: str) -> list[str]:
 def _consume_tuplet_mark_prefix(body: str, index: int) -> int:
     while index < len(body):
         if body.startswith("^", index) and index + 1 < len(body):
-            if body[index + 1] in {"l", ".", ">", "-", "r", "f"}:
-                index += 2
+            token = _match_mark_token(body[index + 1 :])
+            if token:
+                index += len(token) + 1
                 continue
         if body.startswith("\\", index):
             dynamic = _match_dynamic_prefix(body[index + 1 :])
@@ -479,12 +551,12 @@ def _tuplet_standalone_mark(part: str) -> tuple[str, str] | None:
         if dynamic in DYNAMICS:
             return "dynamic", dynamic
         return None
-    if part.startswith("^") and len(part) == 2:
-        raw = part[1]
-        ornament = _ornament_name(raw)
-        if ornament:
-            return "ornament", ornament
-        return "articulation", _articulation_name(raw)
+    if part.startswith("^"):
+        raw = part[1:]
+        if raw == "lh":
+            return "slide", "continuous-slide"
+        if mark_for_token(raw):
+            return _mark_kind_name(raw)
     return None
 
 
@@ -493,14 +565,13 @@ def _consume_tuplet_inline_marks(part: str) -> tuple[list[tuple[str, str]], str]
     work = part.strip()
     while work:
         if work.startswith("^") and len(work) > 1:
-            raw = work[1]
-            if raw in {"l", ".", ">", "-", "r", "f"}:
-                ornament = _ornament_name(raw)
-                if ornament:
-                    marks.append(("ornament", ornament))
+            raw = _match_mark_token(work[1:])
+            if raw:
+                if raw == "lh":
+                    marks.append(("slide", "continuous-slide"))
                 else:
-                    marks.append(("articulation", _articulation_name(raw)))
-                work = work[2:]
+                    marks.append(_mark_kind_name(raw))
+                work = work[len(raw) + 1 :]
                 continue
         if work.startswith("\\"):
             dynamic = _match_dynamic_prefix(work[1:])
@@ -683,16 +754,39 @@ def _ornament_name(raw: str) -> str | None:
 
 
 def _measure_level_mark(raw: str) -> tuple[str, str] | None:
-    match = re.fullmatch(r"\(\^([l.>rf])\)", raw)
+    match = re.fullmatch(r"\(\^([A-Za-z0-9.>\-]{1,2})\)", raw)
     if match is None:
         if raw.startswith("(^") and raw.endswith(")"):
             return "invalid", ""
         return None
     raw_name = match.group(1)
-    ornament = _ornament_name(raw_name)
+    mark = mark_for_token(raw_name)
+    if mark is None or not mark.measure_scope:
+        return "invalid", ""
+    return mark.category, mark.id
+
+
+def _mark_kind_name(raw: str) -> tuple[str, str]:
+    mark = mark_for_token(raw)
+    if mark is not None:
+        return mark.category, mark.id
+    ornament = _ornament_name(raw)
     if ornament:
         return "ornament", ornament
-    return "articulation", _articulation_name(raw_name)
+    return "articulation", _articulation_name(raw)
+
+
+_MARK_TOKENS = tuple(
+    sorted(
+        {mark.token for mark in PERFORMANCE_MARKS} | {"lh"},
+        key=len,
+        reverse=True,
+    )
+)
+
+
+def _match_mark_token(value: str) -> str | None:
+    return next((token for token in _MARK_TOKENS if value.startswith(token)), None)
 
 
 def _append_unique_mark(target: list[str], mark: str) -> None:

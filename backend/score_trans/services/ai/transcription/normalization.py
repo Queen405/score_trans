@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from ....models.common.types import InstrumentProfile
+
 
 def clean_jianpu_text(text: str) -> str:
     stripped = text.strip()
@@ -23,13 +25,20 @@ def ensure_jianpu_header(
     meter: str | None = None,
     title: str | None = None,
     tempo: str | int | None = None,
+    instrument_profile: InstrumentProfile = "general",
 ) -> str:
-    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    lines = [
+        line.rstrip()
+        for line in text.splitlines()
+        if line.strip() and not line.strip().startswith("instrument=")
+    ]
     resolved_key = normalize_key_value(target_key) or "C"
     resolved_meter = normalize_meter_value(meter) or "4/4"
     prefix: list[str] = []
     if title and not any(line.strip().startswith("title=") for line in lines):
         prefix.append(f"title={title}")
+    if instrument_profile != "general":
+        prefix.append(f"instrument={instrument_profile}")
     if not any(re.fullmatch(r"\s*1\s*=\s*.+", line) for line in lines):
         prefix.append(f"1={resolved_key}")
     if not any(re.fullmatch(r"\s*\d+\s*/\s*\d+\s*", line) for line in lines):

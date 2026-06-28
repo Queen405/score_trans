@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ..common.types import AccidentalMode, TargetKey
+from ..common.types import AccidentalMode, InstrumentProfile, TargetKey
 
 
 class MusicXmlToJianpuRequest(BaseModel):
@@ -10,6 +10,7 @@ class MusicXmlToJianpuRequest(BaseModel):
     page_image_file_id: str | None = None
     target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
+    instrument_profile: InstrumentProfile | None = None
     start_measure_number: int | None = None
 
 

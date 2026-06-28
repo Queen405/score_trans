@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ..common.types import AccidentalMode, MeasureNumberMode, TargetKey
+from ..common.types import (
+    AccidentalMode,
+    InstrumentProfile,
+    MeasureNumberMode,
+    TargetKey,
+)
 from ..render.schemas import RenderedSvgPage
 
 
@@ -10,6 +15,7 @@ class PipelineByFileIdRequest(BaseModel):
     file_id: str
     target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
+    instrument_profile: InstrumentProfile = "general"
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     start_measure_number: int | None = None

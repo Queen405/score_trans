@@ -80,8 +80,17 @@
             批量识别全部
           </n-button>
           <div class="ai-switch">
-            <span>AI 视觉检测</span>
+            <span>AI 视觉识别</span>
             <n-switch v-model:value="aiVisionEnabled" size="small" />
+          </div>
+          <div class="instrument-select">
+            <span>乐器模式</span>
+            <n-select
+              v-model:value="instrumentProfile"
+              :options="instrumentOptions"
+              size="small"
+              class="instrument-select-control"
+            />
           </div>
           <span v-if="selectedPageCount" class="selection-count">已选 {{ selectedPageCount }}</span>
         </div>
@@ -256,7 +265,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useTaskStore } from '../stores/task'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
@@ -267,12 +276,15 @@ import { aiApi } from '../api/ai'
 import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
+import { notationApi } from '../api/notation'
 import { getFileURL } from '../api/client'
 import type {
   AiTranscribeResponse,
   AiTranscribedPage,
   BatchRenderPageRequest,
   HistoryPage,
+  InstrumentProfile,
+  InstrumentProfileCatalog,
   PipelineResponse,
   SSEProgressEvent,
 } from '../models/types'
@@ -318,6 +330,7 @@ interface RecognitionTarget {
   inputFileName: string
   inputFileId: string
   startMeasureNumber: number | null
+  instrumentProfile: InstrumentProfile
 }
 
 interface PageResult {
@@ -361,6 +374,8 @@ const log = useLogStore()
 const settings = useSettingsStore()
 const message = useMessage()
 const aiVisionEnabled = ref(false)
+const instrumentProfile = ref<InstrumentProfile>('general')
+const instrumentCatalogs = ref<InstrumentProfileCatalog[]>([])
 const pickerShow = ref(false)
 const pickerOptions = ref<number[]>([])
 const pickerPageId = ref<string | null>(null)
@@ -370,6 +385,28 @@ const reupload = useFileUpload()
 const batchRenderInFlight = new Map<string, Promise<void>>()
 const ownedTaskIds = new Set<string>()
 const resumingTaskIds = new Set<string>()
+
+const instrumentOptions = computed(() => {
+  const profiles = instrumentCatalogs.value.length
+    ? instrumentCatalogs.value
+    : [
+        { id: 'general', name: '普通' },
+        { id: 'erhu', name: '二胡' },
+        { id: 'zhongruan', name: '中阮' },
+      ]
+  return profiles.map((profile) => ({
+    label: profile.name,
+    value: profile.id,
+  }))
+})
+
+onMounted(async () => {
+  try {
+    instrumentCatalogs.value = await notationApi.listInstrumentProfiles()
+  } catch (error: unknown) {
+    log.addLog(`加载乐器模式失败：${errorMessage(error)}`, 'warn')
+  }
+})
 
 withDefaults(defineProps<{
   active?: boolean
@@ -488,6 +525,15 @@ watch(
     .join('|'),
   () => {
     void resumeInterruptedRecognitionTasks()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => store.jianpuText,
+  (text) => {
+    const detected = instrumentProfileFromText(text)
+    if (detected) instrumentProfile.value = detected
   },
   { immediate: true },
 )
@@ -634,12 +680,21 @@ async function recognizeAllPages(): Promise<void> {
 function targetFromPage(page: TaskPage, options: { resetStartMeasure?: boolean } = {}): RecognitionTarget {
   // Prefer originalFileId for re-recognition if the input temp file was cleaned up
   const fileId = page.originalFileId || page.inputFileId
+  const savedProfile = instrumentProfileFromText(page.jianpuText)
   return {
     pageId: page.id,
     inputFileName: page.inputFileName,
     inputFileId: fileId,
     startMeasureNumber: options.resetStartMeasure ? null : (page.startMeasureNumber ?? null),
+    instrumentProfile: options.resetStartMeasure
+      ? instrumentProfile.value
+      : (savedProfile ?? instrumentProfile.value),
   }
+}
+
+function instrumentProfileFromText(text: string): InstrumentProfile | null {
+  const match = text.match(/^\s*instrument\s*=\s*(general|erhu|zhongruan)\s*$/m)
+  return (match?.[1] as InstrumentProfile | undefined) ?? null
 }
 
 async function submitRecognitionTargets(targets: RecognitionTarget[], mode: RecognitionMode): Promise<void> {
@@ -714,7 +769,7 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
   }
   activeSubmissions.value.push(submission)
 
-  const label = mode === 'ai' ? 'AI 视觉检测' : 'OMR 识别'
+  const label = mode === 'ai' ? 'AI 视觉识别' : 'OMR 识别'
 
   for (const target of targets) {
     const historyPageId = historyPageIds.get(target.pageId) ?? null
@@ -781,6 +836,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
         file_id: target.inputFileId,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        instrument_profile: target.instrumentProfile,
         measure_number_mode: settings.measureNumberMode,
         start_measure_number: target.startMeasureNumber ?? null,
       })
@@ -833,6 +889,8 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
   let svgFileIds = page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : [])
   let jianpuText = page.jianpuText
   let ocrText = page.ocrText
+  const pageInstrumentProfile = instrumentProfileFromText(page.jianpuText)
+    ?? instrumentProfile.value
   try {
     if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
       const converted = await convertApi.musicxmlToJianpu({
@@ -840,6 +898,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         page_image_file_id: page.originalFileId || page.inputFileId || undefined,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        instrument_profile: pageInstrumentProfile,
         start_measure_number: selected,
       })
       const split = splitJianpuAndOcr(converted.jianpu_text)
@@ -850,6 +909,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
         page_image_file_id: page.originalFileId || page.inputFileId || undefined,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        instrument_profile: pageInstrumentProfile,
         measure_number_mode: settings.measureNumberMode,
         start_measure_number: selected,
       })
@@ -936,13 +996,14 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
 }
 
 async function runAiTarget(target: RecognitionTarget, historyPageId: number | null, submission: SubmissionState): Promise<void> {
-  markPageProcessing(target, '提交 AI 视觉检测任务', 5)
+  markPageProcessing(target, '提交 AI 视觉识别任务', 5)
   let submittedTaskId = ''
   try {
     const submitted = await aiApi.transcribe({
       file_id: target.inputFileId,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
+      instrument_profile: target.instrumentProfile,
       normalize: true,
     })
     submittedTaskId = submitted.task_id
@@ -1621,6 +1682,7 @@ async function renderMusicxmlPageWithStart(
     page_image_file_id: target.inputFileId || undefined,
     target_key: settings.targetKey,
     accidental_mode: settings.accidentalMode,
+    instrument_profile: target.instrumentProfile,
     start_measure_number: startMeasureNumber,
   })
   const rendered = await renderApi.jianpuSvg({
@@ -1628,6 +1690,7 @@ async function renderMusicxmlPageWithStart(
     page_image_file_id: target.inputFileId || undefined,
     target_key: settings.targetKey,
     accidental_mode: settings.accidentalMode,
+    instrument_profile: target.instrumentProfile,
     measure_number_mode: settings.measureNumberMode,
     start_measure_number: startMeasureNumber,
   })
@@ -1704,6 +1767,10 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
         render_page_ocr_texts: batchRenderPageOcrTextsForRequest(batchId),
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        instrument_profile: batchPages
+          .map((page) => instrumentProfileFromText(page.jianpuText))
+          .find((profile): profile is InstrumentProfile => profile !== null)
+          ?? instrumentProfile.value,
         measure_number_mode: settings.measureNumberMode,
         title: '简谱',
       })
@@ -2104,7 +2171,8 @@ function errorMessage(error: unknown): string {
   line-height: 1.5;
 }
 
-.ai-switch {
+.ai-switch,
+.instrument-select {
   min-height: 28px;
   display: inline-flex;
   align-items: center;
@@ -2115,6 +2183,14 @@ function errorMessage(error: unknown): string {
   background: var(--bg-base);
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.instrument-select {
+  padding-right: 4px;
+}
+
+.instrument-select-control {
+  width: 92px;
 }
 
 .selection-count {

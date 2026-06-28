@@ -470,3 +470,27 @@ def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> N
 
     assert response.filename == "score.mid"
     assert uploads.get_path(response.file_id).read_bytes() == b"exported"
+
+
+def test_instrument_profile_catalog_uses_contextual_tremolo_labels() -> None:
+    response = TestClient(create_app()).get("/notation/instrument-profiles")
+
+    assert response.status_code == 200
+    profiles = {profile["id"]: profile for profile in response.json()}
+    assert set(profiles) == {"general", "erhu", "zhongruan"}
+    assert all(
+        mark["id"] != "tremolo" for mark in profiles["general"]["marks"]
+    )
+    erhu_tremolo = next(
+        mark
+        for mark in profiles["erhu"]["marks"]
+        if mark["id"] == "tremolo"
+    )
+    zhongruan_tremolo = next(
+        mark
+        for mark in profiles["zhongruan"]["marks"]
+        if mark["id"] == "tremolo"
+    )
+    assert erhu_tremolo["name"] == "颤弓（抖弓）"
+    assert zhongruan_tremolo["name"] == "轮指"
+    assert profiles["erhu"]["range_examples"][0]["syntax"].startswith("(^l)")

@@ -35,6 +35,7 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
               <tr><td><code>1=G</code></td><td>写在小节前，后续小节转为 G 调</td></tr>
               <tr><td><code>3/4</code></td><td>写在小节前，后续小节转为 3/4 拍</td></tr>
               <tr><td><code>title=名称</code></td><td>谱名，可选</td></tr>
+              <tr><td><code>instrument=erhu</code></td><td>乐器模式：普通 general / 二胡 erhu / 中阮 zhongruan</td></tr>
               <tr><td><code>tempo=120</code></td><td>速度（BPM），可选</td></tr>
             </tbody>
           </table>
@@ -90,20 +91,12 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
 
       <div class="guide-grid lower">
         <section>
-          <h3>装饰标记</h3>
+          <h3>力度标记</h3>
           <table>
             <tbody>
-              <tr><td><code>(1 2 3)</code></td><td>连音线（圆滑奏）</td></tr>
               <tr><td><code>\p</code> <code>\f</code></td><td>弱 / 强</td></tr>
               <tr><td><code>\mp</code> <code>\mf</code></td><td>中弱 / 中强</td></tr>
               <tr><td><code>\ff</code> <code>\sfz</code></td><td>很强 / 突强</td></tr>
-              <tr><td><code>^.</code></td><td>断奏（staccato）</td></tr>
-              <tr><td><code>^></code></td><td>重音（accent）</td></tr>
-              <tr><td><code>^-</code></td><td>保持（tenuto）</td></tr>
-              <tr><td><code>^r</code></td><td>颤音（trill）</td></tr>
-              <tr><td><code>^f</code></td><td>延音记号（fermata）</td></tr>
-              <tr><td><code>^l</code></td><td>轮指（tremolo）</td></tr>
-              <tr><td><code>(^l)</code> <code>(^.)</code> <code>(^&gt;)</code> <code>(^r)</code> <code>(^f)</code></td><td>写在小节开头，作用于本小节所有音符与和弦</td></tr>
             </tbody>
           </table>
         </section>
@@ -118,6 +111,43 @@ L: 一 闪 一 闪 亮 晶 晶</code></pre>
           </table>
           <p class="section-note">歌词与音符按顺序一一对应；休止符不分配歌词。</p>
         </section>
+      </div>
+
+      <div class="guide-section instrument-guide">
+        <h3>分乐器演奏技巧</h3>
+        <div v-if="loadingProfiles" class="guide-loading">正在加载演奏标记…</div>
+        <div v-else-if="profileError" class="section-note">{{ profileError }}</div>
+        <n-tabs v-else type="line" animated default-value="erhu">
+          <n-tab-pane
+            v-for="profile in profiles"
+            :key="profile.id"
+            :name="profile.id"
+            :tab="profile.name"
+          >
+            <table class="instrument-table">
+              <tbody>
+                <tr v-for="mark in profile.marks" :key="mark.id">
+                  <td><code>{{ mark.syntax }}</code></td>
+                  <td><strong>{{ mark.name }}</strong><br><span>{{ mark.description }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="profile.range_examples.length" class="example-group">
+              <h4>范围写法</h4>
+              <p v-for="example in profile.range_examples" :key="example.syntax">
+                <code>{{ example.syntax }}</code>
+                <span>{{ example.description }}</span>
+              </p>
+            </div>
+            <div v-if="profile.combination_examples.length" class="example-group">
+              <h4>组合示例</h4>
+              <p v-for="example in profile.combination_examples" :key="example.syntax">
+                <code>{{ example.syntax }}</code>
+                <span>{{ example.description }}</span>
+              </p>
+            </div>
+          </n-tab-pane>
+        </n-tabs>
       </div>
 
       <div class="guide-section">
@@ -144,8 +174,8 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
             <tr><td><code>$123$</code></td><td>连音组（总共 1 拍）</td><td><code>1=G</code> <code>3/4</code></td><td>小节前改调 / 改拍</td></tr>
             <tr><td><code>( )</code></td><td>连音线（圆滑奏）</td><td><code>[a+b]</code></td><td>和弦</td></tr>
             <tr><td><code>| || |: :|</code></td><td>小节线 / 终止线 / 反复</td><td><code>*N</code></td><td>重复 N 次</td></tr>
-            <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^r ^f ^l</code></td><td>断奏 / 重音 / 保持 / 颤音 / 延音 / 轮指</td></tr>
-            <tr><td><code>(^l)</code> 等</td><td>本小节所有音符加标记</td><td><code>0</code></td><td>休止符不继承小节级标记</td></tr>
+            <tr><td><code>\p \f</code></td><td>弱 / 强</td><td><code>^. ^&gt; ^- ^r ^f</code></td><td>通用演奏标记</td></tr>
+            <tr><td><code>instrument=erhu</code></td><td>二胡模式</td><td><code>instrument=zhongruan</code></td><td>中阮模式</td></tr>
             <tr><td><code>L:</code></td><td>歌词行</td><td><code>//</code></td><td>注释到行尾</td></tr>
           </tbody>
         </table>
@@ -156,10 +186,27 @@ L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧</code></pre>
 </template>
 
 <script setup lang="ts">
-import { NModal } from 'naive-ui'
+import { onMounted, ref } from 'vue'
+import { NModal, NTabPane, NTabs } from 'naive-ui'
+import { notationApi } from '../api/notation'
+import type { InstrumentProfileCatalog } from '../models/types'
 
 defineProps<{ show: boolean }>()
 defineEmits<{ 'update:show': [value: boolean] }>()
+
+const profiles = ref<InstrumentProfileCatalog[]>([])
+const loadingProfiles = ref(true)
+const profileError = ref('')
+
+onMounted(async () => {
+  try {
+    profiles.value = await notationApi.listInstrumentProfiles()
+  } catch {
+    profileError.value = '无法加载乐器演奏标记，请确认后端服务正在运行。'
+  } finally {
+    loadingProfiles.value = false
+  }
+})
 </script>
 
 <style scoped>
@@ -344,6 +391,48 @@ td:first-child code {
   background: var(--bg-base);
   border-radius: 6px;
   border-left: 2px solid var(--text-tertiary);
+}
+
+.guide-loading {
+  padding: 18px 4px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.instrument-table td:first-child {
+  width: 24%;
+}
+
+.instrument-table strong {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.instrument-table span {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.example-group {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.example-group h4 {
+  margin: 0 0 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.example-group p {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 6px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* ── Quick Ref table ── */

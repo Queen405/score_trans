@@ -1,3 +1,5 @@
+import xml.etree.ElementTree as ET
+
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.domain.musicxml import musicxml_to_score, score_to_jianpu_text
 from score_trans.models.score import Event, JianpuEvent, TextBlock
@@ -79,5 +81,60 @@ def test_musicxml_to_score_preserves_non_numeric_measure_number() -> None:
     assert measure.source_number == "A"
     assert measure.display_measure_number == "A"
     assert measure.display_number == "A"
+
+
+def test_erhu_marks_and_profile_roundtrip_through_musicxml() -> None:
+    source = (
+        "instrument=erhu\n1=C\n4/4\n"
+        "^lg (1 ^lh 2) ^tg ^pg 3 ^1 ^zr ^rg ^bx 4 |\n"
+        "^sh 1 ^xh 2 ^dh 3 ^ds 4 |\n"
+        "^dx 1 ^hx 2 ^hs 3 ^sc ^xc 4 |\n"
+        "^kx 1 ^nx 2 ^wx 3 ^jx ^gx 4 |"
+    )
+
+    xml = jianpu_to_musicxml(source)
+    restored = score_to_jianpu_text(musicxml_to_score(xml))
+
+    assert "score-trans-instrument-profile" in xml
+    assert '<slide type="start"' in xml
+    assert '<slide type="stop"' in xml
+    assert "<natural" in xml
+    assert "<artificial" in xml
+    assert "erhu:throw-bow" in xml
+    assert "instrument=erhu" in restored
+    for token in (
+        "^lg",
+        "^lh",
+        "^tg",
+        "^pg",
+        "^1",
+        "^zr",
+        "^rg",
+        "^bx",
+        "^sh",
+        "^xh",
+        "^dh",
+        "^ds",
+        "^dx",
+        "^hx",
+        "^hs",
+        "^sc",
+        "^xc",
+        "^kx",
+        "^nx",
+        "^wx",
+        "^jx",
+        "^gx",
+    ):
+        assert token in restored
+
+
+def test_chord_performance_mark_is_written_only_once() -> None:
+    xml = jianpu_to_musicxml(
+        "instrument=erhu\n1=C\n4/4\n^lg [1+3+5] 2 3 4 |"
+    )
+    root = ET.fromstring(xml)
+
+    assert len(root.findall(".//down-bow")) == 1
 
 

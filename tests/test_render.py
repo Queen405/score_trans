@@ -1301,3 +1301,90 @@ def test_extension_line_sits_at_note_height_not_below_note() -> None:
     extension_y = float(extension_line.split('y1="')[1].split('"')[0])
 
     assert extension_y < note_y
+
+
+def test_erhu_performance_marks_render_once_with_canonical_ids() -> None:
+    text = (
+        "instrument=erhu\n1=C\n4/4\n"
+        "^lg ^tg ^pg ^1 ^zr ^rg ^bx ^sh ^xh ^dh ^ds ^dx "
+        "^hx ^hs ^sc ^xc ^kx ^nx ^wx ^jx ^gx 1 2 3 4 |"
+    )
+    root = _svg_root(render_jianpu_svg(text))
+    groups = [
+        element
+        for element in _svg_elements(root, "g")
+        if element.attrib.get("class") == "performance-mark"
+    ]
+    mark_ids = [element.attrib.get("data-mark") for element in groups]
+
+    assert len(mark_ids) == len(set(mark_ids))
+    assert {
+        "down-bow",
+        "up-bow",
+        "throw-bow",
+        "fingering-1",
+        "natural-harmonic",
+        "artificial-harmonic",
+        "pluck",
+        "scoop",
+        "plop",
+        "finger-pad-slide",
+        "doit",
+        "falloff",
+        "lower-return-slide",
+        "upper-return-slide",
+        "upper-trill",
+        "lower-trill",
+        "open-string",
+        "inner-string",
+        "outer-string",
+        "breath-mark",
+        "hook-string",
+    } == set(mark_ids)
+
+
+def test_continuous_slide_renders_dangling_segments_across_rows() -> None:
+    from score_trans.services.render.options import RenderOptions
+
+    text = "instrument=erhu\n1=C\n4/4\n1 2 3 4 |\n^lh 5 6 7 1 |"
+    svg = render_jianpu_svg(
+        text,
+        RenderOptions(width=360, min_measure_width=250, max_measure_width=250),
+    )
+    root = _svg_root(svg)
+    slides = [
+        path
+        for path in _svg_elements(root, "path")
+        if path.attrib.get("class") == "slide"
+    ]
+
+    assert len(slides) == 2
+    assert all(
+        slide.attrib.get("data-mark") == "continuous-slide"
+        for slide in slides
+    )
+
+
+def test_unregistered_musicxml_marks_keep_text_fallback() -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+  <part id="P1"><measure number="1">
+    <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+    <note>
+      <pitch><step>C</step><octave>4</octave></pitch><duration>4</duration>
+      <notations>
+        <ornaments><turn/></ornaments>
+        <technical><thumb-position/></technical>
+      </notations>
+    </note>
+  </measure></part>
+</score-partwise>"""
+
+    score = musicxml_to_score(xml)
+    svg = render_score_svg(score)
+
+    assert score.measures[0].events[0].ornaments == ["turn"]
+    assert score.measures[0].events[0].technical == ["thumb-position"]
+    assert ">turn</text>" in svg
+    assert ">thumb</text>" in svg

@@ -9,7 +9,11 @@ from fastapi import HTTPException
 
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.jianpu import normalize_jianpu_text, parse_jianpu_score
-from ...models.common.types import AccidentalMode, MeasureNumberMode
+from ...models.common.types import (
+    AccidentalMode,
+    InstrumentProfile,
+    MeasureNumberMode,
+)
 from ...models.render.schemas import (
     BatchRenderPageRequest,
     BatchRenderRequest,
@@ -60,6 +64,7 @@ class RenderMusicXmlJianpuAction:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        instrument_profile: InstrumentProfile | None = None,
         start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
@@ -71,6 +76,7 @@ class RenderMusicXmlJianpuAction:
             musicxml_path,
             target_key=target_key,
             accidental_mode=accidental_mode,
+            instrument_profile=instrument_profile,
             start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
@@ -93,6 +99,7 @@ class RenderMusicXmlJianpuAction:
         page_height: float,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        instrument_profile: InstrumentProfile | None = None,
         start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
@@ -104,6 +111,7 @@ class RenderMusicXmlJianpuAction:
             musicxml_path,
             target_key=target_key,
             accidental_mode=accidental_mode,
+            instrument_profile=instrument_profile,
             start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
@@ -126,6 +134,7 @@ class RenderMusicXmlJianpuAction:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        instrument_profile: InstrumentProfile | None = None,
         start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
@@ -137,6 +146,7 @@ class RenderMusicXmlJianpuAction:
             musicxml_path,
             target_key=target_key,
             accidental_mode=accidental_mode,
+            instrument_profile=instrument_profile,
             start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
@@ -156,6 +166,7 @@ class RenderMusicXmlJianpuAction:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        instrument_profile: InstrumentProfile | None = None,
         start_measure_number: int | None = None,
         title: str | None = None,
         image_path: str | Path | None = None,
@@ -164,6 +175,7 @@ class RenderMusicXmlJianpuAction:
         score = self.converter.build_score(
             musicxml_path,
             target_key=target_key,
+            instrument_profile=instrument_profile,
             start_measure_number=start_measure_number,
             image_path=image_path,
             ocr_provider=ocr_provider,
@@ -274,6 +286,7 @@ class RenderActions:
             svg_path,
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
+            instrument_profile=req.instrument_profile,
             start_measure_number=req.start_measure_number,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
@@ -468,6 +481,7 @@ class RenderActions:
             svg_path,
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
+            instrument_profile=req.instrument_profile,
             start_measure_number=req.start_measure_number,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
@@ -511,6 +525,7 @@ class RenderActions:
             page_height=page_height,
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
+            instrument_profile=req.instrument_profile,
             start_measure_number=req.start_measure_number,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
@@ -544,6 +559,7 @@ class RenderActions:
                 musicxml_path,
                 target_key=req.target_key,
                 accidental_mode=req.accidental_mode,
+                instrument_profile=req.instrument_profile,
                 start_measure_number=page.start_measure_number,
                 title=page.title or req.title,
                 image_path=image_path,

@@ -122,11 +122,12 @@ def render_jianpu_page_svg(
         x = float(page_options.margin)
         open_tie = None
         open_slur = None
+        open_slide = None
         for index, measure in enumerate(row):
             attribute_text, previous_attributes = _measure_attribute_text(
                 measure, previous_attributes
             )
-            svg_lines, open_tie, open_slur = _render_measure(
+            svg_lines, open_tie, open_slur, open_slide = _render_measure(
                 measure,
                 x,
                 int(y),
@@ -137,6 +138,7 @@ def render_jianpu_page_svg(
                 show_measure_number=_should_show_measure_number(page_options, index),
                 open_tie=open_tie,
                 open_slur=open_slur,
+                open_slide=open_slide,
             )
             out.extend(svg_lines)
             x += measure.width
@@ -145,6 +147,7 @@ def render_jianpu_page_svg(
                 int(y),
                 open_tie=open_tie,
                 open_slur=open_slur,
+                open_slide=open_slide,
                 options=page_options,
             )
         )
@@ -212,11 +215,12 @@ def render_score_page_svg(
         x = float(page_options.margin)
         open_tie = None
         open_slur = None
+        open_slide = None
         for index, measure in enumerate(row):
             attribute_text, previous_attributes = _measure_attribute_text(
                 measure, previous_attributes
             )
-            svg_lines, open_tie, open_slur = _render_measure(
+            svg_lines, open_tie, open_slur, open_slide = _render_measure(
                 measure,
                 x,
                 int(y),
@@ -227,6 +231,7 @@ def render_score_page_svg(
                 show_measure_number=_should_show_measure_number(page_options, index),
                 open_tie=open_tie,
                 open_slur=open_slur,
+                open_slide=open_slide,
             )
             out.extend(svg_lines)
             x += measure.width
@@ -235,6 +240,7 @@ def render_score_page_svg(
                 int(y),
                 open_tie=open_tie,
                 open_slur=open_slur,
+                open_slide=open_slide,
                 options=page_options,
             )
         )
@@ -515,11 +521,12 @@ def _render_layouts(
         x = float(options.margin)
         open_tie = None
         open_slur = None
+        open_slide = None
         for index, measure in enumerate(row):
             attribute_text, previous_attributes = _measure_attribute_text(
                 measure, previous_attributes
             )
-            svg_lines, open_tie, open_slur = _render_measure(
+            svg_lines, open_tie, open_slur, open_slide = _render_measure(
                 measure,
                 x,
                 y,
@@ -530,6 +537,7 @@ def _render_layouts(
                 show_measure_number=_should_show_measure_number(options, index),
                 open_tie=open_tie,
                 open_slur=open_slur,
+                open_slide=open_slide,
             )
             out.extend(svg_lines)
             x += measure.width
@@ -538,6 +546,7 @@ def _render_layouts(
                 int(y),
                 open_tie=open_tie,
                 open_slur=open_slur,
+                open_slide=open_slide,
                 options=options,
             )
         )
@@ -638,11 +647,12 @@ def _render_a4_page(
         x = float(options.margin)
         open_tie = None
         open_slur = None
+        open_slide = None
         for index, measure in enumerate(row):
             attribute_text, previous_attributes = _measure_attribute_text(
                 measure, previous_attributes
             )
-            svg_lines, open_tie, open_slur = _render_measure(
+            svg_lines, open_tie, open_slur, open_slide = _render_measure(
                 measure,
                 x,
                 y,
@@ -653,6 +663,7 @@ def _render_a4_page(
                 show_measure_number=_should_show_measure_number(options, index),
                 open_tie=open_tie,
                 open_slur=open_slur,
+                open_slide=open_slide,
             )
             out.extend(svg_lines)
             x += measure.width
@@ -661,6 +672,7 @@ def _render_a4_page(
                 int(y),
                 open_tie=open_tie,
                 open_slur=open_slur,
+                open_slide=open_slide,
                 options=options,
             )
         )

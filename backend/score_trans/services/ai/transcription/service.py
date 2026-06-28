@@ -5,7 +5,8 @@ import re
 
 from ....dao.settings.settings_dao import SettingsDao
 from ....models.common.errors import AITranscriptionError
-from ....models.common.types import AccidentalMode
+from ....domain.performance_marks import instrument_prompt
+from ....models.common.types import AccidentalMode, InstrumentProfile
 from ....models.tasks.entities import ProgressCallback, report_progress
 from ...settings.provider_profiles import (
     resolve_provider_profile,
@@ -47,6 +48,7 @@ class AiTranscriptionService:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        instrument_profile: InstrumentProfile = "general",
         title: str | None = None,
         render_dpi: int = 220,
         max_pages: int | None = None,
@@ -76,6 +78,12 @@ class AiTranscriptionService:
         pages: list[TranscribedScorePage] = []
         warnings: list[str] = []
         total_pages = len(prepared_pages)
+        profile_prompt = instrument_prompt(instrument_profile)
+        combined_prompt = (
+            f"{profile_prompt}\n{extra_prompt.strip()}"
+            if extra_prompt and extra_prompt.strip()
+            else profile_prompt
+        )
         for index, prepared in enumerate(prepared_pages):
             start_percent = 20 + int(index / total_pages * 60)
             report_progress(
@@ -89,7 +97,7 @@ class AiTranscriptionService:
                 target_key=target_key,
                 title=title,
                 page_index=prepared.page_index,
-                extra_prompt=extra_prompt,
+                extra_prompt=combined_prompt,
             )
             measure_number_candidates = _measure_number_candidates(
                 result.measure_number_candidates, result.jianpu_text
@@ -100,6 +108,7 @@ class AiTranscriptionService:
                 meter=result.meter,
                 title=result.title or title,
                 tempo=result.tempo,
+                instrument_profile=instrument_profile,
             )
             normalized_text, validation_errors = validate_jianpu_text(
                 page_text,
@@ -134,6 +143,7 @@ class AiTranscriptionService:
             [page.jianpu_text for page in pages],
             target_key=target_key,
             title=title or first_present([page.result.title for page in pages]),
+            instrument_profile=instrument_profile,
         )
         return AiTranscriptionResult(
             source_path=source,

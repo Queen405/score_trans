@@ -23,6 +23,8 @@ def _event_to_item(event: JianpuEvent) -> RenderItem:
         tie_stop=event.tie_stop,
         slur_start=event.slur_start,
         slur_stop=event.slur_stop,
+        slide_start=event.slide_start,
+        slide_stop=event.slide_stop,
         dynamic=event.dynamic,
         articulation=event.articulation,
         articulations=list(

@@ -5,6 +5,7 @@ import re
 
 from ..accidentals import pitch_to_token
 from ..jianpu_tokens import duration_affixes
+from ..performance_marks import event_mark_ids, mark_token
 from ...models.common.types import AccidentalMode
 from ...models.score import Event, JianpuPitch, JianpuScore
 
@@ -31,6 +32,8 @@ def score_to_jianpu_text(
         else score.beat_type
     )
     lines = [f"1={current_key}", f"{current_beats}/{current_beat_type}"]
+    if score.instrument_profile != "general":
+        lines.insert(0, f"instrument={score.instrument_profile}")
     if score.title and score.title != "简谱":
         lines.insert(0, f"title={score.title}")
     measures = []
@@ -62,15 +65,20 @@ def score_to_jianpu_text(
                 continue
             if event.dynamic:
                 tokens.append(f"\\{event.dynamic}")
-            all_marks = list(
+            articulations = list(
                 event.articulations
                 or ([event.articulation] if event.articulation else [])
             )
-            all_marks.extend(event.ornaments or [])
-            for mark in all_marks:
+            for mark in event_mark_ids(
+                articulations,
+                list(event.ornaments),
+                list(event.technical),
+            ):
                 token = _mark_token(mark)
                 if token:
                     tokens.append(f"^{token}")
+            if event.slide_stop:
+                tokens.append("^lh")
             tokens.append(_event_to_token(event, accidental_mode=accidental_mode))
             if event.lyric:
                 lyrics.append(event.lyric)
@@ -182,11 +190,16 @@ def _event_to_tuplet_body(
     all_marks = list(
         event.articulations or ([event.articulation] if event.articulation else [])
     )
-    all_marks.extend(event.ornaments or [])
-    for mark in all_marks:
+    for mark in event_mark_ids(
+        all_marks,
+        list(event.ornaments),
+        list(event.technical),
+    ):
         token = _mark_token(mark)
         if token:
             prefixes.append(f"^{token}")
+    if event.slide_stop:
+        prefixes.append("^lh")
     body = "".join(prefixes) + body
     return body
 
@@ -196,16 +209,7 @@ def _duration_parts(duration: Fraction) -> tuple[str, str]:
 
 
 def _mark_token(name: str) -> str | None:
-    normalized = name.strip().lower().replace("_", "-").replace(" ", "-")
-    return {
-        "accent": ">",
-        "strong-accent": ">",
-        "staccato": ".",
-        "tenuto": "-",
-        "trill-mark": "r",
-        "fermata": "f",
-        "tremolo": "l",
-    }.get(normalized)
+    return mark_token(name)
 
 
 def _pitch_to_token(

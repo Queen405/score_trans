@@ -7,7 +7,12 @@ from ...exec.pipeline.actions import PipelineActions
 from ...exec.tasks.actions import TaskActions
 from ...models.pipeline.schemas import PipelineByFileIdRequest
 from ...models.tasks.schemas import TaskSubmitResponse
-from ...models.common.types import AccidentalMode, MeasureNumberMode, TargetKey
+from ...models.common.types import (
+    AccidentalMode,
+    InstrumentProfile,
+    MeasureNumberMode,
+    TargetKey,
+)
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -25,6 +30,7 @@ async def run_pipeline_by_file_id(
         tasks=tasks,
         target_key=req.target_key,
         accidental_mode=req.accidental_mode,
+        instrument_profile=req.instrument_profile,
         start_measure_number=req.start_measure_number,
         show_measure_numbers=_request_show_measure_numbers(req),
         measure_number_mode=_request_measure_number_mode(req),
@@ -38,6 +44,7 @@ async def run_pipeline(
     file: UploadFile = File(...),
     target_key: TargetKey = Form("C"),
     accidental_mode: AccidentalMode = Form("auto"),
+    instrument_profile: InstrumentProfile = Form("general"),
     start_measure_number: int | None = Form(None),
     show_measure_numbers: bool = Form(True),
     measure_number_mode: MeasureNumberMode = Form("all"),
@@ -51,6 +58,7 @@ async def run_pipeline(
         tasks=tasks,
         target_key=target_key,
         accidental_mode=accidental_mode,
+        instrument_profile=instrument_profile,
         start_measure_number=start_measure_number,
         show_measure_numbers=measure_number_mode != "none" and show_measure_numbers,
         measure_number_mode="none" if not show_measure_numbers else measure_number_mode,

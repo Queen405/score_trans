@@ -7,6 +7,7 @@ from ..exec.convert.actions import ConvertActions
 from ..exec.export.actions import ExportActions
 from ..exec.files.actions import FileActions
 from ..exec.history.actions import HistoryActions
+from ..exec.notation.actions import NotationActions
 from ..exec.pipeline.actions import PipelineActions
 from ..exec.recognize.actions import RecognizeActions
 from ..exec.render.actions import RenderActions
@@ -32,6 +33,10 @@ def get_file_actions() -> FileActions:
 
 def get_history_actions() -> HistoryActions:
     return HistoryActions()
+
+
+def get_notation_actions() -> NotationActions:
+    return NotationActions()
 
 
 def get_pipeline_actions() -> PipelineActions:

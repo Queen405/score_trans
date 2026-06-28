@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ..common.types import AccidentalMode, MeasureNumberMode, TargetKey
+from ..common.types import (
+    AccidentalMode,
+    InstrumentProfile,
+    MeasureNumberMode,
+    TargetKey,
+)
 
 
 class RenderPageMeasureRange(BaseModel):
@@ -30,6 +35,7 @@ class RenderJianpuSvgRequest(BaseModel):
     page_image_file_id: str | None = None
     target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
+    instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     start_measure_number: int | None = None
@@ -74,6 +80,7 @@ class FinalRenderRequest(BaseModel):
     page_image_file_id: str | None = None
     target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
+    instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     start_measure_number: int | None = None
@@ -92,6 +99,7 @@ class PreservingLayoutRequest(BaseModel):
     page_image_file_id: str
     target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
+    instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     start_measure_number: int | None = None
@@ -122,6 +130,7 @@ class BatchRenderRequest(BaseModel):
     render_page_ocr_texts: list[RenderPageOcrText] = []
     target_key: TargetKey = "C"
     accidental_mode: AccidentalMode = "auto"
+    instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     title: str = "简谱"

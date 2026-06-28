@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+from ....domain.performance_marks import get_performance_mark
 from ..models.layout import MeasureLayout, RenderItem
 from ..options import RenderOptions
-from ..utils.articulations import _render_staccato
-from ..utils.helpers import _mark_display
 from ..utils.metrics import _token_metrics
-from ..utils.positioning import _technique_mark
 from ..utils.text import _esc
 from ..utils.bars import _bar_line, _repeat_end_bar, _repeat_start_bar
 from .beams import _render_beams
-from .beat import _render_slot_items
+from .beat import (
+    _performance_mark_ids,
+    _render_slot_items,
+    _unknown_mark_entries,
+)
+from .performance_marks import _render_performance_mark
 from .spanners import _render_spanners
 from .text import _render_measure_text_blocks
 
@@ -24,7 +27,14 @@ def _measure_number_y(measure: MeasureLayout, y: int, options: RenderOptions) ->
     for beat in measure.beats:
         for item in beat.items:
             top = _token_metrics(item.token, y, options)["top"]
-            min_top = min(min_top, top)
+            upper_mark_count = sum(
+                1
+                for mark_id in _performance_mark_ids(item)
+                if (mark := get_performance_mark(mark_id)) is not None
+                and mark.placement == "above"
+            )
+            upper_mark_count += len(_unknown_mark_entries(item))
+            min_top = min(min_top, top - max(0, upper_mark_count) * 16)
     return int(min(min_top - _MARK_ABOVE_TOKEN - _MEASURE_NO_GAP, y - 44))
 
 
@@ -40,7 +50,8 @@ def _render_measure(
     show_measure_number: bool | None = None,
     open_tie=None,
     open_slur=None,
-) -> tuple[list[str], object, object]:
+    open_slide=None,
+) -> tuple[list[str], object, object, object]:
     from ..layout.beat import _item_slots
 
     out = [
@@ -89,11 +100,12 @@ def _render_measure(
         beat_x += beat_width + options.beat_gap * scale
     out.extend(_render_beams(measure_slots, y, options))
     out.extend(_render_tuplets(measure_slots, y, options))
-    spanner_svg, new_tie, new_slur = _render_spanners(
+    spanner_svg, new_tie, new_slur, new_slide = _render_spanners(
         measure_slots,
         y,
         open_tie=open_tie,
         open_slur=open_slur,
+        open_slide=open_slide,
         options=options,
     )
     out.extend(spanner_svg)
@@ -107,7 +119,7 @@ def _render_measure(
     else:
         out.append(_bar_line(x + width, y))
     out.append("</g>")
-    return out, new_tie, new_slur
+    return out, new_tie, new_slur, new_slide
 
 
 def _render_tuplets(
@@ -149,69 +161,42 @@ def _render_tuplets(
             f'<text class="tuplet-number" x="{mid:.1f}" y="{bracket_y + 4:.1f}" '
             f'text-anchor="middle">{count}</text>'
         )
-        out.extend(_render_tuplet_upper_marks(group_slots, bracket_y))
+        out.extend(_render_tuplet_upper_marks(group_slots, bracket_y, y, options))
     return out
 
 
 def _render_tuplet_upper_marks(
     group_slots: list[tuple[RenderItem, float, float]],
     bracket_y: float,
+    y: int,
+    options: RenderOptions,
 ) -> list[str]:
     out: list[str] = []
     for item, cx, _width in group_slots:
         layer = 0
-        articulations = item.articulations or (
-            [item.articulation] if item.articulation else []
-        )
-        for articulation in articulations[:4]:
+        for mark_id in _performance_mark_ids(item):
+            mark = get_performance_mark(mark_id)
+            if mark is None or mark.placement != "above":
+                continue
             mark_y = bracket_y - 14 - layer * _TUPLET_MARK_GAP
-            out.extend(_render_tuplet_articulation(articulation, cx, mark_y))
-            layer += 1
-        visible_ornaments = [
-            ornament for ornament in item.ornaments if _technique_mark(ornament) is None
-        ]
-        for ornament in visible_ornaments[:3]:
-            out.append(
-                f'<text class="ornament" x="{cx:.1f}" y="{bracket_y - 10 - layer * _TUPLET_MARK_GAP:.1f}" '
-                f'text-anchor="middle">{_esc(_mark_display(ornament))}</text>'
+            out.extend(
+                _render_performance_mark(
+                    mark_id,
+                    item.token,
+                    cx,
+                    y,
+                    layer,
+                    options,
+                    anchor_y=mark_y,
+                )
             )
             layer += 1
-        visible_technical = [
-            technical
-            for technical in item.technical
-            if _technique_mark(technical) is None
-        ]
-        for technical in visible_technical[:4]:
+        for category, name in _unknown_mark_entries(item):
+            mark_class = "technical" if category == "technical" else "ornament"
+            mark_y = bracket_y - 10 - layer * _TUPLET_MARK_GAP
             out.append(
-                f'<text class="technical" x="{cx:.1f}" y="{bracket_y - 10 - layer * _TUPLET_MARK_GAP:.1f}" '
-                f'text-anchor="middle">{_esc(_mark_display(technical))}</text>'
+                f'<text class="{mark_class}" x="{cx:.1f}" y="{mark_y:.1f}" '
+                f'text-anchor="middle">{_esc(name)}</text>'
             )
             layer += 1
     return out
-
-
-def _render_tuplet_articulation(name: str, cx: float, y: float) -> list[str]:
-    normalized = name.lower().replace("_", "-")
-    if normalized == "fermata":
-        return [
-            f'<path class="articulation" d="M {cx - 9:.1f} {y + 3:.1f} Q {cx:.1f} {y - 8:.1f}, {cx + 9:.1f} {y + 3:.1f}"/>',
-            f'<circle class="octave-dot" cx="{cx:.1f}" cy="{y + 2:.1f}" r="2.2"/>',
-        ]
-    if normalized in {"accent", "strong-accent"}:
-        return [
-            f'<path class="articulation" d="M {cx - 8:.1f} {y - 4:.1f} L {cx + 8:.1f} {y:.1f} L {cx - 8:.1f} {y + 4:.1f}"/>'
-        ]
-    if normalized == "staccato":
-        return [_render_staccato(cx, y, size=4.0)]
-    if normalized == "tenuto":
-        return [
-            f'<line class="articulation" x1="{cx - 7:.1f}" y1="{y:.1f}" x2="{cx + 7:.1f}" y2="{y:.1f}"/>'
-        ]
-    if normalized == "trill-mark":
-        sx = cx - 6
-        return [
-            f'<path class="articulation" d="M {sx:.1f} {y:.1f} q 3 -4, 6 0 q 3 4, 6 0"/>'
-        ]
-    return [
-        f'<text class="lyric" x="{cx:.1f}" y="{y:.1f}" text-anchor="middle">{_esc(name)}</text>'
-    ]

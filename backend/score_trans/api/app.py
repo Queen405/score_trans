@@ -57,6 +57,7 @@ def create_app() -> FastAPI:
     from .pipeline import routes as pipeline
     from .files import routes as files
     from .history import routes as history
+    from .notation import routes as notation
     from .export import routes as export_router
     from .settings import routes as settings_router
     from .tasks import routes as tasks
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(export_router.router)
     app.include_router(files.router)
     app.include_router(history.router)
+    app.include_router(notation.router)
     app.include_router(settings_router.router)
     app.include_router(tasks.router)
 

@@ -61,6 +61,7 @@ class AiActions:
             output_dir,
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
+            instrument_profile=req.instrument_profile,
             title=req.title,
             render_dpi=req.render_dpi,
             max_pages=req.max_pages,
