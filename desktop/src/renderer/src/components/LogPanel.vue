@@ -1,11 +1,22 @@
 <template>
   <div class="log-panel">
-    <div v-for="(entry, i) in logStore.entries" :key="i" class="log-line" :class="entry.level">
-      <span class="log-dot" :class="entry.level" />
+    <div
+      v-for="(entry, i) in logStore.entries"
+      :key="i"
+      class="log-line"
+      :class="entry.level"
+    >
+      <span
+        class="log-dot"
+        :class="entry.level"
+      />
       <span class="log-ts">{{ entry.timestamp }}</span>
       <span class="log-msg">{{ entry.message }}</span>
     </div>
-    <div v-if="!logStore.entries.length" class="log-line info">
+    <div
+      v-if="!logStore.entries.length"
+      class="log-line info"
+    >
       <span class="log-dot info" />
       <span class="log-msg empty">暂无日志</span>
     </div>

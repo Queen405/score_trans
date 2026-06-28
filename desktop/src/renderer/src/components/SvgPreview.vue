@@ -1,6 +1,13 @@
 <template>
-  <div class="svg-preview" v-if="svgUrl">
-    <div ref="containerRef" class="preview-viewport" @dblclick="addBlockAtCursor">
+  <div
+    v-if="svgUrl"
+    class="svg-preview"
+  >
+    <div
+      ref="containerRef"
+      class="preview-viewport"
+      @dblclick="addBlockAtCursor"
+    >
       <div class="zp-inner">
         <!-- eslint-disable vue/no-v-html -->
         <div
@@ -10,8 +17,18 @@
           v-html="svgText"
         />
         <!-- eslint-enable vue/no-v-html -->
-        <div v-else-if="svgError" class="svg-loading svg-error">{{ svgError }}</div>
-        <div v-else class="svg-loading">加载中...</div>
+        <div
+          v-else-if="svgError"
+          class="svg-loading svg-error"
+        >
+          {{ svgError }}
+        </div>
+        <div
+          v-else
+          class="svg-loading"
+        >
+          加载中...
+        </div>
         <button
           v-for="block in ocrBlocks"
           :key="block.id"
@@ -31,7 +48,7 @@
             @keydown.enter.prevent="commitEditing"
             @keydown.esc.prevent="cancelEditing"
             @blur="commitEditing"
-          />
+          >
           <span v-else>{{ block.text }}</span>
           <span
             v-if="editableOcr && selectedId === block.id && editingId !== block.id"
@@ -43,11 +60,25 @@
     </div>
     <div class="zoom-bar">
       <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
-      <button class="zoom-btn" @click="zp.reset()" title="适应窗口">适应</button>
+      <button
+        class="zoom-btn"
+        title="适应窗口"
+        @click="zp.reset()"
+      >
+        适应
+      </button>
     </div>
   </div>
-  <div v-else class="svg-empty">
-    <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
+  <div
+    v-else
+    class="svg-empty"
+  >
+    <n-icon
+      size="32"
+      :depth="3"
+    >
+      <ImageOutline />
+    </n-icon>
     <span>暂无 SVG</span>
   </div>
 </template>

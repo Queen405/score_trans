@@ -1,56 +1,127 @@
 <template>
-  <div class="jianpu-player" v-if="visible">
+  <div
+    v-if="visible"
+    class="jianpu-player"
+  >
     <div class="player-left">
-      <button class="player-btn play-btn" :disabled="!player.isReady.value" @click="togglePlay" :title="player.isPlaying.value ? '暂停' : '播放'">
-        <svg v-if="!player.isPlaying.value" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-        <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+      <button
+        class="player-btn play-btn"
+        :disabled="!player.isReady.value"
+        :title="player.isPlaying.value ? '暂停' : '播放'"
+        @click="togglePlay"
+      >
+        <svg
+          v-if="!player.isPlaying.value"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        ><path d="M8 5v14l11-7z" /></svg>
+        <svg
+          v-else
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        ><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
       </button>
-      <button class="player-btn" :disabled="!player.isReady.value" @click="stopPlayback" title="停止">
-        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" /></svg>
+      <button
+        class="player-btn"
+        :disabled="!player.isReady.value"
+        title="停止"
+        @click="stopPlayback"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        ><rect
+          x="6"
+          y="6"
+          width="12"
+          height="12"
+        /></svg>
       </button>
       <span class="player-time">{{ player.currentTimeFormatted.value }} / {{ player.durationFormatted.value }}</span>
     </div>
 
     <div class="player-center">
-      <div class="progress-bar" ref="progressRef" @mousedown="onProgressDown">
+      <div
+        ref="progressRef"
+        class="progress-bar"
+        @mousedown="onProgressDown"
+      >
         <div class="progress-track">
-          <div class="progress-fill" :style="{ width: `${player.progress.value * 100}%` }" />
-          <div class="progress-thumb" :style="{ left: `${player.progress.value * 100}%` }" />
+          <div
+            class="progress-fill"
+            :style="{ width: `${player.progress.value * 100}%` }"
+          />
+          <div
+            class="progress-thumb"
+            :style="{ left: `${player.progress.value * 100}%` }"
+          />
         </div>
       </div>
     </div>
 
     <div class="player-right">
-      <div class="tempo-control" title="速度">
-        <svg class="tempo-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" /></svg>
+      <div
+        class="tempo-control"
+        title="速度"
+      >
+        <svg
+          class="tempo-icon"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        ><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" /></svg>
         <n-input-number
           :value="player.bpm.value"
-          @update:value="handleBpmChange"
           :min="20"
           :max="300"
           size="tiny"
           style="width: 64px"
           :show-button="false"
+          @update:value="handleBpmChange"
         />
         <span class="tempo-unit">BPM</span>
-        <button class="player-btn-sm" @click="player.resetBpm()" title="重置速度">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" /></svg>
+        <button
+          class="player-btn-sm"
+          title="重置速度"
+          @click="player.resetBpm()"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          ><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" /></svg>
         </button>
       </div>
-      <div class="volume-control" title="音量">
-        <button class="player-btn-sm" @click="toggleMute">
-          <svg v-if="isMuted || player.volume.value <= -50" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" /></svg>
-          <svg v-else-if="player.volume.value < -10" viewBox="0 0 24 24" fill="currentColor"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" /></svg>
-          <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
+      <div
+        class="volume-control"
+        title="音量"
+      >
+        <button
+          class="player-btn-sm"
+          @click="toggleMute"
+        >
+          <svg
+            v-if="isMuted || player.volume.value <= -50"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          ><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" /></svg>
+          <svg
+            v-else-if="player.volume.value < -10"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          ><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" /></svg>
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          ><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
         </button>
         <n-slider
           :value="volumeRatio"
-          @update:value="handleVolumeChange"
           :min="0"
           :max="1"
           :step="0.01"
           style="width: 80px"
           :tooltip="false"
+          @update:value="handleVolumeChange"
         />
       </div>
     </div>

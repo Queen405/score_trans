@@ -11,7 +11,9 @@
     >
       <n-upload-dragger class="upload-zone">
         <div class="upload-inner">
-          <n-icon size="28"><CloudUploadOutline /></n-icon>
+          <n-icon size="28">
+            <CloudUploadOutline />
+          </n-icon>
           <div class="upload-text">
             <span class="upload-title">{{ uploadStatusText }}</span>
             <span class="upload-hint">支持多选 · PDF / PNG / JPG / TIF / MusicXML</span>

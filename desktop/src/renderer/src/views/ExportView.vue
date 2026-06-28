@@ -1,7 +1,9 @@
 <template>
   <div class="export-view">
     <h2>导出</h2>
-    <p class="subtitle">导出简谱为 PDF、PNG、SVG 或 MIDI 文件</p>
+    <p class="subtitle">
+      导出简谱为 PDF、PNG、SVG 或 MIDI 文件
+    </p>
 
     <div class="export-section">
       <div class="export-row">
@@ -12,23 +14,30 @@
         />
         <n-button
           type="primary"
-          @click="doExport"
           :loading="store.isBusy"
           :disabled="!canExport"
+          @click="doExport"
         >
-          <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
+          <template #icon>
+            <n-icon><CloudDownloadOutline /></n-icon>
+          </template>
           {{ exportLabel }}
         </n-button>
         <n-button
-          @click="saveMusicxml"
           :disabled="!store.hasMusicxml"
           secondary
+          @click="saveMusicxml"
         >
-          <template #icon><n-icon><DocumentTextOutline /></n-icon></template>
+          <template #icon>
+            <n-icon><DocumentTextOutline /></n-icon>
+          </template>
           MusicXML
         </n-button>
       </div>
-      <p v-if="store.pageCount > 1 && exportFormat === 'pdf'" class="batch-hint">
+      <p
+        v-if="store.pageCount > 1 && exportFormat === 'pdf'"
+        class="batch-hint"
+      >
         当前共 {{ store.pageCount }} 页，将合并为一个 PDF 文件
       </p>
     </div>

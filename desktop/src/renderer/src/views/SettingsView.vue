@@ -4,161 +4,158 @@
       class="sv-sidebar"
       aria-label="设置分类"
     >
-        <div class="sv-sidebar-header">
-          <span class="sv-sidebar-eyebrow">应用设置</span>
-          <h2>设置</h2>
-        </div>
+      <div class="sv-sidebar-header">
+        <span class="sv-sidebar-eyebrow">应用设置</span>
+        <h2>设置</h2>
+      </div>
 
-        <nav class="sv-category-list">
-          <button
-            v-for="category in categories"
-            :key="category.key"
-            type="button"
-            :class="['sv-category-button', { active: activeCategory === category.key }]"
-            :aria-current="activeCategory === category.key ? 'page' : undefined"
-            @click="activeCategory = category.key"
-          >
-            <n-icon size="18">
-              <component :is="category.icon" />
-            </n-icon>
-            <span>{{ category.label }}</span>
-          </button>
-        </nav>
+      <nav class="sv-category-list">
+        <button
+          v-for="category in categories"
+          :key="category.key"
+          type="button"
+          :class="['sv-category-button', { active: activeCategory === category.key }]"
+          :aria-current="activeCategory === category.key ? 'page' : undefined"
+          @click="activeCategory = category.key"
+        >
+          <n-icon size="18">
+            <component :is="category.icon" />
+          </n-icon>
+          <span>{{ category.label }}</span>
+        </button>
+      </nav>
 
-        <div class="sv-sidebar-note">
-          设置修改会先保留为草稿，应用后才会影响工作区。
-        </div>
-      </aside>
+      <div class="sv-sidebar-note">
+        设置修改会先保留为草稿，应用后才会影响工作区。
+      </div>
+    </aside>
 
-      <section class="sv-main">
-        <header class="sv-page-header">
-          <div>
-            <div class="sv-breadcrumb">
-              设置 / {{ activeCategoryMeta.label }}
-            </div>
-            <h1>{{ activeCategoryMeta.label }}</h1>
-            <p>{{ activeCategoryMeta.description }}</p>
+    <section class="sv-main">
+      <header class="sv-page-header">
+        <div>
+          <div class="sv-breadcrumb">
+            设置 / {{ activeCategoryMeta.label }}
           </div>
+          <h1>{{ activeCategoryMeta.label }}</h1>
+          <p>{{ activeCategoryMeta.description }}</p>
+        </div>
+        <span
+          v-if="settings.draftDirty"
+          class="sv-dirty-indicator"
+        >
+          <span />
+          有未保存的更改
+        </span>
+      </header>
+
+      <div class="sv-page-body">
+        <div
+          v-if="settings.loading"
+          class="sv-state-view"
+        >
+          <n-spin size="small" />
+          <span>正在加载设置…</span>
+        </div>
+
+        <div
+          v-else-if="settings.loadError || !settings.loaded"
+          class="sv-state-view"
+        >
+          <n-alert
+            type="error"
+            title="无法加载设置"
+          >
+            {{ settings.loadError || '设置尚未加载。' }}
+          </n-alert>
+          <n-button
+            size="small"
+            secondary
+            @click="retryLoad"
+          >
+            重新加载
+          </n-button>
+        </div>
+
+        <div
+          v-else-if="settings.draftReady"
+          class="sv-panel-container"
+        >
+          <component :is="activePanel" />
+        </div>
+      </div>
+
+      <footer class="sv-footer">
+        <div
+          class="sv-footer-status"
+          role="status"
+        >
           <span
-            v-if="settings.draftDirty"
-            class="sv-dirty-indicator"
-          >
-            <span />
-            有未保存的更改
-          </span>
-        </header>
-
-        <div class="sv-page-body">
-          <div
-            v-if="settings.loading"
-            class="sv-state-view"
-          >
-            <n-spin size="small" />
-            <span>正在加载设置…</span>
-          </div>
-
-          <div
-            v-else-if="settings.loadError || !settings.loaded"
-            class="sv-state-view"
-          >
-            <n-alert
-              type="error"
-              title="无法加载设置"
-            >
-              {{ settings.loadError || '设置尚未加载。' }}
-            </n-alert>
-            <n-button
-              size="small"
-              secondary
-              @click="retryLoad"
-            >
-              重新加载
-            </n-button>
-          </div>
-
-          <div
-            v-else-if="settings.draftReady"
-            class="sv-panel-container"
-          >
-            <component :is="activePanel" />
-          </div>
+            v-if="settings.saveError"
+            class="is-error"
+          >{{ settings.saveError }}</span>
+          <span v-else-if="settings.draftDirty">更改尚未应用</span>
+          <span v-else-if="settings.storageRestartRequired">存储位置将在重启后生效</span>
+          <span v-else>所有更改均已保存</span>
         </div>
-
-        <footer class="sv-footer">
-          <div
-            class="sv-footer-status"
-            role="status"
+        <div class="sv-footer-actions">
+          <n-button
+            :disabled="settings.saving"
+            @click="cancel"
           >
-            <span
-              v-if="settings.saveError"
-              class="is-error"
-            >{{ settings.saveError }}</span>
-            <span v-else-if="settings.draftDirty">更改尚未应用</span>
-            <span v-else-if="settings.storageRestartRequired">存储位置将在重启后生效</span>
-            <span v-else>所有更改均已保存</span>
-          </div>
-          <div class="sv-footer-actions">
-            <n-button
-              :disabled="settings.saving"
-              @click="cancel"
-            >
-              取消
-            </n-button>
-            <n-button
-              :disabled="!settings.draftDirty || settings.saving"
-              :loading="settings.saving && saveIntent === 'apply'"
-              @click="apply"
-            >
-              应用
-            </n-button>
-            <n-button
-              type="primary"
-              :disabled="!settings.draftDirty || settings.saving"
-              :loading="settings.saving && saveIntent === 'close'"
-              @click="saveAndClose"
-            >
-              保存更改
-            </n-button>
-          </div>
-        </footer>
-      </section>
+            取消
+          </n-button>
+          <n-button
+            :disabled="!settings.draftDirty || settings.saving"
+            :loading="settings.saving && saveIntent === 'apply'"
+            @click="apply"
+          >
+            应用
+          </n-button>
+          <n-button
+            type="primary"
+            :disabled="!settings.draftDirty || settings.saving"
+            :loading="settings.saving && saveIntent === 'save'"
+            @click="save"
+          >
+            保存更改
+          </n-button>
+        </div>
+      </footer>
+    </section>
 
-      <n-modal
-        v-model:show="restartModalVisible"
-        preset="card"
-        class="sv-modal-card"
-        title="需要重启应用"
-        :bordered="false"
-        :mask-closable="false"
-      >
-        <p class="sv-modal-copy">
-          存储位置已经保存。重启后，新的用户数据和缓存目录才会生效。
-        </p>
-        <template #footer>
-          <div class="sv-modal-actions">
-            <n-button @click="restartLater">
-              稍后重启
-            </n-button>
-            <n-button
-              type="primary"
-              @click="restartNow"
-            >
-              立即重启
-            </n-button>
-          </div>
-        </template>
-      </n-modal>
-    </n-config-provider>
+    <n-modal
+      v-model:show="restartModalVisible"
+      preset="card"
+      class="sv-modal-card"
+      title="需要重启应用"
+      :bordered="false"
+      :mask-closable="false"
+    >
+      <p class="sv-modal-copy">
+        存储位置已经保存。重启后，新的用户数据和缓存目录才会生效。
+      </p>
+      <template #footer>
+        <div class="sv-modal-actions">
+          <n-button @click="restartLater">
+            稍后重启
+          </n-button>
+          <n-button
+            type="primary"
+            @click="restartNow"
+          >
+            立即重启
+          </n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, type Component } from 'vue'
-import type { GlobalThemeOverrides } from 'naive-ui'
 import {
   NAlert,
   NButton,
-  NConfigProvider,
   NIcon,
   NModal,
   NSpin,
@@ -180,7 +177,7 @@ import StorageSettingsPanel from '../components/settings/StorageSettingsPanel.vu
 import ToolPathsPanel from '../components/settings/ToolPathsPanel.vue'
 
 type SettingsCategory = 'services' | 'tools' | 'storage' | 'conversion' | 'appearance'
-type SaveIntent = 'apply' | 'close' | null
+type SaveIntent = 'apply' | 'save' | null
 
 interface CategoryDefinition {
   key: SettingsCategory
@@ -248,25 +245,6 @@ const activeCategoryMeta = computed(
 )
 const activePanel = computed(() => activeCategoryMeta.value.panel)
 
-const settingsThemeOverrides: GlobalThemeOverrides = {
-  common: {
-    primaryColor: '#6f86b7',
-    primaryColorHover: '#8196c0',
-    primaryColorPressed: '#6077aa',
-    primaryColorSuppl: '#6f86b7',
-    borderRadius: '6px',
-    borderRadiusSmall: '5px',
-  },
-  Button: {
-    borderRadiusMedium: '6px',
-    borderRadiusSmall: '5px',
-  },
-  Input: {
-    borderRadius: '6px',
-    boxShadowFocus: '0 0 0 2px rgba(111, 134, 183, 0.14)',
-  },
-}
-
 watch(
   () => props.active,
   (active) => {
@@ -305,9 +283,8 @@ async function apply(): Promise<void> {
   await persist('apply')
 }
 
-async function saveAndClose(): Promise<void> {
-  const restartNeeded = await persist('close')
-  if (restartNeeded === false) emit('close')
+async function save(): Promise<void> {
+  await persist('save')
 }
 
 async function persist(intent: Exclude<SaveIntent, null>): Promise<boolean | null> {
@@ -316,7 +293,7 @@ async function persist(intent: Exclude<SaveIntent, null>): Promise<boolean | nul
     const restartNeeded = await settings.applyDraft()
     log.addLog('配置已保存')
     message.success(restartNeeded ? '配置已保存，存储路径将在重启后生效' : '配置已保存')
-    if (restartNeeded && intent === 'close') {
+    if (restartNeeded) {
       restartModalVisible.value = true
       return null
     }
@@ -333,7 +310,6 @@ async function persist(intent: Exclude<SaveIntent, null>): Promise<boolean | nul
 
 function restartLater(): void {
   restartModalVisible.value = false
-  emit('close')
 }
 
 async function restartNow(): Promise<void> {

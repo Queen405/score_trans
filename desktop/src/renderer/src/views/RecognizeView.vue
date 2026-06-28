@@ -19,7 +19,9 @@
       <div class="dashboard-card card-recognition">
         <div class="card-header">
           <div class="card-title">
-            <n-icon size="18"><ScanOutline /></n-icon>
+            <n-icon size="18">
+              <ScanOutline />
+            </n-icon>
             <span>智能识别</span>
           </div>
           <div class="card-header-right">
@@ -31,13 +33,30 @@
               class="batch-select"
               @update:value="store.selectBatch($event)"
             />
-            <div v-if="store.pageCount" class="page-nav">
-              <n-button size="small" quaternary :disabled="!store.canPrevPage" @click="store.prevPage()">
-                <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
+            <div
+              v-if="store.pageCount"
+              class="page-nav"
+            >
+              <n-button
+                size="small"
+                quaternary
+                :disabled="!store.canPrevPage"
+                @click="store.prevPage()"
+              >
+                <template #icon>
+                  <n-icon><ChevronBackOutline /></n-icon>
+                </template>
               </n-button>
               <span class="page-indicator">{{ currentBatchLocalIndex + 1 }} / {{ store.pageCount }}</span>
-              <n-button size="small" quaternary :disabled="!store.canNextPage" @click="store.nextPage()">
-                <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
+              <n-button
+                size="small"
+                quaternary
+                :disabled="!store.canNextPage"
+                @click="store.nextPage()"
+              >
+                <template #icon>
+                  <n-icon><ChevronForwardOutline /></n-icon>
+                </template>
               </n-button>
             </div>
           </div>
@@ -54,7 +73,10 @@
           >
             {{ overallProgressText }}
           </n-progress>
-          <div v-if="waitingPageCount" class="rv-waiting-banner">
+          <div
+            v-if="waitingPageCount"
+            class="rv-waiting-banner"
+          >
             {{ waitingPageCount }} 个页面等待选择起始小节号，点击卡片上的"待选择"按钮进行操作
           </div>
         </div>
@@ -62,26 +84,33 @@
           <n-button
             type="primary"
             size="small"
-            @click="recognize"
             :loading="recognizeButtonLoading"
             :disabled="recognizeButtonDisabled"
+            @click="recognize"
           >
-            <template #icon><n-icon><ScanOutline /></n-icon></template>
+            <template #icon>
+              <n-icon><ScanOutline /></n-icon>
+            </template>
             {{ recognizeButtonText }}
           </n-button>
           <n-button
             size="small"
-            @click="recognizeAllPages"
             :loading="store.activePageTaskCount > 0"
             :disabled="!pendingRecognizableCount"
             secondary
+            @click="recognizeAllPages"
           >
-            <template #icon><n-icon><FlashOutline /></n-icon></template>
+            <template #icon>
+              <n-icon><FlashOutline /></n-icon>
+            </template>
             批量识别全部
           </n-button>
           <div class="ai-switch">
             <span>AI 视觉识别</span>
-            <n-switch v-model:value="aiVisionEnabled" size="small" />
+            <n-switch
+              v-model:value="aiVisionEnabled"
+              size="small"
+            />
           </div>
           <div class="instrument-select">
             <span>乐器模式</span>
@@ -92,13 +121,18 @@
               class="instrument-select-control"
             />
           </div>
-          <span v-if="selectedPageCount" class="selection-count">已选 {{ selectedPageCount }}</span>
+          <span
+            v-if="selectedPageCount"
+            class="selection-count"
+          >已选 {{ selectedPageCount }}</span>
         </div>
       </div>
 
       <!-- 项目统计 -->
       <div class="dashboard-card card-stats">
-        <div class="card-title">项目统计</div>
+        <div class="card-title">
+          项目统计
+        </div>
         <div class="stats-body">
           <div class="stats-ring-wrap">
             <div class="stats-ring">
@@ -171,8 +205,13 @@
 
       <!-- 最近上传 -->
       <div class="dashboard-card card-uploads">
-        <div class="card-title">最近上传</div>
-        <div v-if="store.currentBatchPages.length" class="uploads-list">
+        <div class="card-title">
+          最近上传
+        </div>
+        <div
+          v-if="store.currentBatchPages.length"
+          class="uploads-list"
+        >
           <div
             v-for="page in store.currentBatchPages"
             :key="page.id"
@@ -182,7 +221,11 @@
             }]"
             @click="handlePageCardClick(page)"
           >
-            <n-icon v-if="isPageSelected(page.id)" size="14" class="upload-selected-mark">
+            <n-icon
+              v-if="isPageSelected(page.id)"
+              size="14"
+              class="upload-selected-mark"
+            >
               <CheckmarkCircleOutline />
             </n-icon>
             <button
@@ -192,7 +235,9 @@
               title="重新上传"
               @click.stop="reuploadForPage(page)"
             >
-              <n-icon size="12"><CloudUploadOutline /></n-icon>
+              <n-icon size="12">
+                <CloudUploadOutline />
+              </n-icon>
             </button>
             <button
               v-else-if="page.status !== 'waiting'"
@@ -201,7 +246,9 @@
               :disabled="page.status === 'processing'"
               @click.stop="removePageById(page.id)"
             >
-              <n-icon size="12"><CloseOutline /></n-icon>
+              <n-icon size="12">
+                <CloseOutline />
+              </n-icon>
             </button>
             <button
               v-else
@@ -210,7 +257,9 @@
               title="选择起始小节号"
               @click.stop="openMeasurePickerForPage(page)"
             >
-              <n-icon size="12"><AlertCircleOutline /></n-icon>
+              <n-icon size="12">
+                <AlertCircleOutline />
+              </n-icon>
               <span>待选择</span>
             </button>
             <div class="upload-thumb">
@@ -218,28 +267,50 @@
                 v-if="active && isPreviewable(page.inputFileName)"
                 :src="getFileURL(page.inputFileId)"
                 :alt="page.inputFileName"
-              />
-              <n-icon v-else size="24" class="upload-icon"><DocumentOutline /></n-icon>
+              >
+              <n-icon
+                v-else
+                size="24"
+                class="upload-icon"
+              >
+                <DocumentOutline />
+              </n-icon>
             </div>
             <div class="upload-info">
               <span class="upload-name">{{ page.inputFileName }}</span>
               <span :class="['upload-status', page.status]">{{ statusText(page) }}</span>
             </div>
-            <div v-if="page.status === 'processing'" class="upload-mini-progress">
+            <div
+              v-if="page.status === 'processing'"
+              class="upload-mini-progress"
+            >
               <span :style="{ width: `${Math.max(4, page.progressPercent)}%` }" />
             </div>
           </div>
         </div>
-        <div v-else class="uploads-empty">
-          <n-icon size="32" class="empty-icon"><CloudUploadOutline /></n-icon>
+        <div
+          v-else
+          class="uploads-empty"
+        >
+          <n-icon
+            size="32"
+            class="empty-icon"
+          >
+            <CloudUploadOutline />
+          </n-icon>
           <span>暂无上传文件</span>
         </div>
       </div>
 
       <!-- 最近活动 -->
       <div class="dashboard-card card-activity">
-        <div class="card-title">最近活动</div>
-        <div v-if="recentActivities.length" class="activity-list">
+        <div class="card-title">
+          最近活动
+        </div>
+        <div
+          v-if="recentActivities.length"
+          class="activity-list"
+        >
           <div
             v-for="activity in recentActivities"
             :key="activity.id"
@@ -256,7 +327,10 @@
             </div>
           </div>
         </div>
-        <div v-else class="activity-empty">
+        <div
+          v-else
+          class="activity-empty"
+        >
           <span>暂无活动记录</span>
         </div>
       </div>

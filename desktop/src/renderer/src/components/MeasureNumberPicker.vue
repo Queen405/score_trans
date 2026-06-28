@@ -11,8 +11,13 @@
     @update:show="$emit('update:show', $event)"
   >
     <div class="picker-shell">
-      <p class="picker-desc">识别到本页以下小节号，请选择本页的起始小节号：</p>
-      <n-radio-group v-model:value="selectedValue" class="picker-options">
+      <p class="picker-desc">
+        识别到本页以下小节号，请选择本页的起始小节号：
+      </p>
+      <n-radio-group
+        v-model:value="selectedValue"
+        class="picker-options"
+      >
         <n-space vertical>
           <n-radio
             v-for="num in options"

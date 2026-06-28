@@ -1,24 +1,114 @@
 <template>
-  <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
+  <n-config-provider
+    :theme="naiveTheme"
+    :theme-overrides="themeOverrides"
+  >
     <n-message-provider>
       <div :class="['app-shell', effectiveDark ? 'theme-dark' : 'theme-light']">
-        <div class="titlebar" role="banner">
+        <div
+          class="titlebar"
+          role="banner"
+        >
           <div class="titlebar-left">
-            <img class="app-icon-img" src="./assets/icon.png" alt="Score Trans" />
+            <img
+              class="app-icon-img"
+              src="./assets/icon.png"
+              alt="Score Trans"
+            >
             <span class="app-title">Score Trans</span>
           </div>
           <div class="titlebar-drag" />
           <div class="titlebar-right">
-            <div class="window-controls" role="group" aria-label="窗口控制">
-              <button class="wc-btn" type="button" aria-label="最小化" @click="minimizeWindow">
-                <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor" /></svg>
+            <div
+              class="window-controls"
+              role="group"
+              aria-label="窗口控制"
+            >
+              <button
+                class="wc-btn"
+                type="button"
+                aria-label="最小化"
+                @click="minimizeWindow"
+              >
+                <svg
+                  width="10"
+                  height="1"
+                  viewBox="0 0 10 1"
+                ><rect
+                  width="10"
+                  height="1"
+                  fill="currentColor"
+                /></svg>
               </button>
-              <button class="wc-btn" type="button" :aria-label="isMaximized ? '还原' : '最大化'" @click="toggleMaximizeWindow">
-                <svg v-if="!isMaximized" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="0.6" y="0.6" width="8.8" height="8.8" /></svg>
-                <svg v-else width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="0" width="8" height="8" /><rect x="0" y="2" width="8" height="8" fill="var(--bg-base)" /><rect x="0" y="2" width="8" height="8" /></svg>
+              <button
+                class="wc-btn"
+                type="button"
+                :aria-label="isMaximized ? '还原' : '最大化'"
+                @click="toggleMaximizeWindow"
+              >
+                <svg
+                  v-if="!isMaximized"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                ><rect
+                  x="0.6"
+                  y="0.6"
+                  width="8.8"
+                  height="8.8"
+                /></svg>
+                <svg
+                  v-else
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                ><rect
+                  x="2"
+                  y="0"
+                  width="8"
+                  height="8"
+                /><rect
+                  x="0"
+                  y="2"
+                  width="8"
+                  height="8"
+                  fill="var(--bg-base)"
+                /><rect
+                  x="0"
+                  y="2"
+                  width="8"
+                  height="8"
+                /></svg>
               </button>
-              <button class="wc-btn wc-close" type="button" aria-label="关闭" @click="closeWindow">
-                <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.3"><line x1="0" y1="0" x2="10" y2="10" /><line x1="10" y1="0" x2="0" y2="10" /></svg>
+              <button
+                class="wc-btn wc-close"
+                type="button"
+                aria-label="关闭"
+                @click="closeWindow"
+              >
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  stroke="currentColor"
+                  stroke-width="1.3"
+                ><line
+                  x1="0"
+                  y1="0"
+                  x2="10"
+                  y2="10"
+                /><line
+                  x1="10"
+                  y1="0"
+                  x2="0"
+                  y2="10"
+                /></svg>
               </button>
             </div>
           </div>
@@ -38,15 +128,22 @@
               </button>
             </div>
             <div class="sidebar-footer">
-              <div v-if="store.isBusy || store.backgroundTaskCount" class="busy-indicator" title="后台处理中…" />
+              <div
+                v-if="store.isBusy || store.backgroundTaskCount"
+                class="busy-indicator"
+                title="后台处理中…"
+              />
             </div>
           </nav>
 
           <main class="main-area">
-            <div :class="['main-content', { 'settings-active': activeTab === 'settings' }]">
-              <recognize-view v-show="activeTab === 'recognize'" :active="activeTab === 'recognize'" />
+            <div :class="['main-content', { 'panel-active': activeTab === 'settings' || activeTab === 'syntax' }]">
+              <recognize-view
+                v-show="activeTab === 'recognize'"
+                :active="activeTab === 'recognize'"
+              />
               <convert-view v-show="activeTab === 'convert'" />
-              <syntax-view v-show="activeTab === 'syntax'" :active="activeTab === 'syntax'" />
+              <syntax-view v-show="activeTab === 'syntax'" />
               <settings-view
                 v-show="activeTab === 'settings'"
                 :active="activeTab === 'settings'"
@@ -55,10 +152,21 @@
               <ai-assistant v-if="activeTab === 'convert'" />
             </div>
             <div :class="['log-drawer', { open: logOpen }]">
-              <button class="log-toggle" @click="logOpen = !logOpen">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M2 4l4 4 4-4" /></svg>
+              <button
+                class="log-toggle"
+                @click="logOpen = !logOpen"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="currentColor"
+                ><path d="M2 4l4 4 4-4" /></svg>
                 <span>日志</span>
-                <span v-if="logStore.errorCount" class="log-badge">{{ logStore.errorCount }}</span>
+                <span
+                  v-if="logStore.errorCount"
+                  class="log-badge"
+                >{{ logStore.errorCount }}</span>
               </button>
               <div class="log-body">
                 <log-panel />
@@ -81,8 +189,14 @@
         </p>
         <template #footer>
           <div class="discard-settings-actions">
-            <n-button @click="continueEditingSettings">继续编辑</n-button>
-            <n-button type="error" secondary @click="discardSettingsChanges">
+            <n-button @click="continueEditingSettings">
+              继续编辑
+            </n-button>
+            <n-button
+              type="error"
+              secondary
+              @click="discardSettingsChanges"
+            >
               放弃更改
             </n-button>
           </div>
@@ -592,7 +706,7 @@ body {
   padding: 20px 24px;
 }
 
-.main-content.settings-active {
+.main-content.panel-active {
   display: flex;
   overflow: hidden;
   padding: 0;

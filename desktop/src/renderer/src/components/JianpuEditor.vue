@@ -1,6 +1,9 @@
 <template>
   <div class="editor-shell">
-    <div v-if="showPageSummary" class="editor-pages">
+    <div
+      v-if="showPageSummary"
+      class="editor-pages"
+    >
       <button
         v-for="page in pageSummaries"
         :key="`${page.pageNumber}-${page.markerLineIndex}`"
@@ -14,7 +17,10 @@
       </button>
     </div>
     <div class="editor-body">
-      <div class="editor-gutter" ref="gutterRef">
+      <div
+        ref="gutterRef"
+        class="editor-gutter"
+      >
         <div
           v-for="(label, i) in measureLabels"
           :key="i"
@@ -28,8 +34,15 @@
         </div>
       </div>
       <div class="editor-main">
-        <div v-if="syntaxHighlight" class="editor-highlight" aria-hidden="true">
-          <div class="editor-highlight-content" :style="highlightScrollStyle">
+        <div
+          v-if="syntaxHighlight"
+          class="editor-highlight"
+          aria-hidden="true"
+        >
+          <div
+            class="editor-highlight-content"
+            :style="highlightScrollStyle"
+          >
             <div
               v-for="(line, lineIndex) in highlightedLines"
               :key="lineIndex"
@@ -46,16 +59,27 @@
         <textarea
           ref="textareaRef"
           :value="modelValue"
-          @input="onInput"
-          @scroll="syncScroll"
           placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 $345$ 4 |&#10;1=G&#10;3/4&#10;h[1+3+5] \p 4 |&#10;L: 春 风 又 绿"
           :class="['editor-textarea', { 'syntax-highlight-enabled': syntaxHighlight }]"
           spellcheck="false"
+          @input="onInput"
+          @scroll="syncScroll"
         />
         <div
           v-if="playbackHighlightStyle"
           class="editor-playback-highlight"
           :style="playbackHighlightStyle"
+        />
+        <div
+          v-if="errorHighlightStyle"
+          class="editor-error-line"
+          :style="errorHighlightStyle"
+        />
+        <div
+          v-if="errorHighlightStyle && errorBlinkActive"
+          :key="`error-blink-${errorBlinkKey}`"
+          class="editor-error-line-blink"
+          :style="errorHighlightStyle"
         />
       </div>
     </div>
@@ -78,10 +102,12 @@ const props = withDefaults(defineProps<{
   startMeasureNumber?: number
   currentNoteIndex?: number
   syntaxHighlight?: boolean
+  errorLine?: number
 }>(), {
   startMeasureNumber: 1,
   currentNoteIndex: -1,
   syntaxHighlight: false,
+  errorLine: -1,
 })
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
@@ -121,6 +147,58 @@ const playbackHighlightStyle = computed(() => {
     width: `${width}px`,
     height: `${metrics.lineHeight}px`,
   }
+})
+
+const errorBlinkKey = ref(0)
+const errorBlinkActive = ref(false)
+let errorBlinkTimer: ReturnType<typeof setTimeout> | null = null
+
+const errorHighlightStyle = computed(() => {
+  if (props.errorLine < 0) return null
+  const metrics = editorMetrics.value
+  const top = metrics.paddingTop + props.errorLine * metrics.lineHeight - scrollTop.value
+  return {
+    transform: `translateY(${top}px)`,
+    height: `${metrics.lineHeight}px`,
+  }
+})
+
+function scrollErrorLineIntoView(line: number): void {
+  const el = textareaRef.value
+  if (!el || line < 0) return
+
+  const metrics = editorMetrics.value
+  const top = metrics.paddingTop + line * metrics.lineHeight
+  const bottom = top + metrics.lineHeight
+
+  if (top < el.scrollTop) {
+    el.scrollTop = Math.max(0, top - metrics.lineHeight)
+  } else if (bottom > el.scrollTop + el.clientHeight) {
+    el.scrollTop = bottom - el.clientHeight + metrics.lineHeight
+  }
+
+  syncScrollPosition(el)
+}
+
+watch(() => props.errorLine, (line, oldLine) => {
+  if (errorBlinkTimer !== null) {
+    clearTimeout(errorBlinkTimer)
+    errorBlinkTimer = null
+  }
+  if (line < 0) {
+    errorBlinkActive.value = false
+    return
+  }
+  if (line === oldLine) return
+  nextTick(() => {
+    scrollErrorLineIntoView(line)
+    errorBlinkKey.value++
+    errorBlinkActive.value = true
+    errorBlinkTimer = setTimeout(() => {
+      errorBlinkActive.value = false
+      errorBlinkTimer = null
+    }, 1400)
+  })
 })
 
 /** 当前光标前的 | 是否是独立小节线（非 ||、|:、:| 的一部分） */
@@ -333,6 +411,10 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
+  if (errorBlinkTimer !== null) {
+    clearTimeout(errorBlinkTimer)
+    errorBlinkTimer = null
+  }
 })
 
 function syncScrollPosition(target: HTMLTextAreaElement): void {
@@ -578,6 +660,38 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.52);
   pointer-events: none;
   z-index: 2;
+}
+
+.editor-error-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgba(220, 38, 38, 0.10);
+  border-left: 3px solid rgba(220, 38, 38, 0.5);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.editor-error-line-blink {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgba(220, 38, 38, 0.38);
+  border-left: 3px solid rgba(220, 38, 38, 0.9);
+  pointer-events: none;
+  z-index: 3;
+  animation: error-line-blink 1.4s ease-out forwards;
+}
+
+@keyframes error-line-blink {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  30% { opacity: 0; }
+  50% { opacity: 1; }
+  70% { opacity: 0; }
+  100% { opacity: 0; }
 }
 
 .editor-textarea::placeholder {

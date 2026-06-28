@@ -1,8 +1,15 @@
 <template>
   <div class="original-preview">
-    <div ref="containerRef" class="preview-viewport">
+    <div
+      ref="containerRef"
+      class="preview-viewport"
+    >
       <div class="zp-inner">
-        <iframe v-if="fileUrl && isPdf" :src="pdfFitUrl" :title="fileName" />
+        <iframe
+          v-if="fileUrl && isPdf"
+          :src="pdfFitUrl"
+          :title="fileName"
+        />
         <img
           v-else-if="fileUrl && isImage"
           :src="fileUrl"
@@ -10,16 +17,33 @@
           :width="imgW"
           :height="imgH"
           @load="onImgLoad"
-        />
+        >
       </div>
     </div>
-    <div v-if="!fileUrl" class="empty-overlay">
-      <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
+    <div
+      v-if="!fileUrl"
+      class="empty-overlay"
+    >
+      <n-icon
+        size="32"
+        :depth="3"
+      >
+        <ImageOutline />
+      </n-icon>
       <span>上传图片或 PDF 后对照原始五线谱</span>
     </div>
-    <div v-if="fileUrl" class="zoom-bar">
+    <div
+      v-if="fileUrl"
+      class="zoom-bar"
+    >
       <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
-      <button class="zoom-btn" @click="zp.reset()" title="适应窗口">适应</button>
+      <button
+        class="zoom-btn"
+        title="适应窗口"
+        @click="zp.reset()"
+      >
+        适应
+      </button>
     </div>
   </div>
 </template>

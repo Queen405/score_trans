@@ -3,30 +3,63 @@
     <div class="hv-header">
       <div>
         <h2>历史</h2>
-        <p class="subtitle">共 {{ entries.length }} 条记录</p>
+        <p class="subtitle">
+          共 {{ entries.length }} 条记录
+        </p>
       </div>
       <div class="hv-actions">
-        <n-button size="small" secondary @click="loadHistory()" :loading="loading">刷新</n-button>
-        <n-popconfirm @positive-click="handleDeleteAll" :show-icon="false">
+        <n-button
+          size="small"
+          secondary
+          :loading="loading"
+          @click="loadHistory()"
+        >
+          刷新
+        </n-button>
+        <n-popconfirm
+          :show-icon="false"
+          @positive-click="handleDeleteAll"
+        >
           <template #trigger>
-            <n-button type="error" size="small" :disabled="!entries.length" secondary>清空全部</n-button>
+            <n-button
+              type="error"
+              size="small"
+              :disabled="!entries.length"
+              secondary
+            >
+              清空全部
+            </n-button>
           </template>
           确定删除所有历史记录？此操作不可恢复。
         </n-popconfirm>
       </div>
     </div>
 
-    <div v-if="!loading && !entries.length" class="empty">
-      <n-icon size="40" :depth="3"><TimeOutline /></n-icon>
+    <div
+      v-if="!loading && !entries.length"
+      class="empty"
+    >
+      <n-icon
+        size="40"
+        :depth="3"
+      >
+        <TimeOutline />
+      </n-icon>
       <p>暂无历史记录</p>
       <span>上传并识别乐谱后，记录会自动保存</span>
     </div>
 
-    <div v-if="loading" class="loading">
+    <div
+      v-if="loading"
+      class="loading"
+    >
       <n-spin size="medium" />
     </div>
 
-    <div v-if="!loading && entries.length" class="hv-list">
+    <div
+      v-if="!loading && entries.length"
+      class="hv-list"
+    >
       <div
         v-for="entry in entries"
         :key="entry.id"
@@ -38,10 +71,24 @@
             <span :class="['status-dot', statusClass(entry.status)]" />
             <span>{{ entry.first_file_name || '未知文件' }}</span>
           </div>
-          <div class="hv-card-actions" @click.stop>
-            <n-popconfirm @positive-click="handleDelete(entry.id)" :show-icon="false">
+          <div
+            class="hv-card-actions"
+            @click.stop
+          >
+            <n-popconfirm
+              :show-icon="false"
+              @positive-click="handleDelete(entry.id)"
+            >
               <template #trigger>
-                <n-button text type="error" size="small"><n-icon size="14"><TrashOutline /></n-icon></n-button>
+                <n-button
+                  text
+                  type="error"
+                  size="small"
+                >
+                  <n-icon size="14">
+                    <TrashOutline />
+                  </n-icon>
+                </n-button>
               </template>
               确定删除此记录？
             </n-popconfirm>
@@ -53,7 +100,10 @@
         </div>
         <div class="hv-card-flags">
           <span class="flag">{{ entry.page_count }} 页</span>
-          <span v-if="entry.status === 'waiting'" class="flag">待选择</span>
+          <span
+            v-if="entry.status === 'waiting'"
+            class="flag"
+          >待选择</span>
         </div>
       </div>
     </div>

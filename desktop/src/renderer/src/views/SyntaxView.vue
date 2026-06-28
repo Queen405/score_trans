@@ -1,17 +1,43 @@
 <template>
-  <div
-    ref="scrollRoot"
-    class="syntax-view"
-    @scroll.passive="handleScroll"
-  >
-    <div class="syntax-page">
-      <header class="syntax-header">
-        <div class="header-copy">
-          <p class="eyebrow">
-            REFERENCE
-          </p>
-          <h1>简谱语法</h1>
-          <p>使用纯文本描述音符、节奏和演奏技巧，并渲染为简谱谱面。</p>
+  <div class="settings-view">
+    <aside
+      class="sv-sidebar"
+      aria-label="语法章节"
+    >
+      <div class="sv-sidebar-header">
+        <span class="sv-sidebar-eyebrow">语法参考</span>
+        <h2>语法说明</h2>
+      </div>
+
+      <nav class="sv-category-list">
+        <button
+          v-for="section in docSections"
+          :key="section.id"
+          type="button"
+          :class="['sv-category-button', { active: activeSection === section.id }]"
+          :aria-current="activeSection === section.id ? 'page' : undefined"
+          @click="activeSection = section.id"
+        >
+          <n-icon size="18">
+            <component :is="section.icon" />
+          </n-icon>
+          <span>{{ section.label }}</span>
+        </button>
+      </nav>
+
+      <div class="sv-sidebar-note">
+        使用纯文本描述音符、节奏和演奏技巧，并渲染为简谱谱面。
+      </div>
+    </aside>
+
+    <section class="sv-main syntax-main">
+      <header class="sv-page-header syntax-page-header">
+        <div>
+          <div class="sv-breadcrumb">
+            语法说明 / {{ activeMeta.label }}
+          </div>
+          <h1>{{ activeMeta.label }}</h1>
+          <p>{{ activeMeta.summary }}</p>
         </div>
         <n-input
           v-model:value="searchQuery"
@@ -26,46 +52,19 @@
         </n-input>
       </header>
 
-      <div class="mobile-section-select">
-        <label for="syntax-section-select">章节</label>
-        <n-select
-          id="syntax-section-select"
-          :value="activeSection"
-          :options="sectionOptions"
-          @update:value="handleSectionSelect"
-        />
-      </div>
-
-      <div class="syntax-layout">
-        <aside class="syntax-toc">
-          <p class="toc-title">
-            本页内容
-          </p>
-          <nav aria-label="语法章节">
-            <button
-              v-for="section in sectionLinks"
-              :key="section.id"
-              type="button"
-              :class="{ active: activeSection === section.id }"
-              @click="scrollToSection(section.id)"
-            >
-              {{ section.title }}
-            </button>
-          </nav>
-        </aside>
-
-        <main class="syntax-content">
+      <div class="sv-page-body">
+        <div class="sv-panel-container">
           <div
             v-if="normalizedQuery"
-            class="search-results"
+            class="syntax-search-results"
             aria-live="polite"
           >
-            <div class="search-results-header">
+            <div class="syntax-search-header">
               <div>
-                <p class="section-kicker">
+                <p class="syntax-search-kicker">
                   搜索结果
                 </p>
-                <h2>找到 {{ searchResultCount }} 条相关语法</h2>
+                <h3>找到 {{ searchResultCount }} 条相关语法</h3>
               </div>
               <n-button
                 size="small"
@@ -82,7 +81,7 @@
                 :key="group.key"
                 class="result-group"
               >
-                <h3>{{ group.title }}</h3>
+                <h4>{{ group.title }}</h4>
                 <div class="result-list">
                   <button
                     v-for="item in group.items"
@@ -117,18 +116,14 @@
             </n-empty>
           </div>
 
-          <template v-else>
+          <div
+            v-else
+            class="sv-panel"
+          >
             <section
-              id="quick-start"
-              class="doc-section first-section"
+              v-if="activeSection === 'quick-start'"
+              class="syntax-section"
             >
-              <div class="section-heading">
-                <p class="section-kicker">
-                  入门
-                </p>
-                <h2>快速开始</h2>
-                <p>谱面信息写在开头，空一行后按从左到右的顺序输入音符和小节线。</p>
-              </div>
               <div class="code-block">
                 <div class="code-toolbar">
                   <span>简谱文本</span>
@@ -137,7 +132,7 @@
                       <button
                         type="button"
                         class="copy-button"
-                        :aria-label="copiedBlock === 'quick' ? '已复制快速开始示例' : '复制快速开始示例'"
+                        :aria-label="copiedBlock === 'quick' ? '已复制' : '复制示例'"
                         @click="copyExample('quick', quickStartExample)"
                       >
                         <n-icon :component="copiedBlock === 'quick' ? CheckmarkOutline : CopyOutline" />
@@ -151,18 +146,9 @@
             </section>
 
             <section
-              v-for="section in syntaxSections"
-              :id="section.id"
-              :key="section.id"
-              class="doc-section"
+              v-else-if="activeTableSection"
+              class="syntax-section"
             >
-              <div class="section-heading">
-                <p class="section-kicker">
-                  {{ section.kicker }}
-                </p>
-                <h2>{{ section.title }}</h2>
-                <p>{{ section.summary }}</p>
-              </div>
               <div class="table-wrap">
                 <table class="syntax-table">
                   <thead>
@@ -174,8 +160,8 @@
                   </thead>
                   <tbody>
                     <tr
-                      v-for="entry in section.entries"
-                      :key="`${section.id}-${entry.syntax}`"
+                      v-for="entry in activeTableSection.entries"
+                      :key="`${activeTableSection.id}-${entry.syntax}`"
                     >
                       <td><code>{{ entry.syntax }}</code></td>
                       <td>{{ entry.name }}</td>
@@ -187,17 +173,9 @@
             </section>
 
             <section
-              id="performance-marks"
-              class="doc-section"
+              v-else-if="activeSection === 'performance-marks'"
+              class="syntax-section"
             >
-              <div class="section-heading">
-                <p class="section-kicker">
-                  演奏法
-                </p>
-                <h2>分乐器演奏技巧</h2>
-                <p>同一个记谱图形只定义一次，具体名称和演奏解释由乐器模式决定。</p>
-              </div>
-
               <div
                 v-if="loadingProfiles"
                 class="profile-loading"
@@ -319,16 +297,9 @@
             </section>
 
             <section
-              id="complete-example"
-              class="doc-section"
+              v-else-if="activeSection === 'complete-example'"
+              class="syntax-section"
             >
-              <div class="section-heading">
-                <p class="section-kicker">
-                  示例
-                </p>
-                <h2>完整示例</h2>
-                <p>这个片段组合了谱面信息、力度、连音线、延音线和歌词。</p>
-              </div>
               <div class="code-block">
                 <div class="code-toolbar">
                   <span>练习曲.jianpu</span>
@@ -337,7 +308,7 @@
                       <button
                         type="button"
                         class="copy-button"
-                        :aria-label="copiedBlock === 'complete' ? '已复制完整示例' : '复制完整示例'"
+                        :aria-label="copiedBlock === 'complete' ? '已复制' : '复制示例'"
                         @click="copyExample('complete', completeExample)"
                       >
                         <n-icon :component="copiedBlock === 'complete' ? CheckmarkOutline : CopyOutline" />
@@ -351,16 +322,9 @@
             </section>
 
             <section
-              id="quick-reference"
-              class="doc-section"
+              v-else-if="activeSection === 'quick-reference'"
+              class="syntax-section"
             >
-              <div class="section-heading">
-                <p class="section-kicker">
-                  REFERENCE
-                </p>
-                <h2>速查表</h2>
-                <p>编辑时最常用的输入形式，完整说明以前文章节为准。</p>
-              </div>
               <div class="table-wrap">
                 <table class="syntax-table">
                   <thead>
@@ -383,26 +347,35 @@
                 </table>
               </div>
             </section>
-          </template>
-        </main>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { Component } from 'vue'
 import {
+  AppsOutline,
   CheckmarkOutline,
+  ColorWandOutline,
   CopyOutline,
+  CreateOutline,
+  DocumentTextOutline,
+  FlashOutline,
+  InformationCircleOutline,
+  ListOutline,
+  MusicalNotesOutline,
   SearchOutline,
+  TimerOutline,
 } from '@vicons/ionicons5'
 import {
   NButton,
   NEmpty,
   NIcon,
   NInput,
-  NSelect,
   NSkeleton,
   NTabPane,
   NTabs,
@@ -423,6 +396,13 @@ type SectionId =
   | 'performance-marks'
   | 'complete-example'
   | 'quick-reference'
+
+interface DocSection {
+  id: SectionId
+  label: string
+  summary: string
+  icon: Component
+}
 
 interface SyntaxEntry {
   syntax: string
@@ -458,12 +438,7 @@ interface SearchGroup {
   items: SearchItem[]
 }
 
-const props = withDefaults(defineProps<{ active?: boolean }>(), {
-  active: false,
-})
-
 const message = useMessage()
-const scrollRoot = ref<HTMLElement | null>(null)
 const searchQuery = ref('')
 const activeSection = ref<SectionId>('quick-start')
 const profiles = ref<InstrumentProfileCatalog[]>([])
@@ -471,7 +446,6 @@ const activeProfile = ref<string>('general')
 const loadingProfiles = ref(true)
 const profileError = ref('')
 const copiedBlock = ref<'quick' | 'complete' | null>(null)
-let scrollFrame = 0
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 
 const quickStartExample = `title=小星星
@@ -491,6 +465,63 @@ L: 春 眠 不 觉 晓 处 处 闻 啼 鸟 飞 飞 飞 去 去 去
 
 \p (5 6 5 4) | 3 2 1 ~1 | 2 3 4 3 | h2 h0 |
 L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧`
+
+const docSections: DocSection[] = [
+  {
+    id: 'quick-start',
+    label: '快速开始',
+    summary: '谱面信息写在开头，空一行后按从左到右的顺序输入音符和小节线。',
+    icon: FlashOutline,
+  },
+  {
+    id: 'metadata',
+    label: '谱面信息',
+    summary: '调号和拍号是必需信息，其余字段可按需要写在乐谱开头。',
+    icon: InformationCircleOutline,
+  },
+  {
+    id: 'notes',
+    label: '音符与八度',
+    summary: '数字表示音级，撇号、逗号和变音前缀改变音符的实际音高。',
+    icon: MusicalNotesOutline,
+  },
+  {
+    id: 'duration',
+    label: '时值与连音',
+    summary: '时值前缀控制音符长度，附点、延音线和连音组补充节奏关系。',
+    icon: TimerOutline,
+  },
+  {
+    id: 'measures',
+    label: '和弦与小节',
+    summary: '方括号组织同时发声的音，小节线和重复记号组织乐谱结构。',
+    icon: AppsOutline,
+  },
+  {
+    id: 'expression',
+    label: '力度、歌词与注释',
+    summary: '力度标记跟随音符，歌词按有效音符顺序匹配，注释不进入谱面。',
+    icon: CreateOutline,
+  },
+  {
+    id: 'performance-marks',
+    label: '演奏技巧',
+    summary: '同一记谱图形只定义一次，具体名称和演奏解释由乐器模式决定。',
+    icon: ColorWandOutline,
+  },
+  {
+    id: 'complete-example',
+    label: '完整示例',
+    summary: '组合了谱面信息、力度、连音线、延音线和歌词的完整片段。',
+    icon: DocumentTextOutline,
+  },
+  {
+    id: 'quick-reference',
+    label: '速查表',
+    summary: '编辑时最常用的输入形式，完整说明以前文章节为准。',
+    icon: ListOutline,
+  },
+]
 
 const syntaxSections: SyntaxSection[] = [
   {
@@ -531,7 +562,7 @@ const syntaxSections: SyntaxSection[] = [
     id: 'duration',
     title: '时值与连音',
     kicker: '节奏',
-    summary: '时值前缀控制音符长度，附点、延音线和连音组用于补充节奏关系。',
+    summary: '时值前缀控制音符长度，附点、延音线和连音组补充节奏关系。',
     entries: [
       { syntax: 'w1', name: '全音符', description: '持续 4 拍。' },
       { syntax: 'h1', name: '二分音符', description: '持续 2 拍。' },
@@ -565,7 +596,7 @@ const syntaxSections: SyntaxSection[] = [
     id: 'expression',
     title: '力度、歌词与注释',
     kicker: '文本与表现',
-    summary: '力度标记跟随音符，歌词按有效音符顺序匹配，注释不会进入谱面。',
+    summary: '力度标记跟随音符，歌词按有效音符顺序匹配，注释不进入谱面。',
     entries: [
       { syntax: '\\p  \\f', name: '弱与强', description: '在后续音符前写入基础力度。' },
       { syntax: '\\mp  \\mf', name: '中弱与中强', description: '表示介于弱和强之间的力度。' },
@@ -594,22 +625,13 @@ const quickReferenceEntries: SyntaxEntry[] = [
   { syntax: 'L: / //', name: '歌词 / 注释', description: '歌词单独成行，注释忽略到行尾。' },
 ]
 
-const sectionLinks: Array<{ id: SectionId; title: string }> = [
-  { id: 'quick-start', title: '快速开始' },
-  { id: 'metadata', title: '谱面信息' },
-  { id: 'notes', title: '音符与八度' },
-  { id: 'duration', title: '时值与连音' },
-  { id: 'measures', title: '和弦与小节' },
-  { id: 'expression', title: '力度、歌词与注释' },
-  { id: 'performance-marks', title: '演奏技巧' },
-  { id: 'complete-example', title: '完整示例' },
-  { id: 'quick-reference', title: '速查表' },
-]
+const activeMeta = computed(
+  () => docSections.find((section) => section.id === activeSection.value) ?? docSections[0],
+)
 
-const sectionOptions = sectionLinks.map((section) => ({
-  label: section.title,
-  value: section.id,
-}))
+const activeTableSection = computed(
+  () => syntaxSections.find((section) => section.id === activeSection.value) ?? null,
+)
 
 const normalizedQuery = computed(() => normalizeText(searchQuery.value))
 
@@ -734,20 +756,11 @@ const searchResultCount = computed(() =>
   searchGroups.value.reduce((total, group) => total + group.items.length, 0),
 )
 
-watch(
-  () => props.active,
-  (active) => {
-    if (active) nextTick(updateActiveSection)
-  },
-)
-
 onMounted(() => {
   void loadProfiles()
-  nextTick(updateActiveSection)
 })
 
 onBeforeUnmount(() => {
-  if (scrollFrame) window.cancelAnimationFrame(scrollFrame)
   if (copyResetTimer) clearTimeout(copyResetTimer)
 })
 
@@ -777,64 +790,10 @@ async function loadProfiles(): Promise<void> {
   }
 }
 
-function handleScroll(): void {
-  if (scrollFrame || normalizedQuery.value) return
-  scrollFrame = requestAnimationFrame(() => {
-    scrollFrame = 0
-    updateActiveSection()
-  })
-}
-
-function updateActiveSection(): void {
-  const root = scrollRoot.value
-  if (!root || normalizedQuery.value) return
-
-  const rootTop = root.getBoundingClientRect().top
-  const headerHeight =
-    root.querySelector<HTMLElement>('.syntax-header')?.offsetHeight ?? 0
-  const activationOffset = headerHeight + 36
-  let current: SectionId = sectionLinks[0].id
-  for (const section of sectionLinks) {
-    const element = root.querySelector<HTMLElement>(`#${section.id}`)
-    if (
-      element &&
-      element.getBoundingClientRect().top - rootTop <= activationOffset
-    ) {
-      current = section.id
-    } else {
-      break
-    }
-  }
-  activeSection.value = current
-}
-
-function handleSectionSelect(value: string): void {
-  void scrollToSection(value as SectionId)
-}
-
-async function scrollToSection(sectionId: SectionId): Promise<void> {
-  searchQuery.value = ''
-  await nextTick()
-
-  const root = scrollRoot.value
-  const target = root?.querySelector<HTMLElement>(`#${sectionId}`)
-  if (!root || !target) return
-
-  const headerHeight =
-    root.querySelector<HTMLElement>('.syntax-header')?.offsetHeight ?? 0
-  const top =
-    target.getBoundingClientRect().top -
-    root.getBoundingClientRect().top +
-    root.scrollTop -
-    headerHeight -
-    18
-  root.scrollTo({ top, behavior: 'smooth' })
-  activeSection.value = sectionId
-}
-
-async function openSearchResult(item: SearchItem): Promise<void> {
+function openSearchResult(item: SearchItem): void {
   if (item.profileId) activeProfile.value = item.profileId
-  await scrollToSection(item.sectionId)
+  activeSection.value = item.sectionId
+  searchQuery.value = ''
 }
 
 async function copyExample(block: 'quick' | 'complete', content: string): Promise<void> {
@@ -853,171 +812,17 @@ async function copyExample(block: 'quick' | 'complete', content: string): Promis
 </script>
 
 <style scoped>
-.syntax-view {
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  color: var(--text-primary);
-  font-size: 15px;
-}
-
-.syntax-page {
-  width: 100%;
-  margin: 0;
-  padding: 0 0 48px;
-}
-
-.syntax-header {
-  position: sticky;
-  z-index: 20;
-  top: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
-  padding: 14px 0 22px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-surface);
-}
-
-.header-copy {
-  min-width: 0;
-}
-
-.eyebrow,
-.section-kicker {
-  margin: 0 0 6px;
-  color: var(--text-tertiary);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.syntax-header h1 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 680;
-  line-height: 1.25;
-  letter-spacing: 0;
-}
-
-.syntax-header p:last-child {
-  margin: 7px 0 0;
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.6;
+.syntax-main {
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .syntax-search {
-  width: min(520px, 42vw);
-  flex: 0 1 520px;
+  width: min(280px, 100%);
+  flex-shrink: 0;
 }
 
-.syntax-search :deep(.n-input__input-el) {
-  font-size: 15px;
-}
-
-.syntax-layout {
-  display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: 40px;
-}
-
-.syntax-toc {
-  position: sticky;
-  top: 120px;
-  align-self: start;
-  padding-top: 32px;
-}
-
-.toc-title {
-  margin: 0 0 10px;
-  padding-left: 12px;
-  color: var(--text-tertiary);
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.syntax-toc nav {
-  display: flex;
-  flex-direction: column;
-}
-
-.syntax-toc button {
-  position: relative;
-  width: 100%;
-  padding: 7px 12px;
-  border: 0;
-  border-left: 2px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 14px;
-  line-height: 1.35;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease,
-    background 0.15s ease;
-}
-
-.syntax-toc button:hover {
-  background: var(--accent-light);
-  color: var(--text-primary);
-}
-
-.syntax-toc button.active {
-  border-left-color: var(--accent);
-  color: var(--accent);
-  font-weight: 650;
-}
-
-.syntax-toc button:focus-visible,
-.copy-button:focus-visible,
-.result-row:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.mobile-section-select {
-  display: none;
-}
-
-.syntax-content {
+.syntax-section {
   min-width: 0;
-}
-
-.doc-section {
-  scroll-margin-top: 20px;
-  padding: 34px 0 38px;
-  border-top: 1px solid var(--border);
-}
-
-.doc-section.first-section {
-  border-top: 0;
-}
-
-.section-heading {
-  max-width: 78ch;
-  margin-bottom: 18px;
-}
-
-.section-heading h2,
-.search-results-header h2 {
-  margin: 0;
-  font-size: 21px;
-  font-weight: 680;
-  line-height: 1.35;
-  letter-spacing: 0;
-}
-
-.section-heading > p:last-child {
-  margin: 7px 0 0;
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.65;
 }
 
 .table-wrap {
@@ -1211,7 +1016,7 @@ code {
 }
 
 .example-list h3,
-.result-group h3 {
+.result-group h4 {
   margin: 0 0 10px;
   color: var(--text-primary);
   font-size: 14px;
@@ -1239,17 +1044,32 @@ code {
   width: 25%;
 }
 
-.search-results {
-  padding: 34px 0 48px;
+.syntax-search-results {
+  padding-top: 4px;
 }
 
-.search-results-header {
+.syntax-search-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
+}
+
+.syntax-search-kicker {
+  margin: 0 0 6px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.syntax-search-header h3 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 680;
+  line-height: 1.35;
 }
 
 .result-group {
@@ -1303,6 +1123,12 @@ code {
   text-align: right;
 }
 
+.result-row:focus-visible,
+.copy-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 :deep(.n-tabs-nav) {
   margin-bottom: 12px;
 }
@@ -1320,51 +1146,38 @@ code {
   padding: 32px 0;
 }
 
-@media (max-width: 900px) {
-  .syntax-header {
-    align-items: stretch;
+@media (max-width: 820px) {
+  .syntax-page-header {
     flex-direction: column;
+    align-items: stretch;
     gap: 16px;
   }
 
   .syntax-search {
-    width: min(520px, 100%);
-    flex-basis: auto;
-  }
-
-  .mobile-section-select {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    padding: 16px 0 2px;
-  }
-
-  .mobile-section-select label {
-    color: var(--text-tertiary);
-    font-size: 14px;
-    font-weight: 650;
-  }
-
-  .syntax-layout {
-    display: block;
     max-width: none;
   }
 
-  .syntax-toc {
+  .profile-examples {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  .result-row {
+    grid-template-columns: minmax(100px, 34%) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .result-section {
     display: none;
+  }
+
+  .syntax-search-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
 @media (max-width: 620px) {
-  .syntax-page {
-    padding-bottom: 32px;
-  }
-
-  .doc-section {
-    padding: 28px 0 32px;
-  }
-
   .syntax-table {
     font-size: 13.5px;
   }
@@ -1383,29 +1196,9 @@ code {
   .syntax-table td:nth-child(2) {
     width: 25%;
   }
-
-  .profile-examples {
-    grid-template-columns: 1fr;
-    gap: 22px;
-  }
-
-  .result-row {
-    grid-template-columns: minmax(100px, 34%) minmax(0, 1fr);
-    gap: 10px;
-  }
-
-  .result-section {
-    display: none;
-  }
-
-  .search-results-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .syntax-toc button,
   .copy-button,
   .syntax-table tbody tr,
   .result-row {

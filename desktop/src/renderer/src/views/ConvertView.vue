@@ -4,13 +4,34 @@
       <div class="ws-hist-head">
         <span class="ws-hist-title">历史</span>
         <div class="ws-hist-actions">
-          <n-button size="tiny" quaternary @click="loadHistory()" :loading="histLoading">
-            <template #icon><n-icon size="14"><RefreshOutline /></n-icon></template>
+          <n-button
+            size="tiny"
+            quaternary
+            :loading="histLoading"
+            @click="loadHistory()"
+          >
+            <template #icon>
+              <n-icon size="14">
+                <RefreshOutline />
+              </n-icon>
+            </template>
           </n-button>
-          <n-popconfirm @positive-click="handleDeleteAll" :show-icon="false">
+          <n-popconfirm
+            :show-icon="false"
+            @positive-click="handleDeleteAll"
+          >
             <template #trigger>
-              <n-button size="tiny" quaternary type="error" :disabled="!histBatches.length">
-                <template #icon><n-icon size="14"><TrashOutline /></n-icon></template>
+              <n-button
+                size="tiny"
+                quaternary
+                type="error"
+                :disabled="!histBatches.length"
+              >
+                <template #icon>
+                  <n-icon size="14">
+                    <TrashOutline />
+                  </n-icon>
+                </template>
               </n-button>
             </template>
             确定删除所有历史记录？
@@ -18,30 +39,70 @@
         </div>
       </div>
       <div class="ws-hist-body">
-        <div v-if="!histLoading && !histBatches.length" class="hist-empty">
+        <div
+          v-if="!histLoading && !histBatches.length"
+          class="hist-empty"
+        >
           <span>暂无记录</span>
         </div>
-        <div v-for="batch in histBatches" :key="batch.id" class="hist-batch">
-          <div class="hist-batch-head" @click="toggleBatchExpand(batch.id)">
+        <div
+          v-for="batch in histBatches"
+          :key="batch.id"
+          class="hist-batch"
+        >
+          <div
+            class="hist-batch-head"
+            @click="toggleBatchExpand(batch.id)"
+          >
             <span :class="['hist-dot', historyStatusClass(batch.status)]" />
             <span class="hist-batch-name">{{ batch.first_file_name || '未知' }}</span>
-            <span class="hist-batch-count" v-if="batch.page_count > 1">{{ batch.page_count }}页</span>
-            <span v-if="isWaitingStatus(batch.status)" class="hist-waiting-label">待选择</span>
-            <n-popconfirm @positive-click="handleDeleteBatch(batch.id)" :show-icon="false">
+            <span
+              v-if="batch.page_count > 1"
+              class="hist-batch-count"
+            >{{ batch.page_count }}页</span>
+            <span
+              v-if="isWaitingStatus(batch.status)"
+              class="hist-waiting-label"
+            >待选择</span>
+            <n-popconfirm
+              :show-icon="false"
+              @positive-click="handleDeleteBatch(batch.id)"
+            >
               <template #trigger>
-                <button class="hist-delete" type="button" title="删除该历史记录" @click.stop>
-                  <n-icon size="12"><TrashOutline /></n-icon>
+                <button
+                  class="hist-delete"
+                  type="button"
+                  title="删除该历史记录"
+                  @click.stop
+                >
+                  <n-icon size="12">
+                    <TrashOutline />
+                  </n-icon>
                 </button>
               </template>
               确定删除这次历史记录？
             </n-popconfirm>
-            <n-icon size="12" class="hist-expand-icon" :class="{ rotated: expandedBatchId === batch.id }">
+            <n-icon
+              size="12"
+              class="hist-expand-icon"
+              :class="{ rotated: expandedBatchId === batch.id }"
+            >
               <ChevronForwardOutline />
             </n-icon>
           </div>
-          <div class="hist-batch-meta">{{ formatTime(batch.created_at) }}</div>
-          <div v-if="expandedBatchId === batch.id" class="hist-pages">
-            <div v-if="loadingBatchId === batch.id" class="hist-loading">加载中...</div>
+          <div class="hist-batch-meta">
+            {{ formatTime(batch.created_at) }}
+          </div>
+          <div
+            v-if="expandedBatchId === batch.id"
+            class="hist-pages"
+          >
+            <div
+              v-if="loadingBatchId === batch.id"
+              class="hist-loading"
+            >
+              加载中...
+            </div>
             <div
               v-for="(page, pi) in expandedPages"
               :key="page.id"
@@ -50,7 +111,10 @@
             >
               <span :class="['hist-dot small', historyStatusClass(page.status)]" />
               <span class="hist-page-name">{{ page.input_file_name || `第${pi + 1}页` }}</span>
-              <span v-if="isWaitingStatus(page.status)" class="hist-waiting-label">待选择</span>
+              <span
+                v-if="isWaitingStatus(page.status)"
+                class="hist-waiting-label"
+              >待选择</span>
             </div>
           </div>
         </div>
@@ -60,28 +124,70 @@
     <div class="ws-main">
       <div class="ws-toolbar">
         <div class="ws-toolbar-left">
-          <button class="hist-toggle" title="历史记录" @click="toggleHistory">
-            <n-icon size="16"><TimeOutline /></n-icon>
+          <button
+            class="hist-toggle"
+            title="历史记录"
+            @click="toggleHistory"
+          >
+            <n-icon size="16">
+              <TimeOutline />
+            </n-icon>
           </button>
-          <div v-if="store.pageCount" class="page-nav">
-            <n-button size="small" quaternary :disabled="!store.canPrevPage || store.isBusy" @click="store.prevPage()">
-              <template #icon><n-icon><ChevronBackOutline /></n-icon></template>
+          <div
+            v-if="store.pageCount"
+            class="page-nav"
+          >
+            <n-button
+              size="small"
+              quaternary
+              :disabled="!store.canPrevPage || store.isBusy"
+              @click="store.prevPage()"
+            >
+              <template #icon>
+                <n-icon><ChevronBackOutline /></n-icon>
+              </template>
             </n-button>
             <span class="page-indicator">{{ currentBatchLocalIndex + 1 }} / {{ store.pageCount }}</span>
-            <n-button size="small" quaternary :disabled="!store.canNextPage || store.isBusy" @click="store.nextPage()">
-              <template #icon><n-icon><ChevronForwardOutline /></n-icon></template>
+            <n-button
+              size="small"
+              quaternary
+              :disabled="!store.canNextPage || store.isBusy"
+              @click="store.nextPage()"
+            >
+              <template #icon>
+                <n-icon><ChevronForwardOutline /></n-icon>
+              </template>
             </n-button>
           </div>
         </div>
         <div class="ws-toolbar-right">
-          <n-button size="small" @click="musicxmlToJianpu" :loading="store.isBusy" :disabled="!store.hasMusicxml" type="primary">
+          <n-button
+            size="small"
+            :loading="store.isBusy"
+            :disabled="!store.hasMusicxml"
+            type="primary"
+            @click="musicxmlToJianpu"
+          >
             重置简谱
           </n-button>
-          <n-button size="small" type="primary" @click="exportScore" :loading="store.isBusy" :disabled="!store.hasMusicxml">
-            <template #icon><n-icon><CloudDownloadOutline /></n-icon></template>
+          <n-button
+            size="small"
+            type="primary"
+            :loading="store.isBusy"
+            :disabled="!store.hasMusicxml"
+            @click="exportScore"
+          >
+            <template #icon>
+              <n-icon><CloudDownloadOutline /></n-icon>
+            </template>
             导出
           </n-button>
-          <n-select v-model:value="exportFormat" :options="formatOptions" size="small" style="width: 96px" />
+          <n-select
+            v-model:value="exportFormat"
+            :options="formatOptions"
+            size="small"
+            style="width: 96px"
+          />
         </div>
       </div>
 
@@ -89,10 +195,16 @@
         <div class="ws-panel ws-left">
           <div class="ws-panel-head">
             <span>原始五线谱</span>
-            <span v-if="store.originalFileName" class="panel-filename">{{ store.originalFileName }}</span>
+            <span
+              v-if="store.originalFileName"
+              class="panel-filename"
+            >{{ store.originalFileName }}</span>
           </div>
           <div class="ws-panel-body">
-            <original-preview :file-id="store.originalFileId" :file-name="store.originalFileName" />
+            <original-preview
+              :file-id="store.originalFileId"
+              :file-name="store.originalFileName"
+            />
           </div>
         </div>
 
@@ -104,12 +216,12 @@
                 <span class="meta-label">起始小节</span>
                 <n-input-number
                   :value="batchStartMeasureNumber"
-                  @update:value="handleStartMeasureChange"
                   placeholder="自动"
                   :min="1"
                   clearable
                   size="tiny"
                   style="width: 100px"
+                  @update:value="handleStartMeasureChange"
                 />
               </div>
               <n-button
@@ -119,22 +231,59 @@
                 secondary
                 @click="mergePendingRecognitionResults"
               >
-                <template #icon><n-icon size="13"><RefreshOutline /></n-icon></template>
+                <template #icon>
+                  <n-icon size="13">
+                    <RefreshOutline />
+                  </n-icon>
+                </template>
                 合入识别结果
               </n-button>
-              <n-button size="tiny" quaternary @click="saveJianpu" :loading="store.isBusy" :disabled="store.isBusy || !canSaveCurrentPage">
+              <n-button
+                size="tiny"
+                quaternary
+                :loading="store.isBusy"
+                :disabled="store.isBusy || !canSaveCurrentPage"
+                @click="saveJianpu"
+              >
                 保存
               </n-button>
-              <n-button size="tiny" quaternary @click="toggleFinalView" :loading="isRenderingFinal" :disabled="store.isBusy || !canRenderCurrentScore">
+              <n-button
+                size="tiny"
+                quaternary
+                :loading="isRenderingFinal"
+                :disabled="store.isBusy || !canRenderCurrentScore"
+                @click="toggleFinalView"
+              >
                 {{ isViewingFinal ? '编辑' : '渲染' }}
               </n-button>
-              <div v-if="isViewingFinal && finalSvgFileIds.length > 1" class="render-page-nav">
-                <n-button size="tiny" quaternary :disabled="finalRenderPageIndex <= 0" @click="finalRenderPageIndex--">
-                  <template #icon><n-icon size="12"><ChevronBackOutline /></n-icon></template>
+              <div
+                v-if="isViewingFinal && finalSvgFileIds.length > 1"
+                class="render-page-nav"
+              >
+                <n-button
+                  size="tiny"
+                  quaternary
+                  :disabled="finalRenderPageIndex <= 0"
+                  @click="finalRenderPageIndex--"
+                >
+                  <template #icon>
+                    <n-icon size="12">
+                      <ChevronBackOutline />
+                    </n-icon>
+                  </template>
                 </n-button>
                 <span>{{ finalRenderPageIndex + 1 }} / {{ finalSvgFileIds.length }}</span>
-                <n-button size="tiny" quaternary :disabled="finalRenderPageIndex >= finalSvgFileIds.length - 1" @click="finalRenderPageIndex++">
-                  <template #icon><n-icon size="12"><ChevronForwardOutline /></n-icon></template>
+                <n-button
+                  size="tiny"
+                  quaternary
+                  :disabled="finalRenderPageIndex >= finalSvgFileIds.length - 1"
+                  @click="finalRenderPageIndex++"
+                >
+                  <template #icon>
+                    <n-icon size="12">
+                      <ChevronForwardOutline />
+                    </n-icon>
+                  </template>
                 </n-button>
               </div>
             </div>
@@ -148,8 +297,16 @@
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
             />
-            <div v-else-if="isViewingFinal" class="empty-hint">
-              <n-icon size="32" :depth="3"><ImageOutline /></n-icon>
+            <div
+              v-else-if="isViewingFinal"
+              class="empty-hint"
+            >
+              <n-icon
+                size="32"
+                :depth="3"
+              >
+                <ImageOutline />
+              </n-icon>
               <span>暂无渲染</span>
             </div>
             <jianpu-editor
@@ -158,6 +315,7 @@
               :start-measure-number="batchStartMeasureNumber ?? 1"
               :current-note-index="currentNoteIndex"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
+              :error-line="errorLine"
             />
           </div>
         </div>
@@ -247,6 +405,7 @@ const message = useMessage()
 const jianpuText = ref(store.currentBatchJianpuText)
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
+const errorLine = ref(-1)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
 const finalRenderPageOcrText = computed(() =>
   store.currentBatchRenderPageOcrText(finalRenderPageIndex.value),
@@ -305,6 +464,7 @@ watch(jianpuText, (v) => {
     store.setBatchJianpuText(v, true)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
+    errorLine.value = -1
   }
   syncPageStartsFromEditor(v)
 })
@@ -316,6 +476,7 @@ watch(() => store.currentBatchRenderPageFileIds, (ids) => {
 })
 watch(() => store.currentPageIndex, () => {
   currentNoteIndex.value = -1
+  errorLine.value = -1
   if (!isViewingFinal.value) setFinalSvgFileIds(currentPageSvgIds())
 })
 
@@ -822,8 +983,36 @@ function handleMissingMusicxml(errorMessage: string): string {
   return '当前 MusicXML 引用已失效，请回到"识别"页重新识别。'
 }
 
+function extractErrorLineFromMessage(msg: string): number {
+  const match = msg.match(/第\s*(\d+)\s*行/)
+  if (!match) return -1
+  const sectionLine = Number(match[1])
+
+  const sections = parseJianpuPageSections(jianpuText.value)
+  if (sections.length === 1 && sections[0].markerLineIndex < 0) {
+    return sectionLine - 1
+  }
+
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i]
+    if (!section.body.trim()) continue
+    const bodyLineCount = section.body.split('\n').length
+    if (sectionLine <= bodyLineCount) {
+      const L = section.markerLineIndex
+      if (L < 0) return sectionLine - 1
+      if (i === 0 && L > 0) {
+        return sectionLine <= L ? sectionLine - 1 : sectionLine
+      }
+      return L + sectionLine
+    }
+  }
+
+  return sectionLine - 1
+}
+
 async function exportScore(): Promise<void> {
   store.setBusy(true)
+  errorLine.value = -1
   try {
     const format = exportFormat.value
     if (format === 'mid') {
@@ -869,8 +1058,10 @@ async function exportScore(): Promise<void> {
     }
     message.success('导出完成')
   } catch (e: unknown) {
-    log.addError(`导出失败：${e instanceof Error ? e.message : String(e)}`)
-    message.error(e instanceof Error ? e.message : String(e))
+    const raw = e instanceof Error ? e.message : String(e)
+    errorLine.value = extractErrorLineFromMessage(raw)
+    log.addError(`导出失败：${raw}`)
+    message.error(raw)
   } finally {
     store.setBusy(false)
   }
@@ -1083,6 +1274,7 @@ async function saveJianpu(): Promise<void> {
     return
   }
   store.setBusy(true)
+  errorLine.value = -1
   try {
     const ids = store.currentBatchRenderPageOcrDirty
       ? await renderFinalBatch()
@@ -1094,6 +1286,7 @@ async function saveJianpu(): Promise<void> {
     message.success('已保存')
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
+    errorLine.value = extractErrorLineFromMessage(raw)
     log.addError(`保存失败：${raw}`)
     message.error(raw)
   } finally {
@@ -1113,6 +1306,7 @@ function applyReturnedOcr(value?: string | null): void {
 
 async function renderSvg(): Promise<void> {
   store.setBusy(true)
+  errorLine.value = -1
   try {
     await renderFinalBatch()
     isViewingFinal.value = true
@@ -1121,6 +1315,7 @@ async function renderSvg(): Promise<void> {
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
+    errorLine.value = extractErrorLineFromMessage(msg)
     log.addError(`渲染失败：${msg}`)
     message.error(msg)
   } finally {
@@ -1145,12 +1340,14 @@ async function toggleFinalView(): Promise<void> {
   if (isViewingFinal.value) { isViewingFinal.value = false; return }
   isRenderingFinal.value = true
   store.setBusy(true)
+  errorLine.value = -1
   try {
     await renderFinalBatch()
     isViewingFinal.value = true
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
+    errorLine.value = extractErrorLineFromMessage(msg)
     log.addError(`渲染失败：${msg}`)
     message.error(msg)
   } finally {

@@ -11,7 +11,9 @@
       @pointerup="handleFabPointerUp"
       @pointercancel="handleFabPointerCancel"
     >
-      <n-icon size="22"><ChatbubbleEllipsesOutline /></n-icon>
+      <n-icon size="22">
+        <ChatbubbleEllipsesOutline />
+      </n-icon>
     </button>
 
     <div
@@ -22,8 +24,15 @@
       <aside :class="['ai-sessions', { hidden: !sessionsOpen }]">
         <div class="ai-sessions-head">
           <span>对话</span>
-          <n-button size="tiny" quaternary :disabled="assistant.loading" @click="assistant.createSession()">
-            <template #icon><n-icon><AddOutline /></n-icon></template>
+          <n-button
+            size="tiny"
+            quaternary
+            :disabled="assistant.loading"
+            @click="assistant.createSession()"
+          >
+            <template #icon>
+              <n-icon><AddOutline /></n-icon>
+            </template>
           </n-button>
         </div>
         <div class="ai-session-list">
@@ -37,16 +46,31 @@
             @keydown.enter.prevent="assistant.selectSession(session.id)"
           >
             <span>{{ session.title }}</span>
-            <n-popconfirm :show-icon="false" @positive-click="deleteSession(session.id)">
+            <n-popconfirm
+              :show-icon="false"
+              @positive-click="deleteSession(session.id)"
+            >
               <template #trigger>
-                <button class="ai-session-delete" type="button" title="删除" @click.stop>
-                  <n-icon size="13"><TrashOutline /></n-icon>
+                <button
+                  class="ai-session-delete"
+                  type="button"
+                  title="删除"
+                  @click.stop
+                >
+                  <n-icon size="13">
+                    <TrashOutline />
+                  </n-icon>
                 </button>
               </template>
               删除这段对话？
             </n-popconfirm>
           </div>
-          <div v-if="!assistant.sessions.length && !assistant.loading" class="ai-empty-small">暂无对话</div>
+          <div
+            v-if="!assistant.sessions.length && !assistant.loading"
+            class="ai-empty-small"
+          >
+            暂无对话
+          </div>
         </div>
       </aside>
 
@@ -60,28 +84,58 @@
           @pointercancel="handlePanelPointerCancel"
         >
           <div class="ai-head-left">
-            <button class="ai-icon-btn" type="button" title="历史" @click="sessionsOpen = !sessionsOpen">
+            <button
+              class="ai-icon-btn"
+              type="button"
+              title="历史"
+              @click="sessionsOpen = !sessionsOpen"
+            >
               <n-icon><TimeOutline /></n-icon>
             </button>
             <span>AI 助手</span>
           </div>
           <div class="ai-head-actions">
-            <label class="ai-think-master" title="关闭后请求会禁用深度思考">
-              <input v-model="showThinking" type="checkbox" />
+            <label
+              class="ai-think-master"
+              title="关闭后请求会禁用深度思考"
+            >
+              <input
+                v-model="showThinking"
+                type="checkbox"
+              >
               <span>思考</span>
             </label>
-            <button class="ai-icon-btn" type="button" title="收起" @click="closePanel">
+            <button
+              class="ai-icon-btn"
+              type="button"
+              title="收起"
+              @click="closePanel"
+            >
               <n-icon><CloseOutline /></n-icon>
             </button>
           </div>
         </header>
 
-        <div ref="messageBody" class="ai-messages" @scroll="handleMessagesScroll" @pointerdown.capture="handleMessagesPointerDown" @keydown.enter.capture="handleMessagesKeydown">
-          <div v-if="assistant.loading" class="ai-center">
+        <div
+          ref="messageBody"
+          class="ai-messages"
+          @scroll="handleMessagesScroll"
+          @pointerdown.capture="handleMessagesPointerDown"
+          @keydown.enter.capture="handleMessagesKeydown"
+        >
+          <div
+            v-if="assistant.loading"
+            class="ai-center"
+          >
             <n-spin size="small" />
           </div>
-          <div v-else-if="!assistant.messages.length" class="ai-empty">
-            <n-icon size="32"><ChatbubbleEllipsesOutline /></n-icon>
+          <div
+            v-else-if="!assistant.messages.length"
+            class="ai-empty"
+          >
+            <n-icon size="32">
+              <ChatbubbleEllipsesOutline />
+            </n-icon>
             <span>可以问我简谱语法、转写修正或当前文本的问题。</span>
           </div>
           <div
@@ -92,17 +146,34 @@
             :data-message-id="message.id"
           >
             <!-- eslint-disable-next-line vue/no-v-html -->
-            <div v-if="message.role === 'assistant'" class="ai-message-content ai-md" v-html="renderAssistantMessage(message.content, message.id)" />
-            <div v-else class="ai-message-content">{{ message.content }}</div>
+            <div
+              v-if="message.role === 'assistant'"
+              class="ai-message-content ai-md"
+              v-html="renderAssistantMessage(message.content, message.id)"
+            />
+            <div
+              v-else
+              class="ai-message-content"
+            >
+              {{ message.content }}
+            </div>
           </div>
-          <div v-if="showTyping" class="ai-message assistant pending">
-            <div class="ai-typing"><span /><span /><span /></div>
+          <div
+            v-if="showTyping"
+            class="ai-message assistant pending"
+          >
+            <div class="ai-typing">
+              <span /><span /><span />
+            </div>
           </div>
         </div>
 
         <div class="ai-compose">
           <label class="ai-context">
-            <input v-model="includeCurrentJianpu" type="checkbox" />
+            <input
+              v-model="includeCurrentJianpu"
+              type="checkbox"
+            >
             <span>附带当前简谱</span>
           </label>
           <div class="ai-input-row">
@@ -115,8 +186,16 @@
               :disabled="assistant.sending"
               @keydown.enter.exact.prevent="send"
             />
-            <n-button type="primary" size="small" :loading="assistant.sending" :disabled="!draft.trim()" @click="send">
-              <template #icon><n-icon><SendOutline /></n-icon></template>
+            <n-button
+              type="primary"
+              size="small"
+              :loading="assistant.sending"
+              :disabled="!draft.trim()"
+              @click="send"
+            >
+              <template #icon>
+                <n-icon><SendOutline /></n-icon>
+              </template>
             </n-button>
           </div>
         </div>
