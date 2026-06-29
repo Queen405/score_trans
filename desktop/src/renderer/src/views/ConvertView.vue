@@ -458,14 +458,30 @@ const batchStartMeasureNumber = computed(() =>
   firstBatchPage()?.startMeasureNumber ?? store.startMeasureNumber ?? null,
 )
 
+// Distinguish programmatic text changes (store pushes and their cascading
+// auto-formatting in JianpuEditor) from genuine user edits (typing). Only the
+// latter should mark the batch as dirty so that recognition results can still
+// flow into the editor via syncBatchJianpuTextForPage.
+let programmaticUpdate = false
+
 watch(() => store.currentBatchJianpuText, (v) => {
-  if (v !== jianpuText.value) jianpuText.value = v
+  if (v !== jianpuText.value) {
+    programmaticUpdate = true
+    jianpuText.value = v
+    // Vue 3's nextTick resolves after the entire flush queue — including the
+    // cascading auto-formatting watch in JianpuEditor — so the flag stays true
+    // long enough to suppress the dirty mark for formatting-only changes.
+    nextTick(() => { programmaticUpdate = false })
+  }
 })
 watch(jianpuText, (v) => {
   if (v !== store.currentBatchJianpuText) {
-    store.setBatchJianpuText(v, true)
-    store.setBatchRenderPageFileIds([])
-    setFinalSvgFileIds([])
+    const isUserEdit = !programmaticUpdate
+    store.setBatchJianpuText(v, isUserEdit)
+    if (isUserEdit) {
+      store.setBatchRenderPageFileIds([])
+      setFinalSvgFileIds([])
+    }
     errorLine.value = -1
   }
   syncPageStartsFromEditor(v)
