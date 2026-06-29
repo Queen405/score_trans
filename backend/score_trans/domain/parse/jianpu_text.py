@@ -402,7 +402,7 @@ def _strip_inline_comment(line: str) -> str:
 
 
 def _strip_leading_measure_label(line: str) -> str:
-    return re.sub(r"^\s*\d+[.:：]\s*", "", line, count=1)
+    return re.sub(r"^\s*\d+[.:：](?:\s+|$)", "", line, count=1)
 
 
 def _is_measure_label_token(token: str) -> bool:

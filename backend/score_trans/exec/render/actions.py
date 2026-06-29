@@ -370,7 +370,13 @@ class RenderActions:
         scores: list[JianpuScore] = []
         starts: list[int | None] = []
         for index, page in enumerate(req.pages):
-            score = self._build_batch_page_score(req, page)
+            try:
+                score = self._build_batch_page_score(req, page)
+            except ValueError as exc:
+                page_label = f"第 {index + 1} 页"
+                if page.input_file_name:
+                    page_label = f"{page_label}（{page.input_file_name}）"
+                raise HTTPException(400, f"{page_label}：{exc}") from exc
             _tag_score_source_page(score, index)
             scores.append(score)
             starts.append(page.start_measure_number)

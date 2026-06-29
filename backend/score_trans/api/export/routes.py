@@ -28,7 +28,7 @@ async def export_midi_text(
 
 @router.post("/pdf", response_model=ExportResponse)
 async def export_pdf(
-    files: list[UploadFile] = File(..., description="PNG images, one per page"),
+    files: list[UploadFile] = File(..., description="PNG 或 JPEG images, one per page"),
     filename: str = "jianpu.pdf",
     actions: ExportActions = Depends(get_export_actions),
 ):

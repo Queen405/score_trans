@@ -7,7 +7,7 @@ from fastapi import HTTPException, UploadFile
 
 from ...domain.jianpu import parse_jianpu_score
 from ...models.export.schemas import ExportMidiTextRequest, ExportResponse
-from ...services.export.export_service import ExportService, png_pages_to_pdf
+from ...services.export.export_service import ExportService, images_to_pdf
 from ...services.files.upload_service import UploadService
 from ..convert.actions import MusicXmlToJianpuAction
 
@@ -73,16 +73,19 @@ class ExportActions:
 
     async def export_pdf(self, files: list[UploadFile], filename: str = "jianpu.pdf") -> ExportResponse:
         if not files:
-            raise HTTPException(400, "至少需要一个 PNG 图片")
+            raise HTTPException(400, "至少需要一个图片文件")
 
-        png_pages: list[bytes] = []
+        image_pages: list[bytes] = []
         for uploaded in files:
             data = await uploaded.read()
-            if not data[:8].startswith(b"\x89PNG"):
-                raise HTTPException(400, f"文件 {uploaded.filename} 不是有效的 PNG")
-            png_pages.append(data)
+            if data[:8].startswith(b"\x89PNG"):
+                image_pages.append(data)
+            elif data[:3] == b"\xff\xd8\xff":
+                image_pages.append(data)
+            else:
+                raise HTTPException(400, f"文件 {uploaded.filename} 不是有效的 PNG 或 JPEG 图片")
 
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.pdf"
-        png_pages_to_pdf(png_pages, output_path)
+        images_to_pdf(image_pages, output_path)
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=filename)

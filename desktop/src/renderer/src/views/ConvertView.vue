@@ -342,7 +342,7 @@ import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
-import { downloadBlob, exportApi, svgToPngBlob } from '../api/export'
+import { downloadBlob, exportApi, svgToJpegBlob, svgToPngBlob } from '../api/export'
 import { historyApi } from '../api/history'
 import { ApiError, requireData } from '../api/client'
 import { filesApi } from '../api/files'
@@ -984,13 +984,28 @@ function handleMissingMusicxml(errorMessage: string): string {
 }
 
 function extractErrorLineFromMessage(msg: string): number {
-  const match = msg.match(/第\s*(\d+)\s*行/)
-  if (!match) return -1
-  const sectionLine = Number(match[1])
+  const lineMatch = msg.match(/第\s*(\d+)\s*行/)
+  if (!lineMatch) return -1
+  const sectionLine = Number(lineMatch[1])
 
   const sections = parseJianpuPageSections(jianpuText.value)
   if (sections.length === 1 && sections[0].markerLineIndex < 0) {
     return sectionLine - 1
+  }
+
+  const pageMatch = msg.match(/第\s*(\d+)\s*页/)
+  if (pageMatch) {
+    const pageNumber = Number(pageMatch[1])
+    const section = sections.find((s) => s.pageIndex === pageNumber - 1)
+      ?? sections[pageNumber - 1]
+    if (section) {
+      const L = section.markerLineIndex
+      if (L < 0) return sectionLine - 1
+      if (section.pageIndex === 0 && L > 0) {
+        return sectionLine <= L ? sectionLine - 1 : sectionLine
+      }
+      return L + sectionLine
+    }
   }
 
   for (let i = 0; i < sections.length; i++) {
@@ -1029,7 +1044,7 @@ async function exportScore(): Promise<void> {
       const ids = await renderExportSvgIds()
       const svgFileId = ids[Math.min(finalRenderPageIndex.value, ids.length - 1)]
       if (!svgFileId) throw new Error('暂无可导出的 A4 页面')
-      const png = await svgToPngBlob(exportApi.getDownloadURL(svgFileId), 2)
+      const png = await svgToPngBlob(exportApi.getDownloadURL(svgFileId))
       downloadBlob(png, 'jianpu.png')
       log.addLog('导出完成：jianpu.png')
       message.success('导出完成')
@@ -1038,17 +1053,17 @@ async function exportScore(): Promise<void> {
 
     const svgIds = await renderExportSvgIds()
     if (!svgIds.length) throw new Error('暂无可导出的页面')
-    const pngPages: Blob[] = []
+    const imagePages: Blob[] = []
     const skippedPages: number[] = []
     for (let index = 0; index < svgIds.length; index++) {
       try {
-        pngPages.push(await svgToPngBlob(exportApi.getDownloadURL(svgIds[index]), 2))
+        imagePages.push(await svgToJpegBlob(exportApi.getDownloadURL(svgIds[index])))
       } catch {
         skippedPages.push(index + 1)
       }
     }
-    if (!pngPages.length) throw new Error('所有页面导出失败，无可用内容')
-    const result = await requireData(exportApi.exportPdf(pngPages, 'jianpu.pdf'))
+    if (!imagePages.length) throw new Error('所有页面导出失败，无可用内容')
+    const result = await requireData(exportApi.exportPdf(imagePages, 'jianpu.pdf'))
     downloadFile(result.file_id, result.filename)
     if (skippedPages.length) {
       log.addLog(`导出完成（跳过 ${skippedPages.length} 页失败页）：${result.filename}`)
@@ -1141,7 +1156,6 @@ function mergePendingRecognitionResults(): void {
 
 async function renderExportSvgIds(): Promise<string[]> {
   if (store.currentBatchRenderPageOcrDirty) return renderFinalBatch()
-  if (finalSvgFileIds.value.length) return finalSvgFileIds.value
   if (store.currentBatchRenderPageFileIds.length) {
     setFinalSvgFileIds(store.currentBatchRenderPageFileIds)
     return finalSvgFileIds.value

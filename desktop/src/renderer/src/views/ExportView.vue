@@ -51,6 +51,7 @@ import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
 import {
   exportApi,
+  svgToJpegBlob,
   svgToPngBlob,
   downloadSvg,
   downloadBlob,
@@ -154,15 +155,15 @@ async function exportPdfBatch(): Promise<void> {
   const svgIds = await ensureExportSvgIds()
   if (svgIds.length === 0) throw new Error('没有可导出的页面')
 
-  const pngBlobs: Blob[] = []
+  const imageBlobs: Blob[] = []
   for (let i = 0; i < svgIds.length; i++) {
     const svgUrl = getFileURL(svgIds[i])
-    const blob = await svgToPngBlob(svgUrl)
-    pngBlobs.push(blob)
+    const blob = await svgToJpegBlob(svgUrl)
+    imageBlobs.push(blob)
     log.addLog(`渲染页面 ${i + 1}/${svgIds.length}`)
   }
 
-  const result = await requireData(exportApi.exportPdf(pngBlobs))
+  const result = await requireData(exportApi.exportPdf(imageBlobs))
   const url = exportApi.getDownloadURL(result.file_id)
   const a = document.createElement('a')
   a.href = url

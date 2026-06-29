@@ -34,12 +34,13 @@ def _duration_to_ticks(duration: Fraction, beat_type: int) -> int:
     return max(1, int(quarters * _TICKS_PER_BEAT))
 
 
-def png_pages_to_pdf(png_pages: list[bytes], output_path: Path) -> Path:
+def images_to_pdf(image_pages: list[bytes], output_path: Path) -> Path:
     a4_width = 595.0
     a4_height = 842.0
     doc = fitz.open()
-    for png_data in png_pages:
-        src_doc = fitz.open("png", png_data)
+    for img_data in image_pages:
+        is_jpeg = img_data[:3] == b"\xff\xd8\xff"
+        src_doc = fitz.open("png" if not is_jpeg else "jpg", img_data)
         page_rect = src_doc[0].rect
         w, h = page_rect.width, page_rect.height
         page = doc.new_page(width=a4_width, height=a4_height)
@@ -48,10 +49,16 @@ def png_pages_to_pdf(png_pages: list[bytes], output_path: Path) -> Path:
         target_h = h * scale
         left = (a4_width - target_w) / 2
         top = (a4_height - target_h) / 2
-        page.insert_image(
-            fitz.Rect(left, top, left + target_w, top + target_h),
-            pixmap=src_doc[0].get_pixmap(),
-        )
+        if is_jpeg:
+            page.insert_image(
+                fitz.Rect(left, top, left + target_w, top + target_h),
+                stream=img_data,
+            )
+        else:
+            page.insert_image(
+                fitz.Rect(left, top, left + target_w, top + target_h),
+                pixmap=src_doc[0].get_pixmap(),
+            )
         src_doc.close()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(output_path))

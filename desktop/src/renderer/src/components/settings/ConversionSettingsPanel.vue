@@ -10,11 +10,18 @@
 
       <div class="sv-form-stack">
         <settings-form-row label="简谱调">
-          <n-select
-            v-model:value="settings.draft.targetKey"
-            :options="keyOptions"
-            size="small"
-          />
+          <div class="sv-key-pickers">
+            <n-select
+              v-model:value="accidental"
+              :options="accidentalOptions"
+              size="small"
+            />
+            <n-select
+              v-model:value="baseKey"
+              :options="baseKeyOptions"
+              size="small"
+            />
+          </div>
         </settings-form-row>
 
         <settings-form-row label="半音记谱">
@@ -93,29 +100,80 @@
 
 <script setup lang="ts">
 import { NButton, NInput, NSelect, NSwitch } from 'naive-ui'
+import { computed } from 'vue'
 import { useSettingsStore } from '../../stores/settings'
 import type { MeasureNumberMode, TargetKey } from '../../models/types'
 import SettingsFormRow from './SettingsFormRow.vue'
 
 const settings = useSettingsStore()
 
-const keyOptions: { label: string; value: TargetKey }[] = [
-  { label: 'Cb', value: 'Cb' },
-  { label: 'Gb', value: 'Gb' },
-  { label: 'Db', value: 'Db' },
-  { label: 'Ab', value: 'Ab' },
-  { label: 'Eb', value: 'Eb' },
-  { label: 'Bb', value: 'Bb' },
-  { label: 'F', value: 'F' },
-  { label: 'C', value: 'C' },
-  { label: 'G', value: 'G' },
-  { label: 'D', value: 'D' },
-  { label: 'A', value: 'A' },
-  { label: 'E', value: 'E' },
-  { label: 'B', value: 'B' },
-  { label: 'F#', value: 'F#' },
-  { label: 'C#', value: 'C#' },
+type KeyAccidental = 'sharp' | 'flat' | 'natural'
+type KeyBase = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
+
+const allBases: KeyBase[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+
+const baseLabels: Record<KeyBase, string> = {
+  C: 'C',
+  D: 'D',
+  E: 'E',
+  F: 'F',
+  G: 'G',
+  A: 'A',
+  B: 'B',
+}
+
+function splitTargetKey(key: TargetKey): { accidental: KeyAccidental; base: KeyBase } {
+  if (key.endsWith('#')) {
+    return { accidental: 'sharp', base: key.slice(0, 1) as KeyBase }
+  }
+  if (key.endsWith('b')) {
+    return { accidental: 'flat', base: key.slice(0, 1) as KeyBase }
+  }
+  return { accidental: 'natural', base: key as KeyBase }
+}
+
+function allowedBases(accidental: KeyAccidental): KeyBase[] {
+  if (accidental === 'sharp') {
+    return allBases.filter((b) => b === 'C' || b === 'F')
+  }
+  if (accidental === 'flat') {
+    return allBases.filter((b) => b !== 'F')
+  }
+  return allBases
+}
+
+function buildTargetKey(accidental: KeyAccidental, base: KeyBase): TargetKey {
+  if (accidental === 'sharp') return `${base}#` as TargetKey
+  if (accidental === 'flat') return `${base}b` as TargetKey
+  return base as TargetKey
+}
+
+const accidental = computed<KeyAccidental>({
+  get: () => splitTargetKey(settings.draft.targetKey).accidental,
+  set: (value) => {
+    const currentBase = splitTargetKey(settings.draft.targetKey).base
+    const bases = allowedBases(value)
+    const base = bases.includes(currentBase) ? currentBase : bases[0]
+    settings.draft.targetKey = buildTargetKey(value, base)
+  },
+})
+
+const baseKey = computed<KeyBase>({
+  get: () => splitTargetKey(settings.draft.targetKey).base,
+  set: (value) => {
+    settings.draft.targetKey = buildTargetKey(accidental.value, value)
+  },
+})
+
+const accidentalOptions = [
+  { label: '无', value: 'natural' as KeyAccidental },
+  { label: '升号', value: 'sharp' as KeyAccidental },
+  { label: '降号', value: 'flat' as KeyAccidental },
 ]
+
+const baseKeyOptions = computed(() =>
+  allowedBases(accidental.value).map((b) => ({ label: baseLabels[b], value: b })),
+)
 
 const accidentalModeOptions = [
   { label: '自由记谱', value: 'auto' },
@@ -138,3 +196,21 @@ function desktopApi(): any {
   return (globalThis as any).api
 }
 </script>
+
+<style scoped>
+.sv-key-pickers {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.sv-key-pickers .n-select:first-child {
+  width: 96px;
+  flex-shrink: 0;
+}
+
+.sv-key-pickers .n-select:last-child {
+  flex: 1;
+}
+</style>
