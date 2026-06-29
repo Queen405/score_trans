@@ -136,7 +136,9 @@
           </n-icon>
           <span>历史记录</span>
         </div>
-        <HistoryQuickEntry />
+        <div class="card-stats-scroll">
+          <HistoryQuickEntry />
+        </div>
       </div>
 
       <!-- 最近上传 -->
@@ -1932,15 +1934,26 @@ function errorMessage(error: unknown): string {
 }
 
 .card-recognition {
-  height: auto;
-  align-self: start;
+  height: 100%;
+  align-self: stretch;
   overflow: hidden;
 }
 
 .card-stats {
-  height: 280px;
-  align-self: start;
+  height: 100%;
+  align-self: stretch;
   overflow: hidden;
+}
+
+.card-stats-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 200px;
+}
+
+.card-stats-scroll :deep(.history-quick) {
+  position: absolute;
+  inset: 0;
 }
 
 .card-uploads,
@@ -2334,10 +2347,6 @@ function errorMessage(error: unknown): string {
   .card-recognition,
   .card-stats {
     min-height: 260px;
-  }
-
-  .card-stats {
-    height: 260px;
   }
 }
 

@@ -236,6 +236,12 @@
   },
   "hotPaths": [
     {
+      "path": "desktop\\src\\renderer\\src\\views\\RecognizeView.vue",
+      "accessCount": 9,
+      "lastAccessed": 1782748489217,
+      "type": "file"
+    },
+    {
       "path": "backend\\score_trans\\domain\\parse\\jianpu_text.py",
       "accessCount": 4,
       "lastAccessed": 1782735560777,
@@ -293,6 +299,12 @@
       "path": "docs\\issues.md",
       "accessCount": 1,
       "lastAccessed": 1782735603329,
+      "type": "file"
+    },
+    {
+      "path": "desktop\\src\\renderer\\src\\components\\HistoryQuickEntry.vue",
+      "accessCount": 1,
+      "lastAccessed": 1782748295410,
       "type": "file"
     }
   ],
