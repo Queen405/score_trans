@@ -55,10 +55,7 @@
                 :title="`${day.label}：${day.count} 个批次`"
               />
             </div>
-            <span
-              v-if="day.showLabel"
-              class="ed-bar-label"
-            >{{ day.shortLabel }}</span>
+            <span class="ed-bar-label">{{ day.shortLabel }}</span>
           </div>
         </div>
       </div>
@@ -179,7 +176,7 @@ function formatDuration(ms: number): string {
 
 const chartDays = computed(() => {
   const today = startOfDay(new Date())
-  const days: { key: string; label: string; shortLabel: string; count: number; isToday: boolean; showLabel: boolean; heightPercent: number }[] = []
+  const days: { key: string; label: string; shortLabel: string; count: number; isToday: boolean; heightPercent: number }[] = []
   const counts = new Map<string, number>()
   for (let i = 0; i < RANGE_DAYS; i++) {
     const d = new Date(today)
@@ -198,14 +195,12 @@ const chartDays = computed(() => {
     d.setDate(d.getDate() - (RANGE_DAYS - 1 - i))
     const key = dateKey(d)
     const count = counts.get(key) ?? 0
-    const showLabel = i % 2 === 0
     days.push({
       key,
       label: `${d.getMonth() + 1}/${d.getDate()}`,
-      shortLabel: showLabel ? `${d.getMonth() + 1}/${d.getDate()}` : '',
+      shortLabel: `${d.getMonth() + 1}/${d.getDate()}`,
       count,
       isToday: i === RANGE_DAYS - 1,
-      showLabel,
       heightPercent: count === 0 ? 0 : Math.max(6, Math.round((count / maxCount) * 100)),
     })
   }

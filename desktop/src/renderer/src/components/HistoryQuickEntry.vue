@@ -131,6 +131,10 @@ async function onClick(entry: HistoryBatchListItem): Promise<void> {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
 }
 
 .hq-loading {

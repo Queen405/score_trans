@@ -120,6 +120,19 @@ const apiClient = await import(
   `data:text/javascript;base64,${Buffer.from(apiClientCompiled).toString('base64')}`
 )
 
+const recognizeViewSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/views/RecognizeView.vue'),
+  'utf8',
+)
+const historyQuickEntrySource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/components/HistoryQuickEntry.vue'),
+  'utf8',
+)
+const efficiencyDashboardSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/components/EfficiencyDashboard.vue'),
+  'utf8',
+)
+
 test('page sections preserve comments and blank lines', () => {
   const text = utils.composeJianpuPageText([
     {
@@ -379,6 +392,46 @@ test('partial recognition keeps page markers for every source page', () => {
   assert.deepEqual(
     utils.jianpuGutterLabels(text).filter((label) => label.startsWith('P')),
     Array.from({ length: 10 }, (_, index) => `P${index + 1}`),
+  )
+})
+
+test('recognition dashboard constrains history height and delegates scrolling to the list', () => {
+  assert.match(
+    recognizeViewSource,
+    /grid-template-rows:\s*minmax\(280px,\s*auto\)\s+minmax\(0,\s*1fr\)/,
+  )
+  assert.match(
+    recognizeViewSource,
+    /grid-template-rows:\s*minmax\(260px,\s*auto\)\s+minmax\(0,\s*1fr\)/,
+  )
+  assert.match(
+    recognizeViewSource,
+    /\.card-stats\s*\{[^}]*height:\s*280px[^}]*overflow:\s*hidden/s,
+  )
+  assert.match(
+    historyQuickEntrySource,
+    /\.history-quick\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto/s,
+  )
+})
+
+test('recognition controls stay inside the card while progress or waiting status is visible', () => {
+  assert.doesNotMatch(recognizeViewSource, /card-recognition--compact/)
+  assert.match(
+    recognizeViewSource,
+    /\.card-recognition\s*\{[^}]*height:\s*auto[^}]*overflow:\s*hidden/s,
+  )
+  assert.match(
+    recognizeViewSource,
+    /\.card-recognition \.card-body\s*\{[^}]*flex:\s*0 0 auto/s,
+  )
+})
+
+test('efficiency dashboard shows a date label for every day', () => {
+  assert.doesNotMatch(efficiencyDashboardSource, /v-if="day\.showLabel"/)
+  assert.doesNotMatch(efficiencyDashboardSource, /i\s*%\s*2/)
+  assert.match(
+    efficiencyDashboardSource,
+    /shortLabel:\s*`\$\{d\.getMonth\(\) \+ 1\}\/\$\{d\.getDate\(\)\}`/,
   )
 })
 

@@ -1929,7 +1929,18 @@ function errorMessage(error: unknown): string {
 .card-recognition,
 .card-stats {
   min-height: 280px;
-  overflow: visible;
+}
+
+.card-recognition {
+  height: auto;
+  align-self: start;
+  overflow: hidden;
+}
+
+.card-stats {
+  height: 280px;
+  align-self: start;
+  overflow: hidden;
 }
 
 .card-uploads,
@@ -2323,6 +2334,10 @@ function errorMessage(error: unknown): string {
   .card-recognition,
   .card-stats {
     min-height: 260px;
+  }
+
+  .card-stats {
+    height: 260px;
   }
 }
 
