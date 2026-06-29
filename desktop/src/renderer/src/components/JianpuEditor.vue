@@ -81,6 +81,12 @@
           class="editor-error-line-blink"
           :style="errorHighlightStyle"
         />
+        <div
+          v-if="pageFlashStyle && pageFlashActive"
+          :key="`page-flash-${pageFlashKey}`"
+          class="editor-page-flash"
+          :style="pageFlashStyle"
+        />
       </div>
     </div>
   </div>
@@ -103,11 +109,13 @@ const props = withDefaults(defineProps<{
   currentNoteIndex?: number
   syntaxHighlight?: boolean
   errorLine?: number
+  flashLine?: number
 }>(), {
   startMeasureNumber: 1,
   currentNoteIndex: -1,
   syntaxHighlight: false,
   errorLine: -1,
+  flashLine: -1,
 })
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
@@ -152,6 +160,54 @@ const playbackHighlightStyle = computed(() => {
 const errorBlinkKey = ref(0)
 const errorBlinkActive = ref(false)
 let errorBlinkTimer: ReturnType<typeof setTimeout> | null = null
+
+const pageFlashKey = ref(0)
+const pageFlashActive = ref(false)
+const pageFlashLine = ref(-1)
+let pageFlashTimer: ReturnType<typeof setTimeout> | null = null
+
+const pageFlashStyle = computed(() => {
+  if (pageFlashLine.value < 0) return null
+  const metrics = editorMetrics.value
+  const top = metrics.paddingTop + pageFlashLine.value * metrics.lineHeight - scrollTop.value
+  return {
+    transform: `translateY(${top}px)`,
+    height: `${metrics.lineHeight}px`,
+  }
+})
+
+const PAGE_FLASH_MS = 1200
+
+function triggerPageFlash(line: number): void {
+  const el = textareaRef.value
+  if (!el || line < 0) return
+  if (pageFlashTimer !== null) {
+    clearTimeout(pageFlashTimer)
+    pageFlashTimer = null
+  }
+  nextTick(() => {
+    scrollLineIntoView(el, line)
+    pageFlashLine.value = line
+    pageFlashKey.value++
+    pageFlashActive.value = true
+    pageFlashTimer = setTimeout(() => {
+      pageFlashActive.value = false
+      pageFlashTimer = null
+    }, PAGE_FLASH_MS)
+  })
+}
+
+function scrollLineIntoView(el: HTMLTextAreaElement, line: number): void {
+  const metrics = editorMetrics.value
+  const top = metrics.paddingTop + line * metrics.lineHeight
+  const bottom = top + metrics.lineHeight
+  if (top < el.scrollTop) {
+    el.scrollTop = Math.max(0, top - metrics.lineHeight)
+  } else if (bottom > el.scrollTop + el.clientHeight) {
+    el.scrollTop = bottom - el.clientHeight + metrics.lineHeight
+  }
+  syncScrollPosition(el)
+}
 
 const errorHighlightStyle = computed(() => {
   if (props.errorLine < 0) return null
@@ -387,12 +443,18 @@ function pageRangeText(page: JianpuPageSummary): string {
 }
 
 function scrollToPage(markerLineIndex: number): void {
-  const el = textareaRef.value
-  if (!el || markerLineIndex < 0) return
-  el.scrollTop = Math.max(0, markerLineIndex * editorMetrics.value.lineHeight)
-  syncScrollPosition(el)
-  el.focus()
+  triggerPageFlash(markerLineIndex)
+  textareaRef.value?.focus()
 }
+
+watch(() => props.flashLine, (line, oldLine) => {
+  if (line < 0) {
+    pageFlashActive.value = false
+    return
+  }
+  if (line === oldLine) return
+  triggerPageFlash(line)
+})
 
 watch(activeNoteSpan, (span) => {
   if (!span) return
@@ -414,6 +476,10 @@ onUnmounted(() => {
   if (errorBlinkTimer !== null) {
     clearTimeout(errorBlinkTimer)
     errorBlinkTimer = null
+  }
+  if (pageFlashTimer !== null) {
+    clearTimeout(pageFlashTimer)
+    pageFlashTimer = null
   }
 })
 
@@ -691,6 +757,27 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   30% { opacity: 0; }
   50% { opacity: 1; }
   70% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.editor-page-flash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgba(37, 99, 235, 0.26);
+  border-left: 3px solid rgba(37, 99, 235, 0.85);
+  pointer-events: none;
+  z-index: 3;
+  animation: page-line-flash 1.2s ease-out forwards;
+}
+
+@keyframes page-line-flash {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  40% { opacity: 0; }
+  55% { opacity: 1; }
+  85% { opacity: 0; }
   100% { opacity: 0; }
 }
 

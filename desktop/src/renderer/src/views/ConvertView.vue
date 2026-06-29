@@ -316,6 +316,7 @@
               :current-note-index="currentNoteIndex"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
               :error-line="errorLine"
+              :flash-line="flashLine"
             />
           </div>
         </div>
@@ -336,7 +337,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
@@ -406,6 +407,7 @@ const jianpuText = ref(store.currentBatchJianpuText)
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
 const errorLine = ref(-1)
+const flashLine = ref(-1)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
 const finalRenderPageOcrText = computed(() =>
   store.currentBatchRenderPageOcrText(finalRenderPageIndex.value),
@@ -478,6 +480,7 @@ watch(() => store.currentPageIndex, () => {
   currentNoteIndex.value = -1
   errorLine.value = -1
   if (!isViewingFinal.value) setFinalSvgFileIds(currentPageSvgIds())
+  if (!isViewingFinal.value) flashCurrentPageSection('切换页面')
 })
 
 onMounted(() => {
@@ -659,6 +662,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   )
   isViewingFinal.value = false
   void validateRestoredBatchFiles(allPages, renderPageFileIds)
+  void nextTick(() => flashCurrentPageSection('历史恢复'))
 
   message.success(`已恢复 ${allPages.length} 页`)
 }
@@ -1137,6 +1141,39 @@ function syncPageStartsFromEditor(text: string): void {
       store.patchPageById(page.id, { startMeasureNumber: section.startMeasureNumber })
     }
   })
+}
+
+/** 让编辑器跳转到指定行并闪两下；同一行可重复触发。 */
+function requestEditorFlash(line: number): void {
+  if (line < 0) return
+  flashLine.value = -1
+  void nextTick(() => { flashLine.value = line })
+}
+
+/**
+ * 计算当前页（左侧图片）对应的编辑器文本段落行号，并触发闪烁。
+ * 同时校验左侧图片与右侧 P1/P2 段落是否一一对应；不一致时记录告警。
+ * @param source 触发来源，用于告警日志
+ */
+function flashCurrentPageSection(source: string): void {
+  const text = store.currentBatchJianpuText
+  if (!hasJianpuPageMarkers(text)) return
+  const sections = parseJianpuPageSections(text)
+  const batchPages = store.currentBatchPages
+  const currentPage = store.currentPage
+  const localIdx = currentPage ? batchPages.indexOf(currentPage) : -1
+
+  if (sections.length !== batchPages.length) {
+    log.addLog(
+      `[${source}] 左侧图片（${batchPages.length} 页）与右侧编辑区段落（${sections.length} 段）数量不一致，可能不同步`,
+      'warn',
+    )
+  }
+  if (localIdx < 0) return
+  const section = sections[localIdx] ?? sections[0]
+  if (section && section.markerLineIndex >= 0) {
+    requestEditorFlash(section.markerLineIndex)
+  }
 }
 
 function mergePendingRecognitionResults(): void {
