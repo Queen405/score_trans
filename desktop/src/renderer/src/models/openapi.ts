@@ -694,7 +694,7 @@ export type components = {
              * @default general
              * @enum {string}
              */
-            instrument_profile?: "general" | "erhu" | "zhongruan" | "guzheng";
+            instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /** Max Pages */
             max_pages?: number | null;
             /**
@@ -751,6 +751,11 @@ export type components = {
             first_file_name: string;
             /** Id */
             id: number;
+            /**
+             * Last Completed At
+             * @default
+             */
+            last_completed_at?: string;
             /** Page Count */
             page_count: number;
             /** Status */
@@ -799,7 +804,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
+            instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
              * Measure Number Mode
              * @default all
@@ -875,7 +880,7 @@ export type components = {
         Body_export_pdf_export_pdf_post: {
             /**
              * Files
-             * @description PNG images, one per page
+             * @description PNG 或 JPEG images, one per page
              */
             files: string[];
         };
@@ -899,7 +904,7 @@ export type components = {
              * @default general
              * @enum {string}
              */
-            instrument_profile?: "general" | "erhu" | "zhongruan" | "guzheng";
+            instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /**
              * Measure Number Mode
              * @default all
@@ -990,7 +995,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
+            instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
              * Measure Number Mode
              * @default all
@@ -1041,7 +1046,7 @@ export type components = {
              * Id
              * @enum {string}
              */
-            id: "general" | "erhu" | "zhongruan" | "guzheng";
+            id: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /** Marks */
             marks?: components["schemas"]["PerformanceMarkCatalogItem"][];
             /** Name */
@@ -1095,7 +1100,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
+            instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /** Musicxml File Id */
             musicxml_file_id: string;
             /** Page Image File Id */
@@ -1183,6 +1188,11 @@ export type components = {
         PageResponse: {
             /** Batch Id */
             batch_id: number;
+            /**
+             * Completed At
+             * @default
+             */
+            completed_at?: string;
             /** Error Message */
             error_message: string;
             /** Id */
@@ -1260,7 +1270,7 @@ export type components = {
              * @default general
              * @enum {string}
              */
-            instrument_profile?: "general" | "erhu" | "zhongruan" | "guzheng";
+            instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /**
              * Measure Number Mode
              * @default all
@@ -1289,7 +1299,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
+            instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
              * Measure Number Mode
              * @default all
@@ -1349,7 +1359,7 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /** Instrument Profile */
-            instrument_profile?: ("general" | "erhu" | "zhongruan" | "guzheng") | null;
+            instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
              * Measure Number Mode
              * @default all

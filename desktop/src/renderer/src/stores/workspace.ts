@@ -7,7 +7,13 @@ import {
   removeJianpuPageSection,
 } from '../utils/jianpuPageSections'
 
-export type TaskPageStatus = 'pending' | 'processing' | 'waiting' | 'completed' | 'failed'
+export type TaskPageStatus =
+  | 'pending'
+  | 'processing'
+  | 'waiting'
+  | 'completed'
+  | 'failed'
+  | 'unrecognized'
 
 export interface TaskPage {
   id: string

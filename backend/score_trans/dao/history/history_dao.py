@@ -69,7 +69,8 @@ class HistoryDao:
                     svg_file_id TEXT NOT NULL DEFAULT '',
                     start_measure_number INTEGER,
                     status TEXT NOT NULL DEFAULT 'completed',
-                    error_message TEXT NOT NULL DEFAULT ''
+                    error_message TEXT NOT NULL DEFAULT '',
+                    completed_at TEXT NOT NULL DEFAULT ''
                 )
                 """
             )
@@ -94,7 +95,15 @@ class HistoryDao:
                             LIMIT 1
                         ),
                         ''
-                    ) AS first_file_name
+                    ) AS first_file_name,
+                    COALESCE(
+                        (
+                            SELECT MAX(p.completed_at)
+                            FROM history_page p
+                            WHERE p.batch_id = b.id AND p.completed_at != ''
+                        ),
+                        ''
+                    ) AS last_completed_at
                 FROM history_batch b
                 ORDER BY b.id DESC
                 """
@@ -106,6 +115,7 @@ class HistoryDao:
                     page_count=row["page_count"],
                     status=row["status"],
                     first_file_name=row["first_file_name"],
+                    last_completed_at=row["last_completed_at"],
                 )
                 for row in rows
             ]
@@ -163,8 +173,8 @@ class HistoryDao:
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id, task_id, musicxml_file_id,
                          jianpu_text, ocr_text, svg_file_id, start_measure_number,
-                         status, error_message)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         status, error_message, completed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -178,6 +188,7 @@ class HistoryDao:
                         page.start_measure_number,
                         page.status,
                         page.error_message,
+                        page.completed_at,
                     ),
                 )
             batch_status = _batch_status([p.status for p in pages])
@@ -281,10 +292,13 @@ class HistoryDao:
 
         with self._connect() as conn:
             exists = conn.execute(
-                "SELECT id, batch_id FROM history_page WHERE id = ?", (page_id,)
+                "SELECT id, batch_id, completed_at FROM history_page WHERE id = ?",
+                (page_id,),
             ).fetchone()
             if not exists:
                 return None
+            if status in ("completed", "failed") and not exists["completed_at"]:
+                updates.append("completed_at = datetime('now', 'localtime')")
             if updates:
                 values.append(page_id)
                 conn.execute(
@@ -339,6 +353,11 @@ class HistoryDao:
         if "start_measure_number" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN start_measure_number INTEGER"
+            )
+            conn.commit()
+        if "completed_at" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN completed_at TEXT NOT NULL DEFAULT ''"
             )
             conn.commit()
         batch_columns = {
@@ -413,12 +432,13 @@ class HistoryDao:
             else None,
             status=row["status"],
             error_message=row["error_message"],
+            completed_at=row["completed_at"] if "completed_at" in row.keys() else "",
         )
 
 
 def _batch_status(statuses: list[str]) -> str:
     active_statuses = {"pending", "processing", "waiting"}
-    known_statuses = {"completed", "failed", *active_statuses}
+    known_statuses = {"completed", "failed", "unrecognized", *active_statuses}
     if any(status == "failed" or status not in known_statuses for status in statuses):
         return "failed"
     if any(status == "waiting" for status in statuses):

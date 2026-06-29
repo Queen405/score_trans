@@ -40,6 +40,7 @@ class PageResponse(BaseModel):
     start_measure_number: int | None = None
     status: str
     error_message: str
+    completed_at: str = ""
 
 
 class RenderPageOcrText(BaseModel):
@@ -71,6 +72,7 @@ class BatchListItem(BaseModel):
     page_count: int
     status: str
     first_file_name: str
+    last_completed_at: str = ""
 
 
 class DeleteAllResponse(BaseModel):

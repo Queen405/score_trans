@@ -115,6 +115,10 @@
                 v-if="isWaitingStatus(page.status)"
                 class="hist-waiting-label"
               >待选择</span>
+              <span
+                v-else-if="page.status === 'unrecognized'"
+                class="hist-unrecognized-label"
+              >未识别</span>
             </div>
           </div>
         </div>
@@ -813,6 +817,7 @@ function formatTime(iso: string): string {
 function historyStatusClass(status: string): string {
   if (status === 'completed') return 'ok'
   if (status === 'processing' || status === 'pending' || status === 'waiting') return 'processing'
+  if (status === 'unrecognized') return 'unrecognized'
   return 'err'
 }
 
@@ -1649,6 +1654,7 @@ async function persistBatchJianpuText(batchId: number, text: string): Promise<vo
 
 .hist-dot.ok { background: var(--success); }
 .hist-dot.err { background: var(--danger); }
+.hist-dot.unrecognized { background: var(--text-tertiary); }
 .hist-dot.processing {
   background: var(--warning);
   animation: pulse-blink 1.5s ease-in-out infinite;
@@ -1726,6 +1732,15 @@ async function persistBatchJianpuText(batchId: number, text: string): Promise<vo
 
 .hist-page-item:hover {
   background: var(--accent-light);
+}
+
+.hist-unrecognized-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  padding: 1px 5px;
+  border-radius: 999px;
+  flex-shrink: 0;
 }
 
 .hist-page-waiting {

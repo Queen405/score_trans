@@ -88,6 +88,22 @@ const historyPageState = await import(
   `data:text/javascript;base64,${Buffer.from(historyPageStateCompiled).toString('base64')}`
 )
 
+const recognitionHistorySourcePath = path.resolve(
+  here,
+  '../src/renderer/src/utils/recognitionHistory.ts',
+)
+const recognitionHistorySource = fs.readFileSync(recognitionHistorySourcePath, 'utf8')
+const recognitionHistoryCompiled = ts.transpileModule(recognitionHistorySource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: recognitionHistorySourcePath,
+}).outputText
+const recognitionHistory = await import(
+  `data:text/javascript;base64,${Buffer.from(recognitionHistoryCompiled).toString('base64')}`
+)
+
 const apiClientSourcePath = path.resolve(
   here,
   '../src/renderer/src/api/client.ts',
@@ -290,7 +306,80 @@ test('only the latest waiting history state opens the measure picker', () => {
   assert.equal(historyPageState.historyPageOpenAction('waiting'), 'choose')
   assert.equal(historyPageState.historyPageOpenAction('processing'), 'wait')
   assert.equal(historyPageState.historyPageOpenAction('pending'), 'wait')
+  assert.equal(historyPageState.historyPageOpenAction('unrecognized'), 'restore')
   assert.equal(historyPageState.historyPageOpenAction('failed'), 'restore')
+})
+
+test('partial recognition snapshots every source page in stable order', () => {
+  const pages = Array.from({ length: 10 }, (_, index) => ({
+    id: `page-${index + 1}`,
+    inputFileName: `第${index + 1}页.png`,
+    inputFileId: `input-${index + 1}`,
+    originalFileId: '',
+    musicxmlFileId: '',
+    jianpuText: '',
+    ocrText: '',
+    svgFileId: '',
+    startMeasureNumber: null,
+  }))
+
+  const snapshot = recognitionHistory.buildHistoryBatchSnapshot(
+    pages,
+    new Set(['page-2', 'page-7']),
+  )
+
+  assert.deepEqual(snapshot.pageIds, pages.map((page) => page.id))
+  assert.equal(snapshot.pages.length, 10)
+  assert.equal(snapshot.pages[1].status, 'processing')
+  assert.equal(snapshot.pages[6].status, 'processing')
+  assert.equal(
+    snapshot.pages.filter((page) => page.status === 'unrecognized').length,
+    8,
+  )
+  assert.equal(snapshot.pages[9].input_file_id, 'input-10')
+})
+
+test('unrecognized pages are neutral for completed-batch rendering', () => {
+  assert.equal(
+    recognitionHistory.isRecognitionBatchReadyForRender([
+      'completed',
+      'unrecognized',
+      'unrecognized',
+    ]),
+    true,
+  )
+  assert.equal(
+    recognitionHistory.isRecognitionBatchReadyForRender([
+      'unrecognized',
+      'unrecognized',
+    ]),
+    false,
+  )
+  for (const blockingStatus of ['pending', 'processing', 'waiting', 'failed']) {
+    assert.equal(
+      recognitionHistory.isRecognitionBatchReadyForRender([
+        'completed',
+        blockingStatus,
+        'unrecognized',
+      ]),
+      false,
+    )
+  }
+})
+
+test('partial recognition keeps page markers for every source page', () => {
+  const text = utils.composeJianpuPageText(
+    Array.from({ length: 10 }, (_, index) => ({
+      inputFileName: `page-${index + 1}.png`,
+      jianpuText: index === 1 || index === 6 ? '1 2 3 4 |' : '',
+    })),
+  )
+
+  assert.equal(utils.parseJianpuPageSections(text).length, 10)
+  assert.deepEqual(
+    utils.jianpuGutterLabels(text).filter((label) => label.startsWith('P')),
+    Array.from({ length: 10 }, (_, index) => `P${index + 1}`),
+  )
 })
 
 test('waiting measure messages roundtrip through history state', () => {

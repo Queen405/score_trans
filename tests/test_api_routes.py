@@ -267,6 +267,44 @@ def test_history_batch_schema_persists_batch_jianpu_text() -> None:
     assert "jianpu_text" in schemas["BatchJianpuTextUpdate"]["properties"]
 
 
+def test_history_api_accepts_unrecognized_pages_as_completed_batch(
+    tmp_path: Path,
+) -> None:
+    app = create_app()
+    service = HistoryService(tmp_path / "history.db")
+    app.dependency_overrides[get_history_actions] = lambda: HistoryActions(service)
+    client = TestClient(app)
+
+    response = client.post(
+        "/history",
+        json={
+            "jianpu_text": "// @page 1 start=auto\n1 2 |\n// @page 2 start=auto",
+            "pages": [
+                {
+                    "input_file_name": "recognized.png",
+                    "input_file_id": "input-1",
+                    "jianpu_text": "1 2 |",
+                    "status": "completed",
+                },
+                {
+                    "input_file_name": "unrecognized.png",
+                    "input_file_id": "input-2",
+                    "status": "unrecognized",
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["page_count"] == 2
+    assert [page["status"] for page in payload["pages"]] == [
+        "completed",
+        "unrecognized",
+    ]
+
+
 def test_batch_a4_schema_exposes_page_ranges_and_page_ocr_texts() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
 

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1782565382375,
+  "lastScanned": 1782735344478,
   "projectRoot": "D:\\CODE\\MyProjects\\score_trans",
   "techStack": {
     "languages": [
@@ -48,7 +48,6 @@
     "mainDirectories": [
       "docs",
       "examples",
-      "scripts",
       "tests"
     ],
     "gitBranches": {
@@ -62,28 +61,30 @@
       "path": "backend",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1782565382341,
+      "lastAccessed": 1782735344434,
       "keyFiles": []
     },
     "build": {
       "path": "build",
       "purpose": "Build output",
-      "fileCount": 0,
-      "lastAccessed": 1782565382341,
-      "keyFiles": []
+      "fileCount": 1,
+      "lastAccessed": 1782735344434,
+      "keyFiles": [
+        "openapi.json"
+      ]
     },
     "build-resources": {
       "path": "build-resources",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1782565382342,
+      "lastAccessed": 1782735344435,
       "keyFiles": []
     },
     "desktop": {
       "path": "desktop",
       "purpose": null,
       "fileCount": 13,
-      "lastAccessed": 1782565382343,
+      "lastAccessed": 1782735344436,
       "keyFiles": [
         "AGENTS.md",
         "build-log.txt",
@@ -96,14 +97,14 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 0,
-      "lastAccessed": 1782565382343,
+      "lastAccessed": 1782735344436,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 4,
-      "lastAccessed": 1782565382344,
+      "lastAccessed": 1782735344437,
       "keyFiles": [
         "architecture.md",
         "file-by-file.md",
@@ -115,59 +116,50 @@
       "path": "examples",
       "purpose": "Example code",
       "fileCount": 2,
-      "lastAccessed": 1782565382344,
+      "lastAccessed": 1782735344437,
       "keyFiles": [
         "5.瑞雪迎春 - 分谱.pdf",
         "simple_jianpu.txt"
       ]
     },
-    "resources": {
-      "path": "resources",
-      "purpose": null,
-      "fileCount": 6,
-      "lastAccessed": 1782565382344,
-      "keyFiles": [
-        "1.jpg",
-        "2.jpg",
-        "3.jpg",
-        "4.jpg",
-        "5.jpg"
-      ]
-    },
-    "scripts": {
-      "path": "scripts",
-      "purpose": "Build/utility scripts",
-      "fileCount": 1,
-      "lastAccessed": 1782565382345,
-      "keyFiles": [
-        "prompt_validation.py"
-      ]
-    },
     "tests": {
       "path": "tests",
       "purpose": "Test files",
-      "fileCount": 14,
-      "lastAccessed": 1782565382345,
+      "fileCount": 15,
+      "lastAccessed": 1782735344438,
       "keyFiles": [
         "test_ai_transcription.py",
         "test_api_routes.py",
         "test_architecture.py",
         "test_cache_service.py",
-        "test_convert.py"
+        "test_composition.py"
       ]
     },
     "third_party": {
       "path": "third_party",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1782565382346,
+      "lastAccessed": 1782735344438,
       "keyFiles": []
+    },
+    "website": {
+      "path": "website",
+      "purpose": null,
+      "fileCount": 9,
+      "lastAccessed": 1782735344439,
+      "keyFiles": [
+        "index.html",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "README.md"
+      ]
     },
     "work": {
       "path": "work",
       "purpose": null,
       "fileCount": 5,
-      "lastAccessed": 1782565382346,
+      "lastAccessed": 1782735344439,
       "keyFiles": [
         "ai_chat.db",
         "full_test.mid",
@@ -180,7 +172,7 @@
       "path": "desktop\\build",
       "purpose": "Build output",
       "fileCount": 2,
-      "lastAccessed": 1782565382347,
+      "lastAccessed": 1782735344441,
       "keyFiles": [
         "icon.ico",
         "icon.png"
@@ -190,10 +182,119 @@
       "path": "desktop\\node_modules",
       "purpose": "Dependencies",
       "fileCount": 2,
-      "lastAccessed": 1782565382348,
+      "lastAccessed": 1782735344441,
       "keyFiles": []
+    },
+    "tests\\fixtures": {
+      "path": "tests\\fixtures",
+      "purpose": "Test fixtures",
+      "fileCount": 1,
+      "lastAccessed": 1782735344442,
+      "keyFiles": [
+        "guzheng_marks.jianpu"
+      ]
+    },
+    "website\\dist": {
+      "path": "website\\dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 3,
+      "lastAccessed": 1782735344443,
+      "keyFiles": [
+        "favicon.ico",
+        "icon.png",
+        "index.html"
+      ]
+    },
+    "website\\node_modules": {
+      "path": "website\\node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 2,
+      "lastAccessed": 1782735344443,
+      "keyFiles": []
+    },
+    "website\\public": {
+      "path": "website\\public",
+      "purpose": "Public files",
+      "fileCount": 2,
+      "lastAccessed": 1782735344444,
+      "keyFiles": [
+        "favicon.ico",
+        "icon.png"
+      ]
+    },
+    "website\\src": {
+      "path": "website\\src",
+      "purpose": "Source code",
+      "fileCount": 4,
+      "lastAccessed": 1782735344444,
+      "keyFiles": [
+        "App.vue",
+        "env.d.ts",
+        "main.ts"
+      ]
     }
   },
-  "hotPaths": [],
+  "hotPaths": [
+    {
+      "path": "backend\\score_trans\\domain\\parse\\jianpu_text.py",
+      "accessCount": 4,
+      "lastAccessed": 1782735560777,
+      "type": "file"
+    },
+    {
+      "path": "backend\\score_trans\\domain\\parse\\musicxml.py",
+      "accessCount": 4,
+      "lastAccessed": 1782736042678,
+      "type": "file"
+    },
+    {
+      "path": "backend\\score_trans\\domain\\write\\musicxml.py",
+      "accessCount": 1,
+      "lastAccessed": 1782735410950,
+      "type": "file"
+    },
+    {
+      "path": "backend\\score_trans\\services\\render\\items\\grouping.py",
+      "accessCount": 1,
+      "lastAccessed": 1782735476127,
+      "type": "file"
+    },
+    {
+      "path": "backend\\score_trans\\services\\render\\layout\\measure.py",
+      "accessCount": 1,
+      "lastAccessed": 1782735487132,
+      "type": "file"
+    },
+    {
+      "path": "backend\\score_trans\\services\\render\\items\\factory.py",
+      "accessCount": 1,
+      "lastAccessed": 1782735487436,
+      "type": "file"
+    },
+    {
+      "path": "backend\\score_trans\\services\\ai\\transcription\\service.py",
+      "accessCount": 1,
+      "lastAccessed": 1782735505856,
+      "type": "file"
+    },
+    {
+      "path": "backend\\score_trans\\domain\\jianpu_tokens.py",
+      "accessCount": 1,
+      "lastAccessed": 1782735536863,
+      "type": "file"
+    },
+    {
+      "path": "backend\\score_trans\\services\\ai\\transcription\\validation.py",
+      "accessCount": 1,
+      "lastAccessed": 1782735589029,
+      "type": "file"
+    },
+    {
+      "path": "docs\\issues.md",
+      "accessCount": 1,
+      "lastAccessed": 1782735603329,
+      "type": "file"
+    }
+  ],
   "userDirectives": []
 }

@@ -17,6 +17,7 @@ class HistoryPage:
     start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""
+    completed_at: str = ""
 
 
 @dataclass(slots=True)
@@ -44,3 +45,4 @@ class HistoryBatchSummary:
     page_count: int = 0
     status: str = "completed"
     first_file_name: str = ""
+    last_completed_at: str = ""

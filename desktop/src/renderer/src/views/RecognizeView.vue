@@ -128,79 +128,15 @@
         </div>
       </div>
 
-      <!-- 项目统计 -->
+      <!-- 历史记录快速入口 -->
       <div class="dashboard-card card-stats">
         <div class="card-title">
-          项目统计
+          <n-icon size="18">
+            <TimeOutline />
+          </n-icon>
+          <span>历史记录</span>
         </div>
-        <div class="stats-body">
-          <div class="stats-ring-wrap">
-            <div class="stats-ring">
-              <svg viewBox="0 0 36 36">
-                <path
-                  class="ring-bg"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  v-if="statsTotal > 0"
-                  class="ring-segment ring-completed"
-                  :stroke-dasharray="`${(statsCompleted / statsTotal) * 100} ${100 - (statsCompleted / statsTotal) * 100}`"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  v-if="statsTotal > 0 && statsProcessing > 0"
-                  class="ring-segment ring-processing"
-                  :stroke-dasharray="`${(statsProcessing / statsTotal) * 100} ${100 - (statsProcessing / statsTotal) * 100}`"
-                  :stroke-dashoffset="`${-(statsCompleted / statsTotal) * 100}`"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  v-if="statsTotal > 0"
-                  class="ring-segment ring-failed"
-                  :stroke-dasharray="`${(statsFailed / statsTotal) * 100} ${100 - (statsFailed / statsTotal) * 100}`"
-                  :stroke-dashoffset="`${-((statsCompleted + statsProcessing) / statsTotal) * 100}`"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-              <div class="ring-center">
-                <span class="ring-total">{{ statsTotal }}</span>
-                <span class="ring-label">总计</span>
-              </div>
-            </div>
-            <div class="stats-legend">
-              <div class="legend-item">
-                <span class="legend-dot dot-completed" />
-                <span class="legend-text">完成</span>
-                <span class="legend-value">{{ statsCompleted }}</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot dot-processing" />
-                <span class="legend-text">处理中</span>
-                <span class="legend-value">{{ statsProcessing }}</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot dot-failed" />
-                <span class="legend-text">失败</span>
-                <span class="legend-value">{{ statsFailed }}</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot dot-waiting" />
-                <span class="legend-text">等待</span>
-                <span class="legend-value">{{ statsWaiting }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="stats-mini-cards">
-            <div class="mini-card">
-              <span class="mini-card-value">{{ statsCompleted }}</span>
-              <span class="mini-card-label">完成数</span>
-            </div>
-            <div class="mini-card">
-              <span class="mini-card-value">{{ statsFailed }}</span>
-              <span class="mini-card-label">失败数</span>
-            </div>
-          </div>
-        </div>
+        <HistoryQuickEntry />
       </div>
 
       <!-- 最近上传 -->
@@ -302,37 +238,15 @@
         </div>
       </div>
 
-      <!-- 最近活动 -->
+      <!-- 处理效率仪表盘 -->
       <div class="dashboard-card card-activity">
         <div class="card-title">
-          最近活动
+          <n-icon size="18">
+            <BarChartOutline />
+          </n-icon>
+          <span>处理效率</span>
         </div>
-        <div
-          v-if="recentActivities.length"
-          class="activity-list"
-        >
-          <div
-            v-for="activity in recentActivities"
-            :key="activity.id"
-            class="activity-item"
-          >
-            <div :class="['activity-icon', activity.level]">
-              <n-icon size="14">
-                <component :is="activityIcon(activity.level)" />
-              </n-icon>
-            </div>
-            <div class="activity-content">
-              <span class="activity-name">{{ activity.message }}</span>
-              <span class="activity-time">{{ activity.time }}</span>
-            </div>
-          </div>
-        </div>
-        <div
-          v-else
-          class="activity-empty"
-        >
-          <span>暂无活动记录</span>
-        </div>
+        <EfficiencyDashboard />
       </div>
     </div>
   </div>
@@ -370,6 +284,10 @@ import {
   buildBatchRenderRequests,
   renderResponsePageOcrTexts,
 } from '../utils/batchRender'
+import {
+  buildHistoryBatchSnapshot,
+  isRecognitionBatchReadyForRender,
+} from '../utils/recognitionHistory'
 import { notifyHistoryPagePatched, notifyHistoryUpdated } from '../utils/historyEvents'
 import {
   failedMeasureSelectionMessage,
@@ -387,6 +305,8 @@ import {
 import { useFileUpload } from '../composables/useFileUpload'
 import FileUploader from '../components/FileUploader.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
+import HistoryQuickEntry from '../components/HistoryQuickEntry.vue'
+import EfficiencyDashboard from '../components/EfficiencyDashboard.vue'
 import {
   ScanOutline,
   FlashOutline,
@@ -397,11 +317,8 @@ import {
   CheckmarkCircleOutline,
   CloudUploadOutline,
   DocumentOutline,
-  CheckmarkDoneOutline,
-  WarningOutline,
   TimeOutline,
-  CloseCircleOutline,
-  InformationCircleOutline,
+  BarChartOutline,
 } from '@vicons/ionicons5'
 import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
 
@@ -497,63 +414,6 @@ withDefaults(defineProps<{
   active: true,
 })
 
-// ── Statistics ──
-const statsTotal = computed(() => store.currentBatchPages.length)
-const statsCompleted = computed(() => store.currentBatchPages.filter((p) => p.status === 'completed').length)
-const statsProcessing = computed(() => store.currentBatchPages.filter((p) => p.status === 'processing').length)
-const statsFailed = computed(() => store.currentBatchPages.filter((p) => p.status === 'failed').length)
-const statsWaiting = computed(() => store.currentBatchPages.filter((p) => p.status === 'waiting').length)
-
-// ── Recent Activity ──
-interface ActivityItem {
-  id: string
-  message: string
-  time: string
-  level: 'info' | 'warn' | 'error' | 'success'
-}
-
-const recentActivities = computed((): ActivityItem[] => {
-  const pages = store.currentBatchPages
-  const activities: ActivityItem[] = []
-  for (const page of [...pages].reverse().slice(0, 8)) {
-    let message: string
-    let level: ActivityItem['level']
-    if (page.status === 'completed') {
-      message = `Processed: ${page.inputFileName}`
-      level = 'success'
-    } else if (page.status === 'failed') {
-      message = `Failed: ${page.inputFileName}`
-      level = 'error'
-    } else if (page.status === 'processing') {
-      message = `Processing: ${page.inputFileName}`
-      level = 'info'
-    } else if (page.status === 'waiting') {
-      message = `Waiting: ${page.inputFileName}`
-      level = 'warn'
-    } else {
-      message = `Pending: ${page.inputFileName}`
-      level = 'info'
-    }
-    activities.push({
-      id: page.id,
-      message,
-      time: page.progressMessage || statusText(page),
-      level,
-    })
-  }
-  return activities
-})
-
-function activityIcon(level: ActivityItem['level']) {
-  switch (level) {
-    case 'success': return CheckmarkDoneOutline
-    case 'error': return CloseCircleOutline
-    case 'warn': return WarningOutline
-    case 'info': return InformationCircleOutline
-    default: return TimeOutline
-  }
-}
-
 const batchOptions = computed(() =>
   store.batches.map((b, i) => ({
     label: b.sealed ? `批次 ${i + 1}：${b.label}` : `草稿：${b.label}`,
@@ -636,7 +496,13 @@ function statusText(page: TaskPage): string {
   if (page.status === 'failed' && !page.inputFileId) {
     return '需重新上传'
   }
-  const map: Record<string, string> = { completed: '完成', failed: '失败', pending: '待处理', waiting: '待选择' }
+  const map: Record<string, string> = {
+    completed: '完成',
+    failed: '失败',
+    pending: '待处理',
+    waiting: '待选择',
+    unrecognized: '未识别',
+  }
   return map[page.status] ?? ''
 }
 
@@ -812,20 +678,34 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
     const page = store.pages.find((p) => p.id === t.pageId)
     return page && !page.batchSealed
   })
+  let history: PreparedHistory
+  try {
+    history = await prepareHistory(targets)
+  } catch (error: unknown) {
+    const detail = errorMessage(error)
+    log.addError(`创建识别历史失败：${detail}`)
+    message.error(`无法创建完整历史记录，识别未开始：${detail}`)
+    return
+  }
   if (hasUnsealedPage) store.sealCurrentBatch()
-  const historyPageIds = await createPendingHistory(targets)
-  await clearBatchRenderPagesForTargets(targets)
+  const historyPageIds = history.pageIds
+  await clearBatchRenderPagesForTargets(targets, {
+    preserveJianpuText: history.created,
+  })
 
   // Update existing history pages to 'processing' for re-recognition
-  for (const target of targets) {
-    const historyPageId = historyPageIds.get(target.pageId)
-    if (historyPageId) {
+  try {
+    for (const target of targets) {
+      const historyPageId = historyPageIds.get(target.pageId)
+      if (!historyPageId) {
+        throw new Error(`页面 ${target.inputFileName} 缺少历史记录编号`)
+      }
       registerLiveRecognitionPage(target.pageId, historyPageId)
       patchRecognitionPage(target.pageId, {
         startMeasureNumber: target.startMeasureNumber,
         historyPageId,
       })
-      try {
+      if (!history.created) {
         await requireData(historyApi.updatePage(historyPageId, {
           start_measure_number: target.startMeasureNumber,
           status: 'processing',
@@ -839,8 +719,16 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
             error_message: '',
           },
         })
-      } catch { /* best-effort */ }
+      }
     }
+  } catch (error: unknown) {
+    for (const target of targets) {
+      clearLiveRecognitionPage(target.pageId)
+    }
+    const detail = errorMessage(error)
+    log.addError(`更新识别历史状态失败：${detail}`)
+    message.error(`无法更新历史状态，识别未开始：${detail}`)
+    return
   }
 
   const submission: SubmissionState = {
@@ -869,42 +757,72 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
   message.success(`已提交 ${targets.length} 个${label}后台任务`)
 }
 
-async function createPendingHistory(targets: RecognitionTarget[]): Promise<Map<string, number>> {
-  const result = new Map<string, number>()
+interface PreparedHistory {
+  pageIds: Map<string, number>
+  created: boolean
+}
+
+async function prepareHistory(targets: RecognitionTarget[]): Promise<PreparedHistory> {
+  const pageIds = new Map<string, number>()
   // Reuse existing historyPageId for re-recognition
   for (const target of targets) {
     const page = store.pages.find((p) => p.id === target.pageId)
     if (page?.historyPageId) {
-      result.set(target.pageId, page.historyPageId)
+      pageIds.set(target.pageId, page.historyPageId)
     }
   }
-  const newTargets = targets.filter((t) => !result.has(t.pageId))
-  if (!newTargets.length) return result
-  try {
-    const created = await requireData(historyApi.create({
-      pages: newTargets.map((target) => ({
-        input_file_name: target.inputFileName,
-        input_file_id: target.inputFileId,
-        start_measure_number: target.startMeasureNumber,
-        status: 'processing',
-        error_message: '',
-      })),
-    }))
-    created.pages.forEach((page, index) => {
-      const target = newTargets[index]
-      if (!target) return
-      result.set(target.pageId, page.id)
-      store.patchPageById(target.pageId, {
-        historyPageId: page.id,
-        historyBatchId: created.id,
-      })
-      registerLiveRecognitionPage(target.pageId, page.id)
-    })
-    notifyHistoryUpdated()
-  } catch (error: unknown) {
-    log.addLog(`创建后台历史记录失败：${errorMessage(error)}`, 'warn')
+  if (pageIds.size === targets.length) {
+    return { pageIds, created: false }
   }
-  return result
+  if (pageIds.size) {
+    throw new Error('当前批次历史记录不完整，请重新上传后再识别')
+  }
+
+  const firstTarget = targets[0]
+  if (!firstTarget) throw new Error('没有可识别的页面')
+  const batchPages = batchPagesForPage(firstTarget.pageId)
+  if (!batchPages.length) throw new Error('找不到待建档的源页面')
+  const batchId = batchPages[0]?.batchId
+  if (
+    !batchId
+    || targets.some((target) => !batchPages.some((page) => page.id === target.pageId))
+    || batchPages.some((page) => page.historyPageId !== null)
+  ) {
+    throw new Error('待识别页面不属于同一个未建档批次')
+  }
+
+  const selectedPageIds = new Set(targets.map((target) => target.pageId))
+  const snapshot = buildHistoryBatchSnapshot(batchPages, selectedPageIds)
+  for (const target of targets) {
+    const pageIndex = snapshot.pageIds.indexOf(target.pageId)
+    if (pageIndex >= 0) {
+      snapshot.pages[pageIndex]!.start_measure_number = target.startMeasureNumber
+    }
+  }
+  const batchJianpuText = composeJianpuPageText(batchPages)
+  const created = await requireData(historyApi.create({
+    pages: snapshot.pages,
+    jianpu_text: batchJianpuText,
+  }))
+  if (created.pages.length !== batchPages.length) {
+    throw new Error(`历史页数量不一致：期望 ${batchPages.length}，实际 ${created.pages.length}`)
+  }
+
+  created.pages.forEach((historyPage, index) => {
+    const sourcePage = batchPages[index]
+    if (!sourcePage) return
+    const selected = selectedPageIds.has(sourcePage.id)
+    store.patchPageById(sourcePage.id, {
+      historyPageId: historyPage.id,
+      historyBatchId: created.id,
+      status: selected ? 'processing' : 'unrecognized',
+      errorMessage: '',
+    })
+    if (selected) pageIds.set(sourcePage.id, historyPage.id)
+  })
+  store.setBatchJianpuText(batchJianpuText, false, batchId)
+  notifyHistoryUpdated()
+  return { pageIds, created: true }
 }
 
 async function runPipelineTarget(target: RecognitionTarget, historyPageId: number | null, submission: SubmissionState): Promise<void> {
@@ -1790,7 +1708,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
   const batchPages = batchPagesForPage(pageId)
   if (!batchPages.length) return
   const batchId = batchPages[0]?.batchId
-  if (!batchPages.every((page) => page.status === 'completed')) {
+  if (!isRecognitionBatchReadyForRender(batchPages.map((page) => page.status))) {
     store.setBatchRenderPageFileIds([], batchId)
     return
   }
@@ -1860,14 +1778,17 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
   }
 }
 
-async function clearBatchRenderPagesForTargets(targets: RecognitionTarget[]): Promise<void> {
+async function clearBatchRenderPagesForTargets(
+  targets: RecognitionTarget[],
+  options: { preserveJianpuText?: boolean } = {},
+): Promise<void> {
   const batchIds = new Set<string>()
   for (const target of targets) {
     const page = store.pages.find((entry) => entry.id === target.pageId)
     if (page?.batchId) batchIds.add(page.batchId)
   }
   for (const batchId of batchIds) {
-    if (!store.isBatchJianpuDirty(batchId)) {
+    if (!options.preserveJianpuText && !store.isBatchJianpuDirty(batchId)) {
       store.setBatchJianpuText('', false, batchId)
     }
     await clearBatchRenderPages(batchId)
@@ -2167,157 +2088,6 @@ function errorMessage(error: unknown): string {
   font-weight: 500;
 }
 
-.stats-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  flex: 1;
-  justify-content: center;
-  min-height: 0;
-  overflow: visible;
-}
-
-.stats-ring-wrap {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  overflow: visible;
-  justify-content: flex-start;
-}
-
-.stats-ring {
-  position: relative;
-  width: 76px;
-  height: 76px;
-  flex-shrink: 0;
-}
-
-.stats-ring svg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-  display: block;
-}
-
-.ring-bg {
-  fill: none;
-  stroke: var(--border);
-  stroke-width: 3;
-}
-
-.ring-segment {
-  fill: none;
-  stroke-width: 3;
-  transition: stroke-dasharray 0.4s ease;
-}
-
-.ring-completed { stroke: var(--success); }
-.ring-processing { stroke: var(--warning); }
-.ring-failed { stroke: var(--danger); }
-
-.ring-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.ring-total {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.ring-label {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 2px;
-}
-
-.stats-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-  justify-content: center;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-}
-
-.legend-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dot-completed { background: var(--success); }
-.dot-processing { background: var(--warning); }
-.dot-failed { background: var(--danger); }
-.dot-waiting { background: #868e96; }
-
-.legend-text {
-  color: var(--text-secondary);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.legend-value {
-  color: var(--text-primary);
-  font-weight: 600;
-  min-width: 28px;
-  text-align: right;
-}
-
-.stats-mini-cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  align-self: stretch;
-  flex-shrink: 0;
-}
-
-.mini-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 48px;
-}
-
-.mini-card-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.mini-card-label {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  line-height: 1.2;
-}
-
 /* ── Uploads ── */
 .uploads-list {
   display: grid;
@@ -2521,6 +2291,7 @@ function errorMessage(error: unknown): string {
 .upload-status.failed { color: var(--danger); }
 .upload-status.processing { color: var(--warning); }
 .upload-status.waiting { color: var(--warning); }
+.upload-status.unrecognized { color: var(--text-tertiary); }
 
 .upload-mini-progress {
   height: 3px;
@@ -2536,84 +2307,6 @@ function errorMessage(error: unknown): string {
   border-radius: inherit;
   background: var(--warning);
   transition: width 0.2s ease;
-}
-
-/* ── Activity ── */
-.activity-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.activity-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 8px 0;
-}
-
-.activity-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.activity-icon.success {
-  background: rgba(64, 192, 87, 0.12);
-  color: var(--success);
-}
-
-.activity-icon.error {
-  background: rgba(250, 82, 82, 0.12);
-  color: var(--danger);
-}
-
-.activity-icon.warn {
-  background: rgba(250, 176, 5, 0.12);
-  color: var(--warning);
-}
-
-.activity-icon.info {
-  background: var(--accent-light);
-  color: var(--accent);
-}
-
-.activity-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.activity-name {
-  font-size: 15px;
-  color: var(--text-secondary);
-  word-break: break-word;
-  line-height: 1.5;
-}
-
-.activity-time {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.activity-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 0;
-  color: var(--text-tertiary);
-  font-size: 15px;
-  flex: 1;
 }
 
 @media (max-height: 840px) and (min-width: 1181px) {
@@ -2671,14 +2364,6 @@ function errorMessage(error: unknown): string {
   .card-header-right {
     width: 100%;
     justify-content: flex-start;
-  }
-
-  .stats-ring-wrap {
-    flex-wrap: wrap;
-  }
-
-  .stats-mini-cards {
-    grid-template-columns: 1fr;
   }
 
   .uploads-list {

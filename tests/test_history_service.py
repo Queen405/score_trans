@@ -104,6 +104,58 @@ def test_batch_status_tracks_background_pages(tmp_path) -> None:
     assert service.get_batch(batch.id).status == "failed"
 
 
+def test_partial_recognition_persists_all_pages_and_reuses_rows(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    selected_indexes = {1, 6}
+    batch = service.create_batch(
+        [
+            HistoryPage(
+                input_file_name=f"page-{index + 1}.png",
+                input_file_id=f"input-{index + 1}",
+                status="processing" if index in selected_indexes else "unrecognized",
+            )
+            for index in range(10)
+        ],
+        jianpu_text="\n".join(
+            f"// @page {index + 1} start=auto" for index in range(10)
+        ),
+    )
+
+    assert batch.page_count == 10
+    assert batch.status == "processing"
+    assert [page.input_file_id for page in batch.pages] == [
+        f"input-{index + 1}" for index in range(10)
+    ]
+    assert [page.status for page in batch.pages] == [
+        "processing" if index in selected_indexes else "unrecognized"
+        for index in range(10)
+    ]
+
+    original_page_ids = [page.id for page in batch.pages]
+    for index in selected_indexes:
+        updated = service.update_page(batch.pages[index].id, status="completed")
+        assert updated is not None
+
+    completed_batch = service.get_batch(batch.id)
+    assert completed_batch is not None
+    assert completed_batch.status == "completed"
+    assert completed_batch.page_count == 10
+
+    fifth_page_id = completed_batch.pages[4].id
+    processing = service.update_page(fifth_page_id, status="processing")
+    assert processing is not None
+    assert processing.id == fifth_page_id
+    assert service.get_batch(batch.id).status == "processing"
+
+    completed = service.update_page(fifth_page_id, status="completed")
+    assert completed is not None
+    reloaded = service.get_batch(batch.id)
+    assert reloaded is not None
+    assert reloaded.status == "completed"
+    assert reloaded.page_count == 10
+    assert [page.id for page in reloaded.pages] == original_page_ids
+
+
 def test_batch_render_page_file_ids_are_saved_and_updated(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch(
@@ -145,7 +197,9 @@ def test_batch_render_page_ocr_texts_are_saved_and_updated(tmp_path) -> None:
     assert updated.render_page_ocr_texts[0].ocr_text == '[{"text":"改后"}]'
 
 
-def test_batch_jianpu_text_is_saved_and_updated_without_overwriting_pages(tmp_path) -> None:
+def test_batch_jianpu_text_is_saved_and_updated_without_overwriting_pages(
+    tmp_path,
+) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch(
         [
@@ -246,7 +300,9 @@ def test_history_batch_pages_keep_source_order_by_id(tmp_path) -> None:
     assert summaries[0].first_file_name == "z-first.png"
 
 
-def test_measure_selection_failure_update_does_not_leave_processing_status(tmp_path) -> None:
+def test_measure_selection_failure_update_does_not_leave_processing_status(
+    tmp_path,
+) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch(
         [
@@ -308,3 +364,100 @@ def test_history_page_batch_index_is_created(tmp_path) -> None:
         }
 
     assert "idx_history_page_batch_id_id" in indexes
+
+
+def test_update_page_records_completed_at_when_status_reaches_terminal(
+    tmp_path,
+) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", status="processing")]
+    )
+    page = batch.pages[0]
+    assert page.completed_at == ""
+
+    updated = service.update_page(page.id, status="completed")
+    assert updated is not None
+    assert updated.completed_at != ""
+    first_completed_at = updated.completed_at
+
+    reloaded = service.get_page(page.id)
+    assert reloaded is not None
+    assert reloaded.completed_at == first_completed_at
+
+    updated_again = service.update_page(page.id, jianpu_text="1=C\n")
+    assert updated_again is not None
+    assert updated_again.completed_at == first_completed_at
+
+
+def test_update_page_records_completed_at_for_failed_status(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", status="processing")]
+    )
+
+    updated = service.update_page(
+        batch.pages[0].id, status="failed", error_message="bad"
+    )
+    assert updated is not None
+    assert updated.completed_at != ""
+
+
+def test_update_page_does_not_record_completed_at_for_non_terminal_status(
+    tmp_path,
+) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", status="processing")]
+    )
+
+    updated = service.update_page(batch.pages[0].id, status="waiting")
+    assert updated is not None
+    assert updated.status == "waiting"
+    assert updated.completed_at == ""
+
+
+def test_completed_at_column_migrated_for_legacy_db(tmp_path) -> None:
+    db_path = tmp_path / "history.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE history_batch (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL DEFAULT '',
+                page_count INTEGER NOT NULL DEFAULT 1,
+                render_page_file_ids TEXT NOT NULL DEFAULT '[]',
+                render_page_ocr_texts TEXT NOT NULL DEFAULT '[]',
+                jianpu_text TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'completed'
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE history_page (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batch_id INTEGER NOT NULL,
+                input_file_name TEXT NOT NULL DEFAULT '',
+                input_file_id TEXT NOT NULL DEFAULT '',
+                task_id TEXT NOT NULL DEFAULT '',
+                musicxml_file_id TEXT NOT NULL DEFAULT '',
+                jianpu_text TEXT NOT NULL DEFAULT '',
+                ocr_text TEXT NOT NULL DEFAULT '',
+                svg_file_id TEXT NOT NULL DEFAULT '',
+                start_measure_number INTEGER,
+                status TEXT NOT NULL DEFAULT 'completed',
+                error_message TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        conn.execute("INSERT INTO history_batch DEFAULT VALUES")
+        conn.execute(
+            "INSERT INTO history_page (batch_id, input_file_name) VALUES (1, 'z.png')"
+        )
+
+    service = HistoryService(db_path)
+    loaded = service.get_page(1)
+
+    assert loaded is not None
+    assert loaded.completed_at == ""
