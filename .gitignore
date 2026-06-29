@@ -32,3 +32,6 @@ third_party/audiveris/.gradle/
 third_party/audiveris/app/.gradle/
 third_party/audiveris/app/bin/
 third_party/audiveris/app/build/
+
+# OMC 本地状态
+.omc/

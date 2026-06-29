@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"D:/CODE/MyProjects/score_trans\\\" && .venv/Scripts/python.exe -c \\\"\\nfrom score_trans.services.history_service import HistoryService, HistoryEntry\\nimport tempfile, os\\n\\n# Create a te...",
-  "error": "Exit code 1\nTraceback (most recent call last):\r\n  File \"<string>\", line 36, in <module>\r\n    os.remove(os.path.join(tempfile.gettempdir(), 'test_history.db'))\r\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nPermissionError: [WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'C:\\\\Users\\\\15732\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\test_history.db'\r\nCreated: id=1, created_at=2026-05-31 02:50:11\r\nList: 1 entries, first=test.pdf\r\nGet: test.pdf, jianpu=key=C\r\n1 2 ...\r\nDelete: True\r\nAfter delete: 0 e...",
-  "timestamp": "2026-05-30T18:50:11.514Z",
-  "retry_count": 2
-}
