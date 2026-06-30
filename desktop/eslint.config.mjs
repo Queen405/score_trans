@@ -35,6 +35,7 @@ export default tseslint.config(
         SVGGElement: "readonly",
         SVGGraphicsElement: "readonly",
         SVGSVGElement: "readonly",
+        URL: "readonly",
         window: "readonly",
       },
     },

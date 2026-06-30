@@ -9,6 +9,8 @@
           v-if="fileUrl && isPdf"
           :src="pdfFitUrl"
           :title="fileName"
+          class="scan-iframe"
+          :class="{ dimmed: showOverlay && hasOverlay }"
         />
         <img
           v-else-if="fileUrl && isImage"
@@ -16,13 +18,17 @@
           :alt="fileName"
           :width="imgW"
           :height="imgH"
+          class="scan-img"
+          :class="{ dimmed: showOverlay && hasOverlay }"
           @load="onImgLoad"
         >
-        <div
-          v-if="overlaySvgText && showOverlay"
-          class="svg-overlay"
-          v-html="overlaySvgText"
-        />
+        <img
+          v-if="overlayImgUrl && showOverlay"
+          :src="overlayImgUrl"
+          class="svg-overlay-img"
+          alt=""
+          draggable="false"
+        >
       </div>
     </div>
     <div
@@ -50,7 +56,7 @@
         适应
       </button>
       <button
-        v-if="overlaySvgText"
+        v-if="hasOverlay"
         class="zoom-btn"
         :class="{ active: showOverlay }"
         title="切换识别结果叠加"
@@ -79,8 +85,9 @@ const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
-const overlaySvgText = ref('')
+const overlayImgUrl = ref('')
 const showOverlay = ref(true)
+const hasOverlay = computed(() => !!props.overlayFileId)
 
 const fileUrl = computed(() => (props.fileId ? getFileURL(props.fileId) : ''))
 const overlayUrl = computed(() =>
@@ -111,22 +118,27 @@ watch(fileUrl, async (url) => {
 })
 
 watch(overlayUrl, async (url) => {
-  if (!url) {
-    overlaySvgText.value = ''
-    return
+  if (overlayImgUrl.value) {
+    URL.revokeObjectURL(overlayImgUrl.value)
+    overlayImgUrl.value = ''
   }
+  if (!url) return
   try {
     const resp = await fetch(url)
-    if (resp.ok) {
-      overlaySvgText.value = await resp.text()
-    }
+    if (!resp.ok) return
+    const svgText = await resp.text()
+    const blob = new Blob([svgText], { type: 'image/svg+xml' })
+    overlayImgUrl.value = URL.createObjectURL(blob)
   } catch {
-    overlaySvgText.value = ''
+    /* keep empty overlay */
   }
 }, { immediate: true })
 
 onMounted(() => zp.bind())
-onUnmounted(() => zp.unbind())
+onUnmounted(() => {
+  zp.unbind()
+  if (overlayImgUrl.value) URL.revokeObjectURL(overlayImgUrl.value)
+})
 </script>
 
 <style scoped>
@@ -152,6 +164,7 @@ onUnmounted(() => zp.unbind())
   top: 0;
   left: 0;
   display: inline-block;
+  will-change: transform;
 }
 
 .zp-inner img {
@@ -160,19 +173,27 @@ onUnmounted(() => zp.unbind())
   max-height: none;
 }
 
-.svg-overlay {
+.svg-overlay-img {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
+  contain: layout style paint;
 }
 
-.svg-overlay :deep(svg) {
-  display: block;
-  width: 100%;
-  height: 100%;
+.scan-img {
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.scan-img.dimmed {
+  filter: grayscale(0.85) brightness(1.05);
+  opacity: 0.65;
+}
+
+.scan-iframe.dimmed {
+  opacity: 0.65;
 }
 
 .zp-inner iframe {
