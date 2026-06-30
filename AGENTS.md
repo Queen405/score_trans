@@ -95,7 +95,6 @@ Configured via `.env` or environment. See `backend/score_trans/config/env.exampl
 
 Key variables:
 - `SCORE_TRANS_AUDIVERIS` — Audiveris path (default: `third_party/audiveris/gradlew.bat`)
-- `SCORE_TRANS_MUSESCORE` — MuseScore CLI path
 - `SCORE_TRANS_JAVA_HOME` — JDK 25 path for Audiveris
 - `SCORE_TRANS_OCR_API_KEY` / `SCORE_TRANS_OCR_BASE_URL` / `SCORE_TRANS_OCR_MODEL`
 - `SCORE_TRANS_AI_API_KEY` / `SCORE_TRANS_AI_BASE_URL` / `SCORE_TRANS_AI_MODEL`

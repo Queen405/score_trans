@@ -40,7 +40,8 @@ class ExportScoreAction:
         )
         if title:
             score.title = title
-        return self.export_service.export(score, output_path, title=title)
+        return self.export_service.export_midi(score, output_path)
+
 
 class ExportActions:
     def __init__(
@@ -53,7 +54,9 @@ class ExportActions:
         self.exporter = exporter or ExportScoreAction()
         self.export_service = export_service or ExportService()
 
-    def export_midi(self, musicxml_file_id: str, filename: str | None = None) -> ExportResponse:
+    def export_midi(
+        self, musicxml_file_id: str, filename: str | None = None
+    ) -> ExportResponse:
         musicxml_path = self.uploads.get_path(musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():
             raise HTTPException(404, f"MusicXML 文件不存在：{musicxml_file_id}")
@@ -71,7 +74,9 @@ class ExportActions:
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=req.filename or "score.mid")
 
-    async def export_pdf(self, files: list[UploadFile], filename: str = "jianpu.pdf") -> ExportResponse:
+    async def export_pdf(
+        self, files: list[UploadFile], filename: str = "jianpu.pdf"
+    ) -> ExportResponse:
         if not files:
             raise HTTPException(400, "至少需要一个图片文件")
 
@@ -83,7 +88,9 @@ class ExportActions:
             elif data[:3] == b"\xff\xd8\xff":
                 image_pages.append(data)
             else:
-                raise HTTPException(400, f"文件 {uploaded.filename} 不是有效的 PNG 或 JPEG 图片")
+                raise HTTPException(
+                    400, f"文件 {uploaded.filename} 不是有效的 PNG 或 JPEG 图片"
+                )
 
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.pdf"
         images_to_pdf(image_pages, output_path)

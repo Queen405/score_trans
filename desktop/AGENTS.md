@@ -21,7 +21,7 @@ desktop/src/
     App.vue            根组件：自定义标题栏、侧边栏导航、日志抽屉
     api/               按模块封装的 fetch 客户端（client.ts, convert.ts, pipeline.ts, render.ts, export.ts, ai.ts, history.ts, settings.ts）
     stores/            Pinia stores（workspace.ts, settings.ts, assistant.ts, log.ts；task.ts 仅兼容旧导入）
-    views/             页面组件（RecognizeView, ConvertView, SettingsView, HistoryView, ExportView）
+    views/             页面组件（RecognizeView, ConvertView, SyntaxView, SettingsView）
     components/        通用组件（FileUploader, JianpuEditor, SvgPreview, OriginalPreview, LogPanel, MeasureNumberPicker, JianpuSyntaxGuide）
     models/openapi.ts  从 FastAPI OpenAPI 自动生成的原始类型（不要手工编辑）
     models/contracts.ts 后端契约的语义化类型别名

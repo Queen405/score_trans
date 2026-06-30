@@ -167,7 +167,7 @@ FastAPI 请求级依赖注入工厂。Actions 按请求创建，其有状态服�
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `export_service.py` | ~95 | JianpuScore → SVG/MIDI 导出 + PNG→PDF 合并 |
+| `export_service.py` | ~115 | JianpuScore → MIDI 导出 + PNG/JPEG→PDF 合并 |
 
 ### Files 服务 (`services/files/`)
 

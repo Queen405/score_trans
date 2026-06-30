@@ -115,7 +115,6 @@ JianpuScore（乐谱）
 |---|---|---|
 | Audiveris | OMR 识别（乐谱→MusicXML） | subprocess（gradlew.bat） |
 | JDK 25 | Audiveris 运行时 | 环境变量 JAVA_HOME |
-| MuseScore | MusicXML → PDF/PNG/MIDI 导出 | subprocess（CLI） |
 | 视觉 LLM | AI 转录乐谱→简谱 | HTTP API（LangChain） |
 | OCR API | 提取乐谱文字 | HTTP API（urllib） |
 

@@ -14,7 +14,6 @@ from score_trans.config.settings import (
 
 from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
 from ...models.score import JianpuPitch, JianpuScore
-from ..render.render_service import RenderService
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
 
@@ -67,15 +66,6 @@ def images_to_pdf(image_pages: list[bytes], output_path: Path) -> Path:
 
 
 class ExportService:
-    def __init__(self, render_service: RenderService | None = None) -> None:
-        self.render_service = render_service or RenderService()
-
-    def export_svg(
-        self, score: JianpuScore, output_path: Path, title: str | None = None
-    ) -> Path:
-        self.render_service.render_score_svg(score, output_path, title=title)
-        return output_path
-
     def export_midi(self, score: JianpuScore, output_path: Path) -> Path:
         mid = mido.MidiFile(ticks_per_beat=_TICKS_PER_BEAT)
         track = mido.MidiTrack()
@@ -122,13 +112,3 @@ class ExportService:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         mid.save(str(output_path))
         return output_path
-
-    def export(
-        self, score: JianpuScore, output_path: Path, title: str | None = None
-    ) -> Path:
-        fmt = output_path.suffix.lower()
-        if fmt == ".svg":
-            return self.export_svg(score, output_path, title=title)
-        if fmt in (".mid", ".midi"):
-            return self.export_midi(score, output_path)
-        raise ValueError(f"导出为 {fmt} 需要前端提供 PNG 数据")
