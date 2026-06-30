@@ -15,6 +15,7 @@ from ...models.common.paths import (
     USER_WORK_DIR,
 )
 from ...models.settings.config import ToolConfig
+from .image_info import strip_image_metadata
 from ..settings.settings_service import SettingsService
 
 
@@ -151,6 +152,8 @@ class UploadService:
 
         with target.open("wb") as f:
             shutil.copyfileobj(upload_file.file, f)
+
+        strip_image_metadata(target)
 
         with self._lock:
             self._files[file_id] = target

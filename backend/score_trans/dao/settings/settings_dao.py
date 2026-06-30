@@ -12,6 +12,8 @@ from score_trans.config.settings import (
     ASSISTANT_BASE_URL,
     ASSISTANT_MODEL,
     ASSISTANT_PROVIDER,
+    AUDIVERIS_MAX_HEAP,
+    AUDIVERIS_MAX_PIXEL_COUNT,
     AUDIVERIS_PATH,
     JAVA_HOME,
     OCR_API_KEY,
@@ -33,6 +35,8 @@ TABLE_NAME = "settings"
 _DEFAULTS: dict[str, str] = {
     "audiveris_path": AUDIVERIS_PATH,
     "java_home": JAVA_HOME,
+    "audiveris_max_heap": AUDIVERIS_MAX_HEAP,
+    "audiveris_max_pixel_count": AUDIVERIS_MAX_PIXEL_COUNT,
     "output_dir": OUTPUT_DIR,
     "target_key": "C",
     "show_measure_numbers": "1",

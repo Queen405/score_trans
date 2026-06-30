@@ -23,6 +23,8 @@ export interface SettingsDraftProvider {
 export interface SettingsDraft {
   audiverisPath: string
   javaHome: string
+  audiverisMaxHeap: string
+  audiverisMaxPixelCount: string
   dataDir: string
   cacheDir: string
   targetKey: TargetKey
@@ -66,6 +68,8 @@ function emptyProviderDetails(): ProviderDraftDetails {
 export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
   const javaHome = ref('')
+  const audiverisMaxHeap = ref('2g')
+  const audiverisMaxPixelCount = ref('20000000')
   const dataDir = ref('')
   const cacheDir = ref('')
   const activeDataDir = ref('')
@@ -112,6 +116,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const draft = reactive<SettingsDraft>({
     audiverisPath: '',
     javaHome: '',
+    audiverisMaxHeap: '2g',
+    audiverisMaxPixelCount: '20000000',
     dataDir: '',
     cacheDir: '',
     targetKey: 'C',
@@ -175,6 +181,8 @@ export const useSettingsStore = defineStore('settings', () => {
     assignDraft({
       audiverisPath: audiverisPath.value,
       javaHome: javaHome.value,
+      audiverisMaxHeap: audiverisMaxHeap.value,
+      audiverisMaxPixelCount: audiverisMaxPixelCount.value,
       dataDir: dataDir.value,
       cacheDir: cacheDir.value,
       targetKey: targetKey.value,
@@ -233,6 +241,8 @@ export const useSettingsStore = defineStore('settings', () => {
         settingsApi.update({
           audiveris_path: next.audiverisPath,
           java_home: next.javaHome,
+          audiveris_max_heap: next.audiverisMaxHeap,
+          audiveris_max_pixel_count: next.audiverisMaxPixelCount,
           output_dir: next.outputDir,
           target_key: next.targetKey,
           accidental_mode: next.accidentalMode,
@@ -327,6 +337,8 @@ export const useSettingsStore = defineStore('settings', () => {
   function applySettings(data: SettingsResponse): void {
     audiverisPath.value = data.audiveris_path
     javaHome.value = data.java_home
+    audiverisMaxHeap.value = data.audiveris_max_heap ?? '2g'
+    audiverisMaxPixelCount.value = data.audiveris_max_pixel_count ?? '20000000'
     activeDataDir.value = data.data_dir ?? ''
     activeCacheDir.value = data.cache_dir ?? data.work_dir ?? ''
     cacheSizeBytes.value = data.cache_size_bytes ?? 0
@@ -416,6 +428,8 @@ export const useSettingsStore = defineStore('settings', () => {
   function assignDraft(next: SettingsDraft): void {
     draft.audiverisPath = next.audiverisPath
     draft.javaHome = next.javaHome
+    draft.audiverisMaxHeap = next.audiverisMaxHeap
+    draft.audiverisMaxPixelCount = next.audiverisMaxPixelCount
     draft.dataDir = next.dataDir
     draft.cacheDir = next.cacheDir
     draft.targetKey = next.targetKey
@@ -440,6 +454,8 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     audiverisPath,
     javaHome,
+    audiverisMaxHeap,
+    audiverisMaxPixelCount,
     dataDir,
     cacheDir,
     activeDataDir,

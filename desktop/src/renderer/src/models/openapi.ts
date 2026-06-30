@@ -679,6 +679,48 @@ export type components = {
             /** Updated At */
             updated_at: string;
         };
+        /** AiTranscribedPage */
+        AiTranscribedPage: {
+            /**
+             * Confidence
+             * @default null
+             */
+            confidence?: number | null;
+            /** Jianpu Text */
+            jianpu_text: string;
+            /**
+             * Key
+             * @default null
+             */
+            key?: string | null;
+            /** Measure Number Candidates */
+            measure_number_candidates?: number[];
+            /**
+             * Meter
+             * @default null
+             */
+            meter?: string | null;
+            /** Page Image File Id */
+            page_image_file_id: string;
+            /** Page Image Filename */
+            page_image_filename: string;
+            /** Page Index */
+            page_index: number;
+            /**
+             * Tempo
+             * @default null
+             */
+            tempo?: string | number | null;
+            /**
+             * Title
+             * @default null
+             */
+            title?: string | null;
+            /** Validation Errors */
+            validation_errors?: string[];
+            /** Warnings */
+            warnings?: string[];
+        };
         /** AiTranscribeRequest */
         AiTranscribeRequest: {
             /**
@@ -706,7 +748,7 @@ export type components = {
             prompt?: string | null;
             /**
              * Render Dpi
-             * @default 220
+             * @default 300
              */
             render_dpi?: number;
             /**
@@ -717,6 +759,28 @@ export type components = {
             target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
             /** Title */
             title?: string | null;
+        };
+        /** AiTranscribeResponse */
+        AiTranscribeResponse: {
+            /** Jianpu File Id */
+            jianpu_file_id: string;
+            /** Merged Jianpu Text */
+            merged_jianpu_text: string;
+            /** Pages */
+            pages: components["schemas"]["AiTranscribedPage"][];
+            /** Source File Id */
+            source_file_id: string;
+            /** Source Filename */
+            source_filename: string;
+            /** Target Key */
+            target_key: string;
+            /**
+             * Title
+             * @default null
+             */
+            title?: string | null;
+            /** Warnings */
+            warnings?: string[];
         };
         /** BatchCreateRequest */
         BatchCreateRequest: {
@@ -1290,6 +1354,32 @@ export type components = {
             /** Title */
             title?: string | null;
         };
+        /** PipelineResponse */
+        PipelineResponse: {
+            /** Jianpu File Id */
+            jianpu_file_id: string;
+            /** Jianpu Text */
+            jianpu_text: string;
+            /** Musicxml File Id */
+            musicxml_file_id: string;
+            /**
+             * Ocr Measure Numbers
+             * @default []
+             */
+            ocr_measure_numbers?: number[];
+            /**
+             * Ocr Text
+             * @default
+             */
+            ocr_text?: string;
+            /**
+             * Render Pages
+             * @default []
+             */
+            render_pages?: components["schemas"]["RenderedSvgPage"][];
+            /** Svg File Id */
+            svg_file_id: string;
+        };
         /** PreservingLayoutRequest */
         PreservingLayoutRequest: {
             /**
@@ -1332,6 +1422,13 @@ export type components = {
             /** Svg File Id */
             svg_file_id: string;
         };
+        /** RecognizeResponse */
+        RecognizeResponse: {
+            /** Musicxml File Id */
+            musicxml_file_id: string;
+            /** Musicxml Filename */
+            musicxml_filename: string;
+        };
         /** RenderedSvgPage */
         RenderedSvgPage: {
             /**
@@ -1339,7 +1436,10 @@ export type components = {
              * @default []
              */
             measure_ranges?: components["schemas"]["RenderPageMeasureRange"][];
-            /** Ocr Text */
+            /**
+             * Ocr Text
+             * @default null
+             */
             ocr_text?: string | null;
             /** Page Height */
             page_height: number;
@@ -1440,11 +1540,17 @@ export type components = {
         };
         /** RenderPageMeasureRange */
         RenderPageMeasureRange: {
-            /** End Measure Number */
+            /**
+             * End Measure Number
+             * @default null
+             */
             end_measure_number?: number | null;
             /** Source Page Index */
             source_page_index: number;
-            /** Start Measure Number */
+            /**
+             * Start Measure Number
+             * @default null
+             */
             start_measure_number?: number | null;
         };
         /** RenderPageOcrText */
@@ -1506,6 +1612,16 @@ export type components = {
             assistant_provider?: string;
             /** Assistant Provider Options */
             assistant_provider_options?: components["schemas"]["LlmProviderOption"][];
+            /**
+             * Audiveris Max Heap
+             * @default 2g
+             */
+            audiveris_max_heap?: string;
+            /**
+             * Audiveris Max Pixel Count
+             * @default 20000000
+             */
+            audiveris_max_pixel_count?: string;
             /** Audiveris Path */
             audiveris_path: string;
             /** Cache Dir */
@@ -1588,6 +1704,10 @@ export type components = {
             assistant_api_key?: string | null;
             /** Assistant Provider */
             assistant_provider?: string | null;
+            /** Audiveris Max Heap */
+            audiveris_max_heap?: string | null;
+            /** Audiveris Max Pixel Count */
+            audiveris_max_pixel_count?: string | null;
             /** Audiveris Path */
             audiveris_path?: string | null;
             /** Confirm Start Measure Number */

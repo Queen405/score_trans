@@ -28,6 +28,8 @@ class LlmProviderOption(BaseModel):
 class SettingsResponse(BaseModel):
     audiveris_path: str
     java_home: str
+    audiveris_max_heap: str = "2g"
+    audiveris_max_pixel_count: str = "20000000"
     data_dir: str
     cache_dir: str
     cache_size_bytes: int = 0
@@ -59,6 +61,8 @@ class SettingsResponse(BaseModel):
 class SettingsUpdateRequest(BaseModel):
     audiveris_path: str | None = None
     java_home: str | None = None
+    audiveris_max_heap: str | None = None
+    audiveris_max_pixel_count: str | None = None
     output_dir: str | None = None
     target_key: TargetKey | None = None
     accidental_mode: AccidentalMode | None = None

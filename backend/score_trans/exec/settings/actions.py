@@ -51,6 +51,12 @@ class SettingsActions:
             self.service.set("java_home", req.java_home)
             config.java_home = req.java_home
 
+        if req.audiveris_max_heap is not None:
+            self.service.set("audiveris_max_heap", req.audiveris_max_heap)
+
+        if req.audiveris_max_pixel_count is not None:
+            self.service.set("audiveris_max_pixel_count", req.audiveris_max_pixel_count)
+
         if req.output_dir is not None:
             self.service.set("output_dir", req.output_dir)
 
@@ -212,6 +218,10 @@ class SettingsActions:
         return SettingsResponse(
             audiveris_path=all_settings.get("audiveris_path", ""),
             java_home=all_settings.get("java_home", ""),
+            audiveris_max_heap=all_settings.get("audiveris_max_heap", "2g"),
+            audiveris_max_pixel_count=all_settings.get(
+                "audiveris_max_pixel_count", "20000000"
+            ),
             data_dir=str(USER_DATA_ROOT),
             cache_dir=str(config.work_dir),
             cache_size_bytes=cache_size_bytes,

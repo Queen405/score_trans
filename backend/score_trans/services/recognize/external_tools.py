@@ -97,7 +97,7 @@ def _audiveris_args(
         args.append("-transcribe")
     if config.audiveris_sheets.strip():
         args.extend(["-sheets", config.audiveris_sheets.strip()])
-    for constant in _split_audiveris_constants(config.audiveris_constants):
+    for constant in _merged_audiveris_constants(config):
         args.extend(["-constant", constant])
     args.extend(_split_extra_args(config.audiveris_extra_args))
     args.extend(["-export", "-output", str(output_dir), str(input_file)])
@@ -106,6 +106,35 @@ def _audiveris_args(
 
 def _split_audiveris_constants(raw: str) -> list[str]:
     return [item.strip() for item in raw.replace("\n", ";").split(";") if item.strip()]
+
+
+def _validated_max_pixel_count(config: ToolConfig) -> str:
+    value = config.audiveris_max_pixel_count.strip()
+    if not value:
+        return ""
+    if not value.isdigit():
+        raise ExternalToolError(
+            f"SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT 值无效："
+            f"{config.audiveris_max_pixel_count!r}。需为非负整数（0 表示不限制）。"
+        )
+    return value
+
+
+_MAX_PIXEL_COUNT_QNAME = "org.audiveris.omr.step.LoadStep.maxPixelCount"
+
+
+def _merged_audiveris_constants(config: ToolConfig) -> list[str]:
+    constants = _split_audiveris_constants(config.audiveris_constants)
+    constants = [c for c in constants if not _is_max_pixel_count_entry(c)]
+    pixel_count = _validated_max_pixel_count(config)
+    if pixel_count:
+        constants.append(f"{_MAX_PIXEL_COUNT_QNAME}={pixel_count}")
+    return constants
+
+
+def _is_max_pixel_count_entry(entry: str) -> bool:
+    key = entry.split("=", 1)[0].strip().lower()
+    return key == "maxpixelcount" or key.endswith(".maxpixelcount")
 
 
 def _split_extra_args(raw: str) -> list[str]:

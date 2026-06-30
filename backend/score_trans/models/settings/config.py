@@ -18,3 +18,4 @@ class ToolConfig:
     audiveris_constants: str = ""
     audiveris_extra_args: str = ""
     audiveris_max_heap: str = "2g"
+    audiveris_max_pixel_count: str = "20000000"

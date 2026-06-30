@@ -7,6 +7,7 @@ from score_trans.config.settings import (
     AUDIVERIS_EXTRA_ARGS,
     AUDIVERIS_FORCE,
     AUDIVERIS_MAX_HEAP,
+    AUDIVERIS_MAX_PIXEL_COUNT,
     AUDIVERIS_PATH,
     AUDIVERIS_SAVE,
     AUDIVERIS_SHEETS,
@@ -97,7 +98,9 @@ class SettingsService:
             audiveris_sheets=AUDIVERIS_SHEETS,
             audiveris_constants=AUDIVERIS_CONSTANTS,
             audiveris_extra_args=AUDIVERIS_EXTRA_ARGS,
-            audiveris_max_heap=AUDIVERIS_MAX_HEAP,
+            audiveris_max_heap=self.dao.get("audiveris_max_heap") or AUDIVERIS_MAX_HEAP,
+            audiveris_max_pixel_count=self.dao.get("audiveris_max_pixel_count")
+            or AUDIVERIS_MAX_PIXEL_COUNT,
         )
 
     def get_all(self) -> dict[str, str]:
