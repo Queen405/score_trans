@@ -11,7 +11,7 @@ class ToolConfig:
     work_dir: Path = Path("work")
     audiveris_step: str = ""
     audiveris_force: bool = False
-    audiveris_save: bool = False
+    audiveris_save: bool = True
     audiveris_swap: bool = False
     audiveris_transcribe: bool = False
     audiveris_sheets: str = ""

@@ -11,6 +11,7 @@ from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
 from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.files.upload_service import UploadService
+from ...services.overlay.overlay_service import OverlayService
 from ...services.recognize.audiveris_service import AudiverisService
 from ...services.settings.settings_service import SettingsService
 from ..tasks.actions import TaskActions
@@ -41,10 +42,12 @@ class RecognizeActions:
         uploads: UploadService | None = None,
         settings: SettingsService | None = None,
         recognizer: RecognizeScoreAction | None = None,
+        overlay_service: OverlayService | None = None,
     ) -> None:
         self.uploads = uploads or UploadService()
         self.settings = settings or SettingsService()
         self.recognizer = recognizer or RecognizeScoreAction()
+        self.overlay_service = overlay_service or OverlayService()
 
     def recognize(
         self,
@@ -101,7 +104,25 @@ class RecognizeActions:
         )
         report_progress(progress_callback, "recognize", 92, "注册 MusicXML 文件")
         musicxml_id = self.uploads.register(musicxml_path)
+        overlay_svg_file_id = _generate_overlay_file_id(
+            self.overlay_service, self.uploads, config.work_dir / "audiveris"
+        )
         return RecognizeResponse(
             musicxml_file_id=musicxml_id,
             musicxml_filename=musicxml_path.name,
+            overlay_svg_file_id=overlay_svg_file_id,
         )
+
+
+def _generate_overlay_file_id(
+    overlay_service: OverlayService,
+    uploads: UploadService,
+    omr_dir: Path,
+) -> str | None:
+    try:
+        paths = overlay_service.generate_overlay_svgs(omr_dir)
+    except Exception:
+        return None
+    if not paths:
+        return None
+    return uploads.register(paths[0])

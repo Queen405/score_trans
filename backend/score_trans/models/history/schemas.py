@@ -11,6 +11,7 @@ class PageCreate(BaseModel):
     jianpu_text: str = ""
     ocr_text: str = ""
     svg_file_id: str = ""
+    overlay_svg_file_id: str = ""
     start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""
@@ -22,6 +23,7 @@ class PageUpdate(BaseModel):
     jianpu_text: str | None = None
     ocr_text: str | None = None
     svg_file_id: str | None = None
+    overlay_svg_file_id: str | None = None
     start_measure_number: int | None = None
     status: str | None = None
     error_message: str | None = None
@@ -37,6 +39,7 @@ class PageResponse(BaseModel):
     jianpu_text: str
     ocr_text: str
     svg_file_id: str
+    overlay_svg_file_id: str = ""
     start_measure_number: int | None = None
     status: str
     error_message: str

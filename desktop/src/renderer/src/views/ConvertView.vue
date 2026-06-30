@@ -208,6 +208,7 @@
             <original-preview
               :file-id="store.originalFileId"
               :file-name="store.originalFileName"
+              :overlay-file-id="store.overlayFileId"
             />
           </div>
         </div>
@@ -477,7 +478,7 @@ watch(() => store.currentBatchJianpuText, (v) => {
     // long enough to suppress the dirty mark for formatting-only changes.
     nextTick(() => { programmaticUpdate = false })
   }
-})
+}, { immediate: true })
 watch(jianpuText, (v) => {
   if (v !== store.currentBatchJianpuText) {
     const isUserEdit = !programmaticUpdate
@@ -667,6 +668,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       jianpuText: r.jianpu,
       ocrText: r.page.ocr_text || r.split.ocrText,
       svgFileId: r.page.svg_file_id,
+      overlayFileId: r.page.overlay_svg_file_id ?? '',
       svgFileIds: r.page.svg_file_id ? [r.page.svg_file_id] : [],
       taskId: r.page.task_id || '',
       startMeasureNumber: r.page.start_measure_number ?? null,
@@ -976,6 +978,7 @@ function syncStoreFromHistoryPage(page: HistoryPage): void {
     jianpuText: split.jianpuText,
     ocrText: page.ocr_text || split.ocrText,
     svgFileId: page.svg_file_id,
+    overlayFileId: page.overlay_svg_file_id ?? '',
     svgFileIds: page.svg_file_id ? [page.svg_file_id] : [],
     taskId: page.task_id || '',
     historyBatchId: page.batch_id ?? null,

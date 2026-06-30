@@ -34,6 +34,7 @@ export interface TaskPage {
   jianpuDirty: boolean
   svgFileId: string
   svgFileIds: string[]
+  overlayFileId: string
   startMeasureNumber: number | null
   status: TaskPageStatus
   progressPercent: number
@@ -60,6 +61,7 @@ export interface TaskPageInput {
   jianpuDirty?: boolean
   svgFileId?: string
   svgFileIds?: string[]
+  overlayFileId?: string
   startMeasureNumber?: number | null
   status?: TaskPageStatus
   progressPercent?: number
@@ -89,6 +91,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     jianpuDirty: false,
     svgFileId: '',
     svgFileIds: [],
+    overlayFileId: '',
     startMeasureNumber: null,
     status: 'pending',
     progressPercent: 0,
@@ -115,6 +118,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const jianpuDirty = ref(false)
   const svgFileId = ref('')
   const svgFileIds = ref<string[]>([])
+  const overlayFileId = ref('')
   const startMeasureNumber = ref<number | null>(null)
   const isBusy = ref(false)
   const pages = ref<TaskPage[]>([])
@@ -146,6 +150,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       ocrText.value = ''
       jianpuDirty.value = false
       svgFileId.value = ''
+      overlayFileId.value = ''
       startMeasureNumber.value = null
       return
     }
@@ -161,6 +166,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     jianpuDirty.value = page.jianpuDirty
     svgFileId.value = page.svgFileId
     svgFileIds.value = page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : [])
+    overlayFileId.value = page.overlayFileId
     startMeasureNumber.value = page.startMeasureNumber
   }
 
@@ -340,6 +346,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       jianpuDirty: false,
       svgFileId: '',
       svgFileIds: [],
+      overlayFileId: '',
       startMeasureNumber: null,
       status: 'pending',
       taskId: '',
@@ -370,6 +377,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     jianpuDirty.value = false
     svgFileId.value = ''
     svgFileIds.value = []
+    overlayFileId.value = ''
     startMeasureNumber.value = null
     patchCurrentPage({
       musicxmlFileId: '',
@@ -378,6 +386,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       jianpuDirty: false,
       svgFileId: '',
       svgFileIds: [],
+      overlayFileId: '',
       startMeasureNumber: null,
       status: 'pending',
       taskId: '',
@@ -656,6 +665,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
       svgFileIds: p.svgFileIds ?? (p.svgFileId ? [p.svgFileId] : []),
+      overlayFileId: p.overlayFileId ?? '',
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
@@ -739,6 +749,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     jianpuDirty.value = false
     svgFileId.value = ''
     svgFileIds.value = []
+    overlayFileId.value = ''
     startMeasureNumber.value = null
     isBusy.value = false
     pages.value = []
@@ -783,6 +794,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       jianpuDirty: p.jianpuDirty ?? false,
       svgFileId: p.svgFileId ?? '',
       svgFileIds: p.svgFileIds ?? (p.svgFileId ? [p.svgFileId] : []),
+      overlayFileId: p.overlayFileId ?? '',
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
@@ -827,6 +839,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     jianpuDirty,
     svgFileId,
     svgFileIds,
+    overlayFileId,
     startMeasureNumber,
     isBusy,
     pages,

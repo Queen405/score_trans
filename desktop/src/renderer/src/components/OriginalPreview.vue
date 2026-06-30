@@ -18,6 +18,11 @@
           :height="imgH"
           @load="onImgLoad"
         >
+        <div
+          v-if="overlaySvgText && showOverlay"
+          class="svg-overlay"
+          v-html="overlaySvgText"
+        />
       </div>
     </div>
     <div
@@ -44,6 +49,15 @@
       >
         适应
       </button>
+      <button
+        v-if="overlaySvgText"
+        class="zoom-btn"
+        :class="{ active: showOverlay }"
+        title="切换识别结果叠加"
+        @click="showOverlay = !showOverlay"
+      >
+        叠加
+      </button>
     </div>
   </div>
 </template>
@@ -58,14 +72,20 @@ import { useZoomPan } from '../composables/useZoomPan'
 const props = defineProps<{
   fileId: string
   fileName: string
+  overlayFileId?: string
 }>()
 
 const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
+const overlaySvgText = ref('')
+const showOverlay = ref(true)
 
 const fileUrl = computed(() => (props.fileId ? getFileURL(props.fileId) : ''))
+const overlayUrl = computed(() =>
+  props.overlayFileId ? getFileURL(props.overlayFileId) : '',
+)
 const pdfFitUrl = computed(() =>
   fileUrl.value ? `${fileUrl.value}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : '',
 )
@@ -89,6 +109,21 @@ watch(fileUrl, async (url) => {
     zp.bind()
   }
 })
+
+watch(overlayUrl, async (url) => {
+  if (!url) {
+    overlaySvgText.value = ''
+    return
+  }
+  try {
+    const resp = await fetch(url)
+    if (resp.ok) {
+      overlaySvgText.value = await resp.text()
+    }
+  } catch {
+    overlaySvgText.value = ''
+  }
+}, { immediate: true })
 
 onMounted(() => zp.bind())
 onUnmounted(() => zp.unbind())
@@ -123,6 +158,21 @@ onUnmounted(() => zp.unbind())
   display: block;
   max-width: none;
   max-height: none;
+}
+
+.svg-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.svg-overlay :deep(svg) {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .zp-inner iframe {
@@ -181,5 +231,11 @@ onUnmounted(() => zp.unbind())
 .zoom-btn:hover {
   background: var(--accent-light);
   color: var(--accent);
+}
+
+.zoom-btn.active {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 600;
 }
 </style>

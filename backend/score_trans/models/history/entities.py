@@ -14,6 +14,7 @@ class HistoryPage:
     jianpu_text: str = ""
     ocr_text: str = ""
     svg_file_id: str = ""
+    overlay_svg_file_id: str = ""
     start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""

@@ -344,6 +344,7 @@ interface PageResult {
   jianpu_text: string
   ocr_text: string
   svg_file_id: string
+  overlay_svg_file_id: string
   start_measure_number: number | null
   status: string
   error_message: string
@@ -955,6 +956,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       jianpu_text: jianpuText,
       ocr_text: ocrText,
       svg_file_id: svgFileId,
+      overlay_svg_file_id: page.overlayFileId ?? '',
       start_measure_number: selected,
       status: 'completed',
       error_message: '',
@@ -1245,6 +1247,7 @@ async function failTarget(
     jianpu_text: '',
     ocr_text: '',
     svg_file_id: '',
+    overlay_svg_file_id: '',
     start_measure_number: target.startMeasureNumber,
     status: 'failed',
     error_message: msg,
@@ -1268,6 +1271,7 @@ async function persistPageResult(
         jianpu_text: result.jianpu_text,
         ocr_text: result.ocr_text,
         svg_file_id: result.svg_file_id,
+        overlay_svg_file_id: result.overlay_svg_file_id,
         start_measure_number: result.start_measure_number,
         status: result.status,
         error_message: result.error_message,
@@ -1285,6 +1289,7 @@ async function persistPageResult(
           jianpu_text: result.jianpu_text,
           ocr_text: result.ocr_text,
           svg_file_id: result.svg_file_id,
+          overlay_svg_file_id: result.overlay_svg_file_id,
           start_measure_number: result.start_measure_number,
           status: result.status,
           error_message: result.error_message,
@@ -1322,6 +1327,7 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
     jianpuText: page.jianpu_text,
     ocrText: page.ocr_text,
     svgFileId: page.svg_file_id,
+    overlayFileId: page.overlay_svg_file_id ?? '',
     svgFileIds: existing?.svgFileIds.length ? existing.svgFileIds : (page.svg_file_id ? [page.svg_file_id] : []),
     historyBatchId: page.batch_id ?? null,
     startMeasureNumber: page.start_measure_number,
@@ -1467,6 +1473,7 @@ function makePipelineApplyDecision(
         jianpuDirty: false,
         svgFileId: result.svg_file_id,
         svgFileIds: renderPageIds(result.render_pages, result.svg_file_id),
+        overlayFileId: result.overlay_svg_file_id ?? '',
         originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
         originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
         taskId: '',
@@ -1484,6 +1491,7 @@ function makePipelineApplyDecision(
         jianpu_text: initialSplit.jianpuText,
         ocr_text: ocrText,
         svg_file_id: result.svg_file_id,
+        overlay_svg_file_id: result.overlay_svg_file_id ?? '',
         start_measure_number: decision.startMeasureNumber,
         status: decision.status,
         error_message: decision.waitingMessage,
@@ -1519,6 +1527,7 @@ function makePipelineApplyDecision(
       jianpu_text: split.jianpuText,
       ocr_text: ocrText,
       svg_file_id: svgFileId,
+      overlay_svg_file_id: result.overlay_svg_file_id ?? '',
       start_measure_number: decision.startMeasureNumber,
       status: decision.status,
       error_message: decision.waitingMessage,
@@ -1531,6 +1540,7 @@ function makePipelineApplyDecision(
       jianpuDirty: false,
       svgFileId,
       svgFileIds,
+      overlayFileId: result.overlay_svg_file_id ?? '',
       originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
       originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
       taskId: '',
@@ -1585,6 +1595,7 @@ function makeAiApplyDecision(
         jianpu_text: response.merged_jianpu_text,
         ocr_text: '',
         svg_file_id: '',
+        overlay_svg_file_id: '',
         start_measure_number: decision.startMeasureNumber,
         status: decision.status,
         error_message: decision.waitingMessage,
@@ -1645,6 +1656,7 @@ function makeAiApplyDecision(
       jianpu_text: mergedJianpuText,
       ocr_text: '',
       svg_file_id: svgFileId,
+      overlay_svg_file_id: '',
       start_measure_number: decision.startMeasureNumber,
       status: decision.status,
       error_message: warnings.join('；'),

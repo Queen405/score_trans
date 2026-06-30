@@ -30,3 +30,4 @@ class PipelineResponse(BaseModel):
     render_pages: list[RenderedSvgPage] = []
     ocr_measure_numbers: list[int] = []
     ocr_text: str = ""
+    overlay_svg_file_id: str | None = None

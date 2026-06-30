@@ -27,6 +27,7 @@ from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
+from ...services.overlay.overlay_service import OverlayService
 from ...services.render.render_service import RenderService
 from ...services.settings.settings_service import SettingsService
 from ..convert.actions import MusicXmlToJianpuAction
@@ -43,6 +44,7 @@ class ScorePipelineOutputs:
     jianpu_svg_paths: list[Path]
     ocr_measure_numbers: list[int]
     ocr_text: str = ""
+    overlay_svg_path: Path | None = None
 
     @property
     def jianpu_svg_path(self) -> Path:
@@ -56,11 +58,13 @@ class FullPipelineAction:
         converter: MusicXmlToJianpuAction | None = None,
         renderer: RenderService | None = None,
         file_service: FileService | None = None,
+        overlay_service: OverlayService | None = None,
     ) -> None:
         self.recognizer = recognizer or RecognizeScoreAction()
         self.converter = converter or MusicXmlToJianpuAction()
         self.renderer = renderer or RenderService()
         self.file_service = file_service or FileService()
+        self.overlay_service = overlay_service or OverlayService()
 
     def execute(
         self,
@@ -86,6 +90,7 @@ class FullPipelineAction:
         report_progress(progress_callback, "omr", 45, "OMR 识别完成")
         musicxml_path = _copy_musicxml_output(Path(recognized), out_dir, source.stem)
         ocr_image_path = source if _is_ocr_image(source) else None
+        overlay_svg_path = _generate_overlay(self.overlay_service, out_dir / "omr")
         report_progress(progress_callback, "convert", 55, "转换 MusicXML")
         score = self.converter.build_score(
             musicxml_path,
@@ -125,6 +130,7 @@ class FullPipelineAction:
             jianpu_svg_paths=svg_paths,
             ocr_measure_numbers=ocr_measure_numbers,
             ocr_text=ocr_text,
+            overlay_svg_path=overlay_svg_path,
         )
 
 
@@ -292,6 +298,11 @@ class PipelineActions:
             for index, path in enumerate(outputs.jianpu_svg_paths)
         ]
         jianpu_text = self.file_service.read_text(outputs.jianpu_text_path)
+        overlay_svg_file_id = (
+            self.uploads.register(outputs.overlay_svg_path)
+            if outputs.overlay_svg_path
+            else None
+        )
         return PipelineResponse(
             musicxml_file_id=musicxml_id,
             jianpu_text=jianpu_text,
@@ -300,6 +311,7 @@ class PipelineActions:
             render_pages=render_pages,
             ocr_measure_numbers=outputs.ocr_measure_numbers,
             ocr_text=outputs.ocr_text,
+            overlay_svg_file_id=overlay_svg_file_id,
         )
 
 
@@ -354,3 +366,11 @@ def _serialize_ocr_text_blocks(blocks: list[TextBlock]) -> str:
 
 def _is_ocr_image(path: Path) -> bool:
     return path.suffix.lower() in IMAGE_SUFFIXES
+
+
+def _generate_overlay(overlay_service: OverlayService, omr_dir: Path) -> Path | None:
+    try:
+        paths = overlay_service.generate_overlay_svgs(omr_dir)
+    except Exception:
+        return None
+    return paths[0] if paths else None

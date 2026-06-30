@@ -67,6 +67,7 @@ class HistoryDao:
                     jianpu_text TEXT NOT NULL DEFAULT '',
                     ocr_text TEXT NOT NULL DEFAULT '',
                     svg_file_id TEXT NOT NULL DEFAULT '',
+                    overlay_svg_file_id TEXT NOT NULL DEFAULT '',
                     start_measure_number INTEGER,
                     status TEXT NOT NULL DEFAULT 'completed',
                     error_message TEXT NOT NULL DEFAULT '',
@@ -172,9 +173,9 @@ class HistoryDao:
                     """
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id, task_id, musicxml_file_id,
-                         jianpu_text, ocr_text, svg_file_id, start_measure_number,
-                         status, error_message, completed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         jianpu_text, ocr_text, svg_file_id, overlay_svg_file_id,
+                         start_measure_number, status, error_message, completed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -185,6 +186,7 @@ class HistoryDao:
                         page.jianpu_text,
                         page.ocr_text,
                         page.svg_file_id,
+                        page.overlay_svg_file_id,
                         page.start_measure_number,
                         page.status,
                         page.error_message,
@@ -269,6 +271,7 @@ class HistoryDao:
         jianpu_text: str | None = None,
         ocr_text: str | None = None,
         svg_file_id: str | None = None,
+        overlay_svg_file_id: str | None = None,
         musicxml_file_id: str | None = None,
         start_measure_number: int | None = None,
         status: str | None = None,
@@ -281,6 +284,7 @@ class HistoryDao:
             ("jianpu_text", jianpu_text),
             ("ocr_text", ocr_text),
             ("svg_file_id", svg_file_id),
+            ("overlay_svg_file_id", overlay_svg_file_id),
             ("musicxml_file_id", musicxml_file_id),
             ("start_measure_number", start_measure_number),
             ("status", status),
@@ -360,6 +364,11 @@ class HistoryDao:
                 "ALTER TABLE history_page ADD COLUMN completed_at TEXT NOT NULL DEFAULT ''"
             )
             conn.commit()
+        if "overlay_svg_file_id" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN overlay_svg_file_id TEXT NOT NULL DEFAULT ''"
+            )
+            conn.commit()
         batch_columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(history_batch)").fetchall()
@@ -427,6 +436,9 @@ class HistoryDao:
             jianpu_text=row["jianpu_text"],
             ocr_text=row["ocr_text"] if "ocr_text" in row.keys() else "",
             svg_file_id=row["svg_file_id"],
+            overlay_svg_file_id=row["overlay_svg_file_id"]
+            if "overlay_svg_file_id" in row.keys()
+            else "",
             start_measure_number=row["start_measure_number"]
             if "start_measure_number" in row.keys()
             else None,
