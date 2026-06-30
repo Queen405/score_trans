@@ -34,6 +34,7 @@ class HistoryActions:
                 page_count=batch.page_count,
                 status=batch.status,
                 first_file_name=batch.first_file_name,
+                last_completed_at=batch.last_completed_at,
             )
             for batch in self.service.list_batch_summaries()
         ]

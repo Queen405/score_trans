@@ -243,7 +243,7 @@ allprojects {
 // Heap size (and other stuff) can be modified via a 'jvmLineArgs' on gradle command line
 tasks.run {
     minHeapSize = '512m'
-    maxHeapSize = '8g'
+    maxHeapSize = project.findProperty('audiverisMaxHeap') ?: '2g'
 
     // Retrieve JVM arguments from jvmLineArgs property if any
     if (project.hasProperty("jvmLineArgs")) {

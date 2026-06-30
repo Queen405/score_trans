@@ -305,6 +305,41 @@ def test_history_api_accepts_unrecognized_pages_as_completed_batch(
     ]
 
 
+def test_history_list_returns_last_completed_at(tmp_path: Path) -> None:
+    app = create_app()
+    service = HistoryService(tmp_path / "history.db")
+    app.dependency_overrides[get_history_actions] = lambda: HistoryActions(service)
+    client = TestClient(app)
+
+    created = client.post(
+        "/history",
+        json={
+            "pages": [
+                {
+                    "input_file_name": "score.png",
+                    "status": "processing",
+                }
+            ]
+        },
+    ).json()
+    page_id = created["pages"][0]["id"]
+    completed = client.patch(
+        f"/history/pages/{page_id}",
+        json={"status": "completed"},
+    )
+
+    assert completed.status_code == 200
+    completed_page = service.get_page(page_id)
+    assert completed_page is not None
+    completed_at = completed_page.completed_at
+    assert completed_at
+
+    response = client.get("/history")
+
+    assert response.status_code == 200
+    assert response.json()[0]["last_completed_at"] == completed_at
+
+
 def test_batch_a4_schema_exposes_page_ranges_and_page_ocr_texts() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
 

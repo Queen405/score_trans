@@ -354,6 +354,44 @@ def test_list_batch_summaries_do_not_load_page_payloads(tmp_path) -> None:
     assert not hasattr(summaries[0], "jianpu_text")
 
 
+def test_list_batch_summaries_return_latest_page_completion_time(tmp_path) -> None:
+    db_path = tmp_path / "history.db"
+    service = HistoryService(db_path)
+    batch = service.create_batch(
+        [
+            HistoryPage(input_file_name="first.png", status="processing"),
+            HistoryPage(input_file_name="second.png", status="processing"),
+        ]
+    )
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "UPDATE history_page SET completed_at = ? WHERE id = ?",
+            ("2026-06-30 10:00:00", batch.pages[0].id),
+        )
+        conn.execute(
+            "UPDATE history_page SET completed_at = ? WHERE id = ?",
+            ("2026-06-30 10:05:00", batch.pages[1].id),
+        )
+        conn.commit()
+
+    summaries = service.list_batch_summaries()
+
+    assert summaries[0].last_completed_at == "2026-06-30 10:05:00"
+
+
+def test_list_batch_summaries_leave_completion_time_empty_without_terminal_page(
+    tmp_path,
+) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    service.create_batch(
+        [HistoryPage(input_file_name="score.png", status="processing")]
+    )
+
+    summaries = service.list_batch_summaries()
+
+    assert summaries[0].last_completed_at == ""
+
+
 def test_history_page_batch_index_is_created(tmp_path) -> None:
     db_path = tmp_path / "history.db"
     HistoryService(db_path)

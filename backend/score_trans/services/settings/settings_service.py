@@ -6,6 +6,7 @@ from score_trans.config.settings import (
     AUDIVERIS_CONSTANTS,
     AUDIVERIS_EXTRA_ARGS,
     AUDIVERIS_FORCE,
+    AUDIVERIS_MAX_HEAP,
     AUDIVERIS_PATH,
     AUDIVERIS_SAVE,
     AUDIVERIS_SHEETS,
@@ -96,6 +97,7 @@ class SettingsService:
             audiveris_sheets=AUDIVERIS_SHEETS,
             audiveris_constants=AUDIVERIS_CONSTANTS,
             audiveris_extra_args=AUDIVERIS_EXTRA_ARGS,
+            audiveris_max_heap=AUDIVERIS_MAX_HEAP,
         )
 
     def get_all(self) -> dict[str, str]:

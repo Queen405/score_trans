@@ -17,3 +17,4 @@ class ToolConfig:
     audiveris_sheets: str = ""
     audiveris_constants: str = ""
     audiveris_extra_args: str = ""
+    audiveris_max_heap: str = "2g"

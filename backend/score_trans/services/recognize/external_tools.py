@@ -19,7 +19,9 @@ class CommandResult:
     stderr: str
 
 
-def _run(args: list[str], cwd: Path | None = None, env: dict[str, str] | None = None) -> CommandResult:
+def _run(
+    args: list[str], cwd: Path | None = None, env: dict[str, str] | None = None
+) -> CommandResult:
     try:
         completed = subprocess.run(
             args,
@@ -47,7 +49,9 @@ def _run(args: list[str], cwd: Path | None = None, env: dict[str, str] | None = 
     return CommandResult(args=args, stdout=completed.stdout, stderr=completed.stderr)
 
 
-def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolConfig) -> Path:
+def recognize_with_audiveris(
+    input_file: Path, output_dir: Path, config: ToolConfig
+) -> Path:
     input_file = input_file.resolve()
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -60,6 +64,7 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
             str(audiveris_path),
             ":app:run",
             f"-PcmdLineArgs={','.join(audiveris_args)}",
+            f"-PaudiverisMaxHeap={_validated_max_heap(config)}",
         ]
         _run(args, cwd=audiveris_path.parent, env=env)
     else:
@@ -76,7 +81,9 @@ def recognize_with_audiveris(input_file: Path, output_dir: Path, config: ToolCon
     return candidates[0]
 
 
-def _audiveris_args(input_file: Path, output_dir: Path, config: ToolConfig) -> list[str]:
+def _audiveris_args(
+    input_file: Path, output_dir: Path, config: ToolConfig
+) -> list[str]:
     args = ["-batch"]
     if config.audiveris_step.strip():
         args.extend(["-step", config.audiveris_step.strip()])
@@ -110,6 +117,19 @@ def _split_extra_args(raw: str) -> list[str]:
         raise ExternalToolError(
             "SCORE_TRANS_AUDIVERIS_EXTRA_ARGS 格式错误，请检查引号是否成对。"
         ) from exc
+
+
+_VALID_HEAPS = {"1g", "2g", "3g", "4g"}
+
+
+def _validated_max_heap(config: ToolConfig) -> str:
+    heap = config.audiveris_max_heap.strip().lower()
+    if heap not in _VALID_HEAPS:
+        raise ExternalToolError(
+            f"SCORE_TRANS_AUDIVERIS_MAX_HEAP 值无效：{config.audiveris_max_heap!r}。"
+            f"可选值：{', '.join(sorted(_VALID_HEAPS))}。"
+        )
+    return heap
 
 
 def _java_env(config: ToolConfig) -> dict[str, str] | None:
