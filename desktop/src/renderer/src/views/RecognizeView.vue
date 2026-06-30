@@ -14,7 +14,10 @@
       @cancel="onPickerCancel"
     />
 
-    <div class="dashboard-grid">
+    <div
+      class="dashboard-grid"
+      :class="{ 'dashboard-grid--busy': store.activePageTaskCount || waitingPageCount }"
+    >
       <!-- 智能识别 -->
       <div class="dashboard-card card-recognition">
         <div class="card-header">
@@ -1907,11 +1910,15 @@ function errorMessage(error: unknown): string {
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(420px, 1fr));
-  grid-template-rows: minmax(280px, auto) minmax(0, 1fr);
+  grid-template-rows: 280px minmax(0, 1fr);
   gap: 24px;
   flex: 1;
   min-height: 0;
   align-items: stretch;
+}
+
+.dashboard-grid--busy {
+  grid-template-rows: 340px minmax(0, 1fr);
 }
 
 .dashboard-card {
@@ -1948,7 +1955,7 @@ function errorMessage(error: unknown): string {
 .card-stats-scroll {
   position: relative;
   flex: 1;
-  min-height: 200px;
+  min-height: 0;
 }
 
 .card-stats-scroll :deep(.history-quick) {
@@ -1975,6 +1982,7 @@ function errorMessage(error: unknown): string {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
@@ -2335,13 +2343,17 @@ function errorMessage(error: unknown): string {
 
 @media (max-height: 840px) and (min-width: 1181px) {
   .dashboard-grid {
-    grid-template-rows: minmax(260px, auto) minmax(0, 1fr);
+    grid-template-rows: 260px minmax(0, 1fr);
     gap: 18px;
+  }
+
+  .dashboard-grid--busy {
+    grid-template-rows: 320px minmax(0, 1fr);
   }
 
   .dashboard-card {
     padding: 20px 24px;
-    gap: 16px;
+    gap: 12px;
   }
 
   .card-recognition,
@@ -2350,8 +2362,45 @@ function errorMessage(error: unknown): string {
   }
 }
 
+@media (max-width: 1400px) and (min-width: 1181px) {
+  .card-recognition .card-footer {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding-top: 8px;
+  }
+
+  .card-recognition .card-footer :deep(.n-button) {
+    padding: 0 6px;
+    font-size: 12px;
+  }
+
+  .card-recognition .card-footer :deep(.n-button__icon) {
+    display: none;
+  }
+
+  .card-recognition .ai-switch,
+  .card-recognition .instrument-select {
+    gap: 4px;
+    padding: 0 5px;
+    white-space: nowrap;
+  }
+
+  .card-recognition .instrument-select {
+    padding-right: 2px;
+  }
+
+  .card-recognition .instrument-select-control {
+    width: 72px;
+  }
+
+  .card-recognition .selection-count {
+    display: none;
+  }
+}
+
 @media (max-width: 1180px) {
-  .dashboard-grid {
+  .dashboard-grid,
+  .dashboard-grid--busy {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
   }

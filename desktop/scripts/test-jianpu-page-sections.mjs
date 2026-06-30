@@ -395,18 +395,23 @@ test('partial recognition keeps page markers for every source page', () => {
   )
 })
 
-test('recognition dashboard constrains history height and delegates scrolling to the list', () => {
+test('recognition dashboard keeps a stable first-row height across window states', () => {
   assert.match(
     recognizeViewSource,
-    /grid-template-rows:\s*minmax\(280px,\s*auto\)\s+minmax\(0,\s*1fr\)/,
+    /grid-template-rows:\s*280px\s+minmax\(0,\s*1fr\)/,
   )
   assert.match(
     recognizeViewSource,
-    /grid-template-rows:\s*minmax\(260px,\s*auto\)\s+minmax\(0,\s*1fr\)/,
+    /grid-template-rows:\s*260px\s+minmax\(0,\s*1fr\)/,
+  )
+  assert.doesNotMatch(recognizeViewSource, /minmax\((?:280|260)px,\s*auto\)/)
+  assert.match(
+    recognizeViewSource,
+    /\.card-title\s*\{[^}]*flex-shrink:\s*0/s,
   )
   assert.match(
     recognizeViewSource,
-    /\.card-stats\s*\{[^}]*height:\s*280px[^}]*overflow:\s*hidden/s,
+    /\.card-stats-scroll\s*\{[^}]*min-height:\s*0/s,
   )
   assert.match(
     historyQuickEntrySource,
@@ -418,11 +423,19 @@ test('recognition controls stay inside the card while progress or waiting status
   assert.doesNotMatch(recognizeViewSource, /card-recognition--compact/)
   assert.match(
     recognizeViewSource,
-    /\.card-recognition\s*\{[^}]*height:\s*auto[^}]*overflow:\s*hidden/s,
+    /dashboard-grid--busy[\s\S]*store\.activePageTaskCount\s*\|\|\s*waitingPageCount/,
   )
   assert.match(
     recognizeViewSource,
-    /\.card-recognition \.card-body\s*\{[^}]*flex:\s*0 0 auto/s,
+    /\.dashboard-grid--busy\s*\{[^}]*grid-template-rows:\s*340px/s,
+  )
+  assert.match(
+    recognizeViewSource,
+    /@media \(max-height:\s*840px\)[\s\S]*?\.dashboard-grid--busy\s*\{[^}]*grid-template-rows:\s*320px/s,
+  )
+  assert.match(
+    recognizeViewSource,
+    /\.card-recognition \.card-footer\s*\{[^}]*flex-wrap:\s*nowrap/s,
   )
 })
 
