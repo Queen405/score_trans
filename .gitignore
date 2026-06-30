@@ -9,6 +9,7 @@ build/
 build-resources/
 *.egg-info/
 work/
+examples/
 
 # 打包相关
 build-app.py
