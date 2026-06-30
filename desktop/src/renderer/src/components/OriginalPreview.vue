@@ -191,8 +191,8 @@ onUnmounted(() => {
 }
 
 .scan-img.dimmed {
-  filter: grayscale(0.85) brightness(0.6) blur(5px);
-  opacity: 0.35;
+  filter: grayscale(0.5) brightness(0.95) blur(1px);
+  opacity: 0.75;
 }
 
 .zp-inner iframe {

@@ -15,12 +15,12 @@ _BRAVURA_PATH = (
 _FONT_METRIC_SIZE = 1000
 
 _CATEGORY_COLORS: dict[str, str] = {
-    "note": "#008844",
-    "frame": "#0000ff",
-    "modifier": "#992299",
-    "physical": "#806040",
-    "lyrics": "#808080",
-    "other": "#888888",
+    "note": "#00aa44",
+    "frame": "#0066ff",
+    "modifier": "#cc00cc",
+    "physical": "#00aa44",
+    "lyrics": "#0088cc",
+    "other": "#aa8800",
 }
 
 _TAG_CATEGORY: dict[str, str] = {
