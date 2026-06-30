@@ -147,6 +147,22 @@ export function getFileURL(fileId: string): string {
   return `${getBaseURL()}/files/${fileId}`
 }
 
+export async function fetchFileBlob(
+  fileId: string,
+  signal?: AbortSignal,
+): Promise<ApiResult<Blob>> {
+  try {
+    const response = await fetch(getFileURL(fileId), { signal })
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>))
+      return apiFailure(apiErrorFromResponse(response.status, payload))
+    }
+    return apiSuccess(await response.blob())
+  } catch (error) {
+    return apiFailure(error)
+  }
+}
+
 async function probeFile(url: string, options: RequestInit): Promise<boolean | null> {
   try {
     const res = await fetch(url, { cache: 'no-store', ...options })

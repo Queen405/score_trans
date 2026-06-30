@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -84,7 +85,9 @@ class RecognizeActions:
                 progress_callback=progress,
             )
 
-        schedule_background_task(app, task_id, run_sync_task(task_id, tasks, action, semaphore=OMR_SEMAPHORE))
+        schedule_background_task(
+            app, task_id, run_sync_task(task_id, tasks, action, semaphore=OMR_SEMAPHORE)
+        )
         return TaskSubmitResponse(task_id=task_id)
 
     def recognize_from_path(
@@ -94,18 +97,19 @@ class RecognizeActions:
         progress_callback: ProgressCallback | None = None,
     ) -> RecognizeResponse:
         config = self.settings.load()
+        omr_dir = config.work_dir / "audiveris" / uuid.uuid4().hex
 
         report_progress(progress_callback, "recognize", 5, "准备 OMR 识别")
         musicxml_path = self.recognizer.execute(
             input_path,
-            config.work_dir / "audiveris",
+            omr_dir,
             config,
             progress_callback=progress_callback,
         )
         report_progress(progress_callback, "recognize", 92, "注册 MusicXML 文件")
         musicxml_id = self.uploads.register(musicxml_path)
         overlay_svg_file_id = _generate_overlay_file_id(
-            self.overlay_service, self.uploads, config.work_dir / "audiveris"
+            self.overlay_service, self.uploads, omr_dir
         )
         return RecognizeResponse(
             musicxml_file_id=musicxml_id,

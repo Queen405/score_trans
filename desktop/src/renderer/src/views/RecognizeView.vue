@@ -1922,7 +1922,7 @@ function errorMessage(error: unknown): string {
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(420px, 1fr));
-  grid-template-rows: 280px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 24px;
   flex: 1;
   min-height: 0;
@@ -1930,7 +1930,7 @@ function errorMessage(error: unknown): string {
 }
 
 .dashboard-grid--busy {
-  grid-template-rows: 340px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .dashboard-card {
@@ -2047,6 +2047,15 @@ function errorMessage(error: unknown): string {
 
 .card-recognition .card-body {
   flex: 0 0 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.card-recognition .card-body > .upload-container,
+.card-recognition .rv-progress,
+.card-recognition .rv-waiting-banner {
+  flex-shrink: 0;
 }
 
 .card-footer {
@@ -2060,8 +2069,22 @@ function errorMessage(error: unknown): string {
 }
 
 .card-recognition .card-footer {
-  margin-top: auto;
+  margin-top: 0;
   justify-content: flex-start;
+  padding-top: 6px;
+}
+
+.dashboard-grid--busy .card-recognition {
+  gap: 6px;
+  padding: 18px 24px;
+}
+
+.dashboard-grid--busy .card-recognition .card-body {
+  gap: 4px;
+}
+
+.dashboard-grid--busy .card-recognition .card-footer {
+  padding-top: 4px;
 }
 
 @media (max-width: 920px) {
@@ -2355,12 +2378,12 @@ function errorMessage(error: unknown): string {
 
 @media (max-height: 840px) and (min-width: 1181px) {
   .dashboard-grid {
-    grid-template-rows: 260px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 18px;
   }
 
   .dashboard-grid--busy {
-    grid-template-rows: 320px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .dashboard-card {
@@ -2371,6 +2394,19 @@ function errorMessage(error: unknown): string {
   .card-recognition,
   .card-stats {
     min-height: 260px;
+  }
+
+  .dashboard-grid--busy .card-recognition {
+    gap: 6px;
+    padding: 16px 20px;
+  }
+
+  .dashboard-grid--busy .card-recognition .card-body {
+    gap: 4px;
+  }
+
+  .dashboard-grid--busy .card-recognition .card-footer {
+    padding-top: 4px;
   }
 }
 

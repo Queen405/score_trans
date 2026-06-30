@@ -20,9 +20,7 @@ class OverlayService:
         self.parser = parser or OmrParser()
         self.generator = generator or SvgGenerator()
 
-    def generate_overlay_svgs(
-        self, omr_output_dir: str | Path
-    ) -> list[Path]:
+    def generate_overlay_svgs(self, omr_output_dir: str | Path) -> list[Path]:
         """Find ``.omr`` files, parse, and write overlay SVGs.
 
         Returns a list of generated SVG file paths.
@@ -35,23 +33,53 @@ class OverlayService:
                 reverse=True,
             )
         except OSError:
+            logger.warning(
+                "Failed to scan Audiveris output directory: %s",
+                omr_output_dir,
+                exc_info=True,
+            )
             return []
         if not omr_files:
             return []
 
         for omr_file in omr_files:
-            sheets = self.parser.parse(omr_file)
+            try:
+                sheets = self.parser.parse(omr_file)
+            except Exception:
+                logger.warning(
+                    "Failed to parse Audiveris book: %s",
+                    omr_file,
+                    exc_info=True,
+                )
+                continue
             if not sheets:
                 continue
 
             svg_paths: list[Path] = []
             output_dir = Path(omr_output_dir)
-            for sheet in sheets:
-                svg_text = self.generator.generate(sheet)
-                svg_path = output_dir / f"overlay_sheet{sheet.index}.svg"
-                svg_path.write_text(svg_text, encoding="utf-8")
-                svg_paths.append(svg_path)
-            return svg_paths
+            try:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                for sheet in sheets:
+                    if sheet.width <= 0 or sheet.height <= 0 or not sheet.inters:
+                        logger.info(
+                            "Skipping unusable Audiveris sheet %s in %s",
+                            sheet.index,
+                            omr_file,
+                        )
+                        continue
+                    svg_text = self.generator.generate(sheet)
+                    svg_path = output_dir / f"overlay_sheet{sheet.index}.svg"
+                    svg_path.write_text(svg_text, encoding="utf-8")
+                    svg_paths.append(svg_path)
+            except Exception:
+                logger.warning(
+                    "Failed to generate overlay from Audiveris book: %s",
+                    omr_file,
+                    exc_info=True,
+                )
+                continue
+            if svg_paths:
+                return svg_paths
         return []
 
     def parse_sheets(self, omr_path: str | Path) -> list[SheetModel]:

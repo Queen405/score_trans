@@ -21,9 +21,7 @@ def test_recognize_with_audiveris_passes_original_input(
     def fake_run(args, cwd=None, env=None) -> CommandResult:
         calls.append(args)
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "scan.musicxml").write_text(
-            "<score-partwise/>", encoding="utf-8"
-        )
+        (output_dir / "scan.musicxml").write_text("<score-partwise/>", encoding="utf-8")
         return CommandResult(args=args, stdout="", stderr="")
 
     monkeypatch.setattr(external_tools, "_run", fake_run)
@@ -51,9 +49,7 @@ def test_recognize_with_audiveris_applies_configured_java_omr_args(
     def fake_run(args, cwd=None, env=None) -> CommandResult:
         calls.append(args)
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "scan.musicxml").write_text(
-            "<score-partwise/>", encoding="utf-8"
-        )
+        (output_dir / "scan.musicxml").write_text("<score-partwise/>", encoding="utf-8")
         return CommandResult(args=args, stdout="", stderr="")
 
     monkeypatch.setattr(external_tools, "_run", fake_run)
@@ -89,6 +85,8 @@ def test_recognize_with_audiveris_applies_configured_java_omr_args(
         "alpha=1",
         "-constant",
         "beta=two",
+        "-constant",
+        "org.audiveris.omr.step.LoadStep.maxPixelCount=20000000",
         "-run",
         "org.example.CustomRunner",
         "-export",
@@ -110,9 +108,7 @@ def test_recognize_with_gradle_uses_configured_java_omr_args(
     def fake_run(args, cwd=None, env=None) -> CommandResult:
         calls.append((args, cwd))
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "scan.musicxml").write_text(
-            "<score-partwise/>", encoding="utf-8"
-        )
+        (output_dir / "scan.musicxml").write_text("<score-partwise/>", encoding="utf-8")
         return CommandResult(args=args, stdout="", stderr="")
 
     monkeypatch.setattr(external_tools, "_run", fake_run)
@@ -133,5 +129,8 @@ def test_recognize_with_gradle_uses_configured_java_omr_args(
         str(gradle),
         ":app:run",
         "-PcmdLineArgs="
-        f"-batch,-step,PAGE,-constant,alpha=1,-export,-output,{output_dir.resolve()},{source.resolve()}",
+        "-batch,-step,PAGE,-save,-constant,alpha=1,"
+        "-constant,org.audiveris.omr.step.LoadStep.maxPixelCount=20000000,"
+        f"-export,-output,{output_dir.resolve()},{source.resolve()}",
+        "-PaudiverisMaxHeap=2g",
     ]

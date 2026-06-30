@@ -10,7 +10,6 @@
           :src="pdfFitUrl"
           :title="fileName"
           class="scan-iframe"
-          :class="{ dimmed: showOverlay && hasOverlay }"
         />
         <img
           v-else-if="fileUrl && isImage"
@@ -19,11 +18,11 @@
           :width="imgW"
           :height="imgH"
           class="scan-img"
-          :class="{ dimmed: showOverlay && hasOverlay }"
+          :class="{ dimmed: showOverlay && canShowOverlay }"
           @load="onImgLoad"
         >
         <img
-          v-if="overlayImgUrl && showOverlay"
+          v-if="overlayImgUrl && showOverlay && canShowOverlay"
           :src="overlayImgUrl"
           class="svg-overlay-img"
           alt=""
@@ -56,7 +55,7 @@
         适应
       </button>
       <button
-        v-if="hasOverlay"
+        v-if="canShowOverlay"
         class="zoom-btn"
         :class="{ active: showOverlay }"
         title="切换识别结果叠加"
@@ -70,7 +69,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
-import { getFileURL } from '../api/client'
+import { fetchFileBlob, getFileURL } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
@@ -87,18 +86,16 @@ const imgW = ref(0)
 const imgH = ref(0)
 const overlayImgUrl = ref('')
 const showOverlay = ref(true)
-const hasOverlay = computed(() => !!props.overlayFileId)
 
 const fileUrl = computed(() => (props.fileId ? getFileURL(props.fileId) : ''))
-const overlayUrl = computed(() =>
-  props.overlayFileId ? getFileURL(props.overlayFileId) : '',
-)
 const pdfFitUrl = computed(() =>
   fileUrl.value ? `${fileUrl.value}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : '',
 )
 const extension = computed(() => props.fileName.split('.').pop()?.toLowerCase() ?? '')
 const isPdf = computed(() => extension.value === 'pdf')
 const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].includes(extension.value))
+const hasOverlay = computed(() => !!props.overlayFileId)
+const canShowOverlay = computed(() => hasOverlay.value && isImage.value)
 
 function onImgLoad(e: Event) {
   const img = e.target as HTMLImageElement
@@ -117,22 +114,28 @@ watch(fileUrl, async (url) => {
   }
 })
 
-watch(overlayUrl, async (url) => {
-  if (overlayImgUrl.value) {
-    URL.revokeObjectURL(overlayImgUrl.value)
-    overlayImgUrl.value = ''
-  }
-  if (!url) return
-  try {
-    const resp = await fetch(url)
-    if (!resp.ok) return
-    const svgText = await resp.text()
-    const blob = new Blob([svgText], { type: 'image/svg+xml' })
-    overlayImgUrl.value = URL.createObjectURL(blob)
-  } catch {
-    /* keep empty overlay */
-  }
-}, { immediate: true })
+watch(
+  () => [props.overlayFileId ?? '', canShowOverlay.value] as const,
+  async ([fileId, enabled], _previous, onCleanup) => {
+    const controller = new AbortController()
+    let active = true
+    onCleanup(() => {
+      active = false
+      controller.abort()
+    })
+
+    if (overlayImgUrl.value) {
+      URL.revokeObjectURL(overlayImgUrl.value)
+      overlayImgUrl.value = ''
+    }
+    if (!fileId || !enabled) return
+
+    const result = await fetchFileBlob(fileId, controller.signal)
+    if (!active || result.error) return
+    overlayImgUrl.value = URL.createObjectURL(result.data)
+  },
+  { immediate: true },
+)
 
 onMounted(() => zp.bind())
 onUnmounted(() => {
@@ -188,12 +191,8 @@ onUnmounted(() => {
 }
 
 .scan-img.dimmed {
-  filter: grayscale(0.85) brightness(1.05);
-  opacity: 0.65;
-}
-
-.scan-iframe.dimmed {
-  opacity: 0.65;
+  filter: grayscale(0.85) brightness(0.6) blur(5px);
+  opacity: 0.35;
 }
 
 .zp-inner iframe {

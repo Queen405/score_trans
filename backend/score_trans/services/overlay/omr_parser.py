@@ -17,6 +17,7 @@ class InterData:
     median: tuple[float, float, float, float] | None = None
     width: float | None = None
     height: float | None = None
+    thickness: float | None = None
     curve: tuple[float, float, float, float, float, float, float, float] | None = None
     pitch: float | None = None
 
@@ -29,12 +30,14 @@ class SheetModel:
     inters: list[InterData]
 
 
-_SKIP_TAGS: frozenset[str] = frozenset({
-    "head-chord",
-    "rest-chord",
-    "beam-group",
-    "staff-barline",
-})
+_SKIP_TAGS: frozenset[str] = frozenset(
+    {
+        "head-chord",
+        "rest-chord",
+        "beam-group",
+        "staff-barline",
+    }
+)
 
 _SHEET_RE = re.compile(r"sheet#(\d+)/sheet#\d+\.xml$")
 
@@ -47,13 +50,14 @@ class OmrParser:
         sheets: list[SheetModel] = []
         with ZipFile(path) as archive:
             sheet_entries = sorted(
-                name
-                for name in archive.namelist()
-                if _SHEET_RE.search(name)
+                (
+                    (int(match.group(1)), name)
+                    for name in archive.namelist()
+                    if (match := _SHEET_RE.search(name)) is not None
+                ),
+                key=lambda item: item[0],
             )
-            for entry in sheet_entries:
-                match = _SHEET_RE.search(entry)
-                sheet_index = int(match.group(1)) if match else 0
+            for sheet_index, entry in sheet_entries:
                 xml_bytes = archive.read(entry)
                 root = ET.fromstring(xml_bytes)
                 width, height = _read_picture_dimensions(root)
@@ -103,6 +107,7 @@ def _parse_inter(element: ET.Element) -> InterData | None:
     median = _read_median(element)
     width = _read_float_attr(element, "width")
     height = _read_float_attr(element, "height")
+    thickness = _read_float_attr(element, "thickness")
     curve = _read_curve(element)
     pitch = _read_float_attr(element, "pitch")
 
@@ -115,6 +120,7 @@ def _parse_inter(element: ET.Element) -> InterData | None:
         median=median,
         width=width,
         height=height,
+        thickness=thickness,
         curve=curve,
         pitch=pitch,
     )
@@ -123,13 +129,11 @@ def _parse_inter(element: ET.Element) -> InterData | None:
 def _best_grade(element: ET.Element) -> float:
     grade = _read_float_attr(element, "grade")
     ctx_grade = _read_float_attr(element, "ctx-grade")
-    if grade is None and ctx_grade is None:
-        return 0.5
-    if grade is None:
+    if ctx_grade is not None:
         return ctx_grade
-    if ctx_grade is None:
+    if grade is not None:
         return grade
-    return max(grade, ctx_grade)
+    return 0.5
 
 
 def _read_bounds(element: ET.Element) -> tuple[int, int, int, int] | None:

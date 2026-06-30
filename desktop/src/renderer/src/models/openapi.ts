@@ -1230,6 +1230,11 @@ export type components = {
              * @default
              */
             ocr_text?: string;
+            /**
+             * Overlay Svg File Id
+             * @default
+             */
+            overlay_svg_file_id?: string;
             /** Start Measure Number */
             start_measure_number?: number | null;
             /**
@@ -1242,11 +1247,6 @@ export type components = {
              * @default
              */
             svg_file_id?: string;
-            /**
-             * Overlay Svg File Id
-             * @default
-             */
-            overlay_svg_file_id?: string;
             /**
              * Task Id
              * @default
@@ -1276,17 +1276,17 @@ export type components = {
             musicxml_file_id: string;
             /** Ocr Text */
             ocr_text: string;
+            /**
+             * Overlay Svg File Id
+             * @default
+             */
+            overlay_svg_file_id?: string;
             /** Start Measure Number */
             start_measure_number?: number | null;
             /** Status */
             status: string;
             /** Svg File Id */
             svg_file_id: string;
-            /**
-             * Overlay Svg File Id
-             * @default
-             */
-            overlay_svg_file_id?: string;
             /** Task Id */
             task_id: string;
         };
@@ -1300,14 +1300,14 @@ export type components = {
             musicxml_file_id?: string | null;
             /** Ocr Text */
             ocr_text?: string | null;
+            /** Overlay Svg File Id */
+            overlay_svg_file_id?: string | null;
             /** Start Measure Number */
             start_measure_number?: number | null;
             /** Status */
             status?: string | null;
             /** Svg File Id */
             svg_file_id?: string | null;
-            /** Overlay Svg File Id */
-            overlay_svg_file_id?: string | null;
             /** Task Id */
             task_id?: string | null;
         };
@@ -1385,12 +1385,15 @@ export type components = {
              */
             ocr_text?: string;
             /**
+             * Overlay Svg File Id
+             * @default null
+             */
+            overlay_svg_file_id?: string | null;
+            /**
              * Render Pages
              * @default []
              */
             render_pages?: components["schemas"]["RenderedSvgPage"][];
-            /** Overlay Svg File Id */
-            overlay_svg_file_id?: string | null;
             /** Svg File Id */
             svg_file_id: string;
         };
@@ -1442,7 +1445,10 @@ export type components = {
             musicxml_file_id: string;
             /** Musicxml Filename */
             musicxml_filename: string;
-            /** Overlay Svg File Id */
+            /**
+             * Overlay Svg File Id
+             * @default null
+             */
             overlay_svg_file_id?: string | null;
         };
         /** RenderedSvgPage */

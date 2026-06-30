@@ -94,7 +94,7 @@ async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
   border: 1.5px dashed var(--border) !important;
   background: var(--bg-elevated) !important;
   transition: border-color 0.2s ease, background-color 0.2s ease;
-  min-height: 118px;
+  min-height: 160px;
   display: flex !important;
   align-items: center;
   justify-content: center;
