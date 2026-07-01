@@ -24,6 +24,7 @@ package org.audiveris.omr;
 import org.audiveris.omr.classifier.SampleRepository;
 import org.audiveris.omr.log.LogUtil;
 import org.audiveris.omr.score.Score;
+import org.audiveris.omr.score.ScoreTransOverlayExporter;
 import org.audiveris.omr.sheet.Book;
 import org.audiveris.omr.sheet.BookManager;
 import org.audiveris.omr.sheet.PlayList;
@@ -679,6 +680,10 @@ public class CLI
         @Option(name = "-save", usage = "In batch, save book on every successful step")
         boolean save;
 
+        /** Export Score Trans' native transparent overlay and semantic sidecar. */
+        @Option(name = "-score-trans-overlay", usage = "Export Score Trans overlay and source map")
+        boolean scoreTransOverlay;
+
         /** The set of sheet IDs to load. */
         @Option(name = "-sheets", usage = "Select sheet numbers and ranges (1 4-5)", handler = IntArrayOptionHandler.class)
         private ArrayList<Integer> sheets;
@@ -928,6 +933,10 @@ public class CLI
 
                     if (!ok && (OMR.gui == null)) {
                         throw new Exception("Error in export");
+                    }
+
+                    if (ok && params.scoreTransOverlay) {
+                        ScoreTransOverlayExporter.export(validStubs, params.outputFolder);
                     }
                 }
 

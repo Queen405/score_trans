@@ -39,6 +39,7 @@ def _event_to_item(event: JianpuEvent) -> RenderItem:
         tuplet_index=event.tuplet_index,
         tuplet_start=event.tuplet_start,
         tuplet_stop=event.tuplet_stop,
+        source_ids=list(event.source_ids),
     )
 
 

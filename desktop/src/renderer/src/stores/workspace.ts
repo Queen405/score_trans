@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { RenderPageOcrText, SSEProgressEvent } from '../models/types'
+import type { RenderPageOcrText, SSEProgressEvent, TextAnchor } from '../models/types'
 import {
   composeJianpuPageText,
   migrateLegacyJianpuPageText,
@@ -35,6 +35,9 @@ export interface TaskPage {
   svgFileId: string
   svgFileIds: string[]
   overlayFileId: string
+  sourceMapFileId: string
+  textAnchors: TextAnchor[]
+  textHash: string
   startMeasureNumber: number | null
   status: TaskPageStatus
   progressPercent: number
@@ -62,6 +65,9 @@ export interface TaskPageInput {
   svgFileId?: string
   svgFileIds?: string[]
   overlayFileId?: string
+  sourceMapFileId?: string
+  textAnchors?: TextAnchor[]
+  textHash?: string
   startMeasureNumber?: number | null
   status?: TaskPageStatus
   progressPercent?: number
@@ -92,6 +98,9 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     svgFileId: '',
     svgFileIds: [],
     overlayFileId: '',
+    sourceMapFileId: '',
+    textAnchors: [],
+    textHash: '',
     startMeasureNumber: null,
     status: 'pending',
     progressPercent: 0,
@@ -119,6 +128,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const svgFileId = ref('')
   const svgFileIds = ref<string[]>([])
   const overlayFileId = ref('')
+  const sourceMapFileId = ref('')
+  const textAnchors = ref<TextAnchor[]>([])
+  const textHash = ref('')
   const startMeasureNumber = ref<number | null>(null)
   const isBusy = ref(false)
   const pages = ref<TaskPage[]>([])
@@ -151,6 +163,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       jianpuDirty.value = false
       svgFileId.value = ''
       overlayFileId.value = ''
+      sourceMapFileId.value = ''
+      textAnchors.value = []
+      textHash.value = ''
       startMeasureNumber.value = null
       return
     }
@@ -167,6 +182,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     svgFileId.value = page.svgFileId
     svgFileIds.value = page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : [])
     overlayFileId.value = page.overlayFileId
+    sourceMapFileId.value = page.sourceMapFileId
+    textAnchors.value = page.textAnchors.map((anchor) => ({ ...anchor }))
+    textHash.value = page.textHash
     startMeasureNumber.value = page.startMeasureNumber
   }
 
@@ -666,6 +684,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       svgFileId: p.svgFileId ?? '',
       svgFileIds: p.svgFileIds ?? (p.svgFileId ? [p.svgFileId] : []),
       overlayFileId: p.overlayFileId ?? '',
+      sourceMapFileId: p.sourceMapFileId ?? '',
+      textAnchors: (p.textAnchors ?? []).map((anchor) => ({ ...anchor })),
+      textHash: p.textHash ?? '',
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
@@ -795,6 +816,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       svgFileId: p.svgFileId ?? '',
       svgFileIds: p.svgFileIds ?? (p.svgFileId ? [p.svgFileId] : []),
       overlayFileId: p.overlayFileId ?? '',
+      sourceMapFileId: p.sourceMapFileId ?? '',
+      textAnchors: (p.textAnchors ?? []).map((anchor) => ({ ...anchor })),
+      textHash: p.textHash ?? '',
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
@@ -840,6 +864,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     svgFileId,
     svgFileIds,
     overlayFileId,
+    sourceMapFileId,
+    textAnchors,
+    textHash,
     startMeasureNumber,
     isBusy,
     pages,

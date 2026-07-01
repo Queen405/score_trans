@@ -36,6 +36,8 @@ class JianpuPitch:
     step: str | None = None
     alter: int = 0
     accidental_text: str | None = None
+    source_id: str | None = None
+    accidental_source_id: str | None = None
 
     @property
     def rank(self) -> float:
@@ -71,6 +73,10 @@ class Event:
     tuplet_index: int | None = None
     tuplet_start: bool = False
     tuplet_stop: bool = False
+    source_ids: list[str] = field(default_factory=list)
+    source_roles: dict[str, list[str]] = field(default_factory=dict)
+    source_start_utf16: int | None = None
+    source_end_utf16: int | None = None
 
     @property
     def is_chord(self) -> bool:

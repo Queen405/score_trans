@@ -131,6 +131,18 @@ const editorMetrics = ref({
 })
 let resizeObserver: ResizeObserver | null = null
 
+function selectRange(start: number, end: number): boolean {
+  const element = textareaRef.value
+  if (!element || start < 0 || end <= start || end > props.modelValue.length) return false
+  element.focus()
+  element.setSelectionRange(start, end)
+  const line = props.modelValue.slice(0, start).split('\n').length - 1
+  scrollLineIntoView(element, line)
+  return true
+}
+
+defineExpose({ selectRange })
+
 const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
 const highlightedLines = computed(() => props.modelValue.split('\n').map(tokenizeJianpuLine))
 const highlightScrollStyle = computed(() => ({

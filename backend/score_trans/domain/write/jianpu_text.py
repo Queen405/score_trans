@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fractions import Fraction
+import hashlib
 import re
 
 from ..accidentals import pitch_to_token
@@ -8,11 +9,34 @@ from ..jianpu_tokens import duration_affixes
 from ..performance_marks import event_mark_ids, mark_token
 from ...models.common.types import AccidentalMode, normalize_instrument_profile
 from ...models.score import Event, JianpuPitch, JianpuScore
+from ...models.provenance.entities import JianpuDocument
+from ...models.provenance.schemas import TextAnchor
 
 _CONTINUOUS_SLIDE_TOKEN = mark_token("continuous-slide") or "lh"
 
 
 def score_to_jianpu_text(
+    score: JianpuScore,
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
+    return score_to_jianpu_document(score, accidental_mode=accidental_mode).text
+
+
+def score_to_jianpu_document(
+    score: JianpuScore,
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> JianpuDocument:
+    text = _score_to_jianpu_text(score, accidental_mode=accidental_mode)
+    return JianpuDocument(
+        text=text,
+        anchors=_text_anchors(score, text, accidental_mode=accidental_mode),
+        text_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+    )
+
+
+def _score_to_jianpu_text(
     score: JianpuScore,
     *,
     accidental_mode: AccidentalMode = "auto",
@@ -97,6 +121,252 @@ def score_to_jianpu_text(
     if lyrics:
         lines.append(f"L: {' '.join(lyrics)}")
     return "\n".join(lines)
+
+
+def _text_anchors(
+    score: JianpuScore,
+    text: str,
+    *,
+    accidental_mode: AccidentalMode,
+) -> list[TextAnchor]:
+    if not score.measures:
+        return []
+
+    lines = text.splitlines(keepends=True)
+    lyric_line_count = 1 if lines and lines[-1].lstrip().startswith("L:") else 0
+    first_measure_line = len(lines) - len(score.measures) - lyric_line_count
+    if first_measure_line < 0:
+        return []
+
+    anchors: list[TextAnchor] = []
+    seen: set[tuple[str, int, int, str]] = set()
+    line_offset = sum(len(line) for line in lines[:first_measure_line])
+    for measure_index, measure in enumerate(score.measures):
+        line = lines[first_measure_line + measure_index].rstrip("\r\n")
+        event_cursor = 0
+        events = measure.events
+        index = 0
+        while index < len(events):
+            event = events[index]
+            if event.tuplet_start and event.tuplet_count:
+                group = _collect_tuplet_events(events, index)
+                for group_event in group:
+                    token = _event_to_tuplet_body(
+                        group_event, accidental_mode=accidental_mode
+                    )
+                    position = line.find(token, event_cursor)
+                    if position < 0:
+                        continue
+                    _append_event_anchors(
+                        anchors,
+                        seen,
+                        group_event,
+                        token,
+                        line_offset + position,
+                        line,
+                        event_cursor,
+                        position,
+                        accidental_mode,
+                    )
+                    event_cursor = position + len(token)
+                index += len(group)
+                continue
+
+            token = _event_to_token(event, accidental_mode=accidental_mode)
+            position = line.find(token, event_cursor)
+            if position >= 0:
+                _append_event_anchors(
+                    anchors,
+                    seen,
+                    event,
+                    token,
+                    line_offset + position,
+                    line,
+                    event_cursor,
+                    position,
+                    accidental_mode,
+                )
+                event_cursor = position + len(token)
+            index += 1
+        line_offset += len(lines[first_measure_line + measure_index])
+    for anchor in anchors:
+        anchor.start_utf16 = _utf16_offset(text, anchor.start_utf16)
+        anchor.end_utf16 = _utf16_offset(text, anchor.end_utf16)
+    anchors.sort(key=lambda anchor: (anchor.start_utf16, anchor.end_utf16))
+    return anchors
+
+
+def _append_event_anchors(
+    anchors: list[TextAnchor],
+    seen: set[tuple[str, int, int, str]],
+    event: Event,
+    token: str,
+    absolute_start: int,
+    line: str,
+    segment_start: int,
+    token_start: int,
+    accidental_mode: AccidentalMode,
+) -> None:
+    if event.kind == "rest":
+        body_offset = token.find("0")
+        for source_id in event.source_roles.get("note", []):
+            _append_anchor(
+                anchors,
+                seen,
+                source_id,
+                absolute_start + body_offset,
+                absolute_start + body_offset + 1,
+                "rest",
+            )
+    else:
+        pitch_cursor = 0
+        for pitch in event.pitches:
+            pitch_token = _pitch_to_token(pitch, accidental_mode=accidental_mode)
+            pitch_offset = token.find(pitch_token, pitch_cursor)
+            if pitch_offset < 0:
+                continue
+            degree_match = re.search(r"[1-7]", pitch_token)
+            if degree_match and pitch.source_id:
+                start = absolute_start + pitch_offset + degree_match.start()
+                _append_anchor(anchors, seen, pitch.source_id, start, start + 1, "note")
+            if pitch.accidental_source_id:
+                accidental_span = _accidental_span(pitch_token)
+                if accidental_span:
+                    _append_anchor(
+                        anchors,
+                        seen,
+                        pitch.accidental_source_id,
+                        absolute_start + pitch_offset + accidental_span[0],
+                        absolute_start + pitch_offset + accidental_span[1],
+                        "accidental",
+                    )
+            pitch_cursor = pitch_offset + len(pitch_token)
+
+    if event.slur_start:
+        offset = token.find("(")
+        if offset >= 0:
+            for source_id in event.source_roles.get("slur_start", []):
+                _append_anchor(
+                    anchors,
+                    seen,
+                    source_id,
+                    absolute_start + offset,
+                    absolute_start + offset + 1,
+                    "slur",
+                )
+    if event.slur_stop:
+        offset = token.rfind(")")
+        if offset >= 0:
+            for source_id in event.source_roles.get("slur_stop", []):
+                _append_anchor(
+                    anchors,
+                    seen,
+                    source_id,
+                    absolute_start + offset,
+                    absolute_start + offset + 1,
+                    "slur",
+                )
+
+    prefix = line[segment_start:token_start]
+    prefix_base = absolute_start - (token_start - segment_start)
+    _append_prefix_role_anchors(
+        anchors,
+        seen,
+        event,
+        prefix,
+        prefix_base,
+    )
+
+
+def _append_prefix_role_anchors(
+    anchors: list[TextAnchor],
+    seen: set[tuple[str, int, int, str]],
+    event: Event,
+    prefix: str,
+    absolute_start: int,
+) -> None:
+    search_from = 0
+    if event.dynamic:
+        dynamic_token = f"\\{event.dynamic}"
+        offset = prefix.find(dynamic_token, search_from)
+        if offset >= 0:
+            for source_id in event.source_roles.get("dynamic", []):
+                _append_anchor(
+                    anchors,
+                    seen,
+                    source_id,
+                    absolute_start + offset,
+                    absolute_start + offset + len(dynamic_token),
+                    "dynamic",
+                )
+            search_from = offset + len(dynamic_token)
+
+    role_marks = (
+        ("articulation", list(event.articulations)),
+        ("ornament", list(event.ornaments)),
+        ("technical", list(event.technical)),
+    )
+    for role, marks in role_marks:
+        sources = event.source_roles.get(role, [])
+        for source_id, mark in zip(sources, marks):
+            mark_text = _mark_token(mark)
+            if not mark_text:
+                continue
+            rendered = f"^{mark_text}"
+            offset = prefix.find(rendered, search_from)
+            if offset < 0:
+                offset = prefix.find(rendered)
+            if offset < 0:
+                continue
+            _append_anchor(
+                anchors,
+                seen,
+                source_id,
+                absolute_start + offset,
+                absolute_start + offset + len(rendered),
+                role,
+            )
+            search_from = offset + len(rendered)
+
+
+def _accidental_span(token: str) -> tuple[int, int] | None:
+    degree = re.search(r"[1-7]", token)
+    if degree is None:
+        return None
+    if degree.start() > 0:
+        return (0, degree.start())
+    suffix = re.search(r"[#b]$", token)
+    if suffix:
+        return suffix.span()
+    return None
+
+
+def _append_anchor(
+    anchors: list[TextAnchor],
+    seen: set[tuple[str, int, int, str]],
+    source_id: str,
+    start: int,
+    end: int,
+    role: str,
+) -> None:
+    if start < 0 or end <= start:
+        return
+    key = (source_id, start, end, role)
+    if key in seen:
+        return
+    seen.add(key)
+    anchors.append(
+        TextAnchor(
+            source_id=source_id,
+            start_utf16=start,
+            end_utf16=end,
+            role=role,
+        )
+    )
+
+
+def _utf16_offset(text: str, offset: int) -> int:
+    return len(text[:offset].encode("utf-16-le")) // 2
 
 
 def _event_to_token(

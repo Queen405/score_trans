@@ -9,6 +9,7 @@ from ..common.types import (
     TargetKey,
 )
 from ..render.schemas import RenderedSvgPage
+from ..provenance.schemas import TextAnchor
 
 
 class PipelineByFileIdRequest(BaseModel):
@@ -30,4 +31,8 @@ class PipelineResponse(BaseModel):
     render_pages: list[RenderedSvgPage] = []
     ocr_measure_numbers: list[int] = []
     ocr_text: str = ""
+    overlay_file_id: str | None = None
+    source_map_file_id: str | None = None
     overlay_svg_file_id: str | None = None
+    text_anchors: list[TextAnchor] = []
+    text_hash: str = ""

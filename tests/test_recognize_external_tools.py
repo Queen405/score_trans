@@ -90,6 +90,7 @@ def test_recognize_with_audiveris_applies_configured_java_omr_args(
         "-run",
         "org.example.CustomRunner",
         "-export",
+        "-score-trans-overlay",
         "-output",
         str(output_dir.resolve()),
         str(source.resolve()),
@@ -131,6 +132,6 @@ def test_recognize_with_gradle_uses_configured_java_omr_args(
         "-PcmdLineArgs="
         "-batch,-step,PAGE,-save,-constant,alpha=1,"
         "-constant,org.audiveris.omr.step.LoadStep.maxPixelCount=20000000,"
-        f"-export,-output,{output_dir.resolve()},{source.resolve()}",
+        f"-export,-score-trans-overlay,-output,{output_dir.resolve()},{source.resolve()}",
         "-PaudiverisMaxHeap=2g",
     ]

@@ -345,6 +345,10 @@ interface PageResult {
   ocr_text: string
   svg_file_id: string
   overlay_svg_file_id: string
+  overlay_file_id?: string
+  source_map_file_id?: string
+  text_hash?: string
+  text_anchors?: PipelineResponse['text_anchors']
   start_measure_number: number | null
   status: string
   error_message: string
@@ -1272,6 +1276,10 @@ async function persistPageResult(
         ocr_text: result.ocr_text,
         svg_file_id: result.svg_file_id,
         overlay_svg_file_id: result.overlay_svg_file_id,
+        overlay_file_id: result.overlay_file_id ?? '',
+        source_map_file_id: result.source_map_file_id ?? '',
+        text_hash: result.text_hash ?? '',
+        text_anchors: result.text_anchors ?? [],
         start_measure_number: result.start_measure_number,
         status: result.status,
         error_message: result.error_message,
@@ -1290,6 +1298,10 @@ async function persistPageResult(
           ocr_text: result.ocr_text,
           svg_file_id: result.svg_file_id,
           overlay_svg_file_id: result.overlay_svg_file_id,
+          overlay_file_id: result.overlay_file_id ?? '',
+          source_map_file_id: result.source_map_file_id ?? '',
+          text_hash: result.text_hash ?? '',
+          text_anchors: result.text_anchors ?? [],
           start_measure_number: result.start_measure_number,
           status: result.status,
           error_message: result.error_message,
@@ -1327,7 +1339,10 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
     jianpuText: page.jianpu_text,
     ocrText: page.ocr_text,
     svgFileId: page.svg_file_id,
-    overlayFileId: page.overlay_svg_file_id ?? '',
+    overlayFileId: page.overlay_file_id || page.overlay_svg_file_id || '',
+    sourceMapFileId: page.source_map_file_id ?? '',
+    textHash: page.text_hash ?? '',
+    textAnchors: page.text_anchors ?? [],
     svgFileIds: existing?.svgFileIds.length ? existing.svgFileIds : (page.svg_file_id ? [page.svg_file_id] : []),
     historyBatchId: page.batch_id ?? null,
     startMeasureNumber: page.start_measure_number,
@@ -1473,7 +1488,10 @@ function makePipelineApplyDecision(
         jianpuDirty: false,
         svgFileId: result.svg_file_id,
         svgFileIds: renderPageIds(result.render_pages, result.svg_file_id),
-        overlayFileId: result.overlay_svg_file_id ?? '',
+        overlayFileId: result.overlay_file_id || result.overlay_svg_file_id || '',
+        sourceMapFileId: result.source_map_file_id ?? '',
+        textHash: result.text_hash ?? '',
+        textAnchors: result.text_anchors ?? [],
         originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
         originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
         taskId: '',
@@ -1492,6 +1510,10 @@ function makePipelineApplyDecision(
         ocr_text: ocrText,
         svg_file_id: result.svg_file_id,
         overlay_svg_file_id: result.overlay_svg_file_id ?? '',
+        overlay_file_id: result.overlay_file_id ?? '',
+        source_map_file_id: result.source_map_file_id ?? '',
+        text_hash: result.text_hash ?? '',
+        text_anchors: result.text_anchors ?? [],
         start_measure_number: decision.startMeasureNumber,
         status: decision.status,
         error_message: decision.waitingMessage,
@@ -1513,12 +1535,16 @@ function makePipelineApplyDecision(
     let ocrText = returnedPipelineOcrText(result) || split.ocrText
     let svgFileId = result.svg_file_id
     let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
+    let textAnchors = result.text_anchors ?? []
+    let textHash = result.text_hash ?? ''
     if (decision.autoSelected && decision.startMeasureNumber !== null && result.musicxml_file_id) {
       const rerendered = await renderMusicxmlPageWithStart(target, result.musicxml_file_id, decision.startMeasureNumber)
       split = splitJianpuAndOcr(rerendered.jianpuText)
       ocrText = ocrText || split.ocrText
       svgFileId = rerendered.svgFileId
       svgFileIds = rerendered.svgFileIds
+      textAnchors = rerendered.textAnchors
+      textHash = rerendered.textHash
     }
     const pageResult: PageResult = {
       input_file_name: target.inputFileName,
@@ -1528,6 +1554,10 @@ function makePipelineApplyDecision(
       ocr_text: ocrText,
       svg_file_id: svgFileId,
       overlay_svg_file_id: result.overlay_svg_file_id ?? '',
+      overlay_file_id: result.overlay_file_id ?? '',
+      source_map_file_id: result.source_map_file_id ?? '',
+      text_hash: textHash,
+      text_anchors: textAnchors,
       start_measure_number: decision.startMeasureNumber,
       status: decision.status,
       error_message: decision.waitingMessage,
@@ -1540,7 +1570,10 @@ function makePipelineApplyDecision(
       jianpuDirty: false,
       svgFileId,
       svgFileIds,
-      overlayFileId: result.overlay_svg_file_id ?? '',
+      overlayFileId: result.overlay_file_id || result.overlay_svg_file_id || '',
+      sourceMapFileId: result.source_map_file_id ?? '',
+      textHash,
+      textAnchors,
       originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
       originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
       taskId: '',
@@ -1679,7 +1712,13 @@ async function renderMusicxmlPageWithStart(
   target: RecognitionTarget,
   musicxmlFileId: string,
   startMeasureNumber: number,
-): Promise<{ jianpuText: string; svgFileId: string; svgFileIds: string[] }> {
+): Promise<{
+  jianpuText: string
+  svgFileId: string
+  svgFileIds: string[]
+  textAnchors: PipelineResponse['text_anchors']
+  textHash: string
+}> {
   const converted = await requireData(convertApi.musicxmlToJianpu({
     musicxml_file_id: musicxmlFileId,
     page_image_file_id: target.inputFileId || undefined,
@@ -1701,6 +1740,8 @@ async function renderMusicxmlPageWithStart(
     jianpuText: converted.jianpu_text,
     svgFileId: rendered.svg_file_id,
     svgFileIds: renderPageIds(rendered.pages, rendered.svg_file_id),
+    textAnchors: converted.text_anchors ?? [],
+    textHash: converted.text_hash ?? '',
   }
 }
 
@@ -1742,6 +1783,10 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
     }
     const batchText = store.batchJianpuTextFor(batchId)
     const pages = buildBatchRenderRequests(batchPages, { jianpuText: batchText })
+      .map((page, index) => ({
+        ...page,
+        text_anchors: batchPages[index]?.textAnchors ?? [],
+      }))
     if (!pages.length) {
       store.setBatchRenderPageFileIds([], batchId)
       return

@@ -46,6 +46,8 @@ class _Token:
     value: str
     line: int
     column: int
+    start_utf16: int | None = None
+    end_utf16: int | None = None
 
 
 def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
@@ -148,7 +150,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         measure_ornaments = []
         pending_repeat_count = 1
 
-    def append_event(event: Event, raw: str) -> None:
+    def append_event(event: Event, raw: str, token: _Token | None = None) -> None:
         nonlocal \
             cursor, \
             pending_dynamic, \
@@ -160,6 +162,9 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             open_tie, \
             last_pitched_event
         event.source_token = raw
+        if token is not None:
+            event.source_start_utf16 = token.start_utf16
+            event.source_end_utf16 = token.end_utf16
         event.start = cursor
         if pending_dynamic:
             event.dynamic = pending_dynamic
@@ -308,10 +313,10 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             continue
         if raw.startswith("$") and raw.endswith("$"):
             for event, source_token in _parse_tuplet_token(token):
-                append_event(event, source_token)
+                append_event(event, source_token, token)
             continue
 
-        append_event(_parse_event_token(token), raw)
+        append_event(_parse_event_token(token), raw, token)
 
     if pending_slide:
         raise ValueError("连线滑音 ^lh 后必须跟随目标音符")
@@ -332,7 +337,15 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
     lyrics: list[str] = []
     saw_time = False
     saw_score_tokens = False
-    for line_no, raw_line in enumerate(text.splitlines(), start=1):
+    raw_lines = text.splitlines(keepends=True)
+    line_start_utf16 = 0
+    line_utf16_starts: list[int] = []
+    for raw_line_with_ending in raw_lines:
+        line_utf16_starts.append(line_start_utf16)
+        line_start_utf16 += _utf16_length(raw_line_with_ending)
+    for line_no, raw_with_ending in enumerate(raw_lines, start=1):
+        original_line = raw_with_ending.rstrip("\r\n")
+        raw_line = original_line
         raw_line = _strip_inline_comment(raw_line)
         stripped = raw_line.strip()
         if not stripped:
@@ -348,8 +361,15 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             key, value = [part.strip() for part in stripped.split("=", 1)]
             if key == "1" and _is_key_name(value):
                 if saw_score_tokens:
+                    column = raw_line.find(stripped)
                     tokens.append(
-                        _Token(stripped, line_no, raw_line.find(stripped) + 1)
+                        _token_with_offsets(
+                            stripped,
+                            line_no,
+                            column,
+                            line_utf16_starts[line_no - 1],
+                            original_line,
+                        )
                     )
                 else:
                     options.key = value
@@ -371,7 +391,16 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
         if re.fullmatch(r"\d+/\d+", stripped) and not saw_time:
             beats, beat_type = stripped.split("/", 1)
             if saw_score_tokens:
-                tokens.append(_Token(stripped, line_no, raw_line.find(stripped) + 1))
+                column = raw_line.find(stripped)
+                tokens.append(
+                    _token_with_offsets(
+                        stripped,
+                        line_no,
+                        column,
+                        line_utf16_starts[line_no - 1],
+                        original_line,
+                    )
+                )
             else:
                 options.beats = int(beats)
                 options.beat_type = int(beat_type)
@@ -381,10 +410,42 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             raw_token = match.group(0)
             if _is_measure_label_token(raw_token):
                 continue
-            tokens.append(_Token(raw_token, line_no, match.start() + 1))
+            original_column = original_line.find(raw_line)
+            if original_column < 0:
+                original_column = 0
+            tokens.append(
+                _token_with_offsets(
+                    raw_token,
+                    line_no,
+                    original_column + match.start(),
+                    line_utf16_starts[line_no - 1],
+                    original_line,
+                )
+            )
             if not _is_key_or_time_token(raw_token):
                 saw_score_tokens = True
     return options, tokens, lyrics
+
+
+def _token_with_offsets(
+    value: str,
+    line: int,
+    column: int,
+    line_start_utf16: int,
+    original_line: str,
+) -> _Token:
+    return _Token(
+        value=value,
+        line=line,
+        column=max(0, column) + 1,
+        start_utf16=_utf16_length(original_line[: max(0, column)]) + line_start_utf16,
+        end_utf16=_utf16_length(original_line[: max(0, column) + len(value)])
+        + line_start_utf16,
+    )
+
+
+def _utf16_length(value: str) -> int:
+    return len(value.encode("utf-16-le")) // 2
 
 
 def _is_key_or_time_token(token: str) -> bool:

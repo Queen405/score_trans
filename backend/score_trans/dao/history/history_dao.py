@@ -11,6 +11,7 @@ from ...models.history.entities import (
     HistoryPage,
     HistoryRenderPageOcrText,
 )
+from ...models.provenance.schemas import TextAnchor
 from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
@@ -68,6 +69,10 @@ class HistoryDao:
                     ocr_text TEXT NOT NULL DEFAULT '',
                     svg_file_id TEXT NOT NULL DEFAULT '',
                     overlay_svg_file_id TEXT NOT NULL DEFAULT '',
+                    overlay_file_id TEXT NOT NULL DEFAULT '',
+                    source_map_file_id TEXT NOT NULL DEFAULT '',
+                    text_hash TEXT NOT NULL DEFAULT '',
+                    text_anchors TEXT NOT NULL DEFAULT '[]',
                     start_measure_number INTEGER,
                     status TEXT NOT NULL DEFAULT 'completed',
                     error_message TEXT NOT NULL DEFAULT '',
@@ -174,8 +179,9 @@ class HistoryDao:
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id, task_id, musicxml_file_id,
                          jianpu_text, ocr_text, svg_file_id, overlay_svg_file_id,
+                         overlay_file_id, source_map_file_id, text_hash, text_anchors,
                          start_measure_number, status, error_message, completed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -187,6 +193,10 @@ class HistoryDao:
                         page.ocr_text,
                         page.svg_file_id,
                         page.overlay_svg_file_id,
+                        page.overlay_file_id,
+                        page.source_map_file_id,
+                        page.text_hash,
+                        _dump_text_anchors(page.text_anchors),
                         page.start_measure_number,
                         page.status,
                         page.error_message,
@@ -272,6 +282,10 @@ class HistoryDao:
         ocr_text: str | None = None,
         svg_file_id: str | None = None,
         overlay_svg_file_id: str | None = None,
+        overlay_file_id: str | None = None,
+        source_map_file_id: str | None = None,
+        text_hash: str | None = None,
+        text_anchors: list[TextAnchor] | None = None,
         musicxml_file_id: str | None = None,
         start_measure_number: int | None = None,
         status: str | None = None,
@@ -285,6 +299,13 @@ class HistoryDao:
             ("ocr_text", ocr_text),
             ("svg_file_id", svg_file_id),
             ("overlay_svg_file_id", overlay_svg_file_id),
+            ("overlay_file_id", overlay_file_id),
+            ("source_map_file_id", source_map_file_id),
+            ("text_hash", text_hash),
+            (
+                "text_anchors",
+                _dump_text_anchors(text_anchors) if text_anchors is not None else None,
+            ),
             ("musicxml_file_id", musicxml_file_id),
             ("start_measure_number", start_measure_number),
             ("status", status),
@@ -369,6 +390,17 @@ class HistoryDao:
                 "ALTER TABLE history_page ADD COLUMN overlay_svg_file_id TEXT NOT NULL DEFAULT ''"
             )
             conn.commit()
+        for column, definition in (
+            ("overlay_file_id", "TEXT NOT NULL DEFAULT ''"),
+            ("source_map_file_id", "TEXT NOT NULL DEFAULT ''"),
+            ("text_hash", "TEXT NOT NULL DEFAULT ''"),
+            ("text_anchors", "TEXT NOT NULL DEFAULT '[]'"),
+        ):
+            if column not in columns:
+                conn.execute(
+                    f"ALTER TABLE history_page ADD COLUMN {column} {definition}"
+                )
+                conn.commit()
         batch_columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(history_batch)").fetchall()
@@ -439,6 +471,16 @@ class HistoryDao:
             overlay_svg_file_id=row["overlay_svg_file_id"]
             if "overlay_svg_file_id" in row.keys()
             else "",
+            overlay_file_id=(
+                row["overlay_file_id"] if "overlay_file_id" in row.keys() else ""
+            ),
+            source_map_file_id=(
+                row["source_map_file_id"] if "source_map_file_id" in row.keys() else ""
+            ),
+            text_hash=row["text_hash"] if "text_hash" in row.keys() else "",
+            text_anchors=_load_text_anchors(
+                row["text_anchors"] if "text_anchors" in row.keys() else "[]"
+            ),
             start_measure_number=row["start_measure_number"]
             if "start_measure_number" in row.keys()
             else None,
@@ -509,3 +551,27 @@ def _load_render_page_ocr_texts(payload: str) -> list[HistoryRenderPageOcrText]:
             )
         )
     return items
+
+
+def _dump_text_anchors(items: list[TextAnchor]) -> str:
+    return json.dumps(
+        [item.model_dump() for item in items],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _load_text_anchors(payload: str) -> list[TextAnchor]:
+    try:
+        raw = json.loads(payload or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(raw, list):
+        return []
+    anchors: list[TextAnchor] = []
+    for item in raw:
+        try:
+            anchors.append(TextAnchor.model_validate(item))
+        except ValueError:
+            continue
+    return anchors

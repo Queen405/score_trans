@@ -50,6 +50,7 @@ export type {
   SyntaxExample,
   TargetKey,
   TaskSubmitResponse,
+  TextAnchor,
   UploadPage,
   UploadResponse,
 } from './contracts'

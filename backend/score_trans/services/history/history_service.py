@@ -9,6 +9,7 @@ from ...models.history.entities import (
     HistoryPage,
     HistoryRenderPageOcrText,
 )
+from ...models.provenance.schemas import TextAnchor
 
 
 class HistoryService:
@@ -72,6 +73,10 @@ class HistoryService:
         ocr_text: str | None = None,
         svg_file_id: str | None = None,
         overlay_svg_file_id: str | None = None,
+        overlay_file_id: str | None = None,
+        source_map_file_id: str | None = None,
+        text_hash: str | None = None,
+        text_anchors: list[TextAnchor] | None = None,
         musicxml_file_id: str | None = None,
         start_measure_number: int | None = None,
         status: str | None = None,
@@ -84,6 +89,10 @@ class HistoryService:
             ocr_text=ocr_text,
             svg_file_id=svg_file_id,
             overlay_svg_file_id=overlay_svg_file_id,
+            overlay_file_id=overlay_file_id,
+            source_map_file_id=source_map_file_id,
+            text_hash=text_hash,
+            text_anchors=text_anchors,
             musicxml_file_id=musicxml_file_id,
             start_measure_number=start_measure_number,
             status=status,

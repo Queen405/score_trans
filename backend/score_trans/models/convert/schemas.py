@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from ..common.types import AccidentalMode, InstrumentProfile, TargetKey
+from ..provenance.schemas import TextAnchor
 
 
 class MusicXmlToJianpuRequest(BaseModel):
@@ -16,6 +17,8 @@ class MusicXmlToJianpuRequest(BaseModel):
 
 class MusicXmlToJianpuResponse(BaseModel):
     jianpu_text: str
+    text_anchors: list[TextAnchor] = []
+    text_hash: str = ""
 
 
 class JianpuToMusicXmlRequest(BaseModel):

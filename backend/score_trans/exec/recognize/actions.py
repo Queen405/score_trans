@@ -108,12 +108,24 @@ class RecognizeActions:
         )
         report_progress(progress_callback, "recognize", 92, "注册 MusicXML 文件")
         musicxml_id = self.uploads.register(musicxml_path)
-        overlay_svg_file_id = _generate_overlay_file_id(
-            self.overlay_service, self.uploads, omr_dir
+        native_finder = getattr(self.overlay_service, "find_native_overlay", None)
+        overlay_path, source_map_path = (
+            native_finder(omr_dir) if callable(native_finder) else (None, None)
+        )
+        overlay_svg_file_id = (
+            _generate_overlay_file_id(self.overlay_service, self.uploads, omr_dir)
+            if overlay_path is None
+            else None
         )
         return RecognizeResponse(
             musicxml_file_id=musicxml_id,
             musicxml_filename=musicxml_path.name,
+            overlay_file_id=(
+                self.uploads.register(overlay_path) if overlay_path else None
+            ),
+            source_map_file_id=(
+                self.uploads.register(source_map_path) if source_map_path else None
+            ),
             overlay_svg_file_id=overlay_svg_file_id,
         )
 

@@ -100,7 +100,15 @@ def _audiveris_args(
     for constant in _merged_audiveris_constants(config):
         args.extend(["-constant", constant])
     args.extend(_split_extra_args(config.audiveris_extra_args))
-    args.extend(["-export", "-output", str(output_dir), str(input_file)])
+    args.extend(
+        [
+            "-export",
+            "-score-trans-overlay",
+            "-output",
+            str(output_dir),
+            str(input_file),
+        ]
+    )
     return args
 
 

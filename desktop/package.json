@@ -11,7 +11,7 @@
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint --config eslint.config.mjs src/",
     "typecheck": "vue-tsc --noEmit",
-    "test:utils": "node --test scripts/test-jianpu-page-sections.mjs",
+    "test:utils": "node --test scripts/test-jianpu-page-sections.mjs scripts/test-text-anchor-tracking.mjs",
     "generate:api-types": "node scripts/export-openapi.mjs && openapi-typescript ../build/openapi.json -o src/renderer/src/models/openapi.ts --export-type --alphabetize --default-non-nullable false",
     "check:api-types": "node scripts/export-openapi.mjs && openapi-typescript ../build/openapi.json -o src/renderer/src/models/openapi.ts --export-type --alphabetize --default-non-nullable false --check"
   },

@@ -28,6 +28,25 @@
           alt=""
           draggable="false"
         >
+        <svg
+          v-if="sourceSheet && showOverlay && canShowOverlay"
+          class="source-hit-layer"
+          :viewBox="`0 0 ${sourceSheet.width} ${sourceSheet.height}`"
+          :width="imgW || sourceSheet.width"
+          :height="imgH || sourceSheet.height"
+          aria-label="可点击识别元素"
+        >
+          <path
+            v-for="element in clickableElements"
+            :key="element.source_id"
+            :d="element.hit_path"
+            class="source-hit"
+            :class="{ selected: element.source_id === selectedSourceId }"
+            tabindex="0"
+            @click.stop="selectSource(element.source_id)"
+            @keydown.enter.prevent="selectSource(element.source_id)"
+          />
+        </svg>
       </div>
     </div>
     <div
@@ -78,7 +97,27 @@ const props = defineProps<{
   fileId: string
   fileName: string
   overlayFileId?: string
+  sourceMapFileId?: string
+  clickableSourceIds?: string[]
+  selectedSourceId?: string
 }>()
+const emit = defineEmits<{ selectSource: [sourceId: string] }>()
+
+interface SourceElement {
+  source_id: string
+  hit_path: string
+}
+
+interface SourceMapSheet {
+  width: number
+  height: number
+  elements: SourceElement[]
+}
+
+interface SourceMap {
+  version: number
+  sheets: SourceMapSheet[]
+}
 
 const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
@@ -86,6 +125,7 @@ const imgW = ref(0)
 const imgH = ref(0)
 const overlayImgUrl = ref('')
 const showOverlay = ref(true)
+const sourceMap = ref<SourceMap | null>(null)
 
 const fileUrl = computed(() => (props.fileId ? getFileURL(props.fileId) : ''))
 const pdfFitUrl = computed(() =>
@@ -96,6 +136,15 @@ const isPdf = computed(() => extension.value === 'pdf')
 const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].includes(extension.value))
 const hasOverlay = computed(() => !!props.overlayFileId)
 const canShowOverlay = computed(() => hasOverlay.value && isImage.value)
+const sourceSheet = computed(() => sourceMap.value?.sheets?.[0] ?? null)
+const clickableSourceIdSet = computed(() => new Set(props.clickableSourceIds ?? []))
+const clickableElements = computed(() => (
+  sourceSheet.value?.elements.filter((element) => clickableSourceIdSet.value.has(element.source_id)) ?? []
+))
+
+function selectSource(sourceId: string): void {
+  emit('selectSource', sourceId)
+}
 
 function onImgLoad(e: Event) {
   const img = e.target as HTMLImageElement
@@ -133,6 +182,29 @@ watch(
     const result = await fetchFileBlob(fileId, controller.signal)
     if (!active || result.error) return
     overlayImgUrl.value = URL.createObjectURL(result.data)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.sourceMapFileId ?? '',
+  async (fileId, _previous, onCleanup) => {
+    const controller = new AbortController()
+    let active = true
+    onCleanup(() => {
+      active = false
+      controller.abort()
+    })
+    sourceMap.value = null
+    if (!fileId) return
+    const result = await fetchFileBlob(fileId, controller.signal)
+    if (!active || result.error) return
+    try {
+      const parsed = JSON.parse(await result.data.text()) as SourceMap
+      if (parsed.version === 1 && Array.isArray(parsed.sheets)) sourceMap.value = parsed
+    } catch {
+      sourceMap.value = null
+    }
   },
   { immediate: true },
 )
@@ -184,6 +256,33 @@ onUnmounted(() => {
   height: 100%;
   pointer-events: none;
   contain: layout style paint;
+}
+
+.source-hit-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.source-hit {
+  fill: rgba(14, 165, 233, 0.001);
+  stroke: rgba(14, 165, 233, 0.001);
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: visiblePainted;
+  cursor: pointer;
+  outline: none;
+}
+
+.source-hit:hover,
+.source-hit:focus,
+.source-hit.selected {
+  fill: rgba(14, 165, 233, 0.16);
+  stroke: rgba(2, 132, 199, 0.9);
+  stroke-width: 2;
 }
 
 .scan-img {

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import logging
+import json
 from pathlib import Path
 
+from ...models.provenance.schemas import SourceMap
+from ..files.image_info import image_dimensions
 from .omr_parser import OmrParser, SheetModel
 from .svg_generator import SvgGenerator
 
@@ -81,6 +84,42 @@ class OverlayService:
             if svg_paths:
                 return svg_paths
         return []
+
+    def find_native_overlay(
+        self, omr_output_dir: str | Path
+    ) -> tuple[Path | None, Path | None]:
+        """Return Audiveris-native overlay and sidecar after validating their contract."""
+        output_dir = Path(omr_output_dir)
+        source_map_path = output_dir / "score-link-map.json"
+        if not source_map_path.exists():
+            return None, None
+        try:
+            source_map = SourceMap.model_validate(
+                json.loads(source_map_path.read_text(encoding="utf-8"))
+            )
+        except (OSError, ValueError, json.JSONDecodeError):
+            logger.warning("Invalid Audiveris source map: %s", source_map_path)
+            return None, None
+        if source_map.version != 1 or not source_map.sheets:
+            return None, None
+        sheet = source_map.sheets[0]
+        output_root = output_dir.resolve()
+        overlay_path = (output_dir / sheet.overlay_file).resolve()
+        if (
+            not overlay_path.is_relative_to(output_root)
+            or not overlay_path.is_file()
+            or overlay_path.suffix.lower() != ".png"
+        ):
+            logger.warning("Audiveris overlay referenced by source map is missing")
+            return None, None
+        try:
+            width, height = image_dimensions(overlay_path)
+        except OSError:
+            return None, None
+        if (int(width), int(height)) != (sheet.width, sheet.height):
+            logger.warning("Audiveris overlay dimensions do not match its source map")
+            return None, None
+        return overlay_path, source_map_path
 
     def parse_sheets(self, omr_path: str | Path) -> list[SheetModel]:
         """Parse an ``.omr`` file into sheet models (for testing)."""

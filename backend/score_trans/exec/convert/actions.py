@@ -5,7 +5,11 @@ from pathlib import Path
 
 
 from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
-from ...domain.musicxml import musicxml_path_to_score, score_to_jianpu_text
+from ...domain.musicxml import (
+    musicxml_path_to_score,
+    score_to_jianpu_document,
+    score_to_jianpu_text,
+)
 from ...models.common.types import AccidentalMode, InstrumentProfile
 from ...models.convert.schemas import (
     JianpuToMusicXmlRequest,
@@ -14,6 +18,7 @@ from ...models.convert.schemas import (
     MusicXmlToJianpuResponse,
 )
 from ...models.score import JianpuScore
+from ...models.provenance.entities import JianpuDocument
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
@@ -69,6 +74,29 @@ class MusicXmlToJianpuAction:
             )
         return score
 
+    def execute_document(
+        self,
+        musicxml_path: str | Path,
+        *,
+        target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
+        instrument_profile: InstrumentProfile | None = None,
+        start_measure_number: int | None = None,
+        image_path: str | Path | None = None,
+        ocr_provider: OCRProvider | None = None,
+    ) -> JianpuDocument:
+        return score_to_jianpu_document(
+            self.build_score(
+                musicxml_path,
+                target_key=target_key,
+                instrument_profile=instrument_profile,
+                start_measure_number=start_measure_number,
+                image_path=image_path,
+                ocr_provider=ocr_provider,
+            ),
+            accidental_mode=accidental_mode,
+        )
+
 
 class JianpuToMusicXmlAction:
     def execute_text(self, jianpu_text: str, *, title: str = "Jianpu Import") -> str:
@@ -106,7 +134,7 @@ class ConvertActions:
             if not image_path or not image_path.exists():
                 raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
 
-        jianpu_text = self.musicxml_to_jianpu.execute(
+        document = self.musicxml_to_jianpu.execute_document(
             path,
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
@@ -114,7 +142,11 @@ class ConvertActions:
             start_measure_number=req.start_measure_number,
             image_path=image_path,
         )
-        return MusicXmlToJianpuResponse(jianpu_text=jianpu_text)
+        return MusicXmlToJianpuResponse(
+            jianpu_text=document.text,
+            text_anchors=document.anchors,
+            text_hash=document.text_hash,
+        )
 
     def jianpu_to_musicxml_response(
         self, req: JianpuToMusicXmlRequest

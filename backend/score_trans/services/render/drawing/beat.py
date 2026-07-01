@@ -121,9 +121,35 @@ def _render_item(
         out.append(
             f'<text class="lyric" x="{cx:.1f}" y="{bottom + 18:.1f}" text-anchor="middle">{_esc(item.lyric)}</text>'
         )
+    classes: list[str] = []
+    attributes: list[str] = []
     if item.playback_index is not None:
+        classes.append("playback-note")
+        attributes.extend(
+            [
+                f'data-note-index="{item.playback_index}"',
+                f'data-note-token="{_esc(item.token)}"',
+            ]
+        )
+    if item.source_ids:
+        classes.append("source-anchor")
+        attributes.append(f'data-source-id="{_esc(item.source_ids[0])}"')
+        attributes.append(f'data-source-ids="{_esc(" ".join(item.source_ids))}"')
+        metrics = _token_metrics(item.token, y, options)
+        half_width = max(18.0, slot_width / 2)
+        bbox_top = metrics["top"] - placement_offsets.get("above", 0.0)
+        bbox_bottom = metrics["bottom"]
+        if item.dynamic:
+            bbox_bottom += 34
+        if item.lyric:
+            bbox_bottom += 22
+        attributes.append(
+            f'data-bbox="{cx - half_width:.1f} {bbox_top:.1f} '
+            f'{half_width * 2:.1f} {bbox_bottom - bbox_top:.1f}"'
+        )
+    if classes:
         return [
-            f'<g class="playback-note" data-note-index="{item.playback_index}" data-note-token="{_esc(item.token)}">',
+            f'<g class="{" ".join(classes)}" {" ".join(attributes)}>',
             *out,
             "</g>",
         ]

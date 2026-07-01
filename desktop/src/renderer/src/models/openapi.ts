@@ -885,6 +885,11 @@ export type components = {
             page_image_file_id?: string | null;
             /** Start Measure Number */
             start_measure_number?: number | null;
+            /**
+             * Text Anchors
+             * @default []
+             */
+            text_anchors?: components["schemas"]["TextAnchor"][];
             /** Title */
             title?: string | null;
         };
@@ -1247,6 +1252,16 @@ export type components = {
         MusicXmlToJianpuResponse: {
             /** Jianpu Text */
             jianpu_text: string;
+            /**
+             * Text Anchors
+             * @default []
+             */
+            text_anchors?: components["schemas"]["TextAnchor"][];
+            /**
+             * Text Hash
+             * @default
+             */
+            text_hash?: string;
         };
         /** NormalizeJianpuTextRequest */
         NormalizeJianpuTextRequest: {
@@ -1296,10 +1311,20 @@ export type components = {
              */
             ocr_text?: string;
             /**
+             * Overlay File Id
+             * @default
+             */
+            overlay_file_id?: string;
+            /**
              * Overlay Svg File Id
              * @default
              */
             overlay_svg_file_id?: string;
+            /**
+             * Source Map File Id
+             * @default
+             */
+            source_map_file_id?: string;
             /** Start Measure Number */
             start_measure_number?: number | null;
             /**
@@ -1317,6 +1342,16 @@ export type components = {
              * @default
              */
             task_id?: string;
+            /**
+             * Text Anchors
+             * @default []
+             */
+            text_anchors?: components["schemas"]["TextAnchor"][];
+            /**
+             * Text Hash
+             * @default
+             */
+            text_hash?: string;
         };
         /** PageResponse */
         PageResponse: {
@@ -1342,10 +1377,20 @@ export type components = {
             /** Ocr Text */
             ocr_text: string;
             /**
+             * Overlay File Id
+             * @default
+             */
+            overlay_file_id?: string;
+            /**
              * Overlay Svg File Id
              * @default
              */
             overlay_svg_file_id?: string;
+            /**
+             * Source Map File Id
+             * @default
+             */
+            source_map_file_id?: string;
             /** Start Measure Number */
             start_measure_number?: number | null;
             /** Status */
@@ -1354,6 +1399,16 @@ export type components = {
             svg_file_id: string;
             /** Task Id */
             task_id: string;
+            /**
+             * Text Anchors
+             * @default []
+             */
+            text_anchors?: components["schemas"]["TextAnchor"][];
+            /**
+             * Text Hash
+             * @default
+             */
+            text_hash?: string;
         };
         /** PageUpdate */
         PageUpdate: {
@@ -1365,8 +1420,12 @@ export type components = {
             musicxml_file_id?: string | null;
             /** Ocr Text */
             ocr_text?: string | null;
+            /** Overlay File Id */
+            overlay_file_id?: string | null;
             /** Overlay Svg File Id */
             overlay_svg_file_id?: string | null;
+            /** Source Map File Id */
+            source_map_file_id?: string | null;
             /** Start Measure Number */
             start_measure_number?: number | null;
             /** Status */
@@ -1375,6 +1434,10 @@ export type components = {
             svg_file_id?: string | null;
             /** Task Id */
             task_id?: string | null;
+            /** Text Anchors */
+            text_anchors?: components["schemas"]["TextAnchor"][] | null;
+            /** Text Hash */
+            text_hash?: string | null;
         };
         /** PerformanceMarkCatalogItem */
         PerformanceMarkCatalogItem: {
@@ -1450,6 +1513,11 @@ export type components = {
              */
             ocr_text?: string;
             /**
+             * Overlay File Id
+             * @default null
+             */
+            overlay_file_id?: string | null;
+            /**
              * Overlay Svg File Id
              * @default null
              */
@@ -1459,8 +1527,23 @@ export type components = {
              * @default []
              */
             render_pages?: components["schemas"]["RenderedSvgPage"][];
+            /**
+             * Source Map File Id
+             * @default null
+             */
+            source_map_file_id?: string | null;
             /** Svg File Id */
             svg_file_id: string;
+            /**
+             * Text Anchors
+             * @default []
+             */
+            text_anchors?: components["schemas"]["TextAnchor"][];
+            /**
+             * Text Hash
+             * @default
+             */
+            text_hash?: string;
         };
         /** PreservingLayoutRequest */
         PreservingLayoutRequest: {
@@ -1511,10 +1594,20 @@ export type components = {
             /** Musicxml Filename */
             musicxml_filename: string;
             /**
+             * Overlay File Id
+             * @default null
+             */
+            overlay_file_id?: string | null;
+            /**
              * Overlay Svg File Id
              * @default null
              */
             overlay_svg_file_id?: string | null;
+            /**
+             * Source Map File Id
+             * @default null
+             */
+            source_map_file_id?: string | null;
         };
         /** RenderedSvgPage */
         RenderedSvgPage: {
@@ -1534,6 +1627,11 @@ export type components = {
             page_index: number;
             /** Page Width */
             page_width: number;
+            /**
+             * Render Map File Id
+             * @default null
+             */
+            render_map_file_id?: string | null;
             /** Svg File Id */
             svg_file_id: string;
         };
@@ -1605,6 +1703,11 @@ export type components = {
             show_measure_numbers?: boolean | null;
             /** Start Measure Number */
             start_measure_number?: number | null;
+            /**
+             * Text Anchors
+             * @default []
+             */
+            text_anchors?: components["schemas"]["TextAnchor"][];
             /**
              * Title
              * @default 简谱
@@ -1856,6 +1959,22 @@ export type components = {
             status?: string;
             /** Task Id */
             task_id: string;
+        };
+        /** TextAnchor */
+        TextAnchor: {
+            /** End Utf16 */
+            end_utf16: number;
+            /** Role */
+            role: string;
+            /** Source Id */
+            source_id: string;
+            /** Start Utf16 */
+            start_utf16: number;
+            /**
+             * Valid
+             * @default true
+             */
+            valid?: boolean;
         };
         /** UploadPage */
         UploadPage: {

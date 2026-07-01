@@ -3,6 +3,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 from pathlib import Path
+import re
 
 from ..constants import FIFTHS_TO_KEY, KEY_TO_TONIC, MAJOR_SCALE, STEP_TO_SEMITONE
 from ..performance_marks import canonical_mark_id, normalize_event_marks
@@ -19,6 +20,10 @@ from ...models.common.types import (
     normalize_instrument_profile,
 )
 from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
+
+_PROVENANCE_PART_RE = re.compile(
+    r"(?:^|__)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-i(?P<inter>\d+)"
+)
 
 
 def musicxml_path_to_score(
@@ -214,8 +219,12 @@ def _read_measure_events(
         ):
             pitch = _note_pitch(note, ns, target_key)
             if pitch:
+                provenance = _note_provenance(note)
+                pitch.source_id = _first_source(provenance, "note")
+                pitch.accidental_source_id = _first_source(provenance, "accidental")
                 last_event.pitches.append(pitch)
                 last_event.pitches.sort(key=lambda value: value.rank, reverse=True)
+                _merge_event_provenance(last_event, provenance)
             continue
 
         if note.find(_q(ns, "rest")) is not None:
@@ -225,6 +234,13 @@ def _read_measure_events(
             event = Event(
                 kind="note", duration=duration, pitches=[pitch] if pitch else []
             )
+        provenance = _note_provenance(note)
+        if event.kind == "note" and event.pitches:
+            event.pitches[0].source_id = _first_source(provenance, "note")
+            event.pitches[0].accidental_source_id = _first_source(
+                provenance, "accidental"
+            )
+        _merge_event_provenance(event, provenance)
         event.dotted = len(note.findall(_q(ns, "dot")))
         event.tie_start = any(
             tie.get("type") == "start" for tie in note.findall(_q(ns, "tie"))
@@ -299,6 +315,50 @@ def _read_measure_events(
         measure.events.append(event)
         last_event = event
         cursor += duration
+
+
+def _note_provenance(note: ET.Element) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {}
+    xml_id = note.get("id") or ""
+    for match in _PROVENANCE_PART_RE.finditer(xml_id):
+        role = _source_role(match.group("role"))
+        source_id = f"s{match.group('sheet')}:i{match.group('inter')}"
+        result.setdefault(role, []).append(source_id)
+    return result
+
+
+def _source_role(code: str) -> str:
+    return {
+        "n": "note",
+        "a": "accidental",
+        "ss": "slur_start",
+        "se": "slur_stop",
+        "ar": "articulation",
+        "or": "ornament",
+        "dy": "dynamic",
+        "bo": "technical",
+        "fi": "technical",
+        "pl": "technical",
+        "ap": "technical",
+        "pa": "articulation",
+        "fe": "articulation",
+        "tu": "tuplet",
+    }.get(code, code)
+
+
+def _first_source(provenance: dict[str, list[str]], role: str) -> str | None:
+    sources = provenance.get(role, [])
+    return sources[0] if sources else None
+
+
+def _merge_event_provenance(event: Event, provenance: dict[str, list[str]]) -> None:
+    for role, sources in provenance.items():
+        target = event.source_roles.setdefault(role, [])
+        for source_id in sources:
+            if source_id not in target:
+                target.append(source_id)
+            if source_id not in event.source_ids:
+                event.source_ids.append(source_id)
 
 
 def _restore_slide_directions(score: JianpuScore) -> None:

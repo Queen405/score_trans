@@ -209,6 +209,10 @@
               :file-id="store.originalFileId"
               :file-name="store.originalFileName"
               :overlay-file-id="store.overlayFileId"
+              :source-map-file-id="store.sourceMapFileId"
+              :clickable-source-ids="clickableSourceIds"
+              :selected-source-id="selectedSourceId"
+              @select-source="handleOriginalSourceClick"
             />
           </div>
         </div>
@@ -296,6 +300,7 @@
           <div class="ws-panel-body">
             <svg-preview
               v-if="isViewingFinal && finalSvgFileId"
+              ref="svgPreviewRef"
               :svg-file-id="finalSvgFileId"
               :ocr-text="finalRenderPageOcrText"
               :current-note-index="currentNoteIndex"
@@ -316,6 +321,7 @@
             </div>
             <jianpu-editor
               v-else
+              ref="jianpuEditorRef"
               v-model="jianpuText"
               :start-measure-number="batchStartMeasureNumber ?? 1"
               :current-note-index="currentNoteIndex"
@@ -350,12 +356,13 @@ import { convertApi } from '../api/convert'
 import { renderApi } from '../api/render'
 import { downloadBlob, exportApi, svgToJpegBlob, svgToPngBlob } from '../api/export'
 import { historyApi } from '../api/history'
-import { ApiError, requireData } from '../api/client'
+import { ApiError, fetchFileBlob, requireData } from '../api/client'
 import { filesApi } from '../api/files'
 import type {
   HistoryBatchListItem,
   HistoryBatch,
   HistoryPage,
+  RenderedSvgPage,
 } from '../models/types'
 import type { TaskPage } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
@@ -373,6 +380,7 @@ import {
 } from '../utils/jianpuPageSections'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
+import { trackTextAnchors } from '../utils/textAnchorTracking'
 import {
   buildBatchRenderRequests,
   renderPageOcrTextsForRequest,
@@ -407,6 +415,14 @@ const store = useWorkspaceStore()
 const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
+const jianpuEditorRef = ref<{ selectRange: (start: number, end: number) => boolean } | null>(null)
+const svgPreviewRef = ref<{ highlightSource: (sourceId: string) => boolean } | null>(null)
+const selectedSourceId = ref('')
+const renderSourcePageLookup = ref<Record<string, number>>({})
+const clickableSourceIds = computed(() => {
+  if (isViewingFinal.value && !finalSvgFileId.value) return []
+  return [...new Set(store.textAnchors.map((anchor) => anchor.source_id))]
+})
 
 const jianpuText = ref(store.currentBatchJianpuText)
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
@@ -480,9 +496,10 @@ watch(() => store.currentBatchJianpuText, (v) => {
     nextTick(() => { programmaticUpdate = false })
   }
 }, { immediate: true })
-watch(jianpuText, (v) => {
+watch(jianpuText, (v, previous) => {
   if (v !== store.currentBatchJianpuText) {
     const isUserEdit = !programmaticUpdate
+    if (isUserEdit) updateTextAnchorsAfterEdit(previous ?? '', v)
     store.setBatchJianpuText(v, isUserEdit)
     if (isUserEdit) {
       store.setBatchRenderPageFileIds([])
@@ -492,6 +509,73 @@ watch(jianpuText, (v) => {
   }
   syncPageStartsFromEditor(v)
 })
+
+function updateTextAnchorsAfterEdit(previous: string, current: string): void {
+  const previousSections = parseJianpuPageSections(previous)
+  const currentSections = parseJianpuPageSections(current)
+  store.currentBatchPages.forEach((page, index) => {
+    if (!page.textAnchors.length) return
+    const previousSection = previousSections.find((section) => section.pageIndex === index)
+      ?? previousSections[index]
+    const currentSection = currentSections.find((section) => section.pageIndex === index)
+      ?? currentSections[index]
+    if (!previousSection || !currentSection) {
+      store.patchPageById(page.id, {
+        textAnchors: page.textAnchors.map((anchor) => ({ ...anchor, valid: false })),
+      })
+      return
+    }
+    const update = trackTextAnchors(previousSection.body, currentSection.body, page.textAnchors)
+    store.patchPageById(page.id, { textAnchors: update.anchors })
+  })
+}
+
+async function handleOriginalSourceClick(sourceId: string): Promise<void> {
+  selectedSourceId.value = sourceId
+  const candidates = store.textAnchors.filter((anchor) => anchor.source_id === sourceId)
+  const anchor = candidates.find((item) => item.valid !== false)
+  if (!anchor) {
+    message.warning(
+      candidates.length
+        ? '对应简谱内容已被重构，无法精确定位'
+        : '该识别元素在当前简谱中没有可定位目标',
+    )
+    return
+  }
+
+  if (!isViewingFinal.value) {
+    const offset = currentSectionBodyOffset()
+    if (!jianpuEditorRef.value?.selectRange(
+      offset + anchor.start_utf16,
+      offset + anchor.end_utf16,
+    )) {
+      message.warning('对应简谱范围当前不可见')
+    }
+    return
+  }
+
+  const scopedSourceId = `p${Math.max(0, currentBatchLocalIndex.value)}|${sourceId}`
+  const targetPage = renderSourcePageLookup.value[scopedSourceId]
+  if (targetPage !== undefined && targetPage !== finalRenderPageIndex.value) {
+    finalRenderPageIndex.value = targetPage
+    await nextTick()
+  }
+  if (!svgPreviewRef.value?.highlightSource(scopedSourceId)
+    && !svgPreviewRef.value?.highlightSource(sourceId)) {
+    message.warning('当前渲染页中没有该元素，请重新渲染后再试')
+  }
+}
+
+function currentSectionBodyOffset(): number {
+  const sections = parseJianpuPageSections(jianpuText.value)
+  const localIndex = Math.max(0, currentBatchLocalIndex.value)
+  const section = sections.find((item) => item.pageIndex === localIndex) ?? sections[localIndex]
+  if (!section?.markerLine) return 0
+  const markerOffset = jianpuText.value.indexOf(section.markerLine)
+  if (markerOffset < 0) return 0
+  const bodyStart = markerOffset + section.markerLine.length
+  return jianpuText.value[bodyStart] === '\n' ? bodyStart + 1 : bodyStart
+}
 watch(() => store.svgFileIds, () => {
   if (!isViewingFinal.value) finalSvgFileIds.value = currentPageSvgIds()
 })
@@ -669,7 +753,10 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       jianpuText: r.jianpu,
       ocrText: r.page.ocr_text || r.split.ocrText,
       svgFileId: r.page.svg_file_id,
-      overlayFileId: r.page.overlay_svg_file_id ?? '',
+      overlayFileId: r.page.overlay_file_id || r.page.overlay_svg_file_id || '',
+      sourceMapFileId: r.page.source_map_file_id ?? '',
+      textHash: r.page.text_hash ?? '',
+      textAnchors: r.page.text_anchors ?? [],
       svgFileIds: r.page.svg_file_id ? [r.page.svg_file_id] : [],
       taskId: r.page.task_id || '',
       startMeasureNumber: r.page.start_measure_number ?? null,
@@ -710,7 +797,13 @@ async function validateRestoredBatchFiles(
 ): Promise<void> {
   const seq = ++restoreCheckSeq
   const fileIds = pages
-    .flatMap((entry) => [entry.input_file_id, entry.musicxml_file_id, entry.svg_file_id])
+    .flatMap((entry) => [
+      entry.input_file_id,
+      entry.musicxml_file_id,
+      entry.svg_file_id,
+      entry.overlay_file_id,
+      entry.source_map_file_id,
+    ])
     .concat(renderPageFileIds)
     .filter(Boolean)
   if (!fileIds.length) return
@@ -735,6 +828,15 @@ async function validateRestoredBatchFiles(
         patch.svgFileId = ''
         patch.svgFileIds = []
         warnings.push(`${entry.input_file_name}：SVG 已失效`)
+      }
+      if (entry.overlay_file_id && !exists[entry.overlay_file_id]) {
+        patch.overlayFileId = ''
+        warnings.push(`${entry.input_file_name}：原谱叠加层已失效`)
+      }
+      if (entry.source_map_file_id && !exists[entry.source_map_file_id]) {
+        patch.sourceMapFileId = ''
+        patch.textAnchors = []
+        warnings.push(`${entry.input_file_name}：原谱点击映射已失效`)
       }
       if (Object.keys(patch).length) {
         store.patchPageByHistoryPageId(entry.id, patch)
@@ -1254,6 +1356,7 @@ async function renderFinalBatch(): Promise<string[]> {
     title: '简谱',
   }))
   const ids = renderResponsePageIds(result.pages, result.svg_file_id)
+  await loadRenderSourcePageLookup(result.pages)
   setFinalSvgFileIds(ids)
   store.setBatchRenderPageFileIds(ids)
   store.setBatchRenderPageOcrTexts(
@@ -1266,11 +1369,34 @@ async function renderFinalBatch(): Promise<string[]> {
   return ids
 }
 
+async function loadRenderSourcePageLookup(pages: RenderedSvgPage[]): Promise<void> {
+  const lookup: Record<string, number> = {}
+  await Promise.all((pages ?? []).map(async (page, index) => {
+    if (!page.render_map_file_id) return
+    const response = await fetchFileBlob(page.render_map_file_id)
+    if (response.error) return
+    try {
+      const payload = JSON.parse(await response.data.text()) as {
+        anchors?: Array<{ source_id?: string }>
+      }
+      for (const anchor of payload.anchors ?? []) {
+        if (anchor.source_id) lookup[anchor.source_id] = index
+      }
+    } catch {
+      // Invalid sidecars safely degrade to highlighting the current render page.
+    }
+  }))
+  renderSourcePageLookup.value = lookup
+}
+
 function buildBatchRenderPages() {
   return buildBatchRenderRequests(batchRenderSourcePages(), {
     jianpuText: jianpuText.value,
     title: '简谱',
-  })
+  }).map((page, index) => ({
+    ...page,
+    text_anchors: store.currentBatchPages[index]?.textAnchors ?? [],
+  }))
 }
 
 function buildBatchRenderSourcePages() {
@@ -1470,6 +1596,10 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     jianpu_text: sourcePageText,
     ocr_text: store.ocrText,
     svg_file_id: sourceSvgFileId,
+    overlay_file_id: store.currentPage?.overlayFileId || '',
+    source_map_file_id: store.currentPage?.sourceMapFileId || '',
+    text_hash: store.currentPage?.textHash || '',
+    text_anchors: store.currentPage?.textAnchors || [],
     start_measure_number: currentSection
       ? currentSection.startMeasureNumber
       : (store.startMeasureNumber ?? null),
@@ -1502,6 +1632,10 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
         jianpu_text: section?.body ?? page.jianpuText,
         ocr_text: page.ocrText,
         svg_file_id: page.svgFileId || (pageIndex === currentPageIndex ? sourceSvgFileId : ''),
+        overlay_file_id: page.overlayFileId,
+        source_map_file_id: page.sourceMapFileId,
+        text_hash: page.textHash,
+        text_anchors: page.textAnchors,
         start_measure_number: section
           ? section.startMeasureNumber
           : (page.startMeasureNumber ?? null),

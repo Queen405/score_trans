@@ -398,11 +398,15 @@ test('partial recognition keeps page markers for every source page', () => {
 test('recognition dashboard keeps a stable first-row height across window states', () => {
   assert.match(
     recognizeViewSource,
-    /grid-template-rows:\s*280px\s+minmax\(0,\s*1fr\)/,
+    /grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)/,
   )
   assert.match(
     recognizeViewSource,
-    /grid-template-rows:\s*260px\s+minmax\(0,\s*1fr\)/,
+    /\.card-recognition,\s*\.card-stats\s*\{[^}]*min-height:\s*280px/s,
+  )
+  assert.match(
+    recognizeViewSource,
+    /@media \(max-height:\s*840px\)[\s\S]*?\.card-recognition,\s*\.card-stats\s*\{[^}]*min-height:\s*260px/s,
   )
   assert.doesNotMatch(recognizeViewSource, /minmax\((?:280|260)px,\s*auto\)/)
   assert.match(
@@ -427,11 +431,11 @@ test('recognition controls stay inside the card while progress or waiting status
   )
   assert.match(
     recognizeViewSource,
-    /\.dashboard-grid--busy\s*\{[^}]*grid-template-rows:\s*340px/s,
+    /\.dashboard-grid--busy\s*\{[^}]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)/s,
   )
   assert.match(
     recognizeViewSource,
-    /@media \(max-height:\s*840px\)[\s\S]*?\.dashboard-grid--busy\s*\{[^}]*grid-template-rows:\s*320px/s,
+    /@media \(max-height:\s*840px\)[\s\S]*?\.dashboard-grid--busy\s*\{[^}]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)/s,
   )
   assert.match(
     recognizeViewSource,

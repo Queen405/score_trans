@@ -111,7 +111,6 @@ import org.audiveris.omr.util.StringUtil;
 import org.audiveris.omr.util.VerticalSide;
 
 import org.jdesktop.application.Application;
-import org.jdesktop.application.ApplicationContext;
 import org.jdesktop.application.ResourceMap;
 
 import org.slf4j.Logger;
@@ -169,12 +168,6 @@ public abstract class SheetPainter
     private static final Constants constants = new Constants();
 
     private static final Logger logger = LoggerFactory.getLogger(SheetPainter.class);
-
-    private static final ApplicationContext applicationContext = Application.getInstance()
-            .getContext();
-
-    private static final ResourceMap resources = applicationContext.getResourceMap(
-            SheetPainter.class);
 
     /** A transformation to half scale. (used for slot time annotation) */
     protected static final AffineTransform halfAT = AffineTransform.getScaleInstance(0.5, 0.5);
@@ -604,9 +597,29 @@ public abstract class SheetPainter
         }
 
         // Resource injection
-        resources.injectComponents(panel);
+        final ResourceMap resources = getResources();
+
+        if (resources != null) {
+            resources.injectComponents(panel);
+        }
 
         return panel;
+    }
+
+    /**
+     * Report UI resources when the Swing application has been launched.
+     * <p>
+     * Batch exports reuse this painter without launching the desktop application.
+     *
+     * @return the resource map, or null in batch mode
+     */
+    private static ResourceMap getResources ()
+    {
+        try {
+            return Application.getInstance().getContext().getResourceMap(SheetPainter.class);
+        } catch (IllegalStateException ex) {
+            return null;
+        }
     }
 
     //~ Inner Classes ------------------------------------------------------------------------------

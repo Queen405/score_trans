@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from ..provenance.schemas import TextAnchor
+
 
 class PageCreate(BaseModel):
     input_file_name: str = ""
@@ -12,6 +14,10 @@ class PageCreate(BaseModel):
     ocr_text: str = ""
     svg_file_id: str = ""
     overlay_svg_file_id: str = ""
+    overlay_file_id: str = ""
+    source_map_file_id: str = ""
+    text_hash: str = ""
+    text_anchors: list[TextAnchor] = []
     start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""
@@ -24,6 +30,10 @@ class PageUpdate(BaseModel):
     ocr_text: str | None = None
     svg_file_id: str | None = None
     overlay_svg_file_id: str | None = None
+    overlay_file_id: str | None = None
+    source_map_file_id: str | None = None
+    text_hash: str | None = None
+    text_anchors: list[TextAnchor] | None = None
     start_measure_number: int | None = None
     status: str | None = None
     error_message: str | None = None
@@ -40,6 +50,10 @@ class PageResponse(BaseModel):
     ocr_text: str
     svg_file_id: str
     overlay_svg_file_id: str = ""
+    overlay_file_id: str = ""
+    source_map_file_id: str = ""
+    text_hash: str = ""
+    text_anchors: list[TextAnchor] = []
     start_measure_number: int | None = None
     status: str
     error_message: str

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from ..provenance.schemas import TextAnchor
+
 
 @dataclass(slots=True)
 class HistoryPage:
@@ -15,6 +17,10 @@ class HistoryPage:
     ocr_text: str = ""
     svg_file_id: str = ""
     overlay_svg_file_id: str = ""
+    overlay_file_id: str = ""
+    source_map_file_id: str = ""
+    text_hash: str = ""
+    text_anchors: list[TextAnchor] = field(default_factory=list)
     start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""

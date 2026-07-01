@@ -30,6 +30,7 @@ class RenderItem:
     tuplet_index: int | None = None
     tuplet_start: bool = False
     tuplet_stop: bool = False
+    source_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

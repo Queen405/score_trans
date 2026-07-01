@@ -2255,6 +2255,7 @@ public class PartwiseBuilder
 
             current.note = note;
             current.pmNote = factory.createNote();
+            current.pmNote.setId(ScoreTransProvenance.noteXmlId(note));
 
             // For first note in chord
             if (isFirstInChord) {

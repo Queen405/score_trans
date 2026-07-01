@@ -5,11 +5,12 @@ from .parse.musicxml import (
     read_musicxml_text,
     musicxml_to_score,
 )
-from .write.jianpu_text import score_to_jianpu_text
+from .write.jianpu_text import score_to_jianpu_document, score_to_jianpu_text
 
 __all__ = [
     "musicxml_path_to_score",
     "musicxml_to_score",
     "read_musicxml_text",
     "score_to_jianpu_text",
+    "score_to_jianpu_document",
 ]

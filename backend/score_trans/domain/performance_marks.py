@@ -606,7 +606,11 @@ if len(_BY_TOKEN) != len(PERFORMANCE_MARKS):
 _BY_ALIAS = {
     alias.strip().lower().replace("_", "-").replace(" ", "-"): mark
     for mark in PERFORMANCE_MARKS
-    for alias in (mark.id, *mark.aliases)
+    for alias in (
+        mark.id,
+        *mark.aliases,
+        *((mark.custom_musicxml,) if mark.custom_musicxml else ()),
+    )
 }
 
 

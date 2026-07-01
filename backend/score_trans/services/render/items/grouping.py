@@ -67,6 +67,7 @@ def _measure_render_items(measure: Any, beat_count: int) -> list[list[RenderItem
                         tuplet_index=event.tuplet_index,
                         tuplet_start=event.tuplet_start if first else False,
                         tuplet_stop=event.tuplet_stop if remaining == chunk else False,
+                        source_ids=list(event.source_ids),
                     )
                 )
                 remaining -= chunk
@@ -100,6 +101,7 @@ def _split_rest_across_beats(
                     duration=chunk,
                     generated=event.generated,
                     start=cursor,
+                    source_ids=list(event.source_ids),
                 ),
             )
         )

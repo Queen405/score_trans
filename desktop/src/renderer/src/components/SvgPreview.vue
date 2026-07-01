@@ -398,6 +398,22 @@ function clearPlaybackHighlight(): void {
   })
 }
 
+function highlightSource(sourceId: string): boolean {
+  const svg = svgRoot()
+  if (!svg || !sourceId) return false
+  svg.querySelectorAll('.source-current').forEach((node) => {
+    node.classList.remove('source-current')
+  })
+  const target = Array.from(svg.querySelectorAll<SVGGElement>('.source-anchor'))
+    .find((element) => (element.dataset.sourceIds ?? '').split(/\s+/).includes(sourceId))
+  if (!target) return false
+  target.classList.add('source-current')
+  keepTargetVisible(target)
+  return true
+}
+
+defineExpose({ highlightSource })
+
 function applyPlaybackHighlight(reveal: boolean): void {
   const svg = svgRoot()
   if (!svg) return
@@ -520,26 +536,41 @@ onUnmounted(() => {
 }
 
 .svg-inline :deep(.playback-note.playback-current .note),
+.svg-inline :deep(.source-anchor.source-current .note),
 .svg-inline :deep(.playback-note.playback-current .accidental),
+.svg-inline :deep(.source-anchor.source-current .accidental),
 .svg-inline :deep(.playback-note.playback-current .dynamic),
+.svg-inline :deep(.source-anchor.source-current .dynamic),
 .svg-inline :deep(.playback-note.playback-current .ornament),
+.svg-inline :deep(.source-anchor.source-current .ornament),
 .svg-inline :deep(.playback-note.playback-current .technical),
+.svg-inline :deep(.source-anchor.source-current .technical),
 .svg-inline :deep(.playback-note.playback-current .technique-mark),
-.svg-inline :deep(.playback-note.playback-current .lyric) {
+.svg-inline :deep(.source-anchor.source-current .technique-mark),
+.svg-inline :deep(.playback-note.playback-current .lyric),
+.svg-inline :deep(.source-anchor.source-current .lyric) {
   fill: #d97706;
 }
 
 .svg-inline :deep(.playback-note.playback-current .duration-line),
+.svg-inline :deep(.source-anchor.source-current .duration-line),
 .svg-inline :deep(.playback-note.playback-current .extension-line),
+.svg-inline :deep(.source-anchor.source-current .extension-line),
 .svg-inline :deep(.playback-note.playback-current .tie),
+.svg-inline :deep(.source-anchor.source-current .tie),
 .svg-inline :deep(.playback-note.playback-current .slur),
-.svg-inline :deep(.playback-note.playback-current .articulation) {
+.svg-inline :deep(.source-anchor.source-current .slur),
+.svg-inline :deep(.playback-note.playback-current .articulation),
+.svg-inline :deep(.source-anchor.source-current .articulation) {
   stroke: #d97706;
 }
 
 .svg-inline :deep(.playback-note.playback-current .octave-dot),
+.svg-inline :deep(.source-anchor.source-current .octave-dot),
 .svg-inline :deep(.playback-note.playback-current .rhythm-dot),
-.svg-inline :deep(.playback-note.playback-current .staccato) {
+.svg-inline :deep(.source-anchor.source-current .rhythm-dot),
+.svg-inline :deep(.playback-note.playback-current .staccato),
+.svg-inline :deep(.source-anchor.source-current .staccato) {
   fill: #d97706;
 }
 

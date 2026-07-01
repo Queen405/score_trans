@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.jianpu import normalize_jianpu_text, parse_jianpu_score
+from ...domain.provenance import apply_text_anchors
 from ...models.common.types import (
     AccidentalMode,
     InstrumentProfile,
@@ -32,12 +33,14 @@ from ...models.render.schemas import (
     RenderedSvgPage,
 )
 from ...models.score import JianpuScore, TextBlock
+from ...models.provenance.schemas import TextAnchor
 from ...services.render import A4MeasureRange
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.ocr.providers import create_configured_ocr_provider
 from ...services.render.render_service import RenderService
+from ...services.render.render_map import write_render_map
 from ..convert.actions import MusicXmlToJianpuAction
 
 
@@ -246,12 +249,15 @@ class RenderJianpuTextAction:
         start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        text_anchors: list[TextAnchor] | None = None,
     ) -> list[Path]:
         score = parse_jianpu_score(
             Path(input_path).read_text(encoding="utf-8"), title=title
         )
         if start_measure_number is not None:
             _renumber_score(score, start_measure_number)
+        if text_anchors:
+            apply_text_anchors(score, text_anchors)
         return self.render_service.render_score_a4_svg_pages(
             score,
             output_path,
@@ -307,8 +313,10 @@ class RenderActions:
         normalized_text: str | None = None
         if req.jianpu_text:
             try:
-                normalized_text = normalize_jianpu_text(
-                    req.jianpu_text, title=req.title
+                normalized_text = (
+                    req.jianpu_text
+                    if req.text_anchors
+                    else normalize_jianpu_text(req.jianpu_text, title=req.title)
                 )
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from exc
@@ -323,6 +331,7 @@ class RenderActions:
 
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         ocr_blocks: list[TextBlock] | None = None
+        anchor_options = {"text_anchors": req.text_anchors} if req.text_anchors else {}
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
@@ -338,6 +347,7 @@ class RenderActions:
                 start_measure_number=req.start_measure_number,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
+                **anchor_options,
             )
         else:
             paths = self.text_renderer.execute_a4_pages(
@@ -347,6 +357,7 @@ class RenderActions:
                 start_measure_number=req.start_measure_number,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
+                **anchor_options,
             )
         pages = self._register_rendered_pages(paths)
 
@@ -597,9 +608,12 @@ class RenderActions:
                     raise HTTPException(404, f"文件不存在：{page.jianpu_file_id}")
                 text = input_path.read_text(encoding="utf-8")
             score = parse_jianpu_score(text, title=page.title or req.title)
-            return score_with_accidental_mode(
+            score = score_with_accidental_mode(
                 score, accidental_mode=req.accidental_mode
             )
+            if page.text_anchors:
+                apply_text_anchors(score, page.text_anchors)
+            return score
         raise HTTPException(
             400, "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id"
         )
@@ -607,15 +621,23 @@ class RenderActions:
     def _register_rendered_pages(self, paths: list[Path]) -> list[RenderedSvgPage]:
         if not paths:
             raise HTTPException(500, "渲染未生成任何 SVG 页面")
-        return [
-            RenderedSvgPage(
-                svg_file_id=self.uploads.register(path),
-                page_index=index,
-                page_width=1240,
-                page_height=1754,
+        pages: list[RenderedSvgPage] = []
+        for index, path in enumerate(paths):
+            render_map_path = write_render_map(path, index)
+            pages.append(
+                RenderedSvgPage(
+                    svg_file_id=self.uploads.register(path),
+                    page_index=index,
+                    page_width=1240,
+                    page_height=1754,
+                    render_map_file_id=(
+                        self.uploads.register(render_map_path)
+                        if render_map_path is not None
+                        else None
+                    ),
+                )
             )
-            for index, path in enumerate(paths)
-        ]
+        return pages
 
     def _register_rendered_page_results(
         self,
@@ -702,8 +724,23 @@ def _serialize_ocr_text(blocks: list[TextBlock], *, id_prefix: str = "ocr") -> s
 
 
 def _tag_score_source_page(score: JianpuScore, source_page_index: int) -> None:
+    prefix = f"p{source_page_index}|"
     for measure in score.measures:
         measure.source_page_index = source_page_index
+        for event in measure.events:
+            event.source_ids = [
+                source_id if source_id.startswith(prefix) else f"{prefix}{source_id}"
+                for source_id in event.source_ids
+            ]
+            event.source_roles = {
+                role: [
+                    source_id
+                    if source_id.startswith(prefix)
+                    else f"{prefix}{source_id}"
+                    for source_id in source_ids
+                ]
+                for role, source_ids in event.source_roles.items()
+            }
 
 
 def _source_ranges_for_scores(scores: list[JianpuScore]) -> list[_SourcePageRange]:
