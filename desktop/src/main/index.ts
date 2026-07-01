@@ -3,6 +3,7 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { BackendProcess } from './backend'
+import { registerFileHandlers } from './files'
 import {
   configureElectronStoragePaths,
   loadStoragePaths,
@@ -160,6 +161,8 @@ app.whenReady().then(async () => {
     await session.defaultSession.clearCache()
     return { ok: true }
   })
+
+  registerFileHandlers(() => mainWindow)
 
   // Create the main window
   createWindow()

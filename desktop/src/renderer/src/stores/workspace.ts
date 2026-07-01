@@ -3,8 +3,8 @@ import { ref, computed } from 'vue'
 import type { RenderPageOcrText, SSEProgressEvent, TextAnchor } from '../models/types'
 import {
   composeJianpuPageText,
-  migrateLegacyJianpuPageText,
   removeJianpuPageSection,
+  restoreJianpuPageText,
 } from '../utils/jianpuPageSections'
 
 export type TaskPageStatus =
@@ -208,6 +208,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       ? pages.value.filter((p) => p.batchId === currentBatchId.value)
       : pages.value,
   )
+
+  const currentBatchLabel = computed(() => {
+    if (!currentBatchId.value) {
+      return inputFileName.value || originalFileName.value || 'score'
+    }
+    const batch = batches.value.find((b) => b.id === currentBatchId.value)
+    return batch?.label || inputFileName.value || originalFileName.value || 'score'
+  })
 
   function toGlobalIndex(batchLocalIndex: number): number {
     const batchPages = currentBatchPages.value
@@ -836,7 +844,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     setBatchRenderPageOcrTexts(renderPageOcrTexts, false, bid)
     batchJianpuTexts.value = {
       ...batchJianpuTexts.value,
-      [bid]: migrateLegacyJianpuPageText(batchJianpuText, batchPages),
+      [bid]: restoreJianpuPageText(batchJianpuText, batchPages),
     }
     batchJianpuDirty.value = {
       ...batchJianpuDirty.value,
@@ -874,6 +882,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     currentBatchId,
     batches,
     currentBatchPages,
+    currentBatchLabel,
     currentTaskId,
     taskStatus,
     backgroundTaskCount,

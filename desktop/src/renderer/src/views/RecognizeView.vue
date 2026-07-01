@@ -292,6 +292,7 @@ import {
 import {
   buildHistoryBatchSnapshot,
   isRecognitionBatchReadyForRender,
+  recognitionBatchPagesForPage,
 } from '../utils/recognitionHistory'
 import { notifyHistoryPagePatched, notifyHistoryUpdated } from '../utils/historyEvents'
 import {
@@ -1876,9 +1877,11 @@ async function clearBatchRenderPages(batchId: string): Promise<void> {
 }
 
 function batchPagesForPage(pageId: string): TaskPage[] {
-  const page = store.pages.find((entry) => entry.id === pageId)
-  if (!page?.batchId) return page ? [page] : []
-  return store.pages.filter((entry) => entry.batchId === page.batchId)
+  return recognitionBatchPagesForPage(
+    store.pages,
+    pageId,
+    getLiveRecognitionHistoryPageId(pageId),
+  )
 }
 
 function batchRenderPageOcrTextsForRequest(batchId: string | undefined) {

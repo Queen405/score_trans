@@ -114,7 +114,7 @@ const selectedId = ref('')
 const editingId = ref('')
 const editingText = ref('')
 const ocrBlocks = ref<OcrTextBlock[]>([])
-const shouldHideStaticOcr = computed(() => props.editableOcr && ocrBlocks.value.length > 0)
+const shouldHideStaticOcr = computed(() => props.editableOcr)
 let svgLoadGeneration = 0
 let dragging: {
   id: string

@@ -169,6 +169,15 @@ def test_parse_new_project_syntax_chords_lyrics_and_marks() -> None:
     assert score.measures[0].events[0].lyric == "春"
 
 
+def test_parse_note_can_end_slur_and_start_tie() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n(1 2 3)~ | ~3 4 5 6 |")
+
+    combined = score.measures[0].events[2]
+    assert combined.slur_stop is True
+    assert combined.tie_start is True
+    assert score.measures[1].events[0].tie_stop is True
+
+
 def test_measure_level_tremolo_shorthand_matches_expanded_marks() -> None:
     shorthand = parse_jianpu_score("1=C\n4/4\n(^l) q5 q1 q4 q5 h1'~ |")
     expanded = parse_jianpu_score("1=C\n4/4\n^l q5 ^l q1 ^l q4 ^l q5 ^l h1'~ |")

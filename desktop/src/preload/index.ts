@@ -41,6 +41,16 @@ const api = {
   clearElectronCache: async (): Promise<void> => {
     await ipcRenderer.invoke('cache:clear-electron')
   },
+  saveExportFile: async (
+    source: { url: string } | { buffer: ArrayBuffer },
+    dir: string,
+    filename: string,
+  ): Promise<string> => {
+    return ipcRenderer.invoke('file:save-export', source, dir, filename)
+  },
+  openFolder: async (dir: string): Promise<void> => {
+    await ipcRenderer.invoke('file:open-folder', dir)
+  },
 }
 
 if (process.contextIsolated) {

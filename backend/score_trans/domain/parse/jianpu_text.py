@@ -212,11 +212,9 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                 event,
                 instrument_profile=options.instrument_profile,
             )
-        if raw.startswith("("):
-            event.slur_start = True
+        if event.slur_start:
             open_slur = True
-        if raw.endswith(")") and open_slur:
-            event.slur_stop = True
+        if event.slur_stop and open_slur:
             open_slur = False
         # Propagate tie across measures: if a previous note had tie_start,
         # the next note automatically receives tie_stop even without explicit ~
@@ -657,13 +655,16 @@ def _parse_event_token(token: _Token) -> Event:
     raw = token.value
     work = raw.strip()
     slur_start = work.startswith("(")
-    slur_stop = work.endswith(")")
-    work = work.strip("()")
+    if slur_start:
+        work = work[1:]
     tie_stop = work.startswith("~")
     if tie_stop:
         work = work[1:]
     tie_start = work.endswith("~")
     if tie_start:
+        work = work[:-1]
+    slur_stop = work.endswith(")")
+    if slur_stop:
         work = work[:-1]
     has_duration_prefix = bool(work) and work[0] in DURATION_PREFIXES
     duration, work = _consume_duration_prefix(work)

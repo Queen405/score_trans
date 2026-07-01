@@ -506,7 +506,7 @@ public enum Shape
     //
     // Stems ---
     //
-    STEM("Stem"),
+    STEM("Stem", new Color(0x00aa44)),
     VERTICAL_SERIF("Vertical serif"),
 
     //

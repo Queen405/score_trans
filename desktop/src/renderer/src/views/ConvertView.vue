@@ -1081,7 +1081,10 @@ function syncStoreFromHistoryPage(page: HistoryPage): void {
     jianpuText: split.jianpuText,
     ocrText: page.ocr_text || split.ocrText,
     svgFileId: page.svg_file_id,
-    overlayFileId: page.overlay_svg_file_id ?? '',
+    overlayFileId: page.overlay_file_id || page.overlay_svg_file_id || '',
+    sourceMapFileId: page.source_map_file_id ?? '',
+    textAnchors: page.text_anchors ?? [],
+    textHash: page.text_hash ?? '',
     svgFileIds: page.svg_file_id ? [page.svg_file_id] : [],
     taskId: page.task_id || '',
     historyBatchId: page.batch_id ?? null,
@@ -1163,27 +1166,29 @@ async function exportScore(): Promise<void> {
     const format = exportFormat.value
     if (format === 'mid') {
       const page = currentExportPage()
+      const filename = getExportFilename('mid')
       const result = page.jianpuText.trim()
-        ? await requireData(exportApi.exportMidiText({ jianpu_text: page.jianpuText, filename: 'score.mid', title: '简谱' }))
-        : await requireData(exportApi.exportMidi(store.musicxmlFileId, 'score.mid'))
-      downloadFile(result.file_id, result.filename)
-      log.addLog(`导出完成：${result.filename}`)
+        ? await requireData(exportApi.exportMidiText({ jianpu_text: page.jianpuText, filename, title: '简谱' }))
+        : await requireData(exportApi.exportMidi(store.musicxmlFileId, filename))
+      await finalizeExport({ fileId: result.file_id }, filename)
+      log.addLog(`导出完成：${filename}`)
       message.success('导出完成')
       return
     }
     if (format === 'musicxml') {
       const page = currentExportPage()
+      const filename = getExportFilename('musicxml')
       const result = page.jianpuText.trim()
-        ? await requireData(exportApi.exportMusicXmlText({ jianpu_text: page.jianpuText, filename: 'score.musicxml', title: '简谱' }))
+        ? await requireData(exportApi.exportMusicXmlText({ jianpu_text: page.jianpuText, filename, title: '简谱' }))
         : await requireData(exportApi.exportMusicXml({
             musicxml_file_id: store.musicxmlFileId,
-            filename: 'score.musicxml',
+            filename,
             title: '简谱',
             target_key: settings.targetKey,
             start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
           }))
-      downloadFile(result.file_id, result.filename)
-      log.addLog(`导出完成：${result.filename}`)
+      await finalizeExport({ fileId: result.file_id }, filename)
+      log.addLog(`导出完成：${filename}`)
       message.success('导出完成')
       return
     }
@@ -1192,8 +1197,9 @@ async function exportScore(): Promise<void> {
       const svgFileId = ids[Math.min(finalRenderPageIndex.value, ids.length - 1)]
       if (!svgFileId) throw new Error('暂无可导出的 A4 页面')
       const png = await svgToPngBlob(exportApi.getDownloadURL(svgFileId))
-      downloadBlob(png, 'jianpu.png')
-      log.addLog('导出完成：jianpu.png')
+      const filename = getExportFilename('png')
+      await finalizeExport({ buffer: await png.arrayBuffer() }, filename)
+      log.addLog(`导出完成：${filename}`)
       message.success('导出完成')
       return
     }
@@ -1210,13 +1216,14 @@ async function exportScore(): Promise<void> {
       }
     }
     if (!imagePages.length) throw new Error('所有页面导出失败，无可用内容')
-    const result = await requireData(exportApi.exportPdf(imagePages, 'jianpu.pdf'))
-    downloadFile(result.file_id, result.filename)
+    const filename = getExportFilename('pdf')
+    const result = await requireData(exportApi.exportPdf(imagePages, filename))
+    await finalizeExport({ fileId: result.file_id }, filename)
     if (skippedPages.length) {
-      log.addLog(`导出完成（跳过 ${skippedPages.length} 页失败页）：${result.filename}`)
+      log.addLog(`导出完成（跳过 ${skippedPages.length} 页失败页）：${filename}`)
       message.warning(`已跳过 ${skippedPages.length} 张 A4 页：${skippedPages.join('、')}`)
     } else {
-      log.addLog(`导出完成：${result.filename}`)
+      log.addLog(`导出完成：${filename}`)
     }
     message.success('导出完成')
   } catch (e: unknown) {
@@ -1235,6 +1242,60 @@ function downloadFile(fileId: string, filename: string): void {
   a.href = url
   a.download = filename
   a.click()
+}
+
+function getExportFilename(format: string): string {
+  const base = store.currentBatchLabel
+  switch (format) {
+    case 'mid':
+      return `${base}.mid`
+    case 'musicxml':
+      return `${base}.musicxml`
+    case 'png':
+      return `${base}.png`
+    case 'pdf':
+      return `${base}.pdf`
+    default:
+      return base
+  }
+}
+
+type ExportSource =
+  | { fileId: string }
+  | { url: string }
+  | { buffer: ArrayBuffer }
+
+async function finalizeExport(source: ExportSource, filename: string): Promise<void> {
+  const dir = settings.outputDir?.trim()
+  const api = (globalThis as any).api
+  if (!dir || !api?.saveExportFile) {
+    if ('fileId' in source) {
+      downloadFile(source.fileId, filename)
+    } else if ('url' in source) {
+      const a = document.createElement('a')
+      a.href = source.url
+      a.download = filename
+      a.click()
+    } else {
+      downloadBlob(new Blob([source.buffer]), filename)
+    }
+    return
+  }
+
+  let ipcSource: { url: string } | { buffer: ArrayBuffer }
+  if ('fileId' in source) {
+    ipcSource = { url: exportApi.getDownloadURL(source.fileId) }
+  } else if ('url' in source) {
+    ipcSource = source
+  } else {
+    ipcSource = source
+  }
+
+  const savedPath = await api.saveExportFile(ipcSource, dir, filename)
+  message.success(`已保存到：${savedPath}`)
+  if (api.openFolder) {
+    await api.openFolder(dir)
+  }
 }
 
 function currentExportPage(): TaskPage {
@@ -1470,6 +1531,12 @@ async function musicxmlToJianpu(): Promise<void> {
     }))
     const split = splitJianpuAndOcr(result.jianpu_text)
     store.setJianpu(split.jianpuText)
+    if (store.currentPage) {
+      store.patchPageById(store.currentPage.id, {
+        textAnchors: result.text_anchors ?? [],
+        textHash: result.text_hash ?? '',
+      })
+    }
     store.setBatchJianpuText(composeJianpuPageText(store.currentBatchPages), false)
     store.setOcrText(split.ocrText || store.ocrText)
     store.setBatchRenderPageFileIds([])

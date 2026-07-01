@@ -35,6 +35,12 @@ export interface HistoryBatchSnapshot {
   pages: HistoryPageCreateSnapshot[]
 }
 
+export interface RecognitionBatchPageIdentity {
+  id: string
+  batchId: string
+  historyPageId?: number | null
+}
+
 export function buildHistoryBatchSnapshot(
   pages: RecognitionHistoryPageSource[],
   selectedPageIds: ReadonlySet<string>,
@@ -53,6 +59,22 @@ export function buildHistoryBatchSnapshot(
       error_message: '',
     })),
   }
+}
+
+export function recognitionBatchPagesForPage<T extends RecognitionBatchPageIdentity>(
+  pages: readonly T[],
+  pageId: string,
+  historyPageId: number | null = null,
+): T[] {
+  const page = pages.find((entry) => entry.id === pageId)
+    ?? (
+      historyPageId === null
+        ? undefined
+        : pages.find((entry) => entry.historyPageId === historyPageId)
+    )
+  if (!page) return []
+  if (!page.batchId) return [page]
+  return pages.filter((entry) => entry.batchId === page.batchId)
 }
 
 export function isRecognitionBatchReadyForRender(statuses: readonly string[]): boolean {

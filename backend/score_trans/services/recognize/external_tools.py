@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import subprocess
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
+from zipfile import BadZipFile
 
+from ...domain.parse.musicxml import read_musicxml_text
 from ...models.common.errors import ExternalToolError
 from ...models.common.paths import PROJECT_ROOT
 from ...models.settings.config import ToolConfig
+
+_MOVEMENT_STEM_PATTERN = re.compile(r"^(?P<base>.+)\.mvt(?P<number>\d+)$", re.I)
 
 
 @dataclass(slots=True)
@@ -78,7 +84,120 @@ def recognize_with_audiveris(
     )
     if not candidates:
         raise ExternalToolError("Audiveris 已执行，但没有找到 MusicXML 输出文件。")
+    movement_group = _select_movement_group(candidates, input_file.stem)
+    if movement_group is not None and len(movement_group) > 1:
+        base_name, movements = movement_group
+        merged_path = movements[0].parent / f"{base_name}.musicxml"
+        _merge_movement_musicxml(movements, merged_path)
+        return merged_path
     return candidates[0]
+
+
+def _select_movement_group(
+    candidates: list[Path], input_stem: str
+) -> tuple[str, list[Path]] | None:
+    groups: dict[tuple[Path, str], dict[int, Path]] = {}
+    for candidate in candidates:
+        match = _MOVEMENT_STEM_PATTERN.fullmatch(candidate.stem)
+        if match is None:
+            continue
+        key = (candidate.parent, match.group("base"))
+        number = int(match.group("number"))
+        groups.setdefault(key, {}).setdefault(number, candidate)
+
+    if not groups:
+        return None
+
+    matching_input = [
+        (key, movements)
+        for key, movements in groups.items()
+        if key[1].casefold() == input_stem.casefold()
+    ]
+    choices = matching_input or list(groups.items())
+    (_parent, base_name), indexed_movements = max(
+        choices,
+        key=lambda item: (
+            len(item[1]),
+            item[0][1].casefold(),
+            str(item[0][0]).casefold(),
+        ),
+    )
+    return base_name, [
+        indexed_movements[number] for number in sorted(indexed_movements)
+    ]
+
+
+def _merge_movement_musicxml(movements: list[Path], output_path: Path) -> None:
+    try:
+        roots = [ET.fromstring(read_musicxml_text(movement)) for movement in movements]
+    except (
+        BadZipFile,
+        ET.ParseError,
+        KeyError,
+        OSError,
+        StopIteration,
+        UnicodeError,
+    ) as exc:
+        raise ExternalToolError(f"无法读取 Audiveris 乐章输出：{exc}") from exc
+
+    for movement, root in zip(movements, roots, strict=True):
+        if _local_name(root.tag) != "score-partwise":
+            raise ExternalToolError(
+                f"Audiveris 乐章输出格式不受支持：{movement.name} 不是 score-partwise。"
+            )
+
+    merged_root = roots[0]
+    target_parts = _child_parts(merged_root)
+    for movement, source_root in zip(movements[1:], roots[1:], strict=True):
+        source_parts = _child_parts(source_root)
+        if len(source_parts) != len(target_parts):
+            raise ExternalToolError(
+                f"无法合并 Audiveris 乐章 {movement.name}：声部数量不一致。"
+            )
+        target_parts_by_id = {
+            part_id: part
+            for part in target_parts
+            if (part_id := part.get("id")) is not None
+        }
+        for index, source_part in enumerate(source_parts):
+            source_id = source_part.get("id")
+            target_part = (
+                target_parts_by_id.get(source_id)
+                if source_id is not None
+                else target_parts[index]
+            )
+            if target_part is None:
+                raise ExternalToolError(
+                    f"无法合并 Audiveris 乐章 {movement.name}："
+                    f"找不到声部 {source_id!r}。"
+                )
+            for child in source_part:
+                if _local_name(child.tag) == "measure":
+                    target_part.append(child)
+
+    namespace = _namespace(merged_root.tag)
+    if namespace:
+        ET.register_namespace("", namespace)
+    ET.indent(merged_root, space="  ")
+    ET.ElementTree(merged_root).write(
+        output_path,
+        encoding="utf-8",
+        xml_declaration=True,
+    )
+
+
+def _child_parts(root: ET.Element) -> list[ET.Element]:
+    return [child for child in root if _local_name(child.tag) == "part"]
+
+
+def _namespace(tag: str) -> str:
+    if tag.startswith("{"):
+        return tag[1:].split("}", 1)[0]
+    return ""
+
+
+def _local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1] if tag.startswith("{") else tag
 
 
 def _audiveris_args(

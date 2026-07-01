@@ -124,6 +124,18 @@ const recognizeViewSource = fs.readFileSync(
   path.resolve(here, '../src/renderer/src/views/RecognizeView.vue'),
   'utf8',
 )
+const convertViewSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/views/ConvertView.vue'),
+  'utf8',
+)
+const originalPreviewSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/components/OriginalPreview.vue'),
+  'utf8',
+)
+const svgPreviewSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/components/SvgPreview.vue'),
+  'utf8',
+)
 const historyQuickEntrySource = fs.readFileSync(
   path.resolve(here, '../src/renderer/src/components/HistoryQuickEntry.vue'),
   'utf8',
@@ -167,6 +179,38 @@ test('legacy merged text migrates to explicit page markers', () => {
     utils.parseJianpuPageSections(migrated).map((section) => section.body),
     ['1 2 |', '3 4 |'],
   )
+})
+
+test('history restore rebuilds a stale marker-only batch from completed pages', () => {
+  const initialPages = [
+    { inputFileName: 'p1.png', jianpuText: '' },
+    { inputFileName: 'p2.png', jianpuText: '' },
+  ]
+  const staleBatchText = utils.composeJianpuPageText(initialPages)
+  const completedPages = [
+    { inputFileName: 'p1.png', jianpuText: '1 2 |' },
+    { inputFileName: 'p2.png', jianpuText: '3 4 |' },
+  ]
+
+  const restored = utils.restoreJianpuPageText(staleBatchText, completedPages)
+
+  assert.deepEqual(
+    utils.parseJianpuPageSections(restored).map((section) => section.body),
+    ['1 2 |', '3 4 |'],
+  )
+})
+
+test('history restore preserves non-empty batch edits over page snapshots', () => {
+  const editedBatchText = utils.composeJianpuPageText([
+    { inputFileName: 'p1.png', jianpuText: '6 6 |' },
+    { inputFileName: 'p2.png', jianpuText: '' },
+  ])
+  const restored = utils.restoreJianpuPageText(editedBatchText, [
+    { inputFileName: 'p1.png', jianpuText: '1 2 |' },
+    { inputFileName: 'p2.png', jianpuText: '3 4 |' },
+  ])
+
+  assert.equal(restored, editedBatchText)
 })
 
 test('measure ranges continue across automatic page starts', () => {
@@ -352,6 +396,21 @@ test('partial recognition snapshots every source page in stable order', () => {
   assert.equal(snapshot.pages[9].input_file_id, 'input-10')
 })
 
+test('recognition resolves a restored batch through the stable history page id', () => {
+  const restoredPages = [
+    { id: 'restored-1', batchId: 'restored-batch', historyPageId: 101 },
+    { id: 'restored-2', batchId: 'restored-batch', historyPageId: 102 },
+  ]
+
+  const batchPages = recognitionHistory.recognitionBatchPagesForPage(
+    restoredPages,
+    'original-1',
+    101,
+  )
+
+  assert.deepEqual(batchPages.map((page) => page.id), ['restored-1', 'restored-2'])
+})
+
 test('unrecognized pages are neutral for completed-batch rendering', () => {
   assert.equal(
     recognitionHistory.isRecognitionBatchReadyForRender([
@@ -392,6 +451,34 @@ test('partial recognition keeps page markers for every source page', () => {
   assert.deepEqual(
     utils.jianpuGutterLabels(text).filter((label) => label.startsWith('P')),
     Array.from({ length: 10 }, (_, index) => `P${index + 1}`),
+  )
+})
+
+test('resetting Jianpu replaces the source provenance snapshot', () => {
+  const resetHandler = convertViewSource.match(
+    /async function musicxmlToJianpu\(\): Promise<void> \{([\s\S]*?)\n\}/,
+  )?.[1] ?? ''
+
+  assert.match(resetHandler, /textAnchors:\s*result\.text_anchors\s*\?\?\s*\[\]/)
+  assert.match(resetHandler, /textHash:\s*result\.text_hash\s*\?\?\s*''/)
+})
+
+test('original preview hit targets stay scoped to the displayed source-map sheet', () => {
+  assert.match(
+    originalPreviewSource,
+    /sourceSheet\.value\?\.elements\.filter\(/,
+  )
+  assert.doesNotMatch(originalPreviewSource, /sheets\.flatMap\(/)
+})
+
+test('editable SVG preview always suppresses embedded static OCR', () => {
+  assert.match(
+    svgPreviewSource,
+    /const shouldHideStaticOcr = computed\(\(\) => props\.editableOcr\)/,
+  )
+  assert.doesNotMatch(
+    svgPreviewSource,
+    /props\.editableOcr\s*&&\s*ocrBlocks\.value\.length/,
   )
 })
 

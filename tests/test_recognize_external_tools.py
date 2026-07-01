@@ -1,13 +1,43 @@
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
+from zipfile import ZipFile
 
+from score_trans.domain.parse.musicxml import read_musicxml_text
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.recognize import external_tools
 from score_trans.services.recognize.external_tools import (
     CommandResult,
     recognize_with_audiveris,
 )
+
+
+def _write_mxl(path: Path, measure_numbers: list[int]) -> None:
+    measures = "".join(
+        f'<measure number="{number}"><note><rest/><duration>1</duration></note></measure>'
+        for number in measure_numbers
+    )
+    score = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<score-partwise version="4.0">'
+        '<part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>'
+        f'<part id="P1">{measures}</part>'
+        "</score-partwise>"
+    )
+    container = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<container version="1.0" '
+        'xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+        "<rootfiles>"
+        '<rootfile full-path="score.xml" '
+        'media-type="application/vnd.recordare.musicxml+xml"/>'
+        "</rootfiles>"
+        "</container>"
+    )
+    with ZipFile(path, "w") as archive:
+        archive.writestr("META-INF/container.xml", container)
+        archive.writestr("score.xml", score)
 
 
 def test_recognize_with_audiveris_passes_original_input(
@@ -36,6 +66,39 @@ def test_recognize_with_audiveris_passes_original_input(
     assert calls
     assert calls[0][-1] == str(source.resolve())
     assert not (output_dir / "_preprocessed").exists()
+
+
+def test_recognize_with_audiveris_merges_all_movements_in_order(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "scan.png"
+    output_dir = tmp_path / "omr"
+    source.write_bytes(b"png")
+
+    def fake_run(args, cwd=None, env=None) -> CommandResult:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        _write_mxl(output_dir / "scan.mvt2.mxl", [7, 8, 9])
+        _write_mxl(output_dir / "scan.mvt1.mxl", [1, 2])
+        return CommandResult(args=args, stdout="", stderr="")
+
+    monkeypatch.setattr(external_tools, "_run", fake_run)
+
+    result = recognize_with_audiveris(
+        source,
+        output_dir,
+        ToolConfig(audiveris_path="audiveris"),
+    )
+
+    root = ET.fromstring(read_musicxml_text(result))
+    measures = root.findall("./part/measure")
+    assert result.name == "scan.musicxml"
+    assert [measure.get("number") for measure in measures] == [
+        "1",
+        "2",
+        "7",
+        "8",
+        "9",
+    ]
 
 
 def test_recognize_with_audiveris_applies_configured_java_omr_args(

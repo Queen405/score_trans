@@ -164,6 +164,20 @@ export function migrateLegacyJianpuPageText(
   })))
 }
 
+export function restoreJianpuPageText(
+  batchText: string,
+  pages: JianpuPageSource[],
+): string {
+  const migrated = migrateLegacyJianpuPageText(batchText, pages)
+  if (!pages.some((page) => page.jianpuText?.trim())) return migrated
+
+  const sections = parseJianpuPageSections(migrated)
+  if (sections.length && sections.every((section) => !section.body.trim())) {
+    return composeJianpuPageText(pages)
+  }
+  return migrated
+}
+
 export function updateJianpuPageStart(
   text: string,
   pageIndex: number,
