@@ -20,7 +20,9 @@ def prepare_score_pages(
         return _render_pdf_pages(input_path, output_dir, dpi=dpi, max_pages=max_pages)
     if suffix in IMAGE_SUFFIXES:
         return [PreparedScorePage(page_index=0, image_path=input_path, generated=False)]
-    raise AITranscriptionError(f"Unsupported AI transcription input type: {suffix or input_path.name}")
+    raise AITranscriptionError(
+        f"Unsupported AI transcription input type: {suffix or input_path.name}"
+    )
 
 
 def _render_pdf_pages(

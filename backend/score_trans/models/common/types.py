@@ -23,6 +23,8 @@ def normalize_instrument_profile(profile: str) -> InstrumentProfile:
     if normalized not in SUPPORTED_INSTRUMENT_PROFILES:
         raise ValueError(f"不支持的乐器模式：{profile}")
     return cast(InstrumentProfile, normalized)
+
+
 TargetKey = Literal[
     "Cb",
     "Gb",

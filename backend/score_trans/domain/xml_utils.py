@@ -52,7 +52,8 @@ def _mxl_rootfile_name(archive: ZipFile) -> str:
     return next(
         item
         for item in archive.namelist()
-        if item.lower().endswith((".xml", ".musicxml")) and not item.startswith("META-INF/")
+        if item.lower().endswith((".xml", ".musicxml"))
+        and not item.startswith("META-INF/")
     )
 
 

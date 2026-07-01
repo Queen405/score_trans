@@ -175,6 +175,40 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/export/musicxml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export Musicxml */
+        post: operations["export_musicxml_export_musicxml_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/export/musicxml-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export Musicxml Text */
+        post: operations["export_musicxml_text_export_musicxml_text_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/export/pdf": {
         parameters: {
             query?: never;
@@ -1021,6 +1055,37 @@ export type components = {
             /**
              * Filename
              * @default score.mid
+             */
+            filename?: string;
+            /** Jianpu Text */
+            jianpu_text: string;
+            /**
+             * Title
+             * @default 简谱
+             */
+            title?: string;
+        };
+        /** ExportMusicXmlRequest */
+        ExportMusicXmlRequest: {
+            /** Filename */
+            filename?: string | null;
+            /** Musicxml File Id */
+            musicxml_file_id: string;
+            /** Start Measure Number */
+            start_measure_number?: number | null;
+            /**
+             * Target Key
+             * @default C
+             */
+            target_key?: string;
+            /** Title */
+            title?: string | null;
+        };
+        /** ExportMusicXmlTextRequest */
+        ExportMusicXmlTextRequest: {
+            /**
+             * Filename
+             * @default score.musicxml
              */
             filename?: string;
             /** Jianpu Text */
@@ -2156,6 +2221,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ExportMidiTextRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_musicxml_export_musicxml_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportMusicXmlRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_musicxml_text_export_musicxml_text_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportMusicXmlTextRequest"];
             };
         };
         responses: {

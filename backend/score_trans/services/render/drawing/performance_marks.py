@@ -227,7 +227,7 @@ def _mark_content(renderer: str, mark_id: str, x: float, y: float) -> list[str]:
             f'cy="{y + 4:.1f}" rx="3.8" ry="2.8" '
             f'transform="rotate(-18 {x - 2:.1f} {y + 4:.1f})"/>',
             f'<path class="performance-symbol" d="M {x + 1:.1f} {y + 3:.1f} '
-            f'V {y - 9:.1f} Q {x + 8:.1f} {y - 6:.1f}, '
+            f"V {y - 9:.1f} Q {x + 8:.1f} {y - 6:.1f}, "
             f'{x + 5:.1f} {y - 1:.1f}"/>',
         ]
     if renderer == "guzheng-board-front-flower":

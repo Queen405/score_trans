@@ -24,8 +24,7 @@ def create_provider(name: str | None = None, **kwargs: Any) -> VisionJianpuProvi
     if resolved not in _PROVIDER_REGISTRY:
         available = ", ".join(sorted(_PROVIDER_REGISTRY))
         raise ValueError(
-            f"Unknown AI provider '{name}'. "
-            f"Available: {available or 'none'}"
+            f"Unknown AI provider '{name}'. Available: {available or 'none'}"
         )
     return _PROVIDER_REGISTRY[resolved](**kwargs)
 

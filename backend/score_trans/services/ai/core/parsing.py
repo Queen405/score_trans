@@ -17,10 +17,14 @@ def parse_vision_page_result(content: Any) -> VisionPageResult:
         if looks_like_jianpu_text(text):
             return VisionPageResult(
                 jianpu_text=text,
-                warnings=["AI response was not JSON; used plain text transcription fallback."],
+                warnings=[
+                    "AI response was not JSON; used plain text transcription fallback."
+                ],
                 confidence=None,
             )
-        raise AITranscriptionError("AI transcription response was not valid JSON.") from exc
+        raise AITranscriptionError(
+            "AI transcription response was not valid JSON."
+        ) from exc
 
     if not isinstance(payload, dict):
         raise AITranscriptionError("AI transcription JSON must be an object.")
@@ -32,7 +36,9 @@ def parse_vision_page_result(content: Any) -> VisionPageResult:
     try:
         return VisionPageResult.model_validate(payload)
     except Exception as exc:
-        raise AITranscriptionError(f"AI transcription JSON does not match schema: {exc}") from exc
+        raise AITranscriptionError(
+            f"AI transcription JSON does not match schema: {exc}"
+        ) from exc
 
 
 def looks_like_jianpu_text(text: str) -> bool:
@@ -40,4 +46,8 @@ def looks_like_jianpu_text(text: str) -> bool:
         return False
     if re.search(r"(?m)^\s*(title=|1\s*=|\d+\s*/\s*\d+)", text):
         return True
-    return bool(re.search(r"(^|\s)(?:[whqsd]?[#bnx]?[1-7][',]*|[whqsd]?0|\[[^\]]+\])(\s|\||$)", text))
+    return bool(
+        re.search(
+            r"(^|\s)(?:[whqsd]?[#bnx]?[1-7][',]*|[whqsd]?0|\[[^\]]+\])(\s|\||$)", text
+        )
+    )

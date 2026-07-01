@@ -1,4 +1,5 @@
 """Alibaba DashScope (百炼) vision provider for AI transcription."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -40,15 +41,19 @@ class DashScopeVisionProvider:
         dry_run: bool = False,
     ) -> None:
         persisted = persisted_ai_settings()
-        profile = resolve_provider_profile_or_default("ai", persisted.get("ai_provider"))
+        profile = resolve_provider_profile_or_default(
+            "ai", persisted.get("ai_provider")
+        )
         profile_matches = profile.provider == "dashscope"
         self.base_url = (
-            base_url
-            or (profile.base_url if profile_matches else "")
-            or _BASE_URL
+            base_url or (profile.base_url if profile_matches else "") or _BASE_URL
         ).rstrip("/")
-        self.model = model or (profile.model if profile_matches else "") or _DEFAULT_MODEL
-        self.api_key = api_key or provider_api_key(persisted, "ai", profile.id) or AI_API_KEY
+        self.model = (
+            model or (profile.model if profile_matches else "") or _DEFAULT_MODEL
+        )
+        self.api_key = (
+            api_key or provider_api_key(persisted, "ai", profile.id) or AI_API_KEY
+        )
         self.timeout = timeout
         self.dry_run = dry_run
 
@@ -94,7 +99,10 @@ class DashScopeVisionProvider:
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": image_to_data_url(path)}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image_to_data_url(path)},
+                    },
                 ],
             },
         ]
@@ -109,7 +117,9 @@ class DashScopeVisionProvider:
                 response_format={"type": "json_object"},
             )
         except Exception as exc:
-            raise AITranscriptionError(f"AI transcription request failed: {exc}") from exc
+            raise AITranscriptionError(
+                f"AI transcription request failed: {exc}"
+            ) from exc
 
         return parse_vision_page_result(content)
 

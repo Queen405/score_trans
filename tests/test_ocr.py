@@ -6,7 +6,10 @@ import pytest
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
 from score_trans.services.ocr.parsing import parse_openai_compatible_response
-from score_trans.services.ocr.providers import MockOCRProvider, OpenAICompatibleOCRProvider
+from score_trans.services.ocr.providers import (
+    MockOCRProvider,
+    OpenAICompatibleOCRProvider,
+)
 from score_trans.services.ocr.core import DEFAULT_OCR_MODEL, is_deepseek_ocr_model
 from score_trans.utils.env import load_project_env
 from score_trans.services.ocr.service import OCRService
@@ -49,7 +52,9 @@ def test_ocr_provider_requires_api_key(tmp_path, monkeypatch) -> None:
         provider.recognize(image)
 
 
-def test_ocr_provider_invokes_langchain_with_correct_params(tmp_path, monkeypatch) -> None:
+def test_ocr_provider_invokes_langchain_with_correct_params(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setattr(
         "score_trans.services.ocr.core.persisted_ocr_settings",
         lambda: {"ocr_api_key": "test-key"},
@@ -61,11 +66,15 @@ def test_ocr_provider_invokes_langchain_with_correct_params(tmp_path, monkeypatc
     mock_resp.status_code = 200
     mock_resp.raise_for_status = MagicMock()
     mock_resp.json.return_value = {
-        "choices": [{"message": {"content": '{"text_blocks":[{"text":"A","role":"other"}]}'}}]
+        "choices": [
+            {"message": {"content": '{"text_blocks":[{"text":"A","role":"other"}]}'}}
+        ]
     }
 
     with patch("httpx.post", return_value=mock_resp) as mock_post:
-        provider = OpenAICompatibleOCRProvider(base_url="https://example.test/v1", model="Qwen/Qwen3-VL-8B-Instruct")
+        provider = OpenAICompatibleOCRProvider(
+            base_url="https://example.test/v1", model="Qwen/Qwen3-VL-8B-Instruct"
+        )
         blocks = provider.recognize(image)
 
     mock_post.assert_called_once()
@@ -122,7 +131,13 @@ def test_ocr_provider_fallback_on_useless_blocks(tmp_path, monkeypatch) -> None:
             }
         else:
             mock_resp.json.return_value = {
-                "choices": [{"message": {"content": '{"text_blocks":[{"text":"A","role":"other"}]}'}}]
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"text_blocks":[{"text":"A","role":"other"}]}'
+                        }
+                    }
+                ]
             }
         return mock_resp
 

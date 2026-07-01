@@ -19,7 +19,9 @@ from score_trans.config.settings import (
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
 from score_trans.services.settings.api_keys import provider_api_key
-from score_trans.services.settings.provider_profiles import resolve_provider_profile_or_default
+from score_trans.services.settings.provider_profiles import (
+    resolve_provider_profile_or_default,
+)
 from score_trans.utils.json_parsing import content_to_text
 from score_trans.utils.media import image_to_data_url
 from ..client.client import ocr_prompt_for_model
@@ -46,14 +48,18 @@ class OpenAICompatibleOCRProvider:
         from ..core import persisted_ocr_settings
 
         persisted = persisted_ocr_settings()
-        profile = resolve_provider_profile_or_default("ocr", persisted.get("ocr_provider"))
+        profile = resolve_provider_profile_or_default(
+            "ocr", persisted.get("ocr_provider")
+        )
         profile_matches = profile.provider == "openai_compatible"
         self.base_url = (
             base_url
             or (profile.base_url if profile_matches else "")
             or DEFAULT_OCR_BASE_URL
         ).rstrip("/")
-        self.model = model or (profile.model if profile_matches else "") or DEFAULT_OCR_MODEL
+        self.model = (
+            model or (profile.model if profile_matches else "") or DEFAULT_OCR_MODEL
+        )
         self.fallback_model = (
             fallback_model
             or (profile.fallback_model if profile_matches else "")
@@ -70,7 +76,9 @@ class OpenAICompatibleOCRProvider:
             return blocks
         return self._recognize_with_model(image_path, self.fallback_model)
 
-    def _recognize_with_model(self, image_path: str | Path, model: str) -> list[OCRTextBlock]:
+    def _recognize_with_model(
+        self, image_path: str | Path, model: str
+    ) -> list[OCRTextBlock]:
         path = Path(image_path)
         if not path.is_file():
             raise FileNotFoundError(path)
@@ -87,7 +95,10 @@ class OpenAICompatibleOCRProvider:
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": image_to_data_url(path)}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image_to_data_url(path)},
+                    },
                 ],
             }
         ]

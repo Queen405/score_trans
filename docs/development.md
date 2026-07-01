@@ -41,6 +41,7 @@ tests/          Python 测试
 - Python 3.11、3.12 或 3.13
 - [uv](https://docs.astral.sh/uv/) 包管理器（推荐）
 - JDK 25（Audiveris 必需）
+- MuseScore 4（可选，用于导出 PDF/PNG/MIDI）
 
 ### 安装依赖
 

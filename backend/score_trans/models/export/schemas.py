@@ -13,3 +13,16 @@ class ExportMidiTextRequest(BaseModel):
     filename: str = "score.mid"
     title: str = "简谱"
 
+
+class ExportMusicXmlRequest(BaseModel):
+    musicxml_file_id: str
+    filename: str | None = None
+    title: str | None = None
+    target_key: str = "C"
+    start_measure_number: int | None = None
+
+
+class ExportMusicXmlTextRequest(BaseModel):
+    jianpu_text: str
+    filename: str = "score.musicxml"
+    title: str = "简谱"

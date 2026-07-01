@@ -13,6 +13,7 @@ from score_trans.config.settings import (
 )
 
 from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
+from ...domain.write.musicxml import score_to_musicxml
 from ...models.score import JianpuPitch, JianpuScore
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
@@ -111,4 +112,16 @@ class ExportService:
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         mid.save(str(output_path))
+        return output_path
+
+    def export_musicxml(
+        self,
+        score: JianpuScore,
+        output_path: Path,
+        *,
+        title: str | None = None,
+    ) -> Path:
+        xml_text = score_to_musicxml(score, title=title or score.title)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(xml_text, encoding="utf-8")
         return output_path

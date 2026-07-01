@@ -11,7 +11,10 @@ from score_trans.config.settings import (
     OCR_PROVIDER,
     OCR_PROVIDER_PROFILES,
 )
-from score_trans.models.settings.provider_profiles import LlmProviderKind, LlmProviderProfile
+from score_trans.models.settings.provider_profiles import (
+    LlmProviderKind,
+    LlmProviderProfile,
+)
 
 _PROFILE_ENV_NAMES: dict[LlmProviderKind, str] = {
     "ocr": "SCORE_TRANS_OCR_PROVIDER_PROFILES",
@@ -29,7 +32,9 @@ def _parse_profiles(env_name: str, raw: str) -> tuple[LlmProviderProfile, ...]:
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"{env_name} must be a JSON array of provider profiles") from exc
+        raise ValueError(
+            f"{env_name} must be a JSON array of provider profiles"
+        ) from exc
     if not isinstance(payload, list) or not payload:
         raise ValueError(f"{env_name} must be a non-empty JSON array")
 
@@ -48,7 +53,9 @@ def _parse_profile(env_name: str, item: Any) -> LlmProviderProfile:
     for key in required:
         value = item.get(key)
         if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"{env_name} entries require non-empty string field {key!r}")
+            raise ValueError(
+                f"{env_name} entries require non-empty string field {key!r}"
+            )
         values[key] = value.strip()
     return LlmProviderProfile(
         id=values["id"],
@@ -109,7 +116,9 @@ def resolve_provider_profile(
         if profile.id == resolved:
             return profile
     available = ", ".join(profile.id for profile in _PROFILES[kind])
-    raise ValueError(f"未知{_KIND_LABELS[kind]} provider：{resolved}。可选：{available}")
+    raise ValueError(
+        f"未知{_KIND_LABELS[kind]} provider：{resolved}。可选：{available}"
+    )
 
 
 def resolve_provider_profile_or_default(

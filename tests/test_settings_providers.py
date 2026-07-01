@@ -7,7 +7,10 @@ from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.settings.actions import SettingsActions
 from score_trans.models.settings.schemas import SettingsUpdateRequest
 from score_trans.services.settings.api_keys import provider_api_key_name
-from score_trans.services.settings.provider_profiles import provider_profiles, resolve_provider_profile
+from score_trans.services.settings.provider_profiles import (
+    provider_profiles,
+    resolve_provider_profile,
+)
 from score_trans.services.settings.settings_service import SettingsService
 
 
@@ -84,7 +87,9 @@ def test_settings_saves_api_keys_per_provider(tmp_path) -> None:
     assert actions.get_settings(ocr_provider=first.id).ocr_api_key_set is True
 
 
-def test_settings_provider_switch_without_key_does_not_reuse_previous_key(tmp_path) -> None:
+def test_settings_provider_switch_without_key_does_not_reuse_previous_key(
+    tmp_path,
+) -> None:
     dao = SettingsDao(tmp_path / "settings.db")
     dao.set("ocr_api_key", "")
     actions = SettingsActions(SettingsService(dao))

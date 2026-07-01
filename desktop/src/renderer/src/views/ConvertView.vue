@@ -436,6 +436,7 @@ const formatOptions = [
   { label: 'PDF', value: 'pdf' },
   { label: 'PNG', value: 'png' },
   { label: 'MIDI', value: 'mid' },
+  { label: 'MusicXML', value: 'musicxml' },
 ]
 
 const historyOpen = ref(false)
@@ -1063,6 +1064,22 @@ async function exportScore(): Promise<void> {
       const result = page.jianpuText.trim()
         ? await requireData(exportApi.exportMidiText({ jianpu_text: page.jianpuText, filename: 'score.mid', title: '简谱' }))
         : await requireData(exportApi.exportMidi(store.musicxmlFileId, 'score.mid'))
+      downloadFile(result.file_id, result.filename)
+      log.addLog(`导出完成：${result.filename}`)
+      message.success('导出完成')
+      return
+    }
+    if (format === 'musicxml') {
+      const page = currentExportPage()
+      const result = page.jianpuText.trim()
+        ? await requireData(exportApi.exportMusicXmlText({ jianpu_text: page.jianpuText, filename: 'score.musicxml', title: '简谱' }))
+        : await requireData(exportApi.exportMusicXml({
+            musicxml_file_id: store.musicxmlFileId,
+            filename: 'score.musicxml',
+            title: '简谱',
+            target_key: settings.targetKey,
+            start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
+          }))
       downloadFile(result.file_id, result.filename)
       log.addLog(`导出完成：${result.filename}`)
       message.success('导出完成')

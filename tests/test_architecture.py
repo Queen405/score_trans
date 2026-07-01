@@ -37,11 +37,7 @@ KNOWN_FASTAPI_IMPORTS_OUTSIDE_API = {
 
 
 def _python_files(path: Path) -> list[Path]:
-    return [
-        file
-        for file in path.rglob("*.py")
-        if "__pycache__" not in file.parts
-    ]
+    return [file for file in path.rglob("*.py") if "__pycache__" not in file.parts]
 
 
 def _module_parts(file: Path) -> tuple[str, ...]:
@@ -154,10 +150,7 @@ def test_no_new_fastapi_imports_outside_api() -> None:
                     isinstance(node, ast.Import)
                     and any(alias.name == "fastapi" for alias in node.names)
                 )
-                or (
-                    isinstance(node, ast.ImportFrom)
-                    and node.module == "fastapi"
-                )
+                or (isinstance(node, ast.ImportFrom) and node.module == "fastapi")
                 for node in ast.walk(tree)
             ):
                 offenders.add(file.relative_to(SRC_ROOT).as_posix())

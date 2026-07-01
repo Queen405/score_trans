@@ -20,7 +20,13 @@ def _load_prompt_config() -> dict[str, str]:
     candidates = [CONFIG_DIR / "ai_prompt.yaml"]
     if getattr(sys, "frozen", False):
         # PyInstaller 把 datas 放在 _internal/score_trans/config/
-        bundled = Path(sys.executable).resolve().parent / "_internal" / "score_trans" / "config" / "ai_prompt.yaml"
+        bundled = (
+            Path(sys.executable).resolve().parent
+            / "_internal"
+            / "score_trans"
+            / "config"
+            / "ai_prompt.yaml"
+        )
         candidates.insert(0, bundled)
 
     config_path = None
@@ -64,10 +70,16 @@ def build_jianpu_prompt(
 ) -> str:
     cfg = _load_prompt_config()
     template = _cfg_value(cfg, "prompt_template")
-    title_hint = cfg.get("title_hint_template", "用户给定标题：{title}\n").format(title=title) if title else ""
+    title_hint = (
+        cfg.get("title_hint_template", "用户给定标题：{title}\n").format(title=title)
+        if title
+        else ""
+    )
     extra = ""
     if extra_prompt and extra_prompt.strip():
-        extra = cfg.get("extra_prompt_template", "\n额外要求：\n{extra_prompt}\n").format(extra_prompt=extra_prompt.strip())
+        extra = cfg.get(
+            "extra_prompt_template", "\n额外要求：\n{extra_prompt}\n"
+        ).format(extra_prompt=extra_prompt.strip())
     syntax_rules = _cfg_value(cfg, "syntax_rules")
     transcription_rules = _cfg_value(cfg, "transcription_rules")
     hard_constraints = cfg.get("hard_constraints", "")

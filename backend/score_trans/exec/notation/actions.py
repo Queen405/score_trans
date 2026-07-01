@@ -28,9 +28,7 @@ _RUAN_MARK_ORDER = (
     "ornament-note",
     "arpeggio",
 )
-_RUAN_MARK_INDEX = {
-    mark_id: index for index, mark_id in enumerate(_RUAN_MARK_ORDER)
-}
+_RUAN_MARK_INDEX = {mark_id: index for index, mark_id in enumerate(_RUAN_MARK_ORDER)}
 
 _GUZHENG_MARK_ORDER = (
     "tremolo",

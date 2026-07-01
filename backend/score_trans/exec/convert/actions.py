@@ -4,7 +4,6 @@ import uuid
 from pathlib import Path
 
 
-
 from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
 from ...domain.musicxml import musicxml_path_to_score, score_to_jianpu_text
 from ...models.common.types import AccidentalMode, InstrumentProfile
@@ -65,7 +64,9 @@ class MusicXmlToJianpuAction:
             provider = ocr_provider or create_configured_ocr_provider()
             blocks = provider.recognize(Path(image_path))
             score.text_blocks.extend(blocks)
-            _apply_measure_number_ocr(score, blocks, start_measure_number=start_measure_number)
+            _apply_measure_number_ocr(
+                score, blocks, start_measure_number=start_measure_number
+            )
         return score
 
 
@@ -73,7 +74,9 @@ class JianpuToMusicXmlAction:
     def execute_text(self, jianpu_text: str, *, title: str = "Jianpu Import") -> str:
         return jianpu_to_musicxml(jianpu_text, title=title)
 
-    def execute_file(self, input_path: str | Path, *, title: str = "Jianpu Import") -> str:
+    def execute_file(
+        self, input_path: str | Path, *, title: str = "Jianpu Import"
+    ) -> str:
         return jianpu_file_to_musicxml(Path(input_path), title=title)
 
 
@@ -90,7 +93,9 @@ class ConvertActions:
         self.musicxml_to_jianpu = musicxml_to_jianpu or MusicXmlToJianpuAction()
         self.jianpu_to_musicxml = jianpu_to_musicxml or JianpuToMusicXmlAction()
 
-    def musicxml_to_jianpu_response(self, req: MusicXmlToJianpuRequest) -> MusicXmlToJianpuResponse:
+    def musicxml_to_jianpu_response(
+        self, req: MusicXmlToJianpuRequest
+    ) -> MusicXmlToJianpuResponse:
         path = self.uploads.get_path(req.musicxml_file_id)
         if not path or not path.exists():
             raise FileNotFoundError(f"文件不存在：{req.musicxml_file_id}")
@@ -111,9 +116,13 @@ class ConvertActions:
         )
         return MusicXmlToJianpuResponse(jianpu_text=jianpu_text)
 
-    def jianpu_to_musicxml_response(self, req: JianpuToMusicXmlRequest) -> JianpuToMusicXmlResponse:
+    def jianpu_to_musicxml_response(
+        self, req: JianpuToMusicXmlRequest
+    ) -> JianpuToMusicXmlResponse:
         if req.jianpu_text:
-            xml_text = self.jianpu_to_musicxml.execute_text(req.jianpu_text, title=req.title)
+            xml_text = self.jianpu_to_musicxml.execute_text(
+                req.jianpu_text, title=req.title
+            )
         elif req.jianpu_file_id:
             path = self.uploads.get_path(req.jianpu_file_id)
             if not path or not path.exists():
@@ -125,10 +134,14 @@ class ConvertActions:
         out_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.musicxml"
         self.file_service.write_text(out_path, xml_text)
         musicxml_id = self.uploads.register(out_path)
-        return JianpuToMusicXmlResponse(musicxml_text=xml_text, musicxml_file_id=musicxml_id)
+        return JianpuToMusicXmlResponse(
+            musicxml_text=xml_text, musicxml_file_id=musicxml_id
+        )
 
 
-def _apply_measure_number_ocr(score: JianpuScore, blocks, *, start_measure_number: int | None = None) -> None:
+def _apply_measure_number_ocr(
+    score: JianpuScore, blocks, *, start_measure_number: int | None = None
+) -> None:
     candidates = [
         (index, block, int(block.text.strip()))
         for index, block in enumerate(blocks)
@@ -156,4 +169,3 @@ def _measure_number_candidate_key(candidate) -> tuple[int, float, float, int]:
         return (1, 0.0, 0.0, index)
     x1, y1, _x2, _y2 = block.bbox
     return (0, y1, x1, index)
-

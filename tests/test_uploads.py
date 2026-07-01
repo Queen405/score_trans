@@ -38,7 +38,9 @@ def test_explicit_work_dir_skips_global_legacy_migration(
     tmp_path: Path, monkeypatch
 ) -> None:
     def fail_migration(_target: Path) -> None:
-        raise AssertionError("custom work directories must not import global legacy files")
+        raise AssertionError(
+            "custom work directories must not import global legacy files"
+        )
 
     monkeypatch.setattr(
         upload_service_module,

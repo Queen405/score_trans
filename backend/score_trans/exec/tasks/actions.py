@@ -26,7 +26,9 @@ class TaskActions:
     async def update(self, task_id: str, **kwargs) -> None:
         await self.manager.update(task_id, **kwargs)
 
-    async def start(self, task_id: str, *, stage: str = "start", message: str = "任务已开始") -> None:
+    async def start(
+        self, task_id: str, *, stage: str = "start", message: str = "任务已开始"
+    ) -> None:
         await self.update(
             task_id,
             status=TaskStatus.RUNNING,

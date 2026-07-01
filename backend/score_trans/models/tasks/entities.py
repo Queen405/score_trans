@@ -30,6 +30,8 @@ class TaskProgress:
     expires_at: float | None = None
 
 
-def report_progress(progress_callback: ProgressCallback | None, stage: str, percent: int, message: str) -> None:
+def report_progress(
+    progress_callback: ProgressCallback | None, stage: str, percent: int, message: str
+) -> None:
     if progress_callback is not None:
         progress_callback(stage, percent, message)

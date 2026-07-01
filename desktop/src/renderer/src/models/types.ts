@@ -12,6 +12,8 @@ export type {
   BatchRenderResponse,
   CacheCleanupResponse,
   ExportMidiTextRequest,
+  ExportMusicXmlRequest,
+  ExportMusicXmlTextRequest,
   ExportResponse,
   FinalOutputRequest,
   FinalOutputResponse,

@@ -1,5 +1,5 @@
 import { apiFetch, getFileURL, type ApiResult } from './client'
-import type { ExportMidiTextRequest, ExportResponse } from '../models/types'
+import type { ExportMidiTextRequest, ExportMusicXmlRequest, ExportMusicXmlTextRequest, ExportResponse } from '../models/types'
 
 export const exportApi = {
   async exportMidi(musicxmlFileId: string, filename?: string): Promise<ApiResult<ExportResponse>> {
@@ -10,6 +10,22 @@ export const exportApi = {
 
   async exportMidiText(req: ExportMidiTextRequest): Promise<ApiResult<ExportResponse>> {
     return apiFetch('/export/midi-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  async exportMusicXml(req: ExportMusicXmlRequest): Promise<ApiResult<ExportResponse>> {
+    return apiFetch('/export/musicxml', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  async exportMusicXmlText(req: ExportMusicXmlTextRequest): Promise<ApiResult<ExportResponse>> {
+    return apiFetch('/export/musicxml-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),

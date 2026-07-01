@@ -91,7 +91,9 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(AITranscriptionError)
-    async def ai_transcription_error_handler(request: Request, exc: AITranscriptionError):
+    async def ai_transcription_error_handler(
+        request: Request, exc: AITranscriptionError
+    ):
         return JSONResponse(
             status_code=502,
             content={"error": str(exc), "stage": "ai"},

@@ -1411,8 +1411,7 @@ def test_guzheng_performance_marks_render_with_canonical_ids() -> None:
 def test_ruan_performance_marks_reuse_shared_renderers() -> None:
     root = _svg_root(
         render_jianpu_svg(
-            "instrument=ruan\n1=C\n4/4\n"
-            "^l ^sx ^zr ^zy 1 ^py [1+3+5] 2 3 |"
+            "instrument=ruan\n1=C\n4/4\n^l ^sx ^zr ^zy 1 ^py [1+3+5] 2 3 |"
         )
     )
     mark_ids = {

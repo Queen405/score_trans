@@ -12,12 +12,25 @@ def coerce_bbox(raw: Any) -> tuple[float, float, float, float] | None:
     if isinstance(raw, dict):
         nested = _first_present(
             raw,
-            ("bbox", "bbox_2d", "box", "bounding_box", "boundingBox", "coordinates", "points"),
+            (
+                "bbox",
+                "bbox_2d",
+                "box",
+                "bounding_box",
+                "boundingBox",
+                "coordinates",
+                "points",
+            ),
         )
         if nested is not None and nested is not raw:
             return coerce_bbox(nested)
         if all(key in raw for key in ("x1", "y1", "x2", "y2")):
-            return (float(raw["x1"]), float(raw["y1"]), float(raw["x2"]), float(raw["y2"]))
+            return (
+                float(raw["x1"]),
+                float(raw["y1"]),
+                float(raw["x2"]),
+                float(raw["y2"]),
+            )
         if all(key in raw for key in ("left", "top", "right", "bottom")):
             return (
                 float(raw["left"]),
@@ -34,8 +47,10 @@ def coerce_bbox(raw: Any) -> tuple[float, float, float, float] | None:
             y = float(raw["y"])
             return (x, y, x + float(raw["w"]), y + float(raw["h"]))
         return None
-    if isinstance(raw, (list, tuple)) and len(raw) == 4 and all(
-        isinstance(value, (int, float, str)) for value in raw
+    if (
+        isinstance(raw, (list, tuple))
+        and len(raw) == 4
+        and all(isinstance(value, (int, float, str)) for value in raw)
     ):
         return tuple(float(value) for value in raw)
     return coerce_bbox_points(raw)

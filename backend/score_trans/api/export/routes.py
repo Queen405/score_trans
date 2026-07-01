@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, File, UploadFile
 
 from ..dependencies import get_export_actions
 from ...exec.export.actions import ExportActions
-from ...models.export.schemas import ExportMidiTextRequest, ExportResponse
+from ...models.export.schemas import (
+    ExportMidiTextRequest,
+    ExportMusicXmlRequest,
+    ExportMusicXmlTextRequest,
+    ExportResponse,
+)
 
 router = APIRouter(prefix="/export", tags=["export"])
 
@@ -34,3 +39,18 @@ async def export_pdf(
 ):
     return await actions.export_pdf(files, filename=filename)
 
+
+@router.post("/musicxml", response_model=ExportResponse)
+async def export_musicxml(
+    req: ExportMusicXmlRequest,
+    actions: ExportActions = Depends(get_export_actions),
+):
+    return actions.export_musicxml(req)
+
+
+@router.post("/musicxml-text", response_model=ExportResponse)
+async def export_musicxml_text(
+    req: ExportMusicXmlTextRequest,
+    actions: ExportActions = Depends(get_export_actions),
+):
+    return actions.export_musicxml_text(req)

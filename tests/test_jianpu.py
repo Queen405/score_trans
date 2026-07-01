@@ -441,9 +441,7 @@ def test_guzheng_marks_parse_with_reused_canonical_ids() -> None:
 
 def test_ruan_marks_parse_and_legacy_profile_normalizes() -> None:
     score = parse_jianpu_score(
-        "instrument=ruan\n1=C\n4/4\n"
-        "^l ^sx ^zr ^zy 1 2 3 4 |\n"
-        "3 ^lh 5 ^py [1+3+5] 2 |"
+        "instrument=ruan\n1=C\n4/4\n^l ^sx ^zr ^zy 1 2 3 4 |\n3 ^lh 5 ^py [1+3+5] 2 |"
     )
     first = score.measures[0].events[0]
 
@@ -454,9 +452,7 @@ def test_ruan_marks_parse_and_legacy_profile_normalizes() -> None:
     assert score.measures[1].events[1].slide_stop is True
     assert score.measures[1].events[2].technical == ["arpeggio"]
 
-    legacy = parse_jianpu_score(
-        "instrument=zhongruan\n1=C\n4/4\n^l 1 2 3 4 |"
-    )
+    legacy = parse_jianpu_score("instrument=zhongruan\n1=C\n4/4\n^l 1 2 3 4 |")
     assert legacy.instrument_profile == "ruan"
     assert "instrument=ruan" in score_to_jianpu_text(legacy)
 

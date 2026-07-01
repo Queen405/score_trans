@@ -44,9 +44,15 @@ def ensure_jianpu_header(
         prefix.append(f"1={resolved_key}")
     if not any(re.fullmatch(r"\s*\d+\s*/\s*\d+\s*", line) for line in lines):
         prefix.append(resolved_meter)
-    if tempo is not None and not any(line.strip().startswith("tempo=") for line in lines):
+    if tempo is not None and not any(
+        line.strip().startswith("tempo=") for line in lines
+    ):
         tempo_str = str(tempo)
-        tempo_value = tempo_str.split("=", 1)[-1].strip() if "=" in tempo_str else tempo_str.strip()
+        tempo_value = (
+            tempo_str.split("=", 1)[-1].strip()
+            if "=" in tempo_str
+            else tempo_str.strip()
+        )
         if tempo_value:
             prefix.append(f"tempo={tempo_value}")
     return "\n".join(prefix + lines).strip()

@@ -22,9 +22,7 @@ def pitch_to_token(
     *,
     accidental_mode: AccidentalMode = "auto",
 ) -> str:
-    accidental, degree, octave = pitch_spelling(
-        pitch, accidental_mode=accidental_mode
-    )
+    accidental, degree, octave = pitch_spelling(pitch, accidental_mode=accidental_mode)
     octave_text = "'" * max(0, octave) + "," * max(0, -octave)
     return f"{accidental}{degree}{octave_text}"
 
@@ -44,13 +42,13 @@ def score_with_accidental_mode(
             if event.kind == "note":
                 event.source_token = None
             for pitch in event.pitches:
-                accidental, degree, octave = pitch_spelling(
-                    pitch, accidental_mode=mode
-                )
+                accidental, degree, octave = pitch_spelling(pitch, accidental_mode=mode)
                 pitch.degree = degree
                 pitch.octave = octave
                 pitch.accidental = _accidental_value(accidental)
-                pitch.accidental_text = None if abs(pitch.accidental) <= 1 else accidental
+                pitch.accidental_text = (
+                    None if abs(pitch.accidental) <= 1 else accidental
+                )
     return adjusted
 
 

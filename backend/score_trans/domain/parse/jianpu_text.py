@@ -827,9 +827,7 @@ def _validate_instrument_mark_target(
             continue
         label = mark.label_for(instrument_profile)
         if event.kind != "note":
-            raise ValueError(
-                f"{label}演奏标记 ^{mark.token} 后必须跟随音符"
-            )
+            raise ValueError(f"{label}演奏标记 ^{mark.token} 后必须跟随音符")
         if mark.target == "chord" and not event.is_chord:
             raise ValueError(
                 f"演奏标记 ^{mark.token}（{label}）后必须跟随和弦，例如 [3+5]"

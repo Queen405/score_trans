@@ -1,4 +1,5 @@
 """Shared httpx-based OpenAI-compatible chat completions client for OCR."""
+
 from __future__ import annotations
 
 from typing import Any

@@ -8,7 +8,11 @@ import re
 def collapse_exact_repetition(text: str) -> str:
     """Collapse a string that is an exact concatenation of two identical halves."""
     value = text.strip()
-    while value and len(value) % 2 == 0 and value[: len(value) // 2] == value[len(value) // 2 :]:
+    while (
+        value
+        and len(value) % 2 == 0
+        and value[: len(value) // 2] == value[len(value) // 2 :]
+    ):
         value = value[: len(value) // 2].strip()
     return value
 

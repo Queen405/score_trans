@@ -1,4 +1,5 @@
 """Alibaba DashScope (百炼) OCR provider — uses qwen-vl-ocr / qwen-vl-max."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,7 +9,9 @@ from score_trans.config.settings import OCR_TIMEOUT
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
 from score_trans.services.settings.api_keys import provider_api_key
-from score_trans.services.settings.provider_profiles import resolve_provider_profile_or_default
+from score_trans.services.settings.provider_profiles import (
+    resolve_provider_profile_or_default,
+)
 from score_trans.utils.json_parsing import content_to_text
 from score_trans.utils.media import image_to_data_url
 from ..client.client import ocr_prompt_for_model
@@ -34,14 +37,16 @@ class DashScopeOCRProvider:
         dry_run: bool = False,
     ) -> None:
         persisted = persisted_ocr_settings()
-        profile = resolve_provider_profile_or_default("ocr", persisted.get("ocr_provider"))
+        profile = resolve_provider_profile_or_default(
+            "ocr", persisted.get("ocr_provider")
+        )
         profile_matches = profile.provider == "dashscope"
         self.base_url = (
-            base_url
-            or (profile.base_url if profile_matches else "")
-            or _BASE_URL
+            base_url or (profile.base_url if profile_matches else "") or _BASE_URL
         ).rstrip("/")
-        self.model = model or (profile.model if profile_matches else "") or _DEFAULT_MODEL
+        self.model = (
+            model or (profile.model if profile_matches else "") or _DEFAULT_MODEL
+        )
         self.api_key = api_key or provider_api_key(persisted, "ocr", profile.id) or ""
         self.timeout = timeout
         self.dry_run = dry_run
@@ -63,7 +68,10 @@ class DashScopeOCRProvider:
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": image_to_data_url(path)}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image_to_data_url(path)},
+                    },
                 ],
             }
         ]

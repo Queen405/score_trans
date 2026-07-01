@@ -14,7 +14,9 @@ SyncTask = Callable[[ProgressCallback], Any]
 OMR_SEMAPHORE = asyncio.Semaphore(2)
 
 
-def schedule_background_task(app: Any, task_id: str, coro: Coroutine[Any, Any, None]) -> asyncio.Task[None]:
+def schedule_background_task(
+    app: Any, task_id: str, coro: Coroutine[Any, Any, None]
+) -> asyncio.Task[None]:
     background_tasks = getattr(app.state, "background_tasks", None)
     if background_tasks is None:
         raise RuntimeError("Background task registry is not initialized")

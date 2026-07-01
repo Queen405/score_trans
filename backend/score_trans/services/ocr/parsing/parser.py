@@ -24,7 +24,9 @@ def parse_openai_compatible_response(response: dict[str, Any]) -> list[OCRTextBl
     try:
         content = response["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        raise OCRError("OCR provider response did not contain message content.") from exc
+        raise OCRError(
+            "OCR provider response did not contain message content."
+        ) from exc
 
     try:
         payload = parse_json_content(content)
@@ -55,12 +57,23 @@ def coerce_text_block_list(raw_blocks: list[Any]) -> list[OCRTextBlock]:
         if isinstance(raw, dict):
             blocks.append(coerce_text_block(raw))
         elif raw is not None and str(raw).strip():
-            blocks.append(OCRTextBlock(text=str(raw).strip(), role=infer_text_role(str(raw))))
+            blocks.append(
+                OCRTextBlock(text=str(raw).strip(), role=infer_text_role(str(raw)))
+            )
     return blocks
 
 
 def find_text_blocks_payload(payload: dict[str, Any]) -> list[Any] | None:
-    for key in ("text_blocks", "blocks", "items", "texts", "detections", "results", "lines", "words"):
+    for key in (
+        "text_blocks",
+        "blocks",
+        "items",
+        "texts",
+        "detections",
+        "results",
+        "lines",
+        "words",
+    ):
         value = payload.get(key)
         if isinstance(value, list):
             return value
@@ -129,7 +142,9 @@ def coerce_text_block(raw: Any) -> OCRTextBlock:
     if confidence is not None:
         confidence = float(confidence)
 
-    role = normalize_text_role(raw.get("role") or raw.get("type") or raw.get("category"), text)
+    role = normalize_text_role(
+        raw.get("role") or raw.get("type") or raw.get("category"), text
+    )
     if role not in TextRole.__args__:
         role = infer_text_role(text)
 

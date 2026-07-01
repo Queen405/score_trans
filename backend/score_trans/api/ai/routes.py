@@ -42,7 +42,9 @@ async def create_chat_session(
     return actions.create_chat_session_response(req.title)
 
 
-@router.get("/chat/sessions/{session_id}/messages", response_model=list[AiChatMessageResponse])
+@router.get(
+    "/chat/sessions/{session_id}/messages", response_model=list[AiChatMessageResponse]
+)
 async def get_chat_messages(
     session_id: str,
     actions: AiActions = Depends(get_ai_actions),

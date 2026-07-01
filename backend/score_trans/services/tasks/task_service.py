@@ -130,7 +130,11 @@ class TaskManager:
         self.cleanup_expired()
         progress = self._tasks.get(task_id)
         if progress is None:
-            yield _sse_event(TaskProgress(task_id=task_id, status=TaskStatus.FAILED, error="Task not found"))
+            yield _sse_event(
+                TaskProgress(
+                    task_id=task_id, status=TaskStatus.FAILED, error="Task not found"
+                )
+            )
             return
 
         progress = replace(progress)
@@ -189,7 +193,9 @@ class TaskManager:
         try:
             self._dao.save(progress)
         except Exception:
-            _logger.warning("Failed to persist task %s", progress.task_id, exc_info=True)
+            _logger.warning(
+                "Failed to persist task %s", progress.task_id, exc_info=True
+            )
 
     async def _broadcast(self, progress: TaskProgress) -> None:
         """Push a task event to all global SSE subscribers."""

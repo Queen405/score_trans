@@ -18,4 +18,3 @@ class AiChatMessage:
     role: str
     content: str
     created_at: str
-

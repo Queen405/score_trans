@@ -17,7 +17,7 @@
 - **AI 视觉转写**：不依赖 Audiveris，直接调用视觉模型生成简谱草稿。
 - **双向转换**：MusicXML ↔ 简谱文本互相转换。
 - **出版级 SVG**：渲染含小节线、拍内辅助线、减时线、附点、延音线、连音线、和弦的简谱谱面。
-- **多格式导出**：内置导出 PDF、PNG、MIDI。
+- **多格式导出**：通过 MuseScore CLI 导出 PDF、PNG、MIDI。
 - **民乐支持**：可选二胡、阮、古筝演奏法标记。
 - **本地优先**：识别与渲染均在本地完成，数据不上传云端。
 
@@ -25,19 +25,21 @@
 
 - Windows 10 / 11
 - [JDK 25](https://jdk.java.net/25/)（Audiveris 必需）
+- [MuseScore 4](https://musescore.org/)（可选，用于导出 PDF/PNG/MIDI）
 - OCR / AI API key（可选，用于文字层和 AI 转写）
 
 ## 下载与安装
 
 1. 在 [Releases](https://github.com/Queen405/score_trans/releases) 下载 `Score Trans Setup x.x.x.exe`。
 2. 双击安装并启动应用。
-3. 首次启动时，在设置页配置 JDK 25 和 Audiveris 路径。
+3. 首次启动时，在设置页配置 JDK 25、Audiveris 和 MuseScore 路径。
 
 或者通过环境变量配置：
 
 ```powershell
 $env:SCORE_TRANS_JAVA_HOME="E:\ENV\JAVA\JDK25"
 $env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris\gradlew.bat"
+$env:SCORE_TRANS_MUSESCORE="C:\Program Files\MuseScore 4\bin\MuseScore4.exe"
 ```
 
 更多环境变量见 [docs/environment.md](docs/environment.md)。
@@ -65,7 +67,7 @@ $env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris
 - **后端**：Python 3.11+ · FastAPI · Uvicorn · SQLite
 - **前端**：Electron · Vue 3 · Pinia · Naive UI
 - **OMR**：Audiveris
-- **导出**：PyMuPDF · mido · 浏览器 Canvas
+- **导出**：MuseScore Studio CLI
 
 ## 参与贡献
 

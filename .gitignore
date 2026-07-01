@@ -9,7 +9,6 @@ build/
 build-resources/
 *.egg-info/
 work/
-examples/
 
 # 打包相关
 build-app.py
@@ -36,4 +35,3 @@ third_party/audiveris/app/build/
 
 # OMC 本地状态
 .omc/
-.qoder/

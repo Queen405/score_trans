@@ -247,7 +247,9 @@ class RenderJianpuTextAction:
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
     ) -> list[Path]:
-        score = parse_jianpu_score(Path(input_path).read_text(encoding="utf-8"), title=title)
+        score = parse_jianpu_score(
+            Path(input_path).read_text(encoding="utf-8"), title=title
+        )
         if start_measure_number is not None:
             _renumber_score(score, start_measure_number)
         return self.render_service.render_score_a4_svg_pages(
@@ -299,11 +301,15 @@ class RenderActions:
             pages=pages,
         )
 
-    def render_jianpu_text_svg(self, req: RenderJianpuTextSvgRequest) -> RenderJianpuTextSvgResponse:
+    def render_jianpu_text_svg(
+        self, req: RenderJianpuTextSvgRequest
+    ) -> RenderJianpuTextSvgResponse:
         normalized_text: str | None = None
         if req.jianpu_text:
             try:
-                normalized_text = normalize_jianpu_text(req.jianpu_text, title=req.title)
+                normalized_text = normalize_jianpu_text(
+                    req.jianpu_text, title=req.title
+                )
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from exc
             input_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.txt"
@@ -347,17 +353,25 @@ class RenderActions:
         return RenderJianpuTextSvgResponse(
             svg_file_id=pages[0].svg_file_id,
             pages=pages,
-            ocr_text=_serialize_ocr_text(ocr_blocks) if ocr_blocks is not None else None,
+            ocr_text=_serialize_ocr_text(ocr_blocks)
+            if ocr_blocks is not None
+            else None,
             jianpu_text=req.jianpu_text,
         )
 
-    def normalize_jianpu_text(self, req: NormalizeJianpuTextRequest) -> NormalizeJianpuTextResponse:
+    def normalize_jianpu_text(
+        self, req: NormalizeJianpuTextRequest
+    ) -> NormalizeJianpuTextResponse:
         try:
-            return NormalizeJianpuTextResponse(jianpu_text=normalize_jianpu_text(req.jianpu_text, title=req.title))
+            return NormalizeJianpuTextResponse(
+                jianpu_text=normalize_jianpu_text(req.jianpu_text, title=req.title)
+            )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 
-    def render_preserving_layout(self, req: PreservingLayoutRequest) -> PreservingLayoutResponse:
+    def render_preserving_layout(
+        self, req: PreservingLayoutRequest
+    ) -> PreservingLayoutResponse:
         response = self._render_preserving_page(req, require_page_image=True)
         return PreservingLayoutResponse(**response.model_dump())
 
@@ -553,12 +567,16 @@ class RenderActions:
         if page.musicxml_file_id:
             musicxml_path = self.uploads.get_path(page.musicxml_file_id)
             if not musicxml_path or not musicxml_path.exists():
-                raise HTTPException(404, f"MusicXML 文件不存在：{page.musicxml_file_id}")
+                raise HTTPException(
+                    404, f"MusicXML 文件不存在：{page.musicxml_file_id}"
+                )
             image_path = None
             if page.page_image_file_id:
                 image_path = self.uploads.get_path(page.page_image_file_id)
                 if not image_path or not image_path.exists():
-                    raise HTTPException(404, f"页面图片不存在：{page.page_image_file_id}")
+                    raise HTTPException(
+                        404, f"页面图片不存在：{page.page_image_file_id}"
+                    )
                 if not page.include_ocr_text:
                     image_path = None
             return self.musicxml_renderer.build_score(
@@ -579,8 +597,12 @@ class RenderActions:
                     raise HTTPException(404, f"文件不存在：{page.jianpu_file_id}")
                 text = input_path.read_text(encoding="utf-8")
             score = parse_jianpu_score(text, title=page.title or req.title)
-            return score_with_accidental_mode(score, accidental_mode=req.accidental_mode)
-        raise HTTPException(400, "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id")
+            return score_with_accidental_mode(
+                score, accidental_mode=req.accidental_mode
+            )
+        raise HTTPException(
+            400, "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id"
+        )
 
     def _register_rendered_pages(self, paths: list[Path]) -> list[RenderedSvgPage]:
         if not paths:
@@ -643,7 +665,15 @@ def _parse_ocr_text(payload: str) -> list[TextBlock]:
             except (TypeError, ValueError):
                 bbox = None
         role = item.get("role") or "other"
-        if role not in {"title", "instrument", "lyric", "expression", "footer", "measure_number", "other"}:
+        if role not in {
+            "title",
+            "instrument",
+            "lyric",
+            "expression",
+            "footer",
+            "measure_number",
+            "other",
+        }:
             role = "other"
         font_size = item.get("fontSize", item.get("font_size"))
         try:
@@ -787,7 +817,9 @@ def _suggested_render_page_ocr_texts(
             source_index,
         )
         if target_page_index is None:
-            target_page_index = min(source_index, max(0, len(measure_ranges_by_page) - 1))
+            target_page_index = min(
+                source_index, max(0, len(measure_ranges_by_page) - 1)
+            )
         source_blocks = _parse_ocr_text_lenient(source_page.ocr_text)
         placed_blocks = _place_blocks_in_a4_safe_area(source_blocks)
         if placed_blocks:
@@ -902,4 +934,3 @@ def _first_measure_number(score: JianpuScore) -> int | None:
         if raw.isdigit():
             return int(raw)
     return None
-
