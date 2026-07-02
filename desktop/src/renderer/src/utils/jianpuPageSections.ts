@@ -30,6 +30,7 @@ interface JianpuPageMarker {
 }
 
 const PAGE_MARKER_PATTERN = /^\s*\/\/\s*@page\s+(\d+)\s+start=(auto|\d+)(?:\s+name=(.+?))?\s*$/
+const PART_MARKER_PATTERN = /^\s*\/\/\s*@part\s+\d+\s+name="(?:\\.|[^"\\])*"\s*$/
 
 function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n?/g, '\n')
@@ -193,13 +194,6 @@ export function updateJianpuPageStart(
   return serializeJianpuPageSections(sections)
 }
 
-export function jianpuSectionBodyForPage(text: string, pageIndex: number): string {
-  const sections = parseJianpuPageSections(text)
-  return sections.find((section) => section.pageIndex === pageIndex)?.body
-    ?? sections[pageIndex]?.body
-    ?? ''
-}
-
 export function replaceJianpuSectionBody(
   text: string,
   pageIndex: number,
@@ -246,13 +240,25 @@ function splitInlineComment(line: string): string {
 }
 
 export function jianpuMeasureCount(text: string): number {
-  return normalizeLineEndings(text).split('\n').reduce((total, line) => {
+  const partCounts: number[] = []
+  let currentPartCount = 0
+  let hasPartMarkers = false
+  for (const line of normalizeLineEndings(text).split('\n')) {
+    if (PART_MARKER_PATTERN.test(line)) {
+      if (hasPartMarkers) partCounts.push(currentPartCount)
+      hasPartMarkers = true
+      currentPartCount = 0
+      continue
+    }
     const code = splitInlineComment(line).trim()
-    if (!code.includes('|')) return total
+    if (!code.includes('|')) continue
     const withoutBar = code.replace(/\|$/, '').trim()
     const repeatMatch = withoutBar.match(/\*\s*(\d+)$/)
-    return total + (repeatMatch ? Number(repeatMatch[1]) : 1)
-  }, 0)
+    currentPartCount += repeatMatch ? Number(repeatMatch[1]) : 1
+  }
+  if (!hasPartMarkers) return currentPartCount
+  partCounts.push(currentPartCount)
+  return Math.max(0, ...partCounts)
 }
 
 export function jianpuPageSummaries(
@@ -282,12 +288,24 @@ export function jianpuGutterLabels(
   text: string,
   fallbackStartMeasureNumber = 1,
 ): string[] {
-  let measureNumber = Math.max(1, fallbackStartMeasureNumber)
-  return normalizeLineEndings(text).split('\n').map((line) => {
+  const normalized = normalizeLineEndings(text)
+  const summaries = jianpuPageSummaries(normalized, fallbackStartMeasureNumber)
+  let pageOrder = -1
+  let pageStartMeasureNumber = Math.max(1, fallbackStartMeasureNumber)
+  let measureNumber = pageStartMeasureNumber
+  return normalized.split('\n').map((line) => {
     const marker = parseJianpuPageMarker(line)
     if (marker) {
-      if (marker.startMeasureNumber !== null) measureNumber = marker.startMeasureNumber
+      pageOrder += 1
+      pageStartMeasureNumber = summaries[pageOrder]?.startMeasureNumber
+        ?? marker.startMeasureNumber
+        ?? measureNumber
+      measureNumber = pageStartMeasureNumber
       return `P${marker.pageNumber}`
+    }
+    if (PART_MARKER_PATTERN.test(line)) {
+      measureNumber = pageStartMeasureNumber
+      return ''
     }
 
     const code = splitInlineComment(line).trim()

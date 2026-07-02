@@ -14,6 +14,28 @@ from ..models.score import JianpuScore, TextBlock
 _NORMALIZE_TEXT = re.compile(r"[\s，。、“”‘’：:；;,.!?！？（）()【】\[\]]+")
 
 
+def first_ocr_measure_number(blocks: list[TextBlock]) -> int | None:
+    candidates = [
+        (index, block, int(block.text.strip()))
+        for index, block in enumerate(blocks)
+        if block.role == "measure_number" and block.text.strip().isdigit()
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=_measure_number_reading_order)
+    return candidates[0][2]
+
+
+def _measure_number_reading_order(
+    candidate: tuple[int, TextBlock, int],
+) -> tuple[int, float, float, int]:
+    index, block, _number = candidate
+    if block.bbox is None:
+        return (1, 0.0, 0.0, index)
+    x1, y1, _x2, _y2 = block.bbox
+    return (0, y1, x1, index)
+
+
 def build_source_text_attachments(
     blocks: list[TextBlock],
     score: JianpuScore,

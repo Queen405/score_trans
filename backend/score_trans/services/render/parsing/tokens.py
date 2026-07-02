@@ -64,6 +64,14 @@ def _parse_chord_token(token: str) -> tuple[list[NoteShape], int, bool, int] | N
     return notes, slashes, dotted, extension
 
 
+def _token_slashes(token: str) -> int:
+    chord = _parse_chord_token(token)
+    if chord is not None:
+        _notes, slashes, _dotted, _extension = chord
+        return slashes
+    return _parse_note(token).slashes
+
+
 def _token_duration(token: str) -> Fraction:
     from ....domain.jianpu_tokens import token_duration as _td
 

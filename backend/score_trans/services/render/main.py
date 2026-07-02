@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ...domain.jianpu import parse_jianpu_score
 from ...domain.performance_marks import event_mark_ids, get_performance_mark
+from ...domain.text_attachments import first_ocr_measure_number
 from ...models.common.types import MeasureNumberMode
 from ...models.score import JianpuScore, TextBlock
 from .drawing.measure import _render_measure
@@ -16,7 +17,6 @@ from .models.layout import MeasureLayout
 from .options import RenderOptions
 from .parsing.tokens import _parse_chord_token, _parse_note
 from .svg.header import _svg_header, _svg_page_header
-from .utils.helpers import _first_ocr_measure_number
 from .utils.text import _esc, _extract_text_directives
 
 A4_PAGE_WIDTH = 1240
@@ -96,7 +96,7 @@ def render_jianpu_page_svg(
     if start_measure_number is not None:
         measure_start = start_measure_number
     else:
-        measure_start = _first_ocr_measure_number(positioned_blocks) or 1
+        measure_start = first_ocr_measure_number(positioned_blocks) or 1
     current_number = measure_start
     for measure in score.measures:
         measure.display_number = current_number
@@ -337,26 +337,6 @@ def render_scores_a4_pages(
             )
         )
     return pages
-
-
-def render_jianpu_a4_files_to_svgs(
-    input_paths: list[Path],
-    output_path: Path,
-    title: str = "简谱",
-    show_measure_numbers: bool | None = None,
-    measure_number_mode: MeasureNumberMode | None = None,
-) -> list[RenderedA4FilePage]:
-    scores = [
-        parse_jianpu_score(path.read_text(encoding="utf-8"), title=title)
-        for path in input_paths
-    ]
-    return render_scores_a4_pages_to_files(
-        scores,
-        output_path,
-        title=title,
-        show_measure_numbers=show_measure_numbers,
-        measure_number_mode=measure_number_mode,
-    )
 
 
 def render_score_a4_pages_to_files(
@@ -921,6 +901,13 @@ def render_multi_part_scores_a4_pages(
     page_text_blocks: dict[int, list[TextBlock]] | None = None,
 ) -> list[RenderedA4Page]:
     part_count = len(scores)
+    measure_counts = [len(score.measures) for score in scores]
+    if len(set(measure_counts)) > 1:
+        details = "、".join(
+            f"{score.part_name or f'声部{index + 1}'}={measure_counts[index]}"
+            for index, score in enumerate(scores)
+        )
+        raise ValueError(f"各声部小节数量不一致：{details}")
     first_score = next((score for score in scores if score.measures), None)
     if first_score is None:
         first_score = scores[0] if scores else JianpuScore()

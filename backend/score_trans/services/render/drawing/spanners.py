@@ -176,13 +176,6 @@ def _render_slide_curve(
     )
 
 
-def _arc(
-    class_name: str, x: float, y: float, width: float, height: float, *, forward: bool
-) -> str:
-    end_x = x + width if forward else x - width
-    return _arc_between(class_name, x, end_x, y, height)
-
-
 def _arc_between(class_name: str, x1: float, x2: float, y: float, height: float) -> str:
     width = x2 - x1
     control_y = y + height

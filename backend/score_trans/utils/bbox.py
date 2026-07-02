@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from .dict_tools import first_present
+
 
 def coerce_bbox(raw: Any) -> tuple[float, float, float, float] | None:
     """Coerce various bbox formats into (x1, y1, x2, y2)."""
     if raw is None:
         return None
     if isinstance(raw, dict):
-        nested = _first_present(
+        nested = first_present(
             raw,
             (
                 "bbox",
@@ -78,11 +80,4 @@ def coerce_bbox_points(raw: Any) -> tuple[float, float, float, float] | None:
         ys = [point[1] for point in points]
         return (min(xs), min(ys), max(xs), max(ys))
 
-    return None
-
-
-def _first_present(raw: dict[str, Any], keys: tuple[str, ...]) -> Any:
-    for key in keys:
-        if key in raw and raw[key] is not None:
-            return raw[key]
     return None

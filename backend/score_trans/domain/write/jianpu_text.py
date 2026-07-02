@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 import hashlib
+import json
 import re
 
 from ..accidentals import pitch_to_token
@@ -53,7 +54,6 @@ def scores_to_jianpu_document(
         score = scores[0] if scores else JianpuScore()
         return score_to_jianpu_document(score, accidental_mode=accidental_mode)
 
-    part_texts: list[str] = []
     part_anchors: list[list[TextAnchor]] = []
     part_offsets: list[int] = []
 
@@ -63,14 +63,13 @@ def scores_to_jianpu_document(
         part_anchors.append(
             _text_anchors_raw(score, part_text, accidental_mode=accidental_mode)
         )
-        marker = f'// @part {index + 1} name="{score.part_name}"'
+        encoded_name = json.dumps(score.part_name, ensure_ascii=False)
+        marker = f"// @part {index + 1} name={encoded_name}"
         full_text += marker + "\n"
         part_offsets.append(len(full_text))
         full_text += part_text
         if index < len(scores) - 1:
             full_text += "\n"
-        part_texts.append(part_text)
-
     all_anchors: list[TextAnchor] = []
     for index, anchors in enumerate(part_anchors):
         offset = part_offsets[index]

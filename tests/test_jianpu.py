@@ -10,6 +10,7 @@ from score_trans.domain.jianpu import (
     normalize_jianpu_text,
     parse_jianpu,
     parse_jianpu_score,
+    parse_jianpu_scores,
 )
 from score_trans.domain.musicxml import score_to_jianpu_text
 from score_trans.domain.performance_marks import PERFORMANCE_MARKS
@@ -77,6 +78,36 @@ def test_jianpu_to_musicxml_contains_score() -> None:
     assert "<score-partwise" in xml
     assert "<fifths>0</fifths>" in xml
     assert "<step>C</step>" in xml
+
+
+def test_multi_part_marker_names_roundtrip_json_escaping() -> None:
+    text = (
+        '// @part 1 name="Violin \\"Solo\\" 🎻"\n'
+        "1=C\n4/4\n1 2 3 4 |\n"
+        '// @part 2 name="低音"\n'
+        "1=C\n4/4\n5 6 7 1' |"
+    )
+
+    scores = parse_jianpu_scores(text)
+    normalized = normalize_jianpu_text(text)
+
+    assert [score.part_name for score in scores] == ['Violin "Solo" 🎻', "低音"]
+    assert len(parse_jianpu_scores(normalized)) == 2
+    assert 'name="Violin \\"Solo\\" 🎻"' in normalized
+
+
+def test_multi_part_jianpu_to_musicxml_preserves_parts() -> None:
+    text = (
+        '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
+    )
+
+    xml = jianpu_to_musicxml(text, title="双声部")
+
+    assert xml.count("<score-part id=") == 2
+    assert xml.count("<part id=") == 2
+    assert "<part-name>高音</part-name>" in xml
+    assert "<part-name>低音</part-name>" in xml
 
 
 def test_musicxml_to_jianpu_roundtrip_basic() -> None:

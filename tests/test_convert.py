@@ -1,7 +1,11 @@
 import xml.etree.ElementTree as ET
 
 from score_trans.domain.jianpu import jianpu_to_musicxml
-from score_trans.domain.musicxml import musicxml_to_score, score_to_jianpu_text
+from score_trans.domain.musicxml import (
+    musicxml_to_score,
+    musicxml_to_scores,
+    score_to_jianpu_text,
+)
 from score_trans.models.score import Event, JianpuEvent, TextBlock
 
 
@@ -81,6 +85,50 @@ def test_musicxml_to_score_preserves_non_numeric_measure_number() -> None:
     assert measure.source_number == "A"
     assert measure.display_measure_number == "A"
     assert measure.display_number == "A"
+
+
+def test_split_multi_staff_part_preserves_empty_measure_slots() -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <staves>2</staves>
+      </attributes>
+      <note id="st__n-s1-i10">
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration><staff>1</staff>
+      </note>
+    </measure>
+    <measure number="2">
+      <note id="st__n-s1-i11">
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>4</duration><staff>1</staff>
+      </note>
+      <backup><duration>4</duration></backup>
+      <note id="st__n-s1-i20">
+        <pitch><step>G</step><octave>3</octave></pitch>
+        <duration>4</duration><staff>2</staff>
+      </note>
+    </measure>
+  </part>
+</score-partwise>
+"""
+
+    scores = musicxml_to_scores(xml)
+
+    assert [
+        [measure.source_number for measure in score.measures] for score in scores
+    ] == [
+        ["1", "2"],
+        ["1", "2"],
+    ]
+    assert scores[1].measures[0].events[0].kind == "rest"
+    assert scores[1].measures[0].events[0].generated is True
+    assert scores[1].measures[1].events[0].source_ids == ["s1:i20"]
 
 
 def test_erhu_marks_and_profile_roundtrip_through_musicxml() -> None:

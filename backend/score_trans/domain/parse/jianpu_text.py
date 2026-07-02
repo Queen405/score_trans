@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from fractions import Fraction
+import json
 import re
 
 from ..jianpu_tokens import DURATION_PREFIXES, consume_duration_prefix
@@ -50,6 +51,15 @@ class _Token:
     end_utf16: int | None = None
 
 
+@dataclass(slots=True)
+class ParsedJianpuPart:
+    score: JianpuScore
+    part_index: int
+    part_name: str
+    body_start_utf16: int
+    body_end_utf16: int
+
+
 def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
     score = parse_jianpu_score(text)
     options = JianpuOptions(
@@ -80,38 +90,86 @@ def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
 
 
 _PART_MARKER_RE = re.compile(
-    r'^[ \t]*//[ \t]*@part[ \t]+\d+[ \t]+name="([^"]*)"[ \t]*$',
+    r"^[ \t]*//[ \t]*@part[ \t]+(?P<number>\d+)[ \t]+"
+    r'name=(?P<name>"(?:\\.|[^"\\])*")[ \t]*$',
+    re.MULTILINE,
+)
+_PART_MARKER_START_RE = re.compile(
+    r"^[ \t]*//[ \t]*@part\b.*$",
     re.MULTILINE,
 )
 
 
 def parse_jianpu_scores(text: str, *, title: str | None = None) -> list[JianpuScore]:
-    markers = list(_PART_MARKER_RE.finditer(text))
-    if not markers:
-        return [parse_jianpu_score(text, title=title)]
+    return [part.score for part in parse_jianpu_parts(text, title=title)]
 
-    scores: list[JianpuScore] = []
+
+def parse_jianpu_parts(
+    text: str,
+    *,
+    title: str | None = None,
+) -> list[ParsedJianpuPart]:
+    markers = list(_PART_MARKER_RE.finditer(text))
+    marker_lines = list(_PART_MARKER_START_RE.finditer(text))
+    if len(markers) != len(marker_lines):
+        raise ValueError(
+            '分谱标记格式无效，请使用 // @part 1 name="声部名称"，'
+            '名称中的引号需要写成 \\"'
+        )
+    if not markers:
+        return [
+            ParsedJianpuPart(
+                score=parse_jianpu_score(text, title=title),
+                part_index=0,
+                part_name="",
+                body_start_utf16=0,
+                body_end_utf16=_utf16_length(text),
+            )
+        ]
+    if text[: markers[0].start()].strip():
+        raise ValueError("第一个分谱标记之前不能包含简谱正文")
+
+    parts: list[ParsedJianpuPart] = []
     for i, match in enumerate(markers):
-        part_name = match.group(1)
+        marker_number = int(match.group("number"))
+        if marker_number != i + 1:
+            raise ValueError(
+                f"分谱标记序号不连续：期望 @part {i + 1}，实际 @part {marker_number}"
+            )
+        try:
+            part_name = json.loads(match.group("name"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"第 {i + 1} 个分谱名称不是有效 JSON 字符串") from exc
+        if not isinstance(part_name, str):
+            raise ValueError(f"第 {i + 1} 个分谱名称必须是字符串")
         start = match.end()
-        if start < len(text) and text[start] == "\n":
+        if text[start : start + 2] == "\r\n":
+            start += 2
+        elif start < len(text) and text[start] in {"\n", "\r"}:
             start += 1
         end = markers[i + 1].start() if i + 1 < len(markers) else len(text)
-        part_text = text[start:end].strip()
-        if not part_text:
-            continue
+        part_text = text[start:end]
         score = parse_jianpu_score(part_text, title=title)
-        score.part_index = len(scores)
+        score.part_index = len(parts)
         score.part_name = part_name
-        scores.append(score)
+        parts.append(
+            ParsedJianpuPart(
+                score=score,
+                part_index=score.part_index,
+                part_name=part_name,
+                body_start_utf16=_utf16_length(text[:start]),
+                body_end_utf16=_utf16_length(text[:end]),
+            )
+        )
 
-    if not scores:
-        return [parse_jianpu_score(text, title=title)]
+    part_count = len(parts)
+    for part in parts:
+        part.score.part_count = part_count
+    return parts
 
-    part_count = len(scores)
-    for score in scores:
-        score.part_count = part_count
-    return scores
+
+def _utf16_length(text: str) -> int:
+    return len(text.encode("utf-16-le")) // 2
 
 
 def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:

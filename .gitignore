@@ -9,6 +9,8 @@ build/
 build-resources/
 *.egg-info/
 work/
+hs_err_pid*.log
+replay_pid*.log
 
 # 打包相关
 build-app.py
@@ -35,3 +37,6 @@ third_party/audiveris/app/build/
 
 # OMC 本地状态
 .omc/
+
+# 示例乐谱/文档（从网络下载，体积较大，不纳入版本控制）
+/examples/

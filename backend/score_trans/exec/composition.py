@@ -26,11 +26,3 @@ def shared_history_service() -> HistoryService:
 @lru_cache(maxsize=1)
 def shared_settings_service() -> SettingsService:
     return SettingsService()
-
-
-def clear_shared_modules() -> None:
-    """Clear process-scoped modules for isolated application tests."""
-    shared_uploads.cache_clear()
-    shared_file_service.cache_clear()
-    shared_history_service.cache_clear()
-    shared_settings_service.cache_clear()

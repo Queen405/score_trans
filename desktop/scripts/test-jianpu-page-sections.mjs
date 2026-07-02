@@ -246,6 +246,46 @@ test('measure ranges continue across automatic page starts', () => {
   )
 })
 
+test('multi-part page ranges count shared measure slots only once', () => {
+  const firstPage = [
+    '// @part 1 name="高音"',
+    '1=C',
+    '4/4',
+    '1 |',
+    '2 |',
+    '// @part 2 name="低音"',
+    '1=C',
+    '4/4',
+    '5 |',
+    '6 |',
+  ].join('\n')
+  const secondPage = [
+    '// @part 1 name="高音"',
+    '1=C',
+    '4/4',
+    '3 |',
+    '4 |',
+    '// @part 2 name="低音"',
+    '1=C',
+    '4/4',
+    '7 |',
+    "1' |",
+  ].join('\n')
+  const text = utils.composeJianpuPageText([
+    { startMeasureNumber: 1, jianpuText: firstPage },
+    { jianpuText: secondPage },
+  ])
+
+  assert.deepEqual(
+    utils.jianpuPageSummaries(text).map((summary) => [
+      summary.startMeasureNumber,
+      summary.endMeasureNumber,
+      summary.measureCount,
+    ]),
+    [[1, 2, 2], [3, 4, 2]],
+  )
+})
+
 test('gutter labels show page markers and continuous measure numbers', () => {
   const text = utils.composeJianpuPageText([
     { startMeasureNumber: 12, jianpuText: '1 2 |' },

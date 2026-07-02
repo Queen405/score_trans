@@ -10,17 +10,25 @@
 | 中严重度 Bug | 4 | ↓2（`_cfg_value` 已修复，Python OMR 预处理链已移除） |
 | 低严重度问题 | 5+ | 持平 |
 | 架构违规 | 2 | 持平 |
-| 死代码符号 | 0（本轮确认项已清理） | ↓7 |
-| 代码坏味道 | 20+ | 略降 |
+| 死代码符号 | 0（本轮确认项已清理） | ↓10 个符号、3 个模块 |
+| 代码坏味道 | 20+ | 已消除 4 组重复实现 |
 | 安全问题 | 5 | ↓1（API key 不再明文返回） |
 | 性能问题 | 6 | ↓1（未使用的 `cleanup_old` 已清理） |
 
-> **验证日期**：2026-06-28。本次基于 2026-06-15 报告继续复核，并清理已确认死代码与错误状态记录。
+> **验证日期**：2026-07-03。本次继续清理不可达模块、零引用符号、重复实现和误提交的运行产物。
+
+### 2026-07-03 删除优先清理记录
+
+- ✅ 删除不可达的旧 `HistoryView.vue`、`api/recognize.ts` 和 `stores/task.ts`。
+- ✅ 删除后端 6 个、前端 4 个全仓库零引用函数，并移除无引用的 `useTaskStore` 兼容导出。
+- ✅ 合并 bbox 首值查找、渲染 token 斜线计数、OCR 首小节号选择和 SVG 公共样式。
+- ✅ 移除未使用的前端直接依赖 `date-fns`、本地 OMC 状态和 5 份 JVM 崩溃日志。
+- ✅ Ruff、后端全量测试、前端 lint/typecheck/工具测试和生产构建通过。
 
 ### 2026-06-28 架构改进记录
 
 - ✅ 后端持久化服务通过 `exec/composition.py` 进程级复用。
-- ✅ 前端核心状态由含混的 Task Store 更名为 Score Workspace Module，保留兼容导出。
+- ✅ 前端核心状态由含混的 Task Store 更名为 Score Workspace Module；未使用的兼容导出已于 2026-07-03 删除。
 - ✅ Recognize / Convert / Export 的批量渲染请求构造集中到 `utils/batchRender.ts`。
 - ✅ 前端 DTO 改为从 FastAPI OpenAPI 自动生成，并增加 CI 漂移检查。
 - ✅ 所有异步 API adapter 统一返回 `{ data, error }`。
@@ -145,6 +153,9 @@
 | ~~`convert/schemas.py`~~ | ~~`MusicXmlToJianpuResponse.jianpu_file_id`~~ | ~~接口实际只返回 `jianpu_text`~~ | ✅ 已清理 |
 | ~~`pipeline/schemas.py`~~ | ~~`PipelineResponse.task_id`~~ | ~~始终返回 None~~ | ✅ 已清理：当前 schema 无此字段 |
 | ~~`recognize/schemas.py`~~ | ~~`RecognizeResponse.task_id`~~ | ~~始终返回 None~~ | ✅ 已清理：当前 schema 无此字段 |
+| `exec/composition.py`、`utils/pdf.py`、`services/render/` | 6 个零引用函数 | 全仓库静态引用计数为 0 | ✅ 已清理 |
+| `desktop/src/renderer/` | 4 个零引用函数、`useTaskStore` | ESLint 与全仓库引用检查确认未使用 | ✅ 已清理 |
+| `HistoryView.vue`、`api/recognize.ts`、`stores/task.ts` | 3 个模块 | 从 Electron/Vue 三个入口均不可达 | ✅ 已清理 |
 
 ---
 
@@ -152,8 +163,10 @@
 
 | 位置 A | 位置 B | 重复内容 |
 |---|---|---|
-| `utils/bbox.py:_first_present` | `utils/dict_tools.py:first_present` | 逻辑相同但 `first_present` 已被多处引用，非死代码 |
-| `svg/header.py:_svg_header` | `svg/header.py:_svg_page_header` | 大段重复 CSS 样式 |
+| ~~`utils/bbox.py:_first_present`~~ | `utils/dict_tools.py:first_present` | ✅ 已统一使用 `first_present` |
+| `svg/header.py:_svg_header` | `svg/header.py:_svg_page_header` | ✅ 公共 SVG opening/CSS 已集中 |
+| `render/drawing/beams.py` | `render/layout/beat.py`、`render/layout/measure.py` | ✅ token 斜线计数已集中到 `parsing/tokens.py` |
+| `render/utils/helpers.py` | `exec/convert/actions.py` | ✅ OCR 首小节号选择已集中到 `domain/text_attachments.py` |
 | `services/ocr/core/text.py:infer_text_role` | `domain/parse/musicxml.py:_is_dynamic_name` | 力度标记集合不一致 |
 | `domain/constants.py:DYNAMICS` | `services/render/utils/helpers.py:_is_dynamic_text` | 力度集合不同（10 项 vs 17 项） |
 | `services/ai/transcription/normalization.py:extract_header/strip_header` | `domain/parse/jianpu_text.py:_read_new_syntax` | 头信息解析逻辑重复 |

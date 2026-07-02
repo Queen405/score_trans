@@ -7,7 +7,6 @@ import type {
   TextAnchor,
 } from '../models/types'
 import {
-  composeJianpuPageText,
   removeJianpuPageSection,
   restoreJianpuPageText,
 } from '../utils/jianpuPageSections'
@@ -117,10 +116,6 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     errorMessage: '',
     ...seed,
   }
-}
-
-function mergeJianpuTexts(batchPages: TaskPageInput[]): string {
-  return composeJianpuPageText(batchPages)
 }
 
 function cloneTextAttachments(items: SourceTextAttachment[]): SourceTextAttachment[] {
@@ -1027,5 +1022,3 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     loadBatch,
   }
 })
-
-export const useTaskStore = useWorkspaceStore

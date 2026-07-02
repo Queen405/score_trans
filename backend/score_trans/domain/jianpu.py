@@ -6,7 +6,7 @@ from pathlib import Path
 from .parse.jianpu_text import parse_jianpu, parse_jianpu_score, parse_jianpu_scores
 from .parse.musicxml import musicxml_to_score, musicxml_to_scores
 from .write.jianpu_text import score_to_jianpu_text, scores_to_jianpu_text
-from .write.musicxml import score_to_musicxml
+from .write.musicxml import scores_to_musicxml
 from .xml_utils import _read_musicxml
 from ..models.common.types import AccidentalMode
 
@@ -54,8 +54,8 @@ def jianpu_file_to_musicxml(path: Path, title: str = "Jianpu Import") -> str:
 
 
 def jianpu_to_musicxml(text: str, title: str = "Jianpu Import") -> str:
-    score = parse_jianpu_score(text, title=title)
-    return score_to_musicxml(score, title=title)
+    scores = parse_jianpu_scores(text, title=title)
+    return scores_to_musicxml(scores, title=title)
 
 
 def normalize_jianpu_text(
@@ -64,8 +64,8 @@ def normalize_jianpu_text(
     title: str | None = None,
     accidental_mode: AccidentalMode = "auto",
 ) -> str:
-    return score_to_jianpu_text(
-        parse_jianpu_score(text, title=title),
+    return scores_to_jianpu_text(
+        parse_jianpu_scores(text, title=title),
         accidental_mode=accidental_mode,
     )
 

@@ -6,7 +6,7 @@ from typing import Any
 
 from ..models.layout import BeatLayout, MeasureLayout, RenderItem
 from ..options import RenderOptions
-from ..parsing.tokens import _parse_chord_token, _parse_note, _token_duration
+from ..parsing.tokens import _parse_chord_token, _token_duration, _token_slashes
 from .beat import _beat_visual_width
 
 
@@ -81,7 +81,7 @@ def _measure_width_targets(
     item_count = sum(len(beat.items) for beat in beats)
     max_items_per_beat = max((len(beat.items) for beat in beats), default=0)
     beamed_count = sum(
-        1 for beat in beats for item in beat.items if _short_note_weight(item.token) > 0
+        1 for beat in beats for item in beat.items if _token_slashes(item.token) > 0
     )
     chord_count = sum(
         1
@@ -105,16 +105,6 @@ def _measure_width_targets(
     min_width = min(float(options.max_measure_width), base_min)
     ideal_width = max(min_width, min(float(options.max_measure_width), natural))
     return min_width, ideal_width, complexity
-
-
-def _short_note_weight(token: str) -> int:
-    token = token.strip().strip("()~")
-    chord = _parse_chord_token(token)
-    if chord is not None:
-        _notes, slashes, _dotted, _extension = chord
-        return slashes
-    note = _parse_note(token)
-    return note.slashes
 
 
 def _text_measure_layout(

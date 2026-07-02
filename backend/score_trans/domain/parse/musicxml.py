@@ -233,7 +233,7 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
 
     sorted_staffs = sorted(staff_values, key=lambda s: int(s) if s.isdigit() else s)
     results: list[JianpuScore] = []
-    for staff in sorted_staffs:
+    for staff_index, staff in enumerate(sorted_staffs):
         staff_score = JianpuScore(
             title=score.title,
             target_key=score.target_key,
@@ -244,9 +244,12 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
             part_name=score.part_name,
         )
         for measure in score.measures:
-            staff_events = [e for e in measure.events if e.staff == staff]
-            if not staff_events:
-                continue
+            staff_events = [
+                event
+                for event in measure.events
+                if event.staff == staff
+                or (event.staff is None and not event.generated and staff_index == 0)
+            ]
             staff_measure = Measure(
                 source_number=measure.source_number,
                 display_measure_number=measure.display_measure_number,
@@ -262,7 +265,10 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
             )
             staff_measure.events = staff_events
             staff_measure.text_blocks = [
-                tb for tb in measure.text_blocks if tb.role != "lyric"
+                block
+                for block in measure.text_blocks
+                if block.role != "lyric"
+                and (block.staff is None or block.staff == staff)
             ]
             _normalize_measure(
                 staff_measure, staff_measure.beats_per_measure, staff_measure.beat_type

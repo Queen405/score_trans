@@ -4,10 +4,17 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import pytest
+from fastapi import HTTPException
 
 from score_trans.domain.jianpu import jianpu_to_musicxml, parse_jianpu_score
 from score_trans.domain.musicxml import musicxml_to_score
-from score_trans.exec.render.actions import RenderActions, RenderJianpuTextAction
+from score_trans.domain.write.jianpu_text import scores_to_jianpu_document
+from score_trans.domain.write.musicxml import scores_to_musicxml
+from score_trans.exec.render.actions import (
+    RenderActions,
+    RenderJianpuTextAction,
+    RenderMusicXmlJianpuAction,
+)
 from score_trans.models.provenance.schemas import (
     SourceTextAttachment,
     TextAnchor,
@@ -50,6 +57,133 @@ from score_trans.services.render.main import (
     _a4_score_top,
     _paginate_rows,
 )
+
+
+def _part_score(name: str, degree: int, source_id: str) -> JianpuScore:
+    event = JianpuEvent(
+        kind="note",
+        duration=Fraction(1, 1),
+        pitches=[JianpuPitch(degree, source_id=source_id)],
+        start=Fraction(0, 1),
+        source_ids=[source_id],
+        source_roles={"note": [source_id]},
+    )
+    return JianpuScore(
+        part_name=name,
+        part_count=2,
+        measures=[
+            JianpuMeasure(
+                source_number="1",
+                duration=Fraction(4, 1),
+                events=[event],
+            )
+        ],
+    )
+
+
+def test_batch_render_multi_part_preserves_every_source_anchor(tmp_path) -> None:
+    document = scores_to_jianpu_document(
+        [
+            _part_score("高音🎻", 1, "s1:i10"),
+            _part_score("低音", 5, "s1:i20"),
+        ]
+    )
+    actions = RenderActions(
+        uploads=UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    )
+
+    response = actions.render_batch_a4(
+        BatchRenderRequest(
+            pages=[
+                BatchRenderPageRequest(
+                    jianpu_text=document.text,
+                    text_anchors=document.anchors,
+                )
+            ]
+        )
+    )
+
+    svg_path = actions.uploads.get_path(response.pages[0].svg_file_id)
+    assert svg_path is not None
+    svg = svg_path.read_text(encoding="utf-8")
+    assert "s1:i10" in svg
+    assert "s1:i20" in svg
+    assert svg.count("source-anchor") >= 2
+
+    render_map_id = response.pages[0].render_map_file_id
+    assert render_map_id
+    render_map_path = actions.uploads.get_path(render_map_id)
+    assert render_map_path is not None
+    source_ids = {
+        anchor["source_id"]
+        for anchor in json.loads(render_map_path.read_text(encoding="utf-8"))["anchors"]
+    }
+    assert {"p0|s1:i10", "p0|s1:i20"} <= source_ids
+
+
+def test_multi_part_text_preview_renders_parts_in_parallel(tmp_path) -> None:
+    document = scores_to_jianpu_document(
+        [
+            _part_score("高音", 1, "s1:i10"),
+            _part_score("低音", 5, "s1:i20"),
+        ]
+    )
+    input_path = tmp_path / "score.txt"
+    output_path = tmp_path / "score.svg"
+    input_path.write_text(document.text, encoding="utf-8")
+
+    pages = RenderJianpuTextAction().execute_a4_pages(
+        input_path,
+        output_path,
+        text_anchors=document.anchors,
+    )
+
+    svg = pages[0].path.read_text(encoding="utf-8")
+    assert ">高音</text>" in svg
+    assert ">低音</text>" in svg
+    assert "s1:i10" in svg
+    assert "s1:i20" in svg
+
+
+def test_multi_part_musicxml_preview_renders_every_part(tmp_path) -> None:
+    input_path = tmp_path / "score.musicxml"
+    output_path = tmp_path / "score.svg"
+    input_path.write_text(
+        scores_to_musicxml(
+            [
+                _part_score("高音", 1, "s1:i10"),
+                _part_score("低音", 5, "s1:i20"),
+            ],
+            title="双声部",
+        ),
+        encoding="utf-8",
+    )
+
+    pages = RenderMusicXmlJianpuAction().execute_a4_pages(
+        input_path,
+        output_path,
+    )
+
+    svg = pages[0].path.read_text(encoding="utf-8")
+    assert ">高音</text>" in svg
+    assert ">低音</text>" in svg
+
+
+def test_multi_part_render_rejects_unequal_measure_counts(tmp_path) -> None:
+    text = (
+        '// @part 1 name="高音"\n1=C\n4/4\n1 |\n2 |\n'
+        '// @part 2 name="低音"\n1=C\n4/4\n5 |'
+    )
+    actions = RenderActions(
+        uploads=UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    )
+
+    with pytest.raises(HTTPException, match="各声部小节数量不一致") as exc_info:
+        actions.render_batch_a4(
+            BatchRenderRequest(pages=[BatchRenderPageRequest(jianpu_text=text)])
+        )
+
+    assert exc_info.value.status_code == 400
 
 
 def test_render_package_exposes_narrow_interface() -> None:

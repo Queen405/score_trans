@@ -17,11 +17,19 @@ from ...models.score import Event, JianpuPitch, JianpuScore
 
 
 def score_to_musicxml(score: JianpuScore, title: str = "Jianpu Import") -> str:
-    instrument_profile = normalize_instrument_profile(score.instrument_profile)
-    divisions = _score_divisions(score)
+    return scores_to_musicxml([score], title=title)
+
+
+def scores_to_musicxml(
+    scores: list[JianpuScore],
+    title: str = "Jianpu Import",
+) -> str:
+    rendered_scores = scores or [JianpuScore()]
+    first_score = rendered_scores[0]
+    instrument_profile = normalize_instrument_profile(first_score.instrument_profile)
     root = ET.Element("score-partwise", {"version": "4.0"})
     work = ET.SubElement(root, "work")
-    ET.SubElement(work, "work-title").text = title or score.title
+    ET.SubElement(work, "work-title").text = title or first_score.title
     identification = ET.SubElement(root, "identification")
     miscellaneous = ET.SubElement(identification, "miscellaneous")
     profile_field = ET.SubElement(
@@ -31,14 +39,40 @@ def score_to_musicxml(score: JianpuScore, title: str = "Jianpu Import") -> str:
     )
     profile_field.text = instrument_profile
     part_list = ET.SubElement(root, "part-list")
-    score_part = ET.SubElement(part_list, "score-part", {"id": "P1"})
-    ET.SubElement(score_part, "part-name").text = {
+    for index, score in enumerate(rendered_scores, start=1):
+        score_part = ET.SubElement(
+            part_list,
+            "score-part",
+            {"id": f"P{index}"},
+        )
+        ET.SubElement(score_part, "part-name").text = _score_part_name(score)
+
+    for index, score in enumerate(rendered_scores, start=1):
+        part = ET.SubElement(root, "part", {"id": f"P{index}"})
+        _append_score_measures(part, score)
+
+    _indent(root)
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(
+        root, encoding="unicode"
+    )
+
+
+def _score_part_name(score: JianpuScore) -> str:
+    if score.part_name:
+        return score.part_name
+    instrument_profile = normalize_instrument_profile(score.instrument_profile)
+    return {
         "erhu": "Erhu",
         "ruan": "Ruan",
         "guzheng": "Guzheng",
     }.get(instrument_profile, "Music")
-    part = ET.SubElement(root, "part", {"id": "P1"})
 
+
+def _append_score_measures(
+    part: ET.Element,
+    score: JianpuScore,
+) -> None:
+    divisions = _score_divisions(score)
     previous_key: str | None = None
     previous_time: tuple[int, int] | None = None
     for index, source_measure in enumerate(score.measures, start=1):
@@ -68,11 +102,6 @@ def score_to_musicxml(score: JianpuScore, title: str = "Jianpu Import") -> str:
             previous_time = measure_time
         for event in source_measure.events:
             _append_event_xml(measure, event, measure_key, divisions)
-
-    _indent(root)
-    return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(
-        root, encoding="unicode"
-    )
 
 
 def _score_divisions(score: JianpuScore) -> int:

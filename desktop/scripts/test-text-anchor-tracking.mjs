@@ -17,6 +17,20 @@ const javascript = ts.transpileModule(source, {
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`
 const { trackTextAnchors } = await import(moduleUrl)
 
+const selectionSourceUrl = new URL(
+  '../src/renderer/src/utils/sourceAnchorSelection.ts',
+  import.meta.url,
+)
+const selectionSource = await readFile(selectionSourceUrl, 'utf8')
+const selectionJavascript = ts.transpileModule(selectionSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ES2022,
+  },
+}).outputText
+const selectionModuleUrl = `data:text/javascript;base64,${Buffer.from(selectionJavascript).toString('base64')}`
+const { sourceAnchorRange } = await import(selectionModuleUrl)
+
 const anchor = (source_id, start_utf16, end_utf16) => ({
   source_id,
   start_utf16,
@@ -55,4 +69,50 @@ test('deleting the complete mapped token invalidates its anchor', () => {
 test('pasting multiple tokens into one mapped token invalidates its anchor', () => {
   const result = trackTextAnchors('1 3 5', '1 4 6 5', [anchor('s1:i2', 2, 3)])
   assert.equal(result.anchors[0].valid, false)
+})
+
+test('shared source elements select their complete range in one part', () => {
+  const text = [
+    '// @part 1 name="高音"',
+    '1=C',
+    '4/4',
+    '(1 2) |',
+    '// @part 2 name="低音"',
+    '1=C',
+    '4/4',
+    '5 |',
+  ].join('\n')
+  const open = text.indexOf('(')
+  const close = text.indexOf(')')
+
+  assert.deepEqual(
+    sourceAnchorRange([
+      anchor('s1:i30', open, open + 1),
+      anchor('s1:i30', close, close + 1),
+    ], text),
+    { start: open, end: close + 1 },
+  )
+})
+
+test('shared source selection never spans different parts', () => {
+  const text = [
+    '// @part 1 name="高音"',
+    '1=C',
+    '4/4',
+    '1 |',
+    '// @part 2 name="低音"',
+    '1=C',
+    '4/4',
+    '5 |',
+  ].join('\n')
+  const first = text.indexOf('1 |')
+  const second = text.indexOf('5 |')
+
+  assert.deepEqual(
+    sourceAnchorRange([
+      anchor('collision', first, first + 1),
+      anchor('collision', second, second + 1),
+    ], text),
+    { start: first, end: first + 1 },
+  )
 })

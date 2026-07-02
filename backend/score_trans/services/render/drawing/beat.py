@@ -7,10 +7,11 @@ from ....domain.performance_marks import (
 )
 from ..models.layout import RenderItem
 from ..options import RenderOptions
+from ..parsing.tokens import _token_slashes
 from ..utils.text import _esc
 from ..utils.metrics import _token_metrics
 from ..utils.helpers import _mark_display
-from .beams import _render_beams, _beamable_slashes
+from .beams import _render_beams
 from .performance_marks import _render_performance_mark
 from .spanners import _render_spanners
 from .token import _render_token
@@ -40,7 +41,7 @@ def _render_slot_items(
     options: RenderOptions | None = None,
 ) -> list[str]:
     out: list[str] = []
-    beamed_ids = {id(item) for item, _, _ in slots if _beamable_slashes(item.token) > 0}
+    beamed_ids = {id(item) for item, _, _ in slots if _token_slashes(item.token) > 0}
     for item, cx, slot in slots:
         out.extend(
             _render_item(

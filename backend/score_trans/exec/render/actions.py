@@ -10,10 +10,9 @@ from fastapi import HTTPException
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.jianpu import (
     normalize_jianpu_text,
-    parse_jianpu_score,
-    parse_jianpu_scores,
 )
-from ...domain.provenance import apply_text_anchors
+from ...domain.parse.jianpu_text import parse_jianpu_parts
+from ...domain.provenance import apply_text_anchors_to_parts
 from ...domain.text_placement import place_source_text_attachments
 from ...models.common.types import (
     AccidentalMode,
@@ -150,7 +149,7 @@ class RenderMusicXmlJianpuAction:
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> list[RenderedA4FilePage]:
-        score = self.build_score(
+        scores = self.build_scores(
             musicxml_path,
             target_key=target_key,
             accidental_mode=accidental_mode,
@@ -160,10 +159,12 @@ class RenderMusicXmlJianpuAction:
             image_path=image_path,
             ocr_provider=ocr_provider,
         )
-        return self.render_service.render_score_a4_svg_pages(
-            score,
+        _validate_multi_part_measure_counts(scores)
+        first_score = scores[0] if scores else JianpuScore()
+        return self.render_service.render_scores_a4_svg_pages(
+            scores,
             output_path,
-            title=title or score.title,
+            title=title or first_score.title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )
@@ -180,7 +181,31 @@ class RenderMusicXmlJianpuAction:
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> JianpuScore:
-        score = self.converter.build_score(
+        scores = self.build_scores(
+            musicxml_path,
+            target_key=target_key,
+            accidental_mode=accidental_mode,
+            instrument_profile=instrument_profile,
+            start_measure_number=start_measure_number,
+            title=title,
+            image_path=image_path,
+            ocr_provider=ocr_provider,
+        )
+        return scores[0] if scores else JianpuScore()
+
+    def build_scores(
+        self,
+        musicxml_path: str | Path,
+        *,
+        target_key: str = "C",
+        accidental_mode: AccidentalMode = "auto",
+        instrument_profile: InstrumentProfile | None = None,
+        start_measure_number: int | None = None,
+        title: str | None = None,
+        image_path: str | Path | None = None,
+        ocr_provider: OCRProvider | None = None,
+    ) -> list[JianpuScore]:
+        scores = self.converter.build_scores(
             musicxml_path,
             target_key=target_key,
             instrument_profile=instrument_profile,
@@ -189,8 +214,12 @@ class RenderMusicXmlJianpuAction:
             ocr_provider=ocr_provider,
         )
         if title:
-            score.title = title
-        return score_with_accidental_mode(score, accidental_mode=accidental_mode)
+            for score in scores:
+                score.title = title
+        return [
+            score_with_accidental_mode(score, accidental_mode=accidental_mode)
+            for score in scores
+        ]
 
 
 class RenderJianpuTextAction:
@@ -256,15 +285,17 @@ class RenderJianpuTextAction:
         measure_number_mode: MeasureNumberMode = "all",
         text_anchors: list[TextAnchor] | None = None,
     ) -> list[RenderedA4FilePage]:
-        score = parse_jianpu_score(
-            Path(input_path).read_text(encoding="utf-8"), title=title
-        )
+        text = Path(input_path).read_text(encoding="utf-8")
+        parts = parse_jianpu_parts(text, title=title)
+        scores = [part.score for part in parts]
+        _validate_multi_part_measure_counts(scores)
         if start_measure_number is not None:
-            _renumber_score(score, start_measure_number)
+            for score in scores:
+                _renumber_score(score, start_measure_number)
         if text_anchors:
-            apply_text_anchors(score, text_anchors)
-        return self.render_service.render_score_a4_svg_pages(
-            score,
+            apply_text_anchors_to_parts(parts, text_anchors)
+        return self.render_service.render_scores_a4_svg_pages(
+            scores,
             output_path,
             title=title,
             show_measure_numbers=show_measure_numbers,
@@ -758,10 +789,12 @@ class RenderActions:
                 title=page.title or req.title,
                 image_path=image_path,
             )
-            return [
+            rendered_scores = [
                 score_with_accidental_mode(s, accidental_mode=req.accidental_mode)
                 for s in scores
             ]
+            _validate_multi_part_measure_counts(rendered_scores)
+            return rendered_scores
         if page.jianpu_text or page.jianpu_file_id:
             if page.jianpu_text:
                 text = page.jianpu_text
@@ -770,13 +803,15 @@ class RenderActions:
                 if not input_path or not input_path.exists():
                     raise HTTPException(404, f"文件不存在：{page.jianpu_file_id}")
                 text = input_path.read_text(encoding="utf-8")
-            scores = parse_jianpu_scores(text, title=page.title or req.title)
+            parts = parse_jianpu_parts(text, title=page.title or req.title)
+            if page.text_anchors:
+                apply_text_anchors_to_parts(parts, page.text_anchors)
+            scores = [part.score for part in parts]
             scores = [
                 score_with_accidental_mode(s, accidental_mode=req.accidental_mode)
                 for s in scores
             ]
-            if page.text_anchors and scores:
-                apply_text_anchors(scores[0], page.text_anchors)
+            _validate_multi_part_measure_counts(scores)
             return scores
         raise HTTPException(
             400, "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id"
@@ -841,6 +876,19 @@ class RenderActions:
                 )
             )
         return pages
+
+
+def _validate_multi_part_measure_counts(scores: list[JianpuScore]) -> None:
+    if len(scores) <= 1:
+        return
+    counts = [len(score.measures) for score in scores]
+    if len(set(counts)) <= 1:
+        return
+    details = "、".join(
+        f"{score.part_name or f'声部{index + 1}'}={counts[index]}"
+        for index, score in enumerate(scores)
+    )
+    raise ValueError(f"各声部小节数量不一致：{details}")
 
 
 def _parse_ocr_text(payload: str) -> list[TextBlock]:

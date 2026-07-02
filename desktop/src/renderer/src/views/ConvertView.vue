@@ -393,6 +393,7 @@ import {
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
 import { trackTextAnchors } from '../utils/textAnchorTracking'
+import { sourceAnchorRange } from '../utils/sourceAnchorSelection'
 import { findNotePageIndex } from '../utils/jianpuPlayback'
 import {
   buildBatchRenderRequests,
@@ -564,8 +565,15 @@ function updateTextAnchorsAfterEdit(previous: string, current: string): void {
 async function handleOriginalSourceClick(sourceId: string): Promise<void> {
   selectedSourceId.value = sourceId
   const candidates = store.textAnchors.filter((anchor) => anchor.source_id === sourceId)
-  const anchor = candidates.find((item) => item.valid !== false)
-  if (!anchor) {
+  const sections = parseJianpuPageSections(jianpuText.value)
+  const localIndex = Math.max(0, currentBatchLocalIndex.value)
+  const currentSection = sections.find((item) => item.pageIndex === localIndex)
+    ?? sections[localIndex]
+  const range = sourceAnchorRange(
+    candidates,
+    currentSection?.body ?? store.currentPage?.jianpuText ?? '',
+  )
+  if (!range) {
     message.warning(
       candidates.length
         ? '对应简谱内容已被重构，无法精确定位'
@@ -577,8 +585,8 @@ async function handleOriginalSourceClick(sourceId: string): Promise<void> {
   if (!isViewingFinal.value) {
     const offset = currentSectionBodyOffset()
     if (!jianpuEditorRef.value?.selectRange(
-      offset + anchor.start_utf16,
-      offset + anchor.end_utf16,
+      offset + range.start,
+      offset + range.end,
     )) {
       message.warning('对应简谱范围当前不可见')
     }
@@ -1767,31 +1775,6 @@ function handleTextAttachmentUpdate(update: TextAttachmentUpdate): void {
     })
   store.patchPageById(page.id, { textAttachments })
   store.setBatchRenderPageFileIds([])
-}
-
-function applyReturnedOcr(value?: string | null): void {
-  if (!value || store.ocrText.trim()) return
-  store.setOcrText(value)
-}
-
-
-async function renderSvg(): Promise<void> {
-  store.setBusy(true)
-  errorLine.value = -1
-  try {
-    await renderFinalBatch()
-    isViewingFinal.value = true
-    log.addLog('已渲染 SVG')
-    message.success('渲染完成')
-  } catch (e: unknown) {
-    const raw = e instanceof Error ? e.message : String(e)
-    const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
-    errorLine.value = extractErrorLineFromMessage(msg)
-    log.addError(`渲染失败：${msg}`)
-    message.error(msg)
-  } finally {
-    store.setBusy(false)
-  }
 }
 
 function handleStartMeasureChange(value: number | null): void {

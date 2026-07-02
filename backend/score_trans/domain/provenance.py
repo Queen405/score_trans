@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .parse.jianpu_text import ParsedJianpuPart
 from ..models.provenance.schemas import TextAnchor
 from ..models.score import Event, JianpuScore
 
@@ -25,6 +26,26 @@ def apply_text_anchors(score: JianpuScore, anchors: list[TextAnchor]) -> None:
         role_sources = event.source_roles.setdefault(anchor.role, [])
         if anchor.source_id not in role_sources:
             role_sources.append(anchor.source_id)
+
+
+def apply_text_anchors_to_parts(
+    parts: list[ParsedJianpuPart],
+    anchors: list[TextAnchor],
+) -> None:
+    """Rebase document-level UTF-16 anchors onto each parsed part."""
+    for part in parts:
+        local_anchors = [
+            anchor.model_copy(
+                update={
+                    "start_utf16": anchor.start_utf16 - part.body_start_utf16,
+                    "end_utf16": anchor.end_utf16 - part.body_start_utf16,
+                }
+            )
+            for anchor in anchors
+            if anchor.start_utf16 >= part.body_start_utf16
+            and anchor.end_utf16 <= part.body_end_utf16
+        ]
+        apply_text_anchors(part.score, local_anchors)
 
 
 def _event_for_anchor(events: list[Event], anchor: TextAnchor) -> Event | None:

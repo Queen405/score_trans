@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ..models.layout import RenderItem
 from ..options import RenderOptions
-from ..parsing.tokens import _parse_chord_token, _parse_note
+from ..parsing.tokens import _parse_chord_token, _parse_note, _token_slashes
 from ..utils.helpers import _split_accidental
 
 
@@ -79,16 +79,6 @@ def _short_note_width_ratio(
     if slashes < 2:
         return 1.0
     return options.short_note_slot_width_ratio if options is not None else 1.0
-
-
-def _token_slashes(token: str) -> int:
-    token = token.strip().strip("()~")
-    chord = _parse_chord_token(token)
-    if chord is not None:
-        _notes, slashes, _dotted, _extension = chord
-        return slashes
-    note = _parse_note(token)
-    return note.slashes
 
 
 def _is_compact_gap(left: RenderItem, right: RenderItem) -> bool:

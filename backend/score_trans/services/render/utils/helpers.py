@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from ....models.score import TextBlock
-
 
 def _same_start(left: Fraction | None, right: Fraction | None) -> bool:
     if left is None or right is None:
@@ -71,25 +69,3 @@ def _mark_display(name: str) -> str:
         "open-string": "open",
         "thumb-position": "thumb",
     }.get(normalized, name)
-
-
-def _text_block_reading_order(
-    candidate: tuple[int, TextBlock, int],
-) -> tuple[int, float, float, int]:
-    index, block, _number = candidate
-    if block.bbox is None:
-        return (1, 0.0, 0.0, index)
-    x1, y1, _x2, _y2 = block.bbox
-    return (0, y1, x1, index)
-
-
-def _first_ocr_measure_number(blocks: list[TextBlock]) -> int | None:
-    candidates = [
-        (index, block, int(block.text.strip()))
-        for index, block in enumerate(blocks)
-        if block.role == "measure_number" and block.text.strip().isdigit()
-    ]
-    if not candidates:
-        return None
-    candidates.sort(key=_text_block_reading_order)
-    return candidates[0][2]

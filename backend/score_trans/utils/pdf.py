@@ -7,27 +7,6 @@ from pathlib import Path
 from score_trans.config.settings import PDF_RENDER_DPI as _DEFAULT_PDF_DPI
 
 
-def pdf_page_to_png(
-    pdf_path: Path,
-    output_path: Path,
-    *,
-    page_index: int = 0,
-    dpi: int = _DEFAULT_PDF_DPI,
-) -> Path:
-    """Render a single PDF page to PNG."""
-    try:
-        import fitz
-    except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("Install pymupdf to render PDF pages.") from exc
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with fitz.open(pdf_path) as doc:
-        page = doc.load_page(page_index)
-        pixmap = page.get_pixmap(dpi=dpi, alpha=False)
-        pixmap.save(output_path)
-    return output_path
-
-
 def pdf_to_png_pages(
     pdf_path: Path,
     output_dir: Path,

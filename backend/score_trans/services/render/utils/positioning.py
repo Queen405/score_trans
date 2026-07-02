@@ -55,13 +55,6 @@ def _upper_mark_anchor_y(
     return _token_metrics(token, y, options)["top"] + 28.0
 
 
-def _technique_mark(name: str) -> str | None:
-    normalized = name.strip().lower()
-    if normalized == "tremolo":
-        return "轮"
-    return None
-
-
 def _technique_mark_x(
     token: str,
     cx: float,

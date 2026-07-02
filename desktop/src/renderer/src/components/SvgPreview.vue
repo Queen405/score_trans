@@ -455,13 +455,15 @@ function highlightSource(sourceId: string): boolean {
     node.classList.remove('source-current')
   })
 
-  const target = Array.from(svg.querySelectorAll<SVGGElement>('.source-anchor'))
-    .find((element) => (element.dataset.sourceIds ?? '').split(/\s+/).includes(sourceId))
-  if (!target) return false
+  const targets = Array.from(svg.querySelectorAll<SVGGElement>('.source-anchor'))
+    .filter((element) => (element.dataset.sourceIds ?? '').split(/\s+/).includes(sourceId))
+  if (!targets.length) return false
 
-  target.classList.add('source-current')
-  addSourceHighlightBox(target)
-  keepTargetVisible(target)
+  targets.forEach((target) => {
+    target.classList.add('source-current')
+    addSourceHighlightBox(target)
+  })
+  keepTargetVisible(targets[0]!)
   return true
 }
 

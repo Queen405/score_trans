@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
+
+import mido
+
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.exec.export.actions import ExportActions
 from score_trans.models.export.schemas import (
+    ExportMidiTextRequest,
     ExportMusicXmlRequest,
     ExportMusicXmlTextRequest,
     ExportResponse,
@@ -65,3 +70,29 @@ def test_export_musicxml_from_file_id(tmp_path) -> None:
     assert path is not None and path.exists()
     written = path.read_text(encoding="utf-8")
     assert "<fifths>2</fifths>" in written
+
+
+def test_text_exports_preserve_multi_part_structure() -> None:
+    uploads = UploadService()
+    actions = ExportActions(uploads=uploads)
+    text = (
+        '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
+    )
+
+    xml_response = actions.export_musicxml_text(
+        ExportMusicXmlTextRequest(jianpu_text=text, title="双声部")
+    )
+    xml_path = uploads.get_path(xml_response.file_id)
+    assert xml_path is not None
+    root = ET.fromstring(xml_path.read_text(encoding="utf-8"))
+    assert len(root.findall("./part-list/score-part")) == 2
+    assert len(root.findall("./part")) == 2
+
+    midi_response = actions.export_midi_text(
+        ExportMidiTextRequest(jianpu_text=text, title="双声部")
+    )
+    midi_path = uploads.get_path(midi_response.file_id)
+    assert midi_path is not None
+    midi = mido.MidiFile(midi_path)
+    assert len(midi.tracks) == 2

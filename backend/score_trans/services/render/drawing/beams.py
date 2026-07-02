@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ..models.layout import RenderItem
 from ..options import RenderOptions
-from ..parsing.tokens import _parse_chord_token, _parse_note
+from ..parsing.tokens import _parse_chord_token, _token_slashes
 from ..utils.geometry import _duration_line_y
 
 BEAM_LINE_GAP = 6.0
@@ -36,7 +36,7 @@ def _beam_runs(
     start_index = 0
     for index, slot in enumerate(slots):
         item, _, _ = slot
-        if _beamable_slashes(item.token) >= level:
+        if _token_slashes(item.token) >= level:
             if not run:
                 start_index = index
             run.append(slot)
@@ -79,16 +79,6 @@ def _parent_beam_y(
         if parent_start <= start_index and end_index <= parent_end:
             return parent_y
     return None
-
-
-def _beamable_slashes(token: str) -> int:
-    token = token.strip().strip("()~")
-    chord = _parse_chord_token(token)
-    if chord is not None:
-        _notes, slashes, _dotted, _extension = chord
-        return slashes
-    note = _parse_note(token)
-    return note.slashes
 
 
 def _beam_half_width(token: str) -> float:

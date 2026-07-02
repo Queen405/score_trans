@@ -13,7 +13,7 @@ from score_trans.config.settings import (
 )
 
 from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
-from ...domain.write.musicxml import score_to_musicxml
+from ...domain.write.musicxml import scores_to_musicxml
 from ...models.score import JianpuPitch, JianpuScore
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
@@ -68,47 +68,66 @@ def images_to_pdf(image_pages: list[bytes], output_path: Path) -> Path:
 
 class ExportService:
     def export_midi(self, score: JianpuScore, output_path: Path) -> Path:
+        return self.export_midi_scores([score], output_path)
+
+    def export_midi_scores(
+        self,
+        scores: list[JianpuScore],
+        output_path: Path,
+    ) -> Path:
         mid = mido.MidiFile(ticks_per_beat=_TICKS_PER_BEAT)
-        track = mido.MidiTrack()
-        mid.tracks.append(track)
+        for index, score in enumerate(scores or [JianpuScore()]):
+            track = mido.MidiTrack()
+            mid.tracks.append(track)
+            track_name = score.part_name or f"Part {index + 1}"
+            try:
+                track_name.encode("latin-1")
+            except UnicodeEncodeError:
+                track_name = f"Part {index + 1}"
+            track.append(
+                mido.MetaMessage(
+                    "track_name",
+                    name=track_name,
+                    time=0,
+                )
+            )
+            tempo = mido.bpm2tempo(MIDI_DEFAULT_BPM)
+            track.append(mido.MetaMessage("set_tempo", tempo=tempo, time=0))
 
-        tempo = mido.bpm2tempo(MIDI_DEFAULT_BPM)
-        track.append(mido.MetaMessage("set_tempo", tempo=tempo, time=0))
+            for measure in score.measures:
+                key = getattr(measure, "target_key", score.target_key)
+                beat_type = getattr(measure, "beat_type", score.beat_type)
+                for event in measure.events:
+                    if event.kind == "rest":
+                        ticks = _duration_to_ticks(event.duration, beat_type)
+                        track.append(
+                            mido.Message("note_off", note=0, velocity=0, time=ticks)
+                        )
+                        continue
+                    if not event.pitches:
+                        continue
 
-        for measure in score.measures:
-            key = getattr(measure, "target_key", score.target_key)
-            beat_type = getattr(measure, "beat_type", score.beat_type)
-            for event in measure.events:
-                if event.kind == "rest":
                     ticks = _duration_to_ticks(event.duration, beat_type)
-                    track.append(
-                        mido.Message("note_off", note=0, velocity=0, time=ticks)
-                    )
-                    continue
-                if not event.pitches:
-                    continue
-
-                ticks = _duration_to_ticks(event.duration, beat_type)
-                for i, pitch in enumerate(event.pitches):
-                    midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
-                    track.append(
-                        mido.Message(
-                            "note_on",
-                            note=midi_note,
-                            velocity=MIDI_DEFAULT_VELOCITY,
-                            time=0,
+                    for pitch in event.pitches:
+                        midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
+                        track.append(
+                            mido.Message(
+                                "note_on",
+                                note=midi_note,
+                                velocity=MIDI_DEFAULT_VELOCITY,
+                                time=0,
+                            )
                         )
-                    )
-                for i, pitch in enumerate(event.pitches):
-                    midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
-                    track.append(
-                        mido.Message(
-                            "note_off",
-                            note=midi_note,
-                            velocity=0,
-                            time=ticks if i == 0 else 0,
+                    for pitch_index, pitch in enumerate(event.pitches):
+                        midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
+                        track.append(
+                            mido.Message(
+                                "note_off",
+                                note=midi_note,
+                                velocity=0,
+                                time=ticks if pitch_index == 0 else 0,
+                            )
                         )
-                    )
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         mid.save(str(output_path))
@@ -121,7 +140,24 @@ class ExportService:
         *,
         title: str | None = None,
     ) -> Path:
-        xml_text = score_to_musicxml(score, title=title or score.title)
+        return self.export_musicxml_scores(
+            [score],
+            output_path,
+            title=title or score.title,
+        )
+
+    def export_musicxml_scores(
+        self,
+        scores: list[JianpuScore],
+        output_path: Path,
+        *,
+        title: str | None = None,
+    ) -> Path:
+        first_score = scores[0] if scores else JianpuScore()
+        xml_text = scores_to_musicxml(
+            scores,
+            title=title or first_score.title,
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(xml_text, encoding="utf-8")
         return output_path

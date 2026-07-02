@@ -8,6 +8,7 @@ from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
 from ...domain.musicxml import (
     musicxml_path_to_scores,
 )
+from ...domain.text_attachments import first_ocr_measure_number
 from ...domain.write.jianpu_text import scores_to_jianpu_document
 from ...models.common.types import AccidentalMode, InstrumentProfile
 from ...models.convert.schemas import (
@@ -195,18 +196,11 @@ class ConvertActions:
 def _apply_measure_number_ocr(
     score: JianpuScore, blocks, *, start_measure_number: int | None = None
 ) -> None:
-    candidates = [
-        (index, block, int(block.text.strip()))
-        for index, block in enumerate(blocks)
-        if block.role == "measure_number" and block.text.strip().isdigit()
-    ]
-    if not candidates and start_measure_number is None:
+    detected_start = first_ocr_measure_number(blocks)
+    if detected_start is None and start_measure_number is None:
         return
-    if start_measure_number is not None:
-        start = start_measure_number
-    else:
-        candidates.sort(key=_measure_number_candidate_key)
-        start = candidates[0][2]
+    start = start_measure_number if start_measure_number is not None else detected_start
+    assert start is not None
     for index, measure in enumerate(score.measures):
         display_number = start + index
         measure.display_number = display_number
@@ -214,11 +208,3 @@ def _apply_measure_number_ocr(
             if block.role == "measure_number":
                 block.text = str(display_number)
                 block.measure_number = display_number
-
-
-def _measure_number_candidate_key(candidate) -> tuple[int, float, float, int]:
-    index, block, _number = candidate
-    if block.bbox is None:
-        return (1, 0.0, 0.0, index)
-    x1, y1, _x2, _y2 = block.bbox
-    return (0, y1, x1, index)
