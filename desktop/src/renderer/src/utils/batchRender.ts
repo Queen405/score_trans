@@ -2,6 +2,7 @@ import type {
   BatchRenderPageRequest,
   RenderedSvgPage,
   RenderPageOcrText,
+  SourceTextAttachment,
 } from '../models/types'
 import { parseJianpuPageSections } from './jianpuPageSections'
 
@@ -12,6 +13,8 @@ export interface BatchRenderSourcePage {
   musicxmlFileId: string
   jianpuText: string
   ocrText: string
+  sourceMapFileId: string
+  textAttachments: SourceTextAttachment[]
   startMeasureNumber: number | null
 }
 
@@ -52,7 +55,9 @@ export function buildBatchRenderRequests(
           input_file_name: section.inputFileName || page?.inputFileName,
           jianpu_text: section.body,
           page_image_file_id: sourceImageId,
+          source_map_file_id: page?.sourceMapFileId || undefined,
           ocr_text: page?.ocrText || undefined,
+          text_attachments: page?.textAttachments ?? [],
           include_ocr_text: false,
           start_measure_number: start,
           title: options.title,
@@ -63,7 +68,9 @@ export function buildBatchRenderRequests(
           input_file_name: section.inputFileName || page.inputFileName,
           musicxml_file_id: page.musicxmlFileId,
           page_image_file_id: sourceImageId,
+          source_map_file_id: page.sourceMapFileId || undefined,
           ocr_text: page.ocrText || undefined,
+          text_attachments: page.textAttachments,
           include_ocr_text: false,
           start_measure_number: start,
           title: options.title,
@@ -84,7 +91,9 @@ export function buildSourcePageRenderRequests(
       const common = {
         input_file_name: page.inputFileName,
         page_image_file_id: sourceImageId,
+        source_map_file_id: page.sourceMapFileId || undefined,
         ocr_text: page.ocrText || undefined,
+        text_attachments: page.textAttachments,
         include_ocr_text: false,
         start_measure_number: page.startMeasureNumber ?? undefined,
         title,

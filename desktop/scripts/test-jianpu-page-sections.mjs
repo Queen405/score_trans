@@ -120,6 +120,22 @@ const apiClient = await import(
   `data:text/javascript;base64,${Buffer.from(apiClientCompiled).toString('base64')}`
 )
 
+const ocrTextSourcePath = path.resolve(
+  here,
+  '../src/renderer/src/utils/ocrText.ts',
+)
+const ocrTextSource = fs.readFileSync(ocrTextSourcePath, 'utf8')
+const ocrTextCompiled = ts.transpileModule(ocrTextSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: ocrTextSourcePath,
+}).outputText
+const ocrText = await import(
+  `data:text/javascript;base64,${Buffer.from(ocrTextCompiled).toString('base64')}`
+)
+
 const recognizeViewSource = fs.readFileSync(
   path.resolve(here, '../src/renderer/src/views/RecognizeView.vue'),
   'utf8',
@@ -630,6 +646,32 @@ test('render response helpers normalize fallback ids and OCR text', () => {
     batchRender.renderResponsePageOcrTexts(pages),
     [{ page_index: 0, ocr_text: '' }],
   )
+})
+
+test('OCR text roundtrip preserves semantic attachment metadata', () => {
+  const payload = JSON.stringify([{
+    id: 'p0|ocr-1',
+    text: '提示',
+    bbox: [100, 200, 180, 228],
+    role: 'expression',
+    fontSize: 20,
+    sourcePageIndex: 0,
+    sourceAttachmentId: 'ocr-1',
+    anchor: {
+      kind: 'source_element',
+      source_id: 's1:i9',
+      offset_x: 12,
+      offset_y: -4,
+    },
+  }])
+
+  const blocks = ocrText.parseOcrText(payload)
+  const roundtrip = ocrText.parseOcrText(ocrText.serializeOcrText(blocks))
+
+  assert.equal(roundtrip[0].sourcePageIndex, 0)
+  assert.equal(roundtrip[0].sourceAttachmentId, 'ocr-1')
+  assert.equal(roundtrip[0].anchor.source_id, 's1:i9')
+  assert.equal(roundtrip[0].anchor.offset_x, 12)
 })
 
 test('API wrappers return an error tuple instead of rejecting', async () => {

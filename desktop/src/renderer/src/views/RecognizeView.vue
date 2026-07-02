@@ -350,6 +350,7 @@ interface PageResult {
   source_map_file_id?: string
   text_hash?: string
   text_anchors?: PipelineResponse['text_anchors']
+  text_attachments?: PipelineResponse['text_attachments']
   start_measure_number: number | null
   status: string
   error_message: string
@@ -1281,6 +1282,7 @@ async function persistPageResult(
         source_map_file_id: result.source_map_file_id ?? '',
         text_hash: result.text_hash ?? '',
         text_anchors: result.text_anchors ?? [],
+        text_attachments: result.text_attachments,
         start_measure_number: result.start_measure_number,
         status: result.status,
         error_message: result.error_message,
@@ -1303,6 +1305,7 @@ async function persistPageResult(
           source_map_file_id: result.source_map_file_id ?? '',
           text_hash: result.text_hash ?? '',
           text_anchors: result.text_anchors ?? [],
+          text_attachments: result.text_attachments ?? [],
           start_measure_number: result.start_measure_number,
           status: result.status,
           error_message: result.error_message,
@@ -1344,6 +1347,7 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
     sourceMapFileId: page.source_map_file_id ?? '',
     textHash: page.text_hash ?? '',
     textAnchors: page.text_anchors ?? [],
+    textAttachments: page.text_attachments ?? [],
     svgFileIds: existing?.svgFileIds.length ? existing.svgFileIds : (page.svg_file_id ? [page.svg_file_id] : []),
     historyBatchId: page.batch_id ?? null,
     startMeasureNumber: page.start_measure_number,
@@ -1493,6 +1497,7 @@ function makePipelineApplyDecision(
         sourceMapFileId: result.source_map_file_id ?? '',
         textHash: result.text_hash ?? '',
         textAnchors: result.text_anchors ?? [],
+        textAttachments: result.text_attachments ?? [],
         originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
         originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
         taskId: '',
@@ -1515,6 +1520,7 @@ function makePipelineApplyDecision(
         source_map_file_id: result.source_map_file_id ?? '',
         text_hash: result.text_hash ?? '',
         text_anchors: result.text_anchors ?? [],
+        text_attachments: result.text_attachments ?? [],
         start_measure_number: decision.startMeasureNumber,
         status: decision.status,
         error_message: decision.waitingMessage,
@@ -1537,6 +1543,7 @@ function makePipelineApplyDecision(
     let svgFileId = result.svg_file_id
     let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
     let textAnchors = result.text_anchors ?? []
+    const textAttachments = result.text_attachments ?? []
     let textHash = result.text_hash ?? ''
     if (decision.autoSelected && decision.startMeasureNumber !== null && result.musicxml_file_id) {
       const rerendered = await renderMusicxmlPageWithStart(target, result.musicxml_file_id, decision.startMeasureNumber)
@@ -1559,6 +1566,7 @@ function makePipelineApplyDecision(
       source_map_file_id: result.source_map_file_id ?? '',
       text_hash: textHash,
       text_anchors: textAnchors,
+      text_attachments: textAttachments,
       start_measure_number: decision.startMeasureNumber,
       status: decision.status,
       error_message: decision.waitingMessage,
@@ -1575,6 +1583,7 @@ function makePipelineApplyDecision(
       sourceMapFileId: result.source_map_file_id ?? '',
       textHash,
       textAnchors,
+      textAttachments,
       originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
       originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
       taskId: '',

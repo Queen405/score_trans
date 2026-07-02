@@ -1,9 +1,14 @@
+import type { TextPlacementAnchor } from '../models/types'
+
 export interface OcrTextBlock {
   id: string
   text: string
   bbox: number[] | null
   role: string
   fontSize?: number
+  sourcePageIndex?: number
+  sourceAttachmentId?: string
+  anchor?: TextPlacementAnchor
 }
 
 export function parseOcrText(payload: string): OcrTextBlock[] {
@@ -22,6 +27,15 @@ export function parseOcrText(payload: string): OcrTextBlock[] {
         fontSize: Number.isFinite(Number(item?.fontSize ?? item?.font_size))
           ? Number(item?.fontSize ?? item?.font_size)
           : undefined,
+        sourcePageIndex: Number.isInteger(Number(item?.sourcePageIndex ?? item?.source_page_index))
+          ? Number(item?.sourcePageIndex ?? item?.source_page_index)
+          : undefined,
+        sourceAttachmentId: String(
+          item?.sourceAttachmentId ?? item?.source_attachment_id ?? '',
+        ) || undefined,
+        anchor: item?.anchor && typeof item.anchor === 'object'
+          ? item.anchor as TextPlacementAnchor
+          : undefined,
       }))
       .filter((block) => block.text.trim().length > 0)
   } catch {
@@ -37,6 +51,9 @@ export function serializeOcrText(blocks: OcrTextBlock[]): string {
       bbox: block.bbox,
       role: block.role || 'other',
       fontSize: block.fontSize,
+      sourcePageIndex: block.sourcePageIndex,
+      sourceAttachmentId: block.sourceAttachmentId,
+      anchor: block.anchor,
     }))
     .filter((block) => block.text.trim().length > 0)
   return clean.length ? JSON.stringify(clean) : ''

@@ -10,6 +10,7 @@ from score_trans.domain.musicxml import musicxml_to_score
 from score_trans.exec.render.actions import RenderActions, RenderJianpuTextAction
 from score_trans.models.provenance.schemas import (
     SourceTextAttachment,
+    TextAnchor,
     TextPlacementAnchor,
 )
 from score_trans.models.render.schemas import (
@@ -581,6 +582,11 @@ def test_render_batch_a4_places_structured_text_by_semantic_anchor(tmp_path) -> 
         uploads=UploadService(ToolConfig(work_dir=tmp_path / "work"))
     )
     text = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 90)
+    measure_starts: list[int] = []
+    cursor = 0
+    while (cursor := text.find("1 2 3 4 |", cursor)) >= 0:
+        measure_starts.append(cursor)
+        cursor += 1
     attachments = [
         SourceTextAttachment(
             id="title",
@@ -592,7 +598,11 @@ def test_render_batch_a4_places_structured_text_by_semantic_anchor(tmp_path) -> 
             id="middle",
             text="中段提示",
             role="expression",
-            anchor=TextPlacementAnchor(kind="source_relative", relative_y=0.55),
+            anchor=TextPlacementAnchor(
+                kind="source_element",
+                source_id="s1:i50",
+                relative_y=0.55,
+            ),
         ),
         SourceTextAttachment(
             id="footer",
@@ -609,6 +619,14 @@ def test_render_batch_a4_places_structured_text_by_semantic_anchor(tmp_path) -> 
                     jianpu_text=text,
                     start_measure_number=1,
                     text_attachments=attachments,
+                    text_anchors=[
+                        TextAnchor(
+                            source_id="s1:i50",
+                            start_utf16=measure_starts[49],
+                            end_utf16=measure_starts[49] + 1,
+                            role="note",
+                        )
+                    ],
                 )
             ]
         )

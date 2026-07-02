@@ -47,10 +47,13 @@ export type {
   SettingsResponse,
   SettingsUpdateRequest,
   SSEProgressEvent,
+  SourceTextAttachment,
   SyntaxExample,
   TargetKey,
   TaskSubmitResponse,
   TextAnchor,
+  TextPlacementAnchor,
+  RenderedTextBlock,
   UploadPage,
   UploadResponse,
 } from './contracts'

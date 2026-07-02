@@ -423,10 +423,7 @@ class RenderActions:
             measure_ranges_by_page,
         )
         placement = place_source_text_attachments(
-            [
-                list(page.text_attachments)
-                for page in (req.source_pages or req.pages)
-            ],
+            [list(page.text_attachments) for page in (req.source_pages or req.pages)],
             [page.svg for page in layout_pages],
             measure_ranges_by_page,
         )
@@ -861,15 +858,16 @@ def _resolved_render_page_ocr_texts(
     has_structured_attachments = any(
         page.text_attachments for page in (req.source_pages or req.pages)
     )
-    saved = (
-        {}
-        if has_structured_attachments
-        else {
-            item.page_index: item.ocr_text
-            for item in req.render_page_ocr_texts
-            if item.page_index >= 0
-        }
-    )
+    saved = {
+        item.page_index: (
+            _manual_render_page_ocr_text(item.ocr_text)
+            if has_structured_attachments
+            else item.ocr_text
+        )
+        for item in req.render_page_ocr_texts
+        if item.page_index >= 0
+    }
+    saved = {page_index: payload for page_index, payload in saved.items() if payload}
     resolved: dict[int, str] = {}
     for page_index in range(len(measure_ranges_by_page)):
         resolved[page_index] = saved.get(page_index, suggested.get(page_index, ""))
@@ -964,6 +962,15 @@ def _load_legacy_ocr_items(payload: str) -> list[dict[str, object]]:
     if not isinstance(raw, list):
         return []
     return [item for item in raw if isinstance(item, dict)]
+
+
+def _manual_render_page_ocr_text(payload: str) -> str:
+    items = [
+        item
+        for item in _load_legacy_ocr_items(payload)
+        if not item.get("sourceAttachmentId") and not item.get("source_attachment_id")
+    ]
+    return json.dumps(items, ensure_ascii=False) if items else ""
 
 
 def _place_blocks_in_a4_safe_area(blocks: list[TextBlock]) -> list[TextBlock]:

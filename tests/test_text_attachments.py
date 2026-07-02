@@ -107,7 +107,9 @@ def test_build_source_text_attachments_uses_relative_y_without_source_map() -> N
     assert attachment.ocr_confidence == 0.8
 
 
-def test_place_source_text_attachments_uses_source_anchor_and_relative_fallback() -> None:
+def test_place_source_text_attachments_uses_source_anchor_and_relative_fallback() -> (
+    None
+):
     attachments = [
         SourceTextAttachment(
             id="middle",
@@ -117,6 +119,8 @@ def test_place_source_text_attachments_uses_source_anchor_and_relative_fallback(
                 kind="source_element",
                 source_id="s1:i50",
                 relative_y=0.55,
+                offset_x=12,
+                offset_y=7,
             ),
         ),
         SourceTextAttachment(
@@ -163,3 +167,6 @@ def test_place_source_text_attachments_uses_source_anchor_and_relative_fallback(
 
     assert [block.text for block in result.rendered_blocks_by_page[1]] == ["中段提示"]
     assert [block.text for block in result.rendered_blocks_by_page[2]] == ["末段提示"]
+    middle = result.rendered_blocks_by_page[1][0]
+    assert middle.bbox.x == 484
+    assert middle.bbox.y == 663

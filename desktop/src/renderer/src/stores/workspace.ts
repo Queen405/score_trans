@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { RenderPageOcrText, SSEProgressEvent, TextAnchor } from '../models/types'
+import type {
+  RenderPageOcrText,
+  SSEProgressEvent,
+  SourceTextAttachment,
+  TextAnchor,
+} from '../models/types'
 import {
   composeJianpuPageText,
   removeJianpuPageSection,
@@ -37,6 +42,7 @@ export interface TaskPage {
   overlayFileId: string
   sourceMapFileId: string
   textAnchors: TextAnchor[]
+  textAttachments: SourceTextAttachment[]
   textHash: string
   startMeasureNumber: number | null
   status: TaskPageStatus
@@ -67,6 +73,7 @@ export interface TaskPageInput {
   overlayFileId?: string
   sourceMapFileId?: string
   textAnchors?: TextAnchor[]
+  textAttachments?: SourceTextAttachment[]
   textHash?: string
   startMeasureNumber?: number | null
   status?: TaskPageStatus
@@ -100,6 +107,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     overlayFileId: '',
     sourceMapFileId: '',
     textAnchors: [],
+    textAttachments: [],
     textHash: '',
     startMeasureNumber: null,
     status: 'pending',
@@ -113,6 +121,14 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
 
 function mergeJianpuTexts(batchPages: TaskPageInput[]): string {
   return composeJianpuPageText(batchPages)
+}
+
+function cloneTextAttachments(items: SourceTextAttachment[]): SourceTextAttachment[] {
+  return items.map((item) => ({
+    ...item,
+    source_bbox: item.source_bbox ? { ...item.source_bbox } : item.source_bbox,
+    anchor: { ...item.anchor },
+  }))
 }
 
 export const useWorkspaceStore = defineStore('workspace', () => {
@@ -373,6 +389,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       svgFileId: '',
       svgFileIds: [],
       overlayFileId: '',
+      sourceMapFileId: '',
+      textAnchors: [],
+      textAttachments: [],
       startMeasureNumber: null,
       status: 'pending',
       taskId: '',
@@ -413,6 +432,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       svgFileId: '',
       svgFileIds: [],
       overlayFileId: '',
+      sourceMapFileId: '',
+      textAnchors: [],
+      textAttachments: [],
       startMeasureNumber: null,
       status: 'pending',
       taskId: '',
@@ -694,6 +716,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       overlayFileId: p.overlayFileId ?? '',
       sourceMapFileId: p.sourceMapFileId ?? '',
       textAnchors: (p.textAnchors ?? []).map((anchor) => ({ ...anchor })),
+      textAttachments: cloneTextAttachments(p.textAttachments ?? []),
       textHash: p.textHash ?? '',
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
@@ -826,6 +849,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       overlayFileId: p.overlayFileId ?? '',
       sourceMapFileId: p.sourceMapFileId ?? '',
       textAnchors: (p.textAnchors ?? []).map((anchor) => ({ ...anchor })),
+      textAttachments: cloneTextAttachments(p.textAttachments ?? []),
       textHash: p.textHash ?? '',
       startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,

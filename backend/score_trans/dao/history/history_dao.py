@@ -478,9 +478,7 @@ class HistoryDao:
             jianpu_text=row["jianpu_text"],
             ocr_text=row["ocr_text"] if "ocr_text" in row.keys() else "",
             text_attachments=_load_text_attachments(
-                row["text_attachments"]
-                if "text_attachments" in row.keys()
-                else "[]"
+                row["text_attachments"] if "text_attachments" in row.keys() else "[]"
             ),
             svg_file_id=row["svg_file_id"],
             overlay_svg_file_id=row["overlay_svg_file_id"]

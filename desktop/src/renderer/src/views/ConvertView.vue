@@ -306,6 +306,7 @@
               :current-note-index="currentNoteIndex"
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
+              @update:text-attachment="handleTextAttachmentUpdate"
             />
             <div
               v-else-if="isViewingFinal"
@@ -784,6 +785,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       sourceMapFileId: r.page.source_map_file_id ?? '',
       textHash: r.page.text_hash ?? '',
       textAnchors: r.page.text_anchors ?? [],
+      textAttachments: r.page.text_attachments ?? [],
       svgFileIds: r.page.svg_file_id ? [r.page.svg_file_id] : [],
       taskId: r.page.task_id || '',
       startMeasureNumber: r.page.start_measure_number ?? null,
@@ -1111,6 +1113,7 @@ function syncStoreFromHistoryPage(page: HistoryPage): void {
     overlayFileId: page.overlay_file_id || page.overlay_svg_file_id || '',
     sourceMapFileId: page.source_map_file_id ?? '',
     textAnchors: page.text_anchors ?? [],
+    textAttachments: page.text_attachments ?? [],
     textHash: page.text_hash ?? '',
     svgFileIds: page.svg_file_id ? [page.svg_file_id] : [],
     taskId: page.task_id || '',
@@ -1343,6 +1346,10 @@ function currentExportPage(): TaskPage {
       jianpuDirty: store.jianpuDirty,
       svgFileId: store.svgFileId,
       svgFileIds: store.svgFileIds,
+      sourceMapFileId: '',
+      textAnchors: [],
+      textAttachments: [],
+      textHash: '',
       startMeasureNumber: store.startMeasureNumber,
       status: 'completed',
       errorMessage: '',
@@ -1614,6 +1621,43 @@ function handleOcrTextUpdate(value: string): void {
   store.setBatchRenderPageOcrText(finalRenderPageIndex.value, value, true)
 }
 
+interface TextAttachmentUpdate {
+  sourcePageIndex: number
+  sourceAttachmentId: string
+  text?: string
+  fontSize?: number
+  offsetX?: number
+  offsetY?: number
+  deleted?: boolean
+}
+
+function handleTextAttachmentUpdate(update: TextAttachmentUpdate): void {
+  const page = store.currentBatchPages[update.sourcePageIndex]
+  if (!page) return
+  const target = page.textAttachments.find(
+    (attachment) => attachment.id === update.sourceAttachmentId,
+  )
+  if (!target) return
+
+  const textAttachments = update.deleted
+    ? page.textAttachments.filter((attachment) => attachment.id !== target.id)
+    : page.textAttachments.map((attachment) => {
+      if (attachment.id !== target.id) return attachment
+      return {
+        ...attachment,
+        text: update.text ?? attachment.text,
+        font_size: update.fontSize ?? attachment.font_size,
+        anchor: {
+          ...attachment.anchor,
+          offset_x: update.offsetX ?? attachment.anchor.offset_x,
+          offset_y: update.offsetY ?? attachment.anchor.offset_y,
+        },
+      }
+    })
+  store.patchPageById(page.id, { textAttachments })
+  store.setBatchRenderPageFileIds([])
+}
+
 function applyReturnedOcr(value?: string | null): void {
   if (!value || store.ocrText.trim()) return
   store.setOcrText(value)
@@ -1698,6 +1742,7 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     source_map_file_id: store.currentPage?.sourceMapFileId || '',
     text_hash: store.currentPage?.textHash || '',
     text_anchors: store.currentPage?.textAnchors || [],
+    text_attachments: store.currentPage?.textAttachments || [],
     start_measure_number: currentSection
       ? currentSection.startMeasureNumber
       : (store.startMeasureNumber ?? null),
@@ -1734,6 +1779,7 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
         source_map_file_id: page.sourceMapFileId,
         text_hash: page.textHash,
         text_anchors: page.textAnchors,
+        text_attachments: page.textAttachments,
         start_measure_number: section
           ? section.startMeasureNumber
           : (page.startMeasureNumber ?? null),

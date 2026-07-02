@@ -6,6 +6,7 @@ from PIL import Image
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.exec.convert.actions import MusicXmlToJianpuAction
 from score_trans.exec.pipeline.actions import FullPipelineAction
+from score_trans.models.pipeline.schemas import PipelineResponse
 from score_trans.models.score import OCRTextBlock
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.ocr.providers import MockOCRProvider
@@ -106,6 +107,9 @@ def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> Non
     assert 'viewBox="0 0 1240 1754"' in svg
     ocr_blocks = json.loads(outputs.ocr_text)
     assert [block["text"] for block in ocr_blocks] == ["原谱标题"]
+    assert [item.text for item in outputs.text_attachments] == ["原谱标题"]
+    assert outputs.text_attachments[0].anchor.kind == "score_start"
+    assert "text_attachments" in PipelineResponse.model_json_schema()["properties"]
 
 
 def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> None:

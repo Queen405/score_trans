@@ -101,7 +101,19 @@ const props = withDefaults(defineProps<{
   editableOcr: false,
   currentNoteIndex: -1,
 })
-const emit = defineEmits<{ 'update:ocrText': [value: string] }>()
+interface TextAttachmentUpdate {
+  sourcePageIndex: number
+  sourceAttachmentId: string
+  text?: string
+  fontSize?: number
+  offsetX?: number
+  offsetY?: number
+  deleted?: boolean
+}
+const emit = defineEmits<{
+  'update:ocrText': [value: string]
+  'update:textAttachment': [value: TextAttachmentUpdate]
+}>()
 const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : ''))
 
 const containerRef = ref<HTMLElement>()
@@ -121,6 +133,8 @@ let dragging: {
   startClientX: number
   startClientY: number
   startBbox: number[]
+  startOffsetX: number
+  startOffsetY: number
 } | null = null
 let resizing: {
   id: string
@@ -199,6 +213,8 @@ function startDrag(block: OcrTextBlock, event: MouseEvent): void {
     startClientX: event.clientX,
     startClientY: event.clientY,
     startBbox: bbox,
+    startOffsetX: block.anchor?.offset_x ?? 0,
+    startOffsetY: block.anchor?.offset_y ?? 0,
   }
   selectedId.value = block.id
   document.body.style.userSelect = 'none'
@@ -249,6 +265,22 @@ function onDragMove(event: MouseEvent): void {
 
 function endDrag(): void {
   if (!dragging && !resizing) return
+  const activeDrag = dragging
+  const activeResize = resizing
+  if (activeDrag) {
+    const block = ocrBlocks.value.find((item) => item.id === activeDrag.id)
+    if (block?.bbox) {
+      emitTextAttachmentUpdate(block, {
+        offsetX: activeDrag.startOffsetX + block.bbox[0] - activeDrag.startBbox[0],
+        offsetY: activeDrag.startOffsetY + block.bbox[1] - activeDrag.startBbox[1],
+      })
+    }
+  } else if (activeResize) {
+    const block = ocrBlocks.value.find((item) => item.id === activeResize.id)
+    if (block?.fontSize !== undefined) {
+      emitTextAttachmentUpdate(block, { fontSize: block.fontSize })
+    }
+  }
   dragging = null
   resizing = null
   document.body.style.userSelect = ''
@@ -272,6 +304,8 @@ function commitEditing(): void {
     removeBlock(editingId.value)
   } else {
     updateBlock(editingId.value, { text }, true)
+    const block = ocrBlocks.value.find((item) => item.id === editingId.value)
+    if (block) emitTextAttachmentUpdate(block, { text })
   }
   editingId.value = ''
   editingText.value = ''
@@ -288,9 +322,23 @@ function updateBlock(id: string, patch: Partial<OcrTextBlock>, emitNow: boolean)
 }
 
 function removeBlock(id: string): void {
+  const removed = ocrBlocks.value.find((block) => block.id === id)
   ocrBlocks.value = ocrBlocks.value.filter((block) => block.id !== id)
   if (selectedId.value === id) selectedId.value = ''
+  if (removed) emitTextAttachmentUpdate(removed, { deleted: true })
   emitOcr()
+}
+
+function emitTextAttachmentUpdate(
+  block: OcrTextBlock,
+  patch: Omit<TextAttachmentUpdate, 'sourcePageIndex' | 'sourceAttachmentId'>,
+): void {
+  if (block.sourcePageIndex === undefined || !block.sourceAttachmentId) return
+  emit('update:textAttachment', {
+    sourcePageIndex: block.sourcePageIndex,
+    sourceAttachmentId: block.sourceAttachmentId,
+    ...patch,
+  })
 }
 
 function emitOcr(): void {
