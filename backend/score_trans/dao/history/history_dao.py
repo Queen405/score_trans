@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from pathlib import Path
 
@@ -77,7 +78,8 @@ class HistoryDao:
                     start_measure_number INTEGER,
                     status TEXT NOT NULL DEFAULT 'completed',
                     error_message TEXT NOT NULL DEFAULT '',
-                    completed_at TEXT NOT NULL DEFAULT ''
+                    completed_at TEXT NOT NULL DEFAULT '',
+                    position INTEGER NOT NULL DEFAULT 0
                 )
                 """
             )
@@ -98,7 +100,7 @@ class HistoryDao:
                             SELECT p.input_file_name
                             FROM history_page p
                             WHERE p.batch_id = b.id
-                            ORDER BY p.id ASC
+                            ORDER BY p.position ASC, p.id ASC
                             LIMIT 1
                         ),
                         ''
@@ -174,15 +176,16 @@ class HistoryDao:
                 ),
             )
             batch_id = cursor.lastrowid
-            for page in pages:
+            for index, page in enumerate(pages):
                 conn.execute(
                     """
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id, task_id, musicxml_file_id,
                          jianpu_text, ocr_text, svg_file_id, overlay_svg_file_id,
                          text_attachments, overlay_file_id, source_map_file_id, text_hash,
-                         text_anchors, start_measure_number, status, error_message, completed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         text_anchors, start_measure_number, status, error_message,
+                         completed_at, position)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -203,6 +206,7 @@ class HistoryDao:
                         page.status,
                         page.error_message,
                         page.completed_at,
+                        index,
                     ),
                 )
             batch_status = _batch_status([p.status for p in pages])
@@ -346,6 +350,86 @@ class HistoryDao:
             ).fetchone()
             return self._row_to_page(row)
 
+    def reorder_pages(
+        self,
+        batch_id: int,
+        jianpu_text: str,
+        page_orders: list[tuple[int, str, int | None]],
+    ) -> HistoryBatch | None:
+        with self._connect() as conn:
+            batch_row = conn.execute(
+                "SELECT id FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            if not batch_row:
+                return None
+
+            existing_pages = conn.execute(
+                "SELECT id, status FROM history_page WHERE batch_id = ?",
+                (batch_id,),
+            ).fetchall()
+            existing_ids = {row["id"] for row in existing_pages}
+            requested_ids = [item[0] for item in page_orders]
+
+            if len(requested_ids) != len(set(requested_ids)):
+                raise ValueError("Duplicate page IDs in reorder request")
+            if set(requested_ids) != existing_ids:
+                raise ValueError("Page IDs do not match batch pages")
+
+            active_statuses = {"pending", "processing", "waiting"}
+            active_pages = [
+                row["id"]
+                for row in existing_pages
+                if row["status"] in active_statuses
+            ]
+            if active_pages:
+                raise ValueError(
+                    f"Cannot reorder while pages have active tasks: {active_pages}"
+                )
+
+            marker_count = len(
+                re.findall(r"//\s*@page\s+\d+", jianpu_text)
+            )
+            if marker_count > 0 and marker_count != len(page_orders):
+                raise ValueError(
+                    f"Batch jianpu_text has {marker_count} page markers "
+                    f"but {len(page_orders)} pages were provided"
+                )
+
+            for position, (page_id, page_jianpu_text, start_measure_number) in enumerate(
+                page_orders
+            ):
+                conn.execute(
+                    """
+                    UPDATE history_page
+                    SET position = ?, jianpu_text = ?, start_measure_number = ?
+                    WHERE id = ? AND batch_id = ?
+                    """,
+                    (
+                        position,
+                        page_jianpu_text,
+                        start_measure_number,
+                        page_id,
+                        batch_id,
+                    ),
+                )
+
+            conn.execute(
+                """
+                UPDATE history_batch
+                SET jianpu_text = ?,
+                    render_page_file_ids = '[]',
+                    render_page_ocr_texts = '[]'
+                WHERE id = ?
+                """,
+                (jianpu_text, batch_id),
+            )
+            conn.commit()
+
+            row = conn.execute(
+                "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            return self._row_to_batch(conn, row)
+
     def delete_batch(self, batch_id: int) -> bool:
         with self._connect() as conn:
             cursor = conn.execute("DELETE FROM history_batch WHERE id = ?", (batch_id,))
@@ -392,6 +476,22 @@ class HistoryDao:
         if "completed_at" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN completed_at TEXT NOT NULL DEFAULT ''"
+            )
+            conn.commit()
+        if "position" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN position INTEGER NOT NULL DEFAULT 0"
+            )
+            conn.execute(
+                """
+                UPDATE history_page
+                SET position = (
+                    SELECT COUNT(*)
+                    FROM history_page AS p2
+                    WHERE p2.batch_id = history_page.batch_id
+                      AND p2.id < history_page.id
+                )
+                """
             )
             conn.commit()
         if "overlay_svg_file_id" not in columns:
@@ -460,7 +560,7 @@ class HistoryDao:
             ),
         )
         page_rows = conn.execute(
-            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY id ASC",
+            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY position ASC, id ASC",
             (batch.id,),
         ).fetchall()
         batch.pages = [self._row_to_page(pr) for pr in page_rows]
@@ -500,6 +600,7 @@ class HistoryDao:
             status=row["status"],
             error_message=row["error_message"],
             completed_at=row["completed_at"] if "completed_at" in row.keys() else "",
+            position=row["position"] if "position" in row.keys() else 0,
         )
 
 

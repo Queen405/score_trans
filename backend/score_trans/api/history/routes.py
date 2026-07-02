@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..dependencies import get_history_actions
 from ...exec.history.actions import HistoryActions
@@ -8,6 +8,7 @@ from ...models.history.schemas import (
     BatchCreateRequest,
     BatchJianpuTextUpdate,
     BatchListItem,
+    BatchPageOrderRequest,
     BatchRenderPageOcrTextsUpdate,
     BatchRenderPagesUpdate,
     BatchResponse,
@@ -82,6 +83,18 @@ def update_batch_render_page_ocr_texts(
     actions: HistoryActions = Depends(get_history_actions),
 ):
     return actions.update_batch_render_page_ocr_texts(batch_id, req)
+
+
+@router.patch("/{batch_id}/page-order", response_model=BatchResponse)
+def reorder_pages(
+    batch_id: int,
+    req: BatchPageOrderRequest,
+    actions: HistoryActions = Depends(get_history_actions),
+):
+    try:
+        return actions.reorder_pages(batch_id, req)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{batch_id}")

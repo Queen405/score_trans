@@ -11,6 +11,7 @@ from ...models.history.schemas import (
     BatchCreateRequest,
     BatchJianpuTextUpdate,
     BatchListItem,
+    BatchPageOrderRequest,
     BatchRenderPageOcrTextsUpdate,
     BatchRenderPagesUpdate,
     BatchResponse,
@@ -141,6 +142,18 @@ class HistoryActions:
                 for item in req.pages
             ],
         )
+        if not batch:
+            raise HTTPException(status_code=404, detail="Batch not found")
+        return _batch_to_response(batch)
+
+    def reorder_pages(
+        self, batch_id: int, req: BatchPageOrderRequest
+    ) -> BatchResponse:
+        page_orders = [
+            (item.page_id, item.jianpu_text, item.start_measure_number)
+            for item in req.pages
+        ]
+        batch = self.service.reorder_pages(batch_id, req.jianpu_text, page_orders)
         if not batch:
             raise HTTPException(status_code=404, detail="Batch not found")
         return _batch_to_response(batch)

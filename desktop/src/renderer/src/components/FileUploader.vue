@@ -54,24 +54,41 @@ const { upload, uploading, progress, phase } = useFileUpload()
 const log = useLogStore()
 const uploadRef = ref<InstanceType<typeof NUpload> | null>(null)
 
+const uploadQueue: File[] = []
+let isProcessingQueue = false
+
 const uploadStatusText = computed(() => {
   if (!uploading.value) return '点击或拖拽文件到此处'
   return phase.value === 'processing' ? '正在解析...' : '正在上传...'
 })
 
 async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
-  log.addLog(`正在上传：${file.file.name}`)
-  const result = await upload(file.file)
-  if (result) {
-    log.addLog(`上传成功：${result.filename}`)
-    if (result.pages && result.pages.length > 0) {
-      for (const page of result.pages) {
-        emit('uploaded', page.file_id, page.filename)
+  uploadQueue.push(file.file)
+  if (isProcessingQueue) return
+  await processUploadQueue()
+}
+
+async function processUploadQueue(): Promise<void> {
+  isProcessingQueue = true
+  try {
+    while (uploadQueue.length > 0) {
+      const currentFile = uploadQueue.shift()!
+      log.addLog(`正在上传：${currentFile.name}`)
+      const result = await upload(currentFile)
+      if (result) {
+        log.addLog(`上传成功：${result.filename}`)
+        if (result.pages && result.pages.length > 0) {
+          for (const page of result.pages) {
+            emit('uploaded', page.file_id, page.filename)
+          }
+        } else {
+          emit('uploaded', result.file_id, result.filename)
+        }
       }
-    } else {
-      emit('uploaded', result.file_id, result.filename)
     }
     uploadRef.value?.clear()
+  } finally {
+    isProcessingQueue = false
   }
 }
 </script>

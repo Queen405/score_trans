@@ -109,3 +109,14 @@ class BatchJianpuTextUpdate(BaseModel):
 
 class BatchRenderPageOcrTextsUpdate(BaseModel):
     pages: list[RenderPageOcrText]
+
+
+class BatchPageOrderItem(BaseModel):
+    page_id: int
+    jianpu_text: str = ""
+    start_measure_number: int | None = None
+
+
+class BatchPageOrderRequest(BaseModel):
+    jianpu_text: str
+    pages: list[BatchPageOrderItem]

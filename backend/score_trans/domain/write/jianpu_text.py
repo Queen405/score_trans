@@ -36,6 +36,61 @@ def score_to_jianpu_document(
     )
 
 
+def scores_to_jianpu_text(
+    scores: list[JianpuScore],
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
+    return scores_to_jianpu_document(scores, accidental_mode=accidental_mode).text
+
+
+def scores_to_jianpu_document(
+    scores: list[JianpuScore],
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> JianpuDocument:
+    if len(scores) <= 1:
+        score = scores[0] if scores else JianpuScore()
+        return score_to_jianpu_document(score, accidental_mode=accidental_mode)
+
+    part_texts: list[str] = []
+    part_anchors: list[list[TextAnchor]] = []
+    part_offsets: list[int] = []
+
+    full_text = ""
+    for index, score in enumerate(scores):
+        part_text = _score_to_jianpu_text(score, accidental_mode=accidental_mode)
+        part_anchors.append(
+            _text_anchors_raw(score, part_text, accidental_mode=accidental_mode)
+        )
+        marker = f'// @part {index + 1} name="{score.part_name}"'
+        full_text += marker + "\n"
+        part_offsets.append(len(full_text))
+        full_text += part_text
+        if index < len(scores) - 1:
+            full_text += "\n"
+        part_texts.append(part_text)
+
+    all_anchors: list[TextAnchor] = []
+    for index, anchors in enumerate(part_anchors):
+        offset = part_offsets[index]
+        for anchor in anchors:
+            anchor.start_utf16 += offset
+            anchor.end_utf16 += offset
+            all_anchors.append(anchor)
+
+    for anchor in all_anchors:
+        anchor.start_utf16 = _utf16_offset(full_text, anchor.start_utf16)
+        anchor.end_utf16 = _utf16_offset(full_text, anchor.end_utf16)
+    all_anchors.sort(key=lambda a: (a.start_utf16, a.end_utf16))
+
+    return JianpuDocument(
+        text=full_text,
+        anchors=all_anchors,
+        text_hash=hashlib.sha256(full_text.encode("utf-8")).hexdigest(),
+    )
+
+
 def _score_to_jianpu_text(
     score: JianpuScore,
     *,
@@ -129,6 +184,20 @@ def _text_anchors(
     *,
     accidental_mode: AccidentalMode,
 ) -> list[TextAnchor]:
+    anchors = _text_anchors_raw(score, text, accidental_mode=accidental_mode)
+    for anchor in anchors:
+        anchor.start_utf16 = _utf16_offset(text, anchor.start_utf16)
+        anchor.end_utf16 = _utf16_offset(text, anchor.end_utf16)
+    anchors.sort(key=lambda anchor: (anchor.start_utf16, anchor.end_utf16))
+    return anchors
+
+
+def _text_anchors_raw(
+    score: JianpuScore,
+    text: str,
+    *,
+    accidental_mode: AccidentalMode,
+) -> list[TextAnchor]:
     if not score.measures:
         return []
 
@@ -189,10 +258,6 @@ def _text_anchors(
                 event_cursor = position + len(token)
             index += 1
         line_offset += len(lines[first_measure_line + measure_index])
-    for anchor in anchors:
-        anchor.start_utf16 = _utf16_offset(text, anchor.start_utf16)
-        anchor.end_utf16 = _utf16_offset(text, anchor.end_utf16)
-    anchors.sort(key=lambda anchor: (anchor.start_utf16, anchor.end_utf16))
     return anchors
 
 

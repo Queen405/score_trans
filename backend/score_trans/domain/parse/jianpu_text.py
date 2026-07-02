@@ -79,6 +79,41 @@ def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
     return options, tokens
 
 
+_PART_MARKER_RE = re.compile(
+    r'^[ \t]*//[ \t]*@part[ \t]+\d+[ \t]+name="([^"]*)"[ \t]*$',
+    re.MULTILINE,
+)
+
+
+def parse_jianpu_scores(text: str, *, title: str | None = None) -> list[JianpuScore]:
+    markers = list(_PART_MARKER_RE.finditer(text))
+    if not markers:
+        return [parse_jianpu_score(text, title=title)]
+
+    scores: list[JianpuScore] = []
+    for i, match in enumerate(markers):
+        part_name = match.group(1)
+        start = match.end()
+        if start < len(text) and text[start] == "\n":
+            start += 1
+        end = markers[i + 1].start() if i + 1 < len(markers) else len(text)
+        part_text = text[start:end].strip()
+        if not part_text:
+            continue
+        score = parse_jianpu_score(part_text, title=title)
+        score.part_index = len(scores)
+        score.part_name = part_name
+        scores.append(score)
+
+    if not scores:
+        return [parse_jianpu_score(text, title=title)]
+
+    part_count = len(scores)
+    for score in scores:
+        score.part_count = part_count
+    return scores
+
+
 def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     normalized = text
     options, token_lines, lyrics = _read_new_syntax(normalized)

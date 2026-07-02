@@ -702,7 +702,7 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
   if (hasUnsealedPage) store.sealCurrentBatch()
   const historyPageIds = history.pageIds
   await clearBatchRenderPagesForTargets(targets, {
-    preserveJianpuText: history.created,
+    preserveJianpuText: true,
   })
 
   // Update existing history pages to 'processing' for re-recognition

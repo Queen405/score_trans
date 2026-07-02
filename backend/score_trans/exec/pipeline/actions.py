@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import UploadFile
 
-from ...domain.musicxml import score_to_jianpu_document
+from ...domain.write.jianpu_text import scores_to_jianpu_document
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.text_attachments import build_source_text_attachments
 from ...models.common.types import (
@@ -108,7 +108,7 @@ class FullPipelineAction:
             else None
         )
         report_progress(progress_callback, "convert", 55, "转换 MusicXML")
-        score = self.converter.build_score(
+        scores = self.converter.build_scores(
             musicxml_path,
             target_key=target_key,
             instrument_profile=instrument_profile,
@@ -117,33 +117,42 @@ class FullPipelineAction:
             ocr_provider=ocr_provider,
         )
         if title:
-            score.title = title
+            for score in scores:
+                score.title = title
         report_progress(progress_callback, "convert", 72, "生成简谱文本")
         text_path = out_dir / f"{source.stem}_jianpu.txt"
-        document = score_to_jianpu_document(score, accidental_mode=accidental_mode)
+        document = scores_to_jianpu_document(scores, accidental_mode=accidental_mode)
         self.file_service.write_text(text_path, document.text)
-        render_score = score_with_accidental_mode(
-            score, accidental_mode=accidental_mode
-        )
+        render_scores = [
+            score_with_accidental_mode(score, accidental_mode=accidental_mode)
+            for score in scores
+        ]
         svg_path = out_dir / f"{source.stem}_jianpu.svg"
         report_progress(progress_callback, "render", 82, "渲染简谱 SVG")
-        rendered_pages = self.renderer.render_score_a4_svg_pages(
-            render_score,
+        rendered_pages = self.renderer.render_scores_a4_svg_pages(
+            render_scores,
             svg_path,
-            title=title or render_score.title,
+            title=title or (render_scores[0].title if render_scores else "简谱"),
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )
         svg_paths = _rendered_page_paths(rendered_pages)
-        ocr_measure_numbers = _extract_ocr_measure_numbers(render_score)
+        first_score = render_scores[0] if render_scores else None
+        ocr_measure_numbers = (
+            _extract_ocr_measure_numbers(first_score) if first_score else []
+        )
         source_map = _load_source_map(source_map_path)
         source_image_size = _source_image_size(source)
-        ocr_blocks = _visible_ocr_blocks(render_score.text_blocks)
-        text_attachments = build_source_text_attachments(
-            ocr_blocks,
-            render_score,
-            source_map,
-            image_size=source_image_size,
+        ocr_blocks = _visible_ocr_blocks(first_score.text_blocks) if first_score else []
+        text_attachments = (
+            build_source_text_attachments(
+                ocr_blocks,
+                first_score,
+                source_map,
+                image_size=source_image_size,
+            )
+            if first_score
+            else []
         )
         ocr_text = _serialize_text_attachments(text_attachments)
         report_progress(progress_callback, "render", 94, "渲染完成")

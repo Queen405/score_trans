@@ -20,6 +20,7 @@ export type {
   HistoryBatch,
   HistoryBatchJianpuTextUpdateRequest,
   HistoryBatchListItem,
+  HistoryBatchPageOrderRequest,
   HistoryBatchRenderPageOcrTextsUpdateRequest,
   HistoryBatchRenderPagesUpdateRequest,
   HistoryCreateRequest,

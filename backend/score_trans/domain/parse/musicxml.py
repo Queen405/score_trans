@@ -26,14 +26,14 @@ _PROVENANCE_PART_RE = re.compile(
 )
 
 
-def musicxml_path_to_score(
+def musicxml_path_to_scores(
     path: Path,
     target_key: str = "C",
     start_measure_number: int | None = None,
     title: str | None = None,
     instrument_profile: InstrumentProfile | None = None,
-) -> JianpuScore:
-    return musicxml_to_score(
+) -> list[JianpuScore]:
+    return musicxml_to_scores(
         _read_musicxml(path),
         target_key,
         start_measure_number,
@@ -46,6 +46,81 @@ def read_musicxml_text(path: Path) -> str:
     return _read_musicxml(path)
 
 
+def musicxml_to_scores(
+    xml_text: str,
+    target_key: str = "C",
+    start_measure_number: int | None = None,
+    title: str | None = None,
+    instrument_profile: InstrumentProfile | None = None,
+) -> list[JianpuScore]:
+    if target_key not in KEY_TO_TONIC:
+        raise ValueError(f"不支持的简谱调：{target_key}")
+
+    root = ET.fromstring(xml_text)
+    ns = _namespace(root.tag)
+    xml_parts = root.findall(_q(ns, "part"))
+    if not xml_parts:
+        return [JianpuScore(title=title or "简谱", target_key=target_key)]
+
+    extracted_title = title or _extract_title(root, ns)
+    profile = (
+        normalize_instrument_profile(instrument_profile)
+        if instrument_profile
+        else _extract_instrument_profile(root, ns)
+    )
+    part_names = _extract_part_names(root, ns)
+
+    raw_scores: list[JianpuScore] = []
+    for part_element in xml_parts:
+        part_id = part_element.get("id", "")
+        part_name = part_names.get(part_id, "")
+        score = _parse_single_part(
+            part_element,
+            ns,
+            target_key,
+            start_measure_number,
+            extracted_title,
+            profile,
+        )
+        score.part_name = part_name
+        raw_scores.append(score)
+
+    final_scores: list[JianpuScore] = []
+    for raw_score in raw_scores:
+        staff_scores = _split_part_by_staff(raw_score)
+        final_scores.extend(staff_scores)
+
+    part_count = len(final_scores)
+    for index, score in enumerate(final_scores):
+        score.part_index = index
+        score.part_count = part_count
+        if not score.part_name:
+            score.part_name = f"声部{index + 1}"
+
+    return final_scores
+
+
+def musicxml_path_to_score(
+    path: Path,
+    target_key: str = "C",
+    start_measure_number: int | None = None,
+    title: str | None = None,
+    instrument_profile: InstrumentProfile | None = None,
+) -> JianpuScore:
+    scores = musicxml_path_to_scores(
+        path,
+        target_key=target_key,
+        start_measure_number=start_measure_number,
+        title=title,
+        instrument_profile=instrument_profile,
+    )
+    return (
+        scores[0]
+        if scores
+        else JianpuScore(title=title or "简谱", target_key=target_key)
+    )
+
+
 def musicxml_to_score(
     xml_text: str,
     target_key: str = "C",
@@ -53,24 +128,32 @@ def musicxml_to_score(
     title: str | None = None,
     instrument_profile: InstrumentProfile | None = None,
 ) -> JianpuScore:
-    if target_key not in KEY_TO_TONIC:
-        raise ValueError(f"不支持的简谱调：{target_key}")
+    scores = musicxml_to_scores(
+        xml_text,
+        target_key=target_key,
+        start_measure_number=start_measure_number,
+        title=title,
+        instrument_profile=instrument_profile,
+    )
+    return (
+        scores[0]
+        if scores
+        else JianpuScore(title=title or "简谱", target_key=target_key)
+    )
 
-    root = ET.fromstring(xml_text)
-    ns = _namespace(root.tag)
-    part = root.find(_q(ns, "part"))
-    if part is None:
-        return JianpuScore(title=title or "简谱", target_key=target_key)
 
-    extracted_title = title or _extract_title(root, ns)
+def _parse_single_part(
+    part: ET.Element,
+    ns: str,
+    target_key: str,
+    start_measure_number: int | None,
+    extracted_title: str,
+    instrument_profile: InstrumentProfile,
+) -> JianpuScore:
     score = JianpuScore(
         title=extracted_title,
         target_key=target_key,
-        instrument_profile=(
-            normalize_instrument_profile(instrument_profile)
-            if instrument_profile
-            else _extract_instrument_profile(root, ns)
-        ),
+        instrument_profile=instrument_profile,
     )
     if extracted_title:
         score.text_blocks.append(TextBlock(text=extracted_title, role="title"))
@@ -127,6 +210,69 @@ def musicxml_to_score(
 
     _restore_slide_directions(score)
     return score
+
+
+def _extract_part_names(root: ET.Element, ns: str) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for score_part in root.findall(f"{_q(ns, 'part-list')}/{_q(ns, 'score-part')}"):
+        part_id = score_part.get("id", "")
+        part_name = _text(score_part.find(_q(ns, "part-name")))
+        if part_name:
+            names[part_id] = part_name.strip()
+    return names
+
+
+def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
+    staff_values: set[str] = set()
+    for measure in score.measures:
+        for event in measure.events:
+            if event.staff:
+                staff_values.add(event.staff)
+    if len(staff_values) <= 1:
+        return [score]
+
+    sorted_staffs = sorted(staff_values, key=lambda s: int(s) if s.isdigit() else s)
+    results: list[JianpuScore] = []
+    for staff in sorted_staffs:
+        staff_score = JianpuScore(
+            title=score.title,
+            target_key=score.target_key,
+            source_key=score.source_key,
+            beats=score.beats,
+            beat_type=score.beat_type,
+            instrument_profile=score.instrument_profile,
+            part_name=score.part_name,
+        )
+        for measure in score.measures:
+            staff_events = [e for e in measure.events if e.staff == staff]
+            if not staff_events:
+                continue
+            staff_measure = Measure(
+                source_number=measure.source_number,
+                display_measure_number=measure.display_measure_number,
+                duration=measure.duration,
+                beats_per_measure=measure.beats_per_measure,
+                beat_type=measure.beat_type,
+                source_key=measure.source_key,
+                target_key=measure.target_key,
+                repeat_start=measure.repeat_start,
+                repeat_end=measure.repeat_end,
+                repeat_count=measure.repeat_count,
+                source_page_index=measure.source_page_index,
+            )
+            staff_measure.events = staff_events
+            staff_measure.text_blocks = [
+                tb for tb in measure.text_blocks if tb.role != "lyric"
+            ]
+            _normalize_measure(
+                staff_measure, staff_measure.beats_per_measure, staff_measure.beat_type
+            )
+            staff_score.measures.append(staff_measure)
+        staff_score.part_name = (
+            f"{score.part_name}(staff {staff})" if score.part_name else f"staff {staff}"
+        )
+        results.append(staff_score)
+    return results if results else [score]
 
 
 def _extract_title(root: ET.Element, ns: str) -> str:

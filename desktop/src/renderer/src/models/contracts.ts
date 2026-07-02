@@ -56,6 +56,7 @@ export type HistoryBatchRenderPagesUpdateRequest = Schemas['BatchRenderPagesUpda
 export type HistoryBatchJianpuTextUpdateRequest = Schemas['BatchJianpuTextUpdate']
 export type HistoryBatchRenderPageOcrTextsUpdateRequest =
   Schemas['BatchRenderPageOcrTextsUpdate']
+export type HistoryBatchPageOrderRequest = Schemas['BatchPageOrderRequest']
 
 export type AccidentalMode = NonNullable<BatchRenderRequest['accidental_mode']>
 export type MeasureNumberMode = NonNullable<BatchRenderRequest['measure_number_mode']>

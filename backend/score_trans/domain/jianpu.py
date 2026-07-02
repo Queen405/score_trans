@@ -3,9 +3,9 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-from .parse.jianpu_text import parse_jianpu, parse_jianpu_score
-from .parse.musicxml import musicxml_to_score
-from .write.jianpu_text import score_to_jianpu_text
+from .parse.jianpu_text import parse_jianpu, parse_jianpu_score, parse_jianpu_scores
+from .parse.musicxml import musicxml_to_score, musicxml_to_scores
+from .write.jianpu_text import score_to_jianpu_text, scores_to_jianpu_text
 from .write.musicxml import score_to_musicxml
 from .xml_utils import _read_musicxml
 from ..models.common.types import AccidentalMode
@@ -16,9 +16,12 @@ __all__ = [
     "jianpu_to_musicxml",
     "musicxml_file_to_jianpu",
     "musicxml_to_jianpu",
+    "musicxml_to_jianpu_multi",
     "normalize_jianpu_text",
     "parse_jianpu",
     "parse_jianpu_score",
+    "parse_jianpu_scores",
+    "scores_to_jianpu_text",
 ]
 
 
@@ -33,6 +36,16 @@ def musicxml_to_jianpu(
 ) -> str:
     return score_to_jianpu_text(
         musicxml_to_score(xml_text), accidental_mode=accidental_mode
+    )
+
+
+def musicxml_to_jianpu_multi(
+    xml_text: str,
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
+    return scores_to_jianpu_text(
+        musicxml_to_scores(xml_text), accidental_mode=accidental_mode
     )
 
 

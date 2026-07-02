@@ -6,10 +6,9 @@ from pathlib import Path
 
 from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
 from ...domain.musicxml import (
-    musicxml_path_to_score,
-    score_to_jianpu_document,
-    score_to_jianpu_text,
+    musicxml_path_to_scores,
 )
+from ...domain.write.jianpu_text import scores_to_jianpu_document
 from ...models.common.types import AccidentalMode, InstrumentProfile
 from ...models.convert.schemas import (
     JianpuToMusicXmlRequest,
@@ -37,8 +36,8 @@ class MusicXmlToJianpuAction:
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> str:
-        return score_to_jianpu_text(
-            self.build_score(
+        return scores_to_jianpu_document(
+            self.build_scores(
                 musicxml_path,
                 target_key=target_key,
                 instrument_profile=instrument_profile,
@@ -47,7 +46,7 @@ class MusicXmlToJianpuAction:
                 ocr_provider=ocr_provider,
             ),
             accidental_mode=accidental_mode,
-        )
+        ).text
 
     def build_score(
         self,
@@ -59,7 +58,27 @@ class MusicXmlToJianpuAction:
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> JianpuScore:
-        score = musicxml_path_to_score(
+        scores = self.build_scores(
+            musicxml_path,
+            target_key=target_key,
+            instrument_profile=instrument_profile,
+            start_measure_number=start_measure_number,
+            image_path=image_path,
+            ocr_provider=ocr_provider,
+        )
+        return scores[0] if scores else JianpuScore()
+
+    def build_scores(
+        self,
+        musicxml_path: str | Path,
+        *,
+        target_key: str = "C",
+        instrument_profile: InstrumentProfile | None = None,
+        start_measure_number: int | None = None,
+        image_path: str | Path | None = None,
+        ocr_provider: OCRProvider | None = None,
+    ) -> list[JianpuScore]:
+        scores = musicxml_path_to_scores(
             Path(musicxml_path),
             target_key=target_key,
             start_measure_number=start_measure_number,
@@ -68,11 +87,13 @@ class MusicXmlToJianpuAction:
         if image_path is not None:
             provider = ocr_provider or create_configured_ocr_provider()
             blocks = provider.recognize(Path(image_path))
-            score.text_blocks.extend(blocks)
-            _apply_measure_number_ocr(
-                score, blocks, start_measure_number=start_measure_number
-            )
-        return score
+            for score in scores:
+                score.text_blocks.extend(blocks)
+            if scores:
+                _apply_measure_number_ocr(
+                    scores[0], blocks, start_measure_number=start_measure_number
+                )
+        return scores
 
     def execute_document(
         self,
@@ -85,8 +106,8 @@ class MusicXmlToJianpuAction:
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> JianpuDocument:
-        return score_to_jianpu_document(
-            self.build_score(
+        return scores_to_jianpu_document(
+            self.build_scores(
                 musicxml_path,
                 target_key=target_key,
                 instrument_profile=instrument_profile,

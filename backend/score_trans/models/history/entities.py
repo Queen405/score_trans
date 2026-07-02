@@ -26,6 +26,7 @@ class HistoryPage:
     status: str = "completed"
     error_message: str = ""
     completed_at: str = ""
+    position: int = 0
 
 
 @dataclass(slots=True)

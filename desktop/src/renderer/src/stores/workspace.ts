@@ -818,6 +818,58 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchJianpuPendingPageIds.value = {}
   }
 
+  function reorderBatchPages(
+    historyBatchId: number,
+    orderedHistoryPageIds: number[],
+    pageUpdates: { jianpuText: string; startMeasureNumber: number | null }[],
+    batchJianpuText: string,
+  ): void {
+    const batchPage = pages.value.find((p) => p.historyBatchId === historyBatchId)
+    if (!batchPage) return
+    const localBatchId = batchPage.batchId
+
+    const pageMap = new Map<number, TaskPage>()
+    for (const page of pages.value) {
+      if (page.historyBatchId === historyBatchId && page.historyPageId) {
+        pageMap.set(page.historyPageId, page)
+      }
+    }
+
+    const reordered: TaskPage[] = []
+    for (let i = 0; i < orderedHistoryPageIds.length; i++) {
+      const histId = orderedHistoryPageIds[i]!
+      const page = pageMap.get(histId)
+      if (!page) continue
+      const update = pageUpdates[i]
+      reordered.push({
+        ...page,
+        jianpuText: update?.jianpuText ?? page.jianpuText,
+        startMeasureNumber: update?.startMeasureNumber ?? page.startMeasureNumber,
+      })
+    }
+
+    const currentPageId = pages.value[currentPageIndex.value]?.id
+    const firstBatchIndex = pages.value.findIndex(
+      (p) => p.historyBatchId === historyBatchId,
+    )
+    const otherPages = pages.value.filter((p) => p.historyBatchId !== historyBatchId)
+    pages.value = [
+      ...otherPages.slice(0, Math.max(0, firstBatchIndex)),
+      ...reordered,
+      ...otherPages.slice(Math.max(0, firstBatchIndex)),
+    ]
+
+    setBatchJianpuText(batchJianpuText, false, localBatchId)
+    setBatchRenderPageFileIds([], localBatchId)
+    setBatchRenderPageOcrTexts([], false, localBatchId)
+
+    if (currentPageId) {
+      const newIdx = pages.value.findIndex((p) => p.id === currentPageId)
+      currentPageIndex.value = newIdx >= 0 ? newIdx : currentPageIndex.value
+    }
+    syncCurrentFromPage()
+  }
+
   function loadBatch(
     batchPages: TaskPageInput[],
     selectIndex: number,
@@ -971,6 +1023,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     selectBatch,
     sealCurrentBatch,
     reset,
+    reorderBatchPages,
     loadBatch,
   }
 })

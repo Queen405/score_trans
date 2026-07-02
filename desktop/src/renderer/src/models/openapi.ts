@@ -350,6 +350,23 @@ export type paths = {
         patch: operations["update_batch_jianpu_text_history__batch_id__jianpu_text_patch"];
         trace?: never;
     };
+    "/history/{batch_id}/page-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reorder Pages */
+        patch: operations["reorder_pages_history__batch_id__page_order_patch"];
+        trace?: never;
+    };
     "/history/{batch_id}/render-page-ocr-texts": {
         parameters: {
             query?: never;
@@ -858,6 +875,25 @@ export type components = {
             page_count: number;
             /** Status */
             status: string;
+        };
+        /** BatchPageOrderItem */
+        BatchPageOrderItem: {
+            /**
+             * Jianpu Text
+             * @default
+             */
+            jianpu_text?: string;
+            /** Page Id */
+            page_id: number;
+            /** Start Measure Number */
+            start_measure_number?: number | null;
+        };
+        /** BatchPageOrderRequest */
+        BatchPageOrderRequest: {
+            /** Jianpu Text */
+            jianpu_text: string;
+            /** Pages */
+            pages: components["schemas"]["BatchPageOrderItem"][];
         };
         /** BatchRenderPageOcrTextsUpdate */
         BatchRenderPageOcrTextsUpdate: {
@@ -2921,6 +2957,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BatchJianpuTextUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_pages_history__batch_id__page_order_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchPageOrderRequest"];
             };
         };
         responses: {

@@ -106,8 +106,17 @@
             <div
               v-for="(page, pi) in expandedPages"
               :key="page.id"
-              :class="['hist-page-item', { 'hist-page-waiting': isWaitingStatus(page.status) }]"
+              :class="['hist-page-item', {
+                'hist-page-waiting': isWaitingStatus(page.status),
+                'hist-page-dragging': draggedPageIndex === pi,
+                'hist-page-drag-over': dragOverIndex === pi && draggedPageIndex !== null && draggedPageIndex !== pi,
+              }]"
+              :draggable="canReorderBatch"
               @click="handleHistoryPageClick(page)"
+              @dragstart="canReorderBatch ? handlePageDragStart($event, pi) : undefined"
+              @dragover.prevent="canReorderBatch ? handlePageDragOver(pi) : undefined"
+              @drop.prevent="canReorderBatch ? handlePageDrop(pi) : undefined"
+              @dragend="handlePageDragEnd"
             >
               <span :class="['hist-dot small', historyStatusClass(page.status)]" />
               <span class="hist-page-name">{{ page.input_file_name || `第${pi + 1}页` }}</span>
@@ -377,6 +386,8 @@ import {
   hasJianpuPageMarkers,
   parseJianpuPageSections,
   replaceJianpuSectionBody,
+  restoreJianpuPageText,
+  serializeJianpuPageSections,
   updateJianpuPageStart,
 } from '../utils/jianpuPageSections'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
@@ -467,7 +478,11 @@ const histBatches = ref<HistoryBatchListItem[]>([])
 const histLoading = ref(false)
 const expandedBatchId = ref<number | null>(null)
 const expandedPages = ref<HistoryPage[]>([])
+const expandedBatchJianpuText = ref('')
 const loadingBatchId = ref<number | null>(null)
+const draggedPageIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+const isReordering = ref(false)
 const histPickerShow = ref(false)
 const histPickerOptions = ref<number[]>([])
 const histPickerPage = ref<HistoryPage | null>(null)
@@ -486,6 +501,15 @@ const currentBatchLocalIndex = computed(() =>
 const batchStartMeasureNumber = computed(() =>
   firstBatchPage()?.startMeasureNumber ?? store.startMeasureNumber ?? null,
 )
+const canReorderBatch = computed(() => {
+  if (expandedPages.value.length < 2) return false
+  if (loadingBatchId.value !== null || isReordering.value) return false
+  return !expandedPages.value.some((page) =>
+    page.status === 'pending'
+    || page.status === 'processing'
+    || page.status === 'waiting',
+  )
+})
 
 // Distinguish programmatic text changes (store pushes and their cascading
 // auto-formatting in JianpuEditor) from genuine user edits (typing). Only the
@@ -670,6 +694,7 @@ async function handleDeleteAll(): Promise<void> {
   histBatches.value = []
   expandedBatchId.value = null
   expandedPages.value = []
+  expandedBatchJianpuText.value = ''
   loadingBatchId.value = null
   historyDetailEpoch.invalidate()
   message.success('已清空')
@@ -682,6 +707,7 @@ async function handleDeleteBatch(batchId: number): Promise<void> {
     if (expandedBatchId.value === batchId) {
       expandedBatchId.value = null
       expandedPages.value = []
+      expandedBatchJianpuText.value = ''
       loadingBatchId.value = null
       historyDetailEpoch.invalidate()
     }
@@ -697,6 +723,7 @@ async function toggleBatchExpand(batchId: number): Promise<void> {
   if (expandedBatchId.value === batchId) {
     expandedBatchId.value = null
     expandedPages.value = []
+    expandedBatchJianpuText.value = ''
     loadingBatchId.value = null
     historyDetailEpoch.invalidate()
     return
@@ -720,6 +747,7 @@ async function refreshExpandedBatch(
     const batch: HistoryBatch = await requireData(historyApi.get(batchId))
     if (historyDetailEpoch.isCurrent(requestToken) && expandedBatchId.value === batchId) {
       expandedPages.value = mergeLockedHistoryPages(batch.pages)
+      expandedBatchJianpuText.value = batch.jianpu_text ?? ''
       syncExpandedBatchSummary(batchId)
     }
   } catch (e: unknown) {
@@ -731,6 +759,89 @@ async function refreshExpandedBatch(
     if (historyDetailEpoch.isCurrent(requestToken) && loadingBatchId.value === batchId) {
       loadingBatchId.value = null
     }
+  }
+}
+
+function handlePageDragStart(event: DragEvent, index: number): void {
+  draggedPageIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+function handlePageDragOver(index: number): void {
+  dragOverIndex.value = index
+}
+
+function handlePageDrop(index: number): void {
+  const from = draggedPageIndex.value
+  draggedPageIndex.value = null
+  dragOverIndex.value = null
+  if (from === null || from === index) return
+  void handleReorder(from, index)
+}
+
+function handlePageDragEnd(): void {
+  draggedPageIndex.value = null
+  dragOverIndex.value = null
+}
+
+async function handleReorder(fromIndex: number, toIndex: number): Promise<void> {
+  const batchId = expandedBatchId.value
+  if (!batchId) return
+
+  const newPages = [...expandedPages.value]
+  const [moved] = newPages.splice(fromIndex, 1)
+  newPages.splice(toIndex, 0, moved)
+
+  const pageSources = newPages.map((p) => ({
+    inputFileName: p.input_file_name,
+    jianpuText: p.jianpu_text,
+    startMeasureNumber: p.start_measure_number ?? null,
+  }))
+
+  const restoredText = restoreJianpuPageText(expandedBatchJianpuText.value, pageSources)
+  const sections = parseJianpuPageSections(restoredText)
+
+  if (sections.length !== newPages.length) {
+    message.error('页面数量与代码段数量不一致，无法排序')
+    return
+  }
+
+  const [movedSection] = sections.splice(fromIndex, 1)
+  sections.splice(toIndex, 0, movedSection)
+  sections.forEach((section, i) => { section.pageIndex = i })
+
+  const newBatchText = serializeJianpuPageSections(sections)
+  const orderedPageIds = newPages.map((p) => p.id)
+  const pageUpdates = sections.map((section) => ({
+    jianpuText: section.body,
+    startMeasureNumber: section.startMeasureNumber,
+  }))
+
+  isReordering.value = true
+  try {
+    const result = await requireData(historyApi.reorderPages(batchId, {
+      jianpu_text: newBatchText,
+      pages: orderedPageIds.map((pageId, i) => ({
+        page_id: pageId,
+        jianpu_text: pageUpdates[i]!.jianpuText,
+        start_measure_number: pageUpdates[i]!.startMeasureNumber,
+      })),
+    }))
+
+    expandedPages.value = result.pages
+    expandedBatchJianpuText.value = result.jianpu_text ?? newBatchText
+    store.reorderBatchPages(batchId, orderedPageIds, pageUpdates, newBatchText)
+    message.success('页面顺序已更新')
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.addError(`排序失败：${msg}`)
+    message.error(`排序失败：${msg}`)
+    await refreshExpandedBatch(batchId, { clear: false, showLoading: false })
+  } finally {
+    isReordering.value = false
   }
 }
 
@@ -2030,6 +2141,23 @@ async function persistBatchJianpuText(batchId: number, text: string): Promise<vo
 
 .hist-page-item:hover {
   background: var(--accent-light);
+}
+
+.hist-page-item[draggable="true"] {
+  cursor: grab;
+}
+
+.hist-page-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.hist-page-dragging {
+  opacity: 0.4;
+}
+
+.hist-page-drag-over {
+  border-top: 2px solid var(--accent);
+  padding-top: 2px;
 }
 
 .hist-unrecognized-label {

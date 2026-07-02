@@ -300,6 +300,10 @@ def render_scores_a4_pages(
     *,
     page_text_blocks: dict[int, list[TextBlock]] | None = None,
 ) -> list[RenderedA4Page]:
+    if len(scores) > 1 and scores[0].part_count > 1:
+        return render_multi_part_scores_a4_pages(
+            scores, options, page_text_blocks=page_text_blocks
+        )
     first_score = next((score for score in scores if score.measures), None)
     if first_score is None:
         first_score = scores[0] if scores else JianpuScore()
@@ -908,3 +912,235 @@ def _is_playable_note_token(token: str) -> bool:
         return True
     note = _parse_note(work)
     return any(ch in "1234567" for ch in note.display)
+
+
+def render_multi_part_scores_a4_pages(
+    scores: list[JianpuScore],
+    options: RenderOptions | None = None,
+    *,
+    page_text_blocks: dict[int, list[TextBlock]] | None = None,
+) -> list[RenderedA4Page]:
+    part_count = len(scores)
+    first_score = next((score for score in scores if score.measures), None)
+    if first_score is None:
+        first_score = scores[0] if scores else JianpuScore()
+    page_options = _a4_render_options(options, title=first_score.title)
+
+    all_part_layouts: list[list[MeasureLayout]] = []
+    playback_index = 0
+    for part_idx, score in enumerate(scores):
+        part_layouts: list[MeasureLayout] = []
+        for measure in score.measures:
+            if measure.source_page_index is None:
+                measure.source_page_index = part_idx
+            layout = _score_measure_layout(measure, page_options)
+            for beat in layout.beats:
+                for item in beat.items:
+                    if not _is_playable_note_token(item.token):
+                        continue
+                    item.playback_index = playback_index
+                    playback_index += 1
+            part_layouts.append(layout)
+        all_part_layouts.append(part_layouts)
+
+    max_measures = max((len(pl) for pl in all_part_layouts), default=0)
+    for i in range(max_measures):
+        max_ideal = 0.0
+        max_min = 0.0
+        for part_layouts in all_part_layouts:
+            if i < len(part_layouts):
+                layout = part_layouts[i]
+                max_ideal = max(max_ideal, layout.ideal_width or layout.width)
+                max_min = max(max_min, layout.min_width or layout.width)
+        for part_layouts in all_part_layouts:
+            if i < len(part_layouts):
+                layout = part_layouts[i]
+                layout.ideal_width = max_ideal
+                layout.min_width = max_min
+
+    first_part_layouts = all_part_layouts[0] if all_part_layouts else []
+    page_options = replace(
+        page_options,
+        line_height=max(
+            page_options.line_height, _content_min_line_height(first_part_layouts)
+        ),
+    )
+    rows = _layout_rows(first_part_layouts, page_options)
+
+    layout_id_to_index = {id(layout): i for i, layout in enumerate(first_part_layouts)}
+    row_measure_indices: list[list[int]] = []
+    for row in rows:
+        indices = []
+        for layout in row:
+            idx = layout_id_to_index.get(id(layout))
+            if idx is not None:
+                indices.append(idx)
+        row_measure_indices.append(indices)
+
+    all_part_rows: list[list[list[MeasureLayout]]] = [rows]
+    for part_idx in range(1, part_count):
+        part_layouts = all_part_layouts[part_idx]
+        part_rows: list[list[MeasureLayout]] = [[] for _ in rows]
+        for i, layout in enumerate(part_layouts):
+            for row_idx, indices in enumerate(row_measure_indices):
+                if i in indices:
+                    src_layout = rows[row_idx][indices.index(i)]
+                    layout.width = src_layout.width
+                    part_rows[row_idx].append(layout)
+                    break
+        all_part_rows.append(part_rows)
+
+    effective_row_height = page_options.line_height * part_count
+    top = _a4_score_top(page_options)
+    bottom = A4_BOTTOM_MARGIN
+    baseline_span = max(0, A4_PAGE_HEIGHT - top - bottom - A4_ROW_BOTTOM_EXTENT)
+    rows_per_page = max(1, int(baseline_span // effective_row_height) + 1)
+
+    meta = _score_meta(first_score)
+    text_blocks_by_page = page_text_blocks or {}
+    pages: list[RenderedA4Page] = []
+    page_count = max(1, (len(rows) + rows_per_page - 1) // rows_per_page)
+    for page_idx in range(page_count):
+        start = page_idx * rows_per_page
+        end = min(start + rows_per_page, len(rows))
+        page_rows_slice = list(range(start, end))
+
+        all_layouts_in_page: list[MeasureLayout] = []
+        page_rows_list: list[list[MeasureLayout]] = []
+        for row_idx in page_rows_slice:
+            page_rows_list.append(rows[row_idx])
+            all_layouts_in_page.extend(rows[row_idx])
+        note_start, note_end = _note_index_range_for_rows(page_rows_list)
+
+        pages.append(
+            RenderedA4Page(
+                svg=_render_multi_part_a4_page(
+                    all_part_rows,
+                    page_rows_slice,
+                    page_options,
+                    first_score.title,
+                    meta,
+                    page_index=page_idx,
+                    page_count=page_count,
+                    part_names=[s.part_name for s in scores],
+                    text_blocks=text_blocks_by_page.get(page_idx, []),
+                ),
+                measure_ranges=_measure_ranges_for_rows(page_rows_list),
+                note_index_start=note_start,
+                note_index_end=note_end,
+            )
+        )
+    return pages
+
+
+def _render_multi_part_a4_page(
+    all_part_rows: list[list[list[MeasureLayout]]],
+    page_rows_slice: list[int],
+    options: RenderOptions,
+    title: str,
+    meta: str,
+    *,
+    page_index: int,
+    page_count: int,
+    part_names: list[str],
+    text_blocks: list[TextBlock] | None = None,
+) -> str:
+    out = _svg_header(options, A4_PAGE_HEIGHT, title, meta)
+    y = _a4_score_top(options)
+    part_count = len(all_part_rows)
+    line_height = options.line_height
+    previous_attrs: list[tuple[str, int, int] | None] = [None] * part_count
+
+    for row_idx in page_rows_slice:
+        bracket_x = options.margin - 22
+        bracket_top = y + 24
+        bracket_bottom = y + (part_count - 1) * line_height + 60
+        out.append(
+            f'<path d="M {bracket_x} {bracket_top} '
+            f"Q {bracket_x - 8} {(bracket_top + bracket_bottom) / 2:.1f} "
+            f'{bracket_x} {bracket_bottom}" '
+            f'fill="none" stroke="currentColor" stroke-width="2"/>'
+        )
+
+        for part_idx in range(part_count):
+            part_rows = all_part_rows[part_idx]
+            if row_idx >= len(part_rows):
+                continue
+            row = part_rows[row_idx]
+            if not row:
+                continue
+            y_part = y + part_idx * line_height
+
+            row_width = sum(measure.width for measure in row)
+            if options.show_staff_guides:
+                out.append(
+                    f'<line class="staff-line" x1="{options.margin}" '
+                    f'y1="{y_part + 44}" '
+                    f'x2="{options.margin + row_width:.1f}" '
+                    f'y2="{y_part + 44}"/>'
+                )
+
+            if part_idx < len(part_names) and part_names[part_idx]:
+                out.append(
+                    f'<text class="part-name" x="{bracket_x - 12}" '
+                    f'y="{y_part + 48}" text-anchor="end" '
+                    f'font-size="14">{_esc(part_names[part_idx])}</text>'
+                )
+
+            x = float(options.margin)
+            open_tie = None
+            open_slur = None
+            open_slide = None
+            for index, measure in enumerate(row):
+                attribute_text, current_attrs = _measure_attribute_text(
+                    measure, previous_attrs[part_idx]
+                )
+                previous_attrs[part_idx] = current_attrs
+                show_number = (
+                    _should_show_measure_number(options, index)
+                    if part_idx == 0
+                    else False
+                )
+                svg_lines, open_tie, open_slur, open_slide = _render_measure(
+                    measure,
+                    x,
+                    int(y_part),
+                    measure.width,
+                    options,
+                    draw_start_bar=index == 0,
+                    attribute_text=attribute_text,
+                    show_measure_number=show_number,
+                    open_tie=open_tie,
+                    open_slur=open_slur,
+                    open_slide=open_slide,
+                )
+                out.extend(svg_lines)
+                x += measure.width
+            out.extend(
+                _finish_open_spanners(
+                    int(y_part),
+                    open_tie=open_tie,
+                    open_slur=open_slur,
+                    open_slide=open_slide,
+                    options=options,
+                )
+            )
+
+        y += line_height * part_count
+
+    if page_count > 1:
+        out.append(
+            f'<text class="meta" x="{A4_PAGE_WIDTH / 2:.1f}" '
+            f'y="{A4_PAGE_HEIGHT - 34}" text-anchor="middle">'
+            f"{page_index + 1} / {page_count}</text>"
+        )
+    out.extend(
+        _render_positioned_text_blocks(
+            text_blocks or [],
+            A4_PAGE_WIDTH,
+            A4_PAGE_HEIGHT,
+            include_measure_numbers=False,
+        )
+    )
+    out.append("</svg>")
+    return "\n".join(out)

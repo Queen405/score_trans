@@ -101,6 +101,14 @@ class HistoryService:
             error_message=error_message,
         )
 
+    def reorder_pages(
+        self,
+        batch_id: int,
+        jianpu_text: str,
+        page_orders: list[tuple[int, str, int | None]],
+    ) -> HistoryBatch | None:
+        return self.dao.reorder_pages(batch_id, jianpu_text, page_orders)
+
     def delete_batch(self, batch_id: int) -> bool:
         return self.dao.delete_batch(batch_id)
 

@@ -15,6 +15,7 @@ export default tseslint.config(
         document: "readonly",
         DOMParser: "readonly",
         DOMRect: "readonly",
+        DragEvent: "readonly",
         Event: "readonly",
         fetch: "readonly",
         File: "readonly",

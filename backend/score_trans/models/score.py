@@ -185,6 +185,9 @@ class JianpuScore:
     measures: list[Measure] = field(default_factory=list)
     text_blocks: list[TextBlock] = field(default_factory=list)
     validation_errors: list[str] = field(default_factory=list)
+    part_index: int = 0
+    part_name: str = ""
+    part_count: int = 1
 
     @property
     def measure_duration(self) -> Fraction:

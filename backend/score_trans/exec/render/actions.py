@@ -8,7 +8,11 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from ...domain.accidentals import score_with_accidental_mode
-from ...domain.jianpu import normalize_jianpu_text, parse_jianpu_score
+from ...domain.jianpu import (
+    normalize_jianpu_text,
+    parse_jianpu_score,
+    parse_jianpu_scores,
+)
 from ...domain.provenance import apply_text_anchors
 from ...domain.text_placement import place_source_text_attachments
 from ...models.common.types import (
@@ -393,20 +397,36 @@ class RenderActions:
     def render_batch_a4(self, req: BatchRenderRequest) -> BatchRenderResponse:
         if not req.pages:
             raise HTTPException(400, "至少需要一个待渲染页面")
-        scores: list[JianpuScore] = []
+        page_scores_list: list[list[JianpuScore]] = []
         starts: list[int | None] = []
         for index, page in enumerate(req.pages):
             try:
-                score = self._build_batch_page_score(req, page)
+                page_scores = self._build_batch_page_scores(req, page)
             except ValueError as exc:
                 page_label = f"第 {index + 1} 页"
                 if page.input_file_name:
                     page_label = f"{page_label}（{page.input_file_name}）"
                 raise HTTPException(400, f"{page_label}：{exc}") from exc
-            _tag_score_source_page(score, index)
-            scores.append(score)
+            for score in page_scores:
+                _tag_score_source_page(score, index)
+            page_scores_list.append(page_scores)
             starts.append(page.start_measure_number)
-        _renumber_scores_continuously(scores, starts)
+
+        has_multi_part = any(len(scores) > 1 for scores in page_scores_list)
+
+        if not has_multi_part:
+            scores = [s for page_scores in page_scores_list for s in page_scores]
+            _renumber_scores_continuously(scores, starts)
+            return self._render_batch_flat(req, scores, starts)
+
+        return self._render_batch_multi_part(req, page_scores_list, starts)
+
+    def _render_batch_flat(
+        self,
+        req: BatchRenderRequest,
+        scores: list[JianpuScore],
+        starts: list[int | None],
+    ) -> BatchRenderResponse:
         source_ranges = self._batch_source_ranges(req, scores)
         layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
             scores,
@@ -455,6 +475,124 @@ class RenderActions:
             page_ocr_texts,
             measure_ranges_by_page,
             placement.rendered_blocks_by_page,
+        )
+        return BatchRenderResponse(
+            svg_file_id=pages[0].svg_file_id,
+            pages=pages,
+            page_width=pages[0].page_width,
+            page_height=pages[0].page_height,
+        )
+
+    def _render_batch_multi_part(
+        self,
+        req: BatchRenderRequest,
+        page_scores_list: list[list[JianpuScore]],
+        starts: list[int | None],
+    ) -> BatchRenderResponse:
+        current_measure: int | None = None
+        for page_idx, page_scores in enumerate(page_scores_list):
+            requested_start = starts[page_idx]
+            if requested_start is not None:
+                current_measure = requested_start
+            elif current_measure is None:
+                first_score = page_scores[0] if page_scores else None
+                current_measure = (
+                    _first_measure_number(first_score) if first_score else 1
+                )
+            max_measure_count = 0
+            for score in page_scores:
+                count = sum(getattr(m, "repeat_count", 1) for m in score.measures)
+                max_measure_count = max(max_measure_count, count)
+            for score in page_scores:
+                _renumber_score(score, current_measure or 1)
+            current_measure = (current_measure or 1) + max_measure_count
+
+        all_scores = [s for page_scores in page_scores_list for s in page_scores]
+        source_ranges = self._batch_source_ranges(req, all_scores)
+        svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
+        all_rendered_file_pages: list[RenderedA4FilePage] = []
+        all_measure_ranges: list[list[RenderPageMeasureRange]] = []
+        all_page_ocr_texts: dict[int, str] = {}
+        all_rendered_blocks: dict[int, list[RenderedTextBlock]] = {}
+        source_pages = req.source_pages or req.pages
+        page_offset = 0
+        for page_idx, page_scores in enumerate(page_scores_list):
+            layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
+                page_scores,
+                title=req.title,
+                show_measure_numbers=_request_show_measure_numbers(req),
+                measure_number_mode=_request_measure_number_mode(req),
+            )
+            page_source_ranges = (
+                [
+                    r
+                    for r in source_ranges
+                    if r.source_page_index
+                    == page_scores[0].measures[0].source_page_index
+                ]
+                if page_scores and page_scores[0].measures
+                else []
+            )
+            measure_ranges_by_page = [
+                _page_measure_ranges(page.measure_ranges, page_source_ranges)
+                for page in layout_pages
+            ]
+            all_measure_ranges.extend(measure_ranges_by_page)
+            legacy_page_ocr_texts = _resolved_render_page_ocr_texts(
+                req,
+                measure_ranges_by_page,
+                page_offset=page_offset,
+                source_page_indices=[page_idx],
+            )
+            current_attachments = (
+                [list(source_pages[page_idx].text_attachments)]
+                if page_idx < len(source_pages)
+                else []
+            )
+            placement = place_source_text_attachments(
+                current_attachments,
+                [page.svg for page in layout_pages],
+                measure_ranges_by_page,
+            )
+            page_text_blocks = {
+                pi: _parse_ocr_text(ot)
+                for pi, ot in legacy_page_ocr_texts.items()
+                if ot.strip()
+            }
+            for pi, blocks in placement.text_blocks_by_page.items():
+                page_text_blocks.setdefault(pi, []).extend(blocks)
+            page_ocr_texts = _merge_rendered_and_legacy_ocr_texts(
+                legacy_page_ocr_texts,
+                placement.rendered_blocks_by_page,
+                len(layout_pages),
+            )
+            for pi, text in page_ocr_texts.items():
+                all_page_ocr_texts[page_offset + pi] = text
+            for pi, blocks in placement.rendered_blocks_by_page.items():
+                all_rendered_blocks.setdefault(page_offset + pi, []).extend(blocks)
+            page_svg_path = (
+                svg_path.with_stem(f"{svg_path.stem}_p{page_offset + 1}")
+                if page_offset > 0
+                else svg_path
+            )
+            rendered_pages = (
+                self.text_renderer.render_service.render_scores_a4_svg_page_results(
+                    page_scores,
+                    page_svg_path,
+                    title=req.title,
+                    show_measure_numbers=_request_show_measure_numbers(req),
+                    measure_number_mode=_request_measure_number_mode(req),
+                    page_text_blocks=page_text_blocks,
+                )
+            )
+            all_rendered_file_pages.extend(rendered_pages)
+            page_offset += len(rendered_pages)
+
+        pages = self._register_rendered_page_results(
+            all_rendered_file_pages,
+            all_page_ocr_texts,
+            all_measure_ranges,
+            all_rendered_blocks,
         )
         return BatchRenderResponse(
             svg_file_id=pages[0].svg_file_id,
@@ -589,6 +727,14 @@ class RenderActions:
         req: BatchRenderRequest,
         page: BatchRenderPageRequest,
     ) -> JianpuScore:
+        scores = self._build_batch_page_scores(req, page)
+        return scores[0] if scores else JianpuScore()
+
+    def _build_batch_page_scores(
+        self,
+        req: BatchRenderRequest,
+        page: BatchRenderPageRequest,
+    ) -> list[JianpuScore]:
         if page.musicxml_file_id:
             musicxml_path = self.uploads.get_path(page.musicxml_file_id)
             if not musicxml_path or not musicxml_path.exists():
@@ -604,15 +750,18 @@ class RenderActions:
                     )
                 if not page.include_ocr_text:
                     image_path = None
-            return self.musicxml_renderer.build_score(
+            scores = self.musicxml_renderer.build_scores(
                 musicxml_path,
                 target_key=req.target_key,
-                accidental_mode=req.accidental_mode,
                 instrument_profile=req.instrument_profile,
                 start_measure_number=page.start_measure_number,
                 title=page.title or req.title,
                 image_path=image_path,
             )
+            return [
+                score_with_accidental_mode(s, accidental_mode=req.accidental_mode)
+                for s in scores
+            ]
         if page.jianpu_text or page.jianpu_file_id:
             if page.jianpu_text:
                 text = page.jianpu_text
@@ -621,13 +770,14 @@ class RenderActions:
                 if not input_path or not input_path.exists():
                     raise HTTPException(404, f"文件不存在：{page.jianpu_file_id}")
                 text = input_path.read_text(encoding="utf-8")
-            score = parse_jianpu_score(text, title=page.title or req.title)
-            score = score_with_accidental_mode(
-                score, accidental_mode=req.accidental_mode
-            )
-            if page.text_anchors:
-                apply_text_anchors(score, page.text_anchors)
-            return score
+            scores = parse_jianpu_scores(text, title=page.title or req.title)
+            scores = [
+                score_with_accidental_mode(s, accidental_mode=req.accidental_mode)
+                for s in scores
+            ]
+            if page.text_anchors and scores:
+                apply_text_anchors(scores[0], page.text_anchors)
+            return scores
         raise HTTPException(
             400, "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id"
         )
@@ -853,8 +1003,15 @@ def _measure_bounds(
 def _resolved_render_page_ocr_texts(
     req: BatchRenderRequest,
     measure_ranges_by_page: list[list[RenderPageMeasureRange]],
+    *,
+    page_offset: int = 0,
+    source_page_indices: list[int] | None = None,
 ) -> dict[int, str]:
-    suggested = _suggested_render_page_ocr_texts(req, measure_ranges_by_page)
+    suggested = _suggested_render_page_ocr_texts(
+        req,
+        measure_ranges_by_page,
+        source_page_indices=source_page_indices,
+    )
     has_structured_attachments = any(
         page.text_attachments for page in (req.source_pages or req.pages)
     )
@@ -869,21 +1026,30 @@ def _resolved_render_page_ocr_texts(
     }
     saved = {page_index: payload for page_index, payload in saved.items() if payload}
     resolved: dict[int, str] = {}
-    for page_index in range(len(measure_ranges_by_page)):
-        resolved[page_index] = saved.get(page_index, suggested.get(page_index, ""))
-    for page_index, ocr_text in saved.items():
-        if page_index not in resolved:
-            resolved[page_index] = ocr_text
+    for local_index in range(len(measure_ranges_by_page)):
+        global_index = page_offset + local_index
+        resolved[local_index] = saved.get(global_index, suggested.get(local_index, ""))
+    if page_offset == 0 and source_page_indices is None:
+        for page_index, ocr_text in saved.items():
+            if page_index not in resolved:
+                resolved[page_index] = ocr_text
     return resolved
 
 
 def _suggested_render_page_ocr_texts(
     req: BatchRenderRequest,
     measure_ranges_by_page: list[list[RenderPageMeasureRange]],
+    *,
+    source_page_indices: list[int] | None = None,
 ) -> dict[int, str]:
     source_pages = req.source_pages or req.pages
+    if source_page_indices is None:
+        source_page_indices = list(range(len(source_pages)))
     blocks_by_page: dict[int, list[TextBlock]] = {}
-    for source_index, source_page in enumerate(source_pages):
+    for source_index in source_page_indices:
+        if source_index >= len(source_pages):
+            continue
+        source_page = source_pages[source_index]
         if source_page.text_attachments or not source_page.ocr_text:
             continue
         target_page_index = _first_render_page_for_source(

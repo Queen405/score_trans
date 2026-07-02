@@ -5,6 +5,7 @@ from .jianpu_text import (
     ParsedToken,
     parse_jianpu,
     parse_jianpu_score,
+    parse_jianpu_scores,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "ParsedToken",
     "parse_jianpu",
     "parse_jianpu_score",
+    "parse_jianpu_scores",
 ]
