@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.jianpu import normalize_jianpu_text, parse_jianpu_score
 from ...domain.provenance import apply_text_anchors
+from ...domain.text_placement import place_source_text_attachments
 from ...models.common.types import (
     AccidentalMode,
     InstrumentProfile,
@@ -33,8 +34,8 @@ from ...models.render.schemas import (
     RenderedSvgPage,
 )
 from ...models.score import JianpuScore, TextBlock
-from ...models.provenance.schemas import TextAnchor
-from ...services.render import A4MeasureRange
+from ...models.provenance.schemas import RenderedTextBlock, TextAnchor
+from ...services.render import A4MeasureRange, RenderedA4FilePage
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
@@ -144,7 +145,7 @@ class RenderMusicXmlJianpuAction:
         title: str | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
-    ) -> list[Path]:
+    ) -> list[RenderedA4FilePage]:
         score = self.build_score(
             musicxml_path,
             target_key=target_key,
@@ -250,7 +251,7 @@ class RenderJianpuTextAction:
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         text_anchors: list[TextAnchor] | None = None,
-    ) -> list[Path]:
+    ) -> list[RenderedA4FilePage]:
         score = parse_jianpu_score(
             Path(input_path).read_text(encoding="utf-8"), title=title
         )
@@ -417,15 +418,30 @@ class RenderActions:
             _page_measure_ranges(page.measure_ranges, source_ranges)
             for page in layout_pages
         ]
-        page_ocr_texts = _resolved_render_page_ocr_texts(
+        legacy_page_ocr_texts = _resolved_render_page_ocr_texts(
             req,
+            measure_ranges_by_page,
+        )
+        placement = place_source_text_attachments(
+            [
+                list(page.text_attachments)
+                for page in (req.source_pages or req.pages)
+            ],
+            [page.svg for page in layout_pages],
             measure_ranges_by_page,
         )
         page_text_blocks = {
             page_index: _parse_ocr_text(ocr_text)
-            for page_index, ocr_text in page_ocr_texts.items()
+            for page_index, ocr_text in legacy_page_ocr_texts.items()
             if ocr_text.strip()
         }
+        for page_index, blocks in placement.text_blocks_by_page.items():
+            page_text_blocks.setdefault(page_index, []).extend(blocks)
+        page_ocr_texts = _merge_rendered_and_legacy_ocr_texts(
+            legacy_page_ocr_texts,
+            placement.rendered_blocks_by_page,
+            len(layout_pages),
+        )
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         rendered_pages = (
             self.text_renderer.render_service.render_scores_a4_svg_page_results(
@@ -441,6 +457,7 @@ class RenderActions:
             rendered_pages,
             page_ocr_texts,
             measure_ranges_by_page,
+            placement.rendered_blocks_by_page,
         )
         return BatchRenderResponse(
             svg_file_id=pages[0].svg_file_id,
@@ -618,11 +635,14 @@ class RenderActions:
             400, "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id"
         )
 
-    def _register_rendered_pages(self, paths: list[Path]) -> list[RenderedSvgPage]:
-        if not paths:
+    def _register_rendered_pages(
+        self, rendered_pages: list[RenderedA4FilePage]
+    ) -> list[RenderedSvgPage]:
+        if not rendered_pages:
             raise HTTPException(500, "渲染未生成任何 SVG 页面")
         pages: list[RenderedSvgPage] = []
-        for index, path in enumerate(paths):
+        for index, rendered_page in enumerate(rendered_pages):
+            path = rendered_page.path
             render_map_path = write_render_map(path, index)
             pages.append(
                 RenderedSvgPage(
@@ -635,6 +655,8 @@ class RenderActions:
                         if render_map_path is not None
                         else None
                     ),
+                    note_index_start=rendered_page.note_index_start,
+                    note_index_end=rendered_page.note_index_end,
                 )
             )
         return pages
@@ -644,11 +666,13 @@ class RenderActions:
         rendered_pages,
         page_ocr_texts: dict[int, str],
         measure_ranges_by_page: list[list[RenderPageMeasureRange]],
+        rendered_text_blocks: dict[int, list[RenderedTextBlock]] | None = None,
     ) -> list[RenderedSvgPage]:
         if not rendered_pages:
             raise HTTPException(500, "渲染未生成任何 SVG 页面")
         pages: list[RenderedSvgPage] = []
         for index, rendered_page in enumerate(rendered_pages):
+            render_map_path = write_render_map(rendered_page.path, index)
             pages.append(
                 RenderedSvgPage(
                     svg_file_id=self.uploads.register(rendered_page.path),
@@ -659,6 +683,14 @@ class RenderActions:
                     if index < len(measure_ranges_by_page)
                     else [],
                     ocr_text=page_ocr_texts.get(index, ""),
+                    render_map_file_id=(
+                        self.uploads.register(render_map_path)
+                        if render_map_path is not None
+                        else None
+                    ),
+                    note_index_start=rendered_page.note_index_start,
+                    note_index_end=rendered_page.note_index_end,
+                    text_blocks=(rendered_text_blocks or {}).get(index, []),
                 )
             )
         return pages
@@ -826,11 +858,18 @@ def _resolved_render_page_ocr_texts(
     measure_ranges_by_page: list[list[RenderPageMeasureRange]],
 ) -> dict[int, str]:
     suggested = _suggested_render_page_ocr_texts(req, measure_ranges_by_page)
-    saved = {
-        item.page_index: item.ocr_text
-        for item in req.render_page_ocr_texts
-        if item.page_index >= 0
-    }
+    has_structured_attachments = any(
+        page.text_attachments for page in (req.source_pages or req.pages)
+    )
+    saved = (
+        {}
+        if has_structured_attachments
+        else {
+            item.page_index: item.ocr_text
+            for item in req.render_page_ocr_texts
+            if item.page_index >= 0
+        }
+    )
     resolved: dict[int, str] = {}
     for page_index in range(len(measure_ranges_by_page)):
         resolved[page_index] = saved.get(page_index, suggested.get(page_index, ""))
@@ -847,7 +886,7 @@ def _suggested_render_page_ocr_texts(
     source_pages = req.source_pages or req.pages
     blocks_by_page: dict[int, list[TextBlock]] = {}
     for source_index, source_page in enumerate(source_pages):
-        if not source_page.ocr_text:
+        if source_page.text_attachments or not source_page.ocr_text:
             continue
         target_page_index = _first_render_page_for_source(
             measure_ranges_by_page,
@@ -882,6 +921,49 @@ def _parse_ocr_text_lenient(payload: str) -> list[TextBlock]:
         return _parse_ocr_text(payload)
     except HTTPException:
         return []
+
+
+def _merge_rendered_and_legacy_ocr_texts(
+    legacy: dict[int, str],
+    rendered: dict[int, list[RenderedTextBlock]],
+    page_count: int,
+) -> dict[int, str]:
+    result: dict[int, str] = {}
+    for page_index in range(page_count):
+        legacy_items = _load_legacy_ocr_items(legacy.get(page_index, ""))
+        rendered_items = [
+            {
+                "id": block.id,
+                "text": block.text,
+                "bbox": [
+                    block.bbox.x,
+                    block.bbox.y,
+                    block.bbox.x + block.bbox.width,
+                    block.bbox.y + block.bbox.height,
+                ],
+                "role": block.role,
+                "fontSize": block.font_size,
+                "sourcePageIndex": block.source_page_index,
+                "sourceAttachmentId": block.source_attachment_id,
+                "anchor": block.anchor.model_dump(),
+            }
+            for block in rendered.get(page_index, [])
+        ]
+        items = [*legacy_items, *rendered_items]
+        result[page_index] = json.dumps(items, ensure_ascii=False) if items else ""
+    return result
+
+
+def _load_legacy_ocr_items(payload: str) -> list[dict[str, object]]:
+    if not payload.strip():
+        return []
+    try:
+        raw = json.loads(payload)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(raw, list):
+        return []
+    return [item for item in raw if isinstance(item, dict)]
 
 
 def _place_blocks_in_a4_safe_area(blocks: list[TextBlock]) -> list[TextBlock]:

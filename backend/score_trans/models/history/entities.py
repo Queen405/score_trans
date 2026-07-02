@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..provenance.schemas import TextAnchor
+from ..provenance.schemas import SourceTextAttachment, TextAnchor
 
 
 @dataclass(slots=True)
@@ -15,6 +15,7 @@ class HistoryPage:
     musicxml_file_id: str = ""
     jianpu_text: str = ""
     ocr_text: str = ""
+    text_attachments: list[SourceTextAttachment] = field(default_factory=list)
     svg_file_id: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""

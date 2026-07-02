@@ -9,7 +9,7 @@ from ...models.history.entities import (
     HistoryPage,
     HistoryRenderPageOcrText,
 )
-from ...models.provenance.schemas import TextAnchor
+from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
 
 
 class HistoryService:
@@ -71,6 +71,7 @@ class HistoryService:
         task_id: str | None = None,
         jianpu_text: str | None = None,
         ocr_text: str | None = None,
+        text_attachments: list[SourceTextAttachment] | None = None,
         svg_file_id: str | None = None,
         overlay_svg_file_id: str | None = None,
         overlay_file_id: str | None = None,
@@ -87,6 +88,7 @@ class HistoryService:
             task_id=task_id,
             jianpu_text=jianpu_text,
             ocr_text=ocr_text,
+            text_attachments=text_attachments,
             svg_file_id=svg_file_id,
             overlay_svg_file_id=overlay_svg_file_id,
             overlay_file_id=overlay_file_id,

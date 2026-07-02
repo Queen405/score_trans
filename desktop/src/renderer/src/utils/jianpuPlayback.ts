@@ -1,3 +1,5 @@
+import { parseJianpuPageSections } from './jianpuPageSections'
+
 export interface JianpuNoteSpan {
   index: number
   line: number
@@ -127,4 +129,27 @@ function stripEventDecorations(token: string): string {
   while (work.endsWith('-')) work = work.slice(0, -1)
   if (work.endsWith('.')) work = work.slice(0, -1)
   return work
+}
+
+export function findNotePageIndex(text: string, noteIndex: number): number | null {
+  if (!text || noteIndex < 0) return null
+
+  const spans = findJianpuNoteSpans(text)
+  const span = spans.find((s) => s.index === noteIndex)
+  if (!span) return null
+
+  const sections = parseJianpuPageSections(text)
+  if (sections.length <= 1) return 0
+
+  for (const section of sections) {
+    const markerLineIndex = section.markerLineIndex
+    const nextSection = sections.find((s) => s.pageIndex === section.pageIndex + 1)
+    const nextMarkerLineIndex = nextSection?.markerLineIndex ?? Number.MAX_SAFE_INTEGER
+
+    if (span.line >= markerLineIndex && span.line < nextMarkerLineIndex) {
+      return section.pageIndex
+    }
+  }
+
+  return sections[sections.length - 1]?.pageIndex ?? 0
 }

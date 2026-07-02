@@ -62,7 +62,7 @@ class RenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
-    ) -> list[Path]:
+    ) -> list[RenderedA4FilePage]:
         return render_score_a4_pages_to_files(
             score,
             Path(output_path),
@@ -78,7 +78,7 @@ class RenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
-    ) -> list[Path]:
+    ) -> list[RenderedA4FilePage]:
         return render_scores_a4_pages_to_files(
             scores,
             Path(output_path),

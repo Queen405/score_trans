@@ -52,12 +52,16 @@ class A4MeasureRange:
 class RenderedA4Page:
     svg: str
     measure_ranges: list[A4MeasureRange]
+    note_index_start: int | None = None
+    note_index_end: int | None = None
 
 
 @dataclass(slots=True)
 class RenderedA4FilePage:
     path: Path
     measure_ranges: list[A4MeasureRange]
+    note_index_start: int | None = None
+    note_index_end: int | None = None
 
 
 def render_jianpu_svg(
@@ -309,21 +313,26 @@ def render_scores_a4_pages(
     row_pages = _paginate_rows(rows, page_options)
     meta = _score_meta(first_score)
     text_blocks_by_page = page_text_blocks or {}
-    return [
-        RenderedA4Page(
-            svg=_render_a4_page(
-                page_rows,
-                page_options,
-                first_score.title,
-                meta,
-                page_index=index,
-                page_count=len(row_pages),
-                text_blocks=text_blocks_by_page.get(index, []),
-            ),
-            measure_ranges=_measure_ranges_for_rows(page_rows),
+    pages: list[RenderedA4Page] = []
+    for index, page_rows in enumerate(row_pages):
+        note_start, note_end = _note_index_range_for_rows(page_rows)
+        pages.append(
+            RenderedA4Page(
+                svg=_render_a4_page(
+                    page_rows,
+                    page_options,
+                    first_score.title,
+                    meta,
+                    page_index=index,
+                    page_count=len(row_pages),
+                    text_blocks=text_blocks_by_page.get(index, []),
+                ),
+                measure_ranges=_measure_ranges_for_rows(page_rows),
+                note_index_start=note_start,
+                note_index_end=note_end,
+            )
         )
-        for index, page_rows in enumerate(row_pages)
-    ]
+    return pages
 
 
 def render_jianpu_a4_files_to_svgs(
@@ -332,7 +341,7 @@ def render_jianpu_a4_files_to_svgs(
     title: str = "简谱",
     show_measure_numbers: bool | None = None,
     measure_number_mode: MeasureNumberMode | None = None,
-) -> list[Path]:
+) -> list[RenderedA4FilePage]:
     scores = [
         parse_jianpu_score(path.read_text(encoding="utf-8"), title=title)
         for path in input_paths
@@ -352,7 +361,7 @@ def render_score_a4_pages_to_files(
     title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode: MeasureNumberMode | None = None,
-) -> list[Path]:
+) -> list[RenderedA4FilePage]:
     return render_scores_a4_pages_to_files(
         [score],
         output_path,
@@ -368,17 +377,14 @@ def render_scores_a4_pages_to_files(
     title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode: MeasureNumberMode | None = None,
-) -> list[Path]:
-    return [
-        page.path
-        for page in render_scores_a4_page_results_to_files(
-            scores,
-            output_path,
-            title=title,
-            show_measure_numbers=show_measure_numbers,
-            measure_number_mode=measure_number_mode,
-        )
-    ]
+) -> list[RenderedA4FilePage]:
+    return render_scores_a4_page_results_to_files(
+        scores,
+        output_path,
+        title=title,
+        show_measure_numbers=show_measure_numbers,
+        measure_number_mode=measure_number_mode,
+    )
 
 
 def render_scores_a4_page_results_to_files(
@@ -399,7 +405,12 @@ def render_scores_a4_page_results_to_files(
     pages = render_scores_a4_pages(scores, options, page_text_blocks=page_text_blocks)
     paths = _write_svg_pages([page.svg for page in pages], output_path)
     return [
-        RenderedA4FilePage(path=path, measure_ranges=page.measure_ranges)
+        RenderedA4FilePage(
+            path=path,
+            measure_ranges=page.measure_ranges,
+            note_index_start=page.note_index_start,
+            note_index_end=page.note_index_end,
+        )
         for path, page in zip(paths, pages, strict=True)
     ]
 
@@ -725,6 +736,22 @@ def _render_a4_page(
     )
     out.append("</svg>")
     return "\n".join(out)
+
+
+def _note_index_range_for_rows(
+    rows: list[list[MeasureLayout]],
+) -> tuple[int | None, int | None]:
+    indices = [
+        item.playback_index
+        for row in rows
+        for measure in row
+        for beat in measure.beats
+        for item in beat.items
+        if item.playback_index is not None
+    ]
+    if not indices:
+        return None, None
+    return min(indices), max(indices)
 
 
 def _measure_ranges_for_rows(

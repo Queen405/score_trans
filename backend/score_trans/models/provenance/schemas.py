@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -44,6 +46,41 @@ class TextAnchor(BaseModel):
     end_utf16: int
     role: str
     valid: bool = True
+
+
+class TextPlacementAnchor(BaseModel):
+    kind: Literal[
+        "source_element",
+        "score_start",
+        "score_end",
+        "source_relative",
+    ]
+    source_id: str | None = None
+    relative_y: float | None = None
+    offset_x: float = 0.0
+    offset_y: float = 0.0
+    mapping_confidence: float | None = None
+
+
+class SourceTextAttachment(BaseModel):
+    id: str
+    text: str
+    role: str = "other"
+    source_bbox: BoundingBox | None = None
+    font_size: float | None = None
+    ocr_confidence: float | None = None
+    anchor: TextPlacementAnchor
+
+
+class RenderedTextBlock(BaseModel):
+    id: str
+    source_page_index: int
+    source_attachment_id: str
+    text: str
+    role: str = "other"
+    bbox: BoundingBox
+    font_size: float | None = None
+    anchor: TextPlacementAnchor
 
 
 class RenderAnchor(BaseModel):

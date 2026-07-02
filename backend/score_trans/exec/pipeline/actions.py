@@ -12,6 +12,7 @@ from fastapi import UploadFile
 
 from ...domain.musicxml import score_to_jianpu_document
 from ...domain.accidentals import score_with_accidental_mode
+from ...domain.text_attachments import build_source_text_attachments
 from ...models.common.types import (
     AccidentalMode,
     IMAGE_SUFFIXES,
@@ -20,12 +21,13 @@ from ...models.common.types import (
 )
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.render.schemas import RenderedSvgPage
-from ...models.provenance.schemas import TextAnchor
+from ...models.provenance.schemas import SourceMap, SourceTextAttachment, TextAnchor
 from ...models.score import TextBlock
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
 from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.files.file_service import FileService
+from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.overlay.overlay_service import OverlayService
@@ -50,6 +52,7 @@ class ScorePipelineOutputs:
     source_map_path: Path | None = None
     overlay_svg_path: Path | None = None
     text_anchors: list[TextAnchor] | None = None
+    text_attachments: list[SourceTextAttachment] | None = None
     text_hash: str = ""
 
     @property
@@ -124,15 +127,25 @@ class FullPipelineAction:
         )
         svg_path = out_dir / f"{source.stem}_jianpu.svg"
         report_progress(progress_callback, "render", 82, "渲染简谱 SVG")
-        svg_paths = self.renderer.render_score_a4_svg_pages(
+        rendered_pages = self.renderer.render_score_a4_svg_pages(
             render_score,
             svg_path,
             title=title or render_score.title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )
+        svg_paths = _rendered_page_paths(rendered_pages)
         ocr_measure_numbers = _extract_ocr_measure_numbers(render_score)
-        ocr_text = _serialize_ocr_text_blocks(render_score.text_blocks)
+        source_map = _load_source_map(source_map_path)
+        source_image_size = _source_image_size(source)
+        ocr_blocks = _visible_ocr_blocks(render_score.text_blocks)
+        text_attachments = build_source_text_attachments(
+            ocr_blocks,
+            render_score,
+            source_map,
+            image_size=source_image_size,
+        )
+        ocr_text = _serialize_text_attachments(text_attachments)
         report_progress(progress_callback, "render", 94, "渲染完成")
         return ScorePipelineOutputs(
             input_path=source,
@@ -145,6 +158,7 @@ class FullPipelineAction:
             source_map_path=source_map_path,
             overlay_svg_path=overlay_svg_path,
             text_anchors=document.anchors,
+            text_attachments=text_attachments,
             text_hash=document.text_hash,
         )
 
@@ -345,6 +359,7 @@ class PipelineActions:
             source_map_file_id=source_map_file_id,
             overlay_svg_file_id=overlay_svg_file_id,
             text_anchors=outputs.text_anchors or [],
+            text_attachments=outputs.text_attachments or [],
             text_hash=outputs.text_hash,
         )
 
@@ -373,29 +388,69 @@ def _extract_ocr_measure_numbers(score) -> list[int]:
     return numbers
 
 
-def _serialize_ocr_text_blocks(blocks: list[TextBlock]) -> str:
-    visible_blocks = [
+def _visible_ocr_blocks(blocks: list[TextBlock]) -> list[TextBlock]:
+    return [
         block
         for block in blocks
         if block.text.strip()
-        and block.role not in {"instrument", "measure_number"}
+        and block.role != "measure_number"
         and (block.bbox is not None or block.confidence is not None)
     ]
-    if not visible_blocks:
+
+
+def _serialize_text_attachments(items: list[SourceTextAttachment]) -> str:
+    if not items:
         return ""
     return json.dumps(
         [
             {
-                "id": f"ocr-{index}",
-                "text": block.text,
-                "bbox": list(block.bbox) if block.bbox is not None else None,
-                "role": block.role,
-                "fontSize": block.font_size,
+                "id": item.id,
+                "text": item.text,
+                "bbox": (
+                    [
+                        item.source_bbox.x,
+                        item.source_bbox.y,
+                        item.source_bbox.x + item.source_bbox.width,
+                        item.source_bbox.y + item.source_bbox.height,
+                    ]
+                    if item.source_bbox is not None
+                    else None
+                ),
+                "role": item.role,
+                "fontSize": item.font_size,
+                "confidence": item.ocr_confidence,
+                "anchor": item.anchor.model_dump(),
             }
-            for index, block in enumerate(visible_blocks)
+            for item in items
         ],
         ensure_ascii=False,
     )
+
+
+def _load_source_map(path: Path | None) -> SourceMap | None:
+    if path is None:
+        return None
+    try:
+        return SourceMap.model_validate(json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def _source_image_size(path: Path) -> tuple[int, int] | None:
+    if not _is_ocr_image(path):
+        return None
+    try:
+        width, height = image_dimensions(path)
+    except OSError:
+        return None
+    return int(width), int(height)
+
+
+def _rendered_page_paths(rendered_pages) -> list[Path]:
+    return [
+        Path(page.path) if hasattr(page, "path") else Path(page)
+        for page in rendered_pages
+    ]
 
 
 def _is_ocr_image(path: Path) -> bool:

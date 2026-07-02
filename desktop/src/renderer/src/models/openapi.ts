@@ -883,6 +883,8 @@ export type components = {
             ocr_text?: string | null;
             /** Page Image File Id */
             page_image_file_id?: string | null;
+            /** Source Map File Id */
+            source_map_file_id?: string | null;
             /** Start Measure Number */
             start_measure_number?: number | null;
             /**
@@ -890,6 +892,11 @@ export type components = {
              * @default []
              */
             text_anchors?: components["schemas"]["TextAnchor"][];
+            /**
+             * Text Attachments
+             * @default []
+             */
+            text_attachments?: components["schemas"]["SourceTextAttachment"][];
             /** Title */
             title?: string | null;
         };
@@ -1034,6 +1041,17 @@ export type components = {
         Body_upload_file_files_upload_post: {
             /** File */
             file: string;
+        };
+        /** BoundingBox */
+        BoundingBox: {
+            /** Height */
+            height: number;
+            /** Width */
+            width: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         };
         /** CacheCleanupResponse */
         CacheCleanupResponse: {
@@ -1348,6 +1366,11 @@ export type components = {
              */
             text_anchors?: components["schemas"]["TextAnchor"][];
             /**
+             * Text Attachments
+             * @default []
+             */
+            text_attachments?: components["schemas"]["SourceTextAttachment"][];
+            /**
              * Text Hash
              * @default
              */
@@ -1405,6 +1428,11 @@ export type components = {
              */
             text_anchors?: components["schemas"]["TextAnchor"][];
             /**
+             * Text Attachments
+             * @default []
+             */
+            text_attachments?: components["schemas"]["SourceTextAttachment"][];
+            /**
              * Text Hash
              * @default
              */
@@ -1436,6 +1464,8 @@ export type components = {
             task_id?: string | null;
             /** Text Anchors */
             text_anchors?: components["schemas"]["TextAnchor"][] | null;
+            /** Text Attachments */
+            text_attachments?: components["schemas"]["SourceTextAttachment"][] | null;
             /** Text Hash */
             text_hash?: string | null;
         };
@@ -1540,6 +1570,11 @@ export type components = {
              */
             text_anchors?: components["schemas"]["TextAnchor"][];
             /**
+             * Text Attachments
+             * @default []
+             */
+            text_attachments?: components["schemas"]["SourceTextAttachment"][];
+            /**
              * Text Hash
              * @default
              */
@@ -1617,6 +1652,16 @@ export type components = {
              */
             measure_ranges?: components["schemas"]["RenderPageMeasureRange"][];
             /**
+             * Note Index End
+             * @default null
+             */
+            note_index_end?: number | null;
+            /**
+             * Note Index Start
+             * @default null
+             */
+            note_index_start?: number | null;
+            /**
              * Ocr Text
              * @default null
              */
@@ -1634,6 +1679,34 @@ export type components = {
             render_map_file_id?: string | null;
             /** Svg File Id */
             svg_file_id: string;
+            /**
+             * Text Blocks
+             * @default []
+             */
+            text_blocks?: components["schemas"]["RenderedTextBlock"][];
+        };
+        /** RenderedTextBlock */
+        RenderedTextBlock: {
+            anchor: components["schemas"]["TextPlacementAnchor"];
+            bbox: components["schemas"]["BoundingBox"];
+            /**
+             * Font Size
+             * @default null
+             */
+            font_size?: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Role
+             * @default other
+             */
+            role?: string;
+            /** Source Attachment Id */
+            source_attachment_id: string;
+            /** Source Page Index */
+            source_page_index: number;
+            /** Text */
+            text: string;
         };
         /** RenderJianpuSvgRequest */
         RenderJianpuSvgRequest: {
@@ -1921,6 +1994,31 @@ export type components = {
             /** Work Dir */
             work_dir?: string | null;
         };
+        /** SourceTextAttachment */
+        SourceTextAttachment: {
+            anchor: components["schemas"]["TextPlacementAnchor"];
+            /**
+             * Font Size
+             * @default null
+             */
+            font_size?: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Ocr Confidence
+             * @default null
+             */
+            ocr_confidence?: number | null;
+            /**
+             * Role
+             * @default other
+             */
+            role?: string;
+            /** @default null */
+            source_bbox?: components["schemas"]["BoundingBox"] | null;
+            /** Text */
+            text: string;
+        };
         /** SSEProgressEvent */
         SSEProgressEvent: {
             /** Error */
@@ -1975,6 +2073,39 @@ export type components = {
              * @default true
              */
             valid?: boolean;
+        };
+        /** TextPlacementAnchor */
+        TextPlacementAnchor: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "source_element" | "score_start" | "score_end" | "source_relative";
+            /**
+             * Mapping Confidence
+             * @default null
+             */
+            mapping_confidence?: number | null;
+            /**
+             * Offset X
+             * @default 0
+             */
+            offset_x?: number;
+            /**
+             * Offset Y
+             * @default 0
+             */
+            offset_y?: number;
+            /**
+             * Relative Y
+             * @default null
+             */
+            relative_y?: number | null;
+            /**
+             * Source Id
+             * @default null
+             */
+            source_id?: string | null;
         };
         /** UploadPage */
         UploadPage: {

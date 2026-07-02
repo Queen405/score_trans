@@ -11,7 +11,7 @@ from ...models.history.entities import (
     HistoryPage,
     HistoryRenderPageOcrText,
 )
-from ...models.provenance.schemas import TextAnchor
+from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
 from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
@@ -67,6 +67,7 @@ class HistoryDao:
                     musicxml_file_id TEXT NOT NULL DEFAULT '',
                     jianpu_text TEXT NOT NULL DEFAULT '',
                     ocr_text TEXT NOT NULL DEFAULT '',
+                    text_attachments TEXT NOT NULL DEFAULT '[]',
                     svg_file_id TEXT NOT NULL DEFAULT '',
                     overlay_svg_file_id TEXT NOT NULL DEFAULT '',
                     overlay_file_id TEXT NOT NULL DEFAULT '',
@@ -179,9 +180,9 @@ class HistoryDao:
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id, task_id, musicxml_file_id,
                          jianpu_text, ocr_text, svg_file_id, overlay_svg_file_id,
-                         overlay_file_id, source_map_file_id, text_hash, text_anchors,
-                         start_measure_number, status, error_message, completed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         text_attachments, overlay_file_id, source_map_file_id, text_hash,
+                         text_anchors, start_measure_number, status, error_message, completed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -193,6 +194,7 @@ class HistoryDao:
                         page.ocr_text,
                         page.svg_file_id,
                         page.overlay_svg_file_id,
+                        _dump_text_attachments(page.text_attachments),
                         page.overlay_file_id,
                         page.source_map_file_id,
                         page.text_hash,
@@ -280,6 +282,7 @@ class HistoryDao:
         task_id: str | None = None,
         jianpu_text: str | None = None,
         ocr_text: str | None = None,
+        text_attachments: list[SourceTextAttachment] | None = None,
         svg_file_id: str | None = None,
         overlay_svg_file_id: str | None = None,
         overlay_file_id: str | None = None,
@@ -297,6 +300,12 @@ class HistoryDao:
             ("task_id", task_id),
             ("jianpu_text", jianpu_text),
             ("ocr_text", ocr_text),
+            (
+                "text_attachments",
+                _dump_text_attachments(text_attachments)
+                if text_attachments is not None
+                else None,
+            ),
             ("svg_file_id", svg_file_id),
             ("overlay_svg_file_id", overlay_svg_file_id),
             ("overlay_file_id", overlay_file_id),
@@ -395,6 +404,7 @@ class HistoryDao:
             ("source_map_file_id", "TEXT NOT NULL DEFAULT ''"),
             ("text_hash", "TEXT NOT NULL DEFAULT ''"),
             ("text_anchors", "TEXT NOT NULL DEFAULT '[]'"),
+            ("text_attachments", "TEXT NOT NULL DEFAULT '[]'"),
         ):
             if column not in columns:
                 conn.execute(
@@ -467,6 +477,11 @@ class HistoryDao:
             musicxml_file_id=row["musicxml_file_id"],
             jianpu_text=row["jianpu_text"],
             ocr_text=row["ocr_text"] if "ocr_text" in row.keys() else "",
+            text_attachments=_load_text_attachments(
+                row["text_attachments"]
+                if "text_attachments" in row.keys()
+                else "[]"
+            ),
             svg_file_id=row["svg_file_id"],
             overlay_svg_file_id=row["overlay_svg_file_id"]
             if "overlay_svg_file_id" in row.keys()
@@ -575,3 +590,27 @@ def _load_text_anchors(payload: str) -> list[TextAnchor]:
         except ValueError:
             continue
     return anchors
+
+
+def _dump_text_attachments(items: list[SourceTextAttachment]) -> str:
+    return json.dumps(
+        [item.model_dump() for item in items],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _load_text_attachments(payload: str) -> list[SourceTextAttachment]:
+    try:
+        raw = json.loads(payload or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(raw, list):
+        return []
+    attachments: list[SourceTextAttachment] = []
+    for item in raw:
+        try:
+            attachments.append(SourceTextAttachment.model_validate(item))
+        except ValueError:
+            continue
+    return attachments

@@ -381,6 +381,7 @@ import {
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
 import { trackTextAnchors } from '../utils/textAnchorTracking'
+import { findNotePageIndex } from '../utils/jianpuPlayback'
 import {
   buildBatchRenderRequests,
   renderPageOcrTextsForRequest,
@@ -419,6 +420,11 @@ const jianpuEditorRef = ref<{ selectRange: (start: number, end: number) => boole
 const svgPreviewRef = ref<{ highlightSource: (sourceId: string) => boolean } | null>(null)
 const selectedSourceId = ref('')
 const renderSourcePageLookup = ref<Record<string, number>>({})
+interface NoteIndexRange {
+  start: number | null
+  end: number | null
+}
+const renderPageNoteIndexRanges = ref<NoteIndexRange[]>([])
 const clickableSourceIds = computed(() => {
   if (isViewingFinal.value && !finalSvgFileId.value) return []
   return [...new Set(store.textAnchors.map((anchor) => anchor.source_id))]
@@ -587,6 +593,27 @@ watch(() => store.currentPageIndex, () => {
   errorLine.value = -1
   if (!isViewingFinal.value) setFinalSvgFileIds(currentPageSvgIds())
   if (!isViewingFinal.value) flashCurrentPageSection('切换页面')
+})
+watch(currentNoteIndex, (index) => {
+  if (!isViewingFinal.value || index < 0) return
+  const ranges = renderPageNoteIndexRanges.value
+  let targetPage: number | null = null
+  if (ranges.length) {
+    const pageIndex = ranges.findIndex(
+      (range) =>
+        range.start !== null
+        && range.end !== null
+        && index >= range.start
+        && index <= range.end,
+    )
+    if (pageIndex >= 0) targetPage = pageIndex
+  }
+  if (targetPage === null) {
+    targetPage = findNotePageIndex(jianpuText.value, index)
+  }
+  if (targetPage !== null && targetPage !== finalRenderPageIndex.value) {
+    finalRenderPageIndex.value = targetPage
+  }
 })
 
 onMounted(() => {
@@ -1448,6 +1475,10 @@ async function loadRenderSourcePageLookup(pages: RenderedSvgPage[]): Promise<voi
     }
   }))
   renderSourcePageLookup.value = lookup
+  renderPageNoteIndexRanges.value = (pages ?? []).map((page) => ({
+    start: page.note_index_start ?? null,
+    end: page.note_index_end ?? null,
+  }))
 }
 
 function buildBatchRenderPages() {

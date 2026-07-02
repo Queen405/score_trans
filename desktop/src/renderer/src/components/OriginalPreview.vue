@@ -278,11 +278,28 @@ onUnmounted(() => {
 }
 
 .source-hit:hover,
-.source-hit:focus,
-.source-hit.selected {
+.source-hit:focus {
   fill: rgba(14, 165, 233, 0.16);
   stroke: rgba(2, 132, 199, 0.9);
   stroke-width: 2;
+}
+
+.source-hit.selected {
+  fill: rgba(245, 158, 11, 0.22);
+  stroke: rgba(217, 119, 6, 1);
+  stroke-width: 4;
+  animation: source-hit-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes source-hit-pulse {
+  0%, 100% {
+    stroke-opacity: 1;
+    fill-opacity: 0.22;
+  }
+  50% {
+    stroke-opacity: 0.6;
+    fill-opacity: 0.35;
+  }
 }
 
 .scan-img {

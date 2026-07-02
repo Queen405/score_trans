@@ -401,15 +401,39 @@ function clearPlaybackHighlight(): void {
 function highlightSource(sourceId: string): boolean {
   const svg = svgRoot()
   if (!svg || !sourceId) return false
+
+  svg.querySelectorAll('.source-highlight-box').forEach((node) => node.remove())
   svg.querySelectorAll('.source-current').forEach((node) => {
     node.classList.remove('source-current')
   })
+
   const target = Array.from(svg.querySelectorAll<SVGGElement>('.source-anchor'))
     .find((element) => (element.dataset.sourceIds ?? '').split(/\s+/).includes(sourceId))
   if (!target) return false
+
   target.classList.add('source-current')
+  addSourceHighlightBox(target)
   keepTargetVisible(target)
   return true
+}
+
+function addSourceHighlightBox(target: SVGGElement): void {
+  let box: DOMRect
+  try {
+    box = target.getBBox()
+  } catch {
+    return
+  }
+
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  rect.setAttribute('x', String(box.x - 4))
+  rect.setAttribute('y', String(box.y - 4))
+  rect.setAttribute('width', String(box.width + 8))
+  rect.setAttribute('height', String(box.height + 8))
+  rect.setAttribute('rx', '4')
+  rect.setAttribute('class', 'source-highlight-box')
+  rect.setAttribute('pointer-events', 'none')
+  target.appendChild(rect)
 }
 
 defineExpose({ highlightSource })
@@ -572,6 +596,12 @@ onUnmounted(() => {
 .svg-inline :deep(.playback-note.playback-current .staccato),
 .svg-inline :deep(.source-anchor.source-current .staccato) {
   fill: #d97706;
+}
+
+.svg-inline :deep(.source-highlight-box) {
+  fill: rgba(217, 119, 6, 0.12);
+  stroke: #d97706;
+  stroke-width: 2;
 }
 
 .svg-loading {

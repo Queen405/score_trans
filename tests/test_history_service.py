@@ -1,6 +1,10 @@
 import sqlite3
 
 from score_trans.models.history.entities import HistoryPage, HistoryRenderPageOcrText
+from score_trans.models.provenance.schemas import (
+    SourceTextAttachment,
+    TextPlacementAnchor,
+)
 from score_trans.services.history.history_service import HistoryService
 
 
@@ -23,15 +27,30 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
         page_id,
         jianpu_text="1=C\n4/4\n3 4 |",
         ocr_text='[{"text":"词","bbox":[1,2,3,4],"role":"lyric"}]',
+        text_attachments=[
+            SourceTextAttachment(
+                id="ocr-1",
+                text="词",
+                role="lyric",
+                anchor=TextPlacementAnchor(
+                    kind="source_element",
+                    source_id="s1:i9",
+                ),
+            )
+        ],
         svg_file_id="svg-new",
     )
 
     assert updated is not None
     assert updated.jianpu_text == "1=C\n4/4\n3 4 |"
     assert updated.ocr_text == '[{"text":"词","bbox":[1,2,3,4],"role":"lyric"}]'
+    assert updated.text_attachments[0].anchor.source_id == "s1:i9"
     assert updated.svg_file_id == "svg-new"
     assert service.get_batch(batch.id).pages[0].jianpu_text == updated.jianpu_text
     assert service.get_batch(batch.id).pages[0].ocr_text == updated.ocr_text
+    assert service.get_batch(batch.id).pages[0].text_attachments == (
+        updated.text_attachments
+    )
 
 
 def test_history_page_persists_background_task_id(tmp_path) -> None:

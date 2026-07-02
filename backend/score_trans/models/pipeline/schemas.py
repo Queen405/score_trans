@@ -9,7 +9,7 @@ from ..common.types import (
     TargetKey,
 )
 from ..render.schemas import RenderedSvgPage
-from ..provenance.schemas import TextAnchor
+from ..provenance.schemas import SourceTextAttachment, TextAnchor
 
 
 class PipelineByFileIdRequest(BaseModel):
@@ -35,4 +35,5 @@ class PipelineResponse(BaseModel):
     source_map_file_id: str | None = None
     overlay_svg_file_id: str | None = None
     text_anchors: list[TextAnchor] = []
+    text_attachments: list[SourceTextAttachment] = []
     text_hash: str = ""

@@ -8,6 +8,10 @@ import pytest
 from score_trans.domain.jianpu import jianpu_to_musicxml, parse_jianpu_score
 from score_trans.domain.musicxml import musicxml_to_score
 from score_trans.exec.render.actions import RenderActions, RenderJianpuTextAction
+from score_trans.models.provenance.schemas import (
+    SourceTextAttachment,
+    TextPlacementAnchor,
+)
 from score_trans.models.render.schemas import (
     BatchRenderRequest,
     BatchRenderPageRequest,
@@ -23,6 +27,7 @@ from score_trans.models.score import (
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 from score_trans.services.ocr.providers import MockOCRProvider
+from score_trans.services.render import RenderedA4FilePage
 from score_trans.services.render import RenderOptions
 from score_trans.services.render.main import (
     render_jianpu_a4_svgs,
@@ -571,6 +576,55 @@ def test_render_batch_a4_saved_page_ocr_overrides_source_suggestion(tmp_path) ->
     assert "识别文字" not in svg
 
 
+def test_render_batch_a4_places_structured_text_by_semantic_anchor(tmp_path) -> None:
+    actions = RenderActions(
+        uploads=UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    )
+    text = "1=C\n4/4\n" + ("1 2 3 4 |\n" * 90)
+    attachments = [
+        SourceTextAttachment(
+            id="title",
+            text="补充标题",
+            role="title",
+            anchor=TextPlacementAnchor(kind="score_start"),
+        ),
+        SourceTextAttachment(
+            id="middle",
+            text="中段提示",
+            role="expression",
+            anchor=TextPlacementAnchor(kind="source_relative", relative_y=0.55),
+        ),
+        SourceTextAttachment(
+            id="footer",
+            text="页脚信息",
+            role="footer",
+            anchor=TextPlacementAnchor(kind="score_end"),
+        ),
+    ]
+
+    response = actions.render_batch_a4(
+        BatchRenderRequest(
+            pages=[
+                BatchRenderPageRequest(
+                    jianpu_text=text,
+                    start_measure_number=1,
+                    text_attachments=attachments,
+                )
+            ]
+        )
+    )
+
+    assert len(response.pages) == 3
+    assert [block.text for block in response.pages[0].text_blocks] == ["补充标题"]
+    assert [block.text for block in response.pages[1].text_blocks] == ["中段提示"]
+    assert [block.text for block in response.pages[2].text_blocks] == ["页脚信息"]
+    assert "中段提示" in (
+        actions.uploads.get_path(response.pages[1].svg_file_id).read_text(
+            encoding="utf-8"
+        )
+    )
+
+
 def test_render_jianpu_text_page_runs_ocr_and_preserves_bbox(tmp_path) -> None:
     text_path = tmp_path / "score.txt"
     image_path = tmp_path / "score.png"
@@ -697,16 +751,15 @@ class RecordingTextRenderer:
         start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: str = "all",
-    ) -> list[Path]:
-        return [
-            self.execute(
-                input_path,
-                output_path,
-                title=title,
-                show_measure_numbers=show_measure_numbers,
-                measure_number_mode=measure_number_mode,
-            )
-        ]
+    ) -> list[RenderedA4FilePage]:
+        path = self.execute(
+            input_path,
+            output_path,
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+        )
+        return [RenderedA4FilePage(path=path, measure_ranges=[])]
 
 
 def test_render_jianpu_text_svg_preserves_editor_comments_in_response(tmp_path) -> None:

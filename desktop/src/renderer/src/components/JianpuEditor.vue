@@ -137,7 +137,7 @@ function selectRange(start: number, end: number): boolean {
   element.focus()
   element.setSelectionRange(start, end)
   const line = props.modelValue.slice(0, start).split('\n').length - 1
-  scrollLineIntoView(element, line)
+  triggerPageFlash(line)
   return true
 }
 

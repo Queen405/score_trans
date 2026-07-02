@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ..provenance.schemas import TextAnchor
+from ..provenance.schemas import SourceTextAttachment, TextAnchor
 
 
 class PageCreate(BaseModel):
@@ -12,6 +12,7 @@ class PageCreate(BaseModel):
     musicxml_file_id: str = ""
     jianpu_text: str = ""
     ocr_text: str = ""
+    text_attachments: list[SourceTextAttachment] = []
     svg_file_id: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
@@ -28,6 +29,7 @@ class PageUpdate(BaseModel):
     musicxml_file_id: str | None = None
     jianpu_text: str | None = None
     ocr_text: str | None = None
+    text_attachments: list[SourceTextAttachment] | None = None
     svg_file_id: str | None = None
     overlay_svg_file_id: str | None = None
     overlay_file_id: str | None = None
@@ -48,6 +50,7 @@ class PageResponse(BaseModel):
     musicxml_file_id: str
     jianpu_text: str
     ocr_text: str
+    text_attachments: list[SourceTextAttachment] = []
     svg_file_id: str
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""

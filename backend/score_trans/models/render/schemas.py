@@ -8,7 +8,7 @@ from ..common.types import (
     MeasureNumberMode,
     TargetKey,
 )
-from ..provenance.schemas import TextAnchor
+from ..provenance.schemas import RenderedTextBlock, SourceTextAttachment, TextAnchor
 
 
 class RenderPageMeasureRange(BaseModel):
@@ -30,6 +30,9 @@ class RenderedSvgPage(BaseModel):
     measure_ranges: list[RenderPageMeasureRange] = []
     ocr_text: str | None = None
     render_map_file_id: str | None = None
+    note_index_start: int | None = None
+    note_index_end: int | None = None
+    text_blocks: list[RenderedTextBlock] = []
 
 
 class RenderJianpuSvgRequest(BaseModel):
@@ -121,7 +124,9 @@ class BatchRenderPageRequest(BaseModel):
     jianpu_file_id: str | None = None
     input_file_name: str | None = None
     page_image_file_id: str | None = None
+    source_map_file_id: str | None = None
     ocr_text: str | None = None
+    text_attachments: list[SourceTextAttachment] = []
     include_ocr_text: bool = False
     start_measure_number: int | None = None
     title: str | None = None
