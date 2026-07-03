@@ -9,7 +9,7 @@ from ..accidentals import pitch_to_token
 from ..jianpu_tokens import duration_affixes
 from ..performance_marks import event_mark_ids, mark_token
 from ...models.common.types import AccidentalMode, normalize_instrument_profile
-from ...models.score import Event, JianpuPitch, JianpuScore
+from ...models.score import Event, JianpuPitch, JianpuScore, Measure
 from ...models.provenance.entities import JianpuDocument
 from ...models.provenance.schemas import TextAnchor
 
@@ -90,6 +90,33 @@ def scores_to_jianpu_document(
     )
 
 
+def _measure_lead_info(
+    measure: Measure,
+    current_key: str,
+    current_beats: int,
+    current_beat_type: int,
+) -> tuple[list[str], str, str, int, int]:
+    lead_tokens: list[str] = []
+    if measure.target_key != current_key:
+        lead_tokens.append(f"1={measure.target_key}")
+        current_key = measure.target_key
+    if (
+        measure.beats_per_measure != current_beats
+        or measure.beat_type != current_beat_type
+    ):
+        lead_tokens.append(f"{measure.beats_per_measure}/{measure.beat_type}")
+        current_beats = measure.beats_per_measure
+        current_beat_type = measure.beat_type
+    prefix = "|: " if measure.repeat_start else ""
+    return lead_tokens, prefix, current_key, current_beats, current_beat_type
+
+
+def _lead_skip_length(lead_tokens: list[str], prefix: str) -> int:
+    if not lead_tokens:
+        return len(prefix)
+    return len(prefix) + len(" ".join(lead_tokens)) + 1
+
+
 def _score_to_jianpu_text(
     score: JianpuScore,
     *,
@@ -120,17 +147,9 @@ def _score_to_jianpu_text(
     measures = []
     lyrics: list[str] = []
     for measure in score.measures:
-        measure_key = getattr(measure, "target_key", current_key)
-        measure_beats = getattr(measure, "beats_per_measure", current_beats)
-        measure_beat_type = getattr(measure, "beat_type", current_beat_type)
-        lead_tokens: list[str] = []
-        if measure_key != current_key:
-            lead_tokens.append(f"1={measure_key}")
-            current_key = measure_key
-        if measure_beats != current_beats or measure_beat_type != current_beat_type:
-            lead_tokens.append(f"{measure_beats}/{measure_beat_type}")
-            current_beats = measure_beats
-            current_beat_type = measure_beat_type
+        lead_tokens, prefix, current_key, current_beats, current_beat_type = (
+            _measure_lead_info(measure, current_key, current_beats, current_beat_type)
+        )
         events = measure.events
         tokens = []
         index = 0
@@ -164,7 +183,6 @@ def _score_to_jianpu_text(
             if event.lyric:
                 lyrics.append(event.lyric)
             index += 1
-        prefix = "|: " if getattr(measure, "repeat_start", False) else ""
         repeat_count = getattr(measure, "repeat_count", 1)
         repeat_suffix = f" *{repeat_count}" if repeat_count > 1 else ""
         suffix = " :|" if getattr(measure, "repeat_end", False) else ""
@@ -209,9 +227,16 @@ def _text_anchors_raw(
     anchors: list[TextAnchor] = []
     seen: set[tuple[str, int, int, str]] = set()
     line_offset = sum(len(line) for line in lines[:first_measure_line])
+    first_measure = score.measures[0]
+    current_key = first_measure.target_key
+    current_beats = first_measure.beats_per_measure
+    current_beat_type = first_measure.beat_type
     for measure_index, measure in enumerate(score.measures):
         line = lines[first_measure_line + measure_index].rstrip("\r\n")
-        event_cursor = 0
+        lead_tokens, prefix, current_key, current_beats, current_beat_type = (
+            _measure_lead_info(measure, current_key, current_beats, current_beat_type)
+        )
+        event_cursor = _lead_skip_length(lead_tokens, prefix)
         events = measure.events
         index = 0
         while index < len(events):

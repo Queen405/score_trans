@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from fractions import Fraction
 from pathlib import Path
 import struct
 
@@ -11,6 +12,7 @@ from score_trans.domain.write.jianpu_text import score_to_jianpu_document
 from score_trans.exec.render.actions import _tag_score_source_page
 from score_trans.models.history.entities import HistoryPage
 from score_trans.models.provenance.schemas import TextAnchor
+from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 from score_trans.services.overlay.overlay_service import OverlayService
 from score_trans.services.history.history_service import HistoryService
 from score_trans.services.render.drawing.beat import _render_item
@@ -180,3 +182,110 @@ def test_history_persists_current_provenance_snapshot(tmp_path: Path) -> None:
 def _utf16_slice(text: str, start: int, end: int) -> str:
     encoded = text.encode("utf-16-le")
     return encoded[start * 2 : end * 2].decode("utf-16-le")
+
+
+def _make_note_event(
+    degree: int,
+    source_id: str,
+    *,
+    dynamic: str | None = None,
+    dynamic_source_id: str | None = None,
+) -> Event:
+    roles: dict[str, list[str]] = {}
+    if dynamic and dynamic_source_id:
+        roles["dynamic"] = [dynamic_source_id]
+    return Event(
+        kind="note",
+        duration=Fraction(1, 1),
+        pitches=[JianpuPitch(degree=degree, source_id=source_id)],
+        dynamic=dynamic,
+        source_roles=roles,
+    )
+
+
+def _make_measure(
+    events: list[Event],
+    *,
+    target_key: str = "C",
+    beats_per_measure: int = 4,
+    beat_type: int = 4,
+    repeat_start: bool = False,
+) -> Measure:
+    return Measure(
+        source_number="1",
+        events=events,
+        target_key=target_key,
+        beats_per_measure=beats_per_measure,
+        beat_type=beat_type,
+        repeat_start=repeat_start,
+    )
+
+
+def test_baseline_no_lead_tokens_degree_one_anchor() -> None:
+    m1 = _make_measure([_make_note_event(1, "n1")], target_key="C")
+    score = JianpuScore(measures=[m1])
+    document = score_to_jianpu_document(score)
+
+    n1 = next(a for a in document.anchors if a.source_id == "n1")
+    assert _utf16_slice(document.text, n1.start_utf16, n1.end_utf16) == "1"
+    assert n1.start_utf16 == len("1=C\n4/4\n")
+
+
+def test_key_change_anchor_skips_lead_token() -> None:
+    m1 = _make_measure([_make_note_event(1, "n1")], target_key="C")
+    m2 = _make_measure([_make_note_event(1, "n2")], target_key="F")
+    score = JianpuScore(measures=[m1, m2])
+    document = score_to_jianpu_document(score)
+
+    n2 = next(a for a in document.anchors if a.source_id == "n2")
+    assert _utf16_slice(document.text, n2.start_utf16, n2.end_utf16) == "1"
+    assert document.text[n2.start_utf16 - 1] == " "
+
+
+def test_time_signature_change_anchor_skips_lead_token() -> None:
+    m1 = _make_measure([_make_note_event(3, "n1")], target_key="C")
+    m2 = _make_measure(
+        [_make_note_event(3, "n2")],
+        target_key="C",
+        beats_per_measure=3,
+        beat_type=4,
+    )
+    score = JianpuScore(measures=[m1, m2])
+    document = score_to_jianpu_document(score)
+
+    n2 = next(a for a in document.anchors if a.source_id == "n2")
+    assert _utf16_slice(document.text, n2.start_utf16, n2.end_utf16) == "3"
+    assert document.text[n2.start_utf16 - 1] == " "
+
+
+def test_multiple_lead_tokens_and_repeat_prefix_anchor() -> None:
+    m1 = _make_measure([_make_note_event(1, "n1")], target_key="C")
+    m2 = _make_measure(
+        [_make_note_event(1, "n2")],
+        target_key="F",
+        beats_per_measure=3,
+        beat_type=4,
+        repeat_start=True,
+    )
+    score = JianpuScore(measures=[m1, m2])
+    document = score_to_jianpu_document(score)
+
+    n2 = next(a for a in document.anchors if a.source_id == "n2")
+    assert _utf16_slice(document.text, n2.start_utf16, n2.end_utf16) == "1"
+    assert document.text[n2.start_utf16 - 1] == " "
+
+
+def test_dynamic_anchor_after_lead_token() -> None:
+    m1 = _make_measure([_make_note_event(1, "n1")], target_key="C")
+    m2 = _make_measure(
+        [_make_note_event(1, "n2", dynamic="f", dynamic_source_id="d2")],
+        target_key="F",
+    )
+    score = JianpuScore(measures=[m1, m2])
+    document = score_to_jianpu_document(score)
+
+    n2 = next(a for a in document.anchors if a.source_id == "n2")
+    d2 = next(a for a in document.anchors if a.source_id == "d2")
+    assert _utf16_slice(document.text, n2.start_utf16, n2.end_utf16) == "1"
+    assert _utf16_slice(document.text, d2.start_utf16, d2.end_utf16) == "\\f"
+    assert document.text[n2.start_utf16 - 1] == " "
