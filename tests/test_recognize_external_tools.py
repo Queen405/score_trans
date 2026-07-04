@@ -68,6 +68,47 @@ def test_recognize_with_audiveris_passes_original_input(
     assert not (output_dir / "_preprocessed").exists()
 
 
+def test_recognize_with_audiveris_enables_implicit_tuplets_by_default(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "scan.png"
+    output_dir = tmp_path / "omr"
+    source.write_bytes(b"png")
+    calls: list[list[str]] = []
+
+    def fake_run(args, cwd=None, env=None) -> CommandResult:
+        calls.append(args)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "scan.musicxml").write_text(
+            "<score-partwise/>",
+            encoding="utf-8",
+        )
+        return CommandResult(args=args, stdout="", stderr="")
+
+    monkeypatch.setattr(external_tools, "_run", fake_run)
+
+    recognize_with_audiveris(
+        source,
+        output_dir,
+        ToolConfig(audiveris_path="audiveris"),
+    )
+
+    implicit_setting = "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets=true"
+    assert ["-constant", implicit_setting] == calls[0][
+        calls[0].index(implicit_setting) - 1 : calls[0].index(implicit_setting) + 1
+    ]
+
+
+def test_configured_implicit_tuplets_override_is_preserved() -> None:
+    setting_name = "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets"
+    constants = external_tools._merged_audiveris_constants(
+        ToolConfig(audiveris_constants=f"{setting_name}=false")
+    )
+
+    assert f"{setting_name}=false" in constants
+    assert f"{setting_name}=true" not in constants
+
+
 def test_recognize_with_audiveris_merges_all_movements_in_order(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -149,6 +190,8 @@ def test_recognize_with_audiveris_applies_configured_java_omr_args(
         "-constant",
         "beta=two",
         "-constant",
+        "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets=true",
+        "-constant",
         "org.audiveris.omr.step.LoadStep.maxPixelCount=20000000",
         "-run",
         "org.example.CustomRunner",
@@ -194,6 +237,8 @@ def test_recognize_with_gradle_uses_configured_java_omr_args(
         ":app:run",
         "-PcmdLineArgs="
         "-batch,-step,PAGE,-save,-constant,alpha=1,"
+        "-constant,"
+        "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets=true,"
         "-constant,org.audiveris.omr.step.LoadStep.maxPixelCount=20000000,"
         f"-export,-score-trans-overlay,-output,{output_dir.resolve()},{source.resolve()}",
         "-PaudiverisMaxHeap=2g",

@@ -18,7 +18,71 @@ from score_trans.services.overlay.overlay_service import OverlayService
 from score_trans.services.history.history_service import HistoryService
 from score_trans.services.render.drawing.beat import _render_item
 from score_trans.services.render.items.factory import _event_to_item
+from score_trans.services.render.main import render_score_svg
 from score_trans.services.render.render_map import write_render_map
+
+
+def _unmarked_sextuplet_musicxml(group_count: int = 4) -> str:
+    notes: list[str] = []
+    for index in range(group_count * 6):
+        position = index % 6
+        beam_status = (
+            "begin" if position == 0 else "end" if position == 5 else "continue"
+        )
+        dotted = index == 3
+        notes.append(
+            f"""
+            <note id="st__n-s1-i{100 + index}">
+              <pitch><step>{"B" if position in {0, 4} else "A"}</step><octave>4</octave></pitch>
+              <duration>{9 if dotted else 6}</duration>
+              <voice>1</voice><type>16th</type>{"<dot/>" if dotted else ""}
+              <beam number="1">{beam_status}</beam>
+              <beam number="2">{beam_status}</beam>
+            </note>
+            """
+        )
+    return f"""
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>24</divisions>
+          <key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        {"".join(notes)}
+      </measure></part>
+    </score-partwise>
+    """
+
+
+def test_partial_six_note_beam_pattern_is_not_inferred_as_sextuplet() -> None:
+    score = musicxml_to_score(_unmarked_sextuplet_musicxml(group_count=1))
+
+    assert all(event.tuplet_count is None for event in score.measures[0].events)
+
+
+def test_unmarked_complete_sextuplet_beams_restore_text_render_and_provenance() -> None:
+    score = musicxml_to_score(_unmarked_sextuplet_musicxml())
+    events = score.measures[0].events
+    document = score_to_jianpu_document(score)
+    svg = render_score_svg(score)
+
+    group_ids = [event.tuplet_id for event in events]
+    assert len(events) == 24
+    assert all(event.duration == Fraction(1, 6) for event in events)
+    assert all(event.tuplet_count == 6 for event in events)
+    assert [group_ids.count(group_ids[index]) for index in range(0, 24, 6)] == [
+        6,
+        6,
+        6,
+        6,
+    ]
+    assert document.text.count("$") == 8
+    assert svg.count('class="tuplet-bracket"') == 4
+    assert {f"s1:i{100 + index}" for index in range(24)} <= {
+        anchor.source_id for anchor in document.anchors
+    }
 
 
 def test_musicxml_provenance_produces_exact_utf16_anchors() -> None:

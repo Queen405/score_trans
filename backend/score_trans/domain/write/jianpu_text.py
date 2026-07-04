@@ -275,6 +275,8 @@ def _text_anchors_raw(
                         accidental_mode,
                     )
                     event_cursor = position + len(token)
+                if group_close >= 0:
+                    event_cursor = group_close + 1
                 index += len(group)
                 continue
 

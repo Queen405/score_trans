@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 import re
@@ -42,6 +43,15 @@ from ...models.score import (
 _PROVENANCE_PART_RE = re.compile(
     r"(?:^|__)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-i(?P<inter>\d+)"
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _InferredTupletNote:
+    duration: Fraction
+    group_id: str
+    index: int
+    count: int = 6
+    normal_count: int = 4
 
 
 def musicxml_path_to_scores(
@@ -435,6 +445,13 @@ def _read_measure_events(
     last_event: Event | None = None
     cursor = Fraction(0, 1)
     pending_dynamics: list[tuple[Fraction, str]] = []
+    inferred_tuplets = _infer_unmarked_sextuplets(
+        xml_measure,
+        ns,
+        divisions,
+        measure.beats_per_measure,
+        measure.beat_type,
+    )
     for child in list(xml_measure):
         tag = _local_name(child.tag)
         if tag == "backup":
@@ -461,7 +478,15 @@ def _read_measure_events(
             continue
 
         note = child
-        duration = Fraction(int(_text(note.find(_q(ns, "duration"))) or 0), divisions)
+        inferred_tuplet = inferred_tuplets.get(note)
+        duration = (
+            inferred_tuplet.duration
+            if inferred_tuplet is not None
+            else Fraction(
+                int(_text(note.find(_q(ns, "duration"))) or 0),
+                divisions,
+            )
+        )
         if duration <= 0:
             duration = Fraction(1, 1)
 
@@ -494,7 +519,9 @@ def _read_measure_events(
                 provenance, "accidental"
             )
         _merge_event_provenance(event, provenance)
-        event.dotted = len(note.findall(_q(ns, "dot")))
+        event.dotted = (
+            0 if inferred_tuplet is not None else len(note.findall(_q(ns, "dot")))
+        )
         event.tie_start = any(
             tie.get("type") == "start" for tie in note.findall(_q(ns, "tie"))
         )
@@ -549,6 +576,20 @@ def _read_measure_events(
             normal_notes = _text(time_modification.find(_q(ns, "normal-notes")))
             if normal_notes and normal_notes.isdigit():
                 event.tuplet_normal_count = int(normal_notes)
+        if inferred_tuplet is not None:
+            event.tuplet_id = inferred_tuplet.group_id
+            event.tuplet_count = inferred_tuplet.count
+            event.tuplet_normal_count = inferred_tuplet.normal_count
+            event.tuplet_index = inferred_tuplet.index
+            event.tuplet_start = inferred_tuplet.index == 0
+            event.tuplet_stop = inferred_tuplet.index == inferred_tuplet.count - 1
+            event.tuplet_spans = [
+                TupletSpan(
+                    id=inferred_tuplet.group_id,
+                    start=event.tuplet_start,
+                    stop=event.tuplet_stop,
+                )
+            ]
         dynamic = _pending_dynamic_for_event(pending_dynamics, cursor)
         if dynamic is not None:
             pending_dynamics = [
@@ -572,6 +613,107 @@ def _read_measure_events(
         measure.events.append(event)
         last_event = event
         cursor += duration
+
+
+def _infer_unmarked_sextuplets(
+    xml_measure: ET.Element,
+    ns: str,
+    divisions: int,
+    beats: int,
+    beat_type: int,
+) -> dict[ET.Element, _InferredTupletNote]:
+    if divisions <= 0 or beats <= 0 or beat_type != 4:
+        return {}
+
+    notes_by_voice: dict[str, list[ET.Element]] = {}
+    for note in xml_measure.findall(_q(ns, "note")):
+        if note.find(_q(ns, "chord")) is not None:
+            continue
+        voice = _text(note.find(_q(ns, "voice"))) or "1"
+        notes_by_voice.setdefault(voice, []).append(note)
+
+    inferred: dict[ET.Element, _InferredTupletNote] = {}
+    for voice, notes in notes_by_voice.items():
+        if any(
+            note.find(_q(ns, "time-modification")) is not None
+            or note.find(f"{_q(ns, 'notations')}/{_q(ns, 'tuplet')}") is not None
+            for note in notes
+        ):
+            continue
+        groups = _complete_six_note_beam_groups(notes, ns)
+        if groups is None or len(groups) != beats:
+            continue
+
+        notated_duration = Fraction(1, 4)
+        allowed_raw_durations = {
+            notated_duration,
+            notated_duration * Fraction(3, 2),
+        }
+        raw_durations = [
+            Fraction(
+                int(_text(note.find(_q(ns, "duration"))) or 0),
+                divisions,
+            )
+            for group in groups
+            for note in group
+        ]
+        expected_duration = Fraction(beats, 1)
+        if (
+            any(duration not in allowed_raw_durations for duration in raw_durations)
+            or sum(raw_durations, start=Fraction(0, 1)) <= expected_duration
+        ):
+            continue
+
+        actual_duration = notated_duration * Fraction(4, 6)
+        if actual_duration * 6 * len(groups) != expected_duration:
+            continue
+        measure_number = xml_measure.get("number", "")
+        for group_index, group in enumerate(groups):
+            group_id = f"{measure_number}:implicit-6:{voice}:{group_index}"
+            for event_index, note in enumerate(group):
+                inferred[note] = _InferredTupletNote(
+                    duration=actual_duration,
+                    group_id=group_id,
+                    index=event_index,
+                )
+    return inferred
+
+
+def _complete_six_note_beam_groups(
+    notes: list[ET.Element],
+    ns: str,
+) -> list[list[ET.Element]] | None:
+    groups: list[list[ET.Element]] = []
+    current: list[ET.Element] = []
+    for note in notes:
+        if _text(note.find(_q(ns, "type"))) != "16th":
+            return None
+        first_beam = _beam_status(note, ns, "1")
+        second_beam = _beam_status(note, ns, "2")
+        if first_beam != second_beam:
+            return None
+        if first_beam == "begin":
+            if current:
+                return None
+            current = [note]
+        elif first_beam == "continue" and current:
+            current.append(note)
+        elif first_beam == "end" and current:
+            current.append(note)
+            if len(current) != 6:
+                return None
+            groups.append(current)
+            current = []
+        else:
+            return None
+    return groups if groups and not current else None
+
+
+def _beam_status(note: ET.Element, ns: str, number: str) -> str | None:
+    for beam in note.findall(_q(ns, "beam")):
+        if (beam.get("number") or "1") == number:
+            return (_text(beam) or "").casefold()
+    return None
 
 
 def _note_provenance(note: ET.Element) -> dict[str, list[str]]:

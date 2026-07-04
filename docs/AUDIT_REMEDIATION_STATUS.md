@@ -19,7 +19,7 @@
 
 | 门禁 | 结果 |
 |---|---|
-| 后端全量测试 | 415 passed，1 skipped |
+| 后端全量测试 | 422 passed，1 skipped |
 | 前端 ESLint | 0 error，1 个 `vue/no-v-html` warning |
 | 前端 TypeScript | 通过 |
 | 前端工具测试 | 62 passed，1 skipped |
@@ -35,7 +35,7 @@
 | 音乐理论与 MusicXML | 第 2 章全部完成（2.1–2.13） |
 | 架构违规 | 第 3 章全部完成（3.1–3.4） |
 | 安全问题 | 第 4 章全部闭环（4.4 不成立）；4.6a MusicXML DOCTYPE 兼容回归已修复 |
-| 功能缺陷 | 5.1–5.8 全部完成 |
+| 功能缺陷 | 5.1–5.8 全部完成；5.4a/5.4b 真实连音渲染、识别与映射缺口已补齐 |
 | 前端问题 | 6.1 已完成；按用户要求停在 6.2 开始前 |
 | 代码质量 | 待处理 |
 | 测试覆盖 | 待处理 |
@@ -307,6 +307,112 @@ lockfile 只包含预期变化。
 没有无结论条目。
 
 ## 最近完成工作包
+
+### 5.4b Audiveris 六连音漏组与跨谱点击失效
+
+状态：已完成（2026-07-04）
+
+真实样本：
+
+- 原始图片：`月亮之上-Fl. 1 2_page_001.png`。
+- 用户所指批次：page_002 MXL 时间 09:43:47；同批 page_001 MXL 时间 09:43:51。
+
+逐层诊断：
+
+- 原图第 1–8 小节每小节确有 4 组六连音，共 24 个音。
+- Audiveris overlay/link map 也检测到这些 notehead；第一行两个小节共有 48 个
+  notehead。
+- 旧 MXL 每小节只导出前三组 18 个音，而且没有 `time-modification` / `tuplet`。
+  第一行 48 个 notehead 中只有 36 个能在 MXL 找到，缺少的 12 个正好是两个小节的
+  第四组。
+- Audiveris 日志在第 1–9 小节报告 `no correct rhythm`，并从 slot 19 起报告
+  `No timeOffset`，随后将 voice 标为 `excess`；未分配时间的第四组没有进入 MXL。
+- 即使补回事件，Jianpu provenance 扫描在处理完一个 `$...$` 后没有越过结束 `$`，
+  会把它误当成下一组开始符，因此后续组的 source id 没有文本 anchor；这解释了
+  “左侧点到音符、右侧没有响应”。
+
+实际修改：
+
+1. 自动化 Audiveris 默认增加
+   `org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets=true`，使节奏推断在
+   无人工 UI 的批处理模式下启用；用户在高级 constants 中显式配置 true/false 时
+   保留其覆盖值，不重复追加。
+2. 对 Audiveris 仍未标记的极窄样例做保守恢复：仅当 4/4 小节由 4 个完整双 beam
+   组组成、每组恰好 6 个 16th、原始时值超拍、按 6:4 恢复后恰好填满 4 拍时，
+   才生成四个六连音组。组内偶发的错误附点按统一 16th 记谱时值归一。
+3. 每个 `$...$` provenance 组完成后把扫描游标移动到结束 `$` 之后，保证第二至
+   第四组的全部 source id 都能生成 anchor。
+
+防误判边界：
+
+- 不完整 beam 组、只有一个六音组、非 4/4、混合 note type、已有显式
+  time-modification/tuplet、原始时值未超拍时均不推断。
+- note/rest、显式连音和多声部既有解析路径不被覆盖。
+
+真实原图重跑：
+
+- 第 1–8 小节均恢复为 24 个 pitched Event、4 个独立六连音组，每组 6 音。
+- 每小节总时值精确为 4 拍，validation error 为空。
+- 8 个小节共 192 个 note source id 全部生成 anchor（逐小节 24/24）。
+- 简谱文本逐小节输出 4 个 `$...$`，结构化渲染成功生成 2 页 A4 SVG。
+
+测试：
+
+- 两个旧实现红灯分别复现“未默认启用隐式连音”和“完整 beam 组未恢复”；修复后通过。
+- 新增高级配置覆盖、完整四组六连音、错误附点、负向不完整 beam、四组
+  provenance/SVG 测试：4 passed。
+- recognize、overlay、convert、Jianpu、provenance、render、pipeline、architecture
+  组合：245 passed。
+- Ruff format/check：通过。
+- 随机临时数据根下后端全量：422 passed、1 skipped；仅保留既有
+  Starlette TestClient/httpx 弃用 warning。
+
+新发现但未混入本修复：
+
+- Audiveris 把第一页第一个打印的六连音数字“6”以较低置信度识别成第二声部
+  `ONE_16TH_REST`。它不是第四组丢失的原因，也不是本修复引入；不能通过全局删除
+  第二声部休止符处理，否则会破坏真实复调谱。已保留为后续 OMR 语义校正项。
+
+### 5.4a 结构化连音实际时值无法渲染
+
+状态：已完成（2026-07-04）
+
+问题与根因：
+
+- 4.6a 恢复 MXL 读取后，用户在同一真实任务的下一阶段遇到
+  “无法用简谱时值语法表示时值：1/3”。
+- Audiveris 文件中的四组三连音数据完整：每组都有 `time-modification 3:2` 和
+  `<tuplet start/stop>`；MusicXML→简谱文本也正确输出四个 `$...$` 连音组。
+- pipeline 为保留来源映射，会直接把 MusicXML 解析得到的结构化 `JianpuScore`
+  交给 renderer。此类 Event 没有文本 `source_token`，renderer 错把三连音的实际
+  播放时值 `1/3` 当成普通简谱时值编码，因而失败。
+- 这是此前未覆盖的结构化 score 渲染缺口，由 4.6a 打通前一阶段后暴露，并非 4.6a
+  改坏了连音解析。
+
+实际修改：
+
+- renderer 为无 `source_token` 的 Event 生成 token 时，如果属于连音组，先用
+  `duration × actual-notes / normal-notes` 还原可记谱时值，再生成时值前后缀。
+- note 与 rest 使用同一路径；普通非连音 Event 和已有文本 `source_token` 行为不变。
+- 缺失 `normal-notes` 时沿用项目既有的最近低位二次幂规则；非法非正连音数量给出
+  明确错误，不再产生除零或晦涩异常。
+
+真实文件验证：
+
+- `月亮之上-Fl. 1 2_page_002.mxl` 成功生成 2 页 A4 SVG。
+- 四组三连音全部输出 bracket 和数字 `3`；生成的简谱文本保持四个 `$...$` 组。
+
+测试：
+
+- 新增结构化 score 回归覆盖普通三连音、含休止符三连音、显式较短时值三连音；
+  旧实现 3 failed，修复后 3 passed。
+- render 专项：86 passed。
+- convert、Jianpu、render、provenance、pipeline、architecture 组合：222 passed。
+- Ruff format/check：通过。
+- 随机临时数据根下后端全量：418 passed、1 skipped；仅保留既有
+  Starlette TestClient/httpx 弃用 warning。
+
+未发现本修复引入的新问题。
 
 ### 4.6a Audiveris MusicXML DOCTYPE 兼容回归
 
@@ -1364,6 +1470,14 @@ IPC 字符串的测试写法；这是测试夹具问题，不是产品新缺陷�
 - 4.6 XML 安全加固误拒绝 Audiveris 标准 MusicXML `PUBLIC DOCTYPE`，导致真实 `.mxl`
   识别结果无法读取。已作为 4.6a 修复：只在 MusicXML 边界接受并剥离严格匹配的标准
   声明，危险 DTD/ENTITY 继续拒绝；不存在未关闭的后续问题。
+- 4.6a 打通读取后暴露 renderer 的既有结构化连音缺口：无 `source_token` 的三连音
+  Event 把实际时值 `1/3` 送入普通时值编码。已作为 5.4a 修复，以
+  `actual-notes / normal-notes` 还原记谱时值，note/rest 和显式时值连音均有回归。
+- 真实 page_001 暴露 Audiveris 批处理默认关闭隐式连音、错误节奏丢弃第四组六连音，
+  以及 `$...$` provenance 游标未越过闭合符三个问题；已作为 5.4b 完成源头配置、
+  保守 6:4 恢复和全组 anchor 修复。
+- page_001 第一个打印的“6”另被 Audiveris 低置信度识别为第二声部十六分休止符。
+  该问题仍开放，后续应在 OMR 图关系/空间语义层修正，不能全局删除第二声部休止符。
 
 以下是制定方案时对审计报告的复核结果，尚未计为新增缺陷：
 
@@ -1546,6 +1660,22 @@ IPC 字符串的测试写法；这是测试夹具问题，不是产品新缺陷�
 | 2026-07-04 | 4.6a 组合回归 | `pytest tests/test_safe_xml.py tests/test_architecture.py tests/test_convert.py tests/test_recognize_external_tools.py tests/test_overlay.py tests/test_render.py -q`（随机临时数据根） | 150 passed |
 | 2026-07-04 | 4.6a Ruff | `ruff format` + `ruff check`（本工作包文件） | 通过 |
 | 2026-07-04 | 4.6a 后端全量 | `pytest -q`（随机临时 `SCORE_TRANS_DATA_DIR`） | 415 passed、1 skipped、1 个既有 warning |
+| 2026-07-04 | 5.4a 真实故障复现 | 09:43 MXL：生成文档后直接 `render_score_svg` / `render_scores_a4_svgs` | 两条结构化渲染路径均复现 `duration=1/3` 错误 |
+| 2026-07-04 | 5.4a 红灯测试 | `pytest tests/test_render.py -q -k "structured_tuplets_without_source_tokens"`（修复前） | 3 failed |
+| 2026-07-04 | 5.4a 连音专项 | 同上（修复后） | 3 passed |
+| 2026-07-04 | 5.4a 真实文件回归 | 09:43 page_002：document + structured SVG + A4 render | 2 页 A4；4 个 bracket、4 个连音数字 |
+| 2026-07-04 | 5.4a render 专项 | `pytest tests/test_render.py -q`（随机临时数据根） | 86 passed |
+| 2026-07-04 | 5.4a 组合回归 | `pytest tests/test_convert.py tests/test_jianpu.py tests/test_render.py tests/test_provenance.py tests/test_pipeline.py tests/test_architecture.py -q`（随机临时数据根） | 222 passed |
+| 2026-07-04 | 5.4a Ruff | `ruff format` + `ruff check`（本工作包文件） | 通过 |
+| 2026-07-04 | 5.4a 后端全量 | `pytest -q`（随机临时 `SCORE_TRANS_DATA_DIR`） | 418 passed、1 skipped、1 个既有 warning |
+| 2026-07-04 | 5.4b 真实旧产物诊断 | 09:43 page_001 PNG/MXL/OMR/link-map/log 五层对账 | 原图/overlay 24 音；旧 MXL 18 音；第四组 6 个 source id 全部无 MXL 目标 |
+| 2026-07-04 | 5.4b Audiveris 隔离探针 | 原图启用 `implicitTuplets=true` 重跑 | 第 1/2/4/5/7 小节恢复 24 音和四个 6:4 组；第 3/6/8 小节恢复 24 音但受错误附点影响仍无标记 |
+| 2026-07-04 | 5.4b 红灯测试 | implicit default + 完整未标记 sextuplet beam | 2 failed（预期） |
+| 2026-07-04 | 5.4b 专项回归 | default/override、完整/不完整 beam、provenance/render | 4 passed |
+| 2026-07-04 | 5.4b 真实原图重跑 | 新 Audiveris 默认 + MusicXML 保守恢复 + document/render | 第 1–8 小节均 24 音、4 组、4 拍、24/24 anchors；2 页 A4 SVG |
+| 2026-07-04 | 5.4b 组合回归 | `pytest tests/test_recognize_external_tools.py tests/test_overlay.py tests/test_convert.py tests/test_jianpu.py tests/test_provenance.py tests/test_render.py tests/test_pipeline.py tests/test_architecture.py -q`（随机临时数据根） | 245 passed |
+| 2026-07-04 | 5.4b Ruff | `ruff format` + `ruff check`（本工作包文件） | 通过 |
+| 2026-07-04 | 5.4b 后端全量 | `pytest -q`（随机临时 `SCORE_TRANS_DATA_DIR`） | 422 passed、1 skipped、1 个既有 warning |
 
 ## 变更日志
 
@@ -1561,6 +1691,14 @@ IPC 字符串的测试写法；这是测试夹具问题，不是产品新缺陷�
   同时保持内部实体和非标准 DTD 拒绝策略。
 - 用用户刚失败的两页 `.mxl` 完成真实回归，并将后端基线更新为
   415 passed、1 skipped。
+- 继续处理同一真实任务暴露的 5.4a：结构化 MusicXML score 的三连音实际时值改为
+  按 time-modification 还原记谱时值后渲染。
+- 09:43 的 page_002 已真实生成 2 页 A4 SVG，后端基线更新为
+  418 passed、1 skipped。
+- 完成 5.4b：真实 page_001 的第 1–8 小节均恢复四组六连音及全部跨谱点击 anchor；
+  后端基线更新为 422 passed、1 skipped。
+- 记录打印“6”被误识别为第二声部十六分休止符的独立 OMR 语义问题，未用危险的
+  全局 voice/rest 过滤混入本次修复。
 
 ### 2026-07-03
 

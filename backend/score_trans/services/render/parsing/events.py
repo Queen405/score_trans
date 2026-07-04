@@ -7,12 +7,37 @@ from ....models.score import JianpuEvent, JianpuPitch
 
 
 def _event_token(event: JianpuEvent) -> str:
-    pitches = sorted(event.pitches, key=lambda pitch: pitch.rank, reverse=True)
-    tokens = [_pitch_token(pitch) for pitch in pitches]
-    prefix, suffix = duration_affixes(event.duration)
-    if len(tokens) > 1:
-        return prefix + "[" + "+".join(tokens) + "]" + suffix
-    return prefix + tokens[0] + suffix if tokens else "?"
+    if event.kind == "rest":
+        body = "0"
+    else:
+        pitches = sorted(event.pitches, key=lambda pitch: pitch.rank, reverse=True)
+        tokens = [_pitch_token(pitch) for pitch in pitches]
+        body = (
+            "[" + "+".join(tokens) + "]"
+            if len(tokens) > 1
+            else tokens[0]
+            if tokens
+            else "?"
+        )
+    prefix, suffix = duration_affixes(_notated_duration(event))
+    return prefix + body + suffix
+
+
+def _notated_duration(event: JianpuEvent) -> Fraction:
+    actual_count = event.tuplet_count
+    if actual_count is None:
+        return event.duration
+    if actual_count <= 0:
+        raise ValueError("连音组的实际音符数必须大于零")
+
+    normal_count = event.tuplet_normal_count
+    if normal_count is None:
+        normal_count = 1
+        while normal_count * 2 <= actual_count:
+            normal_count *= 2
+    if normal_count <= 0:
+        raise ValueError("连音组的常规音符数必须大于零")
+    return event.duration * Fraction(actual_count, normal_count)
 
 
 def _pitch_token(pitch: JianpuPitch) -> str:

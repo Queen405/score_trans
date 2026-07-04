@@ -4,15 +4,11 @@ from fractions import Fraction
 
 from ....models.score import JianpuEvent
 from ..models.layout import RenderItem
-from ..parsing.events import _duration_token, _event_token
+from ..parsing.events import _event_token
 
 
 def _event_to_item(event: JianpuEvent) -> RenderItem:
-    token = event.source_token or (
-        _duration_token("0", event.duration)
-        if event.kind == "rest"
-        else _event_token(event)
-    )
+    token = event.source_token or _event_token(event)
     return RenderItem(
         token=token,
         duration=event.duration,

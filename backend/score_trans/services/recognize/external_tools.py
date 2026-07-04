@@ -256,11 +256,14 @@ def _validated_max_pixel_count(config: ToolConfig) -> str:
 
 
 _MAX_PIXEL_COUNT_QNAME = "org.audiveris.omr.step.LoadStep.maxPixelCount"
+_IMPLICIT_TUPLETS_QNAME = "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets"
 
 
 def _merged_audiveris_constants(config: ToolConfig) -> list[str]:
     constants = _split_audiveris_constants(config.audiveris_constants)
     constants = [c for c in constants if not _is_max_pixel_count_entry(c)]
+    if not any(_is_implicit_tuplets_entry(c) for c in constants):
+        constants.append(f"{_IMPLICIT_TUPLETS_QNAME}=true")
     pixel_count = _validated_max_pixel_count(config)
     if pixel_count:
         constants.append(f"{_MAX_PIXEL_COUNT_QNAME}={pixel_count}")
@@ -270,6 +273,11 @@ def _merged_audiveris_constants(config: ToolConfig) -> list[str]:
 def _is_max_pixel_count_entry(entry: str) -> bool:
     key = entry.split("=", 1)[0].strip().lower()
     return key == "maxpixelcount" or key.endswith(".maxpixelcount")
+
+
+def _is_implicit_tuplets_entry(entry: str) -> bool:
+    key = entry.split("=", 1)[0].strip().casefold()
+    return key == _IMPLICIT_TUPLETS_QNAME.casefold()
 
 
 def _split_extra_args(raw: str) -> list[str]:
