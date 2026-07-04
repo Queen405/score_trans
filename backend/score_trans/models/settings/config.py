@@ -19,3 +19,5 @@ class ToolConfig:
     audiveris_extra_args: str = ""
     audiveris_max_heap: str = "2g"
     audiveris_max_pixel_count: str = "20000000"
+    audiveris_auto_upscale: bool = True
+    audiveris_min_image_edge: int = 2500

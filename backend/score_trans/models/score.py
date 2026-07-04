@@ -221,6 +221,10 @@ class JianpuScore:
     part_index: int = 0
     part_name: str = ""
     part_count: int = 1
+    page_index: int = 0
+    page_count: int = 1
+    page_input_file_name: str = ""
+    page_start_measure: int | None = None
 
     @property
     def measure_duration(self) -> Fraction:

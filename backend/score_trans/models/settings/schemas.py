@@ -5,7 +5,11 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
 
-from score_trans.models.common.types import AccidentalMode, MeasureNumberMode, TargetKeyOrAuto
+from score_trans.models.common.types import (
+    AccidentalMode,
+    MeasureNumberMode,
+    TargetKeyOrAuto,
+)
 
 
 class LlmProviderOption(BaseModel):
@@ -22,6 +26,8 @@ class SettingsResponse(BaseModel):
     java_home: str
     audiveris_max_heap: str = "2g"
     audiveris_max_pixel_count: str = "20000000"
+    audiveris_auto_upscale: bool = True
+    audiveris_min_image_edge: int = 2500
     data_dir: str
     cache_dir: str
     cache_size_bytes: int = 0
@@ -55,6 +61,8 @@ class SettingsUpdateRequest(BaseModel):
     java_home: str | None = None
     audiveris_max_heap: Literal["1g", "2g", "3g", "4g"] | None = None
     audiveris_max_pixel_count: str | None = None
+    audiveris_auto_upscale: bool | None = None
+    audiveris_min_image_edge: int | None = Field(default=None, ge=0, le=10000)
     output_dir: str | None = None
     target_key: TargetKeyOrAuto | None = None
     accidental_mode: AccidentalMode | None = None

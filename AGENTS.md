@@ -98,5 +98,7 @@ Configured via `.env` or environment. See `backend/score_trans/config/env.exampl
 Key variables:
 - `SCORE_TRANS_AUDIVERIS` — Audiveris path (default: `third_party/audiveris/gradlew.bat`)
 - `SCORE_TRANS_JAVA_HOME` — JDK 25 path for Audiveris
+- `SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE` — auto-upscale low-res raster images before OMR (default: `1`)
+- `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE` — target long-edge pixel count for preventive upscale (default: `2500`)
 - `SCORE_TRANS_OCR_API_KEY` / `SCORE_TRANS_OCR_BASE_URL` / `SCORE_TRANS_OCR_MODEL`
 - `SCORE_TRANS_AI_API_KEY` / `SCORE_TRANS_AI_BASE_URL` / `SCORE_TRANS_AI_MODEL`

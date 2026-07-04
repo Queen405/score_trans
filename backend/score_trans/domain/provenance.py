@@ -65,6 +65,7 @@ def _event_for_anchor(events: list[Event], anchor: TextAnchor) -> Event | None:
         "technical",
         "dynamic",
         "slur",
+        "tie",
         "tuplet",
     }:
         return next(

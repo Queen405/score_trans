@@ -15,8 +15,19 @@ from ...models.common.errors import ExternalToolError
 from ...models.common.paths import PROJECT_ROOT
 from ...models.settings.config import ToolConfig
 from ...utils.safe_xml import UnsafeXmlError, safe_xml_fromstring
+from .image_preprocess import (
+    ensure_min_resolution,
+    is_pdf,
+    is_raster_image,
+    parse_low_interline,
+    retry_scale_from_interline,
+    upscale_by_factor,
+)
 
 _MOVEMENT_STEM_PATTERN = re.compile(r"^(?P<base>.+)\.mvt(?P<number>\d+)$", re.I)
+
+_RESCALE_MIN_EDGE_FALLBACK = 2500
+_RESCALE_MAX_PIXELS_FALLBACK = 20_000_000
 
 
 @dataclass(slots=True)
@@ -63,6 +74,25 @@ def recognize_with_audiveris(
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    effective_input, preprocessed_path = _apply_preventive_upscale(
+        input_file, output_dir, config
+    )
+
+    try:
+        _run_audiveris(effective_input, output_dir, config)
+    except ExternalToolError as first_error:
+        retry_path = _maybe_retry_after_low_interline(
+            first_error, effective_input, output_dir, config
+        )
+        if retry_path is None:
+            raise
+        _run_audiveris(retry_path, output_dir, config)
+        effective_input = retry_path
+
+    return _select_musicxml_output(output_dir, effective_input)
+
+
+def _run_audiveris(input_file: Path, output_dir: Path, config: ToolConfig) -> None:
     audiveris_path = Path(config.audiveris_path)
     env = _java_env(config)
     audiveris_args = _audiveris_args(input_file, output_dir, config)
@@ -78,6 +108,8 @@ def recognize_with_audiveris(
         args = [config.audiveris_path or "audiveris", *audiveris_args]
         _run(args, env=env)
 
+
+def _select_musicxml_output(output_dir: Path, input_file: Path) -> Path:
     candidates = (
         sorted(output_dir.rglob("*.musicxml"))
         + sorted(output_dir.rglob("*.mxl"))
@@ -92,6 +124,65 @@ def recognize_with_audiveris(
         _merge_movement_musicxml(movements, merged_path)
         return merged_path
     return candidates[0]
+
+
+def _apply_preventive_upscale(
+    input_file: Path, output_dir: Path, config: ToolConfig
+) -> tuple[Path, Path | None]:
+    if not getattr(config, "audiveris_auto_upscale", True):
+        return input_file, None
+    if not is_raster_image(input_file):
+        return input_file, None
+    min_edge = getattr(config, "audiveris_min_image_edge", _RESCALE_MIN_EDGE_FALLBACK)
+    max_pixels = _max_pixels_or_default(config)
+    try:
+        upscaled = ensure_min_resolution(
+            input_file,
+            output_dir,
+            min_edge=min_edge,
+            max_pixels=max_pixels,
+        )
+    except Exception:
+        return input_file, None
+    if upscaled is None:
+        return input_file, None
+    return upscaled, upscaled
+
+
+def _maybe_retry_after_low_interline(
+    error: ExternalToolError,
+    input_file: Path,
+    output_dir: Path,
+    config: ToolConfig,
+) -> Path | None:
+    if not getattr(config, "audiveris_auto_upscale", True):
+        return None
+    if not is_raster_image(input_file) or is_pdf(input_file):
+        return None
+    measured = parse_low_interline(str(error))
+    if measured is None or measured <= 0:
+        return None
+    factor = retry_scale_from_interline(measured)
+    if factor <= 1.0:
+        return None
+    max_pixels = _max_pixels_or_default(config)
+    try:
+        return upscale_by_factor(
+            input_file,
+            output_dir,
+            factor=factor,
+            max_pixels=max_pixels,
+        )
+    except Exception:
+        return None
+
+
+def _max_pixels_or_default(config: ToolConfig) -> int:
+    raw = (config.audiveris_max_pixel_count or "").strip()
+    if not raw.isdigit():
+        return _RESCALE_MAX_PIXELS_FALLBACK
+    value = int(raw)
+    return value if value > 0 else _RESCALE_MAX_PIXELS_FALLBACK
 
 
 def _select_movement_group(

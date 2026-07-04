@@ -403,3 +403,78 @@ def test_tuplet_without_id_is_bounded_by_declared_count() -> None:
 def test_accidental_span_supports_postfix_double_accidentals() -> None:
     assert jianpu_writer._accidental_span("1bb") == (1, 3)
     assert jianpu_writer._accidental_span("2x") == (1, 2)
+
+
+def test_tie_provenance_produces_clickable_tie_anchors() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes>
+            <divisions>1</divisions>
+            <key><fifths>0</fifths></key>
+            <time><beats>4</beats><beat-type>4</beat-type></time>
+          </attributes>
+          <note id="st__n-s1-i10__ss-s1-i12">
+            <pitch><step>C</step><octave>4</octave></pitch>
+            <duration>4</duration>
+            <type>whole</type>
+            <tie type="start"/>
+          </note>
+        </measure>
+        <measure number="2">
+          <note id="st__n-s1-i11__se-s1-i12">
+            <pitch><step>C</step><octave>4</octave></pitch>
+            <duration>4</duration>
+            <type>whole</type>
+            <tie type="stop"/>
+          </note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    document = score_to_jianpu_document(musicxml_to_score(xml))
+    tie_anchors = [a for a in document.anchors if a.role == "tie"]
+
+    assert len(tie_anchors) >= 1
+    assert all(a.source_id == "s1:i12" for a in tie_anchors)
+    for anchor in tie_anchors:
+        assert _utf16_slice(document.text, anchor.start_utf16, anchor.end_utf16) == "~"
+
+
+def test_slur_provenance_still_produces_slur_anchors() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions>
+          <key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note id="st__n-s1-i10__ss-s1-i12">
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>2</duration>
+          <type>half</type>
+          <notations><slur type="start"/></notations>
+        </note>
+        <note id="st__n-s1-i11__se-s1-i12">
+          <pitch><step>D</step><octave>4</octave></pitch>
+          <duration>2</duration>
+          <type>half</type>
+          <notations><slur type="stop"/></notations>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    document = score_to_jianpu_document(musicxml_to_score(xml))
+    slur_anchors = [a for a in document.anchors if a.role == "slur"]
+
+    assert len(slur_anchors) >= 1
+    assert all(a.source_id == "s1:i12" for a in slur_anchors)
+    for anchor in slur_anchors:
+        char = _utf16_slice(document.text, anchor.start_utf16, anchor.end_utf16)
+        assert char in {"(", ")"}

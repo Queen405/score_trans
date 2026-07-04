@@ -28,6 +28,15 @@ def _f(name: str) -> float:
     return float(os.environ[name])
 
 
+def _i_or(name: str, default: int) -> int:
+    """Optional integer environment variable."""
+    raw = os.getenv(name, str(default))
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
+
+
 def _b(name: str) -> bool:
     """Required boolean environment variable."""
     return os.environ[name].lower() in ("1", "true", "yes", "on")
@@ -89,6 +98,8 @@ AUDIVERIS_MAX_HEAP: str = _s_or("SCORE_TRANS_AUDIVERIS_MAX_HEAP", "2g")
 AUDIVERIS_MAX_PIXEL_COUNT: str = _s_or(
     "SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT", "20000000"
 )
+AUDIVERIS_AUTO_UPSCALE: bool = _b_or("SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE", True)
+AUDIVERIS_MIN_IMAGE_EDGE: int = _i_or("SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE", 2500)
 
 # AI
 AI_PROVIDER: str = _s("SCORE_TRANS_AI_PROVIDER")

@@ -115,6 +115,85 @@ def test_multi_part_jianpu_to_musicxml_preserves_parts() -> None:
     assert "<part-name>低音</part-name>" in xml
 
 
+def test_page_marker_with_parts_parses_without_error() -> None:
+    text = (
+        '// @page 1 start=auto name="page1.png"\n'
+        '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
+    )
+
+    scores = parse_jianpu_scores(text)
+
+    assert len(scores) == 2
+    assert [s.part_name for s in scores] == ["高音", "低音"]
+    assert all(s.page_count == 1 for s in scores)
+    assert all(s.page_index == 0 for s in scores)
+    assert all(s.page_input_file_name == "page1.png" for s in scores)
+    assert all(s.page_start_measure is None for s in scores)
+
+
+def test_page_marker_single_part_parses() -> None:
+    text = '// @page 1 start=5 name="p.png"\n1=C\n4/4\n1 2 3 4 |'
+
+    scores = parse_jianpu_scores(text)
+
+    assert len(scores) == 1
+    assert scores[0].page_input_file_name == "p.png"
+    assert scores[0].page_start_measure == 5
+    assert scores[0].page_index == 0
+    assert scores[0].page_count == 1
+
+
+def test_page_marker_roundtrip_preserves_info() -> None:
+    text = (
+        '// @page 1 start=auto name="page1.png"\n'
+        '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
+    )
+
+    normalized = normalize_jianpu_text(text)
+
+    assert '// @page 1 start=auto name="page1.png"' in normalized
+    assert 'name="高音"' in normalized
+    assert 'name="低音"' in normalized
+    re_scores = parse_jianpu_scores(normalized)
+    assert [s.part_name for s in re_scores] == ["高音", "低音"]
+    assert all(s.page_input_file_name == "page1.png" for s in re_scores)
+
+
+def test_page_marker_non_sequential_raises() -> None:
+    text = "// @page 2 start=auto\n1=C\n4/4\n1 2 3 4 |"
+
+    with pytest.raises(ValueError, match="分页标记序号不连续"):
+        parse_jianpu_scores(text)
+
+
+def test_page_marker_with_bom_parses() -> None:
+    text = (
+        '\ufeff// @page 1 start=auto name="p.png"\n'
+        '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |'
+    )
+
+    scores = parse_jianpu_scores(text)
+
+    assert len(scores) == 1
+    assert scores[0].page_input_file_name == "p.png"
+    assert scores[0].part_name == "高音"
+
+
+def test_page_marker_before_part_with_real_score_text() -> None:
+    text = (
+        '// @page 1 start=auto name="微信图片_20260704184255_107_34.png"\n'
+        '// @part 1 name="Piano(staff 1)"\n1=C\n4/4\nq0 |\n'
+        '// @part 2 name="Piano(staff 2)"\n1=C\n4/4\nw0 |'
+    )
+
+    scores = parse_jianpu_scores(text)
+
+    assert len(scores) == 2
+    assert scores[0].page_input_file_name.startswith("微信图片")
+
+
 def test_musicxml_to_jianpu_roundtrip_basic() -> None:
     xml = jianpu_to_musicxml("1=C\n4/4\n1 2 3 4 | 0 q5 6. |")
     jianpu = musicxml_to_jianpu(xml)

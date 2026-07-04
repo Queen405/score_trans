@@ -58,6 +58,17 @@ class SettingsActions:
         if req.audiveris_max_pixel_count is not None:
             self.service.set("audiveris_max_pixel_count", req.audiveris_max_pixel_count)
 
+        if req.audiveris_auto_upscale is not None:
+            self.service.set(
+                "audiveris_auto_upscale",
+                "1" if req.audiveris_auto_upscale else "0",
+            )
+
+        if req.audiveris_min_image_edge is not None:
+            self.service.set(
+                "audiveris_min_image_edge", str(req.audiveris_min_image_edge)
+            )
+
         if req.output_dir is not None:
             self.service.set("output_dir", req.output_dir)
 
@@ -248,6 +259,12 @@ class SettingsActions:
             audiveris_max_heap=all_settings.get("audiveris_max_heap", "2g"),
             audiveris_max_pixel_count=all_settings.get(
                 "audiveris_max_pixel_count", "20000000"
+            ),
+            audiveris_auto_upscale=self.service.get_bool(
+                "audiveris_auto_upscale", True
+            ),
+            audiveris_min_image_edge=self.service.get_int(
+                "audiveris_min_image_edge", 2500
             ),
             data_dir=str(USER_DATA_ROOT),
             cache_dir=str(config.work_dir),
