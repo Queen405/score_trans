@@ -572,6 +572,9 @@ def _tuplet_to_token(
     legacy_duration = all(
         event.duration == Fraction(1, actual_count) for event in events
     )
+    notated_durations = [
+        event.duration * Fraction(actual_count, normal_count) for event in events
+    ]
     parts = [
         _event_to_tuplet_body(
             event,
@@ -586,7 +589,19 @@ def _tuplet_to_token(
         body = "".join(parts)
     else:
         body = " ".join(parts)
-    return f"${body}$"
+    implicit_ratio = actual_count == len(
+        events
+    ) and normal_count == _tuplet_normal_notes(len(events))
+    has_visible_duration_prefix = any(
+        duration_affixes(duration)[0] for duration in notated_durations
+    )
+    ratio_prefix = (
+        f"{actual_count}:{normal_count};"
+        if not implicit_ratio
+        or (not legacy_duration and not has_visible_duration_prefix)
+        else ""
+    )
+    return f"${ratio_prefix}{body}$"
 
 
 def _event_to_tuplet_body(

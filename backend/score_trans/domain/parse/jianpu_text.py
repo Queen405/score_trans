@@ -624,6 +624,7 @@ def _is_key_name(value: str) -> bool:
 
 def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
     body = token.value.strip()[1:-1].strip()
+    explicit_ratio, body = _consume_tuplet_ratio(body, token)
     parts = _split_tuplet_body(body)
     pending_dynamic: str | None = None
     pending_articulations: list[str] = []
@@ -697,17 +698,23 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         pending_ornaments = []
         pending_technical = []
         parsed.append((event, event_part))
-    if len(parsed) < 2:
+    if not parsed:
+        raise _syntax_error(token, "连音组不能为空")
+    if len(parsed) < 2 and explicit_ratio is None:
         raise _syntax_error(token, "连音组至少需要两个音符，例如 $123$ 或 $1 2 3$")
-    actual_count = len(parsed)
-    normal_count = _tuplet_normal_notes(actual_count)
+    actual_count = explicit_ratio[0] if explicit_ratio is not None else len(parsed)
+    normal_count = (
+        explicit_ratio[1]
+        if explicit_ratio is not None
+        else _tuplet_normal_notes(actual_count)
+    )
     has_explicit_duration = any(
         _has_tuplet_duration_prefix(source_token) for _event, source_token in parsed
     )
     group_id = f"{token.line}:{token.column}"
     events: list[tuple[Event, str]] = []
     for index, (event, source_token) in enumerate(parsed):
-        if has_explicit_duration:
+        if explicit_ratio is not None or has_explicit_duration:
             event.duration *= Fraction(normal_count, actual_count)
         else:
             event.duration = Fraction(1, actual_count)
@@ -717,7 +724,7 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         event.tuplet_normal_count = normal_count
         event.tuplet_index = index
         event.tuplet_start = index == 0
-        event.tuplet_stop = index == actual_count - 1
+        event.tuplet_stop = index == len(parsed) - 1
         event.tuplet_spans = [
             TupletSpan(
                 id=group_id,
@@ -727,6 +734,20 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         ]
         events.append((event, source_token))
     return events
+
+
+def _consume_tuplet_ratio(
+    body: str,
+    token: _Token,
+) -> tuple[tuple[int, int] | None, str]:
+    match = re.match(r"^(\d+)\s*:\s*(\d+)\s*;", body)
+    if match is None:
+        return None, body
+    actual_count = int(match.group(1))
+    normal_count = int(match.group(2))
+    if actual_count <= 0 or normal_count <= 0:
+        raise _syntax_error(token, "连音组比例必须是正整数，例如 $3:2;q1 q2$")
+    return (actual_count, normal_count), body[match.end() :].strip()
 
 
 def _has_tuplet_duration_prefix(source_token: str) -> bool:
@@ -775,7 +796,7 @@ _COMPACT_CHORD_PATTERN = (
     rf"(?:\+{_COMPACT_PITCH_PATTERN})+\]"
 )
 _COMPACT_TUPLET_EVENT_PATTERN = (
-    rf"~?\(?(?:[whqsd])?"
+    rf"~?\(?(?:[whqs]|d+)?"
     rf"(?:{_COMPACT_CHORD_PATTERN}|{_COMPACT_NOTE_OR_REST_PATTERN})"
     r"\.*-*\)?~?"
 )

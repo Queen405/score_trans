@@ -131,6 +131,10 @@ def test_parse_duration_extension_suffix() -> None:
 @pytest.mark.parametrize(
     "duration",
     [
+        Fraction(1, 128),
+        Fraction(1, 64),
+        Fraction(1, 32),
+        Fraction(1, 16),
         Fraction(1, 8),
         Fraction(3, 16),
         Fraction(7, 32),
@@ -181,7 +185,18 @@ def test_parse_multiple_dots_uses_the_original_base_duration() -> None:
 
 def test_duration_affixes_reject_unrepresentable_duration() -> None:
     with pytest.raises(ValueError, match="无法用简谱时值语法表示"):
-        duration_affixes(Fraction(1, 16))
+        duration_affixes(Fraction(1, 6))
+
+
+def test_parse_repeated_d_duration_prefixes() -> None:
+    _, tokens = parse_jianpu("dd1 ddd2 dddd3 ddddd4 |")
+
+    assert [token.duration for token in tokens[:4]] == [
+        Fraction(1, 16),
+        Fraction(1, 32),
+        Fraction(1, 64),
+        Fraction(1, 128),
+    ]
 
 
 def test_parse_explicit_accidental_tokens() -> None:

@@ -9,10 +9,12 @@ export interface JianpuNoteSpan {
 }
 
 const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g
-const DURATION_PREFIX_PATTERN = /^[whqsd]/
+const DURATION_PREFIX_PATTERN = /^(?:[whqs]|d+)/
 const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
 const PITCH_PATTERN = /^(?:(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
-const TUPLET_PART_PATTERN = /(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[0-7][',]*[#b]?/g
+const TUPLET_PART_PATTERN =
+  /(?:[whqs]|d+)?(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[0-7][',]*[#b]?/g
+const TUPLET_RATIO_PATTERN = /^\d+\s*:\s*\d+\s*;/
 
 export function findJianpuNoteSpans(text: string): JianpuNoteSpan[] {
   const spans: JianpuNoteSpan[] = []
@@ -64,16 +66,18 @@ function tupletPartSpans(
   tokenStartColumn: number,
 ): Array<{ token: string; startColumn: number; endColumn: number }> {
   const body = token.slice(1, -1)
-  if (/\s/.test(body)) {
-    return Array.from(body.matchAll(/\S+/g), (match) => {
+  const ratioLength = body.match(TUPLET_RATIO_PATTERN)?.[0].length ?? 0
+  const eventBody = body.slice(ratioLength)
+  if (/\s/.test(eventBody)) {
+    return Array.from(eventBody.matchAll(/\S+/g), (match) => {
       const part = match[0]
-      const startColumn = tokenStartColumn + 1 + (match.index ?? 0)
+      const startColumn = tokenStartColumn + 1 + ratioLength + (match.index ?? 0)
       return { token: part, startColumn, endColumn: startColumn + part.length }
     })
   }
-  return Array.from(body.matchAll(TUPLET_PART_PATTERN), (match) => {
+  return Array.from(eventBody.matchAll(TUPLET_PART_PATTERN), (match) => {
     const part = match[0]
-    const startColumn = tokenStartColumn + 1 + (match.index ?? 0)
+    const startColumn = tokenStartColumn + 1 + ratioLength + (match.index ?? 0)
     return { token: part, startColumn, endColumn: startColumn + part.length }
   })
 }
@@ -126,8 +130,9 @@ function stripEventDecorations(token: string): string {
   while (work.endsWith(')')) work = work.slice(0, -1)
   if (work.startsWith('~')) work = work.slice(1)
   if (work.endsWith('~')) work = work.slice(0, -1)
-  if (DURATION_PREFIX_PATTERN.test(work) && !MICROTONAL_PREFIX_PATTERN.test(work)) {
-    work = work.slice(1)
+  const durationPrefix = work.match(DURATION_PREFIX_PATTERN)?.[0]
+  if (durationPrefix && !MICROTONAL_PREFIX_PATTERN.test(work)) {
+    work = work.slice(durationPrefix.length)
   }
   while (work.endsWith('-')) work = work.slice(0, -1)
   if (work.endsWith('.')) work = work.slice(0, -1)

@@ -445,6 +445,7 @@ def _read_measure_events(
     last_event: Event | None = None
     cursor = Fraction(0, 1)
     pending_dynamics: list[tuple[Fraction, str]] = []
+    parsed_notes: list[tuple[ET.Element, Event]] = []
     inferred_tuplets = _infer_unmarked_sextuplets(
         xml_measure,
         ns,
@@ -611,8 +612,168 @@ def _read_measure_events(
                     )
                 )
         measure.events.append(event)
+        parsed_notes.append((note, event))
         last_event = event
         cursor += duration
+    _recover_unmarked_time_modified_tuplets(
+        parsed_notes,
+        ns,
+        measure.source_number,
+    )
+
+
+def _recover_unmarked_time_modified_tuplets(
+    parsed_notes: list[tuple[ET.Element, Event]],
+    ns: str,
+    measure_number: str,
+) -> None:
+    notes_by_voice_staff: dict[
+        tuple[str, str],
+        list[tuple[ET.Element, Event]],
+    ] = {}
+    for note, event in parsed_notes:
+        key = (event.voice or "1", event.staff or "")
+        notes_by_voice_staff.setdefault(key, []).append((note, event))
+
+    group_counter = 0
+    for (voice, staff), note_events in notes_by_voice_staff.items():
+        beam_group: list[tuple[ET.Element, Event]] = []
+        for note_event in note_events:
+            beam_status = _beam_status(note_event[0], ns, "1")
+            if beam_status == "begin":
+                beam_group = [note_event]
+                continue
+            if beam_status == "continue" and beam_group:
+                beam_group.append(note_event)
+                continue
+            if beam_status == "end" and beam_group:
+                beam_group.append(note_event)
+                if _recover_time_modified_group(
+                    beam_group,
+                    measure_number,
+                    voice,
+                    staff,
+                    group_counter,
+                ):
+                    group_counter += 1
+                beam_group = []
+                continue
+            beam_group = []
+
+        pending: list[tuple[ET.Element, Event]] = []
+        pending_ratio: tuple[int, int] | None = None
+        for note_event in note_events:
+            event = note_event[1]
+            ratio = _event_tuplet_ratio(event)
+            if event.tuplet_id is not None or ratio is None:
+                group_counter = _recover_pending_time_modified_groups(
+                    pending,
+                    pending_ratio,
+                    measure_number,
+                    voice,
+                    staff,
+                    group_counter,
+                )
+                pending = []
+                pending_ratio = None
+                continue
+            if pending_ratio is not None and ratio != pending_ratio:
+                group_counter = _recover_pending_time_modified_groups(
+                    pending,
+                    pending_ratio,
+                    measure_number,
+                    voice,
+                    staff,
+                    group_counter,
+                )
+                pending = []
+            pending.append(note_event)
+            pending_ratio = ratio
+        group_counter = _recover_pending_time_modified_groups(
+            pending,
+            pending_ratio,
+            measure_number,
+            voice,
+            staff,
+            group_counter,
+        )
+
+
+def _recover_pending_time_modified_groups(
+    pending: list[tuple[ET.Element, Event]],
+    ratio: tuple[int, int] | None,
+    measure_number: str,
+    voice: str,
+    staff: str,
+    group_counter: int,
+) -> int:
+    if not pending or ratio is None:
+        return group_counter
+    actual_count, _normal_count = ratio
+    cursor = 0
+    while cursor < len(pending):
+        group = pending[cursor : cursor + actual_count]
+        if _recover_time_modified_group(
+            group,
+            measure_number,
+            voice,
+            staff,
+            group_counter,
+        ):
+            group_counter += 1
+        cursor += len(group)
+    return group_counter
+
+
+def _recover_time_modified_group(
+    note_events: list[tuple[ET.Element, Event]],
+    measure_number: str,
+    voice: str,
+    staff: str,
+    group_counter: int,
+) -> bool:
+    if not note_events:
+        return False
+    events = [event for _note, event in note_events]
+    ratio = _event_tuplet_ratio(events[0])
+    if ratio is None or any(
+        event.tuplet_id is not None or _event_tuplet_ratio(event) != ratio
+        for event in events
+    ):
+        return False
+    actual_count, normal_count = ratio
+    group_id = (
+        f"{measure_number}:recovered:{voice}:{staff or 'default'}:{group_counter}"
+    )
+    for index, event in enumerate(events):
+        event.tuplet_id = group_id
+        event.tuplet_count = actual_count
+        event.tuplet_normal_count = normal_count
+        event.tuplet_index = index
+        event.tuplet_start = index == 0
+        event.tuplet_stop = index == len(events) - 1
+        event.tuplet_spans = [
+            TupletSpan(
+                id=group_id,
+                start=event.tuplet_start,
+                stop=event.tuplet_stop,
+            )
+        ]
+    return True
+
+
+def _event_tuplet_ratio(event: Event) -> tuple[int, int] | None:
+    actual_count = event.tuplet_count
+    normal_count = event.tuplet_normal_count
+    if (
+        actual_count is None
+        or normal_count is None
+        or actual_count <= 0
+        or normal_count <= 0
+        or actual_count == normal_count
+    ):
+        return None
+    return actual_count, normal_count
 
 
 def _infer_unmarked_sextuplets(

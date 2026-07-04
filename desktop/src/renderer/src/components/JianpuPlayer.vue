@@ -38,11 +38,6 @@
         /></svg>
       </button>
       <span class="player-time">{{ player.currentTimeFormatted.value }} / {{ player.durationFormatted.value }}</span>
-      <span
-        v-if="loadError"
-        class="player-error"
-        :title="loadError"
-      >{{ loadError }}</span>
     </div>
 
     <div class="player-center">
@@ -139,6 +134,7 @@ import { NInputNumber, NSlider, useMessage } from 'naive-ui'
 import { usePlayer } from '../composables/usePlayer'
 import { getFileURL, requireData } from '../api/client'
 import { exportApi } from '../api/export'
+import { useLogStore } from '../stores/log'
 import {
   loadPlayerVolume,
   savePlayerVolume,
@@ -159,8 +155,8 @@ const emit = defineEmits<{
 
 const player = usePlayer()
 const message = useMessage()
+const logStore = useLogStore()
 const progressRef = ref<HTMLElement>()
-const loadError = ref('')
 const visible = computed(() => !!props.musicxmlFileId || !!props.jianpuText?.trim() || !!props.midiFileId)
 
 const volumeRatio = computed(() => {
@@ -182,7 +178,6 @@ async function loadFromProps(): Promise<void> {
   if (loadId === currentLoadId) return
   currentLoadId = loadId
   const gen = ++loadGeneration
-  loadError.value = ''
 
   if (props.midiFileId) {
     try {
@@ -230,8 +225,9 @@ function reportMidiError(error: unknown, generation: number): void {
   if (generation !== loadGeneration) return
   const detail = error instanceof Error ? error.message : String(error)
   player.unload()
-  loadError.value = `MIDI 加载失败：${detail}`
-  message.error(loadError.value)
+  const msg = `MIDI 加载失败：${detail}`
+  logStore.addError(msg)
+  message.error(msg)
 }
 
 async function togglePlay(): Promise<void> {
@@ -406,15 +402,6 @@ watch(() => props.jianpuText, () => {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   min-width: 80px;
-}
-
-.player-error {
-  max-width: 220px;
-  overflow: hidden;
-  color: var(--danger);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .player-center {

@@ -207,7 +207,7 @@ def test_musicxml_same_number_nested_tuplets_keep_both_spans() -> None:
     assert span_ids[0][0] == span_ids[1][0] == span_ids[2][0] == span_ids[3][0]
     assert span_ids[1][1] == span_ids[2][1]
     assert span_ids[0][0] != span_ids[1][1]
-    assert "$1." in jianpu_text
+    assert "$3:2;1." in jianpu_text
     assert musicxml_to_score(jianpu_to_musicxml(jianpu_text)).measures
     assert [tuplet.attrib for tuplet in roundtrip.findall(".//notations/tuplet")] == [
         {"type": "start", "number": "1"},
@@ -247,6 +247,51 @@ def test_musicxml_tuplet_state_continues_across_measures() -> None:
     assert first.tuplet_spans[0].id == second.tuplet_spans[0].id
     assert first.tuplet_spans[0].start is True
     assert second.tuplet_spans[0].stop is True
+
+
+def test_musicxml_recovers_orphan_time_modified_beam_as_tuplet() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>24</divisions><key><fifths>0</fifths></key>
+          <time><beats>1</beats><beat-type>12</beat-type></time>
+        </attributes>
+        <note>
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>4</duration><type>16th</type>
+          <time-modification>
+            <actual-notes>3</actual-notes><normal-notes>2</normal-notes>
+          </time-modification>
+          <beam number="1">begin</beam><beam number="2">begin</beam>
+        </note>
+        <note>
+          <pitch><step>D</step><octave>4</octave></pitch>
+          <duration>4</duration><type>16th</type>
+          <time-modification>
+            <actual-notes>3</actual-notes><normal-notes>2</normal-notes>
+          </time-modification>
+          <notations><tuplet number="1" type="stop"/></notations>
+          <beam number="1">end</beam><beam number="2">end</beam>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    text = score_to_jianpu_text(score)
+    reparsed = parse_jianpu_score(text)
+    events = score.measures[0].events
+    reparsed_events = reparsed.measures[0].events
+
+    assert "$3:2;s1 s2$" in text
+    assert [event.duration for event in events] == [Fraction(1, 6)] * 2
+    assert [event.duration for event in reparsed_events] == [Fraction(1, 6)] * 2
+    assert [event.tuplet_count for event in events] == [3, 3]
+    assert [event.tuplet_normal_count for event in events] == [2, 2]
+    assert events[0].tuplet_start is True
+    assert events[1].tuplet_stop is True
 
 
 def test_extended_musicxml_dynamic_roundtrips_through_jianpu_text() -> None:

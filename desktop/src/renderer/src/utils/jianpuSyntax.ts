@@ -18,7 +18,7 @@ export interface JianpuSyntaxToken {
 }
 
 const TOKEN_PATTERN = /(\s+|\$[^$]*\$|\|\||\|:|:\||\||[^\s|]+)/g
-const DURATION_PREFIX_PATTERN = /^[whqsd]/
+const DURATION_PREFIX_PATTERN = /^(?:[whqs]|d+)/
 const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
 const PITCH_PATTERN = /^(?:(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
 
@@ -104,8 +104,9 @@ function stripEventDecorations(token: string): string {
   while (work.endsWith(')')) work = work.slice(0, -1)
   if (work.startsWith('~')) work = work.slice(1)
   if (work.endsWith('~')) work = work.slice(0, -1)
-  if (DURATION_PREFIX_PATTERN.test(work) && !MICROTONAL_PREFIX_PATTERN.test(work)) {
-    work = work.slice(1)
+  const durationPrefix = work.match(DURATION_PREFIX_PATTERN)?.[0]
+  if (durationPrefix && !MICROTONAL_PREFIX_PATTERN.test(work)) {
+    work = work.slice(durationPrefix.length)
   }
   while (work.endsWith('-')) work = work.slice(0, -1)
   if (work.endsWith('.')) work = work.slice(0, -1)

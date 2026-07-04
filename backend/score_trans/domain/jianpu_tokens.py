@@ -3,15 +3,25 @@ from __future__ import annotations
 from fractions import Fraction
 
 
+_FINE_DURATION_PREFIXES = {
+    "d" * count: Fraction(1, 2 ** (count + 2)) for count in range(1, 6)
+}
 DURATION_PREFIXES = {
     "w": Fraction(4, 1),
     "h": Fraction(2, 1),
     "q": Fraction(1, 2),
     "s": Fraction(1, 4),
-    "d": Fraction(1, 8),
+    **_FINE_DURATION_PREFIXES,
 }
 
-PREFIX_SLASHES = {"": 0, "w": 0, "h": 0, "q": 1, "s": 2, "d": 3}
+PREFIX_SLASHES = {
+    "": 0,
+    "w": 0,
+    "h": 0,
+    "q": 1,
+    "s": 2,
+    **{"d" * count: count + 2 for count in range(1, 6)},
+}
 
 _DURATION_BASES = (
     (Fraction(4, 1), "w"),
@@ -19,11 +29,14 @@ _DURATION_BASES = (
     (Fraction(1, 1), ""),
     (Fraction(1, 2), "q"),
     (Fraction(1, 4), "s"),
-    (Fraction(1, 8), "d"),
+    *((duration, prefix) for prefix, duration in _FINE_DURATION_PREFIXES.items()),
 )
 _EXACT_DURATION_AFFIXES = {
     duration: (prefix, "") for duration, prefix in _DURATION_BASES
 }
+_DURATION_PREFIXES_LONGEST_FIRST = tuple(
+    sorted(DURATION_PREFIXES, key=len, reverse=True)
+)
 _MAX_GENERATED_DOTS = 3
 _ACCIDENTAL_PREFIXES_STARTING_WITH_DURATION = ("qf", "qs")
 
@@ -31,15 +44,16 @@ _ACCIDENTAL_PREFIXES_STARTING_WITH_DURATION = ("qf", "qs")
 def duration_prefix(token: str) -> str:
     if token.startswith(_ACCIDENTAL_PREFIXES_STARTING_WITH_DURATION):
         return ""
-    if token and token[0] in DURATION_PREFIXES:
-        return token[0]
+    for prefix in _DURATION_PREFIXES_LONGEST_FIRST:
+        if token.startswith(prefix):
+            return prefix
     return ""
 
 
 def consume_duration_prefix(token: str) -> tuple[Fraction, str]:
     prefix = duration_prefix(token)
     if prefix:
-        return DURATION_PREFIXES[prefix], token[1:]
+        return DURATION_PREFIXES[prefix], token[len(prefix) :]
     return Fraction(1, 1), token
 
 

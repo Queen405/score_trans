@@ -48,6 +48,7 @@ def looks_like_jianpu_text(text: str) -> bool:
         return True
     return bool(
         re.search(
-            r"(^|\s)(?:[whqsd]?[#bnx]?[1-7][',]*|[whqsd]?0|\[[^\]]+\])(\s|\||$)", text
+            r"(^|\s)(?:(?:[whqs]|d+)?[#bnx]?[1-7][',]*|(?:[whqs]|d+)?0|\[[^\]]+\])(\s|\||$)",
+            text,
         )
     )
