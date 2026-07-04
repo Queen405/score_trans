@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from ....domain.jianpu_tokens import duration_affixes
+from ....domain.jianpu_tokens import safe_duration_affixes
 from ....models.score import JianpuEvent, JianpuPitch
 
 
@@ -19,7 +19,7 @@ def _event_token(event: JianpuEvent) -> str:
             if tokens
             else "?"
         )
-    prefix, suffix = duration_affixes(_notated_duration(event))
+    prefix, suffix = safe_duration_affixes(_notated_duration(event))
     return prefix + body + suffix
 
 
@@ -62,7 +62,7 @@ def _pitch_token(pitch: JianpuPitch) -> str:
 
 
 def _duration_token(body: str, duration: Fraction) -> str:
-    prefix, suffix = duration_affixes(duration)
+    prefix, suffix = safe_duration_affixes(duration)
     return prefix + body + suffix
 
 

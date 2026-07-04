@@ -6,7 +6,10 @@ import json
 import re
 
 from ..accidentals import pitch_to_token
-from ..jianpu_tokens import duration_affixes, tuplet_duration_unit_count
+from ..jianpu_tokens import (
+    safe_duration_affixes,
+    tuplet_duration_unit_count,
+)
 from ..performance_marks import event_mark_ids, mark_token
 from ...models.common.types import AccidentalMode, normalize_instrument_profile
 from ...models.score import Event, JianpuPitch, JianpuScore, Measure
@@ -594,7 +597,7 @@ def _tuplet_to_token(
         _tuplet_normal_notes(inferred_actual_count)
     )
     has_visible_duration_prefix = any(
-        duration_affixes(duration)[0] for duration in notated_durations
+        safe_duration_affixes(duration)[0] for duration in notated_durations
     )
     ratio_prefix = (
         f"{actual_count}:{normal_count};"
@@ -629,7 +632,7 @@ def _event_to_tuplet_body(
         )
     if include_duration:
         notated_duration = event.duration * Fraction(actual_count, normal_count)
-        duration_prefix, duration_suffix = duration_affixes(notated_duration)
+        duration_prefix, duration_suffix = safe_duration_affixes(notated_duration)
         body = duration_prefix + body + duration_suffix
     if event.tie_stop:
         body = "~" + body
@@ -667,7 +670,7 @@ def _tuplet_normal_notes(actual_notes: int) -> int:
 
 
 def _duration_parts(duration: Fraction) -> tuple[str, str]:
-    return duration_affixes(duration)
+    return safe_duration_affixes(duration)
 
 
 def _mark_token(name: str) -> str | None:

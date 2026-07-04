@@ -18,6 +18,7 @@ from ..constants import (
 )
 from ..performance_marks import canonical_mark_id, normalize_event_marks
 from ..pitch_spelling import written_pitch_to_jianpu
+from ..jianpu_tokens import is_notatable_duration
 from ..xml_utils import (
     _namespace,
     _q,
@@ -607,6 +608,22 @@ def _read_measure_events(
                     stop=event.tuplet_stop,
                 )
             ]
+        if (
+            event.tuplet_count
+            and event.tuplet_normal_count
+            and event.tuplet_count != event.tuplet_normal_count
+            and event.duration > 0
+        ):
+            notated_if_sounded = event.duration * Fraction(
+                event.tuplet_count, event.tuplet_normal_count
+            )
+            if not is_notatable_duration(notated_if_sounded) and is_notatable_duration(
+                event.duration
+            ):
+                duration = event.duration * Fraction(
+                    event.tuplet_normal_count, event.tuplet_count
+                )
+                event.duration = duration
         dynamic = _pending_dynamic_for_event(pending_dynamics, cursor)
         if dynamic is not None:
             pending_dynamics = [

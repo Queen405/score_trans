@@ -337,6 +337,125 @@ def test_musicxml_recovers_orphan_time_modified_beam_as_tuplet() -> None:
     assert events[1].tuplet_stop is True
 
 
+def test_musicxml_duplet_with_notated_duration_corrects_to_sounded() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>6</divisions><key><fifths>0</fifths></key>
+          <time><beats>3</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note>
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>6</duration><type>quarter</type>
+          <time-modification>
+            <actual-notes>2</actual-notes><normal-notes>3</normal-notes>
+          </time-modification>
+          <notations><tuplet number="1" type="start"/></notations>
+        </note>
+        <note>
+          <pitch><step>D</step><octave>4</octave></pitch>
+          <duration>6</duration><type>quarter</type>
+          <time-modification>
+            <actual-notes>2</actual-notes><normal-notes>3</normal-notes>
+          </time-modification>
+          <notations><tuplet number="1" type="stop"/></notations>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    events = score.measures[0].events
+
+    assert events[0].duration == Fraction(3, 2)
+    assert events[1].duration == Fraction(3, 2)
+    assert events[0].tuplet_count == 2
+    assert events[0].tuplet_normal_count == 3
+
+    text = score_to_jianpu_text(score)
+    assert "$2:3;" in text
+
+    reparsed = parse_jianpu_score(text)
+    assert [event.duration for event in reparsed.measures[0].events] == [
+        Fraction(3, 2),
+        Fraction(3, 2),
+    ]
+
+
+def test_musicxml_non_notatable_duration_without_tuplet_does_not_crash() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>6</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note>
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>4</duration><type>eighth</type>
+        </note>
+        <note>
+          <pitch><step>D</step><octave>4</octave></pitch>
+          <duration>4</duration><type>eighth</type>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    events = score.measures[0].events
+
+    assert events[0].duration == Fraction(2, 3)
+    assert events[1].duration == Fraction(2, 3)
+
+    text = score_to_jianpu_text(score)
+    assert "1" in text
+    assert "2" in text
+
+
+def test_musicxml_non_notatable_duration_in_tuplet_does_not_crash() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>6</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note>
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>4</duration><type>eighth</type>
+          <time-modification>
+            <actual-notes>2</actual-notes><normal-notes>3</normal-notes>
+          </time-modification>
+          <notations><tuplet number="1" type="start"/></notations>
+        </note>
+        <note>
+          <pitch><step>D</step><octave>4</octave></pitch>
+          <duration>4</duration><type>eighth</type>
+          <time-modification>
+            <actual-notes>2</actual-notes><normal-notes>3</normal-notes>
+          </time-modification>
+          <notations><tuplet number="1" type="stop"/></notations>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    events = score.measures[0].events
+
+    assert events[0].duration == Fraction(2, 3)
+    assert events[0].tuplet_count == 2
+    assert events[0].tuplet_normal_count == 3
+
+    text = score_to_jianpu_text(score)
+    assert "$" in text
+
+
 def test_extended_musicxml_dynamic_roundtrips_through_jianpu_text() -> None:
     xml = """
     <score-partwise version="4.0">

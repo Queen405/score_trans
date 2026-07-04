@@ -77,10 +77,42 @@ def duration_affixes(duration: Fraction) -> tuple[str, str]:
     raise ValueError(f"无法用简谱时值语法表示时值：{duration}")
 
 
+def safe_duration_affixes(duration: Fraction) -> tuple[str, str]:
+    if duration <= 0:
+        return "", ""
+    try:
+        return duration_affixes(duration)
+    except ValueError:
+        pass
+    best_result: tuple[str, str] | None = None
+    best_diff: Fraction | None = None
+    for precision in range(0, 8):
+        unit = Fraction(1, 2**precision)
+        lower = (duration // unit) * unit
+        for candidate in (lower, lower + unit):
+            if candidate <= 0:
+                continue
+            try:
+                result = duration_affixes(candidate)
+            except ValueError:
+                continue
+            diff = abs(candidate - duration)
+            if best_diff is None or diff < best_diff:
+                best_result = result
+                best_diff = diff
+                if diff == 0:
+                    return best_result
+    return best_result or ("", "")
+
+
 def dotted_duration(base_duration: Fraction, dot_count: int) -> Fraction:
     if dot_count < 0:
         raise ValueError("附点数量不能为负数")
     return base_duration * (2 - Fraction(1, 2**dot_count))
+
+
+def is_notatable_duration(duration: Fraction) -> bool:
+    return duration > 0 and (duration.denominator & (duration.denominator - 1)) == 0
 
 
 def consume_duration_suffix(

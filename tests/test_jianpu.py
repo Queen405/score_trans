@@ -12,7 +12,11 @@ from score_trans.domain.jianpu import (
     parse_jianpu_score,
     parse_jianpu_scores,
 )
-from score_trans.domain.jianpu_tokens import duration_affixes, token_duration
+from score_trans.domain.jianpu_tokens import (
+    duration_affixes,
+    safe_duration_affixes,
+    token_duration,
+)
 from score_trans.domain.musicxml import score_to_jianpu_text
 from score_trans.domain.performance_marks import PERFORMANCE_MARKS
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
@@ -186,6 +190,24 @@ def test_parse_multiple_dots_uses_the_original_base_duration() -> None:
 def test_duration_affixes_reject_unrepresentable_duration() -> None:
     with pytest.raises(ValueError, match="无法用简谱时值语法表示"):
         duration_affixes(Fraction(1, 6))
+
+
+def test_safe_duration_affixes_snaps_non_notatable_durations() -> None:
+    assert safe_duration_affixes(Fraction(2, 3)) == ("q", ".")
+    assert safe_duration_affixes(Fraction(1, 3)) == ("s", ".")
+    assert safe_duration_affixes(Fraction(1, 6)) == ("d", ".")
+    assert safe_duration_affixes(Fraction(4, 9)) == ("s", "..")
+
+
+def test_safe_duration_affixes_preserves_notatable_durations() -> None:
+    assert safe_duration_affixes(Fraction(1, 1)) == ("", "")
+    assert safe_duration_affixes(Fraction(1, 2)) == ("q", "")
+    assert safe_duration_affixes(Fraction(3, 4)) == ("q", ".")
+    assert safe_duration_affixes(Fraction(1, 4)) == ("s", "")
+
+
+def test_safe_duration_affixes_handles_non_positive() -> None:
+    assert safe_duration_affixes(Fraction(0)) == ("", "")
 
 
 def test_parse_repeated_d_duration_prefixes() -> None:
