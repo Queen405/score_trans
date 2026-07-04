@@ -62,7 +62,9 @@ def _run(
         stderr = exc.stderr or ""
         stdout = exc.stdout or ""
         raise ExternalToolError(
-            f"外部程序执行失败：{' '.join(args)}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
+            "外部程序执行失败，请查看完整日志定位原因。",
+            stdout=stdout,
+            stderr=stderr,
         ) from exc
     return CommandResult(args=args, stdout=completed.stdout, stderr=completed.stderr)
 
@@ -159,7 +161,8 @@ def _maybe_retry_after_low_interline(
         return None
     if not is_raster_image(input_file) or is_pdf(input_file):
         return None
-    measured = parse_low_interline(str(error))
+    raw_output = (error.stdout or "") + "\n" + (error.stderr or "")
+    measured = parse_low_interline(raw_output)
     if measured is None or measured <= 0:
         return None
     factor = retry_scale_from_interline(measured)
@@ -175,6 +178,71 @@ def _maybe_retry_after_low_interline(
         )
     except Exception:
         return None
+
+
+_AUdiveris_STAGE_BY_CLASS = {
+    "MultipleRestsBuilder": "多小节休止符",
+    "BeamsStep": "连音线",
+    "ClefBuilder": "谱号",
+    "KeyBuilder": "调号",
+    "TimeBuilder": "拍号",
+    "StemSeedsStep": "符干",
+    "ChordBuilder": "和弦",
+    "SlurBuilder": "连奏线",
+    "NoteStep": "音符",
+}
+
+_AUdiveris_LOW_INTERLINE_RE = re.compile(
+    r"too low interline value of\s*(\d+)\s*pixels", re.IGNORECASE
+)
+_AUdiveris_NPE_CLASS_RE = re.compile(
+    r"at org\.audiveris\.omr\.\w+\.(?:beam\.)?(\w+)\."
+)
+
+
+def _summarize_audiveris_failure(
+    stdout: str, stderr: str, output_dir: Path
+) -> str:
+    """把 Audiveris 的原始输出提炼成一句人话。
+
+    优先级：低分辨率 > 内部错误(定位阶段) > 转换未完成 > 通用兜底。
+    末尾附上 .log 文件路径（若存在）供进阶排查。
+    """
+    blob = f"{stdout}\n{stderr}"
+
+    log_hint = ""
+    logs = sorted(
+        output_dir.glob("*.log"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if logs:
+        log_hint = f"\n完整日志：{logs[0]}"
+
+    low = _AUdiveris_LOW_INTERLINE_RE.search(blob)
+    if low:
+        return (
+            f"谱面分辨率过低（行间距仅 {low.group(1)} 像素），"
+            f"请在设置中调高「最小长边像素」后重试。{log_hint}"
+        )
+
+    if "NullPointerException" in blob:
+        stage = "识别"
+        m = _AUdiveris_NPE_CLASS_RE.search(blob)
+        if m and m.group(1) in _AUdiveris_STAGE_BY_CLASS:
+            stage = _AUdiveris_STAGE_BY_CLASS[m.group(1)]
+        return (
+            f"识别引擎在「{stage}」阶段内部出错，可能是该页谱面存在引擎无法处理的结构。"
+            f"可尝试改用 AI 转录，或对该页单独处理。{log_hint}"
+        )
+
+    if "Could not export since transcription did not complete successfully" in blob:
+        return (
+            "谱面转换未完成，Audiveris 无法导出 MusicXML。"
+            f"可尝试改用 AI 转录。{log_hint}"
+        )
+
+    return f"Audiveris 执行失败，请查看完整日志定位原因。{log_hint}"
 
 
 def _max_pixels_or_default(config: ToolConfig) -> int:

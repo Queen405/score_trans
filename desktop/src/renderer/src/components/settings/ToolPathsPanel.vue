@@ -57,6 +57,32 @@
             size="small"
           />
         </settings-form-row>
+
+        <settings-form-row
+          label="自动放大图片"
+          description="识别前把图片长边放大到指定像素"
+          hint="提升低分辨率谱面识别率；关闭后低分辨率重试也会一并关闭"
+        >
+          <n-switch
+            v-model:value="settings.draft.audiverisAutoUpscale"
+            size="small"
+          />
+        </settings-form-row>
+
+        <settings-form-row
+          label="最小长边像素"
+          description="放大目标值"
+          hint="图片长边低于此值时放大到该像素；数值越大放大越多，0 表示不放大"
+        >
+          <n-input-number
+            v-model:value="settings.draft.audiverisMinImageEdge"
+            :min="0"
+            :max="10000"
+            :step="100"
+            :disabled="!settings.draft.audiverisAutoUpscale"
+            size="small"
+          />
+        </settings-form-row>
       </div>
     </section>
   </div>
@@ -64,7 +90,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NInput, NInputNumber, NSelect } from 'naive-ui'
+import { NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
 import { useSettingsStore } from '../../stores/settings'
 import SettingsFormRow from './SettingsFormRow.vue'
 

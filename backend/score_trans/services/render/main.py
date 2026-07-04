@@ -641,7 +641,7 @@ def _paginate_rows(
         0,
         A4_PAGE_HEIGHT - top - bottom - A4_ROW_BOTTOM_EXTENT,
     )
-    rows_per_page = max(1, int(baseline_span // options.line_height) + 1)
+    rows_per_page = max(1, int(baseline_span // options.line_height))
     return [
         rows[index : index + rows_per_page]
         for index in range(0, len(rows), rows_per_page)
@@ -982,7 +982,7 @@ def render_multi_part_scores_a4_pages(
     top = _a4_score_top(page_options)
     bottom = A4_BOTTOM_MARGIN
     baseline_span = max(0, A4_PAGE_HEIGHT - top - bottom - A4_ROW_BOTTOM_EXTENT)
-    rows_per_page = max(1, int(baseline_span // effective_row_height) + 1)
+    rows_per_page = max(1, int(baseline_span // effective_row_height))
 
     meta = _score_meta(first_score)
     text_blocks_by_page = page_text_blocks or {}
@@ -1070,10 +1070,13 @@ def _render_multi_part_a4_page(
                 )
 
             if part_idx < len(part_names) and part_names[part_idx]:
+                name_x = bracket_x - 10
+                name_y = y_part + 44
                 out.append(
-                    f'<text class="part-name" x="{bracket_x - 12}" '
-                    f'y="{y_part + 48}" text-anchor="end" '
-                    f'font-size="14">{_esc(part_names[part_idx])}</text>'
+                    f'<text class="part-name" x="{name_x}" y="{name_y}" '
+                    f'text-anchor="middle" font-size="14" '
+                    f'transform="rotate(-90 {name_x} {name_y})">'
+                    f"{_esc(part_names[part_idx])}</text>"
                 )
 
             x = float(options.margin)

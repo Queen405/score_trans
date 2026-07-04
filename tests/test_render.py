@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import fields, replace
 from fractions import Fraction
 from pathlib import Path
@@ -255,6 +256,64 @@ def test_multi_part_musicxml_preview_renders_every_part(tmp_path) -> None:
     svg = pages[0].path.read_text(encoding="utf-8")
     assert ">高音</text>" in svg
     assert ">低音</text>" in svg
+
+
+def test_multi_part_part_name_uses_vertical_rotation(tmp_path) -> None:
+    input_path = tmp_path / "score.musicxml"
+    output_path = tmp_path / "score.svg"
+    input_path.write_text(
+        scores_to_musicxml(
+            [
+                _part_score("Piano(staff 1)", 1, "s1:i10"),
+                _part_score("Piano(staff 2)", 5, "s1:i20"),
+            ],
+            title="双声部",
+        ),
+        encoding="utf-8",
+    )
+
+    pages = RenderMusicXmlJianpuAction().execute_a4_pages(
+        input_path,
+        output_path,
+    )
+
+    svg = pages[0].path.read_text(encoding="utf-8")
+    assert 'transform="rotate(-90' in svg
+    assert 'text-anchor="end"' not in svg
+    assert ">Piano(staff 1)</text>" in svg
+    assert ">Piano(staff 2)</text>" in svg
+
+
+def test_multi_part_pagination_does_not_overflow_page(tmp_path) -> None:
+    part_scores = [
+        _part_score(f"Piano(staff {i})", 1, f"s{i}:i10") for i in range(1, 5)
+    ]
+    for score in part_scores:
+        score.measures = [
+            JianpuMeasure(
+                source_number=str(n),
+                duration=Fraction(4, 1),
+                events=[
+                    JianpuEvent(
+                        kind="note",
+                        duration=Fraction(1, 1),
+                        pitches=[JianpuPitch(1)],
+                        start=Fraction(0, 1),
+                    )
+                ],
+            )
+            for n in range(1, 25)
+        ]
+
+    pages = render_multi_part_scores_a4_pages(part_scores)
+
+    assert len(pages) >= 1
+    for page in pages:
+        svg = page.svg
+        assert "Piano(staff 1)" in svg
+        assert "Piano(staff 4)" in svg
+        y_values = [int(m.group(1)) for m in re.finditer(r'y="(\d+)"', svg)]
+        assert max(y_values) < A4_PAGE_HEIGHT
 
 
 def test_multi_part_render_rejects_unequal_measure_counts(tmp_path) -> None:
@@ -631,24 +690,19 @@ def test_render_scores_a4_svgs_continue_across_source_page_boundaries() -> None:
     pages = render_scores_a4_svgs([first_source, second_source, third_source])
 
     assert len(pages) >= 2
-    first_root = _svg_root(pages[0])
-    second_root = _svg_root(pages[1])
-    first_page_numbers = [
-        element.attrib.get("data-number")
-        for element in first_root.iter()
-        if element.attrib.get("class") == "measure"
-    ]
-    second_page_numbers = [
-        element.attrib.get("data-number")
-        for element in second_root.iter()
-        if element.attrib.get("class") == "measure"
-    ]
-    all_numbers = [*first_page_numbers, *second_page_numbers]
+    all_numbers: list[str] = []
+    for page in pages:
+        root = _svg_root(page)
+        all_numbers.extend(
+            element.attrib.get("data-number")
+            for element in root.iter()
+            if element.attrib.get("class") == "measure"
+        )
 
-    assert "1" in first_page_numbers
-    assert "70" in second_page_numbers
-    assert "71" in second_page_numbers
-    assert all_numbers[:78] == [str(number) for number in range(1, 79)]
+    assert "1" in all_numbers
+    assert "70" in all_numbers
+    assert "71" in all_numbers
+    assert all_numbers[:82] == [str(number) for number in range(1, 83)]
 
 
 def test_a4_layout_uses_increased_line_height() -> None:
@@ -705,14 +759,14 @@ def _first_note_center_gap(measure_body: str, options: RenderOptions) -> float:
     return slots[1][1] - slots[0][1]
 
 
-def test_a4_layout_paginates_ten_rows_per_page() -> None:
+def test_a4_layout_paginates_nine_rows_per_page() -> None:
     options = _a4_render_options(None, title="简谱")
     score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
     layout = _score_measure_layout(score.measures[0], options)
 
     pages = _paginate_rows([[layout] for _ in range(25)], options)
 
-    assert [len(page) for page in pages] == [10, 10, 5]
+    assert [len(page) for page in pages] == [9, 9, 7]
 
 
 def test_a4_full_page_rows_reach_bottom_safe_area() -> None:
@@ -724,8 +778,8 @@ def test_a4_full_page_rows_reach_bottom_safe_area() -> None:
     last_baseline = _a4_score_top(options) + (len(first_page) - 1) * options.line_height
     remaining = A4_PAGE_HEIGHT - A4_BOTTOM_MARGIN - last_baseline - A4_ROW_BOTTOM_EXTENT
 
-    assert len(first_page) == 10
-    assert 0 <= remaining < 8
+    assert len(first_page) == 9
+    assert remaining >= 0
 
 
 def test_a4_compact_render_keeps_dense_symbols_legible() -> None:

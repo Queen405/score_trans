@@ -1880,6 +1880,11 @@ export type components = {
             /** Assistant Provider Options */
             assistant_provider_options?: components["schemas"]["LlmProviderOption"][];
             /**
+             * Audiveris Auto Upscale
+             * @default true
+             */
+            audiveris_auto_upscale?: boolean;
+            /**
              * Audiveris Max Heap
              * @default 2g
              */
@@ -1889,6 +1894,11 @@ export type components = {
              * @default 20000000
              */
             audiveris_max_pixel_count?: string;
+            /**
+             * Audiveris Min Image Edge
+             * @default 2500
+             */
+            audiveris_min_image_edge?: number;
             /** Audiveris Path */
             audiveris_path: string;
             /** Cache Dir */
@@ -1969,10 +1979,14 @@ export type components = {
             assistant_model?: string | null;
             /** Assistant Provider */
             assistant_provider?: string | null;
+            /** Audiveris Auto Upscale */
+            audiveris_auto_upscale?: boolean | null;
             /** Audiveris Max Heap */
             audiveris_max_heap?: ("1g" | "2g" | "3g" | "4g") | null;
             /** Audiveris Max Pixel Count */
             audiveris_max_pixel_count?: string | null;
+            /** Audiveris Min Image Edge */
+            audiveris_min_image_edge?: number | null;
             /** Audiveris Path */
             audiveris_path?: string | null;
             /** Confirm Start Measure Number */

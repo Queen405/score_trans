@@ -140,6 +140,10 @@ public class MultipleRestsBuilder
             for (HorizontalSide side : HorizontalSide.values()) {
                 final StaffPeak peak = sidePeaks.get(side);
                 final Filament filament = filamentBuilder.buildFilament(peak, 0, allSections);
+                if (filament == null) {
+                    logger.debug("No serif filament for {} multiple rest, skipped", side);
+                    continue;
+                }
                 final Glyph glyph = glyphIndex.registerOriginal(filament.toGlyph(null));
                 final double x = peak.getStart() + (peak.getWidth() / 2d);
                 final Line2D median = new Line2D.Double(
