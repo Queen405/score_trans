@@ -802,9 +802,8 @@ export type components = {
             /**
              * Target Key
              * @default C
-             * @enum {string}
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Title */
             title?: string | null;
         };
@@ -971,9 +970,8 @@ export type components = {
             /**
              * Target Key
              * @default C
-             * @enum {string}
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /**
              * Title
              * @default 简谱
@@ -1064,9 +1062,8 @@ export type components = {
             /**
              * Target Key
              * @default C
-             * @enum {string}
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Title */
             title?: string | null;
         };
@@ -1133,7 +1130,7 @@ export type components = {
              * Target Key
              * @default C
              */
-            target_key?: string;
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Title */
             title?: string | null;
         };
@@ -1198,9 +1195,8 @@ export type components = {
             /**
              * Target Key
              * @default C
-             * @enum {string}
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Title */
             title?: string | null;
         };
@@ -1292,9 +1288,8 @@ export type components = {
             /**
              * Target Key
              * @default C
-             * @enum {string}
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
         };
         /** MusicXmlToJianpuResponse */
         MusicXmlToJianpuResponse: {
@@ -1548,9 +1543,8 @@ export type components = {
             /**
              * Target Key
              * @default C
-             * @enum {string}
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Title */
             title?: string | null;
         };
@@ -1637,9 +1631,8 @@ export type components = {
             /**
              * Target Key
              * @default C
-             * @enum {string}
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Title */
             title?: string | null;
         };
@@ -1765,9 +1758,8 @@ export type components = {
             /**
              * Target Key
              * @default C
-             * @enum {string}
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Title */
             title?: string | null;
         };
@@ -1951,10 +1943,9 @@ export type components = {
             show_measure_numbers?: boolean;
             /**
              * Target Key
-             * @default C
-             * @enum {string}
+             * @default auto
              */
-            target_key?: "Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#";
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Work Dir */
             work_dir: string;
         };
@@ -2005,7 +1996,7 @@ export type components = {
             /** Show Measure Numbers */
             show_measure_numbers?: boolean | null;
             /** Target Key */
-            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | null;
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto" | null;
             /** Work Dir */
             work_dir?: string | null;
         };

@@ -97,7 +97,8 @@ test('player volume parsing clamps persistence to the supported range', async ()
 
 test('MIDI generation failures unload stale audio and notify the user', () => {
   assert.match(playerSource, /useMessage\(\)/)
-  assert.match(playerSource, /loadError\.value/)
+  assert.match(playerSource, /useLogStore\(\)/)
+  assert.match(playerSource, /logStore\.addError\(/)
   assert.match(playerSource, /player\.unload\(\)/)
   assert.match(playerSource, /message\.error\(/)
 })

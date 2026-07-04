@@ -6,7 +6,7 @@ from ..common.types import (
     AccidentalMode,
     InstrumentProfile,
     MeasureNumberMode,
-    TargetKey,
+    TargetKeyOrAuto,
 )
 from ..render.schemas import RenderedSvgPage
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
@@ -14,7 +14,7 @@ from ..provenance.schemas import SourceTextAttachment, TextAnchor
 
 class PipelineByFileIdRequest(BaseModel):
     file_id: str
-    target_key: TargetKey = "C"
+    target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile = "general"
     show_measure_numbers: bool | None = None

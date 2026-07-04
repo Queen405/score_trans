@@ -9,6 +9,7 @@ from ..jianpu_tokens import (
     consume_duration_prefix,
     consume_duration_suffix,
     duration_prefix,
+    tuplet_duration_unit_count,
 )
 from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
 from ..performance_marks import (
@@ -702,15 +703,19 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         raise _syntax_error(token, "连音组不能为空")
     if len(parsed) < 2 and explicit_ratio is None:
         raise _syntax_error(token, "连音组至少需要两个音符，例如 $123$ 或 $1 2 3$")
-    actual_count = explicit_ratio[0] if explicit_ratio is not None else len(parsed)
-    normal_count = (
-        explicit_ratio[1]
-        if explicit_ratio is not None
-        else _tuplet_normal_notes(actual_count)
-    )
     has_explicit_duration = any(
         _has_tuplet_duration_prefix(source_token) for _event, source_token in parsed
     )
+    if explicit_ratio is not None:
+        actual_count, normal_count = explicit_ratio
+    elif has_explicit_duration:
+        actual_count = tuplet_duration_unit_count(
+            event.duration for event, _source_token in parsed
+        )
+        normal_count = _tuplet_normal_notes(actual_count)
+    else:
+        actual_count = len(parsed)
+        normal_count = _tuplet_normal_notes(actual_count)
     group_id = f"{token.line}:{token.column}"
     events: list[tuple[Event, str]] = []
     for index, (event, source_token) in enumerate(parsed):

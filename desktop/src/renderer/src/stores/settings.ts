@@ -78,7 +78,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const cacheSizeBytes = ref(0)
   const cacheSizeAvailable = ref(false)
   const storageRestartRequired = ref(false)
-  const targetKey = ref<TargetKey>('C')
+  const targetKey = ref<TargetKey>('auto')
   const accidentalMode = ref<AccidentalMode>('auto')
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
@@ -120,7 +120,7 @@ export const useSettingsStore = defineStore('settings', () => {
     audiverisMaxPixelCount: '20000000',
     dataDir: '',
     cacheDir: '',
-    targetKey: 'C',
+    targetKey: 'auto',
     accidentalMode: 'auto',
     measureNumberMode: 'all',
     confirmStartMeasureNumber: true,
@@ -345,7 +345,7 @@ export const useSettingsStore = defineStore('settings', () => {
     cacheSizeAvailable.value = Object.prototype.hasOwnProperty.call(data, 'cache_size_bytes')
     if (!dataDir.value) dataDir.value = activeDataDir.value
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value
-    targetKey.value = data.target_key ?? 'C'
+    targetKey.value = data.target_key ?? 'auto'
     accidentalMode.value = data.accidental_mode ?? 'auto'
     measureNumberMode.value =
       data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')

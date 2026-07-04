@@ -6,6 +6,7 @@ from ...models.common.types import (
     MeasureNumberMode,
     SUPPORTED_TARGET_KEYS,
     TargetKey,
+    TargetKeyOrAuto,
 )
 from ...models.settings.schemas import (
     CacheCleanupResponse,
@@ -315,10 +316,12 @@ def _accidental_mode(value: str | None) -> AccidentalMode:
     return "auto"
 
 
-def _target_key(value: str | None) -> TargetKey:
+def _target_key(value: str | None) -> TargetKeyOrAuto:
+    if value == "auto":
+        return "auto"
     if value in SUPPORTED_TARGET_KEYS:
         return value
-    return "C"
+    return "auto"
 
 
 def _measure_number_mode(

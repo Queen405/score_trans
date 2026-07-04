@@ -11,15 +11,25 @@
       <div class="sv-form-stack">
         <settings-form-row label="简谱调">
           <div class="sv-key-pickers">
+            <n-checkbox
+              v-model:checked="autoKey"
+              title="勾选后自动识别 MusicXML 中的调号，未识别到时默认 C 调"
+            >
+              自动识别
+            </n-checkbox>
             <n-select
               v-model:value="accidental"
               :options="accidentalOptions"
+              :disabled="autoKey"
               size="small"
+              class="key-accidental"
             />
             <n-select
               v-model:value="baseKey"
               :options="baseKeyOptions"
+              :disabled="autoKey"
               size="small"
+              class="key-base"
             />
           </div>
         </settings-form-row>
@@ -99,8 +109,8 @@
 </template>
 
 <script setup lang="ts">
-import { NButton, NInput, NSelect, NSwitch } from 'naive-ui'
-import { computed } from 'vue'
+import { NButton, NCheckbox, NInput, NSelect, NSwitch } from 'naive-ui'
+import { computed, ref, watch } from 'vue'
 import { useSettingsStore } from '../../stores/settings'
 import type { MeasureNumberMode, TargetKey } from '../../models/types'
 import SettingsFormRow from './SettingsFormRow.vue'
@@ -111,6 +121,23 @@ type KeyAccidental = 'sharp' | 'flat' | 'natural'
 type KeyBase = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
 
 const allBases: KeyBase[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+
+const lastSpecificKey = ref<TargetKey>('C')
+
+watch(
+  () => settings.draft.targetKey,
+  (key) => {
+    if (key !== 'auto') lastSpecificKey.value = key
+  },
+  { immediate: true },
+)
+
+const autoKey = computed<boolean>({
+  get: () => settings.draft.targetKey === 'auto',
+  set: (value: boolean) => {
+    settings.draft.targetKey = value ? 'auto' : lastSpecificKey.value
+  },
+})
 
 const baseLabels: Record<KeyBase, string> = {
   C: 'C',
@@ -123,6 +150,7 @@ const baseLabels: Record<KeyBase, string> = {
 }
 
 function splitTargetKey(key: TargetKey): { accidental: KeyAccidental; base: KeyBase } {
+  if (key === 'auto') return { accidental: 'natural', base: 'C' }
   if (key.endsWith('#')) {
     return { accidental: 'sharp', base: key.slice(0, 1) as KeyBase }
   }
@@ -205,12 +233,12 @@ function desktopApi(): any {
   max-width: 560px;
 }
 
-.sv-key-pickers .n-select:first-child {
+.sv-key-pickers .key-accidental {
   width: 96px;
   flex-shrink: 0;
 }
 
-.sv-key-pickers .n-select:last-child {
+.sv-key-pickers .key-base {
   flex: 1;
 }
 </style>

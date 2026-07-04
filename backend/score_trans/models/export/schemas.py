@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from ..common.types import TargetKeyOrAuto
+
 
 class ExportResponse(BaseModel):
     file_id: str
@@ -18,7 +20,7 @@ class ExportMusicXmlRequest(BaseModel):
     musicxml_file_id: str
     filename: str | None = None
     title: str | None = None
-    target_key: str = "C"
+    target_key: TargetKeyOrAuto = "C"
     start_measure_number: int | None = None
 
 

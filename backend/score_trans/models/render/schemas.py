@@ -6,7 +6,7 @@ from ..common.types import (
     AccidentalMode,
     InstrumentProfile,
     MeasureNumberMode,
-    TargetKey,
+    TargetKeyOrAuto,
 )
 from ..provenance.schemas import RenderedTextBlock, SourceTextAttachment, TextAnchor
 
@@ -38,7 +38,7 @@ class RenderedSvgPage(BaseModel):
 class RenderJianpuSvgRequest(BaseModel):
     musicxml_file_id: str
     page_image_file_id: str | None = None
-    target_key: TargetKey = "C"
+    target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
@@ -84,7 +84,7 @@ class NormalizeJianpuTextResponse(BaseModel):
 class FinalRenderRequest(BaseModel):
     musicxml_file_id: str
     page_image_file_id: str | None = None
-    target_key: TargetKey = "C"
+    target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
@@ -103,7 +103,7 @@ class FinalRenderResponse(BaseModel):
 class PreservingLayoutRequest(BaseModel):
     musicxml_file_id: str
     page_image_file_id: str
-    target_key: TargetKey = "C"
+    target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
@@ -137,7 +137,7 @@ class BatchRenderRequest(BaseModel):
     pages: list[BatchRenderPageRequest]
     source_pages: list[BatchRenderPageRequest] = []
     render_page_ocr_texts: list[RenderPageOcrText] = []
-    target_key: TargetKey = "C"
+    target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None

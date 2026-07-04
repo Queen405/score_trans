@@ -11,7 +11,7 @@ from ...models.common.types import (
     AccidentalMode,
     InstrumentProfile,
     MeasureNumberMode,
-    TargetKey,
+    TargetKeyOrAuto,
 )
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
@@ -42,7 +42,7 @@ async def run_pipeline_by_file_id(
 async def run_pipeline(
     request: Request,
     file: UploadFile = File(...),
-    target_key: TargetKey = Form("C"),
+    target_key: TargetKeyOrAuto = Form("C"),
     accidental_mode: AccidentalMode = Form("auto"),
     instrument_profile: InstrumentProfile = Form("general"),
     start_measure_number: int | None = Form(None),

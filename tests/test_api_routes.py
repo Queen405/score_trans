@@ -246,7 +246,15 @@ def test_target_key_schema_exposes_supported_keys() -> None:
         "SettingsResponse"
     ]["properties"]["target_key"]
 
-    assert property_schema["enum"] == [
+    enum_values: list[str] = []
+    for sub_schema in property_schema.get("anyOf", []):
+        enum_values.extend(sub_schema.get("enum", []))
+        if "const" in sub_schema:
+            enum_values.append(sub_schema["const"])
+    if "enum" in property_schema:
+        enum_values = property_schema["enum"]
+
+    expected_keys = [
         "Cb",
         "Gb",
         "Db",
@@ -263,6 +271,10 @@ def test_target_key_schema_exposes_supported_keys() -> None:
         "F#",
         "C#",
     ]
+    for key in expected_keys:
+        assert key in enum_values, f"missing key {key}"
+    assert "auto" in enum_values
+    assert property_schema["default"] == "auto"
 
 
 def test_settings_persists_show_measure_numbers(tmp_path: Path) -> None:

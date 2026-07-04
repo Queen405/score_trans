@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from fractions import Fraction
+from math import gcd, lcm
 
 
 _FINE_DURATION_PREFIXES = {
@@ -108,3 +110,20 @@ def token_duration(token: str) -> Fraction:
     base_duration, work = consume_duration_prefix(token)
     duration, _work, _dot_count = consume_duration_suffix(base_duration, work)
     return duration
+
+
+def tuplet_duration_unit_count(durations: Iterable[Fraction]) -> int:
+    values = [Fraction(duration) for duration in durations]
+    if not values or any(duration <= 0 for duration in values):
+        raise ValueError("连音组时值必须全部大于零")
+    common_denominator = 1
+    for duration in values:
+        common_denominator = lcm(common_denominator, duration.denominator)
+    scaled = [
+        duration.numerator * (common_denominator // duration.denominator)
+        for duration in values
+    ]
+    unit = 0
+    for value in scaled:
+        unit = gcd(unit, value)
+    return sum(value // unit for value in scaled)

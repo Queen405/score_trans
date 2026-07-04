@@ -81,7 +81,7 @@ def musicxml_to_scores(
     title: str | None = None,
     instrument_profile: InstrumentProfile | None = None,
 ) -> list[JianpuScore]:
-    if target_key not in KEY_TO_TONIC:
+    if target_key != "auto" and target_key not in KEY_TO_TONIC:
         raise ValueError(f"不支持的简谱调：{target_key}")
 
     root = safe_xml_fromstring(
@@ -92,7 +92,8 @@ def musicxml_to_scores(
     ns = _namespace(root.tag)
     xml_parts = root.findall(_q(ns, "part"))
     if not xml_parts:
-        return [JianpuScore(title=title or "简谱", target_key=target_key)]
+        resolved = "C" if target_key == "auto" else target_key
+        return [JianpuScore(title=title or "简谱", target_key=resolved)]
 
     extracted_title = title or _extract_title(root, ns)
     profile = (
@@ -104,12 +105,16 @@ def musicxml_to_scores(
 
     raw_scores: list[JianpuScore] = []
     for part_element in xml_parts:
+        part_target_key = target_key
+        if target_key == "auto":
+            source_key = _extract_first_key(part_element, ns)
+            part_target_key = source_key or "C"
         part_id = part_element.get("id", "")
         part_name = part_names.get(part_id, "")
         score = _parse_single_part(
             part_element,
             ns,
-            target_key,
+            part_target_key,
             start_measure_number,
             extracted_title,
             profile,
@@ -172,6 +177,17 @@ def musicxml_to_score(
         if scores
         else JianpuScore(title=title or "简谱", target_key=target_key)
     )
+
+
+def _extract_first_key(part: ET.Element, ns: str) -> str | None:
+    for xml_measure in part.findall(_q(ns, "measure")):
+        attrs = xml_measure.find(_q(ns, "attributes"))
+        if attrs is None:
+            continue
+        fifths = _text(attrs.find(f"{_q(ns, 'key')}/{_q(ns, 'fifths')}"))
+        if fifths is not None:
+            return FIFTHS_TO_KEY.get(int(fifths), "C")
+    return None
 
 
 def _parse_single_part(

@@ -249,6 +249,49 @@ def test_musicxml_tuplet_state_continues_across_measures() -> None:
     assert second.tuplet_spans[0].stop is True
 
 
+def test_musicxml_omits_redundant_ratio_for_weighted_tuplet_durations() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>24</divisions><key><fifths>0</fifths></key>
+          <time><beats>1</beats><beat-type>8</beat-type></time>
+        </attributes>
+        <note>
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>8</duration><type>eighth</type>
+          <time-modification>
+            <actual-notes>3</actual-notes><normal-notes>2</normal-notes>
+          </time-modification>
+          <notations><tuplet number="1" type="start"/></notations>
+          <beam number="1">begin</beam>
+        </note>
+        <note>
+          <pitch><step>D</step><octave>4</octave></pitch>
+          <duration>4</duration><type>16th</type>
+          <time-modification>
+            <actual-notes>3</actual-notes><normal-notes>2</normal-notes>
+          </time-modification>
+          <notations><tuplet number="1" type="stop"/></notations>
+          <beam number="1">end</beam>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    text = score_to_jianpu_text(score)
+    reparsed = parse_jianpu_score(text)
+
+    assert "$q1 s2$" in text
+    assert "3:2;" not in text
+    assert [event.duration for event in reparsed.measures[0].events] == [
+        Fraction(1, 3),
+        Fraction(1, 6),
+    ]
+
+
 def test_musicxml_recovers_orphan_time_modified_beam_as_tuplet() -> None:
     xml = """
     <score-partwise version="4.0">

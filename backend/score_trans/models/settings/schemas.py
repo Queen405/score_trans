@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
 
-from score_trans.models.common.types import AccidentalMode, MeasureNumberMode, TargetKey
+from score_trans.models.common.types import AccidentalMode, MeasureNumberMode, TargetKeyOrAuto
 
 
 class LlmProviderOption(BaseModel):
@@ -26,7 +26,7 @@ class SettingsResponse(BaseModel):
     cache_dir: str
     cache_size_bytes: int = 0
     work_dir: str
-    target_key: TargetKey = "C"
+    target_key: TargetKeyOrAuto = "auto"
     accidental_mode: AccidentalMode = "auto"
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
@@ -56,7 +56,7 @@ class SettingsUpdateRequest(BaseModel):
     audiveris_max_heap: Literal["1g", "2g", "3g", "4g"] | None = None
     audiveris_max_pixel_count: str | None = None
     output_dir: str | None = None
-    target_key: TargetKey | None = None
+    target_key: TargetKeyOrAuto | None = None
     accidental_mode: AccidentalMode | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode | None = None

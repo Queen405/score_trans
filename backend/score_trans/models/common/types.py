@@ -61,6 +61,9 @@ SUPPORTED_TARGET_KEYS: tuple[TargetKey, ...] = (
     "C#",
 )
 
+AutoKey = Literal["auto"]
+TargetKeyOrAuto = TargetKey | AutoKey
+
 IMAGE_SUFFIXES: frozenset[str] = frozenset(
     {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 )

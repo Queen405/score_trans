@@ -5,13 +5,13 @@ from pydantic import BaseModel, Field
 from score_trans.models.common.types import (
     AccidentalMode,
     InstrumentProfile,
-    TargetKey,
+    TargetKeyOrAuto,
 )
 
 
 class AiTranscribeRequest(BaseModel):
     file_id: str
-    target_key: TargetKey = "C"
+    target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile = "general"
     title: str | None = None
