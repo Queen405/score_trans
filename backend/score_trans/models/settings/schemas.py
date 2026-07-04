@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Literal
+from urllib.parse import urlsplit
 
-from score_trans.config.settings import (
-    AI_BASE_URL,
-    AI_MODEL,
-    AI_PROVIDER,
-    ASSISTANT_BASE_URL,
-    ASSISTANT_MODEL,
-    ASSISTANT_PROVIDER,
-    OCR_BASE_URL,
-    OCR_MODEL,
-    OCR_PROVIDER,
-)
+from pydantic import BaseModel, Field, field_validator
+
 from score_trans.models.common.types import AccidentalMode, MeasureNumberMode, TargetKey
 
 
@@ -41,27 +33,27 @@ class SettingsResponse(BaseModel):
     confirm_start_measure_number: bool = True
     jianpu_syntax_highlight: bool = False
     output_dir: str = ""
-    ocr_provider: str = OCR_PROVIDER
+    ocr_provider: str
     ocr_provider_options: list[LlmProviderOption] = Field(default_factory=list)
     ocr_api_key_set: bool = False
-    ocr_base_url: str = OCR_BASE_URL
-    ocr_model: str = OCR_MODEL
-    ai_provider: str = AI_PROVIDER
+    ocr_base_url: str
+    ocr_model: str
+    ai_provider: str
     ai_provider_options: list[LlmProviderOption] = Field(default_factory=list)
     ai_api_key_set: bool = False
-    ai_base_url: str = AI_BASE_URL
-    ai_model: str = AI_MODEL
-    assistant_provider: str = ASSISTANT_PROVIDER
+    ai_base_url: str
+    ai_model: str
+    assistant_provider: str
     assistant_provider_options: list[LlmProviderOption] = Field(default_factory=list)
     assistant_api_key_set: bool = False
-    assistant_base_url: str = ASSISTANT_BASE_URL
-    assistant_model: str = ASSISTANT_MODEL
+    assistant_base_url: str
+    assistant_model: str
 
 
 class SettingsUpdateRequest(BaseModel):
     audiveris_path: str | None = None
     java_home: str | None = None
-    audiveris_max_heap: str | None = None
+    audiveris_max_heap: Literal["1g", "2g", "3g", "4g"] | None = None
     audiveris_max_pixel_count: str | None = None
     output_dir: str | None = None
     target_key: TargetKey | None = None
@@ -73,10 +65,50 @@ class SettingsUpdateRequest(BaseModel):
     work_dir: str | None = None
     ocr_provider: str | None = None
     ocr_api_key: str | None = None
+    ocr_base_url: str | None = Field(default=None, max_length=2048)
+    ocr_model: str | None = Field(default=None, max_length=256)
     ai_provider: str | None = None
     ai_api_key: str | None = None
+    ai_base_url: str | None = Field(default=None, max_length=2048)
+    ai_model: str | None = Field(default=None, max_length=256)
     assistant_provider: str | None = None
     assistant_api_key: str | None = None
+    assistant_base_url: str | None = Field(default=None, max_length=2048)
+    assistant_model: str | None = Field(default=None, max_length=256)
+
+    @field_validator(
+        "ocr_base_url",
+        "ai_base_url",
+        "assistant_base_url",
+        mode="before",
+    )
+    @classmethod
+    def validate_provider_base_url(cls, value: object) -> object:
+        if value is None or not isinstance(value, str):
+            return value
+        cleaned = value.strip().rstrip("/")
+        if not cleaned:
+            raise ValueError("provider base URL must not be empty")
+        try:
+            parsed = urlsplit(cleaned)
+            _ = parsed.port
+        except ValueError as exc:
+            raise ValueError("provider base URL is invalid") from exc
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("provider base URL must use HTTP or HTTPS")
+        if parsed.username is not None or parsed.password is not None:
+            raise ValueError("provider base URL must not contain credentials")
+        return cleaned
+
+    @field_validator("ocr_model", "ai_model", "assistant_model", mode="before")
+    @classmethod
+    def validate_provider_model(cls, value: object) -> object:
+        if value is None or not isinstance(value, str):
+            return value
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("provider model must not be empty")
+        return cleaned
 
 
 class CacheCleanupResponse(BaseModel):

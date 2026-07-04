@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from score_trans.api.app import create_app
+from score_trans.dao.ai.chat_dao import AiChatDao
 from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.settings.actions import SettingsActions
 from score_trans.models.settings.schemas import SettingsUpdateRequest
+from score_trans.services.ai.chat_service import AiChatService
+from score_trans.services.ai.transcription import AiTranscriptionService
+from score_trans.services.ocr.providers import create_configured_ocr_provider
 from score_trans.services.settings.api_keys import provider_api_key_name
 from score_trans.services.settings.provider_profiles import (
     provider_profiles,
@@ -14,19 +19,131 @@ from score_trans.services.settings.provider_profiles import (
 from score_trans.services.settings.settings_service import SettingsService
 
 
-def test_settings_update_schema_only_accepts_provider_ids() -> None:
+def test_settings_update_schema_accepts_provider_endpoint_overrides() -> None:
     schema = create_app().openapi()["components"]["schemas"]["SettingsUpdateRequest"]
     properties = schema["properties"]
 
     assert "ocr_provider" in properties
     assert "ai_provider" in properties
     assert "assistant_provider" in properties
-    assert "ocr_base_url" not in properties
-    assert "ocr_model" not in properties
-    assert "ai_base_url" not in properties
-    assert "ai_model" not in properties
-    assert "assistant_base_url" not in properties
-    assert "assistant_model" not in properties
+    assert "ocr_base_url" in properties
+    assert "ocr_model" in properties
+    assert "ai_base_url" in properties
+    assert "ai_model" in properties
+    assert "assistant_base_url" in properties
+    assert "assistant_model" in properties
+
+
+def test_settings_provider_endpoint_overrides_are_saved_and_returned(tmp_path) -> None:
+    dao = SettingsDao(tmp_path / "settings.db")
+    actions = SettingsActions(SettingsService(dao))
+
+    response = actions.update_settings(
+        SettingsUpdateRequest(
+            ocr_base_url="https://ocr.example.com/v1/",
+            ocr_model="ocr-custom",
+            ai_base_url="https://ai.example.com/v1",
+            ai_model="ai-custom",
+            assistant_base_url="https://assistant.example.com/v1",
+            assistant_model="assistant-custom",
+        )
+    )
+
+    assert response.ocr_base_url == "https://ocr.example.com/v1"
+    assert response.ocr_model == "ocr-custom"
+    assert response.ai_base_url == "https://ai.example.com/v1"
+    assert response.ai_model == "ai-custom"
+    assert response.assistant_base_url == "https://assistant.example.com/v1"
+    assert response.assistant_model == "assistant-custom"
+    assert dao.get("ocr_base_url") == "https://ocr.example.com/v1"
+    assert dao.get("assistant_model") == "assistant-custom"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("ocr_base_url", "ftp://example.com/v1"),
+        ("ai_base_url", "https://user:secret@example.com/v1"),
+        ("assistant_base_url", "not-a-url"),
+        ("ocr_model", " "),
+        ("ai_model", "x" * 257),
+        ("audiveris_max_heap", "8g"),
+    ],
+)
+def test_settings_update_rejects_invalid_endpoint_or_heap(field, value) -> None:
+    with pytest.raises(ValidationError):
+        SettingsUpdateRequest(**{field: value})
+
+
+def test_settings_preserves_string_zero_pixel_count(tmp_path) -> None:
+    dao = SettingsDao(tmp_path / "settings.db")
+    dao.set("audiveris_max_pixel_count", "0")
+
+    assert SettingsService(dao).load().audiveris_max_pixel_count == "0"
+
+
+def test_configured_services_use_saved_endpoint_and_model_overrides(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    dao = SettingsDao(tmp_path / "settings.db")
+    ocr_profile = next(
+        profile for profile in provider_profiles("ocr") if profile.provider != "mock"
+    )
+    ai_profile = provider_profiles("ai")[0]
+    assistant_profile = provider_profiles("assistant")[0]
+    for kind, profile in (
+        ("ocr", ocr_profile),
+        ("ai", ai_profile),
+        ("assistant", assistant_profile),
+    ):
+        dao.set(f"{kind}_provider", profile.id)
+        dao.set(f"{kind}_base_url", f"https://{kind}.example.com/v1")
+        dao.set(f"{kind}_model", f"{kind}-custom")
+
+    monkeypatch.setattr(
+        "score_trans.services.ocr.providers.configured_settings_dao",
+        lambda: dao,
+    )
+    monkeypatch.setattr(
+        "score_trans.services.ai.transcription.service.configured_settings_dao",
+        lambda: dao,
+    )
+
+    ocr_provider = create_configured_ocr_provider()
+    ai_provider = AiTranscriptionService().provider
+    chat = AiChatService(
+        dao=AiChatDao(tmp_path / "ai-chat.db"),
+        settings=dao,
+    )
+    _, assistant_base_url, assistant_model = chat._provider_settings()
+
+    assert ocr_provider.base_url == "https://ocr.example.com/v1"
+    assert ocr_provider.model == "ocr-custom"
+    assert ai_provider.base_url == "https://ai.example.com/v1"
+    assert ai_provider.model == "ai-custom"
+    assert assistant_base_url == "https://assistant.example.com/v1"
+    assert assistant_model == "assistant-custom"
+
+
+def test_settings_dao_injected_defaults_fill_missing_without_overwriting(
+    tmp_path,
+) -> None:
+    dao = SettingsDao(
+        tmp_path / "settings.db",
+        defaults={"ocr_model": "environment-model"},
+    )
+    dao.set("ocr_model", "user-model")
+
+    dao.ensure_defaults(
+        {
+            "ocr_model": "new-environment-model",
+            "ai_model": "new-ai-model",
+        }
+    )
+
+    assert dao.get("ocr_model") == "user-model"
+    assert dao.get("ai_model") == "new-ai-model"
 
 
 def test_settings_provider_update_resolves_fixed_profiles(tmp_path) -> None:

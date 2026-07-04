@@ -3,8 +3,9 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 import mido
+import pytest
 
-from score_trans.domain.jianpu import jianpu_to_musicxml
+from score_trans.domain.jianpu import jianpu_to_musicxml, parse_jianpu_score
 from score_trans.exec.export.actions import ExportActions
 from score_trans.models.export.schemas import (
     ExportMidiTextRequest,
@@ -96,3 +97,13 @@ def test_text_exports_preserve_multi_part_structure() -> None:
     assert midi_path is not None
     midi = mido.MidiFile(midi_path)
     assert len(midi.tracks) == 2
+
+
+def test_midi_export_rejects_microtones_without_pitch_bend(tmp_path) -> None:
+    score = parse_jianpu_score("1=C\n4/4\nqs1 2 3 4 |")
+    output_path = tmp_path / "microtonal.mid"
+
+    with pytest.raises(ValueError, match="pitch bend"):
+        ExportService().export_midi(score, output_path)
+
+    assert not output_path.exists()

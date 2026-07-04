@@ -55,6 +55,7 @@ def _svg_styles(options: RenderOptions, *, standalone_page: bool) -> list[str]:
     styles.extend(
         [
             f".lyric {{ font-size: {_px(options.lyric_font_size)}px; fill: #5f5a52; }}",
+            f".annotation {{ font-size: {_px(options.lyric_font_size)}px; fill: #202020; }}",
             f".dynamic {{ font-size: {_px(options.dynamic_font_size)}px; font-style: italic; font-weight: 650; }}",
             f".ornament {{ font-size: {_px(options.ornament_font_size)}px; fill: #171717; }}",
             f".technical {{ font-size: {_px(options.technical_font_size)}px; fill: #171717; }}",

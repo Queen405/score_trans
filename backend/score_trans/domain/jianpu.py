@@ -49,11 +49,11 @@ def musicxml_to_jianpu_multi(
     )
 
 
-def jianpu_file_to_musicxml(path: Path, title: str = "Jianpu Import") -> str:
+def jianpu_file_to_musicxml(path: Path, title: str | None = None) -> str:
     return jianpu_to_musicxml(path.read_text(encoding="utf-8"), title=title)
 
 
-def jianpu_to_musicxml(text: str, title: str = "Jianpu Import") -> str:
+def jianpu_to_musicxml(text: str, title: str | None = None) -> str:
     scores = parse_jianpu_scores(text, title=title)
     return scores_to_musicxml(scores, title=title)
 

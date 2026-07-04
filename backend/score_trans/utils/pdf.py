@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from score_trans.config.settings import PDF_RENDER_DPI as _DEFAULT_PDF_DPI
-
-
 def pdf_to_png_pages(
     pdf_path: Path,
     output_dir: Path,
     *,
-    dpi: int = _DEFAULT_PDF_DPI,
+    dpi: int,
     max_pages: int | None = None,
 ) -> list[Path]:
     """Render all (or limited) PDF pages to PNG files. Returns list of output paths."""
+    if max_pages is not None and max_pages < 0:
+        raise ValueError("max_pages 必须是大于等于 0 的整数或 None")
+
     try:
         import fitz
     except ImportError as exc:  # pragma: no cover
@@ -23,7 +23,7 @@ def pdf_to_png_pages(
     output_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
     with fitz.open(pdf_path) as doc:
-        limit = min(len(doc), max_pages) if max_pages else len(doc)
+        limit = min(len(doc), max_pages) if max_pages is not None else len(doc)
         for index in range(limit):
             page = doc.load_page(index)
             pixmap = page.get_pixmap(dpi=dpi, alpha=False)

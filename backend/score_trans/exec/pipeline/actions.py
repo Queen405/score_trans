@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from fastapi import UploadFile
-
 from ...domain.write.jianpu_text import scores_to_jianpu_document
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.text_attachments import build_source_text_attachments
@@ -19,6 +17,8 @@ from ...models.common.types import (
     InstrumentProfile,
     MeasureNumberMode,
 )
+from ...models.common.protocols import UploadFileLike
+from ...models.common.errors import RenderError
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.render.schemas import RenderedSvgPage
 from ...models.provenance.schemas import SourceMap, SourceTextAttachment, TextAnchor
@@ -57,6 +57,7 @@ class ScorePipelineOutputs:
 
     @property
     def jianpu_svg_path(self) -> Path:
+        _require_rendered_pages(self.jianpu_svg_paths)
         return self.jianpu_svg_paths[0]
 
 
@@ -137,6 +138,7 @@ class FullPipelineAction:
             measure_number_mode=measure_number_mode,
         )
         svg_paths = _rendered_page_paths(rendered_pages)
+        _require_rendered_pages(svg_paths)
         first_score = render_scores[0] if render_scores else None
         ocr_measure_numbers = (
             _extract_ocr_measure_numbers(first_score) if first_score else []
@@ -187,7 +189,7 @@ class PipelineActions:
 
     def run_pipeline(
         self,
-        file: UploadFile,
+        file: UploadFileLike,
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
@@ -211,7 +213,7 @@ class PipelineActions:
             progress_callback=progress_callback,
         )
 
-    def save_upload(self, file: UploadFile) -> Path:
+    def save_upload(self, file: UploadFileLike) -> Path:
         file_id = self.uploads.save(file)
         input_path = self.uploads.get_path(file_id)
         if not input_path:
@@ -258,7 +260,7 @@ class PipelineActions:
     async def submit_pipeline_task(
         self,
         app: Any,
-        file: UploadFile,
+        file: UploadFileLike,
         *,
         tasks: TaskActions,
         target_key: str = "C",
@@ -321,6 +323,7 @@ class PipelineActions:
             title=title,
             progress_callback=progress_callback,
         )
+        _require_rendered_pages(outputs.jianpu_svg_paths)
 
         report_progress(progress_callback, "pipeline", 96, "注册输出文件")
         musicxml_id = self.uploads.register(outputs.musicxml_path)
@@ -460,6 +463,11 @@ def _rendered_page_paths(rendered_pages) -> list[Path]:
         Path(page.path) if hasattr(page, "path") else Path(page)
         for page in rendered_pages
     ]
+
+
+def _require_rendered_pages(paths: list[Path]) -> None:
+    if not paths:
+        raise RenderError("渲染器未生成任何简谱 SVG 页面")
 
 
 def _is_ocr_image(path: Path) -> bool:

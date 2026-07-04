@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from ....utils.openai_response import completion_content
+
 
 def chat_completions(
     *,
@@ -36,4 +38,4 @@ def chat_completions(
     resp = httpx.post(url, json=body, headers=headers, timeout=timeout)
     resp.raise_for_status()
     data = resp.json()
-    return data["choices"][0]["message"]["content"]
+    return completion_content(data, provider_name="OCR")

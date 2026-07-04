@@ -1,9 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+export interface BackendConnection {
+  baseURL: string
+  token: string
+}
+
 const api = {
-  getBackendURL: (): string => {
-    return ipcRenderer.sendSync('get-backend-url') || 'http://127.0.0.1:19200'
+  getBackendConnection: async (): Promise<BackendConnection> => {
+    return await ipcRenderer.invoke('get-backend-connection') || {
+      baseURL: 'http://127.0.0.1:19200',
+      token: '',
+    }
+  },
+  getBackendURL: async (): Promise<string> => {
+    return await ipcRenderer.invoke('get-backend-url') || 'http://127.0.0.1:19200'
   },
   minimizeWindow: async (): Promise<void> => {
     await ipcRenderer.invoke('window:minimize')
@@ -42,7 +53,7 @@ const api = {
     await ipcRenderer.invoke('cache:clear-electron')
   },
   saveExportFile: async (
-    source: { url: string } | { buffer: ArrayBuffer },
+    source: { buffer: ArrayBuffer },
     dir: string,
     filename: string,
   ): Promise<string> => {
@@ -53,6 +64,8 @@ const api = {
   },
 }
 
+export type BackendAPI = typeof api
+
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
@@ -61,6 +74,6 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  ;(window as any).electron = electronAPI
-  ;(window as any).api = api
+  window.electron = electronAPI
+  window.api = api
 }

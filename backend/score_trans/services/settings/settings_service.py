@@ -26,6 +26,7 @@ from ...models.common.paths import (
     USER_WORK_DIR,
 )
 from ...models.settings.config import ToolConfig
+from .defaults import configured_settings_dao
 
 
 _LOCAL_AUDIVERIS_DIR = PROJECT_ROOT / "third_party" / "audiveris"
@@ -83,7 +84,7 @@ def _rewrite_legacy_work_dir(path: Path) -> Path:
 
 class SettingsService:
     def __init__(self, dao: SettingsDao | None = None) -> None:
-        self.dao = dao or SettingsDao.default()
+        self.dao = dao or configured_settings_dao()
 
     def load(self) -> ToolConfig:
         return ToolConfig(

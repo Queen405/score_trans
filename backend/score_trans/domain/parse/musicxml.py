@@ -5,8 +5,18 @@ from fractions import Fraction
 from pathlib import Path
 import re
 
-from ..constants import FIFTHS_TO_KEY, KEY_TO_TONIC, MAJOR_SCALE, STEP_TO_SEMITONE
+from ...utils.safe_xml import safe_xml_fromstring
+from ..constants import (
+    DYNAMICS,
+    FIFTHS_TO_KEY,
+    KEY_TO_TONIC,
+    MUSICXML_METRONOME_UNIT_TO_SYMBOL,
+    MICROTONAL_TOKEN_TO_ALTER,
+    MUSICXML_ACCIDENTAL_TO_TOKEN,
+    STEP_TO_SEMITONE,
+)
 from ..performance_marks import canonical_mark_id, normalize_event_marks
+from ..pitch_spelling import written_pitch_to_jianpu
 from ..xml_utils import (
     _namespace,
     _q,
@@ -19,7 +29,15 @@ from ...models.common.types import (
     InstrumentProfile,
     normalize_instrument_profile,
 )
-from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
+from ...models.score import (
+    Beat,
+    Event,
+    JianpuPitch,
+    JianpuScore,
+    Measure,
+    TextBlock,
+    TupletSpan,
+)
 
 _PROVENANCE_PART_RE = re.compile(
     r"(?:^|__)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-i(?P<inter>\d+)"
@@ -56,7 +74,11 @@ def musicxml_to_scores(
     if target_key not in KEY_TO_TONIC:
         raise ValueError(f"不支持的简谱调：{target_key}")
 
-    root = ET.fromstring(xml_text)
+    root = safe_xml_fromstring(
+        xml_text,
+        source="MusicXML",
+        allow_musicxml_doctype=True,
+    )
     ns = _namespace(root.tag)
     xml_parts = root.findall(_q(ns, "part"))
     if not xml_parts:
@@ -153,6 +175,7 @@ def _parse_single_part(
     score = JianpuScore(
         title=extracted_title,
         target_key=target_key,
+        tempo=_extract_part_tempo(part, ns),
         instrument_profile=instrument_profile,
     )
     if extracted_title:
@@ -162,6 +185,7 @@ def _parse_single_part(
     current_beat_type = 4
     divisions = 1
     initialized_score_time = False
+    active_tuplets: list[tuple[str, str]] = []
 
     for index, xml_measure in enumerate(part.findall(_q(ns, "measure")), start=1):
         attrs = xml_measure.find(_q(ns, "attributes"))
@@ -204,7 +228,15 @@ def _parse_single_part(
                 measure_number=display_number,
             )
         )
-        _read_measure_events(xml_measure, ns, divisions, target_key, measure)
+        _read_measure_structure(xml_measure, ns, measure)
+        _read_measure_events(
+            xml_measure,
+            ns,
+            divisions,
+            target_key,
+            measure,
+            active_tuplets,
+        )
         _normalize_measure(measure, current_beats, current_beat_type)
         score.measures.append(measure)
 
@@ -240,6 +272,7 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
             source_key=score.source_key,
             beats=score.beats,
             beat_type=score.beat_type,
+            tempo=score.tempo,
             instrument_profile=score.instrument_profile,
             part_name=score.part_name,
         )
@@ -261,6 +294,11 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
                 repeat_start=measure.repeat_start,
                 repeat_end=measure.repeat_end,
                 repeat_count=measure.repeat_count,
+                ending_start=measure.ending_start,
+                ending_stop=measure.ending_stop,
+                ending_discontinue=measure.ending_discontinue,
+                new_page=measure.new_page,
+                new_system=measure.new_system,
                 source_page_index=measure.source_page_index,
             )
             staff_measure.events = staff_events
@@ -313,6 +351,24 @@ def _extract_instrument_profile(root: ET.Element, ns: str) -> InstrumentProfile:
     return "general"
 
 
+def _extract_part_tempo(part: ET.Element, ns: str) -> int | None:
+    for sound in part.findall(f".//{_q(ns, 'sound')}"):
+        value = sound.get("tempo")
+        if value:
+            try:
+                return int(float(value))
+            except ValueError:
+                continue
+    for metronome in part.findall(f".//{_q(ns, 'metronome')}"):
+        value = _text(metronome.find(_q(ns, "per-minute")))
+        if value:
+            try:
+                return int(float(value))
+            except ValueError:
+                continue
+    return None
+
+
 def _display_measure_number(measure: ET.Element, fallback: int) -> str | int:
     raw = measure.get("number")
     if raw is None or raw.strip() == "":
@@ -323,17 +379,62 @@ def _display_measure_number(measure: ET.Element, fallback: int) -> str | int:
         return raw
 
 
+def _read_measure_structure(
+    xml_measure: ET.Element,
+    ns: str,
+    measure: Measure,
+) -> None:
+    print_element = xml_measure.find(_q(ns, "print"))
+    if print_element is not None:
+        measure.new_page = _is_yes(print_element.get("new-page"))
+        measure.new_system = _is_yes(print_element.get("new-system"))
+
+    for barline in xml_measure.findall(_q(ns, "barline")):
+        repeat = barline.find(_q(ns, "repeat"))
+        if repeat is not None:
+            direction = (repeat.get("direction") or "").strip().lower()
+            if direction == "forward":
+                measure.repeat_start = True
+            elif direction == "backward":
+                measure.repeat_end = True
+                times = repeat.get("times")
+                if times:
+                    try:
+                        parsed_times = int(times)
+                    except ValueError:
+                        pass
+                    else:
+                        if parsed_times > 0:
+                            measure.repeat_count = parsed_times
+
+        ending = barline.find(_q(ns, "ending"))
+        if ending is None:
+            continue
+        number = (ending.get("number") or "").strip()
+        ending_type = (ending.get("type") or "").strip().lower()
+        if ending_type == "start":
+            measure.ending_start = number
+        elif ending_type == "stop":
+            measure.ending_stop = number
+        elif ending_type == "discontinue":
+            measure.ending_discontinue = number
+
+
+def _is_yes(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"yes", "true", "1"}
+
+
 def _read_measure_events(
     xml_measure: ET.Element,
     ns: str,
     divisions: int,
     target_key: str,
     measure: Measure,
+    active_tuplets: list[tuple[str, str]],
 ) -> None:
     last_event: Event | None = None
     cursor = Fraction(0, 1)
     pending_dynamics: list[tuple[Fraction, str]] = []
-    active_tuplets: dict[str, str] = {}
     for child in list(xml_measure):
         tag = _local_name(child.tag)
         if tag == "backup":
@@ -404,6 +505,14 @@ def _read_measure_events(
         event.staff = _text(note.find(_q(ns, "staff")))
         event.start = cursor
         notations = note.find(_q(ns, "notations"))
+        _apply_tuplet_notations(
+            event,
+            notations,
+            ns,
+            measure.source_number,
+            cursor,
+            active_tuplets,
+        )
         if notations is not None:
             event.slur_start = any(
                 slur.get("type") == "start"
@@ -431,26 +540,22 @@ def _read_measure_events(
             if notations.find(_q(ns, "arpeggiate")) is not None:
                 event.technical.append("arpeggio")
             event.dynamic = _dynamic_text(notations.find(_q(ns, "dynamics")), ns)
-            _apply_tuplet_notations(
-                event, notations, ns, measure.source_number, cursor, active_tuplets
-            )
             normalize_event_marks(event)
         time_modification = note.find(_q(ns, "time-modification"))
         if time_modification is not None:
             actual_notes = _text(time_modification.find(_q(ns, "actual-notes")))
             if actual_notes and actual_notes.isdigit():
                 event.tuplet_count = int(actual_notes)
-                if event.tuplet_id is None and active_tuplets:
-                    event.tuplet_id = next(reversed(active_tuplets.values()))
-        if event.dynamic is None:
-            dynamic = _pending_dynamic_for_event(pending_dynamics, cursor)
-            if dynamic:
+            normal_notes = _text(time_modification.find(_q(ns, "normal-notes")))
+            if normal_notes and normal_notes.isdigit():
+                event.tuplet_normal_count = int(normal_notes)
+        dynamic = _pending_dynamic_for_event(pending_dynamics, cursor)
+        if dynamic is not None:
+            pending_dynamics = [
+                pending for pending in pending_dynamics if pending[0] > cursor
+            ]
+            if event.dynamic is None:
                 event.dynamic = dynamic
-                pending_dynamics = [
-                    pending
-                    for pending in pending_dynamics
-                    if not (pending[0] <= cursor and pending[1] == dynamic)
-                ]
         lyric = note.find(_q(ns, "lyric"))
         if lyric is not None:
             event.lyric = _text(lyric.find(_q(ns, "text")))
@@ -538,26 +643,59 @@ def _infer_slide_direction(start: Event, stop: Event) -> None:
 
 def _apply_tuplet_notations(
     event: Event,
-    notations: ET.Element,
+    notations: ET.Element | None,
     ns: str,
     measure_number: str,
     cursor: Fraction,
-    active_tuplets: dict[str, str],
+    active_tuplets: list[tuple[str, str]],
 ) -> None:
+    event.tuplet_spans = [
+        TupletSpan(id=group_id, number=number) for number, group_id in active_tuplets
+    ]
+    if notations is None:
+        _sync_primary_tuplet(event)
+        return
+
     for tuplet in notations.findall(_q(ns, "tuplet")):
         number = tuplet.get("number") or "1"
         kind = tuplet.get("type")
         if kind == "start":
-            group_id = f"{measure_number}:{number}:{cursor}"
-            active_tuplets[number] = group_id
-            event.tuplet_id = group_id
-            event.tuplet_start = True
-        elif number in active_tuplets:
-            event.tuplet_id = active_tuplets[number]
+            group_id = f"{measure_number}:{number}:{cursor}:{len(active_tuplets)}"
+            active_tuplets.append((number, group_id))
+            event.tuplet_spans.append(
+                TupletSpan(id=group_id, number=number, start=True)
+            )
         if kind == "stop":
-            event.tuplet_id = event.tuplet_id or active_tuplets.get(number)
-            event.tuplet_stop = True
-            active_tuplets.pop(number, None)
+            active_index = next(
+                (
+                    index
+                    for index in range(len(active_tuplets) - 1, -1, -1)
+                    if active_tuplets[index][0] == number
+                ),
+                None,
+            )
+            if active_index is None:
+                continue
+            _active_number, group_id = active_tuplets[active_index]
+            span = next(
+                (item for item in event.tuplet_spans if item.id == group_id),
+                None,
+            )
+            if span is None:
+                span = TupletSpan(id=group_id, number=number)
+                event.tuplet_spans.append(span)
+            span.stop = True
+            active_tuplets.pop(active_index)
+    _sync_primary_tuplet(event)
+
+
+def _sync_primary_tuplet(event: Event) -> None:
+    if not event.tuplet_spans:
+        return
+    primary = event.tuplet_spans[0]
+    event.tuplet_id = primary.id
+    event.tuplet_start = primary.start
+    event.tuplet_stop = primary.stop
 
 
 def _normalize_measure(measure: Measure, beats: int, beat_type: int) -> None:
@@ -592,40 +730,25 @@ def _note_pitch(note: ET.Element, ns: str, target_key: str) -> JianpuPitch | Non
     if pitch is None:
         return None
     step = _text(pitch.find(_q(ns, "step"))) or "C"
-    alter = int(float(_text(pitch.find(_q(ns, "alter"))) or "0"))
+    alter = Fraction(_text(pitch.find(_q(ns, "alter"))) or "0")
     octave = int(_text(pitch.find(_q(ns, "octave"))) or "4")
     accidental_text = _accidental_token(_text(note.find(_q(ns, "accidental"))))
     midi = (octave + 1) * 12 + STEP_TO_SEMITONE[step] + alter
-    tonic = KEY_TO_TONIC[target_key]
-    relative = (midi - (60 + tonic)) % 12
-    octave_shift = (midi - (60 + tonic)) // 12
-    if relative in MAJOR_SCALE:
-        return JianpuPitch(
-            degree=MAJOR_SCALE.index(relative) + 1,
-            octave=octave_shift,
-            midi=midi,
-            step=step,
-            alter=alter,
-            accidental_text=accidental_text,
-        )
-    if (relative + 1) % 12 in MAJOR_SCALE:
-        return JianpuPitch(
-            degree=MAJOR_SCALE.index((relative + 1) % 12) + 1,
-            octave=octave_shift,
-            accidental=-1,
-            midi=midi,
-            step=step,
-            alter=alter,
-            accidental_text=accidental_text,
-        )
+    degree, accidental, octave_shift = written_pitch_to_jianpu(
+        step, alter, octave, target_key
+    )
     return JianpuPitch(
-        degree=MAJOR_SCALE.index((relative - 1) % 12) + 1,
+        degree=degree,
         octave=octave_shift,
-        accidental=1,
+        accidental=accidental,
         midi=midi,
         step=step,
         alter=alter,
-        accidental_text=accidental_text,
+        accidental_text=_matching_accidental_text(
+            accidental_text,
+            alter,
+            accidental,
+        ),
     )
 
 
@@ -653,6 +776,7 @@ def _direction_text_blocks(
                         start,
                         words.get("placement") or placement,
                         staff,
+                        "words",
                     )
                 )
 
@@ -660,7 +784,14 @@ def _direction_text_blocks(
             text = _text(rehearsal)
             if text:
                 blocks.append(
-                    _measure_text_block(text, measure_number, start, placement, staff)
+                    _measure_text_block(
+                        text,
+                        measure_number,
+                        start,
+                        placement,
+                        staff,
+                        "rehearsal",
+                    )
                 )
 
         dynamics = direction_type.find(_q(ns, "dynamics"))
@@ -673,6 +804,7 @@ def _direction_text_blocks(
                     start,
                     dynamics.get("placement") or placement,
                     staff,
+                    "dynamics",
                 )
             )
 
@@ -681,7 +813,12 @@ def _direction_text_blocks(
         if metronome_text:
             blocks.append(
                 _measure_text_block(
-                    metronome_text, measure_number, start, placement, staff
+                    metronome_text,
+                    measure_number,
+                    start,
+                    placement,
+                    staff,
+                    "metronome",
                 )
             )
 
@@ -732,7 +869,9 @@ def _direction_text_blocks(
             text = _text(child) or _direction_symbol_text(name)
             if text:
                 blocks.append(
-                    _measure_text_block(text, measure_number, start, placement, staff)
+                    _measure_text_block(
+                        text, measure_number, start, placement, staff, name
+                    )
                 )
     return blocks
 
@@ -743,6 +882,7 @@ def _measure_text_block(
     start: Fraction,
     placement: str | None,
     staff: str | None,
+    direction_kind: str | None = None,
 ) -> TextBlock:
     return TextBlock(
         text=text,
@@ -751,16 +891,21 @@ def _measure_text_block(
         start=start,
         placement=placement,
         staff=staff,
+        direction_kind=direction_kind,
     )
 
 
 def _pending_dynamic_for_event(
     pending_dynamics: list[tuple[Fraction, str]], cursor: Fraction
 ) -> str | None:
-    for start, dynamic in pending_dynamics:
-        if start <= cursor:
-            return dynamic
-    return None
+    eligible = [
+        (start, index, dynamic)
+        for index, (start, dynamic) in enumerate(pending_dynamics)
+        if start <= cursor
+    ]
+    if not eligible:
+        return None
+    return max(eligible, key=lambda item: (item[0], item[1]))[2]
 
 
 def _notation_marks(element: ET.Element | None, ns: str) -> list[str]:
@@ -819,7 +964,9 @@ def _metronome_text(metronome: ET.Element | None, ns: str) -> str | None:
     unit = _text(metronome.find(_q(ns, "beat-unit")))
     per_minute = _text(metronome.find(_q(ns, "per-minute")))
     if unit and per_minute:
-        return f"{unit}={per_minute}"
+        symbol = MUSICXML_METRONOME_UNIT_TO_SYMBOL.get(unit, unit)
+        dots = "." * len(metronome.findall(_q(ns, "beat-unit-dot")))
+        return f"{symbol}{dots}={per_minute}"
     return _text(metronome)
 
 
@@ -857,40 +1004,43 @@ def _direction_symbol_text(name: str) -> str | None:
 
 
 def _is_dynamic_name(text: str) -> bool:
-    return text in {
-        "p",
-        "pp",
-        "ppp",
-        "pppp",
-        "f",
-        "ff",
-        "fff",
-        "ffff",
-        "mp",
-        "mf",
-        "sf",
-        "sfz",
-        "sfp",
-        "fp",
-        "fz",
-        "rfz",
-    }
+    return text in DYNAMICS
 
 
 def _accidental_token(value: str | None) -> str | None:
     if value is None:
         return None
     normalized = value.strip().lower().replace("_", "-").replace(" ", "-")
+    return MUSICXML_ACCIDENTAL_TO_TOKEN.get(normalized)
+
+
+def _matching_accidental_text(
+    value: str | None,
+    written_alter: Fraction,
+    accidental: Fraction,
+) -> str | None:
+    if value is None:
+        return None
+    token_value = {
+        "bb": Fraction(-2, 1),
+        "b": Fraction(-1, 1),
+        "n": Fraction(0, 1),
+        "#": Fraction(1, 1),
+        "x": Fraction(2, 1),
+        **MICROTONAL_TOKEN_TO_ALTER,
+    }.get(value)
+    if token_value != written_alter:
+        return None
+    if token_value == accidental:
+        return value
     return {
-        "sharp": "#",
-        "flat": "b",
-        "natural": "n",
-        "double-sharp": "x",
-        "sharp-sharp": "x",
-        "double-flat": "bb",
-        "flat-flat": "bb",
-        "quarter-flat": "b",
-        "quarter-sharp": "#",
-        "three-quarters-flat": "b",
-        "three-quarters-sharp": "#",
-    }.get(normalized)
+        Fraction(-2, 1): "bb",
+        Fraction(-3, 2): "tqf",
+        Fraction(-1, 1): "b",
+        Fraction(-1, 2): "qf",
+        Fraction(0, 1): "",
+        Fraction(1, 2): "qs",
+        Fraction(1, 1): "#",
+        Fraction(3, 2): "tqs",
+        Fraction(2, 1): "x",
+    }.get(accidental)

@@ -1,4 +1,4 @@
-from .beat import _render_beat_items, _render_item, _render_slot_items
+from .beat import _render_item, _render_slot_items
 from .beams import _render_beams
 from .measure import _render_measure
 from .spanners import _render_spanners, _finish_open_spanners
@@ -20,7 +20,6 @@ __all__ = [
     "_render_positioned_text_blocks",
     "_render_unpositioned_text_blocks",
     "_render_measure",
-    "_render_beat_items",
     "_render_slot_items",
     "_render_item",
 ]

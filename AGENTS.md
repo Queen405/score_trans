@@ -34,6 +34,7 @@ python -m pytest tests/test_architecture.py
 
 # Run FastAPI backend
 $env:PYTHONPATH="backend"
+$env:SCORE_TRANS_API_TOKEN="replace-with-a-random-token-at-least-32-characters"
 .venv/Scripts/python.exe -m uvicorn score_trans.api.app:create_app --factory --reload --host 127.0.0.1 --port 19200
 ```
 
@@ -41,6 +42,7 @@ $env:PYTHONPATH="backend"
 ```bash
 cd desktop
 $env:VITE_BACKEND_URL="http://127.0.0.1:19200"
+$env:VITE_BACKEND_TOKEN=$env:SCORE_TRANS_API_TOKEN
 pnpm dev
 
 # Lint

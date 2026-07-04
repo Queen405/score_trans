@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...dao.history.history_dao import HistoryDao
+from ...models.common.sentinels import UNSET, UnsetType
 from ...models.history.entities import (
     HistoryBatch,
     HistoryBatchSummary,
@@ -79,7 +80,7 @@ class HistoryService:
         text_hash: str | None = None,
         text_anchors: list[TextAnchor] | None = None,
         musicxml_file_id: str | None = None,
-        start_measure_number: int | None = None,
+        start_measure_number: int | None | UnsetType = UNSET,
         status: str | None = None,
         error_message: str | None = None,
     ) -> HistoryPage | None:

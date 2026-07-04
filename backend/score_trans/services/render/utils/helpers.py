@@ -41,6 +41,10 @@ def _is_dynamic_text(text: str) -> bool:
 
 def _split_accidental(display: str) -> tuple[str, str]:
     for token, symbol in (
+        ("tqf", "tqf"),
+        ("tqs", "tqs"),
+        ("qf", "qf"),
+        ("qs", "qs"),
         ("bb", "bb"),
         ("x", "x"),
         ("n", "♮"),

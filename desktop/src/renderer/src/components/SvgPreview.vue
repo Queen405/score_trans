@@ -9,14 +9,12 @@
       @dblclick="addBlockAtCursor"
     >
       <div class="zp-inner">
-        <!-- eslint-disable vue/no-v-html -->
         <div
-          v-if="svgText"
+          v-if="svgReady"
           :key="svgUrl"
+          ref="svgHostRef"
           :class="['svg-inline', { 'hide-static-ocr': shouldHideStaticOcr }]"
-          v-html="svgText"
         />
-        <!-- eslint-enable vue/no-v-html -->
         <div
           v-else-if="svgError"
           class="svg-loading svg-error"
@@ -85,11 +83,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
-import { getFileURL } from '../api/client'
+import { fetchFileBlob } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
 import { parseOcrText, serializeOcrText, type OcrTextBlock } from '../utils/ocrText'
+import { sanitizeSvg } from '../utils/svgSanitizer'
 
 const props = withDefaults(defineProps<{
   svgFileId: string
@@ -114,13 +113,14 @@ const emit = defineEmits<{
   'update:ocrText': [value: string]
   'update:textAttachment': [value: TextAttachmentUpdate]
 }>()
-const svgUrl = computed(() => (props.svgFileId ? getFileURL(props.svgFileId) : ''))
+const svgUrl = computed(() => props.svgFileId)
 
 const containerRef = ref<HTMLElement>()
+const svgHostRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
-const svgText = ref('')
+const svgReady = ref(false)
 const svgError = ref('')
 const selectedId = ref('')
 const editingId = ref('')
@@ -354,7 +354,7 @@ function onKeyDown(event: KeyboardEvent): void {
 
 async function loadSvg(url: string): Promise<void> {
   const generation = ++svgLoadGeneration
-  svgText.value = ''
+  svgReady.value = false
   svgError.value = ''
   imgW.value = 0
   imgH.value = 0
@@ -366,18 +366,20 @@ async function loadSvg(url: string): Promise<void> {
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), 15000)
   try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const text = await response.text()
+    const result = await fetchFileBlob(url, controller.signal)
+    if (result.error) throw result.error
+    const text = await result.data.text()
     if (generation !== svgLoadGeneration) return
-    const safeText = sanitizeSvg(text)
+    const safeSvg = sanitizeSvg(text)
 
-    const size = readSvgSize(safeText)
+    const size = readSvgSize(safeSvg)
     imgW.value = size.width
     imgH.value = size.height
-    svgText.value = safeText
+    svgReady.value = true
 
     await nextTick()
+    const mountedSvg = document.importNode(safeSvg, true)
+    svgHostRef.value?.replaceChildren(mountedSvg)
     zp.bind()
     requestAnimationFrame(() => {
       zp.fitToView()
@@ -385,42 +387,14 @@ async function loadSvg(url: string): Promise<void> {
     })
   } catch {
     if (generation !== svgLoadGeneration) return
-    svgText.value = ''
+    svgReady.value = false
     svgError.value = 'SVG 加载失败'
   } finally {
     window.clearTimeout(timeout)
   }
 }
 
-function sanitizeSvg(text: string): string {
-  const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
-  if (doc.querySelector('parsererror') || doc.documentElement.tagName.toLowerCase() !== 'svg') {
-    throw new Error('Invalid SVG')
-  }
-
-  doc.querySelectorAll('script, foreignObject, iframe, object, embed, link, meta').forEach((node) => {
-    node.remove()
-  })
-  doc.querySelectorAll('*').forEach((element) => {
-    for (const attr of Array.from(element.attributes)) {
-      const name = attr.name.toLowerCase()
-      const value = attr.value.trim().toLowerCase()
-      const urlLike = name === 'href' || name.endsWith(':href') || name === 'src'
-      if (name.startsWith('on') || (urlLike && unsafeSvgUrl(value))) {
-        element.removeAttribute(attr.name)
-      }
-    }
-  })
-  return doc.documentElement.outerHTML
-}
-
-function unsafeSvgUrl(value: string): boolean {
-  return value.startsWith('javascript:') || value.startsWith('data:text/html')
-}
-
-function readSvgSize(text: string): { width: number; height: number } {
-  const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
-  const svg = doc.documentElement
+function readSvgSize(svg: SVGSVGElement): { width: number; height: number } {
   const viewBox = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number)
   const viewBoxWidth = viewBox.length === 4 && Number.isFinite(viewBox[2]) ? viewBox[2] : 0
   const viewBoxHeight = viewBox.length === 4 && Number.isFinite(viewBox[3]) ? viewBox[3] : 0
@@ -550,7 +524,7 @@ watch(() => props.ocrText, (value) => {
 }, { immediate: true })
 
 onMounted(() => {
-  if (svgText.value) {
+  if (svgReady.value) {
     zp.unbind()
     zp.bind()
     requestAnimationFrame(() => {

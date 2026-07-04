@@ -45,7 +45,7 @@ def _token_visual_width(token: str, options: RenderOptions | None = None) -> flo
         body_width
         + accidental_space
         + note.extension * body_width * 0.52 * duration_ratio
-        + (body_width * 0.27 * duration_ratio if note.dotted else 0)
+        + (body_width * 0.27 * duration_ratio * min(3, note.dotted))
     )
 
 

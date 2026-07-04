@@ -7,6 +7,7 @@ from ..parsing.tokens import _parse_chord_token, _parse_note
 from .helpers import _split_accidental
 
 OCTAVE_DOT_CLEARANCE = 3  # keep octave dots a few pixels inside their visual neighbors
+OCTAVE_DOT_STACK_GAP = 7
 
 
 def _note_center_offset(note: NoteShape) -> float:
@@ -19,7 +20,7 @@ def _note_center_offset(note: NoteShape) -> float:
 
 
 def _high_octave_dot_y(note_y: int, dot_index: int, upper_bound: float | None) -> float:
-    y = note_y - 28
+    y = note_y - 28 - dot_index * OCTAVE_DOT_STACK_GAP
     if upper_bound is not None:
         y = min(y, upper_bound - OCTAVE_DOT_CLEARANCE)
     return y
@@ -30,7 +31,7 @@ def _low_octave_dot_y(
 ) -> float:
     from ..constants import LOW_OCTAVE_DOT_OFFSET
 
-    y = note_y + max(6, LOW_OCTAVE_DOT_OFFSET - 12)
+    y = note_y + max(6, LOW_OCTAVE_DOT_OFFSET - 12) + dot_index * OCTAVE_DOT_STACK_GAP
     if lower_bound is not None:
         y = max(y, lower_bound + OCTAVE_DOT_CLEARANCE)
     return y
@@ -74,7 +75,10 @@ def _chord_gap(options: RenderOptions | None = None) -> float:
 def _note_visual_top(note: NoteShape, y: int) -> float:
     top = float(y - 28)
     if note.octave_up:
-        top = min(top, y - 34)
+        top = min(
+            top,
+            _high_octave_dot_y(y, min(2, note.octave_up - 1), None) - 4,
+        )
     return top
 
 

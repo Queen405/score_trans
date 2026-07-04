@@ -260,6 +260,7 @@ const ANIM_MS = 280
 const animPhase = ref<AnimPhase>('idle')
 const showPanel = ref(false)
 const animOrigin = ref({ x: 0, y: 0 })
+let animationTimer: ReturnType<typeof setTimeout> | null = null
 
 /** FAB is visible when not in the 'open' phase (i.e. idle, opening, closing). */
 const showFab = computed(() => animPhase.value !== 'open')
@@ -298,6 +299,14 @@ function finishAnim(phase: AnimPhase): void {
   }
 }
 
+function scheduleAnimationFinish(phase: AnimPhase): void {
+  if (animationTimer !== null) clearTimeout(animationTimer)
+  animationTimer = setTimeout(() => {
+    animationTimer = null
+    finishAnim(phase)
+  }, ANIM_MS)
+}
+
 function openPanel(): void {
   panelWasDragged.value = false
   positionPanelNearFab()
@@ -309,7 +318,7 @@ function openPanel(): void {
   autoScrollEnabled.value = true
   if (!assistant.sessions.length) assistant.loadSessions()
   nextTick(scrollToBottom)
-  setTimeout(() => finishAnim('opening'), ANIM_MS)
+  scheduleAnimationFinish('opening')
 }
 
 function closePanel(): void {
@@ -321,7 +330,7 @@ function closePanel(): void {
     y: fabTop.value + FAB_SIZE / 2 - panelTop.value,
   }
   animPhase.value = 'closing'
-  setTimeout(() => finishAnim('closing'), ANIM_MS)
+  scheduleAnimationFinish('closing')
 }
 
 /** When closing the panel, move the FAB to the panel's current location so the bubble follows. */
@@ -402,6 +411,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (animationTimer !== null) {
+    clearTimeout(animationTimer)
+    animationTimer = null
+  }
   window.removeEventListener('resize', handleWindowResize)
 })
 

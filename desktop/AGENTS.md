@@ -41,10 +41,11 @@ import { NButton, NIcon, NCode, NInputNumber, useMessage } from 'naive-ui'
 
 ### API 调用
 - 统一通过 `api/` 目录下的封装函数，不要直接 `fetch`
-- `api/client.ts` 提供 `apiFetch<T>()`、`getFileURL()`、`fileExists()`、`uploadFile()`
+- `api/client.ts` 提供 `apiFetch<T>()`、`authenticatedFetch()`、`fetchFileBlob()`、`fileExists()`、`uploadFile()`
+- `getFileURL()` 只构造内部地址，不能直接交给 `<img>`、`<iframe>`、`Image` 或原生 `fetch`；媒体必须先通过 `fetchFileBlob()` 获取，再使用可回收的 object URL
 - 异步 API wrapper 返回 `ApiResult<T>`（`{ data, error }`），wrapper 本身不得抛异常
 - 页面和 Store 可在现有 `try/catch` 工作流边界使用 `requireData()` 解包，再通过 Naive UI `useMessage()` 展示错误
-- 后端地址从 `window.api.getBackendURL()`（Electron）或 `VITE_BACKEND_URL`（开发浏览器）获取
+- Electron 从 `window.api.getBackendConnection()` 获取进程内 URL/token；独立开发浏览器使用匹配的 `VITE_BACKEND_URL` / `VITE_BACKEND_TOKEN`
 - 修改 Pydantic 请求/响应模型后运行 `pnpm generate:api-types`；CI 使用 `pnpm check:api-types` 检测契约漂移
 
 ### Pinia Store 约定

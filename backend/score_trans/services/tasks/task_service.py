@@ -13,6 +13,7 @@ from ...dao.tasks.task_dao import TaskDao
 from ...models.tasks.entities import TaskProgress, TaskStatus
 
 DEFAULT_TASK_TTL_SECONDS = 3600.0
+DEFAULT_SUBSCRIBER_QUEUE_SIZE = 128
 
 _logger = logging.getLogger(__name__)
 
@@ -39,14 +40,18 @@ class TaskManager:
         self,
         *,
         terminal_ttl_seconds: float = DEFAULT_TASK_TTL_SECONDS,
+        subscriber_queue_size: int = DEFAULT_SUBSCRIBER_QUEUE_SIZE,
         time_func=time.time,
         dao: TaskDao | None = None,
     ) -> None:
+        if subscriber_queue_size <= 0:
+            raise ValueError("subscriber_queue_size 必须大于 0")
         self._tasks: dict[str, TaskProgress] = {}
         self._queues: dict[str, asyncio.Queue[TaskProgress]] = {}
         self._terminal_ttl_seconds = terminal_ttl_seconds
         self._time = time_func
         self._dao = dao or TaskDao()
+        self._subscriber_queue_size = subscriber_queue_size
         # Global broadcast channel for all task state changes
         self._subscribers: list[asyncio.Queue[str]] = []
         self._recover_tasks()
@@ -157,7 +162,9 @@ class TaskManager:
 
     async def global_events(self) -> AsyncGenerator[str, None]:
         """Yield SSE events for ALL task state changes. Used by the frontend for real-time updates."""
-        sub: asyncio.Queue[str] = asyncio.Queue()
+        sub: asyncio.Queue[str] = asyncio.Queue(
+            maxsize=self._subscriber_queue_size
+        )
         self._subscribers.append(sub)
         try:
             # Send initial snapshot of all active tasks
@@ -171,7 +178,7 @@ class TaskManager:
                 except TimeoutError:
                     yield ": keep-alive\n\n"
         finally:
-            self._subscribers.remove(sub)
+            self._remove_subscriber(sub)
 
     def cleanup_expired(self) -> int:
         now = self._time()
@@ -200,11 +207,21 @@ class TaskManager:
     async def _broadcast(self, progress: TaskProgress) -> None:
         """Push a task event to all global SSE subscribers."""
         event = _sse_event(progress)
-        dead: list[asyncio.Queue[str]] = []
         for sub in self._subscribers:
             try:
                 sub.put_nowait(event)
             except asyncio.QueueFull:
-                dead.append(sub)
-        for sub in dead:
+                try:
+                    sub.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                try:
+                    sub.put_nowait(event)
+                except asyncio.QueueFull:
+                    pass
+
+    def _remove_subscriber(self, sub: asyncio.Queue[str]) -> None:
+        try:
             self._subscribers.remove(sub)
+        except ValueError:
+            pass

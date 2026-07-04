@@ -2,13 +2,20 @@ import json
 from pathlib import Path
 
 from PIL import Image
+import pytest
 
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.exec.convert.actions import MusicXmlToJianpuAction
-from score_trans.exec.pipeline.actions import FullPipelineAction
+from score_trans.exec.pipeline.actions import (
+    FullPipelineAction,
+    PipelineActions,
+    ScorePipelineOutputs,
+)
+from score_trans.models.common.errors import RenderError
 from score_trans.models.pipeline.schemas import PipelineResponse
 from score_trans.models.score import OCRTextBlock
 from score_trans.models.settings.config import ToolConfig
+from score_trans.services.files.upload_service import UploadService
 from score_trans.services.ocr.providers import MockOCRProvider
 
 
@@ -24,6 +31,27 @@ class FakeRecognizer:
         assert output_dir.name == "omr"
         assert config.audiveris_path == "fake-audiveris"
         return self.recognized
+
+
+class EmptyRenderer:
+    def render_scores_a4_svg_pages(self, *args, **kwargs) -> list[Path]:
+        return []
+
+
+class StaticSettings:
+    def __init__(self, config: ToolConfig) -> None:
+        self.config = config
+
+    def load(self) -> ToolConfig:
+        return self.config
+
+
+class EmptyOutputPipeline:
+    def __init__(self, outputs: ScorePipelineOutputs) -> None:
+        self.outputs = outputs
+
+    def execute(self, *args, **kwargs) -> ScorePipelineOutputs:
+        return self.outputs
 
 
 def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
@@ -74,6 +102,53 @@ def test_full_pipeline_can_hide_measure_numbers(tmp_path) -> None:
     svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")
     assert "Pipeline Test" in svg
     assert 'class="measure-no"' not in svg
+
+
+def test_full_pipeline_rejects_empty_render_output(tmp_path: Path) -> None:
+    source = tmp_path / "scan.pdf"
+    source.write_bytes(b"%PDF-1.4")
+    recognized = tmp_path / "audiveris-output.musicxml"
+    recognized.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), encoding="utf-8")
+
+    with pytest.raises(RenderError, match="未生成任何简谱 SVG 页面"):
+        FullPipelineAction(
+            recognizer=FakeRecognizer(source, recognized),
+            renderer=EmptyRenderer(),
+        ).execute(
+            source,
+            tmp_path / "out",
+            config=ToolConfig(audiveris_path="fake-audiveris"),
+        )
+
+
+def test_pipeline_actions_do_not_register_partial_outputs_when_render_is_empty(
+    tmp_path: Path,
+) -> None:
+    work_dir = tmp_path / "work"
+    input_path = tmp_path / "scan.pdf"
+    musicxml_path = tmp_path / "scan.musicxml"
+    text_path = tmp_path / "scan.txt"
+    input_path.write_bytes(b"%PDF-1.4")
+    musicxml_path.write_text("<score-partwise/>", encoding="utf-8")
+    text_path.write_text("1=C\n4/4\n1 |", encoding="utf-8")
+    uploads = UploadService(ToolConfig(work_dir=work_dir))
+    outputs = ScorePipelineOutputs(
+        input_path=input_path,
+        musicxml_path=musicxml_path,
+        jianpu_text_path=text_path,
+        jianpu_svg_paths=[],
+        ocr_measure_numbers=[],
+    )
+    actions = PipelineActions(
+        uploads=uploads,
+        settings=StaticSettings(ToolConfig(work_dir=work_dir)),
+        pipeline=EmptyOutputPipeline(outputs),
+    )
+
+    with pytest.raises(RenderError, match="未生成任何简谱 SVG 页面"):
+        actions.run_pipeline_from_path(input_path)
+
+    assert list(uploads.base_dir.iterdir()) == []
 
 
 def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> None:

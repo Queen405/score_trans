@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from zipfile import ZipFile
 
+from ...utils.safe_xml import safe_xml_fromstring, safe_zip_member_bytes
+
 
 @dataclass(slots=True)
 class InterData:
@@ -58,8 +60,15 @@ class OmrParser:
                 key=lambda item: item[0],
             )
             for sheet_index, entry in sheet_entries:
-                xml_bytes = archive.read(entry)
-                root = ET.fromstring(xml_bytes)
+                xml_bytes = safe_zip_member_bytes(
+                    archive,
+                    entry,
+                    source=f"{path.name}:{entry}",
+                )
+                root = safe_xml_fromstring(
+                    xml_bytes,
+                    source=f"{path.name}:{entry}",
+                )
                 width, height = _read_picture_dimensions(root)
                 inters = _read_inters(root)
                 sheets.append(

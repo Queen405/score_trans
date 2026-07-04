@@ -139,6 +139,8 @@ def _score_to_jianpu_text(
         else score.beat_type
     )
     lines = [f"1={current_key}", f"{current_beats}/{current_beat_type}"]
+    if score.tempo is not None:
+        lines.insert(0, f"tempo={score.tempo}")
     instrument_profile = normalize_instrument_profile(score.instrument_profile)
     if instrument_profile != "general":
         lines.insert(0, f"instrument={instrument_profile}")
@@ -243,13 +245,24 @@ def _text_anchors_raw(
             event = events[index]
             if event.tuplet_start and event.tuplet_count:
                 group = _collect_tuplet_events(events, index)
+                group_open = line.find("$", event_cursor)
+                group_close = line.find("$", group_open + 1) if group_open >= 0 else -1
                 for group_event in group:
                     token = _event_to_tuplet_body(
                         group_event, accidental_mode=accidental_mode
                     )
-                    position = line.find(token, event_cursor)
+                    position = line.find(
+                        token,
+                        event_cursor,
+                        group_close if group_close >= 0 else len(line),
+                    )
                     if position < 0:
-                        continue
+                        event_cursor = (
+                            group_close + 1
+                            if group_close >= 0
+                            else _advance_past_text_tokens(line, event_cursor)
+                        )
+                        break
                     _append_event_anchors(
                         anchors,
                         seen,
@@ -267,19 +280,26 @@ def _text_anchors_raw(
 
             token = _event_to_token(event, accidental_mode=accidental_mode)
             position = line.find(token, event_cursor)
-            if position >= 0:
-                _append_event_anchors(
-                    anchors,
-                    seen,
-                    event,
-                    token,
-                    line_offset + position,
+            if position < 0:
+                event_cursor = _advance_past_text_tokens(
                     line,
                     event_cursor,
-                    position,
-                    accidental_mode,
+                    count=_rendered_event_token_count(event),
                 )
-                event_cursor = position + len(token)
+                index += 1
+                continue
+            _append_event_anchors(
+                anchors,
+                seen,
+                event,
+                token,
+                line_offset + position,
+                line,
+                event_cursor,
+                position,
+                accidental_mode,
+            )
+            event_cursor = position + len(token)
             index += 1
         line_offset += len(lines[first_measure_line + measure_index])
     return anchors
@@ -424,10 +444,41 @@ def _accidental_span(token: str) -> tuple[int, int] | None:
         return None
     if degree.start() > 0:
         return (0, degree.start())
-    suffix = re.search(r"[#b]$", token)
+    suffix = re.search(r"(?:bb|x|#|b)$", token)
     if suffix:
         return suffix.span()
     return None
+
+
+def _advance_past_text_tokens(line: str, cursor: int, *, count: int = 1) -> int:
+    current = cursor
+    for _index in range(max(1, count)):
+        match = re.search(r"\S+", line[current:])
+        if match is None:
+            return len(line)
+        current += match.end()
+    return current
+
+
+def _rendered_event_token_count(event: Event) -> int:
+    count = 1
+    if event.dynamic:
+        count += 1
+    all_marks = list(
+        event.articulations or ([event.articulation] if event.articulation else [])
+    )
+    count += sum(
+        1
+        for mark in event_mark_ids(
+            all_marks,
+            list(event.ornaments),
+            list(event.technical),
+        )
+        if _mark_token(mark)
+    )
+    if event.slide_stop:
+        count += 1
+    return count
 
 
 def _append_anchor(
@@ -494,8 +545,14 @@ def _collect_tuplet_events(events: list[Event], start_index: int) -> list[Event]
     first = events[start_index]
     group = [first]
     tuplet_id = first.tuplet_id
+    declared_count = max(1, first.tuplet_count or 1)
     for event in events[start_index + 1 :]:
-        if tuplet_id is not None and event.tuplet_id != tuplet_id:
+        if tuplet_id is None:
+            if len(group) >= declared_count:
+                break
+            if event.tuplet_id is not None:
+                break
+        elif event.tuplet_id != tuplet_id:
             break
         group.append(event)
         if event.tuplet_stop:
@@ -508,8 +565,19 @@ def _tuplet_to_token(
     *,
     accidental_mode: AccidentalMode = "auto",
 ) -> str:
+    actual_count = events[0].tuplet_count or len(events)
+    normal_count = events[0].tuplet_normal_count or _tuplet_normal_notes(actual_count)
+    legacy_duration = all(
+        event.duration == Fraction(1, actual_count) for event in events
+    )
     parts = [
-        _event_to_tuplet_body(event, accidental_mode=accidental_mode)
+        _event_to_tuplet_body(
+            event,
+            accidental_mode=accidental_mode,
+            include_duration=not legacy_duration,
+            actual_count=actual_count,
+            normal_count=normal_count,
+        )
         for event in events
     ]
     if all(re.fullmatch(r"(?:bb|x|n|♮|#|b)?[0-7][',]*[#b]?", part) for part in parts):
@@ -523,6 +591,9 @@ def _event_to_tuplet_body(
     event: Event,
     *,
     accidental_mode: AccidentalMode = "auto",
+    include_duration: bool = False,
+    actual_count: int = 1,
+    normal_count: int = 1,
 ) -> str:
     if event.kind == "rest":
         body = "0"
@@ -538,6 +609,10 @@ def _event_to_tuplet_body(
             if tokens
             else "?"
         )
+    if include_duration:
+        notated_duration = event.duration * Fraction(actual_count, normal_count)
+        duration_prefix, duration_suffix = duration_affixes(notated_duration)
+        body = duration_prefix + body + duration_suffix
     if event.tie_stop:
         body = "~" + body
     if event.slur_start:
@@ -564,6 +639,13 @@ def _event_to_tuplet_body(
         prefixes.append(f"^{_CONTINUOUS_SLIDE_TOKEN}")
     body = "".join(prefixes) + body
     return body
+
+
+def _tuplet_normal_notes(actual_notes: int) -> int:
+    normal_notes = 1
+    while normal_notes * 2 <= actual_notes:
+        normal_notes *= 2
+    return max(1, normal_notes)
 
 
 def _duration_parts(duration: Fraction) -> tuple[str, str]:

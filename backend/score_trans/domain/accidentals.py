@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from fractions import Fraction
 from typing import cast
 
-from .constants import MAJOR_SCALE
+from .constants import MAJOR_SCALE, MICROTONAL_TOKEN_TO_ALTER
 from ..models.common.types import AccidentalMode
 from ..models.score import JianpuPitch, JianpuScore
 
@@ -42,6 +43,8 @@ def score_with_accidental_mode(
             if event.kind == "note":
                 event.source_token = None
             for pitch in event.pitches:
+                if _is_microtonal(pitch.accidental):
+                    continue
                 accidental, degree, octave = pitch_spelling(pitch, accidental_mode=mode)
                 pitch.degree = degree
                 pitch.octave = octave
@@ -58,7 +61,7 @@ def pitch_spelling(
     accidental_mode: AccidentalMode = "auto",
 ) -> tuple[str, int, int]:
     mode = normalize_accidental_mode(accidental_mode)
-    if mode == "auto" or abs(pitch.accidental) > 1:
+    if mode == "auto" or abs(pitch.accidental) > 1 or _is_microtonal(pitch.accidental):
         return (
             pitch.accidental_text
             if pitch.accidental_text is not None
@@ -84,25 +87,46 @@ def pitch_spelling(
     return _accidental_text(pitch.accidental), pitch.degree, pitch.octave
 
 
-def _pitch_total(pitch: JianpuPitch) -> int:
+def _pitch_total(pitch: JianpuPitch) -> Fraction:
     degree_index = min(max(pitch.degree, 1), len(MAJOR_SCALE)) - 1
     return pitch.octave * 12 + MAJOR_SCALE[degree_index] + pitch.accidental
 
 
-def _find_spelling(total: int, accidental: int) -> tuple[int, int] | None:
+def _find_spelling(total: Fraction, accidental: int) -> tuple[int, int] | None:
     for index, offset in enumerate(MAJOR_SCALE, start=1):
         remainder = total - offset - accidental
         if remainder % 12 == 0:
-            return index, remainder // 12
+            return index, int(remainder // 12)
     return None
 
 
-def _accidental_text(accidental: int) -> str:
-    return {2: "x", 1: "#", 0: "", -1: "b", -2: "bb"}.get(
+def _accidental_text(accidental: Fraction) -> str:
+    return {
+        Fraction(2, 1): "x",
+        Fraction(3, 2): "tqs",
+        Fraction(1, 1): "#",
+        Fraction(1, 2): "qs",
+        Fraction(0, 1): "",
+        Fraction(-1, 2): "qf",
+        Fraction(-1, 1): "b",
+        Fraction(-3, 2): "tqf",
+        Fraction(-2, 1): "bb",
+    }.get(
         accidental,
         "#" if accidental > 0 else "b" if accidental < 0 else "",
     )
 
 
-def _accidental_value(accidental: str) -> int:
-    return {"x": 2, "#": 1, "": 0, "b": -1, "bb": -2}.get(accidental, 0)
+def _accidental_value(accidental: str) -> Fraction:
+    return {
+        "x": Fraction(2, 1),
+        "#": Fraction(1, 1),
+        "": Fraction(0, 1),
+        "b": Fraction(-1, 1),
+        "bb": Fraction(-2, 1),
+        **MICROTONAL_TOKEN_TO_ALTER,
+    }.get(accidental, Fraction(0, 1))
+
+
+def _is_microtonal(value: Fraction) -> bool:
+    return value.denominator != 1

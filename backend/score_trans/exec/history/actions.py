@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from fastapi import HTTPException
-
 from ...models.history.entities import (
     HistoryBatch,
     HistoryPage,
     HistoryRenderPageOcrText,
 )
+from ...models.common.sentinels import UNSET
 from ...models.history.schemas import (
     BatchCreateRequest,
     BatchJianpuTextUpdate,
@@ -80,16 +79,17 @@ class HistoryActions:
     def get_history(self, batch_id: int) -> BatchResponse:
         batch = self.service.get_batch(batch_id)
         if not batch:
-            raise HTTPException(status_code=404, detail="Batch not found")
+            raise FileNotFoundError("Batch not found")
         return _batch_to_response(batch)
 
     def get_history_page(self, page_id: int) -> PageResponse:
         page = self.service.get_page(page_id)
         if not page:
-            raise HTTPException(status_code=404, detail="Page not found")
+            raise FileNotFoundError("Page not found")
         return _page_to_response(page)
 
     def update_history_page(self, page_id: int, req: PageUpdate) -> PageResponse:
+        update_fields = req.model_dump(exclude_unset=True)
         page = self.service.update_page(
             page_id,
             task_id=req.task_id,
@@ -103,12 +103,16 @@ class HistoryActions:
             source_map_file_id=req.source_map_file_id,
             text_hash=req.text_hash,
             text_anchors=req.text_anchors,
-            start_measure_number=req.start_measure_number,
+            start_measure_number=(
+                req.start_measure_number
+                if "start_measure_number" in update_fields
+                else UNSET
+            ),
             status=req.status,
             error_message=req.error_message,
         )
         if not page:
-            raise HTTPException(status_code=404, detail="Page not found")
+            raise FileNotFoundError("Page not found")
         return _page_to_response(page)
 
     def update_batch_render_pages(
@@ -118,7 +122,7 @@ class HistoryActions:
             batch_id, req.render_page_file_ids
         )
         if not batch:
-            raise HTTPException(status_code=404, detail="Batch not found")
+            raise FileNotFoundError("Batch not found")
         return _batch_to_response(batch)
 
     def update_batch_jianpu_text(
@@ -126,7 +130,7 @@ class HistoryActions:
     ) -> BatchResponse:
         batch = self.service.update_batch_jianpu_text(batch_id, req.jianpu_text)
         if not batch:
-            raise HTTPException(status_code=404, detail="Batch not found")
+            raise FileNotFoundError("Batch not found")
         return _batch_to_response(batch)
 
     def update_batch_render_page_ocr_texts(
@@ -143,24 +147,22 @@ class HistoryActions:
             ],
         )
         if not batch:
-            raise HTTPException(status_code=404, detail="Batch not found")
+            raise FileNotFoundError("Batch not found")
         return _batch_to_response(batch)
 
-    def reorder_pages(
-        self, batch_id: int, req: BatchPageOrderRequest
-    ) -> BatchResponse:
+    def reorder_pages(self, batch_id: int, req: BatchPageOrderRequest) -> BatchResponse:
         page_orders = [
             (item.page_id, item.jianpu_text, item.start_measure_number)
             for item in req.pages
         ]
         batch = self.service.reorder_pages(batch_id, req.jianpu_text, page_orders)
         if not batch:
-            raise HTTPException(status_code=404, detail="Batch not found")
+            raise FileNotFoundError("Batch not found")
         return _batch_to_response(batch)
 
     def delete_history(self, batch_id: int) -> dict[str, bool]:
         if not self.service.delete_batch(batch_id):
-            raise HTTPException(status_code=404, detail="Batch not found")
+            raise FileNotFoundError("Batch not found")
         return {"ok": True}
 
     def delete_all_history(self) -> DeleteAllResponse:

@@ -39,10 +39,36 @@ def _b_or(name: str, default: bool = False) -> bool:
     return os.getenv(name, fallback).lower() in ("1", "true", "yes", "on")
 
 
+def _positive_i_or(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default))
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer byte count") from exc
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive integer byte count")
+    return value
+
+
 # API
 API_TITLE: str = _s("SCORE_TRANS_API_TITLE")
 API_VERSION: str = _s("SCORE_TRANS_API_VERSION")
 CORS_ORIGINS: str = _s("SCORE_TRANS_CORS_ORIGINS")
+API_AUTH_DISABLED: bool = _b_or("SCORE_TRANS_API_AUTH_DISABLED")
+API_TOKEN: str = _s_or("SCORE_TRANS_API_TOKEN")
+if not API_AUTH_DISABLED and len(API_TOKEN) < 32:
+    raise ValueError(
+        "SCORE_TRANS_API_TOKEN must contain at least 32 characters when "
+        "SCORE_TRANS_API_AUTH_DISABLED is false"
+    )
+MAX_UPLOAD_FILE_BYTES: int = _positive_i_or(
+    "SCORE_TRANS_MAX_UPLOAD_FILE_BYTES",
+    256 * 1024 * 1024,
+)
+MAX_UPLOAD_REQUEST_BYTES: int = _positive_i_or(
+    "SCORE_TRANS_MAX_UPLOAD_REQUEST_BYTES",
+    512 * 1024 * 1024,
+)
 
 # Paths (optional, code provides fallbacks when empty)
 AUDIVERIS_PATH: str = _s_or("SCORE_TRANS_AUDIVERIS")

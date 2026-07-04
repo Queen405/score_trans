@@ -96,8 +96,13 @@ class TaskDao:
         now = time.time() if now is None else now
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM task_state WHERE expires_at IS NULL OR expires_at > ?",
-                (now,),
+                """
+                SELECT *
+                FROM task_state
+                WHERE status IN (?, ?)
+                  AND (expires_at IS NULL OR expires_at > ?)
+                """,
+                (TaskStatus.PENDING.value, TaskStatus.RUNNING.value, now),
             ).fetchall()
             return [self._row_to_progress(r) for r in rows]
 
@@ -120,14 +125,25 @@ class TaskDao:
     def _row_to_progress(row: sqlite3.Row) -> TaskProgress:
         result_raw = row["result"]
         result: dict[str, Any] | None = json.loads(result_raw) if result_raw else None
+        raw_status = str(row["status"])
+        try:
+            status = TaskStatus(raw_status)
+            error = row["error"]
+        except ValueError:
+            status = TaskStatus.FAILED
+            diagnostic = f"Unknown persisted task status: {raw_status!r}"
+            persisted_error = str(row["error"] or "").strip()
+            error = (
+                f"{persisted_error}; {diagnostic}" if persisted_error else diagnostic
+            )
         return TaskProgress(
             task_id=row["task_id"],
-            status=TaskStatus(row["status"]),
+            status=status,
             stage=row["stage"],
             percent=row["percent"],
             message=row["message"],
             result=result,
-            error=row["error"],
+            error=error,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             expires_at=row["expires_at"],

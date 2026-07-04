@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from ....dao.settings.settings_dao import SettingsDao
 from ....models.common.errors import AITranscriptionError
 from ....domain.performance_marks import instrument_prompt
 from ....models.common.types import (
@@ -16,6 +15,7 @@ from ...settings.provider_profiles import (
     resolve_provider_profile,
     resolve_provider_profile_or_default,
 )
+from ...settings.defaults import configured_settings_dao
 from ..core.protocols import VisionJianpuProvider
 from ..core.registry import create_provider
 from ..core.schemas import AiTranscriptionResult, TranscribedScorePage
@@ -35,14 +35,14 @@ class AiTranscriptionService:
         elif provider:
             self.provider = _create_named_or_profile_provider(provider)
         else:
-            settings = SettingsDao.default().get_all()
+            settings = configured_settings_dao().get_all()
             profile = resolve_provider_profile_or_default(
                 "ai", settings.get("ai_provider")
             )
             self.provider = create_provider(
                 profile.provider,
-                base_url=profile.base_url,
-                model=profile.model,
+                base_url=settings.get("ai_base_url") or profile.base_url,
+                model=settings.get("ai_model") or profile.model,
             )
 
     def transcribe(
@@ -54,7 +54,7 @@ class AiTranscriptionService:
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile = "general",
         title: str | None = None,
-        render_dpi: int = 220,
+        render_dpi: int,
         max_pages: int | None = None,
         extra_prompt: str | None = None,
         normalize: bool = True,

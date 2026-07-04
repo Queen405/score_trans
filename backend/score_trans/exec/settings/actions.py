@@ -107,6 +107,14 @@ class SettingsActions:
         if req.assistant_provider is not None:
             self._set_provider("assistant", req.assistant_provider)
 
+        for kind in ("ocr", "ai", "assistant"):
+            base_url = getattr(req, f"{kind}_base_url")
+            model = getattr(req, f"{kind}_model")
+            if base_url is not None:
+                self.service.set(f"{kind}_base_url", base_url)
+            if model is not None:
+                self.service.set(f"{kind}_model", model)
+
         if req.ocr_api_key is not None:
             self._set_api_key("ocr", self._current_provider_id("ocr"), req.ocr_api_key)
 
@@ -209,6 +217,24 @@ class SettingsActions:
         assistant_api_key = provider_api_key(
             key_settings, "assistant", assistant_profile.id
         )
+        ocr_base_url, ocr_model = _provider_endpoint(
+            "ocr",
+            ocr_profile,
+            saved_ocr_profile,
+            all_settings,
+        )
+        ai_base_url, ai_model = _provider_endpoint(
+            "ai",
+            ai_profile,
+            saved_ai_profile,
+            all_settings,
+        )
+        assistant_base_url, assistant_model = _provider_endpoint(
+            "assistant",
+            assistant_profile,
+            saved_assistant_profile,
+            all_settings,
+        )
         config = self.service.load()
         cache_size_bytes = CacheService(cache_dir=config.work_dir).size_bytes()
         measure_number_mode = _measure_number_mode(
@@ -240,18 +266,18 @@ class SettingsActions:
             ocr_provider=ocr_profile.id,
             ocr_provider_options=_provider_options("ocr"),
             ocr_api_key_set=bool(ocr_api_key),
-            ocr_base_url=ocr_profile.base_url,
-            ocr_model=ocr_profile.model,
+            ocr_base_url=ocr_base_url,
+            ocr_model=ocr_model,
             ai_provider=ai_profile.id,
             ai_provider_options=_provider_options("ai"),
             ai_api_key_set=bool(ai_api_key),
-            ai_base_url=ai_profile.base_url,
-            ai_model=ai_profile.model,
+            ai_base_url=ai_base_url,
+            ai_model=ai_model,
             assistant_provider=assistant_profile.id,
             assistant_provider_options=_provider_options("assistant"),
             assistant_api_key_set=bool(assistant_api_key),
-            assistant_base_url=assistant_profile.base_url,
-            assistant_model=assistant_profile.model,
+            assistant_base_url=assistant_base_url,
+            assistant_model=assistant_model,
         )
 
 
@@ -267,6 +293,20 @@ def _provider_options(kind: LlmProviderKind) -> list[LlmProviderOption]:
         )
         for profile in provider_profiles(kind)
     ]
+
+
+def _provider_endpoint(
+    kind: LlmProviderKind,
+    profile: LlmProviderProfile,
+    saved_profile: LlmProviderProfile,
+    settings: dict[str, str],
+) -> tuple[str, str]:
+    if profile.id != saved_profile.id:
+        return profile.base_url, profile.model
+    return (
+        settings.get(f"{kind}_base_url") or profile.base_url,
+        settings.get(f"{kind}_model") or profile.model,
+    )
 
 
 def _accidental_mode(value: str | None) -> AccidentalMode:

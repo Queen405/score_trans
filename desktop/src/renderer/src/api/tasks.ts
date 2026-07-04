@@ -1,4 +1,6 @@
 import {
+  ApiError,
+  authenticatedFetch,
   apiFetch,
   BASE_URL,
   requireData,
@@ -29,7 +31,7 @@ function streamTask(
   onEvent?: (event: SSEProgressEvent) => void,
 ): Promise<SSEProgressEvent> {
   return new Promise((resolve, reject) => {
-    const source = new EventSource(`${BASE_URL()}/tasks/${taskId}/stream`)
+    const controller = new AbortController()
     let settled = false
     let polling = false
     let consecutivePollFailures = 0
@@ -41,7 +43,7 @@ function streamTask(
       if (settled) return
       settled = true
       window.clearInterval(pollTimer)
-      source.close()
+      controller.abort()
       callback()
     }
 
@@ -78,18 +80,64 @@ function streamTask(
       }
     }
 
-    source.onmessage = (message: MessageEvent) => {
+    async function consumeStream(): Promise<void> {
       try {
-        handleEvent(JSON.parse(message.data) as SSEProgressEvent)
-      } catch {
-        void pollTask()
+        const response = await authenticatedFetch(
+          `${BASE_URL()}/tasks/${taskId}/stream`,
+          {
+            headers: { Accept: 'text/event-stream' },
+            cache: 'no-store',
+            signal: controller.signal,
+          },
+        )
+        if (!response.ok) {
+          throw new ApiError(`HTTP ${response.status}`)
+        }
+        if (!response.body) {
+          throw new ApiError('浏览器不支持流式响应')
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (!settled) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const blocks = buffer.split(/\r?\n\r?\n/)
+          buffer = blocks.pop() ?? ''
+          for (const block of blocks) {
+            const event = parseTaskEvent(block)
+            if (event) handleEvent(event)
+          }
+        }
+        if (!settled && buffer.trim()) {
+          const event = parseTaskEvent(buffer)
+          if (event) handleEvent(event)
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.warn('任务进度流中断，继续使用轮询', error)
+          void pollTask()
+        }
       }
     }
 
-    source.onerror = () => {
-      void pollTask()
-    }
-
+    void consumeStream()
     void pollTask()
   })
+}
+
+function parseTaskEvent(block: string): SSEProgressEvent | null {
+  const data = block
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trim())
+    .join('\n')
+  if (!data) return null
+  try {
+    return JSON.parse(data) as SSEProgressEvent
+  } catch {
+    return null
+  }
 }

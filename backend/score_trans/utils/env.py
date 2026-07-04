@@ -5,8 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from ..config import CONFIG_DIR
-from ..models.common.paths import PROJECT_ROOT
+from ..models.common.paths import CONFIG_DIR, PROJECT_ROOT
 
 DISABLE_DOTENV_ENV = "SCORE_TRANS_DISABLE_DOTENV"
 

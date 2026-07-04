@@ -1,18 +1,26 @@
 import os
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
+from score_trans.models.settings.provider_profiles import LlmProviderProfile
+from score_trans.services.ocr import providers as ocr_providers
 from score_trans.services.ocr.parsing import parse_openai_compatible_response
 from score_trans.services.ocr.providers import (
+    DashScopeOCRProvider,
     MockOCRProvider,
     OpenAICompatibleOCRProvider,
 )
+from score_trans.services.ocr.providers import dashscope as dashscope_provider
 from score_trans.services.ocr.core import DEFAULT_OCR_MODEL, is_deepseek_ocr_model
 from score_trans.utils.env import load_project_env
 from score_trans.services.ocr.service import OCRService
+from score_trans.services.ocr.providers._http import (
+    chat_completions as ocr_chat_completions,
+)
 
 
 def test_mock_provider_feeds_text_layer(tmp_path) -> None:
@@ -27,6 +35,78 @@ def test_mock_provider_feeds_text_layer(tmp_path) -> None:
     assert layer.plain_text == "Allegro"
     assert layer.blocks[0].bbox == (1, 2, 3, 4)
     assert provider.calls == [image]
+
+
+def test_configured_ocr_provider_constructs_mock_explicitly(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ocr_providers,
+        "configured_settings_dao",
+        lambda: SimpleNamespace(get_all=lambda: {"ocr_provider": "test-mock"}),
+    )
+    monkeypatch.setattr(
+        ocr_providers,
+        "resolve_provider_profile_or_default",
+        lambda *_args: LlmProviderProfile(
+            id="test-mock",
+            label="测试 Mock",
+            provider="mock",
+            base_url="mock://local",
+            model="mock",
+        ),
+    )
+
+    provider = ocr_providers.create_configured_ocr_provider()
+
+    assert isinstance(provider, MockOCRProvider)
+
+
+def test_configured_ocr_provider_rejects_unknown_provider_type(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ocr_providers,
+        "configured_settings_dao",
+        lambda: SimpleNamespace(get_all=lambda: {"ocr_provider": "broken"}),
+    )
+    monkeypatch.setattr(
+        ocr_providers,
+        "resolve_provider_profile_or_default",
+        lambda *_args: LlmProviderProfile(
+            id="broken",
+            label="未知类型",
+            provider="mystery",
+            base_url="https://example.test/v1",
+            model="mystery-model",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="mystery"):
+        ocr_providers.create_configured_ocr_provider()
+
+
+def test_dashscope_ocr_uses_configured_temperature(tmp_path, monkeypatch) -> None:
+    image = tmp_path / "score.png"
+    image.write_bytes(b"abc")
+    captured: dict[str, object] = {}
+
+    def fake_chat_completions(**kwargs):
+        captured.update(kwargs)
+        return '{"text_blocks":[]}'
+
+    monkeypatch.setattr(
+        dashscope_provider,
+        "OCR_TEMPERATURE",
+        0.42,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        dashscope_provider,
+        "chat_completions",
+        fake_chat_completions,
+    )
+
+    blocks = DashScopeOCRProvider(api_key="test-key").recognize(image)
+
+    assert blocks == []
+    assert captured["temperature"] == 0.42
 
 
 def test_ocr_provider_dry_run_returns_empty(tmp_path, monkeypatch) -> None:
@@ -79,6 +159,24 @@ def test_ocr_provider_invokes_langchain_with_correct_params(
 
     mock_post.assert_called_once()
     assert blocks[0].text == "A"
+
+
+def test_ocr_chat_completions_reports_empty_choices(monkeypatch) -> None:
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {"choices": []}
+    monkeypatch.setattr(
+        "score_trans.services.ocr.providers._http.httpx.post",
+        lambda *args, **kwargs: mock_resp,
+    )
+
+    with pytest.raises(ValueError, match="choices"):
+        ocr_chat_completions(
+            base_url="https://example.test/v1",
+            api_key="test-key",
+            model="test-model",
+            messages=[{"role": "user", "content": "hi"}],
+        )
 
 
 def test_ocr_provider_json_object_for_non_deepseek(tmp_path, monkeypatch) -> None:

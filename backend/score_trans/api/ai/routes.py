@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
@@ -31,7 +33,7 @@ async def transcribe_score(
 
 @router.get("/chat/sessions", response_model=list[AiChatSessionResponse])
 async def list_chat_sessions(actions: AiActions = Depends(get_ai_actions)):
-    return actions.list_chat_session_responses()
+    return await asyncio.to_thread(actions.list_chat_session_responses)
 
 
 @router.post("/chat/sessions", response_model=AiChatSessionResponse)
@@ -39,7 +41,7 @@ async def create_chat_session(
     req: AiChatSessionCreateRequest,
     actions: AiActions = Depends(get_ai_actions),
 ):
-    return actions.create_chat_session_response(req.title)
+    return await asyncio.to_thread(actions.create_chat_session_response, req.title)
 
 
 @router.get(
@@ -49,7 +51,7 @@ async def get_chat_messages(
     session_id: str,
     actions: AiActions = Depends(get_ai_actions),
 ):
-    return actions.get_chat_message_responses(session_id)
+    return await asyncio.to_thread(actions.get_chat_message_responses, session_id)
 
 
 @router.delete("/chat/sessions/{session_id}")
@@ -57,7 +59,7 @@ async def delete_chat_session(
     session_id: str,
     actions: AiActions = Depends(get_ai_actions),
 ):
-    return actions.delete_chat_session(session_id)
+    return await asyncio.to_thread(actions.delete_chat_session, session_id)
 
 
 @router.post("/chat", response_model=AiChatResponse)

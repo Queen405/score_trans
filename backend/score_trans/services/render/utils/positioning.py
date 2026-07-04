@@ -45,16 +45,6 @@ def _slot_has_lyric(
     )
 
 
-def _upper_mark_anchor_y(
-    token: str,
-    y: int,
-    options: RenderOptions | None = None,
-) -> float:
-    from .metrics import _token_metrics
-
-    return _token_metrics(token, y, options)["top"] + 28.0
-
-
 def _technique_mark_x(
     token: str,
     cx: float,

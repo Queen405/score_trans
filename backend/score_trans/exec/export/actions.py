@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from pathlib import Path
 
-from fastapi import HTTPException, UploadFile
+from score_trans.config.settings import (
+    MAX_UPLOAD_FILE_BYTES,
+    MAX_UPLOAD_REQUEST_BYTES,
+)
 
 from ...domain.jianpu import parse_jianpu_scores
+from ...models.common.errors import UploadTooLargeError
+from ...models.common.protocols import UploadFileLike
 from ...models.export.schemas import (
     ExportMidiTextRequest,
     ExportMusicXmlRequest,
@@ -56,17 +62,26 @@ class ExportActions:
         uploads: UploadService | None = None,
         exporter: ExportScoreAction | None = None,
         export_service: ExportService | None = None,
+        *,
+        max_upload_file_bytes: int = MAX_UPLOAD_FILE_BYTES,
+        max_upload_request_bytes: int = MAX_UPLOAD_REQUEST_BYTES,
     ) -> None:
+        if max_upload_file_bytes <= 0:
+            raise ValueError("max_upload_file_bytes must be greater than zero")
+        if max_upload_request_bytes <= 0:
+            raise ValueError("max_upload_request_bytes must be greater than zero")
         self.uploads = uploads or UploadService()
         self.exporter = exporter or ExportScoreAction()
         self.export_service = export_service or ExportService()
+        self.max_upload_file_bytes = max_upload_file_bytes
+        self.max_upload_request_bytes = max_upload_request_bytes
 
     def export_midi(
         self, musicxml_file_id: str, filename: str | None = None
     ) -> ExportResponse:
         musicxml_path = self.uploads.get_path(musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():
-            raise HTTPException(404, f"MusicXML 文件不存在：{musicxml_file_id}")
+            raise FileNotFoundError(f"MusicXML 文件不存在：{musicxml_file_id}")
 
         out_name = filename or f"{musicxml_path.stem}.mid"
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.mid"
@@ -84,7 +99,7 @@ class ExportActions:
     def export_musicxml(self, req: ExportMusicXmlRequest) -> ExportResponse:
         musicxml_path = self.uploads.get_path(req.musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():
-            raise HTTPException(404, f"MusicXML 文件不存在：{req.musicxml_file_id}")
+            raise FileNotFoundError(f"MusicXML 文件不存在：{req.musicxml_file_id}")
 
         scores = self.exporter.converter.build_scores(
             musicxml_path,
@@ -121,24 +136,69 @@ class ExportActions:
         )
 
     async def export_pdf(
-        self, files: list[UploadFile], filename: str = "jianpu.pdf"
+        self, files: list[UploadFileLike], filename: str = "jianpu.pdf"
     ) -> ExportResponse:
         if not files:
-            raise HTTPException(400, "至少需要一个图片文件")
+            raise ValueError("至少需要一个图片文件")
 
         image_pages: list[bytes] = []
+        total_bytes = 0
         for uploaded in files:
-            data = await uploaded.read()
+            source_name = uploaded.filename or "upload"
+            data = await _read_upload_bounded(
+                uploaded,
+                source_name=source_name,
+                max_bytes=self.max_upload_file_bytes,
+            )
+            total_bytes += len(data)
+            if total_bytes > self.max_upload_request_bytes:
+                raise UploadTooLargeError(
+                    f"请求体超过上传总大小上限 {self.max_upload_request_bytes} bytes"
+                )
             if data[:8].startswith(b"\x89PNG"):
                 image_pages.append(data)
             elif data[:3] == b"\xff\xd8\xff":
                 image_pages.append(data)
             else:
-                raise HTTPException(
-                    400, f"文件 {uploaded.filename} 不是有效的 PNG 或 JPEG 图片"
+                raise ValueError(
+                    f"文件 {uploaded.filename} 不是有效的 PNG 或 JPEG 图片"
                 )
 
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.pdf"
+        return await asyncio.to_thread(
+            self._write_pdf,
+            image_pages,
+            output_path,
+            filename,
+        )
+
+    def _write_pdf(
+        self,
+        image_pages: list[bytes],
+        output_path: Path,
+        filename: str,
+    ) -> ExportResponse:
         images_to_pdf(image_pages, output_path)
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=filename)
+
+
+async def _read_upload_bounded(
+    upload: UploadFileLike,
+    *,
+    source_name: str,
+    max_bytes: int,
+) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        remaining = max_bytes - total
+        chunk = await upload.read(min(1024 * 1024, remaining + 1))
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        if total > max_bytes:
+            raise UploadTooLargeError(
+                f"文件 {source_name} 超过上传大小上限 {max_bytes} bytes"
+            )
+        chunks.append(chunk)

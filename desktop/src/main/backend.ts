@@ -1,10 +1,12 @@
-import { spawn, execSync, ChildProcess } from 'child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { app } from 'electron'
 import path from 'path'
 import http from 'http'
 import net from 'net'
 import { existsSync } from 'fs'
+import { randomBytes } from 'crypto'
 import { loadStoragePaths } from './storage'
+import { terminateChildProcess } from './backendLifecycle'
 
 const DEFAULT_PORT = 19200
 const HEALTH_CHECK_INTERVAL = 1000
@@ -15,13 +17,16 @@ export class BackendProcess {
   private process: ChildProcess | null = null
   private port: number
   private baseURL: string
+  private readonly apiToken: string
 
   constructor(port: number = DEFAULT_PORT) {
     this.port = port
     this.baseURL = `http://127.0.0.1:${port}`
+    this.apiToken = randomBytes(32).toString('base64url')
   }
 
   async start(): Promise<void> {
+    if (this.process) await this.stop()
     const isDev = !app.isPackaged
     this.port = await findAvailablePort(this.port)
     this.baseURL = `http://127.0.0.1:${this.port}`
@@ -30,8 +35,11 @@ export class BackendProcess {
       ...process.env,
       SCORE_TRANS_DATA_DIR: storagePaths.dataDir,
       SCORE_TRANS_CACHE_DIR: storagePaths.cacheDir,
+      SCORE_TRANS_API_TOKEN: this.apiToken,
+      SCORE_TRANS_API_AUTH_DISABLED: '0',
     }
 
+    let child: ChildProcess
     if (isDev) {
       const projectRoot = resolveProjectRoot()
       const localPython = path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
@@ -39,13 +47,12 @@ export class BackendProcess {
       const backendPath = path.join(projectRoot, 'backend')
       const pythonPath = [backendPath, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)
 
-      this.process = spawn(pythonExe, [
+      child = spawn(pythonExe, [
         '-m', 'uvicorn',
         'score_trans.api.app:create_app',
         '--factory',
         '--host', '127.0.0.1',
         '--port', String(this.port),
-        '--reload',
       ], {
         stdio: 'pipe',
         cwd: projectRoot,
@@ -56,30 +63,37 @@ export class BackendProcess {
       const resourcesPath = process.resourcesPath
       const exePath = path.join(resourcesPath, 'backend', 'backend.exe')
       const backendCwd = path.join(resourcesPath, 'backend')
-      this.process = spawn(exePath, [
+      child = spawn(exePath, [
         '--host', '127.0.0.1',
         '--port', String(this.port),
       ], { stdio: 'pipe', windowsHide: true, cwd: backendCwd, env: backendEnv })
     }
+    this.process = child
 
-    this.process.stdout?.on('data', (data: Buffer) => {
+    child.stdout?.on('data', (data: Buffer) => {
       console.log(`[backend] ${data.toString().trim()}`)
     })
 
-    this.process.stderr?.on('data', (data: Buffer) => {
+    child.stderr?.on('data', (data: Buffer) => {
       console.error(`[backend] ${data.toString().trim()}`)
     })
 
-    this.process.on('exit', (code) => {
+    child.on('exit', (code) => {
       console.log(`[backend] Process exited with code=${code}`)
-      this.process = null
+      if (this.process === child) this.process = null
     })
 
-    this.process.on('error', (err) => {
+    child.on('error', (err) => {
       console.error(`[backend] Process error: ${err.message}`)
     })
 
-    await this.waitForHealthy()
+    try {
+      await this.waitForHealthy()
+    } catch (error) {
+      if (this.process === child) this.process = null
+      await terminateChildProcess(child, SHUTDOWN_TIMEOUT)
+      throw error
+    }
   }
 
   async waitForHealthy(maxWait: number = HEALTH_CHECK_TIMEOUT): Promise<void> {
@@ -90,6 +104,9 @@ export class BackendProcess {
         console.log(`[backend] Health check passed on port ${this.port}`)
         return
       } catch {
+        if (!this.process) {
+          throw new Error('Backend process exited before becoming healthy')
+        }
         await new Promise(r => setTimeout(r, HEALTH_CHECK_INTERVAL))
       }
     }
@@ -115,39 +132,18 @@ export class BackendProcess {
   }
 
   async stop(): Promise<void> {
-    if (!this.process) return
-
-    const pid = this.process.pid
-    if (!pid) { this.process = null; return }
-
-    if (process.platform === 'win32') {
-      this.killTree(pid)
-    } else {
-      this.process.kill('SIGTERM')
-      await new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {
-          try { this.process?.kill('SIGKILL') } catch {
-            // process may already be dead
-          }
-          resolve()
-        }, SHUTDOWN_TIMEOUT)
-        this.process?.on('exit', () => { clearTimeout(timeout); resolve() })
-      })
-    }
-
+    const child = this.process
+    if (!child) return
     this.process = null
-  }
-
-  private killTree(pid: number): void {
-    try {
-      execSync(`taskkill /T /F /PID ${pid}`, { stdio: 'ignore' })
-    } catch {
-      // process may already be dead
-    }
+    await terminateChildProcess(child, SHUTDOWN_TIMEOUT)
   }
 
   getBaseURL(): string {
     return this.baseURL
+  }
+
+  getApiToken(): string {
+    return this.apiToken
   }
 }
 

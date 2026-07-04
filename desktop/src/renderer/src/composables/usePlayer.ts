@@ -1,6 +1,7 @@
 import { ref, computed, shallowRef, onUnmounted, watch, type Ref } from 'vue'
 import * as Tone from 'tone'
 import { Midi } from '@tonejs/midi'
+import { authenticatedFetch } from '../api/client'
 
 export interface PlayerNote {
   time: number
@@ -91,7 +92,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     try {
       await ensureAudioContext()
 
-      const response = await fetch(url)
+      const response = await authenticatedFetch(url)
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const arrayBuffer = await response.arrayBuffer()
 

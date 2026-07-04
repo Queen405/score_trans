@@ -21,6 +21,24 @@ from score_trans.config.settings import (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class A4RenderTheme:
+    note_font_size: float = 26.0
+    accidental_font_size: float = 16.0
+    measure_number_font_size: float = 20.0
+    measure_attribute_font_size: float = 16.0
+    repeat_count_font_size: float = 18.0
+    tuplet_font_size: float = 13.0
+    lyric_font_size: float = 16.0
+    dynamic_font_size: float = 19.0
+    ornament_font_size: float = 13.0
+    technical_font_size: float = 12.0
+    technique_font_size: float = 14.0
+
+
+A4_RENDER_THEME = A4RenderTheme()
+
+
 @dataclass(slots=True)
 class RenderOptions:
     title: str = RENDER_TITLE

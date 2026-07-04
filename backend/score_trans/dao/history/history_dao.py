@@ -4,8 +4,10 @@ import json
 import re
 import sqlite3
 from pathlib import Path
+from typing import cast
 
 from ...models.common.paths import LEGACY_WORK_DIR, USER_WORK_DIR
+from ...models.common.sentinels import UNSET, UnsetType
 from ...models.history.entities import (
     HistoryBatch,
     HistoryBatchSummary,
@@ -17,6 +19,16 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
+_SCHEMA_VERSION = 1
+
+_PAGE_FILE_ID_COLUMNS = (
+    "input_file_id",
+    "musicxml_file_id",
+    "svg_file_id",
+    "overlay_svg_file_id",
+    "overlay_file_id",
+    "source_map_file_id",
+)
 
 
 class HistoryDao:
@@ -37,54 +49,142 @@ class HistoryDao:
 
     def _init_db(self) -> None:
         with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='history_batch'"
-            ).fetchall()
-            if rows:
-                self._migrate_db(conn)
-                return
-            conn.execute("DROP TABLE IF EXISTS history")
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                if self._table_exists(conn, "history_batch"):
+                    self._migrate_db(conn)
+                else:
+                    self._create_tables(conn)
+                    if self._table_exists(conn, "history"):
+                        self._migrate_legacy_history_rows(conn)
+                    self._ensure_indexes(conn)
+                    conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+
+    @staticmethod
+    def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+        return (
+            conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+                (table_name,),
+            ).fetchone()
+            is not None
+        )
+
+    @staticmethod
+    def _create_tables(conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE TABLE history_batch (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                page_count INTEGER NOT NULL DEFAULT 0,
+                jianpu_text TEXT NOT NULL DEFAULT '',
+                render_page_file_ids TEXT NOT NULL DEFAULT '[]',
+                render_page_ocr_texts TEXT NOT NULL DEFAULT '[]',
+                status TEXT NOT NULL DEFAULT 'completed'
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE history_page (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batch_id INTEGER NOT NULL REFERENCES history_batch(id) ON DELETE CASCADE,
+                input_file_name TEXT NOT NULL DEFAULT '',
+                input_file_id TEXT NOT NULL DEFAULT '',
+                task_id TEXT NOT NULL DEFAULT '',
+                musicxml_file_id TEXT NOT NULL DEFAULT '',
+                jianpu_text TEXT NOT NULL DEFAULT '',
+                ocr_text TEXT NOT NULL DEFAULT '',
+                text_attachments TEXT NOT NULL DEFAULT '[]',
+                svg_file_id TEXT NOT NULL DEFAULT '',
+                overlay_svg_file_id TEXT NOT NULL DEFAULT '',
+                overlay_file_id TEXT NOT NULL DEFAULT '',
+                source_map_file_id TEXT NOT NULL DEFAULT '',
+                text_hash TEXT NOT NULL DEFAULT '',
+                text_anchors TEXT NOT NULL DEFAULT '[]',
+                start_measure_number INTEGER,
+                status TEXT NOT NULL DEFAULT 'completed',
+                error_message TEXT NOT NULL DEFAULT '',
+                completed_at TEXT NOT NULL DEFAULT '',
+                position INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+
+    @staticmethod
+    def _migrate_legacy_history_rows(conn: sqlite3.Connection) -> None:
+        expected_columns = {
+            "id",
+            "created_at",
+            "input_file_name",
+            "input_file_id",
+            "musicxml_file_id",
+            "jianpu_text",
+            "svg_file_id",
+            "status",
+            "error_message",
+        }
+        actual_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(history)")
+        }
+        missing = expected_columns - actual_columns
+        if missing:
+            missing_text = ", ".join(sorted(missing))
+            raise RuntimeError(
+                f"旧 history 表结构无法安全迁移，缺少字段：{missing_text}"
+            )
+        if HistoryDao._table_exists(conn, "history_legacy_backup"):
+            raise RuntimeError(
+                "检测到 history 和 history_legacy_backup 同时存在，"
+                "为避免覆盖备份，已停止自动迁移"
+            )
+
+        rows = conn.execute("SELECT * FROM history ORDER BY id").fetchall()
+        for row in rows:
+            batch_id = int(row["id"])
+            created_at = str(row["created_at"] or "")
+            jianpu_text = str(row["jianpu_text"] or "")
+            status = str(row["status"] or "completed")
+            error_message = str(row["error_message"] or "")
+            completed_at = created_at if status in {"completed", "failed"} else ""
             conn.execute(
                 """
-                CREATE TABLE history_batch (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-                    page_count INTEGER NOT NULL DEFAULT 0,
-                    jianpu_text TEXT NOT NULL DEFAULT '',
-                    render_page_file_ids TEXT NOT NULL DEFAULT '[]',
-                    render_page_ocr_texts TEXT NOT NULL DEFAULT '[]',
-                    status TEXT NOT NULL DEFAULT 'completed'
+                INSERT INTO history_batch (
+                    id, created_at, page_count, jianpu_text,
+                    render_page_file_ids, render_page_ocr_texts, status
                 )
-                """
+                VALUES (?, ?, 1, ?, '[]', '[]', ?)
+                """,
+                (batch_id, created_at, jianpu_text, status),
             )
             conn.execute(
                 """
-                CREATE TABLE history_page (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    batch_id INTEGER NOT NULL REFERENCES history_batch(id) ON DELETE CASCADE,
-                    input_file_name TEXT NOT NULL DEFAULT '',
-                    input_file_id TEXT NOT NULL DEFAULT '',
-                    task_id TEXT NOT NULL DEFAULT '',
-                    musicxml_file_id TEXT NOT NULL DEFAULT '',
-                    jianpu_text TEXT NOT NULL DEFAULT '',
-                    ocr_text TEXT NOT NULL DEFAULT '',
-                    text_attachments TEXT NOT NULL DEFAULT '[]',
-                    svg_file_id TEXT NOT NULL DEFAULT '',
-                    overlay_svg_file_id TEXT NOT NULL DEFAULT '',
-                    overlay_file_id TEXT NOT NULL DEFAULT '',
-                    source_map_file_id TEXT NOT NULL DEFAULT '',
-                    text_hash TEXT NOT NULL DEFAULT '',
-                    text_anchors TEXT NOT NULL DEFAULT '[]',
-                    start_measure_number INTEGER,
-                    status TEXT NOT NULL DEFAULT 'completed',
-                    error_message TEXT NOT NULL DEFAULT '',
-                    completed_at TEXT NOT NULL DEFAULT '',
-                    position INTEGER NOT NULL DEFAULT 0
+                INSERT INTO history_page (
+                    id, batch_id, input_file_name, input_file_id, musicxml_file_id,
+                    jianpu_text, svg_file_id, status, error_message, completed_at, position
                 )
-                """
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                """,
+                (
+                    batch_id,
+                    batch_id,
+                    str(row["input_file_name"] or ""),
+                    str(row["input_file_id"] or ""),
+                    str(row["musicxml_file_id"] or ""),
+                    jianpu_text,
+                    str(row["svg_file_id"] or ""),
+                    status,
+                    error_message,
+                    completed_at,
+                ),
             )
-            self._ensure_indexes(conn)
-            conn.commit()
+        conn.execute("ALTER TABLE history RENAME TO history_legacy_backup")
 
     def list_batch_summaries(self) -> list[HistoryBatchSummary]:
         with self._connect() as conn:
@@ -131,10 +231,46 @@ class HistoryDao:
 
     def list_batches(self) -> list[HistoryBatch]:
         with self._connect() as conn:
-            rows = conn.execute(
+            batch_rows = conn.execute(
                 "SELECT * FROM history_batch ORDER BY id DESC"
             ).fetchall()
-            return [self._row_to_batch(conn, row) for row in rows]
+            page_rows = conn.execute(
+                """
+                SELECT *
+                FROM history_page
+                ORDER BY batch_id DESC, position ASC, id ASC
+                """
+            ).fetchall()
+
+        pages_by_batch: dict[int, list[sqlite3.Row]] = {}
+        for page_row in page_rows:
+            pages_by_batch.setdefault(int(page_row["batch_id"]), []).append(page_row)
+        return [
+            self._row_to_batch_rows(
+                batch_row,
+                pages_by_batch.get(int(batch_row["id"]), []),
+            )
+            for batch_row in batch_rows
+        ]
+
+    def referenced_file_ids(self) -> set[str]:
+        """Return every upload file ID retained by history records."""
+        referenced: set[str] = set()
+        with self._connect() as conn:
+            page_rows = conn.execute(
+                f"SELECT {', '.join(_PAGE_FILE_ID_COLUMNS)} FROM history_page"
+            ).fetchall()
+            batch_rows = conn.execute(
+                "SELECT render_page_file_ids FROM history_batch"
+            ).fetchall()
+
+        for row in page_rows:
+            referenced.update(
+                str(row[column]) for column in _PAGE_FILE_ID_COLUMNS if row[column]
+            )
+        for row in batch_rows:
+            referenced.update(_load_render_page_file_ids(row["render_page_file_ids"]))
+        return referenced
 
     def get_batch(self, batch_id: int) -> HistoryBatch | None:
         with self._connect() as conn:
@@ -294,12 +430,12 @@ class HistoryDao:
         text_hash: str | None = None,
         text_anchors: list[TextAnchor] | None = None,
         musicxml_file_id: str | None = None,
-        start_measure_number: int | None = None,
+        start_measure_number: int | None | UnsetType = UNSET,
         status: str | None = None,
         error_message: str | None = None,
     ) -> HistoryPage | None:
         updates: list[str] = []
-        values: list[str | int] = []
+        values: list[str | int | None] = []
         for field, value in (
             ("task_id", task_id),
             ("jianpu_text", jianpu_text),
@@ -320,13 +456,15 @@ class HistoryDao:
                 _dump_text_anchors(text_anchors) if text_anchors is not None else None,
             ),
             ("musicxml_file_id", musicxml_file_id),
-            ("start_measure_number", start_measure_number),
             ("status", status),
             ("error_message", error_message),
         ):
             if value is not None:
                 updates.append(f"{field} = ?")
                 values.append(value)
+        if start_measure_number is not UNSET:
+            updates.append("start_measure_number = ?")
+            values.append(cast(int | None, start_measure_number))
 
         with self._connect() as conn:
             exists = conn.execute(
@@ -377,27 +515,25 @@ class HistoryDao:
 
             active_statuses = {"pending", "processing", "waiting"}
             active_pages = [
-                row["id"]
-                for row in existing_pages
-                if row["status"] in active_statuses
+                row["id"] for row in existing_pages if row["status"] in active_statuses
             ]
             if active_pages:
                 raise ValueError(
                     f"Cannot reorder while pages have active tasks: {active_pages}"
                 )
 
-            marker_count = len(
-                re.findall(r"//\s*@page\s+\d+", jianpu_text)
-            )
+            marker_count = len(re.findall(r"//\s*@page\s+\d+", jianpu_text))
             if marker_count > 0 and marker_count != len(page_orders):
                 raise ValueError(
                     f"Batch jianpu_text has {marker_count} page markers "
                     f"but {len(page_orders)} pages were provided"
                 )
 
-            for position, (page_id, page_jianpu_text, start_measure_number) in enumerate(
-                page_orders
-            ):
+            for position, (
+                page_id,
+                page_jianpu_text,
+                start_measure_number,
+            ) in enumerate(page_orders):
                 conn.execute(
                     """
                     UPDATE history_page
@@ -454,6 +590,16 @@ class HistoryDao:
 
     @staticmethod
     def _migrate_db(conn: sqlite3.Connection) -> None:
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        if version > _SCHEMA_VERSION:
+            raise RuntimeError(
+                "History database schema is newer than this application "
+                f"(database={version}, supported={_SCHEMA_VERSION})"
+            )
+        if version == _SCHEMA_VERSION:
+            HistoryDao._ensure_indexes(conn)
+            return
+
         columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(history_page)").fetchall()
@@ -462,22 +608,18 @@ class HistoryDao:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN ocr_text TEXT NOT NULL DEFAULT ''"
             )
-            conn.commit()
         if "task_id" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN task_id TEXT NOT NULL DEFAULT ''"
             )
-            conn.commit()
         if "start_measure_number" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN start_measure_number INTEGER"
             )
-            conn.commit()
         if "completed_at" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN completed_at TEXT NOT NULL DEFAULT ''"
             )
-            conn.commit()
         if "position" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN position INTEGER NOT NULL DEFAULT 0"
@@ -493,12 +635,10 @@ class HistoryDao:
                 )
                 """
             )
-            conn.commit()
         if "overlay_svg_file_id" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN overlay_svg_file_id TEXT NOT NULL DEFAULT ''"
             )
-            conn.commit()
         for column, definition in (
             ("overlay_file_id", "TEXT NOT NULL DEFAULT ''"),
             ("source_map_file_id", "TEXT NOT NULL DEFAULT ''"),
@@ -510,7 +650,6 @@ class HistoryDao:
                 conn.execute(
                     f"ALTER TABLE history_page ADD COLUMN {column} {definition}"
                 )
-                conn.commit()
         batch_columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(history_batch)").fetchall()
@@ -519,18 +658,16 @@ class HistoryDao:
             conn.execute(
                 "ALTER TABLE history_batch ADD COLUMN render_page_file_ids TEXT NOT NULL DEFAULT '[]'"
             )
-            conn.commit()
         if "jianpu_text" not in batch_columns:
             conn.execute(
                 "ALTER TABLE history_batch ADD COLUMN jianpu_text TEXT NOT NULL DEFAULT ''"
             )
-            conn.commit()
         if "render_page_ocr_texts" not in batch_columns:
             conn.execute(
                 "ALTER TABLE history_batch ADD COLUMN render_page_ocr_texts TEXT NOT NULL DEFAULT '[]'"
             )
-            conn.commit()
         HistoryDao._ensure_indexes(conn)
+        conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
     @staticmethod
     def _ensure_indexes(conn: sqlite3.Connection) -> None:
@@ -542,6 +679,17 @@ class HistoryDao:
         )
 
     def _row_to_batch(self, conn: sqlite3.Connection, row: sqlite3.Row) -> HistoryBatch:
+        page_rows = conn.execute(
+            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY position ASC, id ASC",
+            (row["id"],),
+        ).fetchall()
+        return self._row_to_batch_rows(row, page_rows)
+
+    def _row_to_batch_rows(
+        self,
+        row: sqlite3.Row,
+        page_rows: list[sqlite3.Row],
+    ) -> HistoryBatch:
         batch = HistoryBatch(
             id=row["id"],
             created_at=row["created_at"],
@@ -559,10 +707,6 @@ class HistoryDao:
                 else "[]"
             ),
         )
-        page_rows = conn.execute(
-            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY position ASC, id ASC",
-            (batch.id,),
-        ).fetchall()
         batch.pages = [self._row_to_page(pr) for pr in page_rows]
         return batch
 

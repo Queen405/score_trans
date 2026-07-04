@@ -205,8 +205,8 @@
             </button>
             <div class="upload-thumb">
               <img
-                v-if="active && isPreviewable(page.inputFileName)"
-                :src="getFileURL(page.inputFileId)"
+                v-if="props.active && isPreviewable(page.inputFileName)"
+                :src="previewUrl(page.inputFileId)"
                 :alt="page.inputFileName"
               >
               <n-icon
@@ -258,7 +258,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
@@ -270,7 +270,7 @@ import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
 import { notationApi } from '../api/notation'
-import { getFileURL, requireData } from '../api/client'
+import { fetchFileBlob, requireData } from '../api/client'
 import type {
   AiTranscribeResponse,
   AiTranscribedPage,
@@ -420,11 +420,62 @@ onMounted(async () => {
   }
 })
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   active?: boolean
 }>(), {
   active: true,
 })
+
+const previewUrls = ref<Record<string, string>>({})
+
+function previewUrl(fileId: string): string {
+  return previewUrls.value[fileId] ?? ''
+}
+
+function revokePreviewUrls(): void {
+  for (const url of Object.values(previewUrls.value)) {
+    URL.revokeObjectURL(url)
+  }
+  previewUrls.value = {}
+}
+
+watch(
+  () => props.active
+    ? [...new Set(
+      store.currentBatchPages
+        .filter((page) => isPreviewable(page.inputFileName))
+        .map((page) => page.inputFileId),
+    )].join('|')
+    : '',
+  async (joinedFileIds, _previous, onCleanup) => {
+    const controller = new AbortController()
+    let active = true
+    onCleanup(() => {
+      active = false
+      controller.abort()
+    })
+    revokePreviewUrls()
+    if (!joinedFileIds) return
+
+    const fileIds = joinedFileIds.split('|')
+    const results = await Promise.all(
+      fileIds.map(async (fileId) => ({
+        fileId,
+        result: await fetchFileBlob(fileId, controller.signal),
+      })),
+    )
+    if (!active) return
+
+    const urls: Record<string, string> = {}
+    for (const { fileId, result } of results) {
+      if (!result.error) urls[fileId] = URL.createObjectURL(result.data)
+    }
+    previewUrls.value = urls
+  },
+  { immediate: true },
+)
+
+onUnmounted(revokePreviewUrls)
 
 const batchOptions = computed(() =>
   store.batches.map((b, i) => ({

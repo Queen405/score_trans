@@ -1,28 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Mapping
 from pathlib import Path
-
-from score_trans.config.settings import (
-    AI_API_KEY,
-    AI_BASE_URL,
-    AI_MODEL,
-    AI_PROVIDER,
-    ASSISTANT_API_KEY,
-    ASSISTANT_BASE_URL,
-    ASSISTANT_MODEL,
-    ASSISTANT_PROVIDER,
-    AUDIVERIS_MAX_HEAP,
-    AUDIVERIS_MAX_PIXEL_COUNT,
-    AUDIVERIS_PATH,
-    JAVA_HOME,
-    OCR_API_KEY,
-    OCR_BASE_URL,
-    OCR_FALLBACK_MODEL,
-    OCR_MODEL,
-    OCR_PROVIDER,
-    OUTPUT_DIR,
-)
 
 from ...models.common.paths import LEGACY_WORK_DIR, USER_WORK_DIR
 from ..storage import migrate_legacy_sqlite
@@ -32,48 +12,34 @@ LEGACY_DB_PATH = LEGACY_WORK_DIR / "settings.db"
 
 TABLE_NAME = "settings"
 
-_DEFAULTS: dict[str, str] = {
-    "audiveris_path": AUDIVERIS_PATH,
-    "java_home": JAVA_HOME,
-    "audiveris_max_heap": AUDIVERIS_MAX_HEAP,
-    "audiveris_max_pixel_count": AUDIVERIS_MAX_PIXEL_COUNT,
-    "output_dir": OUTPUT_DIR,
-    "target_key": "C",
-    "show_measure_numbers": "1",
-    "measure_number_mode": "all",
-    "confirm_start_measure_number": "1",
-    "jianpu_syntax_highlight": "0",
-    "accidental_mode": "auto",
-    "ocr_provider": OCR_PROVIDER,
-    "ocr_api_key": OCR_API_KEY,
-    "ocr_base_url": OCR_BASE_URL,
-    "ocr_model": OCR_MODEL,
-    "ocr_fallback_model": OCR_FALLBACK_MODEL,
-    "ai_provider": AI_PROVIDER,
-    "ai_api_key": AI_API_KEY,
-    "ai_base_url": AI_BASE_URL,
-    "ai_model": AI_MODEL,
-    "assistant_provider": ASSISTANT_PROVIDER,
-    "assistant_api_key": ASSISTANT_API_KEY,
-    "assistant_base_url": ASSISTANT_BASE_URL,
-    "assistant_model": ASSISTANT_MODEL,
-}
-
-
 class SettingsDao:
     _instance: "SettingsDao | None" = None
 
-    def __init__(self, db_path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        db_path: str | Path | None = None,
+        *,
+        defaults: Mapping[str, str] | None = None,
+    ) -> None:
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+        self.defaults = dict(defaults or {})
         if db_path is None:
             migrate_legacy_sqlite(self.db_path, LEGACY_DB_PATH)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     @classmethod
-    def default(cls) -> "SettingsDao":
+    def default(
+        cls,
+        defaults: Mapping[str, str] | None = None,
+    ) -> "SettingsDao":
         if cls._instance is None:
-            cls._instance = cls()
+            cls._instance = cls(defaults=defaults)
+        elif defaults and any(
+            cls._instance.defaults.get(key) != value
+            for key, value in defaults.items()
+        ):
+            cls._instance.ensure_defaults(defaults)
         return cls._instance
 
     def _connect(self) -> sqlite3.Connection:
@@ -93,12 +59,22 @@ class SettingsDao:
             )
             self._migrate_old_table(conn)
             self._migrate_measure_number_mode(conn)
-            for key, value in _DEFAULTS.items():
+            for key, value in self.defaults.items():
                 conn.execute(
                     f"INSERT OR IGNORE INTO {TABLE_NAME} (key, value) VALUES (?, ?)",
                     (key, value),
                 )
             conn.commit()
+
+    def ensure_defaults(self, defaults: Mapping[str, str]) -> None:
+        with self._connect() as conn:
+            for key, value in defaults.items():
+                conn.execute(
+                    f"INSERT OR IGNORE INTO {TABLE_NAME} (key, value) VALUES (?, ?)",
+                    (key, value),
+                )
+            conn.commit()
+        self.defaults.update(defaults)
 
     def _migrate_old_table(self, conn: sqlite3.Connection) -> None:
         try:

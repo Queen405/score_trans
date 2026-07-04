@@ -20,6 +20,8 @@ const result = spawnSync(
     cwd: projectRoot,
     env: {
       ...process.env,
+      SCORE_TRANS_API_TOKEN: 'score-trans-openapi-generation-token',
+      SCORE_TRANS_API_AUTH_DISABLED: '0',
       PYTHONPATH: [
         path.join(projectRoot, 'backend'),
         process.env.PYTHONPATH,

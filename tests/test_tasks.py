@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
+import sqlite3
 
 from pydantic import BaseModel
+import pytest
 
+import score_trans.api.app as app_module
 from score_trans.api.app import create_app
 from score_trans.dao.tasks.task_dao import TaskDao
 from score_trans.exec.tasks.background import run_sync_task, schedule_background_task
 from score_trans.exec.tasks.actions import TaskActions
-from score_trans.models.tasks.entities import TaskStatus
+from score_trans.models.tasks.entities import TaskProgress, TaskStatus
 from score_trans.services.tasks.task_service import TaskManager
 
 
@@ -117,6 +121,45 @@ def test_task_manager_marks_interrupted_tasks_failed_on_recovery(tmp_path) -> No
     assert "重启" in (recovered.error or "")
 
 
+def test_task_dao_load_active_only_returns_recoverable_statuses(tmp_path) -> None:
+    dao = TaskDao(tmp_path / "tasks.db")
+    for status in TaskStatus:
+        dao.save(
+            TaskProgress(
+                task_id=status.value,
+                status=status,
+                expires_at=200.0,
+            )
+        )
+
+    active = dao.load_active(now=100.0)
+
+    assert {progress.status for progress in active} == {
+        TaskStatus.PENDING,
+        TaskStatus.RUNNING,
+    }
+
+
+def test_task_dao_unknown_status_becomes_failed_diagnostic(tmp_path) -> None:
+    dao = TaskDao(tmp_path / "tasks.db")
+    with sqlite3.connect(dao.db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO task_state (
+                task_id, status, stage, percent, message,
+                created_at, updated_at
+            )
+            VALUES ('corrupt', 'paused-by-old-version', 'legacy', 17, 'old', 1, 2)
+            """
+        )
+
+    progress = dao.load("corrupt")
+
+    assert progress is not None
+    assert progress.status == TaskStatus.FAILED
+    assert "paused-by-old-version" in (progress.error or "")
+
+
 def test_schedule_background_task_tracks_until_done() -> None:
     async def scenario() -> tuple[int, int]:
         app = create_app()
@@ -135,3 +178,61 @@ def test_schedule_background_task_tracks_until_done() -> None:
 
     assert before == 1
     assert after == 0
+
+
+def test_app_shutdown_clears_completed_tasks_left_in_registry() -> None:
+    async def scenario() -> int:
+        app = create_app()
+        task = asyncio.create_task(asyncio.sleep(0))
+        app.state.background_tasks.add(task)
+        await task
+
+        await asyncio.wait_for(
+            app_module._wait_for_background_tasks(app),
+            timeout=0.1,
+        )
+        return len(app.state.background_tasks)
+
+    assert asyncio.run(scenario()) == 0
+
+
+def test_schedule_background_task_rejects_registration_during_shutdown() -> None:
+    async def scenario() -> str:
+        app = create_app()
+        app.state.accepting_background_tasks = False
+        coro = asyncio.sleep(0)
+
+        with pytest.raises(RuntimeError, match="shutting down"):
+            schedule_background_task(app, "too-late", coro)
+
+        return inspect.getcoroutinestate(coro)
+
+    assert asyncio.run(scenario()) == inspect.CORO_CLOSED
+
+
+def test_global_task_events_keep_latest_update_when_subscriber_is_slow(
+    tmp_path,
+) -> None:
+    async def scenario() -> tuple[int, int]:
+        manager = TaskManager(
+            dao=TaskDao(tmp_path / "tasks.db"),
+            subscriber_queue_size=1,
+        )
+        events = manager.global_events()
+        first_event = asyncio.create_task(anext(events))
+        await asyncio.sleep(0)
+        assert len(manager._subscribers) == 1
+
+        await manager._broadcast(TaskProgress(task_id="task", percent=1))
+        await first_event
+        await manager._broadcast(TaskProgress(task_id="task", percent=2))
+        await manager._broadcast(TaskProgress(task_id="task", percent=3))
+
+        latest = _event_data(await anext(events))
+        await events.aclose()
+        return latest["percent"], len(manager._subscribers)
+
+    percent, subscriber_count = asyncio.run(scenario())
+
+    assert percent == 3
+    assert subscriber_count == 0

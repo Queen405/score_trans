@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from ....utils.openai_response import completion_content, stream_delta
+
 
 def chat_completions(
     *,
@@ -44,7 +46,7 @@ def chat_completions(
     resp = httpx.post(url, json=body, headers=headers, timeout=timeout)
     resp.raise_for_status()
     data = resp.json()
-    return data["choices"][0]["message"]["content"]
+    return completion_content(data, provider_name="AI")
 
 
 def chat_completion_chunks(
@@ -88,7 +90,9 @@ def chat_completion_chunks(
                 data = json.loads(data_str)
             except json.JSONDecodeError:
                 continue
-            delta = data.get("choices", [{}])[0].get("delta", {})
+            delta = stream_delta(data, provider_name="AI")
+            if delta is None:
+                continue
             reasoning = delta.get("reasoning_content")
             if reasoning:
                 if not in_reasoning:

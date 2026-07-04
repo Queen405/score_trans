@@ -4,11 +4,16 @@ import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+from ...utils.safe_xml import UnsafeXmlError, safe_xml_file_text, safe_xml_fromstring
+
 
 def write_render_map(svg_path: Path, page_index: int) -> Path | None:
     try:
-        root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
-    except (OSError, ET.ParseError):
+        root = safe_xml_fromstring(
+            safe_xml_file_text(svg_path),
+            source=svg_path.name,
+        )
+    except (OSError, ET.ParseError, UnsafeXmlError):
         return None
     source_boxes: dict[str, dict[str, float] | None] = {}
     for element in root.iter():

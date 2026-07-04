@@ -121,11 +121,11 @@ class MusicXmlToJianpuAction:
 
 
 class JianpuToMusicXmlAction:
-    def execute_text(self, jianpu_text: str, *, title: str = "Jianpu Import") -> str:
+    def execute_text(self, jianpu_text: str, *, title: str | None = None) -> str:
         return jianpu_to_musicxml(jianpu_text, title=title)
 
     def execute_file(
-        self, input_path: str | Path, *, title: str = "Jianpu Import"
+        self, input_path: str | Path, *, title: str | None = None
     ) -> str:
         return jianpu_file_to_musicxml(Path(input_path), title=title)
 
@@ -200,7 +200,8 @@ def _apply_measure_number_ocr(
     if detected_start is None and start_measure_number is None:
         return
     start = start_measure_number if start_measure_number is not None else detected_start
-    assert start is not None
+    if start is None:
+        raise ValueError("无法确定起始小节号")
     for index, measure in enumerate(score.measures):
         display_number = start + index
         measure.display_number = display_number

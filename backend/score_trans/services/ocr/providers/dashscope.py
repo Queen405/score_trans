@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from score_trans.config.settings import OCR_TIMEOUT
+from score_trans.config.settings import OCR_TEMPERATURE, OCR_TIMEOUT
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
 from score_trans.services.settings.api_keys import provider_api_key
@@ -82,7 +82,7 @@ class DashScopeOCRProvider:
                 api_key=self.api_key,
                 model=self.model,
                 messages=messages,
-                temperature=0.1,
+                temperature=OCR_TEMPERATURE,
                 timeout=self.timeout,
                 response_format={"type": "json_object"},
             )

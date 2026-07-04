@@ -1,12 +1,15 @@
 import { app } from 'electron'
 import fs from 'fs'
 import path from 'path'
+import { migrateLegacyDataDirectory } from './storageMigration'
 
-const USER_DATA_DIR_NAME = '.sorce_trans'
+const USER_DATA_DIR_NAME = '.score_trans'
+const LEGACY_USER_DATA_DIR_NAME = '.sorce_trans'
 const STORAGE_CONFIG_FILE = 'storage-paths.json'
 const CACHE_DIR_NAME = 'cache'
 const ELECTRON_SESSION_DIR_NAME = 'electron-session'
 const DB_FILE_NAMES = ['settings.db', 'history.db', 'ai_chat.db', 'tasks.db']
+let defaultDataDirOverride: string | null = null
 
 export interface StoragePaths {
   dataDir: string
@@ -22,13 +25,30 @@ export interface StoragePathUpdate {
 export function loadStoragePaths(): StoragePaths {
   const defaults = defaultStoragePaths()
   const config = readStorageConfig(defaults.configPath)
-  const dataDir = normalizeDir(config.dataDir, defaults.dataDir)
-  const cacheDir = normalizeDir(config.cacheDir, path.join(dataDir, CACHE_DIR_NAME))
+  const legacyDataDir = legacyDefaultDataDir()
+  const configuredDataDir = normalizeDir(config.dataDir, defaults.dataDir)
+  const dataDir = samePath(configuredDataDir, legacyDataDir)
+    ? defaults.dataDir
+    : configuredDataDir
+  const configuredCacheDir = normalizeDir(
+    config.cacheDir,
+    path.join(dataDir, CACHE_DIR_NAME),
+  )
+  const cacheDir = samePath(configuredCacheDir, path.join(legacyDataDir, CACHE_DIR_NAME))
+    ? path.join(dataDir, CACHE_DIR_NAME)
+    : configuredCacheDir
   return { dataDir, cacheDir, configPath: defaults.configPath }
 }
 
 export function configureElectronStoragePaths(): StoragePaths {
   migrateLegacyStorageConfig()
+  const migrated = migrateLegacyDataDirectory(
+    legacyDefaultDataDir(),
+    path.join(app.getPath('home'), USER_DATA_DIR_NAME),
+  )
+  if (!migrated) {
+    defaultDataDirOverride = legacyDefaultDataDir()
+  }
   const paths = loadStoragePaths()
   const sessionDir = path.join(paths.cacheDir, ELECTRON_SESSION_DIR_NAME)
   fs.mkdirSync(sessionDir, { recursive: true })
@@ -61,7 +81,8 @@ export function saveStoragePaths(update: StoragePathUpdate): StoragePaths {
 }
 
 function defaultStoragePaths(): StoragePaths {
-  const dataDir = path.join(app.getPath('home'), USER_DATA_DIR_NAME)
+  const dataDir =
+    defaultDataDirOverride ?? path.join(app.getPath('home'), USER_DATA_DIR_NAME)
   return {
     dataDir,
     cacheDir: path.join(dataDir, CACHE_DIR_NAME),
@@ -69,8 +90,12 @@ function defaultStoragePaths(): StoragePaths {
   }
 }
 
+function legacyDefaultDataDir(): string {
+  return path.join(app.getPath('home'), LEGACY_USER_DATA_DIR_NAME)
+}
+
 function legacyStorageConfigPath(): string {
-  return path.join(app.getPath('home'), USER_DATA_DIR_NAME, STORAGE_CONFIG_FILE)
+  return path.join(legacyDefaultDataDir(), STORAGE_CONFIG_FILE)
 }
 
 function normalizeDir(value: unknown, fallback: string): string {
@@ -78,6 +103,10 @@ function normalizeDir(value: unknown, fallback: string): string {
     return path.resolve(fallback)
   }
   return path.resolve(value.trim())
+}
+
+function samePath(left: string, right: string): boolean {
+  return path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase()
 }
 
 function readStorageConfig(configPath: string): StoragePathUpdate {

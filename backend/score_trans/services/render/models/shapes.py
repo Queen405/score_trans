@@ -10,5 +10,5 @@ class NoteShape:
     octave_up: int
     octave_down: int
     rank: float
-    dotted: bool = False
+    dotted: int = 0
     extension: int = 0

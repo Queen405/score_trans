@@ -57,12 +57,20 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   async function deleteSession(sessionId: string): Promise<void> {
-    await requireData(aiApi.deleteChatSession(sessionId))
-    sessions.value = sessions.value.filter((session) => session.id !== sessionId)
-    if (currentSessionId.value === sessionId) {
-      currentSessionId.value = ''
-      messages.value = []
-      if (sessions.value.length) await selectSession(sessions.value[0].id)
+    loading.value = true
+    error.value = ''
+    try {
+      await requireData(aiApi.deleteChatSession(sessionId))
+      sessions.value = sessions.value.filter((session) => session.id !== sessionId)
+      if (currentSessionId.value === sessionId) {
+        currentSessionId.value = ''
+        messages.value = []
+        if (sessions.value.length) await selectSession(sessions.value[0].id)
+      }
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : String(e)
+    } finally {
+      loading.value = false
     }
   }
 
@@ -104,8 +112,16 @@ export const useAssistantStore = defineStore('assistant', () => {
             ))
           },
           onDelta(content) {
-            const target = messages.value.find((item) => item.id === tempAssistantId)
-            if (target) target.content += content
+            const targetIndex = messages.value.findIndex(
+              (item) => item.id === tempAssistantId,
+            )
+            if (targetIndex >= 0) {
+              const target = messages.value[targetIndex]
+              messages.value[targetIndex] = {
+                ...target,
+                content: target.content + content,
+              }
+            }
           },
           onDone(response) {
             messages.value = response.messages

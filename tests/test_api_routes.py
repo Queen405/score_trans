@@ -10,6 +10,7 @@ from score_trans.api.dependencies import get_settings_actions
 from score_trans.api.app import create_app
 from score_trans.api.export.routes import export_midi
 from score_trans.api.render.routes import render_jianpu_svg
+from score_trans.api.settings.routes import clear_cache
 from score_trans.exec.export.actions import ExportActions
 from score_trans.exec.files.actions import FileActions
 from score_trans.exec.history.actions import HistoryActions
@@ -19,6 +20,9 @@ from score_trans.models.render.schemas import (
     RenderJianpuSvgRequest,
     RenderJianpuSvgResponse,
 )
+from score_trans.models.common.errors import RenderError
+from score_trans.models.export.schemas import ExportResponse
+from score_trans.models.settings.schemas import CacheCleanupResponse
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 from score_trans.services.history.history_service import HistoryService
@@ -36,6 +40,49 @@ def test_render_routes_are_registered() -> None:
     assert "/history/{batch_id}/render-page-ocr-texts" in paths
     assert "/tasks/{task_id}" in paths
     assert "/tasks/{task_id}/stream" in paths
+
+
+def test_render_error_uses_structured_api_response() -> None:
+    app = create_app()
+
+    @app.get("/_test/render-error")
+    def raise_render_error() -> None:
+        raise RenderError("渲染器未生成任何简谱 SVG 页面")
+
+    response = TestClient(app).get("/_test/render-error")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "渲染器未生成任何简谱 SVG 页面",
+        "stage": "render",
+    }
+
+
+def test_exec_errors_are_mapped_at_the_api_boundary() -> None:
+    client = TestClient(create_app())
+
+    missing_file = client.get("/files/definitely-missing")
+    missing_export = client.post(
+        "/export/midi",
+        params={"musicxml_file_id": "definitely-missing"},
+    )
+    invalid_render = client.post("/render/batch-a4", json={"pages": []})
+
+    assert missing_file.status_code == 404
+    assert missing_file.json() == {
+        "error": "文件不存在：definitely-missing",
+        "stage": "files",
+    }
+    assert missing_export.status_code == 404
+    assert missing_export.json() == {
+        "error": "MusicXML 文件不存在：definitely-missing",
+        "stage": "files",
+    }
+    assert invalid_render.status_code == 400
+    assert invalid_render.json() == {
+        "error": "至少需要一个待渲染页面",
+        "stage": "validation",
+    }
 
 
 def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:
@@ -74,6 +121,68 @@ def test_render_route_offloads_blocking_render_work() -> None:
     assert elapsed < 0.1
     assert still_running
     assert svg_file_id == "rendered-score"
+
+
+class SlowExportActions:
+    def export_midi(
+        self,
+        musicxml_file_id: str,
+        filename: str | None = None,
+    ) -> ExportResponse:
+        time.sleep(0.2)
+        return ExportResponse(
+            file_id=f"exported-{musicxml_file_id}",
+            filename=filename or "score.mid",
+        )
+
+
+def test_export_route_offloads_blocking_export_work() -> None:
+    async def scenario() -> tuple[float, bool, str]:
+        start = time.perf_counter()
+        task = asyncio.create_task(
+            export_midi("score", actions=SlowExportActions())
+        )
+        await asyncio.sleep(0.01)
+        elapsed = time.perf_counter() - start
+        still_running = not task.done()
+        result = await task
+        return elapsed, still_running, result.file_id
+
+    elapsed, still_running, file_id = asyncio.run(scenario())
+
+    assert elapsed < 0.1
+    assert still_running
+    assert file_id == "exported-score"
+
+
+class SlowSettingsActions:
+    def clear_cache(self) -> CacheCleanupResponse:
+        time.sleep(0.2)
+        return CacheCleanupResponse(
+            cache_dir="cache",
+            before_bytes=1,
+            after_bytes=0,
+            freed_bytes=1,
+            removed_items=1,
+            preserved_uploads=0,
+        )
+
+
+def test_clear_cache_route_offloads_blocking_file_deletion() -> None:
+    async def scenario() -> tuple[float, bool, int]:
+        start = time.perf_counter()
+        task = asyncio.create_task(clear_cache(actions=SlowSettingsActions()))
+        await asyncio.sleep(0.01)
+        elapsed = time.perf_counter() - start
+        still_running = not task.done()
+        result = await task
+        return elapsed, still_running, result.removed_items
+
+    elapsed, still_running, removed_items = asyncio.run(scenario())
+
+    assert elapsed < 0.1
+    assert still_running
+    assert removed_items == 1
 
 
 def test_musicxml_to_jianpu_request_accepts_page_image_for_ocr_text() -> None:

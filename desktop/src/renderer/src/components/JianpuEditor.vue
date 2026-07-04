@@ -281,15 +281,6 @@ function isStandaloneBarline(value: string, cursor: number): boolean {
   return false
 }
 
-function splitInlineComment(line: string): { code: string; comment: string } {
-  const commentStart = line.indexOf('//')
-  if (commentStart < 0) return { code: line, comment: '' }
-  return {
-    code: line.slice(0, commentStart),
-    comment: line.slice(commentStart),
-  }
-}
-
 function isCursorInLineComment(value: string, cursor: number): boolean {
   const lineStart = value.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1
   const linePrefix = value.slice(lineStart, cursor)
@@ -345,98 +336,6 @@ function syncScroll(e: Event): void {
   const target = e.target as HTMLTextAreaElement
   syncScrollPosition(target)
 }
-
-function needsFormat(text: string): boolean {
-  const lines = text.split('\n')
-  for (const line of lines) {
-    const trimmed = splitInlineComment(line).code.trim()
-    if (!trimmed) continue
-    // 包含 | 的就是小节（即使以 \ 开头），只检查是否需要按 | 分割
-    if (trimmed.includes('|')) {
-      if (hasStandaloneBarBeforeMoreContent(trimmed)) return true
-      continue
-    }
-    if (
-      /^key\s*=/i.test(trimmed) ||
-      /^time\s*=/i.test(trimmed) ||
-      /^title\s*=/i.test(trimmed) ||
-      /^tempo\s*=/i.test(trimmed) ||
-      /^L:/.test(trimmed) ||
-      /^\\/.test(trimmed)
-    ) {
-      continue
-    }
-  }
-  return false
-}
-
-function hasStandaloneBarBeforeMoreContent(line: string): boolean {
-  for (let i = 0; i < line.length; i += 1) {
-    if (line[i] !== '|') continue
-    const before = i > 0 ? line[i - 1] : ''
-    const after = i + 1 < line.length ? line[i + 1] : ''
-    if (before === ':' || before === '|') continue
-    if (after === '|' || after === ':') continue
-    if (line.slice(i + 1).trim().length > 0) return true
-  }
-  return false
-}
-
-function formatMeasures(text: string): string {
-  const lines = text.split('\n')
-  const result: string[] = []
-  for (const line of lines) {
-    const { code, comment } = splitInlineComment(line)
-    const trimmed = code.trimEnd()
-    if (!trimmed) {
-      result.push(line)
-      continue
-    }
-    // 包含 | 的就是小节行，需要按 | 分割（仅在独立小节线处拆分，保留 ||、|:、:|）
-    if (trimmed.includes('|')) {
-      const parts = trimmed.split(/(?<![:|])\|(?![|:])/)
-      const emitted: string[] = []
-      for (let i = 0; i < parts.length; i++) {
-        const seg = parts[i].trim()
-        if (!seg) continue
-        // 独立 | 在 split 中被消费，非末尾段需补回
-        emitted.push(i < parts.length - 1 ? seg + '|' : seg)
-      }
-      if (comment && emitted.length) {
-        emitted[emitted.length - 1] = `${emitted[emitted.length - 1]} ${comment.trimStart()}`
-      }
-      result.push(...emitted)
-      continue
-    }
-    if (
-      /^key\s*=/i.test(trimmed) ||
-      /^time\s*=/i.test(trimmed) ||
-      /^title\s*=/i.test(trimmed) ||
-      /^tempo\s*=/i.test(trimmed) ||
-      /^L:/.test(trimmed) ||
-      /^\\/.test(trimmed)
-    ) {
-      result.push(line)
-      continue
-    }
-    result.push(line)
-  }
-  return result.join('\n')
-}
-
-watch(
-  () => props.modelValue,
-  (val) => {
-    if (!val) return
-    if (!needsFormat(val)) return
-    const formatted = formatMeasures(val)
-    if (formatted === val) return
-    const state = textareaState()
-    emit('update:modelValue', formatted)
-    restoreTextareaState(state)
-  },
-  { immediate: true },
-)
 
 const measureLabels = computed(() =>
   jianpuGutterLabels(props.modelValue, props.startMeasureNumber ?? 1),
@@ -520,33 +419,6 @@ function refreshEditorMetrics(): void {
     paddingLeft: parseFloat(style.paddingLeft) || 0,
     paddingTop: parseFloat(style.paddingTop) || 0,
   }
-}
-
-function textareaState(): { start: number; end: number; scrollTop: number; scrollLeft: number } | null {
-  const el = textareaRef.value
-  if (!el) return null
-  return {
-    start: el.selectionStart,
-    end: el.selectionEnd,
-    scrollTop: el.scrollTop,
-    scrollLeft: el.scrollLeft,
-  }
-}
-
-function restoreTextareaState(
-  state: { start: number; end: number; scrollTop: number; scrollLeft: number } | null,
-): void {
-  if (!state) return
-  nextTick(() => {
-    const el = textareaRef.value
-    if (!el) return
-    const max = el.value.length
-    el.selectionStart = Math.min(state.start, max)
-    el.selectionEnd = Math.min(state.end, max)
-    el.scrollTop = state.scrollTop
-    el.scrollLeft = state.scrollLeft
-    syncScrollPosition(el)
-  })
 }
 
 function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn: number }): void {

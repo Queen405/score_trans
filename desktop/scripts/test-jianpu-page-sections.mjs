@@ -160,6 +160,35 @@ const efficiencyDashboardSource = fs.readFileSync(
   path.resolve(here, '../src/renderer/src/components/EfficiencyDashboard.vue'),
   'utf8',
 )
+const assistantStoreSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/stores/assistant.ts'),
+  'utf8',
+)
+
+test('assistant session deletion reports failures before mutating local state', () => {
+  const match = assistantStoreSource.match(
+    /async function deleteSession[\s\S]*?\n  }\n\n  async function send/,
+  )
+  assert.ok(match, 'deleteSession implementation should be present')
+
+  const handler = match[0]
+  assert.match(handler, /loading\.value\s*=\s*true/)
+  assert.match(handler, /error\.value\s*=\s*''/)
+  assert.match(
+    handler,
+    /try\s*\{[\s\S]*await requireData\(aiApi\.deleteChatSession\(sessionId\)\)/,
+  )
+  assert.match(
+    handler,
+    /catch \(e: unknown\)[\s\S]*error\.value\s*=\s*e instanceof Error/,
+  )
+  assert.match(handler, /finally\s*\{[\s\S]*loading\.value\s*=\s*false/)
+  assert.ok(
+    handler.indexOf('await requireData(aiApi.deleteChatSession(sessionId))')
+      < handler.indexOf('sessions.value = sessions.value.filter'),
+    'local session state must only change after the backend confirms deletion',
+  )
+})
 
 test('page sections preserve comments and blank lines', () => {
   const text = utils.composeJianpuPageText([
@@ -717,20 +746,27 @@ test('OCR text roundtrip preserves semantic attachment metadata', () => {
 test('API wrappers return an error tuple instead of rejecting', async () => {
   const previousWindow = globalThis.window
   const previousFetch = globalThis.fetch
+  let authorization = ''
   globalThis.window = {
     api: {
-      getBackendURL: () => 'http://test.invalid',
+      getBackendConnection: async () => ({
+        baseURL: 'http://test.invalid',
+        token: 'process-local-test-token',
+      }),
     },
   }
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (_input, options) => {
+    authorization = new Headers(options?.headers).get('authorization') ?? ''
     throw new Error('network down')
   }
 
   try {
+    await apiClient.initializeBackendConnection()
     const result = await apiClient.apiFetch('/health')
 
     assert.equal(result.data, null)
     assert.equal(result.error?.message, 'network down')
+    assert.equal(authorization, 'Bearer process-local-test-token')
     await assert.rejects(apiClient.requireData(Promise.resolve(result)), /network down/)
   } finally {
     globalThis.window = previousWindow

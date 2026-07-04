@@ -7,6 +7,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from score_trans.config.settings import PDF_RENDER_DPI
+
 from ...models.ai.entities import AiChatMessage, AiChatSession
 from ...models.ai.schemas import (
     AiChatMessageResponse,
@@ -36,12 +38,18 @@ class AiActions:
         transcriber: AiTranscriptionService | None = None,
         chat: AiChatService | None = None,
         file_service: FileService | None = None,
+        default_render_dpi: int | None = None,
     ) -> None:
         self.uploads = uploads or UploadService()
         self.settings = settings or SettingsService()
         self.transcriber = transcriber or AiTranscriptionService()
         self.chat = chat
         self.file_service = file_service or FileService()
+        self.default_render_dpi = (
+            default_render_dpi
+            if default_render_dpi is not None
+            else PDF_RENDER_DPI
+        )
 
     def transcribe_score(
         self,
@@ -63,7 +71,11 @@ class AiActions:
             accidental_mode=req.accidental_mode,
             instrument_profile=req.instrument_profile,
             title=req.title,
-            render_dpi=req.render_dpi,
+            render_dpi=(
+                req.render_dpi
+                if req.render_dpi is not None
+                else self.default_render_dpi
+            ),
             max_pages=req.max_pages,
             extra_prompt=req.prompt,
             normalize=req.normalize,

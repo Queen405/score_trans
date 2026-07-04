@@ -38,6 +38,11 @@
         /></svg>
       </button>
       <span class="player-time">{{ player.currentTimeFormatted.value }} / {{ player.durationFormatted.value }}</span>
+      <span
+        v-if="loadError"
+        class="player-error"
+        :title="loadError"
+      >{{ loadError }}</span>
     </div>
 
     <div class="player-center">
@@ -130,10 +135,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { NInputNumber, NSlider } from 'naive-ui'
+import { NInputNumber, NSlider, useMessage } from 'naive-ui'
 import { usePlayer } from '../composables/usePlayer'
 import { getFileURL, requireData } from '../api/client'
 import { exportApi } from '../api/export'
+import {
+  loadPlayerVolume,
+  savePlayerVolume,
+} from '../utils/playerPreferences'
 
 const props = defineProps<{
   /** MusicXML file ID (used to generate MIDI on demand) */
@@ -149,7 +158,9 @@ const emit = defineEmits<{
 }>()
 
 const player = usePlayer()
+const message = useMessage()
 const progressRef = ref<HTMLElement>()
+const loadError = ref('')
 const visible = computed(() => !!props.musicxmlFileId || !!props.jianpuText?.trim() || !!props.midiFileId)
 
 const volumeRatio = computed(() => {
@@ -158,8 +169,9 @@ const volumeRatio = computed(() => {
   return Math.pow(10, db / 20)
 })
 
-const isMuted = ref(false)
-let lastVolumeRatio = 0.8
+const initialVolumeRatio = loadPlayerVolume()
+const isMuted = ref(initialVolumeRatio === 0)
+let lastVolumeRatio = initialVolumeRatio > 0 ? initialVolumeRatio : 0.8
 
 // Load MIDI when source changes
 let currentLoadId = ''
@@ -170,10 +182,14 @@ async function loadFromProps(): Promise<void> {
   if (loadId === currentLoadId) return
   currentLoadId = loadId
   const gen = ++loadGeneration
+  loadError.value = ''
 
   if (props.midiFileId) {
-    const url = getFileURL(props.midiFileId)
-    await player.loadMidi(url)
+    try {
+      await loadMidiForGeneration(getFileURL(props.midiFileId), gen)
+    } catch (error: unknown) {
+      reportMidiError(error, gen)
+    }
     return
   }
 
@@ -186,11 +202,9 @@ async function loadFromProps(): Promise<void> {
         title: '简谱',
       }))
       if (gen !== loadGeneration) return
-      const url = getFileURL(result.file_id)
-      await player.loadMidi(url)
-    } catch {
-      // Syntax invalid or generation failed — reset player so stale MIDI is not playable
-      if (gen === loadGeneration) player.unload()
+      await loadMidiForGeneration(getFileURL(result.file_id), gen)
+    } catch (error: unknown) {
+      reportMidiError(error, gen)
     }
     return
   }
@@ -199,12 +213,25 @@ async function loadFromProps(): Promise<void> {
     try {
       const result = await requireData(exportApi.exportMidi(props.musicxmlFileId, 'player.mid'))
       if (gen !== loadGeneration) return
-      const url = getFileURL(result.file_id)
-      await player.loadMidi(url)
-    } catch {
-      // silent fail
+      await loadMidiForGeneration(getFileURL(result.file_id), gen)
+    } catch (error: unknown) {
+      reportMidiError(error, gen)
     }
   }
+}
+
+async function loadMidiForGeneration(url: string, generation: number): Promise<void> {
+  await player.loadMidi(url)
+  if (generation !== loadGeneration) return
+  if (player.error.value) throw new Error(player.error.value)
+}
+
+function reportMidiError(error: unknown, generation: number): void {
+  if (generation !== loadGeneration) return
+  const detail = error instanceof Error ? error.message : String(error)
+  player.unload()
+  loadError.value = `MIDI 加载失败：${detail}`
+  message.error(loadError.value)
 }
 
 async function togglePlay(): Promise<void> {
@@ -224,15 +251,17 @@ function handleBpmChange(value: number | null): void {
 }
 
 function handleVolumeChange(value: number): void {
-  isMuted.value = false
-  lastVolumeRatio = value
+  isMuted.value = value === 0
+  if (value > 0) lastVolumeRatio = value
   player.setVolumeRatio(value)
+  savePlayerVolume(value)
 }
 
 function toggleMute(): void {
   if (isMuted.value) {
     isMuted.value = false
     player.setVolumeRatio(lastVolumeRatio)
+    savePlayerVolume(lastVolumeRatio)
   } else {
     isMuted.value = true
     lastVolumeRatio = volumeRatio.value
@@ -273,6 +302,7 @@ function updateProgressFromMouse(event: MouseEvent): void {
 
 // Stop player when changing songs
 onMounted(() => {
+  player.setVolumeRatio(initialVolumeRatio)
   void loadFromProps()
 })
 
@@ -376,6 +406,15 @@ watch(() => props.jianpuText, () => {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   min-width: 80px;
+}
+
+.player-error {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--danger);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .player-center {

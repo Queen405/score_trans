@@ -1,10 +1,11 @@
 import json
+from dataclasses import fields, replace
 from fractions import Fraction
 from pathlib import Path
+from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
 import pytest
-from fastapi import HTTPException
 
 from score_trans.domain.jianpu import jianpu_to_musicxml, parse_jianpu_score
 from score_trans.domain.musicxml import musicxml_to_score
@@ -37,15 +38,29 @@ from score_trans.services.files.upload_service import UploadService
 from score_trans.services.ocr.providers import MockOCRProvider
 from score_trans.services.render import RenderedA4FilePage
 from score_trans.services.render import RenderOptions
+from score_trans.services.render.options import A4_RENDER_THEME
+from score_trans.services.render.drawing.spanners import (
+    _render_slide_curve,
+    _render_slur_arc,
+    _render_tie_arc,
+)
+from score_trans.services.render.drawing.text import (
+    _render_measure_text_blocks,
+    _render_unpositioned_text_blocks,
+)
 from score_trans.services.render.main import (
     render_jianpu_a4_svgs,
     render_jianpu_svg,
+    render_multi_part_scores_a4_pages,
     render_scores_a4_pages,
     render_scores_a4_svgs,
     render_score_page_svg,
     render_score_svg,
 )
-from score_trans.services.render.layout.measure import _score_measure_layout
+from score_trans.services.render.layout.measure import (
+    _score_measure_layout,
+    _text_measure_layout,
+)
 from score_trans.services.render.layout.beat import _item_slots
 from score_trans.services.render.layout.rows import _layout_rows
 from score_trans.services.render.main import (
@@ -57,6 +72,15 @@ from score_trans.services.render.main import (
     _a4_score_top,
     _paginate_rows,
 )
+
+
+@pytest.mark.parametrize(
+    "render_spanner",
+    [_render_tie_arc, _render_slur_arc, _render_slide_curve],
+)
+def test_spanner_renderers_reject_missing_endpoints(render_spanner) -> None:
+    with pytest.raises(ValueError, match="start.*stop"):
+        render_spanner(None, None, 100)
 
 
 def _part_score(name: str, degree: int, source_id: str) -> JianpuScore:
@@ -145,6 +169,70 @@ def test_multi_part_text_preview_renders_parts_in_parallel(tmp_path) -> None:
     assert "s1:i20" in svg
 
 
+def test_multi_part_pages_report_ranges_and_note_indices_for_every_part() -> None:
+    upper = _part_score("高音", 1, "s1:i10")
+    lower = _part_score("低音", 5, "s2:i20")
+    upper.measures[0].source_page_index = 10
+    lower.measures[0].source_page_index = 20
+
+    pages = render_multi_part_scores_a4_pages([upper, lower])
+
+    assert len(pages) == 1
+    assert {item.source_page_index for item in pages[0].measure_ranges} == {10, 20}
+    assert pages[0].note_index_start == 0
+    assert pages[0].note_index_end == 1
+
+
+def test_text_measure_layout_groups_tokens_by_declared_eighth_note_beats() -> None:
+    layout = _text_measure_layout(
+        "q1 q2 q3 q4 q5 q6",
+        1,
+        6,
+        RenderOptions(),
+        beat_duration=Fraction(1, 2),
+    )
+
+    assert [[item.token for item in beat.items] for beat in layout.beats] == [
+        ["q1"],
+        ["q2"],
+        ["q3"],
+        ["q4"],
+        ["q5"],
+        ["q6"],
+    ]
+
+
+def test_unpositioned_text_is_checked_before_crossing_page_bottom() -> None:
+    rendered = _render_unpositioned_text_blocks(
+        [
+            TextBlock("第一行", role="other"),
+        ],
+        width=700,
+        height=30,
+        seen_texts=set(),
+    )
+
+    assert rendered == []
+
+
+def test_measure_other_text_uses_annotation_class_instead_of_lyric() -> None:
+    rendered = _render_measure_text_blocks(
+        SimpleNamespace(
+            text_blocks=[
+                TextBlock("演奏提示", role="other", placement="above"),
+                TextBlock("歌词", role="lyric"),
+            ]
+        ),
+        x=20,
+        y=100,
+        width=240,
+        slots=[],
+    )
+
+    assert 'class="annotation"' in rendered[0]
+    assert 'class="lyric"' in rendered[1]
+
+
 def test_multi_part_musicxml_preview_renders_every_part(tmp_path) -> None:
     input_path = tmp_path / "score.musicxml"
     output_path = tmp_path / "score.svg"
@@ -178,12 +266,10 @@ def test_multi_part_render_rejects_unequal_measure_counts(tmp_path) -> None:
         uploads=UploadService(ToolConfig(work_dir=tmp_path / "work"))
     )
 
-    with pytest.raises(HTTPException, match="各声部小节数量不一致") as exc_info:
+    with pytest.raises(ValueError, match="各声部小节数量不一致"):
         actions.render_batch_a4(
             BatchRenderRequest(pages=[BatchRenderPageRequest(jianpu_text=text)])
         )
-
-    assert exc_info.value.status_code == 400
 
 
 def test_render_package_exposes_narrow_interface() -> None:
@@ -196,6 +282,14 @@ def test_render_package_exposes_narrow_interface() -> None:
         "RenderOptions",
         "RenderService",
     }
+
+
+def test_render_internal_packages_do_not_reexport_dead_legacy_helpers() -> None:
+    from score_trans.services.render import drawing, utils
+
+    assert "_render_beat_items" not in drawing.__all__
+    assert "_render_articulation" not in utils.__all__
+    assert "_upper_mark_anchor_y" not in utils.__all__
 
 
 def _svg_root(svg: str) -> ET.Element:
@@ -320,6 +414,47 @@ def test_staccato_uses_triangle_distinct_from_high_octave_dot() -> None:
     assert len(octave_dots) == 1
 
 
+def test_multiple_octave_dots_stack_vertically() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\n1''' 2,,, |")
+    root = _svg_root(svg)
+    dots = [
+        circle
+        for circle in _svg_elements(root, "circle")
+        if circle.attrib.get("class") == "octave-dot"
+    ]
+    groups: dict[float, list[float]] = {}
+    for dot in dots:
+        groups.setdefault(float(dot.attrib["cx"]), []).append(float(dot.attrib["cy"]))
+
+    assert sorted(len(values) for values in groups.values()) == [3, 3]
+    assert all(len(set(values)) == 3 for values in groups.values())
+    assert any(values == sorted(values, reverse=True) for values in groups.values())
+    assert any(values == sorted(values) for values in groups.values())
+
+
+def test_measure_bars_expand_to_cover_extreme_octave_dots() -> None:
+    root = _svg_root(render_jianpu_svg("1=C\n4/4\n[1''+3'+5+2,+4,,] |"))
+    bars = [
+        line
+        for line in _svg_elements(root, "line")
+        if line.attrib.get("class") == "bar"
+    ]
+    dots = [
+        circle
+        for circle in _svg_elements(root, "circle")
+        if circle.attrib.get("class") == "octave-dot"
+    ]
+
+    assert bars
+    assert dots
+    bar_top = min(float(line.attrib["y1"]) for line in bars)
+    bar_bottom = max(float(line.attrib["y2"]) for line in bars)
+    dot_top = min(float(dot.attrib["cy"]) - float(dot.attrib["r"]) for dot in dots)
+    dot_bottom = max(float(dot.attrib["cy"]) + float(dot.attrib["r"]) for dot in dots)
+    assert bar_top <= dot_top
+    assert bar_bottom >= dot_bottom
+
+
 def test_render_tuplet_group_shows_bracket_and_number() -> None:
     svg = render_jianpu_svg("1=C\n4/4\n$^.1 ^>2 3$ 4 5 6 |")
 
@@ -327,6 +462,28 @@ def test_render_tuplet_group_shows_bracket_and_number() -> None:
     assert 'class="tuplet-number"' in svg
     assert 'class="articulation"' in svg
     assert 'class="staccato"' in svg
+    assert ">3</text>" in svg
+
+
+@pytest.mark.parametrize(
+    "tuplet",
+    [
+        "$123$",
+        "$1 0 3$",
+        "$s1 s2 s3$",
+    ],
+)
+def test_render_structured_tuplets_without_source_tokens(tuplet: str) -> None:
+    score = musicxml_to_score(jianpu_to_musicxml(f"1=C\n4/4\n{tuplet} |"))
+    tuplet_events = score.measures[0].events[:3]
+
+    assert all(event.source_token is None for event in tuplet_events)
+    assert all(event.tuplet_count == 3 for event in tuplet_events)
+
+    svg = render_score_svg(score)
+
+    assert 'class="tuplet-bracket"' in svg
+    assert 'class="tuplet-number"' in svg
     assert ">3</text>" in svg
 
 
@@ -525,6 +682,20 @@ def test_a4_compact_layout_tightens_only_consecutive_short_note_spacing() -> Non
     assert sixteenth_gap < options.note_font_size * 0.8
     assert thirty_second_gap < options.note_font_size * 0.8
     assert eighth_gap > options.note_font_size
+
+
+def test_a4_render_options_take_every_font_size_from_named_theme() -> None:
+    theme = replace(
+        A4_RENDER_THEME,
+        note_font_size=31.0,
+        accidental_font_size=21.0,
+        lyric_font_size=17.0,
+    )
+
+    options = _a4_render_options(None, title="主题测试", theme=theme)
+
+    for field in fields(theme):
+        assert getattr(options, field.name) == getattr(theme, field.name)
 
 
 def _first_note_center_gap(measure_body: str, options: RenderOptions) -> float:
@@ -1214,6 +1385,18 @@ def test_render_text_uses_publication_marks() -> None:
     assert 'data-number="2"' in svg
 
 
+def test_render_draws_every_rhythm_dot() -> None:
+    root = _svg_root(render_jianpu_svg("1=C\n4/4\nq5.. 0 0 0 |"))
+    rhythm_dots = [
+        element
+        for element in _svg_elements(root, "circle")
+        if element.attrib.get("class") == "rhythm-dot"
+    ]
+
+    assert len(rhythm_dots) == 2
+    assert len({element.attrib["cx"] for element in rhythm_dots}) == 2
+
+
 def test_render_can_show_editing_guides_when_requested() -> None:
     svg = render_jianpu_svg(
         "1=D\n4/4\n1 2 3 4 |",
@@ -1333,6 +1516,15 @@ def test_accidentals_are_rendered_smaller_than_note_digits() -> None:
     assert ">#</text>" in svg
     assert ">b6</text>" not in svg
     assert ">#4</text>" not in svg
+
+
+def test_microtonal_accidentals_render_as_separate_text_glyphs() -> None:
+    svg = render_jianpu_svg("1=C\n4/4\nqs1 qf2 tqs3 tqf4 |")
+
+    for accidental in ("qs", "qf", "tqs", "tqf"):
+        assert f">{accidental}</text>" in svg
+    for token in ("qs1", "qf2", "tqs3", "tqf4"):
+        assert f">{token}</text>" not in svg
 
 
 def test_text_tie_and_slur_arcs_stay_close_to_noteheads() -> None:

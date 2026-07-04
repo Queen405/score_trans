@@ -797,11 +797,8 @@ export type components = {
             normalize?: boolean;
             /** Prompt */
             prompt?: string | null;
-            /**
-             * Render Dpi
-             * @default 300
-             */
-            render_dpi?: number;
+            /** Render Dpi */
+            render_dpi?: number | null;
             /**
              * Target Key
              * @default C
@@ -1248,11 +1245,8 @@ export type components = {
             jianpu_file_id?: string | null;
             /** Jianpu Text */
             jianpu_text?: string | null;
-            /**
-             * Title
-             * @default Jianpu Import
-             */
-            title?: string;
+            /** Title */
+            title?: string | null;
         };
         /** JianpuToMusicXmlResponse */
         JianpuToMusicXmlResponse: {
@@ -1872,21 +1866,12 @@ export type components = {
              * @default false
              */
             ai_api_key_set?: boolean;
-            /**
-             * Ai Base Url
-             * @default https://api.xiaomimimo.com/v1
-             */
-            ai_base_url?: string;
-            /**
-             * Ai Model
-             * @default mimo-v2.5
-             */
-            ai_model?: string;
-            /**
-             * Ai Provider
-             * @default xiaomi_mimo_v25
-             */
-            ai_provider?: string;
+            /** Ai Base Url */
+            ai_base_url: string;
+            /** Ai Model */
+            ai_model: string;
+            /** Ai Provider */
+            ai_provider: string;
             /** Ai Provider Options */
             ai_provider_options?: components["schemas"]["LlmProviderOption"][];
             /**
@@ -1894,21 +1879,12 @@ export type components = {
              * @default false
              */
             assistant_api_key_set?: boolean;
-            /**
-             * Assistant Base Url
-             * @default https://dashscope.aliyuncs.com/compatible-mode/v1
-             */
-            assistant_base_url?: string;
-            /**
-             * Assistant Model
-             * @default deepseek-v4-flash
-             */
-            assistant_model?: string;
-            /**
-             * Assistant Provider
-             * @default dashscope_deepseek_v4_flash
-             */
-            assistant_provider?: string;
+            /** Assistant Base Url */
+            assistant_base_url: string;
+            /** Assistant Model */
+            assistant_model: string;
+            /** Assistant Provider */
+            assistant_provider: string;
             /** Assistant Provider Options */
             assistant_provider_options?: components["schemas"]["LlmProviderOption"][];
             /**
@@ -1955,21 +1931,12 @@ export type components = {
              * @default false
              */
             ocr_api_key_set?: boolean;
-            /**
-             * Ocr Base Url
-             * @default https://api.siliconflow.cn/v1
-             */
-            ocr_base_url?: string;
-            /**
-             * Ocr Model
-             * @default deepseek-ai/DeepSeek-OCR
-             */
-            ocr_model?: string;
-            /**
-             * Ocr Provider
-             * @default siliconflow_deepseek_ocr
-             */
-            ocr_provider?: string;
+            /** Ocr Base Url */
+            ocr_base_url: string;
+            /** Ocr Model */
+            ocr_model: string;
+            /** Ocr Provider */
+            ocr_provider: string;
             /** Ocr Provider Options */
             ocr_provider_options?: components["schemas"]["LlmProviderOption"][];
             /**
@@ -1997,14 +1964,22 @@ export type components = {
             accidental_mode?: ("auto" | "sharp" | "flat") | null;
             /** Ai Api Key */
             ai_api_key?: string | null;
+            /** Ai Base Url */
+            ai_base_url?: string | null;
+            /** Ai Model */
+            ai_model?: string | null;
             /** Ai Provider */
             ai_provider?: string | null;
             /** Assistant Api Key */
             assistant_api_key?: string | null;
+            /** Assistant Base Url */
+            assistant_base_url?: string | null;
+            /** Assistant Model */
+            assistant_model?: string | null;
             /** Assistant Provider */
             assistant_provider?: string | null;
             /** Audiveris Max Heap */
-            audiveris_max_heap?: string | null;
+            audiveris_max_heap?: ("1g" | "2g" | "3g" | "4g") | null;
             /** Audiveris Max Pixel Count */
             audiveris_max_pixel_count?: string | null;
             /** Audiveris Path */
@@ -2019,6 +1994,10 @@ export type components = {
             measure_number_mode?: ("all" | "row_start" | "none") | null;
             /** Ocr Api Key */
             ocr_api_key?: string | null;
+            /** Ocr Base Url */
+            ocr_base_url?: string | null;
+            /** Ocr Model */
+            ocr_model?: string | null;
             /** Ocr Provider */
             ocr_provider?: string | null;
             /** Output Dir */

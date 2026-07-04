@@ -22,11 +22,15 @@ class AiChatDao:
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout = 5000")
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
         return conn
 
     def _init_db(self) -> None:
-        with self._connect() as conn:
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS ai_chat_session (
@@ -37,17 +41,7 @@ class AiChatDao:
                 )
                 """
             )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS ai_chat_message (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT NOT NULL REFERENCES ai_chat_session(id) ON DELETE CASCADE,
-                    role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
-                    content TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-                )
-                """
-            )
+            self._ensure_message_schema(conn)
             conn.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_ai_chat_message_session_id
@@ -55,6 +49,67 @@ class AiChatDao:
                 """
             )
             conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def _ensure_message_schema(self, conn: sqlite3.Connection) -> None:
+        row = conn.execute(
+            """
+            SELECT sql
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'ai_chat_message'
+            """
+        ).fetchone()
+        if row is None:
+            self._create_message_table(conn)
+            return
+
+        create_sql = str(row["sql"] or "").lower()
+        if "'system'" in create_sql or "check" not in create_sql:
+            return
+
+        legacy_name = "ai_chat_message_legacy_role_constraint"
+        collision = conn.execute(
+            """
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table' AND name = ?
+            """,
+            (legacy_name,),
+        ).fetchone()
+        if collision is not None:
+            raise RuntimeError(
+                f"Cannot migrate ai_chat_message: {legacy_name} already exists"
+            )
+
+        conn.execute(f"ALTER TABLE ai_chat_message RENAME TO {legacy_name}")
+        self._create_message_table(conn)
+        conn.execute(
+            f"""
+            INSERT INTO ai_chat_message (id, session_id, role, content, created_at)
+            SELECT id, session_id, role, content, created_at
+            FROM {legacy_name}
+            ORDER BY id
+            """
+        )
+        conn.execute(f"DROP TABLE {legacy_name}")
+
+    @staticmethod
+    def _create_message_table(conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE TABLE ai_chat_message (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL REFERENCES ai_chat_session(id) ON DELETE CASCADE,
+                role TEXT NOT NULL CHECK(role IN ('system', 'user', 'assistant')),
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+            """
+        )
 
     def list_sessions(self) -> list[AiChatSession]:
         with self._connect() as conn:
@@ -124,6 +179,74 @@ class AiChatDao:
                 "SELECT * FROM ai_chat_message WHERE id = ?", (cursor.lastrowid,)
             ).fetchone()
         return self._row_to_message(row)
+
+    def add_exchange(
+        self,
+        session_id: str,
+        *,
+        user_content: str,
+        assistant_content: str,
+        title_if_empty: str | None = None,
+    ) -> tuple[AiChatMessage, AiChatMessage]:
+        with self._connect() as conn:
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                was_empty = (
+                    conn.execute(
+                        """
+                        SELECT 1 FROM ai_chat_message
+                        WHERE session_id = ?
+                        LIMIT 1
+                        """,
+                        (session_id,),
+                    ).fetchone()
+                    is None
+                )
+                user_cursor = conn.execute(
+                    """
+                    INSERT INTO ai_chat_message (session_id, role, content)
+                    VALUES (?, 'user', ?)
+                    """,
+                    (session_id, user_content),
+                )
+                assistant_cursor = conn.execute(
+                    """
+                    INSERT INTO ai_chat_message (session_id, role, content)
+                    VALUES (?, 'assistant', ?)
+                    """,
+                    (session_id, assistant_content),
+                )
+                if was_empty and title_if_empty:
+                    conn.execute(
+                        """
+                        UPDATE ai_chat_session
+                        SET title = ?, updated_at = datetime('now', 'localtime')
+                        WHERE id = ?
+                        """,
+                        (title_if_empty.strip() or "新对话", session_id),
+                    )
+                else:
+                    conn.execute(
+                        """
+                        UPDATE ai_chat_session
+                        SET updated_at = datetime('now', 'localtime')
+                        WHERE id = ?
+                        """,
+                        (session_id,),
+                    )
+                user_row = conn.execute(
+                    "SELECT * FROM ai_chat_message WHERE id = ?",
+                    (user_cursor.lastrowid,),
+                ).fetchone()
+                assistant_row = conn.execute(
+                    "SELECT * FROM ai_chat_message WHERE id = ?",
+                    (assistant_cursor.lastrowid,),
+                ).fetchone()
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+        return self._row_to_message(user_row), self._row_to_message(assistant_row)
 
     def list_messages(self, session_id: str) -> list[AiChatMessage]:
         with self._connect() as conn:

@@ -68,6 +68,7 @@ export interface StoragePaths {
 }
 
 export interface LogEntry {
+  id: number
   timestamp: string
   level: 'info' | 'warn' | 'error'
   message: string

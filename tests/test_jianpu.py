@@ -12,6 +12,7 @@ from score_trans.domain.jianpu import (
     parse_jianpu_score,
     parse_jianpu_scores,
 )
+from score_trans.domain.jianpu_tokens import duration_affixes, token_duration
 from score_trans.domain.musicxml import score_to_jianpu_text
 from score_trans.domain.performance_marks import PERFORMANCE_MARKS
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
@@ -127,11 +128,74 @@ def test_parse_duration_extension_suffix() -> None:
     assert tokens[1].duration == 4
 
 
+@pytest.mark.parametrize(
+    "duration",
+    [
+        Fraction(1, 8),
+        Fraction(3, 16),
+        Fraction(7, 32),
+        Fraction(15, 64),
+        Fraction(1, 4),
+        Fraction(1, 2),
+        Fraction(7, 8),
+        Fraction(1, 1),
+        Fraction(7, 4),
+        Fraction(9, 4),
+        Fraction(5, 2),
+        Fraction(7, 2),
+        Fraction(5, 1),
+    ],
+)
+def test_duration_affixes_roundtrip_every_supported_duration(
+    duration: Fraction,
+) -> None:
+    prefix, suffix = duration_affixes(duration)
+
+    assert token_duration(f"{prefix}5{suffix}") == duration
+
+
+def test_duration_extensions_are_added_after_dots() -> None:
+    assert token_duration("q5.-") == Fraction(7, 4)
+    assert token_duration("q5..-") == Fraction(15, 8)
+
+
+def test_parse_multiple_dots_uses_the_original_base_duration() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n5.. q6.. 7... |")
+    events = score.measures[0].events
+
+    assert [event.duration for event in events] == [
+        Fraction(7, 4),
+        Fraction(7, 8),
+        Fraction(15, 8),
+    ]
+    assert [event.dotted for event in events] == [2, 2, 3]
+
+    reparsed = parse_jianpu_score(score_to_jianpu_text(score))
+    assert [event.duration for event in reparsed.measures[0].events] == [
+        Fraction(7, 4),
+        Fraction(7, 8),
+        Fraction(15, 8),
+    ]
+    assert [event.dotted for event in reparsed.measures[0].events] == [2, 2, 3]
+
+
+def test_duration_affixes_reject_unrepresentable_duration() -> None:
+    with pytest.raises(ValueError, match="无法用简谱时值语法表示"):
+        duration_affixes(Fraction(1, 16))
+
+
 def test_parse_explicit_accidental_tokens() -> None:
     _, tokens = parse_jianpu("n7 bb6 x4 #5 b3 |")
 
     assert [token.accidental for token in tokens[:5]] == [0, -2, 2, 1, -1]
     assert [token.value for token in tokens[:5]] == ["7", "6", "4", "5", "3"]
+
+
+@pytest.mark.parametrize("dynamic", ["pppp", "ffff", "sf", "fz", "rfz", "sfp"])
+def test_extended_musicxml_dynamics_are_valid_jianpu_tokens(dynamic: str) -> None:
+    score = parse_jianpu_score(f"1=C\n4/4\n\\{dynamic} 1 2 3 4 |")
+
+    assert score.measures[0].events[0].dynamic == dynamic
 
 
 def test_line_start_sharp_note_is_not_treated_as_comment() -> None:
@@ -287,6 +351,69 @@ def test_ai_output_measure_labels_are_ignored() -> None:
     assert "3' 3' 2' 2'" in normalized
 
 
+def test_single_dotted_note_line_is_not_treated_as_measure_label() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1.   \n|")
+
+    assert len(score.measures) == 1
+    assert len(score.measures[0].events) == 1
+    assert score.measures[0].events[0].pitches[0].degree == 1
+    assert score.measures[0].events[0].duration == Fraction(3, 2)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "^xy 1 2 3 4 |",
+        "$^xy 1 2$ 3 4 5 |",
+        "$^xy12$ 3 4 5 |",
+    ],
+)
+def test_unknown_performance_marks_are_rejected(body: str) -> None:
+    with pytest.raises(ValueError, match=r"不支持的演奏标记.*\^xy"):
+        parse_jianpu_score(f"1=C\n4/4\n{body}")
+
+
+def test_known_performance_marks_can_be_attached_to_notes() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 ^.2 ^>3 ^-4 |")
+    events = score.measures[0].events
+
+    assert [event.pitches[0].degree for event in events] == [1, 2, 3, 4]
+    assert events[1].articulations == ["staccato"]
+    assert events[2].articulations == ["accent"]
+    assert events[3].articulations == ["tenuto"]
+
+
+def test_compact_tuplet_supports_chords() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n$[1+3]2$ 3 4 5 |")
+    tuplet = score.measures[0].events[:2]
+
+    assert tuplet[0].is_chord is True
+    assert [pitch.degree for pitch in tuplet[0].pitches] == [3, 1]
+    assert tuplet[1].pitches[0].degree == 2
+    assert [event.tuplet_count for event in tuplet] == [2, 2]
+
+
+def test_underfilled_measure_records_validation_error() -> None:
+    measure = parse_jianpu_score("1=C\n4/4\n1 2 |").measures[0]
+
+    assert measure.validation_errors == ["小节少拍：实际 2，目标 4"]
+
+
+def test_second_key_declaration_before_notes_is_measure_level_change() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1=G\n1 2 3 4 |")
+
+    assert score.target_key == "C"
+    assert score.measures[0].target_key == "G"
+
+
+def test_postfix_double_accidentals_are_supported() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1bb 2x 3 4 |")
+    pitches = [event.pitches[0] for event in score.measures[0].events]
+
+    assert [pitch.accidental for pitch in pitches] == [-2, 2, 0, 0]
+    assert "bb1 x2 3 4 |" in score_to_jianpu_text(score)
+
+
 def test_chord_duration_prefix_before_brackets_is_supported() -> None:
     normalized = normalize_jianpu_text(
         "1=C\n4/4\nq[1+3+5] q[1+3+5] q[1+3+5] q[1+3+5] |"
@@ -307,6 +434,23 @@ def test_tuplet_group_total_duration_is_one_beat() -> None:
     assert events[0].tuplet_start is True
     assert events[2].tuplet_stop is True
     assert events[0].tuplet_count == 3
+
+
+def test_tuplet_group_explicit_note_values_control_total_duration() -> None:
+    eighth_triplet = parse_jianpu_score("1=C\n4/4\n$q1 q2 q3$ 4 5 6 |")
+    half_note_triplet = parse_jianpu_score("1=C\n4/4\n$h1 h2 h3$ |")
+
+    assert [event.duration for event in eighth_triplet.measures[0].events[:3]] == [
+        Fraction(1, 3)
+    ] * 3
+    assert [event.duration for event in half_note_triplet.measures[0].events[:3]] == [
+        Fraction(4, 3)
+    ] * 3
+    assert sum(
+        (event.duration for event in half_note_triplet.measures[0].events[:3]),
+        Fraction(0, 1),
+    ) == Fraction(4, 1)
+    assert "$h1 h2 h3$" in score_to_jianpu_text(half_note_triplet)
 
 
 def test_tuplet_group_normalizes_back_to_dollar_syntax() -> None:

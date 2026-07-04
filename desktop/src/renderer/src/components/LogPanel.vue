@@ -1,8 +1,11 @@
 <template>
-  <div class="log-panel">
+  <div
+    ref="logContainer"
+    class="log-panel"
+  >
     <div
-      v-for="(entry, i) in logStore.entries"
-      :key="i"
+      v-for="entry in logStore.entries"
+      :key="entry.id"
       class="log-line"
       :class="entry.level"
     >

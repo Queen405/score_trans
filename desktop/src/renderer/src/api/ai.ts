@@ -1,5 +1,6 @@
 import {
   ApiError,
+  authenticatedFetch,
   apiFailure,
   apiFetch,
   apiSuccess,
@@ -63,7 +64,7 @@ export const aiApi = {
     handlers: ChatStreamHandlers,
   ): Promise<ApiResult<void>> {
     try {
-      const response = await fetch(`${BASE_URL()}/ai/chat/stream`, {
+      const response = await authenticatedFetch(`${BASE_URL()}/ai/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),

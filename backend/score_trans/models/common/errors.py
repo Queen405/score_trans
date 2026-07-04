@@ -11,3 +11,11 @@ class OCRError(RuntimeError):
 
 class AITranscriptionError(RuntimeError):
     """Raised when AI score transcription calls or response parsing fail."""
+
+
+class RenderError(RuntimeError):
+    """Raised when score rendering cannot produce a usable output."""
+
+
+class UploadTooLargeError(ValueError):
+    """Raised when an uploaded file or request exceeds its configured limit."""

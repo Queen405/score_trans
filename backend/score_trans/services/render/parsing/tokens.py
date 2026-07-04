@@ -3,31 +3,47 @@ from __future__ import annotations
 from fractions import Fraction
 import re
 
-from ....domain.jianpu_tokens import PREFIX_SLASHES, consume_duration_prefix
+from ....domain.jianpu_tokens import (
+    PREFIX_SLASHES,
+    consume_duration_prefix,
+    consume_duration_suffix,
+    duration_prefix,
+)
 from ..models.shapes import NoteShape
 
 
 def _parse_note(token: str) -> NoteShape:
     token = token.strip().strip("()~")
-    prefix = token[0] if token and token[0] in PREFIX_SLASHES and token[0] else ""
-    _duration, token = consume_duration_prefix(token)
+    prefix = duration_prefix(token)
+    base_duration, token = consume_duration_prefix(token)
     slashes = PREFIX_SLASHES.get(prefix, 0)
+    extension = len(token) - len(token.rstrip("-"))
+    _duration, token, dotted = consume_duration_suffix(base_duration, token)
     octave_up = token.count("'")
     octave_down = token.count(",")
-    dotted = "." in token
-    extension_match = re.search(r"(-*)$", token)
-    extension = len(extension_match.group(1)) if extension_match else 0
-    display = token.replace("'", "").replace(",", "").replace(".", "")
-    display = re.sub(r"((?:bb|[#bnx♮])?[0-7])[-]*$", r"\1", display)
+    display = token.replace("'", "").replace(",", "")
+    display = re.sub(
+        r"((?:tqf|tqs|qf|qs|bb|[#bnx♮])?[0-7])[-]*$",
+        r"\1",
+        display,
+    )
     degree_match = re.search(r"([0-7])", display)
     degree = int(degree_match.group(1)) if degree_match else 0
     accidental = (
         0.2
         if display.startswith("x")
+        else 0.15
+        if display.startswith("tqs")
+        else 0.05
+        if display.startswith("qs")
         else 0.1
         if "#" in display
         else -0.2
         if display.startswith("bb")
+        else -0.15
+        if display.startswith("tqf")
+        else -0.05
+        if display.startswith("qf")
         else -0.1
         if "b" in display
         else 0
@@ -43,16 +59,12 @@ def _parse_note(token: str) -> NoteShape:
     )
 
 
-def _parse_chord_token(token: str) -> tuple[list[NoteShape], int, bool, int] | None:
+def _parse_chord_token(token: str) -> tuple[list[NoteShape], int, int, int] | None:
     token = token.strip().strip("()~")
-    prefix = token[0] if token and token[0] in PREFIX_SLASHES and token[0] else ""
-    _duration, work = consume_duration_prefix(token)
-    extension_match = re.search(r"(-*)$", work)
-    extension = len(extension_match.group(1)) if extension_match else 0
-    work = work.rstrip("-")
-    dotted = work.endswith(".")
-    if dotted:
-        work = work[:-1]
+    prefix = duration_prefix(token)
+    base_duration, work = consume_duration_prefix(token)
+    extension = len(work) - len(work.rstrip("-"))
+    _duration, work, dotted = consume_duration_suffix(base_duration, work)
     if not (work.startswith("[") and work.endswith("]")):
         return None
     notes = [

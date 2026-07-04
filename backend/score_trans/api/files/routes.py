@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import FileResponse, Response
 
@@ -19,7 +21,7 @@ async def upload_file(
     file: UploadFile = ...,
     actions: FileActions = Depends(get_file_actions),
 ):
-    return actions.upload_file(file)
+    return await asyncio.to_thread(actions.upload_file, file)
 
 
 @router.post("/exists", response_model=FilesExistResponse)
@@ -27,7 +29,7 @@ async def files_exist(
     req: FilesExistRequest,
     actions: FileActions = Depends(get_file_actions),
 ):
-    return actions.files_exist(req.file_ids)
+    return await asyncio.to_thread(actions.files_exist, req.file_ids)
 
 
 @router.get("/{file_id}")
@@ -35,7 +37,7 @@ async def download_file(
     file_id: str,
     actions: FileActions = Depends(get_file_actions),
 ):
-    path, media_type = actions.download_file(file_id)
+    path, media_type = await asyncio.to_thread(actions.download_file, file_id)
     return FileResponse(path, media_type=media_type, filename=path.name)
 
 
@@ -44,7 +46,7 @@ async def head_file(
     file_id: str,
     actions: FileActions = Depends(get_file_actions),
 ):
-    path, media_type = actions.download_file(file_id)
+    path, media_type = await asyncio.to_thread(actions.download_file, file_id)
     return Response(
         status_code=200,
         headers={
@@ -59,4 +61,4 @@ async def delete_file(
     file_id: str,
     actions: FileActions = Depends(get_file_actions),
 ):
-    return actions.delete_file(file_id)
+    return await asyncio.to_thread(actions.delete_file, file_id)

@@ -5,6 +5,7 @@ from fractions import Fraction
 from pathlib import Path
 import struct
 
+import score_trans.domain.write.jianpu_text as jianpu_writer
 from score_trans.domain.parse.jianpu_text import parse_jianpu_score
 from score_trans.domain.parse.musicxml import musicxml_to_score
 from score_trans.domain.provenance import apply_text_anchors
@@ -53,7 +54,7 @@ def test_musicxml_provenance_produces_exact_utf16_anchors() -> None:
     }
 
     assert selected == {
-        "s1:i10": "2",
+        "s1:i10": "1",
         "s1:i11": "#",
         "s1:i12": "(",
         "s1:i13": "^.",
@@ -289,3 +290,52 @@ def test_dynamic_anchor_after_lead_token() -> None:
     assert _utf16_slice(document.text, n2.start_utf16, n2.end_utf16) == "1"
     assert _utf16_slice(document.text, d2.start_utf16, d2.end_utf16) == "\\f"
     assert document.text[n2.start_utf16 - 1] == " "
+
+
+def test_missing_anchor_token_advances_to_next_logical_event() -> None:
+    score = JianpuScore(
+        measures=[
+            _make_measure(
+                [
+                    _make_note_event(1, "missing", dynamic="f"),
+                    _make_note_event(2, "n2"),
+                ]
+            )
+        ]
+    )
+    text = "1=C\n4/4\n\\f 2 2 |"
+
+    anchors = jianpu_writer._text_anchors_raw(
+        score,
+        text,
+        accidental_mode="auto",
+    )
+
+    assert all(anchor.source_id != "missing" for anchor in anchors)
+    n2 = next(anchor for anchor in anchors if anchor.source_id == "n2")
+    assert text[n2.start_utf16 : n2.end_utf16] == "2"
+    assert n2.start_utf16 == text.rfind("2")
+
+
+def test_tuplet_without_id_is_bounded_by_declared_count() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 3) if index < 3 else Fraction(1, 1),
+            pitches=[JianpuPitch(degree=degree)],
+            tuplet_start=index == 0,
+            tuplet_count=3 if index == 0 else None,
+        )
+        for index, degree in enumerate((1, 2, 3, 4))
+    ]
+    score = JianpuScore(measures=[_make_measure(events)])
+
+    document = score_to_jianpu_document(score)
+
+    assert "$123$ 4 |" in document.text
+    assert "$1234$" not in document.text
+
+
+def test_accidental_span_supports_postfix_double_accidentals() -> None:
+    assert jianpu_writer._accidental_span("1bb") == (1, 3)
+    assert jianpu_writer._accidental_span("2x") == (1, 2)

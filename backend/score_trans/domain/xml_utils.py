@@ -4,6 +4,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from zipfile import ZipFile
 
+from ..utils.safe_xml import (
+    safe_xml_file_text,
+    safe_xml_fromstring,
+    safe_zip_member_bytes,
+    safe_zip_member_text,
+)
+
 
 def _namespace(tag: str) -> str:
     if tag.startswith("{"):
@@ -40,7 +47,10 @@ def _indent(element: ET.Element, level: int = 0) -> None:
 
 def _mxl_rootfile_name(archive: ZipFile) -> str:
     try:
-        container = ET.fromstring(archive.read("META-INF/container.xml"))
+        container = safe_xml_fromstring(
+            safe_zip_member_bytes(archive, "META-INF/container.xml"),
+            source="META-INF/container.xml",
+        )
     except (KeyError, ET.ParseError):
         container = None
     if container is not None:
@@ -61,5 +71,10 @@ def _read_musicxml(path: Path) -> str:
     if path.suffix.lower() == ".mxl":
         with ZipFile(path) as archive:
             name = _mxl_rootfile_name(archive)
-            return archive.read(name).decode("utf-8")
-    return path.read_text(encoding="utf-8")
+            return safe_zip_member_text(
+                archive,
+                name,
+                source=f"{path.name}:{name}",
+                allow_musicxml_doctype=True,
+            )
+    return safe_xml_file_text(path, allow_musicxml_doctype=True)

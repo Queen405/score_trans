@@ -80,9 +80,9 @@ def _render_tie_arc(
     y: int,
     options: RenderOptions | None = None,
 ) -> str:
-    start_item, start_cx, start_slot = start if start is not None else stop  # type: ignore[misc]
-    stop_item, stop_cx, stop_slot = stop if stop is not None else start  # type: ignore[misc]
-    assert start_item is not None and stop_item is not None
+    start_endpoint, stop_endpoint = _spanner_endpoints(start, stop)
+    start_item, start_cx, start_slot = start_endpoint
+    stop_item, stop_cx, stop_slot = stop_endpoint
     start_metrics = _token_metrics(start_item.token, y, options)
     stop_metrics = _token_metrics(stop_item.token, y, options)
     arc_y = max(start_metrics["bottom"], stop_metrics["bottom"]) + 13
@@ -108,9 +108,9 @@ def _render_slur_arc(
     y: int,
     options: RenderOptions | None = None,
 ) -> str:
-    start_item, start_cx, start_slot = start if start is not None else stop  # type: ignore[misc]
-    stop_item, stop_cx, stop_slot = stop if stop is not None else start  # type: ignore[misc]
-    assert start_item is not None and stop_item is not None
+    start_endpoint, stop_endpoint = _spanner_endpoints(start, stop)
+    start_item, start_cx, start_slot = start_endpoint
+    stop_item, stop_cx, stop_slot = stop_endpoint
     start_metrics = _token_metrics(start_item.token, y, options)
     stop_metrics = _token_metrics(stop_item.token, y, options)
     arc_y = min(start_metrics["top"], stop_metrics["top"]) - 22
@@ -136,9 +136,9 @@ def _render_slide_curve(
     y: int,
     options: RenderOptions | None = None,
 ) -> str:
-    start_item, start_cx, start_slot = start if start is not None else stop  # type: ignore[misc]
-    stop_item, stop_cx, stop_slot = stop if stop is not None else start  # type: ignore[misc]
-    assert start_item is not None and stop_item is not None
+    start_endpoint, stop_endpoint = _spanner_endpoints(start, stop)
+    start_item, start_cx, start_slot = start_endpoint
+    stop_item, stop_cx, stop_slot = stop_endpoint
     _token_metrics(start_item.token, y, options)
     _token_metrics(stop_item.token, y, options)
     curve_y = y - 3
@@ -174,6 +174,16 @@ def _render_slide_curve(
         f"{x1 + width * 0.7:.1f} {curve_y + control_2:.1f}, "
         f'{x2:.1f} {curve_y + end_offset:.1f}"/>'
     )
+
+
+def _spanner_endpoints(start: Slot | None, stop: Slot | None) -> tuple[Slot, Slot]:
+    if start is None and stop is None:
+        raise ValueError("spanner start and stop cannot both be None")
+    start_endpoint = start if start is not None else stop
+    stop_endpoint = stop if stop is not None else start
+    if start_endpoint is None or stop_endpoint is None:
+        raise ValueError("spanner start and stop cannot both be None")
+    return start_endpoint, stop_endpoint
 
 
 def _arc_between(class_name: str, x1: float, x2: float, y: float, height: float) -> str:

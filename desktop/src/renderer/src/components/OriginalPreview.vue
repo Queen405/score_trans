@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
-import { fetchFileBlob, getFileURL } from '../api/client'
+import { fetchFileBlob } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
@@ -123,11 +123,11 @@ const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
+const fileUrl = ref('')
 const overlayImgUrl = ref('')
 const showOverlay = ref(true)
 const sourceMap = ref<SourceMap | null>(null)
 
-const fileUrl = computed(() => (props.fileId ? getFileURL(props.fileId) : ''))
 const pdfFitUrl = computed(() =>
   fileUrl.value ? `${fileUrl.value}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : '',
 )
@@ -162,6 +162,29 @@ watch(fileUrl, async (url) => {
     zp.bind()
   }
 })
+
+watch(
+  () => props.fileId,
+  async (fileId, _previous, onCleanup) => {
+    const controller = new AbortController()
+    let active = true
+    onCleanup(() => {
+      active = false
+      controller.abort()
+    })
+
+    if (fileUrl.value) {
+      URL.revokeObjectURL(fileUrl.value)
+      fileUrl.value = ''
+    }
+    if (!fileId) return
+
+    const result = await fetchFileBlob(fileId, controller.signal)
+    if (!active || result.error) return
+    fileUrl.value = URL.createObjectURL(result.data)
+  },
+  { immediate: true },
+)
 
 watch(
   () => [props.overlayFileId ?? '', canShowOverlay.value] as const,
@@ -212,6 +235,7 @@ watch(
 onMounted(() => zp.bind())
 onUnmounted(() => {
   zp.unbind()
+  if (fileUrl.value) URL.revokeObjectURL(fileUrl.value)
   if (overlayImgUrl.value) URL.revokeObjectURL(overlayImgUrl.value)
 })
 </script>

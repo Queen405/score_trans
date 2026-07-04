@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import HTTPException, UploadFile
-
 from score_trans.config.settings import UPLOAD_PDF_DPI
 
+from ...models.common.protocols import UploadFileLike
 from ...models.files.schemas import FilesExistResponse, UploadPage, UploadResponse
 from ...services.files.upload_service import UploadService
 
@@ -32,9 +31,9 @@ class FileActions:
     def __init__(self, uploads: UploadService | None = None) -> None:
         self.uploads = uploads or UploadService()
 
-    def upload_file(self, file: UploadFile) -> UploadResponse:
+    def upload_file(self, file: UploadFileLike) -> UploadResponse:
         if not file.filename:
-            raise HTTPException(400, "文件名不能为空")
+            raise ValueError("文件名不能为空")
 
         file_id = self.uploads.save(file)
         path = self.uploads.get_path(file_id)
@@ -76,7 +75,7 @@ class FileActions:
     def download_file(self, file_id: str) -> tuple[Path, str]:
         path = self.uploads.get_path(file_id)
         if not path or not path.exists():
-            raise HTTPException(404, f"文件不存在：{file_id}")
+            raise FileNotFoundError(f"文件不存在：{file_id}")
         media_type = MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
         return path, media_type
 

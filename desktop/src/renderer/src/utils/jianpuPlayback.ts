@@ -10,8 +10,9 @@ export interface JianpuNoteSpan {
 
 const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g
 const DURATION_PREFIX_PATTERN = /^[whqsd]/
-const PITCH_PATTERN = /^(?:(?:bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
-const TUPLET_PART_PATTERN = /(?:bb|x|n|♮|#|b)?[0-7][',]*[#b]?/g
+const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
+const PITCH_PATTERN = /^(?:(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
+const TUPLET_PART_PATTERN = /(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[0-7][',]*[#b]?/g
 
 export function findJianpuNoteSpans(text: string): JianpuNoteSpan[] {
   const spans: JianpuNoteSpan[] = []
@@ -125,7 +126,9 @@ function stripEventDecorations(token: string): string {
   while (work.endsWith(')')) work = work.slice(0, -1)
   if (work.startsWith('~')) work = work.slice(1)
   if (work.endsWith('~')) work = work.slice(0, -1)
-  if (DURATION_PREFIX_PATTERN.test(work)) work = work.slice(1)
+  if (DURATION_PREFIX_PATTERN.test(work) && !MICROTONAL_PREFIX_PATTERN.test(work)) {
+    work = work.slice(1)
+  }
   while (work.endsWith('-')) work = work.slice(0, -1)
   if (work.endsWith('.')) work = work.slice(0, -1)
   return work

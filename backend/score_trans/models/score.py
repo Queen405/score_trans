@@ -25,23 +25,38 @@ class TextBlock:
     start: Fraction | None = None
     placement: str | None = None
     staff: str | None = None
+    direction_kind: str | None = None
 
 
 @dataclass(slots=True)
 class JianpuPitch:
     degree: int
     octave: int = 0
-    accidental: int = 0
-    midi: int | None = None
+    accidental: Fraction = Fraction(0, 1)
+    midi: Fraction | None = None
     step: str | None = None
-    alter: int = 0
+    alter: Fraction = Fraction(0, 1)
     accidental_text: str | None = None
     source_id: str | None = None
     accidental_source_id: str | None = None
 
+    def __post_init__(self) -> None:
+        self.accidental = Fraction(self.accidental)
+        self.alter = Fraction(self.alter)
+        if self.midi is not None:
+            self.midi = Fraction(self.midi)
+
     @property
     def rank(self) -> float:
-        return self.octave * 10 + self.degree + self.accidental * 0.1
+        return self.octave * 10 + self.degree + float(self.accidental) * 0.1
+
+
+@dataclass(slots=True)
+class TupletSpan:
+    id: str
+    number: str = "1"
+    start: bool = False
+    stop: bool = False
 
 
 @dataclass(slots=True)
@@ -70,9 +85,11 @@ class Event:
     source_token: str | None = None
     tuplet_id: str | None = None
     tuplet_count: int | None = None
+    tuplet_normal_count: int | None = None
     tuplet_index: int | None = None
     tuplet_start: bool = False
     tuplet_stop: bool = False
+    tuplet_spans: list[TupletSpan] = field(default_factory=list)
     source_ids: list[str] = field(default_factory=list)
     source_roles: dict[str, list[str]] = field(default_factory=dict)
     source_start_utf16: int | None = None
@@ -107,6 +124,11 @@ class Measure:
     repeat_start: bool = False
     repeat_end: bool = False
     repeat_count: int = 1
+    ending_start: str | None = None
+    ending_stop: str | None = None
+    ending_discontinue: str | None = None
+    new_page: bool = False
+    new_system: bool = False
     source_page_index: int | None = None
 
     def __init__(
@@ -126,6 +148,11 @@ class Measure:
         repeat_end: bool = False,
         display_number: str | int | None = None,
         repeat_count: int = 1,
+        ending_start: str | None = None,
+        ending_stop: str | None = None,
+        ending_discontinue: str | None = None,
+        new_page: bool = False,
+        new_system: bool = False,
         source_page_index: int | None = None,
     ) -> None:
         if display_measure_number is None:
@@ -148,6 +175,11 @@ class Measure:
         self.repeat_start = repeat_start
         self.repeat_end = repeat_end
         self.repeat_count = repeat_count
+        self.ending_start = ending_start
+        self.ending_stop = ending_stop
+        self.ending_discontinue = ending_discontinue
+        self.new_page = new_page
+        self.new_system = new_system
         self.source_page_index = source_page_index
 
     @property
@@ -181,6 +213,7 @@ class JianpuScore:
     source_key: str = "C"
     beats: int = 4
     beat_type: int = 4
+    tempo: int | None = None
     instrument_profile: InstrumentProfile = "general"
     measures: list[Measure] = field(default_factory=list)
     text_blocks: list[TextBlock] = field(default_factory=list)

@@ -24,7 +24,7 @@ class MusicXmlToJianpuResponse(BaseModel):
 class JianpuToMusicXmlRequest(BaseModel):
     jianpu_text: str | None = None
     jianpu_file_id: str | None = None
-    title: str = "Jianpu Import"
+    title: str | None = None
 
 
 class JianpuToMusicXmlResponse(BaseModel):

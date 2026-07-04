@@ -13,45 +13,77 @@ DURATION_PREFIXES = {
 
 PREFIX_SLASHES = {"": 0, "w": 0, "h": 0, "q": 1, "s": 2, "d": 3}
 
+_DURATION_BASES = (
+    (Fraction(4, 1), "w"),
+    (Fraction(2, 1), "h"),
+    (Fraction(1, 1), ""),
+    (Fraction(1, 2), "q"),
+    (Fraction(1, 4), "s"),
+    (Fraction(1, 8), "d"),
+)
+_EXACT_DURATION_AFFIXES = {
+    duration: (prefix, "") for duration, prefix in _DURATION_BASES
+}
+_MAX_GENERATED_DOTS = 3
+_ACCIDENTAL_PREFIXES_STARTING_WITH_DURATION = ("qf", "qs")
+
+
+def duration_prefix(token: str) -> str:
+    if token.startswith(_ACCIDENTAL_PREFIXES_STARTING_WITH_DURATION):
+        return ""
+    if token and token[0] in DURATION_PREFIXES:
+        return token[0]
+    return ""
+
 
 def consume_duration_prefix(token: str) -> tuple[Fraction, str]:
-    if token and token[0] in DURATION_PREFIXES:
-        return DURATION_PREFIXES[token[0]], token[1:]
+    prefix = duration_prefix(token)
+    if prefix:
+        return DURATION_PREFIXES[prefix], token[1:]
     return Fraction(1, 1), token
 
 
 def duration_affixes(duration: Fraction) -> tuple[str, str]:
-    dotted_base = None
-    for base in (
-        Fraction(4, 1),
-        Fraction(2, 1),
-        Fraction(1, 1),
-        Fraction(1, 2),
-        Fraction(1, 4),
-        Fraction(1, 8),
-    ):
-        if duration == base + base / 2:
-            dotted_base = base
-            break
-    if dotted_base is not None:
-        prefix, suffix = duration_affixes(dotted_base)
-        return prefix, suffix + "."
-    exact = {
-        Fraction(4, 1): ("w", ""),
-        Fraction(2, 1): ("h", ""),
-        Fraction(1, 1): ("", ""),
-        Fraction(1, 2): ("q", ""),
-        Fraction(1, 4): ("s", ""),
-        Fraction(1, 8): ("d", ""),
-    }
-    if duration in exact:
-        return exact[duration]
+    if duration <= 0:
+        raise ValueError(f"无法用简谱时值语法表示非正时值：{duration}")
+    if duration in _EXACT_DURATION_AFFIXES:
+        return _EXACT_DURATION_AFFIXES[duration]
+    for base, prefix in _DURATION_BASES:
+        for dot_count in range(1, _MAX_GENERATED_DOTS + 1):
+            if duration == dotted_duration(base, dot_count):
+                return prefix, "." * dot_count
     if duration >= 1:
         whole = int(duration)
         remain = duration - whole
         prefix, suffix = duration_affixes(remain) if remain else ("", "")
-        return prefix, suffix + "-" * max(0, whole - 1)
-    return "", ""
+        extension_count = whole if remain else max(0, whole - 1)
+        return prefix, suffix + "-" * extension_count
+    raise ValueError(f"无法用简谱时值语法表示时值：{duration}")
+
+
+def dotted_duration(base_duration: Fraction, dot_count: int) -> Fraction:
+    if dot_count < 0:
+        raise ValueError("附点数量不能为负数")
+    return base_duration * (2 - Fraction(1, 2**dot_count))
+
+
+def consume_duration_suffix(
+    base_duration: Fraction, token: str
+) -> tuple[Fraction, str, int]:
+    work = token
+    extension_count = 0
+    while work.endswith("-"):
+        extension_count += 1
+        work = work[:-1]
+
+    dot_count = 0
+    while work.endswith("."):
+        dot_count += 1
+        work = work[:-1]
+
+    duration = dotted_duration(base_duration, dot_count)
+    duration += Fraction(extension_count, 1)
+    return duration, work, dot_count
 
 
 def token_duration(token: str) -> Fraction:
@@ -59,10 +91,6 @@ def token_duration(token: str) -> Fraction:
     if token.startswith("[") and token.endswith("]"):
         parts = [part.strip() for part in token[1:-1].split("+") if part.strip()]
         return min((token_duration(part) for part in parts), default=Fraction(1, 1))
-    duration, work = consume_duration_prefix(token)
-    while work.endswith("-"):
-        duration += Fraction(1, 1)
-        work = work[:-1]
-    if work.endswith("."):
-        duration += duration / 2
+    base_duration, work = consume_duration_prefix(token)
+    duration, _work, _dot_count = consume_duration_suffix(base_duration, work)
     return duration

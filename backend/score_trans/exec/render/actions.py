@@ -5,8 +5,6 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import HTTPException
-
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.jianpu import (
     normalize_jianpu_text,
@@ -14,6 +12,7 @@ from ...domain.jianpu import (
 from ...domain.parse.jianpu_text import parse_jianpu_parts
 from ...domain.provenance import apply_text_anchors_to_parts
 from ...domain.text_placement import place_source_text_attachments
+from ...models.common.errors import RenderError
 from ...models.common.types import (
     AccidentalMode,
     InstrumentProfile,
@@ -317,14 +316,16 @@ class RenderActions:
     def render_jianpu_svg(self, req: RenderJianpuSvgRequest) -> RenderJianpuSvgResponse:
         path = self.uploads.get_path(req.musicxml_file_id)
         if not path or not path.exists():
-            raise HTTPException(404, f"文件不存在：{req.musicxml_file_id}")
+            raise FileNotFoundError(f"文件不存在：{req.musicxml_file_id}")
 
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         image_path = None
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+                raise FileNotFoundError(
+                    f"页面图片不存在：{req.page_image_file_id}"
+                )
         paths = self.musicxml_renderer.execute_a4_pages(
             path,
             svg_path,
@@ -355,15 +356,15 @@ class RenderActions:
                     else normalize_jianpu_text(req.jianpu_text, title=req.title)
                 )
             except ValueError as exc:
-                raise HTTPException(400, str(exc)) from exc
+                raise ValueError(str(exc)) from exc
             input_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.txt"
             input_path.write_text(normalized_text, encoding="utf-8")
         elif req.jianpu_file_id:
             input_path = self.uploads.get_path(req.jianpu_file_id)
             if not input_path or not input_path.exists():
-                raise HTTPException(404, f"文件不存在：{req.jianpu_file_id}")
+                raise FileNotFoundError(f"文件不存在：{req.jianpu_file_id}")
         else:
-            raise HTTPException(400, "必须提供 jianpu_text 或 jianpu_file_id")
+            raise ValueError("必须提供 jianpu_text 或 jianpu_file_id")
 
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         ocr_blocks: list[TextBlock] | None = None
@@ -371,7 +372,9 @@ class RenderActions:
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+                raise FileNotFoundError(
+                    f"页面图片不存在：{req.page_image_file_id}"
+                )
             if req.ocr_text:
                 ocr_blocks = _parse_ocr_text(req.ocr_text)
             elif req.include_ocr_text:
@@ -414,7 +417,7 @@ class RenderActions:
                 jianpu_text=normalize_jianpu_text(req.jianpu_text, title=req.title)
             )
         except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
+            raise ValueError(str(exc)) from exc
 
     def render_preserving_layout(
         self, req: PreservingLayoutRequest
@@ -427,7 +430,7 @@ class RenderActions:
 
     def render_batch_a4(self, req: BatchRenderRequest) -> BatchRenderResponse:
         if not req.pages:
-            raise HTTPException(400, "至少需要一个待渲染页面")
+            raise ValueError("至少需要一个待渲染页面")
         page_scores_list: list[list[JianpuScore]] = []
         starts: list[int | None] = []
         for index, page in enumerate(req.pages):
@@ -437,7 +440,7 @@ class RenderActions:
                 page_label = f"第 {index + 1} 页"
                 if page.input_file_name:
                     page_label = f"{page_label}（{page.input_file_name}）"
-                raise HTTPException(400, f"{page_label}：{exc}") from exc
+                raise ValueError(f"{page_label}：{exc}") from exc
             for score in page_scores:
                 _tag_score_source_page(score, index)
             page_scores_list.append(page_scores)
@@ -681,13 +684,17 @@ class RenderActions:
     def _render_final_a4(self, req: FinalRenderRequest) -> FinalRenderResponse:
         musicxml_path = self.uploads.get_path(req.musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():
-            raise HTTPException(404, f"MusicXML 文件不存在：{req.musicxml_file_id}")
+            raise FileNotFoundError(
+                f"MusicXML 文件不存在：{req.musicxml_file_id}"
+            )
 
         image_path = None
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+                raise FileNotFoundError(
+                    f"页面图片不存在：{req.page_image_file_id}"
+                )
 
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         paths = self.musicxml_renderer.execute_a4_pages(
@@ -718,7 +725,9 @@ class RenderActions:
     ) -> FinalRenderResponse:
         musicxml_path = self.uploads.get_path(req.musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():
-            raise HTTPException(404, f"MusicXML 文件不存在：{req.musicxml_file_id}")
+            raise FileNotFoundError(
+                f"MusicXML 文件不存在：{req.musicxml_file_id}"
+            )
 
         image_path = None
         page_width = 1600.0
@@ -726,10 +735,12 @@ class RenderActions:
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise HTTPException(404, f"页面图片不存在：{req.page_image_file_id}")
+                raise FileNotFoundError(
+                    f"页面图片不存在：{req.page_image_file_id}"
+                )
             page_width, page_height = image_dimensions(image_path)
         elif require_page_image:
-            raise HTTPException(400, "必须提供 page_image_file_id")
+            raise ValueError("必须提供 page_image_file_id")
 
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         self.musicxml_renderer.execute_page(
@@ -769,15 +780,15 @@ class RenderActions:
         if page.musicxml_file_id:
             musicxml_path = self.uploads.get_path(page.musicxml_file_id)
             if not musicxml_path or not musicxml_path.exists():
-                raise HTTPException(
-                    404, f"MusicXML 文件不存在：{page.musicxml_file_id}"
+                raise FileNotFoundError(
+                    f"MusicXML 文件不存在：{page.musicxml_file_id}"
                 )
             image_path = None
             if page.page_image_file_id:
                 image_path = self.uploads.get_path(page.page_image_file_id)
                 if not image_path or not image_path.exists():
-                    raise HTTPException(
-                        404, f"页面图片不存在：{page.page_image_file_id}"
+                    raise FileNotFoundError(
+                        f"页面图片不存在：{page.page_image_file_id}"
                     )
                 if not page.include_ocr_text:
                     image_path = None
@@ -801,7 +812,9 @@ class RenderActions:
             else:
                 input_path = self.uploads.get_path(page.jianpu_file_id or "")
                 if not input_path or not input_path.exists():
-                    raise HTTPException(404, f"文件不存在：{page.jianpu_file_id}")
+                    raise FileNotFoundError(
+                        f"文件不存在：{page.jianpu_file_id}"
+                    )
                 text = input_path.read_text(encoding="utf-8")
             parts = parse_jianpu_parts(text, title=page.title or req.title)
             if page.text_anchors:
@@ -813,15 +826,15 @@ class RenderActions:
             ]
             _validate_multi_part_measure_counts(scores)
             return scores
-        raise HTTPException(
-            400, "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id"
+        raise ValueError(
+            "每个页面必须提供 musicxml_file_id、jianpu_text 或 jianpu_file_id"
         )
 
     def _register_rendered_pages(
         self, rendered_pages: list[RenderedA4FilePage]
     ) -> list[RenderedSvgPage]:
         if not rendered_pages:
-            raise HTTPException(500, "渲染未生成任何 SVG 页面")
+            raise RenderError("渲染未生成任何 SVG 页面")
         pages: list[RenderedSvgPage] = []
         for index, rendered_page in enumerate(rendered_pages):
             path = rendered_page.path
@@ -851,7 +864,7 @@ class RenderActions:
         rendered_text_blocks: dict[int, list[RenderedTextBlock]] | None = None,
     ) -> list[RenderedSvgPage]:
         if not rendered_pages:
-            raise HTTPException(500, "渲染未生成任何 SVG 页面")
+            raise RenderError("渲染未生成任何 SVG 页面")
         pages: list[RenderedSvgPage] = []
         for index, rendered_page in enumerate(rendered_pages):
             render_map_path = write_render_map(rendered_page.path, index)
@@ -895,9 +908,9 @@ def _parse_ocr_text(payload: str) -> list[TextBlock]:
     try:
         raw = json.loads(payload)
     except json.JSONDecodeError as exc:
-        raise HTTPException(400, f"OCR 数据不是有效 JSON：{exc.msg}") from exc
+        raise ValueError(f"OCR 数据不是有效 JSON：{exc.msg}") from exc
     if not isinstance(raw, list):
-        raise HTTPException(400, "OCR 数据必须是数组")
+        raise ValueError("OCR 数据必须是数组")
 
     blocks: list[TextBlock] = []
     for item in raw:
@@ -1131,7 +1144,7 @@ def _first_render_page_for_source(
 def _parse_ocr_text_lenient(payload: str) -> list[TextBlock]:
     try:
         return _parse_ocr_text(payload)
-    except HTTPException:
+    except ValueError:
         return []
 
 

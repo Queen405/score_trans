@@ -11,6 +11,7 @@ from ..models.provenance.schemas import (
 )
 from ..models.render.schemas import RenderPageMeasureRange
 from ..models.score import TextBlock
+from ..utils.safe_xml import UnsafeXmlError, safe_xml_fromstring
 
 _A4_WIDTH = 1240.0
 _A4_HEIGHT = 1754.0
@@ -174,8 +175,8 @@ def _render_anchor_lookup(layout_svgs: list[str]) -> dict[str, tuple[int, Boundi
     lookup: dict[str, tuple[int, BoundingBox]] = {}
     for page_index, svg in enumerate(layout_svgs):
         try:
-            root = ET.fromstring(svg)
-        except ET.ParseError:
+            root = safe_xml_fromstring(svg, source="rendered SVG")
+        except (ET.ParseError, UnsafeXmlError):
             continue
         for element in root.iter():
             bbox = _data_bbox(element.get("data-bbox"))

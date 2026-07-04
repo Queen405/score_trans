@@ -1,17 +1,35 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import sqlite3
+import time
+
+import pytest
 
 from score_trans.api.app import create_app
 from score_trans.dao.ai.chat_dao import AiChatDao
 from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.ai.actions import AiActions
 from score_trans.models.ai.schemas import AiTranscribeRequest
+from score_trans.models.common.errors import AITranscriptionError
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.ai.core import VisionPageResult, parse_vision_page_result
+from score_trans.services.ai.core import prompts as prompt_config
 from score_trans.services.ai.chat_service import AiChatService, MAX_CONTEXT_MESSAGES
-from score_trans.services.ai.providers._http import chat_completions
+from score_trans.services.ai.providers._http import (
+    chat_completion_chunks,
+    chat_completions,
+)
+from score_trans.services.ai.providers._vision import (
+    OpenAICompatibleVisionTranscriber,
+)
+from score_trans.services.ai.providers.dashscope import DashScopeVisionProvider
 from score_trans.services.ai.providers.mock import MockVisionJianpuProvider
+from score_trans.services.ai.providers.openai_compatible import (
+    OpenAICompatibleVisionProvider,
+)
+from score_trans.services.ai.providers.xiaomi_mimo import XiaomiMiMoProvider
 from score_trans.services.ai.transcription import AiTranscriptionService
 from score_trans.services.ai.transcription.validation import validate_jianpu_text
 from score_trans.utils.pdf import pdf_to_png_pages
@@ -26,6 +44,53 @@ class FakeSettings:
         return self.config
 
 
+class CapturingTranscriber:
+    def __init__(self) -> None:
+        self.render_dpi: int | None = None
+
+    def transcribe(self, *args, render_dpi: int, **kwargs):
+        self.render_dpi = render_dpi
+        raise RuntimeError("capture complete")
+
+
+@pytest.mark.parametrize(
+    "provider_class",
+    [
+        OpenAICompatibleVisionProvider,
+        DashScopeVisionProvider,
+        XiaomiMiMoProvider,
+    ],
+)
+def test_vision_providers_share_one_transcription_implementation(
+    provider_class,
+) -> None:
+    assert issubclass(provider_class, OpenAICompatibleVisionTranscriber)
+    assert (
+        provider_class.transcribe_page
+        is OpenAICompatibleVisionTranscriber.transcribe_page
+    )
+
+
+def test_empty_ai_prompt_yaml_reports_missing_required_field(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "ai_prompt.yaml").write_text("", encoding="utf-8")
+    previous = prompt_config._PROMPT_CONFIG
+    monkeypatch.setattr(prompt_config, "CONFIG_DIR", tmp_path)
+    prompt_config._PROMPT_CONFIG = None
+    try:
+        with pytest.raises(AITranscriptionError, match="prompt_template"):
+            prompt_config.build_jianpu_prompt(
+                target_key="C",
+                title=None,
+                page_index=0,
+                extra_prompt=None,
+            )
+    finally:
+        prompt_config._PROMPT_CONFIG = previous
+
+
 def test_ai_transcribe_route_is_registered() -> None:
     paths = set(create_app().openapi()["paths"])
     schema = create_app().openapi()["components"]["schemas"]["AiTranscribeRequest"]
@@ -34,6 +99,38 @@ def test_ai_transcribe_route_is_registered() -> None:
     assert "file_id" in schema["properties"]
     assert "render_dpi" in schema["properties"]
     assert schema["properties"]["instrument_profile"]["default"] == "general"
+
+
+@pytest.mark.parametrize(
+    ("requested_dpi", "expected_dpi"),
+    [(None, 271), (320, 320)],
+)
+def test_ai_actions_injects_render_dpi_at_execution_boundary(
+    tmp_path: Path,
+    requested_dpi: int | None,
+    expected_dpi: int,
+) -> None:
+    config = ToolConfig(work_dir=tmp_path / "work")
+    uploads = UploadService(config)
+    source = tmp_path / "score.png"
+    source.write_bytes(b"fake png")
+    transcriber = CapturingTranscriber()
+    actions = AiActions(
+        uploads=uploads,
+        settings=FakeSettings(config),  # type: ignore[arg-type]
+        transcriber=transcriber,  # type: ignore[arg-type]
+        default_render_dpi=271,
+    )
+
+    with pytest.raises(RuntimeError, match="capture complete"):
+        actions.transcribe_score(
+            AiTranscribeRequest(
+                file_id=uploads.register(source),
+                render_dpi=requested_dpi,
+            )
+        )
+
+    assert transcriber.render_dpi == expected_dpi
 
 
 def test_erhu_ai_transcription_injects_profile_prompt_and_metadata(
@@ -198,6 +295,35 @@ def test_pdf_to_png_pages_creates_one_png_per_page(tmp_path: Path) -> None:
     assert all(path.exists() for path in paths)
 
 
+def test_pdf_to_png_pages_distinguishes_zero_from_no_limit(tmp_path: Path) -> None:
+    import fitz
+
+    pdf_path = tmp_path / "score.pdf"
+    doc = fitz.open()
+    doc.new_page(width=200, height=120)
+    doc.new_page(width=200, height=120)
+    doc.save(pdf_path)
+    doc.close()
+
+    assert pdf_to_png_pages(pdf_path, tmp_path / "none", dpi=72, max_pages=0) == []
+    assert len(pdf_to_png_pages(pdf_path, tmp_path / "one", dpi=72, max_pages=1)) == 1
+    assert (
+        len(pdf_to_png_pages(pdf_path, tmp_path / "all", dpi=72, max_pages=None)) == 2
+    )
+
+
+def test_pdf_to_png_pages_rejects_negative_limit(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="max_pages"):
+        pdf_to_png_pages(
+            tmp_path / "not-opened.pdf",
+            tmp_path / "pages",
+            dpi=72,
+            max_pages=-1,
+        )
+
+    assert not (tmp_path / "pages").exists()
+
+
 def test_ai_plain_text_response_falls_back_to_jianpu_text() -> None:
     result = parse_vision_page_result("title=中阮\n1=C\n4/4\n1 2 3 4 |")
 
@@ -336,6 +462,99 @@ def test_chat_completions_omits_thinking_param_until_explicitly_set(
     assert captured_bodies[1]["enable_thinking"] is False
 
 
+def test_chat_completions_reports_empty_choices(monkeypatch) -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {"choices": []}
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.providers._http.httpx.post",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    with pytest.raises(ValueError, match="choices"):
+        chat_completions(
+            base_url="https://example.test/v1",
+            api_key="test-key",
+            model="test-model",
+            messages=[{"role": "user", "content": "hi"}],
+        )
+
+
+def test_chat_completion_chunks_ignores_usage_only_empty_choices(
+    monkeypatch,
+) -> None:
+    class FakeStreamResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback) -> None:
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def iter_lines(self):
+            return iter(
+                [
+                    'data: {"choices":[],"usage":{"total_tokens":3}}',
+                    'data: {"choices":[{"delta":{"content":"ok"}}]}',
+                    "data: [DONE]",
+                ]
+            )
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.providers._http.httpx.stream",
+        lambda *args, **kwargs: FakeStreamResponse(),
+    )
+
+    chunks = list(
+        chat_completion_chunks(
+            base_url="https://example.test/v1",
+            api_key="test-key",
+            model="test-model",
+            messages=[{"role": "user", "content": "hi"}],
+        )
+    )
+
+    assert chunks == ["ok"]
+
+
+def test_chat_completion_chunks_surfaces_provider_error_payload(
+    monkeypatch,
+) -> None:
+    class FakeStreamResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback) -> None:
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def iter_lines(self):
+            return iter(['data: {"error":{"message":"quota exceeded"}}'])
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.providers._http.httpx.stream",
+        lambda *args, **kwargs: FakeStreamResponse(),
+    )
+
+    with pytest.raises(RuntimeError, match="quota exceeded"):
+        list(
+            chat_completion_chunks(
+                base_url="https://example.test/v1",
+                api_key="test-key",
+                model="test-model",
+                messages=[{"role": "user", "content": "hi"}],
+            )
+        )
+
+
 def test_ai_chat_stream_persists_streamed_response(tmp_path: Path, monkeypatch) -> None:
     captured_kwargs = []
 
@@ -365,3 +584,179 @@ def test_ai_chat_stream_persists_streamed_response(tmp_path: Path, monkeypatch) 
     assert not isinstance(messages, str)
     assert messages[-1].role == "assistant"
     assert "[1+3+5]" in messages[-1].content
+
+
+def test_ai_chat_stream_failure_does_not_persist_orphan_user_message(
+    tmp_path: Path, monkeypatch
+) -> None:
+    def failing_chunks(**kwargs):
+        yield "已生成一部分"
+        raise RuntimeError("provider disconnected")
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.chat_service.chat_completion_chunks",
+        failing_chunks,
+    )
+    settings = SettingsDao(tmp_path / "settings.db")
+    settings.set("assistant_api_key", "test-key")
+    dao = AiChatDao(tmp_path / "ai_chat.db")
+    service = AiChatService(dao=dao, settings=settings)
+    stream = service.stream_message("这条消息不能成为孤立记录")
+
+    event, session_id = next(stream)
+    assert event == "session"
+    assert next(stream) == ("delta", "已生成一部分")
+    with pytest.raises(AITranscriptionError, match="provider disconnected"):
+        next(stream)
+
+    assert isinstance(session_id, str)
+    assert dao.list_messages(session_id) == []
+
+
+def test_ai_chat_non_stream_failure_does_not_persist_orphan_user_message(
+    tmp_path: Path, monkeypatch
+) -> None:
+    def failing_completion(**kwargs):
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(
+        "score_trans.services.ai.chat_service.chat_completions",
+        failing_completion,
+    )
+    settings = SettingsDao(tmp_path / "settings.db")
+    settings.set("assistant_api_key", "test-key")
+    dao = AiChatDao(tmp_path / "ai_chat.db")
+    service = AiChatService(dao=dao, settings=settings)
+    session = service.create_session("保留标题")
+
+    with pytest.raises(AITranscriptionError, match="provider unavailable"):
+        service.send_message("不要落库", session_id=session.id)
+
+    assert dao.list_messages(session.id) == []
+    assert dao.get_session(session.id).title == "保留标题"
+
+
+def test_ai_chat_exchange_is_committed_atomically(tmp_path: Path) -> None:
+    dao = AiChatDao(tmp_path / "ai_chat.db")
+    session = dao.create_session("session-1")
+    with sqlite3.connect(dao.db_path) as conn:
+        conn.execute(
+            """
+            CREATE TRIGGER reject_assistant_message
+            BEFORE INSERT ON ai_chat_message
+            WHEN NEW.role = 'assistant'
+            BEGIN
+                SELECT RAISE(ABORT, 'assistant rejected');
+            END
+            """
+        )
+
+    with pytest.raises(sqlite3.IntegrityError, match="assistant rejected"):
+        dao.add_exchange(
+            session.id,
+            user_content="用户消息",
+            assistant_content="助手消息",
+            title_if_empty="首轮标题",
+        )
+
+    assert dao.list_messages(session.id) == []
+    assert dao.get_session(session.id).title == "新对话"
+
+
+def test_ai_chat_dao_accepts_system_messages(tmp_path: Path) -> None:
+    dao = AiChatDao(tmp_path / "ai_chat.db")
+    session = dao.create_session("session-system")
+
+    message = dao.add_message(session.id, "system", "项目级系统提示")
+
+    assert message.role == "system"
+    assert dao.list_messages(session.id) == [message]
+
+
+def test_ai_chat_dao_migrates_legacy_role_constraint_without_data_loss(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "legacy-ai-chat.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE ai_chat_session (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT '新对话',
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+            CREATE TABLE ai_chat_message (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL REFERENCES ai_chat_session(id) ON DELETE CASCADE,
+                role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+            INSERT INTO ai_chat_session (id, title) VALUES ('legacy', '旧会话');
+            INSERT INTO ai_chat_message (session_id, role, content)
+            VALUES ('legacy', 'user', '保留的旧消息');
+            """
+        )
+
+    dao = AiChatDao(db_path)
+    system = dao.add_message("legacy", "system", "迁移后的系统消息")
+
+    messages = dao.list_messages("legacy")
+    assert [(item.role, item.content) for item in messages] == [
+        ("user", "保留的旧消息"),
+        ("system", "迁移后的系统消息"),
+    ]
+    assert system.id > messages[0].id
+
+
+def test_ai_chat_connections_enable_wal_and_busy_timeout(tmp_path: Path) -> None:
+    dao = AiChatDao(tmp_path / "ai_chat.db")
+
+    with dao._connect() as conn:
+        journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        busy_timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+
+    assert str(journal_mode).lower() == "wal"
+    assert busy_timeout == 5000
+
+
+def test_ai_chat_write_waits_for_a_short_database_lock(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    dao = AiChatDao(tmp_path / "ai_chat.db")
+    session = dao.create_session("session-lock")
+    real_connect = sqlite3.connect
+
+    def connect_without_default_wait(*args, **kwargs):
+        kwargs["timeout"] = 0
+        return real_connect(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "score_trans.dao.ai.chat_dao.sqlite3.connect",
+        connect_without_default_wait,
+    )
+
+    lock_conn = real_connect(dao.db_path, timeout=0)
+    try:
+        lock_conn.execute("BEGIN IMMEDIATE")
+        lock_conn.execute(
+            "UPDATE ai_chat_session SET title = title WHERE id = ?",
+            (session.id,),
+        )
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                dao.add_message,
+                session.id,
+                "user",
+                "等待短暂写锁",
+            )
+            time.sleep(0.05)
+            assert not future.done()
+            lock_conn.commit()
+            message = future.result(timeout=2)
+    finally:
+        lock_conn.close()
+
+    assert message.content == "等待短暂写锁"

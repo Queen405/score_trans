@@ -38,7 +38,12 @@ def _render_measure_text_blocks(
         if block.role == "lyric" and _slot_has_lyric(slots, text, start):
             continue
         seen.add(key)
-        class_name = "dynamic" if _is_dynamic_text(text) else "lyric"
+        if _is_dynamic_text(text):
+            class_name = "dynamic"
+        elif block.role == "lyric":
+            class_name = "lyric"
+        else:
+            class_name = "annotation"
         text_x = _measure_text_x(source, x, width, slots, start)
         placement = (getattr(block, "placement", None) or "below").lower()
         anchor = "middle" if start is not None else "start"
@@ -117,12 +122,13 @@ def _render_unpositioned_text_blocks(
         text = block.text.strip()
         if not text or text in seen_texts or text in used:
             continue
+        text_y = y + len(used) * line_gap
+        if text_y > height - font_size:
+            break
         used.add(text)
         class_name = "ocr-overlay dynamic" if _is_dynamic_text(text) else "ocr-overlay"
         out.append(
-            f'<text class="{class_name}" x="{x:.1f}" y="{y + (len(used) - 1) * line_gap:.1f}" '
+            f'<text class="{class_name}" x="{x:.1f}" y="{text_y:.1f}" '
             f'font-size="{font_size:.1f}" text-anchor="start">{_esc(text)}</text>'
         )
-        if y + len(used) * line_gap > height - font_size:
-            break
     return out

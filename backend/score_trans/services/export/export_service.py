@@ -21,11 +21,14 @@ _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
 
 def _pitch_to_midi(pitch: JianpuPitch, key: str) -> int:
     if pitch.midi is not None:
-        return pitch.midi
-    tonic = KEY_TO_TONIC.get(key, 0)
-    base_semitone = MAJOR_SCALE[pitch.degree - 1] if 1 <= pitch.degree <= 7 else 0
-    midi = 60 + tonic + base_semitone + pitch.accidental + pitch.octave * 12
-    return midi
+        midi = pitch.midi
+    else:
+        tonic = KEY_TO_TONIC.get(key, 0)
+        base_semitone = MAJOR_SCALE[pitch.degree - 1] if 1 <= pitch.degree <= 7 else 0
+        midi = 60 + tonic + base_semitone + pitch.accidental + pitch.octave * 12
+    if midi.denominator != 1:
+        raise ValueError("MIDI 导出暂不支持微音程：需要 pitch bend 通道分配")
+    return int(midi)
 
 
 def _duration_to_ticks(duration: Fraction, beat_type: int) -> int:
@@ -75,8 +78,18 @@ class ExportService:
         scores: list[JianpuScore],
         output_path: Path,
     ) -> Path:
+        rendered_scores = scores or [JianpuScore()]
+        for score in rendered_scores:
+            for measure in score.measures:
+                for event in measure.events:
+                    for pitch in event.pitches:
+                        _pitch_to_midi(
+                            pitch,
+                            getattr(measure, "target_key", score.target_key),
+                        )
+
         mid = mido.MidiFile(ticks_per_beat=_TICKS_PER_BEAT)
-        for index, score in enumerate(scores or [JianpuScore()]):
+        for index, score in enumerate(rendered_scores):
             track = mido.MidiTrack()
             mid.tracks.append(track)
             track_name = score.part_name or f"Part {index + 1}"

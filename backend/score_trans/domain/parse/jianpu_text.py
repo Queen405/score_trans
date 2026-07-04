@@ -5,8 +5,12 @@ from fractions import Fraction
 import json
 import re
 
-from ..jianpu_tokens import DURATION_PREFIXES, consume_duration_prefix
-from ..constants import DYNAMICS
+from ..jianpu_tokens import (
+    consume_duration_prefix,
+    consume_duration_suffix,
+    duration_prefix,
+)
+from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
 from ..performance_marks import (
     PERFORMANCE_MARKS,
     event_mark_ids,
@@ -20,7 +24,15 @@ from ...models.common.types import (
     InstrumentProfile,
     normalize_instrument_profile,
 )
-from ...models.score import Beat, Event, JianpuPitch, JianpuScore, Measure, TextBlock
+from ...models.score import (
+    Beat,
+    Event,
+    JianpuPitch,
+    JianpuScore,
+    Measure,
+    TextBlock,
+    TupletSpan,
+)
 
 
 @dataclass(slots=True)
@@ -39,7 +51,7 @@ class ParsedToken:
     value: str
     duration: Fraction = Fraction(1, 1)
     octave_shift: int = 0
-    accidental: int = 0
+    accidental: Fraction = Fraction(0, 1)
 
 
 @dataclass(slots=True)
@@ -183,6 +195,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         source_key=options.key,
         beats=options.beats,
         beat_type=options.beat_type,
+        tempo=options.tempo,
         instrument_profile=options.instrument_profile,
     )
 
@@ -391,6 +404,20 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             continue
         if raw.startswith("^"):
             name = raw[1:]
+            if mark_for_token(name) is None and _ornament_name(name) is None:
+                inline_marks, event_part = _consume_tuplet_inline_marks(raw)
+                if not inline_marks or not event_part:
+                    raise _syntax_error(token, f"不支持的演奏标记：{raw}")
+                event_offset = raw.find(event_part)
+                event_token = _Token(
+                    event_part,
+                    token.line,
+                    token.column + event_offset,
+                )
+                event = _parse_event_token(event_token)
+                _apply_inline_marks(event, inline_marks)
+                append_event(event, raw, token)
+                continue
             kind, mark = _mark_kind_name(name)
             if kind == "spanner":
                 pending_slide = True
@@ -427,6 +454,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
     tokens: list[_Token] = []
     lyrics: list[str] = []
     saw_time = False
+    saw_key = False
     saw_score_tokens = False
     raw_lines = text.splitlines(keepends=True)
     line_start_utf16 = 0
@@ -451,7 +479,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
         if "=" in stripped and not stripped.startswith(("|", ":", "[", "\\", "^", "$")):
             key, value = [part.strip() for part in stripped.split("=", 1)]
             if key == "1" and _is_key_name(value):
-                if saw_score_tokens:
+                if saw_score_tokens or saw_key:
                     column = raw_line.find(stripped)
                     tokens.append(
                         _token_with_offsets(
@@ -464,6 +492,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                     )
                 else:
                     options.key = value
+                    saw_key = True
                 continue
             if key == "title":
                 options.title = value or options.title
@@ -554,11 +583,23 @@ def _strip_inline_comment(line: str) -> str:
 
 
 def _strip_leading_measure_label(line: str) -> str:
-    return re.sub(r"^\s*\d+[.:：](?:\s+|$)", "", line, count=1)
+    match = re.match(r"^\s*(\d+)([.:：])(?P<gap>\s+|$)", line)
+    if match is None:
+        return line
+    if (
+        match.group(2) == "."
+        and 0 <= int(match.group(1)) <= 7
+        and not line[match.end() :].strip()
+    ):
+        return line
+    return line[match.end() :]
 
 
 def _is_measure_label_token(token: str) -> bool:
-    return bool(re.fullmatch(r"\d+[.:：]", token.strip()))
+    match = re.fullmatch(r"(\d+)([.:：])", token.strip())
+    if match is None:
+        return False
+    return match.group(2) != "." or int(match.group(1)) > 7
 
 
 def _key_signature_value(token: str) -> str | None:
@@ -590,6 +631,11 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
     pending_technical: list[str] = []
     parsed: list[tuple[Event, str]] = []
     for part in parts:
+        if part.startswith("^") and _match_mark_token(part[1:]) is None:
+            raise _syntax_error(
+                token,
+                f"不支持的演奏标记：{_leading_mark_token(part)}",
+            )
         mark = _tuplet_standalone_mark(part)
         if mark is not None:
             kind, name = mark
@@ -653,19 +699,46 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         parsed.append((event, event_part))
     if len(parsed) < 2:
         raise _syntax_error(token, "连音组至少需要两个音符，例如 $123$ 或 $1 2 3$")
-    duration = Fraction(1, len(parsed))
+    actual_count = len(parsed)
+    normal_count = _tuplet_normal_notes(actual_count)
+    has_explicit_duration = any(
+        _has_tuplet_duration_prefix(source_token) for _event, source_token in parsed
+    )
     group_id = f"{token.line}:{token.column}"
     events: list[tuple[Event, str]] = []
     for index, (event, source_token) in enumerate(parsed):
-        event.duration = duration
+        if has_explicit_duration:
+            event.duration *= Fraction(normal_count, actual_count)
+        else:
+            event.duration = Fraction(1, actual_count)
         event.dotted = 0
         event.tuplet_id = group_id
-        event.tuplet_count = len(parsed)
+        event.tuplet_count = actual_count
+        event.tuplet_normal_count = normal_count
         event.tuplet_index = index
         event.tuplet_start = index == 0
-        event.tuplet_stop = index == len(parsed) - 1
+        event.tuplet_stop = index == actual_count - 1
+        event.tuplet_spans = [
+            TupletSpan(
+                id=group_id,
+                start=event.tuplet_start,
+                stop=event.tuplet_stop,
+            )
+        ]
         events.append((event, source_token))
     return events
+
+
+def _has_tuplet_duration_prefix(source_token: str) -> bool:
+    work = source_token.strip().lstrip("(~")
+    return bool(duration_prefix(work))
+
+
+def _tuplet_normal_notes(actual_notes: int) -> int:
+    normal_notes = 1
+    while normal_notes * 2 <= actual_notes:
+        normal_notes *= 2
+    return max(1, normal_notes)
 
 
 def _split_tuplet_body(body: str) -> list[str]:
@@ -679,13 +752,33 @@ def _split_tuplet_body(body: str) -> list[str]:
         start = index
         index = _consume_tuplet_mark_prefix(body, index)
         match = re.match(
-            r"~?\(?(?:bb|x|n|♮|#|b)?[0-7][',]*(?:#|b)?\.?-*\)?~?", body[index:]
+            _COMPACT_TUPLET_EVENT_PATTERN,
+            body[index:],
         )
         if match is None or not match.group(0):
             return [body]
         index += match.end()
         parts.append(body[start:index])
     return parts
+
+
+_COMPACT_PITCH_PATTERN = (
+    r"(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?"
+    r"[1-7][',]*(?:bb|x|#|b)?"
+)
+_COMPACT_NOTE_OR_REST_PATTERN = (
+    r"(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?"
+    r"[0-7][',]*(?:bb|x|#|b)?"
+)
+_COMPACT_CHORD_PATTERN = (
+    rf"\[{_COMPACT_PITCH_PATTERN}"
+    rf"(?:\+{_COMPACT_PITCH_PATTERN})+\]"
+)
+_COMPACT_TUPLET_EVENT_PATTERN = (
+    rf"~?\(?(?:[whqsd])?"
+    rf"(?:{_COMPACT_CHORD_PATTERN}|{_COMPACT_NOTE_OR_REST_PATTERN})"
+    r"\.*-*\)?~?"
+)
 
 
 def _consume_tuplet_mark_prefix(body: str, index: int) -> int:
@@ -737,6 +830,36 @@ def _consume_tuplet_inline_marks(part: str) -> tuple[list[tuple[str, str]], str]
     return marks, work
 
 
+def _apply_inline_marks(
+    event: Event,
+    marks: list[tuple[str, str]],
+) -> None:
+    inline_dynamic = next(
+        (name for kind, name in reversed(marks) if kind == "dynamic"),
+        None,
+    )
+    if inline_dynamic is not None:
+        event.dynamic = inline_dynamic
+    event.articulations = _unique_marks(
+        list(event.articulations),
+        [name for kind, name in marks if kind == "articulation"],
+    )
+    if event.articulations:
+        event.articulation = event.articulations[0]
+    event.ornaments = _unique_marks(
+        list(event.ornaments),
+        [name for kind, name in marks if kind == "ornament"],
+    )
+    event.technical = _unique_marks(
+        list(event.technical),
+        [name for kind, name in marks if kind == "technical"],
+    )
+    event.slide_stop = event.slide_stop or any(
+        kind == "spanner" for kind, _name in marks
+    )
+    normalize_event_marks(event)
+
+
 def _match_dynamic_prefix(value: str) -> str | None:
     for dynamic in sorted(DYNAMICS, key=len, reverse=True):
         if value.startswith(dynamic):
@@ -759,20 +882,14 @@ def _parse_event_token(token: _Token) -> Event:
     slur_stop = work.endswith(")")
     if slur_stop:
         work = work[:-1]
-    has_duration_prefix = bool(work) and work[0] in DURATION_PREFIXES
+    has_duration_prefix = bool(duration_prefix(work))
     duration, work = _consume_duration_prefix(work)
     if has_duration_prefix and work.startswith("."):
         raise _syntax_error(
             token,
             f"时值前缀后的附点 `{token.value}` 非法，附点必须写在音级之后，例如 h4'. 而不是 h.4'",
         )
-    while work.endswith("-"):
-        duration += Fraction(1, 1)
-        work = work[:-1]
-    dotted = work.endswith(".")
-    if dotted:
-        duration += duration / 2
-        work = work[:-1]
+    duration, work, dotted = consume_duration_suffix(duration, work)
     if work.startswith("[") and work.endswith("]"):
         parts = [part.strip() for part in work[1:-1].split("+") if part.strip()]
         if not parts:
@@ -789,7 +906,7 @@ def _parse_event_token(token: _Token) -> Event:
         event = Event(
             kind="note", duration=duration, pitches=[_parse_pitch(work, token)]
         )
-    event.dotted = 1 if dotted else 0
+    event.dotted = dotted
     event.tie_start = tie_start
     event.tie_stop = tie_stop
     event.slur_start = slur_start
@@ -798,35 +915,51 @@ def _parse_event_token(token: _Token) -> Event:
 
 
 def _parse_pitch(raw: str, token: _Token) -> JianpuPitch:
-    accidental = 0
+    accidental = Fraction(0, 1)
     accidental_text: str | None = None
     value = raw
-    if value.startswith("bb"):
-        accidental = -2
+    microtonal_prefix = next(
+        (prefix for prefix in ("tqf", "tqs", "qf", "qs") if value.startswith(prefix)),
+        None,
+    )
+    if microtonal_prefix is not None:
+        accidental = MICROTONAL_TOKEN_TO_ALTER[microtonal_prefix]
+        accidental_text = microtonal_prefix
+        value = value[len(microtonal_prefix) :]
+    elif value.startswith("bb"):
+        accidental = Fraction(-2, 1)
         accidental_text = "bb"
         value = value[2:]
     elif value.startswith("x"):
-        accidental = 2
+        accidental = Fraction(2, 1)
         accidental_text = "x"
         value = value[1:]
     elif value.startswith(("n", "♮")):
-        accidental = 0
+        accidental = Fraction(0, 1)
         accidental_text = "♮"
         value = value[1:]
     elif value.startswith("#"):
-        accidental = 1
+        accidental = Fraction(1, 1)
         accidental_text = "#"
         value = value[1:]
     elif value.startswith("b"):
-        accidental = -1
+        accidental = Fraction(-1, 1)
         accidental_text = "b"
         value = value[1:]
-    if value.endswith("#"):
-        accidental = 1
+    if value.endswith("bb"):
+        accidental = Fraction(-2, 1)
+        accidental_text = "bb"
+        value = value[:-2]
+    elif value.endswith("x"):
+        accidental = Fraction(2, 1)
+        accidental_text = "x"
+        value = value[:-1]
+    elif value.endswith("#"):
+        accidental = Fraction(1, 1)
         accidental_text = "#"
         value = value[:-1]
     elif value.endswith("b"):
-        accidental = -1
+        accidental = Fraction(-1, 1)
         accidental_text = "b"
         value = value[:-1]
     octave = value.count("'") - value.count(",")
@@ -834,7 +967,8 @@ def _parse_pitch(raw: str, token: _Token) -> JianpuPitch:
     if value not in {"1", "2", "3", "4", "5", "6", "7"}:
         raise _syntax_error(
             token,
-            f"不支持的简谱 token：{token.value}，请使用 1-7、0、#1、q1、[1+3+5] 等新语法",
+            f"不支持的简谱 token：{token.value}，请使用 1-7、0、#1、qs1、"
+            "q1、[1+3+5] 等新语法",
         )
     return JianpuPitch(
         int(value),
@@ -865,10 +999,11 @@ def _normalize_parsed_measure(measure: Measure) -> None:
         )
         measure.beats[beat_index].events.append(event)
         cursor = event.start + event.duration
-    if measure.span_duration > target:
-        measure.validation_errors.append(
-            f"小节超拍：实际 {measure.span_duration}，目标 {target}"
-        )
+    actual = measure.span_duration
+    if actual < target:
+        measure.validation_errors.append(f"小节少拍：实际 {actual}，目标 {target}")
+    elif actual > target:
+        measure.validation_errors.append(f"小节超拍：实际 {actual}，目标 {target}")
 
 
 def _apply_lyrics(score: JianpuScore, lyrics: list[str]) -> None:
@@ -931,6 +1066,11 @@ def _mark_kind_name(raw: str) -> tuple[str, str]:
     if ornament:
         return "ornament", ornament
     return "articulation", _articulation_name(raw)
+
+
+def _leading_mark_token(value: str) -> str:
+    match = re.match(r"\^[A-Za-z0-9.>\-]+", value)
+    return match.group(0) if match is not None else value
 
 
 _MARK_TOKENS = tuple(

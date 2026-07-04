@@ -4,16 +4,20 @@ import json
 import shutil
 import threading
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
+from typing import BinaryIO
 
-from fastapi import UploadFile
+from score_trans.config.settings import MAX_UPLOAD_FILE_BYTES
 
+from ...models.common.errors import UploadTooLargeError
 from ...models.common.paths import (
     LEGACY_WORK_DIR,
     PROJECT_ROOT,
     USER_CACHE_ROOT,
     USER_WORK_DIR,
 )
+from ...models.common.protocols import UploadFileLike
 from ...models.settings.config import ToolConfig
 from .image_info import strip_image_metadata
 from ..settings.settings_service import SettingsService
@@ -23,14 +27,29 @@ _INDEX_LOCK = threading.Lock()
 _INDEX_CACHE: dict[Path, tuple[int, int, dict[str, Path]]] = {}
 _MIGRATION_LOCK = threading.Lock()
 _MIGRATED_UPLOAD_DIRS: set[Path] = set()
+_COPY_CHUNK_BYTES = 1024 * 1024
+
+
+@dataclass(frozen=True, slots=True)
+class UploadPruneResult:
+    removed_items: int
+    preserved_uploads: int
 
 
 class UploadService:
     """Manages uploaded files: save, lookup, register, cleanup."""
 
-    def __init__(self, config: ToolConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: ToolConfig | None = None,
+        *,
+        max_upload_bytes: int = MAX_UPLOAD_FILE_BYTES,
+    ) -> None:
+        if max_upload_bytes <= 0:
+            raise ValueError("max_upload_bytes must be greater than zero")
         migrate_legacy = config is None
         self.config = config or SettingsService().load()
+        self.max_upload_bytes = max_upload_bytes
         work_dir = self.config.work_dir
         if not work_dir.is_absolute():
             work_dir = USER_CACHE_ROOT / work_dir
@@ -139,7 +158,7 @@ class UploadService:
                 file_id: Path(path) for file_id, path in serializable.items()
             }
 
-    def save(self, upload_file: UploadFile) -> str:
+    def save(self, upload_file: UploadFileLike) -> str:
         """Save an uploaded file and return its file_id."""
         file_id = uuid.uuid4().hex[:12]
         file_dir = self.base_dir / file_id
@@ -150,10 +169,18 @@ class UploadService:
         safe_name = Path(filename).name
         target = file_dir / safe_name
 
-        with target.open("wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-
-        strip_image_metadata(target)
+        try:
+            with target.open("wb") as output:
+                _copy_upload_bounded(
+                    upload_file.file,
+                    output,
+                    source_name=filename,
+                    max_bytes=self.max_upload_bytes,
+                )
+            strip_image_metadata(target)
+        except Exception:
+            shutil.rmtree(file_dir, ignore_errors=True)
+            raise
 
         with self._lock:
             self._files[file_id] = target
@@ -226,9 +253,77 @@ class UploadService:
         if path.parent.parent == self.base_dir and path.parent != self.base_dir:
             shutil.rmtree(path.parent, ignore_errors=True)
 
+    def prune_unreferenced(self, referenced_file_ids: set[str]) -> UploadPruneResult:
+        """Remove upload directories not retained by history and refresh the index."""
+        removed_ids: set[str] = set()
+        preserved: dict[str, Path] = {}
+
+        for child in self.base_dir.iterdir():
+            if child.name in {"index.json", "index.tmp"}:
+                continue
+            if child.name in referenced_file_ids:
+                candidate = _first_file(child)
+                if candidate is not None:
+                    preserved[child.name] = candidate
+                continue
+            try:
+                if child.is_dir():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+            except OSError:
+                continue
+            removed_ids.add(child.name)
+
+        with self._lock:
+            for file_id in removed_ids:
+                self._files.pop(file_id, None)
+            self._files.update(preserved)
+        self._persist_index(remove_ids=removed_ids)
+        return UploadPruneResult(
+            removed_items=len(removed_ids),
+            preserved_uploads=len(preserved),
+        )
+
     def exists_many(self, file_ids: list[str]) -> dict[str, bool]:
         """Return existence for multiple file IDs with one UploadService/index load."""
         return {file_id: self.get_path(file_id) is not None for file_id in file_ids}
+
+
+def _first_file(path: Path) -> Path | None:
+    if path.is_file():
+        return path
+    if not path.is_dir():
+        return None
+    return next(
+        iter(
+            sorted(
+                (child for child in path.iterdir() if child.is_file()),
+                key=lambda p: p.name,
+            )
+        ),
+        None,
+    )
+
+
+def _copy_upload_bounded(
+    source: BinaryIO,
+    output: BinaryIO,
+    *,
+    source_name: str,
+    max_bytes: int,
+) -> int:
+    total = 0
+    while True:
+        chunk = source.read(_COPY_CHUNK_BYTES)
+        if not chunk:
+            return total
+        total += len(chunk)
+        if total > max_bytes:
+            raise UploadTooLargeError(
+                f"文件 {source_name} 超过上传大小上限 {max_bytes} bytes"
+            )
+        output.write(chunk)
 
 
 def _read_index(index_path: Path) -> dict[str, str]:

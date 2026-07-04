@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from ..dependencies import get_export_actions
@@ -20,7 +22,11 @@ async def export_midi(
     filename: str | None = None,
     actions: ExportActions = Depends(get_export_actions),
 ):
-    return actions.export_midi(musicxml_file_id, filename=filename)
+    return await asyncio.to_thread(
+        actions.export_midi,
+        musicxml_file_id,
+        filename=filename,
+    )
 
 
 @router.post("/midi-text", response_model=ExportResponse)
@@ -28,7 +34,7 @@ async def export_midi_text(
     req: ExportMidiTextRequest,
     actions: ExportActions = Depends(get_export_actions),
 ):
-    return actions.export_midi_text(req)
+    return await asyncio.to_thread(actions.export_midi_text, req)
 
 
 @router.post("/pdf", response_model=ExportResponse)
@@ -45,7 +51,7 @@ async def export_musicxml(
     req: ExportMusicXmlRequest,
     actions: ExportActions = Depends(get_export_actions),
 ):
-    return actions.export_musicxml(req)
+    return await asyncio.to_thread(actions.export_musicxml, req)
 
 
 @router.post("/musicxml-text", response_model=ExportResponse)
@@ -53,4 +59,4 @@ async def export_musicxml_text(
     req: ExportMusicXmlTextRequest,
     actions: ExportActions = Depends(get_export_actions),
 ):
-    return actions.export_musicxml_text(req)
+    return await asyncio.to_thread(actions.export_musicxml_text, req)

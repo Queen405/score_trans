@@ -8,10 +8,25 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from score_trans.config.settings import API_TITLE, API_VERSION, CORS_ORIGINS
+from score_trans.config.settings import (
+    API_AUTH_DISABLED,
+    API_TITLE,
+    API_TOKEN,
+    API_VERSION,
+    CORS_ORIGINS,
+    MAX_UPLOAD_REQUEST_BYTES,
+)
 
+from .auth import BearerAuthMiddleware, validate_api_token
+from .request_limits import RequestBodyLimitMiddleware
 from ..exec.tasks.actions import TaskActions
-from ..models.common.errors import AITranscriptionError, ExternalToolError, OCRError
+from ..models.common.errors import (
+    AITranscriptionError,
+    ExternalToolError,
+    OCRError,
+    RenderError,
+    UploadTooLargeError,
+)
 
 
 LOCAL_DEV_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
@@ -26,7 +41,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await _wait_for_background_tasks(app)
 
 
-def create_app() -> FastAPI:
+def create_app(
+    *,
+    api_token: str | None = None,
+    auth_disabled: bool | None = None,
+    max_upload_request_bytes: int | None = None,
+) -> FastAPI:
+    effective_token = API_TOKEN if api_token is None else api_token
+    effective_auth_disabled = (
+        API_AUTH_DISABLED if auth_disabled is None else auth_disabled
+    )
+    effective_max_upload_request_bytes = (
+        MAX_UPLOAD_REQUEST_BYTES
+        if max_upload_request_bytes is None
+        else max_upload_request_bytes
+    )
+    validate_api_token(effective_token, disabled=effective_auth_disabled)
+
     app = FastAPI(
         title=API_TITLE,
         version=API_VERSION,
@@ -40,6 +71,15 @@ def create_app() -> FastAPI:
     # Electron packaged app loads from file:// or custom protocol, whose Origin is "null".
     if "null" not in allow_origins:
         allow_origins.append("null")
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_bytes=effective_max_upload_request_bytes,
+    )
+    app.add_middleware(
+        BearerAuthMiddleware,
+        token=effective_token,
+        disabled=effective_auth_disabled,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
@@ -99,11 +139,25 @@ def create_app() -> FastAPI:
             content={"error": str(exc), "stage": "ai"},
         )
 
+    @app.exception_handler(RenderError)
+    async def render_error_handler(request: Request, exc: RenderError):
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(exc), "stage": "render"},
+        )
+
+    @app.exception_handler(UploadTooLargeError)
+    async def upload_too_large_handler(request: Request, exc: UploadTooLargeError):
+        return JSONResponse(
+            status_code=413,
+            content={"error": str(exc), "stage": "upload"},
+        )
+
     @app.exception_handler(ValueError)
     async def validation_error_handler(request: Request, exc: ValueError):
         return JSONResponse(
             status_code=400,
-            content={"error": str(exc), "stage": "convert"},
+            content={"error": str(exc), "stage": "validation"},
         )
 
     @app.exception_handler(FileNotFoundError)
@@ -121,9 +175,16 @@ def _init_task_state(app: FastAPI) -> None:
         app.state.task_actions = TaskActions()
     if getattr(app.state, "background_tasks", None) is None:
         app.state.background_tasks = set()
+    app.state.accepting_background_tasks = True
 
 
 async def _wait_for_background_tasks(app: FastAPI) -> None:
     background_tasks = getattr(app.state, "background_tasks", set())
-    while background_tasks:
-        await asyncio.gather(*list(background_tasks), return_exceptions=True)
+    app.state.accepting_background_tasks = False
+    tracked_tasks = set(background_tasks)
+    if not tracked_tasks:
+        return
+    try:
+        await asyncio.gather(*tracked_tasks, return_exceptions=True)
+    finally:
+        background_tasks.difference_update(tracked_tasks)

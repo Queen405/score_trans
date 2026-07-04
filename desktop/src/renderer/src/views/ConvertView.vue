@@ -1345,7 +1345,7 @@ async function exportScore(): Promise<void> {
       const ids = await renderExportSvgIds()
       const svgFileId = ids[Math.min(finalRenderPageIndex.value, ids.length - 1)]
       if (!svgFileId) throw new Error('暂无可导出的 A4 页面')
-      const png = await svgToPngBlob(exportApi.getDownloadURL(svgFileId))
+      const png = await svgToPngBlob(svgFileId)
       const filename = getExportFilename('png')
       await finalizeExport({ buffer: await png.arrayBuffer() }, filename)
       log.addLog(`导出完成：${filename}`)
@@ -1359,7 +1359,7 @@ async function exportScore(): Promise<void> {
     const skippedPages: number[] = []
     for (let index = 0; index < svgIds.length; index++) {
       try {
-        imagePages.push(await svgToJpegBlob(exportApi.getDownloadURL(svgIds[index])))
+        imagePages.push(await svgToJpegBlob(svgIds[index]))
       } catch {
         skippedPages.push(index + 1)
       }
@@ -1385,12 +1385,10 @@ async function exportScore(): Promise<void> {
   }
 }
 
-function downloadFile(fileId: string, filename: string): void {
-  const url = exportApi.getDownloadURL(fileId)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
+async function downloadFile(fileId: string, filename: string): Promise<void> {
+  const result = await fetchFileBlob(fileId)
+  if (result.error) throw result.error
+  downloadBlob(result.data, filename)
 }
 
 function getExportFilename(format: string): string {
@@ -1411,7 +1409,6 @@ function getExportFilename(format: string): string {
 
 type ExportSource =
   | { fileId: string }
-  | { url: string }
   | { buffer: ArrayBuffer }
 
 async function finalizeExport(source: ExportSource, filename: string): Promise<void> {
@@ -1419,23 +1416,18 @@ async function finalizeExport(source: ExportSource, filename: string): Promise<v
   const api = (globalThis as any).api
   if (!dir || !api?.saveExportFile) {
     if ('fileId' in source) {
-      downloadFile(source.fileId, filename)
-    } else if ('url' in source) {
-      const a = document.createElement('a')
-      a.href = source.url
-      a.download = filename
-      a.click()
+      await downloadFile(source.fileId, filename)
     } else {
       downloadBlob(new Blob([source.buffer]), filename)
     }
     return
   }
 
-  let ipcSource: { url: string } | { buffer: ArrayBuffer }
+  let ipcSource: { buffer: ArrayBuffer }
   if ('fileId' in source) {
-    ipcSource = { url: exportApi.getDownloadURL(source.fileId) }
-  } else if ('url' in source) {
-    ipcSource = source
+    const result = await fetchFileBlob(source.fileId)
+    if (result.error) throw result.error
+    ipcSource = { buffer: await result.data.arrayBuffer() }
   } else {
     ipcSource = source
   }

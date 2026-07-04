@@ -105,10 +105,17 @@ app.whenReady().then(async () => {
   }
 
   const backendURL = backend.getBaseURL()
+  const backendToken = backend.getApiToken()
 
-  // Expose backend URL to renderer via IPC (synchronous, no race condition)
-  ipcMain.on('get-backend-url', (event) => {
-    event.returnValue = backendURL
+  // Expose this process-local backend connection atomically. The token is held only
+  // in memory and is never placed in URLs, logs, settings, or renderer storage.
+  ipcMain.handle('get-backend-connection', () => {
+    return { baseURL: backendURL, token: backendToken }
+  })
+
+  // Compatibility for older renderer bundles during development.
+  ipcMain.handle('get-backend-url', () => {
+    return backendURL
   })
 
   ipcMain.handle('window:minimize', () => {
@@ -186,6 +193,8 @@ app.on('before-quit', async (e) => {
 
 app.on('will-quit', async () => {
   await cleanupBackend()
+  ipcMain.removeHandler('get-backend-connection')
+  ipcMain.removeHandler('get-backend-url')
   ipcMain.removeHandler('window:minimize')
   ipcMain.removeHandler('window:toggle-maximize')
   ipcMain.removeHandler('window:is-maximized')

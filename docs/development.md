@@ -54,10 +54,13 @@ uv pip install -e ".[test]" --python .venv\Scripts\python.exe
 
 ```powershell
 $env:PYTHONPATH="backend"
+$env:SCORE_TRANS_API_TOKEN="replace-with-a-random-token-at-least-32-characters"
 .venv\Scripts\python.exe -m uvicorn score_trans.api.app:create_app --factory --reload --host 127.0.0.1 --port 19200
 ```
 
 > 注意：原 README 中的 `$env:PYTHONPATH="src"` 已过时，应使用 `backend`。
+> 独立启动后端时必须设置至少 32 字符的 token；仅测试可显式设置
+> `SCORE_TRANS_API_AUTH_DISABLED=1`。Electron 正常启动时会自动生成随机 token。
 
 ### 运行测试
 
@@ -101,6 +104,7 @@ pnpm install
 ```powershell
 cd desktop
 $env:VITE_BACKEND_URL="http://127.0.0.1:19200"
+$env:VITE_BACKEND_TOKEN=$env:SCORE_TRANS_API_TOKEN
 pnpm dev
 ```
 

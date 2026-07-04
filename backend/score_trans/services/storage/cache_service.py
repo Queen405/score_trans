@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ...dao.history.history_dao import HistoryDao
+from ...models.settings.config import ToolConfig
+from ..files.upload_service import UploadService
 from ..settings.settings_service import SettingsService
 
 SCRATCH_DIR_NAMES = ("audiveris", "pipeline", "ai_transcribe")
@@ -25,11 +27,13 @@ class CacheService:
         self,
         cache_dir: str | Path | None = None,
         history: HistoryDao | None = None,
+        uploads: UploadService | None = None,
     ) -> None:
         self.cache_dir = (
             Path(cache_dir) if cache_dir else SettingsService().load().work_dir
         )
         self.history = history
+        self.uploads = uploads or UploadService(ToolConfig(work_dir=self.cache_dir))
 
     def size_bytes(self) -> int:
         return _path_size(self.cache_dir)
@@ -45,14 +49,9 @@ class CacheService:
         uploads_dir = self.cache_dir / "uploads"
         if uploads_dir.is_dir():
             referenced = self._referenced_file_ids()
-            for child in uploads_dir.iterdir():
-                if child.name == "index.json":
-                    continue
-                if child.name in referenced:
-                    preserved_uploads += 1
-                    continue
-                removed_items += _remove_path(child)
-            _remove_path(uploads_dir / "index.json")
+            prune_result = self.uploads.prune_unreferenced(referenced)
+            removed_items += prune_result.removed_items
+            preserved_uploads += prune_result.preserved_uploads
 
         after = self.size_bytes()
         return CacheCleanupResult(
@@ -65,18 +64,8 @@ class CacheService:
         )
 
     def _referenced_file_ids(self) -> set[str]:
-        referenced: set[str] = set()
         history = self.history or HistoryDao()
-        for batch in history.list_batches():
-            for page in batch.pages:
-                for file_id in (
-                    page.input_file_id,
-                    page.musicxml_file_id,
-                    page.svg_file_id,
-                ):
-                    if file_id:
-                        referenced.add(file_id)
-        return referenced
+        return history.referenced_file_ids()
 
 
 def _path_size(path: Path) -> int:

@@ -16,6 +16,7 @@ from ...dao.settings.settings_dao import SettingsDao
 from ...models.ai.entities import AiChatMessage, AiChatSession
 from ...models.common.errors import AITranscriptionError
 from ..settings.api_keys import provider_api_key
+from ..settings.defaults import configured_settings_dao
 from ..settings.provider_profiles import resolve_provider_profile_or_default
 from .core.prompts import build_jianpu_assistant_system_prompt
 from .providers._http import chat_completion_chunks, chat_completions
@@ -33,7 +34,7 @@ class AiChatService:
         settings: SettingsDao | None = None,
     ) -> None:
         self.dao = dao or AiChatDao()
-        self.settings = settings or SettingsDao.default()
+        self.settings = settings or configured_settings_dao()
 
     def list_sessions(self) -> list[AiChatSession]:
         return self.dao.list_sessions()
@@ -62,20 +63,18 @@ class AiChatService:
             raise ValueError("消息不能为空")
 
         session = self._ensure_session(session_id)
-        was_empty = len(self.dao.list_messages(session.id)) == 0
-        user_msg = self.dao.add_message(session.id, "user", clean_message)
-        if was_empty:
-            self.dao.update_session_title(
-                session.id, _title_from_message(clean_message)
-            )
-
         assistant_text = self._call_model(
             session.id,
-            current_user_message_id=user_msg.id,
+            current_user_message=clean_message,
             jianpu_text=jianpu_text,
             enable_thinking=enable_thinking,
         )
-        assistant_msg = self.dao.add_message(session.id, "assistant", assistant_text)
+        _, assistant_msg = self.dao.add_exchange(
+            session.id,
+            user_content=clean_message,
+            assistant_content=assistant_text,
+            title_if_empty=_title_from_message(clean_message),
+        )
         return session.id, assistant_msg, self.dao.list_messages(session.id)
 
     def stream_message(
@@ -91,25 +90,23 @@ class AiChatService:
             raise ValueError("消息不能为空")
 
         session = self._ensure_session(session_id)
-        was_empty = len(self.dao.list_messages(session.id)) == 0
-        user_msg = self.dao.add_message(session.id, "user", clean_message)
-        if was_empty:
-            self.dao.update_session_title(
-                session.id, _title_from_message(clean_message)
-            )
-
         yield "session", session.id
         chunks: list[str] = []
         for chunk in self._stream_model(
             session.id,
-            current_user_message_id=user_msg.id,
+            current_user_message=clean_message,
             jianpu_text=jianpu_text,
             enable_thinking=enable_thinking,
         ):
             chunks.append(chunk)
             yield "delta", chunk
 
-        assistant_msg = self.dao.add_message(session.id, "assistant", "".join(chunks))
+        _, assistant_msg = self.dao.add_exchange(
+            session.id,
+            user_content=clean_message,
+            assistant_content="".join(chunks),
+            title_if_empty=_title_from_message(clean_message),
+        )
         yield "message", assistant_msg
         yield "messages", self.dao.list_messages(session.id)
 
@@ -124,7 +121,7 @@ class AiChatService:
         self,
         session_id: str,
         *,
-        current_user_message_id: int,
+        current_user_message: str,
         jianpu_text: str | None,
         enable_thinking: bool | None,
     ) -> str:
@@ -136,7 +133,7 @@ class AiChatService:
 
         messages = self._build_messages(
             session_id,
-            current_user_message_id=current_user_message_id,
+            current_user_message=current_user_message,
             jianpu_text=jianpu_text,
         )
 
@@ -158,7 +155,7 @@ class AiChatService:
         self,
         session_id: str,
         *,
-        current_user_message_id: int,
+        current_user_message: str,
         jianpu_text: str | None,
         enable_thinking: bool | None,
     ) -> Iterator[str]:
@@ -170,7 +167,7 @@ class AiChatService:
 
         messages = self._build_messages(
             session_id,
-            current_user_message_id=current_user_message_id,
+            current_user_message=current_user_message,
             jianpu_text=jianpu_text,
         )
         try:
@@ -191,21 +188,19 @@ class AiChatService:
         self,
         session_id: str,
         *,
-        current_user_message_id: int,
+        current_user_message: str,
         jianpu_text: str | None,
     ) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": build_jianpu_assistant_system_prompt()}
         ]
-        for memory in self.dao.recent_messages(session_id, MAX_CONTEXT_MESSAGES):
-            content = memory.content
-            if (
-                memory.id == current_user_message_id
-                and jianpu_text
-                and jianpu_text.strip()
-            ):
-                content = _with_jianpu_context(content, jianpu_text)
-            messages.append({"role": memory.role, "content": content})
+        history_limit = max(0, MAX_CONTEXT_MESSAGES - 1)
+        for memory in self.dao.recent_messages(session_id, history_limit):
+            messages.append({"role": memory.role, "content": memory.content})
+        content = current_user_message
+        if jianpu_text and jianpu_text.strip():
+            content = _with_jianpu_context(content, jianpu_text)
+        messages.append({"role": "user", "content": content})
         return messages
 
     def _provider_settings(self) -> tuple[str, str, str]:
@@ -217,8 +212,10 @@ class AiChatService:
         api_key = (
             provider_api_key(settings, "assistant", profile.id) or ASSISTANT_API_KEY
         )
-        base_url = (profile.base_url or ASSISTANT_BASE_URL).rstrip("/")
-        model = profile.model or ASSISTANT_MODEL
+        base_url = (
+            settings.get("assistant_base_url") or profile.base_url or ASSISTANT_BASE_URL
+        ).rstrip("/")
+        model = settings.get("assistant_model") or profile.model or ASSISTANT_MODEL
         return api_key, base_url, model
 
 

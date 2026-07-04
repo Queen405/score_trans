@@ -14,10 +14,10 @@ from .drawing.text import _render_positioned_text_blocks
 from .layout.measure import _score_measure_layout
 from .layout.rows import _layout_rows
 from .models.layout import MeasureLayout
-from .options import RenderOptions
+from .options import A4_RENDER_THEME, A4RenderTheme, RenderOptions
 from .parsing.tokens import _parse_chord_token, _parse_note
 from .svg.header import _svg_header, _svg_page_header
-from .utils.text import _esc, _extract_text_directives
+from .utils.text import _esc, _strip_legacy_text_directives
 
 A4_PAGE_WIDTH = 1240
 A4_PAGE_HEIGHT = 1754
@@ -35,8 +35,6 @@ A4_DURATION_SPACING_RATIO = 1.0
 A4_BEAT_GAP = 8
 A4_CHORD_GAP = 32.0
 A4_CHORD_TOKEN_WIDTH = 34.0
-A4_NOTE_FONT_SIZE = 26.0
-A4_MEASURE_NUMBER_FONT_SIZE = 20.0
 A4_TITLE_BLOCK_HEIGHT = 116
 A4_BOTTOM_MARGIN = 50
 
@@ -89,9 +87,9 @@ def render_jianpu_page_svg(
     base_options = options or RenderOptions(title=title, width=width)
     margin = min(72, max(4, int(width * 0.045)))
     margin = min(margin, max(1, width // 6))
-    clean_text, directive_blocks = _extract_text_directives(jianpu_text)
+    clean_text = _strip_legacy_text_directives(jianpu_text)
     score = parse_jianpu_score(clean_text, title=title)
-    positioned_blocks = directive_blocks or (text_blocks or [])
+    positioned_blocks = text_blocks or []
     score.text_blocks.extend(positioned_blocks)
     if start_measure_number is not None:
         measure_start = start_measure_number
@@ -587,7 +585,10 @@ def _content_min_line_height(layouts: list[MeasureLayout]) -> int:
 
 
 def _a4_render_options(
-    options: RenderOptions | None, *, title: str | None = None
+    options: RenderOptions | None,
+    *,
+    title: str | None = None,
+    theme: A4RenderTheme = A4_RENDER_THEME,
 ) -> RenderOptions:
     base = options or RenderOptions(title=title or "简谱")
     mode = base.measure_number_mode
@@ -610,17 +611,17 @@ def _a4_render_options(
         duration_spacing_ratio=A4_DURATION_SPACING_RATIO,
         chord_gap=A4_CHORD_GAP,
         chord_token_width=A4_CHORD_TOKEN_WIDTH,
-        note_font_size=A4_NOTE_FONT_SIZE,
-        accidental_font_size=16.0,
-        measure_number_font_size=A4_MEASURE_NUMBER_FONT_SIZE,
-        measure_attribute_font_size=16.0,
-        repeat_count_font_size=18.0,
-        tuplet_font_size=13.0,
-        lyric_font_size=16.0,
-        dynamic_font_size=19.0,
-        ornament_font_size=13.0,
-        technical_font_size=12.0,
-        technique_font_size=14.0,
+        note_font_size=theme.note_font_size,
+        accidental_font_size=theme.accidental_font_size,
+        measure_number_font_size=theme.measure_number_font_size,
+        measure_attribute_font_size=theme.measure_attribute_font_size,
+        repeat_count_font_size=theme.repeat_count_font_size,
+        tuplet_font_size=theme.tuplet_font_size,
+        lyric_font_size=theme.lyric_font_size,
+        dynamic_font_size=theme.dynamic_font_size,
+        ornament_font_size=theme.ornament_font_size,
+        technical_font_size=theme.technical_font_size,
+        technique_font_size=theme.technique_font_size,
         compact_measure_layout=True,
         show_beat_guides=base.show_beat_guides,
         show_staff_guides=base.show_staff_guides,
@@ -992,12 +993,13 @@ def render_multi_part_scores_a4_pages(
         end = min(start + rows_per_page, len(rows))
         page_rows_slice = list(range(start, end))
 
-        all_layouts_in_page: list[MeasureLayout] = []
-        page_rows_list: list[list[MeasureLayout]] = []
-        for row_idx in page_rows_slice:
-            page_rows_list.append(rows[row_idx])
-            all_layouts_in_page.extend(rows[row_idx])
-        note_start, note_end = _note_index_range_for_rows(page_rows_list)
+        page_rows_all_parts = [
+            part_rows[row_idx]
+            for part_rows in all_part_rows
+            for row_idx in page_rows_slice
+            if row_idx < len(part_rows)
+        ]
+        note_start, note_end = _note_index_range_for_rows(page_rows_all_parts)
 
         pages.append(
             RenderedA4Page(
@@ -1012,7 +1014,7 @@ def render_multi_part_scores_a4_pages(
                     part_names=[s.part_name for s in scores],
                     text_blocks=text_blocks_by_page.get(page_idx, []),
                 ),
-                measure_ranges=_measure_ranges_for_rows(page_rows_list),
+                measure_ranges=_measure_ranges_for_rows(page_rows_all_parts),
                 note_index_start=note_start,
                 note_index_end=note_end,
             )

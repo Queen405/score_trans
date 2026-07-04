@@ -19,7 +19,11 @@ def schedule_background_task(
 ) -> asyncio.Task[None]:
     background_tasks = getattr(app.state, "background_tasks", None)
     if background_tasks is None:
+        coro.close()
         raise RuntimeError("Background task registry is not initialized")
+    if not getattr(app.state, "accepting_background_tasks", True):
+        coro.close()
+        raise RuntimeError("Application is shutting down; background tasks are closed")
 
     task = asyncio.create_task(coro, name=f"score-trans:{task_id}")
     background_tasks.add(task)

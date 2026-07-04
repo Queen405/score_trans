@@ -18,8 +18,19 @@ def _event_token(event: JianpuEvent) -> str:
 def _pitch_token(pitch: JianpuPitch) -> str:
     accidental = pitch.accidental_text
     if accidental is None:
-        accidental = (
-            "#" if pitch.accidental > 0 else "b" if pitch.accidental < 0 else ""
+        accidental = {
+            Fraction(-2, 1): "bb",
+            Fraction(-3, 2): "tqf",
+            Fraction(-1, 1): "b",
+            Fraction(-1, 2): "qf",
+            Fraction(0, 1): "",
+            Fraction(1, 2): "qs",
+            Fraction(1, 1): "#",
+            Fraction(3, 2): "tqs",
+            Fraction(2, 1): "x",
+        }.get(
+            pitch.accidental,
+            "#" if pitch.accidental > 0 else "b" if pitch.accidental < 0 else "",
         )
     octave = "'" * max(0, pitch.octave) + "," * max(0, -pitch.octave)
     return f"{accidental}{pitch.degree}{octave}"

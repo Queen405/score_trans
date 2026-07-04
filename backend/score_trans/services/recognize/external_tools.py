@@ -14,6 +14,7 @@ from ...domain.parse.musicxml import read_musicxml_text
 from ...models.common.errors import ExternalToolError
 from ...models.common.paths import PROJECT_ROOT
 from ...models.settings.config import ToolConfig
+from ...utils.safe_xml import UnsafeXmlError, safe_xml_fromstring
 
 _MOVEMENT_STEM_PATTERN = re.compile(r"^(?P<base>.+)\.mvt(?P<number>\d+)$", re.I)
 
@@ -129,7 +130,13 @@ def _select_movement_group(
 
 def _merge_movement_musicxml(movements: list[Path], output_path: Path) -> None:
     try:
-        roots = [ET.fromstring(read_musicxml_text(movement)) for movement in movements]
+        roots = [
+            safe_xml_fromstring(
+                read_musicxml_text(movement),
+                source=movement.name,
+            )
+            for movement in movements
+        ]
     except (
         BadZipFile,
         ET.ParseError,
@@ -137,6 +144,7 @@ def _merge_movement_musicxml(movements: list[Path], output_path: Path) -> None:
         OSError,
         StopIteration,
         UnicodeError,
+        UnsafeXmlError,
     ) as exc:
         raise ExternalToolError(f"无法读取 Audiveris 乐章输出：{exc}") from exc
 

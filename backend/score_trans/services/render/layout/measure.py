@@ -108,16 +108,21 @@ def _measure_width_targets(
 
 
 def _text_measure_layout(
-    measure: str, number: int, beat_count: int, options: RenderOptions
+    measure: str,
+    number: int,
+    beat_count: int,
+    options: RenderOptions,
+    *,
+    beat_duration: Fraction = Fraction(1, 1),
 ) -> MeasureLayout:
+    if beat_duration <= 0:
+        raise ValueError("beat_duration must be greater than zero")
     tokens = measure.split() or ["0"]
     grouped: list[list[RenderItem]] = [[] for _ in range(max(1, beat_count))]
-    cursor = _token_duration("0") * 0
-    from fractions import Fraction
-
     cursor = Fraction(0, 1)
     for token in tokens:
-        index = min(len(grouped) - 1, max(0, int(cursor)))
-        grouped[index].append(RenderItem(token=token, duration=_token_duration(token)))
-        cursor += _token_duration(token)
+        duration = _token_duration(token)
+        index = min(len(grouped) - 1, max(0, int(cursor / beat_duration)))
+        grouped[index].append(RenderItem(token=token, duration=duration))
+        cursor += duration
     return _measure_layout(measure, number, grouped, options)

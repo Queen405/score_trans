@@ -1,11 +1,56 @@
 import type { UploadResponse } from '../models/types'
 
+type BackendConnection = Awaited<
+  ReturnType<Window['api']['getBackendConnection']>
+>
+
+let backendConnection: BackendConnection | null = null
+
+function fallbackBackendConnection(): BackendConnection {
+  const viteEnv = import.meta.env ?? {}
+  return {
+    baseURL: viteEnv.VITE_BACKEND_URL || 'http://127.0.0.1:19200',
+    token: viteEnv.VITE_BACKEND_TOKEN || '',
+  }
+}
+
+export async function initializeBackendConnection(): Promise<void> {
+  const fallback = fallbackBackendConnection()
+  if (typeof window === 'undefined' || !window.api?.getBackendConnection) {
+    backendConnection = fallback
+    return
+  }
+  try {
+    const connection = await window.api.getBackendConnection()
+    backendConnection = connection.baseURL
+      ? { baseURL: connection.baseURL, token: connection.token || '' }
+      : fallback
+  } catch (error) {
+    console.warn('Failed to initialize backend connection:', error)
+    backendConnection = fallback
+  }
+}
+
+function getBackendConnection(): BackendConnection {
+  return backendConnection ?? fallbackBackendConnection()
+}
+
 export function getBaseURL(): string {
-  return (
-    (window as any)?.api?.getBackendURL?.() ||
-    import.meta.env.VITE_BACKEND_URL ||
-    'http://127.0.0.1:19200'
-  )
+  return getBackendConnection().baseURL
+}
+
+export function getApiToken(): string {
+  return getBackendConnection().token
+}
+
+export function authenticatedFetch(
+  input: RequestInfo | URL,
+  options: RequestInit = {},
+): Promise<Response> {
+  const headers = new Headers(options.headers)
+  const token = getApiToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  return fetch(input, { ...options, headers })
 }
 
 export class ApiError extends Error {
@@ -29,7 +74,7 @@ export async function apiFetch<T>(
   options?: RequestInit,
 ): Promise<ApiResult<T>> {
   try {
-    const response = await fetch(`${getBaseURL()}${path}`, options)
+    const response = await authenticatedFetch(`${getBaseURL()}${path}`, options)
     if (!response.ok) {
       const payload = await response.json().catch(() => ({} as Record<string, unknown>))
       return apiFailure(apiErrorFromResponse(response.status, payload))
@@ -88,6 +133,8 @@ async function uploadFileData(
   return new Promise<UploadResponse>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${getBaseURL()}/files/upload`)
+    const token = getApiToken()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
         // Cap upload phase at 85% — remaining 15% is server-side processing
@@ -152,7 +199,7 @@ export async function fetchFileBlob(
   signal?: AbortSignal,
 ): Promise<ApiResult<Blob>> {
   try {
-    const response = await fetch(getFileURL(fileId), { signal })
+    const response = await authenticatedFetch(getFileURL(fileId), { signal })
     if (!response.ok) {
       const payload = await response.json().catch(() => ({} as Record<string, unknown>))
       return apiFailure(apiErrorFromResponse(response.status, payload))
@@ -165,7 +212,7 @@ export async function fetchFileBlob(
 
 async function probeFile(url: string, options: RequestInit): Promise<boolean | null> {
   try {
-    const res = await fetch(url, { cache: 'no-store', ...options })
+    const res = await authenticatedFetch(url, { cache: 'no-store', ...options })
     if (res.ok || res.status === 206) return true
     if (res.status === 404 || res.status === 410) return false
     return null

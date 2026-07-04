@@ -11,28 +11,8 @@ from ..parsing.tokens import _token_slashes
 from ..utils.text import _esc
 from ..utils.metrics import _token_metrics
 from ..utils.helpers import _mark_display
-from .beams import _render_beams
 from .performance_marks import _render_performance_mark
-from .spanners import _render_spanners
 from .token import _render_token
-
-
-def _render_beat_items(
-    items: list[RenderItem],
-    x: float,
-    width: float,
-    y: int,
-    options: RenderOptions | None = None,
-) -> list[str]:
-    from ..layout.beat import _item_slots
-
-    slots = _item_slots(items, x, width, options)
-    spanners, _tie, _slur, _slide = _render_spanners(slots, y, options=options)
-    return (
-        _render_slot_items(slots, y, options)
-        + _render_beams(slots, y, options)
-        + spanners
-    )
 
 
 def _render_slot_items(

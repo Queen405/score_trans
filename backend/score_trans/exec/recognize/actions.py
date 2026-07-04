@@ -5,8 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import UploadFile
-
+from ...models.common.protocols import UploadFileLike
 from ...models.recognize.schemas import RecognizeResponse
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
@@ -52,7 +51,7 @@ class RecognizeActions:
 
     def recognize(
         self,
-        file: UploadFile,
+        file: UploadFileLike,
         *,
         progress_callback: ProgressCallback | None = None,
     ) -> RecognizeResponse:
@@ -62,7 +61,7 @@ class RecognizeActions:
             progress_callback=progress_callback,
         )
 
-    def save_upload(self, file: UploadFile) -> Path:
+    def save_upload(self, file: UploadFileLike) -> Path:
         file_id = self.uploads.save(file)
         input_path = self.uploads.get_path(file_id)
         if not input_path:
@@ -72,7 +71,7 @@ class RecognizeActions:
     async def submit_recognize_task(
         self,
         app: Any,
-        file: UploadFile,
+        file: UploadFileLike,
         *,
         tasks: TaskActions,
     ) -> TaskSubmitResponse:

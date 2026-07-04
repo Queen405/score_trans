@@ -19,6 +19,7 @@ from .text import _render_measure_text_blocks
 _MARK_ABOVE_TOKEN = 20  # highest technical mark above token visual top
 _MEASURE_NO_GAP = 4  # clearance between measure number and highest element
 _TUPLET_MARK_GAP = 9.0
+_BAR_CONTENT_PADDING = 4.0
 
 
 def _measure_number_y(measure: MeasureLayout, y: int, options: RenderOptions) -> int:
@@ -38,6 +39,90 @@ def _measure_number_y(measure: MeasureLayout, y: int, options: RenderOptions) ->
     return int(min(min_top - _MARK_ABOVE_TOKEN - _MEASURE_NO_GAP, y - 44))
 
 
+def _measure_bar_bounds(
+    measure: MeasureLayout,
+    y: int,
+    options: RenderOptions,
+) -> tuple[float, float]:
+    top = float(y - 50)
+    bottom = float(y + 58)
+    for beat in measure.beats:
+        for item in beat.items:
+            metrics = _token_metrics(item.token, y, options)
+            top = min(top, metrics["top"] - _BAR_CONTENT_PADDING)
+            bottom = max(bottom, metrics["bottom"] + _BAR_CONTENT_PADDING)
+
+            above_extent = 0.0
+            for mark_id in _performance_mark_ids(item):
+                mark = get_performance_mark(mark_id)
+                if mark is None:
+                    continue
+                if mark.placement == "above":
+                    above_extent += mark.visual_height + mark.stack_gap
+                elif mark.placement == "below-right":
+                    bottom = max(
+                        bottom,
+                        metrics["bottom"] + mark.visual_height + _BAR_CONTENT_PADDING,
+                    )
+                elif mark.placement in {"left", "right"}:
+                    top = min(
+                        top,
+                        y - mark.visual_height / 2 - _BAR_CONTENT_PADDING,
+                    )
+                    bottom = max(
+                        bottom,
+                        y + mark.visual_height / 2 + _BAR_CONTENT_PADDING,
+                    )
+
+            unknown_extent = len(_unknown_mark_entries(item)) * 16.0
+            if item.tuplet_id:
+                top = min(top, metrics["top"] - 22.0)
+            if above_extent or unknown_extent:
+                anchor_gap = 32.0 if item.tuplet_id else 13.0
+                top = min(
+                    top,
+                    metrics["top"]
+                    - anchor_gap
+                    - above_extent
+                    - unknown_extent
+                    - _BAR_CONTENT_PADDING,
+                )
+            if item.dynamic:
+                bottom = max(bottom, metrics["bottom"] + 34.0)
+            if item.lyric:
+                bottom = max(bottom, metrics["bottom"] + 22.0)
+
+    used_lanes: dict[tuple[object, str], int] = {}
+    seen: set[tuple[str, object]] = set()
+    for block in getattr(measure.source, "text_blocks", []):
+        text = str(getattr(block, "text", "") or "").strip()
+        role = getattr(block, "role", None)
+        if (
+            not text
+            or role not in {"expression", "other", "lyric"}
+            or getattr(block, "bbox", None) is not None
+        ):
+            continue
+        start = getattr(block, "start", None)
+        key = (text, start)
+        if key in seen:
+            continue
+        seen.add(key)
+        placement = (getattr(block, "placement", None) or "below").lower()
+        lane_key = (start, placement)
+        lane = used_lanes.get(lane_key, 0)
+        used_lanes[lane_key] = lane + 1
+        text_y = y - 48 - lane * 18 if placement == "above" else y + 62 + lane * 20
+        font_size = (
+            options.dynamic_font_size
+            if role == "expression"
+            else options.lyric_font_size
+        )
+        top = min(top, text_y - font_size - _BAR_CONTENT_PADDING)
+        bottom = max(bottom, text_y + _BAR_CONTENT_PADDING)
+    return top, bottom
+
+
 def _render_measure(
     measure: MeasureLayout,
     x: float,
@@ -54,6 +139,7 @@ def _render_measure(
 ) -> tuple[list[str], object, object, object]:
     from ..layout.beat import _item_slots
 
+    bar_top, bar_bottom = _measure_bar_bounds(measure, y, options)
     out = [
         f'<g class="measure" data-number="{_esc(str(measure.number))}" data-width="{width:.1f}">'
     ]
@@ -75,9 +161,9 @@ def _render_measure(
             f'<text class="repeat-count" x="{x + width - 6:.1f}" y="{rc_y}" text-anchor="end">*{repeat_count}</text>'
         )
     if getattr(measure.source, "repeat_start", False):
-        out.extend(_repeat_start_bar(x, y))
+        out.extend(_repeat_start_bar(x, y, top=bar_top, bottom=bar_bottom))
     elif draw_start_bar:
-        out.append(_bar_line(x, y))
+        out.append(_bar_line(x, y, top=bar_top, bottom=bar_bottom))
     content_x = x + 26
     content_width = max(32.0, width - 56)
     natural_content = (
@@ -115,9 +201,23 @@ def _render_measure(
             f'<text class="measure-no error" x="{x + 6:.1f}" y="{y + 80}">{_esc("; ".join(measure.errors))}</text>'
         )
     if getattr(measure.source, "repeat_end", False):
-        out.extend(_repeat_end_bar(x + width, y))
+        out.extend(
+            _repeat_end_bar(
+                x + width,
+                y,
+                top=bar_top,
+                bottom=bar_bottom,
+            )
+        )
     else:
-        out.append(_bar_line(x + width, y))
+        out.append(
+            _bar_line(
+                x + width,
+                y,
+                top=bar_top,
+                bottom=bar_bottom,
+            )
+        )
     out.append("</g>")
     return out, new_tie, new_slur, new_slide
 

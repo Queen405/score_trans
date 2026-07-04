@@ -1,11 +1,101 @@
 import sqlite3
 
+import pytest
+
+from score_trans.dao.history.history_dao import HistoryDao
+from score_trans.exec.history.actions import HistoryActions
 from score_trans.models.history.entities import HistoryPage, HistoryRenderPageOcrText
+from score_trans.models.history.schemas import PageUpdate
 from score_trans.models.provenance.schemas import (
     SourceTextAttachment,
     TextPlacementAnchor,
 )
 from score_trans.services.history.history_service import HistoryService
+
+
+def _create_legacy_history_db(db_path) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                input_file_name TEXT NOT NULL DEFAULT '',
+                input_file_id TEXT NOT NULL DEFAULT '',
+                musicxml_file_id TEXT NOT NULL DEFAULT '',
+                jianpu_text TEXT NOT NULL DEFAULT '',
+                svg_file_id TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'completed',
+                error_message TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO history (
+                id, created_at, input_file_name, input_file_id,
+                musicxml_file_id, jianpu_text, svg_file_id, status, error_message
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    3,
+                    "2025-01-02 03:04:05",
+                    "first.png",
+                    "input-3",
+                    "xml-3",
+                    "1=C\n4/4\n1 2 3 4 |",
+                    "svg-3",
+                    "completed",
+                    "",
+                ),
+                (
+                    8,
+                    "2025-02-03 04:05:06",
+                    "failed.png",
+                    "input-8",
+                    "",
+                    "",
+                    "",
+                    "failed",
+                    "识别失败",
+                ),
+            ],
+        )
+
+
+def test_list_batches_loads_pages_with_constant_query_count(tmp_path) -> None:
+    class TracingHistoryDao(HistoryDao):
+        def __init__(self, db_path) -> None:
+            self.statements: list[str] = []
+            super().__init__(db_path)
+
+        def _connect(self) -> sqlite3.Connection:
+            conn = super()._connect()
+            conn.set_trace_callback(self.statements.append)
+            return conn
+
+    dao = TracingHistoryDao(tmp_path / "history.db")
+    for index in range(3):
+        dao.create_batch(
+            [
+                HistoryPage(input_file_name=f"{index}-a.png"),
+                HistoryPage(input_file_name=f"{index}-b.png"),
+            ]
+        )
+
+    dao.statements.clear()
+    batches = dao.list_batches()
+    select_statements = [
+        statement
+        for statement in dao.statements
+        if statement.lstrip().upper().startswith("SELECT")
+    ]
+
+    assert len(batches) == 3
+    assert all(len(batch.pages) == 2 for batch in batches)
+    assert len(select_statements) == 2
 
 
 def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
@@ -51,6 +141,27 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
     assert service.get_batch(batch.id).pages[0].text_attachments == (
         updated.text_attachments
     )
+
+
+def test_page_patch_distinguishes_omitted_and_explicit_null(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    actions = HistoryActions(service)
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", start_measure_number=9)]
+    )
+    page_id = batch.pages[0].id
+
+    preserved = actions.update_history_page(
+        page_id,
+        PageUpdate(jianpu_text="1=C\n4/4\n1 2 |"),
+    )
+    cleared = actions.update_history_page(
+        page_id,
+        PageUpdate(start_measure_number=None),
+    )
+
+    assert preserved.start_measure_number == 9
+    assert cleared.start_measure_number is None
 
 
 def test_history_page_persists_background_task_id(tmp_path) -> None:
@@ -300,6 +411,138 @@ def test_history_batch_migration_adds_empty_batch_jianpu_text(tmp_path) -> None:
     assert loaded.jianpu_text == ""
     assert loaded.render_page_file_ids == ["a4-old"]
     assert loaded.render_page_ocr_texts == []
+
+
+def test_schema_migration_rolls_back_all_alter_steps(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "history.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE history_batch (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL DEFAULT '',
+                page_count INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'completed'
+            );
+            CREATE TABLE history_page (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batch_id INTEGER NOT NULL,
+                input_file_name TEXT NOT NULL DEFAULT '',
+                input_file_id TEXT NOT NULL DEFAULT '',
+                musicxml_file_id TEXT NOT NULL DEFAULT '',
+                jianpu_text TEXT NOT NULL DEFAULT '',
+                svg_file_id TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'completed',
+                error_message TEXT NOT NULL DEFAULT ''
+            );
+            """
+        )
+        original_page_columns = [
+            row[1] for row in conn.execute("PRAGMA table_info(history_page)")
+        ]
+        original_batch_columns = [
+            row[1] for row in conn.execute("PRAGMA table_info(history_batch)")
+        ]
+
+    def fail_before_index_creation(conn: sqlite3.Connection) -> None:
+        raise RuntimeError("injected schema migration failure")
+
+    monkeypatch.setattr(
+        HistoryDao,
+        "_ensure_indexes",
+        staticmethod(fail_before_index_creation),
+    )
+
+    with pytest.raises(RuntimeError, match="injected schema migration failure"):
+        HistoryDao(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        assert [
+            row[1] for row in conn.execute("PRAGMA table_info(history_page)")
+        ] == original_page_columns
+        assert [
+            row[1] for row in conn.execute("PRAGMA table_info(history_batch)")
+        ] == original_batch_columns
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 0
+
+
+def test_legacy_history_rows_are_migrated_without_data_loss(tmp_path) -> None:
+    db_path = tmp_path / "history.db"
+    _create_legacy_history_db(db_path)
+
+    first_load = HistoryDao(db_path).list_batches()
+    second_load = HistoryDao(db_path).list_batches()
+
+    assert [batch.id for batch in first_load] == [8, 3]
+    assert [batch.id for batch in second_load] == [8, 3]
+    completed = first_load[1]
+    assert completed.created_at == "2025-01-02 03:04:05"
+    assert completed.jianpu_text == "1=C\n4/4\n1 2 3 4 |"
+    assert completed.status == "completed"
+    assert len(completed.pages) == 1
+    assert completed.pages[0].input_file_name == "first.png"
+    assert completed.pages[0].input_file_id == "input-3"
+    assert completed.pages[0].musicxml_file_id == "xml-3"
+    assert completed.pages[0].jianpu_text == "1=C\n4/4\n1 2 3 4 |"
+    assert completed.pages[0].svg_file_id == "svg-3"
+    assert completed.pages[0].completed_at == "2025-01-02 03:04:05"
+
+    failed = first_load[0]
+    assert failed.status == "failed"
+    assert failed.pages[0].status == "failed"
+    assert failed.pages[0].error_message == "识别失败"
+    assert failed.pages[0].completed_at == "2025-02-03 04:05:06"
+
+    with sqlite3.connect(db_path) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "history" not in tables
+        assert "history_legacy_backup" in tables
+        assert (
+            conn.execute("SELECT COUNT(*) FROM history_legacy_backup").fetchone()[0]
+            == 2
+        )
+
+
+def test_legacy_history_migration_rolls_back_as_one_transaction(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "history.db"
+    _create_legacy_history_db(db_path)
+
+    def fail_after_partial_insert(conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            INSERT INTO history_batch (id, page_count, status)
+            VALUES (99, 1, 'completed')
+            """
+        )
+        raise RuntimeError("injected migration failure")
+
+    monkeypatch.setattr(
+        HistoryDao,
+        "_migrate_legacy_history_rows",
+        staticmethod(fail_after_partial_insert),
+        raising=False,
+    )
+
+    with pytest.raises(RuntimeError, match="injected migration failure"):
+        HistoryDao(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "history" in tables
+        assert "history_batch" not in tables
+        assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 2
 
 
 def test_history_batch_pages_keep_source_order_by_id(tmp_path) -> None:

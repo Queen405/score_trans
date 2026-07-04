@@ -37,7 +37,24 @@ def _load_prompt_config() -> dict[str, str]:
 
     if config_path:
         with open(config_path, encoding="utf-8") as f:
-            _PROMPT_CONFIG = yaml.safe_load(f)
+            loaded = yaml.safe_load(f)
+        if loaded is None:
+            _PROMPT_CONFIG = {}
+        elif not isinstance(loaded, dict):
+            raise AITranscriptionError(
+                f"{config_path} 顶层必须是 YAML 映射，当前为 {type(loaded).__name__}。"
+            )
+        else:
+            invalid = [
+                key
+                for key, value in loaded.items()
+                if not isinstance(key, str) or not isinstance(value, str)
+            ]
+            if invalid:
+                raise AITranscriptionError(
+                    f"{config_path} 的所有字段名和值都必须是字符串：{invalid}"
+                )
+            _PROMPT_CONFIG = dict(loaded)
     else:
         _PROMPT_CONFIG = {}
     return _PROMPT_CONFIG
