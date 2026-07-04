@@ -87,7 +87,13 @@ def recognize_with_audiveris(
             first_error, effective_input, output_dir, config
         )
         if retry_path is None:
-            raise
+            raise ExternalToolError(
+                _summarize_audiveris_failure(
+                    first_error.stdout or "", first_error.stderr or "", output_dir
+                ),
+                stdout=first_error.stdout,
+                stderr=first_error.stderr,
+            ) from first_error
         _run_audiveris(retry_path, output_dir, config)
         effective_input = retry_path
 
