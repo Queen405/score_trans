@@ -8,13 +8,13 @@ export interface JianpuNoteSpan {
   token: string
 }
 
-const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g
+export const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g
 const DURATION_PREFIX_PATTERN = /^(?:[whqs]|d+)/
 const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
 const PITCH_PATTERN = /^(?:(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
 const TUPLET_PART_PATTERN =
   /(?:[whqs]|d+)?(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[0-7][',]*[#b]?/g
-const TUPLET_RATIO_PATTERN = /^\d+\s*:\s*\d+\s*;/
+export const TUPLET_RATIO_PATTERN = /^\d+\s*:\s*\d+\s*;/
 const PART_MARKER_PATTERN = /^\s*\/\/\s*@part\s+\d+/
 
 // ── Fraction utilities (exact arithmetic to match backend Fraction) ──
@@ -428,7 +428,7 @@ function tupletPartSpans(
   })
 }
 
-function isMetadataLine(line: string): boolean {
+export function isMetadataLine(line: string): boolean {
   const trimmed = line.trim()
   if (!trimmed || trimmed.startsWith('//')) return true
   if (trimmed.startsWith('L:') || trimmed.startsWith('@text ')) return true
@@ -438,13 +438,13 @@ function isMetadataLine(line: string): boolean {
   return /^\d+\/\d+$/.test(trimmed)
 }
 
-function stripInlineComment(line: string): string {
+export function stripInlineComment(line: string): string {
   const commentStart = line.indexOf('//')
   if (commentStart < 0) return line
   return line.slice(0, commentStart)
 }
 
-function isPlayableToken(token: string): boolean {
+export function isPlayableToken(token: string): boolean {
   if (
     token === '|' ||
     token === '||' ||

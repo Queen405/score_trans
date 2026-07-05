@@ -356,18 +356,18 @@ def test_ai_validation_applies_accidental_mode() -> None:
 
 
 def test_ai_chat_injects_jianpu_syntax_and_limits_memory(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path,
 ) -> None:
-    captured_messages = []
+    captured_messages: list[list[dict]] = []
 
-    def fake_chat_completions(**kwargs):
-        captured_messages.append(kwargs["messages"])
-        return "已检查"
+    class CapturingChatProvider:
+        def chat(self, messages, *, enable_thinking=None) -> str:
+            captured_messages.append(messages)
+            return "已检查"
 
-    monkeypatch.setattr(
-        "score_trans.services.ai.chat_service.chat_completions",
-        fake_chat_completions,
-    )
+        def stream_chat(self, messages, *, enable_thinking=None):
+            yield "已检查"
+
     settings = SettingsDao(tmp_path / "settings.db")
     settings.set("assistant_api_key", "test-key")
     settings.set(
@@ -377,6 +377,7 @@ def test_ai_chat_injects_jianpu_syntax_and_limits_memory(
     service = AiChatService(
         dao=AiChatDao(tmp_path / "ai_chat.db"),
         settings=settings,
+        provider=CapturingChatProvider(),  # type: ignore[arg-type]
     )
     session = service.create_session()
     for index in range(21):
@@ -401,26 +402,29 @@ def test_ai_chat_injects_jianpu_syntax_and_limits_memory(
 def test_ai_chat_forwards_disabled_thinking_to_provider(
     tmp_path: Path, monkeypatch
 ) -> None:
-    captured_kwargs = []
+    class FakeChatProvider:
+        def __init__(self) -> None:
+            self.calls: list[dict] = []
 
-    def fake_chat_completions(**kwargs):
-        captured_kwargs.append(kwargs)
-        return "直接回答"
+        def chat(self, messages, *, enable_thinking=None) -> str:
+            self.calls.append({"messages": messages, "enable_thinking": enable_thinking})
+            return "直接回答"
 
-    monkeypatch.setattr(
-        "score_trans.services.ai.chat_service.chat_completions",
-        fake_chat_completions,
-    )
+        def stream_chat(self, messages, *, enable_thinking=None):
+            yield "直接回答"
+
+    fake_provider = FakeChatProvider()
     settings = SettingsDao(tmp_path / "settings.db")
     settings.set("assistant_api_key", "test-key")
     service = AiChatService(
         dao=AiChatDao(tmp_path / "ai_chat.db"),
         settings=settings,
+        provider=fake_provider,  # type: ignore[arg-type]
     )
 
     service.send_message("帮我检查", enable_thinking=False)
 
-    assert captured_kwargs[-1]["enable_thinking"] is False
+    assert fake_provider.calls[-1]["enable_thinking"] is False
 
 
 def test_chat_completions_omits_thinking_param_until_explicitly_set(
@@ -455,9 +459,10 @@ def test_chat_completions_omits_thinking_param_until_explicitly_set(
         api_key="test-key",
         model="test-model",
         messages=[{"role": "user", "content": "hi"}],
-        enable_thinking=False,
+        extra_body={"enable_thinking": False},
     )
 
+    assert "extra_body" not in captured_bodies[0]
     assert "enable_thinking" not in captured_bodies[0]
     assert captured_bodies[1]["enable_thinking"] is False
 
@@ -555,23 +560,76 @@ def test_chat_completion_chunks_surfaces_provider_error_payload(
         )
 
 
-def test_ai_chat_stream_persists_streamed_response(tmp_path: Path, monkeypatch) -> None:
-    captured_kwargs = []
+def test_agnes_chat_provider_uses_nested_chat_template_kwargs() -> None:
+    from score_trans.services.ai.providers.agnes import AgnesChatProvider
 
-    def fake_chat_completion_chunks(**kwargs):
-        captured_kwargs.append(kwargs)
-        yield "<think>检查和弦分隔符</think>"
-        yield "\n\n应改为 [1+3+5]。"
-
-    monkeypatch.setattr(
-        "score_trans.services.ai.chat_service.chat_completion_chunks",
-        fake_chat_completion_chunks,
+    provider = AgnesChatProvider(
+        base_url="https://apihub.agnes-ai.com/v1",
+        model="agnes-2.0-flash",
+        api_key="test-key",
     )
+
+    assert provider.thinking_kwargs(None) == {}
+    assert provider.thinking_kwargs(True) == {
+        "chat_template_kwargs": {"enable_thinking": True}
+    }
+    assert provider.thinking_kwargs(False) == {
+        "chat_template_kwargs": {"enable_thinking": False}
+    }
+
+
+def test_sensenova_chat_provider_uses_reasoning_effort() -> None:
+    from score_trans.services.ai.providers.sensenova import SenseNovaChatProvider
+
+    provider = SenseNovaChatProvider(
+        base_url="https://token.sensenova.cn/v1",
+        model="deepseek-v4-flash",
+        api_key="test-key",
+    )
+
+    assert provider.thinking_kwargs(None) == {}
+    assert provider.thinking_kwargs(True) == {"reasoning_effort": "high"}
+    assert provider.thinking_kwargs(False) == {"reasoning_effort": "none"}
+
+
+def test_base_chat_provider_uses_top_level_enable_thinking() -> None:
+    from score_trans.services.ai.providers._chat import OpenAICompatibleChatProvider
+
+    provider = OpenAICompatibleChatProvider(
+        base_url="https://example.com/v1",
+        model="test-model",
+        api_key="test-key",
+    )
+
+    assert provider.thinking_kwargs(None) == {}
+    assert provider.thinking_kwargs(True) == {"enable_thinking": True}
+    assert provider.thinking_kwargs(False) == {"enable_thinking": False}
+
+
+def test_sensenova_vision_provider_registered() -> None:
+    from score_trans.services.ai.core.registry import available_providers
+
+    assert "sensenova" in available_providers()
+
+
+def test_ai_chat_stream_persists_streamed_response(tmp_path: Path) -> None:
+    captured_kwargs: list[dict] = []
+
+    class FakeChatProvider:
+        def chat(self, messages, *, enable_thinking=None) -> str:
+            return ""
+
+        def stream_chat(self, messages, *, enable_thinking=None):
+            captured_kwargs.append({"enable_thinking": enable_thinking})
+            yield "<think>检查和弦分隔符</think>"
+            yield "\n\n应改为 [1+3+5]。"
+
     settings = SettingsDao(tmp_path / "settings.db")
     settings.set("assistant_api_key", "test-key")
     service = AiChatService(
         dao=AiChatDao(tmp_path / "ai_chat.db"),
         settings=settings,
+        provider=FakeChatProvider(),  # type: ignore[arg-type]
     )
 
     events = list(service.stream_message("检查 [1,3,5]", enable_thinking=False))
@@ -587,20 +645,24 @@ def test_ai_chat_stream_persists_streamed_response(tmp_path: Path, monkeypatch) 
 
 
 def test_ai_chat_stream_failure_does_not_persist_orphan_user_message(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path,
 ) -> None:
-    def failing_chunks(**kwargs):
-        yield "已生成一部分"
-        raise RuntimeError("provider disconnected")
+    class FailingStreamChatProvider:
+        def chat(self, messages, *, enable_thinking=None) -> str:
+            return ""
 
-    monkeypatch.setattr(
-        "score_trans.services.ai.chat_service.chat_completion_chunks",
-        failing_chunks,
-    )
+        def stream_chat(self, messages, *, enable_thinking=None):
+            yield "已生成一部分"
+            raise RuntimeError("provider disconnected")
+
     settings = SettingsDao(tmp_path / "settings.db")
     settings.set("assistant_api_key", "test-key")
     dao = AiChatDao(tmp_path / "ai_chat.db")
-    service = AiChatService(dao=dao, settings=settings)
+    service = AiChatService(
+        dao=dao,
+        settings=settings,
+        provider=FailingStreamChatProvider(),  # type: ignore[arg-type]
+    )
     stream = service.stream_message("这条消息不能成为孤立记录")
 
     event, session_id = next(stream)
@@ -614,19 +676,23 @@ def test_ai_chat_stream_failure_does_not_persist_orphan_user_message(
 
 
 def test_ai_chat_non_stream_failure_does_not_persist_orphan_user_message(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path,
 ) -> None:
-    def failing_completion(**kwargs):
-        raise RuntimeError("provider unavailable")
+    class FailingChatProvider:
+        def chat(self, messages, *, enable_thinking=None) -> str:
+            raise RuntimeError("provider unavailable")
 
-    monkeypatch.setattr(
-        "score_trans.services.ai.chat_service.chat_completions",
-        failing_completion,
-    )
+        def stream_chat(self, messages, *, enable_thinking=None):
+            raise RuntimeError("provider unavailable")
+
     settings = SettingsDao(tmp_path / "settings.db")
     settings.set("assistant_api_key", "test-key")
     dao = AiChatDao(tmp_path / "ai_chat.db")
-    service = AiChatService(dao=dao, settings=settings)
+    service = AiChatService(
+        dao=dao,
+        settings=settings,
+        provider=FailingChatProvider(),  # type: ignore[arg-type]
+    )
     session = service.create_session("保留标题")
 
     with pytest.raises(AITranscriptionError, match="provider unavailable"):

@@ -12,6 +12,17 @@ export const useAssistantStore = defineStore('assistant', () => {
   const sending = ref(false)
   const error = ref('')
 
+  let streamController: AbortController | null = null
+  const streamSessionId = ref('')
+  let savedStreamMessages: AiChatMessage[] | null = null
+
+  function abortStream(): void {
+    if (streamController) {
+      streamController.abort()
+      streamController = null
+    }
+  }
+
   async function loadSessions(): Promise<void> {
     loading.value = true
     error.value = ''
@@ -28,6 +39,19 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   async function selectSession(sessionId: string): Promise<void> {
+    if (sending.value && sessionId === streamSessionId.value) {
+      currentSessionId.value = sessionId
+      if (savedStreamMessages) {
+        messages.value = savedStreamMessages
+        savedStreamMessages = null
+      }
+      return
+    }
+
+    if (sending.value && currentSessionId.value === streamSessionId.value) {
+      savedStreamMessages = [...messages.value]
+    }
+
     currentSessionId.value = sessionId
     loading.value = true
     error.value = ''
@@ -42,6 +66,10 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   async function createSession(): Promise<void> {
+    if (sending.value && currentSessionId.value === streamSessionId.value) {
+      savedStreamMessages = [...messages.value]
+    }
+
     loading.value = true
     error.value = ''
     try {
@@ -57,6 +85,11 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   async function deleteSession(sessionId: string): Promise<void> {
+    if (sending.value && sessionId === streamSessionId.value) {
+      abortStream()
+      savedStreamMessages = null
+    }
+
     loading.value = true
     error.value = ''
     try {
@@ -94,6 +127,10 @@ export const useAssistantStore = defineStore('assistant', () => {
       content: '',
       created_at: '',
     })
+    const controller = new AbortController()
+    streamController = controller
+    streamSessionId.value = currentSessionId.value
+    savedStreamMessages = null
     sending.value = true
     error.value = ''
     try {
@@ -106,34 +143,74 @@ export const useAssistantStore = defineStore('assistant', () => {
         },
         {
           onSession(sessionId) {
-            currentSessionId.value = sessionId
-            messages.value = messages.value.map((item) => (
+            if (controller.signal.aborted) return
+            const oldStreamSessionId = streamSessionId.value
+            streamSessionId.value = sessionId
+            const userOnStream = currentSessionId.value === oldStreamSessionId
+            const updateFn = (item: AiChatMessage) => (
               item.id < 0 ? { ...item, session_id: sessionId } : item
-            ))
+            )
+            if (userOnStream) {
+              currentSessionId.value = sessionId
+              messages.value = messages.value.map(updateFn)
+            }
+            if (savedStreamMessages) {
+              savedStreamMessages = savedStreamMessages.map(updateFn)
+            }
           },
           onDelta(content) {
-            const targetIndex = messages.value.findIndex(
-              (item) => item.id === tempAssistantId,
-            )
-            if (targetIndex >= 0) {
-              const target = messages.value[targetIndex]
-              messages.value[targetIndex] = {
-                ...target,
-                content: target.content + content,
+            if (controller.signal.aborted) return
+            const onStream = currentSessionId.value === streamSessionId.value
+            if (onStream) {
+              const targetIndex = messages.value.findIndex(
+                (item) => item.id === tempAssistantId,
+              )
+              if (targetIndex >= 0) {
+                const target = messages.value[targetIndex]
+                messages.value[targetIndex] = {
+                  ...target,
+                  content: target.content + content,
+                }
+              }
+            }
+            if (savedStreamMessages) {
+              const savedIndex = savedStreamMessages.findIndex(
+                (item) => item.id === tempAssistantId,
+              )
+              if (savedIndex >= 0) {
+                const saved = savedStreamMessages[savedIndex]
+                savedStreamMessages[savedIndex] = {
+                  ...saved,
+                  content: saved.content + content,
+                }
               }
             }
           },
           onDone(response) {
-            messages.value = response.messages
+            if (controller.signal.aborted) return
+            if (currentSessionId.value === streamSessionId.value) {
+              messages.value = response.messages
+            }
+            savedStreamMessages = null
           },
         },
+        controller.signal,
       ))
+      if (controller.signal.aborted) return
       sessions.value = await requireData(aiApi.listChatSessions())
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : String(e)
-      messages.value = messages.value.filter((item) => item.id !== tempId && item.id !== tempAssistantId)
+      if (controller.signal.aborted) return
+      if (currentSessionId.value === streamSessionId.value) {
+        error.value = e instanceof Error ? e.message : String(e)
+        messages.value = messages.value.filter((item) => item.id !== tempId && item.id !== tempAssistantId)
+      }
+      savedStreamMessages = null
       throw e
     } finally {
+      if (streamController === controller) {
+        streamController = null
+      }
+      streamSessionId.value = ''
       sending.value = false
     }
   }

@@ -62,12 +62,14 @@ export const aiApi = {
   async streamChat(
     req: AiChatRequest,
     handlers: ChatStreamHandlers,
+    signal?: AbortSignal,
   ): Promise<ApiResult<void>> {
     try {
       const response = await authenticatedFetch(`${BASE_URL()}/ai/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
+        signal,
       })
 
       if (!response.ok) {
@@ -84,6 +86,10 @@ export const aiApi = {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
+        if (signal?.aborted) {
+          await reader.cancel()
+          break
+        }
         buffer += decoder.decode(value, { stream: true })
         const blocks = buffer.split('\n\n')
         buffer = blocks.pop() ?? ''
@@ -91,9 +97,10 @@ export const aiApi = {
           handleSseBlock(block, handlers)
         }
       }
-      if (buffer.trim()) handleSseBlock(buffer, handlers)
+      if (!signal?.aborted && buffer.trim()) handleSseBlock(buffer, handlers)
       return apiSuccess(undefined)
     } catch (error) {
+      if (signal?.aborted) return apiSuccess(undefined)
       return apiFailure(error)
     }
   },

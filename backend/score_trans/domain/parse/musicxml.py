@@ -1369,6 +1369,8 @@ def _matching_accidental_text(
         return None
     if token_value == accidental:
         return value
+    if value == "n":
+        return value
     return {
         Fraction(-2, 1): "bb",
         Fraction(-3, 2): "tqf",

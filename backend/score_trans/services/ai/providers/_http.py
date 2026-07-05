@@ -21,7 +21,7 @@ def chat_completions(
     timeout: float = 120.0,
     max_tokens: int | None = None,
     response_format: dict[str, Any] | None = None,
-    enable_thinking: bool | None = None,
+    extra_body: dict[str, Any] | None = None,
 ) -> str:
     """Call an OpenAI-compatible ``/chat/completions`` endpoint.
 
@@ -40,8 +40,8 @@ def chat_completions(
         body["max_tokens"] = max_tokens
     if response_format is not None:
         body["response_format"] = response_format
-    if enable_thinking is not None:
-        body["enable_thinking"] = enable_thinking
+    if extra_body:
+        body.update(extra_body)
 
     resp = httpx.post(url, json=body, headers=headers, timeout=timeout)
     resp.raise_for_status()
@@ -58,7 +58,7 @@ def chat_completion_chunks(
     temperature: float = 0.3,
     timeout: float = 120.0,
     max_tokens: int | None = None,
-    enable_thinking: bool | None = None,
+    extra_body: dict[str, Any] | None = None,
 ) -> Iterator[str]:
     """Stream text chunks from an OpenAI-compatible ``/chat/completions`` endpoint."""
     url = f"{base_url}/chat/completions"
@@ -73,8 +73,8 @@ def chat_completion_chunks(
     }
     if max_tokens is not None:
         body["max_tokens"] = max_tokens
-    if enable_thinking is not None:
-        body["enable_thinking"] = enable_thinking
+    if extra_body:
+        body.update(extra_body)
 
     in_reasoning = False
     with httpx.stream("POST", url, json=body, headers=headers, timeout=timeout) as resp:

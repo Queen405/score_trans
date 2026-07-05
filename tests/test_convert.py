@@ -83,7 +83,7 @@ def test_jianpu_to_musicxml_uses_correct_octave_across_key_scale_boundary() -> N
     ] == [("D", 4), ("C", 5), ("D", 5), ("C", 4)]
 
 
-def test_musicxml_natural_cancelling_key_sharp_becomes_flat_jianpu_degree() -> None:
+def test_musicxml_natural_cancelling_key_sharp_becomes_natural_jianpu_degree() -> None:
     xml = """
     <score-partwise version="4.0">
       <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
@@ -103,7 +103,7 @@ def test_musicxml_natural_cancelling_key_sharp_becomes_flat_jianpu_degree() -> N
     roundtrip = ET.fromstring(scores_to_musicxml([score]))
 
     assert (pitch.degree, pitch.accidental, pitch.octave) == (7, -1, 0)
-    assert "b7" in score_to_jianpu_text(score)
+    assert "n7" in score_to_jianpu_text(score)
     assert roundtrip.findtext(".//pitch/step") == "F"
     assert roundtrip.find(".//pitch/alter") is None
     assert roundtrip.findtext(".//pitch/octave") == "5"
@@ -712,12 +712,12 @@ def test_musicxml_to_score_can_transpose_target_key() -> None:
     text = score_to_jianpu_text(score)
 
     assert "1=D" in text
-    assert "b7, 1 2 b3" in text
-    assert "#6, 1 2 #2" in score_to_jianpu_text(
+    assert "n7, 1 2 n3" in text
+    assert "n7, 1 2 n3" in score_to_jianpu_text(
         score,
         accidental_mode="sharp",
     )
-    assert "b7, 1 2 b3" in score_to_jianpu_text(
+    assert "n7, 1 2 n3" in score_to_jianpu_text(
         score,
         accidental_mode="flat",
     )

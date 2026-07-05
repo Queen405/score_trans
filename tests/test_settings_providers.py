@@ -116,14 +116,13 @@ def test_configured_services_use_saved_endpoint_and_model_overrides(
         dao=AiChatDao(tmp_path / "ai-chat.db"),
         settings=dao,
     )
-    _, assistant_base_url, assistant_model = chat._provider_settings()
 
     assert ocr_provider.base_url == "https://ocr.example.com/v1"
     assert ocr_provider.model == "ocr-custom"
     assert ai_provider.base_url == "https://ai.example.com/v1"
     assert ai_provider.model == "ai-custom"
-    assert assistant_base_url == "https://assistant.example.com/v1"
-    assert assistant_model == "assistant-custom"
+    assert chat.provider.base_url == "https://assistant.example.com/v1"
+    assert chat.provider.model == "assistant-custom"
 
 
 def test_settings_dao_injected_defaults_fill_missing_without_overwriting(
@@ -182,6 +181,42 @@ def test_settings_rejects_unknown_provider(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="未知OCR provider"):
         actions.update_settings(SettingsUpdateRequest(ocr_provider="custom_model"))
+
+
+def test_assistant_provider_profiles_include_agnes_and_sensenova() -> None:
+    profiles = provider_profiles("assistant")
+    ids = [profile.id for profile in profiles]
+
+    assert "agnes_2_flash" in ids
+    assert "sensenova_deepseek_v4_flash" in ids
+
+    agnes = resolve_provider_profile("assistant", "agnes_2_flash")
+    assert agnes.provider == "agnes"
+    assert agnes.base_url == "https://apihub.agnes-ai.com/v1"
+    assert agnes.model == "agnes-2.0-flash"
+
+    sensenova = resolve_provider_profile("assistant", "sensenova_deepseek_v4_flash")
+    assert sensenova.provider == "sensenova"
+    assert sensenova.base_url == "https://token.sensenova.cn/v1"
+    assert sensenova.model == "deepseek-v4-flash"
+
+
+def test_ai_provider_profiles_include_agnes() -> None:
+    profiles = provider_profiles("ai")
+    ids = [profile.id for profile in profiles]
+
+    assert "agnes_2_flash" in ids
+    assert "sensenova_6_7_flash_lite" in ids
+
+    agnes = resolve_provider_profile("ai", "agnes_2_flash")
+    assert agnes.provider == "openai_compatible"
+    assert agnes.base_url == "https://apihub.agnes-ai.com/v1"
+    assert agnes.model == "agnes-2.0-flash"
+
+    sensenova = resolve_provider_profile("ai", "sensenova_6_7_flash_lite")
+    assert sensenova.provider == "sensenova"
+    assert sensenova.base_url == "https://token.sensenova.cn/v1"
+    assert sensenova.model == "sensenova-6.7-flash-lite"
 
 
 def test_settings_saves_api_keys_per_provider(tmp_path) -> None:

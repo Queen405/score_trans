@@ -230,6 +230,22 @@
           <div class="ws-panel-head">
             <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
             <div class="panel-head-actions">
+              <n-button
+                size="tiny"
+                quaternary
+                :disabled="!hasJianpuText || isViewingFinal"
+                @click="transposeOctaveShift(1)"
+              >
+                升八度
+              </n-button>
+              <n-button
+                size="tiny"
+                quaternary
+                :disabled="!hasJianpuText || isViewingFinal"
+                @click="transposeOctaveShift(-1)"
+              >
+                降八度
+              </n-button>
               <div class="panel-head-meta">
                 <span class="meta-label">起始小节</span>
                 <n-input-number
@@ -395,6 +411,7 @@ import { createRequestEpoch } from '../utils/asyncCoordination'
 import { trackTextAnchors } from '../utils/textAnchorTracking'
 import { sourceAnchorRange } from '../utils/sourceAnchorSelection'
 import { findNotePageIndex } from '../utils/jianpuPlayback'
+import { transposeOctave } from '../utils/jianpuTranspose'
 import {
   buildBatchRenderRequests,
   renderPageOcrTextsForRequest,
@@ -1711,6 +1728,13 @@ async function musicxmlToJianpu(): Promise<void> {
   } finally {
     store.setBusy(false)
   }
+}
+
+function transposeOctaveShift(direction: 1 | -1): void {
+  const next = transposeOctave(jianpuText.value, direction)
+  if (next === jianpuText.value) return
+  jianpuText.value = next
+  message.success(direction > 0 ? '已升高八度' : '已降低八度')
 }
 
 async function saveJianpu(): Promise<void> {

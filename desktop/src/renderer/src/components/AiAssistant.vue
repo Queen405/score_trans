@@ -668,7 +668,7 @@ async function send(): Promise<void> {
     await assistant.send(
       text,
       includeCurrentJianpu.value ? task.jianpuText : undefined,
-      showThinking.value ? undefined : false,
+      showThinking.value,
     )
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)

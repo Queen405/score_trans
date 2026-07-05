@@ -61,6 +61,8 @@ def pitch_spelling(
     accidental_mode: AccidentalMode = "auto",
 ) -> tuple[str, int, int]:
     mode = normalize_accidental_mode(accidental_mode)
+    if pitch.step is not None and pitch.alter == 0 and pitch.accidental != 0:
+        return ("n", pitch.degree, pitch.octave)
     if mode == "auto" or abs(pitch.accidental) > 1 or _is_microtonal(pitch.accidental):
         return (
             pitch.accidental_text
