@@ -219,6 +219,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     sessions,
     messages,
     currentSessionId,
+    streamSessionId,
     loading,
     sending,
     error,

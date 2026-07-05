@@ -241,6 +241,7 @@ const panelTop = ref(48)
 const panelHead = ref<HTMLElement | null>(null)
 const showTyping = computed(() => (
   assistant.sending &&
+  assistant.currentSessionId === assistant.streamSessionId &&
   !assistant.messages.some((item) => item.role === 'assistant' && item.id < 0 && item.content.trim())
 ))
 const fabStyle = computed(() => ({
