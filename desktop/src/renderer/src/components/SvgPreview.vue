@@ -27,33 +27,35 @@
         >
           加载中...
         </div>
-        <button
-          v-for="block in ocrBlocks"
-          :key="block.id"
-          :class="['ocr-edit-block', { selected: selectedId === block.id }]"
-          :style="ocrBlockStyle(block)"
-          type="button"
-          @mousedown.stop="startDrag(block, $event)"
-          @dblclick.stop="startEditing(block)"
-          @click.stop="selectBlock(block.id)"
-        >
-          <input
-            v-if="editingId === block.id"
-            v-model="editingText"
-            class="ocr-edit-input"
-            @mousedown.stop
-            @click.stop
-            @keydown.enter.prevent="commitEditing"
-            @keydown.esc.prevent="cancelEditing"
-            @blur="commitEditing"
+        <template v-if="showOcrOverlay">
+          <button
+            v-for="block in ocrBlocks"
+            :key="block.id"
+            :class="['ocr-edit-block', { selected: selectedId === block.id }]"
+            :style="ocrBlockStyle(block)"
+            type="button"
+            @mousedown.stop="startDrag(block, $event)"
+            @dblclick.stop="startEditing(block)"
+            @click.stop="selectBlock(block.id)"
           >
-          <span v-else>{{ block.text }}</span>
-          <span
-            v-if="editableOcr && selectedId === block.id && editingId !== block.id"
-            class="ocr-resize-handle"
-            @mousedown.stop.prevent="startResize(block, $event)"
-          />
-        </button>
+            <input
+              v-if="editingId === block.id"
+              v-model="editingText"
+              class="ocr-edit-input"
+              @mousedown.stop
+              @click.stop
+              @keydown.enter.prevent="commitEditing"
+              @keydown.esc.prevent="cancelEditing"
+              @blur="commitEditing"
+            >
+            <span v-else>{{ block.text }}</span>
+            <span
+              v-if="editableOcr && selectedId === block.id && editingId !== block.id"
+              class="ocr-resize-handle"
+              @mousedown.stop.prevent="startResize(block, $event)"
+            />
+          </button>
+        </template>
       </div>
     </div>
     <div class="zoom-bar">
@@ -64,6 +66,13 @@
         @click="zp.reset()"
       >
         适应
+      </button>
+      <button
+        :class="['zoom-btn', { active: showOcrOverlay }]"
+        :title="showOcrOverlay ? '隐藏 OCR 文字叠加' : '显示 OCR 文字叠加'"
+        @click="showOcrOverlay = !showOcrOverlay"
+      >
+        OCR叠加
       </button>
     </div>
   </div>
@@ -127,6 +136,7 @@ const editingId = ref('')
 const editingText = ref('')
 const ocrBlocks = ref<OcrTextBlock[]>([])
 const shouldHideStaticOcr = computed(() => props.editableOcr)
+const showOcrOverlay = ref(true)
 let svgLoadGeneration = 0
 let dragging: {
   id: string
@@ -733,6 +743,11 @@ onUnmounted(() => {
 }
 
 .zoom-btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.zoom-btn.active {
   background: var(--accent-light);
   color: var(--accent);
 }
