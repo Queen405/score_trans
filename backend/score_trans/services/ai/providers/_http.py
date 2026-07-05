@@ -43,7 +43,10 @@ def chat_completions(
     if extra_body:
         body.update(extra_body)
 
-    resp = httpx.post(url, json=body, headers=headers, timeout=timeout)
+    resp = httpx.post(
+        url, json=body, headers=headers,
+        timeout=httpx.Timeout(connect=30, read=timeout, write=timeout, pool=30),
+    )
     resp.raise_for_status()
     data = resp.json()
     return completion_content(data, provider_name="AI")

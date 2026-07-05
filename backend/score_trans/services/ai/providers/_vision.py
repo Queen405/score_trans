@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from ....models.common.errors import AITranscriptionError
 from ....utils.media import image_to_data_url
@@ -11,12 +12,16 @@ from ..core.schemas import VisionPageResult
 from ._http import chat_completions
 
 
+MAX_VISION_TOKENS = 4096
+
+
 class OpenAICompatibleVisionTranscriber:
     base_url: str
     model: str
     api_key: str
     timeout: float
     dry_run: bool
+    extra_body: dict[str, Any] | None = None
 
     def transcribe_page(
         self,
@@ -75,7 +80,9 @@ class OpenAICompatibleVisionTranscriber:
                 messages=messages,
                 temperature=AI_TEMPERATURE,
                 timeout=self.timeout,
+                max_tokens=MAX_VISION_TOKENS,
                 response_format={"type": "json_object"},
+                extra_body=self.extra_body,
             )
         except Exception as exc:
             raise AITranscriptionError(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ....config.settings import AI_API_KEY, AI_TIMEOUT
+from ....config.settings import AI_API_KEY
 from ..core.prompts import persisted_ai_settings
 from ..core.registry import register_chat_provider, register_provider
 from ...settings.api_keys import provider_api_key
@@ -14,10 +14,13 @@ from ._vision import OpenAICompatibleVisionTranscriber
 
 _VISION_BASE_URL = "https://token.sensenova.cn/v1"
 _VISION_DEFAULT_MODEL = "sensenova-6.7-flash-lite"
+_VISION_TIMEOUT = 180.0
 
 
 class SenseNovaVisionProvider(OpenAICompatibleVisionTranscriber):
     """商汤 SenseNova 6.7 Flash-Lite — 原生多模态，支持图像理解与 OCR。"""
+
+    extra_body: dict[str, Any] = {"reasoning_effort": "none"}
 
     def __init__(
         self,
@@ -25,7 +28,7 @@ class SenseNovaVisionProvider(OpenAICompatibleVisionTranscriber):
         base_url: str | None = None,
         model: str | None = None,
         api_key: str | None = None,
-        timeout: float = AI_TIMEOUT,
+        timeout: float = _VISION_TIMEOUT,
         dry_run: bool = False,
     ) -> None:
         persisted = persisted_ai_settings()
