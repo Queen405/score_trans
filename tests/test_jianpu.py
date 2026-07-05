@@ -194,6 +194,40 @@ def test_page_marker_before_part_with_real_score_text() -> None:
     assert scores[0].page_input_file_name.startswith("微信图片")
 
 
+def test_multi_page_part_numbering_resets_per_page() -> None:
+    text = (
+        '// @page 1 start=auto name="p1.png"\n'
+        '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |\n'
+        '// @page 2 start=auto name="p2.png"\n'
+        '// @part 1 name="高音"\n1=C\n4/4\n2 3 4 5 |\n'
+        '// @part 2 name="低音"\n1=C\n4/4\n6 7 1\' 2\' |'
+    )
+
+    scores = parse_jianpu_scores(text)
+
+    assert len(scores) == 4
+    assert [s.part_name for s in scores] == ["高音", "低音", "高音", "低音"]
+    assert [s.page_index for s in scores] == [0, 0, 1, 1]
+    assert [s.page_input_file_name for s in scores] == [
+        "p1.png",
+        "p1.png",
+        "p2.png",
+        "p2.png",
+    ]
+
+
+def test_part_numbering_non_sequential_within_page_raises() -> None:
+    text = (
+        '// @page 1 start=auto name="p1.png"\n'
+        '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 3 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
+    )
+
+    with pytest.raises(ValueError, match="分谱标记序号不连续.*期望 @part 2.*实际 @part 3"):
+        parse_jianpu_scores(text)
+
+
 def test_musicxml_to_jianpu_roundtrip_basic() -> None:
     xml = jianpu_to_musicxml("1=C\n4/4\n1 2 3 4 | 0 q5 6. |")
     jianpu = musicxml_to_jianpu(xml)

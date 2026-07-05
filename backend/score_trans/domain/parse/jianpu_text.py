@@ -221,11 +221,19 @@ def parse_jianpu_parts(
         raise ValueError("第一个分谱标记之前不能包含简谱正文")
 
     parts: list[ParsedJianpuPart] = []
+    current_page_start: int = -1
+    page_part_index = 0
     for i, match in enumerate(markers):
         marker_number = int(match.group("number"))
-        if marker_number != i + 1:
+        preceding_pages = [pm for pm in page_markers if pm.start < match.start()]
+        page_start = preceding_pages[-1].start if preceding_pages else -1
+        if page_start != current_page_start:
+            current_page_start = page_start
+            page_part_index = 0
+        page_part_index += 1
+        if marker_number != page_part_index:
             raise ValueError(
-                f"分谱标记序号不连续：期望 @part {i + 1}，实际 @part {marker_number}"
+                f"分谱标记序号不连续：期望 @part {page_part_index}，实际 @part {marker_number}"
             )
         try:
             part_name = json.loads(match.group("name"))
@@ -247,7 +255,6 @@ def parse_jianpu_parts(
         page_index = 0
         page_input_file_name = ""
         page_start_measure: int | None = None
-        preceding_pages = [pm for pm in page_markers if pm.start < match.start()]
         if preceding_pages:
             page = preceding_pages[-1]
             page_index = page.number - 1

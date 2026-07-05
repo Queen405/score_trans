@@ -40,3 +40,6 @@ third_party/audiveris/app/build/
 
 # 示例乐谱/文档（从网络下载，体积较大，不纳入版本控制）
 /examples/
+
+# 本地快捷方式
+Qoder-CLI-网关.lnk
