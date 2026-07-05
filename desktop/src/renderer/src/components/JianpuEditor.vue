@@ -66,9 +66,10 @@
           @scroll="syncScroll"
         />
         <div
-          v-if="playbackHighlightStyle"
+          v-for="(style, i) in playbackHighlightStyles"
+          :key="i"
           class="editor-playback-highlight"
-          :style="playbackHighlightStyle"
+          :style="style"
         />
         <div
           v-if="errorHighlightStyle"
@@ -148,25 +149,23 @@ const highlightedLines = computed(() => props.modelValue.split('\n').map(tokeniz
 const highlightScrollStyle = computed(() => ({
   transform: `translate(${-scrollLeft.value}px, ${-scrollTop.value}px)`,
 }))
-const activeNoteSpan = computed(() => (
+const activeNoteSpans = computed(() => (
   props.currentNoteIndex >= 0
-    ? noteSpans.value.find((span) => span.index === props.currentNoteIndex) ?? null
-    : null
+    ? noteSpans.value.filter((span) => span.index === props.currentNoteIndex)
+    : []
 ))
-const playbackHighlightStyle = computed(() => {
-  const span = activeNoteSpan.value
-  if (!span) return null
-
+const playbackHighlightStyles = computed(() => {
   const metrics = editorMetrics.value
-  const top = metrics.paddingTop + span.line * metrics.lineHeight - scrollTop.value
-  const left = metrics.paddingLeft + span.startColumn * metrics.charWidth - scrollLeft.value
-  const width = Math.max(metrics.charWidth, (span.endColumn - span.startColumn) * metrics.charWidth)
-
-  return {
-    transform: `translate(${left}px, ${top}px)`,
-    width: `${width}px`,
-    height: `${metrics.lineHeight}px`,
-  }
+  return activeNoteSpans.value.map((span) => {
+    const top = metrics.paddingTop + span.line * metrics.lineHeight - scrollTop.value
+    const left = metrics.paddingLeft + span.startColumn * metrics.charWidth - scrollLeft.value
+    const width = Math.max(metrics.charWidth, (span.endColumn - span.startColumn) * metrics.charWidth)
+    return {
+      transform: `translate(${left}px, ${top}px)`,
+      width: `${width}px`,
+      height: `${metrics.lineHeight}px`,
+    }
+  })
 })
 
 const errorBlinkKey = ref(0)
@@ -367,7 +366,8 @@ watch(() => props.flashLine, (line, oldLine) => {
   triggerPageFlash(line)
 })
 
-watch(activeNoteSpan, (span) => {
+watch(activeNoteSpans, (spans) => {
+  const span = spans[0]
   if (!span) return
   nextTick(() => scrollNoteIntoView(span))
 })

@@ -192,17 +192,19 @@ _AUdiveris_STAGE_BY_CLASS = {
     "ClefBuilder": "谱号",
     "KeyBuilder": "调号",
     "TimeBuilder": "拍号",
+    "TimeColumn": "拍号",
     "StemSeedsStep": "符干",
     "ChordBuilder": "和弦",
     "SlurBuilder": "连奏线",
     "NoteStep": "音符",
+    "SymbolsStep": "符号",
 }
 
 _AUdiveris_LOW_INTERLINE_RE = re.compile(
     r"too low interline value of\s*(\d+)\s*pixels", re.IGNORECASE
 )
 _AUdiveris_NPE_CLASS_RE = re.compile(
-    r"at org\.audiveris\.omr\.\w+\.(?:beam\.)?(\w+)\."
+    r"at org\.audiveris\.omr\..*?\((\w+)\.java:"
 )
 
 
@@ -234,9 +236,10 @@ def _summarize_audiveris_failure(
 
     if "NullPointerException" in blob:
         stage = "识别"
-        m = _AUdiveris_NPE_CLASS_RE.search(blob)
-        if m and m.group(1) in _AUdiveris_STAGE_BY_CLASS:
-            stage = _AUdiveris_STAGE_BY_CLASS[m.group(1)]
+        for m in _AUdiveris_NPE_CLASS_RE.finditer(blob):
+            if m.group(1) in _AUdiveris_STAGE_BY_CLASS:
+                stage = _AUdiveris_STAGE_BY_CLASS[m.group(1)]
+                break
         return (
             f"识别引擎在「{stage}」阶段内部出错，可能是该页谱面存在引擎无法处理的结构。"
             f"可尝试改用 AI 转录，或对该页单独处理。{log_hint}"

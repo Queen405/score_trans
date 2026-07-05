@@ -471,11 +471,13 @@ function applyPlaybackHighlight(reveal: boolean): void {
   })
 
   if (props.currentNoteIndex < 0) return
-  const target = svg.querySelector<SVGGElement>(`.playback-note[data-note-index="${props.currentNoteIndex}"]`)
-  if (!target) return
+  const targets = svg.querySelectorAll<SVGGElement>(
+    `.playback-note[data-note-index="${props.currentNoteIndex}"]`
+  )
+  if (targets.length === 0) return
 
-  target.classList.add('playback-current')
-  if (reveal) keepTargetVisible(target)
+  targets.forEach((target) => target.classList.add('playback-current'))
+  if (reveal) keepTargetVisible(targets[0])
 }
 
 function keepTargetVisible(target: SVGGraphicsElement): void {

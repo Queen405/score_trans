@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from ..dependencies import get_export_actions
 from ...exec.export.actions import ExportActions
 from ...models.export.schemas import (
+    ExportMidiRequest,
     ExportMidiTextRequest,
     ExportMusicXmlRequest,
     ExportMusicXmlTextRequest,
@@ -18,15 +19,10 @@ router = APIRouter(prefix="/export", tags=["export"])
 
 @router.post("/midi", response_model=ExportResponse)
 async def export_midi(
-    musicxml_file_id: str,
-    filename: str | None = None,
+    req: ExportMidiRequest,
     actions: ExportActions = Depends(get_export_actions),
 ):
-    return await asyncio.to_thread(
-        actions.export_midi,
-        musicxml_file_id,
-        filename=filename,
-    )
+    return await asyncio.to_thread(actions.export_midi, req)
 
 
 @router.post("/midi-text", response_model=ExportResponse)

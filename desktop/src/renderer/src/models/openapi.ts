@@ -1103,6 +1103,27 @@ export type components = {
             /** Deleted Count */
             deleted_count: number;
         };
+        /** ExportMidiRequest */
+        ExportMidiRequest: {
+            /** Filename */
+            filename?: string | null;
+            /**
+             * Midi Tempo
+             * @default auto
+             */
+            midi_tempo?: number | "auto";
+            /** Musicxml File Id */
+            musicxml_file_id: string;
+            /** Start Measure Number */
+            start_measure_number?: number | null;
+            /**
+             * Target Key
+             * @default auto
+             */
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
+            /** Title */
+            title?: string | null;
+        };
         /** ExportMidiTextRequest */
         ExportMidiTextRequest: {
             /**
@@ -1112,6 +1133,11 @@ export type components = {
             filename?: string;
             /** Jianpu Text */
             jianpu_text: string;
+            /**
+             * Midi Tempo
+             * @default auto
+             */
+            midi_tempo?: number | "auto";
             /**
              * Title
              * @default 简谱
@@ -1929,6 +1955,11 @@ export type components = {
              */
             measure_number_mode?: "all" | "row_start" | "none";
             /**
+             * Midi Tempo
+             * @default auto
+             */
+            midi_tempo?: number | "auto";
+            /**
              * Ocr Api Key Set
              * @default false
              */
@@ -1997,6 +2028,8 @@ export type components = {
             jianpu_syntax_highlight?: boolean | null;
             /** Measure Number Mode */
             measure_number_mode?: ("all" | "row_start" | "none") | null;
+            /** Midi Tempo */
+            midi_tempo?: number | "auto" | null;
             /** Ocr Api Key */
             ocr_api_key?: string | null;
             /** Ocr Base Url */
@@ -2451,15 +2484,16 @@ export interface operations {
     };
     export_midi_export_midi_post: {
         parameters: {
-            query: {
-                filename?: string | null;
-                musicxml_file_id: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportMidiRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

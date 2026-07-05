@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from fractions import Fraction
 from pathlib import Path
 
 from ...domain.jianpu import parse_jianpu_score
@@ -915,21 +916,38 @@ def render_multi_part_scores_a4_pages(
     page_options = _a4_render_options(options, title=first_score.title)
 
     all_part_layouts: list[list[MeasureLayout]] = []
-    playback_index = 0
     for part_idx, score in enumerate(scores):
         part_layouts: list[MeasureLayout] = []
         for measure in score.measures:
             if measure.source_page_index is None:
                 measure.source_page_index = part_idx
             layout = _score_measure_layout(measure, page_options)
-            for beat in layout.beats:
+            part_layouts.append(layout)
+        all_part_layouts.append(part_layouts)
+
+    # Assign playback indices by time position: notes at the same time
+    # across all parts share the same index, matching the player's
+    # time-based note grouping so highlighting stays in sync.
+    playback_index = -1
+    max_measures = max((len(pl) for pl in all_part_layouts), default=0)
+    for measure_idx in range(max_measures):
+        timed_items: list[tuple[Fraction, object]] = []
+        for part_layouts in all_part_layouts:
+            if measure_idx >= len(part_layouts):
+                continue
+            for beat in part_layouts[measure_idx].beats:
                 for item in beat.items:
                     if not _is_playable_note_token(item.token):
                         continue
-                    item.playback_index = playback_index
-                    playback_index += 1
-            part_layouts.append(layout)
-        all_part_layouts.append(part_layouts)
+                    start = item.start if item.start is not None else Fraction(0)
+                    timed_items.append((start, item))
+        timed_items.sort(key=lambda pair: pair[0])
+        current_start: Fraction | None = None
+        for start, item in timed_items:
+            if current_start is None or start != current_start:
+                playback_index += 1
+                current_start = start
+            item.playback_index = playback_index
 
     max_measures = max((len(pl) for pl in all_part_layouts), default=0)
     for i in range(max_measures):

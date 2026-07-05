@@ -26,7 +26,7 @@
       </nav>
 
       <div class="sv-sidebar-note">
-        设置修改会先保留为草稿，应用后才会影响工作区。
+        设置修改会先保留为草稿，保存后才会影响工作区。
       </div>
     </aside>
 
@@ -93,7 +93,7 @@
             v-if="settings.saveError"
             class="is-error"
           >{{ settings.saveError }}</span>
-          <span v-else-if="settings.draftDirty">更改尚未应用</span>
+          <span v-else-if="settings.draftDirty">更改尚未保存</span>
           <span v-else-if="settings.storageRestartRequired">存储位置将在重启后生效</span>
           <span v-else>所有更改均已保存</span>
         </div>
@@ -105,16 +105,9 @@
             取消
           </n-button>
           <n-button
-            :disabled="!settings.draftDirty || settings.saving"
-            :loading="settings.saving && saveIntent === 'apply'"
-            @click="apply"
-          >
-            应用
-          </n-button>
-          <n-button
             type="primary"
             :disabled="!settings.draftDirty || settings.saving"
-            :loading="settings.saving && saveIntent === 'save'"
+            :loading="settings.saving"
             @click="save"
           >
             保存更改
@@ -177,7 +170,6 @@ import StorageSettingsPanel from '../components/settings/StorageSettingsPanel.vu
 import ToolPathsPanel from '../components/settings/ToolPathsPanel.vue'
 
 type SettingsCategory = 'services' | 'tools' | 'storage' | 'conversion' | 'appearance'
-type SaveIntent = 'apply' | 'save' | null
 
 interface CategoryDefinition {
   key: SettingsCategory
@@ -199,7 +191,6 @@ const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
 const activeCategory = ref<SettingsCategory>('services')
-const saveIntent = ref<SaveIntent>(null)
 const restartModalVisible = ref(false)
 
 const categories: CategoryDefinition[] = [
@@ -279,32 +270,18 @@ function cancel(): void {
   emit('close')
 }
 
-async function apply(): Promise<void> {
-  await persist('apply')
-}
-
 async function save(): Promise<void> {
-  await persist('save')
-}
-
-async function persist(intent: Exclude<SaveIntent, null>): Promise<boolean | null> {
-  saveIntent.value = intent
   try {
     const restartNeeded = await settings.applyDraft()
     log.addLog('配置已保存')
     message.success(restartNeeded ? '配置已保存，存储路径将在重启后生效' : '配置已保存')
     if (restartNeeded) {
       restartModalVisible.value = true
-      return null
     }
-    return restartNeeded
   } catch (error: unknown) {
     const text = error instanceof Error ? error.message : String(error)
     log.addError(`保存失败：${text}`)
     message.error(text)
-    return null
-  } finally {
-    saveIntent.value = null
   }
 }
 

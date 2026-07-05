@@ -180,8 +180,34 @@ def test_multi_part_pages_report_ranges_and_note_indices_for_every_part() -> Non
 
     assert len(pages) == 1
     assert {item.source_page_index for item in pages[0].measure_ranges} == {10, 20}
+    # Both notes start at the same time (Fraction(0,1)), so they share index 0.
     assert pages[0].note_index_start == 0
-    assert pages[0].note_index_end == 1
+    assert pages[0].note_index_end == 0
+
+
+def test_multi_part_playback_indices_group_simultaneous_notes() -> None:
+    """Notes at the same time across parts share the same playback_index."""
+    upper = _part_score("高音", 1, "s1:i10")
+    lower = _part_score("低音", 5, "s2:i20")
+    # Add a second note to the upper part at a different time
+    upper.measures[0].events.append(
+        JianpuEvent(
+            kind="note",
+            duration=Fraction(1, 1),
+            pitches=[JianpuPitch(2, source_id="s1:i20")],
+            start=Fraction(1, 1),
+            source_ids=["s1:i20"],
+        )
+    )
+
+    pages = render_multi_part_scores_a4_pages([upper, lower])
+
+    svg = pages[0].svg
+    # Upper part note 1 and lower part note 1 are at the same time → same index
+    idx_upper_note1 = svg.count('data-note-index="0"')
+    assert idx_upper_note1 == 2, "Both parts' first notes should share index 0"
+    # Upper part note 2 is at a different time → different index
+    assert 'data-note-index="1"' in svg, "Second note should get index 1"
 
 
 def test_text_measure_layout_groups_tokens_by_declared_eighth_note_beats() -> None:

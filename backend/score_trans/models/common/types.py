@@ -64,6 +64,10 @@ SUPPORTED_TARGET_KEYS: tuple[TargetKey, ...] = (
 AutoKey = Literal["auto"]
 TargetKeyOrAuto = TargetKey | AutoKey
 
+# MIDI 导出速度："auto" 表示用识别到的 score.tempo，未识别到则用 MIDI_DEFAULT_BPM；
+# 传整数则强制使用该 BPM。
+MidiTempo = int | AutoKey
+
 IMAGE_SUFFIXES: frozenset[str] = frozenset(
     {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 )

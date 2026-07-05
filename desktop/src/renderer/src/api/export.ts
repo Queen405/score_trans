@@ -1,11 +1,13 @@
 import { apiFetch, fetchFileBlob, type ApiResult } from './client'
-import type { ExportMidiTextRequest, ExportMusicXmlRequest, ExportMusicXmlTextRequest, ExportResponse } from '../models/types'
+import type { ExportMidiRequest, ExportMidiTextRequest, ExportMusicXmlRequest, ExportMusicXmlTextRequest, ExportResponse } from '../models/types'
 
 export const exportApi = {
-  async exportMidi(musicxmlFileId: string, filename?: string): Promise<ApiResult<ExportResponse>> {
-    const params = new URLSearchParams({ musicxml_file_id: musicxmlFileId })
-    if (filename) params.set('filename', filename)
-    return apiFetch(`/export/midi?${params.toString()}`, { method: 'POST' })
+  async exportMidi(req: ExportMidiRequest): Promise<ApiResult<ExportResponse>> {
+    return apiFetch('/export/midi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
   },
 
   async exportMidiText(req: ExportMidiTextRequest): Promise<ApiResult<ExportResponse>> {

@@ -32,6 +32,7 @@ def settings_defaults() -> dict[str, str]:
         "audiveris_max_pixel_count": AUDIVERIS_MAX_PIXEL_COUNT,
         "output_dir": OUTPUT_DIR,
         "target_key": "C",
+        "midi_tempo": "auto",
         "show_measure_numbers": "1",
         "measure_number_mode": "all",
         "confirm_start_measure_number": "1",

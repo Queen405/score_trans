@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 from pathlib import Path
+from typing import Literal
 
 import fitz
 import mido
@@ -17,6 +18,30 @@ from ...domain.write.musicxml import scores_to_musicxml
 from ...models.score import JianpuPitch, JianpuScore
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
+
+
+def _resolve_bpm(
+    score: JianpuScore, midi_tempo: int | Literal["auto"]
+) -> int:
+    if midi_tempo != "auto":
+        return midi_tempo
+    if score.tempo and score.tempo > 0:
+        return score.tempo
+    return MIDI_DEFAULT_BPM
+
+
+def _midi_time_signature_denominator(beat_type: int) -> int:
+    """MIDI time_signature 的 denominator 必须是 2 的幂（1,2,4,8,16,32）。
+
+    简谱的 beat_type 通常是 2/4/8/16，直接用；非标准值回退到最近的 2 的幂。
+    """
+    for power in (1, 2, 4, 8, 16, 32):
+        if beat_type == power:
+            return power
+    for power in (1, 2, 4, 8, 16, 32):
+        if beat_type <= power:
+            return power
+    return 32
 
 
 def _pitch_to_midi(pitch: JianpuPitch, key: str) -> int:
@@ -73,12 +98,41 @@ class ExportService:
     def export_midi(self, score: JianpuScore, output_path: Path) -> Path:
         return self.export_midi_scores([score], output_path)
 
+    @staticmethod
+    def _merge_scores_by_part(scores: list[JianpuScore]) -> list[JianpuScore]:
+        """Merge parts that span multiple pages into one track per instrument.
+
+        Within each page, parts are numbered 1, 2, 3, ... Parts with the same
+        position across pages belong to the same instrument; their measures
+        are concatenated to form a single continuous track.
+        """
+        grouped: dict[int, list[JianpuScore]] = {}
+        current_page: int = -1
+        part_in_page = 0
+        for score in scores:
+            if score.page_index != current_page:
+                current_page = score.page_index
+                part_in_page = 0
+            grouped.setdefault(part_in_page, []).append(score)
+            part_in_page += 1
+
+        merged: list[JianpuScore] = []
+        for part_pos in sorted(grouped.keys()):
+            group = grouped[part_pos]
+            base = group[0]
+            for extra in group[1:]:
+                base.measures.extend(extra.measures)
+            merged.append(base)
+        return merged
+
     def export_midi_scores(
         self,
         scores: list[JianpuScore],
         output_path: Path,
+        *,
+        midi_tempo: int | Literal["auto"] = "auto",
     ) -> Path:
-        rendered_scores = scores or [JianpuScore()]
+        rendered_scores = self._merge_scores_by_part(scores) if scores else [JianpuScore()]
         for score in rendered_scores:
             for measure in score.measures:
                 for event in measure.events:
@@ -104,8 +158,20 @@ class ExportService:
                     time=0,
                 )
             )
-            tempo = mido.bpm2tempo(MIDI_DEFAULT_BPM)
-            track.append(mido.MetaMessage("set_tempo", tempo=tempo, time=0))
+            # set_tempo 仅写在 track 0（MIDI 规范要求单一 tempo map）
+            if index == 0:
+                bpm = _resolve_bpm(score, midi_tempo)
+                track.append(mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(bpm), time=0))
+                track.append(
+                    mido.MetaMessage(
+                        "time_signature",
+                        numerator=score.beats,
+                        denominator=_midi_time_signature_denominator(score.beat_type),
+                        clocks_per_click=24,
+                        notated_32nd_notes_per_beat=8,
+                        time=0,
+                    )
+                )
 
             for measure in score.measures:
                 key = getattr(measure, "target_key", score.target_key)

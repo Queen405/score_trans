@@ -135,10 +135,13 @@ import { usePlayer } from '../composables/usePlayer'
 import { getFileURL, requireData } from '../api/client'
 import { exportApi } from '../api/export'
 import { useLogStore } from '../stores/log'
+import { useSettingsStore } from '../stores/settings'
 import {
   loadPlayerVolume,
   savePlayerVolume,
 } from '../utils/playerPreferences'
+
+const settings = useSettingsStore()
 
 const props = defineProps<{
   /** MusicXML file ID (used to generate MIDI on demand) */
@@ -195,6 +198,7 @@ async function loadFromProps(): Promise<void> {
         jianpu_text: props.jianpuText,
         filename: 'player.mid',
         title: '简谱',
+        midi_tempo: settings.midiTempo,
       }))
       if (gen !== loadGeneration) return
       await loadMidiForGeneration(getFileURL(result.file_id), gen)
@@ -206,7 +210,12 @@ async function loadFromProps(): Promise<void> {
 
   if (props.musicxmlFileId) {
     try {
-      const result = await requireData(exportApi.exportMidi(props.musicxmlFileId, 'player.mid'))
+      const result = await requireData(exportApi.exportMidi({
+        musicxml_file_id: props.musicxmlFileId,
+        filename: 'player.mid',
+        target_key: settings.targetKey,
+        midi_tempo: settings.midiTempo,
+      }))
       if (gen !== loadGeneration) return
       await loadMidiForGeneration(getFileURL(result.file_id), gen)
     } catch (error: unknown) {

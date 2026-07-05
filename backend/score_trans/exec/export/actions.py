@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from pathlib import Path
+from typing import Literal
 
 from score_trans.config.settings import (
     MAX_UPLOAD_FILE_BYTES,
@@ -13,6 +14,7 @@ from ...domain.jianpu import parse_jianpu_scores
 from ...models.common.errors import UploadTooLargeError
 from ...models.common.protocols import UploadFileLike
 from ...models.export.schemas import (
+    ExportMidiRequest,
     ExportMidiTextRequest,
     ExportMusicXmlRequest,
     ExportMusicXmlTextRequest,
@@ -39,6 +41,7 @@ class ExportScoreAction:
         output_file: str | Path,
         *,
         target_key: str = "C",
+        midi_tempo: int | Literal["auto"] = "auto",
         start_measure_number: int | None = None,
         title: str | None = None,
     ) -> Path:
@@ -53,7 +56,9 @@ class ExportScoreAction:
         if title:
             for score in scores:
                 score.title = title
-        return self.export_service.export_midi_scores(scores, output_path)
+        return self.export_service.export_midi_scores(
+            scores, output_path, midi_tempo=midi_tempo
+        )
 
 
 class ExportActions:
@@ -76,23 +81,29 @@ class ExportActions:
         self.max_upload_file_bytes = max_upload_file_bytes
         self.max_upload_request_bytes = max_upload_request_bytes
 
-    def export_midi(
-        self, musicxml_file_id: str, filename: str | None = None
-    ) -> ExportResponse:
-        musicxml_path = self.uploads.get_path(musicxml_file_id)
+    def export_midi(self, req: ExportMidiRequest) -> ExportResponse:
+        musicxml_path = self.uploads.get_path(req.musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():
-            raise FileNotFoundError(f"MusicXML 文件不存在：{musicxml_file_id}")
+            raise FileNotFoundError(f"MusicXML 文件不存在：{req.musicxml_file_id}")
 
-        out_name = filename or f"{musicxml_path.stem}.mid"
+        out_name = req.filename or f"{musicxml_path.stem}.mid"
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.mid"
-        self.exporter.execute(musicxml_path, output_path)
+        self.exporter.execute(
+            musicxml_path,
+            output_path,
+            target_key=req.target_key,
+            midi_tempo=req.midi_tempo,
+            start_measure_number=req.start_measure_number,
+        )
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=out_name)
 
     def export_midi_text(self, req: ExportMidiTextRequest) -> ExportResponse:
         scores = parse_jianpu_scores(req.jianpu_text, title=req.title)
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.mid"
-        self.export_service.export_midi_scores(scores, output_path)
+        self.export_service.export_midi_scores(
+            scores, output_path, midi_tempo=req.midi_tempo
+        )
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=req.filename or "score.mid")
 
