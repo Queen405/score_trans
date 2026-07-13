@@ -14,6 +14,8 @@ class PageCreate(BaseModel):
     ocr_text: str = ""
     text_attachments: list[SourceTextAttachment] = []
     svg_file_id: str = ""
+    engine_version: str = "publication-2"
+    document_revision: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
     source_map_file_id: str = ""
@@ -22,6 +24,9 @@ class PageCreate(BaseModel):
     start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""
+    omr_file_id: str = ""
+    original_musicxml: str = ""
+    working_musicxml: str = ""
 
 
 class PageUpdate(BaseModel):
@@ -31,6 +36,8 @@ class PageUpdate(BaseModel):
     ocr_text: str | None = None
     text_attachments: list[SourceTextAttachment] | None = None
     svg_file_id: str | None = None
+    engine_version: str | None = None
+    document_revision: str | None = None
     overlay_svg_file_id: str | None = None
     overlay_file_id: str | None = None
     source_map_file_id: str | None = None
@@ -39,6 +46,9 @@ class PageUpdate(BaseModel):
     start_measure_number: int | None = None
     status: str | None = None
     error_message: str | None = None
+    omr_file_id: str | None = None
+    original_musicxml: str | None = None
+    working_musicxml: str | None = None
 
 
 class PageResponse(BaseModel):
@@ -52,6 +62,8 @@ class PageResponse(BaseModel):
     ocr_text: str
     text_attachments: list[SourceTextAttachment] = []
     svg_file_id: str
+    engine_version: str = "publication-2"
+    document_revision: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
     source_map_file_id: str = ""
@@ -61,6 +73,9 @@ class PageResponse(BaseModel):
     status: str
     error_message: str
     completed_at: str = ""
+    omr_file_id: str = ""
+    original_musicxml: str = ""
+    working_musicxml: str = ""
 
 
 class RenderPageOcrText(BaseModel):
@@ -82,6 +97,8 @@ class BatchResponse(BaseModel):
     status: str
     jianpu_text: str = ""
     render_page_file_ids: list[str] = []
+    engine_version: str = "publication-2"
+    document_revision: str = ""
     render_page_ocr_texts: list[RenderPageOcrText] = []
     pages: list[PageResponse]
 

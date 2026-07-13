@@ -16,10 +16,8 @@ from score_trans.models.provenance.schemas import TextAnchor
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 from score_trans.services.overlay.overlay_service import OverlayService
 from score_trans.services.history.history_service import HistoryService
-from score_trans.services.render.drawing.beat import _render_item
-from score_trans.services.render.items.factory import _event_to_item
+from score_trans.services.render.engraving.renderer import PublicationRenderer
 from score_trans.services.render.main import render_score_svg
-from score_trans.services.render.render_map import write_render_map
 
 
 def _unmarked_sextuplet_musicxml(group_count: int = 4) -> str:
@@ -138,10 +136,9 @@ def test_current_text_anchors_are_embedded_in_render_group() -> None:
     score = parse_jianpu_score(text)
 
     apply_text_anchors(score, [anchor])
-    event = score.measures[0].events[1]
-    rendered = "\n".join(_render_item(_event_to_item(event), 100, 100, 40))
+    rendered = render_score_svg(score)
 
-    assert 'class="source-anchor"' in rendered
+    assert "source-anchor" in rendered
     assert 'data-source-id="s1:i22"' in rendered
 
 
@@ -179,29 +176,18 @@ def test_native_overlay_contract_is_validated(tmp_path: Path) -> None:
 
 
 def test_render_map_contains_selector_and_bbox(tmp_path: Path) -> None:
-    svg_path = tmp_path / "page.svg"
-    svg_path.write_text(
-        """
-        <svg xmlns="http://www.w3.org/2000/svg">
-          <g class="source-anchor" data-source-ids="s1:i10"
-             data-bbox="12 34 56 78"><text>1</text></g>
-        </svg>
-        """,
-        encoding="utf-8",
-    )
-
-    render_map_path = write_render_map(svg_path, 2)
-
-    assert render_map_path is not None
+    score = parse_jianpu_score("1=C\n4/4\n1 |")
+    score.measures[0].events[0].source_ids = ["s1:i10"]
+    renderer = PublicationRenderer()
+    pages = renderer.render_scores([score])
+    paths = renderer.write_pages(pages, tmp_path / "page.svg")
+    render_map_path = paths[0].with_suffix(".render-map.json")
     payload = json.loads(render_map_path.read_text(encoding="utf-8"))
-    assert payload["anchors"] == [
-        {
-            "source_id": "s1:i10",
-            "page_index": 2,
-            "selector": 'g[data-source-ids~="s1:i10"]',
-            "bbox": {"x": 12.0, "y": 34.0, "width": 56.0, "height": 78.0},
-        }
-    ]
+    assert payload["version"] == 1
+    assert payload["page_index"] == 0
+    assert payload["anchors"][0]["source_id"] == "s1:i10"
+    assert payload["anchors"][0]["selector"] == 'g[data-source-ids~="s1:i10"]'
+    assert payload["anchors"][0]["bbox"]["width"] > 0
 
 
 def test_batch_render_prefixes_colliding_source_ids() -> None:

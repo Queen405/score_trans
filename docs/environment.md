@@ -130,25 +130,9 @@ $env:SCORE_TRANS_AI_MODEL="mimo-v2.5"
 
 ---
 
-## 简谱 SVG 渲染
+## 简谱出版渲染
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `SCORE_TRANS_RENDER_CHORD_GAP` | 和弦音纵向间距。 | `38` |
-| `SCORE_TRANS_RENDER_OCTAVE_DOT_OFFSET` | 八度点偏移。 | `4` |
-| `SCORE_TRANS_RENDER_OCTAVE_DOT_GAP` | 八度点间距。 | `4` |
-| `SCORE_TRANS_RENDER_TITLE` | 默认标题。 | `简谱` |
-| `SCORE_TRANS_RENDER_WIDTH` | 默认画布宽度。 | `800` |
-| `SCORE_TRANS_RENDER_MARGIN` | 页边距。 | `20` |
-| `SCORE_TRANS_RENDER_MEASURE_WIDTH` | 默认小节宽度。 | `200` |
-| `SCORE_TRANS_RENDER_LINE_HEIGHT` | 默认行高。 | `80` |
-| `SCORE_TRANS_RENDER_FONT` | 字体。 | `sans-serif` |
-| `SCORE_TRANS_RENDER_MIN_MEASURE_WIDTH` | 最小小节宽度。 | `120` |
-| `SCORE_TRANS_RENDER_MAX_MEASURE_WIDTH` | 最大小节宽度。 | `400` |
-| `SCORE_TRANS_RENDER_BEAT_GAP` | 拍内元素间距。 | `10` |
-| `SCORE_TRANS_RENDER_SHOW_BEAT_GUIDES` | 是否显示拍内辅助线。 | `0` |
-| `SCORE_TRANS_RENDER_SHOW_STAFF_GUIDES` | 是否显示横向网格。 | `0` |
-| `SCORE_TRANS_RENDER_SHOW_MEASURE_NUMBERS` | 是否显示小节号。 | `1` |
+出版引擎使用内置 Noto Serif CJK SC 和 Bravura 字体、固定版式参数与确定性分页，不再通过 `SCORE_TRANS_RENDER_*` 环境变量调整绘制几何。
 
 ---
 

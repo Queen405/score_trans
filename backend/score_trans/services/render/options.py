@@ -4,36 +4,20 @@ from dataclasses import dataclass
 
 from score_trans.models.common.types import MeasureNumberMode
 
-from score_trans.config.settings import (
-    RENDER_BEAT_GAP,
-    RENDER_CHORD_GAP,
-    RENDER_FONT,
-    RENDER_LINE_HEIGHT,
-    RENDER_MARGIN,
-    RENDER_MAX_MEASURE_WIDTH,
-    RENDER_MEASURE_WIDTH,
-    RENDER_MIN_MEASURE_WIDTH,
-    RENDER_SHOW_BEAT_GUIDES,
-    RENDER_SHOW_MEASURE_NUMBERS,
-    RENDER_SHOW_STAFF_GUIDES,
-    RENDER_TITLE,
-    RENDER_WIDTH,
-)
-
 
 @dataclass(frozen=True, slots=True)
 class A4RenderTheme:
-    note_font_size: float = 26.0
-    accidental_font_size: float = 16.0
-    measure_number_font_size: float = 20.0
-    measure_attribute_font_size: float = 16.0
-    repeat_count_font_size: float = 18.0
-    tuplet_font_size: float = 13.0
-    lyric_font_size: float = 16.0
-    dynamic_font_size: float = 19.0
-    ornament_font_size: float = 13.0
-    technical_font_size: float = 12.0
-    technique_font_size: float = 14.0
+    note_font_size: float = 30.0
+    accidental_font_size: float = 18.0
+    measure_number_font_size: float = 15.0
+    measure_attribute_font_size: float = 15.0
+    repeat_count_font_size: float = 15.0
+    tuplet_font_size: float = 15.0
+    lyric_font_size: float = 18.0
+    dynamic_font_size: float = 15.0
+    ornament_font_size: float = 15.0
+    technical_font_size: float = 15.0
+    technique_font_size: float = 15.0
 
 
 A4_RENDER_THEME = A4RenderTheme()
@@ -41,37 +25,43 @@ A4_RENDER_THEME = A4RenderTheme()
 
 @dataclass(slots=True)
 class RenderOptions:
-    title: str = RENDER_TITLE
-    width: int = RENDER_WIDTH
-    margin: int = RENDER_MARGIN
-    measure_width: int = RENDER_MEASURE_WIDTH
-    line_height: int = RENDER_LINE_HEIGHT
-    font_family: str = RENDER_FONT
-    min_measure_width: int = RENDER_MIN_MEASURE_WIDTH
-    max_measure_width: int = RENDER_MAX_MEASURE_WIDTH
-    beat_gap: int = RENDER_BEAT_GAP
+    """Public render options retained at the domain boundary.
+
+    Defaults are versioned with the publication engine rather than assembled
+    from the removed SCORE_TRANS_RENDER_* environment variables.
+    """
+
+    title: str = "简谱"
+    width: int = 800
+    margin: int = 36
+    measure_width: int = 200
+    line_height: int = 116
+    font_family: str = "ScoreTransNotoSerif"
+    min_measure_width: int = 150
+    max_measure_width: int = 520
+    beat_gap: int = 8
     staff_space: float = 21.0
-    note_min_gap: float = 9.0
-    short_note_gap_ratio: float = 1.0
-    short_note_slot_width_ratio: float = 1.0
+    note_min_gap: float = 28.0
+    short_note_gap_ratio: float = 0.7
+    short_note_slot_width_ratio: float = 0.8
     tuplet_gap_ratio: float = 0.16
     tuplet_slot_width_ratio: float = 0.54
     duration_spacing_ratio: float = 1.0
-    chord_gap: float = float(RENDER_CHORD_GAP)
+    chord_gap: float = 25.0
     chord_token_width: float = 42.0
     note_font_size: float = 30.0
     accidental_font_size: float = 18.0
-    measure_number_font_size: float = 24.0
-    measure_attribute_font_size: float = 18.0
-    repeat_count_font_size: float = 22.0
+    measure_number_font_size: float = 15.0
+    measure_attribute_font_size: float = 15.0
+    repeat_count_font_size: float = 15.0
     tuplet_font_size: float = 15.0
     lyric_font_size: float = 18.0
-    dynamic_font_size: float = 22.0
+    dynamic_font_size: float = 15.0
     ornament_font_size: float = 15.0
-    technical_font_size: float = 13.0
-    technique_font_size: float = 16.0
+    technical_font_size: float = 15.0
+    technique_font_size: float = 15.0
     compact_measure_layout: bool = False
-    show_beat_guides: bool = RENDER_SHOW_BEAT_GUIDES
-    show_staff_guides: bool = RENDER_SHOW_STAFF_GUIDES
-    show_measure_numbers: bool = RENDER_SHOW_MEASURE_NUMBERS
+    show_beat_guides: bool = False
+    show_staff_guides: bool = False
+    show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"

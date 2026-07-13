@@ -107,6 +107,7 @@ class RecognizeActions:
         )
         report_progress(progress_callback, "recognize", 92, "注册 MusicXML 文件")
         musicxml_id = self.uploads.register(musicxml_path)
+        musicxml_text = musicxml_path.read_text(encoding="utf-8")
         native_finder = getattr(self.overlay_service, "find_native_overlay", None)
         overlay_path, source_map_path = (
             native_finder(omr_dir) if callable(native_finder) else (None, None)
@@ -116,9 +117,12 @@ class RecognizeActions:
             if overlay_path is None
             else None
         )
+        omr_file_id = _register_omr_file(self.uploads, omr_dir)
         return RecognizeResponse(
             musicxml_file_id=musicxml_id,
             musicxml_filename=musicxml_path.name,
+            musicxml_text=musicxml_text,
+            omr_file_id=omr_file_id,
             overlay_file_id=(
                 self.uploads.register(overlay_path) if overlay_path else None
             ),
@@ -141,3 +145,13 @@ def _generate_overlay_file_id(
     if not paths:
         return None
     return uploads.register(paths[0])
+
+
+def _register_omr_file(uploads: UploadService, omr_dir: Path) -> str | None:
+    try:
+        omr_files = sorted(omr_dir.rglob("*.omr"))
+    except Exception:
+        return None
+    if not omr_files:
+        return None
+    return uploads.register(omr_files[0])

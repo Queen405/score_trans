@@ -92,6 +92,7 @@ def create_app(
     from .ai import routes as ai
     from .health import routes as health
     from .convert import routes as convert
+    from .correct import routes as correct
     from .recognize import routes as recognize
     from .render import routes as render
     from .pipeline import routes as pipeline
@@ -105,6 +106,7 @@ def create_app(
     app.include_router(ai.router)
     app.include_router(health.router)
     app.include_router(convert.router)
+    app.include_router(correct.router)
     app.include_router(recognize.router)
     app.include_router(render.router)
     app.include_router(pipeline.router)

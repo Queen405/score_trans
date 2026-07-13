@@ -16,12 +16,20 @@ from ...models.common.protocols import UploadFileLike
 from ...models.export.schemas import (
     ExportMidiRequest,
     ExportMidiTextRequest,
+    ExportFilesResponse,
     ExportMusicXmlRequest,
     ExportMusicXmlTextRequest,
+    ExportRenderedImagesRequest,
+    ExportRenderedPdfRequest,
     ExportResponse,
 )
 from ...models.score import JianpuScore
-from ...services.export.export_service import ExportService, images_to_pdf
+from ...services.export.export_service import (
+    ExportService,
+    images_to_pdf,
+    svg_page_to_image,
+    svg_pages_to_pdf,
+)
 from ...services.files.upload_service import UploadService
 from ..convert.actions import MusicXmlToJianpuAction
 
@@ -146,6 +154,51 @@ class ExportActions:
             file_id=file_id, filename=req.filename or "score.musicxml"
         )
 
+    def export_rendered_pdf(self, req: ExportRenderedPdfRequest) -> ExportResponse:
+        pages = [self._read_svg_page(file_id) for file_id in req.svg_file_ids]
+        output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.pdf"
+        svg_pages_to_pdf(pages, output_path)
+        return ExportResponse(
+            file_id=self.uploads.register(output_path),
+            filename=_filename_with_suffix(req.filename, ".pdf"),
+        )
+
+    def export_rendered_images(
+        self, req: ExportRenderedImagesRequest
+    ) -> ExportFilesResponse:
+        suffix = ".jpg" if req.format == "jpeg" else ".png"
+        stem = Path(req.filename).stem or "jianpu"
+        files: list[ExportResponse] = []
+        for index, file_id in enumerate(req.svg_file_ids):
+            output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}{suffix}"
+            svg_page_to_image(
+                self._read_svg_page(file_id),
+                output_path,
+                dpi=req.dpi,
+                image_format=req.format,
+            )
+            filename = (
+                f"{stem}{suffix}"
+                if len(req.svg_file_ids) == 1
+                else f"{stem}_p{index + 1}{suffix}"
+            )
+            files.append(
+                ExportResponse(
+                    file_id=self.uploads.register(output_path),
+                    filename=filename,
+                )
+            )
+        return ExportFilesResponse(files=files)
+
+    def _read_svg_page(self, file_id: str) -> bytes:
+        path = self.uploads.get_path(file_id)
+        if not path or not path.exists():
+            raise FileNotFoundError(f"SVG 页面不存在：{file_id}")
+        data = path.read_bytes()
+        if b"<svg" not in data[:4096]:
+            raise ValueError(f"文件不是有效的 SVG 页面：{file_id}")
+        return data
+
     async def export_pdf(
         self, files: list[UploadFileLike], filename: str = "jianpu.pdf"
     ) -> ExportResponse:
@@ -213,3 +266,12 @@ async def _read_upload_bounded(
                 f"文件 {source_name} 超过上传大小上限 {max_bytes} bytes"
             )
         chunks.append(chunk)
+
+
+def _filename_with_suffix(filename: str, suffix: str) -> str:
+    path = Path(filename)
+    return (
+        path.name
+        if path.suffix.lower() == suffix
+        else f"{path.stem or 'jianpu'}{suffix}"
+    )

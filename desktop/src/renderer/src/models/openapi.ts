@@ -141,6 +141,40 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/correct/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Corrections */
+        post: operations["apply_corrections_correct_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/correct/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entities */
+        get: operations["get_entities_correct_entities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/export/midi": {
         parameters: {
             query?: never;
@@ -220,6 +254,40 @@ export type paths = {
         put?: never;
         /** Export Pdf */
         post: operations["export_pdf_export_pdf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/export/rendered-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export Rendered Images */
+        post: operations["export_rendered_images_export_rendered_images_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/export/rendered-pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export Rendered Pdf */
+        post: operations["export_rendered_pdf_export_rendered_pdf_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -993,6 +1061,16 @@ export type components = {
         BatchResponse: {
             /** Created At */
             created_at: string;
+            /**
+             * Document Revision
+             * @default
+             */
+            document_revision?: string;
+            /**
+             * Engine Version
+             * @default publication-2
+             */
+            engine_version?: string;
             /** Id */
             id: number;
             /**
@@ -1098,10 +1176,127 @@ export type components = {
             /** Removed Items */
             removed_items: number;
         };
+        /** ConversionOptionsDTO */
+        ConversionOptionsDTO: {
+            /**
+             * Accidental Mode
+             * @default auto
+             */
+            accidental_mode?: string;
+            /**
+             * Instrument Profile
+             * @default general
+             */
+            instrument_profile?: string;
+            /**
+             * Measure Number Mode
+             * @default all
+             */
+            measure_number_mode?: string;
+            /**
+             * Show Measure Numbers
+             * @default true
+             */
+            show_measure_numbers?: boolean;
+            /** Start Measure Number */
+            start_measure_number?: number | null;
+            /**
+             * Target Key
+             * @default C
+             */
+            target_key?: string;
+            /** Title */
+            title?: string | null;
+        };
+        /** CorrectableEntityDTO */
+        CorrectableEntityDTO: {
+            /** Bounds H */
+            bounds_h: number;
+            /** Bounds W */
+            bounds_w: number;
+            /** Bounds X */
+            bounds_x: number;
+            /** Bounds Y */
+            bounds_y: number;
+            /** Grade */
+            grade: number;
+            /** Hit Path */
+            hit_path?: string | null;
+            /** Inter Id */
+            inter_id: string;
+            /** Is Structural */
+            is_structural: boolean;
+            /** Musicxml Locator */
+            musicxml_locator?: string | null;
+            /** Shape */
+            shape: string;
+            /** Sheet Index */
+            sheet_index: number;
+            /** Source Id */
+            source_id: string;
+            /** Tag */
+            tag: string;
+        };
+        /** CorrectionRequest */
+        CorrectionRequest: {
+            /**
+             * Deleted Source Ids
+             * @default []
+             */
+            deleted_source_ids?: string[];
+            /**
+             * @default {
+             *       "target_key": "C",
+             *       "accidental_mode": "auto",
+             *       "instrument_profile": "general",
+             *       "show_measure_numbers": true,
+             *       "measure_number_mode": "all"
+             *     }
+             */
+            options?: components["schemas"]["ConversionOptionsDTO"];
+            /** Original Musicxml */
+            original_musicxml: string;
+            /** Source Map File Id */
+            source_map_file_id?: string | null;
+        };
+        /** CorrectionResponse */
+        CorrectionResponse: {
+            /** Jianpu Text */
+            jianpu_text: string;
+            /**
+             * Svg File Ids
+             * @default []
+             */
+            svg_file_ids?: string[];
+            /**
+             * Text Anchors
+             * @default []
+             */
+            text_anchors?: {
+                [key: string]: unknown;
+            }[];
+            /** Text Hash */
+            text_hash: string;
+            /** Working Musicxml */
+            working_musicxml: string;
+        };
         /** DeleteAllResponse */
         DeleteAllResponse: {
             /** Deleted Count */
             deleted_count: number;
+        };
+        /** EntitiesResponse */
+        EntitiesResponse: {
+            /**
+             * Sheets
+             * @default []
+             */
+            sheets?: components["schemas"]["SheetEntitiesDTO"][];
+        };
+        /** ExportFilesResponse */
+        ExportFilesResponse: {
+            /** Files */
+            files: components["schemas"]["ExportResponse"][];
         };
         /** ExportMidiRequest */
         ExportMidiRequest: {
@@ -1174,6 +1369,38 @@ export type components = {
              * @default 简谱
              */
             title?: string;
+        };
+        /** ExportRenderedImagesRequest */
+        ExportRenderedImagesRequest: {
+            /**
+             * Dpi
+             * @default 300
+             * @enum {integer}
+             */
+            dpi?: 150 | 300 | 600;
+            /**
+             * Filename
+             * @default jianpu
+             */
+            filename?: string;
+            /**
+             * Format
+             * @default png
+             * @enum {string}
+             */
+            format?: "png" | "jpeg";
+            /** Svg File Ids */
+            svg_file_ids: string[];
+        };
+        /** ExportRenderedPdfRequest */
+        ExportRenderedPdfRequest: {
+            /**
+             * Filename
+             * @default jianpu.pdf
+             */
+            filename?: string;
+            /** Svg File Ids */
+            svg_file_ids: string[];
         };
         /** ExportResponse */
         ExportResponse: {
@@ -1350,6 +1577,16 @@ export type components = {
         /** PageCreate */
         PageCreate: {
             /**
+             * Document Revision
+             * @default
+             */
+            document_revision?: string;
+            /**
+             * Engine Version
+             * @default publication-2
+             */
+            engine_version?: string;
+            /**
              * Error Message
              * @default
              */
@@ -1379,6 +1616,16 @@ export type components = {
              * @default
              */
             ocr_text?: string;
+            /**
+             * Omr File Id
+             * @default
+             */
+            omr_file_id?: string;
+            /**
+             * Original Musicxml
+             * @default
+             */
+            original_musicxml?: string;
             /**
              * Overlay File Id
              * @default
@@ -1426,6 +1673,11 @@ export type components = {
              * @default
              */
             text_hash?: string;
+            /**
+             * Working Musicxml
+             * @default
+             */
+            working_musicxml?: string;
         };
         /** PageResponse */
         PageResponse: {
@@ -1436,6 +1688,16 @@ export type components = {
              * @default
              */
             completed_at?: string;
+            /**
+             * Document Revision
+             * @default
+             */
+            document_revision?: string;
+            /**
+             * Engine Version
+             * @default publication-2
+             */
+            engine_version?: string;
             /** Error Message */
             error_message: string;
             /** Id */
@@ -1450,6 +1712,16 @@ export type components = {
             musicxml_file_id: string;
             /** Ocr Text */
             ocr_text: string;
+            /**
+             * Omr File Id
+             * @default
+             */
+            omr_file_id?: string;
+            /**
+             * Original Musicxml
+             * @default
+             */
+            original_musicxml?: string;
             /**
              * Overlay File Id
              * @default
@@ -1488,9 +1760,18 @@ export type components = {
              * @default
              */
             text_hash?: string;
+            /**
+             * Working Musicxml
+             * @default
+             */
+            working_musicxml?: string;
         };
         /** PageUpdate */
         PageUpdate: {
+            /** Document Revision */
+            document_revision?: string | null;
+            /** Engine Version */
+            engine_version?: string | null;
             /** Error Message */
             error_message?: string | null;
             /** Jianpu Text */
@@ -1499,6 +1780,10 @@ export type components = {
             musicxml_file_id?: string | null;
             /** Ocr Text */
             ocr_text?: string | null;
+            /** Omr File Id */
+            omr_file_id?: string | null;
+            /** Original Musicxml */
+            original_musicxml?: string | null;
             /** Overlay File Id */
             overlay_file_id?: string | null;
             /** Overlay Svg File Id */
@@ -1519,6 +1804,8 @@ export type components = {
             text_attachments?: components["schemas"]["SourceTextAttachment"][] | null;
             /** Text Hash */
             text_hash?: string | null;
+            /** Working Musicxml */
+            working_musicxml?: string | null;
         };
         /** PerformanceMarkCatalogItem */
         PerformanceMarkCatalogItem: {
@@ -1583,6 +1870,11 @@ export type components = {
             /** Musicxml File Id */
             musicxml_file_id: string;
             /**
+             * Musicxml Text
+             * @default
+             */
+            musicxml_text?: string;
+            /**
              * Ocr Measure Numbers
              * @default []
              */
@@ -1592,6 +1884,11 @@ export type components = {
              * @default
              */
             ocr_text?: string;
+            /**
+             * Omr File Id
+             * @default null
+             */
+            omr_file_id?: string | null;
             /**
              * Overlay File Id
              * @default null
@@ -1678,6 +1975,16 @@ export type components = {
             /** Musicxml Filename */
             musicxml_filename: string;
             /**
+             * Musicxml Text
+             * @default
+             */
+            musicxml_text?: string;
+            /**
+             * Omr File Id
+             * @default null
+             */
+            omr_file_id?: string | null;
+            /**
              * Overlay File Id
              * @default null
              */
@@ -1695,6 +2002,16 @@ export type components = {
         };
         /** RenderedSvgPage */
         RenderedSvgPage: {
+            /**
+             * Document Revision
+             * @default null
+             */
+            document_revision?: string | null;
+            /**
+             * Engine Version
+             * @default publication-2
+             */
+            engine_version?: string;
             /**
              * Measure Ranges
              * @default []
@@ -2046,6 +2363,20 @@ export type components = {
             target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto" | null;
             /** Work Dir */
             work_dir?: string | null;
+        };
+        /** SheetEntitiesDTO */
+        SheetEntitiesDTO: {
+            /**
+             * Entities
+             * @default []
+             */
+            entities?: components["schemas"]["CorrectableEntityDTO"][];
+            /** Height */
+            height: number;
+            /** Sheet Index */
+            sheet_index: number;
+            /** Width */
+            width: number;
         };
         /** SourceTextAttachment */
         SourceTextAttachment: {
@@ -2482,6 +2813,71 @@ export interface operations {
             };
         };
     };
+    apply_corrections_correct_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrectionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entities_correct_entities_get: {
+        parameters: {
+            query: {
+                omr_file_id: string;
+                source_map_file_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitiesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_midi_export_midi_post: {
         parameters: {
             query?: never;
@@ -2626,6 +3022,72 @@ export interface operations {
         requestBody: {
             content: {
                 "multipart/form-data": components["schemas"]["Body_export_pdf_export_pdf_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_rendered_images_export_rendered_images_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRenderedImagesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportFilesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_rendered_pdf_export_rendered_pdf_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRenderedPdfRequest"];
             };
         };
         responses: {

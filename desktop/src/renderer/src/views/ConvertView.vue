@@ -179,9 +179,9 @@
             :loading="store.isBusy"
             :disabled="!store.hasMusicxml"
             type="primary"
-            @click="musicxmlToJianpu"
+            @click="resetAll"
           >
-            重置简谱
+            重置
           </n-button>
           <n-button
             size="small"
@@ -212,6 +212,29 @@
               v-if="store.originalFileName"
               class="panel-filename"
             >{{ store.originalFileName }}</span>
+            <div
+              v-if="canEditMarkers"
+              class="marker-edit-controls"
+            >
+              <n-button
+                size="tiny"
+                :type="editMode ? 'primary' : 'default'"
+                @click="toggleEditMode"
+              >
+                编辑标记
+              </n-button>
+              <template v-if="editMode">
+                <span class="deleted-count">已删除 {{ deletedEntityIds.size }}</span>
+                <n-button
+                  size="tiny"
+                  type="warning"
+                  :loading="applying"
+                  @click="applyCorrections"
+                >
+                  应用修正
+                </n-button>
+              </template>
+            </div>
           </div>
           <div class="ws-panel-body">
             <original-preview
@@ -221,7 +244,11 @@
               :source-map-file-id="store.sourceMapFileId"
               :clickable-source-ids="clickableSourceIds"
               :selected-source-id="selectedSourceId"
+              :editable="editMode"
+              :entities="correctableEntities"
+              :deleted-entity-ids="deletedEntityIds"
               @select-source="handleOriginalSourceClick"
+              @toggle-delete="toggleEntityDelete"
             />
           </div>
         </div>
@@ -323,7 +350,7 @@
             </div>
           </div>
           <div class="ws-panel-body">
-            <svg-preview
+            <publication-preview
               v-if="isViewingFinal && finalSvgFileId"
               ref="svgPreviewRef"
               :svg-file-id="finalSvgFileId"
@@ -379,8 +406,9 @@ import { useWorkspaceStore } from '../stores/workspace'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { convertApi } from '../api/convert'
-import { renderApi } from '../api/render'
-import { downloadBlob, exportApi, svgToJpegBlob, svgToPngBlob } from '../api/export'
+import { correctApi } from '../api/correct'
+import { usePublicationRender } from '../composables/usePublicationRender'
+import { downloadBlob, exportApi } from '../api/export'
 import { historyApi } from '../api/history'
 import { ApiError, fetchFileBlob, requireData } from '../api/client'
 import { filesApi } from '../api/files'
@@ -389,12 +417,13 @@ import type {
   HistoryBatch,
   HistoryPage,
   RenderedSvgPage,
+  TextAnchor,
 } from '../models/types'
 import type { TaskPage } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import JianpuPlayer from '../components/JianpuPlayer.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
-import SvgPreview from '../components/SvgPreview.vue'
+import PublicationPreview from '../components/PublicationPreview.vue'
 import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import {
@@ -444,11 +473,35 @@ import { NButton, NSelect, NIcon, NPopconfirm, NInputNumber, useMessage } from '
 
 const store = useWorkspaceStore()
 const settings = useSettingsStore()
+const publicationRender = usePublicationRender()
 const log = useLogStore()
 const message = useMessage()
 const jianpuEditorRef = ref<{ selectRange: (start: number, end: number) => boolean } | null>(null)
 const svgPreviewRef = ref<{ highlightSource: (sourceId: string) => boolean } | null>(null)
 const selectedSourceId = ref('')
+const editMode = ref(false)
+const deletedEntityIds = ref<Set<string>>(new Set())
+const correctableEntities = ref<CorrectableEntityDTO[]>([])
+const applying = ref(false)
+
+interface CorrectableEntityDTO {
+  source_id: string
+  inter_id: string
+  sheet_index: number
+  tag: string
+  shape: string
+  grade: number
+  bounds_x: number
+  bounds_y: number
+  bounds_w: number
+  bounds_h: number
+  is_structural: boolean
+  musicxml_locator?: string | null
+  hit_path?: string | null
+}
+
+const canEditMarkers = computed(() => !!store.omrFileId && !!store.originalMusicxml)
+
 const renderSourcePageLookup = ref<Record<string, number>>({})
 interface NoteIndexRange {
   start: number | null
@@ -881,6 +934,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
 
   let allPages = expandedPages.value
   let renderPageFileIds: string[] = []
+  let batchEngineVersion = ''
   let batchJianpuText = ''
   let renderPageOcrTexts: HistoryBatch['render_page_ocr_texts'] = []
   let pageIndex = allPages.findIndex((p) => p.id === page.id)
@@ -888,6 +942,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     const batch = await fetchStableHistoryBatch(batchId)
     if (!batch) return
     renderPageFileIds = batch.render_page_file_ids
+    batchEngineVersion = batch.engine_version || ''
     batchJianpuText = batch.jianpu_text || ''
     renderPageOcrTexts = batch.render_page_ocr_texts || []
     if (expandedBatchId.value === batchId) {
@@ -936,6 +991,15 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     renderPageOcrTexts,
   )
   isViewingFinal.value = false
+  if (!renderPageFileIds.length || batchEngineVersion !== 'publication-2') {
+    try {
+      renderPageFileIds = await renderFinalBatch()
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : String(e)
+      log.addError(`历史记录重新排版失败：${detail}`)
+      message.error(`历史记录重新排版失败：${detail}`)
+    }
+  }
   void validateRestoredBatchFiles(allPages, renderPageFileIds)
   void nextTick(() => flashCurrentPageSection('历史恢复'))
 
@@ -1163,7 +1227,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
     let svgFileIds = page.svg_file_id ? [page.svg_file_id] : []
     let jianpuText = page.jianpu_text
     if (page.musicxml_file_id && selected !== options[0]) {
-      const rendered = await requireData(renderApi.jianpuSvg({
+      const rendered = await requireData(publicationRender.jianpuSvg({
         musicxml_file_id: page.musicxml_file_id,
         page_image_file_id: page.input_file_id || undefined,
         target_key: settings.targetKey,
@@ -1174,7 +1238,7 @@ async function applyHistoryMeasureSelection(page: HistoryPage, selected: number)
       svgFileId = rendered.svg_file_id
       svgFileIds = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
     } else if (!page.musicxml_file_id && page.jianpu_text.trim()) {
-      const rendered = await requireData(renderApi.jianpuTextSvg({
+      const rendered = await requireData(publicationRender.jianpuTextSvg({
         jianpu_text: page.jianpu_text,
         page_image_file_id: page.input_file_id || undefined,
         include_ocr_text: false,
@@ -1373,9 +1437,13 @@ async function exportScore(): Promise<void> {
       const ids = await renderExportSvgIds()
       const svgFileId = ids[Math.min(finalRenderPageIndex.value, ids.length - 1)]
       if (!svgFileId) throw new Error('暂无可导出的 A4 页面')
-      const png = await svgToPngBlob(svgFileId)
       const filename = getExportFilename('png')
-      await finalizeExport({ buffer: await png.arrayBuffer() }, filename)
+      const result = await requireData(
+        exportApi.exportRenderedImages([svgFileId], filename, 300, 'png'),
+      )
+      const exported = result.files[0]
+      if (!exported) throw new Error('PNG 导出未生成文件')
+      await finalizeExport({ fileId: exported.file_id }, exported.filename)
       log.addLog(`导出完成：${filename}`)
       message.success('导出完成')
       return
@@ -1383,25 +1451,10 @@ async function exportScore(): Promise<void> {
 
     const svgIds = await renderExportSvgIds()
     if (!svgIds.length) throw new Error('暂无可导出的页面')
-    const imagePages: Blob[] = []
-    const skippedPages: number[] = []
-    for (let index = 0; index < svgIds.length; index++) {
-      try {
-        imagePages.push(await svgToJpegBlob(svgIds[index]))
-      } catch {
-        skippedPages.push(index + 1)
-      }
-    }
-    if (!imagePages.length) throw new Error('所有页面导出失败，无可用内容')
     const filename = getExportFilename('pdf')
-    const result = await requireData(exportApi.exportPdf(imagePages, filename))
+    const result = await requireData(exportApi.exportRenderedPdf(svgIds, filename))
     await finalizeExport({ fileId: result.file_id }, filename)
-    if (skippedPages.length) {
-      log.addLog(`导出完成（跳过 ${skippedPages.length} 页失败页）：${filename}`)
-      message.warning(`已跳过 ${skippedPages.length} 张 A4 页：${skippedPages.join('、')}`)
-    } else {
-      log.addLog(`导出完成：${filename}`)
-    }
+    log.addLog(`导出完成：${filename}`)
     message.success('导出完成')
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
@@ -1580,7 +1633,7 @@ async function renderExportSvgIds(): Promise<string[]> {
 async function renderFinalBatch(): Promise<string[]> {
   const pages = buildBatchRenderPages()
   if (!pages.length) throw new Error('暂无可渲染的简谱内容')
-  const result = await requireData(renderApi.batchA4({
+  const result = await requireData(publicationRender.batchA4({
     pages,
     source_pages: buildBatchRenderSourcePages(),
     render_page_ocr_texts: currentRenderPageOcrTextsForRequest(),
@@ -1696,9 +1749,14 @@ async function persistBatchRenderPageOcrTexts(
   }
 }
 
-async function musicxmlToJianpu(): Promise<void> {
+async function resetAll(): Promise<void> {
   store.setBusy(true)
   try {
+    if (editMode.value) {
+      editMode.value = false
+    }
+    deletedEntityIds.value = new Set()
+
     const result = await requireData(convertApi.musicxmlToJianpu({
       musicxml_file_id: store.musicxmlFileId,
       page_image_file_id: store.originalFileId || undefined,
@@ -1712,21 +1770,86 @@ async function musicxmlToJianpu(): Promise<void> {
       store.patchPageById(store.currentPage.id, {
         textAnchors: result.text_anchors ?? [],
         textHash: result.text_hash ?? '',
+        workingMusicxml: store.originalMusicxml,
       })
     }
     store.setBatchJianpuText(composeJianpuPageText(store.currentBatchPages), false)
     store.setOcrText(split.ocrText || store.ocrText)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
-    log.addLog('已转换为简谱')
-    message.success('转换完成')
+    log.addLog('已重置到识别初始状态')
+    message.success('已重置')
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
-    log.addError(`转换失败：${msg}`)
+    log.addError(`重置失败：${msg}`)
     message.error(msg)
   } finally {
     store.setBusy(false)
+  }
+}
+
+async function toggleEditMode() {
+  editMode.value = !editMode.value
+  if (editMode.value && correctableEntities.value.length === 0) {
+    await loadEntities()
+  }
+}
+
+async function loadEntities() {
+  if (!store.omrFileId) return
+  const { data, error } = await correctApi.getEntities(
+    store.omrFileId,
+    store.sourceMapFileId || undefined,
+  )
+  if (error) { message.error(error); return }
+  correctableEntities.value = data.sheets.flatMap((s: { entities: CorrectableEntityDTO[] }) => s.entities)
+}
+
+function toggleEntityDelete(sourceId: string) {
+  const next = new Set(deletedEntityIds.value)
+  if (next.has(sourceId)) {
+    next.delete(sourceId)
+  } else {
+    next.add(sourceId)
+  }
+  deletedEntityIds.value = next
+}
+
+async function applyCorrections() {
+  if (deletedEntityIds.value.size === 0) {
+    message.info('未删除任何标记')
+    return
+  }
+  applying.value = true
+  try {
+    const { data, error } = await correctApi.apply({
+      original_musicxml: store.originalMusicxml,
+      deleted_source_ids: [...deletedEntityIds.value],
+      source_map_file_id: store.sourceMapFileId || undefined,
+      options: {
+        target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
+        instrument_profile: 'general',
+        start_measure_number: store.startMeasureNumber ?? undefined,
+        show_measure_numbers: true,
+        measure_number_mode: 'all',
+      },
+    })
+    if (error) { message.error(error); return }
+    if (store.currentPage) {
+      store.patchPageById(store.currentPage.id, {
+        workingMusicxml: data.working_musicxml,
+        jianpuText: data.jianpu_text,
+        textAnchors: data.text_anchors as TextAnchor[],
+        textHash: data.text_hash,
+        svgFileIds: data.svg_file_ids,
+      })
+      store.setJianpu(data.jianpu_text)
+    }
+    message.success('修正已应用')
+  } finally {
+    applying.value = false
   }
 }
 
@@ -1840,7 +1963,7 @@ async function toggleFinalView(): Promise<void> {
 async function persistRenderedHistory(svgFileId: string, renderPageFileIds: string[]): Promise<void> {
   const savedJianpu = jianpuText.value
   if (savedJianpu.trim()) {
-    await requireData(renderApi.normalizeJianpuText({ jianpu_text: savedJianpu, title: '简谱' }))
+    await requireData(publicationRender.normalizeJianpuText({ jianpu_text: savedJianpu, title: '简谱' }))
   }
   const sections = parseJianpuPageSections(savedJianpu)
   const currentPageIndex = Math.max(0, currentBatchLocalIndex.value)
@@ -2295,6 +2418,19 @@ async function persistBatchJianpuText(batchId: number, text: string): Promise<vo
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+}
+
+.marker-edit-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.deleted-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .panel-head-actions {

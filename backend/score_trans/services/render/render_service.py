@@ -17,7 +17,7 @@ from .main import (
 from .options import RenderOptions
 
 
-class RenderService:
+class PublicationRenderService:
     def render_score_svg(
         self,
         score: JianpuScore,

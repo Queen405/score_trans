@@ -409,7 +409,11 @@ def test_history_batch_migration_adds_empty_batch_jianpu_text(tmp_path) -> None:
 
     assert loaded is not None
     assert loaded.jianpu_text == ""
-    assert loaded.render_page_file_ids == ["a4-old"]
+    # Rendered SVG IDs are derived output from the removed renderer and are
+    # deliberately invalidated by the v2 publication-engine migration.
+    assert loaded.render_page_file_ids == []
+    assert loaded.engine_version == ""
+    assert db_path.with_suffix(".v0.bak").exists()
     assert loaded.render_page_ocr_texts == []
 
 

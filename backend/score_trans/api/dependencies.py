@@ -5,6 +5,7 @@ from fastapi import Request
 from ..exec import composition
 from ..exec.ai.actions import AiActions
 from ..exec.convert.actions import ConvertActions
+from ..exec.correct.actions import CorrectActions
 from ..exec.export.actions import ExportActions
 from ..exec.files.actions import FileActions
 from ..exec.history.actions import HistoryActions
@@ -28,6 +29,12 @@ def get_convert_actions() -> ConvertActions:
     return ConvertActions(
         uploads=composition.shared_uploads(),
         file_service=composition.shared_file_service(),
+    )
+
+
+def get_correct_actions() -> CorrectActions:
+    return CorrectActions(
+        uploads=composition.shared_uploads(),
     )
 
 

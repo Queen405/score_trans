@@ -1,7 +1,7 @@
 # 五线谱标记删除/还原功能设计文档
 
 > **项目**: Score Trans
-> **目标**: 用户可在左侧五线谱图片上删除 OMR 误识别的标记（如错误的低音谱号、拍号），系统自动修正 MusicXML 并重新解析简谱，同时支持撤销还原。
+> **目标**: 用户可在左侧五线谱图片上删除 OMR 误识别的标记（如错误的低音谱号、拍号），系统自动修正 MusicXML 并重新解析简谱，同时支持撤销还原。原有"重置简谱"按钮更名为"重置"，一键还原简谱和五线谱标记到刚识别完的状态。
 > **日期**: 2026-07-08
 
 ---
@@ -37,6 +37,7 @@ Audiveris OMR 识别偶尔出现级联错误：一个标记（如低音谱号）
 - 系统从工作副本 MusicXML 中移除对应元素，重新解析简谱
 - 删除谱号时自动转换后续音符的音高（从错误谱号 → 默认高音谱号）
 - 用户可随时撤销删除，系统从原始副本 MusicXML 还原
+- 原"重置简谱"按钮更名为"重置"，点击后同时还原简谱文本和五线谱上所有标记到刚识别完的状态
 
 ### 1.3 设计原则
 
@@ -44,6 +45,7 @@ Audiveris OMR 识别偶尔出现级联错误：一个标记（如低音谱号）
 - **纯 MusicXML 操作**：不重新运行 OMR，不修改 .omr 文件，不需要修改 Audiveris Java
 - **即时反馈**：补丁 + 重解析耗时 < 1 秒
 - **逐标记撤销**：撤销某个标记的删除时，从原始 XML 重新应用所有剩余删除
+- **一键全量重置**：现有"重置简谱"按钮更名为"重置"，清空所有标记删除 + 从原始 XML 重新解析简谱，回到刚识别完的状态
 
 ---
 
@@ -58,7 +60,7 @@ Audiveris OMR 识别偶尔出现级联错误：一个标记（如低音谱号）
 4. 点击错误的低音谱号方框 → 方框变红 + 显示删除标记
 5. 点击"应用修正" → 系统从 MusicXML 删除谱号 + 自动转换后续音符音高 → 简谱刷新
 6. 如果效果正确，继续其他操作
-7. 如果效果不对，点击该标记的"还原" → 系统从原始 XML 重新应用 → 简谱还原
+7. 如果效果不对，点击工具栏"重置"按钮 → 清空所有删除 + 从原始 XML 重新解析 → 简谱和标记全部还原
 ```
 
 ### 场景 2：删除多余的音符
@@ -75,6 +77,19 @@ Audiveris OMR 识别偶尔出现级联错误：一个标记（如低音谱号）
 1. 拍号被错误识别为 3/4（实际应为 4/4）
 2. 删除错误的拍号标记
 3. 应用修正 → MusicXML 中删除 <time> 元素 → 后续小节沿用前一个拍号
+```
+
+### 场景 4：一键重置到识别初始状态
+
+```
+1. 用户删除了多个标记并应用修正后，发现整体效果不理想
+2. 点击工具栏"重置"按钮（原"重置简谱"按钮更名）
+3. 系统：
+   a. 清空所有已删除标记（deletedEntityIds 清空）
+   b. 工作副本 MusicXML 从原始副本还原
+   c. 从原始 MusicXML 重新解析简谱
+   d. 退出编辑模式
+4. 五线谱图片上所有标记恢复显示，简谱回到刚识别完的状态
 ```
 
 ---
@@ -257,6 +272,32 @@ deleted_source_ids.remove(entity.source_id)
 ```
 
 每次应用都是从原始 XML 重新补丁，保证幂等性和一致性。
+
+### 4.4 一键重置阶段
+
+```
+[用户点击工具栏"重置"按钮（原"重置简谱"）]
+  │
+  ▼
+前端执行 resetAll():
+  1. deletedEntityIds.clear()              — 清空所有标记删除
+  2. working_musicxml = original_musicxml  — 工作副本还原为原始
+  3. editMode = false                      — 退出编辑模式
+  4. 从原始 MusicXML 重新解析简谱
+  │
+  ▼
+调用现有 musicxmlToJianpu 流程
+（使用 store.musicxmlFileId — 指向识别时存储的原始 MusicXML 文件）
+  │
+  ▼
+更新简谱文本 + SVG + text_anchors
+  │
+  ▼
+五线谱上所有标记恢复显示，简谱回到刚识别完的状态
+```
+
+> "重置"按钮复用现有 `musicxmlToJianpu()` 的转换逻辑，只需额外清空 `deletedEntityIds` 并退出编辑模式。
+> `musicxmlFileId` 指向识别时上传的原始 MusicXML 文件（始终不变），因此重新解析即可获得初始简谱。
 
 ---
 
@@ -622,6 +663,12 @@ class CorrectionResponse(BaseModel):
 
 **`backend/score_trans/exec/correct/actions.py`**
 
+> **架构注意**：`exec/` 层不允许直接导入 `domain/`。现有代码中 `exec/convert/actions.py`、`exec/pipeline/actions.py` 等已有此违规（列于 `test_architecture.py` 的 `KNOWN_LAYER_VIOLATIONS`）。`exec/correct/actions.py` 如需调用 `musicxml_path_to_scores` 等 domain 函数，有两种方案：
+> - **方案 A（推荐）**：将转换逻辑封装在 `services/correct/` 中（services 层允许导入 domain），`exec/correct/actions.py` 调用 service
+> - **方案 B**：直接在 `exec/correct/actions.py` 导入 domain，并在 `KNOWN_LAYER_VIOLATIONS` 中添加 `("exec/correct/actions.py", "domain")`（与现有 convert/pipeline/render 保持一致）
+
+以下代码示例采用方案 B：
+
 ```python
 class CorrectActions:
     def __init__(self, uploads, render_service):
@@ -959,14 +1006,14 @@ CSS：
 
 **文件：`desktop/src/renderer/src/views/ConvertView.vue`**
 
-在左侧面板头部（`.ws-left .ws-panel-head`，约 line 209-215）新增：
+在左侧面板头部（`.ws-left .ws-panel-head`，约 line 209-215）新增标记编辑控件：
 
 ```vue
 <div class="ws-panel-head">
   <span class="ws-panel-title">原始五线谱</span>
   <span class="ws-panel-file">{{ store.originalFileName }}</span>
 
-  <!-- ★ 新增：标记编辑工具栏 -->
+  <!-- ★ 新增：标记编辑控件 -->
   <div v-if="canEditMarkers" class="marker-edit-controls">
     <n-button
       size="tiny"
@@ -980,11 +1027,27 @@ CSS：
       <n-button size="tiny" type="warning" :loading="applying" @click="applyCorrections">
         应用修正
       </n-button>
-      <n-button size="tiny" @click="restoreAll">全部还原</n-button>
     </template>
   </div>
 </div>
 ```
+
+同时将主工具栏的"重置简谱"按钮更名为"重置"，并扩展其行为：
+
+```vue
+<!-- ★ 修改：ws-toolbar-right 中的按钮 -->
+<n-button
+  size="small"
+  :loading="store.isBusy"
+  :disabled="!store.hasMusicxml"
+  type="primary"
+  @click="resetAll"
+>
+  重置
+</n-button>
+```
+
+> 注意：编辑工具栏中不再设置单独的"全部还原"按钮——主工具栏的"重置"按钮统一负责全量还原。
 
 **`canEditMarkers`** 计算属性：需要 `omrFileId` 和 `originalMusicxml` 同时存在。
 
@@ -1022,13 +1085,13 @@ async function applyCorrections() {
     })
     if (error) { message.error(error); return }
 
-    // 更新工作副本和显示
+    // 更新工作副本和显示（patch 键须用 camelCase 匹配 TaskPage 接口）
     await store.patchPageById(store.currentPage!.id, {
-      working_musicxml: data.working_musicxml,
-      jianpu_text: data.jianpu_text,
-      text_anchors: data.text_anchors,
-      text_hash: data.text_hash,
-      svg_file_ids: data.svg_file_ids,
+      workingMusicxml: data.working_musicxml,
+      jianpuText: data.jianpu_text,
+      textAnchors: data.text_anchors,
+      textHash: data.text_hash,
+      svgFileIds: data.svg_file_ids,
     })
     message.success('修正已应用')
   } finally {
@@ -1037,17 +1100,55 @@ async function applyCorrections() {
 }
 ```
 
-**`restoreAll`**：
+**`resetAll`**（替换原 `musicxmlToJianpu`）：
 
 ```typescript
-function restoreAll() {
-  deletedEntityIds.value.clear()
-  // 触发响应式更新
-  deletedEntityIds.value = new Set(deletedEntityIds.value)
+async function resetAll(): Promise<void> {
+  store.setBusy(true)
+  try {
+    // 1. 清空所有标记删除
+    deletedEntityIds.value = new Set()
+
+    // 2. 退出编辑模式
+    editMode.value = false
+
+    // 3. 从原始 MusicXML 重新解析简谱
+    //    musicxmlFileId 始终指向识别时上传的原始 MusicXML 文件
+    const result = await requireData(convertApi.musicxmlToJianpu({
+      musicxml_file_id: store.musicxmlFileId,
+      page_image_file_id: store.originalFileId || undefined,
+      target_key: settings.targetKey,
+      accidental_mode: settings.accidentalMode,
+      start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
+    }))
+    const split = splitJianpuAndOcr(result.jianpu_text)
+    store.setJianpu(split.jianpuText)
+    if (store.currentPage) {
+      store.patchPageById(store.currentPage.id, {
+        textAnchors: result.text_anchors ?? [],
+        textHash: result.text_hash ?? '',
+        // ★ 还原工作副本为原始
+        workingMusicxml: store.originalMusicxml,
+      })
+    }
+    store.setBatchJianpuText(composeJianpuPageText(store.currentBatchPages), false)
+    store.setOcrText(split.ocrText || store.ocrText)
+    store.setBatchRenderPageFileIds([])
+    setFinalSvgFileIds([])
+    log.addLog('已重置到识别初始状态')
+    message.success('已重置')
+  } catch (e: unknown) {
+    const raw = e instanceof Error ? e.message : String(e)
+    const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
+    log.addError(`重置失败：${msg}`)
+    message.error(msg)
+  } finally {
+    store.setBusy(false)
+  }
 }
 ```
 
-> 注意：`restoreAll` 只清除删除集合，不自动重新应用。用户需再点击"应用修正"从原始 XML 重新补丁。
+> `resetAll` 在原 `musicxmlToJianpu` 基础上增加了三步：清空 `deletedEntityIds`、退出编辑模式、还原 `working_musicxml`。简谱解析逻辑完全复用现有代码。
 
 ### 7.4 Pinia Store 改造
 
@@ -1111,7 +1212,7 @@ export const correctApi = {
 
 **`backend/score_trans/dao/history/history_dao.py`**
 
-1. `_SCHEMA_VERSION` 从 `1` 改为 `2`
+1. `_SCHEMA_VERSION` 从 `2` 改为 `3`（当前版本已经是 2，包含 `engine_version`/`document_revision` 列）
 2. `_create_tables` 中新增列：
 
 ```sql
@@ -1176,8 +1277,9 @@ pnpm generate:api-types
 | `backend/score_trans/api/app.py` | 注册 correct 路由 |
 | `backend/score_trans/api/dependencies.py` | 注入 CorrectActions |
 | `backend/score_trans/services/overlay/omr_parser.py` | 暴露 `DELETABLE_TAGS` 常量 |
+| `tests/test_architecture.py` | 若采用方案 B，添加 `("exec/correct/actions.py", "domain")` 到 `KNOWN_LAYER_VIOLATIONS` |
 | `desktop/src/renderer/src/components/OriginalPreview.vue` | 编辑模式 + 实体图层 |
-| `desktop/src/renderer/src/views/ConvertView.vue` | 编辑工具栏 + 应用/还原逻辑 |
+| `desktop/src/renderer/src/views/ConvertView.vue` | 编辑工具栏 + 应用逻辑 + "重置"按钮更名与 `resetAll` |
 | `desktop/src/renderer/src/stores/workspace.ts` | 新增状态字段 + 同步 |
 | `desktop/src/renderer/src/models/openapi.ts` | 重新生成（`pnpm generate:api-types`） |
 | `desktop/src/renderer/src/views/RecognizeView.vue:1318` | `persistPageResult` 传入新字段 |
@@ -1221,7 +1323,7 @@ pnpm generate:api-types
 ### 阶段 4：前端编辑模式
 
 1. `OriginalPreview.vue`：实体图层 + 编辑模式样式
-2. `ConvertView.vue`：编辑工具栏 + 应用/还原按钮
+2. `ConvertView.vue`：编辑工具栏 + 应用逻辑 + "重置简谱"→"重置"更名 + `resetAll` 实现
 3. `workspace.ts`：新增状态 + 同步
 4. `correct.ts`：API 包装
 
@@ -1229,11 +1331,11 @@ pnpm generate:api-types
 - 点击"编辑标记"→ 所有标记以彩色方框显示
 - 点击方框 → 变红
 - 点击"应用修正" → 简谱刷新
-- 点击"全部还原" → 简谱还原
+- 点击"重置" → 标记全部恢复 + 简谱回到识别初始状态 + 退出编辑模式
 
 ### 阶段 5：集成测试 + 完善
 
-1. 端到端测试：识别 → 编辑 → 应用 → 还原
+1. 端到端测试：识别 → 编辑 → 应用 → 重置
 2. 边界情况：多声部、和弦、空小节
 3. 性能测试：大谱面补丁 + 重解析耗时
 4. 运行 `python -m pytest tests/test_render.py`（SVG 断言）

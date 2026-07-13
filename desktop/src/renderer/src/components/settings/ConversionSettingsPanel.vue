@@ -121,7 +121,9 @@
               size="small"
               style="width: 140px"
             >
-              <template #suffix>BPM</template>
+              <template #suffix>
+                BPM
+              </template>
             </n-input-number>
           </div>
         </settings-form-row>

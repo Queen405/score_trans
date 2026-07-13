@@ -149,7 +149,7 @@ const originalPreviewSource = fs.readFileSync(
   'utf8',
 )
 const svgPreviewSource = fs.readFileSync(
-  path.resolve(here, '../src/renderer/src/components/SvgPreview.vue'),
+  path.resolve(here, '../src/renderer/src/components/PublicationPreview.vue'),
   'utf8',
 )
 const historyQuickEntrySource = fs.readFileSync(

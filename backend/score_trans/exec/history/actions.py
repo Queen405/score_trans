@@ -50,6 +50,8 @@ class HistoryActions:
                 ocr_text=p.ocr_text,
                 text_attachments=p.text_attachments,
                 svg_file_id=p.svg_file_id,
+                engine_version=p.engine_version if p.svg_file_id else "",
+                document_revision=p.document_revision or p.text_hash,
                 overlay_svg_file_id=p.overlay_svg_file_id,
                 overlay_file_id=p.overlay_file_id,
                 source_map_file_id=p.source_map_file_id,
@@ -58,6 +60,9 @@ class HistoryActions:
                 start_measure_number=p.start_measure_number,
                 status=p.status,
                 error_message=p.error_message,
+                omr_file_id=p.omr_file_id,
+                original_musicxml=p.original_musicxml,
+                working_musicxml=p.working_musicxml,
             )
             for p in req.pages
         ]
@@ -98,6 +103,8 @@ class HistoryActions:
             ocr_text=req.ocr_text,
             text_attachments=req.text_attachments,
             svg_file_id=req.svg_file_id,
+            engine_version=req.engine_version,
+            document_revision=req.document_revision,
             overlay_svg_file_id=req.overlay_svg_file_id,
             overlay_file_id=req.overlay_file_id,
             source_map_file_id=req.source_map_file_id,
@@ -110,6 +117,9 @@ class HistoryActions:
             ),
             status=req.status,
             error_message=req.error_message,
+            omr_file_id=req.omr_file_id,
+            original_musicxml=req.original_musicxml,
+            working_musicxml=req.working_musicxml,
         )
         if not page:
             raise FileNotFoundError("Page not found")
@@ -181,6 +191,8 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         ocr_text=page.ocr_text,
         text_attachments=page.text_attachments,
         svg_file_id=page.svg_file_id,
+        engine_version=page.engine_version,
+        document_revision=page.document_revision,
         overlay_svg_file_id=page.overlay_svg_file_id,
         overlay_file_id=page.overlay_file_id,
         source_map_file_id=page.source_map_file_id,
@@ -189,6 +201,9 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         start_measure_number=page.start_measure_number,
         status=page.status,
         error_message=page.error_message,
+        omr_file_id=page.omr_file_id,
+        original_musicxml=page.original_musicxml,
+        working_musicxml=page.working_musicxml,
     )
 
 
@@ -200,6 +215,8 @@ def _batch_to_response(batch: HistoryBatch) -> BatchResponse:
         status=batch.status,
         jianpu_text=batch.jianpu_text,
         render_page_file_ids=_batch_render_page_file_ids(batch),
+        engine_version=batch.engine_version,
+        document_revision=batch.document_revision,
         render_page_ocr_texts=[
             RenderPageOcrText(
                 page_index=item.page_index,

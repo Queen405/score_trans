@@ -20,9 +20,7 @@ from ...models.score import JianpuPitch, JianpuScore
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
 
 
-def _resolve_bpm(
-    score: JianpuScore, midi_tempo: int | Literal["auto"]
-) -> int:
+def _resolve_bpm(score: JianpuScore, midi_tempo: int | Literal["auto"]) -> int:
     if midi_tempo != "auto":
         return midi_tempo
     if score.tempo and score.tempo > 0:
@@ -94,6 +92,49 @@ def images_to_pdf(image_pages: list[bytes], output_path: Path) -> Path:
     return output_path
 
 
+def svg_pages_to_pdf(svg_pages: list[bytes], output_path: Path) -> Path:
+    if not svg_pages:
+        raise ValueError("至少需要一个 SVG 页面")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    target = fitz.open()
+    try:
+        for svg_data in svg_pages:
+            source = fitz.open("svg", svg_data)
+            try:
+                pdf_data = source.convert_to_pdf()
+            finally:
+                source.close()
+            page_doc = fitz.open("pdf", pdf_data)
+            try:
+                target.insert_pdf(page_doc)
+            finally:
+                page_doc.close()
+        target.save(str(output_path))
+    finally:
+        target.close()
+    return output_path
+
+
+def svg_page_to_image(
+    svg_data: bytes,
+    output_path: Path,
+    *,
+    dpi: int = 300,
+    image_format: Literal["png", "jpeg"] = "png",
+) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    source = fitz.open("svg", svg_data)
+    try:
+        page = source[0]
+        pixmap = page.get_pixmap(
+            matrix=fitz.Matrix(dpi / 96.0, dpi / 96.0), alpha=False
+        )
+        pixmap.save(str(output_path), output="jpg" if image_format == "jpeg" else "png")
+    finally:
+        source.close()
+    return output_path
+
+
 class ExportService:
     def export_midi(self, score: JianpuScore, output_path: Path) -> Path:
         return self.export_midi_scores([score], output_path)
@@ -132,7 +173,9 @@ class ExportService:
         *,
         midi_tempo: int | Literal["auto"] = "auto",
     ) -> Path:
-        rendered_scores = self._merge_scores_by_part(scores) if scores else [JianpuScore()]
+        rendered_scores = (
+            self._merge_scores_by_part(scores) if scores else [JianpuScore()]
+        )
         for score in rendered_scores:
             for measure in score.measures:
                 for event in measure.events:
@@ -161,7 +204,9 @@ class ExportService:
             # set_tempo 仅写在 track 0（MIDI 规范要求单一 tempo map）
             if index == 0:
                 bpm = _resolve_bpm(score, midi_tempo)
-                track.append(mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(bpm), time=0))
+                track.append(
+                    mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(bpm), time=0)
+                )
                 track.append(
                     mido.MetaMessage(
                         "time_signature",

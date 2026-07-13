@@ -74,6 +74,8 @@ class HistoryService:
         ocr_text: str | None = None,
         text_attachments: list[SourceTextAttachment] | None = None,
         svg_file_id: str | None = None,
+        engine_version: str | None = None,
+        document_revision: str | None = None,
         overlay_svg_file_id: str | None = None,
         overlay_file_id: str | None = None,
         source_map_file_id: str | None = None,
@@ -83,6 +85,9 @@ class HistoryService:
         start_measure_number: int | None | UnsetType = UNSET,
         status: str | None = None,
         error_message: str | None = None,
+        omr_file_id: str | None = None,
+        original_musicxml: str | None = None,
+        working_musicxml: str | None = None,
     ) -> HistoryPage | None:
         return self.dao.update_page(
             page_id,
@@ -91,6 +96,8 @@ class HistoryService:
             ocr_text=ocr_text,
             text_attachments=text_attachments,
             svg_file_id=svg_file_id,
+            engine_version=engine_version,
+            document_revision=document_revision,
             overlay_svg_file_id=overlay_svg_file_id,
             overlay_file_id=overlay_file_id,
             source_map_file_id=source_map_file_id,
@@ -100,6 +107,9 @@ class HistoryService:
             start_measure_number=start_measure_number,
             status=status,
             error_message=error_message,
+            omr_file_id=omr_file_id,
+            original_musicxml=original_musicxml,
+            working_musicxml=working_musicxml,
         )
 
     def reorder_pages(

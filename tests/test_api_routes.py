@@ -21,7 +21,7 @@ from score_trans.models.render.schemas import (
     RenderJianpuSvgResponse,
 )
 from score_trans.models.common.errors import RenderError
-from score_trans.models.export.schemas import ExportResponse
+from score_trans.models.export.schemas import ExportMidiRequest, ExportResponse
 from score_trans.models.settings.schemas import CacheCleanupResponse
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
@@ -64,7 +64,7 @@ def test_exec_errors_are_mapped_at_the_api_boundary() -> None:
     missing_file = client.get("/files/definitely-missing")
     missing_export = client.post(
         "/export/midi",
-        params={"musicxml_file_id": "definitely-missing"},
+        json={"musicxml_file_id": "definitely-missing"},
     )
     invalid_render = client.post("/render/batch-a4", json={"pages": []})
 
@@ -139,9 +139,7 @@ class SlowExportActions:
 def test_export_route_offloads_blocking_export_work() -> None:
     async def scenario() -> tuple[float, bool, str]:
         start = time.perf_counter()
-        task = asyncio.create_task(
-            export_midi("score", actions=SlowExportActions())
-        )
+        task = asyncio.create_task(export_midi("score", actions=SlowExportActions()))
         await asyncio.sleep(0.01)
         elapsed = time.perf_counter() - start
         still_running = not task.done()
@@ -663,7 +661,7 @@ def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> N
 
     response = asyncio.run(
         export_midi(
-            musicxml_file_id=musicxml_id,
+            req=ExportMidiRequest(musicxml_file_id=musicxml_id),
             actions=ExportActions(uploads=uploads, exporter=fake_export),
         )
     )

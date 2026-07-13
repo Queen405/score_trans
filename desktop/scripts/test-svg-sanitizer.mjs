@@ -55,7 +55,7 @@ test('SVG CSS sanitizer drops imports, URL functions and unknown properties', ()
 
 test('SVG preview mounts a sanitized DOM node without v-html', () => {
   const preview = fs.readFileSync(
-    path.join(projectRoot, 'src/renderer/src/components/SvgPreview.vue'),
+    path.join(projectRoot, 'src/renderer/src/components/PublicationPreview.vue'),
     'utf8',
   )
 

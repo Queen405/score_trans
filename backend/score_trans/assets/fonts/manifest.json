@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "fonts": [
+    {
+      "file": "NotoSerifCJKsc-Regular.otf",
+      "family": "Noto Serif CJK SC",
+      "version": "2.003",
+      "sha256": "2a2eae2628df83556c54018c41e20fa532c1b862c5256ae8b3f23feb918d12ca",
+      "license": "OFL-NotoSerifCJK.txt"
+    },
+    {
+      "file": "Bravura.otf",
+      "family": "Bravura",
+      "version": "1.38",
+      "sha256": "dca2d90c88437a701b1c2e71fa54e76f9fa41d7deee935d74dc871ea66ecfdd2",
+      "license": "OFL-Bravura.txt"
+    }
+  ]
+}

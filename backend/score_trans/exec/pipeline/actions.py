@@ -31,8 +31,7 @@ from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.overlay.overlay_service import OverlayService
-from ...services.render.render_service import RenderService
-from ...services.render.render_map import write_render_map
+from ...services.render.render_service import PublicationRenderService
 from ...services.settings.settings_service import SettingsService
 from ..convert.actions import MusicXmlToJianpuAction
 from ..recognize.actions import RecognizeScoreAction
@@ -46,11 +45,13 @@ class ScorePipelineOutputs:
     musicxml_path: Path
     jianpu_text_path: Path
     jianpu_svg_paths: list[Path]
+    render_map_paths: list[Path]
     ocr_measure_numbers: list[int]
     ocr_text: str = ""
     overlay_path: Path | None = None
     source_map_path: Path | None = None
     overlay_svg_path: Path | None = None
+    omr_path: Path | None = None
     text_anchors: list[TextAnchor] | None = None
     text_attachments: list[SourceTextAttachment] | None = None
     text_hash: str = ""
@@ -66,13 +67,13 @@ class FullPipelineAction:
         self,
         recognizer: RecognizeScoreAction | None = None,
         converter: MusicXmlToJianpuAction | None = None,
-        renderer: RenderService | None = None,
+        renderer: PublicationRenderService | None = None,
         file_service: FileService | None = None,
         overlay_service: OverlayService | None = None,
     ) -> None:
         self.recognizer = recognizer or RecognizeScoreAction()
         self.converter = converter or MusicXmlToJianpuAction()
-        self.renderer = renderer or RenderService()
+        self.renderer = renderer or PublicationRenderService()
         self.file_service = file_service or FileService()
         self.overlay_service = overlay_service or OverlayService()
 
@@ -158,16 +159,23 @@ class FullPipelineAction:
         )
         ocr_text = _serialize_text_attachments(text_attachments)
         report_progress(progress_callback, "render", 94, "渲染完成")
+        omr_path = _find_omr_file(out_dir / "omr")
         return ScorePipelineOutputs(
             input_path=source,
             musicxml_path=musicxml_path,
             jianpu_text_path=text_path,
             jianpu_svg_paths=svg_paths,
+            render_map_paths=[
+                page.render_map_path
+                for page in rendered_pages
+                if page.render_map_path is not None
+            ],
             ocr_measure_numbers=ocr_measure_numbers,
             ocr_text=ocr_text,
             overlay_path=overlay_path,
             source_map_path=source_map_path,
             overlay_svg_path=overlay_svg_path,
+            omr_path=omr_path,
             text_anchors=document.anchors,
             text_attachments=text_attachments,
             text_hash=document.text_hash,
@@ -327,6 +335,12 @@ class PipelineActions:
 
         report_progress(progress_callback, "pipeline", 96, "注册输出文件")
         musicxml_id = self.uploads.register(outputs.musicxml_path)
+        musicxml_text = outputs.musicxml_path.read_text(encoding="utf-8")
+        omr_file_id = (
+            self.uploads.register(outputs.omr_path)
+            if outputs.omr_path is not None
+            else None
+        )
         jianpu_id = self.uploads.register(outputs.jianpu_text_path)
         render_pages = [
             RenderedSvgPage(
@@ -337,7 +351,8 @@ class PipelineActions:
                 ocr_text=outputs.ocr_text if index == 0 else "",
                 render_map_file_id=(
                     self.uploads.register(render_map_path)
-                    if (render_map_path := write_render_map(path, index))
+                    if index < len(outputs.render_map_paths)
+                    and (render_map_path := outputs.render_map_paths[index])
                     else None
                 ),
             )
@@ -361,6 +376,8 @@ class PipelineActions:
         )
         return PipelineResponse(
             musicxml_file_id=musicxml_id,
+            musicxml_text=musicxml_text,
+            omr_file_id=omr_file_id,
             jianpu_text=jianpu_text,
             jianpu_file_id=jianpu_id,
             svg_file_id=render_pages[0].svg_file_id,
@@ -386,6 +403,14 @@ def _copy_musicxml_output(path: Path, output_dir: Path, stem: str) -> Path:
     if path.resolve() != target.resolve():
         shutil.copy2(path, target)
     return target
+
+
+def _find_omr_file(omr_output_dir: Path) -> Path | None:
+    try:
+        omr_files = sorted(omr_output_dir.rglob("*.omr"))
+    except Exception:
+        return None
+    return omr_files[0] if omr_files else None
 
 
 def _extract_ocr_measure_numbers(score) -> list[int]:

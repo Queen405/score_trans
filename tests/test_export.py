@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
+import fitz
 import mido
 import pytest
 
@@ -11,6 +12,8 @@ from score_trans.models.export.schemas import (
     ExportMidiTextRequest,
     ExportMusicXmlRequest,
     ExportMusicXmlTextRequest,
+    ExportRenderedImagesRequest,
+    ExportRenderedPdfRequest,
     ExportResponse,
 )
 from score_trans.services.export.export_service import ExportService
@@ -73,6 +76,57 @@ def test_export_musicxml_from_file_id(tmp_path) -> None:
     assert "<fifths>2</fifths>" in written
 
 
+def _register_svg_page(uploads: UploadService, tmp_path, name: str, x: int) -> str:
+    path = tmp_path / name
+    path.write_text(
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="595" height="842" '
+        f'viewBox="0 0 595 842"><path d="M{x} 20h100v20h-100z"/></svg>',
+        encoding="utf-8",
+    )
+    return uploads.register(path)
+
+
+def test_rendered_pdf_export_uses_svg_pages_directly(tmp_path) -> None:
+    uploads = UploadService()
+    page_ids = [
+        _register_svg_page(uploads, tmp_path, "page-1.svg", 20),
+        _register_svg_page(uploads, tmp_path, "page-2.svg", 40),
+    ]
+
+    response = ExportActions(uploads=uploads).export_rendered_pdf(
+        ExportRenderedPdfRequest(svg_file_ids=page_ids, filename="score")
+    )
+
+    output = uploads.get_path(response.file_id)
+    assert output is not None and output.read_bytes().startswith(b"%PDF")
+    assert response.filename == "score.pdf"
+    assert len(fitz.open(output)) == 2
+
+
+@pytest.mark.parametrize(
+    ("image_format", "magic", "suffix"),
+    [("png", b"\x89PNG", ".png"), ("jpeg", b"\xff\xd8\xff", ".jpg")],
+)
+def test_rendered_image_export_uses_svg_page_directly(
+    tmp_path, image_format: str, magic: bytes, suffix: str
+) -> None:
+    uploads = UploadService()
+    page_id = _register_svg_page(uploads, tmp_path, "page.svg", 20)
+
+    response = ExportActions(uploads=uploads).export_rendered_images(
+        ExportRenderedImagesRequest(
+            svg_file_ids=[page_id],
+            filename="score",
+            format=image_format,
+            dpi=150,
+        )
+    )
+
+    output = uploads.get_path(response.files[0].file_id)
+    assert output is not None and output.read_bytes().startswith(magic)
+    assert response.files[0].filename == f"score{suffix}"
+
+
 def test_text_exports_preserve_multi_part_structure() -> None:
     uploads = UploadService()
     actions = ExportActions(uploads=uploads)
@@ -108,7 +162,7 @@ def test_multi_page_midi_merges_parts_across_pages(tmp_path) -> None:
         '// @part 2 name="Piano"\n1=C\n4/4\n5 6 7 1\' |\n'
         '// @page 2 start=auto name="p2.png"\n'
         '// @part 1 name="Voice"\n1=C\n4/4\n2 3 4 5 |\n'
-        '// @part 2 name="Piano"\n1=C\n4/4\n6 7 1\' 2\' |'
+        "// @part 2 name=\"Piano\"\n1=C\n4/4\n6 7 1' 2' |"
     )
 
     midi_response = actions.export_midi_text(
@@ -126,7 +180,9 @@ def test_multi_page_midi_merges_parts_across_pages(tmp_path) -> None:
             abs_time += msg.time
             if msg.type == "note_on" and msg.velocity > 0:
                 note_times.append(abs_time)
-        assert len(note_times) == 8, f"Track {track.name}: expected 8 notes, got {len(note_times)}"
+        assert len(note_times) == 8, (
+            f"Track {track.name}: expected 8 notes, got {len(note_times)}"
+        )
         assert note_times[3] < note_times[4], (
             f"Track {track.name}: page 2 notes must start after page 1 ends, "
             f"got {note_times[3]} -> {note_times[4]}"

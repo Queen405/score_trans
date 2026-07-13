@@ -25,6 +25,8 @@ class PipelineByFileIdRequest(BaseModel):
 
 class PipelineResponse(BaseModel):
     musicxml_file_id: str
+    musicxml_text: str = ""
+    omr_file_id: str | None = None
     jianpu_text: str
     jianpu_file_id: str
     svg_file_id: str

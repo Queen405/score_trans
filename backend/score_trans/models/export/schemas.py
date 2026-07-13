@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 from ..common.types import MidiTempo, TargetKeyOrAuto
 
@@ -8,6 +10,22 @@ from ..common.types import MidiTempo, TargetKeyOrAuto
 class ExportResponse(BaseModel):
     file_id: str
     filename: str
+
+
+class ExportFilesResponse(BaseModel):
+    files: list[ExportResponse]
+
+
+class ExportRenderedPdfRequest(BaseModel):
+    svg_file_ids: list[str] = Field(min_length=1)
+    filename: str = "jianpu.pdf"
+
+
+class ExportRenderedImagesRequest(BaseModel):
+    svg_file_ids: list[str] = Field(min_length=1)
+    filename: str = "jianpu"
+    format: Literal["png", "jpeg"] = "png"
+    dpi: Literal[150, 300, 600] = 300
 
 
 class ExportMidiRequest(BaseModel):

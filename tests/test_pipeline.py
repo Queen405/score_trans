@@ -137,6 +137,7 @@ def test_pipeline_actions_do_not_register_partial_outputs_when_render_is_empty(
         musicxml_path=musicxml_path,
         jianpu_text_path=text_path,
         jianpu_svg_paths=[],
+        render_map_paths=[],
         ocr_measure_numbers=[],
     )
     actions = PipelineActions(

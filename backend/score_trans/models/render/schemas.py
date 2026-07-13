@@ -33,6 +33,8 @@ class RenderedSvgPage(BaseModel):
     note_index_start: int | None = None
     note_index_end: int | None = None
     text_blocks: list[RenderedTextBlock] = []
+    engine_version: str = "publication-2"
+    document_revision: str | None = None
 
 
 class RenderJianpuSvgRequest(BaseModel):

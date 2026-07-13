@@ -23,6 +23,7 @@ LAYER_IMPORTS = {
 
 KNOWN_LAYER_VIOLATIONS = {
     ("exec/convert/actions.py", "domain"),
+    ("exec/correct/actions.py", "domain"),
     ("exec/export/actions.py", "domain"),
     ("exec/notation/actions.py", "domain"),
     ("exec/pipeline/actions.py", "domain"),
@@ -215,7 +216,7 @@ def test_blocking_api_actions_are_offloaded() -> None:
 def test_runtime_validation_paths_do_not_use_assert_statements() -> None:
     runtime_validation_files = [
         SRC_ROOT / "exec" / "convert" / "actions.py",
-        SRC_ROOT / "services" / "render" / "drawing" / "spanners.py",
+        SRC_ROOT / "services" / "render" / "engraving" / "renderer.py",
     ]
     offenders = []
     for file in runtime_validation_files:

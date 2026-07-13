@@ -1,5 +1,6 @@
 import { useMessage } from 'naive-ui'
 import { useWorkspaceStore } from '../stores/workspace'
+import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
@@ -12,11 +13,15 @@ import {
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/types'
 import type { TaskPage } from '../stores/workspace'
+import { buildBatchRenderRequests, renderResponsePageIds } from '../utils/batchRender'
+import { usePublicationRender } from './usePublicationRender'
 
 export function useHistoryRestore() {
   const message = useMessage()
   const store = useWorkspaceStore()
+  const settings = useSettingsStore()
   const log = useLogStore()
+  const publicationRender = usePublicationRender()
   let restoreCheckSeq = 0
 
   async function restoreBatch(entry: HistoryBatchListItem): Promise<boolean> {
@@ -45,8 +50,58 @@ export function useHistoryRestore() {
       batch.render_page_ocr_texts || [],
     )
     await validateRestoredBatchFiles(pages, batch.render_page_file_ids)
+    if (!batch.render_page_file_ids.length || batch.engine_version !== 'publication-2') {
+      await rebuildPublicationPages(batch)
+    }
     message.success(`已恢复 ${pages.length} 页`)
     return true
+  }
+
+  async function rebuildPublicationPages(batch: HistoryBatch): Promise<void> {
+    const sourcePages = batch.pages.map((page) => {
+      const split = splitJianpuAndOcr(page.jianpu_text || '')
+      return {
+        inputFileName: page.input_file_name,
+        inputFileId: page.input_file_id,
+        originalFileId: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_id : '',
+        musicxmlFileId: page.musicxml_file_id,
+        jianpuText: split.jianpuText,
+        ocrText: page.ocr_text || split.ocrText,
+        sourceMapFileId: page.source_map_file_id || '',
+        textAttachments: page.text_attachments || [],
+        startMeasureNumber: page.start_measure_number ?? null,
+      }
+    })
+    const requestPages = buildBatchRenderRequests(sourcePages, {
+      jianpuText: batch.jianpu_text || '',
+      title: '简谱',
+    })
+    if (!requestPages.length) {
+      log.addLog('历史记录缺少 MusicXML 或简谱文本，无法用新版渲染器重建。', 'warn')
+      return
+    }
+    try {
+      const rendered = await requireData(publicationRender.batchA4({
+        pages: requestPages,
+        source_pages: buildBatchRenderRequests(sourcePages, { title: '简谱' }),
+        render_page_ocr_texts: batch.render_page_ocr_texts || [],
+        target_key: settings.targetKey,
+        accidental_mode: settings.accidentalMode,
+        show_measure_numbers: settings.showMeasureNumbers,
+        measure_number_mode: settings.measureNumberMode,
+        title: '简谱',
+      }))
+      const ids = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
+      store.setBatchRenderPageFileIds(ids)
+      await requireData(historyApi.updateBatchRenderPages(batch.id, {
+        render_page_file_ids: ids,
+      }))
+      log.addLog(`历史记录已由新版出版渲染器重建，共 ${ids.length} 页。`)
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error)
+      log.addLog(`历史谱面重建失败：${detail}`, 'warn')
+      message.warning(`历史数据已恢复，但谱面需要重新渲染：${detail}`)
+    }
   }
 
   function buildTaskPageInput(page: HistoryPage, batchId: number) {

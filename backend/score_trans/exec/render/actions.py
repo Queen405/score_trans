@@ -42,8 +42,7 @@ from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.ocr.providers import create_configured_ocr_provider
-from ...services.render.render_service import RenderService
-from ...services.render.render_map import write_render_map
+from ...services.render.render_service import PublicationRenderService
 from ..convert.actions import MusicXmlToJianpuAction
 
 
@@ -58,10 +57,10 @@ class RenderMusicXmlJianpuAction:
     def __init__(
         self,
         converter: MusicXmlToJianpuAction | None = None,
-        render_service: RenderService | None = None,
+        render_service: PublicationRenderService | None = None,
     ) -> None:
         self.converter = converter or MusicXmlToJianpuAction()
-        self.render_service = render_service or RenderService()
+        self.render_service = render_service or PublicationRenderService()
 
     def execute(
         self,
@@ -222,8 +221,8 @@ class RenderMusicXmlJianpuAction:
 
 
 class RenderJianpuTextAction:
-    def __init__(self, render_service: RenderService | None = None) -> None:
-        self.render_service = render_service or RenderService()
+    def __init__(self, render_service: PublicationRenderService | None = None) -> None:
+        self.render_service = render_service or PublicationRenderService()
 
     def execute(
         self,
@@ -323,9 +322,7 @@ class RenderActions:
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise FileNotFoundError(
-                    f"页面图片不存在：{req.page_image_file_id}"
-                )
+                raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
         paths = self.musicxml_renderer.execute_a4_pages(
             path,
             svg_path,
@@ -372,9 +369,7 @@ class RenderActions:
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise FileNotFoundError(
-                    f"页面图片不存在：{req.page_image_file_id}"
-                )
+                raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
             if req.ocr_text:
                 ocr_blocks = _parse_ocr_text(req.ocr_text)
             elif req.include_ocr_text:
@@ -684,17 +679,13 @@ class RenderActions:
     def _render_final_a4(self, req: FinalRenderRequest) -> FinalRenderResponse:
         musicxml_path = self.uploads.get_path(req.musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():
-            raise FileNotFoundError(
-                f"MusicXML 文件不存在：{req.musicxml_file_id}"
-            )
+            raise FileNotFoundError(f"MusicXML 文件不存在：{req.musicxml_file_id}")
 
         image_path = None
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise FileNotFoundError(
-                    f"页面图片不存在：{req.page_image_file_id}"
-                )
+                raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
 
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         paths = self.musicxml_renderer.execute_a4_pages(
@@ -725,9 +716,7 @@ class RenderActions:
     ) -> FinalRenderResponse:
         musicxml_path = self.uploads.get_path(req.musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():
-            raise FileNotFoundError(
-                f"MusicXML 文件不存在：{req.musicxml_file_id}"
-            )
+            raise FileNotFoundError(f"MusicXML 文件不存在：{req.musicxml_file_id}")
 
         image_path = None
         page_width = 1600.0
@@ -735,9 +724,7 @@ class RenderActions:
         if req.page_image_file_id:
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
-                raise FileNotFoundError(
-                    f"页面图片不存在：{req.page_image_file_id}"
-                )
+                raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
             page_width, page_height = image_dimensions(image_path)
         elif require_page_image:
             raise ValueError("必须提供 page_image_file_id")
@@ -780,9 +767,7 @@ class RenderActions:
         if page.musicxml_file_id:
             musicxml_path = self.uploads.get_path(page.musicxml_file_id)
             if not musicxml_path or not musicxml_path.exists():
-                raise FileNotFoundError(
-                    f"MusicXML 文件不存在：{page.musicxml_file_id}"
-                )
+                raise FileNotFoundError(f"MusicXML 文件不存在：{page.musicxml_file_id}")
             image_path = None
             if page.page_image_file_id:
                 image_path = self.uploads.get_path(page.page_image_file_id)
@@ -812,9 +797,7 @@ class RenderActions:
             else:
                 input_path = self.uploads.get_path(page.jianpu_file_id or "")
                 if not input_path or not input_path.exists():
-                    raise FileNotFoundError(
-                        f"文件不存在：{page.jianpu_file_id}"
-                    )
+                    raise FileNotFoundError(f"文件不存在：{page.jianpu_file_id}")
                 text = input_path.read_text(encoding="utf-8")
             parts = parse_jianpu_parts(text, title=page.title or req.title)
             if page.text_anchors:
@@ -838,7 +821,7 @@ class RenderActions:
         pages: list[RenderedSvgPage] = []
         for index, rendered_page in enumerate(rendered_pages):
             path = rendered_page.path
-            render_map_path = write_render_map(path, index)
+            render_map_path = rendered_page.render_map_path
             pages.append(
                 RenderedSvgPage(
                     svg_file_id=self.uploads.register(path),
@@ -867,7 +850,7 @@ class RenderActions:
             raise RenderError("渲染未生成任何 SVG 页面")
         pages: list[RenderedSvgPage] = []
         for index, rendered_page in enumerate(rendered_pages):
-            render_map_path = write_render_map(rendered_page.path, index)
+            render_map_path = rendered_page.render_map_path
             pages.append(
                 RenderedSvgPage(
                     svg_file_id=self.uploads.register(rendered_page.path),

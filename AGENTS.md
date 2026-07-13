@@ -71,7 +71,7 @@ Architecture tests in `tests/test_architecture.py` enforce these rules.
 - `from __future__ import annotations` appears at the top of nearly every Python file.
 - Type hints are required; use `|` union syntax (e.g., `str | Path`).
 - `@dataclass(slots=True)` is the standard for DTOs, config objects, and domain entities.
-- Environment variables must be read at module global scope (not inside functions or classes). Use `os.getenv` with an explicit default only for optional variables (e.g., `CHORD_GAP = int(os.getenv("SCORE_TRANS_RENDER_CHORD_GAP", "38"))`); use `os.environ[var]` for required variables to fail fast. If a required environment variable is missing or malformed at import time, raise `ValueError` with the variable name and expected format.
+- Environment variables must be read at module global scope (not inside functions or classes). Use `os.getenv` with an explicit default only for optional variables (e.g., `CACHE_TTL = int(os.getenv("SCORE_TRANS_CACHE_TTL", "3600"))`); use `os.environ[var]` for required variables to fail fast. If a required environment variable is missing or malformed at import time, raise `ValueError` with the variable name and expected format.
 - Custom exceptions live in `models/common/errors.py`: `ExternalToolError`, `OCRError`, `AITranscriptionError`.
 - The frontend uses Vue 3 Composition API (`<script setup>`) + Pinia + Naive UI. API calls go through typed wrappers in `desktop/src/renderer/api/`.
 - Frontend error handling: API wrappers must return `{ data, error }` tuples, never throw. Components display errors via Naive UI `useMessage()`. Pinia stores handle async state with explicit `loading`/`error` flags.

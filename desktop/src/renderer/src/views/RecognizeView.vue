@@ -263,7 +263,7 @@ import { useWorkspaceStore } from '../stores/workspace'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
 import { pipelineApi } from '../api/pipeline'
-import { renderApi } from '../api/render'
+import { usePublicationRender } from '../composables/usePublicationRender'
 import { convertApi } from '../api/convert'
 import { aiApi } from '../api/ai'
 import { tasksApi } from '../api/tasks'
@@ -354,6 +354,8 @@ interface PageResult {
   start_measure_number: number | null
   status: string
   error_message: string
+  omr_file_id?: string
+  musicxml_text?: string
 }
 
 interface MeasureStartDecision {
@@ -381,6 +383,7 @@ interface SubmissionState {
 }
 
 const store = useWorkspaceStore()
+const publicationRender = usePublicationRender()
 const log = useLogStore()
 const settings = useSettingsStore()
 const message = useMessage()
@@ -969,7 +972,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       const split = splitJianpuAndOcr(converted.jianpu_text)
       jianpuText = split.jianpuText
       ocrText = split.ocrText || page.ocrText
-      const rendered = await requireData(renderApi.jianpuSvg({
+      const rendered = await requireData(publicationRender.jianpuSvg({
         musicxml_file_id: page.musicxmlFileId,
         page_image_file_id: page.originalFileId || page.inputFileId || undefined,
         target_key: settings.targetKey,
@@ -981,7 +984,7 @@ async function applyMeasureSelection(pageId: string, selected: number): Promise<
       svgFileId = rendered.svg_file_id
       svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id)
     } else if (!page.musicxmlFileId && page.jianpuText.trim()) {
-      const rendered = await requireData(renderApi.jianpuTextSvg({
+      const rendered = await requireData(publicationRender.jianpuTextSvg({
         jianpu_text: page.jianpuText,
         page_image_file_id: page.originalFileId || page.inputFileId || undefined,
         include_ocr_text: false,
@@ -1337,6 +1340,9 @@ async function persistPageResult(
         start_measure_number: result.start_measure_number,
         status: result.status,
         error_message: result.error_message,
+        omr_file_id: result.omr_file_id ?? '',
+        original_musicxml: result.musicxml_text ?? '',
+        working_musicxml: result.musicxml_text ?? '',
       }))
       syncStoreFromHistoryPage(target.pageId, updated)
       notifyHistoryPagePatched(historyPagePatchFromPage(updated))
@@ -1360,6 +1366,9 @@ async function persistPageResult(
           start_measure_number: result.start_measure_number,
           status: result.status,
           error_message: result.error_message,
+          omr_file_id: result.omr_file_id ?? '',
+          original_musicxml: result.musicxml_text ?? '',
+          working_musicxml: result.musicxml_text ?? '',
         }],
       }))
       const pageId = created.pages[0]?.id
@@ -1621,6 +1630,8 @@ function makePipelineApplyDecision(
       start_measure_number: decision.startMeasureNumber,
       status: decision.status,
       error_message: decision.waitingMessage,
+      omr_file_id: result.omr_file_id ?? '',
+      musicxml_text: result.musicxml_text ?? '',
     }
     patchRecognitionPage(target.pageId, {
       musicxmlFileId: result.musicxml_file_id,
@@ -1644,6 +1655,9 @@ function makePipelineApplyDecision(
       progressMessage: '识别完成',
       measureNumberOptions: [],
       errorMessage: '',
+      omrFileId: result.omr_file_id ?? '',
+      originalMusicxml: result.musicxml_text ?? '',
+      workingMusicxml: result.musicxml_text ?? '',
     })
     await persistPageResult(target, pageResult, historyPageId)
     await syncBatchJianpuTextForPage(target.pageId)
@@ -1711,7 +1725,7 @@ function makeAiApplyDecision(
     let svgFileId = ''
     let svgFileIds: string[] = []
     if (decision.autoSelected && decision.startMeasureNumber !== null) {
-      const rendered = await requireData(renderApi.jianpuTextSvg({
+      const rendered = await requireData(publicationRender.jianpuTextSvg({
         jianpu_text: response.merged_jianpu_text,
         page_image_file_id: target.inputFileId || undefined,
         include_ocr_text: false,
@@ -1788,7 +1802,7 @@ async function renderMusicxmlPageWithStart(
     instrument_profile: target.instrumentProfile,
     start_measure_number: startMeasureNumber,
   }))
-  const rendered = await requireData(renderApi.jianpuSvg({
+  const rendered = await requireData(publicationRender.jianpuSvg({
     musicxml_file_id: musicxmlFileId,
     page_image_file_id: target.inputFileId || undefined,
     target_key: settings.targetKey,
@@ -1854,7 +1868,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
     }
 
     try {
-      const result = await requireData(renderApi.batchA4({
+      const result = await requireData(publicationRender.batchA4({
         pages,
         source_pages: buildBatchRenderRequests(batchPages, { jianpuText: batchText }),
         render_page_ocr_texts: batchRenderPageOcrTextsForRequest(batchId),

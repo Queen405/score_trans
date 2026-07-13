@@ -49,6 +49,9 @@ export interface TaskPage {
   progressMessage: string
   measureNumberOptions: number[]
   errorMessage: string
+  omrFileId: string
+  originalMusicxml: string
+  workingMusicxml: string
 }
 
 export interface TaskPageInput {
@@ -114,6 +117,9 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     progressMessage: '',
     measureNumberOptions: [],
     errorMessage: '',
+    omrFileId: '',
+    originalMusicxml: '',
+    workingMusicxml: '',
     ...seed,
   }
 }
@@ -143,6 +149,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const textAnchors = ref<TextAnchor[]>([])
   const textHash = ref('')
   const startMeasureNumber = ref<number | null>(null)
+  const omrFileId = ref('')
+  const originalMusicxml = ref('')
+  const workingMusicxml = ref('')
   const isBusy = ref(false)
   const pages = ref<TaskPage[]>([])
   const currentPageIndex = ref(-1)
@@ -178,6 +187,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       textAnchors.value = []
       textHash.value = ''
       startMeasureNumber.value = null
+      omrFileId.value = ''
+      originalMusicxml.value = ''
+      workingMusicxml.value = ''
       return
     }
 
@@ -197,6 +209,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     textAnchors.value = page.textAnchors.map((anchor) => ({ ...anchor }))
     textHash.value = page.textHash
     startMeasureNumber.value = page.startMeasureNumber
+    omrFileId.value = page.omrFileId
+    originalMusicxml.value = page.originalMusicxml
+    workingMusicxml.value = page.workingMusicxml
   }
 
   // ── Batch computeds ──
@@ -719,6 +734,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       progressMessage: p.progressMessage ?? '',
       measureNumberOptions: p.measureNumberOptions ?? [],
       errorMessage: p.errorMessage ?? '',
+      omrFileId: p.omrFileId ?? '',
+      originalMusicxml: p.originalMusicxml ?? '',
+      workingMusicxml: p.workingMusicxml ?? '',
     }))
     pages.value.splice(index, 1, ...nextPages)
     if (!pages.value.length) {
@@ -904,6 +922,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       progressMessage: p.progressMessage ?? '',
       measureNumberOptions: p.measureNumberOptions ?? [],
       errorMessage: p.errorMessage ?? '',
+      omrFileId: p.omrFileId ?? '',
+      originalMusicxml: p.originalMusicxml ?? '',
+      workingMusicxml: p.workingMusicxml ?? '',
     }))
     currentBatchId.value = bid
     if (renderPageFileIds.length) {
@@ -947,6 +968,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     textAnchors,
     textHash,
     startMeasureNumber,
+    omrFileId,
+    originalMusicxml,
+    workingMusicxml,
     isBusy,
     pages,
     currentPageIndex,

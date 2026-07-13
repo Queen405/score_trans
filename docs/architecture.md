@@ -74,8 +74,8 @@ api  →  exec  →  services  →  dao / domain / models
     → domain/musicxml.musicxml_path_to_score() → JianpuScore
     → 可选：OCR 补充小节号
   → score_to_jianpu_text() → 简谱文本
-  → RenderService.render_score_svg() → SVG
-  → 返回 { musicxml_file_id, jianpu_text, jianpu_file_id, svg_file_id }
+  → PublicationRenderService.render_score_svg() → SVG + 渲染映射
+  → 返回 { musicxml_file_id, jianpu_text, jianpu_file_id, svg_file_id, render_map_file_id }
 ```
 
 ### AI 转录流程

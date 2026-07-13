@@ -19,7 +19,7 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 3
 
 _PAGE_FILE_ID_COLUMNS = (
     "input_file_id",
@@ -28,6 +28,7 @@ _PAGE_FILE_ID_COLUMNS = (
     "overlay_svg_file_id",
     "overlay_file_id",
     "source_map_file_id",
+    "omr_file_id",
 )
 
 
@@ -37,7 +38,21 @@ class HistoryDao:
         if db_path is None:
             migrate_legacy_sqlite(self.db_path, LEGACY_DB_PATH)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._backup_before_migration()
         self._init_db()
+
+    def _backup_before_migration(self) -> None:
+        if not self.db_path.exists():
+            return
+        with sqlite3.connect(str(self.db_path)) as source:
+            version = int(source.execute("PRAGMA user_version").fetchone()[0])
+            if version >= _SCHEMA_VERSION:
+                return
+            backup_path = self.db_path.with_suffix(f".v{version}.bak")
+            if backup_path.exists():
+                return
+            with sqlite3.connect(str(backup_path)) as target:
+                source.backup(target)
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path))
@@ -87,6 +102,8 @@ class HistoryDao:
                 render_page_file_ids TEXT NOT NULL DEFAULT '[]',
                 render_page_ocr_texts TEXT NOT NULL DEFAULT '[]',
                 status TEXT NOT NULL DEFAULT 'completed'
+                ,engine_version TEXT NOT NULL DEFAULT ''
+                ,document_revision TEXT NOT NULL DEFAULT ''
             )
             """
         )
@@ -113,6 +130,11 @@ class HistoryDao:
                 error_message TEXT NOT NULL DEFAULT '',
                 completed_at TEXT NOT NULL DEFAULT '',
                 position INTEGER NOT NULL DEFAULT 0
+                ,engine_version TEXT NOT NULL DEFAULT ''
+                ,document_revision TEXT NOT NULL DEFAULT ''
+                ,omr_file_id TEXT NOT NULL DEFAULT ''
+                ,original_musicxml TEXT NOT NULL DEFAULT ''
+                ,working_musicxml TEXT NOT NULL DEFAULT ''
             )
             """
         )
@@ -157,9 +179,10 @@ class HistoryDao:
                 """
                 INSERT INTO history_batch (
                     id, created_at, page_count, jianpu_text,
-                    render_page_file_ids, render_page_ocr_texts, status
+                    render_page_file_ids, render_page_ocr_texts, status,
+                    engine_version, document_revision
                 )
-                VALUES (?, ?, 1, ?, '[]', '[]', ?)
+                VALUES (?, ?, 1, ?, '[]', '[]', ?, 'publication-2', '')
                 """,
                 (batch_id, created_at, jianpu_text, status),
             )
@@ -301,14 +324,16 @@ class HistoryDao:
             cursor = conn.execute(
                 """
                 INSERT INTO history_batch
-                    (page_count, jianpu_text, render_page_file_ids, render_page_ocr_texts)
-                VALUES (?, ?, ?, ?)
+                    (page_count, jianpu_text, render_page_file_ids, render_page_ocr_texts,
+                     engine_version, document_revision)
+                VALUES (?, ?, ?, ?, ?, '')
                 """,
                 (
                     len(pages),
                     jianpu_text,
                     _dump_render_page_file_ids(render_page_file_ids or []),
                     _dump_render_page_ocr_texts(render_page_ocr_texts or []),
+                    "publication-2" if render_page_file_ids else "",
                 ),
             )
             batch_id = cursor.lastrowid
@@ -317,11 +342,12 @@ class HistoryDao:
                     """
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id, task_id, musicxml_file_id,
-                         jianpu_text, ocr_text, svg_file_id, overlay_svg_file_id,
+                         jianpu_text, ocr_text, svg_file_id, engine_version,
+                         document_revision, overlay_svg_file_id,
                          text_attachments, overlay_file_id, source_map_file_id, text_hash,
                          text_anchors, start_measure_number, status, error_message,
-                         completed_at, position)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         completed_at, position, omr_file_id, original_musicxml, working_musicxml)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -332,6 +358,8 @@ class HistoryDao:
                         page.jianpu_text,
                         page.ocr_text,
                         page.svg_file_id,
+                        page.engine_version if page.svg_file_id else "",
+                        page.document_revision,
                         page.overlay_svg_file_id,
                         _dump_text_attachments(page.text_attachments),
                         page.overlay_file_id,
@@ -343,6 +371,9 @@ class HistoryDao:
                         page.error_message,
                         page.completed_at,
                         index,
+                        page.omr_file_id,
+                        page.original_musicxml,
+                        page.working_musicxml,
                     ),
                 )
             batch_status = _batch_status([p.status for p in pages])
@@ -366,8 +397,14 @@ class HistoryDao:
             if not exists:
                 return None
             conn.execute(
-                "UPDATE history_batch SET render_page_file_ids = ? WHERE id = ?",
-                (_dump_render_page_file_ids(render_page_file_ids), batch_id),
+                """UPDATE history_batch
+                   SET render_page_file_ids = ?, engine_version = ?
+                   WHERE id = ?""",
+                (
+                    _dump_render_page_file_ids(render_page_file_ids),
+                    "publication-2" if render_page_file_ids else "",
+                    batch_id,
+                ),
             )
             conn.commit()
             row = conn.execute(
@@ -424,6 +461,8 @@ class HistoryDao:
         ocr_text: str | None = None,
         text_attachments: list[SourceTextAttachment] | None = None,
         svg_file_id: str | None = None,
+        engine_version: str | None = None,
+        document_revision: str | None = None,
         overlay_svg_file_id: str | None = None,
         overlay_file_id: str | None = None,
         source_map_file_id: str | None = None,
@@ -433,6 +472,9 @@ class HistoryDao:
         start_measure_number: int | None | UnsetType = UNSET,
         status: str | None = None,
         error_message: str | None = None,
+        omr_file_id: str | None = None,
+        original_musicxml: str | None = None,
+        working_musicxml: str | None = None,
     ) -> HistoryPage | None:
         updates: list[str] = []
         values: list[str | int | None] = []
@@ -447,6 +489,8 @@ class HistoryDao:
                 else None,
             ),
             ("svg_file_id", svg_file_id),
+            ("engine_version", engine_version),
+            ("document_revision", document_revision),
             ("overlay_svg_file_id", overlay_svg_file_id),
             ("overlay_file_id", overlay_file_id),
             ("source_map_file_id", source_map_file_id),
@@ -458,6 +502,9 @@ class HistoryDao:
             ("musicxml_file_id", musicxml_file_id),
             ("status", status),
             ("error_message", error_message),
+            ("omr_file_id", omr_file_id),
+            ("original_musicxml", original_musicxml),
+            ("working_musicxml", working_musicxml),
         ):
             if value is not None:
                 updates.append(f"{field} = ?")
@@ -481,6 +528,11 @@ class HistoryDao:
                     f"UPDATE history_page SET {', '.join(updates)} WHERE id = ?",
                     values,
                 )
+                if svg_file_id is not None:
+                    conn.execute(
+                        "UPDATE history_page SET engine_version = 'publication-2' WHERE id = ?",
+                        (page_id,),
+                    )
                 self._refresh_batch_status(conn, exists["batch_id"])
                 conn.commit()
             row = conn.execute(
@@ -666,6 +718,41 @@ class HistoryDao:
             conn.execute(
                 "ALTER TABLE history_batch ADD COLUMN render_page_ocr_texts TEXT NOT NULL DEFAULT '[]'"
             )
+        if "engine_version" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN engine_version TEXT NOT NULL DEFAULT ''"
+            )
+        if "document_revision" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN document_revision TEXT NOT NULL DEFAULT ''"
+            )
+        if "engine_version" not in batch_columns:
+            conn.execute(
+                "ALTER TABLE history_batch ADD COLUMN engine_version TEXT NOT NULL DEFAULT ''"
+            )
+        if "document_revision" not in batch_columns:
+            conn.execute(
+                "ALTER TABLE history_batch ADD COLUMN document_revision TEXT NOT NULL DEFAULT ''"
+            )
+        if "omr_file_id" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN omr_file_id TEXT NOT NULL DEFAULT ''"
+            )
+        if "original_musicxml" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN original_musicxml TEXT NOT NULL DEFAULT ''"
+            )
+        if "working_musicxml" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN working_musicxml TEXT NOT NULL DEFAULT ''"
+            )
+        if version < 2:
+            conn.execute(
+                "UPDATE history_page SET svg_file_id = '', engine_version = ''"
+            )
+            conn.execute(
+                "UPDATE history_batch SET render_page_file_ids = '[]', engine_version = ''"
+            )
         HistoryDao._ensure_indexes(conn)
         conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
@@ -706,6 +793,12 @@ class HistoryDao:
                 if "render_page_ocr_texts" in row.keys()
                 else "[]"
             ),
+            engine_version=(
+                row["engine_version"] if "engine_version" in row.keys() else ""
+            ),
+            document_revision=(
+                row["document_revision"] if "document_revision" in row.keys() else ""
+            ),
         )
         batch.pages = [self._row_to_page(pr) for pr in page_rows]
         return batch
@@ -725,6 +818,12 @@ class HistoryDao:
                 row["text_attachments"] if "text_attachments" in row.keys() else "[]"
             ),
             svg_file_id=row["svg_file_id"],
+            engine_version=(
+                row["engine_version"] if "engine_version" in row.keys() else ""
+            ),
+            document_revision=(
+                row["document_revision"] if "document_revision" in row.keys() else ""
+            ),
             overlay_svg_file_id=row["overlay_svg_file_id"]
             if "overlay_svg_file_id" in row.keys()
             else "",
@@ -745,6 +844,13 @@ class HistoryDao:
             error_message=row["error_message"],
             completed_at=row["completed_at"] if "completed_at" in row.keys() else "",
             position=row["position"] if "position" in row.keys() else 0,
+            omr_file_id=row["omr_file_id"] if "omr_file_id" in row.keys() else "",
+            original_musicxml=(
+                row["original_musicxml"] if "original_musicxml" in row.keys() else ""
+            ),
+            working_musicxml=(
+                row["working_musicxml"] if "working_musicxml" in row.keys() else ""
+            ),
         )
 
 

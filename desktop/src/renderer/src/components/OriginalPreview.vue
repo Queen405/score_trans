@@ -31,6 +31,7 @@
         <svg
           v-if="sourceSheet && showOverlay && canShowOverlay"
           class="source-hit-layer"
+          :class="{ disabled: editable }"
           :viewBox="`0 0 ${sourceSheet.width} ${sourceSheet.height}`"
           :width="imgW || sourceSheet.width"
           :height="imgH || sourceSheet.height"
@@ -45,6 +46,26 @@
             tabindex="0"
             @click.stop="selectSource(element.source_id)"
             @keydown.enter.prevent="selectSource(element.source_id)"
+          />
+        </svg>
+        <svg
+          v-if="editable && entitySheetWidth > 0"
+          class="entity-edit-layer"
+          :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
+          :width="imgW || entitySheetWidth"
+          :height="imgH || entitySheetHeight"
+          aria-label="可编辑标记"
+        >
+          <rect
+            v-for="entity in entities"
+            :key="entity.source_id"
+            :x="entity.bounds_x"
+            :y="entity.bounds_y"
+            :width="entity.bounds_w"
+            :height="entity.bounds_h"
+            class="entity-box"
+            :class="[entity.tag, { deleted: isDeleted(entity.source_id) }]"
+            @click.stop="$emit('toggleDelete', entity.source_id)"
           />
         </svg>
       </div>
@@ -100,8 +121,14 @@ const props = defineProps<{
   sourceMapFileId?: string
   clickableSourceIds?: string[]
   selectedSourceId?: string
+  editable?: boolean
+  entities?: EntityDTO[]
+  deletedEntityIds?: Set<string>
 }>()
-const emit = defineEmits<{ selectSource: [sourceId: string] }>()
+const emit = defineEmits<{
+  selectSource: [sourceId: string]
+  toggleDelete: [sourceId: string]
+}>()
 
 interface SourceElement {
   source_id: string
@@ -117,6 +144,22 @@ interface SourceMapSheet {
 interface SourceMap {
   version: number
   sheets: SourceMapSheet[]
+}
+
+interface EntityDTO {
+  source_id: string
+  inter_id: string
+  sheet_index: number
+  tag: string
+  shape: string
+  grade: number
+  bounds_x: number
+  bounds_y: number
+  bounds_w: number
+  bounds_h: number
+  is_structural: boolean
+  musicxml_locator?: string | null
+  hit_path?: string | null
 }
 
 const containerRef = ref<HTMLElement>()
@@ -141,6 +184,12 @@ const clickableSourceIdSet = computed(() => new Set(props.clickableSourceIds ?? 
 const clickableElements = computed(() => (
   sourceSheet.value?.elements.filter((element) => clickableSourceIdSet.value.has(element.source_id)) ?? []
 ))
+const entitySheetWidth = computed(() => imgW.value || sourceSheet.value?.width || 0)
+const entitySheetHeight = computed(() => imgH.value || sourceSheet.value?.height || 0)
+
+function isDeleted(sourceId: string): boolean {
+  return props.deletedEntityIds?.has(sourceId) ?? false
+}
 
 function selectSource(sourceId: string): void {
   emit('selectSource', sourceId)
@@ -324,6 +373,54 @@ onUnmounted(() => {
     stroke-opacity: 0.6;
     fill-opacity: 0.35;
   }
+}
+
+.source-hit-layer.disabled {
+  pointer-events: none;
+}
+
+.source-hit-layer.disabled .source-hit {
+  pointer-events: none;
+}
+
+.entity-edit-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.entity-box {
+  fill: transparent;
+  stroke-width: 2;
+  stroke: #00aa44;
+  vector-effect: non-scaling-stroke;
+  pointer-events: visiblePainted;
+  cursor: pointer;
+  transition: fill 0.15s;
+}
+
+.entity-box.clef,
+.entity-box\.time-whole,
+.entity-box\.time-custom,
+.entity-box\.key {
+  stroke: #0066ff;
+}
+
+.entity-box.alter {
+  stroke: #cc00cc;
+}
+
+.entity-box:hover {
+  fill: rgba(0, 170, 68, 0.2);
+}
+
+.entity-box.deleted {
+  stroke: #ff3333;
+  fill: rgba(255, 51, 51, 0.3);
+  stroke-dasharray: 6 4;
 }
 
 .scan-img {
