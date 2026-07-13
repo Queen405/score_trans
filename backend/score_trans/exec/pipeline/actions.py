@@ -31,6 +31,7 @@ from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.overlay.overlay_service import OverlayService
+from ...services.recognize.audiveris_service import read_audiveris_musicxml
 from ...services.render.render_service import PublicationRenderService
 from ...services.settings.settings_service import SettingsService
 from ..convert.actions import MusicXmlToJianpuAction
@@ -335,7 +336,7 @@ class PipelineActions:
 
         report_progress(progress_callback, "pipeline", 96, "注册输出文件")
         musicxml_id = self.uploads.register(outputs.musicxml_path)
-        musicxml_text = outputs.musicxml_path.read_text(encoding="utf-8")
+        musicxml_text = read_audiveris_musicxml(outputs.musicxml_path)
         omr_file_id = (
             self.uploads.register(outputs.omr_path)
             if outputs.omr_path is not None

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from zipfile import ZipFile
 
 from PIL import Image
 import pytest
@@ -150,6 +151,43 @@ def test_pipeline_actions_do_not_register_partial_outputs_when_render_is_empty(
         actions.run_pipeline_from_path(input_path)
 
     assert list(uploads.base_dir.iterdir()) == []
+
+
+def test_pipeline_actions_read_compressed_mxl_as_musicxml(tmp_path: Path) -> None:
+    work_dir = tmp_path / "work"
+    input_path = tmp_path / "scan.png"
+    musicxml_path = tmp_path / "scan.mxl"
+    text_path = tmp_path / "scan.txt"
+    svg_path = tmp_path / "scan.svg"
+    input_path.write_bytes(b"png")
+    xml = '<score-partwise version="4.0"/>'
+    with ZipFile(musicxml_path, "w") as archive:
+        archive.writestr(
+            "META-INF/container.xml",
+            """<container><rootfiles><rootfile full-path="score.xml"/></rootfiles></container>""",
+        )
+        archive.writestr("score.xml", xml)
+    text_path.write_text("1=C\n4/4\n1 |", encoding="utf-8")
+    svg_path.write_text("<svg/>", encoding="utf-8")
+    uploads = UploadService(ToolConfig(work_dir=work_dir))
+    actions = PipelineActions(
+        uploads=uploads,
+        settings=StaticSettings(ToolConfig(work_dir=work_dir)),
+        pipeline=EmptyOutputPipeline(
+            ScorePipelineOutputs(
+                input_path=input_path,
+                musicxml_path=musicxml_path,
+                jianpu_text_path=text_path,
+                jianpu_svg_paths=[svg_path],
+                render_map_paths=[],
+                ocr_measure_numbers=[],
+            )
+        ),
+    )
+
+    response = actions.run_pipeline_from_path(input_path)
+
+    assert response.musicxml_text == xml
 
 
 def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> None:

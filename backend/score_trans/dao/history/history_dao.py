@@ -19,7 +19,7 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 4
 
 _PAGE_FILE_ID_COLUMNS = (
     "input_file_id",
@@ -135,6 +135,7 @@ class HistoryDao:
                 ,omr_file_id TEXT NOT NULL DEFAULT ''
                 ,original_musicxml TEXT NOT NULL DEFAULT ''
                 ,working_musicxml TEXT NOT NULL DEFAULT ''
+                ,deleted_source_ids TEXT NOT NULL DEFAULT '[]'
             )
             """
         )
@@ -346,8 +347,9 @@ class HistoryDao:
                          document_revision, overlay_svg_file_id,
                          text_attachments, overlay_file_id, source_map_file_id, text_hash,
                          text_anchors, start_measure_number, status, error_message,
-                         completed_at, position, omr_file_id, original_musicxml, working_musicxml)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         completed_at, position, omr_file_id, original_musicxml, working_musicxml,
+                         deleted_source_ids)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -374,6 +376,7 @@ class HistoryDao:
                         page.omr_file_id,
                         page.original_musicxml,
                         page.working_musicxml,
+                        _dump_string_list(page.deleted_source_ids),
                     ),
                 )
             batch_status = _batch_status([p.status for p in pages])
@@ -475,6 +478,7 @@ class HistoryDao:
         omr_file_id: str | None = None,
         original_musicxml: str | None = None,
         working_musicxml: str | None = None,
+        deleted_source_ids: list[str] | None = None,
     ) -> HistoryPage | None:
         updates: list[str] = []
         values: list[str | int | None] = []
@@ -505,6 +509,12 @@ class HistoryDao:
             ("omr_file_id", omr_file_id),
             ("original_musicxml", original_musicxml),
             ("working_musicxml", working_musicxml),
+            (
+                "deleted_source_ids",
+                _dump_string_list(deleted_source_ids)
+                if deleted_source_ids is not None
+                else None,
+            ),
         ):
             if value is not None:
                 updates.append(f"{field} = ?")
@@ -746,6 +756,10 @@ class HistoryDao:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN working_musicxml TEXT NOT NULL DEFAULT ''"
             )
+        if "deleted_source_ids" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN deleted_source_ids TEXT NOT NULL DEFAULT '[]'"
+            )
         if version < 2:
             conn.execute(
                 "UPDATE history_page SET svg_file_id = '', engine_version = ''"
@@ -851,6 +865,11 @@ class HistoryDao:
             working_musicxml=(
                 row["working_musicxml"] if "working_musicxml" in row.keys() else ""
             ),
+            deleted_source_ids=_load_string_list(
+                row["deleted_source_ids"]
+                if "deleted_source_ids" in row.keys()
+                else "[]"
+            ),
         )
 
 
@@ -867,10 +886,18 @@ def _batch_status(statuses: list[str]) -> str:
 
 
 def _dump_render_page_file_ids(file_ids: list[str]) -> str:
-    return json.dumps([file_id for file_id in file_ids if file_id], ensure_ascii=False)
+    return _dump_string_list(file_ids)
 
 
 def _load_render_page_file_ids(payload: str) -> list[str]:
+    return _load_string_list(payload)
+
+
+def _dump_string_list(items: list[str]) -> str:
+    return json.dumps([item for item in items if item], ensure_ascii=False)
+
+
+def _load_string_list(payload: str) -> list[str]:
     try:
         raw = json.loads(payload or "[]")
     except json.JSONDecodeError:

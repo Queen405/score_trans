@@ -63,6 +63,7 @@ class HistoryActions:
                 omr_file_id=p.omr_file_id,
                 original_musicxml=p.original_musicxml,
                 working_musicxml=p.working_musicxml,
+                deleted_source_ids=p.deleted_source_ids,
             )
             for p in req.pages
         ]
@@ -120,6 +121,7 @@ class HistoryActions:
             omr_file_id=req.omr_file_id,
             original_musicxml=req.original_musicxml,
             working_musicxml=req.working_musicxml,
+            deleted_source_ids=req.deleted_source_ids,
         )
         if not page:
             raise FileNotFoundError("Page not found")
@@ -204,6 +206,7 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         omr_file_id=page.omr_file_id,
         original_musicxml=page.original_musicxml,
         working_musicxml=page.working_musicxml,
+        deleted_source_ids=page.deleted_source_ids,
     )
 
 

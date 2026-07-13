@@ -49,7 +49,7 @@
           />
         </svg>
         <svg
-          v-if="editable && entitySheetWidth > 0"
+          v-if="editable && entitySheetWidth > 0 && entitySheetHeight > 0"
           class="entity-edit-layer"
           :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
           :width="imgW || entitySheetWidth"
@@ -65,7 +65,9 @@
             :height="entity.bounds_h"
             class="entity-box"
             :class="[entity.tag, { deleted: isDeleted(entity.source_id) }]"
+            tabindex="0"
             @click.stop="$emit('toggleDelete', entity.source_id)"
+            @keydown.enter.prevent="$emit('toggleDelete', entity.source_id)"
           />
         </svg>
       </div>
@@ -113,6 +115,7 @@ import { fetchFileBlob } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
+import type { CorrectableEntityDTO } from '../models/types'
 
 const props = defineProps<{
   fileId: string
@@ -122,8 +125,10 @@ const props = defineProps<{
   clickableSourceIds?: string[]
   selectedSourceId?: string
   editable?: boolean
-  entities?: EntityDTO[]
+  entities?: CorrectableEntityDTO[]
   deletedEntityIds?: Set<string>
+  entityWidth?: number
+  entityHeight?: number
 }>()
 const emit = defineEmits<{
   selectSource: [sourceId: string]
@@ -144,22 +149,6 @@ interface SourceMapSheet {
 interface SourceMap {
   version: number
   sheets: SourceMapSheet[]
-}
-
-interface EntityDTO {
-  source_id: string
-  inter_id: string
-  sheet_index: number
-  tag: string
-  shape: string
-  grade: number
-  bounds_x: number
-  bounds_y: number
-  bounds_w: number
-  bounds_h: number
-  is_structural: boolean
-  musicxml_locator?: string | null
-  hit_path?: string | null
 }
 
 const containerRef = ref<HTMLElement>()
@@ -184,8 +173,8 @@ const clickableSourceIdSet = computed(() => new Set(props.clickableSourceIds ?? 
 const clickableElements = computed(() => (
   sourceSheet.value?.elements.filter((element) => clickableSourceIdSet.value.has(element.source_id)) ?? []
 ))
-const entitySheetWidth = computed(() => imgW.value || sourceSheet.value?.width || 0)
-const entitySheetHeight = computed(() => imgH.value || sourceSheet.value?.height || 0)
+const entitySheetWidth = computed(() => props.entityWidth || sourceSheet.value?.width || 0)
+const entitySheetHeight = computed(() => props.entityHeight || sourceSheet.value?.height || 0)
 
 function isDeleted(sourceId: string): boolean {
   return props.deletedEntityIds?.has(sourceId) ?? false
@@ -393,7 +382,7 @@ onUnmounted(() => {
 }
 
 .entity-box {
-  fill: transparent;
+  fill: rgba(0, 170, 68, 0.001);
   stroke-width: 2;
   stroke: #00aa44;
   vector-effect: non-scaling-stroke;
@@ -403,9 +392,9 @@ onUnmounted(() => {
 }
 
 .entity-box.clef,
-.entity-box\.time-whole,
-.entity-box\.time-custom,
-.entity-box\.key {
+.entity-box.time-whole,
+.entity-box.time-custom,
+.entity-box.key {
   stroke: #0066ff;
 }
 

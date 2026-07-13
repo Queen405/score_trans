@@ -1343,6 +1343,7 @@ async function persistPageResult(
         omr_file_id: result.omr_file_id ?? '',
         original_musicxml: result.musicxml_text ?? '',
         working_musicxml: result.musicxml_text ?? '',
+        deleted_source_ids: [],
       }))
       syncStoreFromHistoryPage(target.pageId, updated)
       notifyHistoryPagePatched(historyPagePatchFromPage(updated))
@@ -1369,6 +1370,7 @@ async function persistPageResult(
           omr_file_id: result.omr_file_id ?? '',
           original_musicxml: result.musicxml_text ?? '',
           working_musicxml: result.musicxml_text ?? '',
+          deleted_source_ids: [],
         }],
       }))
       const pageId = created.pages[0]?.id
@@ -1422,6 +1424,10 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
           : page.error_message,
     measureNumberOptions: page.status === 'waiting' ? options : [],
     errorMessage: page.error_message,
+    omrFileId: page.omr_file_id ?? '',
+    originalMusicxml: page.original_musicxml ?? '',
+    workingMusicxml: page.working_musicxml || page.original_musicxml || '',
+    deletedSourceIds: page.deleted_source_ids ?? [],
     ...liveRecognitionTaskPatch(page.id, page.status),
   }
   if (!store.patchPageById(pageId, patch)) {
@@ -1584,6 +1590,8 @@ function makePipelineApplyDecision(
         start_measure_number: decision.startMeasureNumber,
         status: decision.status,
         error_message: decision.waitingMessage,
+        omr_file_id: result.omr_file_id ?? '',
+        musicxml_text: result.musicxml_text ?? '',
       }, historyPageId)
       if (!persisted) {
         patchRecognitionPage(target.pageId, {

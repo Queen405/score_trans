@@ -247,6 +247,8 @@
               :editable="editMode"
               :entities="correctableEntities"
               :deleted-entity-ids="deletedEntityIds"
+              :entity-width="correctableSheet?.width"
+              :entity-height="correctableSheet?.height"
               @select-source="handleOriginalSourceClick"
               @toggle-delete="toggleEntityDelete"
             />
@@ -413,11 +415,12 @@ import { historyApi } from '../api/history'
 import { ApiError, fetchFileBlob, requireData } from '../api/client'
 import { filesApi } from '../api/files'
 import type {
+  CorrectableEntityDTO,
   HistoryBatchListItem,
   HistoryBatch,
   HistoryPage,
   RenderedSvgPage,
-  TextAnchor,
+  SheetEntitiesDTO,
 } from '../models/types'
 import type { TaskPage } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
@@ -481,26 +484,19 @@ const svgPreviewRef = ref<{ highlightSource: (sourceId: string) => boolean } | n
 const selectedSourceId = ref('')
 const editMode = ref(false)
 const deletedEntityIds = ref<Set<string>>(new Set())
-const correctableEntities = ref<CorrectableEntityDTO[]>([])
+const correctableSheet = ref<SheetEntitiesDTO | null>(null)
+const correctableEntities = computed<CorrectableEntityDTO[]>(
+  () => correctableSheet.value?.entities ?? [],
+)
 const applying = ref(false)
+let entityLoadController: AbortController | null = null
 
-interface CorrectableEntityDTO {
-  source_id: string
-  inter_id: string
-  sheet_index: number
-  tag: string
-  shape: string
-  grade: number
-  bounds_x: number
-  bounds_y: number
-  bounds_w: number
-  bounds_h: number
-  is_structural: boolean
-  musicxml_locator?: string | null
-  hit_path?: string | null
-}
-
-const canEditMarkers = computed(() => !!store.omrFileId && !!store.originalMusicxml)
+const canEditMarkers = computed(() => (
+  !!store.omrFileId
+  && !!store.sourceMapFileId
+  && !!store.originalMusicxml
+  && /\.(png|jpe?g|tiff?|webp)$/i.test(store.originalFileName)
+))
 
 const renderSourcePageLookup = ref<Record<string, number>>({})
 interface NoteIndexRange {
@@ -697,6 +693,13 @@ watch(() => store.currentPageIndex, () => {
   if (!isViewingFinal.value) setFinalSvgFileIds(currentPageSvgIds())
   if (!isViewingFinal.value) flashCurrentPageSection('切换页面')
 })
+watch(() => store.currentPage?.id ?? '', () => {
+  entityLoadController?.abort()
+  entityLoadController = null
+  editMode.value = false
+  correctableSheet.value = null
+  deletedEntityIds.value = new Set(store.currentPage?.deletedSourceIds ?? [])
+}, { immediate: true })
 watch(currentNoteIndex, (index) => {
   if (!isViewingFinal.value || index < 0) return
   const ranges = renderPageNoteIndexRanges.value
@@ -983,6 +986,10 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       status: r.page.status as any,
       measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
       errorMessage: r.page.error_message,
+      omrFileId: r.page.omr_file_id ?? '',
+      originalMusicxml: r.page.original_musicxml ?? '',
+      workingMusicxml: r.page.working_musicxml || r.page.original_musicxml || '',
+      deletedSourceIds: r.page.deleted_source_ids ?? [],
       ...liveRecognitionTaskPatch(r.page.id, r.page.status),
     })),
     pageIndex >= 0 ? pageIndex : 0,
@@ -1032,6 +1039,7 @@ async function validateRestoredBatchFiles(
       entry.svg_file_id,
       entry.overlay_file_id,
       entry.source_map_file_id,
+      entry.omr_file_id,
     ])
     .concat(renderPageFileIds)
     .filter(Boolean)
@@ -1065,7 +1073,13 @@ async function validateRestoredBatchFiles(
       if (entry.source_map_file_id && !exists[entry.source_map_file_id]) {
         patch.sourceMapFileId = ''
         patch.textAnchors = []
+        patch.deletedSourceIds = []
         warnings.push(`${entry.input_file_name}：原谱点击映射已失效`)
+      }
+      if (entry.omr_file_id && !exists[entry.omr_file_id]) {
+        patch.omrFileId = ''
+        patch.deletedSourceIds = []
+        warnings.push(`${entry.input_file_name}：OMR 工程文件已失效`)
       }
       if (Object.keys(patch).length) {
         store.patchPageByHistoryPageId(entry.id, patch)
@@ -1765,15 +1779,24 @@ async function resetAll(): Promise<void> {
       start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
     }))
     const split = splitJianpuAndOcr(result.jianpu_text)
-    store.setJianpu(split.jianpuText)
-    if (store.currentPage) {
-      store.patchPageById(store.currentPage.id, {
+    const page = store.currentPage
+    if (page) {
+      store.patchPageById(page.id, {
+        jianpuText: split.jianpuText,
         textAnchors: result.text_anchors ?? [],
         textHash: result.text_hash ?? '',
         workingMusicxml: store.originalMusicxml,
+        deletedSourceIds: [],
       })
+      const nextBatchText = replaceJianpuSectionBody(
+        jianpuText.value,
+        Math.max(0, currentBatchLocalIndex.value),
+        split.jianpuText,
+        { inputFileName: page.inputFileName, startMeasureNumber: page.startMeasureNumber },
+      )
+      store.setBatchJianpuText(nextBatchText, false)
+      await persistCorrectionState(page.id, nextBatchText)
     }
-    store.setBatchJianpuText(composeJianpuPageText(store.currentBatchPages), false)
     store.setOcrText(split.ocrText || store.ocrText)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
@@ -1790,20 +1813,40 @@ async function resetAll(): Promise<void> {
 }
 
 async function toggleEditMode() {
+  if (!canEditMarkers.value) return
   editMode.value = !editMode.value
-  if (editMode.value && correctableEntities.value.length === 0) {
+  if (editMode.value && !correctableSheet.value) {
     await loadEntities()
   }
 }
 
-async function loadEntities() {
-  if (!store.omrFileId) return
+async function loadEntities(): Promise<void> {
+  const pageId = store.currentPage?.id
+  const omrFileId = store.omrFileId
+  const sourceMapFileId = store.sourceMapFileId
+  if (!pageId || !omrFileId || !sourceMapFileId) return
+  entityLoadController?.abort()
+  const controller = new AbortController()
+  entityLoadController = controller
   const { data, error } = await correctApi.getEntities(
-    store.omrFileId,
-    store.sourceMapFileId || undefined,
+    omrFileId,
+    sourceMapFileId,
+    controller.signal,
   )
-  if (error) { message.error(error); return }
-  correctableEntities.value = data.sheets.flatMap((s: { entities: CorrectableEntityDTO[] }) => s.entities)
+  if (controller.signal.aborted || store.currentPage?.id !== pageId) return
+  entityLoadController = null
+  if (error) {
+    editMode.value = false
+    message.error(error.message)
+    return
+  }
+  const sheets = data.sheets ?? []
+  if (sheets.length !== 1) {
+    editMode.value = false
+    message.warning(sheets.length ? '多页 OMR 暂不支持在单张原图上编辑标记' : '没有可安全定位的标记')
+    return
+  }
+  correctableSheet.value = sheets[0] ?? null
 }
 
 function toggleEntityDelete(sourceId: string) {
@@ -1816,40 +1859,81 @@ function toggleEntityDelete(sourceId: string) {
   deletedEntityIds.value = next
 }
 
-async function applyCorrections() {
+async function applyCorrections(): Promise<void> {
   if (deletedEntityIds.value.size === 0) {
     message.info('未删除任何标记')
     return
   }
+  const page = store.currentPage
+  if (!page || !canEditMarkers.value) return
   applying.value = true
   try {
-    const { data, error } = await correctApi.apply({
-      original_musicxml: store.originalMusicxml,
+    const data = await requireData(correctApi.apply({
+      original_musicxml: page.originalMusicxml,
       deleted_source_ids: [...deletedEntityIds.value],
-      source_map_file_id: store.sourceMapFileId || undefined,
+      omr_file_id: page.omrFileId,
+      source_map_file_id: page.sourceMapFileId,
       options: {
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
         instrument_profile: 'general',
         start_measure_number: store.startMeasureNumber ?? undefined,
-        show_measure_numbers: true,
-        measure_number_mode: 'all',
+        show_measure_numbers: settings.showMeasureNumbers,
+        measure_number_mode: settings.measureNumberMode,
       },
-    })
-    if (error) { message.error(error); return }
-    if (store.currentPage) {
-      store.patchPageById(store.currentPage.id, {
-        workingMusicxml: data.working_musicxml,
-        jianpuText: data.jianpu_text,
-        textAnchors: data.text_anchors as TextAnchor[],
-        textHash: data.text_hash,
-        svgFileIds: data.svg_file_ids,
-      })
-      store.setJianpu(data.jianpu_text)
+    }))
+    if (store.currentPage?.id !== page.id) {
+      message.warning('页面已切换，本次修正结果未写入')
+      return
     }
+    const svgFileIds = data.svg_file_ids ?? []
+    const nextBatchText = replaceJianpuSectionBody(
+      jianpuText.value,
+      Math.max(0, currentBatchLocalIndex.value),
+      data.jianpu_text,
+      { inputFileName: page.inputFileName, startMeasureNumber: page.startMeasureNumber },
+    )
+    store.patchPageById(page.id, {
+      workingMusicxml: data.working_musicxml,
+      jianpuText: data.jianpu_text,
+      deletedSourceIds: [...deletedEntityIds.value],
+      textAnchors: data.text_anchors ?? [],
+      textHash: data.text_hash,
+      svgFileId: svgFileIds[0] ?? '',
+      svgFileIds,
+    })
+    store.setBatchJianpuText(nextBatchText, false)
+    store.setBatchRenderPageFileIds([])
+    setFinalSvgFileIds([])
+    await persistCorrectionState(page.id, nextBatchText)
     message.success('修正已应用')
+  } catch (e: unknown) {
+    const detail = e instanceof Error ? e.message : String(e)
+    log.addError(`应用标记修正失败：${detail}`)
+    message.error(detail)
   } finally {
     applying.value = false
+  }
+}
+
+async function persistCorrectionState(pageId: string, batchText: string): Promise<void> {
+  const page = store.pages.find((entry) => entry.id === pageId)
+  if (!page) return
+  if (page.historyPageId) {
+    const updated = await requireData(historyApi.updatePage(page.historyPageId, {
+      jianpu_text: page.jianpuText,
+      svg_file_id: page.svgFileId,
+      text_hash: page.textHash,
+      text_anchors: page.textAnchors,
+      omr_file_id: page.omrFileId,
+      original_musicxml: page.originalMusicxml,
+      working_musicxml: page.workingMusicxml,
+      deleted_source_ids: page.deletedSourceIds,
+    }))
+    replaceExpandedHistoryPage(updated)
+  }
+  if (page.historyBatchId) {
+    await persistBatchJianpuText(page.historyBatchId, batchText)
   }
 }
 
@@ -1987,6 +2071,10 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     text_hash: store.currentPage?.textHash || '',
     text_anchors: store.currentPage?.textAnchors || [],
     text_attachments: store.currentPage?.textAttachments || [],
+    omr_file_id: store.currentPage?.omrFileId || '',
+    original_musicxml: store.currentPage?.originalMusicxml || '',
+    working_musicxml: store.currentPage?.workingMusicxml || '',
+    deleted_source_ids: store.currentPage?.deletedSourceIds || [],
     start_measure_number: currentSection
       ? currentSection.startMeasureNumber
       : (store.startMeasureNumber ?? null),
@@ -2024,6 +2112,10 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
         text_hash: page.textHash,
         text_anchors: page.textAnchors,
         text_attachments: page.textAttachments,
+        omr_file_id: page.omrFileId,
+        original_musicxml: page.originalMusicxml,
+        working_musicxml: page.workingMusicxml,
+        deleted_source_ids: page.deletedSourceIds,
         start_measure_number: section
           ? section.startMeasureNumber
           : (page.startMeasureNumber ?? null),

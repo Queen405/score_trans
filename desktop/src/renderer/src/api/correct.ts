@@ -1,19 +1,22 @@
 import { apiFetch, type ApiResult } from './client'
-import type { Schemas } from '../models/openapi'
+import type { CorrectionRequest, CorrectionResponse, EntitiesResponse } from '../models/types'
 
-const BASE = '/api/correct'
+const BASE = '/correct'
 
 export const correctApi = {
   getEntities(
     omrFileId: string,
-    sourceMapFileId?: string,
-  ): Promise<ApiResult<Schemas['EntitiesResponse']>> {
-    const params = new URLSearchParams({ omr_file_id: omrFileId })
-    if (sourceMapFileId) params.set('source_map_file_id', sourceMapFileId)
-    return apiFetch(`${BASE}/entities?${params}`)
+    sourceMapFileId: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<EntitiesResponse>> {
+    const params = new URLSearchParams({
+      omr_file_id: omrFileId,
+      source_map_file_id: sourceMapFileId,
+    })
+    return apiFetch(`${BASE}/entities?${params}`, { signal })
   },
 
-  apply(req: Schemas['CorrectionRequest']): Promise<ApiResult<Schemas['CorrectionResponse']>> {
+  apply(req: CorrectionRequest): Promise<ApiResult<CorrectionResponse>> {
     return apiFetch(`${BASE}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

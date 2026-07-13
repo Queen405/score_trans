@@ -1,9 +1,50 @@
 # Score Trans 项目深度调研报告
 
-> 审计日期：2026-07-03
+> 审计日期：2026-07-03（初始）· **全面复核：2026-07-14**
 > 审计范围：全部项目源代码（不含 third_party/audiveris），约 43,500 行代码，310 个源文件
 > 审计方法：逐文件逐函数完整通读，使用并行子代理覆盖各子系统
-> **修订：** 2026-07-03 对全部 150+ 条目进行了逐条源码验证。3 条经复查不成立（1.7 JPEG 检测、4.4 AI 回复 XSS、5.7b falsy 回退），已标注 ~~删除线~~ 并附复查结论。6 条部分准确的条目（2.6、5.4b、6.1g、6.2a、7.3a-f、9.1）已修正描述与行号。统计数字已同步更新。
+> **2026-07-14 复核：** 5 个并行子代理逐字逐句重新通读全部源码，对 2026-07-03 报告中全部 150+ 条目逐条验证。结果：**~40 项 P0/P1 问题已全部修复**，新增 2 项 P1 回归（CI 消失、requirements.txt 不同步）和 25 项 P2 新发现。完整最新状态详见 [issues.md](issues.md)。
+> **2026-07-03 修订：** 对全部 150+ 条目进行了逐条源码验证。3 条经复查不成立（1.7 JPEG 检测、4.4 AI 回复 XSS、5.7b falsy 回退），已标注 ~~删除线~~ 并附复查结论。6 条部分准确的条目（2.6、5.4b、6.1g、6.2a、7.3a-f、9.1）已修正描述与行号。统计数字已同步更新。
+
+---
+
+## 2026-07-14 全面复核结果
+
+### 修复完成度总览
+
+| 审计章节 | 初始项数 | 已修复 | 仍存在 | 新发现 | 不适用/误报 |
+|---------|---------|--------|--------|--------|------------|
+| 1. 严重 Bug | 12 | 11 | 0 | 0 | 1（1.7 JPEG 不成立） |
+| 2. 音乐理论 | 13 | 13 | 0 | 3（N3 双附点type、N4 tie锚点、N5 wedge方向） | 0 |
+| 3. 架构违规 | 7 | 6 | 1（3.1 部分→5处exec→domain已知） | 0 | 0 |
+| 4. 安全漏洞 | 7 | 6 | 0 | 2（N20 Gradle校验、N21 无签名） | 1（4.4 XSS 不成立） |
+| 5. 功能缺陷 | 39+ | 39+ | 0 | 1（N6 正则d+） | 0 |
+| 6. 前端问题 | 25+ | 18+ | 7 | 10（N10-N19） | 0 |
+| 7. 代码质量 | 20+ | 5+ | 8 | 8（死代码等） | 0 |
+| 8. 测试覆盖 | 15+ | 3+ | 12 | 0 | 0 |
+| 9. 构建/CI | 9+ | 0 | 7 | 2（N1 requirements、N2 无CI） | 0 |
+
+### 新增 P1 回归
+
+| 编号 | 问题 | 位置 |
+|---|---|---|
+| N1 | `requirements.txt` 缺 `fonttools`/`pyyaml`，`pytest` 误列为运行时 | `requirements.txt` |
+| N2 | `.github/workflows/` 不存在，无任何 CI | 仓库根 |
+
+### 新增 P2 问题（25 项）
+
+详见 [issues.md](issues.md) 第二章。关键项：
+- **N3**：双附点/三附点 jianpu→MusicXML 丢失 `<type>`/`<dot>`（`write/musicxml.py:663-665`）
+- **N4**：Tie 锚点误用 slur 角色（`write/jianpu_text.py:403,415`）
+- **N5**：Wedge/pedal/octave-shift 丢失 `direction_kind`（`parse/musicxml.py:1161-1191`）
+- **N6**：`looks_like_jianpu_text` 正则 `d+` 应为 `\d+`（`ai/core/parsing.py:51`）
+- **N7-N9**：API stage 硬编码、history 路由同步、except Exception 静默吞错
+- **N10-N19**：前端 abortStream 未暴露、tasks.stream 无 AbortSignal、as any 残留、as T 不安全转换、去重键 50 字符、tempo 单一、workspace Map 泄漏、liveRecognitionState 泄漏、FileUploader 静默错误、programmaticUpdate 时序耦合
+- **N20-N26**：Gradle 校验禁用、无代码签名、ai_prompt ✅ 标失败、Electron 33 EOL、MuseScore 未测试、O(n²) parent lookup、无 HTTP client 复用
+
+### 各章逐条验证状态
+
+以下各章中，每条原发现标注 **[2026-07-14: 已修复]** 或 **[2026-07-14: 仍存在]** 或 **[2026-07-14: 误报]**。新增发现在各章末尾以 **[NEW]** 标注。
 
 ---
 
@@ -24,7 +65,9 @@
 
 ## 1. 严重 Bug（数据丢失 / 崩溃）
 
-### 1.1 缓存清理删除被引用的文件 — 数据丢失
+> **[2026-07-14 复核：全部 12 项中 11 项已修复，1 项误报（1.7）。本章无新增问题。]**
+
+### 1.1 缓存清理删除被引用的文件 — 数据丢失 ✅ [2026-07-14: 已修复]
 
 **文件：** `services/storage/cache_service.py:67-79`
 
@@ -32,7 +75,7 @@
 
 **修复方案：** 补全所有文件 ID 字段的引用检查。
 
-### 1.2 简谱时值标记往返转换失败 — 音符时值错误
+### 1.2 简谱时值标记往返转换失败 — 音符时值错误 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/jianpu_tokens.py:49-53`
 
@@ -45,61 +88,61 @@ return prefix, suffix + "-" * max(0, whole - 1)
 return prefix, suffix + "-" * (whole if remain else max(0, whole - 1))
 ```
 
-### 1.3 双附点音符无法解析
+### 1.3 双附点音符无法解析 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/jianpu_tokens.py:66-67`
 
 `token_duration` 使用 `if work.endswith(".")` 而非 `while`，只能解析单附点。双附点音符（如 `5..`）第二个点被忽略，时值计算错误。同样，`domain/parse/jianpu_text.py:772-775` 也只支持单附点。
 
-### 1.4 TaskManager 订阅者双重移除崩溃
+### 1.4 TaskManager 订阅者双重移除崩溃 ✅ [2026-07-14: 已修复]
 
 **文件：** `services/tasks/task_service.py:174, 209`
 
 `global_events()` 在 `finally` 中调用 `self._subscribers.remove(sub)`，但 `_broadcast` 可能已因 `QueueFull` 移除了该订阅者，导致 `ValueError: list.remove(x): x not in list`。
 
-### 1.5 pipeline 空渲染页面 IndexError
+### 1.5 pipeline 空渲染页面 IndexError ✅ [2026-07-14: 已修复]
 
 **文件：** `exec/pipeline/actions.py:363`
 
 `svg_file_id=render_pages[0].svg_file_id` — 若渲染器未生成 SVG 页面，`render_pages` 为空列表，触发 `IndexError`。
 
-### 1.6 AI 聊天流式失败留下孤立用户消息
+### 1.6 AI 聊天流式失败留下孤立用户消息 ✅ [2026-07-14: 已修复]
 
 **文件：** `services/ai/chat_service.py:95-114`
 
 `stream_message` 在流式开始前持久化用户消息。若流式生成失败（模型异常），用户消息已保存但无对应的助手回复，导致会话历史中出现孤立消息，无回滚机制。
 
-### 1.7 ~~JPEG 检测与 PyMuPDF 格式标识符错误~~（经复查不成立）
+### 1.7 ~~JPEG 检测与 PyMuPDF 格式标识符错误~~（经复查不成立） ✅ [2026-07-14: 误报，维持原结论]
 
 **文件：** `services/export/export_service.py:42-43`、`exec/export/actions.py:132-138`
 
 > **复查结论：此项不成立。** JPEG 规范规定 SOI 标记 `FF D8` 之后紧跟下一个 marker 段，其首字节恒为 `FF`（JFIF 为 `FF E0`，EXIF 为 `FF E1` 等），因此 `img_data[:3] == b"\xff\xd8\xff"` 是正确的检测方式。PyMuPDF 1.27.2 同时接受 `"jpg"` 和 `"jpeg"` 作为格式标识符。此项保留编号但不视为缺陷。
 
-### 1.8 应用关闭时可能死循环
+### 1.8 应用关闭时可能死循环 ✅ [2026-07-14: 已修复]
 
 **文件：** `api/app.py:126-129`
 
 `_wait_for_background_tasks` 循环 `while background_tasks:` 但不从集合中移除已完成任务，可能导致关闭时无限循环。
 
-### 1.9 用户数据目录名拼写错误
+### 1.9 用户数据目录名拼写错误 ✅ [2026-07-14: 已修复（含迁移）]
 
 **文件：** `models/common/paths.py:9` 和 `desktop/src/main/storage.ts:5`
 
 `USER_DATA_DIR_NAME = ".sorce_trans"` — "sorce" 应为 "score"。此 typo 同时存在于 Python 后端和 Electron 前端，已在用户系统上创建了拼写错误的目录。修复需迁移现有用户数据。
 
-### 1.10 PDF 页数限制参数为 0 时返回全部页面
+### 1.10 PDF 页数限制参数为 0 时返回全部页面 ✅ [2026-07-14: 已修复]
 
 **文件：** `utils/pdf.py:26`
 
 `min(len(doc), max_pages) if max_pages else len(doc)` — 当 `max_pages=0` 时，`if max_pages` 为 `False`（0 是 falsy），返回全部页面。应改为 `if max_pages is not None`。
 
-### 1.11 HTTP 流式响应空 choices 数组 IndexError
+### 1.11 HTTP 流式响应空 choices 数组 IndexError ✅ [2026-07-14: 已修复]
 
 **文件：** `services/ai/providers/_http.py:91`
 
 `data.get("choices", [{}])[0]` — 若 `choices` 存在但为空列表 `[]`，`[][0]` 抛出 `IndexError`。OCR 的 `services/ocr/providers/_http.py:38` 有相同问题。
 
-### 1.12 `assert` 用于运行时校验
+### 1.12 `assert` 用于运行时校验 ✅ [2026-07-14: 已修复]
 
 **文件：** `exec/convert/actions.py:203`、`drawing/spanners.py:85,113,141`
 
@@ -109,25 +152,27 @@ return prefix, suffix + "-" * (whole if remain else max(0, whole - 1))
 
 ## 2. 音乐理论正确性问题
 
-### 2.1 MusicXML→简谱丢失双变音记号
+> **[2026-07-14 复核：原 13 项全部已修复。新增 3 项 P2（N3 双附点type丢失、N4 tie锚点角色、N5 wedge方向丢失），见本章末尾。]**
+
+### 2.1 MusicXML→简谱丢失双变音记号 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/parse/musicxml.py:590-629`
 
 `_note_pitch` 不保留双变音记号。C##（alter=2）映射到 MIDI 62（D），在 MAJOR_SCALE 中渲染为 degree 2 且 `accidental=0`，双升号被静默丢失。同理 Bbb→A、Ex→F 等。
 
-### 2.2 简谱→MusicXML 等音拼写错误
+### 2.2 简谱→MusicXML 等音拼写错误 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/write/musicxml.py:234-246`
 
 `_append_pitch_xml` 通过 `SEMITONE_TO_STEP[semitone]` 查表，总是返回升号拼写。简谱 `b2`（C 大调中的 Db）输出为 `C#`（step=C, alter=1）而非 `Db`（step=D, alter=-1）。**所有变化音的等音拼写均丢失。**
 
-### 2.3 色音拼写忽略调号方向
+### 2.3 色音拼写忽略调号方向 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/parse/musicxml.py:611-629`
 
 色音拼写优先检查降号（`relative+1 in MAJOR_SCALE`），忽略调号的升/降方向。在 D 大调中，Eb 应拼为 D#（升号方向），但代码输出 Eb。
 
-### 2.4 MusicXML 重复记号和结尾段被忽略
+### 2.4 MusicXML 重复记号和结尾段被忽略 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/parse/musicxml.py:326-469`
 

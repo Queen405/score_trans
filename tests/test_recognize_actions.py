@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from zipfile import ZipFile
 
 from score_trans.exec.recognize.actions import RecognizeActions
 from score_trans.models.settings.config import ToolConfig
@@ -50,6 +51,31 @@ class _Uploads:
         return Path(path).name
 
 
+class _MxlRecognizer:
+    def execute(
+        self,
+        input_file: str | Path,
+        output_dir: str | Path,
+        config: ToolConfig,
+        *,
+        progress_callback: ProgressCallback | None = None,
+    ) -> Path:
+        del input_file, config, progress_callback
+        result = Path(output_dir) / "score.mxl"
+        result.parent.mkdir(parents=True, exist_ok=True)
+        with ZipFile(result, "w") as archive:
+            archive.writestr(
+                "META-INF/container.xml",
+                '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+                '<rootfiles><rootfile full-path="score.xml"/></rootfiles></container>',
+            )
+            archive.writestr(
+                "score.xml",
+                '<?xml version="1.0" encoding="UTF-8"?><score-partwise version="4.0"/>',
+            )
+        return result
+
+
 def test_recognize_calls_use_isolated_audiveris_directories(tmp_path: Path) -> None:
     recognizer = _Recognizer()
     overlay_service = _OverlayService()
@@ -69,3 +95,19 @@ def test_recognize_calls_use_isolated_audiveris_directories(tmp_path: Path) -> N
     assert recognizer.output_dirs[0] != recognizer.output_dirs[1]
     assert all(path.parent == tmp_path / "audiveris" for path in recognizer.output_dirs)
     assert overlay_service.output_dirs == recognizer.output_dirs
+
+
+def test_recognize_reads_compressed_mxl_as_musicxml(tmp_path: Path) -> None:
+    action = RecognizeActions(
+        uploads=_Uploads(),
+        settings=_Settings(ToolConfig(work_dir=tmp_path)),
+        recognizer=_MxlRecognizer(),
+        overlay_service=_OverlayService(),
+    )
+    source = tmp_path / "5.瑞雪迎春 - 分谱_页面_080.png"
+    source.write_bytes(b"image")
+
+    response = action.recognize_from_path(source)
+
+    assert response.musicxml_filename == "score.mxl"
+    assert '<score-partwise version="4.0"/>' in response.musicxml_text

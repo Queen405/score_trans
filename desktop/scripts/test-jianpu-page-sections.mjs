@@ -144,6 +144,10 @@ const convertViewSource = fs.readFileSync(
   path.resolve(here, '../src/renderer/src/views/ConvertView.vue'),
   'utf8',
 )
+const correctApiSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/api/correct.ts'),
+  'utf8',
+)
 const originalPreviewSource = fs.readFileSync(
   path.resolve(here, '../src/renderer/src/components/OriginalPreview.vue'),
   'utf8',
@@ -540,12 +544,21 @@ test('partial recognition keeps page markers for every source page', () => {
 })
 
 test('resetting Jianpu replaces the source provenance snapshot', () => {
-  const resetHandler = convertViewSource.match(
-    /async function musicxmlToJianpu\(\): Promise<void> \{([\s\S]*?)\n\}/,
-  )?.[1] ?? ''
+  const resetStart = convertViewSource.indexOf('async function resetAll')
+  const resetEnd = convertViewSource.indexOf('async function toggleEditMode', resetStart)
+  const resetHandler = convertViewSource.slice(resetStart, resetEnd)
 
   assert.match(resetHandler, /textAnchors:\s*result\.text_anchors\s*\?\?\s*\[\]/)
   assert.match(resetHandler, /textHash:\s*result\.text_hash\s*\?\?\s*''/)
+  assert.match(resetHandler, /deletedSourceIds:\s*\[\]/)
+})
+
+test('marker correction uses the registered backend route and persists source state', () => {
+  assert.match(correctApiSource, /const BASE = '\/correct'/)
+  assert.doesNotMatch(correctApiSource, /\/api\/correct/)
+  assert.match(convertViewSource, /omr_file_id:\s*page\.omrFileId/)
+  assert.match(convertViewSource, /deleted_source_ids:\s*page\.deletedSourceIds/)
+  assert.doesNotMatch(convertViewSource, /source_map_file_id:\s*[^,]+\|\|\s*undefined/)
 })
 
 test('original preview hit targets stay scoped to the displayed source-map sheet', () => {

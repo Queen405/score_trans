@@ -1,7 +1,13 @@
 from pathlib import Path
 
+from ...domain.parse.musicxml import read_musicxml_text
 from ...models.settings.config import ToolConfig
 from .external_tools import recognize_with_audiveris
+
+
+def read_audiveris_musicxml(path: str | Path) -> str:
+    """Read either plain MusicXML or Audiveris' compressed MXL output."""
+    return read_musicxml_text(Path(path))
 
 
 class AudiverisService:

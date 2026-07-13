@@ -32,6 +32,7 @@ class HistoryPage:
     omr_file_id: str = ""
     original_musicxml: str = ""
     working_musicxml: str = ""
+    deleted_source_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

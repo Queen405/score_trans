@@ -108,6 +108,10 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
                 musicxml_file_id="xml-1",
                 jianpu_text="1=C\n4/4\n1 2 |",
                 svg_file_id="svg-old",
+                omr_file_id="omr-1",
+                original_musicxml="<score-partwise/>",
+                working_musicxml="<score-partwise/>",
+                deleted_source_ids=["s1:i9"],
             )
         ]
     )
@@ -129,6 +133,8 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
             )
         ],
         svg_file_id="svg-new",
+        working_musicxml="<score-partwise version='4.0'/>",
+        deleted_source_ids=["s1:i9", "s1:i10"],
     )
 
     assert updated is not None
@@ -136,10 +142,17 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
     assert updated.ocr_text == '[{"text":"词","bbox":[1,2,3,4],"role":"lyric"}]'
     assert updated.text_attachments[0].anchor.source_id == "s1:i9"
     assert updated.svg_file_id == "svg-new"
+    assert updated.omr_file_id == "omr-1"
+    assert updated.original_musicxml == "<score-partwise/>"
+    assert updated.working_musicxml == "<score-partwise version='4.0'/>"
+    assert updated.deleted_source_ids == ["s1:i9", "s1:i10"]
     assert service.get_batch(batch.id).pages[0].jianpu_text == updated.jianpu_text
     assert service.get_batch(batch.id).pages[0].ocr_text == updated.ocr_text
     assert service.get_batch(batch.id).pages[0].text_attachments == (
         updated.text_attachments
+    )
+    assert service.get_batch(batch.id).pages[0].deleted_source_ids == (
+        updated.deleted_source_ids
     )
 
 

@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from ...domain.accidentals import score_with_accidental_mode
+from ...domain.parse.musicxml import musicxml_path_to_scores
+from ...domain.write.jianpu_text import scores_to_jianpu_document
+from ...models.correct.schemas import ConversionOptionsDTO
+from ...models.provenance.schemas import TextAnchor
+from ...models.common.types import normalize_instrument_profile
+from ..render.render_service import PublicationRenderService
+from .entity_service import CorrectableEntity
+from .musicxml_patch import apply_deletions
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectionArtifacts:
+    working_musicxml: str
+    jianpu_text: str
+    text_anchors: tuple[TextAnchor, ...]
+    text_hash: str
+    svg_paths: tuple[Path, ...]
+
+
+class CorrectionService:
+    def __init__(
+        self,
+        render_service: PublicationRenderService | None = None,
+    ) -> None:
+        self.render_service = render_service or PublicationRenderService()
+
+    def correct(
+        self,
+        original_musicxml: str,
+        deleted_source_ids: list[str],
+        entities: dict[str, CorrectableEntity],
+        options: ConversionOptionsDTO,
+        output_dir: Path,
+    ) -> CorrectionArtifacts:
+        working_xml = apply_deletions(
+            original_musicxml,
+            deleted_source_ids,
+            entities,
+        )
+        output_dir.mkdir(parents=True, exist_ok=True)
+        musicxml_path = output_dir / "corrected.musicxml"
+        musicxml_path.write_text(working_xml, encoding="utf-8")
+
+        scores = musicxml_path_to_scores(
+            musicxml_path,
+            target_key=options.target_key,
+            start_measure_number=options.start_measure_number,
+            instrument_profile=normalize_instrument_profile(options.instrument_profile),
+        )
+        if options.title:
+            for score in scores:
+                score.title = options.title
+
+        document = scores_to_jianpu_document(
+            scores,
+            accidental_mode=options.accidental_mode,
+        )
+        render_scores = [
+            score_with_accidental_mode(
+                score,
+                accidental_mode=options.accidental_mode,
+            )
+            for score in scores
+        ]
+        rendered_pages = self.render_service.render_scores_a4_svg_pages(
+            render_scores,
+            output_dir / "corrected.svg",
+            title=options.title
+            or (render_scores[0].title if render_scores else "简谱"),
+            show_measure_numbers=options.show_measure_numbers,
+            measure_number_mode=options.measure_number_mode,
+        )
+        return CorrectionArtifacts(
+            working_musicxml=working_xml,
+            jianpu_text=document.text,
+            text_anchors=tuple(document.anchors),
+            text_hash=document.text_hash,
+            svg_paths=tuple(Path(page.path) for page in rendered_pages),
+        )

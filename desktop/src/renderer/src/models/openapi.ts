@@ -906,15 +906,9 @@ export type components = {
             jianpu_text?: string;
             /** Pages */
             pages: components["schemas"]["PageCreate"][];
-            /**
-             * Render Page File Ids
-             * @default []
-             */
+            /** Render Page File Ids */
             render_page_file_ids?: string[];
-            /**
-             * Render Page Ocr Texts
-             * @default []
-             */
+            /** Render Page Ocr Texts */
             render_page_ocr_texts?: components["schemas"]["RenderPageOcrText"][];
         };
         /** BatchJianpuTextUpdate */
@@ -1082,15 +1076,9 @@ export type components = {
             page_count: number;
             /** Pages */
             pages: components["schemas"]["PageResponse"][];
-            /**
-             * Render Page File Ids
-             * @default []
-             */
+            /** Render Page File Ids */
             render_page_file_ids?: string[];
-            /**
-             * Render Page Ocr Texts
-             * @default []
-             */
+            /** Render Page Ocr Texts */
             render_page_ocr_texts?: components["schemas"]["RenderPageOcrText"][];
             /** Status */
             status: string;
@@ -1181,18 +1169,21 @@ export type components = {
             /**
              * Accidental Mode
              * @default auto
+             * @enum {string}
              */
-            accidental_mode?: string;
+            accidental_mode?: "auto" | "sharp" | "flat";
             /**
              * Instrument Profile
              * @default general
+             * @enum {string}
              */
-            instrument_profile?: string;
+            instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /**
              * Measure Number Mode
              * @default all
+             * @enum {string}
              */
-            measure_number_mode?: string;
+            measure_number_mode?: "all" | "row_start" | "none";
             /**
              * Show Measure Numbers
              * @default true
@@ -1204,7 +1195,7 @@ export type components = {
              * Target Key
              * @default C
              */
-            target_key?: string;
+            target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
             /** Title */
             title?: string | null;
         };
@@ -1239,42 +1230,24 @@ export type components = {
         };
         /** CorrectionRequest */
         CorrectionRequest: {
-            /**
-             * Deleted Source Ids
-             * @default []
-             */
-            deleted_source_ids?: string[];
-            /**
-             * @default {
-             *       "target_key": "C",
-             *       "accidental_mode": "auto",
-             *       "instrument_profile": "general",
-             *       "show_measure_numbers": true,
-             *       "measure_number_mode": "all"
-             *     }
-             */
+            /** Deleted Source Ids */
+            deleted_source_ids: string[];
+            /** Omr File Id */
+            omr_file_id: string;
             options?: components["schemas"]["ConversionOptionsDTO"];
             /** Original Musicxml */
             original_musicxml: string;
             /** Source Map File Id */
-            source_map_file_id?: string | null;
+            source_map_file_id: string;
         };
         /** CorrectionResponse */
         CorrectionResponse: {
             /** Jianpu Text */
             jianpu_text: string;
-            /**
-             * Svg File Ids
-             * @default []
-             */
+            /** Svg File Ids */
             svg_file_ids?: string[];
-            /**
-             * Text Anchors
-             * @default []
-             */
-            text_anchors?: {
-                [key: string]: unknown;
-            }[];
+            /** Text Anchors */
+            text_anchors?: components["schemas"]["TextAnchor"][];
             /** Text Hash */
             text_hash: string;
             /** Working Musicxml */
@@ -1287,10 +1260,7 @@ export type components = {
         };
         /** EntitiesResponse */
         EntitiesResponse: {
-            /**
-             * Sheets
-             * @default []
-             */
+            /** Sheets */
             sheets?: components["schemas"]["SheetEntitiesDTO"][];
         };
         /** ExportFilesResponse */
@@ -1576,6 +1546,8 @@ export type components = {
         };
         /** PageCreate */
         PageCreate: {
+            /** Deleted Source Ids */
+            deleted_source_ids?: string[];
             /**
              * Document Revision
              * @default
@@ -1658,15 +1630,9 @@ export type components = {
              * @default
              */
             task_id?: string;
-            /**
-             * Text Anchors
-             * @default []
-             */
+            /** Text Anchors */
             text_anchors?: components["schemas"]["TextAnchor"][];
-            /**
-             * Text Attachments
-             * @default []
-             */
+            /** Text Attachments */
             text_attachments?: components["schemas"]["SourceTextAttachment"][];
             /**
              * Text Hash
@@ -1688,6 +1654,8 @@ export type components = {
              * @default
              */
             completed_at?: string;
+            /** Deleted Source Ids */
+            deleted_source_ids?: string[];
             /**
              * Document Revision
              * @default
@@ -1745,15 +1713,9 @@ export type components = {
             svg_file_id: string;
             /** Task Id */
             task_id: string;
-            /**
-             * Text Anchors
-             * @default []
-             */
+            /** Text Anchors */
             text_anchors?: components["schemas"]["TextAnchor"][];
-            /**
-             * Text Attachments
-             * @default []
-             */
+            /** Text Attachments */
             text_attachments?: components["schemas"]["SourceTextAttachment"][];
             /**
              * Text Hash
@@ -1768,6 +1730,8 @@ export type components = {
         };
         /** PageUpdate */
         PageUpdate: {
+            /** Deleted Source Ids */
+            deleted_source_ids?: string[] | null;
             /** Document Revision */
             document_revision?: string | null;
             /** Engine Version */
@@ -2366,10 +2330,7 @@ export type components = {
         };
         /** SheetEntitiesDTO */
         SheetEntitiesDTO: {
-            /**
-             * Entities
-             * @default []
-             */
+            /** Entities */
             entities?: components["schemas"]["CorrectableEntityDTO"][];
             /** Height */
             height: number;
@@ -2850,7 +2811,7 @@ export interface operations {
         parameters: {
             query: {
                 omr_file_id: string;
-                source_map_file_id?: string | null;
+                source_map_file_id: string;
             };
             header?: never;
             path?: never;

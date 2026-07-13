@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from ..common.types import (
+    AccidentalMode,
+    InstrumentProfile,
+    MeasureNumberMode,
+    TargetKeyOrAuto,
+)
+from ..provenance.schemas import TextAnchor
 
 
 class CorrectableEntityDTO(BaseModel):
@@ -23,33 +31,34 @@ class SheetEntitiesDTO(BaseModel):
     sheet_index: int
     width: int
     height: int
-    entities: list[CorrectableEntityDTO] = []
+    entities: list[CorrectableEntityDTO] = Field(default_factory=list)
 
 
 class EntitiesResponse(BaseModel):
-    sheets: list[SheetEntitiesDTO] = []
+    sheets: list[SheetEntitiesDTO] = Field(default_factory=list)
 
 
 class ConversionOptionsDTO(BaseModel):
-    target_key: str = "C"
-    accidental_mode: str = "auto"
-    instrument_profile: str = "general"
+    target_key: TargetKeyOrAuto = "C"
+    accidental_mode: AccidentalMode = "auto"
+    instrument_profile: InstrumentProfile = "general"
     start_measure_number: int | None = None
     show_measure_numbers: bool = True
-    measure_number_mode: str = "all"
+    measure_number_mode: MeasureNumberMode = "all"
     title: str | None = None
 
 
 class CorrectionRequest(BaseModel):
     original_musicxml: str
-    deleted_source_ids: list[str] = []
-    source_map_file_id: str | None = None
-    options: ConversionOptionsDTO = ConversionOptionsDTO()
+    omr_file_id: str
+    source_map_file_id: str
+    deleted_source_ids: list[str] = Field(min_length=1)
+    options: ConversionOptionsDTO = Field(default_factory=ConversionOptionsDTO)
 
 
 class CorrectionResponse(BaseModel):
     working_musicxml: str
     jianpu_text: str
-    text_anchors: list[dict] = []
+    text_anchors: list[TextAnchor] = Field(default_factory=list)
     text_hash: str
-    svg_file_ids: list[str] = []
+    svg_file_ids: list[str] = Field(default_factory=list)

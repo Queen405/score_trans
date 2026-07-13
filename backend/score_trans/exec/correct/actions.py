@@ -1,168 +1,107 @@
 from __future__ import annotations
 
-import json
-import tempfile
 from pathlib import Path
-from typing import cast
+from tempfile import TemporaryDirectory
 
-from ...domain.parse.musicxml import musicxml_path_to_scores
-from ...domain.write.jianpu_text import scores_to_jianpu_document
-from ...domain.accidentals import score_with_accidental_mode
 from ...models.correct.schemas import (
-    ConversionOptionsDTO,
     CorrectionRequest,
     CorrectionResponse,
     CorrectableEntityDTO,
     EntitiesResponse,
     SheetEntitiesDTO,
 )
-from ...models.common.types import (
-    AccidentalMode,
-    InstrumentProfile,
-    MeasureNumberMode,
-    normalize_instrument_profile,
-)
+from ...services.correct.correction_service import CorrectionService
 from ...services.correct.entity_service import (
-    CorrectableEntity,
+    CorrectableSheet,
+    entity_index,
     extract_entities,
     load_source_map,
 )
-from ...services.correct.musicxml_patch import apply_deletions
 from ...services.files.upload_service import UploadService
-from ...services.render.render_service import PublicationRenderService
 
 
 class CorrectActions:
     def __init__(
         self,
         uploads: UploadService | None = None,
-        render_service: PublicationRenderService | None = None,
+        correction_service: CorrectionService | None = None,
     ) -> None:
         self.uploads = uploads or UploadService()
-        self.render_service = render_service or PublicationRenderService()
+        self.correction_service = correction_service or CorrectionService()
 
     def get_entities(
         self,
         omr_file_id: str,
-        source_map_file_id: str | None = None,
+        source_map_file_id: str,
     ) -> EntitiesResponse:
-        omr_path = self.uploads.get_path(omr_file_id)
-        if not omr_path or not Path(omr_path).exists():
-            raise FileNotFoundError(f"OMR file not found: {omr_file_id}")
-        source_map = None
-        if source_map_file_id:
-            sm_path = self.uploads.get_path(source_map_file_id)
-            if sm_path and Path(sm_path).exists():
-                source_map = load_source_map(sm_path)
-        sheets = extract_entities(omr_path, source_map)
-        return _to_entities_response(sheets)
-
-    def apply_corrections(self, req: CorrectionRequest) -> CorrectionResponse:
-        entity_index = self._build_entity_index(req)
-        working_xml = apply_deletions(
-            req.original_musicxml,
-            req.deleted_source_ids,
-            entity_index,
+        return _to_entities_response(
+            self._load_entities(omr_file_id, source_map_file_id)
         )
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".musicxml", delete=False, encoding="utf-8"
-        ) as f:
-            f.write(working_xml)
-            tmp_path = Path(f.name)
-
-        try:
-            opts = req.options
-            scores = musicxml_path_to_scores(
-                tmp_path,
-                target_key=opts.target_key,
-                start_measure_number=opts.start_measure_number,
-                instrument_profile=normalize_instrument_profile(opts.instrument_profile),
+    def apply_corrections(self, req: CorrectionRequest) -> CorrectionResponse:
+        entities = entity_index(
+            self._load_entities(req.omr_file_id, req.source_map_file_id)
+        )
+        with TemporaryDirectory(prefix="score-trans-correct-") as temp_dir:
+            artifacts = self.correction_service.correct(
+                req.original_musicxml,
+                req.deleted_source_ids,
+                entities,
+                req.options,
+                Path(temp_dir),
             )
-            if opts.title:
-                for score in scores:
-                    score.title = opts.title
-
-            accidental_mode = cast(AccidentalMode, opts.accidental_mode)
-            measure_number_mode = cast(MeasureNumberMode, opts.measure_number_mode)
-            document = scores_to_jianpu_document(
-                scores,
-                accidental_mode=accidental_mode,
-            )
-
-            render_scores = [
-                score_with_accidental_mode(score, accidental_mode=accidental_mode)
-                for score in scores
-            ]
-            rendered_pages = self.render_service.render_scores_a4_svg_pages(
-                render_scores,
-                Path(tempfile.mkdtemp()) / "output.svg",
-                title=opts.title or (render_scores[0].title if render_scores else "简谱"),
-                show_measure_numbers=opts.show_measure_numbers,
-                measure_number_mode=measure_number_mode,
-            )
-            svg_file_ids = [
-                self.uploads.register(Path(str(getattr(p, "path", p))))
-                for p in rendered_pages
-            ]
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
+            svg_file_ids = [self.uploads.register(path) for path in artifacts.svg_paths]
         return CorrectionResponse(
-            working_musicxml=working_xml,
-            jianpu_text=document.text,
-            text_anchors=[a.model_dump() for a in document.anchors],
-            text_hash=document.text_hash,
+            working_musicxml=artifacts.working_musicxml,
+            jianpu_text=artifacts.jianpu_text,
+            text_anchors=list(artifacts.text_anchors),
+            text_hash=artifacts.text_hash,
             svg_file_ids=svg_file_ids,
         )
 
-    def _build_entity_index(self, req: CorrectionRequest) -> dict[str, dict]:
-        if not req.source_map_file_id:
-            return {}
-        sm_path = self.uploads.get_path(req.source_map_file_id)
-        if not sm_path or not Path(sm_path).exists():
-            return {}
-        omr_path = None
-        source_map = load_source_map(sm_path)
-        index: dict[str, dict] = {}
-        if source_map:
-            for sheet in source_map.sheets:
-                for elem in sheet.elements:
-                    index[elem.source_id] = {
-                        "tag": "",
-                        "shape": elem.shape,
-                        "musicxml_locator": elem.musicxml_locator.contains,
-                    }
-        return index
+    def _load_entities(
+        self,
+        omr_file_id: str,
+        source_map_file_id: str,
+    ) -> list[CorrectableSheet]:
+        omr_path = self.uploads.get_path(omr_file_id)
+        if not omr_path or not Path(omr_path).is_file():
+            raise FileNotFoundError(f"OMR 文件不存在：{omr_file_id}")
+        source_map_path = self.uploads.get_path(source_map_file_id)
+        if not source_map_path or not Path(source_map_path).is_file():
+            raise FileNotFoundError(f"来源映射文件不存在：{source_map_file_id}")
+        sheets = extract_entities(omr_path, load_source_map(source_map_path))
+        if not sheets or not any(sheet.entities for sheet in sheets):
+            raise ValueError("该识别结果不包含可安全编辑的 MusicXML 定位信息")
+        return sheets
 
 
-def _to_entities_response(sheets: list[list[CorrectableEntity]]) -> EntitiesResponse:
-    result_sheets: list[SheetEntitiesDTO] = []
-    for sheet_entities in sheets:
-        if not sheet_entities:
-            continue
-        entities = [
-            CorrectableEntityDTO(
-                source_id=e.source_id,
-                inter_id=e.inter_id,
-                sheet_index=e.sheet_index,
-                tag=e.tag,
-                shape=e.shape,
-                grade=e.grade,
-                bounds_x=e.bounds[0],
-                bounds_y=e.bounds[1],
-                bounds_w=e.bounds[2],
-                bounds_h=e.bounds[3],
-                is_structural=e.is_structural,
-                musicxml_locator=e.musicxml_locator,
-                hit_path=e.hit_path,
+def _to_entities_response(sheets: list[CorrectableSheet]) -> EntitiesResponse:
+    return EntitiesResponse(
+        sheets=[
+            SheetEntitiesDTO(
+                sheet_index=sheet.sheet_index,
+                width=sheet.width,
+                height=sheet.height,
+                entities=[
+                    CorrectableEntityDTO(
+                        source_id=entity.source_id,
+                        inter_id=entity.inter_id,
+                        sheet_index=entity.sheet_index,
+                        tag=entity.tag,
+                        shape=entity.shape,
+                        grade=entity.grade,
+                        bounds_x=entity.bounds[0],
+                        bounds_y=entity.bounds[1],
+                        bounds_w=entity.bounds[2],
+                        bounds_h=entity.bounds[3],
+                        is_structural=entity.is_structural,
+                        musicxml_locator=entity.musicxml_locator,
+                        hit_path=entity.hit_path,
+                    )
+                    for entity in sheet.entities
+                ],
             )
-            for e in sheet_entities
+            for sheet in sheets
         ]
-        result_sheets.append(SheetEntitiesDTO(
-            sheet_index=sheet_entities[0].sheet_index,
-            width=0,
-            height=0,
-            entities=entities,
-        ))
-    return EntitiesResponse(sheets=result_sheets)
+    )

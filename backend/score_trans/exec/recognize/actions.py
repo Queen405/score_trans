@@ -12,7 +12,10 @@ from ...models.tasks.entities import ProgressCallback, report_progress
 from ...models.tasks.schemas import TaskSubmitResponse
 from ...services.files.upload_service import UploadService
 from ...services.overlay.overlay_service import OverlayService
-from ...services.recognize.audiveris_service import AudiverisService
+from ...services.recognize.audiveris_service import (
+    AudiverisService,
+    read_audiveris_musicxml,
+)
 from ...services.settings.settings_service import SettingsService
 from ..tasks.actions import TaskActions
 from ..tasks.background import OMR_SEMAPHORE, run_sync_task, schedule_background_task
@@ -107,7 +110,7 @@ class RecognizeActions:
         )
         report_progress(progress_callback, "recognize", 92, "注册 MusicXML 文件")
         musicxml_id = self.uploads.register(musicxml_path)
-        musicxml_text = musicxml_path.read_text(encoding="utf-8")
+        musicxml_text = read_audiveris_musicxml(musicxml_path)
         native_finder = getattr(self.overlay_service, "find_native_overlay", None)
         overlay_path, source_map_path = (
             native_finder(omr_dir) if callable(native_finder) else (None, None)

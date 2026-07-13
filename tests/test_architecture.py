@@ -23,7 +23,6 @@ LAYER_IMPORTS = {
 
 KNOWN_LAYER_VIOLATIONS = {
     ("exec/convert/actions.py", "domain"),
-    ("exec/correct/actions.py", "domain"),
     ("exec/export/actions.py", "domain"),
     ("exec/notation/actions.py", "domain"),
     ("exec/pipeline/actions.py", "domain"),

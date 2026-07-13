@@ -33,6 +33,21 @@ test('SVG sanitizer uses a narrow element and attribute allowlist', () => {
 
   assert.equal(sanitizer.isAllowedSvgAttribute('path', 'd'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('g', 'data-source-ids'), true)
+  assert.equal(sanitizer.isAllowedSvgAttribute('g', 'transform'), true)
+  assert.equal(sanitizer.isAllowedSvgAttribute('text', 'opacity'), true)
+  assert.equal(sanitizer.isAllowedSvgAttribute('text', 'aria-hidden'), true)
+  assert.equal(
+    sanitizer.isSafeSvgAttributeValue(
+      'g',
+      'transform',
+      'translate(102 247) scale(30 -30) translate(-0.279 0)',
+    ),
+    true,
+  )
+  assert.equal(
+    sanitizer.isSafeSvgAttributeValue('text', 'opacity', '0'),
+    true,
+  )
   for (const attribute of ['href', 'xlink:href', 'src', 'style', 'onload', 'onclick']) {
     assert.equal(sanitizer.isAllowedSvgAttribute('path', attribute), false)
   }
@@ -51,6 +66,25 @@ test('SVG CSS sanitizer drops imports, URL functions and unknown properties', ()
   assert.doesNotMatch(safe, /@import|url\s*\(|javascript|behavior|body/i)
   assert.match(safe, /\.note\{font-size:24px\}/)
   assert.match(safe, /\.bar\{stroke:#171717;stroke-width:1.6\}/)
+})
+
+test('publication SVG root styles survive sanitization placement checks', () => {
+  const backendCss = fs.readFileSync(
+    path.resolve(
+      projectRoot,
+      '../backend/score_trans/services/render/engraving/svg_backend.py',
+    ),
+    'utf8',
+  )
+
+  assert.match(backendCss, /\.page-background\{fill:#fff\}/)
+  assert.equal(
+    sanitizer.sanitizeSvgCss('.page-background{fill:#fff}'),
+    '.page-background{fill:#fff}',
+  )
+  assert.equal(sanitizer.isAllowedSvgStyleParent('svg'), true)
+  assert.equal(sanitizer.isAllowedSvgStyleParent('defs'), true)
+  assert.equal(sanitizer.isAllowedSvgStyleParent('g'), false)
 })
 
 test('SVG preview mounts a sanitized DOM node without v-html', () => {

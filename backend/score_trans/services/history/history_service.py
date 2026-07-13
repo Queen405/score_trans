@@ -88,6 +88,7 @@ class HistoryService:
         omr_file_id: str | None = None,
         original_musicxml: str | None = None,
         working_musicxml: str | None = None,
+        deleted_source_ids: list[str] | None = None,
     ) -> HistoryPage | None:
         return self.dao.update_page(
             page_id,
@@ -110,6 +111,7 @@ class HistoryService:
             omr_file_id=omr_file_id,
             original_musicxml=original_musicxml,
             working_musicxml=working_musicxml,
+            deleted_source_ids=deleted_source_ids,
         )
 
     def reorder_pages(

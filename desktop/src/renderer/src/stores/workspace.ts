@@ -52,6 +52,7 @@ export interface TaskPage {
   omrFileId: string
   originalMusicxml: string
   workingMusicxml: string
+  deletedSourceIds: string[]
 }
 
 export interface TaskPageInput {
@@ -83,6 +84,10 @@ export interface TaskPageInput {
   progressMessage?: string
   measureNumberOptions?: number[]
   errorMessage?: string
+  omrFileId?: string
+  originalMusicxml?: string
+  workingMusicxml?: string
+  deletedSourceIds?: string[]
 }
 
 function createPage(seed?: Partial<TaskPage>): TaskPage {
@@ -120,6 +125,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     omrFileId: '',
     originalMusicxml: '',
     workingMusicxml: '',
+    deletedSourceIds: [],
     ...seed,
   }
 }
@@ -737,6 +743,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       omrFileId: p.omrFileId ?? '',
       originalMusicxml: p.originalMusicxml ?? '',
       workingMusicxml: p.workingMusicxml ?? '',
+      deletedSourceIds: [...(p.deletedSourceIds ?? [])],
     }))
     pages.value.splice(index, 1, ...nextPages)
     if (!pages.value.length) {
@@ -925,6 +932,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       omrFileId: p.omrFileId ?? '',
       originalMusicxml: p.originalMusicxml ?? '',
       workingMusicxml: p.workingMusicxml ?? '',
+      deletedSourceIds: [...(p.deletedSourceIds ?? [])],
     }))
     currentBatchId.value = bid
     if (renderPageFileIds.length) {

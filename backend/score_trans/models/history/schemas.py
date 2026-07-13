@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
 
@@ -12,7 +12,7 @@ class PageCreate(BaseModel):
     musicxml_file_id: str = ""
     jianpu_text: str = ""
     ocr_text: str = ""
-    text_attachments: list[SourceTextAttachment] = []
+    text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     svg_file_id: str = ""
     engine_version: str = "publication-2"
     document_revision: str = ""
@@ -20,13 +20,14 @@ class PageCreate(BaseModel):
     overlay_file_id: str = ""
     source_map_file_id: str = ""
     text_hash: str = ""
-    text_anchors: list[TextAnchor] = []
+    text_anchors: list[TextAnchor] = Field(default_factory=list)
     start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""
     omr_file_id: str = ""
     original_musicxml: str = ""
     working_musicxml: str = ""
+    deleted_source_ids: list[str] = Field(default_factory=list)
 
 
 class PageUpdate(BaseModel):
@@ -49,6 +50,7 @@ class PageUpdate(BaseModel):
     omr_file_id: str | None = None
     original_musicxml: str | None = None
     working_musicxml: str | None = None
+    deleted_source_ids: list[str] | None = None
 
 
 class PageResponse(BaseModel):
@@ -60,7 +62,7 @@ class PageResponse(BaseModel):
     musicxml_file_id: str
     jianpu_text: str
     ocr_text: str
-    text_attachments: list[SourceTextAttachment] = []
+    text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     svg_file_id: str
     engine_version: str = "publication-2"
     document_revision: str = ""
@@ -68,7 +70,7 @@ class PageResponse(BaseModel):
     overlay_file_id: str = ""
     source_map_file_id: str = ""
     text_hash: str = ""
-    text_anchors: list[TextAnchor] = []
+    text_anchors: list[TextAnchor] = Field(default_factory=list)
     start_measure_number: int | None = None
     status: str
     error_message: str
@@ -76,6 +78,7 @@ class PageResponse(BaseModel):
     omr_file_id: str = ""
     original_musicxml: str = ""
     working_musicxml: str = ""
+    deleted_source_ids: list[str] = Field(default_factory=list)
 
 
 class RenderPageOcrText(BaseModel):
@@ -86,8 +89,8 @@ class RenderPageOcrText(BaseModel):
 class BatchCreateRequest(BaseModel):
     pages: list[PageCreate]
     jianpu_text: str = ""
-    render_page_file_ids: list[str] = []
-    render_page_ocr_texts: list[RenderPageOcrText] = []
+    render_page_file_ids: list[str] = Field(default_factory=list)
+    render_page_ocr_texts: list[RenderPageOcrText] = Field(default_factory=list)
 
 
 class BatchResponse(BaseModel):
@@ -96,10 +99,10 @@ class BatchResponse(BaseModel):
     page_count: int
     status: str
     jianpu_text: str = ""
-    render_page_file_ids: list[str] = []
+    render_page_file_ids: list[str] = Field(default_factory=list)
     engine_version: str = "publication-2"
     document_revision: str = ""
-    render_page_ocr_texts: list[RenderPageOcrText] = []
+    render_page_ocr_texts: list[RenderPageOcrText] = Field(default_factory=list)
     pages: list[PageResponse]
 
 

@@ -129,6 +129,10 @@ export function useHistoryRestore() {
       status: page.status as TaskPage['status'],
       measureNumberOptions: parseWaitingMeasureOptions(page.error_message),
       errorMessage: page.error_message,
+      omrFileId: page.omr_file_id || '',
+      originalMusicxml: page.original_musicxml || '',
+      workingMusicxml: page.working_musicxml || page.original_musicxml || '',
+      deletedSourceIds: page.deleted_source_ids || [],
       ...liveRecognitionTaskPatch(page.id, page.status),
     }
   }
@@ -139,7 +143,13 @@ export function useHistoryRestore() {
   ): Promise<void> {
     const seq = ++restoreCheckSeq
     const fileIds = pages
-      .flatMap((page) => [page.input_file_id, page.musicxml_file_id, page.svg_file_id])
+      .flatMap((page) => [
+        page.input_file_id,
+        page.musicxml_file_id,
+        page.svg_file_id,
+        page.omr_file_id || '',
+        page.source_map_file_id || '',
+      ])
       .concat(renderPageFileIds)
       .filter(Boolean)
     if (!fileIds.length) return
@@ -163,6 +173,16 @@ export function useHistoryRestore() {
           patch.svgFileId = ''
           patch.svgFileIds = []
           warnings.push(`${page.input_file_name}：SVG 已失效`)
+        }
+        if (page.omr_file_id && !exists[page.omr_file_id]) {
+          patch.omrFileId = ''
+          patch.deletedSourceIds = []
+          warnings.push(`${page.input_file_name}：OMR 工程文件已失效`)
+        }
+        if (page.source_map_file_id && !exists[page.source_map_file_id]) {
+          patch.sourceMapFileId = ''
+          patch.deletedSourceIds = []
+          warnings.push(`${page.input_file_name}：来源映射已失效`)
         }
         if (Object.keys(patch).length) {
           store.patchPageByHistoryPageId(page.id, patch)

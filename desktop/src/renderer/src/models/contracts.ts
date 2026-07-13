@@ -61,6 +61,11 @@ export type HistoryBatchJianpuTextUpdateRequest = Schemas['BatchJianpuTextUpdate
 export type HistoryBatchRenderPageOcrTextsUpdateRequest =
   Schemas['BatchRenderPageOcrTextsUpdate']
 export type HistoryBatchPageOrderRequest = Schemas['BatchPageOrderRequest']
+export type CorrectableEntityDTO = Schemas['CorrectableEntityDTO']
+export type SheetEntitiesDTO = Schemas['SheetEntitiesDTO']
+export type EntitiesResponse = Schemas['EntitiesResponse']
+export type CorrectionRequest = Schemas['CorrectionRequest']
+export type CorrectionResponse = Schemas['CorrectionResponse']
 
 export type AccidentalMode = NonNullable<BatchRenderRequest['accidental_mode']>
 export type MeasureNumberMode = NonNullable<BatchRenderRequest['measure_number_mode']>

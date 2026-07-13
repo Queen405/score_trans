@@ -16,7 +16,7 @@ const ALLOWED_ELEMENTS = new Set([
   'polygon',
 ])
 
-const COMMON_ATTRIBUTES = new Set(['class'])
+const COMMON_ATTRIBUTES = new Set(['class', 'aria-label', 'aria-hidden'])
 const DATA_ATTRIBUTES = new Set([
   'data-note-index',
   'data-note-token',
@@ -27,14 +27,24 @@ const DATA_ATTRIBUTES = new Set([
   'data-width',
   'data-mark',
   'data-direction',
+  'data-font-size',
 ])
 const ELEMENT_ATTRIBUTES: Record<string, ReadonlySet<string>> = {
   svg: new Set(['xmlns', 'width', 'height', 'viewbox', 'preserveaspectratio']),
   defs: new Set(),
   style: new Set(),
-  g: DATA_ATTRIBUTES,
+  g: new Set(['transform']),
   rect: new Set(['x', 'y', 'width', 'height', 'rx', 'ry', 'fill', 'stroke', 'stroke-width']),
-  text: new Set(['x', 'y', 'dx', 'dy', 'fill', 'text-anchor', 'font-size']),
+  text: new Set([
+    'x',
+    'y',
+    'dx',
+    'dy',
+    'fill',
+    'opacity',
+    'text-anchor',
+    'font-size',
+  ]),
   tspan: new Set(['x', 'y', 'dx', 'dy', 'fill', 'text-anchor', 'font-size']),
   line: new Set(['x1', 'y1', 'x2', 'y2', 'stroke', 'stroke-width']),
   path: new Set(['d', 'fill', 'stroke', 'stroke-width', 'transform']),
@@ -84,7 +94,10 @@ export function sanitizeSvg(text: string): SVGSVGElement {
     if (
       element.namespaceURI !== SVG_NAMESPACE
       || !isAllowedSvgElement(name)
-      || (name === 'style' && element.parentElement?.localName.toLowerCase() !== 'defs')
+      || (
+        name === 'style'
+        && !isAllowedSvgStyleParent(element.parentElement?.localName)
+      )
     ) {
       element.remove()
       continue
@@ -116,6 +129,11 @@ export function sanitizeSvg(text: string): SVGSVGElement {
 
 export function isAllowedSvgElement(name: string): boolean {
   return ALLOWED_ELEMENTS.has(name.toLowerCase())
+}
+
+export function isAllowedSvgStyleParent(name: string | undefined): boolean {
+  const parent = name?.toLowerCase()
+  return parent === 'svg' || parent === 'defs'
 }
 
 export function isAllowedSvgAttribute(
@@ -171,7 +189,7 @@ export function sanitizeSvgCss(css: string): string {
   return safeRules.join('')
 }
 
-function isSafeSvgAttributeValue(
+export function isSafeSvgAttributeValue(
   elementName: string,
   attributeName: string,
   value: string,
@@ -179,7 +197,10 @@ function isSafeSvgAttributeValue(
   if (value.length > 4096) return false
   if (attributeName === 'xmlns') return value === SVG_NAMESPACE
   if (attributeName === 'class') return SAFE_CLASS.test(value)
-  if (DATA_ATTRIBUTES.has(attributeName)) {
+  if (attributeName === 'aria-hidden') {
+    return value === 'true' || value === 'false'
+  }
+  if (attributeName === 'aria-label' || DATA_ATTRIBUTES.has(attributeName)) {
     return Array.from(value).every((character) => {
       const code = character.charCodeAt(0)
       return code > 0x1f && code !== 0x7f
@@ -190,6 +211,10 @@ function isSafeSvgAttributeValue(
     return SAFE_NUMBER_LIST.test(value)
   }
   if (attributeName === 'transform') return SAFE_TRANSFORM.test(value)
+  if (attributeName === 'opacity') {
+    const opacity = Number(value)
+    return Number.isFinite(opacity) && opacity >= 0 && opacity <= 1
+  }
   if (attributeName === 'fill' || attributeName === 'stroke') {
     return isSafePaint(value)
   }
