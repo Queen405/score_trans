@@ -259,8 +259,8 @@ class SettingsActions:
             self.service.get_bool("show_measure_numbers", True),
         )
         return SettingsResponse(
-            audiveris_path=all_settings.get("audiveris_path", ""),
-            java_home=all_settings.get("java_home", ""),
+            audiveris_path=config.audiveris_path,
+            java_home=config.java_home,
             audiveris_max_heap=all_settings.get("audiveris_max_heap", "2g"),
             audiveris_max_pixel_count=all_settings.get(
                 "audiveris_max_pixel_count", "20000000"

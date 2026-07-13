@@ -84,14 +84,24 @@ def _rewrite_legacy_work_dir(path: Path) -> Path:
     return USER_CACHE_ROOT / relative
 
 
+def _resolve_existing_path(stored: str | None, default: str) -> str:
+    if stored and Path(stored).exists():
+        return stored
+    return default
+
+
 class SettingsService:
     def __init__(self, dao: SettingsDao | None = None) -> None:
         self.dao = dao or configured_settings_dao()
 
     def load(self) -> ToolConfig:
         return ToolConfig(
-            audiveris_path=self.dao.get("audiveris_path") or _default_audiveris_path(),
-            java_home=self.dao.get("java_home") or _default_java_home(),
+            audiveris_path=_resolve_existing_path(
+                self.dao.get("audiveris_path"), _default_audiveris_path()
+            ),
+            java_home=_resolve_existing_path(
+                self.dao.get("java_home"), _default_java_home()
+            ),
             work_dir=_resolve_work_dir(self.dao.get("work_dir") or _default_work_dir()),
             audiveris_step=AUDIVERIS_STEP,
             audiveris_force=AUDIVERIS_FORCE,
