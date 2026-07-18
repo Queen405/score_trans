@@ -6,13 +6,18 @@ from zipfile import ZipFile
 
 import pytest
 
+from score_trans.models.correct.schemas import CorrectionRequest, ConversionOptionsDTO
 from score_trans.models.provenance.schemas import (
     BoundingBox,
     MusicXmlLocator,
     SourceElement,
     SourceMap,
     SourceMapSheet,
+    SourceTextAttachment,
+    TextPlacementAnchor,
 )
+from score_trans.models.score import JianpuScore
+from score_trans.services.correct.correction_service import _document_title
 from score_trans.services.correct.clef_transform import transform_pitch
 from score_trans.services.correct.entity_service import (
     CorrectableEntity,
@@ -81,9 +86,7 @@ def test_apply_deletions_targets_exact_structural_elements() -> None:
 
 
 def test_clef_transform_accounts_for_octave_change() -> None:
-    assert transform_pitch(
-        "C", 0.0, 4, "G", 2, "G", 2, -1, 0
-    ) == ("C", 0.0, 5)
+    assert transform_pitch("C", 0.0, 4, "G", 2, "G", 2, -1, 0) == ("C", 0.0, 5)
 
 
 def test_delete_note_head_preserves_rhythm_as_rest() -> None:
@@ -158,3 +161,29 @@ def test_extract_entities_uses_sheet_scoped_source_map_and_omr_dimensions(
     assert len(sheets) == 1
     assert (sheets[0].width, sheets[0].height) == (1000, 1400)
     assert [entity.source_id for entity in sheets[0].entities] == ["clef0-s1-i10"]
+
+
+def test_correction_request_preserves_text_attachments_and_title() -> None:
+    title = SourceTextAttachment(
+        id="title-1",
+        text="月亮之上",
+        role="title",
+        anchor=TextPlacementAnchor(kind="score_start"),
+    )
+    request = CorrectionRequest(
+        original_musicxml="<score-partwise/>",
+        omr_file_id="omr",
+        source_map_file_id="map",
+        deleted_source_ids=["source-1"],
+        text_attachments=[title],
+    )
+
+    assert request.text_attachments == [title]
+    assert (
+        _document_title(
+            ConversionOptionsDTO(),
+            request.text_attachments,
+            [JianpuScore(title="旧标题")],
+        )
+        == "月亮之上"
+    )

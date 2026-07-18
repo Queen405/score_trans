@@ -1239,6 +1239,8 @@ export type components = {
             original_musicxml: string;
             /** Source Map File Id */
             source_map_file_id: string;
+            /** Text Attachments */
+            text_attachments?: components["schemas"]["SourceTextAttachment"][];
         };
         /** CorrectionResponse */
         CorrectionResponse: {

@@ -49,6 +49,7 @@ class CorrectActions:
                 entities,
                 req.options,
                 Path(temp_dir),
+                req.text_attachments,
             )
             svg_file_ids = [self.uploads.register(path) for path in artifacts.svg_paths]
         return CorrectionResponse(

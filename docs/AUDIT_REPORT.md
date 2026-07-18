@@ -178,49 +178,49 @@ return prefix, suffix + "-" * (whole if remain else max(0, whole - 1))
 
 `_read_measure_events` 不处理 `<print>`（分页/分系统）和 `<barline>`（重复、结尾段）元素。MusicXML 中的重复记号和结尾段被静默丢弃。
 
-### 2.5 简谱→MusicXML 不输出重复记号
+### 2.5 简谱→MusicXML 不输出重复记号 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/write/musicxml.py:71-104`
 
 `_append_score_measures` 不输出 `<repeat>` 元素。`measure.repeat_start` / `measure.repeat_end` 被静默忽略，重复记号在 MusicXML 输出中丢失。
 
-### 2.6 共享编号的嵌套连音处理缺陷
+### 2.6 共享编号的嵌套连音处理缺陷 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/parse/musicxml.py:539-560`
 
 `_apply_tuplet_notations` 的 `active_tuplets` 按连音 `number` 属性索引。不同 `number` 的嵌套连音可以正确区分，但当内外连音共享同一 `number` 时（某些 MusicXML 导出工具会这样做），内层连音会覆盖外层条目，嵌套结构丢失。
 
-### 2.7 连音组时值硬编码
+### 2.7 连音组时值硬编码 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/parse/jianpu_text.py:656`
 
 连音时值硬编码为 `Fraction(1, len(parsed))`（每个音符 = 1/n 全音符）。无法表示半音符三连音、四分音符五连音或不占满 1 拍的连音。
 
-### 2.8 跨小节连音断裂
+### 2.8 跨小节连音断裂 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/parse/musicxml.py:335-336`
 
 `active_tuplets` 按小节声明（每小节重置）。跨小节连音（MusicXML 中合法的 tuplet start/stop 在不同小节）被破坏。
 
-### 2.9 简谱→MusicXML 不输出多声部
+### 2.9 简谱→MusicXML 不输出多声部 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/write/musicxml.py:103-104`
 
 不输出 `<backup>` 或 `<forward>` 元素。多声部乐谱被顺序展平，MusicXML 中的节奏错误。
 
-### 2.10 简谱→MusicXML 丢失标题/速度/表情术语
+### 2.10 简谱→MusicXML 丢失标题/速度/表情术语 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/write/musicxml.py:115-148`
 
 不输出速度、方向/文本块或小节级力度作为 `<direction>` 元素。仅音符级力度（在 `<notations>` 内）被写入。乐谱级文本（标题、表情术语、速度标记）丢失。
 
-### 2.11 微音程信息有损转换
+### 2.11 微音程信息有损转换 ✅ [2026-07-14: 已修复]
 
 **文件：** `domain/parse/musicxml.py:880-896`
 
 `_accidental_token` 将四分之一升→`#`、四分之一降→`b`，有损微音程取整。无警告。
 
-### 2.12 八度点未垂直堆叠
+### 2.12 八度点未垂直堆叠 ✅ [2026-07-14: 已修复（render 引擎重写）]
 
 **文件：** `services/render/utils/metrics.py:21-25, 28-36`
 

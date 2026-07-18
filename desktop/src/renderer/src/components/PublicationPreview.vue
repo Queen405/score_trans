@@ -98,6 +98,7 @@ import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
 import { parseOcrText, serializeOcrText, type OcrTextBlock } from '../utils/ocrText'
 import { sanitizeSvg } from '../utils/svgSanitizer'
+import { LatestAsyncGate } from '../utils/latestAsyncGate'
 
 const props = withDefaults(defineProps<{
   svgFileId: string
@@ -138,6 +139,8 @@ const ocrBlocks = ref<OcrTextBlock[]>([])
 const shouldHideStaticOcr = computed(() => props.editableOcr)
 const showOcrOverlay = ref(true)
 let svgLoadGeneration = 0
+const svgLoadGate = new LatestAsyncGate()
+let svgLoadController: AbortController | null = null
 let dragging: {
   id: string
   startClientX: number
@@ -364,6 +367,8 @@ function onKeyDown(event: KeyboardEvent): void {
 
 async function loadSvg(url: string): Promise<void> {
   const generation = ++svgLoadGeneration
+  svgLoadController?.abort()
+  svgLoadController = null
   svgReady.value = false
   svgError.value = ''
   imgW.value = 0
@@ -374,6 +379,7 @@ async function loadSvg(url: string): Promise<void> {
   if (!url) return
 
   const controller = new AbortController()
+  svgLoadController = controller
   const timeout = window.setTimeout(() => controller.abort(), 15000)
   try {
     const result = await fetchFileBlob(url, controller.signal)
@@ -401,6 +407,7 @@ async function loadSvg(url: string): Promise<void> {
     svgError.value = 'SVG 加载失败'
   } finally {
     window.clearTimeout(timeout)
+    if (svgLoadController === controller) svgLoadController = null
   }
 }
 
@@ -430,7 +437,10 @@ function clearPlaybackHighlight(): void {
   })
 }
 
-function highlightSource(sourceId: string): boolean {
+async function highlightSource(sourceId: string): Promise<boolean> {
+  if (!(await svgLoadGate.waitForLatest())) return false
+  await nextTick()
+  if (!(await svgLoadGate.waitForLatest())) return false
   const svg = svgRoot()
   if (!svg || !sourceId) return false
 
@@ -439,8 +449,13 @@ function highlightSource(sourceId: string): boolean {
     node.classList.remove('source-current')
   })
 
-  const targets = Array.from(svg.querySelectorAll<SVGGElement>('.source-anchor'))
-    .filter((element) => (element.dataset.sourceIds ?? '').split(/\s+/).includes(sourceId))
+  const semanticTargets = Array.from(
+    svg.querySelectorAll<SVGGraphicsElement>('[data-source-role]'),
+  ).filter((element) => sourceIdsOf(element).includes(sourceId))
+  const targets = semanticTargets.length
+    ? semanticTargets
+    : Array.from(svg.querySelectorAll<SVGGraphicsElement>('.source-anchor'))
+      .filter((element) => sourceIdsOf(element).includes(sourceId))
   if (!targets.length) return false
 
   targets.forEach((target) => {
@@ -451,13 +466,15 @@ function highlightSource(sourceId: string): boolean {
   return true
 }
 
-function addSourceHighlightBox(target: SVGGElement): void {
-  let box: DOMRect
-  try {
-    box = target.getBBox()
-  } catch {
-    return
-  }
+function sourceIdsOf(element: SVGGraphicsElement): string[] {
+  return (element.getAttribute('data-source-ids') ?? '').split(/\s+/).filter(Boolean)
+}
+
+function addSourceHighlightBox(target: SVGGraphicsElement): void {
+  const svg = svgRoot()
+  if (!svg) return
+  const box = rootCoordinateBBox(target, svg)
+  if (!box) return
 
   const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
   rect.setAttribute('x', String(box.x - 4))
@@ -467,7 +484,38 @@ function addSourceHighlightBox(target: SVGGElement): void {
   rect.setAttribute('rx', '4')
   rect.setAttribute('class', 'source-highlight-box')
   rect.setAttribute('pointer-events', 'none')
-  target.appendChild(rect)
+  svg.appendChild(rect)
+}
+
+function rootCoordinateBBox(
+  target: SVGGraphicsElement,
+  svg: SVGSVGElement,
+): { x: number; y: number; width: number; height: number } | null {
+  try {
+    const box = target.getBBox()
+    const targetMatrix = target.getScreenCTM()
+    const svgMatrix = svg.getScreenCTM()
+    if (!targetMatrix || !svgMatrix) return null
+    const matrix = svgMatrix.inverse().multiply(targetMatrix)
+    const points = [
+      new globalThis.DOMPoint(box.x, box.y),
+      new globalThis.DOMPoint(box.x + box.width, box.y),
+      new globalThis.DOMPoint(box.x, box.y + box.height),
+      new globalThis.DOMPoint(box.x + box.width, box.y + box.height),
+    ].map((point) => point.matrixTransform(matrix))
+    const xs = points.map((point) => point.x)
+    const ys = points.map((point) => point.y)
+    const x = Math.min(...xs)
+    const y = Math.min(...ys)
+    return {
+      x,
+      y,
+      width: Math.max(...xs) - x,
+      height: Math.max(...ys) - y,
+    }
+  } catch {
+    return null
+  }
 }
 
 defineExpose({ highlightSource })
@@ -492,14 +540,10 @@ function applyPlaybackHighlight(reveal: boolean): void {
 
 function keepTargetVisible(target: SVGGraphicsElement): void {
   const viewport = containerRef.value
-  if (!viewport) return
-
-  let box: DOMRect
-  try {
-    box = target.getBBox()
-  } catch {
-    return
-  }
+  const svg = svgRoot()
+  if (!viewport || !svg) return
+  const box = rootCoordinateBBox(target, svg)
+  if (!box) return
 
   const margin = 32
   const scale = zp.scale.value
@@ -524,7 +568,7 @@ function keepTargetVisible(target: SVGGraphicsElement): void {
 }
 
 watch(svgUrl, (url) => {
-  void loadSvg(url)
+  svgLoadGate.track(loadSvg(url))
 }, { immediate: true })
 
 watch(() => props.currentNoteIndex, () => {
@@ -549,6 +593,10 @@ onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
 })
 onUnmounted(() => {
+  svgLoadGeneration += 1
+  svgLoadController?.abort()
+  svgLoadController = null
+  svgLoadGate.dispose()
   zp.unbind()
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', endDrag)
@@ -610,6 +658,16 @@ onUnmounted(() => {
 .svg-inline :deep(.playback-note.playback-current .lyric),
 .svg-inline :deep(.source-anchor.source-current .lyric) {
   fill: #d97706;
+}
+
+.svg-inline :deep([data-source-role].source-current path),
+.svg-inline :deep([data-source-role].source-current text) {
+  fill: #d97706;
+}
+
+.svg-inline :deep(line[data-source-role].source-current),
+.svg-inline :deep(path[data-source-role].source-current) {
+  stroke: #d97706;
 }
 
 .svg-inline :deep(.playback-note.playback-current .duration-line),

@@ -480,7 +480,9 @@ const publicationRender = usePublicationRender()
 const log = useLogStore()
 const message = useMessage()
 const jianpuEditorRef = ref<{ selectRange: (start: number, end: number) => boolean } | null>(null)
-const svgPreviewRef = ref<{ highlightSource: (sourceId: string) => boolean } | null>(null)
+const svgPreviewRef = ref<{
+  highlightSource: (sourceId: string) => Promise<boolean>
+} | null>(null)
 const selectedSourceId = ref('')
 const editMode = ref(false)
 const deletedEntityIds = ref<Set<string>>(new Set())
@@ -665,8 +667,12 @@ async function handleOriginalSourceClick(sourceId: string): Promise<void> {
     finalRenderPageIndex.value = targetPage
     await nextTick()
   }
-  if (!svgPreviewRef.value?.highlightSource(scopedSourceId)
-    && !svgPreviewRef.value?.highlightSource(sourceId)) {
+  const preview = svgPreviewRef.value
+  const highlighted = preview
+    ? await preview.highlightSource(scopedSourceId)
+      || await preview.highlightSource(sourceId)
+    : false
+  if (!highlighted) {
     message.warning('当前渲染页中没有该元素，请重新渲染后再试')
   }
 }
@@ -1873,11 +1879,13 @@ async function applyCorrections(): Promise<void> {
       deleted_source_ids: [...deletedEntityIds.value],
       omr_file_id: page.omrFileId,
       source_map_file_id: page.sourceMapFileId,
+      text_attachments: page.textAttachments,
       options: {
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
         instrument_profile: 'general',
-        start_measure_number: store.startMeasureNumber ?? undefined,
+        start_measure_number: page.startMeasureNumber ?? store.startMeasureNumber ?? undefined,
+        title: page.textAttachments.find((item) => item.role === 'title')?.text || undefined,
         show_measure_numbers: settings.showMeasureNumbers,
         measure_number_mode: settings.measureNumberMode,
       },

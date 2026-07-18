@@ -926,6 +926,8 @@ def _source_role(code: str) -> str:
         "a": "accidental",
         "ss": "slur_start",
         "se": "slur_stop",
+        "ts": "tie_start",
+        "te": "tie_stop",
         "ar": "articulation",
         "or": "ornament",
         "dy": "dynamic",
@@ -1158,37 +1160,56 @@ def _direction_text_blocks(
                 )
             )
 
-        wedge = direction_type.find(_q(ns, "wedge"))
-        if wedge is not None:
-            wedge_text = _wedge_text(wedge.get("type"))
-            if wedge_text:
-                blocks.append(
-                    _measure_text_block(
-                        wedge_text, measure_number, start, placement, staff
-                    )
+        for wedge in direction_type.findall(_q(ns, "wedge")):
+            wedge_text = _wedge_text(wedge.get("type")) or _structural_direction_text(
+                "wedge", wedge.get("type")
+            )
+            blocks.append(
+                _measure_text_block(
+                    wedge_text,
+                    measure_number,
+                    start,
+                    placement,
+                    staff,
+                    "wedge",
+                    dict(wedge.attrib),
                 )
+            )
 
-        pedal = direction_type.find(_q(ns, "pedal"))
-        if pedal is not None:
-            pedal_text = _pedal_text(pedal.get("type"))
-            if pedal_text:
-                blocks.append(
-                    _measure_text_block(
-                        pedal_text, measure_number, start, placement, staff
-                    )
+        for pedal in direction_type.findall(_q(ns, "pedal")):
+            pedal_text = _pedal_text(pedal.get("type")) or _structural_direction_text(
+                "pedal", pedal.get("type")
+            )
+            blocks.append(
+                _measure_text_block(
+                    pedal_text,
+                    measure_number,
+                    start,
+                    placement,
+                    staff,
+                    "pedal",
+                    dict(pedal.attrib),
                 )
+            )
 
-        octave_shift = direction_type.find(_q(ns, "octave-shift"))
-        if octave_shift is not None:
+        for octave_shift in direction_type.findall(_q(ns, "octave-shift")):
             shift_text = _octave_shift_text(
                 octave_shift.get("type"), octave_shift.get("size")
             )
-            if shift_text:
-                blocks.append(
-                    _measure_text_block(
-                        shift_text, measure_number, start, placement, staff
-                    )
+            shift_text = shift_text or _structural_direction_text(
+                "octave-shift", octave_shift.get("type")
+            )
+            blocks.append(
+                _measure_text_block(
+                    shift_text,
+                    measure_number,
+                    start,
+                    placement,
+                    staff,
+                    "octave-shift",
+                    dict(octave_shift.attrib),
                 )
+            )
 
         for child in list(direction_type):
             name = _local_name(child.tag)
@@ -1219,6 +1240,7 @@ def _measure_text_block(
     placement: str | None,
     staff: str | None,
     direction_kind: str | None = None,
+    direction_attributes: dict[str, str] | None = None,
 ) -> TextBlock:
     return TextBlock(
         text=text,
@@ -1228,6 +1250,7 @@ def _measure_text_block(
         placement=placement,
         staff=staff,
         direction_kind=direction_kind,
+        direction_attributes=direction_attributes or {},
     )
 
 
@@ -1311,6 +1334,8 @@ def _wedge_text(kind: str | None) -> str | None:
         return "cresc."
     if kind == "diminuendo":
         return "dim."
+    if kind == "stop":
+        return "wedge stop"
     return None
 
 
@@ -1331,6 +1356,10 @@ def _octave_shift_text(kind: str | None, size: str | None) -> str | None:
         interval = size or "8"
         return f"{interval}va" if kind == "up" else f"{interval}vb"
     return None
+
+
+def _structural_direction_text(name: str, kind: str | None) -> str:
+    return f"{name} {kind}" if kind else name
 
 
 def _direction_symbol_text(name: str) -> str | None:

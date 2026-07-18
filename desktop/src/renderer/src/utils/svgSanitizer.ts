@@ -28,7 +28,13 @@ const DATA_ATTRIBUTES = new Set([
   'data-mark',
   'data-direction',
   'data-font-size',
+  'data-render-engine',
+  'data-engine-version',
+  'data-page-index',
+  'data-note-index-start',
+  'data-note-index-end',
 ])
+const SAFE_SOURCE_ROLE_ATTRIBUTE = /^data-source-role(?:-[a-z0-9_-]+)?$/
 const ELEMENT_ATTRIBUTES: Record<string, ReadonlySet<string>> = {
   svg: new Set(['xmlns', 'width', 'height', 'viewbox', 'preserveaspectratio']),
   defs: new Set(),
@@ -145,6 +151,7 @@ export function isAllowedSvgAttribute(
   return (
     COMMON_ATTRIBUTES.has(attribute)
     || DATA_ATTRIBUTES.has(attribute)
+    || SAFE_SOURCE_ROLE_ATTRIBUTE.test(attribute)
     || ELEMENT_ATTRIBUTES[element]?.has(attribute)
     || false
   )
@@ -200,7 +207,11 @@ export function isSafeSvgAttributeValue(
   if (attributeName === 'aria-hidden') {
     return value === 'true' || value === 'false'
   }
-  if (attributeName === 'aria-label' || DATA_ATTRIBUTES.has(attributeName)) {
+  if (
+    attributeName === 'aria-label'
+    || DATA_ATTRIBUTES.has(attributeName)
+    || SAFE_SOURCE_ROLE_ATTRIBUTE.test(attributeName)
+  ) {
     return Array.from(value).every((character) => {
       const code = character.charCodeAt(0)
       return code > 0x1f && code !== 0x7f

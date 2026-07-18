@@ -4,6 +4,7 @@ from fractions import Fraction
 import hashlib
 import json
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 
 from score_trans.domain.jianpu import parse_jianpu_score
@@ -60,6 +61,252 @@ def test_rhythm_pitch_and_chord_features_are_visible() -> None:
     assert 'class="duration-line beam-line"' in svg
     assert 'class="rhythm-dot"' in svg
     assert 'class="extension-line"' in svg
+
+
+def test_consecutive_short_notes_share_continuous_rhythm_lines() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            pitches=[JianpuPitch(index + 1)],
+            start=Fraction(index, 2),
+        )
+        for index in range(4)
+    ]
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(2), events=events)])
+
+    root = _root(render_score_svg(score))
+    beams = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+
+    assert len(beams) == 1
+    assert float(beams[0].attrib["x2"]) - float(beams[0].attrib["x1"]) > 100
+
+
+def test_sixteenth_notes_share_both_rhythm_lines() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 4),
+            pitches=[JianpuPitch(index + 1)],
+            start=Fraction(index, 4),
+        )
+        for index in range(4)
+    ]
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(1), events=events)])
+
+    root = _root(render_score_svg(score))
+    beams = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+
+    assert len(beams) == 2
+
+
+def test_tuplet_notes_are_compact_and_have_no_lower_rhythm_lines() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 3),
+            pitches=[JianpuPitch(index + 1)],
+            start=Fraction(index, 3),
+            tuplet_id="triplet-1",
+            tuplet_count=3,
+            tuplet_index=index,
+        )
+        for index in range(3)
+    ]
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(4), events=events)])
+
+    root = _root(render_score_svg(score))
+    beams = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+    notes = [
+        node for node in root.iter() if "playback-note" in node.attrib.get("class", "")
+    ]
+
+    assert not beams
+    assert (
+        float(notes[-1].attrib["data-bbox"].split()[0])
+        - float(notes[0].attrib["data-bbox"].split()[0])
+        <= 48
+    )
+    assert any("tuplet-bracket" in node.attrib.get("class", "") for node in root.iter())
+
+
+def test_single_part_system_has_one_start_barline_and_terminal_barline() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\n1 2 3 4 |"))
+    system_brackets = [
+        node for node in root.iter() if "system-bracket" in node.attrib.get("class", "")
+    ]
+    terminal_lines = [
+        node
+        for node in root.iter()
+        if "terminal-barline" in node.attrib.get("class", "")
+    ]
+
+    assert not system_brackets
+    assert len(terminal_lines) == 2
+
+
+def test_simple_measure_barlines_do_not_span_the_full_system_height() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\n1 2 3 4 | 5 6 7 1 |"))
+    barlines = [
+        node
+        for node in root.iter()
+        if node.tag.endswith("line") and "measure" in node.attrib.get("class", "")
+    ]
+
+    assert barlines
+    assert (
+        max(
+            abs(float(node.attrib["y2"]) - float(node.attrib["y1"]))
+            for node in barlines
+        )
+        <= 58
+    )
+
+
+def test_tuplet_bracket_leaves_a_gap_for_its_number() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 3),
+            pitches=[JianpuPitch(index + 1, octave=1)],
+            start=Fraction(index, 3),
+            tuplet_id="triplet-gap",
+            tuplet_count=3,
+        )
+        for index in range(3)
+    ]
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(4), events=events)])
+    root = _root(render_score_svg(score))
+    bracket = next(
+        node for node in root.iter() if "tuplet-bracket" in node.attrib.get("class", "")
+    )
+
+    assert bracket.attrib["d"].count("M ") == 2
+
+
+def test_dense_tuplet_measures_are_not_overpacked_on_the_same_row() -> None:
+    measures: list[Measure] = []
+    for measure_index in range(4):
+        events = [
+            Event(
+                kind="note",
+                duration=Fraction(1, 3),
+                pitches=[JianpuPitch(index % 7 + 1)],
+                start=Fraction(index, 3),
+                tuplet_id=f"m{measure_index}-g{index // 6}",
+                tuplet_count=6,
+                articulations=["accent"],
+            )
+            for index in range(18)
+        ]
+        measures.append(
+            Measure(str(measure_index + 1), duration=Fraction(6), events=events)
+        )
+    pages = render_scores_a4_pages([JianpuScore(measures=measures)])
+    assert len(pages) == 1
+    root = _root(pages[0].svg)
+    measure_numbers = [
+        node for node in root.iter() if "measure-no" in node.attrib.get("class", "")
+    ]
+    rows: set[float] = set()
+    for node in measure_numbers:
+        match = re.search(r"translate\([^ ]+ ([^)]+)\)", node.attrib["transform"])
+        assert match is not None
+        rows.add(float(match.group(1)))
+
+    assert len(rows) == 4
+
+
+def test_measure_attributes_only_render_when_key_or_meter_changes() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 | 2 | 3 |")
+    score.measures[2].target_key = "G"
+
+    svg = render_score_svg(score)
+
+    assert svg.count('class="measure-attribute"') == 1
+
+
+def test_semantic_note_and_mark_nodes_carry_exact_source_ids() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3, source_id="note-3")],
+        articulations=["accent"],
+        source_ids=["note-3", "accent-3"],
+        source_roles={"note": ["note-3"], "articulation": ["accent-3"]},
+    )
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(4), events=[event])])
+
+    root = _root(render_score_svg(score))
+    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
+    mark = next(
+        node for node in root.iter() if "articulation" in node.attrib.get("class", "")
+    )
+
+    assert note.attrib["data-source-ids"] == "note-3"
+    assert note.attrib["data-source-role"] == "note"
+    assert mark.attrib["data-source-ids"] == "accent-3"
+    assert mark.attrib["data-source-role"] == "articulation"
+
+
+def test_chord_accidentals_keep_their_pitch_source_ids_after_pitch_sorting() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[
+            JianpuPitch(
+                1,
+                accidental=Fraction(-1),
+                source_id="note-low",
+                accidental_source_id="accidental-low",
+            ),
+            JianpuPitch(
+                6,
+                accidental=Fraction(1),
+                source_id="note-high",
+                accidental_source_id="accidental-high",
+            ),
+        ],
+        source_roles={
+            "note": ["note-low", "note-high"],
+            "accidental": ["accidental-low", "accidental-high"],
+        },
+    )
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(4), events=[event])])
+
+    root = _root(render_score_svg(score))
+    accidentals = {
+        node.attrib["aria-label"]: node.attrib["data-source-ids"]
+        for node in root.iter()
+        if node.attrib.get("class") == "accidental"
+    }
+
+    assert accidentals == {"♭": "accidental-low", "♯": "accidental-high"}
+
+
+def test_event_dynamic_is_not_rendered_again_as_measure_text() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(1)],
+        dynamic="f",
+    )
+    measure = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[event],
+        text_blocks=[TextBlock("f", role="expression")],
+    )
+
+    svg = render_score_svg(JianpuScore(measures=[measure]))
+
+    assert svg.count('class="dynamic"') == 1
 
 
 def test_spanners_tuplets_marks_and_lyrics_are_rendered() -> None:

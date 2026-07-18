@@ -489,6 +489,18 @@ def test_jianpu_title_and_tempo_write_musicxml_metadata() -> None:
     assert root.find(".//direction/sound").attrib == {"tempo": "96"}
 
 
+def test_musicxml_writer_preserves_multiple_rhythm_dots() -> None:
+    root = ET.fromstring(jianpu_to_musicxml("1=C\n4/4\n5.. q6.. 7... |"))
+    notes = root.findall(".//note")
+
+    assert [note.findtext("type") for note in notes] == [
+        "quarter",
+        "eighth",
+        "quarter",
+    ]
+    assert [len(note.findall("dot")) for note in notes] == [2, 2, 3]
+
+
 def test_musicxml_writer_preserves_direction_kinds_without_dynamic_duplicates() -> None:
     score = parse_jianpu_score("title=方向\ntempo=88\n1=C\n4/4\n1 2 3 4 |")
     measure = score.measures[0]
@@ -523,6 +535,67 @@ def test_musicxml_writer_preserves_direction_kinds_without_dynamic_duplicates() 
     assert root.findtext(".//direction-type/rehearsal") == "A"
     assert root.find(".//direction-type/dynamics/sf") is not None
     assert root.find(".//notations/dynamics/sf") is None
+
+
+def test_musicxml_structural_directions_roundtrip_with_attributes() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <direction><direction-type>
+          <wedge type="crescendo" number="2"/>
+          <wedge type="stop" number="2"/>
+          <pedal type="start" line="yes" number="3"/>
+          <pedal type="stop" line="yes" number="3"/>
+          <octave-shift type="down" size="15" number="4"/>
+          <octave-shift type="stop" size="15" number="4"/>
+        </direction-type></direction>
+        <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    structural = [
+        block
+        for block in score.measures[0].text_blocks
+        if block.direction_kind in {"wedge", "pedal", "octave-shift"}
+    ]
+    root = ET.fromstring(scores_to_musicxml([score]))
+
+    assert [block.direction_kind for block in structural] == [
+        "wedge",
+        "wedge",
+        "pedal",
+        "pedal",
+        "octave-shift",
+        "octave-shift",
+    ]
+    assert [block.direction_attributes for block in structural] == [
+        {"type": "crescendo", "number": "2"},
+        {"type": "stop", "number": "2"},
+        {"type": "start", "line": "yes", "number": "3"},
+        {"type": "stop", "line": "yes", "number": "3"},
+        {"type": "down", "size": "15", "number": "4"},
+        {"type": "stop", "size": "15", "number": "4"},
+    ]
+    assert [element.attrib for element in root.findall(".//wedge")] == [
+        {"type": "crescendo", "number": "2"},
+        {"type": "stop", "number": "2"},
+    ]
+    assert [element.attrib for element in root.findall(".//pedal")] == [
+        {"type": "start", "line": "yes", "number": "3"},
+        {"type": "stop", "line": "yes", "number": "3"},
+    ]
+    assert [element.attrib for element in root.findall(".//octave-shift")] == [
+        {"type": "down", "size": "15", "number": "4"},
+        {"type": "stop", "size": "15", "number": "4"},
+    ]
+    assert root.findall(".//direction-type/words") == []
 
 
 def test_musicxml_direction_metadata_roundtrips_with_tempo_and_title() -> None:

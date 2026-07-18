@@ -7,7 +7,6 @@ from ...models.common.types import (
     AccidentalMode,
     MeasureNumberMode,
     SUPPORTED_TARGET_KEYS,
-    TargetKey,
     TargetKeyOrAuto,
 )
 from ...models.settings.schemas import (

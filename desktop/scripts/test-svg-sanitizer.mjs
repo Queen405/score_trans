@@ -33,6 +33,8 @@ test('SVG sanitizer uses a narrow element and attribute allowlist', () => {
 
   assert.equal(sanitizer.isAllowedSvgAttribute('path', 'd'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('g', 'data-source-ids'), true)
+  assert.equal(sanitizer.isAllowedSvgAttribute('g', 'data-source-role'), true)
+  assert.equal(sanitizer.isAllowedSvgAttribute('g', 'data-source-role-articulation'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('g', 'transform'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('text', 'opacity'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('text', 'aria-hidden'), true)
@@ -96,4 +98,9 @@ test('SVG preview mounts a sanitized DOM node without v-html', () => {
   assert.doesNotMatch(preview, /\bv-html\s*=/)
   assert.match(preview, /sanitizeSvg/)
   assert.match(preview, /replaceChildren/)
+  assert.match(preview, /async function highlightSource/)
+  assert.match(preview, /\[data-source-role\]/)
+  assert.match(preview, /getScreenCTM/)
+  assert.match(preview, /svg\.appendChild\(rect\)/)
+  assert.doesNotMatch(preview, /target\.appendChild\(rect\)/)
 })

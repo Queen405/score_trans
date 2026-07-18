@@ -430,6 +430,39 @@ def test_tie_provenance_produces_clickable_tie_anchors() -> None:
         assert _utf16_slice(document.text, anchor.start_utf16, anchor.end_utf16) == "~"
 
 
+def test_tie_and_slur_provenance_use_independent_source_roles() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note id="st__n-s1-i10__ss-s1-i12__ts-s1-i14">
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>2</duration><type>half</type><tie type="start"/>
+          <notations><slur type="start"/></notations>
+        </note>
+        <note id="st__n-s1-i11__se-s1-i12__te-s1-i14">
+          <pitch><step>D</step><octave>4</octave></pitch>
+          <duration>2</duration><type>half</type><tie type="stop"/>
+          <notations><slur type="stop"/></notations>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    document = score_to_jianpu_document(musicxml_to_score(xml))
+    tie_anchors = [anchor for anchor in document.anchors if anchor.role == "tie"]
+    slur_anchors = [anchor for anchor in document.anchors if anchor.role == "slur"]
+
+    assert tie_anchors
+    assert slur_anchors
+    assert {anchor.source_id for anchor in tie_anchors} == {"s1:i14"}
+    assert {anchor.source_id for anchor in slur_anchors} == {"s1:i12"}
+
+
 def test_slur_provenance_still_produces_slur_anchors() -> None:
     xml = """
     <score-partwise version="4.0">

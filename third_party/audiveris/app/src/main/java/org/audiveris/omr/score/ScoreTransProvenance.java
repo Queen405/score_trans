@@ -152,7 +152,9 @@ public final class ScoreTransProvenance
 
         for (Relation relation : sig.getRelations(note, SlurHeadRelation.class)) {
             final SlurInter slur = (SlurInter) sig.getOppositeInter(note, relation);
-            final String role = (slur.getHead(HorizontalSide.LEFT) == note) ? "ss" : "se";
+            final String prefix = slur.isTie() ? "t" : "s";
+            final String role = prefix
+                    + ((slur.getHead(HorizontalSide.LEFT) == note) ? "s" : "e");
             put(sources, role, slur);
         }
 

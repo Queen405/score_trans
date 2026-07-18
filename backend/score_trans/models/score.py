@@ -26,6 +26,7 @@ class TextBlock:
     placement: str | None = None
     staff: str | None = None
     direction_kind: str | None = None
+    direction_attributes: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

@@ -400,7 +400,9 @@ def _append_event_anchors(
     if event.tie_start:
         offset = token.rfind("~")
         if offset >= 0:
-            for source_id in event.source_roles.get("slur_start", []):
+            for source_id in _role_sources_with_fallback(
+                event, "tie_start", "slur_start"
+            ):
                 _append_anchor(
                     anchors,
                     seen,
@@ -412,7 +414,9 @@ def _append_event_anchors(
     if event.tie_stop:
         offset = token.find("~")
         if offset >= 0:
-            for source_id in event.source_roles.get("slur_stop", []):
+            for source_id in _role_sources_with_fallback(
+                event, "tie_stop", "slur_stop"
+            ):
                 _append_anchor(
                     anchors,
                     seen,
@@ -431,6 +435,14 @@ def _append_event_anchors(
         prefix,
         prefix_base,
     )
+
+
+def _role_sources_with_fallback(
+    event: Event,
+    role: str,
+    fallback_role: str,
+) -> list[str]:
+    return event.source_roles.get(role) or event.source_roles.get(fallback_role, [])
 
 
 def _append_prefix_role_anchors(

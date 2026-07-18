@@ -8,7 +8,7 @@ from ..common.types import (
     MeasureNumberMode,
     TargetKeyOrAuto,
 )
-from ..provenance.schemas import TextAnchor
+from ..provenance.schemas import SourceTextAttachment, TextAnchor
 
 
 class CorrectableEntityDTO(BaseModel):
@@ -53,6 +53,7 @@ class CorrectionRequest(BaseModel):
     omr_file_id: str
     source_map_file_id: str
     deleted_source_ids: list[str] = Field(min_length=1)
+    text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     options: ConversionOptionsDTO = Field(default_factory=ConversionOptionsDTO)
 
 

@@ -378,6 +378,10 @@ def _append_direction_xml(parent: ET.Element, block: TextBlock) -> None:
             sound_tempo = match.group(3)
         else:
             ET.SubElement(direction_type, "words").text = block.text
+    elif kind in {"wedge", "pedal", "octave-shift"} and block.direction_attributes.get(
+        "type"
+    ):
+        ET.SubElement(direction_type, kind, dict(block.direction_attributes))
     else:
         ET.SubElement(direction_type, "words").text = block.text
     if block.staff:
@@ -460,9 +464,9 @@ def _append_event_xml(
             ET.SubElement(note, "tie", {"type": "stop"})
         if output_voice:
             ET.SubElement(note, "voice").text = output_voice
-        note_type, dotted = _fraction_to_type(_notated_duration(event))
+        note_type, dot_count = _fraction_to_type(_notated_duration(event))
         ET.SubElement(note, "type").text = note_type
-        if dotted:
+        for _dot in range(dot_count):
             ET.SubElement(note, "dot")
         if (
             pitch is not None
@@ -649,7 +653,7 @@ def _fraction_to_decimal_text(value: Fraction) -> str:
     return format(decimal_value, "f").rstrip("0").rstrip(".")
 
 
-def _fraction_to_type(duration: Fraction) -> tuple[str, bool]:
+def _fraction_to_type(duration: Fraction) -> tuple[str, int]:
     base = {
         Fraction(4, 1): "whole",
         Fraction(2, 1): "half",
@@ -659,11 +663,13 @@ def _fraction_to_type(duration: Fraction) -> tuple[str, bool]:
         Fraction(1, 8): "32nd",
     }
     if duration in base:
-        return base[duration], False
+        return base[duration], 0
     for value, name in base.items():
-        if duration == value + value / 2:
-            return name, True
-    return "quarter", False
+        for dot_count in range(1, 4):
+            multiplier = Fraction((1 << (dot_count + 1)) - 1, 1 << dot_count)
+            if duration == value * multiplier:
+                return name, dot_count
+    return "quarter", 0
 
 
 def _notated_duration(event: Event) -> Fraction:
