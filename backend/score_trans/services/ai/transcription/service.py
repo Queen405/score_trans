@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import re
 
 from ....models.common.errors import AITranscriptionError
 from ....domain.performance_marks import instrument_prompt
@@ -104,9 +103,6 @@ class AiTranscriptionService:
                 page_index=prepared.page_index,
                 extra_prompt=combined_prompt,
             )
-            measure_number_candidates = _measure_number_candidates(
-                result.measure_number_candidates, result.jianpu_text
-            )
             page_text = ensure_jianpu_header(
                 clean_jianpu_text(result.jianpu_text),
                 target_key=result.key or target_key,
@@ -131,7 +127,6 @@ class AiTranscriptionService:
                     prepared=prepared,
                     result=result,
                     jianpu_text=normalized_text,
-                    measure_number_candidates=measure_number_candidates,
                     validation_errors=validation_errors,
                 )
             )
@@ -168,15 +163,3 @@ def _create_named_or_profile_provider(provider: str) -> VisionJianpuProvider:
         base_url=profile.base_url,
         model=profile.model,
     )
-
-
-def _measure_number_candidates(explicit: list[int], raw_text: str) -> list[int]:
-    values: list[int] = []
-    for value in explicit:
-        if value > 0 and value not in values:
-            values.append(value)
-    for match in re.finditer(r"(?m)^\s*(\d{1,4})[.:：]\s+", raw_text):
-        value = int(match.group(1))
-        if value > 0 and value not in values:
-            values.append(value)
-    return values[:8]

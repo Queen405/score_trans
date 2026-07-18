@@ -34,7 +34,6 @@ export interface SettingsDraft {
   midiTempo: MidiTempo
   accidentalMode: AccidentalMode
   measureNumberMode: MeasureNumberMode
-  confirmStartMeasureNumber: boolean
   jianpuSyntaxHighlight: boolean
   outputDir: string
   providers: Record<ProviderKind, SettingsDraftProvider>
@@ -89,7 +88,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const accidentalMode = ref<AccidentalMode>('auto')
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
-  const confirmStartMeasureNumber = ref(true)
   const jianpuSyntaxHighlight = ref(false)
   const outputDir = ref('')
   const ocrProvider = ref('siliconflow_deepseek_ocr')
@@ -133,7 +131,6 @@ export const useSettingsStore = defineStore('settings', () => {
     midiTempo: 'auto',
     accidentalMode: 'auto',
     measureNumberMode: 'all',
-    confirmStartMeasureNumber: true,
     jianpuSyntaxHighlight: false,
     outputDir: '',
     providers: {
@@ -201,7 +198,6 @@ export const useSettingsStore = defineStore('settings', () => {
       midiTempo: midiTempo.value,
       accidentalMode: accidentalMode.value,
       measureNumberMode: measureNumberMode.value,
-      confirmStartMeasureNumber: confirmStartMeasureNumber.value,
       jianpuSyntaxHighlight: jianpuSyntaxHighlight.value,
       outputDir: outputDir.value,
       providers: {
@@ -264,7 +260,6 @@ export const useSettingsStore = defineStore('settings', () => {
           accidental_mode: next.accidentalMode,
           show_measure_numbers: next.measureNumberMode !== 'none',
           measure_number_mode: next.measureNumberMode,
-          confirm_start_measure_number: next.confirmStartMeasureNumber,
           jianpu_syntax_highlight: next.jianpuSyntaxHighlight,
           ocr_provider: next.providers.ocr.provider,
           ocr_api_key: next.providers.ocr.apiKey.trim() || undefined,
@@ -369,7 +364,6 @@ export const useSettingsStore = defineStore('settings', () => {
     measureNumberMode.value =
       data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
-    confirmStartMeasureNumber.value = data.confirm_start_measure_number ?? true
     jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false
     outputDir.value = data.output_dir ?? ''
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
@@ -457,7 +451,6 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.midiTempo = next.midiTempo
     draft.accidentalMode = next.accidentalMode
     draft.measureNumberMode = next.measureNumberMode
-    draft.confirmStartMeasureNumber = next.confirmStartMeasureNumber
     draft.jianpuSyntaxHighlight = next.jianpuSyntaxHighlight
     draft.outputDir = next.outputDir
     draft.providers.ocr = { ...next.providers.ocr }
@@ -493,7 +486,6 @@ export const useSettingsStore = defineStore('settings', () => {
     accidentalMode,
     showMeasureNumbers,
     measureNumberMode,
-    confirmStartMeasureNumber,
     jianpuSyntaxHighlight,
     outputDir,
     ocrProvider,

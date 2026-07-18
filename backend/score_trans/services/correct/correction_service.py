@@ -54,7 +54,6 @@ class CorrectionService:
         scores = musicxml_path_to_scores(
             musicxml_path,
             target_key=options.target_key,
-            start_measure_number=options.start_measure_number,
             instrument_profile=normalize_instrument_profile(options.instrument_profile),
         )
         attachments = text_attachments or []

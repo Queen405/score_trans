@@ -13,9 +13,6 @@ const api = {
       token: '',
     }
   },
-  getBackendURL: async (): Promise<string> => {
-    return await ipcRenderer.invoke('get-backend-url') || 'http://127.0.0.1:19200'
-  },
   minimizeWindow: async (): Promise<void> => {
     await ipcRenderer.invoke('window:minimize')
   },

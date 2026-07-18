@@ -106,13 +106,11 @@ import {
 
 const props = withDefaults(defineProps<{
   modelValue: string
-  startMeasureNumber?: number
   currentNoteIndex?: number
   syntaxHighlight?: boolean
   errorLine?: number
   flashLine?: number
 }>(), {
-  startMeasureNumber: 1,
   currentNoteIndex: -1,
   syntaxHighlight: false,
   errorLine: -1,
@@ -337,19 +335,19 @@ function syncScroll(e: Event): void {
 }
 
 const measureLabels = computed(() =>
-  jianpuGutterLabels(props.modelValue, props.startMeasureNumber ?? 1),
+  jianpuGutterLabels(props.modelValue),
 )
 const pageSummaries = computed(() =>
-  jianpuPageSummaries(props.modelValue, props.startMeasureNumber ?? 1),
+  jianpuPageSummaries(props.modelValue),
 )
 const showPageSummary = computed(() =>
   hasJianpuPageMarkers(props.modelValue) && pageSummaries.value.length > 0,
 )
 
 function pageRangeText(page: JianpuPageSummary): string {
-  if (page.endMeasureNumber === null) return `${page.startMeasureNumber}+`
-  if (page.endMeasureNumber === page.startMeasureNumber) return String(page.startMeasureNumber)
-  return `${page.startMeasureNumber}-${page.endMeasureNumber}`
+  if (page.lastMeasureNumber === null) return `${page.firstMeasureNumber}+`
+  if (page.lastMeasureNumber === page.firstMeasureNumber) return String(page.firstMeasureNumber)
+  return `${page.firstMeasureNumber}-${page.lastMeasureNumber}`
 }
 
 function scrollToPage(markerLineIndex: number): void {

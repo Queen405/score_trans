@@ -35,7 +35,6 @@ def settings_defaults() -> dict[str, str]:
         "midi_tempo": "auto",
         "show_measure_numbers": "1",
         "measure_number_mode": "all",
-        "confirm_start_measure_number": "1",
         "jianpu_syntax_highlight": "0",
         "accidental_mode": "auto",
         "ocr_provider": OCR_PROVIDER,

@@ -57,9 +57,9 @@ def scores_to_jianpu_document(
         score = scores[0] if scores else JianpuScore()
         return score_to_jianpu_document(score, accidental_mode=accidental_mode)
 
-    has_page_info = any(
-        s.page_input_file_name or s.page_start_measure is not None for s in scores
-    ) or (scores[0].page_count > 1 if scores else False)
+    has_page_info = any(s.page_input_file_name for s in scores) or (
+        scores[0].page_count > 1 if scores else False
+    )
 
     part_anchors: list[list[TextAnchor]] = []
     part_offsets: list[int] = []
@@ -73,15 +73,10 @@ def scores_to_jianpu_document(
         )
         if has_page_info and score.page_index != current_page_index:
             page_number = score.page_index + 1
-            start = (
-                score.page_start_measure
-                if score.page_start_measure is not None
-                else "auto"
-            )
             name_suffix = ""
             if score.page_input_file_name:
                 name_suffix = f" name={json.dumps(score.page_input_file_name, ensure_ascii=False)}"
-            full_text += f"// @page {page_number} start={start}{name_suffix}\n"
+            full_text += f"// @page {page_number}{name_suffix}\n"
             current_page_index = score.page_index
         encoded_name = json.dumps(score.part_name, ensure_ascii=False)
         marker = f"// @part {index + 1} name={encoded_name}"

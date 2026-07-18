@@ -51,16 +51,6 @@
         </settings-form-row>
 
         <settings-form-row
-          label="确认起始小节"
-          hint="识别结果缺少明确编号时，在继续转换前询问起始小节"
-        >
-          <n-switch
-            v-model:value="settings.draft.confirmStartMeasureNumber"
-            size="small"
-          />
-        </settings-form-row>
-
-        <settings-form-row
           label="代码配色"
           hint="在简谱编辑器中显示语法高亮"
         >

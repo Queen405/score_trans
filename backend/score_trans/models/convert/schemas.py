@@ -12,7 +12,6 @@ class MusicXmlToJianpuRequest(BaseModel):
     target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile | None = None
-    start_measure_number: int | None = None
 
 
 class MusicXmlToJianpuResponse(BaseModel):

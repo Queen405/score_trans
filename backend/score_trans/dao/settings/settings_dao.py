@@ -11,6 +11,8 @@ DEFAULT_DB_PATH = USER_WORK_DIR / "settings.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "settings.db"
 
 TABLE_NAME = "settings"
+_OBSOLETE_KEYS = ("confirm_start_measure_number",)
+
 
 class SettingsDao:
     _instance: "SettingsDao | None" = None
@@ -64,6 +66,7 @@ class SettingsDao:
                     f"INSERT OR IGNORE INTO {TABLE_NAME} (key, value) VALUES (?, ?)",
                     (key, value),
                 )
+            self._remove_obsolete_settings(conn)
             conn.commit()
 
     def ensure_defaults(self, defaults: Mapping[str, str]) -> None:
@@ -73,6 +76,7 @@ class SettingsDao:
                     f"INSERT OR IGNORE INTO {TABLE_NAME} (key, value) VALUES (?, ?)",
                     (key, value),
                 )
+            self._remove_obsolete_settings(conn)
             conn.commit()
         self.defaults.update(defaults)
 
@@ -109,6 +113,14 @@ class SettingsDao:
         conn.execute(
             f"INSERT INTO {TABLE_NAME} (key, value) VALUES (?, ?)",
             ("measure_number_mode", value),
+        )
+
+    @staticmethod
+    def _remove_obsolete_settings(conn: sqlite3.Connection) -> None:
+        placeholders = ", ".join("?" for _ in _OBSOLETE_KEYS)
+        conn.execute(
+            f"DELETE FROM {TABLE_NAME} WHERE key IN ({placeholders})",
+            _OBSOLETE_KEYS,
         )
 
     def get(self, key: str, default: str = "") -> str:

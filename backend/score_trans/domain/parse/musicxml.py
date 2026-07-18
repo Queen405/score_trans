@@ -58,14 +58,12 @@ class _InferredTupletNote:
 def musicxml_path_to_scores(
     path: Path,
     target_key: str = "C",
-    start_measure_number: int | None = None,
     title: str | None = None,
     instrument_profile: InstrumentProfile | None = None,
 ) -> list[JianpuScore]:
     return musicxml_to_scores(
         _read_musicxml(path),
         target_key,
-        start_measure_number,
         title,
         instrument_profile,
     )
@@ -78,7 +76,6 @@ def read_musicxml_text(path: Path) -> str:
 def musicxml_to_scores(
     xml_text: str,
     target_key: str = "C",
-    start_measure_number: int | None = None,
     title: str | None = None,
     instrument_profile: InstrumentProfile | None = None,
 ) -> list[JianpuScore]:
@@ -116,7 +113,6 @@ def musicxml_to_scores(
             part_element,
             ns,
             part_target_key,
-            start_measure_number,
             extracted_title,
             profile,
         )
@@ -141,14 +137,12 @@ def musicxml_to_scores(
 def musicxml_path_to_score(
     path: Path,
     target_key: str = "C",
-    start_measure_number: int | None = None,
     title: str | None = None,
     instrument_profile: InstrumentProfile | None = None,
 ) -> JianpuScore:
     scores = musicxml_path_to_scores(
         path,
         target_key=target_key,
-        start_measure_number=start_measure_number,
         title=title,
         instrument_profile=instrument_profile,
     )
@@ -162,14 +156,12 @@ def musicxml_path_to_score(
 def musicxml_to_score(
     xml_text: str,
     target_key: str = "C",
-    start_measure_number: int | None = None,
     title: str | None = None,
     instrument_profile: InstrumentProfile | None = None,
 ) -> JianpuScore:
     scores = musicxml_to_scores(
         xml_text,
         target_key=target_key,
-        start_measure_number=start_measure_number,
         title=title,
         instrument_profile=instrument_profile,
     )
@@ -195,7 +187,6 @@ def _parse_single_part(
     part: ET.Element,
     ns: str,
     target_key: str,
-    start_measure_number: int | None,
     extracted_title: str,
     instrument_profile: InstrumentProfile,
 ) -> JianpuScore:
@@ -234,11 +225,7 @@ def _parse_single_part(
                     initialized_score_time = True
             score.source_key = current_key
 
-        display_number = (
-            start_measure_number + index - 1
-            if start_measure_number is not None
-            else _display_measure_number(xml_measure, index)
-        )
+        display_number = _display_measure_number(xml_measure, index)
         measure = Measure(
             source_number=xml_measure.get("number", str(index)),
             display_measure_number=display_number,

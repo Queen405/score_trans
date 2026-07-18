@@ -8,7 +8,6 @@ import { requireData } from '../api/client'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import {
   isPreviewableHistoryFile,
-  parseWaitingMeasureOptions,
 } from '../utils/historyPageState'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/types'
@@ -69,7 +68,6 @@ export function useHistoryRestore() {
         ocrText: page.ocr_text || split.ocrText,
         sourceMapFileId: page.source_map_file_id || '',
         textAttachments: page.text_attachments || [],
-        startMeasureNumber: page.start_measure_number ?? null,
       }
     })
     const requestPages = buildBatchRenderRequests(sourcePages, {
@@ -125,9 +123,7 @@ export function useHistoryRestore() {
       textAttachments: page.text_attachments || [],
       textHash: page.text_hash || '',
       taskId: page.task_id || '',
-      startMeasureNumber: page.start_measure_number ?? null,
       status: page.status as TaskPage['status'],
-      measureNumberOptions: parseWaitingMeasureOptions(page.error_message),
       errorMessage: page.error_message,
       omrFileId: page.omr_file_id || '',
       originalMusicxml: page.original_musicxml || '',

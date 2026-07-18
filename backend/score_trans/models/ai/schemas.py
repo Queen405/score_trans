@@ -30,7 +30,6 @@ class AiTranscribedPage(BaseModel):
     meter: str | None = None
     tempo: str | int | None = None
     jianpu_text: str
-    measure_number_candidates: list[int] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     validation_errors: list[str] = Field(default_factory=list)
     confidence: float | None = None

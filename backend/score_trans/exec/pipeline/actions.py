@@ -50,7 +50,6 @@ class ScorePipelineOutputs:
     jianpu_text_path: Path
     jianpu_svg_paths: list[Path]
     render_map_paths: list[Path]
-    ocr_measure_numbers: list[int]
     ocr_text: str = ""
     overlay_path: Path | None = None
     source_map_path: Path | None = None
@@ -90,7 +89,6 @@ class FullPipelineAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile = "general",
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
@@ -118,7 +116,6 @@ class FullPipelineAction:
             musicxml_path,
             target_key=target_key,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             image_path=ocr_image_path,
             ocr_provider=ocr_provider,
         )
@@ -145,9 +142,6 @@ class FullPipelineAction:
         svg_paths = _rendered_page_paths(rendered_pages)
         _require_rendered_pages(svg_paths)
         first_score = render_scores[0] if render_scores else None
-        ocr_measure_numbers = (
-            _extract_ocr_measure_numbers(first_score) if first_score else []
-        )
         source_map = _load_source_map(source_map_path)
         source_image_size = _source_image_size(source)
         ocr_blocks = _visible_ocr_blocks(first_score.text_blocks) if first_score else []
@@ -174,7 +168,6 @@ class FullPipelineAction:
                 for page in rendered_pages
                 if page.render_map_path is not None
             ],
-            ocr_measure_numbers=ocr_measure_numbers,
             ocr_text=ocr_text,
             overlay_path=overlay_path,
             source_map_path=source_map_path,
@@ -206,7 +199,6 @@ class PipelineActions:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile = "general",
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
@@ -218,7 +210,6 @@ class PipelineActions:
             target_key=target_key,
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             title=title,
@@ -241,7 +232,6 @@ class PipelineActions:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile = "general",
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
@@ -257,7 +247,6 @@ class PipelineActions:
                 target_key=target_key,
                 accidental_mode=accidental_mode,
                 instrument_profile=instrument_profile,
-                start_measure_number=start_measure_number,
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
                 title=title,
@@ -278,7 +267,6 @@ class PipelineActions:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile = "general",
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
@@ -292,7 +280,6 @@ class PipelineActions:
                 target_key=target_key,
                 accidental_mode=accidental_mode,
                 instrument_profile=instrument_profile,
-                start_measure_number=start_measure_number,
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
                 title=title,
@@ -311,7 +298,6 @@ class PipelineActions:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile = "general",
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
@@ -329,7 +315,6 @@ class PipelineActions:
             target_key=target_key,
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             title=title,
@@ -386,7 +371,6 @@ class PipelineActions:
             jianpu_file_id=jianpu_id,
             svg_file_id=render_pages[0].svg_file_id,
             render_pages=render_pages,
-            ocr_measure_numbers=outputs.ocr_measure_numbers,
             ocr_text=outputs.ocr_text,
             overlay_file_id=overlay_file_id,
             source_map_file_id=source_map_file_id,
@@ -416,18 +400,6 @@ def _find_omr_file(omr_output_dir: Path) -> Path | None:
         logger.exception("查找 OMR 文件失败: %s", omr_output_dir)
         return None
     return omr_files[0] if omr_files else None
-
-
-def _extract_ocr_measure_numbers(score) -> list[int]:
-    numbers = sorted(
-        {
-            int(block.text.strip())
-            for block in getattr(score, "text_blocks", [])
-            if getattr(block, "role", None) == "measure_number"
-            and block.text.strip().isdigit()
-        }
-    )
-    return numbers
 
 
 def _visible_ocr_blocks(blocks: list[TextBlock]) -> list[TextBlock]:

@@ -19,7 +19,6 @@ class PipelineByFileIdRequest(BaseModel):
     instrument_profile: InstrumentProfile = "general"
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
-    start_measure_number: int | None = None
     title: str | None = None
 
 
@@ -31,7 +30,6 @@ class PipelineResponse(BaseModel):
     jianpu_file_id: str
     svg_file_id: str
     render_pages: list[RenderedSvgPage] = []
-    ocr_measure_numbers: list[int] = []
     ocr_text: str = ""
     overlay_file_id: str | None = None
     source_map_file_id: str | None = None

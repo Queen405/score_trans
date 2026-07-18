@@ -9,7 +9,6 @@ export interface HistoryPagePatchDetail {
     jianpu_text?: string
     ocr_text?: string
     svg_file_id?: string
-    start_measure_number?: number | null
     status?: string
     error_message?: string
   }

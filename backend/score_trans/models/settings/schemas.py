@@ -38,7 +38,6 @@ class SettingsResponse(BaseModel):
     accidental_mode: AccidentalMode = "auto"
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
-    confirm_start_measure_number: bool = True
     jianpu_syntax_highlight: bool = False
     output_dir: str = ""
     ocr_provider: str
@@ -71,7 +70,6 @@ class SettingsUpdateRequest(BaseModel):
     accidental_mode: AccidentalMode | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode | None = None
-    confirm_start_measure_number: bool | None = None
     jianpu_syntax_highlight: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None

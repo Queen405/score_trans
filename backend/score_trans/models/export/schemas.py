@@ -34,7 +34,6 @@ class ExportMidiRequest(BaseModel):
     title: str | None = None
     target_key: TargetKeyOrAuto = "auto"
     midi_tempo: MidiTempo = "auto"
-    start_measure_number: int | None = None
 
 
 class ExportMidiTextRequest(BaseModel):
@@ -49,7 +48,6 @@ class ExportMusicXmlRequest(BaseModel):
     filename: str | None = None
     title: str | None = None
     target_key: TargetKeyOrAuto = "C"
-    start_measure_number: int | None = None
 
 
 class ExportMusicXmlTextRequest(BaseModel):

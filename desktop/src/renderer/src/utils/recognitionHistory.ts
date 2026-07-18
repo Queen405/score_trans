@@ -1,7 +1,6 @@
 export type RecognitionHistoryStatus =
   | 'pending'
   | 'processing'
-  | 'waiting'
   | 'completed'
   | 'failed'
   | 'unrecognized'
@@ -15,7 +14,6 @@ export interface RecognitionHistoryPageSource {
   jianpuText?: string
   ocrText?: string
   svgFileId?: string
-  startMeasureNumber?: number | null
 }
 
 export interface HistoryPageCreateSnapshot {
@@ -25,7 +23,6 @@ export interface HistoryPageCreateSnapshot {
   jianpu_text: string
   ocr_text: string
   svg_file_id: string
-  start_measure_number: number | null
   status: RecognitionHistoryStatus
   error_message: string
 }
@@ -54,7 +51,6 @@ export function buildHistoryBatchSnapshot(
       jianpu_text: page.jianpuText ?? '',
       ocr_text: page.ocrText ?? '',
       svg_file_id: page.svgFileId ?? '',
-      start_measure_number: page.startMeasureNumber ?? null,
       status: selectedPageIds.has(page.id) ? 'processing' : 'unrecognized',
       error_message: '',
     })),

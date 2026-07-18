@@ -1,13 +1,11 @@
 export interface JianpuPageSource {
   inputFileName?: string
   jianpuText?: string
-  startMeasureNumber?: number | null
 }
 
 export interface JianpuPageSection {
   pageIndex: number
   inputFileName: string
-  startMeasureNumber: number | null
   body: string
   markerLine: string
   markerLineIndex: number
@@ -17,8 +15,8 @@ export interface JianpuPageSummary {
   pageIndex: number
   pageNumber: number
   inputFileName: string
-  startMeasureNumber: number
-  endMeasureNumber: number | null
+  firstMeasureNumber: number
+  lastMeasureNumber: number | null
   measureCount: number
   markerLineIndex: number
 }
@@ -26,10 +24,10 @@ export interface JianpuPageSummary {
 interface JianpuPageMarker {
   pageNumber: number
   inputFileName: string
-  startMeasureNumber: number | null
 }
 
-const PAGE_MARKER_PATTERN = /^\s*\/\/\s*@page\s+(\d+)\s+start=(auto|\d+)(?:\s+name=(.+?))?\s*$/
+const PAGE_MARKER_PATTERN = /^\s*\/\/\s*@page\s+(\d+)(?:\s+name=("(?:\\.|[^"\\])*"))?\s*$/
+const PAGE_MARKER_PREFIX_PATTERN = /^\s*\/\/\s*@page\b/
 const PART_MARKER_PATTERN = /^\s*\/\/\s*@part\s+\d+\s+name="(?:\\.|[^"\\])*"\s*$/
 
 function normalizeLineEndings(text: string): string {
@@ -50,29 +48,28 @@ function parseMarkerName(rawName: string | undefined): string {
 
 export function parseJianpuPageMarker(line: string): JianpuPageMarker | null {
   const match = line.match(PAGE_MARKER_PATTERN)
-  if (!match) return null
-  const pageNumber = Number(match[1])
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) return null
-  const rawStart = match[2]
-  const startMeasureNumber = rawStart === 'auto' ? null : Number(rawStart)
-  if (startMeasureNumber !== null && (!Number.isInteger(startMeasureNumber) || startMeasureNumber < 1)) {
+  if (!match) {
+    if (PAGE_MARKER_PREFIX_PATTERN.test(line)) {
+      throw new Error(`无效的分页标记：${line.trim()}`)
+    }
     return null
+  }
+  const pageNumber = Number(match[1])
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new Error(`无效的分页序号：${match[1]}`)
   }
   return {
     pageNumber,
-    inputFileName: parseMarkerName(match[3]),
-    startMeasureNumber,
+    inputFileName: parseMarkerName(match[2]),
   }
 }
 
 export function formatJianpuPageMarker(
   pageNumber: number,
-  startMeasureNumber: number | null,
   inputFileName = '',
 ): string {
-  const start = startMeasureNumber === null ? 'auto' : String(startMeasureNumber)
   const name = inputFileName ? ` name=${JSON.stringify(inputFileName)}` : ''
-  return `// @page ${pageNumber} start=${start}${name}`
+  return `// @page ${pageNumber}${name}`
 }
 
 export function hasJianpuPageMarkers(text: string): boolean {
@@ -91,7 +88,6 @@ export function parseJianpuPageSections(text: string): JianpuPageSection[] {
     return [{
       pageIndex: 0,
       inputFileName: '',
-      startMeasureNumber: null,
       body: normalized,
       markerLine: '',
       markerLineIndex: -1,
@@ -108,7 +104,6 @@ export function parseJianpuPageSections(text: string): JianpuPageSection[] {
     return {
       pageIndex: marker.pageNumber - 1,
       inputFileName: marker.inputFileName,
-      startMeasureNumber: marker.startMeasureNumber,
       body,
       markerLine: line,
       markerLineIndex: lineIndex,
@@ -120,11 +115,7 @@ export function serializeJianpuPageSections(sections: JianpuPageSection[]): stri
   return sections
     .map((section, order) => {
       const pageNumber = section.pageIndex >= 0 ? section.pageIndex + 1 : order + 1
-      const marker = formatJianpuPageMarker(
-        pageNumber,
-        section.startMeasureNumber,
-        section.inputFileName,
-      )
+      const marker = formatJianpuPageMarker(pageNumber, section.inputFileName)
       return section.body ? `${marker}\n${normalizeLineEndings(section.body)}` : marker
     })
     .join('\n')
@@ -134,7 +125,6 @@ export function composeJianpuPageText(pages: JianpuPageSource[]): string {
   return serializeJianpuPageSections(pages.map((page, pageIndex) => ({
     pageIndex,
     inputFileName: page.inputFileName ?? '',
-    startMeasureNumber: page.startMeasureNumber ?? null,
     body: normalizeLineEndings(page.jianpuText ?? ''),
     markerLine: '',
     markerLineIndex: -1,
@@ -179,21 +169,6 @@ export function restoreJianpuPageText(
   return migrated
 }
 
-export function updateJianpuPageStart(
-  text: string,
-  pageIndex: number,
-  startMeasureNumber: number | null,
-  fallbackName = '',
-): string {
-  const sections = parseJianpuPageSections(text)
-  const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
-  if (!section) return text
-  section.pageIndex = pageIndex
-  section.startMeasureNumber = startMeasureNumber
-  if (!section.inputFileName) section.inputFileName = fallbackName
-  return serializeJianpuPageSections(sections)
-}
-
 export function replaceJianpuSectionBody(
   text: string,
   pageIndex: number,
@@ -212,7 +187,6 @@ export function replaceJianpuSectionBody(
   sections.push({
     pageIndex,
     inputFileName: source.inputFileName ?? '',
-    startMeasureNumber: source.startMeasureNumber ?? null,
     body: normalizeLineEndings(body),
     markerLine: '',
     markerLineIndex: -1,
@@ -261,45 +235,37 @@ export function jianpuMeasureCount(text: string): number {
   return Math.max(0, ...partCounts)
 }
 
-export function jianpuPageSummaries(
-  text: string,
-  fallbackStartMeasureNumber = 1,
-): JianpuPageSummary[] {
+export function jianpuPageSummaries(text: string): JianpuPageSummary[] {
   const sections = parseJianpuPageSections(text)
-  let nextMeasureNumber = Math.max(1, fallbackStartMeasureNumber)
+  let nextMeasureNumber = 1
   return sections.map((section, order) => {
-    const startMeasureNumber = section.startMeasureNumber ?? nextMeasureNumber
+    const firstMeasureNumber = nextMeasureNumber
     const measureCount = jianpuMeasureCount(section.body)
-    const endMeasureNumber = measureCount ? startMeasureNumber + measureCount - 1 : null
-    nextMeasureNumber = startMeasureNumber + measureCount
+    const lastMeasureNumber = measureCount ? firstMeasureNumber + measureCount - 1 : null
+    nextMeasureNumber = firstMeasureNumber + measureCount
     return {
       pageIndex: section.pageIndex,
       pageNumber: section.pageIndex >= 0 ? section.pageIndex + 1 : order + 1,
       inputFileName: section.inputFileName,
-      startMeasureNumber,
-      endMeasureNumber,
+      firstMeasureNumber,
+      lastMeasureNumber,
       measureCount,
       markerLineIndex: section.markerLineIndex,
     }
   })
 }
 
-export function jianpuGutterLabels(
-  text: string,
-  fallbackStartMeasureNumber = 1,
-): string[] {
+export function jianpuGutterLabels(text: string): string[] {
   const normalized = normalizeLineEndings(text)
-  const summaries = jianpuPageSummaries(normalized, fallbackStartMeasureNumber)
+  const summaries = jianpuPageSummaries(normalized)
   let pageOrder = -1
-  let pageStartMeasureNumber = Math.max(1, fallbackStartMeasureNumber)
+  let pageStartMeasureNumber = 1
   let measureNumber = pageStartMeasureNumber
   return normalized.split('\n').map((line) => {
     const marker = parseJianpuPageMarker(line)
     if (marker) {
       pageOrder += 1
-      pageStartMeasureNumber = summaries[pageOrder]?.startMeasureNumber
-        ?? marker.startMeasureNumber
-        ?? measureNumber
+      pageStartMeasureNumber = summaries[pageOrder]?.firstMeasureNumber ?? measureNumber
       measureNumber = pageStartMeasureNumber
       return `P${marker.pageNumber}`
     }

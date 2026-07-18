@@ -83,11 +83,9 @@ def render_jianpu_page_svg(
     title: str = "简谱",
     text_blocks: list[TextBlock] | None = None,
     options: RenderOptions | None = None,
-    start_measure_number: int | None = None,
 ) -> str:
     score = parse_jianpu_score(jianpu_text, title=title)
     score.text_blocks.extend(text_blocks or [])
-    _renumber(score, start_measure_number)
     return render_score_page_svg(
         score,
         page_width=page_width,
@@ -234,7 +232,6 @@ def render_jianpu_page_file_to_svg(
     page_height: float,
     title: str = "简谱",
     text_blocks: list[TextBlock] | None = None,
-    start_measure_number: int | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
 ) -> Path:
@@ -244,7 +241,6 @@ def render_jianpu_page_file_to_svg(
         page_height=page_height,
         title=title,
         text_blocks=text_blocks,
-        start_measure_number=start_measure_number,
         options=RenderOptions(
             title=title,
             show_measure_numbers=show_measure_numbers is not False,
@@ -341,12 +337,3 @@ def _ranges(ranges: list[MeasureRange]) -> list[A4MeasureRange]:
         )
         for item in ranges
     ]
-
-
-def _renumber(score: JianpuScore, start: int | None) -> None:
-    if start is None:
-        return
-    current = start
-    for measure in score.measures:
-        measure.display_number = current
-        current += max(1, measure.repeat_count)

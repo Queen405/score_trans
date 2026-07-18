@@ -101,6 +101,6 @@ test('SVG preview mounts a sanitized DOM node without v-html', () => {
   assert.match(preview, /async function highlightSource/)
   assert.match(preview, /\[data-source-role\]/)
   assert.match(preview, /getScreenCTM/)
-  assert.match(preview, /svg\.appendChild\(rect\)/)
-  assert.doesNotMatch(preview, /target\.appendChild\(rect\)/)
+  assert.doesNotMatch(preview, /source-highlight-box/)
+  assert.doesNotMatch(preview, /addSourceHighlightBox/)
 })

@@ -106,7 +106,6 @@ class AiActions:
                     meter=page.result.meter,
                     tempo=page.result.tempo,
                     jianpu_text=page.jianpu_text,
-                    measure_number_candidates=page.measure_number_candidates,
                     warnings=page.result.warnings,
                     validation_errors=page.validation_errors,
                     confidence=page.result.confidence,

@@ -92,7 +92,7 @@ async function load(showLoading = true): Promise<void> {
 
 function statusClass(status: string): string {
   if (status === 'completed') return 'ok'
-  if (status === 'waiting' || status === 'processing' || status === 'pending') return 'waiting'
+  if (status === 'processing' || status === 'pending') return 'processing'
   return 'err'
 }
 
@@ -197,7 +197,7 @@ async function onClick(entry: HistoryBatchListItem): Promise<void> {
 }
 
 .hq-dot.ok { background: var(--success); }
-.hq-dot.waiting { background: var(--warning); }
+.hq-dot.processing { background: var(--warning); }
 .hq-dot.err { background: var(--danger); }
 
 .hq-info {

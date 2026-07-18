@@ -14,7 +14,6 @@ export const pipelineApi = {
     targetKey: TargetKey = 'C',
     accidentalMode: AccidentalMode = 'auto',
     instrumentProfile: InstrumentProfile = 'general',
-    startMeasureNumber?: number,
     measureNumberMode: MeasureNumberMode = 'all',
     title?: string,
   ): Promise<ApiResult<TaskSubmitResponse>> {
@@ -24,9 +23,6 @@ export const pipelineApi = {
     formData.append('accidental_mode', accidentalMode)
     formData.append('instrument_profile', instrumentProfile)
     formData.append('measure_number_mode', measureNumberMode)
-    if (startMeasureNumber !== undefined) {
-      formData.append('start_measure_number', String(startMeasureNumber))
-    }
     if (title) {
       formData.append('title', title)
     }

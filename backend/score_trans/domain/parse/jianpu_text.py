@@ -73,7 +73,6 @@ class ParsedJianpuPart:
     body_end_utf16: int
     page_index: int = 0
     page_input_file_name: str = ""
-    page_start_measure: int | None = None
 
 
 def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
@@ -115,9 +114,12 @@ _PART_MARKER_START_RE = re.compile(
     re.MULTILINE,
 )
 _PAGE_MARKER_RE = re.compile(
-    r"^[ \t]*//[ \t]*@page[ \t]+(?P<number>\d+)[ \t]+"
-    r"start=(?P<start>auto|\d+)"
-    r"(?:[ \t]+name=(?P<name>.+?))?[ \t]*$",
+    r"^[ \t]*//[ \t]*@page[ \t]+(?P<number>\d+)"
+    r"(?:[ \t]+name=(?P<name>\"(?:\\.|[^\"\\])*\"))?[ \t]*$",
+    re.MULTILINE,
+)
+_PAGE_MARKER_START_RE = re.compile(
+    r"^[ \t]*//[ \t]*@page\b.*$",
     re.MULTILINE,
 )
 
@@ -125,40 +127,28 @@ _PAGE_MARKER_RE = re.compile(
 @dataclass(slots=True)
 class _ParsedPageMarker:
     number: int
-    start_measure: int | None
     input_file_name: str
     start: int
     end: int
-
-
-def _parse_page_marker_name(raw: str) -> str:
-    value = raw.strip()
-    if not value:
-        return ""
-    if value.startswith('"'):
-        try:
-            parsed = json.loads(value)
-            if isinstance(parsed, str):
-                return parsed
-        except json.JSONDecodeError:
-            return value[1:-1] if value.endswith('"') else value[1:]
-        return value
-    return value
 
 
 def _find_page_markers(text: str) -> list[_ParsedPageMarker]:
     markers: list[_ParsedPageMarker] = []
     for match in _PAGE_MARKER_RE.finditer(text):
         number = int(match.group("number"))
-        raw_start = match.group("start")
-        start_measure: int | None = None
-        if raw_start != "auto":
-            start_measure = int(raw_start)
-        input_file_name = _parse_page_marker_name(match.group("name") or "")
+        raw_name = match.group("name")
+        input_file_name = ""
+        if raw_name:
+            try:
+                parsed_name = json.loads(raw_name)
+            except json.JSONDecodeError as exc:
+                raise ValueError("分页标记名称不是有效 JSON 字符串") from exc
+            if not isinstance(parsed_name, str):
+                raise ValueError("分页标记名称必须是字符串")
+            input_file_name = parsed_name
         markers.append(
             _ParsedPageMarker(
                 number=number,
-                start_measure=start_measure,
                 input_file_name=input_file_name,
                 start=match.start(),
                 end=match.end(),
@@ -182,6 +172,12 @@ def parse_jianpu_parts(
 ) -> list[ParsedJianpuPart]:
     text = text.lstrip("\ufeff")
     page_markers = _find_page_markers(text)
+    page_marker_lines = list(_PAGE_MARKER_START_RE.finditer(text))
+    if len(page_markers) != len(page_marker_lines):
+        raise ValueError(
+            '分页标记格式无效，请使用 // @page 1 或 // @page 1 name="文件名"，'
+            '名称中的引号需要写成 \\"'
+        )
     for i, page_marker in enumerate(page_markers):
         if page_marker.number != i + 1:
             raise ValueError(
@@ -202,7 +198,6 @@ def parse_jianpu_parts(
             score.page_index = page.number - 1
             score.page_count = len(page_markers)
             score.page_input_file_name = page.input_file_name
-            score.page_start_measure = page.start_measure
         return [
             ParsedJianpuPart(
                 score=score,
@@ -212,7 +207,6 @@ def parse_jianpu_parts(
                 body_end_utf16=_utf16_length(text),
                 page_index=score.page_index,
                 page_input_file_name=score.page_input_file_name,
-                page_start_measure=score.page_start_measure,
             )
         ]
     prefix = text[: markers[0].start()]
@@ -254,15 +248,12 @@ def parse_jianpu_parts(
         score.part_name = part_name
         page_index = 0
         page_input_file_name = ""
-        page_start_measure: int | None = None
         if preceding_pages:
             page = preceding_pages[-1]
             page_index = page.number - 1
             page_input_file_name = page.input_file_name
-            page_start_measure = page.start_measure
         score.page_index = page_index
         score.page_input_file_name = page_input_file_name
-        score.page_start_measure = page_start_measure
         parts.append(
             ParsedJianpuPart(
                 score=score,
@@ -272,7 +263,6 @@ def parse_jianpu_parts(
                 body_end_utf16=_utf16_length(text[:end]),
                 page_index=page_index,
                 page_input_file_name=page_input_file_name,
-                page_start_measure=page_start_measure,
             )
         )
 

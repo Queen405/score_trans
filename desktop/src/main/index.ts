@@ -113,11 +113,6 @@ app.whenReady().then(async () => {
     return { baseURL: backendURL, token: backendToken }
   })
 
-  // Compatibility for older renderer bundles during development.
-  ipcMain.handle('get-backend-url', () => {
-    return backendURL
-  })
-
   ipcMain.handle('window:minimize', () => {
     mainWindow?.minimize()
   })
@@ -194,7 +189,6 @@ app.on('before-quit', async (e) => {
 app.on('will-quit', async () => {
   await cleanupBackend()
   ipcMain.removeHandler('get-backend-connection')
-  ipcMain.removeHandler('get-backend-url')
   ipcMain.removeHandler('window:minimize')
   ipcMain.removeHandler('window:toggle-maximize')
   ipcMain.removeHandler('window:is-maximized')

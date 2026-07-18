@@ -14,7 +14,6 @@ import {
 export type TaskPageStatus =
   | 'pending'
   | 'processing'
-  | 'waiting'
   | 'completed'
   | 'failed'
   | 'unrecognized'
@@ -43,11 +42,9 @@ export interface TaskPage {
   textAnchors: TextAnchor[]
   textAttachments: SourceTextAttachment[]
   textHash: string
-  startMeasureNumber: number | null
   status: TaskPageStatus
   progressPercent: number
   progressMessage: string
-  measureNumberOptions: number[]
   errorMessage: string
   omrFileId: string
   originalMusicxml: string
@@ -78,11 +75,9 @@ export interface TaskPageInput {
   textAnchors?: TextAnchor[]
   textAttachments?: SourceTextAttachment[]
   textHash?: string
-  startMeasureNumber?: number | null
   status?: TaskPageStatus
   progressPercent?: number
   progressMessage?: string
-  measureNumberOptions?: number[]
   errorMessage?: string
   omrFileId?: string
   originalMusicxml?: string
@@ -116,11 +111,9 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     textAnchors: [],
     textAttachments: [],
     textHash: '',
-    startMeasureNumber: null,
     status: 'pending',
     progressPercent: 0,
     progressMessage: '',
-    measureNumberOptions: [],
     errorMessage: '',
     omrFileId: '',
     originalMusicxml: '',
@@ -155,7 +148,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const sourceMapFileId = ref('')
   const textAnchors = ref<TextAnchor[]>([])
   const textHash = ref('')
-  const startMeasureNumber = ref<number | null>(null)
   const omrFileId = ref('')
   const originalMusicxml = ref('')
   const workingMusicxml = ref('')
@@ -193,7 +185,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sourceMapFileId.value = ''
       textAnchors.value = []
       textHash.value = ''
-      startMeasureNumber.value = null
       omrFileId.value = ''
       originalMusicxml.value = ''
       workingMusicxml.value = ''
@@ -215,7 +206,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     sourceMapFileId.value = page.sourceMapFileId
     textAnchors.value = page.textAnchors.map((anchor) => ({ ...anchor }))
     textHash.value = page.textHash
-    startMeasureNumber.value = page.startMeasureNumber
     omrFileId.value = page.omrFileId
     originalMusicxml.value = page.originalMusicxml
     workingMusicxml.value = page.workingMusicxml
@@ -409,12 +399,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sourceMapFileId: '',
       textAnchors: [],
       textAttachments: [],
-      startMeasureNumber: null,
       status: 'pending',
       taskId: '',
       progressPercent: 0,
       progressMessage: '',
-      measureNumberOptions: [],
       errorMessage: '',
     })
   }
@@ -440,7 +428,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     svgFileId.value = ''
     svgFileIds.value = []
     overlayFileId.value = ''
-    startMeasureNumber.value = null
     patchCurrentPage({
       musicxmlFileId: '',
       jianpuText: '',
@@ -452,12 +439,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sourceMapFileId: '',
       textAnchors: [],
       textAttachments: [],
-      startMeasureNumber: null,
       status: 'pending',
       taskId: '',
       progressPercent: 0,
       progressMessage: '',
-      measureNumberOptions: [],
       errorMessage: '',
     })
   }
@@ -726,11 +711,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
-  function setPageStartMeasureNumber(value: number | null) {
-    startMeasureNumber.value = value
-    patchCurrentPage({ startMeasureNumber: value })
-  }
-
   function setHistoryPageId(id: number | null) {
     historyPageId.value = id
     patchCurrentPage({ historyPageId: id })
@@ -804,11 +784,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       textAnchors: (p.textAnchors ?? []).map((anchor) => ({ ...anchor })),
       textAttachments: cloneTextAttachments(p.textAttachments ?? []),
       textHash: p.textHash ?? '',
-      startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
       progressMessage: p.progressMessage ?? '',
-      measureNumberOptions: p.measureNumberOptions ?? [],
       errorMessage: p.errorMessage ?? '',
       omrFileId: p.omrFileId ?? '',
       originalMusicxml: p.originalMusicxml ?? '',
@@ -893,7 +871,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     svgFileId.value = ''
     svgFileIds.value = []
     overlayFileId.value = ''
-    startMeasureNumber.value = null
     isBusy.value = false
     pages.value = []
     currentPageIndex.value = -1
@@ -912,7 +889,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function reorderBatchPages(
     historyBatchId: number,
     orderedHistoryPageIds: number[],
-    pageUpdates: { jianpuText: string; startMeasureNumber: number | null }[],
+    pageUpdates: { jianpuText: string }[],
     batchJianpuText: string,
   ): void {
     const batchPage = pages.value.find((p) => p.historyBatchId === historyBatchId)
@@ -935,7 +912,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       reordered.push({
         ...page,
         jianpuText: update?.jianpuText ?? page.jianpuText,
-        startMeasureNumber: update?.startMeasureNumber ?? page.startMeasureNumber,
       })
     }
 
@@ -994,11 +970,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       textAnchors: (p.textAnchors ?? []).map((anchor) => ({ ...anchor })),
       textAttachments: cloneTextAttachments(p.textAttachments ?? []),
       textHash: p.textHash ?? '',
-      startMeasureNumber: p.startMeasureNumber ?? null,
       status: (p.status ?? 'completed') as TaskPageStatus,
       progressPercent: p.progressPercent ?? 0,
       progressMessage: p.progressMessage ?? '',
-      measureNumberOptions: p.measureNumberOptions ?? [],
       errorMessage: p.errorMessage ?? '',
       omrFileId: p.omrFileId ?? '',
       originalMusicxml: p.originalMusicxml ?? '',
@@ -1047,7 +1021,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     sourceMapFileId,
     textAnchors,
     textHash,
-    startMeasureNumber,
     omrFileId,
     originalMusicxml,
     workingMusicxml,
@@ -1112,7 +1085,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchJianpuPendingPageIdsFor,
     markBatchJianpuPagePending,
     clearBatchJianpuPendingPages,
-    setPageStartMeasureNumber,
     setHistoryPageId,
     setPageHistoryPageId,
     removePage,

@@ -128,7 +128,6 @@ transcription_rules: |
   3. 每个小节的时值必须严格等于拍号规定的总拍数（如 4/4 拍每小节总共 4 拍）。输出前必须逐小节验算拍数。
   4. 看不清的音用 0（休止符）兜底，并在 warnings 说明页内大致位置。
   5. jianpu_text 字段必须是可直接放入编辑器的完整文本，至少包含调号和拍号。
-  6. 如果源谱图片上能读到小节号/排练用小节编号，请只把可读到的数字放入 measure_number_candidates 数组；不要把小节号写进 jianpu_text。
   7. 输出前自检清单（每一项都必须通过）：
      a. 每个小节用 | 分隔，不存在没有 | 包围的小节。
      b. 每个小节内音符时值总和 = 拍号总拍数（4/4 → 4拍）。逐小节逐音符数一遍。
@@ -234,7 +233,7 @@ hard_constraints: |
   如果某小节时值不对，宁可调整不确定的音符时值，也不要输出时值错误的小节。输出前必须逐小节手算一遍。
 
 json_schema: |
-  {"title":null,"key":"C","meter":"4/4","tempo":null,"jianpu_text":"1=C\n4/4\n1 2 3 4 | 5 6 7 1' |","measure_number_candidates":[1],"warnings":[],"confidence":0.0}
+  {"title":null,"key":"C","meter":"4/4","tempo":null,"jianpu_text":"1=C\n4/4\n1 2 3 4 | 5 6 7 1' |","warnings":[],"confidence":0.0}
 
 assistant_prompt_template: |
   你是 Score Trans 工作台里的简谱助手。你可以帮助用户解释、检查、修正、补全、重写本项目的简谱文本，也可以回答五线谱转简谱、MusicXML 与渲染相关的问题。

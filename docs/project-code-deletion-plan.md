@@ -19,7 +19,7 @@
 
 ## 第一批：可直接删除
 
-### 1. 删除无消费者符号
+### 1. 已完成：删除无消费者符号
 
 修改范围：
 
@@ -32,11 +32,11 @@
 - `backend/score_trans/services/ocr/__init__.py`
 - `backend/score_trans/domain/parse/jianpu_text.py`
 
-执行方式：先添加或保留覆盖 OCR provider prompt、批量 A4 渲染、provenance schema 导入和 UTF-16 偏移的窄测试；删除后运行 `tests/test_render.py`、OCR 相关测试、`tests/test_architecture.py` 与完整 Python 测试。
+已删除上述符号。验证已运行 `tests/test_render.py`、`tests/test_jianpu.py`、`tests/test_ocr.py` 和 `tests/test_architecture.py`，共 147 项通过。
 
 风险：若仓库外有 Python 插件直接 import 这些未公开承诺的符号，会是破坏性变更。桌面应用自身没有此类消费者；发布说明应注明移除了内部 Python API。
 
-### 2. 删除 Electron 旧连接 IPC
+### 2. 已完成：删除 Electron 旧连接 IPC
 
 修改范围：
 
@@ -45,7 +45,7 @@
 
 证据：渲染进程只使用 `window.api.getBackendConnection()`；`getBackendURL()` 和 `get-backend-url` 仅相互引用，代码注释也明确其服务于旧开发 renderer bundle。
 
-风险：旧版本 renderer bundle 与新版 main process 混跑时会失效。桌面发行包把 main/preload/renderer 一起打包，接受“不兼容旧 bundle”后可以直接删除。删除后运行 `pnpm typecheck`、`pnpm test:utils`、`pnpm build`。
+风险：旧版本 renderer bundle 与新版 main process 混跑时会失效。桌面发行包把 main/preload/renderer 一起打包，已接受“不兼容旧 bundle”并删除。已运行 `pnpm typecheck` 与 `pnpm test:utils`；生产构建留待本批最终验证。
 
 ## 第二批：先迁移，再删除的兼容层
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...dao.history.history_dao import HistoryDao
-from ...models.common.sentinels import UNSET, UnsetType
 from ...models.history.entities import (
     HistoryBatch,
     HistoryBatchSummary,
@@ -82,7 +81,6 @@ class HistoryService:
         text_hash: str | None = None,
         text_anchors: list[TextAnchor] | None = None,
         musicxml_file_id: str | None = None,
-        start_measure_number: int | None | UnsetType = UNSET,
         status: str | None = None,
         error_message: str | None = None,
         omr_file_id: str | None = None,
@@ -105,7 +103,6 @@ class HistoryService:
             text_hash=text_hash,
             text_anchors=text_anchors,
             musicxml_file_id=musicxml_file_id,
-            start_measure_number=start_measure_number,
             status=status,
             error_message=error_message,
             omr_file_id=omr_file_id,
@@ -118,7 +115,7 @@ class HistoryService:
         self,
         batch_id: int,
         jianpu_text: str,
-        page_orders: list[tuple[int, str, int | None]],
+        page_orders: list[tuple[int, str]],
     ) -> HistoryBatch | None:
         return self.dao.reorder_pages(batch_id, jianpu_text, page_orders)
 

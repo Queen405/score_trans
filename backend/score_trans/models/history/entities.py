@@ -24,7 +24,6 @@ class HistoryPage:
     source_map_file_id: str = ""
     text_hash: str = ""
     text_anchors: list[TextAnchor] = field(default_factory=list)
-    start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""
     completed_at: str = ""

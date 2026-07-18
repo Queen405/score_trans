@@ -15,7 +15,6 @@ export interface BatchRenderSourcePage {
   ocrText: string
   sourceMapFileId: string
   textAttachments: SourceTextAttachment[]
-  startMeasureNumber: number | null
 }
 
 export interface BatchRenderBuildOptions {
@@ -36,7 +35,6 @@ export function buildBatchRenderRequests(
       compactRequest({
         jianpu_text: text,
         include_ocr_text: false,
-        start_measure_number: pages[0]?.startMeasureNumber ?? undefined,
         title: options.title,
       }),
     ]
@@ -46,10 +44,6 @@ export function buildBatchRenderRequests(
     .map((section, order) => {
       const page = pages[section.pageIndex] ?? pages[order]
       const sourceImageId = page?.originalFileId || page?.inputFileId || undefined
-      const start = section.startMeasureNumber
-        ?? (!section.markerLine && order === 0
-          ? (page?.startMeasureNumber ?? undefined)
-          : undefined)
       if (section.body.trim()) {
         return compactRequest({
           input_file_name: section.inputFileName || page?.inputFileName,
@@ -59,7 +53,6 @@ export function buildBatchRenderRequests(
           ocr_text: page?.ocrText || undefined,
           text_attachments: page?.textAttachments ?? [],
           include_ocr_text: false,
-          start_measure_number: start,
           title: options.title,
         })
       }
@@ -72,7 +65,6 @@ export function buildBatchRenderRequests(
           ocr_text: page.ocrText || undefined,
           text_attachments: page.textAttachments,
           include_ocr_text: false,
-          start_measure_number: start,
           title: options.title,
         })
       }
@@ -95,7 +87,6 @@ export function buildSourcePageRenderRequests(
         ocr_text: page.ocrText || undefined,
         text_attachments: page.textAttachments,
         include_ocr_text: false,
-        start_measure_number: page.startMeasureNumber ?? undefined,
         title,
       }
       if (page.jianpuText.trim()) {

@@ -12,7 +12,6 @@ class VisionPageResult(BaseModel):
     meter: str | None = None
     tempo: str | int | None = None
     jianpu_text: str
-    measure_number_candidates: list[int] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     confidence: float | None = Field(default=None, ge=0, le=1)
 
@@ -29,7 +28,6 @@ class TranscribedScorePage:
     prepared: PreparedScorePage
     result: VisionPageResult
     jianpu_text: str
-    measure_number_candidates: list[int]
     validation_errors: list[str]
 
 

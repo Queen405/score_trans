@@ -21,7 +21,6 @@ class PageCreate(BaseModel):
     source_map_file_id: str = ""
     text_hash: str = ""
     text_anchors: list[TextAnchor] = Field(default_factory=list)
-    start_measure_number: int | None = None
     status: str = "completed"
     error_message: str = ""
     omr_file_id: str = ""
@@ -44,7 +43,6 @@ class PageUpdate(BaseModel):
     source_map_file_id: str | None = None
     text_hash: str | None = None
     text_anchors: list[TextAnchor] | None = None
-    start_measure_number: int | None = None
     status: str | None = None
     error_message: str | None = None
     omr_file_id: str | None = None
@@ -71,7 +69,6 @@ class PageResponse(BaseModel):
     source_map_file_id: str = ""
     text_hash: str = ""
     text_anchors: list[TextAnchor] = Field(default_factory=list)
-    start_measure_number: int | None = None
     status: str
     error_message: str
     completed_at: str = ""
@@ -134,7 +131,6 @@ class BatchRenderPageOcrTextsUpdate(BaseModel):
 class BatchPageOrderItem(BaseModel):
     page_id: int
     jianpu_text: str = ""
-    start_measure_number: int | None = None
 
 
 class BatchPageOrderRequest(BaseModel):

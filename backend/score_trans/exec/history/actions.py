@@ -5,7 +5,6 @@ from ...models.history.entities import (
     HistoryPage,
     HistoryRenderPageOcrText,
 )
-from ...models.common.sentinels import UNSET
 from ...models.history.schemas import (
     BatchCreateRequest,
     BatchJianpuTextUpdate,
@@ -57,7 +56,6 @@ class HistoryActions:
                 source_map_file_id=p.source_map_file_id,
                 text_hash=p.text_hash,
                 text_anchors=p.text_anchors,
-                start_measure_number=p.start_measure_number,
                 status=p.status,
                 error_message=p.error_message,
                 omr_file_id=p.omr_file_id,
@@ -95,7 +93,6 @@ class HistoryActions:
         return _page_to_response(page)
 
     def update_history_page(self, page_id: int, req: PageUpdate) -> PageResponse:
-        update_fields = req.model_dump(exclude_unset=True)
         page = self.service.update_page(
             page_id,
             task_id=req.task_id,
@@ -111,11 +108,6 @@ class HistoryActions:
             source_map_file_id=req.source_map_file_id,
             text_hash=req.text_hash,
             text_anchors=req.text_anchors,
-            start_measure_number=(
-                req.start_measure_number
-                if "start_measure_number" in update_fields
-                else UNSET
-            ),
             status=req.status,
             error_message=req.error_message,
             omr_file_id=req.omr_file_id,
@@ -163,10 +155,7 @@ class HistoryActions:
         return _batch_to_response(batch)
 
     def reorder_pages(self, batch_id: int, req: BatchPageOrderRequest) -> BatchResponse:
-        page_orders = [
-            (item.page_id, item.jianpu_text, item.start_measure_number)
-            for item in req.pages
-        ]
+        page_orders = [(item.page_id, item.jianpu_text) for item in req.pages]
         batch = self.service.reorder_pages(batch_id, req.jianpu_text, page_orders)
         if not batch:
             raise FileNotFoundError("Batch not found")
@@ -200,7 +189,6 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         source_map_file_id=page.source_map_file_id,
         text_hash=page.text_hash,
         text_anchors=page.text_anchors,
-        start_measure_number=page.start_measure_number,
         status=page.status,
         error_message=page.error_message,
         omr_file_id=page.omr_file_id,

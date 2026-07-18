@@ -50,7 +50,6 @@ class ExportScoreAction:
         *,
         target_key: str = "C",
         midi_tempo: int | Literal["auto"] = "auto",
-        start_measure_number: int | None = None,
         title: str | None = None,
     ) -> Path:
         musicxml_path = Path(musicxml_file)
@@ -59,7 +58,6 @@ class ExportScoreAction:
         scores = self.converter.build_scores(
             musicxml_path,
             target_key=target_key,
-            start_measure_number=start_measure_number,
         )
         if title:
             for score in scores:
@@ -101,7 +99,6 @@ class ExportActions:
             output_path,
             target_key=req.target_key,
             midi_tempo=req.midi_tempo,
-            start_measure_number=req.start_measure_number,
         )
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=out_name)
@@ -123,7 +120,6 @@ class ExportActions:
         scores = self.exporter.converter.build_scores(
             musicxml_path,
             target_key=req.target_key,
-            start_measure_number=req.start_measure_number,
         )
         if req.title:
             for score in scores:

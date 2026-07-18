@@ -70,7 +70,6 @@ class RenderMusicXmlJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
@@ -82,7 +81,6 @@ class RenderMusicXmlJianpuAction:
             target_key=target_key,
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
             ocr_provider=ocr_provider,
@@ -105,7 +103,6 @@ class RenderMusicXmlJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
@@ -117,7 +114,6 @@ class RenderMusicXmlJianpuAction:
             target_key=target_key,
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
             ocr_provider=ocr_provider,
@@ -140,7 +136,6 @@ class RenderMusicXmlJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
@@ -152,7 +147,6 @@ class RenderMusicXmlJianpuAction:
             target_key=target_key,
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
             ocr_provider=ocr_provider,
@@ -174,7 +168,6 @@ class RenderMusicXmlJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         title: str | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -184,7 +177,6 @@ class RenderMusicXmlJianpuAction:
             target_key=target_key,
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             title=title,
             image_path=image_path,
             ocr_provider=ocr_provider,
@@ -198,7 +190,6 @@ class RenderMusicXmlJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         title: str | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -207,7 +198,6 @@ class RenderMusicXmlJianpuAction:
             musicxml_path,
             target_key=target_key,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             image_path=image_path,
             ocr_provider=ocr_provider,
         )
@@ -252,7 +242,6 @@ class RenderJianpuTextAction:
         ocr_provider: OCRProvider | None = None,
         text_blocks: list[TextBlock] | None = None,
         title: str = "简谱",
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
     ) -> Path:
@@ -267,7 +256,6 @@ class RenderJianpuTextAction:
             page_height=page_height,
             title=title,
             text_blocks=blocks or [],
-            start_measure_number=start_measure_number,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )
@@ -278,7 +266,6 @@ class RenderJianpuTextAction:
         output_path: str | Path,
         *,
         title: str = "简谱",
-        start_measure_number: int | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         text_anchors: list[TextAnchor] | None = None,
@@ -287,9 +274,6 @@ class RenderJianpuTextAction:
         parts = parse_jianpu_parts(text, title=title)
         scores = [part.score for part in parts]
         _validate_multi_part_measure_counts(scores)
-        if start_measure_number is not None:
-            for score in scores:
-                _renumber_score(score, start_measure_number)
         if text_anchors:
             apply_text_anchors_to_parts(parts, text_anchors)
         return self.render_service.render_scores_a4_svg_pages(
@@ -329,7 +313,6 @@ class RenderActions:
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
             instrument_profile=req.instrument_profile,
-            start_measure_number=req.start_measure_number,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
             image_path=image_path,
@@ -378,7 +361,6 @@ class RenderActions:
                 input_path,
                 svg_path,
                 title=req.title,
-                start_measure_number=req.start_measure_number,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
                 **anchor_options,
@@ -388,7 +370,6 @@ class RenderActions:
                 input_path,
                 svg_path,
                 title=req.title,
-                start_measure_number=req.start_measure_number,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
                 **anchor_options,
@@ -427,7 +408,6 @@ class RenderActions:
         if not req.pages:
             raise ValueError("至少需要一个待渲染页面")
         page_scores_list: list[list[JianpuScore]] = []
-        starts: list[int | None] = []
         for index, page in enumerate(req.pages):
             try:
                 page_scores = self._build_batch_page_scores(req, page)
@@ -439,22 +419,20 @@ class RenderActions:
             for score in page_scores:
                 _tag_score_source_page(score, index)
             page_scores_list.append(page_scores)
-            starts.append(page.start_measure_number)
 
         has_multi_part = any(len(scores) > 1 for scores in page_scores_list)
 
         if not has_multi_part:
             scores = [s for page_scores in page_scores_list for s in page_scores]
-            _renumber_scores_continuously(scores, starts)
-            return self._render_batch_flat(req, scores, starts)
+            _renumber_scores_continuously(scores)
+            return self._render_batch_flat(req, scores)
 
-        return self._render_batch_multi_part(req, page_scores_list, starts)
+        return self._render_batch_multi_part(req, page_scores_list)
 
     def _render_batch_flat(
         self,
         req: BatchRenderRequest,
         scores: list[JianpuScore],
-        starts: list[int | None],
     ) -> BatchRenderResponse:
         source_ranges = self._batch_source_ranges(req, scores)
         layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
@@ -516,14 +494,10 @@ class RenderActions:
         self,
         req: BatchRenderRequest,
         page_scores_list: list[list[JianpuScore]],
-        starts: list[int | None],
     ) -> BatchRenderResponse:
         current_measure: int | None = None
-        for page_idx, page_scores in enumerate(page_scores_list):
-            requested_start = starts[page_idx]
-            if requested_start is not None:
-                current_measure = requested_start
-            elif current_measure is None:
+        for page_scores in page_scores_list:
+            if current_measure is None:
                 first_score = page_scores[0] if page_scores else None
                 current_measure = (
                     _first_measure_number(first_score) if first_score else 1
@@ -639,13 +613,11 @@ class RenderActions:
         if source_pages == req.pages:
             return _source_ranges_for_scores(rendered_scores)
         source_scores: list[JianpuScore] = []
-        source_starts: list[int | None] = []
         for index, page in enumerate(source_pages):
             score = self._build_batch_page_score(req, page)
             _tag_score_source_page(score, index)
             source_scores.append(score)
-            source_starts.append(page.start_measure_number)
-        _renumber_scores_continuously(source_scores, source_starts)
+        _renumber_scores_continuously(source_scores)
         return _source_ranges_for_scores(source_scores)
 
     def _render_final_a4(self, req: FinalRenderRequest) -> FinalRenderResponse:
@@ -666,7 +638,6 @@ class RenderActions:
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
             instrument_profile=req.instrument_profile,
-            start_measure_number=req.start_measure_number,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
             image_path=image_path,
@@ -710,7 +681,6 @@ class RenderActions:
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
             instrument_profile=req.instrument_profile,
-            start_measure_number=req.start_measure_number,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
             image_path=image_path,
@@ -753,7 +723,6 @@ class RenderActions:
                 musicxml_path,
                 target_key=req.target_key,
                 instrument_profile=req.instrument_profile,
-                start_measure_number=page.start_measure_number,
                 title=page.title or req.title,
                 image_path=image_path,
             )
@@ -1221,14 +1190,10 @@ def _renumber_score(score: JianpuScore, start: int) -> None:
         current += getattr(measure, "repeat_count", 1)
 
 
-def _renumber_scores_continuously(
-    scores: list[JianpuScore], starts: list[int | None]
-) -> None:
+def _renumber_scores_continuously(scores: list[JianpuScore]) -> None:
     current: int | None = None
-    for score, requested_start in zip(scores, starts, strict=False):
-        if requested_start is not None:
-            current = requested_start
-        elif current is None:
+    for score in scores:
+        if current is None:
             current = _first_measure_number(score) or 1
         _renumber_score(score, current)
         current += sum(

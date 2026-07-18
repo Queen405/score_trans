@@ -42,7 +42,6 @@ class ConversionOptionsDTO(BaseModel):
     target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile = "general"
-    start_measure_number: int | None = None
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
     title: str | None = None

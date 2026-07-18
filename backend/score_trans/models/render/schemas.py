@@ -45,7 +45,6 @@ class RenderJianpuSvgRequest(BaseModel):
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
-    start_measure_number: int | None = None
     title: str | None = None
 
 
@@ -63,7 +62,6 @@ class RenderJianpuTextSvgRequest(BaseModel):
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     title: str = "简谱"
-    start_measure_number: int | None = None
     text_anchors: list[TextAnchor] = []
 
 
@@ -91,7 +89,6 @@ class FinalRenderRequest(BaseModel):
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
-    start_measure_number: int | None = None
     title: str | None = None
 
 
@@ -110,7 +107,6 @@ class PreservingLayoutRequest(BaseModel):
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
-    start_measure_number: int | None = None
     title: str | None = None
 
 
@@ -130,7 +126,6 @@ class BatchRenderPageRequest(BaseModel):
     ocr_text: str | None = None
     text_attachments: list[SourceTextAttachment] = []
     include_ocr_text: bool = False
-    start_measure_number: int | None = None
     title: str | None = None
     text_anchors: list[TextAnchor] = []
 

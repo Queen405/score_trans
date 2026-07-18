@@ -3,9 +3,7 @@ import sqlite3
 import pytest
 
 from score_trans.dao.history.history_dao import HistoryDao
-from score_trans.exec.history.actions import HistoryActions
 from score_trans.models.history.entities import HistoryPage, HistoryRenderPageOcrText
-from score_trans.models.history.schemas import PageUpdate
 from score_trans.models.provenance.schemas import (
     SourceTextAttachment,
     TextPlacementAnchor,
@@ -156,25 +154,37 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
     )
 
 
-def test_page_patch_distinguishes_omitted_and_explicit_null(tmp_path) -> None:
+def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:
+    db_path = tmp_path / "history.db"
+    service = HistoryService(db_path)
+    service.create_batch([HistoryPage(input_file_name="score.png")])
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(history_page)")}
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+    assert "start_measure_number" not in columns
+    assert version == 5
+
+
+def test_history_rejects_sqlite_older_than_335(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(sqlite3, "sqlite_version_info", (3, 34, 1))
+    monkeypatch.setattr(sqlite3, "sqlite_version", "3.34.1")
+
+    with pytest.raises(RuntimeError, match="SQLite 3.35 or newer"):
+        HistoryDao(tmp_path / "history.db")
+
+
+def test_history_page_update_preserves_unmodified_fields(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
-    actions = HistoryActions(service)
-    batch = service.create_batch(
-        [HistoryPage(input_file_name="score.png", start_measure_number=9)]
-    )
+    batch = service.create_batch([HistoryPage(input_file_name="score.png")])
     page_id = batch.pages[0].id
 
-    preserved = actions.update_history_page(
-        page_id,
-        PageUpdate(jianpu_text="1=C\n4/4\n1 2 |"),
-    )
-    cleared = actions.update_history_page(
-        page_id,
-        PageUpdate(start_measure_number=None),
-    )
+    updated = service.update_page(page_id, jianpu_text="1=C\n4/4\n1 2 |")
 
-    assert preserved.start_measure_number == 9
-    assert cleared.start_measure_number is None
+    assert updated is not None
+    assert updated.input_file_name == "score.png"
+    assert updated.jianpu_text == "1=C\n4/4\n1 2 |"
 
 
 def test_history_page_persists_background_task_id(tmp_path) -> None:
@@ -208,7 +218,7 @@ def test_get_history_page_returns_single_page(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch(
         [
-            HistoryPage(input_file_name="first.png", status="waiting"),
+            HistoryPage(input_file_name="first.png", status="processing"),
             HistoryPage(input_file_name="second.png", status="completed"),
         ]
     )
@@ -229,16 +239,16 @@ def test_batch_status_tracks_background_pages(tmp_path) -> None:
                 input_file_name="a.png", input_file_id="input-1", status="processing"
             ),
             HistoryPage(
-                input_file_name="b.png", input_file_id="input-2", status="waiting"
+                input_file_name="b.png", input_file_id="input-2", status="pending"
             ),
         ]
     )
 
-    assert batch.status == "waiting"
+    assert batch.status == "processing"
 
     first, second = batch.pages
     service.update_page(first.id, status="completed")
-    assert service.get_batch(batch.id).status == "waiting"
+    assert service.get_batch(batch.id).status == "processing"
 
     service.update_page(second.id, status="completed")
     assert service.get_batch(batch.id).status == "completed"
@@ -260,7 +270,7 @@ def test_partial_recognition_persists_all_pages_and_reuses_rows(tmp_path) -> Non
             for index in range(10)
         ],
         jianpu_text="\n".join(
-            f"// @page {index + 1} start=auto" for index in range(10)
+            f"// @page {index + 1}" for index in range(10)
         ),
     )
 
@@ -381,7 +391,7 @@ def test_old_history_batch_falls_back_to_page_svg_ids(tmp_path) -> None:
     assert loaded.render_page_file_ids == []
 
 
-def test_history_batch_migration_adds_empty_batch_jianpu_text(tmp_path) -> None:
+def test_v4_migration_backs_up_and_clears_history(tmp_path) -> None:
     db_path = tmp_path / "history.db"
     with sqlite3.connect(db_path) as conn:
         conn.execute(
@@ -416,18 +426,33 @@ def test_history_batch_migration_adds_empty_batch_jianpu_text(tmp_path) -> None:
         conn.execute(
             "INSERT INTO history_page (batch_id, input_file_name) VALUES (1, 'z.png')"
         )
+        conn.execute("PRAGMA user_version = 4")
 
     service = HistoryService(db_path)
-    loaded = service.get_batch(1)
+    assert service.list_batches() == []
 
-    assert loaded is not None
-    assert loaded.jianpu_text == ""
-    # Rendered SVG IDs are derived output from the removed renderer and are
-    # deliberately invalidated by the v2 publication-engine migration.
-    assert loaded.render_page_file_ids == []
-    assert loaded.engine_version == ""
-    assert db_path.with_suffix(".v0.bak").exists()
-    assert loaded.render_page_ocr_texts == []
+    backup_path = db_path.with_suffix(".v4.bak")
+    assert backup_path.exists()
+    with sqlite3.connect(db_path) as conn:
+        page_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(history_page)")
+        }
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 0
+        assert "start_measure_number" not in page_columns
+        assert conn.execute(
+            "SELECT COUNT(*) FROM sqlite_sequence "
+            "WHERE name IN ('history_batch', 'history_page')"
+        ).fetchone()[0] == 0
+    with sqlite3.connect(backup_path) as conn:
+        backup_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(history_page)")
+        }
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 1
+        assert "start_measure_number" in backup_columns
 
 
 def test_schema_migration_rolls_back_all_alter_steps(tmp_path, monkeypatch) -> None:
@@ -483,32 +508,12 @@ def test_schema_migration_rolls_back_all_alter_steps(tmp_path, monkeypatch) -> N
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 0
 
 
-def test_legacy_history_rows_are_migrated_without_data_loss(tmp_path) -> None:
+def test_legacy_history_rows_are_discarded_after_backup(tmp_path) -> None:
     db_path = tmp_path / "history.db"
     _create_legacy_history_db(db_path)
 
-    first_load = HistoryDao(db_path).list_batches()
-    second_load = HistoryDao(db_path).list_batches()
-
-    assert [batch.id for batch in first_load] == [8, 3]
-    assert [batch.id for batch in second_load] == [8, 3]
-    completed = first_load[1]
-    assert completed.created_at == "2025-01-02 03:04:05"
-    assert completed.jianpu_text == "1=C\n4/4\n1 2 3 4 |"
-    assert completed.status == "completed"
-    assert len(completed.pages) == 1
-    assert completed.pages[0].input_file_name == "first.png"
-    assert completed.pages[0].input_file_id == "input-3"
-    assert completed.pages[0].musicxml_file_id == "xml-3"
-    assert completed.pages[0].jianpu_text == "1=C\n4/4\n1 2 3 4 |"
-    assert completed.pages[0].svg_file_id == "svg-3"
-    assert completed.pages[0].completed_at == "2025-01-02 03:04:05"
-
-    failed = first_load[0]
-    assert failed.status == "failed"
-    assert failed.pages[0].status == "failed"
-    assert failed.pages[0].error_message == "识别失败"
-    assert failed.pages[0].completed_at == "2025-02-03 04:05:06"
+    assert HistoryDao(db_path).list_batches() == []
+    assert HistoryDao(db_path).list_batches() == []
 
     with sqlite3.connect(db_path) as conn:
         tables = {
@@ -518,33 +523,26 @@ def test_legacy_history_rows_are_migrated_without_data_loss(tmp_path) -> None:
             ).fetchall()
         }
         assert "history" not in tables
-        assert "history_legacy_backup" in tables
-        assert (
-            conn.execute("SELECT COUNT(*) FROM history_legacy_backup").fetchone()[0]
-            == 2
-        )
+        assert "history_legacy_backup" not in tables
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+    with sqlite3.connect(db_path.with_suffix(".v0.bak")) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 2
 
 
-def test_legacy_history_migration_rolls_back_as_one_transaction(
+def test_legacy_history_cleanup_rolls_back_as_one_transaction(
     tmp_path, monkeypatch
 ) -> None:
     db_path = tmp_path / "history.db"
     _create_legacy_history_db(db_path)
 
-    def fail_after_partial_insert(conn: sqlite3.Connection) -> None:
-        conn.execute(
-            """
-            INSERT INTO history_batch (id, page_count, status)
-            VALUES (99, 1, 'completed')
-            """
-        )
+    def fail_during_cleanup(conn: sqlite3.Connection) -> None:
+        conn.execute("DROP TABLE history")
         raise RuntimeError("injected migration failure")
 
     monkeypatch.setattr(
         HistoryDao,
-        "_migrate_legacy_history_rows",
-        staticmethod(fail_after_partial_insert),
-        raising=False,
+        "_drop_legacy_history_tables",
+        staticmethod(fail_during_cleanup),
     )
 
     with pytest.raises(RuntimeError, match="injected migration failure"):
@@ -579,34 +577,19 @@ def test_history_batch_pages_keep_source_order_by_id(tmp_path) -> None:
     assert summaries[0].first_file_name == "z-first.png"
 
 
-def test_measure_selection_failure_update_does_not_leave_processing_status(
-    tmp_path,
-) -> None:
+def test_unknown_page_status_marks_batch_failed(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch(
         [
             HistoryPage(
                 input_file_name="score.png",
                 input_file_id="input-1",
-                status="processing",
-                error_message="正在重新渲染",
+                status="stale-status",
             )
         ]
     )
-    page = batch.pages[0]
 
-    updated = service.update_page(
-        page.id,
-        start_measure_number=5,
-        status="waiting",
-        error_message="选择小节号失败：bad token",
-    )
-
-    assert updated is not None
-    assert updated.status == "waiting"
-    assert updated.start_measure_number == 5
-    assert "bad token" in updated.error_message
-    assert service.get_batch(batch.id).status == "waiting"
+    assert batch.status == "failed"
 
 
 def test_list_batch_summaries_do_not_load_page_payloads(tmp_path) -> None:
@@ -728,53 +711,7 @@ def test_update_page_does_not_record_completed_at_for_non_terminal_status(
         [HistoryPage(input_file_name="score.png", status="processing")]
     )
 
-    updated = service.update_page(batch.pages[0].id, status="waiting")
+    updated = service.update_page(batch.pages[0].id, status="processing")
     assert updated is not None
-    assert updated.status == "waiting"
+    assert updated.status == "processing"
     assert updated.completed_at == ""
-
-
-def test_completed_at_column_migrated_for_legacy_db(tmp_path) -> None:
-    db_path = tmp_path / "history.db"
-    with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            """
-            CREATE TABLE history_batch (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                created_at TEXT NOT NULL DEFAULT '',
-                page_count INTEGER NOT NULL DEFAULT 1,
-                render_page_file_ids TEXT NOT NULL DEFAULT '[]',
-                render_page_ocr_texts TEXT NOT NULL DEFAULT '[]',
-                jianpu_text TEXT NOT NULL DEFAULT '',
-                status TEXT NOT NULL DEFAULT 'completed'
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE history_page (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                batch_id INTEGER NOT NULL,
-                input_file_name TEXT NOT NULL DEFAULT '',
-                input_file_id TEXT NOT NULL DEFAULT '',
-                task_id TEXT NOT NULL DEFAULT '',
-                musicxml_file_id TEXT NOT NULL DEFAULT '',
-                jianpu_text TEXT NOT NULL DEFAULT '',
-                ocr_text TEXT NOT NULL DEFAULT '',
-                svg_file_id TEXT NOT NULL DEFAULT '',
-                start_measure_number INTEGER,
-                status TEXT NOT NULL DEFAULT 'completed',
-                error_message TEXT NOT NULL DEFAULT ''
-            )
-            """
-        )
-        conn.execute("INSERT INTO history_batch DEFAULT VALUES")
-        conn.execute(
-            "INSERT INTO history_page (batch_id, input_file_name) VALUES (1, 'z.png')"
-        )
-
-    service = HistoryService(db_path)
-    loaded = service.get_page(1)
-
-    assert loaded is not None
-    assert loaded.completed_at == ""

@@ -444,7 +444,6 @@ async function highlightSource(sourceId: string): Promise<boolean> {
   const svg = svgRoot()
   if (!svg || !sourceId) return false
 
-  svg.querySelectorAll('.source-highlight-box').forEach((node) => node.remove())
   svg.querySelectorAll('.source-current').forEach((node) => {
     node.classList.remove('source-current')
   })
@@ -460,7 +459,6 @@ async function highlightSource(sourceId: string): Promise<boolean> {
 
   targets.forEach((target) => {
     target.classList.add('source-current')
-    addSourceHighlightBox(target)
   })
   keepTargetVisible(targets[0]!)
   return true
@@ -468,23 +466,6 @@ async function highlightSource(sourceId: string): Promise<boolean> {
 
 function sourceIdsOf(element: SVGGraphicsElement): string[] {
   return (element.getAttribute('data-source-ids') ?? '').split(/\s+/).filter(Boolean)
-}
-
-function addSourceHighlightBox(target: SVGGraphicsElement): void {
-  const svg = svgRoot()
-  if (!svg) return
-  const box = rootCoordinateBBox(target, svg)
-  if (!box) return
-
-  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-  rect.setAttribute('x', String(box.x - 4))
-  rect.setAttribute('y', String(box.y - 4))
-  rect.setAttribute('width', String(box.width + 8))
-  rect.setAttribute('height', String(box.height + 8))
-  rect.setAttribute('rx', '4')
-  rect.setAttribute('class', 'source-highlight-box')
-  rect.setAttribute('pointer-events', 'none')
-  svg.appendChild(rect)
 }
 
 function rootCoordinateBBox(
@@ -690,12 +671,6 @@ onUnmounted(() => {
 .svg-inline :deep(.playback-note.playback-current .staccato),
 .svg-inline :deep(.source-anchor.source-current .staccato) {
   fill: #d97706;
-}
-
-.svg-inline :deep(.source-highlight-box) {
-  fill: rgba(217, 119, 6, 0.12);
-  stroke: #d97706;
-  stroke-width: 2;
 }
 
 .svg-loading {

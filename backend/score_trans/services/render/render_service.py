@@ -153,7 +153,6 @@ class PublicationRenderService:
         page_height: float,
         title: str = "简谱",
         text_blocks=None,
-        start_measure_number: int | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
     ) -> Path:
@@ -164,7 +163,6 @@ class PublicationRenderService:
             page_height=page_height,
             title=title,
             text_blocks=text_blocks,
-            start_measure_number=start_measure_number,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )

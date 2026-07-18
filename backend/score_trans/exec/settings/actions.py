@@ -99,12 +99,6 @@ class SettingsActions:
                 "0" if req.measure_number_mode == "none" else "1",
             )
 
-        if req.confirm_start_measure_number is not None:
-            self.service.set(
-                "confirm_start_measure_number",
-                "1" if req.confirm_start_measure_number else "0",
-            )
-
         if req.jianpu_syntax_highlight is not None:
             self.service.set(
                 "jianpu_syntax_highlight",
@@ -280,9 +274,6 @@ class SettingsActions:
             accidental_mode=_accidental_mode(all_settings.get("accidental_mode")),
             show_measure_numbers=measure_number_mode != "none",
             measure_number_mode=measure_number_mode,
-            confirm_start_measure_number=self.service.get_bool(
-                "confirm_start_measure_number", True
-            ),
             jianpu_syntax_highlight=self.service.get_bool(
                 "jianpu_syntax_highlight", False
             ),

@@ -8,7 +8,6 @@ from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
 from ...domain.musicxml import (
     musicxml_path_to_scores,
 )
-from ...domain.text_attachments import first_ocr_measure_number
 from ...domain.write.jianpu_text import scores_to_jianpu_document
 from ...models.common.types import AccidentalMode, InstrumentProfile
 from ...models.convert.schemas import (
@@ -33,7 +32,6 @@ class MusicXmlToJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> str:
@@ -42,7 +40,6 @@ class MusicXmlToJianpuAction:
                 musicxml_path,
                 target_key=target_key,
                 instrument_profile=instrument_profile,
-                start_measure_number=start_measure_number,
                 image_path=image_path,
                 ocr_provider=ocr_provider,
             ),
@@ -55,7 +52,6 @@ class MusicXmlToJianpuAction:
         *,
         target_key: str = "C",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> JianpuScore:
@@ -63,7 +59,6 @@ class MusicXmlToJianpuAction:
             musicxml_path,
             target_key=target_key,
             instrument_profile=instrument_profile,
-            start_measure_number=start_measure_number,
             image_path=image_path,
             ocr_provider=ocr_provider,
         )
@@ -75,14 +70,12 @@ class MusicXmlToJianpuAction:
         *,
         target_key: str = "C",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> list[JianpuScore]:
         scores = musicxml_path_to_scores(
             Path(musicxml_path),
             target_key=target_key,
-            start_measure_number=start_measure_number,
             instrument_profile=instrument_profile,
         )
         if image_path is not None:
@@ -90,10 +83,6 @@ class MusicXmlToJianpuAction:
             blocks = provider.recognize(Path(image_path))
             for score in scores:
                 score.text_blocks.extend(blocks)
-            if scores:
-                _apply_measure_number_ocr(
-                    scores[0], blocks, start_measure_number=start_measure_number
-                )
         return scores
 
     def execute_document(
@@ -103,7 +92,6 @@ class MusicXmlToJianpuAction:
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
-        start_measure_number: int | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
     ) -> JianpuDocument:
@@ -112,7 +100,6 @@ class MusicXmlToJianpuAction:
                 musicxml_path,
                 target_key=target_key,
                 instrument_profile=instrument_profile,
-                start_measure_number=start_measure_number,
                 image_path=image_path,
                 ocr_provider=ocr_provider,
             ),
@@ -161,7 +148,6 @@ class ConvertActions:
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
             instrument_profile=req.instrument_profile,
-            start_measure_number=req.start_measure_number,
             image_path=image_path,
         )
         return MusicXmlToJianpuResponse(
@@ -191,21 +177,3 @@ class ConvertActions:
         return JianpuToMusicXmlResponse(
             musicxml_text=xml_text, musicxml_file_id=musicxml_id
         )
-
-
-def _apply_measure_number_ocr(
-    score: JianpuScore, blocks, *, start_measure_number: int | None = None
-) -> None:
-    detected_start = first_ocr_measure_number(blocks)
-    if detected_start is None and start_measure_number is None:
-        return
-    start = start_measure_number if start_measure_number is not None else detected_start
-    if start is None:
-        raise ValueError("无法确定起始小节号")
-    for index, measure in enumerate(score.measures):
-        display_number = start + index
-        measure.display_number = display_number
-        for block in measure.text_blocks:
-            if block.role == "measure_number":
-                block.text = str(display_number)
-                block.measure_number = display_number
