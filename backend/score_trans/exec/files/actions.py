@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from score_trans.config.settings import UPLOAD_PDF_DPI
@@ -26,6 +27,8 @@ MEDIA_TYPES: dict[str, str] = {
     ".webp": "image/webp",
 }
 
+logger = logging.getLogger(__name__)
+
 
 class FileActions:
     def __init__(self, uploads: UploadService | None = None) -> None:
@@ -50,8 +53,8 @@ class FileActions:
     def _pdf_to_images(self, pdf_path: Path) -> list[UploadPage] | None:
         try:
             import fitz
-        except ImportError:
-            return None
+        except ImportError as exc:
+            raise RuntimeError("PDF 页面转换依赖不可用") from exc
 
         try:
             doc = fitz.open(str(pdf_path))
@@ -69,8 +72,9 @@ class FileActions:
                 )
             doc.close()
             return pages if pages else None
-        except Exception:
-            return None
+        except Exception as exc:
+            logger.exception("PDF 页面转换失败: %s", pdf_path)
+            raise ValueError("PDF 页面转换失败，请检查文件是否损坏") from exc
 
     def download_file(self, file_id: str) -> tuple[Path, str]:
         path = self.uploads.get_path(file_id)

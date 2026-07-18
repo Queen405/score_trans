@@ -228,5 +228,6 @@ export const useAssistantStore = defineStore('assistant', () => {
     createSession,
     deleteSession,
     send,
+    abortStream,
   }
 })

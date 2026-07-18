@@ -580,25 +580,23 @@ const canReorderBatch = computed(() => {
   )
 })
 
-// Distinguish programmatic text changes (store pushes and their cascading
-// auto-formatting in JianpuEditor) from genuine user edits (typing). Only the
-// latter should mark the batch as dirty so that recognition results can still
-// flow into the editor via syncBatchJianpuTextForPage.
-let programmaticUpdate = false
+// A token identifies exactly one value copied from workspace state. Unlike a
+// nextTick flag, it cannot suppress an unrelated user edit in the same flush.
+let editorSyncGeneration = 0
+let pendingExternalEditorSync: { generation: number; text: string } | null = null
 
 watch(() => store.currentBatchJianpuText, (v) => {
   if (v !== jianpuText.value) {
-    programmaticUpdate = true
+    const generation = ++editorSyncGeneration
+    pendingExternalEditorSync = { generation, text: v }
     jianpuText.value = v
-    // Vue 3's nextTick resolves after the entire flush queue — including the
-    // cascading auto-formatting watch in JianpuEditor — so the flag stays true
-    // long enough to suppress the dirty mark for formatting-only changes.
-    nextTick(() => { programmaticUpdate = false })
   }
 }, { immediate: true })
 watch(jianpuText, (v, previous) => {
+  const isExternalSync = pendingExternalEditorSync?.text === v
+  if (isExternalSync) pendingExternalEditorSync = null
   if (v !== store.currentBatchJianpuText) {
-    const isUserEdit = !programmaticUpdate
+    const isUserEdit = !isExternalSync
     if (isUserEdit) updateTextAnchorsAfterEdit(previous ?? '', v)
     store.setBatchJianpuText(v, isUserEdit)
     if (isUserEdit) {
@@ -1514,8 +1512,8 @@ type ExportSource =
 
 async function finalizeExport(source: ExportSource, filename: string): Promise<void> {
   const dir = settings.outputDir?.trim()
-  const api = (globalThis as any).api
-  if (!dir || !api?.saveExportFile) {
+  const api = window.api
+  if (!dir || !api.saveExportFile) {
     if ('fileId' in source) {
       await downloadFile(source.fileId, filename)
     } else {

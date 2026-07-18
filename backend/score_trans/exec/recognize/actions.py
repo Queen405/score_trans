@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,8 @@ from ...services.recognize.audiveris_service import (
 from ...services.settings.settings_service import SettingsService
 from ..tasks.actions import TaskActions
 from ..tasks.background import OMR_SEMAPHORE, run_sync_task, schedule_background_task
+
+logger = logging.getLogger(__name__)
 
 
 class RecognizeScoreAction:
@@ -144,6 +147,7 @@ def _generate_overlay_file_id(
     try:
         paths = overlay_service.generate_overlay_svgs(omr_dir)
     except Exception:
+        logger.exception("生成 Audiveris SVG 叠加层失败: %s", omr_dir)
         return None
     if not paths:
         return None
@@ -154,6 +158,7 @@ def _register_omr_file(uploads: UploadService, omr_dir: Path) -> str | None:
     try:
         omr_files = sorted(omr_dir.rglob("*.omr"))
     except Exception:
+        logger.exception("查找 Audiveris OMR 文件失败: %s", omr_dir)
         return None
     if not omr_files:
         return None

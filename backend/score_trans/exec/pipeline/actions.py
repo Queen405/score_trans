@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import shutil
 import uuid
 from dataclasses import dataclass
@@ -38,6 +39,8 @@ from ..convert.actions import MusicXmlToJianpuAction
 from ..recognize.actions import RecognizeScoreAction
 from ..tasks.actions import TaskActions
 from ..tasks.background import OMR_SEMAPHORE, run_sync_task, schedule_background_task
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -410,6 +413,7 @@ def _find_omr_file(omr_output_dir: Path) -> Path | None:
     try:
         omr_files = sorted(omr_output_dir.rglob("*.omr"))
     except Exception:
+        logger.exception("查找 OMR 文件失败: %s", omr_output_dir)
         return None
     return omr_files[0] if omr_files else None
 
@@ -504,5 +508,6 @@ def _generate_overlay(overlay_service: OverlayService, omr_dir: Path) -> Path | 
     try:
         paths = overlay_service.generate_overlay_svgs(omr_dir)
     except Exception:
+        logger.exception("生成 OMR SVG 叠加层失败: %s", omr_dir)
         return None
     return paths[0] if paths else None

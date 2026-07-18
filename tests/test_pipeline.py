@@ -11,6 +11,8 @@ from score_trans.exec.pipeline.actions import (
     FullPipelineAction,
     PipelineActions,
     ScorePipelineOutputs,
+    _find_omr_file,
+    _generate_overlay,
 )
 from score_trans.models.common.errors import RenderError
 from score_trans.models.pipeline.schemas import PipelineResponse
@@ -53,6 +55,24 @@ class EmptyOutputPipeline:
 
     def execute(self, *args, **kwargs) -> ScorePipelineOutputs:
         return self.outputs
+
+
+def test_pipeline_auxiliary_failures_are_logged_and_degraded(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
+    class BrokenOverlayService:
+        def generate_overlay_svgs(self, _output_dir: Path) -> list[Path]:
+            raise RuntimeError("overlay failure")
+
+    def fail_rglob(_path: Path, _pattern: str):
+        raise OSError("directory failure")
+
+    monkeypatch.setattr(Path, "rglob", fail_rglob)
+
+    assert _generate_overlay(BrokenOverlayService(), tmp_path) is None
+    assert _find_omr_file(tmp_path) is None
+    assert "生成 OMR SVG 叠加层失败" in caplog.text
+    assert "查找 OMR 文件失败" in caplog.text
 
 
 def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:

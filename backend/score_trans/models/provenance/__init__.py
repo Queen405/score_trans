@@ -1,7 +1,6 @@
 from .schemas import (
     BoundingBox,
     MusicXmlLocator,
-    RenderAnchor,
     RenderedTextBlock,
     SourceElement,
     SourceMap,
@@ -16,7 +15,6 @@ __all__ = [
     "BoundingBox",
     "MusicXmlLocator",
     "JianpuDocument",
-    "RenderAnchor",
     "RenderedTextBlock",
     "SourceElement",
     "SourceMap",

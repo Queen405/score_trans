@@ -154,8 +154,8 @@ async function restartApp(): Promise<void> {
   await settings.relaunchApp()
 }
 
-function desktopApi(): any {
-  return (globalThis as any).api
+function desktopApi() {
+  return window.api
 }
 
 function formatBytes(bytes: number): string {

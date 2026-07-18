@@ -145,6 +145,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const originalFileName = ref('')
   const originalFileId = ref('')
   const musicxmlFileId = ref('')
+  const musicxmlText = ref('')
   const jianpuText = ref('')
   const ocrText = ref('')
   const jianpuDirty = ref(false)
@@ -463,6 +464,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   function setMusicxml(fileId: string, text: string) {
     musicxmlFileId.value = fileId
+    musicxmlText.value = text
     patchCurrentPage({ musicxmlFileId: fileId, musicxmlText: text })
   }
 
@@ -495,6 +497,77 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchRenderPageFileIds.value = {
       ...batchRenderPageFileIds.value,
       [batchId]: [...fileIds],
+    }
+  }
+
+  function reindexBatchPageMap<T>(
+    entries: Record<number, T>,
+    removedPageIndex: number,
+  ): Record<number, T> {
+    const next: Record<number, T> = {}
+    for (const [key, value] of Object.entries(entries)) {
+      const pageIndex = Number(key)
+      if (!Number.isInteger(pageIndex) || pageIndex < 0 || pageIndex === removedPageIndex) continue
+      next[pageIndex > removedPageIndex ? pageIndex - 1 : pageIndex] = value
+    }
+    return next
+  }
+
+  function omitBatchRecord<T>(records: Record<string, T>, batchId: string): Record<string, T> {
+    return Object.fromEntries(
+      Object.entries(records).filter(([id]) => id !== batchId),
+    ) as Record<string, T>
+  }
+
+  function removeBatchPageState(
+    batchId: string,
+    removedPageIndex: number,
+    removedPageId: string,
+    batchHasPages: boolean,
+  ): void {
+    if (!batchHasPages) {
+      batchRenderPageFileIds.value = omitBatchRecord(batchRenderPageFileIds.value, batchId)
+      batchRenderPageOcrTexts.value = omitBatchRecord(batchRenderPageOcrTexts.value, batchId)
+      batchRenderPageOcrDirty.value = omitBatchRecord(batchRenderPageOcrDirty.value, batchId)
+      batchJianpuTexts.value = omitBatchRecord(batchJianpuTexts.value, batchId)
+      batchJianpuDirty.value = omitBatchRecord(batchJianpuDirty.value, batchId)
+      batchJianpuPendingPageIds.value = omitBatchRecord(batchJianpuPendingPageIds.value, batchId)
+      return
+    }
+
+    const batchText = batchJianpuTexts.value[batchId] ?? ''
+    if (batchText) {
+      setBatchJianpuText(
+        removeJianpuPageSection(batchText, removedPageIndex),
+        true,
+        batchId,
+      )
+    }
+    const renderPageIds = batchRenderPageFileIds.value[batchId]
+    if (renderPageIds) {
+      batchRenderPageFileIds.value = {
+        ...batchRenderPageFileIds.value,
+        [batchId]: renderPageIds.filter((_, index) => index !== removedPageIndex),
+      }
+    }
+    batchRenderPageOcrTexts.value = {
+      ...batchRenderPageOcrTexts.value,
+      [batchId]: reindexBatchPageMap(
+        batchRenderPageOcrTexts.value[batchId] ?? {},
+        removedPageIndex,
+      ),
+    }
+    batchRenderPageOcrDirty.value = {
+      ...batchRenderPageOcrDirty.value,
+      [batchId]: reindexBatchPageMap(
+        batchRenderPageOcrDirty.value[batchId] ?? {},
+        removedPageIndex,
+      ),
+    }
+    batchJianpuPendingPageIds.value = {
+      ...batchJianpuPendingPageIds.value,
+      [batchId]: (batchJianpuPendingPageIds.value[batchId] ?? [])
+        .filter((pageId) => pageId !== removedPageId),
     }
   }
 
@@ -679,23 +752,20 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       .indexOf(removedPage)
     pages.value.splice(index, 1)
     if (removedPage.batchId) {
-      const batchText = batchJianpuTexts.value[removedPage.batchId] ?? ''
-      if (batchText) {
-        setBatchJianpuText(
-          removeJianpuPageSection(batchText, batchLocalIndex),
-          true,
-          removedPage.batchId,
-        )
-      }
-      setBatchRenderPageFileIds([], removedPage.batchId)
-      batchJianpuPendingPageIds.value = {
-        ...batchJianpuPendingPageIds.value,
-        [removedPage.batchId]: (batchJianpuPendingPageIds.value[removedPage.batchId] ?? [])
-          .filter((pageId) => pageId !== removedPage.id),
+      const batchHasPages = pages.value.some((page) => page.batchId === removedPage.batchId)
+      removeBatchPageState(
+        removedPage.batchId,
+        batchLocalIndex,
+        removedPage.id,
+        batchHasPages,
+      )
+      if (!batchHasPages && currentBatchId.value === removedPage.batchId) {
+        currentBatchId.value = pages.value[0]?.batchId ?? null
       }
     }
     if (pages.value.length === 0) {
       currentPageIndex.value = -1
+      currentBatchId.value = null
       syncCurrentFromPage()
     } else if (currentPageIndex.value > index) {
       currentPageIndex.value -= 1
@@ -816,6 +886,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     originalFileName.value = ''
     originalFileId.value = ''
     musicxmlFileId.value = ''
+    musicxmlText.value = ''
     jianpuText.value = ''
     ocrText.value = ''
     jianpuDirty.value = false
@@ -966,6 +1037,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     originalFileName,
     originalFileId,
     musicxmlFileId,
+    musicxmlText,
     jianpuText,
     ocrText,
     jianpuDirty,
@@ -989,6 +1061,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     currentTaskId,
     taskStatus,
     backgroundTaskCount,
+    batchRenderPageFileIds,
+    batchRenderPageOcrTexts,
+    batchRenderPageOcrDirty,
+    batchJianpuTexts,
+    batchJianpuDirty,
+    batchJianpuPendingPageIds,
     hasMusicxml,
     hasInput,
     hasOriginal,

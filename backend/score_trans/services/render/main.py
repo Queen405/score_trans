@@ -117,30 +117,6 @@ def render_score_page_svg(
     return pages[0].svg
 
 
-def render_jianpu_a4_svgs(
-    jianpu_text: str,
-    options: RenderOptions | None = None,
-) -> list[str]:
-    options = options or RenderOptions()
-    return render_scores_a4_svgs(
-        parse_jianpu_scores(jianpu_text, title=options.title), options
-    )
-
-
-def render_score_a4_svgs(
-    score: JianpuScore,
-    options: RenderOptions | None = None,
-) -> list[str]:
-    return render_scores_a4_svgs([score], options)
-
-
-def render_scores_a4_svgs(
-    scores: list[JianpuScore],
-    options: RenderOptions | None = None,
-) -> list[str]:
-    return [page.svg for page in render_scores_a4_pages(scores, options)]
-
-
 def render_scores_a4_pages(
     scores: list[JianpuScore],
     options: RenderOptions | None = None,
@@ -157,15 +133,6 @@ def render_scores_a4_pages(
         page_text_blocks=page_text_blocks,
     )
     return [_public_page(page) for page in pages]
-
-
-def render_multi_part_scores_a4_pages(
-    scores: list[JianpuScore],
-    options: RenderOptions | None = None,
-    *,
-    page_text_blocks: dict[int, list[TextBlock]] | None = None,
-) -> list[RenderedA4Page]:
-    return render_scores_a4_pages(scores, options, page_text_blocks=page_text_blocks)
 
 
 def render_score_a4_pages_to_files(

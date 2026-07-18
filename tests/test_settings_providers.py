@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -17,6 +19,24 @@ from score_trans.services.settings.provider_profiles import (
     resolve_provider_profile,
 )
 from score_trans.services.settings.settings_service import SettingsService
+
+
+def test_env_example_documents_optional_path_and_ai_prompt_overrides() -> None:
+    example = (
+        Path(__file__).parents[1]
+        / "backend"
+        / "score_trans"
+        / "config"
+        / "env.example"
+    ).read_text(encoding="utf-8")
+
+    for variable in (
+        "SCORE_TRANS_WORKDIR=",
+        "SCORE_TRANS_JAVA_HOME=",
+        "SCORE_TRANS_OUTPUT_DIR=",
+        "SCORE_TRANS_AI_SYSTEM_MSG=",
+    ):
+        assert variable in example
 
 
 def test_settings_update_schema_accepts_provider_endpoint_overrides() -> None:

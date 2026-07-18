@@ -668,10 +668,6 @@ def _token_with_offsets(
     )
 
 
-def _utf16_length(value: str) -> int:
-    return len(value.encode("utf-16-le")) // 2
-
-
 def _is_key_or_time_token(token: str) -> bool:
     return (
         _key_signature_value(token) is not None

@@ -648,34 +648,6 @@ class RenderActions:
         _renumber_scores_continuously(source_scores, source_starts)
         return _source_ranges_for_scores(source_scores)
 
-    def _render_batch_a4_without_page_ocr(
-        self,
-        req: BatchRenderRequest,
-    ) -> BatchRenderResponse:
-        scores: list[JianpuScore] = []
-        starts: list[int | None] = []
-        for index, page in enumerate(req.pages):
-            score = self._build_batch_page_score(req, page)
-            _tag_score_source_page(score, index)
-            scores.append(score)
-            starts.append(page.start_measure_number)
-        _renumber_scores_continuously(scores, starts)
-        svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
-        paths = self.text_renderer.render_service.render_scores_a4_svg_pages(
-            scores,
-            svg_path,
-            title=req.title,
-            show_measure_numbers=_request_show_measure_numbers(req),
-            measure_number_mode=_request_measure_number_mode(req),
-        )
-        pages = self._register_rendered_pages(paths)
-        return BatchRenderResponse(
-            svg_file_id=pages[0].svg_file_id,
-            pages=pages,
-            page_width=pages[0].page_width,
-            page_height=pages[0].page_height,
-        )
-
     def _render_final_a4(self, req: FinalRenderRequest) -> FinalRenderResponse:
         musicxml_path = self.uploads.get_path(req.musicxml_file_id)
         if not musicxml_path or not musicxml_path.exists():

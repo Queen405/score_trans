@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
+import pytest
 import score_trans.services.files.upload_service as upload_service_module
 from fastapi import UploadFile
 from score_trans.config.settings import UPLOAD_PDF_DPI
@@ -220,3 +221,18 @@ def test_upload_pdf_still_returns_page_pngs(monkeypatch, tmp_path: Path) -> None
         assert path is not None
         assert path.suffix == ".png"
         assert path.exists()
+
+
+def test_upload_pdf_reports_a_user_facing_error_on_conversion_failure(
+    monkeypatch, tmp_path: Path, caplog
+) -> None:
+    def fail_open(_path: str):
+        raise RuntimeError("corrupt PDF")
+
+    monkeypatch.setitem(sys.modules, "fitz", SimpleNamespace(open=fail_open))
+    actions = FileActions(UploadService(ToolConfig(work_dir=tmp_path)))
+
+    with pytest.raises(ValueError, match="PDF 页面转换失败"):
+        actions._pdf_to_images(tmp_path / "broken.pdf")
+
+    assert "PDF 页面转换失败" in caplog.text

@@ -335,8 +335,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function clearCache(): Promise<CacheCleanupResponse> {
     const result = await requireData(settingsApi.clearCache())
-    const api = (globalThis as any).api
-    if (typeof api?.clearElectronCache === 'function') {
+    const api = window.api
+    if (typeof api.clearElectronCache === 'function') {
       await api.clearElectronCache()
     }
     cacheSizeBytes.value = result.after_bytes
@@ -344,8 +344,8 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function relaunchApp(): Promise<void> {
-    const api = (window as any).api
-    if (typeof api?.relaunchApp === 'function') {
+    const api = window.api
+    if (typeof api.relaunchApp === 'function') {
       await api.relaunchApp()
     }
   }
@@ -395,15 +395,15 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function loadStoragePaths(): Promise<void> {
-    const api = (window as any).api
-    if (typeof api?.getStoragePaths !== 'function') {
+    const api = window.api
+    if (typeof api.getStoragePaths !== 'function') {
       dataDir.value = activeDataDir.value
       cacheDir.value = activeCacheDir.value
       storageRestartRequired.value = false
       return
     }
 
-    const paths = (await api.getStoragePaths()) as StoragePaths
+    const paths = await api.getStoragePaths()
     applyStoragePaths(paths)
   }
 
@@ -411,8 +411,8 @@ export const useSettingsStore = defineStore('settings', () => {
     requestedDataDir: string,
     requestedCacheDir: string,
   ): Promise<{ paths: StoragePaths; restartRequired: boolean }> {
-    const api = (window as any).api
-    if (typeof api?.setStoragePaths !== 'function') {
+    const api = window.api
+    if (typeof api.setStoragePaths !== 'function') {
       return {
         paths: {
           dataDir: requestedDataDir,

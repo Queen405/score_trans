@@ -26,7 +26,7 @@ jobs:
         run: uv sync --extra test --locked
 
       - name: Lint backend
-        run: uvx ruff check backend tests scripts
+        run: uvx ruff@0.15.22 check backend tests scripts
 
       - name: Test backend
         run: uv run pytest

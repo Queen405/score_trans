@@ -3,7 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from zipfile import ZipFile
 
-from score_trans.exec.recognize.actions import RecognizeActions
+from score_trans.exec.recognize.actions import (
+    RecognizeActions,
+    _generate_overlay_file_id,
+    _register_omr_file,
+)
 from score_trans.models.settings.config import ToolConfig
 from score_trans.models.tasks.entities import ProgressCallback
 
@@ -111,3 +115,21 @@ def test_recognize_reads_compressed_mxl_as_musicxml(tmp_path: Path) -> None:
 
     assert response.musicxml_filename == "score.mxl"
     assert '<score-partwise version="4.0"/>' in response.musicxml_text
+
+
+def test_recognize_auxiliary_failures_are_logged_and_degraded(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
+    class BrokenOverlayService:
+        def generate_overlay_svgs(self, _output_dir: Path) -> list[Path]:
+            raise RuntimeError("overlay failure")
+
+    def fail_rglob(_path: Path, _pattern: str):
+        raise OSError("directory failure")
+
+    monkeypatch.setattr(Path, "rglob", fail_rglob)
+
+    assert _generate_overlay_file_id(BrokenOverlayService(), _Uploads(), tmp_path) is None
+    assert _register_omr_file(_Uploads(), tmp_path) is None
+    assert "生成 Audiveris SVG 叠加层失败" in caplog.text
+    assert "查找 Audiveris OMR 文件失败" in caplog.text

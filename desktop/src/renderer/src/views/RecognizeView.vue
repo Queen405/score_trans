@@ -399,6 +399,19 @@ const reupload = useFileUpload()
 const batchRenderInFlight = new Map<string, Promise<void>>()
 const ownedTaskIds = new Set<string>()
 const resumingTaskIds = new Set<string>()
+const recognitionWaitControllers = new Set<AbortController>()
+const ownedLiveRecognitionPageIds = new Set<string>()
+let recognitionUnmounted = false
+
+function registerOwnedLiveRecognitionPage(pageId: string, historyPageId: number | null): void {
+  registerLiveRecognitionPage(pageId, historyPageId)
+  if (historyPageId) ownedLiveRecognitionPageIds.add(pageId)
+}
+
+function clearOwnedLiveRecognitionPage(pageId: string): void {
+  ownedLiveRecognitionPageIds.delete(pageId)
+  clearLiveRecognitionPage(pageId)
+}
 
 const instrumentOptions = computed(() => {
   const profiles = instrumentCatalogs.value.length
@@ -479,6 +492,14 @@ watch(
 )
 
 onUnmounted(revokePreviewUrls)
+
+onUnmounted(() => {
+  recognitionUnmounted = true
+  for (const controller of recognitionWaitControllers) controller.abort()
+  recognitionWaitControllers.clear()
+  for (const pageId of ownedLiveRecognitionPageIds) clearLiveRecognitionPage(pageId)
+  ownedLiveRecognitionPageIds.clear()
+})
 
 const batchOptions = computed(() =>
   store.batches.map((b, i) => ({
@@ -766,7 +787,7 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
       if (!historyPageId) {
         throw new Error(`页面 ${target.inputFileName} 缺少历史记录编号`)
       }
-      registerLiveRecognitionPage(target.pageId, historyPageId)
+      registerOwnedLiveRecognitionPage(target.pageId, historyPageId)
       patchRecognitionPage(target.pageId, {
         startMeasureNumber: target.startMeasureNumber,
         historyPageId,
@@ -789,7 +810,7 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
     }
   } catch (error: unknown) {
     for (const target of targets) {
-      clearLiveRecognitionPage(target.pageId)
+      clearOwnedLiveRecognitionPage(target.pageId)
     }
     const detail = errorMessage(error)
     log.addError(`更新识别历史状态失败：${detail}`)
@@ -917,12 +938,16 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
     updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id })
     await persistRecognitionTaskId(target.pageId, historyPageId, submitted.task_id)
 
-    const result = await waitForTaskResult<PipelineResponse>(submitted.task_id, target.pageId)
+    const result = await waitForTaskResult(submitted.task_id, target.pageId)
+    if (!isPipelineResponse(result)) {
+      throw new Error('后台任务返回了无法识别的 OMR 结果格式')
+    }
     const rawOptions = result.ocr_measure_numbers ?? []
     const applyDecision = makePipelineApplyDecision(target, result, historyPageId)
     submission.results.set(target.pageId, { success: true, rawOptions, applyDecision })
     await reconcileSubmissionState(submission)
   } catch (error: unknown) {
+    if (recognitionUnmounted) return
     await failTarget(target, historyPageId, error, '识别失败')
     submission.results.set(target.pageId, { success: false, rawOptions: [], applyDecision: async () => {} })
     await reconcileSubmissionState(submission)
@@ -1081,7 +1106,10 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
     updateLiveRecognitionPage(target.pageId, { taskId: submitted.task_id })
     await persistRecognitionTaskId(target.pageId, historyPageId, submitted.task_id)
 
-    const response = await waitForTaskResult<AiTranscribeResponse>(submitted.task_id, target.pageId)
+    const response = await waitForTaskResult(submitted.task_id, target.pageId)
+    if (!isAiTranscribeResponse(response)) {
+      throw new Error('后台任务返回了无法识别的 AI 结果格式')
+    }
     if (!response.pages.length) throw new Error('AI 未返回任何页面')
 
     const warnings = collectAiWarnings(response.pages, response.warnings)
@@ -1090,6 +1118,7 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
     submission.results.set(target.pageId, { success: true, rawOptions, applyDecision })
     await reconcileSubmissionState(submission)
   } catch (error: unknown) {
+    if (recognitionUnmounted) return
     await failTarget(target, historyPageId, error, 'AI 转写失败')
     submission.results.set(target.pageId, { success: false, rawOptions: [], applyDecision: async () => {} })
     await reconcileSubmissionState(submission)
@@ -1098,14 +1127,21 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
   }
 }
 
-async function waitForTaskResult<T>(taskId: string, pageId: string): Promise<T> {
-  const completed = await requireData(tasksApi.stream(taskId, (event) => {
-    updatePageProgress(pageId, event)
-  }))
+async function waitForTaskResult(taskId: string, pageId: string): Promise<unknown> {
+  const controller = new AbortController()
+  recognitionWaitControllers.add(controller)
+  let completed: SSEProgressEvent
+  try {
+    completed = await requireData(tasksApi.stream(taskId, (event) => {
+      updatePageProgress(pageId, event)
+    }, controller.signal))
+  } finally {
+    recognitionWaitControllers.delete(controller)
+  }
   if (!completed.result) {
     throw new Error('任务完成但没有返回结果')
   }
-  return completed.result as T
+  return completed.result
 }
 
 async function persistRecognitionTaskId(
@@ -1158,11 +1194,11 @@ async function resumeInterruptedRecognitionTask(page: TaskPage, taskId: string):
   const target = targetFromPage(page)
   const historyPageId = page.historyPageId
   if (historyPageId) {
-    registerLiveRecognitionPage(page.id, historyPageId)
+    registerOwnedLiveRecognitionPage(page.id, historyPageId)
     updateLiveRecognitionPage(page.id, { taskId })
   }
   try {
-    const result = await waitForTaskResult<unknown>(taskId, page.id)
+    const result = await waitForTaskResult(taskId, page.id)
     const decision = recoveredMeasureStartDecision(page, result)
     if (isPipelineResponse(result)) {
       await makePipelineApplyDecision(target, result, historyPageId)(decision)
@@ -1176,6 +1212,7 @@ async function resumeInterruptedRecognitionTask(page: TaskPage, taskId: string):
     }
     throw new Error('后台任务返回了无法识别的结果格式')
   } catch (error: unknown) {
+    if (recognitionUnmounted) return
     await failTarget(target, historyPageId, error, '恢复后台识别失败')
   }
 }
@@ -1313,7 +1350,7 @@ async function failTarget(
     error_message: msg,
   }, historyPageId)
   await clearBatchRenderPagesForPage(target.pageId)
-  clearLiveRecognitionPage(target.pageId)
+  clearOwnedLiveRecognitionPage(target.pageId)
   log.addError(`${prefix}：${target.inputFileName}：${msg}`)
   message.error(`${target.inputFileName}：${msg}`)
 }
@@ -1603,7 +1640,7 @@ function makePipelineApplyDecision(
         })
       }
       await syncBatchJianpuTextForPage(target.pageId)
-      clearLiveRecognitionPage(target.pageId)
+      clearOwnedLiveRecognitionPage(target.pageId)
       return
     }
     let split = initialSplit
@@ -1670,7 +1707,7 @@ function makePipelineApplyDecision(
     await persistPageResult(target, pageResult, historyPageId)
     await syncBatchJianpuTextForPage(target.pageId)
     void maybeRenderCompletedBatchForPage(target.pageId)
-    clearLiveRecognitionPage(target.pageId)
+    clearOwnedLiveRecognitionPage(target.pageId)
     log.addLog(`识别完成：${target.inputFileName}`)
     message.success(`识别完成：${target.inputFileName}`)
   }
@@ -1726,7 +1763,7 @@ function makeAiApplyDecision(
         })
       }
       await syncBatchJianpuTextForPage(target.pageId)
-      clearLiveRecognitionPage(target.pageId)
+      clearOwnedLiveRecognitionPage(target.pageId)
       return
     }
     let mergedJianpuText = response.merged_jianpu_text
@@ -1780,7 +1817,7 @@ function makeAiApplyDecision(
     await persistPageResult(target, pageResult, historyPageId)
     await syncBatchJianpuTextForPage(target.pageId)
     void maybeRenderCompletedBatchForPage(target.pageId)
-    clearLiveRecognitionPage(target.pageId)
+    clearOwnedLiveRecognitionPage(target.pageId)
     if (warnings.length) {
       log.addLog(`AI 转写完成：${target.inputFileName}`)
       message.warning(warnings.slice(0, 3).join('；'))

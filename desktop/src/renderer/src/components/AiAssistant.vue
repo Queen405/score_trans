@@ -187,9 +187,19 @@
               @keydown.enter.exact.prevent="send"
             />
             <n-button
+              v-if="assistant.sending"
+              size="small"
+              title="停止生成"
+              @click="stopSending"
+            >
+              <template #icon>
+                <n-icon><CloseOutline /></n-icon>
+              </template>
+            </n-button>
+            <n-button
+              v-else
               type="primary"
               size="small"
-              :loading="assistant.sending"
               :disabled="!draft.trim()"
               @click="send"
             >
@@ -412,6 +422,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  assistant.abortStream()
   if (animationTimer !== null) {
     clearTimeout(animationTimer)
     animationTimer = null
@@ -675,6 +686,10 @@ async function send(): Promise<void> {
     const msg = e instanceof Error ? e.message : String(e)
     notification.error(msg)
   }
+}
+
+function stopSending(): void {
+  assistant.abortStream()
 }
 
 async function deleteSession(sessionId: string): Promise<void> {

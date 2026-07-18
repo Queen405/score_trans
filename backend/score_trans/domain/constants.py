@@ -39,20 +39,6 @@ TOKEN_TO_MUSICXML_ACCIDENTAL = {
 }
 
 STEP_TO_SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
-SEMITONE_TO_STEP = {
-    0: ("C", 0),
-    1: ("C", 1),
-    2: ("D", 0),
-    3: ("D", 1),
-    4: ("E", 0),
-    5: ("F", 0),
-    6: ("F", 1),
-    7: ("G", 0),
-    8: ("G", 1),
-    9: ("A", 0),
-    10: ("A", 1),
-    11: ("B", 0),
-}
 MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11]
 FIFTHS_TO_KEY = {
     -7: "Cb",

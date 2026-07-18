@@ -272,8 +272,8 @@ async function selectOutputDir(): Promise<void> {
   if (result) settings.draft.outputDir = result
 }
 
-function desktopApi(): any {
-  return (globalThis as any).api
+function desktopApi() {
+  return window.api
 }
 </script>
 

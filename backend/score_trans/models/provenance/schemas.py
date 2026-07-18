@@ -82,9 +82,3 @@ class RenderedTextBlock(BaseModel):
     font_size: float | None = None
     anchor: TextPlacementAnchor
 
-
-class RenderAnchor(BaseModel):
-    source_id: str
-    page_index: int
-    bbox: BoundingBox | None = None
-    selector: str | None = None

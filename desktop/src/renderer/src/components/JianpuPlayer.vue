@@ -140,6 +140,7 @@ import {
   loadPlayerVolume,
   savePlayerVolume,
 } from '../utils/playerPreferences'
+import { buildPlayerLoadId } from '../utils/playerLoadId'
 
 const settings = useSettingsStore()
 
@@ -177,7 +178,7 @@ let currentLoadId = ''
 let loadGeneration = 0
 
 async function loadFromProps(): Promise<void> {
-  const loadId = `${props.midiFileId || ''}|${props.musicxmlFileId || ''}|${props.jianpuText?.slice(0, 50) || ''}`
+  const loadId = buildPlayerLoadId(props)
   if (loadId === currentLoadId) return
   currentLoadId = loadId
   const gen = ++loadGeneration

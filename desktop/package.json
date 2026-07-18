@@ -11,7 +11,7 @@
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint --config eslint.config.mjs src/",
     "typecheck": "vue-tsc --noEmit",
-    "test:utils": "node --test scripts/test-jianpu-page-sections.mjs scripts/test-main-file-security.mjs scripts/test-storage-migration.mjs scripts/test-svg-sanitizer.mjs scripts/test-text-anchor-tracking.mjs scripts/test-backend-lifecycle.mjs scripts/test-frontend-lifecycle.mjs scripts/test-latest-async-gate.mjs",
+    "test:utils": "node --test scripts/test-jianpu-page-sections.mjs scripts/test-main-file-security.mjs scripts/test-storage-migration.mjs scripts/test-svg-sanitizer.mjs scripts/test-text-anchor-tracking.mjs scripts/test-backend-lifecycle.mjs scripts/test-frontend-lifecycle.mjs scripts/test-latest-async-gate.mjs scripts/test-workspace-batch-cleanup.mjs scripts/test-task-stream-cancellation.mjs",
     "generate:api-types": "node scripts/export-openapi.mjs && openapi-typescript ../build/openapi.json -o src/renderer/src/models/openapi.ts --export-type --alphabetize --default-non-nullable false",
     "check:api-types": "node scripts/export-openapi.mjs && openapi-typescript ../build/openapi.json -o src/renderer/src/models/openapi.ts --export-type --alphabetize --default-non-nullable false --check"
   },
@@ -29,7 +29,7 @@
     "@electron-toolkit/utils": "^3.0.0",
     "@eslint/js": "^10.0.1",
     "@vitejs/plugin-vue": "^5.2.3",
-    "electron": "^33.3.1",
+    "electron": "^43.1.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",
     "eslint": "^10.4.1",

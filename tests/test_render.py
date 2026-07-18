@@ -12,10 +12,8 @@ from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure, T
 from score_trans.services.render import PublicationRenderService, RenderOptions
 from score_trans.services.render.engraving.fonts import font_registry
 from score_trans.services.render.main import (
-    render_jianpu_a4_svgs,
     render_jianpu_page_svg,
     render_jianpu_svg,
-    render_multi_part_scores_a4_pages,
     render_score_page_svg,
     render_score_svg,
     render_scores_a4_pages,
@@ -381,7 +379,7 @@ def test_multi_part_system_contains_all_parts_and_aligned_bars() -> None:
     high.part_index, high.part_count, high.part_name = 0, 2, "高声部"
     low.part_index, low.part_count, low.part_name = 1, 2, "低声部"
 
-    pages = render_multi_part_scores_a4_pages([high, low])
+    pages = render_scores_a4_pages([high, low])
 
     assert len(pages) == 1
     assert "高声部" in pages[0].svg
@@ -439,7 +437,9 @@ def test_bundled_font_manifest_is_stable() -> None:
 
 
 def test_a4_viewbox_is_stable() -> None:
-    svg = render_jianpu_a4_svgs("1=C\n4/4\n1 2 3 4 |")[0]
+    svg = render_scores_a4_pages(
+        [parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")]
+    )[0].svg
     root = _root(svg)
 
     assert root.attrib["width"] == "1240"

@@ -32,6 +32,18 @@
     >
       {{ progress }}%
     </n-progress>
+    <div
+      v-if="uploadErrors.length"
+      class="upload-errors"
+      role="alert"
+    >
+      <div
+        v-for="item in uploadErrors"
+        :key="item"
+      >
+        {{ item }}
+      </div>
+    </div>
   </div>
 </template>
 
@@ -50,9 +62,10 @@ defineProps<{
   disabled?: boolean
 }>()
 
-const { upload, uploading, progress, phase } = useFileUpload()
+const { upload, uploading, progress, phase, error } = useFileUpload()
 const log = useLogStore()
 const uploadRef = ref<InstanceType<typeof NUpload> | null>(null)
+const uploadErrors = ref<string[]>([])
 
 const uploadQueue: File[] = []
 let isProcessingQueue = false
@@ -63,6 +76,9 @@ const uploadStatusText = computed(() => {
 })
 
 async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
+  if (!isProcessingQueue && uploadQueue.length === 0) {
+    uploadErrors.value = []
+  }
   uploadQueue.push(file.file)
   if (isProcessingQueue) return
   await processUploadQueue()
@@ -84,6 +100,11 @@ async function processUploadQueue(): Promise<void> {
         } else {
           emit('uploaded', result.file_id, result.filename)
         }
+      } else {
+        const detail = error.value || '上传失败，请重试'
+        const message = `${currentFile.name}：${detail}`
+        uploadErrors.value = [...uploadErrors.value, message]
+        log.addError(`上传失败：${message}`)
       }
     }
     uploadRef.value?.clear()
@@ -161,6 +182,17 @@ async function processUploadQueue(): Promise<void> {
 
 .upload-progress {
   margin: 0;
+}
+
+.upload-errors {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--error-border, #dc2626);
+  background: var(--error-light, #fef2f2);
+  color: var(--error, #b91c1c);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 @media (max-width: 720px) {

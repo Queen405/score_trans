@@ -55,16 +55,18 @@ npx vue-tsc --noEmit
 ## Architecture Rules
 Import permissions (no reverse imports are permitted):
 
-- `api/` may import from `exec/` and `models/`.
-- `exec/` may import from `services/` and `models/`.
-- `services/` may import from `dao/`, `domain/`, and `models/`.
-- `dao/` and `domain/` may only import from `models/` and standard libraries.
+- `api/` may import from `config/`, `exec/`, and `models/`.
+- `exec/` may import from `config/`, `models/`, `services/`, and `utils/`.
+- `services/` may import from `config/`, `dao/`, `domain/`, `models/`, and `utils/`.
+- `dao/` and `domain/` may import from `models/` and `utils/`.
 - All layers (`api/`, `exec/`, `services/`, `dao/`, `domain/`) may import from `models/`. `models/` must not import from any other project module.
 
-Architecture tests in `tests/test_architecture.py` enforce these rules.
+Architecture tests in `tests/test_architecture.py` enforce these rules. Five existing
+`exec/` actions directly import `domain/`; they are an explicit test whitelist, not a
+pattern for new code.
 
 - **`models/`** contains cross-cutting DTOs, exceptions (`OCRError`, `ExternalToolError`), and protocol definitions usable by all layers. **`domain/`** contains business logic and domain-specific computations with zero I/O. Place shared data structures in `models/`; place business rules and calculations in `domain/`.
-- **`exec/`** owns request-level business flow. **Do not add new `HTTPException` imports here** — this is a known systemic violation (20 instances across 7 files). Existing HTTPException imports in `exec/` are technical debt — do NOT add new ones, and do NOT refactor existing ones unless explicitly asked. When modifying files with existing violations, leave them unchanged. Use standard exceptions (`ValueError`, `FileNotFoundError`, `OCRError`) in new or modified code and let `api/` routes convert them to HTTP responses.
+- **`exec/`** owns request-level business flow. **Do not add new `HTTPException` imports here**. Use standard exceptions (`ValueError`, `FileNotFoundError`, `OCRError`) in new or modified code and let `api/` routes convert them to HTTP responses.
 
 ## Key Conventions
 

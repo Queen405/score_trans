@@ -12,14 +12,12 @@ Score Trans 的所有配置都通过环境变量读取，不会硬编码在源�
 |------|------|---------------|
 | `SCORE_TRANS_JAVA_HOME` | JDK 25 安装目录。Audiveris 源码版要求 JDK 25。 | `E:\ENV\JAVA\JDK25` |
 | `SCORE_TRANS_AUDIVERIS` | Audiveris 启动脚本路径。项目已内置源码版。 | `third_party\audiveris\gradlew.bat` |
-| `SCORE_TRANS_MUSESCORE` | MuseScore 4 CLI 可执行文件路径，用于导出 PDF/PNG/MIDI。 | `C:\Program Files\MuseScore 4\bin\MuseScore4.exe` |
 
 ### 配置示例（PowerShell）
 
 ```powershell
 $env:SCORE_TRANS_JAVA_HOME="E:\ENV\JAVA\JDK25"
 $env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris\gradlew.bat"
-$env:SCORE_TRANS_MUSESCORE="C:\Program Files\MuseScore 4\bin\MuseScore4.exe"
 ```
 
 ---

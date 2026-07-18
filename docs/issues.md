@@ -4,9 +4,9 @@
 >
 > **当前权威复核：2026-07-18**。本轮以当前工作树（包括用户尚未提交的修改）为准，重新检查旧报告的 N1-N26、P3 清单、架构约束和新增改动。旧的 2026-07-14 结论不再作为当前状态依据。
 >
-> **本轮边界**：只读代码和运行检查；除本文件外未修改项目文件。
+> **本轮边界**：以当前工作树（包括用户尚未提交的修改）为基线，按阶段实施已验证的修复；不会撤销或覆盖用户既有改动。
 
-> **修复执行状态（2026-07-18）**：阶段 A/B 已完成并暂停。已修复 R1、R2、N3、N4、N5 和 R4 的 lint 错误；T1 已补异步协调器行为测试，但完整 Vue DOM 跨视图测试仍待后续。统一验收为后端 `426 passed, 1 skipped`、Ruff lint 通过、前端 typecheck/API 契约通过、工具测试 67 通过/1 跳过、lint 0 error/2 条既有 warning、Audiveris JDK 25 编译通过。阶段 C 尚未开始。
+> **修复执行状态（2026-07-19）**：阶段 A/B 与 C 已完成；本轮阶段 D 已修复 N1、N9、N20、N22、N23、N24、R5、R6，并固定 CI Ruff 版本。后端完整 pytest、固定版本 Ruff lint、前端 lint/typecheck/工具测试均通过；全仓 Ruff format、Windows 签名和 Vue DOM 跨视图测试仍待专门批次。
 
 ## 一、结论总览
 
@@ -45,7 +45,7 @@
 
 | 编号 | 当前结论 | 当前证据与影响 | 修复与验收要求 |
 |---|---|---|---|
-| N1 | **仍存在，范围收窄** | `pyproject.toml:10-23` 已正确声明 `fonttools`、`pyyaml` 和 test extra；但 `requirements.txt:1-8` 仍缺前两项，并把 pytest 当运行依赖。仅通过该文件安装的环境仍会缺运行依赖。 | 删除备用清单，或从 `pyproject.toml` 自动生成。验收：新环境分别用项目推荐安装方式和保留的兼容安装方式启动 API、加载 YAML、完成字体路径测试。 |
+| N1 | **已修复** | 兼容安装清单已与 `pyproject.toml` 的运行依赖对齐：补充 `fonttools`、`pyyaml`，并从运行清单移除仅测试需要的 pytest。 | 推荐路径仍是 `uv sync`；保留的 `requirements.txt` 不再导致 YAML 或字体运行依赖缺失。 |
 | N2 | **已修复** | `.github/workflows/ci.yml:1-66` 已恢复 Windows CI，覆盖锁定安装、Ruff lint、pytest、前端 lint/typecheck、工具测试、OpenAPI 漂移和 build。 | 不再按“无 CI”修复。残余门禁问题改列 R3。 |
 | N3 | **已修复** | `_fraction_to_type` 现返回 0–3 的附点数量，MusicXML 写出相同数量的 `<dot>`，双/三附点不再回退到错误 type。 | 新增公开转换测试覆盖 quarter/eighth 的双附点与 quarter 三附点；修复前失败、修复后通过。 |
 | N4 | **已修复** | tie 锚点优先读取 `tie_start/tie_stop`，仅为旧数据回退 slur role；Audiveris provenance 生产端根据 `SlurInter.isTie()` 写入 `ts/te` 或 `ss/se`。 | 新增同一音符同时含 tie+slur 的测试，两类锚点 source ID 独立。历史 MXL 若只有 `ss/se` 无法恢复原本丢失的语义，只能保持兼容回退。 |
@@ -53,7 +53,7 @@
 | N6 | **原报告不成立** | `services/ai/core/parsing.py:51` 的 `d+` 有意匹配简谱时值前缀 `d/dd/...`；`domain/jianpu_tokens.py:8-25` 定义该语法，`tests/test_jianpu.py:326-334` 已覆盖。改成 `\d+` 会引入回归。 | 关闭该问题，不修改正则。可补一条注释或命名测试防止再次误报。 |
 | N7 | **当前不成立** | `api/app.py:121-126` 的 stage 固定为 audiveris，但当前所有 `ExternalToolError` 抛出点都位于 `services/recognize/external_tools.py` 的 Audiveris/Java 运行链路，没有实际非 Audiveris 错标路径。 | 不作为现存 bug 修复。若以后复用该异常，再让异常携带 stage，并在 API 层透传。 |
 | N8 | **原报告不成立** | `api/history/routes.py:23-110` 使用同步 `def`，但 FastAPI 会在线程池执行同步 path operation；旧报告“直接阻塞事件循环”的因果错误。 | 不要机械改为 async。只有在测得线程池饱和或改为 async 后，才对具体阻塞 I/O 使用 `asyncio.to_thread()`。 |
-| N9 | **仍存在** | `exec/files/actions.py:50-73`、`exec/recognize/actions.py:139-157`、`exec/pipeline/actions.py:409-413,503-507` 仍有宽泛异常后返回 None，PDF 主功能或 OMR/overlay 辅助产物失败时缺诊断。 | 主功能失败返回明确错误；允许降级的辅助产物至少记录异常和任务诊断字段。验收：注入 PDF、OMR、overlay 失败，确认用户结果与日志能区分。 |
+| N9 | **已修复** | PDF 转页的依赖缺失与转换失败分别返回明确的 `RuntimeError` / 用户可见 `ValueError`；OMR/overlay 是允许降级的辅助产物，失败时保留 `None`，但以 `logger.exception` 记录完整诊断。 | 新增注入 PDF、OMR、overlay 失败测试，确认 PDF 不再泄漏底层错误，辅助路径同时保留降级结果和日志。 |
 | N25 | **仍存在** | `services/correct/musicxml_patch.py:28-43,65-97` 对每个删除 ID 重复全树搜索，再逐候选寻找祖先/父节点，最坏接近 O(k*n²)。 | 单次解析后建立 parent map 和 locator 索引。验收：结果等价测试 + 大型合成 MusicXML 基准，修复后随节点数近线性增长。 |
 | N26 | **仍存在** | `services/ai/providers/_http.py:46-49,83-84`、`services/ocr/providers/_http.py:38` 每次使用模块级同步请求 API，无法复用连接池/TLS。 | 由 composition/service 生命周期持有同步 `httpx.Client`，明确关闭时机。验收：多次请求复用连接，异常与流式关闭路径不泄漏；不要无理由改成 AsyncClient。 |
 
@@ -61,26 +61,26 @@
 
 | 编号 | 当前结论 | 当前证据与影响 | 修复与验收要求 |
 |---|---|---|---|
-| N10 | **仍存在** | `stores/assistant.ts:19,218-231` 定义了 `abortStream()`，但 store 返回对象未暴露；UI 无法主动停止聊天流。 | 暴露动作并在组件卸载、切换会话和停止按钮中调用。验收：流、reader 和 loading 状态均结束。 |
-| N11 | **仍存在** | `api/tasks.ts:21-34` 的 `tasksApi.stream()` 不接收外部 `AbortSignal`，只创建内部 controller；组件无法取消 SSE、轮询定时器和在途轮询。 | 接受外部 signal，并把取消传播到 fetch、reader、poller。验收：卸载后无网络请求、计时器和状态提交。 |
-| N12 | **部分修复** | 旧报告 6 处剩 4 处：`ConversionSettingsPanel.vue:275-276`、`StorageSettingsPanel.vue:157-158`、`stores/settings.ts:338`、`ConvertView.vue:1517`。preload 已声明类型化 `window.api`。 | 移除剩余 `globalThis as any`，使用 `window.api` 和显式 capability check。验收：typecheck 通过，并打开 `no-explicit-any` 后不新增豁免。 |
-| N13 | **仍存在** | `RecognizeView.vue:1101-1108` 的主任务路径直接返回 `completed.result as T`；结构守卫只用于恢复路径 `:1165-1171`。 | 按任务种类传入 decoder/type guard，校验后再返回。验收：错误结构进入可见错误状态，不进入渲染流程。 |
-| N14 | **仍存在** | `JianpuPlayer.vue:180-182` 只取简谱前 50 个字符构造 loadId；共享前缀、后半段不同的谱面会错误复用旧 MIDI。 | 使用完整内容的稳定哈希，或以版本号/内容引用作为缓存键。验收：只修改第 51 字符后仍重新生成 MIDI。 |
+| N10 | **已修复** | assistant store 已公开 `abortStream()`；发送中显示停止图标，组件卸载同样调用该动作。 | 新行为测试验证 store 暴露、停止按钮和卸载均连到同一取消动作。 |
+| N11 | **已修复** | `tasksApi.stream(taskId, onEvent?, signal?)` 接受外部 AbortSignal，取消会终止 SSE reader、在途轮询和 interval，返回已取消的 ApiResult，且不会回退轮询。 | 新测试注入挂起 reader 与 polling fetch，验证取消后 reader cancel 一次、轮询不新增、结果为取消错误。 |
+| N12 | **已修复** | 设置面板、settings store 和 ConvertView 均改用类型化 `window.api`，保留 desktop capability 检查但移除 `globalThis/window as any` API 逃逸。 | 新回归检查四个原问题文件不再出现这两种 API cast；typecheck 和目标测试通过。 |
+| N13 | **已修复** | `waitForTaskResult()` 现只返回 `unknown`；OMR 与 AI 主提交路径在读取字段前分别调用既有 `isPipelineResponse` / `isAiTranscribeResponse` 守卫，错误结构会进入现有失败处理。 | 新回归断言禁止恢复泛型强转，验证两条主路径均先 guard；专项测试和 typecheck 通过。 |
+| N14 | **已修复** | 播放加载键已提取为 `playerLoadId`，使用 MIDI file ID、MusicXML file ID 与完整 Jianpu 文本的稳定 JSON 元组，不再截断 50 字符。 | 新增回归测试：两份前 50 字符相同、后缀不同的简谱生成不同键；同一输入保持相同键。目标脚本 8 项通过，typecheck 通过。 |
 | N15 | **降级为待验证** | `usePlayer.ts:100` 只把第一个 tempo 读入 `originalBpm`，但音符调度使用 MIDI 库给出的秒时间 `:107-125`；现有证据不足以证明原始多 tempo 播放失效。 | 先增加含两个 tempo event 的行为测试，分别验证原速播放、用户 BPM 覆盖和进度。测试失败后再决定时间缩放模型。 |
-| N16 | **仍存在，描述已更新** | 当前结构是 `stores/workspace.ts:169-174` 的 Record，不是 Map。`removePage():674-709` 未删除最后一页所属批次的 OCR、dirty、Jianpu、pending 等记录；删除中间页后数字页索引也可能错位。 | 提供 batch 级统一销毁/重排函数。验收：删除首/中/末页和最后一页后，所有 per-batch/per-page Record 同步且无旧 OCR。 |
-| N17 | **待复现风险** | `utils/liveRecognitionState.ts:12-13` 仍是模块级 Map；多个终态会清理，但 `RecognizeView.vue:481` 卸载未统一取消任务或清理。与 N11 叠加时，永久挂起任务可能长期保留。 | 先做卸载、失败、取消、恢复四类生命周期测试；再把 ownership 收到 store/task lifecycle，避免组件自行散落清理。 |
-| N18 | **仍存在** | `FileUploader.vue:53,74-88` 未读取 hook 的 error；`useFileUpload.ts:24-27` 失败时返回 null，组件静默继续队列。 | 对每文件记录成功/失败并显示汇总；不要因一项失败丢失后续成功项。验收：网络错误、格式错误、部分成功三种场景。 |
-| N19 | **仍存在** | `ConvertView.vue:587-608` 依靠共享布尔值和 `nextTick` 区分程序更新与用户输入；同一刷新周期的真实编辑可能被误判，导致 dirty/锚点/重渲染遗漏。 | 使用单调 generation/token 或显式事务来源。验收：恢复历史、程序替换和紧邻用户输入交错时状态准确。 |
+| N16 | **已修复** | `removePage()` 现统一重排 SVG/OCR/dirty 的数字页索引，删除最后一页时清除该批次所有派生 Record，并在当前批次删空时切换或清空选择；同时修正 final-page 路径缺失 `musicxmlText` ref。 | 新增 3 项 store 行为测试覆盖中间页重排、末页无陈旧 key、最后一页完整清理；脚本已加入 `pnpm test:utils`。 |
+| N17 | **已修复** | RecognizeView 维护本组件拥有的等待 controller 与 live page ID；卸载时取消本地等待并清理 Map，不把仍在后端执行的任务持久化为失败，因此后续可恢复。 | 新测试覆盖 owned wait、卸载 cleanup 和 `liveRecognitionTaskPatch` 释放。真实 Vue DOM 卸载仍待后续组件/E2E 测试基础设施。 |
+| N18 | **已修复** | FileUploader 读取 hook 的 error；每个失败文件写入可见错误汇总和日志，队列继续处理后续文件；新的上传批次会清空旧汇总。 | 回归测试验证错误状态、可见汇总、日志和“不抛错中断队列”的契约；typecheck 与目标测试通过。 |
+| N19 | **已修复** | ConvertView 用单调 generation 与一次性“期望外部文本” token 标识 store 恢复，不再依赖 `nextTick` 共享布尔值；非该 token 的文本变化仍按用户编辑更新 anchors、dirty 和渲染缓存。 | 新回归检查禁止恢复 `programmaticUpdate`，并验证 token 设置/消费路径；typecheck 与目标测试通过。 |
 
 ### 构建、供应链与文档
 
 | 编号 | 当前结论 | 当前证据与影响 | 修复与验收要求 |
 |---|---|---|---|
-| N20 | **仍存在** | `build-app.py:174-257` 复制本机 Gradle 缓存、伪造状态文件并关闭 distribution URL/SHA 校验。风险是构建机缓存缺少显式完整性核验。 | 固定 Gradle 版本与 SHA-256；若必须离线缓存，先校验归档摘要再解包。验收：篡改缓存时构建必须失败。 |
+| N20 | **已修复** | `build-app.py` 保留 wrapper 的 Gradle 版本、`distributionSha256Sum` 与 URL 校验配置；复制本机缓存前对原始 ZIP 计算 SHA-256，缺少 ZIP 时不复用，摘要不匹配则中止构建。 | 新增 `tests/test_build_app.py` 覆盖可信归档复制和篡改归档拒绝；两项测试通过。 |
 | N21 | **仍存在** | `desktop/electron-builder.yml:14-19` 的 Windows 构建没有证书或签名配置；`pyinstaller.spec:107` 也未配置签名身份。 | 设计 Windows Authenticode 密钥托管与 CI 签名步骤。验收：安装器和主要 exe 均可验证签名，时间戳有效。 |
-| N22 | **仍存在** | `backend/score_trans/config/ai_prompt.yaml:206-213` 的失败/超拍示例仍以绿色成功符号开头、以失败符号结尾，语义冲突。 | 用中性标题明确“错误示例”，并加 prompt 快照/解析测试，避免只改装饰符号。 |
-| N23 | **仍存在，旧建议已过期** | `desktop/package.json:32` 仍使用 Electron `^33.3.1`，官方已将 33 标为 EOL。旧建议“升级到 36+”在当前日期也过时。 | 升到当前官方支持的主线，而不是固定 36；逐项验证 preload、IPC、child process、builder、NSIS、SVG 与文件导出。 |
-| N24 | **重新定义后仍存在** | README `:20,28,35,42,70`、`docs/development.md:44`、`docs/environment.md:15,22` 宣称 MuseScore 导出和环境变量；当前 backend、desktop/src、tests 中没有 MuseScore 实现。原问题不是“缺测试”，而是文档声称不存在的功能。 | 二选一：删除全部 MuseScore 声明，或先实现真实集成再写测试。当前产品行为下优先修正文档，避免用户配置无效变量。 |
+| N22 | **已修复** | `ai_prompt.yaml` 中所有超拍失败示例现以失败标记开头，不再同时出现互相矛盾的成功/失败标记。 | 配置仍由既有 YAML 加载路径验证；后续 prompt 语义效果应在模型评估集而不是单元测试中衡量。 |
+| N23 | **已修复（构建级验证）** | Electron 已从 `^33.3.1` 升级并锁定到 `43.1.1`，这是本轮官方当前稳定补丁线；锁文件同步更新。 | 已运行 typecheck、前端工具测试与 electron-vite production build。实际 Windows NSIS 安装、preload/IPC、后台进程、SVG 与导出的人机验收仍应在签名发布候选包上执行。 |
+| N24 | **已修复** | README、开发说明和环境变量参考已删除 MuseScore CLI、PDF/PNG 导出和 `SCORE_TRANS_MUSESCORE` 的不存在声明，改为项目实际输出能力。 | 文档不再引导用户配置无效路径；未来若实现 MuseScore 集成，必须同时补齐配置、实现和测试。 |
 
 ## 四、本轮新增问题
 
@@ -105,7 +105,7 @@
 ### R3. CI 质量门禁仍不完整且 Ruff 未锁版本（P2）
 
 - **位置**：`.github/workflows/ci.yml:28-29`
-- **证据**：CI 已恢复，但只运行 `uvx ruff check`，不运行 `ruff format --check`；Ruff 未在锁文件/命令中固定版本。当前本地 format check 已发现 17 个漂移文件。
+- **证据**：CI 的 lint 命令现固定为 `uvx ruff@0.15.22 check`。全仓 format check 仍会改动 23 个文件，其中包含当前用户改动文件，因此尚未启用会必然失败的 format gate。
 - **修复方案**：把 Ruff 固定为项目开发依赖或显式版本，CI 增加 format check；之后再分阶段增加覆盖率阈值、依赖审计和必要的 Python 版本矩阵。
 - **验收**：同一 commit 在本地与 CI 使用同一 Ruff 版本，lint/format 结果一致。
 
@@ -115,20 +115,17 @@
 - **问题**：未使用的 `TargetKey` 导入会使现有 CI 的 `ruff check` 失败；格式漂移暂时不会被 CI 发现。
 - **修复方案**：删除确认无用的导入，统一运行项目固定版本的 formatter；不要顺带做功能重构。
 - **验收**：`ruff check backend tests scripts` 与 `ruff format --check backend tests scripts` 均通过，后端全量测试保持通过。
-- **2026-07-18 进度**：已删除 `exec/settings/actions.py` 未使用的 `TargetKey` 导入，`uvx ruff check backend tests scripts` 通过。17 个文件的格式漂移未在本批次处理，R3 的固定 Ruff 与 format 门禁仍待后续阶段。
+- **2026-07-19 进度**：已固定 CI Ruff 版本并格式化本轮自有的构建脚本及测试；为保护用户既有修改，其余格式漂移和 `ruff format --check` CI 门禁留待专门的纯格式化提交。
 
 ### R5. 根 AGENTS 与当前代码/测试约束冲突（P2，协作风险）
 
 - **位置**：`AGENTS.md:55-67,87`、`tests/test_architecture.py:15-30,140-172`
-- **问题**：AGENTS 声称 exec 尚有 20 个 FastAPI 导入违规，但当前为 0；其层级导入规则也与架构测试允许的 config/utils 边界不同；`test_render.py` 规模描述也已过时。
-- **影响**：后续人工或自动代理会按错误约束修改代码、重复清理已解决问题，或误判合法/非法依赖。
-- **修复方案**：以架构测试为可执行事实源，统一文档；对 5 个已知 `exec→domain` 白名单逐步清零，不再维护互相矛盾的文字规则。
+- **已修复**：已移除不存在的 HTTPException 违规数量，并把 import 权限改为与架构测试一致的 `config`/`utils` 边界；五个历史 `exec→domain` 白名单被明确标为不可仿效。
 
-### R6. 环境变量示例不完整（P3）
+### R6. 环境变量示例不完整（P3，已修复）
 
 - **位置**：`backend/score_trans/config/settings.py` 与 `backend/score_trans/config/env.example:1-76`
-- **问题**：示例至少缺 `SCORE_TRANS_WORKDIR`、`SCORE_TRANS_JAVA_HOME`、`SCORE_TRANS_OUTPUT_DIR`、`SCORE_TRANS_AI_SYSTEM_MSG`。
-- **修复方案**：从设置读取点生成/校验示例清单，标明必填、可选、默认值和 Windows 路径格式。验收时比较代码读取集合与示例集合。
+- **修复**：示例已增加 `SCORE_TRANS_WORKDIR`、`SCORE_TRANS_JAVA_HOME`、`SCORE_TRANS_OUTPUT_DIR`、`SCORE_TRANS_AI_SYSTEM_MSG`，均保持空值默认语义；新增 settings 测试防止再次遗漏。
 
 ## 五、新增测试缺口
 

@@ -21,31 +21,45 @@ export const tasksApi = {
   stream(
     taskId: string,
     onEvent?: (event: SSEProgressEvent) => void,
+    signal?: AbortSignal,
   ): Promise<ApiResult<SSEProgressEvent>> {
-    return toApiResult(streamTask(taskId, onEvent))
+    return toApiResult(streamTask(taskId, onEvent, signal))
   },
 }
 
 function streamTask(
   taskId: string,
   onEvent?: (event: SSEProgressEvent) => void,
+  signal?: AbortSignal,
 ): Promise<SSEProgressEvent> {
   return new Promise((resolve, reject) => {
     const controller = new AbortController()
     let settled = false
     let polling = false
     let consecutivePollFailures = 0
-    const pollTimer = window.setInterval(() => {
-      void pollTask()
-    }, TASK_POLL_INTERVAL_MS)
+    let pollTimer: ReturnType<typeof setInterval> | null = null
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
 
     function finish(callback: () => void): void {
       if (settled) return
       settled = true
-      window.clearInterval(pollTimer)
+      if (pollTimer !== null) clearInterval(pollTimer)
+      signal?.removeEventListener('abort', cancel)
       controller.abort()
       callback()
     }
+
+    function cancel(): void {
+      if (settled) return
+      void reader?.cancel()
+      finish(() => reject(new ApiError('任务进度流已取消')))
+    }
+
+    if (signal?.aborted) {
+      cancel()
+      return
+    }
+    signal?.addEventListener('abort', cancel, { once: true })
 
     function handleEvent(event: SSEProgressEvent): void {
       const disposition = dispatchTaskProgress(event, (progressEvent) => {
@@ -66,7 +80,9 @@ function streamTask(
       if (settled || polling) return
       polling = true
       try {
-        const event = await requireData(apiFetch<SSEProgressEvent>(`/tasks/${taskId}`))
+        const event = await requireData(apiFetch<SSEProgressEvent>(`/tasks/${taskId}`, {
+          signal: controller.signal,
+        }))
         consecutivePollFailures = 0
         handleEvent(event)
       } catch (error) {
@@ -97,7 +113,11 @@ function streamTask(
           throw new ApiError('浏览器不支持流式响应')
         }
 
-        const reader = response.body.getReader()
+        reader = response.body.getReader()
+        if (settled) {
+          await reader.cancel()
+          return
+        }
         const decoder = new TextDecoder()
         let buffer = ''
         while (!settled) {
@@ -123,6 +143,9 @@ function streamTask(
       }
     }
 
+    pollTimer = setInterval(() => {
+      void pollTask()
+    }, TASK_POLL_INTERVAL_MS)
     void consumeStream()
     void pollTask()
   })

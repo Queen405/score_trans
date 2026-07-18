@@ -1,5 +1,5 @@
 from __future__ import annotations
 
-from .client import build_request, ocr_prompt_for_model, send_request
+from .client import ocr_prompt_for_model
 
-__all__ = ["build_request", "send_request", "ocr_prompt_for_model"]
+__all__ = ["ocr_prompt_for_model"]
