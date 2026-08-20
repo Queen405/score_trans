@@ -187,3 +187,87 @@ def test_correction_request_preserves_text_attachments_and_title() -> None:
         )
         == "月亮之上"
     )
+
+
+def test_clef_key_time_locator_matches_injected_ids() -> None:
+    """方案 A：Audiveris 注入的 id 能被 _matching_elements 子串匹配命中"""
+    xml = """<score-partwise><part id="P1">
+      <measure number="1"><attributes>
+        <clef id="c-s1-i236"><sign>F</sign><line>4</line></clef>
+        <key id="k-s1-i105"><fifths>2</fifths></key>
+        <time id="t-s1-i87"><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes>
+      <note id="st__n-s1-i50"><pitch><step>G</step><octave>2</octave></pitch><duration>1</duration></note>
+      </measure>
+    </part></score-partwise>"""
+    entities = {
+        "clef": _entity("clef", "clef", "c-s1-i236"),
+        "key": _entity("key", "key", "k-s1-i105"),
+        "time": _entity("time", "time-whole", "t-s1-i87"),
+    }
+
+    corrected = ET.fromstring(apply_deletions(xml, ["clef", "key", "time"], entities))
+
+    assert not list(corrected.iter("clef"))
+    assert not list(corrected.iter("key"))
+    assert not list(corrected.iter("time"))
+    note = next(corrected.iter("note"))
+    assert note.find("pitch/step").text == "E"
+    assert note.find("pitch/octave").text == "4"
+
+
+def test_extract_entities_includes_structural_when_in_source_map(tmp_path: Path) -> None:
+    """方案 A：source-link-map 含结构标记时，extract_entities 能合并返回"""
+    omr = tmp_path / "score.omr"
+    sheet_xml = """<sheet><picture width="1000" height="1400"/><inters>
+      <clef id="236" shape="F_CLEF"><bounds x="10" y="20" w="30" h="40"/></clef>
+      <key id="105" shape="KEY_SHARP_2"><bounds x="50" y="20" w="20" h="40"/></key>
+      <time-whole id="87" shape="TIME_FOUR_FOUR"><bounds x="80" y="20" w="25" h="40"/></time-whole>
+    </inters></sheet>"""
+    with ZipFile(omr, "w") as archive:
+        archive.writestr("book/sheet#1/sheet#1.xml", sheet_xml)
+    source_map = SourceMap(
+        sheets=[
+            SourceMapSheet(
+                sheet_index=1,
+                width=1000,
+                height=1400,
+                overlay_file="overlay.png",
+                elements=[
+                    SourceElement(
+                        source_id="s1:i236",
+                        inter_id=236,
+                        shape="F_CLEF",
+                        grade=0.9,
+                        bounds=BoundingBox(x=10, y=20, width=30, height=40),
+                        hit_path="M10 20h30v40z",
+                        musicxml_locator=MusicXmlLocator(contains="c-s1-i236"),
+                    ),
+                    SourceElement(
+                        source_id="s1:i105",
+                        inter_id=105,
+                        shape="KEY_SHARP_2",
+                        grade=0.9,
+                        bounds=BoundingBox(x=50, y=20, width=20, height=40),
+                        hit_path="M50 20h20v40z",
+                        musicxml_locator=MusicXmlLocator(contains="k-s1-i105"),
+                    ),
+                    SourceElement(
+                        source_id="s1:i87",
+                        inter_id=87,
+                        shape="TIME_FOUR_FOUR",
+                        grade=0.9,
+                        bounds=BoundingBox(x=80, y=20, width=25, height=40),
+                        hit_path="M80 20h25v40z",
+                        musicxml_locator=MusicXmlLocator(contains="t-s1-i87"),
+                    ),
+                ],
+            )
+        ]
+    )
+
+    sheets = extract_entities(omr, source_map)
+
+    assert len(sheets) == 1
+    tags = sorted(entity.tag for entity in sheets[0].entities)
+    assert tags == ["clef", "key", "time-whole"]

@@ -7,14 +7,17 @@ import org.audiveris.omr.sheet.SystemInfo;
 import org.audiveris.omr.sheet.ui.SheetGradedPainter;
 import org.audiveris.omr.sig.inter.AbstractNoteInter;
 import org.audiveris.omr.sig.inter.AbstractPauseInter;
+import org.audiveris.omr.sig.inter.AbstractTimeInter;
 import org.audiveris.omr.sig.inter.AlterInter;
 import org.audiveris.omr.sig.inter.ArpeggiatoInter;
 import org.audiveris.omr.sig.inter.ArticulationInter;
 import org.audiveris.omr.sig.inter.BowInter;
+import org.audiveris.omr.sig.inter.ClefInter;
 import org.audiveris.omr.sig.inter.DynamicsInter;
 import org.audiveris.omr.sig.inter.FermataInter;
 import org.audiveris.omr.sig.inter.FingeringInter;
 import org.audiveris.omr.sig.inter.Inter;
+import org.audiveris.omr.sig.inter.KeyInter;
 import org.audiveris.omr.sig.inter.OrnamentInter;
 import org.audiveris.omr.sig.inter.PluckingInter;
 import org.audiveris.omr.sig.inter.SlurInter;
@@ -136,8 +139,15 @@ public final class ScoreTransOverlayExporter
         final Set<String> exportedSourceIds = new HashSet<>();
         for (SystemInfo system : sheet.getSystems()) {
             for (Inter inter : system.getSig().vertexSet()) {
-                if (!inter.isRemoved() && inter instanceof AbstractNoteInter note) {
+                if (inter.isRemoved()) {
+                    continue;
+                }
+                if (inter instanceof AbstractNoteInter note) {
                     exportedSourceIds.addAll(ScoreTransProvenance.sourceIds(note));
+                } else if (inter instanceof ClefInter
+                        || inter instanceof KeyInter
+                        || inter instanceof AbstractTimeInter) {
+                    exportedSourceIds.add(ScoreTransProvenance.sourceId(inter));
                 }
             }
         }
@@ -212,7 +222,10 @@ public final class ScoreTransOverlayExporter
                 || inter instanceof FingeringInter
                 || inter instanceof PluckingInter
                 || inter instanceof BowInter
-                || inter instanceof ArpeggiatoInter;
+                || inter instanceof ArpeggiatoInter
+                || inter instanceof ClefInter
+                || inter instanceof KeyInter
+                || inter instanceof AbstractTimeInter;
     }
 
     private static String xmlRole (Inter inter)
@@ -229,6 +242,9 @@ public final class ScoreTransOverlayExporter
         if (inter instanceof BowInter) return "bo";
         if (inter instanceof ArpeggiatoInter) return "ap";
         if (inter instanceof FermataInter) return "fe";
+        if (inter instanceof ClefInter) return "c";
+        if (inter instanceof KeyInter) return "k";
+        if (inter instanceof AbstractTimeInter) return "t";
         return "pa";
     }
 

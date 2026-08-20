@@ -399,6 +399,7 @@ public class PartwiseBuilder
     private Clef buildClef (ClefInter clef)
     {
         Clef pmClef = factory.createClef();
+        pmClef.setId("c-" + ScoreTransProvenance.sourceId(clef).replace(':', '-'));
 
         // Staff number (only for multi-staff parts)
         if (current.logicalPart.isMultiStaff()) {
@@ -1739,6 +1740,7 @@ public class PartwiseBuilder
             }
 
             final Key key = factory.createKey();
+            key.setId("k-" + ScoreTransProvenance.sourceId(keySignature).replace(':', '-'));
             key.setFifths(new BigInteger("" + keySignature.getFifths()));
 
             if (global) {
@@ -3252,7 +3254,11 @@ public class PartwiseBuilder
     private void processTime (AbstractTimeInter timeSig)
     {
         logger.debug("Visiting {}", timeSig);
-        processTime(timeSig.getNumerator(), timeSig.getDenominator(), timeSig.getShape());
+        processTime(
+                timeSig.getNumerator(),
+                timeSig.getDenominator(),
+                timeSig.getShape(),
+                "t-" + ScoreTransProvenance.sourceId(timeSig).replace(':', '-'));
     }
 
     //-------------//
@@ -3262,7 +3268,21 @@ public class PartwiseBuilder
                               int den,
                               Shape shape)
     {
+        processTime(num, den, shape, null);
+    }
+
+    //-------------//
+    // processTime //
+    //-------------//
+    private void processTime (int num,
+                              int den,
+                              Shape shape,
+                              String id)
+    {
         final Time time = factory.createTime();
+        if (id != null) {
+            time.setId(id);
+        }
 
         // Beats
         time.getTimeSignature().add(factory.createTimeBeats("" + num));

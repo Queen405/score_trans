@@ -168,7 +168,7 @@ class InterData:
 |---|---|---|
 | XML 库 | 项目使用 `xml.etree.ElementTree`，无 lxml | 需手动遍历查找元素（无 `contains()` XPath），手动维护父节点引用 |
 | Provenance 编码 | note `id` = `st__n-s0-i42__a-s0-i43__...` | 可通过正则 `r"(?:^\_\_)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-i(?P<inter>\d+)"` 解析 |
-| 谱号排除 | `score-link-map.json` 不含谱号/拍号/调号 | 结构标记需直接从 MusicXML `<attributes>` 定位 |
+| 谱号定位 | `score-link-map.json` 已包含谱号/拍号/调号（方案 A 已落地） | 后端通过 `musicxml_locator` 精确匹配 `<clef id="c-sX-iY">` / `<key id="k-sX-iY">` / `<time id="t-sX-iY">` |
 | 连音定位器不匹配 | 侧边栏用 `s-s0-i50`，note id 用 `ss-s0-i50` | 连音删除暂不支持（MVP 范围外） |
 | 和弦结构 | chord 第一个 `<note>` 持有 `<duration>`/`<type>` | 删除 chord 首音符时需迁移时值到休止符 |
 | 多声部 `<backup>` | 删除音符可能影响声部光标 | 单声部优先，多声部场景尽力处理 |
@@ -869,12 +869,9 @@ def _delete_clef_with_pitch_transform(root, ns, source_id):
     # ...
 ```
 
-谱号定位策略（因谱号不在 score-link-map 中）：
+谱号定位策略（方案 A 已落地，以下为历史背景）：
 
-1. 解析 .omr 中谱号的 `bounds`（像素坐标）
-2. 在 MusicXML 中遍历所有 `<clef>` 元素
-3. 通过小节序号 ↔ 水平位置的近似匹配来确定哪个 `<clef>` 对应被删除的标记
-4. 或：对初始谱号（第一个 `<attributes>` 中的 `<clef>`），直接按出现顺序匹配
+Audiveris 端已在 `PartwiseBuilder.buildClef/processKey/processTime` 为 `<clef>`/`<key>`/`<time>` 注入 `id="c|k|t-sX-iY"`，并在 `ScoreTransOverlayExporter.isClickableSemantic` 中导出对应 inter，因此 `score-link-map.json` 现已包含结构标记，后端通过 `musicxml_locator` 精确匹配，不再需要 .omr bounds 近似匹配。
 
 ### 6.7 8va/8vb 谱号变体
 
