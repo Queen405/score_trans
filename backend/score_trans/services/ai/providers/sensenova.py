@@ -13,12 +13,12 @@ from ._chat import OpenAICompatibleChatProvider
 from ._vision import OpenAICompatibleVisionTranscriber
 
 _VISION_BASE_URL = "https://token.sensenova.cn/v1"
-_VISION_DEFAULT_MODEL = "sensenova-6.7-flash-lite"
+_VISION_DEFAULT_MODEL = "sensenova-6.8-flash-lite"
 _VISION_TIMEOUT = 180.0
 
 
 class SenseNovaVisionProvider(OpenAICompatibleVisionTranscriber):
-    """商汤 SenseNova 6.7 Flash-Lite — 原生多模态，支持图像理解与 OCR。"""
+    """商汤 SenseNova 6.8 Flash-Lite — 原生多模态，支持图像理解与 OCR。"""
 
     extra_body: dict[str, Any] = {"reasoning_effort": "none"}
 
