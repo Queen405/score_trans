@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { migrateLegacyDataDirectory } from '../src/main/storageMigration.mts'
+import { migrateLegacyDataDirectory } from '../src/main/storageMigration.ts'
 
 test('legacy user data migration is idempotent and preserves conflicts', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'score-trans-storage-'))

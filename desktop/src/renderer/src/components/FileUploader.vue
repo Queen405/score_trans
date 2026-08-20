@@ -53,6 +53,7 @@ import { CloudUploadOutline } from '@vicons/ionicons5'
 import { useFileUpload } from '../composables/useFileUpload'
 import { useLogStore } from '../stores/log'
 import { NUpload, NUploadDragger, NIcon, NProgress } from 'naive-ui'
+import type { UploadCustomRequestOptions } from 'naive-ui'
 
 const emit = defineEmits<{
   uploaded: [fileId: string, fileName: string]
@@ -75,11 +76,13 @@ const uploadStatusText = computed(() => {
   return phase.value === 'processing' ? '正在解析...' : '正在上传...'
 })
 
-async function handleUpload({ file }: { file: { file: File } }): Promise<void> {
+async function handleUpload({ file }: UploadCustomRequestOptions): Promise<void> {
+  const rawFile = file.file
+  if (!rawFile) return
   if (!isProcessingQueue && uploadQueue.length === 0) {
     uploadErrors.value = []
   }
-  uploadQueue.push(file.file)
+  uploadQueue.push(rawFile)
   if (isProcessingQueue) return
   await processUploadQueue()
 }

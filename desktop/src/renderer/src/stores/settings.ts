@@ -250,7 +250,7 @@ export const useSettingsStore = defineStore('settings', () => {
         settingsApi.update({
           audiveris_path: next.audiverisPath,
           java_home: next.javaHome,
-          audiveris_max_heap: next.audiverisMaxHeap,
+          audiveris_max_heap: next.audiverisMaxHeap as '1g' | '2g' | '3g' | '4g',
           audiveris_max_pixel_count: next.audiverisMaxPixelCount,
           audiveris_auto_upscale: next.audiverisAutoUpscale,
           audiveris_min_image_edge: next.audiverisMinImageEdge,

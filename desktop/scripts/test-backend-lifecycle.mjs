@@ -12,7 +12,7 @@ const preloadSource = fs.readFileSync(
   'utf8',
 )
 const preloadTypesSource = fs.readFileSync(
-  path.resolve(here, '../src/preload/index.d.ts'),
+  path.resolve(here, '../src/preload/api.d.ts'),
   'utf8',
 )
 const backendSource = fs.readFileSync(

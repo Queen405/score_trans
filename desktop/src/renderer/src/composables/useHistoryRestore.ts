@@ -41,15 +41,16 @@ export function useHistoryRestore() {
 
     const pages = batch.pages
     if (!pages.length) return false
+    const renderPageFileIds = batch.render_page_file_ids ?? []
     store.loadBatch(
       pages.map((page) => buildTaskPageInput(page, batch.id)),
       0,
-      batch.render_page_file_ids,
+      renderPageFileIds,
       batch.jianpu_text || '',
       batch.render_page_ocr_texts || [],
     )
-    await validateRestoredBatchFiles(pages, batch.render_page_file_ids)
-    if (!batch.render_page_file_ids.length || batch.engine_version !== 'publication-2') {
+    await validateRestoredBatchFiles(pages, renderPageFileIds)
+    if (!renderPageFileIds.length || batch.engine_version !== 'publication-2') {
       await rebuildPublicationPages(batch)
     }
     message.success(`已恢复 ${pages.length} 页`)

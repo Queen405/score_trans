@@ -216,6 +216,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { CSSProperties } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useAssistantStore } from '../stores/assistant'
 import { useWorkspaceStore } from '../stores/workspace'
@@ -258,7 +259,7 @@ const fabStyle = computed(() => ({
   left: `${fabLeft.value}px`,
   top: `${fabTop.value}px`,
 }))
-const panelStyle = computed(() => ({
+const panelStyle = computed((): CSSProperties => ({
   left: `${panelLeft.value}px`,
   top: `${panelTop.value}px`,
   right: 'auto',

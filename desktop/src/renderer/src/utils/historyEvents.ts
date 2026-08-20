@@ -1,17 +1,30 @@
+import type { HistoryPage } from '../models/types'
+
 export const HISTORY_UPDATED_EVENT = 'score-trans:history-updated'
 export const HISTORY_PAGE_PATCHED_EVENT = 'score-trans:history-page-patched'
 
 export interface HistoryPagePatchDetail {
   id: number
-  patch: {
-    task_id?: string
-    musicxml_file_id?: string
-    jianpu_text?: string
-    ocr_text?: string
-    svg_file_id?: string
-    status?: string
-    error_message?: string
-  }
+  patch: Partial<
+    Pick<
+      HistoryPage,
+      | 'task_id'
+      | 'musicxml_file_id'
+      | 'jianpu_text'
+      | 'ocr_text'
+      | 'svg_file_id'
+      | 'source_map_file_id'
+      | 'text_hash'
+      | 'text_anchors'
+      | 'text_attachments'
+      | 'omr_file_id'
+      | 'original_musicxml'
+      | 'working_musicxml'
+      | 'deleted_source_ids'
+      | 'status'
+      | 'error_message'
+    >
+  >
 }
 
 export function notifyHistoryUpdated(): void {

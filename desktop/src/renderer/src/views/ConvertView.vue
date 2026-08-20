@@ -897,7 +897,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   try {
     const batch = await fetchStableHistoryBatch(batchId)
     if (!batch) return
-    renderPageFileIds = batch.render_page_file_ids
+    renderPageFileIds = batch.render_page_file_ids ?? []
     batchEngineVersion = batch.engine_version || ''
     batchJianpuText = batch.jianpu_text || ''
     renderPageOcrTexts = batch.render_page_ocr_texts || []
@@ -993,7 +993,7 @@ async function validateRestoredBatchFiles(
       entry.omr_file_id,
     ])
     .concat(renderPageFileIds)
-    .filter(Boolean)
+    .filter((id): id is string => Boolean(id))
   if (!fileIds.length) return
 
   try {
@@ -1495,7 +1495,7 @@ async function persistBatchRenderPages(
     const updated = await requireData(historyApi.updateBatchRenderPages(batchId, {
       render_page_file_ids: ids,
     }))
-    store.setBatchRenderPageFileIds(updated.render_page_file_ids)
+    store.setBatchRenderPageFileIds(updated.render_page_file_ids ?? [])
   } catch (e: unknown) {
     log.addLog(`保存连续 A4 渲染页失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
   }

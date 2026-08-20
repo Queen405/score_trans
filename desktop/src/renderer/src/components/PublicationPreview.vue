@@ -92,6 +92,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
+import type { CSSProperties } from 'vue'
 import { fetchFileBlob } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
@@ -159,7 +160,7 @@ function selectBlock(id: string): void {
   selectedId.value = id
 }
 
-function ocrBlockStyle(block: OcrTextBlock) {
+function ocrBlockStyle(block: OcrTextBlock): CSSProperties {
   const bbox = block.bbox ?? [12, 12, 120, 36]
   const [x1, y1, x2, y2] = scaleBBoxToImage(bbox)
   const fontSize = block.fontSize ?? Math.max(10, (y2 - y1) * 0.78)

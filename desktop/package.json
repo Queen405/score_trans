@@ -10,7 +10,7 @@
     "preview": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint --config eslint.config.mjs src/",
-    "typecheck": "vue-tsc --noEmit",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.web.json && vue-tsc --noEmit -p tsconfig.node.json",
     "test:utils": "node --test scripts/test-jianpu-page-sections.mjs scripts/test-main-file-security.mjs scripts/test-storage-migration.mjs scripts/test-svg-sanitizer.mjs scripts/test-text-anchor-tracking.mjs scripts/test-backend-lifecycle.mjs scripts/test-frontend-lifecycle.mjs scripts/test-latest-async-gate.mjs scripts/test-workspace-batch-cleanup.mjs scripts/test-task-stream-cancellation.mjs",
     "generate:api-types": "node scripts/export-openapi.mjs && openapi-typescript ../build/openapi.json -o src/renderer/src/models/openapi.ts --export-type --alphabetize --default-non-nullable false",
     "check:api-types": "node scripts/export-openapi.mjs && openapi-typescript ../build/openapi.json -o src/renderer/src/models/openapi.ts --export-type --alphabetize --default-non-nullable false --check"

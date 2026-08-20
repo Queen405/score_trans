@@ -812,8 +812,6 @@ export type components = {
              * @default null
              */
             key?: string | null;
-            /** Measure Number Candidates */
-            measure_number_candidates?: number[];
             /**
              * Meter
              * @default null
@@ -943,8 +941,6 @@ export type components = {
             jianpu_text?: string;
             /** Page Id */
             page_id: number;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
         };
         /** BatchPageOrderRequest */
         BatchPageOrderRequest: {
@@ -979,8 +975,6 @@ export type components = {
             page_image_file_id?: string | null;
             /** Source Map File Id */
             source_map_file_id?: string | null;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Text Anchors
              * @default []
@@ -1123,8 +1117,6 @@ export type components = {
              * @default true
              */
             show_measure_numbers?: boolean;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default C
@@ -1189,8 +1181,6 @@ export type components = {
              * @default true
              */
             show_measure_numbers?: boolean;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default C
@@ -1281,8 +1271,6 @@ export type components = {
             midi_tempo?: number | "auto";
             /** Musicxml File Id */
             musicxml_file_id: string;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default auto
@@ -1317,8 +1305,6 @@ export type components = {
             filename?: string | null;
             /** Musicxml File Id */
             musicxml_file_id: string;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default C
@@ -1415,8 +1401,6 @@ export type components = {
             page_image_file_id?: string | null;
             /** Show Measure Numbers */
             show_measure_numbers?: boolean | null;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default C
@@ -1508,8 +1492,6 @@ export type components = {
             musicxml_file_id: string;
             /** Page Image File Id */
             page_image_file_id?: string | null;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default C
@@ -1615,8 +1597,6 @@ export type components = {
              * @default
              */
             source_map_file_id?: string;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Status
              * @default completed
@@ -1707,8 +1687,6 @@ export type components = {
              * @default
              */
             source_map_file_id?: string;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /** Status */
             status: string;
             /** Svg File Id */
@@ -1756,8 +1734,6 @@ export type components = {
             overlay_svg_file_id?: string | null;
             /** Source Map File Id */
             source_map_file_id?: string | null;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /** Status */
             status?: string | null;
             /** Svg File Id */
@@ -1817,8 +1793,6 @@ export type components = {
             measure_number_mode?: "all" | "row_start" | "none";
             /** Show Measure Numbers */
             show_measure_numbers?: boolean | null;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default C
@@ -1840,11 +1814,6 @@ export type components = {
              * @default
              */
             musicxml_text?: string;
-            /**
-             * Ocr Measure Numbers
-             * @default []
-             */
-            ocr_measure_numbers?: number[];
             /**
              * Ocr Text
              * @default
@@ -1915,8 +1884,6 @@ export type components = {
             page_image_file_id: string;
             /** Show Measure Numbers */
             show_measure_numbers?: boolean | null;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default C
@@ -2062,8 +2029,6 @@ export type components = {
             page_image_file_id?: string | null;
             /** Show Measure Numbers */
             show_measure_numbers?: boolean | null;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Target Key
              * @default C
@@ -2105,8 +2070,6 @@ export type components = {
             page_image_file_id?: string | null;
             /** Show Measure Numbers */
             show_measure_numbers?: boolean | null;
-            /** Start Measure Number */
-            start_measure_number?: number | null;
             /**
              * Text Anchors
              * @default []
@@ -2217,11 +2180,6 @@ export type components = {
              * @default 0
              */
             cache_size_bytes?: number;
-            /**
-             * Confirm Start Measure Number
-             * @default true
-             */
-            confirm_start_measure_number?: boolean;
             /** Data Dir */
             data_dir: string;
             /** Java Home */
@@ -2303,8 +2261,6 @@ export type components = {
             audiveris_min_image_edge?: number | null;
             /** Audiveris Path */
             audiveris_path?: string | null;
-            /** Confirm Start Measure Number */
-            confirm_start_measure_number?: boolean | null;
             /** Java Home */
             java_home?: string | null;
             /** Jianpu Syntax Highlight */
