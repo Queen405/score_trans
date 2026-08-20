@@ -1,13 +1,6 @@
 import type { HistoryPage } from '../models/types'
 import type { HistoryPagePatchDetail } from './historyEvents'
 
-export type HistoryPageOpenAction = 'restore' | 'wait'
-
-export function historyPageOpenAction(status: string): HistoryPageOpenAction {
-  if (status === 'processing' || status === 'pending') return 'wait'
-  return 'restore'
-}
-
 export function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDetail {
   return {
     id: page.id,

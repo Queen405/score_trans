@@ -239,7 +239,6 @@ import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
 import { pipelineApi } from '../api/pipeline'
 import { usePublicationRender } from '../composables/usePublicationRender'
-import { convertApi } from '../api/convert'
 import { aiApi } from '../api/ai'
 import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
@@ -270,10 +269,7 @@ import {
   recognitionBatchPagesForPage,
 } from '../utils/recognitionHistory'
 import { notifyHistoryPagePatched, notifyHistoryUpdated } from '../utils/historyEvents'
-import {
-  failedMeasureSelectionMessage,
-  historyPagePatchFromPage,
-} from '../utils/historyPageState'
+import { historyPagePatchFromPage } from '../utils/historyPageState'
 import {
   clearLiveRecognitionPage,
   getLiveRecognitionHistoryPageId,
@@ -845,139 +841,6 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
   }
 }
 
-async function applyMeasureSelection(pageId: string, selected: number): Promise<void> {
-  const page = store.pages.find((entry) => entry.id === pageId)
-  if (!page) return
-
-  store.patchPageById(pageId, {
-    status: 'processing',
-    startMeasureNumber: selected,
-    progressPercent: 92,
-    progressMessage: '应用起始小节号',
-    errorMessage: '',
-  })
-  if (page.historyPageId) {
-    notifyHistoryPagePatched({
-      id: page.historyPageId,
-      patch: {
-        start_measure_number: selected,
-        status: 'processing',
-        error_message: '正在重新渲染',
-      },
-    })
-  }
-
-  let svgFileId = page.svgFileId
-  let svgFileIds = page.svgFileIds.length ? page.svgFileIds : (page.svgFileId ? [page.svgFileId] : [])
-  let jianpuText = page.jianpuText
-  let ocrText = page.ocrText
-  const pageInstrumentProfile = instrumentProfileFromText(page.jianpuText)
-    ?? instrumentProfile.value
-  try {
-    if (page.musicxmlFileId && selected !== page.measureNumberOptions[0]) {
-      const converted = await requireData(convertApi.musicxmlToJianpu({
-        musicxml_file_id: page.musicxmlFileId,
-        page_image_file_id: page.originalFileId || page.inputFileId || undefined,
-        target_key: settings.targetKey,
-        accidental_mode: settings.accidentalMode,
-        instrument_profile: pageInstrumentProfile,
-        start_measure_number: selected,
-      }))
-      const split = splitJianpuAndOcr(converted.jianpu_text)
-      jianpuText = split.jianpuText
-      ocrText = split.ocrText || page.ocrText
-      const rendered = await requireData(publicationRender.jianpuSvg({
-        musicxml_file_id: page.musicxmlFileId,
-        page_image_file_id: page.originalFileId || page.inputFileId || undefined,
-        target_key: settings.targetKey,
-        accidental_mode: settings.accidentalMode,
-        instrument_profile: pageInstrumentProfile,
-        measure_number_mode: settings.measureNumberMode,
-        start_measure_number: selected,
-      }))
-      svgFileId = rendered.svg_file_id
-      svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id)
-    } else if (!page.musicxmlFileId && page.jianpuText.trim()) {
-      const rendered = await requireData(publicationRender.jianpuTextSvg({
-        jianpu_text: page.jianpuText,
-        page_image_file_id: page.originalFileId || page.inputFileId || undefined,
-        include_ocr_text: false,
-        measure_number_mode: settings.measureNumberMode,
-        title: page.inputFileName || 'AI 简谱',
-        start_measure_number: selected,
-      }))
-      svgFileId = rendered.svg_file_id
-      svgFileIds = renderPageIds(rendered.pages, rendered.svg_file_id)
-      jianpuText = rendered.jianpu_text || page.jianpuText
-    }
-
-    store.patchPageById(pageId, {
-      svgFileId,
-      svgFileIds,
-      jianpuText,
-      ocrText,
-      status: 'completed',
-      progressPercent: 100,
-      progressMessage: '识别完成',
-      measureNumberOptions: [],
-      errorMessage: '',
-    })
-    store.setBatchRenderPageFileIds([], page.batchId)
-    await persistPageResult(targetFromPage({ ...page, startMeasureNumber: selected }), {
-      input_file_name: page.inputFileName,
-      input_file_id: page.inputFileId,
-      musicxml_file_id: page.musicxmlFileId,
-      jianpu_text: jianpuText,
-      ocr_text: ocrText,
-      svg_file_id: svgFileId,
-      overlay_svg_file_id: page.overlayFileId ?? '',
-      start_measure_number: selected,
-      status: 'completed',
-      error_message: '',
-    }, page.historyPageId)
-    await syncBatchJianpuTextForPage(pageId)
-    void maybeRenderCompletedBatchForPage(pageId)
-    log.addLog(`已选择起始小节号：${page.inputFileName} -> ${selected}`)
-    message.success('已应用起始小节号')
-    const submission = findSubmissionForPage(pageId)
-    if (submission) {
-      void reconcileSubmissionState(submission)
-    }
-  } catch (error: unknown) {
-    const msg = errorMessage(error)
-    const failedMessage = failedMeasureSelectionMessage(page.measureNumberOptions, msg)
-    store.patchPageById(pageId, {
-      status: 'waiting',
-      progressPercent: 100,
-      progressMessage: '等待选择起始小节号',
-      measureNumberOptions: page.measureNumberOptions,
-      errorMessage: failedMessage,
-    })
-    if (page.historyPageId) {
-      try {
-        const updated = await requireData(historyApi.updatePage(page.historyPageId, {
-          start_measure_number: selected,
-          status: 'waiting',
-          error_message: failedMessage,
-        }))
-        syncStoreFromHistoryPage(pageId, updated)
-        notifyHistoryPagePatched(historyPagePatchFromPage(updated))
-      } catch (persistError: unknown) {
-        log.addLog(`保存小节号失败状态失败：${errorMessage(persistError)}`, 'warn')
-        notifyHistoryPagePatched({
-          id: page.historyPageId,
-          patch: {
-            start_measure_number: selected,
-            status: 'waiting',
-            error_message: failedMessage,
-          },
-        })
-      }
-    }
-    message.error(msg)
-  }
-}
-
 async function runAiTarget(target: RecognitionTarget, historyPageId: number | null): Promise<void> {
   markPageProcessing(target, '提交 AI 视觉识别任务', 5)
   let submittedTaskId = ''
@@ -1320,113 +1183,6 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
   }
 }
 
-function aiMeasureOptions(response: AiTranscribeResponse): number[] {
-  return uniquePositiveNumbers(response.pages[0]?.measure_number_candidates || [])
-}
-
-function uniquePositiveNumbers(values: number[]): number[] {
-  const result: number[] = []
-  for (const value of values) {
-    if (!Number.isFinite(value) || value < 1) continue
-    const rounded = Math.round(value)
-    if (!result.includes(rounded)) result.push(rounded)
-  }
-  return result
-}
-
-function measureStartDecision(rawOptions: number[]): MeasureStartDecision {
-  const measureOptions = uniquePositiveNumbers(rawOptions)
-  if (!measureOptions.length) {
-    return {
-      startMeasureNumber: null,
-      status: 'completed',
-      measureOptions: [],
-      waitingMessage: '',
-      needsMeasureChoice: false,
-      autoSelected: false,
-    }
-  }
-  if (settings.confirmStartMeasureNumber) {
-    return {
-      startMeasureNumber: null,
-      status: 'waiting',
-      measureOptions,
-      waitingMessage: waitingMeasureMessage(measureOptions),
-      needsMeasureChoice: true,
-      autoSelected: false,
-    }
-  }
-  return {
-    startMeasureNumber: Math.min(...measureOptions),
-    status: 'completed',
-    measureOptions: [],
-    waitingMessage: '',
-    needsMeasureChoice: false,
-    autoSelected: true,
-  }
-}
-
-function findSubmissionForPage(pageId: string): SubmissionState | undefined {
-  return activeSubmissions.value.find((submission) =>
-    submission.targets.some((target) => target.pageId === pageId) || submission.heldFirst.has(pageId),
-  )
-}
-
-async function reconcileSubmissionState(submission: SubmissionState): Promise<void> {
-  if (submission.reconciling) {
-    submission.pendingReconcile = true
-    return
-  }
-  submission.reconciling = true
-  try {
-    do {
-      submission.pendingReconcile = false
-      for (const target of submission.targets) {
-        if (submission.decisionApplied.has(target.pageId)) continue
-        const result = submission.results.get(target.pageId)
-        if (!result) return
-        if (!result.success) {
-          submission.decisionApplied.add(target.pageId)
-          continue
-        }
-        const measureOptions = uniquePositiveNumbers(result.rawOptions)
-        const canAskForStartMeasure = isFirstPageInBatch(target.pageId)
-        if (
-          !canAskForStartMeasure
-          || target.startMeasureNumber !== null
-          || measureOptions.length === 0
-          || submission.heldFirst.size > 0
-        ) {
-          const decision: MeasureStartDecision = {
-            startMeasureNumber: target.startMeasureNumber,
-            status: 'completed',
-            measureOptions: [],
-            waitingMessage: '',
-            needsMeasureChoice: false,
-            autoSelected: false,
-          }
-          await result.applyDecision(decision)
-          submission.decisionApplied.add(target.pageId)
-          continue
-        }
-        const partial = measureStartDecision(result.rawOptions)
-        if (partial.needsMeasureChoice) {
-          submission.heldFirst.add(target.pageId)
-        }
-        await result.applyDecision(partial)
-        submission.decisionApplied.add(target.pageId)
-        if (partial.needsMeasureChoice) {
-          return
-        }
-      }
-    } while (submission.pendingReconcile)
-    const idx = activeSubmissions.value.indexOf(submission)
-    if (idx >= 0) activeSubmissions.value.splice(idx, 1)
-  } finally {
-    submission.reconciling = false
-  }
-}
-
 async function applyPipelineResult(
   target: RecognitionTarget,
   result: PipelineResponse,
@@ -1540,47 +1296,10 @@ async function applyAiResult(
     }
 }
 
-async function renderMusicxmlPageWithStart(
-  target: RecognitionTarget,
-  musicxmlFileId: string,
-  startMeasureNumber: number,
-): Promise<{
-  jianpuText: string
-  svgFileId: string
-  svgFileIds: string[]
-  textAnchors: PipelineResponse['text_anchors']
-  textHash: string
-}> {
-  const converted = await requireData(convertApi.musicxmlToJianpu({
-    musicxml_file_id: musicxmlFileId,
-    page_image_file_id: target.inputFileId || undefined,
-    target_key: settings.targetKey,
-    accidental_mode: settings.accidentalMode,
-    instrument_profile: target.instrumentProfile,
-    start_measure_number: startMeasureNumber,
-  }))
-  const rendered = await requireData(publicationRender.jianpuSvg({
-    musicxml_file_id: musicxmlFileId,
-    page_image_file_id: target.inputFileId || undefined,
-    target_key: settings.targetKey,
-    accidental_mode: settings.accidentalMode,
-    instrument_profile: target.instrumentProfile,
-    measure_number_mode: settings.measureNumberMode,
-    start_measure_number: startMeasureNumber,
-  }))
-  return {
-    jianpuText: converted.jianpu_text,
-    svgFileId: rendered.svg_file_id,
-    svgFileIds: renderPageIds(rendered.pages, rendered.svg_file_id),
-    textAnchors: converted.text_anchors ?? [],
-    textHash: converted.text_hash ?? '',
-  }
-}
-
-function collectAiWarnings(pages: AiTranscribedPage[], responseWarnings: string[]): string[] {
+function collectAiWarnings(pages: AiTranscribedPage[], responseWarnings: string[] | undefined): string[] {
   return [
-    ...responseWarnings,
-    ...pages.flatMap((page) => [...page.validation_errors, ...page.warnings]),
+    ...(responseWarnings ?? []),
+    ...pages.flatMap((page) => [...(page.validation_errors ?? []), ...(page.warnings ?? [])]),
   ]
 }
 
@@ -1651,7 +1370,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
         const updated = await requireData(historyApi.updateBatchRenderPages(historyBatchId, {
           render_page_file_ids: ids,
         }))
-        store.setBatchRenderPageFileIds(updated.render_page_file_ids, batchId)
+        store.setBatchRenderPageFileIds(updated.render_page_file_ids ?? [], batchId)
         const ocrUpdated = await requireData(historyApi.updateBatchRenderPageOcrTexts(historyBatchId, {
           pages: store.batchRenderPageOcrTextsFor(batchId),
         }))

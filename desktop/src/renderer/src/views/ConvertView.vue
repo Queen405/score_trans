@@ -60,10 +60,6 @@
               v-if="batch.page_count > 1"
               class="hist-batch-count"
             >{{ batch.page_count }}页</span>
-            <span
-              v-if="isWaitingStatus(batch.status)"
-              class="hist-waiting-label"
-            >待选择</span>
             <n-popconfirm
               :show-icon="false"
               @positive-click="handleDeleteBatch(batch.id)"
@@ -107,7 +103,6 @@
               v-for="(page, pi) in expandedPages"
               :key="page.id"
               :class="['hist-page-item', {
-                'hist-page-waiting': isWaitingStatus(page.status),
                 'hist-page-dragging': draggedPageIndex === pi,
                 'hist-page-drag-over': dragOverIndex === pi && draggedPageIndex !== null && draggedPageIndex !== pi,
               }]"
@@ -121,11 +116,7 @@
               <span :class="['hist-dot small', historyStatusClass(page.status)]" />
               <span class="hist-page-name">{{ page.input_file_name || `第${pi + 1}页` }}</span>
               <span
-                v-if="isWaitingStatus(page.status)"
-                class="hist-waiting-label"
-              >待选择</span>
-              <span
-                v-else-if="page.status === 'unrecognized'"
+                v-if="page.status === 'unrecognized'"
                 class="hist-unrecognized-label"
               >未识别</span>
             </div>
@@ -275,18 +266,6 @@
               >
                 降八度
               </n-button>
-              <div class="panel-head-meta">
-                <span class="meta-label">起始小节</span>
-                <n-input-number
-                  :value="batchStartMeasureNumber"
-                  placeholder="自动"
-                  :min="1"
-                  clearable
-                  size="tiny"
-                  style="width: 100px"
-                  @update:value="handleStartMeasureChange"
-                />
-              </div>
               <n-button
                 v-if="store.currentBatchJianpuPendingPageIds.length"
                 size="tiny"
@@ -378,7 +357,6 @@
               v-else
               ref="jianpuEditorRef"
               v-model="jianpuText"
-              :start-measure-number="batchStartMeasureNumber ?? 1"
               :current-note-index="currentNoteIndex"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
               :error-line="errorLine"
@@ -393,12 +371,6 @@
         @update:current-note-index="currentNoteIndex = $event"
       />
     </div>
-    <MeasureNumberPicker
-      v-model:show="histPickerShow"
-      :options="histPickerOptions"
-      @confirm="onHistPickerConfirm"
-      @cancel="histPickerShow = false"
-    />
   </div>
 </template>
 
@@ -422,21 +394,18 @@ import type {
   RenderedSvgPage,
   SheetEntitiesDTO,
 } from '../models/types'
-import type { TaskPage } from '../stores/workspace'
+import type { TaskPage, TaskPageStatus } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import JianpuPlayer from '../components/JianpuPlayer.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
-import MeasureNumberPicker from '../components/MeasureNumberPicker.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import {
-  composeJianpuPageText,
   hasJianpuPageMarkers,
   parseJianpuPageSections,
   replaceJianpuSectionBody,
   restoreJianpuPageText,
   serializeJianpuPageSections,
-  updateJianpuPageStart,
 } from '../utils/jianpuPageSections'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
@@ -450,17 +419,10 @@ import {
   renderResponsePageIds,
   renderResponsePageOcrTexts,
 } from '../utils/batchRender'
-import {
-  failedMeasureSelectionMessage,
-  historyPageOpenAction,
-  historyPagePatchFromPage,
-  isPreviewableHistoryFile,
-  parseWaitingMeasureOptions,
-} from '../utils/historyPageState'
+import { isPreviewableHistoryFile } from '../utils/historyPageState'
 import {
   listenHistoryPagePatched,
   listenHistoryUpdated,
-  notifyHistoryPagePatched,
   type HistoryPagePatchDetail,
 } from '../utils/historyEvents'
 import {
@@ -472,7 +434,7 @@ import {
   RefreshOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
-import { NButton, NSelect, NIcon, NPopconfirm, NInputNumber, useMessage } from 'naive-ui'
+import { NButton, NSelect, NIcon, NPopconfirm, useMessage } from 'naive-ui'
 
 const store = useWorkspaceStore()
 const settings = useSettingsStore()
@@ -552,23 +514,14 @@ const loadingBatchId = ref<number | null>(null)
 const draggedPageIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
 const isReordering = ref(false)
-const histPickerShow = ref(false)
-const histPickerOptions = ref<number[]>([])
-const histPickerPage = ref<HistoryPage | null>(null)
 let stopHistoryUpdatedListener: (() => void) | null = null
 let stopHistoryPagePatchedListener: (() => void) | null = null
 let historyListRequestSeq = 0
 const historyDetailEpoch = createRequestEpoch()
 let restoreCheckSeq = 0
-const locallyUpdatingHistoryPageIds = new Set<number>()
-const checkingHistoryPageIds = new Set<number>()
-const selectingHistoryPageIds = new Set<number>()
 
 const currentBatchLocalIndex = computed(() =>
   store.currentBatchPages.indexOf(store.currentPage!),
-)
-const batchStartMeasureNumber = computed(() =>
-  firstBatchPage()?.startMeasureNumber ?? store.startMeasureNumber ?? null,
 )
 const canReorderBatch = computed(() => {
   if (expandedPages.value.length < 2) return false
@@ -605,7 +558,6 @@ watch(jianpuText, (v, previous) => {
     }
     errorLine.value = -1
   }
-  syncPageStartsFromEditor(v)
 })
 
 function updateTextAnchorsAfterEdit(previous: string, current: string): void {
@@ -831,7 +783,7 @@ async function refreshExpandedBatch(
   try {
     const batch: HistoryBatch = await requireData(historyApi.get(batchId))
     if (historyDetailEpoch.isCurrent(requestToken) && expandedBatchId.value === batchId) {
-      expandedPages.value = mergeLockedHistoryPages(batch.pages)
+      expandedPages.value = batch.pages
       expandedBatchJianpuText.value = batch.jianpu_text ?? ''
       syncExpandedBatchSummary(batchId)
     }
@@ -883,7 +835,6 @@ async function handleReorder(fromIndex: number, toIndex: number): Promise<void> 
   const pageSources = newPages.map((p) => ({
     inputFileName: p.input_file_name,
     jianpuText: p.jianpu_text,
-    startMeasureNumber: p.start_measure_number ?? null,
   }))
 
   const restoredText = restoreJianpuPageText(expandedBatchJianpuText.value, pageSources)
@@ -902,7 +853,6 @@ async function handleReorder(fromIndex: number, toIndex: number): Promise<void> 
   const orderedPageIds = newPages.map((p) => p.id)
   const pageUpdates = sections.map((section) => ({
     jianpuText: section.body,
-    startMeasureNumber: section.startMeasureNumber,
   }))
 
   isReordering.value = true
@@ -912,7 +862,6 @@ async function handleReorder(fromIndex: number, toIndex: number): Promise<void> 
       pages: orderedPageIds.map((pageId, i) => ({
         page_id: pageId,
         jianpu_text: pageUpdates[i]!.jianpuText,
-        start_measure_number: pageUpdates[i]!.startMeasureNumber,
       })),
     }))
 
@@ -986,9 +935,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       textAttachments: r.page.text_attachments ?? [],
       svgFileIds: r.page.svg_file_id ? [r.page.svg_file_id] : [],
       taskId: r.page.task_id || '',
-      startMeasureNumber: r.page.start_measure_number ?? null,
-      status: r.page.status as any,
-      measureNumberOptions: parseWaitingMeasureOptions(r.page.error_message),
+      status: r.page.status as TaskPageStatus,
       errorMessage: r.page.error_message,
       omrFileId: r.page.omr_file_id ?? '',
       originalMusicxml: r.page.original_musicxml ?? '',
@@ -1109,14 +1056,6 @@ function replaceExpandedHistoryPage(page: HistoryPage): void {
   syncExpandedBatchSummary()
 }
 
-function mergeLockedHistoryPages(pages: HistoryPage[]): HistoryPage[] {
-  if (!locallyUpdatingHistoryPageIds.size) return pages
-  return pages.map((page) => {
-    if (!locallyUpdatingHistoryPageIds.has(page.id)) return page
-    return expandedPages.value.find((localPage) => localPage.id === page.id) ?? page
-  })
-}
-
 function handleHistoryPagePatched(detail: HistoryPagePatchDetail): void {
   historyDetailEpoch.invalidate()
   if (loadingBatchId.value === expandedBatchId.value) {
@@ -1173,183 +1112,8 @@ function historyStatusClass(status: string): string {
   return 'err'
 }
 
-function isWaitingStatus(status: string): boolean {
-  return status === 'waiting'
-}
-
 async function handleHistoryPageClick(page: HistoryPage): Promise<void> {
-  if (checkingHistoryPageIds.has(page.id) || selectingHistoryPageIds.has(page.id)) return
-  if (!isWaitingStatus(page.status)) {
-    await handleRestorePage(page)
-    return
-  }
-
-  checkingHistoryPageIds.add(page.id)
-  historyDetailEpoch.invalidate()
-  try {
-    const latest = await requireData(historyApi.getPage(page.id))
-    replaceExpandedHistoryPage(latest)
-    syncStoreFromHistoryPage(latest)
-    const action = historyPageOpenAction(latest.status)
-    if (action === 'choose') {
-      const options = parseWaitingMeasureOptions(latest.error_message)
-      if (!options.length) {
-        message.warning('没有可选的小节号候选')
-        return
-      }
-      histPickerPage.value = latest
-      histPickerOptions.value = options
-      histPickerShow.value = true
-      return
-    }
-    if (action === 'wait') {
-      message.info('页面状态已更新，正在处理中')
-      return
-    }
-    await handleRestorePage(latest)
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    message.error(`无法确认页面最新状态：${msg}`)
-    log.addError(`确认历史页面状态失败：${msg}`)
-  } finally {
-    checkingHistoryPageIds.delete(page.id)
-  }
-}
-
-async function onHistPickerConfirm(selected: number): Promise<void> {
-  const page = histPickerPage.value
-  histPickerShow.value = false
-  histPickerPage.value = null
-  if (!page) return
-  await applyHistoryMeasureSelection(page, selected)
-}
-
-async function applyHistoryMeasureSelection(page: HistoryPage, selected: number): Promise<void> {
-  if (selectingHistoryPageIds.has(page.id)) return
-  selectingHistoryPageIds.add(page.id)
-  locallyUpdatingHistoryPageIds.add(page.id)
-  historyDetailEpoch.invalidate()
-  const processingPage: HistoryPage = {
-    ...page,
-    start_measure_number: selected,
-    status: 'processing',
-    error_message: '正在重新渲染',
-  }
-  replaceExpandedHistoryPage(processingPage)
-  syncStoreFromHistoryPage(processingPage)
-  notifyHistoryPagePatched(historyPagePatchFromPage(processingPage))
-
-  const options = parseWaitingMeasureOptions(page.error_message)
-  try {
-    let svgFileId = page.svg_file_id
-    let svgFileIds = page.svg_file_id ? [page.svg_file_id] : []
-    let jianpuText = page.jianpu_text
-    if (page.musicxml_file_id && selected !== options[0]) {
-      const rendered = await requireData(publicationRender.jianpuSvg({
-        musicxml_file_id: page.musicxml_file_id,
-        page_image_file_id: page.input_file_id || undefined,
-        target_key: settings.targetKey,
-        accidental_mode: settings.accidentalMode,
-        measure_number_mode: settings.measureNumberMode,
-        start_measure_number: selected,
-      }))
-      svgFileId = rendered.svg_file_id
-      svgFileIds = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
-    } else if (!page.musicxml_file_id && page.jianpu_text.trim()) {
-      const rendered = await requireData(publicationRender.jianpuTextSvg({
-        jianpu_text: page.jianpu_text,
-        page_image_file_id: page.input_file_id || undefined,
-        include_ocr_text: false,
-        measure_number_mode: settings.measureNumberMode,
-        title: page.input_file_name || 'AI 简谱',
-        start_measure_number: selected,
-      }))
-      svgFileId = rendered.svg_file_id
-      svgFileIds = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
-      jianpuText = rendered.jianpu_text || page.jianpu_text
-    }
-    const updated = await requireData(historyApi.updatePage(page.id, {
-      task_id: '',
-      start_measure_number: selected,
-      jianpu_text: jianpuText,
-      svg_file_id: svgFileId,
-      status: 'completed',
-      error_message: '',
-    }))
-    replaceExpandedHistoryPage(updated)
-    syncStoreFromHistoryPage(updated)
-    store.patchPageByHistoryPageId(updated.id, { svgFileIds })
-    store.setBatchRenderPageFileIds([])
-    setFinalSvgFileIds([])
-    notifyHistoryPagePatched(historyPagePatchFromPage(updated))
-    message.success('已应用起始小节号')
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    const failedMessage = failedMeasureSelectionMessage(options, msg)
-    const failedPage: HistoryPage = {
-      ...page,
-      start_measure_number: selected,
-      status: 'waiting',
-      error_message: failedMessage,
-    }
-    try {
-      const updated = await requireData(historyApi.updatePage(page.id, {
-        task_id: '',
-        start_measure_number: selected,
-        status: 'waiting',
-        error_message: failedMessage,
-      }))
-      replaceExpandedHistoryPage(updated)
-      syncStoreFromHistoryPage(updated)
-      notifyHistoryPagePatched(historyPagePatchFromPage(updated))
-    } catch (persistError: unknown) {
-      replaceExpandedHistoryPage(failedPage)
-      syncStoreFromHistoryPage(failedPage)
-      notifyHistoryPagePatched(historyPagePatchFromPage(failedPage))
-      log.addLog(`保存小节号失败状态失败：${persistError instanceof Error ? persistError.message : String(persistError)}`, 'warn')
-    }
-    message.error(msg)
-    log.addError(`选择小节号失败：${msg}`)
-  } finally {
-    locallyUpdatingHistoryPageIds.delete(page.id)
-    selectingHistoryPageIds.delete(page.id)
-  }
-}
-
-function syncStoreFromHistoryPage(page: HistoryPage): void {
-  const split = splitJianpuAndOcr(page.jianpu_text || '')
-  store.patchPageByHistoryPageId(page.id, {
-    historyPageId: page.id,
-    inputFileName: page.input_file_name,
-    inputFileId: page.input_file_id,
-    originalFileName: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_name : '',
-    originalFileId: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_id : '',
-    musicxmlFileId: page.musicxml_file_id,
-    jianpuText: split.jianpuText,
-    ocrText: page.ocr_text || split.ocrText,
-    svgFileId: page.svg_file_id,
-    overlayFileId: page.overlay_file_id || page.overlay_svg_file_id || '',
-    sourceMapFileId: page.source_map_file_id ?? '',
-    textAnchors: page.text_anchors ?? [],
-    textAttachments: page.text_attachments ?? [],
-    textHash: page.text_hash ?? '',
-    svgFileIds: page.svg_file_id ? [page.svg_file_id] : [],
-    taskId: page.task_id || '',
-    historyBatchId: page.batch_id ?? null,
-    startMeasureNumber: page.start_measure_number ?? null,
-    status: page.status as any,
-    progressPercent: page.status === 'processing' ? 99 : 100,
-    progressMessage: page.status === 'waiting'
-      ? '等待选择起始小节号'
-      : page.status === 'completed'
-        ? '识别完成'
-        : page.status === 'processing'
-          ? (page.error_message || '正在重新渲染')
-          : page.error_message,
-    measureNumberOptions: page.status === 'waiting' ? parseWaitingMeasureOptions(page.error_message) : [],
-    errorMessage: page.error_message,
-    ...liveRecognitionTaskPatch(page.id, page.status),
-  })
+  await handleRestorePage(page)
 }
 
 function resolveMissingFileId(msg: string): string | null {
@@ -1427,7 +1191,6 @@ async function exportScore(): Promise<void> {
           filename,
           target_key: settings.targetKey,
           midi_tempo: settings.midiTempo,
-          start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
         }))
       await finalizeExport({ fileId: result.file_id }, filename)
       log.addLog(`导出完成：${filename}`)
@@ -1444,7 +1207,6 @@ async function exportScore(): Promise<void> {
             filename,
             title: '简谱',
             target_key: settings.targetKey,
-            start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
           }))
       await finalizeExport({ fileId: result.file_id }, filename)
       log.addLog(`导出完成：${filename}`)
@@ -1560,7 +1322,6 @@ function currentExportPage(): TaskPage {
       textAnchors: [],
       textAttachments: [],
       textHash: '',
-      startMeasureNumber: store.startMeasureNumber,
       status: 'completed',
       errorMessage: '',
     }),
@@ -1576,19 +1337,6 @@ function batchRenderSourcePages(): TaskPage[] {
   return store.currentBatchPages.map((page) =>
     page.id === store.currentPage?.id ? currentExportPage() : page,
   )
-}
-
-function syncPageStartsFromEditor(text: string): void {
-  if (!hasJianpuPageMarkers(text)) return
-  const sections = parseJianpuPageSections(text)
-  const batchPages = store.currentBatchPages
-  if (sections.length !== batchPages.length) return
-  sections.forEach((section, order) => {
-    const page = batchPages[section.pageIndex] ?? batchPages[order]
-    if (page && page.startMeasureNumber !== section.startMeasureNumber) {
-      store.patchPageById(page.id, { startMeasureNumber: section.startMeasureNumber })
-    }
-  })
 }
 
 /** 让编辑器跳转到指定行并闪两下；同一行可重复触发。 */
@@ -1780,7 +1528,6 @@ async function resetAll(): Promise<void> {
       page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
-      start_measure_number: batchStartMeasureNumber.value ?? settings.startMeasureNumber ?? undefined,
     }))
     const split = splitJianpuAndOcr(result.jianpu_text)
     const page = store.currentPage
@@ -1796,7 +1543,7 @@ async function resetAll(): Promise<void> {
         jianpuText.value,
         Math.max(0, currentBatchLocalIndex.value),
         split.jianpuText,
-        { inputFileName: page.inputFileName, startMeasureNumber: page.startMeasureNumber },
+        { inputFileName: page.inputFileName },
       )
       store.setBatchJianpuText(nextBatchText, false)
       await persistCorrectionState(page.id, nextBatchText)
@@ -1882,7 +1629,6 @@ async function applyCorrections(): Promise<void> {
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
         instrument_profile: 'general',
-        start_measure_number: page.startMeasureNumber ?? store.startMeasureNumber ?? undefined,
         title: page.textAttachments.find((item) => item.role === 'title')?.text || undefined,
         show_measure_numbers: settings.showMeasureNumbers,
         measure_number_mode: settings.measureNumberMode,
@@ -1897,7 +1643,7 @@ async function applyCorrections(): Promise<void> {
       jianpuText.value,
       Math.max(0, currentBatchLocalIndex.value),
       data.jianpu_text,
-      { inputFileName: page.inputFileName, startMeasureNumber: page.startMeasureNumber },
+      { inputFileName: page.inputFileName },
     )
     store.patchPageById(page.id, {
       workingMusicxml: data.working_musicxml,
@@ -2017,19 +1763,6 @@ function handleTextAttachmentUpdate(update: TextAttachmentUpdate): void {
   store.setBatchRenderPageFileIds([])
 }
 
-function handleStartMeasureChange(value: number | null): void {
-  const first = firstBatchPage()
-  if (first?.id) {
-    store.patchPageById(first.id, { startMeasureNumber: value })
-  } else {
-    store.setPageStartMeasureNumber(value)
-  }
-  const baseText = jianpuText.value || composeJianpuPageText(store.currentBatchPages)
-  jianpuText.value = updateJianpuPageStart(baseText, 0, value, first?.inputFileName ?? '')
-  store.setBatchRenderPageFileIds([])
-  setFinalSvgFileIds([])
-}
-
 async function toggleFinalView(): Promise<void> {
   if (isViewingFinal.value) { isViewingFinal.value = false; return }
   isRenderingFinal.value = true
@@ -2081,9 +1814,6 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     original_musicxml: store.currentPage?.originalMusicxml || '',
     working_musicxml: store.currentPage?.workingMusicxml || '',
     deleted_source_ids: store.currentPage?.deletedSourceIds || [],
-    start_measure_number: currentSection
-      ? currentSection.startMeasureNumber
-      : (store.startMeasureNumber ?? null),
     status: 'completed',
     error_message: '',
   }
@@ -2122,9 +1852,6 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
         original_musicxml: page.originalMusicxml,
         working_musicxml: page.workingMusicxml,
         deleted_source_ids: page.deletedSourceIds,
-        start_measure_number: section
-          ? section.startMeasureNumber
-          : (page.startMeasureNumber ?? null),
         status: 'completed',
         error_message: '',
       }
@@ -2137,7 +1864,6 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
       historyPageId: createdPage.id,
       historyBatchId: created.id,
       jianpuText: createdPage.jianpu_text,
-      startMeasureNumber: createdPage.start_measure_number,
     })
   })
   const pageId = created.pages[currentPageIndex]?.id ?? created.pages[0]?.id
@@ -2159,19 +1885,13 @@ async function persistOtherHistoryPageSections(
     if (!page || !section) continue
     store.patchPageById(page.id, {
       jianpuText: section.body,
-      startMeasureNumber: section.startMeasureNumber,
     })
     if (!page.historyPageId || page.historyPageId === currentHistoryPageId) continue
     const updated = await requireData(historyApi.updatePage(page.historyPageId, {
       jianpu_text: section.body,
-      start_measure_number: section.startMeasureNumber,
     }))
     replaceExpandedHistoryPage(updated)
   }
-}
-
-function firstBatchPage(): TaskPage | null {
-  return store.currentBatchPages[0] ?? store.currentPage
 }
 
 async function persistBatchJianpuText(batchId: number, text: string): Promise<void> {

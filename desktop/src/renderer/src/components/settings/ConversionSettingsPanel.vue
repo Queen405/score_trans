@@ -126,7 +126,7 @@
 import { NButton, NCheckbox, NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
 import { useSettingsStore } from '../../stores/settings'
-import type { MeasureNumberMode, MidiTempo, TargetKey } from '../../models/types'
+import type { MeasureNumberMode, TargetKey } from '../../models/types'
 import SettingsFormRow from './SettingsFormRow.vue'
 
 const settings = useSettingsStore()
