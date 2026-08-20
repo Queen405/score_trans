@@ -13,7 +13,7 @@
           v-if="svgReady"
           :key="svgUrl"
           ref="svgHostRef"
-          :class="['svg-inline', { 'hide-static-ocr': shouldHideStaticOcr }]"
+          class="svg-inline"
         />
         <div
           v-else-if="svgError"
@@ -137,7 +137,6 @@ const selectedId = ref('')
 const editingId = ref('')
 const editingText = ref('')
 const ocrBlocks = ref<OcrTextBlock[]>([])
-const shouldHideStaticOcr = computed(() => props.editableOcr)
 const showOcrOverlay = ref(true)
 let svgLoadGeneration = 0
 const svgLoadGate = new LatestAsyncGate()
@@ -619,10 +618,6 @@ onUnmounted(() => {
 .svg-inline :deep(svg) {
   max-width: none;
   max-height: none;
-}
-
-.svg-inline.hide-static-ocr :deep(.ocr-overlay) {
-  display: none;
 }
 
 .svg-inline :deep(.playback-note.playback-current .note),

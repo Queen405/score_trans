@@ -387,18 +387,16 @@ def test_multi_part_system_contains_all_parts_and_aligned_bars() -> None:
     assert pages[0].svg.count('class="measure"') >= 4
 
 
-def test_custom_page_size_and_ocr_text_are_preserved() -> None:
+def test_custom_page_size_is_preserved() -> None:
     svg = render_jianpu_page_svg(
         "1=C\n4/4\n1 2 3 4 |",
         page_width=600,
         page_height=800,
-        text_blocks=[TextBlock("作者：测试", bbox=(40, 60, 180, 90))],
     )
     root = _root(svg)
 
     assert root.attrib["width"] == "600"
     assert root.attrib["height"] == "800"
-    assert "作者：测试" in svg
 
 
 def test_measure_number_modes() -> None:

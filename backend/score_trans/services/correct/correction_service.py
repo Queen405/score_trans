@@ -5,11 +5,9 @@ from pathlib import Path
 
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.parse.musicxml import musicxml_path_to_scores
-from ...domain.text_placement import place_source_text_attachments
 from ...domain.write.jianpu_text import scores_to_jianpu_document
 from ...models.correct.schemas import ConversionOptionsDTO
 from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
-from ...models.render.schemas import RenderPageMeasureRange
 from ...models.score import JianpuScore
 from ...models.common.types import normalize_instrument_profile
 from ..render.render_service import PublicationRenderService
@@ -73,37 +71,12 @@ class CorrectionService:
             )
             for score in scores
         ]
-        layout_pages = self.render_service.build_scores_a4_svg_pages(
-            render_scores,
-            title=document_title,
-            show_measure_numbers=options.show_measure_numbers,
-            measure_number_mode=options.measure_number_mode,
-        )
-        placement_attachments = [
-            attachment for attachment in attachments if attachment.role != "title"
-        ]
-        placement = place_source_text_attachments(
-            [placement_attachments],
-            [page.svg for page in layout_pages],
-            [
-                [
-                    RenderPageMeasureRange(
-                        source_page_index=item.source_page_index,
-                        start_measure_number=item.start_measure_number,
-                        end_measure_number=item.end_measure_number,
-                    )
-                    for item in page.measure_ranges
-                ]
-                for page in layout_pages
-            ],
-        )
         rendered_pages = self.render_service.render_scores_a4_svg_page_results(
             render_scores,
             output_dir / "corrected.svg",
             title=document_title,
             show_measure_numbers=options.show_measure_numbers,
             measure_number_mode=options.measure_number_mode,
-            page_text_blocks=placement.text_blocks_by_page,
         )
         return CorrectionArtifacts(
             working_musicxml=working_xml,

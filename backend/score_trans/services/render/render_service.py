@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ...models.common.types import MeasureNumberMode
-from ...models.score import JianpuScore, TextBlock
+from ...models.score import JianpuScore
 from .main import (
     RenderedA4FilePage,
     RenderedA4Page,
@@ -93,8 +93,6 @@ class PublicationRenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
-        *,
-        page_text_blocks: dict[int, list[TextBlock]] | None = None,
     ) -> list[RenderedA4Page]:
         mode = measure_number_mode or (
             "none" if show_measure_numbers is False else "all"
@@ -106,7 +104,6 @@ class PublicationRenderService:
                 show_measure_numbers=mode != "none",
                 measure_number_mode=mode,
             ),
-            page_text_blocks=page_text_blocks,
         )
 
     def render_scores_a4_svg_page_results(
@@ -116,8 +113,6 @@ class PublicationRenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
-        *,
-        page_text_blocks: dict[int, list[TextBlock]] | None = None,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_page_results_to_files(
             scores,
@@ -125,7 +120,6 @@ class PublicationRenderService:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
-            page_text_blocks=page_text_blocks,
         )
 
     def render_text_svg(
@@ -152,7 +146,6 @@ class PublicationRenderService:
         page_width: float,
         page_height: float,
         title: str = "简谱",
-        text_blocks=None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
     ) -> Path:
@@ -162,7 +155,6 @@ class PublicationRenderService:
             page_width=page_width,
             page_height=page_height,
             title=title,
-            text_blocks=text_blocks,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )

@@ -10,7 +10,6 @@ from ..models.provenance.schemas import (
     SourceTextAttachment,
 )
 from ..models.render.schemas import RenderPageMeasureRange
-from ..models.score import TextBlock
 from ..utils.safe_xml import UnsafeXmlError, safe_xml_fromstring
 
 _A4_WIDTH = 1240.0
@@ -22,7 +21,6 @@ _SAFE_BOTTOM = 84.0
 
 @dataclass(slots=True)
 class TextPlacementResult:
-    text_blocks_by_page: dict[int, list[TextBlock]]
     rendered_blocks_by_page: dict[int, list[RenderedTextBlock]]
 
 
@@ -32,7 +30,6 @@ def place_source_text_attachments(
     measure_ranges_by_page: list[list[RenderPageMeasureRange]],
 ) -> TextPlacementResult:
     anchor_lookup = _render_anchor_lookup(layout_svgs)
-    text_blocks: dict[int, list[TextBlock]] = defaultdict(list)
     rendered: dict[int, list[RenderedTextBlock]] = defaultdict(list)
     lanes: dict[tuple[int, int, str], int] = defaultdict(int)
     header_lane = 0
@@ -97,16 +94,8 @@ def place_source_text_attachments(
                 anchor=attachment.anchor,
             )
             rendered[page_index].append(rendered_block)
-            text_blocks[page_index].append(
-                TextBlock(
-                    text=attachment.text,
-                    bbox=(bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height),
-                    role=attachment.role,
-                    font_size=font_size,
-                )
-            )
 
-    return TextPlacementResult(dict(text_blocks), dict(rendered))
+    return TextPlacementResult(dict(rendered))
 
 
 def _source_anchor_target(

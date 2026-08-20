@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ...domain.jianpu import parse_jianpu_score
 from ...models.common.errors import RenderError
-from ...models.score import JianpuScore, TextBlock
+from ...models.score import JianpuScore
 from .engraving.renderer import MeasureRange, PublicationPage, PublicationRenderer
 from .engraving.style import PublicationStyle
 from .options import RenderOptions
@@ -81,11 +81,9 @@ def render_jianpu_page_svg(
     page_width: float,
     page_height: float,
     title: str = "简谱",
-    text_blocks: list[TextBlock] | None = None,
     options: RenderOptions | None = None,
 ) -> str:
     score = parse_jianpu_score(jianpu_text, title=title)
-    score.text_blocks.extend(text_blocks or [])
     return render_score_page_svg(
         score,
         page_width=page_width,
@@ -108,7 +106,6 @@ def render_score_page_svg(
         title=options.title or score.title,
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
-        page_text_blocks={0: list(score.text_blocks)},
     )
     if len(pages) != 1:
         raise RenderError("请求的页面尺寸无法容纳全部谱面内容")
@@ -118,8 +115,6 @@ def render_score_page_svg(
 def render_scores_a4_pages(
     scores: list[JianpuScore],
     options: RenderOptions | None = None,
-    *,
-    page_text_blocks: dict[int, list[TextBlock]] | None = None,
 ) -> list[RenderedA4Page]:
     options = options or RenderOptions(title=(scores[0].title if scores else "简谱"))
     renderer = PublicationRenderer(_style_from_options(options))
@@ -128,7 +123,6 @@ def render_scores_a4_pages(
         title=options.title,
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
-        page_text_blocks=page_text_blocks,
     )
     return [_public_page(page) for page in pages]
 
@@ -174,7 +168,6 @@ def render_scores_a4_page_results_to_files(
     title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
-    page_text_blocks: dict[int, list[TextBlock]] | None = None,
 ) -> list[RenderedA4FilePage]:
     options = RenderOptions(
         title=title or (scores[0].title if scores else "简谱"),
@@ -188,7 +181,6 @@ def render_scores_a4_page_results_to_files(
         title=options.title,
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
-        page_text_blocks=page_text_blocks,
     )
     paths = renderer.write_pages(pages, output_path)
     return [
@@ -231,7 +223,6 @@ def render_jianpu_page_file_to_svg(
     page_width: float,
     page_height: float,
     title: str = "简谱",
-    text_blocks: list[TextBlock] | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
 ) -> Path:
@@ -240,7 +231,6 @@ def render_jianpu_page_file_to_svg(
         page_width=page_width,
         page_height=page_height,
         title=title,
-        text_blocks=text_blocks,
         options=RenderOptions(
             title=title,
             show_measure_numbers=show_measure_numbers is not False,

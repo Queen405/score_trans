@@ -9,7 +9,7 @@ from typing import Literal
 
 from ....domain.performance_marks import get_performance_mark
 from ....models.common.types import MeasureNumberMode
-from ....models.score import Event, JianpuPitch, JianpuScore, Measure, TextBlock
+from ....models.score import Event, JianpuPitch, JianpuScore, Measure
 from .scene import BBox, PublicationScene, SceneNode
 from .fonts import font_registry
 from .style import PublicationStyle
@@ -85,7 +85,6 @@ class PublicationRenderer:
         measure_number_mode: MeasureNumberMode = "all",
         page_width: float | None = None,
         page_height: float | None = None,
-        page_text_blocks: dict[int, list[TextBlock]] | None = None,
     ) -> list[PublicationPage]:
         style = self._style_for_page(page_width, page_height)
         parts = _normalize_parts(scores)
@@ -120,8 +119,6 @@ class PublicationRenderer:
                 )
                 _append_ranges(page_ranges, system.cells)
                 y += system.height + style.system_gap
-            for block in (page_text_blocks or {}).get(page_index, []):
-                _draw_absolute_text(scene, block, style)
             note_end = next_note_index - 1 if next_note_index > note_start else None
             scene.note_index_start = note_start if note_end is not None else None
             scene.note_index_end = note_end
@@ -1201,20 +1198,6 @@ def _draw_measure_text(
                 anchor="middle",
             )
         )
-
-
-def _draw_absolute_text(
-    scene: PublicationScene, block: TextBlock, style: PublicationStyle
-) -> None:
-    if not block.text or block.role == "measure_number":
-        return
-    if block.bbox:
-        x1, y1, x2, y2 = block.bbox
-        x, y = x1, y1 + (block.font_size or min(28.0, max(11.0, y2 - y1)))
-    else:
-        x, y = style.margin_left, style.margin_top + style.title_block_height - 15
-    cls = "lyric" if block.role == "lyric" else "annotation"
-    scene.add(_text(cls, x, y, block.text, block.font_size or style.annotation_size))
 
 
 def _append_ranges(target: list[MeasureRange], cells: list[_Cell]) -> None:

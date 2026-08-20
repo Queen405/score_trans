@@ -40,7 +40,6 @@ from ...models.provenance.schemas import RenderedTextBlock, TextAnchor
 from ...services.render import A4MeasureRange, RenderedA4FilePage
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
-from ...services.ocr.core import OCRProvider
 from ...services.ocr.providers import create_configured_ocr_provider
 from ...services.render.render_service import PublicationRenderService
 from ..convert.actions import MusicXmlToJianpuAction
@@ -73,8 +72,6 @@ class RenderMusicXmlJianpuAction:
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
-        image_path: str | Path | None = None,
-        ocr_provider: OCRProvider | None = None,
     ) -> Path:
         score = self.build_score(
             musicxml_path,
@@ -82,8 +79,6 @@ class RenderMusicXmlJianpuAction:
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
             title=title,
-            image_path=image_path,
-            ocr_provider=ocr_provider,
         )
         return self.render_service.render_score_svg(
             score,
@@ -106,8 +101,6 @@ class RenderMusicXmlJianpuAction:
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
-        image_path: str | Path | None = None,
-        ocr_provider: OCRProvider | None = None,
     ) -> Path:
         score = self.build_score(
             musicxml_path,
@@ -115,8 +108,6 @@ class RenderMusicXmlJianpuAction:
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
             title=title,
-            image_path=image_path,
-            ocr_provider=ocr_provider,
         )
         return self.render_service.render_score_page_svg(
             score,
@@ -139,8 +130,6 @@ class RenderMusicXmlJianpuAction:
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
-        image_path: str | Path | None = None,
-        ocr_provider: OCRProvider | None = None,
     ) -> list[RenderedA4FilePage]:
         scores = self.build_scores(
             musicxml_path,
@@ -148,8 +137,6 @@ class RenderMusicXmlJianpuAction:
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
             title=title,
-            image_path=image_path,
-            ocr_provider=ocr_provider,
         )
         _validate_multi_part_measure_counts(scores)
         first_score = scores[0] if scores else JianpuScore()
@@ -169,8 +156,6 @@ class RenderMusicXmlJianpuAction:
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
         title: str | None = None,
-        image_path: str | Path | None = None,
-        ocr_provider: OCRProvider | None = None,
     ) -> JianpuScore:
         scores = self.build_scores(
             musicxml_path,
@@ -178,8 +163,6 @@ class RenderMusicXmlJianpuAction:
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
             title=title,
-            image_path=image_path,
-            ocr_provider=ocr_provider,
         )
         return scores[0] if scores else JianpuScore()
 
@@ -191,15 +174,11 @@ class RenderMusicXmlJianpuAction:
         accidental_mode: AccidentalMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
         title: str | None = None,
-        image_path: str | Path | None = None,
-        ocr_provider: OCRProvider | None = None,
     ) -> list[JianpuScore]:
         scores = self.converter.build_scores(
             musicxml_path,
             target_key=target_key,
             instrument_profile=instrument_profile,
-            image_path=image_path,
-            ocr_provider=ocr_provider,
         )
         if title:
             for score in scores:
@@ -238,24 +217,16 @@ class RenderJianpuTextAction:
         *,
         page_width: float,
         page_height: float,
-        image_path: str | Path | None = None,
-        ocr_provider: OCRProvider | None = None,
-        text_blocks: list[TextBlock] | None = None,
         title: str = "简谱",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
     ) -> Path:
-        blocks = text_blocks
-        if blocks is None and image_path is not None:
-            provider = ocr_provider or create_configured_ocr_provider()
-            blocks = provider.recognize(Path(image_path))
         return self.render_service.render_text_page_svg(
             input_path,
             output_path,
             page_width=page_width,
             page_height=page_height,
             title=title,
-            text_blocks=blocks or [],
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
         )
@@ -302,11 +273,6 @@ class RenderActions:
             raise FileNotFoundError(f"文件不存在：{req.musicxml_file_id}")
 
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
-        image_path = None
-        if req.page_image_file_id:
-            image_path = self.uploads.get_path(req.page_image_file_id)
-            if not image_path or not image_path.exists():
-                raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
         paths = self.musicxml_renderer.execute_a4_pages(
             path,
             svg_path,
@@ -315,7 +281,6 @@ class RenderActions:
             instrument_profile=req.instrument_profile,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
-            image_path=image_path,
             title=req.title,
         )
         pages = self._register_rendered_pages(paths)
@@ -454,13 +419,6 @@ class RenderActions:
             [page.svg for page in layout_pages],
             measure_ranges_by_page,
         )
-        page_text_blocks = {
-            page_index: _parse_ocr_text(ocr_text)
-            for page_index, ocr_text in legacy_page_ocr_texts.items()
-            if ocr_text.strip()
-        }
-        for page_index, blocks in placement.text_blocks_by_page.items():
-            page_text_blocks.setdefault(page_index, []).extend(blocks)
         page_ocr_texts = _merge_rendered_and_legacy_ocr_texts(
             legacy_page_ocr_texts,
             placement.rendered_blocks_by_page,
@@ -474,7 +432,6 @@ class RenderActions:
                 title=req.title,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
-                page_text_blocks=page_text_blocks,
             )
         )
         pages = self._register_rendered_page_results(
@@ -557,13 +514,6 @@ class RenderActions:
                 [page.svg for page in layout_pages],
                 measure_ranges_by_page,
             )
-            page_text_blocks = {
-                pi: _parse_ocr_text(ot)
-                for pi, ot in legacy_page_ocr_texts.items()
-                if ot.strip()
-            }
-            for pi, blocks in placement.text_blocks_by_page.items():
-                page_text_blocks.setdefault(pi, []).extend(blocks)
             page_ocr_texts = _merge_rendered_and_legacy_ocr_texts(
                 legacy_page_ocr_texts,
                 placement.rendered_blocks_by_page,
@@ -585,7 +535,6 @@ class RenderActions:
                     title=req.title,
                     show_measure_numbers=_request_show_measure_numbers(req),
                     measure_number_mode=_request_measure_number_mode(req),
-                    page_text_blocks=page_text_blocks,
                 )
             )
             all_rendered_file_pages.extend(rendered_pages)
@@ -625,12 +574,6 @@ class RenderActions:
         if not musicxml_path or not musicxml_path.exists():
             raise FileNotFoundError(f"MusicXML 文件不存在：{req.musicxml_file_id}")
 
-        image_path = None
-        if req.page_image_file_id:
-            image_path = self.uploads.get_path(req.page_image_file_id)
-            if not image_path or not image_path.exists():
-                raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
-
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         paths = self.musicxml_renderer.execute_a4_pages(
             musicxml_path,
@@ -640,7 +583,6 @@ class RenderActions:
             instrument_profile=req.instrument_profile,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
-            image_path=image_path,
             title=req.title,
         )
         pages = self._register_rendered_pages(paths)
@@ -683,7 +625,6 @@ class RenderActions:
             instrument_profile=req.instrument_profile,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
-            image_path=image_path,
             title=req.title,
         )
         return FinalRenderResponse(
@@ -710,21 +651,11 @@ class RenderActions:
             musicxml_path = self.uploads.get_path(page.musicxml_file_id)
             if not musicxml_path or not musicxml_path.exists():
                 raise FileNotFoundError(f"MusicXML 文件不存在：{page.musicxml_file_id}")
-            image_path = None
-            if page.page_image_file_id:
-                image_path = self.uploads.get_path(page.page_image_file_id)
-                if not image_path or not image_path.exists():
-                    raise FileNotFoundError(
-                        f"页面图片不存在：{page.page_image_file_id}"
-                    )
-                if not page.include_ocr_text:
-                    image_path = None
             scores = self.musicxml_renderer.build_scores(
                 musicxml_path,
                 target_key=req.target_key,
                 instrument_profile=req.instrument_profile,
                 title=page.title or req.title,
-                image_path=image_path,
             )
             rendered_scores = [
                 score_with_accidental_mode(s, accidental_mode=req.accidental_mode)

@@ -539,11 +539,9 @@ test('original preview hit targets stay scoped to the displayed source-map sheet
   assert.doesNotMatch(originalPreviewSource, /sheets\.flatMap\(/)
 })
 
-test('editable SVG preview always suppresses embedded static OCR', () => {
-  assert.match(
-    svgPreviewSource,
-    /const shouldHideStaticOcr = computed\(\(\) => props\.editableOcr\)/,
-  )
+test('editable SVG preview renders no embedded static OCR', () => {
+  assert.doesNotMatch(svgPreviewSource, /hide-static-ocr/)
+  assert.doesNotMatch(svgPreviewSource, /shouldHideStaticOcr/)
   assert.doesNotMatch(
     svgPreviewSource,
     /props\.editableOcr\s*&&\s*ocrBlocks\.value\.length/,
