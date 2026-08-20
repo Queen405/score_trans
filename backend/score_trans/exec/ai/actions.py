@@ -46,9 +46,7 @@ class AiActions:
         self.chat = chat
         self.file_service = file_service or FileService()
         self.default_render_dpi = (
-            default_render_dpi
-            if default_render_dpi is not None
-            else PDF_RENDER_DPI
+            default_render_dpi if default_render_dpi is not None else PDF_RENDER_DPI
         )
 
     def transcribe_score(

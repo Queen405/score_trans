@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from ....config.settings import AI_TEMPERATURE, AI_TIMEOUT, ASSISTANT_API_KEY, ASSISTANT_BASE_URL, ASSISTANT_MODEL
+from ....config.settings import (
+    AI_TEMPERATURE,
+    AI_TIMEOUT,
+    ASSISTANT_API_KEY,
+    ASSISTANT_BASE_URL,
+    ASSISTANT_MODEL,
+)
 from ....models.common.errors import AITranscriptionError
 from ..core.prompts import persisted_ai_settings
 from ..core.registry import register_chat_provider

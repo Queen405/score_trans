@@ -37,7 +37,9 @@ class SenseNovaVisionProvider(OpenAICompatibleVisionTranscriber):
         )
         profile_matches = profile.provider == "sensenova"
         self.base_url = (
-            base_url or (profile.base_url if profile_matches else "") or _VISION_BASE_URL
+            base_url
+            or (profile.base_url if profile_matches else "")
+            or _VISION_BASE_URL
         ).rstrip("/")
         self.model = (
             model or (profile.model if profile_matches else "") or _VISION_DEFAULT_MODEL

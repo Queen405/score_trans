@@ -44,7 +44,9 @@ def chat_completions(
         body.update(extra_body)
 
     resp = httpx.post(
-        url, json=body, headers=headers,
+        url,
+        json=body,
+        headers=headers,
         timeout=httpx.Timeout(connect=30, read=timeout, write=timeout, pool=30),
     )
     resp.raise_for_status()

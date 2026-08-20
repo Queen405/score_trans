@@ -68,9 +68,7 @@ def test_health_and_cors_preflight_remain_available_without_credentials() -> Non
     )
 
     assert preflight.status_code == 200
-    assert preflight.headers["access-control-allow-origin"] == (
-        "http://127.0.0.1:5173"
-    )
+    assert preflight.headers["access-control-allow-origin"] == ("http://127.0.0.1:5173")
 
 
 def test_bearer_auth_covers_json_body_head_range_openapi_and_sse() -> None:
@@ -105,7 +103,9 @@ def test_query_token_is_rejected_and_auth_can_only_be_explicitly_disabled() -> N
     client = TestClient(_authenticated_app())
 
     assert client.get(f"/settings?token={TEST_TOKEN}").status_code == 401
-    assert TestClient(create_app(auth_disabled=True)).get("/settings").status_code == 200
+    assert (
+        TestClient(create_app(auth_disabled=True)).get("/settings").status_code == 200
+    )
 
 
 def test_enabled_auth_rejects_missing_or_short_token() -> None:

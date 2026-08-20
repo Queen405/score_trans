@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
 def pdf_to_png_pages(
     pdf_path: Path,
     output_dir: Path,

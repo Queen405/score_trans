@@ -28,6 +28,9 @@ jobs:
       - name: Lint backend
         run: uvx ruff@0.15.22 check backend tests scripts
 
+      - name: Check backend formatting
+        run: uvx ruff@0.15.22 format --check backend tests scripts
+
       - name: Test backend
         run: uv run pytest
 

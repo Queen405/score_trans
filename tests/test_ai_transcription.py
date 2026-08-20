@@ -393,7 +393,9 @@ def test_ai_chat_forwards_disabled_thinking_to_provider(
             self.calls: list[dict] = []
 
         def chat(self, messages, *, enable_thinking=None) -> str:
-            self.calls.append({"messages": messages, "enable_thinking": enable_thinking})
+            self.calls.append(
+                {"messages": messages, "enable_thinking": enable_thinking}
+            )
             return "直接回答"
 
         def stream_chat(self, messages, *, enable_thinking=None):

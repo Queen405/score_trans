@@ -38,8 +38,7 @@ class SettingsDao:
         if cls._instance is None:
             cls._instance = cls(defaults=defaults)
         elif defaults and any(
-            cls._instance.defaults.get(key) != value
-            for key, value in defaults.items()
+            cls._instance.defaults.get(key) != value for key, value in defaults.items()
         ):
             cls._instance.ensure_defaults(defaults)
         return cls._instance

@@ -216,7 +216,9 @@ def test_clef_key_time_locator_matches_injected_ids() -> None:
     assert note.find("pitch/octave").text == "4"
 
 
-def test_extract_entities_includes_structural_when_in_source_map(tmp_path: Path) -> None:
+def test_extract_entities_includes_structural_when_in_source_map(
+    tmp_path: Path,
+) -> None:
     """方案 A：source-link-map 含结构标记时，extract_entities 能合并返回"""
     omr = tmp_path / "score.omr"
     sheet_xml = """<sheet><picture width="1000" height="1400"/><inters>

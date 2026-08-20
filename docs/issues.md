@@ -8,6 +8,8 @@
 
 > **修复执行状态（2026-07-19）**：阶段 A/B 与 C 已完成；本轮阶段 D 已修复 N1、N9、N20、N22、N23、N24、R5、R6，并固定 CI Ruff 版本。后端完整 pytest、固定版本 Ruff lint、前端 lint/typecheck/工具测试均通过；全仓 Ruff format、Windows 签名和 Vue DOM 跨视图测试仍待专门批次。
 
+> **修复执行状态（2026-08-20）**：发现 `ee3f38c`（移除起始小节号功能）未收尾导致的全仓破损并已修复：后端 14 个失败测试已同步（430 passed）；RecognizeView/ConvertView 约 60 处死代码引用已清除（净删 758 行，含删除 MeasureNumberPicker.vue）；前端工具测试 12 个失败已对齐（75 pass）；`pnpm typecheck` 原先用根 tsconfig（`files: []`）空转，已改为同时检查 `tsconfig.web.json` 与 `tsconfig.node.json`，并修复被其掩盖的约 80 个类型错误（`window.api` 声明因 `index.d.ts` 与 `index.ts` 同名被 TS 遮蔽，已改名 `api.d.ts` 并接入 web 项目；`storageMigration.mts`→`.ts`）；openapi.ts 重新生成并删除 44 行已过时的 `start_measure_number`/`measure_number_candidates` 契约；生产构建恢复可用。方案 A（clef/key/time 结构标记 ID）已随本轮提交。全仓 `ruff format` 已执行（33 个文件），CI 新增 `ruff format --check` 门禁，R3/R4 关闭。
+
 ## 一、结论总览
 
 | 结论 | 数量 | 编号 |
@@ -18,7 +20,7 @@
 | 原报告不成立 | 3 | N6、N7、N8 |
 | 证据不足，降级为待验证风险 | 2 | N15、N17 |
 | 原问题需重新定义 | 1 | N24（源码不存在 MuseScore 集成，而不只是缺测试） |
-| 本轮新增确认问题仍开放 | 3 | R3、R5、R6；R1/R2 已修复，R4 lint 已修复、format 归 R3 |
+| 本轮新增确认问题仍开放 | 0 | 无；R1-R6 均已修复（R3 于 2026-08-20 随 format 门禁落地关闭） |
 | 本轮新增测试缺口 | 2 | T1 部分完成、T2 未开始 |
 
 当前没有发现新的 P0。阶段 A/B 已消除来源 ID 错配、SVG 加载竞态和 N3-N5 乐理往返问题；下一优先级是 N14/N16 的播放与批次状态正确性、N9 的失败诊断、N10/N11/N17 的统一取消生命周期，其后才是 N20/N23 的供应链与运行时安全风险。
@@ -102,12 +104,10 @@
 - **验收**：用可控延迟连续切换 A→B→C，在 A/B 未完成时触发高亮，最终只能在 C 中查找且不出现旧页误报。
 - **2026-07-18 结果**：新增 `LatestAsyncGate`，generation 更新时等待者立即转向最新任务；快速切换会 abort 旧 SVG 请求，卸载会终止 gate 并释放等待者。行为测试覆盖 A→B→C（A 永久挂起、C 已完成）、最新任务失败和卸载取消；修复前前两类等待无法正确结束，修复后 3 项通过。前端工具测试现为 68 项（67 通过、1 跳过），typecheck 通过，lint 0 error/2 条既有 warning。
 
-### R3. CI 质量门禁仍不完整且 Ruff 未锁版本（P2）
+### R3. CI 质量门禁仍不完整且 Ruff 未锁版本（P2，已修复）
 
 - **位置**：`.github/workflows/ci.yml:28-29`
-- **证据**：CI 的 lint 命令现固定为 `uvx ruff@0.15.22 check`。全仓 format check 仍会改动 23 个文件，其中包含当前用户改动文件，因此尚未启用会必然失败的 format gate。
-- **修复方案**：把 Ruff 固定为项目开发依赖或显式版本，CI 增加 format check；之后再分阶段增加覆盖率阈值、依赖审计和必要的 Python 版本矩阵。
-- **验收**：同一 commit 在本地与 CI 使用同一 Ruff 版本，lint/format 结果一致。
+- **2026-08-20 结果**：全仓 `ruff format` 已执行（33 个文件重排），CI 在 lint 步骤后新增 `uvx ruff@0.15.22 format --check backend tests scripts` 门禁；本地与 CI 使用同一固定 Ruff 版本。后续覆盖率阈值、依赖审计、Python 版本矩阵仍可分期增加。
 
 ### R4. 当前 Python 静态质量门禁不通过（P2，已修复 lint 部分）
 
@@ -207,6 +207,7 @@
 
 ## 九、历史记录
 
+- **2026-08-20**：修复 `ee3f38c` 重构残留（后端 14 测试、前端约 60 处死引用、12 个工具测试、openapi 契约漂移、生产构建失败）；修复 typecheck 门禁空转与 `window.api` 类型遮蔽；执行全仓 ruff format 并在 CI 增加 format 门禁（R3/R4 关闭）；提交方案 A 结构标记删除。
 - **2026-07-18**：重新验证当前工作树；撤销 N6/N7/N8 的错误结论，确认 N2 已修复，重定义 N24，新增 R1-R6 和 T1-T2。
 - **2026-07-14**：旧全面审计建立 N1-N26；其行号、数量和若干因果判断已被本轮替代。
 - **2026-07-03**：完成早期 P0/P1 安全、架构和前端生命周期修复；详细历史仍见 [AUDIT_REPORT.md](AUDIT_REPORT.md)。

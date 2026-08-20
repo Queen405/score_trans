@@ -210,9 +210,7 @@ def test_recognize_with_audiveris_no_retry_when_interline_absent(
 
     def fake_run(args, cwd=None, env=None) -> CommandResult:
         call_count["n"] += 1
-        raise ExternalToolError(
-            "外部程序执行失败", stdout="some other error"
-        )
+        raise ExternalToolError("外部程序执行失败", stdout="some other error")
 
     monkeypatch.setattr(external_tools, "_run", fake_run)
 

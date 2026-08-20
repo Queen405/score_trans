@@ -13,9 +13,7 @@ def _from_diatonic(value: int) -> tuple[str, int]:
     return DIATONIC_STEPS[value % 7], value // 7
 
 
-def compute_clef_bottom_diatonic(
-    sign: str, line: int, octave_change: int = 0
-) -> int:
+def compute_clef_bottom_diatonic(sign: str, line: int, octave_change: int = 0) -> int:
     if sign not in _CLEF_REF_OCTAVE:
         raise ValueError(f"Unsupported clef sign: {sign}")
     clef_octave = _CLEF_REF_OCTAVE[sign]
@@ -34,12 +32,8 @@ def transform_pitch(
     old_octave_change: int = 0,
     new_octave_change: int = 0,
 ) -> tuple[str, float, int]:
-    old_bottom = compute_clef_bottom_diatonic(
-        old_sign, old_line, old_octave_change
-    )
-    new_bottom = compute_clef_bottom_diatonic(
-        new_sign, new_line, new_octave_change
-    )
+    old_bottom = compute_clef_bottom_diatonic(old_sign, old_line, old_octave_change)
+    new_bottom = compute_clef_bottom_diatonic(new_sign, new_line, new_octave_change)
     note_diatonic = _diatonic_value(step, octave)
     staff_position = note_diatonic - old_bottom
     new_diatonic = new_bottom + staff_position

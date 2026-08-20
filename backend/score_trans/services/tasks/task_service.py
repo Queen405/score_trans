@@ -162,9 +162,7 @@ class TaskManager:
 
     async def global_events(self) -> AsyncGenerator[str, None]:
         """Yield SSE events for ALL task state changes. Used by the frontend for real-time updates."""
-        sub: asyncio.Queue[str] = asyncio.Queue(
-            maxsize=self._subscriber_queue_size
-        )
+        sub: asyncio.Queue[str] = asyncio.Queue(maxsize=self._subscriber_queue_size)
         self._subscribers.append(sub)
         try:
             # Send initial snapshot of all active tasks

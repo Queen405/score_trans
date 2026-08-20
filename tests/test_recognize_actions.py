@@ -129,7 +129,9 @@ def test_recognize_auxiliary_failures_are_logged_and_degraded(
 
     monkeypatch.setattr(Path, "rglob", fail_rglob)
 
-    assert _generate_overlay_file_id(BrokenOverlayService(), _Uploads(), tmp_path) is None
+    assert (
+        _generate_overlay_file_id(BrokenOverlayService(), _Uploads(), tmp_path) is None
+    )
     assert _register_omr_file(_Uploads(), tmp_path) is None
     assert "生成 Audiveris SVG 叠加层失败" in caplog.text
     assert "查找 Audiveris OMR 文件失败" in caplog.text

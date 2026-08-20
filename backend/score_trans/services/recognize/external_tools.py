@@ -203,14 +203,10 @@ _AUdiveris_STAGE_BY_CLASS = {
 _AUdiveris_LOW_INTERLINE_RE = re.compile(
     r"too low interline value of\s*(\d+)\s*pixels", re.IGNORECASE
 )
-_AUdiveris_NPE_CLASS_RE = re.compile(
-    r"at org\.audiveris\.omr\..*?\((\w+)\.java:"
-)
+_AUdiveris_NPE_CLASS_RE = re.compile(r"at org\.audiveris\.omr\..*?\((\w+)\.java:")
 
 
-def _summarize_audiveris_failure(
-    stdout: str, stderr: str, output_dir: Path
-) -> str:
+def _summarize_audiveris_failure(stdout: str, stderr: str, output_dir: Path) -> str:
     """把 Audiveris 的原始输出提炼成一句人话。
 
     优先级：低分辨率 > 内部错误(定位阶段) > 转换未完成 > 通用兜底。

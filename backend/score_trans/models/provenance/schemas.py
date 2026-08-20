@@ -81,4 +81,3 @@ class RenderedTextBlock(BaseModel):
     bbox: BoundingBox
     font_size: float | None = None
     anchor: TextPlacementAnchor
-

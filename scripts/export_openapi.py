@@ -11,7 +11,9 @@ ENV_EXAMPLE = PROJECT_ROOT / "backend" / "score_trans" / "config" / "env.example
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Export the Score Trans OpenAPI schema")
+    parser = argparse.ArgumentParser(
+        description="Export the Score Trans OpenAPI schema"
+    )
     parser.add_argument("output", type=Path)
     return parser.parse_args()
 

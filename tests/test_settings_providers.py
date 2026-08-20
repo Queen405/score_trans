@@ -23,11 +23,7 @@ from score_trans.services.settings.settings_service import SettingsService
 
 def test_env_example_documents_optional_path_and_ai_prompt_overrides() -> None:
     example = (
-        Path(__file__).parents[1]
-        / "backend"
-        / "score_trans"
-        / "config"
-        / "env.example"
+        Path(__file__).parents[1] / "backend" / "score_trans" / "config" / "env.example"
     ).read_text(encoding="utf-8")
 
     for variable in (

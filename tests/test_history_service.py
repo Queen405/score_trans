@@ -269,9 +269,7 @@ def test_partial_recognition_persists_all_pages_and_reuses_rows(tmp_path) -> Non
             )
             for index in range(10)
         ],
-        jianpu_text="\n".join(
-            f"// @page {index + 1}" for index in range(10)
-        ),
+        jianpu_text="\n".join(f"// @page {index + 1}" for index in range(10)),
     )
 
     assert batch.page_count == 10
@@ -441,10 +439,13 @@ def test_v4_migration_backs_up_and_clears_history(tmp_path) -> None:
         assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 0
         assert "start_measure_number" not in page_columns
-        assert conn.execute(
-            "SELECT COUNT(*) FROM sqlite_sequence "
-            "WHERE name IN ('history_batch', 'history_page')"
-        ).fetchone()[0] == 0
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM sqlite_sequence "
+                "WHERE name IN ('history_batch', 'history_page')"
+            ).fetchone()[0]
+            == 0
+        )
     with sqlite3.connect(backup_path) as conn:
         backup_columns = {
             row[1] for row in conn.execute("PRAGMA table_info(history_page)")

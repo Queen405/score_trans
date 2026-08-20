@@ -44,9 +44,7 @@ def _key_scale(target_key: str) -> list[tuple[str, int, int]]:
     return [
         (
             DIATONIC_STEPS[(tonic_index + offset) % len(DIATONIC_STEPS)],
-            alterations[
-                DIATONIC_STEPS[(tonic_index + offset) % len(DIATONIC_STEPS)]
-            ],
+            alterations[DIATONIC_STEPS[(tonic_index + offset) % len(DIATONIC_STEPS)]],
             4 + (tonic_index + offset) // len(DIATONIC_STEPS),
         )
         for offset in range(7)
@@ -59,6 +57,6 @@ def _key_signature_alterations(fifths: int) -> dict[str, int]:
         for step in SHARP_ORDER[:fifths]:
             alterations[step] = 1
     elif fifths < 0:
-        for step in FLAT_ORDER[: -fifths]:
+        for step in FLAT_ORDER[:-fifths]:
             alterations[step] = -1
     return alterations

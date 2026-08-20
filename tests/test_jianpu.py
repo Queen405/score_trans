@@ -167,10 +167,7 @@ def test_page_marker_non_sequential_raises() -> None:
 
 
 def test_page_marker_with_bom_parses() -> None:
-    text = (
-        '\ufeff// @page 1 name="p.png"\n'
-        '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |'
-    )
+    text = '\ufeff// @page 1 name="p.png"\n// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |'
 
     scores = parse_jianpu_scores(text)
 
@@ -199,7 +196,7 @@ def test_multi_page_part_numbering_resets_per_page() -> None:
         '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |\n'
         '// @page 2 name="p2.png"\n'
         '// @part 1 name="高音"\n1=C\n4/4\n2 3 4 5 |\n'
-        '// @part 2 name="低音"\n1=C\n4/4\n6 7 1\' 2\' |'
+        "// @part 2 name=\"低音\"\n1=C\n4/4\n6 7 1' 2' |"
     )
 
     scores = parse_jianpu_scores(text)
@@ -222,7 +219,9 @@ def test_part_numbering_non_sequential_within_page_raises() -> None:
         '// @part 3 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
     )
 
-    with pytest.raises(ValueError, match="分谱标记序号不连续.*期望 @part 2.*实际 @part 3"):
+    with pytest.raises(
+        ValueError, match="分谱标记序号不连续.*期望 @part 2.*实际 @part 3"
+    ):
         parse_jianpu_scores(text)
 
 

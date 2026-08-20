@@ -437,9 +437,7 @@ def test_bundled_font_manifest_is_stable() -> None:
 
 
 def test_a4_viewbox_is_stable() -> None:
-    svg = render_scores_a4_pages(
-        [parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")]
-    )[0].svg
+    svg = render_scores_a4_pages([parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")])[0].svg
     root = _root(svg)
 
     assert root.attrib["width"] == "1240"

@@ -111,9 +111,7 @@ class JianpuToMusicXmlAction:
     def execute_text(self, jianpu_text: str, *, title: str | None = None) -> str:
         return jianpu_to_musicxml(jianpu_text, title=title)
 
-    def execute_file(
-        self, input_path: str | Path, *, title: str | None = None
-    ) -> str:
+    def execute_file(self, input_path: str | Path, *, title: str | None = None) -> str:
         return jianpu_file_to_musicxml(Path(input_path), title=title)
 
 
