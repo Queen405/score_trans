@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from ...domain.jianpu import parse_jianpu_score, parse_jianpu_scores
+from ...domain.jianpu import parse_jianpu_score
 from ...models.common.errors import RenderError
 from ...models.score import JianpuScore, TextBlock
 from .engraving.renderer import MeasureRange, PublicationPage, PublicationRenderer

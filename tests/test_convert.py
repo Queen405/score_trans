@@ -11,14 +11,6 @@ from score_trans.domain.write.musicxml import scores_to_musicxml
 from score_trans.models.score import Event, JianpuEvent, TextBlock
 
 
-def test_musicxml_to_score_respects_start_measure_number() -> None:
-    xml = jianpu_to_musicxml("1=C\n4/4\n1 2 3 4 |")
-
-    score = musicxml_to_score(xml, start_measure_number=118)
-
-    assert score.measures[0].display_number == 118
-
-
 def test_musicxml_preserves_double_accidentals_and_sharp_key_spelling() -> None:
     xml = """
     <score-partwise version="4.0">

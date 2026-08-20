@@ -6,7 +6,6 @@ from PIL import Image
 import pytest
 
 from score_trans.domain.jianpu import jianpu_to_musicxml
-from score_trans.exec.convert.actions import MusicXmlToJianpuAction
 from score_trans.exec.pipeline.actions import (
     FullPipelineAction,
     PipelineActions,
@@ -87,7 +86,6 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
         tmp_path / "out",
         config=ToolConfig(audiveris_path="fake-audiveris"),
         target_key="C",
-        start_measure_number=118,
         title="Pipeline Test",
     )
 
@@ -99,7 +97,7 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
     assert "h0" in outputs.jianpu_text_path.read_text(encoding="utf-8")
     svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")
     assert "Pipeline Test" in svg
-    assert ">118</text>" in svg
+    assert ">1</text>" in svg
     assert recognizer.calls
 
 
@@ -115,7 +113,6 @@ def test_full_pipeline_can_hide_measure_numbers(tmp_path) -> None:
         tmp_path / "out",
         config=ToolConfig(audiveris_path="fake-audiveris"),
         target_key="C",
-        start_measure_number=118,
         measure_number_mode="none",
         title="Pipeline Test",
     )
@@ -159,7 +156,6 @@ def test_pipeline_actions_do_not_register_partial_outputs_when_render_is_empty(
         jianpu_text_path=text_path,
         jianpu_svg_paths=[],
         render_map_paths=[],
-        ocr_measure_numbers=[],
     )
     actions = PipelineActions(
         uploads=uploads,
@@ -200,7 +196,6 @@ def test_pipeline_actions_read_compressed_mxl_as_musicxml(tmp_path: Path) -> Non
                 jianpu_text_path=text_path,
                 jianpu_svg_paths=[svg_path],
                 render_map_paths=[],
-                ocr_measure_numbers=[],
             )
         ),
     )
@@ -244,38 +239,3 @@ def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> Non
     assert [item.text for item in outputs.text_attachments] == ["原谱标题"]
     assert outputs.text_attachments[0].anchor.kind == "score_start"
     assert "text_attachments" in PipelineResponse.model_json_schema()["properties"]
-
-
-def test_build_score_from_musicxml_can_apply_ocr_measure_numbers(tmp_path) -> None:
-    musicxml = tmp_path / "score.musicxml"
-    image = tmp_path / "score.png"
-    musicxml.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 | 3 4 |"), encoding="utf-8")
-    image.write_bytes(b"fake image")
-    provider = MockOCRProvider([OCRTextBlock("42", role="measure_number")])
-
-    score = MusicXmlToJianpuAction().build_score(
-        musicxml, image_path=image, ocr_provider=provider
-    )
-
-    assert [measure.display_number for measure in score.measures] == [42, 43]
-    assert provider.calls == [image]
-
-
-def test_ocr_measure_number_uses_reading_order_not_smallest_number(tmp_path) -> None:
-    musicxml = tmp_path / "score.musicxml"
-    image = tmp_path / "score.png"
-    musicxml.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 | 3 4 |"), encoding="utf-8")
-    image.write_bytes(b"fake image")
-    provider = MockOCRProvider(
-        [
-            OCRTextBlock("118", bbox=(100, 30, 124, 46), role="measure_number"),
-            OCRTextBlock("78", bbox=(500, 760, 526, 780), role="measure_number"),
-        ]
-    )
-
-    score = MusicXmlToJianpuAction().build_score(
-        musicxml, image_path=image, ocr_provider=provider
-    )
-
-    assert [measure.display_number for measure in score.measures] == [118, 119]
-    assert [measure.text_blocks[0].text for measure in score.measures] == ["118", "119"]

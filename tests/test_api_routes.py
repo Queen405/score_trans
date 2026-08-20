@@ -206,13 +206,9 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
 
     assert "show_measure_numbers" in schemas["SettingsResponse"]["properties"]
     assert "measure_number_mode" in schemas["SettingsResponse"]["properties"]
-    assert "confirm_start_measure_number" in schemas["SettingsResponse"]["properties"]
     assert "jianpu_syntax_highlight" in schemas["SettingsResponse"]["properties"]
     assert "show_measure_numbers" in schemas["SettingsUpdateRequest"]["properties"]
     assert "measure_number_mode" in schemas["SettingsUpdateRequest"]["properties"]
-    assert (
-        "confirm_start_measure_number" in schemas["SettingsUpdateRequest"]["properties"]
-    )
     assert "jianpu_syntax_highlight" in schemas["SettingsUpdateRequest"]["properties"]
     assert "show_measure_numbers" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "measure_number_mode" in schemas["PipelineByFileIdRequest"]["properties"]
@@ -323,26 +319,6 @@ def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
 
     response = client.get("/settings")
     assert response.json()["jianpu_syntax_highlight"] is True
-
-
-def test_settings_persists_confirm_start_measure_number(tmp_path: Path) -> None:
-    app = create_app()
-    dao = SettingsDao(tmp_path / "settings.db")
-    service = SettingsService(dao)
-    service.set("work_dir", str(tmp_path / "work"))
-    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
-    client = TestClient(app)
-
-    response = client.get("/settings")
-    assert response.status_code == 200
-    assert response.json()["confirm_start_measure_number"] is True
-
-    response = client.put("/settings", json={"confirm_start_measure_number": False})
-    assert response.status_code == 200
-    assert response.json()["confirm_start_measure_number"] is False
-
-    response = client.get("/settings")
-    assert response.json()["confirm_start_measure_number"] is False
 
 
 def test_settings_rejects_unsupported_target_key(tmp_path: Path) -> None:
@@ -565,8 +541,8 @@ def test_history_page_endpoint_returns_latest_page_and_404(tmp_path: Path) -> No
             "pages": [
                 {
                     "input_file_name": "score.png",
-                    "status": "waiting",
-                    "error_message": "等待选择起始小节号：7、9",
+                    "status": "processing",
+                    "error_message": "",
                 }
             ]
         },
@@ -575,7 +551,6 @@ def test_history_page_endpoint_returns_latest_page_and_404(tmp_path: Path) -> No
     client.patch(
         f"/history/pages/{page_id}",
         json={
-            "start_measure_number": 9,
             "status": "completed",
             "error_message": "",
         },
@@ -585,7 +560,6 @@ def test_history_page_endpoint_returns_latest_page_and_404(tmp_path: Path) -> No
 
     assert response.status_code == 200
     assert response.json()["status"] == "completed"
-    assert response.json()["start_measure_number"] == 9
     assert client.get("/history/pages/404").status_code == 404
 
 

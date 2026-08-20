@@ -157,10 +157,10 @@ def test_multi_page_midi_merges_parts_across_pages(tmp_path) -> None:
     uploads = UploadService()
     actions = ExportActions(uploads=uploads)
     text = (
-        '// @page 1 start=auto name="p1.png"\n'
+        '// @page 1 name="p1.png"\n'
         '// @part 1 name="Voice"\n1=C\n4/4\n1 2 3 4 |\n'
         '// @part 2 name="Piano"\n1=C\n4/4\n5 6 7 1\' |\n'
-        '// @page 2 start=auto name="p2.png"\n'
+        '// @page 2 name="p2.png"\n'
         '// @part 1 name="Voice"\n1=C\n4/4\n2 3 4 5 |\n'
         "// @part 2 name=\"Piano\"\n1=C\n4/4\n6 7 1' 2' |"
     )

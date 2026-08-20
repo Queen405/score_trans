@@ -171,7 +171,7 @@ def test_history_rejects_sqlite_older_than_335(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(sqlite3, "sqlite_version_info", (3, 34, 1))
     monkeypatch.setattr(sqlite3, "sqlite_version", "3.34.1")
 
-    with pytest.raises(RuntimeError, match="SQLite 3.35 or newer"):
+    with pytest.raises(RuntimeError, match=r"SQLite 3\.35\.0 or newer"):
         HistoryDao(tmp_path / "history.db")
 
 

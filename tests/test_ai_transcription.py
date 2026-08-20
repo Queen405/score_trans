@@ -221,7 +221,6 @@ def test_ai_action_transcribes_uploaded_image_with_mock_provider(
                 key="C",
                 meter="4/4",
                 jianpu_text="1=C\n4/4\n1 1 5 5 |",
-                measure_number_candidates=[9, 10],
                 warnings=["第二小节看不清"],
                 confidence=0.86,
             )
@@ -242,7 +241,6 @@ def test_ai_action_transcribes_uploaded_image_with_mock_provider(
     assert "1 1 5 5" in uploads.get_path(response.jianpu_file_id).read_text(
         encoding="utf-8"
     )
-    assert response.pages[0].measure_number_candidates == [9, 10]
     assert response.pages[0].warnings == ["第二小节看不清"]
 
 
@@ -329,18 +327,6 @@ def test_ai_plain_text_response_falls_back_to_jianpu_text() -> None:
 
     assert result.jianpu_text.startswith("title=中阮")
     assert result.warnings
-
-
-def test_ai_json_response_accepts_measure_number_candidates() -> None:
-    result = parse_vision_page_result(
-        {
-            "jianpu_text": "1=C\n4/4\n1 2 3 4 |",
-            "measure_number_candidates": [17],
-            "warnings": [],
-        }
-    )
-
-    assert result.measure_number_candidates == [17]
 
 
 def test_ai_validation_applies_accidental_mode() -> None:

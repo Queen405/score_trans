@@ -117,7 +117,7 @@ def test_multi_part_jianpu_to_musicxml_preserves_parts() -> None:
 
 def test_page_marker_with_parts_parses_without_error() -> None:
     text = (
-        '// @page 1 start=auto name="page1.png"\n'
+        '// @page 1 name="page1.png"\n'
         '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
         '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
     )
@@ -129,31 +129,29 @@ def test_page_marker_with_parts_parses_without_error() -> None:
     assert all(s.page_count == 1 for s in scores)
     assert all(s.page_index == 0 for s in scores)
     assert all(s.page_input_file_name == "page1.png" for s in scores)
-    assert all(s.page_start_measure is None for s in scores)
 
 
 def test_page_marker_single_part_parses() -> None:
-    text = '// @page 1 start=5 name="p.png"\n1=C\n4/4\n1 2 3 4 |'
+    text = '// @page 1 name="p.png"\n1=C\n4/4\n1 2 3 4 |'
 
     scores = parse_jianpu_scores(text)
 
     assert len(scores) == 1
     assert scores[0].page_input_file_name == "p.png"
-    assert scores[0].page_start_measure == 5
     assert scores[0].page_index == 0
     assert scores[0].page_count == 1
 
 
 def test_page_marker_roundtrip_preserves_info() -> None:
     text = (
-        '// @page 1 start=auto name="page1.png"\n'
+        '// @page 1 name="page1.png"\n'
         '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
         '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
     )
 
     normalized = normalize_jianpu_text(text)
 
-    assert '// @page 1 start=auto name="page1.png"' in normalized
+    assert '// @page 1 name="page1.png"' in normalized
     assert 'name="高音"' in normalized
     assert 'name="低音"' in normalized
     re_scores = parse_jianpu_scores(normalized)
@@ -162,7 +160,7 @@ def test_page_marker_roundtrip_preserves_info() -> None:
 
 
 def test_page_marker_non_sequential_raises() -> None:
-    text = "// @page 2 start=auto\n1=C\n4/4\n1 2 3 4 |"
+    text = "// @page 2\n1=C\n4/4\n1 2 3 4 |"
 
     with pytest.raises(ValueError, match="分页标记序号不连续"):
         parse_jianpu_scores(text)
@@ -170,7 +168,7 @@ def test_page_marker_non_sequential_raises() -> None:
 
 def test_page_marker_with_bom_parses() -> None:
     text = (
-        '\ufeff// @page 1 start=auto name="p.png"\n'
+        '\ufeff// @page 1 name="p.png"\n'
         '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |'
     )
 
@@ -183,7 +181,7 @@ def test_page_marker_with_bom_parses() -> None:
 
 def test_page_marker_before_part_with_real_score_text() -> None:
     text = (
-        '// @page 1 start=auto name="微信图片_20260704184255_107_34.png"\n'
+        '// @page 1 name="微信图片_20260704184255_107_34.png"\n'
         '// @part 1 name="Piano(staff 1)"\n1=C\n4/4\nq0 |\n'
         '// @part 2 name="Piano(staff 2)"\n1=C\n4/4\nw0 |'
     )
@@ -196,10 +194,10 @@ def test_page_marker_before_part_with_real_score_text() -> None:
 
 def test_multi_page_part_numbering_resets_per_page() -> None:
     text = (
-        '// @page 1 start=auto name="p1.png"\n'
+        '// @page 1 name="p1.png"\n'
         '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
         '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |\n'
-        '// @page 2 start=auto name="p2.png"\n'
+        '// @page 2 name="p2.png"\n'
         '// @part 1 name="高音"\n1=C\n4/4\n2 3 4 5 |\n'
         '// @part 2 name="低音"\n1=C\n4/4\n6 7 1\' 2\' |'
     )
@@ -219,7 +217,7 @@ def test_multi_page_part_numbering_resets_per_page() -> None:
 
 def test_part_numbering_non_sequential_within_page_raises() -> None:
     text = (
-        '// @page 1 start=auto name="p1.png"\n'
+        '// @page 1 name="p1.png"\n'
         '// @part 1 name="高音"\n1=C\n4/4\n1 2 3 4 |\n'
         '// @part 3 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
     )
