@@ -25,6 +25,7 @@ class PublicationRenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
     ) -> Path:
         return render_score_file_to_svg(
             score,
@@ -32,6 +33,7 @@ class PublicationRenderService:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def render_score_page_svg(
@@ -44,6 +46,7 @@ class PublicationRenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
     ) -> Path:
         return render_score_page_file_to_svg(
             score,
@@ -53,6 +56,7 @@ class PublicationRenderService:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def render_score_a4_svg_pages(
@@ -62,6 +66,7 @@ class PublicationRenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
     ) -> list[RenderedA4FilePage]:
         return render_score_a4_pages_to_files(
             score,
@@ -69,6 +74,7 @@ class PublicationRenderService:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def render_scores_a4_svg_pages(
@@ -78,6 +84,7 @@ class PublicationRenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_pages_to_files(
             scores,
@@ -85,6 +92,7 @@ class PublicationRenderService:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def build_scores_a4_svg_pages(
@@ -93,6 +101,7 @@ class PublicationRenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
     ) -> list[RenderedA4Page]:
         mode = measure_number_mode or (
             "none" if show_measure_numbers is False else "all"
@@ -103,6 +112,7 @@ class PublicationRenderService:
                 title=title or "简谱",
                 show_measure_numbers=mode != "none",
                 measure_number_mode=mode,
+                initial_measure_number=initial_measure_number,
             ),
         )
 
@@ -113,6 +123,7 @@ class PublicationRenderService:
         title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_page_results_to_files(
             scores,
@@ -120,6 +131,7 @@ class PublicationRenderService:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def render_text_svg(
@@ -129,6 +141,7 @@ class PublicationRenderService:
         title: str = "简谱",
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
     ) -> Path:
         return render_jianpu_file_to_svg(
             Path(input_path),
@@ -136,6 +149,7 @@ class PublicationRenderService:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def render_text_page_svg(
@@ -148,6 +162,7 @@ class PublicationRenderService:
         title: str = "简谱",
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
     ) -> Path:
         return render_jianpu_page_file_to_svg(
             Path(input_path),
@@ -157,4 +172,5 @@ class PublicationRenderService:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )

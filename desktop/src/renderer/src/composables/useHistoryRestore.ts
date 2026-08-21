@@ -88,6 +88,7 @@ export function useHistoryRestore() {
         accidental_mode: settings.accidentalMode,
         show_measure_numbers: settings.showMeasureNumbers,
         measure_number_mode: settings.measureNumberMode,
+        initial_measure_number: 1,
         title: '简谱',
       }))
       const ids = renderResponsePageIds(rendered.pages, rendered.svg_file_id)

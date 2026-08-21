@@ -1355,6 +1355,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
           .find((profile): profile is InstrumentProfile => profile !== null)
           ?? instrumentProfile.value,
         measure_number_mode: settings.measureNumberMode,
+        initial_measure_number: 1,
         title: '简谱',
       }))
       const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)

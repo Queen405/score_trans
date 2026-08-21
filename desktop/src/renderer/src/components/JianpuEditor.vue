@@ -15,6 +15,16 @@
         <span class="editor-page-number">P{{ page.pageNumber }}</span>
         <span class="editor-page-range">{{ pageRangeText(page) }}</span>
       </button>
+      <n-input-number
+        v-model:value="initialMeasureNumberModel"
+        class="editor-initial-measure-number"
+        size="tiny"
+        :min="1"
+        :precision="0"
+        :show-button="false"
+        placeholder="起始小节号"
+        aria-label="第一页起始小节号"
+      />
     </div>
     <div class="editor-body">
       <div
@@ -97,6 +107,7 @@
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
 import { tokenizeJianpuLine } from '../utils/jianpuSyntax'
+import { NInputNumber } from 'naive-ui'
 import {
   hasJianpuPageMarkers,
   jianpuGutterLabels,
@@ -110,13 +121,26 @@ const props = withDefaults(defineProps<{
   syntaxHighlight?: boolean
   errorLine?: number
   flashLine?: number
+  initialMeasureNumber?: number
 }>(), {
   currentNoteIndex: -1,
   syntaxHighlight: false,
   errorLine: -1,
   flashLine: -1,
+  initialMeasureNumber: 1,
 })
-const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+  'update:initialMeasureNumber': [value: number]
+}>()
+
+const initialMeasureNumberModel = computed({
+  get: () => props.initialMeasureNumber,
+  set: (value: number | null) => emit(
+    'update:initialMeasureNumber',
+    Math.max(1, Math.trunc(value || 1)),
+  ),
+})
 
 const gutterRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
@@ -335,10 +359,10 @@ function syncScroll(e: Event): void {
 }
 
 const measureLabels = computed(() =>
-  jianpuGutterLabels(props.modelValue),
+  jianpuGutterLabels(props.modelValue, props.initialMeasureNumber),
 )
 const pageSummaries = computed(() =>
-  jianpuPageSummaries(props.modelValue),
+  jianpuPageSummaries(props.modelValue, props.initialMeasureNumber),
 )
 const showPageSummary = computed(() =>
   hasJianpuPageMarkers(props.modelValue) && pageSummaries.value.length > 0,
@@ -494,6 +518,11 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   font-family: 'Cascadia Code', 'Consolas', monospace;
   font-size: 12px;
   color: var(--text-muted, #777);
+}
+
+.editor-initial-measure-number {
+  flex: 0 0 112px;
+  margin-left: auto;
 }
 
 .editor-body {

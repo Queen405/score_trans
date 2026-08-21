@@ -235,9 +235,12 @@ export function jianpuMeasureCount(text: string): number {
   return Math.max(0, ...partCounts)
 }
 
-export function jianpuPageSummaries(text: string): JianpuPageSummary[] {
+export function jianpuPageSummaries(
+  text: string,
+  initialMeasureNumber = 1,
+): JianpuPageSummary[] {
   const sections = parseJianpuPageSections(text)
-  let nextMeasureNumber = 1
+  let nextMeasureNumber = Math.max(1, Math.trunc(initialMeasureNumber))
   return sections.map((section, order) => {
     const firstMeasureNumber = nextMeasureNumber
     const measureCount = jianpuMeasureCount(section.body)
@@ -255,11 +258,11 @@ export function jianpuPageSummaries(text: string): JianpuPageSummary[] {
   })
 }
 
-export function jianpuGutterLabels(text: string): string[] {
+export function jianpuGutterLabels(text: string, initialMeasureNumber = 1): string[] {
   const normalized = normalizeLineEndings(text)
-  const summaries = jianpuPageSummaries(normalized)
+  const summaries = jianpuPageSummaries(normalized, initialMeasureNumber)
   let pageOrder = -1
-  let pageStartMeasureNumber = 1
+  let pageStartMeasureNumber = Math.max(1, Math.trunc(initialMeasureNumber))
   let measureNumber = pageStartMeasureNumber
   return normalized.split('\n').map((line) => {
     const marker = parseJianpuPageMarker(line)

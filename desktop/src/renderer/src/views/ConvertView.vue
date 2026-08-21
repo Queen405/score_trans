@@ -358,9 +358,11 @@
               ref="jianpuEditorRef"
               v-model="jianpuText"
               :current-note-index="currentNoteIndex"
+              :initial-measure-number="initialMeasureNumber"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
               :error-line="errorLine"
               :flash-line="flashLine"
+              @update:initial-measure-number="initialMeasureNumber = $event"
             />
           </div>
         </div>
@@ -496,6 +498,8 @@ const finalSvgFileIds = ref<string[]>(store.currentBatchRenderPageFileIds.length
   : currentPageSvgIds())
 const finalRenderPageIndex = ref(0)
 const finalSvgFileId = computed(() => finalSvgFileIds.value[finalRenderPageIndex.value] ?? '')
+const initialMeasureNumber = ref(1)
+const initialMeasureNumberStorageKey = 'score-trans.initial-measure-number'
 const exportFormat = ref('pdf')
 const formatOptions = [
   { label: 'PDF', value: 'pdf' },
@@ -537,6 +541,32 @@ const canReorderBatch = computed(() => {
 // nextTick flag, it cannot suppress an unrelated user edit in the same flush.
 let editorSyncGeneration = 0
 let pendingExternalEditorSync: { generation: number; text: string } | null = null
+
+function initialMeasureNumberKey(batchId: string | null): string {
+  return `${initialMeasureNumberStorageKey}.${batchId || 'current'}`
+}
+
+function loadInitialMeasureNumber(batchId: string | null): number {
+  const raw = Number.parseInt(localStorage.getItem(initialMeasureNumberKey(batchId)) || '', 10)
+  return Number.isInteger(raw) && raw >= 1 ? raw : 1
+}
+
+watch(() => store.currentBatchId, (batchId) => {
+  initialMeasureNumber.value = loadInitialMeasureNumber(batchId)
+}, { immediate: true })
+watch(initialMeasureNumber, (value) => {
+  const normalized = typeof value === 'number' && Number.isInteger(value) && value >= 1
+    ? value
+    : 1
+  if (value !== normalized) {
+    initialMeasureNumber.value = normalized
+    return
+  }
+  localStorage.setItem(
+    initialMeasureNumberKey(store.currentBatchId),
+    String(normalized),
+  )
+})
 
 watch(() => store.currentBatchJianpuText, (v) => {
   if (v !== jianpuText.value) {
@@ -1406,6 +1436,7 @@ async function renderFinalBatch(): Promise<string[]> {
     target_key: settings.targetKey,
     accidental_mode: settings.accidentalMode,
     measure_number_mode: settings.measureNumberMode,
+    initial_measure_number: Math.max(1, Math.trunc(initialMeasureNumber.value || 1)),
     title: '简谱',
   }))
   const ids = renderResponsePageIds(result.pages, result.svg_file_id)

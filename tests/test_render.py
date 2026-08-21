@@ -9,6 +9,7 @@ from itertools import pairwise
 from pathlib import Path
 
 from score_trans.domain.jianpu import parse_jianpu_score
+from score_trans.exec.render.actions import _renumber_scores_continuously
 from score_trans.models.score import (
     Beam,
     Event,
@@ -24,6 +25,7 @@ from score_trans.services.render.engraving.renderer import (
     _Anchor,
     _Cell,
     _draw_explicit_beam_level,
+    _draw_rhythm_lines,
     _draw_rhythm_run,
     _event_positions,
     _system_extra_height,
@@ -101,6 +103,45 @@ def test_publication_renderer_is_the_only_engine() -> None:
     assert root.attrib["data-engine-version"] == "publication-2"
     assert "春江" in svg
     assert "<path" in svg
+
+
+def test_explicit_dotted_full_measure_rest_is_rendered() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n0. |")
+
+    assert len(score.measures) == 1
+    assert score.measures[0].events[0].kind == "rest"
+    assert score.measures[0].events[0].dotted == 1
+
+    root = _root(render_score_svg(score))
+    rest = next(
+        node
+        for node in root.iter()
+        if node.attrib.get("data-note-token") in {"0", "0."}
+    )
+    assert any(node.attrib.get("class") == "rhythm-dot" for node in rest.iter())
+    assert (
+        len([node for node in root.iter() if "measure" in node.attrib.get("class", "")])
+        >= 2
+    )
+
+
+def test_batch_measure_numbers_start_at_requested_number_after_reordering() -> None:
+    pages = [
+        parse_jianpu_score("1=C\n4/4\n1 2 3 4 |"),
+        parse_jianpu_score("1=C\n4/4\n5 6 7 1 |"),
+    ]
+
+    _renumber_scores_continuously(pages, initial_measure_number=5)
+
+    assert [page.measures[0].display_number for page in pages] == [5, 6]
+
+
+def test_render_options_emit_requested_initial_measure_number() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
+
+    pages = render_scores_a4_pages([score], RenderOptions(initial_measure_number=5))
+
+    assert 'aria-label="5"' in pages[0].svg
 
 
 def test_playback_and_source_contract_is_preserved() -> None:
@@ -482,6 +523,56 @@ def test_low_octave_dot_stays_above_duration_lines() -> None:
     )
 
 
+def test_rhythm_runs_share_lowest_safe_baseline_in_a_measure() -> None:
+    low = Event(
+        kind="note",
+        duration=Fraction(1, 2),
+        pitches=[JianpuPitch(6, octave=-1)],
+        voice="1",
+    )
+    normal = Event(
+        kind="note",
+        duration=Fraction(1, 2),
+        pitches=[JianpuPitch(3)],
+        voice="2",
+    )
+    scene = PublicationScene(320.0, 180.0, 0)
+    anchors = [
+        _Anchor(130.0, 100.0, BBox(120.0, 80.0, 20.0, 28.0), low),
+        _Anchor(220.0, 100.0, BBox(210.0, 80.0, 20.0, 28.0), normal),
+    ]
+
+    _draw_rhythm_lines(scene, anchors, style=PublicationStyle())
+    lines = [
+        node
+        for node in scene.nodes
+        if "duration-line" in node.attrs.get("class", "")
+    ]
+
+    assert len(lines) == 2
+    assert float(lines[0].attrs["y1"]) == float(lines[1].attrs["y1"])
+
+
+def test_octave_dots_clear_actual_note_ink_bounds() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(1, octave=1), JianpuPitch(6, octave=-1)],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    notes = [node for node in root.iter() if node.attrib.get("class") == "note"]
+    dots = [node for node in root.iter() if node.attrib.get("class") == "octave-dot"]
+    assert len(notes) == 2
+    assert len(dots) == 2
+    high_note_top = _text_box(notes[0])[1]
+    low_note_bottom = _text_box(notes[1])[3]
+    high_dot_bottom = float(dots[0].attrib["cy"]) + float(dots[0].attrib["r"])
+    low_dot_top = float(dots[1].attrib["cy"]) - float(dots[1].attrib["r"])
+
+    assert high_dot_bottom <= high_note_top - 3
+    assert low_dot_top >= low_note_bottom + 3
+
+
 def test_beam_line_stays_inside_measure_content() -> None:
     scene = PublicationScene(240.0, 160.0, 0)
     event = Event(kind="note", duration=Fraction(1, 2), pitches=[JianpuPitch(3)])
@@ -675,27 +766,22 @@ def test_measure_attributes_only_render_when_key_or_meter_changes() -> None:
     assert svg.count('class="measure-attribute"') == 1
 
 
-def test_measure_attribute_reserves_space_before_first_event() -> None:
-    score = parse_jianpu_score("1=C\n4/4\n1 | #2 |")
-    score.measures[1].target_key = "F"
-    score.measures[1].beats_per_measure = 3
-    root = _root(render_score_svg(score))
-    attribute = next(
-        node for node in root.iter() if node.attrib.get("class") == "measure-attribute"
-    )
-    second_note = [node for node in root.iter() if node.attrib.get("class") == "note"][
-        1
-    ]
-    attribute_x, _ = _translate(attribute)
-    note_x, _ = _translate(second_note)
-    attribute_width = font_registry().measure(
-        attribute.attrib["aria-label"], float(attribute.attrib["data-font-size"])
-    )
-    note_width = font_registry().measure(
-        second_note.attrib["aria-label"], float(second_note.attrib["data-font-size"])
-    )
+def test_measure_attribute_does_not_shift_event_slots() -> None:
+    plain = parse_jianpu_score("1=C\n4/4\n1 | 2 3 4 5 |")
+    changed = parse_jianpu_score("1=C\n4/4\n1 | 2 3 4 5 |")
+    changed.measures[1].target_key = "F"
+    changed.measures[1].beats_per_measure = 3
 
-    assert attribute_x + attribute_width + 8 <= note_x - note_width / 2
+    plain_notes = [
+        node for node in _root(render_score_svg(plain)).iter()
+        if node.attrib.get("class") == "note"
+    ]
+    changed_notes = [
+        node for node in _root(render_score_svg(changed)).iter()
+        if node.attrib.get("class") == "note"
+    ]
+
+    assert _translate(plain_notes[1])[0] == _translate(changed_notes[1])[0]
 
 
 def test_mark_placement_is_respected() -> None:

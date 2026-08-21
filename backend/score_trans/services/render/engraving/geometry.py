@@ -120,9 +120,18 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
             octave_boxes: list[InkBox] = []
             if pitch.octave:
                 direction = -1 if pitch.octave > 0 else 1
-                base_y = row_y - 21 if direction < 0 else row_y + 10
+                if direction < 0:
+                    first_center = (
+                        note_box.top - style.event_clearance - style.octave_dot_radius
+                    )
+                else:
+                    first_center = (
+                        note_box.bottom
+                        + style.event_clearance
+                        + style.octave_dot_radius
+                    )
                 for dot_index in range(abs(pitch.octave)):
-                    cy = base_y + direction * dot_index * style.rhythm_dot_step
+                    cy = first_center + direction * dot_index * style.rhythm_dot_step
                     radius = style.octave_dot_radius
                     octave_boxes.append(
                         InkBox(-radius, cy - radius, radius, cy + radius)

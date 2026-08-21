@@ -1001,6 +1001,11 @@ export type components = {
              * @enum {string}
              */
             accidental_mode?: "auto" | "sharp" | "flat";
+            /**
+             * Initial Measure Number
+             * @default 1
+             */
+            initial_measure_number?: number;
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
@@ -1387,6 +1392,11 @@ export type components = {
              * @enum {string}
              */
             accidental_mode?: "auto" | "sharp" | "flat";
+            /**
+             * Initial Measure Number
+             * @default 1
+             */
+            initial_measure_number?: number;
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
@@ -1870,6 +1880,11 @@ export type components = {
              * @enum {string}
              */
             accidental_mode?: "auto" | "sharp" | "flat";
+            /**
+             * Initial Measure Number
+             * @default 1
+             */
+            initial_measure_number?: number;
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
@@ -2015,6 +2030,11 @@ export type components = {
              * @enum {string}
              */
             accidental_mode?: "auto" | "sharp" | "flat";
+            /**
+             * Initial Measure Number
+             * @default 1
+             */
+            initial_measure_number?: number;
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
@@ -2054,6 +2074,11 @@ export type components = {
              * @default true
              */
             include_ocr_text?: boolean;
+            /**
+             * Initial Measure Number
+             * @default 1
+             */
+            initial_measure_number?: number;
             /** Jianpu File Id */
             jianpu_file_id?: string | null;
             /** Jianpu Text */

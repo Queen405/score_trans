@@ -24,3 +24,4 @@ class RenderOptions:
     lyric_font_size: float = 18.0
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
+    initial_measure_number: int | None = 1

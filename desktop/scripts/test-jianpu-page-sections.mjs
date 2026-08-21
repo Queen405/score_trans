@@ -278,6 +278,25 @@ test('measure ranges continue across pages', () => {
   )
 })
 
+test('measure ranges honor a custom batch starting number', () => {
+  const text = utils.composeJianpuPageText([
+    { jianpuText: '1 2 |' },
+    { jianpuText: '3 4 |' },
+  ])
+
+  assert.deepEqual(
+    utils.jianpuPageSummaries(text, 5).map((summary) => [
+      summary.firstMeasureNumber,
+      summary.lastMeasureNumber,
+    ]),
+    [[5, 5], [6, 6]],
+  )
+  assert.deepEqual(
+    utils.jianpuGutterLabels(text, 5).filter(Boolean),
+    ['P1', '5', 'P2', '6'],
+  )
+})
+
 test('multi-part page ranges count shared measure slots only once', () => {
   const firstPage = [
     '// @part 1 name="高音"',

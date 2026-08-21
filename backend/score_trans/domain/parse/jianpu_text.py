@@ -1,24 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from fractions import Fraction
 import json
 import re
+from dataclasses import dataclass
+from fractions import Fraction
 
-from ..jianpu_tokens import (
-    consume_duration_prefix,
-    consume_duration_suffix,
-    duration_prefix,
-    tuplet_duration_unit_count,
-)
-from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
-from ..performance_marks import (
-    PERFORMANCE_MARKS,
-    event_mark_ids,
-    get_performance_mark,
-    mark_for_token,
-    normalize_event_marks,
-)
 from ...models.common.types import (
     ACCEPTED_INSTRUMENT_PROFILES,
     SUPPORTED_INSTRUMENT_PROFILES,
@@ -33,6 +19,20 @@ from ...models.score import (
     Measure,
     TextBlock,
     TupletSpan,
+)
+from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
+from ..jianpu_tokens import (
+    consume_duration_prefix,
+    consume_duration_suffix,
+    duration_prefix,
+    tuplet_duration_unit_count,
+)
+from ..performance_marks import (
+    PERFORMANCE_MARKS,
+    event_mark_ids,
+    get_performance_mark,
+    mark_for_token,
+    normalize_event_marks,
 )
 
 
@@ -625,8 +625,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             if _is_measure_label_token(raw_token):
                 continue
             original_column = original_line.find(raw_line)
-            if original_column < 0:
-                original_column = 0
+            original_column = max(original_column, 0)
             tokens.append(
                 _token_with_offsets(
                     raw_token,
@@ -679,7 +678,7 @@ def _strip_leading_measure_label(line: str) -> str:
     if (
         match.group(2) == "."
         and 0 <= int(match.group(1)) <= 7
-        and not line[match.end() :].strip()
+        and line[match.end() :].strip() in {"", "|", "||", "|:", ":|"}
     ):
         return line
     return line[match.end() :]

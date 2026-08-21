@@ -88,9 +88,12 @@ class PublicationRenderer:
         measure_number_mode: MeasureNumberMode = "all",
         page_width: float | None = None,
         page_height: float | None = None,
+        initial_measure_number: int | None = None,
     ) -> list[PublicationPage]:
         style = self._style_for_page(page_width, page_height)
         parts = _normalize_parts(scores)
+        if initial_measure_number is not None:
+            _assign_display_measure_numbers(parts, initial_measure_number)
         if not parts:
             parts = [[JianpuScore(title=title or "简谱")]]
         cells = _build_cells(parts, style)
@@ -340,16 +343,9 @@ class PublicationRenderer:
             key=lambda item: (item[1].start or Fraction(item[0]), item[0]),
         )
         anchors: list[_Anchor] = []
-        attribute_width = (
-            _text_width(
-                f"1={measure.target_key}  {measure.beats_per_measure}/{measure.beat_type}",
-                style.annotation_size,
-            )
-            + 18.0
-            if draw_attribute
-            else 0.0
-        )
-        inner_left = x + style.barline_gutter + attribute_width
+        # Attributes sit in the upper-left annotation band and must not consume
+        # horizontal event slots; otherwise a key/meter change shifts the bar.
+        inner_left = x + style.barline_gutter
         inner_right = x + width - style.barline_gutter
         event_positions = _event_positions(
             [event for _source_index, event in events],
@@ -458,6 +454,42 @@ def _normalize_parts(scores: list[JianpuScore]) -> list[list[JianpuScore]]:
         sorted(by_part[index], key=lambda score: score.page_index)
         for index in sorted(by_part)
     ]
+
+
+def _assign_display_measure_numbers(
+    parts: list[list[JianpuScore]], initial_measure_number: int
+) -> None:
+    current = max(1, int(initial_measure_number))
+    if len(parts) <= 1:
+        for score in parts[0] if parts else []:
+            current = _assign_score_measure_numbers(score, current)
+        return
+    for page_index in range(max(len(part_pages) for part_pages in parts)):
+        page_span = 0
+        for part_pages in parts:
+            if page_index >= len(part_pages):
+                continue
+            page_span = max(
+                page_span,
+                sum(
+                    max(1, int(getattr(measure, "repeat_count", 1) or 1))
+                    for measure in part_pages[page_index].measures
+                ),
+            )
+            _assign_score_measure_numbers(part_pages[page_index], current)
+        current += page_span
+
+
+def _assign_score_measure_numbers(score: JianpuScore, start: int) -> int:
+    current = start
+    for measure in score.measures:
+        measure.display_number = current
+        for block in measure.text_blocks:
+            if block.role == "measure_number":
+                block.text = str(current)
+                block.measure_number = current
+        current += max(1, int(getattr(measure, "repeat_count", 1) or 1))
+    return current
 
 
 def _flatten_measures(score_pages: list[JianpuScore]) -> list[Measure]:
@@ -1009,13 +1041,31 @@ def _draw_pitch(
     )
     if pitch.octave:
         direction = -1 if pitch.octave > 0 else 1
-        base_y = y - 21 if direction < 0 else y + 10
+        row = next(
+            row
+            for row in pitch_layouts(event, style)
+            if row.pitch is pitch
+        )
+        if direction < 0:
+            first_center = (
+                y
+                + (row.note_box.top - row.y)
+                - style.event_clearance
+                - style.octave_dot_radius
+            )
+        else:
+            first_center = (
+                y
+                + (row.note_box.bottom - row.y)
+                + style.event_clearance
+                + style.octave_dot_radius
+            )
         for index in range(abs(pitch.octave)):
             group.children.append(
                 _circle(
                     "octave-dot",
                     x,
-                    base_y + direction * index * style.rhythm_dot_step,
+                    first_center + direction * index * style.rhythm_dot_step,
                     style.octave_dot_radius,
                     fill=True,
                 )
@@ -1117,6 +1167,11 @@ def _draw_rhythm_lines(
     right_limit: float | None = None,
     style: PublicationStyle | None = None,
 ) -> None:
+    shared_baseline = (
+        max((_rhythm_line_base(anchor, style) for anchor in anchors), default=0.0)
+        if style is not None
+        else None
+    )
     maximum_level = max(
         (
             max(
@@ -1156,6 +1211,7 @@ def _draw_rhythm_lines(
                     left_limit=left_limit,
                     right_limit=right_limit,
                     style=style,
+                    baseline=shared_baseline,
                 )
                 run = []
             if eligible and anchor is not None:
@@ -1167,6 +1223,7 @@ def _draw_rhythm_lines(
             left_limit=left_limit,
             right_limit=right_limit,
             style=style,
+            baseline=shared_baseline,
         )
 
 
@@ -1178,10 +1235,13 @@ def _draw_rhythm_run(
     left_limit: float | None = None,
     right_limit: float | None = None,
     style: PublicationStyle | None = None,
+    baseline: float | None = None,
 ) -> None:
-    baseline = (
-        max(_rhythm_line_base(anchor, style) for anchor in anchors) + (level - 1) * 6.0
-    )
+    line_baseline = (
+        baseline
+        if baseline is not None
+        else max(_rhythm_line_base(anchor, style) for anchor in anchors)
+    ) + (level - 1) * 6.0
     source_ids = list(
         dict.fromkeys(
             source_id
@@ -1202,9 +1262,9 @@ def _draw_rhythm_run(
     node = _line(
         "duration-line beam-line",
         x1,
-        baseline,
+        line_baseline,
         x2,
-        baseline,
+        line_baseline,
         1.8,
     )
     node.attrs.update(_semantic_attrs("note", source_ids))
@@ -1219,6 +1279,7 @@ def _draw_explicit_beam_level(
     left_limit: float | None = None,
     right_limit: float | None = None,
     style: PublicationStyle | None = None,
+    baseline: float | None = None,
 ) -> None:
     runs: dict[tuple[str | None, str | None], list[_Anchor]] = {}
     for anchor in anchors:
@@ -1241,6 +1302,7 @@ def _draw_explicit_beam_level(
                     left_limit=left_limit,
                     right_limit=right_limit,
                     style=style,
+                    baseline=baseline,
                 )
             runs[key] = [anchor]
         elif status == "continue" and run:
@@ -1254,10 +1316,15 @@ def _draw_explicit_beam_level(
                 left_limit=left_limit,
                 right_limit=right_limit,
                 style=style,
+                baseline=baseline,
             )
             runs[key] = []
         elif status in {"forward-hook", "backward-hook"}:
-            baseline = _rhythm_line_base(anchor, style) + (level - 1) * 6.0
+            line_baseline = (
+                baseline
+                if baseline is not None
+                else _rhythm_line_base(anchor, style)
+            ) + (level - 1) * 6.0
             if status == "forward-hook":
                 hook = [
                     _Anchor(anchor.x, anchor.y, anchor.bbox, anchor.event),
@@ -1279,9 +1346,9 @@ def _draw_explicit_beam_level(
             node = _line(
                 "duration-line beam-line",
                 x1,
-                baseline,
+                line_baseline,
                 x2,
-                baseline,
+                line_baseline,
                 1.8,
             )
             scene.add(node)
@@ -1293,6 +1360,7 @@ def _draw_explicit_beam_level(
                 left_limit=left_limit,
                 right_limit=right_limit,
                 style=style,
+                baseline=baseline,
             )
             runs[key] = []
     for run in runs.values():
@@ -1304,6 +1372,7 @@ def _draw_explicit_beam_level(
                 left_limit=left_limit,
                 right_limit=right_limit,
                 style=style,
+                baseline=baseline,
             )
 
 

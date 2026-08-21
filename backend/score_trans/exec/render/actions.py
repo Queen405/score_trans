@@ -18,6 +18,7 @@ from ...models.common.types import (
     InstrumentProfile,
     MeasureNumberMode,
 )
+from ...models.provenance.schemas import RenderedTextBlock, TextAnchor
 from ...models.render.schemas import (
     BatchRenderPageRequest,
     BatchRenderRequest,
@@ -28,19 +29,18 @@ from ...models.render.schemas import (
     NormalizeJianpuTextResponse,
     PreservingLayoutRequest,
     PreservingLayoutResponse,
+    RenderedSvgPage,
     RenderJianpuSvgRequest,
     RenderJianpuSvgResponse,
     RenderJianpuTextSvgRequest,
     RenderJianpuTextSvgResponse,
     RenderPageMeasureRange,
-    RenderedSvgPage,
 )
 from ...models.score import JianpuScore, TextBlock
-from ...models.provenance.schemas import RenderedTextBlock, TextAnchor
-from ...services.render import A4MeasureRange, RenderedA4FilePage
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.providers import create_configured_ocr_provider
+from ...services.render import A4MeasureRange, RenderedA4FilePage
 from ...services.render.render_service import PublicationRenderService
 from ..convert.actions import MusicXmlToJianpuAction
 
@@ -71,6 +71,7 @@ class RenderMusicXmlJianpuAction:
         instrument_profile: InstrumentProfile | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        initial_measure_number: int = 1,
         title: str | None = None,
     ) -> Path:
         score = self.build_score(
@@ -86,6 +87,7 @@ class RenderMusicXmlJianpuAction:
             title=title or score.title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def execute_page(
@@ -100,6 +102,7 @@ class RenderMusicXmlJianpuAction:
         instrument_profile: InstrumentProfile | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        initial_measure_number: int = 1,
         title: str | None = None,
     ) -> Path:
         score = self.build_score(
@@ -117,6 +120,7 @@ class RenderMusicXmlJianpuAction:
             title=title or score.title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def execute_a4_pages(
@@ -129,6 +133,7 @@ class RenderMusicXmlJianpuAction:
         instrument_profile: InstrumentProfile | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        initial_measure_number: int = 1,
         title: str | None = None,
     ) -> list[RenderedA4FilePage]:
         scores = self.build_scores(
@@ -146,6 +151,7 @@ class RenderMusicXmlJianpuAction:
             title=title or first_score.title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
     def build_score(
@@ -239,6 +245,7 @@ class RenderJianpuTextAction:
         title: str = "简谱",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        initial_measure_number: int = 1,
         text_anchors: list[TextAnchor] | None = None,
     ) -> list[RenderedA4FilePage]:
         text = Path(input_path).read_text(encoding="utf-8")
@@ -253,6 +260,7 @@ class RenderJianpuTextAction:
             title=title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
         )
 
 
@@ -281,6 +289,7 @@ class RenderActions:
             instrument_profile=req.instrument_profile,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
+            initial_measure_number=req.initial_measure_number,
             title=req.title,
         )
         pages = self._register_rendered_pages(paths)
@@ -328,6 +337,7 @@ class RenderActions:
                 title=req.title,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
+                initial_measure_number=req.initial_measure_number,
                 **anchor_options,
             )
         else:
@@ -337,6 +347,7 @@ class RenderActions:
                 title=req.title,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
+                initial_measure_number=req.initial_measure_number,
                 **anchor_options,
             )
         pages = self._register_rendered_pages(paths)
@@ -389,7 +400,9 @@ class RenderActions:
 
         if not has_multi_part:
             scores = [s for page_scores in page_scores_list for s in page_scores]
-            _renumber_scores_continuously(scores)
+            _renumber_scores_continuously(
+                scores, initial_measure_number=req.initial_measure_number
+            )
             return self._render_batch_flat(req, scores)
 
         return self._render_batch_multi_part(req, page_scores_list)
@@ -405,6 +418,7 @@ class RenderActions:
             title=req.title,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
+            initial_measure_number=None,
         )
         measure_ranges_by_page = [
             _page_measure_ranges(page.measure_ranges, source_ranges)
@@ -432,6 +446,7 @@ class RenderActions:
                 title=req.title,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
+                initial_measure_number=None,
             )
         )
         pages = self._register_rendered_page_results(
@@ -452,12 +467,14 @@ class RenderActions:
         req: BatchRenderRequest,
         page_scores_list: list[list[JianpuScore]],
     ) -> BatchRenderResponse:
-        current_measure: int | None = None
+        current_measure: int | None = req.initial_measure_number
         for page_scores in page_scores_list:
             if current_measure is None:
                 first_score = page_scores[0] if page_scores else None
                 current_measure = (
-                    _first_measure_number(first_score) if first_score else 1
+                    _first_measure_number(first_score)
+                    if first_score
+                    else req.initial_measure_number
                 )
             max_measure_count = 0
             for score in page_scores:
@@ -482,6 +499,7 @@ class RenderActions:
                 title=req.title,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
+                initial_measure_number=None,
             )
             page_source_ranges = (
                 [
@@ -535,6 +553,7 @@ class RenderActions:
                     title=req.title,
                     show_measure_numbers=_request_show_measure_numbers(req),
                     measure_number_mode=_request_measure_number_mode(req),
+                    initial_measure_number=None,
                 )
             )
             all_rendered_file_pages.extend(rendered_pages)
@@ -557,7 +576,7 @@ class RenderActions:
         self,
         req: BatchRenderRequest,
         rendered_scores: list[JianpuScore],
-    ) -> list["_SourcePageRange"]:
+    ) -> list[_SourcePageRange]:
         source_pages = req.source_pages or req.pages
         if source_pages == req.pages:
             return _source_ranges_for_scores(rendered_scores)
@@ -566,7 +585,9 @@ class RenderActions:
             score = self._build_batch_page_score(req, page)
             _tag_score_source_page(score, index)
             source_scores.append(score)
-        _renumber_scores_continuously(source_scores)
+        _renumber_scores_continuously(
+            source_scores, initial_measure_number=req.initial_measure_number
+        )
         return _source_ranges_for_scores(source_scores)
 
     def _render_final_a4(self, req: FinalRenderRequest) -> FinalRenderResponse:
@@ -583,6 +604,7 @@ class RenderActions:
             instrument_profile=req.instrument_profile,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
+            initial_measure_number=req.initial_measure_number,
             title=req.title,
         )
         pages = self._register_rendered_pages(paths)
@@ -1121,8 +1143,12 @@ def _renumber_score(score: JianpuScore, start: int) -> None:
         current += getattr(measure, "repeat_count", 1)
 
 
-def _renumber_scores_continuously(scores: list[JianpuScore]) -> None:
-    current: int | None = None
+def _renumber_scores_continuously(
+    scores: list[JianpuScore],
+    *,
+    initial_measure_number: int | None = None,
+) -> None:
+    current: int | None = initial_measure_number
     for score in scores:
         if current is None:
             current = _first_measure_number(score) or 1

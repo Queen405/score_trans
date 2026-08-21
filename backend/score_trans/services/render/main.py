@@ -12,7 +12,6 @@ from .engraving.renderer import MeasureRange, PublicationPage, PublicationRender
 from .engraving.style import PublicationStyle
 from .options import RenderOptions
 
-
 A4_PAGE_WIDTH = 1240
 A4_PAGE_HEIGHT = 1754
 
@@ -69,6 +68,7 @@ def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -
         title=options.title or score.title,
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
+        initial_measure_number=options.initial_measure_number,
     )
     if len(pages) != 1:
         raise RenderError("单页渲染空间不足；请使用 A4 分页渲染入口")
@@ -106,6 +106,7 @@ def render_score_page_svg(
         title=options.title or score.title,
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
+        initial_measure_number=options.initial_measure_number,
     )
     if len(pages) != 1:
         raise RenderError("请求的页面尺寸无法容纳全部谱面内容")
@@ -123,6 +124,7 @@ def render_scores_a4_pages(
         title=options.title,
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
+        initial_measure_number=options.initial_measure_number,
     )
     return [_public_page(page) for page in pages]
 
@@ -134,6 +136,7 @@ def render_score_a4_pages_to_files(
     title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
+    initial_measure_number: int | None = 1,
 ) -> list[RenderedA4FilePage]:
     return render_scores_a4_pages_to_files(
         [score],
@@ -141,6 +144,7 @@ def render_score_a4_pages_to_files(
         title=title,
         show_measure_numbers=show_measure_numbers,
         measure_number_mode=measure_number_mode,
+        initial_measure_number=initial_measure_number,
     )
 
 
@@ -151,6 +155,7 @@ def render_scores_a4_pages_to_files(
     title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
+    initial_measure_number: int | None = 1,
 ) -> list[RenderedA4FilePage]:
     return render_scores_a4_page_results_to_files(
         scores,
@@ -158,6 +163,7 @@ def render_scores_a4_pages_to_files(
         title=title,
         show_measure_numbers=show_measure_numbers,
         measure_number_mode=measure_number_mode,
+        initial_measure_number=initial_measure_number,
     )
 
 
@@ -168,12 +174,14 @@ def render_scores_a4_page_results_to_files(
     title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
+    initial_measure_number: int | None = 1,
 ) -> list[RenderedA4FilePage]:
     options = RenderOptions(
         title=title or (scores[0].title if scores else "简谱"),
         show_measure_numbers=show_measure_numbers is not False,
         measure_number_mode=measure_number_mode
         or ("none" if show_measure_numbers is False else "all"),
+        initial_measure_number=initial_measure_number,
     )
     renderer = PublicationRenderer(_style_from_options(options))
     pages = renderer.render_scores(
@@ -202,6 +210,7 @@ def render_jianpu_file_to_svg(
     title: str = "简谱",
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
+    initial_measure_number: int | None = 1,
 ) -> Path:
     svg = render_jianpu_svg(
         input_path.read_text(encoding="utf-8"),
@@ -209,6 +218,7 @@ def render_jianpu_file_to_svg(
             title=title,
             show_measure_numbers=show_measure_numbers is not False,
             measure_number_mode=measure_number_mode or "all",
+            initial_measure_number=initial_measure_number,
         ),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -225,6 +235,7 @@ def render_jianpu_page_file_to_svg(
     title: str = "简谱",
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
+    initial_measure_number: int | None = 1,
 ) -> Path:
     svg = render_jianpu_page_svg(
         input_path.read_text(encoding="utf-8"),
@@ -235,6 +246,7 @@ def render_jianpu_page_file_to_svg(
             title=title,
             show_measure_numbers=show_measure_numbers is not False,
             measure_number_mode=measure_number_mode or "all",
+            initial_measure_number=initial_measure_number,
         ),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -249,6 +261,7 @@ def render_score_file_to_svg(
     title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
+    initial_measure_number: int | None = 1,
 ) -> Path:
     svg = render_score_svg(
         score,
@@ -256,6 +269,7 @@ def render_score_file_to_svg(
             title=title or score.title,
             show_measure_numbers=show_measure_numbers is not False,
             measure_number_mode=measure_number_mode or "all",
+            initial_measure_number=initial_measure_number,
         ),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..common.types import (
     AccidentalMode,
@@ -45,6 +45,7 @@ class RenderJianpuSvgRequest(BaseModel):
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
+    initial_measure_number: int = Field(default=1, ge=1)
     title: str | None = None
 
 
@@ -61,6 +62,7 @@ class RenderJianpuTextSvgRequest(BaseModel):
     include_ocr_text: bool = True
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
+    initial_measure_number: int = Field(default=1, ge=1)
     title: str = "简谱"
     text_anchors: list[TextAnchor] = []
 
@@ -89,6 +91,7 @@ class FinalRenderRequest(BaseModel):
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
+    initial_measure_number: int = Field(default=1, ge=1)
     title: str | None = None
 
 
@@ -107,6 +110,7 @@ class PreservingLayoutRequest(BaseModel):
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
+    initial_measure_number: int = Field(default=1, ge=1)
     title: str | None = None
 
 
@@ -139,6 +143,7 @@ class BatchRenderRequest(BaseModel):
     instrument_profile: InstrumentProfile | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
+    initial_measure_number: int = Field(default=1, ge=1)
     title: str = "简谱"
 
 
