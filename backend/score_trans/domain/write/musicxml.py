@@ -468,6 +468,18 @@ def _append_event_xml(
         ET.SubElement(note, "type").text = note_type
         for _dot in range(dot_count):
             ET.SubElement(note, "dot")
+        if index == 0:
+            seen_beams: set[tuple[str, str]] = set()
+            for beam in event.beams:
+                key = (beam.number, beam.status)
+                if key in seen_beams:
+                    continue
+                seen_beams.add(key)
+                ET.SubElement(
+                    note,
+                    "beam",
+                    {"number": beam.number},
+                ).text = beam.status
         if (
             pitch is not None
             and pitch.accidental_text is not None

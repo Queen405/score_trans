@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 import json
 import math
@@ -55,6 +55,7 @@ class _Anchor:
     y: float
     bbox: BBox
     event: Event
+    continuation_start: bool = False
 
 
 @dataclass(slots=True)
@@ -62,6 +63,7 @@ class _OpenSpanners:
     tie: _Anchor | None = None
     slur: _Anchor | None = None
     slide: _Anchor | None = None
+    continuations: set[str] = field(default_factory=set)
 
 
 class PublicationRenderer:
@@ -96,6 +98,7 @@ class PublicationRenderer:
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
         document_title = title or score0.title or "简谱"
         next_note_index = 0
+        document_spanners = [_OpenSpanners() for _ in range(max(1, len(parts)))]
         result: list[PublicationPage] = []
         for page_index, page_systems in enumerate(pages or [[]]):
             scene = PublicationScene(style.page_width, style.page_height, page_index)
@@ -116,6 +119,7 @@ class PublicationRenderer:
                     show_measure_numbers=show_measure_numbers,
                     measure_number_mode=measure_number_mode,
                     first_system_on_page=system_index == 0,
+                    spanners=document_spanners,
                 )
                 _append_ranges(page_ranges, system.cells)
                 y += system.height + style.system_gap
@@ -186,6 +190,7 @@ class PublicationRenderer:
         show_measure_numbers: bool,
         measure_number_mode: MeasureNumberMode,
         first_system_on_page: bool,
+        spanners: list[_OpenSpanners],
     ) -> int:
         x0 = style.margin_left
         part_count = max(1, len(parts))
@@ -207,7 +212,9 @@ class PublicationRenderer:
                 )
             )
         x = x0
-        spanners = [_OpenSpanners() for _ in range(part_count)]
+        for part_index, state in enumerate(spanners):
+            staff_y = y + part_index * (style.base_staff_height + style.part_gap)
+            _start_spanner_continuations(state, x0, staff_y + 43.0)
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
@@ -268,7 +275,7 @@ class PublicationRenderer:
             x += width
         for part_index, open_state in enumerate(spanners):
             staff_y = y + part_index * (style.base_staff_height + style.part_gap)
-            _finish_spanners(scene, open_state, x0 + style.content_width, staff_y)
+            _finish_spanners(scene, open_state, x, staff_y)
         return note_index
 
     def _draw_measure(
@@ -313,7 +320,7 @@ class PublicationRenderer:
                 f"{measure.beats_per_measure}/{measure.beat_type}"
             )
             scene.add(
-                _text("measure-attribute", x + 8, y + 5, attr, style.annotation_size)
+                _text("measure-attribute", x + 8, y + 9, attr, style.annotation_size)
             )
         if measure.ending_start:
             scene.add(_line("ending-line", x + 2, y - 22, x + width - 2, y - 22, 1.4))
@@ -332,7 +339,16 @@ class PublicationRenderer:
             key=lambda item: (item[1].start or Fraction(item[0]), item[0]),
         )
         anchors: list[_Anchor] = []
-        inner_left = x + 20.0
+        attribute_width = (
+            _text_width(
+                f"1={measure.target_key}  {measure.beats_per_measure}/{measure.beat_type}",
+                style.annotation_size,
+            )
+            + 18.0
+            if draw_attribute
+            else 0.0
+        )
+        inner_left = x + 20.0 + attribute_width
         inner_right = x + width - 20.0
         event_positions = _event_positions(
             [event for _source_index, event in events],
@@ -500,7 +516,8 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
             )
         else:
             event_gap = style.minimum_event_gap
-        token_width = event_gap + (chord - 1) * 5.0
+        left, right, _top, _bottom = _event_visual_extents(event, style)
+        token_width = max(event_gap, right - left + 10.0) + (chord - 1) * 5.0
         if event.lyric:
             token_width = max(
                 token_width, _text_width(event.lyric, style.lyric_size) + 10.0
@@ -517,6 +534,69 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
             )
         width += token_width
     return max(style.minimum_measure_width, min(style.content_width, width))
+
+
+def _event_visual_extents(
+    event: Event, style: PublicationStyle
+) -> tuple[float, float, float, float]:
+    pitches = event.pitches or [None]
+    note_width = max(
+        (
+            _text_width(str(max(0, min(7, pitch.degree))), style.note_size)
+            if pitch is not None
+            else _text_width("0", style.note_size)
+        )
+        for pitch in pitches
+    )
+    left = -note_width / 2
+    right = note_width / 2
+    for pitch in event.pitches:
+        accidental = _accidental_text(pitch)
+        if accidental:
+            left = min(
+                left,
+                -note_width / 2 - _text_width(accidental, style.accidental_size) - 4.0,
+            )
+    if event.duration > 1:
+        extensions = max(0, int(math.ceil(float(event.duration))) - 1)
+        if extensions:
+            right = max(right, 28.0 + (extensions - 1) * 18.0)
+    if event.dotted:
+        right = max(right, 19.1 + (event.dotted - 1) * 7.0)
+
+    chord_half = max(0, len(event.pitches) - 1) * 12.5
+    top = -max(29.0, chord_half + 24.0)
+    bottom = chord_half + 18.0
+    if event.pitches:
+        highest = max(event.pitches, key=lambda pitch: pitch.rank)
+        lowest = min(event.pitches, key=lambda pitch: pitch.rank)
+        if highest.octave > 0:
+            top = min(top, -chord_half - 23.25 - (highest.octave - 1) * 7.0)
+        if lowest.octave < 0:
+            bottom = max(bottom, chord_half + 12.25 + (abs(lowest.octave) - 1) * 7.0)
+    rhythm_lines = 0 if _is_tuplet(event) else _rhythm_line_count(event)
+    if rhythm_lines:
+        bottom = max(bottom, chord_half + 13.0 + (rhythm_lines - 1) * 6.0)
+    if event.lyric:
+        bottom = max(bottom, 76.0)
+    if event.dynamic:
+        bottom = max(bottom, 70.0)
+    for mark_id in {*event.articulations, *event.ornaments, *event.technical}:
+        spec = get_performance_mark(mark_id)
+        if spec is None:
+            continue
+        label_width = max(
+            spec.visual_width,
+            _text_width(_rendered_mark_label(mark_id), style.annotation_size),
+        )
+        if spec.placement == "left":
+            left = min(left, -24.0 - label_width / 2)
+        elif spec.placement == "right":
+            right = max(right, 24.0 + label_width / 2)
+        elif spec.placement == "below-right":
+            right = max(right, 22.0 + label_width / 2)
+            bottom = max(bottom, 20.0 + spec.visual_height)
+    return left, right, top, bottom
 
 
 def _break_systems(
@@ -702,6 +782,24 @@ def _event_positions(
         _event_x(event, index, len(events), left, right, measure)
         for index, event in enumerate(events)
     ]
+    for index in range(1, len(events)):
+        previous_left, previous_right, _top, _bottom = _event_visual_extents(
+            events[index - 1], style
+        )
+        current_left, _current_right, _top, _bottom = _event_visual_extents(
+            events[index], style
+        )
+        minimum = positions[index - 1] + previous_right - current_left + 6.0
+        positions[index] = max(positions[index], minimum)
+    if positions:
+        _left, last_right, _top, _bottom = _event_visual_extents(events[-1], style)
+        overflow = positions[-1] + last_right - right
+        if overflow > 0:
+            positions = [position - overflow for position in positions]
+        first_left, _right, _top, _bottom = _event_visual_extents(events[0], style)
+        underflow = left - (positions[0] + first_left)
+        if underflow > 0:
+            positions = [position + underflow for position in positions]
     index = 0
     while index < len(events):
         key = events[index].tuplet_id
@@ -724,6 +822,17 @@ def _event_positions(
             for offset in range(count):
                 positions[index + offset] = start + offset * gap
         index = end
+    for index in range(1, len(events)):
+        _previous_left, previous_right, _top, _bottom = _event_visual_extents(
+            events[index - 1], style
+        )
+        current_left, _current_right, _top, _bottom = _event_visual_extents(
+            events[index], style
+        )
+        positions[index] = max(
+            positions[index],
+            positions[index - 1] + previous_right - current_left + 6.0,
+        )
     return positions
 
 
@@ -745,14 +854,8 @@ def _draw_event(
             ]
         )
     )
-    chord_span = max(0, len(event.pitches) - 1) * 25.0
-    top_extent = max(29.0, chord_span / 2 + 24.0)
-    bottom_extent = max(
-        chord_span / 2 + 18.0,
-        76.0 if event.lyric else 51.0,
-        70.0 if event.dynamic else 0.0,
-    )
-    bbox = BBox(x - 22, y - top_extent, 44, top_extent + bottom_extent)
+    left, right, top, bottom = _event_visual_extents(event, style)
+    bbox = BBox(x + left, y + top, right - left, bottom - top)
     attrs: dict[str, str | float | int] = {
         "class": "playback-note source-anchor" if pitched else "source-anchor",
         "data-note-token": token,
@@ -846,10 +949,12 @@ def _draw_pitch(
     )
     accidental = _accidental_text(pitch)
     if accidental:
+        accidental_width = _text_width(accidental, style.accidental_size)
+        note_width = _text_width(str(max(0, min(7, pitch.degree))), style.note_size)
         group.children.append(
             _text(
                 "accidental",
-                x - 18,
+                x - note_width / 2 - accidental_width / 2 - 4.0,
                 y,
                 accidental,
                 style.accidental_size,
@@ -929,11 +1034,24 @@ def _draw_marks(
         if mark_id == "staccato":
             cls += " staccato"
         vertical_offset = 20.0 if len(label) > 3 else 0.0
+        placement = spec.placement if spec else "above"
+        if placement == "left":
+            mark_x = x - 24.0
+            mark_y = y - 2.0
+        elif placement == "right":
+            mark_x = x + 24.0
+            mark_y = y - 2.0
+        elif placement == "below-right":
+            mark_x = x + 22.0
+            mark_y = y + 20.0 + index * 16.0
+        else:
+            mark_x = x
+            mark_y = top - index * 16 - vertical_offset
         group.children.append(
             _text(
                 cls,
-                x,
-                top - index * 16 - vertical_offset,
+                mark_x,
+                mark_y,
                 label,
                 style.annotation_size,
                 anchor="middle",
@@ -944,7 +1062,21 @@ def _draw_marks(
 
 def _draw_rhythm_lines(scene: PublicationScene, anchors: list[_Anchor]) -> None:
     maximum_level = max(
-        (_rhythm_line_count(anchor.event) for anchor in anchors), default=0
+        (
+            max(
+                _rhythm_line_count(anchor.event),
+                max(
+                    (
+                        int(beam.number)
+                        for beam in anchor.event.beams
+                        if beam.number.isdigit()
+                    ),
+                    default=0,
+                ),
+            )
+            for anchor in anchors
+        ),
+        default=0,
     )
     for level in range(1, maximum_level + 1):
         run: list[_Anchor] = []
@@ -953,6 +1085,7 @@ def _draw_rhythm_lines(scene: PublicationScene, anchors: list[_Anchor]) -> None:
                 anchor is not None
                 and not _is_tuplet(anchor.event)
                 and _rhythm_line_count(anchor.event) >= level
+                and not anchor.event.beams
             )
             if eligible and (
                 not run or _rhythm_events_connect(run[-1].event, anchor.event)
@@ -964,18 +1097,13 @@ def _draw_rhythm_lines(scene: PublicationScene, anchors: list[_Anchor]) -> None:
                 run = []
             if eligible and anchor is not None:
                 run = [anchor]
+        _draw_explicit_beam_level(scene, anchors, level)
 
 
 def _draw_rhythm_run(
     scene: PublicationScene, anchors: list[_Anchor], level: int
 ) -> None:
-    baseline = (
-        max(
-            anchor.y + max(0, len(anchor.event.pitches) - 1) * 12.5 + 13.0
-            for anchor in anchors
-        )
-        + (level - 1) * 6.0
-    )
+    baseline = max(_rhythm_line_base(anchor) for anchor in anchors) + (level - 1) * 6.0
     source_ids = list(
         dict.fromkeys(
             source_id
@@ -995,6 +1123,72 @@ def _draw_rhythm_run(
     )
     node.attrs.update(_semantic_attrs("note", source_ids))
     scene.add(node)
+
+
+def _draw_explicit_beam_level(
+    scene: PublicationScene, anchors: list[_Anchor], level: int
+) -> None:
+    runs: dict[tuple[str | None, str | None], list[_Anchor]] = {}
+    for anchor in anchors:
+        key = (anchor.event.staff, anchor.event.voice)
+        run = runs.setdefault(key, [])
+        status = next(
+            (
+                beam.status
+                for beam in anchor.event.beams
+                if beam.number.isdigit() and int(beam.number) == level
+            ),
+            None,
+        )
+        if status == "begin":
+            if run:
+                _draw_rhythm_run(scene, run, level)
+            runs[key] = [anchor]
+        elif status == "continue" and run:
+            run.append(anchor)
+        elif status == "end" and run:
+            run.append(anchor)
+            _draw_rhythm_run(scene, run, level)
+            runs[key] = []
+        elif status in {"forward-hook", "backward-hook"}:
+            baseline = _rhythm_line_base(anchor) + (level - 1) * 6.0
+            if status == "forward-hook":
+                hook = [
+                    _Anchor(anchor.x, anchor.y, anchor.bbox, anchor.event),
+                    _Anchor(anchor.x + 18, anchor.y, anchor.bbox, anchor.event),
+                ]
+            else:
+                hook = [
+                    _Anchor(anchor.x - 18, anchor.y, anchor.bbox, anchor.event),
+                    _Anchor(anchor.x, anchor.y, anchor.bbox, anchor.event),
+                ]
+            node = _line(
+                "duration-line beam-line",
+                hook[0].x,
+                baseline,
+                hook[1].x,
+                baseline,
+                1.8,
+            )
+            scene.add(node)
+        elif run:
+            _draw_rhythm_run(scene, run, level)
+            runs[key] = []
+    for run in runs.values():
+        if run:
+            _draw_rhythm_run(scene, run, level)
+
+
+def _rhythm_line_base(anchor: _Anchor) -> float:
+    chord_half = max(0, len(anchor.event.pitches) - 1) * 12.5
+    base = anchor.y + chord_half + 13.0
+    if anchor.event.pitches:
+        lowest = min(anchor.event.pitches, key=lambda pitch: pitch.rank)
+        if lowest.octave < 0:
+            lowest_pitch_y = anchor.y + chord_half
+            low_dot_y = lowest_pitch_y + 10.0 + (abs(lowest.octave) - 1) * 7.0
+            base = max(base, low_dot_y + 8.0)
+    return base
 
 
 def _rhythm_line_count(event: Event) -> int:
@@ -1032,10 +1226,39 @@ def _route_spanners(
         stop = bool(getattr(event, f"{kind}_stop"))
         current = getattr(state, kind)
         if stop and current is not None:
-            scene.add(_spanner(kind, current, anchor))
+            scene.add(
+                _spanner(
+                    kind,
+                    current,
+                    anchor,
+                    continuation_start=current.continuation_start,
+                )
+            )
             setattr(state, kind, None)
+            state.continuations.discard(kind)
         if start:
             setattr(state, kind, anchor)
+
+
+def _start_spanner_continuations(
+    state: _OpenSpanners, left: float, baseline: float
+) -> None:
+    for kind in tuple(state.continuations):
+        current = getattr(state, kind)
+        if current is None:
+            state.continuations.discard(kind)
+            continue
+        setattr(
+            state,
+            kind,
+            _Anchor(
+                left + 3.0,
+                baseline,
+                BBox(left + 3.0, baseline - 20.0, 1.0, 40.0),
+                current.event,
+                continuation_start=True,
+            ),
+        )
 
 
 def _finish_spanners(
@@ -1049,20 +1272,37 @@ def _finish_spanners(
             right - 3, current.y, BBox(right - 3, current.y, 1, 1), current.event
         )
         scene.add(_spanner(kind, current, end, continuation=True))
+        state.continuations.add(kind)
 
 
 def _spanner(
-    kind: str, start: _Anchor, end: _Anchor, continuation: bool = False
+    kind: str,
+    start: _Anchor,
+    end: _Anchor,
+    continuation: bool = False,
+    continuation_start: bool = False,
 ) -> SceneNode:
     if kind == "slide":
         delta = -13 if (start.event.slide_direction or "up") == "up" else 13
         d = f"M {start.x + 13:g} {start.y - 3:g} L {end.x - 13:g} {end.y + delta:g}"
     else:
-        height = -17 if kind == "slur" else 13
+        height = -18 if kind == "slur" else 11
         sx, ex = start.x + 10, end.x - 10
-        mid = (sx + ex) / 2
-        base = min(start.y, end.y) - 10 if height < 0 else max(start.y, end.y) + 11
-        d = f"M {sx:g} {base:g} Q {mid:g} {base + height:g} {ex:g} {base:g}"
+        if ex <= sx + 8:
+            sx = start.x + 5
+            ex = end.x - 5
+        if kind == "slur":
+            base = min(start.bbox.y, end.bbox.y) - 5.0
+        else:
+            start_bottom = start.bbox.y + start.bbox.height
+            end_bottom = end.bbox.y + end.bbox.height
+            base = max(start_bottom, end_bottom) + 5.0
+        control_left = sx + (ex - sx) * 0.33
+        control_right = sx + (ex - sx) * 0.67
+        d = (
+            f"M {sx:g} {base:g} C {control_left:g} {base + height:g} "
+            f"{control_right:g} {base + height:g} {ex:g} {base:g}"
+        )
     source_ids = list(
         dict.fromkeys(
             [
@@ -1078,6 +1318,8 @@ def _spanner(
     }
     if continuation:
         attrs["data-continuation"] = "end"
+    elif continuation_start:
+        attrs["data-continuation"] = "start"
     return SceneNode("path", attrs)
 
 

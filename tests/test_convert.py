@@ -45,6 +45,57 @@ def test_musicxml_preserves_double_accidentals_and_sharp_key_spelling() -> None:
     assert "#1" in score_to_jianpu_text(d_score)
 
 
+def test_musicxml_beam_statuses_roundtrip_on_event() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note><pitch><step>C</step><octave>4</octave></pitch>
+          <duration>1</duration><type>eighth</type>
+          <beam number="1">begin</beam>
+          <beam number="2">forward-hook</beam>
+        </note>
+        <note><pitch><step>D</step><octave>4</octave></pitch>
+          <duration>1</duration><type>eighth</type>
+          <beam number="1">continue</beam>
+          <beam number="2">backward-hook</beam>
+        </note>
+        <note><pitch><step>E</step><octave>4</octave></pitch>
+          <duration>1</duration><type>eighth</type>
+          <beam number="1">end</beam>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    events = score.measures[0].events
+    assert [(beam.number, beam.status) for beam in events[0].beams] == [
+        ("1", "begin"),
+        ("2", "forward-hook"),
+    ]
+    assert [(beam.number, beam.status) for beam in events[1].beams] == [
+        ("1", "continue"),
+        ("2", "backward-hook"),
+    ]
+    assert [(beam.number, beam.status) for beam in events[2].beams] == [("1", "end")]
+
+    roundtrip = ET.fromstring(scores_to_musicxml([score]))
+    assert [
+        (beam.get("number"), beam.text) for beam in roundtrip.findall(".//note/beam")
+    ] == [
+        ("1", "begin"),
+        ("2", "forward-hook"),
+        ("1", "continue"),
+        ("2", "backward-hook"),
+        ("1", "end"),
+    ]
+
+
 def test_jianpu_to_musicxml_preserves_accidental_direction_and_magnitude() -> None:
     xml = jianpu_to_musicxml("1=C\n4/4\nb2 #4 x1 bb7 |")
     root = ET.fromstring(xml)

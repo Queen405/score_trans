@@ -37,6 +37,8 @@ third_party/audiveris/app/build/
 
 # OMC 本地状态
 .omc/
+.codex/
+.qoder/
 
 # 示例乐谱/文档（从网络下载，体积较大，不纳入版本控制）
 /examples/

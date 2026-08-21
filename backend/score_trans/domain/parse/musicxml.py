@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 import re
+from typing import cast
 
 from ...utils.safe_xml import safe_xml_fromstring
 from ..constants import (
@@ -33,6 +34,8 @@ from ...models.common.types import (
 )
 from ...models.score import (
     Beat,
+    Beam,
+    BeamStatus,
     Event,
     JianpuPitch,
     JianpuScore,
@@ -507,6 +510,13 @@ def _read_measure_events(
                 pitch.accidental_source_id = _first_source(provenance, "accidental")
                 last_event.pitches.append(pitch)
                 last_event.pitches.sort(key=lambda value: value.rank, reverse=True)
+                for beam in _read_beams(note, ns):
+                    if not any(
+                        existing.number == beam.number
+                        and existing.status == beam.status
+                        for existing in last_event.beams
+                    ):
+                        last_event.beams.append(beam)
                 _merge_event_provenance(last_event, provenance)
             continue
 
@@ -533,6 +543,7 @@ def _read_measure_events(
         event.tie_stop = any(
             tie.get("type") == "stop" for tie in note.findall(_q(ns, "tie"))
         )
+        event.beams = _read_beams(note, ns)
         event.voice = _text(note.find(_q(ns, "voice")))
         event.staff = _text(note.find(_q(ns, "staff")))
         event.start = cursor
@@ -897,6 +908,27 @@ def _beam_status(note: ET.Element, ns: str, number: str) -> str | None:
     return None
 
 
+def _read_beams(note: ET.Element, ns: str) -> list[Beam]:
+    beams: list[Beam] = []
+    for beam in note.findall(_q(ns, "beam")):
+        status = (_text(beam) or "").casefold()
+        if status not in {
+            "begin",
+            "continue",
+            "end",
+            "forward-hook",
+            "backward-hook",
+        }:
+            continue
+        beams.append(
+            Beam(
+                number=beam.get("number") or "1",
+                status=cast(BeamStatus, status),
+            )
+        )
+    return beams
+
+
 def _note_provenance(note: ET.Element) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
     xml_id = note.get("id") or ""
@@ -1127,7 +1159,8 @@ def _direction_text_blocks(
                     dynamic,
                     measure_number,
                     start,
-                    dynamics.get("placement") or placement,
+                    (dynamics.get("placement") if dynamics is not None else None)
+                    or placement,
                     staff,
                     "dynamics",
                 )

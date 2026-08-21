@@ -12,6 +12,13 @@ TextRole = Literal[
 ]
 EventKind = Literal["note", "rest"]
 SlideDirection = Literal["up", "down"]
+BeamStatus = Literal[
+    "begin",
+    "continue",
+    "end",
+    "forward-hook",
+    "backward-hook",
+]
 
 
 @dataclass(slots=True)
@@ -61,6 +68,12 @@ class TupletSpan:
 
 
 @dataclass(slots=True)
+class Beam:
+    number: str
+    status: BeamStatus
+
+
+@dataclass(slots=True)
 class Event:
     kind: EventKind
     duration: Fraction
@@ -91,6 +104,7 @@ class Event:
     tuplet_start: bool = False
     tuplet_stop: bool = False
     tuplet_spans: list[TupletSpan] = field(default_factory=list)
+    beams: list[Beam] = field(default_factory=list)
     source_ids: list[str] = field(default_factory=list)
     source_roles: dict[str, list[str]] = field(default_factory=dict)
     source_start_utf16: int | None = None

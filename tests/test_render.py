@@ -8,7 +8,14 @@ import re
 import xml.etree.ElementTree as ET
 
 from score_trans.domain.jianpu import parse_jianpu_score
-from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure, TextBlock
+from score_trans.models.score import (
+    Beam,
+    Event,
+    JianpuPitch,
+    JianpuScore,
+    Measure,
+    TextBlock,
+)
 from score_trans.services.render import PublicationRenderService, RenderOptions
 from score_trans.services.render.engraving.fonts import font_registry
 from score_trans.services.render.main import (
@@ -22,6 +29,12 @@ from score_trans.services.render.main import (
 
 def _root(svg: str) -> ET.Element:
     return ET.fromstring(svg)
+
+
+def _translate(node: ET.Element) -> tuple[float, float]:
+    match = re.search(r"translate\(([-\d.]+) ([-\d.]+)\)", node.attrib["transform"])
+    assert match is not None
+    return float(match.group(1)), float(match.group(2))
 
 
 def test_publication_renderer_is_the_only_engine() -> None:
@@ -100,6 +113,107 @@ def test_sixteenth_notes_share_both_rhythm_lines() -> None:
     ]
 
     assert len(beams) == 2
+
+
+def test_simultaneous_independent_voices_remain_distinct_and_do_not_overlap() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(1)],
+            start=Fraction(0),
+            voice="1",
+            source_ids=["voice-1"],
+        ),
+        Event(
+            kind="rest",
+            duration=Fraction(1, 2),
+            start=Fraction(0),
+            voice="2",
+            source_ids=["voice-2"],
+        ),
+    ]
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(4), events=events)])
+
+    root = _root(render_score_svg(score))
+    anchors = [
+        node for node in root.iter() if "source-anchor" in node.attrib.get("class", "")
+    ]
+    boxes = [
+        [float(value) for value in node.attrib["data-bbox"].split()] for node in anchors
+    ]
+
+    assert len(anchors) == 2
+    assert {node.attrib["data-source-ids"] for node in anchors} == {
+        "voice-1",
+        "voice-2",
+    }
+    assert (
+        boxes[0][0] + boxes[0][2] <= boxes[1][0]
+        or boxes[1][0] + boxes[1][2] <= boxes[0][0]
+    )
+
+
+def test_accidental_has_clearance_from_its_note() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3, accidental=Fraction(1))],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    accidental = next(
+        node for node in root.iter() if node.attrib.get("class") == "accidental"
+    )
+    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
+    accidental_x, _ = _translate(accidental)
+    note_x, _ = _translate(note)
+    accidental_width = font_registry().measure(
+        "♯", float(accidental.attrib["data-font-size"])
+    )
+    note_width = font_registry().measure("3", float(note.attrib["data-font-size"]))
+
+    assert accidental_x + accidental_width / 2 + 4 <= note_x - note_width / 2
+
+
+def test_low_octave_dot_stays_above_duration_lines() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1, 4),
+        pitches=[JianpuPitch(6, octave=-1)],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    dot = next(node for node in root.iter() if node.attrib.get("class") == "octave-dot")
+    lines = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+
+    assert lines
+    assert all(
+        float(line.attrib["y1"]) >= float(dot.attrib["cy"]) + 8 for line in lines
+    )
+
+
+def test_explicit_musicxml_beams_override_fallback_grouping() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            pitches=[JianpuPitch(index + 1)],
+            start=Fraction(index, 2),
+            beams=[Beam("1", status)],
+        )
+        for index, status in enumerate(("begin", "end", "begin", "end"))
+    ]
+    root = _root(
+        render_score_svg(
+            JianpuScore(measures=[Measure("1", duration=Fraction(2), events=events)])
+        )
+    )
+    lines = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+
+    assert len(lines) == 2
 
 
 def test_tuplet_notes_are_compact_and_have_no_lower_rhythm_lines() -> None:
@@ -228,6 +342,47 @@ def test_measure_attributes_only_render_when_key_or_meter_changes() -> None:
     svg = render_score_svg(score)
 
     assert svg.count('class="measure-attribute"') == 1
+
+
+def test_measure_attribute_reserves_space_before_first_event() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 | #2 |")
+    score.measures[1].target_key = "F"
+    score.measures[1].beats_per_measure = 3
+    root = _root(render_score_svg(score))
+    attribute = next(
+        node for node in root.iter() if node.attrib.get("class") == "measure-attribute"
+    )
+    second_note = [node for node in root.iter() if node.attrib.get("class") == "note"][
+        1
+    ]
+    attribute_x, _ = _translate(attribute)
+    note_x, _ = _translate(second_note)
+    attribute_width = font_registry().measure(
+        attribute.attrib["aria-label"], float(attribute.attrib["data-font-size"])
+    )
+    note_width = font_registry().measure(
+        second_note.attrib["aria-label"], float(second_note.attrib["data-font-size"])
+    )
+
+    assert attribute_x + attribute_width + 8 <= note_x - note_width / 2
+
+
+def test_mark_placement_is_respected() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3)],
+        technical=["scoop", "tremolo"],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
+    marks = [node for node in root.iter() if node.attrib.get("class") == "technical"]
+    note_x, note_y = _translate(note)
+    positions = {node.attrib["aria-label"]: _translate(node) for node in marks}
+
+    assert positions["scoop"][0] < note_x
+    assert positions["≋"][0] > note_x
+    assert positions["≋"][1] > note_y
 
 
 def test_semantic_note_and_mark_nodes_carry_exact_source_ids() -> None:
@@ -371,6 +526,16 @@ def test_manual_system_and_page_breaks_are_honored() -> None:
     pages = render_scores_a4_pages([score])
 
     assert len(pages) >= 2
+
+
+def test_slur_continues_across_system_break() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n(1 2 | 3 4) |")
+    score.measures[1].new_system = True
+    root = _root(render_scores_a4_pages([score])[0].svg)
+    slurs = [node for node in root.iter() if node.attrib.get("class") == "slur"]
+
+    assert len(slurs) == 2
+    assert {node.attrib.get("data-continuation") for node in slurs} == {"end", "start"}
 
 
 def test_multi_part_system_contains_all_parts_and_aligned_bars() -> None:
