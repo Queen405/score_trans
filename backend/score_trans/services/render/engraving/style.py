@@ -28,6 +28,15 @@ class PublicationStyle:
     minimum_measure_width: float = 150.0
     ideal_event_gap: float = 42.0
     minimum_event_gap: float = 28.0
+    barline_gutter: float = 20.0
+    event_clearance: float = 6.0
+    accidental_clearance: float = 4.0
+    chord_gap: float = 25.0
+    staccato_radius: float = 2.4
+    octave_dot_radius: float = 2.25
+    rhythm_dot_radius: float = 2.1
+    rhythm_dot_step: float = 7.0
+    extension_line_step: float = 18.0
     last_line_fill_threshold: float = 0.72
     stroke_width: float = 1.7
     font_family: str = "ScoreTransNotoSerif"

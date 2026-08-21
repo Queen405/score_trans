@@ -25,6 +25,19 @@ from score_trans.services.render.main import (
     render_score_svg,
     render_scores_a4_pages,
 )
+from score_trans.services.render.engraving.renderer import (
+    _Cell,
+    _system_extra_height,
+)
+from score_trans.services.render.engraving.style import PublicationStyle
+
+from tests.fixtures.render_cases import (
+    accidental_edge_score,
+    dense_chord_score,
+    long_duration_score,
+    overfull_tail_duration_score,
+    staccato_score,
+)
 
 
 def _root(svg: str) -> ET.Element:
@@ -35,6 +48,27 @@ def _translate(node: ET.Element) -> tuple[float, float]:
     match = re.search(r"translate\(([-\d.]+) ([-\d.]+)\)", node.attrib["transform"])
     assert match is not None
     return float(match.group(1)), float(match.group(2))
+
+
+def _bbox(node: ET.Element) -> tuple[float, float, float, float]:
+    return tuple(float(value) for value in node.attrib["data-bbox"].split())  # type: ignore[return-value]
+
+
+def _node_bbox(node: ET.Element) -> tuple[float, float, float, float]:
+    if node.attrib.get("data-bbox"):
+        return _bbox(node)
+    if node.tag.endswith("circle"):
+        cx = float(node.attrib["cx"])
+        cy = float(node.attrib["cy"])
+        radius = float(node.attrib["r"])
+        return cx - radius, cy - radius, radius * 2, radius * 2
+    raise AssertionError(f"unsupported node bbox: {node.tag}")
+
+
+def _assert_horizontal_clearance(left: tuple[float, float, float, float], right: tuple[float, float, float, float], minimum: float = 0.0) -> None:
+    left_x, _left_y, left_width, _left_height = left
+    right_x, _right_y, _right_width, _right_height = right
+    assert left_x + left_width + minimum <= right_x
 
 
 def test_publication_renderer_is_the_only_engine() -> None:
@@ -599,6 +633,16 @@ def test_bundled_font_manifest_is_stable() -> None:
     assert registry.measure("简谱 123", 20) > 0
 
 
+def test_bundled_font_ink_bounds_are_deterministic() -> None:
+    registry = font_registry()
+    first = registry.ink_bounds("♯1●", 20)
+    second = registry.ink_bounds("♯1●", 20)
+
+    assert first == second
+    assert first[0] < first[2]
+    assert first[1] < first[3]
+
+
 def test_a4_viewbox_is_stable() -> None:
     svg = render_scores_a4_pages([parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")])[0].svg
     root = _root(svg)
@@ -614,3 +658,91 @@ def test_score_page_does_not_use_system_fonts() -> None:
 
     assert "font-family=" not in svg
     assert "<path" in svg
+
+
+def test_staccato_uses_a_bounded_vector_circle() -> None:
+    root = _root(render_score_svg(staccato_score()))
+    staccato_nodes = [
+        node
+        for node in root.iter()
+        if "staccato" in node.attrib.get("class", "")
+    ]
+
+    assert staccato_nodes
+    assert any(node.tag.endswith("circle") for node in staccato_nodes)
+    circle = next(node for node in staccato_nodes if node.tag.endswith("circle"))
+    assert float(circle.attrib["r"]) <= 3.0
+
+
+def test_system_height_grows_for_multiple_unpositioned_text_rows() -> None:
+    plain = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[Event(kind="note", duration=Fraction(4), pitches=[JianpuPitch(1)])],
+    )
+    crowded = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[Event(kind="note", duration=Fraction(4), pitches=[JianpuPitch(1)])],
+        text_blocks=[
+            TextBlock("第一段", role="lyric"),
+            TextBlock("第二段", role="lyric"),
+            TextBlock("第三段", role="lyric"),
+        ],
+    )
+    style = PublicationStyle()
+
+    plain_height = _system_extra_height([_Cell(0, [plain], 150.0)], style)
+    crowded_height = _system_extra_height([_Cell(0, [crowded], 150.0)], style)
+
+    assert crowded_height > plain_height
+
+
+def test_tie_prefers_an_upper_route_without_changing_slur_route() -> None:
+    first = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3)],
+        tie_start=True,
+        start=Fraction(0),
+    )
+    second = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3)],
+        tie_stop=True,
+        start=Fraction(1),
+    )
+    root = _root(
+        render_score_svg(
+            JianpuScore(measures=[Measure("1", duration=Fraction(4), events=[first, second])])
+        )
+    )
+    tie = next(node for node in root.iter() if node.attrib.get("class") == "tie")
+    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
+    _note_x, note_y = _translate(note)
+    coordinates = [float(value) for value in re.findall(r"[-\d.]+", tie.attrib["d"])]
+
+    assert coordinates
+    assert min(coordinates[1::2]) < note_y
+
+
+def test_overfull_duration_does_not_cross_the_right_measure_barline() -> None:
+    root = _root(render_score_svg(overfull_tail_duration_score()))
+    barlines = [
+        node
+        for node in root.iter()
+        if node.tag.endswith("line") and "measure" in node.attrib.get("class", "")
+    ]
+    assert barlines
+    right_barline = max(float(node.attrib["x1"]) for node in barlines)
+    extension_lines = [
+        node
+        for node in root.iter()
+        if node.attrib.get("class") == "extension-line"
+    ]
+
+    assert extension_lines
+    assert all(
+        float(node.attrib["x2"]) <= right_barline - 4 for node in extension_lines
+    ), [(node.attrib["x1"], node.attrib["x2"], right_barline) for node in extension_lines]

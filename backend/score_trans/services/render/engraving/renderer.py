@@ -12,6 +12,7 @@ from ....models.common.types import MeasureNumberMode
 from ....models.score import Event, JianpuPitch, JianpuScore, Measure
 from .scene import BBox, PublicationScene, SceneNode
 from .fonts import font_registry
+from .geometry import measure_event_ink
 from .style import PublicationStyle
 from .svg_backend import scene_to_svg
 
@@ -348,8 +349,8 @@ class PublicationRenderer:
             if draw_attribute
             else 0.0
         )
-        inner_left = x + 20.0 + attribute_width
-        inner_right = x + width - 20.0
+        inner_left = x + style.barline_gutter + attribute_width
+        inner_right = x + width - style.barline_gutter
         event_positions = _event_positions(
             [event for _source_index, event in events],
             inner_left,
@@ -360,7 +361,13 @@ class PublicationRenderer:
         for event_pos, (_source_index, event) in enumerate(events):
             event_x = event_positions[event_pos]
             anchor, consumed = _draw_event(
-                scene, style, event, event_x, y + 43.0, note_index
+                scene,
+                style,
+                event,
+                event_x,
+                y + 43.0,
+                note_index,
+                right_limit=inner_right,
             )
             anchors.append(anchor)
             if consumed:
@@ -539,64 +546,8 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
 def _event_visual_extents(
     event: Event, style: PublicationStyle
 ) -> tuple[float, float, float, float]:
-    pitches = event.pitches or [None]
-    note_width = max(
-        (
-            _text_width(str(max(0, min(7, pitch.degree))), style.note_size)
-            if pitch is not None
-            else _text_width("0", style.note_size)
-        )
-        for pitch in pitches
-    )
-    left = -note_width / 2
-    right = note_width / 2
-    for pitch in event.pitches:
-        accidental = _accidental_text(pitch)
-        if accidental:
-            left = min(
-                left,
-                -note_width / 2 - _text_width(accidental, style.accidental_size) - 4.0,
-            )
-    if event.duration > 1:
-        extensions = max(0, int(math.ceil(float(event.duration))) - 1)
-        if extensions:
-            right = max(right, 28.0 + (extensions - 1) * 18.0)
-    if event.dotted:
-        right = max(right, 19.1 + (event.dotted - 1) * 7.0)
-
-    chord_half = max(0, len(event.pitches) - 1) * 12.5
-    top = -max(29.0, chord_half + 24.0)
-    bottom = chord_half + 18.0
-    if event.pitches:
-        highest = max(event.pitches, key=lambda pitch: pitch.rank)
-        lowest = min(event.pitches, key=lambda pitch: pitch.rank)
-        if highest.octave > 0:
-            top = min(top, -chord_half - 23.25 - (highest.octave - 1) * 7.0)
-        if lowest.octave < 0:
-            bottom = max(bottom, chord_half + 12.25 + (abs(lowest.octave) - 1) * 7.0)
-    rhythm_lines = 0 if _is_tuplet(event) else _rhythm_line_count(event)
-    if rhythm_lines:
-        bottom = max(bottom, chord_half + 13.0 + (rhythm_lines - 1) * 6.0)
-    if event.lyric:
-        bottom = max(bottom, 76.0)
-    if event.dynamic:
-        bottom = max(bottom, 70.0)
-    for mark_id in {*event.articulations, *event.ornaments, *event.technical}:
-        spec = get_performance_mark(mark_id)
-        if spec is None:
-            continue
-        label_width = max(
-            spec.visual_width,
-            _text_width(_rendered_mark_label(mark_id), style.annotation_size),
-        )
-        if spec.placement == "left":
-            left = min(left, -24.0 - label_width / 2)
-        elif spec.placement == "right":
-            right = max(right, 24.0 + label_width / 2)
-        elif spec.placement == "below-right":
-            right = max(right, 22.0 + label_width / 2)
-            bottom = max(bottom, 20.0 + spec.visual_height)
-    return left, right, top, bottom
+    box = measure_event_ink(event, style)
+    return box.left, box.right, box.top, box.bottom
 
 
 def _break_systems(
@@ -627,7 +578,7 @@ def _break_systems(
         )
         scale = target / natural if natural else 1.0
         widths = [cell.width * scale for cell in row]
-        extra = _system_extra_height(row)
+        extra = _system_extra_height(row, style)
         height = (
             part_count * style.base_staff_height
             + max(0, part_count - 1) * style.part_gap
@@ -682,20 +633,43 @@ def _paginate(systems: list[_System], style: PublicationStyle) -> list[list[_Sys
     return pages
 
 
-def _system_extra_height(cells: list[_Cell]) -> float:
-    events = [
-        event
-        for cell in cells
-        for measure in cell.measures
-        if measure
-        for event in measure.events
-    ]
-    above = any(
-        event.articulations or event.ornaments or event.technical or event.tuplet_count
-        for event in events
-    )
-    below = any(event.lyric or event.dynamic for event in events)
-    return (24.0 if above else 0.0) + (28.0 if below else 0.0)
+def _system_extra_height(
+    cells: list[_Cell], style: PublicationStyle
+) -> float:
+    top_extra = 0.0
+    bottom_extra = 0.0
+    needs_top = False
+    needs_bottom = False
+    for cell in cells:
+        for measure in cell.measures:
+            if measure is None:
+                continue
+            for event in measure.events:
+                box = measure_event_ink(event, style)
+                top_extra = max(top_extra, max(0.0, -box.top - 29.0))
+                bottom_extra = max(bottom_extra, max(0.0, box.bottom - 64.0))
+                needs_top = needs_top or bool(
+                    event.articulations
+                    or event.ornaments
+                    or event.technical
+                    or event.tuplet_count
+                    or any(pitch.octave > 0 for pitch in event.pitches)
+                )
+                needs_bottom = needs_bottom or bool(
+                    event.lyric or event.dynamic or any(pitch.octave < 0 for pitch in event.pitches)
+                )
+            unpositioned = [
+                block
+                for block in measure.text_blocks
+                if block.text and block.bbox is None and block.role != "measure_number"
+            ]
+            if unpositioned:
+                needs_bottom = True
+                text_depth = len(unpositioned) * 19.0
+                bottom_extra = max(bottom_extra, max(0.0, text_depth - 28.0))
+    return (24.0 if needs_top else 0.0) + top_extra + (
+        28.0 if needs_bottom else 0.0
+    ) + bottom_extra
 
 
 def _page_chrome(
@@ -782,24 +756,52 @@ def _event_positions(
         _event_x(event, index, len(events), left, right, measure)
         for index, event in enumerate(events)
     ]
-    for index in range(1, len(events)):
-        previous_left, previous_right, _top, _bottom = _event_visual_extents(
-            events[index - 1], style
+    if not positions:
+        return positions
+
+    def push_forward() -> None:
+        first_left, _first_right, _top, _bottom = _event_visual_extents(
+            events[0], style
         )
-        current_left, _current_right, _top, _bottom = _event_visual_extents(
-            events[index], style
+        positions[0] = max(positions[0], left - first_left)
+        for index in range(1, len(events)):
+            _previous_left, previous_right, _top, _bottom = _event_visual_extents(
+                events[index - 1], style
+            )
+            current_left, _current_right, _top, _bottom = _event_visual_extents(
+                events[index], style
+            )
+            minimum = (
+                positions[index - 1]
+                + previous_right
+                - current_left
+                + style.event_clearance
+            )
+            positions[index] = max(positions[index], minimum)
+
+    def pull_backward() -> None:
+        _last_left, last_right, _top, _bottom = _event_visual_extents(
+            events[-1], style
         )
-        minimum = positions[index - 1] + previous_right - current_left + 6.0
-        positions[index] = max(positions[index], minimum)
-    if positions:
-        _left, last_right, _top, _bottom = _event_visual_extents(events[-1], style)
-        overflow = positions[-1] + last_right - right
-        if overflow > 0:
-            positions = [position - overflow for position in positions]
-        first_left, _right, _top, _bottom = _event_visual_extents(events[0], style)
-        underflow = left - (positions[0] + first_left)
-        if underflow > 0:
-            positions = [position + underflow for position in positions]
+        positions[-1] = min(positions[-1], right - last_right)
+        for index in range(len(events) - 2, -1, -1):
+            _current_left, current_right, _top, _bottom = _event_visual_extents(
+                events[index], style
+            )
+            next_left, _next_right, _top, _bottom = _event_visual_extents(
+                events[index + 1], style
+            )
+            maximum = (
+                positions[index + 1]
+                + next_left
+                - current_right
+                - style.event_clearance
+            )
+            positions[index] = min(positions[index], maximum)
+
+    push_forward()
+    pull_backward()
+    push_forward()
     index = 0
     while index < len(events):
         key = events[index].tuplet_id
@@ -831,7 +833,10 @@ def _event_positions(
         )
         positions[index] = max(
             positions[index],
-            positions[index - 1] + previous_right - current_left + 6.0,
+            positions[index - 1]
+            + previous_right
+            - current_left
+            + style.event_clearance,
         )
     return positions
 
@@ -843,6 +848,8 @@ def _draw_event(
     x: float,
     y: float,
     note_index: int,
+    *,
+    right_limit: float | None = None,
 ) -> tuple[_Anchor, bool]:
     pitched = event.kind == "note" and bool(event.pitches)
     token = event.source_token or _event_token(event)
@@ -854,7 +861,20 @@ def _draw_event(
             ]
         )
     )
-    left, right, top, bottom = _event_visual_extents(event, style)
+    layout_box = measure_event_ink(event, style)
+    if right_limit is not None:
+        layout_box = type(layout_box)(
+            layout_box.left,
+            layout_box.top,
+            max(layout_box.left, min(layout_box.right, right_limit - x)),
+            layout_box.bottom,
+        )
+    left, right, top, bottom = (
+        layout_box.left,
+        layout_box.right,
+        layout_box.top,
+        layout_box.bottom,
+    )
     bbox = BBox(x + left, y + top, right - left, bottom - top)
     attrs: dict[str, str | float | int] = {
         "class": "playback-note source-anchor" if pitched else "source-anchor",
@@ -897,12 +917,12 @@ def _draw_event(
         )
     else:
         pitches = sorted(event.pitches, key=lambda pitch: pitch.rank, reverse=True)
-        chord_gap = 25.0
+        chord_gap = style.chord_gap
         top = y - (len(pitches) - 1) * chord_gap / 2
         for pitch_index, pitch in enumerate(pitches):
             py = top + pitch_index * chord_gap
             _draw_pitch(group, style, event, pitch, pitch_index, x, py)
-    _draw_duration(group, event, x, y, style)
+    _draw_duration(group, event, x, y, style, right_limit=right_limit)
     if event.lyric:
         group.children.append(
             _text("lyric", x, y + 44, event.lyric, style.lyric_size, anchor="middle")
@@ -954,7 +974,10 @@ def _draw_pitch(
         group.children.append(
             _text(
                 "accidental",
-                x - note_width / 2 - accidental_width / 2 - 4.0,
+                x
+                - note_width / 2
+                - accidental_width / 2
+                - style.accidental_clearance,
                 y,
                 accidental,
                 style.accidental_size,
@@ -979,25 +1002,49 @@ def _draw_pitch(
         for index in range(abs(pitch.octave)):
             group.children.append(
                 _circle(
-                    "octave-dot", x, base_y + direction * index * 7, 2.25, fill=True
+                    "octave-dot",
+                    x,
+                    base_y + direction * index * style.rhythm_dot_step,
+                    style.octave_dot_radius,
+                    fill=True,
                 )
             )
 
 
 def _draw_duration(
-    group: SceneNode, event: Event, x: float, y: float, style: PublicationStyle
+    group: SceneNode,
+    event: Event,
+    x: float,
+    y: float,
+    style: PublicationStyle,
+    *,
+    right_limit: float | None = None,
 ) -> None:
     duration = event.duration
     if duration > 1:
         extensions = max(0, int(math.ceil(float(duration))) - 1)
         for index in range(extensions):
-            ex1 = x + 17 + index * 18
+            ex1 = x + 17 + index * style.extension_line_step
+            ex2 = ex1 + 11
+            if right_limit is not None:
+                ex2 = min(ex2, right_limit)
+            if ex2 <= ex1:
+                continue
             group.children.append(
-                _line("extension-line", ex1, y - 6, ex1 + 11, y - 6, 1.7)
+                _line("extension-line", ex1, y - 6, ex2, y - 6, 1.7)
             )
     for index in range(event.dotted):
+        dot_x = x + 17 + index * style.rhythm_dot_step
+        if right_limit is not None and dot_x + style.rhythm_dot_radius > right_limit:
+            continue
         group.children.append(
-            _circle("rhythm-dot", x + 17 + index * 7, y - 7, 2.1, fill=True)
+            _circle(
+                "rhythm-dot",
+                dot_x,
+                y - 7,
+                style.rhythm_dot_radius,
+                fill=True,
+            )
         )
 
 
@@ -1047,17 +1094,30 @@ def _draw_marks(
         else:
             mark_x = x
             mark_y = top - index * 16 - vertical_offset
-        group.children.append(
-            _text(
+        attrs = _semantic_attrs(role, exact_ids)
+        if mark_id == "staccato":
+            attrs["aria-label"] = "staccato"
+            mark = _circle(
                 cls,
                 mark_x,
                 mark_y,
-                label,
-                style.annotation_size,
-                anchor="middle",
-                attrs=_semantic_attrs(role, exact_ids),
+                style.staccato_radius,
+                fill=True,
             )
-        )
+            mark.attrs.update(attrs)
+            group.children.append(mark)
+        else:
+            group.children.append(
+                _text(
+                    cls,
+                    mark_x,
+                    mark_y,
+                    label,
+                    style.annotation_size,
+                    anchor="middle",
+                    attrs=attrs,
+                )
+            )
 
 
 def _draw_rhythm_lines(scene: PublicationScene, anchors: list[_Anchor]) -> None:
@@ -1286,13 +1346,15 @@ def _spanner(
         delta = -13 if (start.event.slide_direction or "up") == "up" else 13
         d = f"M {start.x + 13:g} {start.y - 3:g} L {end.x - 13:g} {end.y + delta:g}"
     else:
-        height = -18 if kind == "slur" else 11
+        height = -18 if kind == "slur" else -9
         sx, ex = start.x + 10, end.x - 10
         if ex <= sx + 8:
             sx = start.x + 5
             ex = end.x - 5
         if kind == "slur":
             base = min(start.bbox.y, end.bbox.y) - 5.0
+        elif kind == "tie":
+            base = min(start.bbox.y, end.bbox.y) - 3.0
         else:
             start_bottom = start.bbox.y + start.bbox.height
             end_bottom = end.bbox.y + end.bbox.height

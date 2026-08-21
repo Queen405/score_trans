@@ -5,6 +5,7 @@ from functools import lru_cache
 import hashlib
 from pathlib import Path
 
+from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.ttLib import TTFont
 
@@ -53,6 +54,54 @@ class FontRegistry:
     @lru_cache(maxsize=8192)
     def measure(self, text: str, font_size: float) -> float:
         return sum(self._advance_em(char) for char in text) * font_size
+
+    @lru_cache(maxsize=8192)
+    def ink_bounds(
+        self, text: str, font_size: float
+    ) -> tuple[float, float, float, float]:
+        """Return text ink bounds relative to its start baseline.
+
+        FontTools reports glyph coordinates with positive Y upwards.  SVG
+        scene coordinates use positive Y downwards, so the vertical bounds are
+        inverted here once and shared by all layout callers.
+        """
+
+        cursor_em = 0.0
+        left_em: float | None = None
+        top_em: float | None = None
+        right_em: float | None = None
+        bottom_em: float | None = None
+        for char in text:
+            role, glyph_name = self._glyph(char)
+            font = self._fonts[role]
+            glyph_set = font.getGlyphSet()
+            pen = BoundsPen(glyph_set)
+            glyph_set[glyph_name].draw(pen)
+            if pen.bounds is not None:
+                x_min, y_min, x_max, y_max = pen.bounds
+                units_per_em = int(font["head"].unitsPerEm)
+                scale = 1.0 / units_per_em
+                glyph_left = cursor_em + x_min * scale
+                glyph_right = cursor_em + x_max * scale
+                glyph_top = -y_max * scale
+                glyph_bottom = -y_min * scale
+                left_em = glyph_left if left_em is None else min(left_em, glyph_left)
+                top_em = glyph_top if top_em is None else min(top_em, glyph_top)
+                right_em = (
+                    glyph_right if right_em is None else max(right_em, glyph_right)
+                )
+                bottom_em = (
+                    glyph_bottom if bottom_em is None else max(bottom_em, glyph_bottom)
+                )
+            cursor_em += self._advance_em(char)
+        if left_em is None:
+            return (0.0, 0.0, 0.0, 0.0)
+        return (
+            left_em * font_size,
+            top_em * font_size,
+            right_em * font_size,
+            bottom_em * font_size,
+        )
 
     @lru_cache(maxsize=8192)
     def paths(self, text: str) -> tuple[tuple[GlyphPath, ...], float]:
