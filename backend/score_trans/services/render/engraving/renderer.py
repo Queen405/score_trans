@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
-from fractions import Fraction
 import json
 import math
+from dataclasses import dataclass, field, replace
+from fractions import Fraction
 from pathlib import Path
 from typing import Literal
 
 from ....domain.performance_marks import get_performance_mark
 from ....models.common.types import MeasureNumberMode
 from ....models.score import Event, JianpuPitch, JianpuScore, Measure
-from .scene import BBox, PublicationScene, SceneNode
 from .fonts import font_registry
-from .geometry import measure_event_ink
+from .geometry import mark_layouts, measure_event_ink, pitch_layouts
+from .scene import BBox, PublicationScene, SceneNode
 from .style import PublicationStyle
 from .svg_backend import scene_to_svg
 
@@ -295,7 +295,7 @@ class PublicationRenderer:
         draw_attribute: bool,
         draw_terminal: bool,
     ) -> int:
-        bar_top, bar_bottom = _measure_bar_offsets(measure)
+        bar_top, bar_bottom = _measure_bar_offsets(measure, style)
         if draw_start_bar or measure.repeat_start:
             _draw_barline(
                 scene,
@@ -373,7 +373,7 @@ class PublicationRenderer:
             if consumed:
                 note_index += 1
             _route_spanners(scene, spanners, anchor, x, x + width)
-        _draw_rhythm_lines(scene, anchors)
+        _draw_rhythm_lines(scene, anchors, inner_left, inner_right, style)
         _draw_tuplets(scene, anchors, style)
         _draw_measure_text(scene, measure, x, y, width, style)
         if measure.repeat_start:
@@ -397,26 +397,27 @@ class PublicationRenderer:
         return note_index
 
 
-def _measure_bar_offsets(measure: Measure) -> tuple[float, float]:
+def _measure_bar_offsets(
+    measure: Measure, style: PublicationStyle
+) -> tuple[float, float]:
     top = 14.0
     bottom = 66.0
     for event in measure.events:
-        chord_half = max(0, len(event.pitches) - 1) * 12.5
-        top = min(top, 43.0 - chord_half - 25.0)
-        bottom = max(bottom, 43.0 + chord_half + 9.0)
-        if event.pitches:
-            highest = max(event.pitches, key=lambda pitch: pitch.rank)
-            lowest = min(event.pitches, key=lambda pitch: pitch.rank)
-            if highest.octave > 0:
-                top = min(top, 43.0 - chord_half - 27.0 - (highest.octave - 1) * 7)
-            if lowest.octave < 0:
-                bottom = max(
-                    bottom,
-                    43.0 + chord_half + 16.0 + (abs(lowest.octave) - 1) * 7,
-                )
+        rows = pitch_layouts(event, style)
+        notation_top = min((row.note_box.top for row in rows), default=-25.0)
+        notation_bottom = max((row.note_box.bottom for row in rows), default=9.0)
+        for row in rows:
+            if row.accidental_box is not None:
+                notation_top = min(notation_top, row.accidental_box.top)
+            for box in row.octave_boxes:
+                notation_top = min(notation_top, box.top)
+                notation_bottom = max(notation_bottom, box.bottom)
+        top = min(top, 43.0 + notation_top - 3.0)
+        bottom = max(bottom, 43.0 + notation_bottom + 4.0)
         rhythm_lines = 0 if _is_tuplet(event) else _rhythm_line_count(event)
         if rhythm_lines:
-            bottom = max(bottom, 60.0 + chord_half + (rhythm_lines - 1) * 6)
+            base = 43.0 + _rhythm_line_offset(event, style)
+            bottom = max(bottom, base + (rhythm_lines - 1) * 6.0 + 2.0)
     return top, bottom
 
 
@@ -755,51 +756,53 @@ def _event_positions(
     measure: Measure,
     style: PublicationStyle,
 ) -> list[float]:
-    positions = [
+    ideal_positions = [
         _event_x(event, index, len(events), left, right, measure)
         for index, event in enumerate(events)
     ]
-    if not positions:
-        return positions
+    if not ideal_positions:
+        return ideal_positions
 
-    def push_forward() -> None:
-        first_left, _first_right, _top, _bottom = _event_visual_extents(
-            events[0], style
+    extents = [_event_visual_extents(event, style) for event in events]
+    minimum_gaps: list[float] = []
+    for index in range(1, len(events)):
+        minimum_gaps.append(
+            extents[index - 1][1] - extents[index][0] + style.event_clearance
         )
-        positions[0] = max(positions[0], left - first_left)
-        for index in range(1, len(events)):
-            _previous_left, previous_right, _top, _bottom = _event_visual_extents(
-                events[index - 1], style
-            )
-            current_left, _current_right, _top, _bottom = _event_visual_extents(
-                events[index], style
-            )
-            minimum = (
-                positions[index - 1]
-                + previous_right
-                - current_left
-                + style.event_clearance
-            )
-            positions[index] = max(positions[index], minimum)
-
-    def pull_backward() -> None:
-        _last_left, last_right, _top, _bottom = _event_visual_extents(events[-1], style)
-        positions[-1] = min(positions[-1], right - last_right)
-        for index in range(len(events) - 2, -1, -1):
-            _current_left, current_right, _top, _bottom = _event_visual_extents(
-                events[index], style
-            )
-            next_left, _next_right, _top, _bottom = _event_visual_extents(
-                events[index + 1], style
-            )
-            maximum = (
-                positions[index + 1] + next_left - current_right - style.event_clearance
-            )
-            positions[index] = min(positions[index], maximum)
-
-    push_forward()
-    pull_backward()
-    push_forward()
+    minimum_relative = [0.0]
+    for gap in minimum_gaps:
+        minimum_relative.append(minimum_relative[-1] + gap)
+    minimum_start = max(
+        left - event_extent[0] - offset
+        for event_extent, offset in zip(extents, minimum_relative, strict=True)
+    )
+    maximum_start = min(
+        right - event_extent[1] - offset
+        for event_extent, offset in zip(extents, minimum_relative, strict=True)
+    )
+    if minimum_start <= maximum_start and minimum_gaps:
+        ideal_gaps = [
+            max(0.0, ideal_positions[index] - ideal_positions[index - 1])
+            for index in range(1, len(events))
+        ]
+        ideal_total = sum(ideal_gaps)
+        gap_weights = [
+            ideal_gap / ideal_total if ideal_total else 1.0 / len(minimum_gaps)
+            for ideal_gap in ideal_gaps
+        ]
+        extra = maximum_start - minimum_start
+        gaps = [
+            minimum_gap + extra * weight
+            for minimum_gap, weight in zip(minimum_gaps, gap_weights, strict=True)
+        ]
+        relative = [0.0]
+        for gap in gaps:
+            relative.append(relative[-1] + gap)
+        start = minimum_start
+    else:
+        relative = minimum_relative
+        start = minimum_start
+    positions = [start + offset for offset in relative]
     index = 0
     while index < len(events):
         key = events[index].tuplet_id
@@ -914,12 +917,9 @@ def _draw_event(
             )
         )
     else:
-        pitches = sorted(event.pitches, key=lambda pitch: pitch.rank, reverse=True)
-        chord_gap = style.chord_gap
-        top = y - (len(pitches) - 1) * chord_gap / 2
-        for pitch_index, pitch in enumerate(pitches):
-            py = top + pitch_index * chord_gap
-            _draw_pitch(group, style, event, pitch, pitch_index, x, py)
+        rows = pitch_layouts(event, style)
+        for pitch_index, row in enumerate(rows):
+            _draw_pitch(group, style, event, row.pitch, pitch_index, x, y + row.y)
     _draw_duration(group, event, x, y, style, right_limit=right_limit)
     if event.lyric:
         group.children.append(
@@ -967,13 +967,29 @@ def _draw_pitch(
     )
     accidental = _accidental_text(pitch)
     if accidental:
-        accidental_width = _text_width(accidental, style.accidental_size)
-        note_width = _text_width(str(max(0, min(7, pitch.degree))), style.note_size)
+        registry = font_registry()
+        note_value = str(max(0, min(7, pitch.degree)))
+        note_left, note_top, _note_right, _note_bottom = registry.ink_bounds(
+            note_value, style.note_size
+        )
+        note_left -= registry.measure(note_value, style.note_size) / 2
+        _acc_left, _acc_top, accidental_right, accidental_bottom = registry.ink_bounds(
+            accidental, style.accidental_size
+        )
+        note_advance = registry.measure(note_value, style.note_size)
+        accidental_advance = registry.measure(accidental, style.accidental_size)
+        accidental_right -= accidental_advance / 2
+        accidental_bottom_target = y + note_top + 3.0
+        accidental_x = min(
+            x + note_left - style.accidental_clearance - accidental_right,
+            x - note_advance / 2 - style.accidental_clearance - accidental_advance / 2,
+        )
+        accidental_y = accidental_bottom_target - accidental_bottom
         group.children.append(
             _text(
                 "accidental",
-                x - note_width / 2 - accidental_width / 2 - style.accidental_clearance,
-                y,
+                accidental_x,
+                accidental_y,
                 accidental,
                 style.accidental_size,
                 anchor="middle",
@@ -1017,7 +1033,7 @@ def _draw_duration(
 ) -> None:
     duration = event.duration
     if duration > 1:
-        extensions = max(0, int(math.ceil(float(duration))) - 1)
+        extensions = max(0, math.ceil(float(duration)) - 1)
         for index in range(extensions):
             ex1 = x + 17 + index * style.extension_line_step
             ex2 = ex1 + 11
@@ -1044,17 +1060,11 @@ def _draw_duration(
 def _draw_marks(
     group: SceneNode, event: Event, x: float, y: float, style: PublicationStyle
 ) -> None:
-    mark_ids = [*event.articulations, *event.ornaments, *event.technical]
-    if event.articulation and event.articulation not in mark_ids:
-        mark_ids.insert(0, event.articulation)
-    top = y - 35
-    if event.pitches:
-        highest = max(event.pitches, key=lambda pitch: pitch.rank)
-        if highest.octave > 0:
-            top = min(top, y - 39 - (highest.octave - 1) * 7)
+    layouts = mark_layouts(event, style)
     seen: set[str] = set()
     role_offsets = {"articulation": 0, "ornament": 0, "technical": 0}
-    for index, mark_id in enumerate(mark_ids):
+    for layout in layouts:
+        mark_id = layout.mark_id
         if mark_id in seen:
             continue
         seen.add(mark_id)
@@ -1068,27 +1078,14 @@ def _draw_marks(
         role_index = role_offsets[role]
         exact_ids = [role_ids[role_index]] if role_index < len(role_ids) else role_ids
         role_offsets[role] += 1
-        spec = get_performance_mark(mark_id)
-        label = _mark_glyph(spec.renderer if spec else mark_id, mark_id)
+        label = layout.label
         cls = role
         if mark_id == "staccato":
             cls += " staccato"
-        vertical_offset = 20.0 if len(label) > 3 else 0.0
-        placement = spec.placement if spec else "above"
-        if placement == "left":
-            mark_x = x - 24.0
-            mark_y = y - 2.0
-        elif placement == "right":
-            mark_x = x + 24.0
-            mark_y = y - 2.0
-        elif placement == "below-right":
-            mark_x = x + 22.0
-            mark_y = y + 20.0 + index * 16.0
-        else:
-            mark_x = x
-            mark_y = top - index * 16 - vertical_offset
+        mark_x = x + layout.x
+        mark_y = y + layout.y
         attrs = _semantic_attrs(role, exact_ids)
-        if mark_id == "staccato":
+        if layout.is_staccato:
             attrs["aria-label"] = "staccato"
             mark = _circle(
                 cls,
@@ -1113,7 +1110,13 @@ def _draw_marks(
             )
 
 
-def _draw_rhythm_lines(scene: PublicationScene, anchors: list[_Anchor]) -> None:
+def _draw_rhythm_lines(
+    scene: PublicationScene,
+    anchors: list[_Anchor],
+    left_limit: float | None = None,
+    right_limit: float | None = None,
+    style: PublicationStyle | None = None,
+) -> None:
     maximum_level = max(
         (
             max(
@@ -1146,17 +1149,39 @@ def _draw_rhythm_lines(scene: PublicationScene, anchors: list[_Anchor]) -> None:
                 run.append(anchor)
                 continue
             if run:
-                _draw_rhythm_run(scene, run, level)
+                _draw_rhythm_run(
+                    scene,
+                    run,
+                    level,
+                    left_limit=left_limit,
+                    right_limit=right_limit,
+                    style=style,
+                )
                 run = []
             if eligible and anchor is not None:
                 run = [anchor]
-        _draw_explicit_beam_level(scene, anchors, level)
+        _draw_explicit_beam_level(
+            scene,
+            anchors,
+            level,
+            left_limit=left_limit,
+            right_limit=right_limit,
+            style=style,
+        )
 
 
 def _draw_rhythm_run(
-    scene: PublicationScene, anchors: list[_Anchor], level: int
+    scene: PublicationScene,
+    anchors: list[_Anchor],
+    level: int,
+    *,
+    left_limit: float | None = None,
+    right_limit: float | None = None,
+    style: PublicationStyle | None = None,
 ) -> None:
-    baseline = max(_rhythm_line_base(anchor) for anchor in anchors) + (level - 1) * 6.0
+    baseline = (
+        max(_rhythm_line_base(anchor, style) for anchor in anchors) + (level - 1) * 6.0
+    )
     source_ids = list(
         dict.fromkeys(
             source_id
@@ -1166,11 +1191,19 @@ def _draw_rhythm_run(
             )
         )
     )
+    x1 = anchors[0].x - 12
+    x2 = anchors[-1].x + 12
+    if left_limit is not None:
+        x1 = max(x1, left_limit)
+    if right_limit is not None:
+        x2 = min(x2, right_limit)
+    if x2 <= x1:
+        return
     node = _line(
         "duration-line beam-line",
-        anchors[0].x - 12,
+        x1,
         baseline,
-        anchors[-1].x + 12,
+        x2,
         baseline,
         1.8,
     )
@@ -1179,7 +1212,13 @@ def _draw_rhythm_run(
 
 
 def _draw_explicit_beam_level(
-    scene: PublicationScene, anchors: list[_Anchor], level: int
+    scene: PublicationScene,
+    anchors: list[_Anchor],
+    level: int,
+    *,
+    left_limit: float | None = None,
+    right_limit: float | None = None,
+    style: PublicationStyle | None = None,
 ) -> None:
     runs: dict[tuple[str | None, str | None], list[_Anchor]] = {}
     for anchor in anchors:
@@ -1195,16 +1234,30 @@ def _draw_explicit_beam_level(
         )
         if status == "begin":
             if run:
-                _draw_rhythm_run(scene, run, level)
+                _draw_rhythm_run(
+                    scene,
+                    run,
+                    level,
+                    left_limit=left_limit,
+                    right_limit=right_limit,
+                    style=style,
+                )
             runs[key] = [anchor]
         elif status == "continue" and run:
             run.append(anchor)
         elif status == "end" and run:
             run.append(anchor)
-            _draw_rhythm_run(scene, run, level)
+            _draw_rhythm_run(
+                scene,
+                run,
+                level,
+                left_limit=left_limit,
+                right_limit=right_limit,
+                style=style,
+            )
             runs[key] = []
         elif status in {"forward-hook", "backward-hook"}:
-            baseline = _rhythm_line_base(anchor) + (level - 1) * 6.0
+            baseline = _rhythm_line_base(anchor, style) + (level - 1) * 6.0
             if status == "forward-hook":
                 hook = [
                     _Anchor(anchor.x, anchor.y, anchor.bbox, anchor.event),
@@ -1215,33 +1268,58 @@ def _draw_explicit_beam_level(
                     _Anchor(anchor.x - 18, anchor.y, anchor.bbox, anchor.event),
                     _Anchor(anchor.x, anchor.y, anchor.bbox, anchor.event),
                 ]
+            x1 = hook[0].x
+            x2 = hook[1].x
+            if left_limit is not None:
+                x1 = max(x1, left_limit)
+            if right_limit is not None:
+                x2 = min(x2, right_limit)
+            if x2 <= x1:
+                continue
             node = _line(
                 "duration-line beam-line",
-                hook[0].x,
+                x1,
                 baseline,
-                hook[1].x,
+                x2,
                 baseline,
                 1.8,
             )
             scene.add(node)
         elif run:
-            _draw_rhythm_run(scene, run, level)
+            _draw_rhythm_run(
+                scene,
+                run,
+                level,
+                left_limit=left_limit,
+                right_limit=right_limit,
+                style=style,
+            )
             runs[key] = []
     for run in runs.values():
         if run:
-            _draw_rhythm_run(scene, run, level)
+            _draw_rhythm_run(
+                scene,
+                run,
+                level,
+                left_limit=left_limit,
+                right_limit=right_limit,
+                style=style,
+            )
 
 
-def _rhythm_line_base(anchor: _Anchor) -> float:
-    chord_half = max(0, len(anchor.event.pitches) - 1) * 12.5
-    base = anchor.y + chord_half + 13.0
-    if anchor.event.pitches:
-        lowest = min(anchor.event.pitches, key=lambda pitch: pitch.rank)
-        if lowest.octave < 0:
-            lowest_pitch_y = anchor.y + chord_half
-            low_dot_y = lowest_pitch_y + 10.0 + (abs(lowest.octave) - 1) * 7.0
-            base = max(base, low_dot_y + 8.0)
-    return base
+def _rhythm_line_base(anchor: _Anchor, style: PublicationStyle | None = None) -> float:
+    resolved_style = style or PublicationStyle()
+    return anchor.y + _rhythm_line_offset(anchor.event, resolved_style)
+
+
+def _rhythm_line_offset(event: Event, style: PublicationStyle) -> float:
+    rows = pitch_layouts(event, style)
+    note_bottom = max((row.note_box.bottom for row in rows), default=0.0)
+    attachment_bottom = note_bottom
+    for row in rows:
+        for box in row.octave_boxes:
+            attachment_bottom = max(attachment_bottom, box.bottom)
+    return max(note_bottom + 12.5, attachment_bottom + 8.0)
 
 
 def _rhythm_line_count(event: Event) -> int:
@@ -1444,26 +1522,22 @@ def _draw_tuplets(
 def _event_notation_top(
     event: Event, baseline: float, style: PublicationStyle
 ) -> float:
-    chord_half = max(0, len(event.pitches) - 1) * 12.5
-    top = baseline - chord_half - style.note_size * 0.78
-    if event.pitches:
-        highest = max(event.pitches, key=lambda pitch: pitch.rank)
-        if highest.octave > 0:
-            top = min(top, baseline - chord_half - 25.0 - (highest.octave - 1) * 7)
-    mark_count = len(
-        dict.fromkeys([*event.articulations, *event.ornaments, *event.technical])
+    pitch_top = min(
+        (
+            min(
+                row.note_box.top,
+                row.accidental_box.top if row.accidental_box is not None else math.inf,
+                *(box.top for box in row.octave_boxes),
+            )
+            for row in pitch_layouts(event, style)
+        ),
+        default=-style.note_size * 0.78,
     )
-    if mark_count:
-        top = min(
-            top,
-            baseline - 38.0 - (mark_count - 1) * 16.0 - style.annotation_size * 0.8,
-        )
-    if any(
-        len(_rendered_mark_label(mark)) > 3
-        for mark in [*event.articulations, *event.ornaments, *event.technical]
-    ):
-        top -= 20.0
-    return top
+    mark_top = min(
+        (mark.ink_box.top for mark in mark_layouts(event, style)),
+        default=math.inf,
+    )
+    return baseline + min(pitch_top, mark_top)
 
 
 def _draw_measure_text(

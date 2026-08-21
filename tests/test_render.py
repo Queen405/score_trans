@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fractions import Fraction
 import hashlib
 import json
-from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
+from fractions import Fraction
+from itertools import pairwise
+from pathlib import Path
 
 from score_trans.domain.jianpu import parse_jianpu_score
 from score_trans.models.score import (
@@ -18,6 +19,17 @@ from score_trans.models.score import (
 )
 from score_trans.services.render import PublicationRenderService, RenderOptions
 from score_trans.services.render.engraving.fonts import font_registry
+from score_trans.services.render.engraving.geometry import measure_event_ink
+from score_trans.services.render.engraving.renderer import (
+    _Anchor,
+    _Cell,
+    _draw_explicit_beam_level,
+    _draw_rhythm_run,
+    _event_positions,
+    _system_extra_height,
+)
+from score_trans.services.render.engraving.scene import BBox, PublicationScene
+from score_trans.services.render.engraving.style import PublicationStyle
 from score_trans.services.render.main import (
     render_jianpu_page_svg,
     render_jianpu_svg,
@@ -25,11 +37,6 @@ from score_trans.services.render.main import (
     render_score_svg,
     render_scores_a4_pages,
 )
-from score_trans.services.render.engraving.renderer import (
-    _Cell,
-    _system_extra_height,
-)
-from score_trans.services.render.engraving.style import PublicationStyle
 
 from tests.fixtures.render_cases import (
     overfull_tail_duration_score,
@@ -45,6 +52,20 @@ def _translate(node: ET.Element) -> tuple[float, float]:
     match = re.search(r"translate\(([-\d.]+) ([-\d.]+)\)", node.attrib["transform"])
     assert match is not None
     return float(match.group(1)), float(match.group(2))
+
+
+def _scale(node: ET.Element) -> float:
+    match = re.search(r"scale\(([-\d.]+)", node.attrib["transform"])
+    assert match is not None
+    return abs(float(match.group(1)))
+
+
+def _text_box(node: ET.Element) -> tuple[float, float, float, float]:
+    x, y = _translate(node)
+    left, top, right, bottom = font_registry().ink_bounds(
+        node.attrib["aria-label"], _scale(node)
+    )
+    return x + left, y + top, x + right, y + bottom
 
 
 def _bbox(node: ET.Element) -> tuple[float, float, float, float]:
@@ -210,6 +231,239 @@ def test_accidental_has_clearance_from_its_note() -> None:
     assert accidental_x + accidental_width / 2 + 4 <= note_x - note_width / 2
 
 
+def test_accidental_is_left_and_above_note() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3, accidental=Fraction(1))],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    accidental = next(
+        node for node in root.iter() if node.attrib.get("class") == "accidental"
+    )
+    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
+    _accidental_left, accidental_top, accidental_right, _ = _text_box(accidental)
+    note_left, note_top, _, _ = _text_box(note)
+
+    assert accidental_right <= note_left - 2
+    assert accidental_top <= note_top + 5
+
+
+def test_accidental_does_not_shift_note_baseline() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            start=Fraction(index),
+            pitches=[
+                JianpuPitch(3, accidental=Fraction(1) if index == 0 else Fraction(0))
+            ],
+        )
+        for index in range(2)
+    ]
+    root = _root(
+        render_score_svg(
+            JianpuScore(measures=[Measure("1", duration=Fraction(2), events=events)])
+        )
+    )
+    note_baselines = [
+        _translate(node)[1]
+        for node in root.iter()
+        if node.attrib.get("class") == "note"
+    ]
+
+    assert note_baselines[0] == note_baselines[1]
+
+
+def test_chord_attachment_clearance() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[
+            JianpuPitch(7),
+            JianpuPitch(6, octave=-1),
+            JianpuPitch(5, octave=-2),
+        ],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    notes = [node for node in root.iter() if node.attrib.get("class") == "note"]
+    dots = [node for node in root.iter() if node.attrib.get("class") == "octave-dot"]
+    bottom_note = notes[2]
+    middle_dot_bottom = float(dots[0].attrib["cy"]) + float(dots[0].attrib["r"])
+    bottom_note_top = _text_box(bottom_note)[1]
+
+    assert middle_dot_bottom + 4 <= bottom_note_top
+
+
+def test_chord_mark_stack_stays_above_highest_pitch_attachment() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(7, octave=1), JianpuPitch(3, octave=-1)],
+        articulations=["accent"],
+        ornaments=["trill"],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    note_top = min(
+        _text_box(node)[1] for node in root.iter() if node.attrib.get("class") == "note"
+    )
+    dot_top = min(
+        float(node.attrib["cy"]) - float(node.attrib["r"])
+        for node in root.iter()
+        if node.attrib.get("class") == "octave-dot"
+    )
+    attachment_top = min(note_top, dot_top)
+    marks = [
+        node
+        for node in root.iter()
+        if node.attrib.get("class") in {"articulation", "ornament"}
+    ]
+
+    assert len(marks) == 2
+    assert all(_text_box(mark)[3] + 2 <= attachment_top for mark in marks)
+
+
+def test_chord_accidentals_follow_their_pitch_rows() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[
+            JianpuPitch(7, accidental=Fraction(1)),
+            JianpuPitch(3, accidental=Fraction(-1)),
+        ],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    notes = [node for node in root.iter() if node.attrib.get("class") == "note"]
+    accidentals = [
+        node for node in root.iter() if node.attrib.get("class") == "accidental"
+    ]
+
+    assert len(notes) == len(accidentals) == 2
+    assert _translate(accidentals[0])[1] < _translate(accidentals[1])[1]
+    assert all(
+        _translate(accidental)[1] < _translate(note)[1]
+        for accidental, note in zip(accidentals, notes, strict=True)
+    )
+
+
+def test_mark_bbox_contains_rendered_left_and_below_right_marks() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3)],
+        technical=["arpeggio", "breath-mark"],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    anchor = next(
+        node for node in root.iter() if "source-anchor" in node.attrib.get("class", "")
+    )
+    anchor_box = _bbox(anchor)
+    for mark in root.iter():
+        if mark.attrib.get("class") in {"technical", "articulation", "ornament"}:
+            left, top, right, bottom = _text_box(mark)
+            assert left >= anchor_box[0]
+            assert top >= anchor_box[1]
+            assert right <= anchor_box[0] + anchor_box[2]
+            assert bottom <= anchor_box[1] + anchor_box[3]
+
+
+def test_tuplet_bracket_stays_above_extended_chord_attachments() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 3),
+            start=Fraction(index, 3),
+            pitches=[JianpuPitch(7, octave=2), JianpuPitch(5, octave=-1)],
+            tuplet_id="triplet",
+            tuplet_count=3,
+        )
+        for index in range(3)
+    ]
+    root = _root(
+        render_score_svg(
+            JianpuScore(measures=[Measure("1", duration=Fraction(1), events=events)])
+        )
+    )
+    brackets = [
+        node for node in root.iter() if node.attrib.get("class") == "tuplet-bracket"
+    ]
+    assert brackets
+    bracket_y = min(
+        float(re.search(r"M [-\d.]+ ([-\d.]+)", node.attrib["d"]).group(1))
+        for node in brackets
+    )  # type: ignore[union-attr]
+    top_attachment = min(
+        min(
+            _text_box(node)[1]
+            for node in root.iter()
+            if node.attrib.get("class") == "note"
+        ),
+        min(
+            float(node.attrib["cy"]) - float(node.attrib["r"])
+            for node in root.iter()
+            if node.attrib.get("class") == "octave-dot"
+        ),
+    )
+    assert bracket_y + 2 <= top_attachment
+
+
+def test_equal_duration_events_have_balanced_visual_slots() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            start=Fraction(index),
+            pitches=[
+                JianpuPitch(
+                    3 + (index % 2),
+                    accidental=Fraction(1) if index == 0 else Fraction(0),
+                    accidental_text="♯♯♯" if index == 0 else None,
+                )
+            ],
+            articulations=["accent"] if index == 0 else [],
+        )
+        for index in range(4)
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    centers = _event_positions(events, 100.0, 900.0, measure, PublicationStyle())
+    gaps = [right - left for left, right in pairwise(centers)]
+
+    assert max(gaps) - min(gaps) < 15
+
+
+def test_narrow_measure_keeps_visual_slots_inside_content() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            start=Fraction(index),
+            pitches=[
+                JianpuPitch(
+                    3,
+                    accidental_text="♯♯♯♯" if index == 0 else None,
+                )
+            ],
+        )
+        for index in range(3)
+    ]
+    measure = Measure("1", duration=Fraction(3), events=events)
+    centers = _event_positions(events, 100.0, 260.0, measure, PublicationStyle())
+    boxes = [
+        (box.left, box.right)
+        for box in (measure_event_ink(event, PublicationStyle()) for event in events)
+    ]
+
+    assert all(
+        100.0 <= center + left and center + right <= 260.0
+        for center, (left, right) in zip(centers, boxes, strict=True)
+    )
+    visual_gaps = [
+        (centers[index + 1] + boxes[index + 1][0]) - (centers[index] + boxes[index][1])
+        for index in range(len(centers) - 1)
+    ]
+    assert max(visual_gaps) - min(visual_gaps) < 18
+
+
 def test_low_octave_dot_stays_above_duration_lines() -> None:
     event = Event(
         kind="note",
@@ -226,6 +480,48 @@ def test_low_octave_dot_stays_above_duration_lines() -> None:
     assert all(
         float(line.attrib["y1"]) >= float(dot.attrib["cy"]) + 8 for line in lines
     )
+
+
+def test_beam_line_stays_inside_measure_content() -> None:
+    scene = PublicationScene(240.0, 160.0, 0)
+    event = Event(kind="note", duration=Fraction(1, 2), pitches=[JianpuPitch(3)])
+    anchors = [
+        _Anchor(180.0, 100.0, BBox(170.0, 90.0, 18.0, 24.0), event),
+        _Anchor(206.0, 100.0, BBox(196.0, 90.0, 18.0, 24.0), event),
+    ]
+
+    _draw_rhythm_run(scene, anchors, 1, left_limit=172.0, right_limit=212.0)
+    line = next(
+        node for node in scene.nodes if "duration-line" in node.attrs.get("class", "")
+    )
+
+    assert float(line.attrs["x1"]) >= 172.0
+    assert float(line.attrs["x2"]) <= 212.0
+
+
+def test_explicit_beam_hook_is_clipped_to_measure_boundary() -> None:
+    scene = PublicationScene(240.0, 160.0, 0)
+    event = Event(
+        kind="note",
+        duration=Fraction(1, 16),
+        pitches=[JianpuPitch(3)],
+        beams=[Beam("1", "forward-hook")],
+    )
+    anchor = _Anchor(208.0, 100.0, BBox(198.0, 90.0, 18.0, 24.0), event)
+
+    _draw_explicit_beam_level(
+        scene,
+        [anchor],
+        1,
+        left_limit=172.0,
+        right_limit=212.0,
+    )
+    line = next(
+        node for node in scene.nodes if "duration-line" in node.attrs.get("class", "")
+    )
+
+    assert float(line.attrs["x1"]) >= 172.0
+    assert float(line.attrs["x2"]) <= 212.0
 
 
 def test_explicit_musicxml_beams_override_fallback_grouping() -> None:
