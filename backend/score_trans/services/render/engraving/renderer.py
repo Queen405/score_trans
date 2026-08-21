@@ -633,9 +633,7 @@ def _paginate(systems: list[_System], style: PublicationStyle) -> list[list[_Sys
     return pages
 
 
-def _system_extra_height(
-    cells: list[_Cell], style: PublicationStyle
-) -> float:
+def _system_extra_height(cells: list[_Cell], style: PublicationStyle) -> float:
     top_extra = 0.0
     bottom_extra = 0.0
     needs_top = False
@@ -656,7 +654,9 @@ def _system_extra_height(
                     or any(pitch.octave > 0 for pitch in event.pitches)
                 )
                 needs_bottom = needs_bottom or bool(
-                    event.lyric or event.dynamic or any(pitch.octave < 0 for pitch in event.pitches)
+                    event.lyric
+                    or event.dynamic
+                    or any(pitch.octave < 0 for pitch in event.pitches)
                 )
             unpositioned = [
                 block
@@ -667,9 +667,12 @@ def _system_extra_height(
                 needs_bottom = True
                 text_depth = len(unpositioned) * 19.0
                 bottom_extra = max(bottom_extra, max(0.0, text_depth - 28.0))
-    return (24.0 if needs_top else 0.0) + top_extra + (
-        28.0 if needs_bottom else 0.0
-    ) + bottom_extra
+    return (
+        (24.0 if needs_top else 0.0)
+        + top_extra
+        + (28.0 if needs_bottom else 0.0)
+        + bottom_extra
+    )
 
 
 def _page_chrome(
@@ -780,9 +783,7 @@ def _event_positions(
             positions[index] = max(positions[index], minimum)
 
     def pull_backward() -> None:
-        _last_left, last_right, _top, _bottom = _event_visual_extents(
-            events[-1], style
-        )
+        _last_left, last_right, _top, _bottom = _event_visual_extents(events[-1], style)
         positions[-1] = min(positions[-1], right - last_right)
         for index in range(len(events) - 2, -1, -1):
             _current_left, current_right, _top, _bottom = _event_visual_extents(
@@ -792,10 +793,7 @@ def _event_positions(
                 events[index + 1], style
             )
             maximum = (
-                positions[index + 1]
-                + next_left
-                - current_right
-                - style.event_clearance
+                positions[index + 1] + next_left - current_right - style.event_clearance
             )
             positions[index] = min(positions[index], maximum)
 
@@ -974,10 +972,7 @@ def _draw_pitch(
         group.children.append(
             _text(
                 "accidental",
-                x
-                - note_width / 2
-                - accidental_width / 2
-                - style.accidental_clearance,
+                x - note_width / 2 - accidental_width / 2 - style.accidental_clearance,
                 y,
                 accidental,
                 style.accidental_size,
@@ -1030,9 +1025,7 @@ def _draw_duration(
                 ex2 = min(ex2, right_limit)
             if ex2 <= ex1:
                 continue
-            group.children.append(
-                _line("extension-line", ex1, y - 6, ex2, y - 6, 1.7)
-            )
+            group.children.append(_line("extension-line", ex1, y - 6, ex2, y - 6, 1.7))
     for index in range(event.dotted):
         dot_x = x + 17 + index * style.rhythm_dot_step
         if right_limit is not None and dot_x + style.rhythm_dot_radius > right_limit:

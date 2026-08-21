@@ -5,10 +5,10 @@ from fractions import Fraction
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 
 
-def single_measure_score(*events: Event, duration: Fraction = Fraction(4, 1)) -> JianpuScore:
-    return JianpuScore(
-        measures=[Measure("1", duration=duration, events=list(events))]
-    )
+def single_measure_score(
+    *events: Event, duration: Fraction = Fraction(4, 1)
+) -> JianpuScore:
+    return JianpuScore(measures=[Measure("1", duration=duration, events=list(events))])
 
 
 def accidental_edge_score() -> JianpuScore:

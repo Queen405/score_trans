@@ -175,9 +175,16 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
             box = box.union(InkBox(17, -7, right, -5))
             parts.append(VisualPart("extension-line", InkBox(17, -7, right, -5)))
     if event.dotted:
-        right = 17 + (event.dotted - 1) * style.rhythm_dot_step + style.rhythm_dot_radius
+        right = (
+            17 + (event.dotted - 1) * style.rhythm_dot_step + style.rhythm_dot_radius
+        )
         box = box.union(
-            InkBox(17 - style.rhythm_dot_radius, -7 - style.rhythm_dot_radius, right, -7 + style.rhythm_dot_radius)
+            InkBox(
+                17 - style.rhythm_dot_radius,
+                -7 - style.rhythm_dot_radius,
+                right,
+                -7 + style.rhythm_dot_radius,
+            )
         )
         parts.append(
             VisualPart(
@@ -216,7 +223,9 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
         parts.append(VisualPart("dynamic", dynamic_box))
         box = box.union(dynamic_box)
 
-    mark_ids = list(dict.fromkeys([*event.articulations, *event.ornaments, *event.technical]))
+    mark_ids = list(
+        dict.fromkeys([*event.articulations, *event.ornaments, *event.technical])
+    )
     if event.articulation and event.articulation not in mark_ids:
         mark_ids.insert(0, event.articulation)
     for index, mark_id in enumerate(mark_ids):

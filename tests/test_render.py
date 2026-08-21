@@ -32,9 +32,6 @@ from score_trans.services.render.engraving.renderer import (
 from score_trans.services.render.engraving.style import PublicationStyle
 
 from tests.fixtures.render_cases import (
-    accidental_edge_score,
-    dense_chord_score,
-    long_duration_score,
     overfull_tail_duration_score,
     staccato_score,
 )
@@ -65,7 +62,11 @@ def _node_bbox(node: ET.Element) -> tuple[float, float, float, float]:
     raise AssertionError(f"unsupported node bbox: {node.tag}")
 
 
-def _assert_horizontal_clearance(left: tuple[float, float, float, float], right: tuple[float, float, float, float], minimum: float = 0.0) -> None:
+def _assert_horizontal_clearance(
+    left: tuple[float, float, float, float],
+    right: tuple[float, float, float, float],
+    minimum: float = 0.0,
+) -> None:
     left_x, _left_y, left_width, _left_height = left
     right_x, _right_y, _right_width, _right_height = right
     assert left_x + left_width + minimum <= right_x
@@ -663,9 +664,7 @@ def test_score_page_does_not_use_system_fonts() -> None:
 def test_staccato_uses_a_bounded_vector_circle() -> None:
     root = _root(render_score_svg(staccato_score()))
     staccato_nodes = [
-        node
-        for node in root.iter()
-        if "staccato" in node.attrib.get("class", "")
+        node for node in root.iter() if "staccato" in node.attrib.get("class", "")
     ]
 
     assert staccato_nodes
@@ -715,7 +714,9 @@ def test_tie_prefers_an_upper_route_without_changing_slur_route() -> None:
     )
     root = _root(
         render_score_svg(
-            JianpuScore(measures=[Measure("1", duration=Fraction(4), events=[first, second])])
+            JianpuScore(
+                measures=[Measure("1", duration=Fraction(4), events=[first, second])]
+            )
         )
     )
     tie = next(node for node in root.iter() if node.attrib.get("class") == "tie")
@@ -737,12 +738,13 @@ def test_overfull_duration_does_not_cross_the_right_measure_barline() -> None:
     assert barlines
     right_barline = max(float(node.attrib["x1"]) for node in barlines)
     extension_lines = [
-        node
-        for node in root.iter()
-        if node.attrib.get("class") == "extension-line"
+        node for node in root.iter() if node.attrib.get("class") == "extension-line"
     ]
 
     assert extension_lines
     assert all(
         float(node.attrib["x2"]) <= right_barline - 4 for node in extension_lines
-    ), [(node.attrib["x1"], node.attrib["x2"], right_barline) for node in extension_lines]
+    ), [
+        (node.attrib["x1"], node.attrib["x2"], right_barline)
+        for node in extension_lines
+    ]
