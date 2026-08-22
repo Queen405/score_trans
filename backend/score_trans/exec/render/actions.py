@@ -385,6 +385,11 @@ class RenderActions:
         for index, page in enumerate(req.pages):
             try:
                 page_scores = self._build_batch_page_scores(req, page)
+            except JianpuValidationError as exc:
+                page_label = f"第 {index + 1} 页"
+                if page.input_file_name:
+                    page_label = f"{page_label}（{page.input_file_name}）"
+                raise JianpuValidationError(f"{page_label}：{exc}") from exc
             except CodedValidationError:
                 raise
             except ValueError as exc:

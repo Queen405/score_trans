@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from fractions import Fraction
 
-from ...models.common.errors import CodedValidationError
+from ...models.common.errors import JianpuValidationError
 from ...models.common.types import (
     ACCEPTED_INSTRUMENT_PROFILES,
     SUPPORTED_INSTRUMENT_PROFILES,
@@ -66,7 +66,7 @@ class _Token:
     end_utf16: int | None = None
 
 
-class JianpuSyntaxError(CodedValidationError):
+class JianpuSyntaxError(JianpuValidationError):
     """A syntax error that retains the source token used to produce it."""
 
     error_code = "jianpu_syntax"

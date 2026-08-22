@@ -114,6 +114,23 @@ def test_jianpu_parser_validation_errors_use_the_same_output_block_code() -> Non
     assert response.json()["code"] == "jianpu_syntax"
 
 
+def test_batch_jianpu_syntax_error_keeps_the_page_context_for_editor_jump() -> None:
+    response = TestClient(create_app()).post(
+        "/render/batch-a4",
+        json={
+            "pages": [
+                {"jianpu_text": "1=C\n4/4\n1 2 3 4 |"},
+                {"jianpu_text": "1=C\n4/4\n1 2 45 |"},
+            ],
+        },
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["code"] == "jianpu_syntax"
+    assert payload["error"].startswith("第 2 页：第 3 行第 5 列")
+
+
 def test_invalid_time_signature_is_a_coded_validation_error_not_500() -> None:
     response = TestClient(create_app()).post(
         "/export/musicxml-text",
