@@ -23,11 +23,13 @@ class PublicationStyle:
     measure_number_size: float = 15.0
     base_staff_height: float = 92.0
     part_gap: float = 34.0
-    system_gap: float = 54.0
+    system_gap: float = 32.0
     title_block_height: float = 132.0
     minimum_measure_width: float = 150.0
     ideal_event_gap: float = 42.0
     minimum_event_gap: float = 28.0
+    spacing_increment: float = 8.0
+    tuplet_boundary_gap: float = 2.0
     barline_gutter: float = 20.0
     event_clearance: float = 6.0
     accidental_clearance: float = 4.0
@@ -36,6 +38,8 @@ class PublicationStyle:
     octave_dot_radius: float = 2.25
     rhythm_dot_radius: float = 2.1
     rhythm_dot_step: float = 7.0
+    duration_dot_clearance: float = 3.0
+    dynamic_clearance: float = 6.0
     extension_line_step: float = 18.0
     last_line_fill_threshold: float = 0.72
     stroke_width: float = 1.7

@@ -11,6 +11,7 @@ import org.audiveris.omr.sig.inter.AbstractTimeInter;
 import org.audiveris.omr.sig.inter.AlterInter;
 import org.audiveris.omr.sig.inter.ArpeggiatoInter;
 import org.audiveris.omr.sig.inter.ArticulationInter;
+import org.audiveris.omr.sig.inter.AugmentationDotInter;
 import org.audiveris.omr.sig.inter.BowInter;
 import org.audiveris.omr.sig.inter.ClefInter;
 import org.audiveris.omr.sig.inter.DynamicsInter;
@@ -212,6 +213,7 @@ public final class ScoreTransOverlayExporter
     {
         return inter instanceof AbstractNoteInter
                 || inter instanceof AlterInter
+                || inter instanceof AugmentationDotInter
                 || inter instanceof SlurInter
                 || inter instanceof ArticulationInter
                 || inter instanceof OrnamentInter
@@ -232,6 +234,7 @@ public final class ScoreTransOverlayExporter
     {
         if (inter instanceof AbstractNoteInter) return "n";
         if (inter instanceof AlterInter) return "a";
+        if (inter instanceof AugmentationDotInter) return "ad";
         if (inter instanceof SlurInter) return "s";
         if (inter instanceof ArticulationInter) return "ar";
         if (inter instanceof OrnamentInter) return "or";

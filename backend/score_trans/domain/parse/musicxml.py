@@ -943,6 +943,7 @@ def _source_role(code: str) -> str:
     return {
         "n": "note",
         "a": "accidental",
+        "ad": "augmentation_dot",
         "ss": "slur_start",
         "se": "slur_stop",
         "ts": "tie_start",

@@ -14,7 +14,7 @@ class PageCreate(BaseModel):
     ocr_text: str = ""
     text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     svg_file_id: str = ""
-    engine_version: str = "publication-2"
+    engine_version: str = "publication-3"
     document_revision: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
@@ -62,7 +62,7 @@ class PageResponse(BaseModel):
     ocr_text: str
     text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     svg_file_id: str
-    engine_version: str = "publication-2"
+    engine_version: str = "publication-3"
     document_revision: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
@@ -97,7 +97,7 @@ class BatchResponse(BaseModel):
     status: str
     jianpu_text: str = ""
     render_page_file_ids: list[str] = Field(default_factory=list)
-    engine_version: str = "publication-2"
+    engine_version: str = "publication-3"
     document_revision: str = ""
     render_page_ocr_texts: list[RenderPageOcrText] = Field(default_factory=list)
     pages: list[PageResponse]

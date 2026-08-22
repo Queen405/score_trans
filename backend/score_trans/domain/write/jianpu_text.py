@@ -421,6 +421,22 @@ def _append_event_anchors(
                     "tie",
                 )
 
+    if event.dotted:
+        dot_offsets = [index for index, value in enumerate(token) if value == "."]
+        if dot_offsets:
+            dot_sources = event.source_roles.get("augmentation_dot", [])
+            for dot_offset, source_id in zip(
+                dot_offsets, dot_sources[: event.dotted], strict=False
+            ):
+                _append_anchor(
+                    anchors,
+                    seen,
+                    source_id,
+                    absolute_start + dot_offset,
+                    absolute_start + dot_offset + 1,
+                    "augmentation_dot",
+                )
+
     prefix = line[segment_start:token_start]
     prefix_base = absolute_start - (token_start - segment_start)
     _append_prefix_role_anchors(

@@ -979,7 +979,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     renderPageOcrTexts,
   )
   isViewingFinal.value = false
-  if (!renderPageFileIds.length || batchEngineVersion !== 'publication-2') {
+  if (!renderPageFileIds.length || batchEngineVersion !== 'publication-3') {
     try {
       renderPageFileIds = await renderFinalBatch()
     } catch (e: unknown) {

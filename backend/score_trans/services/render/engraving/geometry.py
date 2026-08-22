@@ -187,7 +187,7 @@ def _mark_label(mark_id: str) -> str:
     return {
         "accent": ">",
         "tenuto": "—",
-        "staccato": "●",
+        "staccato": "▼",
         "trill": "tr",
         "fermata": "𝄐",
         "down-bow": "Π",
@@ -270,8 +270,51 @@ def _rhythm_line_count(event: Event) -> int:
     return count
 
 
+def _duration_extension_start(event: Event, style: PublicationStyle) -> float:
+    if not event.dotted:
+        return 17.0
+    return (
+        17.0
+        + max(0, event.dotted - 1) * style.rhythm_dot_step
+        + style.rhythm_dot_radius
+        + style.duration_dot_clearance
+    )
+
+
 def _is_tuplet(event: Event) -> bool:
     return bool(event.tuplet_id or event.tuplet_count or event.tuplet_spans)
+
+
+def _event_attachment_bottom(event: Event, style: PublicationStyle) -> float:
+    rows = pitch_layouts(event, style)
+    note_bottom = max((row.note_box.bottom for row in rows), default=0.0)
+    attachment_bottom = note_bottom
+    for row in rows:
+        for box in row.octave_boxes:
+            attachment_bottom = max(attachment_bottom, box.bottom)
+    if not _is_tuplet(event):
+        rhythm_lines = _rhythm_line_count(event)
+        if rhythm_lines:
+            rhythm_base = max(note_bottom + 12.5, attachment_bottom + 8.0)
+            attachment_bottom = max(
+                attachment_bottom,
+                rhythm_base + (rhythm_lines - 1) * 6.0 + style.stroke_width,
+            )
+    return attachment_bottom
+
+
+def _dynamic_baseline(event: Event, style: PublicationStyle) -> float:
+    if not event.dynamic:
+        return 63.0
+    _left, ink_top, _right, _bottom = font_registry().ink_bounds(
+        event.dynamic, style.annotation_size
+    )
+    return max(
+        63.0,
+        _event_attachment_bottom(event, style)
+        + style.dynamic_clearance
+        - ink_top,
+    )
 
 
 def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
@@ -300,9 +343,10 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
     if event.duration > 1:
         extensions = max(0, math.ceil(float(event.duration)) - 1)
         if extensions:
-            right = 17 + (extensions - 1) * style.extension_line_step + 11
-            box = box.union(InkBox(17, -7, right, -5))
-            parts.append(VisualPart("extension-line", InkBox(17, -7, right, -5)))
+            left = _duration_extension_start(event, style)
+            right = left + (extensions - 1) * style.extension_line_step + 11
+            box = box.union(InkBox(left, -7, right, -5))
+            parts.append(VisualPart("extension-line", InkBox(left, -7, right, -5)))
     if event.dotted:
         right = (
             17 + (event.dotted - 1) * style.rhythm_dot_step + style.rhythm_dot_radius
@@ -351,8 +395,11 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
         parts.append(VisualPart("lyric", lyric_box))
         box = box.union(lyric_box)
     if event.dynamic:
+        dynamic_baseline = _dynamic_baseline(event, style)
         dynamic_box = _translated(
-            _centered_text_box(event.dynamic, style.annotation_size), 0.0, 63.0
+            _centered_text_box(event.dynamic, style.annotation_size),
+            0.0,
+            dynamic_baseline,
         )
         parts.append(VisualPart("dynamic", dynamic_box))
         box = box.union(dynamic_box)

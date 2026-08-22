@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections import Counter
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from pathlib import Path
@@ -11,7 +12,13 @@ from ....domain.performance_marks import get_performance_mark
 from ....models.common.types import MeasureNumberMode
 from ....models.score import Event, JianpuPitch, JianpuScore, Measure
 from .fonts import font_registry
-from .geometry import mark_layouts, measure_event_ink, pitch_layouts
+from .geometry import (
+    _dynamic_baseline,
+    _duration_extension_start,
+    mark_layouts,
+    measure_event_ink,
+    pitch_layouts,
+)
 from .scene import BBox, PublicationScene, SceneNode
 from .style import PublicationStyle
 from .svg_backend import scene_to_svg
@@ -74,7 +81,7 @@ class PublicationRenderer:
     legacy token-layout or drawing helper is imported by this module.
     """
 
-    engine_version = "publication-2"
+    engine_version = "publication-3"
 
     def __init__(self, style: PublicationStyle | None = None) -> None:
         self.style = style or PublicationStyle()
@@ -541,39 +548,87 @@ def _build_cells(
 
 
 def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float:
-    width = 42.0
-    for event in measure.events:
-        chord = max(1, len(event.pitches))
-        if _is_tuplet(event):
-            event_gap = max(
-                style.minimum_event_gap,
-                style.ideal_event_gap * 0.80,
-            )
-        elif event.duration < 1:
-            event_gap = max(
-                style.minimum_event_gap,
-                style.ideal_event_gap * 0.72,
-            )
-        else:
-            event_gap = style.minimum_event_gap
-        left, right, _top, _bottom = _event_visual_extents(event, style)
-        token_width = max(event_gap, right - left + 10.0) + (chord - 1) * 5.0
-        if event.lyric:
-            token_width = max(
-                token_width, _text_width(event.lyric, style.lyric_size) + 10.0
-            )
-        marks = [*event.articulations, *event.ornaments, *event.technical]
-        if marks:
-            token_width = max(
-                token_width,
-                max(
-                    _text_width(_rendered_mark_label(mark), style.annotation_size)
-                    for mark in marks
-                )
-                + 8.0,
-            )
-        width += token_width
+    if not measure.events:
+        return style.minimum_measure_width
+    events = sorted(
+        measure.events,
+        key=lambda event: event.start if event.start is not None else Fraction(0),
+    )
+    extents = [_event_visual_extents(event, style) for event in events]
+    common_shortest = _common_shortest_duration(events)
+    gaps = _minimum_event_gaps(events, extents, common_shortest, style)
+    width = 42.0 + extents[-1][1] - extents[0][0] + sum(gaps)
     return max(style.minimum_measure_width, min(style.content_width, width))
+
+
+def _common_shortest_duration(events: list[Event]) -> Fraction:
+    durations = [event.duration for event in events if event.duration > 0]
+    if not durations:
+        return Fraction(1, 2)
+    counts = Counter(durations)
+    return min(min(counts, key=lambda value: (-counts[value], value)), Fraction(1, 2))
+
+
+def _duration_spring(
+    duration: Fraction,
+    common_shortest: Fraction,
+    style: PublicationStyle,
+) -> float:
+    if duration <= 0 or common_shortest <= 0:
+        return style.minimum_event_gap
+    ratio = float(duration / common_shortest)
+    if ratio >= 1.0:
+        return style.minimum_event_gap + style.spacing_increment * math.log2(ratio)
+    return max(16.0, style.minimum_event_gap * ratio)
+
+
+def _same_tuplet_group(previous: Event, current: Event) -> bool:
+    return bool(previous.tuplet_id and previous.tuplet_id == current.tuplet_id)
+
+
+def _minimum_event_gaps(
+    events: list[Event],
+    extents: list[tuple[float, float, float, float]],
+    common_shortest: Fraction,
+    style: PublicationStyle,
+) -> list[float]:
+    gaps: list[float] = []
+    for index in range(1, len(events)):
+        previous = events[index - 1]
+        current = events[index]
+        previous_right = extents[index - 1][1]
+        current_left = extents[index][0]
+        collision_gap = previous_right - current_left + style.event_clearance
+        previous_start = (
+            previous.start if previous.start is not None else Fraction(0)
+        )
+        current_start = (
+            current.start
+            if current.start is not None
+            else previous_start + previous.duration
+        )
+        time_gap = _duration_spring(
+            current_start - previous_start,
+            common_shortest,
+            style,
+        )
+        if _same_tuplet_group(previous, current):
+            time_gap = max(18.0, style.minimum_event_gap * 0.72)
+        elif _is_tuplet(previous) or _is_tuplet(current):
+            time_gap += style.tuplet_boundary_gap
+        gaps.append(max(collision_gap, time_gap))
+    return gaps
+
+
+def _tuplet_run_count(events: list[Event]) -> int:
+    count = 0
+    previous_id: str | None = None
+    for event in events:
+        current_id = event.tuplet_id
+        if current_id and current_id != previous_id:
+            count += 1
+        previous_id = current_id
+    return count
 
 
 def _event_visual_extents(
@@ -796,11 +851,12 @@ def _event_positions(
         return ideal_positions
 
     extents = [_event_visual_extents(event, style) for event in events]
-    minimum_gaps: list[float] = []
-    for index in range(1, len(events)):
-        minimum_gaps.append(
-            extents[index - 1][1] - extents[index][0] + style.event_clearance
-        )
+    minimum_gaps = _minimum_event_gaps(
+        events,
+        extents,
+        _common_shortest_duration(events),
+        style,
+    )
     minimum_relative = [0.0]
     for gap in minimum_gaps:
         minimum_relative.append(minimum_relative[-1] + gap)
@@ -832,31 +888,34 @@ def _event_positions(
             relative.append(relative[-1] + gap)
         start = minimum_start
     else:
-        relative = minimum_relative
-        start = minimum_start
+        positions = _bounded_event_positions(
+            events, extents, left, right, ideal_positions, style
+        )
+        return positions
     positions = [start + offset for offset in relative]
-    index = 0
-    while index < len(events):
-        key = events[index].tuplet_id
-        if not key:
-            index += 1
-            continue
-        end = index + 1
-        while end < len(events) and events[end].tuplet_id == key:
-            end += 1
-        count = end - index
-        if count > 1:
-            current_span = positions[end - 1] - positions[index]
-            gap = min(
-                current_span / (count - 1),
-                max(18.0, style.minimum_event_gap * 0.72),
-            )
-            span = gap * (count - 1)
-            center = (positions[index] + positions[end - 1]) / 2
-            start = max(left, min(right - span, center - span / 2))
-            for offset in range(count):
-                positions[index + offset] = start + offset * gap
-        index = end
+    if _tuplet_run_count(events) == 1:
+        index = 0
+        while index < len(events):
+            key = events[index].tuplet_id
+            if not key:
+                index += 1
+                continue
+            end = index + 1
+            while end < len(events) and events[end].tuplet_id == key:
+                end += 1
+            count = end - index
+            if count > 1:
+                current_span = positions[end - 1] - positions[index]
+                gap = min(
+                    current_span / (count - 1),
+                    max(18.0, style.minimum_event_gap * 0.72),
+                )
+                span = gap * (count - 1)
+                center = (positions[index] + positions[end - 1]) / 2
+                start = max(left, min(right - span, center - span / 2))
+                for offset in range(count):
+                    positions[index + offset] = start + offset * gap
+            index = end
     for index in range(1, len(events)):
         _previous_left, previous_right, _top, _bottom = _event_visual_extents(
             events[index - 1], style
@@ -871,6 +930,50 @@ def _event_positions(
             - current_left
             + style.event_clearance,
         )
+    return positions
+
+
+def _bounded_event_positions(
+    events: list[Event],
+    extents: list[tuple[float, float, float, float]],
+    left: float,
+    right: float,
+    ideal_positions: list[float],
+    style: PublicationStyle,
+) -> list[float]:
+    """Project an overfull event sequence into the content bounds.
+
+    The minimum collision constraints may be infeasible for an overfull bar.
+    In that case preserving the barline boundary is more important than
+    preserving every requested gap; actual collision reporting remains
+    deterministic through the existing scene QA.
+    """
+    if len(events) == 1:
+        extent = extents[0]
+        return [max(left - extent[0], min(right - extent[1], ideal_positions[0]))]
+    minimum_gaps = _minimum_event_gaps(
+        events,
+        extents,
+        _common_shortest_duration(events),
+        style,
+    )
+    start = left - extents[0][0]
+    end = right - extents[-1][1]
+    total = sum(minimum_gaps)
+    scale = (end - start) / total if total > 0 else 0.0
+    positions = [start]
+    for gap in minimum_gaps:
+        positions.append(positions[-1] + gap * scale)
+    for index, extent in enumerate(extents):
+        positions[index] = max(
+            left - extent[0], min(right - extent[1], positions[index])
+        )
+    for index in range(1, len(positions)):
+        positions[index] = max(positions[index], positions[index - 1])
+        positions[index] = min(positions[index], right - extents[index][1])
+    for index in range(len(positions) - 2, -1, -1):
+        positions[index] = min(positions[index], positions[index + 1])
+        positions[index] = max(positions[index], left - extents[index][0])
     return positions
 
 
@@ -958,11 +1061,12 @@ def _draw_event(
             _text("lyric", x, y + 44, event.lyric, style.lyric_size, anchor="middle")
         )
     if event.dynamic:
+        dynamic_baseline = _dynamic_baseline(event, style)
         group.children.append(
             _text(
                 "dynamic",
                 x,
-                y + 63,
+                y + dynamic_baseline,
                 event.dynamic,
                 style.annotation_size,
                 anchor="middle",
@@ -1084,8 +1188,9 @@ def _draw_duration(
     duration = event.duration
     if duration > 1:
         extensions = max(0, math.ceil(float(duration)) - 1)
+        extension_start = _duration_extension_start(event, style)
         for index in range(extensions):
-            ex1 = x + 17 + index * style.extension_line_step
+            ex1 = x + extension_start + index * style.extension_line_step
             ex2 = ex1 + 11
             if right_limit is not None:
                 ex2 = min(ex2, right_limit)
@@ -1137,12 +1242,18 @@ def _draw_marks(
         attrs = _semantic_attrs(role, exact_ids)
         if layout.is_staccato:
             attrs["aria-label"] = "staccato"
-            mark = _circle(
-                cls,
-                mark_x,
-                mark_y,
-                style.staccato_radius,
-                fill=True,
+            radius = style.staccato_radius
+            mark = SceneNode(
+                "path",
+                {
+                    "class": cls,
+                    "d": (
+                        f"M {mark_x - radius:g} {mark_y - radius:g} "
+                        f"L {mark_x + radius:g} {mark_y - radius:g} "
+                        f"L {mark_x:g} {mark_y + radius:g} Z"
+                    ),
+                    "fill": "#171717",
+                },
             )
             mark.attrs.update(attrs)
             group.children.append(mark)
@@ -1721,7 +1832,7 @@ def _mark_glyph(renderer: str, fallback: str) -> str:
     return {
         "accent": ">",
         "tenuto": "—",
-        "staccato": "●",
+        "staccato": "▼",
         "trill": "tr",
         "fermata": "𝄐",
         "down-bow": "Π",

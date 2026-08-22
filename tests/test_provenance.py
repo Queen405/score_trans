@@ -124,6 +124,34 @@ def test_musicxml_provenance_produces_exact_utf16_anchors() -> None:
     assert len(document.text_hash) == 64
 
 
+def test_augmentation_dot_provenance_produces_clickable_text_anchor() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note id="st__n-s1-i10__ad-s1-i11">
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>3</duration><type>half</type><dot/>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    event = score.measures[0].events[0]
+    document = score_to_jianpu_document(score)
+
+    assert event.source_roles["augmentation_dot"] == ["s1:i11"]
+    dot_anchor = next(
+        anchor for anchor in document.anchors if anchor.role == "augmentation_dot"
+    )
+    assert _utf16_slice(document.text, dot_anchor.start_utf16, dot_anchor.end_utf16) == "."
+
+
 def test_current_text_anchors_are_embedded_in_render_group() -> None:
     text = "title=春\n1=C\n4/4\n1 2 3 4 |"
     start = text.index("2")

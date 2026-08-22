@@ -17,7 +17,7 @@ class HistoryPage:
     ocr_text: str = ""
     text_attachments: list[SourceTextAttachment] = field(default_factory=list)
     svg_file_id: str = ""
-    engine_version: str = "publication-2"
+    engine_version: str = "publication-3"
     document_revision: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
@@ -48,7 +48,7 @@ class HistoryBatch:
     status: str = "completed"
     jianpu_text: str = ""
     render_page_file_ids: list[str] = field(default_factory=list)
-    engine_version: str = "publication-2"
+    engine_version: str = "publication-3"
     document_revision: str = ""
     render_page_ocr_texts: list[HistoryRenderPageOcrText] = field(default_factory=list)
     pages: list[HistoryPage] = field(default_factory=list)

@@ -8,6 +8,7 @@ import org.audiveris.omr.sig.inter.AbstractPauseInter;
 import org.audiveris.omr.sig.inter.AlterInter;
 import org.audiveris.omr.sig.inter.ArpeggiatoInter;
 import org.audiveris.omr.sig.inter.ArticulationInter;
+import org.audiveris.omr.sig.inter.AugmentationDotInter;
 import org.audiveris.omr.sig.inter.BowInter;
 import org.audiveris.omr.sig.inter.DynamicsInter;
 import org.audiveris.omr.sig.inter.FermataInter;
@@ -111,6 +112,15 @@ public final class ScoreTransProvenance
             final PluckingInter plucking = head.getPlucking();
             if (plucking != null) {
                 put(sources, "pl", plucking);
+            }
+        }
+
+        final AugmentationDotInter firstDot = note.getFirstAugmentationDot();
+        if (firstDot != null) {
+            put(sources, "ad", firstDot);
+            final AugmentationDotInter secondDot = firstDot.getSecondAugmentationDot();
+            if (secondDot != null) {
+                put(sources, "ad", secondDot);
             }
         }
 

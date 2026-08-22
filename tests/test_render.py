@@ -27,7 +27,9 @@ from score_trans.services.render.engraving.renderer import (
     _draw_explicit_beam_level,
     _draw_rhythm_lines,
     _draw_rhythm_run,
+    _duration_spring,
     _event_positions,
+    _intrinsic_measure_width,
     _system_extra_height,
 )
 from score_trans.services.render.engraving.scene import BBox, PublicationScene
@@ -41,6 +43,7 @@ from score_trans.services.render.main import (
 )
 
 from tests.fixtures.render_cases import (
+    long_duration_score,
     overfull_tail_duration_score,
     staccato_score,
 )
@@ -100,7 +103,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-2"
+    assert root.attrib["data-engine-version"] == "publication-3"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -169,6 +172,16 @@ def test_rhythm_pitch_and_chord_features_are_visible() -> None:
     assert 'class="duration-line beam-line"' in svg
     assert 'class="rhythm-dot"' in svg
     assert 'class="extension-line"' in svg
+
+
+def test_dotted_duration_line_starts_after_rhythm_dot() -> None:
+    root = _root(render_score_svg(long_duration_score()))
+    dot = next(node for node in root.iter() if node.attrib.get("class") == "rhythm-dot")
+    line = next(
+        node for node in root.iter() if node.attrib.get("class") == "extension-line"
+    )
+
+    assert float(line.attrib["x1"]) >= float(dot.attrib["cx"]) + float(dot.attrib["r"]) + 3
 
 
 def test_consecutive_short_notes_share_continuous_rhythm_lines() -> None:
@@ -472,6 +485,112 @@ def test_equal_duration_events_have_balanced_visual_slots() -> None:
     assert max(gaps) - min(gaps) < 15
 
 
+def test_dense_measure_minimum_width_uses_visual_span_not_token_padding() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            start=Fraction(index, 2),
+            pitches=[JianpuPitch(3)],
+        )
+        for index in range(12)
+    ]
+    measure = Measure("1", duration=Fraction(6), events=events)
+
+    assert _intrinsic_measure_width(measure, PublicationStyle()) < 520
+
+
+def test_multiple_tuplet_groups_reuse_space_between_groups() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 6),
+            start=Fraction(index, 6),
+            pitches=[JianpuPitch(index % 7 + 1)],
+            tuplet_id=f"group-{index // 6}",
+            tuplet_count=6,
+            tuplet_index=index % 6,
+        )
+        for index in range(24)
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    style = PublicationStyle()
+    positions = _event_positions(events, 100.0, 900.0, measure, style)
+    boxes = [measure_event_ink(event, style) for event in events]
+    visual_gaps = [
+        positions[index + 1]
+        + boxes[index + 1].left
+        - positions[index]
+        - boxes[index].right
+        for index in range(len(events) - 1)
+    ]
+    internal_gaps = [
+        gap for index, gap in enumerate(visual_gaps) if index not in {5, 11, 17}
+    ]
+    group_gaps = [visual_gaps[index] for index in (5, 11, 17)]
+
+    assert max(group_gaps) - max(internal_gaps) < 24
+    assert min(group_gaps) - max(internal_gaps) >= 6
+    assert max(internal_gaps) - min(internal_gaps) < 16
+
+
+def test_multiple_tuplet_groups_keep_a_small_boundary_gap_when_compressed() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 6),
+            start=Fraction(index, 6),
+            pitches=[JianpuPitch(index % 7 + 1)],
+            tuplet_id=f"group-{index // 6}",
+            tuplet_count=6,
+            tuplet_index=index % 6,
+        )
+        for index in range(24)
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    style = PublicationStyle()
+    positions = _event_positions(events, 100.0, 600.0, measure, style)
+    boxes = [measure_event_ink(event, style) for event in events]
+    visual_gaps = [
+        positions[index + 1]
+        + boxes[index + 1].left
+        - positions[index]
+        - boxes[index].right
+        for index in range(len(events) - 1)
+    ]
+    internal_gaps = [
+        gap for index, gap in enumerate(visual_gaps) if index not in {5, 11, 17}
+    ]
+    group_gaps = [visual_gaps[index] for index in (5, 11, 17)]
+
+    assert min(group_gaps) - max(internal_gaps) >= 6
+
+
+def test_multiple_tuplet_groups_have_compact_intrinsic_width() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 6),
+            start=Fraction(index, 6),
+            pitches=[JianpuPitch(index % 7 + 1)],
+            tuplet_id=f"group-{index // 6}",
+            tuplet_count=6,
+            tuplet_index=index % 6,
+        )
+        for index in range(24)
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+
+    assert _intrinsic_measure_width(measure, PublicationStyle()) < 650
+
+
+def test_mixed_duration_spring_keeps_quarter_wider_than_eighth() -> None:
+    style = PublicationStyle()
+    assert _duration_spring(Fraction(1), Fraction(1, 2), style) > _duration_spring(
+        Fraction(1, 2), Fraction(1, 2), style
+    )
+
+
 def test_narrow_measure_keeps_visual_slots_inside_content() -> None:
     events = [
         Event(
@@ -503,6 +622,27 @@ def test_narrow_measure_keeps_visual_slots_inside_content() -> None:
         for index in range(len(centers) - 1)
     ]
     assert max(visual_gaps) - min(visual_gaps) < 18
+
+
+def test_overfull_dense_measure_keeps_all_event_ink_inside_content() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 3),
+            start=Fraction(index, 3),
+            pitches=[JianpuPitch(3)],
+        )
+        for index in range(18)
+    ]
+    measure = Measure("1", duration=Fraction(6), events=events)
+    style = PublicationStyle()
+    positions = _event_positions(events, 100.0, 300.0, measure, style)
+    boxes = [measure_event_ink(event, style) for event in events]
+
+    assert all(
+        100.0 <= x + box.left and x + box.right <= 300.0
+        for x, box in zip(positions, boxes, strict=True)
+    )
 
 
 def test_low_octave_dot_stays_above_duration_lines() -> None:
@@ -754,7 +894,7 @@ def test_dense_tuplet_measures_are_not_overpacked_on_the_same_row() -> None:
         assert match is not None
         rows.add(float(match.group(1)))
 
-    assert len(rows) == 4
+    assert len(rows) <= 2
 
 
 def test_measure_attributes_only_render_when_key_or_meter_changes() -> None:
@@ -877,6 +1017,30 @@ def test_event_dynamic_is_not_rendered_again_as_measure_text() -> None:
     svg = render_score_svg(JianpuScore(measures=[measure]))
 
     assert svg.count('class="dynamic"') == 1
+
+
+def test_dynamic_mark_clears_low_octave_chord_attachments() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[
+            JianpuPitch(2),
+            JianpuPitch(5),
+            JianpuPitch(2, octave=-1),
+            JianpuPitch(5, octave=-1),
+        ],
+        dynamic="f",
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    dynamic = next(node for node in root.iter() if node.attrib.get("class") == "dynamic")
+    dynamic_box = _text_box(dynamic)
+    lowest_octave_dot_bottom = max(
+        float(node.attrib["cy"]) + float(node.attrib["r"])
+        for node in root.iter()
+        if node.attrib.get("class") == "octave-dot"
+    )
+
+    assert dynamic_box[1] >= lowest_octave_dot_bottom + 5.9
 
 
 def test_spanners_tuplets_marks_and_lyrics_are_rendered() -> None:
@@ -1043,16 +1207,38 @@ def test_score_page_does_not_use_system_fonts() -> None:
     assert "<path" in svg
 
 
-def test_staccato_uses_a_bounded_vector_circle() -> None:
+def test_staccato_uses_a_distinct_bounded_vector_triangle() -> None:
     root = _root(render_score_svg(staccato_score()))
     staccato_nodes = [
         node for node in root.iter() if "staccato" in node.attrib.get("class", "")
     ]
 
     assert staccato_nodes
-    assert any(node.tag.endswith("circle") for node in staccato_nodes)
-    circle = next(node for node in staccato_nodes if node.tag.endswith("circle"))
-    assert float(circle.attrib["r"]) <= 3.0
+    triangle = next(node for node in staccato_nodes if node.tag.endswith("path"))
+    assert triangle.attrib["d"].count("L") == 2
+
+
+def test_high_octave_staccato_keeps_octave_dot_and_mark_distinct() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3, octave=1)],
+        articulation="staccato",
+        articulations=["staccato"],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+
+    octave_dot = next(
+        node for node in root.iter() if node.attrib.get("class") == "octave-dot"
+    )
+    staccato = next(
+        node for node in root.iter() if "staccato" in node.attrib.get("class", "")
+    )
+
+    assert staccato.tag.endswith("path")
+    assert "L" in staccato.attrib["d"]
+    assert "cy" not in staccato.attrib
+    assert float(octave_dot.attrib["cy"]) != float(staccato.attrib.get("cy", "nan"))
 
 
 def test_system_height_grows_for_multiple_unpositioned_text_rows() -> None:
