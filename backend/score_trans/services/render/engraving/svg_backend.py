@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from html import escape
 
 from .fonts import font_registry
@@ -19,6 +20,62 @@ _CSS = """
 .playback-current .note{fill:#1677ff}.source-highlight{filter:drop-shadow(0 0 3px #ff9f1a)}
 """.strip()
 
+_CSS_RULE_RE = re.compile(r"([^{}]+)\{([^{}]*)\}")
+_SIMPLE_CLASS_SELECTOR_RE = re.compile(r"\.([A-Za-z0-9_-]+)")
+
+# MuPDF 不解析 <style> 块，导出 PDF/PNG 时这些绘制属性必须内联到元素上；
+# font-family/font-weight 等排版属性对字形路径无意义（且引擎不引用系统字体），不内联。
+_INLINE_PROPERTIES = frozenset(
+    {
+        "fill",
+        "fill-opacity",
+        "fill-rule",
+        "opacity",
+        "stroke",
+        "stroke-dasharray",
+        "stroke-dashoffset",
+        "stroke-linecap",
+        "stroke-linejoin",
+        "stroke-miterlimit",
+        "stroke-opacity",
+        "stroke-width",
+    }
+)
+
+
+def _parse_css_rules(css: str) -> dict[str, dict[str, str]]:
+    rules: dict[str, dict[str, str]] = {}
+    for selectors, body in _CSS_RULE_RE.findall(css):
+        properties: dict[str, str] = {}
+        for declaration in body.split(";"):
+            name, separator, value = declaration.partition(":")
+            name = name.strip()
+            if separator and name in _INLINE_PROPERTIES:
+                properties[name] = value.strip()
+        if not properties:
+            continue
+        for selector in selectors.split(","):
+            match = _SIMPLE_CLASS_SELECTOR_RE.fullmatch(selector.strip())
+            if match:
+                rules.setdefault(match.group(1), {}).update(properties)
+    return rules
+
+
+_CLASS_STYLES = _parse_css_rules(_CSS)
+
+
+def _inline_class_styles(
+    attrs: dict[str, str | float | int],
+) -> dict[str, str | float | int]:
+    classes = str(attrs.get("class") or "").split()
+    if not classes:
+        return attrs
+    merged = dict(attrs)
+    for class_name in classes:
+        for name, value in _CLASS_STYLES.get(class_name, {}).items():
+            merged.setdefault(name, value)
+    return merged
+
 
 def scene_to_svg(scene: PublicationScene, style: PublicationStyle) -> str:
     body = "\n".join(_node_to_svg(node, 1) for node in scene.nodes)
@@ -33,9 +90,9 @@ def scene_to_svg(scene: PublicationScene, style: PublicationStyle) -> str:
 def _node_to_svg(node: SceneNode, indent: int) -> str:
     if node.tag != "text" or node.text is None:
         if not node.children:
-            return node.to_svg(indent)
+            return SceneNode(node.tag, _inline_class_styles(node.attrs)).to_svg(indent)
         pad = "  " * indent
-        attrs = _attrs(node.attrs)
+        attrs = _attrs(_inline_class_styles(node.attrs))
         children = "\n".join(_node_to_svg(child, indent + 1) for child in node.children)
         return f"{pad}<{node.tag}{attrs}>\n{children}\n{pad}</{node.tag}>"
     pad = "  " * indent
@@ -57,6 +114,7 @@ def _node_to_svg(node: SceneNode, indent: int) -> str:
     group_attrs["transform"] = (
         f"translate({x:g} {y:g}) scale({size:g} {-size:g}) translate({offset:g} 0)"
     )
+    group_attrs = _inline_class_styles(group_attrs)
     paths = []
     for glyph in glyphs:
         paths.append(

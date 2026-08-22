@@ -692,6 +692,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/syntax/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate Syntax */
+        post: operations["validate_syntax_syntax_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tasks/{task_id}": {
         parameters: {
             query?: never;
@@ -2369,12 +2386,55 @@ export type components = {
             /** Task Id */
             task_id: string;
         };
+        /** SyntaxDiagnostic */
+        SyntaxDiagnostic: {
+            /**
+             * Column
+             * @description 1-based code-point column for display only
+             */
+            column: number;
+            /**
+             * End
+             * @description UTF-16 code-unit end offset for editor selection
+             */
+            end: number;
+            /** Id */
+            id: string;
+            /**
+             * Line
+             * @description 1-based source line for display
+             */
+            line: number;
+            /** Message */
+            message: string;
+            /**
+             * Severity
+             * @default error
+             * @enum {string}
+             */
+            severity?: "error" | "warning";
+            /**
+             * Start
+             * @description UTF-16 code-unit start offset for editor selection
+             */
+            start: number;
+        };
         /** SyntaxExample */
         SyntaxExample: {
             /** Description */
             description: string;
             /** Syntax */
             syntax: string;
+        };
+        /** SyntaxValidateRequest */
+        SyntaxValidateRequest: {
+            /** Jianpu Text */
+            jianpu_text: string;
+        };
+        /** SyntaxValidateResponse */
+        SyntaxValidateResponse: {
+            /** Diagnostics */
+            diagnostics: components["schemas"]["SyntaxDiagnostic"][];
         };
         /** TaskSubmitResponse */
         TaskSubmitResponse: {
@@ -3974,6 +4034,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CacheCleanupResponse"];
+                };
+            };
+        };
+    };
+    validate_syntax_syntax_validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyntaxValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyntaxValidateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

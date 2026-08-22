@@ -38,6 +38,13 @@
           aria-label="可点击识别元素"
         >
           <path
+            v-for="element in disabledElements"
+            :key="`disabled-${element.source_id}`"
+            :d="element.hit_path"
+            class="source-hit source-hit--disabled"
+            @click.stop="notifyUnmapped"
+          />
+          <path
             v-for="element in clickableElements"
             :key="element.source_id"
             :d="element.hit_path"
@@ -113,7 +120,7 @@
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import { fetchFileBlob } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
-import { NIcon } from 'naive-ui'
+import { NIcon, useMessage } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
 import { useSettingsStore } from '../stores/settings'
 import type { CorrectableEntityDTO } from '../models/types'
@@ -139,6 +146,7 @@ const emit = defineEmits<{
 interface SourceElement {
   source_id: string
   hit_path: string
+  shape?: string | null
 }
 
 interface SourceMapSheet {
@@ -153,6 +161,7 @@ interface SourceMap {
 }
 
 const settings = useSettingsStore()
+const message = useMessage()
 const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
@@ -175,6 +184,24 @@ const clickableSourceIdSet = computed(() => new Set(props.clickableSourceIds ?? 
 const clickableElements = computed(() => (
   sourceSheet.value?.elements.filter((element) => clickableSourceIdSet.value.has(element.source_id)) ?? []
 ))
+const disabledElements = computed(() => {
+  if (!clickableSourceIdSet.value.size) return []
+  return sourceSheet.value?.elements.filter(
+    (element) => !clickableSourceIdSet.value.has(element.source_id) && !isUnanchoredByDesign(element),
+  ) ?? []
+})
+
+// 与后端 domain/reconciliation.py 的 _UNANCHORED_BY_DESIGN_PREFIXES 对齐：
+// 谱号/调号/拍号/连音数字等结构符号设计上就没有简谱锚点，
+// 不应渲染为 disabled 命中区（避免点击时弹出误导性的"未识别"提示）。
+const UNANCHORED_SHAPE_PREFIXES = ['KEY_', 'TIME_', 'TUPLET_'] as const
+
+function isUnanchoredByDesign(element: SourceElement): boolean {
+  const shape = element.shape
+  if (!shape) return true
+  if (shape.includes('CLEF')) return true
+  return UNANCHORED_SHAPE_PREFIXES.some((prefix) => shape.startsWith(prefix))
+}
 const entitySheetWidth = computed(() => props.entityWidth || sourceSheet.value?.width || 0)
 const entitySheetHeight = computed(() => props.entityHeight || sourceSheet.value?.height || 0)
 
@@ -184,6 +211,10 @@ function isDeleted(sourceId: string): boolean {
 
 function selectSource(sourceId: string): void {
   emit('selectSource', sourceId)
+}
+
+function notifyUnmapped(): void {
+  message.info('该音符未能进入识别结果，无法定位到简谱')
 }
 
 function onImgLoad(e: Event) {
@@ -354,6 +385,20 @@ onUnmounted(() => {
   stroke: rgba(217, 119, 6, 1);
   stroke-width: 4;
   animation: source-hit-pulse 1.2s ease-in-out infinite;
+}
+
+.source-hit--disabled {
+  fill: rgba(100, 116, 139, 0.001);
+  stroke: rgba(100, 116, 139, 0.001);
+  cursor: not-allowed;
+}
+
+.source-hit--disabled:hover,
+.source-hit--disabled:focus {
+  fill: rgba(100, 116, 139, 0.1);
+  stroke: rgba(100, 116, 139, 0.7);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
 }
 
 @keyframes source-hit-pulse {

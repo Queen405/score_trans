@@ -1,15 +1,30 @@
 from __future__ import annotations
 
-import logging
 import json
+import logging
 from pathlib import Path
 
+from ...domain.reconciliation import (
+    anchorable_source_ids,
+    unanchored_source_ids_by_page,
+)
 from ...models.provenance.schemas import SourceMap
 from ..files.image_info import image_dimensions
 from .omr_parser import OmrParser, SheetModel
 from .svg_generator import SvgGenerator
 
 logger = logging.getLogger(__name__)
+
+
+def find_unanchored_source_ids(
+    source_map: SourceMap,
+    anchored_ids: set[str],
+) -> dict[int, list[str]]:
+    """Diff anchorable link-map elements against text anchors, grouped by page."""
+    return unanchored_source_ids_by_page(
+        anchorable_source_ids(source_map),
+        anchored_ids,
+    )
 
 
 class OverlayService:

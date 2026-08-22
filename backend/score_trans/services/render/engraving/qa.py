@@ -76,10 +76,10 @@ def check_scene_geometry(
                 )
     for index, left_record in enumerate(records):
         for right_record in records[index + 1 :]:
-            if (
-                left_record.kind in {"source-anchor", "g"}
-                and right_record.kind in {"source-anchor", "g"}
-            ):
+            if left_record.kind in {"source-anchor", "g"} and right_record.kind in {
+                "source-anchor",
+                "g",
+            }:
                 continue
             if left_record.owner == right_record.owner:
                 continue

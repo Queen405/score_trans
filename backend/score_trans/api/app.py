@@ -17,17 +17,17 @@ from score_trans.config.settings import (
     MAX_UPLOAD_REQUEST_BYTES,
 )
 
-from .auth import BearerAuthMiddleware, validate_api_token
-from .request_limits import RequestBodyLimitMiddleware
 from ..exec.tasks.actions import TaskActions
 from ..models.common.errors import (
     AITranscriptionError,
+    CodedValidationError,
     ExternalToolError,
     OCRError,
     RenderError,
     UploadTooLargeError,
 )
-
+from .auth import BearerAuthMiddleware, validate_api_token
+from .request_limits import RequestBodyLimitMiddleware
 
 LOCAL_DEV_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
@@ -90,17 +90,18 @@ def create_app(
 
     # Register routers
     from .ai import routes as ai
-    from .health import routes as health
     from .convert import routes as convert
     from .correct import routes as correct
-    from .recognize import routes as recognize
-    from .render import routes as render
-    from .pipeline import routes as pipeline
+    from .export import routes as export_router
     from .files import routes as files
+    from .health import routes as health
     from .history import routes as history
     from .notation import routes as notation
-    from .export import routes as export_router
+    from .pipeline import routes as pipeline
+    from .recognize import routes as recognize
+    from .render import routes as render
     from .settings import routes as settings_router
+    from .syntax import routes as syntax_router
     from .tasks import routes as tasks
 
     app.include_router(ai.router)
@@ -115,6 +116,7 @@ def create_app(
     app.include_router(history.router)
     app.include_router(notation.router)
     app.include_router(settings_router.router)
+    app.include_router(syntax_router.router)
     app.include_router(tasks.router)
 
     # Exception handlers — unified error format
@@ -153,6 +155,15 @@ def create_app(
         return JSONResponse(
             status_code=413,
             content={"error": str(exc), "stage": "upload"},
+        )
+
+    @app.exception_handler(CodedValidationError)
+    async def coded_validation_error_handler(
+        request: Request, exc: CodedValidationError
+    ):
+        return JSONResponse(
+            status_code=400,
+            content={"error": str(exc), "stage": "validation", "code": exc.error_code},
         )
 
     @app.exception_handler(ValueError)

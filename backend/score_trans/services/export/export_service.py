@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from fractions import Fraction
 from pathlib import Path
 from typing import Literal
@@ -92,6 +93,20 @@ def images_to_pdf(image_pages: list[bytes], output_path: Path) -> Path:
     return output_path
 
 
+_HIDDEN_TEXT_RE = re.compile(
+    rb'<text\b[^>]*\bopacity="0+(?:\.0+)?"[^>]*(?:/>|>.*?</text>)',
+    re.DOTALL,
+)
+
+
+def _strip_invisible_text(svg_data: bytes) -> bytes:
+    """剔除 opacity=0 的辅助文本节点；MuPDF 忽略 opacity，会把它们画进 PDF/PNG。"""
+    try:
+        return _HIDDEN_TEXT_RE.sub(b"", svg_data)
+    except Exception:
+        return svg_data
+
+
 def svg_pages_to_pdf(svg_pages: list[bytes], output_path: Path) -> Path:
     if not svg_pages:
         raise ValueError("至少需要一个 SVG 页面")
@@ -99,7 +114,7 @@ def svg_pages_to_pdf(svg_pages: list[bytes], output_path: Path) -> Path:
     target = fitz.open()
     try:
         for svg_data in svg_pages:
-            source = fitz.open("svg", svg_data)
+            source = fitz.open("svg", _strip_invisible_text(svg_data))
             try:
                 pdf_data = source.convert_to_pdf()
             finally:
@@ -123,7 +138,7 @@ def svg_page_to_image(
     image_format: Literal["png", "jpeg"] = "png",
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    source = fitz.open("svg", svg_data)
+    source = fitz.open("svg", _strip_invisible_text(svg_data))
     try:
         page = source[0]
         pixmap = page.get_pixmap(

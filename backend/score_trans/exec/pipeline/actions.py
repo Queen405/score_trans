@@ -9,20 +9,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ...domain.write.jianpu_text import scores_to_jianpu_document
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.text_attachments import build_source_text_attachments
+from ...domain.write.jianpu_text import scores_to_jianpu_document
+from ...models.common.errors import RenderError
+from ...models.common.protocols import UploadFileLike
 from ...models.common.types import (
-    AccidentalMode,
     IMAGE_SUFFIXES,
+    AccidentalMode,
     InstrumentProfile,
     MeasureNumberMode,
 )
-from ...models.common.protocols import UploadFileLike
-from ...models.common.errors import RenderError
 from ...models.pipeline.schemas import PipelineResponse
-from ...models.render.schemas import RenderedSvgPage
 from ...models.provenance.schemas import SourceMap, SourceTextAttachment, TextAnchor
+from ...models.render.schemas import RenderedSvgPage
 from ...models.score import TextBlock
 from ...models.settings.config import ToolConfig
 from ...models.tasks.entities import ProgressCallback, report_progress
@@ -31,7 +31,10 @@ from ...services.files.file_service import FileService
 from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
-from ...services.overlay.overlay_service import OverlayService
+from ...services.overlay.overlay_service import (
+    OverlayService,
+    find_unanchored_source_ids,
+)
 from ...services.recognize.audiveris_service import read_audiveris_musicxml
 from ...services.render.render_service import PublicationRenderService
 from ...services.settings.settings_service import SettingsService
@@ -143,6 +146,7 @@ class FullPipelineAction:
         _require_rendered_pages(svg_paths)
         first_score = render_scores[0] if render_scores else None
         source_map = _load_source_map(source_map_path)
+        _warn_unanchored_source_elements(source_map, document.anchors)
         source_image_size = _source_image_size(source)
         ocr_blocks = _visible_ocr_blocks(first_score.text_blocks) if first_score else []
         text_attachments = (
@@ -448,6 +452,30 @@ def _load_source_map(path: Path | None) -> SourceMap | None:
         return SourceMap.model_validate(json.loads(path.read_text(encoding="utf-8")))
     except (OSError, ValueError, json.JSONDecodeError):
         return None
+
+
+def _warn_unanchored_source_elements(
+    source_map: SourceMap | None,
+    anchors: list[TextAnchor],
+) -> None:
+    if source_map is None:
+        return
+    missing = find_unanchored_source_ids(
+        source_map,
+        {anchor.source_id for anchor in anchors},
+    )
+    for page, source_ids in missing.items():
+        if page > 0:
+            logger.warning(
+                "第 %d 页有 %d 个识别符号未能进入乐谱，这些音符在五线谱上不可点击",
+                page,
+                len(source_ids),
+            )
+        else:
+            logger.warning(
+                "有 %d 个识别符号未能进入乐谱（来源标记缺少页码），这些音符在五线谱上不可点击",
+                len(source_ids),
+            )
 
 
 def _source_image_size(path: Path) -> tuple[int, int] | None:

@@ -45,7 +45,7 @@
       </div>
       <div class="editor-main">
         <div
-          v-if="syntaxHighlight"
+          v-if="syntaxHighlight || syntaxDiagnostics.length"
           class="editor-highlight"
           aria-hidden="true"
         >
@@ -61,7 +61,10 @@
               <span
                 v-for="(token, tokenIndex) in line"
                 :key="tokenIndex"
-                :class="`token-${token.type}`"
+                :class="[
+                  `token-${token.type}`,
+                  { 'syntax-error-token': token.syntaxError, 'active-diagnostic': token.activeDiagnostic },
+                ]"
               >{{ token.text }}</span>
             </div>
           </div>
@@ -70,7 +73,7 @@
           ref="textareaRef"
           :value="modelValue"
           placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 $345$ 4 |&#10;1=G&#10;3/4&#10;h[1+3+5] \p 4 |&#10;L: 春 风 又 绿"
-          :class="['editor-textarea', { 'syntax-highlight-enabled': syntaxHighlight }]"
+          :class="['editor-textarea', { 'syntax-highlight-enabled': syntaxHighlight || syntaxDiagnostics.length }]"
           spellcheck="false"
           @input="onInput"
           @scroll="syncScroll"
@@ -106,7 +109,8 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
-import { tokenizeJianpuLine } from '../utils/jianpuSyntax'
+import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
+import type { SyntaxDiagnostic } from '../models/types'
 import { NInputNumber } from 'naive-ui'
 import {
   hasJianpuPageMarkers,
@@ -119,12 +123,16 @@ const props = withDefaults(defineProps<{
   modelValue: string
   currentNoteIndex?: number
   syntaxHighlight?: boolean
+  syntaxDiagnostics?: SyntaxDiagnostic[]
+  activeDiagnosticId?: string | null
   errorLine?: number
   flashLine?: number
   initialMeasureNumber?: number
 }>(), {
   currentNoteIndex: -1,
   syntaxHighlight: false,
+  syntaxDiagnostics: () => [],
+  activeDiagnosticId: null,
   errorLine: -1,
   flashLine: -1,
   initialMeasureNumber: 1,
@@ -167,7 +175,67 @@ function selectRange(start: number, end: number): boolean {
 defineExpose({ selectRange })
 
 const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
-const highlightedLines = computed(() => props.modelValue.split('\n').map(tokenizeJianpuLine))
+interface HighlightToken extends JianpuSyntaxToken {
+  syntaxError?: boolean
+  activeDiagnostic?: boolean
+}
+
+const lineOffsets = computed(() => {
+  const offsets: number[] = []
+  let offset = 0
+  for (const line of props.modelValue.split('\n')) {
+    offsets.push(offset)
+    offset += line.length + 1
+  }
+  return offsets
+})
+
+const highlightedLines = computed(() => props.modelValue.split('\n').map((line, lineIndex) => {
+  const lineStart = lineOffsets.value[lineIndex] ?? 0
+  const lineEnd = lineStart + line.length
+  const ranges = props.syntaxDiagnostics
+    .filter((diagnostic) => diagnostic.end > lineStart && diagnostic.start < lineEnd)
+    .map((diagnostic) => ({
+      start: Math.max(lineStart, diagnostic.start) - lineStart,
+      end: Math.min(lineEnd, diagnostic.end) - lineStart,
+      active: diagnostic.id === props.activeDiagnosticId,
+    }))
+    .filter((range) => range.end > range.start)
+    .sort((a, b) => a.start - b.start)
+
+  if (!ranges.length) {
+    const tokens = tokenizeJianpuLine(line) as HighlightToken[]
+    if (props.syntaxHighlight) return tokens
+    return tokens.map((token) => ({ ...token, type: 'plain' }))
+  }
+  const result: HighlightToken[] = []
+  let cursor = 0
+  for (const token of tokenizeJianpuLine(line)) {
+    const tokenStart = cursor
+    const tokenEnd = cursor + token.text.length
+    cursor = tokenEnd
+    const boundaries = new Set<number>([tokenStart, tokenEnd])
+    for (const range of ranges) {
+      if (range.start < tokenEnd && range.end > tokenStart) {
+        boundaries.add(Math.max(tokenStart, range.start))
+        boundaries.add(Math.min(tokenEnd, range.end))
+      }
+    }
+    const sortedBoundaries = [...boundaries].sort((a, b) => a - b)
+    for (let i = 0; i < sortedBoundaries.length - 1; i += 1) {
+      const start = sortedBoundaries[i]
+      const end = sortedBoundaries[i + 1]
+      const matching = ranges.find((range) => range.start < end && range.end > start)
+      result.push({
+        text: token.text.slice(start - tokenStart, end - tokenStart),
+        type: props.syntaxHighlight ? token.type : 'plain',
+        syntaxError: !!matching,
+        activeDiagnostic: matching?.active,
+      })
+    }
+  }
+  return result
+}))
 const highlightScrollStyle = computed(() => ({
   transform: `translate(${-scrollLeft.value}px, ${-scrollTop.value}px)`,
 }))
@@ -626,6 +694,18 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 
 .editor-textarea.syntax-highlight-enabled::selection {
   background: rgba(76, 110, 245, 0.26);
+}
+
+.syntax-error-token {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--danger, #dc2626);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.syntax-error-token.active-diagnostic {
+  background: rgba(220, 38, 38, 0.16);
 }
 
 .editor-playback-highlight {

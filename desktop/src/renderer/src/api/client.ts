@@ -183,7 +183,8 @@ function apiErrorFromResponse(
       : payload.detail
         ? JSON.stringify(payload.detail)
         : undefined
-  return new ApiError(message, stage, detail)
+  const code = typeof payload.code === 'string' ? payload.code : undefined
+  return new ApiError(message, stage, detail, code)
 }
 
 function toApiError(error: unknown): ApiError {

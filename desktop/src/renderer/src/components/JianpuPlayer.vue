@@ -132,7 +132,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { NInputNumber, NSlider, useMessage } from 'naive-ui'
 import { usePlayer } from '../composables/usePlayer'
-import { getFileURL, requireData } from '../api/client'
+import { ApiError, getFileURL, requireData } from '../api/client'
 import { exportApi } from '../api/export'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
@@ -234,6 +234,10 @@ async function loadMidiForGeneration(url: string, generation: number): Promise<v
 function reportMidiError(error: unknown, generation: number): void {
   if (generation !== loadGeneration) return
   const detail = error instanceof Error ? error.message : String(error)
+  if (error instanceof ApiError && error.code === 'jianpu_syntax') {
+    player.unload()
+    return
+  }
   player.unload()
   const msg = `MIDI 加载失败：${detail}`
   logStore.addError(msg)

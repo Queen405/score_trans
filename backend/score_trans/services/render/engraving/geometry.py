@@ -222,9 +222,7 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
     if event.dotted:
         horizontal_right = max(
             horizontal_right,
-            17.0
-            + (event.dotted - 1) * style.rhythm_dot_step
-            + style.rhythm_dot_radius,
+            17.0 + (event.dotted - 1) * style.rhythm_dot_step + style.rhythm_dot_radius,
         )
     if event.duration > 1:
         extensions = max(0, math.ceil(float(event.duration)) - 1)
@@ -232,9 +230,7 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
             extension_start = _duration_extension_start(event, style)
             horizontal_right = max(
                 horizontal_right,
-                extension_start
-                + (extensions - 1) * style.extension_line_step
-                + 11.0,
+                extension_start + (extensions - 1) * style.extension_line_step + 11.0,
             )
 
     mark_ids = list(
@@ -345,9 +341,7 @@ def _dynamic_baseline(event: Event, style: PublicationStyle) -> float:
     )
     return max(
         63.0,
-        _event_attachment_bottom(event, style)
-        + style.dynamic_clearance
-        - ink_top,
+        _event_attachment_bottom(event, style) + style.dynamic_clearance - ink_top,
     )
 
 

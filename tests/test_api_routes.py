@@ -1,29 +1,30 @@
 import asyncio
-from pathlib import Path
 import time
+from pathlib import Path
 
 from fastapi.testclient import TestClient
-
-from score_trans.api.dependencies import get_file_actions
-from score_trans.api.dependencies import get_history_actions
-from score_trans.api.dependencies import get_settings_actions
 from score_trans.api.app import create_app
+from score_trans.api.dependencies import (
+    get_file_actions,
+    get_history_actions,
+    get_settings_actions,
+)
 from score_trans.api.export.routes import export_midi
 from score_trans.api.render.routes import render_jianpu_svg
 from score_trans.api.settings.routes import clear_cache
+from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.export.actions import ExportActions
 from score_trans.exec.files.actions import FileActions
 from score_trans.exec.history.actions import HistoryActions
 from score_trans.exec.settings.actions import SettingsActions
-from score_trans.dao.settings.settings_dao import SettingsDao
+from score_trans.models.common.errors import RenderError
+from score_trans.models.export.schemas import ExportMidiRequest, ExportResponse
 from score_trans.models.render.schemas import (
     RenderJianpuSvgRequest,
     RenderJianpuSvgResponse,
 )
-from score_trans.models.common.errors import RenderError
-from score_trans.models.export.schemas import ExportMidiRequest, ExportResponse
-from score_trans.models.settings.schemas import CacheCleanupResponse
 from score_trans.models.settings.config import ToolConfig
+from score_trans.models.settings.schemas import CacheCleanupResponse
 from score_trans.services.files.upload_service import UploadService
 from score_trans.services.history.history_service import HistoryService
 from score_trans.services.settings.settings_service import SettingsService
@@ -36,6 +37,7 @@ def test_render_routes_are_registered() -> None:
     assert "/render/preserving-layout" in paths
     assert "/export/pdf" in paths
     assert "/export/midi" in paths
+    assert "/syntax/validate" in paths
     assert "/history/pages/{page_id}" in paths
     assert "/history/{batch_id}/render-page-ocr-texts" in paths
     assert "/tasks/{task_id}" in paths
@@ -83,6 +85,51 @@ def test_exec_errors_are_mapped_at_the_api_boundary() -> None:
         "error": "至少需要一个待渲染页面",
         "stage": "validation",
     }
+
+
+def test_jianpu_syntax_error_uses_coded_validation_response() -> None:
+    response = TestClient(create_app()).post(
+        "/export/musicxml-text",
+        json={"jianpu_text": "1=C\n4/4\n45 |"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": "第 3 行第 1 列：不支持的简谱 token：45，"
+        "请使用 1-7、0、#1、qs1、q1、[1+3+5] 等新语法",
+        "stage": "validation",
+        "code": "jianpu_syntax",
+    }
+
+
+def test_invalid_time_signature_is_a_coded_validation_error_not_500() -> None:
+    response = TestClient(create_app()).post(
+        "/export/musicxml-text",
+        json={"jianpu_text": "1=C\n4/0\n1 2 3 4 |"},
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["stage"] == "validation"
+    assert payload["code"] == "jianpu_syntax"
+    assert "拍号无效：4/0" in payload["error"]
+
+
+def test_multi_part_measure_count_mismatch_is_a_plain_validation_error() -> None:
+    jianpu_text = (
+        '// @part 1 name="a"\n1=C\n4/4\n1 2 3 4 | 5 6 7 1 |\n'
+        '// @part 2 name="b"\n1=C\n4/4\n1 2 3 4 |'
+    )
+    response = TestClient(create_app()).post(
+        "/render/batch-a4",
+        json={"pages": [{"jianpu_text": jianpu_text}]},
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["stage"] == "validation"
+    assert "code" not in payload
+    assert "各声部小节数量不一致" in payload["error"]
 
 
 def test_jianpu_svg_request_accepts_page_image_for_ocr_overlay() -> None:

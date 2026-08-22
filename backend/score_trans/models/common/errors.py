@@ -35,3 +35,14 @@ class RenderError(RuntimeError):
 
 class UploadTooLargeError(ValueError):
     """Raised when an uploaded file or request exceeds its configured limit."""
+
+
+class CodedValidationError(ValueError):
+    """A validation error carrying a stable machine-readable code.
+
+    The API layer registers a dedicated handler for this class so subclasses
+    are dispatched ahead of plain ``ValueError`` (Starlette walks the MRO) and
+    produce ``{"error", "stage": "validation", "code"}`` responses.
+    """
+
+    error_code: str = ""

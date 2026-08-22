@@ -360,6 +360,8 @@
               :current-note-index="currentNoteIndex"
               :initial-measure-number="initialMeasureNumber"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
+              :syntax-diagnostics="syntaxStore.diagnostics"
+              :active-diagnostic-id="syntaxStore.activeId"
               :error-line="errorLine"
               :flash-line="flashLine"
               @update:initial-measure-number="initialMeasureNumber = $event"
@@ -381,6 +383,7 @@ import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
+import { useSyntaxDiagnosticsStore } from '../stores/syntaxDiagnostics'
 import { convertApi } from '../api/convert'
 import { correctApi } from '../api/correct'
 import { usePublicationRender } from '../composables/usePublicationRender'
@@ -399,6 +402,7 @@ import type {
 import type { TaskPage, TaskPageStatus } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import JianpuPlayer from '../components/JianpuPlayer.vue'
+import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
@@ -443,6 +447,7 @@ const store = useWorkspaceStore()
 const settings = useSettingsStore()
 const publicationRender = usePublicationRender()
 const log = useLogStore()
+const syntaxStore = useSyntaxDiagnosticsStore()
 const message = useMessage()
 const jianpuEditorRef = ref<{ selectRange: (start: number, end: number) => boolean } | null>(null)
 const svgPreviewRef = ref<{
@@ -553,7 +558,9 @@ function loadInitialMeasureNumber(batchId: string | null): number {
 }
 
 watch(() => store.currentBatchId, (batchId) => {
+  syntaxStore.clear()
   initialMeasureNumber.value = loadInitialMeasureNumber(batchId)
+  syntaxStore.schedule(jianpuText.value)
 }, { immediate: true })
 watch(initialMeasureNumber, (value) => {
   const normalized = typeof value === 'number' && Number.isInteger(value) && value >= 1
@@ -589,7 +596,19 @@ watch(jianpuText, (v, previous) => {
     }
     errorLine.value = -1
   }
+  syntaxStore.schedule(v)
+}, { immediate: true })
+
+watch(() => syntaxStore.selectionVersion, () => {
+  const diagnostic = syntaxStore.activeId
+    ? syntaxStore.diagnostics.find((item) => item.id === syntaxStore.activeId)
+    : undefined
+  if (diagnostic) selectSyntaxDiagnostic(diagnostic)
 })
+
+function selectSyntaxDiagnostic(diagnostic: SyntaxDiagnostic): void {
+  jianpuEditorRef.value?.selectRange(diagnostic.start, diagnostic.end)
+}
 
 function updateTextAnchorsAfterEdit(previous: string, current: string): void {
   const previousSections = parseJianpuPageSections(previous)
@@ -1204,6 +1223,10 @@ function extractErrorLineFromMessage(msg: string): number {
   return sectionLine - 1
 }
 
+function isSyntaxValidationError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 'jianpu_syntax'
+}
+
 async function exportScore(): Promise<void> {
   store.setBusy(true)
   errorLine.value = -1
@@ -1272,6 +1295,7 @@ async function exportScore(): Promise<void> {
   } catch (e: unknown) {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
+    if (isSyntaxValidationError(e)) return
     errorLine.value = extractErrorLineFromMessage(raw)
     log.addError(`导出失败：${raw}`)
     message.error(raw)
@@ -1750,6 +1774,7 @@ async function saveJianpu(): Promise<void> {
   } catch (e: unknown) {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
+    if (isSyntaxValidationError(e)) return
     errorLine.value = extractErrorLineFromMessage(raw)
     log.addError(`保存失败：${raw}`)
     message.error(raw)
@@ -1811,6 +1836,7 @@ async function toggleFinalView(): Promise<void> {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
+    if (isSyntaxValidationError(e)) return
     errorLine.value = extractErrorLineFromMessage(msg)
     log.addError(`渲染失败：${msg}`)
     message.error(msg)

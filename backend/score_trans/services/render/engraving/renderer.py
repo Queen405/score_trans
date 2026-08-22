@@ -247,9 +247,7 @@ class PublicationRenderer:
         x = x0
         for part_index, state in enumerate(spanners):
             staff_y = y + part_index * (style.base_staff_height + style.part_gap)
-            _start_spanner_continuations(
-                state, x0, staff_y + style.event_baseline
-            )
+            _start_spanner_continuations(state, x0, staff_y + style.event_baseline)
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
@@ -581,12 +579,7 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
     extents = [_event_visual_extents(event, style) for event in events]
     common_shortest = _common_shortest_duration(events)
     gaps = _minimum_event_gaps(events, extents, common_shortest, style)
-    width = (
-        style.measure_side_padding
-        + extents[-1][1]
-        - extents[0][0]
-        + sum(gaps)
-    )
+    width = style.measure_side_padding + extents[-1][1] - extents[0][0] + sum(gaps)
     return max(style.minimum_measure_width, min(style.content_width, width))
 
 
@@ -628,9 +621,7 @@ def _minimum_event_gaps(
         previous_right = extents[index - 1][1]
         current_left = extents[index][0]
         collision_gap = previous_right - current_left + style.event_clearance
-        previous_start = (
-            previous.start if previous.start is not None else Fraction(0)
-        )
+        previous_start = previous.start if previous.start is not None else Fraction(0)
         current_start = (
             current.start
             if current.start is not None
@@ -1188,11 +1179,7 @@ def _draw_pitch(
     )
     if pitch.octave:
         direction = -1 if pitch.octave > 0 else 1
-        row = next(
-            row
-            for row in pitch_layouts(event, style)
-            if row.pitch is pitch
-        )
+        row = next(row for row in pitch_layouts(event, style) if row.pitch is pitch)
         if direction < 0:
             first_center = (
                 y
@@ -1489,9 +1476,7 @@ def _draw_explicit_beam_level(
             runs[key] = []
         elif status in {"forward-hook", "backward-hook"}:
             line_baseline = (
-                baseline
-                if baseline is not None
-                else _rhythm_line_base(anchor, style)
+                baseline if baseline is not None else _rhythm_line_base(anchor, style)
             ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0)
             if status == "forward-hook":
                 hook_length = style.beam_hook_length if style else 18.0
@@ -1712,10 +1697,7 @@ def _spanner(
             sx = start.x + 5
             ex = end.x - 5
         if kind == "slur":
-            base = (
-                min(start.bbox.y, end.bbox.y)
-                - resolved_style.spanner_base_clearance
-            )
+            base = min(start.bbox.y, end.bbox.y) - resolved_style.spanner_base_clearance
         elif kind == "tie":
             base = min(start.bbox.y, end.bbox.y) - 3.0
         else:
@@ -1873,10 +1855,7 @@ def _draw_tuplets(
             BBox(
                 first.x - style.tuplet_bracket_hook - bracket_stroke / 2,
                 y - bracket_stroke / 2,
-                last.x
-                - first.x
-                + style.tuplet_bracket_hook * 2
-                + bracket_stroke,
+                last.x - first.x + style.tuplet_bracket_hook * 2 + bracket_stroke,
                 style.tuplet_bracket_depth + bracket_stroke,
             ),
             source_ids,
@@ -2178,11 +2157,7 @@ def _text(
     ink_left, ink_top, ink_right, ink_bottom = font_registry().ink_bounds(value, size)
     advance = font_registry().measure(value, size)
     offset = (
-        -advance / 2
-        if anchor == "middle"
-        else -advance
-        if anchor == "end"
-        else 0.0
+        -advance / 2 if anchor == "middle" else -advance if anchor == "end" else 0.0
     )
     node_attrs.setdefault(
         "data-bbox",

@@ -166,10 +166,27 @@
                 <span
                   v-if="logStore.errorCount"
                   class="log-badge"
-                >{{ logStore.errorCount }}</span>
+                >运行 {{ logStore.errorCount }}</span>
+                <span
+                  v-if="syntaxStore.errorCount"
+                  class="log-badge syntax-badge"
+                >语法 {{ syntaxStore.errorCount }}</span>
               </button>
               <div class="log-body">
-                <log-panel />
+                <div class="log-columns">
+                  <section class="log-column">
+                    <h3 class="log-column-title">
+                      运行日志
+                    </h3>
+                    <log-panel />
+                  </section>
+                  <section class="log-column syntax-column">
+                    <h3 class="log-column-title">
+                      语法检查
+                    </h3>
+                    <syntax-diagnostic-panel />
+                  </section>
+                </div>
               </div>
             </div>
           </main>
@@ -211,6 +228,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { GlobalThemeOverrides } from 'naive-ui'
 import { useWorkspaceStore } from './stores/workspace'
 import { useLogStore } from './stores/log'
+import { useSyntaxDiagnosticsStore } from './stores/syntaxDiagnostics'
 import { useSettingsStore } from './stores/settings'
 import RecognizeView from './views/RecognizeView.vue'
 import ConvertView from './views/ConvertView.vue'
@@ -218,6 +236,7 @@ import SyntaxView from './views/SyntaxView.vue'
 import SettingsView from './views/SettingsView.vue'
 import AiAssistant from './components/AiAssistant.vue'
 import LogPanel from './components/LogPanel.vue'
+import SyntaxDiagnosticPanel from './components/SyntaxDiagnosticPanel.vue'
 import {
   BookOutline,
   ScanOutline,
@@ -240,6 +259,7 @@ type PendingNavigation =
 
 const store = useWorkspaceStore()
 const logStore = useLogStore()
+const syntaxStore = useSyntaxDiagnosticsStore()
 const settings = useSettingsStore()
 
 const activeTab = ref<AppTab>('recognize')
@@ -739,7 +759,7 @@ body {
 }
 
 .log-drawer.open {
-  max-height: 200px;
+  max-height: 240px;
 }
 
 .log-toggle {
@@ -779,14 +799,47 @@ body {
   line-height: 1.3;
 }
 
+.syntax-badge {
+  background: var(--warning);
+}
+
 .log-body {
-  height: 168px;
+  height: 208px;
   overflow-y: auto;
   border-top: 1px solid var(--border-light);
 }
 
-.log-body .log-panel {
-  padding: 8px 16px;
+.log-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  height: 100%;
+}
+
+.log-column {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.syntax-column {
+  border-left: 1px solid var(--border-light);
+}
+
+.log-column-title {
+  margin: 0;
+  padding: 8px 16px 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.log-column .log-panel {
+  height: calc(100% - 28px);
+  overflow-y: auto;
+  padding: 4px 16px 8px;
+}
+
+.syntax-column :deep(.syntax-diagnostic-panel) {
+  height: calc(100% - 28px);
 }
 
 @keyframes pulse {
@@ -797,6 +850,24 @@ body {
 @media (max-width: 768px) {
   .main-content {
     padding: 16px;
+  }
+
+  .log-body {
+    height: 320px;
+  }
+
+  .log-drawer.open {
+    max-height: 352px;
+  }
+
+  .log-columns {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .syntax-column {
+    border-left: 0;
+    border-top: 1px solid var(--border-light);
   }
 
   .sidebar {

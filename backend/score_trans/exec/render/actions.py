@@ -303,14 +303,11 @@ class RenderActions:
     ) -> RenderJianpuTextSvgResponse:
         normalized_text: str | None = None
         if req.jianpu_text:
-            try:
-                normalized_text = (
-                    req.jianpu_text
-                    if req.text_anchors
-                    else normalize_jianpu_text(req.jianpu_text, title=req.title)
-                )
-            except ValueError as exc:
-                raise ValueError(str(exc)) from exc
+            normalized_text = (
+                req.jianpu_text
+                if req.text_anchors
+                else normalize_jianpu_text(req.jianpu_text, title=req.title)
+            )
             input_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.txt"
             input_path.write_text(normalized_text, encoding="utf-8")
         elif req.jianpu_file_id:
@@ -364,12 +361,9 @@ class RenderActions:
     def normalize_jianpu_text(
         self, req: NormalizeJianpuTextRequest
     ) -> NormalizeJianpuTextResponse:
-        try:
-            return NormalizeJianpuTextResponse(
-                jianpu_text=normalize_jianpu_text(req.jianpu_text, title=req.title)
-            )
-        except ValueError as exc:
-            raise ValueError(str(exc)) from exc
+        return NormalizeJianpuTextResponse(
+            jianpu_text=normalize_jianpu_text(req.jianpu_text, title=req.title)
+        )
 
     def render_preserving_layout(
         self, req: PreservingLayoutRequest

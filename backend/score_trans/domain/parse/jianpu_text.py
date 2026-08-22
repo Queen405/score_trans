@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from fractions import Fraction
 
+from ...models.common.errors import CodedValidationError
 from ...models.common.types import (
     ACCEPTED_INSTRUMENT_PROFILES,
     SUPPORTED_INSTRUMENT_PROFILES,
@@ -20,6 +21,7 @@ from ...models.score import (
     TextBlock,
     TupletSpan,
 )
+from ...models.syntax.schemas import SyntaxDiagnostic
 from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
 from ..jianpu_tokens import (
     consume_duration_prefix,
@@ -62,6 +64,29 @@ class _Token:
     column: int
     start_utf16: int | None = None
     end_utf16: int | None = None
+
+
+class JianpuSyntaxError(CodedValidationError):
+    """A syntax error that retains the source token used to produce it."""
+
+    error_code = "jianpu_syntax"
+
+    def __init__(self, token: _Token, message: str) -> None:
+        self.token = token
+        self.detail = message
+        super().__init__(f"第 {token.line} 行第 {token.column} 列：{message}")
+
+    def diagnostic(self) -> SyntaxDiagnostic:
+        start = self.token.start_utf16 if self.token.start_utf16 is not None else 0
+        end = self.token.end_utf16 if self.token.end_utf16 is not None else start
+        return SyntaxDiagnostic(
+            id=f"syntax-error-{self.token.line}-{self.token.column}-{start}-{end}",
+            message=self.detail,
+            line=self.token.line,
+            column=self.token.column,
+            start=start,
+            end=end,
+        )
 
 
 @dataclass(slots=True)
@@ -132,6 +157,18 @@ class _ParsedPageMarker:
     end: int
 
 
+def _marker_token(text: str, start: int, end: int) -> _Token:
+    line = text.count("\n", 0, start) + 1
+    line_start = text.rfind("\n", 0, start) + 1
+    return _Token(
+        value=text[start:end],
+        line=line,
+        column=start - line_start + 1,
+        start_utf16=_utf16_length(text[:start]),
+        end_utf16=_utf16_length(text[:end]),
+    )
+
+
 def _find_page_markers(text: str) -> list[_ParsedPageMarker]:
     markers: list[_ParsedPageMarker] = []
     for match in _PAGE_MARKER_RE.finditer(text):
@@ -142,9 +179,15 @@ def _find_page_markers(text: str) -> list[_ParsedPageMarker]:
             try:
                 parsed_name = json.loads(raw_name)
             except json.JSONDecodeError as exc:
-                raise ValueError("分页标记名称不是有效 JSON 字符串") from exc
+                raise JianpuSyntaxError(
+                    _marker_token(text, match.start(), match.end()),
+                    "分页标记名称不是有效 JSON 字符串",
+                ) from exc
             if not isinstance(parsed_name, str):
-                raise ValueError("分页标记名称必须是字符串")
+                raise JianpuSyntaxError(
+                    _marker_token(text, match.start(), match.end()),
+                    "分页标记名称必须是字符串",
+                )
             input_file_name = parsed_name
         markers.append(
             _ParsedPageMarker(
@@ -158,11 +201,194 @@ def _find_page_markers(text: str) -> list[_ParsedPageMarker]:
 
 
 def _strip_page_marker_lines(text: str) -> str:
-    return _PAGE_MARKER_RE.sub("", text)
+    # Blank marker content instead of deleting it so line numbers and UTF-16
+    # offsets in the remaining text stay aligned with the original document.
+    return _PAGE_MARKER_RE.sub(lambda match: " " * (match.end() - match.start()), text)
 
 
 def parse_jianpu_scores(text: str, *, title: str | None = None) -> list[JianpuScore]:
     return [part.score for part in parse_jianpu_parts(text, title=title)]
+
+
+def validate_jianpu_text(text: str) -> list[SyntaxDiagnostic]:
+    """Validate token syntax while preserving strict export parsing."""
+    normalized = text.lstrip("\ufeff")
+    try:
+        _validate_marker_structure(normalized)
+        _options, token_lines, _lyrics = _read_new_syntax(normalized)
+    except JianpuSyntaxError as exc:
+        return [exc.diagnostic()]
+    except ValueError as exc:
+        return [_document_syntax_diagnostic(normalized, str(exc))]
+    diagnostics: list[SyntaxDiagnostic] = []
+    for token in token_lines:
+        try:
+            _validate_jianpu_token(token)
+        except JianpuSyntaxError as exc:
+            diagnostics.append(exc.diagnostic())
+            if _is_structural_syntax_error(exc):
+                break
+    if diagnostics:
+        return diagnostics
+    has_markers = _PART_MARKER_START_RE.search(
+        normalized
+    ) or _PAGE_MARKER_START_RE.search(normalized)
+    try:
+        if has_markers:
+            parts = parse_jianpu_parts(normalized)
+            _validate_part_measure_counts(normalized, parts)
+        else:
+            parse_jianpu_score(normalized)
+    except JianpuSyntaxError as exc:
+        return [exc.diagnostic()]
+    except ValueError as exc:
+        return [_document_syntax_diagnostic(normalized, str(exc))]
+    except Exception as exc:  # noqa: BLE001 — 兜底，防止内部错误逃逸成 HTTP 500
+        return [
+            _document_syntax_diagnostic(
+                normalized, f"内部解析错误（{type(exc).__name__}）：{exc}"
+            )
+        ]
+    return diagnostics
+
+
+def _validate_part_measure_counts(text: str, parts: list[ParsedJianpuPart]) -> None:
+    counts = [len(part.score.measures) for part in parts]
+    if len(set(counts)) <= 1:
+        return
+    details = "、".join(
+        f"{part.part_name or f'声部{part.part_index + 1}'}={counts[part.part_index]}"
+        for part in parts
+    )
+    first_marker = _PART_MARKER_RE.search(text)
+    line = text.count("\n", 0, first_marker.start()) + 1 if first_marker else 1
+    raise ValueError(f"第 {line} 行：各声部小节数量不一致：{details}")
+
+
+def _validate_marker_structure(text: str) -> None:
+    page_markers = _find_page_markers(text)
+    if len(page_markers) != len(list(_PAGE_MARKER_START_RE.finditer(text))):
+        offending = _first_invalid_marker_line(
+            text, _PAGE_MARKER_RE, _PAGE_MARKER_START_RE
+        )
+        raise JianpuSyntaxError(
+            offending,
+            '分页标记格式无效，请使用 // @page 1 或 // @page 1 name="文件名"',
+        )
+    for index, marker in enumerate(page_markers, start=1):
+        if marker.number != index:
+            raise JianpuSyntaxError(
+                _marker_token(text, marker.start, marker.end),
+                f"分页标记序号不连续：期望 @page {index}，实际 @page {marker.number}",
+            )
+    part_markers = list(_PART_MARKER_RE.finditer(text))
+    if len(part_markers) != len(list(_PART_MARKER_START_RE.finditer(text))):
+        offending = _first_invalid_marker_line(
+            text, _PART_MARKER_RE, _PART_MARKER_START_RE
+        )
+        raise JianpuSyntaxError(
+            offending,
+            '分谱标记格式无效，请使用 // @part 1 name="声部名称"',
+        )
+    for index, match in enumerate(part_markers, start=1):
+        try:
+            parsed_name = json.loads(match.group("name"))
+        except json.JSONDecodeError as exc:
+            raise JianpuSyntaxError(
+                _marker_token(text, match.start(), match.end()),
+                f"第 {index} 个分谱名称不是有效 JSON 字符串",
+            ) from exc
+        if not isinstance(parsed_name, str):
+            raise JianpuSyntaxError(
+                _marker_token(text, match.start(), match.end()),
+                f"第 {index} 个分谱名称必须是字符串",
+            )
+
+
+def _first_invalid_marker_line(
+    text: str,
+    full_re: re.Pattern[str],
+    start_re: re.Pattern[str],
+) -> _Token:
+    full_starts = {match.start() for match in full_re.finditer(text)}
+    for match in start_re.finditer(text):
+        if match.start() not in full_starts:
+            return _marker_token(text, match.start(), match.end())
+    return _marker_token(text, 0, 0)
+
+
+def _document_syntax_diagnostic(text: str, raw_message: str) -> SyntaxDiagnostic:
+    match = re.match(r"第 (\d+) 行(?:第 (\d+) 列)?[：:]?(.*)", raw_message)
+    line = int(match.group(1)) if match else 1
+    column = int(match.group(2)) if match and match.group(2) else 1
+    message = match.group(3).strip() if match and match.group(3) else raw_message
+    lines = text.splitlines(keepends=True)
+    start = _utf16_length("".join(lines[: max(0, line - 1)]))
+    content = lines[line - 1].rstrip("\r\n") if 0 < line <= len(lines) else ""
+    end = start + _utf16_length(content)
+    return SyntaxDiagnostic(
+        id=f"syntax-error-{line}-{column}-{start}-{end}",
+        message=message,
+        line=line,
+        column=column,
+        start=start,
+        end=end,
+    )
+
+
+def _validate_jianpu_token(token: _Token) -> None:
+    raw = token.value
+    measure_mark = _measure_level_mark(raw)
+    if (
+        raw in {"|", "||", "|:", ":|"}
+        or re.fullmatch(r"\*\d+", raw)
+        or _key_signature_value(raw) is not None
+        or _time_signature_value(raw) is not None
+        or (measure_mark is not None and measure_mark[1] is not None)
+    ):
+        return
+    if re.fullmatch(r"\d+/\d+", raw):
+        raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
+    if measure_mark is not None:
+        raise _syntax_error(
+            token,
+            f"不支持的小节级演奏标记：{raw}。请使用 (^l)、(^.)、(^>)、(^r)、(^f)",
+        )
+    if raw.startswith("\\"):
+        if raw[1:] not in DYNAMICS:
+            raise _syntax_error(
+                token, f"不支持的力度标记：{raw}，请使用 \\p、\\mp、\\f、\\ff 等"
+            )
+        return
+    if raw.startswith("^"):
+        name = raw[1:]
+        if mark_for_token(name) is not None or _ornament_name(name) is not None:
+            return
+        inline_marks, event_part = _consume_tuplet_inline_marks(raw)
+        if not inline_marks or not event_part:
+            raise _syntax_error(token, f"不支持的演奏标记：{raw}")
+        event_offset = raw.find(event_part)
+        _parse_event_token(
+            _Token(
+                value=event_part,
+                line=token.line,
+                column=token.column + event_offset,
+                start_utf16=(token.start_utf16 or 0)
+                + _utf16_length(raw[:event_offset]),
+                end_utf16=token.end_utf16,
+            )
+        )
+        return
+    if raw.startswith("$"):
+        if not raw.endswith("$"):
+            raise _syntax_error(token, "连音组缺少结束标记 $")
+        _parse_tuplet_token(token)
+        return
+    _parse_event_token(token)
+
+
+def _is_structural_syntax_error(error: JianpuSyntaxError) -> bool:
+    return any(marker in error.detail for marker in ("连音组", "和弦", "缺少结束标记"))
 
 
 def parse_jianpu_parts(
@@ -174,22 +400,25 @@ def parse_jianpu_parts(
     page_markers = _find_page_markers(text)
     page_marker_lines = list(_PAGE_MARKER_START_RE.finditer(text))
     if len(page_markers) != len(page_marker_lines):
-        raise ValueError(
+        raise JianpuSyntaxError(
+            _first_invalid_marker_line(text, _PAGE_MARKER_RE, _PAGE_MARKER_START_RE),
             '分页标记格式无效，请使用 // @page 1 或 // @page 1 name="文件名"，'
-            '名称中的引号需要写成 \\"'
+            '名称中的引号需要写成 \\"',
         )
     for i, page_marker in enumerate(page_markers):
         if page_marker.number != i + 1:
-            raise ValueError(
-                f"分页标记序号不连续：期望 @page {i + 1}，实际 @page {page_marker.number}"
+            raise JianpuSyntaxError(
+                _marker_token(text, page_marker.start, page_marker.end),
+                f"分页标记序号不连续：期望 @page {i + 1}，实际 @page {page_marker.number}",
             )
 
     markers = list(_PART_MARKER_RE.finditer(text))
     marker_lines = list(_PART_MARKER_START_RE.finditer(text))
     if len(markers) != len(marker_lines):
-        raise ValueError(
+        raise JianpuSyntaxError(
+            _first_invalid_marker_line(text, _PART_MARKER_RE, _PART_MARKER_START_RE),
             '分谱标记格式无效，请使用 // @part 1 name="声部名称"，'
-            '名称中的引号需要写成 \\"'
+            '名称中的引号需要写成 \\"',
         )
     if not markers:
         score = parse_jianpu_score(_strip_page_marker_lines(text), title=title)
@@ -212,7 +441,10 @@ def parse_jianpu_parts(
     prefix = text[: markers[0].start()]
     prefix_without_page_markers = _strip_page_marker_lines(prefix)
     if prefix_without_page_markers.strip():
-        raise ValueError("第一个分谱标记之前不能包含简谱正文")
+        raise JianpuSyntaxError(
+            _marker_token(text, markers[0].start(), markers[0].end()),
+            "第一个分谱标记之前不能包含简谱正文",
+        )
 
     parts: list[ParsedJianpuPart] = []
     current_page_start: int = -1
@@ -226,15 +458,22 @@ def parse_jianpu_parts(
             page_part_index = 0
         page_part_index += 1
         if marker_number != page_part_index:
-            raise ValueError(
-                f"分谱标记序号不连续：期望 @part {page_part_index}，实际 @part {marker_number}"
+            raise JianpuSyntaxError(
+                _marker_token(text, match.start(), match.end()),
+                f"分谱标记序号不连续：期望 @part {page_part_index}，实际 @part {marker_number}",
             )
         try:
             part_name = json.loads(match.group("name"))
         except json.JSONDecodeError as exc:
-            raise ValueError(f"第 {i + 1} 个分谱名称不是有效 JSON 字符串") from exc
+            raise JianpuSyntaxError(
+                _marker_token(text, match.start(), match.end()),
+                f"第 {i + 1} 个分谱名称不是有效 JSON 字符串",
+            ) from exc
         if not isinstance(part_name, str):
-            raise ValueError(f"第 {i + 1} 个分谱名称必须是字符串")
+            raise JianpuSyntaxError(
+                _marker_token(text, match.start(), match.end()),
+                f"第 {i + 1} 个分谱名称必须是字符串",
+            )
         start = match.end()
         if text[start : start + 2] == "\r\n":
             start += 2
@@ -243,7 +482,10 @@ def parse_jianpu_parts(
         end = markers[i + 1].start() if i + 1 < len(markers) else len(text)
         part_text = text[start:end]
         part_text_without_page_markers = _strip_page_marker_lines(part_text)
-        score = parse_jianpu_score(part_text_without_page_markers, title=title)
+        try:
+            score = parse_jianpu_score(part_text_without_page_markers, title=title)
+        except JianpuSyntaxError as exc:
+            raise _remap_part_syntax_error(exc, text, start) from exc
         score.part_index = len(parts)
         score.part_name = part_name
         page_index = 0
@@ -276,6 +518,37 @@ def parse_jianpu_parts(
 
 def _utf16_length(text: str) -> int:
     return len(text.encode("utf-16-le")) // 2
+
+
+def _remap_part_syntax_error(
+    error: JianpuSyntaxError,
+    text: str,
+    part_start: int,
+) -> JianpuSyntaxError:
+    """Re-anchor a part-body syntax error to document coordinates.
+
+    ``_strip_page_marker_lines`` blanks markers in place, so code-point and
+    UTF-16 offsets inside the part body align one-to-one with ``text`` from
+    ``part_start`` onward.
+    """
+    token = error.token
+    base_utf16 = _utf16_length(text[:part_start])
+    return JianpuSyntaxError(
+        _Token(
+            value=token.value,
+            line=text.count("\n", 0, part_start) + token.line,
+            column=token.column,
+            start_utf16=(
+                base_utf16 + token.start_utf16
+                if token.start_utf16 is not None
+                else None
+            ),
+            end_utf16=(
+                base_utf16 + token.end_utf16 if token.end_utf16 is not None else None
+            ),
+        ),
+        error.detail,
+    )
 
 
 def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
@@ -312,6 +585,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     current_beats = options.beats
     current_beat_type = options.beat_type
     last_pitched_event: Event | None = None
+    pending_slide_token: _Token | None = None
 
     def flush_measure() -> None:
         nonlocal \
@@ -358,6 +632,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             pending_ornaments, \
             pending_technical, \
             pending_slide, \
+            pending_slide_token, \
             open_slur, \
             open_tie, \
             last_pitched_event
@@ -401,16 +676,22 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         if pending_slide:
             event.slide_stop = True
             pending_slide = False
+            pending_slide_token = None
         if event.slide_stop:
             if event.kind != "note":
-                raise ValueError("连线滑音 ^lh 后必须跟随音符，不能跟休止符")
+                raise _contextual_syntax_error(
+                    token, "连线滑音 ^lh 后必须跟随音符，不能跟休止符"
+                )
             if last_pitched_event is None:
-                raise ValueError("连线滑音 ^lh 前没有可连接的起始音")
+                raise _contextual_syntax_error(
+                    token, "连线滑音 ^lh 前没有可连接的起始音"
+                )
             last_pitched_event.slide_start = True
             _set_slide_direction(
                 last_pitched_event,
                 event,
                 instrument_profile=options.instrument_profile,
+                token=token,
             )
         if event.slur_start:
             open_slur = True
@@ -425,7 +706,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         elif event.tie_stop:
             open_tie = False
         normalize_event_marks(event)
-        _validate_instrument_mark_target(event, options.instrument_profile)
+        _validate_instrument_mark_target(event, options.instrument_profile, token=token)
         current_events.append(event)
         cursor += event.duration
         if event.kind == "note":
@@ -453,6 +734,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                 )
             current_beats, current_beat_type = time_signature
             continue
+        if re.fullmatch(r"\d+/\d+", raw):
+            raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
         if raw in {"|", "||"}:
             flush_measure()
             continue
@@ -507,6 +790,18 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                     event_part,
                     token.line,
                     token.column + event_offset,
+                    start_utf16=(
+                        token.start_utf16 + _utf16_length(raw[:event_offset])
+                        if token.start_utf16 is not None
+                        else None
+                    ),
+                    end_utf16=(
+                        token.start_utf16
+                        + _utf16_length(raw[:event_offset])
+                        + _utf16_length(event_part)
+                        if token.start_utf16 is not None
+                        else None
+                    ),
                 )
                 event = _parse_event_token(event_token)
                 _apply_inline_marks(event, inline_marks)
@@ -515,6 +810,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             kind, mark = _mark_kind_name(name)
             if kind == "spanner":
                 pending_slide = True
+                pending_slide_token = token
                 continue
             if kind == "ornament":
                 pending_ornaments.append(mark)
@@ -531,7 +827,9 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         append_event(_parse_event_token(token), raw, token)
 
     if pending_slide:
-        raise ValueError("连线滑音 ^lh 后必须跟随目标音符")
+        raise _contextual_syntax_error(
+            pending_slide_token, "连线滑音 ^lh 后必须跟随目标音符"
+        )
     if current_events or current_blocks or not score.measures:
         flush_measure()
 
@@ -592,7 +890,19 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                 options.title = value or options.title
                 continue
             if key == "tempo":
-                options.tempo = int(value)
+                try:
+                    options.tempo = int(value)
+                except ValueError:
+                    raise JianpuSyntaxError(
+                        _token_with_offsets(
+                            stripped,
+                            line_no,
+                            raw_line.find(stripped),
+                            line_utf16_starts[line_no - 1],
+                            original_line,
+                        ),
+                        f"tempo 必须是整数：{value}",
+                    ) from None
                 continue
             if key == "instrument":
                 if value not in ACCEPTED_INSTRUMENT_PROFILES:
@@ -616,6 +926,17 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                     )
                 )
             else:
+                if int(beats) <= 0 or int(beat_type) <= 0:
+                    raise JianpuSyntaxError(
+                        _token_with_offsets(
+                            stripped,
+                            line_no,
+                            raw_line.find(stripped),
+                            line_utf16_starts[line_no - 1],
+                            original_line,
+                        ),
+                        f"拍号无效：{stripped}，分子分母必须为正整数",
+                    )
                 options.beats = int(beats)
                 options.beat_type = int(beat_type)
                 saw_time = True
@@ -712,15 +1033,31 @@ def _is_key_name(value: str) -> bool:
 
 
 def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
-    body = token.value.strip()[1:-1].strip()
-    explicit_ratio, body = _consume_tuplet_ratio(body, token)
+    raw_value = token.value
+    stripped_value = raw_value.strip()
+    inner = stripped_value[1:-1]
+    # Code-point offset of the tuplet body inside ``raw_value`` so inner tokens
+    # can be re-anchored to the outer token's UTF-16 offsets.
+    body_offset = (
+        (len(raw_value) - len(raw_value.lstrip()))
+        + 1
+        + (len(inner) - len(inner.lstrip()))
+    )
+    body = inner.strip()
+    explicit_ratio, body, ratio_offset = _consume_tuplet_ratio(body, token)
+    body_offset += ratio_offset
     parts = _split_tuplet_body(body)
     pending_dynamic: str | None = None
     pending_articulations: list[str] = []
     pending_ornaments: list[str] = []
     pending_technical: list[str] = []
     parsed: list[tuple[Event, str]] = []
+    search_from = 0
     for part in parts:
+        part_offset = body.find(part, search_from)
+        if part_offset < 0:
+            part_offset = search_from
+        search_from = part_offset + len(part)
         if part.startswith("^") and _match_mark_token(part[1:]) is None:
             raise _syntax_error(
                 token,
@@ -743,7 +1080,27 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         inline_marks, event_part = _consume_tuplet_inline_marks(part)
         if not event_part:
             raise _syntax_error(token, f"连音组标记 {part} 后面必须跟随音符或休止符")
-        part_token = _Token(event_part, token.line, token.column + 1 + body.find(part))
+        event_offset_in_part = (len(part) - len(part.lstrip())) + (
+            len(part.strip()) - len(event_part)
+        )
+        event_offset_in_value = body_offset + part_offset + event_offset_in_part
+        part_token = _Token(
+            event_part,
+            token.line,
+            token.column + event_offset_in_value,
+            start_utf16=(
+                token.start_utf16 + _utf16_length(raw_value[:event_offset_in_value])
+                if token.start_utf16 is not None
+                else None
+            ),
+            end_utf16=(
+                token.start_utf16
+                + _utf16_length(raw_value[:event_offset_in_value])
+                + _utf16_length(event_part)
+                if token.start_utf16 is not None
+                else None
+            ),
+        )
         event = _parse_event_token(part_token)
         inline_articulations = [
             name for kind, name in inline_marks if kind == "articulation"
@@ -832,15 +1189,17 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
 def _consume_tuplet_ratio(
     body: str,
     token: _Token,
-) -> tuple[tuple[int, int] | None, str]:
+) -> tuple[tuple[int, int] | None, str, int]:
     match = re.match(r"^(\d+)\s*:\s*(\d+)\s*;", body)
     if match is None:
-        return None, body
+        return None, body, 0
     actual_count = int(match.group(1))
     normal_count = int(match.group(2))
     if actual_count <= 0 or normal_count <= 0:
         raise _syntax_error(token, "连音组比例必须是正整数，例如 $3:2;q1 q2$")
-    return (actual_count, normal_count), body[match.end() :].strip()
+    remainder = body[match.end() :]
+    offset = match.end() + (len(remainder) - len(remainder.lstrip()))
+    return (actual_count, normal_count), remainder.strip(), offset
 
 
 def _has_tuplet_duration_prefix(source_token: str) -> bool:
@@ -1201,16 +1560,21 @@ def _set_slide_direction(
     stop: Event,
     *,
     instrument_profile: InstrumentProfile,
+    token: _Token | None = None,
 ) -> None:
     if len(start.pitches) != 1 or len(stop.pitches) != 1:
         if instrument_profile == "guzheng":
-            raise ValueError("古筝有时值滑音 ^lh 只能连接两个单音，不能连接和弦")
+            raise _contextual_syntax_error(
+                token, "古筝有时值滑音 ^lh 只能连接两个单音，不能连接和弦"
+            )
         return
     start_rank = start.pitches[0].rank
     stop_rank = stop.pitches[0].rank
     if start_rank == stop_rank:
         if instrument_profile == "guzheng":
-            raise ValueError("古筝有时值滑音 ^lh 的起止音高不能相同")
+            raise _contextual_syntax_error(
+                token, "古筝有时值滑音 ^lh 的起止音高不能相同"
+            )
         return
     direction = "up" if stop_rank > start_rank else "down"
     start.slide_direction = direction
@@ -1220,6 +1584,8 @@ def _set_slide_direction(
 def _validate_instrument_mark_target(
     event: Event,
     instrument_profile: InstrumentProfile,
+    *,
+    token: _Token | None = None,
 ) -> None:
     if instrument_profile not in {"guzheng", "ruan"}:
         return
@@ -1236,10 +1602,12 @@ def _validate_instrument_mark_target(
             continue
         label = mark.label_for(instrument_profile)
         if event.kind != "note":
-            raise ValueError(f"{label}演奏标记 ^{mark.token} 后必须跟随音符")
+            raise _contextual_syntax_error(
+                token, f"{label}演奏标记 ^{mark.token} 后必须跟随音符"
+            )
         if mark.target == "chord" and not event.is_chord:
-            raise ValueError(
-                f"演奏标记 ^{mark.token}（{label}）后必须跟随和弦，例如 [3+5]"
+            raise _contextual_syntax_error(
+                token, f"演奏标记 ^{mark.token}（{label}）后必须跟随和弦，例如 [3+5]"
             )
 
 
@@ -1261,4 +1629,10 @@ def _unique_marks(*mark_groups: list[str]) -> list[str]:
 
 
 def _syntax_error(token: _Token, message: str) -> ValueError:
-    return ValueError(f"第 {token.line} 行第 {token.column} 列：{message}")
+    return JianpuSyntaxError(token, message)
+
+
+def _contextual_syntax_error(token: _Token | None, message: str) -> ValueError:
+    if token is None:
+        return ValueError(message)
+    return JianpuSyntaxError(token, message)

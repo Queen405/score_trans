@@ -156,7 +156,14 @@ test('player load keys include the full Jianpu text instead of a shared prefix',
 test('MIDI generation failures unload stale audio and notify the user', () => {
   assert.match(playerSource, /useMessage\(\)/)
   assert.match(playerSource, /useLogStore\(\)/)
-  assert.match(playerSource, /logStore\.addError\(/)
   assert.match(playerSource, /player\.unload\(\)/)
   assert.match(playerSource, /message\.error\(/)
+})
+
+test('syntax validation failures stay out of the runtime log', () => {
+  assert.match(
+    playerSource,
+    /if \(error instanceof ApiError && error\.code === 'jianpu_syntax'\) \{\s*player\.unload\(\)\s*return/s,
+  )
+  assert.match(convertSource, /if \(isSyntaxValidationError\(e\)\) return/)
 })

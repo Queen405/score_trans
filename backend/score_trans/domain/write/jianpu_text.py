@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from fractions import Fraction
 import hashlib
 import json
 import re
+from fractions import Fraction
 
+from ...models.common.types import AccidentalMode, normalize_instrument_profile
+from ...models.provenance.entities import JianpuDocument
+from ...models.provenance.schemas import TextAnchor
+from ...models.score import Event, JianpuPitch, JianpuScore, Measure
 from ..accidentals import pitch_to_token
 from ..jianpu_tokens import (
     safe_duration_affixes,
     tuplet_duration_unit_count,
 )
 from ..performance_marks import event_mark_ids, mark_token
-from ...models.common.types import AccidentalMode, normalize_instrument_profile
-from ...models.score import Event, JianpuPitch, JianpuScore, Measure
-from ...models.provenance.entities import JianpuDocument
-from ...models.provenance.schemas import TextAnchor
 
 _CONTINUOUS_SLIDE_TOKEN = mark_token("continuous-slide") or "lh"
 
@@ -260,11 +260,23 @@ def _text_anchors_raw(
             event = events[index]
             if event.tuplet_start and event.tuplet_count:
                 group = _collect_tuplet_events(events, index)
+                group_actual_count = group[0].tuplet_count or len(group)
+                group_normal_count = group[
+                    0
+                ].tuplet_normal_count or _tuplet_normal_notes(group_actual_count)
+                group_legacy_duration = all(
+                    group_event.duration == Fraction(1, group_actual_count)
+                    for group_event in group
+                )
                 group_open = line.find("$", event_cursor)
                 group_close = line.find("$", group_open + 1) if group_open >= 0 else -1
                 for group_event in group:
                     token = _event_to_tuplet_body(
-                        group_event, accidental_mode=accidental_mode
+                        group_event,
+                        accidental_mode=accidental_mode,
+                        include_duration=not group_legacy_duration,
+                        actual_count=group_actual_count,
+                        normal_count=group_normal_count,
                     )
                     position = line.find(
                         token,
@@ -272,12 +284,9 @@ def _text_anchors_raw(
                         group_close if group_close >= 0 else len(line),
                     )
                     if position < 0:
-                        event_cursor = (
-                            group_close + 1
-                            if group_close >= 0
-                            else _advance_past_text_tokens(line, event_cursor)
-                        )
-                        break
+                        if group_close < 0:
+                            event_cursor = _advance_past_text_tokens(line, event_cursor)
+                        continue
                     _append_event_anchors(
                         anchors,
                         seen,

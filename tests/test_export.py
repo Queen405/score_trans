@@ -16,8 +16,16 @@ from score_trans.models.export.schemas import (
     ExportRenderedPdfRequest,
     ExportResponse,
 )
-from score_trans.services.export.export_service import ExportService
+from score_trans.services.export.export_service import (
+    ExportService,
+    svg_page_to_image,
+    svg_pages_to_pdf,
+)
 from score_trans.services.files.upload_service import UploadService
+from score_trans.services.render.engraving.scene import PublicationScene, SceneNode
+from score_trans.services.render.engraving.style import PublicationStyle
+from score_trans.services.render.engraving.svg_backend import scene_to_svg
+from score_trans.services.render.main import render_scores_a4_pages
 
 
 def test_export_service_writes_musicxml(tmp_path) -> None:
@@ -306,3 +314,154 @@ def test_export_midi_route_accepts_target_key_and_tempo(tmp_path) -> None:
     assert midi_path is not None and midi_path.exists()
     midi = mido.MidiFile(midi_path)
     assert _midi_tempo_bpm(midi) == pytest.approx(100)
+
+
+def _a4_svg_from_jianpu(text: str) -> str:
+    return render_scores_a4_pages([parse_jianpu_score(text)])[0].svg
+
+
+def _pixel_ratios(pixmap: fitz.Pixmap) -> tuple[float, float]:
+    """返回 (纯黑像素占比, 纯白像素占比)。"""
+    total = pixmap.width * pixmap.height
+    black = pixmap.samples.count(b"\x00\x00\x00") / total
+    white = pixmap.samples.count(b"\xff\xff\xff") / total
+    return black, white
+
+
+def test_rendered_png_export_is_not_monochrome(tmp_path) -> None:
+    """回归：MuPDF 不解析 <style>，修复前导出 PNG 约 99.9% 纯黑。"""
+    svg = _a4_svg_from_jianpu("1=C\n4/4\n1 2 3 4 | 5 6 7 1' |")
+    output = tmp_path / "page.png"
+
+    svg_page_to_image(svg.encode("utf-8"), output, dpi=72)
+
+    assert output.read_bytes().startswith(b"\x89PNG")
+    document = fitz.open(output)
+    try:
+        pixmap = document[0].get_pixmap()
+    finally:
+        document.close()
+    black, white = _pixel_ratios(pixmap)
+
+    assert black < 0.99, f"导出 PNG 仍接近全黑（black={black:.2%}），CSS 未内联"
+    ink = 1.0 - white
+    assert ink > 0.001, f"导出 PNG 墨迹不足（ink={ink:.2%}），内容未渲染"
+
+
+def test_rendered_pdf_export_is_not_monochrome_and_hides_helper_text(tmp_path) -> None:
+    """回归：PDF 导出同样全黑；且 opacity=0 辅助文本被画进文本层。"""
+    svg = _a4_svg_from_jianpu("1=C\n4/4\n1 2 3 4 | 5 6 7 1' |")
+    output = tmp_path / "score.pdf"
+
+    svg_pages_to_pdf([svg.encode("utf-8")], output)
+
+    assert output.read_bytes().startswith(b"%PDF")
+    document = fitz.open(output)
+    try:
+        assert len(document) == 1
+        pixmap = document[0].get_pixmap()
+        black, white = _pixel_ratios(pixmap)
+        text_layer = str(document[0].get_text())
+    finally:
+        document.close()
+
+    assert black < 0.99, f"导出 PDF 仍接近全黑（black={black:.2%}），CSS 未内联"
+    ink = 1.0 - white
+    assert ink > 0.001, f"导出 PDF 墨迹不足（ink={ink:.2%}），内容未渲染"
+    assert not text_layer.strip(), (
+        f"opacity=0 辅助文本泄漏进 PDF 文本层: {text_layer!r}"
+    )
+
+
+def test_scene_to_svg_inlines_class_presentation_attributes() -> None:
+    scene = PublicationScene(100.0, 100.0, 0)
+    scene.add(
+        SceneNode(
+            "rect",
+            {
+                "class": "page-background",
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100,
+            },
+        )
+    )
+    scene.add(
+        SceneNode(
+            "line",
+            {
+                "class": "measure",
+                "x1": 1,
+                "y1": 2,
+                "x2": 3,
+                "y2": 4,
+                "stroke-width": 2.5,
+            },
+        )
+    )
+
+    root = ET.fromstring(scene_to_svg(scene, PublicationStyle()))
+    background = next(
+        node for node in root.iter() if node.attrib.get("class") == "page-background"
+    )
+    measure = next(
+        node for node in root.iter() if node.attrib.get("class") == "measure"
+    )
+
+    assert background.attrib["fill"] == "#fff"
+    assert measure.attrib["stroke"] == "#171717"
+    assert measure.attrib["fill"] == "none"
+    assert measure.attrib["stroke-linecap"] == "round"
+    assert measure.attrib["stroke-width"] == "2.5"  # 内联属性优先，不被 CSS 覆盖
+
+
+def test_scene_to_svg_keeps_existing_inline_fill_over_css() -> None:
+    scene = PublicationScene(100.0, 100.0, 0)
+    scene.add(
+        SceneNode(
+            "circle",
+            {"class": "rhythm-dot", "cx": 1, "cy": 2, "r": 1.5, "fill": "#ff0000"},
+        )
+    )
+
+    svg = scene_to_svg(scene, PublicationStyle())
+    root = ET.fromstring(svg)
+    dot = next(node for node in root.iter() if node.attrib.get("class") == "rhythm-dot")
+
+    assert dot.attrib["fill"] == "#ff0000"
+    assert svg.count('fill="#171717"') == 0
+
+
+def test_rendered_svg_elements_carry_paint_attributes() -> None:
+    """真实渲染产物：带 class 的元素序列化后带 fill/stroke，文本组继承填充色。"""
+    root = ET.fromstring(_a4_svg_from_jianpu("1=C\n4/4\n1 2 3 4 |"))
+
+    background = next(
+        node for node in root.iter() if node.attrib.get("class") == "page-background"
+    )
+    assert background.attrib["fill"] == "#fff"
+
+    barlines = [
+        node
+        for node in root.iter()
+        if "measure" in node.attrib.get("class", "").split()
+    ]
+    assert barlines
+    for node in barlines:
+        assert node.attrib["stroke"] == "#171717"
+        assert node.attrib["fill"] == "none"
+
+    title = next(
+        node for node in root.iter() if node.attrib.get("class") == "score-meta"
+    )
+    assert title.attrib["fill"] == "#181818"
+
+    # 渲染器原本就内联 fill="#171717" 的元素（如 octave-dot）属性必须保留
+    score_with_dot = _a4_svg_from_jianpu("1=C\n4/4\n1 2 3 1' |")
+    dotted_root = ET.fromstring(score_with_dot)
+    dots = [
+        node for node in dotted_root.iter() if node.attrib.get("class") == "octave-dot"
+    ]
+    assert dots
+    assert all(node.attrib["fill"] == "#171717" for node in dots)
