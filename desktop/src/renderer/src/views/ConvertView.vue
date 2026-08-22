@@ -402,6 +402,7 @@ import JianpuPlayer from '../components/JianpuPlayer.vue'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
 import { splitJianpuAndOcr } from '../utils/ocrText'
+import { isRenderAborted } from '../utils/renderAbort'
 import {
   hasJianpuPageMarkers,
   parseJianpuPageSections,
@@ -983,9 +984,11 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     try {
       renderPageFileIds = await renderFinalBatch()
     } catch (e: unknown) {
+      if (isRenderAborted(e)) return
       const detail = e instanceof Error ? e.message : String(e)
       log.addError(`历史记录重新排版失败：${detail}`)
       message.error(`历史记录重新排版失败：${detail}`)
+      return
     }
   }
   void validateRestoredBatchFiles(allPages, renderPageFileIds)
@@ -1267,6 +1270,7 @@ async function exportScore(): Promise<void> {
     log.addLog(`导出完成：${filename}`)
     message.success('导出完成')
   } catch (e: unknown) {
+    if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
     errorLine.value = extractErrorLineFromMessage(raw)
     log.addError(`导出失败：${raw}`)
@@ -1744,6 +1748,7 @@ async function saveJianpu(): Promise<void> {
     log.addLog('已保存 OMR、简谱和 OCR 信息')
     message.success('已保存')
   } catch (e: unknown) {
+    if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
     errorLine.value = extractErrorLineFromMessage(raw)
     log.addError(`保存失败：${raw}`)
@@ -1803,6 +1808,7 @@ async function toggleFinalView(): Promise<void> {
     await renderFinalBatch()
     isViewingFinal.value = true
   } catch (e: unknown) {
+    if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
     errorLine.value = extractErrorLineFromMessage(msg)

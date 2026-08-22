@@ -245,6 +245,7 @@ import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
 import { notationApi } from '../api/notation'
 import { fetchFileBlob, requireData } from '../api/client'
+import { isRenderAborted } from '../utils/renderAbort'
 import type {
   AiTranscribeResponse,
   AiTranscribedPage,
@@ -1379,6 +1380,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
         notifyHistoryUpdated()
       }
     } catch (error: unknown) {
+      if (isRenderAborted(error)) return
       log.addLog(`生成连续 A4 简谱失败：${errorMessage(error)}`, 'warn')
     }
   })()

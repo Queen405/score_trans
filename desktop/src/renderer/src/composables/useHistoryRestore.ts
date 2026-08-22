@@ -14,6 +14,9 @@ import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/
 import type { TaskPage } from '../stores/workspace'
 import { buildBatchRenderRequests, renderResponsePageIds } from '../utils/batchRender'
 import { usePublicationRender } from './usePublicationRender'
+import { isRenderAborted } from '../utils/renderAbort'
+
+type RebuildOutcome = 'completed' | 'aborted' | 'failed'
 
 export function useHistoryRestore() {
   const message = useMessage()
@@ -51,13 +54,14 @@ export function useHistoryRestore() {
     )
     await validateRestoredBatchFiles(pages, renderPageFileIds)
     if (!renderPageFileIds.length || batch.engine_version !== 'publication-4') {
-      await rebuildPublicationPages(batch)
+      const outcome = await rebuildPublicationPages(batch)
+      if (outcome !== 'completed') return true
     }
     message.success(`已恢复 ${pages.length} 页`)
     return true
   }
 
-  async function rebuildPublicationPages(batch: HistoryBatch): Promise<void> {
+  async function rebuildPublicationPages(batch: HistoryBatch): Promise<RebuildOutcome> {
     const sourcePages = batch.pages.map((page) => {
       const split = splitJianpuAndOcr(page.jianpu_text || '')
       return {
@@ -77,7 +81,7 @@ export function useHistoryRestore() {
     })
     if (!requestPages.length) {
       log.addLog('历史记录缺少 MusicXML 或简谱文本，无法用新版渲染器重建。', 'warn')
-      return
+      return 'failed'
     }
     try {
       const rendered = await requireData(publicationRender.batchA4({
@@ -97,10 +101,13 @@ export function useHistoryRestore() {
         render_page_file_ids: ids,
       }))
       log.addLog(`历史记录已由新版出版渲染器重建，共 ${ids.length} 页。`)
+      return 'completed'
     } catch (error: unknown) {
+      if (isRenderAborted(error)) return 'aborted'
       const detail = error instanceof Error ? error.message : String(error)
       log.addLog(`历史谱面重建失败：${detail}`, 'warn')
       message.warning(`历史数据已恢复，但谱面需要重新渲染：${detail}`)
+      return 'failed'
     }
   }
 

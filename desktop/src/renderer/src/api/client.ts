@@ -56,12 +56,14 @@ export function authenticatedFetch(
 export class ApiError extends Error {
   stage?: string
   detail?: string
+  code?: string
 
-  constructor(message: string, stage?: string, detail?: string) {
+  constructor(message: string, stage?: string, detail?: string, code?: string) {
     super(message)
     this.name = 'ApiError'
     this.stage = stage
     this.detail = detail
+    this.code = code
   }
 }
 
@@ -186,6 +188,14 @@ function apiErrorFromResponse(
 
 function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
+  if (
+    typeof error === 'object'
+    && error !== null
+    && 'name' in error
+    && (error as { name?: unknown }).name === 'AbortError'
+  ) {
+    return new ApiError('aborted', undefined, undefined, 'aborted')
+  }
   if (error instanceof Error) return new ApiError(error.message)
   return new ApiError(String(error))
 }
