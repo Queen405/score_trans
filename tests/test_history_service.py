@@ -164,7 +164,7 @@ def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
 
     assert "start_measure_number" not in columns
-    assert version == 5
+    assert version == 6
 
 
 def test_history_render_pages_use_current_publication_engine_version(tmp_path) -> None:
@@ -172,10 +172,32 @@ def test_history_render_pages_use_current_publication_engine_version(tmp_path) -
     batch = service.create_batch(
         [HistoryPage(input_file_name="score.png", svg_file_id="svg-1")],
         render_page_file_ids=["svg-1"],
+        render_output_stale=True,
     )
 
     assert batch.engine_version == "publication-4"
     assert batch.pages[0].engine_version == "publication-4"
+    assert batch.render_output_stale is True
+
+
+def test_history_render_pages_clear_ocr_stale_only_after_new_svg_ids(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", svg_file_id="svg-old")],
+        render_page_file_ids=["svg-old"],
+        render_output_stale=True,
+    )
+
+    saved = service.update_batch_render_page_ocr_texts(
+        batch.id,
+        [HistoryRenderPageOcrText(page_index=0, ocr_text="updated")],
+    )
+    assert saved is not None
+    assert saved.render_output_stale is True
+
+    rendered = service.update_batch_render_pages(batch.id, ["svg-new"])
+    assert rendered is not None
+    assert rendered.render_output_stale is False
 
 
 def test_history_rejects_sqlite_older_than_335(tmp_path, monkeypatch) -> None:
@@ -446,7 +468,7 @@ def test_v4_migration_backs_up_and_clears_history(tmp_path) -> None:
         page_columns = {
             row[1] for row in conn.execute("PRAGMA table_info(history_page)")
         }
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 0
         assert "start_measure_number" not in page_columns
@@ -465,6 +487,28 @@ def test_v4_migration_backs_up_and_clears_history(tmp_path) -> None:
         assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 1
         assert "start_measure_number" in backup_columns
+
+
+def test_v5_migration_adds_ocr_stale_without_clearing_history(tmp_path) -> None:
+    db_path = tmp_path / "history.db"
+    initial = HistoryService(db_path)
+    created = initial.create_batch(
+        [HistoryPage(input_file_name="kept.png", svg_file_id="svg-kept")],
+        render_page_file_ids=["svg-kept"],
+    )
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("ALTER TABLE history_batch DROP COLUMN render_output_stale")
+        conn.execute("PRAGMA user_version = 5")
+
+    migrated = HistoryService(db_path)
+    loaded = migrated.get_batch(created.id)
+
+    assert loaded is not None
+    assert loaded.pages[0].input_file_name == "kept.png"
+    assert loaded.render_page_file_ids == ["svg-kept"]
+    assert loaded.render_output_stale is False
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
 
 
 def test_schema_migration_rolls_back_all_alter_steps(tmp_path, monkeypatch) -> None:
@@ -536,7 +580,7 @@ def test_legacy_history_rows_are_discarded_after_backup(tmp_path) -> None:
         }
         assert "history" not in tables
         assert "history_legacy_backup" not in tables
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
     with sqlite3.connect(db_path.with_suffix(".v0.bak")) as conn:
         assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 2
 

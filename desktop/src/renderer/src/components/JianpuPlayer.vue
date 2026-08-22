@@ -236,6 +236,9 @@ function reportMidiError(error: unknown, generation: number): void {
   const detail = error instanceof Error ? error.message : String(error)
   if (error instanceof ApiError && error.code === 'jianpu_syntax') {
     player.unload()
+    const msg = '存在语法错误，无法生成 MIDI，请先修复'
+    logStore.addError(msg)
+    message.error(msg)
     return
   }
   player.unload()

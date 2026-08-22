@@ -923,6 +923,11 @@ export type components = {
             pages: components["schemas"]["PageCreate"][];
             /** Render Page File Ids */
             render_page_file_ids?: string[];
+            /**
+             * Render Output Stale
+             * @default false
+             */
+            render_output_stale?: boolean;
             /** Render Page Ocr Texts */
             render_page_ocr_texts?: components["schemas"]["RenderPageOcrText"][];
         };
@@ -970,6 +975,11 @@ export type components = {
         BatchRenderPageOcrTextsUpdate: {
             /** Pages */
             pages: components["schemas"]["RenderPageOcrText"][];
+            /**
+             * Render Output Stale
+             * @default true
+             */
+            render_output_stale?: boolean;
         };
         /** BatchRenderPageRequest */
         BatchRenderPageRequest: {
@@ -1009,6 +1019,11 @@ export type components = {
         BatchRenderPagesUpdate: {
             /** Render Page File Ids */
             render_page_file_ids: string[];
+            /**
+             * Render Output Stale
+             * @default false
+             */
+            render_output_stale?: boolean;
         };
         /** BatchRenderRequest */
         BatchRenderRequest: {
@@ -1094,6 +1109,11 @@ export type components = {
             pages: components["schemas"]["PageResponse"][];
             /** Render Page File Ids */
             render_page_file_ids?: string[];
+            /**
+             * Render Output Stale
+             * @default false
+             */
+            render_output_stale?: boolean;
             /** Render Page Ocr Texts */
             render_page_ocr_texts?: components["schemas"]["RenderPageOcrText"][];
             /** Status */

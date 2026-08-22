@@ -102,6 +102,18 @@ def test_jianpu_syntax_error_uses_coded_validation_response() -> None:
     }
 
 
+def test_jianpu_parser_validation_errors_use_the_same_output_block_code() -> None:
+    response = TestClient(create_app()).post(
+        "/export/musicxml-text",
+        json={
+            "jianpu_text": "instrument=unknown\n1=C\n4/4\n1 2 3 4 |",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "jianpu_syntax"
+
+
 def test_invalid_time_signature_is_a_coded_validation_error_not_500() -> None:
     response = TestClient(create_app()).post(
         "/export/musicxml-text",
@@ -115,7 +127,7 @@ def test_invalid_time_signature_is_a_coded_validation_error_not_500() -> None:
     assert "拍号无效：4/0" in payload["error"]
 
 
-def test_multi_part_measure_count_mismatch_is_a_plain_validation_error() -> None:
+def test_multi_part_measure_count_mismatch_is_a_coded_jianpu_validation_error() -> None:
     jianpu_text = (
         '// @part 1 name="a"\n1=C\n4/4\n1 2 3 4 | 5 6 7 1 |\n'
         '// @part 2 name="b"\n1=C\n4/4\n1 2 3 4 |'
@@ -128,7 +140,7 @@ def test_multi_part_measure_count_mismatch_is_a_plain_validation_error() -> None
     assert response.status_code == 400
     payload = response.json()
     assert payload["stage"] == "validation"
-    assert "code" not in payload
+    assert payload["code"] == "jianpu_syntax"
     assert "各声部小节数量不一致" in payload["error"]
 
 

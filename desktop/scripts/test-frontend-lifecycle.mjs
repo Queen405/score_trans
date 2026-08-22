@@ -160,10 +160,13 @@ test('MIDI generation failures unload stale audio and notify the user', () => {
   assert.match(playerSource, /message\.error\(/)
 })
 
-test('syntax validation failures stay out of the runtime log', () => {
+test('syntax validation blocks output with a user-visible log and toast', () => {
   assert.match(
     playerSource,
-    /if \(error instanceof ApiError && error\.code === 'jianpu_syntax'\) \{\s*player\.unload\(\)\s*return/s,
+    /if \(error instanceof ApiError && error\.code === 'jianpu_syntax'\) \{[\s\S]*logStore\.addError[\s\S]*message\.error/s,
   )
-  assert.match(convertSource, /if \(isSyntaxValidationError\(e\)\) return/)
+  assert.match(convertSource, /function handleJianpuOutputBlocked/)
+  assert.match(convertSource, /无法\$\{action\}/)
+  assert.doesNotMatch(convertSource, /normalizeJianpuText\(\{ jianpu_text: savedJianpu/)
+  assert.match(convertSource, /markBatchRenderPageOcrClean\(\)/)
 })

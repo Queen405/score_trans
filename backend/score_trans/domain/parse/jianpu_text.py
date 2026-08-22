@@ -261,8 +261,12 @@ def _validate_part_measure_counts(text: str, parts: list[ParsedJianpuPart]) -> N
         for part in parts
     )
     first_marker = _PART_MARKER_RE.search(text)
-    line = text.count("\n", 0, first_marker.start()) + 1 if first_marker else 1
-    raise ValueError(f"第 {line} 行：各声部小节数量不一致：{details}")
+    token = (
+        _marker_token(text, first_marker.start(), first_marker.end())
+        if first_marker
+        else _Token(value="", line=1, column=1, start_utf16=0, end_utf16=0)
+    )
+    raise JianpuSyntaxError(token, f"各声部小节数量不一致：{details}")
 
 
 def _validate_marker_structure(text: str) -> None:
@@ -906,9 +910,16 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                 continue
             if key == "instrument":
                 if value not in ACCEPTED_INSTRUMENT_PROFILES:
-                    raise ValueError(
-                        f"第 {line_no} 行：不支持的乐器模式 {value}，"
-                        "请使用 " + "、".join(SUPPORTED_INSTRUMENT_PROFILES)
+                    raise JianpuSyntaxError(
+                        _token_with_offsets(
+                            stripped,
+                            line_no,
+                            raw_line.find(stripped),
+                            line_utf16_starts[line_no - 1],
+                            original_line,
+                        ),
+                        f"不支持的乐器模式 {value}，"
+                        "请使用 " + "、".join(SUPPORTED_INSTRUMENT_PROFILES),
                     )
                 options.instrument_profile = normalize_instrument_profile(value)
                 continue
@@ -1634,5 +1645,8 @@ def _syntax_error(token: _Token, message: str) -> ValueError:
 
 def _contextual_syntax_error(token: _Token | None, message: str) -> ValueError:
     if token is None:
-        return ValueError(message)
+        return JianpuSyntaxError(
+            _Token(value="", line=1, column=1, start_utf16=0, end_utf16=0),
+            message,
+        )
     return JianpuSyntaxError(token, message)

@@ -943,6 +943,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   let batchEngineVersion = ''
   let batchJianpuText = ''
   let renderPageOcrTexts: HistoryBatch['render_page_ocr_texts'] = []
+  let renderOutputStale = false
   let pageIndex = allPages.findIndex((p) => p.id === page.id)
   try {
     const batch = await fetchStableHistoryBatch(batchId)
@@ -951,6 +952,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     batchEngineVersion = batch.engine_version || ''
     batchJianpuText = batch.jianpu_text || ''
     renderPageOcrTexts = batch.render_page_ocr_texts || []
+    renderOutputStale = batch.render_output_stale ?? false
     if (expandedBatchId.value === batchId) {
       allPages = batch.pages
       expandedPages.value = batch.pages
@@ -997,13 +999,19 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     renderPageFileIds,
     batchJianpuText,
     renderPageOcrTexts,
+    renderOutputStale,
   )
   isViewingFinal.value = false
-  if (!renderPageFileIds.length || batchEngineVersion !== 'publication-4') {
+  if (
+    !renderPageFileIds.length
+    || batchEngineVersion !== 'publication-4'
+    || renderOutputStale
+  ) {
     try {
       renderPageFileIds = await renderFinalBatch()
     } catch (e: unknown) {
       if (isRenderAborted(e)) return
+      if (handleJianpuOutputBlocked('重新渲染历史记录', e)) return
       const detail = e instanceof Error ? e.message : String(e)
       log.addError(`历史记录重新排版失败：${detail}`)
       message.error(`历史记录重新排版失败：${detail}`)
@@ -1227,6 +1235,15 @@ function isSyntaxValidationError(error: unknown): boolean {
   return error instanceof ApiError && error.code === 'jianpu_syntax'
 }
 
+function handleJianpuOutputBlocked(action: string, error: unknown): boolean {
+  if (!isSyntaxValidationError(error)) return false
+  const raw = error instanceof Error ? error.message : String(error)
+  errorLine.value = extractErrorLineFromMessage(raw)
+  log.addError(`${action}失败：存在语法错误，无法${action}`)
+  message.error(`存在语法错误，无法${action}，请先修复`)
+  return true
+}
+
 async function exportScore(): Promise<void> {
   store.setBusy(true)
   errorLine.value = -1
@@ -1295,7 +1312,7 @@ async function exportScore(): Promise<void> {
   } catch (e: unknown) {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
-    if (isSyntaxValidationError(e)) return
+    if (handleJianpuOutputBlocked('导出', e)) return
     errorLine.value = extractErrorLineFromMessage(raw)
     log.addError(`导出失败：${raw}`)
     message.error(raw)
@@ -1446,7 +1463,7 @@ function mergePendingRecognitionResults(): void {
 }
 
 async function renderExportSvgIds(): Promise<string[]> {
-  if (store.currentBatchRenderPageOcrDirty) return renderFinalBatch()
+  if (store.currentBatchRenderOutputStale) return renderFinalBatch()
   if (store.currentBatchRenderPageFileIds.length) {
     setFinalSvgFileIds(store.currentBatchRenderPageFileIds)
     return finalSvgFileIds.value
@@ -1475,8 +1492,8 @@ async function renderFinalBatch(): Promise<string[]> {
     renderResponsePageOcrTexts(result.pages),
     false,
   )
-  await persistBatchRenderPages(ids)
-  await persistBatchRenderPageOcrTexts()
+  await persistBatchRenderPages(ids, undefined, false)
+  await persistBatchRenderPageOcrTexts(undefined, false)
   store.markBatchRenderPageOcrClean()
   return ids
 }
@@ -1525,7 +1542,7 @@ function buildBatchRenderSourcePages() {
 function currentRenderPageOcrTextsForRequest() {
   return renderPageOcrTextsForRequest(
     store.currentBatchRenderPageOcrTextEntries(),
-    store.currentBatchRenderPageOcrDirty,
+    store.currentBatchRenderOutputStale,
   )
 }
 
@@ -1548,11 +1565,13 @@ function currentHistoryBatchId(): number | null {
 async function persistBatchRenderPages(
   ids: string[],
   batchId: number | null = currentHistoryBatchId(),
+  renderOutputStale = false,
 ): Promise<void> {
-  if (!batchId || !ids.length) return
+  if (!batchId) return
   try {
     const updated = await requireData(historyApi.updateBatchRenderPages(batchId, {
       render_page_file_ids: ids,
+      render_output_stale: renderOutputStale,
     }))
     store.setBatchRenderPageFileIds(updated.render_page_file_ids ?? [])
   } catch (e: unknown) {
@@ -1562,13 +1581,18 @@ async function persistBatchRenderPages(
 
 async function persistBatchRenderPageOcrTexts(
   batchId: number | null = currentHistoryBatchId(),
+  renderOutputStale = false,
 ): Promise<void> {
   if (!batchId) return
   try {
     const updated = await requireData(historyApi.updateBatchRenderPageOcrTexts(batchId, {
       pages: store.currentBatchRenderPageOcrTextEntries(),
+      render_output_stale: renderOutputStale,
     }))
-    store.setBatchRenderPageOcrTexts(updated.render_page_ocr_texts || [], false)
+    store.setBatchRenderPageOcrTexts(
+      updated.render_page_ocr_texts || [],
+      updated.render_output_stale ?? renderOutputStale,
+    )
   } catch (e: unknown) {
     log.addLog(`保存连续 A4 文字层失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
   }
@@ -1763,18 +1787,18 @@ async function saveJianpu(): Promise<void> {
   store.setBusy(true)
   errorLine.value = -1
   try {
-    const ids = store.currentBatchRenderPageOcrDirty
-      ? await renderFinalBatch()
-      : (finalSvgFileIds.value.length ? finalSvgFileIds.value : currentPageSvgIds())
-    await persistRenderedHistory(ids[0] || store.svgFileId || '', ids)
+    const ids = finalSvgFileIds.value.length ? finalSvgFileIds.value : currentPageSvgIds()
+    await persistRenderedHistory(
+      ids[0] || store.svgFileId || '',
+      ids,
+      store.currentBatchRenderOutputStale,
+    )
     store.markBatchJianpuClean()
-    store.markBatchRenderPageOcrClean()
     log.addLog('已保存 OMR、简谱和 OCR 信息')
     message.success('已保存')
   } catch (e: unknown) {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
-    if (isSyntaxValidationError(e)) return
     errorLine.value = extractErrorLineFromMessage(raw)
     log.addError(`保存失败：${raw}`)
     message.error(raw)
@@ -1836,7 +1860,7 @@ async function toggleFinalView(): Promise<void> {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
-    if (isSyntaxValidationError(e)) return
+    if (handleJianpuOutputBlocked('渲染', e)) return
     errorLine.value = extractErrorLineFromMessage(msg)
     log.addError(`渲染失败：${msg}`)
     message.error(msg)
@@ -1846,11 +1870,12 @@ async function toggleFinalView(): Promise<void> {
   }
 }
 
-async function persistRenderedHistory(svgFileId: string, renderPageFileIds: string[]): Promise<void> {
+async function persistRenderedHistory(
+  svgFileId: string,
+  renderPageFileIds: string[],
+  renderOutputStale: boolean,
+): Promise<void> {
   const savedJianpu = jianpuText.value
-  if (savedJianpu.trim()) {
-    await requireData(publicationRender.normalizeJianpuText({ jianpu_text: savedJianpu, title: '简谱' }))
-  }
   const sections = parseJianpuPageSections(savedJianpu)
   const currentPageIndex = Math.max(0, currentBatchLocalIndex.value)
   const currentSection = sections.find((section) => section.pageIndex === currentPageIndex)
@@ -1885,8 +1910,8 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     const updated = await requireData(historyApi.updatePage(store.historyPageId, payload))
     replaceExpandedHistoryPage(updated)
     await persistOtherHistoryPageSections(savedJianpu, store.historyPageId)
-    await persistBatchRenderPages(renderPageFileIds)
-    await persistBatchRenderPageOcrTexts()
+    await persistBatchRenderPages(renderPageFileIds, undefined, renderOutputStale)
+    await persistBatchRenderPageOcrTexts(undefined, renderOutputStale)
     return
   }
 
@@ -1897,6 +1922,7 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
     jianpu_text: savedJianpu,
     render_page_file_ids: renderPageFileIds,
     render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
+    render_output_stale: renderOutputStale,
     pages: batchPages.map((page, pageIndex) => {
       const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
       return {
@@ -1931,8 +1957,8 @@ async function persistRenderedHistory(svgFileId: string, renderPageFileIds: stri
   })
   const pageId = created.pages[currentPageIndex]?.id ?? created.pages[0]?.id
   if (pageId) {
-    await persistBatchRenderPages(renderPageFileIds, created.id)
-    await persistBatchRenderPageOcrTexts(created.id)
+    await persistBatchRenderPages(renderPageFileIds, created.id, renderOutputStale)
+    await persistBatchRenderPageOcrTexts(created.id, renderOutputStale)
     await loadHistory()
   }
 }

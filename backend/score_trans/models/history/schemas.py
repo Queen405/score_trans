@@ -88,6 +88,7 @@ class BatchCreateRequest(BaseModel):
     jianpu_text: str = ""
     render_page_file_ids: list[str] = Field(default_factory=list)
     render_page_ocr_texts: list[RenderPageOcrText] = Field(default_factory=list)
+    render_output_stale: bool = False
 
 
 class BatchResponse(BaseModel):
@@ -100,6 +101,7 @@ class BatchResponse(BaseModel):
     engine_version: str = "publication-4"
     document_revision: str = ""
     render_page_ocr_texts: list[RenderPageOcrText] = Field(default_factory=list)
+    render_output_stale: bool = False
     pages: list[PageResponse]
 
 
@@ -118,6 +120,7 @@ class DeleteAllResponse(BaseModel):
 
 class BatchRenderPagesUpdate(BaseModel):
     render_page_file_ids: list[str]
+    render_output_stale: bool = False
 
 
 class BatchJianpuTextUpdate(BaseModel):
@@ -126,6 +129,7 @@ class BatchJianpuTextUpdate(BaseModel):
 
 class BatchRenderPageOcrTextsUpdate(BaseModel):
     pages: list[RenderPageOcrText]
+    render_output_stale: bool = True
 
 
 class BatchPageOrderItem(BaseModel):

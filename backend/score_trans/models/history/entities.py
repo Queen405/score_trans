@@ -51,6 +51,7 @@ class HistoryBatch:
     engine_version: str = "publication-4"
     document_revision: str = ""
     render_page_ocr_texts: list[HistoryRenderPageOcrText] = field(default_factory=list)
+    render_output_stale: bool = False
     pages: list[HistoryPage] = field(default_factory=list)
 
 

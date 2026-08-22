@@ -4,7 +4,7 @@ import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { historyApi } from '../api/history'
 import { filesApi } from '../api/files'
-import { requireData } from '../api/client'
+import { ApiError, requireData } from '../api/client'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import {
   isPreviewableHistoryFile,
@@ -12,7 +12,11 @@ import {
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import type { HistoryBatch, HistoryBatchListItem, HistoryPage } from '../models/types'
 import type { TaskPage } from '../stores/workspace'
-import { buildBatchRenderRequests, renderResponsePageIds } from '../utils/batchRender'
+import {
+  buildBatchRenderRequests,
+  renderResponsePageIds,
+  renderResponsePageOcrTexts,
+} from '../utils/batchRender'
 import { usePublicationRender } from './usePublicationRender'
 import { isRenderAborted } from '../utils/renderAbort'
 
@@ -51,9 +55,14 @@ export function useHistoryRestore() {
       renderPageFileIds,
       batch.jianpu_text || '',
       batch.render_page_ocr_texts || [],
+      batch.render_output_stale ?? false,
     )
     await validateRestoredBatchFiles(pages, renderPageFileIds)
-    if (!renderPageFileIds.length || batch.engine_version !== 'publication-4') {
+    if (
+      !renderPageFileIds.length
+      || batch.engine_version !== 'publication-4'
+      || batch.render_output_stale
+    ) {
       const outcome = await rebuildPublicationPages(batch)
       if (outcome !== 'completed') return true
     }
@@ -97,13 +106,24 @@ export function useHistoryRestore() {
       }))
       const ids = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
       store.setBatchRenderPageFileIds(ids)
+      store.setBatchRenderPageOcrTexts(
+        renderResponsePageOcrTexts(rendered.pages),
+        false,
+      )
       await requireData(historyApi.updateBatchRenderPages(batch.id, {
         render_page_file_ids: ids,
+        render_output_stale: false,
       }))
       log.addLog(`历史记录已由新版出版渲染器重建，共 ${ids.length} 页。`)
       return 'completed'
     } catch (error: unknown) {
       if (isRenderAborted(error)) return 'aborted'
+      if (error instanceof ApiError && error.code === 'jianpu_syntax') {
+        const msg = '历史记录存在语法错误，无法重新渲染，请先修复'
+        log.addError(msg)
+        message.error(msg)
+        return 'failed'
+      }
       const detail = error instanceof Error ? error.message : String(error)
       log.addLog(`历史谱面重建失败：${detail}`, 'warn')
       message.warning(`历史数据已恢复，但谱面需要重新渲染：${detail}`)

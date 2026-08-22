@@ -15,16 +15,19 @@
         <span class="editor-page-number">P{{ page.pageNumber }}</span>
         <span class="editor-page-range">{{ pageRangeText(page) }}</span>
       </button>
-      <n-input-number
-        v-model:value="initialMeasureNumberModel"
-        class="editor-initial-measure-number"
-        size="tiny"
-        :min="1"
-        :precision="0"
-        :show-button="false"
-        placeholder="起始小节号"
-        aria-label="第一页起始小节号"
-      />
+      <div class="editor-initial-measure-group">
+        <span class="editor-initial-measure-label">修改起始小节号</span>
+        <n-input-number
+          v-model:value="initialMeasureNumberModel"
+          class="editor-initial-measure-number"
+          size="tiny"
+          :min="1"
+          :precision="0"
+          :show-button="false"
+          placeholder="起始小节号"
+          aria-label="第一页起始小节号"
+        />
+      </div>
     </div>
     <div class="editor-body">
       <div
@@ -588,9 +591,21 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   color: var(--text-muted, #777);
 }
 
-.editor-initial-measure-number {
-  flex: 0 0 112px;
+.editor-initial-measure-group {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-initial-measure-label {
+  font-size: 11px;
+  color: var(--text-muted, #777);
+  white-space: nowrap;
+}
+
+.editor-initial-measure-number {
+  flex: 0 0 72px;
 }
 
 .editor-body {

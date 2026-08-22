@@ -1371,10 +1371,12 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
         }
         const updated = await requireData(historyApi.updateBatchRenderPages(historyBatchId, {
           render_page_file_ids: ids,
+          render_output_stale: false,
         }))
         store.setBatchRenderPageFileIds(updated.render_page_file_ids ?? [], batchId)
         const ocrUpdated = await requireData(historyApi.updateBatchRenderPageOcrTexts(historyBatchId, {
           pages: store.batchRenderPageOcrTextsFor(batchId),
+          render_output_stale: false,
         }))
         store.setBatchRenderPageOcrTexts(ocrUpdated.render_page_ocr_texts || [], false, batchId)
         notifyHistoryUpdated()
@@ -1422,7 +1424,10 @@ async function clearBatchRenderPages(batchId: string): Promise<void> {
   const historyBatchId = historyBatchIdForPages(store.pages.filter((page) => page.batchId === batchId))
   if (!historyBatchId) return
   try {
-    await requireData(historyApi.updateBatchRenderPages(historyBatchId, { render_page_file_ids: [] }))
+    await requireData(historyApi.updateBatchRenderPages(historyBatchId, {
+      render_page_file_ids: [],
+      render_output_stale: true,
+    }))
     notifyHistoryUpdated()
   } catch (error: unknown) {
     log.addLog(`清理连续 A4 渲染页失败：${errorMessage(error)}`, 'warn')

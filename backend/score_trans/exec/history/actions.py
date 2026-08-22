@@ -77,6 +77,7 @@ class HistoryActions:
                     )
                     for item in req.render_page_ocr_texts
                 ],
+                render_output_stale=req.render_output_stale,
             )
         )
 
@@ -123,7 +124,9 @@ class HistoryActions:
         self, batch_id: int, req: BatchRenderPagesUpdate
     ) -> BatchResponse:
         batch = self.service.update_batch_render_pages(
-            batch_id, req.render_page_file_ids
+            batch_id,
+            req.render_page_file_ids,
+            render_output_stale=req.render_output_stale,
         )
         if not batch:
             raise FileNotFoundError("Batch not found")
@@ -149,6 +152,7 @@ class HistoryActions:
                 )
                 for item in req.pages
             ],
+            render_output_stale=req.render_output_stale,
         )
         if not batch:
             raise FileNotFoundError("Batch not found")
@@ -215,6 +219,7 @@ def _batch_to_response(batch: HistoryBatch) -> BatchResponse:
             )
             for item in batch.render_page_ocr_texts
         ],
+        render_output_stale=batch.render_output_stale,
         pages=[_page_to_response(p) for p in batch.pages],
     )
 

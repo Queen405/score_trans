@@ -12,7 +12,11 @@ from ...domain.jianpu import (
 from ...domain.parse.jianpu_text import parse_jianpu_parts
 from ...domain.provenance import apply_text_anchors_to_parts
 from ...domain.text_placement import place_source_text_attachments
-from ...models.common.errors import RenderError
+from ...models.common.errors import (
+    CodedValidationError,
+    JianpuValidationError,
+    RenderError,
+)
 from ...models.common.types import (
     AccidentalMode,
     InstrumentProfile,
@@ -381,6 +385,8 @@ class RenderActions:
         for index, page in enumerate(req.pages):
             try:
                 page_scores = self._build_batch_page_scores(req, page)
+            except CodedValidationError:
+                raise
             except ValueError as exc:
                 page_label = f"第 {index + 1} 页"
                 if page.input_file_name:
@@ -772,7 +778,7 @@ def _validate_multi_part_measure_counts(scores: list[JianpuScore]) -> None:
         f"{score.part_name or f'声部{index + 1}'}={counts[index]}"
         for index, score in enumerate(scores)
     )
-    raise ValueError(f"各声部小节数量不一致：{details}")
+    raise JianpuValidationError(f"各声部小节数量不一致：{details}")
 
 
 def _parse_ocr_text(payload: str) -> list[TextBlock]:

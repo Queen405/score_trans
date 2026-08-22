@@ -162,6 +162,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const batchRenderPageFileIds = ref<Record<string, string[]>>({})
   const batchRenderPageOcrTexts = ref<Record<string, Record<number, string>>>({})
   const batchRenderPageOcrDirty = ref<Record<string, Record<number, boolean>>>({})
+  const batchRenderOutputStale = ref<Record<string, boolean>>({})
   const batchJianpuTexts = ref<Record<string, string>>({})
   const batchJianpuDirty = ref<Record<string, boolean>>({})
   const batchJianpuPendingPageIds = ref<Record<string, string[]>>({})
@@ -364,11 +365,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (!batchId) return []
     return batchJianpuPendingPageIds.value[batchId] ?? []
   })
-  const currentBatchRenderPageOcrDirty = computed(() => {
+  const currentBatchRenderOutputStale = computed(() => {
     const batchId = currentBatchId.value
     if (!batchId) return false
-    return Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean)
+    return batchRenderOutputStale.value[batchId] === true
+      || Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean)
   })
+  const currentBatchRenderPageOcrDirty = currentBatchRenderOutputStale
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
@@ -483,6 +486,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       ...batchRenderPageFileIds.value,
       [batchId]: [...fileIds],
     }
+    if (!fileIds.length) {
+      batchRenderOutputStale.value = {
+        ...batchRenderOutputStale.value,
+        [batchId]: true,
+      }
+    }
   }
 
   function reindexBatchPageMap<T>(
@@ -514,6 +523,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       batchRenderPageFileIds.value = omitBatchRecord(batchRenderPageFileIds.value, batchId)
       batchRenderPageOcrTexts.value = omitBatchRecord(batchRenderPageOcrTexts.value, batchId)
       batchRenderPageOcrDirty.value = omitBatchRecord(batchRenderPageOcrDirty.value, batchId)
+      batchRenderOutputStale.value = omitBatchRecord(batchRenderOutputStale.value, batchId)
       batchJianpuTexts.value = omitBatchRecord(batchJianpuTexts.value, batchId)
       batchJianpuDirty.value = omitBatchRecord(batchJianpuDirty.value, batchId)
       batchJianpuPendingPageIds.value = omitBatchRecord(batchJianpuPendingPageIds.value, batchId)
@@ -577,11 +587,17 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         [pageIndex]: dirty,
       },
     }
+    if (dirty) {
+      batchRenderOutputStale.value = {
+        ...batchRenderOutputStale.value,
+        [batchId]: true,
+      }
+    }
   }
 
   function setBatchRenderPageOcrTexts(
     items: RenderPageOcrText[],
-    dirty = false,
+    stale = false,
     batchId = currentBatchId.value,
   ): void {
     if (!batchId) return
@@ -590,7 +606,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     for (const item of items) {
       if (item.page_index < 0) continue
       textMap[item.page_index] = item.ocr_text
-      dirtyMap[item.page_index] = dirty
+      dirtyMap[item.page_index] = stale
     }
     batchRenderPageOcrTexts.value = {
       ...batchRenderPageOcrTexts.value,
@@ -599,6 +615,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchRenderPageOcrDirty.value = {
       ...batchRenderPageOcrDirty.value,
       [batchId]: dirtyMap,
+    }
+    batchRenderOutputStale.value = {
+      ...batchRenderOutputStale.value,
+      [batchId]: stale,
     }
   }
 
@@ -630,7 +650,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   function isBatchRenderPageOcrDirty(batchId: string): boolean {
-    return Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean)
+    return batchRenderOutputStale.value[batchId] === true
+      || Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean)
   }
 
   function markBatchRenderPageOcrClean(batchId = currentBatchId.value): void {
@@ -642,6 +663,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchRenderPageOcrDirty.value = {
       ...batchRenderPageOcrDirty.value,
       [batchId]: cleanMap,
+    }
+    batchRenderOutputStale.value = {
+      ...batchRenderOutputStale.value,
+      [batchId]: false,
     }
   }
 
@@ -881,6 +906,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchRenderPageFileIds.value = {}
     batchRenderPageOcrTexts.value = {}
     batchRenderPageOcrDirty.value = {}
+    batchRenderOutputStale.value = {}
     batchJianpuTexts.value = {}
     batchJianpuDirty.value = {}
     batchJianpuPendingPageIds.value = {}
@@ -943,6 +969,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     renderPageFileIds: string[] = [],
     batchJianpuText = '',
     renderPageOcrTexts: RenderPageOcrText[] = [],
+    renderOutputStale = false,
   ) {
     const random = Math.random().toString(36).slice(2, 8)
     const bid = `batch-${Date.now().toString(36)}-${random}`
@@ -986,7 +1013,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         [bid]: [...renderPageFileIds],
       }
     }
-    setBatchRenderPageOcrTexts(renderPageOcrTexts, false, bid)
+    setBatchRenderPageOcrTexts(renderPageOcrTexts, renderOutputStale, bid)
     batchJianpuTexts.value = {
       ...batchJianpuTexts.value,
       [bid]: restoreJianpuPageText(batchJianpuText, batchPages),
@@ -1037,6 +1064,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchRenderPageFileIds,
     batchRenderPageOcrTexts,
     batchRenderPageOcrDirty,
+    batchRenderOutputStale,
     batchJianpuTexts,
     batchJianpuDirty,
     batchJianpuPendingPageIds,
@@ -1049,6 +1077,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     canNextPage,
     activePageTaskCount,
     currentBatchRenderPageFileIds,
+    currentBatchRenderOutputStale,
     currentBatchRenderPageOcrDirty,
     currentBatchJianpuText,
     currentBatchJianpuDirty,

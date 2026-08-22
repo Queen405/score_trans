@@ -17,7 +17,7 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 5
+_SCHEMA_VERSION = 6
 _MIN_SQLITE_VERSION = (3, 35, 0)
 
 _PAGE_FILE_ID_COLUMNS = (
@@ -110,6 +110,7 @@ class HistoryDao:
                 jianpu_text TEXT NOT NULL DEFAULT '',
                 render_page_file_ids TEXT NOT NULL DEFAULT '[]',
                 render_page_ocr_texts TEXT NOT NULL DEFAULT '[]',
+                render_output_stale INTEGER NOT NULL DEFAULT 0,
                 status TEXT NOT NULL DEFAULT 'completed'
                 ,engine_version TEXT NOT NULL DEFAULT ''
                 ,document_revision TEXT NOT NULL DEFAULT ''
@@ -258,20 +259,22 @@ class HistoryDao:
         render_page_file_ids: list[str] | None = None,
         jianpu_text: str = "",
         render_page_ocr_texts: list[HistoryRenderPageOcrText] | None = None,
+        render_output_stale: bool = False,
     ) -> HistoryBatch:
         with self._connect() as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO history_batch
                     (page_count, jianpu_text, render_page_file_ids, render_page_ocr_texts,
-                     engine_version, document_revision)
-                VALUES (?, ?, ?, ?, ?, '')
+                     render_output_stale, engine_version, document_revision)
+                VALUES (?, ?, ?, ?, ?, ?, '')
                 """,
                 (
                     len(pages),
                     jianpu_text,
                     _dump_render_page_file_ids(render_page_file_ids or []),
                     _dump_render_page_ocr_texts(render_page_ocr_texts or []),
+                    int(render_output_stale),
                     "publication-4" if render_page_file_ids else "",
                 ),
             )
@@ -328,7 +331,11 @@ class HistoryDao:
             return self._row_to_batch(conn, row)
 
     def update_batch_render_pages(
-        self, batch_id: int, render_page_file_ids: list[str]
+        self,
+        batch_id: int,
+        render_page_file_ids: list[str],
+        *,
+        render_output_stale: bool = False,
     ) -> HistoryBatch | None:
         with self._connect() as conn:
             exists = conn.execute(
@@ -338,10 +345,11 @@ class HistoryDao:
                 return None
             conn.execute(
                 """UPDATE history_batch
-                   SET render_page_file_ids = ?, engine_version = ?
+                   SET render_page_file_ids = ?, render_output_stale = ?, engine_version = ?
                    WHERE id = ?""",
                 (
                     _dump_render_page_file_ids(render_page_file_ids),
+                    int(render_output_stale),
                     "publication-4" if render_page_file_ids else "",
                     batch_id,
                 ),
@@ -362,7 +370,7 @@ class HistoryDao:
             if not exists:
                 return None
             conn.execute(
-                "UPDATE history_batch SET jianpu_text = ? WHERE id = ?",
+                "UPDATE history_batch SET jianpu_text = ?, render_output_stale = 1 WHERE id = ?",
                 (jianpu_text, batch_id),
             )
             conn.commit()
@@ -375,6 +383,8 @@ class HistoryDao:
         self,
         batch_id: int,
         render_page_ocr_texts: list[HistoryRenderPageOcrText],
+        *,
+        render_output_stale: bool = True,
     ) -> HistoryBatch | None:
         with self._connect() as conn:
             exists = conn.execute(
@@ -383,8 +393,14 @@ class HistoryDao:
             if not exists:
                 return None
             conn.execute(
-                "UPDATE history_batch SET render_page_ocr_texts = ? WHERE id = ?",
-                (_dump_render_page_ocr_texts(render_page_ocr_texts), batch_id),
+                """UPDATE history_batch
+                   SET render_page_ocr_texts = ?, render_output_stale = ?
+                   WHERE id = ?""",
+                (
+                    _dump_render_page_ocr_texts(render_page_ocr_texts),
+                    int(render_output_stale),
+                    batch_id,
+                ),
             )
             conn.commit()
             row = conn.execute(
@@ -543,7 +559,8 @@ class HistoryDao:
                 UPDATE history_batch
                 SET jianpu_text = ?,
                     render_page_file_ids = '[]',
-                    render_page_ocr_texts = '[]'
+                    render_page_ocr_texts = '[]',
+                    render_output_stale = 1
                 WHERE id = ?
                 """,
                 (jianpu_text, batch_id),
@@ -651,6 +668,10 @@ class HistoryDao:
             conn.execute(
                 "ALTER TABLE history_batch ADD COLUMN render_page_ocr_texts TEXT NOT NULL DEFAULT '[]'"
             )
+        if "render_output_stale" not in batch_columns:
+            conn.execute(
+                "ALTER TABLE history_batch ADD COLUMN render_output_stale INTEGER NOT NULL DEFAULT 0"
+            )
         if "engine_version" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN engine_version TEXT NOT NULL DEFAULT ''"
@@ -690,7 +711,8 @@ class HistoryDao:
             conn.execute(
                 "UPDATE history_batch SET render_page_file_ids = '[]', engine_version = ''"
             )
-        HistoryDao._clear_history_for_v5(conn)
+        if version < 5:
+            HistoryDao._clear_history_for_v5(conn)
         HistoryDao._ensure_indexes(conn)
         conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
@@ -750,6 +772,11 @@ class HistoryDao:
                 row["render_page_ocr_texts"]
                 if "render_page_ocr_texts" in row.keys()
                 else "[]"
+            ),
+            render_output_stale=bool(
+                row["render_output_stale"]
+                if "render_output_stale" in row.keys()
+                else 0
             ),
             engine_version=(
                 row["engine_version"] if "engine_version" in row.keys() else ""

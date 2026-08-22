@@ -46,3 +46,9 @@ class CodedValidationError(ValueError):
     """
 
     error_code: str = ""
+
+
+class JianpuValidationError(CodedValidationError):
+    """Raised when Jianpu input cannot be rendered or exported."""
+
+    error_code = "jianpu_syntax"
