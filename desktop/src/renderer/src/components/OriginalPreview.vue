@@ -115,6 +115,7 @@ import { fetchFileBlob } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
+import { useSettingsStore } from '../stores/settings'
 import type { CorrectableEntityDTO } from '../models/types'
 
 const props = defineProps<{
@@ -151,13 +152,14 @@ interface SourceMap {
   sheets: SourceMapSheet[]
 }
 
+const settings = useSettingsStore()
 const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
 const fileUrl = ref('')
 const overlayImgUrl = ref('')
-const showOverlay = ref(true)
+const showOverlay = ref(settings.showRecognitionOverlay)
 const sourceMap = ref<SourceMap | null>(null)
 
 const pdfFitUrl = computed(() =>
@@ -204,6 +206,7 @@ watch(fileUrl, async (url) => {
 watch(
   () => props.fileId,
   async (fileId, _previous, onCleanup) => {
+    showOverlay.value = settings.showRecognitionOverlay
     const controller = new AbortController()
     let active = true
     onCleanup(() => {

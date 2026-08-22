@@ -167,6 +167,17 @@ def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:
     assert version == 5
 
 
+def test_history_render_pages_use_current_publication_engine_version(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", svg_file_id="svg-1")],
+        render_page_file_ids=["svg-1"],
+    )
+
+    assert batch.engine_version == "publication-4"
+    assert batch.pages[0].engine_version == "publication-4"
+
+
 def test_history_rejects_sqlite_older_than_335(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(sqlite3, "sqlite_version_info", (3, 34, 1))
     monkeypatch.setattr(sqlite3, "sqlite_version", "3.34.1")

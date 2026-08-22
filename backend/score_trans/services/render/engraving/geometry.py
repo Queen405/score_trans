@@ -207,11 +207,35 @@ def _mark_label(mark_id: str) -> str:
 def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...]:
     rows = pitch_layouts(event, style)
     attachment_top = min((row.note_box.top for row in rows), default=-31.0)
+    attachment_bottom = max((row.note_box.bottom for row in rows), default=0.0)
+    horizontal_left = min((row.note_box.left for row in rows), default=-7.0)
+    horizontal_right = max((row.note_box.right for row in rows), default=7.0)
     for row in rows:
         if row.accidental_box is not None:
             attachment_top = min(attachment_top, row.accidental_box.top)
+            horizontal_left = min(horizontal_left, row.accidental_box.left)
+            horizontal_right = max(horizontal_right, row.accidental_box.right)
         for dot_box in row.octave_boxes:
             attachment_top = min(attachment_top, dot_box.top)
+            attachment_bottom = max(attachment_bottom, dot_box.bottom)
+
+    if event.dotted:
+        horizontal_right = max(
+            horizontal_right,
+            17.0
+            + (event.dotted - 1) * style.rhythm_dot_step
+            + style.rhythm_dot_radius,
+        )
+    if event.duration > 1:
+        extensions = max(0, math.ceil(float(event.duration)) - 1)
+        if extensions:
+            extension_start = _duration_extension_start(event, style)
+            horizontal_right = max(
+                horizontal_right,
+                extension_start
+                + (extensions - 1) * style.extension_line_step
+                + 11.0,
+            )
 
     mark_ids = list(
         dict.fromkeys([*event.articulations, *event.ornaments, *event.technical])
@@ -220,6 +244,8 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
         mark_ids.insert(0, event.articulation)
 
     placement_counts: dict[str, int] = {}
+    above_cursor = attachment_top - style.event_clearance
+    below_right_cursor = attachment_bottom + style.event_clearance
     layouts: list[MarkLayout] = []
     for mark_id in mark_ids:
         if mark_id in event.articulations or mark_id == event.articulation:
@@ -233,29 +259,37 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
         placement_index = placement_counts.get(placement, 0)
         placement_counts[placement] = placement_index + 1
         label = _mark_label(mark_id)
-        if placement == "left":
-            x, y = -24.0, -2.0
-        elif placement == "right":
-            x, y = 24.0, -2.0
-        elif placement == "below-right":
-            x, y = 22.0, 20.0 + placement_index * 16.0
-        else:
-            vertical_offset = 20.0 if len(label) > 3 else 0.0
-            x = 0.0
-            y = (
-                attachment_top
-                - style.event_clearance
-                - placement_index * 16.0
-                - vertical_offset
-            )
         is_staccato = mark_id == "staccato"
         if is_staccato:
             radius = style.staccato_radius
-            ink_box = InkBox(x - radius, y - radius, x + radius, y + radius)
+            base_box = InkBox(-radius, -radius, radius, radius)
         else:
-            ink_box = _translated(
-                _centered_text_box(label, style.annotation_size), x, y
+            base_box = _centered_text_box(label, style.annotation_size)
+        if placement == "left":
+            x = (
+                horizontal_left
+                - style.mark_clearance
+                - base_box.right
+                - placement_index * (base_box.width + style.mark_stack_gap)
             )
+            y = -2.0
+        elif placement == "right":
+            x = (
+                horizontal_right
+                + style.mark_clearance
+                - base_box.left
+                + placement_index * (base_box.width + style.mark_stack_gap)
+            )
+            y = -2.0
+        elif placement == "below-right":
+            x = horizontal_right + style.mark_clearance
+            y = below_right_cursor - base_box.top
+            below_right_cursor = y + base_box.bottom + style.mark_stack_gap
+        else:
+            x = 0.0
+            y = above_cursor - base_box.bottom
+            above_cursor = y + base_box.top - style.mark_stack_gap
+        ink_box = _translated(base_box, x, y)
         layouts.append(MarkLayout(mark_id, role, label, x, y, ink_box, is_staccato))
     return tuple(layouts)
 
@@ -315,6 +349,26 @@ def _dynamic_baseline(event: Event, style: PublicationStyle) -> float:
         + style.dynamic_clearance
         - ink_top,
     )
+
+
+def _lyric_baseline(event: Event, style: PublicationStyle) -> float:
+    if not event.lyric:
+        return 44.0
+    _left, lyric_top, _right, _bottom = font_registry().ink_bounds(
+        event.lyric, style.lyric_size
+    )
+    baseline = max(
+        44.0,
+        _event_attachment_bottom(event, style) + style.lyric_clearance - lyric_top,
+    )
+    if event.dynamic:
+        dynamic_box = _centered_text_box(event.dynamic, style.annotation_size)
+        dynamic_bottom = _dynamic_baseline(event, style) + dynamic_box.bottom
+        baseline = max(
+            baseline,
+            dynamic_bottom + style.lyric_clearance - lyric_top,
+        )
+    return baseline
 
 
 def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
@@ -389,8 +443,9 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
                 )
             )
     if event.lyric:
+        lyric_baseline = _lyric_baseline(event, style)
         lyric_box = _translated(
-            _centered_text_box(event.lyric, style.lyric_size), 0.0, 44.0
+            _centered_text_box(event.lyric, style.lyric_size), 0.0, lyric_baseline
         )
         parts.append(VisualPart("lyric", lyric_box))
         box = box.union(lyric_box)

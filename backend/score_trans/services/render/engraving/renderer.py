@@ -10,15 +10,17 @@ from typing import Literal
 
 from ....domain.performance_marks import get_performance_mark
 from ....models.common.types import MeasureNumberMode
-from ....models.score import Event, JianpuPitch, JianpuScore, Measure
+from ....models.score import Event, JianpuPitch, JianpuScore, Measure, TupletSpan
 from .fonts import font_registry
 from .geometry import (
     _dynamic_baseline,
     _duration_extension_start,
+    _lyric_baseline,
     mark_layouts,
     measure_event_ink,
     pitch_layouts,
 )
+from .qa import check_scene_geometry
 from .scene import BBox, PublicationScene, SceneNode
 from .style import PublicationStyle
 from .svg_backend import scene_to_svg
@@ -66,6 +68,25 @@ class _Anchor:
     continuation_start: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class SpanLayout:
+    kind: str
+    bbox: BBox
+    source_ids: tuple[str, ...] = ()
+    continuation: Literal["none", "start", "end"] = "none"
+    allow_overlap: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class TextLayout:
+    text: str
+    bbox: BBox
+    role: str
+    lane_index: int
+    font_size: float
+    source_ids: tuple[str, ...] = ()
+
+
 @dataclass(slots=True)
 class _OpenSpanners:
     tie: _Anchor | None = None
@@ -81,7 +102,7 @@ class PublicationRenderer:
     legacy token-layout or drawing helper is imported by this module.
     """
 
-    engine_version = "publication-3"
+    engine_version = "publication-4"
 
     def __init__(self, style: PublicationStyle | None = None) -> None:
         self.style = style or PublicationStyle()
@@ -137,6 +158,7 @@ class PublicationRenderer:
             note_end = next_note_index - 1 if next_note_index > note_start else None
             scene.note_index_start = note_start if note_end is not None else None
             scene.note_index_end = note_end
+            check_scene_geometry(scene, style)
             result.append(
                 PublicationPage(
                     svg=scene_to_svg(scene, style),
@@ -225,7 +247,9 @@ class PublicationRenderer:
         x = x0
         for part_index, state in enumerate(spanners):
             staff_y = y + part_index * (style.base_staff_height + style.part_gap)
-            _start_spanner_continuations(state, x0, staff_y + 43.0)
+            _start_spanner_continuations(
+                state, x0, staff_y + style.event_baseline
+            )
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
@@ -286,7 +310,7 @@ class PublicationRenderer:
             x += width
         for part_index, open_state in enumerate(spanners):
             staff_y = y + part_index * (style.base_staff_height + style.part_gap)
-            _finish_spanners(scene, open_state, x, staff_y)
+            _finish_spanners(scene, open_state, x, staff_y, style)
         return note_index
 
     def _draw_measure(
@@ -368,14 +392,14 @@ class PublicationRenderer:
                 style,
                 event,
                 event_x,
-                y + 43.0,
+                y + style.event_baseline,
                 note_index,
                 right_limit=inner_right,
             )
             anchors.append(anchor)
             if consumed:
                 note_index += 1
-            _route_spanners(scene, spanners, anchor, x, x + width)
+            _route_spanners(scene, spanners, anchor, x, x + width, style)
         _draw_rhythm_lines(scene, anchors, inner_left, inner_right, style)
         _draw_tuplets(scene, anchors, style)
         _draw_measure_text(scene, measure, x, y, width, style)
@@ -415,11 +439,11 @@ def _measure_bar_offsets(
             for box in row.octave_boxes:
                 notation_top = min(notation_top, box.top)
                 notation_bottom = max(notation_bottom, box.bottom)
-        top = min(top, 43.0 + notation_top - 3.0)
-        bottom = max(bottom, 43.0 + notation_bottom + 4.0)
+        top = min(top, style.event_baseline + notation_top - 3.0)
+        bottom = max(bottom, style.event_baseline + notation_bottom + 4.0)
         rhythm_lines = 0 if _is_tuplet(event) else _rhythm_line_count(event)
         if rhythm_lines:
-            base = 43.0 + _rhythm_line_offset(event, style)
+            base = style.event_baseline + _rhythm_line_offset(event, style)
             bottom = max(bottom, base + (rhythm_lines - 1) * 6.0 + 2.0)
     return top, bottom
 
@@ -557,7 +581,12 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
     extents = [_event_visual_extents(event, style) for event in events]
     common_shortest = _common_shortest_duration(events)
     gaps = _minimum_event_gaps(events, extents, common_shortest, style)
-    width = 42.0 + extents[-1][1] - extents[0][0] + sum(gaps)
+    width = (
+        style.measure_side_padding
+        + extents[-1][1]
+        - extents[0][0]
+        + sum(gaps)
+    )
     return max(style.minimum_measure_width, min(style.content_width, width))
 
 
@@ -712,7 +741,7 @@ def _paginate(systems: list[_System], style: PublicationStyle) -> list[list[_Sys
         ):
             pages.append(current)
             current = []
-            used = style.margin_top + 54.0
+            used = style.margin_top + style.continuation_header_height
             required = system.height
         current.append(system)
         used += required
@@ -739,6 +768,7 @@ def _system_extra_height(cells: list[_Cell], style: PublicationStyle) -> float:
                     or event.ornaments
                     or event.technical
                     or event.tuplet_count
+                    or event.tuplet_spans
                     or any(pitch.octave > 0 for pitch in event.pitches)
                 )
                 needs_bottom = needs_bottom or bool(
@@ -746,19 +776,20 @@ def _system_extra_height(cells: list[_Cell], style: PublicationStyle) -> float:
                     or event.dynamic
                     or any(pitch.octave < 0 for pitch in event.pitches)
                 )
-            unpositioned = [
-                block
-                for block in measure.text_blocks
-                if block.text and block.bbox is None and block.role != "measure_number"
-            ]
-            if unpositioned:
+            text_layouts = _measure_text_layout(measure, 0.0, cell.width, 0.0, style)
+            if text_layouts:
                 needs_bottom = True
-                text_depth = len(unpositioned) * 19.0
-                bottom_extra = max(bottom_extra, max(0.0, text_depth - 28.0))
+                text_depth = max(
+                    layout.bbox.y + layout.bbox.height for layout in text_layouts
+                )
+                bottom_extra = max(
+                    bottom_extra,
+                    max(0.0, text_depth - style.base_staff_height),
+                )
     return (
-        (24.0 if needs_top else 0.0)
+        (style.system_top_reserve if needs_top else 0.0)
         + top_extra
-        + (28.0 if needs_bottom else 0.0)
+        + (style.system_bottom_reserve if needs_bottom else 0.0)
         + bottom_extra
     )
 
@@ -950,7 +981,11 @@ def _bounded_event_positions(
     """
     if len(events) == 1:
         extent = extents[0]
-        return [max(left - extent[0], min(right - extent[1], ideal_positions[0]))]
+        minimum_center = left - extent[0]
+        maximum_center = right - extent[1]
+        if minimum_center > maximum_center:
+            return [(left + right) / 2]
+        return [max(minimum_center, min(maximum_center, ideal_positions[0]))]
     minimum_gaps = _minimum_event_gaps(
         events,
         extents,
@@ -1057,8 +1092,16 @@ def _draw_event(
             _draw_pitch(group, style, event, row.pitch, pitch_index, x, y + row.y)
     _draw_duration(group, event, x, y, style, right_limit=right_limit)
     if event.lyric:
+        lyric_baseline = _lyric_baseline(event, style)
         group.children.append(
-            _text("lyric", x, y + 44, event.lyric, style.lyric_size, anchor="middle")
+            _text(
+                "lyric",
+                x,
+                y + lyric_baseline,
+                event.lyric,
+                style.lyric_size,
+                anchor="middle",
+            )
         )
     if event.dynamic:
         dynamic_baseline = _dynamic_baseline(event, style)
@@ -1352,7 +1395,7 @@ def _draw_rhythm_run(
         baseline
         if baseline is not None
         else max(_rhythm_line_base(anchor, style) for anchor in anchors)
-    ) + (level - 1) * 6.0
+    ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0)
     source_ids = list(
         dict.fromkeys(
             source_id
@@ -1362,24 +1405,38 @@ def _draw_rhythm_run(
             )
         )
     )
-    x1 = anchors[0].x - 12
-    x2 = anchors[-1].x + 12
+    side_extent = style.rhythm_line_side_extent if style else 12.0
+    x1 = anchors[0].x - side_extent
+    x2 = anchors[-1].x + side_extent
     if left_limit is not None:
         x1 = max(x1, left_limit)
     if right_limit is not None:
         x2 = min(x2, right_limit)
     if x2 <= x1:
         return
+    stroke_width = 1.8
+    source_ids_tuple = tuple(source_ids)
+    layout = SpanLayout(
+        "rhythm",
+        BBox(
+            x1,
+            line_baseline - stroke_width / 2,
+            x2 - x1,
+            stroke_width,
+        ),
+        source_ids_tuple,
+    )
     node = _line(
         "duration-line beam-line",
         x1,
         line_baseline,
         x2,
         line_baseline,
-        1.8,
+        stroke_width,
     )
-    node.attrs.update(_semantic_attrs("note", source_ids))
+    node.attrs.update(_span_attrs(layout))
     scene.add(node)
+    scene.register_sources(list(layout.source_ids), layout.bbox)
 
 
 def _draw_explicit_beam_level(
@@ -1435,15 +1492,27 @@ def _draw_explicit_beam_level(
                 baseline
                 if baseline is not None
                 else _rhythm_line_base(anchor, style)
-            ) + (level - 1) * 6.0
+            ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0)
             if status == "forward-hook":
+                hook_length = style.beam_hook_length if style else 18.0
                 hook = [
                     _Anchor(anchor.x, anchor.y, anchor.bbox, anchor.event),
-                    _Anchor(anchor.x + 18, anchor.y, anchor.bbox, anchor.event),
+                    _Anchor(
+                        anchor.x + hook_length,
+                        anchor.y,
+                        anchor.bbox,
+                        anchor.event,
+                    ),
                 ]
             else:
+                hook_length = style.beam_hook_length if style else 18.0
                 hook = [
-                    _Anchor(anchor.x - 18, anchor.y, anchor.bbox, anchor.event),
+                    _Anchor(
+                        anchor.x - hook_length,
+                        anchor.y,
+                        anchor.bbox,
+                        anchor.event,
+                    ),
                     _Anchor(anchor.x, anchor.y, anchor.bbox, anchor.event),
                 ]
             x1 = hook[0].x
@@ -1454,15 +1523,31 @@ def _draw_explicit_beam_level(
                 x2 = min(x2, right_limit)
             if x2 <= x1:
                 continue
+            stroke_width = 1.8
+            source_ids = tuple(
+                anchor.event.source_roles.get("note", []) or anchor.event.source_ids
+            )
+            layout = SpanLayout(
+                "beam-hook",
+                BBox(
+                    x1,
+                    line_baseline - stroke_width / 2,
+                    x2 - x1,
+                    stroke_width,
+                ),
+                source_ids,
+            )
             node = _line(
                 "duration-line beam-line",
                 x1,
                 line_baseline,
                 x2,
                 line_baseline,
-                1.8,
+                stroke_width,
             )
+            node.attrs.update(_span_attrs(layout))
             scene.add(node)
+            scene.register_sources(list(layout.source_ids), layout.bbox)
         elif run:
             _draw_rhythm_run(
                 scene,
@@ -1530,6 +1615,7 @@ def _route_spanners(
     anchor: _Anchor,
     left: float,
     right: float,
+    style: PublicationStyle,
 ) -> None:
     event = anchor.event
     for kind in ("tie", "slur", "slide"):
@@ -1537,14 +1623,15 @@ def _route_spanners(
         stop = bool(getattr(event, f"{kind}_stop"))
         current = getattr(state, kind)
         if stop and current is not None:
-            scene.add(
-                _spanner(
-                    kind,
-                    current,
-                    anchor,
-                    continuation_start=current.continuation_start,
-                )
+            node = _spanner(
+                kind,
+                current,
+                anchor,
+                style=style,
+                continuation_start=current.continuation_start,
             )
+            scene.add(node)
+            _register_span_node(scene, node)
             setattr(state, kind, None)
             state.continuations.discard(kind)
         if start:
@@ -1573,7 +1660,11 @@ def _start_spanner_continuations(
 
 
 def _finish_spanners(
-    scene: PublicationScene, state: _OpenSpanners, right: float, staff_y: float
+    scene: PublicationScene,
+    state: _OpenSpanners,
+    right: float,
+    staff_y: float,
+    style: PublicationStyle,
 ) -> None:
     for kind in ("tie", "slur", "slide"):
         current = getattr(state, kind)
@@ -1582,7 +1673,9 @@ def _finish_spanners(
         end = _Anchor(
             right - 3, current.y, BBox(right - 3, current.y, 1, 1), current.event
         )
-        scene.add(_spanner(kind, current, end, continuation=True))
+        node = _spanner(kind, current, end, style=style, continuation=True)
+        scene.add(node)
+        _register_span_node(scene, node)
         state.continuations.add(kind)
 
 
@@ -1590,26 +1683,45 @@ def _spanner(
     kind: str,
     start: _Anchor,
     end: _Anchor,
+    style: PublicationStyle | None = None,
     continuation: bool = False,
     continuation_start: bool = False,
 ) -> SceneNode:
+    resolved_style = style or PublicationStyle()
     if kind == "slide":
-        delta = -13 if (start.event.slide_direction or "up") == "up" else 13
-        d = f"M {start.x + 13:g} {start.y - 3:g} L {end.x - 13:g} {end.y + delta:g}"
+        delta = (
+            -resolved_style.slide_endpoint_offset
+            if (start.event.slide_direction or "up") == "up"
+            else resolved_style.slide_endpoint_offset
+        )
+        d = (
+            f"M {start.x + resolved_style.slide_endpoint_offset:g} {start.y - 3:g} "
+            f"L {end.x - resolved_style.slide_endpoint_offset:g} {end.y + delta:g}"
+        )
     else:
-        height = -18 if kind == "slur" else -9
-        sx, ex = start.x + 10, end.x - 10
+        height = (
+            -resolved_style.slur_height
+            if kind == "slur"
+            else -resolved_style.tie_height
+        )
+        sx, ex = (
+            start.x + resolved_style.spanner_endpoint_offset,
+            end.x - resolved_style.spanner_endpoint_offset,
+        )
         if ex <= sx + 8:
             sx = start.x + 5
             ex = end.x - 5
         if kind == "slur":
-            base = min(start.bbox.y, end.bbox.y) - 5.0
+            base = (
+                min(start.bbox.y, end.bbox.y)
+                - resolved_style.spanner_base_clearance
+            )
         elif kind == "tie":
             base = min(start.bbox.y, end.bbox.y) - 3.0
         else:
             start_bottom = start.bbox.y + start.bbox.height
             end_bottom = end.bbox.y + end.bbox.height
-            base = max(start_bottom, end_bottom) + 5.0
+            base = max(start_bottom, end_bottom) + resolved_style.spanner_base_clearance
         control_left = sx + (ex - sx) * 0.33
         control_right = sx + (ex - sx) * 0.67
         d = (
@@ -1624,10 +1736,35 @@ def _spanner(
             ]
         )
     )
+    layout = _spanner_layout(
+        kind,
+        start,
+        end,
+        continuation=continuation,
+        continuation_start=continuation_start,
+        path_points=(
+            (sx, base),
+            (control_left, base + height),
+            (control_right, base + height),
+            (ex, base),
+        )
+        if kind != "slide"
+        else (
+            (
+                start.x + resolved_style.slide_endpoint_offset,
+                start.y - 3,
+            ),
+            (
+                end.x - resolved_style.slide_endpoint_offset,
+                end.y + delta,
+            ),
+        ),
+        source_ids=tuple(source_ids),
+    )
     attrs: dict[str, str | float | int] = {
         "class": kind,
         "d": d,
-        **_semantic_attrs(kind, source_ids),
+        **_span_attrs(layout, role=kind),
     }
     if continuation:
         attrs["data-continuation"] = "end"
@@ -1636,67 +1773,169 @@ def _spanner(
     return SceneNode("path", attrs)
 
 
+def _spanner_layout(
+    kind: str,
+    start: _Anchor,
+    end: _Anchor,
+    *,
+    continuation: bool,
+    continuation_start: bool,
+    path_points: tuple[tuple[float, float], ...],
+    source_ids: tuple[str, ...],
+) -> SpanLayout:
+    stroke = 1.8
+    xs = [point[0] for point in path_points]
+    ys = [point[1] for point in path_points]
+    return SpanLayout(
+        kind,
+        BBox(
+            min(xs) - stroke / 2,
+            min(ys) - stroke / 2,
+            max(xs) - min(xs) + stroke,
+            max(ys) - min(ys) + stroke,
+        ),
+        source_ids,
+        "end" if continuation else "start" if continuation_start else "none",
+    )
+
+
+def _span_attrs(
+    layout: SpanLayout, *, role: str = "note"
+) -> dict[str, str | float | int]:
+    attrs: dict[str, str | float | int] = {
+        "data-bbox": layout.bbox.as_data(),
+        "data-span-kind": layout.kind,
+        "data-geometry-owner": f"span:{layout.kind}",
+        **_semantic_attrs(role, list(layout.source_ids)),
+    }
+    if layout.continuation != "none":
+        attrs["data-continuation"] = layout.continuation
+    return attrs
+
+
+def _register_span_node(scene: PublicationScene, node: SceneNode) -> None:
+    raw_bbox = node.attrs.get("data-bbox")
+    raw_ids = node.attrs.get("data-source-ids")
+    if not raw_bbox or not raw_ids:
+        return
+    values = [float(value) for value in str(raw_bbox).split()]
+    if len(values) != 4:
+        return
+    scene.register_sources(
+        str(raw_ids).split(), BBox(values[0], values[1], values[2], values[3])
+    )
+
+
 def _draw_tuplets(
     scene: PublicationScene, anchors: list[_Anchor], style: PublicationStyle
 ) -> None:
     groups: dict[str, list[_Anchor]] = {}
+    group_order: dict[str, int] = {}
     for anchor in anchors:
-        event = anchor.event
-        key = event.tuplet_id or (f"count-{id(event)}" if event.tuplet_count else "")
-        if key:
-            groups.setdefault(key, []).append(anchor)
-    for group in groups.values():
+        for span in _event_tuplet_spans(anchor.event):
+            if span.id not in group_order:
+                group_order[span.id] = len(group_order)
+            groups.setdefault(span.id, []).append(anchor)
+    for span_id, group in sorted(groups.items(), key=lambda item: group_order[item[0]]):
         if not group:
             continue
         first, last = group[0], group[-1]
         count = first.event.tuplet_count or len(group)
         y = (
             min(_event_notation_top(anchor.event, anchor.y, style) for anchor in group)
-            - 12
+            - style.tuplet_bracket_offset
+            - group_order[span_id] * style.tuplet_stack_gap
         )
         center = (first.x + last.x) / 2
         number_width = _text_width(str(count), style.annotation_size)
-        gap_half = max(8.0, number_width / 2 + 4.0)
+        gap_half = max(8.0, number_width / 2 + style.tuplet_number_gap)
+        source_ids = tuple(
+            dict.fromkeys(
+                source_id
+                for item in group
+                for source_id in item.event.source_roles.get("tuplet", [])
+            )
+        )
+        bracket_stroke = 1.4
+        first_span = _tuplet_span_for_event(first.event, span_id)
+        last_span = _tuplet_span_for_event(last.event, span_id)
+        first_started = bool(first_span and first_span.start)
+        last_stopped = bool(last_span and last_span.stop)
+        continuation = (
+            "start"
+            if first_started and not last_stopped
+            else "end"
+            if last_stopped and not first_started
+            else "none"
+        )
+        layout = SpanLayout(
+            "tuplet",
+            BBox(
+                first.x - style.tuplet_bracket_hook - bracket_stroke / 2,
+                y - bracket_stroke / 2,
+                last.x
+                - first.x
+                + style.tuplet_bracket_hook * 2
+                + bracket_stroke,
+                style.tuplet_bracket_depth + bracket_stroke,
+            ),
+            source_ids,
+            continuation,
+        )
         scene.add(
             SceneNode(
                 "path",
                 {
                     "class": "tuplet-bracket",
                     "d": (
-                        f"M {first.x - 11:g} {y + 5:g} V {y:g} "
+                        f"M {first.x - style.tuplet_bracket_hook:g} "
+                        f"{y + style.tuplet_bracket_depth:g} V {y:g} "
                         f"H {center - gap_half:g} "
                         f"M {center + gap_half:g} {y:g} "
-                        f"H {last.x + 11:g} V {y + 5:g}"
+                        f"H {last.x + style.tuplet_bracket_hook:g} "
+                        f"V {y + style.tuplet_bracket_depth:g}"
                     ),
-                    **_semantic_attrs(
-                        "tuplet",
-                        [
-                            source_id
-                            for item in group
-                            for source_id in item.event.source_roles.get("tuplet", [])
-                        ],
-                    ),
+                    **_span_attrs(layout, role="tuplet"),
                 },
             )
         )
+        scene.register_sources(list(layout.source_ids), layout.bbox)
         scene.add(
             _text(
                 "tuplet-number",
                 center,
-                y + 5,
+                y + style.tuplet_bracket_depth,
                 str(count),
                 style.annotation_size,
                 anchor="middle",
-                attrs=_semantic_attrs(
-                    "tuplet",
-                    [
-                        source_id
-                        for item in group
-                        for source_id in item.event.source_roles.get("tuplet", [])
-                    ],
-                ),
+                attrs={
+                    **_semantic_attrs("tuplet", list(layout.source_ids)),
+                    "data-bbox": layout.bbox.as_data(),
+                    "data-span-kind": "tuplet-number",
+                },
             )
         )
+
+
+def _event_tuplet_spans(event: Event) -> tuple[TupletSpan, ...]:
+    if event.tuplet_spans:
+        return tuple(event.tuplet_spans)
+    if event.tuplet_id:
+        return (
+            TupletSpan(
+                event.tuplet_id,
+                start=event.tuplet_start,
+                stop=event.tuplet_stop,
+            ),
+        )
+    return ()
+
+
+def _tuplet_span_for_event(event: Event, span_id: str) -> TupletSpan | None:
+    return next(
+        (span for span in _event_tuplet_spans(event) if span.id == span_id),
+        None,
+    )
 
 
 def _event_notation_top(
@@ -1720,6 +1959,74 @@ def _event_notation_top(
     return baseline + min(pitch_top, mark_top)
 
 
+def _measure_text_layout(
+    measure: Measure,
+    x: float,
+    width: float,
+    y: float,
+    style: PublicationStyle,
+) -> list[TextLayout]:
+    event_dynamics = {event.dynamic for event in measure.events if event.dynamic}
+    blocks = [
+        block
+        for block in measure.text_blocks
+        if block.text
+        and block.bbox is None
+        and block.role != "measure_number"
+        and not (block.role == "expression" and block.text in event_dynamics)
+        and not (
+            block.role == "lyric"
+            and any(event.lyric == block.text for event in measure.events)
+        )
+    ]
+    if not blocks:
+        return []
+
+    event_bottom = max(
+        (
+            style.event_baseline + measure_event_ink(event, style).bottom
+            for event in measure.events
+        ),
+        default=style.event_baseline,
+    )
+    inner_left = x + style.barline_gutter
+    inner_right = x + width - style.barline_gutter
+    layouts: list[TextLayout] = []
+    previous_bottom = event_bottom
+    for index, block in enumerate(blocks):
+        font_size = block.font_size or style.annotation_size
+        ink_left, ink_top, ink_right, ink_bottom = font_registry().ink_bounds(
+            block.text, font_size
+        )
+        advance = font_registry().measure(block.text, font_size)
+        if block.start is not None and measure.duration > 0:
+            ratio = max(0.0, min(1.0, float(block.start / measure.duration)))
+            center_x = inner_left + (inner_right - inner_left) * ratio
+        else:
+            center_x = x + width / 2
+        baseline = max(
+            y + style.base_staff_height + style.text_lane_clearance,
+            y + previous_bottom + style.text_lane_gap - ink_top,
+        )
+        bbox = BBox(
+            center_x + ink_left - advance / 2,
+            baseline + ink_top,
+            ink_right - ink_left,
+            ink_bottom - ink_top,
+        )
+        layouts.append(
+            TextLayout(
+                block.text,
+                bbox,
+                "lyric" if block.role == "lyric" else "annotation",
+                index,
+                font_size,
+            )
+        )
+        previous_bottom = bbox.y + bbox.height - y
+    return layouts
+
+
 def _draw_measure_text(
     scene: PublicationScene,
     measure: Measure,
@@ -1728,27 +2035,20 @@ def _draw_measure_text(
     width: float,
     style: PublicationStyle,
 ) -> None:
-    event_dynamics = {event.dynamic for event in measure.events if event.dynamic}
-    unpositioned = [
-        block
-        for block in measure.text_blocks
-        if block.text
-        and block.bbox is None
-        and block.role != "measure_number"
-        and not (block.role == "expression" and block.text in event_dynamics)
-    ]
-    for index, block in enumerate(unpositioned):
-        cls = "lyric" if block.role == "lyric" else "annotation"
-        scene.add(
-            _text(
-                cls,
-                x + width / 2,
-                y + style.base_staff_height + 18 + index * 19,
-                block.text,
-                block.font_size or style.annotation_size,
-                anchor="middle",
-            )
+    for layout in _measure_text_layout(measure, x, width, y, style):
+        _left, ink_top, _right, _bottom = font_registry().ink_bounds(
+            layout.text, layout.font_size
         )
+        node = _text(
+            layout.role,
+            layout.bbox.x + layout.bbox.width / 2,
+            layout.bbox.y - ink_top,
+            layout.text,
+            layout.font_size,
+            anchor="middle",
+        )
+        node.attrs["data-bbox"] = layout.bbox.as_data()
+        scene.add(node)
 
 
 def _append_ranges(target: list[MeasureRange], cells: list[_Cell]) -> None:
@@ -1875,6 +2175,24 @@ def _text(
         "font-size": size,
         "text-anchor": anchor,
     }
+    ink_left, ink_top, ink_right, ink_bottom = font_registry().ink_bounds(value, size)
+    advance = font_registry().measure(value, size)
+    offset = (
+        -advance / 2
+        if anchor == "middle"
+        else -advance
+        if anchor == "end"
+        else 0.0
+    )
+    node_attrs.setdefault(
+        "data-bbox",
+        BBox(
+            x + offset + ink_left,
+            y + ink_top,
+            ink_right - ink_left,
+            ink_bottom - ink_top,
+        ).as_data(),
+    )
     node_attrs.update(attrs or {})
     return SceneNode(
         "text",

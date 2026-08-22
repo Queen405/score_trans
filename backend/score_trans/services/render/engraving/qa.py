@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from .scene import BBox, PublicationScene, SceneNode
+from .scene import BBox, GeometryRecord, PublicationScene, SceneNode
 from .style import PublicationStyle
 
 
@@ -10,6 +10,7 @@ class GeometryIssue(TypedDict):
     kind: str
     classes: tuple[str, ...]
     bbox: tuple[float, float, float, float]
+    owner: str | None
 
 
 def check_scene_geometry(
@@ -24,17 +25,31 @@ def check_scene_geometry(
 
     issues: list[GeometryIssue] = []
     anchors: list[tuple[tuple[str, ...], BBox]] = []
-    for node in scene.nodes:
+    records: list[GeometryRecord] = []
+    for node, _parent_classes, parent_owner in _walk_nodes(scene.nodes):
         classes = tuple(node.attrs.get("class", "").split())
         if "page-background" in classes:
             continue
         bbox = _node_bbox(node)
         if bbox is None:
             continue
+        source_ids = tuple(str(node.attrs.get("data-source-ids", "")).split())
+        owner = (
+            str(node.attrs.get("data-geometry-owner", ""))
+            or " ".join(source_ids)
+            or parent_owner
+            or ":".join(classes)
+            or "scene"
+        )
+        kind = str(
+            node.attrs.get("data-span-kind", "")
+            or (classes[0] if classes else node.tag)
+        )
+        records.append(GeometryRecord(owner, kind, bbox, classes, source_ids))
         if (
-            bbox.x < style.margin_left
+            bbox.x < 0
             or bbox.y < 0
-            or bbox.x + bbox.width > scene.width - style.margin_right
+            or bbox.x + bbox.width > scene.width
             or bbox.y + bbox.height > scene.height
         ):
             issues.append(
@@ -42,6 +57,7 @@ def check_scene_geometry(
                     "kind": "page-overflow",
                     "classes": classes,
                     "bbox": (bbox.x, bbox.y, bbox.width, bbox.height),
+                    "owner": owner,
                 }
             )
         if "source-anchor" in classes:
@@ -55,9 +71,45 @@ def check_scene_geometry(
                         "kind": "event-overlap",
                         "classes": tuple(sorted(set(left_classes + right_classes))),
                         "bbox": _union(left_box, right_box),
+                        "owner": None,
                     }
                 )
+    for index, left_record in enumerate(records):
+        for right_record in records[index + 1 :]:
+            if (
+                left_record.kind in {"source-anchor", "g"}
+                and right_record.kind in {"source-anchor", "g"}
+            ):
+                continue
+            if left_record.owner == right_record.owner:
+                continue
+            if _overlaps(left_record.bbox, right_record.bbox):
+                issues.append(
+                    {
+                        "kind": "geometry-overlap",
+                        "classes": tuple(
+                            sorted(set(left_record.classes + right_record.classes))
+                        ),
+                        "bbox": _union(left_record.bbox, right_record.bbox),
+                        "owner": f"{left_record.owner}|{right_record.owner}",
+                    }
+                )
+    scene.geometry_records = records
+    scene.geometry_issues = issues
     return issues
+
+
+def _walk_nodes(
+    nodes: list[SceneNode],
+    parent_classes: tuple[str, ...] = (),
+    parent_owner: str | None = None,
+):
+    for node in nodes:
+        classes = tuple(node.attrs.get("class", "").split())
+        source_ids = tuple(str(node.attrs.get("data-source-ids", "")).split())
+        owner = " ".join(source_ids) or parent_owner or ":".join(classes) or "scene"
+        yield node, parent_classes, owner
+        yield from _walk_nodes(node.children, classes or parent_classes, owner)
 
 
 def _node_bbox(node: SceneNode) -> BBox | None:

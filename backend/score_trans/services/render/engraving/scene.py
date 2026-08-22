@@ -24,6 +24,16 @@ class BBox:
         return " ".join(_fmt(v) for v in (self.x, self.y, self.width, self.height))
 
 
+@dataclass(frozen=True, slots=True)
+class GeometryRecord:
+    owner: str
+    kind: str
+    bbox: BBox
+    classes: tuple[str, ...] = ()
+    source_ids: tuple[str, ...] = ()
+    allow_overlap: bool = False
+
+
 @dataclass(slots=True)
 class SceneNode:
     tag: str
@@ -60,6 +70,8 @@ class PublicationScene:
     page_index: int
     nodes: list[SceneNode] = field(default_factory=list)
     source_boxes: dict[str, BBox] = field(default_factory=dict)
+    geometry_records: list[GeometryRecord] = field(default_factory=list)
+    geometry_issues: list[dict[str, object]] = field(default_factory=list)
     note_index_start: int | None = None
     note_index_end: int | None = None
 
@@ -92,6 +104,7 @@ class PublicationScene:
                 }
                 for source_id, bbox in sorted(self.source_boxes.items())
             ],
+            "diagnostics": list(self.geometry_issues),
         }
 
 

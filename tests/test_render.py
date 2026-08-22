@@ -17,10 +17,15 @@ from score_trans.models.score import (
     JianpuScore,
     Measure,
     TextBlock,
+    TupletSpan,
 )
 from score_trans.services.render import PublicationRenderService, RenderOptions
 from score_trans.services.render.engraving.fonts import font_registry
-from score_trans.services.render.engraving.geometry import measure_event_ink
+from score_trans.services.render.engraving.geometry import (
+    mark_layouts,
+    measure_event_ink,
+    pitch_layouts,
+)
 from score_trans.services.render.engraving.renderer import (
     _Anchor,
     _Cell,
@@ -30,6 +35,7 @@ from score_trans.services.render.engraving.renderer import (
     _duration_spring,
     _event_positions,
     _intrinsic_measure_width,
+    PublicationRenderer,
     _system_extra_height,
 )
 from score_trans.services.render.engraving.scene import BBox, PublicationScene
@@ -103,7 +109,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-3"
+    assert root.attrib["data-engine-version"] == "publication-4"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -755,6 +761,85 @@ def test_explicit_beam_hook_is_clipped_to_measure_boundary() -> None:
     assert float(line.attrs["x2"]) <= 212.0
 
 
+def test_span_primitives_emit_truthful_bboxes() -> None:
+    source = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3)],
+        source_ids=["note-span"],
+        source_roles={"note": ["note-span"]},
+        tie_start=True,
+        slur_start=True,
+    )
+    target = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(4)],
+        source_ids=["note-target"],
+        source_roles={"note": ["note-target"]},
+        tie_stop=True,
+        slur_stop=True,
+    )
+    tuplet_events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 3),
+            start=Fraction(index, 3),
+            pitches=[JianpuPitch(index + 1)],
+            tuplet_id="span-group",
+            tuplet_count=3,
+            source_ids=[f"tuplet-{index}"],
+            source_roles={"note": [f"tuplet-{index}"]},
+        )
+        for index in range(3)
+    ]
+    score = JianpuScore(
+        measures=[
+            Measure("1", duration=Fraction(2), events=[source, target]),
+            Measure("2", duration=Fraction(1), events=tuplet_events),
+        ]
+    )
+    root = _root(render_score_svg(score))
+
+    span_nodes = [
+        node
+        for node in root.iter()
+        if node.attrib.get("class") in {"tie", "slur", "tuplet-bracket"}
+    ]
+
+    assert span_nodes
+    assert all(len(node.attrib.get("data-bbox", "").split()) == 4 for node in span_nodes)
+
+
+def test_rhythm_line_registers_span_bbox_for_source_map() -> None:
+    first = Event(
+        kind="note",
+        duration=Fraction(1, 2),
+        pitches=[JianpuPitch(3)],
+        start=Fraction(0),
+        source_ids=["beam-a"],
+        source_roles={"note": ["beam-a"]},
+    )
+    second = Event(
+        kind="note",
+        duration=Fraction(1, 2),
+        pitches=[JianpuPitch(4)],
+        start=Fraction(1, 2),
+        source_ids=["beam-b"],
+        source_roles={"note": ["beam-b"]},
+    )
+    page = PublicationRenderer().render_scores(
+        [JianpuScore(measures=[Measure("1", duration=Fraction(1), events=[first, second])])]
+    )[0]
+
+    line = next(
+        node for node in page.scene.nodes if "duration-line" in node.attrs.get("class", "")
+    )
+    assert len(line.attrs.get("data-bbox", "").split()) == 4
+    assert page.scene.source_boxes["beam-a"].height > 0
+    assert page.scene.source_boxes["beam-b"].height > 0
+
+
 def test_explicit_musicxml_beams_override_fallback_grouping() -> None:
     events = [
         Event(
@@ -864,6 +949,109 @@ def test_tuplet_bracket_leaves_a_gap_for_its_number() -> None:
     assert bracket.attrib["d"].count("M ") == 2
 
 
+def test_nested_tuplet_spans_render_one_bracket_per_span() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 3),
+            start=Fraction(index, 3),
+            pitches=[JianpuPitch(index + 1)],
+            tuplet_id="outer",
+            tuplet_count=3,
+            tuplet_index=index,
+            tuplet_spans=[
+                TupletSpan("outer", start=index == 0, stop=index == 2),
+                TupletSpan("inner", start=index == 0, stop=index == 2),
+            ],
+        )
+        for index in range(3)
+    ]
+    root = _root(
+        render_score_svg(
+            JianpuScore(measures=[Measure("1", duration=Fraction(1), events=events)])
+        )
+    )
+
+    brackets = [
+        node for node in root.iter() if node.attrib.get("class") == "tuplet-bracket"
+    ]
+
+    assert len(brackets) == 2
+    assert len({
+        re.search(r"M [-\d.]+ ([-\d.]+)", node.attrib["d"]).group(1)
+        for node in brackets
+    }) == 2  # type: ignore[union-attr]
+
+
+def test_tuplet_spans_without_primary_id_still_render_a_bracket() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 3),
+            start=Fraction(index, 3),
+            pitches=[JianpuPitch(index + 1)],
+            tuplet_spans=[
+                TupletSpan("span-only", start=index == 0, stop=index == 2)
+            ],
+        )
+        for index in range(3)
+    ]
+    root = _root(
+        render_score_svg(
+            JianpuScore(measures=[Measure("1", duration=Fraction(1), events=events)])
+        )
+    )
+
+    assert any(node.attrib.get("class") == "tuplet-bracket" for node in root.iter())
+
+
+def test_cross_measure_tuplet_brackets_mark_continuation_segments() -> None:
+    first = Event(
+        kind="note",
+        duration=Fraction(1, 3),
+        pitches=[JianpuPitch(3)],
+        tuplet_id="cross",
+        tuplet_count=3,
+        tuplet_start=True,
+        tuplet_spans=[TupletSpan("cross", start=True)],
+    )
+    second = Event(
+        kind="note",
+        duration=Fraction(1, 3),
+        pitches=[JianpuPitch(4)],
+        tuplet_id="cross",
+        tuplet_count=3,
+        tuplet_spans=[TupletSpan("cross")],
+    )
+    third = Event(
+        kind="note",
+        duration=Fraction(1, 3),
+        pitches=[JianpuPitch(5)],
+        tuplet_id="cross",
+        tuplet_count=3,
+        tuplet_stop=True,
+        tuplet_spans=[TupletSpan("cross", stop=True)],
+    )
+    pages = render_scores_a4_pages(
+        [
+            JianpuScore(measures=[Measure("1", duration=Fraction(1, 3), events=[first])]),
+            JianpuScore(measures=[Measure("2", duration=Fraction(2, 3), events=[second, third])]),
+        ]
+    )
+    brackets = [
+        node
+        for page in pages
+        for node in _root(page.svg).iter()
+        if node.attrib.get("class") == "tuplet-bracket"
+    ]
+
+    assert len(brackets) == 2
+    assert {node.attrib.get("data-continuation") for node in brackets} == {
+        "start",
+        "end",
+    }
+
+
 def test_dense_tuplet_measures_are_not_overpacked_on_the_same_row() -> None:
     measures: list[Measure] = []
     for measure_index in range(4):
@@ -940,6 +1128,39 @@ def test_mark_placement_is_respected() -> None:
     assert positions["scoop"][0] < note_x
     assert positions["≋"][0] > note_x
     assert positions["≋"][1] > note_y
+
+
+def test_left_mark_does_not_overlap_note_or_accidental_ink() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3, accidental_text="####")],
+        technical=["scoop"],
+    )
+    rows = pitch_layouts(event, PublicationStyle())
+    marks = mark_layouts(event, PublicationStyle())
+    scoop = next(mark for mark in marks if mark.mark_id == "scoop")
+
+    assert all(
+        scoop.ink_box.right <= box.left or scoop.ink_box.left >= box.right
+        for row in rows
+        for box in (row.note_box, row.accidental_box)
+        if box is not None
+    )
+
+
+def test_above_marks_use_measured_stack_height() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3, octave=1)],
+        articulations=["fermata", "accent"],
+    )
+    marks = mark_layouts(event, PublicationStyle())
+    ordered = sorted(marks, key=lambda mark: mark.ink_box.top)
+
+    assert len(ordered) == 2
+    assert ordered[0].ink_box.bottom + 2 <= ordered[1].ink_box.top
 
 
 def test_semantic_note_and_mark_nodes_carry_exact_source_ids() -> None:
@@ -1041,6 +1262,65 @@ def test_dynamic_mark_clears_low_octave_chord_attachments() -> None:
     )
 
     assert dynamic_box[1] >= lowest_octave_dot_bottom + 5.9
+
+
+def test_event_lyric_clears_low_octave_chord_attachments() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(2), JianpuPitch(5), JianpuPitch(2, octave=-1)],
+        lyric="春",
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+    lyric = next(node for node in root.iter() if node.attrib.get("class") == "lyric")
+    lyric_box = _text_box(lyric)
+    lowest_octave_dot_bottom = max(
+        float(node.attrib["cy"]) + float(node.attrib["r"])
+        for node in root.iter()
+        if node.attrib.get("class") == "octave-dot"
+    )
+
+    assert lyric_box[1] >= lowest_octave_dot_bottom + 6
+
+
+def test_event_lyric_is_not_rendered_again_from_measure_text_block() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3)],
+        lyric="春",
+    )
+    measure = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[event],
+        text_blocks=[TextBlock("春", role="lyric", start=Fraction(0))],
+    )
+
+    root = _root(render_score_svg(JianpuScore(measures=[measure])))
+
+    assert sum(
+        1
+        for node in root.iter()
+        if node.attrib.get("class") == "lyric" and node.attrib.get("aria-label") == "春"
+    ) == 1
+
+
+def test_wide_event_stays_centered_when_its_ink_cannot_fit() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(3)],
+        lyric="超长歌词" * 100,
+    )
+    measure = Measure("1", duration=Fraction(4), events=[event])
+    style = PublicationStyle(page_width=400, margin_left=40, margin_right=40)
+    page = PublicationRenderer(style).render_scores([JianpuScore(measures=[measure])])[0]
+    root = _root(page.svg)
+    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
+    note_x, _note_y = _translate(note)
+
+    assert style.margin_left <= note_x <= style.page_width - style.margin_right
 
 
 def test_spanners_tuplets_marks_and_lyrics_are_rendered() -> None:
@@ -1263,6 +1543,49 @@ def test_system_height_grows_for_multiple_unpositioned_text_rows() -> None:
     crowded_height = _system_extra_height([_Cell(0, [crowded], 150.0)], style)
 
     assert crowded_height > plain_height
+
+
+def test_measure_text_layout_uses_text_start_for_horizontal_position() -> None:
+    measure = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[Event(kind="note", duration=Fraction(1), pitches=[JianpuPitch(1)])],
+        text_blocks=[
+            TextBlock("左", role="expression", start=Fraction(0)),
+            TextBlock("右", role="expression", start=Fraction(3)),
+        ],
+    )
+    root = _root(
+        render_score_svg(JianpuScore(measures=[measure]))
+    )
+    texts = {
+        node.attrib["aria-label"]: _translate(node)[0]
+        for node in root.iter()
+        if node.attrib.get("class") == "annotation"
+        and node.attrib.get("aria-label") in {"左", "右"}
+    }
+
+    assert texts["左"] < texts["右"]
+
+
+def test_measure_text_layout_emits_truthful_bbox_for_custom_font_size() -> None:
+    block = TextBlock("大字", role="expression", font_size=48)
+    score = JianpuScore(
+        measures=[
+            Measure(
+                "1",
+                duration=Fraction(4),
+                events=[Event(kind="note", duration=Fraction(4), pitches=[JianpuPitch(1)])],
+                text_blocks=[block],
+            )
+        ]
+    )
+    root = _root(render_score_svg(score))
+    text = next(node for node in root.iter() if node.attrib.get("aria-label") == "大字")
+
+    assert len(text.attrib.get("data-bbox", "").split()) == 4
+    _left, _top, _width, height = _bbox(text)
+    assert height > 20
 
 
 def test_tie_prefers_an_upper_route_without_changing_slur_route() -> None:

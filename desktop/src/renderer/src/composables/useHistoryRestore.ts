@@ -50,7 +50,7 @@ export function useHistoryRestore() {
       batch.render_page_ocr_texts || [],
     )
     await validateRestoredBatchFiles(pages, renderPageFileIds)
-    if (!renderPageFileIds.length || batch.engine_version !== 'publication-3') {
+    if (!renderPageFileIds.length || batch.engine_version !== 'publication-4') {
       await rebuildPublicationPages(batch)
     }
     message.success(`已恢复 ${pages.length} 页`)

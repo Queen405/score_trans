@@ -97,6 +97,7 @@ import { fetchFileBlob } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
+import { useSettingsStore } from '../stores/settings'
 import { parseOcrText, serializeOcrText, type OcrTextBlock } from '../utils/ocrText'
 import { sanitizeSvg } from '../utils/svgSanitizer'
 import { LatestAsyncGate } from '../utils/latestAsyncGate'
@@ -137,7 +138,8 @@ const selectedId = ref('')
 const editingId = ref('')
 const editingText = ref('')
 const ocrBlocks = ref<OcrTextBlock[]>([])
-const showOcrOverlay = ref(true)
+const settings = useSettingsStore()
+const showOcrOverlay = ref(settings.showOcrOverlay)
 let svgLoadGeneration = 0
 const svgLoadGate = new LatestAsyncGate()
 let svgLoadController: AbortController | null = null
@@ -549,6 +551,7 @@ function keepTargetVisible(target: SVGGraphicsElement): void {
 }
 
 watch(svgUrl, (url) => {
+  showOcrOverlay.value = settings.showOcrOverlay
   svgLoadGate.track(loadSvg(url))
 }, { immediate: true })
 

@@ -272,7 +272,7 @@ class HistoryDao:
                     jianpu_text,
                     _dump_render_page_file_ids(render_page_file_ids or []),
                     _dump_render_page_ocr_texts(render_page_ocr_texts or []),
-                    "publication-3" if render_page_file_ids else "",
+                    "publication-4" if render_page_file_ids else "",
                 ),
             )
             batch_id = cursor.lastrowid
@@ -342,7 +342,7 @@ class HistoryDao:
                    WHERE id = ?""",
                 (
                     _dump_render_page_file_ids(render_page_file_ids),
-                    "publication-3" if render_page_file_ids else "",
+                    "publication-4" if render_page_file_ids else "",
                     batch_id,
                 ),
             )
@@ -472,7 +472,7 @@ class HistoryDao:
                 )
                 if svg_file_id is not None:
                     conn.execute(
-                        "UPDATE history_page SET engine_version = 'publication-3' WHERE id = ?",
+                        "UPDATE history_page SET engine_version = 'publication-4' WHERE id = ?",
                         (page_id,),
                     )
                 self._refresh_batch_status(conn, exists["batch_id"])

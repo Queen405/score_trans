@@ -41,3 +41,72 @@ def test_geometry_qa_reports_event_overlap_and_page_overflow() -> None:
     )
 
     assert {issue["kind"] for issue in issues} == {"event-overlap", "page-overflow"}
+
+
+def test_geometry_qa_checks_nested_text_and_path_geometry() -> None:
+    scene = PublicationScene(400, 400, 0)
+    scene.add(
+        SceneNode(
+            "g",
+            {"class": "source-anchor", "data-bbox": BBox(100, 100, 30, 30).as_data()},
+            children=[
+                SceneNode(
+                    "text",
+                    {"class": "lyric", "data-bbox": BBox(390, 100, 80, 20).as_data()},
+                    text="overflow",
+                ),
+                SceneNode(
+                    "path",
+                    {"class": "slur", "data-bbox": BBox(100, -10, 40, 8).as_data()},
+                ),
+            ],
+        )
+    )
+
+    issues = check_scene_geometry(
+        scene, PublicationStyle(page_width=400, page_height=400)
+    )
+
+    assert sum(issue["kind"] == "page-overflow" for issue in issues) == 2
+
+
+def test_geometry_qa_persists_diagnostics_on_scene() -> None:
+    scene = PublicationScene(400, 400, 0)
+    scene.add(_anchor(390, 100, 40, 20))
+
+    issues = check_scene_geometry(
+        scene, PublicationStyle(page_width=400, page_height=400)
+    )
+
+    assert scene.geometry_issues == issues
+    assert scene.render_map_payload()["diagnostics"] == issues
+
+
+def test_geometry_qa_reports_span_event_collision() -> None:
+    scene = PublicationScene(400, 400, 0)
+    scene.add(
+        SceneNode(
+            "g",
+            {
+                "class": "source-anchor",
+                "data-source-ids": "note-1",
+                "data-bbox": BBox(100, 100, 40, 40).as_data(),
+            },
+        )
+    )
+    scene.add(
+        SceneNode(
+            "path",
+            {
+                "class": "slur",
+                "data-geometry-owner": "span:slur",
+                "data-bbox": BBox(120, 120, 80, 12).as_data(),
+            },
+        )
+    )
+
+    issues = check_scene_geometry(
+        scene, PublicationStyle(page_width=400, page_height=400)
+    )
+
+    assert any(issue["kind"] == "geometry-overlap" for issue in issues)

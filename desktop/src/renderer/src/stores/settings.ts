@@ -38,6 +38,8 @@ export interface SettingsDraft {
   outputDir: string
   providers: Record<ProviderKind, SettingsDraftProvider>
   themeMode: ThemeMode
+  showRecognitionOverlay: boolean
+  showOcrOverlay: boolean
 }
 
 export interface ProviderDraftDetails {
@@ -48,6 +50,8 @@ export interface ProviderDraftDetails {
 }
 
 const THEME_MODE_KEY = 'score-trans-theme-mode'
+const SHOW_RECOGNITION_OVERLAY_KEY = 'score-trans-show-recognition-overlay'
+const SHOW_OCR_OVERLAY_KEY = 'score-trans-show-ocr-overlay'
 
 function loadThemeMode(): ThemeMode {
   try {
@@ -57,6 +61,25 @@ function loadThemeMode(): ThemeMode {
     // localStorage may be unavailable in restricted renderer contexts.
   }
   return 'system'
+}
+
+function loadBooleanPreference(key: string, fallback: boolean): boolean {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw === '1') return true
+    if (raw === '0') return false
+  } catch {
+    // localStorage may be unavailable in restricted renderer contexts.
+  }
+  return fallback
+}
+
+function saveBooleanPreference(key: string, value: boolean): void {
+  try {
+    localStorage.setItem(key, value ? '1' : '0')
+  } catch {
+    // Preference remains effective for the current session.
+  }
 }
 
 function emptyProviderDetails(): ProviderDraftDetails {
@@ -109,6 +132,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const assistantBaseUrl = ref('https://dashscope.aliyuncs.com/compatible-mode/v1')
   const assistantModel = ref('deepseek-v4-flash')
   const themeMode = ref<ThemeMode>(loadThemeMode())
+  const showRecognitionOverlay = ref(loadBooleanPreference(SHOW_RECOGNITION_OVERLAY_KEY, true))
+  const showOcrOverlay = ref(loadBooleanPreference(SHOW_OCR_OVERLAY_KEY, true))
 
   const loaded = ref(false)
   const loading = ref(false)
@@ -139,6 +164,8 @@ export const useSettingsStore = defineStore('settings', () => {
       assistant: { provider: 'dashscope_deepseek_v4_flash', apiKey: '' },
     },
     themeMode: themeMode.value,
+    showRecognitionOverlay: showRecognitionOverlay.value,
+    showOcrOverlay: showOcrOverlay.value,
   })
 
   const draftProviderDetails = reactive<Record<ProviderKind, ProviderDraftDetails>>({
@@ -206,6 +233,8 @@ export const useSettingsStore = defineStore('settings', () => {
         assistant: { provider: assistantProvider.value, apiKey: '' },
       },
       themeMode: themeMode.value,
+      showRecognitionOverlay: showRecognitionOverlay.value,
+      showOcrOverlay: showOcrOverlay.value,
     })
 
     setDraftProviderDetails('ocr', {
@@ -275,6 +304,8 @@ export const useSettingsStore = defineStore('settings', () => {
       applyStoragePaths(storageResult.paths)
       storageRestartRequired.value = storageResult.restartRequired
       setThemeMode(next.themeMode)
+      setShowRecognitionOverlay(next.showRecognitionOverlay)
+      setShowOcrOverlay(next.showOcrOverlay)
       beginEdit()
       return storageResult.restartRequired
     } catch (error: unknown) {
@@ -326,6 +357,16 @@ export const useSettingsStore = defineStore('settings', () => {
     } catch {
       // Theme remains effective for the current session.
     }
+  }
+
+  function setShowRecognitionOverlay(value: boolean): void {
+    showRecognitionOverlay.value = value
+    saveBooleanPreference(SHOW_RECOGNITION_OVERLAY_KEY, value)
+  }
+
+  function setShowOcrOverlay(value: boolean): void {
+    showOcrOverlay.value = value
+    saveBooleanPreference(SHOW_OCR_OVERLAY_KEY, value)
   }
 
   async function clearCache(): Promise<CacheCleanupResponse> {
@@ -457,6 +498,8 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.providers.ai = { ...next.providers.ai }
     draft.providers.assistant = { ...next.providers.assistant }
     draft.themeMode = next.themeMode
+    draft.showRecognitionOverlay = next.showRecognitionOverlay
+    draft.showOcrOverlay = next.showOcrOverlay
   }
 
   function setDraftProviderDetails(
@@ -507,6 +550,8 @@ export const useSettingsStore = defineStore('settings', () => {
     assistantBaseUrl,
     assistantModel,
     themeMode,
+    showRecognitionOverlay,
+    showOcrOverlay,
     loaded,
     loading,
     loadError,
@@ -526,6 +571,8 @@ export const useSettingsStore = defineStore('settings', () => {
     clearCache,
     relaunchApp,
     setThemeMode,
+    setShowRecognitionOverlay,
+    setShowOcrOverlay,
   }
 })
 

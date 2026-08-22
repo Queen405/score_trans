@@ -25,7 +25,7 @@ def scene_to_svg(scene: PublicationScene, style: PublicationStyle) -> str:
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{scene.width:g}" '
         f'height="{scene.height:g}" viewBox="0 0 {scene.width:g} {scene.height:g}" '
-        f'data-render-engine="publication" data-engine-version="publication-3">\n'
+        f'data-render-engine="publication" data-engine-version="publication-4">\n'
         f"  <style>{_CSS}</style>\n{body}\n</svg>"
     )
 
