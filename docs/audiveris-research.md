@@ -214,10 +214,16 @@ recognize_with_audiveris()
 
 - 若路径名为 `gradlew` / `gradlew.bat`（本项目默认）：
   ```
-  gradlew.bat :app:run -PcmdLineArgs=-batch,...,-export,-output,<dir>,<input>
+  gradlew.bat --no-daemon :app:run -PcmdLineArgs=-batch,...,-export,-output,<dir>,<input>
                      -PaudiverisMaxHeap=<2g>
   ```
 - 否则（预编译 `audiveris.exe`）：直接 `audiveris <args>`。
+
+Gradle Wrapper 调用固定追加 `--no-daemon`。该命令行参数优先于 `gradle.properties` 中的 Daemon 配置，
+因此不需要修改内置 Audiveris 工程。代价是每次识别都要重新经历 Gradle/JVM 冷启动和配置阶段，
+实际增加时间取决于机器与缓存，通常为秒级；OMR 主处理通常占更长时间。这样可以避免 Score Trans
+新建长期驻留的 Gradle/JVM。Windows 退出时仍由 Electron 的进程树清理兜底，macOS/Linux 则由
+后端子进程的终止信号回收本次调用的 JVM；不对任意外部孙进程作强制级联保证。
 
 **输出回收**：扫描输出目录的 `*.musicxml` → `*.mxl` → `*.xml`，取第一个；若无则抛 `ExternalToolError`。
 

@@ -5,6 +5,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from score_trans.domain.parse.musicxml import read_musicxml_text
+from score_trans.models.common.errors import ExternalToolError
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.recognize import external_tools
 from score_trans.services.recognize.external_tools import (
@@ -234,12 +235,54 @@ def test_recognize_with_gradle_uses_configured_java_omr_args(
     assert cwd == gradle.parent
     assert args == [
         str(gradle),
+        "--no-daemon",
         ":app:run",
-        "-PcmdLineArgs="
-        "-batch,-step,PAGE,-save,-constant,alpha=1,"
-        "-constant,"
-        "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets=true,"
-        "-constant,org.audiveris.omr.step.LoadStep.maxPixelCount=20000000,"
-        f"-export,-score-trans-overlay,-output,{output_dir.resolve()},{source.resolve()}",
+        (
+            "-PcmdLineArgs="
+            "-batch,-step,PAGE,-save,-constant,alpha=1,"
+            "-constant,"
+            "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets=true,"
+            "-constant,org.audiveris.omr.step.LoadStep.maxPixelCount=20000000,"
+            f"-export,-score-trans-overlay,-output,{output_dir.resolve()},{source.resolve()}"
+        ),
         "-PaudiverisMaxHeap=2g",
     ]
+
+
+def test_recognize_with_gradle_retries_with_no_daemon(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "scan.png"
+    retry_source = tmp_path / "retry.png"
+    output_dir = tmp_path / "omr"
+    gradle = tmp_path / "gradlew.bat"
+    source.write_bytes(b"png")
+    retry_source.write_bytes(b"upscaled png")
+    calls: list[list[str]] = []
+
+    def fake_run(args, cwd=None, env=None) -> CommandResult:
+        calls.append(args)
+        if len(calls) == 1:
+            raise ExternalToolError(
+                "Audiveris failed",
+                stdout="too low interline value of 10 pixels",
+            )
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "scan.musicxml").write_text("<score-partwise/>", encoding="utf-8")
+        return CommandResult(args=args, stdout="", stderr="")
+
+    monkeypatch.setattr(external_tools, "_run", fake_run)
+    monkeypatch.setattr(
+        external_tools,
+        "_maybe_retry_after_low_interline",
+        lambda error, input_file, output_dir, config: retry_source,
+    )
+
+    recognize_with_audiveris(
+        source,
+        output_dir,
+        ToolConfig(audiveris_path=str(gradle)),
+    )
+
+    assert len(calls) == 2
+    assert all(args[1:3] == ["--no-daemon", ":app:run"] for args in calls)

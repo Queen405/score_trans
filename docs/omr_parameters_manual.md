@@ -96,7 +96,7 @@ args += ["-export", "-output", output_dir, input_file]
 以 Gradle Wrapper 启动方式为例，若设置了 `SCORE_TRANS_AUDIVERIS_STEP=BINARY` 和 `SCORE_TRANS_AUDIVERIS_FORCE=1`，后端会生成类似命令：
 
 ```bash
-gradlew.bat :app:run -PcmdLineArgs=-batch,-step,BINARY,-force,-export,-output,work/audiveris/xxx,page.png
+gradlew.bat --no-daemon :app:run -PcmdLineArgs=-batch,-step,BINARY,-force,-export,-output,work/audiveris/xxx,page.png
 ```
 
 若使用独立可执行文件，则类似：
@@ -175,6 +175,9 @@ Audiveris 内部有大量可调整的算法常量，格式为 `-constant key=val
 - **格式要求**：
   - Windows 下通常为 `gradlew.bat` 或编译后的 `audiveris.exe`。
   - 使用 Gradle Wrapper 时，代码会自动使用 `:app:run` 任务启动。
+  - Wrapper 调用固定追加 `--no-daemon`，优先级高于 `gradle.properties`，避免识别后留下长期 Gradle JVM。
+  - 该参数会带来秒级的 Gradle/JVM 冷启动开销，实际耗时取决于机器与缓存；换取退出后的资源释放。
+  - macOS/Linux 同样不创建长期 Daemon；现有后端终止信号负责回收本次调用的 JVM，但不保证任意外部孙进程级联退出。
   - 使用独立可执行文件时，直接作为命令调用。
 - **常见配置**：
   ```env
@@ -228,6 +231,9 @@ Audiveris 内部有大量可调整的算法常量，格式为 `-constant key=val
 - **格式要求**：
   - Windows 下通常为 `gradlew.bat` 或编译后的 `audiveris.exe`。
   - 使用 Gradle Wrapper 时，代码会自动使用 `:app:run` 任务启动。
+  - Wrapper 调用固定追加 `--no-daemon`，优先级高于 `gradle.properties`，避免识别后留下长期 Gradle JVM。
+  - 该参数会带来秒级的 Gradle/JVM 冷启动开销，实际耗时取决于机器与缓存；换取退出后的资源释放。
+  - macOS/Linux 同样不创建长期 Daemon；现有后端终止信号负责回收本次调用的 JVM，但不保证任意外部孙进程级联退出。
   - 使用独立可执行文件时，直接作为命令调用。
 - **常见配置**：
   ```env

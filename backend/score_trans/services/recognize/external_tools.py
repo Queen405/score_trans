@@ -111,6 +111,7 @@ def _run_audiveris(input_file: Path, output_dir: Path, config: ToolConfig) -> No
     if audiveris_path.name.lower() in {"gradlew", "gradlew.bat"}:
         args = [
             str(audiveris_path),
+            "--no-daemon",
             ":app:run",
             f"-PcmdLineArgs={','.join(audiveris_args)}",
             f"-PaudiverisMaxHeap={_validated_max_heap(config)}",
