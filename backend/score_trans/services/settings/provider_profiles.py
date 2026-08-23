@@ -65,6 +65,7 @@ def _parse_profile(env_name: str, item: Any) -> LlmProviderProfile:
         model=values["model"],
         description=_optional_string(item, "description"),
         fallback_model=_optional_string(item, "fallback_model"),
+        max_tokens=_optional_positive_int(env_name, item, "max_tokens"),
     )
 
 
@@ -75,6 +76,18 @@ def _optional_string(item: dict[str, Any], key: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"provider profile field {key!r} must be a string")
     return value.strip()
+
+
+def _optional_positive_int(env_name: str, item: dict[str, Any], key: str) -> int:
+    """Parse an optional positive integer profile field; 0 means unset."""
+    if key not in item or item[key] is None:
+        return 0
+    value = item[key]
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(
+            f"{env_name} provider profile field {key!r} must be a positive integer"
+        )
+    return value
 
 
 _PROFILES: dict[LlmProviderKind, tuple[LlmProviderProfile, ...]] = {

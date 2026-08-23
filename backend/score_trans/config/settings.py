@@ -117,6 +117,17 @@ ASSISTANT_PROVIDER_PROFILES: str = _s("SCORE_TRANS_ASSISTANT_PROVIDER_PROFILES")
 ASSISTANT_BASE_URL: str = _s("SCORE_TRANS_ASSISTANT_BASE_URL")
 ASSISTANT_MODEL: str = _s("SCORE_TRANS_ASSISTANT_MODEL")
 ASSISTANT_API_KEY: str = _s_or("SCORE_TRANS_ASSISTANT_API_KEY")
+# 输出 token 上限：provider profile 的 max_tokens 优先，本变量为回退，再回退 4096。
+ASSISTANT_MAX_TOKENS: int = _positive_i_or(
+    "SCORE_TRANS_ASSISTANT_MAX_TOKENS",
+    4096,
+)
+
+# AI 视觉转写输出 token 上限：provider profile 的 max_tokens 优先，本变量为回退，再回退 4096。
+AI_MAX_TOKENS: int = _positive_i_or(
+    "SCORE_TRANS_AI_MAX_TOKENS",
+    4096,
+)
 
 # OCR
 OCR_PROVIDER: str = _s("SCORE_TRANS_OCR_PROVIDER")

@@ -133,6 +133,19 @@ export const useAssistantStore = defineStore('assistant', () => {
     savedStreamMessages = null
     sending.value = true
     error.value = ''
+
+    /** Drop this request's temp user/assistant messages from view and any saved stream snapshot. */
+    const dropPendingMessages = (): void => {
+      messages.value = messages.value.filter(
+        (item) => item.id !== tempId && item.id !== tempAssistantId,
+      )
+      if (savedStreamMessages) {
+        savedStreamMessages = savedStreamMessages.filter(
+          (item) => item.id !== tempId && item.id !== tempAssistantId,
+        )
+      }
+    }
+
     try {
       await requireData(aiApi.streamChat(
         {
@@ -196,13 +209,21 @@ export const useAssistantStore = defineStore('assistant', () => {
         },
         controller.signal,
       ))
-      if (controller.signal.aborted) return
+      if (controller.signal.aborted) {
+        dropPendingMessages()
+        savedStreamMessages = null
+        return
+      }
       sessions.value = await requireData(aiApi.listChatSessions())
     } catch (e: unknown) {
-      if (controller.signal.aborted) return
+      if (controller.signal.aborted) {
+        dropPendingMessages()
+        savedStreamMessages = null
+        return
+      }
       if (currentSessionId.value === streamSessionId.value) {
         error.value = e instanceof Error ? e.message : String(e)
-        messages.value = messages.value.filter((item) => item.id !== tempId && item.id !== tempAssistantId)
+        dropPendingMessages()
       }
       savedStreamMessages = null
       throw e

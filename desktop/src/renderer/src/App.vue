@@ -149,7 +149,7 @@
                 :active="activeTab === 'settings'"
                 @close="leaveSettings"
               />
-              <ai-assistant v-if="activeTab === 'convert'" />
+              <ai-assistant v-show="activeTab === 'convert'" />
             </div>
             <div :class="['log-drawer', { open: logOpen }]">
               <button

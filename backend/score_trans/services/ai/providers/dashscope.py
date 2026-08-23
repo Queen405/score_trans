@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from ...settings.api_keys import provider_api_key
+from ...settings.provider_profiles import resolve_provider_profile_or_default
 from ..core.config import AI_API_KEY, AI_TIMEOUT
 from ..core.prompts import persisted_ai_settings
 from ..core.registry import register_provider
-from ...settings.api_keys import provider_api_key
-from ...settings.provider_profiles import resolve_provider_profile_or_default
 from ._vision import OpenAICompatibleVisionTranscriber
 
 _BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -41,6 +41,8 @@ class DashScopeVisionProvider(OpenAICompatibleVisionTranscriber):
         )
         self.timeout = timeout
         self.dry_run = dry_run
+        # profile 未匹配本 provider 时不借用其 max_tokens（它属于别的模型）。
+        self.max_tokens = profile.max_tokens if profile_matches else 0
 
 
 register_provider("dashscope", DashScopeVisionProvider)

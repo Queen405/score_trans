@@ -14,6 +14,7 @@ _LOW_INTERLINE_PATTERN = re.compile(
     r"too low interline value of\s*(\d+)\s*pixels", re.IGNORECASE
 )
 _DEFAULT_TARGET_INTERLINE = 18
+_MAX_PIXEL_BUDGET_RATIO = 0.95
 
 
 def is_raster_image(path: str | Path) -> bool:
@@ -50,16 +51,20 @@ def _save_upscaled(source: Path, dest: Path, scale: float) -> Path:
     with Image.open(source) as image:
         image.load()
         src_w, src_h = image.width, image.height
-        new_size = (
-            max(1, int(round(src_w * scale))),
-            max(1, int(round(src_h * scale))),
-        )
+        if scale < 1.0:
+            new_size = (
+                max(1, int(src_w * scale)),
+                max(1, int(src_h * scale)),
+            )
+        else:
+            new_size = (
+                max(1, round(src_w * scale)),
+                max(1, round(src_h * scale)),
+            )
         resized = image.resize(new_size, resample)
         save_kwargs: dict[str, object] = {}
         fmt = image.format or "PNG"
-        if fmt == "JPEG":
-            save_kwargs = {"quality": 95}
-        elif fmt == "WEBP":
+        if fmt == "JPEG" or fmt == "WEBP":
             save_kwargs = {"quality": 95}
         elif fmt == "PNG":
             save_kwargs = {"optimize": True}
@@ -76,6 +81,38 @@ def _save_upscaled(source: Path, dest: Path, scale: float) -> Path:
         new_size[1],
     )
     return dest
+
+
+def max_pixel_budget(max_pixels: int) -> int:
+    """Return the preprocessing budget, leaving 5% below Audiveris' limit."""
+    if max_pixels <= 0:
+        return 0
+    return max(1, int(max_pixels * _MAX_PIXEL_BUDGET_RATIO))
+
+
+def ensure_max_pixel_count(
+    input_path: str | Path,
+    output_dir: str | Path,
+    *,
+    max_pixels: int,
+) -> Path | None:
+    """Downscale raster images that exceed 95% of the Audiveris pixel limit."""
+    path = Path(input_path)
+    if not is_raster_image(path) or max_pixels <= 0:
+        return None
+    target_pixels = max_pixel_budget(max_pixels)
+    try:
+        width_f, height_f = image_dimensions(path)
+    except OSError:
+        return None
+    width, height = int(width_f), int(height_f)
+    current_pixels = width * height
+    if current_pixels <= target_pixels:
+        return None
+    scale = (target_pixels / current_pixels) ** 0.5
+    out = Path(output_dir) / "_preprocess"
+    dest = out / path.name
+    return _save_upscaled(path, dest, scale)
 
 
 def _resampling_filter(Image):

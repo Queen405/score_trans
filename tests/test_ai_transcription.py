@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
-
 from score_trans.api.app import create_app
 from score_trans.dao.ai.chat_dao import AiChatDao
 from score_trans.dao.settings.settings_dao import SettingsDao
@@ -14,9 +13,9 @@ from score_trans.exec.ai.actions import AiActions
 from score_trans.models.ai.schemas import AiTranscribeRequest
 from score_trans.models.common.errors import AITranscriptionError
 from score_trans.models.settings.config import ToolConfig
+from score_trans.services.ai.chat_service import MAX_CONTEXT_MESSAGES, AiChatService
 from score_trans.services.ai.core import VisionPageResult, parse_vision_page_result
 from score_trans.services.ai.core import prompts as prompt_config
-from score_trans.services.ai.chat_service import AiChatService, MAX_CONTEXT_MESSAGES
 from score_trans.services.ai.providers._http import (
     chat_completion_chunks,
     chat_completions,
@@ -32,8 +31,8 @@ from score_trans.services.ai.providers.openai_compatible import (
 from score_trans.services.ai.providers.xiaomi_mimo import XiaomiMiMoProvider
 from score_trans.services.ai.transcription import AiTranscriptionService
 from score_trans.services.ai.transcription.validation import validate_jianpu_text
-from score_trans.utils.pdf import pdf_to_png_pages
 from score_trans.services.files.upload_service import UploadService
+from score_trans.utils.pdf import pdf_to_png_pages
 
 
 class FakeSettings:
@@ -513,7 +512,8 @@ def test_chat_completion_chunks_ignores_usage_only_empty_choices(
         )
     )
 
-    assert chunks == ["ok"]
+    assert [chunk.text for chunk in chunks] == ["ok", ""]
+    assert chunks[-1].finish_reason is None
 
 
 def test_chat_completion_chunks_surfaces_provider_error_payload(

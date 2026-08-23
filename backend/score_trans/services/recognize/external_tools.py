@@ -16,15 +16,19 @@ from ...models.common.paths import PROJECT_ROOT
 from ...models.settings.config import ToolConfig
 from ...utils.safe_xml import UnsafeXmlError, safe_xml_fromstring
 from .image_preprocess import (
+    ensure_max_pixel_count,
     ensure_min_resolution,
     is_pdf,
     is_raster_image,
+    max_pixel_budget,
     parse_low_interline,
     retry_scale_from_interline,
     upscale_by_factor,
 )
 
-_MOVEMENT_STEM_PATTERN = re.compile(r"^(?P<base>.+)\.mvt(?P<number>\d+)$", re.I)
+_MOVEMENT_STEM_PATTERN = re.compile(
+    r"^(?P<base>.+)\.mvt(?P<number>\d+)$", re.IGNORECASE
+)
 
 _RESCALE_MIN_EDGE_FALLBACK = 2500
 _RESCALE_MAX_PIXELS_FALLBACK = 20_000_000
@@ -76,7 +80,7 @@ def recognize_with_audiveris(
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    effective_input, preprocessed_path = _apply_preventive_upscale(
+    effective_input, _preprocessed_path = _apply_preventive_upscale(
         input_file, output_dir, config
     )
 
@@ -137,23 +141,40 @@ def _select_musicxml_output(output_dir: Path, input_file: Path) -> Path:
 def _apply_preventive_upscale(
     input_file: Path, output_dir: Path, config: ToolConfig
 ) -> tuple[Path, Path | None]:
-    if not getattr(config, "audiveris_auto_upscale", True):
-        return input_file, None
     if not is_raster_image(input_file):
         return input_file, None
-    min_edge = getattr(config, "audiveris_min_image_edge", _RESCALE_MIN_EDGE_FALLBACK)
     max_pixels = _max_pixels_or_default(config)
+    preprocess_max_pixels = max_pixel_budget(max_pixels)
+    effective_input = input_file
+    preprocessed_path: Path | None = None
+    if max_pixels > 0:
+        try:
+            downscaled = ensure_max_pixel_count(
+                input_file,
+                output_dir,
+                max_pixels=max_pixels,
+            )
+        except (OSError, ValueError):
+            downscaled = None
+        if downscaled is not None:
+            effective_input = downscaled
+            preprocessed_path = downscaled
+
+    if not getattr(config, "audiveris_auto_upscale", True):
+        return effective_input, preprocessed_path
+
+    min_edge = getattr(config, "audiveris_min_image_edge", _RESCALE_MIN_EDGE_FALLBACK)
     try:
         upscaled = ensure_min_resolution(
-            input_file,
+            effective_input,
             output_dir,
             min_edge=min_edge,
-            max_pixels=max_pixels,
+            max_pixels=preprocess_max_pixels,
         )
     except Exception:
-        return input_file, None
+        return effective_input, preprocessed_path
     if upscaled is None:
-        return input_file, None
+        return effective_input, preprocessed_path
     return upscaled, upscaled
 
 
@@ -175,12 +196,13 @@ def _maybe_retry_after_low_interline(
     if factor <= 1.0:
         return None
     max_pixels = _max_pixels_or_default(config)
+    preprocess_max_pixels = max_pixel_budget(max_pixels)
     try:
         return upscale_by_factor(
             input_file,
             output_dir,
             factor=factor,
-            max_pixels=max_pixels,
+            max_pixels=preprocess_max_pixels,
         )
     except Exception:
         return None
@@ -255,7 +277,7 @@ def _max_pixels_or_default(config: ToolConfig) -> int:
     if not raw.isdigit():
         return _RESCALE_MAX_PIXELS_FALLBACK
     value = int(raw)
-    return value if value > 0 else _RESCALE_MAX_PIXELS_FALLBACK
+    return value
 
 
 def _select_movement_group(

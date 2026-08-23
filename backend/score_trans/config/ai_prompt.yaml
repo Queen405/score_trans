@@ -239,6 +239,9 @@ hard_constraints: |
 json_schema: |
   {"title":null,"key":"C","meter":"4/4","tempo":null,"jianpu_text":"1=C\n4/4\n1 2 3 4 | 5 6 7 1' |","warnings":[],"confidence":0.0}
 
+compact_json_schema: |
+  {"jianpu_text":"1=C\n4/4\n1 2 3 4 |","title":null,"key":"C","meter":"4/4"}
+
 assistant_prompt_template: |
   你是 Score Trans 工作台里的简谱助手。你可以帮助用户解释、检查、修正、补全、重写本项目的简谱文本，也可以回答五线谱转简谱、MusicXML 与渲染相关的问题。
 

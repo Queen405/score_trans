@@ -86,6 +86,9 @@ $env:SCORE_TRANS_OCR_MODEL="deepseek-ai/DeepSeek-OCR"
 | `SCORE_TRANS_AI_API_KEY` | API key。 | `sk-your-key` |
 | `SCORE_TRANS_AI_TIMEOUT` | 请求超时秒数。 | `120` |
 | `SCORE_TRANS_AI_TEMPERATURE` | 采样温度。 | `0.3` |
+| `SCORE_TRANS_AI_MAX_TOKENS` | 输出 token 上限回退值。provider profile 的 `max_tokens` 优先于此变量；均未配置时使用 4096。 | `4096` |
+
+provider profile JSON 支持可选字段 `max_tokens`（正整数）：已确认支持更大输出的模型可在 profile 中显式配置（如 `8192`），避免全局默认值对旧模型造成不兼容。若响应因达到上限被截断，后端会用更紧凑的提示重试一次，仍失败则返回明确的转写错误。
 
 ```powershell
 $env:SCORE_TRANS_AI_API_KEY="sk-your-key"
@@ -105,7 +108,12 @@ $env:SCORE_TRANS_AI_MODEL="mimo-v2.5"
 | `SCORE_TRANS_ASSISTANT_PROVIDER_PROFILES` | provider 配置 JSON。 | 见 `env.example` |
 | `SCORE_TRANS_ASSISTANT_BASE_URL` | API 基础 URL。 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `SCORE_TRANS_ASSISTANT_MODEL` | 模型名。 | `deepseek-v4-flash` |
+| `SCORE_TRANS_ASSISTANT_MAX_TOKENS` | 输出 token 上限回退值。provider profile 的 `max_tokens` 优先于此变量；均未配置时使用 4096。 | `4096` |
 | `SCORE_TRANS_ASSISTANT_API_KEY` | API key。 | `sk-your-key` |
+
+工作台聊天响应若因 `finish_reason=length` 截断，后端会自动续写（最多 3 轮），续写内容对前端透明；达到上限仍截断时报错且不保存半截回答。
+
+> 注意：`SCORE_TRANS_OCR_MAX_TOKENS`（乐谱 OCR）仍为固定配置，OCR 长文本截断问题不属于本次 AI 续写修复范围。
 
 ---
 

@@ -94,6 +94,34 @@ test('assistant animation timers are replaced and cleared on unmount', () => {
   )
 })
 
+test('assistant stays mounted across tab switches so streams survive navigation', () => {
+  const appSource = source('../src/renderer/src/App.vue')
+  assert.match(appSource, /<ai-assistant\s+v-show="activeTab === 'convert'"\s*\/>/)
+  assert.doesNotMatch(appSource, /<ai-assistant\s+v-if=/)
+  // Unmount abort only fires when the whole app is destroyed, not on tab switch.
+  assert.match(
+    assistantComponentSource,
+    /onUnmounted\(\(\) => \{[\s\S]*assistant\.abortStream\(\)/,
+  )
+})
+
+test('assistant store cleans pending temp messages on abort and error paths', () => {
+  // A shared cleanup helper must exist and be invoked on the aborted early returns.
+  assert.match(assistantStoreSource, /const dropPendingMessages = \(\): void => \{/)
+  const abortReturns = assistantStoreSource.match(/if \(controller\.signal\.aborted\) \{[\s\S]*?\n\s*return\n\s*\}/g) ?? []
+  assert.ok(
+    abortReturns.length >= 2,
+    `expected both aborted early-return paths to clean up, found ${abortReturns.length}`,
+  )
+  for (const block of abortReturns) {
+    assert.match(block, /dropPendingMessages\(\)/)
+  }
+  assert.match(
+    assistantStoreSource,
+    /if \(savedStreamMessages\) \{[\s\S]*savedStreamMessages = savedStreamMessages\.filter/,
+  )
+})
+
 test('assistant streaming replaces the message object', () => {
   assert.doesNotMatch(assistantStoreSource, /target\.content\s*\+=/)
   assert.match(

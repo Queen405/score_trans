@@ -84,6 +84,7 @@ def build_jianpu_prompt(
     title: str | None,
     page_index: int,
     extra_prompt: str | None,
+    compact: bool = False,
 ) -> str:
     cfg = _load_prompt_config()
     template = _cfg_value(cfg, "prompt_template")
@@ -101,6 +102,9 @@ def build_jianpu_prompt(
     transcription_rules = _cfg_value(cfg, "transcription_rules")
     hard_constraints = cfg.get("hard_constraints", "")
     json_schema = _cfg_value(cfg, "json_schema")
+    if compact:
+        # 紧凑模式：截断重试时只要求核心字段，减少输出 token 占用。
+        json_schema = cfg.get("compact_json_schema", json_schema)
     return template.format(
         page_index=page_index + 1,
         title_hint=title_hint,

@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from PIL import Image
-
 from score_trans.models.common.errors import ExternalToolError
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.recognize import external_tools
@@ -12,6 +11,7 @@ from score_trans.services.recognize.external_tools import (
     recognize_with_audiveris,
 )
 from score_trans.services.recognize.image_preprocess import (
+    ensure_max_pixel_count,
     ensure_min_resolution,
     is_pdf,
     is_raster_image,
@@ -100,6 +100,33 @@ def test_ensure_min_resolution_caps_by_max_pixels(tmp_path: Path) -> None:
         assert max(img.width, img.height) >= 1000
 
 
+def test_ensure_max_pixel_count_scales_to_ninety_five_percent_budget(
+    tmp_path: Path,
+) -> None:
+    png = _write_png(tmp_path / "src" / "large.png", 2000, 1000)
+    out = tmp_path / "out"
+
+    result = ensure_max_pixel_count(png, out, max_pixels=1_000_000)
+
+    assert result is not None
+    with Image.open(result) as img:
+        assert img.width * img.height <= 950_000
+        assert img.width * img.height >= 949_000
+
+
+def test_ensure_max_pixel_count_skips_when_limit_is_zero(tmp_path: Path) -> None:
+    png = _write_png(tmp_path / "src" / "large.png", 2000, 1000)
+
+    assert ensure_max_pixel_count(png, tmp_path / "out", max_pixels=0) is None
+
+
+def test_max_pixel_count_setting_zero_remains_unlimited() -> None:
+    assert (
+        external_tools._max_pixels_or_default(ToolConfig(audiveris_max_pixel_count="0"))
+        == 0
+    )
+
+
 def test_upscale_by_factor_grows_dimensions(tmp_path: Path) -> None:
     png = _write_png(tmp_path / "src" / "small.png", 1000, 500)
     out = tmp_path / "out"
@@ -136,6 +163,38 @@ def test_recognize_with_audiveris_preventive_upscale_passes_upscaled_path(
     assert "_preprocess" in passed_path.parts
     with Image.open(passed_path) as img:
         assert max(img.width, img.height) >= 2500
+
+
+def test_recognize_with_audiveris_caps_large_png_before_running(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = _write_png(tmp_path / "src" / "large.png", 2000, 1000)
+    output_dir = tmp_path / "omr"
+    captured: list[str] = []
+
+    def fake_run(args, cwd=None, env=None) -> CommandResult:
+        captured.append(args[-1])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "large.musicxml").write_text(
+            "<score-partwise/>", encoding="utf-8"
+        )
+        return CommandResult(args=args, stdout="", stderr="")
+
+    monkeypatch.setattr(external_tools, "_run", fake_run)
+
+    recognize_with_audiveris(
+        source,
+        output_dir,
+        ToolConfig(
+            audiveris_path="audiveris",
+            audiveris_max_pixel_count="1000000",
+        ),
+    )
+
+    passed_path = Path(captured[0])
+    assert passed_path != source.resolve()
+    with Image.open(passed_path) as img:
+        assert img.width * img.height <= 950_000
 
 
 def test_recognize_with_audiveris_skips_upscale_when_disabled(

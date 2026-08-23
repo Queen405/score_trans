@@ -15,3 +15,5 @@ class LlmProviderProfile:
     model: str
     description: str = ""
     fallback_model: str = ""
+    # 输出 token 上限；0 表示未配置（回退到环境变量，再回退兼容默认值）。
+    max_tokens: int = 0

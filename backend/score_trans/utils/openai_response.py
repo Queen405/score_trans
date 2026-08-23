@@ -17,6 +17,22 @@ def completion_content(data: Any, *, provider_name: str) -> str:
     return content
 
 
+def completion_finish_reason(data: Any, *, provider_name: str) -> str | None:
+    """Return finish_reason of the first non-stream choice, if present."""
+    choices = _choices(data, provider_name=provider_name, allow_empty=False)
+    finish_reason = choices[0].get("finish_reason")
+    return finish_reason if isinstance(finish_reason, str) else None
+
+
+def stream_finish_reason(data: Any, *, provider_name: str) -> str | None:
+    """Return finish_reason of the first stream choice, if present."""
+    choices = _choices(data, provider_name=provider_name, allow_empty=True)
+    if not choices:
+        return None
+    finish_reason = choices[0].get("finish_reason")
+    return finish_reason if isinstance(finish_reason, str) else None
+
+
 def stream_delta(data: Any, *, provider_name: str) -> dict[str, Any] | None:
     choices = _choices(data, provider_name=provider_name, allow_empty=True)
     if not choices:
