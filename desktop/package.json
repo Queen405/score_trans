@@ -1,6 +1,7 @@
 {
   "name": "score-trans-desktop",
   "version": "0.1.0",
+  "author": "queen",
   "packageManager": "pnpm@11.7.0",
   "description": "Score Trans - 五线谱/简谱互转桌面应用",
   "main": "./out/main/index.js",
