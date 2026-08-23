@@ -9,7 +9,7 @@ from ...domain.musicxml import (
     musicxml_path_to_scores,
 )
 from ...domain.write.jianpu_text import scores_to_jianpu_document
-from ...models.common.types import AccidentalMode, InstrumentProfile
+from ...models.common.types import IMAGE_SUFFIXES, AccidentalMode, InstrumentProfile
 from ...models.convert.schemas import (
     JianpuToMusicXmlRequest,
     JianpuToMusicXmlResponse,
@@ -22,6 +22,7 @@ from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.ocr.providers import create_configured_ocr_provider
+from ...services.settings.settings_service import SettingsService
 
 
 class MusicXmlToJianpuAction:
@@ -122,11 +123,13 @@ class ConvertActions:
         file_service: FileService | None = None,
         musicxml_to_jianpu: MusicXmlToJianpuAction | None = None,
         jianpu_to_musicxml: JianpuToMusicXmlAction | None = None,
+        settings: SettingsService | None = None,
     ) -> None:
         self.uploads = uploads or UploadService()
         self.file_service = file_service or FileService()
         self.musicxml_to_jianpu = musicxml_to_jianpu or MusicXmlToJianpuAction()
         self.jianpu_to_musicxml = jianpu_to_musicxml or JianpuToMusicXmlAction()
+        self.settings = settings or SettingsService()
 
     def musicxml_to_jianpu_response(
         self, req: MusicXmlToJianpuRequest
@@ -136,10 +139,12 @@ class ConvertActions:
             raise FileNotFoundError(f"文件不存在：{req.musicxml_file_id}")
 
         image_path = None
-        if req.page_image_file_id:
+        if req.page_image_file_id and self.settings.get_bool("enable_omr_ocr", True):
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
                 raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
+            if image_path.suffix.lower() not in IMAGE_SUFFIXES:
+                image_path = None
 
         document = self.musicxml_to_jianpu.execute_document(
             path,

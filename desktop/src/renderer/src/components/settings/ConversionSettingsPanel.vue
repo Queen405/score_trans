@@ -51,6 +51,16 @@
         </settings-form-row>
 
         <settings-form-row
+          label="识别五线谱文字（OCR）"
+          hint="关闭后仍执行音符识别、MusicXML 转换和简谱生成"
+        >
+          <n-switch
+            v-model:value="settings.draft.enableOmrOcr"
+            size="small"
+          />
+        </settings-form-row>
+
+        <settings-form-row
           label="代码配色"
           hint="在简谱编辑器中显示语法高亮"
         >

@@ -120,6 +120,7 @@ class SettingsService:
             audiveris_min_image_edge=self.dao.get_int(
                 "audiveris_min_image_edge", AUDIVERIS_MIN_IMAGE_EDGE
             ),
+            enable_omr_ocr=self.dao.get_bool("enable_omr_ocr", True),
         )
 
     def get_all(self) -> dict[str, str]:

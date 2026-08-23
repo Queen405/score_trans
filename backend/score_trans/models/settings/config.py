@@ -21,3 +21,4 @@ class ToolConfig:
     audiveris_max_pixel_count: str = "20000000"
     audiveris_auto_upscale: bool = True
     audiveris_min_image_edge: int = 2500
+    enable_omr_ocr: bool = True

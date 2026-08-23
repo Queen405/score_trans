@@ -105,6 +105,12 @@ class SettingsActions:
                 "1" if req.jianpu_syntax_highlight else "0",
             )
 
+        if req.enable_omr_ocr is not None:
+            self.service.set(
+                "enable_omr_ocr",
+                "1" if req.enable_omr_ocr else "0",
+            )
+
         if req.work_dir is not None:
             self.service.set("work_dir", req.work_dir)
 
@@ -277,6 +283,7 @@ class SettingsActions:
             jianpu_syntax_highlight=self.service.get_bool(
                 "jianpu_syntax_highlight", False
             ),
+            enable_omr_ocr=self.service.get_bool("enable_omr_ocr", True),
             ocr_provider=ocr_profile.id,
             ocr_provider_options=_provider_options("ocr"),
             ocr_api_key_set=bool(ocr_api_key),

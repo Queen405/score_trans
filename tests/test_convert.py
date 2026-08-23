@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as ET
 from fractions import Fraction
+from pathlib import Path
 
 from score_trans.domain.jianpu import jianpu_to_musicxml, parse_jianpu_score
 from score_trans.domain.musicxml import (
@@ -9,6 +10,80 @@ from score_trans.domain.musicxml import (
 )
 from score_trans.domain.write.musicxml import scores_to_musicxml
 from score_trans.models.score import Event, JianpuEvent, TextBlock
+from score_trans.dao.settings.settings_dao import SettingsDao
+from score_trans.exec.convert.actions import ConvertActions
+from score_trans.models.convert.schemas import MusicXmlToJianpuRequest
+from score_trans.models.provenance.entities import JianpuDocument
+from score_trans.models.settings.config import ToolConfig
+from score_trans.services.files.file_service import FileService
+from score_trans.services.files.upload_service import UploadService
+from score_trans.services.settings.settings_service import SettingsService
+
+
+class CapturingMusicXmlToJianpu:
+    def __init__(self) -> None:
+        self.image_path: Path | None = None
+
+    def execute_document(self, musicxml_path: str | Path, **kwargs) -> JianpuDocument:
+        self.image_path = kwargs.get("image_path")
+        return JianpuDocument(text="1=C\n4/4\n1 |", anchors=[], text_hash="hash")
+
+
+def test_convert_does_not_resolve_or_call_ocr_when_setting_is_disabled(
+    tmp_path,
+) -> None:
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    musicxml_path = tmp_path / "score.musicxml"
+    musicxml_path.write_text("<score-partwise/>", encoding="utf-8")
+    image_path = tmp_path / "score.png"
+    image_path.write_bytes(b"png")
+    musicxml_id = uploads.register(musicxml_path)
+    image_id = uploads.register(image_path)
+    dao = SettingsDao(tmp_path / "settings.db", defaults={"enable_omr_ocr": "0"})
+    converter = CapturingMusicXmlToJianpu()
+    actions = ConvertActions(
+        uploads=uploads,
+        file_service=FileService(),
+        musicxml_to_jianpu=converter,
+        settings=SettingsService(dao),
+    )
+
+    response = actions.musicxml_to_jianpu_response(
+        MusicXmlToJianpuRequest(
+            musicxml_file_id=musicxml_id,
+            page_image_file_id=image_id,
+        )
+    )
+
+    assert response.jianpu_text == "1=C\n4/4\n1 |"
+    assert converter.image_path is None
+
+
+def test_convert_skips_pdf_ocr_input_even_when_setting_is_enabled(tmp_path) -> None:
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    musicxml_path = tmp_path / "score.musicxml"
+    musicxml_path.write_text("<score-partwise/>", encoding="utf-8")
+    pdf_path = tmp_path / "score.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4")
+    musicxml_id = uploads.register(musicxml_path)
+    pdf_id = uploads.register(pdf_path)
+    dao = SettingsDao(tmp_path / "settings.db", defaults={"enable_omr_ocr": "1"})
+    converter = CapturingMusicXmlToJianpu()
+    actions = ConvertActions(
+        uploads=uploads,
+        file_service=FileService(),
+        musicxml_to_jianpu=converter,
+        settings=SettingsService(dao),
+    )
+
+    actions.musicxml_to_jianpu_response(
+        MusicXmlToJianpuRequest(
+            musicxml_file_id=musicxml_id,
+            page_image_file_id=pdf_id,
+        )
+    )
+
+    assert converter.image_path is None
 
 
 def test_musicxml_preserves_double_accidentals_and_sharp_key_spelling() -> None:

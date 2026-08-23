@@ -18,6 +18,7 @@ from score_trans.services.settings.provider_profiles import (
     provider_profiles,
     resolve_provider_profile,
 )
+from score_trans.services.settings.defaults import settings_defaults
 from score_trans.services.settings.settings_service import SettingsService
 
 
@@ -48,6 +49,22 @@ def test_settings_update_schema_accepts_provider_endpoint_overrides() -> None:
     assert "ai_model" in properties
     assert "assistant_base_url" in properties
     assert "assistant_model" in properties
+
+
+def test_omr_ocr_setting_defaults_on_and_round_trips(tmp_path) -> None:
+    defaults = settings_defaults()
+    assert defaults["enable_omr_ocr"] == "1"
+    dao = SettingsDao(tmp_path / "settings.db", defaults=defaults)
+    actions = SettingsActions(SettingsService(dao))
+
+    assert actions.get_settings().enable_omr_ocr is True
+
+    response = actions.update_settings(SettingsUpdateRequest(enable_omr_ocr=False))
+
+    assert response.enable_omr_ocr is False
+    assert dao.get("enable_omr_ocr") == "0"
+    assert SettingsActions(SettingsService(dao)).get_settings().enable_omr_ocr is False
+    assert SettingsService(dao).load().enable_omr_ocr is False
 
 
 def test_settings_provider_endpoint_overrides_are_saved_and_returned(tmp_path) -> None:

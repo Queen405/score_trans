@@ -311,6 +311,13 @@ def test_settings_response_schema_does_not_expose_api_keys() -> None:
     assert "assistant_api_key_set" in properties
 
 
+def test_settings_schema_exposes_omr_ocr_toggle() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+
+    assert "enable_omr_ocr" in schemas["SettingsResponse"]["properties"]
+    assert "enable_omr_ocr" in schemas["SettingsUpdateRequest"]["properties"]
+
+
 def test_target_key_schema_exposes_supported_keys() -> None:
     property_schema = create_app().openapi()["components"]["schemas"][
         "SettingsResponse"

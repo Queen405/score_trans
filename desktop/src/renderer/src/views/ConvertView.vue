@@ -1608,7 +1608,6 @@ async function resetAll(): Promise<void> {
 
     const result = await requireData(convertApi.musicxmlToJianpu({
       musicxml_file_id: store.musicxmlFileId,
-      page_image_file_id: store.originalFileId || undefined,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
     }))
@@ -1617,6 +1616,8 @@ async function resetAll(): Promise<void> {
     if (page) {
       store.patchPageById(page.id, {
         jianpuText: split.jianpuText,
+        ocrText: '',
+        textAttachments: [],
         textAnchors: result.text_anchors ?? [],
         textHash: result.text_hash ?? '',
         workingMusicxml: store.originalMusicxml,
@@ -1631,8 +1632,9 @@ async function resetAll(): Promise<void> {
       store.setBatchJianpuText(nextBatchText, false)
       await persistCorrectionState(page.id, nextBatchText)
     }
-    store.setOcrText(split.ocrText || store.ocrText)
+    store.setOcrText('')
     store.setBatchRenderPageFileIds([])
+    store.setBatchRenderPageOcrTexts([], true)
     setFinalSvgFileIds([])
     log.addLog('已重置到识别初始状态')
     message.success('已重置')
@@ -1757,6 +1759,8 @@ async function persistCorrectionState(pageId: string, batchText: string): Promis
   if (page.historyPageId) {
     const updated = await requireData(historyApi.updatePage(page.historyPageId, {
       jianpu_text: page.jianpuText,
+      ocr_text: page.ocrText,
+      text_attachments: page.textAttachments,
       svg_file_id: page.svgFileId,
       text_hash: page.textHash,
       text_anchors: page.textAnchors,

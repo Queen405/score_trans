@@ -30,6 +30,7 @@ def get_convert_actions() -> ConvertActions:
     return ConvertActions(
         uploads=composition.shared_uploads(),
         file_service=composition.shared_file_service(),
+        settings=composition.shared_settings_service(),
     )
 
 

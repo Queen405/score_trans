@@ -96,6 +96,7 @@ class FullPipelineAction:
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
         ocr_provider: OCRProvider | None = None,
+        enable_omr_ocr: bool = True,
         progress_callback: ProgressCallback | None = None,
     ) -> ScorePipelineOutputs:
         source = Path(input_path).resolve()
@@ -105,7 +106,7 @@ class FullPipelineAction:
         recognized = self.recognizer.execute(source, out_dir / "omr", config)
         report_progress(progress_callback, "omr", 45, "OMR 识别完成")
         musicxml_path = _copy_musicxml_output(Path(recognized), out_dir, source.stem)
-        ocr_image_path = source if _is_ocr_image(source) else None
+        ocr_image_path = source if enable_omr_ocr and _is_ocr_image(source) else None
         overlay_path, source_map_path = self.overlay_service.find_native_overlay(
             out_dir / "omr"
         )
@@ -244,6 +245,7 @@ class PipelineActions:
         if not input_path or not input_path.exists():
             raise FileNotFoundError(f"文件不存在：{file_id}")
         task_id = tasks.create_task()
+        enable_omr_ocr = self.settings.get_bool("enable_omr_ocr", True)
 
         def action(progress: ProgressCallback):
             return self.run_pipeline_from_path(
@@ -254,6 +256,7 @@ class PipelineActions:
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
                 title=title,
+                enable_omr_ocr=enable_omr_ocr,
                 progress_callback=progress,
             )
 
@@ -277,6 +280,7 @@ class PipelineActions:
     ) -> TaskSubmitResponse:
         input_path = await asyncio.to_thread(self.save_upload, file)
         task_id = tasks.create_task()
+        enable_omr_ocr = self.settings.get_bool("enable_omr_ocr", True)
 
         def action(progress: ProgressCallback):
             return self.run_pipeline_from_path(
@@ -287,6 +291,7 @@ class PipelineActions:
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
                 title=title,
+                enable_omr_ocr=enable_omr_ocr,
                 progress_callback=progress,
             )
 
@@ -305,9 +310,12 @@ class PipelineActions:
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         title: str | None = None,
+        enable_omr_ocr: bool | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> PipelineResponse:
         config = self.settings.load()
+        if enable_omr_ocr is None:
+            enable_omr_ocr = config.enable_omr_ocr
 
         report_progress(progress_callback, "pipeline", 5, "创建输出目录")
         output_dir = config.work_dir / "pipeline" / uuid.uuid4().hex[:12]
@@ -322,6 +330,7 @@ class PipelineActions:
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             title=title,
+            enable_omr_ocr=enable_omr_ocr,
             progress_callback=progress_callback,
         )
         _require_rendered_pages(outputs.jianpu_svg_paths)

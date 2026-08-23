@@ -921,13 +921,13 @@ export type components = {
             jianpu_text?: string;
             /** Pages */
             pages: components["schemas"]["PageCreate"][];
-            /** Render Page File Ids */
-            render_page_file_ids?: string[];
             /**
              * Render Output Stale
              * @default false
              */
             render_output_stale?: boolean;
+            /** Render Page File Ids */
+            render_page_file_ids?: string[];
             /** Render Page Ocr Texts */
             render_page_ocr_texts?: components["schemas"]["RenderPageOcrText"][];
         };
@@ -1017,13 +1017,13 @@ export type components = {
         };
         /** BatchRenderPagesUpdate */
         BatchRenderPagesUpdate: {
-            /** Render Page File Ids */
-            render_page_file_ids: string[];
             /**
              * Render Output Stale
              * @default false
              */
             render_output_stale?: boolean;
+            /** Render Page File Ids */
+            render_page_file_ids: string[];
         };
         /** BatchRenderRequest */
         BatchRenderRequest: {
@@ -1107,13 +1107,13 @@ export type components = {
             page_count: number;
             /** Pages */
             pages: components["schemas"]["PageResponse"][];
-            /** Render Page File Ids */
-            render_page_file_ids?: string[];
             /**
              * Render Output Stale
              * @default false
              */
             render_output_stale?: boolean;
+            /** Render Page File Ids */
+            render_page_file_ids?: string[];
             /** Render Page Ocr Texts */
             render_page_ocr_texts?: components["schemas"]["RenderPageOcrText"][];
             /** Status */
@@ -2244,6 +2244,11 @@ export type components = {
             cache_size_bytes?: number;
             /** Data Dir */
             data_dir: string;
+            /**
+             * Enable Omr Ocr
+             * @default true
+             */
+            enable_omr_ocr?: boolean;
             /** Java Home */
             java_home: string;
             /**
@@ -2323,6 +2328,8 @@ export type components = {
             audiveris_min_image_edge?: number | null;
             /** Audiveris Path */
             audiveris_path?: string | null;
+            /** Enable Omr Ocr */
+            enable_omr_ocr?: boolean | null;
             /** Java Home */
             java_home?: string | null;
             /** Jianpu Syntax Highlight */

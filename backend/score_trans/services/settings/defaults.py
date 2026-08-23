@@ -36,6 +36,7 @@ def settings_defaults() -> dict[str, str]:
         "show_measure_numbers": "1",
         "measure_number_mode": "all",
         "jianpu_syntax_highlight": "0",
+        "enable_omr_ocr": "1",
         "accidental_mode": "auto",
         "ocr_provider": OCR_PROVIDER,
         "ocr_api_key": OCR_API_KEY,

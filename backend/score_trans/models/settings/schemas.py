@@ -39,6 +39,7 @@ class SettingsResponse(BaseModel):
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
     jianpu_syntax_highlight: bool = False
+    enable_omr_ocr: bool = True
     output_dir: str = ""
     ocr_provider: str
     ocr_provider_options: list[LlmProviderOption] = Field(default_factory=list)
@@ -71,6 +72,7 @@ class SettingsUpdateRequest(BaseModel):
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode | None = None
     jianpu_syntax_highlight: bool | None = None
+    enable_omr_ocr: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None
     ocr_api_key: str | None = None

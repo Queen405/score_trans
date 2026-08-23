@@ -41,11 +41,17 @@ class EmptyRenderer:
 
 
 class StaticSettings:
-    def __init__(self, config: ToolConfig) -> None:
+    def __init__(self, config: ToolConfig, *, enable_omr_ocr: bool = True) -> None:
         self.config = config
+        self.enable_omr_ocr = enable_omr_ocr
 
     def load(self) -> ToolConfig:
         return self.config
+
+    def get_bool(self, key: str, default: bool = False) -> bool:
+        if key == "enable_omr_ocr":
+            return self.enable_omr_ocr
+        return default
 
 
 class EmptyOutputPipeline:
@@ -53,6 +59,16 @@ class EmptyOutputPipeline:
         self.outputs = outputs
 
     def execute(self, *args, **kwargs) -> ScorePipelineOutputs:
+        return self.outputs
+
+
+class CapturingPipeline:
+    def __init__(self, outputs: ScorePipelineOutputs) -> None:
+        self.outputs = outputs
+        self.enable_omr_ocr: bool | None = None
+
+    def execute(self, *args, **kwargs) -> ScorePipelineOutputs:
+        self.enable_omr_ocr = kwargs["enable_omr_ocr"]
         return self.outputs
 
 
@@ -239,3 +255,64 @@ def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> Non
     assert [item.text for item in outputs.text_attachments] == ["原谱标题"]
     assert outputs.text_attachments[0].anchor.kind == "score_start"
     assert "text_attachments" in PipelineResponse.model_json_schema()["properties"]
+
+
+def test_full_pipeline_skips_ocr_but_keeps_conversion_outputs_when_disabled(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "scan.png"
+    Image.new("RGB", (320, 480), "white").save(source)
+    recognized = tmp_path / "audiveris-output.musicxml"
+    recognized.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), encoding="utf-8")
+    provider = MockOCRProvider([OCRTextBlock("不应被调用", role="title")])
+
+    outputs = FullPipelineAction(
+        recognizer=FakeRecognizer(source, recognized),
+    ).execute(
+        source,
+        tmp_path / "out",
+        config=ToolConfig(audiveris_path="fake-audiveris"),
+        enable_omr_ocr=False,
+        ocr_provider=provider,
+    )
+
+    assert provider.calls == []
+    assert outputs.musicxml_path.exists()
+    assert outputs.jianpu_text_path.exists()
+    assert outputs.jianpu_svg_path.exists()
+    assert outputs.ocr_text == ""
+    assert outputs.text_attachments == []
+    assert isinstance(outputs.text_anchors, list)
+    assert outputs.text_hash
+
+
+def test_pipeline_uses_persisted_ocr_setting_snapshot(tmp_path: Path) -> None:
+    work_dir = tmp_path / "work"
+    input_path = tmp_path / "scan.pdf"
+    musicxml_path = tmp_path / "scan.musicxml"
+    text_path = tmp_path / "scan.txt"
+    svg_path = tmp_path / "scan.svg"
+    input_path.write_bytes(b"%PDF-1.4")
+    musicxml_path.write_text("<score-partwise/>", encoding="utf-8")
+    text_path.write_text("1=C\n4/4\n1 |", encoding="utf-8")
+    svg_path.write_text("<svg/>", encoding="utf-8")
+    outputs = ScorePipelineOutputs(
+        input_path=input_path,
+        musicxml_path=musicxml_path,
+        jianpu_text_path=text_path,
+        jianpu_svg_paths=[svg_path],
+        render_map_paths=[],
+    )
+    pipeline = CapturingPipeline(outputs)
+    actions = PipelineActions(
+        uploads=UploadService(ToolConfig(work_dir=work_dir)),
+        settings=StaticSettings(
+            ToolConfig(work_dir=work_dir, enable_omr_ocr=False),
+            enable_omr_ocr=False,
+        ),
+        pipeline=pipeline,
+    )
+
+    actions.run_pipeline_from_path(input_path)
+
+    assert pipeline.enable_omr_ocr is False
