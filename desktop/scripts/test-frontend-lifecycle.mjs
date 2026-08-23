@@ -16,6 +16,7 @@ const assistantComponentSource = source('../src/renderer/src/components/AiAssist
 const assistantStoreSource = source('../src/renderer/src/stores/assistant.ts')
 const editorSource = source('../src/renderer/src/components/JianpuEditor.vue')
 const convertSource = source('../src/renderer/src/views/ConvertView.vue')
+const originalPreviewSource = source('../src/renderer/src/components/OriginalPreview.vue')
 const playerSource = source('../src/renderer/src/components/JianpuPlayer.vue')
 const playerPreferencesPath = path.resolve(
   here,
@@ -197,4 +198,49 @@ test('syntax validation blocks output with a user-visible log and toast', () => 
   assert.match(convertSource, /无法\$\{action\}/)
   assert.doesNotMatch(convertSource, /normalizeJianpuText\(\{ jianpu_text: savedJianpu/)
   assert.match(convertSource, /markBatchRenderPageOcrClean\(\)/)
+})
+
+test('delete-markers mode toggles label, cancels pending load, and gates apply on baseline diff', () => {
+  // 入口/取消 二态标签
+  assert.match(convertSource, /\{\{ editMode \? '取消' : '删除标记' \}\}/)
+  // 应用按钮文案与加载态守卫
+  assert.match(convertSource, /const loadingEntities = ref\(false\)/)
+  assert.match(convertSource, /:disabled="loadingEntities"/)
+  assert.match(
+    convertSource,
+    /@click="applyCorrections"[\s\S]*?>\s*应用\s*<\/n-button>/,
+  )
+  // 拆分进入/取消；取消时终止未完成加载并恢复已应用基线
+  assert.match(convertSource, /async function enterEditMode\(\)/)
+  assert.match(convertSource, /function cancelEditMode\(\)/)
+  assert.match(convertSource, /entityLoadController\?\.abort\(\)/)
+  assert.match(
+    convertSource,
+    /new Set\(store\.currentPage\?\.deletedSourceIds \?\? \[\]\)/,
+  )
+  // apply 守卫基于"相对已应用基线的差异"，而非"删除数为 0"
+  assert.match(convertSource, /const hasPendingChange =/)
+  assert.doesNotMatch(convertSource, /未删除任何标记/)
+  // 应用成功后自动退出删除标记模式，无需再点"取消"
+  assert.match(
+    convertSource,
+    /message\.success\('修正已应用'\)\s*\n\s*editMode\.value = false/,
+  )
+  // 多页 OMR 提示文案与功能名一致
+  assert.match(convertSource, /在单张原图上删除标记/)
+})
+
+test('deleted entity markers render as a faint red outline without fill', () => {
+  // 不用红色填充覆盖 notehead，也不整体调 opacity 把轮廓弄没；
+  // 删除标记只留淡红虚线轮廓（stroke-opacity 控制浓淡），填充不可见但保留可点击。
+  assert.match(
+    originalPreviewSource,
+    /\.entity-box\.deleted \{[\s\S]*?stroke-opacity:\s*0\.3/,
+  )
+  assert.match(
+    originalPreviewSource,
+    /\.entity-box\.deleted:hover \{[\s\S]*?stroke-opacity:\s*0\.65/,
+  )
+  assert.match(originalPreviewSource, /aria-label="可删除标记"/)
+  assert.match(originalPreviewSource, /transition: fill 0\.15s, stroke-opacity 0\.15s;/)
 })

@@ -503,6 +503,8 @@ def _read_measure_events(
 
         if note.find(_q(ns, "rest")) is not None:
             event = Event(kind="rest", duration=duration)
+            if note.get("print-object") == "no":
+                event.hidden = True
         else:
             pitch = _note_pitch(note, ns, target_key)
             event = Event(

@@ -686,6 +686,40 @@ def test_score_to_jianpu_text_only_writes_supported_mark_tokens() -> None:
     parse_jianpu_score(text)
 
 
+def test_hidden_rest_is_omitted_from_jianpu_text() -> None:
+    """删除产生的休止符（hidden=True）不输出 0，简谱里那一拍消失。"""
+    score = JianpuScore(target_key="C", source_key="C", beats=4, beat_type=4)
+    score.measures.append(
+        Measure(
+            source_number="1",
+            duration=Fraction(4, 1),
+            events=[
+                Event(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(1)],
+                ),
+                Event(kind="rest", duration=Fraction(1, 1), hidden=True),
+                Event(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(3)],
+                ),
+                Event(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(4)],
+                ),
+            ],
+        )
+    )
+
+    text = score_to_jianpu_text(score)
+
+    assert "1 3 4" in text
+    assert "0" not in text
+
+
 def test_erhu_profile_marks_parse_normalize_and_dedupe() -> None:
     text = (
         "instrument=erhu\n1=C\n4/4\n"

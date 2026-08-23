@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from score_trans.config.settings import OCR_TEMPERATURE, OCR_TIMEOUT
+from score_trans.config.settings import OCR_API_KEY, OCR_TEMPERATURE, OCR_TIMEOUT
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
 from score_trans.services.settings.api_keys import provider_api_key
@@ -14,6 +14,7 @@ from score_trans.services.settings.provider_profiles import (
 )
 from score_trans.utils.json_parsing import content_to_text
 from score_trans.utils.media import image_to_data_url
+
 from ..client.client import ocr_prompt_for_model
 from ..core.utils import persisted_ocr_settings
 from ..parsing import parse_openai_compatible_response
@@ -47,7 +48,9 @@ class DashScopeOCRProvider:
         self.model = (
             model or (profile.model if profile_matches else "") or _DEFAULT_MODEL
         )
-        self.api_key = api_key or provider_api_key(persisted, "ocr", profile.id) or ""
+        self.api_key = (
+            api_key or provider_api_key(persisted, "ocr", profile.id) or OCR_API_KEY
+        )
         self.timeout = timeout
         self.dry_run = dry_run
 

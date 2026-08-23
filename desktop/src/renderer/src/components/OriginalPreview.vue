@@ -61,7 +61,7 @@
           :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
           :width="imgW || entitySheetWidth"
           :height="imgH || entitySheetHeight"
-          aria-label="可编辑标记"
+          aria-label="可删除标记"
         >
           <rect
             v-for="entity in entities"
@@ -436,7 +436,7 @@ onUnmounted(() => {
   vector-effect: non-scaling-stroke;
   pointer-events: visiblePainted;
   cursor: pointer;
-  transition: fill 0.15s;
+  transition: fill 0.15s, stroke-opacity 0.15s;
 }
 
 .entity-box.clef,
@@ -456,8 +456,14 @@ onUnmounted(() => {
 
 .entity-box.deleted {
   stroke: #ff3333;
-  fill: rgba(255, 51, 51, 0.3);
+  stroke-width: 1.5;
+  fill: rgba(255, 51, 51, 0.001);
   stroke-dasharray: 6 4;
+  stroke-opacity: 0.3;
+}
+
+.entity-box.deleted:hover {
+  stroke-opacity: 0.65;
 }
 
 .scan-img {

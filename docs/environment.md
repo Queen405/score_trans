@@ -1,8 +1,26 @@
 # 环境变量参考
 
-Score Trans 的所有配置都通过环境变量读取，不会硬编码在源代码或配置文件中。开发时可以通过 `.env` 文件或 PowerShell 的 `$env:` 设置，生产安装包可在设置页填写。
+Score Trans 的配置分为两层：
 
-本文件按功能模块列出所有环境变量。只有标 **必填** 的项目必须配置；其余使用默认值即可。
+1. **发布默认配置基线**（`backend/score_trans/config/published_defaults.json`）— 安装包默认值，新安装用户的数据库种子。包含调性、拍号显示、像素上限、Audiveris 开关、provider 选中项等非私有配置。API Key 和路径不进入基线。
+2. **环境变量**（`.env`）— 运行时配置。`env.example` 是开发模板，打包时复制为 `resources/backend/.env`。provider 完整目录（`*_PROVIDER_PROFILES`）、Audiveris 执行选项（8 个 `STEP`/`FORCE`/`SAVE` 等）、API 超时/温度等仍由环境变量维护。
+
+**配置优先级：**
+1. 已存在的用户数据库值（`INSERT OR IGNORE` 保护）
+2. 自动解析的内置路径（打包模式 `resources/third_party/`）
+3. 发布默认配置基线（`published_defaults.json`）
+4. 环境变量（`.env`）
+5. 代码兜底默认值
+
+**哪些配置属于安装包默认值：** `published_defaults.json` 中的 `backend` 和 `providers` 块。
+
+**哪些配置由用户填写：** API Key（OCR/AI/助手）— 始终写空种子，用户在设置页填写。
+
+**哪些配置由环境变量控制：** provider 完整目录、Audiveris 执行选项（8 个 `STEP`/`FORCE`/`SAVE` 等）、API 超时/温度/token 上限。这些不进数据库种子，由 `.env` 控制。
+
+**JDK/Audiveris 路径：** 安装包自动解析 `resources/third_party/` 中的内置 JDK 和 Audiveris，用户无需手填。
+
+**升级行为：** 已有用户设置只补充缺失字段，不覆盖。
 
 ---
 

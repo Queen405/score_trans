@@ -1,7 +1,6 @@
 import sqlite3
 
 import pytest
-
 from score_trans.dao.history.history_dao import HistoryDao
 from score_trans.models.history.entities import HistoryPage, HistoryRenderPageOcrText
 from score_trans.models.provenance.schemas import (
@@ -152,6 +151,33 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
     assert service.get_batch(batch.id).pages[0].deleted_source_ids == (
         updated.deleted_source_ids
     )
+
+
+def test_update_page_persists_empty_deleted_source_ids(tmp_path) -> None:
+    """B 方案：恢复全部后 deleted_source_ids=[] 必须能持久化并往返还原。"""
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(
+                input_file_name="score.png",
+                input_file_id="input-1",
+                musicxml_file_id="xml-1",
+                jianpu_text="1=C\n4/4\n1 2 |",
+                svg_file_id="svg-old",
+                omr_file_id="omr-1",
+                original_musicxml="<score-partwise/>",
+                working_musicxml="<score-partwise/>",
+                deleted_source_ids=["s1:i9"],
+            )
+        ]
+    )
+    page_id = batch.pages[0].id
+
+    updated = service.update_page(page_id, deleted_source_ids=[])
+
+    assert updated is not None
+    assert updated.deleted_source_ids == []
+    assert service.get_batch(batch.id).pages[0].deleted_source_ids == []
 
 
 def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:

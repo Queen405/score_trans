@@ -3,11 +3,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
 from score_trans.models.settings.provider_profiles import LlmProviderProfile
 from score_trans.services.ocr import providers as ocr_providers
+from score_trans.services.ocr.core import DEFAULT_OCR_MODEL, is_deepseek_ocr_model
 from score_trans.services.ocr.parsing import parse_openai_compatible_response
 from score_trans.services.ocr.providers import (
     DashScopeOCRProvider,
@@ -15,12 +15,11 @@ from score_trans.services.ocr.providers import (
     OpenAICompatibleOCRProvider,
 )
 from score_trans.services.ocr.providers import dashscope as dashscope_provider
-from score_trans.services.ocr.core import DEFAULT_OCR_MODEL, is_deepseek_ocr_model
-from score_trans.utils.env import load_project_env
-from score_trans.services.ocr.service import OCRService
 from score_trans.services.ocr.providers._http import (
     chat_completions as ocr_chat_completions,
 )
+from score_trans.services.ocr.service import OCRService
+from score_trans.utils.env import load_project_env
 
 
 def test_mock_provider_feeds_text_layer(tmp_path) -> None:
@@ -112,7 +111,7 @@ def test_dashscope_ocr_uses_configured_temperature(tmp_path, monkeypatch) -> Non
 def test_ocr_provider_dry_run_returns_empty(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         "score_trans.services.ocr.core.persisted_ocr_settings",
-        lambda: {},
+        dict,
     )
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
@@ -123,13 +122,45 @@ def test_ocr_provider_dry_run_returns_empty(tmp_path, monkeypatch) -> None:
 def test_ocr_provider_requires_api_key(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         "score_trans.services.ocr.core.persisted_ocr_settings",
-        lambda: {},
+        dict,
+    )
+    monkeypatch.setattr(
+        "score_trans.services.ocr.providers.openai_compatible.OCR_API_KEY",
+        "",
     )
     image = tmp_path / "score.png"
     image.write_bytes(b"abc")
     provider = OpenAICompatibleOCRProvider()
     with pytest.raises(OCRError, match="OCR API key"):
         provider.recognize(image)
+
+
+def test_ocr_provider_falls_back_to_env_api_key_when_db_empty(monkeypatch) -> None:
+    """When the DAO has no key, the provider uses OCR_API_KEY env fallback."""
+    monkeypatch.setattr(
+        "score_trans.services.ocr.core.persisted_ocr_settings",
+        dict,
+    )
+    monkeypatch.setattr(
+        "score_trans.services.ocr.providers.openai_compatible.OCR_API_KEY",
+        "sk-env-fallback",
+    )
+    provider = OpenAICompatibleOCRProvider()
+    assert provider.api_key == "sk-env-fallback"
+
+
+def test_ocr_provider_prefers_dao_key_over_env(monkeypatch) -> None:
+    """A provider-specific DAO key takes priority over the env fallback."""
+    monkeypatch.setattr(
+        "score_trans.services.ocr.core.persisted_ocr_settings",
+        lambda: {"siliconflow_deepseek_ocr_api_key": "sk-dao-specific"},
+    )
+    monkeypatch.setattr(
+        "score_trans.services.ocr.providers.openai_compatible.OCR_API_KEY",
+        "sk-env-fallback",
+    )
+    provider = OpenAICompatibleOCRProvider()
+    assert provider.api_key == "sk-dao-specific"
 
 
 def test_ocr_provider_invokes_langchain_with_correct_params(
@@ -250,7 +281,7 @@ def test_ocr_provider_fallback_on_useless_blocks(tmp_path, monkeypatch) -> None:
 def test_default_ocr_model_is_deepseek_ocr(monkeypatch) -> None:
     monkeypatch.setattr(
         "score_trans.services.ocr.core.persisted_ocr_settings",
-        lambda: {},
+        dict,
     )
 
     provider = OpenAICompatibleOCRProvider(dry_run=True)

@@ -4,18 +4,20 @@ from pathlib import Path
 from typing import Any
 
 from score_trans.config.settings import (
+    OCR_API_KEY,
+    OCR_MAX_TOKENS,
+    OCR_TEMPERATURE,
+    OCR_TIMEOUT,
+)
+from score_trans.config.settings import (
     OCR_BASE_URL as DEFAULT_OCR_BASE_URL,
 )
 from score_trans.config.settings import (
     OCR_FALLBACK_MODEL as DEFAULT_OCR_FALLBACK_MODEL,
 )
 from score_trans.config.settings import (
-    OCR_MAX_TOKENS,
     OCR_MODEL as DEFAULT_OCR_MODEL,
-    OCR_TEMPERATURE,
-    OCR_TIMEOUT,
 )
-
 from score_trans.models.common.errors import OCRError
 from score_trans.models.score import OCRTextBlock
 from score_trans.services.settings.api_keys import provider_api_key
@@ -24,6 +26,7 @@ from score_trans.services.settings.provider_profiles import (
 )
 from score_trans.utils.json_parsing import content_to_text
 from score_trans.utils.media import image_to_data_url
+
 from ..client.client import ocr_prompt_for_model
 from ..core.utils import (
     _ocr_blocks_are_useful,
@@ -66,7 +69,9 @@ class OpenAICompatibleOCRProvider:
             or persisted.get("ocr_fallback_model")
             or DEFAULT_OCR_FALLBACK_MODEL
         )
-        self.api_key = api_key or provider_api_key(persisted, "ocr", profile.id) or ""
+        self.api_key = (
+            api_key or provider_api_key(persisted, "ocr", profile.id) or OCR_API_KEY
+        )
         self.timeout = timeout
         self.dry_run = dry_run
 

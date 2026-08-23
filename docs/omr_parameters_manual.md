@@ -39,6 +39,8 @@ OMR 相关参数全部集中在 `backend/score_trans/config/.env` 中，分为�
 
 ### 2.2 Audiveris 执行选项
 
+> 这些参数属于环境变量级配置，由 `.env` 控制，不进入发布默认配置基线（`published_defaults.json`），也不写入用户数据库种子。`SettingsService.load()` 直接从环境变量读取，不经 `SettingsDao`。如需修改，编辑 `.env` 文件。
+
 | 参数名 | 默认值 | 类型 | 作用 |
 |---|---|---|---|
 | `SCORE_TRANS_AUDIVERIS_STEP` | 空 | 字符串 | 限制 Audiveris 只执行到某个步骤 |
@@ -463,7 +465,9 @@ A：支持 `0`/`1`、`true`/`false`、`yes`/`no`、`on`/`off`，不区分大小�
 
 - 配置文件：`backend/score_trans/config/.env`
 - 配置示例：`backend/score_trans/config/env.example`
+- 发布默认基线：`backend/score_trans/config/published_defaults.json`
 - 配置加载：`backend/score_trans/config/settings.py`
+- 默认种子加载：`backend/score_trans/services/settings/defaults.py`
 - Audiveris 调用：`backend/score_trans/services/recognize/external_tools.py`
 - 识别 Action：`backend/score_trans/exec/recognize/actions.py`
 - 项目架构总览：[architecture.md](./architecture.md)

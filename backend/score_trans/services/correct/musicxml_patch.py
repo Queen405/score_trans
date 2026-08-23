@@ -142,6 +142,7 @@ def _replace_note_head_with_rest(
         for child in list(note.findall(_q(ns, child_name))):
             note.remove(child)
     note.insert(pitch_index, ET.Element(_q(ns, "rest")))
+    note.set("print-object", "no")
 
 
 def _remove_note(root: ET.Element, ns: str, entity: CorrectableEntity) -> None:

@@ -2074,9 +2074,14 @@ def _event_token(event: Event) -> str:
 
 
 def _visual_events(measure: Measure) -> list[Event]:
-    if len(measure.events) != 1:
-        return list(measure.events)
-    event = measure.events[0]
+    events = [
+        e
+        for e in measure.events
+        if not (e.kind == "rest" and e.hidden and e.tuplet_id is None)
+    ]
+    if len(events) != 1:
+        return events
+    event = events[0]
     if not event.generated or event.kind != "rest" or event.duration < measure.duration:
         return [event]
     beat = Fraction(4, max(1, measure.beat_type))

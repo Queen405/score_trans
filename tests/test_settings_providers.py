@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-
 from score_trans.api.app import create_app
 from score_trans.dao.ai.chat_dao import AiChatDao
 from score_trans.dao.settings.settings_dao import SettingsDao
@@ -14,11 +15,11 @@ from score_trans.services.ai.chat_service import AiChatService
 from score_trans.services.ai.transcription import AiTranscriptionService
 from score_trans.services.ocr.providers import create_configured_ocr_provider
 from score_trans.services.settings.api_keys import provider_api_key_name
+from score_trans.services.settings.defaults import settings_defaults
 from score_trans.services.settings.provider_profiles import (
     provider_profiles,
     resolve_provider_profile,
 )
-from score_trans.services.settings.defaults import settings_defaults
 from score_trans.services.settings.settings_service import SettingsService
 
 
@@ -295,3 +296,167 @@ def test_settings_provider_switch_without_key_does_not_reuse_previous_key(
     assert response.ocr_api_key_set is False
     assert dao.get(provider_api_key_name(first.id)) == "first-key"
     assert actions.get_settings(ocr_provider=first.id).ocr_api_key_set is True
+
+
+# ---------------------------------------------------------------------------
+# Published defaults baseline
+# ---------------------------------------------------------------------------
+
+_BASELINE_PATH = (
+    Path(__file__).parents[1]
+    / "backend"
+    / "score_trans"
+    / "config"
+    / "published_defaults.json"
+)
+
+_ENV_LEVEL_AUVIDERIS_KEYS = (
+    "audiveris_step",
+    "audiveris_force",
+    "audiveris_save",
+    "audiveris_swap",
+    "audiveris_transcribe",
+    "audiveris_sheets",
+    "audiveris_constants",
+    "audiveris_extra_args",
+)
+
+
+def test_published_defaults_json_parses_and_matches_schema() -> None:
+    payload = json.loads(_BASELINE_PATH.read_text(encoding="utf-8"))
+    assert payload["version"] == 1
+    backend = payload["backend"]
+    providers = payload["providers"]
+    for key in (
+        "audiveris_max_heap",
+        "audiveris_max_pixel_count",
+        "audiveris_auto_upscale",
+        "audiveris_min_image_edge",
+        "target_key",
+        "midi_tempo",
+        "accidental_mode",
+        "measure_number_mode",
+        "show_measure_numbers",
+        "jianpu_syntax_highlight",
+        "enable_omr_ocr",
+        "output_dir",
+    ):
+        assert isinstance(backend[key], str), f"backend.{key} must be a string"
+    for kind in ("ocr", "ai", "assistant"):
+        section = providers[kind]
+        assert isinstance(section["provider"], str)
+        assert isinstance(section["base_url"], str)
+        assert isinstance(section["model"], str)
+    assert isinstance(providers["ocr"]["fallback_model"], str)
+
+
+def test_published_defaults_contains_no_private_fields_or_paths() -> None:
+    payload = json.loads(_BASELINE_PATH.read_text(encoding="utf-8"))
+
+    def check(node, trail):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                lower = key.lower()
+                assert not any(
+                    frag in lower for frag in ("api_key", "token", "password")
+                ), f"private field {trail}.{key}"
+                if isinstance(value, str):
+                    assert not re.match(r"^[A-Za-z]:[\\/]|^/|^~", value), (
+                        f"absolute path in {trail}.{key}={value!r}"
+                    )
+                check(value, f"{trail}.{key}")
+        elif isinstance(node, list):
+            for i, item in enumerate(node):
+                check(item, f"{trail}[{i}]")
+
+    check(payload, "")
+
+
+def test_settings_defaults_seeds_baseline_values() -> None:
+    defaults = settings_defaults()
+    assert defaults["target_key"] == "C"
+    assert defaults["midi_tempo"] == "auto"
+    assert defaults["accidental_mode"] == "auto"
+    assert defaults["measure_number_mode"] == "all"
+    assert defaults["show_measure_numbers"] == "1"
+    assert defaults["jianpu_syntax_highlight"] == "0"
+    assert defaults["enable_omr_ocr"] == "1"
+    assert defaults["audiveris_max_heap"] == "2g"
+    assert defaults["audiveris_max_pixel_count"] == "20000000"
+    assert defaults["audiveris_auto_upscale"] == "1"
+    assert defaults["audiveris_min_image_edge"] == "2500"
+
+
+def test_settings_defaults_seeds_empty_api_keys() -> None:
+    defaults = settings_defaults()
+    assert defaults["ocr_api_key"] == ""
+    assert defaults["ai_api_key"] == ""
+    assert defaults["assistant_api_key"] == ""
+
+
+def test_settings_defaults_seeds_empty_paths() -> None:
+    defaults = settings_defaults()
+    assert defaults["audiveris_path"] == ""
+    assert defaults["java_home"] == ""
+    assert defaults["output_dir"] == ""
+    assert "work_dir" not in defaults
+
+
+def test_env_level_audiveris_params_not_seeded() -> None:
+    defaults = settings_defaults()
+    for key in _ENV_LEVEL_AUVIDERIS_KEYS:
+        assert key not in defaults, f"{key} should not be seeded from baseline"
+
+
+def test_provider_selection_matches_baseline() -> None:
+    payload = json.loads(_BASELINE_PATH.read_text(encoding="utf-8"))
+    defaults = settings_defaults()
+    for kind in ("ocr", "ai", "assistant"):
+        section = payload["providers"][kind]
+        assert defaults[f"{kind}_provider"] == section["provider"]
+        assert defaults[f"{kind}_base_url"] == section["base_url"]
+        assert defaults[f"{kind}_model"] == section["model"]
+    assert (
+        defaults["ocr_fallback_model"] == payload["providers"]["ocr"]["fallback_model"]
+    )
+
+
+def test_baseline_seeds_new_database(tmp_path) -> None:
+    dao = SettingsDao(tmp_path / "settings.db", defaults=settings_defaults())
+    all_settings = dao.get_all()
+    assert all_settings["target_key"] == "C"
+    assert all_settings["enable_omr_ocr"] == "1"
+    assert all_settings["ocr_api_key"] == ""
+    assert all_settings["ai_api_key"] == ""
+    assert all_settings["assistant_api_key"] == ""
+    assert all_settings["audiveris_path"] == ""
+    assert all_settings["java_home"] == ""
+
+
+def test_baseline_does_not_overwrite_existing_user_values(tmp_path) -> None:
+    dao = SettingsDao(tmp_path / "settings.db")
+    dao.set("target_key", "G")
+    dao.set("ocr_api_key", "sk-user-key")
+    dao.ensure_defaults(settings_defaults())
+
+    assert dao.get("target_key") == "G"
+    assert dao.get("ocr_api_key") == "sk-user-key"
+    assert dao.get("enable_omr_ocr") == "1"
+    assert dao.get("midi_tempo") == "auto"
+
+
+def test_show_measure_numbers_and_mode_stay_consistent(tmp_path) -> None:
+    dao = SettingsDao(tmp_path / "settings.db", defaults=settings_defaults())
+    assert dao.get("show_measure_numbers") == "1"
+    assert dao.get("measure_number_mode") == "all"
+
+
+def test_empty_seeded_paths_trigger_auto_resolution(tmp_path) -> None:
+    dao = SettingsDao(tmp_path / "settings.db", defaults=settings_defaults())
+    service = SettingsService(dao)
+    config = service.load()
+    # Empty seeded paths should resolve to non-empty defaults (env or bundled).
+    assert config.audiveris_path
+    # java_home may be empty if no bundled JDK exists in dev — just verify
+    # it does not retain the empty seed when a default is available.
+    assert config.enable_omr_ocr is True

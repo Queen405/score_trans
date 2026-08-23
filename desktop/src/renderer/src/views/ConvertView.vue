@@ -209,10 +209,10 @@
             >
               <n-button
                 size="tiny"
-                :type="editMode ? 'primary' : 'default'"
-                @click="toggleEditMode"
+                :type="editMode ? 'default' : 'primary'"
+                @click="editMode ? cancelEditMode() : enterEditMode()"
               >
-                编辑标记
+                {{ editMode ? '取消' : '删除标记' }}
               </n-button>
               <template v-if="editMode">
                 <span class="deleted-count">已删除 {{ deletedEntityIds.size }}</span>
@@ -220,9 +220,10 @@
                   size="tiny"
                   type="warning"
                   :loading="applying"
+                  :disabled="loadingEntities"
                   @click="applyCorrections"
                 >
-                  应用修正
+                  应用
                 </n-button>
               </template>
             </div>
@@ -461,6 +462,7 @@ const correctableEntities = computed<CorrectableEntityDTO[]>(
   () => correctableSheet.value?.entities ?? [],
 )
 const applying = ref(false)
+const loadingEntities = ref(false)
 let entityLoadController: AbortController | null = null
 
 const canEditMarkers = computed(() => (
@@ -1645,12 +1647,24 @@ async function resetAll(): Promise<void> {
   }
 }
 
-async function toggleEditMode() {
+async function enterEditMode() {
   if (!canEditMarkers.value) return
-  editMode.value = !editMode.value
-  if (editMode.value && !correctableSheet.value) {
-    await loadEntities()
+  editMode.value = true
+  if (!correctableSheet.value) {
+    loadingEntities.value = true
+    try {
+      await loadEntities()
+    } finally {
+      loadingEntities.value = false
+    }
   }
+}
+
+function cancelEditMode() {
+  entityLoadController?.abort()
+  entityLoadController = null
+  editMode.value = false
+  deletedEntityIds.value = new Set(store.currentPage?.deletedSourceIds ?? [])
 }
 
 async function loadEntities(): Promise<void> {
@@ -1676,7 +1690,7 @@ async function loadEntities(): Promise<void> {
   const sheets = data.sheets ?? []
   if (sheets.length !== 1) {
     editMode.value = false
-    message.warning(sheets.length ? '多页 OMR 暂不支持在单张原图上编辑标记' : '没有可安全定位的标记')
+    message.warning(sheets.length ? '多页 OMR 暂不支持在单张原图上删除标记' : '没有可安全定位的标记')
     return
   }
   correctableSheet.value = sheets[0] ?? null
@@ -1693,12 +1707,17 @@ function toggleEntityDelete(sourceId: string) {
 }
 
 async function applyCorrections(): Promise<void> {
-  if (deletedEntityIds.value.size === 0) {
-    message.info('未删除任何标记')
-    return
-  }
   const page = store.currentPage
   if (!page || !canEditMarkers.value) return
+  const baseline = new Set(page.deletedSourceIds ?? [])
+  const current = deletedEntityIds.value
+  const hasPendingChange =
+    [...current].some((id) => !baseline.has(id)) ||
+    [...baseline].some((id) => !current.has(id))
+  if (!hasPendingChange) {
+    message.info('没有未应用的改动')
+    return
+  }
   applying.value = true
   try {
     const data = await requireData(correctApi.apply({
@@ -1741,6 +1760,7 @@ async function applyCorrections(): Promise<void> {
     setFinalSvgFileIds([])
     await persistCorrectionState(page.id, nextBatchText)
     message.success('修正已应用')
+    editMode.value = false
   } catch (e: unknown) {
     const detail = e instanceof Error ? e.message : String(e)
     log.addError(`应用标记修正失败：${detail}`)

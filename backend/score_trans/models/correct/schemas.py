@@ -51,7 +51,7 @@ class CorrectionRequest(BaseModel):
     original_musicxml: str
     omr_file_id: str
     source_map_file_id: str
-    deleted_source_ids: list[str] = Field(min_length=1)
+    deleted_source_ids: list[str] = Field(min_length=0)
     text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     options: ConversionOptionsDTO = Field(default_factory=ConversionOptionsDTO)
 

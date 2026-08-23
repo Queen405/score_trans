@@ -134,6 +134,39 @@ def test_explicit_dotted_full_measure_rest_is_rendered() -> None:
     )
 
 
+def test_hidden_rest_is_not_rendered_in_svg() -> None:
+    score = JianpuScore(target_key="C", source_key="C", beats=4, beat_type=4)
+    score.measures.append(
+        Measure(
+            source_number="1",
+            duration=Fraction(4, 1),
+            events=[
+                Event(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(1)],
+                ),
+                Event(kind="rest", duration=Fraction(1, 1), hidden=True),
+                Event(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(3)],
+                ),
+                Event(
+                    kind="note",
+                    duration=Fraction(1, 1),
+                    pitches=[JianpuPitch(4)],
+                ),
+            ],
+        )
+    )
+
+    root = _root(render_score_svg(score))
+    tokens = {node.attrib.get("data-note-token") for node in root.iter()}
+    assert "0" not in tokens
+    assert "1" in tokens and "3" in tokens and "4" in tokens
+
+
 def test_batch_measure_numbers_start_at_requested_number_after_reordering() -> None:
     pages = [
         parse_jianpu_score("1=C\n4/4\n1 2 3 4 |"),

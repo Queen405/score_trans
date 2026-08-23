@@ -5,8 +5,8 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
-
-from score_trans.models.correct.schemas import CorrectionRequest, ConversionOptionsDTO
+from score_trans.domain.jianpu import musicxml_to_jianpu
+from score_trans.models.correct.schemas import ConversionOptionsDTO, CorrectionRequest
 from score_trans.models.provenance.schemas import (
     BoundingBox,
     MusicXmlLocator,
@@ -17,8 +17,8 @@ from score_trans.models.provenance.schemas import (
     TextPlacementAnchor,
 )
 from score_trans.models.score import JianpuScore
-from score_trans.services.correct.correction_service import _document_title
 from score_trans.services.correct.clef_transform import transform_pitch
+from score_trans.services.correct.correction_service import _document_title
 from score_trans.services.correct.entity_service import (
     CorrectableEntity,
     extract_entities,
@@ -85,6 +85,52 @@ def test_apply_deletions_targets_exact_structural_elements() -> None:
     assert _pitch(notes["note-stop"]) == ("D", 3)
 
 
+def test_correction_request_accepts_empty_deleted_source_ids() -> None:
+    """B 方案：允许提交空删除列表（语义=不删除任何标记，用于恢复全部）。"""
+    request = CorrectionRequest(
+        original_musicxml="<score-partwise/>",
+        omr_file_id="omr",
+        source_map_file_id="map",
+        deleted_source_ids=[],
+    )
+    assert request.deleted_source_ids == []
+
+
+def test_apply_deletions_empty_list_preserves_every_element() -> None:
+    """空删除列表不得改动任何音符或结构元素（语义等价，非字符串相等）。"""
+    xml = """<score-partwise><part id="P1">
+      <measure number="1"><attributes>
+        <clef id="clef-first"><sign>G</sign><line>2</line></clef>
+        <time id="time-first"><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes><note id="note-before"><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note></measure>
+    </part></score-partwise>"""
+    entities: dict[str, CorrectableEntity] = {}
+
+    original = ET.fromstring(xml)
+    corrected = ET.fromstring(apply_deletions(xml, [], entities))
+
+    assert len(list(corrected.iter("note"))) == len(list(original.iter("note")))
+    assert len(list(corrected.iter("clef"))) == len(list(original.iter("clef")))
+    assert len(list(corrected.iter("time"))) == len(list(original.iter("time")))
+    notes = {note.get("id"): note for note in corrected.iter("note")}
+    assert _pitch(notes["note-before"]) == ("C", 4)
+
+
+def test_deleted_note_head_is_hidden_from_jianpu() -> None:
+    """删除有音高音符后：MusicXML 用休止符占拍保节奏，但简谱文本不显示 0。"""
+    xml = """<score-partwise><part id="P1"><measure number="1">
+      <note id="note-target"><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>half</type></note>
+      <note id="note-other"><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>half</type></note>
+    </measure></part></score-partwise>"""
+    entity = _entity("head", "head", "note-target")
+
+    working = apply_deletions(xml, ["head"], {"head": entity})
+    text = musicxml_to_jianpu(working)
+
+    assert "0" not in text
+    assert "5" in text
+
+
 def test_clef_transform_accounts_for_octave_change() -> None:
     assert transform_pitch("C", 0.0, 4, "G", 2, "G", 2, -1, 0) == ("C", 0.0, 5)
 
@@ -104,6 +150,8 @@ def test_delete_note_head_preserves_rhythm_as_rest() -> None:
     assert note.find("pitch") is None
     assert note.findtext("duration") == "2"
     assert note.findtext("type") == "half"
+    # 删除产生的休止符打上 print-object="no"，解析时置 hidden，简谱/SVG 跳过
+    assert note.get("print-object") == "no"
 
 
 def test_apply_deletions_rejects_unknown_or_ambiguous_locator() -> None:

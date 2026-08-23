@@ -153,6 +153,33 @@ Audiveris、JRE、Gradle 缓存的打包路径：
 
 `SettingsService.load()` 中的 `_resolve_existing_path()` 会在存储的 `audiveris_path` 或 `java_home` 指向不存在的路径时，自动回退到打包内置的默认路径。这确保了即使 settings.db 中有开发环境的旧路径，在其他机器上也能正常工作。
 
+### 7. 发布默认配置基线 (published_defaults.json)
+
+`backend/score_trans/config/published_defaults.json` 是安装包的默认数据库种子。新安装用户首次启动时，`settings_defaults()` 从该文件读取非私有配置（调性、拍号显示、像素上限、provider 选中项等），通过 `SettingsDao` 的 `INSERT OR IGNORE` 写入 `settings.db`。
+
+**配置优先级：**
+1. 已存在的用户数据库值（`INSERT OR IGNORE` 保护，不覆盖）
+2. 安装环境自动解析的内置路径（`_resolve_existing_path` 回退到 `resources/third_party/`）
+3. 发布默认配置基线（`published_defaults.json`）
+4. 代码兜底默认值（`ToolConfig` dataclass、`SettingsResponse` schema fallback）
+
+**不进入基线的字段：**
+- 所有 API Key — 始终写空字符串种子，由用户在设置页填写
+- `audiveris_path`、`java_home` — 始终写空字符串种子，由打包路径自动解析
+- `work_dir` — 不种植，使用安装用户的 `~/.score_trans/` 目录
+- 8 个环境级 Audiveris 参数（`step`/`force`/`save`/`swap`/`transcribe`/`sheets`/`constants`/`extra_args`）— 由 `.env` 控制，不进数据库种子
+
+**打包流程：**
+1. `build_backend()` 在 PyInstaller 之前调用 `_validate_published_defaults(PROJECT_ROOT)` 校验基线文件
+2. 校验内容包括：版本号、字段类型、禁止私有字段（`api_key`/`token`）、禁止绝对路径、provider 选中项与 `env.example` 的 `*_PROVIDER_PROFILES` 交叉一致
+3. 校验通过后将文件复制到 `build-resources/backend/published_defaults.json`，随 backend extraResource 进入安装包的 `resources/backend/`
+4. 打包模式后端通过 `CONFIG_DIR`（`resources/backend/`）定位该文件；开发模式从 `backend/score_trans/config/` 读取
+
+**升级行为：**
+- 新安装：按基线初始化缺失设置
+- 升级安装：已有数据库值保持不变，只补充新字段
+- 不自动删除旧的无消费者字段（如 `omr_preprocess*`、`musescore_path`）
+
 ---
 
 ## 打包流程详解
@@ -163,10 +190,12 @@ Audiveris、JRE、Gradle 缓存的打包路径：
 .venv/Scripts/python.exe -m PyInstaller pyinstaller.spec --noconfirm
 ```
 
+- 打包前先校验 `published_defaults.json`（版本、私有字段、绝对路径、provider 交叉一致性）
 - 入口点：`pyinstaller_entry.py`
 - 输出：`dist/backend/backend.exe` + `dist/backend/_internal/`
 - 复制到：`build-resources/backend/`
 - 同时复制 `env.example` 为 `build-resources/backend/.env`
+- 同时复制 `published_defaults.json` 为 `build-resources/backend/published_defaults.json`
 
 ### 阶段 2: 配置 Audiveris
 
@@ -326,6 +355,8 @@ taskkill /F /IM "Score Trans.exe"
 | `pyinstaller_entry.py` | PyInstaller 入口点 |
 | `desktop/electron-builder.yml` | electron-builder 配置 |
 | `desktop/electron.vite.config.ts` | electron-vite 构建配置 |
+| `backend/score_trans/config/published_defaults.json` | 发布默认配置基线 |
+| `backend/score_trans/services/settings/defaults.py` | 默认种子加载（从基线读取） |
 | `backend/score_trans/models/common/paths.py` | 打包模式路径解析 |
 | `backend/score_trans/services/settings/settings_service.py` | 设置加载与路径回退 |
 | `backend/score_trans/services/recognize/external_tools.py` | Audiveris 调用逻辑 |
