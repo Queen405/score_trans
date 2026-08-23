@@ -39,6 +39,7 @@ third_party/audiveris/app/build/
 .omc/
 .codex/
 .qoder/
+opencode.json
 
 # 示例乐谱/文档（从网络下载，体积较大，不纳入版本控制）
 /examples/
