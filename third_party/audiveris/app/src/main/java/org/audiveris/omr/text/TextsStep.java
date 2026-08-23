@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import ij.process.ByteProcessor;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -87,18 +86,8 @@ public class TextsStep
     protected Context doProlog (Sheet sheet)
         throws StepException
     {
-        // Launch OCR on the whole sheet
-        final List<TextLine> lines = new ArrayList<>();
-        final SheetScanner scanner = new SheetScanner(sheet);
-
-        if (OcrUtil.getOcr().isAvailable()) {
-            lines.addAll(scanner.scanSheet());
-        } else {
-            logger.warn("TEXTS step: {}", OCR.NO_OCR);
-        }
-
-        // Make all this available for system-level processing
-        return new Context(scanner.getBuffer(), lines);
+        // Text recognition is provided by the Python backend after OMR.
+        return new Context(null, List.of());
     }
 
     //----------//
@@ -109,6 +98,10 @@ public class TextsStep
                           Context context)
         throws StepException
     {
+        if (context.textLines.isEmpty()) {
+            return;
+        }
+
         // Process texts at system level
         new TextBuilder(system, null).processSystem(context.buffer, context.textLines);
     }

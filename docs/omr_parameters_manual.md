@@ -123,7 +123,7 @@ Audiveris 的完整处理流水线包含多个步骤，可用 `-step` 提前终�
 | `STEMS` | 识别符干 |
 | `REDUCTION` | 合并符头与符干 |
 | `CUE_BEAMS` | 识别弱拍符杠 |
-| `TEXTS` | 识别文本 |
+| `TEXTS` | 保留步骤槽位，不执行文字 OCR（文字由 Python OCR 服务处理） |
 | `MEASURES` | 识别小节 |
 | `CHORDS` | 识别和弦 |
 | `CURVES` | 识别连音线、圆滑线 |
@@ -294,6 +294,8 @@ args += ["-export", "-output", output_dir, input_file]
   - 调试某个步骤失败时，可只跑到该步骤查看中间产物。
   - 例如只加载和二值化：`SCORE_TRANS_AUDIVERIS_STEP=BINARY`
 - **注意事项**：一般用户保持空即可。
+  `TEXTS` 即使被执行也只是兼容性空操作，不会生成歌词、标题或其他普通文字的 MusicXML
+  元素。
 
 #### `SCORE_TRANS_AUDIVERIS_FORCE`
 

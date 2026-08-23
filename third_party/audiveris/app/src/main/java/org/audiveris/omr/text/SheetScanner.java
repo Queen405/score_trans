@@ -64,11 +64,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Class <code>SheetScanner</code> runs OCR on the whole sheet, where good inters and
+ * Class <code>SheetScanner</code> prepares text regions on the whole sheet, where good inters and
  * staves core areas have been blanked.
  * <p>
- * Tesseract is used in MULTI_BLOCK layout mode, meaning that the sheet may contain several blocks
- * of text.
+ * Text recognition is delegated to the Score Trans Python backend.
  * <p>
  * The raw OCR output will later be processed at system level by dedicated TextBuilder instances.
  *

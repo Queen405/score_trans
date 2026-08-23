@@ -17,7 +17,7 @@
 - **数据库**：SQLite（settings.db + history.db）
 - **OMR 引擎**：Audiveris（subprocess 调用，需 JDK 25）
 - **AI 转录**：LangChain + OpenAI 兼容视觉 LLM（默认 Qwen3-VL-8B）
-- **OCR**：OpenAI 兼容 API（默认 DeepSeek-OCR）
+- **文字 OCR**：Python 服务调用 OpenAI 兼容 API（默认 DeepSeek-OCR）
 - **前端**：Electron + Vue3（通过 CORS 连接后端）
 
 ## 3. 分层架构
@@ -72,11 +72,17 @@ api  →  exec  →  services  →  dao / domain / models
     → 得到 MusicXML
   → MusicXmlToJianpuAction.build_score()
     → domain/musicxml.musicxml_path_to_scores() → JianpuScore 列表
-    → 可选：OCR 补充小节号
+    → Python OCR provider 提取标题、歌词、表情等文字块
   → score_to_jianpu_text() → 简谱文本
   → PublicationRenderService.render_score_svg() → SVG + 渲染映射
   → 返回 { musicxml_file_id, jianpu_text, jianpu_file_id, svg_file_id, render_map_file_id }
 ```
+
+Audiveris 只负责 OMR 符号识别。`f`、`mf`、`mp`、`ff` 等标准力度记号属于 Audiveris 的
+`DYNAMICS_*` 符号分类，不依赖文字 OCR。Audiveris 的 `TEXTS` 步骤保留处理顺序兼容性，
+但不再识别歌词、标题、排练号、和弦名或速度文字；这些内容由 Python OCR 以文字块形式
+提供。`/recognize` 端点仍只返回 OMR MusicXML，Python OCR 在 pipeline、convert 和 render
+路径中按请求使用。
 
 ### AI 转录流程
 
@@ -116,7 +122,7 @@ JianpuScore（乐谱）
 | Audiveris | OMR 识别（乐谱→MusicXML） | subprocess（gradlew.bat） |
 | JDK 25 | Audiveris 运行时 | 环境变量 JAVA_HOME |
 | 视觉 LLM | AI 转录乐谱→简谱 | HTTP API（LangChain） |
-| OCR API | 提取乐谱文字 | HTTP API（urllib） |
+| Python OCR API | 提取乐谱文字块 | HTTP API（urllib） |
 
 ## 8. 前端架构
 

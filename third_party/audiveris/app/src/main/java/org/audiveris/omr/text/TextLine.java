@@ -30,7 +30,6 @@ import org.audiveris.omr.sheet.Sheet;
 import org.audiveris.omr.sheet.Skew;
 import org.audiveris.omr.sig.inter.ChordNameInter;
 import org.audiveris.omr.text.WordScanner.OcrScanner;
-import org.audiveris.omr.text.tesseract.TesseractOCR;
 import org.audiveris.omr.util.VerticalSide;
 
 import org.slf4j.Logger;
@@ -182,7 +181,7 @@ public class TextLine
         }
 
         // Check global line confidence
-        final double minConfidence = TesseractOCR.getInstance().getMinConfidence();
+        final double minConfidence = 0.0;
         Double conf = getConfidence();
 
         if ((conf == null) || conf.isNaN() || (conf < minConfidence)) {

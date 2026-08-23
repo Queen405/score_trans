@@ -730,7 +730,7 @@ public class LyricItemInter
         if (ELISION_STRING.equals(value)) {
             return LyricItemKind.Elision;
         } else if (EXTENSIONS.contains(value)) {
-            // Tesseract often takes a hyphen for an isolated extension character
+            // Text recognition can take a hyphen for an isolated extension character
             return (value.length() == 1) ? LyricItemKind.Hyphen : LyricItemKind.Extension;
         } else if (HYPHEN_STRING.equals(value)) {
             return LyricItemKind.Hyphen;

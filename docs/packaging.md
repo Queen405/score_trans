@@ -116,6 +116,11 @@ set JAVA_HOME=E:\ENV\JAVA\JDK25
 gradlew.bat :app:compileJava
 ```
 
+`build-app.py` 会在复制 Audiveris 后检查生成的
+`app/build/generated-src/org/audiveris/omr/ProgramId.java`。如果它来自旧版本并包含已移除的
+`TESSDATA_TAG`，打包会立即失败；请先执行上面的 clean 编译，再重新运行打包脚本。清理流程
+还会删除残留的 OCR 类、语言数据和原生库，同时保留其他 `app/build` 编译产物。
+
 `build-app.py` 的 `setup_audiveris()` 会将开发机的 `third_party/audiveris/` 整体复制到 `build-resources/third_party/audiveris/`，所以开发机的 `app/build/` 状态直接决定打包结果。
 
 ### 4. 安装目录必须可写

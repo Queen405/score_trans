@@ -115,7 +115,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  * <img alt="Example with an interval value" src=
  * "https://archive.steinberg.help/dorico/v2/en/_shared_picts/picts/dorico/notation_reference/tempo_metronome_mark_range_example.png">
  * <p>
- * Tesseract OCR is not (yet?) able to recognize music notes within a sentence, these notes are thus
+ * Text recognition is not expected to recognize music notes within a sentence, these notes are thus
  * mistaken with letters. For example, a quarter note is typically mistaken with a capital "J".
  * <p>
  * However, the equal sign ("=") followed by the bpm value or interval are standard text characters

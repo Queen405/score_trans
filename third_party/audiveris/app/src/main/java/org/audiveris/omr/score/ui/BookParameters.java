@@ -40,8 +40,6 @@ import org.audiveris.omr.sheet.ui.SheetAssembly;
 import org.audiveris.omr.sheet.ui.SheetTab;
 import org.audiveris.omr.sheet.ui.SheetView;
 import org.audiveris.omr.sheet.ui.StubsController;
-import org.audiveris.omr.text.Language;
-import org.audiveris.omr.text.OcrUtil;
 import org.audiveris.omr.ui.symbol.MusicFamily;
 import org.audiveris.omr.ui.symbol.MusicFont;
 import org.audiveris.omr.ui.util.ComboBoxTipRenderer;
@@ -69,15 +67,12 @@ import java.util.Set;
 
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 
 /**
  * Class <code>BookParameters</code> provides a user dialog to manage specifications at
@@ -88,7 +83,7 @@ import javax.swing.event.ListSelectionListener;
  * <li>Music font</li>
  * <li>Text font</li>
  * <li>Input quality</li>
- * <li>OCR languages</li>
+ * <li>Legacy text parameters</li>
  * <li>Binarization</li>
  * <li>Scaling</li>
  * <li>Staves</li>
@@ -263,16 +258,6 @@ public class BookParameters
 
             topic.add(tagMap.get(Tag.Music));
             topic.add(tagMap.get(Tag.Quality));
-        }
-
-        { // Languages
-            XactTopic topic = new XactTopic(Topic.Languages.name());
-            topics.add(topic);
-
-            final XactPane langPane = tagMap.get(Tag.Lang);
-            if (langPane != null) {
-                topic.add(langPane);
-            }
         }
 
         { // Binarization
@@ -484,30 +469,6 @@ public class BookParameters
 
     //~ Static Methods -----------------------------------------------------------------------------
 
-    //----------------//
-    // createLangPane //
-    //----------------//
-    /**
-     * Factory method to get a LangPane, while handling exception when no OCR is available.
-     *
-     * @return A usable LangPane instance, or null otherwise
-     */
-    private static LangPane createLangPane ()
-    {
-        // The language pane needs Tesseract up & running
-        if (OcrUtil.getOcr().isAvailable()) {
-            try {
-                return new LangPane();
-            } catch (Throwable ex) {
-                logger.warn("Error creating language pane", ex);
-            }
-        } else {
-            logger.info("No language pane for lack of OCR.");
-        }
-
-        return null;
-    }
-
     //~ Inner Classes ------------------------------------------------------------------------------
 
     //------------//
@@ -689,98 +650,6 @@ public class BookParameters
         }
     }
 
-    //----------//
-    // LangPane //
-    //----------//
-    /**
-     * Pane to set the dominant text language specification.
-     */
-    private static class LangPane
-            extends XactPane<String>
-            implements ListSelectionListener
-    {
-        /** List for choosing elements of language specification. */
-        private final JList<String> langList;
-
-        /** Put the list into a scroll pane. */
-        private final JScrollPane langScroll;
-
-        /** Resulting visible specification. */
-        private final JLabel langSpec = new JLabel("", SwingConstants.RIGHT);
-
-        /** Underlying language list model. */
-        final Language.ListModel listModel;
-
-        public LangPane ()
-        {
-            super("");
-
-            listModel = new Language.ListModel();
-
-            title.setToolTipText(resources.getString("LangPane.toolTipText"));
-
-            langList = new JList<>(listModel);
-            langList.setLayoutOrientation(JList.VERTICAL);
-            langList.setToolTipText(resources.getString("LangPane.langList.toolTipText"));
-            langList.setVisibleRowCount(5);
-            langList.addListSelectionListener(this);
-
-            langScroll = new JScrollPane(langList);
-
-            langSpec.setToolTipText(resources.getString("LangPane.langSpec.toolTipText"));
-        }
-
-        @Override
-        public int defineLayout (FormBuilder builder,
-                                 int titleWidth,
-                                 int r)
-        {
-            super.defineLayout(builder, titleWidth, r); // sel + title, no advance
-
-            builder.addRaw(langSpec).xyw(3, r, 3);
-            builder.addRaw(langScroll).xyw(7, r, 3);
-
-            return r + 2;
-        }
-
-        @Override
-        protected void display (String spec)
-        {
-            final int[] indices = listModel.indicesOf(spec);
-
-            if ((indices.length > 0) && (indices[0] != -1)) {
-                // Scroll to first index found?
-                String firstElement = listModel.getElementAt(indices[0]);
-                langList.setSelectedValue(firstElement, true);
-
-                // Flag all selected indices
-                langList.setSelectedIndices(indices);
-            }
-
-            langSpec.setText(spec);
-        }
-
-        @Override
-        protected String read ()
-        {
-            return Language.specOf(langList.getSelectedValuesList());
-        }
-
-        @Override
-        public void setEnabled (boolean bool)
-        {
-            super.setEnabled(bool);
-            langList.setEnabled(bool);
-            langSpec.setEnabled(bool);
-        }
-
-        @Override
-        public void valueChanged (ListSelectionEvent e)
-        {
-            langSpec.setText(read());
-        }
-    }
-
     //------------//
     // SwitchPane //
     //------------//
@@ -907,7 +776,6 @@ public class BookParameters
     {
         Music,
         Quality,
-        Lang,
         Filter,
         Interline,
         Barline,
@@ -921,7 +789,6 @@ public class BookParameters
     private static enum Topic
     {
         General,
-        Languages,
         Binarization,
         Scaling,
         Staves,
@@ -953,11 +820,6 @@ public class BookParameters
             tagMap.put(Tag.Quality, new EnumPane<>(Tag.Quality, InputQuality.values(), resources));
 
             tagMap.put(Tag.Filter, new FilterPane());
-
-            final LangPane langPane = createLangPane();
-            if (langPane != null) {
-                tagMap.put(Tag.Lang, langPane);
-            }
 
             final SpinData ilSpin = new SpinData(
                     new SpinnerNumberModel(0, 0, ScaleBuilder.getMaxInterline(), 1));
@@ -1025,7 +887,6 @@ public class BookParameters
                 switch (entry.getKey()) {
                     case Music -> entry.getValue().setModel(MusicFont.defaultMusicParam);
                     case Quality -> entry.getValue().setModel(Profiles.defaultQualityParam);
-                    case Lang -> entry.getValue().setModel(Language.ocrDefaultLanguages);
                     case Filter -> entry.getValue().setModel(FilterDescriptor.defaultFilter);
                     // No Interline
                     case Barline -> entry.getValue().setModel(BarlineHeight.defaultParam);
@@ -1058,7 +919,6 @@ public class BookParameters
                 entry.getValue().setModel(switch (entry.getKey()) {
                     case Music -> book.getMusicFamilyParam();
                     case Quality -> book.getInputQualityParam();
-                    case Lang -> book.getOcrLanguagesParam();
                     case Filter -> book.getBinarizationParam();
                     case Interline -> book.getInterlineSpecificationParam();
                     case Barline -> book.getBarlineHeightParam();
@@ -1091,7 +951,6 @@ public class BookParameters
                 entry.getValue().setModel(switch (entry.getKey()) {
                     case Music -> stub.getMusicFamilyParam();
                     case Quality -> stub.getInputQualityParam();
-                    case Lang -> stub.getOcrLanguagesParam();
                     case Filter -> stub.getBinarizationFilterParam();
                     case Interline -> stub.getInterlineSpecificationParam();
                     case Barline -> stub.getBarlineHeightParam();

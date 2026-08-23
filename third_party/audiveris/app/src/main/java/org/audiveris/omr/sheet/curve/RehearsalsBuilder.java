@@ -38,6 +38,7 @@ import org.audiveris.omr.sig.inter.SegmentInter;
 import org.audiveris.omr.sig.inter.WordInter;
 import org.audiveris.omr.sig.relation.Containment;
 import org.audiveris.omr.text.BlockScanner;
+import org.audiveris.omr.text.OcrUtil;
 import org.audiveris.omr.text.TextBuilder;
 import org.audiveris.omr.text.TextLine;
 import org.audiveris.omr.text.TextWord;
@@ -127,6 +128,10 @@ public class RehearsalsBuilder
                                         SegmentInter bottom,
                                         Staff staff)
     {
+        if (!OcrUtil.getOcr().isAvailable()) {
+            return null;
+        }
+
         final SystemInfo system = staff.getSystem();
 
         // Look for the left leg

@@ -661,6 +661,27 @@ test('batch render requests preserve page-local source metadata', () => {
   assert.equal(requests[1].jianpu_text, '3 4 |')
 })
 
+test('sparse batch render requests preserve original source page index and anchors', () => {
+  const pages = Array.from({ length: 6 }, (_, index) => ({
+    inputFileName: `p${index + 1}.png`,
+    inputFileId: `input-${index + 1}`,
+    originalFileId: `original-${index + 1}`,
+    musicxmlFileId: index === 3 ? 'xml-4' : '',
+    jianpuText: index === 3 ? '1 2 |' : '',
+    ocrText: '',
+    textAnchors: index === 3 ? [{ source_id: 's1:i10' }] : [],
+  }))
+  const text = utils.composeJianpuPageText(pages)
+  const requests = batchRender.buildBatchRenderRequests(pages, {
+    jianpuText: text,
+    title: '简谱',
+  })
+
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].source_page_index, 3)
+  assert.deepEqual(requests[0].text_anchors, [{ source_id: 's1:i10' }])
+})
+
 test('combined batch render keeps source pages separate', () => {
   const pages = [
     {

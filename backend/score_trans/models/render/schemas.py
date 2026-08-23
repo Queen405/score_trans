@@ -131,6 +131,7 @@ class BatchRenderPageRequest(BaseModel):
     text_attachments: list[SourceTextAttachment] = []
     include_ocr_text: bool = False
     title: str | None = None
+    source_page_index: int | None = Field(default=None, ge=0)
     text_anchors: list[TextAnchor] = []
 
 

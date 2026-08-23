@@ -36,7 +36,7 @@ $env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris
 
 | 变量 | 说明 |
 |------|------|
-| `SCORE_TRANS_AUDIVERIS_STEP` | 限制或强制 Audiveris 执行步骤。可选值：`LOAD`, `BINARY`, `SCALE`, `GRID`, `HEADERS`, `STEM_SEEDS`, `BEAMS`, `LEDGERS`, `HEADS`, `STEMS`, `REDUCTION`, `CUE_BEAMS`, `TEXTS`, `MEASURES`, `CHORDS`, `CURVES`, `SYMBOLS`, `LINKS`, `RHYTHMS`, `PAGE`。 |
+| `SCORE_TRANS_AUDIVERIS_STEP` | 限制或强制 Audiveris 执行步骤；`TEXTS` 为兼容性空操作。可选值：`LOAD`, `BINARY`, `SCALE`, `GRID`, `HEADERS`, `STEM_SEEDS`, `BEAMS`, `LEDGERS`, `HEADS`, `STEMS`, `REDUCTION`, `CUE_BEAMS`, `TEXTS`, `MEASURES`, `CHORDS`, `CURVES`, `SYMBOLS`, `LINKS`, `RHYTHMS`, `PAGE`。 |
 | `SCORE_TRANS_AUDIVERIS_FORCE` | 是否强制重新执行。 |
 | `SCORE_TRANS_AUDIVERIS_SAVE` | 是否保存中间结果。 |
 | `SCORE_TRANS_AUDIVERIS_SWAP` | 是否启用 swap。 |

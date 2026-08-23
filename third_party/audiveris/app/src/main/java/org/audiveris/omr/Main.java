@@ -28,8 +28,6 @@ import org.audiveris.omr.constant.ConstantManager;
 import org.audiveris.omr.constant.ConstantSet;
 import org.audiveris.omr.log.LogUtil;
 import org.audiveris.omr.sheet.BookManager;
-import org.audiveris.omr.text.tesseract.Languages;
-import org.audiveris.omr.text.tesseract.TesseractOCR;
 import org.audiveris.omr.ui.MainGui;
 import org.audiveris.omr.ui.symbol.MusicFont;
 import org.audiveris.omr.ui.util.UIUtil;
@@ -253,9 +251,6 @@ public class Main
             // Fix for issue #562: Disable this check when running in batch mode.
             ///Versions.considerPolling();
 
-            // Check OCR languages
-            Languages.getInstance().checkSupport();
-
             // Check MusicFont is loaded
             MusicFont.checkMusicFont();
 
@@ -420,8 +415,7 @@ public class Main
                 "- Architecture: " + System.getProperty("os.arch"),
                 "- Java VM:      " + System.getProperty("java.vm.name") + //
                         " (build " + System.getProperty("java.vm.version") + //
-                        ", " + System.getProperty("java.vm.info") + ")",
-                "- OCR Engine:   " + TesseractOCR.getInstance().identify());
+                        ", " + System.getProperty("java.vm.info") + ")");
     }
 
     //~ Inner Classes ------------------------------------------------------------------------------

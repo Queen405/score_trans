@@ -54,7 +54,6 @@ import org.audiveris.omr.sig.inter.WordInter;
 import static org.audiveris.omr.text.TextRole.ChordName;
 import static org.audiveris.omr.text.TextRole.Lyrics;
 import static org.audiveris.omr.text.TextRole.Metronome;
-import org.audiveris.omr.text.tesseract.TesseractOCR;
 import org.audiveris.omr.util.Navigable;
 import org.audiveris.omr.util.Pair;
 import org.audiveris.omr.util.StopWatch;
@@ -1379,7 +1378,7 @@ public class TextBuilder
      */
     public static boolean isMainlyItalic (TextLine line)
     {
-        final double minConfidence = TesseractOCR.getInstance().getMinConfidence();
+        final double minConfidence = 0.0;
         int reliableWords = 0;
         int italicWords = 0;
 

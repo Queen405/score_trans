@@ -32,14 +32,11 @@ import java.util.List;
 import ij.process.ByteProcessor;
 
 /**
- * Class <code>BlockScanner</code> launches the OCR on a buffer, typically a glyph buffer,
- * to retrieve the TextLine instance(s) this buffer represents.
+ * Class <code>BlockScanner</code> preserves the text-region API used by manual editing code.
  * <p>
- * As opposed to [@link SheetScanner}, here Tesseract is used in SINGLE_BLOCK layout mode,
- * since the buffer, as complex as it can be with many lines and words, is considered as a single
- * block of text.
+ * Automatic text recognition is provided by the Score Trans Python backend.
  * <p>
- * The raw OCR output will later be processed at system level by dedicated TextBuilder instances.
+ * Any returned text lines are processed at system level by dedicated TextBuilder instances.
  *
  * @author Hervé Bitteur
  */

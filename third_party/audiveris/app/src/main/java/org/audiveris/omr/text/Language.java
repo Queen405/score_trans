@@ -274,7 +274,7 @@ public abstract class Language
     // SupportedLanguages //
     //--------------------//
     /**
-     * Handles the collection of OCR languages available locally.
+     * Handles the legacy collection of text languages persisted in score settings.
      */
     public static class SupportedLanguages
     {

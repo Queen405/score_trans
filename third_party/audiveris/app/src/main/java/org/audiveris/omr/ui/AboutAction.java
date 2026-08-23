@@ -25,8 +25,6 @@ import org.audiveris.omr.OMR;
 import org.audiveris.omr.WellKnowns;
 import org.audiveris.omr.constant.Constant;
 import org.audiveris.omr.constant.ConstantSet;
-import org.audiveris.omr.text.Language;
-import org.audiveris.omr.text.tesseract.TesseractOCR;
 import org.audiveris.omr.ui.util.BrowserLinkListener;
 import org.audiveris.omr.ui.util.Panel;
 import org.audiveris.omr.ui.util.UIUtil;
@@ -53,10 +51,6 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.SortedSet;
-import java.util.stream.Collectors;
 
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
@@ -224,31 +218,6 @@ public class AboutAction
 
         ((JLabel) Topic.license.comp).setText("GNU Affero GPL v3");
 
-        final TesseractOCR tesseract = TesseractOCR.getInstance();
-        ((JLabel) Topic.ocr.comp).setText(tesseract.identify());
-
-        final StringBuilder ocr = new StringBuilder();
-        final Path ocrFolder = tesseract.getOcrFolder();
-        if (ocrFolder == null) {
-            ocr.append("null");
-        } else {
-            ocr.append(ocrFolder);
-
-            if (Language.getSupportedLanguages().getSize() == 0) {
-                ocr.append(" (EMPTY)");
-            }
-
-            if (!Files.isWritable(ocrFolder)) {
-                ocr.append(" (NOT WRITABLE)");
-            }
-        }
-        ((JLabel) Topic.ocrFolder.comp).setText(ocr.toString());
-
-        final SortedSet<String> installed = TesseractOCR.getInstance().getSupportedLanguages();
-        final String languages = installed.isEmpty() ? "<none>"
-                : installed.stream().collect(Collectors.joining(","));
-        ((JLabel) Topic.ocrLanguages.comp).setText(languages);
-
         ((JLabel) Topic.javaVendor.comp).setText(System.getProperty("java.vendor"));
 
         ((JLabel) Topic.javaVersion.comp).setText(System.getProperty("java.version"));
@@ -376,12 +345,6 @@ public class AboutAction
         project(new JEditorPane("text/html", "")),
         /** License */
         license(new JLabel()),
-        /** OCR version */
-        ocr(new JLabel()),
-        /** OCR folder */
-        ocrFolder(new JLabel()),
-        /** OCR languages */
-        ocrLanguages(new JLabel()),
         /** Java vendor */
         javaVendor(new JLabel()),
         /** Java version */

@@ -23,11 +23,6 @@ def app = project(':app')
 project.version = '5.10.2'
 println "version: ${project.version}"
 
-// Central location for the specific versions of tesseract dependencies
-ext.jcppVersion     = '1.5.12'
-ext.leptVersion     = '1.85.0'
-ext.tessVersion     = '5.5.1'
-
 // Name of host OS
 ext.hostOSName   = System.getProperty('os.name').toLowerCase()\
                      .startsWith('mac os x') ? 'macosx' :\
@@ -66,10 +61,6 @@ println "theMinJavaVersion: $theMinJavaVersion"
 java {
     sourceCompatibility = JavaLanguageVersion.of(theMinJavaVersion)
 }
-
-// No longer needed, but kept for potential future use (like batch integration test)
-ext.tessdataTag     = project.property('theTessdataTag')
-println "theTessdataTag: $tessdataTag"
 
 ext.programName     = rootProject.name
 ext.programId       = rootProject.name.toLowerCase()
@@ -133,9 +124,6 @@ dependencies {
         'org.apache.pdfbox:pdfbox-io:3.0.6',
         'org.audiveris:proxymusic:4.0.3',
         'org.bushe:eventbus:1.4',
-        "org.bytedeco:javacpp:${jcppVersion}",
-        "org.bytedeco:leptonica:${leptVersion}-${jcppVersion}",
-        "org.bytedeco:tesseract:${tessVersion}-${jcppVersion}",
         'org.commonmark:commonmark:0.27.0',
         'org.jdesktop.bsaf:bsaf:1.9.2',
         'org.jfree:jfreechart:1.5.6',
@@ -146,25 +134,10 @@ dependencies {
         'net.java.dev.jna:jna:5.14.0'
     )
 
-    runtimeOnly(
-        "org.bytedeco:leptonica:${leptVersion}-${jcppVersion}:${app.ext.targetOS}",
-        "org.bytedeco:tesseract:${tessVersion}-${jcppVersion}:${app.ext.targetOS}"
-    )
-
     testImplementation(
         'junit:junit:4.13.2',
         'org.jgrapht:jgrapht-ext:1.5.2'
     )
-}
-
-// Trick for Linux to include 'arm64' architecture in addition to 'x86_64'
-if (targetOS == "linux-x86_64") {
-    dependencies {
-        runtimeOnly(
-            "org.bytedeco:leptonica:${leptVersion}-${jcppVersion}:linux-arm64",
-            "org.bytedeco:tesseract:${tessVersion}-${jcppVersion}:linux-arm64"
-        )
-    }
 }
 
 //------------
@@ -212,11 +185,7 @@ application {
     //
     // Arg 1: Needed to circumvent the limitations brought by Java 9 and above (the JigSaw cuts)
     //
-    // Arg 2: WARNING: A restricted method in java.lang.System has been called
-    // WARNING: java.lang.System::load has been called by org.bytedeco.javacpp.Loader in an unnamed module
-    // (file:/C:/Users/herve/.gradle/caches/modules-2/files-2.1/org.bytedeco/javacpp/1.5.12/d37e3e9c7f3e3a9e492c245e62fd358611889e04/javacpp-1.5.12.jar)
-    // WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
-    // WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+    // Arg 2: Allow native access for optional platform integrations.
     //
     // Arg 3: Enable HiDPI/display scaling support for Linux Wayland (GNOME, KDE)
     //
@@ -368,7 +337,7 @@ tasks.register('generateProgramId') {
         gSrc.append("public abstract class $className {")
 
         app.ext.programBuild = app.ext.commit
-        ["company_name", "company_id", "program_name", "program_id", "program_version", "program_build", "tessdata_tag"].each { str ->
+        ["company_name", "company_id", "program_name", "program_id", "program_version", "program_build"].each { str ->
             def strParts = str.split("_")
             def propName = strParts[0] + strParts[1].capitalize()
             gSrc.append("\n    /** Precise ${strParts[0]} ${strParts[1]}: {@value} */")

@@ -106,6 +106,7 @@ class FullPipelineAction:
         recognized = self.recognizer.execute(source, out_dir / "omr", config)
         report_progress(progress_callback, "omr", 45, "OMR 识别完成")
         musicxml_path = _copy_musicxml_output(Path(recognized), out_dir, source.stem)
+        # The compatibility flag controls Python OCR on the original raster image.
         ocr_image_path = source if enable_omr_ocr and _is_ocr_image(source) else None
         overlay_path, source_map_path = self.overlay_service.find_native_overlay(
             out_dir / "omr"

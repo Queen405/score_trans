@@ -22,7 +22,11 @@ from ...models.common.types import (
     InstrumentProfile,
     MeasureNumberMode,
 )
-from ...models.provenance.schemas import RenderedTextBlock, TextAnchor
+from ...models.provenance.schemas import (
+    RenderedTextBlock,
+    SourceTextAttachment,
+    TextAnchor,
+)
 from ...models.render.schemas import (
     BatchRenderPageRequest,
     BatchRenderRequest,
@@ -397,8 +401,9 @@ class RenderActions:
                 if page.input_file_name:
                     page_label = f"{page_label}（{page.input_file_name}）"
                 raise ValueError(f"{page_label}：{exc}") from exc
+            source_page_index = _request_source_page_index(page, index)
             for score in page_scores:
-                _tag_score_source_page(score, index)
+                _tag_score_source_page(score, source_page_index)
             page_scores_list.append(page_scores)
 
         has_multi_part = any(len(scores) > 1 for scores in page_scores_list)
@@ -434,7 +439,7 @@ class RenderActions:
             measure_ranges_by_page,
         )
         placement = place_source_text_attachments(
-            [list(page.text_attachments) for page in (req.source_pages or req.pages)],
+            _aligned_source_attachments(req.source_pages or req.pages),
             [page.svg for page in layout_pages],
             measure_ranges_by_page,
         )
@@ -499,6 +504,7 @@ class RenderActions:
         source_pages = req.source_pages or req.pages
         page_offset = 0
         for page_idx, page_scores in enumerate(page_scores_list):
+            source_page_index = _score_source_page_index(page_scores, page_idx)
             layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
                 page_scores,
                 title=req.title,
@@ -507,12 +513,7 @@ class RenderActions:
                 initial_measure_number=None,
             )
             page_source_ranges = (
-                [
-                    r
-                    for r in source_ranges
-                    if r.source_page_index
-                    == page_scores[0].measures[0].source_page_index
-                ]
+                [r for r in source_ranges if r.source_page_index == source_page_index]
                 if page_scores and page_scores[0].measures
                 else []
             )
@@ -525,12 +526,11 @@ class RenderActions:
                 req,
                 measure_ranges_by_page,
                 page_offset=page_offset,
-                source_page_indices=[page_idx],
+                source_page_indices=[source_page_index],
             )
-            current_attachments = (
-                [list(source_pages[page_idx].text_attachments)]
-                if page_idx < len(source_pages)
-                else []
+            current_attachments = _aligned_source_attachments(
+                source_pages,
+                only_source_page_index=source_page_index,
             )
             placement = place_source_text_attachments(
                 current_attachments,
@@ -588,7 +588,7 @@ class RenderActions:
         source_scores: list[JianpuScore] = []
         for index, page in enumerate(source_pages):
             score = self._build_batch_page_score(req, page)
-            _tag_score_source_page(score, index)
+            _tag_score_source_page(score, _request_source_page_index(page, index))
             source_scores.append(score)
         _renumber_scores_continuously(
             source_scores, initial_measure_number=req.initial_measure_number
@@ -865,6 +865,58 @@ def _tag_score_source_page(score: JianpuScore, source_page_index: int) -> None:
             }
 
 
+def _request_source_page_index(
+    page: BatchRenderPageRequest,
+    fallback: int,
+) -> int:
+    if page.source_page_index is None:
+        return fallback
+    return page.source_page_index
+
+
+def _score_source_page_index(
+    scores: list[JianpuScore],
+    fallback: int,
+) -> int:
+    for score in scores:
+        for measure in score.measures:
+            if measure.source_page_index is not None:
+                return measure.source_page_index
+    return fallback
+
+
+def _aligned_source_attachments(
+    pages: list[BatchRenderPageRequest],
+    *,
+    only_source_page_index: int | None = None,
+) -> list[list[SourceTextAttachment]]:
+    indexed_pages = [
+        (_request_source_page_index(page, index), page)
+        for index, page in enumerate(pages)
+    ]
+    if only_source_page_index is not None:
+        indexed_pages = [
+            (source_index, page)
+            for source_index, page in indexed_pages
+            if source_index == only_source_page_index
+        ]
+    max_index = max((source_index for source_index, _ in indexed_pages), default=-1)
+    aligned: list[list[SourceTextAttachment]] = [[] for _ in range(max_index + 1)]
+    for source_index, page in indexed_pages:
+        aligned[source_index].extend(page.text_attachments)
+    return aligned
+
+
+def _source_page_for_index(
+    pages: list[BatchRenderPageRequest],
+    source_page_index: int,
+) -> BatchRenderPageRequest | None:
+    for index, page in enumerate(pages):
+        if _request_source_page_index(page, index) == source_page_index:
+            return page
+    return None
+
+
 def _source_ranges_for_scores(scores: list[JianpuScore]) -> list[_SourcePageRange]:
     ranges: list[_SourcePageRange] = []
     for index, score in enumerate(scores):
@@ -879,7 +931,16 @@ def _source_ranges_for_scores(scores: list[JianpuScore]) -> list[_SourcePageRang
             ends.append(start + repeat_count - 1)
         ranges.append(
             _SourcePageRange(
-                source_page_index=index,
+                source_page_index=(
+                    next(
+                        (
+                            measure.source_page_index
+                            for measure in score.measures
+                            if measure.source_page_index is not None
+                        ),
+                        index,
+                    )
+                ),
                 start_measure_number=min(starts) if starts else None,
                 end_measure_number=max(ends) if ends else None,
             )
@@ -990,9 +1051,9 @@ def _suggested_render_page_ocr_texts(
         source_page_indices = list(range(len(source_pages)))
     blocks_by_page: dict[int, list[TextBlock]] = {}
     for source_index in source_page_indices:
-        if source_index >= len(source_pages):
+        source_page = _source_page_for_index(source_pages, source_index)
+        if source_page is None:
             continue
-        source_page = source_pages[source_index]
         if source_page.text_attachments or not source_page.ocr_text:
             continue
         target_page_index = _first_render_page_for_source(

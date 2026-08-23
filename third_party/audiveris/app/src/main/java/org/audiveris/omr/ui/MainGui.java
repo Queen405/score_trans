@@ -41,9 +41,6 @@ import org.audiveris.omr.sheet.ui.SheetView;
 import org.audiveris.omr.sheet.ui.StubsController;
 import org.audiveris.omr.step.ui.StepMenu;
 import org.audiveris.omr.step.ui.StepMonitoring;
-import org.audiveris.omr.text.OCR;
-import org.audiveris.omr.text.OcrUtil;
-import org.audiveris.omr.text.tesseract.Languages;
 import org.audiveris.omr.ui.action.ActionManager;
 import org.audiveris.omr.ui.action.Actions;
 import org.audiveris.omr.ui.selection.MouseMovement;
@@ -548,9 +545,6 @@ public class MainGui
         // Perhaps time to check for a new release?
         Versions.considerPolling();
 
-        // Check OCR languages
-        Languages.getInstance().checkSupport();
-
         // Launch inputs, books & scripts
         for (Callable<Void> task : Main.getCli().getCliTasks()) {
             logger.info("MainGui submitting {}", task);
@@ -567,10 +561,6 @@ public class MainGui
         logger.debug("MainGui. 2/startup");
         logger.debug("{} version {}", WellKnowns.TOOL_NAME, WellKnowns.TOOL_REF);
         logger.info("\n{}", LogUtil.allInitialMessages());
-
-        if (!OcrUtil.getOcr().isAvailable()) {
-            logger.warn("{} Check log file for more details.", OCR.NO_OCR);
-        }
 
         // Make the OmrGui instance available for the other classes
         OMR.gui = this;

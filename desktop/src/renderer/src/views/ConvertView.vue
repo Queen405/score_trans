@@ -1526,10 +1526,7 @@ function buildBatchRenderPages() {
   return buildBatchRenderRequests(batchRenderSourcePages(), {
     jianpuText: jianpuText.value,
     title: '简谱',
-  }).map((page, index) => ({
-    ...page,
-    text_anchors: store.currentBatchPages[index]?.textAnchors ?? [],
-  }))
+  })
 }
 
 function buildBatchRenderSourcePages() {

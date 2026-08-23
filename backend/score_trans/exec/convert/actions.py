@@ -3,7 +3,6 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-
 from ...domain.jianpu import jianpu_file_to_musicxml, jianpu_to_musicxml
 from ...domain.musicxml import (
     musicxml_path_to_scores,
@@ -16,8 +15,8 @@ from ...models.convert.schemas import (
     MusicXmlToJianpuRequest,
     MusicXmlToJianpuResponse,
 )
-from ...models.score import JianpuScore
 from ...models.provenance.entities import JianpuDocument
+from ...models.score import JianpuScore
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
@@ -80,6 +79,7 @@ class MusicXmlToJianpuAction:
             instrument_profile=instrument_profile,
         )
         if image_path is not None:
+            # Text extraction is delegated to the configured Python OCR provider.
             provider = ocr_provider or create_configured_ocr_provider()
             blocks = provider.recognize(Path(image_path))
             for score in scores:

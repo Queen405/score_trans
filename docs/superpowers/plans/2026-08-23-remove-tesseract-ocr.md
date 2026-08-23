@@ -24,22 +24,22 @@
 ### Task 1: Freeze the Current Contracts and Add Regression Fixtures
 
 **Files:**
-- Modify: `tests/test_pipeline.py`
-- Modify: `tests/test_convert.py`
+- Reuse: `tests/test_pipeline.py:224` existing injected Python OCR contract
+- Reuse: `tests/test_ocr.py:123` existing Python API-key error contract
+- Modify: `tests/test_convert.py` only if extending the existing inline dynamics case to `mf`
 - Modify: `tests/test_build_app.py`
-- Create: `tests/fixtures/musicxml/dynamics-mf.musicxml` if an equivalent fixture is not already available
 
 **Interfaces:**
 - Consumes: existing `OCRProvider` injection points and MusicXML parser behavior.
 - Produces: tests proving Python OCR remains callable, MusicXML dynamics remain parseable, and package cleanup rejects stale Tesseract artifacts.
 
-- [ ] **Step 1: Add a Python OCR pipeline test using an injected provider.**
+- [ ] **Step 1: Freeze the existing Python OCR contracts.**
 
-  Use a fake provider that returns one `OCRTextBlock`, run `FullPipelineAction` with a fake recognizer/converter dependency, and assert the returned `ocr_text` contains that block. The test must not import or mention Java/Tesseract.
+  Reuse `tests/test_pipeline.py::test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout` and `tests/test_ocr.py::test_ocr_provider_requires_api_key` as the baseline. Do not add duplicate tests; only strengthen assertions if implementation exposes a regression.
 
-- [ ] **Step 2: Add a dynamics regression assertion.**
+- [ ] **Step 2: Extend the existing inline dynamics assertion if needed.**
 
-  Parse MusicXML containing `<dynamics><mf/></dynamics>` and assert the resulting score event has `dynamic == "mf"`; also cover `f` if the existing test helpers permit a compact parametrized case.
+  Reuse `tests/test_convert.py` inline MusicXML style. Add `mf` to an existing parametrized or compact test only if the current suite does not already exercise it; do not create a new fixtures directory.
 
 - [ ] **Step 3: Add a packaging cleanup test for stale generated OCR output.**
 
@@ -56,7 +56,7 @@
   --basetemp=work/pytest-tesseract-baseline-temp
   ```
 
-  Expected: the new cleanup test fails until packaging cleanup is implemented; existing tests continue to pass.
+  Expected: existing contract tests pass; the new cleanup test fails until packaging cleanup is implemented.
 
 ---
 
@@ -93,11 +93,11 @@
 
 - [ ] **Step 3: Make the Java text step inert without deleting musical-symbol OMR.**
 
-  Keep the `TEXTS` enum slot only if Audiveris requires the step for serialized step ordering, but remove all OCR scanning from `TextsStep` and return an empty text context. Remove `OcrUtil` and scanner calls if no remaining caller needs them; otherwise leave only a non-OCR-compatible empty adapter with no Tesseract types. Remove Tesseract-specific confidence thresholds from `TextLine` and `TextBuilder` rather than replacing them with an engine call.
+  Keep the `TEXTS` enum slot for serialized step ordering. Remove all OCR scanning from `TextsStep`; make `doProlog` return an empty context and make `doSystem` return before calling `TextBuilder.processSystem()` when that context has no lines. Do not pass a null/empty buffer into `TextBuilder`. Remove `OcrUtil` and scanner calls if no remaining caller needs them; otherwise leave only a non-OCR-compatible empty adapter with no Tesseract types. Remove Tesseract-specific confidence thresholds from `TextLine` and `TextBuilder` rather than replacing them with an engine call.
 
 - [ ] **Step 4: Remove UI and metadata references.**
 
-  Remove OCR engine/version display, language-download panes, and Tesseract availability checks from Audiveris UI classes. Keep general text model classes only where compilation, MusicXML, or overlay serialization requires them.
+  Remove OCR engine/version display, language-download panes, and Tesseract availability checks from Audiveris UI classes. Keep generic text model and persisted `ocrLanguages` compatibility fields where old `.omr` deserialization or MusicXML/overlay serialization requires them; remove their active runtime/UI use only.
 
 - [ ] **Step 5: Delete source and data assets.**
 
@@ -143,9 +143,9 @@
 
   Keep the stored key `enable_omr_ocr` for backward compatibility in this removal task, but change UI/docs wording to “Python OCR text extraction”. A separate migration may rename the key to `enable_python_ocr`; do not combine that breaking API change with Tesseract deletion.
 
-- [ ] **Step 4: Add a no-Tesseract Python regression test.**
+- [ ] **Step 4: Verify the no-Tesseract Python contract.**
 
-  Patch the provider with a fake implementation, run the pipeline, and assert returned text blocks are rendered/persisted. Also assert that a missing OCR API key produces the existing Python `OCRError`, proving the active OCR path is Python.
+  Reuse the existing injected-provider and missing-key tests. Verify that pipeline, conversion, and rendering call the Python provider and that `/recognize` remains OMR-only unless explicitly extended later; document this API boundary rather than adding a second OCR implementation.
 
 - [ ] **Step 5: Run focused Python tests.**
 
@@ -175,7 +175,7 @@
 
 - [ ] **Step 1: Harden package cleanup.**
 
-  Extend `_cleanup_audiveris()` so it removes stale generated Tesseract package directories under `app/build/classes`, `app/build/resources`, and any copied runtime tree while preserving the required non-OCR `app/build` artifacts such as generated `ProgramId.java` and commit metadata.
+  Before cleanup, validate the copied `app/build/generated-src/org/audiveris/omr/ProgramId.java` when present and fail if it contains `TESSDATA_TAG`, instructing the caller to run a clean `:app:compileJava`. Extend `_cleanup_audiveris()` so it removes stale generated Tesseract package directories under `app/build/classes`, `app/build/resources`, and any copied runtime tree while preserving the required non-OCR `app/build` artifacts such as generated `ProgramId.java` and commit metadata.
 
 - [ ] **Step 2: Add package assertions.**
 
@@ -203,7 +203,8 @@
 - Modify: `docs/architecture.md`
 - Modify: `docs/audiveris-research.md`
 - Modify: `docs/omr_parameters_manual.md`
-- Modify: `docs/environment.md`
+- Modify: `backend/score_trans/config/env.example`
+- Modify: `docs/environment.md` only if it contains an active obsolete claim
 - Modify: `docs/packaging.md`
 - Modify: `README.md` or `THIRD_PARTY_NOTICES.md` only if the final repository-wide search finds a Tesseract claim there
 
@@ -233,7 +234,7 @@
   -g '!*.class' -g '!*.jar' -g '!*.png' -g '!*.bmp' -g '!*.jpg' -g '!*.gif' -g '!*.otf' -g '!*.ttf'
   ```
 
-  Expected: no active source, packaging, or user documentation references remain. Historical audit records may be retained only if clearly marked historical and do not describe the removed implementation as active.
+  Expected: no active source, packaging, or user documentation references remain. Historical audit records may retain historical mentions and must be checked separately rather than erased to make this grep empty.
 
 ---
 
@@ -294,7 +295,7 @@
   -g '!*.class' -g '!*.jar'
   ```
 
-  Expected: no active implementation, dependency, asset, package, or documentation hit. Python OCR references such as `services/ocr` and `OCRProvider` are expected and must remain.
+  Expected: no active implementation, dependency, asset, package, or user-documentation hit. Historical audit records are checked separately. Python OCR references such as `services/ocr` and `OCRProvider` are expected and must remain.
 
 - [ ] **Step 6: Perform one real OMR fixture smoke test.**
 
@@ -305,3 +306,4 @@
   3. Jianpu rendering and source overlays still complete.
   4. No Audiveris output or logs mention Tesseract initialization or missing tessdata.
 
+  Also record the accepted scope: Java OMR no longer emits OCR-derived lyrics, rehearsal numbers, chord names, or metronome text; Python OCR text blocks remain available through the existing pipeline/conversion/rendering paths.

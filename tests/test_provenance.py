@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import json
+import struct
 from fractions import Fraction
 from pathlib import Path
-import struct
 
 import score_trans.domain.write.jianpu_text as jianpu_writer
 from score_trans.domain.parse.jianpu_text import parse_jianpu_score
 from score_trans.domain.parse.musicxml import musicxml_to_score
 from score_trans.domain.provenance import apply_text_anchors
 from score_trans.domain.write.jianpu_text import score_to_jianpu_document
-from score_trans.exec.render.actions import _tag_score_source_page
+from score_trans.exec.render.actions import RenderActions, _tag_score_source_page
 from score_trans.models.history.entities import HistoryPage
 from score_trans.models.provenance.schemas import TextAnchor
+from score_trans.models.render.schemas import BatchRenderPageRequest, BatchRenderRequest
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
-from score_trans.services.overlay.overlay_service import OverlayService
 from score_trans.services.history.history_service import HistoryService
+from score_trans.services.overlay.overlay_service import OverlayService
 from score_trans.services.render.engraving.renderer import PublicationRenderer
 from score_trans.services.render.main import render_score_svg
 
@@ -149,7 +150,9 @@ def test_augmentation_dot_provenance_produces_clickable_text_anchor() -> None:
     dot_anchor = next(
         anchor for anchor in document.anchors if anchor.role == "augmentation_dot"
     )
-    assert _utf16_slice(document.text, dot_anchor.start_utf16, dot_anchor.end_utf16) == "."
+    assert (
+        _utf16_slice(document.text, dot_anchor.start_utf16, dot_anchor.end_utf16) == "."
+    )
 
 
 def test_current_text_anchors_are_embedded_in_render_group() -> None:
@@ -228,6 +231,35 @@ def test_batch_render_prefixes_colliding_source_ids() -> None:
 
     assert event.source_ids == ["p3|s1:i10"]
     assert event.source_roles == {"note": ["p3|s1:i10"]}
+
+
+def test_batch_render_uses_sparse_source_page_index_for_source_ids() -> None:
+    class ProbeRenderActions(RenderActions):
+        def __init__(self) -> None:
+            pass
+
+        def _build_batch_page_scores(self, req, page):
+            score = parse_jianpu_score("1=C\n4/4\n1 |")
+            event = score.measures[0].events[0]
+            event.source_ids = ["s1:i10"]
+            event.source_roles = {"note": ["s1:i10"]}
+            return [score]
+
+        def _render_batch_flat(self, req, scores):
+            return scores[0].measures[0].events[0].source_ids
+
+    result = ProbeRenderActions().render_batch_a4(
+        BatchRenderRequest(
+            pages=[
+                BatchRenderPageRequest(
+                    jianpu_text="1=C\n4/4\n1 |",
+                    source_page_index=3,
+                )
+            ]
+        )
+    )
+
+    assert result == ["p3|s1:i10"]
 
 
 def test_history_persists_current_provenance_snapshot(tmp_path: Path) -> None:

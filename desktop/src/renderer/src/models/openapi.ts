@@ -1002,6 +1002,8 @@ export type components = {
             page_image_file_id?: string | null;
             /** Source Map File Id */
             source_map_file_id?: string | null;
+            /** Source Page Index */
+            source_page_index?: number | null;
             /**
              * Text Anchors
              * @default []

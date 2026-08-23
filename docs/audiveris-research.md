@@ -55,7 +55,7 @@ Audiveris 的设计哲学是 **"100% 识别率不可能达成"**，因此采用�
 |---|---|
 | 线条（lines） | ad-hoc 方法 |
 | 符干束（beams） | 图像形态学闭运算（morphological closing） |
-| 文字（texts） | 外部 OCR（Tesseract，tessdata 4.1.0） |
+| 文字（texts） | 由 Score Trans Python OCR 服务处理 |
 | 符头（note heads） | 模板匹配（template matching） |
 | 其他固定尺寸形状 | 神经网络（neural network） |
 
@@ -88,7 +88,7 @@ OMR 引擎对每个 sheet（页面）执行约 20 个**有序**步骤。可用 `
 | 10 | `STEMS` | 检索连接符头与束的符干 |
 | 11 | `REDUCTION` | 消除符头/符干/束的冲突 |
 | 12 | `CUE_BEAMS` | 检索提示性符干束 |
-| 13 | `TEXTS` | 对文字项调用 OCR |
+| 13 | `TEXTS` | 保留步骤槽位；当前不执行文字识别 |
 | 14 | `MEASURES` | 从小节线组合检索原始小节 |
 | 15 | `CHORDS` | 把符头聚集成和弦 |
 | 16 | `CURVES` | 检索连音线、渐强渐弱、反复段落线 |
@@ -256,7 +256,9 @@ recognize_with_audiveris()
 
 - **100% 识别率不可达**：印刷质量、扫描质量导致残余错误不可避免，这是 OMR 领域的本质问题，非 Audiveris 缺陷。
 - **MusicXML 导出损失物理信息**：五线谱线等细节在 MusicXML 中无法表达，意味着"返回符号层、丢失排版层"。
-- **TEXTS 步骤依赖 OCR**：歌词、力度记号等文字识别质量受 Tesseract 影响。
+- **文字识别职责分离**：Audiveris 不再执行 `TEXTS` 文字识别；标题、歌词、排练号、和弦名、
+  速度文字由 Score Trans Python OCR 服务按图片文字块返回。`f`、`mf` 等标准力度记号属于
+  Audiveris OMR 符号分类，仍由 `SYMBOLS`/MusicXML 路径处理。
 
 ### 7.2 运行时局限
 

@@ -31,7 +31,6 @@ import org.audiveris.omr.glyph.ui.ShapeColorChooser;
 import org.audiveris.omr.sheet.BookManager;
 import org.audiveris.omr.sheet.Releases;
 import org.audiveris.omr.sheet.Versions;
-import org.audiveris.omr.text.tesseract.Languages;
 import org.audiveris.omr.ui.action.Preferences;
 import org.audiveris.omr.ui.symbol.SymbolRipper;
 import org.audiveris.omr.ui.util.CursorController;
@@ -224,21 +223,6 @@ public class GuiActions
     public void exit (ActionEvent e)
     {
         OmrGui.getApplication().exit();
-    }
-
-    //------------------//
-    // installLanguages //
-    //------------------//
-    /**
-     * Install OCR languages from github.
-     *
-     * @param e the event which triggered this action
-     * @return the SAF task
-     */
-    @Action
-    public InstallLanguagesTask installLanguages (ActionEvent e)
-    {
-        return new InstallLanguagesTask();
     }
 
     //--------------------//
@@ -454,26 +438,6 @@ public class GuiActions
         private final Constant.String manualUrl = new Constant.String(
                 "https://audiveris.github.io/audiveris/",
                 "URL of Audiveris manual");
-    }
-
-    //----------------------//
-    // InstallLanguagesTask //
-    //----------------------//
-    public static class InstallLanguagesTask
-            extends VoidTask
-    {
-        @Override
-        protected Void doInBackground ()
-            throws Exception
-        {
-            final Languages.Selector dld = Languages.getInstance().getSelector();
-
-            if (dld != null) {
-                OmrGui.getApplication().show(dld.getComponent());
-            }
-
-            return null;
-        }
     }
 
     //---------------//
