@@ -13,9 +13,6 @@ hs_err_pid*.log
 replay_pid*.log
 
 # 打包相关
-build-app.py
-pyinstaller_entry.py
-pyinstaller.spec
 build-log.txt
 desktop/build-log.txt
 desktop/dist-electron/
