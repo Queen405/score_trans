@@ -56,6 +56,21 @@
           />
         </svg>
         <svg
+          v-if="deletedMarkElements.length > 0 && isImage"
+          class="deleted-mark-layer"
+          :viewBox="`0 0 ${sourceSheet?.width ?? 0} ${sourceSheet?.height ?? 0}`"
+          :width="imgW || sourceSheet?.width"
+          :height="imgH || sourceSheet?.height"
+          aria-hidden="true"
+        >
+          <path
+            v-for="element in deletedMarkElements"
+            :key="`deleted-mark-${element.source_id}`"
+            :d="element.hit_path"
+            class="deleted-mark"
+          />
+        </svg>
+        <svg
           v-if="editable && entitySheetWidth > 0 && entitySheetHeight > 0"
           class="entity-edit-layer"
           :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
@@ -135,6 +150,7 @@ const props = defineProps<{
   editable?: boolean
   entities?: CorrectableEntityDTO[]
   deletedEntityIds?: Set<string>
+  appliedDeletedSourceIds?: string[]
   entityWidth?: number
   entityHeight?: number
 }>()
@@ -181,13 +197,26 @@ const hasOverlay = computed(() => !!props.overlayFileId)
 const canShowOverlay = computed(() => hasOverlay.value && isImage.value)
 const sourceSheet = computed(() => sourceMap.value?.sheets?.[0] ?? null)
 const clickableSourceIdSet = computed(() => new Set(props.clickableSourceIds ?? []))
+const appliedDeletedSourceIdSet = computed(() => new Set(props.appliedDeletedSourceIds ?? []))
+const deletedMarkElements = computed(() => (
+  sourceSheet.value?.elements.filter((element) => (
+    appliedDeletedSourceIdSet.value.has(element.source_id)
+  )) ?? []
+))
 const clickableElements = computed(() => (
-  sourceSheet.value?.elements.filter((element) => clickableSourceIdSet.value.has(element.source_id)) ?? []
+  sourceSheet.value?.elements.filter((element) => (
+    clickableSourceIdSet.value.has(element.source_id)
+    && !appliedDeletedSourceIdSet.value.has(element.source_id)
+  )) ?? []
 ))
 const disabledElements = computed(() => {
   if (!clickableSourceIdSet.value.size) return []
   return sourceSheet.value?.elements.filter(
-    (element) => !clickableSourceIdSet.value.has(element.source_id) && !isUnanchoredByDesign(element),
+    (element) => (
+      !clickableSourceIdSet.value.has(element.source_id)
+      && !appliedDeletedSourceIdSet.value.has(element.source_id)
+      && !isUnanchoredByDesign(element)
+    ),
   ) ?? []
 })
 
@@ -417,6 +446,26 @@ onUnmounted(() => {
 }
 
 .source-hit-layer.disabled .source-hit {
+  pointer-events: none;
+}
+
+.deleted-mark-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.deleted-mark {
+  fill: none;
+  stroke: rgba(255, 51, 51, 0.84);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
 

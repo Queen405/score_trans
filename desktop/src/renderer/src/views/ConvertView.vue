@@ -239,6 +239,7 @@
               :editable="editMode"
               :entities="correctableEntities"
               :deleted-entity-ids="deletedEntityIds"
+              :applied-deleted-source-ids="appliedDeletedSourceIds"
               :entity-width="correctableSheet?.width"
               :entity-height="correctableSheet?.height"
               @select-source="handleOriginalSourceClick"
@@ -457,6 +458,7 @@ const svgPreviewRef = ref<{
 const selectedSourceId = ref('')
 const editMode = ref(false)
 const deletedEntityIds = ref<Set<string>>(new Set())
+const appliedDeletedSourceIds = computed(() => store.currentPage?.deletedSourceIds ?? [])
 const correctableSheet = ref<SheetEntitiesDTO | null>(null)
 const correctableEntities = computed<CorrectableEntityDTO[]>(
   () => correctableSheet.value?.entities ?? [],

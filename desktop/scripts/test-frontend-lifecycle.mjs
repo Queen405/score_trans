@@ -244,3 +244,13 @@ test('deleted entity markers render as a faint red outline without fill', () => 
   assert.match(originalPreviewSource, /aria-label="可删除标记"/)
   assert.match(originalPreviewSource, /transition: fill 0\.15s, stroke-opacity 0\.15s;/)
 })
+
+test('applied deleted source ids render in an independent persistent mark layer', () => {
+  assert.match(convertSource, /:applied-deleted-source-ids="appliedDeletedSourceIds"/)
+  assert.match(convertSource, /const appliedDeletedSourceIds = computed\(\(\) => store\.currentPage\?\.deletedSourceIds \?\? \[\]\)/)
+  assert.match(originalPreviewSource, /appliedDeletedSourceIds\?: string\[\]/)
+  assert.match(originalPreviewSource, /class="deleted-mark-layer"/)
+  assert.match(originalPreviewSource, /v-if="deletedMarkElements\.length > 0 && isImage"/)
+  assert.match(originalPreviewSource, /\.deleted-mark \{[\s\S]*?fill: none;[\s\S]*?stroke-dasharray: 6 4;/)
+  assert.match(originalPreviewSource, /\.deleted-mark-layer \{[\s\S]*?pointer-events: none;/)
+})
