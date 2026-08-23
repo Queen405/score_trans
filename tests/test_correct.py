@@ -5,7 +5,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
-from score_trans.domain.jianpu import musicxml_to_jianpu
+from score_trans.domain.jianpu import jianpu_to_musicxml, musicxml_to_jianpu
 from score_trans.models.correct.schemas import ConversionOptionsDTO, CorrectionRequest
 from score_trans.models.provenance.schemas import (
     BoundingBox,
@@ -18,7 +18,10 @@ from score_trans.models.provenance.schemas import (
 )
 from score_trans.models.score import JianpuScore
 from score_trans.services.correct.clef_transform import transform_pitch
-from score_trans.services.correct.correction_service import _document_title
+from score_trans.services.correct.correction_service import (
+    CorrectionService,
+    _document_title,
+)
 from score_trans.services.correct.entity_service import (
     CorrectableEntity,
     extract_entities,
@@ -235,6 +238,37 @@ def test_correction_request_preserves_text_attachments_and_title() -> None:
         )
         == "月亮之上"
     )
+
+
+def test_correction_forwards_a4_layout_controls(tmp_path: Path) -> None:
+    class CapturingRenderer:
+        def __init__(self) -> None:
+            self.kwargs: dict[str, object] = {}
+
+        def render_scores_a4_svg_page_results(self, _scores, output_path, **kwargs):
+            self.kwargs = dict(kwargs)
+            output_path.write_text("<svg/>", encoding="utf-8")
+            return [type("RenderedPage", (), {"path": output_path})()]
+
+    renderer = CapturingRenderer()
+    service = CorrectionService(render_service=renderer)
+    options = ConversionOptionsDTO(
+        jianpu_content_scale_percent=75,
+        jianpu_system_gap_percent=88,
+        jianpu_short_note_gap_percent=85,
+    )
+
+    service.correct(
+        jianpu_to_musicxml("1=C\n4/4\n1 2 |"),
+        [],
+        {},
+        options,
+        tmp_path,
+    )
+
+    assert renderer.kwargs["content_scale_percent"] == 75
+    assert renderer.kwargs["system_gap_percent"] == 88
+    assert renderer.kwargs["short_note_gap_percent"] == 85
 
 
 def test_clef_key_time_locator_matches_injected_ids() -> None:

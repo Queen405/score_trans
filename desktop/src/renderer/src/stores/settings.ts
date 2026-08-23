@@ -2,6 +2,7 @@ import { requireData } from '../api/client'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref } from 'vue'
 import { settingsApi, type SettingsQuery } from '../api/settings'
+import { jianpuLayoutKey } from '../utils/jianpuLayout'
 import type {
   AccidentalMode,
   CacheCleanupResponse,
@@ -35,6 +36,9 @@ export interface SettingsDraft {
   accidentalMode: AccidentalMode
   measureNumberMode: MeasureNumberMode
   jianpuSyntaxHighlight: boolean
+  jianpuContentScalePercent: number
+  jianpuSystemGapPercent: number
+  jianpuShortNoteGapPercent: number
   enableOmrOcr: boolean
   outputDir: string
   providers: Record<ProviderKind, SettingsDraftProvider>
@@ -113,6 +117,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
   const jianpuSyntaxHighlight = ref(false)
+  const jianpuContentScalePercent = ref(67)
+  const jianpuSystemGapPercent = ref(92)
+  const jianpuShortNoteGapPercent = ref(90)
   const enableOmrOcr = ref(true)
   const outputDir = ref('')
   const ocrProvider = ref('siliconflow_deepseek_ocr')
@@ -159,6 +166,9 @@ export const useSettingsStore = defineStore('settings', () => {
     accidentalMode: 'auto',
     measureNumberMode: 'all',
     jianpuSyntaxHighlight: false,
+    jianpuContentScalePercent: 67,
+    jianpuSystemGapPercent: 92,
+    jianpuShortNoteGapPercent: 90,
     enableOmrOcr: true,
     outputDir: '',
     providers: {
@@ -195,6 +205,16 @@ export const useSettingsStore = defineStore('settings', () => {
   const draftDirty = computed(
     () => draftReady.value && draftFingerprint(draft) !== draftBaseline.value,
   )
+  const jianpuLayoutKeyValue = computed(() => jianpuLayoutKey(
+    jianpuContentScalePercent.value,
+    jianpuSystemGapPercent.value,
+    jianpuShortNoteGapPercent.value,
+  ))
+  const jianpuLayoutRequest = computed(() => ({
+    jianpu_content_scale_percent: jianpuContentScalePercent.value,
+    jianpu_system_gap_percent: jianpuSystemGapPercent.value,
+    jianpu_short_note_gap_percent: jianpuShortNoteGapPercent.value,
+  }))
 
   async function load(): Promise<void> {
     if (loading.value) return
@@ -229,6 +249,9 @@ export const useSettingsStore = defineStore('settings', () => {
       accidentalMode: accidentalMode.value,
       measureNumberMode: measureNumberMode.value,
       jianpuSyntaxHighlight: jianpuSyntaxHighlight.value,
+      jianpuContentScalePercent: jianpuContentScalePercent.value,
+      jianpuSystemGapPercent: jianpuSystemGapPercent.value,
+      jianpuShortNoteGapPercent: jianpuShortNoteGapPercent.value,
       enableOmrOcr: enableOmrOcr.value,
       outputDir: outputDir.value,
       providers: {
@@ -294,6 +317,9 @@ export const useSettingsStore = defineStore('settings', () => {
           show_measure_numbers: next.measureNumberMode !== 'none',
           measure_number_mode: next.measureNumberMode,
           jianpu_syntax_highlight: next.jianpuSyntaxHighlight,
+          jianpu_content_scale_percent: next.jianpuContentScalePercent,
+          jianpu_system_gap_percent: next.jianpuSystemGapPercent,
+          jianpu_short_note_gap_percent: next.jianpuShortNoteGapPercent,
           enable_omr_ocr: next.enableOmrOcr,
           ocr_provider: next.providers.ocr.provider,
           ocr_api_key: next.providers.ocr.apiKey.trim() || undefined,
@@ -411,6 +437,9 @@ export const useSettingsStore = defineStore('settings', () => {
       data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
     jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false
+    jianpuContentScalePercent.value = data.jianpu_content_scale_percent ?? 67
+    jianpuSystemGapPercent.value = data.jianpu_system_gap_percent ?? 92
+    jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 90
     enableOmrOcr.value = data.enable_omr_ocr ?? true
     outputDir.value = data.output_dir ?? ''
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
@@ -499,6 +528,9 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.accidentalMode = next.accidentalMode
     draft.measureNumberMode = next.measureNumberMode
     draft.jianpuSyntaxHighlight = next.jianpuSyntaxHighlight
+    draft.jianpuContentScalePercent = next.jianpuContentScalePercent
+    draft.jianpuSystemGapPercent = next.jianpuSystemGapPercent
+    draft.jianpuShortNoteGapPercent = next.jianpuShortNoteGapPercent
     draft.enableOmrOcr = next.enableOmrOcr
     draft.outputDir = next.outputDir
     draft.providers.ocr = { ...next.providers.ocr }
@@ -537,6 +569,11 @@ export const useSettingsStore = defineStore('settings', () => {
     showMeasureNumbers,
     measureNumberMode,
     jianpuSyntaxHighlight,
+    jianpuContentScalePercent,
+    jianpuSystemGapPercent,
+    jianpuShortNoteGapPercent,
+    jianpuLayoutKey: jianpuLayoutKeyValue,
+    jianpuLayoutRequest,
     enableOmrOcr,
     outputDir,
     ocrProvider,

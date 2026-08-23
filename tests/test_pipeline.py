@@ -2,9 +2,8 @@ import json
 from pathlib import Path
 from zipfile import ZipFile
 
-from PIL import Image
 import pytest
-
+from PIL import Image
 from score_trans.domain.jianpu import jianpu_to_musicxml
 from score_trans.exec.pipeline.actions import (
     FullPipelineAction,
@@ -19,6 +18,7 @@ from score_trans.models.score import OCRTextBlock
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 from score_trans.services.ocr.providers import MockOCRProvider
+from score_trans.services.render import PublicationRenderService
 
 
 class FakeRecognizer:
@@ -38,6 +38,15 @@ class FakeRecognizer:
 class EmptyRenderer:
     def render_scores_a4_svg_pages(self, *args, **kwargs) -> list[Path]:
         return []
+
+
+class CapturingRenderer:
+    def __init__(self) -> None:
+        self.kwargs: dict[str, object] = {}
+
+    def render_scores_a4_svg_pages(self, *args, **kwargs):
+        self.kwargs = dict(kwargs)
+        return PublicationRenderService().render_scores_a4_svg_pages(*args, **kwargs)
 
 
 class StaticSettings:
@@ -115,6 +124,29 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
     assert "Pipeline Test" in svg
     assert ">1</text>" in svg
     assert recognizer.calls
+
+
+def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
+    source = tmp_path / "scan.pdf"
+    source.write_bytes(b"%PDF-1.4")
+    recognized = tmp_path / "audiveris-output.musicxml"
+    recognized.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), encoding="utf-8")
+    renderer = CapturingRenderer()
+
+    FullPipelineAction(
+        recognizer=FakeRecognizer(source, recognized), renderer=renderer
+    ).execute(
+        source,
+        tmp_path / "out",
+        config=ToolConfig(audiveris_path="fake-audiveris"),
+        content_scale_percent=75,
+        system_gap_percent=88,
+        short_note_gap_percent=85,
+    )
+
+    assert renderer.kwargs["content_scale_percent"] == 75
+    assert renderer.kwargs["system_gap_percent"] == 88
+    assert renderer.kwargs["short_note_gap_percent"] == 85
 
 
 def test_full_pipeline_can_hide_measure_numbers(tmp_path) -> None:

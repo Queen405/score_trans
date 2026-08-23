@@ -16,6 +16,9 @@ export const pipelineApi = {
     instrumentProfile: InstrumentProfile = 'general',
     measureNumberMode: MeasureNumberMode = 'all',
     title?: string,
+    contentScalePercent = 67,
+    systemGapPercent = 92,
+    shortNoteGapPercent = 90,
   ): Promise<ApiResult<TaskSubmitResponse>> {
     const formData = new FormData()
     formData.append('file', file)
@@ -23,6 +26,9 @@ export const pipelineApi = {
     formData.append('accidental_mode', accidentalMode)
     formData.append('instrument_profile', instrumentProfile)
     formData.append('measure_number_mode', measureNumberMode)
+    formData.append('jianpu_content_scale_percent', String(contentScalePercent))
+    formData.append('jianpu_system_gap_percent', String(systemGapPercent))
+    formData.append('jianpu_short_note_gap_percent', String(shortNoteGapPercent))
     if (title) {
       formData.append('title', title)
     }

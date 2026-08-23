@@ -160,6 +160,9 @@ class RenderMusicXmlJianpuAction:
         measure_number_mode: MeasureNumberMode = "all",
         initial_measure_number: int = 1,
         title: str | None = None,
+        content_scale_percent: int = 67,
+        system_gap_percent: int = 92,
+        short_note_gap_percent: int = 90,
     ) -> list[RenderedA4FilePage]:
         scores = self.build_scores(
             musicxml_path,
@@ -177,6 +180,9 @@ class RenderMusicXmlJianpuAction:
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
+            content_scale_percent=content_scale_percent,
+            system_gap_percent=system_gap_percent,
+            short_note_gap_percent=short_note_gap_percent,
         )
 
     def build_score(
@@ -272,6 +278,9 @@ class RenderJianpuTextAction:
         measure_number_mode: MeasureNumberMode = "all",
         initial_measure_number: int = 1,
         text_anchors: list[TextAnchor] | None = None,
+        content_scale_percent: int = 67,
+        system_gap_percent: int = 92,
+        short_note_gap_percent: int = 90,
     ) -> list[RenderedA4FilePage]:
         text = Path(input_path).read_text(encoding="utf-8")
         parts = parse_jianpu_parts(text, title=title)
@@ -286,6 +295,9 @@ class RenderJianpuTextAction:
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
+            content_scale_percent=content_scale_percent,
+            system_gap_percent=system_gap_percent,
+            short_note_gap_percent=short_note_gap_percent,
         )
 
 
@@ -316,6 +328,7 @@ class RenderActions:
             measure_number_mode=_request_measure_number_mode(req),
             initial_measure_number=req.initial_measure_number,
             title=req.title,
+            **_a4_layout_kwargs(req),
         )
         pages = self._register_rendered_pages(paths)
         return RenderJianpuSvgResponse(
@@ -361,6 +374,7 @@ class RenderActions:
                 measure_number_mode=_request_measure_number_mode(req),
                 initial_measure_number=req.initial_measure_number,
                 **anchor_options,
+                **_a4_layout_kwargs(req),
             )
         else:
             paths = self.text_renderer.execute_a4_pages(
@@ -371,6 +385,7 @@ class RenderActions:
                 measure_number_mode=_request_measure_number_mode(req),
                 initial_measure_number=req.initial_measure_number,
                 **anchor_options,
+                **_a4_layout_kwargs(req),
             )
         pages = self._register_rendered_pages(paths)
 
@@ -447,6 +462,7 @@ class RenderActions:
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
             initial_measure_number=None,
+            **_a4_layout_kwargs(req),
         )
         measure_ranges_by_page = [
             _page_measure_ranges(page.measure_ranges, source_ranges)
@@ -475,6 +491,7 @@ class RenderActions:
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
                 initial_measure_number=None,
+                **_a4_layout_kwargs(req),
             )
         )
         pages = self._register_rendered_page_results(
@@ -530,6 +547,7 @@ class RenderActions:
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
                 initial_measure_number=None,
+                **_a4_layout_kwargs(req),
             )
             page_source_ranges = (
                 [r for r in source_ranges if r.source_page_index == source_page_index]
@@ -578,6 +596,7 @@ class RenderActions:
                     show_measure_numbers=_request_show_measure_numbers(req),
                     measure_number_mode=_request_measure_number_mode(req),
                     initial_measure_number=None,
+                    **_a4_layout_kwargs(req),
                 )
             )
             all_rendered_file_pages.extend(rendered_pages)
@@ -630,6 +649,7 @@ class RenderActions:
             measure_number_mode=_request_measure_number_mode(req),
             initial_measure_number=req.initial_measure_number,
             title=req.title,
+            **_a4_layout_kwargs(req),
         )
         pages = self._register_rendered_pages(paths)
         return FinalRenderResponse(
@@ -753,6 +773,7 @@ class RenderActions:
                     ),
                     note_index_start=rendered_page.note_index_start,
                     note_index_end=rendered_page.note_index_end,
+                    layout_key=rendered_page.layout_key,
                 )
             )
         return pages
@@ -787,9 +808,18 @@ class RenderActions:
                     note_index_start=rendered_page.note_index_start,
                     note_index_end=rendered_page.note_index_end,
                     text_blocks=(rendered_text_blocks or {}).get(index, []),
+                    layout_key=rendered_page.layout_key,
                 )
             )
         return pages
+
+
+def _a4_layout_kwargs(req) -> dict[str, int]:
+    return {
+        "content_scale_percent": req.jianpu_content_scale_percent,
+        "system_gap_percent": req.jianpu_system_gap_percent,
+        "short_note_gap_percent": req.jianpu_short_note_gap_percent,
+    }
 
 
 def _validate_multi_part_measure_counts(scores: list[JianpuScore]) -> None:

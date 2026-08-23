@@ -52,6 +52,8 @@ function createLoadedBatch(pageCount = 3) {
     pages.map((_, index) => `svg-${index + 1}`),
     '',
     pages.map((_, index) => ({ page_index: index, ocr_text: `ocr-${index + 1}` })),
+    false,
+    '67:92:90',
   )
   for (let index = 0; index < pageCount; index += 1) {
     store.setBatchRenderPageOcrText(index, `dirty-${index + 1}`, index !== 1)
@@ -69,6 +71,7 @@ test('removing a middle page reindexes batch OCR state and removes only that pag
   store.removePage(1)
 
   assert.deepEqual(store.currentBatchRenderPageFileIds, ['svg-1', 'svg-3'])
+  assert.equal(store.currentBatchRenderLayoutKey, '67:92:90')
   assert.deepEqual(store.batchRenderPageOcrTextsFor(batchId), [
     { page_index: 0, ocr_text: 'dirty-1' },
     { page_index: 1, ocr_text: 'dirty-3' },
@@ -109,6 +112,7 @@ test('removing the final batch page deletes every per-batch record', () => {
   assert.equal(store.batchRenderPageFileIds[batchId], undefined)
   assert.equal(store.batchRenderPageOcrTexts[batchId], undefined)
   assert.equal(store.batchRenderPageOcrDirty[batchId], undefined)
+  assert.equal(store.batchRenderLayoutKeys[batchId], undefined)
   assert.equal(store.batchJianpuTexts[batchId], undefined)
   assert.equal(store.batchJianpuDirty[batchId], undefined)
   assert.equal(store.batchJianpuPendingPageIds[batchId], undefined)

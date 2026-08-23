@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
-from ..dependencies import get_pipeline_actions, get_task_actions
 from ...exec.pipeline.actions import PipelineActions
 from ...exec.tasks.actions import TaskActions
-from ...models.pipeline.schemas import PipelineByFileIdRequest
-from ...models.tasks.schemas import TaskSubmitResponse
 from ...models.common.types import (
     AccidentalMode,
     InstrumentProfile,
     MeasureNumberMode,
     TargetKeyOrAuto,
 )
+from ...models.pipeline.schemas import PipelineByFileIdRequest
+from ...models.tasks.schemas import TaskSubmitResponse
+from ..dependencies import get_pipeline_actions, get_task_actions
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -33,6 +33,9 @@ async def run_pipeline_by_file_id(
         instrument_profile=req.instrument_profile,
         show_measure_numbers=_request_show_measure_numbers(req),
         measure_number_mode=_request_measure_number_mode(req),
+        content_scale_percent=req.jianpu_content_scale_percent,
+        system_gap_percent=req.jianpu_system_gap_percent,
+        short_note_gap_percent=req.jianpu_short_note_gap_percent,
         title=req.title,
     )
 
@@ -46,6 +49,9 @@ async def run_pipeline(
     instrument_profile: InstrumentProfile = Form("general"),
     show_measure_numbers: bool = Form(True),
     measure_number_mode: MeasureNumberMode = Form("all"),
+    jianpu_content_scale_percent: int = Form(67, ge=65, le=100),
+    jianpu_system_gap_percent: int = Form(92, ge=80, le=120),
+    jianpu_short_note_gap_percent: int = Form(90, ge=80, le=120),
     title: str | None = Form(None),
     actions: PipelineActions = Depends(get_pipeline_actions),
     tasks: TaskActions = Depends(get_task_actions),
@@ -59,6 +65,9 @@ async def run_pipeline(
         instrument_profile=instrument_profile,
         show_measure_numbers=measure_number_mode != "none" and show_measure_numbers,
         measure_number_mode="none" if not show_measure_numbers else measure_number_mode,
+        content_scale_percent=jianpu_content_scale_percent,
+        system_gap_percent=jianpu_system_gap_percent,
+        short_note_gap_percent=jianpu_short_note_gap_percent,
         title=title,
     )
 

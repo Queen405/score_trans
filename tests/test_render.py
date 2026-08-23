@@ -8,6 +8,7 @@ from fractions import Fraction
 from itertools import pairwise
 from pathlib import Path
 
+import pytest
 from score_trans.domain.jianpu import parse_jianpu_score
 from score_trans.exec.render.actions import _renumber_scores_continuously
 from score_trans.models.score import (
@@ -19,7 +20,11 @@ from score_trans.models.score import (
     TextBlock,
     TupletSpan,
 )
-from score_trans.services.render import PublicationRenderService, RenderOptions
+from score_trans.services.render import (
+    A4LayoutOptions,
+    PublicationRenderService,
+    RenderOptions,
+)
 from score_trans.services.render.engraving.fonts import font_registry
 from score_trans.services.render.engraving.geometry import (
     mark_layouts,
@@ -27,6 +32,7 @@ from score_trans.services.render.engraving.geometry import (
     pitch_layouts,
 )
 from score_trans.services.render.engraving.renderer import (
+    PublicationRenderer,
     _Anchor,
     _Cell,
     _draw_explicit_beam_level,
@@ -34,8 +40,8 @@ from score_trans.services.render.engraving.renderer import (
     _draw_rhythm_run,
     _duration_spring,
     _event_positions,
+    _event_visual_extents,
     _intrinsic_measure_width,
-    PublicationRenderer,
     _system_extra_height,
 )
 from score_trans.services.render.engraving.scene import BBox, PublicationScene
@@ -109,7 +115,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-4"
+    assert root.attrib["data-engine-version"] == "publication-5"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -1537,6 +1543,236 @@ def test_a4_viewbox_is_stable() -> None:
     assert root.attrib["viewBox"] == "0 0 1240 1754"
 
 
+def _a4_svg_with_layout(
+    score: JianpuScore,
+    *,
+    content_scale_percent: int = 100,
+    system_gap_percent: int = 100,
+    short_note_gap_percent: int = 100,
+) -> tuple[ET.Element, object]:
+    try:
+        page = PublicationRenderService().build_scores_a4_svg_pages(
+            [score],
+            content_scale_percent=content_scale_percent,
+            system_gap_percent=system_gap_percent,
+            short_note_gap_percent=short_note_gap_percent,
+        )[0]
+    except TypeError as exc:
+        pytest.fail(f"A4 renderer does not expose layout controls: {exc}")
+    return _root(page.svg), page
+
+
+def _physical_note_xs(root: ET.Element) -> list[float]:
+    content = next(
+        node for node in root if node.attrib.get("class") == "publication-content"
+    )
+    content_scale = _scale(content)
+    return [
+        _translate(node)[0] * content_scale
+        for node in content.iter()
+        if node.attrib.get("class") == "note"
+    ]
+
+
+def test_a4_content_scale_preserves_page_and_scales_render_metadata(
+    tmp_path: Path,
+) -> None:
+    score = parse_jianpu_score("title=缩放测试\n1=C\n4/4\nq1 q2 q3 q4 |")
+    score.measures[0].events[0].source_ids = ["s1:i10"]
+
+    page = PublicationRenderService().render_scores_a4_svg_pages(
+        [score],
+        tmp_path / "scaled.svg",
+        content_scale_percent=67,
+        system_gap_percent=100,
+        short_note_gap_percent=100,
+    )[0]
+    root = _root(page.path.read_text(encoding="utf-8"))
+
+    assert root.attrib["width"] == "1240"
+    assert root.attrib["height"] == "1754"
+    assert root.attrib["viewBox"] == "0 0 1240 1754"
+    assert root.attrib["data-layout-key"] == "67:100:100"
+    content = next(
+        node for node in root if node.attrib.get("class") == "publication-content"
+    )
+    assert _scale(content) == pytest.approx(0.67)
+    title = next(
+        node for node in content.iter() if node.attrib.get("class") == "score-title"
+    )
+    assert float(title.attrib["data-font-size"]) == pytest.approx(26.8)
+    note = next(
+        node
+        for node in content.iter()
+        if "s1:i10" in node.attrib.get("data-source-ids", "")
+    )
+    note_bbox = _bbox(note)
+    assert page.render_map_path is not None
+    render_map = json.loads(page.render_map_path.read_text(encoding="utf-8"))
+    render_map_bbox = render_map["anchors"][0]["bbox"]
+    assert render_map_bbox["x"] <= note_bbox[0]
+    assert render_map_bbox["y"] <= note_bbox[1]
+    assert (
+        render_map_bbox["x"] + render_map_bbox["width"]
+        >= note_bbox[0] + note_bbox[2] - 1e-6
+    )
+    assert (
+        render_map_bbox["y"] + render_map_bbox["height"]
+        >= note_bbox[1] + note_bbox[3] - 1e-6
+    )
+    assert note_bbox[0] + note_bbox[2] <= 1240
+    assert note_bbox[1] + note_bbox[3] <= 1754
+
+
+def test_short_note_gap_changes_actual_centers_but_not_quarter_notes() -> None:
+    short_score = parse_jianpu_score("1=C\n4/4\nq1 q2 q3 q4 q5 q6 q7 q1' |")
+    wide_short, _ = _a4_svg_with_layout(short_score)
+    compact_short, _ = _a4_svg_with_layout(short_score, short_note_gap_percent=80)
+
+    wide_xs = _physical_note_xs(wide_short)
+    compact_xs = _physical_note_xs(compact_short)
+    assert compact_xs[-1] - compact_xs[0] < wide_xs[-1] - wide_xs[0]
+
+    quarter_score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
+    wide_quarter, _ = _a4_svg_with_layout(quarter_score)
+    compact_quarter, _ = _a4_svg_with_layout(quarter_score, short_note_gap_percent=80)
+    assert _physical_note_xs(compact_quarter) == pytest.approx(
+        _physical_note_xs(wide_quarter)
+    )
+
+
+def test_expanded_short_note_gap_stays_inside_measure_barlines() -> None:
+    score = parse_jianpu_score("1=C\n4/4\nq1 q2 q3 q4 q5 q6 q7 q1 |")
+    events = score.measures[0].events
+    style = PublicationStyle(short_note_gap_scale=1.2)
+    left, right = 20.0, 400.0
+
+    positions = _event_positions(events, left, right, score.measures[0], style)
+    first_extent = _event_visual_extents(events[0], style)
+    last_extent = _event_visual_extents(events[-1], style)
+
+    assert positions[0] + first_extent[0] >= left
+    assert positions[-1] + last_extent[1] <= right
+
+
+def test_short_note_control_preserves_noneligible_adjacent_gaps() -> None:
+    score = parse_jianpu_score("1=C\n4/4\nq1 q2 3 4 |")
+    events = score.measures[0].events
+
+    def gaps(scale: float) -> list[float]:
+        positions = _event_positions(
+            events,
+            20.0,
+            800.0,
+            score.measures[0],
+            PublicationStyle(short_note_gap_scale=scale),
+        )
+        return [right - left for left, right in pairwise(positions)]
+
+    compact = gaps(0.8)
+    standard = gaps(1.0)
+    expanded = gaps(1.2)
+
+    assert compact[0] < standard[0] <= expanded[0]
+    assert compact[1:] == pytest.approx(standard[1:])
+    assert expanded[1:] == pytest.approx(standard[1:])
+
+
+def test_expanded_mixed_short_notes_with_wide_ink_stay_inside_measure() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(2),
+            pitches=[JianpuPitch(1)],
+            lyric="很宽的歌词",
+            start=Fraction(0),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1, 4),
+            pitches=[JianpuPitch(2, accidental=Fraction(-1))],
+            start=Fraction(2),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1, 4),
+            pitches=[JianpuPitch(3, accidental=Fraction(1))],
+            start=Fraction(9, 4),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(2),
+            pitches=[JianpuPitch(4)],
+            lyric="另一段宽歌词",
+            start=Fraction(5, 2),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(2),
+            pitches=[JianpuPitch(5)],
+            start=Fraction(9, 2),
+        ),
+    ]
+    measure = Measure("1", duration=Fraction(13, 2), events=events)
+    style = PublicationStyle(short_note_gap_scale=1.2)
+    left, right = 20.0, 420.0
+
+    positions = _event_positions(events, left, right, measure, style)
+
+    for event, position in zip(events, positions, strict=True):
+        extent = _event_visual_extents(event, style)
+        assert position + extent[0] >= left - 1e-6
+        assert position + extent[1] <= right + 1e-6
+
+
+def test_system_gap_control_reduces_actual_distance_between_rows() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 | 5 6 7 1 |")
+    score.measures[1].new_system = True
+
+    standard, _ = _a4_svg_with_layout(score)
+    compact, _ = _a4_svg_with_layout(score, system_gap_percent=80)
+
+    def row_note_y(root: ET.Element) -> list[float]:
+        content = next(
+            node for node in root if node.attrib.get("class") == "publication-content"
+        )
+        scale = _scale(content)
+        return sorted(
+            {
+                _translate(node)[1] * scale
+                for node in content.iter()
+                if node.attrib.get("class") == "note"
+            }
+        )
+
+    standard_rows = row_note_y(standard)
+    compact_rows = row_note_y(compact)
+    assert len(standard_rows) == len(compact_rows) == 2
+    assert compact_rows[1] - compact_rows[0] < standard_rows[1] - standard_rows[0]
+
+
+def test_default_compact_layout_fits_more_music_on_each_a4_page() -> None:
+    text = (
+        "title=空间利用率\n1=C\n4/4\n"
+        + " | ".join(["q1 q2 q3 q4 q5 q6 q7 q1" for _ in range(80)])
+        + " |"
+    )
+    score = parse_jianpu_score(text)
+
+    compact_pages = render_scores_a4_pages([score])
+    standard_pages = render_scores_a4_pages(
+        [score],
+        layout=A4LayoutOptions(
+            content_scale_percent=100,
+            system_gap_percent=100,
+            short_note_gap_percent=100,
+        ),
+    )
+
+    assert len(compact_pages) == 1
+    assert len(standard_pages) == 2
+
+
 def test_score_page_does_not_use_system_fonts() -> None:
     score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
     svg = render_score_page_svg(score, page_width=1240, page_height=1754)
@@ -1737,6 +1973,9 @@ def test_batch_render_uses_jianpu_text_title_over_default() -> None:
             )
         ],
         title="简谱",
+        jianpu_content_scale_percent=75,
+        jianpu_system_gap_percent=88,
+        jianpu_short_note_gap_percent=85,
     )
     response = actions.render_batch_a4(req)
 
@@ -1747,6 +1986,8 @@ def test_batch_render_uses_jianpu_text_title_over_default() -> None:
     svg_file_id = response.svg_file_id
     svg_path = actions.uploads.get_path(svg_file_id)
     root = ET2.fromstring(svg_path.read_text(encoding="utf-8"))
+    assert root.attrib["data-layout-key"] == "75:88:85"
+    assert response.pages[0].layout_key == "75:88:85"
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
     assert text_content.count("简谱") == 0 or "My Song" in text_content

@@ -6,10 +6,10 @@ from pathlib import Path
 from ...domain.accidentals import score_with_accidental_mode
 from ...domain.parse.musicxml import musicxml_path_to_scores
 from ...domain.write.jianpu_text import scores_to_jianpu_document
+from ...models.common.types import normalize_instrument_profile
 from ...models.correct.schemas import ConversionOptionsDTO
 from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
 from ...models.score import JianpuScore
-from ...models.common.types import normalize_instrument_profile
 from ..render.render_service import PublicationRenderService
 from .entity_service import CorrectableEntity
 from .musicxml_patch import apply_deletions
@@ -77,6 +77,9 @@ class CorrectionService:
             title=document_title,
             show_measure_numbers=options.show_measure_numbers,
             measure_number_mode=options.measure_number_mode,
+            content_scale_percent=options.jianpu_content_scale_percent,
+            system_gap_percent=options.jianpu_system_gap_percent,
+            short_note_gap_percent=options.jianpu_short_note_gap_percent,
         )
         return CorrectionArtifacts(
             working_musicxml=working_xml,

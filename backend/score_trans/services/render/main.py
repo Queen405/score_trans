@@ -10,7 +10,7 @@ from ...models.common.errors import RenderError
 from ...models.score import JianpuScore
 from .engraving.renderer import MeasureRange, PublicationPage, PublicationRenderer
 from .engraving.style import PublicationStyle
-from .options import RenderOptions
+from .options import A4LayoutOptions, RenderOptions
 
 A4_PAGE_WIDTH = 1240
 A4_PAGE_HEIGHT = 1754
@@ -29,6 +29,7 @@ class RenderedA4Page:
     measure_ranges: list[A4MeasureRange]
     note_index_start: int | None = None
     note_index_end: int | None = None
+    layout_key: str = ""
 
 
 @dataclass(slots=True)
@@ -38,6 +39,7 @@ class RenderedA4FilePage:
     note_index_start: int | None = None
     note_index_end: int | None = None
     render_map_path: Path | None = None
+    layout_key: str = ""
 
 
 def render_jianpu_svg(
@@ -116,9 +118,11 @@ def render_score_page_svg(
 def render_scores_a4_pages(
     scores: list[JianpuScore],
     options: RenderOptions | None = None,
+    layout: A4LayoutOptions | None = None,
 ) -> list[RenderedA4Page]:
     options = options or RenderOptions(title=(scores[0].title if scores else "简谱"))
-    renderer = PublicationRenderer(_style_from_options(options))
+    layout = layout or A4LayoutOptions()
+    renderer = _a4_renderer(options, layout)
     pages = renderer.render_scores(
         scores,
         title=options.title,
@@ -137,6 +141,7 @@ def render_score_a4_pages_to_files(
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
     initial_measure_number: int | None = 1,
+    layout: A4LayoutOptions | None = None,
 ) -> list[RenderedA4FilePage]:
     return render_scores_a4_pages_to_files(
         [score],
@@ -145,6 +150,7 @@ def render_score_a4_pages_to_files(
         show_measure_numbers=show_measure_numbers,
         measure_number_mode=measure_number_mode,
         initial_measure_number=initial_measure_number,
+        layout=layout,
     )
 
 
@@ -156,6 +162,7 @@ def render_scores_a4_pages_to_files(
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
     initial_measure_number: int | None = 1,
+    layout: A4LayoutOptions | None = None,
 ) -> list[RenderedA4FilePage]:
     return render_scores_a4_page_results_to_files(
         scores,
@@ -164,6 +171,7 @@ def render_scores_a4_pages_to_files(
         show_measure_numbers=show_measure_numbers,
         measure_number_mode=measure_number_mode,
         initial_measure_number=initial_measure_number,
+        layout=layout,
     )
 
 
@@ -175,6 +183,7 @@ def render_scores_a4_page_results_to_files(
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
     initial_measure_number: int | None = 1,
+    layout: A4LayoutOptions | None = None,
 ) -> list[RenderedA4FilePage]:
     options = RenderOptions(
         title=title or (scores[0].title if scores else "简谱"),
@@ -183,7 +192,8 @@ def render_scores_a4_page_results_to_files(
         or ("none" if show_measure_numbers is False else "all"),
         initial_measure_number=initial_measure_number,
     )
-    renderer = PublicationRenderer(_style_from_options(options))
+    layout = layout or A4LayoutOptions()
+    renderer = _a4_renderer(options, layout)
     pages = renderer.render_scores(
         scores,
         title=options.title,
@@ -198,6 +208,7 @@ def render_scores_a4_page_results_to_files(
             note_index_start=page.note_index_start,
             note_index_end=page.note_index_end,
             render_map_path=path.with_suffix(".render-map.json"),
+            layout_key=layout.key,
         )
         for page, path in zip(pages, paths, strict=True)
     ]
@@ -325,12 +336,32 @@ def _style_from_options(
     )
 
 
+def _a4_renderer(
+    options: RenderOptions, layout: A4LayoutOptions
+) -> PublicationRenderer:
+    scale = layout.content_scale
+    base = _style_from_options(options)
+    style = replace(
+        base,
+        page_width=base.page_width / scale,
+        page_height=base.page_height / scale,
+        system_gap=base.system_gap * layout.system_gap_scale,
+        short_note_gap_scale=layout.short_note_gap_scale,
+    )
+    return PublicationRenderer(
+        style,
+        coordinate_scale=scale,
+        layout_key=layout.key,
+    )
+
+
 def _public_page(page: PublicationPage) -> RenderedA4Page:
     return RenderedA4Page(
         svg=page.svg,
         measure_ranges=_ranges(page.measure_ranges),
         note_index_start=page.note_index_start,
         note_index_end=page.note_index_end,
+        layout_key=page.scene.layout_key,
     )
 
 

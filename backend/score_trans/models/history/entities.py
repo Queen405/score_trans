@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
+from ..render.layout import PUBLICATION_ENGINE_VERSION
 
 
 @dataclass(slots=True)
@@ -17,7 +18,7 @@ class HistoryPage:
     ocr_text: str = ""
     text_attachments: list[SourceTextAttachment] = field(default_factory=list)
     svg_file_id: str = ""
-    engine_version: str = "publication-4"
+    engine_version: str = PUBLICATION_ENGINE_VERSION
     document_revision: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
@@ -48,7 +49,8 @@ class HistoryBatch:
     status: str = "completed"
     jianpu_text: str = ""
     render_page_file_ids: list[str] = field(default_factory=list)
-    engine_version: str = "publication-4"
+    engine_version: str = PUBLICATION_ENGINE_VERSION
+    render_layout_key: str = ""
     document_revision: str = ""
     render_page_ocr_texts: list[HistoryRenderPageOcrText] = field(default_factory=list)
     render_output_stale: bool = False

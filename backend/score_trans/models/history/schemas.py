@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
+from ..render.layout import PUBLICATION_ENGINE_VERSION
 
 
 class PageCreate(BaseModel):
@@ -14,7 +15,7 @@ class PageCreate(BaseModel):
     ocr_text: str = ""
     text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     svg_file_id: str = ""
-    engine_version: str = "publication-4"
+    engine_version: str = PUBLICATION_ENGINE_VERSION
     document_revision: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
@@ -62,7 +63,7 @@ class PageResponse(BaseModel):
     ocr_text: str
     text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     svg_file_id: str
-    engine_version: str = "publication-4"
+    engine_version: str = PUBLICATION_ENGINE_VERSION
     document_revision: str = ""
     overlay_svg_file_id: str = ""
     overlay_file_id: str = ""
@@ -89,6 +90,7 @@ class BatchCreateRequest(BaseModel):
     render_page_file_ids: list[str] = Field(default_factory=list)
     render_page_ocr_texts: list[RenderPageOcrText] = Field(default_factory=list)
     render_output_stale: bool = False
+    render_layout_key: str = ""
 
 
 class BatchResponse(BaseModel):
@@ -98,7 +100,8 @@ class BatchResponse(BaseModel):
     status: str
     jianpu_text: str = ""
     render_page_file_ids: list[str] = Field(default_factory=list)
-    engine_version: str = "publication-4"
+    engine_version: str = PUBLICATION_ENGINE_VERSION
+    render_layout_key: str = ""
     document_revision: str = ""
     render_page_ocr_texts: list[RenderPageOcrText] = Field(default_factory=list)
     render_output_stale: bool = False
@@ -121,6 +124,7 @@ class DeleteAllResponse(BaseModel):
 class BatchRenderPagesUpdate(BaseModel):
     render_page_file_ids: list[str]
     render_output_stale: bool = False
+    render_layout_key: str = ""
 
 
 class BatchJianpuTextUpdate(BaseModel):

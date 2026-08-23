@@ -10,11 +10,12 @@ from typing import Literal
 
 from ....domain.performance_marks import get_performance_mark
 from ....models.common.types import MeasureNumberMode
+from ....models.render.layout import PUBLICATION_ENGINE_VERSION
 from ....models.score import Event, JianpuPitch, JianpuScore, Measure, TupletSpan
 from .fonts import font_registry
 from .geometry import (
-    _dynamic_baseline,
     _duration_extension_start,
+    _dynamic_baseline,
     _lyric_baseline,
     mark_layouts,
     measure_event_ink,
@@ -102,10 +103,18 @@ class PublicationRenderer:
     legacy token-layout or drawing helper is imported by this module.
     """
 
-    engine_version = "publication-4"
+    engine_version = PUBLICATION_ENGINE_VERSION
 
-    def __init__(self, style: PublicationStyle | None = None) -> None:
+    def __init__(
+        self,
+        style: PublicationStyle | None = None,
+        *,
+        coordinate_scale: float = 1.0,
+        layout_key: str = "",
+    ) -> None:
         self.style = style or PublicationStyle()
+        self.coordinate_scale = coordinate_scale
+        self.layout_key = layout_key
 
     def render_scores(
         self,
@@ -133,7 +142,13 @@ class PublicationRenderer:
         document_spanners = [_OpenSpanners() for _ in range(max(1, len(parts)))]
         result: list[PublicationPage] = []
         for page_index, page_systems in enumerate(pages or [[]]):
-            scene = PublicationScene(style.page_width, style.page_height, page_index)
+            scene = PublicationScene(
+                style.page_width * self.coordinate_scale,
+                style.page_height * self.coordinate_scale,
+                page_index,
+                coordinate_scale=self.coordinate_scale,
+                layout_key=self.layout_key,
+            )
             _page_chrome(scene, style, document_title, score0, page_index)
             note_start = next_note_index
             y = style.margin_top + (
@@ -608,6 +623,15 @@ def _same_tuplet_group(previous: Event, current: Event) -> bool:
     return bool(previous.tuplet_id and previous.tuplet_id == current.tuplet_id)
 
 
+def _is_short_note_pair(previous: Event, current: Event) -> bool:
+    return (
+        previous.kind == "note"
+        and current.kind == "note"
+        and previous.duration <= Fraction(1, 2)
+        and current.duration <= Fraction(1, 2)
+    )
+
+
 def _minimum_event_gaps(
     events: list[Event],
     extents: list[tuple[float, float, float, float]],
@@ -938,6 +962,15 @@ def _event_positions(
                 for offset in range(count):
                     positions[index + offset] = start + offset * gap
             index = end
+    _enforce_event_collisions(events, positions, style)
+    _apply_short_note_gaps(events, positions, extents, left, right, style)
+    _enforce_event_collisions(events, positions, style)
+    return positions
+
+
+def _enforce_event_collisions(
+    events: list[Event], positions: list[float], style: PublicationStyle
+) -> None:
     for index in range(1, len(events)):
         _previous_left, previous_right, _top, _bottom = _event_visual_extents(
             events[index - 1], style
@@ -952,7 +985,84 @@ def _event_positions(
             - current_left
             + style.event_clearance,
         )
-    return positions
+
+
+def _apply_short_note_gaps(
+    events: list[Event],
+    positions: list[float],
+    extents: list[tuple[float, float, float, float]],
+    left: float,
+    right: float,
+    style: PublicationStyle,
+) -> None:
+    factor = style.short_note_gap_scale
+    if factor == 1.0 or len(events) < 2:
+        return
+    eligible = [
+        _is_short_note_pair(events[index - 1], events[index])
+        for index in range(1, len(events))
+    ]
+    if not any(eligible):
+        return
+    base_gaps = [
+        positions[index] - positions[index - 1] for index in range(1, len(positions))
+    ]
+    collision_gaps = [
+        extents[index - 1][1] - extents[index][0] + style.event_clearance
+        for index in range(1, len(extents))
+    ]
+
+    def candidate(
+        candidate_factor: float,
+    ) -> tuple[list[float], float, float]:
+        gaps = [
+            max(collision_gap, base_gap * candidate_factor) if is_eligible else base_gap
+            for base_gap, collision_gap, is_eligible in zip(
+                base_gaps, collision_gaps, eligible, strict=True
+            )
+        ]
+        relative = [0.0]
+        for gap in gaps:
+            relative.append(relative[-1] + gap)
+        minimum_start = max(
+            left - extent[0] - offset
+            for extent, offset in zip(extents, relative, strict=True)
+        )
+        maximum_start = min(
+            right - extent[1] - offset
+            for extent, offset in zip(extents, relative, strict=True)
+        )
+        return relative, minimum_start, maximum_start
+
+    relative, minimum_start, maximum_start = candidate(factor)
+    if minimum_start > maximum_start:
+        if factor < 1.0:
+            infeasible, feasible = factor, 1.0
+            for _ in range(40):
+                midpoint = (infeasible + feasible) / 2
+                result = candidate(midpoint)
+                if result[1] <= result[2]:
+                    feasible = midpoint
+                    relative, minimum_start, maximum_start = result
+                else:
+                    infeasible = midpoint
+        else:
+            feasible, infeasible = 1.0, factor
+            relative, minimum_start, maximum_start = candidate(feasible)
+            for _ in range(40):
+                midpoint = (feasible + infeasible) / 2
+                result = candidate(midpoint)
+                if result[1] <= result[2]:
+                    feasible = midpoint
+                    relative, minimum_start, maximum_start = result
+                else:
+                    infeasible = midpoint
+
+    original_center = (positions[0] + positions[-1]) / 2
+    preferred_start = original_center - relative[-1] / 2
+    start = max(minimum_start, min(maximum_start, preferred_start))
+    for index, offset in enumerate(relative):
+        positions[index] = start + offset
 
 
 def _bounded_event_positions(

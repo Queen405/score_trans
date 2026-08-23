@@ -19,6 +19,10 @@ import {
 } from '../utils/batchRender'
 import { usePublicationRender } from './usePublicationRender'
 import { isRenderAborted } from '../utils/renderAbort'
+import {
+  isRenderLayoutStale,
+  PUBLICATION_ENGINE_VERSION,
+} from '../utils/jianpuLayout'
 
 type RebuildOutcome = 'completed' | 'aborted' | 'failed'
 
@@ -56,12 +60,14 @@ export function useHistoryRestore() {
       batch.jianpu_text || '',
       batch.render_page_ocr_texts || [],
       batch.render_output_stale ?? false,
+      batch.render_layout_key ?? '',
     )
     await validateRestoredBatchFiles(pages, renderPageFileIds)
     if (
       !renderPageFileIds.length
-      || batch.engine_version !== 'publication-4'
+      || batch.engine_version !== PUBLICATION_ENGINE_VERSION
       || batch.render_output_stale
+      || isRenderLayoutStale(batch.render_layout_key ?? '', settings.jianpuLayoutKey)
     ) {
       const outcome = await rebuildPublicationPages(batch)
       if (outcome !== 'completed') return true
@@ -103,9 +109,11 @@ export function useHistoryRestore() {
         measure_number_mode: settings.measureNumberMode,
         initial_measure_number: 1,
         title: '简谱',
+        ...settings.jianpuLayoutRequest,
       }))
       const ids = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
-      store.setBatchRenderPageFileIds(ids)
+      const layoutKey = rendered.pages[0]?.layout_key || settings.jianpuLayoutKey
+      store.setBatchRenderPageFileIds(ids, undefined, layoutKey)
       store.setBatchRenderPageOcrTexts(
         renderResponsePageOcrTexts(rendered.pages),
         false,
@@ -113,6 +121,7 @@ export function useHistoryRestore() {
       await requireData(historyApi.updateBatchRenderPages(batch.id, {
         render_page_file_ids: ids,
         render_output_stale: false,
+        render_layout_key: layoutKey,
       }))
       log.addLog(`历史记录已由新版出版渲染器重建，共 ${ids.length} 页。`)
       return 'completed'

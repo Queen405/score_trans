@@ -8,11 +8,12 @@ from ..common.types import (
     MeasureNumberMode,
     TargetKeyOrAuto,
 )
-from ..render.schemas import RenderedSvgPage
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
+from ..render.layout import A4LayoutRequest
+from ..render.schemas import RenderedSvgPage
 
 
-class PipelineByFileIdRequest(BaseModel):
+class PipelineByFileIdRequest(A4LayoutRequest):
     file_id: str
     target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"

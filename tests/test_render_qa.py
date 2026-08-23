@@ -82,6 +82,33 @@ def test_geometry_qa_persists_diagnostics_on_scene() -> None:
     assert scene.render_map_payload()["diagnostics"] == issues
 
 
+def test_geometry_qa_uses_virtual_bounds_for_scaled_a4_scene() -> None:
+    scene = PublicationScene(400, 400, 0, coordinate_scale=0.5)
+    scene.add(_anchor(700, 100, 40, 20))
+
+    issues = check_scene_geometry(
+        scene, PublicationStyle(page_width=800, page_height=800)
+    )
+
+    assert not any(issue["kind"] == "page-overflow" for issue in issues)
+
+
+def test_render_map_scales_diagnostic_bboxes_to_physical_coordinates() -> None:
+    scene = PublicationScene(400, 400, 0, coordinate_scale=0.5)
+    scene.geometry_issues = [
+        {
+            "kind": "page-overflow",
+            "classes": ("note",),
+            "bbox": (700.0, 100.0, 40.0, 20.0),
+            "owner": "note-1",
+        }
+    ]
+
+    diagnostic = scene.render_map_payload()["diagnostics"][0]
+
+    assert diagnostic["bbox"] == (350.0, 50.0, 20.0, 10.0)
+
+
 def test_geometry_qa_reports_span_event_collision() -> None:
     scene = PublicationScene(400, 400, 0)
     scene.add(

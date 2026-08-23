@@ -163,6 +163,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const batchRenderPageOcrTexts = ref<Record<string, Record<number, string>>>({})
   const batchRenderPageOcrDirty = ref<Record<string, Record<number, boolean>>>({})
   const batchRenderOutputStale = ref<Record<string, boolean>>({})
+  const batchRenderLayoutKeys = ref<Record<string, string>>({})
   const batchJianpuTexts = ref<Record<string, string>>({})
   const batchJianpuDirty = ref<Record<string, boolean>>({})
   const batchJianpuPendingPageIds = ref<Record<string, string[]>>({})
@@ -371,6 +372,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return batchRenderOutputStale.value[batchId] === true
       || Object.values(batchRenderPageOcrDirty.value[batchId] ?? {}).some(Boolean)
   })
+  const currentBatchRenderLayoutKey = computed(() => {
+    const batchId = currentBatchId.value
+    return batchId ? (batchRenderLayoutKeys.value[batchId] ?? '') : ''
+  })
   const currentBatchRenderPageOcrDirty = currentBatchRenderOutputStale
 
   // ── Actions ──
@@ -480,7 +485,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     patchCurrentPage({ svgFileId: fileId, svgFileIds: ids })
   }
 
-  function setBatchRenderPageFileIds(fileIds: string[], batchId = currentBatchId.value): void {
+  function setBatchRenderPageFileIds(
+    fileIds: string[],
+    batchId = currentBatchId.value,
+    layoutKey?: string,
+  ): void {
     if (!batchId) return
     batchRenderPageFileIds.value = {
       ...batchRenderPageFileIds.value,
@@ -490,6 +499,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       batchRenderOutputStale.value = {
         ...batchRenderOutputStale.value,
         [batchId]: true,
+      }
+      batchRenderLayoutKeys.value = omitBatchRecord(
+        batchRenderLayoutKeys.value,
+        batchId,
+      )
+    } else if (layoutKey !== undefined) {
+      batchRenderLayoutKeys.value = {
+        ...batchRenderLayoutKeys.value,
+        [batchId]: layoutKey,
       }
     }
   }
@@ -524,6 +542,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       batchRenderPageOcrTexts.value = omitBatchRecord(batchRenderPageOcrTexts.value, batchId)
       batchRenderPageOcrDirty.value = omitBatchRecord(batchRenderPageOcrDirty.value, batchId)
       batchRenderOutputStale.value = omitBatchRecord(batchRenderOutputStale.value, batchId)
+      batchRenderLayoutKeys.value = omitBatchRecord(batchRenderLayoutKeys.value, batchId)
       batchJianpuTexts.value = omitBatchRecord(batchJianpuTexts.value, batchId)
       batchJianpuDirty.value = omitBatchRecord(batchJianpuDirty.value, batchId)
       batchJianpuPendingPageIds.value = omitBatchRecord(batchJianpuPendingPageIds.value, batchId)
@@ -907,6 +926,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchRenderPageOcrTexts.value = {}
     batchRenderPageOcrDirty.value = {}
     batchRenderOutputStale.value = {}
+    batchRenderLayoutKeys.value = {}
     batchJianpuTexts.value = {}
     batchJianpuDirty.value = {}
     batchJianpuPendingPageIds.value = {}
@@ -970,6 +990,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchJianpuText = '',
     renderPageOcrTexts: RenderPageOcrText[] = [],
     renderOutputStale = false,
+    renderLayoutKey = '',
   ) {
     const random = Math.random().toString(36).slice(2, 8)
     const bid = `batch-${Date.now().toString(36)}-${random}`
@@ -1011,6 +1032,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       batchRenderPageFileIds.value = {
         ...batchRenderPageFileIds.value,
         [bid]: [...renderPageFileIds],
+      }
+      batchRenderLayoutKeys.value = {
+        ...batchRenderLayoutKeys.value,
+        [bid]: renderLayoutKey,
       }
     }
     setBatchRenderPageOcrTexts(renderPageOcrTexts, renderOutputStale, bid)
@@ -1065,6 +1090,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchRenderPageOcrTexts,
     batchRenderPageOcrDirty,
     batchRenderOutputStale,
+    batchRenderLayoutKeys,
     batchJianpuTexts,
     batchJianpuDirty,
     batchJianpuPendingPageIds,
@@ -1078,6 +1104,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     activePageTaskCount,
     currentBatchRenderPageFileIds,
     currentBatchRenderOutputStale,
+    currentBatchRenderLayoutKey,
     currentBatchRenderPageOcrDirty,
     currentBatchJianpuText,
     currentBatchJianpuDirty,

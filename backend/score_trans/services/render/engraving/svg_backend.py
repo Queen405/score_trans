@@ -3,11 +3,10 @@ from __future__ import annotations
 import re
 from html import escape
 
+from ....models.render.layout import PUBLICATION_ENGINE_VERSION
 from .fonts import font_registry
-from .scene import SceneNode
-from .scene import PublicationScene
+from .scene import PublicationScene, SceneNode
 from .style import PublicationStyle
-
 
 _CSS = """
 .page-background{fill:#fff}.score-title{font-weight:600;letter-spacing:.08em}
@@ -78,22 +77,31 @@ def _inline_class_styles(
 
 
 def scene_to_svg(scene: PublicationScene, style: PublicationStyle) -> str:
-    body = "\n".join(_node_to_svg(node, 1) for node in scene.nodes)
+    scale = scene.coordinate_scale
+    body = "\n".join(_node_to_svg(node, 2, scale) for node in scene.nodes)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{scene.width:g}" '
         f'height="{scene.height:g}" viewBox="0 0 {scene.width:g} {scene.height:g}" '
-        f'data-render-engine="publication" data-engine-version="publication-4">\n'
-        f"  <style>{_CSS}</style>\n{body}\n</svg>"
+        f'data-render-engine="publication" data-engine-version="{PUBLICATION_ENGINE_VERSION}" '
+        f'data-layout-key="{escape(scene.layout_key, quote=True)}">\n'
+        f"  <style>{_CSS}</style>\n"
+        f'  <g class="publication-content" transform="scale({scale:g})">\n'
+        f"{body}\n  </g>\n</svg>"
     )
 
 
-def _node_to_svg(node: SceneNode, indent: int) -> str:
+def _node_to_svg(node: SceneNode, indent: int, metadata_scale: float) -> str:
     if node.tag != "text" or node.text is None:
         if not node.children:
-            return SceneNode(node.tag, _inline_class_styles(node.attrs)).to_svg(indent)
+            attrs = _scaled_metadata_attrs(node.attrs, metadata_scale)
+            return SceneNode(node.tag, _inline_class_styles(attrs)).to_svg(indent)
         pad = "  " * indent
-        attrs = _attrs(_inline_class_styles(node.attrs))
-        children = "\n".join(_node_to_svg(child, indent + 1) for child in node.children)
+        attrs = _attrs(
+            _inline_class_styles(_scaled_metadata_attrs(node.attrs, metadata_scale))
+        )
+        children = "\n".join(
+            _node_to_svg(child, indent + 1, metadata_scale) for child in node.children
+        )
         return f"{pad}<{node.tag}{attrs}>\n{children}\n{pad}</{node.tag}>"
     pad = "  " * indent
     x = float(node.attrs.get("x", 0))
@@ -110,11 +118,13 @@ def _node_to_svg(node: SceneNode, indent: int) -> str:
         if key not in {"x", "y", "font-size", "text-anchor"}
     }
     group_attrs["aria-label"] = node.text
-    group_attrs["data-font-size"] = size
+    group_attrs["data-font-size"] = size * metadata_scale
     group_attrs["transform"] = (
         f"translate({x:g} {y:g}) scale({size:g} {-size:g}) translate({offset:g} 0)"
     )
-    group_attrs = _inline_class_styles(group_attrs)
+    group_attrs = _inline_class_styles(
+        _scaled_metadata_attrs(group_attrs, metadata_scale)
+    )
     paths = []
     for glyph in glyphs:
         paths.append(
@@ -130,6 +140,23 @@ def _node_to_svg(node: SceneNode, indent: int) -> str:
         + "\n".join([*paths, hidden])
         + f"\n{pad}</g>"
     )
+
+
+def _scaled_metadata_attrs(
+    attrs: dict[str, str | float | int], factor: float
+) -> dict[str, str | float | int]:
+    if factor == 1.0:
+        return attrs
+    scaled = dict(attrs)
+    raw_bbox = scaled.get("data-bbox")
+    if raw_bbox is not None:
+        try:
+            values = [float(value) * factor for value in str(raw_bbox).split()]
+        except ValueError:
+            values = []
+        if len(values) == 4:
+            scaled["data-bbox"] = " ".join(_value(value) for value in values)
+    return scaled
 
 
 def _attrs(attrs: dict[str, str | float | int]) -> str:

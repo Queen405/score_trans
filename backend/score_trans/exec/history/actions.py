@@ -78,6 +78,7 @@ class HistoryActions:
                     for item in req.render_page_ocr_texts
                 ],
                 render_output_stale=req.render_output_stale,
+                render_layout_key=req.render_layout_key,
             )
         )
 
@@ -127,6 +128,7 @@ class HistoryActions:
             batch_id,
             req.render_page_file_ids,
             render_output_stale=req.render_output_stale,
+            render_layout_key=req.render_layout_key,
         )
         if not batch:
             raise FileNotFoundError("Batch not found")
@@ -211,6 +213,7 @@ def _batch_to_response(batch: HistoryBatch) -> BatchResponse:
         jianpu_text=batch.jianpu_text,
         render_page_file_ids=_batch_render_page_file_ids(batch),
         engine_version=batch.engine_version,
+        render_layout_key=batch.render_layout_key,
         document_revision=batch.document_revision,
         render_page_ocr_texts=[
             RenderPageOcrText(

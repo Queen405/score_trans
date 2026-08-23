@@ -9,6 +9,7 @@ from ..common.types import (
     TargetKeyOrAuto,
 )
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
+from ..render.layout import A4LayoutRequest
 
 
 class CorrectableEntityDTO(BaseModel):
@@ -38,7 +39,7 @@ class EntitiesResponse(BaseModel):
     sheets: list[SheetEntitiesDTO] = Field(default_factory=list)
 
 
-class ConversionOptionsDTO(BaseModel):
+class ConversionOptionsDTO(A4LayoutRequest):
     target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile = "general"

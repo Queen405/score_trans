@@ -384,6 +384,10 @@
 import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useSettingsStore } from '../stores/settings'
+import {
+  isRenderLayoutStale,
+  PUBLICATION_ENGINE_VERSION,
+} from '../utils/jianpuLayout'
 import { useLogStore } from '../stores/log'
 import { useSyntaxDiagnosticsStore } from '../stores/syntaxDiagnostics'
 import { convertApi } from '../api/convert'
@@ -948,6 +952,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   let batchJianpuText = ''
   let renderPageOcrTexts: HistoryBatch['render_page_ocr_texts'] = []
   let renderOutputStale = false
+  let renderLayoutKey = ''
   let pageIndex = allPages.findIndex((p) => p.id === page.id)
   try {
     const batch = await fetchStableHistoryBatch(batchId)
@@ -957,6 +962,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     batchJianpuText = batch.jianpu_text || ''
     renderPageOcrTexts = batch.render_page_ocr_texts || []
     renderOutputStale = batch.render_output_stale ?? false
+    renderLayoutKey = batch.render_layout_key ?? ''
     if (expandedBatchId.value === batchId) {
       allPages = batch.pages
       expandedPages.value = batch.pages
@@ -1004,12 +1010,14 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     batchJianpuText,
     renderPageOcrTexts,
     renderOutputStale,
+    renderLayoutKey,
   )
   isViewingFinal.value = false
   if (
     !renderPageFileIds.length
-    || batchEngineVersion !== 'publication-4'
+    || batchEngineVersion !== PUBLICATION_ENGINE_VERSION
     || renderOutputStale
+    || isRenderLayoutStale(renderLayoutKey, settings.jianpuLayoutKey)
   ) {
     try {
       renderPageFileIds = await renderFinalBatch()
@@ -1467,7 +1475,13 @@ function mergePendingRecognitionResults(): void {
 }
 
 async function renderExportSvgIds(): Promise<string[]> {
-  if (store.currentBatchRenderOutputStale) return renderFinalBatch()
+  if (
+    store.currentBatchRenderOutputStale
+    || isRenderLayoutStale(
+      store.currentBatchRenderLayoutKey,
+      settings.jianpuLayoutKey,
+    )
+  ) return renderFinalBatch()
   if (store.currentBatchRenderPageFileIds.length) {
     setFinalSvgFileIds(store.currentBatchRenderPageFileIds)
     return finalSvgFileIds.value
@@ -1487,16 +1501,18 @@ async function renderFinalBatch(): Promise<string[]> {
     measure_number_mode: settings.measureNumberMode,
     initial_measure_number: Math.max(1, Math.trunc(initialMeasureNumber.value || 1)),
     title: '简谱',
+    ...settings.jianpuLayoutRequest,
   }))
   const ids = renderResponsePageIds(result.pages, result.svg_file_id)
+  const layoutKey = result.pages[0]?.layout_key || settings.jianpuLayoutKey
   await loadRenderSourcePageLookup(result.pages)
   setFinalSvgFileIds(ids)
-  store.setBatchRenderPageFileIds(ids)
+  store.setBatchRenderPageFileIds(ids, undefined, layoutKey)
   store.setBatchRenderPageOcrTexts(
     renderResponsePageOcrTexts(result.pages),
     false,
   )
-  await persistBatchRenderPages(ids, undefined, false)
+  await persistBatchRenderPages(ids, undefined, false, layoutKey)
   await persistBatchRenderPageOcrTexts(undefined, false)
   store.markBatchRenderPageOcrClean()
   return ids
@@ -1567,14 +1583,20 @@ async function persistBatchRenderPages(
   ids: string[],
   batchId: number | null = currentHistoryBatchId(),
   renderOutputStale = false,
+  renderLayoutKey = store.currentBatchRenderLayoutKey,
 ): Promise<void> {
   if (!batchId) return
   try {
     const updated = await requireData(historyApi.updateBatchRenderPages(batchId, {
       render_page_file_ids: ids,
       render_output_stale: renderOutputStale,
+      render_layout_key: ids.length ? renderLayoutKey : '',
     }))
-    store.setBatchRenderPageFileIds(updated.render_page_file_ids ?? [])
+    store.setBatchRenderPageFileIds(
+      updated.render_page_file_ids ?? [],
+      undefined,
+      updated.render_layout_key ?? '',
+    )
   } catch (e: unknown) {
     log.addLog(`保存连续 A4 渲染页失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
   }
@@ -1735,6 +1757,7 @@ async function applyCorrections(): Promise<void> {
         title: page.textAttachments.find((item) => item.role === 'title')?.text || undefined,
         show_measure_numbers: settings.showMeasureNumbers,
         measure_number_mode: settings.measureNumberMode,
+        ...settings.jianpuLayoutRequest,
       },
     }))
     if (store.currentPage?.id !== page.id) {
@@ -1946,6 +1969,9 @@ async function persistRenderedHistory(
     render_page_file_ids: renderPageFileIds,
     render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
     render_output_stale: renderOutputStale,
+    render_layout_key: renderPageFileIds.length
+      ? store.currentBatchRenderLayoutKey
+      : '',
     pages: batchPages.map((page, pageIndex) => {
       const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
       return {

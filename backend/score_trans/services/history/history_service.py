@@ -37,6 +37,7 @@ class HistoryService:
         jianpu_text: str = "",
         render_page_ocr_texts: list[HistoryRenderPageOcrText] | None = None,
         render_output_stale: bool = False,
+        render_layout_key: str = "",
     ) -> HistoryBatch:
         return self.dao.create_batch(
             pages,
@@ -44,6 +45,7 @@ class HistoryService:
             jianpu_text=jianpu_text,
             render_page_ocr_texts=render_page_ocr_texts,
             render_output_stale=render_output_stale,
+            render_layout_key=render_layout_key,
         )
 
     def update_batch_render_pages(
@@ -51,11 +53,13 @@ class HistoryService:
         batch_id: int,
         render_page_file_ids: list[str],
         render_output_stale: bool = False,
+        render_layout_key: str = "",
     ) -> HistoryBatch | None:
         return self.dao.update_batch_render_pages(
             batch_id,
             render_page_file_ids,
             render_output_stale=render_output_stale,
+            render_layout_key=render_layout_key,
         )
 
     def update_batch_jianpu_text(

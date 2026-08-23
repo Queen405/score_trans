@@ -404,6 +404,59 @@ def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
     assert response.json()["jianpu_syntax_highlight"] is True
 
 
+def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
+    app = create_app()
+    dao = SettingsDao(tmp_path / "settings.db")
+    service = SettingsService(dao)
+    service.set("work_dir", str(tmp_path / "work"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+    client = TestClient(app)
+
+    initial = client.get("/settings")
+    assert initial.status_code == 200
+    assert initial.json()["jianpu_content_scale_percent"] == 67
+    assert initial.json()["jianpu_system_gap_percent"] == 92
+    assert initial.json()["jianpu_short_note_gap_percent"] == 90
+
+    updated = client.put(
+        "/settings",
+        json={
+            "jianpu_content_scale_percent": 75,
+            "jianpu_system_gap_percent": 88,
+            "jianpu_short_note_gap_percent": 85,
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["jianpu_content_scale_percent"] == 75
+    assert updated.json()["jianpu_system_gap_percent"] == 88
+    assert updated.json()["jianpu_short_note_gap_percent"] == 85
+
+    assert (
+        client.put("/settings", json={"jianpu_content_scale_percent": 64}).status_code
+        == 422
+    )
+
+
+def test_all_a4_request_contracts_expose_layout_controls() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    request_names = (
+        "RenderJianpuSvgRequest",
+        "RenderJianpuTextSvgRequest",
+        "FinalRenderRequest",
+        "BatchRenderRequest",
+        "PipelineByFileIdRequest",
+        "ConversionOptionsDTO",
+    )
+    for request_name in request_names:
+        properties = schemas[request_name]["properties"]
+        assert properties["jianpu_content_scale_percent"]["default"] == 67
+        assert properties["jianpu_system_gap_percent"]["default"] == 92
+        assert properties["jianpu_short_note_gap_percent"]["default"] == 90
+
+    preserving = schemas["PreservingLayoutRequest"]["properties"]
+    assert "jianpu_content_scale_percent" not in preserving
+
+
 def test_settings_rejects_unsupported_target_key(tmp_path: Path) -> None:
     app = create_app()
     dao = SettingsDao(tmp_path / "settings.db")

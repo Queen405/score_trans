@@ -4,24 +4,24 @@ from typing import Literal
 
 from ...models.common.paths import USER_DATA_ROOT
 from ...models.common.types import (
+    SUPPORTED_TARGET_KEYS,
     AccidentalMode,
     MeasureNumberMode,
-    SUPPORTED_TARGET_KEYS,
     TargetKeyOrAuto,
 )
+from ...models.settings.provider_profiles import LlmProviderKind, LlmProviderProfile
 from ...models.settings.schemas import (
     CacheCleanupResponse,
     LlmProviderOption,
     SettingsResponse,
     SettingsUpdateRequest,
 )
-from ...models.settings.provider_profiles import LlmProviderKind, LlmProviderProfile
+from ...services.settings.api_keys import provider_api_key, provider_api_key_name
 from ...services.settings.provider_profiles import (
     provider_profiles,
     resolve_provider_profile,
     resolve_provider_profile_or_default,
 )
-from ...services.settings.api_keys import provider_api_key, provider_api_key_name
 from ...services.settings.settings_service import SettingsService
 from ...services.storage import CacheService
 
@@ -104,6 +104,15 @@ class SettingsActions:
                 "jianpu_syntax_highlight",
                 "1" if req.jianpu_syntax_highlight else "0",
             )
+
+        for key in (
+            "jianpu_content_scale_percent",
+            "jianpu_system_gap_percent",
+            "jianpu_short_note_gap_percent",
+        ):
+            value = getattr(req, key)
+            if value is not None:
+                self.service.set(key, str(value))
 
         if req.enable_omr_ocr is not None:
             self.service.set(
@@ -282,6 +291,15 @@ class SettingsActions:
             measure_number_mode=measure_number_mode,
             jianpu_syntax_highlight=self.service.get_bool(
                 "jianpu_syntax_highlight", False
+            ),
+            jianpu_content_scale_percent=self.service.get_int(
+                "jianpu_content_scale_percent", 67
+            ),
+            jianpu_system_gap_percent=self.service.get_int(
+                "jianpu_system_gap_percent", 92
+            ),
+            jianpu_short_note_gap_percent=self.service.get_int(
+                "jianpu_short_note_gap_percent", 90
             ),
             enable_omr_ocr=self.service.get_bool("enable_omr_ocr", True),
             ocr_provider=ocr_profile.id,

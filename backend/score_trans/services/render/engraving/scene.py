@@ -23,6 +23,14 @@ class BBox:
     def as_data(self) -> str:
         return " ".join(_fmt(v) for v in (self.x, self.y, self.width, self.height))
 
+    def scaled(self, factor: float) -> "BBox":
+        return BBox(
+            self.x * factor,
+            self.y * factor,
+            self.width * factor,
+            self.height * factor,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class GeometryRecord:
@@ -68,6 +76,8 @@ class PublicationScene:
     width: float
     height: float
     page_index: int
+    coordinate_scale: float = 1.0
+    layout_key: str = ""
     nodes: list[SceneNode] = field(default_factory=list)
     source_boxes: dict[str, BBox] = field(default_factory=dict)
     geometry_records: list[GeometryRecord] = field(default_factory=list)
@@ -102,9 +112,13 @@ class PublicationScene:
                         "height": bbox.height,
                     },
                 }
-                for source_id, bbox in sorted(self.source_boxes.items())
+                for source_id, raw_bbox in sorted(self.source_boxes.items())
+                for bbox in [raw_bbox.scaled(self.coordinate_scale)]
             ],
-            "diagnostics": list(self.geometry_issues),
+            "diagnostics": [
+                _scaled_geometry_issue(issue, self.coordinate_scale)
+                for issue in self.geometry_issues
+            ],
         }
 
 
@@ -114,3 +128,13 @@ def _union(left: BBox, right: BBox) -> BBox:
     x2 = max(left.x + left.width, right.x + right.width)
     y2 = max(left.y + left.height, right.y + right.height)
     return BBox(x1, y1, x2 - x1, y2 - y1)
+
+
+def _scaled_geometry_issue(
+    issue: dict[str, object], factor: float
+) -> dict[str, object]:
+    scaled = dict(issue)
+    bbox = issue.get("bbox")
+    if isinstance(bbox, tuple) and len(bbox) == 4:
+        scaled["bbox"] = tuple(float(value) * factor for value in bbox)
+    return scaled

@@ -28,6 +28,7 @@ class PublicationStyle:
     minimum_measure_width: float = 150.0
     ideal_event_gap: float = 42.0
     minimum_event_gap: float = 28.0
+    short_note_gap_scale: float = 1.0
     spacing_increment: float = 8.0
     tuplet_boundary_gap: float = 2.0
     barline_gutter: float = 20.0

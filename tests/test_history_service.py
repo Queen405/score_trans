@@ -190,7 +190,7 @@ def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
 
     assert "start_measure_number" not in columns
-    assert version == 6
+    assert version == 7
 
 
 def test_history_render_pages_use_current_publication_engine_version(tmp_path) -> None:
@@ -201,9 +201,28 @@ def test_history_render_pages_use_current_publication_engine_version(tmp_path) -
         render_output_stale=True,
     )
 
-    assert batch.engine_version == "publication-4"
-    assert batch.pages[0].engine_version == "publication-4"
+    assert batch.engine_version == "publication-5"
+    assert batch.pages[0].engine_version == "publication-5"
     assert batch.render_output_stale is True
+
+
+def test_history_render_pages_persist_layout_key(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [HistoryPage(input_file_name="score.png", svg_file_id="svg-1")],
+        render_page_file_ids=["svg-1"],
+        render_layout_key="67:92:90",
+    )
+
+    assert batch.render_layout_key == "67:92:90"
+
+    updated = service.update_batch_render_pages(
+        batch.id,
+        ["svg-2"],
+        render_layout_key="75:88:85",
+    )
+    assert updated is not None
+    assert updated.render_layout_key == "75:88:85"
 
 
 def test_history_render_pages_clear_ocr_stale_only_after_new_svg_ids(tmp_path) -> None:
@@ -494,7 +513,7 @@ def test_v4_migration_backs_up_and_clears_history(tmp_path) -> None:
         page_columns = {
             row[1] for row in conn.execute("PRAGMA table_info(history_page)")
         }
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 0
         assert "start_measure_number" not in page_columns
@@ -534,7 +553,7 @@ def test_v5_migration_adds_ocr_stale_without_clearing_history(tmp_path) -> None:
     assert loaded.render_page_file_ids == ["svg-kept"]
     assert loaded.render_output_stale is False
     with sqlite3.connect(db_path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
 
 
 def test_schema_migration_rolls_back_all_alter_steps(tmp_path, monkeypatch) -> None:
@@ -606,7 +625,7 @@ def test_legacy_history_rows_are_discarded_after_backup(tmp_path) -> None:
         }
         assert "history" not in tables
         assert "history_legacy_backup" not in tables
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
     with sqlite3.connect(db_path.with_suffix(".v0.bak")) as conn:
         assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 2
 

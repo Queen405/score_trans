@@ -13,11 +13,12 @@ from ...models.history.entities import (
     HistoryRenderPageOcrText,
 )
 from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
+from ...models.render.layout import PUBLICATION_ENGINE_VERSION
 from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 6
+_SCHEMA_VERSION = 7
 _MIN_SQLITE_VERSION = (3, 35, 0)
 
 _PAGE_FILE_ID_COLUMNS = (
@@ -114,6 +115,7 @@ class HistoryDao:
                 status TEXT NOT NULL DEFAULT 'completed'
                 ,engine_version TEXT NOT NULL DEFAULT ''
                 ,document_revision TEXT NOT NULL DEFAULT ''
+                ,render_layout_key TEXT NOT NULL DEFAULT ''
             )
             """
         )
@@ -260,14 +262,16 @@ class HistoryDao:
         jianpu_text: str = "",
         render_page_ocr_texts: list[HistoryRenderPageOcrText] | None = None,
         render_output_stale: bool = False,
+        render_layout_key: str = "",
     ) -> HistoryBatch:
         with self._connect() as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO history_batch
                     (page_count, jianpu_text, render_page_file_ids, render_page_ocr_texts,
-                     render_output_stale, engine_version, document_revision)
-                VALUES (?, ?, ?, ?, ?, ?, '')
+                     render_output_stale, engine_version, document_revision,
+                     render_layout_key)
+                VALUES (?, ?, ?, ?, ?, ?, '', ?)
                 """,
                 (
                     len(pages),
@@ -275,7 +279,8 @@ class HistoryDao:
                     _dump_render_page_file_ids(render_page_file_ids or []),
                     _dump_render_page_ocr_texts(render_page_ocr_texts or []),
                     int(render_output_stale),
-                    "publication-4" if render_page_file_ids else "",
+                    PUBLICATION_ENGINE_VERSION if render_page_file_ids else "",
+                    render_layout_key if render_page_file_ids else "",
                 ),
             )
             batch_id = cursor.lastrowid
@@ -336,6 +341,7 @@ class HistoryDao:
         render_page_file_ids: list[str],
         *,
         render_output_stale: bool = False,
+        render_layout_key: str = "",
     ) -> HistoryBatch | None:
         with self._connect() as conn:
             exists = conn.execute(
@@ -345,12 +351,14 @@ class HistoryDao:
                 return None
             conn.execute(
                 """UPDATE history_batch
-                   SET render_page_file_ids = ?, render_output_stale = ?, engine_version = ?
+                   SET render_page_file_ids = ?, render_output_stale = ?,
+                       engine_version = ?, render_layout_key = ?
                    WHERE id = ?""",
                 (
                     _dump_render_page_file_ids(render_page_file_ids),
                     int(render_output_stale),
-                    "publication-4" if render_page_file_ids else "",
+                    PUBLICATION_ENGINE_VERSION if render_page_file_ids else "",
+                    render_layout_key if render_page_file_ids else "",
                     batch_id,
                 ),
             )
@@ -488,8 +496,8 @@ class HistoryDao:
                 )
                 if svg_file_id is not None:
                     conn.execute(
-                        "UPDATE history_page SET engine_version = 'publication-4' WHERE id = ?",
-                        (page_id,),
+                        "UPDATE history_page SET engine_version = ? WHERE id = ?",
+                        (PUBLICATION_ENGINE_VERSION, page_id),
                     )
                 self._refresh_batch_status(conn, exists["batch_id"])
                 conn.commit()
@@ -688,6 +696,10 @@ class HistoryDao:
             conn.execute(
                 "ALTER TABLE history_batch ADD COLUMN document_revision TEXT NOT NULL DEFAULT ''"
             )
+        if "render_layout_key" not in batch_columns:
+            conn.execute(
+                "ALTER TABLE history_batch ADD COLUMN render_layout_key TEXT NOT NULL DEFAULT ''"
+            )
         if "omr_file_id" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN omr_file_id TEXT NOT NULL DEFAULT ''"
@@ -774,12 +786,13 @@ class HistoryDao:
                 else "[]"
             ),
             render_output_stale=bool(
-                row["render_output_stale"]
-                if "render_output_stale" in row.keys()
-                else 0
+                row["render_output_stale"] if "render_output_stale" in row.keys() else 0
             ),
             engine_version=(
                 row["engine_version"] if "engine_version" in row.keys() else ""
+            ),
+            render_layout_key=(
+                row["render_layout_key"] if "render_layout_key" in row.keys() else ""
             ),
             document_revision=(
                 row["document_revision"] if "document_revision" in row.keys() else ""

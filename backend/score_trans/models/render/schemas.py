@@ -9,6 +9,7 @@ from ..common.types import (
     TargetKeyOrAuto,
 )
 from ..provenance.schemas import RenderedTextBlock, SourceTextAttachment, TextAnchor
+from .layout import PUBLICATION_ENGINE_VERSION, A4LayoutRequest
 
 
 class RenderPageMeasureRange(BaseModel):
@@ -33,11 +34,12 @@ class RenderedSvgPage(BaseModel):
     note_index_start: int | None = None
     note_index_end: int | None = None
     text_blocks: list[RenderedTextBlock] = []
-    engine_version: str = "publication-4"
+    engine_version: str = PUBLICATION_ENGINE_VERSION
+    layout_key: str = ""
     document_revision: str | None = None
 
 
-class RenderJianpuSvgRequest(BaseModel):
+class RenderJianpuSvgRequest(A4LayoutRequest):
     musicxml_file_id: str
     page_image_file_id: str | None = None
     target_key: TargetKeyOrAuto = "C"
@@ -54,7 +56,7 @@ class RenderJianpuSvgResponse(BaseModel):
     pages: list[RenderedSvgPage] = []
 
 
-class RenderJianpuTextSvgRequest(BaseModel):
+class RenderJianpuTextSvgRequest(A4LayoutRequest):
     jianpu_text: str | None = None
     jianpu_file_id: str | None = None
     page_image_file_id: str | None = None
@@ -83,7 +85,7 @@ class NormalizeJianpuTextResponse(BaseModel):
     jianpu_text: str
 
 
-class FinalRenderRequest(BaseModel):
+class FinalRenderRequest(A4LayoutRequest):
     musicxml_file_id: str
     page_image_file_id: str | None = None
     target_key: TargetKeyOrAuto = "C"
@@ -135,7 +137,7 @@ class BatchRenderPageRequest(BaseModel):
     text_anchors: list[TextAnchor] = []
 
 
-class BatchRenderRequest(BaseModel):
+class BatchRenderRequest(A4LayoutRequest):
     pages: list[BatchRenderPageRequest]
     source_pages: list[BatchRenderPageRequest] = []
     render_page_ocr_texts: list[RenderPageOcrText] = []

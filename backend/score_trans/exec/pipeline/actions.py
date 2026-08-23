@@ -22,6 +22,7 @@ from ...models.common.types import (
 )
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.provenance.schemas import SourceMap, SourceTextAttachment, TextAnchor
+from ...models.render.layout import a4_layout_key
 from ...models.render.schemas import RenderedSvgPage
 from ...models.score import TextBlock
 from ...models.settings.config import ToolConfig
@@ -94,6 +95,9 @@ class FullPipelineAction:
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        content_scale_percent: int = 67,
+        system_gap_percent: int = 92,
+        short_note_gap_percent: int = 90,
         title: str | None = None,
         ocr_provider: OCRProvider | None = None,
         enable_omr_ocr: bool = True,
@@ -143,6 +147,9 @@ class FullPipelineAction:
             title=title or (render_scores[0].title if render_scores else "简谱"),
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            content_scale_percent=content_scale_percent,
+            system_gap_percent=system_gap_percent,
+            short_note_gap_percent=short_note_gap_percent,
         )
         svg_paths = _rendered_page_paths(rendered_pages)
         _require_rendered_pages(svg_paths)
@@ -207,6 +214,9 @@ class PipelineActions:
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        content_scale_percent: int = 67,
+        system_gap_percent: int = 92,
+        short_note_gap_percent: int = 90,
         title: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> PipelineResponse:
@@ -218,6 +228,9 @@ class PipelineActions:
             instrument_profile=instrument_profile,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            content_scale_percent=content_scale_percent,
+            system_gap_percent=system_gap_percent,
+            short_note_gap_percent=short_note_gap_percent,
             title=title,
             progress_callback=progress_callback,
         )
@@ -240,6 +253,9 @@ class PipelineActions:
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        content_scale_percent: int = 67,
+        system_gap_percent: int = 92,
+        short_note_gap_percent: int = 90,
         title: str | None = None,
     ) -> TaskSubmitResponse:
         input_path = self.uploads.get_path(file_id)
@@ -256,6 +272,9 @@ class PipelineActions:
                 instrument_profile=instrument_profile,
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
+                content_scale_percent=content_scale_percent,
+                system_gap_percent=system_gap_percent,
+                short_note_gap_percent=short_note_gap_percent,
                 title=title,
                 enable_omr_ocr=enable_omr_ocr,
                 progress_callback=progress,
@@ -277,6 +296,9 @@ class PipelineActions:
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        content_scale_percent: int = 67,
+        system_gap_percent: int = 92,
+        short_note_gap_percent: int = 90,
         title: str | None = None,
     ) -> TaskSubmitResponse:
         input_path = await asyncio.to_thread(self.save_upload, file)
@@ -291,6 +313,9 @@ class PipelineActions:
                 instrument_profile=instrument_profile,
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
+                content_scale_percent=content_scale_percent,
+                system_gap_percent=system_gap_percent,
+                short_note_gap_percent=short_note_gap_percent,
                 title=title,
                 enable_omr_ocr=enable_omr_ocr,
                 progress_callback=progress,
@@ -310,6 +335,9 @@ class PipelineActions:
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
+        content_scale_percent: int = 67,
+        system_gap_percent: int = 92,
+        short_note_gap_percent: int = 90,
         title: str | None = None,
         enable_omr_ocr: bool | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -330,6 +358,9 @@ class PipelineActions:
             instrument_profile=instrument_profile,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
+            content_scale_percent=content_scale_percent,
+            system_gap_percent=system_gap_percent,
+            short_note_gap_percent=short_note_gap_percent,
             title=title,
             enable_omr_ocr=enable_omr_ocr,
             progress_callback=progress_callback,
@@ -357,6 +388,11 @@ class PipelineActions:
                     if index < len(outputs.render_map_paths)
                     and (render_map_path := outputs.render_map_paths[index])
                     else None
+                ),
+                layout_key=a4_layout_key(
+                    content_scale_percent,
+                    system_gap_percent,
+                    short_note_gap_percent,
                 ),
             )
             for index, path in enumerate(outputs.jianpu_svg_paths)

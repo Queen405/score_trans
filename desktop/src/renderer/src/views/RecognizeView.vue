@@ -819,6 +819,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
         accidental_mode: settings.accidentalMode,
         instrument_profile: target.instrumentProfile,
         measure_number_mode: settings.measureNumberMode,
+        ...settings.jianpuLayoutRequest,
       }))
     } else {
       throw new Error('无输入文件 ID，请重新上传图片')
@@ -1358,9 +1359,11 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
         measure_number_mode: settings.measureNumberMode,
         initial_measure_number: 1,
         title: '简谱',
+        ...settings.jianpuLayoutRequest,
       }))
       const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)
-      store.setBatchRenderPageFileIds(ids, batchId)
+      const layoutKey = result.pages[0]?.layout_key || settings.jianpuLayoutKey
+      store.setBatchRenderPageFileIds(ids, batchId, layoutKey)
       store.setBatchRenderPageOcrTexts(renderResponsePageOcrTexts(result.pages), false, batchId)
       store.markBatchRenderPageOcrClean(batchId)
       const historyBatchId = historyBatchIdForPages(batchPages)
@@ -1372,8 +1375,13 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
         const updated = await requireData(historyApi.updateBatchRenderPages(historyBatchId, {
           render_page_file_ids: ids,
           render_output_stale: false,
+          render_layout_key: layoutKey,
         }))
-        store.setBatchRenderPageFileIds(updated.render_page_file_ids ?? [], batchId)
+        store.setBatchRenderPageFileIds(
+          updated.render_page_file_ids ?? [],
+          batchId,
+          updated.render_layout_key ?? '',
+        )
         const ocrUpdated = await requireData(historyApi.updateBatchRenderPageOcrTexts(historyBatchId, {
           pages: store.batchRenderPageOcrTextsFor(batchId),
           render_output_stale: false,

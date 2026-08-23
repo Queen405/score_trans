@@ -922,6 +922,11 @@ export type components = {
             /** Pages */
             pages: components["schemas"]["PageCreate"][];
             /**
+             * Render Layout Key
+             * @default
+             */
+            render_layout_key?: string;
+            /**
              * Render Output Stale
              * @default false
              */
@@ -1020,6 +1025,11 @@ export type components = {
         /** BatchRenderPagesUpdate */
         BatchRenderPagesUpdate: {
             /**
+             * Render Layout Key
+             * @default
+             */
+            render_layout_key?: string;
+            /**
              * Render Output Stale
              * @default false
              */
@@ -1042,6 +1052,21 @@ export type components = {
             initial_measure_number?: number;
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
+            /**
+             * Jianpu Content Scale Percent
+             * @default 67
+             */
+            jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Short Note Gap Percent
+             * @default 90
+             */
+            jianpu_short_note_gap_percent?: number;
+            /**
+             * Jianpu System Gap Percent
+             * @default 92
+             */
+            jianpu_system_gap_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -1095,7 +1120,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-4
+             * @default publication-5
              */
             engine_version?: string;
             /** Id */
@@ -1109,6 +1134,11 @@ export type components = {
             page_count: number;
             /** Pages */
             pages: components["schemas"]["PageResponse"][];
+            /**
+             * Render Layout Key
+             * @default
+             */
+            render_layout_key?: string;
             /**
              * Render Output Stale
              * @default false
@@ -1150,6 +1180,21 @@ export type components = {
              * @enum {string}
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
+            /**
+             * Jianpu Content Scale Percent
+             * @default 67
+             */
+            jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Short Note Gap Percent
+             * @default 90
+             */
+            jianpu_short_note_gap_percent?: number;
+            /**
+             * Jianpu System Gap Percent
+             * @default 92
+             */
+            jianpu_system_gap_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -1214,6 +1259,21 @@ export type components = {
              * @enum {string}
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
+            /**
+             * Jianpu Content Scale Percent
+             * @default 67
+             */
+            jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Short Note Gap Percent
+             * @default 90
+             */
+            jianpu_short_note_gap_percent?: number;
+            /**
+             * Jianpu System Gap Percent
+             * @default 92
+             */
+            jianpu_system_gap_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -1439,6 +1499,21 @@ export type components = {
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
+             * Jianpu Content Scale Percent
+             * @default 67
+             */
+            jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Short Note Gap Percent
+             * @default 90
+             */
+            jianpu_short_note_gap_percent?: number;
+            /**
+             * Jianpu System Gap Percent
+             * @default 92
+             */
+            jianpu_system_gap_percent?: number;
+            /**
              * Measure Number Mode
              * @default all
              * @enum {string}
@@ -1588,7 +1663,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-4
+             * @default publication-5
              */
             engine_version?: string;
             /**
@@ -1694,7 +1769,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-4
+             * @default publication-5
              */
             engine_version?: string;
             /** Error Message */
@@ -1834,6 +1909,21 @@ export type components = {
              * @enum {string}
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
+            /**
+             * Jianpu Content Scale Percent
+             * @default 67
+             */
+            jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Short Note Gap Percent
+             * @default 90
+             */
+            jianpu_short_note_gap_percent?: number;
+            /**
+             * Jianpu System Gap Percent
+             * @default 92
+             */
+            jianpu_system_gap_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -1996,9 +2086,14 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-4
+             * @default publication-5
              */
             engine_version?: string;
+            /**
+             * Layout Key
+             * @default
+             */
+            layout_key?: string;
             /**
              * Measure Ranges
              * @default []
@@ -2077,6 +2172,21 @@ export type components = {
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
+             * Jianpu Content Scale Percent
+             * @default 67
+             */
+            jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Short Note Gap Percent
+             * @default 90
+             */
+            jianpu_short_note_gap_percent?: number;
+            /**
+             * Jianpu System Gap Percent
+             * @default 92
+             */
+            jianpu_system_gap_percent?: number;
+            /**
              * Measure Number Mode
              * @default all
              * @enum {string}
@@ -2118,8 +2228,23 @@ export type components = {
              * @default 1
              */
             initial_measure_number?: number;
+            /**
+             * Jianpu Content Scale Percent
+             * @default 67
+             */
+            jianpu_content_scale_percent?: number;
             /** Jianpu File Id */
             jianpu_file_id?: string | null;
+            /**
+             * Jianpu Short Note Gap Percent
+             * @default 90
+             */
+            jianpu_short_note_gap_percent?: number;
+            /**
+             * Jianpu System Gap Percent
+             * @default 92
+             */
+            jianpu_system_gap_percent?: number;
             /** Jianpu Text */
             jianpu_text?: string | null;
             /**
@@ -2254,10 +2379,25 @@ export type components = {
             /** Java Home */
             java_home: string;
             /**
+             * Jianpu Content Scale Percent
+             * @default 67
+             */
+            jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Short Note Gap Percent
+             * @default 90
+             */
+            jianpu_short_note_gap_percent?: number;
+            /**
              * Jianpu Syntax Highlight
              * @default false
              */
             jianpu_syntax_highlight?: boolean;
+            /**
+             * Jianpu System Gap Percent
+             * @default 92
+             */
+            jianpu_system_gap_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -2334,8 +2474,14 @@ export type components = {
             enable_omr_ocr?: boolean | null;
             /** Java Home */
             java_home?: string | null;
+            /** Jianpu Content Scale Percent */
+            jianpu_content_scale_percent?: number | null;
+            /** Jianpu Short Note Gap Percent */
+            jianpu_short_note_gap_percent?: number | null;
             /** Jianpu Syntax Highlight */
             jianpu_syntax_highlight?: boolean | null;
+            /** Jianpu System Gap Percent */
+            jianpu_system_gap_percent?: number | null;
             /** Measure Number Mode */
             measure_number_mode?: ("all" | "row_start" | "none") | null;
             /** Midi Tempo */

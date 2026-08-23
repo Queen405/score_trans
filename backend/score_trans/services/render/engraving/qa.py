@@ -24,6 +24,8 @@ def check_scene_geometry(
     """
 
     issues: list[GeometryIssue] = []
+    virtual_width = scene.width / scene.coordinate_scale
+    virtual_height = scene.height / scene.coordinate_scale
     anchors: list[tuple[tuple[str, ...], BBox]] = []
     records: list[GeometryRecord] = []
     for node, _parent_classes, parent_owner in _walk_nodes(scene.nodes):
@@ -49,8 +51,8 @@ def check_scene_geometry(
         if (
             bbox.x < 0
             or bbox.y < 0
-            or bbox.x + bbox.width > scene.width
-            or bbox.y + bbox.height > scene.height
+            or bbox.x + bbox.width > virtual_width
+            or bbox.y + bbox.height > virtual_height
         ):
             issues.append(
                 {

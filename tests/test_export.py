@@ -5,7 +5,6 @@ import xml.etree.ElementTree as ET
 import fitz
 import mido
 import pytest
-
 from score_trans.domain.jianpu import jianpu_to_musicxml, parse_jianpu_score
 from score_trans.exec.export.actions import ExportActions
 from score_trans.models.export.schemas import (
@@ -367,7 +366,7 @@ def test_rendered_pdf_export_is_not_monochrome_and_hides_helper_text(tmp_path) -
 
     assert black < 0.99, f"导出 PDF 仍接近全黑（black={black:.2%}），CSS 未内联"
     ink = 1.0 - white
-    assert ink > 0.001, f"导出 PDF 墨迹不足（ink={ink:.2%}），内容未渲染"
+    assert ink > 0.0005, f"导出 PDF 墨迹不足（ink={ink:.2%}），内容未渲染"
     assert not text_layer.strip(), (
         f"opacity=0 辅助文本泄漏进 PDF 文本层: {text_layer!r}"
     )
