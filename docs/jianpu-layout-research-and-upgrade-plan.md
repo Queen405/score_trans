@@ -30,7 +30,7 @@
 
 | 时间 | 事项 |
 |---|---|
-| 2026-07-08 | `docs/jianpu_render_rewrite_design.md`:第一次重写设计(基于旧 `drawing/` 架构调参 + `engine/` 抽取) |
+| 2026-07-08 | 旧渲染重写设计（基于已删除的 drawing 架构，现仅作历史记录） |
 | 2026-07-18 | `docs/jianpu-render-compatibility-audit.md`:旧渲染器源码已于 `15e21b6` 删除,`engraving.PublicationRenderer` 成为唯一实现;第一次设计文档的模块地图实际已被**取代**(未走 `engine/` + `svg/theme.py` 路线,而是净室重写为 `engraving/`) |
 | 2026-07-19 ~ 08-20 | 兼容清理落地;审计所列 P1(跨系统连音线续接)已修;后端 430 测试全绿 |
 | 2026-08-21 | 前置会话:调研开源简谱渲染项目的页面布局机制,并对照阅读了本仓库 `engraving/renderer.py` 的断行/分页/间距/连音线实现 |
@@ -118,7 +118,7 @@
 
 ## 3. 商业简谱排版通则(布局规范汇总)
 
-来自 JP-Word / 简谱大师 / 谱谱风 / 番茄简谱的通行版面(与 `docs/jianpu_render_rewrite_design.md` §1 的视觉规范一致,经核对仍适用于本引擎):
+来自 JP-Word / 简谱大师 / 谱谱风 / 番茄简谱的通行版面（当前 engraving 引擎的视觉参考）:
 
 ### 3.1 页面与标题区
 
@@ -226,7 +226,7 @@ JianpuScore[](多页/多声部)
 3. **确定性**:任何新布局量必须来自 `PublicationStyle`/字体度量,不得引入机器相关量;同输入字节级同输出。
 4. **小步可验**:每个模块独立交付、独立金样;视觉变更必须经 `work/render-qa` 快照评审。
 5. **数据契约先行**:多段歌词、标题区字段、楔形等,先定义"数据从哪来"(模型/text_blocks/可选参数),再写渲染。
-6. **文档同步**:本文档取代 `jianpu_render_rewrite_design.md` 中已被 `engraving/` 净室实现覆盖的模块地图部分(该文档 §1 视觉规范仍作参考);实施后在文档头部标注状态。
+6. **文档同步**:本文档取代旧渲染设计中的模块地图；实施后以本文档和当前 engraving 代码为准。
 
 ---
 
@@ -468,7 +468,7 @@ JianpuScore[](多页/多声部)
 | 字体字形覆盖(新增楔形/花括号路径) | 低 | 视觉 | 楔形/花括号用几何 path 不依赖字体;新增文本字符需过 `_glyph` 覆盖测试 |
 | 性能(金样语料 + 碰撞检测拉长测试时长) | 低 | CI 时长 | 碰撞检测扫描线 O(n log n);金样集控制在 ~20 例;字体度量 lru_cache 已有 |
 | 范围蠕变(顺手改编辑器/API) | 中 | 失控 | 本方案边界见 §5;任何 API 暴露另立任务 |
-| `jianpu_render_rewrite_design.md` 与本方案并存造成混淆 | 低 | 文档 | 在该文档头部标注"模块地图已被 engraving 净室实现取代,布局工作以本方案为准" |
+| 旧渲染设计与本方案并存造成混淆 | 低 | 文档 | 旧设计已归档，布局工作以本方案为准 |
 
 ---
 
@@ -501,7 +501,7 @@ JianpuScore[](多页/多声部)
 | speedyOrc-C/Your-Jianpu · Linho1219/Your-Jianpu-ts | 印刷质量目标、字体测量 | <https://github.com/speedyOrc-C/Your-Jianpu> · <https://github.com/Linho1219/Your-Jianpu-ts> |
 | felixhao28/react-jianpu | 固定每行小节数 + 对齐、歌词 hyphen | <https://github.com/felixhao28/react-jianpu> |
 | Linho1219/OpenFanqieCore | 番茄简谱格式 | <https://github.com/Linho1219/OpenFanqieCore> |
-| 仓库文档 | `docs/jianpu_render_rewrite_design.md`(§1 视觉规范)、`docs/jianpu-render-compatibility-audit.md`、`docs/jianpu-syntax.md` | 本地 |
+| 仓库文档 | `docs/jianpu-render-compatibility-audit.md`、`docs/jianpu-syntax.md` | 本地 |
 
 ### 附录 B:视觉评审 checklist(对照商业样张)
 
@@ -534,4 +534,4 @@ JianpuScore[](多页/多声部)
 
 ### 附录 D:与旧设计文档的关系
 
-`docs/jianpu_render_rewrite_design.md`(2026-07-08)的"新架构总览/子模块设计/7 阶段实施"基于旧 `drawing/` 架构,实际未采用;净室重写的 `engraving/` 取而代之。该文档 §1 视觉目标规范(字号/间距数值表)仍作为 P3 主题定稿的参考输入;本文档为当前布局工作的唯一权威方案。
+旧的渲染重写设计基于已经删除的 `drawing/` 架构，现已由 `engraving/` 净室实现和本文档取代；当前布局工作以本文档为唯一权威方案。

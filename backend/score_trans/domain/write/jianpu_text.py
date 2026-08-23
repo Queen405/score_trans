@@ -8,11 +8,12 @@ from fractions import Fraction
 from ...models.common.types import AccidentalMode, normalize_instrument_profile
 from ...models.provenance.entities import JianpuDocument
 from ...models.provenance.schemas import TextAnchor
-from ...models.score import Event, JianpuPitch, JianpuScore, Measure
+from ...models.score import Event, JianpuScore, Measure
 from ..accidentals import pitch_to_token
 from ..jianpu_tokens import (
     safe_duration_affixes,
     tuplet_duration_unit_count,
+    tuplet_normal_notes,
 )
 from ..performance_marks import event_mark_ids, mark_token
 
@@ -191,7 +192,7 @@ def _score_to_jianpu_text(
                 list(event.ornaments),
                 list(event.technical),
             ):
-                token = _mark_token(mark)
+                token = mark_token(mark)
                 if token:
                     tokens.append(f"^{token}")
             if event.slide_stop:
@@ -263,7 +264,7 @@ def _text_anchors_raw(
                 group_actual_count = group[0].tuplet_count or len(group)
                 group_normal_count = group[
                     0
-                ].tuplet_normal_count or _tuplet_normal_notes(group_actual_count)
+                ].tuplet_normal_count or tuplet_normal_notes(group_actual_count)
                 group_legacy_duration = all(
                     group_event.duration == Fraction(1, group_actual_count)
                     for group_event in group
@@ -356,7 +357,7 @@ def _append_event_anchors(
     else:
         pitch_cursor = 0
         for pitch in event.pitches:
-            pitch_token = _pitch_to_token(pitch, accidental_mode=accidental_mode)
+            pitch_token = pitch_to_token(pitch, accidental_mode=accidental_mode)
             pitch_offset = token.find(pitch_token, pitch_cursor)
             if pitch_offset < 0:
                 continue
@@ -496,7 +497,7 @@ def _append_prefix_role_anchors(
     for role, marks in role_marks:
         sources = event.source_roles.get(role, [])
         for source_id, mark in zip(sources, marks):
-            mark_text = _mark_token(mark)
+            mark_text = mark_token(mark)
             if not mark_text:
                 continue
             rendered = f"^{mark_text}"
@@ -552,7 +553,7 @@ def _rendered_event_token_count(event: Event) -> int:
             list(event.ornaments),
             list(event.technical),
         )
-        if _mark_token(mark)
+        if mark_token(mark)
     )
     if event.slide_stop:
         count += 1
@@ -592,12 +593,12 @@ def _event_to_token(
     *,
     accidental_mode: AccidentalMode = "auto",
 ) -> str:
-    prefix, suffix = _duration_parts(event.duration)
+    prefix, suffix = safe_duration_affixes(event.duration)
     if event.kind == "rest":
         body = "0"
     else:
         tokens = [
-            _pitch_to_token(pitch, accidental_mode=accidental_mode)
+            pitch_to_token(pitch, accidental_mode=accidental_mode)
             for pitch in event.pitches
         ]
         body = (
@@ -644,7 +645,7 @@ def _tuplet_to_token(
     accidental_mode: AccidentalMode = "auto",
 ) -> str:
     actual_count = events[0].tuplet_count or len(events)
-    normal_count = events[0].tuplet_normal_count or _tuplet_normal_notes(actual_count)
+    normal_count = events[0].tuplet_normal_count or tuplet_normal_notes(actual_count)
     legacy_duration = all(
         event.duration == Fraction(1, actual_count) for event in events
     )
@@ -667,7 +668,7 @@ def _tuplet_to_token(
         body = " ".join(parts)
     inferred_actual_count = tuplet_duration_unit_count(notated_durations)
     implicit_ratio = actual_count == inferred_actual_count and normal_count == (
-        _tuplet_normal_notes(inferred_actual_count)
+        tuplet_normal_notes(inferred_actual_count)
     )
     has_visible_duration_prefix = any(
         safe_duration_affixes(duration)[0] for duration in notated_durations
@@ -693,7 +694,7 @@ def _event_to_tuplet_body(
         body = "0"
     else:
         tokens = [
-            _pitch_to_token(pitch, accidental_mode=accidental_mode)
+            pitch_to_token(pitch, accidental_mode=accidental_mode)
             for pitch in event.pitches
         ]
         body = (
@@ -726,33 +727,10 @@ def _event_to_tuplet_body(
         list(event.ornaments),
         list(event.technical),
     ):
-        token = _mark_token(mark)
+        token = mark_token(mark)
         if token:
             prefixes.append(f"^{token}")
     if event.slide_stop:
         prefixes.append(f"^{_CONTINUOUS_SLIDE_TOKEN}")
     body = "".join(prefixes) + body
     return body
-
-
-def _tuplet_normal_notes(actual_notes: int) -> int:
-    normal_notes = 1
-    while normal_notes * 2 <= actual_notes:
-        normal_notes *= 2
-    return max(1, normal_notes)
-
-
-def _duration_parts(duration: Fraction) -> tuple[str, str]:
-    return safe_duration_affixes(duration)
-
-
-def _mark_token(name: str) -> str | None:
-    return mark_token(name)
-
-
-def _pitch_to_token(
-    pitch: JianpuPitch,
-    *,
-    accidental_mode: AccidentalMode = "auto",
-) -> str:
-    return pitch_to_token(pitch, accidental_mode=accidental_mode)

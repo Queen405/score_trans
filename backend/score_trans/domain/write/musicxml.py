@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from decimal import Decimal, localcontext
 from fractions import Fraction
 from math import lcm
-import re
 
+from ...models.common.types import normalize_instrument_profile
+from ...models.score import Event, JianpuPitch, JianpuScore, Measure, TextBlock
 from ..constants import (
     DYNAMICS,
     KEY_TO_FIFTHS,
@@ -15,13 +17,6 @@ from ..constants import (
 )
 from ..performance_marks import event_mark_ids, get_performance_mark
 from ..pitch_spelling import jianpu_pitch_to_written
-from ..xml_utils import _indent
-from ...models.common.types import normalize_instrument_profile
-from ...models.score import Event, JianpuPitch, JianpuScore, Measure, TextBlock
-
-
-def score_to_musicxml(score: JianpuScore, title: str | None = None) -> str:
-    return scores_to_musicxml([score], title=title)
 
 
 def scores_to_musicxml(
@@ -57,7 +52,7 @@ def scores_to_musicxml(
         part = ET.SubElement(root, "part", {"id": f"P{index}"})
         _append_score_measures(part, score)
 
-    _indent(root)
+    ET.indent(root, space="  ")
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(
         root, encoding="unicode"
     )

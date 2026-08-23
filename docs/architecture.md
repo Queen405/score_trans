@@ -6,9 +6,9 @@
 
 | 指标 | 数值 |
 |---|---|
-| 后端 Python 源文件 | ~70 个 |
-| 测试文件 | 11 个，约 1,300+ 行 |
-| API 端点 | 22 个 |
+| 后端 Python 源文件 | 232 个 |
+| 测试文件 | 32 个 Python 文件，另有 desktop 工具测试 |
+| API 路由声明 | 51 个 |
 | 核心依赖 | FastAPI, Pillow, PyMuPDF, mido, langchain, langchain-openai |
 
 ## 2. 技术栈
@@ -25,10 +25,10 @@
 ```
 api/         → 10 个路由模块，纯 HTTP 边界
 exec/        → 9 个 Actions 编排类
-services/    → 9 个服务模块（ocr, ai, render, recognize, export, files, history, settings, tasks）
+services/    → 14 个服务子包（ocr, ai, render, recognize, export, files, history, settings, tasks 等）
 domain/      → 纯算法（parse/, write/, constants, xml_utils）
 models/      → Pydantic DTO + dataclass 实体
-dao/         → 2 个 SQLite DAO（history, settings）
+dao/         → history、settings、tasks、ai chat 等 SQLite DAO
 config/      → .env 加载 + ai_prompt.yaml
 utils/       → 7 个工具模块
 ```
@@ -42,7 +42,7 @@ api  →  exec  →  services  →  dao / domain / models
 - `api/` 只依赖 `exec/`（通过 `dependencies.py` 工厂函数）
 - `exec/` 编排 `services/` 和 `domain/`
 - `services/` 可调用 `domain/`（纯算法）和 `dao/`（持久化）
-- `domain/` 无外部依赖
+- `domain/` 以纯算法为主，但 `domain/xml_utils.py` 和文件门面仍有文件/MXL I/O，属于待整改边界
 - `dao/` 只依赖 `models/` 和标准库
 
 ## 4. API 端点清单
@@ -71,7 +71,7 @@ api  →  exec  →  services  →  dao / domain / models
     → AudiverisService.recognize()（subprocess）
     → 得到 MusicXML
   → MusicXmlToJianpuAction.build_score()
-    → domain/musicxml.musicxml_path_to_score() → JianpuScore
+    → domain/musicxml.musicxml_path_to_scores() → JianpuScore 列表
     → 可选：OCR 补充小节号
   → score_to_jianpu_text() → 简谱文本
   → PublicationRenderService.render_score_svg() → SVG + 渲染映射

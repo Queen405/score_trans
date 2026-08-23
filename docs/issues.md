@@ -2,13 +2,13 @@
 
 > 接 [architecture.md](./architecture.md)、[file-by-file.md](./file-by-file.md)。
 >
-> **当前权威复核：2026-07-18**。本轮以当前工作树（包括用户尚未提交的修改）为准，重新检查旧报告的 N1-N26、P3 清单、架构约束和新增改动。旧的 2026-07-14 结论不再作为当前状态依据。
+> **历史复核记录：2026-07-18**。本文保留 N1-N26 的历史验证过程；当前代码删减、分层和过时文档以 `code-reduction-plan-2026-08.md` 与当前测试结果为准。
 >
 > **本轮边界**：以当前工作树（包括用户尚未提交的修改）为基线，按阶段实施已验证的修复；不会撤销或覆盖用户既有改动。
 
 > **修复执行状态（2026-07-19）**：阶段 A/B 与 C 已完成；本轮阶段 D 已修复 N1、N9、N20、N22、N23、N24、R5、R6，并固定 CI Ruff 版本。后端完整 pytest、固定版本 Ruff lint、前端 lint/typecheck/工具测试均通过；全仓 Ruff format、Windows 签名和 Vue DOM 跨视图测试仍待专门批次。
 
-> **修复执行状态（2026-08-20）**：发现 `ee3f38c`（移除起始小节号功能）未收尾导致的全仓破损并已修复：后端 14 个失败测试已同步（430 passed）；RecognizeView/ConvertView 约 60 处死代码引用已清除（净删 758 行，含删除 MeasureNumberPicker.vue）；前端工具测试 12 个失败已对齐（75 pass）；`pnpm typecheck` 原先用根 tsconfig（`files: []`）空转，已改为同时检查 `tsconfig.web.json` 与 `tsconfig.node.json`，并修复被其掩盖的约 80 个类型错误（`window.api` 声明因 `index.d.ts` 与 `index.ts` 同名被 TS 遮蔽，已改名 `api.d.ts` 并接入 web 项目；`storageMigration.mts`→`.ts`）；openapi.ts 重新生成并删除 44 行已过时的 `start_measure_number`/`measure_number_candidates` 契约；生产构建恢复可用。方案 A（clef/key/time 结构标记 ID）已随本轮提交。全仓 `ruff format` 已执行（33 个文件），CI 新增 `ruff format --check` 门禁，R3/R4 关闭。
+> **修复执行状态（历史记录）**：2026-08-20 的测试和清理数字只代表当时基线；执行新的删减批次时必须重新运行当前 `.venv` 测试、前端 typecheck 和生产构建。
 
 ## 一、结论总览
 

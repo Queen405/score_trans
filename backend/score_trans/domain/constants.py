@@ -75,8 +75,6 @@ KEY_TO_TONIC = {
     "Gb": 6,
     "Cb": 11,
 }
-DEGREE_TO_MAJOR_OFFSET = {index + 1: offset for index, offset in enumerate(MAJOR_SCALE)}
-
 DYNAMICS = {
     "p",
     "pp",

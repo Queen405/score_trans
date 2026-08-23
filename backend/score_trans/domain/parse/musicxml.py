@@ -1,47 +1,47 @@
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
-import re
 from typing import cast
 
-from ...utils.safe_xml import safe_xml_fromstring
-from ..constants import (
-    DYNAMICS,
-    FIFTHS_TO_KEY,
-    KEY_TO_TONIC,
-    MUSICXML_METRONOME_UNIT_TO_SYMBOL,
-    MICROTONAL_TOKEN_TO_ALTER,
-    MUSICXML_ACCIDENTAL_TO_TOKEN,
-    STEP_TO_SEMITONE,
-)
-from ..performance_marks import canonical_mark_id, normalize_event_marks
-from ..pitch_spelling import written_pitch_to_jianpu
-from ..jianpu_tokens import is_notatable_duration
-from ..xml_utils import (
-    _namespace,
-    _q,
-    _local_name,
-    _text,
-    _read_musicxml,
-)
 from ...models.common.types import (
     ACCEPTED_INSTRUMENT_PROFILES,
     InstrumentProfile,
     normalize_instrument_profile,
 )
 from ...models.score import (
-    Beat,
     Beam,
     BeamStatus,
+    Beat,
     Event,
     JianpuPitch,
     JianpuScore,
     Measure,
     TextBlock,
     TupletSpan,
+)
+from ...utils.safe_xml import safe_xml_fromstring
+from ..constants import (
+    DYNAMICS,
+    FIFTHS_TO_KEY,
+    KEY_TO_TONIC,
+    MICROTONAL_TOKEN_TO_ALTER,
+    MUSICXML_ACCIDENTAL_TO_TOKEN,
+    MUSICXML_METRONOME_UNIT_TO_SYMBOL,
+    STEP_TO_SEMITONE,
+)
+from ..jianpu_tokens import is_notatable_duration
+from ..performance_marks import canonical_mark_id, normalize_event_marks
+from ..pitch_spelling import written_pitch_to_jianpu
+from ..xml_utils import (
+    _local_name,
+    _namespace,
+    _q,
+    _read_musicxml,
+    _text,
 )
 
 _PROVENANCE_PART_RE = re.compile(
@@ -135,25 +135,6 @@ def musicxml_to_scores(
             score.part_name = f"声部{index + 1}"
 
     return final_scores
-
-
-def musicxml_path_to_score(
-    path: Path,
-    target_key: str = "C",
-    title: str | None = None,
-    instrument_profile: InstrumentProfile | None = None,
-) -> JianpuScore:
-    scores = musicxml_path_to_scores(
-        path,
-        target_key=target_key,
-        title=title,
-        instrument_profile=instrument_profile,
-    )
-    return (
-        scores[0]
-        if scores
-        else JianpuScore(title=title or "简谱", target_key=target_key)
-    )
 
 
 def musicxml_to_score(
@@ -1305,13 +1286,10 @@ def _notation_marks(element: ET.Element | None, ns: str) -> list[str]:
                 marks.append("natural-harmonic")
         elif text and name == "fingering" and text.strip() in {"1", "2", "3", "4"}:
             marks.append(f"fingering-{text.strip()}")
-        elif text and name in {"string", "fret"}:
-            marks.append(text)
-        elif text and name in {
-            "other-technical",
-            "other-ornament",
-            "other-articulation",
-        }:
+        elif text and (
+            name in {"string", "fret"}
+            or name in {"other-technical", "other-ornament", "other-articulation"}
+        ):
             marks.append(text)
         else:
             marks.append(name)

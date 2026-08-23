@@ -32,19 +32,6 @@ def _text(element: ET.Element | None) -> str | None:
     return element.text.strip()
 
 
-def _indent(element: ET.Element, level: int = 0) -> None:
-    i = "\n" + level * "  "
-    if len(element):
-        if not element.text or not element.text.strip():
-            element.text = i + "  "
-        for child in element:
-            _indent(child, level + 1)
-        if not child.tail or not child.tail.strip():
-            child.tail = i
-    if level and (not element.tail or not element.tail.strip()):
-        element.tail = i
-
-
 def _mxl_rootfile_name(archive: ZipFile) -> str:
     try:
         container = safe_xml_fromstring(

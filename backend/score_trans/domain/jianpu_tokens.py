@@ -4,7 +4,6 @@ from collections.abc import Iterable
 from fractions import Fraction
 from math import gcd, lcm
 
-
 _FINE_DURATION_PREFIXES = {
     "d" * count: Fraction(1, 2 ** (count + 2)) for count in range(1, 6)
 }
@@ -14,15 +13,6 @@ DURATION_PREFIXES = {
     "q": Fraction(1, 2),
     "s": Fraction(1, 4),
     **_FINE_DURATION_PREFIXES,
-}
-
-PREFIX_SLASHES = {
-    "": 0,
-    "w": 0,
-    "h": 0,
-    "q": 1,
-    "s": 2,
-    **{"d" * count: count + 2 for count in range(1, 6)},
 }
 
 _DURATION_BASES = (
@@ -86,7 +76,7 @@ def safe_duration_affixes(duration: Fraction) -> tuple[str, str]:
         pass
     best_result: tuple[str, str] | None = None
     best_diff: Fraction | None = None
-    for precision in range(0, 8):
+    for precision in range(8):
         unit = Fraction(1, 2**precision)
         lower = (duration // unit) * unit
         for candidate in (lower, lower + unit):
@@ -142,6 +132,13 @@ def token_duration(token: str) -> Fraction:
     base_duration, work = consume_duration_prefix(token)
     duration, _work, _dot_count = consume_duration_suffix(base_duration, work)
     return duration
+
+
+def tuplet_normal_notes(actual_notes: int) -> int:
+    normal_notes = 1
+    while normal_notes * 2 <= actual_notes:
+        normal_notes *= 2
+    return max(1, normal_notes)
 
 
 def tuplet_duration_unit_count(durations: Iterable[Fraction]) -> int:

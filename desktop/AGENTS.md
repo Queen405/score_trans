@@ -22,7 +22,7 @@ desktop/src/
     api/               按模块封装的 fetch 客户端（client.ts, convert.ts, pipeline.ts, render.ts, export.ts, ai.ts, history.ts, settings.ts）
     stores/            Pinia stores（workspace.ts, settings.ts, assistant.ts, log.ts）
     views/             页面组件（RecognizeView, ConvertView, SyntaxView, SettingsView）
-    components/        通用组件（FileUploader, JianpuEditor, PublicationPreview, OriginalPreview, LogPanel, MeasureNumberPicker, JianpuSyntaxGuide）
+    components/        通用组件（FileUploader, JianpuEditor, PublicationPreview, OriginalPreview, LogPanel, JianpuPlayer, SyntaxDiagnosticPanel）
     models/openapi.ts  从 FastAPI OpenAPI 自动生成的原始类型（不要手工编辑）
     models/contracts.ts 后端契约的语义化类型别名
     models/types.ts    重导出后端契约，并保留少量纯前端类型

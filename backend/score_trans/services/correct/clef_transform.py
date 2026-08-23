@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-DIATONIC_STEPS = ("C", "D", "E", "F", "G", "A", "B")
+from ...domain.pitch_spelling import DIATONIC_STEPS
 
 _CLEF_REF_OCTAVE = {"G": 4, "F": 3, "C": 4}
 

@@ -28,6 +28,7 @@ from ..jianpu_tokens import (
     consume_duration_suffix,
     duration_prefix,
     tuplet_duration_unit_count,
+    tuplet_normal_notes,
 )
 from ..performance_marks import (
     PERFORMANCE_MARKS,
@@ -1168,10 +1169,10 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         actual_count = tuplet_duration_unit_count(
             event.duration for event, _source_token in parsed
         )
-        normal_count = _tuplet_normal_notes(actual_count)
+        normal_count = tuplet_normal_notes(actual_count)
     else:
         actual_count = len(parsed)
-        normal_count = _tuplet_normal_notes(actual_count)
+        normal_count = tuplet_normal_notes(actual_count)
     group_id = f"{token.line}:{token.column}"
     events: list[tuple[Event, str]] = []
     for index, (event, source_token) in enumerate(parsed):
@@ -1216,13 +1217,6 @@ def _consume_tuplet_ratio(
 def _has_tuplet_duration_prefix(source_token: str) -> bool:
     work = source_token.strip().lstrip("(~")
     return bool(duration_prefix(work))
-
-
-def _tuplet_normal_notes(actual_notes: int) -> int:
-    normal_notes = 1
-    while normal_notes * 2 <= actual_notes:
-        normal_notes *= 2
-    return max(1, normal_notes)
 
 
 def _split_tuplet_body(body: str) -> list[str]:
@@ -1367,7 +1361,7 @@ def _parse_event_token(token: _Token) -> Event:
     if slur_stop:
         work = work[:-1]
     has_duration_prefix = bool(duration_prefix(work))
-    duration, work = _consume_duration_prefix(work)
+    duration, work = consume_duration_prefix(work)
     if has_duration_prefix and work.startswith("."):
         raise _syntax_error(
             token,
@@ -1460,10 +1454,6 @@ def _parse_pitch(raw: str, token: _Token) -> JianpuPitch:
         accidental=accidental,
         accidental_text=accidental_text,
     )
-
-
-def _consume_duration_prefix(token: str) -> tuple[Fraction, str]:
-    return consume_duration_prefix(token)
 
 
 def _normalize_parsed_measure(measure: Measure) -> None:
