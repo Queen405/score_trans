@@ -1627,7 +1627,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
 def test_short_note_gap_changes_actual_centers_but_not_quarter_notes() -> None:
     short_score = parse_jianpu_score("1=C\n4/4\nq1 q2 q3 q4 q5 q6 q7 q1' |")
     wide_short, _ = _a4_svg_with_layout(short_score)
-    compact_short, _ = _a4_svg_with_layout(short_score, short_note_gap_percent=80)
+    compact_short, _ = _a4_svg_with_layout(short_score, short_note_gap_percent=60)
 
     wide_xs = _physical_note_xs(wide_short)
     compact_xs = _physical_note_xs(compact_short)
@@ -1635,7 +1635,7 @@ def test_short_note_gap_changes_actual_centers_but_not_quarter_notes() -> None:
 
     quarter_score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
     wide_quarter, _ = _a4_svg_with_layout(quarter_score)
-    compact_quarter, _ = _a4_svg_with_layout(quarter_score, short_note_gap_percent=80)
+    compact_quarter, _ = _a4_svg_with_layout(quarter_score, short_note_gap_percent=60)
     assert _physical_note_xs(compact_quarter) == pytest.approx(
         _physical_note_xs(wide_quarter)
     )
@@ -1644,7 +1644,7 @@ def test_short_note_gap_changes_actual_centers_but_not_quarter_notes() -> None:
 def test_expanded_short_note_gap_stays_inside_measure_barlines() -> None:
     score = parse_jianpu_score("1=C\n4/4\nq1 q2 q3 q4 q5 q6 q7 q1 |")
     events = score.measures[0].events
-    style = PublicationStyle(short_note_gap_scale=1.2)
+    style = PublicationStyle(short_note_gap_scale=1.4)
     left, right = 20.0, 400.0
 
     positions = _event_positions(events, left, right, score.measures[0], style)
@@ -1669,9 +1669,9 @@ def test_short_note_control_preserves_noneligible_adjacent_gaps() -> None:
         )
         return [right - left for left, right in pairwise(positions)]
 
-    compact = gaps(0.8)
+    compact = gaps(0.6)
     standard = gaps(1.0)
-    expanded = gaps(1.2)
+    expanded = gaps(1.4)
 
     assert compact[0] < standard[0] <= expanded[0]
     assert compact[1:] == pytest.approx(standard[1:])
@@ -1714,7 +1714,7 @@ def test_expanded_mixed_short_notes_with_wide_ink_stay_inside_measure() -> None:
         ),
     ]
     measure = Measure("1", duration=Fraction(13, 2), events=events)
-    style = PublicationStyle(short_note_gap_scale=1.2)
+    style = PublicationStyle(short_note_gap_scale=1.4)
     left, right = 20.0, 420.0
 
     positions = _event_positions(events, left, right, measure, style)
@@ -1730,7 +1730,7 @@ def test_system_gap_control_reduces_actual_distance_between_rows() -> None:
     score.measures[1].new_system = True
 
     standard, _ = _a4_svg_with_layout(score)
-    compact, _ = _a4_svg_with_layout(score, system_gap_percent=80)
+    compact, _ = _a4_svg_with_layout(score, system_gap_percent=60)
 
     def row_note_y(root: ET.Element) -> list[float]:
         content = next(

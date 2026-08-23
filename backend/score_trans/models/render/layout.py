@@ -13,10 +13,10 @@ class A4LayoutRequest(BaseModel):
         default=DEFAULT_CONTENT_SCALE_PERCENT, ge=65, le=100
     )
     jianpu_system_gap_percent: int = Field(
-        default=DEFAULT_SYSTEM_GAP_PERCENT, ge=80, le=120
+        default=DEFAULT_SYSTEM_GAP_PERCENT, ge=60, le=140
     )
     jianpu_short_note_gap_percent: int = Field(
-        default=DEFAULT_SHORT_NOTE_GAP_PERCENT, ge=80, le=120
+        default=DEFAULT_SHORT_NOTE_GAP_PERCENT, ge=60, le=140
     )
 
 
