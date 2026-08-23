@@ -32,6 +32,8 @@
       </div>
     </section>
 
+    <div class="sv-section-divider" />
+
     <section class="sv-section">
       <div class="sv-section-heading">
         <div>
@@ -62,13 +64,108 @@
         </settings-form-row>
       </div>
     </section>
+
+    <div class="sv-section-divider" />
+
+    <section class="sv-section">
+      <div class="sv-section-heading">
+        <div>
+          <h3>简谱版式</h3>
+          <p>调整 A4 简谱的整体大小与排版密度。</p>
+        </div>
+      </div>
+
+      <div class="sv-form-stack">
+        <settings-form-row label="整体大小">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuContentScalePercent"
+              :min="65"
+              :max="100"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuContentScalePercent"
+              :min="65"
+              :max="100"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row label="行间距">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuSystemGapPercent"
+              :min="80"
+              :max="120"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuSystemGapPercent"
+              :min="80"
+              :max="120"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row label="短音符间距">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuShortNoteGapPercent"
+              :min="80"
+              :max="120"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuShortNoteGapPercent"
+              :min="80"
+              :max="120"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { NRadioButton, NRadioGroup, NSwitch } from 'naive-ui'
+import { NInputNumber, NRadioButton, NRadioGroup, NSlider, NSwitch } from 'naive-ui'
 import { useSettingsStore } from '../../stores/settings'
 import SettingsFormRow from './SettingsFormRow.vue'
 
 const settings = useSettingsStore()
 </script>
+
+<style scoped>
+.sv-layout-control {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 108px;
+  align-items: center;
+  gap: 16px;
+  max-width: 560px;
+}
+
+@media (max-width: 720px) {
+  .sv-layout-control {
+    grid-template-columns: minmax(0, 1fr) 96px;
+  }
+}
+</style>
