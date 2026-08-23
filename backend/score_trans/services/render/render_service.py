@@ -109,7 +109,7 @@ class PublicationRenderService:
         return render_scores_a4_pages(
             scores,
             RenderOptions(
-                title=title or "简谱",
+                title=title or (scores[0].title if scores else "简谱"),
                 show_measure_numbers=mode != "none",
                 measure_number_mode=mode,
                 initial_measure_number=initial_measure_number,

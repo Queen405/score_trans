@@ -220,7 +220,9 @@ def test_dotted_duration_line_starts_after_rhythm_dot() -> None:
         node for node in root.iter() if node.attrib.get("class") == "extension-line"
     )
 
-    assert float(line.attrib["x1"]) >= float(dot.attrib["cx"]) + float(dot.attrib["r"]) + 3
+    assert (
+        float(line.attrib["x1"]) >= float(dot.attrib["cx"]) + float(dot.attrib["r"]) + 3
+    )
 
 
 def test_consecutive_short_notes_share_continuous_rhythm_lines() -> None:
@@ -723,9 +725,7 @@ def test_rhythm_runs_share_lowest_safe_baseline_in_a_measure() -> None:
 
     _draw_rhythm_lines(scene, anchors, style=PublicationStyle())
     lines = [
-        node
-        for node in scene.nodes
-        if "duration-line" in node.attrs.get("class", "")
+        node for node in scene.nodes if "duration-line" in node.attrs.get("class", "")
     ]
 
     assert len(lines) == 2
@@ -841,7 +841,9 @@ def test_span_primitives_emit_truthful_bboxes() -> None:
     ]
 
     assert span_nodes
-    assert all(len(node.attrib.get("data-bbox", "").split()) == 4 for node in span_nodes)
+    assert all(
+        len(node.attrib.get("data-bbox", "").split()) == 4 for node in span_nodes
+    )
 
 
 def test_rhythm_line_registers_span_bbox_for_source_map() -> None:
@@ -862,11 +864,17 @@ def test_rhythm_line_registers_span_bbox_for_source_map() -> None:
         source_roles={"note": ["beam-b"]},
     )
     page = PublicationRenderer().render_scores(
-        [JianpuScore(measures=[Measure("1", duration=Fraction(1), events=[first, second])])]
+        [
+            JianpuScore(
+                measures=[Measure("1", duration=Fraction(1), events=[first, second])]
+            )
+        ]
     )[0]
 
     line = next(
-        node for node in page.scene.nodes if "duration-line" in node.attrs.get("class", "")
+        node
+        for node in page.scene.nodes
+        if "duration-line" in node.attrs.get("class", "")
     )
     assert len(line.attrs.get("data-bbox", "").split()) == 4
     assert page.scene.source_boxes["beam-a"].height > 0
@@ -1010,10 +1018,15 @@ def test_nested_tuplet_spans_render_one_bracket_per_span() -> None:
     ]
 
     assert len(brackets) == 2
-    assert len({
-        re.search(r"M [-\d.]+ ([-\d.]+)", node.attrib["d"]).group(1)
-        for node in brackets
-    }) == 2  # type: ignore[union-attr]
+    assert (
+        len(
+            {
+                re.search(r"M [-\d.]+ ([-\d.]+)", node.attrib["d"]).group(1)
+                for node in brackets
+            }
+        )
+        == 2
+    )  # type: ignore[union-attr]
 
 
 def test_tuplet_spans_without_primary_id_still_render_a_bracket() -> None:
@@ -1023,9 +1036,7 @@ def test_tuplet_spans_without_primary_id_still_render_a_bracket() -> None:
             duration=Fraction(1, 3),
             start=Fraction(index, 3),
             pitches=[JianpuPitch(index + 1)],
-            tuplet_spans=[
-                TupletSpan("span-only", start=index == 0, stop=index == 2)
-            ],
+            tuplet_spans=[TupletSpan("span-only", start=index == 0, stop=index == 2)],
         )
         for index in range(3)
     ]
@@ -1067,8 +1078,12 @@ def test_cross_measure_tuplet_brackets_mark_continuation_segments() -> None:
     )
     pages = render_scores_a4_pages(
         [
-            JianpuScore(measures=[Measure("1", duration=Fraction(1, 3), events=[first])]),
-            JianpuScore(measures=[Measure("2", duration=Fraction(2, 3), events=[second, third])]),
+            JianpuScore(
+                measures=[Measure("1", duration=Fraction(1, 3), events=[first])]
+            ),
+            JianpuScore(
+                measures=[Measure("2", duration=Fraction(2, 3), events=[second, third])]
+            ),
         ]
     )
     brackets = [
@@ -1134,11 +1149,13 @@ def test_measure_attribute_does_not_shift_event_slots() -> None:
     changed.measures[1].beats_per_measure = 3
 
     plain_notes = [
-        node for node in _root(render_score_svg(plain)).iter()
+        node
+        for node in _root(render_score_svg(plain)).iter()
         if node.attrib.get("class") == "note"
     ]
     changed_notes = [
-        node for node in _root(render_score_svg(changed)).iter()
+        node
+        for node in _root(render_score_svg(changed)).iter()
         if node.attrib.get("class") == "note"
     ]
 
@@ -1286,7 +1303,9 @@ def test_dynamic_mark_clears_low_octave_chord_attachments() -> None:
         dynamic="f",
     )
     root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
-    dynamic = next(node for node in root.iter() if node.attrib.get("class") == "dynamic")
+    dynamic = next(
+        node for node in root.iter() if node.attrib.get("class") == "dynamic"
+    )
     dynamic_box = _text_box(dynamic)
     lowest_octave_dot_bottom = max(
         float(node.attrib["cy"]) + float(node.attrib["r"])
@@ -1332,11 +1351,15 @@ def test_event_lyric_is_not_rendered_again_from_measure_text_block() -> None:
 
     root = _root(render_score_svg(JianpuScore(measures=[measure])))
 
-    assert sum(
-        1
-        for node in root.iter()
-        if node.attrib.get("class") == "lyric" and node.attrib.get("aria-label") == "春"
-    ) == 1
+    assert (
+        sum(
+            1
+            for node in root.iter()
+            if node.attrib.get("class") == "lyric"
+            and node.attrib.get("aria-label") == "春"
+        )
+        == 1
+    )
 
 
 def test_wide_event_stays_centered_when_its_ink_cannot_fit() -> None:
@@ -1348,7 +1371,9 @@ def test_wide_event_stays_centered_when_its_ink_cannot_fit() -> None:
     )
     measure = Measure("1", duration=Fraction(4), events=[event])
     style = PublicationStyle(page_width=400, margin_left=40, margin_right=40)
-    page = PublicationRenderer(style).render_scores([JianpuScore(measures=[measure])])[0]
+    page = PublicationRenderer(style).render_scores([JianpuScore(measures=[measure])])[
+        0
+    ]
     root = _root(page.svg)
     note = next(node for node in root.iter() if node.attrib.get("class") == "note")
     note_x, _note_y = _translate(note)
@@ -1588,9 +1613,7 @@ def test_measure_text_layout_uses_text_start_for_horizontal_position() -> None:
             TextBlock("右", role="expression", start=Fraction(3)),
         ],
     )
-    root = _root(
-        render_score_svg(JianpuScore(measures=[measure]))
-    )
+    root = _root(render_score_svg(JianpuScore(measures=[measure])))
     texts = {
         node.attrib["aria-label"]: _translate(node)[0]
         for node in root.iter()
@@ -1608,7 +1631,9 @@ def test_measure_text_layout_emits_truthful_bbox_for_custom_font_size() -> None:
             Measure(
                 "1",
                 duration=Fraction(4),
-                events=[Event(kind="note", duration=Fraction(4), pitches=[JianpuPitch(1)])],
+                events=[
+                    Event(kind="note", duration=Fraction(4), pitches=[JianpuPitch(1)])
+                ],
                 text_blocks=[block],
             )
         ]
@@ -1672,3 +1697,56 @@ def test_overfull_duration_does_not_cross_the_right_measure_barline() -> None:
         (node.attrib["x1"], node.attrib["x2"], right_barline)
         for node in extension_lines
     ]
+
+
+# ---------------------------------------------------------------------------
+# Title resolution: jianpu text title= directive should win over default
+# ---------------------------------------------------------------------------
+
+
+def test_effective_title_uses_score_title_when_request_is_default() -> None:
+    from score_trans.exec.render.actions import _effective_title
+
+    score = JianpuScore(title="My Song")
+    assert _effective_title("简谱", [score]) == "My Song"
+
+    # Request explicitly set a non-default title — request wins
+    assert _effective_title("Custom", [score]) == "Custom"
+
+    # No scores — fall back to request title
+    assert _effective_title("简谱", []) == "简谱"
+
+    # None request title — score title wins
+    assert _effective_title(None, [score]) == "My Song"
+
+
+def test_batch_render_uses_jianpu_text_title_over_default() -> None:
+    """When jianpu text has title=My Song and req.title is '简谱', the SVG
+    should contain 'My Song' and not '简谱'."""
+    from score_trans.exec.render.actions import RenderActions
+    from score_trans.models.render.schemas import (
+        BatchRenderPageRequest,
+        BatchRenderRequest,
+    )
+
+    actions = RenderActions()
+    req = BatchRenderRequest(
+        pages=[
+            BatchRenderPageRequest(
+                jianpu_text="title=My Song\n1=C\n4/4\n1 2 3 4 |",
+            )
+        ],
+        title="简谱",
+    )
+    response = actions.render_batch_a4(req)
+
+    from xml.etree import ElementTree as ET2
+
+    svg_path = Path(__file__).parent.parent / "build-resources" / "backend"
+    # Read SVG from the response's first page file_id via the uploads service
+    svg_file_id = response.svg_file_id
+    svg_path = actions.uploads.get_path(svg_file_id)
+    root = ET2.fromstring(svg_path.read_text(encoding="utf-8"))
+    text_content = " ".join(node.text or "" for node in root.iter() if node.text)
+    assert "My Song" in text_content
+    assert text_content.count("简谱") == 0 or "My Song" in text_content

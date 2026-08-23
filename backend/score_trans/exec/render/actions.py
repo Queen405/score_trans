@@ -60,6 +60,23 @@ class _SourcePageRange:
     end_measure_number: int | None
 
 
+_DEFAULT_TITLE = "简谱"
+
+
+def _effective_title(request_title: str | None, scores: list[JianpuScore]) -> str:
+    """Resolve the render title, letting a parsed score title win over the default sentinel.
+
+    The frontend and several request schemas use ``"简谱"`` as the default title.
+    When the jianpu text or MusicXML carries an explicit title, that should take
+    priority over the default.
+    """
+    if request_title and request_title != _DEFAULT_TITLE:
+        return request_title
+    if scores and scores[0].title and scores[0].title != _DEFAULT_TITLE:
+        return scores[0].title
+    return request_title or _DEFAULT_TITLE
+
+
 class RenderMusicXmlJianpuAction:
     def __init__(
         self,
@@ -265,7 +282,7 @@ class RenderJianpuTextAction:
         return self.render_service.render_scores_a4_svg_pages(
             scores,
             output_path,
-            title=title,
+            title=_effective_title(title, scores),
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
@@ -423,9 +440,10 @@ class RenderActions:
         scores: list[JianpuScore],
     ) -> BatchRenderResponse:
         source_ranges = self._batch_source_ranges(req, scores)
+        effective_title = _effective_title(req.title, scores)
         layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
             scores,
-            title=req.title,
+            title=effective_title,
             show_measure_numbers=_request_show_measure_numbers(req),
             measure_number_mode=_request_measure_number_mode(req),
             initial_measure_number=None,
@@ -453,7 +471,7 @@ class RenderActions:
             self.text_renderer.render_service.render_scores_a4_svg_page_results(
                 scores,
                 svg_path,
-                title=req.title,
+                title=effective_title,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
                 initial_measure_number=None,
@@ -496,6 +514,7 @@ class RenderActions:
 
         all_scores = [s for page_scores in page_scores_list for s in page_scores]
         source_ranges = self._batch_source_ranges(req, all_scores)
+        effective_title = _effective_title(req.title, all_scores)
         svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
         all_rendered_file_pages: list[RenderedA4FilePage] = []
         all_measure_ranges: list[list[RenderPageMeasureRange]] = []
@@ -507,7 +526,7 @@ class RenderActions:
             source_page_index = _score_source_page_index(page_scores, page_idx)
             layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
                 page_scores,
-                title=req.title,
+                title=effective_title,
                 show_measure_numbers=_request_show_measure_numbers(req),
                 measure_number_mode=_request_measure_number_mode(req),
                 initial_measure_number=None,
@@ -555,7 +574,7 @@ class RenderActions:
                 self.text_renderer.render_service.render_scores_a4_svg_page_results(
                     page_scores,
                     page_svg_path,
-                    title=req.title,
+                    title=effective_title,
                     show_measure_numbers=_request_show_measure_numbers(req),
                     measure_number_mode=_request_measure_number_mode(req),
                     initial_measure_number=None,
