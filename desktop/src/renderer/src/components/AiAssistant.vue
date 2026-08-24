@@ -174,7 +174,7 @@
               v-model="includeCurrentJianpu"
               type="checkbox"
             >
-            <span>附带当前简谱</span>
+            <span :title="includeJianpuLabel">{{ includeJianpuLabel }}</span>
           </label>
           <div class="ai-input-row">
             <n-input
@@ -238,6 +238,18 @@ const open = computed(() => animPhase.value === 'open' || animPhase.value === 'o
 const sessionsOpen = ref(true)
 const draft = ref('')
 const includeCurrentJianpu = ref(true)
+const includeJianpuLabel = computed(() => {
+  const pages = task.currentBatchPages
+  const page = task.currentPage
+  if (!page) return '附带当前简谱'
+  const index = pages.indexOf(page)
+  const name = page.inputFileName
+  if (!name) {
+    return index >= 0 && pages.length > 1 ? `附带当前简谱（第 ${index + 1}/${pages.length} 页）` : '附带当前简谱'
+  }
+  const suffix = pages.length > 1 ? `（第 ${index + 1}/${pages.length} 页 · ${name}）` : `（${name}）`
+  return `附带当前简谱${suffix}`
+})
 const messageBody = ref<HTMLElement | null>(null)
 const autoScrollEnabled = ref(true)
 const showThinking = ref(true)
@@ -1301,10 +1313,17 @@ function escapeAttr(value: string): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
   margin-bottom: 8px;
   color: var(--text-tertiary);
   font-size: 12px;
   user-select: none;
+}
+
+.ai-context span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-context input {
