@@ -11,6 +11,17 @@ from score_trans.models.common.types import (
     MidiTempo,
     TargetKeyOrAuto,
 )
+from score_trans.models.render.layout import (
+    DEFAULT_CONTENT_SCALE_PERCENT,
+    DEFAULT_SHORT_NOTE_GAP_PERCENT,
+    DEFAULT_SYSTEM_GAP_PERCENT,
+    MAX_CONTENT_SCALE_PERCENT,
+    MAX_SHORT_NOTE_GAP_PERCENT,
+    MAX_SYSTEM_GAP_PERCENT,
+    MIN_CONTENT_SCALE_PERCENT,
+    MIN_SHORT_NOTE_GAP_PERCENT,
+    MIN_SYSTEM_GAP_PERCENT,
+)
 
 
 class LlmProviderOption(BaseModel):
@@ -39,9 +50,9 @@ class SettingsResponse(BaseModel):
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
     jianpu_syntax_highlight: bool = False
-    jianpu_content_scale_percent: int = 67
-    jianpu_system_gap_percent: int = 92
-    jianpu_short_note_gap_percent: int = 90
+    jianpu_content_scale_percent: int = DEFAULT_CONTENT_SCALE_PERCENT
+    jianpu_system_gap_percent: int = DEFAULT_SYSTEM_GAP_PERCENT
+    jianpu_short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
     enable_omr_ocr: bool = True
     output_dir: str = ""
     ocr_provider: str
@@ -75,9 +86,21 @@ class SettingsUpdateRequest(BaseModel):
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode | None = None
     jianpu_syntax_highlight: bool | None = None
-    jianpu_content_scale_percent: int | None = Field(default=None, ge=65, le=100)
-    jianpu_system_gap_percent: int | None = Field(default=None, ge=20, le=180)
-    jianpu_short_note_gap_percent: int | None = Field(default=None, ge=20, le=180)
+    jianpu_content_scale_percent: int | None = Field(
+        default=None,
+        ge=MIN_CONTENT_SCALE_PERCENT,
+        le=MAX_CONTENT_SCALE_PERCENT,
+    )
+    jianpu_system_gap_percent: int | None = Field(
+        default=None,
+        ge=MIN_SYSTEM_GAP_PERCENT,
+        le=MAX_SYSTEM_GAP_PERCENT,
+    )
+    jianpu_short_note_gap_percent: int | None = Field(
+        default=None,
+        ge=MIN_SHORT_NOTE_GAP_PERCENT,
+        le=MAX_SHORT_NOTE_GAP_PERCENT,
+    )
     enable_omr_ocr: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None

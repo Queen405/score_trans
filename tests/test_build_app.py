@@ -184,6 +184,29 @@ def test_validate_published_defaults_passes_for_repo_baseline() -> None:
     assert "providers" in payload
 
 
+def test_validate_published_defaults_rejects_non_string_layout_value(
+    tmp_path: Path,
+) -> None:
+    source_config = _REPO_ROOT / "backend" / "score_trans" / "config"
+    payload = json.loads(
+        (source_config / "published_defaults.json").read_text(encoding="utf-8")
+    )
+    payload["backend"]["jianpu_content_scale_percent"] = 67
+
+    target_config = tmp_path / "backend" / "score_trans" / "config"
+    _write_baseline(target_config / "published_defaults.json", payload)
+    target_config.joinpath("env.example").write_text(
+        (source_config / "env.example").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        TypeError,
+        match="backend.jianpu_content_scale_percent must be a string",
+    ):
+        build_app._validate_published_defaults(tmp_path)
+
+
 def test_validate_published_defaults_rejects_missing_file(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="not found"):
         build_app._validate_published_defaults(tmp_path)

@@ -173,11 +173,7 @@ def _score_to_jianpu_text(
         index = 0
         while index < len(events):
             event = events[index]
-            if (
-                event.kind == "rest"
-                and event.hidden
-                and event.tuplet_id is None
-            ):
+            if event.kind == "rest" and event.hidden and event.tuplet_id is None:
                 index += 1
                 continue
             if event.tuplet_start and event.tuplet_count:
@@ -266,11 +262,7 @@ def _text_anchors_raw(
         index = 0
         while index < len(events):
             event = events[index]
-            if (
-                event.kind == "rest"
-                and event.hidden
-                and event.tuplet_id is None
-            ):
+            if event.kind == "rest" and event.hidden and event.tuplet_id is None:
                 index += 1
                 continue
             if event.tuplet_start and event.tuplet_count:

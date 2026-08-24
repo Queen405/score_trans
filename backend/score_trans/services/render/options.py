@@ -7,6 +7,12 @@ from score_trans.models.render.layout import (
     DEFAULT_CONTENT_SCALE_PERCENT,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
+    MAX_CONTENT_SCALE_PERCENT,
+    MAX_SHORT_NOTE_GAP_PERCENT,
+    MAX_SYSTEM_GAP_PERCENT,
+    MIN_CONTENT_SCALE_PERCENT,
+    MIN_SHORT_NOTE_GAP_PERCENT,
+    MIN_SYSTEM_GAP_PERCENT,
     a4_layout_key,
 )
 
@@ -38,6 +44,33 @@ class A4LayoutOptions:
     content_scale_percent: int = DEFAULT_CONTENT_SCALE_PERCENT
     system_gap_percent: int = DEFAULT_SYSTEM_GAP_PERCENT
     short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
+
+    def __post_init__(self) -> None:
+        ranges = (
+            (
+                "content_scale_percent",
+                self.content_scale_percent,
+                MIN_CONTENT_SCALE_PERCENT,
+                MAX_CONTENT_SCALE_PERCENT,
+            ),
+            (
+                "system_gap_percent",
+                self.system_gap_percent,
+                MIN_SYSTEM_GAP_PERCENT,
+                MAX_SYSTEM_GAP_PERCENT,
+            ),
+            (
+                "short_note_gap_percent",
+                self.short_note_gap_percent,
+                MIN_SHORT_NOTE_GAP_PERCENT,
+                MAX_SHORT_NOTE_GAP_PERCENT,
+            ),
+        )
+        for field, value, minimum, maximum in ranges:
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{field} must be an integer")
+            if not minimum <= value <= maximum:
+                raise ValueError(f"{field} must be between {minimum} and {maximum}")
 
     @property
     def content_scale(self) -> float:

@@ -15,6 +15,7 @@ from score_trans.services.ai.chat_service import AiChatService
 from score_trans.services.ai.transcription import AiTranscriptionService
 from score_trans.services.ocr.providers import create_configured_ocr_provider
 from score_trans.services.settings.api_keys import provider_api_key_name
+import score_trans.services.settings.defaults as settings_defaults_module
 from score_trans.services.settings.defaults import settings_defaults
 from score_trans.services.settings.provider_profiles import (
     provider_profiles,
@@ -338,6 +339,9 @@ def test_published_defaults_json_parses_and_matches_schema() -> None:
         "measure_number_mode",
         "show_measure_numbers",
         "jianpu_syntax_highlight",
+        "jianpu_content_scale_percent",
+        "jianpu_system_gap_percent",
+        "jianpu_short_note_gap_percent",
         "enable_omr_ocr",
         "output_dir",
     ):
@@ -380,6 +384,9 @@ def test_settings_defaults_seeds_baseline_values() -> None:
     assert defaults["measure_number_mode"] == "all"
     assert defaults["show_measure_numbers"] == "1"
     assert defaults["jianpu_syntax_highlight"] == "0"
+    assert defaults["jianpu_content_scale_percent"] == "67"
+    assert defaults["jianpu_system_gap_percent"] == "92"
+    assert defaults["jianpu_short_note_gap_percent"] == "90"
     assert defaults["enable_omr_ocr"] == "1"
     assert defaults["audiveris_max_heap"] == "2g"
     assert defaults["audiveris_max_pixel_count"] == "20000000"
@@ -431,6 +438,40 @@ def test_baseline_seeds_new_database(tmp_path) -> None:
     assert all_settings["assistant_api_key"] == ""
     assert all_settings["audiveris_path"] == ""
     assert all_settings["java_home"] == ""
+    assert all_settings["jianpu_content_scale_percent"] == "67"
+    assert all_settings["jianpu_system_gap_percent"] == "92"
+    assert all_settings["jianpu_short_note_gap_percent"] == "90"
+
+
+def test_layout_defaults_flow_from_published_baseline_to_api(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = json.loads(_BASELINE_PATH.read_text(encoding="utf-8"))
+    payload["backend"].update(
+        {
+            "jianpu_content_scale_percent": "71",
+            "jianpu_system_gap_percent": "123",
+            "jianpu_short_note_gap_percent": "134",
+        }
+    )
+    baseline_path = tmp_path / "published_defaults.json"
+    baseline_path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(settings_defaults_module, "_BASELINE_PATH", baseline_path)
+
+    defaults = settings_defaults()
+    dao = SettingsDao(tmp_path / "settings.db", defaults=defaults)
+    response = SettingsActions(SettingsService(dao)).get_settings()
+
+    assert defaults["jianpu_content_scale_percent"] == "71"
+    assert defaults["jianpu_system_gap_percent"] == "123"
+    assert defaults["jianpu_short_note_gap_percent"] == "134"
+    assert dao.get("jianpu_content_scale_percent") == "71"
+    assert dao.get("jianpu_system_gap_percent") == "123"
+    assert dao.get("jianpu_short_note_gap_percent") == "134"
+    assert response.jianpu_content_scale_percent == 71
+    assert response.jianpu_system_gap_percent == 123
+    assert response.jianpu_short_note_gap_percent == 134
 
 
 def test_baseline_does_not_overwrite_existing_user_values(tmp_path) -> None:

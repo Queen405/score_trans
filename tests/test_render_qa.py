@@ -70,6 +70,36 @@ def test_geometry_qa_checks_nested_text_and_path_geometry() -> None:
     assert sum(issue["kind"] == "page-overflow" for issue in issues) == 2
 
 
+def test_geometry_qa_does_not_record_mark_primitives_separately() -> None:
+    scene = PublicationScene(400, 400, 0)
+    scene.add(
+        SceneNode(
+            "g",
+            {
+                "class": "performance-mark technical",
+                "data-source-ids": "mark-1",
+                "data-bbox": BBox(100, 100, 30, 30).as_data(),
+            },
+            children=[
+                SceneNode(
+                    "path",
+                    {
+                        "class": "performance-mark-primitive performance-mark-stroke",
+                        "data-bbox": BBox(105, 105, 20, 2).as_data(),
+                    },
+                )
+            ],
+        )
+    )
+
+    issues = check_scene_geometry(
+        scene, PublicationStyle(page_width=400, page_height=400)
+    )
+
+    assert issues == []
+    assert [record.kind for record in scene.geometry_records] == ["performance-mark"]
+
+
 def test_geometry_qa_persists_diagnostics_on_scene() -> None:
     scene = PublicationScene(400, 400, 0)
     scene.add(_anchor(390, 100, 40, 20))

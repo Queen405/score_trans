@@ -635,6 +635,8 @@ onUnmounted(() => {
 .svg-inline :deep(.source-anchor.source-current .technical),
 .svg-inline :deep(.playback-note.playback-current .technique-mark),
 .svg-inline :deep(.source-anchor.source-current .technique-mark),
+.svg-inline :deep(.playback-note.playback-current .performance-mark-fill),
+.svg-inline :deep(.source-anchor.source-current .performance-mark-fill),
 .svg-inline :deep(.playback-note.playback-current .lyric),
 .svg-inline :deep(.source-anchor.source-current .lyric) {
   fill: #d97706;
@@ -647,6 +649,11 @@ onUnmounted(() => {
 
 .svg-inline :deep(line[data-source-role].source-current),
 .svg-inline :deep(path[data-source-role].source-current) {
+  stroke: #d97706;
+}
+
+.svg-inline :deep(.playback-note.playback-current .performance-mark-stroke),
+.svg-inline :deep(.source-anchor.source-current .performance-mark-stroke) {
   stroke: #d97706;
 }
 

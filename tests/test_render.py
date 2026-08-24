@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 from score_trans.domain.jianpu import parse_jianpu_score
-from score_trans.exec.render.actions import _renumber_scores_continuously
+from score_trans.exec.render.actions import RenderActions, _renumber_scores_continuously
+from score_trans.models.settings.config import ToolConfig
 from score_trans.models.score import (
     Beam,
     Event,
@@ -53,6 +54,7 @@ from score_trans.services.render.main import (
     render_score_svg,
     render_scores_a4_pages,
 )
+from score_trans.services.files.upload_service import UploadService
 
 from tests.fixtures.render_cases import (
     long_duration_score,
@@ -115,7 +117,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-5"
+    assert root.attrib["data-engine-version"] == "publication-7"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -417,11 +419,12 @@ def test_chord_mark_stack_stays_above_highest_pitch_attachment() -> None:
     marks = [
         node
         for node in root.iter()
-        if node.attrib.get("class") in {"articulation", "ornament"}
+        if "performance-mark" in node.attrib.get("class", "").split()
+        and ({"articulation", "ornament"} & set(node.attrib.get("class", "").split()))
     ]
 
     assert len(marks) == 2
-    assert all(_text_box(mark)[3] + 2 <= attachment_top for mark in marks)
+    assert all(_bbox(mark)[3] + 2 <= attachment_top for mark in marks)
 
 
 def test_chord_accidentals_follow_their_pitch_rows() -> None:
@@ -460,8 +463,8 @@ def test_mark_bbox_contains_rendered_left_and_below_right_marks() -> None:
     )
     anchor_box = _bbox(anchor)
     for mark in root.iter():
-        if mark.attrib.get("class") in {"technical", "articulation", "ornament"}:
-            left, top, right, bottom = _text_box(mark)
+        if "performance-mark" in mark.attrib.get("class", "").split():
+            left, top, right, bottom = _bbox(mark)
             assert left >= anchor_box[0]
             assert top >= anchor_box[1]
             assert right <= anchor_box[0] + anchor_box[2]
@@ -1177,13 +1180,18 @@ def test_mark_placement_is_respected() -> None:
     )
     root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
     note = next(node for node in root.iter() if node.attrib.get("class") == "note")
-    marks = [node for node in root.iter() if node.attrib.get("class") == "technical"]
+    marks = [
+        node
+        for node in root.iter()
+        if "performance-mark" in node.attrib.get("class", "").split()
+        and "technical" in node.attrib.get("class", "").split()
+    ]
     note_x, note_y = _translate(note)
     positions = {node.attrib["aria-label"]: _translate(node) for node in marks}
 
     assert positions["scoop"][0] < note_x
-    assert positions["≋"][0] > note_x
-    assert positions["≋"][1] > note_y
+    assert positions["tremolo"][0] > note_x
+    assert positions["tremolo"][1] > note_y
 
 
 def test_left_mark_does_not_overlap_note_or_accidental_ink() -> None:
@@ -1641,6 +1649,21 @@ def test_short_note_gap_changes_actual_centers_but_not_quarter_notes() -> None:
     )
 
 
+def test_expanded_short_note_gap_increases_common_eighth_note_span() -> None:
+    score = parse_jianpu_score("1=C\n4/4\nq1 q2 q3 q4 q5 q6 q7 q1 |")
+
+    spans: list[float] = []
+    for percent in (100, 110, 120):
+        root, _page = _a4_svg_with_layout(
+            score,
+            short_note_gap_percent=percent,
+        )
+        positions = _physical_note_xs(root)
+        spans.append(positions[-1] - positions[0])
+
+    assert spans[0] < spans[1] < spans[2]
+
+
 def test_expanded_short_note_gap_stays_inside_measure_barlines() -> None:
     score = parse_jianpu_score("1=C\n4/4\nq1 q2 q3 q4 q5 q6 q7 q1 |")
     events = score.measures[0].events
@@ -1676,6 +1699,34 @@ def test_short_note_control_preserves_noneligible_adjacent_gaps() -> None:
     assert compact[0] < standard[0] <= expanded[0]
     assert compact[1:] == pytest.approx(standard[1:])
     assert expanded[1:] == pytest.approx(standard[1:])
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("content_scale_percent", 64),
+        ("content_scale_percent", 101),
+        ("system_gap_percent", 19),
+        ("system_gap_percent", 181),
+        ("short_note_gap_percent", 19),
+        ("short_note_gap_percent", 181),
+    ),
+)
+def test_a4_layout_options_reject_out_of_range_values(
+    field: str,
+    value: int,
+) -> None:
+    with pytest.raises(ValueError, match=field):
+        A4LayoutOptions(**{field: value})
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("content_scale_percent", "system_gap_percent", "short_note_gap_percent"),
+)
+def test_a4_layout_options_reject_non_integer_values(field: str) -> None:
+    with pytest.raises(TypeError, match=field):
+        A4LayoutOptions(**{field: "100"})
 
 
 def test_expanded_mixed_short_notes_with_wide_ink_stay_inside_measure() -> None:
@@ -1788,7 +1839,13 @@ def test_staccato_uses_a_distinct_bounded_vector_triangle() -> None:
     ]
 
     assert staccato_nodes
-    triangle = next(node for node in staccato_nodes if node.tag.endswith("path"))
+    triangle = next(
+        node
+        for node in root.iter()
+        if node.tag.endswith("path")
+        and "performance-mark-primitive" in node.attrib.get("class", "")
+        and node.attrib.get("fill") == "#171717"
+    )
     assert triangle.attrib["d"].count("L") == 2
 
 
@@ -1806,12 +1863,20 @@ def test_high_octave_staccato_keeps_octave_dot_and_mark_distinct() -> None:
         node for node in root.iter() if node.attrib.get("class") == "octave-dot"
     )
     staccato = next(
-        node for node in root.iter() if "staccato" in node.attrib.get("class", "")
+        node
+        for node in root.iter()
+        if "performance-mark" in node.attrib.get("class", "").split()
+        and "staccato" in node.attrib.get("class", "").split()
     )
 
-    assert staccato.tag.endswith("path")
-    assert "L" in staccato.attrib["d"]
-    assert "cy" not in staccato.attrib
+    triangle = next(
+        node
+        for node in staccato.iter()
+        if node.tag.endswith("path")
+        and "performance-mark-primitive" in node.attrib.get("class", "")
+    )
+    assert "L" in triangle.attrib["d"]
+    assert "cy" not in triangle.attrib
     assert float(octave_dot.attrib["cy"]) != float(staccato.attrib.get("cy", "nan"))
 
 
@@ -1956,16 +2021,16 @@ def test_effective_title_uses_score_title_when_request_is_default() -> None:
     assert _effective_title(None, [score]) == "My Song"
 
 
-def test_batch_render_uses_jianpu_text_title_over_default() -> None:
+def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> None:
     """When jianpu text has title=My Song and req.title is '简谱', the SVG
     should contain 'My Song' and not '简谱'."""
-    from score_trans.exec.render.actions import RenderActions
     from score_trans.models.render.schemas import (
         BatchRenderPageRequest,
         BatchRenderRequest,
     )
 
-    actions = RenderActions()
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    actions = RenderActions(uploads=uploads)
     req = BatchRenderRequest(
         pages=[
             BatchRenderPageRequest(
@@ -1979,15 +2044,11 @@ def test_batch_render_uses_jianpu_text_title_over_default() -> None:
     )
     response = actions.render_batch_a4(req)
 
-    from xml.etree import ElementTree as ET2
-
-    svg_path = Path(__file__).parent.parent / "build-resources" / "backend"
-    # Read SVG from the response's first page file_id via the uploads service
-    svg_file_id = response.svg_file_id
-    svg_path = actions.uploads.get_path(svg_file_id)
-    root = ET2.fromstring(svg_path.read_text(encoding="utf-8"))
+    svg_path = uploads.get_path(response.svg_file_id)
+    assert svg_path is not None
+    root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
     assert root.attrib["data-layout-key"] == "75:88:85"
     assert response.pages[0].layout_key == "75:88:85"
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
-    assert text_content.count("简谱") == 0 or "My Song" in text_content
+    assert "简谱" not in text_content

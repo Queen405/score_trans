@@ -8,7 +8,6 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Literal
 
-from ....domain.performance_marks import get_performance_mark
 from ....models.common.types import MeasureNumberMode
 from ....models.render.layout import PUBLICATION_ENGINE_VERSION
 from ....models.score import Event, JianpuPitch, JianpuScore, Measure, TupletSpan
@@ -21,6 +20,7 @@ from .geometry import (
     measure_event_ink,
     pitch_layouts,
 )
+from .mark_graphics import build_mark_graphic
 from .qa import check_scene_geometry
 from .scene import BBox, PublicationScene, SceneNode
 from .style import PublicationStyle
@@ -594,6 +594,13 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
     extents = [_event_visual_extents(event, style) for event in events]
     common_shortest = _common_shortest_duration(events)
     gaps = _minimum_event_gaps(events, extents, common_shortest, style)
+    if style.short_note_gap_scale > 1.0:
+        gaps = [
+            gap * style.short_note_gap_scale
+            if _is_short_note_pair(events[index], events[index + 1])
+            else gap
+            for index, gap in enumerate(gaps)
+        ]
     width = style.measure_side_padding + extents[-1][1] - extents[0][0] + sum(gaps)
     return max(style.minimum_measure_width, min(style.content_width, width))
 
@@ -1373,42 +1380,19 @@ def _draw_marks(
         role_index = role_offsets[role]
         exact_ids = [role_ids[role_index]] if role_index < len(role_ids) else role_ids
         role_offsets[role] += 1
-        label = layout.label
-        cls = role
-        if mark_id == "staccato":
-            cls += " staccato"
         mark_x = x + layout.x
         mark_y = y + layout.y
         attrs = _semantic_attrs(role, exact_ids)
-        if layout.is_staccato:
-            attrs["aria-label"] = "staccato"
-            radius = style.staccato_radius
-            mark = SceneNode(
-                "path",
-                {
-                    "class": cls,
-                    "d": (
-                        f"M {mark_x - radius:g} {mark_y - radius:g} "
-                        f"L {mark_x + radius:g} {mark_y - radius:g} "
-                        f"L {mark_x:g} {mark_y + radius:g} Z"
-                    ),
-                    "fill": "#171717",
-                },
+        group.children.append(
+            build_mark_graphic(
+                mark_id,
+                mark_x,
+                mark_y,
+                style,
+                role=role,
+                source_attrs=attrs,
             )
-            mark.attrs.update(attrs)
-            group.children.append(mark)
-        else:
-            group.children.append(
-                _text(
-                    cls,
-                    mark_x,
-                    mark_y,
-                    label,
-                    style.annotation_size,
-                    anchor="middle",
-                    attrs=attrs,
-                )
-            )
+        )
 
 
 def _draw_rhythm_lines(
@@ -2220,32 +2204,6 @@ def _accidental_text(pitch: JianpuPitch) -> str:
         Fraction(-1): "♭",
         Fraction(-2): "𝄫",
     }.get(value, "" if value == 0 else f"{float(value):+g}")
-
-
-def _mark_glyph(renderer: str, fallback: str) -> str:
-    return {
-        "accent": ">",
-        "tenuto": "—",
-        "staccato": "▼",
-        "trill": "tr",
-        "fermata": "𝄐",
-        "down-bow": "Π",
-        "up-bow": "∨",
-        "natural-harmonic": "○",
-        "artificial-harmonic": "◇",
-        "pluck": "+",
-        "open-string": "0",
-        "inner-string": "内",
-        "outer-string": "外",
-        "breath-mark": "，",
-        "arpeggio": "∿",
-        "three-slash": "≋",
-    }.get(renderer, fallback)
-
-
-def _rendered_mark_label(mark_id: str) -> str:
-    spec = get_performance_mark(mark_id)
-    return _mark_glyph(spec.renderer if spec else mark_id, mark_id)
 
 
 def _text_width(text: str, font_size: float) -> float:

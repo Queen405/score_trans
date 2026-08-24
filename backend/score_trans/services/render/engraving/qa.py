@@ -30,6 +30,8 @@ def check_scene_geometry(
     records: list[GeometryRecord] = []
     for node, _parent_classes, parent_owner in _walk_nodes(scene.nodes):
         classes = tuple(node.attrs.get("class", "").split())
+        if "performance-mark-primitive" in classes:
+            continue
         if "page-background" in classes:
             continue
         bbox = _node_bbox(node)

@@ -11,6 +11,17 @@ from ...models.common.types import (
     TargetKeyOrAuto,
 )
 from ...models.pipeline.schemas import PipelineByFileIdRequest
+from ...models.render.layout import (
+    DEFAULT_CONTENT_SCALE_PERCENT,
+    DEFAULT_SHORT_NOTE_GAP_PERCENT,
+    DEFAULT_SYSTEM_GAP_PERCENT,
+    MAX_CONTENT_SCALE_PERCENT,
+    MAX_SHORT_NOTE_GAP_PERCENT,
+    MAX_SYSTEM_GAP_PERCENT,
+    MIN_CONTENT_SCALE_PERCENT,
+    MIN_SHORT_NOTE_GAP_PERCENT,
+    MIN_SYSTEM_GAP_PERCENT,
+)
 from ...models.tasks.schemas import TaskSubmitResponse
 from ..dependencies import get_pipeline_actions, get_task_actions
 
@@ -49,9 +60,21 @@ async def run_pipeline(
     instrument_profile: InstrumentProfile = Form("general"),
     show_measure_numbers: bool = Form(True),
     measure_number_mode: MeasureNumberMode = Form("all"),
-    jianpu_content_scale_percent: int = Form(67, ge=65, le=100),
-    jianpu_system_gap_percent: int = Form(92, ge=20, le=180),
-    jianpu_short_note_gap_percent: int = Form(90, ge=20, le=180),
+    jianpu_content_scale_percent: int = Form(
+        DEFAULT_CONTENT_SCALE_PERCENT,
+        ge=MIN_CONTENT_SCALE_PERCENT,
+        le=MAX_CONTENT_SCALE_PERCENT,
+    ),
+    jianpu_system_gap_percent: int = Form(
+        DEFAULT_SYSTEM_GAP_PERCENT,
+        ge=MIN_SYSTEM_GAP_PERCENT,
+        le=MAX_SYSTEM_GAP_PERCENT,
+    ),
+    jianpu_short_note_gap_percent: int = Form(
+        DEFAULT_SHORT_NOTE_GAP_PERCENT,
+        ge=MIN_SHORT_NOTE_GAP_PERCENT,
+        le=MAX_SHORT_NOTE_GAP_PERCENT,
+    ),
     title: str | None = Form(None),
     actions: PipelineActions = Depends(get_pipeline_actions),
     tasks: TaskActions = Depends(get_task_actions),

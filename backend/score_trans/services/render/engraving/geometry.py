@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from ....domain.performance_marks import get_performance_mark
 from ....models.score import Event, JianpuPitch
 from .fonts import font_registry
+from .mark_graphics import mark_graphic_box
 from .style import PublicationStyle
 
 
@@ -60,11 +61,9 @@ class PitchLayout:
 class MarkLayout:
     mark_id: str
     role: str
-    label: str
     x: float
     y: float
     ink_box: InkBox
-    is_staccato: bool
 
 
 def _empty_box() -> InkBox:
@@ -181,29 +180,6 @@ def _accidental_text(pitch: JianpuPitch) -> str:
     return values.get(float(value), "" if value == 0 else f"{float(value):+g}")
 
 
-def _mark_label(mark_id: str) -> str:
-    spec = get_performance_mark(mark_id)
-    renderer = spec.renderer if spec else mark_id
-    return {
-        "accent": ">",
-        "tenuto": "—",
-        "staccato": "▼",
-        "trill": "tr",
-        "fermata": "𝄐",
-        "down-bow": "Π",
-        "up-bow": "∨",
-        "natural-harmonic": "○",
-        "artificial-harmonic": "◇",
-        "pluck": "+",
-        "open-string": "0",
-        "inner-string": "内",
-        "outer-string": "外",
-        "breath-mark": "，",
-        "arpeggio": "∿",
-        "three-slash": "≋",
-    }.get(renderer, mark_id)
-
-
 def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...]:
     rows = pitch_layouts(event, style)
     attachment_top = min((row.note_box.top for row in rows), default=-31.0)
@@ -254,13 +230,13 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
         placement = spec.placement if spec else "above"
         placement_index = placement_counts.get(placement, 0)
         placement_counts[placement] = placement_index + 1
-        label = _mark_label(mark_id)
-        is_staccato = mark_id == "staccato"
-        if is_staccato:
-            radius = style.staccato_radius
-            base_box = InkBox(-radius, -radius, radius, radius)
-        else:
-            base_box = _centered_text_box(label, style.annotation_size)
+        mark_box = mark_graphic_box(mark_id, style)
+        base_box = InkBox(
+            mark_box.x,
+            mark_box.y,
+            mark_box.x + mark_box.width,
+            mark_box.y + mark_box.height,
+        )
         if placement == "left":
             x = (
                 horizontal_left
@@ -286,7 +262,7 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
             y = above_cursor - base_box.bottom
             above_cursor = y + base_box.top - style.mark_stack_gap
         ink_box = _translated(base_box, x, y)
-        layouts.append(MarkLayout(mark_id, role, label, x, y, ink_box, is_staccato))
+        layouts.append(MarkLayout(mark_id, role, x, y, ink_box))
     return tuple(layouts)
 
 
