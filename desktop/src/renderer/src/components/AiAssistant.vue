@@ -241,7 +241,7 @@ const includeCurrentJianpu = ref(true)
 const messageBody = ref<HTMLElement | null>(null)
 const autoScrollEnabled = ref(true)
 const showThinking = ref(true)
-const openThinkMessageIds = ref<Set<number>>(new Set())
+const openThinkKeys = ref<Set<string>>(new Set())
 const isFabDragging = ref(false)
 const isPanelDragging = ref(false)
 const panelWasDragged = ref(false)
@@ -733,20 +733,16 @@ function handleMessagesKeydown(event: KeyboardEvent): void {
 }
 
 function toggleThinkButton(button: HTMLButtonElement): void {
-  const messageId = Number(button.dataset.messageId)
-  if (!Number.isFinite(messageId)) return
-  setThinkOpen(messageId, !openThinkMessageIds.value.has(messageId))
+  const thinkKey = button.dataset.thinkKey
+  if (!thinkKey) return
+  const next = new Set(openThinkKeys.value)
+  if (next.has(thinkKey)) next.delete(thinkKey)
+  else next.add(thinkKey)
+  openThinkKeys.value = next
 }
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= 48
-}
-
-function setThinkOpen(messageId: number, openValue: boolean): void {
-  const next = new Set(openThinkMessageIds.value)
-  if (openValue) next.add(messageId)
-  else next.delete(messageId)
-  openThinkMessageIds.value = next
 }
 
 function renderAssistantMessage(text: string, messageId: number): string {
@@ -755,21 +751,24 @@ function renderAssistantMessage(text: string, messageId: number): string {
   const thinkRe = /<think>([\s\S]*?)(?:<\/think>|$)/gi
   let lastIndex = 0
   let match: RegExpExecArray | null
-  const thinkOpen = openThinkMessageIds.value.has(messageId)
+  let blockIndex = 0
   while ((match = thinkRe.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(renderMarkdown(text.slice(lastIndex, match.index)))
     }
     if (showThinking.value) {
+      const thinkKey = `${messageId}:${blockIndex}`
+      const thinkOpen = openThinkKeys.value.has(thinkKey)
       const label = thinkOpen ? '收起深度思考' : '展开深度思考'
       parts.push(
         `<div class="ai-think ${thinkOpen ? 'open' : ''}">` +
-          `<button class="ai-think-toggle" type="button" data-message-id="${messageId}" aria-expanded="${thinkOpen ? 'true' : 'false'}" tabindex="0">${label}</button>` +
+          `<button class="ai-think-toggle" type="button" data-think-key="${thinkKey}" aria-expanded="${thinkOpen ? 'true' : 'false'}" tabindex="0">${label}</button>` +
           (thinkOpen ? `<div class="ai-think-body">${renderMarkdown(match[1] ?? '')}</div>` : '') +
         '</div>',
       )
     }
     lastIndex = thinkRe.lastIndex
+    blockIndex++
   }
   if (lastIndex < text.length) parts.push(renderMarkdown(text.slice(lastIndex)))
   return parts.join('')

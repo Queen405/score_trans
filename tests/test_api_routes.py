@@ -434,24 +434,24 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     boundaries = client.put(
         "/settings",
         json={
-            "jianpu_system_gap_percent": 60,
-            "jianpu_short_note_gap_percent": 140,
+            "jianpu_system_gap_percent": 20,
+            "jianpu_short_note_gap_percent": 180,
         },
     )
     assert boundaries.status_code == 200
-    assert boundaries.json()["jianpu_system_gap_percent"] == 60
-    assert boundaries.json()["jianpu_short_note_gap_percent"] == 140
+    assert boundaries.json()["jianpu_system_gap_percent"] == 20
+    assert boundaries.json()["jianpu_short_note_gap_percent"] == 180
 
     assert (
         client.put("/settings", json={"jianpu_content_scale_percent": 64}).status_code
         == 422
     )
     assert (
-        client.put("/settings", json={"jianpu_system_gap_percent": 59}).status_code
+        client.put("/settings", json={"jianpu_system_gap_percent": 19}).status_code
         == 422
     )
     assert (
-        client.put("/settings", json={"jianpu_short_note_gap_percent": 141}).status_code
+        client.put("/settings", json={"jianpu_short_note_gap_percent": 181}).status_code
         == 422
     )
 
@@ -471,26 +471,26 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
         assert properties["jianpu_content_scale_percent"]["default"] == 67
         assert properties["jianpu_system_gap_percent"]["default"] == 92
         assert properties["jianpu_short_note_gap_percent"]["default"] == 90
-        assert properties["jianpu_system_gap_percent"]["minimum"] == 60
-        assert properties["jianpu_system_gap_percent"]["maximum"] == 140
-        assert properties["jianpu_short_note_gap_percent"]["minimum"] == 60
-        assert properties["jianpu_short_note_gap_percent"]["maximum"] == 140
+        assert properties["jianpu_system_gap_percent"]["minimum"] == 20
+        assert properties["jianpu_system_gap_percent"]["maximum"] == 180
+        assert properties["jianpu_short_note_gap_percent"]["minimum"] == 20
+        assert properties["jianpu_short_note_gap_percent"]["maximum"] == 180
 
     settings_properties = schemas["SettingsUpdateRequest"]["properties"]
     settings_system_gap = settings_properties["jianpu_system_gap_percent"]["anyOf"][0]
     settings_short_note_gap = settings_properties["jianpu_short_note_gap_percent"][
         "anyOf"
     ][0]
-    assert settings_system_gap["minimum"] == 60
-    assert settings_system_gap["maximum"] == 140
-    assert settings_short_note_gap["minimum"] == 60
-    assert settings_short_note_gap["maximum"] == 140
+    assert settings_system_gap["minimum"] == 20
+    assert settings_system_gap["maximum"] == 180
+    assert settings_short_note_gap["minimum"] == 20
+    assert settings_short_note_gap["maximum"] == 180
 
     multipart_properties = schemas["Body_run_pipeline_pipeline_post"]["properties"]
-    assert multipart_properties["jianpu_system_gap_percent"]["minimum"] == 60
-    assert multipart_properties["jianpu_system_gap_percent"]["maximum"] == 140
-    assert multipart_properties["jianpu_short_note_gap_percent"]["minimum"] == 60
-    assert multipart_properties["jianpu_short_note_gap_percent"]["maximum"] == 140
+    assert multipart_properties["jianpu_system_gap_percent"]["minimum"] == 20
+    assert multipart_properties["jianpu_system_gap_percent"]["maximum"] == 180
+    assert multipart_properties["jianpu_short_note_gap_percent"]["minimum"] == 20
+    assert multipart_properties["jianpu_short_note_gap_percent"]["maximum"] == 180
 
     preserving = schemas["PreservingLayoutRequest"]["properties"]
     assert "jianpu_content_scale_percent" not in preserving

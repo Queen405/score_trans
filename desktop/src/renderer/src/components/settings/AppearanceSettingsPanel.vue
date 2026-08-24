@@ -102,14 +102,14 @@
           <div class="sv-layout-control">
             <n-slider
               v-model:value="settings.draft.jianpuSystemGapPercent"
-              :min="60"
-              :max="140"
+              :min="20"
+              :max="180"
               :step="1"
             />
             <n-input-number
               v-model:value="settings.draft.jianpuSystemGapPercent"
-              :min="60"
-              :max="140"
+              :min="20"
+              :max="180"
               :step="1"
               size="small"
             >
@@ -124,14 +124,14 @@
           <div class="sv-layout-control">
             <n-slider
               v-model:value="settings.draft.jianpuShortNoteGapPercent"
-              :min="60"
-              :max="140"
+              :min="20"
+              :max="180"
               :step="1"
             />
             <n-input-number
               v-model:value="settings.draft.jianpuShortNoteGapPercent"
-              :min="60"
-              :max="140"
+              :min="20"
+              :max="180"
               :step="1"
               size="small"
             >
