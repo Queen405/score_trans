@@ -59,15 +59,21 @@
 四个子模块共用一套"脏状态"判定(D7,与渲染 stale 解耦):
 
 ```
-workspace.ts 新增:
-  batchOcrUserEdited: Record<batchId, boolean>   // 仅用户编辑 OCR 时置 true
-  markBatchOcrUserEdited(batchId)                 // setBatchRenderPageOcrText(dirty=true) 内调用
-  markBatchOcrSaved(batchId)                      // 保存成功后清
-  currentBatchOcrUserEdited: computed             // 当前批次
-  hasUnsavedChanges = computed(全部批次: 简谱脏 ∪ OCR 用户编辑 ∪ 无批次兜底 jianpuDirty)
+workspace.ts 新增两个独立标志(均按前端 batchId 索引,loadBatch 新建批次时默认 false):
+  batchOcrUserEdited: Record<batchId, boolean>      // 用户编辑最终视图 OCR 文字层
+  batchAttachmentUserEdited: Record<batchId, boolean>  // 用户编辑文字浮层附件
+  markBatchOcrUserEdited(batchId)                  // setBatchRenderPageOcrText(dirty=true) 内调用
+  markBatchAttachmentUserEdited(batchId)           // handleTextAttachmentUpdate 内调用(按 page.batchId)
+  markBatchOcrSaved(batchId)                       // 保存成功 / renderFinalBatch OCR 持久化成功 后清
+  markBatchAttachmentSaved(batchId)                 // 保存成功后清(渲染流程不持久化附件)
+  currentBatchOcrUserEdited: computed
+  currentBatchAttachmentUserEdited: computed
+  hasUnsavedChanges = computed(全部批次: 简谱脏 ∪ OCR 用户编辑 ∪ 附件编辑 ∪ 无批次兜底 jianpuDirty)
 ```
 
-- R1 提示:当前批次(`currentBatchJianpuDirty || currentBatchOcrUserEdited`)
+**置/清规则**:用户编辑入口置 true;持久化成功才清(渲染流程因吞错无条件清,见 3 节事实 1,故必须等 helper 返回成功再清)。批量 `setBatchRenderPageOcrTexts`(loadBatch/renderFinalBatch 调用)**不清标志**(在持久化之前调用,持久化可能失败)。
+
+- R1 提示:当前批次(`currentBatchJianpuDirty || currentBatchOcrUserEdited || currentBatchAttachmentUserEdited`)
 - R3 守卫:同 R1
 - R2 关闭:全部批次脏(`hasUnsavedChanges`),防止切批次后漏判
 - S1 严格/宽松分层:
@@ -88,11 +94,13 @@ ConvertView.vue 标题处(ConvertView.vue:308):
 
 ```ts
 const unsavedHintVisible = computed(() =>
-  store.currentBatchJianpuDirty || store.currentBatchOcrUserEdited,
+  store.currentBatchJianpuDirty
+  || store.currentBatchOcrUserEdited
+  || store.currentBatchAttachmentUserEdited,
 )
 ```
 
-样式:warning 色前缀圆点 + 10px 文字,与 `panel-filename` 同风格。编辑即亮(`setBatchJianpuText(dirty=true)` / `setBatchRenderPageOcrText(dirty=true)` 置新标志),保存成功即灭(`markBatchJianpuClean` + `markBatchOcrSaved`)。**注:最终渲染视图下同样显示**(OCR 文字层编辑也是未保存更改)。**加载"渲染过期"的历史批次不触发提示**(D7 解耦,这是与旧 OCR 脏 map 的关键区别)。
+样式:warning 色前缀圆点 + 10px 文字,与 `panel-filename` 同风格。编辑即亮(简谱编辑 / OCR 文字层 / 文字浮层 三类入口置新标志),保存成功即灭(`markBatchJianpuClean` + `markBatchOcrSaved` + `markBatchAttachmentSaved`)。**注:最终渲染视图下同样显示**(OCR/附件编辑也是未保存更改)。**加载"渲染过期"的历史批次不触发提示**(D7 解耦,这是与旧 OCR 脏 map 的关键区别)。**重新渲染成功后 OCR 提示应灭**(renderFinalBatch OCR 持久化成功清 `batchOcrUserEdited`;附件提示不灭,因渲染不持久化附件)。
 
 ## 6. R2 关闭确认流程
 
@@ -183,16 +191,17 @@ listenRequestSaveAll(handler: () => Promise<boolean>)  // ConvertView 注册,返
 ConvertView 实现 `saveAllDirtyBatchesForClose(): Promise<boolean>`:
 
 ```
-1. 当前批次脏(简谱 ∪ OCR 用户编辑)→ performJianpuSave()(完整保存,复用 S1 重构产物)
-   成功后 markBatchOcrSaved + markBatchJianpuClean
+1. 当前批次脏(简谱 ∪ OCR 用户编辑 ∪ 附件编辑)→ performJianpuSave()(完整保存,复用 S1 重构产物)
+   成功后 markBatchOcrSaved + markBatchAttachmentSaved + markBatchJianpuClean
    失败 → return false
-2. 其余脏批次(简谱脏 ∪ OCR 用户编辑 的并集,排除当前批次)逐个:
+2. 其余脏批次(简谱脏 ∪ OCR 用户编辑 ∪ 附件编辑 的并集,排除当前批次)逐个:
    a. 已有 historyBatchId → save-all 单调用(D4):
-      jianpu_text + page_texts(按分页标记拆分的各页文本)
-      + (OCR 用户编辑时) render_page_ocr_texts;渲染页字段不传(D6 → stale 默认 True,正确标记需重渲染)
+      jianpu_text + page_patches(每页 PageUpdate 补丁:含 jianpu_text + 附件 + ocr_text,见 8.1)
+      + (OCR 用户编辑时) render_page_ocr_texts(经 store.batchRenderPageOcrTextsFor(batchId))
+      渲染页字段不传(D6 → stale 默认 True,正确标记需重渲染)
    b. 从未保存(无 historyBatchId)→ POST /history 创建
-      (从 store.pages 组装该批次页面 + 批次文本按分页拆到各页;render 字段一并传入,D9)
-   每批成功 → 清该批 dirty/ocrUserEdited 标志;失败 → log.addError + return false
+      (从 store.pages 组装该批次页面:每页 jianpu_text/ocr_text/text_attachments/svg 等;render 字段一并传入,D9)
+   每批成功 → 清该批 dirty/ocrUserEdited/attachmentUserEdited 标志;失败 → log.addError + return false
 3. 全部成功 → return true
 ```
 
@@ -240,21 +249,25 @@ function confirmDiscardUnsaved(action: '重置' | '恢复历史版本'): Promise
 **Schema**(models/history/schemas.py):
 
 ```python
-class BatchSavePageText(BaseModel):
+class BatchSavePagePatch(BaseModel):
     page_id: int
-    jianpu_text: str = ""
+    patch: PageUpdate                 # 每页完整补丁(jianpu_text/ocr_text/text_attachments 等,可选字段)
 
 class BatchSaveRequest(BaseModel):
     jianpu_text: str
     source: Literal["save", "reset"] = "save"
     current_page_id: int | None = None
     current_page: PageUpdate | None = None          # 当前页全量字段补丁
-    page_texts: list[BatchSavePageText] = Field(default_factory=list)  # 其余页文本(重复 page_id → ValueError)
+    page_patches: list[BatchSavePagePatch] = Field(default_factory=list)  # 其余页补丁(page_id 重复或与 current_page_id 冲突 → ValueError)
     render_page_file_ids: list[str] | None = None   # None = 不修改
     render_layout_key: str | None = None            # None = 不修改
     render_page_ocr_texts: list[RenderPageOcrText] | None = None  # None = 不修改
     render_output_stale: bool = True                # D6:安全默认=需重渲染;提供渲染页且新鲜时显式传 False
 ```
+
+**page_patches 升级理由(二轮修订 R)**:旧 `page_texts` 只能存 jianpu_text,会延续"非当前页的 text_attachments / ocr_text 保存即丢"既有缺陷(见 3 节事实 3)。改用 PageUpdate 补丁后:
+- saveJianpu 路径:其它页补丁带 jianpu_text(沿用 `persistOtherHistoryPageSections` 拆分)+ text_attachments/ocr_text(从 store 取最新值,幂等),**顺带修复非当前页附件持久化**
+- 关闭保存其它批次:同机制覆盖附件/OCR 编辑,实现"保存并关闭"对附件编辑的承诺
 
 **stale 语义(审查修订 B)**:凡 `render_page_file_ids` 未提供(只改文本)→ `render_output_stale` 按请求值落库(默认 True),与现有 `update_batch_jianpu_text` 无条件置 1 的语义对齐——防止"文本已更新、渲染标记新鲜、加载显示旧渲染"的数据错误。
 
@@ -265,22 +278,22 @@ class BatchSaveRequest(BaseModel):
 ```python
 def save_batch(self, batch_id, *, jianpu_text, source="save",
                current_page_id=None, current_page_fields=None,
-               page_texts=None, render_page_file_ids=None,
+               page_patches=None, render_page_file_ids=None,
                render_layout_key=None, render_page_ocr_texts=None,
-               render_output_stale=False) -> HistoryBatch | None:
+               render_output_stale=True) -> HistoryBatch | None:
     with self._connect() as conn:
-        # 0) 批次不存在 → None(→404);current_page_id / page_texts 任一页
-        #    不属于该批次 → ValueError(→400),此时零写入(原子性由异常回滚保证)
+        # 0) 批次不存在 → None(→404);current_page_id / page_patches 任一页
+        #    不属于该批次,或 page_id 重复/与 current_page_id 冲突 → ValueError(→400),零写入(异常回滚)
         # 1) UPDATE history_batch SET jianpu_text=?, render_output_stale=?
-        # 2) 可选:render_page_file_ids / render_page_ocr_texts(None 不动)
-        # 3) 可选:当前页动态 UPDATE(复用 update_page 的字段拼装逻辑,抽公共 helper)
-        # 4) page_texts 批量 UPDATE history_page SET jianpu_text=?
-        # 5) 快照写入(去重 + 插入 + 裁剪到 3 条,与 push_snapshot 同逻辑,同事务)
+        # 2) 可选:render_page_file_ids / render_page_ocr_texts(None 不动);render_page_file_ids 提供时同步 engine_version/render_layout_key
+        # 3) 可选:当前页动态 UPDATE —— 复用从 update_page 抽出的连接级 helper _apply_page_updates(conn, page_id, fields)
+        # 4) page_patches 批量 UPDATE history_page(逐页 _apply_page_updates)
+        # 5) 快照写入 —— 复用从 push_snapshot 抽出的连接级 helper _push_snapshot_locked(conn, batch_id, text, source)(去重+插入+裁剪)
         conn.commit()
         return self._row_to_batch(conn, refreshed_row)
 ```
 
-原子性依据:全部 UPDATE 在同一 `with self._connect()` 事务内,任一步抛异常(校验失败/SQLite 错误)→ 整体回滚,不留半保存状态。
+原子性依据:全部 UPDATE 在同一 `with self._connect()` 事务内,任一步抛异常 → 整体回滚,不留半保存状态。`update_page` / `push_snapshot` 原方法重构为调用同名 conn 级 helper(各自仍开自己的连接),行为不变。
 
 **Service / Actions / Routes**:照三层惯例转发;actions 校验缺失批次抛 `FileNotFoundError`(→404),非法页归属抛 `ValueError`(→400),复用全局异常处理器,不新增 HTTPException。
 
@@ -288,13 +301,14 @@ def save_batch(self, batch_id, *, jianpu_text, source="save",
 
 - `pnpm generate:api-types` 重生契约,contracts.ts/types.ts 补 `HistoryBatchSaveRequest` 别名,history.ts 加 `saveBatch(id, req)`。
 - **`persistRenderedHistory` 更新分支收敛为单次 `saveBatch` 调用**:
-  - 组装 `current_page_id` + `current_page`(现 payload 不变)+ `page_texts`(吸收原 `persistOtherHistoryPageSections` 的分页拆分逻辑,只拆文本不再逐页发请求;**其对 store 的 `patchPageById` 分节同步保留在客户端**,仅收敛 API 调用)+ render 字段 + OCR 文本 + 显式 `render_output_stale`(传 `store.currentBatchRenderOutputStale`)
+  - 组装 `current_page_id` + `current_page`(现 payload 不变)+ `page_patches`(吸收原 `persistOtherHistoryPageSections` 的分页拆分逻辑,但补丁升级为 PageUpdate:除 jianpu_text 外带 text_attachments/ocr_text,从 store 取最新值幂等写入,**顺带修复非当前页附件持久化缺陷**;**其对 store 的 `patchPageById` 分节同步保留在客户端**,仅收敛 API 调用)+ render 字段 + **总是**包含 `render_page_ocr_texts`(`store.currentBatchRenderPageOcrTextEntries()` 全量条目,与现状一致,保证 OCR 层与 store 同步)+ 显式 `render_output_stale`(传 `store.currentBatchRenderOutputStale`)
   - 删除 `persistOtherHistoryPageSections`、更新分支内的 `persistBatchRenderPages`/`persistBatchRenderPageOcrTexts`/`persistBatchJianpuText` 串行调用
-- **创建分支收敛为单次 POST(D9)**:render_page_file_ids/render_page_ocr_texts/render_output_stale/render_layout_key 直接并入 `historyApi.create` 请求(`BatchCreateRequest` 已有这些字段),删除创建后的两次 PATCH;其后的 store 同步调用维持宽松(数据已落库,失败仅影响内存态)。`renderFinalBatch` 内的 `persistBatchRenderPages`/`persistBatchRenderPageOcrTexts` 调用保留(渲染流程持久化,宽松层)
+- **创建分支收敛为单次 POST(D9)**:render_page_file_ids/render_page_ocr_texts/render_output_stale/render_layout_key 直接并入 `historyApi.create` 请求(`BatchCreateRequest` 已有这些字段),删除创建后的两次 PATCH;其后的 store 同步与 `loadHistory()` 历史刷新维持宽松(数据已落库,失败仅影响内存态)。`renderFinalBatch` 内的 `persistBatchRenderPages`/`persistBatchRenderPageOcrTexts` 调用保留(渲染流程持久化,宽松层),但 `persistBatchRenderPageOcrTexts` 需**返回成功布尔**,仅成功时清 `batchOcrUserEdited`(二轮修订 J)
 - **`persistCorrectionState`(重置/标记修正)迁移到 save-all**:
-  - 重置:`jianpu_text=nextBatchText, source='reset', current_page=<页面补丁>, page_texts=[]`(其余页不动)
+  - 重置:`jianpu_text=nextBatchText, source='reset', current_page=<页面补丁>, page_patches=[]`(其余页不动)
   - 标记修正:`source='save'`,同构
   - 由此重置路径同样获得原子性,且失败必然上浮到 `resetAll`/`applyCorrection` 的既有 catch → 错误 toast
+  - `resetAll` 成功后清 OCR/附件用户编辑标志(重置把 OCR 与附件恢复初始态);`restoreJianpuSnapshot` **不清**这两个标志(恢复只换简谱文本,OCR/附件未动,仍属未保存)
 - **`persistBatchJianpuText` 删除**(两个调用方均已迁移;RecognizeView 后台保存是直接调 API,不受影响,维持宽松 warn——后台语义正确)
 - **`saveJianpu` 重构**:
 
@@ -308,7 +322,8 @@ async function saveJianpu(): Promise<void> {
   try {
     if (await performJianpuSave()) {
       store.markBatchJianpuClean()
-      store.markBatchOcrSaved()      // 审查修订 A:保存成功清 OCR 用户编辑标志
+      store.markBatchOcrSaved()            // 审查修订 A:保存成功清 OCR 用户编辑
+      store.markBatchAttachmentSaved()      // 二轮修订 K:保存成功清附件用户编辑
       message.success('已保存')      // 只有真正成功才提示
     }
     // 失败:performJianpuSave 已 toast,dirty 保持 → R1 提示仍亮
@@ -333,7 +348,7 @@ async function saveJianpu(): Promise<void> {
 | 文件 | 改动 |
 |---|---|
 | `models/history/schemas.py` | `BatchSavePageText`、`BatchSaveRequest` |
-| `dao/history/history_dao.py` | `save_batch` 单事务方法 + 抽取页更新拼装 helper |
+| `dao/history/history_dao.py` | `save_batch` 单事务方法 + 抽取 `_apply_page_updates`/`_push_snapshot_locked` 连接级 helper |
 | `services/history/history_service.py` | 转发 |
 | `exec/history/actions.py` | `save_batch` action(校验/异常) |
 | `api/history/routes.py` | `PATCH /{batch_id}/save-all` |
@@ -349,7 +364,7 @@ async function saveJianpu(): Promise<void> {
 | 文件 | 改动 |
 |---|---|
 | `utils/appCloseEvents.ts`(新增) | 保存请求/结果事件桥(含无监听者防悬挂) |
-| `stores/workspace.ts` | `batchOcrUserEdited` 标志族 + `hasUnsavedChanges` computed |
+| `stores/workspace.ts` | `batchOcrUserEdited` + `batchAttachmentUserEdited` 标志族 + `hasUnsavedChanges` computed |
 | `App.vue` | n-dialog-provider、关闭确认弹窗、confirm-close 编排、ready 上报 |
 | `views/ConvertView.vue` | R1 提示、R3 守卫、performJianpuSave 重构、persistRenderedHistory/persistCorrectionState 迁移 save-all、saveAllDirtyBatchesForClose、删除 persistBatchJianpuText/persistOtherHistoryPageSections |
 | `api/history.ts` | `saveBatch` |
@@ -376,6 +391,9 @@ async function saveJianpu(): Promise<void> {
 |---|---|
 | 编辑文本 | "简谱编辑"右侧立即出现"当前有更改未保存" |
 | 编辑最终视图 OCR 文字层 | 同样出现提示 |
+| 编辑最终视图文字浮层附件 | 同样出现提示 |
+| **编辑 OCR 后点"渲染"重新渲染** | **提示消失**(OCR 已随渲染落库,清 OCR 标志);若同时有附件编辑则附件提示仍在 |
+| **编辑附件后点"渲染"** | 提示仍在(渲染不持久化附件) |
 | 点保存(成功) | 提示消失,弹"已保存" |
 | **加载"渲染过期"的历史批次(未编辑)** | **不出现提示**(D7 解耦验证) |
 | 模拟保存失败(停后端再保存) | 弹"保存失败",**不弹"已保存"**,提示仍亮 |
@@ -383,8 +401,9 @@ async function saveJianpu(): Promise<void> {
 | 编辑后 Alt+F4 / 任务栏关闭 | 同上(三路全覆盖) |
 | 确认窗-取消 | 窗口保留,提示仍亮 |
 | 确认窗-直接关闭 | 立即退出 |
-| 确认窗-保存并关闭(脏批次 A+B) | A、B 均落库(历史里查得到)后退出 |
+| 确认窗-保存并关闭(脏批次 A+B) | A、B 均落库(含附件/OCR)后退出 |
 | 保存并关闭-某批次失败 | 报错不关窗,脏提示保持 |
+| **脏批次 B 含附件编辑,保存并关闭** | B 的附件落库(page_patches 覆盖) |
 | **busy(后台渲染中)点关闭** | "保存并关闭"禁用并提示任务处理中 |
 | 干净状态直接关闭 | 无弹窗直接退出 |
 | 设置页改数据目录(重启) | 不弹确认直接重启(D2) |
@@ -394,6 +413,7 @@ async function saveJianpu(): Promise<void> {
 | 干净状态重置/恢复 | 无弹窗,行为同现在 |
 | 保存后快照列表 | 新快照与文本一致(同事务) |
 | **只改文本保存(未重渲染)后重新加载该批次** | **stale=1,自动重渲染**(D6 验证) |
+| **保存批次的多页,非当前页的附件编辑** | 落库(page_patches 修复既有缺陷) |
 
 ## 12. 边界与已知限制
 
@@ -403,6 +423,8 @@ async function saveJianpu(): Promise<void> {
 - **识别任务进行中关闭**:后端进程随应用退出被杀,任务中断——既有行为,不在本方案范围(后台任务已有历史状态持久化)。
 - **"合入识别结果"pending 页**不属于"未保存编辑"(是待合并的识别产物,有独立交互),不纳入脏判定。
 - **跨批次无事务**:多批次保存以"批次"为原子单位,批次 A 成功、批次 B 失败时 A 已落库——但关闭被阻止,用户可重试,无数据丢失。
+- **同一历史批次被两次加载**:同一 historyBatchId 对应两个前端批次(两次 loadBatch),两者皆脏时关闭保存会对同一 DB 批次写两次(后者覆盖前者),且快照推两次(若文本相同则第二次被去重)。罕见边角,接受。
+- **模态叠加**:关闭确认弹窗可能叠加在设置页"放弃更改"弹窗之上,Naive modal 自动层叠,可接受。
 - **后台 auto 保存失败仍为 warn 日志**(RecognizeView):后台语义,无用户动作可失败,维持现状。
 - 平台:仅 Windows(项目现状)。
 
@@ -419,3 +441,12 @@ async function saveJianpu(): Promise<void> {
 | G | 低 | dev 热重载 ready 间隙 | 记录限制,接受 |
 | H | 低 | OS 关机被拦截 → 强杀丢编辑 | 记录限制,接受 |
 | I | 低 | `persistOtherHistoryPageSections` 的客户端分节同步需保留 | 已在 8.2 明确:仅收敛 API 调用 |
+| J | 中高 | 重新渲染后 OCR 编辑已落库但标志不清 → 关窗假阳性(二轮) | `persistBatchRenderPageOcrTexts` 返回成功布尔,仅成功清 `batchOcrUserEdited`(不挂 `markBatchRenderPageOcrClean`) |
+| K | 中 | 文字附件编辑无脏标志 → R1/R2/R3 不可见(二轮) | 新增 `batchAttachmentUserEdited` 标志,`handleTextAttachmentUpdate` 内置位 |
+| L | 低 | save_batch 单事务需复用 update_page/push_snapshot 的连接级逻辑(二轮) | 抽 `_apply_page_updates` / `_push_snapshot_locked` 两个 conn 级 helper |
+| M | 低 | resetAll 成功后需清 OCR/附件标志;restore 不清(二轮) | 已在 8.2 明确 |
+| N | 低 | saveJianpu 请求须总带全量 OCR 条目(与现状一致)(二轮) | 已在 8.2 明确 |
+| O | 低 | 旧 `PATCH /jianpu-text` 端点仍非事务地写 save/reset 快照(二轮) | 保留不动(在 App 内仅 'auto' 调用方,已跳过快照;风险可忽略) |
+| P | 低 | 同一 historyBatchId 被两次加载的边角(二轮) | 记录限制 |
+| Q | 低 | 关闭确认弹窗与设置页弹窗叠加(二轮) | 记录限制 |
+| R | 中 | `page_texts` 仅 jianpu_text → 沿袭"非当前页附件/OCR 保存即丢"既有缺陷(二轮) | schema 升级为 `page_patches`(PageUpdate 补丁),顺带修复 |

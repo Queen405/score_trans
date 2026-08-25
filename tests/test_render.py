@@ -43,6 +43,7 @@ from score_trans.services.render.engraving.renderer import (
     _event_positions,
     _event_visual_extents,
     _intrinsic_measure_width,
+    _rhythm_line_base,
     _system_extra_height,
 )
 from score_trans.services.render.engraving.scene import BBox, PublicationScene
@@ -739,6 +740,38 @@ def test_rhythm_runs_share_lowest_safe_baseline_in_a_measure() -> None:
 
     assert len(lines) == 2
     assert float(lines[0].attrs["y1"]) == float(lines[1].attrs["y1"])
+
+
+def test_rhythm_lines_ignore_non_rhythmic_high_chord_for_shared_baseline() -> None:
+    high_chord = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[
+            JianpuPitch(7, octave=2),
+            JianpuPitch(5, octave=1),
+            JianpuPitch(3),
+            JianpuPitch(1, octave=-1),
+        ],
+        voice="1",
+    )
+    rhythmic = Event(
+        kind="note",
+        duration=Fraction(1, 2),
+        pitches=[JianpuPitch(3)],
+        voice="1",
+    )
+    scene = PublicationScene(320.0, 180.0, 0)
+    anchors = [
+        _Anchor(130.0, 100.0, BBox(120.0, 70.0, 20.0, 60.0), high_chord),
+        _Anchor(220.0, 100.0, BBox(210.0, 90.0, 20.0, 28.0), rhythmic),
+    ]
+
+    _draw_rhythm_lines(scene, anchors, style=PublicationStyle())
+    line = next(
+        node for node in scene.nodes if "duration-line" in node.attrs.get("class", "")
+    )
+
+    assert float(line.attrs["y1"]) == _rhythm_line_base(anchors[1], PublicationStyle())
 
 
 def test_octave_dots_clear_actual_note_ink_bounds() -> None:

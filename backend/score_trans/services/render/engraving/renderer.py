@@ -1402,8 +1402,23 @@ def _draw_rhythm_lines(
     right_limit: float | None = None,
     style: PublicationStyle | None = None,
 ) -> None:
+    baseline_anchors = [
+        anchor
+        for anchor in anchors
+        if (
+            (
+                not _is_tuplet(anchor.event)
+                and _rhythm_line_count(anchor.event) > 0
+                and not anchor.event.beams
+            )
+            or any(beam.number.isdigit() for beam in anchor.event.beams)
+        )
+    ]
     shared_baseline = (
-        max((_rhythm_line_base(anchor, style) for anchor in anchors), default=0.0)
+        max(
+            (_rhythm_line_base(anchor, style) for anchor in baseline_anchors),
+            default=0.0,
+        )
         if style is not None
         else None
     )
