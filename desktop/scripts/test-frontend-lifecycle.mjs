@@ -4,6 +4,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { compileTemplate, parse } from 'vue/compiler-sfc'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const source = (relativePath) => fs.readFileSync(path.resolve(here, relativePath), 'utf8')
@@ -48,31 +49,15 @@ function isInsideScriptSetup(vueSource, token) {
 }
 
 function countTemplateRoots(vueSource) {
-  const templateStart = vueSource.indexOf('<template>')
-  const scriptStart = vueSource.indexOf('<script setup', templateStart)
-  const templateEnd = vueSource.lastIndexOf('</template>', scriptStart)
-  const templateSource = vueSource.slice(templateStart + '<template>'.length, templateEnd)
-  const voidElements = new Set([
-    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link',
-    'meta', 'param', 'source', 'track', 'wbr',
-  ])
-  let depth = 0
-  let roots = 0
-
-  const tagPattern = /<!--[\s\S]*?-->|<\/?([\w-]+)(?:\s+(?:[^'"<>]|'[^']*'|"[^"]*"\s*)*)?\s*\/?>/g
-  for (const match of templateSource.matchAll(tagPattern)) {
-    const token = match[0]
-    if (token.startsWith('<!--')) continue
-    if (token.startsWith('</')) {
-      depth--
-      continue
-    }
-    if (depth === 0) roots++
-    const tagName = match[1].toLowerCase()
-    if (!token.endsWith('/>') && !voidElements.has(tagName)) depth++
-  }
-
-  return roots
+  const { descriptor } = parse(vueSource, { filename: 'ConvertView.vue' })
+  assert.ok(descriptor.template)
+  const result = compileTemplate({
+    source: descriptor.template.content,
+    filename: 'ConvertView.vue',
+    id: 'workspace-root-check',
+  })
+  assert.deepEqual(result.errors, [])
+  return result.ast.children.filter((child) => child.type === 1).length
 }
 
 test('log state is bounded and LogPanel uses its stable entry ids', () => {
