@@ -175,9 +175,20 @@
               <div class="log-body">
                 <div class="log-columns">
                   <section class="log-column">
-                    <h3 class="log-column-title">
-                      运行日志
-                    </h3>
+                    <div class="log-column-head">
+                      <h3 class="log-column-title">
+                        运行日志
+                      </h3>
+                      <button
+                        class="log-clear-btn"
+                        type="button"
+                        :disabled="!logStore.entries.length"
+                        title="清除运行日志"
+                        @click="logStore.clear()"
+                      >
+                        清除
+                      </button>
+                    </div>
                     <log-panel />
                   </section>
                   <section class="log-column syntax-column">
@@ -830,6 +841,40 @@ body {
   color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 600;
+}
+
+.log-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.log-column-head .log-column-title {
+  padding-right: 0;
+}
+
+.log-clear-btn {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.log-clear-btn:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--bg-hover, rgba(128, 128, 128, 0.12));
+}
+
+.log-clear-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .log-column .log-panel {

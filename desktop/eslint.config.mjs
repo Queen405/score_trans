@@ -56,4 +56,10 @@ export default tseslint.config(
       "vue/multi-word-component-names": "off",
     },
   },
+  {
+    files: ["src/renderer/src/components/AiAssistant.vue"],
+    rules: {
+      "vue/no-v-html": "off",
+    },
+  },
 );

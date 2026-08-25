@@ -420,6 +420,10 @@ import {
   restoreJianpuPageText,
   serializeJianpuPageSections,
 } from '../utils/jianpuPageSections'
+import {
+  hasJianpuTextEdits,
+  preserveEditedJianpuText,
+} from '../utils/jianpuTextState'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
 import { trackTextAnchors } from '../utils/textAnchorTracking'
@@ -694,6 +698,13 @@ function currentSectionBodyOffset(): number {
   if (markerOffset < 0) return 0
   const bodyStart = markerOffset + section.markerLine.length
   return jianpuText.value[bodyStart] === '\n' ? bodyStart + 1 : bodyStart
+}
+
+function currentPageJianpuText(text = jianpuText.value): string {
+  const sections = parseJianpuPageSections(text)
+  const localIndex = Math.max(0, currentBatchLocalIndex.value)
+  const section = sections.find((item) => item.pageIndex === localIndex) ?? sections[localIndex]
+  return section?.body ?? store.currentPage?.jianpuText ?? text
 }
 watch(() => store.svgFileIds, () => {
   if (!isViewingFinal.value) finalSvgFileIds.value = currentPageSvgIds()
@@ -1742,6 +1753,14 @@ async function applyCorrections(): Promise<void> {
     message.info('没有未应用的改动')
     return
   }
+  const editedPageText = currentPageJianpuText()
+  const batchWasDirty = store.currentBatchJianpuDirty
+  const preserveEditedText = await hasJianpuTextEdits(
+    editedPageText,
+    page.jianpuText,
+    page.textHash,
+    page.jianpuDirty,
+  )
   applying.value = true
   try {
     const data = await requireData(correctApi.apply({
@@ -1765,22 +1784,31 @@ async function applyCorrections(): Promise<void> {
       return
     }
     const svgFileIds = data.svg_file_ids ?? []
+    const nextPageText = preserveEditedJianpuText(
+      editedPageText,
+      data.jianpu_text,
+      preserveEditedText,
+    )
     const nextBatchText = replaceJianpuSectionBody(
       jianpuText.value,
       Math.max(0, currentBatchLocalIndex.value),
-      data.jianpu_text,
+      nextPageText,
       { inputFileName: page.inputFileName },
     )
+    const nextSvgFileIds = preserveEditedText ? [] : svgFileIds
     store.patchPageById(page.id, {
       workingMusicxml: data.working_musicxml,
-      jianpuText: data.jianpu_text,
+      jianpuText: nextPageText,
+      jianpuDirty: preserveEditedText,
       deletedSourceIds: [...deletedEntityIds.value],
-      textAnchors: data.text_anchors ?? [],
+      textAnchors: preserveEditedText ? page.textAnchors : (data.text_anchors ?? []),
+      // Keep the backend hash as the canonical source-text baseline. A mismatch
+      // is how restored manual edits are detected on the next correction.
       textHash: data.text_hash,
-      svgFileId: svgFileIds[0] ?? '',
-      svgFileIds,
+      svgFileId: nextSvgFileIds[0] ?? '',
+      svgFileIds: nextSvgFileIds,
     })
-    store.setBatchJianpuText(nextBatchText, false)
+    store.setBatchJianpuText(nextBatchText, batchWasDirty || preserveEditedText)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
     await persistCorrectionState(page.id, nextBatchText)

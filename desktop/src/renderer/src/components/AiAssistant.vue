@@ -145,7 +145,7 @@
             :class="['ai-message', message.role]"
             :data-message-id="message.id"
           >
-            <!-- eslint-disable-next-line vue/no-v-html -->
+            <!-- v-html 安全：renderMarkdown 已对全部文本做 HTML 转义后再包裹结构标签 -->
             <div
               v-if="message.role === 'assistant'"
               class="ai-message-content ai-md"

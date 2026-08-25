@@ -21,6 +21,22 @@ const compiled = ts.transpileModule(source, {
 const utilsModuleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 const utils = await import(utilsModuleUrl)
 
+const jianpuTextStateSourcePath = path.resolve(
+  here,
+  '../src/renderer/src/utils/jianpuTextState.ts',
+)
+const jianpuTextStateSource = fs.readFileSync(jianpuTextStateSourcePath, 'utf8')
+const jianpuTextStateCompiled = ts.transpileModule(jianpuTextStateSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: jianpuTextStateSourcePath,
+}).outputText
+const jianpuTextState = await import(
+  `data:text/javascript;base64,${Buffer.from(jianpuTextStateCompiled).toString('base64')}`
+)
+
 const batchRenderSourcePath = path.resolve(
   here,
   '../src/renderer/src/utils/batchRender.ts',
@@ -548,6 +564,38 @@ test('marker correction uses the registered backend route and persists source st
   assert.match(convertViewSource, /omr_file_id:\s*page\.omrFileId/)
   assert.match(convertViewSource, /deleted_source_ids:\s*page\.deletedSourceIds/)
   assert.doesNotMatch(convertViewSource, /source_map_file_id:\s*[^,]+\|\|\s*undefined/)
+})
+
+test('marker correction preserves dirty Jianpu text instead of replacing it', () => {
+  assert.match(convertViewSource, /hasJianpuTextEdits\(/)
+  assert.match(convertViewSource, /preserveEditedJianpuText/)
+})
+
+test('Jianpu edit detection survives history restore through the canonical text hash', async () => {
+  const canonical = '1=C\n4/4\n1 2 3 4 |'
+  const edited = '1=C\n4/4\n1 2 3 4 |\n// 用户编辑'
+  const canonicalHash = await jianpuTextState.hashJianpuText(canonical)
+
+  assert.equal(
+    await jianpuTextState.hasJianpuTextEdits(canonical, canonical, canonicalHash),
+    false,
+  )
+  assert.equal(
+    await jianpuTextState.hasJianpuTextEdits(edited, canonical, canonicalHash),
+    true,
+  )
+  assert.equal(
+    await jianpuTextState.hasJianpuTextEdits(edited, edited, canonicalHash),
+    true,
+  )
+  assert.equal(
+    jianpuTextState.preserveEditedJianpuText(edited, '1=C\n4/4\n1 2 3 |', true),
+    edited,
+  )
+  assert.equal(
+    jianpuTextState.preserveEditedJianpuText(canonical, '1=C\n4/4\n1 2 3 |', false),
+    '1=C\n4/4\n1 2 3 |',
+  )
 })
 
 test('original preview hit targets stay scoped to the displayed source-map sheet', () => {
