@@ -555,14 +555,14 @@ function flashTargets(targets: SVGGraphicsElement[]): void {
   const svg = svgRoot()
   if (!svg || !targets.length) return
   const boxes = targets
-    .map((target) => rootCoordinateBBox(target, svg))
+    .map((target) => targetBBox(target, svg))
     .filter((box): box is { x: number; y: number; width: number; height: number } => !!box)
   if (!boxes.length) return
   const minX = Math.min(...boxes.map((box) => box.x))
   const minY = Math.min(...boxes.map((box) => box.y))
   const maxX = Math.max(...boxes.map((box) => box.x + box.width))
   const maxY = Math.max(...boxes.map((box) => box.y + box.height))
-  const pad = 4
+  const pad = 1
   svg.querySelectorAll('.source-flash-overlay').forEach((node) => node.remove())
   const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
   rect.setAttribute('class', 'source-flash-overlay')
@@ -574,6 +574,20 @@ function flashTargets(targets: SVGGraphicsElement[]): void {
   const cleanup = () => rect.remove()
   rect.addEventListener('animationend', cleanup, { once: true })
   setTimeout(cleanup, 1300)
+}
+
+function targetBBox(
+  target: SVGGraphicsElement,
+  svg: SVGSVGElement,
+): { x: number; y: number; width: number; height: number } | null {
+  const raw = target.getAttribute('data-bbox')
+  if (raw) {
+    const parts = raw.split(/\s+/).map(Number)
+    if (parts.length === 4 && parts.every((value) => Number.isFinite(value))) {
+      return { x: parts[0]!, y: parts[1]!, width: parts[2]!, height: parts[3]! }
+    }
+  }
+  return rootCoordinateBBox(target, svg)
 }
 
 watch(svgUrl, (url) => {
