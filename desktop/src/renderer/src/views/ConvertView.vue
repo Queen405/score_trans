@@ -2505,7 +2505,7 @@ function settleDiscardConfirmation(value: boolean): void {
 .panel-head-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .marker-edit-controls {

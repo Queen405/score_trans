@@ -463,6 +463,7 @@ async function highlightSource(sourceId: string): Promise<boolean> {
     target.classList.add('source-current')
   })
   keepTargetVisible(targets[0]!)
+  flashTargets(targets)
   return true
 }
 
@@ -548,6 +549,31 @@ function keepTargetVisible(target: SVGGraphicsElement): void {
   }
 
   zp.applyTransform()
+}
+
+function flashTargets(targets: SVGGraphicsElement[]): void {
+  const svg = svgRoot()
+  if (!svg || !targets.length) return
+  const boxes = targets
+    .map((target) => rootCoordinateBBox(target, svg))
+    .filter((box): box is { x: number; y: number; width: number; height: number } => !!box)
+  if (!boxes.length) return
+  const minX = Math.min(...boxes.map((box) => box.x))
+  const minY = Math.min(...boxes.map((box) => box.y))
+  const maxX = Math.max(...boxes.map((box) => box.x + box.width))
+  const maxY = Math.max(...boxes.map((box) => box.y + box.height))
+  const pad = 4
+  svg.querySelectorAll('.source-flash-overlay').forEach((node) => node.remove())
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  rect.setAttribute('class', 'source-flash-overlay')
+  rect.setAttribute('x', String(minX - pad))
+  rect.setAttribute('y', String(minY - pad))
+  rect.setAttribute('width', String(maxX - minX + pad * 2))
+  rect.setAttribute('height', String(maxY - minY + pad * 2))
+  svg.appendChild(rect)
+  const cleanup = () => rect.remove()
+  rect.addEventListener('animationend', cleanup, { once: true })
+  setTimeout(cleanup, 1300)
 }
 
 watch(svgUrl, (url) => {
@@ -677,6 +703,24 @@ onUnmounted(() => {
 .svg-inline :deep(.playback-note.playback-current .staccato),
 .svg-inline :deep(.source-anchor.source-current .staccato) {
   fill: #d97706;
+}
+
+.svg-inline :deep(.source-flash-overlay) {
+  fill: rgba(217, 119, 6, 0.22);
+  stroke: #d97706;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  animation: source-flash 1.2s ease-out forwards;
+}
+
+@keyframes source-flash {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  40% { opacity: 0; }
+  55% { opacity: 1; }
+  85% { opacity: 0; }
+  100% { opacity: 0; }
 }
 
 .svg-loading {
