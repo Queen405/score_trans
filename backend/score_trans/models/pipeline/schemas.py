@@ -38,3 +38,4 @@ class PipelineResponse(BaseModel):
     text_anchors: list[TextAnchor] = []
     text_attachments: list[SourceTextAttachment] = []
     text_hash: str = ""
+    warnings: list[str] = []
