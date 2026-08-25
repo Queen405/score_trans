@@ -11,9 +11,11 @@ from score_trans.exec.pipeline.actions import (
     ScorePipelineOutputs,
     _find_omr_file,
     _generate_overlay,
+    _unmapped_omr_warnings,
 )
 from score_trans.models.common.errors import RenderError
 from score_trans.models.pipeline.schemas import PipelineResponse
+from score_trans.models.provenance.schemas import SourceMap, TextAnchor
 from score_trans.models.score import OCRTextBlock
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
@@ -79,6 +81,57 @@ class CapturingPipeline:
     def execute(self, *args, **kwargs) -> ScorePipelineOutputs:
         self.enable_omr_ocr = kwargs["enable_omr_ocr"]
         return self.outputs
+
+
+def test_unmapped_omr_warnings_identify_noteheads_without_text_anchors() -> None:
+    source_map = SourceMap.model_validate(
+        {
+            "version": 1,
+            "sheets": [
+                {
+                    "sheet_index": 1,
+                    "width": 100,
+                    "height": 100,
+                    "overlay_file": "overlay.png",
+                    "elements": [
+                        {
+                            "source_id": "s1:i10",
+                            "inter_id": 10,
+                            "shape": "NOTEHEAD_BLACK",
+                            "grade": 0.9,
+                            "bounds": {"x": 0, "y": 0, "width": 10, "height": 10},
+                            "hit_path": "M0 0",
+                            "musicxml_locator": {
+                                "attribute": "id",
+                                "contains": "n-s1-i10",
+                            },
+                        },
+                        {
+                            "source_id": "s1:i11",
+                            "inter_id": 11,
+                            "shape": "SHARP",
+                            "grade": 0.9,
+                            "bounds": {"x": 0, "y": 0, "width": 10, "height": 10},
+                            "hit_path": "M0 0",
+                            "musicxml_locator": {
+                                "attribute": "id",
+                                "contains": "a-s1-i11",
+                            },
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+
+    warnings = _unmapped_omr_warnings(
+        source_map,
+        [TextAnchor(source_id="s1:i11", start_utf16=0, end_utf16=1, role="accidental")],
+    )
+
+    assert warnings == [
+        "第 1 页有 1 个识别音头未进入 MusicXML，未自动写入简谱；请修正原谱后重新识别。"
+    ]
 
 
 def test_pipeline_auxiliary_failures_are_logged_and_degraded(
@@ -244,6 +297,7 @@ def test_pipeline_actions_read_compressed_mxl_as_musicxml(tmp_path: Path) -> Non
                 jianpu_text_path=text_path,
                 jianpu_svg_paths=[svg_path],
                 render_map_paths=[],
+                warnings=["OMR warning"],
             )
         ),
     )
@@ -251,6 +305,7 @@ def test_pipeline_actions_read_compressed_mxl_as_musicxml(tmp_path: Path) -> Non
     response = actions.run_pipeline_from_path(input_path)
 
     assert response.musicxml_text == xml
+    assert response.warnings == ["OMR warning"]
 
 
 def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> None:

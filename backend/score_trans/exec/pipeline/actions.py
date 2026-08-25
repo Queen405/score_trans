@@ -5,7 +5,7 @@ import json
 import logging
 import shutil
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +62,7 @@ class ScorePipelineOutputs:
     text_anchors: list[TextAnchor] | None = None
     text_attachments: list[SourceTextAttachment] | None = None
     text_hash: str = ""
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def jianpu_svg_path(self) -> Path:
@@ -156,6 +157,7 @@ class FullPipelineAction:
         first_score = render_scores[0] if render_scores else None
         source_map = _load_source_map(source_map_path)
         _warn_unanchored_source_elements(source_map, document.anchors)
+        warnings = _unmapped_omr_warnings(source_map, document.anchors)
         source_image_size = _source_image_size(source)
         ocr_blocks = _visible_ocr_blocks(first_score.text_blocks) if first_score else []
         text_attachments = (
@@ -189,6 +191,7 @@ class FullPipelineAction:
             text_anchors=document.anchors,
             text_attachments=text_attachments,
             text_hash=document.text_hash,
+            warnings=warnings,
         )
 
 
@@ -428,6 +431,7 @@ class PipelineActions:
             text_anchors=outputs.text_anchors or [],
             text_attachments=outputs.text_attachments or [],
             text_hash=outputs.text_hash,
+            warnings=outputs.warnings,
         )
 
 
@@ -522,6 +526,37 @@ def _warn_unanchored_source_elements(
                 "有 %d 个识别符号未能进入乐谱（来源标记缺少页码），这些音符在五线谱上不可点击",
                 len(source_ids),
             )
+
+
+def _unmapped_omr_warnings(
+    source_map: SourceMap | None,
+    anchors: list[TextAnchor],
+) -> list[str]:
+    if source_map is None:
+        return []
+
+    anchored_ids = {anchor.source_id for anchor in anchors}
+    missing_by_page = find_unanchored_source_ids(source_map, anchored_ids)
+    elements_by_id = {
+        element.source_id: element
+        for sheet in source_map.sheets
+        for element in sheet.elements
+    }
+    warnings: list[str] = []
+    for page, source_ids in missing_by_page.items():
+        notehead_count = sum(
+            elements_by_id.get(source_id) is not None
+            and elements_by_id[source_id].shape.startswith("NOTEHEAD")
+            for source_id in source_ids
+        )
+        if notehead_count <= 0:
+            continue
+        page_label = f"第 {page} 页" if page > 0 else "原谱"
+        warnings.append(
+            f"{page_label}有 {notehead_count} 个识别音头未进入 MusicXML，"
+            "未自动写入简谱；请修正原谱后重新识别。"
+        )
+    return warnings
 
 
 def _source_image_size(path: Path) -> tuple[int, int] | None:

@@ -130,6 +130,37 @@ def test_musicxml_provenance_produces_exact_utf16_anchors() -> None:
     assert len(document.text_hash) == 64
 
 
+def test_implicit_accidental_provenance_anchors_to_pitch_digit() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions>
+          <key><fifths>1</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note id="st__n-s1-i10__a-s1-i11">
+          <pitch><step>F</step><alter>1</alter><octave>4</octave></pitch>
+          <duration>4</duration>
+          <accidental>sharp</accidental>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    document = score_to_jianpu_document(musicxml_to_score(xml, target_key="auto"))
+    selected = {
+        anchor.source_id: _utf16_slice(
+            document.text, anchor.start_utf16, anchor.end_utf16
+        )
+        for anchor in document.anchors
+    }
+
+    assert selected["s1:i10"] == "7"
+    assert selected["s1:i11"] == "7"
+
+
 def test_augmentation_dot_provenance_produces_clickable_text_anchor() -> None:
     xml = """
     <score-partwise version="4.0">

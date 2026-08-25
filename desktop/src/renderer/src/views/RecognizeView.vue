@@ -1207,6 +1207,7 @@ async function applyPipelineResult(
   historyPageId: number | null,
 ): Promise<void> {
     const split = splitJianpuAndOcr(result.jianpu_text)
+    const warnings = result.warnings ?? []
     let ocrText = returnedPipelineOcrText(result) || split.ocrText
     let svgFileId = result.svg_file_id
     let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
@@ -1238,7 +1239,7 @@ async function applyPipelineResult(
       text_anchor_baseline_anchors: textAnchorBaselineAnchors,
       text_attachments: textAttachments,
       status: 'completed',
-      error_message: '',
+      error_message: warnings.join('；'),
       omr_file_id: result.omr_file_id ?? '',
       musicxml_text: result.musicxml_text ?? '',
     }
@@ -1263,7 +1264,7 @@ async function applyPipelineResult(
       status: 'completed',
       progressPercent: 100,
       progressMessage: '识别完成',
-      errorMessage: '',
+      errorMessage: warnings.join('；'),
       omrFileId: result.omr_file_id ?? '',
       originalMusicxml: result.musicxml_text ?? '',
       workingMusicxml: result.musicxml_text ?? '',
@@ -1272,8 +1273,17 @@ async function applyPipelineResult(
     await syncBatchJianpuTextForPage(target.pageId)
     void maybeRenderCompletedBatchForPage(target.pageId)
     clearOwnedLiveRecognitionPage(target.pageId)
-    log.addLog(`识别完成：${target.inputFileName}`)
-    message.success(`识别完成：${target.inputFileName}`)
+    log.addLog(
+      warnings.length
+        ? `识别完成，但有 ${warnings.length} 条警告：${target.inputFileName}`
+        : `识别完成：${target.inputFileName}`,
+      warnings.length ? 'warn' : 'info',
+    )
+    if (warnings.length) {
+      message.warning(warnings.slice(0, 3).join('；'))
+    } else {
+      message.success(`识别完成：${target.inputFileName}`)
+    }
 }
 
 async function applyAiResult(

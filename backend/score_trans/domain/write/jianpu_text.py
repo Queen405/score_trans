@@ -516,6 +516,20 @@ def _append_event_anchors(
                         absolute_start + pitch_offset + accidental_span[1],
                         "accidental",
                     )
+                elif degree_match:
+                    # In auto mode, a written accidental can be represented by
+                    # the target-key spelling without an explicit #/b/n token.
+                    # Keep the source clickable by anchoring it to the pitch
+                    # digit instead of reporting it as an unmapped symbol.
+                    degree_start = absolute_start + pitch_offset + degree_match.start()
+                    _append_anchor(
+                        anchors,
+                        seen,
+                        pitch.accidental_source_id,
+                        degree_start,
+                        degree_start + 1,
+                        "accidental",
+                    )
             pitch_cursor = pitch_offset + len(pitch_token)
 
     if event.slur_start:

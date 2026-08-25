@@ -2158,6 +2158,11 @@ export type components = {
              * @default
              */
             text_hash?: string;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings?: string[];
         };
         /** PreservingLayoutRequest */
         PreservingLayoutRequest: {
