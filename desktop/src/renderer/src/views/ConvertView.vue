@@ -1849,7 +1849,11 @@ async function applyCorrections(): Promise<void> {
       editedPageText,
       data.jianpu_text,
       preserveEditedText,
+      page.jianpuText,
     )
+    const nextTextAnchors = preserveEditedText
+      ? trackTextAnchors(data.jianpu_text, nextPageText, data.text_anchors ?? []).anchors
+      : (data.text_anchors ?? [])
     const nextBatchText = replaceJianpuSectionBody(
       jianpuText.value,
       Math.max(0, currentBatchLocalIndex.value),
@@ -1859,10 +1863,10 @@ async function applyCorrections(): Promise<void> {
     const nextSvgFileIds = preserveEditedText ? [] : svgFileIds
     store.patchPageById(page.id, {
       workingMusicxml: data.working_musicxml,
-      jianpuText: nextPageText,
+      jianpuText: data.jianpu_text,
       jianpuDirty: preserveEditedText,
       deletedSourceIds: [...deletedEntityIds.value],
-      textAnchors: preserveEditedText ? page.textAnchors : (data.text_anchors ?? []),
+      textAnchors: nextTextAnchors,
       // Keep the backend hash as the canonical source-text baseline. A mismatch
       // is how restored manual edits are detected on the next correction.
       textHash: data.text_hash,

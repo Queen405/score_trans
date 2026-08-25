@@ -598,6 +598,32 @@ test('Jianpu edit detection survives history restore through the canonical text 
   )
 })
 
+test('marker correction merges deleted notes into dirty Jianpu text', () => {
+  const canonical = '1=C\n4/4\n1 2 3 4 5 |'
+  const edited = '1=C\n4/4\n1 2 3 4 6 | // 用户备注'
+  const corrected = '1=C\n4/4\n1 3 5 |'
+
+  assert.equal(
+    jianpuTextState.preserveEditedJianpuText(
+      edited,
+      corrected,
+      true,
+      canonical,
+    ),
+    '1=C\n4/4\n1 3 6 | // 用户备注',
+  )
+})
+
+test('marker correction keeps canonical page text as the merge base', () => {
+  const correctionStart = convertViewSource.indexOf('async function applyCorrections')
+  const correctionEnd = convertViewSource.indexOf('async function persistCorrectionState', correctionStart)
+  const correctionHandler = convertViewSource.slice(correctionStart, correctionEnd)
+
+  assert.match(correctionHandler, /preserveEditedJianpuText\([\s\S]*page\.jianpuText/)
+  assert.match(correctionHandler, /jianpuText:\s*data\.jianpu_text/)
+  assert.match(correctionHandler, /replaceJianpuSectionBody\([\s\S]*nextPageText/)
+})
+
 test('original preview hit targets stay scoped to the displayed source-map sheet', () => {
   assert.match(
     originalPreviewSource,
