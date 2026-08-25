@@ -307,11 +307,11 @@
         <div class="ws-panel ws-right">
           <div class="ws-panel-head">
             <span class="panel-head-label">
+              <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
               <span
                 v-if="store.currentBatchHasUnsavedChanges"
                 class="unsaved-hint"
               >当前有更改未保存</span>
-              <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
             </span>
             <div class="panel-head-actions">
               <n-button
