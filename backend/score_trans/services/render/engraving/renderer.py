@@ -2219,9 +2219,12 @@ def _visual_events(measure: Measure) -> list[Event]:
     ]
 
 
+_ACCIDENTAL_RENDER_GLYPH = {"n": "♮"}
+
+
 def _accidental_text(pitch: JianpuPitch) -> str:
     if pitch.accidental_text:
-        return pitch.accidental_text
+        return _ACCIDENTAL_RENDER_GLYPH.get(pitch.accidental_text, pitch.accidental_text)
     value = pitch.accidental
     return {
         Fraction(2): "𝄪",

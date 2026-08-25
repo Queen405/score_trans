@@ -306,11 +306,13 @@
 
         <div class="ws-panel ws-right">
           <div class="ws-panel-head">
-            <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
-            <span
-              v-if="store.currentBatchHasUnsavedChanges"
-              class="unsaved-hint"
-            >当前有更改未保存</span>
+            <span class="panel-head-label">
+              <span
+                v-if="store.currentBatchHasUnsavedChanges"
+                class="unsaved-hint"
+              >当前有更改未保存</span>
+              <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
+            </span>
             <div class="panel-head-actions">
               <n-button
                 size="tiny"
@@ -2500,6 +2502,12 @@ function settleDiscardConfirmation(value: boolean): void {
   letter-spacing: 0.4px;
 }
 
+.panel-head-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .marker-edit-controls {
   display: flex;
   align-items: center;
@@ -2610,8 +2618,7 @@ function settleDiscardConfirmation(value: boolean): void {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 8px;
-  color: var(--warning-color, #d97706);
+  color: var(--warning);
   font-size: 10px;
   white-space: nowrap;
 }
