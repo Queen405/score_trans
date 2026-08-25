@@ -69,6 +69,16 @@
             size="small"
           />
         </settings-form-row>
+
+        <settings-form-row
+          label="检查小节时值"
+          hint="少拍或超拍显示警告，不影响保存、渲染和导出"
+        >
+          <n-switch
+            v-model:value="settings.draft.jianpuMeasureDurationCheck"
+            size="small"
+          />
+        </settings-form-row>
       </div>
     </section>
 

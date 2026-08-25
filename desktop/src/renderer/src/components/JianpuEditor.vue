@@ -66,7 +66,11 @@
                 :key="tokenIndex"
                 :class="[
                   `token-${token.type}`,
-                  { 'syntax-error-token': token.syntaxError, 'active-diagnostic': token.activeDiagnostic },
+                  {
+                    'syntax-error-token': token.syntaxError,
+                    'syntax-warning-token': token.syntaxWarning,
+                    'active-diagnostic': token.activeDiagnostic,
+                  },
                 ]"
               >{{ token.text }}</span>
             </div>
@@ -182,6 +186,7 @@ defineExpose({ selectRange })
 const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
 interface HighlightToken extends JianpuSyntaxToken {
   syntaxError?: boolean
+  syntaxWarning?: boolean
   activeDiagnostic?: boolean
 }
 
@@ -204,6 +209,7 @@ const highlightedLines = computed(() => props.modelValue.split('\n').map((line, 
       start: Math.max(lineStart, diagnostic.start) - lineStart,
       end: Math.min(lineEnd, diagnostic.end) - lineStart,
       active: diagnostic.id === props.activeDiagnosticId,
+      severity: diagnostic.severity ?? 'error',
     }))
     .filter((range) => range.end > range.start)
     .sort((a, b) => a.start - b.start)
@@ -234,7 +240,8 @@ const highlightedLines = computed(() => props.modelValue.split('\n').map((line, 
       result.push({
         text: token.text.slice(start - tokenStart, end - tokenStart),
         type: props.syntaxHighlight ? token.type : 'plain',
-        syntaxError: !!matching,
+        syntaxError: matching?.severity === 'error',
+        syntaxWarning: matching?.severity === 'warning',
         activeDiagnostic: matching?.active,
       })
     }
@@ -741,6 +748,18 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 
 .syntax-error-token.active-diagnostic {
   background: rgba(220, 38, 38, 0.16);
+}
+
+.syntax-warning-token {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--warning, #fab005);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.syntax-warning-token.active-diagnostic {
+  background: rgba(250, 176, 5, 0.18);
 }
 
 .editor-playback-highlight {

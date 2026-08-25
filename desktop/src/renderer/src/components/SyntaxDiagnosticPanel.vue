@@ -78,19 +78,32 @@ function selectDiagnostic(diagnostic: SyntaxDiagnostic): void {
   cursor: pointer;
 }
 
-.syntax-diagnostic:hover,
-.syntax-diagnostic.active {
+.syntax-diagnostic.error:hover,
+.syntax-diagnostic.error.active {
   background: rgba(220, 38, 38, 0.08);
 }
 
-.syntax-diagnostic.active {
+.syntax-diagnostic.warning:hover,
+.syntax-diagnostic.warning.active {
+  background: rgba(250, 176, 5, 0.12);
+}
+
+.syntax-diagnostic.error.active {
   border-left-color: var(--danger);
+}
+
+.syntax-diagnostic.warning.active {
+  border-left-color: var(--warning);
 }
 
 .syntax-diagnostic-location {
   flex: 0 0 42px;
   color: var(--danger);
   font-variant-numeric: tabular-nums;
+}
+
+.syntax-diagnostic.warning .syntax-diagnostic-location {
+  color: var(--warning);
 }
 
 .syntax-diagnostic-message {

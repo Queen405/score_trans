@@ -19,6 +19,7 @@ _BACKEND_STRING_KEYS: tuple[str, ...] = (
     "measure_number_mode",
     "show_measure_numbers",
     "jianpu_syntax_highlight",
+    "jianpu_measure_duration_check",
     "jianpu_content_scale_percent",
     "jianpu_system_gap_percent",
     "jianpu_short_note_gap_percent",

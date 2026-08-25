@@ -11,6 +11,7 @@
     "measure_number_mode": "all",
     "show_measure_numbers": "1",
     "jianpu_syntax_highlight": "0",
+    "jianpu_measure_duration_check": "0",
     "jianpu_content_scale_percent": "67",
     "jianpu_system_gap_percent": "92",
     "jianpu_short_note_gap_percent": "90",

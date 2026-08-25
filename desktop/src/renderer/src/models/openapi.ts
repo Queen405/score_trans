@@ -2547,6 +2547,11 @@ export type components = {
              */
             jianpu_content_scale_percent?: number;
             /**
+             * Jianpu Measure Duration Check
+             * @default false
+             */
+            jianpu_measure_duration_check?: boolean;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 90
              */
@@ -2639,6 +2644,8 @@ export type components = {
             java_home?: string | null;
             /** Jianpu Content Scale Percent */
             jianpu_content_scale_percent?: number | null;
+            /** Jianpu Measure Duration Check */
+            jianpu_measure_duration_check?: boolean | null;
             /** Jianpu Short Note Gap Percent */
             jianpu_short_note_gap_percent?: number | null;
             /** Jianpu Syntax Highlight */

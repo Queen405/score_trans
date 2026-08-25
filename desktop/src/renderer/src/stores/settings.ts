@@ -36,6 +36,7 @@ export interface SettingsDraft {
   accidentalMode: AccidentalMode
   measureNumberMode: MeasureNumberMode
   jianpuSyntaxHighlight: boolean
+  jianpuMeasureDurationCheck: boolean
   jianpuContentScalePercent: number
   jianpuSystemGapPercent: number
   jianpuShortNoteGapPercent: number
@@ -117,6 +118,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
   const jianpuSyntaxHighlight = ref(false)
+  const jianpuMeasureDurationCheck = ref(false)
   const jianpuContentScalePercent = ref(67)
   const jianpuSystemGapPercent = ref(92)
   const jianpuShortNoteGapPercent = ref(90)
@@ -166,6 +168,7 @@ export const useSettingsStore = defineStore('settings', () => {
     accidentalMode: 'auto',
     measureNumberMode: 'all',
     jianpuSyntaxHighlight: false,
+    jianpuMeasureDurationCheck: false,
     jianpuContentScalePercent: 67,
     jianpuSystemGapPercent: 92,
     jianpuShortNoteGapPercent: 90,
@@ -249,6 +252,7 @@ export const useSettingsStore = defineStore('settings', () => {
       accidentalMode: accidentalMode.value,
       measureNumberMode: measureNumberMode.value,
       jianpuSyntaxHighlight: jianpuSyntaxHighlight.value,
+      jianpuMeasureDurationCheck: jianpuMeasureDurationCheck.value,
       jianpuContentScalePercent: jianpuContentScalePercent.value,
       jianpuSystemGapPercent: jianpuSystemGapPercent.value,
       jianpuShortNoteGapPercent: jianpuShortNoteGapPercent.value,
@@ -317,6 +321,7 @@ export const useSettingsStore = defineStore('settings', () => {
           show_measure_numbers: next.measureNumberMode !== 'none',
           measure_number_mode: next.measureNumberMode,
           jianpu_syntax_highlight: next.jianpuSyntaxHighlight,
+          jianpu_measure_duration_check: next.jianpuMeasureDurationCheck,
           jianpu_content_scale_percent: next.jianpuContentScalePercent,
           jianpu_system_gap_percent: next.jianpuSystemGapPercent,
           jianpu_short_note_gap_percent: next.jianpuShortNoteGapPercent,
@@ -437,6 +442,7 @@ export const useSettingsStore = defineStore('settings', () => {
       data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
     jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false
+    jianpuMeasureDurationCheck.value = data.jianpu_measure_duration_check ?? false
     jianpuContentScalePercent.value = data.jianpu_content_scale_percent ?? 67
     jianpuSystemGapPercent.value = data.jianpu_system_gap_percent ?? 92
     jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 90
@@ -528,6 +534,7 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.accidentalMode = next.accidentalMode
     draft.measureNumberMode = next.measureNumberMode
     draft.jianpuSyntaxHighlight = next.jianpuSyntaxHighlight
+    draft.jianpuMeasureDurationCheck = next.jianpuMeasureDurationCheck
     draft.jianpuContentScalePercent = next.jianpuContentScalePercent
     draft.jianpuSystemGapPercent = next.jianpuSystemGapPercent
     draft.jianpuShortNoteGapPercent = next.jianpuShortNoteGapPercent
@@ -569,6 +576,7 @@ export const useSettingsStore = defineStore('settings', () => {
     showMeasureNumbers,
     measureNumberMode,
     jianpuSyntaxHighlight,
+    jianpuMeasureDurationCheck,
     jianpuContentScalePercent,
     jianpuSystemGapPercent,
     jianpuShortNoteGapPercent,

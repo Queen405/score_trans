@@ -50,6 +50,7 @@ class SettingsResponse(BaseModel):
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
     jianpu_syntax_highlight: bool = False
+    jianpu_measure_duration_check: bool = False
     jianpu_content_scale_percent: int = DEFAULT_CONTENT_SCALE_PERCENT
     jianpu_system_gap_percent: int = DEFAULT_SYSTEM_GAP_PERCENT
     jianpu_short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
@@ -86,6 +87,7 @@ class SettingsUpdateRequest(BaseModel):
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode | None = None
     jianpu_syntax_highlight: bool | None = None
+    jianpu_measure_duration_check: bool | None = None
     jianpu_content_scale_percent: int | None = Field(
         default=None,
         ge=MIN_CONTENT_SCALE_PERCENT,

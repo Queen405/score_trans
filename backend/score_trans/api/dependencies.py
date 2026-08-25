@@ -80,7 +80,7 @@ def get_settings_actions() -> SettingsActions:
 
 
 def get_syntax_actions() -> SyntaxActions:
-    return SyntaxActions()
+    return SyntaxActions(settings=composition.shared_settings_service())
 
 
 def get_task_actions(request: Request) -> TaskActions:

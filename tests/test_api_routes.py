@@ -8,6 +8,7 @@ from score_trans.api.dependencies import (
     get_file_actions,
     get_history_actions,
     get_settings_actions,
+    get_syntax_actions,
 )
 from score_trans.api.export.routes import export_midi
 from score_trans.api.render.routes import render_jianpu_svg
@@ -17,6 +18,7 @@ from score_trans.exec.export.actions import ExportActions
 from score_trans.exec.files.actions import FileActions
 from score_trans.exec.history.actions import HistoryActions
 from score_trans.exec.settings.actions import SettingsActions
+from score_trans.exec.syntax.actions import SyntaxActions
 from score_trans.models.common.errors import RenderError
 from score_trans.models.history.entities import HistoryPage
 from score_trans.models.history.schemas import PageUpdate
@@ -285,9 +287,11 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
     assert "show_measure_numbers" in schemas["SettingsResponse"]["properties"]
     assert "measure_number_mode" in schemas["SettingsResponse"]["properties"]
     assert "jianpu_syntax_highlight" in schemas["SettingsResponse"]["properties"]
+    assert "jianpu_measure_duration_check" in schemas["SettingsResponse"]["properties"]
     assert "show_measure_numbers" in schemas["SettingsUpdateRequest"]["properties"]
     assert "measure_number_mode" in schemas["SettingsUpdateRequest"]["properties"]
     assert "jianpu_syntax_highlight" in schemas["SettingsUpdateRequest"]["properties"]
+    assert "jianpu_measure_duration_check" in schemas["SettingsUpdateRequest"]["properties"]
     assert "show_measure_numbers" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "measure_number_mode" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "show_measure_numbers" in schemas["RenderJianpuSvgRequest"]["properties"]
@@ -397,6 +401,7 @@ def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
     response = client.get("/settings")
     assert response.status_code == 200
     assert response.json()["jianpu_syntax_highlight"] is False
+    assert response.json()["jianpu_measure_duration_check"] is False
 
     response = client.put("/settings", json={"jianpu_syntax_highlight": True})
     assert response.status_code == 200
@@ -404,6 +409,44 @@ def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
 
     response = client.get("/settings")
     assert response.json()["jianpu_syntax_highlight"] is True
+
+    response = client.put(
+        "/settings", json={"jianpu_measure_duration_check": True}
+    )
+    assert response.status_code == 200
+    assert response.json()["jianpu_measure_duration_check"] is True
+
+    response = client.get("/settings")
+    assert response.json()["jianpu_measure_duration_check"] is True
+
+
+def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -> None:
+    app = create_app(auth_disabled=True)
+    service = SettingsService(SettingsDao(tmp_path / "settings.db"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+    app.dependency_overrides[get_syntax_actions] = lambda: SyntaxActions(
+        settings=service
+    )
+    client = TestClient(app)
+    text = "1=C\n4/4\n1 2 3 |"
+
+    assert client.post("/syntax/validate", json={"jianpu_text": text}).json() == {
+        "diagnostics": []
+    }
+
+    response = client.put(
+        "/settings",
+        json={"jianpu_measure_duration_check": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["jianpu_measure_duration_check"] is True
+    diagnostics = client.post(
+        "/syntax/validate", json={"jianpu_text": text}
+    ).json()["diagnostics"]
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["severity"] == "warning"
+    assert "少拍" in diagnostics[0]["message"]
 
 
 def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:

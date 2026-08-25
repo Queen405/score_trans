@@ -149,6 +149,8 @@ class Measure:
     new_page: bool = False
     new_system: bool = False
     source_page_index: int | None = None
+    source_start_utf16: int | None = None
+    source_end_utf16: int | None = None
 
     def __init__(
         self,
@@ -173,6 +175,8 @@ class Measure:
         new_page: bool = False,
         new_system: bool = False,
         source_page_index: int | None = None,
+        source_start_utf16: int | None = None,
+        source_end_utf16: int | None = None,
     ) -> None:
         if display_measure_number is None:
             display_measure_number = (
@@ -200,6 +204,8 @@ class Measure:
         self.new_page = new_page
         self.new_system = new_system
         self.source_page_index = source_page_index
+        self.source_start_utf16 = source_start_utf16
+        self.source_end_utf16 = source_end_utf16
 
     @property
     def display_number(self) -> str | int:

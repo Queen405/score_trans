@@ -724,6 +724,10 @@ watch(jianpuText, (v, previous) => {
   syntaxStore.schedule(v)
 }, { immediate: true })
 
+watch(() => settings.jianpuMeasureDurationCheck, () => {
+  syntaxStore.schedule(jianpuText.value)
+})
+
 watch(() => syntaxStore.selectionVersion, () => {
   const diagnostic = syntaxStore.activeId
     ? syntaxStore.diagnostics.find((item) => item.id === syntaxStore.activeId)

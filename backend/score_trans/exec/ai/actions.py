@@ -77,6 +77,7 @@ class AiActions:
             max_pages=req.max_pages,
             extra_prompt=req.prompt,
             normalize=req.normalize,
+            check_measure_durations=config.jianpu_measure_duration_check,
             progress_callback=progress_callback,
         )
 

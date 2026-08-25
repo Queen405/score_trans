@@ -16,6 +16,7 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
   let controller: AbortController | null = null
 
   const errorCount = computed(() => diagnostics.value.filter((item) => item.severity === 'error').length)
+  const warningCount = computed(() => diagnostics.value.filter((item) => item.severity === 'warning').length)
 
   function clear(): void {
     sequence += 1
@@ -77,6 +78,7 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
     activeId,
     selectionVersion,
     errorCount,
+    warningCount,
     clear,
     validate,
     schedule,

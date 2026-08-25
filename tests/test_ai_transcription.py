@@ -275,6 +275,40 @@ def test_ai_action_flags_dotted_duration_prefix_variant(tmp_path: Path) -> None:
     assert any("附点" in err for err in page.validation_errors)
 
 
+def test_ai_action_measure_duration_warnings_follow_saved_config(
+    tmp_path: Path,
+) -> None:
+    config = ToolConfig(
+        work_dir=tmp_path / "work",
+        jianpu_measure_duration_check=True,
+    )
+    uploads = UploadService(config)
+    source = tmp_path / "score.png"
+    source.write_bytes(b"fake png")
+    provider = MockVisionJianpuProvider(
+        [
+            VisionPageResult(
+                key="C",
+                meter="4/4",
+                jianpu_text="1=C\n4/4\n1 2 3 |",
+            )
+        ]
+    )
+    actions = AiActions(
+        uploads=uploads,
+        settings=FakeSettings(config),  # type: ignore[arg-type]
+        transcriber=AiTranscriptionService(provider),
+    )
+
+    response = actions.transcribe_score(
+        AiTranscribeRequest(file_id=uploads.register(source), target_key="C")
+    )
+
+    assert response.pages[0].validation_errors == [
+        "第 1 小节：小节少拍：实际 3，目标 4"
+    ]
+
+
 def test_pdf_to_png_pages_creates_one_png_per_page(tmp_path: Path) -> None:
     import fitz
 
@@ -338,6 +372,22 @@ def test_ai_validation_applies_accidental_mode() -> None:
     assert flat_errors == []
     assert "#6 #4 1 2 |" in sharp
     assert "b7 b5 1 2 |" in flat
+
+
+def test_ai_validation_measure_duration_warnings_follow_setting() -> None:
+    text = "1=C\n4/4\n1 2 3 |"
+
+    _unchanged, disabled_errors = validate_jianpu_text(
+        text,
+        check_measure_durations=False,
+    )
+    _unchanged, enabled_errors = validate_jianpu_text(
+        text,
+        check_measure_durations=True,
+    )
+
+    assert disabled_errors == []
+    assert enabled_errors == ["第 1 小节：小节少拍：实际 3，目标 4"]
 
 
 def test_ai_chat_injects_jianpu_syntax_and_limits_memory(

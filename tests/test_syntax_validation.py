@@ -57,6 +57,40 @@ def test_validate_jianpu_text_accepts_valid_score() -> None:
     assert validate_jianpu_text("1=C\n4/4\n1 2 3 4 |") == []
 
 
+def test_validate_jianpu_text_keeps_measure_duration_check_disabled_by_default() -> None:
+    assert validate_jianpu_text("1=C\n4/4\n1 2 3 |") == []
+
+
+def test_validate_jianpu_text_reports_measure_duration_warnings_when_enabled() -> None:
+    text = "1=C\n4/4\n1 2 3 | 1 2 3 4 5 ||"
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert [(item.severity, item.line, item.column, item.message) for item in diagnostics] == [
+        ("warning", 3, 1, "第 1 小节少拍：实际 3 拍，目标 4 拍"),
+        ("warning", 3, 9, "第 2 小节超拍：实际 5 拍，目标 4 拍"),
+    ]
+    assert [text.encode("utf-16-le")[item.start * 2 : item.end * 2].decode("utf-16-le") for item in diagnostics] == [
+        "1 2 3 |",
+        "1 2 3 4 5 ||",
+    ]
+
+
+def test_validate_jianpu_text_warning_range_includes_measure_level_marks() -> None:
+    text = "instrument=erhu\n1=C\n4/4\n(^l) 1 2 3 |"
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert len(diagnostics) == 1
+    diagnostic = diagnostics[0]
+    assert (
+        text.encode("utf-16-le")[diagnostic.start * 2 : diagnostic.end * 2].decode(
+            "utf-16-le"
+        )
+        == "(^l) 1 2 3 |"
+    )
+
+
 def test_validate_jianpu_text_reports_contextual_error_after_token_checks() -> None:
     diagnostics = validate_jianpu_text("1=C\n4/4\n1 2 1=G 3 4 |")
 
@@ -189,6 +223,24 @@ def test_validate_jianpu_text_reports_part_measure_count_mismatch() -> None:
     assert len(diagnostics) == 1
     assert diagnostics[0].line == 1
     assert "各声部小节数量不一致：a=2、b=1" in diagnostics[0].message
+
+
+def test_validate_jianpu_text_reports_measure_duration_warnings_in_document_offsets() -> None:
+    text = (
+        '// @part 1 name="a"\n1=C\n4/4\n1 2 3 |\n'
+        '// @part 2 name="b"\n1=C\n4/4\n1 2 3 4 5 |'
+    )
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert [(item.line, item.column, item.severity) for item in diagnostics] == [
+        (4, 1, "warning"),
+        (8, 1, "warning"),
+    ]
+    assert [
+        text.encode("utf-16-le")[item.start * 2 : item.end * 2].decode("utf-16-le")
+        for item in diagnostics
+    ] == ["1 2 3 |", "1 2 3 4 5 |"]
 
 
 def test_validate_jianpu_text_accepts_valid_multi_part_score() -> None:

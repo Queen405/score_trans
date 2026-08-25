@@ -105,6 +105,12 @@ class SettingsActions:
                 "1" if req.jianpu_syntax_highlight else "0",
             )
 
+        if req.jianpu_measure_duration_check is not None:
+            self.service.set(
+                "jianpu_measure_duration_check",
+                "1" if req.jianpu_measure_duration_check else "0",
+            )
+
         for key in (
             "jianpu_content_scale_percent",
             "jianpu_system_gap_percent",
@@ -291,6 +297,9 @@ class SettingsActions:
             measure_number_mode=measure_number_mode,
             jianpu_syntax_highlight=self.service.get_bool(
                 "jianpu_syntax_highlight", False
+            ),
+            jianpu_measure_duration_check=self.service.get_bool(
+                "jianpu_measure_duration_check", False
             ),
             jianpu_content_scale_percent=self.service.get_int(
                 "jianpu_content_scale_percent", 67

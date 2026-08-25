@@ -121,6 +121,9 @@ class SettingsService:
                 "audiveris_min_image_edge", AUDIVERIS_MIN_IMAGE_EDGE
             ),
             enable_omr_ocr=self.dao.get_bool("enable_omr_ocr", True),
+            jianpu_measure_duration_check=self.dao.get_bool(
+                "jianpu_measure_duration_check", False
+            ),
         )
 
     def get_all(self) -> dict[str, str]:

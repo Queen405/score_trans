@@ -57,6 +57,7 @@ class AiTranscriptionService:
         max_pages: int | None = None,
         extra_prompt: str | None = None,
         normalize: bool = True,
+        check_measure_durations: bool = False,
         progress_callback: ProgressCallback | None = None,
     ) -> AiTranscriptionResult:
         instrument_profile = normalize_instrument_profile(instrument_profile)
@@ -116,6 +117,7 @@ class AiTranscriptionService:
                 title=result.title or title,
                 normalize=normalize,
                 accidental_mode=accidental_mode,
+                check_measure_durations=check_measure_durations,
             )
             if validation_errors:
                 warnings.extend(

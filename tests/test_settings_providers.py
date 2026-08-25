@@ -339,6 +339,7 @@ def test_published_defaults_json_parses_and_matches_schema() -> None:
         "measure_number_mode",
         "show_measure_numbers",
         "jianpu_syntax_highlight",
+        "jianpu_measure_duration_check",
         "jianpu_content_scale_percent",
         "jianpu_system_gap_percent",
         "jianpu_short_note_gap_percent",
@@ -384,6 +385,7 @@ def test_settings_defaults_seeds_baseline_values() -> None:
     assert defaults["measure_number_mode"] == "all"
     assert defaults["show_measure_numbers"] == "1"
     assert defaults["jianpu_syntax_highlight"] == "0"
+    assert defaults["jianpu_measure_duration_check"] == "0"
     assert defaults["jianpu_content_scale_percent"] == "67"
     assert defaults["jianpu_system_gap_percent"] == "92"
     assert defaults["jianpu_short_note_gap_percent"] == "90"

@@ -212,7 +212,11 @@ def parse_jianpu_scores(text: str, *, title: str | None = None) -> list[JianpuSc
     return [part.score for part in parse_jianpu_parts(text, title=title)]
 
 
-def validate_jianpu_text(text: str) -> list[SyntaxDiagnostic]:
+def validate_jianpu_text(
+    text: str,
+    *,
+    check_measure_durations: bool = False,
+) -> list[SyntaxDiagnostic]:
     """Validate token syntax while preserving strict export parsing."""
     normalized = text.lstrip("\ufeff")
     try:
@@ -235,12 +239,24 @@ def validate_jianpu_text(text: str) -> list[SyntaxDiagnostic]:
     has_markers = _PART_MARKER_START_RE.search(
         normalized
     ) or _PAGE_MARKER_START_RE.search(normalized)
+    duration_parts: list[ParsedJianpuPart] = []
     try:
         if has_markers:
             parts = parse_jianpu_parts(normalized)
             _validate_part_measure_counts(normalized, parts)
+            duration_parts = parts
         else:
-            parse_jianpu_score(normalized)
+            score = parse_jianpu_score(normalized)
+            if check_measure_durations:
+                duration_parts = [
+                    ParsedJianpuPart(
+                        score=score,
+                        part_index=0,
+                        part_name="",
+                        body_start_utf16=0,
+                        body_end_utf16=_utf16_length(normalized),
+                    )
+                ]
     except JianpuSyntaxError as exc:
         return [exc.diagnostic()]
     except ValueError as exc:
@@ -251,7 +267,78 @@ def validate_jianpu_text(text: str) -> list[SyntaxDiagnostic]:
                 normalized, f"内部解析错误（{type(exc).__name__}）：{exc}"
             )
         ]
+    if check_measure_durations:
+        diagnostics.extend(_measure_duration_diagnostics(normalized, duration_parts))
     return diagnostics
+
+
+def _measure_duration_diagnostics(
+    text: str,
+    parts: list[ParsedJianpuPart],
+) -> list[SyntaxDiagnostic]:
+    diagnostics: list[SyntaxDiagnostic] = []
+    for part in parts:
+        for measure_index, measure in enumerate(part.score.measures, start=1):
+            for error in measure.validation_errors:
+                start = measure.source_start_utf16
+                end = measure.source_end_utf16
+                if start is None or end is None:
+                    continue
+                line, column = _line_column_from_utf16_offset(text, start)
+                message = _format_measure_duration_warning(
+                    measure.display_number or measure_index,
+                    error,
+                )
+                diagnostics.append(
+                    SyntaxDiagnostic(
+                        id=(
+                            "syntax-warning-measure-duration-"
+                            f"{part.part_index}-{measure_index}-{start}-{end}"
+                        ),
+                        message=message,
+                        line=line,
+                        column=column,
+                        start=start,
+                        end=end,
+                        severity="warning",
+                    )
+                )
+    return diagnostics
+
+
+def _format_measure_duration_warning(
+    measure_number: str | int,
+    error: str,
+) -> str:
+    match = re.fullmatch(r"小节(少拍|超拍)：实际 (.+)，目标 (.+)", error)
+    if match is None:
+        return f"第 {measure_number} 小节：{error}"
+    kind, actual, target = match.groups()
+    return f"第 {measure_number} 小节{kind}：实际 {actual} 拍，目标 {target} 拍"
+
+
+def _line_column_from_utf16_offset(text: str, offset: int) -> tuple[int, int]:
+    consumed = 0
+    line = 1
+    line_start = 0
+    for index, character in enumerate(text):
+        if consumed >= offset:
+            break
+        if character == "\n":
+            line += 1
+            line_start = index + 1
+        consumed += _utf16_length(character)
+    codepoint_offset = 0
+    for character in text[:line_start]:
+        codepoint_offset += _utf16_length(character)
+    column = 1
+    consumed = codepoint_offset
+    for character in text[line_start:]:
+        if consumed >= offset:
+            break
+        column += 1
+        consumed += _utf16_length(character)
+    return line, column
 
 
 def _validate_part_measure_counts(text: str, parts: list[ParsedJianpuPart]) -> None:
@@ -492,6 +579,12 @@ def parse_jianpu_parts(
             score = parse_jianpu_score(part_text_without_page_markers, title=title)
         except JianpuSyntaxError as exc:
             raise _remap_part_syntax_error(exc, text, start) from exc
+        base_utf16 = _utf16_length(text[:start])
+        for measure in score.measures:
+            if measure.source_start_utf16 is not None:
+                measure.source_start_utf16 += base_utf16
+            if measure.source_end_utf16 is not None:
+                measure.source_end_utf16 += base_utf16
         score.part_index = len(parts)
         score.part_name = part_name
         page_index = 0
@@ -593,8 +686,13 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     last_pitched_event: Event | None = None
     pending_slide_token: _Token | None = None
     skip_empty_bar_after_repeat_end = False
+    measure_source_start_utf16: int | None = None
 
-    def flush_measure(*, preserve_empty: bool = False) -> None:
+    def flush_measure(
+        *,
+        preserve_empty: bool = False,
+        boundary_token: _Token | None = None,
+    ) -> None:
         nonlocal \
             current_events, \
             current_blocks, \
@@ -603,7 +701,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             next_repeat_start, \
             measure_articulations, \
             measure_ornaments, \
-            pending_repeat_count
+            pending_repeat_count, \
+            measure_source_start_utf16
         if not current_events and not current_blocks:
             if preserve_empty:
                 current_events = [
@@ -616,10 +715,25 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                         measure_rest=True,
                     )
                 ]
+                if measure_source_start_utf16 is None and boundary_token is not None:
+                    measure_source_start_utf16 = boundary_token.start_utf16
             else:
                 measure_articulations = []
                 measure_ornaments = []
+                measure_source_start_utf16 = None
                 return
+        source_end_utf16 = (
+            boundary_token.end_utf16
+            if boundary_token is not None
+            else max(
+                (
+                    event.source_end_utf16
+                    for event in current_events
+                    if event.source_end_utf16 is not None
+                ),
+                default=measure_source_start_utf16,
+            )
+        )
         measure = Measure(
             source_number=str(measure_number),
             duration=Fraction(current_beats * 4, current_beat_type),
@@ -631,6 +745,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             target_key=current_key,
             repeat_start=next_repeat_start,
             repeat_count=pending_repeat_count,
+            source_start_utf16=measure_source_start_utf16,
+            source_end_utf16=source_end_utf16,
         )
         _normalize_parsed_measure(measure)
         score.measures.append(measure)
@@ -642,6 +758,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         measure_articulations = []
         measure_ornaments = []
         pending_repeat_count = 1
+        measure_source_start_utf16 = None
 
     def append_event(event: Event, raw: str, token: _Token | None = None) -> None:
         nonlocal \
@@ -654,7 +771,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             pending_slide_token, \
             open_slur, \
             open_tie, \
-            last_pitched_event
+            last_pitched_event, \
+            measure_source_start_utf16
         event.source_token = raw
         if token is not None:
             event.source_start_utf16 = token.start_utf16
@@ -735,10 +853,17 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                 pitch.accidental = -key_alter
         normalize_event_marks(event)
         _validate_instrument_mark_target(event, options.instrument_profile, token=token)
+        if measure_source_start_utf16 is None and token is not None:
+            measure_source_start_utf16 = token.start_utf16
         current_events.append(event)
         cursor += event.duration
         if event.kind == "note":
             last_pitched_event = event
+
+    def remember_measure_token(token: _Token) -> None:
+        nonlocal measure_source_start_utf16
+        if measure_source_start_utf16 is None:
+            measure_source_start_utf16 = token.start_utf16
 
     for token in token_lines:
         raw = token.value
@@ -752,6 +877,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                     f"调号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
                     "请把调号移到小节开头或紧跟在小节线 | 之后。",
                 )
+            if score.measures:
+                remember_measure_token(token)
             current_key = key_signature
             continue
         time_signature = _time_signature_value(raw)
@@ -762,30 +889,38 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                     f"拍号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
                     "请把拍号移到小节开头或紧跟在小节线 | 之后。",
                 )
+            if score.measures:
+                remember_measure_token(token)
             current_beats, current_beat_type = time_signature
             continue
         if re.fullmatch(r"\d+/\d+", raw):
             raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
         if raw in {"|", "||"}:
-            flush_measure(preserve_empty=not skip_empty_bar_after_repeat_end)
+            flush_measure(
+                preserve_empty=not skip_empty_bar_after_repeat_end,
+                boundary_token=token,
+            )
             skip_empty_bar_after_repeat_end = False
             continue
         if raw == "|:":
-            flush_measure()
+            flush_measure(boundary_token=token)
             next_repeat_start = True
+            remember_measure_token(token)
             continue
         if raw == ":|":
-            flush_measure()
+            flush_measure(boundary_token=token)
             if score.measures:
                 score.measures[-1].repeat_end = True
             skip_empty_bar_after_repeat_end = True
             continue
         if re.fullmatch(r"\*\d+", raw):
+            remember_measure_token(token)
             pending_repeat_count = max(1, int(raw[1:]))
             continue
 
         measure_mark = _measure_level_mark(raw)
         if measure_mark is not None:
+            remember_measure_token(token)
             kind, mark = measure_mark
             if not mark:
                 raise _syntax_error(
@@ -804,6 +939,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                 _append_unique_mark(measure_articulations, mark)
             continue
         if raw.startswith("\\"):
+            remember_measure_token(token)
             dynamic = raw[1:]
             if dynamic not in DYNAMICS:
                 raise _syntax_error(
@@ -812,6 +948,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             pending_dynamic = dynamic
             continue
         if raw.startswith("^"):
+            remember_measure_token(token)
             name = raw[1:]
             if mark_for_token(name) is None and _ornament_name(name) is None:
                 inline_marks, event_part = _consume_tuplet_inline_marks(raw)
