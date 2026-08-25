@@ -169,8 +169,19 @@
                 >运行 {{ logStore.errorCount }}</span>
                 <span
                   v-if="syntaxStore.errorCount"
-                  class="log-badge syntax-badge"
-                >语法 {{ syntaxStore.errorCount }}</span>
+                  class="log-badge"
+                >语法报错{{ syntaxStore.errorCount }}</span>
+                <span
+                  v-if="syntaxStore.warningCount"
+                  role="button"
+                  tabindex="0"
+                  :aria-pressed="syntaxStore.hideWarnings"
+                  :title="syntaxStore.hideWarnings ? '点击显示时值警告' : '点击隐藏时值警告'"
+                  :class="['log-badge', 'syntax-badge', { 'badge-muted': syntaxStore.hideWarnings }]"
+                  @click.stop="syntaxStore.toggleHideWarnings()"
+                  @keydown.enter.prevent.stop="syntaxStore.toggleHideWarnings()"
+                  @keydown.space.prevent.stop="syntaxStore.toggleHideWarnings()"
+                >时值警告{{ syntaxStore.warningCount }}</span>
               </button>
               <div class="log-body">
                 <div class="log-columns">
@@ -192,9 +203,24 @@
                     <log-panel />
                   </section>
                   <section class="log-column syntax-column">
-                    <h3 class="log-column-title">
-                      语法检查
-                    </h3>
+                    <div class="log-column-head">
+                      <h3 class="log-column-title">
+                        语法检查
+                      </h3>
+                      <div
+                        v-if="syntaxStore.errorCount || syntaxStore.warningCount"
+                        class="syntax-summary"
+                      >
+                        <span
+                          v-if="syntaxStore.errorCount"
+                          class="syntax-summary-count error"
+                        >{{ syntaxStore.errorCount }} 个错误</span>
+                        <span
+                          v-if="syntaxStore.warningCount"
+                          :class="['syntax-summary-count', 'warning', { muted: syntaxStore.hideWarnings }]"
+                        >{{ syntaxStore.warningCount }} 个警告</span>
+                      </div>
+                    </div>
                     <syntax-diagnostic-panel />
                   </section>
                 </div>
@@ -961,6 +987,7 @@ body {
 }
 
 .log-badge {
+  margin-left: 6px;
   background: var(--danger);
   color: #fff;
   font-size: 10px;
@@ -972,6 +999,15 @@ body {
 
 .syntax-badge {
   background: var(--warning);
+}
+
+span.log-badge[role='button'] {
+  cursor: pointer;
+}
+
+.log-badge.badge-muted {
+  opacity: 0.45;
+  text-decoration: line-through;
 }
 
 .log-body {
@@ -993,6 +1029,30 @@ body {
 
 .syntax-column {
   border-left: 1px solid var(--border-light);
+}
+
+.syntax-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px 10px;
+}
+
+.syntax-summary-count {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.syntax-summary-count.error {
+  color: var(--danger);
+}
+
+.syntax-summary-count.warning {
+  color: var(--warning);
+}
+
+.syntax-summary-count.muted {
+  opacity: 0.45;
 }
 
 .log-column-title {

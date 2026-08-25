@@ -219,14 +219,16 @@ def validate_jianpu_text(
 ) -> list[SyntaxDiagnostic]:
     """Validate token syntax while preserving strict export parsing."""
     normalized = text.lstrip("\ufeff")
+    diagnostics: list[SyntaxDiagnostic] = []
     try:
         _validate_marker_structure(normalized)
         _options, token_lines, _lyrics = _read_new_syntax(normalized)
     except JianpuSyntaxError as exc:
-        return [exc.diagnostic()]
+        diagnostics.append(exc.diagnostic())
+        token_lines = []
     except ValueError as exc:
-        return [_document_syntax_diagnostic(normalized, str(exc))]
-    diagnostics: list[SyntaxDiagnostic] = []
+        diagnostics.append(_document_syntax_diagnostic(normalized, str(exc)))
+        token_lines = []
     for token in token_lines:
         try:
             _validate_jianpu_token(token)
@@ -234,20 +236,23 @@ def validate_jianpu_text(
             diagnostics.append(exc.diagnostic())
             if _is_structural_syntax_error(exc):
                 break
-    if diagnostics:
+    if diagnostics and not check_measure_durations:
         return diagnostics
+    duration_text = (
+        _mask_diagnostic_ranges(normalized, diagnostics)
+        if diagnostics
+        else normalized
+    )
     has_markers = _PART_MARKER_START_RE.search(
         normalized
     ) or _PAGE_MARKER_START_RE.search(normalized)
     duration_parts: list[ParsedJianpuPart] = []
-    try:
-        if has_markers:
-            parts = parse_jianpu_parts(normalized)
-            _validate_part_measure_counts(normalized, parts)
-            duration_parts = parts
-        else:
-            score = parse_jianpu_score(normalized)
-            if check_measure_durations:
+    for _attempt in range(100):
+        try:
+            if has_markers:
+                duration_parts = parse_jianpu_parts(duration_text)
+            else:
+                score = parse_jianpu_score(duration_text)
                 duration_parts = [
                     ParsedJianpuPart(
                         score=score,
@@ -257,32 +262,107 @@ def validate_jianpu_text(
                         body_end_utf16=_utf16_length(normalized),
                     )
                 ]
-    except JianpuSyntaxError as exc:
-        return [exc.diagnostic()]
-    except ValueError as exc:
-        return [_document_syntax_diagnostic(normalized, str(exc))]
-    except Exception as exc:  # noqa: BLE001 — 兜底，防止内部错误逃逸成 HTTP 500
-        return [
-            _document_syntax_diagnostic(
-                normalized, f"内部解析错误（{type(exc).__name__}）：{exc}"
-            )
-        ]
+        except JianpuSyntaxError as exc:
+            diagnostic = exc.diagnostic()
+        except ValueError as exc:
+            diagnostic = _document_syntax_diagnostic(normalized, str(exc))
+        except Exception as exc:  # noqa: BLE001 — 兜底，防止内部错误逃逸成 HTTP 500
+            if diagnostics:
+                return diagnostics
+            return [
+                _document_syntax_diagnostic(
+                    normalized, f"内部解析错误（{type(exc).__name__}）：{exc}"
+                )
+            ]
+        else:
+            break
+
+        if not check_measure_durations:
+            return [diagnostic]
+        if diagnostic.end <= diagnostic.start or any(
+            item.id == diagnostic.id for item in diagnostics
+        ):
+            return diagnostics or [diagnostic]
+        diagnostics.append(diagnostic)
+        masked = _mask_diagnostic_ranges(normalized, diagnostics)
+        if masked == duration_text:
+            return diagnostics
+        duration_text = masked
+    else:
+        return diagnostics
+
+    if has_markers:
+        try:
+            _validate_part_measure_counts(duration_text, duration_parts)
+        except JianpuSyntaxError as exc:
+            diagnostic = exc.diagnostic()
+            if not check_measure_durations:
+                return [diagnostic]
+            if not any(item.id == diagnostic.id for item in diagnostics):
+                diagnostics.append(diagnostic)
     if check_measure_durations:
-        diagnostics.extend(_measure_duration_diagnostics(normalized, duration_parts))
+        diagnostics.extend(
+            _measure_duration_diagnostics(
+                normalized,
+                duration_parts,
+                excluded_ranges=[(item.start, item.end) for item in diagnostics],
+            )
+        )
     return diagnostics
+
+
+def _mask_diagnostic_ranges(
+    text: str,
+    diagnostics: list[SyntaxDiagnostic],
+) -> str:
+    characters = list(text)
+    for diagnostic in diagnostics:
+        if diagnostic.end <= diagnostic.start:
+            continue
+        start = _utf16_offset_to_codepoint_index(text, diagnostic.start)
+        end = _utf16_offset_to_codepoint_index(text, diagnostic.end)
+        for index in range(start, min(end, len(characters))):
+            if characters[index] not in {"\n", "\r"}:
+                characters[index] = " " * _utf16_length(characters[index])
+    return "".join(characters)
+
+
+def _utf16_offset_to_codepoint_index(text: str, offset: int) -> int:
+    consumed = 0
+    for index, character in enumerate(text):
+        if consumed >= offset:
+            return index
+        consumed += _utf16_length(character)
+    return len(text)
 
 
 def _measure_duration_diagnostics(
     text: str,
     parts: list[ParsedJianpuPart],
+    *,
+    excluded_ranges: list[tuple[int, int]] | None = None,
 ) -> list[SyntaxDiagnostic]:
     diagnostics: list[SyntaxDiagnostic] = []
+    excluded_ranges = excluded_ranges or []
     for part in parts:
+        measure_scope_start: int | None = None
         for measure_index, measure in enumerate(part.score.measures, start=1):
+            measure_scope_end = measure.source_end_utf16
             for error in measure.validation_errors:
                 start = measure.source_start_utf16
-                end = measure.source_end_utf16
+                end = measure_scope_end
                 if start is None or end is None:
+                    continue
+                scope_start = (
+                    measure_scope_start
+                    if measure_scope_start is not None
+                    else _line_start_utf16_offset(text, start)
+                )
+                if any(
+                    scope_start < excluded_end
+                    and end > excluded_start
+                    for excluded_start, excluded_end in excluded_ranges
+                ):
                     continue
                 line, column = _line_column_from_utf16_offset(text, start)
                 message = _format_measure_duration_warning(
@@ -303,7 +383,15 @@ def _measure_duration_diagnostics(
                         severity="warning",
                     )
                 )
+            if measure_scope_end is not None:
+                measure_scope_start = measure_scope_end
     return diagnostics
+
+
+def _line_start_utf16_offset(text: str, offset: int) -> int:
+    codepoint_index = _utf16_offset_to_codepoint_index(text, offset)
+    line_start = text.rfind("\n", 0, codepoint_index) + 1
+    return _utf16_length(text[:line_start])
 
 
 def _format_measure_duration_warning(

@@ -76,6 +76,65 @@ def test_validate_jianpu_text_reports_measure_duration_warnings_when_enabled() -
     ]
 
 
+def test_validate_jianpu_text_keeps_duration_warnings_after_unrelated_syntax_error() -> None:
+    text = "1=C\n4/4\n45 1 2 | 1 2 3 4 5 |"
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert [(item.severity, item.message) for item in diagnostics] == [
+        (
+            "error",
+            "不支持的简谱 token：45，请使用 1-7、0、#1、qs1、q1、[1+3+5] 等新语法",
+        ),
+        ("warning", "第 2 小节超拍：实际 5 拍，目标 4 拍"),
+    ]
+    warning = diagnostics[1]
+    assert text.encode("utf-16-le")[warning.start * 2 : warning.end * 2].decode(
+        "utf-16-le"
+    ) == "1 2 3 4 5 |"
+
+
+def test_validate_jianpu_text_keeps_duration_warnings_after_contextual_error() -> None:
+    text = "1=C\n4/4\n1 2 1=G 3 4 | 1 2 3 4 5 |"
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert [(item.severity, item.message) for item in diagnostics] == [
+        (
+            "error",
+            "调号 1=G 必须写在该小节音符之前，不能写在音符后面。"
+            "请把调号移到小节开头或紧跟在小节线 | 之后。",
+        ),
+        ("warning", "第 2 小节超拍：实际 5 拍，目标 4 拍"),
+    ]
+
+
+def test_validate_jianpu_text_keeps_duration_warnings_after_header_error() -> None:
+    text = "instrument=unknown\n1=C\n4/4\n1 2 3 4 5 |"
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert [(item.severity, item.message) for item in diagnostics] == [
+        (
+            "error",
+            "不支持的乐器模式 unknown，请使用 general、erhu、ruan、guzheng",
+        ),
+        ("warning", "第 1 小节超拍：实际 5 拍，目标 4 拍"),
+    ]
+
+
+def test_validate_jianpu_text_preserves_warning_offsets_after_utf16_error() -> None:
+    text = "1=C\n4/4\n🎵 1 2 | 1 2 3 4 5 |"
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert [item.severity for item in diagnostics] == ["error", "warning"]
+    warning = diagnostics[1]
+    assert text.encode("utf-16-le")[warning.start * 2 : warning.end * 2].decode(
+        "utf-16-le"
+    ) == "1 2 3 4 5 |"
+
+
 def test_validate_jianpu_text_warning_range_includes_measure_level_marks() -> None:
     text = "instrument=erhu\n1=C\n4/4\n(^l) 1 2 3 |"
 

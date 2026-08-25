@@ -13,14 +13,14 @@
       {{ syntaxStore.error }}
     </div>
     <div
-      v-else-if="!syntaxStore.diagnostics.length"
+      v-else-if="!syntaxStore.visibleDiagnostics.length"
       class="syntax-diagnostic-state"
     >
-      未发现语法问题
+      {{ syntaxStore.hideWarnings && syntaxStore.warningCount ? '未发现语法问题（时值警告已隐藏）' : '未发现语法问题' }}
     </div>
     <template v-else>
       <button
-        v-for="diagnostic in syntaxStore.diagnostics"
+        v-for="diagnostic in syntaxStore.visibleDiagnostics"
         :key="diagnostic.id"
         type="button"
         class="syntax-diagnostic"

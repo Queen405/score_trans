@@ -448,6 +448,14 @@ def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -
     assert diagnostics[0]["severity"] == "warning"
     assert "少拍" in diagnostics[0]["message"]
 
+    diagnostics = client.post(
+        "/syntax/validate",
+        json={"jianpu_text": "1=C\n4/4\n45 1 2 | 1 2 3 4 5 |"},
+    ).json()["diagnostics"]
+    assert [item["severity"] for item in diagnostics] == ["error", "warning"]
+    assert "不支持的简谱 token：45" in diagnostics[0]["message"]
+    assert "第 2 小节超拍" in diagnostics[1]["message"]
+
 
 def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     app = create_app()

@@ -2068,7 +2068,7 @@ async function toggleFinalView(): Promise<void> {
   store.setBusy(true)
   errorLine.value = -1
   try {
-    await renderFinalBatch()
+    await renderExportSvgIds()
     isViewingFinal.value = true
   } catch (e: unknown) {
     if (isRenderAborted(e)) return

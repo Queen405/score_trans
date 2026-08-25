@@ -17,6 +17,16 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
 
   const errorCount = computed(() => diagnostics.value.filter((item) => item.severity === 'error').length)
   const warningCount = computed(() => diagnostics.value.filter((item) => item.severity === 'warning').length)
+  const hideWarnings = ref(false)
+  const visibleDiagnostics = computed(() => (
+    hideWarnings.value
+      ? diagnostics.value.filter((item) => item.severity !== 'warning')
+      : diagnostics.value
+  ))
+
+  function toggleHideWarnings(): void {
+    hideWarnings.value = !hideWarnings.value
+  }
 
   function clear(): void {
     sequence += 1
@@ -73,12 +83,15 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
 
   return {
     diagnostics,
+    visibleDiagnostics,
     loading,
     error,
     activeId,
     selectionVersion,
     errorCount,
     warningCount,
+    hideWarnings,
+    toggleHideWarnings,
     clear,
     validate,
     schedule,

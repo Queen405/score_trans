@@ -142,6 +142,17 @@ test('convert guards destructive actions and shows the current unsaved state', (
   assert.match(convertSource, /:mask-closable="false"/)
 })
 
+test('final preview toggle reuses the cache-aware render path', () => {
+  const toggleStart = convertSource.indexOf('async function toggleFinalView')
+  const toggleEnd = convertSource.indexOf('async function loadJianpuSnapshots', toggleStart)
+  assert.ok(toggleStart >= 0)
+  assert.ok(toggleEnd > toggleStart)
+  const toggleHandler = convertSource.slice(toggleStart, toggleEnd)
+
+  assert.match(toggleHandler, /await renderExportSvgIds\(\)/)
+  assert.doesNotMatch(toggleHandler, /await renderFinalBatch\(\)/)
+})
+
 test('assistant store cleans pending temp messages on abort and error paths', () => {
   // A shared cleanup helper must exist and be invoked on the aborted early returns.
   assert.match(assistantStoreSource, /const dropPendingMessages = \(\): void => \{/)
