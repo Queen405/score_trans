@@ -1188,7 +1188,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-7
+             * @default publication-8
              */
             engine_version?: string;
             /** Id */
@@ -1802,7 +1802,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-7
+             * @default publication-8
              */
             engine_version?: string;
             /**
@@ -1908,7 +1908,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-7
+             * @default publication-8
              */
             engine_version?: string;
             /** Error Message */
@@ -2225,7 +2225,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-7
+             * @default publication-8
              */
             engine_version?: string;
             /**

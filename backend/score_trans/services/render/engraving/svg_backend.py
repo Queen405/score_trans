@@ -10,8 +10,8 @@ from .style import PublicationStyle
 
 _CSS = """
 .page-background{fill:#fff}.score-title{font-weight:600;letter-spacing:.08em}
-.score-meta,.measure-attribute,.part-name,.measure-no,.annotation,.lyric{fill:#181818}
-.note,.accidental,.score-title,.score-meta,.part-name,.measure-no,.annotation,.lyric,.tuplet-number,.dynamic,.technique{font-family:ScoreTransNotoSerif,serif}
+.score-meta,.measure-attribute,.part-name,.measure-no,.repeat-count,.annotation,.lyric{fill:#181818}
+.note,.accidental,.score-title,.score-meta,.part-name,.measure-no,.repeat-count,.annotation,.lyric,.tuplet-number,.dynamic,.technique{font-family:ScoreTransNotoSerif,serif}
 .music-symbol{font-family:ScoreTransBravura,serif}.note{font-weight:600}
 .measure,.system-bracket,.duration-line,.beam-line,.extension-line,.ending-line,.repeat-dot,.staff-line{stroke:#171717;fill:none;stroke-linecap:round}
 .tie,.slur,.slide{stroke:#171717;stroke-width:1.8;fill:none;stroke-linecap:round}

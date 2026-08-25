@@ -67,16 +67,20 @@ hidden_imports = [
     "sqlite3",
 ] + all_score_trans_modules
 
+datas = [
+    (os.path.join(backend_dir, "score_trans", "config", "env.example"), os.path.join("score_trans", "config")),
+    (os.path.join(backend_dir, "score_trans", "config", "ai_prompt.yaml"), os.path.join("score_trans", "config")),
+    (os.path.join(backend_dir, "score_trans", "assets", "fonts"), os.path.join("score_trans", "assets", "fonts")),
+]
+third_party_notices = os.path.join(SPECPATH, "THIRD_PARTY_NOTICES.md")
+if os.path.isfile(third_party_notices):
+    datas.append((third_party_notices, "."))
+
 a = Analysis(
     [os.path.join(SPECPATH, "pyinstaller_entry.py")],
     pathex=[backend_dir],
     binaries=[],
-    datas=[
-        (os.path.join(backend_dir, "score_trans", "config", "env.example"), os.path.join("score_trans", "config")),
-        (os.path.join(backend_dir, "score_trans", "config", "ai_prompt.yaml"), os.path.join("score_trans", "config")),
-        (os.path.join(backend_dir, "score_trans", "assets", "fonts"), os.path.join("score_trans", "assets", "fonts")),
-        (os.path.join(SPECPATH, "THIRD_PARTY_NOTICES.md"), "."),
-    ],
+    datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

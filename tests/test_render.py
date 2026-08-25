@@ -118,7 +118,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-7"
+    assert root.attrib["data-engine-version"] == "publication-8"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -1445,6 +1445,18 @@ def test_spanners_tuplets_marks_and_lyrics_are_rendered() -> None:
     assert 'class="lyric"' in svg
     assert 'class="repeat-dot"' in svg
     assert 'class="ending-line"' in svg
+
+
+def test_measure_repeat_count_is_rendered() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\n1 2 3 4 *3 |"))
+
+    repeat_counts = [
+        node.attrib.get("aria-label")
+        for node in root.iter()
+        if node.attrib.get("class") == "repeat-count"
+    ]
+
+    assert repeat_counts == ["*3"]
 
 
 def test_unknown_musicxml_mark_uses_text_fallback() -> None:

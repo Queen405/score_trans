@@ -362,6 +362,18 @@ class PublicationRenderer:
                     style.measure_number_size,
                 )
             )
+        repeat_count = max(1, int(getattr(measure, "repeat_count", 1) or 1))
+        if repeat_count > 1:
+            scene.add(
+                _text(
+                    "repeat-count",
+                    x + width - 7,
+                    y - 9,
+                    f"*{repeat_count}",
+                    style.measure_number_size,
+                    anchor="end",
+                )
+            )
         if draw_attribute:
             attr = (
                 f"1={measure.target_key}  "
