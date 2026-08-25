@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
 from ..render.layout import PUBLICATION_ENGINE_VERSION
@@ -84,6 +84,52 @@ class PageResponse(BaseModel):
 class RenderPageOcrText(BaseModel):
     page_index: int
     ocr_text: str
+
+
+class BatchSavePage(BaseModel):
+    page_id: int
+    task_id: str
+    musicxml_file_id: str
+    jianpu_text: str
+    ocr_text: str
+    text_attachments: list[SourceTextAttachment]
+    svg_file_id: str
+    overlay_file_id: str
+    source_map_file_id: str
+    text_hash: str
+    text_anchors: list[TextAnchor]
+    status: str
+    error_message: str
+    omr_file_id: str
+    original_musicxml: str
+    working_musicxml: str
+    deleted_source_ids: list[str]
+
+
+class BatchRenderStateUpdate(BaseModel):
+    render_page_file_ids: list[str]
+    render_page_ocr_texts: list[RenderPageOcrText]
+    render_output_stale: bool
+    render_layout_key: str
+
+    @model_validator(mode="after")
+    def validate_render_state(self) -> BatchRenderStateUpdate:
+        if not self.render_output_stale and not self.render_page_file_ids:
+            raise ValueError(
+                "render_page_file_ids must not be empty when render output is fresh"
+            )
+        indexes = [item.page_index for item in self.render_page_ocr_texts]
+        if any(index < 0 for index in indexes) or len(indexes) != len(set(indexes)):
+            raise ValueError(
+                "render_page_ocr_texts page_index values must be unique and non-negative"
+            )
+        return self
+
+
+class BatchSaveRequest(BatchRenderStateUpdate):
+    jianpu_text: str
+    source: Literal["save", "reset"] = "save"
+    pages: list[BatchSavePage]
 
 
 class BatchCreateRequest(BaseModel):

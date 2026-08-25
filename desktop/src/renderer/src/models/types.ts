@@ -28,6 +28,8 @@ export type {
   HistoryBatchPageOrderRequest,
   HistoryBatchRenderPageOcrTextsUpdateRequest,
   HistoryBatchRenderPagesUpdateRequest,
+  HistoryBatchRenderStateUpdateRequest,
+  HistoryBatchSaveRequest,
   HistoryCreateRequest,
   HistoryPage,
   HistoryPageUpdateRequest,

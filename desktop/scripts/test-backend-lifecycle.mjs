@@ -66,6 +66,18 @@ test('backend launch avoids reloaders and delegates bounded process cleanup', ()
   assert.ok(fs.existsSync(lifecyclePath))
 })
 
+test('main and preload use one guarded close and relaunch protocol', () => {
+  assert.match(mainSource, /mainWindow\.on\('close'/)
+  assert.match(mainSource, /event\.preventDefault\(\)/)
+  assert.match(mainSource, /app:close-requested/)
+  assert.match(mainSource, /app:request-close/)
+  assert.match(mainSource, /app:resolve-close/)
+  assert.match(preloadSource, /onCloseRequested/)
+  assert.match(preloadSource, /notifyCloseListenerReady/)
+  assert.match(preloadSource, /ipcRenderer\.invoke\('app:request-close', 'relaunch'\)/)
+  assert.doesNotMatch(mainSource, /ipcMain\.handle\('app:relaunch'/)
+})
+
 test('backend lifecycle helper terminates a real child process', async () => {
   assert.ok(fs.existsSync(lifecyclePath))
   const lifecycleSource = fs.readFileSync(lifecyclePath, 'utf8')

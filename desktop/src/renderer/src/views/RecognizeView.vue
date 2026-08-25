@@ -1372,8 +1372,9 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
         if (batchText) {
           await requireData(historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: batchText, source: 'auto' }))
         }
-        const updated = await requireData(historyApi.updateBatchRenderPages(historyBatchId, {
+        const updated = await requireData(historyApi.updateRenderState(historyBatchId, {
           render_page_file_ids: ids,
+          render_page_ocr_texts: store.batchRenderPageOcrTextsFor(batchId),
           render_output_stale: false,
           render_layout_key: layoutKey,
         }))
@@ -1382,11 +1383,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
           batchId,
           updated.render_layout_key ?? '',
         )
-        const ocrUpdated = await requireData(historyApi.updateBatchRenderPageOcrTexts(historyBatchId, {
-          pages: store.batchRenderPageOcrTextsFor(batchId),
-          render_output_stale: false,
-        }))
-        store.setBatchRenderPageOcrTexts(ocrUpdated.render_page_ocr_texts || [], false, batchId)
+        store.setBatchRenderPageOcrTexts(updated.render_page_ocr_texts || [], false, batchId)
         notifyHistoryUpdated()
       }
     } catch (error: unknown) {
@@ -1432,9 +1429,11 @@ async function clearBatchRenderPages(batchId: string): Promise<void> {
   const historyBatchId = historyBatchIdForPages(store.pages.filter((page) => page.batchId === batchId))
   if (!historyBatchId) return
   try {
-    await requireData(historyApi.updateBatchRenderPages(historyBatchId, {
+    await requireData(historyApi.updateRenderState(historyBatchId, {
       render_page_file_ids: [],
+      render_page_ocr_texts: store.batchRenderPageOcrTextsFor(batchId),
       render_output_stale: true,
+      render_layout_key: '',
     }))
     notifyHistoryUpdated()
   } catch (error: unknown) {

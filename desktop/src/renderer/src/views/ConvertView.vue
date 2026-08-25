@@ -306,6 +306,10 @@
         <div class="ws-panel ws-right">
           <div class="ws-panel-head">
             <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
+            <span
+              v-if="store.currentBatchHasUnsavedChanges"
+              class="unsaved-hint"
+            >当前有更改未保存</span>
             <div class="panel-head-actions">
               <n-button
                 size="tiny"
@@ -432,6 +436,33 @@
         @update:current-note-index="currentNoteIndex = $event"
       />
     </div>
+    <n-modal
+      v-model:show="discardConfirmVisible"
+      preset="card"
+      class="discard-confirm-modal"
+      title="有更改尚未保存"
+      :bordered="false"
+      :mask-closable="false"
+      :closable="false"
+      @esc="settleDiscardConfirmation(false)"
+    >
+      <p class="discard-confirm-copy">
+        当前有更改未保存，{{ discardConfirmAction }}将丢弃这些修改，是否继续？
+      </p>
+      <template #footer>
+        <div class="discard-confirm-actions">
+          <n-button @click="settleDiscardConfirmation(false)">
+            取消
+          </n-button>
+          <n-button
+            type="warning"
+            @click="settleDiscardConfirmation(true)"
+          >
+            继续
+          </n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -496,8 +527,10 @@ import { isPreviewableHistoryFile } from '../utils/historyPageState'
 import {
   listenHistoryPagePatched,
   listenHistoryUpdated,
+  notifyHistoryUpdated,
   type HistoryPagePatchDetail,
 } from '../utils/historyEvents'
+import { createWorkspacePersistence } from '../utils/workspacePersistence'
 import {
   ImageOutline,
   ChevronBackOutline,
@@ -507,7 +540,7 @@ import {
   RefreshOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
-import { NButton, NPopover, NSelect, NIcon, NPopconfirm, useMessage } from 'naive-ui'
+import { NButton, NPopover, NSelect, NIcon, NModal, NPopconfirm, useMessage } from 'naive-ui'
 
 const store = useWorkspaceStore()
 const settings = useSettingsStore()
@@ -515,6 +548,10 @@ const publicationRender = usePublicationRender()
 const log = useLogStore()
 const syntaxStore = useSyntaxDiagnosticsStore()
 const message = useMessage()
+const workspacePersistence = createWorkspacePersistence(historyApi, notifyHistoryUpdated)
+const discardConfirmVisible = ref(false)
+const discardConfirmAction = ref<'重置' | '恢复历史版本'>('重置')
+let discardConfirmResolver: ((value: boolean) => void) | null = null
 const jianpuEditorRef = ref<{ selectRange: (start: number, end: number) => boolean } | null>(null)
 const svgPreviewRef = ref<{
   highlightSource: (sourceId: string) => Promise<boolean>
@@ -816,6 +853,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  settleDiscardConfirmation(false)
   stopHistoryUpdatedListener?.()
   stopHistoryUpdatedListener = null
   stopHistoryPagePatchedListener?.()
@@ -1584,9 +1622,23 @@ async function renderFinalBatch(): Promise<string[]> {
     renderResponsePageOcrTexts(result.pages),
     false,
   )
-  await persistBatchRenderPages(ids, undefined, false, layoutKey)
-  await persistBatchRenderPageOcrTexts(undefined, false)
   store.markBatchRenderPageOcrClean()
+  const batchId = store.currentBatchId
+  if (batchId) {
+    try {
+      await workspacePersistence.saveRenderState(store, batchId, {
+        renderPageFileIds: ids,
+        renderPageOcrTexts: store.currentBatchRenderPageOcrTextEntries(),
+        renderOutputStale: false,
+        renderLayoutKey: layoutKey,
+      })
+    } catch (error: unknown) {
+      log.addLog(
+        `保存连续 A4 渲染状态失败：${error instanceof Error ? error.message : String(error)}`,
+        'warn',
+      )
+    }
+  }
   return ids
 }
 
@@ -1639,6 +1691,10 @@ function currentPageSvgIds(): string[] {
   return store.svgFileIds.length ? store.svgFileIds : (store.svgFileId ? [store.svgFileId] : [])
 }
 
+function currentHistoryBatchId(): number | null {
+  return store.currentBatchPages.find((page) => page.historyBatchId)?.historyBatchId ?? null
+}
+
 function setFinalSvgFileIds(ids: string[]): void {
   finalSvgFileIds.value = [...ids]
   finalRenderPageIndex.value = Math.max(
@@ -1647,53 +1703,8 @@ function setFinalSvgFileIds(ids: string[]): void {
   )
 }
 
-function currentHistoryBatchId(): number | null {
-  return store.currentBatchPages.find((page) => page.historyBatchId)?.historyBatchId ?? null
-}
-
-async function persistBatchRenderPages(
-  ids: string[],
-  batchId: number | null = currentHistoryBatchId(),
-  renderOutputStale = false,
-  renderLayoutKey = store.currentBatchRenderLayoutKey,
-): Promise<void> {
-  if (!batchId) return
-  try {
-    const updated = await requireData(historyApi.updateBatchRenderPages(batchId, {
-      render_page_file_ids: ids,
-      render_output_stale: renderOutputStale,
-      render_layout_key: ids.length ? renderLayoutKey : '',
-    }))
-    store.setBatchRenderPageFileIds(
-      updated.render_page_file_ids ?? [],
-      undefined,
-      updated.render_layout_key ?? '',
-    )
-  } catch (e: unknown) {
-    log.addLog(`保存连续 A4 渲染页失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
-  }
-}
-
-async function persistBatchRenderPageOcrTexts(
-  batchId: number | null = currentHistoryBatchId(),
-  renderOutputStale = false,
-): Promise<void> {
-  if (!batchId) return
-  try {
-    const updated = await requireData(historyApi.updateBatchRenderPageOcrTexts(batchId, {
-      pages: store.currentBatchRenderPageOcrTextEntries(),
-      render_output_stale: renderOutputStale,
-    }))
-    store.setBatchRenderPageOcrTexts(
-      updated.render_page_ocr_texts || [],
-      updated.render_output_stale ?? renderOutputStale,
-    )
-  } catch (e: unknown) {
-    log.addLog(`保存连续 A4 文字层失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
-  }
-}
-
 async function resetAll(): Promise<void> {
+  if (!(await confirmDiscardUnsaved('重置'))) return
   store.setBusy(true)
   try {
     if (editMode.value) {
@@ -1709,7 +1720,7 @@ async function resetAll(): Promise<void> {
     const split = splitJianpuAndOcr(result.jianpu_text)
     const page = store.currentPage
     if (page) {
-      store.patchPageById(page.id, {
+      const pagePatch: Partial<TaskPage> = {
         jianpuText: split.jianpuText,
         ocrText: '',
         textAttachments: [],
@@ -1717,15 +1728,27 @@ async function resetAll(): Promise<void> {
         textHash: result.text_hash ?? '',
         workingMusicxml: store.originalMusicxml,
         deletedSourceIds: [],
-      })
+      }
       const nextBatchText = replaceJianpuSectionBody(
         jianpuText.value,
         Math.max(0, currentBatchLocalIndex.value),
         split.jianpuText,
         { inputFileName: page.inputFileName },
       )
+      if (page.batchId) {
+        await workspacePersistence.saveBatch(store, page.batchId, 'reset', {
+          pages: store.currentBatchPages.map((entry) =>
+            entry.id === page.id ? { ...entry, ...pagePatch } : entry,
+          ),
+          jianpuText: nextBatchText,
+          renderPageFileIds: [],
+          renderPageOcrTexts: [],
+          renderOutputStale: true,
+          renderLayoutKey: '',
+        })
+      }
+      store.patchPageById(page.id, pagePatch)
       store.setBatchJianpuText(nextBatchText, false)
-      await persistCorrectionState(page.id, nextBatchText, 'reset')
     }
     store.setOcrText('')
     store.setBatchRenderPageFileIds([])
@@ -1815,7 +1838,6 @@ async function applyCorrections(): Promise<void> {
     return
   }
   const editedPageText = currentPageJianpuText()
-  const batchWasDirty = store.currentBatchJianpuDirty
   const preserveEditedText = await hasJianpuTextEdits(
     editedPageText,
     page.jianpuText,
@@ -1861,7 +1883,7 @@ async function applyCorrections(): Promise<void> {
       { inputFileName: page.inputFileName },
     )
     const nextSvgFileIds = preserveEditedText ? [] : svgFileIds
-    store.patchPageById(page.id, {
+    const pagePatch: Partial<TaskPage> = {
       workingMusicxml: data.working_musicxml,
       jianpuText: data.jianpu_text,
       jianpuDirty: preserveEditedText,
@@ -1872,11 +1894,20 @@ async function applyCorrections(): Promise<void> {
       textHash: data.text_hash,
       svgFileId: nextSvgFileIds[0] ?? '',
       svgFileIds: nextSvgFileIds,
+    }
+    await workspacePersistence.saveBatch(store, page.batchId, 'save', {
+      pages: store.currentBatchPages.map((entry) =>
+        entry.id === page.id ? { ...entry, ...pagePatch } : entry,
+      ),
+      jianpuText: nextBatchText,
+      renderPageFileIds: [],
+      renderOutputStale: true,
+      renderLayoutKey: '',
     })
-    store.setBatchJianpuText(nextBatchText, batchWasDirty || preserveEditedText)
+    store.patchPageById(page.id, pagePatch)
+    store.setBatchJianpuText(nextBatchText, false)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
-    await persistCorrectionState(page.id, nextBatchText)
     message.success('修正已应用')
     editMode.value = false
   } catch (e: unknown) {
@@ -1885,33 +1916,6 @@ async function applyCorrections(): Promise<void> {
     message.error(detail)
   } finally {
     applying.value = false
-  }
-}
-
-async function persistCorrectionState(
-  pageId: string,
-  batchText: string,
-  source: 'save' | 'reset' = 'save',
-): Promise<void> {
-  const page = store.pages.find((entry) => entry.id === pageId)
-  if (!page) return
-  if (page.historyPageId) {
-    const updated = await requireData(historyApi.updatePage(page.historyPageId, {
-      jianpu_text: page.jianpuText,
-      ocr_text: page.ocrText,
-      text_attachments: page.textAttachments,
-      svg_file_id: page.svgFileId,
-      text_hash: page.textHash,
-      text_anchors: page.textAnchors,
-      omr_file_id: page.omrFileId,
-      original_musicxml: page.originalMusicxml,
-      working_musicxml: page.workingMusicxml,
-      deleted_source_ids: page.deletedSourceIds,
-    }))
-    replaceExpandedHistoryPage(updated)
-  }
-  if (page.historyBatchId) {
-    await persistBatchJianpuText(page.historyBatchId, batchText, source)
   }
 }
 
@@ -1930,13 +1934,9 @@ async function saveJianpu(): Promise<void> {
   store.setBusy(true)
   errorLine.value = -1
   try {
-    const ids = finalSvgFileIds.value.length ? finalSvgFileIds.value : currentPageSvgIds()
-    await persistRenderedHistory(
-      ids[0] || store.svgFileId || '',
-      ids,
-      store.currentBatchRenderOutputStale,
-    )
-    store.markBatchJianpuClean()
+    const batchId = store.currentBatchId
+    if (!batchId) throw new Error('暂无可保存批次')
+    await workspacePersistence.saveBatch(store, batchId)
     log.addLog('已保存 OMR、简谱和 OCR 信息')
     message.success('已保存')
   } catch (e: unknown) {
@@ -1988,6 +1988,7 @@ function handleTextAttachmentUpdate(update: TextAttachmentUpdate): void {
       }
     })
   store.patchPageById(page.id, { textAttachments })
+  store.markBatchAttachmentUserEdited(page.batchId)
   store.setBatchRenderPageFileIds([])
 }
 
@@ -2010,134 +2011,6 @@ async function toggleFinalView(): Promise<void> {
   } finally {
     store.setBusy(false)
     isRenderingFinal.value = false
-  }
-}
-
-async function persistRenderedHistory(
-  svgFileId: string,
-  renderPageFileIds: string[],
-  renderOutputStale: boolean,
-): Promise<void> {
-  const savedJianpu = jianpuText.value
-  const sections = parseJianpuPageSections(savedJianpu)
-  const currentPageIndex = Math.max(0, currentBatchLocalIndex.value)
-  const currentSection = sections.find((section) => section.pageIndex === currentPageIndex)
-    ?? sections[currentPageIndex]
-  const historyBatchId = currentHistoryBatchId()
-  if (historyBatchId) {
-    await persistBatchJianpuText(historyBatchId, savedJianpu)
-  }
-  const sourcePageText = currentSection?.body
-    ?? store.currentPage?.jianpuText
-    ?? store.jianpuText
-  const sourceSvgFileId = store.currentPage?.svgFileId || store.svgFileId || svgFileId
-  const payload = {
-    musicxml_file_id: store.musicxmlFileId,
-    jianpu_text: sourcePageText,
-    ocr_text: store.ocrText,
-    svg_file_id: sourceSvgFileId,
-    overlay_file_id: store.currentPage?.overlayFileId || '',
-    source_map_file_id: store.currentPage?.sourceMapFileId || '',
-    text_hash: store.currentPage?.textHash || '',
-    text_anchors: store.currentPage?.textAnchors || [],
-    text_attachments: store.currentPage?.textAttachments || [],
-    omr_file_id: store.currentPage?.omrFileId || '',
-    original_musicxml: store.currentPage?.originalMusicxml || '',
-    working_musicxml: store.currentPage?.workingMusicxml || '',
-    deleted_source_ids: store.currentPage?.deletedSourceIds || [],
-    status: 'completed',
-    error_message: '',
-  }
-
-  if (store.historyPageId) {
-    const updated = await requireData(historyApi.updatePage(store.historyPageId, payload))
-    replaceExpandedHistoryPage(updated)
-    await persistOtherHistoryPageSections(savedJianpu, store.historyPageId)
-    await persistBatchRenderPages(renderPageFileIds, undefined, renderOutputStale)
-    await persistBatchRenderPageOcrTexts(undefined, renderOutputStale)
-    return
-  }
-
-  const batchPages = store.currentBatchPages.length
-    ? store.currentBatchPages
-    : [currentExportPage()]
-  const created = await requireData(historyApi.create({
-    jianpu_text: savedJianpu,
-    render_page_file_ids: renderPageFileIds,
-    render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
-    render_output_stale: renderOutputStale,
-    render_layout_key: renderPageFileIds.length
-      ? store.currentBatchRenderLayoutKey
-      : '',
-    pages: batchPages.map((page, pageIndex) => {
-      const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
-      return {
-        input_file_name: page.inputFileName,
-        input_file_id: page.inputFileId,
-        musicxml_file_id: page.musicxmlFileId,
-        jianpu_text: section?.body ?? page.jianpuText,
-        ocr_text: page.ocrText,
-        svg_file_id: page.svgFileId || (pageIndex === currentPageIndex ? sourceSvgFileId : ''),
-        overlay_file_id: page.overlayFileId,
-        source_map_file_id: page.sourceMapFileId,
-        text_hash: page.textHash,
-        text_anchors: page.textAnchors,
-        text_attachments: page.textAttachments,
-        omr_file_id: page.omrFileId,
-        original_musicxml: page.originalMusicxml,
-        working_musicxml: page.workingMusicxml,
-        deleted_source_ids: page.deletedSourceIds,
-        status: 'completed',
-        error_message: '',
-      }
-    }),
-  }))
-  created.pages.forEach((createdPage, pageIndex) => {
-    const page = batchPages[pageIndex]
-    if (!page) return
-    store.patchPageById(page.id, {
-      historyPageId: createdPage.id,
-      historyBatchId: created.id,
-      jianpuText: createdPage.jianpu_text,
-    })
-  })
-  const pageId = created.pages[currentPageIndex]?.id ?? created.pages[0]?.id
-  if (pageId) {
-    await persistBatchRenderPages(renderPageFileIds, created.id, renderOutputStale)
-    await persistBatchRenderPageOcrTexts(created.id, renderOutputStale)
-    await loadHistory()
-  }
-}
-
-async function persistOtherHistoryPageSections(
-  text: string,
-  currentHistoryPageId: number,
-): Promise<void> {
-  const sections = parseJianpuPageSections(text)
-  for (let pageIndex = 0; pageIndex < store.currentBatchPages.length; pageIndex += 1) {
-    const page = store.currentBatchPages[pageIndex]
-    const section = sections.find((item) => item.pageIndex === pageIndex) ?? sections[pageIndex]
-    if (!page || !section) continue
-    store.patchPageById(page.id, {
-      jianpuText: section.body,
-    })
-    if (!page.historyPageId || page.historyPageId === currentHistoryPageId) continue
-    const updated = await requireData(historyApi.updatePage(page.historyPageId, {
-      jianpu_text: section.body,
-    }))
-    replaceExpandedHistoryPage(updated)
-  }
-}
-
-async function persistBatchJianpuText(
-  batchId: number,
-  text: string,
-  source: 'save' | 'reset' = 'save',
-): Promise<void> {
-  try {
-    await requireData(historyApi.updateBatchJianpuText(batchId, { jianpu_text: text, source }))
-  } catch (e: unknown) {
-    log.addLog(`保存批次简谱文本失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
   }
 }
 
@@ -2176,7 +2049,8 @@ function snapshotSourceLabel(source: string): string {
   return '保存'
 }
 
-function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): void {
+async function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): Promise<void> {
+  if (!(await confirmDiscardUnsaved('恢复历史版本'))) return
   const text = snapshot.jianpu_text
   isViewingFinal.value = false
   store.setBatchJianpuText(text, true)
@@ -2192,6 +2066,23 @@ function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): void {
   const time = formatSnapshotTime(snapshot.created_at)
   log.addLog(`已恢复历史版本（${label} ${time}）`)
   message.success(`已恢复到${label}版本 ${time}`)
+}
+
+function confirmDiscardUnsaved(action: '重置' | '恢复历史版本'): Promise<boolean> {
+  if (!store.currentBatchHasUnsavedChanges) return Promise.resolve(true)
+  settleDiscardConfirmation(false)
+  discardConfirmAction.value = action
+  discardConfirmVisible.value = true
+  return new Promise((resolve) => {
+    discardConfirmResolver = resolve
+  })
+}
+
+function settleDiscardConfirmation(value: boolean): void {
+  const resolve = discardConfirmResolver
+  discardConfirmResolver = null
+  discardConfirmVisible.value = false
+  resolve?.(value)
 }
 
 </script>
@@ -2634,6 +2525,41 @@ function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): void {
   color: var(--text-tertiary);
   font-size: 10px;
   text-transform: none;
+}
+
+.unsaved-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: var(--warning-color, #d97706);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.unsaved-hint::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.discard-confirm-modal {
+  width: min(440px, calc(100vw - 48px));
+}
+
+.discard-confirm-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.discard-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .ws-panel-body {

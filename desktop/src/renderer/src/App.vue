@@ -211,6 +211,8 @@
         title="放弃未保存的更改？"
         :bordered="false"
         :mask-closable="false"
+        :closable="false"
+        @esc="continueEditingSettings"
       >
         <p class="discard-settings-copy">
           设置页中的修改还没有应用。放弃后，这些修改将无法恢复。
@@ -230,6 +232,54 @@
           </div>
         </template>
       </n-modal>
+      <n-modal
+        v-model:show="closeConfirmVisible"
+        preset="card"
+        class="close-confirm-modal"
+        :title="closeRequest?.intent === 'relaunch' ? '重启前保存更改？' : '关闭前保存更改？'"
+        :bordered="false"
+        :mask-closable="false"
+        :closable="false"
+        @esc="cancelCloseRequest"
+      >
+        <p class="close-confirm-copy">
+          当前有更改尚未保存。
+        </p>
+        <p
+          v-if="saveBeforeCloseBlocked"
+          class="close-confirm-warning"
+        >
+          任务处理中，完成后可保存。
+        </p>
+        <p
+          v-if="closeSaveError"
+          class="close-confirm-error"
+        >
+          {{ closeSaveError }}
+        </p>
+        <template #footer>
+          <div class="close-confirm-actions">
+            <n-button @click="cancelCloseRequest">
+              取消
+            </n-button>
+            <n-button
+              type="error"
+              secondary
+              @click="discardAndClose"
+            >
+              {{ closeRequest?.intent === 'relaunch' ? '直接重启' : '直接关闭' }}
+            </n-button>
+            <n-button
+              type="primary"
+              :loading="closeSaving"
+              :disabled="saveBeforeCloseBlocked"
+              @click="saveAndClose"
+            >
+              {{ closeRequest?.intent === 'relaunch' ? '保存并重启' : '保存并关闭' }}
+            </n-button>
+          </div>
+        </template>
+      </n-modal>
     </n-message-provider>
   </n-config-provider>
 </template>
@@ -241,6 +291,9 @@ import { useWorkspaceStore } from './stores/workspace'
 import { useLogStore } from './stores/log'
 import { useSyntaxDiagnosticsStore } from './stores/syntaxDiagnostics'
 import { useSettingsStore } from './stores/settings'
+import { historyApi } from './api/history'
+import { notifyHistoryUpdated } from './utils/historyEvents'
+import { createWorkspacePersistence } from './utils/workspacePersistence'
 import RecognizeView from './views/RecognizeView.vue'
 import ConvertView from './views/ConvertView.vue'
 import SyntaxView from './views/SyntaxView.vue'
@@ -266,22 +319,35 @@ type AppTab = 'recognize' | 'convert' | 'syntax' | 'settings'
 type WorkspaceTab = Exclude<AppTab, 'settings'>
 type PendingNavigation =
   | { kind: 'tab'; tab: AppTab }
-  | { kind: 'close' }
+  | { kind: 'close'; request: CloseRequest }
+interface CloseRequest {
+  requestId: number
+  intent: 'close' | 'relaunch'
+}
 
 const store = useWorkspaceStore()
 const logStore = useLogStore()
 const syntaxStore = useSyntaxDiagnosticsStore()
 const settings = useSettingsStore()
+const workspacePersistence = createWorkspacePersistence(historyApi, notifyHistoryUpdated)
 
 const activeTab = ref<AppTab>('recognize')
 const previousWorkspaceTab = ref<WorkspaceTab>('recognize')
 const discardModalVisible = ref(false)
 const pendingNavigation = ref<PendingNavigation | null>(null)
+const closeRequest = ref<CloseRequest | null>(null)
+const closeConfirmVisible = ref(false)
+const closeSaving = ref(false)
+const closeSaveError = ref('')
 const logOpen = ref(false)
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 const systemPrefersDark = ref(mediaQuery.matches)
 const isMaximized = ref(false)
 let removeMaximizedListener: (() => void) | null = null
+let removeCloseRequestedListener: (() => void) | null = null
+const saveBeforeCloseBlocked = computed(() =>
+  !closeSaving.value && (store.isBusy || store.backgroundTaskCount > 0),
+)
 
 const navItems = [
   { key: 'recognize' as const, label: '识别', icon: ScanOutline },
@@ -317,6 +383,8 @@ onMounted(() => {
   removeMaximizedListener = window.api.onMaximizedChanged((value) => {
     isMaximized.value = value
   })
+  removeCloseRequestedListener = window.api.onCloseRequested(handleCloseRequested)
+  void window.api.notifyCloseListenerReady()
 })
 
 onUnmounted(() => {
@@ -329,6 +397,10 @@ onUnmounted(() => {
   if (removeMaximizedListener) {
     removeMaximizedListener()
     removeMaximizedListener = null
+  }
+  if (removeCloseRequestedListener) {
+    removeCloseRequestedListener()
+    removeCloseRequestedListener = null
   }
 })
 
@@ -343,12 +415,62 @@ function toggleMaximizeWindow(): void {
 }
 
 function closeWindow(): void {
-  if (activeTab.value === 'settings' && settings.draftDirty) {
-    pendingNavigation.value = { kind: 'close' }
+  void window.api.closeWindow()
+}
+
+function handleCloseRequested(request: CloseRequest): void {
+  if (closeRequest.value) return
+  if (settings.draftDirty) {
+    pendingNavigation.value = { kind: 'close', request }
     discardModalVisible.value = true
     return
   }
-  void window.api.closeWindow()
+  processCloseRequest(request)
+}
+
+function processCloseRequest(request: CloseRequest): void {
+  if (!store.hasUnsavedChanges) {
+    window.api.resolveCloseRequest(request.requestId, 'proceed')
+    return
+  }
+  closeRequest.value = request
+  closeSaveError.value = ''
+  closeConfirmVisible.value = true
+}
+
+function cancelCloseRequest(): void {
+  const request = closeRequest.value
+  closeRequest.value = null
+  closeConfirmVisible.value = false
+  closeSaveError.value = ''
+  if (request) window.api.resolveCloseRequest(request.requestId, 'cancel')
+}
+
+function discardAndClose(): void {
+  const request = closeRequest.value
+  if (!request) return
+  closeConfirmVisible.value = false
+  window.api.resolveCloseRequest(request.requestId, 'proceed')
+}
+
+async function saveAndClose(): Promise<void> {
+  const request = closeRequest.value
+  if (!request || saveBeforeCloseBlocked.value) return
+  closeSaving.value = true
+  closeSaveError.value = ''
+  store.setBusy(true)
+  try {
+    await workspacePersistence.saveAllUnsavedBatches(store)
+    closeConfirmVisible.value = false
+    window.api.resolveCloseRequest(request.requestId, 'proceed')
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error)
+    closeSaveError.value = `保存失败，已取消${request.intent === 'relaunch' ? '重启' : '关闭'}：${detail}`
+    logStore.addError(closeSaveError.value)
+  } finally {
+    store.setBusy(false)
+    closeSaving.value = false
+  }
 }
 
 function selectTab(tab: AppTab): void {
@@ -377,8 +499,12 @@ function leaveSettings(): void {
 }
 
 function continueEditingSettings(): void {
+  const navigation = pendingNavigation.value
   pendingNavigation.value = null
   discardModalVisible.value = false
+  if (navigation?.kind === 'close') {
+    window.api.resolveCloseRequest(navigation.request.requestId, 'cancel')
+  }
 }
 
 function discardSettingsChanges(): void {
@@ -388,7 +514,7 @@ function discardSettingsChanges(): void {
   discardModalVisible.value = false
   if (!navigation) return
   if (navigation.kind === 'close') {
-    void window.api.closeWindow()
+    processCloseRequest(navigation.request)
     return
   }
   activateTab(navigation.tab)
@@ -747,6 +873,10 @@ body {
   width: min(440px, calc(100vw - 48px));
 }
 
+.close-confirm-modal {
+  width: min(440px, calc(100vw - 48px));
+}
+
 .discard-settings-copy {
   margin: 0;
   color: var(--text-secondary);
@@ -758,6 +888,36 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.close-confirm-copy,
+.close-confirm-warning,
+.close-confirm-error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.close-confirm-copy {
+  color: var(--text-secondary);
+}
+
+.close-confirm-warning {
+  margin-top: 8px;
+  color: var(--warning);
+}
+
+.close-confirm-error {
+  margin-top: 8px;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
+.close-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .log-drawer {

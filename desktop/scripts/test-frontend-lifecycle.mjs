@@ -9,6 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const source = (relativePath) => fs.readFileSync(path.resolve(here, relativePath), 'utf8')
 
 const logStoreSource = source('../src/renderer/src/stores/log.ts')
+const appSource = source('../src/renderer/src/App.vue')
 const logPanelSource = source('../src/renderer/src/components/LogPanel.vue')
 const uploaderSource = source('../src/renderer/src/components/FileUploader.vue')
 const recognizeSource = source('../src/renderer/src/views/RecognizeView.vue')
@@ -44,6 +45,34 @@ function isInsideScriptSetup(vueSource, token) {
   const setupEnd = vueSource.indexOf('</script>', setupStart)
   const tokenIndex = vueSource.indexOf(token)
   return setupStart >= 0 && tokenIndex > setupStart && tokenIndex < setupEnd
+}
+
+function countTemplateRoots(vueSource) {
+  const templateStart = vueSource.indexOf('<template>')
+  const scriptStart = vueSource.indexOf('<script setup', templateStart)
+  const templateEnd = vueSource.lastIndexOf('</template>', scriptStart)
+  const templateSource = vueSource.slice(templateStart + '<template>'.length, templateEnd)
+  const voidElements = new Set([
+    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link',
+    'meta', 'param', 'source', 'track', 'wbr',
+  ])
+  let depth = 0
+  let roots = 0
+
+  const tagPattern = /<!--[\s\S]*?-->|<\/?([\w-]+)(?:\s+(?:[^'"<>]|'[^']*'|"[^"]*"\s*)*)?\s*\/?>/g
+  for (const match of templateSource.matchAll(tagPattern)) {
+    const token = match[0]
+    if (token.startsWith('<!--')) continue
+    if (token.startsWith('</')) {
+      depth--
+      continue
+    }
+    if (depth === 0) roots++
+    const tagName = match[1].toLowerCase()
+    if (!token.endsWith('/>') && !voidElements.has(tagName)) depth++
+  }
+
+  return roots
 }
 
 test('log state is bounded and LogPanel uses its stable entry ids', () => {
@@ -96,7 +125,6 @@ test('assistant animation timers are replaced and cleared on unmount', () => {
 })
 
 test('assistant stays mounted across tab switches so streams survive navigation', () => {
-  const appSource = source('../src/renderer/src/App.vue')
   assert.match(appSource, /<ai-assistant\s+v-show="activeTab === 'convert'"\s*\/>/)
   assert.doesNotMatch(appSource, /<ai-assistant\s+v-if=/)
   // Unmount abort only fires when the whole app is destroyed, not on tab switch.
@@ -104,6 +132,28 @@ test('assistant stays mounted across tab switches so streams survive navigation'
     assistantComponentSource,
     /onUnmounted\(\(\) => \{[\s\S]*assistant\.abortStream\(\)/,
   )
+})
+
+test('workspace view has one element root so App v-show can hide it', () => {
+  assert.equal(countTemplateRoots(convertSource), 1)
+})
+
+test('all close paths share the guarded request protocol', () => {
+  assert.match(appSource, /onCloseRequested\(handleCloseRequested\)/)
+  assert.match(appSource, /settings\.draftDirty[\s\S]*processCloseRequest/)
+  assert.match(appSource, /store\.hasUnsavedChanges/)
+  assert.match(appSource, /saveAllUnsavedBatches\(store\)/)
+  assert.match(appSource, /store\.isBusy \|\| store\.backgroundTaskCount > 0/)
+  assert.match(appSource, /resolveCloseRequest\(request\.requestId, 'cancel'\)/)
+  assert.match(appSource, /resolveCloseRequest\(request\.requestId, 'proceed'\)/)
+})
+
+test('convert guards destructive actions and shows the current unsaved state', () => {
+  assert.match(convertSource, /store\.currentBatchHasUnsavedChanges/)
+  assert.match(convertSource, /当前有更改未保存/)
+  assert.match(convertSource, /await confirmDiscardUnsaved\('重置'\)/)
+  assert.match(convertSource, /await confirmDiscardUnsaved\('恢复历史版本'\)/)
+  assert.match(convertSource, /:mask-closable="false"/)
 })
 
 test('assistant store cleans pending temp messages on abort and error paths', () => {

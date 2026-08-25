@@ -112,6 +112,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
+import { horizontalScrollIntoView } from '../utils/editorViewport'
 import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
 import type { SyntaxDiagnostic } from '../models/types'
 import { NInputNumber } from 'naive-ui'
@@ -172,6 +173,7 @@ function selectRange(start: number, end: number): boolean {
   element.setSelectionRange(start, end)
   const line = props.modelValue.slice(0, start).split('\n').length - 1
   triggerPageFlash(line)
+  nextTick(() => scrollRangeIntoView(element, start, end))
   return true
 }
 
@@ -310,6 +312,24 @@ function scrollLineIntoView(el: HTMLTextAreaElement, line: number): void {
   } else if (bottom > el.scrollTop + el.clientHeight) {
     el.scrollTop = bottom - el.clientHeight + metrics.lineHeight
   }
+  syncScrollPosition(el)
+}
+
+function scrollRangeIntoView(el: HTMLTextAreaElement, start: number, end: number): void {
+  const metrics = editorMetrics.value
+  const lineStart = props.modelValue.lastIndexOf('\n', Math.max(0, start - 1)) + 1
+  const lineEnd = props.modelValue.indexOf('\n', start)
+  const selectedEnd = lineEnd < 0 ? end : Math.min(end, lineEnd)
+  const startColumn = start - lineStart
+  const endColumn = Math.max(startColumn + 1, selectedEnd - lineStart)
+  el.scrollLeft = horizontalScrollIntoView({
+    scrollLeft: el.scrollLeft,
+    clientWidth: el.clientWidth,
+    paddingLeft: metrics.paddingLeft,
+    charWidth: metrics.charWidth,
+    startColumn,
+    endColumn,
+  })
   syncScrollPosition(el)
 }
 

@@ -5,6 +5,11 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { BackendProcess } from './backend'
 import { registerFileHandlers } from './files'
 import {
+  CloseCoordinator,
+  type CloseDecision,
+  type CloseIntent,
+} from './closeCoordinator'
+import {
   configureElectronStoragePaths,
   loadStoragePaths,
   saveStoragePaths,
@@ -14,10 +19,18 @@ import {
 let mainWindow: BrowserWindow | null = null
 let backend: BackendProcess | null = null
 let quitting = false
+let allowWindowClose = false
+let rendererCloseListenerReady = false
+let rendererWasReady = false
+let nextCloseIntent: CloseIntent = 'close'
+const closeCoordinator = new CloseCoordinator()
 
 configureElectronStoragePaths()
 
 function createWindow(): void {
+  allowWindowClose = false
+  rendererCloseListenerReady = false
+  rendererWasReady = false
   const iconPath = join(__dirname, '../../build/icon.ico')
   const iconPng = join(__dirname, '../../build/icon.png')
   mainWindow = new BrowserWindow({
@@ -64,6 +77,30 @@ function createWindow(): void {
 
   mainWindow.on('maximize', emitWindowMaximizedState)
   mainWindow.on('unmaximize', emitWindowMaximizedState)
+
+  mainWindow.webContents.on('did-start-loading', () => {
+    rendererCloseListenerReady = false
+  })
+  mainWindow.webContents.on('render-process-gone', () => {
+    rendererCloseListenerReady = false
+  })
+
+  mainWindow.on('close', (event) => {
+    if (allowWindowClose) return
+    event.preventDefault()
+    const intent = nextCloseIntent
+    nextCloseIntent = 'close'
+    if (!rendererCloseListenerReady || mainWindow?.webContents.isDestroyed()) {
+      if (!rendererWasReady || confirmCloseWithoutRenderer()) {
+        approveWindowClose(intent)
+      }
+      return
+    }
+    const pending = closeCoordinator.request(intent)
+    if (pending.isNew) {
+      mainWindow?.webContents.send('app:close-requested', pending.request)
+    }
+  })
 
   mainWindow.on('closed', () => {
     mainWindow = null
@@ -133,9 +170,28 @@ app.whenReady().then(async () => {
     return mainWindow?.isMaximized() ?? false
   })
 
-  ipcMain.handle('window:close', () => {
+  ipcMain.handle('app:request-close', (_event, intent: CloseIntent = 'close') => {
+    nextCloseIntent = intent === 'relaunch' ? 'relaunch' : 'close'
     mainWindow?.close()
   })
+
+  ipcMain.handle('app:close-listener-ready', () => {
+    rendererCloseListenerReady = true
+    rendererWasReady = true
+    const pending = closeCoordinator.pendingRequest
+    if (pending) mainWindow?.webContents.send('app:close-requested', pending)
+  })
+
+  ipcMain.on(
+    'app:resolve-close',
+    (_event, requestId: number, decision: CloseDecision) => {
+      const resolution = closeCoordinator.resolve(
+        requestId,
+        decision === 'proceed' ? 'proceed' : 'cancel',
+      )
+      if (resolution.kind === 'proceed') approveWindowClose(resolution.intent)
+    },
+  )
 
   ipcMain.handle('dialog:select-directory', async () => {
     if (!mainWindow) return null
@@ -152,11 +208,6 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('storage:set', (_event, paths: StoragePathUpdate) => {
     return saveStoragePaths(paths ?? {})
-  })
-
-  ipcMain.handle('app:relaunch', () => {
-    app.relaunch()
-    app.quit()
   })
 
   ipcMain.handle('cache:clear-electron', async () => {
@@ -177,6 +228,11 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', async (e) => {
+  if (mainWindow && !allowWindowClose) {
+    e.preventDefault()
+    mainWindow.close()
+    return
+  }
   if (quitting) return
   quitting = true
   if (backend) {
@@ -192,11 +248,12 @@ app.on('will-quit', async () => {
   ipcMain.removeHandler('window:minimize')
   ipcMain.removeHandler('window:toggle-maximize')
   ipcMain.removeHandler('window:is-maximized')
-  ipcMain.removeHandler('window:close')
+  ipcMain.removeHandler('app:request-close')
+  ipcMain.removeHandler('app:close-listener-ready')
+  ipcMain.removeAllListeners('app:resolve-close')
   ipcMain.removeHandler('dialog:select-directory')
   ipcMain.removeHandler('storage:get')
   ipcMain.removeHandler('storage:set')
-  ipcMain.removeHandler('app:relaunch')
   ipcMain.removeHandler('cache:clear-electron')
 })
 
@@ -217,4 +274,25 @@ function isAllowedExternalURL(value: string): boolean {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function confirmCloseWithoutRenderer(): boolean {
+  if (!mainWindow) return true
+  const choice = dialog.showMessageBoxSync(mainWindow, {
+    type: 'warning',
+    title: '无法检查未保存的更改',
+    message: '界面进程当前不可用，未保存的更改可能丢失。',
+    detail: '是否仍要直接退出？',
+    buttons: ['取消', '直接退出'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  })
+  return choice === 1
+}
+
+function approveWindowClose(intent: CloseIntent): void {
+  allowWindowClose = true
+  if (intent === 'relaunch') app.relaunch()
+  mainWindow?.close()
 }

@@ -6,6 +6,8 @@ import type {
   HistoryBatchPageOrderRequest,
   HistoryBatchRenderPageOcrTextsUpdateRequest,
   HistoryBatchRenderPagesUpdateRequest,
+  HistoryBatchRenderStateUpdateRequest,
+  HistoryBatchSaveRequest,
   HistoryCreateRequest,
   HistoryPage,
   HistoryPageUpdateRequest,
@@ -68,6 +70,22 @@ export const historyApi = {
 
   updateBatchRenderPageOcrTexts(id: number, req: HistoryBatchRenderPageOcrTextsUpdateRequest): Promise<ApiResult<HistoryBatch>> {
     return apiFetch(`/history/${id}/render-page-ocr-texts`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  saveBatch(id: number, req: HistoryBatchSaveRequest): Promise<ApiResult<HistoryBatch>> {
+    return apiFetch(`/history/${id}/save-all`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  },
+
+  updateRenderState(id: number, req: HistoryBatchRenderStateUpdateRequest): Promise<ApiResult<HistoryBatch>> {
+    return apiFetch(`/history/${id}/render-state`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),

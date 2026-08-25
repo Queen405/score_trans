@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+export type CloseDecision = 'cancel' | 'proceed'
+export interface CloseRequest {
+  requestId: number
+  intent: 'close' | 'relaunch'
+}
+
 export interface BackendConnection {
   baseURL: string
   token: string
@@ -23,7 +29,21 @@ const api = {
     return ipcRenderer.invoke('window:is-maximized')
   },
   closeWindow: async (): Promise<void> => {
-    await ipcRenderer.invoke('window:close')
+    await ipcRenderer.invoke('app:request-close', 'close')
+  },
+  onCloseRequested: (callback: (request: CloseRequest) => void): (() => void) => {
+    const listener = (_event: unknown, request: CloseRequest) => callback(request)
+    ipcRenderer.on('app:close-requested', listener)
+    return () => ipcRenderer.removeListener('app:close-requested', listener)
+  },
+  notifyCloseListenerReady: async (): Promise<void> => {
+    await ipcRenderer.invoke('app:close-listener-ready')
+  },
+  resolveCloseRequest: (
+    requestId: number,
+    decision: CloseDecision,
+  ): void => {
+    ipcRenderer.send('app:resolve-close', requestId, decision)
   },
   onMaximizedChanged: (callback: (maximized: boolean) => void): (() => void) => {
     const listener = (_event: unknown, maximized: boolean) => {
@@ -44,7 +64,7 @@ const api = {
     return ipcRenderer.invoke('storage:set', paths)
   },
   relaunchApp: async (): Promise<void> => {
-    await ipcRenderer.invoke('app:relaunch')
+    await ipcRenderer.invoke('app:request-close', 'relaunch')
   },
   clearElectronCache: async (): Promise<void> => {
     await ipcRenderer.invoke('cache:clear-electron')

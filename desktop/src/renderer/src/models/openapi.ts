@@ -486,6 +486,40 @@ export type paths = {
         patch: operations["update_batch_render_pages_history__batch_id__render_pages_patch"];
         trace?: never;
     };
+    "/history/{batch_id}/render-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Batch Render State */
+        patch: operations["update_batch_render_state_history__batch_id__render_state_patch"];
+        trace?: never;
+    };
+    "/history/{batch_id}/save-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Save Batch */
+        patch: operations["save_batch_history__batch_id__save_all_patch"];
+        trace?: never;
+    };
     "/history/pages/{page_id}": {
         parameters: {
             query?: never;
@@ -1132,6 +1166,17 @@ export type components = {
             /** Svg File Id */
             svg_file_id: string;
         };
+        /** BatchRenderStateUpdate */
+        BatchRenderStateUpdate: {
+            /** Render Layout Key */
+            render_layout_key: string;
+            /** Render Output Stale */
+            render_output_stale: boolean;
+            /** Render Page File Ids */
+            render_page_file_ids: string[];
+            /** Render Page Ocr Texts */
+            render_page_ocr_texts: components["schemas"]["RenderPageOcrText"][];
+        };
         /** BatchResponse */
         BatchResponse: {
             /** Created At */
@@ -1173,6 +1218,64 @@ export type components = {
             render_page_ocr_texts?: components["schemas"]["RenderPageOcrText"][];
             /** Status */
             status: string;
+        };
+        /** BatchSavePage */
+        BatchSavePage: {
+            /** Deleted Source Ids */
+            deleted_source_ids: string[];
+            /** Error Message */
+            error_message: string;
+            /** Jianpu Text */
+            jianpu_text: string;
+            /** Musicxml File Id */
+            musicxml_file_id: string;
+            /** Ocr Text */
+            ocr_text: string;
+            /** Omr File Id */
+            omr_file_id: string;
+            /** Original Musicxml */
+            original_musicxml: string;
+            /** Overlay File Id */
+            overlay_file_id: string;
+            /** Page Id */
+            page_id: number;
+            /** Source Map File Id */
+            source_map_file_id: string;
+            /** Status */
+            status: string;
+            /** Svg File Id */
+            svg_file_id: string;
+            /** Task Id */
+            task_id: string;
+            /** Text Anchors */
+            text_anchors: components["schemas"]["TextAnchor"][];
+            /** Text Attachments */
+            text_attachments: components["schemas"]["SourceTextAttachment"][];
+            /** Text Hash */
+            text_hash: string;
+            /** Working Musicxml */
+            working_musicxml: string;
+        };
+        /** BatchSaveRequest */
+        BatchSaveRequest: {
+            /** Jianpu Text */
+            jianpu_text: string;
+            /** Pages */
+            pages: components["schemas"]["BatchSavePage"][];
+            /** Render Layout Key */
+            render_layout_key: string;
+            /** Render Output Stale */
+            render_output_stale: boolean;
+            /** Render Page File Ids */
+            render_page_file_ids: string[];
+            /** Render Page Ocr Texts */
+            render_page_ocr_texts: components["schemas"]["RenderPageOcrText"][];
+            /**
+             * Source
+             * @default save
+             * @enum {string}
+             */
+            source?: "save" | "reset";
         };
         /** Body_export_pdf_export_pdf_post */
         Body_export_pdf_export_pdf_post: {
@@ -3788,6 +3891,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BatchRenderPagesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_batch_render_state_history__batch_id__render_state_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchRenderStateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_batch_history__batch_id__save_all_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchSaveRequest"];
             };
         };
         responses: {

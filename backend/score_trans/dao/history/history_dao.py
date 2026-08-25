@@ -419,25 +419,174 @@ class HistoryDao:
                 "SELECT 1 FROM history_batch WHERE id = ?", (batch_id,)
             ).fetchone():
                 return
-            latest = conn.execute(
-                "SELECT jianpu_text FROM history_jianpu_snapshot "
-                "WHERE batch_id = ? ORDER BY id DESC LIMIT 1",
-                (batch_id,),
+            self._push_snapshot_locked(conn, batch_id, jianpu_text, source)
+            conn.commit()
+
+    @staticmethod
+    def _push_snapshot_locked(
+        conn: sqlite3.Connection,
+        batch_id: int,
+        jianpu_text: str,
+        source: str,
+    ) -> None:
+        latest = conn.execute(
+            "SELECT jianpu_text FROM history_jianpu_snapshot "
+            "WHERE batch_id = ? ORDER BY id DESC LIMIT 1",
+            (batch_id,),
+        ).fetchone()
+        if latest and latest["jianpu_text"] == jianpu_text:
+            return
+        conn.execute(
+            "INSERT INTO history_jianpu_snapshot "
+            "(batch_id, jianpu_text, source) VALUES (?, ?, ?)",
+            (batch_id, jianpu_text, source),
+        )
+        conn.execute(
+            "DELETE FROM history_jianpu_snapshot WHERE batch_id = ? "
+            "AND id NOT IN (SELECT id FROM history_jianpu_snapshot "
+            "WHERE batch_id = ? ORDER BY id DESC LIMIT ?)",
+            (batch_id, batch_id, _MAX_SNAPSHOTS),
+        )
+
+    @staticmethod
+    def _save_page_locked(conn: sqlite3.Connection, page: HistoryPage) -> None:
+        conn.execute(
+            """
+            UPDATE history_page
+            SET task_id = ?, musicxml_file_id = ?, jianpu_text = ?, ocr_text = ?,
+                text_attachments = ?, svg_file_id = ?, overlay_file_id = ?,
+                source_map_file_id = ?, text_hash = ?, text_anchors = ?, status = ?,
+                error_message = ?, omr_file_id = ?, original_musicxml = ?,
+                working_musicxml = ?, deleted_source_ids = ?
+            WHERE id = ?
+            """,
+            (
+                page.task_id,
+                page.musicxml_file_id,
+                page.jianpu_text,
+                page.ocr_text,
+                _dump_text_attachments(page.text_attachments),
+                page.svg_file_id,
+                page.overlay_file_id,
+                page.source_map_file_id,
+                page.text_hash,
+                _dump_text_anchors(page.text_anchors),
+                page.status,
+                page.error_message,
+                page.omr_file_id,
+                page.original_musicxml,
+                page.working_musicxml,
+                _dump_string_list(page.deleted_source_ids),
+                page.id,
+            ),
+        )
+        conn.execute(
+            "UPDATE history_page SET engine_version = ? WHERE id = ?",
+            (PUBLICATION_ENGINE_VERSION if page.svg_file_id else "", page.id),
+        )
+
+    def save_batch(
+        self,
+        batch_id: int,
+        pages: list[HistoryPage],
+        *,
+        jianpu_text: str,
+        source: str,
+        render_page_file_ids: list[str],
+        render_page_ocr_texts: list[HistoryRenderPageOcrText],
+        render_output_stale: bool,
+        render_layout_key: str,
+    ) -> HistoryBatch | None:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                batch_row = conn.execute(
+                    "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
+                ).fetchone()
+                if not batch_row:
+                    conn.rollback()
+                    return None
+                expected_ids = {
+                    row["id"]
+                    for row in conn.execute(
+                        "SELECT id FROM history_page WHERE batch_id = ?", (batch_id,)
+                    ).fetchall()
+                }
+                provided_ids = [page.id for page in pages]
+                if len(provided_ids) != len(set(provided_ids)):
+                    raise ValueError("Batch save pages contain duplicate page ids")
+                if set(provided_ids) != expected_ids:
+                    raise ValueError(
+                        "Batch save pages must include exactly the pages belonging to the batch"
+                    )
+                for page in pages:
+                    self._save_page_locked(conn, page)
+                conn.execute(
+                    """
+                    UPDATE history_batch
+                    SET jianpu_text = ?, render_page_file_ids = ?,
+                        render_page_ocr_texts = ?, render_output_stale = ?,
+                        engine_version = ?, render_layout_key = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        jianpu_text,
+                        _dump_render_page_file_ids(render_page_file_ids),
+                        _dump_render_page_ocr_texts(render_page_ocr_texts),
+                        int(render_output_stale),
+                        PUBLICATION_ENGINE_VERSION if render_page_file_ids else "",
+                        render_layout_key if render_page_file_ids else "",
+                        batch_id,
+                    ),
+                )
+                self._refresh_batch_status(conn, batch_id)
+                self._push_snapshot_locked(conn, batch_id, jianpu_text, source)
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+            saved_row = conn.execute(
+                "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
             ).fetchone()
-            if latest and latest["jianpu_text"] == jianpu_text:
-                return
+            return self._row_to_batch(conn, saved_row)
+
+    def update_batch_render_state(
+        self,
+        batch_id: int,
+        render_page_file_ids: list[str],
+        render_page_ocr_texts: list[HistoryRenderPageOcrText],
+        *,
+        render_output_stale: bool,
+        render_layout_key: str,
+    ) -> HistoryBatch | None:
+        with self._connect() as conn:
+            exists = conn.execute(
+                "SELECT id FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            if not exists:
+                return None
             conn.execute(
-                "INSERT INTO history_jianpu_snapshot "
-                "(batch_id, jianpu_text, source) VALUES (?, ?, ?)",
-                (batch_id, jianpu_text, source),
-            )
-            conn.execute(
-                "DELETE FROM history_jianpu_snapshot WHERE batch_id = ? "
-                "AND id NOT IN (SELECT id FROM history_jianpu_snapshot "
-                "WHERE batch_id = ? ORDER BY id DESC LIMIT ?)",
-                (batch_id, batch_id, _MAX_SNAPSHOTS),
+                """
+                UPDATE history_batch
+                SET render_page_file_ids = ?, render_page_ocr_texts = ?,
+                    render_output_stale = ?, engine_version = ?, render_layout_key = ?
+                WHERE id = ?
+                """,
+                (
+                    _dump_render_page_file_ids(render_page_file_ids),
+                    _dump_render_page_ocr_texts(render_page_ocr_texts),
+                    int(render_output_stale),
+                    PUBLICATION_ENGINE_VERSION if render_page_file_ids else "",
+                    render_layout_key if render_page_file_ids else "",
+                    batch_id,
+                ),
             )
             conn.commit()
+            row = conn.execute(
+                "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone()
+            return self._row_to_batch(conn, row)
 
     def list_snapshots(self, batch_id: int) -> list[JianpuSnapshot]:
         with self._connect() as conn:

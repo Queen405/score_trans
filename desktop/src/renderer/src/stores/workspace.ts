@@ -10,6 +10,17 @@ import {
   removeJianpuPageSection,
   restoreJianpuPageText,
 } from '../utils/jianpuPageSections'
+import {
+  acknowledgeRevision,
+  captureEditedRevision,
+  createRevisionState,
+  hasUnsavedChangeKind,
+  hasUnsavedChanges as revisionHasUnsavedChanges,
+  markEdited,
+  type BatchRevisionState,
+  type ChangeRevision,
+  type UserChangeKind,
+} from '../utils/unsavedChangeState'
 
 export type TaskPageStatus =
   | 'pending'
@@ -167,6 +178,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const batchJianpuTexts = ref<Record<string, string>>({})
   const batchJianpuDirty = ref<Record<string, boolean>>({})
   const batchJianpuPendingPageIds = ref<Record<string, string[]>>({})
+  const batchUserChangeRevisions = ref<Record<string, BatchRevisionState>>({})
 
   function syncCurrentFromPage(): void {
     const page = pages.value[currentPageIndex.value]
@@ -377,6 +389,22 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return batchId ? (batchRenderLayoutKeys.value[batchId] ?? '') : ''
   })
   const currentBatchRenderPageOcrDirty = currentBatchRenderOutputStale
+  const currentBatchHasUnsavedChanges = computed(() => {
+    const batchId = currentBatchId.value
+    return batchId ? isBatchUnsaved(batchId) : jianpuDirty.value
+  })
+  const currentBatchOcrUserEdited = computed(() => {
+    const batchId = currentBatchId.value
+    return batchId ? isBatchChangeKindUnsaved(batchId, 'ocr') : false
+  })
+  const currentBatchAttachmentUserEdited = computed(() => {
+    const batchId = currentBatchId.value
+    return batchId ? isBatchChangeKindUnsaved(batchId, 'attachments') : false
+  })
+  const hasUnsavedChanges = computed(() =>
+    (!currentBatchId.value && jianpuDirty.value)
+    || Object.values(batchUserChangeRevisions.value).some(revisionHasUnsavedChanges),
+  )
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
@@ -546,6 +574,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       batchJianpuTexts.value = omitBatchRecord(batchJianpuTexts.value, batchId)
       batchJianpuDirty.value = omitBatchRecord(batchJianpuDirty.value, batchId)
       batchJianpuPendingPageIds.value = omitBatchRecord(batchJianpuPendingPageIds.value, batchId)
+      batchUserChangeRevisions.value = omitBatchRecord(batchUserChangeRevisions.value, batchId)
       return
     }
 
@@ -607,6 +636,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       },
     }
     if (dirty) {
+      markBatchUserEdited('ocr', batchId)
       batchRenderOutputStale.value = {
         ...batchRenderOutputStale.value,
         [batchId]: true,
@@ -706,6 +736,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       ...batchJianpuDirty.value,
       [batchId]: dirty,
     }
+    if (dirty) markBatchUserEdited('jianpu', batchId)
     if (!dirty) {
       batchJianpuPendingPageIds.value = {
         ...batchJianpuPendingPageIds.value,
@@ -723,6 +754,74 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       ...batchJianpuDirty.value,
       [batchId]: false,
     }
+    acknowledgeBatchChanges(captureBatchChangeRevision(batchId), ['jianpu'], batchId)
+  }
+
+  function batchRevisionStateFor(batchId: string): BatchRevisionState {
+    return batchUserChangeRevisions.value[batchId] ?? createRevisionState()
+  }
+
+  function markBatchUserEdited(
+    kind: UserChangeKind,
+    batchId = currentBatchId.value,
+  ): void {
+    if (!batchId) {
+      if (kind === 'jianpu') jianpuDirty.value = true
+      return
+    }
+    batchUserChangeRevisions.value = {
+      ...batchUserChangeRevisions.value,
+      [batchId]: markEdited(batchRevisionStateFor(batchId), kind),
+    }
+  }
+
+  function markBatchAttachmentUserEdited(batchId = currentBatchId.value): void {
+    markBatchUserEdited('attachments', batchId)
+  }
+
+  function captureBatchChangeRevision(
+    batchId = currentBatchId.value,
+  ): ChangeRevision {
+    return captureEditedRevision(
+      batchId ? batchRevisionStateFor(batchId) : createRevisionState(),
+    )
+  }
+
+  function acknowledgeBatchChanges(
+    captured: ChangeRevision,
+    kinds?: readonly UserChangeKind[],
+    batchId = currentBatchId.value,
+  ): void {
+    if (!batchId) {
+      if (!kinds || kinds.includes('jianpu')) markJianpuClean()
+      return
+    }
+    const next = acknowledgeRevision(batchRevisionStateFor(batchId), captured, kinds)
+    batchUserChangeRevisions.value = {
+      ...batchUserChangeRevisions.value,
+      [batchId]: next,
+    }
+    if (!hasUnsavedChangeKind(next, 'jianpu')) {
+      batchJianpuDirty.value = {
+        ...batchJianpuDirty.value,
+        [batchId]: false,
+      }
+      pages.value = pages.value.map((page) =>
+        page.batchId === batchId ? { ...page, jianpuDirty: false } : page,
+      )
+      if (currentBatchId.value === batchId) syncCurrentFromPage()
+    }
+  }
+
+  function isBatchUnsaved(batchId: string): boolean {
+    return revisionHasUnsavedChanges(batchRevisionStateFor(batchId))
+  }
+
+  function isBatchChangeKindUnsaved(
+    batchId: string,
+    kind: UserChangeKind,
+  ): boolean {
+    return hasUnsavedChangeKind(batchRevisionStateFor(batchId), kind)
   }
 
   function batchJianpuTextFor(batchId: string): string {
@@ -930,6 +1029,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchJianpuTexts.value = {}
     batchJianpuDirty.value = {}
     batchJianpuPendingPageIds.value = {}
+    batchUserChangeRevisions.value = {}
   }
 
   function reorderBatchPages(
@@ -1051,6 +1151,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       ...batchJianpuPendingPageIds.value,
       [bid]: [],
     }
+    batchUserChangeRevisions.value = {
+      ...batchUserChangeRevisions.value,
+      [bid]: createRevisionState(),
+    }
     const idx = Math.max(0, Math.min(selectIndex, pages.value.length - 1))
     currentPageIndex.value = idx
     syncCurrentFromPage()
@@ -1094,6 +1198,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchJianpuTexts,
     batchJianpuDirty,
     batchJianpuPendingPageIds,
+    batchUserChangeRevisions,
     hasMusicxml,
     hasInput,
     hasOriginal,
@@ -1106,6 +1211,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     currentBatchRenderOutputStale,
     currentBatchRenderLayoutKey,
     currentBatchRenderPageOcrDirty,
+    currentBatchHasUnsavedChanges,
+    currentBatchOcrUserEdited,
+    currentBatchAttachmentUserEdited,
+    hasUnsavedChanges,
     currentBatchJianpuText,
     currentBatchJianpuDirty,
     currentBatchJianpuPendingPageIds,
@@ -1136,6 +1245,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     markBatchRenderPageOcrClean,
     setBatchJianpuText,
     markBatchJianpuClean,
+    markBatchUserEdited,
+    markBatchAttachmentUserEdited,
+    captureBatchChangeRevision,
+    acknowledgeBatchChanges,
+    isBatchUnsaved,
+    isBatchChangeKindUnsaved,
     batchJianpuTextFor,
     isBatchJianpuDirty,
     batchJianpuPendingPageIdsFor,

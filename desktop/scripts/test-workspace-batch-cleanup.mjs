@@ -27,6 +27,11 @@ const jianpuSectionsPath = path.resolve(
   '../src/renderer/src/utils/jianpuPageSections.ts',
 )
 const jianpuSectionsUrl = compileModule(jianpuSectionsPath)
+const unsavedChangeStatePath = path.resolve(
+  here,
+  '../src/renderer/src/utils/unsavedChangeState.ts',
+)
+const unsavedChangeStateUrl = compileModule(unsavedChangeStatePath)
 const workspacePath = path.resolve(
   here,
   '../src/renderer/src/stores/workspace.ts',
@@ -35,6 +40,7 @@ const workspaceUrl = compileModule(workspacePath, [
   ["from 'pinia'", `from '${pathToFileURL(path.resolve(here, '../node_modules/pinia/dist/pinia.mjs')).href}'`],
   ["from 'vue'", `from '${pathToFileURL(path.resolve(here, '../node_modules/vue/dist/vue.runtime.esm-bundler.js')).href}'`],
   ["from '../utils/jianpuPageSections'", `from '${jianpuSectionsUrl}'`],
+  ["from '../utils/unsavedChangeState'", `from '${unsavedChangeStateUrl}'`],
 ])
 const { useWorkspaceStore } = await import(workspaceUrl)
 
@@ -116,4 +122,40 @@ test('removing the final batch page deletes every per-batch record', () => {
   assert.equal(store.batchJianpuTexts[batchId], undefined)
   assert.equal(store.batchJianpuDirty[batchId], undefined)
   assert.equal(store.batchJianpuPendingPageIds[batchId], undefined)
+  assert.equal(store.batchUserChangeRevisions[batchId], undefined)
+})
+
+test('render stale state alone does not count as an unsaved user edit', () => {
+  const store = createLoadedBatch(1)
+  const batchId = store.currentBatchId
+  const captured = store.captureBatchChangeRevision(batchId)
+  store.acknowledgeBatchChanges(captured, undefined, batchId)
+
+  store.setBatchRenderPageOcrTexts(
+    [{ page_index: 0, ocr_text: 'persisted' }],
+    true,
+    batchId,
+  )
+
+  assert.equal(store.currentBatchRenderOutputStale, true)
+  assert.equal(store.currentBatchHasUnsavedChanges, false)
+  assert.equal(store.hasUnsavedChanges, false)
+})
+
+test('store acknowledges only captured edits and keeps a later edit dirty', () => {
+  const store = createLoadedBatch(1)
+  const batchId = store.currentBatchId
+  store.acknowledgeBatchChanges(
+    store.captureBatchChangeRevision(batchId),
+    undefined,
+    batchId,
+  )
+  store.markBatchAttachmentUserEdited(batchId)
+  const captured = store.captureBatchChangeRevision(batchId)
+  store.markBatchAttachmentUserEdited(batchId)
+
+  store.acknowledgeBatchChanges(captured, undefined, batchId)
+
+  assert.equal(store.currentBatchAttachmentUserEdited, true)
+  assert.equal(store.hasUnsavedChanges, true)
 })

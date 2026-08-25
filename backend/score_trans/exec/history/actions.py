@@ -13,6 +13,8 @@ from ...models.history.schemas import (
     BatchRenderPageOcrTextsUpdate,
     BatchRenderPagesUpdate,
     BatchResponse,
+    BatchRenderStateUpdate,
+    BatchSaveRequest,
     DeleteAllResponse,
     JianpuSnapshotItem,
     PageResponse,
@@ -170,6 +172,68 @@ class HistoryActions:
                 for item in req.pages
             ],
             render_output_stale=req.render_output_stale,
+        )
+        if not batch:
+            raise FileNotFoundError("Batch not found")
+        return _batch_to_response(batch)
+
+    def save_batch(self, batch_id: int, req: BatchSaveRequest) -> BatchResponse:
+        batch = self.service.save_batch(
+            batch_id,
+            [
+                HistoryPage(
+                    id=page.page_id,
+                    task_id=page.task_id,
+                    musicxml_file_id=page.musicxml_file_id,
+                    jianpu_text=page.jianpu_text,
+                    ocr_text=page.ocr_text,
+                    text_attachments=page.text_attachments,
+                    svg_file_id=page.svg_file_id,
+                    overlay_file_id=page.overlay_file_id,
+                    source_map_file_id=page.source_map_file_id,
+                    text_hash=page.text_hash,
+                    text_anchors=page.text_anchors,
+                    status=page.status,
+                    error_message=page.error_message,
+                    omr_file_id=page.omr_file_id,
+                    original_musicxml=page.original_musicxml,
+                    working_musicxml=page.working_musicxml,
+                    deleted_source_ids=page.deleted_source_ids,
+                )
+                for page in req.pages
+            ],
+            jianpu_text=req.jianpu_text,
+            source=req.source,
+            render_page_file_ids=req.render_page_file_ids,
+            render_page_ocr_texts=[
+                HistoryRenderPageOcrText(
+                    page_index=item.page_index,
+                    ocr_text=item.ocr_text,
+                )
+                for item in req.render_page_ocr_texts
+            ],
+            render_output_stale=req.render_output_stale,
+            render_layout_key=req.render_layout_key,
+        )
+        if not batch:
+            raise FileNotFoundError("Batch not found")
+        return _batch_to_response(batch)
+
+    def update_batch_render_state(
+        self, batch_id: int, req: BatchRenderStateUpdate
+    ) -> BatchResponse:
+        batch = self.service.update_batch_render_state(
+            batch_id,
+            req.render_page_file_ids,
+            [
+                HistoryRenderPageOcrText(
+                    page_index=item.page_index,
+                    ocr_text=item.ocr_text,
+                )
+                for item in req.render_page_ocr_texts
+            ],
+            render_output_stale=req.render_output_stale,
+            render_layout_key=req.render_layout_key,
         )
         if not batch:
             raise FileNotFoundError("Batch not found")

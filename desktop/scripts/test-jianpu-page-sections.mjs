@@ -37,6 +37,22 @@ const jianpuTextState = await import(
   `data:text/javascript;base64,${Buffer.from(jianpuTextStateCompiled).toString('base64')}`
 )
 
+const editorViewportSourcePath = path.resolve(
+  here,
+  '../src/renderer/src/utils/editorViewport.ts',
+)
+const editorViewportSource = fs.readFileSync(editorViewportSourcePath, 'utf8')
+const editorViewportCompiled = ts.transpileModule(editorViewportSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: editorViewportSourcePath,
+}).outputText
+const editorViewport = await import(
+  `data:text/javascript;base64,${Buffer.from(editorViewportCompiled).toString('base64')}`
+)
+
 const batchRenderSourcePath = path.resolve(
   here,
   '../src/renderer/src/utils/batchRender.ts',
@@ -158,6 +174,14 @@ const recognizeViewSource = fs.readFileSync(
 )
 const convertViewSource = fs.readFileSync(
   path.resolve(here, '../src/renderer/src/views/ConvertView.vue'),
+  'utf8',
+)
+const jianpuEditorSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/components/JianpuEditor.vue'),
+  'utf8',
+)
+const historySavePayloadSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/utils/historySavePayload.ts'),
   'utf8',
 )
 const correctApiSource = fs.readFileSync(
@@ -561,9 +585,10 @@ test('resetting Jianpu replaces the source provenance snapshot', () => {
 test('marker correction uses the registered backend route and persists source state', () => {
   assert.match(correctApiSource, /const BASE = '\/correct'/)
   assert.doesNotMatch(correctApiSource, /\/api\/correct/)
-  assert.match(convertViewSource, /omr_file_id:\s*page\.omrFileId/)
-  assert.match(convertViewSource, /deleted_source_ids:\s*page\.deletedSourceIds/)
-  assert.doesNotMatch(convertViewSource, /source_map_file_id:\s*[^,]+\|\|\s*undefined/)
+  assert.match(convertViewSource, /workspacePersistence\.saveBatch/)
+  assert.match(historySavePayloadSource, /omr_file_id:\s*page\.omrFileId/)
+  assert.match(historySavePayloadSource, /deleted_source_ids:\s*page\.deletedSourceIds/)
+  assert.doesNotMatch(historySavePayloadSource, /source_map_file_id:\s*[^,]+\|\|\s*undefined/)
 })
 
 test('marker correction preserves dirty Jianpu text instead of replacing it', () => {
@@ -616,12 +641,39 @@ test('marker correction merges deleted notes into dirty Jianpu text', () => {
 
 test('marker correction keeps canonical page text as the merge base', () => {
   const correctionStart = convertViewSource.indexOf('async function applyCorrections')
-  const correctionEnd = convertViewSource.indexOf('async function persistCorrectionState', correctionStart)
+  const correctionEnd = convertViewSource.indexOf('function transposeOctaveShift', correctionStart)
   const correctionHandler = convertViewSource.slice(correctionStart, correctionEnd)
 
   assert.match(correctionHandler, /preserveEditedJianpuText\([\s\S]*page\.jianpuText/)
   assert.match(correctionHandler, /jianpuText:\s*data\.jianpu_text/)
   assert.match(correctionHandler, /replaceJianpuSectionBody\([\s\S]*nextPageText/)
+})
+
+test('source selection scrolls a target note into the horizontal viewport', () => {
+  assert.equal(
+    editorViewport.horizontalScrollIntoView({
+      scrollLeft: 0,
+      clientWidth: 120,
+      paddingLeft: 10,
+      charWidth: 8,
+      startColumn: 24,
+      endColumn: 25,
+    }),
+    106,
+  )
+  assert.equal(
+    editorViewport.horizontalScrollIntoView({
+      scrollLeft: 160,
+      clientWidth: 120,
+      paddingLeft: 10,
+      charWidth: 8,
+      startColumn: 4,
+      endColumn: 5,
+    }),
+    26,
+  )
+  assert.match(jianpuEditorSource, /nextTick\(\(\) => scrollRangeIntoView\(element, start, end\)\)/)
+  assert.match(jianpuEditorSource, /horizontalScrollIntoView\(/)
 })
 
 test('original preview hit targets stay scoped to the displayed source-map sheet', () => {

@@ -88,6 +88,46 @@ class HistoryService:
             render_output_stale=render_output_stale,
         )
 
+    def save_batch(
+        self,
+        batch_id: int,
+        pages: list[HistoryPage],
+        *,
+        jianpu_text: str,
+        source: str,
+        render_page_file_ids: list[str],
+        render_page_ocr_texts: list[HistoryRenderPageOcrText],
+        render_output_stale: bool,
+        render_layout_key: str,
+    ) -> HistoryBatch | None:
+        return self.dao.save_batch(
+            batch_id,
+            pages,
+            jianpu_text=jianpu_text,
+            source=source,
+            render_page_file_ids=render_page_file_ids,
+            render_page_ocr_texts=render_page_ocr_texts,
+            render_output_stale=render_output_stale,
+            render_layout_key=render_layout_key,
+        )
+
+    def update_batch_render_state(
+        self,
+        batch_id: int,
+        render_page_file_ids: list[str],
+        render_page_ocr_texts: list[HistoryRenderPageOcrText],
+        *,
+        render_output_stale: bool,
+        render_layout_key: str,
+    ) -> HistoryBatch | None:
+        return self.dao.update_batch_render_state(
+            batch_id,
+            render_page_file_ids,
+            render_page_ocr_texts,
+            render_output_stale=render_output_stale,
+            render_layout_key=render_layout_key,
+        )
+
     def update_page(
         self,
         page_id: int,

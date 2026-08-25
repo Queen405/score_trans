@@ -118,8 +118,9 @@ export function useHistoryRestore() {
         renderResponsePageOcrTexts(rendered.pages),
         false,
       )
-      await requireData(historyApi.updateBatchRenderPages(batch.id, {
+      await requireData(historyApi.updateRenderState(batch.id, {
         render_page_file_ids: ids,
+        render_page_ocr_texts: store.currentBatchRenderPageOcrTextEntries(),
         render_output_stale: false,
         render_layout_key: layoutKey,
       }))

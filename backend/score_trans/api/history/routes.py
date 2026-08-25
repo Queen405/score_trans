@@ -12,6 +12,8 @@ from ...models.history.schemas import (
     BatchRenderPageOcrTextsUpdate,
     BatchRenderPagesUpdate,
     BatchResponse,
+    BatchRenderStateUpdate,
+    BatchSaveRequest,
     DeleteAllResponse,
     JianpuSnapshotItem,
     PageResponse,
@@ -92,6 +94,24 @@ def update_batch_render_page_ocr_texts(
     actions: HistoryActions = Depends(get_history_actions),
 ):
     return actions.update_batch_render_page_ocr_texts(batch_id, req)
+
+
+@router.patch("/{batch_id}/save-all", response_model=BatchResponse)
+def save_batch(
+    batch_id: int,
+    req: BatchSaveRequest,
+    actions: HistoryActions = Depends(get_history_actions),
+):
+    return actions.save_batch(batch_id, req)
+
+
+@router.patch("/{batch_id}/render-state", response_model=BatchResponse)
+def update_batch_render_state(
+    batch_id: int,
+    req: BatchRenderStateUpdate,
+    actions: HistoryActions = Depends(get_history_actions),
+):
+    return actions.update_batch_render_state(batch_id, req)
 
 
 @router.patch("/{batch_id}/page-order", response_model=BatchResponse)

@@ -64,6 +64,8 @@ export type HistoryBatchJianpuTextUpdateRequest = Schemas['BatchJianpuTextUpdate
 export type HistoryBatchRenderPageOcrTextsUpdateRequest =
   Schemas['BatchRenderPageOcrTextsUpdate']
 export type HistoryBatchPageOrderRequest = Schemas['BatchPageOrderRequest']
+export type HistoryBatchSaveRequest = Schemas['BatchSaveRequest']
+export type HistoryBatchRenderStateUpdateRequest = Schemas['BatchRenderStateUpdate']
 export type JianpuSnapshotItem = Schemas['JianpuSnapshotItem']
 export type CorrectableEntityDTO = Schemas['CorrectableEntityDTO']
 export type SheetEntitiesDTO = Schemas['SheetEntitiesDTO']
