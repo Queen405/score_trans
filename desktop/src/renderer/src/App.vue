@@ -173,14 +173,7 @@
                 >语法报错{{ syntaxStore.errorCount }}</span>
                 <span
                   v-if="syntaxStore.warningCount"
-                  role="button"
-                  tabindex="0"
-                  :aria-pressed="syntaxStore.hideWarnings"
-                  :title="syntaxStore.hideWarnings ? '点击显示时值警告' : '点击隐藏时值警告'"
-                  :class="['log-badge', 'syntax-badge', { 'badge-muted': syntaxStore.hideWarnings }]"
-                  @click.stop="syntaxStore.toggleHideWarnings()"
-                  @keydown.enter.prevent.stop="syntaxStore.toggleHideWarnings()"
-                  @keydown.space.prevent.stop="syntaxStore.toggleHideWarnings()"
+                  class="log-badge syntax-badge"
                 >时值警告{{ syntaxStore.warningCount }}</span>
               </button>
               <div class="log-body">
@@ -215,10 +208,16 @@
                           v-if="syntaxStore.errorCount"
                           class="syntax-summary-count error"
                         >{{ syntaxStore.errorCount }} 个错误</span>
-                        <span
+                        <button
                           v-if="syntaxStore.warningCount"
-                          :class="['syntax-summary-count', 'warning', { muted: syntaxStore.hideWarnings }]"
-                        >{{ syntaxStore.warningCount }} 个警告</span>
+                          type="button"
+                          :aria-pressed="syntaxStore.hideWarnings"
+                          :title="syntaxStore.hideWarnings ? '点击显示时值警告' : '点击隐藏时值警告'"
+                          :class="['syntax-summary-count', 'warning', 'syntax-summary-toggle', { muted: syntaxStore.hideWarnings }]"
+                          @click="syntaxStore.toggleHideWarnings()"
+                        >
+                          {{ syntaxStore.warningCount }} 个警告
+                        </button>
                       </div>
                     </div>
                     <syntax-diagnostic-panel />
@@ -1001,15 +1000,6 @@ body {
   background: var(--warning);
 }
 
-span.log-badge[role='button'] {
-  cursor: pointer;
-}
-
-.log-badge.badge-muted {
-  opacity: 0.45;
-  text-decoration: line-through;
-}
-
 .log-body {
   height: 208px;
   overflow-y: auto;
@@ -1031,6 +1021,10 @@ span.log-badge[role='button'] {
   border-left: 1px solid var(--border-light);
 }
 
+.syntax-column .log-column-head {
+  padding-right: 4px;
+}
+
 .syntax-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1039,8 +1033,12 @@ span.log-badge[role='button'] {
 }
 
 .syntax-summary-count {
+  display: inline-flex;
+  align-items: center;
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.5;
+  padding: 2px 0;
 }
 
 .syntax-summary-count.error {
@@ -1049,6 +1047,21 @@ span.log-badge[role='button'] {
 
 .syntax-summary-count.warning {
   color: var(--warning);
+}
+
+.syntax-summary-toggle {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+
+.syntax-summary-toggle:hover:not(.muted) {
+  background: var(--bg-hover, rgba(128, 128, 128, 0.12));
 }
 
 .syntax-summary-count.muted {
