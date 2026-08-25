@@ -9,6 +9,7 @@ import type {
   HistoryCreateRequest,
   HistoryPage,
   HistoryPageUpdateRequest,
+  JianpuSnapshotItem,
 } from '../models/types'
 import { createKeyedAsyncQueue } from '../utils/asyncCoordination'
 
@@ -59,6 +60,10 @@ export const historyApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
     })
+  },
+
+  listJianpuSnapshots(id: number): Promise<ApiResult<JianpuSnapshotItem[]>> {
+    return apiFetch(`/history/${id}/jianpu-snapshots`)
   },
 
   updateBatchRenderPageOcrTexts(id: number, req: HistoryBatchRenderPageOcrTextsUpdateRequest): Promise<ApiResult<HistoryBatch>> {

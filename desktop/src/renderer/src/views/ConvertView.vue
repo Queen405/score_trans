@@ -165,6 +165,61 @@
           </div>
         </div>
         <div class="ws-toolbar-right">
+          <n-popover
+            trigger="click"
+            placement="bottom"
+            :show="snapshotHistoryOpen"
+            :disabled="!canOpenSnapshotHistory"
+            @update:show="handleSnapshotHistoryShow"
+          >
+            <template #trigger>
+              <n-button
+                size="small"
+                type="primary"
+                :disabled="store.isBusy || !canOpenSnapshotHistory"
+              >
+                历史版本
+              </n-button>
+            </template>
+            <div class="snapshot-list">
+              <div class="snapshot-hint">
+                默认保存最近三次的历史
+              </div>
+              <div
+                v-if="snapshotLoading"
+                class="snapshot-empty"
+              >
+                加载中…
+              </div>
+              <div
+                v-else-if="!snapshotList.length"
+                class="snapshot-empty"
+              >
+                暂无历史版本
+              </div>
+              <template v-else>
+                <div
+                  v-for="snapshot in snapshotList"
+                  :key="snapshot.id"
+                  class="snapshot-item"
+                >
+                  <span
+                    class="snapshot-source"
+                    :class="snapshot.source"
+                  >{{ snapshotSourceLabel(snapshot.source) }}</span>
+                  <span class="snapshot-time">{{ formatSnapshotTime(snapshot.created_at) }}</span>
+                  <n-button
+                    size="tiny"
+                    quaternary
+                    type="primary"
+                    @click="restoreJianpuSnapshot(snapshot)"
+                  >
+                    恢复
+                  </n-button>
+                </div>
+              </template>
+            </div>
+          </n-popover>
           <n-button
             size="small"
             :loading="store.isBusy"
@@ -402,6 +457,7 @@ import type {
   HistoryBatchListItem,
   HistoryBatch,
   HistoryPage,
+  JianpuSnapshotItem,
   RenderedSvgPage,
   SheetEntitiesDTO,
 } from '../models/types'
@@ -451,7 +507,7 @@ import {
   RefreshOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
-import { NButton, NSelect, NIcon, NPopconfirm, useMessage } from 'naive-ui'
+import { NButton, NPopover, NSelect, NIcon, NPopconfirm, useMessage } from 'naive-ui'
 
 const store = useWorkspaceStore()
 const settings = useSettingsStore()
@@ -541,6 +597,11 @@ let stopHistoryPagePatchedListener: (() => void) | null = null
 let historyListRequestSeq = 0
 const historyDetailEpoch = createRequestEpoch()
 let restoreCheckSeq = 0
+
+const snapshotHistoryOpen = ref(false)
+const snapshotList = ref<JianpuSnapshotItem[]>([])
+const snapshotLoading = ref(false)
+const canOpenSnapshotHistory = computed(() => currentHistoryBatchId() !== null)
 
 const currentBatchLocalIndex = computed(() =>
   store.currentBatchPages.indexOf(store.currentPage!),
@@ -1664,7 +1725,7 @@ async function resetAll(): Promise<void> {
         { inputFileName: page.inputFileName },
       )
       store.setBatchJianpuText(nextBatchText, false)
-      await persistCorrectionState(page.id, nextBatchText)
+      await persistCorrectionState(page.id, nextBatchText, 'reset')
     }
     store.setOcrText('')
     store.setBatchRenderPageFileIds([])
@@ -1823,7 +1884,11 @@ async function applyCorrections(): Promise<void> {
   }
 }
 
-async function persistCorrectionState(pageId: string, batchText: string): Promise<void> {
+async function persistCorrectionState(
+  pageId: string,
+  batchText: string,
+  source: 'save' | 'reset' = 'save',
+): Promise<void> {
   const page = store.pages.find((entry) => entry.id === pageId)
   if (!page) return
   if (page.historyPageId) {
@@ -1842,7 +1907,7 @@ async function persistCorrectionState(pageId: string, batchText: string): Promis
     replaceExpandedHistoryPage(updated)
   }
   if (page.historyBatchId) {
-    await persistBatchJianpuText(page.historyBatchId, batchText)
+    await persistBatchJianpuText(page.historyBatchId, batchText, source)
   }
 }
 
@@ -2060,12 +2125,69 @@ async function persistOtherHistoryPageSections(
   }
 }
 
-async function persistBatchJianpuText(batchId: number, text: string): Promise<void> {
+async function persistBatchJianpuText(
+  batchId: number,
+  text: string,
+  source: 'save' | 'reset' = 'save',
+): Promise<void> {
   try {
-    await requireData(historyApi.updateBatchJianpuText(batchId, { jianpu_text: text }))
+    await requireData(historyApi.updateBatchJianpuText(batchId, { jianpu_text: text, source }))
   } catch (e: unknown) {
     log.addLog(`保存批次简谱文本失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
   }
+}
+
+async function loadJianpuSnapshots(): Promise<void> {
+  const batchId = currentHistoryBatchId()
+  if (!batchId) {
+    snapshotList.value = []
+    return
+  }
+  snapshotLoading.value = true
+  try {
+    const { data, error } = await historyApi.listJianpuSnapshots(batchId)
+    if (error) {
+      snapshotList.value = []
+      message.error(error.message)
+      return
+    }
+    snapshotList.value = data
+  } finally {
+    snapshotLoading.value = false
+  }
+}
+
+function handleSnapshotHistoryShow(show: boolean): void {
+  snapshotHistoryOpen.value = show
+  if (show) void loadJianpuSnapshots()
+}
+
+function formatSnapshotTime(createdAt: string): string {
+  return createdAt.slice(5, 16)
+}
+
+function snapshotSourceLabel(source: string): string {
+  if (source === 'reset') return '重置'
+  if (source === 'auto') return '自动'
+  return '保存'
+}
+
+function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): void {
+  const text = snapshot.jianpu_text
+  isViewingFinal.value = false
+  store.setBatchJianpuText(text, true)
+  const sections = parseJianpuPageSections(text)
+  store.currentBatchPages.forEach((page, index) => {
+    const section = sections.find((item) => item.pageIndex === index) ?? sections[index]
+    if (section) store.patchPageById(page.id, { jianpuText: section.body })
+  })
+  store.setBatchRenderPageFileIds([])
+  setFinalSvgFileIds([])
+  snapshotHistoryOpen.value = false
+  const label = snapshotSourceLabel(snapshot.source)
+  const time = formatSnapshotTime(snapshot.created_at)
+  log.addLog(`已恢复历史版本（${label} ${time}）`)
+  message.success(`已恢复到${label}版本 ${time}`)
 }
 
 </script>
@@ -2428,6 +2550,59 @@ async function persistBatchJianpuText(batchId: number, text: string): Promise<vo
   align-items: center;
   gap: 2px;
   color: var(--text-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.snapshot-list {
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.snapshot-hint {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.snapshot-empty {
+  padding: 8px 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-align: center;
+}
+
+.snapshot-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.snapshot-source {
+  flex-shrink: 0;
+  width: 28px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--border-soft);
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.snapshot-source.reset {
+  background: rgba(240, 160, 32, 0.16);
+  color: var(--warning);
+}
+
+.snapshot-time {
+  flex: 1;
+  color: var(--text-secondary);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }

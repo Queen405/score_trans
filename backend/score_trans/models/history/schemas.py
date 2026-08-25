@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
@@ -129,6 +131,15 @@ class BatchRenderPagesUpdate(BaseModel):
 
 class BatchJianpuTextUpdate(BaseModel):
     jianpu_text: str
+    source: Literal["save", "reset", "auto"] = "save"
+
+
+class JianpuSnapshotItem(BaseModel):
+    id: int
+    batch_id: int
+    jianpu_text: str
+    source: str
+    created_at: str
 
 
 class BatchRenderPageOcrTextsUpdate(BaseModel):

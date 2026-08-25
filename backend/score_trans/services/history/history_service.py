@@ -8,6 +8,7 @@ from ...models.history.entities import (
     HistoryBatchSummary,
     HistoryPage,
     HistoryRenderPageOcrText,
+    JianpuSnapshot,
 )
 from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
 
@@ -66,6 +67,14 @@ class HistoryService:
         self, batch_id: int, jianpu_text: str
     ) -> HistoryBatch | None:
         return self.dao.update_batch_jianpu_text(batch_id, jianpu_text)
+
+    def push_snapshot(
+        self, batch_id: int, jianpu_text: str, source: str = "save"
+    ) -> None:
+        self.dao.push_snapshot(batch_id, jianpu_text, source)
+
+    def list_snapshots(self, batch_id: int) -> list[JianpuSnapshot]:
+        return self.dao.list_snapshots(batch_id)
 
     def update_batch_render_page_ocr_texts(
         self,

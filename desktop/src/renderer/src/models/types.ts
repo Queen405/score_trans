@@ -33,6 +33,7 @@ export type {
   HistoryPageUpdateRequest,
   InstrumentProfile,
   InstrumentProfileCatalog,
+  JianpuSnapshotItem,
   LlmProviderOption,
   MeasureNumberMode,
   MidiTempo,

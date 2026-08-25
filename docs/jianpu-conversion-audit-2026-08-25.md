@@ -220,3 +220,152 @@ XML 2nd-m8 里 Audiveris **重复了 D4-A4 两组音符**（同一 `id`，中间
 ### 本节小结
 
 page_001 逐音核对后：3 个小节有 slur 漏 `)`、1 个小节三连音丢失、3 个小节 voice2 混入、1 个小节长休止畸形、1 个小节 measure rest 展平、1 个小节括号嵌套混乱（输入数据问题）；6 个小节完全正确。最严重的是 L14 三连音丢失（连音标记+时值双错）和 3 处 slur 漏 `)`（连音线画错）。
+
+## 补充：page_002 逐行人工审查（2026-08-25 追加）
+
+对 `2-9...page_002.mxl`（解压后 4838 行 XML）与 `_jianpu.txt`（34 行，32 个小节行）逐音、逐小节人工核对。
+
+### 小节对应
+
+XML 共 32 个 measure（m1-m32，单一 system 不重编号），简谱 32 个物理小节行（L3-L34），1:1 对应。但重解析后只剩 27 个小节——因 m12-m16 是 5 个空小节（`print-object=no` 的 measure rest），简谱保留为空 `|` 行（L14-L18），但解析器跳过不创建 `Measure`，丢失 5 个小节位置。
+
+### P0 — `n7` 还原号音高错误（G 调，核心问题）
+
+page_002 是 G 调（m2 `<fifths>1`，但 m1 无 `<key>`，auto 从 m2 推断）。G 调里 F# 是默认（degree 7），F natural 写成 `n7`。m1 全是 F5（7 个 F natural）→ 简谱 `n7 n7 n7 n7 n7 n7. n7`。
+
+但解析器把 `n` 存成 `accidental=0`，**不抵消调号**。重导出 MusicXML 时 `n7` 变回 F#（带调号降音），而非 F natural。本页至少 43 个 `n7`/`n7,` token 受影响。这是 page_002 最严重的对应错误。
+
+### P1 — slur 嵌套（项目规定 slur 不能嵌套，3 处）
+
+| 简谱行 | XML 小节 | 简谱 | 问题 |
+|---|---|---|---|
+| L4 | m2 | `(h[6+4] (h6) [6+7,]...` | slur1(C5 start) + slur2(E5 start) 嵌套成两个 `(` |
+| L7 | m5 | `(h6 (2') 3')` | slur1(E5) + slur2(A5) 嵌套 |
+| L19 | m17 | `(#1'. (#2'.) ^py 6 q#2')` | slur4(G#5) + slur5(A#5) 嵌套 |
+
+XML 用 `slur number="1"/"2"/"4"/"5"` 区分多条并行 slur，简谱只有 `(` `)` 一种标记，多条 slur 叠加就嵌套。
+
+### P1 — 跨连音组的 slur 处理错误（L22 / m20）
+
+m20 有两个 3:2 三连音组。第一个组的 Ab5 有 `slur start`，第二个组的 Eb5 有 `slur stop`——slur 跨了两个连音组。简谱产出 `$3:2;q0 [b2'+2] b1'$ $3:2;b6) (qb1' qn7)$`：第一个组缺 `(`，第二个组有 `b6)` 无对应 `(`。连音内括号不配对，这是 audit 报告「`$...$` 内有不配对括号」的具体根因。
+
+### P1 — 调号变化未跟随（m5 fifths=0）
+
+m5 出现 `<key><fifths>0</fifths>`（转 C 调），但简谱无 `1=C` 调号变更标记，仍按 G 调映射音级（E5→`6` 而非 C 调的 `3`）。**拍号变化跟了（m11 的 6/8 在 L13 有 `6/8` 标记），但调号变化没跟**——不一致。若实际转调则音级全错。
+
+### P1 — 6/8 拍号变化不一致（m21）
+
+m11 的 `<time>6/8` 在简谱 L13 有 `6/8` 标记（✓），但 m21 的 `<time>6/8` 在简谱 L23 **无标记**。同一类拍号变化，一个跟了一个没跟。
+
+### P1 — 空小节丢失（m12-m16）
+
+m12-m16 各只有 `print-object=no` 的 `<rest measure="yes">`（隐藏的全小节休止）。简谱输出为空 `|` 行（L14-L18），但解析器跳过不创建 `Measure`，重解析丢 5 个小节位置。m11 末尾还有 `<multiple-rest>6</multiple-rest>`（6 小节多休止），转换器未特殊处理。
+
+### P2 — 时值映射问题
+
+- **m1 过满**：m1 有 7 个 F5（duration 合计 180/24=7.5 beats），4/4 小节只有 4 拍，过满 3.5 拍。Audiveris 输入问题。
+- **m21 6/8 下时值可疑**：A#4 quarter(duration=24) → 简谱 `q#2`(eighth)。6/8 拍下 quarter 是否应映射成 eighth 前缀存疑。
+- **m18/m32 多补拍**：m18 只 1 个 rest，简谱 L20 有 2 个 `q0`；m32 只 4 个音，简谱 L34 多 1 个 `q0`。转换器补拍凑数。
+
+### 确认正确的部分
+
+m4/L6（32nd 串音高+slur 全对）、m17/L19（G#5→`#1'`、A#5→`#2'`、E5→`6` 音高全对）、m19/L21（Gb5→`qb1'`、Eb5→`qb6`、slur 全对）、m20/L22（三连音成员音高对）、m32/L34（末尾音高全对）。
+
+### page_002 小结
+
+核心问题是 **`n7` 还原号在 G 调下音高错误（43+ 个）**，其次是 **slur 嵌套 3 处**、**跨连音组 slur 处理错误**、**调号变化未跟随**（m5 fifths=0 无标记）、**6/8 拍号变化不一致**（m11 有标 m21 无标）、**空小节丢失 5 个**。音高映射本身（除 n7 还原号外）基本正确。
+
+## 补充：page_003 逐行人工审查（2026-08-25 追加）
+
+对 `2-9...page_003.musicxml`（5785 行）与 `_jianpu.txt`（61 行，59 个小节行）逐音、逐小节人工核对。page_003 是 Bb 调（m15 `<fifths>-2`，但 m1-m14 无 key，auto 从 m15 提前推断 Bb），两轮 measure 编号（system-row 重编号）。
+
+### 小节对应
+
+两轮 measure，简谱 59 个物理小节行。第一轮 m5,m6 + 第二轮 m7,m8,m9 是 5 个空小节（`print-object=no` measure rest），简谱输出空 `|` 行（L7-L8, L17-L19），解析器跳过不创建 `Measure`，重解析丢 5 个小节位置（与 audit 报告「丢 5,6,15-17」一致）。
+
+### P0 — `n` 还原号音高错误（Bb 调，59 个）
+
+Bb 调里 Bb/Eb 是默认（degree 1/4），B natural/E natural 写成 `n1`/`n4`。m1 的 B5→`n1'`、m2 的 E6→`qn4'`、m3/m4 的 B5→`n1'`/`qn1'`。解析器把 `n` 存成 `accidental=0` 不抵消调号，重导出变 Bb/Eb。本页 59 个 `n` token 受影响，是最严重的对应错误。
+
+### P1 — 调号变化未跟随（第二轮 m19 fifths=0）
+
+第二轮 m19 出现 `<key><fifths>0</fifths>`（转 C 调），但简谱无 `1=C` 标记，仍按 Bb 调映射（D5→`q3`，Bb 调 D=3；若转 C 调应为 `q2`）。与 page_002 的 m5 同类问题——**拍号变化跟了（m4 的 6/8 在 L14 有 `6/8` 标记），但调号变化没跟**。
+
+### P1 — 空小节处理不一致
+
+- 第一轮 m5,m6 + 第二轮 m7,m8,m9：`print-object=no` measure rest → 简谱**空 `|` 行** → 解析器跳过。
+- 第二轮 m31-m36：`multiple-rest>6` + `print-object=no` measure rest → 简谱输出 **6 个 `h0.`**（显示了，不空）。
+
+**同样是 `print-object=no` 的 measure rest，5 个输出空行、6 个输出 `h0.`，处理不一致**。`h0.` 时值对（6/8 拍 dotted half=6 eighth=满小节），但 multiple-rest 6 应该用多小节休止记号，而非 6 个 `h0.` 展平。
+
+### P1 — 连音组内括号不配对（L23 / 第二轮 m13）
+
+m13 有两个 3:2 三连音组。第一个组的 Gb4 有 `slur start`，slur 的 stop 在三连音组外的 Ab4（`b7,)`）。简谱产出 `$(b6, b7, b6,$ b7,)`——第一个 `$` 内有 `(` 无 `)`，`)` 在 `$` 外。**连音组内括号不配对**，根因是 slur 跨三连音组，简谱无法表达。
+
+### P1 — voice1/voice2 交错混入（第二轮 m1 / L9）
+
+第二轮 m1 有 `<backup>12</backup>` + voice2 大量 16th 内容。简谱 L9 把两个 voice 混在一行。voice1 的 Eb5 `slur start`（行 656）在 m1 内无 stop，简谱 L9 的 `3)` 是错位闭合（无对应 `(`）。
+
+### P2 — 补拍
+
+m1/m2/m3/m4 都补 `0`/`q0` 凑小节（XML 时值不足 4 拍，转换器补休止）。m1 只有 3.5 beats 内容，补 `q0`。
+
+### 确认正确的部分
+
+m1↔L3（G5→`6`、A5→`7`、B5→`n1'`、C6→`q2'` 音高对）、m3↔L5、m4↔L6（F#5→`#5.` 对）、第二轮 m4↔L14（6/8 + D5 dotted half tie 对）、第二轮 m13↔L23（三连音成员音高对）。
+
+### page_003 小结
+
+核心问题是 **`n` 还原号 Bb 调音高错误（59 个）**，其次是 **调号变化未跟随**（m19 fifths=0）、**空小节处理不一致**（5 个空行 vs 6 个 `h0.`）、**连音组内括号不配对**（L23 跨三连音组 slur）、**voice1/2 交错混入**（L9）、**multiple-rest 6 展平**。音高映射本身（除 n 还原号外）基本正确，6/8 拍号变化正确跟随。
+
+## 补充：page_004 逐行人工审查（2026-08-25 追加）
+
+对 `2-9...page_004.musicxml`（5086 行）与 `_jianpu.txt`（45 行，43 小节行）逐音、逐小节人工核对。page_004 是 C 调（全程无 `<key>`，auto 回退 C），三轮 measure 编号（system-row 重编号），divisions 24/12/2 三轮不同。
+
+### 小节对应
+
+三轮 measure（第一轮 m1-m14 divisions=24, 第二轮 m1-m15 divisions=12 F→G clef, 第三轮 m1-m? divisions=2）。简谱 43 小节行。空小节：第一轮 m13（measure rest 无 print-object=no）+ 第二轮 m3(multiple-rest 1) + m4(**畸形空元素**) + m5(multiple-rest 6) + m6-m10(5 个 print-object=no) + 第三轮 m1-m2(multiple-rest 2)。重解析丢约 9 个小节位置。
+
+### P1 — slur_start `(` 漏写（L4 / m2）
+
+m2 的 chord B4 有 `slur start`（行 288），slur stop 在 C5（行 301）。简谱 L4 `[7+2] 1')`——**只有 `)` 无 `(`**。与 page_001 的 slur 漏 `)` 不同，这里是 slur_start 的 `(` 漏写。
+
+### P1 — slur 嵌套（L13 / m11）
+
+m11 有 slur1(A5 start→C6 stop) + slur2(C6 start→F#5 stop)。简谱 L13 `(6'. (1'') 5' #4')`——**两个 `(` 嵌套**（slur1 和 slur2 都用 `(`）。项目规定 slur 不能嵌套。
+
+### P1 — measure rest 展平成畸形长延音（L15 / m13）
+
+m13 voice1 有 `rest measure="yes"` duration=102（4.25 beats），**无 `print-object="no"`**（显示的）。简谱展平成 `s0----`（16th + 4 个 `-` = 4.25 beats）。时值对但畸形——measure rest 应输出 `w0` 或多小节休止记号，不应一行堆 4 个延音号。voice1/voice2 混在同一行（voice1 的 measure rest + voice2 的 D6/C6/B5/A5 串）。
+
+### P1 — 空小节处理不一致（取决于 print-object）
+
+- `print-object="no"` 的 measure rest → 简谱**空 `|` 行**（m6-m10 → L23-L27）
+- **无** `print-object` 属性的 measure rest → 简谱输出 `s0----`（m13 voice1）
+- **畸形空元素** `<measure number="4" width="107" />`（m4，无 note 无 rest）→ 简谱 `w0`？
+- **一个 measure 同时有音符 + multiple-rest 6**（m5：D6 whole + E5 half + multiple-rest 6 + measure rest）→ 简谱 `w2'' h3'`（L22，只取了音符，multiple-rest 丢）
+
+**处理不一致**，取决于 print-object 属性和 measure 内容。
+
+### P1 — L16 大量不配对 `)`
+
+L16 极长（一整行），含多个 `6'')`、`4'')`、`5'' 6'')` 等 `)`，多数无对应 `(`。对应第二轮 m14（1199 宽大 measure），根因是 slur 跨 voice/小节 + multiple-rest 处理混乱。
+
+### P2 — 畸形 XML 结构
+
+- **m4 空元素**：`<measure number="4" width="107" />`（完全空，无 note 无 rest）。
+- **m5 混合**：一个 measure 同时有 D6 whole + E5 half + multiple-rest 6 + measure rest。
+- **第二轮重复 m4 编号**：行 3384 和 3393 都标 `measure number="4"`。
+- **m1 过满**：m1 有 9.25 beats（4/4 应 4 beats）。
+
+### P2 — 超高八度标记
+
+L7-L8 出现 `q2'''`、`2'''`（八度+3，三撇）。合法但罕见，说明音区极高（D6/D7）。
+
+### 确认正确的部分
+
+m1↔L3（G4→`5`、chord[D5,E5,D4]→`[3'+2'+2]` 全对）、m2↔L4（音高全对，仅缺 `(`）、m11↔L13（音高全对，仅 slur 嵌套）、m13↔L15（音高+slur+tie 全对，仅 measure rest 展平）、m5↔L22（D6→`w2''`、E5→`h3'` 对）。
+
+### page_004 小结
+
+page_004 是 C 调（无 n 还原号问题）。核心问题是 **slur_start `(` 漏写**（L4）、**slur 嵌套**（L13）、**measure rest 展平成 `s0----` 畸形长延音**（L15）、**空小节处理不一致**（取决于 print-object）、**L16 大量不配对 `)`**、**畸形 XML 结构**（m4 空元素、m5 混合、重复编号）。音高映射本身正确，问题集中在 slur 括号和休止处理。

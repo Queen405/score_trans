@@ -65,3 +65,12 @@ class HistoryBatchSummary:
     status: str = "completed"
     first_file_name: str = ""
     last_completed_at: str = ""
+
+
+@dataclass(slots=True)
+class JianpuSnapshot:
+    id: int = 0
+    batch_id: int = 0
+    jianpu_text: str = ""
+    source: str = "save"
+    created_at: str = ""

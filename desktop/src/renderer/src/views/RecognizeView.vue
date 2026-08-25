@@ -1370,7 +1370,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
       if (historyBatchId) {
         const batchText = store.batchJianpuTextFor(batchId)
         if (batchText) {
-          await requireData(historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: batchText }))
+          await requireData(historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: batchText, source: 'auto' }))
         }
         const updated = await requireData(historyApi.updateBatchRenderPages(historyBatchId, {
           render_page_file_ids: ids,
@@ -1474,7 +1474,7 @@ async function syncBatchJianpuTextForPage(pageId: string): Promise<void> {
   const historyBatchId = historyBatchIdForPages(batchPages)
   if (!historyBatchId) return
   try {
-    await requireData(historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: text }))
+    await requireData(historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: text, source: 'auto' }))
   } catch (error: unknown) {
     log.addLog(`保存批次简谱文本失败：${errorMessage(error)}`, 'warn')
   }

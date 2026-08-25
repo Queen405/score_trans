@@ -11,6 +11,7 @@ from ...models.history.entities import (
     HistoryBatchSummary,
     HistoryPage,
     HistoryRenderPageOcrText,
+    JianpuSnapshot,
 )
 from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
 from ...models.render.layout import PUBLICATION_ENGINE_VERSION
@@ -18,7 +19,8 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 7
+_SCHEMA_VERSION = 8
+_MAX_SNAPSHOTS = 3
 _MIN_SQLITE_VERSION = (3, 35, 0)
 
 _PAGE_FILE_ID_COLUMNS = (
@@ -148,6 +150,23 @@ class HistoryDao:
                 ,working_musicxml TEXT NOT NULL DEFAULT ''
                 ,deleted_source_ids TEXT NOT NULL DEFAULT '[]'
             )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE history_jianpu_snapshot (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batch_id INTEGER NOT NULL REFERENCES history_batch(id) ON DELETE CASCADE,
+                jianpu_text TEXT NOT NULL DEFAULT '',
+                source TEXT NOT NULL DEFAULT 'save',
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_jianpu_snapshot_batch_id_id
+            ON history_jianpu_snapshot(batch_id, id DESC)
             """
         )
 
@@ -386,6 +405,59 @@ class HistoryDao:
                 "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
             ).fetchone()
             return self._row_to_batch(conn, row)
+
+    def push_snapshot(
+        self, batch_id: int, jianpu_text: str, source: str = "save"
+    ) -> None:
+        """Persist a jianpu_text snapshot for the batch after an overwrite.
+
+        Deduplicates against the most recent snapshot and keeps only the newest
+        three records per batch. Empty text is still recorded.
+        """
+        with self._connect() as conn:
+            if not conn.execute(
+                "SELECT 1 FROM history_batch WHERE id = ?", (batch_id,)
+            ).fetchone():
+                return
+            latest = conn.execute(
+                "SELECT jianpu_text FROM history_jianpu_snapshot "
+                "WHERE batch_id = ? ORDER BY id DESC LIMIT 1",
+                (batch_id,),
+            ).fetchone()
+            if latest and latest["jianpu_text"] == jianpu_text:
+                return
+            conn.execute(
+                "INSERT INTO history_jianpu_snapshot "
+                "(batch_id, jianpu_text, source) VALUES (?, ?, ?)",
+                (batch_id, jianpu_text, source),
+            )
+            conn.execute(
+                "DELETE FROM history_jianpu_snapshot WHERE batch_id = ? "
+                "AND id NOT IN (SELECT id FROM history_jianpu_snapshot "
+                "WHERE batch_id = ? ORDER BY id DESC LIMIT ?)",
+                (batch_id, batch_id, _MAX_SNAPSHOTS),
+            )
+            conn.commit()
+
+    def list_snapshots(self, batch_id: int) -> list[JianpuSnapshot]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, batch_id, jianpu_text, source, created_at "
+                "FROM history_jianpu_snapshot WHERE batch_id = ? "
+                "ORDER BY id DESC LIMIT ?",
+                (batch_id, _MAX_SNAPSHOTS),
+            ).fetchall()
+            return [self._row_to_snapshot(r) for r in rows]
+
+    @staticmethod
+    def _row_to_snapshot(row: sqlite3.Row) -> JianpuSnapshot:
+        return JianpuSnapshot(
+            id=row["id"],
+            batch_id=row["batch_id"],
+            jianpu_text=row["jianpu_text"],
+            source=row["source"],
+            created_at=row["created_at"],
+        )
 
     def update_batch_render_page_ocr_texts(
         self,
@@ -725,6 +797,24 @@ class HistoryDao:
             )
         if version < 5:
             HistoryDao._clear_history_for_v5(conn)
+        if version < 8:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS history_jianpu_snapshot (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    batch_id INTEGER NOT NULL REFERENCES history_batch(id) ON DELETE CASCADE,
+                    jianpu_text TEXT NOT NULL DEFAULT '',
+                    source TEXT NOT NULL DEFAULT 'save',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_jianpu_snapshot_batch_id_id
+                ON history_jianpu_snapshot(batch_id, id DESC)
+                """
+            )
         HistoryDao._ensure_indexes(conn)
         conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
@@ -754,6 +844,12 @@ class HistoryDao:
             """
             CREATE INDEX IF NOT EXISTS idx_history_page_batch_id_id
             ON history_page(batch_id, id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_jianpu_snapshot_batch_id_id
+            ON history_jianpu_snapshot(batch_id, id DESC)
             """
         )
 

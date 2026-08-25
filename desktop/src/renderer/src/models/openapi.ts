@@ -401,6 +401,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/history/{batch_id}/jianpu-snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Jianpu Snapshots */
+        get: operations["list_jianpu_snapshots_history__batch_id__jianpu_snapshots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/history/{batch_id}/jianpu-text": {
         parameters: {
             query?: never;
@@ -940,6 +957,12 @@ export type components = {
         BatchJianpuTextUpdate: {
             /** Jianpu Text */
             jianpu_text: string;
+            /**
+             * Source
+             * @default save
+             * @enum {string}
+             */
+            source?: "save" | "reset" | "auto";
         };
         /** BatchListItem */
         BatchListItem: {
@@ -1567,6 +1590,19 @@ export type components = {
             name: string;
             /** Range Examples */
             range_examples?: components["schemas"]["SyntaxExample"][];
+        };
+        /** JianpuSnapshotItem */
+        JianpuSnapshotItem: {
+            /** Batch Id */
+            batch_id: number;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Jianpu Text */
+            jianpu_text: string;
+            /** Source */
+            source: string;
         };
         /** JianpuToMusicXmlRequest */
         JianpuToMusicXmlRequest: {
@@ -3591,6 +3627,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_jianpu_snapshots_history__batch_id__jianpu_snapshots_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JianpuSnapshotItem"][];
                 };
             };
             /** @description Validation Error */

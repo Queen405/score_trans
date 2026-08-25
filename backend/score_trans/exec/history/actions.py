@@ -14,6 +14,7 @@ from ...models.history.schemas import (
     BatchRenderPagesUpdate,
     BatchResponse,
     DeleteAllResponse,
+    JianpuSnapshotItem,
     PageResponse,
     PageUpdate,
     RenderPageOcrText,
@@ -140,7 +141,21 @@ class HistoryActions:
         batch = self.service.update_batch_jianpu_text(batch_id, req.jianpu_text)
         if not batch:
             raise FileNotFoundError("Batch not found")
+        if req.source != "auto":
+            self.service.push_snapshot(batch_id, req.jianpu_text, req.source)
         return _batch_to_response(batch)
+
+    def list_jianpu_snapshots(self, batch_id: int) -> list[JianpuSnapshotItem]:
+        return [
+            JianpuSnapshotItem(
+                id=snapshot.id,
+                batch_id=snapshot.batch_id,
+                jianpu_text=snapshot.jianpu_text,
+                source=snapshot.source,
+                created_at=snapshot.created_at,
+            )
+            for snapshot in self.service.list_snapshots(batch_id)
+        ]
 
     def update_batch_render_page_ocr_texts(
         self, batch_id: int, req: BatchRenderPageOcrTextsUpdate

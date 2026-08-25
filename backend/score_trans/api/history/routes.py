@@ -13,6 +13,7 @@ from ...models.history.schemas import (
     BatchRenderPagesUpdate,
     BatchResponse,
     DeleteAllResponse,
+    JianpuSnapshotItem,
     PageResponse,
     PageUpdate,
 )
@@ -74,6 +75,14 @@ def update_batch_jianpu_text(
     actions: HistoryActions = Depends(get_history_actions),
 ):
     return actions.update_batch_jianpu_text(batch_id, req)
+
+
+@router.get("/{batch_id}/jianpu-snapshots", response_model=list[JianpuSnapshotItem])
+def list_jianpu_snapshots(
+    batch_id: int,
+    actions: HistoryActions = Depends(get_history_actions),
+):
+    return actions.list_jianpu_snapshots(batch_id)
 
 
 @router.patch("/{batch_id}/render-page-ocr-texts", response_model=BatchResponse)
