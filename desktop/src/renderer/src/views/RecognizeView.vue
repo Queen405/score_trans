@@ -257,6 +257,8 @@ import type {
 } from '../models/types'
 import type { TaskPage, TaskPageStatus } from '../stores/workspace'
 import { splitJianpuAndOcr } from '../utils/ocrText'
+import { reconcileTextAnchors } from '../utils/textAnchorTracking'
+import { hashJianpuText } from '../utils/jianpuTextState'
 import {
   composeJianpuPageText,
 } from '../utils/jianpuPageSections'
@@ -317,6 +319,8 @@ interface PageResult {
   source_map_file_id?: string
   text_hash?: string
   text_anchors?: PipelineResponse['text_anchors']
+  text_anchor_baseline_text?: string
+  text_anchor_baseline_anchors?: PipelineResponse['text_anchors']
   text_attachments?: PipelineResponse['text_attachments']
   status: string
   error_message: string
@@ -1093,6 +1097,8 @@ async function persistPageResult(
         source_map_file_id: result.source_map_file_id ?? '',
         text_hash: result.text_hash ?? '',
         text_anchors: result.text_anchors ?? [],
+        text_anchor_baseline_text: result.text_anchor_baseline_text,
+        text_anchor_baseline_anchors: result.text_anchor_baseline_anchors,
         text_attachments: result.text_attachments,
         status: result.status,
         error_message: result.error_message,
@@ -1119,6 +1125,8 @@ async function persistPageResult(
           source_map_file_id: result.source_map_file_id ?? '',
           text_hash: result.text_hash ?? '',
           text_anchors: result.text_anchors ?? [],
+          text_anchor_baseline_text: result.text_anchor_baseline_text,
+          text_anchor_baseline_anchors: result.text_anchor_baseline_anchors,
           text_attachments: result.text_attachments ?? [],
           status: result.status,
           error_message: result.error_message,
@@ -1152,6 +1160,8 @@ async function persistPageResult(
 function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
   const existing = store.pages.find((entry) => entry.id === pageId)
     ?? store.pages.find((entry) => entry.historyPageId === page.id)
+  const hasTextAnchorBaseline = page.text_anchor_baseline_text !== undefined
+    && page.text_anchor_baseline_anchors !== undefined
   const patch = {
     historyPageId: page.id,
     taskId: page.task_id || '',
@@ -1163,6 +1173,12 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
     sourceMapFileId: page.source_map_file_id ?? '',
     textHash: page.text_hash ?? '',
     textAnchors: page.text_anchors ?? [],
+    textAnchorBaselineText: hasTextAnchorBaseline
+      ? page.text_anchor_baseline_text
+      : page.jianpu_text,
+    textAnchorBaselineAnchors: hasTextAnchorBaseline
+      ? page.text_anchor_baseline_anchors
+      : (page.text_anchors ?? []),
     textAttachments: page.text_attachments ?? [],
     svgFileIds: existing?.svgFileIds.length ? existing.svgFileIds : (page.svg_file_id ? [page.svg_file_id] : []),
     historyBatchId: page.batch_id ?? null,
@@ -1194,9 +1210,18 @@ async function applyPipelineResult(
     let ocrText = returnedPipelineOcrText(result) || split.ocrText
     let svgFileId = result.svg_file_id
     let svgFileIds = renderPageIds(result.render_pages, result.svg_file_id)
-    let textAnchors = result.text_anchors ?? []
+    const sourceTextAnchors = result.text_anchors ?? []
+    const alignment = reconcileTextAnchors(
+      result.jianpu_text,
+      split.jianpuText,
+      sourceTextAnchors,
+    )
+    const textAnchorBaselineAnchors = alignment.reconciled
+      ? alignment.anchors
+      : sourceTextAnchors.map((anchor) => ({ ...anchor, valid: false }))
+    let textAnchors = textAnchorBaselineAnchors.map((anchor) => ({ ...anchor }))
     const textAttachments = result.text_attachments ?? []
-    let textHash = result.text_hash ?? ''
+    const textHash = await hashJianpuText(split.jianpuText)
     const pageResult: PageResult = {
       input_file_name: target.inputFileName,
       input_file_id: target.inputFileId,
@@ -1209,6 +1234,8 @@ async function applyPipelineResult(
       source_map_file_id: result.source_map_file_id ?? '',
       text_hash: textHash,
       text_anchors: textAnchors,
+      text_anchor_baseline_text: split.jianpuText,
+      text_anchor_baseline_anchors: textAnchorBaselineAnchors,
       text_attachments: textAttachments,
       status: 'completed',
       error_message: '',
@@ -1227,6 +1254,8 @@ async function applyPipelineResult(
       sourceMapFileId: result.source_map_file_id ?? '',
       textHash,
       textAnchors,
+      textAnchorBaselineText: split.jianpuText,
+      textAnchorBaselineAnchors,
       textAttachments,
       originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
       originalFileId: isPreviewable(target.inputFileName) ? target.inputFileId : '',
@@ -1264,6 +1293,9 @@ async function applyAiResult(
       musicxmlFileId: '',
       musicxmlText: '',
       jianpuText: mergedJianpuText,
+      textAnchors: [],
+      textAnchorBaselineText: mergedJianpuText,
+      textAnchorBaselineAnchors: [],
       ocrText: '',
       jianpuDirty: false,
       svgFileId,
@@ -1282,6 +1314,9 @@ async function applyAiResult(
       ocr_text: '',
       svg_file_id: svgFileId,
       overlay_svg_file_id: '',
+      text_anchors: [],
+      text_anchor_baseline_text: mergedJianpuText,
+      text_anchor_baseline_anchors: [],
       status: 'completed',
       error_message: warnings.join('；'),
     }

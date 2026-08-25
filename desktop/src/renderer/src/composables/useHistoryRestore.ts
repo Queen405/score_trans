@@ -144,6 +144,8 @@ export function useHistoryRestore() {
   function buildTaskPageInput(page: HistoryPage, batchId: number) {
     const split = splitJianpuAndOcr(page.jianpu_text || '')
     const previewable = isPreviewableHistoryFile(page.input_file_name)
+    const hasTextAnchorBaseline = page.text_anchor_baseline_text !== undefined
+      && page.text_anchor_baseline_anchors !== undefined
     return {
       inputFileName: page.input_file_name,
       inputFileId: page.input_file_id,
@@ -159,6 +161,12 @@ export function useHistoryRestore() {
       overlayFileId: page.overlay_file_id || page.overlay_svg_file_id || '',
       sourceMapFileId: page.source_map_file_id || '',
       textAnchors: page.text_anchors || [],
+      textAnchorBaselineText: hasTextAnchorBaseline
+        ? page.text_anchor_baseline_text
+        : split.jianpuText,
+      textAnchorBaselineAnchors: hasTextAnchorBaseline
+        ? page.text_anchor_baseline_anchors
+        : (page.text_anchors || []),
       textAttachments: page.text_attachments || [],
       textHash: page.text_hash || '',
       taskId: page.task_id || '',

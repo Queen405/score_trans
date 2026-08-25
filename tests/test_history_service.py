@@ -5,6 +5,7 @@ from score_trans.dao.history.history_dao import HistoryDao
 from score_trans.models.history.entities import HistoryPage, HistoryRenderPageOcrText
 from score_trans.models.provenance.schemas import (
     SourceTextAttachment,
+    TextAnchor,
     TextPlacementAnchor,
 )
 from score_trans.services.history.history_service import HistoryService
@@ -180,6 +181,62 @@ def test_update_page_persists_empty_deleted_source_ids(tmp_path) -> None:
     assert service.get_batch(batch.id).pages[0].deleted_source_ids == []
 
 
+def test_text_anchor_baseline_roundtrips_and_survives_page_reorder(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    baseline = [
+        TextAnchor(
+            source_id="s1:i1",
+            start_utf16=0,
+            end_utf16=1,
+            role="note",
+        )
+    ]
+    batch = service.create_batch(
+        [
+            HistoryPage(
+                input_file_name="a.png",
+                jianpu_text="edited-a",
+                text_anchor_baseline_text="baseline-a",
+                text_anchor_baseline_anchors=baseline,
+            ),
+            HistoryPage(
+                input_file_name="b.png",
+                jianpu_text="edited-b",
+                text_anchor_baseline_text="baseline-b",
+                text_anchor_baseline_anchors=baseline,
+            ),
+        ],
+        jianpu_text="// @page 1\nedited-a\n// @page 2\nedited-b",
+    )
+
+    updated = service.update_page(
+        batch.pages[0].id,
+        text_anchor_baseline_text="new-baseline-a",
+        text_anchor_baseline_anchors=baseline,
+    )
+    assert updated is not None
+    assert updated.text_anchor_baseline_text == "new-baseline-a"
+
+    reordered = service.reorder_pages(
+        batch.id,
+        "// @page 1\nreordered-b\n// @page 2\nreordered-a",
+        [
+            (batch.pages[1].id, "reordered-b"),
+            (batch.pages[0].id, "reordered-a"),
+        ],
+    )
+
+    assert reordered is not None
+    assert [page.text_anchor_baseline_text for page in reordered.pages] == [
+        "baseline-b",
+        "new-baseline-a",
+    ]
+    assert [page.jianpu_text for page in reordered.pages] == [
+        "reordered-b",
+        "reordered-a",
+    ]
+
+
 def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:
     db_path = tmp_path / "history.db"
     service = HistoryService(db_path)
@@ -190,7 +247,7 @@ def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
 
     assert "start_measure_number" not in columns
-    assert version == 8
+    assert version == 9
 
 
 def test_history_render_pages_use_current_publication_engine_version(tmp_path) -> None:
@@ -513,7 +570,7 @@ def test_v4_migration_backs_up_and_clears_history(tmp_path) -> None:
         page_columns = {
             row[1] for row in conn.execute("PRAGMA table_info(history_page)")
         }
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 8
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 9
         assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 0
         assert "start_measure_number" not in page_columns
@@ -553,7 +610,7 @@ def test_v5_migration_adds_ocr_stale_without_clearing_history(tmp_path) -> None:
     assert loaded.render_page_file_ids == ["svg-kept"]
     assert loaded.render_output_stale is False
     with sqlite3.connect(db_path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 8
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 9
 
 
 def test_schema_migration_rolls_back_all_alter_steps(tmp_path, monkeypatch) -> None:
@@ -625,7 +682,7 @@ def test_legacy_history_rows_are_discarded_after_backup(tmp_path) -> None:
         }
         assert "history" not in tables
         assert "history_legacy_backup" not in tables
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 8
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 9
     with sqlite3.connect(db_path.with_suffix(".v0.bak")) as conn:
         assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 2
 

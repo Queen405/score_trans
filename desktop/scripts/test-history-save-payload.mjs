@@ -47,6 +47,14 @@ function page(index, historyBatchId = 10) {
     sourceMapFileId: `map-${index}`,
     textHash: `hash-${index}`,
     textAnchors: [],
+    textAnchorBaselineText: `baseline-${index}`,
+    textAnchorBaselineAnchors: [{
+      source_id: `source-${index}`,
+      start_utf16: 0,
+      end_utf16: 1,
+      role: 'note',
+      valid: true,
+    }],
     status: 'completed',
     errorMessage: '',
     omrFileId: `omr-${index}`,
@@ -73,6 +81,11 @@ test('existing batch payload saves every page including non-current attachments'
   assert.equal(snapshot.historyBatchId, 10)
   assert.equal(snapshot.request.pages[1].jianpu_text, 'new-1')
   assert.equal(snapshot.request.pages[1].text_attachments[0].id, 'attachment-1')
+  assert.equal(snapshot.request.pages[1].text_anchor_baseline_text, 'baseline-1')
+  assert.equal(
+    snapshot.request.pages[1].text_anchor_baseline_anchors[0].source_id,
+    'source-1',
+  )
   assert.equal(snapshot.request.render_output_stale, false)
 })
 
@@ -91,6 +104,7 @@ test('new batch payload creates all page and render state in one request', () =>
   assert.equal(snapshot.request.pages.length, 2)
   assert.equal(snapshot.request.pages[0].jianpu_text, 'new-0')
   assert.equal(snapshot.request.pages[1].text_attachments[0].text, 'text-1')
+  assert.equal(snapshot.request.pages[0].text_anchor_baseline_text, 'baseline-0')
   assert.equal(snapshot.request.render_output_stale, true)
 })
 

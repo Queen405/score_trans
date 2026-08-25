@@ -159,3 +159,37 @@ test('store acknowledges only captured edits and keeps a later edit dirty', () =
   assert.equal(store.currentBatchAttachmentUserEdited, true)
   assert.equal(store.hasUnsavedChanges, true)
 })
+
+test('workspace load and replacement preserve independent text-anchor baselines', () => {
+  setActivePinia(createPinia())
+  const store = useWorkspaceStore()
+  const baselineAnchors = [{
+    source_id: 's1:i1',
+    start_utf16: 3,
+    end_utf16: 4,
+    role: 'note',
+    valid: true,
+  }]
+  store.loadBatch([{
+    inputFileName: 'page.png',
+    inputFileId: 'input',
+    jianpuText: '😀 1 |',
+    textAnchorBaselineText: '😀 1 |',
+    textAnchorBaselineAnchors: baselineAnchors,
+  }], 0)
+
+  baselineAnchors[0].start_utf16 = 99
+  assert.equal(store.pages[0].textAnchorBaselineText, '😀 1 |')
+  assert.equal(store.pages[0].textAnchorBaselineAnchors[0].start_utf16, 3)
+
+  store.replacePage(0, [{
+    inputFileName: 'replacement.png',
+    inputFileId: 'replacement',
+    jianpuText: '😀 2 |',
+    textAnchorBaselineText: '😀 2 |',
+    textAnchorBaselineAnchors: [{ ...baselineAnchors[0], start_utf16: 3 }],
+  }])
+
+  assert.equal(store.pages[0].textAnchorBaselineText, '😀 2 |')
+  assert.equal(store.pages[0].textAnchorBaselineAnchors[0].start_utf16, 3)
+})

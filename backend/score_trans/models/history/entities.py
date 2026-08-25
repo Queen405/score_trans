@@ -25,6 +25,8 @@ class HistoryPage:
     source_map_file_id: str = ""
     text_hash: str = ""
     text_anchors: list[TextAnchor] = field(default_factory=list)
+    text_anchor_baseline_text: str = ""
+    text_anchor_baseline_anchors: list[TextAnchor] = field(default_factory=list)
     status: str = "completed"
     error_message: str = ""
     completed_at: str = ""

@@ -1,18 +1,7 @@
+import { sequenceEdits, type SequenceEdit } from './textDiff'
+
 const SHA256 = 'SHA-256'
-const MAX_EDIT_DISTANCE = 2048
-
-type DiffKind = 'equal' | 'insert' | 'delete'
-
-interface DiffOperation {
-  kind: DiffKind
-  value: string
-}
-
-interface TextEdit {
-  start: number
-  end: number
-  replacement: string[]
-}
+type TextEdit = SequenceEdit<string>
 
 export async function hashJianpuText(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text)
@@ -72,6 +61,9 @@ function mergeGeneratedCorrection(
 }
 
 function textEdits(base: string[], target: string[]): TextEdit[] {
+  const edits = sequenceEdits(base, target)
+  if (edits) return edits
+
   let prefix = 0
   while (prefix < base.length && prefix < target.length && base[prefix] === target[prefix]) {
     prefix += 1
@@ -84,114 +76,11 @@ function textEdits(base: string[], target: string[]): TextEdit[] {
   ) {
     suffix += 1
   }
-
-  const baseMiddle = base.slice(prefix, base.length - suffix)
-  const targetMiddle = target.slice(prefix, target.length - suffix)
-  if (!baseMiddle.length && !targetMiddle.length) return []
-  const operations = shortestEditScript(baseMiddle, targetMiddle)
-  if (!operations) {
-    return [{
-      start: prefix,
-      end: base.length - suffix,
-      replacement: targetMiddle,
-    }]
-  }
-  return operationsToEdits(operations, prefix)
-}
-
-function shortestEditScript(source: string[], target: string[]): DiffOperation[] | null {
-  const maximum = source.length + target.length
-  const limit = Math.min(maximum, MAX_EDIT_DISTANCE)
-  const frontier = new Map<number, number>([[1, 0]])
-  const trace: Map<number, number>[] = []
-
-  for (let distance = 0; distance <= limit; distance += 1) {
-    trace.push(new Map(frontier))
-    for (let diagonal = -distance; diagonal <= distance; diagonal += 2) {
-      const left = frontier.get(diagonal - 1) ?? Number.NEGATIVE_INFINITY
-      const down = frontier.get(diagonal + 1) ?? Number.NEGATIVE_INFINITY
-      let x = diagonal === -distance || (diagonal !== distance && left < down)
-        ? down
-        : left + 1
-      if (!Number.isFinite(x)) x = 0
-      let y = x - diagonal
-      while (x < source.length && y < target.length && source[x] === target[y]) {
-        x += 1
-        y += 1
-      }
-      frontier.set(diagonal, x)
-      if (x === source.length && y === target.length) {
-        return backtrackDiff(trace, source, target)
-      }
-    }
-  }
-  return null
-}
-
-function backtrackDiff(
-  trace: Map<number, number>[],
-  source: string[],
-  target: string[],
-): DiffOperation[] {
-  const reversed: DiffOperation[] = []
-  let x = source.length
-  let y = target.length
-
-  for (let distance = trace.length - 1; distance >= 0; distance -= 1) {
-    const frontier = trace[distance]!
-    const diagonal = x - y
-    const left = frontier.get(diagonal - 1) ?? Number.NEGATIVE_INFINITY
-    const down = frontier.get(diagonal + 1) ?? Number.NEGATIVE_INFINITY
-    const previousDiagonal = diagonal === -distance
-      || (diagonal !== distance && left < down)
-      ? diagonal + 1
-      : diagonal - 1
-    const previousX = frontier.get(previousDiagonal) ?? 0
-    const previousY = previousX - previousDiagonal
-
-    while (x > previousX && y > previousY) {
-      reversed.push({ kind: 'equal', value: source[x - 1]! })
-      x -= 1
-      y -= 1
-    }
-    if (distance === 0) break
-    if (x === previousX) {
-      reversed.push({ kind: 'insert', value: target[y - 1]! })
-      y -= 1
-    } else {
-      reversed.push({ kind: 'delete', value: source[x - 1]! })
-      x -= 1
-    }
-  }
-  return reversed.reverse()
-}
-
-function operationsToEdits(operations: DiffOperation[], baseOffset: number): TextEdit[] {
-  const edits: TextEdit[] = []
-  let baseIndex = baseOffset
-  let pending: TextEdit | null = null
-
-  const flush = (): void => {
-    if (!pending) return
-    edits.push(pending)
-    pending = null
-  }
-  for (const operation of operations) {
-    if (operation.kind === 'equal') {
-      flush()
-      baseIndex += 1
-      continue
-    }
-    pending ??= { start: baseIndex, end: baseIndex, replacement: [] }
-    if (operation.kind === 'delete') {
-      baseIndex += 1
-      pending.end = baseIndex
-    } else {
-      pending.replacement.push(operation.value)
-    }
-  }
-  flush()
-  return edits
+  return [{
+    start: prefix,
+    end: base.length - suffix,
+    replacement: target.slice(prefix, target.length - suffix),
+  }]
 }
 
 function editsConflict(left: TextEdit, right: TextEdit): boolean {

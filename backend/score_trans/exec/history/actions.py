@@ -15,6 +15,7 @@ from ...models.history.schemas import (
     BatchResponse,
     BatchRenderStateUpdate,
     BatchSaveRequest,
+    BatchSavePage,
     DeleteAllResponse,
     JianpuSnapshotItem,
     PageResponse,
@@ -59,6 +60,16 @@ class HistoryActions:
                 source_map_file_id=p.source_map_file_id,
                 text_hash=p.text_hash,
                 text_anchors=p.text_anchors,
+                text_anchor_baseline_text=(
+                    p.text_anchor_baseline_text
+                    if p.text_anchor_baseline_text is not None
+                    else p.jianpu_text
+                ),
+                text_anchor_baseline_anchors=(
+                    p.text_anchor_baseline_anchors
+                    if p.text_anchor_baseline_anchors is not None
+                    else p.text_anchors
+                ),
                 status=p.status,
                 error_message=p.error_message,
                 omr_file_id=p.omr_file_id,
@@ -98,6 +109,12 @@ class HistoryActions:
         return _page_to_response(page)
 
     def update_history_page(self, page_id: int, req: PageUpdate) -> PageResponse:
+        baseline_text = req.text_anchor_baseline_text
+        if baseline_text is None and req.jianpu_text is not None:
+            baseline_text = req.jianpu_text
+        baseline_anchors = req.text_anchor_baseline_anchors
+        if baseline_anchors is None and req.text_anchors is not None:
+            baseline_anchors = req.text_anchors
         page = self.service.update_page(
             page_id,
             task_id=req.task_id,
@@ -113,6 +130,8 @@ class HistoryActions:
             source_map_file_id=req.source_map_file_id,
             text_hash=req.text_hash,
             text_anchors=req.text_anchors,
+            text_anchor_baseline_text=baseline_text,
+            text_anchor_baseline_anchors=baseline_anchors,
             status=req.status,
             error_message=req.error_message,
             omr_file_id=req.omr_file_id,
@@ -178,30 +197,46 @@ class HistoryActions:
         return _batch_to_response(batch)
 
     def save_batch(self, batch_id: int, req: BatchSaveRequest) -> BatchResponse:
+        existing = self.service.get_batch(batch_id)
+        if not existing:
+            raise FileNotFoundError("Batch not found")
+        existing_pages = {page.id: page for page in existing.pages}
+
+        def saved_page(page: BatchSavePage) -> HistoryPage:
+            previous = existing_pages.get(page.page_id, HistoryPage())
+            return HistoryPage(
+                id=page.page_id,
+                task_id=page.task_id,
+                musicxml_file_id=page.musicxml_file_id,
+                jianpu_text=page.jianpu_text,
+                ocr_text=page.ocr_text,
+                text_attachments=page.text_attachments,
+                svg_file_id=page.svg_file_id,
+                overlay_file_id=page.overlay_file_id,
+                source_map_file_id=page.source_map_file_id,
+                text_hash=page.text_hash,
+                text_anchors=page.text_anchors,
+                text_anchor_baseline_text=(
+                    page.text_anchor_baseline_text
+                    if page.text_anchor_baseline_text is not None
+                    else previous.text_anchor_baseline_text or previous.jianpu_text
+                ),
+                text_anchor_baseline_anchors=(
+                    page.text_anchor_baseline_anchors
+                    if page.text_anchor_baseline_anchors is not None
+                    else previous.text_anchor_baseline_anchors or previous.text_anchors
+                ),
+                status=page.status,
+                error_message=page.error_message,
+                omr_file_id=page.omr_file_id,
+                original_musicxml=page.original_musicxml,
+                working_musicxml=page.working_musicxml,
+                deleted_source_ids=page.deleted_source_ids,
+            )
+
         batch = self.service.save_batch(
             batch_id,
-            [
-                HistoryPage(
-                    id=page.page_id,
-                    task_id=page.task_id,
-                    musicxml_file_id=page.musicxml_file_id,
-                    jianpu_text=page.jianpu_text,
-                    ocr_text=page.ocr_text,
-                    text_attachments=page.text_attachments,
-                    svg_file_id=page.svg_file_id,
-                    overlay_file_id=page.overlay_file_id,
-                    source_map_file_id=page.source_map_file_id,
-                    text_hash=page.text_hash,
-                    text_anchors=page.text_anchors,
-                    status=page.status,
-                    error_message=page.error_message,
-                    omr_file_id=page.omr_file_id,
-                    original_musicxml=page.original_musicxml,
-                    working_musicxml=page.working_musicxml,
-                    deleted_source_ids=page.deleted_source_ids,
-                )
-                for page in req.pages
-            ],
+            [saved_page(page) for page in req.pages],
             jianpu_text=req.jianpu_text,
             source=req.source,
             render_page_file_ids=req.render_page_file_ids,
@@ -274,6 +309,8 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         source_map_file_id=page.source_map_file_id,
         text_hash=page.text_hash,
         text_anchors=page.text_anchors,
+        text_anchor_baseline_text=page.text_anchor_baseline_text,
+        text_anchor_baseline_anchors=page.text_anchor_baseline_anchors,
         status=page.status,
         error_message=page.error_message,
         omr_file_id=page.omr_file_id,

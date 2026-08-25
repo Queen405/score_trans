@@ -113,10 +113,18 @@ export function createWorkspacePersistence(
         ? saved.pages.find((page) => page.id === localPage?.historyPageId)
         : saved.pages[index]
       if (!localPage || !savedPage) continue
+      const hasTextAnchorBaseline = savedPage.text_anchor_baseline_text !== undefined
+        && savedPage.text_anchor_baseline_anchors !== undefined
       store.patchPageById(localPage.id, {
         historyPageId: savedPage.id,
         historyBatchId: saved.id,
         jianpuText: savedPage.jianpu_text,
+        textAnchorBaselineText: hasTextAnchorBaseline
+          ? savedPage.text_anchor_baseline_text
+          : localPage.textAnchorBaselineText || savedPage.jianpu_text,
+        textAnchorBaselineAnchors: hasTextAnchorBaseline
+          ? savedPage.text_anchor_baseline_anchors
+          : localPage.textAnchorBaselineAnchors,
       })
     }
     store.setBatchRenderPageFileIds(

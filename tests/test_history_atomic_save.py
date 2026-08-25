@@ -11,6 +11,7 @@ from score_trans.models.history.schemas import (
     BatchSaveRequest,
     RenderPageOcrText,
 )
+from score_trans.models.provenance.schemas import TextAnchor
 from score_trans.services.history.history_service import HistoryService
 
 
@@ -27,6 +28,15 @@ def _saved_page(page_id: int, text: str) -> BatchSavePage:
         source_map_file_id="source-map-saved",
         text_hash="hash-saved",
         text_anchors=[],
+        text_anchor_baseline_text=f"baseline-{text}",
+        text_anchor_baseline_anchors=[
+            TextAnchor(
+                source_id="s1:i1",
+                start_utf16=0,
+                end_utf16=1,
+                role="note",
+            )
+        ],
         status="completed",
         error_message="",
         omr_file_id="omr-saved",
@@ -68,6 +78,8 @@ def test_save_batch_persists_complete_snapshot_and_snapshot_record(tmp_path) -> 
     ]
     assert saved.pages[1].ocr_text == "ocr-saved"
     assert saved.pages[1].deleted_source_ids == ["s1:i1"]
+    assert saved.pages[1].text_anchor_baseline_text == "baseline-page-1-saved"
+    assert saved.pages[1].text_anchor_baseline_anchors[0].source_id == "s1:i1"
     assert saved.render_page_file_ids == ["render-1"]
     assert saved.render_page_ocr_texts[0].ocr_text == "render-ocr"
     assert saved.render_output_stale is False

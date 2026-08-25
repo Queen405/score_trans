@@ -1247,6 +1247,10 @@ export type components = {
             svg_file_id: string;
             /** Task Id */
             task_id: string;
+            /** Text Anchor Baseline Anchors */
+            text_anchor_baseline_anchors?: components["schemas"]["TextAnchor"][] | null;
+            /** Text Anchor Baseline Text */
+            text_anchor_baseline_text?: string | null;
             /** Text Anchors */
             text_anchors: components["schemas"]["TextAnchor"][];
             /** Text Attachments */
@@ -1875,6 +1879,10 @@ export type components = {
              * @default
              */
             task_id?: string;
+            /** Text Anchor Baseline Anchors */
+            text_anchor_baseline_anchors?: components["schemas"]["TextAnchor"][] | null;
+            /** Text Anchor Baseline Text */
+            text_anchor_baseline_text?: string | null;
             /** Text Anchors */
             text_anchors?: components["schemas"]["TextAnchor"][];
             /** Text Attachments */
@@ -1956,6 +1964,13 @@ export type components = {
             svg_file_id: string;
             /** Task Id */
             task_id: string;
+            /** Text Anchor Baseline Anchors */
+            text_anchor_baseline_anchors?: components["schemas"]["TextAnchor"][];
+            /**
+             * Text Anchor Baseline Text
+             * @default
+             */
+            text_anchor_baseline_text?: string;
             /** Text Anchors */
             text_anchors?: components["schemas"]["TextAnchor"][];
             /** Text Attachments */
@@ -2003,6 +2018,10 @@ export type components = {
             svg_file_id?: string | null;
             /** Task Id */
             task_id?: string | null;
+            /** Text Anchor Baseline Anchors */
+            text_anchor_baseline_anchors?: components["schemas"]["TextAnchor"][] | null;
+            /** Text Anchor Baseline Text */
+            text_anchor_baseline_text?: string | null;
             /** Text Anchors */
             text_anchors?: components["schemas"]["TextAnchor"][] | null;
             /** Text Attachments */

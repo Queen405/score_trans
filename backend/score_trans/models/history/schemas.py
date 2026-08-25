@@ -24,6 +24,8 @@ class PageCreate(BaseModel):
     source_map_file_id: str = ""
     text_hash: str = ""
     text_anchors: list[TextAnchor] = Field(default_factory=list)
+    text_anchor_baseline_text: str | None = None
+    text_anchor_baseline_anchors: list[TextAnchor] | None = None
     status: str = "completed"
     error_message: str = ""
     omr_file_id: str = ""
@@ -46,6 +48,8 @@ class PageUpdate(BaseModel):
     source_map_file_id: str | None = None
     text_hash: str | None = None
     text_anchors: list[TextAnchor] | None = None
+    text_anchor_baseline_text: str | None = None
+    text_anchor_baseline_anchors: list[TextAnchor] | None = None
     status: str | None = None
     error_message: str | None = None
     omr_file_id: str | None = None
@@ -72,6 +76,8 @@ class PageResponse(BaseModel):
     source_map_file_id: str = ""
     text_hash: str = ""
     text_anchors: list[TextAnchor] = Field(default_factory=list)
+    text_anchor_baseline_text: str = ""
+    text_anchor_baseline_anchors: list[TextAnchor] = Field(default_factory=list)
     status: str
     error_message: str
     completed_at: str = ""
@@ -98,6 +104,8 @@ class BatchSavePage(BaseModel):
     source_map_file_id: str
     text_hash: str
     text_anchors: list[TextAnchor]
+    text_anchor_baseline_text: str | None = None
+    text_anchor_baseline_anchors: list[TextAnchor] | None = None
     status: str
     error_message: str
     omr_file_id: str

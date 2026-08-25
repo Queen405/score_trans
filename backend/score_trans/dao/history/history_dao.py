@@ -19,7 +19,7 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 8
+_SCHEMA_VERSION = 9
 _MAX_SNAPSHOTS = 3
 _MIN_SQLITE_VERSION = (3, 35, 0)
 
@@ -139,6 +139,8 @@ class HistoryDao:
                 source_map_file_id TEXT NOT NULL DEFAULT '',
                 text_hash TEXT NOT NULL DEFAULT '',
                 text_anchors TEXT NOT NULL DEFAULT '[]',
+                text_anchor_baseline_text TEXT NOT NULL DEFAULT '',
+                text_anchor_baseline_anchors TEXT NOT NULL DEFAULT '[]',
                 status TEXT NOT NULL DEFAULT 'completed',
                 error_message TEXT NOT NULL DEFAULT '',
                 completed_at TEXT NOT NULL DEFAULT '',
@@ -311,10 +313,11 @@ class HistoryDao:
                          jianpu_text, ocr_text, svg_file_id, engine_version,
                          document_revision, overlay_svg_file_id,
                          text_attachments, overlay_file_id, source_map_file_id, text_hash,
-                         text_anchors, status, error_message,
+                         text_anchors, text_anchor_baseline_text,
+                         text_anchor_baseline_anchors, status, error_message,
                          completed_at, position, omr_file_id, original_musicxml, working_musicxml,
                          deleted_source_ids)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -333,6 +336,8 @@ class HistoryDao:
                         page.source_map_file_id,
                         page.text_hash,
                         _dump_text_anchors(page.text_anchors),
+                        page.text_anchor_baseline_text,
+                        _dump_text_anchors(page.text_anchor_baseline_anchors),
                         page.status,
                         page.error_message,
                         page.completed_at,
@@ -455,7 +460,8 @@ class HistoryDao:
             UPDATE history_page
             SET task_id = ?, musicxml_file_id = ?, jianpu_text = ?, ocr_text = ?,
                 text_attachments = ?, svg_file_id = ?, overlay_file_id = ?,
-                source_map_file_id = ?, text_hash = ?, text_anchors = ?, status = ?,
+                source_map_file_id = ?, text_hash = ?, text_anchors = ?,
+                text_anchor_baseline_text = ?, text_anchor_baseline_anchors = ?, status = ?,
                 error_message = ?, omr_file_id = ?, original_musicxml = ?,
                 working_musicxml = ?, deleted_source_ids = ?
             WHERE id = ?
@@ -471,6 +477,8 @@ class HistoryDao:
                 page.source_map_file_id,
                 page.text_hash,
                 _dump_text_anchors(page.text_anchors),
+                page.text_anchor_baseline_text,
+                _dump_text_anchors(page.text_anchor_baseline_anchors),
                 page.status,
                 page.error_message,
                 page.omr_file_id,
@@ -653,6 +661,8 @@ class HistoryDao:
         source_map_file_id: str | None = None,
         text_hash: str | None = None,
         text_anchors: list[TextAnchor] | None = None,
+        text_anchor_baseline_text: str | None = None,
+        text_anchor_baseline_anchors: list[TextAnchor] | None = None,
         musicxml_file_id: str | None = None,
         status: str | None = None,
         error_message: str | None = None,
@@ -683,6 +693,13 @@ class HistoryDao:
             (
                 "text_anchors",
                 _dump_text_anchors(text_anchors) if text_anchors is not None else None,
+            ),
+            ("text_anchor_baseline_text", text_anchor_baseline_text),
+            (
+                "text_anchor_baseline_anchors",
+                _dump_text_anchors(text_anchor_baseline_anchors)
+                if text_anchor_baseline_anchors is not None
+                else None,
             ),
             ("musicxml_file_id", musicxml_file_id),
             ("status", status),
@@ -875,12 +892,22 @@ class HistoryDao:
             ("source_map_file_id", "TEXT NOT NULL DEFAULT ''"),
             ("text_hash", "TEXT NOT NULL DEFAULT ''"),
             ("text_anchors", "TEXT NOT NULL DEFAULT '[]'"),
+            ("text_anchor_baseline_text", "TEXT NOT NULL DEFAULT ''"),
+            ("text_anchor_baseline_anchors", "TEXT NOT NULL DEFAULT '[]'"),
             ("text_attachments", "TEXT NOT NULL DEFAULT '[]'"),
         ):
             if column not in columns:
                 conn.execute(
                     f"ALTER TABLE history_page ADD COLUMN {column} {definition}"
                 )
+        if version < 9:
+            conn.execute(
+                """
+                UPDATE history_page
+                SET text_anchor_baseline_text = jianpu_text,
+                    text_anchor_baseline_anchors = text_anchors
+                """
+            )
         batch_columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(history_batch)").fetchall()
@@ -1079,6 +1106,16 @@ class HistoryDao:
             text_hash=row["text_hash"] if "text_hash" in row.keys() else "",
             text_anchors=_load_text_anchors(
                 row["text_anchors"] if "text_anchors" in row.keys() else "[]"
+            ),
+            text_anchor_baseline_text=(
+                row["text_anchor_baseline_text"]
+                if "text_anchor_baseline_text" in row.keys()
+                else ""
+            ),
+            text_anchor_baseline_anchors=_load_text_anchors(
+                row["text_anchor_baseline_anchors"]
+                if "text_anchor_baseline_anchors" in row.keys()
+                else "[]"
             ),
             status=row["status"],
             error_message=row["error_message"],

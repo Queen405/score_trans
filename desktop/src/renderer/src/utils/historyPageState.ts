@@ -13,6 +13,8 @@ export function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDet
       source_map_file_id: page.source_map_file_id,
       text_hash: page.text_hash,
       text_anchors: page.text_anchors,
+      text_anchor_baseline_text: page.text_anchor_baseline_text,
+      text_anchor_baseline_anchors: page.text_anchor_baseline_anchors,
       text_attachments: page.text_attachments,
       omr_file_id: page.omr_file_id,
       original_musicxml: page.original_musicxml,

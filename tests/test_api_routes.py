@@ -18,6 +18,8 @@ from score_trans.exec.files.actions import FileActions
 from score_trans.exec.history.actions import HistoryActions
 from score_trans.exec.settings.actions import SettingsActions
 from score_trans.models.common.errors import RenderError
+from score_trans.models.history.entities import HistoryPage
+from score_trans.models.history.schemas import PageUpdate
 from score_trans.models.export.schemas import ExportMidiRequest, ExportResponse
 from score_trans.models.render.schemas import (
     RenderJianpuSvgRequest,
@@ -530,6 +532,43 @@ def test_history_page_schema_persists_ocr_text() -> None:
     assert "task_id" in schemas["PageCreate"]["properties"]
     assert "task_id" in schemas["PageUpdate"]["properties"]
     assert "task_id" in schemas["PageResponse"]["properties"]
+
+
+def test_history_page_schema_exposes_optional_anchor_baseline_requests() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    fields = {"text_anchor_baseline_text", "text_anchor_baseline_anchors"}
+
+    for schema_name in ("PageCreate", "PageUpdate", "BatchSavePage"):
+        schema = schemas[schema_name]
+        assert fields <= schema["properties"].keys()
+        assert fields.isdisjoint(schema.get("required", []))
+
+    response = schemas["PageResponse"]
+    assert fields <= response["properties"].keys()
+    assert response["properties"]["text_anchor_baseline_text"].get("type") == "string"
+
+
+def test_legacy_page_update_refreshes_anchor_baseline_from_current_fields(
+    tmp_path: Path,
+) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch([HistoryPage(input_file_name="score.png")])
+    actions = HistoryActions(service)
+    anchor = {
+        "source_id": "s1:i1",
+        "start_utf16": 0,
+        "end_utf16": 1,
+        "role": "note",
+        "valid": True,
+    }
+
+    updated = actions.update_history_page(
+        batch.pages[0].id,
+        PageUpdate(jianpu_text="1 |", text_anchors=[anchor]),
+    )
+
+    assert updated.text_anchor_baseline_text == "1 |"
+    assert updated.text_anchor_baseline_anchors[0].source_id == "s1:i1"
 
 
 def test_history_batch_schema_persists_batch_jianpu_text() -> None:

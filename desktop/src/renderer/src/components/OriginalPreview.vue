@@ -146,6 +146,7 @@ const props = defineProps<{
   overlayFileId?: string
   sourceMapFileId?: string
   clickableSourceIds?: string[]
+  mappedSourceIds?: string[]
   selectedSourceId?: string
   editable?: boolean
   entities?: CorrectableEntityDTO[]
@@ -197,6 +198,7 @@ const hasOverlay = computed(() => !!props.overlayFileId)
 const canShowOverlay = computed(() => hasOverlay.value && isImage.value)
 const sourceSheet = computed(() => sourceMap.value?.sheets?.[0] ?? null)
 const clickableSourceIdSet = computed(() => new Set(props.clickableSourceIds ?? []))
+const mappedSourceIdSet = computed(() => new Set(props.mappedSourceIds ?? []))
 const appliedDeletedSourceIdSet = computed(() => new Set(props.appliedDeletedSourceIds ?? []))
 const deletedMarkElements = computed(() => (
   sourceSheet.value?.elements.filter((element) => (
@@ -210,10 +212,10 @@ const clickableElements = computed(() => (
   )) ?? []
 ))
 const disabledElements = computed(() => {
-  if (!clickableSourceIdSet.value.size) return []
   return sourceSheet.value?.elements.filter(
     (element) => (
-      !clickableSourceIdSet.value.has(element.source_id)
+      !mappedSourceIdSet.value.has(element.source_id)
+      && !clickableSourceIdSet.value.has(element.source_id)
       && !appliedDeletedSourceIdSet.value.has(element.source_id)
       && !isUnanchoredByDesign(element)
     ),

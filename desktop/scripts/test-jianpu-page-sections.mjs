@@ -25,7 +25,23 @@ const jianpuTextStateSourcePath = path.resolve(
   here,
   '../src/renderer/src/utils/jianpuTextState.ts',
 )
-const jianpuTextStateSource = fs.readFileSync(jianpuTextStateSourcePath, 'utf8')
+const textDiffSourcePath = path.resolve(
+  here,
+  '../src/renderer/src/utils/textDiff.ts',
+)
+const textDiffSource = fs.readFileSync(textDiffSourcePath, 'utf8')
+const textDiffCompiled = ts.transpileModule(textDiffSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: textDiffSourcePath,
+}).outputText
+const textDiffUrl = `data:text/javascript;base64,${Buffer.from(textDiffCompiled).toString('base64')}`
+const jianpuTextStateSource = fs.readFileSync(jianpuTextStateSourcePath, 'utf8').replace(
+  "from './textDiff'",
+  `from '${textDiffUrl}'`,
+)
 const jianpuTextStateCompiled = ts.transpileModule(jianpuTextStateSource, {
   compilerOptions: {
     module: ts.ModuleKind.ES2022,
@@ -577,8 +593,10 @@ test('resetting Jianpu replaces the source provenance snapshot', () => {
   const resetEnd = convertViewSource.indexOf('async function toggleEditMode', resetStart)
   const resetHandler = convertViewSource.slice(resetStart, resetEnd)
 
-  assert.match(resetHandler, /textAnchors:\s*result\.text_anchors\s*\?\?\s*\[\]/)
-  assert.match(resetHandler, /textHash:\s*result\.text_hash\s*\?\?\s*''/)
+  assert.match(resetHandler, /textAnchors:\s*textAnchorBaselineAnchors\.map/)
+  assert.match(resetHandler, /textAnchorBaselineText:\s*split\.jianpuText/)
+  assert.match(resetHandler, /textHash:\s*await hashJianpuText\(split\.jianpuText\)/)
+  assert.match(resetHandler, /jianpuDirty:\s*false/)
   assert.match(resetHandler, /deletedSourceIds:\s*\[\]/)
 })
 
@@ -594,6 +612,9 @@ test('marker correction uses the registered backend route and persists source st
 test('marker correction preserves dirty Jianpu text instead of replacing it', () => {
   assert.match(convertViewSource, /hasJianpuTextEdits\(/)
   assert.match(convertViewSource, /preserveEditedJianpuText/)
+  assert.match(convertViewSource, /reconcileTextAnchors\([\s\S]*data\.text_anchors/)
+  assert.match(convertViewSource, /textAnchorBaselineText:/)
+  assert.match(convertViewSource, /textAnchorBaselineAnchors[:,]/)
 })
 
 test('Jianpu edit detection survives history restore through the canonical text hash', async () => {
@@ -639,13 +660,26 @@ test('marker correction merges deleted notes into dirty Jianpu text', () => {
   )
 })
 
+test('large generated corrections preserve user edits outside the diff fallback range', () => {
+  const middle = 'a'.repeat(2100)
+  const correctedMiddle = 'b'.repeat(2100)
+  const baseline = `HEAD|${middle}|TAIL`
+  const edited = `USER|${middle}|TAIL`
+  const generated = `HEAD|${correctedMiddle}|TAIL`
+
+  assert.equal(
+    jianpuTextState.preserveEditedJianpuText(edited, generated, true, baseline),
+    `USER|${correctedMiddle}|TAIL`,
+  )
+})
+
 test('marker correction keeps canonical page text as the merge base', () => {
   const correctionStart = convertViewSource.indexOf('async function applyCorrections')
   const correctionEnd = convertViewSource.indexOf('function transposeOctaveShift', correctionStart)
   const correctionHandler = convertViewSource.slice(correctionStart, correctionEnd)
 
-  assert.match(correctionHandler, /preserveEditedJianpuText\([\s\S]*page\.jianpuText/)
-  assert.match(correctionHandler, /jianpuText:\s*data\.jianpu_text/)
+  assert.match(correctionHandler, /preserveEditedJianpuText\([\s\S]*page\.textAnchorBaselineText/)
+  assert.match(correctionHandler, /jianpuText:\s*nextPageText/)
   assert.match(correctionHandler, /replaceJianpuSectionBody\([\s\S]*nextPageText/)
 })
 

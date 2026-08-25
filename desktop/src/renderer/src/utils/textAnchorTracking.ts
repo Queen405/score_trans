@@ -1,8 +1,53 @@
 import type { TextAnchor } from '../models/types'
+import { sequenceEdits } from './textDiff'
 
 export interface AnchorUpdate {
   anchors: TextAnchor[]
   invalidatedSourceIds: string[]
+}
+
+export interface AnchorReconciliation extends AnchorUpdate {
+  reconciled: boolean
+}
+
+export function reconcileTextAnchors(
+  baselineText: string,
+  currentText: string,
+  baselineAnchors: TextAnchor[],
+  previousAnchors: TextAnchor[] = baselineAnchors,
+): AnchorReconciliation {
+  if (baselineText === currentText) {
+    return {
+      anchors: baselineAnchors.map(copyAnchor),
+      invalidatedSourceIds: [],
+      reconciled: true,
+    }
+  }
+
+  const edits = sequenceEdits(baselineText.split(''), currentText.split(''))
+  if (!edits) {
+    const anchors = previousAnchors.map(copyAnchor)
+    return {
+      anchors,
+      invalidatedSourceIds: invalidSourceIds(anchors),
+      reconciled: false,
+    }
+  }
+
+  let workingText = baselineText
+  let anchors = baselineAnchors.map(copyAnchor)
+  for (const edit of [...edits].sort((left, right) => right.start - left.start)) {
+    const nextText = workingText.slice(0, edit.start)
+      + edit.replacement.join('')
+      + workingText.slice(edit.end)
+    anchors = trackTextAnchors(workingText, nextText, anchors).anchors
+    workingText = nextText
+  }
+  return {
+    anchors,
+    invalidatedSourceIds: invalidSourceIds(anchors),
+    reconciled: true,
+  }
 }
 
 /**
@@ -85,4 +130,10 @@ function commonSuffixLength(left: string, right: string, prefix: number): number
 
 function copyAnchor(anchor: TextAnchor): TextAnchor {
   return { ...anchor }
+}
+
+function invalidSourceIds(anchors: TextAnchor[]): string[] {
+  return [...new Set(
+    anchors.filter((anchor) => anchor.valid === false).map((anchor) => anchor.source_id),
+  )]
 }

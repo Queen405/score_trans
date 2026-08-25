@@ -16,6 +16,8 @@ export interface HistoryPagePatchDetail {
       | 'source_map_file_id'
       | 'text_hash'
       | 'text_anchors'
+      | 'text_anchor_baseline_text'
+      | 'text_anchor_baseline_anchors'
       | 'text_attachments'
       | 'omr_file_id'
       | 'original_musicxml'

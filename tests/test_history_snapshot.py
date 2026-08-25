@@ -139,7 +139,9 @@ def test_update_batch_jianpu_text_auto_source_skips_snapshot(tmp_path) -> None:
     assert actions.list_jianpu_snapshots(batch_id) == []
 
 
-def test_v7_database_migrates_to_v8_with_snapshot_table(tmp_path) -> None:
+def test_v7_database_migrates_to_v9_with_snapshots_and_anchor_baselines(
+    tmp_path,
+) -> None:
     db_path = tmp_path / "history.db"
     with sqlite3.connect(db_path) as conn:
         conn.execute("PRAGMA user_version = 7")
@@ -191,6 +193,20 @@ def test_v7_database_migrates_to_v8_with_snapshot_table(tmp_path) -> None:
             )
             """
         )
+        conn.execute("INSERT INTO history_batch (page_count) VALUES (1)")
+        conn.execute(
+            """
+            INSERT INTO history_page (
+                batch_id, input_file_name, jianpu_text, text_anchors
+            ) VALUES (?, ?, ?, ?)
+            """,
+            (
+                1,
+                "legacy.png",
+                "legacy-edited |",
+                '[{"source_id":"s1:i1","start_utf16":0,"end_utf16":1,"role":"note","valid":true}]',
+            ),
+        )
         conn.commit()
 
     dao = HistoryDao(db_path)
@@ -204,8 +220,18 @@ def test_v7_database_migrates_to_v8_with_snapshot_table(tmp_path) -> None:
             ).fetchone()
         )
 
-    assert version == 8
+    assert version == 9
     assert table_exists
+    with sqlite3.connect(db_path) as conn:
+        page_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(history_page)")
+        }
+    assert "text_anchor_baseline_text" in page_columns
+    assert "text_anchor_baseline_anchors" in page_columns
+    migrated = dao.get_batch(1)
+    assert migrated is not None
+    assert migrated.pages[0].text_anchor_baseline_text == "legacy-edited |"
+    assert migrated.pages[0].text_anchor_baseline_anchors[0].source_id == "s1:i1"
 
     batch = dao.create_batch([HistoryPage(input_file_name="a.png")])
     dao.push_snapshot(batch.id, "1=C\n1")

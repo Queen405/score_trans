@@ -45,6 +45,14 @@ function page(index, historyBatchId = 10) {
     sourceMapFileId: '',
     textHash: '',
     textAnchors: [],
+    textAnchorBaselineText: `baseline-${index}`,
+    textAnchorBaselineAnchors: [{
+      source_id: `source-${index}`,
+      start_utf16: 0,
+      end_utf16: 1,
+      role: 'note',
+      valid: true,
+    }],
     status: 'completed',
     errorMessage: '',
     omrFileId: '',
@@ -75,6 +83,8 @@ function response(id, pages) {
       jianpu_text: item.jianpuText,
       ocr_text: '',
       text_attachments: [],
+      text_anchor_baseline_text: item.textAnchorBaselineText,
+      text_anchor_baseline_anchors: item.textAnchorBaselineAnchors,
       svg_file_id: '',
       status: 'completed',
       error_message: '',
@@ -123,6 +133,7 @@ test('existing batch save uses one atomic request and acknowledges captured revi
 
   assert.equal(calls.length, 1)
   assert.equal(calls[0][0], 10)
+  assert.equal(calls[0][1].pages[1].text_anchor_baseline_text, 'baseline-1')
   assert.deepEqual(store.acknowledgements[0], [
     { jianpu: 1, ocr: 2, attachments: 3 },
     undefined,
@@ -164,7 +175,13 @@ test('new batch save creates once and binds returned history ids', async () => {
 
   assert.equal(createCount, 1)
   assert.equal(store.patches.length, 2)
-  assert.deepEqual(store.patches[1][1], { historyPageId: 101, historyBatchId: 20, jianpuText: '1 |' })
+  assert.deepEqual(store.patches[1][1], {
+    historyPageId: 101,
+    historyBatchId: 20,
+    jianpuText: '1 |',
+    textAnchorBaselineText: 'baseline-1',
+    textAnchorBaselineAnchors: pages[1].textAnchorBaselineAnchors,
+  })
 })
 
 test('render-state persistence only acknowledges OCR changes', async () => {
@@ -191,4 +208,30 @@ test('render-state persistence only acknowledges OCR changes', async () => {
     ['ocr'],
     'local-batch',
   ])
+})
+
+test('save response keeps an explicitly empty canonical anchor list', async () => {
+  const pages = [page(0)]
+  pages[0].textAnchorBaselineAnchors = [{
+    source_id: 'stale-source',
+    start_utf16: 0,
+    end_utf16: 1,
+    role: 'note',
+    valid: true,
+  }]
+  const store = fakeStore(pages)
+  const persistence = createWorkspacePersistence({
+    saveBatch: async (id) => {
+      const saved = response(id, pages)
+      saved.pages[0].text_anchor_baseline_text = 'canonical-without-mappings'
+      saved.pages[0].text_anchor_baseline_anchors = []
+      return { data: saved, error: null }
+    },
+    create: async () => assert.fail('create must not be called'),
+    updateRenderState: async () => assert.fail('render-state must not be called'),
+  })
+
+  await persistence.saveBatch(store, 'local-batch')
+
+  assert.deepEqual(store.patches[0][1].textAnchorBaselineAnchors, [])
 })

@@ -290,6 +290,7 @@
               :overlay-file-id="store.overlayFileId"
               :source-map-file-id="store.sourceMapFileId"
               :clickable-source-ids="clickableSourceIds"
+              :mapped-source-ids="mappedSourceIds"
               :selected-source-id="selectedSourceId"
               :editable="editMode"
               :entities="correctableEntities"
@@ -508,12 +509,13 @@ import {
   serializeJianpuPageSections,
 } from '../utils/jianpuPageSections'
 import {
+  hashJianpuText,
   hasJianpuTextEdits,
   preserveEditedJianpuText,
 } from '../utils/jianpuTextState'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
-import { trackTextAnchors } from '../utils/textAnchorTracking'
+import { reconcileTextAnchors } from '../utils/textAnchorTracking'
 import { sourceAnchorRange } from '../utils/sourceAnchorSelection'
 import { findNotePageIndex } from '../utils/jianpuPlayback'
 import { transposeOctave } from '../utils/jianpuTranspose'
@@ -583,7 +585,18 @@ interface NoteIndexRange {
 const renderPageNoteIndexRanges = ref<NoteIndexRange[]>([])
 const clickableSourceIds = computed(() => {
   if (isViewingFinal.value && !finalSvgFileId.value) return []
-  return [...new Set(store.textAnchors.map((anchor) => anchor.source_id))]
+  return [...new Set(
+    store.textAnchors
+      .filter((anchor) => anchor.valid !== false)
+      .map((anchor) => anchor.source_id),
+  )]
+})
+const mappedSourceIds = computed(() => {
+  if (isViewingFinal.value && !finalSvgFileId.value) return []
+  return [...new Set(
+    (store.currentPage?.textAnchorBaselineAnchors ?? [])
+      .map((anchor) => anchor.source_id),
+  )]
 })
 
 const jianpuText = ref(store.currentBatchJianpuText)
@@ -721,10 +734,20 @@ function selectSyntaxDiagnostic(diagnostic: SyntaxDiagnostic): void {
 }
 
 function updateTextAnchorsAfterEdit(previous: string, current: string): void {
-  const previousSections = parseJianpuPageSections(previous)
-  const currentSections = parseJianpuPageSections(current)
+  let previousSections
+  let currentSections
+  try {
+    previousSections = parseJianpuPageSections(previous)
+    currentSections = parseJianpuPageSections(current)
+  } catch {
+    store.currentBatchPages.forEach((page) => {
+      store.patchPageById(page.id, {
+        textAnchors: page.textAnchors.map((anchor) => ({ ...anchor, valid: false })),
+      })
+    })
+    return
+  }
   store.currentBatchPages.forEach((page, index) => {
-    if (!page.textAnchors.length) return
     const previousSection = previousSections.find((section) => section.pageIndex === index)
       ?? previousSections[index]
     const currentSection = currentSections.find((section) => section.pageIndex === index)
@@ -735,7 +758,14 @@ function updateTextAnchorsAfterEdit(previous: string, current: string): void {
       })
       return
     }
-    const update = trackTextAnchors(previousSection.body, currentSection.body, page.textAnchors)
+    if (!page.textAnchorBaselineAnchors.length) return
+    if (previousSection.body === currentSection.body) return
+    const update = reconcileTextAnchors(
+      page.textAnchorBaselineText,
+      currentSection.body,
+      page.textAnchorBaselineAnchors,
+      page.textAnchors,
+    )
     store.patchPageById(page.id, { textAnchors: update.anchors })
   })
 }
@@ -1085,7 +1115,9 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
 
   const migratedPages = allPages.map((p) => {
     const split = splitJianpuAndOcr(p.jianpu_text || '')
-    return { page: p, split, jianpu: split.jianpuText }
+    const hasTextAnchorBaseline = p.text_anchor_baseline_text !== undefined
+      && p.text_anchor_baseline_anchors !== undefined
+    return { page: p, split, jianpu: split.jianpuText, hasTextAnchorBaseline }
   })
 
   store.loadBatch(
@@ -1104,6 +1136,12 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       sourceMapFileId: r.page.source_map_file_id ?? '',
       textHash: r.page.text_hash ?? '',
       textAnchors: r.page.text_anchors ?? [],
+      textAnchorBaselineText: r.hasTextAnchorBaseline
+        ? r.page.text_anchor_baseline_text
+        : r.jianpu,
+      textAnchorBaselineAnchors: r.hasTextAnchorBaseline
+        ? r.page.text_anchor_baseline_anchors
+        : (r.page.text_anchors ?? []),
       textAttachments: r.page.text_attachments ?? [],
       svgFileIds: r.page.svg_file_id ? [r.page.svg_file_id] : [],
       taskId: r.page.task_id || '',
@@ -1718,14 +1756,25 @@ async function resetAll(): Promise<void> {
       accidental_mode: settings.accidentalMode,
     }))
     const split = splitJianpuAndOcr(result.jianpu_text)
+    const alignment = reconcileTextAnchors(
+      result.jianpu_text,
+      split.jianpuText,
+      result.text_anchors ?? [],
+    )
+    const textAnchorBaselineAnchors = alignment.reconciled
+      ? alignment.anchors
+      : (result.text_anchors ?? []).map((anchor) => ({ ...anchor, valid: false }))
     const page = store.currentPage
     if (page) {
       const pagePatch: Partial<TaskPage> = {
         jianpuText: split.jianpuText,
+        jianpuDirty: false,
         ocrText: '',
         textAttachments: [],
-        textAnchors: result.text_anchors ?? [],
-        textHash: result.text_hash ?? '',
+        textAnchors: textAnchorBaselineAnchors.map((anchor) => ({ ...anchor })),
+        textAnchorBaselineText: split.jianpuText,
+        textAnchorBaselineAnchors,
+        textHash: await hashJianpuText(split.jianpuText),
         workingMusicxml: store.originalMusicxml,
         deletedSourceIds: [],
       }
@@ -1840,7 +1889,7 @@ async function applyCorrections(): Promise<void> {
   const editedPageText = currentPageJianpuText()
   const preserveEditedText = await hasJianpuTextEdits(
     editedPageText,
-    page.jianpuText,
+    page.textAnchorBaselineText,
     page.textHash,
     page.jianpuDirty,
   )
@@ -1867,15 +1916,28 @@ async function applyCorrections(): Promise<void> {
       return
     }
     const svgFileIds = data.svg_file_ids ?? []
+    const corrected = splitJianpuAndOcr(data.jianpu_text)
+    const alignment = reconcileTextAnchors(
+      data.jianpu_text,
+      corrected.jianpuText,
+      data.text_anchors ?? [],
+    )
+    const textAnchorBaselineAnchors = alignment.reconciled
+      ? alignment.anchors
+      : (data.text_anchors ?? []).map((anchor) => ({ ...anchor, valid: false }))
+    const textHash = await hashJianpuText(corrected.jianpuText)
     const nextPageText = preserveEditedJianpuText(
       editedPageText,
-      data.jianpu_text,
+      corrected.jianpuText,
       preserveEditedText,
-      page.jianpuText,
+      page.textAnchorBaselineText,
     )
-    const nextTextAnchors = preserveEditedText
-      ? trackTextAnchors(data.jianpu_text, nextPageText, data.text_anchors ?? []).anchors
-      : (data.text_anchors ?? [])
+    const nextTextAnchors = reconcileTextAnchors(
+      corrected.jianpuText,
+      nextPageText,
+      textAnchorBaselineAnchors,
+      page.textAnchors,
+    ).anchors
     const nextBatchText = replaceJianpuSectionBody(
       jianpuText.value,
       Math.max(0, currentBatchLocalIndex.value),
@@ -1885,13 +1947,15 @@ async function applyCorrections(): Promise<void> {
     const nextSvgFileIds = preserveEditedText ? [] : svgFileIds
     const pagePatch: Partial<TaskPage> = {
       workingMusicxml: data.working_musicxml,
-      jianpuText: data.jianpu_text,
+      jianpuText: nextPageText,
       jianpuDirty: preserveEditedText,
       deletedSourceIds: [...deletedEntityIds.value],
       textAnchors: nextTextAnchors,
-      // Keep the backend hash as the canonical source-text baseline. A mismatch
-      // is how restored manual edits are detected on the next correction.
-      textHash: data.text_hash,
+      textAnchorBaselineText: corrected.jianpuText,
+      textAnchorBaselineAnchors,
+      // Hash the same canonical text used by the baseline anchors so restored
+      // manual edits are compared against one consistent reference.
+      textHash,
       svgFileId: nextSvgFileIds[0] ?? '',
       svgFileIds: nextSvgFileIds,
     }
@@ -2057,7 +2121,22 @@ async function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): Promise<void
   const sections = parseJianpuPageSections(text)
   store.currentBatchPages.forEach((page, index) => {
     const section = sections.find((item) => item.pageIndex === index) ?? sections[index]
-    if (section) store.patchPageById(page.id, { jianpuText: section.body })
+    if (!section) {
+      store.patchPageById(page.id, {
+        textAnchors: page.textAnchors.map((anchor) => ({ ...anchor, valid: false })),
+      })
+      return
+    }
+    const update = reconcileTextAnchors(
+      page.textAnchorBaselineText,
+      section.body,
+      page.textAnchorBaselineAnchors,
+      page.textAnchors,
+    )
+    store.patchPageById(page.id, {
+      jianpuText: section.body,
+      textAnchors: update.anchors,
+    })
   })
   store.setBatchRenderPageFileIds([])
   setFinalSvgFileIds([])

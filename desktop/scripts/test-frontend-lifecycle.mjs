@@ -18,6 +18,7 @@ const assistantComponentSource = source('../src/renderer/src/components/AiAssist
 const assistantStoreSource = source('../src/renderer/src/stores/assistant.ts')
 const editorSource = source('../src/renderer/src/components/JianpuEditor.vue')
 const convertSource = source('../src/renderer/src/views/ConvertView.vue')
+const historyRestoreSource = source('../src/renderer/src/composables/useHistoryRestore.ts')
 const originalPreviewSource = source('../src/renderer/src/components/OriginalPreview.vue')
 const playerSource = source('../src/renderer/src/components/JianpuPlayer.vue')
 const playerPreferencesPath = path.resolve(
@@ -181,6 +182,63 @@ test('convert distinguishes one external editor sync without a nextTick timing f
   assert.match(convertSource, /pendingExternalEditorSync = \{ generation, text: v \}/)
   assert.match(convertSource, /const isExternalSync = pendingExternalEditorSync\?\.text === v/)
   assert.match(convertSource, /if \(isExternalSync\) pendingExternalEditorSync = null/)
+})
+
+test('recognition aligns and captures an immutable text-anchor baseline', () => {
+  assert.match(recognizeSource, /reconcileTextAnchors\(\s*result\.jianpu_text,\s*split\.jianpuText/s)
+  assert.match(recognizeSource, /await hashJianpuText\(split\.jianpuText\)/)
+  assert.match(recognizeSource, /textAnchorBaselineText:\s*split\.jianpuText/)
+  assert.match(recognizeSource, /textAnchorBaselineAnchors[,}]/)
+})
+
+test('editor reconciles only changed page bodies from their baselines', () => {
+  assert.match(convertSource, /previousSection\.body === currentSection\.body/)
+  assert.match(
+    convertSource,
+    /reconcileTextAnchors\(\s*page\.textAnchorBaselineText,\s*currentSection\.body,\s*page\.textAnchorBaselineAnchors,\s*page\.textAnchors/s,
+  )
+  assert.match(convertSource, /textAnchorBaselineText:\s*split\.jianpuText/)
+  assert.match(convertSource, /textAnchorBaselineAnchors[:,]/)
+  assert.match(convertSource, /await hashJianpuText\(split\.jianpuText\)/)
+  assert.match(convertSource, /await hashJianpuText\(corrected\.jianpuText\)/)
+  assert.match(convertSource, /try \{[\s\S]*parseJianpuPageSections\(previous\)[\s\S]*catch/)
+  assert.match(convertSource, /catch[\s\S]*valid:\s*false/)
+  const handlerStart = convertSource.indexOf('function updateTextAnchorsAfterEdit')
+  const handlerEnd = convertSource.indexOf('async function handleOriginalSourceClick', handlerStart)
+  const handler = convertSource.slice(handlerStart, handlerEnd)
+  assert.ok(
+    handler.indexOf('if (!previousSection || !currentSection)')
+      < handler.indexOf('if (!page.textAnchorBaselineAnchors.length)'),
+    'missing sections must invalidate current anchors before empty baselines skip diffing',
+  )
+})
+
+test('original preview separates valid, invalidated, and never-mapped sources', () => {
+  assert.match(convertSource, /:mapped-source-ids="mappedSourceIds"/)
+  assert.match(convertSource, /anchor\.valid !== false/)
+  assert.match(convertSource, /textAnchorBaselineAnchors[\s\S]*\.map\(\(anchor\) => anchor\.source_id\)/)
+  assert.match(originalPreviewSource, /mappedSourceIds\?: string\[\]/)
+  assert.match(originalPreviewSource, /const mappedSourceIdSet = computed/)
+  assert.match(originalPreviewSource, /!mappedSourceIdSet\.value\.has\(element\.source_id\)/)
+  assert.doesNotMatch(originalPreviewSource, /if \(!mappedSourceIdSet\.value\.size/)
+})
+
+test('snapshot restore reconciles page anchors from their canonical baselines', () => {
+  const start = convertSource.indexOf('async function restoreJianpuSnapshot')
+  const end = convertSource.indexOf('function confirmDiscardUnsaved', start)
+  const handler = convertSource.slice(start, end)
+
+  assert.match(handler, /reconcileTextAnchors\(/)
+  assert.match(handler, /page\.textAnchorBaselineText/)
+  assert.match(handler, /page\.textAnchorBaselineAnchors/)
+  assert.match(handler, /textAnchors:\s*update\.anchors/)
+  assert.match(handler, /if \(!section\)[\s\S]*valid:\s*false/)
+})
+
+test('history restore treats persisted empty baseline anchors as authoritative', () => {
+  assert.match(historyRestoreSource, /text_anchor_baseline_anchors !== undefined/)
+  assert.doesNotMatch(historyRestoreSource, /text_anchor_baseline_anchors\?\.length/)
+  assert.match(convertSource, /text_anchor_baseline_anchors !== undefined/)
 })
 
 test('player volume parsing clamps persistence to the supported range', async () => {
