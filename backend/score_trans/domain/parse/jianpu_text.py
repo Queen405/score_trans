@@ -37,6 +37,7 @@ from ..performance_marks import (
     mark_for_token,
     normalize_event_marks,
 )
+from ..pitch_spelling import jianpu_pitch_to_written
 
 
 @dataclass(slots=True)
@@ -384,11 +385,11 @@ def _validate_jianpu_token(token: _Token) -> None:
             )
         )
         return
-    if raw.startswith("$"):
-        if not raw.endswith("$"):
-            raise _syntax_error(token, "连音组缺少结束标记 $")
+    if _is_tuplet_token(raw):
         _parse_tuplet_token(token)
         return
+    if raw.startswith(("$", "($")):
+        raise _syntax_error(token, "连音组缺少结束标记 $")
     _parse_event_token(token)
 
 
@@ -591,8 +592,9 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     current_beat_type = options.beat_type
     last_pitched_event: Event | None = None
     pending_slide_token: _Token | None = None
+    skip_empty_bar_after_repeat_end = False
 
-    def flush_measure() -> None:
+    def flush_measure(*, preserve_empty: bool = False) -> None:
         nonlocal \
             current_events, \
             current_blocks, \
@@ -603,9 +605,21 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             measure_ornaments, \
             pending_repeat_count
         if not current_events and not current_blocks:
-            measure_articulations = []
-            measure_ornaments = []
-            return
+            if preserve_empty:
+                current_events = [
+                    Event(
+                        kind="rest",
+                        duration=Fraction(current_beats * 4, current_beat_type),
+                        start=Fraction(0, 1),
+                        generated=True,
+                        hidden=True,
+                        measure_rest=True,
+                    )
+                ]
+            else:
+                measure_articulations = []
+                measure_ornaments = []
+                return
         measure = Measure(
             source_number=str(measure_number),
             duration=Fraction(current_beats * 4, current_beat_type),
@@ -710,6 +724,15 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             open_tie = True
         elif event.tie_stop:
             open_tie = False
+        for pitch in event.pitches:
+            if pitch.accidental_text in {"n", "♮"}:
+                _step, key_alter, _octave = jianpu_pitch_to_written(
+                    pitch.degree,
+                    Fraction(0, 1),
+                    pitch.octave,
+                    current_key,
+                )
+                pitch.accidental = -key_alter
         normalize_event_marks(event)
         _validate_instrument_mark_target(event, options.instrument_profile, token=token)
         current_events.append(event)
@@ -719,6 +742,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
 
     for token in token_lines:
         raw = token.value
+        if skip_empty_bar_after_repeat_end and raw not in {"|", "||"}:
+            skip_empty_bar_after_repeat_end = False
         key_signature = _key_signature_value(raw)
         if key_signature is not None:
             if current_events:
@@ -742,7 +767,8 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         if re.fullmatch(r"\d+/\d+", raw):
             raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
         if raw in {"|", "||"}:
-            flush_measure()
+            flush_measure(preserve_empty=not skip_empty_bar_after_repeat_end)
+            skip_empty_bar_after_repeat_end = False
             continue
         if raw == "|:":
             flush_measure()
@@ -752,6 +778,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             flush_measure()
             if score.measures:
                 score.measures[-1].repeat_end = True
+            skip_empty_bar_after_repeat_end = True
             continue
         if re.fullmatch(r"\*\d+", raw):
             pending_repeat_count = max(1, int(raw[1:]))
@@ -824,7 +851,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             else:
                 pending_articulations.append(mark)
             continue
-        if raw.startswith("$") and raw.endswith("$"):
+        if _is_tuplet_token(raw):
             for event, source_token in _parse_tuplet_token(token):
                 append_event(event, source_token, token)
             continue
@@ -953,7 +980,10 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                 options.beat_type = int(beat_type)
                 saw_time = True
             continue
-        for match in re.finditer(r"\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+", raw_line):
+        for match in re.finditer(
+            r"\(?\$[^$]+\$\)?|\|\||\|:|:\||\||[^\s|]+",
+            raw_line,
+        ):
             raw_token = match.group(0)
             if _is_measure_label_token(raw_token):
                 continue
@@ -1008,13 +1038,16 @@ def _strip_leading_measure_label(line: str) -> str:
     match = re.match(r"^\s*(\d+)([.:：])(?P<gap>\s+|$)", line)
     if match is None:
         return line
-    if (
-        match.group(2) == "."
-        and 0 <= int(match.group(1)) <= 7
-        and line[match.end() :].strip() in {"", "|", "||", "|:", ":|"}
-    ):
-        return line
-    return line[match.end() :]
+    number = int(match.group(1))
+    separator = match.group(2)
+    # 与 _is_measure_label_token 规则对齐：
+    # 冒号分隔（AI 小节编号，如 "272:"）或点号分隔且数字 >7（如 "10."）才按标签剥离；
+    # 点号分隔且 0<=N<=7（如 "1."、"0."）按附点音符处理，不剥离（否则吞掉合法音符）。
+    if separator in {":", "："}:
+        return line[match.end() :]
+    if number > 7:
+        return line[match.end() :]
+    return line
 
 
 def _is_measure_label_token(token: str) -> bool:
@@ -1044,14 +1077,25 @@ def _is_key_name(value: str) -> bool:
     return bool(re.fullmatch(r"[A-G](?:#|b)?", value.strip()))
 
 
+def _is_tuplet_token(value: str) -> bool:
+    return bool(re.fullmatch(r"\(?\$[^$]+\$\)?", value.strip()))
+
+
 def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
     raw_value = token.value
     stripped_value = raw_value.strip()
+    outer_slur_start = stripped_value.startswith("($")
+    outer_slur_stop = stripped_value.endswith("$)")
+    if outer_slur_start:
+        stripped_value = stripped_value[1:]
+    if outer_slur_stop:
+        stripped_value = stripped_value[:-1]
     inner = stripped_value[1:-1]
     # Code-point offset of the tuplet body inside ``raw_value`` so inner tokens
     # can be re-anchored to the outer token's UTF-16 offsets.
     body_offset = (
         (len(raw_value) - len(raw_value.lstrip()))
+        + int(outer_slur_start)
         + 1
         + (len(inner) - len(inner.lstrip()))
     )
@@ -1195,6 +1239,10 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
             )
         ]
         events.append((event, source_token))
+    if outer_slur_start:
+        events[0][0].slur_start = True
+    if outer_slur_stop:
+        events[-1][0].slur_stop = True
     return events
 
 
@@ -1414,7 +1462,7 @@ def _parse_pitch(raw: str, token: _Token) -> JianpuPitch:
         value = value[1:]
     elif value.startswith(("n", "♮")):
         accidental = Fraction(0, 1)
-        accidental_text = "♮"
+        accidental_text = "n"
         value = value[1:]
     elif value.startswith("#"):
         accidental = Fraction(1, 1)

@@ -43,6 +43,120 @@ def test_measure_level_key_and_time_signature_are_attached_to_following_measure(
     assert score.measures[1].beat_type == 4
 
 
+def test_leading_dotted_notes_are_not_stripped_as_measure_labels() -> None:
+    note_score = parse_jianpu_score("1=C\n4/4\n1. q2 3 4 |")
+    rest_score = parse_jianpu_score("1=C\n4/4\n0. 2 3 4 |")
+    labelled_score = parse_jianpu_score("1=C\n4/4\n272: 1 2 3 4 |")
+
+    assert [event.duration for event in note_score.measures[0].events] == [
+        Fraction(3, 2),
+        Fraction(1, 2),
+        Fraction(1, 1),
+        Fraction(1, 1),
+    ]
+    assert rest_score.measures[0].events[0].kind == "rest"
+    assert rest_score.measures[0].events[0].duration == Fraction(3, 2)
+    assert len(labelled_score.measures[0].events) == 4
+
+
+def test_empty_measure_roundtrips_as_hidden_whole_rest() -> None:
+    source = "1=C\n4/4\n1 2 3 4 |\n |\n5 6 7 1' |"
+
+    score = parse_jianpu_score(source)
+
+    assert len(score.measures) == 3
+    assert len(score.measures[1].events) == 1
+    assert score.measures[1].events[0].kind == "rest"
+    assert score.measures[1].events[0].duration == Fraction(4, 1)
+    assert score.measures[1].events[0].hidden is True
+    assert score_to_jianpu_text(score).splitlines()[3] == " |"
+
+
+def test_repeat_end_roundtrip_does_not_add_hidden_empty_measure() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 *2 :|")
+
+    text = score_to_jianpu_text(score)
+    reparsed = parse_jianpu_score(text)
+
+    assert len(reparsed.measures) == 1
+    assert reparsed.measures[0].repeat_end is True
+
+
+def test_writer_does_not_put_rest_lyrics_in_note_lyric_stream() -> None:
+    score = JianpuScore(
+        measures=[
+            Measure(
+                source_number="1",
+                duration=Fraction(4, 1),
+                events=[
+                    Event(kind="rest", duration=Fraction(1, 1), lyric="休"),
+                    Event(
+                        kind="note",
+                        duration=Fraction(1, 1),
+                        pitches=[JianpuPitch(1)],
+                        lyric="唱",
+                    ),
+                ],
+            )
+        ]
+    )
+
+    text = score_to_jianpu_text(score)
+
+    assert text.splitlines()[-1] == "L: 唱"
+
+
+def test_writer_groups_events_by_voice_without_mutating_source_score() -> None:
+    voice_two_first = Event(
+        kind="note",
+        duration=Fraction(1, 1),
+        pitches=[JianpuPitch(5)],
+        voice="2",
+        start=Fraction(0, 1),
+    )
+    voice_one_first = Event(
+        kind="note",
+        duration=Fraction(1, 1),
+        pitches=[JianpuPitch(1)],
+        voice="1",
+        start=Fraction(0, 1),
+    )
+    voice_two_second = Event(
+        kind="note",
+        duration=Fraction(1, 1),
+        pitches=[JianpuPitch(6)],
+        voice="2",
+        start=Fraction(1, 1),
+    )
+    voice_one_second = Event(
+        kind="note",
+        duration=Fraction(1, 1),
+        pitches=[JianpuPitch(2)],
+        voice="1",
+        start=Fraction(1, 1),
+    )
+    source_events = [
+        voice_two_first,
+        voice_one_first,
+        voice_two_second,
+        voice_one_second,
+    ]
+    score = JianpuScore(
+        measures=[
+            Measure(
+                source_number="1",
+                duration=Fraction(4, 1),
+                events=source_events,
+            )
+        ]
+    )
+
+    text = score_to_jianpu_text(score)
+
+    assert text.splitlines()[-1] == "1 2 5 6 |"
+    assert score.measures[0].events == source_events
+
+
 def test_measure_level_key_and_time_signature_roundtrip_to_text() -> None:
     normalized = normalize_jianpu_text("1=C\n4/4\n1 2 3 4 |\n1=G\n3/4\n1 2 3 |")
 
@@ -338,6 +452,17 @@ def test_parse_explicit_accidental_tokens() -> None:
     assert [token.value for token in tokens[:5]] == ["7", "6", "4", "5", "3"]
 
 
+def test_natural_token_cancels_active_key_signature_in_domain_pitch() -> None:
+    score = parse_jianpu_score("1=G\n4/4\nn7 7 1 2 |")
+    natural = score.measures[0].events[0].pitches[0]
+    key_signature_note = score.measures[0].events[1].pitches[0]
+
+    assert natural.accidental == -1
+    assert natural.accidental_text == "n"
+    assert key_signature_note.accidental == 0
+    assert "n7 7" in score_to_jianpu_text(score)
+
+
 @pytest.mark.parametrize("dynamic", ["pppp", "ffff", "sf", "fz", "rfz", "sfp"])
 def test_extended_musicxml_dynamics_are_valid_jianpu_tokens(dynamic: str) -> None:
     score = parse_jianpu_score(f"1=C\n4/4\n\\{dynamic} 1 2 3 4 |")
@@ -418,6 +543,35 @@ def test_parse_note_can_end_slur_and_start_tie() -> None:
     assert combined.slur_stop is True
     assert combined.tie_start is True
     assert score.measures[1].events[0].tie_stop is True
+
+
+def test_writer_serializes_invalid_and_nested_slurs_as_one_balanced_span() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1) (2 (3 4) |")
+
+    text = score_to_jianpu_text(score)
+
+    assert text.splitlines()[-1] == "1 (2 3 4) |"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("$(1 2 3$ 4) |", "($123$ 4) |"),
+        ("(1 $2 3 4)$ |", "(1 $234$) |"),
+        ("(1 $2) (3$ 4) |", "(1 $23$ 4) |"),
+        ("(1 $2) (3 4)$ |", "(1 $234$) |"),
+    ],
+)
+def test_writer_moves_cross_tuplet_slur_parentheses_outside_group(
+    source: str,
+    expected: str,
+) -> None:
+    score = parse_jianpu_score(f"1=C\n4/4\n{source}")
+
+    text = score_to_jianpu_text(score)
+
+    assert text.splitlines()[-1] == expected
+    assert parse_jianpu_score(text).measures
 
 
 def test_measure_level_tremolo_shorthand_matches_expanded_marks() -> None:
@@ -538,6 +692,19 @@ def test_compact_tuplet_supports_chords() -> None:
     assert [pitch.degree for pitch in tuplet[0].pitches] == [3, 1]
     assert tuplet[1].pitches[0].degree == 2
     assert [event.tuplet_count for event in tuplet] == [2, 2]
+
+
+def test_writer_keeps_accidental_tuplet_members_space_delimited() -> None:
+    score = parse_jianpu_score("1=F\n4/4\n$4' 3' b2'$ |")
+
+    text = score_to_jianpu_text(score)
+    reparsed = parse_jianpu_score(text)
+
+    assert "$4' 3' b2'$" in text
+    assert [
+        (event.pitches[0].degree, event.pitches[0].accidental)
+        for event in reparsed.measures[0].events
+    ] == [(4, 0), (3, 0), (2, -1)]
 
 
 def test_underfilled_measure_records_validation_error() -> None:
@@ -682,7 +849,7 @@ def test_score_to_jianpu_text_only_writes_supported_mark_tokens() -> None:
     assert "^breath-mark" not in text
     assert "^turn" not in text
     assert "^> 1" in text
-    assert "^l 2" in text
+    assert "^l ^t 2" in text
     parse_jianpu_score(text)
 
 
@@ -880,3 +1047,13 @@ def test_performance_mark_tokens_are_unique_and_new_tokens_are_short() -> None:
     assert len(tokens) == len(set(tokens))
     assert guzheng_tokens <= set(tokens)
     assert all(token.isalpha() and 1 <= len(token) <= 2 for token in guzheng_tokens)
+
+
+def test_standard_musicxml_marks_have_jianpu_tokens() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n^! 1 ^t 2 ^t' 3 4 |")
+    events = score.measures[0].events
+
+    assert events[0].articulations == ["staccatissimo"]
+    assert events[1].ornaments == ["turn"]
+    assert events[2].ornaments == ["inverted-turn"]
+    assert "^! 1 ^t 2 ^t' 3" in score_to_jianpu_text(score)

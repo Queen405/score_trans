@@ -227,6 +227,14 @@ def test_musicxml_natural_cancelling_key_sharp_becomes_natural_jianpu_degree() -
     assert roundtrip.findtext(".//pitch/octave") == "5"
 
 
+def test_jianpu_natural_cancels_target_key_signature_on_export() -> None:
+    root = ET.fromstring(jianpu_to_musicxml("1=G\n4/4\nn7 |"))
+
+    assert root.findtext(".//pitch/step") == "F"
+    assert root.find(".//pitch/alter") is None
+    assert root.findtext(".//accidental") == "natural"
+
+
 def test_musicxml_repeat_endings_and_print_breaks_roundtrip() -> None:
     xml = """
     <score-partwise version="4.0">
@@ -316,7 +324,7 @@ def test_musicxml_same_number_nested_tuplets_keep_both_spans() -> None:
     """
 
     score = musicxml_to_score(xml)
-    events = score.measures[0].events
+    events = [event for event in score.measures[0].events if not event.generated]
     span_ids = [[span.id for span in event.tuplet_spans] for event in events]
     jianpu_text = score_to_jianpu_text(score)
     roundtrip = ET.fromstring(scores_to_musicxml([score]))
@@ -325,7 +333,7 @@ def test_musicxml_same_number_nested_tuplets_keep_both_spans() -> None:
     assert span_ids[0][0] == span_ids[1][0] == span_ids[2][0] == span_ids[3][0]
     assert span_ids[1][1] == span_ids[2][1]
     assert span_ids[0][0] != span_ids[1][1]
-    assert "$3:2;1." in jianpu_text
+    assert "$3:2;1$" in jianpu_text
     assert musicxml_to_score(jianpu_to_musicxml(jianpu_text)).measures
     assert [tuplet.attrib for tuplet in roundtrip.findall(".//notations/tuplet")] == [
         {"type": "start", "number": "1"},
@@ -365,6 +373,42 @@ def test_musicxml_tuplet_state_continues_across_measures() -> None:
     assert first.tuplet_spans[0].id == second.tuplet_spans[0].id
     assert first.tuplet_spans[0].start is True
     assert second.tuplet_spans[0].stop is True
+
+
+def test_stale_tuplet_span_does_not_hide_later_explicit_tuplet_boundaries() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes>
+            <divisions>3</divisions><key><fifths>0</fifths></key>
+            <time><beats>4</beats><beat-type>4</beat-type></time>
+          </attributes>
+          <note><rest/><duration>3</duration>
+            <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>
+            <notations><tuplet number="1" type="start"/></notations></note>
+        </measure>
+        <measure number="2">
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+            <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>
+            <notations><tuplet number="2" type="start"/></notations></note>
+          <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration>
+            <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification></note>
+          <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration>
+            <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>
+            <notations><tuplet number="2" type="stop"/></notations></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    second_measure = score.measures[1]
+
+    assert second_measure.events[0].tuplet_start is True
+    assert second_measure.events[2].tuplet_stop is True
+    assert "$" in score_to_jianpu_text(score).splitlines()[-1]
 
 
 def test_musicxml_omits_redundant_ratio_for_weighted_tuplet_durations() -> None:
@@ -500,6 +544,46 @@ def test_musicxml_duplet_with_notated_duration_corrects_to_sounded() -> None:
         Fraction(3, 2),
         Fraction(3, 2),
     ]
+
+
+def test_musicxml_tuplet_corrects_unscaled_quarter_durations_without_dots() -> None:
+    def note(step: str, tuplet_type: str | None = None) -> str:
+        notations = (
+            f'<notations><tuplet number="1" type="{tuplet_type}"/></notations>'
+            if tuplet_type
+            else ""
+        )
+        return (
+            f"<note><pitch><step>{step}</step><octave>4</octave></pitch>"
+            "<duration>1</duration><type>quarter</type>"
+            "<time-modification><actual-notes>3</actual-notes>"
+            "<normal-notes>2</normal-notes></time-modification>"
+            f"{notations}</note>"
+        )
+
+    xml = f"""
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>2</beats><beat-type>4</beat-type></time>
+        </attributes>
+        {note("C", "start")}{note("D")}{note("E", "stop")}
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    text = score_to_jianpu_text(score)
+
+    assert [event.duration for event in score.measures[0].events] == [
+        Fraction(2, 3),
+        Fraction(2, 3),
+        Fraction(2, 3),
+    ]
+    assert "$3:2;123$" in text
+    assert "." not in text.splitlines()[-1]
 
 
 def test_musicxml_non_notatable_duration_without_tuplet_does_not_crash() -> None:
@@ -932,6 +1016,162 @@ def test_musicxml_to_score_marks_overfull_measure() -> None:
     assert measure.events[-1].generated is False
 
 
+def test_musicxml_ignores_duplicate_note_ids_within_measure() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note id="n-1"><pitch><step>C</step><octave>4</octave></pitch>
+          <duration>1</duration><voice>1</voice></note>
+        <backup><duration>1</duration></backup>
+        <note id="n-1"><pitch><step>C</step><octave>4</octave></pitch>
+          <duration>1</duration><voice>2</voice></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    measure = musicxml_to_score(xml).measures[0]
+    source_events = [event for event in measure.events if not event.generated]
+
+    assert len(source_events) == 1
+    assert source_events[0].pitches[0].midi == 60
+
+
+def test_musicxml_multiple_rest_is_not_expanded_into_duplicate_measures() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes>
+            <divisions>1</divisions><key><fifths>0</fifths></key>
+            <time><beats>4</beats><beat-type>4</beat-type></time>
+            <measure-style><multiple-rest>3</multiple-rest></measure-style>
+          </attributes>
+          <note><rest measure="yes"/><duration>4</duration></note>
+        </measure>
+        <measure number="2"><note><rest measure="yes"/><duration>4</duration></note></measure>
+        <measure number="3"><note><rest measure="yes"/><duration>4</duration></note></measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+
+    assert [measure.source_number for measure in score.measures] == ["1", "2", "3"]
+
+
+def test_musicxml_measure_rest_uses_full_measure_duration() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note><rest measure="yes"/><duration>1</duration></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+
+    assert score.measures[0].events[0].duration == Fraction(4, 1)
+    assert score_to_jianpu_text(score).splitlines()[-1] == "w0 |"
+
+
+def test_writer_clamps_overlong_rest_to_current_measure_capacity() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note><rest/><duration>12</duration><voice>2</voice></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+
+    assert score_to_jianpu_text(score).splitlines()[-1] == "w0 |"
+
+
+def test_writer_replaces_pitchless_note_with_parseable_rest() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note><duration>1</duration></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    text = score_to_jianpu_text(musicxml_to_score(xml))
+
+    assert "?" not in text
+    assert "0" in text
+    assert parse_jianpu_score(text).measures
+
+
+def test_writer_drops_nonstandard_dynamic_instead_of_emitting_invalid_token() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+          <notations><dynamics><other-dynamics>molto</other-dynamics></dynamics></notations>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    text = score_to_jianpu_text(musicxml_to_score(xml))
+
+    assert "\\molto" not in text
+    assert parse_jianpu_score(text).measures
+
+
+def test_musicxml_standard_marks_roundtrip_through_jianpu_tokens() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+          <notations><articulations><staccatissimo/></articulations></notations></note>
+        <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration>
+          <notations><ornaments><turn/></ornaments></notations></note>
+        <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration>
+          <notations><ornaments><inverted-turn/></ornaments></notations></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    text = score_to_jianpu_text(musicxml_to_score(xml))
+
+    assert "^! 1 ^t 2 ^t' 3" in text
+    assert parse_jianpu_score(text).measures
+
+
 def test_musicxml_to_score_preserves_non_numeric_measure_number() -> None:
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
@@ -954,6 +1194,33 @@ def test_musicxml_to_score_preserves_non_numeric_measure_number() -> None:
     assert measure.source_number == "A"
     assert measure.display_measure_number == "A"
     assert measure.display_number == "A"
+
+
+def test_musicxml_warns_when_later_measure_changes_source_key(caplog) -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes>
+            <divisions>1</divisions><key><fifths>1</fifths></key>
+            <time><beats>4</beats><beat-type>4</beat-type></time>
+          </attributes>
+          <note><rest measure="yes"/><duration>4</duration></note>
+        </measure>
+        <measure number="2">
+          <attributes><key><fifths>0</fifths></key></attributes>
+          <note><rest measure="yes"/><duration>4</duration></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_scores(xml, target_key="auto")[0]
+
+    assert [measure.source_key for measure in score.measures] == ["G", "C"]
+    assert [measure.target_key for measure in score.measures] == ["G", "G"]
+    assert "小节 2 检测到中途调号变化：G -> C" in caplog.text
 
 
 def test_split_multi_staff_part_preserves_empty_measure_slots() -> None:
@@ -1077,6 +1344,30 @@ def test_chord_performance_mark_is_written_only_once() -> None:
     root = ET.fromstring(xml)
 
     assert len(root.findall(".//down-bow")) == 1
+
+
+def test_musicxml_merges_slur_from_non_primary_chord_note() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>
+        <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration>
+          <notations><slur number="1" type="start"/></notations></note>
+        <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration>
+          <notations><slur number="1" type="stop"/></notations></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    events = musicxml_to_score(xml).measures[0].events
+
+    assert events[0].slur_start is True
+    assert events[1].slur_stop is True
 
 
 def test_guzheng_marks_musicxml_round_trip_and_chord_marks_write_once() -> None:

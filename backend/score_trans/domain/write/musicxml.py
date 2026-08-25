@@ -447,7 +447,8 @@ def _append_event_xml(
         if index > 0:
             ET.SubElement(note, "chord")
         if event.kind == "rest" or pitch is None:
-            ET.SubElement(note, "rest")
+            rest_attributes = {"measure": "yes"} if event.measure_rest else {}
+            ET.SubElement(note, "rest", rest_attributes)
             written_alter: Fraction | None = None
         else:
             written_alter = _append_pitch_xml(note, pitch, measure_key)
@@ -618,6 +619,12 @@ def _append_pitch_xml(
         pitch_value.octave,
         measure_key,
     )
+    # 还原号(n/♮)语义：把调号里的升降取消，用自然音。jianpu_pitch_to_written 会把
+    # accidental=0 当成"无升降"而叠加调号(key_alter)，导致还原号被错误映射回升/降音。
+    # 这里显式将还原号的 alter 归 0，确保写出自然音(不写 <alter>，且 _musicxml_accidental_name
+    # 会据此输出 <accidental>natural</accidental>)。
+    if pitch_value.accidental_text in {"♮", "n"}:
+        alter = Fraction(0)
     pitch = ET.SubElement(note, "pitch")
     ET.SubElement(pitch, "step").text = step
     if alter:

@@ -109,6 +109,7 @@ class Event:
     source_roles: dict[str, list[str]] = field(default_factory=dict)
     source_start_utf16: int | None = None
     source_end_utf16: int | None = None
+    measure_rest: bool = False
     # 由删除产生的休止符：MusicXML 用 print-object="no" 标记，解析时置 True；
     # 简谱文本与 SVG 渲染都会跳过它（那一拍从输出中消失，节奏由 MusicXML 保留）。
     hidden: bool = False

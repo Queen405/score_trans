@@ -45,6 +45,14 @@ def test_validate_jianpu_text_stops_after_structural_error() -> None:
     assert "连音组至少需要两个音符" in diagnostics[0].message
 
 
+def test_validate_wrapped_tuplet_reports_missing_closing_dollar() -> None:
+    diagnostics = validate_jianpu_text("1=C\n4/4\n($12 |")
+
+    assert len(diagnostics) == 1
+    assert diagnostics[0].line == 3
+    assert "连音组缺少结束标记 $" in diagnostics[0].message
+
+
 def test_validate_jianpu_text_accepts_valid_score() -> None:
     assert validate_jianpu_text("1=C\n4/4\n1 2 3 4 |") == []
 

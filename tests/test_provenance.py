@@ -102,9 +102,14 @@ def test_musicxml_provenance_produces_exact_utf16_anchors() -> None:
           <notations>
             <slur type="start"/>
             <articulations><staccato/></articulations>
-          </notations>
-        </note>
-      </measure></part>
+            </notations>
+          </note>
+          <note>
+            <pitch><step>D</step><octave>4</octave></pitch>
+            <duration>1</duration>
+            <notations><slur type="stop"/></notations>
+          </note>
+        </measure></part>
     </score-partwise>
     """
 

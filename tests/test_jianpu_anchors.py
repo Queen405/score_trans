@@ -59,6 +59,35 @@ def test_triplet_group_anchors_every_note() -> None:
     assert _utf16_slice(document.text, tail.start_utf16, tail.end_utf16) == "4"
 
 
+def test_cross_tuplet_slur_keeps_external_parenthesis_anchors() -> None:
+    events = _tuplet_events(3, [1, 2, 3])
+    events[0].slur_start = True
+    events[0].source_roles = {"slur_start": ["s1:slur-start"]}
+    tail = Event(
+        kind="note",
+        duration=Fraction(1, 1),
+        pitches=[JianpuPitch(degree=4, source_id="s1:i200")],
+        slur_stop=True,
+        source_roles={"slur_stop": ["s1:slur-stop"]},
+    )
+
+    document = score_to_jianpu_document(
+        JianpuScore(measures=[_make_measure([*events, tail])])
+    )
+    slur_anchors = {
+        anchor.source_id: _utf16_slice(
+            document.text,
+            anchor.start_utf16,
+            anchor.end_utf16,
+        )
+        for anchor in document.anchors
+        if anchor.role == "slur"
+    }
+
+    assert "($123$ 4) |" in document.text
+    assert slur_anchors == {"s1:slur-start": "(", "s1:slur-stop": ")"}
+
+
 def test_sextuplet_group_anchors_every_note() -> None:
     events = _tuplet_events(6, [1, 2, 3, 4, 5, 6])
     document = score_to_jianpu_document(JianpuScore(measures=[_make_measure(events)]))

@@ -335,6 +335,32 @@ def _primitive_nodes(
                 role=role,
             )
         ]
+    if renderer == "staccatissimo":
+        return [
+            _path(
+                "M -3 -5 L 3 -5 L 0 4 Z",
+                fill="#171717",
+                stroke="none",
+                stroke_width=0,
+                role=role,
+            )
+        ]
+    if renderer == "turn":
+        return [
+            _path(
+                "M -9 1 C -6 -6 -2 -6 0 0 C 2 6 6 6 9 -1",
+                role=role,
+                stroke_width=width,
+            )
+        ]
+    if renderer == "inverted-turn":
+        return [
+            _path(
+                "M -9 -1 C -6 6 -2 6 0 0 C 2 -6 6 -6 9 1",
+                role=role,
+                stroke_width=width,
+            )
+        ]
     if renderer == "accent":
         return [_path("M -8 -5 L 8 0 L -8 5", role=role, stroke_width=width)]
     if renderer == "tenuto":

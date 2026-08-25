@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -47,6 +48,7 @@ from ..xml_utils import (
 _PROVENANCE_PART_RE = re.compile(
     r"(?:^|__)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-i(?P<inter>\d+)"
 )
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,7 +197,16 @@ def _parse_single_part(
             divisions = int(_text(attrs.find(_q(ns, "divisions"))) or divisions)
             fifths = _text(attrs.find(f"{_q(ns, 'key')}/{_q(ns, 'fifths')}"))
             if fifths is not None:
-                current_key = FIFTHS_TO_KEY.get(int(fifths), "C")
+                next_key = FIFTHS_TO_KEY.get(int(fifths), "C")
+                if index > 1 and next_key != current_key:
+                    logger.warning(
+                        "小节 %s 检测到中途调号变化：%s -> %s；目标简谱调保持 %s",
+                        xml_measure.get("number", str(index)),
+                        current_key,
+                        next_key,
+                        target_key,
+                    )
+                current_key = next_key
             beats_text = _text(attrs.find(f"{_q(ns, 'time')}/{_q(ns, 'beats')}"))
             beat_type_text = _text(
                 attrs.find(f"{_q(ns, 'time')}/{_q(ns, 'beat-type')}")
@@ -434,6 +445,7 @@ def _read_measure_events(
     cursor = Fraction(0, 1)
     pending_dynamics: list[tuple[Fraction, str]] = []
     parsed_notes: list[tuple[ET.Element, Event]] = []
+    seen_note_ids: set[str] = set()
     inferred_tuplets = _infer_unmarked_sextuplets(
         xml_measure,
         ns,
@@ -467,6 +479,11 @@ def _read_measure_events(
             continue
 
         note = child
+        note_id = (note.get("id") or "").strip()
+        if note_id:
+            if note_id in seen_note_ids:
+                continue
+            seen_note_ids.add(note_id)
         inferred_tuplet = inferred_tuplets.get(note)
         duration = (
             inferred_tuplet.duration
@@ -498,11 +515,29 @@ def _read_measure_events(
                         for existing in last_event.beams
                     ):
                         last_event.beams.append(beam)
+                notations = note.find(_q(ns, "notations"))
+                if notations is not None:
+                    last_event.slur_start = last_event.slur_start or any(
+                        slur.get("type") == "start"
+                        for slur in notations.findall(_q(ns, "slur"))
+                    )
+                    last_event.slur_stop = last_event.slur_stop or any(
+                        slur.get("type") == "stop"
+                        for slur in notations.findall(_q(ns, "slur"))
+                    )
                 _merge_event_provenance(last_event, provenance)
             continue
 
-        if note.find(_q(ns, "rest")) is not None:
-            event = Event(kind="rest", duration=duration)
+        rest_element = note.find(_q(ns, "rest"))
+        if rest_element is not None:
+            measure_rest = _is_yes(rest_element.get("measure"))
+            if measure_rest:
+                duration = measure.duration
+            event = Event(
+                kind="rest",
+                duration=duration,
+                measure_rest=measure_rest,
+            )
             if note.get("print-object") == "no":
                 event.hidden = True
         else:
@@ -575,6 +610,18 @@ def _read_measure_events(
             normal_notes = _text(time_modification.find(_q(ns, "normal-notes")))
             if normal_notes and normal_notes.isdigit():
                 event.tuplet_normal_count = int(normal_notes)
+            notated_duration = _musicxml_note_type_duration(note, ns)
+            if (
+                event.tuplet_count
+                and event.tuplet_normal_count
+                and notated_duration is not None
+                and event.duration == notated_duration
+            ):
+                duration = notated_duration * Fraction(
+                    event.tuplet_normal_count,
+                    event.tuplet_count,
+                )
+                event.duration = duration
         if inferred_tuplet is not None:
             event.tuplet_id = inferred_tuplet.group_id
             event.tuplet_count = inferred_tuplet.count
@@ -1033,7 +1080,15 @@ def _apply_tuplet_notations(
 def _sync_primary_tuplet(event: Event) -> None:
     if not event.tuplet_spans:
         return
-    primary = event.tuplet_spans[0]
+    # 优先取带 start 的 span（真正的连音起点），其次取带 stop 的 span（终点），
+    # 最后兜底取第一个。原实现直接取 spans[0]，但 active_tuplets 跨小节残留的
+    # 未闭合 tuplet span 会混入，导致 spans[0] 是残留项（start/stop 均为 False），
+    # 从而丢失真正的 tuplet start/stop 标记。
+    primary = next((sp for sp in event.tuplet_spans if sp.start), None)
+    if primary is None:
+        primary = next((sp for sp in event.tuplet_spans if sp.stop), None)
+    if primary is None:
+        primary = event.tuplet_spans[0]
     event.tuplet_id = primary.id
     event.tuplet_start = primary.start
     event.tuplet_stop = primary.stop
@@ -1095,6 +1150,28 @@ def _note_pitch(note: ET.Element, ns: str, target_key: str) -> JianpuPitch | Non
 
 def _duration_from_child(element: ET.Element, ns: str, divisions: int) -> Fraction:
     return Fraction(int(_text(element.find(_q(ns, "duration"))) or 0), divisions)
+
+
+def _musicxml_note_type_duration(note: ET.Element, ns: str) -> Fraction | None:
+    note_type = (_text(note.find(_q(ns, "type"))) or "").casefold()
+    base = {
+        "maxima": Fraction(32, 1),
+        "long": Fraction(16, 1),
+        "breve": Fraction(8, 1),
+        "whole": Fraction(4, 1),
+        "half": Fraction(2, 1),
+        "quarter": Fraction(1, 1),
+        "eighth": Fraction(1, 2),
+        "16th": Fraction(1, 4),
+        "32nd": Fraction(1, 8),
+        "64th": Fraction(1, 16),
+        "128th": Fraction(1, 32),
+        "256th": Fraction(1, 64),
+    }.get(note_type)
+    if base is None:
+        return None
+    dot_count = len(note.findall(_q(ns, "dot")))
+    return base * (2 - Fraction(1, 2**dot_count)) if dot_count else base
 
 
 def _direction_text_blocks(
