@@ -185,7 +185,10 @@ def test_tremolo_mark_hugs_note_bottom_right() -> None:
     mark_box = _bbox(mark)
     assert mark_box[0] <= float(extension.attrib["x1"])
     assert mark_box[0] >= note_box[0] + note_box[2]
-    assert mark_box[1] >= note_box[1] + note_box[3]
+    note_bottom = note_box[1] + note_box[3]
+    mark_center = mark_box[1] + mark_box[3] / 2
+    assert abs(mark_center - note_bottom) <= 1.0
+    assert mark_box[1] + mark_box[3] > note_bottom
 
     underlined = Event(
         kind="note",
@@ -213,7 +216,9 @@ def test_tremolo_mark_hugs_note_bottom_right() -> None:
     note_box = _bbox(note)
     mark_box = _bbox(mark)
     assert mark_box[0] >= note_box[0] + note_box[2]
-    assert mark_box[1] >= float(beam.attrib["y1"])
+    note_bottom = note_box[1] + note_box[3]
+    assert abs(mark_box[1] + mark_box[3] / 2 - note_bottom) <= 1.0
+    assert mark_box[1] + mark_box[3] < float(beam.attrib["y1"])
 
     chord = Event(
         kind="note",
@@ -227,7 +232,10 @@ def test_tremolo_mark_hugs_note_bottom_right() -> None:
     assert len(tremolo_marks) == len(rows) == 3
     for mark, row in zip(tremolo_marks, rows, strict=True):
         assert mark.ink_box.left >= row.note_box.right
-        assert mark.ink_box.top >= row.note_box.bottom
+        assert (
+            abs((mark.ink_box.top + mark.ink_box.bottom) / 2 - row.note_box.bottom)
+            <= 1.0
+        )
 
 
 def test_hidden_rest_is_not_rendered_in_svg() -> None:
@@ -1306,12 +1314,16 @@ def test_mark_placement_is_respected() -> None:
         if "performance-mark" in node.attrib.get("class", "").split()
         and "technical" in node.attrib.get("class", "").split()
     ]
-    note_x, note_y = _translate(note)
+    note_x, _note_y = _translate(note)
+    note_bottom = _bbox(note)[1] + _bbox(note)[3]
     positions = {node.attrib["aria-label"]: _translate(node) for node in marks}
+    tremolo_box = _bbox(
+        next(node for node in marks if node.attrib["data-mark"] == "tremolo")
+    )
 
     assert positions["scoop"][0] < note_x
     assert positions["tremolo"][0] > note_x
-    assert positions["tremolo"][1] > note_y
+    assert tremolo_box[1] < note_bottom < tremolo_box[1] + tremolo_box[3]
 
 
 def test_left_mark_does_not_overlap_note_or_accidental_ink() -> None:
@@ -1544,6 +1556,18 @@ def test_measure_repeat_count_is_rendered() -> None:
     ]
 
     assert repeat_counts == ["*3"]
+
+
+def test_measure_repeat_count_after_barline_is_rendered() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\n1 2 3 4 | *2"))
+
+    repeat_counts = [
+        node.attrib.get("aria-label")
+        for node in root.iter()
+        if node.attrib.get("class") == "repeat-count"
+    ]
+
+    assert repeat_counts == ["*2"]
 
 
 def test_unknown_musicxml_mark_uses_text_fallback() -> None:

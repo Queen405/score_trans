@@ -442,7 +442,7 @@
     <n-modal
       v-model:show="discardConfirmVisible"
       preset="card"
-      class="discard-confirm-modal"
+      :style="{ width: 'min(440px, calc(100vw - 48px))' }"
       title="有更改尚未保存"
       :bordered="false"
       :mask-closable="false"
@@ -2633,10 +2633,6 @@ function settleDiscardConfirmation(value: boolean): void {
   border-radius: 50%;
   background: currentColor;
   content: '';
-}
-
-.discard-confirm-modal {
-  width: min(440px, calc(100vw - 48px));
 }
 
 .discard-confirm-copy {

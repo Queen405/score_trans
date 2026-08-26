@@ -82,6 +82,71 @@ def test_repeat_end_roundtrip_does_not_add_hidden_empty_measure() -> None:
     assert reparsed.measures[0].repeat_end is True
 
 
+def test_repeat_count_after_barline_applies_to_previous_measure() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 | *2")
+
+    assert len(score.measures) == 1
+    assert score.measures[0].repeat_count == 2
+
+
+def test_repeat_count_after_repeat_end_applies_to_previous_measure() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 :| *2")
+
+    assert len(score.measures) == 1
+    assert score.measures[0].repeat_end is True
+    assert score.measures[0].repeat_count == 2
+
+
+def test_repeat_count_after_barline_does_not_spawn_hidden_measure() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 | *2 | 5 6 7 1 |")
+
+    assert len(score.measures) == 2
+    assert score.measures[0].repeat_count == 2
+    assert score.measures[1].repeat_count == 1
+    assert all(event.generated is False for event in score.measures[1].events)
+
+
+def test_repeat_count_after_barline_does_not_leak_into_next_measure() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 | *2 |: 5 6 7 1 :|")
+
+    assert len(score.measures) == 2
+    assert score.measures[0].repeat_count == 2
+    assert score.measures[1].repeat_start is True
+    assert score.measures[1].repeat_count == 1
+
+
+def test_repeat_count_after_barline_keeps_user_written_empty_measure() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 | *2 | | 5 6 7 1 |")
+
+    assert len(score.measures) == 3
+    assert score.measures[0].repeat_count == 2
+    assert score.measures[1].events[0].kind == "rest"
+    assert score.measures[1].events[0].hidden is True
+
+
+def test_repeat_count_prefix_semantics_unchanged() -> None:
+    trailing = parse_jianpu_score("1=C\n4/4\n1 2 3 4 *2 |")
+    leading = parse_jianpu_score("1=C\n4/4\n*2 1 2 3 4 |")
+    repeat_bracket = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 *2 :|")
+    after_repeat_start = parse_jianpu_score("1=C\n4/4\n|: *2 1 2 3 4 :|")
+
+    assert trailing.measures[0].repeat_count == 2
+    assert leading.measures[0].repeat_count == 2
+    assert repeat_bracket.measures[0].repeat_count == 2
+    assert repeat_bracket.measures[0].repeat_end is True
+    assert after_repeat_start.measures[0].repeat_count == 2
+    assert after_repeat_start.measures[0].repeat_start is True
+
+
+def test_repeat_count_after_barline_roundtrips() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 | *2")
+
+    reparsed = parse_jianpu_score(score_to_jianpu_text(score))
+
+    assert len(reparsed.measures) == 1
+    assert reparsed.measures[0].repeat_count == 2
+
+
 def test_writer_does_not_put_rest_lyrics_in_note_lyric_stream() -> None:
     score = JianpuScore(
         measures=[

@@ -764,6 +764,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     measure_articulations: list[str] = []
     measure_ornaments: list[str] = []
     pending_repeat_count: int = 1
+    repeat_applied_backward = False
     open_slur = False
     open_tie = False
     measure_number = 1
@@ -790,8 +791,15 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             measure_articulations, \
             measure_ornaments, \
             pending_repeat_count, \
+            repeat_applied_backward, \
             measure_source_start_utf16
         if not current_events and not current_blocks:
+            if repeat_applied_backward:
+                repeat_applied_backward = False
+                measure_articulations = []
+                measure_ornaments = []
+                measure_source_start_utf16 = None
+                return
             if preserve_empty:
                 current_events = [
                     Event(
@@ -860,6 +868,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             open_slur, \
             open_tie, \
             last_pitched_event, \
+            repeat_applied_backward, \
             measure_source_start_utf16
         event.source_token = raw
         if token is not None:
@@ -943,6 +952,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
         _validate_instrument_mark_target(event, options.instrument_profile, token=token)
         if measure_source_start_utf16 is None and token is not None:
             measure_source_start_utf16 = token.start_utf16
+        repeat_applied_backward = False
         current_events.append(event)
         cursor += event.duration
         if event.kind == "note":
@@ -1002,8 +1012,24 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             skip_empty_bar_after_repeat_end = True
             continue
         if re.fullmatch(r"\*\d+", raw):
-            remember_measure_token(token)
-            pending_repeat_count = max(1, int(raw[1:]))
+            repeat_count = max(1, int(raw[1:]))
+            if (
+                not current_events
+                and not current_blocks
+                and score.measures
+                and not next_repeat_start
+            ):
+                previous = score.measures[-1]
+                previous.repeat_count = repeat_count
+                if token.end_utf16 is not None and (
+                    previous.source_end_utf16 is None
+                    or token.end_utf16 > previous.source_end_utf16
+                ):
+                    previous.source_end_utf16 = token.end_utf16
+                repeat_applied_backward = True
+            else:
+                remember_measure_token(token)
+                pending_repeat_count = repeat_count
             continue
 
         measure_mark = _measure_level_mark(raw)

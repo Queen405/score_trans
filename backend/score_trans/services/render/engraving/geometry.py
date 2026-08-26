@@ -185,27 +185,13 @@ def _accidental_text(pitch: JianpuPitch) -> str:
     return values.get(float(value), "" if value == 0 else f"{float(value):+g}")
 
 
-def _underline_level_count(event: Event) -> int:
-    """Number of rhythm underlines drawn below this event (0 when none)."""
-
-    if _is_tuplet(event):
-        return 0
-    beam_levels = [int(beam.number) for beam in event.beams if beam.number.isdigit()]
-    if beam_levels:
-        return max(beam_levels)
-    if event.beams:
-        return 0
-    return _rhythm_line_count(event)
-
-
 def _below_right_anchors(
     event: Event, rows: tuple[PitchLayout, ...], style: PublicationStyle
 ) -> list[tuple[float, float]]:
     """Per-note (right, bottom) anchors for below-right marks.
 
-    Every chord tone gets its own anchor at its note's bottom-right corner;
-    the lowest row additionally clears the rhythm underlines so the mark
-    lands below them instead of beside them.
+    Every chord tone gets its own anchor at its note's bottom-right corner
+    (octave dots below the note extend the bottom).
     """
 
     if not rows:
@@ -218,16 +204,6 @@ def _below_right_anchors(
             for dot_box in row.octave_boxes:
                 bottom = max(bottom, dot_box.bottom)
             anchors.append((row.note_box.right, bottom))
-    line_levels = _underline_level_count(event)
-    if line_levels:
-        note_bottom = max((row.note_box.bottom for row in rows), default=anchors[-1][1])
-        attachment_bottom = max(bottom for _right, bottom in anchors)
-        line_base = max(note_bottom + 12.5, attachment_bottom + 8.0)
-        underline_bottom = (
-            line_base + (line_levels - 1) * style.rhythm_line_level_step + 0.9
-        )
-        right, bottom = anchors[-1]
-        anchors[-1] = (right, max(bottom, underline_bottom))
     return anchors
 
 
@@ -308,7 +284,7 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
                 below_right_anchors
             ):
                 cursor = below_right_cursors.get(
-                    anchor_index, anchor_bottom + style.event_clearance
+                    anchor_index, anchor_bottom - base_box.height / 2
                 )
                 mark_x = anchor_right + style.mark_clearance
                 mark_y = cursor - base_box.top
