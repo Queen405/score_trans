@@ -297,31 +297,6 @@
             </section>
 
             <section
-              v-else-if="activeSection === 'complete-example'"
-              class="syntax-section"
-            >
-              <div class="code-block">
-                <div class="code-toolbar">
-                  <span>练习曲.jianpu</span>
-                  <n-tooltip>
-                    <template #trigger>
-                      <button
-                        type="button"
-                        class="copy-button"
-                        :aria-label="copiedBlock === 'complete' ? '已复制' : '复制示例'"
-                        @click="copyExample('complete', completeExample)"
-                      >
-                        <n-icon :component="copiedBlock === 'complete' ? CheckmarkOutline : CopyOutline" />
-                      </button>
-                    </template>
-                    {{ copiedBlock === 'complete' ? '已复制' : '复制示例' }}
-                  </n-tooltip>
-                </div>
-                <pre><code>{{ completeExample }}</code></pre>
-              </div>
-            </section>
-
-            <section
               v-else-if="activeSection === 'quick-reference'"
               class="syntax-section"
             >
@@ -363,7 +338,6 @@ import {
   ColorWandOutline,
   CopyOutline,
   CreateOutline,
-  DocumentTextOutline,
   FlashOutline,
   InformationCircleOutline,
   ListOutline,
@@ -394,7 +368,6 @@ type SectionId =
   | 'measures'
   | 'expression'
   | 'performance-marks'
-  | 'complete-example'
   | 'quick-reference'
 
 interface DocSection {
@@ -445,26 +418,26 @@ const profiles = ref<InstrumentProfileCatalog[]>([])
 const activeProfile = ref<string>('general')
 const loadingProfiles = ref(true)
 const profileError = ref('')
-const copiedBlock = ref<'quick' | 'complete' | null>(null)
+const copiedBlock = ref<'quick' | null>(null)
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 
-const quickStartExample = `title=小星星
-1=C
-4/4
-tempo=100
-
-1 1 5 5 | 6 6 h5 | 4 4 3 3 | 2 2 h1 |
-L: 一 闪 一 闪 亮 晶 晶`
-
-const completeExample = String.raw`title=练习曲
+const quickStartExample = String.raw`title=彩云追月（片段）
+instrument=erhu
 1=G
 4/4
+tempo=88
 
-\mf 1 2 3 4 | q5 q5 q3 q1 q5 q5 q3 q1 | h2. q3 q4 | w1 |
-L: 春 眠 不 觉 晓 处 处 闻 啼 鸟 飞 飞 飞 去 去 去
+\mp (5 6 7 1') | h2' h1' | 5~ 6 7 ~5 | (3 2 3 1,) |
+L: 彩 云 追 月 夜 色 浓 山 河 醉
 
-\p (5 6 5 4) | 3 2 1 ~1 | 2 3 4 3 | h2 h0 |
-L: 夜 来 风 雨 声 花 落 知 多 少 安 睡 吧`
+\f q[1+3+5] 5. 6 5 | $1 2 3$ 5 6 7 | ^>3 ^>2 1 7, | h6. q6 q5 |
+L: 一 曲 霓 裳 舞 半 空 天 上 仙
+
+\ff (6 5 4 3) | 2 3 4 5~ | 5 6 7 1' | 6 7 1' 2' |
+L: 醉 倒 了 月 下 人 不 知 归 路
+
+\p $6 5 6$ 3 5 4 | 1=D (^.) 2 3 4 5 | (^r) (^f) 1, 2 3 5 | w1 |
+L: 且 将 此 曲 寄 相 思 千 里 共 婵 娟`
 
 const docSections: DocSection[] = [
   {
@@ -510,12 +483,6 @@ const docSections: DocSection[] = [
     icon: ColorWandOutline,
   },
   {
-    id: 'complete-example',
-    label: '完整示例',
-    summary: '组合了谱面信息、力度、连音线、延音线和歌词的完整片段。',
-    icon: DocumentTextOutline,
-  },
-  {
     id: 'quick-reference',
     label: '速查表',
     summary: '编辑时最常用的输入形式，完整说明以前文章节为准。',
@@ -542,7 +509,6 @@ const syntaxSections: SyntaxSection[] = [
         keywords: ['普通', '二胡', '阮', '古筝', '中阮', 'zhongruan'],
       },
       { syntax: 'tempo=120', name: '速度', description: '可选，以 BPM 表示。' },
-      { syntax: 'key=C / time=4/4', name: '不再支持', description: '旧版 key= 和 time= 不再受支持，请使用 1= 和 4/4。', keywords: ['废弃', '旧写法', '不支持'] },
     ],
   },
   {
@@ -698,9 +664,9 @@ const searchGroups = computed<SearchGroup[]>(() => {
       groupTitle: '快速开始',
       sectionId: 'quick-start',
       sectionTitle: '快速开始',
-      syntax: 'title=小星星 …',
+      syntax: 'title=彩云追月（片段） …',
       name: '快速开始示例',
-      description: '包含谱名、调号、拍号、速度、音符、小节线和歌词。',
+      description: '包含力度、连音线、延音线、和弦、连音组、附点、演奏法、移调八度、中途转调、乐器模式和歌词。',
       keywords: [quickStartExample],
     },
     ...syntaxSections.flatMap((section) =>
@@ -716,17 +682,6 @@ const searchGroups = computed<SearchGroup[]>(() => {
         keywords: entry.keywords ?? [],
       })),
     ),
-    {
-      key: 'complete-example',
-      groupKey: 'complete-example',
-      groupTitle: '完整示例',
-      sectionId: 'complete-example',
-      sectionTitle: '完整示例',
-      syntax: 'title=练习曲 …',
-      name: '完整简谱示例',
-      description: '包含力度、连音线、延音线、歌词和多种时值。',
-      keywords: [completeExample],
-    },
     ...orderedProfiles.value.flatMap((profile) => {
       const groupKey = `profile-${profile.id}`
       const sectionTitle = `${profile.name}演奏技巧`
@@ -842,7 +797,7 @@ function openSearchResult(item: SearchItem): void {
   searchQuery.value = ''
 }
 
-async function copyExample(block: 'quick' | 'complete', content: string): Promise<void> {
+async function copyExample(block: 'quick', content: string): Promise<void> {
   try {
     await window.navigator.clipboard.writeText(content)
     copiedBlock.value = block

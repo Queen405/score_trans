@@ -170,7 +170,9 @@ _ACCIDENTAL_RENDER_GLYPH = {"n": "♮"}
 
 def _accidental_text(pitch: JianpuPitch) -> str:
     if pitch.accidental_text:
-        return _ACCIDENTAL_RENDER_GLYPH.get(pitch.accidental_text, pitch.accidental_text)
+        return _ACCIDENTAL_RENDER_GLYPH.get(
+            pitch.accidental_text, pitch.accidental_text
+        )
     value = pitch.accidental
     values = {
         2: "𝄪",
@@ -183,10 +185,55 @@ def _accidental_text(pitch: JianpuPitch) -> str:
     return values.get(float(value), "" if value == 0 else f"{float(value):+g}")
 
 
+def _underline_level_count(event: Event) -> int:
+    """Number of rhythm underlines drawn below this event (0 when none)."""
+
+    if _is_tuplet(event):
+        return 0
+    beam_levels = [int(beam.number) for beam in event.beams if beam.number.isdigit()]
+    if beam_levels:
+        return max(beam_levels)
+    if event.beams:
+        return 0
+    return _rhythm_line_count(event)
+
+
+def _below_right_anchors(
+    event: Event, rows: tuple[PitchLayout, ...], style: PublicationStyle
+) -> list[tuple[float, float]]:
+    """Per-note (right, bottom) anchors for below-right marks.
+
+    Every chord tone gets its own anchor at its note's bottom-right corner;
+    the lowest row additionally clears the rhythm underlines so the mark
+    lands below them instead of beside them.
+    """
+
+    if not rows:
+        rest_box = _centered_text_box("0", style.note_size)
+        anchors = [(rest_box.right, rest_box.bottom)]
+    else:
+        anchors = []
+        for row in rows:
+            bottom = row.note_box.bottom
+            for dot_box in row.octave_boxes:
+                bottom = max(bottom, dot_box.bottom)
+            anchors.append((row.note_box.right, bottom))
+    line_levels = _underline_level_count(event)
+    if line_levels:
+        note_bottom = max((row.note_box.bottom for row in rows), default=anchors[-1][1])
+        attachment_bottom = max(bottom for _right, bottom in anchors)
+        line_base = max(note_bottom + 12.5, attachment_bottom + 8.0)
+        underline_bottom = (
+            line_base + (line_levels - 1) * style.rhythm_line_level_step + 0.9
+        )
+        right, bottom = anchors[-1]
+        anchors[-1] = (right, max(bottom, underline_bottom))
+    return anchors
+
+
 def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...]:
     rows = pitch_layouts(event, style)
     attachment_top = min((row.note_box.top for row in rows), default=-31.0)
-    attachment_bottom = max((row.note_box.bottom for row in rows), default=0.0)
     horizontal_left = min((row.note_box.left for row in rows), default=-7.0)
     horizontal_right = max((row.note_box.right for row in rows), default=7.0)
     for row in rows:
@@ -196,7 +243,6 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
             horizontal_right = max(horizontal_right, row.accidental_box.right)
         for dot_box in row.octave_boxes:
             attachment_top = min(attachment_top, dot_box.top)
-            attachment_bottom = max(attachment_bottom, dot_box.bottom)
 
     if event.dotted:
         horizontal_right = max(
@@ -220,7 +266,8 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
 
     placement_counts: dict[str, int] = {}
     above_cursor = attachment_top - style.event_clearance
-    below_right_cursor = attachment_bottom + style.event_clearance
+    below_right_anchors = _below_right_anchors(event, rows, style)
+    below_right_cursors: dict[int, float] = {}
     layouts: list[MarkLayout] = []
     for mark_id in mark_ids:
         if mark_id in event.articulations or mark_id == event.articulation:
@@ -257,9 +304,27 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
             )
             y = -2.0
         elif placement == "below-right":
-            x = horizontal_right + style.mark_clearance
-            y = below_right_cursor - base_box.top
-            below_right_cursor = y + base_box.bottom + style.mark_stack_gap
+            for anchor_index, (anchor_right, anchor_bottom) in enumerate(
+                below_right_anchors
+            ):
+                cursor = below_right_cursors.get(
+                    anchor_index, anchor_bottom + style.event_clearance
+                )
+                mark_x = anchor_right + style.mark_clearance
+                mark_y = cursor - base_box.top
+                below_right_cursors[anchor_index] = (
+                    mark_y + base_box.bottom + style.mark_stack_gap
+                )
+                layouts.append(
+                    MarkLayout(
+                        mark_id,
+                        role,
+                        mark_x,
+                        mark_y,
+                        _translated(base_box, mark_x, mark_y),
+                    )
+                )
+            continue
         else:
             x = 0.0
             y = above_cursor - base_box.bottom

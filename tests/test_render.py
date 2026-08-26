@@ -131,16 +131,103 @@ def test_explicit_dotted_full_measure_rest_is_rendered() -> None:
     assert score.measures[0].events[0].dotted == 1
 
     root = _root(render_score_svg(score))
-    rest = next(
+    rests = [
         node
         for node in root.iter()
         if node.attrib.get("data-note-token") in {"0", "0."}
-    )
-    assert any(node.attrib.get("class") == "rhythm-dot" for node in rest.iter())
+    ]
+    assert len(rests) == 2
+    assert not any(node.attrib.get("class") == "extension-line" for node in root.iter())
+    assert any("duration-line" in node.attrib.get("class", "") for node in root.iter())
     assert (
         len([node for node in root.iter() if "measure" in node.attrib.get("class", "")])
         >= 2
     )
+
+
+def test_long_rests_render_as_repeated_zeros_without_extension_lines() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\nw0 | h0 3 4 |"))
+
+    zeros = [
+        node
+        for node in root.iter()
+        if node.attrib.get("class") == "note" and node.attrib.get("aria-label") == "0"
+    ]
+    assert len(zeros) == 6
+    assert not any(node.attrib.get("class") == "extension-line" for node in root.iter())
+
+
+def test_tremolo_mark_hugs_note_bottom_right() -> None:
+    style = PublicationStyle()
+
+    dashed = Event(
+        kind="note",
+        duration=Fraction(2),
+        pitches=[JianpuPitch(3)],
+        ornaments=["tremolo"],
+    )
+    root = _root(
+        render_score_svg(
+            JianpuScore(measures=[Measure("1", duration=Fraction(4), events=[dashed])])
+        )
+    )
+    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
+    extension = next(
+        node for node in root.iter() if node.attrib.get("class") == "extension-line"
+    )
+    mark = next(
+        node
+        for node in root.iter()
+        if "performance-mark" in node.attrib.get("class", "").split()
+        and node.attrib.get("data-mark") == "tremolo"
+    )
+    note_box = _bbox(note)
+    mark_box = _bbox(mark)
+    assert mark_box[0] <= float(extension.attrib["x1"])
+    assert mark_box[0] >= note_box[0] + note_box[2]
+    assert mark_box[1] >= note_box[1] + note_box[3]
+
+    underlined = Event(
+        kind="note",
+        duration=Fraction(1, 2),
+        pitches=[JianpuPitch(3)],
+        ornaments=["tremolo"],
+    )
+    root = _root(
+        render_score_svg(
+            JianpuScore(
+                measures=[Measure("1", duration=Fraction(4), events=[underlined])]
+            )
+        )
+    )
+    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
+    beam = next(
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    )
+    mark = next(
+        node
+        for node in root.iter()
+        if "performance-mark" in node.attrib.get("class", "").split()
+        and node.attrib.get("data-mark") == "tremolo"
+    )
+    note_box = _bbox(note)
+    mark_box = _bbox(mark)
+    assert mark_box[0] >= note_box[0] + note_box[2]
+    assert mark_box[1] >= float(beam.attrib["y1"])
+
+    chord = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(5), JianpuPitch(3), JianpuPitch(1)],
+        ornaments=["tremolo"],
+    )
+    marks = mark_layouts(chord, style)
+    tremolo_marks = [mark for mark in marks if mark.mark_id == "tremolo"]
+    rows = pitch_layouts(chord, style)
+    assert len(tremolo_marks) == len(rows) == 3
+    for mark, row in zip(tremolo_marks, rows, strict=True):
+        assert mark.ink_box.left >= row.note_box.right
+        assert mark.ink_box.top >= row.note_box.bottom
 
 
 def test_hidden_rest_is_not_rendered_in_svg() -> None:

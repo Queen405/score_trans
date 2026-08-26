@@ -8,11 +8,13 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Literal
 
+from ....domain.jianpu_tokens import is_notatable_duration
 from ....models.common.types import MeasureNumberMode
 from ....models.render.layout import PUBLICATION_ENGINE_VERSION
 from ....models.score import Event, JianpuPitch, JianpuScore, Measure, TupletSpan
 from .fonts import font_registry
 from .geometry import (
+    MarkLayout,
     _duration_extension_start,
     _dynamic_baseline,
     _lyric_baseline,
@@ -1375,13 +1377,11 @@ def _draw_marks(
     group: SceneNode, event: Event, x: float, y: float, style: PublicationStyle
 ) -> None:
     layouts = mark_layouts(event, style)
-    seen: set[str] = set()
-    role_offsets = {"articulation": 0, "ornament": 0, "technical": 0}
+    layouts_by_mark: dict[str, list[MarkLayout]] = {}
     for layout in layouts:
-        mark_id = layout.mark_id
-        if mark_id in seen:
-            continue
-        seen.add(mark_id)
+        layouts_by_mark.setdefault(layout.mark_id, []).append(layout)
+    role_offsets = {"articulation": 0, "ornament": 0, "technical": 0}
+    for mark_id, mark_group in layouts_by_mark.items():
         if mark_id in event.articulations or mark_id == event.articulation:
             role = "articulation"
         elif mark_id in event.ornaments:
@@ -1392,19 +1392,18 @@ def _draw_marks(
         role_index = role_offsets[role]
         exact_ids = [role_ids[role_index]] if role_index < len(role_ids) else role_ids
         role_offsets[role] += 1
-        mark_x = x + layout.x
-        mark_y = y + layout.y
         attrs = _semantic_attrs(role, exact_ids)
-        group.children.append(
-            build_mark_graphic(
-                mark_id,
-                mark_x,
-                mark_y,
-                style,
-                role=role,
-                source_attrs=attrs,
+        for layout in mark_group:
+            group.children.append(
+                build_mark_graphic(
+                    mark_id,
+                    x + layout.x,
+                    y + layout.y,
+                    style,
+                    role=role,
+                    source_attrs=attrs,
+                )
             )
-        )
 
 
 def _draw_rhythm_lines(
@@ -2200,23 +2199,73 @@ def _visual_events(measure: Measure) -> list[Event]:
         for e in measure.events
         if not (e.kind == "rest" and e.hidden and e.tuplet_id is None)
     ]
-    if len(events) != 1:
-        return events
-    event = events[0]
-    if not event.generated or event.kind != "rest" or event.duration < measure.duration:
+    if len(events) == 1:
+        event = events[0]
+        if (
+            event.generated
+            and event.kind == "rest"
+            and event.duration >= measure.duration
+        ):
+            beat = Fraction(4, max(1, measure.beat_type))
+            count = max(1, int(measure.duration / beat))
+            return [
+                replace(
+                    event,
+                    duration=beat,
+                    start=beat * index,
+                    source_ids=list(event.source_ids) if index == 0 else [],
+                    source_roles=dict(event.source_roles) if index == 0 else {},
+                )
+                for index in range(count)
+            ]
+    return [piece for event in events for piece in _split_long_rest(event)]
+
+
+def _split_long_rest(event: Event) -> list[Event]:
+    """Render a multi-beat rest as repeated quarter rests (0 0 0, not 0 - -)."""
+
+    if (
+        event.kind != "rest"
+        or event.duration <= 1
+        or event.tuplet_id
+        or event.tuplet_count
+        or event.tuplet_spans
+    ):
         return [event]
-    beat = Fraction(4, max(1, measure.beat_type))
-    count = max(1, int(measure.duration / beat))
-    return [
-        replace(
-            event,
-            duration=beat,
-            start=beat * index,
-            source_ids=list(event.source_ids) if index == 0 else [],
-            source_roles=dict(event.source_roles) if index == 0 else {},
-        )
-        for index in range(count)
-    ]
+    whole = int(event.duration)
+    pieces: list[Fraction] = [Fraction(1)] * whole
+    remainder = event.duration - whole
+    if remainder > 0:
+        pieces.append(remainder)
+    result: list[Event] = []
+    cursor = event.start
+    for index, piece in enumerate(pieces):
+        if index == 0:
+            result.append(replace(event, duration=piece, dotted=0, start=cursor))
+        else:
+            result.append(
+                Event(
+                    kind="rest",
+                    duration=piece,
+                    dotted=_rest_piece_dots(piece),
+                    start=cursor,
+                    voice=event.voice,
+                    staff=event.staff,
+                    generated=event.generated,
+                    measure_rest=event.measure_rest,
+                )
+            )
+        if cursor is not None:
+            cursor += piece
+    return result
+
+
+def _rest_piece_dots(duration: Fraction) -> int:
+    for dots in range(1, 4):
+        base = duration / (2 - Fraction(1, 2**dots))
+        if 0 < base < 1 and is_notatable_duration(base):
+            return dots
+    return 0
 
 
 _ACCIDENTAL_RENDER_GLYPH = {"n": "♮"}
@@ -2224,7 +2273,9 @@ _ACCIDENTAL_RENDER_GLYPH = {"n": "♮"}
 
 def _accidental_text(pitch: JianpuPitch) -> str:
     if pitch.accidental_text:
-        return _ACCIDENTAL_RENDER_GLYPH.get(pitch.accidental_text, pitch.accidental_text)
+        return _ACCIDENTAL_RENDER_GLYPH.get(
+            pitch.accidental_text, pitch.accidental_text
+        )
     value = pitch.accidental
     return {
         Fraction(2): "𝄪",
