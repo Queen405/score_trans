@@ -1997,9 +1997,28 @@ async function applyCorrections(): Promise<void> {
 }
 
 function transposeOctaveShift(direction: 1 | -1): void {
-  const next = transposeOctave(jianpuText.value, direction)
+  const sel = jianpuEditorRef.value?.getSelectionRange()
+  const hasRange = !!sel && sel.end > sel.start
+  let next: string
+  let reveal: { start: number; end: number } | null = null
+  if (hasRange) {
+    const sub = jianpuText.value.slice(sel!.start, sel!.end)
+    const transposed = transposeOctave(sub, direction)
+    next =
+      jianpuText.value.slice(0, sel!.start)
+      + transposed
+      + jianpuText.value.slice(sel!.end)
+    reveal = { start: sel!.start, end: sel!.start + transposed.length }
+  } else {
+    next = transposeOctave(jianpuText.value, direction)
+  }
   if (next === jianpuText.value) return
   jianpuText.value = next
+  if (reveal) {
+    nextTick(() =>
+      jianpuEditorRef.value?.selectRange(reveal.start, reveal.end, { flash: false }),
+    )
+  }
   message.success(direction > 0 ? '已升高八度' : '已降低八度')
 }
 

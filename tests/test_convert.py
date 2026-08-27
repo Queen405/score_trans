@@ -1,3 +1,4 @@
+import logging
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 from pathlib import Path
@@ -1196,7 +1197,7 @@ def test_musicxml_to_score_preserves_non_numeric_measure_number() -> None:
     assert measure.display_number == "A"
 
 
-def test_musicxml_warns_when_later_measure_changes_source_key(caplog) -> None:
+def test_musicxml_auto_mode_follows_mid_piece_key_change(caplog) -> None:
     xml = """
     <score-partwise version="4.0">
       <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
@@ -1216,11 +1217,155 @@ def test_musicxml_warns_when_later_measure_changes_source_key(caplog) -> None:
     </score-partwise>
     """
 
-    score = musicxml_to_scores(xml, target_key="auto")[0]
+    with caplog.at_level(logging.INFO):
+        score = musicxml_to_scores(xml, target_key="auto")[0]
+
+    assert [measure.source_key for measure in score.measures] == ["G", "C"]
+    assert [measure.target_key for measure in score.measures] == ["G", "C"]
+    assert "小节 2 跟随曲中转调：G -> C" in caplog.text
+
+
+def test_musicxml_explicit_target_key_does_not_follow_modulation(caplog) -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes>
+            <divisions>1</divisions><key><fifths>1</fifths></key>
+            <time><beats>4</beats><beat-type>4</beat-type></time>
+          </attributes>
+          <note><rest measure="yes"/><duration>4</duration></note>
+        </measure>
+        <measure number="2">
+          <attributes><key><fifths>0</fifths></key></attributes>
+          <note><rest measure="yes"/><duration>4</duration></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_scores(xml, target_key="G")[0]
 
     assert [measure.source_key for measure in score.measures] == ["G", "C"]
     assert [measure.target_key for measure in score.measures] == ["G", "G"]
-    assert "小节 2 检测到中途调号变化：G -> C" in caplog.text
+    assert "小节 2 检测到中途调号变化：G -> C；目标简谱调保持 G" in caplog.text
+
+
+def test_musicxml_auto_modulation_recomputes_degrees_per_section() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes><divisions>1</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
+          <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
+          <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
+          <note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
+        </measure>
+        <measure number="2">
+          <attributes><key><fifths>1</fifths></key></attributes>
+          <note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
+          <note><pitch><step>A</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
+          <note><pitch><step>B</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_scores(xml, target_key="auto")[0]
+
+    first_degrees = [p.degree for e in score.measures[0].events for p in e.pitches]
+    second_degrees = [p.degree for e in score.measures[1].events for p in e.pitches]
+    assert first_degrees == [1, 2, 3, 5]
+    assert second_degrees == [1, 2, 3]
+
+    text = score_to_jianpu_text(score)
+    assert "1=C" in text.splitlines()[0]
+    assert "1=G" in text
+
+
+def test_musicxml_auto_modulation_combined_with_time_change() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes><divisions>1</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+        </measure>
+        <measure number="2">
+          <attributes><key><fifths>1</fifths></key><time><beats>3</beats><beat-type>4</beat-type></time></attributes>
+          <note><pitch><step>G</step><octave>4</octave></pitch><duration>3</duration><type>half</type><dot</note>
+        </measure>
+      </part>
+    </score-partwise>
+    """.replace("<dot</note>", "<dot/></note>")
+
+    score = musicxml_to_scores(xml, target_key="auto")[0]
+
+    assert score.measures[1].target_key == "G"
+    assert score.measures[1].beats_per_measure == 3
+    assert score.measures[1].beat_type == 4
+
+    text = score_to_jianpu_text(score)
+    assert "1=G 3/4" in text
+
+
+def test_musicxml_auto_multi_section_modulation() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes><divisions>1</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+        </measure>
+        <measure number="2">
+          <attributes><key><fifths>1</fifths></key></attributes>
+          <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+        </measure>
+        <measure number="3">
+          <attributes><key><fifths>2</fifths></key></attributes>
+          <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_scores(xml, target_key="auto")[0]
+
+    assert [m.target_key for m in score.measures] == ["C", "G", "D"]
+    degrees = [p.degree for m in score.measures for e in m.events for p in e.pitches]
+    assert degrees == [1, 1, 1]
+
+    text = score_to_jianpu_text(score)
+    markers = [ln.split()[0] for ln in text.splitlines() if ln.strip().startswith("1=")]
+    assert markers == ["1=C", "1=G", "1=D"]
+
+
+def test_musicxml_auto_no_modulation_unchanged() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes><divisions>1</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+        </measure>
+        <measure number="2">
+          <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_scores(xml, target_key="auto")[0]
+
+    assert [m.target_key for m in score.measures] == ["C", "C"]
+    text = score_to_jianpu_text(score)
+    assert "1=G" not in text
 
 
 def test_split_multi_staff_part_preserves_empty_measure_slots() -> None:

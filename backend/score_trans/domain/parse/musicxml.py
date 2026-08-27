@@ -120,6 +120,7 @@ def musicxml_to_scores(
             part_target_key,
             extracted_title,
             profile,
+            follow_modulation=target_key == "auto",
         )
         score.part_name = part_name
         raw_scores.append(score)
@@ -175,6 +176,8 @@ def _parse_single_part(
     target_key: str,
     extracted_title: str,
     instrument_profile: InstrumentProfile,
+    *,
+    follow_modulation: bool = False,
 ) -> JianpuScore:
     score = JianpuScore(
         title=extracted_title,
@@ -184,7 +187,7 @@ def _parse_single_part(
     )
     if extracted_title:
         score.text_blocks.append(TextBlock(text=extracted_title, role="title"))
-    current_key = "C"
+    current_key = target_key
     current_beats = 4
     current_beat_type = 4
     divisions = 1
@@ -199,13 +202,21 @@ def _parse_single_part(
             if fifths is not None:
                 next_key = FIFTHS_TO_KEY.get(int(fifths), "C")
                 if index > 1 and next_key != current_key:
-                    logger.warning(
-                        "小节 %s 检测到中途调号变化：%s -> %s；目标简谱调保持 %s",
-                        xml_measure.get("number", str(index)),
-                        current_key,
-                        next_key,
-                        target_key,
-                    )
+                    if follow_modulation:
+                        logger.info(
+                            "小节 %s 跟随曲中转调：%s -> %s",
+                            xml_measure.get("number", str(index)),
+                            current_key,
+                            next_key,
+                        )
+                    else:
+                        logger.warning(
+                            "小节 %s 检测到中途调号变化：%s -> %s；目标简谱调保持 %s",
+                            xml_measure.get("number", str(index)),
+                            current_key,
+                            next_key,
+                            target_key,
+                        )
                 current_key = next_key
             beats_text = _text(attrs.find(f"{_q(ns, 'time')}/{_q(ns, 'beats')}"))
             beat_type_text = _text(
@@ -221,6 +232,7 @@ def _parse_single_part(
             score.source_key = current_key
 
         display_number = _display_measure_number(xml_measure, index)
+        effective_target = current_key if follow_modulation else target_key
         measure = Measure(
             source_number=xml_measure.get("number", str(index)),
             display_measure_number=display_number,
@@ -228,7 +240,7 @@ def _parse_single_part(
             beats_per_measure=current_beats,
             beat_type=current_beat_type,
             source_key=current_key,
-            target_key=target_key,
+            target_key=effective_target,
         )
         measure.text_blocks.append(
             TextBlock(
@@ -242,7 +254,7 @@ def _parse_single_part(
             xml_measure,
             ns,
             divisions,
-            target_key,
+            effective_target,
             measure,
             active_tuplets,
         )

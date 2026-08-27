@@ -173,18 +173,28 @@ const editorMetrics = ref({
 })
 let resizeObserver: ResizeObserver | null = null
 
-function selectRange(start: number, end: number): boolean {
+function selectRange(
+  start: number,
+  end: number,
+  options: { flash?: boolean } = {},
+): boolean {
   const element = textareaRef.value
   if (!element || start < 0 || end <= start || end > props.modelValue.length) return false
   element.focus()
   element.setSelectionRange(start, end)
   const line = props.modelValue.slice(0, start).split('\n').length - 1
-  triggerPageFlash(line)
+  if (options.flash !== false) triggerPageFlash(line)
   nextTick(() => scrollRangeIntoView(element, start, end))
   return true
 }
 
-defineExpose({ selectRange })
+function getSelectionRange(): { start: number; end: number } | null {
+  const element = textareaRef.value
+  if (!element) return null
+  return { start: element.selectionStart ?? 0, end: element.selectionEnd ?? 0 }
+}
+
+defineExpose({ selectRange, getSelectionRange })
 
 const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
 interface HighlightToken extends JianpuSyntaxToken {

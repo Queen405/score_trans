@@ -89,13 +89,17 @@ class FontRegistry:
                     glyph_right = cursor_em + x_max * scale
                     glyph_top = -y_max * scale
                     glyph_bottom = -y_min * scale
-                    left_em = glyph_left if left_em is None else min(left_em, glyph_left)
+                    left_em = (
+                        glyph_left if left_em is None else min(left_em, glyph_left)
+                    )
                     top_em = glyph_top if top_em is None else min(top_em, glyph_top)
                     right_em = (
                         glyph_right if right_em is None else max(right_em, glyph_right)
                     )
                     bottom_em = (
-                        glyph_bottom if bottom_em is None else max(bottom_em, glyph_bottom)
+                        glyph_bottom
+                        if bottom_em is None
+                        else max(bottom_em, glyph_bottom)
                     )
             except AssertionError:
                 logger.warning(
@@ -170,7 +174,7 @@ def font_registry() -> FontRegistry:
 
 def reset_font_registry_cache() -> None:
     """Clear the font registry cache to force reinitialization.
-    
+
     Used when font loading errors occur due to cached corrupted state.
     """
     font_registry.cache_clear()

@@ -33,7 +33,7 @@ class PublicationStyle:
     tuplet_boundary_gap: float = 2.0
     barline_gutter: float = 20.0
     event_clearance: float = 6.0
-    accidental_clearance: float = 4.0
+    accidental_clearance: float = 1.0
     mark_clearance: float = 6.0
     mark_stack_gap: float = 4.0
     chord_gap: float = 25.0

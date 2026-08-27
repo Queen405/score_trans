@@ -493,7 +493,8 @@ def test_accidental_has_clearance_from_its_note() -> None:
     )
     note_width = font_registry().measure("3", float(note.attrib["data-font-size"]))
 
-    assert accidental_x + accidental_width / 2 + 4 <= note_x - note_width / 2
+    clearance = PublicationStyle().accidental_clearance
+    assert accidental_x + accidental_width / 2 + clearance <= note_x - note_width / 2
 
 
 def test_accidental_is_left_and_above_note() -> None:
