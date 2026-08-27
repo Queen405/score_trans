@@ -12,7 +12,7 @@ class PublicationStyle:
     margin_left: float = 82.0
     margin_right: float = 82.0
     margin_top: float = 72.0
-    margin_bottom: float = 64.0
+    margin_bottom: float = 48.0
     title_size: float = 40.0
     meta_size: float = 20.0
     part_name_size: float = 18.0
@@ -23,7 +23,7 @@ class PublicationStyle:
     measure_number_size: float = 15.0
     base_staff_height: float = 92.0
     part_gap: float = 34.0
-    system_gap: float = 32.0
+    system_gap: float = 16.0
     title_block_height: float = 132.0
     minimum_measure_width: float = 150.0
     ideal_event_gap: float = 42.0
@@ -50,7 +50,7 @@ class PublicationStyle:
     continuation_header_height: float = 54.0
     measure_side_padding: float = 42.0
     system_top_reserve: float = 24.0
-    system_bottom_reserve: float = 28.0
+    system_bottom_reserve: float = 18.0
     rhythm_line_side_extent: float = 12.0
     rhythm_line_level_step: float = 6.0
     beam_hook_length: float = 18.0
