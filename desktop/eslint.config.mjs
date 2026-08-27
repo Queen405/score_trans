@@ -12,6 +12,7 @@ export default tseslint.config(
         AbortController: "readonly",
         Blob: "readonly",
         clearTimeout: "readonly",
+        console: "readonly",
         document: "readonly",
         DOMParser: "readonly",
         DOMRect: "readonly",

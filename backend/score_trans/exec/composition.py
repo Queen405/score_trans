@@ -5,6 +5,7 @@ from functools import lru_cache
 from ..services.files.file_service import FileService
 from ..services.files.upload_service import UploadService
 from ..services.history.history_service import HistoryService
+from ..services.jianpu.rekey_service import RekeyService
 from ..services.settings.settings_service import SettingsService
 
 
@@ -26,3 +27,8 @@ def shared_history_service() -> HistoryService:
 @lru_cache(maxsize=1)
 def shared_settings_service() -> SettingsService:
     return SettingsService()
+
+
+@lru_cache(maxsize=1)
+def shared_rekey_service() -> RekeyService:
+    return RekeyService(settings=shared_settings_service())

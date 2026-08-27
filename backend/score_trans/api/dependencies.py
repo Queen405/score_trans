@@ -86,7 +86,7 @@ def get_syntax_actions() -> SyntaxActions:
 
 def get_jianpu_actions() -> JianpuActions:
     """返回 JianpuActions 实例（单例）。"""
-    return JianpuActions()
+    return JianpuActions(rekey=composition.shared_rekey_service())
 
 
 def get_task_actions(request: Request) -> TaskActions:
