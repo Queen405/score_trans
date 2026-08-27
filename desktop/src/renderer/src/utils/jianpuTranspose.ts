@@ -8,43 +8,40 @@ import {
 
 const PITCH_OCTAVE_PATTERN = /([1-7])([',]*)/g
 
-// 检测调号变化：找出文本中所有 1=X 标记
+// 调号 token:1=X(X=[A-G][#b]*)，须是独立 token(前后为行首/空白/小节线)，
+// 因此能识别独占一行的 1=G、紧跟 | 之后的 1=G，以及多字符调号 1=Bb/1=F#。
+const KEY_TOKEN_PATTERN = /1\s*=\s*([A-G][#b]*)/g
+
+// 检测文本中所有调号 token 的(行号, 调号)
 export function detectKeyChanges(text: string): Array<{ lineIndex: number; key: string }> {
-  const lines = text.split('\n')
   const changes: Array<{ lineIndex: number; key: string }> = []
-  
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    // 匹配 1=G, 1=C# 等
-    if (/^1\s*=[A-Gb#]$/.test(line)) {
-      const match = line.match(/^1\s*=(.+)/)
-      if (match) {
-        changes.push({ lineIndex: i, key: match[1].trim() })
-      }
+    const line = lines[i]
+    for (const match of line.matchAll(KEY_TOKEN_PATTERN)) {
+      const start = match.index ?? 0
+      const end = start + match[0].length
+      const prevOk = start === 0 || /[\s|]/.test(line[start - 1])
+      const nextOk = end === line.length || /[\s|]/.test(line[end])
+      if (prevOk && nextOk) changes.push({ lineIndex: i, key: match[1] })
     }
   }
-  
   return changes
 }
 
-// 比较新旧文本的调号变化，返回发生变化的行索引和新的调号
+// 比较新旧文本的调号 token 序列，返回发生变化的(行号, 新调号)
 export function findKeyChangePoints(oldText: string, newText: string): Array<{ lineIndex: number; newKey: string }> {
   const oldKeys = detectKeyChanges(oldText)
   const newKeys = detectKeyChanges(newText)
-  
-  // 构建旧调号的 lineIndex -> key 映射
-  const oldKeyMap = new Map(oldKeys.map(({ lineIndex, key }) => [lineIndex, key]))
-  
-  // 查找新文本中有变化或新增的调号
   const result: Array<{ lineIndex: number; newKey: string }> = []
-  
-  for (const { lineIndex, key } of newKeys) {
-    const oldKey = oldKeyMap.get(lineIndex)
-    if (oldKey !== key) {
-      result.push({ lineIndex, newKey: key })
+  const count = Math.max(oldKeys.length, newKeys.length)
+  for (let i = 0; i < count; i++) {
+    const oldKey = oldKeys[i]?.key
+    const newKey = newKeys[i]?.key
+    if (newKey !== undefined && oldKey !== newKey) {
+      result.push({ lineIndex: newKeys[i].lineIndex, newKey })
     }
   }
-  
   return result
 }
 

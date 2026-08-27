@@ -1,12 +1,8 @@
 """Tests for domain/rekey.py: auto transpose jianpu text when key signature changes."""
+
 from __future__ import annotations
 
-import pytest
-from fractions import Fraction
-import re
-
 from score_trans.domain.rekey import rekey_text
-from score_trans.models.common.types import AccidentalMode
 
 
 class TestRekeyTextBasic:
@@ -73,9 +69,7 @@ class TestRekeyEdgeCases:
         old = "1=C\n1 2 3"
         new = "1=Z\n1 2 3"  # Z 是无效调号
         try:
-            result = rekey_text(new, old)
-            # 如果解析失败，可能返回原文本
-            assert True
+            rekey_text(new, old)
         except ValueError:
             pass  # 正常行为是抛异常
 
@@ -85,4 +79,3 @@ class TestRekeyEdgeCases:
         new = "1=G\n1 2 3 ; comment"
         result = rekey_text(new, old)
         assert "; comment" in result or result == new
-
