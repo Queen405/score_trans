@@ -127,6 +127,11 @@ import {
   type JianpuPageSummary,
 } from '../utils/jianpuPageSections'
 import { loadEditorScroll, saveEditorScroll } from '../composables/useViewPersistence'
+import { findKeyChangePoints } from '../utils/jianpuTranspose'
+import { useSettingsStore } from '../stores/settings'
+import { convertApi } from '../api/convert'
+
+const settings = useSettingsStore()
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -462,6 +467,68 @@ function onInput(e: Event): void {
   }
 
   emit('update:modelValue', value)
+  scheduleKeyChangeCheck(value)
+}
+
+// 自动转调：debounce 检测调号变化
+let keyChangeTimer: ReturnType<typeof setTimeout> | null = null
+const KEY_CHANGE_DEBOUNCE_MS = 600
+
+function scheduleKeyChangeCheck(newValue: string): void {
+  if (keyChangeTimer !== null) {
+    clearTimeout(keyChangeTimer)
+    keyChangeTimer = null
+  }
+  if (!settings.jianpuAutoTranspose) return
+  keyChangeTimer = setTimeout(() => {
+    keyChangeTimer = null
+    void triggerAutoTranspose(newValue)
+  }, KEY_CHANGE_DEBOUNCE_MS)
+}
+
+let lastAutoTransposedFrom: string | null = null
+let autoTransposeRequestId = 0
+
+async function triggerAutoTranspose(newValue: string): Promise<void> {
+  const previous = lastAutoTransposedFrom
+  if (previous === null) {
+    lastAutoTransposedFrom = newValue
+    return
+  }
+  const changes = findKeyChangePoints(previous, newValue)
+  if (!changes.length) {
+    lastAutoTransposedFrom = newValue
+    return
+  }
+  const requestId = ++autoTransposeRequestId
+  const result = await convertApi.rekeyText({
+    text: newValue,
+    previous_text: previous,
+  })
+  if (requestId !== autoTransposeRequestId) return
+  if (result.error) {
+    console.warn('自动转调失败:', result.error)
+    lastAutoTransposedFrom = newValue
+    return
+  }
+  const transposed = result.data?.transposed_text
+  if (!transposed || transposed === newValue) {
+    lastAutoTransposedFrom = newValue
+    return
+  }
+  const el = textareaRef.value
+  const cursor = el ? el.selectionStart : null
+  const delta = transposed.length - newValue.length
+  emit('update:modelValue', transposed)
+  lastAutoTransposedFrom = transposed
+  if (el && cursor !== null && delta !== 0) {
+    nextTick(() => {
+      const current = textareaRef.value
+      if (current) {
+        current.selectionStart = current.selectionEnd = Math.max(0, cursor + delta)
+      }
+    })
+  }
 }
 
 function syncScroll(e: Event): void {
@@ -499,6 +566,11 @@ watch(() => props.flashLine, (line, oldLine) => {
   triggerPageFlash(line)
 })
 
+// 同步外部模型值变化（例如页面切换）
+watch(() => props.modelValue, (newVal) => {
+  lastAutoTransposedFrom = newVal
+})
+
 watch(activeNoteSpans, (spans) => {
   const span = spans[0]
   if (!span) return
@@ -517,11 +589,12 @@ onMounted(() => {
     nextTick(() => {
       const current = textareaRef.value
       if (!current) return
+      lastAutoTransposedFrom = props.modelValue
       current.scrollTop = saved.scrollTop
       current.scrollLeft = saved.scrollLeft
     })
   } else {
-    syncScrollPosition(el)
+    lastAutoTransposedFrom = props.modelValue
   }
   resizeObserver = new ResizeObserver(refreshEditorMetrics)
   resizeObserver.observe(el)
@@ -544,6 +617,11 @@ onUnmounted(() => {
     clearTimeout(pageFlashTimer)
     pageFlashTimer = null
   }
+  if (keyChangeTimer !== null) {
+    clearTimeout(keyChangeTimer)
+    keyChangeTimer = null
+  }
+  autoTransposeRequestId++
 })
 
 function syncScrollPosition(target: HTMLTextAreaElement): void {

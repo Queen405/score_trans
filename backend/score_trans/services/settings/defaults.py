@@ -25,6 +25,7 @@ _BACKEND_STRING_KEYS: tuple[str, ...] = (
     "jianpu_short_note_gap_percent",
     "enable_omr_ocr",
     "output_dir",
+    "jianpu_auto_transpose",
 )
 
 

@@ -42,6 +42,7 @@ export interface SettingsDraft {
   jianpuShortNoteGapPercent: number
   enableOmrOcr: boolean
   outputDir: string
+  jianpuAutoTranspose: boolean
   providers: Record<ProviderKind, SettingsDraftProvider>
   themeMode: ThemeMode
   showRecognitionOverlay: boolean
@@ -124,6 +125,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const jianpuShortNoteGapPercent = ref(90)
   const enableOmrOcr = ref(true)
   const outputDir = ref('')
+  const jianpuAutoTranspose = ref(false)
   const ocrProvider = ref('siliconflow_deepseek_ocr')
   const ocrProviderOptions = ref<LlmProviderOption[]>([])
   const ocrApiKey = ref('')
@@ -174,6 +176,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuShortNoteGapPercent: 90,
     enableOmrOcr: true,
     outputDir: '',
+    jianpuAutoTranspose: false,
     providers: {
       ocr: { provider: 'siliconflow_deepseek_ocr', apiKey: '' },
       ai: { provider: 'xiaomi_mimo_v25', apiKey: '' },
@@ -258,6 +261,7 @@ export const useSettingsStore = defineStore('settings', () => {
       jianpuShortNoteGapPercent: jianpuShortNoteGapPercent.value,
       enableOmrOcr: enableOmrOcr.value,
       outputDir: outputDir.value,
+      jianpuAutoTranspose: jianpuAutoTranspose.value,
       providers: {
         ocr: { provider: ocrProvider.value, apiKey: '' },
         ai: { provider: aiProvider.value, apiKey: '' },
@@ -326,6 +330,8 @@ export const useSettingsStore = defineStore('settings', () => {
           jianpu_system_gap_percent: next.jianpuSystemGapPercent,
           jianpu_short_note_gap_percent: next.jianpuShortNoteGapPercent,
           enable_omr_ocr: next.enableOmrOcr,
+          output_dir: next.outputDir,
+          jianpu_auto_transpose: next.jianpuAutoTranspose,
           ocr_provider: next.providers.ocr.provider,
           ocr_api_key: next.providers.ocr.apiKey.trim() || undefined,
           ai_provider: next.providers.ai.provider,
@@ -448,6 +454,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 90
     enableOmrOcr.value = data.enable_omr_ocr ?? true
     outputDir.value = data.output_dir ?? ''
+    jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? false
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
     ocrProviderOptions.value = data.ocr_provider_options ?? []
     ocrApiKey.value = ''
@@ -540,6 +547,7 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.jianpuShortNoteGapPercent = next.jianpuShortNoteGapPercent
     draft.enableOmrOcr = next.enableOmrOcr
     draft.outputDir = next.outputDir
+    draft.jianpuAutoTranspose = next.jianpuAutoTranspose
     draft.providers.ocr = { ...next.providers.ocr }
     draft.providers.ai = { ...next.providers.ai }
     draft.providers.assistant = { ...next.providers.assistant }
@@ -584,6 +592,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuLayoutRequest,
     enableOmrOcr,
     outputDir,
+    jianpuAutoTranspose,
     ocrProvider,
     ocrProviderOptions,
     ocrApiKey,

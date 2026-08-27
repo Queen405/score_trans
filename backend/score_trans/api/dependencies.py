@@ -9,6 +9,7 @@ from ..exec.correct.actions import CorrectActions
 from ..exec.export.actions import ExportActions
 from ..exec.files.actions import FileActions
 from ..exec.history.actions import HistoryActions
+from ..exec.jianpu.actions import JianpuActions
 from ..exec.notation.actions import NotationActions
 from ..exec.pipeline.actions import PipelineActions
 from ..exec.recognize.actions import RecognizeActions
@@ -81,6 +82,11 @@ def get_settings_actions() -> SettingsActions:
 
 def get_syntax_actions() -> SyntaxActions:
     return SyntaxActions(settings=composition.shared_settings_service())
+
+
+def get_jianpu_actions() -> JianpuActions:
+    """返回 JianpuActions 实例（单例）。"""
+    return JianpuActions()
 
 
 def get_task_actions(request: Request) -> TaskActions:

@@ -96,6 +96,7 @@ def create_app(
     from .files import routes as files
     from .health import routes as health
     from .history import routes as history
+    from .jianpu import routes as jianpu
     from .notation import routes as notation
     from .pipeline import routes as pipeline
     from .recognize import routes as recognize
@@ -114,6 +115,7 @@ def create_app(
     app.include_router(export_router.router)
     app.include_router(files.router)
     app.include_router(history.router)
+    app.include_router(jianpu.router)
     app.include_router(notation.router)
     app.include_router(settings_router.router)
     app.include_router(syntax_router.router)

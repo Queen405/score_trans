@@ -16,7 +16,8 @@
     "jianpu_system_gap_percent": "92",
     "jianpu_short_note_gap_percent": "90",
     "enable_omr_ocr": "1",
-    "output_dir": ""
+    "output_dir": "",
+    "jianpu_auto_transpose": "0"
   },
   "providers": {
     "ocr": {

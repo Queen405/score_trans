@@ -79,6 +79,16 @@
             size="small"
           />
         </settings-form-row>
+
+        <settings-form-row
+          label="插入调号时自动转调（保留音高）"
+          hint="开启后，修改 1=X 调号标记会自动将后续音符重记谱以保持相同音高"
+        >
+          <n-switch
+            v-model:value="settings.draft.jianpuAutoTranspose"
+            size="small"
+          />
+        </settings-form-row>
       </div>
     </section>
 
