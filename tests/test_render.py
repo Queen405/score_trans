@@ -2169,12 +2169,13 @@ def test_measure_text_layout_emits_truthful_bbox_for_custom_font_size() -> None:
     assert height > 20
 
 
-def test_tie_prefers_an_upper_route_without_changing_slur_route() -> None:
+def test_tie_routes_below_note_while_slur_stays_above() -> None:
     first = Event(
         kind="note",
         duration=Fraction(1),
         pitches=[JianpuPitch(3)],
         tie_start=True,
+        slur_start=True,
         start=Fraction(0),
     )
     second = Event(
@@ -2182,6 +2183,7 @@ def test_tie_prefers_an_upper_route_without_changing_slur_route() -> None:
         duration=Fraction(1),
         pitches=[JianpuPitch(3)],
         tie_stop=True,
+        slur_stop=True,
         start=Fraction(1),
     )
     root = _root(
@@ -2192,12 +2194,16 @@ def test_tie_prefers_an_upper_route_without_changing_slur_route() -> None:
         )
     )
     tie = next(node for node in root.iter() if node.attrib.get("class") == "tie")
+    slur = next(node for node in root.iter() if node.attrib.get("class") == "slur")
     note = next(node for node in root.iter() if node.attrib.get("class") == "note")
     _note_x, note_y = _translate(note)
-    coordinates = [float(value) for value in re.findall(r"[-\d.]+", tie.attrib["d"])]
 
-    assert coordinates
-    assert min(coordinates[1::2]) < note_y
+    tie_ys = [float(v) for v in re.findall(r"[-\d.]+", tie.attrib["d"])][1::2]
+    slur_ys = [float(v) for v in re.findall(r"[-\d.]+", slur.attrib["d"])][1::2]
+
+    assert tie_ys and slur_ys
+    assert min(tie_ys) > note_y
+    assert max(slur_ys) < note_y
 
 
 def test_overfull_duration_does_not_cross_the_right_measure_barline() -> None:

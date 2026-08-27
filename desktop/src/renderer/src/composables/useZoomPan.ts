@@ -133,6 +133,10 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     if (autoFit) fitToView()
   }
 
+  function setAutoFit(value: boolean): void {
+    autoFit = value
+  }
+
   function bind() {
     const el = container.value
     if (!el) return
@@ -158,5 +162,5 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     }
   }
 
-  return { scale, tx, ty, reset, fitToView, bind, unbind, applyTransform }
+  return { scale, tx, ty, reset, fitToView, bind, unbind, applyTransform, setAutoFit }
 }

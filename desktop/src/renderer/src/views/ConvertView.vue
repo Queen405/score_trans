@@ -501,6 +501,7 @@ import JianpuPlayer from '../components/JianpuPlayer.vue'
 import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
+import { loadRenderPageIndex, saveRenderPageIndex } from '../composables/useViewPersistence'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { isRenderAborted } from '../utils/renderAbort'
 import {
@@ -851,6 +852,11 @@ watch(() => store.currentPageIndex, () => {
   errorLine.value = -1
   if (!isViewingFinal.value) setFinalSvgFileIds(currentPageSvgIds())
   if (!isViewingFinal.value) flashCurrentPageSection('切换页面')
+})
+watch(finalRenderPageIndex, (index) => {
+  if (isViewingFinal.value && store.currentBatchId) {
+    saveRenderPageIndex(store.currentBatchId, index)
+  }
 })
 watch(() => store.currentPage?.id ?? '', () => {
   entityLoadController?.abort()
@@ -2069,6 +2075,15 @@ async function toggleFinalView(): Promise<void> {
   errorLine.value = -1
   try {
     await renderExportSvgIds()
+    const savedPage = loadRenderPageIndex(store.currentBatchId)
+    if (
+      savedPage != null
+      && savedPage >= 0
+      && savedPage < finalSvgFileIds.value.length
+      && savedPage !== finalRenderPageIndex.value
+    ) {
+      finalRenderPageIndex.value = savedPage
+    }
     isViewingFinal.value = true
   } catch (e: unknown) {
     if (isRenderAborted(e)) return

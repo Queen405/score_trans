@@ -17,6 +17,7 @@ from .geometry import (
     MarkLayout,
     _duration_extension_start,
     _dynamic_baseline,
+    _event_attachment_bottom,
     _lyric_baseline,
     mark_layouts,
     measure_event_ink,
@@ -1842,11 +1843,6 @@ def _spanner(
             f"L {end.x - resolved_style.slide_endpoint_offset:g} {end.y + delta:g}"
         )
     else:
-        height = (
-            -resolved_style.slur_height
-            if kind == "slur"
-            else -resolved_style.tie_height
-        )
         sx, ex = (
             start.x + resolved_style.spanner_endpoint_offset,
             end.x - resolved_style.spanner_endpoint_offset,
@@ -1855,13 +1851,15 @@ def _spanner(
             sx = start.x + 5
             ex = end.x - 5
         if kind == "slur":
+            height = -resolved_style.slur_height
             base = min(start.bbox.y, end.bbox.y) - resolved_style.spanner_base_clearance
-        elif kind == "tie":
-            base = min(start.bbox.y, end.bbox.y) - 3.0
         else:
-            start_bottom = start.bbox.y + start.bbox.height
-            end_bottom = end.bbox.y + end.bbox.height
-            base = max(start_bottom, end_bottom) + resolved_style.spanner_base_clearance
+            height = resolved_style.tie_height
+            start_bottom = start.y + _event_attachment_bottom(
+                start.event, resolved_style
+            )
+            end_bottom = end.y + _event_attachment_bottom(end.event, resolved_style)
+            base = max(start_bottom, end_bottom) + resolved_style.tie_below_clearance
         control_left = sx + (ex - sx) * 0.33
         control_right = sx + (ex - sx) * 0.67
         d = (

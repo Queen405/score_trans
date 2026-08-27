@@ -59,6 +59,7 @@ class PublicationStyle:
     slur_height: float = 18.0
     tie_height: float = 9.0
     spanner_base_clearance: float = 5.0
+    tie_below_clearance: float = 5.0
     tuplet_bracket_offset: float = 12.0
     tuplet_bracket_hook: float = 11.0
     tuplet_number_gap: float = 4.0

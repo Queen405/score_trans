@@ -13,6 +13,9 @@ class GeometryIssue(TypedDict):
     owner: str | None
 
 
+_SPANNER_KINDS = frozenset({"tie", "slur", "slide"})
+
+
 def check_scene_geometry(
     scene: PublicationScene, style: PublicationStyle
 ) -> list[GeometryIssue]:
@@ -84,6 +87,11 @@ def check_scene_geometry(
                 "source-anchor",
                 "g",
             }:
+                continue
+            if (
+                left_record.kind in _SPANNER_KINDS
+                or right_record.kind in _SPANNER_KINDS
+            ):
                 continue
             if left_record.owner == right_record.owner:
                 continue

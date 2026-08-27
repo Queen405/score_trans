@@ -97,6 +97,7 @@ import { fetchFileBlob } from '../api/client'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
+import { loadViewState, saveViewState } from '../composables/useViewPersistence'
 import { useSettingsStore } from '../stores/settings'
 import { parseOcrText, serializeOcrText, type OcrTextBlock } from '../utils/ocrText'
 import { sanitizeSvg } from '../utils/svgSanitizer'
@@ -399,8 +400,17 @@ async function loadSvg(url: string): Promise<void> {
     const mountedSvg = document.importNode(safeSvg, true)
     svgHostRef.value?.replaceChildren(mountedSvg)
     zp.bind()
+    const savedView = loadViewState(url)
     requestAnimationFrame(() => {
-      zp.fitToView()
+      if (savedView) {
+        zp.scale.value = savedView.scale
+        zp.tx.value = savedView.tx
+        zp.ty.value = savedView.ty
+        zp.applyTransform()
+        zp.setAutoFit(false)
+      } else {
+        zp.fitToView()
+      }
       applyPlaybackHighlight(false)
     })
   } catch {
@@ -590,7 +600,14 @@ function targetBBox(
   return rootCoordinateBBox(target, svg)
 }
 
-watch(svgUrl, (url) => {
+watch(svgUrl, (url, prevUrl) => {
+  if (prevUrl && svgReady.value) {
+    saveViewState(prevUrl, {
+      scale: zp.scale.value,
+      tx: zp.tx.value,
+      ty: zp.ty.value,
+    })
+  }
   showOcrOverlay.value = settings.showOcrOverlay
   svgLoadGate.track(loadSvg(url))
 }, { immediate: true })
@@ -617,6 +634,13 @@ onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
 })
 onUnmounted(() => {
+  if (svgUrl.value && svgReady.value) {
+    saveViewState(svgUrl.value, {
+      scale: zp.scale.value,
+      tx: zp.tx.value,
+      ty: zp.ty.value,
+    })
+  }
   svgLoadGeneration += 1
   svgLoadController?.abort()
   svgLoadController = null

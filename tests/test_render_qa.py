@@ -139,7 +139,7 @@ def test_render_map_scales_diagnostic_bboxes_to_physical_coordinates() -> None:
     assert diagnostic["bbox"] == (350.0, 50.0, 20.0, 10.0)
 
 
-def test_geometry_qa_reports_span_event_collision() -> None:
+def test_geometry_qa_excludes_spanners_from_event_overlap() -> None:
     scene = PublicationScene(400, 400, 0)
     scene.add(
         SceneNode(
@@ -166,4 +166,4 @@ def test_geometry_qa_reports_span_event_collision() -> None:
         scene, PublicationStyle(page_width=400, page_height=400)
     )
 
-    assert any(issue["kind"] == "geometry-overlap" for issue in issues)
+    assert not any(issue["kind"] == "geometry-overlap" for issue in issues)
