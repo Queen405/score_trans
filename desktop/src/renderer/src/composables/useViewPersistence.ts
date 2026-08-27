@@ -4,8 +4,14 @@ export interface ViewState {
   ty: number
 }
 
+export interface EditorScrollState {
+  scrollTop: number
+  scrollLeft: number
+}
+
 const ZOOM_KEY_PREFIX = 'score-trans.view-state.zoom.'
 const PAGE_KEY_PREFIX = 'score-trans.view-state.render-page.'
+const EDITOR_SCROLL_PREFIX = 'score-trans.view-state.editor-scroll.'
 
 function sessionGet(key: string): string | null {
   try {
@@ -78,4 +84,26 @@ export function loadRenderPageIndex(batchId: string | null): number | null {
 export function saveRenderPageIndex(batchId: string | null, index: number): void {
   if (!batchId || !Number.isInteger(index) || index < 0) return
   sessionSet(`${PAGE_KEY_PREFIX}${batchId}`, String(index))
+}
+
+export function loadEditorScroll(key: string | null): EditorScrollState | null {
+  if (!key) return null
+  const raw = sessionGet(`${EDITOR_SCROLL_PREFIX}${key}`)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<EditorScrollState>
+    if (isFiniteNumber(parsed.scrollTop) && isFiniteNumber(parsed.scrollLeft)) {
+      return { scrollTop: parsed.scrollTop!, scrollLeft: parsed.scrollLeft! }
+    }
+  } catch {
+    // corrupt entry; drop it
+  }
+  sessionRemove(`${EDITOR_SCROLL_PREFIX}${key}`)
+  return null
+}
+
+export function saveEditorScroll(key: string | null, state: EditorScrollState): void {
+  if (!key) return
+  if (!isFiniteNumber(state.scrollTop) || !isFiniteNumber(state.scrollLeft)) return
+  sessionSet(`${EDITOR_SCROLL_PREFIX}${key}`, JSON.stringify(state))
 }

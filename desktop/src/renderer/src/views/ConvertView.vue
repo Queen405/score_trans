@@ -428,6 +428,7 @@
               :active-diagnostic-id="syntaxStore.activeId"
               :error-line="errorLine"
               :flash-line="flashLine"
+              :scroll-persistence-key="store.currentBatchId"
               @update:initial-measure-number="initialMeasureNumber = $event"
             />
           </div>

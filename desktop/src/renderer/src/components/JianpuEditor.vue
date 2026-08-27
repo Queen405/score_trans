@@ -126,6 +126,7 @@ import {
   jianpuPageSummaries,
   type JianpuPageSummary,
 } from '../utils/jianpuPageSections'
+import { loadEditorScroll, saveEditorScroll } from '../composables/useViewPersistence'
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -136,6 +137,7 @@ const props = withDefaults(defineProps<{
   errorLine?: number
   flashLine?: number
   initialMeasureNumber?: number
+  scrollPersistenceKey?: string | null
 }>(), {
   currentNoteIndex: -1,
   syntaxHighlight: false,
@@ -144,6 +146,7 @@ const props = withDefaults(defineProps<{
   errorLine: -1,
   flashLine: -1,
   initialMeasureNumber: 1,
+  scrollPersistenceKey: null,
 })
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -494,14 +497,33 @@ watch(activeNoteSpans, (spans) => {
 
 onMounted(() => {
   refreshEditorMetrics()
-  if (textareaRef.value) {
-    syncScrollPosition(textareaRef.value)
-    resizeObserver = new ResizeObserver(refreshEditorMetrics)
-    resizeObserver.observe(textareaRef.value)
+  const el = textareaRef.value
+  if (!el) return
+  const saved = loadEditorScroll(props.scrollPersistenceKey)
+  if (saved) {
+    scrollTop.value = saved.scrollTop
+    scrollLeft.value = saved.scrollLeft
+    if (gutterRef.value) gutterRef.value.scrollTop = saved.scrollTop
+    nextTick(() => {
+      const current = textareaRef.value
+      if (!current) return
+      current.scrollTop = saved.scrollTop
+      current.scrollLeft = saved.scrollLeft
+    })
+  } else {
+    syncScrollPosition(el)
   }
+  resizeObserver = new ResizeObserver(refreshEditorMetrics)
+  resizeObserver.observe(el)
 })
 
 onUnmounted(() => {
+  if (props.scrollPersistenceKey) {
+    saveEditorScroll(props.scrollPersistenceKey, {
+      scrollTop: scrollTop.value,
+      scrollLeft: scrollLeft.value,
+    })
+  }
   resizeObserver?.disconnect()
   resizeObserver = null
   if (errorBlinkTimer !== null) {
