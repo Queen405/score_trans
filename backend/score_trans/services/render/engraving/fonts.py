@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 import hashlib
@@ -8,6 +9,8 @@ from pathlib import Path
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.ttLib import TTFont
+
+logger = logging.getLogger(__name__)
 
 
 _FONT_DIR = Path(__file__).resolve().parents[3] / "assets" / "fonts"
@@ -72,28 +75,34 @@ class FontRegistry:
         right_em: float | None = None
         bottom_em: float | None = None
         for char in text:
-            role, glyph_name = self._glyph(char)
-            font = self._fonts[role]
-            glyph_set = font.getGlyphSet()
-            pen = BoundsPen(glyph_set)
-            glyph_set[glyph_name].draw(pen)
-            if pen.bounds is not None:
-                x_min, y_min, x_max, y_max = pen.bounds
-                units_per_em = int(font["head"].unitsPerEm)
-                scale = 1.0 / units_per_em
-                glyph_left = cursor_em + x_min * scale
-                glyph_right = cursor_em + x_max * scale
-                glyph_top = -y_max * scale
-                glyph_bottom = -y_min * scale
-                left_em = glyph_left if left_em is None else min(left_em, glyph_left)
-                top_em = glyph_top if top_em is None else min(top_em, glyph_top)
-                right_em = (
-                    glyph_right if right_em is None else max(right_em, glyph_right)
+            try:
+                role, glyph_name = self._glyph(char)
+                font = self._fonts[role]
+                glyph_set = font.getGlyphSet()
+                pen = BoundsPen(glyph_set)
+                glyph_set[glyph_name].draw(pen)
+                if pen.bounds is not None:
+                    x_min, y_min, x_max, y_max = pen.bounds
+                    units_per_em = int(font["head"].unitsPerEm)
+                    scale = 1.0 / units_per_em
+                    glyph_left = cursor_em + x_min * scale
+                    glyph_right = cursor_em + x_max * scale
+                    glyph_top = -y_max * scale
+                    glyph_bottom = -y_min * scale
+                    left_em = glyph_left if left_em is None else min(left_em, glyph_left)
+                    top_em = glyph_top if top_em is None else min(top_em, glyph_top)
+                    right_em = (
+                        glyph_right if right_em is None else max(right_em, glyph_right)
+                    )
+                    bottom_em = (
+                        glyph_bottom if bottom_em is None else max(bottom_em, glyph_bottom)
+                    )
+            except AssertionError:
+                logger.warning(
+                    f"FontTools failed to draw glyph {char!r} (U+{ord(char):04X}), "
+                    f"using fallback bounds (0, 0, 0, 0)"
                 )
-                bottom_em = (
-                    glyph_bottom if bottom_em is None else max(bottom_em, glyph_bottom)
-                )
-            cursor_em += self._advance_em(char)
+                cursor_em += self._advance_em(char)
         if left_em is None:
             return (0.0, 0.0, 0.0, 0.0)
         return (
@@ -108,23 +117,37 @@ class FontRegistry:
         cursor = 0.0
         result: list[GlyphPath] = []
         for char in text:
-            role, glyph_name = self._glyph(char)
-            font = self._fonts[role]
-            units_per_em = int(font["head"].unitsPerEm)
-            advance, _ = font["hmtx"][glyph_name]
-            pen = SVGPathPen(font.getGlyphSet())
-            font.getGlyphSet()[glyph_name].draw(pen)
-            path = pen.getCommands()
-            if path:
-                result.append(GlyphPath(path, cursor, units_per_em))
-            cursor += advance / units_per_em
+            try:
+                role, glyph_name = self._glyph(char)
+                font = self._fonts[role]
+                units_per_em = int(font["head"].unitsPerEm)
+                advance, _ = font["hmtx"][glyph_name]
+                pen = SVGPathPen(font.getGlyphSet())
+                font.getGlyphSet()[glyph_name].draw(pen)
+                path = pen.getCommands()
+                if path:
+                    result.append(GlyphPath(path, cursor, units_per_em))
+                cursor += advance / units_per_em
+            except AssertionError:
+                logger.warning(
+                    f"FontTools failed to draw glyph {char!r} (U+{ord(char):04X}), "
+                    f"skipping path generation"
+                )
+                continue
         return tuple(result), cursor
 
     def _advance_em(self, char: str) -> float:
-        role, glyph_name = self._glyph(char)
-        font = self._fonts[role]
-        advance, _ = font["hmtx"][glyph_name]
-        return advance / int(font["head"].unitsPerEm)
+        try:
+            role, glyph_name = self._glyph(char)
+            font = self._fonts[role]
+            advance, _ = font["hmtx"][glyph_name]
+            return advance / int(font["head"].unitsPerEm)
+        except AssertionError:
+            # Return a reasonable default advance when fontTools fails
+            logger.warning(
+                f"FontTools failed to get advance for {char!r}, using default 0.5em"
+            )
+            return 0.5
 
     def _glyph(self, char: str) -> tuple[str, str]:
         codepoint = ord(char)
@@ -143,3 +166,11 @@ class FontRegistry:
 @lru_cache(maxsize=1)
 def font_registry() -> FontRegistry:
     return FontRegistry()
+
+
+def reset_font_registry_cache() -> None:
+    """Clear the font registry cache to force reinitialization.
+    
+    Used when font loading errors occur due to cached corrupted state.
+    """
+    font_registry.cache_clear()

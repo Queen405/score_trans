@@ -291,7 +291,10 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
     assert "show_measure_numbers" in schemas["SettingsUpdateRequest"]["properties"]
     assert "measure_number_mode" in schemas["SettingsUpdateRequest"]["properties"]
     assert "jianpu_syntax_highlight" in schemas["SettingsUpdateRequest"]["properties"]
-    assert "jianpu_measure_duration_check" in schemas["SettingsUpdateRequest"]["properties"]
+    assert (
+        "jianpu_measure_duration_check"
+        in schemas["SettingsUpdateRequest"]["properties"]
+    )
     assert "show_measure_numbers" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "measure_number_mode" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "show_measure_numbers" in schemas["RenderJianpuSvgRequest"]["properties"]
@@ -410,9 +413,7 @@ def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
     response = client.get("/settings")
     assert response.json()["jianpu_syntax_highlight"] is True
 
-    response = client.put(
-        "/settings", json={"jianpu_measure_duration_check": True}
-    )
+    response = client.put("/settings", json={"jianpu_measure_duration_check": True})
     assert response.status_code == 200
     assert response.json()["jianpu_measure_duration_check"] is True
 
@@ -441,9 +442,9 @@ def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -
 
     assert response.status_code == 200
     assert response.json()["jianpu_measure_duration_check"] is True
-    diagnostics = client.post(
-        "/syntax/validate", json={"jianpu_text": text}
-    ).json()["diagnostics"]
+    diagnostics = client.post("/syntax/validate", json={"jianpu_text": text}).json()[
+        "diagnostics"
+    ]
     assert len(diagnostics) == 1
     assert diagnostics[0]["severity"] == "warning"
     assert "少拍" in diagnostics[0]["message"]

@@ -239,9 +239,7 @@ def validate_jianpu_text(
     if diagnostics and not check_measure_durations:
         return diagnostics
     duration_text = (
-        _mask_diagnostic_ranges(normalized, diagnostics)
-        if diagnostics
-        else normalized
+        _mask_diagnostic_ranges(normalized, diagnostics) if diagnostics else normalized
     )
     has_markers = _PART_MARKER_START_RE.search(
         normalized
@@ -359,8 +357,7 @@ def _measure_duration_diagnostics(
                     else _line_start_utf16_offset(text, start)
                 )
                 if any(
-                    scope_start < excluded_end
-                    and end > excluded_start
+                    scope_start < excluded_end and end > excluded_start
                     for excluded_start, excluded_end in excluded_ranges
                 ):
                     continue

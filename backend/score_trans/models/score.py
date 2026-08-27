@@ -10,7 +10,8 @@ from .common.types import InstrumentProfile
 TextRole = Literal[
     "title", "instrument", "lyric", "expression", "footer", "measure_number", "other"
 ]
-EventKind = Literal["note", "rest"]
+# "extension" 仅为渲染层瞬态事件：长音符按拍位拆分后，第 2..n 个槽位的短横线。
+EventKind = Literal["note", "rest", "extension"]
 SlideDirection = Literal["up", "down"]
 BeamStatus = Literal[
     "begin",

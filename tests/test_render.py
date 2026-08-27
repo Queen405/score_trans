@@ -118,7 +118,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-8"
+    assert root.attrib["data-engine-version"] == "publication-9"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -327,6 +327,72 @@ def test_dotted_duration_line_starts_after_rhythm_dot() -> None:
     assert (
         float(line.attrib["x1"]) >= float(dot.attrib["cx"]) + float(dot.attrib["r"]) + 3
     )
+
+
+def _extension_centers(root: ET.Element) -> list[float]:
+    return [
+        (float(node.attrib["x1"]) + float(node.attrib["x2"])) / 2
+        for node in root.iter()
+        if node.attrib.get("class") == "extension-line"
+    ]
+
+
+def _note_centers(root: ET.Element) -> list[float]:
+    centers: list[float] = []
+    for node in root.iter():
+        if node.attrib.get("class") == "note":
+            values = [float(value) for value in node.attrib["data-bbox"].split()]
+            centers.append(values[0] + values[2] / 2)
+    return centers
+
+
+def test_whole_note_dashes_fill_beat_slots_evenly() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\nw1 |"))
+
+    notes = _note_centers(root)
+    dashes = _extension_centers(root)
+    assert len(notes) == 1
+    assert len(dashes) == 3
+
+    steps = [b - a for a, b in pairwise([notes[0], *dashes])]
+    assert all(step > 20.0 for step in steps)
+    assert max(steps) - min(steps) <= 1.0
+
+
+def test_whole_note_measure_width_matches_quarter_note_measure() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\nw1 | 1 2 3 4 |"))
+    barlines = sorted(
+        float(node.attrib["x1"])
+        for node in root.iter()
+        if node.tag.endswith("line") and "measure" in node.attrib.get("class", "")
+    )
+    widths = [b - a for a, b in pairwise(barlines)]
+
+    assert len(widths) >= 2
+    assert abs(widths[0] - widths[1]) <= 8.0
+
+
+def test_subbeat_note_extension_dash_sits_between_beat_slots() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\n1 2 s3- 4 |"))
+
+    notes = _note_centers(root)
+    dashes = _extension_centers(root)
+    assert len(notes) == 4
+    assert len(dashes) == 1
+    assert notes[2] < dashes[0] < notes[3]
+
+
+def test_dotted_half_note_dashes_are_evenly_spaced() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\nh1. 2 |"))
+
+    notes = _note_centers(root)
+    dashes = _extension_centers(root)
+    assert len(notes) == 2
+    assert len(dashes) == 2
+    assert notes[0] < dashes[0] < dashes[1] < notes[1]
+
+    steps = [b - a for a, b in pairwise([notes[0], *dashes, notes[1]])]
+    assert max(steps) - min(steps) <= 6.0
 
 
 def test_consecutive_short_notes_share_continuous_rhythm_lines() -> None:

@@ -388,6 +388,10 @@ def _lyric_baseline(event: Event, style: PublicationStyle) -> float:
 def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
     """Measure every visible event component with one conservative geometry pass."""
 
+    if event.kind == "extension":
+        box = InkBox(-5.5, -7.0, 5.5, -5.0)
+        return EventLayout(box, (VisualPart("extension-line", box),))
+
     parts: list[VisualPart] = []
     pitch_rows = pitch_layouts(event, style)
     if pitch_rows:

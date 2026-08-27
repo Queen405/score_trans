@@ -601,11 +601,16 @@ def _build_cells(
 def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float:
     if not measure.events:
         return style.minimum_measure_width
+    visual = _visual_events(measure)
+    if not visual:
+        return style.minimum_measure_width
     events = sorted(
-        measure.events,
+        visual,
         key=lambda event: event.start if event.start is not None else Fraction(0),
     )
     extents = [_event_visual_extents(event, style) for event in events]
+    if not extents:
+        return style.minimum_measure_width
     common_shortest = _common_shortest_duration(events)
     gaps = _minimum_event_gaps(events, extents, common_shortest, style)
     if style.short_note_gap_scale > 1.0:
@@ -1144,6 +1149,8 @@ def _draw_event(
     *,
     right_limit: float | None = None,
 ) -> tuple[_Anchor, bool]:
+    if event.kind == "extension":
+        return _draw_extension_event(scene, event, x, y, right_limit=right_limit)
     pitched = event.kind == "note" and bool(event.pitches)
     token = event.source_token or _event_token(event)
     source_ids = list(
@@ -1242,6 +1249,35 @@ def _draw_event(
     scene.add(group)
     scene.register_sources(source_ids, bbox)
     return _Anchor(x, y, bbox, event), pitched
+
+
+def _draw_extension_event(
+    scene: PublicationScene,
+    event: Event,
+    x: float,
+    y: float,
+    *,
+    right_limit: float | None = None,
+) -> tuple[_Anchor, bool]:
+    """Draw one beat-slot extension dash centered on its beat anchor."""
+
+    left = x - 5.5
+    right = x + 5.5
+    if right_limit is not None:
+        right = min(right, right_limit)
+    top = y - 7.0
+    bottom = y - 5.0
+    bbox = BBox(left, top, max(0.0, right - left), bottom - top)
+    attrs: dict[str, str | float | int] = {
+        "class": "source-anchor",
+        "data-note-token": event.source_token or "-",
+        "data-bbox": bbox.as_data(),
+    }
+    group = SceneNode("g", attrs)
+    if right > left:
+        group.children.append(_line("extension-line", left, y - 6, right, y - 6, 1.7))
+    scene.add(group)
+    return _Anchor(x, y, bbox, event), False
 
 
 def _draw_pitch(
@@ -1693,6 +1729,8 @@ def _rhythm_line_offset(event: Event, style: PublicationStyle) -> float:
 
 
 def _rhythm_line_count(event: Event) -> int:
+    if event.kind == "extension":
+        return 0
     duration = event.duration
     count = 0
     unit = Fraction(1)
@@ -2218,7 +2256,51 @@ def _visual_events(measure: Measure) -> list[Event]:
                 )
                 for index in range(count)
             ]
-    return [piece for event in events for piece in _split_long_rest(event)]
+    return [piece for event in events for piece in _split_visual_event(event)]
+
+
+def _split_visual_event(event: Event) -> list[Event]:
+    if event.kind == "rest":
+        return _split_long_rest(event)
+    return _split_long_note(event)
+
+
+def _split_long_note(event: Event) -> list[Event]:
+    """Render a multi-beat note as beat slots (``1 - - -``), mirroring ``0 0 0 0``."""
+
+    if (
+        event.kind != "note"
+        or not event.pitches
+        or event.duration <= 1
+        or event.tuplet_id
+        or event.tuplet_count
+        or event.tuplet_spans
+    ):
+        return [event]
+    whole = int(event.duration)
+    pieces: list[Fraction] = [Fraction(1)] * whole
+    remainder = event.duration - whole
+    if remainder > 0:
+        pieces.append(remainder)
+    result: list[Event] = []
+    cursor = event.start
+    for index, piece in enumerate(pieces):
+        if index == 0:
+            result.append(replace(event, duration=piece, start=cursor))
+        else:
+            result.append(
+                Event(
+                    kind="extension",
+                    duration=piece,
+                    start=cursor,
+                    voice=event.voice,
+                    staff=event.staff,
+                    source_token="-",
+                )
+            )
+        if cursor is not None:
+            cursor += piece
+    return result
 
 
 def _split_long_rest(event: Event) -> list[Event]:

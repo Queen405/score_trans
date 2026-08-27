@@ -57,7 +57,9 @@ def test_validate_jianpu_text_accepts_valid_score() -> None:
     assert validate_jianpu_text("1=C\n4/4\n1 2 3 4 |") == []
 
 
-def test_validate_jianpu_text_keeps_measure_duration_check_disabled_by_default() -> None:
+def test_validate_jianpu_text_keeps_measure_duration_check_disabled_by_default() -> (
+    None
+):
     assert validate_jianpu_text("1=C\n4/4\n1 2 3 |") == []
 
 
@@ -66,17 +68,24 @@ def test_validate_jianpu_text_reports_measure_duration_warnings_when_enabled() -
 
     diagnostics = validate_jianpu_text(text, check_measure_durations=True)
 
-    assert [(item.severity, item.line, item.column, item.message) for item in diagnostics] == [
+    assert [
+        (item.severity, item.line, item.column, item.message) for item in diagnostics
+    ] == [
         ("warning", 3, 1, "第 1 小节少拍：实际 3 拍，目标 4 拍"),
         ("warning", 3, 9, "第 2 小节超拍：实际 5 拍，目标 4 拍"),
     ]
-    assert [text.encode("utf-16-le")[item.start * 2 : item.end * 2].decode("utf-16-le") for item in diagnostics] == [
+    assert [
+        text.encode("utf-16-le")[item.start * 2 : item.end * 2].decode("utf-16-le")
+        for item in diagnostics
+    ] == [
         "1 2 3 |",
         "1 2 3 4 5 ||",
     ]
 
 
-def test_validate_jianpu_text_keeps_duration_warnings_after_unrelated_syntax_error() -> None:
+def test_validate_jianpu_text_keeps_duration_warnings_after_unrelated_syntax_error() -> (
+    None
+):
     text = "1=C\n4/4\n45 1 2 | 1 2 3 4 5 |"
 
     diagnostics = validate_jianpu_text(text, check_measure_durations=True)
@@ -89,9 +98,12 @@ def test_validate_jianpu_text_keeps_duration_warnings_after_unrelated_syntax_err
         ("warning", "第 2 小节超拍：实际 5 拍，目标 4 拍"),
     ]
     warning = diagnostics[1]
-    assert text.encode("utf-16-le")[warning.start * 2 : warning.end * 2].decode(
-        "utf-16-le"
-    ) == "1 2 3 4 5 |"
+    assert (
+        text.encode("utf-16-le")[warning.start * 2 : warning.end * 2].decode(
+            "utf-16-le"
+        )
+        == "1 2 3 4 5 |"
+    )
 
 
 def test_validate_jianpu_text_keeps_duration_warnings_after_contextual_error() -> None:
@@ -130,9 +142,12 @@ def test_validate_jianpu_text_preserves_warning_offsets_after_utf16_error() -> N
 
     assert [item.severity for item in diagnostics] == ["error", "warning"]
     warning = diagnostics[1]
-    assert text.encode("utf-16-le")[warning.start * 2 : warning.end * 2].decode(
-        "utf-16-le"
-    ) == "1 2 3 4 5 |"
+    assert (
+        text.encode("utf-16-le")[warning.start * 2 : warning.end * 2].decode(
+            "utf-16-le"
+        )
+        == "1 2 3 4 5 |"
+    )
 
 
 def test_validate_jianpu_text_warning_range_includes_measure_level_marks() -> None:
@@ -284,7 +299,9 @@ def test_validate_jianpu_text_reports_part_measure_count_mismatch() -> None:
     assert "各声部小节数量不一致：a=2、b=1" in diagnostics[0].message
 
 
-def test_validate_jianpu_text_reports_measure_duration_warnings_in_document_offsets() -> None:
+def test_validate_jianpu_text_reports_measure_duration_warnings_in_document_offsets() -> (
+    None
+):
     text = (
         '// @part 1 name="a"\n1=C\n4/4\n1 2 3 |\n'
         '// @part 2 name="b"\n1=C\n4/4\n1 2 3 4 5 |'
