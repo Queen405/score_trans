@@ -288,6 +288,7 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
     assert "measure_number_mode" in schemas["SettingsResponse"]["properties"]
     assert "jianpu_syntax_highlight" in schemas["SettingsResponse"]["properties"]
     assert "jianpu_measure_duration_check" in schemas["SettingsResponse"]["properties"]
+    assert "jianpu_auto_transpose" in schemas["SettingsResponse"]["properties"]
     assert "show_measure_numbers" in schemas["SettingsUpdateRequest"]["properties"]
     assert "measure_number_mode" in schemas["SettingsUpdateRequest"]["properties"]
     assert "jianpu_syntax_highlight" in schemas["SettingsUpdateRequest"]["properties"]
@@ -295,6 +296,7 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
         "jianpu_measure_duration_check"
         in schemas["SettingsUpdateRequest"]["properties"]
     )
+    assert "jianpu_auto_transpose" in schemas["SettingsUpdateRequest"]["properties"]
     assert "show_measure_numbers" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "measure_number_mode" in schemas["PipelineByFileIdRequest"]["properties"]
     assert "show_measure_numbers" in schemas["RenderJianpuSvgRequest"]["properties"]
@@ -419,6 +421,15 @@ def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
 
     response = client.get("/settings")
     assert response.json()["jianpu_measure_duration_check"] is True
+
+    assert response.json()["jianpu_auto_transpose"] is False
+
+    response = client.put("/settings", json={"jianpu_auto_transpose": True})
+    assert response.status_code == 200
+    assert response.json()["jianpu_auto_transpose"] is True
+
+    response = client.get("/settings")
+    assert response.json()["jianpu_auto_transpose"] is True
 
 
 def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -> None:

@@ -111,6 +111,12 @@ class SettingsActions:
                 "1" if req.jianpu_measure_duration_check else "0",
             )
 
+        if req.jianpu_auto_transpose is not None:
+            self.service.set(
+                "jianpu_auto_transpose",
+                "1" if req.jianpu_auto_transpose else "0",
+            )
+
         for key in (
             "jianpu_content_scale_percent",
             "jianpu_system_gap_percent",
@@ -301,6 +307,7 @@ class SettingsActions:
             jianpu_measure_duration_check=self.service.get_bool(
                 "jianpu_measure_duration_check", False
             ),
+            jianpu_auto_transpose=self.service.get_bool("jianpu_auto_transpose", False),
             jianpu_content_scale_percent=self.service.get_int(
                 "jianpu_content_scale_percent", 67
             ),

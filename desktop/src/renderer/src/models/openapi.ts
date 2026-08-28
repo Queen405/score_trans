@@ -538,6 +538,42 @@ export type paths = {
         patch: operations["update_history_page_history_pages__page_id__patch"];
         trace?: never;
     };
+    "/jianpu/rekey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rekey Text Route
+         * @description 根据之前的简谱文本，将当前文本中的音符按新调号转调以保持音高不变。
+         *
+         *     Args:
+         *         text: 当前简谱文本（包含新调号）
+         *         previous_text: 之前的简谱文本（包含旧调号）
+         *
+         *     Returns:
+         *         transposed_text: 转调后的文本
+         *
+         *     Example:
+         *         # C 调转 G 调
+         *         POST /jianpu/rekey
+         *         {
+         *             "text": "1=G\n4 5 6",
+         *             "previous_text": "1=C\n4 5 6"
+         *         }
+         *         → {"transposed_text": "1=G\n1 2 3"}
+         */
+        post: operations["rekey_text_route_jianpu_rekey_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notation/instrument-profiles": {
         parameters: {
             query?: never;
@@ -1188,7 +1224,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-10
+             * @default publication-11
              */
             engine_version?: string;
             /** Id */
@@ -1806,7 +1842,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-10
+             * @default publication-11
              */
             engine_version?: string;
             /**
@@ -1916,7 +1952,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-10
+             * @default publication-11
              */
             engine_version?: string;
             /** Error Message */
@@ -2249,7 +2285,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-10
+             * @default publication-11
              */
             engine_version?: string;
             /**
@@ -2542,6 +2578,11 @@ export type components = {
             /** Java Home */
             java_home: string;
             /**
+             * Jianpu Auto Transpose
+             * @default false
+             */
+            jianpu_auto_transpose?: boolean;
+            /**
              * Jianpu Content Scale Percent
              * @default 67
              */
@@ -2642,6 +2683,8 @@ export type components = {
             enable_omr_ocr?: boolean | null;
             /** Java Home */
             java_home?: string | null;
+            /** Jianpu Auto Transpose */
+            jianpu_auto_transpose?: boolean | null;
             /** Jianpu Content Scale Percent */
             jianpu_content_scale_percent?: number | null;
             /** Jianpu Measure Duration Check */
@@ -4077,6 +4120,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rekey_text_route_jianpu_rekey_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
