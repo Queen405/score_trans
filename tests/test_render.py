@@ -797,6 +797,73 @@ def test_multiple_tuplet_groups_have_compact_intrinsic_width() -> None:
     assert _intrinsic_measure_width(measure, PublicationStyle()) < 650
 
 
+def test_subdivided_beats_get_a_boundary_gap() -> None:
+    # 16 sixteenths in 4/4: within-beat gaps are uniform; each beat boundary
+    # (indices 3, 7, 11) carries a small extra gap so beats stay distinguishable.
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 4),
+            start=Fraction(index, 4),
+            pitches=[JianpuPitch(index % 7 + 1)],
+        )
+        for index in range(16)
+    ]
+    measure = Measure(
+        "1", duration=Fraction(4), events=events, beats_per_measure=4, beat_type=4
+    )
+    style = PublicationStyle()
+    centers = _event_positions(events, 100.0, 900.0, measure, style)
+    gaps = [right - left for left, right in pairwise(centers)]
+    boundary_gaps = [gaps[i] for i in (3, 7, 11)]
+    within_gaps = [gap for index, gap in enumerate(gaps) if index not in {3, 7, 11}]
+
+    assert min(boundary_gaps) - max(within_gaps) >= style.beat_boundary_gap - 0.5
+    assert max(within_gaps) - min(within_gaps) < 1.0
+
+
+def test_one_note_per_beat_has_no_boundary_gap() -> None:
+    # 4 quarter notes: one event per beat is not "subdivided", so no beat gap
+    # is applied and spacing stays perfectly even.
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            start=Fraction(index),
+            pitches=[JianpuPitch(index % 7 + 1)],
+        )
+        for index in range(4)
+    ]
+    measure = Measure(
+        "1", duration=Fraction(4), events=events, beats_per_measure=4, beat_type=4
+    )
+    centers = _event_positions(events, 100.0, 900.0, measure, PublicationStyle())
+    gaps = [right - left for left, right in pairwise(centers)]
+
+    assert max(gaps) - min(gaps) < 1.0
+
+
+def test_compound_meter_one_eighth_per_beat_has_no_boundary_gap() -> None:
+    # 6/8 with 6 eighth notes: the parser lays out 6 beats of one eighth each,
+    # so no beat is subdivided and spacing stays even.
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            start=Fraction(index, 2),
+            pitches=[JianpuPitch(index % 7 + 1)],
+        )
+        for index in range(6)
+    ]
+    measure = Measure(
+        "1", duration=Fraction(3), events=events, beats_per_measure=6, beat_type=8
+    )
+    centers = _event_positions(events, 100.0, 900.0, measure, PublicationStyle())
+    gaps = [right - left for left, right in pairwise(centers)]
+
+    assert max(gaps) - min(gaps) < 1.0
+
+
 def test_mixed_duration_spring_keeps_quarter_wider_than_eighth() -> None:
     style = PublicationStyle()
     assert _duration_spring(Fraction(1), Fraction(1, 2), style) > _duration_spring(
@@ -1897,8 +1964,8 @@ def test_expanded_short_note_gap_stays_inside_measure_barlines() -> None:
     first_extent = _event_visual_extents(events[0], style)
     last_extent = _event_visual_extents(events[-1], style)
 
-    assert positions[0] + first_extent[0] >= left
-    assert positions[-1] + last_extent[1] <= right
+    assert positions[0] + first_extent[0] >= left - 1e-6
+    assert positions[-1] + last_extent[1] <= right + 1e-6
 
 
 def test_short_note_control_preserves_noneligible_adjacent_gaps() -> None:

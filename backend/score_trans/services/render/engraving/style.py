@@ -31,6 +31,11 @@ class PublicationStyle:
     short_note_gap_scale: float = 1.0
     spacing_increment: float = 8.0
     tuplet_boundary_gap: float = 2.0
+    # Subtle extra spacing added at a beat boundary when the preceding beat is
+    # subdivided into multiple notes (e.g. 4 sixteenths per beat). Keeps beats
+    # visually distinguishable without imposing a hard gap. Beats with a single
+    # event (4 quarters, 6/8 with 6 eighths) are unaffected.
+    beat_boundary_gap: float = 8.0
     barline_gutter: float = 20.0
     event_clearance: float = 6.0
     accidental_clearance: float = 1.0

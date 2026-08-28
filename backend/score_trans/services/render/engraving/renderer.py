@@ -613,7 +613,9 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
     if not extents:
         return style.minimum_measure_width
     common_shortest = _common_shortest_duration(events)
-    gaps = _minimum_event_gaps(events, extents, common_shortest, style)
+    gaps = _minimum_event_gaps(
+        events, extents, common_shortest, style, _beat_boundaries(measure)
+    )
     if style.short_note_gap_scale > 1.0:
         gaps = [
             gap * style.short_note_gap_scale
@@ -664,7 +666,9 @@ def _minimum_event_gaps(
     extents: list[tuple[float, float, float, float]],
     common_shortest: Fraction,
     style: PublicationStyle,
+    beat_boundaries: list[Fraction] | None = None,
 ) -> list[float]:
+    subdivided = _subdivided_beat_crossings(events, beat_boundaries)
     gaps: list[float] = []
     for index in range(1, len(events)):
         previous = events[index - 1]
@@ -685,10 +689,83 @@ def _minimum_event_gaps(
         )
         if _same_tuplet_group(previous, current):
             time_gap = max(18.0, style.minimum_event_gap * 0.72)
-        elif _is_tuplet(previous) or _is_tuplet(current):
-            time_gap += style.tuplet_boundary_gap
-        gaps.append(max(collision_gap, time_gap))
+            gaps.append(max(collision_gap, time_gap))
+            continue
+        base_gap = max(collision_gap, time_gap)
+        boundary_extra = 0.0
+        if _is_tuplet(previous) or _is_tuplet(current):
+            boundary_extra = style.tuplet_boundary_gap
+        if subdivided[index - 1]:
+            boundary_extra = max(boundary_extra, style.beat_boundary_gap)
+        gaps.append(base_gap + boundary_extra)
     return gaps
+
+
+def _beat_boundaries(measure: Measure) -> list[Fraction]:
+    """Return sorted beat-start positions plus the final end position.
+
+    Prefers ``measure.beats`` (authoritative parser output); falls back to a
+    simple-meter subdivision derived from ``beat_type`` and ``duration`` for raw
+    measures constructed without going through the parser.
+    """
+    if measure.beats:
+        starts = [beat.start for beat in measure.beats]
+        last = measure.beats[-1]
+        return [*starts, last.start + last.duration]
+    beat_unit = Fraction(4, max(1, measure.beat_type))
+    if measure.duration > 0:
+        count = max(1, round(measure.duration / beat_unit))
+    else:
+        count = max(1, measure.beats_per_measure)
+    return [beat_unit * index for index in range(count + 1)]
+
+
+def _subdivided_beat_crossings(
+    events: list[Event],
+    beat_boundaries: list[Fraction] | None,
+) -> list[bool]:
+    """For each gap between consecutive events, report whether it crosses a beat
+    boundary whose preceding beat holds more than one event.
+
+    Events are assumed to be ordered by start (as produced by the renderer's
+    sort). The returned list has ``len(events) - 1`` entries.
+    """
+    if not beat_boundaries or len(beat_boundaries) < 2 or len(events) < 2:
+        return [False] * max(0, len(events) - 1)
+
+    interior = beat_boundaries[1:-1]
+    if not interior:
+        return [False] * (len(events) - 1)
+
+    starts: list[Fraction] = []
+    cursor = Fraction(0)
+    for event in events:
+        start = event.start if event.start is not None else cursor
+        starts.append(start)
+        cursor = start + event.duration
+
+    def beat_index(start: Fraction) -> int:
+        index = 0
+        for boundary in interior:
+            if start >= boundary:
+                index += 1
+            else:
+                break
+        return index
+
+    beat_of = [beat_index(start) for start in starts]
+    events_per_beat: dict[int, int] = {}
+    for index in beat_of:
+        events_per_beat[index] = events_per_beat.get(index, 0) + 1
+
+    crossings: list[bool] = []
+    for gap_index in range(1, len(events)):
+        previous_beat = beat_of[gap_index - 1]
+        current_beat = beat_of[gap_index]
+        crossings.append(
+            current_beat > previous_beat and events_per_beat[previous_beat] > 1
+        )
+    return crossings
 
 
 def _tuplet_run_count(events: list[Event]) -> int:
@@ -924,11 +1001,13 @@ def _event_positions(
         return ideal_positions
 
     extents = [_event_visual_extents(event, style) for event in events]
+    boundaries = _beat_boundaries(measure)
     minimum_gaps = _minimum_event_gaps(
         events,
         extents,
         _common_shortest_duration(events),
         style,
+        boundaries,
     )
     minimum_relative = [0.0]
     for gap in minimum_gaps:
