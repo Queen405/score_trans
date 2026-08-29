@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import cast
 
+from ...domain.accidentals import normalize_accidental_mode
 from ...domain.rekey import rekey_text as domain_rekey_text
 from ...models.common.types import AccidentalMode
 from ..settings.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)
-
-_VALID_ACCIDENTAL_MODES: frozenset[str] = frozenset({"auto", "sharp", "flat"})
 
 
 class RekeyService:
@@ -27,16 +25,15 @@ class RekeyService:
         except Exception:
             logger.warning("读取 accidental_mode 设置失败，回退 auto")
             return "auto"
-        if value in _VALID_ACCIDENTAL_MODES:
-            return cast(AccidentalMode, value)
-        return "auto"
+        return normalize_accidental_mode(value)
 
     async def rekey_text(self, text: str, previous_text: str) -> str:
-        accidental_mode = self._effective_accidental_mode()
-        return await asyncio.to_thread(
-            lambda: domain_rekey_text(
-                text,
-                previous_text,
-                accidental_mode=accidental_mode,
-            )
+        # 设置读取会命中 SQLite，与转调一起放到线程里，避免阻塞事件循环。
+        return await asyncio.to_thread(self._rekey_blocking, text, previous_text)
+
+    def _rekey_blocking(self, text: str, previous_text: str) -> str:
+        return domain_rekey_text(
+            text,
+            previous_text,
+            accidental_mode=self._effective_accidental_mode(),
         )

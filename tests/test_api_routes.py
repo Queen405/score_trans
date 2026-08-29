@@ -329,6 +329,56 @@ def test_settings_schema_exposes_omr_ocr_toggle() -> None:
     assert "enable_omr_ocr" in schemas["SettingsUpdateRequest"]["properties"]
 
 
+def test_jianpu_rekey_route_declares_its_request_and_response_schema() -> None:
+    # The models used to be defined inside the route body, so they never reached
+    # the OpenAPI document and the generated frontend types could not drift-check.
+    document = create_app().openapi()
+    schemas = document["components"]["schemas"]
+
+    assert "/jianpu/rekey" in document["paths"]
+    assert "text" in schemas["JianpuRekeyRequest"]["properties"]
+    assert "previous_text" in schemas["JianpuRekeyRequest"]["properties"]
+    assert "transposed_text" in schemas["JianpuRekeyResponse"]["properties"]
+    body = document["paths"]["/jianpu/rekey"]["post"]["requestBody"]
+    assert body["content"]["application/json"]["schema"]["$ref"].endswith(
+        "JianpuRekeyRequest"
+    )
+
+
+def test_jianpu_rekey_transposes_the_segment_after_the_changed_key() -> None:
+    client = TestClient(create_app(auth_disabled=True))
+
+    response = client.post(
+        "/jianpu/rekey",
+        json={"text": "1=G\n4/4\n4 5 6", "previous_text": "1=C\n4/4\n4 5 6"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"transposed_text": "1=G\n4/4\nb7, 1 2"}
+
+
+def test_jianpu_rekey_rejects_a_missing_field_with_a_validation_error() -> None:
+    client = TestClient(create_app(auth_disabled=True))
+
+    response = client.post("/jianpu/rekey", json={"text": "1=G\n1 2 3"})
+
+    assert response.status_code == 422
+
+
+def test_jianpu_rekey_maps_an_unsupported_key_to_a_validation_error() -> None:
+    # 1=D# parses but has no scale table entry; the global ValueError handler
+    # turns the domain error into the shared 400 validation envelope.
+    client = TestClient(create_app(auth_disabled=True))
+
+    response = client.post(
+        "/jianpu/rekey",
+        json={"text": "1=D#\n4/4\n1 2 3", "previous_text": "1=C\n4/4\n1 2 3"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["stage"] == "validation"
+
+
 def test_target_key_schema_exposes_supported_keys() -> None:
     property_schema = create_app().openapi()["components"]["schemas"][
         "SettingsResponse"

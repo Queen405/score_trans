@@ -119,7 +119,7 @@ import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
 import { horizontalScrollIntoView } from '../utils/editorViewport'
 import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
 import type { SyntaxDiagnostic } from '../models/types'
-import { NInputNumber } from 'naive-ui'
+import { NInputNumber, useMessage } from 'naive-ui'
 import {
   hasJianpuPageMarkers,
   jianpuGutterLabels,
@@ -127,11 +127,15 @@ import {
   type JianpuPageSummary,
 } from '../utils/jianpuPageSections'
 import { loadEditorScroll, saveEditorScroll } from '../composables/useViewPersistence'
-import { findKeyChangePoints } from '../utils/jianpuTranspose'
+import { hasKeyChange, remapOffset } from '../utils/jianpuTranspose'
+import { AutoTransposeGate } from '../utils/autoTransposeGate'
 import { useSettingsStore } from '../stores/settings'
-import { convertApi } from '../api/convert'
+import { useLogStore } from '../stores/log'
+import { jianpuApi } from '../api/jianpu'
 
 const settings = useSettingsStore()
+const logStore = useLogStore()
+const message = useMessage()
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -428,6 +432,9 @@ function onInput(e: Event): void {
   const target = e.target as HTMLTextAreaElement
   const value = target.value
   const cursor = target.selectionStart
+  // 此刻 props.modelValue 仍是编辑前的文本（emit 在下面才发生），
+  // 它就是自动转调需要的旧调来源。
+  const before = props.modelValue
 
   // 输入了 |：检查是否是独立小节线，自动换行
   if (
@@ -443,6 +450,7 @@ function onInput(e: Event): void {
         el.selectionStart = el.selectionEnd = cursor + 1
       }
     })
+    scheduleKeyChangeCheck(before, newValue)
     return
   }
 
@@ -463,72 +471,73 @@ function onInput(e: Event): void {
         el.selectionStart = el.selectionEnd = cursor
       }
     })
+    scheduleKeyChangeCheck(before, newValue)
     return
   }
 
   emit('update:modelValue', value)
-  scheduleKeyChangeCheck(value)
+  scheduleKeyChangeCheck(before, value)
 }
 
-// 自动转调：debounce 检测调号变化
+// 自动转调：debounce 后把「编辑前 → 编辑后」交给后端重记谱。
+// 基线时机与竞态判定全部在 AutoTransposeGate 里，此处只负责计时器与 DOM。
 let keyChangeTimer: ReturnType<typeof setTimeout> | null = null
 const KEY_CHANGE_DEBOUNCE_MS = 600
+const autoTransposeGate = new AutoTransposeGate(hasKeyChange)
 
-function scheduleKeyChangeCheck(newValue: string): void {
+function clearKeyChangeTimer(): void {
   if (keyChangeTimer !== null) {
     clearTimeout(keyChangeTimer)
     keyChangeTimer = null
   }
-  if (!settings.jianpuAutoTranspose) return
+}
+
+function scheduleKeyChangeCheck(before: string, after: string): void {
+  clearKeyChangeTimer()
+  if (!settings.jianpuAutoTranspose) {
+    autoTransposeGate.reset()
+    return
+  }
+  autoTransposeGate.recordEdit(before, after)
   keyChangeTimer = setTimeout(() => {
     keyChangeTimer = null
-    void triggerAutoTranspose(newValue)
+    void triggerAutoTranspose()
   }, KEY_CHANGE_DEBOUNCE_MS)
 }
 
-let lastAutoTransposedFrom: string | null = null
-let autoTransposeRequestId = 0
-
-async function triggerAutoTranspose(newValue: string): Promise<void> {
-  const previous = lastAutoTransposedFrom
-  if (previous === null) {
-    lastAutoTransposedFrom = newValue
-    return
-  }
-  const changes = findKeyChangePoints(previous, newValue)
-  if (!changes.length) {
-    lastAutoTransposedFrom = newValue
-    return
-  }
-  const requestId = ++autoTransposeRequestId
-  const result = await convertApi.rekeyText({
-    text: newValue,
-    previous_text: previous,
+async function triggerAutoTranspose(): Promise<void> {
+  const pending = autoTransposeGate.takePending(props.modelValue)
+  if (pending === null) return
+  const requestId = autoTransposeGate.beginRequest()
+  const result = await jianpuApi.rekeyText({
+    text: pending.text,
+    previous_text: pending.baseline,
   })
-  if (requestId !== autoTransposeRequestId) return
+  if (!autoTransposeGate.acceptResponse(requestId, pending.text, props.modelValue)) return
   if (result.error) {
-    console.warn('自动转调失败:', result.error)
-    lastAutoTransposedFrom = newValue
+    logStore.addError(`自动转调失败：${result.error}`)
+    message.warning('自动转调失败，音符未改动')
     return
   }
   const transposed = result.data?.transposed_text
-  if (!transposed || transposed === newValue) {
-    lastAutoTransposedFrom = newValue
-    return
-  }
+  if (!transposed || transposed === pending.text) return
+  applyTransposed(pending.text, transposed)
+}
+
+function applyTransposed(before: string, after: string): void {
   const el = textareaRef.value
   const cursor = el ? el.selectionStart : null
-  const delta = transposed.length - newValue.length
-  emit('update:modelValue', transposed)
-  lastAutoTransposedFrom = transposed
-  if (el && cursor !== null && delta !== 0) {
-    nextTick(() => {
-      const current = textareaRef.value
-      if (current) {
-        current.selectionStart = current.selectionEnd = Math.max(0, cursor + delta)
-      }
-    })
-  }
+  const anchor = el ? el.selectionEnd : null
+  emit('update:modelValue', after)
+  if (cursor === null) return
+  const nextStart = remapOffset(before, after, cursor)
+  const nextEnd = anchor === null ? nextStart : remapOffset(before, after, anchor)
+  nextTick(() => {
+    const current = textareaRef.value
+    if (!current) return
+    current.selectionStart = nextStart
+    current.selectionEnd = nextEnd
+  })
 }
 
 function syncScroll(e: Event): void {
@@ -566,15 +575,23 @@ watch(() => props.flashLine, (line, oldLine) => {
   triggerPageFlash(line)
 })
 
-// 同步外部模型值变化（例如页面切换）
-watch(() => props.modelValue, (newVal) => {
-  lastAutoTransposedFrom = newVal
-})
+// 注意：这里刻意不监听 props.modelValue 来维护转调基线。
+// modelValue 的变化里既有外部同步(切页/历史恢复)，也有本组件 emit 的回环，
+// 二者无法区分；一旦在 watcher 里重置基线，用户刚敲入的新调号就会被当成旧调，
+// 使 debounce 到期时检测不到变化。基线由 onInput 显式提供，
+// 外部覆盖则由 AutoTransposeGate 的 takePending / acceptResponse 用文本比对拦掉。
 
 watch(activeNoteSpans, (spans) => {
   const span = spans[0]
   if (!span) return
   nextTick(() => scrollNoteIntoView(span))
+})
+
+// 关闭开关时立刻丢弃待发编辑并让在途响应失效，避免关掉后音符还被改写。
+watch(() => settings.jianpuAutoTranspose, (enabled) => {
+  if (enabled) return
+  clearKeyChangeTimer()
+  autoTransposeGate.reset()
 })
 
 onMounted(() => {
@@ -589,12 +606,9 @@ onMounted(() => {
     nextTick(() => {
       const current = textareaRef.value
       if (!current) return
-      lastAutoTransposedFrom = props.modelValue
       current.scrollTop = saved.scrollTop
       current.scrollLeft = saved.scrollLeft
     })
-  } else {
-    lastAutoTransposedFrom = props.modelValue
   }
   resizeObserver = new ResizeObserver(refreshEditorMetrics)
   resizeObserver.observe(el)
@@ -617,11 +631,8 @@ onUnmounted(() => {
     clearTimeout(pageFlashTimer)
     pageFlashTimer = null
   }
-  if (keyChangeTimer !== null) {
-    clearTimeout(keyChangeTimer)
-    keyChangeTimer = null
-  }
-  autoTransposeRequestId++
+  clearKeyChangeTimer()
+  autoTransposeGate.reset()
 })
 
 function syncScrollPosition(target: HTMLTextAreaElement): void {

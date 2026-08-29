@@ -29,6 +29,7 @@
 | api/settings | SettingsActions | 设置读取、更新和缓存清理 |
 | api/ai | AiActions | AI 转录和聊天会话 |
 | api/syntax | SyntaxActions | 简谱语法诊断 |
+| api/jianpu | JianpuActions | 换调号时按音高重记谱（自动转调） |
 | api/files | FileActions | 上传、下载、删除和文件存在检查 |
 
 ## Domain
@@ -41,9 +42,10 @@
 | domain/parse/musicxml.py | MusicXML 到 JianpuScore 的解析和 provenance |
 | domain/write/jianpu_text.py | JianpuScore 到简谱文本的写出 |
 | domain/write/musicxml.py | JianpuScore 到 MusicXML 的写出 |
-| domain/jianpu_tokens.py | 时值、附点、延长线和连音组基础规则 |
+| domain/jianpu_tokens.py | 时值、附点、延长线、连音组与音高核心 span 定位 |
 | domain/accidentals.py | 变音记号和调式转换 |
-| domain/pitch_spelling.py | 音名、调号和书写音高转换 |
+| domain/pitch_spelling.py | 音名、调号、书写音高转换与等音重拼 |
+| domain/rekey.py | 换调号时按绝对音高重记谱，保留排版与非音符 token |
 | domain/performance_marks.py | 演奏记号目录与查找 |
 | domain/provenance.py | source anchor 和 provenance 合并 |
 | domain/text_attachments.py | OCR 文字附件和源区域关联 |

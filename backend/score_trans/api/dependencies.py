@@ -85,7 +85,7 @@ def get_syntax_actions() -> SyntaxActions:
 
 
 def get_jianpu_actions() -> JianpuActions:
-    """返回 JianpuActions 实例（单例）。"""
+    """每请求新建 JianpuActions，复用进程内共享的 RekeyService。"""
     return JianpuActions(rekey=composition.shared_rekey_service())
 
 

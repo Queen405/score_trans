@@ -8,16 +8,20 @@ import {
 
 const PITCH_OCTAVE_PATTERN = /([1-7])([',]*)/g
 
-// 调号 token:1=X(X=[A-G][#b]*)，须是独立 token(前后为行首/空白/小节线)，
-// 因此能识别独占一行的 1=G、紧跟 | 之后的 1=G，以及多字符调号 1=Bb/1=F#。
-const KEY_TOKEN_PATTERN = /1\s*=\s*([A-G][#b]*)/g
+// 调号 token:1=X(X=[A-G] 后跟至多一个 # 或 b)，须是独立 token(前后为行首/空白/
+// 小节线)，因此能识别独占一行的 1=G、紧跟 | 之后的 1=G，以及多字符调号 1=Bb/1=F#。
+// 词表与后端 domain/rekey.py 的 _KEY_TOKEN 及解析器 _is_key_name 保持一致。
+const KEY_TOKEN_PATTERN = /1\s*=\s*([A-G](?:#|b)?)/g
 
-// 检测文本中所有调号 token 的(行号, 调号)
+// 检测文本中所有调号 token 的(行号, 调号)。行内注释与歌词行内的 1=X 不算调号，
+// 否则「// 1=G」这类文本会白发一次转调请求。
 export function detectKeyChanges(text: string): Array<{ lineIndex: number; key: string }> {
   const changes: Array<{ lineIndex: number; key: string }> = []
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
+    const line = stripInlineComment(lines[i])
+    if (!line.trim()) continue
+    if (isLyricOrTextLine(line)) continue
     for (const match of line.matchAll(KEY_TOKEN_PATTERN)) {
       const start = match.index ?? 0
       const end = start + match[0].length
@@ -29,20 +33,49 @@ export function detectKeyChanges(text: string): Array<{ lineIndex: number; key: 
   return changes
 }
 
-// 比较新旧文本的调号 token 序列，返回发生变化的(行号, 新调号)
-export function findKeyChangePoints(oldText: string, newText: string): Array<{ lineIndex: number; newKey: string }> {
-  const oldKeys = detectKeyChanges(oldText)
-  const newKeys = detectKeyChanges(newText)
-  const result: Array<{ lineIndex: number; newKey: string }> = []
-  const count = Math.max(oldKeys.length, newKeys.length)
-  for (let i = 0; i < count; i++) {
-    const oldKey = oldKeys[i]?.key
-    const newKey = newKeys[i]?.key
-    if (newKey !== undefined && oldKey !== newKey) {
-      result.push({ lineIndex: newKeys[i].lineIndex, newKey })
-    }
+// 歌词行(L:)与文本行(@text)可能含 1=X 字样，但它们不是调号。
+// 不能直接用 isMetadataLine：调号行本身就是 metadata，正是我们要找的目标。
+function isLyricOrTextLine(line: string): boolean {
+  const trimmed = line.trim()
+  return trimmed.startsWith('L:') || trimmed.startsWith('@text ')
+}
+
+/**
+ * 把 before 中的一个偏移映射到 after 中的对应位置。
+ *
+ * 转调会重写文档中间的一段，用「整篇长度差」平移光标会在光标位于改动区之前时
+ * 把它推到没动过的文本后面。这里按公共前后缀分三种情形处理：
+ * 改动区之前不动、改动区之后平移、改动区之内钳到区末。
+ */
+export function remapOffset(before: string, after: string, offset: number): number {
+  if (before === after) return offset
+  const clamped = Math.max(0, Math.min(offset, before.length))
+  const shorter = Math.min(before.length, after.length)
+  let prefix = 0
+  while (prefix < shorter && before[prefix] === after[prefix]) prefix += 1
+  if (clamped <= prefix) return clamped
+  let suffix = 0
+  while (
+    suffix < shorter - prefix
+    && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]
+  ) {
+    suffix += 1
   }
-  return result
+  if (clamped >= before.length - suffix) return clamped + (after.length - before.length)
+  return after.length - suffix
+}
+
+/**
+ * 廉价预检：调号序列是否发生了任何变化(改值/新增/删除/顺序变动)。
+ *
+ * 只用于决定「要不要发请求」，真正的转调判定与区间定位由后端负责。
+ * 这里刻意宽松——多发一次请求只是浪费，漏发则功能失效。
+ */
+export function hasKeyChange(oldText: string, newText: string): boolean {
+  const oldKeys = detectKeyChanges(oldText).map((item) => item.key)
+  const newKeys = detectKeyChanges(newText).map((item) => item.key)
+  if (oldKeys.length !== newKeys.length) return true
+  return oldKeys.some((key, index) => key !== newKeys[index])
 }
 
 function shiftOctaveChars(octaveChars: string, direction: number): string {

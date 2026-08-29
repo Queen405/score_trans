@@ -35,6 +35,8 @@ export type {
   HistoryPageUpdateRequest,
   InstrumentProfile,
   InstrumentProfileCatalog,
+  JianpuRekeyRequest,
+  JianpuRekeyResponse,
   JianpuSnapshotItem,
   LlmProviderOption,
   MeasureNumberMode,

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from fractions import Fraction
 from math import gcd, lcm
+
+from .constants import DYNAMICS
+from .performance_marks import PERFORMANCE_MARKS
 
 _FINE_DURATION_PREFIXES = {
     "d" * count: Fraction(1, 2 ** (count + 2)) for count in range(1, 6)
@@ -31,6 +35,94 @@ _DURATION_PREFIXES_LONGEST_FIRST = tuple(
 )
 _MAX_GENERATED_DOTS = 3
 _ACCIDENTAL_PREFIXES_STARTING_WITH_DURATION = ("qf", "qs")
+
+# 演奏标记与力度记号的词表，最长优先匹配。
+# `^tr`、`\pp` 这类多字符写法必须整段匹配，否则调用方会把 `^t` 之后的 `r` 当成正文。
+_MARK_TOKENS_LONGEST_FIRST = tuple(
+    sorted({mark.token for mark in PERFORMANCE_MARKS}, key=len, reverse=True)
+)
+_DYNAMICS_LONGEST_FIRST = tuple(sorted(DYNAMICS, key=len, reverse=True))
+# 音高核心：[前缀变音]音级[八度点][后缀变音]。
+# 前后缀变音都要纳入，否则 `5#` 这类后缀写法会被截断成 `5`，
+# 替换时残留的 `#` 会与新的前缀变音叠加成 `b7,#` 这种语法损坏的 token。
+PITCH_CORE_PATTERN = re.compile(
+    r"(?:tqf|tqs|qf|qs|bb|x|n|\u266E|#|b)?[1-7][',]*(?:bb|x|#|b)?"
+)
+_PITCH_TRAILING_PATTERN = re.compile(r"[-.~)]*")
+
+
+def mark_token_prefix(value: str) -> str:
+    """返回 value 开头的演奏标记 token（不含 `^`）；无匹配返回空串。"""
+    return next(
+        (token for token in _MARK_TOKENS_LONGEST_FIRST if value.startswith(token)),
+        "",
+    )
+
+
+def dynamic_token_prefix(value: str) -> str:
+    """返回 value 开头的力度记号 token（不含 `\\`）；无匹配返回空串。"""
+    return next(
+        (token for token in _DYNAMICS_LONGEST_FIRST if value.startswith(token)),
+        "",
+    )
+
+
+def leading_decoration_length(token: str) -> int:
+    """返回 token 开头连续的非音高装饰长度（圆滑线、延音线、力度、演奏标记）。"""
+    index = 0
+    while index < len(token):
+        char = token[index]
+        if char in "(~":
+            index += 1
+            continue
+        if char == "\\":
+            dynamic = dynamic_token_prefix(token[index + 1 :])
+            if not dynamic:
+                break
+            index += 1 + len(dynamic)
+            continue
+        if char == "^":
+            mark = mark_token_prefix(token[index + 1 :])
+            if not mark:
+                break
+            index += 1 + len(mark)
+            continue
+        break
+    return index
+
+
+def pitch_core_spans(token: str) -> list[tuple[int, int]]:
+    """定位一个空白分隔 token 内所有音高核心的 (start, end)。
+
+    覆盖时值前缀（q1/h5.）、和弦（[1+3+5]）、前后缀变音、力度与演奏标记附着
+    （\\pp1、^tr1）、时值延长与附点（1-、1.）、圆滑线与延音线。
+    休止符 0、小节线、重复次数 *2、小节标签 12: 等返回空列表。
+    """
+    if not token or token == "0":
+        return []
+    index = leading_decoration_length(token)
+    index += len(duration_prefix(token[index:]))
+    if index < len(token) and token[index] == "[":
+        close = token.find("]", index)
+        if close < 0:
+            return []
+        if _PITCH_TRAILING_PATTERN.fullmatch(token[close + 1 :]) is None:
+            return []
+        spans: list[tuple[int, int]] = []
+        cursor = index + 1
+        for match in PITCH_CORE_PATTERN.finditer(token, cursor, close):
+            # 元素之间只允许 `+` 分隔，否则该 `[...]` 不是合法和弦。
+            if token[cursor : match.start()].strip("+"):
+                return []
+            spans.append((match.start(), match.end()))
+            cursor = match.end()
+        return spans if not token[cursor:close].strip("+") else []
+    match = PITCH_CORE_PATTERN.match(token, index)
+    if match is None:
+        return []
+    if _PITCH_TRAILING_PATTERN.fullmatch(token[match.end() :]) is None:
+        return []
+    return [(match.start(), match.end())]
 
 
 def duration_prefix(token: str) -> str:

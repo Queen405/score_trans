@@ -551,21 +551,10 @@ export type paths = {
          * Rekey Text Route
          * @description 根据之前的简谱文本，将当前文本中的音符按新调号转调以保持音高不变。
          *
-         *     Args:
-         *         text: 当前简谱文本（包含新调号）
-         *         previous_text: 之前的简谱文本（包含旧调号）
-         *
-         *     Returns:
-         *         transposed_text: 转调后的文本
-         *
          *     Example:
-         *         # C 调转 G 调
          *         POST /jianpu/rekey
-         *         {
-         *             "text": "1=G\n4 5 6",
-         *             "previous_text": "1=C\n4 5 6"
-         *         }
-         *         → {"transposed_text": "1=G\n1 2 3"}
+         *         {"text": "1=G\n4 5 6", "previous_text": "1=C\n4 5 6"}
+         *         → {"transposed_text": "1=G\nb7, 1 2"}
          */
         post: operations["rekey_text_route_jianpu_rekey_post"];
         delete?: never;
@@ -1733,6 +1722,27 @@ export type components = {
             name: string;
             /** Range Examples */
             range_examples?: components["schemas"]["SyntaxExample"][];
+        };
+        /** JianpuRekeyRequest */
+        JianpuRekeyRequest: {
+            /**
+             * Previous Text
+             * @description 之前的简谱文本（用于获取旧调号信息）
+             */
+            previous_text: string;
+            /**
+             * Text
+             * @description 当前简谱文本（包含新的调号）
+             */
+            text: string;
+        };
+        /** JianpuRekeyResponse */
+        JianpuRekeyResponse: {
+            /**
+             * Transposed Text
+             * @description 转调后的文本
+             */
+            transposed_text: string;
         };
         /** JianpuSnapshotItem */
         JianpuSnapshotItem: {
@@ -4131,7 +4141,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JianpuRekeyRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -4139,9 +4153,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["JianpuRekeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
