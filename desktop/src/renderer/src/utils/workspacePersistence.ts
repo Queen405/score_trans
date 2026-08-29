@@ -142,20 +142,30 @@ export function createWorkspacePersistence(
     return saved
   }
 
+  // 保存期间落地的异步写入（自动转调、后台任务回调）会把批次重新标脏。
+  // captureBatchChangeRevision / acknowledgeBatchChanges 的 max 协议能检测到这一点，
+  // 但检测信号应当接到一次重试上，而不是接到硬失败上 —— 单趟保存后直接抛错会让
+  // 任何落在 await 窗口里的写入都取消关闭。有界重试让常见情况自动收敛。
   async function saveAllUnsavedBatches(
     store: WorkspacePersistenceStore,
+    maxPasses = 3,
   ): Promise<void> {
-    const ids = store.batches
-      .map((batch) => batch.id)
-      .filter((batchId) => store.isBatchUnsaved(batchId))
-    if (store.currentBatchId && ids.includes(store.currentBatchId)) {
-      ids.splice(ids.indexOf(store.currentBatchId), 1)
-      ids.unshift(store.currentBatchId)
+    for (let pass = 0; pass < maxPasses; pass += 1) {
+      const ids = store.batches
+        .map((batch) => batch.id)
+        .filter((batchId) => store.isBatchUnsaved(batchId))
+      if (store.currentBatchId && ids.includes(store.currentBatchId)) {
+        ids.splice(ids.indexOf(store.currentBatchId), 1)
+        ids.unshift(store.currentBatchId)
+      }
+      // 仍然 dirty 但没有可保存的批次：无 batchId 的草稿状态，持久化层无从下手。
+      // 继续循环只会空转，跳出去让调用方看到真实原因。
+      if (!ids.length) break
+      for (const batchId of ids) await saveBatch(store, batchId)
+      if (!store.hasUnsavedChanges) return
     }
-    for (const batchId of ids) await saveBatch(store, batchId)
-    if (store.hasUnsavedChanges) {
-      throw new Error('New edits were made while saving; close was cancelled')
-    }
+    if (!store.hasUnsavedChanges) return
+    throw new Error('New edits were made while saving; close was cancelled')
   }
 
   async function saveRenderState(

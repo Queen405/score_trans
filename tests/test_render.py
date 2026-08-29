@@ -118,7 +118,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-11"
+    assert root.attrib["data-engine-version"] == "publication-12"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -797,9 +797,7 @@ def test_multiple_tuplet_groups_have_compact_intrinsic_width() -> None:
     assert _intrinsic_measure_width(measure, PublicationStyle()) < 650
 
 
-def test_subdivided_beats_get_a_boundary_gap() -> None:
-    # 16 sixteenths in 4/4: within-beat gaps are uniform; each beat boundary
-    # (indices 3, 7, 11) carries a small extra gap so beats stay distinguishable.
+def _sixteenth_run(count: int = 16) -> tuple[list[Event], Measure]:
     events = [
         Event(
             kind="note",
@@ -807,19 +805,77 @@ def test_subdivided_beats_get_a_boundary_gap() -> None:
             start=Fraction(index, 4),
             pitches=[JianpuPitch(index % 7 + 1)],
         )
-        for index in range(16)
+        for index in range(count)
     ]
     measure = Measure(
-        "1", duration=Fraction(4), events=events, beats_per_measure=4, beat_type=4
+        "1",
+        duration=Fraction(count, 4),
+        events=events,
+        beats_per_measure=count // 4,
+        beat_type=4,
     )
+    return events, measure
+
+
+def _boundary_within_ratio(
+    events: list[Event],
+    measure: Measure,
+    left: float,
+    right: float,
+    style: PublicationStyle,
+    boundary_indices: set[int],
+) -> float:
+    centers = _event_positions(events, left, right, measure, style)
+    gaps = [end - start for start, end in pairwise(centers)]
+    boundary = [gaps[index] for index in boundary_indices]
+    within = [gap for index, gap in enumerate(gaps) if index not in boundary_indices]
+    return (sum(boundary) / len(boundary)) / (sum(within) / len(within))
+
+
+def test_subdivided_beats_get_a_boundary_gap() -> None:
+    # 16 sixteenths in 4/4: within-beat gaps are uniform; each beat boundary
+    # (indices 3, 7, 11) is widened by a ratio so beats stay distinguishable.
+    events, measure = _sixteenth_run()
     style = PublicationStyle()
     centers = _event_positions(events, 100.0, 900.0, measure, style)
     gaps = [right - left for left, right in pairwise(centers)]
     boundary_gaps = [gaps[i] for i in (3, 7, 11)]
     within_gaps = [gap for index, gap in enumerate(gaps) if index not in {3, 7, 11}]
 
-    assert min(boundary_gaps) - max(within_gaps) >= style.beat_boundary_gap - 0.5
+    # A ratio, not an absolute increment: the visible division must survive
+    # whatever stretch factor the line density imposes.
+    ratio = min(boundary_gaps) / max(within_gaps)
+    assert ratio >= 1.0 + style.beat_boundary_ratio - 0.02
     assert max(within_gaps) - min(within_gaps) < 1.0
+
+
+def test_beat_boundary_ratio_is_stable_across_line_density() -> None:
+    # The core guarantee of the ratio-based approach: the same events laid out
+    # at three very different spans keep the same boundary/within proportion.
+    # The old absolute-increment implementation drifted 1.24 / 1.16 / 1.08 here,
+    # which is why the division was invisible on wide systems.
+    events, measure = _sixteenth_run()
+    style = PublicationStyle()
+    ratios = [
+        _boundary_within_ratio(events, measure, 100.0, right, style, {3, 7, 11})
+        for right in (640.0, 900.0, 1600.0)
+    ]
+
+    assert max(ratios) - min(ratios) < 0.02
+    assert min(ratios) >= 1.0 + style.beat_boundary_ratio - 0.02
+
+
+def test_overfull_measure_keeps_beat_division() -> None:
+    # 24 sixteenths crammed into a narrow span falls back to
+    # _bounded_event_positions; the beat division must survive that path too.
+    events, measure = _sixteenth_run(24)
+    style = PublicationStyle()
+    boundary_indices = {3, 7, 11, 15, 19}
+    ratio = _boundary_within_ratio(
+        events, measure, 100.0, 400.0, style, boundary_indices
+    )
+
+    assert ratio >= 1.0 + style.beat_boundary_ratio - 0.05
 
 
 def test_one_note_per_beat_has_no_boundary_gap() -> None:

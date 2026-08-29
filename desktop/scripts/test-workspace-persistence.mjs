@@ -158,6 +158,52 @@ test('save-all refuses to finish when an edit remains after the batch pass', asy
   )
 })
 
+test('save-all retries once when an async write dirties the batch mid-save', async () => {
+  // 自动转调的 debounce 落进 saveBatch 的 await 窗口：第 1 趟保存后批次仍脏，
+  // 第 2 趟必须自动收敛，而不是取消关闭。
+  const pages = [page(0)]
+  const store = fakeStore(pages)
+  let saveCount = 0
+  // 第 1 趟保存结束时仍脏（转调在 await 窗口里落地），第 2 趟结束才干净。
+  Object.defineProperty(store, 'hasUnsavedChanges', {
+    get: () => saveCount < 2,
+  })
+  const persistence = createWorkspacePersistence({
+    saveBatch: async (id) => {
+      saveCount += 1
+      return { data: response(id, pages), error: null }
+    },
+    create: async () => assert.fail('create must not be called'),
+    updateRenderState: async () => assert.fail('render-state must not be called'),
+  })
+
+  await persistence.saveAllUnsavedBatches(store)
+
+  assert.equal(saveCount, 2)
+})
+
+test('save-all gives up after a bounded number of passes', async () => {
+  // 持续编辑不能让循环无界：仍然抛错，且请求次数有上限。
+  const pages = [page(0)]
+  const store = fakeStore(pages)
+  store.hasUnsavedChanges = true
+  let saveCount = 0
+  const persistence = createWorkspacePersistence({
+    saveBatch: async (id) => {
+      saveCount += 1
+      return { data: response(id, pages), error: null }
+    },
+    create: async () => assert.fail('create must not be called'),
+    updateRenderState: async () => assert.fail('render-state must not be called'),
+  })
+
+  await assert.rejects(
+    persistence.saveAllUnsavedBatches(store),
+    /New edits were made while saving/,
+  )
+  assert.equal(saveCount, 3)
+})
+
 test('new batch save creates once and binds returned history ids', async () => {
   const pages = [page(0, null), page(1, null)]
   const store = fakeStore(pages)

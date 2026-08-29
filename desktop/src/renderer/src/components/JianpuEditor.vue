@@ -203,7 +203,7 @@ function getSelectionRange(): { start: number; end: number } | null {
   return { start: element.selectionStart ?? 0, end: element.selectionEnd ?? 0 }
 }
 
-defineExpose({ selectRange, getSelectionRange })
+defineExpose({ selectRange, getSelectionRange, flushPendingAutoTranspose })
 
 const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
 interface HighlightToken extends JianpuSyntaxToken {
@@ -510,6 +510,14 @@ function scheduleKeyChangeCheck(before: string, after: string): void {
 const SKIP_MESSAGES: Record<string, string> = {
   parse_error: '简谱有语法错误，自动转调已跳过',
   unresolvable_key_change: '删除调号无法自动转调，请直接把调号改写成新调',
+}
+
+// 保存前调用：把待执行的转调立刻做完并等它落地，避免 debounce 落进保存窗口。
+// 刻意不用 cancel —— 丢掉待发转调会留下「新调号 + 未转调音符」的错谱，比报错更糟。
+async function flushPendingAutoTranspose(): Promise<void> {
+  if (keyChangeTimer === null) return
+  clearKeyChangeTimer()
+  await triggerAutoTranspose()
 }
 
 async function triggerAutoTranspose(): Promise<void> {

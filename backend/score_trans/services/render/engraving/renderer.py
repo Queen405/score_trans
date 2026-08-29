@@ -1001,13 +1001,15 @@ def _event_positions(
         return ideal_positions
 
     extents = [_event_visual_extents(event, style) for event in events]
-    boundaries = _beat_boundaries(measure)
+    # No beat_boundaries here on purpose: the visible beat division is produced
+    # by _apply_beat_boundary_gaps as a ratio after justification. Letting the
+    # absolute beat_boundary_gap into the justification base would compound the
+    # two and make the resulting ratio drift with line density.
     minimum_gaps = _minimum_event_gaps(
         events,
         extents,
         _common_shortest_duration(events),
         style,
-        boundaries,
     )
     minimum_relative = [0.0]
     for gap in minimum_gaps:
@@ -1041,7 +1043,7 @@ def _event_positions(
         start = minimum_start
     else:
         positions = _bounded_event_positions(
-            events, extents, left, right, ideal_positions, style
+            events, extents, left, right, ideal_positions, style, measure
         )
         return positions
     positions = [start + offset for offset in relative]
@@ -1069,6 +1071,10 @@ def _event_positions(
                     positions[index + offset] = start + offset * gap
             index = end
     _enforce_event_collisions(events, positions, style)
+    # Beat boundaries first: it redistributes at constant span, so every gap
+    # depends on the others' widths. Running it before the short-note control
+    # keeps that control's effect local to short-note gaps.
+    _apply_beat_boundary_gaps(events, positions, extents, measure, style)
     _apply_short_note_gaps(events, positions, extents, left, right, style)
     _enforce_event_collisions(events, positions, style)
     return positions
@@ -1171,6 +1177,108 @@ def _apply_short_note_gaps(
         positions[index] = start + offset
 
 
+def _redistribute_eligible_gaps(
+    positions: list[float],
+    extents: list[tuple[float, float, float, float]],
+    style: PublicationStyle,
+    eligible: list[bool],
+    locked: list[bool],
+    factor: float,
+) -> None:
+    """Widen the gaps flagged in ``eligible`` by ``factor`` at constant span.
+
+    A justified measure has no slack left, so the extra width is taken
+    proportionally from the adjustable non-eligible gaps rather than from the
+    margins. ``locked`` gaps neither widen nor donate, which keeps groups with
+    their own spacing contract (tuplets) intact. The total span is preserved, so
+    barlines do not move and the resulting ratio is independent of how far the
+    justification pass stretched the measure. Collision floors still win; if
+    they make the requested ratio infeasible a bisection retreats toward 1.0.
+    """
+    if factor == 1.0 or len(positions) < 2:
+        return
+    movable = [index for index, is_locked in enumerate(locked) if not is_locked]
+    if not any(eligible[index] for index in movable):
+        return
+    if all(eligible[index] for index in movable):
+        return
+    base_gaps = [
+        positions[index] - positions[index - 1] for index in range(1, len(positions))
+    ]
+    collision_gaps = [
+        extents[index - 1][1] - extents[index][0] + style.event_clearance
+        for index in range(1, len(extents))
+    ]
+    span = sum(base_gaps[index] for index in movable)
+    if span <= 0:
+        return
+
+    def candidate(candidate_factor: float) -> list[float] | None:
+        weights = [
+            base_gaps[index] * (candidate_factor if eligible[index] else 1.0)
+            for index in movable
+        ]
+        total = sum(weights)
+        if total <= 0:
+            return None
+        scale = span / total
+        gaps = list(base_gaps)
+        for index, weight in zip(movable, weights, strict=True):
+            gaps[index] = max(collision_gaps[index], weight * scale)
+        if sum(gaps[index] for index in movable) > span + 1e-9:
+            return None
+        return gaps
+
+    gaps = candidate(factor)
+    if gaps is None:
+        feasible, infeasible = 1.0, factor
+        gaps = candidate(feasible)
+        if gaps is None:
+            return
+        for _ in range(40):
+            midpoint = (feasible + infeasible) / 2
+            result = candidate(midpoint)
+            if result is None:
+                infeasible = midpoint
+            else:
+                feasible = midpoint
+                gaps = result
+
+    for index, gap in enumerate(gaps):
+        positions[index + 1] = positions[index] + gap
+
+
+def _apply_beat_boundary_gaps(
+    events: list[Event],
+    positions: list[float],
+    extents: list[tuple[float, float, float, float]],
+    measure: Measure,
+    style: PublicationStyle,
+) -> None:
+    """Widen gaps that cross a beat boundary out of a subdivided beat.
+
+    Applied after justification and at constant span, so the widening is a ratio
+    against the neighbouring within-beat gaps rather than an absolute increment
+    that the justification stretch would dilute. Tuplet gaps are locked out: a
+    tuplet run carries its own even-spacing contract.
+    """
+    if len(events) < 2:
+        return
+    eligible = _subdivided_beat_crossings(events, _beat_boundaries(measure))
+    locked = [
+        _is_tuplet(events[index - 1]) or _is_tuplet(events[index])
+        for index in range(1, len(events))
+    ]
+    _redistribute_eligible_gaps(
+        positions,
+        extents,
+        style,
+        eligible,
+        locked,
+        1.0 + style.beat_boundary_ratio,
+    )
+
+
 def _bounded_event_positions(
     events: list[Event],
     extents: list[tuple[float, float, float, float]],
@@ -1178,6 +1286,7 @@ def _bounded_event_positions(
     right: float,
     ideal_positions: list[float],
     style: PublicationStyle,
+    measure: Measure | None = None,
 ) -> list[float]:
     """Project an overfull event sequence into the content bounds.
 
@@ -1198,6 +1307,7 @@ def _bounded_event_positions(
         extents,
         _common_shortest_duration(events),
         style,
+        _beat_boundaries(measure) if measure is not None else None,
     )
     start = left - extents[0][0]
     end = right - extents[-1][1]

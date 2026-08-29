@@ -142,7 +142,10 @@
                 v-show="activeTab === 'recognize'"
                 :active="activeTab === 'recognize'"
               />
-              <convert-view v-show="activeTab === 'convert'" />
+              <convert-view
+                v-show="activeTab === 'convert'"
+                ref="convertViewRef"
+              />
               <syntax-view v-show="activeTab === 'syntax'" />
               <settings-view
                 v-show="activeTab === 'settings'"
@@ -361,6 +364,7 @@ const previousWorkspaceTab = ref<WorkspaceTab>('recognize')
 const discardModalVisible = ref(false)
 const pendingNavigation = ref<PendingNavigation | null>(null)
 const closeRequest = ref<CloseRequest | null>(null)
+const convertViewRef = ref<{ flushPendingEdits: () => Promise<void> } | null>(null)
 const closeConfirmVisible = ref(false)
 const closeSaving = ref(false)
 const closeSaveError = ref('')
@@ -485,6 +489,9 @@ async function saveAndClose(): Promise<void> {
   closeSaveError.value = ''
   store.setBusy(true)
   try {
+    // 先兑现待执行的异步编辑（自动转调），否则它会在保存的 await 窗口里
+    // 把批次重新标脏，导致 saveAllUnsavedBatches 报「保存期间又改了」。
+    await convertViewRef.value?.flushPendingEdits()
     await workspacePersistence.saveAllUnsavedBatches(store)
     closeConfirmVisible.value = false
     window.api.resolveCloseRequest(request.requestId, 'proceed')

@@ -558,7 +558,15 @@ const workspacePersistence = createWorkspacePersistence(historyApi, notifyHistor
 const discardConfirmVisible = ref(false)
 const discardConfirmAction = ref<'重置' | '恢复历史版本'>('重置')
 let discardConfirmResolver: ((value: boolean) => void) | null = null
-const jianpuEditorRef = ref<{ selectRange: (start: number, end: number) => boolean } | null>(null)
+const jianpuEditorRef = ref<{
+  selectRange: (
+    start: number,
+    end: number,
+    options?: { flash?: boolean },
+  ) => boolean
+  getSelectionRange: () => { start: number; end: number } | null
+  flushPendingAutoTranspose: () => Promise<void>
+} | null>(null)
 const svgPreviewRef = ref<{
   highlightSource: (sourceId: string) => Promise<boolean>
 } | null>(null)
@@ -2204,6 +2212,14 @@ function settleDiscardConfirmation(value: boolean): void {
   discardConfirmVisible.value = false
   resolve?.(value)
 }
+
+// 保存前把编辑器里待执行的异步写入兑现，避免它们落进 saveBatch 的 await 窗口
+// 而把批次重新标脏。见 App.vue 的 saveAndClose。
+async function flushPendingEdits(): Promise<void> {
+  await jianpuEditorRef.value?.flushPendingAutoTranspose()
+}
+
+defineExpose({ flushPendingEdits })
 
 </script>
 

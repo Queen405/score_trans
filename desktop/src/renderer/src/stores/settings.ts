@@ -330,7 +330,6 @@ export const useSettingsStore = defineStore('settings', () => {
           jianpu_system_gap_percent: next.jianpuSystemGapPercent,
           jianpu_short_note_gap_percent: next.jianpuShortNoteGapPercent,
           enable_omr_ocr: next.enableOmrOcr,
-          output_dir: next.outputDir,
           jianpu_auto_transpose: next.jianpuAutoTranspose,
           ocr_provider: next.providers.ocr.provider,
           ocr_api_key: next.providers.ocr.apiKey.trim() || undefined,
