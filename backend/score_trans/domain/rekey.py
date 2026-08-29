@@ -12,6 +12,7 @@ from .pitch_spelling import (
     written_pitch_to_jianpu_respelled,
 )
 from ..models.common.types import AccidentalMode
+from ..models.jianpu.types import RekeyResult, RekeySkipReason
 from ..models.score import JianpuPitch
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ def rekey_text(
     previous_text: str,
     *,
     accidental_mode: AccidentalMode = "auto",
-) -> str:
+) -> RekeyResult:
     """根据之前的简谱文本，将当前文本中的音符按新调号转调以保持音高不变。
 
     以 token 级定位调号(1=X，可独占一行或紧跟在小节线 | 之后)，覆盖顶部换调、
@@ -99,32 +100,39 @@ def rekey_text(
     处理多处改动与中途插入调号。只转调「变化的调号之后、到下一个调号(或文末)」
     之间的音符；调号、拍号、歌词、注释、小节线、空白与排版原样保留。
 
+    previous_text 只用于读取旧调号(纯正则扫描)，不参与记谱，因此刻意不做解析校验：
+    调用方(编辑器)的基线常是打字中间态，如 1= 或 1=E5，解析它们只会让整类真实
+    编辑无法转调。当前文本 text 仍须可解析，否则无法保证改写结果合法。
+
     调号 token 被删除的情形不做转调：新文本中已无该调号，无法从调号序列恢复
-    「哪些音符原属被删调号」的边界。
+    「哪些音符原属被删调号」的边界，此时返回 unresolvable_key_change。
     """
     try:
-        parse_jianpu_score(previous_text)
         parse_jianpu_score(text)
     except Exception as exc:  # noqa: BLE001
         logger.warning("解析简谱失败：%s", exc)
-        return text
+        return RekeyResult(text, "parse_error", str(exc))
 
     newline = _detect_newline(text)
     normalized = _normalize_newlines(text)
     old_tokens = _find_key_tokens(_normalize_newlines(previous_text))
     new_tokens = _find_key_tokens(normalized)
     if not new_tokens:
-        return text
+        return RekeyResult(text, "no_key_token")
 
-    segments = _changed_segments(old_tokens, new_tokens, normalized)
+    segments, saw_key_edit = _changed_segments(old_tokens, new_tokens, normalized)
     if not segments:
-        return text
+        # 调号序列没变属于正常无事发生；变了却定不出区间才是用户需要知道的跳过。
+        reason: RekeySkipReason | None = (
+            "unresolvable_key_change" if saw_key_edit else None
+        )
+        return RekeyResult(text, reason)
 
     lines = normalized.split("\n")
     # 区间互不重叠，倒序应用可让尚未处理的区间偏移保持有效。
     for segment in reversed(segments):
         _apply_segment(lines, segment, accidental_mode)
-    return newline.join(lines)
+    return RekeyResult(newline.join(lines))
 
 
 def _detect_newline(text: str) -> str:
@@ -164,14 +172,18 @@ def _changed_segments(
     old_tokens: list[_KeyToken],
     new_tokens: list[_KeyToken],
     text: str,
-) -> list[_Segment]:
-    """比对新旧调号序列，返回所有需要转调的区间（按出现顺序）。
+) -> tuple[list[_Segment], bool]:
+    """比对新旧调号序列，返回 (需转调的区间, 调号序列是否被改动过)。
 
     按 LCS 对齐而非下标配对：在中途插入调号时，下标配对会把「插入位置之后的
     段落」误判为原属后一个调号，用错旧调。
+
+    第二个返回值用于区分「调号根本没变」与「调号变了但定不出区间」（删除调号、
+    或插入调号时旧文本尚无生效调号）。两者都产出空区间，但只有后者需要提示用户。
     """
     line_lengths = [len(line) for line in text.split("\n")]
     segments: list[_Segment] = []
+    saw_key_edit = False
     # 走查对齐结果时记录「旧文本中此刻生效的调号」，用于新增调号的旧调来源。
     effective_old_key = ""
     for operation, old_index, new_index in _align_keys(
@@ -180,6 +192,7 @@ def _changed_segments(
         if operation == "equal":
             effective_old_key = old_tokens[old_index].key
             continue
+        saw_key_edit = True
         if operation == "delete":
             effective_old_key = old_tokens[old_index].key
             continue
@@ -193,7 +206,7 @@ def _changed_segments(
             segments.append(
                 _segment_for(new_tokens, new_index, old_key, new_key, line_lengths)
             )
-    return segments
+    return segments, saw_key_edit
 
 
 def _segment_for(
@@ -216,11 +229,27 @@ def _segment_for(
 
 
 def _align_keys(old_keys: list[str], new_keys: list[str]) -> list[tuple[str, int, int]]:
-    """按 LCS 对齐两个调号序列，返回 (操作, 旧下标, 新下标) 序列。
+    """对齐两个调号序列，返回 (操作, 旧下标, 新下标) 序列。
 
-    操作为 equal / replace / insert / delete。连续的 delete+insert 块按位置配成
-    replace，多出的部分保留为 insert 或 delete。
+    操作为 equal / replace / insert / delete。
+
+    调号数量相同时按下标逐位配对：数量不变意味着没有 token 被增删，因此第 i 个
+    调号必然对应第 i 个调号。这不是启发式，而是编辑器场景的定量事实——必须优先于
+    LCS，因为文档里出现重复调号时（多段/多页乐谱每段都写 1=C 是常态），LCS 会把
+    「改回一个与别处相同的调」错配成 delete+insert：
+        old=[D, C] new=[C, C] → LCS 把 old[1] 配给 new[0]，得到
+        delete(0) / equal(1,0) / insert(2)，位置 0 的真实 replace 就消失了，
+        而 insert 在位置 0 没有生效旧调，最终一个区间都产出不了。
+    这正是「从 C 转到别的调后再也转不回 C」的原因。
+
+    数量不同时才用 LCS：此时确有 token 增删，值匹配是唯一可用的锚点。连续的
+    delete+insert 块按位置配成 replace，多出的部分保留为 insert 或 delete。
     """
+    if len(old_keys) == len(new_keys):
+        return [
+            ("equal" if old_key == new_key else "replace", index, index)
+            for index, (old_key, new_key) in enumerate(zip(old_keys, new_keys))
+        ]
     matched = _lcs_pairs(old_keys, new_keys)
     operations: list[tuple[str, int, int]] = []
     old_cursor = 0

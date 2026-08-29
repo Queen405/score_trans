@@ -339,6 +339,10 @@ def test_jianpu_rekey_route_declares_its_request_and_response_schema() -> None:
     assert "text" in schemas["JianpuRekeyRequest"]["properties"]
     assert "previous_text" in schemas["JianpuRekeyRequest"]["properties"]
     assert "transposed_text" in schemas["JianpuRekeyResponse"]["properties"]
+    # The editor needs the skip reason to tell "nothing to do" apart from a
+    # silent failure, so it has to reach the generated frontend types.
+    assert "skip_reason" in schemas["JianpuRekeyResponse"]["properties"]
+    assert "skip_detail" in schemas["JianpuRekeyResponse"]["properties"]
     body = document["paths"]["/jianpu/rekey"]["post"]["requestBody"]
     assert body["content"]["application/json"]["schema"]["$ref"].endswith(
         "JianpuRekeyRequest"
@@ -354,7 +358,28 @@ def test_jianpu_rekey_transposes_the_segment_after_the_changed_key() -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {"transposed_text": "1=G\n4/4\nb7, 1 2"}
+    payload = response.json()
+    assert payload["transposed_text"] == "1=G\n4/4\nb7, 1 2"
+    assert payload["skip_reason"] is None
+
+
+def test_jianpu_rekey_reports_a_parse_error_instead_of_failing_silently() -> None:
+    # The parser requires a key to open a measure; "1=E" on a line whose previous
+    # line has no closing barline is rejected. The route still answers 200 with
+    # the input text, but names the reason so the editor can surface it.
+    client = TestClient(create_app(auth_disabled=True))
+    text = "1=C\n4/4\n1 2 3 4\n1=E 5 6 7 1"
+
+    response = client.post(
+        "/jianpu/rekey",
+        json={"text": text, "previous_text": "1=C\n4/4\n1 2 3 4\n5 6 7 1"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["transposed_text"] == text
+    assert payload["skip_reason"] == "parse_error"
+    assert payload["skip_detail"]
 
 
 def test_jianpu_rekey_rejects_a_missing_field_with_a_validation_error() -> None:

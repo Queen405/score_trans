@@ -43,7 +43,7 @@ async function loadModule(relativePath) {
 const transpose = await loadModule('../src/renderer/src/utils/jianpuTranspose.ts')
 const { AutoTransposeGate } = await loadModule('../src/renderer/src/utils/autoTransposeGate.ts')
 
-const { detectKeyChanges, hasKeyChange, remapOffset } = transpose
+const { detectKeyChanges, classifyKeyEdit, remapOffset } = transpose
 
 test('detectKeyChanges finds line-start, inline and multi-character keys', () => {
   assert.deepEqual(detectKeyChanges('1=C\n1 2 3'), [{ lineIndex: 0, key: 'C' }])
@@ -65,12 +65,14 @@ test('detectKeyChanges requires the key to be a standalone token', () => {
   assert.deepEqual(detectKeyChanges('1=Gx'), [])
 })
 
-test('hasKeyChange detects value change, insertion and deletion', () => {
-  assert.equal(hasKeyChange('1=C\n1 2', '1=G\n1 2'), true)
-  assert.equal(hasKeyChange('1=C\n1 2', '1=C\n1 2 |\n1=G\n3 4'), true)
-  assert.equal(hasKeyChange('1=C\n1 2 |\n1=G\n3 4', '1=C\n1 2'), true)
-  assert.equal(hasKeyChange('1=C\n1 2', '1=C\n1 2 3'), false)
-  assert.equal(hasKeyChange('1=C\n1 2', '1=C\n1 2'), false)
+test('classifyKeyEdit separates a real key change from typing intermediates', () => {
+  assert.equal(classifyKeyEdit('1=C\n1 2', '1=G\n1 2'), 'transposable')
+  assert.equal(classifyKeyEdit('1=C\n1 2', '1=C\n1 2 |\n1=G\n3 4'), 'transposable')
+  // Deleting the only key leaves nothing for the backend to anchor on.
+  assert.equal(classifyKeyEdit('1=C\n1 2 |\n1=G\n3 4', '1=C\n1 2'), 'transposable')
+  assert.equal(classifyKeyEdit('1=C\n1 2', '1=\n1 2'), 'no-key')
+  assert.equal(classifyKeyEdit('1=C\n1 2', '1=C\n1 2 3'), 'unchanged')
+  assert.equal(classifyKeyEdit('1=C\n1 2', '1=C\n1 2'), 'unchanged')
 })
 
 test('remapOffset keeps a cursor located before the edited region', () => {
@@ -110,11 +112,12 @@ test('remapOffset never returns an out-of-range offset', () => {
   }
 })
 
-// The gate is the regression guard for the bug where the editor reset its
-// baseline from a watcher on modelValue, so the pre-edit key was lost and the
-// backend was never called.
+// The gate is the regression guard for two silent failures: the editor used to
+// reset its baseline from a watcher on modelValue, and takePending used to clear
+// the baseline before deciding whether to dispatch — so every typing intermediate
+// (1=C -> 1= -> 1=D, or 1=E before its trailing space) burned the pre-edit text.
 function newGate() {
-  return new AutoTransposeGate(hasKeyChange)
+  return new AutoTransposeGate(classifyKeyEdit)
 }
 
 test('gate uses the pre-edit text as baseline, not the freshly typed text', () => {
@@ -140,19 +143,120 @@ test('gate skips edits that do not touch any key token', () => {
   assert.equal(gate.takePending('1=C\n1 2 3 4'), null)
 })
 
+test('gate keeps the baseline when the verdict is unchanged', () => {
+  // Scenario 2: typing "1=E" one character at a time. Every intermediate reads
+  // as unchanged, and the baseline must survive all of them so the final space
+  // dispatches with the original parseable document as previous_text.
+  const gate = newGate()
+  const original = '1=C\n4/4\n1 2 3 4 | 5 6 7 1 |'
+  const states = [
+    '1=C\n4/4\n1 2 3 4 | 15 6 7 1 |',
+    '1=C\n4/4\n1 2 3 4 | 1=5 6 7 1 |',
+    '1=C\n4/4\n1 2 3 4 | 1=E5 6 7 1 |',
+  ]
+  let before = original
+  for (const state of states) {
+    gate.recordEdit(before, state)
+    assert.equal(gate.takePending(state), null, `dispatched too early at ${state}`)
+    assert.ok(gate.hasPendingEdit, `baseline lost at ${state}`)
+    before = state
+  }
+  const final = '1=C\n4/4\n1 2 3 4 | 1=E 5 6 7 1 |'
+  gate.recordEdit(before, final)
+  assert.deepEqual(gate.takePending(final), { baseline: original, text: final })
+})
+
+test('gate keeps the baseline when the new text has no key left', () => {
+  // Scenario 1: delete the "C" of "1=C", pause past the debounce, then type "D".
+  // The keyless intermediate used to burn a request and the baseline, leaving the
+  // second cycle with no old key to transpose from.
+  const gate = newGate()
+  gate.recordEdit('1=C\n4/4\n1 2 3 4', '1=\n4/4\n1 2 3 4')
+  assert.equal(gate.takePending('1=\n4/4\n1 2 3 4'), null)
+  assert.ok(gate.hasPendingEdit)
+  gate.recordEdit('1=\n4/4\n1 2 3 4', '1=D\n4/4\n1 2 3 4')
+  assert.deepEqual(gate.takePending('1=D\n4/4\n1 2 3 4'), {
+    baseline: '1=C\n4/4\n1 2 3 4',
+    text: '1=D\n4/4\n1 2 3 4',
+  })
+})
+
 test('gate discards the edit when the text was replaced externally meanwhile', () => {
   const gate = newGate()
   gate.recordEdit('1=C\n1 2 3', '1=G\n1 2 3')
   assert.equal(gate.takePending('1=D\nsomething else'), null)
+  assert.equal(gate.hasPendingEdit, false)
 })
 
-test('gate clears pending state after takePending regardless of outcome', () => {
+test('gate discards a net no-op edit', () => {
+  const gate = newGate()
+  gate.recordEdit('1=C\n1 2 3', '1=C\n1 2 3')
+  assert.equal(gate.takePending('1=C\n1 2 3'), null)
+  assert.equal(gate.hasPendingEdit, false)
+})
+
+test('gate clears the pending baseline once a request is dispatched', () => {
   const gate = newGate()
   gate.recordEdit('1=C\n1 2 3', '1=G\n1 2 3')
   assert.ok(gate.hasPendingEdit)
   gate.takePending('1=G\n1 2 3')
   assert.equal(gate.hasPendingEdit, false)
   assert.equal(gate.takePending('1=G\n1 2 3'), null)
+})
+
+test('rollbackRequest returns the dispatched baseline for the next round', () => {
+  // The backend skipped (parse error, deleted key, no-op), so the pre-edit text
+  // is still the only record of the old key and must come back.
+  const gate = newGate()
+  gate.recordEdit('1=C\n1 2 3', '1=G\n1 2 3')
+  const dispatched = gate.takePending('1=G\n1 2 3')
+  const id = gate.beginRequest()
+  assert.equal(gate.hasPendingEdit, false)
+  gate.rollbackRequest(id)
+  assert.ok(gate.hasPendingEdit)
+  gate.recordEdit('1=G\n1 2 3', '1=D\n1 2 3')
+  assert.deepEqual(gate.takePending('1=D\n1 2 3'), {
+    baseline: dispatched.baseline,
+    text: '1=D\n1 2 3',
+  })
+})
+
+test('commitRequest drops the dispatched baseline so rollback cannot revive it', () => {
+  const gate = newGate()
+  gate.recordEdit('1=C\n1 2 3', '1=G\n1 2 3')
+  gate.takePending('1=G\n1 2 3')
+  const id = gate.beginRequest()
+  gate.commitRequest()
+  gate.rollbackRequest(id)
+  assert.equal(gate.hasPendingEdit, false)
+})
+
+test('rollbackRequest does not clobber a newer baseline typed during the request', () => {
+  // Keystrokes landing mid-flight record a baseline closer to the current
+  // document; the older dispatched one must not overwrite it.
+  const gate = newGate()
+  gate.recordEdit('1=C\n1 2 3', '1=G\n1 2 3')
+  gate.takePending('1=G\n1 2 3')
+  const id = gate.beginRequest()
+  gate.recordEdit('1=G\n1 2 3', '1=G\n1 2 3 4')
+  gate.rollbackRequest(id)
+  gate.recordEdit('1=G\n1 2 3 4', '1=D\n1 2 3 4')
+  assert.deepEqual(gate.takePending('1=D\n1 2 3 4'), {
+    baseline: '1=G\n1 2 3',
+    text: '1=D\n1 2 3 4',
+  })
+})
+
+test('rollbackRequest for a superseded request leaves the newer one alone', () => {
+  const gate = newGate()
+  gate.recordEdit('1=C\n1 2 3', '1=G\n1 2 3')
+  gate.takePending('1=G\n1 2 3')
+  const stale = gate.beginRequest()
+  const fresh = gate.beginRequest()
+  gate.rollbackRequest(stale)
+  assert.equal(gate.hasPendingEdit, false, 'stale rollback must not restore')
+  gate.rollbackRequest(fresh)
+  assert.ok(gate.hasPendingEdit)
 })
 
 test('gate rejects a stale response when a newer request was started', () => {
@@ -169,18 +273,14 @@ test('gate rejects a response whose request text is no longer current', () => {
   assert.equal(gate.acceptResponse(id, '1=G\n1 2 3', '1=G\n1 2 3 4'), false)
 })
 
-test('gate reset drops pending edits and invalidates in-flight responses', () => {
+test('gate reset drops pending edits, dispatched baseline and in-flight responses', () => {
   const gate = newGate()
   gate.recordEdit('1=C\n1 2 3', '1=G\n1 2 3')
+  gate.takePending('1=G\n1 2 3')
   const id = gate.beginRequest()
   gate.reset()
   assert.equal(gate.hasPendingEdit, false)
-  assert.equal(gate.takePending('1=G\n1 2 3'), null)
+  gate.rollbackRequest(id)
+  assert.equal(gate.hasPendingEdit, false, 'reset must also clear dispatched')
   assert.equal(gate.acceptResponse(id, '1=G\n1 2 3', '1=G\n1 2 3'), false)
-})
-
-test('gate ignores a no-op edit where before equals after', () => {
-  const gate = newGate()
-  gate.recordEdit('1=C\n1 2 3', '1=C\n1 2 3')
-  assert.equal(gate.takePending('1=C\n1 2 3'), null)
 })

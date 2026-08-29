@@ -45,7 +45,7 @@
 | domain/jianpu_tokens.py | 时值、附点、延长线、连音组与音高核心 span 定位 |
 | domain/accidentals.py | 变音记号和调式转换 |
 | domain/pitch_spelling.py | 音名、调号、书写音高转换与等音重拼 |
-| domain/rekey.py | 换调号时按绝对音高重记谱，保留排版与非音符 token |
+| domain/rekey.py | 换调号时按绝对音高重记谱，保留排版与非音符 token；无法转调时回传跳过原因 |
 | domain/performance_marks.py | 演奏记号目录与查找 |
 | domain/provenance.py | source anchor 和 provenance 合并 |
 | domain/text_attachments.py | OCR 文字附件和源区域关联 |
@@ -86,6 +86,7 @@
 | models/history/entities.py | HistoryBatch、HistoryPage 等持久化实体 |
 | models/common/errors.py | 外部工具、OCR、AI、渲染和校验错误 |
 | models/common/paths.py | 项目、用户数据、缓存和旧目录迁移路径 |
+| models/jianpu/types.py | RekeyResult 与跳过原因，供 domain/service/api 共用 |
 | dao/history/history_dao.py | history schema、迁移、批次/页面 CRUD |
 | dao/settings/settings_dao.py | key-value 设置和旧设置迁移 |
 | dao/tasks/task_dao.py | 后台任务状态 |

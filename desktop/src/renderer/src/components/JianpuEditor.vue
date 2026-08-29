@@ -127,7 +127,7 @@ import {
   type JianpuPageSummary,
 } from '../utils/jianpuPageSections'
 import { loadEditorScroll, saveEditorScroll } from '../composables/useViewPersistence'
-import { hasKeyChange, remapOffset } from '../utils/jianpuTranspose'
+import { classifyKeyEdit, remapOffset } from '../utils/jianpuTranspose'
 import { AutoTransposeGate } from '../utils/autoTransposeGate'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
@@ -483,7 +483,7 @@ function onInput(e: Event): void {
 // 基线时机与竞态判定全部在 AutoTransposeGate 里，此处只负责计时器与 DOM。
 let keyChangeTimer: ReturnType<typeof setTimeout> | null = null
 const KEY_CHANGE_DEBOUNCE_MS = 600
-const autoTransposeGate = new AutoTransposeGate(hasKeyChange)
+const autoTransposeGate = new AutoTransposeGate(classifyKeyEdit)
 
 function clearKeyChangeTimer(): void {
   if (keyChangeTimer !== null) {
@@ -505,6 +505,13 @@ function scheduleKeyChangeCheck(before: string, after: string): void {
   }, KEY_CHANGE_DEBOUNCE_MS)
 }
 
+// 后端跳过转调时的提示。no_key_token 理论上被 classifyKeyEdit 的 no-key 预检拦下，
+// 走到这里说明前后端调号词表出现分歧，静默回滚即可，不必打扰用户。
+const SKIP_MESSAGES: Record<string, string> = {
+  parse_error: '简谱有语法错误，自动转调已跳过',
+  unresolvable_key_change: '删除调号无法自动转调，请直接把调号改写成新调',
+}
+
 async function triggerAutoTranspose(): Promise<void> {
   const pending = autoTransposeGate.takePending(props.modelValue)
   if (pending === null) return
@@ -513,15 +520,33 @@ async function triggerAutoTranspose(): Promise<void> {
     text: pending.text,
     previous_text: pending.baseline,
   })
-  if (!autoTransposeGate.acceptResponse(requestId, pending.text, props.modelValue)) return
+  if (!autoTransposeGate.acceptResponse(requestId, pending.text, props.modelValue)) {
+    // 在途期间文档被改动，结果作废；但基线要还回去，否则这次编辑的旧调就丢了。
+    autoTransposeGate.rollbackRequest(requestId)
+    return
+  }
   if (result.error) {
     logStore.addError(`自动转调失败：${result.error}`)
     message.warning('自动转调失败，音符未改动')
+    autoTransposeGate.rollbackRequest(requestId)
+    return
+  }
+  const skipReason = result.data?.skip_reason
+  if (skipReason) {
+    const detail = result.data?.skip_detail
+    if (detail) logStore.addError(`自动转调已跳过（${skipReason}）：${detail}`)
+    const hint = SKIP_MESSAGES[skipReason]
+    if (hint) message.warning(hint)
+    autoTransposeGate.rollbackRequest(requestId)
     return
   }
   const transposed = result.data?.transposed_text
-  if (!transposed || transposed === pending.text) return
+  if (!transposed || transposed === pending.text) {
+    autoTransposeGate.rollbackRequest(requestId)
+    return
+  }
   applyTransposed(pending.text, transposed)
+  autoTransposeGate.commitRequest()
 }
 
 function applyTransposed(before: string, after: string): void {

@@ -551,10 +551,13 @@ export type paths = {
          * Rekey Text Route
          * @description 根据之前的简谱文本，将当前文本中的音符按新调号转调以保持音高不变。
          *
+         *     未能转调时仍返回 200，transposed_text 为原样输入，skip_reason 说明原因，
+         *     供编辑器决定是否提示用户。
+         *
          *     Example:
          *         POST /jianpu/rekey
          *         {"text": "1=G\n4 5 6", "previous_text": "1=C\n4 5 6"}
-         *         → {"transposed_text": "1=G\nb7, 1 2"}
+         *         → {"transposed_text": "1=G\nb7, 1 2", "skip_reason": null, "skip_detail": ""}
          */
         post: operations["rekey_text_route_jianpu_rekey_post"];
         delete?: never;
@@ -1738,6 +1741,17 @@ export type components = {
         };
         /** JianpuRekeyResponse */
         JianpuRekeyResponse: {
+            /**
+             * Skip Detail
+             * @description 跳过原因的补充说明，例如解析器的报错原文
+             * @default
+             */
+            skip_detail?: string;
+            /**
+             * Skip Reason
+             * @description 未转调的原因；None 表示正常（已转调，或调号未变本就无需转调）
+             */
+            skip_reason?: ("parse_error" | "no_key_token" | "unresolvable_key_change") | null;
             /**
              * Transposed Text
              * @description 转调后的文本

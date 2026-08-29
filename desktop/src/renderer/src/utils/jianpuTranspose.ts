@@ -65,17 +65,29 @@ export function remapOffset(before: string, after: string, offset: number): numb
   return after.length - suffix
 }
 
+export type KeyEditVerdict = 'unchanged' | 'no-key' | 'transposable'
+
 /**
- * 廉价预检：调号序列是否发生了任何变化(改值/新增/删除/顺序变动)。
+ * 一次编辑相对基线的调号判定。
  *
- * 只用于决定「要不要发请求」，真正的转调判定与区间定位由后端负责。
- * 这里刻意宽松——多发一次请求只是浪费，漏发则功能失效。
+ * - unchanged：调号值序列没变，无需转调。
+ * - no-key：新文本已无任何调号 token，后端必然无从下手。
+ * - transposable：调号序列确实变了且新文本仍有调号，值得发一次请求。
+ *
+ * 前两者多为打字中间态（如 1=C 删成 1=、1=E 尚未补空格），调用方应当保留基线，
+ * 否则最初那个「编辑前的合法文本」会被中间态换掉，真正的换调就再也找不到旧调。
+ *
+ * 判定刻意宽松——真正的区间定位与转调由后端负责；多发一次请求只是浪费，
+ * 漏发则功能失效。
  */
-export function hasKeyChange(oldText: string, newText: string): boolean {
+export function classifyKeyEdit(oldText: string, newText: string): KeyEditVerdict {
   const oldKeys = detectKeyChanges(oldText).map((item) => item.key)
   const newKeys = detectKeyChanges(newText).map((item) => item.key)
-  if (oldKeys.length !== newKeys.length) return true
-  return oldKeys.some((key, index) => key !== newKeys[index])
+  const changed = oldKeys.length !== newKeys.length
+    || oldKeys.some((key, index) => key !== newKeys[index])
+  if (!changed) return 'unchanged'
+  if (!newKeys.length) return 'no-key'
+  return 'transposable'
 }
 
 function shiftOctaveChars(octaveChars: string, direction: number): string {
