@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import logging
 import xml.etree.ElementTree as ET
 
 from ...utils.safe_xml import safe_xml_fromstring
 from .clef_transform import transform_pitch
 from .entity_service import CorrectableEntity
+
+logger = logging.getLogger(__name__)
 
 
 def apply_deletions(
@@ -70,9 +73,17 @@ def _matching_elements(root: ET.Element, entity: CorrectableEntity) -> list[ET.E
     ]
 
 
-def _single_matching_element(root: ET.Element, entity: CorrectableEntity) -> ET.Element:
+def _single_matching_element(
+    root: ET.Element, entity: CorrectableEntity
+) -> ET.Element | None:
     matches = _matching_elements(root, entity)
-    if len(matches) != 1:
+    if not matches:
+        # Audiveris 的 score-link-map 偶尔为结构元素引用了 MusicXML 未导出的 id
+        # （谱号/调号通常只给首个标注 id）。这种幻影引用没有可删除的元素，
+        # 跳过而非中断整批修正；真正的歧义（>1）仍需报错以免删错。
+        logger.warning("跳过无法定位的标记 %s：MusicXML 中无对应元素", entity.source_id)
+        return None
+    if len(matches) > 1:
         raise ValueError(
             f"标记 {entity.source_id} 的 MusicXML 定位结果不唯一：{len(matches)}"
         )
@@ -97,8 +108,12 @@ def _parent(root: ET.Element, child: ET.Element) -> ET.Element | None:
     return None
 
 
-def _target_note(root: ET.Element, ns: str, entity: CorrectableEntity) -> ET.Element:
+def _target_note(
+    root: ET.Element, ns: str, entity: CorrectableEntity
+) -> ET.Element | None:
     matched = _single_matching_element(root, entity)
+    if matched is None:
+        return None
     note = _ancestor(root, matched, _q(ns, "note"))
     if note is None:
         raise ValueError(f"标记 {entity.source_id} 未定位到音符")
@@ -111,6 +126,8 @@ def _replace_note_head_with_rest(
     entity: CorrectableEntity,
 ) -> None:
     note = _target_note(root, ns, entity)
+    if note is None:
+        return
     measure = _parent(root, note)
     if measure is None:
         raise ValueError(f"音符 {entity.source_id} 缺少小节容器")
@@ -147,6 +164,8 @@ def _replace_note_head_with_rest(
 
 def _remove_note(root: ET.Element, ns: str, entity: CorrectableEntity) -> None:
     note = _target_note(root, ns, entity)
+    if note is None:
+        return
     parent = _parent(root, note)
     if parent is None:
         raise ValueError(f"音符 {entity.source_id} 缺少小节容器")
@@ -155,6 +174,8 @@ def _remove_note(root: ET.Element, ns: str, entity: CorrectableEntity) -> None:
 
 def _remove_accidental(root: ET.Element, ns: str, entity: CorrectableEntity) -> None:
     note = _target_note(root, ns, entity)
+    if note is None:
+        return
     accidental = note.find(_q(ns, "accidental"))
     if accidental is not None:
         note.remove(accidental)
@@ -170,6 +191,8 @@ def _delete_attribute_element(
     expected_local_name: str,
 ) -> None:
     target = _single_matching_element(root, entity)
+    if target is None:
+        return
     if _local_name(target.tag) != expected_local_name:
         target = next(
             (
@@ -193,6 +216,8 @@ def _delete_clef_with_pitch_transform(
     entity: CorrectableEntity,
 ) -> None:
     target = _single_matching_element(root, entity)
+    if target is None:
+        return
     if _local_name(target.tag) != "clef":
         target = _ancestor(root, target, _q(ns, "clef"))
     if target is None:

@@ -50,13 +50,14 @@ function selectDiagnostic(diagnostic: SyntaxDiagnostic): void {
 .syntax-diagnostic-panel {
   height: 100%;
   overflow-y: auto;
-  padding: 8px 12px;
+  padding: 4px 16px 8px;
   font-family: 'Cascadia Code', 'Consolas', monospace;
   font-size: 11.5px;
+  line-height: 1.7;
 }
 
 .syntax-diagnostic-state {
-  padding: 10px 4px;
+  padding: 1px 0;
   color: var(--text-tertiary);
 }
 
@@ -67,9 +68,9 @@ function selectDiagnostic(diagnostic: SyntaxDiagnostic): void {
 .syntax-diagnostic {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 5px 6px;
+  padding: 1px 0;
   border: 0;
   border-left: 2px solid transparent;
   background: transparent;
@@ -108,7 +109,6 @@ function selectDiagnostic(diagnostic: SyntaxDiagnostic): void {
 
 .syntax-diagnostic-message {
   min-width: 0;
-  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 </style>

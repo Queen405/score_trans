@@ -166,6 +166,46 @@ def test_apply_deletions_rejects_unknown_or_ambiguous_locator() -> None:
         apply_deletions(xml, ["key"], {"key": entity})
 
 
+def test_apply_deletions_skips_phantom_reference_instead_of_aborting() -> None:
+    """Audiveris 的 score-link-map 偶尔引用 MusicXML 未导出的 id（结构元素尤甚）。
+    定位到 0 个元素时跳过该标记（无可删除对象），其余删除照常应用，不中断整批。"""
+    xml = """<score-partwise><part id="P1"><measure number="1">
+      <attributes><key id="key-real"><fifths>-2</fifths></key></attributes>
+      <note id="note-real"><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>
+    </measure></part></score-partwise>"""
+    phantom = _entity("phantom", "key", "key-s1-i4997")
+    real_head = _entity("head", "head", "note-real")
+
+    corrected = ET.fromstring(
+        apply_deletions(
+            xml, ["phantom", "head"], {"phantom": phantom, "head": real_head}
+        )
+    )
+
+    # 幻影调号被跳过：原 key 仍在
+    assert len(list(corrected.iter("key"))) == 1
+    # 真实音符被删除并改为休止符
+    note = corrected.find(".//note")
+    assert note is not None
+    assert note.find("rest") is not None
+    assert note.find("pitch") is None
+    assert note.get("print-object") == "no"
+
+
+def test_apply_deletions_skips_phantom_note_reference() -> None:
+    """音符级幻影引用同样跳过：定位到 0 个元素时不报错、不改动 MusicXML。"""
+    xml = """<score-partwise><part id="P1"><measure number="1">
+      <note id="note-real"><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>
+    </measure></part></score-partwise>"""
+    phantom_head = _entity("head", "head", "note-missing")
+
+    corrected = ET.fromstring(apply_deletions(xml, ["head"], {"head": phantom_head}))
+
+    note = corrected.find(".//note")
+    assert note is not None
+    assert note.find("pitch") is not None
+
+
 def test_extract_entities_uses_sheet_scoped_source_map_and_omr_dimensions(
     tmp_path: Path,
 ) -> None:

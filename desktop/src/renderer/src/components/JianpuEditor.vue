@@ -189,8 +189,10 @@ function selectRange(
 ): boolean {
   const element = textareaRef.value
   if (!element || start < 0 || end <= start || end > props.modelValue.length) return false
+  const savedScrollTop = element.scrollTop
   element.focus()
   element.setSelectionRange(start, end)
+  element.scrollTop = savedScrollTop
   const line = props.modelValue.slice(0, start).split('\n').length - 1
   if (options.flash !== false) triggerPageFlash(line)
   nextTick(() => scrollRangeIntoView(element, start, end))
@@ -351,6 +353,14 @@ function scrollRangeIntoView(el: HTMLTextAreaElement, start: number, end: number
   const selectedEnd = lineEnd < 0 ? end : Math.min(end, lineEnd)
   const startColumn = start - lineStart
   const endColumn = Math.max(startColumn + 1, selectedEnd - lineStart)
+  const line = props.modelValue.slice(0, start).split('\n').length - 1
+  const top = metrics.paddingTop + line * metrics.lineHeight
+  const bottom = top + metrics.lineHeight
+  if (top < el.scrollTop) {
+    el.scrollTop = Math.max(0, top - metrics.lineHeight)
+  } else if (bottom > el.scrollTop + el.clientHeight) {
+    el.scrollTop = bottom - el.clientHeight + metrics.lineHeight
+  }
   el.scrollLeft = horizontalScrollIntoView({
     scrollLeft: el.scrollLeft,
     clientWidth: el.clientWidth,

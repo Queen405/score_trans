@@ -541,21 +541,35 @@ function keepTargetVisible(target: SVGGraphicsElement): void {
 
   const margin = 32
   const scale = zp.scale.value
+  const vw = viewport.clientWidth
+  const vh = viewport.clientHeight
   const left = zp.tx.value + box.x * scale
   const right = zp.tx.value + (box.x + box.width) * scale
   const top = zp.ty.value + box.y * scale
   const bottom = zp.ty.value + (box.y + box.height) * scale
+  const targetW = right - left
+  const targetH = bottom - top
+  const availW = vw - 2 * margin
+  const availH = vh - 2 * margin
 
-  if (left < margin) {
-    zp.tx.value += margin - left
-  } else if (right > viewport.clientWidth - margin) {
-    zp.tx.value -= right - (viewport.clientWidth - margin)
+  if (targetW <= availW) {
+    if (left < margin) {
+      zp.tx.value += margin - left
+    } else if (right > vw - margin) {
+      zp.tx.value -= right - (vw - margin)
+    }
+  } else {
+    zp.tx.value += (vw - targetW) / 2 - left
   }
 
-  if (top < margin) {
-    zp.ty.value += margin - top
-  } else if (bottom > viewport.clientHeight - margin) {
-    zp.ty.value -= bottom - (viewport.clientHeight - margin)
+  if (targetH <= availH) {
+    if (top < margin) {
+      zp.ty.value += margin - top
+    } else if (bottom > vh - margin) {
+      zp.ty.value -= bottom - (vh - margin)
+    }
+  } else {
+    zp.ty.value += (vh - targetH) / 2 - top
   }
 
   zp.applyTransform()
