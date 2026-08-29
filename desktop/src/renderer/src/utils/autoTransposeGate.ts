@@ -44,8 +44,8 @@ export class AutoTransposeGate {
   /**
    * debounce 到期时调用，取出待发请求。
    *
-   * 只有判定为 transposable 才借出并清空 baseline；unchanged / no-key 时保留
-   * baseline，让它活到用户真正把新调号敲完整。
+   * transposable（改调号/加调号）与 key-removed（调号被删干净）才借出并清空
+   * baseline；unchanged / no-key 时保留 baseline，让它活到用户真正把调号敲完整。
    *
    * @param currentText 当前真实文本；与记录的 latest 不一致说明期间被外部覆盖
    *                    （切页、历史恢复等），此次编辑作废。
@@ -65,7 +65,8 @@ export class AutoTransposeGate {
       this.latest = null
       return null
     }
-    if (this.classifyKeyEdit(baseline, latest) !== 'transposable') return null
+    const verdict = this.classifyKeyEdit(baseline, latest)
+    if (verdict !== 'transposable' && verdict !== 'key-removed') return null
     this.baseline = null
     this.latest = null
     this.dispatched = baseline

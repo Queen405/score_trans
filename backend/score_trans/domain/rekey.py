@@ -30,6 +30,10 @@ _TOKEN = re.compile(r"\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+")
 
 _BARLINES = {"|", "||", "|:", ":|"}
 
+# 文本里没有任何调号时的管辖调，与 parse/jianpu_text.py 的 JianpuOptions.key
+# 默认值一致。两处必须同步：这里判定出的调，就是解析器随后用来读这段文本的调。
+_DEFAULT_KEY = "C"
+
 _NATURAL_TEXTS = ("n", "\u266e")
 # 前缀变音词表，最长优先（bb 必须先于 b，tqf/tqs 必须先于 qf/qs）。
 _PREFIX_ACCIDENTALS: tuple[tuple[str, Fraction], ...] = (
@@ -96,16 +100,22 @@ def rekey_text(
     """根据之前的简谱文本，将当前文本中的音符按新调号转调以保持音高不变。
 
     以 token 级定位调号(1=X，可独占一行或紧跟在小节线 | 之后)，覆盖顶部换调、
-    中途换调、行内换调与多字符调号(Bb/F#)。新旧调号序列按 LCS 对齐，一次调用可
-    处理多处改动与中途插入调号。只转调「变化的调号之后、到下一个调号(或文末)」
-    之间的音符；调号、拍号、歌词、注释、小节线、空白与排版原样保留。
+    中途换调、行内换调、删除调号与多字符调号(Bb/F#)。调号、拍号、歌词、注释、
+    小节线、空白与排版原样保留。
+
+    两条路径：
+    1. 纯调号编辑(剥掉调号后两段文本的非空行完全相同)时，音符一一对应，按每个
+       字符的「管辖调」逐段重写。删除调号能走通这条路——被删调号管辖的音符会
+       回退到此刻真正生效的调(前一个调号，或无调号时的 _DEFAULT_KEY)。
+    2. 内容也变了时落回按调号序列定位区间：调号数相同按下标配对，不同则按 LCS
+       对齐，只转调「变化的调号之后、到下一个调号(或文末)」之间的音符。
 
     previous_text 只用于读取旧调号(纯正则扫描)，不参与记谱，因此刻意不做解析校验：
     调用方(编辑器)的基线常是打字中间态，如 1= 或 1=E5，解析它们只会让整类真实
     编辑无法转调。当前文本 text 仍须可解析，否则无法保证改写结果合法。
 
-    调号 token 被删除的情形不做转调：新文本中已无该调号，无法从调号序列恢复
-    「哪些音符原属被删调号」的边界，此时返回 unresolvable_key_change。
+    删除调号并且同时改动音符的情形无解：音符无法一一对应，路径 1 的门控不成立，
+    路径 2 也定不出区间，此时返回 unresolvable_key_change。
     """
     try:
         parse_jianpu_score(text)
@@ -115,7 +125,20 @@ def rekey_text(
 
     newline = _detect_newline(text)
     normalized = _normalize_newlines(text)
-    old_tokens = _find_key_tokens(_normalize_newlines(previous_text))
+    previous_normalized = _normalize_newlines(previous_text)
+
+    # 先试管辖调路径。它必须早于 new_tokens 判空：删掉唯一调号后新文本已无 token，
+    # 但那恰恰是需要回退到 _DEFAULT_KEY 的情形。
+    rewritten = _rekey_by_governing_key(
+        previous_normalized, normalized, accidental_mode
+    )
+    if rewritten is not None:
+        if rewritten == normalized:
+            # 纯调号编辑但无改动：调号序列没变，或新旧管辖调本就相同。
+            return RekeyResult(text)
+        return RekeyResult(newline.join(rewritten.split("\n")))
+
+    old_tokens = _find_key_tokens(previous_normalized)
     new_tokens = _find_key_tokens(normalized)
     if not new_tokens:
         return RekeyResult(text, "no_key_token")
@@ -166,6 +189,113 @@ def _find_key_tokens(text: str) -> list[_KeyToken]:
             if prev_ok and next_ok:
                 tokens.append(_KeyToken(line_index, start, end, match.group(1)))
     return tokens
+
+
+def _governing_key_map(normalized: str) -> tuple[list[str], list[list[str]]]:
+    """剥掉调号 token，返回 (剩余各行文本, 各行每个剩余字符的管辖调)。
+
+    顺序扫描等价于解析器的 current_key 状态机(parse/jianpu_text.py:769,977)：
+    遇到调号就换调，其后每个音符都受它管辖，直到下一个调号。文本开头到第一个
+    调号之间用 _DEFAULT_KEY。
+
+    剥离规则：去掉调号 token 本身，以及紧跟其后的一个空格(若有)。吞掉这个空格是
+    必需的——否则「| 1=D 5 6」与「| 5 6」剥完剩下的内容不等长，纯调号编辑的门控
+    会误判。换行不剥，独占一行的调号剥完留下空行，由调用方只比对非空行来忽略。
+    """
+    masked_lines: list[str] = []
+    key_lines: list[list[str]] = []
+    current = _DEFAULT_KEY
+    for line in normalized.split("\n"):
+        pieces: list[str] = []
+        keys: list[str] = []
+        cursor = 0
+        for token in _find_key_tokens(line):
+            pieces.append(line[cursor : token.start])
+            keys.extend([current] * (token.start - cursor))
+            current = token.key
+            cursor = token.end
+            if cursor < len(line) and line[cursor] == " ":
+                cursor += 1
+        pieces.append(line[cursor:])
+        keys.extend([current] * (len(line) - cursor))
+        masked_lines.append("".join(pieces))
+        key_lines.append(keys)
+    return masked_lines, key_lines
+
+
+def _masked_columns(line: str) -> list[int]:
+    """该行在剥掉调号后仍保留的真实列下标，用于把 masked 列映射回原列。"""
+    skipped: set[int] = set()
+    for token in _find_key_tokens(line):
+        skipped.update(range(token.start, token.end))
+        if token.end < len(line) and line[token.end] == " ":
+            skipped.add(token.end)
+    return [column for column in range(len(line)) if column not in skipped]
+
+
+def _rekey_by_governing_key(
+    old_normalized: str,
+    new_normalized: str,
+    accidental_mode: AccidentalMode,
+) -> str | None:
+    """纯调号编辑时按管辖调逐段重写；内容也变了则返回 None，交回调号序列路径。
+
+    「剥掉调号后非空行内容完全相同」正是纯调号编辑的定义：此时音符一一对应，
+    每个字符的新旧管辖调都能直接读出，删除调号也就有了确定的回退目标。
+    """
+    old_masked, old_keys = _governing_key_map(old_normalized)
+    new_masked, new_keys = _governing_key_map(new_normalized)
+    old_indexes = [index for index, line in enumerate(old_masked) if line.strip()]
+    new_indexes = [index for index, line in enumerate(new_masked) if line.strip()]
+    if [old_masked[i] for i in old_indexes] != [new_masked[i] for i in new_indexes]:
+        return None
+
+    lines = new_normalized.split("\n")
+    for old_index, new_index in zip(old_indexes, new_indexes):
+        old_line_keys = old_keys[old_index]
+        new_line_keys = new_keys[new_index]
+        if old_line_keys == new_line_keys:
+            continue
+        code = _strip_inline_comment(lines[new_index])
+        if _is_lyric_or_text_line(code) or _is_metadata_line(code):
+            continue
+        lines[new_index] = _rekey_line_by_key_runs(
+            lines[new_index], old_line_keys, new_line_keys, accidental_mode
+        )
+    return "\n".join(lines)
+
+
+def _rekey_line_by_key_runs(
+    line: str,
+    old_line_keys: list[str],
+    new_line_keys: list[str],
+    accidental_mode: AccidentalMode,
+) -> str:
+    """按 (旧管辖调, 新管辖调) 相同的最大连续区段重写一行。
+
+    分段而不是整行处理，是为了让一行里同时存在旧段与新段的情形也正确——行内换调
+    (如「1 2 | 1=D 3 4」)会把一行切成两个管辖调不同的区段。
+    """
+    columns = _masked_columns(line)
+    pieces: list[str] = []
+    cursor = 0
+    index = 0
+    while index < len(columns):
+        pair = (old_line_keys[index], new_line_keys[index])
+        end = index
+        while end < len(columns) and (old_line_keys[end], new_line_keys[end]) == pair:
+            end += 1
+        start_column = columns[index]
+        end_column = columns[end - 1] + 1
+        pieces.append(line[cursor:start_column])
+        body = line[start_column:end_column]
+        if pair[0] != pair[1] and body.strip():
+            body = _rekey_note_line(body, pair[0], pair[1], accidental_mode)
+        pieces.append(body)
+        cursor = end_column
+        index = end
+    pieces.append(line[cursor:])
+    return "".join(pieces)
 
 
 def _changed_segments(

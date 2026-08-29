@@ -5,8 +5,9 @@ from fractions import Fraction
 
 import pytest
 from score_trans.domain.constants import KEY_TO_FIFTHS, STEP_TO_SEMITONE
+from score_trans.domain.parse.jianpu_text import parse_jianpu_score
 from score_trans.domain.pitch_spelling import jianpu_pitch_to_written
-from score_trans.domain.rekey import _parse_pitch_core, rekey_text
+from score_trans.domain.rekey import _DEFAULT_KEY, _parse_pitch_core, rekey_text
 from score_trans.models.jianpu.types import RekeySkipReason
 
 
@@ -216,7 +217,10 @@ def test_rekey_uses_the_preceding_key_when_a_key_is_inserted() -> None:
     assert _rekey(text, previous) == "1=C\n1 2 3 |\n1=D\nb7, 1 2 |\n1=G\n1 2 3"
 
 
-def test_rekey_deleting_a_key_leaves_the_text_unchanged() -> None:
+def test_rekey_deleting_a_key_along_with_content_leaves_the_text_unchanged() -> None:
+    # Notes disappeared too, so they cannot be matched one-to-one and no reliable
+    # old key is available for what survived. See the governing-key tests below
+    # for the pure-deletion case, which does transpose.
     previous = "1=C\n1 2 3 |\n1=G\n4 5 6"
     text = "1=C\n1 2 3"
     assert _rekey(text, previous) == text
@@ -281,6 +285,107 @@ def _rekey_first_key(key: str) -> str:
 
 def _swap_first_key(text: str, key: str) -> str:
     return re.sub(r"1=[A-G][#b]?", f"1={key}", text, count=1)
+
+
+# ── Deleting a key falls back to the key that is actually in force ──
+
+
+def test_rekey_deleting_a_mid_document_key_reverts_to_the_preceding_key() -> None:
+    # Removing "1=D" means the notes it governed are now read in C, so they have
+    # to be rewritten back to C spelling. Locating the region by key-sequence
+    # index cannot express this — the deleted token is gone from the new text —
+    # so the governing-key path handles it.
+    previous = "1=C\n4/4\n1 2 3 4 |\n1=D\nb7, 1 2 b3 |\n1=G\n5 6 7 1 |"
+    text = "1=C\n4/4\n1 2 3 4 |\nb7, 1 2 b3 |\n1=G\n5 6 7 1 |"
+    result = rekey_text(text, previous)
+    assert result.skip_reason is None
+    # Only the orphaned segment moves; the C section and the 1=G section stay put.
+    assert result.text == "1=C\n4/4\n1 2 3 4 |\n1 2 3 4 |\n1=G\n5 6 7 1 |"
+
+
+def test_rekey_deleting_the_last_key_reverts_the_region_to_end_of_text() -> None:
+    previous = "1=C\n4/4\n1 2 3 4 |\n1=D\nb7, 1 2 b3 |"
+    text = "1=C\n4/4\n1 2 3 4 |\nb7, 1 2 b3 |"
+    assert _rekey(text, previous) == "1=C\n4/4\n1 2 3 4 |\n1 2 3 4 |"
+
+
+def test_rekey_deleting_a_page_key_reverts_to_the_earlier_page_key() -> None:
+    # The editor holds batch-level text, so a later page's key falls back to the
+    # key still in force from an earlier page rather than to the default.
+    previous = "// @page 1\n1=G\n4/4\n1 2 3 4 |\n// @page 2\n1=C\n5 6 7 1 |"
+    text = "// @page 1\n1=G\n4/4\n1 2 3 4 |\n// @page 2\n5 6 7 1 |"
+    result = rekey_text(text, previous)
+    assert result.skip_reason is None
+    assert result.text == ("// @page 1\n1=G\n4/4\n1 2 3 4 |\n// @page 2\n1 2 3 4, |")
+
+
+def test_rekey_deleting_an_inline_key_reverts_only_what_followed_it() -> None:
+    previous = "1=C\n4/4\n1 2 3 4 | 1=D b7, 1 2 b3 |"
+    text = "1=C\n4/4\n1 2 3 4 | b7, 1 2 b3 |"
+    assert _rekey(text, previous) == "1=C\n4/4\n1 2 3 4 | 1 2 3 4 |"
+
+
+def test_rekey_deleting_the_only_key_reverts_to_the_parser_default() -> None:
+    previous = "1=D\n4/4\nb7, 1 2 b3 |"
+    text = "4/4\nb7, 1 2 b3 |"
+    result = rekey_text(text, previous)
+    assert result.skip_reason is None
+    assert result.text == "4/4\n1 2 3 4 |"
+
+
+def test_rekey_default_key_matches_what_the_parser_assumes() -> None:
+    # A keyless document is read in _DEFAULT_KEY; if the two ever drift apart the
+    # rewritten text would disagree with how it is rendered.
+    assert parse_jianpu_score("4/4\n1 2 3 4 |").target_key == _DEFAULT_KEY
+
+
+def test_rekey_deleting_a_key_token_but_leaving_a_blank_line_behaves_the_same() -> None:
+    # Selecting just the "1=D" characters leaves an empty line behind. Blank-line
+    # differences must not defeat the pure-key-edit gate.
+    previous = "1=C\n4/4\n1 2 3 4 |\n1=D\nb7, 1 2 b3 |"
+    text = "1=C\n4/4\n1 2 3 4 |\n\nb7, 1 2 b3 |"
+    assert _rekey(text, previous) == "1=C\n4/4\n1 2 3 4 |\n\n1 2 3 4 |"
+
+
+def test_rekey_deleting_a_key_together_with_a_note_edit_is_reported() -> None:
+    # The gate rejects this: notes changed too, so they no longer correspond and
+    # guessing an old key would write wrong pitches.
+    previous = "1=C\n4/4\n1 2 3 4 |\n1=D\nb7, 1 2 b3 |"
+    text = "1=C\n4/4\n1 2 3 5 |\nb7, 1 2 b3 |"
+    result = rekey_text(text, previous)
+    assert result.skip_reason == "unresolvable_key_change"
+    assert result.text == text
+
+
+def test_rekey_adding_a_comment_that_mentions_a_key_changes_nothing() -> None:
+    previous = "1=C\n1 2 3\n4 5 6"
+    text = "1=C\n1 2 3 // 1=G\n4 5 6"
+    result = rekey_text(text, previous)
+    assert result.skip_reason is None
+    assert result.text == text
+
+
+@pytest.mark.parametrize("anchor_key", list(KEY_TO_FIFTHS))
+def test_rekey_inserting_then_deleting_a_key_restores_the_original(
+    anchor_key: str,
+) -> None:
+    # Round-trip invariant across every key pair: adding a mid-document key and
+    # then removing it again must land back on the notes we started from.
+    original = f"1={anchor_key}\n4/4\n1 2 3 4 |\n5 6 7 1 |"
+    for inserted_key in KEY_TO_FIFTHS:
+        if inserted_key == anchor_key:
+            continue
+        lines = original.split("\n")
+        inserted = "\n".join(lines[:3] + [f"1={inserted_key}"] + lines[3:])
+        added = rekey_text(inserted, original)
+        assert added.skip_reason is None, f"{anchor_key} + {inserted_key}"
+        assert added.text != inserted, f"{anchor_key} + {inserted_key}"
+        removed_text = "\n".join(
+            line for line in added.text.split("\n") if line != f"1={inserted_key}"
+        )
+        removed = rekey_text(removed_text, added.text)
+        assert removed.skip_reason is None, f"{anchor_key} - {inserted_key}"
+        assert removed.text == original, f"{anchor_key} - {inserted_key}"
 
 
 # ── Skip reasons ──

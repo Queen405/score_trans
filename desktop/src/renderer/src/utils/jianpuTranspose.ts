@@ -11,7 +11,12 @@ const PITCH_OCTAVE_PATTERN = /([1-7])([',]*)/g
 // 调号 token:1=X(X=[A-G] 后跟至多一个 # 或 b)，须是独立 token(前后为行首/空白/
 // 小节线)，因此能识别独占一行的 1=G、紧跟 | 之后的 1=G，以及多字符调号 1=Bb/1=F#。
 // 词表与后端 domain/rekey.py 的 _KEY_TOKEN 及解析器 _is_key_name 保持一致。
-const KEY_TOKEN_PATTERN = /1\s*=\s*([A-G](?:#|b)?)/g
+const KEY_HEAD_SOURCE = '1\\s*=\\s*'
+const KEY_NAME_SOURCE = '[A-G](?:#|b)?'
+const KEY_TOKEN_PATTERN = new RegExp(`${KEY_HEAD_SOURCE}(${KEY_NAME_SOURCE})`, 'g')
+// 「打了一半的调号」：1= 后面的调名可以缺失或只写了字母。与上面同源拼装，避免两条
+// 正则各自演化后判定互相矛盾。
+const KEY_PREFIX_PATTERN = new RegExp(`${KEY_HEAD_SOURCE}[A-G]?`, 'g')
 
 // 检测文本中所有调号 token 的(行号, 调号)。行内注释与歌词行内的 1=X 不算调号，
 // 否则「// 1=G」这类文本会白发一次转调请求。
@@ -65,17 +70,19 @@ export function remapOffset(before: string, after: string, offset: number): numb
   return after.length - suffix
 }
 
-export type KeyEditVerdict = 'unchanged' | 'no-key' | 'transposable'
+export type KeyEditVerdict = 'unchanged' | 'no-key' | 'key-removed' | 'transposable'
 
 /**
  * 一次编辑相对基线的调号判定。
  *
  * - unchanged：调号值序列没变，无需转调。
- * - no-key：新文本已无任何调号 token，后端必然无从下手。
- * - transposable：调号序列确实变了且新文本仍有调号，值得发一次请求。
+ * - no-key：新文本里还有打了一半的调号（如 1=、1=E5），调号数却变少了。
+ * - key-removed：调号被删干净了，没留残片。后端会把被删调号管辖的音符回退到
+ *   此刻真正生效的调，所以这一类必须发请求。
+ * - transposable：调号序列变了且新文本仍有完整调号。
  *
- * 前两者多为打字中间态（如 1=C 删成 1=、1=E 尚未补空格），调用方应当保留基线，
- * 否则最初那个「编辑前的合法文本」会被中间态换掉，真正的换调就再也找不到旧调。
+ * unchanged 与 no-key 多为打字中间态，调用方应当保留基线，否则最初那个「编辑前的
+ * 合法文本」会被中间态换掉，真正的换调就再也找不到旧调。
  *
  * 判定刻意宽松——真正的区间定位与转调由后端负责；多发一次请求只是浪费，
  * 漏发则功能失效。
@@ -86,8 +93,24 @@ export function classifyKeyEdit(oldText: string, newText: string): KeyEditVerdic
   const changed = oldKeys.length !== newKeys.length
     || oldKeys.some((key, index) => key !== newKeys[index])
   if (!changed) return 'unchanged'
-  if (!newKeys.length) return 'no-key'
-  return 'transposable'
+  if (newKeys.length >= oldKeys.length) return 'transposable'
+  // 调号变少了：可能是删干净，也可能是正打到一半。中间态一定留着 1= 残片，
+  // 删除则不留——只有后者能让后端定出回退目标。
+  return hasUnfinishedKey(newText) ? 'no-key' : 'key-removed'
+}
+
+// 是否存在「1= 已敲下但调名尚未成形」的位置。逐行剔除注释与歌词后，比较完整调号
+// 与 1= 前缀的出现次数：前缀多于完整调号即说明有一处还没写完。
+function hasUnfinishedKey(text: string): boolean {
+  for (const rawLine of text.replace(/\r\n?/g, '\n').split('\n')) {
+    const line = stripInlineComment(rawLine)
+    if (!line.trim()) continue
+    if (isLyricOrTextLine(line)) continue
+    const full = Array.from(line.matchAll(KEY_TOKEN_PATTERN)).length
+    const prefixes = Array.from(line.matchAll(KEY_PREFIX_PATTERN)).length
+    if (prefixes > full) return true
+  }
+  return false
 }
 
 function shiftOctaveChars(octaveChars: string, direction: number): string {

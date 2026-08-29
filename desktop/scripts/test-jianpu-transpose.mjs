@@ -68,11 +68,27 @@ test('detectKeyChanges requires the key to be a standalone token', () => {
 test('classifyKeyEdit separates a real key change from typing intermediates', () => {
   assert.equal(classifyKeyEdit('1=C\n1 2', '1=G\n1 2'), 'transposable')
   assert.equal(classifyKeyEdit('1=C\n1 2', '1=C\n1 2 |\n1=G\n3 4'), 'transposable')
-  // Deleting the only key leaves nothing for the backend to anchor on.
-  assert.equal(classifyKeyEdit('1=C\n1 2 |\n1=G\n3 4', '1=C\n1 2'), 'transposable')
-  assert.equal(classifyKeyEdit('1=C\n1 2', '1=\n1 2'), 'no-key')
   assert.equal(classifyKeyEdit('1=C\n1 2', '1=C\n1 2 3'), 'unchanged')
   assert.equal(classifyKeyEdit('1=C\n1 2', '1=C\n1 2'), 'unchanged')
+})
+
+test('classifyKeyEdit tells a cleanly deleted key from a half-typed one', () => {
+  // A deleted key must dispatch: the backend reverts the orphaned notes to
+  // whichever key is actually in force. A half-typed one must not — it would
+  // spend the baseline that still holds the pre-edit key.
+  assert.equal(classifyKeyEdit('1=C\n1 2 |\n1=G\n3 4', '1=C\n1 2 |\n3 4'), 'key-removed')
+  assert.equal(classifyKeyEdit('1=D\n1 2', '1 2'), 'key-removed')
+  assert.equal(classifyKeyEdit('1=C\n1 2', '1=\n1 2'), 'no-key')
+  assert.equal(classifyKeyEdit('1=C\n1 2 |\n1=G\n3 4', '1=C\n1 2 |\n1=\n3 4'), 'no-key')
+})
+
+test('classifyKeyEdit is not fooled by other "=" lines or partial keys in comments', () => {
+  // title=/tempo=/key= and measure labels must not read as unfinished keys.
+  assert.equal(classifyKeyEdit('1=D\ntitle=x\ntempo=90\n1 2', 'title=x\ntempo=90\n1 2'), 'key-removed')
+  assert.equal(classifyKeyEdit('1=D\n12: 1 2 | *2', '12: 1 2 | *2'), 'key-removed')
+  // A "1=" left only inside a comment or lyric line is not an unfinished key.
+  assert.equal(classifyKeyEdit('1=D\n1 2 // 1=', '1 2 // 1='), 'key-removed')
+  assert.equal(classifyKeyEdit('1=D\nL: 1= a b', 'L: 1= a b'), 'key-removed')
 })
 
 test('remapOffset keeps a cursor located before the edited region', () => {
@@ -179,6 +195,16 @@ test('gate keeps the baseline when the new text has no key left', () => {
     baseline: '1=C\n4/4\n1 2 3 4',
     text: '1=D\n4/4\n1 2 3 4',
   })
+})
+
+test('gate dispatches a cleanly deleted key so the backend can revert it', () => {
+  // Deleting a whole "1=D" line is a real, resolvable edit: the notes it governed
+  // fall back to the preceding key. This must reach the backend.
+  const gate = newGate()
+  const before = '1=C\n4/4\n1 2 3 4 |\n1=D\nb7, 1 2 b3 |'
+  const after = '1=C\n4/4\n1 2 3 4 |\nb7, 1 2 b3 |'
+  gate.recordEdit(before, after)
+  assert.deepEqual(gate.takePending(after), { baseline: before, text: after })
 })
 
 test('gate discards the edit when the text was replaced externally meanwhile', () => {

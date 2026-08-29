@@ -45,7 +45,7 @@
 | domain/jianpu_tokens.py | 时值、附点、延长线、连音组与音高核心 span 定位 |
 | domain/accidentals.py | 变音记号和调式转换 |
 | domain/pitch_spelling.py | 音名、调号、书写音高转换与等音重拼 |
-| domain/rekey.py | 换调号时按绝对音高重记谱，保留排版与非音符 token；无法转调时回传跳过原因 |
+| domain/rekey.py | 换调号时按绝对音高重记谱，保留排版与非音符 token；删除调号按管辖调回退，无法转调时回传跳过原因 |
 | domain/performance_marks.py | 演奏记号目录与查找 |
 | domain/provenance.py | source anchor 和 provenance 合并 |
 | domain/text_attachments.py | OCR 文字附件和源区域关联 |
