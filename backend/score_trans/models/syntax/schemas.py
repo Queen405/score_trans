@@ -15,6 +15,10 @@ class SyntaxDiagnostic(BaseModel):
     start: int = Field(description="UTF-16 code-unit start offset for editor selection")
     end: int = Field(description="UTF-16 code-unit end offset for editor selection")
     severity: SyntaxSeverity = "error"
+    measure: str | None = Field(
+        default=None,
+        description="关联小节的显示编号（仅小节级诊断提供）",
+    )
 
 
 class SyntaxValidateRequest(BaseModel):

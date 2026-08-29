@@ -362,10 +362,8 @@ def _measure_duration_diagnostics(
                 ):
                     continue
                 line, column = _line_column_from_utf16_offset(text, start)
-                message = _format_measure_duration_warning(
-                    measure.display_number or measure_index,
-                    error,
-                )
+                measure_number = measure.display_number or measure_index
+                message = _format_measure_duration_warning(error)
                 diagnostics.append(
                     SyntaxDiagnostic(
                         id=(
@@ -378,6 +376,7 @@ def _measure_duration_diagnostics(
                         start=start,
                         end=end,
                         severity="warning",
+                        measure=str(measure_number),
                     )
                 )
             if measure_scope_end is not None:
@@ -391,15 +390,12 @@ def _line_start_utf16_offset(text: str, offset: int) -> int:
     return _utf16_length(text[:line_start])
 
 
-def _format_measure_duration_warning(
-    measure_number: str | int,
-    error: str,
-) -> str:
+def _format_measure_duration_warning(error: str) -> str:
     match = re.fullmatch(r"小节(少拍|超拍)：实际 (.+)，目标 (.+)", error)
     if match is None:
-        return f"第 {measure_number} 小节：{error}"
+        return error
     kind, actual, target = match.groups()
-    return f"第 {measure_number} 小节{kind}：实际 {actual} 拍，目标 {target} 拍"
+    return f"{kind}：实际 {actual} 拍，目标 {target} 拍"
 
 
 def _line_column_from_utf16_offset(text: str, offset: int) -> tuple[int, int]:

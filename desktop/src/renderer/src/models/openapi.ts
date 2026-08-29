@@ -2817,6 +2817,11 @@ export type components = {
              * @description 1-based source line for display
              */
             line: number;
+            /**
+             * Measure
+             * @description 关联小节的显示编号（仅小节级诊断提供）
+             */
+            measure?: string | null;
             /** Message */
             message: string;
             /**

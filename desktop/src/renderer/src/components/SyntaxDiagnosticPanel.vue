@@ -29,7 +29,7 @@
         @keydown.enter.prevent="selectDiagnostic(diagnostic)"
         @keydown.space.prevent="selectDiagnostic(diagnostic)"
       >
-        <span class="syntax-diagnostic-location">{{ diagnostic.line }}:{{ diagnostic.column }}</span>
+        <span class="syntax-diagnostic-location">{{ diagnostic.measure ? `第 ${diagnostic.measure} 小节` : '—' }}</span>
         <span class="syntax-diagnostic-message">{{ diagnostic.message }}</span>
       </button>
     </template>
@@ -98,9 +98,11 @@ function selectDiagnostic(diagnostic: SyntaxDiagnostic): void {
 }
 
 .syntax-diagnostic-location {
-  flex: 0 0 42px;
+  flex: 0 0 auto;
+  min-width: 42px;
   color: var(--danger);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .syntax-diagnostic.warning .syntax-diagnostic-location {

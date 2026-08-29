@@ -541,7 +541,7 @@ def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -
     ).json()["diagnostics"]
     assert [item["severity"] for item in diagnostics] == ["error", "warning"]
     assert "不支持的简谱 token：45" in diagnostics[0]["message"]
-    assert "第 2 小节超拍" in diagnostics[1]["message"]
+    assert "超拍" in diagnostics[1]["message"]
 
 
 def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:

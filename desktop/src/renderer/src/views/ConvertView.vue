@@ -245,7 +245,7 @@
             v-model:value="exportFormat"
             :options="formatOptions"
             size="small"
-            style="width: 96px"
+            style="width: 120px"
           />
         </div>
       </div>

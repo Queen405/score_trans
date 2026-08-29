@@ -71,9 +71,10 @@ def test_validate_jianpu_text_reports_measure_duration_warnings_when_enabled() -
     assert [
         (item.severity, item.line, item.column, item.message) for item in diagnostics
     ] == [
-        ("warning", 3, 1, "第 1 小节少拍：实际 3 拍，目标 4 拍"),
-        ("warning", 3, 9, "第 2 小节超拍：实际 5 拍，目标 4 拍"),
+        ("warning", 3, 1, "少拍：实际 3 拍，目标 4 拍"),
+        ("warning", 3, 9, "超拍：实际 5 拍，目标 4 拍"),
     ]
+    assert [item.measure for item in diagnostics] == ["1", "2"]
     assert [
         text.encode("utf-16-le")[item.start * 2 : item.end * 2].decode("utf-16-le")
         for item in diagnostics
@@ -95,7 +96,7 @@ def test_validate_jianpu_text_keeps_duration_warnings_after_unrelated_syntax_err
             "error",
             "不支持的简谱 token：45，请使用 1-7、0、#1、qs1、q1、[1+3+5] 等新语法",
         ),
-        ("warning", "第 2 小节超拍：实际 5 拍，目标 4 拍"),
+        ("warning", "超拍：实际 5 拍，目标 4 拍"),
     ]
     warning = diagnostics[1]
     assert (
@@ -117,7 +118,7 @@ def test_validate_jianpu_text_keeps_duration_warnings_after_contextual_error() -
             "调号 1=G 必须写在该小节音符之前，不能写在音符后面。"
             "请把调号移到小节开头或紧跟在小节线 | 之后。",
         ),
-        ("warning", "第 2 小节超拍：实际 5 拍，目标 4 拍"),
+        ("warning", "超拍：实际 5 拍，目标 4 拍"),
     ]
 
 
@@ -131,7 +132,7 @@ def test_validate_jianpu_text_keeps_duration_warnings_after_header_error() -> No
             "error",
             "不支持的乐器模式 unknown，请使用 general、erhu、ruan、guzheng",
         ),
-        ("warning", "第 1 小节超拍：实际 5 拍，目标 4 拍"),
+        ("warning", "超拍：实际 5 拍，目标 4 拍"),
     ]
 
 
@@ -203,6 +204,7 @@ def test_validate_syntax_route_returns_structured_diagnostics() -> None:
                 "start": 8,
                 "end": 10,
                 "severity": "error",
+                "measure": None,
             }
         ]
     }
