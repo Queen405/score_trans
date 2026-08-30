@@ -1231,7 +1231,7 @@ def test_explicit_musicxml_beams_override_fallback_grouping() -> None:
     assert len(lines) == 2
 
 
-def test_tuplet_notes_are_compact_and_have_no_lower_rhythm_lines() -> None:
+def test_tuplet_notes_are_compact_and_share_a_rhythm_line() -> None:
     events = [
         Event(
             kind="note",
@@ -1254,13 +1254,55 @@ def test_tuplet_notes_are_compact_and_have_no_lower_rhythm_lines() -> None:
         node for node in root.iter() if "playback-note" in node.attrib.get("class", "")
     ]
 
-    assert not beams
-    assert (
-        float(notes[-1].attrib["data-bbox"].split()[0])
-        - float(notes[0].attrib["data-bbox"].split()[0])
-        <= 48
-    )
+    assert len(beams) == 1
+    note_centers = [
+        float(node.attrib["data-bbox"].split()[0])
+        + float(node.attrib["data-bbox"].split()[2]) / 2
+        for node in notes
+    ]
+    assert float(beams[0].attrib["x1"]) < note_centers[0]
+    assert float(beams[0].attrib["x2"]) > note_centers[-1]
+    assert note_centers[-1] - note_centers[0] <= 48
     assert any("tuplet-bracket" in node.attrib.get("class", "") for node in root.iter())
+
+
+def test_sextuplet_notes_render_two_rhythm_line_levels() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 6),
+            pitches=[JianpuPitch(index % 7 + 1)],
+            start=Fraction(index, 6),
+            tuplet_id="sextuplet-1",
+            tuplet_count=6,
+            tuplet_index=index,
+        )
+        for index in range(6)
+    ]
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(4), events=events)])
+
+    root = _root(render_score_svg(score))
+    beams = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+
+    assert len(beams) == 2
+    levels = {float(node.attrib["y1"]) for node in beams}
+    assert len(levels) == 2
+
+
+def test_tuplet_lyric_clears_the_rhythm_line() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\n$123$ 4 |\nL: 春 江"))
+
+    beams = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+    lyrics = [node for node in root.iter() if node.attrib.get("class") == "lyric"]
+
+    assert beams and lyrics
+    beam_bottom = max(float(node.attrib["y1"]) for node in beams)
+    first_lyric_top = min(float(node.attrib["data-bbox"].split()[1]) for node in lyrics)
+    assert first_lyric_top >= beam_bottom
 
 
 def test_single_part_system_has_one_start_barline_and_terminal_barline() -> None:
@@ -1315,6 +1357,9 @@ def test_tuplet_bracket_leaves_a_gap_for_its_number() -> None:
     )
 
     assert bracket.attrib["d"].count("M ") == 2
+    assert bracket.attrib["d"].count(" C ") == 2
+    assert " V " not in bracket.attrib["d"]
+    assert " H " not in bracket.attrib["d"]
 
 
 def test_nested_tuplet_spans_render_one_bracket_per_span() -> None:

@@ -19,6 +19,7 @@ from .geometry import (
     _dynamic_baseline,
     _event_attachment_bottom,
     _lyric_baseline,
+    _rhythm_line_count,
     mark_layouts,
     measure_event_ink,
     pitch_layouts,
@@ -469,7 +470,7 @@ def _measure_bar_offsets(
                 notation_bottom = max(notation_bottom, box.bottom)
         top = min(top, style.event_baseline + notation_top - 3.0)
         bottom = max(bottom, style.event_baseline + notation_bottom + 4.0)
-        rhythm_lines = 0 if _is_tuplet(event) else _rhythm_line_count(event)
+        rhythm_lines = _rhythm_line_count(event)
         if rhythm_lines:
             base = style.event_baseline + _rhythm_line_offset(event, style)
             bottom = max(bottom, base + (rhythm_lines - 1) * 6.0 + 2.0)
@@ -1643,11 +1644,7 @@ def _draw_rhythm_lines(
         anchor
         for anchor in anchors
         if (
-            (
-                not _is_tuplet(anchor.event)
-                and _rhythm_line_count(anchor.event) > 0
-                and not anchor.event.beams
-            )
+            (_rhythm_line_count(anchor.event) > 0 and not anchor.event.beams)
             or any(beam.number.isdigit() for beam in anchor.event.beams)
         )
     ]
@@ -1681,7 +1678,6 @@ def _draw_rhythm_lines(
         for anchor in [*anchors, None]:
             eligible = (
                 anchor is not None
-                and not _is_tuplet(anchor.event)
                 and _rhythm_line_count(anchor.event) >= level
                 and not anchor.event.beams
             )
@@ -1916,18 +1912,6 @@ def _rhythm_line_offset(event: Event, style: PublicationStyle) -> float:
         for box in row.octave_boxes:
             attachment_bottom = max(attachment_bottom, box.bottom)
     return max(note_bottom + 12.5, attachment_bottom + 8.0)
-
-
-def _rhythm_line_count(event: Event) -> int:
-    if event.kind == "extension":
-        return 0
-    duration = event.duration
-    count = 0
-    unit = Fraction(1)
-    while duration > 0 and duration < unit and count < 4:
-        count += 1
-        unit /= 2
-    return count
 
 
 def _is_tuplet(event: Event) -> bool:
@@ -2183,7 +2167,18 @@ def _draw_tuplets(
                 for source_id in item.event.source_roles.get("tuplet", [])
             )
         )
-        bracket_stroke = 1.4
+        arc_stroke = 1.4
+        sx = first.x - style.tuplet_arc_extend
+        ex = last.x + style.tuplet_arc_extend
+        apex_y = y - style.tuplet_arc_height
+        span = ex - sx
+        gap_half = min(gap_half, span * 0.3)
+        left_x = center - gap_half
+        right_x = center + gap_half
+        left_c1 = sx + (left_x - sx) * 0.35
+        left_c2 = sx + (left_x - sx) * 0.85
+        right_c1 = right_x + (ex - right_x) * 0.15
+        right_c2 = right_x + (ex - right_x) * 0.65
         first_span = _tuplet_span_for_event(first.event, span_id)
         last_span = _tuplet_span_for_event(last.event, span_id)
         first_started = bool(first_span and first_span.start)
@@ -2198,10 +2193,10 @@ def _draw_tuplets(
         layout = SpanLayout(
             "tuplet",
             BBox(
-                first.x - style.tuplet_bracket_hook - bracket_stroke / 2,
-                y - bracket_stroke / 2,
-                last.x - first.x + style.tuplet_bracket_hook * 2 + bracket_stroke,
-                style.tuplet_bracket_depth + bracket_stroke,
+                sx - arc_stroke / 2,
+                apex_y - arc_stroke / 2,
+                span + arc_stroke,
+                style.tuplet_arc_height + arc_stroke,
             ),
             source_ids,
             continuation,
@@ -2212,23 +2207,27 @@ def _draw_tuplets(
                 {
                     "class": "tuplet-bracket",
                     "d": (
-                        f"M {first.x - style.tuplet_bracket_hook:g} "
-                        f"{y + style.tuplet_bracket_depth:g} V {y:g} "
-                        f"H {center - gap_half:g} "
-                        f"M {center + gap_half:g} {y:g} "
-                        f"H {last.x + style.tuplet_bracket_hook:g} "
-                        f"V {y + style.tuplet_bracket_depth:g}"
+                        f"M {sx:g} {y:g} "
+                        f"C {left_c1:g} {apex_y:g} {left_c2:g} {apex_y:g} "
+                        f"{left_x:g} {apex_y:g} "
+                        f"M {right_x:g} {apex_y:g} "
+                        f"C {right_c1:g} {apex_y:g} {right_c2:g} {apex_y:g} "
+                        f"{ex:g} {y:g}"
                     ),
                     **_span_attrs(layout, role="tuplet"),
                 },
             )
         )
         scene.register_sources(list(layout.source_ids), layout.bbox)
+        _ink_left, ink_top, _ink_right, ink_bottom = font_registry().ink_bounds(
+            str(count), style.annotation_size
+        )
+        number_baseline = apex_y - (ink_top + ink_bottom) / 2
         scene.add(
             _text(
                 "tuplet-number",
                 center,
-                y + style.tuplet_bracket_depth,
+                number_baseline,
                 str(count),
                 style.annotation_size,
                 anchor="middle",

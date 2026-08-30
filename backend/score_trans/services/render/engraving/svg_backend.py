@@ -17,7 +17,7 @@ _CSS = """
 .tie,.slur,.slide{stroke:#171717;stroke-width:1.8;fill:none;stroke-linecap:round}
 .performance-mark-stroke{stroke:#171717;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .performance-mark-fill{fill:#171717;stroke:none}
-.tuplet-bracket{stroke:#171717;stroke-width:1.4;fill:none}.octave-dot,.rhythm-dot{fill:#171717}
+.tuplet-bracket{stroke:#171717;stroke-width:1.4;fill:none;stroke-linecap:round}.octave-dot,.rhythm-dot{fill:#171717}
 .playback-current .note{fill:#1677ff}.source-highlight{filter:drop-shadow(0 0 3px #ff9f1a)}
 """.strip()
 

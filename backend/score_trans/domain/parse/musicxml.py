@@ -1129,9 +1129,7 @@ def _normalize_measure(
                 )
             )
         else:
-            measure.validation_errors.append(
-                f"小节少拍：实际 {actual}，目标 {target}"
-            )
+            measure.validation_errors.append(f"小节少拍：实际 {actual}，目标 {target}")
     elif actual > target:
         measure.validation_errors.append(f"小节超拍：实际 {actual}，目标 {target}")
 

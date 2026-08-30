@@ -73,9 +73,9 @@ class PublicationStyle:
     spanner_base_clearance: float = 5.0
     tie_below_clearance: float = 5.0
     tuplet_bracket_offset: float = 12.0
-    tuplet_bracket_hook: float = 11.0
+    tuplet_arc_height: float = 7.0
+    tuplet_arc_extend: float = 4.0
     tuplet_number_gap: float = 4.0
-    tuplet_bracket_depth: float = 5.0
     tuplet_stack_gap: float = 16.0
     extension_line_step: float = 18.0
     last_line_fill_threshold: float = 0.72

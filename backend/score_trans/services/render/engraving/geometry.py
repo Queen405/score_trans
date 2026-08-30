@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from fractions import Fraction
 
+from ....domain.jianpu_tokens import tuplet_normal_notes
 from ....domain.performance_marks import get_performance_mark
 from ....models.score import Event, JianpuPitch
 from .fonts import font_registry
@@ -311,9 +313,17 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
 
 
 def _rhythm_line_count(event: Event) -> int:
+    if event.kind == "extension":
+        return 0
     duration = event.duration
+    if event.tuplet_count:
+        normal_count = event.tuplet_normal_count or tuplet_normal_notes(
+            event.tuplet_count
+        )
+        if normal_count != event.tuplet_count:
+            duration *= Fraction(event.tuplet_count, normal_count)
     count = 0
-    unit = 1
+    unit = Fraction(1)
     while duration > 0 and duration < unit and count < 4:
         count += 1
         unit /= 2
@@ -342,14 +352,13 @@ def _event_attachment_bottom(event: Event, style: PublicationStyle) -> float:
     for row in rows:
         for box in row.octave_boxes:
             attachment_bottom = max(attachment_bottom, box.bottom)
-    if not _is_tuplet(event):
-        rhythm_lines = _rhythm_line_count(event)
-        if rhythm_lines:
-            rhythm_base = max(note_bottom + 12.5, attachment_bottom + 8.0)
-            attachment_bottom = max(
-                attachment_bottom,
-                rhythm_base + (rhythm_lines - 1) * 6.0 + style.stroke_width,
-            )
+    rhythm_lines = _rhythm_line_count(event)
+    if rhythm_lines:
+        rhythm_base = max(note_bottom + 12.5, attachment_bottom + 8.0)
+        attachment_bottom = max(
+            attachment_bottom,
+            rhythm_base + (rhythm_lines - 1) * 6.0 + style.stroke_width,
+        )
     return attachment_bottom
 
 
@@ -448,18 +457,14 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
     for row in pitch_rows:
         for dot_box in row.octave_boxes:
             attachment_bottom = max(attachment_bottom, dot_box.bottom)
-    if not _is_tuplet(event):
-        rhythm_lines = _rhythm_line_count(event)
-        if rhythm_lines:
-            rhythm_base = max(chord_bottom + 12.5, attachment_bottom + 8.0)
-            box = box.union(
-                InkBox(
-                    -12,
-                    rhythm_base,
-                    12,
-                    rhythm_base + (rhythm_lines - 1) * 6 + style.stroke_width,
-                )
-            )
+    rhythm_lines = _rhythm_line_count(event)
+    if rhythm_lines:
+        rhythm_base = max(chord_bottom + 12.5, attachment_bottom + 8.0)
+        rhythm_bottom = rhythm_base + (rhythm_lines - 1) * 6 + style.stroke_width
+        if _is_tuplet(event):
+            box = InkBox(box.left, box.top, box.right, max(box.bottom, rhythm_bottom))
+        else:
+            box = box.union(InkBox(-12, rhythm_base, 12, rhythm_bottom))
     if event.lyric:
         lyric_baseline = _lyric_baseline(event, style)
         lyric_box = _translated(
