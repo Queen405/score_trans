@@ -256,8 +256,10 @@ def _rekey_by_governing_key(
         new_line_keys = new_keys[new_index]
         if old_line_keys == new_line_keys:
             continue
-        code = _strip_inline_comment(lines[new_index])
-        if _is_lyric_or_text_line(code) or _is_metadata_line(code):
+        # metadata 判定必须用剥掉调号后的内容：行首调号（如「1=G 5 6 7」）会让
+        # _KEY_LINE 把整行误判为纯调号行，漏掉调号所在小节的音符。
+        masked_line = new_masked[new_index]
+        if _is_lyric_or_text_line(masked_line) or _is_metadata_line(masked_line):
             continue
         lines[new_index] = _rekey_line_by_key_runs(
             lines[new_index], old_line_keys, new_line_keys, accidental_mode

@@ -73,6 +73,32 @@ def test_rekey_inline_key_after_barline() -> None:
     assert _rekey(text, previous) == "1=C\n1 2 3 4 | 1=G 1 2 3 4,"
 
 
+def test_rekey_key_at_line_start_transposes_the_same_line() -> None:
+    # 调号写在小节行首（1=G 5 6 7 …）时，本行音符同属新调管辖，必须与后续小节
+    # 一起转调。回归：行首调号曾让 _KEY_LINE 把整行误判为元数据而跳过本小节。
+    previous = "1=C\n4/4\n\n1 2 3 4 |\n5 6 7 1' |\n2 3 4 5 |"
+    text = "1=C\n4/4\n\n1 2 3 4 |\n1=G 5 6 7 1' |\n2 3 4 5 |"
+    assert _rekey(text, previous) == (
+        "1=C\n4/4\n\n1 2 3 4 |\n1=G 1 2 3 4 |\n5, 6, b7, 1 |"
+    )
+
+
+def test_rekey_key_at_line_start_with_multiple_measures_on_the_line() -> None:
+    # 行首调号后同一行有多个小节时，该行所有小节都在新调管辖之下。
+    previous = "1=C\n4/4\n1 2 3 4 |\n5 6 7 1' | 2 3 4 5 |"
+    text = "1=C\n4/4\n1 2 3 4 |\n1=G 5 6 7 1' | 2 3 4 5 |"
+    assert _rekey(text, previous) == (
+        "1=C\n4/4\n1 2 3 4 |\n1=G 1 2 3 4 | 5, 6, b7, 1 |"
+    )
+
+
+def test_rekey_key_at_line_start_followed_by_a_time_signature() -> None:
+    # 「1=G 3/4」剥掉调号后只剩拍号，仍属元数据，不能被当成音符转调。
+    previous = "1=C\n4/4\n1 2 3 4 |\n3/4\n1 2 3 |"
+    text = "1=C\n4/4\n1 2 3 4 |\n1=G 3/4\n1 2 3 |"
+    assert _rekey(text, previous) == "1=C\n4/4\n1 2 3 4 |\n1=G 3/4\n4, 5, 6, |"
+
+
 def test_rekey_multi_character_keys() -> None:
     # Flat/sharp keys (Bb, F#) are recognised as key tokens.
     assert _rekey("1=Bb\n1 2 3", "1=C\n1 2 3") == "1=Bb\n2, 3, #4,"
