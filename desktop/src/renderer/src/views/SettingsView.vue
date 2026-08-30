@@ -147,10 +147,9 @@ import {
   useMessage,
 } from 'naive-ui'
 import {
-  BuildOutline,
   CloudOutline,
   ColorPaletteOutline,
-  FolderOutline,
+  SettingsOutline,
   SwapHorizontalOutline,
 } from '@vicons/ionicons5'
 import { useLogStore } from '../stores/log'
@@ -158,10 +157,9 @@ import { useSettingsStore } from '../stores/settings'
 import AppearanceSettingsPanel from '../components/settings/AppearanceSettingsPanel.vue'
 import ConversionSettingsPanel from '../components/settings/ConversionSettingsPanel.vue'
 import ServiceSettingsPanel from '../components/settings/ServiceSettingsPanel.vue'
-import StorageSettingsPanel from '../components/settings/StorageSettingsPanel.vue'
-import ToolPathsPanel from '../components/settings/ToolPathsPanel.vue'
+import ToolStorageSettingsPanel from '../components/settings/ToolStorageSettingsPanel.vue'
 
-type SettingsCategory = 'services' | 'tools' | 'storage' | 'conversion' | 'appearance'
+type SettingsCategory = 'services' | 'tools-storage' | 'conversion' | 'appearance'
 
 interface CategoryDefinition {
   key: SettingsCategory
@@ -192,16 +190,10 @@ const categories: CategoryDefinition[] = [
     panel: ServiceSettingsPanel,
   },
   {
-    key: 'tools',
-    label: '工具与路径',
-    icon: BuildOutline,
-    panel: ToolPathsPanel,
-  },
-  {
-    key: 'storage',
-    label: '文件与存储',
-    icon: FolderOutline,
-    panel: StorageSettingsPanel,
+    key: 'tools-storage',
+    label: '工具与存储',
+    icon: SettingsOutline,
+    panel: ToolStorageSettingsPanel,
   },
   {
     key: 'conversion',

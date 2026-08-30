@@ -88,6 +88,7 @@ class JianpuSyntaxError(JianpuValidationError):
             column=self.token.column,
             start=start,
             end=end,
+            measure=self.token.measure,
         )
 
 
@@ -550,6 +551,7 @@ def _validate_jianpu_token(token: _Token) -> None:
                 start_utf16=(token.start_utf16 or 0)
                 + _utf16_length(raw[:event_offset]),
                 end_utf16=token.end_utf16,
+                measure=token.measure,
             )
         )
         return
@@ -726,6 +728,7 @@ def _remap_part_syntax_error(
             end_utf16=(
                 base_utf16 + token.end_utf16 if token.end_utf16 is not None else None
             ),
+            measure=token.measure,
         ),
         error.detail,
     )

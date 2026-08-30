@@ -204,7 +204,7 @@ def test_validate_syntax_route_returns_structured_diagnostics() -> None:
                 "start": 8,
                 "end": 10,
                 "severity": "error",
-                "measure": None,
+                "measure": "1",
             }
         ]
     }
