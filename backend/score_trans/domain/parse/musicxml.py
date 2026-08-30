@@ -1096,14 +1096,15 @@ def _sync_primary_tuplet(event: Event) -> None:
     if not event.tuplet_spans:
         return
     # 优先取带 start 的 span（真正的连音起点），其次取带 stop 的 span（终点），
-    # 最后兜底取第一个。原实现直接取 spans[0]，但 active_tuplets 跨小节残留的
+    # 最后兜底取最后一个。原实现直接取 spans[0]，但 active_tuplets 跨小节残留的
     # 未闭合 tuplet span 会混入，导致 spans[0] 是残留项（start/stop 均为 False），
-    # 从而丢失真正的 tuplet start/stop 标记。
+    # 从而丢失真正的 tuplet start/stop 标记；对非边界事件（无 start/stop），
+    # 应取最后活跃的组（active_tuplets 按 start 顺序追加）而不是第一个残留项。
     primary = next((sp for sp in event.tuplet_spans if sp.start), None)
     if primary is None:
         primary = next((sp for sp in event.tuplet_spans if sp.stop), None)
     if primary is None:
-        primary = event.tuplet_spans[0]
+        primary = event.tuplet_spans[-1]
     event.tuplet_id = primary.id
     event.tuplet_start = primary.start
     event.tuplet_stop = primary.stop

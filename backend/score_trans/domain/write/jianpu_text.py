@@ -865,7 +865,12 @@ def _tuplet_emission_plan(
         external_start,
         external_stop,
     ) = _tuplet_slur_plan(events)
-    if legacy:
+    if len(events) < 2:
+        form = "plain"
+        ratio_prefix = ""
+        include_duration = True
+        wrapper = ""
+    elif legacy:
         form = "default"
         ratio_prefix = ""
         include_duration = False

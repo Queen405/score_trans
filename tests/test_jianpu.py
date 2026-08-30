@@ -18,7 +18,7 @@ from score_trans.domain.jianpu_tokens import (
     token_duration,
 )
 from score_trans.domain.musicxml import score_to_jianpu_text
-from score_trans.domain.parse.jianpu_text import JianpuSyntaxError
+from score_trans.domain.parse.jianpu_text import JianpuSyntaxError, validate_jianpu_text
 from score_trans.domain.performance_marks import PERFORMANCE_MARKS
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 
@@ -1130,3 +1130,87 @@ def test_standard_musicxml_marks_have_jianpu_tokens() -> None:
     assert events[1].ornaments == ["turn"]
     assert events[2].ornaments == ["inverted-turn"]
     assert "^! 1 ^t 2 ^t' 3" in score_to_jianpu_text(score)
+
+
+def test_event_token_with_stuck_dynamic_and_duration_prefix_parses() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n\\pph[3'+4+4] w0 |")
+    event = score.measures[0].events[0]
+
+    assert event.dynamic == "pp"
+    assert event.duration == Fraction(2)
+    assert [pitch.degree for pitch in event.pitches] == [3, 4, 4]
+
+
+def test_event_token_with_slur_and_stuck_dynamic_parses() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n(\\pp6 7 1' 2') |")
+    event = score.measures[0].events[0]
+
+    assert event.dynamic == "pp"
+    assert event.slur_start is True
+    assert event.pitches[0].degree == 6
+
+
+def test_event_token_with_stuck_articulation_and_duration_parses() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n^>q1 2 3 4 |")
+    event = score.measures[0].events[0]
+
+    assert event.articulations == ["accent"]
+    assert event.duration == Fraction(1, 2)
+
+
+def test_event_token_with_multiple_stuck_prefixes_parses() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n\\pp^>q1 2 3 4 |")
+    event = score.measures[0].events[0]
+
+    assert event.dynamic == "pp"
+    assert event.articulations == ["accent"]
+    assert event.duration == Fraction(1, 2)
+
+
+def test_validate_accepts_stuck_dynamic_prefix_token() -> None:
+    diagnostics = validate_jianpu_text("1=C\n4/4\n\\pph[3'+4+4] w0 |")
+
+    assert not diagnostics
+
+
+def test_single_note_tuplet_group_writes_as_plain_note() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(4)],
+        tuplet_start=True,
+        tuplet_stop=True,
+        tuplet_count=1,
+        tuplet_normal_count=1,
+    )
+    score = JianpuScore(
+        measures=[
+            Measure(
+                "1",
+                duration=Fraction(4),
+                events=[
+                    event,
+                    Event(kind="note", duration=Fraction(3), pitches=[JianpuPitch(5)]),
+                ],
+            )
+        ]
+    )
+
+    text = score_to_jianpu_text(score)
+
+    assert "$" not in text
+    assert "4" in text
+
+
+def test_stuck_dynamic_takes_precedence_over_pending_dynamic() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n\\f \\pp6 7 1' 2' |")
+    events = score.measures[0].events
+
+    assert events[0].dynamic == "pp"
+    assert events[1].dynamic == "f"
+
+
+def test_pending_dynamic_still_consumed_by_plain_note() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n\\pp q1 2 3 4 |")
+
+    assert score.measures[0].events[0].dynamic == "pp"

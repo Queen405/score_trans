@@ -529,7 +529,7 @@ def _validate_jianpu_token(token: _Token) -> None:
             f"不支持的小节级演奏标记：{raw}。请使用 (^l)、(^.)、(^>)、(^r)、(^f)",
         )
     if raw.startswith("\\"):
-        if raw[1:] not in DYNAMICS:
+        if _match_dynamic_prefix(raw[1:]) is None:
             raise _syntax_error(
                 token, f"不支持的力度标记：{raw}，请使用 \\p、\\mp、\\f、\\ff 等"
             )
@@ -868,7 +868,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             event.source_start_utf16 = token.start_utf16
             event.source_end_utf16 = token.end_utf16
         event.start = cursor
-        if pending_dynamic:
+        if pending_dynamic and event.dynamic is None:
             event.dynamic = pending_dynamic
             pending_dynamic = None
         event_articulations = list(
@@ -1049,9 +1049,35 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             remember_measure_token(token)
             dynamic = raw[1:]
             if dynamic not in DYNAMICS:
-                raise _syntax_error(
-                    token, f"不支持的力度标记：{raw}，请使用 \\p、\\mp、\\f、\\ff 等"
+                inline_marks, event_part = _consume_tuplet_inline_marks(raw)
+                if not inline_marks or not event_part:
+                    raise _syntax_error(
+                        token,
+                        f"不支持的力度标记：{raw}，请使用 \\p、\\mp、\\f、\\ff 等",
+                    )
+                event_offset = raw.find(event_part)
+                event_token = _Token(
+                    event_part,
+                    token.line,
+                    token.column + event_offset,
+                    start_utf16=(
+                        token.start_utf16 + _utf16_length(raw[:event_offset])
+                        if token.start_utf16 is not None
+                        else None
+                    ),
+                    end_utf16=(
+                        token.start_utf16
+                        + _utf16_length(raw[:event_offset])
+                        + _utf16_length(event_part)
+                        if token.start_utf16 is not None
+                        else None
+                    ),
+                    measure=token.measure,
                 )
+                event = _parse_event_token(event_token)
+                _apply_inline_marks(event, inline_marks)
+                append_event(event, raw, token)
+                continue
             pending_dynamic = dynamic
             continue
         if raw.startswith("^"):
@@ -1676,6 +1702,7 @@ def _parse_event_token(token: _Token) -> Event:
     slur_stop = work.endswith(")")
     if slur_stop:
         work = work[:-1]
+    inline_marks, work = _consume_tuplet_inline_marks(work)
     has_duration_prefix = bool(duration_prefix(work))
     duration, work = consume_duration_prefix(work)
     if has_duration_prefix and work.startswith("."):
@@ -1705,6 +1732,8 @@ def _parse_event_token(token: _Token) -> Event:
     event.tie_stop = tie_stop
     event.slur_start = slur_start
     event.slur_stop = slur_stop
+    if inline_marks:
+        _apply_inline_marks(event, inline_marks)
     return event
 
 
