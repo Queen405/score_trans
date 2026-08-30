@@ -185,14 +185,14 @@ def _nonlegacy_chord_sextuplet() -> list[Event]:
     ]
 
 
-def test_nonlegacy_tuplet_with_prefix_marks_anchors_every_pitch() -> None:
+def test_subbeat_tuplet_with_prefix_marks_anchors_every_pitch() -> None:
     document = score_to_jianpu_document(
         JianpuScore(measures=[_make_measure(_nonlegacy_chord_sextuplet())])
     )
 
-    assert "$d[4+6,] (d[6+4,] d[4+6,] d[6+4,]) \\pd[4+6,] \\pd[6+4,]$" in (
-        document.text
-    )
+    # Sub-beat group (total 1/2 beat): degrades to plain tokens, no $...$ wrap.
+    assert "d[4+6,] (d[6+4,] d[4+6,] d[6+4,]) \\pd[4+6,] \\pd[6+4,]" in (document.text)
+    assert "$" not in document.text
     anchored = {a.source_id for a in document.anchors if a.role == "note"}
     assert {f"s1:i{200 + n}" for n in range(12)} <= anchored
     first = next(a for a in document.anchors if a.source_id == "s1:i200")

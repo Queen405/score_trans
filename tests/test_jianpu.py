@@ -18,6 +18,7 @@ from score_trans.domain.jianpu_tokens import (
     token_duration,
 )
 from score_trans.domain.musicxml import score_to_jianpu_text
+from score_trans.domain.parse.jianpu_text import JianpuSyntaxError
 from score_trans.domain.performance_marks import PERFORMANCE_MARKS
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 
@@ -815,21 +816,28 @@ def test_tuplet_group_total_duration_is_one_beat() -> None:
     assert events[0].tuplet_count == 3
 
 
-def test_tuplet_group_explicit_note_values_control_total_duration() -> None:
-    eighth_triplet = parse_jianpu_score("1=C\n4/4\n$q1 q2 q3$ 4 5 6 |")
-    half_note_triplet = parse_jianpu_score("1=C\n4/4\n$h1 h2 h3$ |")
+def test_tuplet_group_total_duration_uses_default_or_ratio() -> None:
+    default_triplet = parse_jianpu_score("1=C\n4/4\n$123$ 4 5 6 |")
+    ratio_triplet = parse_jianpu_score("1=C\n4/4\n$3:4;1 2 3$ |")
 
-    assert [event.duration for event in eighth_triplet.measures[0].events[:3]] == [
+    assert [event.duration for event in default_triplet.measures[0].events[:3]] == [
         Fraction(1, 3)
     ] * 3
-    assert [event.duration for event in half_note_triplet.measures[0].events[:3]] == [
+    assert [event.duration for event in ratio_triplet.measures[0].events[:3]] == [
         Fraction(4, 3)
     ] * 3
     assert sum(
-        (event.duration for event in half_note_triplet.measures[0].events[:3]),
+        (event.duration for event in ratio_triplet.measures[0].events[:3]),
         Fraction(0, 1),
     ) == Fraction(4, 1)
-    assert "$h1 h2 h3$" in score_to_jianpu_text(half_note_triplet)
+    assert "$3:4;123$" in score_to_jianpu_text(ratio_triplet)
+
+
+def test_tuplet_group_rejects_duration_prefix_inside_dollar() -> None:
+    with pytest.raises(JianpuSyntaxError):
+        parse_jianpu_score("1=C\n4/4\n$s1 s2 s3$ 4 5 6 |")
+    with pytest.raises(JianpuSyntaxError):
+        parse_jianpu_score("1=C\n4/4\n$q1 q2$ 3 4 5 6 |")
 
 
 def test_tuplet_group_normalizes_back_to_dollar_syntax() -> None:

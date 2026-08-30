@@ -145,7 +145,6 @@ def test_rekey_mixed_measure_transposes_every_note_form() -> None:
 
 
 def test_rekey_tuplet_bodies_handle_spaced_and_tight_layouts() -> None:
-    assert _rekey("1=G\n$q1 q2 q3$", "1=C\n$q1 q2 q3$") == "1=G\n$q4, q5, q6,$"
     assert _rekey("1=G\n$123$", "1=C\n$123$") == "1=G\n$4,5,6,$"
     assert _rekey("1=G\n$[1+3+5]23$", "1=C\n$[1+3+5]23$") == "1=G\n$[4,+6,+1]5,6,$"
 

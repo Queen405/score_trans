@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
 from fractions import Fraction
-from math import gcd, lcm
 
 from .constants import DYNAMICS
 from .performance_marks import PERFORMANCE_MARKS
@@ -231,20 +229,3 @@ def tuplet_normal_notes(actual_notes: int) -> int:
     while normal_notes * 2 <= actual_notes:
         normal_notes *= 2
     return max(1, normal_notes)
-
-
-def tuplet_duration_unit_count(durations: Iterable[Fraction]) -> int:
-    values = [Fraction(duration) for duration in durations]
-    if not values or any(duration <= 0 for duration in values):
-        raise ValueError("连音组时值必须全部大于零")
-    common_denominator = 1
-    for duration in values:
-        common_denominator = lcm(common_denominator, duration.denominator)
-    scaled = [
-        duration.numerator * (common_denominator // duration.denominator)
-        for duration in values
-    ]
-    unit = 0
-    for value in scaled:
-        unit = gcd(unit, value)
-    return sum(value // unit for value in scaled)

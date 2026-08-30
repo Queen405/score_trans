@@ -5,6 +5,7 @@ import json
 import logging
 import re
 from copy import deepcopy
+from dataclasses import dataclass
 from fractions import Fraction
 
 from ...models.common.types import AccidentalMode, normalize_instrument_profile
@@ -15,7 +16,6 @@ from ..accidentals import pitch_to_token
 from ..constants import DYNAMICS
 from ..jianpu_tokens import (
     safe_duration_affixes,
-    tuplet_duration_unit_count,
     tuplet_normal_notes,
 )
 from ..performance_marks import event_mark_ids, mark_token
@@ -350,38 +350,16 @@ def _text_anchors_raw(
                 continue
             if event.tuplet_start and event.tuplet_count:
                 group = _collect_tuplet_events(events, index)
-                group_actual_count = group[0].tuplet_count or len(group)
-                group_normal_count = group[
-                    0
-                ].tuplet_normal_count or tuplet_normal_notes(group_actual_count)
-                group_legacy_duration = all(
-                    group_event.duration == Fraction(1, group_actual_count)
-                    for group_event in group
-                )
-                group_open = line.find("$", event_cursor)
-                group_close = line.find("$", group_open + 1) if group_open >= 0 else -1
-                (
-                    suppressed_starts,
-                    suppressed_stops,
-                    external_start,
-                    external_stop,
-                ) = _tuplet_slur_plan(group)
-                for group_index, group_event in enumerate(group):
-                    token = _event_to_tuplet_body(
-                        group_event,
-                        accidental_mode=accidental_mode,
-                        include_duration=not group_legacy_duration,
-                        actual_count=group_actual_count,
-                        normal_count=group_normal_count,
-                        include_slur_start=(
-                            group_index not in suppressed_starts
-                            and group_index != external_start
-                        ),
-                        include_slur_stop=(
-                            group_index not in suppressed_stops
-                            and group_index != external_stop
-                        ),
+                plan = _tuplet_emission_plan(group, accidental_mode=accidental_mode)
+                if plan.wrapper:
+                    group_open = line.find("$", event_cursor)
+                    group_close = (
+                        line.find("$", group_open + 1) if group_open >= 0 else -1
                     )
+                else:
+                    group_open = -1
+                    group_close = -1
+                for group_event, token in zip(group, plan.bodies):
                     position = line.find(
                         token,
                         event_cursor,
@@ -404,11 +382,11 @@ def _text_anchors_raw(
                     )
                     event_cursor = position + len(token)
                 if (
-                    external_start is not None
+                    plan.external_start is not None
                     and group_open > 0
                     and line[group_open - 1] == "("
                 ):
-                    for source_id in group[external_start].source_roles.get(
+                    for source_id in group[plan.external_start].source_roles.get(
                         "slur_start", []
                     ):
                         _append_anchor(
@@ -420,12 +398,12 @@ def _text_anchors_raw(
                             "slur",
                         )
                 if (
-                    external_stop is not None
+                    plan.external_stop is not None
                     and group_close >= 0
                     and group_close + 1 < len(line)
                     and line[group_close + 1] == ")"
                 ):
-                    for source_id in group[external_stop].source_roles.get(
+                    for source_id in group[plan.external_stop].source_roles.get(
                         "slur_stop", []
                     ):
                         _append_anchor(
@@ -437,7 +415,7 @@ def _text_anchors_raw(
                             "slur",
                         )
                 if group_close >= 0:
-                    event_cursor = group_close + 1 + int(external_stop is not None)
+                    event_cursor = group_close + 1 + int(plan.external_stop is not None)
                 index += len(group)
                 continue
 
@@ -856,30 +834,57 @@ def _tuplet_slur_plan(
     return suppressed_starts, suppressed_stops, external_start, external_stop
 
 
-def _tuplet_to_token(
+@dataclass(slots=True)
+class _TupletEmission:
+    form: str
+    ratio_prefix: str
+    bodies: list[str]
+    wrapper: str
+    total: Fraction
+    suppressed_starts: set[int]
+    suppressed_stops: set[int]
+    external_start: int | None
+    external_stop: int | None
+
+
+def _tuplet_emission_plan(
     events: list[Event],
     *,
     accidental_mode: AccidentalMode = "auto",
-) -> str:
+) -> _TupletEmission:
     actual_count = events[0].tuplet_count or len(events)
     normal_count = events[0].tuplet_normal_count or tuplet_normal_notes(actual_count)
-    legacy_duration = all(
-        event.duration == Fraction(1, actual_count) for event in events
+    total = sum((event.duration for event in events), Fraction(0))
+    legacy = all(event.duration == Fraction(1, actual_count) for event in events)
+    uniform = actual_count > 0 and all(
+        event.duration == total / actual_count for event in events
     )
-    notated_durations = [
-        event.duration * Fraction(actual_count, normal_count) for event in events
-    ]
     (
         suppressed_starts,
         suppressed_stops,
         external_start,
         external_stop,
     ) = _tuplet_slur_plan(events)
-    parts = [
+    if legacy:
+        form = "default"
+        ratio_prefix = ""
+        include_duration = False
+        wrapper = "$"
+    elif total.denominator == 1 and total >= 1 and uniform:
+        form = "ratio"
+        ratio_prefix = f"{actual_count}:{int(total)};"
+        include_duration = False
+        wrapper = "$"
+    else:
+        form = "degrade"
+        ratio_prefix = ""
+        include_duration = True
+        wrapper = ""
+    bodies = [
         _event_to_tuplet_body(
             event,
             accidental_mode=accidental_mode,
-            include_duration=not legacy_duration,
+            include_duration=include_duration,
             actual_count=actual_count,
             normal_count=normal_count,
             include_slur_start=(
@@ -891,26 +896,39 @@ def _tuplet_to_token(
         )
         for index, event in enumerate(events)
     ]
-    if all(re.fullmatch(r"[0-7][',]*", part) for part in parts):
-        body = "".join(parts)
+    return _TupletEmission(
+        form=form,
+        ratio_prefix=ratio_prefix,
+        bodies=bodies,
+        wrapper=wrapper,
+        total=total,
+        suppressed_starts=suppressed_starts,
+        suppressed_stops=suppressed_stops,
+        external_start=external_start,
+        external_stop=external_stop,
+    )
+
+
+def _tuplet_to_token(
+    events: list[Event],
+    *,
+    accidental_mode: AccidentalMode = "auto",
+) -> str:
+    plan = _tuplet_emission_plan(events, accidental_mode=accidental_mode)
+    if plan.form == "degrade":
+        logger.warning(
+            "连音组无法用 $...$ 或比例表达（总时值 %s 拍），按普通音符降级输出",
+            plan.total,
+        )
+    if plan.wrapper and all(re.fullmatch(r"[0-7][',]*", body) for body in plan.bodies):
+        body = "".join(plan.bodies)
     else:
-        body = " ".join(parts)
-    inferred_actual_count = tuplet_duration_unit_count(notated_durations)
-    implicit_ratio = actual_count == inferred_actual_count and normal_count == (
-        tuplet_normal_notes(inferred_actual_count)
-    )
-    has_visible_duration_prefix = any(
-        safe_duration_affixes(duration)[0] for duration in notated_durations
-    )
-    ratio_prefix = (
-        f"{actual_count}:{normal_count};"
-        if not implicit_ratio
-        or (not legacy_duration and not has_visible_duration_prefix)
-        else ""
-    )
-    prefix = "(" if external_start is not None else ""
-    suffix = ")" if external_stop is not None else ""
-    return f"{prefix}${ratio_prefix}{body}${suffix}"
+        body = " ".join(plan.bodies)
+    prefix = "(" if plan.external_start is not None else ""
+    suffix = ")" if plan.external_stop is not None else ""
+    if plan.wrapper:
+        return f"{prefix}{plan.wrapper}{plan.ratio_prefix}{body}{plan.wrapper}{suffix}"
+    return f"{prefix}{body}{suffix}"
 
 
 def _event_to_tuplet_body(

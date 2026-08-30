@@ -27,7 +27,6 @@ from ..jianpu_tokens import (
     consume_duration_prefix,
     consume_duration_suffix,
     duration_prefix,
-    tuplet_duration_unit_count,
     tuplet_normal_notes,
 )
 from ..performance_marks import (
@@ -1451,20 +1450,20 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
     has_explicit_duration = any(
         _has_tuplet_duration_prefix(source_token) for _event, source_token in parsed
     )
+    if has_explicit_duration:
+        raise _syntax_error(
+            token,
+            "连音组内不允许时值前缀，请用 $实际数:常规数;$ 比例或默认 $...$",
+        )
     if explicit_ratio is not None:
         actual_count, normal_count = explicit_ratio
-    elif has_explicit_duration:
-        actual_count = tuplet_duration_unit_count(
-            event.duration for event, _source_token in parsed
-        )
-        normal_count = tuplet_normal_notes(actual_count)
     else:
         actual_count = len(parsed)
         normal_count = tuplet_normal_notes(actual_count)
     group_id = f"{token.line}:{token.column}"
     events: list[tuple[Event, str]] = []
     for index, (event, source_token) in enumerate(parsed):
-        if explicit_ratio is not None or has_explicit_duration:
+        if explicit_ratio is not None:
             event.duration *= Fraction(normal_count, actual_count)
         else:
             event.duration = Fraction(1, actual_count)

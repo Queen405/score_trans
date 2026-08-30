@@ -334,7 +334,9 @@ def test_musicxml_same_number_nested_tuplets_keep_both_spans() -> None:
     assert span_ids[0][0] == span_ids[1][0] == span_ids[2][0] == span_ids[3][0]
     assert span_ids[1][1] == span_ids[2][1]
     assert span_ids[0][0] != span_ids[1][1]
-    assert "$3:2;1$" in jianpu_text
+    # The outer group spans a sub-beat total (3 eighths-triplet worth of sounding
+    # time), which jianpu text cannot express; it degrades to plain tokens.
+    assert "$" not in jianpu_text.splitlines()[-1]
     assert musicxml_to_score(jianpu_to_musicxml(jianpu_text)).measures
     assert [tuplet.attrib for tuplet in roundtrip.findall(".//notations/tuplet")] == [
         {"type": "start", "number": "1"},
@@ -412,50 +414,10 @@ def test_stale_tuplet_span_does_not_hide_later_explicit_tuplet_boundaries() -> N
     assert "$" in score_to_jianpu_text(score).splitlines()[-1]
 
 
-def test_musicxml_omits_redundant_ratio_for_weighted_tuplet_durations() -> None:
-    xml = """
-    <score-partwise version="4.0">
-      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
-      <part id="P1"><measure number="1">
-        <attributes>
-          <divisions>24</divisions><key><fifths>0</fifths></key>
-          <time><beats>1</beats><beat-type>8</beat-type></time>
-        </attributes>
-        <note>
-          <pitch><step>C</step><octave>4</octave></pitch>
-          <duration>8</duration><type>eighth</type>
-          <time-modification>
-            <actual-notes>3</actual-notes><normal-notes>2</normal-notes>
-          </time-modification>
-          <notations><tuplet number="1" type="start"/></notations>
-          <beam number="1">begin</beam>
-        </note>
-        <note>
-          <pitch><step>D</step><octave>4</octave></pitch>
-          <duration>4</duration><type>16th</type>
-          <time-modification>
-            <actual-notes>3</actual-notes><normal-notes>2</normal-notes>
-          </time-modification>
-          <notations><tuplet number="1" type="stop"/></notations>
-          <beam number="1">end</beam>
-        </note>
-      </measure></part>
-    </score-partwise>
-    """
-
-    score = musicxml_to_score(xml)
-    text = score_to_jianpu_text(score)
-    reparsed = parse_jianpu_score(text)
-
-    assert "$q1 s2$" in text
-    assert "3:2;" not in text
-    assert [event.duration for event in reparsed.measures[0].events] == [
-        Fraction(1, 3),
-        Fraction(1, 6),
-    ]
-
-
-def test_musicxml_recovers_orphan_time_modified_beam_as_tuplet() -> None:
+def test_musicxml_orphan_time_modified_tuplet_degrades_to_plain_tokens() -> None:
+    # An orphan sub-beat tuplet (only 2 of 3 notes, total < 1 beat) cannot be
+    # expressed as $...$ or an integer-normal ratio; the writer degrades it to
+    # plain tokens (lossy) and logs a non-fatal warning instead of crashing.
     xml = """
     <score-partwise version="4.0">
       <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
@@ -486,18 +448,19 @@ def test_musicxml_recovers_orphan_time_modified_beam_as_tuplet() -> None:
     """
 
     score = musicxml_to_score(xml)
-    text = score_to_jianpu_text(score)
-    reparsed = parse_jianpu_score(text)
     events = score.measures[0].events
-    reparsed_events = reparsed.measures[0].events
 
-    assert "$3:2;s1 s2$" in text
+    # Recovery still detects the orphan tuplet on the score model.
     assert [event.duration for event in events] == [Fraction(1, 6)] * 2
-    assert [event.duration for event in reparsed_events] == [Fraction(1, 6)] * 2
     assert [event.tuplet_count for event in events] == [3, 3]
     assert [event.tuplet_normal_count for event in events] == [2, 2]
     assert events[0].tuplet_start is True
     assert events[1].tuplet_stop is True
+
+    # The text degrades: no $...$ wrapper, plain tokens instead.
+    text = score_to_jianpu_text(score)
+    assert "$" not in text.splitlines()[-1]
+    assert "s1 s2" in text
 
 
 def test_musicxml_duplet_with_notated_duration_corrects_to_sounded() -> None:
@@ -656,7 +619,9 @@ def test_musicxml_non_notatable_duration_in_tuplet_does_not_crash() -> None:
     assert events[0].tuplet_normal_count == 3
 
     text = score_to_jianpu_text(score)
-    assert "$" in text
+    # 4/3-beat group: non-integer total, cannot be a $...$ ratio; degrades to
+    # plain tokens without crashing.
+    assert "$" not in text
 
 
 def test_extended_musicxml_dynamic_roundtrips_through_jianpu_text() -> None:
