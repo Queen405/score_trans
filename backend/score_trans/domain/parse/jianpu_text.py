@@ -65,6 +65,7 @@ class _Token:
     column: int
     start_utf16: int | None = None
     end_utf16: int | None = None
+    measure: str | None = None
 
 
 class JianpuSyntaxError(JianpuValidationError):
@@ -1252,6 +1253,8 @@ def _token_with_offsets(
     column: int,
     line_start_utf16: int,
     original_line: str,
+    *,
+    measure: str | None = None,
 ) -> _Token:
     return _Token(
         value=value,
@@ -1260,6 +1263,7 @@ def _token_with_offsets(
         start_utf16=_utf16_length(original_line[: max(0, column)]) + line_start_utf16,
         end_utf16=_utf16_length(original_line[: max(0, column) + len(value)])
         + line_start_utf16,
+        measure=measure,
     )
 
 

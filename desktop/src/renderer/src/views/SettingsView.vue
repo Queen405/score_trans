@@ -24,20 +24,12 @@
           <span>{{ category.label }}</span>
         </button>
       </nav>
-
-      <div class="sv-sidebar-note">
-        设置修改会先保留为草稿，保存后才会影响工作区。
-      </div>
     </aside>
 
     <section class="sv-main">
       <header class="sv-page-header">
         <div>
-          <div class="sv-breadcrumb">
-            设置 / {{ activeCategoryMeta.label }}
-          </div>
           <h1>{{ activeCategoryMeta.label }}</h1>
-          <p>{{ activeCategoryMeta.description }}</p>
         </div>
         <span
           v-if="settings.draftDirty"
@@ -174,7 +166,6 @@ type SettingsCategory = 'services' | 'tools' | 'storage' | 'conversion' | 'appea
 interface CategoryDefinition {
   key: SettingsCategory
   label: string
-  description: string
   icon: Component
   panel: Component
 }
@@ -197,35 +188,30 @@ const categories: CategoryDefinition[] = [
   {
     key: 'services',
     label: '服务与模型',
-    description: '配置乐谱识别、视觉转写与工作台辅助服务。',
     icon: CloudOutline,
     panel: ServiceSettingsPanel,
   },
   {
     key: 'tools',
     label: '工具与路径',
-    description: '管理 Audiveris 与 Java 运行环境。',
     icon: BuildOutline,
     panel: ToolPathsPanel,
   },
   {
     key: 'storage',
     label: '文件与存储',
-    description: '设置应用数据、缓存位置并管理磁盘占用。',
     icon: FolderOutline,
     panel: StorageSettingsPanel,
   },
   {
     key: 'conversion',
     label: '转换与导出',
-    description: '设置简谱转换规则与默认导出位置。',
     icon: SwapHorizontalOutline,
     panel: ConversionSettingsPanel,
   },
   {
     key: 'appearance',
     label: '界面与外观',
-    description: '选择适合当前工作环境的界面主题。',
     icon: ColorPaletteOutline,
     panel: AppearanceSettingsPanel,
   },

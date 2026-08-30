@@ -2,16 +2,12 @@
   <div class="sv-panel">
     <section class="sv-section">
       <div class="sv-section-heading">
-        <div>
-          <h3>文件位置</h3>
-          <p>管理用户数据与临时文件的存放位置。</p>
-        </div>
+        <h3>文件位置</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
           label="用户数据"
-          hint="包含历史记录、上传索引和应用生成的数据"
         >
           <n-input
             v-model:value="settings.draft.dataDir"
@@ -32,7 +28,6 @@
 
         <settings-form-row
           label="缓存位置"
-          hint="保存识别和转换过程中产生的临时文件"
         >
           <n-input
             v-model:value="settings.draft.cacheDir"
@@ -57,10 +52,7 @@
 
     <section class="sv-section">
       <div class="sv-section-heading">
-        <div>
-          <h3>缓存管理</h3>
-          <p>清理不会删除历史记录正在引用的文件。</p>
-        </div>
+        <h3>缓存管理</h3>
       </div>
 
       <div class="sv-storage-summary">

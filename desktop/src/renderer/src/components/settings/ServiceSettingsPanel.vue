@@ -10,10 +10,7 @@
         class="sv-section-divider"
       />
       <div class="sv-section-heading">
-        <div>
-          <h3>{{ service.title }}</h3>
-          <p>{{ service.description }}</p>
-        </div>
+        <h3>{{ service.title }}</h3>
         <span :class="['sv-status', `is-${providerStatus(service.kind).tone}`]">
           <span class="sv-status-dot" />
           {{ providerStatus(service.kind).label }}
@@ -32,11 +29,6 @@
 
         <settings-form-row
           label="API Key"
-          :hint="
-            settings.draftProviderDetails[service.kind].apiKeySet
-              ? '留空将继续使用当前服务商已保存的密钥'
-              : '密钥只会在保存配置时提交'
-          "
         >
           <n-input
             v-model:value="settings.draft.providers[service.kind].apiKey"
@@ -78,7 +70,6 @@ import SettingsFormRow from './SettingsFormRow.vue'
 interface ServiceDescriptor {
   kind: ProviderKind
   title: string
-  description: string
 }
 
 const settings = useSettingsStore()
@@ -89,17 +80,14 @@ const services: ServiceDescriptor[] = [
   {
     kind: 'ocr',
     title: '乐谱 OCR',
-    description: '将图片或 PDF 乐谱识别为 MusicXML。',
   },
   {
     kind: 'ai',
     title: 'AI 视觉转写',
-    description: '从乐谱图像生成结构化转写结果。',
   },
   {
     kind: 'assistant',
     title: '工作台助手',
-    description: '用于工作台中的辅助编辑与问答。',
   },
 ]
 

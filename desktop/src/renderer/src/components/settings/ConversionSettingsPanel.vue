@@ -2,10 +2,7 @@
   <div class="sv-panel">
     <section class="sv-section">
       <div class="sv-section-heading">
-        <div>
-          <h3>简谱规则</h3>
-          <p>设置默认的调号、变音记法与小节编号方式。</p>
-        </div>
+        <h3>简谱规则</h3>
       </div>
 
       <div class="sv-form-stack">
@@ -51,8 +48,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="识别五线谱文字（OCR）"
-          hint="关闭后仍执行音符识别、MusicXML 转换和简谱生成"
+          label="识别五线谱文字"
         >
           <n-switch
             v-model:value="settings.draft.enableOmrOcr"
@@ -62,7 +58,6 @@
 
         <settings-form-row
           label="代码配色"
-          hint="在简谱编辑器中显示语法高亮"
         >
           <n-switch
             v-model:value="settings.draft.jianpuSyntaxHighlight"
@@ -72,7 +67,6 @@
 
         <settings-form-row
           label="检查小节时值"
-          hint="少拍或超拍显示警告，不影响保存、渲染和导出"
         >
           <n-switch
             v-model:value="settings.draft.jianpuMeasureDurationCheck"
@@ -81,8 +75,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="插入调号时自动转调（保留音高）"
-          hint="开启后，修改 1=X 调号标记会自动将后续音符重记谱以保持相同音高"
+          label="修改调号自动转调"
         >
           <n-switch
             v-model:value="settings.draft.jianpuAutoTranspose"
@@ -96,16 +89,12 @@
 
     <section class="sv-section">
       <div class="sv-section-heading">
-        <div>
-          <h3>导出</h3>
-          <p>指定转换结果的默认保存位置。</p>
-        </div>
+        <h3>导出</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
           label="默认导出位置"
-          hint="留空则每次导出时手动选择"
         >
           <n-input
             v-model:value="settings.draft.outputDir"
@@ -126,7 +115,6 @@
 
         <settings-form-row
           label="MIDI 速度"
-          hint="关闭时使用识别到的速度（未识别到则用默认 120 BPM），开启后使用指定速度"
         >
           <div class="sv-midi-tempo">
             <n-switch

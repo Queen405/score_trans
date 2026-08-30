@@ -2,17 +2,12 @@
   <div class="sv-panel">
     <section class="sv-section">
       <div class="sv-section-heading">
-        <div>
-          <h3>识别工具</h3>
-          <p>配置乐谱识别所需的本地工具环境。</p>
-        </div>
+        <h3>识别工具</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
           label="Audiveris"
-          description="识别引擎"
-          hint="可填写 Audiveris 可执行文件或项目中的 gradlew.bat 路径"
         >
           <n-input
             v-model:value="settings.draft.audiverisPath"
@@ -23,8 +18,6 @@
 
         <settings-form-row
           label="Java 环境"
-          description="JAVA_HOME"
-          hint="Audiveris 需要 JDK 25，保存后将在下次识别时使用"
         >
           <n-input
             v-model:value="settings.draft.javaHome"
@@ -35,8 +28,6 @@
 
         <settings-form-row
           label="最大堆内存"
-          description="Audiveris JVM 内存上限"
-          hint="启动崩溃时调小此值；21MP 曲谱约需 1-2g"
         >
           <n-select
             v-model:value="settings.draft.audiverisMaxHeap"
@@ -47,8 +38,6 @@
 
         <settings-form-row
           label="像素上限"
-          description="图片宽×高 的最大像素数"
-          hint="超过此值 Audiveris 拒绝处理；0=不限制"
         >
           <n-input-number
             v-model:value="maxPixelCountNumber"
@@ -60,8 +49,6 @@
 
         <settings-form-row
           label="自动放大图片"
-          description="识别前把图片长边放大到指定像素"
-          hint="提升低分辨率谱面识别率；关闭后低分辨率重试也会一并关闭"
         >
           <n-switch
             v-model:value="settings.draft.audiverisAutoUpscale"
@@ -71,8 +58,6 @@
 
         <settings-form-row
           label="最小长边像素"
-          description="放大目标值"
-          hint="图片长边低于此值时放大到该像素；数值越大放大越多，0 表示不放大"
         >
           <n-input-number
             v-model:value="settings.draft.audiverisMinImageEdge"

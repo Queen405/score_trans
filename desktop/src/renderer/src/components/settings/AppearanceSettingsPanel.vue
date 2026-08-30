@@ -2,16 +2,12 @@
   <div class="sv-panel">
     <section class="sv-section">
       <div class="sv-section-heading">
-        <div>
-          <h3>主题外观</h3>
-          <p>选择应用界面的明暗模式。</p>
-        </div>
+        <h3>主题外观</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
           label="主题模式"
-          hint="主题将在应用或保存设置后切换"
         >
           <n-radio-group
             v-model:value="settings.draft.themeMode"
@@ -36,16 +32,12 @@
 
     <section class="sv-section">
       <div class="sv-section-heading">
-        <div>
-          <h3>预览叠加</h3>
-          <p>控制打开预览时识别结果的默认叠加显示。</p>
-        </div>
+        <h3>预览叠加</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
           label="识别音符叠加"
-          hint="打开原始五线谱图片时默认叠加显示识别到的音符"
         >
           <n-switch
             v-model:value="settings.draft.showRecognitionOverlay"
@@ -55,7 +47,6 @@
 
         <settings-form-row
           label="简谱 OCR 叠加"
-          hint="打开简谱渲染预览时默认叠加显示 OCR 文字"
         >
           <n-switch
             v-model:value="settings.draft.showOcrOverlay"
@@ -69,10 +60,7 @@
 
     <section class="sv-section">
       <div class="sv-section-heading">
-        <div>
-          <h3>简谱版式</h3>
-          <p>调整 A4 简谱的整体大小与排版密度。</p>
-        </div>
+        <h3>简谱版式</h3>
       </div>
 
       <div class="sv-form-stack">
@@ -122,7 +110,6 @@
 
         <settings-form-row
           label="短音符间距"
-          hint="降低可让每行排入更多小节"
         >
           <div class="sv-layout-control">
             <n-slider
@@ -147,7 +134,6 @@
 
         <settings-form-row
           label="分拍间隔"
-          hint="每拍之间额外留出的间隔，密排时也能看出分拍"
         >
           <div class="sv-layout-control">
             <n-slider

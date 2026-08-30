@@ -24,20 +24,12 @@
           <span>{{ section.label }}</span>
         </button>
       </nav>
-
-      <div class="sv-sidebar-note">
-        使用纯文本描述音符、节奏和演奏技巧，并渲染为简谱谱面。
-      </div>
     </aside>
 
     <section class="sv-main syntax-main">
       <header class="sv-page-header syntax-page-header">
         <div>
-          <div class="sv-breadcrumb">
-            语法说明 / {{ activeMeta.label }}
-          </div>
           <h1>{{ activeMeta.label }}</h1>
-          <p>{{ activeMeta.summary }}</p>
         </div>
         <n-input
           v-model:value="searchQuery"
@@ -373,7 +365,6 @@ type SectionId =
 interface DocSection {
   id: SectionId
   label: string
-  summary: string
   icon: Component
 }
 
@@ -388,7 +379,6 @@ interface SyntaxSection {
   id: SectionId
   title: string
   kicker: string
-  summary: string
   entries: SyntaxEntry[]
 }
 
@@ -443,49 +433,41 @@ const docSections: DocSection[] = [
   {
     id: 'quick-start',
     label: '快速开始',
-    summary: '谱面信息写在开头，空一行后按从左到右的顺序输入音符和小节线。',
     icon: FlashOutline,
   },
   {
     id: 'metadata',
     label: '谱面信息',
-    summary: '调号和拍号是必需信息，其余字段可按需要写在乐谱开头。',
     icon: InformationCircleOutline,
   },
   {
     id: 'notes',
     label: '音符与八度',
-    summary: '数字表示音级，撇号、逗号和变音前缀改变音符的实际音高。',
     icon: MusicalNotesOutline,
   },
   {
     id: 'duration',
     label: '时值与连音',
-    summary: '时值前缀控制音符长度，附点、延音线和连音组补充节奏关系。',
     icon: TimerOutline,
   },
   {
     id: 'measures',
     label: '和弦与小节',
-    summary: '方括号组织同时发声的音，小节线和重复记号组织乐谱结构。',
     icon: AppsOutline,
   },
   {
     id: 'expression',
     label: '力度、歌词与注释',
-    summary: '力度标记跟随音符，歌词按有效音符顺序匹配，注释不进入谱面。',
     icon: CreateOutline,
   },
   {
     id: 'performance-marks',
     label: '演奏技巧',
-    summary: '同一记谱图形只定义一次，具体名称和演奏解释由乐器模式决定。',
     icon: ColorWandOutline,
   },
   {
     id: 'quick-reference',
     label: '速查表',
-    summary: '编辑时最常用的输入形式，完整说明以前文章节为准。',
     icon: ListOutline,
   },
 ]
@@ -495,7 +477,6 @@ const syntaxSections: SyntaxSection[] = [
     id: 'metadata',
     title: '谱面信息',
     kicker: '文档设置',
-    summary: '调号和拍号是必需信息，其余字段可按需要写在乐谱开头。',
     entries: [
       { syntax: '1=C', name: '调号', description: '以 C 为大调主音。' },
       { syntax: '4/4', name: '拍号', description: '每小节四拍，以四分音符为一拍。' },
@@ -515,7 +496,6 @@ const syntaxSections: SyntaxSection[] = [
     id: 'notes',
     title: '音符与八度',
     kicker: '音高',
-    summary: '数字表示音级，撇号、逗号和变音前缀改变音符的实际音高。',
     entries: [
       { syntax: '1–7', name: '音级', description: '分别表示 do 到 si。' },
       { syntax: '0', name: '休止符', description: '占据时值但不发声。' },
@@ -532,7 +512,6 @@ const syntaxSections: SyntaxSection[] = [
     id: 'duration',
     title: '时值与连音',
     kicker: '节奏',
-    summary: '时值前缀控制音符长度，附点、延音线和连音组补充节奏关系。',
     entries: [
       { syntax: 'w1', name: '全音符', description: '持续 4 拍。' },
       { syntax: 'h1', name: '二分音符', description: '持续 2 拍。' },
@@ -556,7 +535,6 @@ const syntaxSections: SyntaxSection[] = [
     id: 'measures',
     title: '和弦与小节',
     kicker: '结构',
-    summary: '方括号组织同时发声的音，小节线和重复记号组织乐谱结构。',
     entries: [
       { syntax: '[1+3+5]', name: '和弦', description: '多个音高同时发声，并在谱面上纵向排列。' },
       { syntax: 'q[1+3+5]', name: '带时值和弦', description: '这个和弦持续 1/2 拍。' },
@@ -571,7 +549,6 @@ const syntaxSections: SyntaxSection[] = [
     id: 'expression',
     title: '力度、歌词与注释',
     kicker: '文本与表现',
-    summary: '力度标记跟随音符，歌词按有效音符顺序匹配，注释不进入谱面。',
     entries: [
       { syntax: '\\pppp  \\ppp  \\pp  \\p', name: '弱力度', description: '从极弱到弱，p 为基本弱。' },
       { syntax: '\\mp  \\mf', name: '中弱与中强', description: '表示介于弱和强之间的力度。' },
