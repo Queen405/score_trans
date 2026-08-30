@@ -80,6 +80,7 @@ class CorrectionService:
             content_scale_percent=options.jianpu_content_scale_percent,
             system_gap_percent=options.jianpu_system_gap_percent,
             short_note_gap_percent=options.jianpu_short_note_gap_percent,
+            beat_gap_percent=options.jianpu_beat_gap_percent,
         )
         return CorrectionArtifacts(
             working_musicxml=working_xml,

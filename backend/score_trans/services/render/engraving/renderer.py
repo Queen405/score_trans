@@ -405,12 +405,19 @@ class PublicationRenderer:
         anchors: list[_Anchor] = []
         # Attributes sit in the upper-left annotation band and must not consume
         # horizontal event slots; otherwise a key/meter change shifts the bar.
-        inner_left = x + style.barline_gutter
-        inner_right = x + width - style.barline_gutter
+        #
+        # Clip limits mark how far derived marks (rhythm lines, extension lines)
+        # may reach — into the gutter but never past the barline. Event centres
+        # additionally keep a rhythm-line side extent away from those limits,
+        # because the shared line is no longer part of per-event ink.
+        clip_left = x + style.barline_gutter
+        clip_right = x + width - style.barline_gutter
+        ordered_events = [event for _source_index, event in events]
+        pad_left, pad_right = _rhythm_edge_padding(ordered_events, style)
         event_positions = _event_positions(
-            [event for _source_index, event in events],
-            inner_left,
-            inner_right,
+            ordered_events,
+            clip_left + pad_left,
+            clip_right - pad_right,
             measure,
             style,
         )
@@ -423,13 +430,13 @@ class PublicationRenderer:
                 event_x,
                 y + style.event_baseline,
                 note_index,
-                right_limit=inner_right,
+                right_limit=clip_right,
             )
             anchors.append(anchor)
             if consumed:
                 note_index += 1
             _route_spanners(scene, spanners, anchor, x, x + width, style)
-        _draw_rhythm_lines(scene, anchors, inner_left, inner_right, style)
+        _draw_rhythm_lines(scene, anchors, clip_left, clip_right, style)
         _draw_tuplets(scene, anchors, style)
         _draw_measure_text(scene, measure, x, y, width, style)
         if measure.repeat_start:
@@ -473,7 +480,10 @@ def _measure_bar_offsets(
         rhythm_lines = _rhythm_line_count(event)
         if rhythm_lines:
             base = style.event_baseline + _rhythm_line_offset(event, style)
-            bottom = max(bottom, base + (rhythm_lines - 1) * 6.0 + 2.0)
+            bottom = max(
+                bottom,
+                base + (rhythm_lines - 1) * style.rhythm_line_level_step + 2.0,
+            )
     return top, bottom
 
 
@@ -614,17 +624,34 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
     if not extents:
         return style.minimum_measure_width
     common_shortest = _common_shortest_duration(events)
-    gaps = _minimum_event_gaps(
-        events, extents, common_shortest, style, _beat_boundaries(measure)
-    )
-    if style.short_note_gap_scale > 1.0:
+    boundaries = _beat_boundaries(measure)
+    preferred = _minimum_event_gaps(events, extents, common_shortest, style, boundaries)
+    scale = style.short_note_gap_scale
+    if scale != 1.0:
+        # Symmetric on purpose: lowering the control has to narrow the cell so
+        # _break_systems fits more measures per line. Applying it only above 1.0
+        # left the cell unchanged and turned the saved room into dead space at
+        # the bar edges, which is why the control looked inert.
         gaps = [
-            gap * style.short_note_gap_scale
+            gap * scale
             if _is_short_note_pair(events[index], events[index + 1])
             else gap
-            for index, gap in enumerate(gaps)
+            for index, gap in enumerate(preferred)
         ]
-    width = style.measure_side_padding + extents[-1][1] - extents[0][0] + sum(gaps)
+        # The scale may compress past the duration spring but not past the ink
+        # collision and beat-boundary floors, or the cell would be too narrow to
+        # hold its own content.
+        floors = _hard_event_gaps(events, extents, style, boundaries)
+        gaps = [max(floor, gap) for floor, gap in zip(floors, gaps, strict=True)]
+    else:
+        gaps = list(preferred)
+    pad_left, pad_right = _rhythm_edge_padding(events, style)
+    width = (
+        style.measure_side_padding
+        + (extents[-1][1] + pad_right)
+        - (extents[0][0] - pad_left)
+        + sum(gaps)
+    )
     return max(style.minimum_measure_width, min(style.content_width, width))
 
 
@@ -662,6 +689,68 @@ def _is_short_note_pair(previous: Event, current: Event) -> bool:
     )
 
 
+def _rhythm_edge_padding(
+    events: list[Event], style: PublicationStyle
+) -> tuple[float, float]:
+    """Return the side room the outer events need for their rhythm lines.
+
+    ``measure_event_ink`` no longer reserves the rhythm line's side extent as
+    per-event horizontal ink, so the outermost event centres must stay far
+    enough inside the measure for the shared line to be drawn without being
+    clipped. Positioning uses these paddings; the clip limits stay at the
+    barline gutter so the line may still reach into it.
+    """
+    if not events:
+        return 0.0, 0.0
+    extent = style.rhythm_line_side_extent
+    left = extent if _rhythm_line_count(events[0]) > 0 else 0.0
+    right = extent if _rhythm_line_count(events[-1]) > 0 else 0.0
+    return left, right
+
+
+def _boundary_extra_gap(
+    previous: Event, current: Event, crosses_beat: bool, style: PublicationStyle
+) -> float:
+    extra = 0.0
+    if _is_tuplet(previous) or _is_tuplet(current):
+        extra = style.tuplet_boundary_gap
+    if crosses_beat:
+        extra = max(extra, style.beat_boundary_gap)
+    return extra
+
+
+def _hard_event_gaps(
+    events: list[Event],
+    extents: list[tuple[float, float, float, float]],
+    style: PublicationStyle,
+    beat_boundaries: list[Fraction] | None = None,
+) -> list[float]:
+    """Return the gaps that no compaction may cross.
+
+    Unlike :func:`_minimum_event_gaps` this omits the duration spring, which is
+    a spacing *preference* rather than a physical constraint: the short-note
+    control has to be able to compress past it. What remains is the ink
+    collision floor plus the tuplet and beat-boundary reservations, so tightening
+    the control can never overlap glyphs nor flatten the beat division.
+    """
+    subdivided = _subdivided_beat_crossings(events, beat_boundaries)
+    gaps: list[float] = []
+    for index in range(1, len(events)):
+        previous = events[index - 1]
+        current = events[index]
+        collision_gap = (
+            extents[index - 1][1] - extents[index][0] + style.event_clearance
+        )
+        if _same_tuplet_group(previous, current):
+            gaps.append(collision_gap)
+            continue
+        gaps.append(
+            collision_gap
+            + _boundary_extra_gap(previous, current, subdivided[index - 1], style)
+        )
+    return gaps
+
+
 def _minimum_event_gaps(
     events: list[Event],
     extents: list[tuple[float, float, float, float]],
@@ -693,12 +782,10 @@ def _minimum_event_gaps(
             gaps.append(max(collision_gap, time_gap))
             continue
         base_gap = max(collision_gap, time_gap)
-        boundary_extra = 0.0
-        if _is_tuplet(previous) or _is_tuplet(current):
-            boundary_extra = style.tuplet_boundary_gap
-        if subdivided[index - 1]:
-            boundary_extra = max(boundary_extra, style.beat_boundary_gap)
-        gaps.append(base_gap + boundary_extra)
+        gaps.append(
+            base_gap
+            + _boundary_extra_gap(previous, current, subdivided[index - 1], style)
+        )
     return gaps
 
 
@@ -1004,8 +1091,11 @@ def _event_positions(
     extents = [_event_visual_extents(event, style) for event in events]
     # No beat_boundaries here on purpose: the visible beat division is produced
     # by _apply_beat_boundary_gaps as a ratio after justification. Letting the
-    # absolute beat_boundary_gap into the justification base would compound the
-    # two and make the resulting ratio drift with line density.
+    # absolute beat_boundary_gap into the justification base would compound with
+    # that ratio instead of acting as a floor. The absolute value earns its keep
+    # in _intrinsic_measure_width (reserving cell room so the ratio stays
+    # feasible) and in _apply_short_note_gaps (a floor the compaction may not
+    # cross), both of which combine with the ratio by max().
     minimum_gaps = _minimum_event_gaps(
         events,
         extents,
@@ -1076,7 +1166,7 @@ def _event_positions(
     # depends on the others' widths. Running it before the short-note control
     # keeps that control's effect local to short-note gaps.
     _apply_beat_boundary_gaps(events, positions, extents, measure, style)
-    _apply_short_note_gaps(events, positions, extents, left, right, style)
+    _apply_short_note_gaps(events, positions, extents, left, right, measure, style)
     _enforce_event_collisions(events, positions, style)
     return positions
 
@@ -1106,6 +1196,7 @@ def _apply_short_note_gaps(
     extents: list[tuple[float, float, float, float]],
     left: float,
     right: float,
+    measure: Measure,
     style: PublicationStyle,
 ) -> None:
     factor = style.short_note_gap_scale
@@ -1120,10 +1211,10 @@ def _apply_short_note_gaps(
     base_gaps = [
         positions[index] - positions[index - 1] for index in range(1, len(positions))
     ]
-    collision_gaps = [
-        extents[index - 1][1] - extents[index][0] + style.event_clearance
-        for index in range(1, len(extents))
-    ]
+    # Reuse the same hard floors the cell width reserved, so compaction cannot
+    # flatten the beat division. The duration spring is deliberately excluded:
+    # it is a preference the control is allowed to compress past.
+    collision_gaps = _hard_event_gaps(events, extents, style, _beat_boundaries(measure))
 
     def candidate(
         candidate_factor: float,

@@ -1138,6 +1138,11 @@ export type components = {
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
+             * Jianpu Beat Gap Percent
+             * @default 100
+             */
+            jianpu_beat_gap_percent?: number;
+            /**
              * Jianpu Content Scale Percent
              * @default 67
              */
@@ -1216,7 +1221,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-12
+             * @default publication-13
              */
             engine_version?: string;
             /** Id */
@@ -1339,6 +1344,11 @@ export type components = {
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /**
+             * Jianpu Beat Gap Percent
+             * @default 100
+             */
+            jianpu_beat_gap_percent?: number;
+            /**
              * Jianpu Content Scale Percent
              * @default 67
              */
@@ -1417,6 +1427,11 @@ export type components = {
              * @enum {string}
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
+            /**
+             * Jianpu Beat Gap Percent
+             * @default 100
+             */
+            jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
              * @default 67
@@ -1657,6 +1672,11 @@ export type components = {
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
+             * Jianpu Beat Gap Percent
+             * @default 100
+             */
+            jianpu_beat_gap_percent?: number;
+            /**
              * Jianpu Content Scale Percent
              * @default 67
              */
@@ -1866,7 +1886,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-12
+             * @default publication-13
              */
             engine_version?: string;
             /**
@@ -1976,7 +1996,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-12
+             * @default publication-13
              */
             engine_version?: string;
             /** Error Message */
@@ -2127,6 +2147,11 @@ export type components = {
              * @enum {string}
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
+            /**
+             * Jianpu Beat Gap Percent
+             * @default 100
+             */
+            jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
              * @default 67
@@ -2309,7 +2334,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-12
+             * @default publication-13
              */
             engine_version?: string;
             /**
@@ -2395,6 +2420,11 @@ export type components = {
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
+             * Jianpu Beat Gap Percent
+             * @default 100
+             */
+            jianpu_beat_gap_percent?: number;
+            /**
              * Jianpu Content Scale Percent
              * @default 67
              */
@@ -2451,6 +2481,11 @@ export type components = {
              * @default 1
              */
             initial_measure_number?: number;
+            /**
+             * Jianpu Beat Gap Percent
+             * @default 100
+             */
+            jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
              * @default 67
@@ -2607,6 +2642,11 @@ export type components = {
              */
             jianpu_auto_transpose?: boolean;
             /**
+             * Jianpu Beat Gap Percent
+             * @default 100
+             */
+            jianpu_beat_gap_percent?: number;
+            /**
              * Jianpu Content Scale Percent
              * @default 67
              */
@@ -2709,6 +2749,8 @@ export type components = {
             java_home?: string | null;
             /** Jianpu Auto Transpose */
             jianpu_auto_transpose?: boolean | null;
+            /** Jianpu Beat Gap Percent */
+            jianpu_beat_gap_percent?: number | null;
             /** Jianpu Content Scale Percent */
             jianpu_content_scale_percent?: number | null;
             /** Jianpu Measure Duration Check */

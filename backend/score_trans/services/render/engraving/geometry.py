@@ -341,10 +341,6 @@ def _duration_extension_start(event: Event, style: PublicationStyle) -> float:
     )
 
 
-def _is_tuplet(event: Event) -> bool:
-    return bool(event.tuplet_id or event.tuplet_count or event.tuplet_spans)
-
-
 def _event_attachment_bottom(event: Event, style: PublicationStyle) -> float:
     rows = pitch_layouts(event, style)
     note_bottom = max((row.note_box.bottom for row in rows), default=0.0)
@@ -357,7 +353,9 @@ def _event_attachment_bottom(event: Event, style: PublicationStyle) -> float:
         rhythm_base = max(note_bottom + 12.5, attachment_bottom + 8.0)
         attachment_bottom = max(
             attachment_bottom,
-            rhythm_base + (rhythm_lines - 1) * 6.0 + style.stroke_width,
+            rhythm_base
+            + (rhythm_lines - 1) * style.rhythm_line_level_step
+            + style.stroke_width,
         )
     return attachment_bottom
 
@@ -460,11 +458,18 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
     rhythm_lines = _rhythm_line_count(event)
     if rhythm_lines:
         rhythm_base = max(chord_bottom + 12.5, attachment_bottom + 8.0)
-        rhythm_bottom = rhythm_base + (rhythm_lines - 1) * 6 + style.stroke_width
-        if _is_tuplet(event):
-            box = InkBox(box.left, box.top, box.right, max(box.bottom, rhythm_bottom))
-        else:
-            box = box.union(InkBox(-12, rhythm_base, 12, rhythm_bottom))
+        rhythm_bottom = (
+            rhythm_base
+            + (rhythm_lines - 1) * style.rhythm_line_level_step
+            + style.stroke_width
+        )
+        # A rhythm line is a span shared across a run of events, not the ink of
+        # a single event. Reserving its side extent as per-event horizontal width
+        # would double-count the span and inflate the minimum gap between two
+        # beamed notes; the horizontal floor comes from the digit ink plus
+        # event_clearance instead. Only the vertical reservation is kept here so
+        # lyrics, dynamics and low octave dots still clear the lines.
+        box = InkBox(box.left, box.top, box.right, max(box.bottom, rhythm_bottom))
     if event.lyric:
         lyric_baseline = _lyric_baseline(event, style)
         lyric_box = _translated(

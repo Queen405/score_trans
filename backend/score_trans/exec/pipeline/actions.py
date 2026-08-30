@@ -99,6 +99,7 @@ class FullPipelineAction:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
         title: str | None = None,
         ocr_provider: OCRProvider | None = None,
         enable_omr_ocr: bool = True,
@@ -151,6 +152,7 @@ class FullPipelineAction:
             content_scale_percent=content_scale_percent,
             system_gap_percent=system_gap_percent,
             short_note_gap_percent=short_note_gap_percent,
+            beat_gap_percent=beat_gap_percent,
         )
         svg_paths = _rendered_page_paths(rendered_pages)
         _require_rendered_pages(svg_paths)
@@ -220,6 +222,7 @@ class PipelineActions:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
         title: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> PipelineResponse:
@@ -234,6 +237,7 @@ class PipelineActions:
             content_scale_percent=content_scale_percent,
             system_gap_percent=system_gap_percent,
             short_note_gap_percent=short_note_gap_percent,
+            beat_gap_percent=beat_gap_percent,
             title=title,
             progress_callback=progress_callback,
         )
@@ -259,6 +263,7 @@ class PipelineActions:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
         title: str | None = None,
     ) -> TaskSubmitResponse:
         input_path = self.uploads.get_path(file_id)
@@ -278,6 +283,7 @@ class PipelineActions:
                 content_scale_percent=content_scale_percent,
                 system_gap_percent=system_gap_percent,
                 short_note_gap_percent=short_note_gap_percent,
+                beat_gap_percent=beat_gap_percent,
                 title=title,
                 enable_omr_ocr=enable_omr_ocr,
                 progress_callback=progress,
@@ -302,6 +308,7 @@ class PipelineActions:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
         title: str | None = None,
     ) -> TaskSubmitResponse:
         input_path = await asyncio.to_thread(self.save_upload, file)
@@ -319,6 +326,7 @@ class PipelineActions:
                 content_scale_percent=content_scale_percent,
                 system_gap_percent=system_gap_percent,
                 short_note_gap_percent=short_note_gap_percent,
+                beat_gap_percent=beat_gap_percent,
                 title=title,
                 enable_omr_ocr=enable_omr_ocr,
                 progress_callback=progress,
@@ -341,6 +349,7 @@ class PipelineActions:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
         title: str | None = None,
         enable_omr_ocr: bool | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -364,6 +373,7 @@ class PipelineActions:
             content_scale_percent=content_scale_percent,
             system_gap_percent=system_gap_percent,
             short_note_gap_percent=short_note_gap_percent,
+            beat_gap_percent=beat_gap_percent,
             title=title,
             enable_omr_ocr=enable_omr_ocr,
             progress_callback=progress_callback,
@@ -396,6 +406,7 @@ class PipelineActions:
                     content_scale_percent,
                     system_gap_percent,
                     short_note_gap_percent,
+                    beat_gap_percent,
                 ),
             )
             for index, path in enumerate(outputs.jianpu_svg_paths)

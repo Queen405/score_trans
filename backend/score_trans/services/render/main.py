@@ -347,6 +347,7 @@ def _a4_renderer(
         page_height=base.page_height / scale,
         system_gap=base.system_gap * layout.system_gap_scale,
         short_note_gap_scale=layout.short_note_gap_scale,
+        beat_boundary_gap=base.beat_boundary_gap * layout.beat_gap_scale,
     )
     return PublicationRenderer(
         style,

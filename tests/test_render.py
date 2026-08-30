@@ -118,7 +118,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-12"
+    assert root.attrib["data-engine-version"] == "publication-13"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -1948,6 +1948,7 @@ def _a4_svg_with_layout(
     content_scale_percent: int = 100,
     system_gap_percent: int = 100,
     short_note_gap_percent: int = 100,
+    beat_gap_percent: int = 100,
 ) -> tuple[ET.Element, object]:
     try:
         page = PublicationRenderService().build_scores_a4_svg_pages(
@@ -1955,6 +1956,7 @@ def _a4_svg_with_layout(
             content_scale_percent=content_scale_percent,
             system_gap_percent=system_gap_percent,
             short_note_gap_percent=short_note_gap_percent,
+            beat_gap_percent=beat_gap_percent,
         )[0]
     except TypeError as exc:
         pytest.fail(f"A4 renderer does not expose layout controls: {exc}")
@@ -1991,7 +1993,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
     assert root.attrib["width"] == "1240"
     assert root.attrib["height"] == "1754"
     assert root.attrib["viewBox"] == "0 0 1240 1754"
-    assert root.attrib["data-layout-key"] == "67:100:100"
+    assert root.attrib["data-layout-key"] == "67:100:100:100"
     content = next(
         node for node in root if node.attrib.get("class") == "publication-content"
     )
@@ -2092,6 +2094,135 @@ def test_short_note_control_preserves_noneligible_adjacent_gaps() -> None:
     assert expanded[1:] == pytest.approx(standard[1:])
 
 
+def _dense_sixteenth_measure(count: int = 16) -> tuple[list[Event], Measure]:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 4),
+            start=Fraction(index, 4),
+            pitches=[JianpuPitch(index % 7 + 1)],
+        )
+        for index in range(count)
+    ]
+    measure = Measure(
+        "1",
+        duration=Fraction(count, 4),
+        events=events,
+        beats_per_measure=count // 4,
+        beat_type=4,
+    )
+    return events, measure
+
+
+def test_lower_short_note_gap_tightens_dense_within_beat_gaps() -> None:
+    # Regression lock: the control used to be applied only above 1.0 while the
+    # rhythm line's side extent was double-counted as per-event ink, so 20% /
+    # 50% / 90% produced byte-identical spacing in a dense bar.
+    events, measure = _dense_sixteenth_measure()
+
+    def within_beat_gap(percent: int) -> float:
+        style = PublicationStyle(short_note_gap_scale=percent / 100.0)
+        width = _intrinsic_measure_width(measure, style)
+        centers = _event_positions(events, 20.0, width - 20.0, measure, style)
+        gaps = [right - left for left, right in pairwise(centers)]
+        return min(gaps)
+
+    tight = within_beat_gap(20)
+    middle = within_beat_gap(70)
+    loose = within_beat_gap(100)
+
+    assert tight < middle < loose
+
+
+def test_lower_short_note_gap_fits_more_measures_per_line() -> None:
+    bar = " ".join(f"s{index % 7 + 1}" for index in range(16))
+    score = parse_jianpu_score("1=C\n4/4\n" + " | ".join([bar] * 12) + " |")
+
+    def first_row_measures(percent: int) -> int:
+        page = PublicationRenderService().build_scores_a4_svg_pages(
+            [score], short_note_gap_percent=percent
+        )[0]
+        rows: dict[float, int] = {}
+        for x_value, y_value in re.findall(
+            r'<line class="measure" x1="([-\d.]+)" y1="([-\d.]+)"', page.svg
+        ):
+            del x_value
+            key = round(float(y_value), 1)
+            rows[key] = rows.get(key, 0) + 1
+        # Each row draws one leading barline plus one per measure.
+        return max(rows.values()) - 1
+
+    assert first_row_measures(20) > first_row_measures(100)
+
+
+def test_beat_gap_floor_survives_maximum_short_note_compaction() -> None:
+    # The ratio pass alone collapses under compaction; beat_boundary_gap is the
+    # absolute floor that keeps the beat division visible at the tightest
+    # setting the short-note control allows.
+    events, measure = _dense_sixteenth_measure()
+    style = PublicationStyle(short_note_gap_scale=0.2)
+    ratio = _boundary_within_ratio(events, measure, 100.0, 700.0, style, {3, 7, 11})
+    centers = _event_positions(events, 100.0, 700.0, measure, style)
+    gaps = [right - left for left, right in pairwise(centers)]
+    boundary = [gaps[index] for index in (3, 7, 11)]
+    within = [gap for index, gap in enumerate(gaps) if index not in {3, 7, 11}]
+
+    assert ratio > 1.0 + style.beat_boundary_ratio
+    mean_boundary = sum(boundary) / len(boundary)
+    mean_within = sum(within) / len(within)
+    assert mean_boundary - mean_within >= style.beat_boundary_gap * 0.9
+
+
+def test_zero_beat_gap_leaves_only_the_ratio_channel() -> None:
+    events, measure = _dense_sixteenth_measure()
+    compacted = PublicationStyle(short_note_gap_scale=0.2, beat_boundary_gap=0.0)
+    with_floor = PublicationStyle(short_note_gap_scale=0.2)
+    without = _boundary_within_ratio(
+        events, measure, 100.0, 700.0, compacted, {3, 7, 11}
+    )
+    with_ = _boundary_within_ratio(
+        events, measure, 100.0, 700.0, with_floor, {3, 7, 11}
+    )
+
+    # Without the floor the compaction flattens the division back toward the
+    # bare ratio, which is exactly what beat_gap_percent=0 restores.
+    assert without < with_
+    assert without < 1.0 + compacted.beat_boundary_ratio
+
+
+def test_rhythm_line_is_not_clipped_in_a_dense_measure() -> None:
+    bar = " ".join(f"s{index % 7 + 1}" for index in range(16))
+    score = parse_jianpu_score("1=C\n4/4\n" + " | ".join([bar] * 12) + " |")
+    page = PublicationRenderService().build_scores_a4_svg_pages(
+        [score], short_note_gap_percent=20
+    )[0]
+    root = _root(page.svg)
+    style = PublicationStyle()
+    lines = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+    assert lines
+    # A clipped run would lose its side extent at the measure inner bound; every
+    # run here must still carry the full extent on both ends.
+    for line in lines:
+        width = float(line.attrib["x2"]) - float(line.attrib["x1"])
+        assert width >= 2 * style.rhythm_line_side_extent
+
+
+def test_overfull_measure_ignores_the_short_note_control() -> None:
+    # Documented fallback: _bounded_event_positions preserves the barline rather
+    # than the requested gaps, so an overfull bar is scale-invariant.
+    events, measure = _dense_sixteenth_measure(24)
+
+    def centers(scale: float) -> list[float]:
+        return _event_positions(
+            events, 100.0, 400.0, measure, PublicationStyle(short_note_gap_scale=scale)
+        )
+
+    assert centers(0.2) == pytest.approx(centers(1.0))
+    assert centers(1.8) == pytest.approx(centers(1.0))
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     (
@@ -2101,6 +2232,8 @@ def test_short_note_control_preserves_noneligible_adjacent_gaps() -> None:
         ("system_gap_percent", 181),
         ("short_note_gap_percent", 19),
         ("short_note_gap_percent", 181),
+        ("beat_gap_percent", -1),
+        ("beat_gap_percent", 201),
     ),
 )
 def test_a4_layout_options_reject_out_of_range_values(
@@ -2113,7 +2246,12 @@ def test_a4_layout_options_reject_out_of_range_values(
 
 @pytest.mark.parametrize(
     "field",
-    ("content_scale_percent", "system_gap_percent", "short_note_gap_percent"),
+    (
+        "content_scale_percent",
+        "system_gap_percent",
+        "short_note_gap_percent",
+        "beat_gap_percent",
+    ),
 )
 def test_a4_layout_options_reject_non_integer_values(field: str) -> None:
     with pytest.raises(TypeError, match=field):
@@ -2444,8 +2582,8 @@ def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> Non
     svg_path = uploads.get_path(response.svg_file_id)
     assert svg_path is not None
     root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
-    assert root.attrib["data-layout-key"] == "75:88:85"
-    assert response.pages[0].layout_key == "75:88:85"
+    assert root.attrib["data-layout-key"] == "75:88:85:100"
+    assert response.pages[0].layout_key == "75:88:85:100"
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
     assert "简谱" not in text_content

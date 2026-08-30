@@ -194,11 +194,13 @@ def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
         content_scale_percent=75,
         system_gap_percent=88,
         short_note_gap_percent=85,
+        beat_gap_percent=140,
     )
 
     assert renderer.kwargs["content_scale_percent"] == 75
     assert renderer.kwargs["system_gap_percent"] == 88
     assert renderer.kwargs["short_note_gap_percent"] == 85
+    assert renderer.kwargs["beat_gap_percent"] == 140
 
 
 def test_full_pipeline_can_hide_measure_numbers(tmp_path) -> None:

@@ -12,12 +12,15 @@ from score_trans.models.common.types import (
     TargetKeyOrAuto,
 )
 from score_trans.models.render.layout import (
+    DEFAULT_BEAT_GAP_PERCENT,
     DEFAULT_CONTENT_SCALE_PERCENT,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
+    MAX_BEAT_GAP_PERCENT,
     MAX_CONTENT_SCALE_PERCENT,
     MAX_SHORT_NOTE_GAP_PERCENT,
     MAX_SYSTEM_GAP_PERCENT,
+    MIN_BEAT_GAP_PERCENT,
     MIN_CONTENT_SCALE_PERCENT,
     MIN_SHORT_NOTE_GAP_PERCENT,
     MIN_SYSTEM_GAP_PERCENT,
@@ -55,6 +58,7 @@ class SettingsResponse(BaseModel):
     jianpu_content_scale_percent: int = DEFAULT_CONTENT_SCALE_PERCENT
     jianpu_system_gap_percent: int = DEFAULT_SYSTEM_GAP_PERCENT
     jianpu_short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
+    jianpu_beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
     enable_omr_ocr: bool = True
     output_dir: str = ""
     ocr_provider: str
@@ -104,6 +108,11 @@ class SettingsUpdateRequest(BaseModel):
         default=None,
         ge=MIN_SHORT_NOTE_GAP_PERCENT,
         le=MAX_SHORT_NOTE_GAP_PERCENT,
+    )
+    jianpu_beat_gap_percent: int | None = Field(
+        default=None,
+        ge=MIN_BEAT_GAP_PERCENT,
+        le=MAX_BEAT_GAP_PERCENT,
     )
     enable_omr_ocr: bool | None = None
     work_dir: str | None = None

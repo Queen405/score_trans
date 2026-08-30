@@ -21,11 +21,13 @@ def _layout(
     content_scale_percent: int,
     system_gap_percent: int,
     short_note_gap_percent: int,
+    beat_gap_percent: int,
 ) -> A4LayoutOptions:
     return A4LayoutOptions(
         content_scale_percent=content_scale_percent,
         system_gap_percent=system_gap_percent,
         short_note_gap_percent=short_note_gap_percent,
+        beat_gap_percent=beat_gap_percent,
     )
 
 
@@ -82,6 +84,7 @@ class PublicationRenderService:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
     ) -> list[RenderedA4FilePage]:
         return render_score_a4_pages_to_files(
             score,
@@ -91,7 +94,10 @@ class PublicationRenderService:
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
             layout=_layout(
-                content_scale_percent, system_gap_percent, short_note_gap_percent
+                content_scale_percent,
+                system_gap_percent,
+                short_note_gap_percent,
+                beat_gap_percent,
             ),
         )
 
@@ -106,6 +112,7 @@ class PublicationRenderService:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_pages_to_files(
             scores,
@@ -115,7 +122,10 @@ class PublicationRenderService:
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
             layout=_layout(
-                content_scale_percent, system_gap_percent, short_note_gap_percent
+                content_scale_percent,
+                system_gap_percent,
+                short_note_gap_percent,
+                beat_gap_percent,
             ),
         )
 
@@ -129,6 +139,7 @@ class PublicationRenderService:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
     ) -> list[RenderedA4Page]:
         mode = measure_number_mode or (
             "none" if show_measure_numbers is False else "all"
@@ -141,7 +152,12 @@ class PublicationRenderService:
                 measure_number_mode=mode,
                 initial_measure_number=initial_measure_number,
             ),
-            _layout(content_scale_percent, system_gap_percent, short_note_gap_percent),
+            _layout(
+                content_scale_percent,
+                system_gap_percent,
+                short_note_gap_percent,
+                beat_gap_percent,
+            ),
         )
 
     def render_scores_a4_svg_page_results(
@@ -155,6 +171,7 @@ class PublicationRenderService:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_page_results_to_files(
             scores,
@@ -164,7 +181,10 @@ class PublicationRenderService:
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
             layout=_layout(
-                content_scale_percent, system_gap_percent, short_note_gap_percent
+                content_scale_percent,
+                system_gap_percent,
+                short_note_gap_percent,
+                beat_gap_percent,
             ),
         )
 

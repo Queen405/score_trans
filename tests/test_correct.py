@@ -296,6 +296,7 @@ def test_correction_forwards_a4_layout_controls(tmp_path: Path) -> None:
         jianpu_content_scale_percent=75,
         jianpu_system_gap_percent=88,
         jianpu_short_note_gap_percent=85,
+        jianpu_beat_gap_percent=140,
     )
 
     service.correct(
@@ -309,6 +310,7 @@ def test_correction_forwards_a4_layout_controls(tmp_path: Path) -> None:
     assert renderer.kwargs["content_scale_percent"] == 75
     assert renderer.kwargs["system_gap_percent"] == 88
     assert renderer.kwargs["short_note_gap_percent"] == 85
+    assert renderer.kwargs["beat_gap_percent"] == 140
 
 
 def test_clef_key_time_locator_matches_injected_ids() -> None:

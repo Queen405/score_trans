@@ -12,12 +12,15 @@ from ...models.common.types import (
 )
 from ...models.pipeline.schemas import PipelineByFileIdRequest
 from ...models.render.layout import (
+    DEFAULT_BEAT_GAP_PERCENT,
     DEFAULT_CONTENT_SCALE_PERCENT,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
+    MAX_BEAT_GAP_PERCENT,
     MAX_CONTENT_SCALE_PERCENT,
     MAX_SHORT_NOTE_GAP_PERCENT,
     MAX_SYSTEM_GAP_PERCENT,
+    MIN_BEAT_GAP_PERCENT,
     MIN_CONTENT_SCALE_PERCENT,
     MIN_SHORT_NOTE_GAP_PERCENT,
     MIN_SYSTEM_GAP_PERCENT,
@@ -47,6 +50,7 @@ async def run_pipeline_by_file_id(
         content_scale_percent=req.jianpu_content_scale_percent,
         system_gap_percent=req.jianpu_system_gap_percent,
         short_note_gap_percent=req.jianpu_short_note_gap_percent,
+        beat_gap_percent=req.jianpu_beat_gap_percent,
         title=req.title,
     )
 
@@ -75,6 +79,11 @@ async def run_pipeline(
         ge=MIN_SHORT_NOTE_GAP_PERCENT,
         le=MAX_SHORT_NOTE_GAP_PERCENT,
     ),
+    jianpu_beat_gap_percent: int = Form(
+        DEFAULT_BEAT_GAP_PERCENT,
+        ge=MIN_BEAT_GAP_PERCENT,
+        le=MAX_BEAT_GAP_PERCENT,
+    ),
     title: str | None = Form(None),
     actions: PipelineActions = Depends(get_pipeline_actions),
     tasks: TaskActions = Depends(get_task_actions),
@@ -91,6 +100,7 @@ async def run_pipeline(
         content_scale_percent=jianpu_content_scale_percent,
         system_gap_percent=jianpu_system_gap_percent,
         short_note_gap_percent=jianpu_short_note_gap_percent,
+        beat_gap_percent=jianpu_beat_gap_percent,
         title=title,
     )
 

@@ -35,13 +35,13 @@ class PublicationStyle:
     # widened so beats stay visually distinguishable. Beats holding a single
     # event (4 quarters, 6/8 with 6 eighths) are unaffected.
     #
-    # Absolute floor in minimum-gap space. Only reserves a little horizontal
-    # room in _intrinsic_measure_width so the ratio widening below stays
-    # feasible; it is not the source of the visible beat division.
-    beat_boundary_gap: float = 8.0
+    # Absolute floor for a boundary gap, in minimum-gap space. It enters the
+    # width reservation and the justification base, so a dense measure keeps a
+    # visible beat division even when the ratio below has no room left.
+    beat_boundary_gap: float = 13.0
     # Beat-boundary gap = neighbouring within-beat gap x (1 + ratio). Applied
     # after justification, so it is immune to the stretch factor that the line
-    # density imposes.
+    # density imposes. Combines with the absolute floor above by max().
     beat_boundary_ratio: float = 0.28
     barline_gutter: float = 20.0
     event_clearance: float = 6.0

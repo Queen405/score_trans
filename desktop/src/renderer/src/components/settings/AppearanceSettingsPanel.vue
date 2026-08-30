@@ -120,7 +120,10 @@
           </div>
         </settings-form-row>
 
-        <settings-form-row label="短音符间距">
+        <settings-form-row
+          label="短音符间距"
+          hint="降低可让每行排入更多小节"
+        >
           <div class="sv-layout-control">
             <n-slider
               v-model:value="settings.draft.jianpuShortNoteGapPercent"
@@ -132,6 +135,31 @@
               v-model:value="settings.draft.jianpuShortNoteGapPercent"
               :min="20"
               :max="180"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row
+          label="分拍间隔"
+          hint="每拍之间额外留出的间隔，密排时也能看出分拍"
+        >
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuBeatGapPercent"
+              :min="0"
+              :max="200"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuBeatGapPercent"
+              :min="0"
+              :max="200"
               :step="1"
               size="small"
             >

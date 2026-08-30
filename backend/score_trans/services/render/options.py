@@ -4,12 +4,15 @@ from dataclasses import dataclass
 
 from score_trans.models.common.types import MeasureNumberMode
 from score_trans.models.render.layout import (
+    DEFAULT_BEAT_GAP_PERCENT,
     DEFAULT_CONTENT_SCALE_PERCENT,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
+    MAX_BEAT_GAP_PERCENT,
     MAX_CONTENT_SCALE_PERCENT,
     MAX_SHORT_NOTE_GAP_PERCENT,
     MAX_SYSTEM_GAP_PERCENT,
+    MIN_BEAT_GAP_PERCENT,
     MIN_CONTENT_SCALE_PERCENT,
     MIN_SHORT_NOTE_GAP_PERCENT,
     MIN_SYSTEM_GAP_PERCENT,
@@ -44,6 +47,7 @@ class A4LayoutOptions:
     content_scale_percent: int = DEFAULT_CONTENT_SCALE_PERCENT
     system_gap_percent: int = DEFAULT_SYSTEM_GAP_PERCENT
     short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
+    beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
 
     def __post_init__(self) -> None:
         ranges = (
@@ -65,6 +69,12 @@ class A4LayoutOptions:
                 MIN_SHORT_NOTE_GAP_PERCENT,
                 MAX_SHORT_NOTE_GAP_PERCENT,
             ),
+            (
+                "beat_gap_percent",
+                self.beat_gap_percent,
+                MIN_BEAT_GAP_PERCENT,
+                MAX_BEAT_GAP_PERCENT,
+            ),
         )
         for field, value, minimum, maximum in ranges:
             if isinstance(value, bool) or not isinstance(value, int):
@@ -85,9 +95,14 @@ class A4LayoutOptions:
         return self.short_note_gap_percent / 100.0
 
     @property
+    def beat_gap_scale(self) -> float:
+        return self.beat_gap_percent / 100.0
+
+    @property
     def key(self) -> str:
         return a4_layout_key(
             self.content_scale_percent,
             self.system_gap_percent,
             self.short_note_gap_percent,
+            self.beat_gap_percent,
         )

@@ -557,6 +557,7 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     assert initial.json()["jianpu_content_scale_percent"] == 67
     assert initial.json()["jianpu_system_gap_percent"] == 92
     assert initial.json()["jianpu_short_note_gap_percent"] == 90
+    assert initial.json()["jianpu_beat_gap_percent"] == 100
 
     updated = client.put(
         "/settings",
@@ -564,23 +565,27 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
             "jianpu_content_scale_percent": 75,
             "jianpu_system_gap_percent": 88,
             "jianpu_short_note_gap_percent": 85,
+            "jianpu_beat_gap_percent": 140,
         },
     )
     assert updated.status_code == 200
     assert updated.json()["jianpu_content_scale_percent"] == 75
     assert updated.json()["jianpu_system_gap_percent"] == 88
     assert updated.json()["jianpu_short_note_gap_percent"] == 85
+    assert updated.json()["jianpu_beat_gap_percent"] == 140
 
     boundaries = client.put(
         "/settings",
         json={
             "jianpu_system_gap_percent": 20,
             "jianpu_short_note_gap_percent": 180,
+            "jianpu_beat_gap_percent": 0,
         },
     )
     assert boundaries.status_code == 200
     assert boundaries.json()["jianpu_system_gap_percent"] == 20
     assert boundaries.json()["jianpu_short_note_gap_percent"] == 180
+    assert boundaries.json()["jianpu_beat_gap_percent"] == 0
 
     assert (
         client.put("/settings", json={"jianpu_content_scale_percent": 64}).status_code
@@ -592,6 +597,10 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     )
     assert (
         client.put("/settings", json={"jianpu_short_note_gap_percent": 181}).status_code
+        == 422
+    )
+    assert (
+        client.put("/settings", json={"jianpu_beat_gap_percent": 201}).status_code
         == 422
     )
 
@@ -611,26 +620,34 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
         assert properties["jianpu_content_scale_percent"]["default"] == 67
         assert properties["jianpu_system_gap_percent"]["default"] == 92
         assert properties["jianpu_short_note_gap_percent"]["default"] == 90
+        assert properties["jianpu_beat_gap_percent"]["default"] == 100
         assert properties["jianpu_system_gap_percent"]["minimum"] == 20
         assert properties["jianpu_system_gap_percent"]["maximum"] == 180
         assert properties["jianpu_short_note_gap_percent"]["minimum"] == 20
         assert properties["jianpu_short_note_gap_percent"]["maximum"] == 180
+        assert properties["jianpu_beat_gap_percent"]["minimum"] == 0
+        assert properties["jianpu_beat_gap_percent"]["maximum"] == 200
 
     settings_properties = schemas["SettingsUpdateRequest"]["properties"]
     settings_system_gap = settings_properties["jianpu_system_gap_percent"]["anyOf"][0]
     settings_short_note_gap = settings_properties["jianpu_short_note_gap_percent"][
         "anyOf"
     ][0]
+    settings_beat_gap = settings_properties["jianpu_beat_gap_percent"]["anyOf"][0]
     assert settings_system_gap["minimum"] == 20
     assert settings_system_gap["maximum"] == 180
     assert settings_short_note_gap["minimum"] == 20
     assert settings_short_note_gap["maximum"] == 180
+    assert settings_beat_gap["minimum"] == 0
+    assert settings_beat_gap["maximum"] == 200
 
     multipart_properties = schemas["Body_run_pipeline_pipeline_post"]["properties"]
     assert multipart_properties["jianpu_system_gap_percent"]["minimum"] == 20
     assert multipart_properties["jianpu_system_gap_percent"]["maximum"] == 180
     assert multipart_properties["jianpu_short_note_gap_percent"]["minimum"] == 20
     assert multipart_properties["jianpu_short_note_gap_percent"]["maximum"] == 180
+    assert multipart_properties["jianpu_beat_gap_percent"]["minimum"] == 0
+    assert multipart_properties["jianpu_beat_gap_percent"]["maximum"] == 200
 
     preserving = schemas["PreservingLayoutRequest"]["properties"]
     assert "jianpu_content_scale_percent" not in preserving

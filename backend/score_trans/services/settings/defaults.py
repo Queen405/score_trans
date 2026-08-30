@@ -23,6 +23,7 @@ _BACKEND_STRING_KEYS: tuple[str, ...] = (
     "jianpu_content_scale_percent",
     "jianpu_system_gap_percent",
     "jianpu_short_note_gap_percent",
+    "jianpu_beat_gap_percent",
     "enable_omr_ocr",
     "output_dir",
     "jianpu_auto_transpose",

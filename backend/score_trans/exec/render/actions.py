@@ -163,6 +163,7 @@ class RenderMusicXmlJianpuAction:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
     ) -> list[RenderedA4FilePage]:
         scores = self.build_scores(
             musicxml_path,
@@ -183,6 +184,7 @@ class RenderMusicXmlJianpuAction:
             content_scale_percent=content_scale_percent,
             system_gap_percent=system_gap_percent,
             short_note_gap_percent=short_note_gap_percent,
+            beat_gap_percent=beat_gap_percent,
         )
 
     def build_score(
@@ -281,6 +283,7 @@ class RenderJianpuTextAction:
         content_scale_percent: int = 67,
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
+        beat_gap_percent: int = 100,
     ) -> list[RenderedA4FilePage]:
         text = Path(input_path).read_text(encoding="utf-8")
         parts = parse_jianpu_parts(text, title=title)
@@ -298,6 +301,7 @@ class RenderJianpuTextAction:
             content_scale_percent=content_scale_percent,
             system_gap_percent=system_gap_percent,
             short_note_gap_percent=short_note_gap_percent,
+            beat_gap_percent=beat_gap_percent,
         )
 
 
@@ -819,6 +823,7 @@ def _a4_layout_kwargs(req) -> dict[str, int]:
         "content_scale_percent": req.jianpu_content_scale_percent,
         "system_gap_percent": req.jianpu_system_gap_percent,
         "short_note_gap_percent": req.jianpu_short_note_gap_percent,
+        "beat_gap_percent": req.jianpu_beat_gap_percent,
     }
 
 

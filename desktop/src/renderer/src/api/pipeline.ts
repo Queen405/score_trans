@@ -19,6 +19,7 @@ export const pipelineApi = {
     contentScalePercent = 67,
     systemGapPercent = 92,
     shortNoteGapPercent = 90,
+    beatGapPercent = 100,
   ): Promise<ApiResult<TaskSubmitResponse>> {
     const formData = new FormData()
     formData.append('file', file)
@@ -29,6 +30,7 @@ export const pipelineApi = {
     formData.append('jianpu_content_scale_percent', String(contentScalePercent))
     formData.append('jianpu_system_gap_percent', String(systemGapPercent))
     formData.append('jianpu_short_note_gap_percent', String(shortNoteGapPercent))
+    formData.append('jianpu_beat_gap_percent', String(beatGapPercent))
     if (title) {
       formData.append('title', title)
     }

@@ -15,6 +15,7 @@
     "jianpu_content_scale_percent": "67",
     "jianpu_system_gap_percent": "92",
     "jianpu_short_note_gap_percent": "90",
+    "jianpu_beat_gap_percent": "100",
     "enable_omr_ocr": "1",
     "output_dir": "",
     "jianpu_auto_transpose": "0"
