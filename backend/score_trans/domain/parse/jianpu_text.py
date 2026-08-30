@@ -1078,6 +1078,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                         if token.start_utf16 is not None
                         else None
                     ),
+                    measure=token.measure,
                 )
                 event = _parse_event_token(event_token)
                 _apply_inline_marks(event, inline_marks)
@@ -1124,6 +1125,9 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
     saw_time = False
     saw_key = False
     saw_score_tokens = False
+    current_measure = 1
+    pending_repeat = 1
+    saw_token_since_bar = False
     raw_lines = text.splitlines(keepends=True)
     line_start_utf16 = 0
     line_utf16_starts: list[int] = []
@@ -1156,8 +1160,10 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                             column,
                             line_utf16_starts[line_no - 1],
                             original_line,
+                            measure=str(current_measure),
                         )
                     )
+                    saw_token_since_bar = True
                 else:
                     options.key = value
                     saw_key = True
@@ -1206,8 +1212,10 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                         column,
                         line_utf16_starts[line_no - 1],
                         original_line,
+                        measure=str(current_measure),
                     )
                 )
+                saw_token_since_bar = True
             else:
                 if int(beats) <= 0 or int(beat_type) <= 0:
                     raise JianpuSyntaxError(
@@ -1233,17 +1241,29 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                 continue
             original_column = original_line.find(raw_line)
             original_column = max(original_column, 0)
-            tokens.append(
-                _token_with_offsets(
-                    raw_token,
-                    line_no,
-                    original_column + match.start(),
-                    line_utf16_starts[line_no - 1],
-                    original_line,
-                )
+            token = _token_with_offsets(
+                raw_token,
+                line_no,
+                original_column + match.start(),
+                line_utf16_starts[line_no - 1],
+                original_line,
+                measure=str(current_measure),
             )
+            tokens.append(token)
             if not _is_key_or_time_token(raw_token):
                 saw_score_tokens = True
+            if raw_token in {"|", "||", "|:", ":|"}:
+                current_measure += pending_repeat
+                pending_repeat = 1
+                saw_token_since_bar = False
+            elif re.fullmatch(r"\*\d+", raw_token):
+                repeat_n = max(1, int(raw_token[1:]))
+                if not saw_token_since_bar:
+                    current_measure += repeat_n - 1
+                else:
+                    pending_repeat = repeat_n
+            else:
+                saw_token_since_bar = True
     return options, tokens, lyrics
 
 
@@ -1403,6 +1423,7 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
                 if token.start_utf16 is not None
                 else None
             ),
+            measure=token.measure,
         )
         event = _parse_event_token(part_token)
         inline_articulations = [
