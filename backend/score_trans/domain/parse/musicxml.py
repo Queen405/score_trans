@@ -330,7 +330,10 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
                 and (block.staff is None or block.staff == staff)
             ]
             _normalize_measure(
-                staff_measure, staff_measure.beats_per_measure, staff_measure.beat_type
+                staff_measure,
+                staff_measure.beats_per_measure,
+                staff_measure.beat_type,
+                pad_empty=True,
             )
             staff_score.measures.append(staff_measure)
         staff_score.part_name = (
@@ -1106,13 +1109,29 @@ def _sync_primary_tuplet(event: Event) -> None:
     event.tuplet_stop = primary.stop
 
 
-def _normalize_measure(measure: Measure, beats: int, beat_type: int) -> None:
+def _normalize_measure(
+    measure: Measure,
+    beats: int,
+    beat_type: int,
+    *,
+    pad_empty: bool = False,
+) -> None:
     target = Fraction(beats * 4, beat_type)
     actual = measure.span_duration
     if actual < target:
-        measure.events.append(
-            Event(kind="rest", duration=target - actual, start=actual, generated=True)
-        )
+        if pad_empty and actual == 0:
+            measure.events.append(
+                Event(
+                    kind="rest",
+                    duration=target - actual,
+                    start=actual,
+                    generated=True,
+                )
+            )
+        else:
+            measure.validation_errors.append(
+                f"小节少拍：实际 {actual}，目标 {target}"
+            )
     elif actual > target:
         measure.validation_errors.append(f"小节超拍：实际 {actual}，目标 {target}")
 

@@ -971,14 +971,14 @@ def test_musicxml_microtonal_accidentals_roundtrip_without_quantization() -> Non
     ]
 
 
-def test_musicxml_to_score_pads_incomplete_measure() -> None:
+def test_musicxml_to_score_marks_incomplete_measure() -> None:
     xml = jianpu_to_musicxml("1=C\n4/4\n1 2 |")
 
-    score = musicxml_to_score(xml)
+    measure = musicxml_to_score(xml).measures[0]
 
-    assert score.measures[0].events[-1].kind == "rest"
-    assert score.measures[0].events[-1].generated is True
-    assert score.measures[0].total_duration == score.measure_duration
+    assert all(event.generated is False for event in measure.events)
+    assert measure.validation_errors
+    assert "少拍" in measure.validation_errors[0]
 
 
 def test_musicxml_to_score_can_transpose_target_key() -> None:
