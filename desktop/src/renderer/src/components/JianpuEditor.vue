@@ -46,7 +46,10 @@
           {{ label }}
         </div>
       </div>
-      <div class="editor-main">
+      <div
+        class="editor-main"
+        :class="{ 'is-transposing': transposing }"
+      >
         <div
           v-if="syntaxHighlight || syntaxDiagnostics.length"
           class="editor-highlight"
@@ -79,12 +82,21 @@
         <textarea
           ref="textareaRef"
           :value="modelValue"
+          :readonly="transposing"
           placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 $345$ 4 |&#10;1=G&#10;3/4&#10;h[1+3+5] \p 4 |&#10;L: 春 风 又 绿"
           :class="['editor-textarea', { 'syntax-highlight-enabled': syntaxHighlight || syntaxDiagnostics.length }]"
           spellcheck="false"
           @input="onInput"
           @scroll="syncScroll"
         />
+        <div
+          v-if="transposing"
+          class="editor-transpose-lock"
+          role="status"
+        >
+          <span class="editor-transpose-lock-dot" />
+          转调中…
+        </div>
         <div
           v-for="(style, i) in playbackHighlightStyles"
           :key="i"
@@ -172,6 +184,7 @@ const initialMeasureNumberModel = computed({
 
 const gutterRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const transposing = ref(false)
 const scrollTop = ref(0)
 const scrollLeft = ref(0)
 const editorMetrics = ref({
@@ -205,7 +218,7 @@ function getSelectionRange(): { start: number; end: number } | null {
   return { start: element.selectionStart ?? 0, end: element.selectionEnd ?? 0 }
 }
 
-defineExpose({ selectRange, getSelectionRange, flushPendingAutoTranspose })
+defineExpose({ selectRange, getSelectionRange, flushPendingAutoTranspose, transposing })
 
 const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
 interface HighlightToken extends JianpuSyntaxToken {
@@ -534,37 +547,44 @@ async function triggerAutoTranspose(): Promise<void> {
   const pending = autoTransposeGate.takePending(props.modelValue)
   if (pending === null) return
   const requestId = autoTransposeGate.beginRequest()
-  const result = await jianpuApi.rekeyText({
-    text: pending.text,
-    previous_text: pending.baseline,
-  })
-  if (!autoTransposeGate.acceptResponse(requestId, pending.text, props.modelValue)) {
-    // 在途期间文档被改动，结果作废；但基线要还回去，否则这次编辑的旧调就丢了。
-    autoTransposeGate.rollbackRequest(requestId)
-    return
+  // 转调期间锁定编辑器：响应落地前的任何输入都会让在途结果作废，
+  // 还会留下「新调号 + 未转调音符」的错谱。
+  transposing.value = true
+  try {
+    const result = await jianpuApi.rekeyText({
+      text: pending.text,
+      previous_text: pending.baseline,
+    })
+    if (!autoTransposeGate.acceptResponse(requestId, pending.text, props.modelValue)) {
+      // 在途期间文档被改动，结果作废；但基线要还回去，否则这次编辑的旧调就丢了。
+      autoTransposeGate.rollbackRequest(requestId)
+      return
+    }
+    if (result.error) {
+      logStore.addError(`自动转调失败：${result.error}`)
+      message.warning('自动转调失败，音符未改动')
+      autoTransposeGate.rollbackRequest(requestId)
+      return
+    }
+    const skipReason = result.data?.skip_reason
+    if (skipReason) {
+      const detail = result.data?.skip_detail
+      if (detail) logStore.addError(`自动转调已跳过（${skipReason}）：${detail}`)
+      const hint = SKIP_MESSAGES[skipReason]
+      if (hint) message.warning(hint)
+      autoTransposeGate.rollbackRequest(requestId)
+      return
+    }
+    const transposed = result.data?.transposed_text
+    if (!transposed || transposed === pending.text) {
+      autoTransposeGate.rollbackRequest(requestId)
+      return
+    }
+    applyTransposed(pending.text, transposed)
+    autoTransposeGate.commitRequest()
+  } finally {
+    transposing.value = false
   }
-  if (result.error) {
-    logStore.addError(`自动转调失败：${result.error}`)
-    message.warning('自动转调失败，音符未改动')
-    autoTransposeGate.rollbackRequest(requestId)
-    return
-  }
-  const skipReason = result.data?.skip_reason
-  if (skipReason) {
-    const detail = result.data?.skip_detail
-    if (detail) logStore.addError(`自动转调已跳过（${skipReason}）：${detail}`)
-    const hint = SKIP_MESSAGES[skipReason]
-    if (hint) message.warning(hint)
-    autoTransposeGate.rollbackRequest(requestId)
-    return
-  }
-  const transposed = result.data?.transposed_text
-  if (!transposed || transposed === pending.text) {
-    autoTransposeGate.rollbackRequest(requestId)
-    return
-  }
-  applyTransposed(pending.text, transposed)
-  autoTransposeGate.commitRequest()
 }
 
 function applyTransposed(before: string, after: string): void {
@@ -900,6 +920,52 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 
 .editor-textarea.syntax-highlight-enabled::selection {
   background: rgba(76, 110, 245, 0.26);
+}
+
+.editor-main.is-transposing .editor-textarea,
+.editor-main.is-transposing .editor-highlight {
+  opacity: 0.55;
+}
+
+.editor-textarea[readonly] {
+  cursor: default;
+}
+
+.editor-transpose-lock {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 999px;
+  background: var(--bg-soft, #f5f5f5);
+  color: var(--text-secondary, #555);
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: none;
+  user-select: none;
+}
+
+.editor-transpose-lock-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-color, #2563eb);
+  animation: editor-transpose-lock-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes editor-transpose-lock-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }
 
 .syntax-error-token {

@@ -317,7 +317,7 @@
               <n-button
                 size="tiny"
                 quaternary
-                :disabled="!hasJianpuText || isViewingFinal"
+                :disabled="!hasJianpuText || isViewingFinal || editorTransposing"
                 @click="transposeOctaveShift(1)"
               >
                 升八度
@@ -325,7 +325,7 @@
               <n-button
                 size="tiny"
                 quaternary
-                :disabled="!hasJianpuText || isViewingFinal"
+                :disabled="!hasJianpuText || isViewingFinal || editorTransposing"
                 @click="transposeOctaveShift(-1)"
               >
                 降八度
@@ -357,7 +357,7 @@
                 size="tiny"
                 quaternary
                 :loading="isRenderingFinal"
-                :disabled="store.isBusy || !canRenderCurrentScore"
+                :disabled="store.isBusy || !canRenderCurrentScore || editorTransposing"
                 @click="toggleFinalView"
               >
                 {{ isViewingFinal ? '编辑' : '渲染' }}
@@ -566,7 +566,9 @@ const jianpuEditorRef = ref<{
   ) => boolean
   getSelectionRange: () => { start: number; end: number } | null
   flushPendingAutoTranspose: () => Promise<void>
+  transposing: boolean
 } | null>(null)
+const editorTransposing = computed(() => jianpuEditorRef.value?.transposing ?? false)
 const svgPreviewRef = ref<{
   highlightSource: (sourceId: string) => Promise<boolean>
 } | null>(null)
