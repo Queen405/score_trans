@@ -1763,7 +1763,7 @@ export type components = {
         JianpuRekeyResponse: {
             /**
              * Anchor Mapping
-             * @description 纯调号重写时从请求文本到转调文本的 token/角色 UTF-16 区间映射；无法一一对应时为 null
+             * @description 纯调号重写时从请求文本到转调文本的 token/角色 UTF-16 区间映射；token 区间供诊断和兼容扩展使用，无法一一对应时为 null
              */
             anchor_mapping?: components["schemas"]["RekeyAnchorMapping"][] | null;
             /**
@@ -2332,7 +2332,7 @@ export type components = {
         };
         /**
          * RekeyAnchorMapping
-         * @description A semantic span mapping from the rekey request text to its output text.
+         * @description 重写请求文本到输出文本的语义区间映射；token 区间供诊断和兼容扩展使用。
          */
         RekeyAnchorMapping: {
             /** New End Utf16 */

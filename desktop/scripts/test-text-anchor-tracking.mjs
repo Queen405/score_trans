@@ -46,6 +46,20 @@ const selectionJavascript = ts.transpileModule(selectionSource, {
 const selectionModuleUrl = `data:text/javascript;base64,${Buffer.from(selectionJavascript).toString('base64')}`
 const { sourceAnchorRange } = await import(selectionModuleUrl)
 
+const pageSourceUrl = new URL(
+  '../src/renderer/src/utils/jianpuPageSections.ts',
+  import.meta.url,
+)
+const pageJavascript = ts.transpileModule(await readFile(pageSourceUrl, 'utf8'), {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ES2022,
+  },
+}).outputText
+const pageUtils = await import(
+  `data:text/javascript;base64,${Buffer.from(pageJavascript).toString('base64')}`,
+)
+
 const anchor = (source_id, start_utf16, end_utf16) => ({
   source_id,
   start_utf16,
@@ -127,6 +141,36 @@ test('rekey mapping shifts unchanged anchors after a rewritten pitch', () => {
   assert.deepEqual(result.anchors[0], {
     ...anchor('slur-1', after.indexOf('('), after.indexOf('(') + 1),
   })
+})
+
+test('rekey mapping rebases a second-page anchor through its page body offset', () => {
+  const before = pageUtils.composeJianpuPageText([
+    { inputFileName: 'p1.png', jianpuText: '1=C\n1 2 |' },
+    { inputFileName: 'p2.png', jianpuText: '1=G\n7 1 |' },
+  ])
+  const after = pageUtils.composeJianpuPageText([
+    { inputFileName: 'p1.png', jianpuText: '1=C\n1 2 |' },
+    { inputFileName: 'p2.png', jianpuText: '1=A\n5 6 |' },
+  ])
+  const beforeSections = pageUtils.parseJianpuPageSections(before)
+  const afterSections = pageUtils.parseJianpuPageSections(after)
+  const beforeOffset = pageUtils.jianpuPageSectionBodyOffset(before, beforeSections, 1)
+  const afterOffset = pageUtils.jianpuPageSectionBodyOffset(after, afterSections, 1)
+  const oldNote = beforeOffset + before.slice(beforeOffset).indexOf('7')
+  const newNote = afterOffset + after.slice(afterOffset).indexOf('5')
+  const result = reconcileRekeyedTextAnchors(
+    [anchor('page-2-note', oldNote, oldNote + 1)],
+    [{
+      role: 'note',
+      old_start_utf16: oldNote,
+      old_end_utf16: oldNote + 1,
+      new_start_utf16: newNote,
+      new_end_utf16: newNote + 1,
+    }],
+  )
+  const local = result.anchors[0]
+  assert.deepEqual(local, anchor('page-2-note', newNote, newNote + 1))
+  assert.equal(after.slice(local.start_utf16, local.end_utf16), '5')
 })
 
 test('cross-token replacement invalidates every affected anchor', () => {

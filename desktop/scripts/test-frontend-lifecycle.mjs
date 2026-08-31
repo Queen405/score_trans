@@ -232,6 +232,23 @@ test('rekey responses use semantic anchor mappings and refresh baselines', () =>
   assert.match(convertSource, /textAnchorBaselineAnchors:\s*localAnchors/)
 })
 
+test('rekey metadata is announced before the model update', () => {
+  const rekeyEvent = editorSource.indexOf("emit('rekey-applied'")
+  const modelUpdate = editorSource.indexOf('applyTransposed(pending.text, transposed)')
+  assert.ok(rekeyEvent >= 0)
+  assert.ok(modelUpdate >= 0)
+  assert.ok(rekeyEvent < modelUpdate, 'rekey marker must be queued before v-model changes')
+})
+
+test('stale rekey metadata falls back to ordinary anchor reconciliation', () => {
+  const watcherStart = convertSource.indexOf('watch(jianpuText')
+  const watcherEnd = convertSource.indexOf("}, { immediate: true })", watcherStart)
+  const watcher = convertSource.slice(watcherStart, watcherEnd)
+  assert.match(watcher, /rekey\.before === previous/)
+  assert.match(watcher, /rekey\.after === v/)
+  assert.match(watcher, /else if \(isUserEdit\) \{[\s\S]*updateTextAnchorsAfterEdit\(/)
+})
+
 test('original preview separates valid, invalidated, and never-mapped sources', () => {
   assert.match(convertSource, /:mapped-source-ids="mappedSourceIds"/)
   assert.match(convertSource, /anchor\.valid !== false/)

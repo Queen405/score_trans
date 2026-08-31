@@ -509,6 +509,7 @@ import { isRenderAborted } from '../utils/renderAbort'
 import {
   hasJianpuPageMarkers,
   parseJianpuPageSections,
+  jianpuPageSectionBodyOffset,
   replaceJianpuSectionBody,
   restoreJianpuPageText,
   serializeJianpuPageSections,
@@ -845,8 +846,16 @@ function updateTextAnchorsAfterRekey(payload: RekeyAppliedPayload): void {
       return
     }
 
-    const beforeOffset = sectionBodyOffset(payload.before, beforeSections, beforeSections.indexOf(beforeSection))
-    const afterOffset = sectionBodyOffset(payload.after, afterSections, afterSections.indexOf(afterSection))
+    const beforeOffset = jianpuPageSectionBodyOffset(
+      payload.before,
+      beforeSections,
+      beforeSections.indexOf(beforeSection),
+    )
+    const afterOffset = jianpuPageSectionBodyOffset(
+      payload.after,
+      afterSections,
+      afterSections.indexOf(afterSection),
+    )
     const globalAnchors = page.textAnchors.map((anchor) => ({
       ...anchor,
       start_utf16: anchor.start_utf16 + beforeOffset,
@@ -881,23 +890,6 @@ function refreshRekeyBaselines(text: string): void {
       textAnchorBaselineAnchors: page.textAnchors.map((anchor) => ({ ...anchor })),
     })
   })
-}
-
-function sectionBodyOffset(
-  text: string,
-  sections: ReturnType<typeof parseJianpuPageSections>,
-  sectionOrder: number,
-): number {
-  const section = sections[sectionOrder]
-  if (!section || section.markerLineIndex < 0) return 0
-  // parseJianpuPageSections keeps any pre-marker prefix in the first section body.
-  if (sectionOrder === 0 && section.markerLineIndex > 0) return 0
-  const lines = text.split('\n')
-  let offset = 0
-  for (let index = 0; index <= section.markerLineIndex; index += 1) {
-    offset += (lines[index]?.length ?? 0) + 1
-  }
-  return offset
 }
 
 async function handleOriginalSourceClick(sourceId: string): Promise<void> {

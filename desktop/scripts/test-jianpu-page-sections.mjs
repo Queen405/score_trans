@@ -270,6 +270,29 @@ test('page sections preserve comments and blank lines', () => {
   assert.equal(sections[1].inputFileName, '第二页.png')
 })
 
+test('page section body offsets locate the second page body in UTF-16 coordinates', () => {
+  const text = utils.composeJianpuPageText([
+    { inputFileName: '第一页.png', jianpuText: '1=C\n1 2 |' },
+    { inputFileName: '第二页.png', jianpuText: '1=G\n7 1 |' },
+  ])
+  const sections = utils.parseJianpuPageSections(text)
+  const offset = utils.jianpuPageSectionBodyOffset(text, sections, 1)
+
+  assert.equal(text.slice(offset, offset + 3), '1=G')
+  assert.equal(text.slice(offset).indexOf('7'), 4)
+})
+
+test('page section body offsets preserve lone CR line endings', () => {
+  const text = utils.composeJianpuPageText([
+    { inputFileName: 'p1.png', jianpuText: '1=C\n1 2 |' },
+    { inputFileName: 'p2.png', jianpuText: '1=G\n7 1 |' },
+  ]).replaceAll('\n', '\r')
+  const sections = utils.parseJianpuPageSections(text)
+  const offset = utils.jianpuPageSectionBodyOffset(text, sections, 1)
+
+  assert.equal(text.slice(offset, offset + 3), '1=G')
+})
+
 test('legacy merged text migrates to explicit page markers', () => {
   const pages = [
     { inputFileName: 'p1.png', jianpuText: '1 2 |' },

@@ -344,6 +344,7 @@ def test_jianpu_rekey_route_declares_its_request_and_response_schema() -> None:
     assert "skip_reason" in schemas["JianpuRekeyResponse"]["properties"]
     assert "skip_detail" in schemas["JianpuRekeyResponse"]["properties"]
     assert "anchor_mapping" in schemas["JianpuRekeyResponse"]["properties"]
+    assert "诊断" in schemas["RekeyAnchorMapping"]["description"]
     body = document["paths"]["/jianpu/rekey"]["post"]["requestBody"]
     assert body["content"]["application/json"]["schema"]["$ref"].endswith(
         "JianpuRekeyRequest"

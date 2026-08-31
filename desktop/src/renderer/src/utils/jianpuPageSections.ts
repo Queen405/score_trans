@@ -111,6 +111,37 @@ export function parseJianpuPageSections(text: string): JianpuPageSection[] {
   })
 }
 
+/** Return a page body's UTF-16 start offset in the original text. */
+export function jianpuPageSectionBodyOffset(
+  text: string,
+  sections: JianpuPageSection[],
+  sectionOrder: number,
+): number {
+  const section = sections[sectionOrder]
+  if (!section || section.markerLineIndex < 0) return 0
+  // The first section owns any prefix before the first page marker.
+  if (sectionOrder === 0 && section.markerLineIndex > 0) return 0
+  let offset = 0
+  let line = 0
+  while (line < section.markerLineIndex && offset < text.length) {
+    if (text[offset] === '\r') {
+      offset += text[offset + 1] === '\n' ? 2 : 1
+      line += 1
+    } else if (text[offset] === '\n') {
+      offset += 1
+      line += 1
+    } else {
+      offset += 1
+    }
+  }
+  while (offset < text.length && text[offset] !== '\r' && text[offset] !== '\n') {
+    offset += 1
+  }
+  if (text[offset] === '\r') return offset + (text[offset + 1] === '\n' ? 2 : 1)
+  if (text[offset] === '\n') return offset + 1
+  return offset
+}
+
 export function serializeJianpuPageSections(sections: JianpuPageSection[]): string {
   return sections
     .map((section, order) => {

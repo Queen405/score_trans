@@ -79,6 +79,17 @@ def test_rekey_mapping_includes_pitch_cores_inside_tuplets() -> None:
     assert len([item for item in result.anchor_mapping if item.role == "note"]) == 3
 
 
+def test_rekey_mapping_covers_chord_and_attached_pitch_forms() -> None:
+    previous = "1=C\n\\p [1+3+5] 6. |"
+    text = "1=G\n\\p [1+3+5] 6. |"
+
+    result = rekey_text(text, previous)
+
+    assert result.anchor_mapping
+    assert len([item for item in result.anchor_mapping if item.role == "note"]) == 4
+    assert all(item.role in {"token", "pitch", "note", "accidental"} for item in result.anchor_mapping)
+
+
 def test_rekey_same_key_is_noop() -> None:
     text = "1=C\n1 2 3 4 |"
     assert _rekey(text, text) == text

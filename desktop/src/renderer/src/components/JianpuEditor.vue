@@ -586,12 +586,14 @@ async function triggerAutoTranspose(): Promise<void> {
       autoTransposeGate.rollbackRequest(requestId)
       return
     }
-    applyTransposed(pending.text, transposed)
     emit('rekey-applied', {
       before: pending.text,
       after: transposed,
       anchorMapping: result.data?.anchor_mapping ?? null,
     })
+    // Queue the semantic marker before changing v-model so a synchronous
+    // parent watcher cannot mistake this update for ordinary user input.
+    applyTransposed(pending.text, transposed)
     autoTransposeGate.commitRequest()
   } finally {
     transposing.value = false

@@ -13,7 +13,7 @@ RekeySkipReason = Literal["parse_error", "no_key_token", "unresolvable_key_chang
 
 @dataclass(slots=True, frozen=True)
 class RekeyAnchorMapping:
-    """A semantic span mapping from the rekey request text to its output text."""
+    """重写请求文本到输出文本的语义区间映射；token 区间供诊断和兼容扩展使用。"""
 
     role: str
     old_start_utf16: int
