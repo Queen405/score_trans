@@ -66,7 +66,7 @@ function loadThemeMode(): ThemeMode {
   } catch {
     // localStorage may be unavailable in restricted renderer contexts.
   }
-  return 'system'
+  return 'light'
 }
 
 function loadBooleanPreference(key: string, fallback: boolean): boolean {
@@ -100,8 +100,8 @@ function emptyProviderDetails(): ProviderDraftDetails {
 export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
   const javaHome = ref('')
-  const audiverisMaxHeap = ref('2g')
-  const audiverisMaxPixelCount = ref('20000000')
+  const audiverisMaxHeap = ref('3g')
+  const audiverisMaxPixelCount = ref('4500000')
   const audiverisAutoUpscale = ref(true)
   const audiverisMinImageEdge = ref(2500)
   const dataDir = ref('')
@@ -116,36 +116,36 @@ export const useSettingsStore = defineStore('settings', () => {
   const accidentalMode = ref<AccidentalMode>('auto')
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
-  const jianpuSyntaxHighlight = ref(false)
-  const jianpuMeasureDurationCheck = ref(false)
-  const jianpuContentScalePercent = ref(67)
-  const jianpuSystemGapPercent = ref(92)
-  const jianpuShortNoteGapPercent = ref(90)
+  const jianpuSyntaxHighlight = ref(true)
+  const jianpuMeasureDurationCheck = ref(true)
+  const jianpuContentScalePercent = ref(80)
+  const jianpuSystemGapPercent = ref(50)
+  const jianpuShortNoteGapPercent = ref(20)
   const jianpuBeatGapPercent = ref(100)
-  const enableOmrOcr = ref(true)
+  const enableOmrOcr = ref(false)
   const outputDir = ref('')
-  const jianpuAutoTranspose = ref(false)
+  const jianpuAutoTranspose = ref(true)
   const ocrProvider = ref('siliconflow_deepseek_ocr')
   const ocrProviderOptions = ref<LlmProviderOption[]>([])
   const ocrApiKey = ref('')
   const ocrApiKeySet = ref(false)
   const ocrBaseUrl = ref('https://api.siliconflow.cn/v1')
   const ocrModel = ref('deepseek-ai/DeepSeek-OCR')
-  const aiProvider = ref('xiaomi_mimo_v25')
+  const aiProvider = ref('agnes_2_5_flash')
   const aiProviderOptions = ref<LlmProviderOption[]>([])
   const aiApiKey = ref('')
   const aiApiKeySet = ref(false)
-  const aiBaseUrl = ref('https://api.xiaomimimo.com/v1')
-  const aiModel = ref('mimo-v2.5')
-  const assistantProvider = ref('dashscope_deepseek_v4_flash')
+  const aiBaseUrl = ref('https://apihub.agnes-ai.com/v1')
+  const aiModel = ref('agnes-2.5-flash')
+  const assistantProvider = ref('agnes_2_5_flash')
   const assistantProviderOptions = ref<LlmProviderOption[]>([])
   const assistantApiKey = ref('')
   const assistantApiKeySet = ref(false)
-  const assistantBaseUrl = ref('https://dashscope.aliyuncs.com/compatible-mode/v1')
-  const assistantModel = ref('deepseek-v4-flash')
+  const assistantBaseUrl = ref('https://apihub.agnes-ai.com/v1')
+  const assistantModel = ref('agnes-2.5-flash')
   const themeMode = ref<ThemeMode>(loadThemeMode())
   const showRecognitionOverlay = ref(loadBooleanPreference(SHOW_RECOGNITION_OVERLAY_KEY, true))
-  const showOcrOverlay = ref(loadBooleanPreference(SHOW_OCR_OVERLAY_KEY, true))
+  const showOcrOverlay = ref(loadBooleanPreference(SHOW_OCR_OVERLAY_KEY, false))
 
   const loaded = ref(false)
   const loading = ref(false)
@@ -158,8 +158,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const draft = reactive<SettingsDraft>({
     audiverisPath: '',
     javaHome: '',
-    audiverisMaxHeap: '2g',
-    audiverisMaxPixelCount: '20000000',
+    audiverisMaxHeap: '3g',
+    audiverisMaxPixelCount: '4500000',
     audiverisAutoUpscale: true,
     audiverisMinImageEdge: 2500,
     dataDir: '',
@@ -167,19 +167,19 @@ export const useSettingsStore = defineStore('settings', () => {
     targetKey: 'auto',
     accidentalMode: 'auto',
     measureNumberMode: 'all',
-    jianpuSyntaxHighlight: false,
-    jianpuMeasureDurationCheck: false,
-    jianpuContentScalePercent: 67,
-    jianpuSystemGapPercent: 92,
-    jianpuShortNoteGapPercent: 90,
+    jianpuSyntaxHighlight: true,
+    jianpuMeasureDurationCheck: true,
+    jianpuContentScalePercent: 80,
+    jianpuSystemGapPercent: 50,
+    jianpuShortNoteGapPercent: 20,
     jianpuBeatGapPercent: 100,
-    enableOmrOcr: true,
+    enableOmrOcr: false,
     outputDir: '',
-    jianpuAutoTranspose: false,
+    jianpuAutoTranspose: true,
     providers: {
       ocr: { provider: 'siliconflow_deepseek_ocr', apiKey: '' },
-      ai: { provider: 'xiaomi_mimo_v25', apiKey: '' },
-      assistant: { provider: 'dashscope_deepseek_v4_flash', apiKey: '' },
+      ai: { provider: 'agnes_2_5_flash', apiKey: '' },
+      assistant: { provider: 'agnes_2_5_flash', apiKey: '' },
     },
     themeMode: themeMode.value,
     showRecognitionOverlay: showRecognitionOverlay.value,
@@ -431,8 +431,8 @@ export const useSettingsStore = defineStore('settings', () => {
   function applySettings(data: SettingsResponse): void {
     audiverisPath.value = data.audiveris_path
     javaHome.value = data.java_home
-    audiverisMaxHeap.value = data.audiveris_max_heap ?? '2g'
-    audiverisMaxPixelCount.value = data.audiveris_max_pixel_count ?? '20000000'
+    audiverisMaxHeap.value = data.audiveris_max_heap ?? '3g'
+    audiverisMaxPixelCount.value = data.audiveris_max_pixel_count ?? '4500000'
     audiverisAutoUpscale.value = data.audiveris_auto_upscale ?? true
     audiverisMinImageEdge.value = data.audiveris_min_image_edge ?? 2500
     activeDataDir.value = data.data_dir ?? ''
@@ -446,35 +446,35 @@ export const useSettingsStore = defineStore('settings', () => {
     measureNumberMode.value =
       data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
-    jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? false
-    jianpuMeasureDurationCheck.value = data.jianpu_measure_duration_check ?? false
-    jianpuContentScalePercent.value = data.jianpu_content_scale_percent ?? 67
-    jianpuSystemGapPercent.value = data.jianpu_system_gap_percent ?? 92
-    jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 90
+    jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? true
+    jianpuMeasureDurationCheck.value = data.jianpu_measure_duration_check ?? true
+    jianpuContentScalePercent.value = data.jianpu_content_scale_percent ?? 80
+    jianpuSystemGapPercent.value = data.jianpu_system_gap_percent ?? 50
+    jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 20
     jianpuBeatGapPercent.value = data.jianpu_beat_gap_percent ?? 100
-    enableOmrOcr.value = data.enable_omr_ocr ?? true
+    enableOmrOcr.value = data.enable_omr_ocr ?? false
     outputDir.value = data.output_dir ?? ''
-    jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? false
+    jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? true
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
     ocrProviderOptions.value = data.ocr_provider_options ?? []
     ocrApiKey.value = ''
     ocrApiKeySet.value = data.ocr_api_key_set ?? false
     ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
     ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'
-    aiProvider.value = data.ai_provider ?? 'xiaomi_mimo_v25'
+    aiProvider.value = data.ai_provider ?? 'agnes_2_5_flash'
     aiProviderOptions.value = data.ai_provider_options ?? []
     aiApiKey.value = ''
     aiApiKeySet.value = data.ai_api_key_set ?? false
-    aiBaseUrl.value = data.ai_base_url ?? 'https://api.xiaomimimo.com/v1'
-    aiModel.value = data.ai_model ?? 'mimo-v2.5'
+    aiBaseUrl.value = data.ai_base_url ?? 'https://apihub.agnes-ai.com/v1'
+    aiModel.value = data.ai_model ?? 'agnes-2.5-flash'
     assistantProvider.value =
-      data.assistant_provider ?? 'dashscope_deepseek_v4_flash'
+      data.assistant_provider ?? 'agnes_2_5_flash'
     assistantProviderOptions.value = data.assistant_provider_options ?? []
     assistantApiKey.value = ''
     assistantApiKeySet.value = data.assistant_api_key_set ?? false
     assistantBaseUrl.value =
-      data.assistant_base_url ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-    assistantModel.value = data.assistant_model ?? 'deepseek-v4-flash'
+      data.assistant_base_url ?? 'https://apihub.agnes-ai.com/v1'
+    assistantModel.value = data.assistant_model ?? 'agnes-2.5-flash'
   }
 
   async function loadStoragePaths(): Promise<void> {

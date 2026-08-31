@@ -53,20 +53,20 @@ def test_settings_update_schema_accepts_provider_endpoint_overrides() -> None:
     assert "assistant_model" in properties
 
 
-def test_omr_ocr_setting_defaults_on_and_round_trips(tmp_path) -> None:
+def test_omr_ocr_setting_defaults_off_and_round_trips(tmp_path) -> None:
     defaults = settings_defaults()
-    assert defaults["enable_omr_ocr"] == "1"
+    assert defaults["enable_omr_ocr"] == "0"
     dao = SettingsDao(tmp_path / "settings.db", defaults=defaults)
     actions = SettingsActions(SettingsService(dao))
 
-    assert actions.get_settings().enable_omr_ocr is True
+    assert actions.get_settings().enable_omr_ocr is False
 
-    response = actions.update_settings(SettingsUpdateRequest(enable_omr_ocr=False))
+    response = actions.update_settings(SettingsUpdateRequest(enable_omr_ocr=True))
 
-    assert response.enable_omr_ocr is False
-    assert dao.get("enable_omr_ocr") == "0"
-    assert SettingsActions(SettingsService(dao)).get_settings().enable_omr_ocr is False
-    assert SettingsService(dao).load().enable_omr_ocr is False
+    assert response.enable_omr_ocr is True
+    assert dao.get("enable_omr_ocr") == "1"
+    assert SettingsActions(SettingsService(dao)).get_settings().enable_omr_ocr is True
+    assert SettingsService(dao).load().enable_omr_ocr is True
 
 
 def test_settings_provider_endpoint_overrides_are_saved_and_returned(tmp_path) -> None:
@@ -339,9 +339,11 @@ def test_published_defaults_json_parses_and_matches_schema() -> None:
         "show_measure_numbers",
         "jianpu_syntax_highlight",
         "jianpu_measure_duration_check",
+        "jianpu_auto_transpose",
         "jianpu_content_scale_percent",
         "jianpu_system_gap_percent",
         "jianpu_short_note_gap_percent",
+        "jianpu_beat_gap_percent",
         "enable_omr_ocr",
         "output_dir",
     ):
@@ -378,18 +380,20 @@ def test_published_defaults_contains_no_private_fields_or_paths() -> None:
 
 def test_settings_defaults_seeds_baseline_values() -> None:
     defaults = settings_defaults()
-    assert defaults["target_key"] == "C"
+    assert defaults["target_key"] == "auto"
     assert defaults["accidental_mode"] == "auto"
     assert defaults["measure_number_mode"] == "all"
     assert defaults["show_measure_numbers"] == "1"
-    assert defaults["jianpu_syntax_highlight"] == "0"
-    assert defaults["jianpu_measure_duration_check"] == "0"
-    assert defaults["jianpu_content_scale_percent"] == "67"
-    assert defaults["jianpu_system_gap_percent"] == "92"
-    assert defaults["jianpu_short_note_gap_percent"] == "90"
-    assert defaults["enable_omr_ocr"] == "1"
-    assert defaults["audiveris_max_heap"] == "2g"
-    assert defaults["audiveris_max_pixel_count"] == "20000000"
+    assert defaults["jianpu_syntax_highlight"] == "1"
+    assert defaults["jianpu_measure_duration_check"] == "1"
+    assert defaults["jianpu_auto_transpose"] == "1"
+    assert defaults["jianpu_content_scale_percent"] == "80"
+    assert defaults["jianpu_system_gap_percent"] == "50"
+    assert defaults["jianpu_short_note_gap_percent"] == "20"
+    assert defaults["jianpu_beat_gap_percent"] == "100"
+    assert defaults["enable_omr_ocr"] == "0"
+    assert defaults["audiveris_max_heap"] == "3g"
+    assert defaults["audiveris_max_pixel_count"] == "4500000"
     assert defaults["audiveris_auto_upscale"] == "1"
     assert defaults["audiveris_min_image_edge"] == "2500"
 
@@ -415,6 +419,25 @@ def test_env_level_audiveris_params_not_seeded() -> None:
         assert key not in defaults, f"{key} should not be seeded from baseline"
 
 
+# 更新路由中允许存在但刻意不纳入发布基线的字段：
+# - work_dir：不种植，使用安装用户的 ~/.score_trans/ 目录
+# （API Key 也在基线中，但只种空字符串占位，不算豁免。）
+_UNSEEDED_UPDATE_FIELDS = frozenset({"work_dir"})
+
+
+def test_settings_defaults_cover_every_updatable_setting() -> None:
+    """新增设置字段时必须同步发布基线（或显式加入豁免清单）。
+
+    settings_defaults() 种入的键 + API Key 占位键 + 豁免字段，必须完整覆盖
+    SettingsUpdateRequest 的全部字段，防止新设置漏进 published_defaults.json。
+    """
+    defaults = settings_defaults()
+    for key in sorted(SettingsUpdateRequest.model_fields):
+        assert key in defaults or key in _UNSEEDED_UPDATE_FIELDS, (
+            f"{key} is updatable via /settings but missing from published defaults"
+        )
+
+
 def test_provider_selection_matches_baseline() -> None:
     payload = json.loads(_BASELINE_PATH.read_text(encoding="utf-8"))
     defaults = settings_defaults()
@@ -431,16 +454,16 @@ def test_provider_selection_matches_baseline() -> None:
 def test_baseline_seeds_new_database(tmp_path) -> None:
     dao = SettingsDao(tmp_path / "settings.db", defaults=settings_defaults())
     all_settings = dao.get_all()
-    assert all_settings["target_key"] == "C"
-    assert all_settings["enable_omr_ocr"] == "1"
+    assert all_settings["target_key"] == "auto"
+    assert all_settings["enable_omr_ocr"] == "0"
     assert all_settings["ocr_api_key"] == ""
     assert all_settings["ai_api_key"] == ""
     assert all_settings["assistant_api_key"] == ""
     assert all_settings["audiveris_path"] == ""
     assert all_settings["java_home"] == ""
-    assert all_settings["jianpu_content_scale_percent"] == "67"
-    assert all_settings["jianpu_system_gap_percent"] == "92"
-    assert all_settings["jianpu_short_note_gap_percent"] == "90"
+    assert all_settings["jianpu_content_scale_percent"] == "80"
+    assert all_settings["jianpu_system_gap_percent"] == "50"
+    assert all_settings["jianpu_short_note_gap_percent"] == "20"
 
 
 def test_layout_defaults_flow_from_published_baseline_to_api(
@@ -482,7 +505,7 @@ def test_baseline_does_not_overwrite_existing_user_values(tmp_path) -> None:
 
     assert dao.get("target_key") == "G"
     assert dao.get("ocr_api_key") == "sk-user-key"
-    assert dao.get("enable_omr_ocr") == "1"
+    assert dao.get("enable_omr_ocr") == "0"
 
 
 def test_show_measure_numbers_and_mode_stay_consistent(tmp_path) -> None:
@@ -499,4 +522,4 @@ def test_empty_seeded_paths_trigger_auto_resolution(tmp_path) -> None:
     assert config.audiveris_path
     # java_home may be empty if no bundled JDK exists in dev — just verify
     # it does not retain the empty seed when a default is available.
-    assert config.enable_omr_ocr is True
+    assert config.enable_omr_ocr is False

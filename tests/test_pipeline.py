@@ -330,6 +330,7 @@ def test_full_pipeline_runs_ocr_for_image_and_outputs_a4_layout(tmp_path) -> Non
         config=ToolConfig(audiveris_path="fake-audiveris"),
         target_key="C",
         ocr_provider=provider,
+        enable_omr_ocr=True,
     )
 
     svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")

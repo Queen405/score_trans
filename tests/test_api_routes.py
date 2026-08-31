@@ -483,31 +483,31 @@ def test_settings_persists_jianpu_syntax_highlight(tmp_path: Path) -> None:
 
     response = client.get("/settings")
     assert response.status_code == 200
+    assert response.json()["jianpu_syntax_highlight"] is True
+    assert response.json()["jianpu_measure_duration_check"] is True
+
+    response = client.put("/settings", json={"jianpu_syntax_highlight": False})
+    assert response.status_code == 200
     assert response.json()["jianpu_syntax_highlight"] is False
+
+    response = client.get("/settings")
+    assert response.json()["jianpu_syntax_highlight"] is False
+
+    response = client.put("/settings", json={"jianpu_measure_duration_check": False})
+    assert response.status_code == 200
     assert response.json()["jianpu_measure_duration_check"] is False
 
-    response = client.put("/settings", json={"jianpu_syntax_highlight": True})
-    assert response.status_code == 200
-    assert response.json()["jianpu_syntax_highlight"] is True
-
     response = client.get("/settings")
-    assert response.json()["jianpu_syntax_highlight"] is True
+    assert response.json()["jianpu_measure_duration_check"] is False
 
-    response = client.put("/settings", json={"jianpu_measure_duration_check": True})
+    assert response.json()["jianpu_auto_transpose"] is True
+
+    response = client.put("/settings", json={"jianpu_auto_transpose": False})
     assert response.status_code == 200
-    assert response.json()["jianpu_measure_duration_check"] is True
-
-    response = client.get("/settings")
-    assert response.json()["jianpu_measure_duration_check"] is True
-
     assert response.json()["jianpu_auto_transpose"] is False
 
-    response = client.put("/settings", json={"jianpu_auto_transpose": True})
-    assert response.status_code == 200
-    assert response.json()["jianpu_auto_transpose"] is True
-
     response = client.get("/settings")
-    assert response.json()["jianpu_auto_transpose"] is True
+    assert response.json()["jianpu_auto_transpose"] is False
 
 
 def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -> None:
@@ -520,17 +520,6 @@ def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -
     client = TestClient(app)
     text = "1=C\n4/4\n1 2 3 |"
 
-    assert client.post("/syntax/validate", json={"jianpu_text": text}).json() == {
-        "diagnostics": []
-    }
-
-    response = client.put(
-        "/settings",
-        json={"jianpu_measure_duration_check": True},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["jianpu_measure_duration_check"] is True
     diagnostics = client.post("/syntax/validate", json={"jianpu_text": text}).json()[
         "diagnostics"
     ]
@@ -538,13 +527,23 @@ def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -
     assert diagnostics[0]["severity"] == "warning"
     assert "少拍" in diagnostics[0]["message"]
 
+    response = client.put(
+        "/settings",
+        json={"jianpu_measure_duration_check": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["jianpu_measure_duration_check"] is False
+    assert client.post("/syntax/validate", json={"jianpu_text": text}).json() == {
+        "diagnostics": []
+    }
+
     diagnostics = client.post(
         "/syntax/validate",
         json={"jianpu_text": "1=C\n4/4\n45 1 2 | 1 2 3 4 5 |"},
     ).json()["diagnostics"]
-    assert [item["severity"] for item in diagnostics] == ["error", "warning"]
+    assert [item["severity"] for item in diagnostics] == ["error"]
     assert "不支持的简谱 token：45" in diagnostics[0]["message"]
-    assert "超拍" in diagnostics[1]["message"]
 
 
 def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
@@ -557,9 +556,9 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
 
     initial = client.get("/settings")
     assert initial.status_code == 200
-    assert initial.json()["jianpu_content_scale_percent"] == 67
-    assert initial.json()["jianpu_system_gap_percent"] == 92
-    assert initial.json()["jianpu_short_note_gap_percent"] == 90
+    assert initial.json()["jianpu_content_scale_percent"] == 80
+    assert initial.json()["jianpu_system_gap_percent"] == 50
+    assert initial.json()["jianpu_short_note_gap_percent"] == 20
     assert initial.json()["jianpu_beat_gap_percent"] == 100
 
     updated = client.put(
@@ -620,9 +619,9 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
     )
     for request_name in request_names:
         properties = schemas[request_name]["properties"]
-        assert properties["jianpu_content_scale_percent"]["default"] == 67
-        assert properties["jianpu_system_gap_percent"]["default"] == 92
-        assert properties["jianpu_short_note_gap_percent"]["default"] == 90
+        assert properties["jianpu_content_scale_percent"]["default"] == 80
+        assert properties["jianpu_system_gap_percent"]["default"] == 50
+        assert properties["jianpu_short_note_gap_percent"]["default"] == 20
         assert properties["jianpu_beat_gap_percent"]["default"] == 100
         assert properties["jianpu_system_gap_percent"]["minimum"] == 20
         assert properties["jianpu_system_gap_percent"]["maximum"] == 180

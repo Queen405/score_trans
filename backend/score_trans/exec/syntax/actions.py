@@ -22,7 +22,7 @@ class SyntaxActions:
         diagnostics = self.validator.validate(
             req.jianpu_text,
             check_measure_durations=self.settings.get_bool(
-                "jianpu_measure_duration_check", False
+                "jianpu_measure_duration_check", True
             ),
         )
         if len(diagnostics) > 100:

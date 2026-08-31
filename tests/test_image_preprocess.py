@@ -153,7 +153,7 @@ def test_recognize_with_audiveris_preventive_upscale_passes_upscaled_path(
     recognize_with_audiveris(
         source,
         output_dir,
-        ToolConfig(audiveris_path="audiveris"),
+        ToolConfig(audiveris_path="audiveris", audiveris_max_pixel_count="20000000"),
     )
 
     assert len(captured) == 1
@@ -247,7 +247,7 @@ def test_recognize_with_audiveris_retries_after_low_interline(
     recognize_with_audiveris(
         source,
         output_dir,
-        ToolConfig(audiveris_path="audiveris"),
+        ToolConfig(audiveris_path="audiveris", audiveris_max_pixel_count="20000000"),
     )
 
     assert call_count["n"] == 2

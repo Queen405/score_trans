@@ -120,9 +120,9 @@ class SettingsService:
             audiveris_min_image_edge=self.dao.get_int(
                 "audiveris_min_image_edge", AUDIVERIS_MIN_IMAGE_EDGE
             ),
-            enable_omr_ocr=self.dao.get_bool("enable_omr_ocr", True),
+            enable_omr_ocr=self.dao.get_bool("enable_omr_ocr", False),
             jianpu_measure_duration_check=self.dao.get_bool(
-                "jianpu_measure_duration_check", False
+                "jianpu_measure_duration_check", True
             ),
         )
 

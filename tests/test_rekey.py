@@ -87,7 +87,10 @@ def test_rekey_mapping_covers_chord_and_attached_pitch_forms() -> None:
 
     assert result.anchor_mapping
     assert len([item for item in result.anchor_mapping if item.role == "note"]) == 4
-    assert all(item.role in {"token", "pitch", "note", "accidental"} for item in result.anchor_mapping)
+    assert all(
+        item.role in {"token", "pitch", "note", "accidental"}
+        for item in result.anchor_mapping
+    )
 
 
 def test_rekey_same_key_is_noop() -> None:

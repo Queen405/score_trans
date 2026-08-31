@@ -96,13 +96,13 @@ class FullPipelineAction:
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
-        content_scale_percent: int = 67,
-        system_gap_percent: int = 92,
-        short_note_gap_percent: int = 90,
+        content_scale_percent: int = 80,
+        system_gap_percent: int = 50,
+        short_note_gap_percent: int = 20,
         beat_gap_percent: int = 100,
         title: str | None = None,
         ocr_provider: OCRProvider | None = None,
-        enable_omr_ocr: bool = True,
+        enable_omr_ocr: bool = False,
         progress_callback: ProgressCallback | None = None,
     ) -> ScorePipelineOutputs:
         source = Path(input_path).resolve()
@@ -313,7 +313,7 @@ class PipelineActions:
     ) -> TaskSubmitResponse:
         input_path = await asyncio.to_thread(self.save_upload, file)
         task_id = tasks.create_task()
-        enable_omr_ocr = self.settings.get_bool("enable_omr_ocr", True)
+        enable_omr_ocr = self.settings.get_bool("enable_omr_ocr", False)
 
         def action(progress: ProgressCallback):
             return self.run_pipeline_from_path(

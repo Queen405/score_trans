@@ -277,9 +277,9 @@ class SettingsActions:
         return SettingsResponse(
             audiveris_path=config.audiveris_path,
             java_home=config.java_home,
-            audiveris_max_heap=all_settings.get("audiveris_max_heap", "2g"),
+            audiveris_max_heap=all_settings.get("audiveris_max_heap", "3g"),
             audiveris_max_pixel_count=all_settings.get(
-                "audiveris_max_pixel_count", "20000000"
+                "audiveris_max_pixel_count", "4500000"
             ),
             audiveris_auto_upscale=self.service.get_bool(
                 "audiveris_auto_upscale", True
@@ -297,25 +297,25 @@ class SettingsActions:
             show_measure_numbers=measure_number_mode != "none",
             measure_number_mode=measure_number_mode,
             jianpu_syntax_highlight=self.service.get_bool(
-                "jianpu_syntax_highlight", False
+                "jianpu_syntax_highlight", True
             ),
             jianpu_measure_duration_check=self.service.get_bool(
-                "jianpu_measure_duration_check", False
+                "jianpu_measure_duration_check", True
             ),
-            jianpu_auto_transpose=self.service.get_bool("jianpu_auto_transpose", False),
+            jianpu_auto_transpose=self.service.get_bool("jianpu_auto_transpose", True),
             jianpu_content_scale_percent=self.service.get_int(
-                "jianpu_content_scale_percent", 67
+                "jianpu_content_scale_percent", 80
             ),
             jianpu_system_gap_percent=self.service.get_int(
-                "jianpu_system_gap_percent", 92
+                "jianpu_system_gap_percent", 50
             ),
             jianpu_short_note_gap_percent=self.service.get_int(
-                "jianpu_short_note_gap_percent", 90
+                "jianpu_short_note_gap_percent", 20
             ),
             jianpu_beat_gap_percent=self.service.get_int(
                 "jianpu_beat_gap_percent", 100
             ),
-            enable_omr_ocr=self.service.get_bool("enable_omr_ocr", True),
+            enable_omr_ocr=self.service.get_bool("enable_omr_ocr", False),
             ocr_provider=ocr_profile.id,
             ocr_provider_options=_provider_options("ocr"),
             ocr_api_key_set=bool(ocr_api_key),

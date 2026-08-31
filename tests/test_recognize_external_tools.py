@@ -193,7 +193,7 @@ def test_recognize_with_audiveris_applies_configured_java_omr_args(
         "-constant",
         "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets=true",
         "-constant",
-        "org.audiveris.omr.step.LoadStep.maxPixelCount=20000000",
+        "org.audiveris.omr.step.LoadStep.maxPixelCount=4500000",
         "-run",
         "org.example.CustomRunner",
         "-export",
@@ -242,10 +242,10 @@ def test_recognize_with_gradle_uses_configured_java_omr_args(
             "-batch,-step,PAGE,-save,-constant,alpha=1,"
             "-constant,"
             "org.audiveris.omr.sheet.ProcessingSwitches.implicitTuplets=true,"
-            "-constant,org.audiveris.omr.step.LoadStep.maxPixelCount=20000000,"
+            "-constant,org.audiveris.omr.step.LoadStep.maxPixelCount=4500000,"
             f"-export,-score-trans-overlay,-output,{output_dir.resolve()},{source.resolve()}"
         ),
-        "-PaudiverisMaxHeap=2g",
+        "-PaudiverisMaxHeap=3g",
     ]
 
 

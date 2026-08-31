@@ -324,20 +324,16 @@ def test_validate_jianpu_text_reports_measure_duration_warnings_in_document_offs
 def test_validate_jianpu_text_excludes_standalone_page_header_from_warning_range() -> (
     None
 ):
-    text = (
-        "// @page 1\n1=C\n4/4\n1 2 3 4 |\n1 2 3 4 |\n"
-        "// @page 2\n1=C\n4/4\n1 2 3 |\n"
-    )
+    text = "// @page 1\n1=C\n4/4\n1 2 3 4 |\n1 2 3 4 |\n// @page 2\n1=C\n4/4\n1 2 3 |\n"
 
     diagnostics = validate_jianpu_text(text, check_measure_durations=True)
 
     assert len(diagnostics) == 1
     diagnostic = diagnostics[0]
     assert diagnostic.measure == "3"
-    selected = (
-        text.encode("utf-16-le")[diagnostic.start * 2 : diagnostic.end * 2]
-        .decode("utf-16-le")
-    )
+    selected = text.encode("utf-16-le")[
+        diagnostic.start * 2 : diagnostic.end * 2
+    ].decode("utf-16-le")
     assert selected == "1 2 3 |"
     assert diagnostic.line == 9
 
@@ -349,10 +345,9 @@ def test_validate_jianpu_text_keeps_inline_key_time_in_warning_range() -> None:
 
     assert len(diagnostics) == 1
     diagnostic = diagnostics[0]
-    selected = (
-        text.encode("utf-16-le")[diagnostic.start * 2 : diagnostic.end * 2]
-        .decode("utf-16-le")
-    )
+    selected = text.encode("utf-16-le")[
+        diagnostic.start * 2 : diagnostic.end * 2
+    ].decode("utf-16-le")
     assert selected == "1=G 3/4 1 2 |"
 
 

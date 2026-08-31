@@ -38,8 +38,8 @@ class LlmProviderOption(BaseModel):
 class SettingsResponse(BaseModel):
     audiveris_path: str
     java_home: str
-    audiveris_max_heap: str = "2g"
-    audiveris_max_pixel_count: str = "20000000"
+    audiveris_max_heap: str = "3g"
+    audiveris_max_pixel_count: str = "4500000"
     audiveris_auto_upscale: bool = True
     audiveris_min_image_edge: int = 2500
     data_dir: str
@@ -50,14 +50,14 @@ class SettingsResponse(BaseModel):
     accidental_mode: AccidentalMode = "auto"
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
-    jianpu_syntax_highlight: bool = False
-    jianpu_measure_duration_check: bool = False
-    jianpu_auto_transpose: bool = False
+    jianpu_syntax_highlight: bool = True
+    jianpu_measure_duration_check: bool = True
+    jianpu_auto_transpose: bool = True
     jianpu_content_scale_percent: int = DEFAULT_CONTENT_SCALE_PERCENT
     jianpu_system_gap_percent: int = DEFAULT_SYSTEM_GAP_PERCENT
     jianpu_short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
     jianpu_beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
-    enable_omr_ocr: bool = True
+    enable_omr_ocr: bool = False
     output_dir: str = ""
     ocr_provider: str
     ocr_provider_options: list[LlmProviderOption] = Field(default_factory=list)

@@ -139,7 +139,7 @@ class ConvertActions:
             raise FileNotFoundError(f"文件不存在：{req.musicxml_file_id}")
 
         image_path = None
-        if req.page_image_file_id and self.settings.get_bool("enable_omr_ocr", True):
+        if req.page_image_file_id and self.settings.get_bool("enable_omr_ocr", False):
             image_path = self.uploads.get_path(req.page_image_file_id)
             if not image_path or not image_path.exists():
                 raise FileNotFoundError(f"页面图片不存在：{req.page_image_file_id}")
