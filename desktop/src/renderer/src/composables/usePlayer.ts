@@ -50,6 +50,8 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   let animationId: number | null = null
   let scheduledIds: number[] = []
   let originalBpm = 120
+  let nominalDuration = 0
+  let userBpmOverride = false
 
   // ── Computed ──
   const progress = computed(() => {
@@ -99,8 +101,9 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       midiData = new Midi(arrayBuffer)
       originalBpm = midiData.header.tempos[0]?.bpm ?? 120
 
-      // If no user override, use MIDI tempo
-      if (!options.defaultBpm) {
+      // 没有手动调速时才跟随 MIDI 自带速度；否则重载（文本编辑触发的）
+      // 会把用户正在使用的速度静默冲掉。
+      if (!options.defaultBpm && !userBpmOverride) {
         bpm.value = originalBpm
       }
 
@@ -124,8 +127,9 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       notes.sort((a, b) => a.time - b.time)
       rebuildNoteGroups()
 
-      duration.value = maxEnd
-      loopEnd.value = maxEnd
+      nominalDuration = maxEnd
+      duration.value = nominalToReal(nominalDuration)
+      loopEnd.value = duration.value
       isReady.value = true
 
       // Apply initial BPM
@@ -148,7 +152,8 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       const id = Tone.getTransport().schedule((time) => {
         synth.value!.triggerAttackRelease(
           note.name,
-          note.duration,
+          // 时值也随播放速度缩放，否则慢速播放时音符提前结束、听起来像断奏
+          note.duration * (originalBpm / bpm.value),
           time,
           note.velocity,
         )
@@ -169,9 +174,14 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     if (!isReady.value) return
     await ensureAudioContext()
 
-    if (Tone.getTransport().state !== 'started') {
+    const transport = Tone.getTransport()
+    if (transport.state !== 'started') {
+      // 排程必须用 MIDI 原始速度换算 ticks，再以用户速度播放；
+      // 若排程与播放共用同一 bpm，seconds→ticks→seconds 会相互抵消，调速无效。
+      transport.bpm.value = originalBpm
       scheduleNotes()
-      Tone.getTransport().start()
+      transport.bpm.value = bpm.value
+      transport.start()
     }
     isPlaying.value = true
     startPositionTracking()
@@ -198,6 +208,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     midiData = null
     notes.length = 0
     noteGroups.length = 0
+    nominalDuration = 0
     duration.value = 0
     isReady.value = false
     error.value = null
@@ -207,24 +218,44 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     const target = ratio * duration.value
     Tone.getTransport().seconds = target
     currentTime.value = target
-    updateCurrentNoteIndex(target)
+    updateCurrentNoteIndex(realToNominal(target))
   }
 
   function seekToTime(seconds: number): void {
     const clamped = Math.max(0, Math.min(seconds, duration.value))
     Tone.getTransport().seconds = clamped
     currentTime.value = clamped
-    updateCurrentNoteIndex(clamped)
+    updateCurrentNoteIndex(realToNominal(clamped))
   }
 
   // ── BPM ──
   function setBpm(value: number): void {
-    bpm.value = Math.max(20, Math.min(300, value))
-    Tone.getTransport().bpm.value = bpm.value
+    userBpmOverride = true
+    applyBpm(value)
   }
 
   function resetBpm(): void {
-    setBpm(originalBpm)
+    userBpmOverride = false
+    applyBpm(originalBpm)
+  }
+
+  function applyBpm(value: number): void {
+    bpm.value = Math.max(20, Math.min(300, value))
+    Tone.getTransport().bpm.value = bpm.value
+    // 界面上的时长与进度都是真实秒数，随播放速度同步缩放。
+    if (nominalDuration > 0) {
+      duration.value = nominalToReal(nominalDuration)
+    }
+  }
+
+  // 谱面秒数（MIDI 原始速度）与真实播放秒数之间的换算。
+  // 排程时 ticks 按原始速度固定，播放时 tick 速率随用户 bpm 变化。
+  function nominalToReal(nominalSeconds: number): number {
+    return originalBpm > 0 ? (nominalSeconds * originalBpm) / bpm.value : nominalSeconds
+  }
+
+  function realToNominal(seconds: number): number {
+    return originalBpm > 0 ? (seconds * bpm.value) / originalBpm : seconds
   }
 
   // ── Volume ──
@@ -266,7 +297,8 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     const tick = () => {
       if (Tone.getTransport().state === 'started') {
         currentTime.value = Tone.getTransport().seconds
-        updateCurrentNoteIndex(currentTime.value)
+        // 音符时间轴是谱面（原始速度）秒数，真实秒数需换算回去再高亮
+        updateCurrentNoteIndex(realToNominal(currentTime.value))
 
         // Auto-stop at end (when not looping)
         if (!loop.value && currentTime.value >= duration.value) {

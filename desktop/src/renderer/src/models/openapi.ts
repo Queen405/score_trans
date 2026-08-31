@@ -2678,11 +2678,6 @@ export type components = {
              */
             measure_number_mode?: "all" | "row_start" | "none";
             /**
-             * Midi Tempo
-             * @default auto
-             */
-            midi_tempo?: number | "auto";
-            /**
              * Ocr Api Key Set
              * @default false
              */
@@ -2763,8 +2758,6 @@ export type components = {
             jianpu_system_gap_percent?: number | null;
             /** Measure Number Mode */
             measure_number_mode?: ("all" | "row_start" | "none") | null;
-            /** Midi Tempo */
-            midi_tempo?: number | "auto" | null;
             /** Ocr Api Key */
             ocr_api_key?: string | null;
             /** Ocr Base Url */

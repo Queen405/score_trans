@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal
-
 from ...models.common.paths import USER_DATA_ROOT
 from ...models.common.types import (
     SUPPORTED_TARGET_KEYS,
@@ -75,9 +73,6 @@ class SettingsActions:
 
         if req.target_key is not None:
             self.service.set("target_key", req.target_key)
-
-        if req.midi_tempo is not None:
-            self.service.set("midi_tempo", str(req.midi_tempo))
 
         if req.accidental_mode is not None:
             self.service.set("accidental_mode", req.accidental_mode)
@@ -298,7 +293,6 @@ class SettingsActions:
             work_dir=str(config.work_dir),
             output_dir=all_settings.get("output_dir", ""),
             target_key=_target_key(all_settings.get("target_key")),
-            midi_tempo=_midi_tempo(all_settings.get("midi_tempo")),
             accidental_mode=_accidental_mode(all_settings.get("accidental_mode")),
             show_measure_numbers=measure_number_mode != "none",
             measure_number_mode=measure_number_mode,
@@ -380,16 +374,6 @@ def _target_key(value: str | None) -> TargetKeyOrAuto:
     if value in SUPPORTED_TARGET_KEYS:
         return value
     return "auto"
-
-
-def _midi_tempo(value: str | None) -> int | Literal["auto"]:
-    if value == "auto":
-        return "auto"
-    try:
-        bpm = int(value)
-    except (TypeError, ValueError):
-        return "auto"
-    return bpm if 1 <= bpm <= 400 else "auto"
 
 
 def _measure_number_mode(

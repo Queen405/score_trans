@@ -40,7 +40,6 @@ export type {
   JianpuSnapshotItem,
   LlmProviderOption,
   MeasureNumberMode,
-  MidiTempo,
   MusicXmlToJianpuRequest,
   MusicXmlToJianpuResponse,
   NormalizeJianpuTextRequest,

@@ -8,7 +8,6 @@ import type {
   CacheCleanupResponse,
   LlmProviderOption,
   MeasureNumberMode,
-  MidiTempo,
   SettingsResponse,
   StoragePaths,
   TargetKey,
@@ -32,7 +31,6 @@ export interface SettingsDraft {
   dataDir: string
   cacheDir: string
   targetKey: TargetKey
-  midiTempo: MidiTempo
   accidentalMode: AccidentalMode
   measureNumberMode: MeasureNumberMode
   jianpuSyntaxHighlight: boolean
@@ -115,7 +113,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const cacheSizeAvailable = ref(false)
   const storageRestartRequired = ref(false)
   const targetKey = ref<TargetKey>('auto')
-  const midiTempo = ref<MidiTempo>('auto')
   const accidentalMode = ref<AccidentalMode>('auto')
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
@@ -168,7 +165,6 @@ export const useSettingsStore = defineStore('settings', () => {
     dataDir: '',
     cacheDir: '',
     targetKey: 'auto',
-    midiTempo: 'auto',
     accidentalMode: 'auto',
     measureNumberMode: 'all',
     jianpuSyntaxHighlight: false,
@@ -256,7 +252,6 @@ export const useSettingsStore = defineStore('settings', () => {
       dataDir: dataDir.value,
       cacheDir: cacheDir.value,
       targetKey: targetKey.value,
-      midiTempo: midiTempo.value,
       accidentalMode: accidentalMode.value,
       measureNumberMode: measureNumberMode.value,
       jianpuSyntaxHighlight: jianpuSyntaxHighlight.value,
@@ -326,7 +321,6 @@ export const useSettingsStore = defineStore('settings', () => {
           audiveris_min_image_edge: next.audiverisMinImageEdge,
           output_dir: next.outputDir,
           target_key: next.targetKey,
-          midi_tempo: next.midiTempo,
           accidental_mode: next.accidentalMode,
           show_measure_numbers: next.measureNumberMode !== 'none',
           measure_number_mode: next.measureNumberMode,
@@ -448,7 +442,6 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!dataDir.value) dataDir.value = activeDataDir.value
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value
     targetKey.value = data.target_key ?? 'auto'
-    midiTempo.value = data.midi_tempo ?? 'auto'
     accidentalMode.value = data.accidental_mode ?? 'auto'
     measureNumberMode.value =
       data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
@@ -544,7 +537,6 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.dataDir = next.dataDir
     draft.cacheDir = next.cacheDir
     draft.targetKey = next.targetKey
-    draft.midiTempo = next.midiTempo
     draft.accidentalMode = next.accidentalMode
     draft.measureNumberMode = next.measureNumberMode
     draft.jianpuSyntaxHighlight = next.jianpuSyntaxHighlight
@@ -587,7 +579,6 @@ export const useSettingsStore = defineStore('settings', () => {
     cacheSizeAvailable,
     storageRestartRequired,
     targetKey,
-    midiTempo,
     accidentalMode,
     showMeasureNumbers,
     measureNumberMode,

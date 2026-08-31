@@ -83,7 +83,6 @@ _BACKEND_STRING_KEYS = (
     "audiveris_auto_upscale",
     "audiveris_min_image_edge",
     "target_key",
-    "midi_tempo",
     "accidental_mode",
     "measure_number_mode",
     "show_measure_numbers",

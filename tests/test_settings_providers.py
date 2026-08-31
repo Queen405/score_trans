@@ -334,7 +334,6 @@ def test_published_defaults_json_parses_and_matches_schema() -> None:
         "audiveris_auto_upscale",
         "audiveris_min_image_edge",
         "target_key",
-        "midi_tempo",
         "accidental_mode",
         "measure_number_mode",
         "show_measure_numbers",
@@ -380,7 +379,6 @@ def test_published_defaults_contains_no_private_fields_or_paths() -> None:
 def test_settings_defaults_seeds_baseline_values() -> None:
     defaults = settings_defaults()
     assert defaults["target_key"] == "C"
-    assert defaults["midi_tempo"] == "auto"
     assert defaults["accidental_mode"] == "auto"
     assert defaults["measure_number_mode"] == "all"
     assert defaults["show_measure_numbers"] == "1"
@@ -485,7 +483,6 @@ def test_baseline_does_not_overwrite_existing_user_values(tmp_path) -> None:
     assert dao.get("target_key") == "G"
     assert dao.get("ocr_api_key") == "sk-user-key"
     assert dao.get("enable_omr_ocr") == "1"
-    assert dao.get("midi_tempo") == "auto"
 
 
 def test_show_measure_numbers_and_mode_stay_consistent(tmp_path) -> None:

@@ -112,36 +112,13 @@
             </template>
           </n-input>
         </settings-form-row>
-
-        <settings-form-row
-          label="MIDI 速度"
-        >
-          <div class="sv-midi-tempo">
-            <n-switch
-              v-model:value="manualTempo"
-              size="small"
-            />
-            <n-input-number
-              v-model:value="tempoBpm"
-              :disabled="!manualTempo"
-              :min="1"
-              :max="400"
-              size="small"
-              style="width: 140px"
-            >
-              <template #suffix>
-                BPM
-              </template>
-            </n-input-number>
-          </div>
-        </settings-form-row>
       </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { NButton, NCheckbox, NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
+import { NButton, NCheckbox, NInput, NSelect, NSwitch } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
 import { useSettingsStore } from '../../stores/settings'
 import type { MeasureNumberMode, TargetKey } from '../../models/types'
@@ -225,34 +202,6 @@ const baseKey = computed<KeyBase>({
   },
 })
 
-const lastSpecificTempo = ref(120)
-
-watch(
-  () => settings.draft.midiTempo,
-  (value) => {
-    if (value !== 'auto') lastSpecificTempo.value = value
-  },
-  { immediate: true },
-)
-
-const manualTempo = computed<boolean>({
-  get: () => settings.draft.midiTempo !== 'auto',
-  set: (value: boolean) => {
-    settings.draft.midiTempo = value ? lastSpecificTempo.value : 'auto'
-  },
-})
-
-const tempoBpm = computed<number>({
-  get: () =>
-    typeof settings.draft.midiTempo === 'number'
-      ? settings.draft.midiTempo
-      : lastSpecificTempo.value,
-  set: (value: number) => {
-    lastSpecificTempo.value = value
-    settings.draft.midiTempo = value
-  },
-})
-
 const accidentalOptions = [
   { label: '无', value: 'natural' as KeyAccidental },
   { label: '升号', value: 'sharp' as KeyAccidental },
@@ -262,12 +211,6 @@ const accidentalOptions = [
 const baseKeyOptions = computed(() =>
   allowedBases(accidental.value).map((b) => ({ label: baseLabels[b], value: b })),
 )
-
-const accidentalModeOptions = [
-  { label: '自由记谱', value: 'auto' },
-  { label: '全部升号', value: 'sharp' },
-  { label: '全部降号', value: 'flat' },
-]
 
 const measureNumberModeOptions: { label: string; value: MeasureNumberMode }[] = [
   { label: '全部显示', value: 'all' },
@@ -301,11 +244,4 @@ function desktopApi() {
 .sv-key-pickers .key-base {
   flex: 1;
 }
-
-.sv-midi-tempo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 </style>

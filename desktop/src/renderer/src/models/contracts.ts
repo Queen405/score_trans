@@ -79,4 +79,3 @@ export type AccidentalMode = NonNullable<BatchRenderRequest['accidental_mode']>
 export type MeasureNumberMode = NonNullable<BatchRenderRequest['measure_number_mode']>
 export type InstrumentProfile = NonNullable<AiTranscribeRequest['instrument_profile']>
 export type TargetKey = NonNullable<AiTranscribeRequest['target_key']>
-export type MidiTempo = NonNullable<SettingsResponse['midi_tempo']>

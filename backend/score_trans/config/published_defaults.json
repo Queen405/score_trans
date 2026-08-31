@@ -6,7 +6,6 @@
     "audiveris_auto_upscale": "1",
     "audiveris_min_image_edge": "2500",
     "target_key": "C",
-    "midi_tempo": "auto",
     "accidental_mode": "auto",
     "measure_number_mode": "all",
     "show_measure_numbers": "1",

@@ -1440,13 +1440,11 @@ async function exportScore(): Promise<void> {
           jianpu_text: page.jianpuText,
           filename,
           title: '简谱',
-          midi_tempo: settings.midiTempo,
         }))
         : await requireData(exportApi.exportMidi({
           musicxml_file_id: store.musicxmlFileId,
           filename,
           target_key: settings.targetKey,
-          midi_tempo: settings.midiTempo,
         }))
       await finalizeExport({ fileId: result.file_id }, filename)
       log.addLog(`导出完成：${filename}`)

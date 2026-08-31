@@ -199,7 +199,6 @@ async function loadFromProps(): Promise<void> {
         jianpu_text: props.jianpuText,
         filename: 'player.mid',
         title: '简谱',
-        midi_tempo: settings.midiTempo,
       }))
       if (gen !== loadGeneration) return
       await loadMidiForGeneration(getFileURL(result.file_id), gen)
@@ -215,7 +214,6 @@ async function loadFromProps(): Promise<void> {
         musicxml_file_id: props.musicxmlFileId,
         filename: 'player.mid',
         target_key: settings.targetKey,
-        midi_tempo: settings.midiTempo,
       }))
       if (gen !== loadGeneration) return
       await loadMidiForGeneration(getFileURL(result.file_id), gen)

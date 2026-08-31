@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field, field_validator
 from score_trans.models.common.types import (
     AccidentalMode,
     MeasureNumberMode,
-    MidiTempo,
     TargetKeyOrAuto,
 )
 from score_trans.models.render.layout import (
@@ -48,7 +47,6 @@ class SettingsResponse(BaseModel):
     cache_size_bytes: int = 0
     work_dir: str
     target_key: TargetKeyOrAuto = "auto"
-    midi_tempo: MidiTempo = "auto"
     accidental_mode: AccidentalMode = "auto"
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
@@ -87,7 +85,6 @@ class SettingsUpdateRequest(BaseModel):
     audiveris_min_image_edge: int | None = Field(default=None, ge=0, le=10000)
     output_dir: str | None = None
     target_key: TargetKeyOrAuto | None = None
-    midi_tempo: MidiTempo | None = None
     accidental_mode: AccidentalMode | None = None
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode | None = None
