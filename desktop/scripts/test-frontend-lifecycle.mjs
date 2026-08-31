@@ -224,6 +224,14 @@ test('editor reconciles only changed page bodies from their baselines', () => {
   )
 })
 
+test('rekey responses use semantic anchor mappings and refresh baselines', () => {
+  assert.match(editorSource, /rekey-applied/)
+  assert.match(editorSource, /anchor_mapping/)
+  assert.match(convertSource, /updateTextAnchorsAfterRekey/)
+  assert.match(convertSource, /textAnchorBaselineText:\s*afterSection\.body/)
+  assert.match(convertSource, /textAnchorBaselineAnchors:\s*localAnchors/)
+})
+
 test('original preview separates valid, invalidated, and never-mapped sources', () => {
   assert.match(convertSource, /:mapped-source-ids="mappedSourceIds"/)
   assert.match(convertSource, /anchor\.valid !== false/)

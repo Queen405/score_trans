@@ -1,9 +1,10 @@
 from .schemas import JianpuRekeyRequest, JianpuRekeyResponse
-from .types import RekeyResult, RekeySkipReason
+from .types import RekeyAnchorMapping, RekeyResult, RekeySkipReason
 
 __all__ = [
     "JianpuRekeyRequest",
     "JianpuRekeyResponse",
+    "RekeyAnchorMapping",
     "RekeyResult",
     "RekeySkipReason",
 ]

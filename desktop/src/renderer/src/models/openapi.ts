@@ -1762,6 +1762,11 @@ export type components = {
         /** JianpuRekeyResponse */
         JianpuRekeyResponse: {
             /**
+             * Anchor Mapping
+             * @description 纯调号重写时从请求文本到转调文本的 token/角色 UTF-16 区间映射；无法一一对应时为 null
+             */
+            anchor_mapping?: components["schemas"]["RekeyAnchorMapping"][] | null;
+            /**
              * Skip Detail
              * @description 跳过原因的补充说明，例如解析器的报错原文
              * @default
@@ -2324,6 +2329,22 @@ export type components = {
              * @default null
              */
             source_map_file_id?: string | null;
+        };
+        /**
+         * RekeyAnchorMapping
+         * @description A semantic span mapping from the rekey request text to its output text.
+         */
+        RekeyAnchorMapping: {
+            /** New End Utf16 */
+            new_end_utf16: number;
+            /** New Start Utf16 */
+            new_start_utf16: number;
+            /** Old End Utf16 */
+            old_end_utf16: number;
+            /** Old Start Utf16 */
+            old_start_utf16: number;
+            /** Role */
+            role: string;
         };
         /** RenderedSvgPage */
         RenderedSvgPage: {

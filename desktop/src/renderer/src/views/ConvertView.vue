@@ -430,6 +430,7 @@
               :flash-line="flashLine"
               :scroll-persistence-key="store.currentBatchId"
               @update:initial-measure-number="initialMeasureNumber = $event"
+              @rekey-applied="handleRekeyApplied"
             />
           </div>
         </div>
@@ -519,7 +520,11 @@ import {
 } from '../utils/jianpuTextState'
 import { liveRecognitionTaskPatch } from '../utils/liveRecognitionState'
 import { createRequestEpoch } from '../utils/asyncCoordination'
-import { reconcileTextAnchors } from '../utils/textAnchorTracking'
+import {
+  reconcileRekeyedTextAnchors,
+  reconcileTextAnchors,
+  type RekeySpanMapping,
+} from '../utils/textAnchorTracking'
 import { sourceAnchorRange } from '../utils/sourceAnchorSelection'
 import { findNotePageIndex } from '../utils/jianpuPlayback'
 import { transposeOctave } from '../utils/jianpuTranspose'
@@ -568,6 +573,12 @@ const jianpuEditorRef = ref<{
   flushPendingAutoTranspose: () => Promise<void>
   transposing: boolean
 } | null>(null)
+interface RekeyAppliedPayload {
+  before: string
+  after: string
+  anchorMapping: RekeySpanMapping[] | null
+}
+const pendingRekeyApplied = ref<RekeyAppliedPayload | null>(null)
 const editorTransposing = computed(() => jianpuEditorRef.value?.transposing ?? false)
 const svgPreviewRef = ref<{
   highlightSource: (sourceId: string) => Promise<boolean>
@@ -723,11 +734,22 @@ watch(() => store.currentBatchJianpuText, (v) => {
 watch(jianpuText, (v, previous) => {
   const isExternalSync = pendingExternalEditorSync?.text === v
   if (isExternalSync) pendingExternalEditorSync = null
+  if (isExternalSync) pendingRekeyApplied.value = null
+  const rekey = pendingRekeyApplied.value
+  const isRekeySync = !!rekey
+    && rekey.before === previous
+    && rekey.after === v
+  if (isRekeySync) pendingRekeyApplied.value = null
   if (v !== store.currentBatchJianpuText) {
-    const isUserEdit = !isExternalSync
-    if (isUserEdit) updateTextAnchorsAfterEdit(previous ?? '', v)
-    store.setBatchJianpuText(v, isUserEdit)
-    if (isUserEdit) {
+    const isUserEdit = !isExternalSync && !isRekeySync
+    const shouldMarkDirty = !isExternalSync
+    if (isRekeySync && rekey) {
+      updateTextAnchorsAfterRekey(rekey)
+    } else if (isUserEdit) {
+      updateTextAnchorsAfterEdit(previous ?? '', v)
+    }
+    store.setBatchJianpuText(v, shouldMarkDirty)
+    if (isUserEdit || isRekeySync) {
       store.setBatchRenderPageFileIds([])
       setFinalSvgFileIds([])
     }
@@ -735,6 +757,10 @@ watch(jianpuText, (v, previous) => {
   }
   syntaxStore.schedule(v)
 }, { immediate: true })
+
+function handleRekeyApplied(payload: RekeyAppliedPayload): void {
+  pendingRekeyApplied.value = payload
+}
 
 watch(() => settings.jianpuMeasureDurationCheck, () => {
   syntaxStore.schedule(jianpuText.value)
@@ -786,6 +812,92 @@ function updateTextAnchorsAfterEdit(previous: string, current: string): void {
     )
     store.patchPageById(page.id, { textAnchors: update.anchors })
   })
+}
+
+function updateTextAnchorsAfterRekey(payload: RekeyAppliedPayload): void {
+  const mappings = payload.anchorMapping
+  if (!mappings?.length) {
+    updateTextAnchorsAfterEdit(payload.before, payload.after)
+    refreshRekeyBaselines(payload.after)
+    return
+  }
+
+  let beforeSections
+  let afterSections
+  try {
+    beforeSections = parseJianpuPageSections(payload.before)
+    afterSections = parseJianpuPageSections(payload.after)
+  } catch {
+    updateTextAnchorsAfterEdit(payload.before, payload.after)
+    refreshRekeyBaselines(payload.after)
+    return
+  }
+
+  store.currentBatchPages.forEach((page, index) => {
+    const beforeSection = beforeSections.find((section) => section.pageIndex === index)
+      ?? beforeSections[index]
+    const afterSection = afterSections.find((section) => section.pageIndex === index)
+      ?? afterSections[index]
+    if (!beforeSection || !afterSection) {
+      store.patchPageById(page.id, {
+        textAnchors: page.textAnchors.map((anchor) => ({ ...anchor, valid: false })),
+      })
+      return
+    }
+
+    const beforeOffset = sectionBodyOffset(payload.before, beforeSections, beforeSections.indexOf(beforeSection))
+    const afterOffset = sectionBodyOffset(payload.after, afterSections, afterSections.indexOf(afterSection))
+    const globalAnchors = page.textAnchors.map((anchor) => ({
+      ...anchor,
+      start_utf16: anchor.start_utf16 + beforeOffset,
+      end_utf16: anchor.end_utf16 + beforeOffset,
+    }))
+    const update = reconcileRekeyedTextAnchors(globalAnchors, mappings)
+    const localAnchors = update.anchors.map((anchor) => ({
+      ...anchor,
+      start_utf16: Math.max(0, anchor.start_utf16 - afterOffset),
+      end_utf16: Math.max(0, anchor.end_utf16 - afterOffset),
+    }))
+    store.patchPageById(page.id, {
+      textAnchors: localAnchors,
+      textAnchorBaselineText: afterSection.body,
+      textAnchorBaselineAnchors: localAnchors.map((anchor) => ({ ...anchor })),
+    })
+  })
+}
+
+function refreshRekeyBaselines(text: string): void {
+  let sections
+  try {
+    sections = parseJianpuPageSections(text)
+  } catch {
+    return
+  }
+  store.currentBatchPages.forEach((page, index) => {
+    const section = sections.find((item) => item.pageIndex === index) ?? sections[index]
+    if (!section) return
+    store.patchPageById(page.id, {
+      textAnchorBaselineText: section.body,
+      textAnchorBaselineAnchors: page.textAnchors.map((anchor) => ({ ...anchor })),
+    })
+  })
+}
+
+function sectionBodyOffset(
+  text: string,
+  sections: ReturnType<typeof parseJianpuPageSections>,
+  sectionOrder: number,
+): number {
+  const section = sections[sectionOrder]
+  if (!section || section.markerLineIndex < 0) return 0
+  // parseJianpuPageSections keeps any pre-marker prefix in the first section body.
+  if (sectionOrder === 0 && section.markerLineIndex > 0) return 0
+  const lines = text.split('\n')
+  let offset = 0
+  for (let index = 0; index <= section.markerLineIndex; index += 1) {
+    offset += (lines[index]?.length ?? 0) + 1
+  }
+  return offset
 }
 
 async function handleOriginalSourceClick(sourceId: string): Promise<void> {

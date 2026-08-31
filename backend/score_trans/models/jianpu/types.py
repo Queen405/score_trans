@@ -11,6 +11,17 @@ from typing import Literal
 RekeySkipReason = Literal["parse_error", "no_key_token", "unresolvable_key_change"]
 
 
+@dataclass(slots=True, frozen=True)
+class RekeyAnchorMapping:
+    """A semantic span mapping from the rekey request text to its output text."""
+
+    role: str
+    old_start_utf16: int
+    old_end_utf16: int
+    new_start_utf16: int
+    new_end_utf16: int
+
+
 @dataclass(slots=True)
 class RekeyResult:
     """转调结果。
@@ -23,3 +34,8 @@ class RekeyResult:
     text: str
     skip_reason: RekeySkipReason | None = None
     detail: str = ""
+    # Coordinates are mapped from the rekey request's ``text`` (new key with
+    # old pitches) to ``text`` after the semantic rewrite, not from
+    # ``previous_text``. The editor's existing anchors live on that request
+    # text when the asynchronous response arrives.
+    anchor_mapping: list[RekeyAnchorMapping] | None = None

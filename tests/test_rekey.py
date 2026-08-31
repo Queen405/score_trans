@@ -29,6 +29,56 @@ def test_rekey_preserves_pitch_c_to_g() -> None:
     assert out == "1=G\nb7, 1 2"
 
 
+def test_rekey_returns_role_mappings_from_input_text_to_transposed_text() -> None:
+    previous = "1=C\n4/4\n7 1 |"
+    text = "1=D\n4/4\n7 1 |"
+
+    result = rekey_text(text, previous)
+
+    assert result.anchor_mapping
+    note_mappings = [item for item in result.anchor_mapping if item.role == "note"]
+    assert len(note_mappings) == 2
+    for mapping in note_mappings:
+        assert text[mapping.old_start_utf16 : mapping.old_end_utf16].isdigit()
+        assert result.text[mapping.new_start_utf16 : mapping.new_end_utf16].isdigit()
+    assert any(item.role == "pitch" for item in result.anchor_mapping)
+    assert any(item.role == "token" for item in result.anchor_mapping)
+
+
+def test_rekey_mapping_tracks_only_the_changed_mid_document_segment() -> None:
+    previous = "1=C\n1 2 3 4 |\n1=C\n7 1 |"
+    text = "1=C\n1 2 3 4 |\n1=G\n7 1 |"
+
+    result = rekey_text(text, previous)
+
+    assert result.anchor_mapping
+    first_measure_end = text.index("|") + 1
+    assert all(
+        item.old_start_utf16 >= first_measure_end for item in result.anchor_mapping
+    )
+
+
+def test_rekey_mapping_preserves_crlf_utf16_offsets() -> None:
+    previous = "1=C\r\n4/4\r\n7 1 |"
+    text = "1=D\r\n4/4\r\n7 1 |"
+
+    result = rekey_text(text, previous)
+
+    assert result.anchor_mapping
+    first_note = text.index("7")
+    assert result.anchor_mapping[0].old_start_utf16 == first_note
+
+
+def test_rekey_mapping_includes_pitch_cores_inside_tuplets() -> None:
+    previous = "1=C\n$3:2;7 1 2$"
+    text = "1=G\n$3:2;7 1 2$"
+
+    result = rekey_text(text, previous)
+
+    assert result.anchor_mapping
+    assert len([item for item in result.anchor_mapping if item.role == "note"]) == 3
+
+
 def test_rekey_same_key_is_noop() -> None:
     text = "1=C\n1 2 3 4 |"
     assert _rekey(text, text) == text

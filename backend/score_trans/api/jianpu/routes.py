@@ -29,4 +29,5 @@ async def rekey_text_route(
         transposed_text=result.text,
         skip_reason=result.skip_reason,
         skip_detail=result.detail,
+        anchor_mapping=result.anchor_mapping,
     )

@@ -1,4 +1,4 @@
-import type { TextAnchor } from '../models/types'
+import type { RekeyAnchorMapping, TextAnchor } from '../models/types'
 import { sequenceEdits } from './textDiff'
 
 export interface AnchorUpdate {
@@ -9,6 +9,8 @@ export interface AnchorUpdate {
 export interface AnchorReconciliation extends AnchorUpdate {
   reconciled: boolean
 }
+
+export type RekeySpanMapping = RekeyAnchorMapping
 
 export function reconcileTextAnchors(
   baselineText: string,
@@ -46,6 +48,53 @@ export function reconcileTextAnchors(
   return {
     anchors,
     invalidatedSourceIds: invalidSourceIds(anchors),
+    reconciled: true,
+  }
+}
+
+/**
+ * Apply the backend's semantic rekey mapping to existing source anchors.
+ *
+ * The mapping coordinates use the rekey request text (the new key with old
+ * pitches) and the response text. Role spans handle anchors inside a changed
+ * pitch; all other anchors are shifted by the changed pitch spans.
+ */
+export function reconcileRekeyedTextAnchors(
+  anchors: TextAnchor[],
+  mappings: readonly RekeySpanMapping[],
+): AnchorReconciliation {
+  const sorted = [...mappings].sort((left, right) => (
+    left.old_start_utf16 - right.old_start_utf16
+    || left.old_end_utf16 - right.old_end_utf16
+  ))
+  const pitchMappings = sorted.filter((mapping) => mapping.role === 'pitch')
+  const next = anchors.map((anchor) => {
+    const copy = copyAnchor(anchor)
+    if (copy.valid === false) return copy
+
+    const direct = sorted
+      .filter((mapping) => mapping.role === copy.role && contains(mapping, copy))
+      .sort((left, right) => (
+        (left.old_end_utf16 - left.old_start_utf16)
+        - (right.old_end_utf16 - right.old_start_utf16)
+      ))[0]
+    if (direct) {
+      copy.start_utf16 = direct.new_start_utf16
+      copy.end_utf16 = direct.new_end_utf16
+      return copy
+    }
+
+    if (pitchMappings.some((mapping) => overlaps(mapping, copy))) {
+      copy.valid = false
+      return copy
+    }
+    copy.start_utf16 = mapOffset(copy.start_utf16, pitchMappings)
+    copy.end_utf16 = mapOffset(copy.end_utf16, pitchMappings)
+    return copy
+  })
+  return {
+    anchors: next,
+    invalidatedSourceIds: invalidSourceIds(next),
     reconciled: true,
   }
 }
@@ -107,6 +156,32 @@ function overlapsEdit(anchor: TextAnchor, start: number, oldEnd: number): boolea
     return start > anchor.start_utf16 && start < anchor.end_utf16
   }
   return start < anchor.end_utf16 && oldEnd > anchor.start_utf16
+}
+
+function contains(mapping: RekeySpanMapping, anchor: TextAnchor): boolean {
+  return mapping.old_start_utf16 <= anchor.start_utf16
+    && mapping.old_end_utf16 >= anchor.end_utf16
+}
+
+function overlaps(mapping: RekeySpanMapping, anchor: TextAnchor): boolean {
+  return mapping.old_start_utf16 < anchor.end_utf16
+    && mapping.old_end_utf16 > anchor.start_utf16
+}
+
+function mapOffset(offset: number, mappings: readonly RekeySpanMapping[]): number {
+  let delta = 0
+  for (const mapping of mappings) {
+    if (offset < mapping.old_start_utf16) break
+    if (offset >= mapping.old_end_utf16) {
+      delta += (mapping.new_end_utf16 - mapping.new_start_utf16)
+        - (mapping.old_end_utf16 - mapping.old_start_utf16)
+      continue
+    }
+    const relative = offset - mapping.old_start_utf16
+    const newLength = mapping.new_end_utf16 - mapping.new_start_utf16
+    return mapping.new_start_utf16 + Math.min(relative, newLength)
+  }
+  return offset + delta
 }
 
 function commonPrefixLength(left: string, right: string): number {

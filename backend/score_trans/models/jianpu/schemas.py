@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from .types import RekeySkipReason
+from .types import RekeyAnchorMapping, RekeySkipReason
 
 
 class JianpuRekeyRequest(BaseModel):
@@ -19,4 +19,11 @@ class JianpuRekeyResponse(BaseModel):
     skip_detail: str = Field(
         default="",
         description="跳过原因的补充说明，例如解析器的报错原文",
+    )
+    anchor_mapping: list[RekeyAnchorMapping] | None = Field(
+        default=None,
+        description=(
+            "纯调号重写时从请求文本到转调文本的 token/角色 UTF-16 区间映射；"
+            "无法一一对应时为 null"
+        ),
     )

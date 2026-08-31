@@ -37,6 +37,7 @@ export type {
   InstrumentProfileCatalog,
   JianpuRekeyRequest,
   JianpuRekeyResponse,
+  RekeyAnchorMapping,
   JianpuSnapshotItem,
   LlmProviderOption,
   MeasureNumberMode,

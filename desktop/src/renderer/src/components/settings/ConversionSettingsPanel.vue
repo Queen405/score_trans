@@ -121,7 +121,7 @@
 import { NButton, NCheckbox, NInput, NSelect, NSwitch } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
 import { useSettingsStore } from '../../stores/settings'
-import type { MeasureNumberMode, TargetKey } from '../../models/types'
+import type { AccidentalMode, MeasureNumberMode, TargetKey } from '../../models/types'
 import SettingsFormRow from './SettingsFormRow.vue'
 
 const settings = useSettingsStore()
@@ -211,6 +211,12 @@ const accidentalOptions = [
 const baseKeyOptions = computed(() =>
   allowedBases(accidental.value).map((b) => ({ label: baseLabels[b], value: b })),
 )
+
+const accidentalModeOptions: { label: string; value: AccidentalMode }[] = [
+  { label: '自动', value: 'auto' },
+  { label: '升号', value: 'sharp' },
+  { label: '降号', value: 'flat' },
+]
 
 const measureNumberModeOptions: { label: string; value: MeasureNumberMode }[] = [
   { label: '全部显示', value: 'all' },

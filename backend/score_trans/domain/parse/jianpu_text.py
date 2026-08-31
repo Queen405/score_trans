@@ -66,6 +66,7 @@ class _Token:
     start_utf16: int | None = None
     end_utf16: int | None = None
     measure: str | None = None
+    standalone_line: bool = False
 
 
 class JianpuSyntaxError(JianpuValidationError):
@@ -971,7 +972,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                     f"调号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
                     "请把调号移到小节开头或紧跟在小节线 | 之后。",
                 )
-            if score.measures:
+            if score.measures and not token.standalone_line:
                 remember_measure_token(token)
             current_key = key_signature
             continue
@@ -983,7 +984,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
                     f"拍号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
                     "请把拍号移到小节开头或紧跟在小节线 | 之后。",
                 )
-            if score.measures:
+            if score.measures and not token.standalone_line:
                 remember_measure_token(token)
             current_beats, current_beat_type = time_signature
             continue
@@ -1151,7 +1152,6 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
     options = JianpuOptions()
     tokens: list[_Token] = []
     lyrics: list[str] = []
-    saw_time = False
     saw_key = False
     saw_score_tokens = False
     current_measure = 1
@@ -1190,6 +1190,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                             line_utf16_starts[line_no - 1],
                             original_line,
                             measure=str(current_measure),
+                            standalone_line=True,
                         )
                     )
                     saw_token_since_bar = True
@@ -1230,7 +1231,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                     )
                 options.instrument_profile = normalize_instrument_profile(value)
                 continue
-        if re.fullmatch(r"\d+/\d+", stripped) and not saw_time:
+        if re.fullmatch(r"\d+/\d+", stripped):
             beats, beat_type = stripped.split("/", 1)
             if saw_score_tokens:
                 column = raw_line.find(stripped)
@@ -1242,6 +1243,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                         line_utf16_starts[line_no - 1],
                         original_line,
                         measure=str(current_measure),
+                        standalone_line=True,
                     )
                 )
                 saw_token_since_bar = True
@@ -1259,7 +1261,6 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                     )
                 options.beats = int(beats)
                 options.beat_type = int(beat_type)
-                saw_time = True
             continue
         for match in re.finditer(
             r"\(?\$[^$]+\$\)?|\|\||\|:|:\||\||[^\s|]+",
@@ -1304,6 +1305,7 @@ def _token_with_offsets(
     original_line: str,
     *,
     measure: str | None = None,
+    standalone_line: bool = False,
 ) -> _Token:
     return _Token(
         value=value,
@@ -1313,6 +1315,7 @@ def _token_with_offsets(
         end_utf16=_utf16_length(original_line[: max(0, column) + len(value)])
         + line_start_utf16,
         measure=measure,
+        standalone_line=standalone_line,
     )
 
 

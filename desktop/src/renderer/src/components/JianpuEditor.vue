@@ -144,6 +144,7 @@ import { AutoTransposeGate } from '../utils/autoTransposeGate'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import { jianpuApi } from '../api/jianpu'
+import type { RekeySpanMapping } from '../utils/textAnchorTracking'
 
 const settings = useSettingsStore()
 const logStore = useLogStore()
@@ -172,6 +173,11 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:initialMeasureNumber': [value: number]
+  'rekey-applied': [payload: {
+    before: string
+    after: string
+    anchorMapping: RekeySpanMapping[] | null
+  }]
 }>()
 
 const initialMeasureNumberModel = computed({
@@ -581,6 +587,11 @@ async function triggerAutoTranspose(): Promise<void> {
       return
     }
     applyTransposed(pending.text, transposed)
+    emit('rekey-applied', {
+      before: pending.text,
+      after: transposed,
+      anchorMapping: result.data?.anchor_mapping ?? null,
+    })
     autoTransposeGate.commitRequest()
   } finally {
     transposing.value = false

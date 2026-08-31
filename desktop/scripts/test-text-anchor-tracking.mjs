@@ -30,7 +30,7 @@ const javascript = ts.transpileModule(source, {
   },
 }).outputText
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`
-const { reconcileTextAnchors, trackTextAnchors } = await import(moduleUrl)
+const { reconcileRekeyedTextAnchors, reconcileTextAnchors, trackTextAnchors } = await import(moduleUrl)
 
 const selectionSourceUrl = new URL(
   '../src/renderer/src/utils/sourceAnchorSelection.ts',
@@ -64,6 +64,69 @@ test('single-token pitch replacement retains provenance', () => {
   assert.equal(result.anchors[0].valid, true)
   assert.equal(result.anchors[0].start_utf16, 2)
   assert.equal(result.anchors[0].end_utf16, 3)
+})
+
+test('rekey mapping retains note and accidental anchors across length changes', () => {
+  const before = '1=D\n6 b7, |'
+  const after = '1=D\n7 #1 |'
+  const noteStart = before.indexOf('6')
+  const accidentalStart = before.indexOf('b7')
+  const accidentalAfter = after.indexOf('#1')
+  const result = reconcileRekeyedTextAnchors(
+    [
+      anchor('note-1', noteStart, noteStart + 1),
+      { ...anchor('acc-1', accidentalStart, accidentalStart + 1), role: 'accidental' },
+    ],
+    [
+      {
+        role: 'pitch', old_start_utf16: noteStart, old_end_utf16: noteStart + 1,
+        new_start_utf16: after.indexOf('7'), new_end_utf16: after.indexOf('7') + 1,
+      },
+      {
+        role: 'note', old_start_utf16: noteStart, old_end_utf16: noteStart + 1,
+        new_start_utf16: after.indexOf('7'), new_end_utf16: after.indexOf('7') + 1,
+      },
+      {
+        role: 'pitch', old_start_utf16: accidentalStart, old_end_utf16: accidentalStart + 2,
+        new_start_utf16: accidentalAfter, new_end_utf16: accidentalAfter + 2,
+      },
+      {
+        role: 'accidental', old_start_utf16: accidentalStart, old_end_utf16: accidentalStart + 1,
+        new_start_utf16: accidentalAfter, new_end_utf16: accidentalAfter + 1,
+      },
+      {
+        role: 'note', old_start_utf16: accidentalStart + 1, old_end_utf16: accidentalStart + 2,
+        new_start_utf16: accidentalAfter + 1, new_end_utf16: accidentalAfter + 2,
+      },
+    ],
+  )
+
+  assert.deepEqual(result.anchors.map((item) => [item.valid, item.start_utf16, item.end_utf16]), [
+    [true, after.indexOf('7'), after.indexOf('7') + 1],
+    [true, accidentalAfter, accidentalAfter + 1],
+  ])
+})
+
+test('rekey mapping shifts unchanged anchors after a rewritten pitch', () => {
+  const before = '1=D\n1 b7, (1) |'
+  const after = '1=D\n1 #1 (1) |'
+  const oldPitch = before.indexOf('b7')
+  const newPitch = after.indexOf('#1')
+  const oldSlur = before.indexOf('(')
+  const result = reconcileRekeyedTextAnchors(
+    [anchor('slur-1', oldSlur, oldSlur + 1)],
+    [{
+      role: 'pitch',
+      old_start_utf16: oldPitch,
+      old_end_utf16: oldPitch + 3,
+      new_start_utf16: newPitch,
+      new_end_utf16: newPitch + 2,
+    }],
+  )
+
+  assert.deepEqual(result.anchors[0], {
+    ...anchor('slur-1', after.indexOf('('), after.indexOf('(') + 1),
+  })
 })
 
 test('cross-token replacement invalidates every affected anchor', () => {

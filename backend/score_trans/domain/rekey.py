@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from fractions import Fraction
 
 from .accidentals import pitch_to_token
@@ -12,7 +13,7 @@ from .pitch_spelling import (
     written_pitch_to_jianpu_respelled,
 )
 from ..models.common.types import AccidentalMode
-from ..models.jianpu.types import RekeyResult, RekeySkipReason
+from ..models.jianpu.types import RekeyAnchorMapping, RekeyResult, RekeySkipReason
 from ..models.score import JianpuPitch
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,15 @@ class _Segment:
         self.new_key = new_key
 
 
+@dataclass(slots=True, frozen=True)
+class _CharSpanMapping:
+    role: str
+    old_start: int
+    old_end: int
+    new_start: int
+    new_end: int
+
+
 def rekey_text(
     text: str,
     previous_text: str,
@@ -136,7 +146,16 @@ def rekey_text(
         if rewritten == normalized:
             # 纯调号编辑但无改动：调号序列没变，或新旧管辖调本就相同。
             return RekeyResult(text)
-        return RekeyResult(newline.join(rewritten.split("\n")))
+        output = newline.join(rewritten.split("\n"))
+        mapping = _build_rekey_mappings(normalized, rewritten)
+        return RekeyResult(
+            output,
+            anchor_mapping=(
+                _to_utf16_mappings(mapping, text, output)
+                if mapping is not None
+                else None
+            ),
+        )
 
     old_tokens = _find_key_tokens(previous_normalized)
     new_tokens = _find_key_tokens(normalized)
@@ -506,6 +525,212 @@ def _rekey_note_line(
         return _rekey_event_token(token, old_key, new_key, accidental_mode)
 
     return _TOKEN.sub(replace, code) + comment
+
+
+def _build_rekey_mappings(
+    input_normalized: str,
+    output_normalized: str,
+) -> list[_CharSpanMapping] | None:
+    """Build semantic spans from the rekey input text to the rewritten text.
+
+    The governing-key path guarantees that non-key content is one-to-one.  We
+    use that invariant here to pair pitch cores without duplicating the parser
+    in the frontend.  Offsets are Python character offsets until the final
+    UTF-16 conversion in :func:`_to_utf16_mappings`.
+    """
+    input_lines = input_normalized.split("\n")
+    output_lines = output_normalized.split("\n")
+    if len(input_lines) != len(output_lines):
+        return None
+
+    mappings: list[_CharSpanMapping] = []
+    old_line_offset = 0
+    new_line_offset = 0
+    for input_line, output_line in zip(input_lines, output_lines):
+        if input_line != output_line:
+            old_entries = _line_pitch_entries(input_line)
+            new_entries = _line_pitch_entries(output_line)
+            if len(old_entries) != len(new_entries):
+                return None
+            for old_entry, new_entry in zip(old_entries, new_entries):
+                old_start, old_end, old_token, old_spans = old_entry
+                new_start, new_end, new_token, new_spans = new_entry
+                if old_token != new_token:
+                    mappings.append(
+                        _CharSpanMapping(
+                            "token",
+                            old_line_offset + old_start,
+                            old_line_offset + old_end,
+                            new_line_offset + new_start,
+                            new_line_offset + new_end,
+                        )
+                    )
+                if len(old_spans) != len(new_spans):
+                    return None
+                for (old_core_start, old_core_end), (
+                    new_core_start,
+                    new_core_end,
+                ) in zip(old_spans, new_spans):
+                    old_core = old_token[old_core_start:old_core_end]
+                    new_core = new_token[new_core_start:new_core_end]
+                    if old_core == new_core:
+                        continue
+                    old_core_start += old_line_offset + old_start
+                    old_core_end += old_line_offset + old_start
+                    new_core_start += new_line_offset + new_start
+                    new_core_end += new_line_offset + new_start
+                    mappings.append(
+                        _CharSpanMapping(
+                            "pitch",
+                            old_core_start,
+                            old_core_end,
+                            new_core_start,
+                            new_core_end,
+                        )
+                    )
+                    _append_role_mapping(
+                        mappings,
+                        "note",
+                        old_core,
+                        new_core,
+                        old_core_start,
+                        new_core_start,
+                    )
+                    _append_role_mapping(
+                        mappings,
+                        "accidental",
+                        old_core,
+                        new_core,
+                        old_core_start,
+                        new_core_start,
+                        accidental=True,
+                    )
+        old_line_offset += len(input_line) + 1
+        new_line_offset += len(output_line) + 1
+    return mappings
+
+
+def _line_pitch_entries(
+    line: str,
+) -> list[tuple[int, int, str, list[tuple[int, int]]]]:
+    """Return pitch-bearing tokens, excluding key/metadata/comment tokens."""
+    code = _strip_inline_comment(line)
+    if _is_lyric_or_text_line(code):
+        return []
+    key_ranges = [(token.start, token.end) for token in _find_key_tokens(line)]
+    masked = code
+    for start, end in reversed(key_ranges):
+        masked = masked[:start] + masked[end:]
+    if _is_metadata_line(masked):
+        return []
+
+    entries: list[tuple[int, int, str, list[tuple[int, int]]]] = []
+    for match in _TOKEN.finditer(code):
+        start, end = match.span()
+        if any(
+            start < key_end and end > key_start for key_start, key_end in key_ranges
+        ):
+            continue
+        token = match.group(0)
+        if token in _BARLINES:
+            continue
+        spans = _token_pitch_spans(token)
+        if spans:
+            entries.append((start, end, token, spans))
+    return entries
+
+
+def _token_pitch_spans(token: str) -> list[tuple[int, int]]:
+    """Locate pitch cores in normal event tokens and ``$...$`` tuplets."""
+    if not (token.startswith("$") and token.endswith("$") and len(token) > 2):
+        return pitch_core_spans(token)
+    body = token[1:-1]
+    ratio_match = _TUPLET_RATIO.match(body)
+    body_offset = 1 + (len(ratio_match.group(0)) if ratio_match else 0)
+    rest = body[body_offset - 1 :]
+    if rest.strip() and not re.search(r"\s", rest.strip()):
+        return [
+            (body_offset + match.start(), body_offset + match.end())
+            for match in PITCH_CORE_PATTERN.finditer(rest)
+        ]
+    spans: list[tuple[int, int]] = []
+    for match in re.finditer(r"\S+", rest):
+        for start, end in pitch_core_spans(match.group(0)):
+            spans.append(
+                (body_offset + match.start() + start, body_offset + match.start() + end)
+            )
+    return spans
+
+
+def _append_role_mapping(
+    mappings: list[_CharSpanMapping],
+    role: str,
+    old_core: str,
+    new_core: str,
+    old_start: int,
+    new_start: int,
+    *,
+    accidental: bool = False,
+) -> None:
+    old_span = _core_role_span(old_core, accidental=accidental)
+    new_span = _core_role_span(new_core, accidental=accidental)
+    if old_span is None or new_span is None:
+        return
+    mappings.append(
+        _CharSpanMapping(
+            role,
+            old_start + old_span[0],
+            old_start + old_span[1],
+            new_start + new_span[0],
+            new_start + new_span[1],
+        )
+    )
+
+
+def _core_role_span(core: str, *, accidental: bool) -> tuple[int, int] | None:
+    degree = re.search(r"[1-7]", core)
+    if degree is None:
+        return None
+    if not accidental:
+        return degree.span()
+    return _accidental_span(core) or degree.span()
+
+
+def _accidental_span(token: str) -> tuple[int, int] | None:
+    degree = re.search(r"[1-7]", token)
+    if degree is None:
+        return None
+    if degree.start() > 0:
+        return (0, degree.start())
+    suffix = re.search(r"(?:bb|x|#|b)$", token)
+    return suffix.span() if suffix else None
+
+
+def _to_utf16_mappings(
+    mappings: list[_CharSpanMapping],
+    input_text: str,
+    output_text: str,
+) -> list[RekeyAnchorMapping]:
+    return [
+        RekeyAnchorMapping(
+            role=mapping.role,
+            old_start_utf16=_normalized_utf16_offset(input_text, mapping.old_start),
+            old_end_utf16=_normalized_utf16_offset(input_text, mapping.old_end),
+            new_start_utf16=_normalized_utf16_offset(output_text, mapping.new_start),
+            new_end_utf16=_normalized_utf16_offset(output_text, mapping.new_end),
+        )
+        for mapping in mappings
+    ]
+
+
+def _normalized_utf16_offset(text: str, offset: int) -> int:
+    normalized_prefix = _normalize_newlines(text)[:offset]
+    expanded_prefix = normalized_prefix.replace("\n", _detect_newline(text))
+    return _utf16_length(expanded_prefix)
+
+
+def _utf16_length(value: str) -> int:
+    return len(value.encode("utf-16-le")) // 2
 
 
 def _rekey_tuplet_body(

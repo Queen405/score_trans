@@ -343,6 +343,7 @@ def test_jianpu_rekey_route_declares_its_request_and_response_schema() -> None:
     # silent failure, so it has to reach the generated frontend types.
     assert "skip_reason" in schemas["JianpuRekeyResponse"]["properties"]
     assert "skip_detail" in schemas["JianpuRekeyResponse"]["properties"]
+    assert "anchor_mapping" in schemas["JianpuRekeyResponse"]["properties"]
     body = document["paths"]["/jianpu/rekey"]["post"]["requestBody"]
     assert body["content"]["application/json"]["schema"]["$ref"].endswith(
         "JianpuRekeyRequest"
@@ -361,6 +362,7 @@ def test_jianpu_rekey_transposes_the_segment_after_the_changed_key() -> None:
     payload = response.json()
     assert payload["transposed_text"] == "1=G\n4/4\nb7, 1 2"
     assert payload["skip_reason"] is None
+    assert payload["anchor_mapping"]
 
 
 def test_jianpu_rekey_reports_a_parse_error_instead_of_failing_silently() -> None:
