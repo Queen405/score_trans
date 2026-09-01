@@ -13,12 +13,15 @@ work/
 hs_err_pid*.log
 replay_pid*.log
 
-# 打包相关
+# 打包相关(配置、脚本与产物均不纳入版本控制)
 build-log.txt
 desktop/build-log.txt
 desktop/dist-electron/
 desktop/build/
+desktop/electron-builder.yml
 desktop/out/
+pyinstaller.spec
+pyinstaller_entry.py
 website/
 *.tsbuildinfo
 
