@@ -48,3 +48,6 @@ opencode.json
 
 # 本地快捷方式
 Qoder-CLI-网关.lnk
+
+# local packaging script
+build-app.py
