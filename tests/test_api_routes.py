@@ -18,7 +18,11 @@ from score_trans.exec.export.actions import ExportActions
 from score_trans.exec.files.actions import FileActions
 from score_trans.exec.history.actions import HistoryActions
 from score_trans.exec.settings.actions import SettingsActions
-from score_trans.exec.syntax.actions import SyntaxActions
+from score_trans.exec.syntax.actions import (
+    MAX_DIAGNOSTICS,
+    TRUNCATED_MARKER_ID,
+    SyntaxActions,
+)
 from score_trans.models.common.errors import RenderError
 from score_trans.models.history.entities import HistoryPage
 from score_trans.models.history.schemas import PageUpdate
@@ -544,6 +548,28 @@ def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -
     ).json()["diagnostics"]
     assert [item["severity"] for item in diagnostics] == ["error"]
     assert "不支持的简谱 token：45" in diagnostics[0]["message"]
+
+
+def test_syntax_validate_truncates_diagnostics_above_limit(tmp_path: Path) -> None:
+    app = create_app(auth_disabled=True)
+    service = SettingsService(SettingsDao(tmp_path / "settings.db"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+    app.dependency_overrides[get_syntax_actions] = lambda: SyntaxActions(
+        settings=service
+    )
+    client = TestClient(app)
+    text = "1=C\n4/4\n" + "1 | " * 1100
+
+    diagnostics = client.post("/syntax/validate", json={"jianpu_text": text}).json()[
+        "diagnostics"
+    ]
+
+    assert len(diagnostics) == MAX_DIAGNOSTICS
+    assert all(item["severity"] == "warning" for item in diagnostics)
+    assert all(item["id"] != TRUNCATED_MARKER_ID for item in diagnostics[:-1])
+    marker = diagnostics[-1]
+    assert marker["id"] == TRUNCATED_MARKER_ID
+    assert str(MAX_DIAGNOSTICS - 1) in marker["message"]
 
 
 def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:

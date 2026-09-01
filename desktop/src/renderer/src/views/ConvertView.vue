@@ -424,7 +424,7 @@
               :current-note-index="currentNoteIndex"
               :initial-measure-number="initialMeasureNumber"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
-              :syntax-diagnostics="syntaxStore.diagnostics"
+              :syntax-diagnostics="syntaxStore.visibleDiagnostics"
               :active-diagnostic-id="syntaxStore.activeId"
               :error-line="errorLine"
               :flash-line="flashLine"

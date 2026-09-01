@@ -4,6 +4,7 @@ import { syntaxApi } from '../api/syntax'
 import type { SyntaxDiagnostic } from '../models/types'
 
 const VALIDATION_DEBOUNCE_MS = 400
+const TRUNCATED_MARKER_ID = 'syntax-warning-truncated'
 
 export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => {
   const diagnostics = ref<SyntaxDiagnostic[]>([])
@@ -16,7 +17,9 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
   let controller: AbortController | null = null
 
   const errorCount = computed(() => diagnostics.value.filter((item) => item.severity === 'error').length)
-  const warningCount = computed(() => diagnostics.value.filter((item) => item.severity === 'warning').length)
+  const warningCount = computed(() => (
+    diagnostics.value.filter((item) => item.severity === 'warning' && item.id !== TRUNCATED_MARKER_ID).length
+  ))
   const hideWarnings = ref(false)
   const visibleDiagnostics = computed(() => (
     hideWarnings.value
@@ -26,6 +29,13 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
 
   function toggleHideWarnings(): void {
     hideWarnings.value = !hideWarnings.value
+    if (
+      hideWarnings.value
+      && activeId.value !== null
+      && diagnostics.value.some((item) => item.id === activeId.value && item.severity === 'warning')
+    ) {
+      setActive(null)
+    }
   }
 
   function clear(): void {

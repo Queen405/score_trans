@@ -8,6 +8,9 @@ from ...models.syntax.schemas import (
 from ...services.syntax.validator import SyntaxValidator
 from ...services.settings.settings_service import SettingsService
 
+MAX_DIAGNOSTICS = 1000
+TRUNCATED_MARKER_ID = "syntax-warning-truncated"
+
 
 class SyntaxActions:
     def __init__(
@@ -25,16 +28,16 @@ class SyntaxActions:
                 "jianpu_measure_duration_check", True
             ),
         )
-        if len(diagnostics) > 100:
+        if len(diagnostics) > MAX_DIAGNOSTICS:
             diagnostics = [
-                *diagnostics[:99],
+                *diagnostics[: MAX_DIAGNOSTICS - 1],
                 SyntaxDiagnostic(
-                    id="syntax-warning-truncated",
-                    message="语法错误过多，仅显示前 99 条",
-                    line=diagnostics[99].line,
-                    column=diagnostics[99].column,
-                    start=diagnostics[99].start,
-                    end=diagnostics[99].end,
+                    id=TRUNCATED_MARKER_ID,
+                    message=f"语法错误过多，仅显示前 {MAX_DIAGNOSTICS - 1} 条",
+                    line=diagnostics[MAX_DIAGNOSTICS - 1].line,
+                    column=diagnostics[MAX_DIAGNOSTICS - 1].column,
+                    start=diagnostics[MAX_DIAGNOSTICS - 1].start,
+                    end=diagnostics[MAX_DIAGNOSTICS - 1].end,
                     severity="warning",
                 ),
             ]

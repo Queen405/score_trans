@@ -175,7 +175,7 @@
                   class="log-badge"
                 >语法报错{{ syntaxStore.errorCount }}</span>
                 <span
-                  v-if="syntaxStore.warningCount"
+                  v-if="syntaxStore.warningCount && !syntaxStore.hideWarnings"
                   class="log-badge syntax-badge"
                 >时值警告{{ syntaxStore.warningCount }}</span>
               </button>
