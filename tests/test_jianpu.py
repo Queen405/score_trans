@@ -45,6 +45,63 @@ def test_measure_level_key_and_time_signature_are_attached_to_following_measure(
     assert score.measures[1].beat_type == 4
 
 
+@pytest.mark.parametrize(
+    "change",
+    [
+        "tempo=80\n5 6 7 1 |",
+        "tempo=80 5 6 7 1 |",
+    ],
+)
+def test_measure_level_tempo_is_attached_to_following_measure(change: str) -> None:
+    score = parse_jianpu_score(f"tempo=120\n1=C\n4/4\n1 2 3 4 |\n{change}\n1 2 3 4 |")
+
+    assert score.tempo == 120
+    assert [measure.tempo for measure in score.measures] == [120, 80, 80]
+
+
+def test_measure_level_tempo_normalizes_to_a_standalone_line() -> None:
+    normalized = normalize_jianpu_text(
+        "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80 5 6 7 1 |"
+    )
+
+    assert "\ntempo=80\n5 6 7 1 |" in normalized
+    assert [measure.tempo for measure in parse_jianpu_score(normalized).measures] == [
+        120,
+        80,
+    ]
+
+
+def test_missing_tempo_uses_120_without_rewriting_manual_text() -> None:
+    source = "1=C\n4/4\n1 2 3 4 |\ntempo=120\n5 6 7 1 |"
+    score = parse_jianpu_score(source)
+    normalized = normalize_jianpu_text(source)
+
+    assert score.tempo is None
+    assert [measure.tempo for measure in score.measures] == [120, 120]
+    assert "tempo=" not in normalized
+
+
+def test_measure_level_tempo_after_notes_is_rejected() -> None:
+    with pytest.raises(ValueError, match="速度.*必须写在该小节音符之前"):
+        parse_jianpu_score("tempo=120\n1=C\n4/4\n1 2 tempo=80 3 4 |")
+
+
+@pytest.mark.parametrize("value", ["0", "19", "301", "99999", "-5", "abc", "120.5"])
+def test_tempo_must_be_an_integer_between_20_and_300(value: str) -> None:
+    with pytest.raises(ValueError, match="tempo 必须是 20 到 300 之间的整数"):
+        parse_jianpu_score(f"tempo={value}\n1=C\n4/4\n1 2 3 4 |")
+
+
+@pytest.mark.parametrize("value", [20, 300])
+def test_tempo_accepts_supported_boundaries(value: int) -> None:
+    score = parse_jianpu_score(f"tempo={value}\n1=C\n4/4\n1 2 3 4 |")
+    options, _tokens = parse_jianpu(f"tempo={value}\n1=C\n4/4\n1 2 3 4 |")
+
+    assert score.tempo == value
+    assert score.measures[0].tempo == value
+    assert options.tempo == value
+
+
 def test_leading_dotted_notes_are_not_stripped_as_measure_labels() -> None:
     note_score = parse_jianpu_score("1=C\n4/4\n1. q2 3 4 |")
     rest_score = parse_jianpu_score("1=C\n4/4\n0. 2 3 4 |")
@@ -280,6 +337,21 @@ def test_multi_part_marker_names_roundtrip_json_escaping() -> None:
     assert [score.part_name for score in scores] == ['Violin "Solo" 🎻', "低音"]
     assert len(parse_jianpu_scores(normalized)) == 2
     assert 'name="Violin \\"Solo\\" 🎻"' in normalized
+
+
+def test_measure_level_tempo_carries_across_page_part_segments() -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n'
+        "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |\n"
+        '// @part 2 name="B"\n1=C\n4/4\n1 2 3 4 |\n5 6 7 1 |\n'
+        '// @page 2\n// @part 1 name="A"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="B"\n1=C\n4/4\n5 6 7 1 |'
+    )
+
+    scores = parse_jianpu_scores(text)
+
+    assert [measure.tempo for measure in scores[0].measures] == [120, 80]
+    assert [measure.tempo for measure in scores[2].measures] == [80]
 
 
 def test_multi_part_jianpu_to_musicxml_preserves_parts() -> None:

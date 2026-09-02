@@ -59,6 +59,35 @@ def test_triplet_group_anchors_every_note() -> None:
     assert _utf16_slice(document.text, tail.start_utf16, tail.end_utf16) == "4"
 
 
+def test_measure_level_tempo_line_keeps_following_note_anchors_aligned() -> None:
+    first = Event(
+        kind="note",
+        duration=Fraction(4),
+        pitches=[JianpuPitch(degree=1, source_id="s1:first")],
+    )
+    second = Event(
+        kind="note",
+        duration=Fraction(4),
+        pitches=[JianpuPitch(degree=5, source_id="s1:second")],
+    )
+    first_measure = _make_measure([first])
+    first_measure.tempo = 120
+    second_measure = _make_measure([second])
+    second_measure.source_number = "2"
+    second_measure.tempo = 80
+
+    document = score_to_jianpu_document(
+        JianpuScore(tempo=120, measures=[first_measure, second_measure])
+    )
+
+    assert "\ntempo=80\n" in document.text
+    for source_id, token in (("s1:first", "1"), ("s1:second", "5")):
+        anchor = next(a for a in document.anchors if a.source_id == source_id)
+        assert (
+            _utf16_slice(document.text, anchor.start_utf16, anchor.end_utf16) == token
+        )
+
+
 def test_cross_tuplet_slur_keeps_external_parenthesis_anchors() -> None:
     events = _tuplet_events(3, [1, 2, 3])
     events[0].slur_start = True

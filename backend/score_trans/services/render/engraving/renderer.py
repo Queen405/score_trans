@@ -11,7 +11,14 @@ from typing import Literal
 from ....domain.jianpu_tokens import is_notatable_duration
 from ....models.common.types import MeasureNumberMode
 from ....models.render.layout import PUBLICATION_ENGINE_VERSION
-from ....models.score import Event, JianpuPitch, JianpuScore, Measure, TupletSpan
+from ....models.score import (
+    DEFAULT_TEMPO,
+    Event,
+    JianpuPitch,
+    JianpuScore,
+    Measure,
+    TupletSpan,
+)
 from .fonts import font_registry
 from .geometry import (
     MarkLayout,
@@ -320,6 +327,8 @@ class PublicationRenderer:
                     draw_attribute=_measure_attributes_changed(
                         parts, part_index, cell.index
                     ),
+                    draw_tempo=part_index == 0
+                    and _measure_tempo_changed(parts, part_index, cell.index),
                     draw_terminal=(
                         cell.index == len(_flatten_measures(parts[part_index])) - 1
                     ),
@@ -344,6 +353,7 @@ class PublicationRenderer:
         draw_number: bool,
         draw_start_bar: bool,
         draw_attribute: bool,
+        draw_tempo: bool,
         draw_terminal: bool,
     ) -> int:
         bar_top, bar_bottom = _measure_bar_offsets(measure, style)
@@ -376,6 +386,34 @@ class PublicationRenderer:
                     f"*{repeat_count}",
                     style.measure_number_size,
                     anchor="end",
+                )
+            )
+        if draw_tempo and measure.tempo is not None:
+            label = f"♩={measure.tempo}"
+            left = x + 7
+            if draw_number:
+                left += (
+                    font_registry().measure(
+                        str(measure.display_number), style.measure_number_size
+                    )
+                    + 6
+                )
+            right = x + width - 7
+            if repeat_count > 1:
+                right -= (
+                    font_registry().measure(
+                        f"*{repeat_count}", style.measure_number_size
+                    )
+                    + 6
+                )
+            scene.add(
+                _text(
+                    "tempo-mark",
+                    (left + right) / 2,
+                    y - 9,
+                    label,
+                    style.annotation_size,
+                    anchor="middle",
                 )
             )
         if draw_attribute:
@@ -583,6 +621,28 @@ def _measure_attributes_changed(
     )
 
 
+def _measure_tempo_changed(
+    parts: list[list[JianpuScore]], part_index: int, measure_index: int
+) -> bool:
+    if measure_index <= 0 or part_index >= len(parts):
+        return False
+    measures = _flatten_measures(parts[part_index])
+    if measure_index >= len(measures):
+        return False
+    return measures[measure_index].tempo != measures[measure_index - 1].tempo
+
+
+def _tempo_header_min_width(measure: Measure, style: PublicationStyle) -> float:
+    labels = [
+        str(measure.display_number),
+        f"♩={measure.tempo}",
+    ]
+    if measure.repeat_count > 1:
+        labels.append(f"*{measure.repeat_count}")
+    widths = [font_registry().measure(label, style.annotation_size) for label in labels]
+    return 14.0 + sum(widths) + 6.0 * (len(widths) - 1)
+
+
 def _build_cells(
     parts: list[list[JianpuScore]], style: PublicationStyle
 ) -> list[_Cell]:
@@ -594,10 +654,14 @@ def _build_cells(
             items[index] if index < len(items) else None for items in part_measures
         ]
         present = [measure for measure in measures if measure is not None]
-        width = max(
-            (_intrinsic_measure_width(measure, style) for measure in present),
-            default=style.minimum_measure_width,
-        )
+        widths = [_intrinsic_measure_width(measure, style) for measure in present]
+        if (
+            measures
+            and measures[0] is not None
+            and _measure_tempo_changed(parts, 0, index)
+        ):
+            widths[0] = max(widths[0], _tempo_header_min_width(measures[0], style))
+        width = max(widths, default=style.minimum_measure_width)
         cells.append(
             _Cell(
                 index=index,
@@ -1032,8 +1096,7 @@ def _page_chrome(
             )
         )
         meta = f"1={score.target_key}    {score.beats}/{score.beat_type}"
-        if score.tempo:
-            meta += f"    ♩={score.tempo}"
+        meta += f"    ♩={score.tempo or DEFAULT_TEMPO}"
         scene.add(
             _text(
                 "score-meta",
@@ -2387,6 +2450,7 @@ def _measure_text_layout(
         if block.text
         and block.bbox is None
         and block.role != "measure_number"
+        and block.direction_kind != "metronome"
         and not (block.role == "expression" and block.text in event_dynamics)
         and not (
             block.role == "lyric"

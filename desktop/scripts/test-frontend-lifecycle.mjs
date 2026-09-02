@@ -196,9 +196,10 @@ test('convert distinguishes one external editor sync without a nextTick timing f
 })
 
 test('recognition aligns and captures an immutable text-anchor baseline', () => {
-  assert.match(recognizeSource, /reconcileTextAnchors\(\s*result\.jianpu_text,\s*split\.jianpuText/s)
-  assert.match(recognizeSource, /await hashJianpuText\(split\.jianpuText\)/)
-  assert.match(recognizeSource, /textAnchorBaselineText:\s*split\.jianpuText/)
+  assert.match(recognizeSource, /ensureRecognizedPageTempoHeader\(\s*split\.jianpuText,\s*batchPageIndex/s)
+  assert.match(recognizeSource, /reconcileTextAnchors\(\s*result\.jianpu_text,\s*recognizedJianpuText/s)
+  assert.match(recognizeSource, /await hashJianpuText\(recognizedJianpuText\)/)
+  assert.match(recognizeSource, /textAnchorBaselineText:\s*recognizedJianpuText/)
   assert.match(recognizeSource, /textAnchorBaselineAnchors[,}]/)
 })
 
@@ -208,9 +209,9 @@ test('editor reconciles only changed page bodies from their baselines', () => {
     convertSource,
     /reconcileTextAnchors\(\s*page\.textAnchorBaselineText,\s*currentSection\.body,\s*page\.textAnchorBaselineAnchors,\s*page\.textAnchors/s,
   )
-  assert.match(convertSource, /textAnchorBaselineText:\s*split\.jianpuText/)
+  assert.match(convertSource, /textAnchorBaselineText:\s*resetJianpuText/)
   assert.match(convertSource, /textAnchorBaselineAnchors[:,]/)
-  assert.match(convertSource, /await hashJianpuText\(split\.jianpuText\)/)
+  assert.match(convertSource, /await hashJianpuText\(resetJianpuText\)/)
   assert.match(convertSource, /await hashJianpuText\(corrected\.jianpuText\)/)
   assert.match(convertSource, /try \{[\s\S]*parseJianpuPageSections\(previous\)[\s\S]*catch/)
   assert.match(convertSource, /catch[\s\S]*valid:\s*false/)
@@ -309,6 +310,15 @@ test('player load keys include the full Jianpu text instead of a shared prefix',
     buildPlayerLoadId({ jianpuText: firstText }),
     buildPlayerLoadId({ jianpuText: firstText }),
   )
+})
+
+test('player exposes fixed playback rates and resets them only for a new batch', () => {
+  assert.match(playerSource, /PLAYBACK_RATES/)
+  assert.match(playerSource, /player\.rate\.value/)
+  assert.match(playerSource, /player\.setRate/)
+  assert.doesNotMatch(playerSource, /n-input-number/)
+  assert.doesNotMatch(playerSource, /resetBpm/)
+  assert.match(convertSource, /:session-key="store\.currentBatchId"/)
 })
 
 test('MIDI generation failures unload stale audio and notify the user', () => {

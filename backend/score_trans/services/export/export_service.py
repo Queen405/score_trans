@@ -9,24 +9,15 @@ import fitz
 import mido
 
 from score_trans.config.settings import (
-    MIDI_DEFAULT_BPM,
     MIDI_DEFAULT_VELOCITY,
     MIDI_TICKS_PER_BEAT,
 )
 
 from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
 from ...domain.write.musicxml import scores_to_musicxml
-from ...models.score import JianpuPitch, JianpuScore
+from ...models.score import DEFAULT_TEMPO, JianpuPitch, JianpuScore
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
-
-
-def _resolve_bpm(score: JianpuScore, midi_tempo: int | Literal["auto"]) -> int:
-    if midi_tempo != "auto":
-        return midi_tempo
-    if score.tempo and score.tempo > 0:
-        return score.tempo
-    return MIDI_DEFAULT_BPM
 
 
 def _midi_time_signature_denominator(beat_type: int) -> int:
@@ -185,8 +176,6 @@ class ExportService:
         self,
         scores: list[JianpuScore],
         output_path: Path,
-        *,
-        midi_tempo: int | Literal["auto"] = "auto",
     ) -> Path:
         rendered_scores = (
             self._merge_scores_by_part(scores) if scores else [JianpuScore()]
@@ -217,10 +206,12 @@ class ExportService:
                 )
             )
             # set_tempo 仅写在 track 0（MIDI 规范要求单一 tempo map）
+            current_bpm = score.tempo or DEFAULT_TEMPO
             if index == 0:
-                bpm = _resolve_bpm(score, midi_tempo)
                 track.append(
-                    mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(bpm), time=0)
+                    mido.MetaMessage(
+                        "set_tempo", tempo=mido.bpm2tempo(current_bpm), time=0
+                    )
                 )
                 track.append(
                     mido.MetaMessage(
@@ -234,6 +225,14 @@ class ExportService:
                 )
 
             for measure in score.measures:
+                measure_bpm = measure.tempo or current_bpm
+                if index == 0 and measure_bpm != current_bpm:
+                    track.append(
+                        mido.MetaMessage(
+                            "set_tempo", tempo=mido.bpm2tempo(measure_bpm), time=0
+                        )
+                    )
+                current_bpm = measure_bpm
                 key = getattr(measure, "target_key", score.target_key)
                 beat_type = getattr(measure, "beat_type", score.beat_type)
                 for event in measure.events:

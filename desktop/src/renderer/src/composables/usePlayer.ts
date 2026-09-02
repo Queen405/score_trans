@@ -2,6 +2,15 @@ import { ref, computed, shallowRef, onUnmounted, watch, type Ref } from 'vue'
 import * as Tone from 'tone'
 import { Midi } from '@tonejs/midi'
 import { authenticatedFetch } from '../api/client'
+import {
+  normalizePlaybackRate,
+  nominalSecondsToTransportTicks,
+  scaledTransportBpm,
+  toNominalSeconds,
+  toPlaybackSeconds,
+  transportTicksToNominalSeconds,
+  type PlaybackRate,
+} from '../utils/jianpuPlayback'
 
 export interface PlayerNote {
   time: number
@@ -21,8 +30,7 @@ export interface PlayerNoteGroup {
 export interface UsePlayerOptions {
   /** MIDI file URL to load automatically */
   midiUrl?: Ref<string>
-  /** Default BPM override (0 = use MIDI tempo) */
-  defaultBpm?: number
+  defaultRate?: PlaybackRate
 }
 
 export function usePlayer(options: UsePlayerOptions = {}) {
@@ -33,7 +41,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   const error = ref<string | null>(null)
   const duration = ref(0)
   const currentTime = ref(0)
-  const bpm = ref(options.defaultBpm ?? 120)
+  const rate = ref<PlaybackRate>(options.defaultRate ?? 1)
   const volume = ref(0) // dB, 0 = full, -Infinity = mute
   const loop = ref(false)
   const loopStart = ref(0)
@@ -49,9 +57,8 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   let midiData: Midi | null = null
   let animationId: number | null = null
   let scheduledIds: number[] = []
-  let originalBpm = 120
+  let scheduleBpm = 120
   let nominalDuration = 0
-  let userBpmOverride = false
 
   // ── Computed ──
   const progress = computed(() => {
@@ -99,13 +106,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       const arrayBuffer = await response.arrayBuffer()
 
       midiData = new Midi(arrayBuffer)
-      originalBpm = midiData.header.tempos[0]?.bpm ?? 120
-
-      // 没有手动调速时才跟随 MIDI 自带速度；否则重载（文本编辑触发的）
-      // 会把用户正在使用的速度静默冲掉。
-      if (!options.defaultBpm && !userBpmOverride) {
-        bpm.value = originalBpm
-      }
+      scheduleBpm = midiData.header.tempos[0]?.bpm ?? 120
 
       // Extract notes from all tracks.
       let maxEnd = 0
@@ -128,12 +129,11 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       rebuildNoteGroups()
 
       nominalDuration = maxEnd
-      duration.value = nominalToReal(nominalDuration)
+      duration.value = toPlaybackSeconds(nominalDuration, rate.value)
       loopEnd.value = duration.value
       isReady.value = true
 
-      // Apply initial BPM
-      Tone.getTransport().bpm.value = bpm.value
+      Tone.getTransport().bpm.value = scaledTransportBpm(scheduleBpm, rate.value)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
       isReady.value = false
@@ -152,12 +152,15 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       const id = Tone.getTransport().schedule((time) => {
         synth.value!.triggerAttackRelease(
           note.name,
-          // 时值也随播放速度缩放，否则慢速播放时音符提前结束、听起来像断奏
-          note.duration * (originalBpm / bpm.value),
+          note.duration / rate.value,
           time,
           note.velocity,
         )
-      }, note.time)
+      }, `${nominalSecondsToTransportTicks(
+        note.time,
+        scheduleBpm,
+        Tone.getTransport().PPQ,
+      )}i`)
       scheduledIds.push(id)
     }
   }
@@ -176,11 +179,10 @@ export function usePlayer(options: UsePlayerOptions = {}) {
 
     const transport = Tone.getTransport()
     if (transport.state !== 'started') {
-      // 排程必须用 MIDI 原始速度换算 ticks，再以用户速度播放；
-      // 若排程与播放共用同一 bpm，seconds→ticks→seconds 会相互抵消，调速无效。
-      transport.bpm.value = originalBpm
+      // MIDI 库已经把完整 tempo map 换算为秒，再映射到固定 tick 时间轴。
+      // 倍率只改变 tick 速率，因此播放中调速不会破坏谱面位置或曲内变速比例。
       scheduleNotes()
-      transport.bpm.value = bpm.value
+      transport.bpm.value = scaledTransportBpm(scheduleBpm, rate.value)
       transport.start()
     }
     isPlaying.value = true
@@ -215,47 +217,48 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   }
 
   function seekTo(ratio: number): void {
-    const target = ratio * duration.value
-    Tone.getTransport().seconds = target
-    currentTime.value = target
-    updateCurrentNoteIndex(realToNominal(target))
+    const nominalTarget = ratio * nominalDuration
+    setNominalPosition(nominalTarget)
   }
 
   function seekToTime(seconds: number): void {
     const clamped = Math.max(0, Math.min(seconds, duration.value))
-    Tone.getTransport().seconds = clamped
-    currentTime.value = clamped
-    updateCurrentNoteIndex(realToNominal(clamped))
+    setNominalPosition(toNominalSeconds(clamped, rate.value))
   }
 
-  // ── BPM ──
-  function setBpm(value: number): void {
-    userBpmOverride = true
-    applyBpm(value)
+  function setNominalPosition(nominalSeconds: number): void {
+    const transport = Tone.getTransport()
+    const clamped = Math.max(0, Math.min(nominalSeconds, nominalDuration))
+    transport.ticks = nominalSecondsToTransportTicks(
+      clamped,
+      scheduleBpm,
+      transport.PPQ,
+    )
+    currentTime.value = toPlaybackSeconds(clamped, rate.value)
+    updateCurrentNoteIndex(clamped)
   }
 
-  function resetBpm(): void {
-    userBpmOverride = false
-    applyBpm(originalBpm)
+  function nominalPosition(): number {
+    const transport = Tone.getTransport()
+    return transportTicksToNominalSeconds(
+      transport.ticks,
+      scheduleBpm,
+      transport.PPQ,
+    )
   }
 
-  function applyBpm(value: number): void {
-    bpm.value = Math.max(20, Math.min(300, value))
-    Tone.getTransport().bpm.value = bpm.value
-    // 界面上的时长与进度都是真实秒数，随播放速度同步缩放。
+  // ── Playback rate ──
+  function setRate(value: number): void {
+    const nextRate = normalizePlaybackRate(value)
+    const position = nominalPosition()
+    rate.value = nextRate
+    Tone.getTransport().bpm.value = scaledTransportBpm(scheduleBpm, rate.value)
     if (nominalDuration > 0) {
-      duration.value = nominalToReal(nominalDuration)
+      duration.value = toPlaybackSeconds(nominalDuration, rate.value)
+      loopEnd.value = duration.value
+      if (loop.value) Tone.getTransport().loopEnd = loopEnd.value
     }
-  }
-
-  // 谱面秒数（MIDI 原始速度）与真实播放秒数之间的换算。
-  // 排程时 ticks 按原始速度固定，播放时 tick 速率随用户 bpm 变化。
-  function nominalToReal(nominalSeconds: number): number {
-    return originalBpm > 0 ? (nominalSeconds * originalBpm) / bpm.value : nominalSeconds
-  }
-
-  function realToNominal(seconds: number): number {
-    return originalBpm > 0 ? (seconds * bpm.value) / originalBpm : seconds
+    currentTime.value = toPlaybackSeconds(position, rate.value)
   }
 
   // ── Volume ──
@@ -296,12 +299,12 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     stopPositionTracking()
     const tick = () => {
       if (Tone.getTransport().state === 'started') {
-        currentTime.value = Tone.getTransport().seconds
-        // 音符时间轴是谱面（原始速度）秒数，真实秒数需换算回去再高亮
-        updateCurrentNoteIndex(realToNominal(currentTime.value))
+        const nominalTime = nominalPosition()
+        currentTime.value = toPlaybackSeconds(nominalTime, rate.value)
+        updateCurrentNoteIndex(nominalTime)
 
         // Auto-stop at end (when not looping)
-        if (!loop.value && currentTime.value >= duration.value) {
+        if (!loop.value && nominalTime >= nominalDuration) {
           stop()
           return
         }
@@ -393,7 +396,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     duration: readonlyRef(duration),
     currentTime: readonlyRef(currentTime),
     progress,
-    bpm: readonlyRef(bpm),
+    rate: readonlyRef(rate),
     volume: readonlyRef(volume),
     loop: readonlyRef(loop),
     currentNoteIndex: readonlyRef(currentNoteIndex),
@@ -410,8 +413,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     unload,
     seekTo,
     seekToTime,
-    setBpm,
-    resetBpm,
+    setRate,
     setVolumeDb,
     setVolumeRatio,
     setLoop,

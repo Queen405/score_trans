@@ -14,6 +14,7 @@ from ...models.common.types import (
     normalize_instrument_profile,
 )
 from ...models.score import (
+    DEFAULT_TEMPO,
     Beam,
     BeamStatus,
     Beat,
@@ -182,7 +183,6 @@ def _parse_single_part(
     score = JianpuScore(
         title=extracted_title,
         target_key=target_key,
-        tempo=_extract_part_tempo(part, ns),
         instrument_profile=instrument_profile,
     )
     if extracted_title:
@@ -192,9 +192,15 @@ def _parse_single_part(
     current_beat_type = 4
     divisions = 1
     initialized_score_time = False
+    current_tempo = DEFAULT_TEMPO
     active_tuplets: list[tuple[str, str]] = []
 
     for index, xml_measure in enumerate(part.findall(_q(ns, "measure")), start=1):
+        measure_tempo = _extract_measure_tempo(xml_measure, ns)
+        if measure_tempo is not None:
+            current_tempo = measure_tempo
+        if index == 1 and measure_tempo is not None:
+            score.tempo = measure_tempo
         attrs = xml_measure.find(_q(ns, "attributes"))
         if attrs is not None:
             divisions = int(_text(attrs.find(_q(ns, "divisions"))) or divisions)
@@ -239,6 +245,7 @@ def _parse_single_part(
             duration=Fraction(current_beats * 4, current_beat_type),
             beats_per_measure=current_beats,
             beat_type=current_beat_type,
+            tempo=current_tempo,
             source_key=current_key,
             target_key=effective_target,
         )
@@ -310,6 +317,7 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
                 duration=measure.duration,
                 beats_per_measure=measure.beats_per_measure,
                 beat_type=measure.beat_type,
+                tempo=measure.tempo,
                 source_key=measure.source_key,
                 target_key=measure.target_key,
                 repeat_start=measure.repeat_start,
@@ -375,21 +383,25 @@ def _extract_instrument_profile(root: ET.Element, ns: str) -> InstrumentProfile:
     return "general"
 
 
-def _extract_part_tempo(part: ET.Element, ns: str) -> int | None:
-    for sound in part.findall(f".//{_q(ns, 'sound')}"):
+def _extract_measure_tempo(measure: ET.Element, ns: str) -> int | None:
+    for sound in measure.findall(f".//{_q(ns, 'sound')}"):
         value = sound.get("tempo")
         if value:
             try:
-                return int(float(value))
+                tempo = int(float(value))
             except ValueError:
                 continue
-    for metronome in part.findall(f".//{_q(ns, 'metronome')}"):
+            if 20 <= tempo <= 300:
+                return tempo
+    for metronome in measure.findall(f".//{_q(ns, 'metronome')}"):
         value = _text(metronome.find(_q(ns, "per-minute")))
         if value:
             try:
-                return int(float(value))
+                tempo = int(float(value))
             except ValueError:
                 continue
+            if 20 <= tempo <= 300:
+                return tempo
     return None
 
 

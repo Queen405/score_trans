@@ -479,7 +479,9 @@ def _is_metadata_line(line: str) -> bool:
         return True
     if _is_lyric_or_text_line(stripped):
         return True
-    if re.match(r"^(title|tempo)\s*=", stripped):
+    if re.match(r"^title\s*=", stripped):
+        return True
+    if re.fullmatch(r"tempo\s*=\s*[^\s|]+", stripped):
         return True
     if _KEY_LINE.match(stripped):
         return True

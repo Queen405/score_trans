@@ -163,6 +163,15 @@ def test_rekey_key_at_line_start_followed_by_a_time_signature() -> None:
     assert _rekey(text, previous) == "1=C\n4/4\n1 2 3 4 |\n1=G 3/4\n4, 5, 6, |"
 
 
+def test_rekey_transposes_notes_after_an_inline_tempo_token() -> None:
+    previous = "1=C\n4/4\n1 2 3 4 |\n1=C tempo=80 1 2 3 4 |"
+    text = "1=C\n4/4\n1 2 3 4 |\n1=G tempo=80 1 2 3 4 |"
+
+    assert _rekey(text, previous) == (
+        "1=C\n4/4\n1 2 3 4 |\n1=G tempo=80 4, 5, 6, b7, |"
+    )
+
+
 def test_rekey_multi_character_keys() -> None:
     # Flat/sharp keys (Bb, F#) are recognised as key tokens.
     assert _rekey("1=Bb\n1 2 3", "1=C\n1 2 3") == "1=Bb\n2, 3, #4,"

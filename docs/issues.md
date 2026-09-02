@@ -16,9 +16,9 @@
 |---|---:|---|
 | 确认仍存在 | 15 | N1、N9-N11、N13-N14、N16、N18-N23、N25-N26 |
 | 部分修复但仍有残余 | 1 | N12 |
-| 已修复 | 4 | N2-N5 |
+| 已修复 | 5 | N2-N5、N15 |
 | 原报告不成立 | 3 | N6、N7、N8 |
-| 证据不足，降级为待验证风险 | 2 | N15、N17 |
+| 证据不足，降级为待验证风险 | 1 | N17 |
 | 原问题需重新定义 | 1 | N24（源码不存在 MuseScore 集成，而不只是缺测试） |
 | 本轮新增确认问题仍开放 | 0 | 无；R1-R6 均已修复（R3 于 2026-08-20 随 format 门禁落地关闭） |
 | 本轮新增测试缺口 | 2 | T1 部分完成、T2 未开始 |
@@ -68,7 +68,7 @@
 | N12 | **已修复** | 设置面板、settings store 和 ConvertView 均改用类型化 `window.api`，保留 desktop capability 检查但移除 `globalThis/window as any` API 逃逸。 | 新回归检查四个原问题文件不再出现这两种 API cast；typecheck 和目标测试通过。 |
 | N13 | **已修复** | `waitForTaskResult()` 现只返回 `unknown`；OMR 与 AI 主提交路径在读取字段前分别调用既有 `isPipelineResponse` / `isAiTranscribeResponse` 守卫，错误结构会进入现有失败处理。 | 新回归断言禁止恢复泛型强转，验证两条主路径均先 guard；专项测试和 typecheck 通过。 |
 | N14 | **已修复** | 播放加载键已提取为 `playerLoadId`，使用 MIDI file ID、MusicXML file ID 与完整 Jianpu 文本的稳定 JSON 元组，不再截断 50 字符。 | 新增回归测试：两份前 50 字符相同、后缀不同的简谱生成不同键；同一输入保持相同键。目标脚本 8 项通过，typecheck 通过。 |
-| N15 | **降级为待验证** | `usePlayer.ts:100` 只把第一个 tempo 读入 `originalBpm`，但音符调度使用 MIDI 库给出的秒时间 `:107-125`；现有证据不足以证明原始多 tempo 播放失效。 | 先增加含两个 tempo event 的行为测试，分别验证原速播放、用户 BPM 覆盖和进度。测试失败后再决定时间缩放模型。 |
+| N15 | **已修复（2026-09-03）** | MIDI 导出现在写出完整 tempo map，`@tonejs/midi` 将各段速度换算为音符秒时间；播放器只施加独立的全局倍率，不再用单一 BPM 覆盖曲内速度。 | 回归测试覆盖 120→80 tempo event 的 BPM 与绝对 tick、五档倍率时间换算和播放器固定倍率控件。 |
 | N16 | **已修复** | `removePage()` 现统一重排 SVG/OCR/dirty 的数字页索引，删除最后一页时清除该批次所有派生 Record，并在当前批次删空时切换或清空选择；同时修正 final-page 路径缺失 `musicxmlText` ref。 | 新增 3 项 store 行为测试覆盖中间页重排、末页无陈旧 key、最后一页完整清理；脚本已加入 `pnpm test:utils`。 |
 | N17 | **已修复** | RecognizeView 维护本组件拥有的等待 controller 与 live page ID；卸载时取消本地等待并清理 Map，不把仍在后端执行的任务持久化为失败，因此后续可恢复。 | 新测试覆盖 owned wait、卸载 cleanup 和 `liveRecognitionTaskPatch` 释放。真实 Vue DOM 卸载仍待后续组件/E2E 测试基础设施。 |
 | N18 | **已修复** | FileUploader 读取 hook 的 error；每个失败文件写入可见错误汇总和日志，队列继续处理后续文件；新的上传批次会清空旧汇总。 | 回归测试验证错误状态、可见汇总、日志和“不抛错中断队列”的契约；typecheck 与目标测试通过。 |

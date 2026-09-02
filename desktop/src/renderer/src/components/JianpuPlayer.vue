@@ -69,26 +69,15 @@
           viewBox="0 0 24 24"
           fill="currentColor"
         ><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" /></svg>
-        <n-input-number
-          :value="player.bpm.value"
-          :min="20"
-          :max="300"
+        <n-select
+          :value="player.rate.value"
+          :options="rateOptions"
           size="tiny"
-          style="width: 64px"
-          :show-button="false"
-          @update:value="handleBpmChange"
+          style="width: 72px"
+          :consistent-menu-width="false"
+          aria-label="播放倍率"
+          @update:value="handleRateChange"
         />
-        <span class="tempo-unit">BPM</span>
-        <button
-          class="player-btn-sm"
-          title="重置速度"
-          @click="player.resetBpm()"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          ><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" /></svg>
-        </button>
       </div>
       <div
         class="volume-control"
@@ -130,7 +119,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { NInputNumber, NSlider, useMessage } from 'naive-ui'
+import { NSelect, NSlider, useMessage } from 'naive-ui'
 import { usePlayer } from '../composables/usePlayer'
 import { ApiError, getFileURL, requireData } from '../api/client'
 import { exportApi } from '../api/export'
@@ -141,6 +130,7 @@ import {
   savePlayerVolume,
 } from '../utils/playerPreferences'
 import { buildPlayerLoadId } from '../utils/playerLoadId'
+import { PLAYBACK_RATES } from '../utils/jianpuPlayback'
 
 const settings = useSettingsStore()
 
@@ -151,6 +141,8 @@ const props = defineProps<{
   jianpuText?: string
   /** Direct MIDI file ID (skip generation) */
   midiFileId?: string
+  /** Recognition batch identity; a new batch resets playback to 1x. */
+  sessionKey?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -162,6 +154,7 @@ const message = useMessage()
 const logStore = useLogStore()
 const progressRef = ref<HTMLElement>()
 const visible = computed(() => !!props.musicxmlFileId || !!props.jianpuText?.trim() || !!props.midiFileId)
+const rateOptions = PLAYBACK_RATES.map((rate) => ({ label: `${rate}x`, value: rate }))
 
 const volumeRatio = computed(() => {
   const db = player.volume.value
@@ -257,8 +250,8 @@ function stopPlayback(): void {
   player.stop()
 }
 
-function handleBpmChange(value: number | null): void {
-  if (value != null) player.setBpm(value)
+function handleRateChange(value: number): void {
+  player.setRate(value)
 }
 
 function handleVolumeChange(value: number): void {
@@ -334,6 +327,13 @@ watch(() => [props.midiFileId, props.musicxmlFileId], () => {
   if (jianpuDebounce) { clearTimeout(jianpuDebounce); jianpuDebounce = null }
   currentLoadId = ''
   void loadFromProps()
+})
+
+watch(() => props.sessionKey, (value, previous) => {
+  if (previous !== undefined && value !== previous) {
+    player.stop()
+    player.setRate(1)
+  }
 })
 
 watch(() => props.jianpuText, () => {
@@ -490,12 +490,6 @@ watch(() => props.jianpuText, () => {
   width: 16px;
   height: 16px;
   color: var(--text-2, #868e96);
-  flex-shrink: 0;
-}
-
-.tempo-unit {
-  font-size: 11px;
-  color: var(--text-3, #adb5bd);
   flex-shrink: 0;
 }
 

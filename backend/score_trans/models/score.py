@@ -6,6 +6,8 @@ from typing import Literal
 
 from .common.types import InstrumentProfile
 
+DEFAULT_TEMPO = 120
+
 
 TextRole = Literal[
     "title", "instrument", "lyric", "expression", "footer", "measure_number", "other"
@@ -139,6 +141,7 @@ class Measure:
     validation_errors: list[str] = field(default_factory=list)
     beats_per_measure: int = 4
     beat_type: int = 4
+    tempo: int | None = None
     source_key: str = "C"
     target_key: str = "C"
     repeat_start: bool = False
@@ -164,6 +167,7 @@ class Measure:
         validation_errors: list[str] | None = None,
         beats_per_measure: int = 4,
         beat_type: int = 4,
+        tempo: int | None = None,
         source_key: str = "C",
         target_key: str = "C",
         repeat_start: bool = False,
@@ -194,6 +198,7 @@ class Measure:
         )
         self.beats_per_measure = beats_per_measure
         self.beat_type = beat_type
+        self.tempo = tempo
         self.source_key = source_key
         self.target_key = target_key
         self.repeat_start = repeat_start

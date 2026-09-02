@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from ..common.types import MidiTempo, TargetKeyOrAuto
+from ..common.types import TargetKeyOrAuto
 
 
 class ExportResponse(BaseModel):
@@ -33,14 +33,12 @@ class ExportMidiRequest(BaseModel):
     filename: str | None = None
     title: str | None = None
     target_key: TargetKeyOrAuto = "auto"
-    midi_tempo: MidiTempo = "auto"
 
 
 class ExportMidiTextRequest(BaseModel):
     jianpu_text: str
     filename: str = "score.mid"
     title: str = "简谱"
-    midi_tempo: MidiTempo = "auto"
 
 
 class ExportMusicXmlRequest(BaseModel):

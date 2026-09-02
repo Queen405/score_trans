@@ -11,7 +11,7 @@ from fractions import Fraction
 from ...models.common.types import AccidentalMode, normalize_instrument_profile
 from ...models.provenance.entities import JianpuDocument
 from ...models.provenance.schemas import TextAnchor
-from ...models.score import Event, JianpuScore, Measure
+from ...models.score import DEFAULT_TEMPO, Event, JianpuScore, Measure
 from ..accidentals import pitch_to_token
 from ..constants import DYNAMICS
 from ..jianpu_tokens import (
@@ -188,8 +188,13 @@ def _measure_lead_info(
     current_key: str,
     current_beats: int,
     current_beat_type: int,
-) -> tuple[list[str], str, str, int, int]:
+    current_tempo: int | None,
+) -> tuple[list[str], str, str, int, int, int | None, str | None]:
     lead_tokens: list[str] = []
+    tempo_line: str | None = None
+    if measure.tempo is not None and measure.tempo != current_tempo:
+        tempo_line = f"tempo={measure.tempo}"
+        current_tempo = measure.tempo
     if measure.target_key != current_key:
         lead_tokens.append(f"1={measure.target_key}")
         current_key = measure.target_key
@@ -201,7 +206,15 @@ def _measure_lead_info(
         current_beats = measure.beats_per_measure
         current_beat_type = measure.beat_type
     prefix = "|: " if measure.repeat_start else ""
-    return lead_tokens, prefix, current_key, current_beats, current_beat_type
+    return (
+        lead_tokens,
+        prefix,
+        current_key,
+        current_beats,
+        current_beat_type,
+        current_tempo,
+        tempo_line,
+    )
 
 
 def _lead_skip_length(lead_tokens: list[str], prefix: str) -> int:
@@ -231,6 +244,7 @@ def _score_to_jianpu_text(
         if first_measure
         else score.beat_type
     )
+    current_tempo = score.tempo or DEFAULT_TEMPO
     lines = [f"1={current_key}", f"{current_beats}/{current_beat_type}"]
     if score.tempo is not None:
         lines.insert(0, f"tempo={score.tempo}")
@@ -239,12 +253,26 @@ def _score_to_jianpu_text(
         lines.insert(0, f"instrument={instrument_profile}")
     if score.title and score.title != "简谱":
         lines.insert(0, f"title={score.title}")
-    measures = []
+    measure_lines: list[str] = []
     lyrics: list[str] = []
     for measure in score.measures:
-        lead_tokens, prefix, current_key, current_beats, current_beat_type = (
-            _measure_lead_info(measure, current_key, current_beats, current_beat_type)
+        (
+            lead_tokens,
+            prefix,
+            current_key,
+            current_beats,
+            current_beat_type,
+            current_tempo,
+            tempo_line,
+        ) = _measure_lead_info(
+            measure,
+            current_key,
+            current_beats,
+            current_beat_type,
+            current_tempo,
         )
+        if tempo_line is not None:
+            measure_lines.append(tempo_line)
         events = measure.events
         tokens = []
         index = 0
@@ -291,9 +319,8 @@ def _score_to_jianpu_text(
         repeat_suffix = f" *{repeat_count}" if repeat_count > 1 else ""
         suffix = " :|" if getattr(measure, "repeat_end", False) else ""
         body = " ".join([*lead_tokens, *tokens])
-        measures.append(prefix + body + repeat_suffix + suffix)
-    for m in measures:
-        lines.append(m + " |")
+        measure_lines.append(prefix + body + repeat_suffix + suffix + " |")
+    lines.extend(measure_lines)
     if lyrics:
         lines.append(f"L: {' '.join(lyrics)}")
     return "\n".join(lines)
@@ -324,7 +351,28 @@ def _text_anchors_raw(
 
     lines = text.splitlines(keepends=True)
     lyric_line_count = 1 if lines and lines[-1].lstrip().startswith("L:") else 0
-    first_measure_line = len(lines) - len(score.measures) - lyric_line_count
+    current_tempo = score.tempo or DEFAULT_TEMPO
+    tempo_line_count = 0
+    for measure in score.measures:
+        (
+            _lead_tokens,
+            _prefix,
+            _current_key,
+            _current_beats,
+            _current_beat_type,
+            current_tempo,
+            tempo_line,
+        ) = _measure_lead_info(
+            measure,
+            measure.target_key,
+            measure.beats_per_measure,
+            measure.beat_type,
+            current_tempo,
+        )
+        tempo_line_count += int(tempo_line is not None)
+    first_measure_line = (
+        len(lines) - len(score.measures) - tempo_line_count - lyric_line_count
+    )
     if first_measure_line < 0:
         return []
 
@@ -335,11 +383,28 @@ def _text_anchors_raw(
     current_key = first_measure.target_key
     current_beats = first_measure.beats_per_measure
     current_beat_type = first_measure.beat_type
+    current_tempo = score.tempo or DEFAULT_TEMPO
+    line_index = first_measure_line
     for measure_index, measure in enumerate(score.measures):
-        line = lines[first_measure_line + measure_index].rstrip("\r\n")
-        lead_tokens, prefix, current_key, current_beats, current_beat_type = (
-            _measure_lead_info(measure, current_key, current_beats, current_beat_type)
+        (
+            lead_tokens,
+            prefix,
+            current_key,
+            current_beats,
+            current_beat_type,
+            current_tempo,
+            tempo_line,
+        ) = _measure_lead_info(
+            measure,
+            current_key,
+            current_beats,
+            current_beat_type,
+            current_tempo,
         )
+        if tempo_line is not None:
+            line_offset += len(lines[line_index])
+            line_index += 1
+        line = lines[line_index].rstrip("\r\n")
         event_cursor = _lead_skip_length(lead_tokens, prefix)
         events = measure.events
         index = 0
@@ -446,7 +511,8 @@ def _text_anchors_raw(
             )
             event_cursor = position + len(token)
             index += 1
-        line_offset += len(lines[first_measure_line + measure_index])
+        line_offset += len(lines[line_index])
+        line_index += 1
     return anchors
 
 

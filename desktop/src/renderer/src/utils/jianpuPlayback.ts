@@ -8,6 +8,49 @@ export interface JianpuNoteSpan {
   token: string
 }
 
+export const PLAYBACK_RATES = [0.5, 0.8, 1, 1.5, 2] as const
+export type PlaybackRate = (typeof PLAYBACK_RATES)[number]
+
+export function normalizePlaybackRate(value: number): PlaybackRate {
+  return PLAYBACK_RATES.find((rate) => rate === value) ?? 1
+}
+
+export function scaledTransportBpm(bpm: number, rate: number): number {
+  return bpm * normalizePlaybackRate(rate)
+}
+
+export function toPlaybackSeconds(seconds: number, rate: number): number {
+  return seconds / normalizePlaybackRate(rate)
+}
+
+export function toNominalSeconds(seconds: number, rate: number): number {
+  return seconds * normalizePlaybackRate(rate)
+}
+
+export function rescalePlaybackPosition(
+  seconds: number,
+  fromRate: number,
+  toRate: number,
+): number {
+  return toPlaybackSeconds(toNominalSeconds(seconds, fromRate), toRate)
+}
+
+export function nominalSecondsToTransportTicks(
+  seconds: number,
+  bpm: number,
+  ppq: number,
+): number {
+  return seconds * bpm * ppq / 60
+}
+
+export function transportTicksToNominalSeconds(
+  ticks: number,
+  bpm: number,
+  ppq: number,
+): number {
+  return bpm > 0 && ppq > 0 ? ticks * 60 / (bpm * ppq) : 0
+}
+
 export const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g
 const DURATION_PREFIX_PATTERN = /^(?:[whqs]|d+)/
 const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
@@ -433,7 +476,8 @@ export function isMetadataLine(line: string): boolean {
   const trimmed = line.trim()
   if (!trimmed || trimmed.startsWith('//')) return true
   if (trimmed.startsWith('L:') || trimmed.startsWith('@text ')) return true
-  if (/^(title|tempo)\s*=/.test(trimmed)) return true
+  if (/^title\s*=/.test(trimmed)) return true
+  if (/^tempo\s*=\s*[^\s|]+$/.test(trimmed)) return true
   if (/^1\s*=/.test(trimmed)) return true
   if (/^(key|time)\s*=/i.test(trimmed)) return true
   return /^\d+\/\d+$/.test(trimmed)

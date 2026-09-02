@@ -57,14 +57,17 @@ def extract_header(text: str) -> dict[str, str]:
             header["tempo"] = line.split("=", 1)[1].strip()
         elif re.fullmatch(r"\d+\s*/\s*\d+", line) and "meter" not in header:
             header["meter"] = line.replace(" ", "")
+        elif line and not line.startswith("//"):
+            break
     return header
 
 
 def strip_header(text: str) -> str:
     body: list[str] = []
+    in_header = True
     for raw in text.splitlines():
         line = raw.strip()
-        if (
+        if in_header and (
             line.startswith("title=")
             or line.startswith("instrument=")
             or line.startswith("1=")
@@ -72,6 +75,9 @@ def strip_header(text: str) -> str:
             or re.fullmatch(r"\d+\s*/\s*\d+", line)
         ):
             continue
+        if in_header and (not line or line.startswith("//")):
+            continue
+        in_header = False
         body.append(raw)
     return "\n".join(body).strip()
 

@@ -657,6 +657,95 @@ def test_jianpu_title_and_tempo_write_musicxml_metadata() -> None:
     assert root.find(".//direction/sound").attrib == {"tempo": "96"}
 
 
+def test_musicxml_measure_level_tempos_are_inherited_and_roundtrip() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes><divisions>1</divisions><key><fifths>0</fifths></key>
+            <time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          <direction><direction-type><metronome><beat-unit>quarter</beat-unit>
+            <per-minute>120</per-minute></metronome></direction-type><sound tempo="120"/></direction>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note>
+        </measure>
+        <measure number="2">
+          <direction><direction-type><metronome><beat-unit>quarter</beat-unit>
+            <per-minute>80</per-minute></metronome></direction-type><sound tempo="80"/></direction>
+          <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration></note>
+        </measure>
+        <measure number="3">
+          <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    written = ET.fromstring(scores_to_musicxml([score]))
+    reparsed = musicxml_to_score(ET.tostring(written, encoding="unicode"))
+
+    assert score.tempo == 120
+    assert [measure.tempo for measure in score.measures] == [120, 80, 80]
+    assert [
+        sound.attrib["tempo"] for sound in written.findall(".//direction/sound")
+    ] == [
+        "120",
+        "80",
+    ]
+    assert [measure.tempo for measure in reparsed.measures] == [120, 80, 80]
+
+
+def test_musicxml_without_tempo_keeps_header_implicit_but_measures_effective() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+        <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    text = score_to_jianpu_text(score)
+
+    assert score.tempo is None
+    assert score.measures[0].tempo == 120
+    assert "tempo=" not in text
+
+
+def test_jianpu_measure_level_tempo_writes_two_musicxml_tempo_events() -> None:
+    root = ET.fromstring(
+        jianpu_to_musicxml(
+            "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |\n1 2 3 4 |"
+        )
+    )
+
+    assert [sound.attrib["tempo"] for sound in root.findall(".//direction/sound")] == [
+        "120",
+        "80",
+    ]
+
+
+def test_multpart_musicxml_writes_the_tempo_map_only_in_the_first_part() -> None:
+    text = (
+        '// @part 1 name="A"\n'
+        "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |\n"
+        '// @part 2 name="B"\n'
+        "1=C\n4/4\n1 2 3 4 |\n5 6 7 1 |"
+    )
+
+    root = ET.fromstring(jianpu_to_musicxml(text))
+    parts = root.findall("./part")
+
+    assert [sound.attrib["tempo"] for sound in parts[0].findall(".//sound")] == [
+        "120",
+        "80",
+    ]
+    assert parts[1].findall(".//sound") == []
+
+
 def test_musicxml_writer_preserves_multiple_rhythm_dots() -> None:
     root = ET.fromstring(jianpu_to_musicxml("1=C\n4/4\n5.. q6.. 7... |"))
     notes = root.findall(".//note")

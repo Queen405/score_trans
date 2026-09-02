@@ -14,6 +14,7 @@ from ...models.common.types import (
 )
 from ...models.score import (
     Beat,
+    DEFAULT_TEMPO,
     Event,
     JianpuPitch,
     JianpuScore,
@@ -37,6 +38,9 @@ from ..performance_marks import (
     normalize_event_marks,
 )
 from ..pitch_spelling import jianpu_pitch_to_written
+
+MIN_TEMPO = 20
+MAX_TEMPO = 300
 
 
 @dataclass(slots=True)
@@ -111,6 +115,7 @@ def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
         beats=score.beats,
         beat_type=score.beat_type,
         title=score.title,
+        tempo=score.tempo,
         instrument_profile=score.instrument_profile,
     )
     tokens: list[ParsedToken] = []
@@ -525,6 +530,9 @@ def _validate_jianpu_token(token: _Token) -> None:
         return
     if re.fullmatch(r"\d+/\d+", raw):
         raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
+    if _is_tempo_token(raw):
+        _parse_tempo_token(token)
+        return
     if measure_mark is not None:
         raise _syntax_error(
             token,
@@ -626,6 +634,7 @@ def parse_jianpu_parts(
     parts: list[ParsedJianpuPart] = []
     current_page_start: int = -1
     page_part_index = 0
+    inherited_tempos: dict[int, int] = {}
     for i, match in enumerate(markers):
         marker_number = int(match.group("number"))
         preceding_pages = [pm for pm in page_markers if pm.start < match.start()]
@@ -660,9 +669,20 @@ def parse_jianpu_parts(
         part_text = text[start:end]
         part_text_without_page_markers = _strip_page_marker_lines(part_text)
         try:
-            score = parse_jianpu_score(part_text_without_page_markers, title=title)
+            score = parse_jianpu_score(
+                part_text_without_page_markers,
+                title=title,
+                _initial_tempo=inherited_tempos.get(
+                    page_part_index,
+                    DEFAULT_TEMPO,
+                ),
+            )
         except JianpuSyntaxError as exc:
             raise _remap_part_syntax_error(exc, text, start) from exc
+        if score.measures:
+            inherited_tempos[page_part_index] = (
+                score.measures[-1].tempo or DEFAULT_TEMPO
+            )
         base_utf16 = _utf16_length(text[:start])
         for measure in score.measures:
             if measure.source_start_utf16 is not None:
@@ -735,7 +755,12 @@ def _remap_part_syntax_error(
     )
 
 
-def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
+def parse_jianpu_score(
+    text: str,
+    *,
+    title: str | None = None,
+    _initial_tempo: int = DEFAULT_TEMPO,
+) -> JianpuScore:
     normalized = text.lstrip("\ufeff")
     options, token_lines, lyrics = _read_new_syntax(normalized)
     if title and options.title == "简谱":
@@ -769,6 +794,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
     current_key = options.key
     current_beats = options.beats
     current_beat_type = options.beat_type
+    current_tempo = options.tempo or _initial_tempo
     last_pitched_event: Event | None = None
     pending_slide_token: _Token | None = None
     skip_empty_bar_after_repeat_end = False
@@ -834,6 +860,7 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             text_blocks=current_blocks,
             beats_per_measure=current_beats,
             beat_type=current_beat_type,
+            tempo=current_tempo,
             source_key=current_key,
             target_key=current_key,
             repeat_start=next_repeat_start,
@@ -975,6 +1002,17 @@ def parse_jianpu_score(text: str, *, title: str | None = None) -> JianpuScore:
             if score.measures and not token.standalone_line:
                 remember_measure_token(token)
             current_key = key_signature
+            continue
+        if _is_tempo_token(raw):
+            if current_events:
+                raise _syntax_error(
+                    token,
+                    f"速度 {raw} 必须写在该小节音符之前，不能写在音符后面。"
+                    "请把速度移到小节开头或紧跟在小节线 | 之后。",
+                )
+            if score.measures and not token.standalone_line:
+                remember_measure_token(token)
+            current_tempo = _parse_tempo_token(token)
             continue
         time_signature = _time_signature_value(raw)
         if time_signature is not None:
@@ -1201,20 +1239,22 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             if key == "title":
                 options.title = value or options.title
                 continue
-            if key == "tempo":
-                try:
-                    options.tempo = int(value)
-                except ValueError:
-                    raise JianpuSyntaxError(
-                        _token_with_offsets(
-                            stripped,
-                            line_no,
-                            raw_line.find(stripped),
-                            line_utf16_starts[line_no - 1],
-                            original_line,
-                        ),
-                        f"tempo 必须是整数：{value}",
-                    ) from None
+            if key == "tempo" and re.fullmatch(r"[^\s|]+", value):
+                tempo_token = _token_with_offsets(
+                    stripped,
+                    line_no,
+                    raw_line.find(stripped),
+                    line_utf16_starts[line_no - 1],
+                    original_line,
+                    measure=str(current_measure),
+                    standalone_line=saw_score_tokens,
+                )
+                tempo = _parse_tempo_token(tempo_token)
+                if saw_score_tokens:
+                    tokens.append(tempo_token)
+                    saw_token_since_bar = True
+                else:
+                    options.tempo = tempo
                 continue
             if key == "instrument":
                 if value not in ACCEPTED_INSTRUMENT_PROFILES:
@@ -1324,6 +1364,25 @@ def _is_key_or_time_token(token: str) -> bool:
         _key_signature_value(token) is not None
         or _time_signature_value(token.strip()) is not None
     )
+
+
+def _is_tempo_token(token: str) -> bool:
+    return bool(re.match(r"^tempo\s*=", token.strip()))
+
+
+def _parse_tempo_token(token: _Token) -> int:
+    match = re.fullmatch(r"tempo\s*=\s*([^\s|]+)", token.value.strip())
+    value = match.group(1) if match else ""
+    try:
+        tempo = int(value)
+    except ValueError:
+        tempo = 0
+    if not MIN_TEMPO <= tempo <= MAX_TEMPO or str(tempo) != value:
+        raise JianpuSyntaxError(
+            token,
+            f"tempo 必须是 {MIN_TEMPO} 到 {MAX_TEMPO} 之间的整数：{value}",
+        )
+    return tempo
 
 
 def _strip_inline_comment(line: str) -> str:

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import uuid
 from pathlib import Path
-from typing import Literal
 
 from score_trans.config.settings import (
     MAX_UPLOAD_FILE_BYTES,
@@ -49,7 +48,6 @@ class ExportScoreAction:
         output_file: str | Path,
         *,
         target_key: str = "C",
-        midi_tempo: int | Literal["auto"] = "auto",
         title: str | None = None,
     ) -> Path:
         musicxml_path = Path(musicxml_file)
@@ -62,9 +60,7 @@ class ExportScoreAction:
         if title:
             for score in scores:
                 score.title = title
-        return self.export_service.export_midi_scores(
-            scores, output_path, midi_tempo=midi_tempo
-        )
+        return self.export_service.export_midi_scores(scores, output_path)
 
 
 class ExportActions:
@@ -98,7 +94,6 @@ class ExportActions:
             musicxml_path,
             output_path,
             target_key=req.target_key,
-            midi_tempo=req.midi_tempo,
         )
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=out_name)
@@ -106,9 +101,7 @@ class ExportActions:
     def export_midi_text(self, req: ExportMidiTextRequest) -> ExportResponse:
         scores = parse_jianpu_scores(req.jianpu_text, title=req.title)
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.mid"
-        self.export_service.export_midi_scores(
-            scores, output_path, midi_tempo=req.midi_tempo
-        )
+        self.export_service.export_midi_scores(scores, output_path)
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=req.filename or "score.mid")
 

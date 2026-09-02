@@ -5,7 +5,11 @@ import xml.etree.ElementTree as ET
 import fitz
 import mido
 import pytest
-from score_trans.domain.jianpu import jianpu_to_musicxml, parse_jianpu_score
+from score_trans.domain.jianpu import (
+    jianpu_to_musicxml,
+    parse_jianpu_score,
+    parse_jianpu_scores,
+)
 from score_trans.exec.export.actions import ExportActions
 from score_trans.models.export.schemas import (
     ExportMidiTextRequest,
@@ -206,44 +210,65 @@ def test_midi_export_rejects_microtones_without_pitch_bend(tmp_path) -> None:
     assert not output_path.exists()
 
 
-def _midi_tempo_bpm(midi: mido.MidiFile) -> float:
-    """从 track 0 的 set_tempo meta 解析 BPM（mido 转换有浮点误差，调用方用 approx 比较）。"""
+def _midi_tempo_events(midi: mido.MidiFile) -> list[tuple[int, float]]:
+    absolute_tick = 0
+    events: list[tuple[int, float]] = []
     for msg in midi.tracks[0]:
+        absolute_tick += msg.time
         if msg.type == "set_tempo":
-            return mido.tempo2bpm(msg.tempo)
-    raise AssertionError("no set_tempo meta in track 0")
+            events.append((absolute_tick, mido.tempo2bpm(msg.tempo)))
+    return events
 
 
-def test_midi_export_tempo_auto_uses_score_tempo(tmp_path) -> None:
-    """midi_tempo='auto' 且简谱含 ♩=60 时，导出 BPM=60。"""
+def test_midi_export_uses_score_tempo(tmp_path) -> None:
     score = parse_jianpu_score("1=C\ntempo=60\n4/4\n1 2 3 4 |")
-    output_path = tmp_path / "auto_with_tempo.mid"
-    ExportService().export_midi_scores([score], output_path, midi_tempo="auto")
+    output_path = tmp_path / "with_tempo.mid"
+    ExportService().export_midi_scores([score], output_path)
 
     midi = mido.MidiFile(output_path)
-    assert _midi_tempo_bpm(midi) == pytest.approx(60)
+    assert _midi_tempo_events(midi) == [(0, pytest.approx(60))]
 
 
-def test_midi_export_tempo_auto_falls_back_to_default(tmp_path) -> None:
-    """midi_tempo='auto' 且简谱无 tempo 标记时，回退到 MIDI_DEFAULT_BPM。"""
-    from score_trans.config.settings import MIDI_DEFAULT_BPM
+def test_midi_export_tempo_falls_back_to_default(tmp_path) -> None:
+    from score_trans.models.score import DEFAULT_TEMPO
 
     score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")
-    output_path = tmp_path / "auto_no_tempo.mid"
-    ExportService().export_midi_scores([score], output_path, midi_tempo="auto")
+    output_path = tmp_path / "no_tempo.mid"
+    ExportService().export_midi_scores([score], output_path)
 
     midi = mido.MidiFile(output_path)
-    assert _midi_tempo_bpm(midi) == pytest.approx(MIDI_DEFAULT_BPM)
+    assert _midi_tempo_events(midi) == [(0, pytest.approx(DEFAULT_TEMPO))]
 
 
-def test_midi_export_tempo_manual_overrides_score_tempo(tmp_path) -> None:
-    """midi_tempo=144 时强制使用 144，忽略简谱中的 ♩=60。"""
-    score = parse_jianpu_score("1=C\ntempo=60\n4/4\n1 2 3 4 |")
-    output_path = tmp_path / "manual.mid"
-    ExportService().export_midi_scores([score], output_path, midi_tempo=144)
+def test_midi_export_writes_measure_level_tempo_map(tmp_path) -> None:
+    score = parse_jianpu_score(
+        "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |\n1 2 3 4 |"
+    )
+    output_path = tmp_path / "tempo-map.mid"
+    ExportService().export_midi_scores([score], output_path)
 
     midi = mido.MidiFile(output_path)
-    assert _midi_tempo_bpm(midi) == pytest.approx(144)
+    assert _midi_tempo_events(midi) == [
+        (0, pytest.approx(120)),
+        (4 * midi.ticks_per_beat, pytest.approx(80)),
+    ]
+
+
+def test_midi_tempo_map_does_not_reset_at_a_page_boundary(tmp_path) -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n'
+        "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |\n"
+        '// @page 2\n// @part 1 name="A"\n1=C\n4/4\n1 2 3 4 |'
+    )
+    output_path = tmp_path / "paged-tempo.mid"
+
+    ExportService().export_midi_scores(parse_jianpu_scores(text), output_path)
+
+    midi = mido.MidiFile(output_path)
+    assert _midi_tempo_events(midi) == [
+        (0, pytest.approx(120)),
+        (4 * midi.ticks_per_beat, pytest.approx(80)),
+    ]
 
 
 def test_midi_export_tempo_only_on_track0(tmp_path) -> None:
@@ -253,9 +278,7 @@ def test_midi_export_tempo_only_on_track0(tmp_path) -> None:
         '// @part 2 name="低音"\n1=C\n4/4\n5 6 7 1\' |'
     )
     actions = ExportActions(uploads=UploadService())
-    resp = actions.export_midi_text(
-        ExportMidiTextRequest(jianpu_text=text, midi_tempo=90)
-    )
+    resp = actions.export_midi_text(ExportMidiTextRequest(jianpu_text=text))
     midi_path = actions.uploads.get_path(resp.file_id)
     assert midi_path is not None
     midi = mido.MidiFile(midi_path)
@@ -265,7 +288,7 @@ def test_midi_export_tempo_only_on_track0(tmp_path) -> None:
         msg for track in midi.tracks for msg in track if msg.type == "set_tempo"
     ]
     assert len(tempo_msgs) == 1, "set_tempo 应仅出现一次（track 0）"
-    assert _midi_tempo_bpm(midi) == pytest.approx(90)
+    assert _midi_tempo_events(midi) == [(0, pytest.approx(120))]
 
 
 def test_midi_export_writes_time_signature(tmp_path) -> None:
@@ -290,20 +313,21 @@ def test_midi_export_writes_time_signature(tmp_path) -> None:
     assert ts_38[0].denominator == 8
 
 
-def test_export_midi_route_accepts_target_key_and_tempo(tmp_path) -> None:
-    """/export/midi 接受 ExportMidiRequest，传 target_key 和 midi_tempo。"""
+def test_export_midi_route_uses_source_tempo_and_has_no_override(tmp_path) -> None:
     from score_trans.models.export.schemas import ExportMidiRequest
 
     uploads = UploadService()
     original = tmp_path / "original.musicxml"
-    original.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 3 4 |"), encoding="utf-8")
+    original.write_text(
+        jianpu_to_musicxml("tempo=100\n1=C\n4/4\n1 2 3 4 |"),
+        encoding="utf-8",
+    )
     file_id = uploads.register(original)
 
     actions = ExportActions(uploads=uploads)
     req = ExportMidiRequest(
         musicxml_file_id=file_id,
         target_key="G",
-        midi_tempo=100,
         filename="test.mid",
     )
     resp = actions.export_midi(req)
@@ -312,7 +336,9 @@ def test_export_midi_route_accepts_target_key_and_tempo(tmp_path) -> None:
     midi_path = uploads.get_path(resp.file_id)
     assert midi_path is not None and midi_path.exists()
     midi = mido.MidiFile(midi_path)
-    assert _midi_tempo_bpm(midi) == pytest.approx(100)
+    assert _midi_tempo_events(midi) == [(0, pytest.approx(100))]
+    assert "midi_tempo" not in ExportMidiRequest.model_fields
+    assert "midi_tempo" not in ExportMidiTextRequest.model_fields
 
 
 def _a4_svg_from_jianpu(text: str) -> str:

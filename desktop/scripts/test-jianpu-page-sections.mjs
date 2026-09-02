@@ -340,6 +340,81 @@ test('history restore preserves non-empty batch edits over page snapshots', () =
   assert.equal(restored, editedBatchText)
 })
 
+test('recognized batch adds one default tempo before all page markers', () => {
+  const text = utils.composeJianpuPageText([
+    { inputFileName: 'p1.png', jianpuText: '1=C\n4/4\n1 2 3 4 |' },
+    { inputFileName: 'p2.png', jianpuText: '1=C\n4/4\n5 6 7 1 |' },
+  ])
+
+  const normalized = utils.ensureRecognizedTempoHeader(text)
+
+  assert.equal(normalized.startsWith('tempo=120\n// @page 1'), true)
+  assert.equal(normalized.match(/^tempo=/gm)?.length, 1)
+})
+
+test('recognized batch keeps an explicit initial tempo', () => {
+  const text = utils.composeJianpuPageText([
+    { inputFileName: 'p1.png', jianpuText: 'tempo=96\n1=C\n4/4\n1 2 3 4 |' },
+  ])
+
+  assert.equal(utils.ensureRecognizedTempoHeader(text), text)
+})
+
+test('only the first recognized page receives the default tempo header', () => {
+  const text = '1=C\n4/4\n1 2 3 4 |'
+
+  assert.equal(utils.ensureRecognizedPageTempoHeader(text, 0), `tempo=120\n${text}`)
+  assert.equal(utils.ensureRecognizedPageTempoHeader(text, 1), text)
+})
+
+test('recognized batch defaults the start but preserves a later page tempo', () => {
+  const text = utils.composeJianpuPageText([
+    { inputFileName: 'p1.png', jianpuText: '1=C\n4/4\n1 2 3 4 |' },
+    { inputFileName: 'p2.png', jianpuText: '1=C\n4/4\ntempo=80\n5 6 7 1 |' },
+  ])
+
+  const normalized = utils.ensureRecognizedTempoHeader(text)
+
+  assert.equal(normalized.startsWith('tempo=120\n'), true)
+  assert.equal(normalized.includes('tempo=80\n5 6 7 1 |'), true)
+})
+
+test('recognized multipart batch puts the single default after the first part marker', () => {
+  const text = [
+    '// @page 1',
+    '// @part 1 name="A"',
+    '1=C',
+    '4/4',
+    '1 2 3 4 |',
+    '// @part 2 name="B"',
+    '1=C',
+    '4/4',
+    '5 6 7 1 |',
+  ].join('\n')
+
+  const normalized = utils.ensureRecognizedTempoHeader(text)
+
+  assert.equal(normalized.startsWith('// @page 1\n// @part 1 name="A"\ntempo=120\n'), true)
+  assert.equal(normalized.match(/^tempo=/gm)?.length, 1)
+})
+
+test('resetting the first page restores the recognized default tempo', () => {
+  const recognized = utils.ensureRecognizedTempoHeader(utils.composeJianpuPageText([
+    { inputFileName: 'p1.png', jianpuText: '1=C\n4/4\n1 2 3 4 |' },
+    { inputFileName: 'p2.png', jianpuText: '1=C\n4/4\n5 6 7 1 |' },
+  ])).replace('tempo=120', 'tempo=80')
+
+  const reset = utils.ensureRecognizedTempoHeader(utils.replaceJianpuSectionBody(
+    recognized,
+    0,
+    '1=C\n4/4\n1 2 3 4 |',
+    { inputFileName: 'p1.png' },
+  ))
+
+  assert.equal(reset.includes('tempo=80'), false)
+  assert.equal(reset.match(/^tempo=120$/gm)?.length, 1)
+})
+
 test('measure ranges continue across pages', () => {
   const text = utils.composeJianpuPageText([
     { jianpuText: '1 2 |\n3 4 |' },
@@ -617,8 +692,8 @@ test('resetting Jianpu replaces the source provenance snapshot', () => {
   const resetHandler = convertViewSource.slice(resetStart, resetEnd)
 
   assert.match(resetHandler, /textAnchors:\s*textAnchorBaselineAnchors\.map/)
-  assert.match(resetHandler, /textAnchorBaselineText:\s*split\.jianpuText/)
-  assert.match(resetHandler, /textHash:\s*await hashJianpuText\(split\.jianpuText\)/)
+  assert.match(resetHandler, /textAnchorBaselineText:\s*resetJianpuText/)
+  assert.match(resetHandler, /textHash:\s*await hashJianpuText\(resetJianpuText\)/)
   assert.match(resetHandler, /jianpuDirty:\s*false/)
   assert.match(resetHandler, /deletedSourceIds:\s*\[\]/)
 })
@@ -1038,6 +1113,10 @@ test('行首 AI 小节号标签被剥离', () => {
 
 test('行内注释里的小节线不计数', () => {
   assert.deepEqual(goldenLabels('1 2 3 4 | // 注释 | 不应计数\n5 6 7 1 |'), ['1', '2'])
+})
+
+test('行内容错 tempo 不吞掉所在行的小节', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 |\ntempo=80 5 6 7 1 |'), ['1', '2'])
 })
 
 test('分页分谱：各声部从本页起始号并行编号，页跨度取最大值', () => {

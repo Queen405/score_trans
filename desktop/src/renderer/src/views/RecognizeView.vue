@@ -261,6 +261,8 @@ import { reconcileTextAnchors } from '../utils/textAnchorTracking'
 import { hashJianpuText } from '../utils/jianpuTextState'
 import {
   composeJianpuPageText,
+  ensureRecognizedPageTempoHeader,
+  ensureRecognizedTempoHeader,
 } from '../utils/jianpuPageSections'
 import {
   buildBatchRenderRequests,
@@ -1207,6 +1209,12 @@ async function applyPipelineResult(
   historyPageId: number | null,
 ): Promise<void> {
     const split = splitJianpuAndOcr(result.jianpu_text)
+    const batchPageIndex = batchPagesForPage(target.pageId)
+      .findIndex((page) => page.id === target.pageId)
+    const recognizedJianpuText = ensureRecognizedPageTempoHeader(
+      split.jianpuText,
+      batchPageIndex,
+    )
     const warnings = result.warnings ?? []
     let ocrText = returnedPipelineOcrText(result) || split.ocrText
     let svgFileId = result.svg_file_id
@@ -1214,7 +1222,7 @@ async function applyPipelineResult(
     const sourceTextAnchors = result.text_anchors ?? []
     const alignment = reconcileTextAnchors(
       result.jianpu_text,
-      split.jianpuText,
+      recognizedJianpuText,
       sourceTextAnchors,
     )
     const textAnchorBaselineAnchors = alignment.reconciled
@@ -1222,12 +1230,12 @@ async function applyPipelineResult(
       : sourceTextAnchors.map((anchor) => ({ ...anchor, valid: false }))
     let textAnchors = textAnchorBaselineAnchors.map((anchor) => ({ ...anchor }))
     const textAttachments = result.text_attachments ?? []
-    const textHash = await hashJianpuText(split.jianpuText)
+    const textHash = await hashJianpuText(recognizedJianpuText)
     const pageResult: PageResult = {
       input_file_name: target.inputFileName,
       input_file_id: target.inputFileId,
       musicxml_file_id: result.musicxml_file_id,
-      jianpu_text: split.jianpuText,
+      jianpu_text: recognizedJianpuText,
       ocr_text: ocrText,
       svg_file_id: svgFileId,
       overlay_svg_file_id: result.overlay_svg_file_id ?? '',
@@ -1235,7 +1243,7 @@ async function applyPipelineResult(
       source_map_file_id: result.source_map_file_id ?? '',
       text_hash: textHash,
       text_anchors: textAnchors,
-      text_anchor_baseline_text: split.jianpuText,
+      text_anchor_baseline_text: recognizedJianpuText,
       text_anchor_baseline_anchors: textAnchorBaselineAnchors,
       text_attachments: textAttachments,
       status: 'completed',
@@ -1246,7 +1254,7 @@ async function applyPipelineResult(
     patchRecognitionPage(target.pageId, {
       musicxmlFileId: result.musicxml_file_id,
       musicxmlText: '',
-      jianpuText: split.jianpuText,
+      jianpuText: recognizedJianpuText,
       ocrText,
       jianpuDirty: false,
       svgFileId,
@@ -1255,7 +1263,7 @@ async function applyPipelineResult(
       sourceMapFileId: result.source_map_file_id ?? '',
       textHash,
       textAnchors,
-      textAnchorBaselineText: split.jianpuText,
+      textAnchorBaselineText: recognizedJianpuText,
       textAnchorBaselineAnchors,
       textAttachments,
       originalFileName: isPreviewable(target.inputFileName) ? target.inputFileName : '',
@@ -1292,7 +1300,12 @@ async function applyAiResult(
   historyPageId: number | null,
   warnings: string[],
 ): Promise<void> {
-    const mergedJianpuText = response.merged_jianpu_text
+    const batchPageIndex = batchPagesForPage(target.pageId)
+      .findIndex((page) => page.id === target.pageId)
+    const mergedJianpuText = ensureRecognizedPageTempoHeader(
+      response.merged_jianpu_text,
+      batchPageIndex,
+    )
     let svgFileId = ''
     let svgFileIds: string[] = []
     patchRecognitionPage(target.pageId, {
@@ -1513,7 +1526,7 @@ async function syncBatchJianpuTextForPage(pageId: string): Promise<void> {
     store.markBatchJianpuPagePending(pageId, batchId)
     return
   }
-  const text = composeJianpuPageText(batchPages)
+  const text = ensureRecognizedTempoHeader(composeJianpuPageText(batchPages))
   store.setBatchJianpuText(text, false, batchId)
   const historyBatchId = historyBatchIdForPages(batchPages)
   if (!historyBatchId) return

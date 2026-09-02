@@ -40,7 +40,17 @@ async function loadModule(relativePath) {
   return import(await inlineModule(relativePath))
 }
 
-const { findJianpuNoteSpans, isPlayableToken } = await loadModule(
+const {
+  PLAYBACK_RATES,
+  findJianpuNoteSpans,
+  isPlayableToken,
+  nominalSecondsToTransportTicks,
+  rescalePlaybackPosition,
+  scaledTransportBpm,
+  toNominalSeconds,
+  toPlaybackSeconds,
+  transportTicksToNominalSeconds,
+} = await loadModule(
   '../src/renderer/src/utils/jianpuPlayback.ts',
 )
 const { transposeOctave } = await loadModule('../src/renderer/src/utils/jianpuTranspose.ts')
@@ -51,6 +61,21 @@ const highlightTypeOf = (token) =>
   tokenizeJianpuLine(token)
     .map((span) => span.type)
     .join(',')
+
+test('playback rate scales tempo and seconds without changing the score tempo map', () => {
+  assert.deepEqual(PLAYBACK_RATES, [0.5, 0.8, 1, 1.5, 2])
+  for (const rate of PLAYBACK_RATES) {
+    const playbackSeconds = toPlaybackSeconds(12, rate)
+    assert.equal(toNominalSeconds(playbackSeconds, rate), 12)
+  }
+  assert.equal(scaledTransportBpm(120, 0.5), 60)
+  assert.equal(scaledTransportBpm(80, 0.5), 40)
+  assert.equal(toPlaybackSeconds(10, 2), 5)
+  assert.equal(rescalePlaybackPosition(10, 1, 0.5), 20)
+  assert.equal(rescalePlaybackPosition(10, 1, 2), 5)
+  assert.equal(nominalSecondsToTransportTicks(3, 120, 192), 1152)
+  assert.equal(transportTicksToNominalSeconds(1152, 120, 192), 3)
+})
 
 // The playback highlight matches `span.index === currentNoteIndex`, where the
 // index comes from the MIDI the backend generated for the same text. So the span
@@ -96,6 +121,18 @@ test('the editor colours a token the same way playback and the backend read it',
   assert.equal(highlightTypeOf('12:'), 'plain')
 })
 
+test('inline tempo keeps note highlighting and playback spans', () => {
+  const line = 'tempo=80 5 6 7 1 |'
+  assert.deepEqual(tokensOf(`1=C\n4/4\n${line}`), ['5', '6', '7', '1'])
+  assert.deepEqual(
+    tokenizeJianpuLine(line).filter((token) => token.type !== 'plain').map((token) => [
+      token.text,
+      token.type,
+    ]),
+    [['tempo=80', 'metadata'], ['5', 'note'], ['6', 'note'], ['7', 'note'], ['1', 'note'], ['|', 'barline']],
+  )
+})
+
 test('octave transpose moves bare dotted notes with everything else', () => {
   // transposeOctave gates on isPlayableToken, so the same guard used to leave
   // dotted notes behind while shifting their neighbours — corrupting the melody.
@@ -114,4 +151,3 @@ test('span count matches the backend note count on a real score', async () => {
   )
   assert.equal(findJianpuNoteSpans(text).length, 180)
 })
-

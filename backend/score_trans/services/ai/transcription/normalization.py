@@ -44,9 +44,7 @@ def ensure_jianpu_header(
         prefix.append(f"1={resolved_key}")
     if not any(re.fullmatch(r"\s*\d+\s*/\s*\d+\s*", line) for line in lines):
         prefix.append(resolved_meter)
-    if tempo is not None and not any(
-        line.strip().startswith("tempo=") for line in lines
-    ):
+    if tempo is not None and not _has_initial_tempo(lines):
         tempo_str = str(tempo)
         tempo_value = (
             tempo_str.split("=", 1)[-1].strip()
@@ -56,6 +54,21 @@ def ensure_jianpu_header(
         if tempo_value:
             prefix.append(f"tempo={tempo_value}")
     return "\n".join(prefix + lines).strip()
+
+
+def _has_initial_tempo(lines: list[str]) -> bool:
+    for raw in lines:
+        line = raw.strip()
+        if line.startswith("tempo="):
+            return True
+        if (
+            line.startswith(("title=", "instrument=", "1=", "key=", "time="))
+            or re.fullmatch(r"\d+\s*/\s*\d+", line)
+            or line.startswith("//")
+        ):
+            continue
+        break
+    return False
 
 
 def normalize_key_value(value: str | None) -> str | None:

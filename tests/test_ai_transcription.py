@@ -29,7 +29,12 @@ from score_trans.services.ai.providers.openai_compatible import (
     OpenAICompatibleVisionProvider,
 )
 from score_trans.services.ai.providers.xiaomi_mimo import XiaomiMiMoProvider
-from score_trans.services.ai.transcription import AiTranscriptionService
+from score_trans.services.ai.transcription import (
+    AiTranscriptionService,
+    ensure_jianpu_header,
+    extract_header,
+    merge_page_jianpu_texts,
+)
 from score_trans.services.ai.transcription.validation import validate_jianpu_text
 from score_trans.services.files.upload_service import UploadService
 from score_trans.utils.pdf import pdf_to_png_pages
@@ -50,6 +55,29 @@ class CapturingTranscriber:
     def transcribe(self, *args, render_dpi: int, **kwargs):
         self.render_dpi = render_dpi
         raise RuntimeError("capture complete")
+
+
+def test_ai_page_merge_preserves_measure_level_tempo_changes() -> None:
+    first = "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |"
+    second = "1=C\n4/4\ntempo=60\n1 2 3 4 |\ntempo=100\n5 6 7 1 |"
+
+    merged = merge_page_jianpu_texts([first, second])
+
+    assert "tempo=120" in merged
+    assert "tempo=80\n5 6 7 1 |" in merged
+    assert "tempo=100\n5 6 7 1 |" in merged
+    assert "tempo=60" not in merged
+    assert extract_header(first)["tempo"] == "120"
+
+
+def test_ai_header_keeps_initial_tempo_when_body_has_a_later_change() -> None:
+    text = "1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |"
+
+    normalized = ensure_jianpu_header(text, target_key="C", tempo=120)
+
+    assert normalized.count("tempo=") == 2
+    assert "tempo=120" in normalized.splitlines()[:3]
+    assert "tempo=80\n5 6 7 1 |" in normalized
 
 
 @pytest.mark.parametrize(

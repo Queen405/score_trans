@@ -88,6 +88,11 @@ def _text_box(node: ET.Element) -> tuple[float, float, float, float]:
     return x + left, y + top, x + right, y + bottom
 
 
+def _text_bbox(node: ET.Element) -> tuple[float, float, float, float]:
+    left, top, right, bottom = _text_box(node)
+    return left, top, right - left, bottom - top
+
+
 def _bbox(node: ET.Element) -> tuple[float, float, float, float]:
     return tuple(float(value) for value in node.attrib["data-bbox"].split())  # type: ignore[return-value]
 
@@ -121,6 +126,45 @@ def test_publication_renderer_is_the_only_engine() -> None:
     assert root.attrib["data-engine-version"] == "publication-13"
     assert "春江" in svg
     assert "<path" in svg
+
+
+def test_score_meta_displays_the_default_tempo_when_text_omits_it() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\n1 2 3 4 |"))
+    meta = next(
+        node for node in root.iter() if node.attrib.get("class") == "score-meta"
+    )
+
+    assert "♩=120" in meta.attrib["aria-label"]
+
+
+def test_measure_level_tempo_renders_once_in_the_upper_annotation_band() -> None:
+    score = parse_jianpu_score("tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 *2 |")
+    score.measures[1].text_blocks.append(
+        TextBlock("♩=80", role="expression", direction_kind="metronome")
+    )
+    root = _root(render_score_svg(score))
+    tempo_marks = [
+        node for node in root.iter() if node.attrib.get("class") == "tempo-mark"
+    ]
+
+    assert [node.attrib["aria-label"] for node in tempo_marks] == ["♩=80"]
+    assert (
+        len([node for node in root.iter() if node.attrib.get("aria-label") == "♩=80"])
+        == 1
+    )
+
+    tempo_box = _text_bbox(tempo_marks[0])
+    measure_number = next(
+        node
+        for node in root.iter()
+        if node.attrib.get("class") == "measure-no"
+        and node.attrib.get("aria-label") == "2"
+    )
+    repeat_count = next(
+        node for node in root.iter() if node.attrib.get("class") == "repeat-count"
+    )
+    _assert_horizontal_clearance(_text_bbox(measure_number), tempo_box, 6)
+    _assert_horizontal_clearance(tempo_box, _text_bbox(repeat_count), 6)
 
 
 def test_explicit_dotted_full_measure_rest_is_rendered() -> None:

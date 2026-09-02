@@ -1144,17 +1144,17 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
-             * @default 67
+             * @default 80
              */
             jianpu_content_scale_percent?: number;
             /**
              * Jianpu Short Note Gap Percent
-             * @default 90
+             * @default 20
              */
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 92
+             * @default 50
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -1350,17 +1350,17 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
-             * @default 67
+             * @default 80
              */
             jianpu_content_scale_percent?: number;
             /**
              * Jianpu Short Note Gap Percent
-             * @default 90
+             * @default 20
              */
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 92
+             * @default 50
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -1434,17 +1434,17 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
-             * @default 67
+             * @default 80
              */
             jianpu_content_scale_percent?: number;
             /**
              * Jianpu Short Note Gap Percent
-             * @default 90
+             * @default 20
              */
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 92
+             * @default 50
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -1541,11 +1541,6 @@ export type components = {
         ExportMidiRequest: {
             /** Filename */
             filename?: string | null;
-            /**
-             * Midi Tempo
-             * @default auto
-             */
-            midi_tempo?: number | "auto";
             /** Musicxml File Id */
             musicxml_file_id: string;
             /**
@@ -1565,11 +1560,6 @@ export type components = {
             filename?: string;
             /** Jianpu Text */
             jianpu_text: string;
-            /**
-             * Midi Tempo
-             * @default auto
-             */
-            midi_tempo?: number | "auto";
             /**
              * Title
              * @default 简谱
@@ -1678,17 +1668,17 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
-             * @default 67
+             * @default 80
              */
             jianpu_content_scale_percent?: number;
             /**
              * Jianpu Short Note Gap Percent
-             * @default 90
+             * @default 20
              */
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 92
+             * @default 50
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -2159,17 +2149,17 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
-             * @default 67
+             * @default 80
              */
             jianpu_content_scale_percent?: number;
             /**
              * Jianpu Short Note Gap Percent
-             * @default 90
+             * @default 20
              */
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 92
+             * @default 50
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -2447,17 +2437,17 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
-             * @default 67
+             * @default 80
              */
             jianpu_content_scale_percent?: number;
             /**
              * Jianpu Short Note Gap Percent
-             * @default 90
+             * @default 20
              */
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 92
+             * @default 50
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -2509,19 +2499,19 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
-             * @default 67
+             * @default 80
              */
             jianpu_content_scale_percent?: number;
             /** Jianpu File Id */
             jianpu_file_id?: string | null;
             /**
              * Jianpu Short Note Gap Percent
-             * @default 90
+             * @default 20
              */
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 92
+             * @default 50
              */
             jianpu_system_gap_percent?: number;
             /** Jianpu Text */
@@ -2626,12 +2616,12 @@ export type components = {
             audiveris_auto_upscale?: boolean;
             /**
              * Audiveris Max Heap
-             * @default 2g
+             * @default 3g
              */
             audiveris_max_heap?: string;
             /**
              * Audiveris Max Pixel Count
-             * @default 20000000
+             * @default 4500000
              */
             audiveris_max_pixel_count?: string;
             /**
@@ -2652,14 +2642,14 @@ export type components = {
             data_dir: string;
             /**
              * Enable Omr Ocr
-             * @default true
+             * @default false
              */
             enable_omr_ocr?: boolean;
             /** Java Home */
             java_home: string;
             /**
              * Jianpu Auto Transpose
-             * @default false
+             * @default true
              */
             jianpu_auto_transpose?: boolean;
             /**
@@ -2669,27 +2659,27 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Content Scale Percent
-             * @default 67
+             * @default 80
              */
             jianpu_content_scale_percent?: number;
             /**
              * Jianpu Measure Duration Check
-             * @default false
+             * @default true
              */
             jianpu_measure_duration_check?: boolean;
             /**
              * Jianpu Short Note Gap Percent
-             * @default 90
+             * @default 20
              */
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu Syntax Highlight
-             * @default false
+             * @default true
              */
             jianpu_syntax_highlight?: boolean;
             /**
              * Jianpu System Gap Percent
-             * @default 92
+             * @default 50
              */
             jianpu_system_gap_percent?: number;
             /**

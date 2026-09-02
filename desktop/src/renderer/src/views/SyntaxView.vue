@@ -420,6 +420,7 @@ tempo=88
 \mp (5 6 7 1') | h2' h1' | 5~ 6 7 ~5 | (3 2 3 1,) |
 L: 彩 云 追 月 夜 色 浓 山 河 醉
 
+tempo=72
 \f q[1+3+5] 5. 6 5 | $1 2 3$ 5 6 7 | ^>3 ^>2 1 7, | h6. q6 q5 |
 L: 一 曲 霓 裳 舞 半 空 天 上 仙
 
@@ -489,7 +490,8 @@ const syntaxSections: SyntaxSection[] = [
         description: '可使用 general、erhu、ruan 或 guzheng；zhongruan 作为 ruan 的别名同样可用。',
         keywords: ['普通', '二胡', '阮', '古筝', '中阮', 'zhongruan'],
       },
-      { syntax: 'tempo=120', name: '速度', description: '可选，以 BPM 表示。' },
+      { syntax: 'tempo=120', name: '速度', description: '20–300 的整数 BPM；省略时按 120 播放。' },
+      { syntax: 'tempo=80', name: '中途变速', description: '独占一行写在目标小节第一个音符之前，对该小节及后续小节生效。' },
     ],
   },
   {

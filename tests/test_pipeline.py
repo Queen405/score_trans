@@ -170,7 +170,7 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
     assert outputs.musicxml_path.name == "scan.musicxml"
     assert outputs.musicxml_path.exists()
     jianpu_text = outputs.jianpu_text_path.read_text(encoding="utf-8")
-    assert jianpu_text.startswith("title=Pipeline Test\n1=C\n4/4\n1 2 |")
+    assert jianpu_text.startswith("title=Pipeline Test\ntempo=120\n1=C\n4/4\n1 2 |")
     assert "h0" not in jianpu_text
     svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")
     assert "Pipeline Test" in svg

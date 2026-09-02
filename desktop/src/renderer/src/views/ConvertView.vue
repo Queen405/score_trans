@@ -438,6 +438,7 @@
       <jianpu-player
         :musicxml-file-id="store.musicxmlFileId"
         :jianpu-text="jianpuText"
+        :session-key="store.currentBatchId"
         @update:current-note-index="currentNoteIndex = $event"
       />
     </div>
@@ -508,6 +509,8 @@ import { splitJianpuAndOcr } from '../utils/ocrText'
 import { isRenderAborted } from '../utils/renderAbort'
 import {
   hasJianpuPageMarkers,
+  ensureRecognizedPageTempoHeader,
+  ensureRecognizedTempoHeader,
   parseJianpuPageSections,
   jianpuPageSectionBodyOffset,
   replaceJianpuSectionBody,
@@ -1881,9 +1884,14 @@ async function resetAll(): Promise<void> {
       accidental_mode: settings.accidentalMode,
     }))
     const split = splitJianpuAndOcr(result.jianpu_text)
+    const pageIndex = Math.max(0, currentBatchLocalIndex.value)
+    const resetJianpuText = ensureRecognizedPageTempoHeader(
+      split.jianpuText,
+      pageIndex,
+    )
     const alignment = reconcileTextAnchors(
       result.jianpu_text,
-      split.jianpuText,
+      resetJianpuText,
       result.text_anchors ?? [],
     )
     const textAnchorBaselineAnchors = alignment.reconciled
@@ -1892,22 +1900,24 @@ async function resetAll(): Promise<void> {
     const page = store.currentPage
     if (page) {
       const pagePatch: Partial<TaskPage> = {
-        jianpuText: split.jianpuText,
+        jianpuText: resetJianpuText,
         jianpuDirty: false,
         ocrText: '',
         textAttachments: [],
         textAnchors: textAnchorBaselineAnchors.map((anchor) => ({ ...anchor })),
-        textAnchorBaselineText: split.jianpuText,
+        textAnchorBaselineText: resetJianpuText,
         textAnchorBaselineAnchors,
-        textHash: await hashJianpuText(split.jianpuText),
+        textHash: await hashJianpuText(resetJianpuText),
         workingMusicxml: store.originalMusicxml,
         deletedSourceIds: [],
       }
-      const nextBatchText = replaceJianpuSectionBody(
-        jianpuText.value,
-        Math.max(0, currentBatchLocalIndex.value),
-        split.jianpuText,
-        { inputFileName: page.inputFileName },
+      const nextBatchText = ensureRecognizedTempoHeader(
+        replaceJianpuSectionBody(
+          jianpuText.value,
+          pageIndex,
+          resetJianpuText,
+          { inputFileName: page.inputFileName },
+        ),
       )
       if (page.batchId) {
         await workspacePersistence.saveBatch(store, page.batchId, 'reset', {

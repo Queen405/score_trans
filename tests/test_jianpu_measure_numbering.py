@@ -52,6 +52,8 @@ def measure_rows(text: str) -> list[tuple[int, int]]:
         (HEADER + "272: 1 2 3 4 |", [(1, 1)]),
         # 行内注释里的小节线不计数。
         (HEADER + "1 2 3 4 | // 注释 | 不应计数\n5 6 7 1 |", [(1, 1), (2, 1)]),
+        # 行内容错 tempo 是小节前导指令，不能吞掉所在行的小节。
+        (HEADER + "1 2 3 4 |\ntempo=80 5 6 7 1 |", [(1, 1), (2, 1)]),
     ],
 )
 def test_measure_numbering(text: str, expected: list[tuple[int, int]]) -> None:
@@ -75,7 +77,9 @@ def test_measure_numbering_across_pages_and_parts() -> None:
     )
     scores = parse_jianpu_scores(text)
     # 各声部从本页起始号并行编号，因此两页的号都从 1 开始。
-    assert [(score.part_name, score.page_index, len(score.measures)) for score in scores] == [
+    assert [
+        (score.part_name, score.page_index, len(score.measures)) for score in scores
+    ] == [
         ("A", 0, 3),
         ("B", 0, 2),
         ("A", 1, 1),

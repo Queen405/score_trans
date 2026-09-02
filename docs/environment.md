@@ -165,7 +165,6 @@ $env:SCORE_TRANS_AI_MODEL="mimo-v2.5"
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `SCORE_TRANS_MIDI_TICKS_PER_BEAT` | 每拍 tick 数。 | `480` |
-| `SCORE_TRANS_MIDI_DEFAULT_BPM` | 默认速度。 | `120` |
 | `SCORE_TRANS_MIDI_DEFAULT_VELOCITY` | 默认力度。 | `80` |
 
 ---

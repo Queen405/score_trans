@@ -162,6 +162,39 @@ export function composeJianpuPageText(pages: JianpuPageSource[]): string {
   })))
 }
 
+const INITIAL_TEMPO_PATTERN = /^tempo\s*=\s*\d+(?:\s|$)/i
+const HEADER_LINE_PATTERN = /^(?:title|instrument|key|time)\s*=/i
+
+export function ensureRecognizedTempoHeader(text: string): string {
+  const normalized = normalizeLineEndings(text)
+  const lines = normalized.split('\n')
+  for (const rawLine of lines) {
+    const trimmed = splitInlineComment(rawLine).trim()
+    if (
+      !trimmed
+      || trimmed.startsWith('//')
+      || trimmed.startsWith('L:')
+      || trimmed.startsWith('@text ')
+      || HEADER_LINE_PATTERN.test(trimmed)
+      || KEY_TOKEN_PATTERN.test(trimmed)
+      || TIME_TOKEN_PATTERN.test(trimmed)
+    ) continue
+    if (INITIAL_TEMPO_PATTERN.test(trimmed)) return normalized
+    break
+  }
+  const firstPartIndex = lines.findIndex((line) => PART_MARKER_PATTERN.test(line))
+  if (firstPartIndex >= 0) {
+    lines.splice(firstPartIndex + 1, 0, 'tempo=120')
+    return lines.join('\n')
+  }
+  return normalized ? `tempo=120\n${normalized}` : 'tempo=120'
+}
+
+export function ensureRecognizedPageTempoHeader(text: string, pageIndex: number): string {
+  const normalized = normalizeLineEndings(text)
+  return pageIndex === 0 ? ensureRecognizedTempoHeader(normalized) : normalized
+}
+
 export function migrateLegacyJianpuPageText(
   batchText: string,
   pages: JianpuPageSource[],
@@ -255,7 +288,9 @@ const MEASURE_LABEL_TOKEN_PATTERN = /^(\d+)([.:：])$/
 const LEADING_MEASURE_LABEL_PATTERN = /^\s*(\d+)([.:：])(?=\s|$)/
 const KEY_TOKEN_PATTERN = /^1\s*=\s*[A-G](?:#|b)?$/
 const TIME_TOKEN_PATTERN = /^\d+\/\d+$/
-const METADATA_LINE_PATTERN = /^(?:title|tempo|instrument|key|time)\s*=/i
+const METADATA_LINE_PATTERN = /^(?:title|instrument|key|time)\s*=/i
+const TEMPO_LINE_PATTERN = /^tempo\s*=\s*[^\s|]+\s*$/i
+const TEMPO_TOKEN_PATTERN = /^tempo\s*=\s*[^\s|]+$/i
 // 4 字符可容纳 "1-3"、"10-"；gutter 宽度见 JianpuEditor（44px），更长截断为 n+。
 const MAX_GUTTER_LABEL_LENGTH = 4
 
@@ -275,7 +310,7 @@ function stripLeadingMeasureLabel(line: string): string {
 
 function isNonMeasureLine(trimmed: string): boolean {
   if (!trimmed || trimmed.startsWith('L:')) return true
-  if (METADATA_LINE_PATTERN.test(trimmed)) return true
+  if (METADATA_LINE_PATTERN.test(trimmed) || TEMPO_LINE_PATTERN.test(trimmed)) return true
   return KEY_TOKEN_PATTERN.test(trimmed) || TIME_TOKEN_PATTERN.test(trimmed)
 }
 
@@ -483,7 +518,11 @@ function walkJianpuMeasures(
         }
         continue
       }
-      if (KEY_TOKEN_PATTERN.test(raw) || TIME_TOKEN_PATTERN.test(raw)) continue
+      if (
+        KEY_TOKEN_PATTERN.test(raw)
+        || TIME_TOKEN_PATTERN.test(raw)
+        || TEMPO_TOKEN_PATTERN.test(raw)
+      ) continue
       hasContent = true
       repeatAppliedBackward = false
       contentLineIndex = lineIndex

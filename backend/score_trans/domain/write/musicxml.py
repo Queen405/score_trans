@@ -50,7 +50,7 @@ def scores_to_musicxml(
 
     for index, score in enumerate(rendered_scores, start=1):
         part = ET.SubElement(root, "part", {"id": f"P{index}"})
-        _append_score_measures(part, score)
+        _append_score_measures(part, score, emit_tempo_map=index == 1)
 
     ET.indent(root, space="  ")
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(
@@ -72,10 +72,13 @@ def _score_part_name(score: JianpuScore) -> str:
 def _append_score_measures(
     part: ET.Element,
     score: JianpuScore,
+    *,
+    emit_tempo_map: bool,
 ) -> None:
     divisions = _score_divisions(score)
     previous_key: str | None = None
     previous_time: tuple[int, int] | None = None
+    previous_tempo: int | None = None
     for index, source_measure in enumerate(score.measures, start=1):
         measure = ET.SubElement(part, "measure", {"number": str(index)})
         _append_print_xml(measure, source_measure)
@@ -83,6 +86,11 @@ def _append_score_measures(
         measure_beats = getattr(source_measure, "beats_per_measure", score.beats)
         measure_beat_type = getattr(source_measure, "beat_type", score.beat_type)
         measure_time = (measure_beats, measure_beat_type)
+        measure_tempo = (
+            source_measure.tempo
+            if source_measure.tempo is not None
+            else (score.tempo if index == 1 else previous_tempo)
+        )
         if index == 1 or measure_key != previous_key or measure_time != previous_time:
             attrs = ET.SubElement(measure, "attributes")
             if index == 1:
@@ -106,6 +114,11 @@ def _append_score_measures(
             score,
             source_measure,
             measure_index=index,
+            tempo=measure_tempo,
+            emit_tempo=emit_tempo_map
+            and measure_tempo is not None
+            and (index == 1 or measure_tempo != previous_tempo),
+            allow_tempo=emit_tempo_map,
         )
         _append_measure_timeline(
             measure,
@@ -115,6 +128,7 @@ def _append_score_measures(
             divisions,
         )
         _append_barline_xml(measure, source_measure)
+        previous_tempo = measure_tempo
 
 
 def _score_divisions(score: JianpuScore) -> int:
@@ -308,11 +322,16 @@ def _measure_direction_blocks(
     measure: Measure,
     *,
     measure_index: int,
+    tempo: int | None,
+    emit_tempo: bool,
+    allow_tempo: bool,
 ) -> list[TextBlock]:
     blocks = [
         block
         for block in measure.text_blocks
-        if block.role not in {"measure_number", "lyric", "title"} and block.text.strip()
+        if block.role not in {"measure_number", "lyric", "title"}
+        and block.text.strip()
+        and (allow_tempo or block.direction_kind != "metronome")
     ]
     if measure_index == 1:
         blocks = [
@@ -323,19 +342,21 @@ def _measure_direction_blocks(
             ),
             *blocks,
         ]
-        if score.tempo is not None and not any(
-            block.direction_kind == "metronome" for block in blocks
-        ):
-            blocks.insert(
-                0,
-                TextBlock(
-                    text=f"♩={score.tempo}",
-                    role="expression",
-                    start=Fraction(0, 1),
-                    placement="above",
-                    direction_kind="metronome",
-                ),
-            )
+    if (
+        emit_tempo
+        and tempo is not None
+        and not any(block.direction_kind == "metronome" for block in blocks)
+    ):
+        blocks.insert(
+            0,
+            TextBlock(
+                text=f"♩={tempo}",
+                role="expression",
+                start=Fraction(0, 1),
+                placement="above",
+                direction_kind="metronome",
+            ),
+        )
     return sorted(blocks, key=_block_start)
 
 

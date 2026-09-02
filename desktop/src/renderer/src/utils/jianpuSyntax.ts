@@ -69,6 +69,7 @@ function tokenizeCodePart(code: string): JianpuSyntaxToken[] {
 
 function classifyToken(token: string): JianpuSyntaxTokenType {
   if (!token.trim()) return 'plain'
+  if (/^tempo\s*=\s*[^\s|]+$/.test(token)) return 'metadata'
   if (token === '|' || token === '||' || token === '|:' || token === ':|') return 'barline'
   if (/^\*\d+$/.test(token)) return 'repeat'
   if (token.startsWith('\\')) return 'dynamic'
@@ -84,7 +85,8 @@ function classifyToken(token: string): JianpuSyntaxTokenType {
 }
 
 function isMetadataLine(trimmed: string): boolean {
-  if (/^(title|tempo)\s*=/.test(trimmed)) return true
+  if (/^title\s*=/.test(trimmed)) return true
+  if (/^tempo\s*=\s*[^\s|]+$/.test(trimmed)) return true
   if (/^1\s*=/.test(trimmed)) return true
   if (/^(key|time)\s*=/i.test(trimmed)) return true
   return /^\d+\/\d+$/.test(trimmed)

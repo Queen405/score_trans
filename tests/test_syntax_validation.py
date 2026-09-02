@@ -57,6 +57,16 @@ def test_validate_jianpu_text_accepts_valid_score() -> None:
     assert validate_jianpu_text("1=C\n4/4\n1 2 3 4 |") == []
 
 
+@pytest.mark.parametrize(
+    "change",
+    ["tempo=80\n5 6 7 1 |", "tempo=80 5 6 7 1 |"],
+)
+def test_validate_jianpu_text_accepts_measure_level_tempo(change: str) -> None:
+    text = f"tempo=120\n1=C\n4/4\n1 2 3 4 |\n{change}"
+
+    assert validate_jianpu_text(text) == []
+
+
 def test_validate_jianpu_text_keeps_measure_duration_check_disabled_by_default() -> (
     None
 ):
@@ -257,7 +267,7 @@ def test_validate_jianpu_text_reports_tempo_error_line_and_message() -> None:
     assert len(diagnostics) == 1
     diagnostic = diagnostics[0]
     assert diagnostic.line == 5
-    assert diagnostic.message == "tempo 必须是整数：abc"
+    assert diagnostic.message == "tempo 必须是 20 到 300 之间的整数：abc"
     selected = text.encode("utf-16-le")[diagnostic.start * 2 : diagnostic.end * 2]
     assert selected.decode("utf-16-le") == "tempo=abc"
 
