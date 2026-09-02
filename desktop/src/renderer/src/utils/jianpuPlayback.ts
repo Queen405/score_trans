@@ -16,6 +16,7 @@ const TUPLET_PART_PATTERN =
   /(?:[whqs]|d+)?(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[0-7][',]*[#b]?/g
 export const TUPLET_RATIO_PATTERN = /^\d+\s*:\s*\d+\s*;/
 const PART_MARKER_PATTERN = /^\s*\/\/\s*@part\s+\d+/
+const MEASURE_LABEL_PATTERN = /^(\d+)([.:：])$/
 
 // ── Fraction utilities (exact arithmetic to match backend Fraction) ──
 
@@ -444,6 +445,14 @@ export function stripInlineComment(line: string): string {
   return line.slice(0, commentStart)
 }
 
+// 与后端 _is_measure_label_token 保持一致：冒号分隔（如 `272:`）或点号分隔且数字 >7
+// （如 `10.`）才是粘贴进来的小节编号；点号分隔且 1-7 是附点音符（音级只有 1-7）。
+function isMeasureLabelToken(token: string): boolean {
+  const match = token.trim().match(MEASURE_LABEL_PATTERN)
+  if (!match) return false
+  return match[2] !== '.' || Number(match[1]) > 7
+}
+
 export function isPlayableToken(token: string): boolean {
   if (
     token === '|' ||
@@ -451,7 +460,7 @@ export function isPlayableToken(token: string): boolean {
     token === '|:' ||
     token === ':|' ||
     /^\*\d+$/.test(token) ||
-    /^\d+[.:：]$/.test(token) ||
+    isMeasureLabelToken(token) ||
     /^\d+\/\d+$/.test(token) ||
     token.startsWith('\\') ||
     token.startsWith('^')
@@ -481,7 +490,7 @@ function stripEventDecorations(token: string): string {
     work = work.slice(durationPrefix.length)
   }
   while (work.endsWith('-')) work = work.slice(0, -1)
-  if (work.endsWith('.')) work = work.slice(0, -1)
+  while (work.endsWith('.')) work = work.slice(0, -1)
   return work
 }
 

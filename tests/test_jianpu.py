@@ -1,4 +1,5 @@
 from fractions import Fraction
+from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
@@ -1214,3 +1215,26 @@ def test_pending_dynamic_still_consumed_by_plain_note() -> None:
     score = parse_jianpu_score("1=C\n4/4\n\\pp q1 2 3 4 |")
 
     assert score.measures[0].events[0].dynamic == "pp"
+
+
+def test_playback_alignment_fixture_note_count() -> None:
+    """Pin the MIDI note count the frontend highlight indexes against.
+
+    The editor highlights by `span.index == currentNoteIndex`, where the index is
+    a MIDI note ordinal. desktop/scripts/test-jianpu-playback-spans.mjs asserts
+    the same fixture yields the same count on the frontend side; if these two
+    numbers ever disagree, the highlight drifts by the difference.
+    """
+    text = (Path(__file__).parent / "fixtures" / "playback_alignment.jianpu").read_text(
+        encoding="utf-8"
+    )
+
+    notes = [
+        event
+        for score in parse_jianpu_scores(text)
+        for measure in score.measures
+        for event in measure.events
+        if event.kind != "rest" and event.pitches
+    ]
+
+    assert len(notes) == 180
