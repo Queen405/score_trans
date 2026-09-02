@@ -44,8 +44,13 @@ const { findJianpuNoteSpans, isPlayableToken } = await loadModule(
   '../src/renderer/src/utils/jianpuPlayback.ts',
 )
 const { transposeOctave } = await loadModule('../src/renderer/src/utils/jianpuTranspose.ts')
+const { tokenizeJianpuLine } = await loadModule('../src/renderer/src/utils/jianpuSyntax.ts')
 
 const tokensOf = (text) => findJianpuNoteSpans(text).map((span) => span.token)
+const highlightTypeOf = (token) =>
+  tokenizeJianpuLine(token)
+    .map((span) => span.type)
+    .join(',')
 
 // The playback highlight matches `span.index === currentNoteIndex`, where the
 // index comes from the MIDI the backend generated for the same text. So the span
@@ -77,6 +82,18 @@ test('dotted and double-dotted rests are still skipped', () => {
 test('a double-dotted note counts as a note', () => {
   // The backend consumes every trailing dot (jianpu_tokens.py consume_duration_suffix).
   assert.deepEqual(tokensOf("1=C\n4/4\n6.. s1' |"), ['6..', "s1'"])
+})
+
+test('the editor colours a token the same way playback and the backend read it', () => {
+  // jianpuSyntax and jianpuPlayback keep separate copies of stripEventDecorations.
+  // When only one learned to strip every trailing dot, `6..` played and highlighted
+  // as a note while the editor greyed it out as unrecognised text.
+  assert.equal(highlightTypeOf('6.'), 'note')
+  assert.equal(highlightTypeOf('6..'), 'note')
+  assert.equal(highlightTypeOf('0.'), 'rest')
+  assert.equal(highlightTypeOf('0..'), 'rest')
+  assert.equal(highlightTypeOf('10.'), 'plain')
+  assert.equal(highlightTypeOf('12:'), 'plain')
 })
 
 test('octave transpose moves bare dotted notes with everything else', () => {

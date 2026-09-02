@@ -109,6 +109,6 @@ function stripEventDecorations(token: string): string {
     work = work.slice(durationPrefix.length)
   }
   while (work.endsWith('-')) work = work.slice(0, -1)
-  if (work.endsWith('.')) work = work.slice(0, -1)
+  while (work.endsWith('.')) work = work.slice(0, -1)
   return work
 }
