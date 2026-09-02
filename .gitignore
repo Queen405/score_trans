@@ -54,3 +54,9 @@ build-app.py
 
 # 根目录本地脚本文件夹（不纳入版本控制）
 /scripts/
+
+# 本地截图目录（不纳入版本控制）
+/screenshots/
+
+# 本地工具记忆目录（不纳入版本控制）
+/.workbuddy/

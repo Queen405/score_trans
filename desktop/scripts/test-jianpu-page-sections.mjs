@@ -961,3 +961,127 @@ test('API wrappers return an error tuple instead of rejecting', async () => {
     globalThis.fetch = previousFetch
   }
 })
+
+// ---------------------------------------------------------------------------
+// 小节编号金样例：与 tests/test_jianpu_measure_numbering.py 使用完全相同的样例文本。
+// 任一侧语义变化时，对应测试应先变红；改动一侧必须同步另一侧。
+// 计数真值 = 后端 parse_jianpu_score 的 flush 结果（每小节占 repeat_count 个号）。
+// ---------------------------------------------------------------------------
+
+const GOLDEN_HEADER = '1=C\n4/4\n'
+
+function goldenLabels(body) {
+  return utils.jianpuGutterLabels(GOLDEN_HEADER + body).filter(Boolean)
+}
+
+test('一行内多个小节按小节线计数并显示区间', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 | 2 3 4 5 |'), ['1-2'])
+  assert.deepEqual(goldenLabels('1 2 3 4 | 2 3 4 5 | 3 4 5 6 |'), ['1-3'])
+  // 后续行号不再漂移。
+  assert.deepEqual(goldenLabels('1 2 3 4 | 2 3 4 5 |\n1 2 3 4 |'), ['1-2', '3'])
+})
+
+test('区间标签尊重起始小节号偏移', () => {
+  assert.deepEqual(
+    utils.jianpuGutterLabels(GOLDEN_HEADER + '1 2 3 4 | 2 3 4 5 |', 5).filter(Boolean),
+    ['5-6'],
+  )
+})
+
+test('前向反复占多个号，区间随反复数扩张', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 *3 |'), ['1-3'])
+  assert.deepEqual(goldenLabels('1 2 3 4 *3 |\n1 2 3 4 |'), ['1-3', '4'])
+})
+
+test('后向反复占多个号', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 | *3'), ['1-3'])
+  assert.deepEqual(goldenLabels('1 2 3 4 | *3\n1 2 3 4 |'), ['1-3', '4'])
+})
+
+test('backward 反复覆盖上一小节的反复次数而非叠加', () => {
+  assert.deepEqual(goldenLabels('1 2 *2 | *3'), ['1-3'])
+})
+
+test('反复结构中 |: 与 :| 不产生空小节', () => {
+  assert.deepEqual(goldenLabels('|: 1 2 3 4 :|'), ['1'])
+  // :| 之后紧跟的空小节被吞掉。
+  assert.deepEqual(goldenLabels('|: 1 2 3 4 :| | 5 6 7 1 |'), ['1-2'])
+})
+
+test('backward 反复之后的空小节被吞掉', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 :| *2 |'), ['1-2'])
+  assert.deepEqual(goldenLabels('1 2 3 4 :| *2 |\n1 2 3 4 |'), ['1-2', '3'])
+})
+
+test('非 :|/*N 之后的孤立小节线占一个号（整小节休止）', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 |\n|\n5 6 7 1 |'), ['1', '2', '3'])
+})
+
+test('末小节可以没有小节线，标签挂在最后内容行', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 |\n5 6 7 1'), ['1', '2'])
+  assert.deepEqual(
+    utils.jianpuPageSummaries(GOLDEN_HEADER + '1 2 3 4 |\n5 6 7 1').map((p) => [
+      p.firstMeasureNumber,
+      p.lastMeasureNumber,
+    ]),
+    [[1, 2]],
+  )
+})
+
+test('小节跨行时换行不产生新小节', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 |\n5 6\n7 1 |'), ['1', '2'])
+})
+
+test('行首 AI 小节号标签被剥离', () => {
+  assert.deepEqual(goldenLabels('272: 1 2 3 4 |'), ['1'])
+})
+
+test('行内注释里的小节线不计数', () => {
+  assert.deepEqual(goldenLabels('1 2 3 4 | // 注释 | 不应计数\n5 6 7 1 |'), ['1', '2'])
+})
+
+test('分页分谱：各声部从本页起始号并行编号，页跨度取最大值', () => {
+  const text = [
+    '// @page 1',
+    '// @part 1 name="A"',
+    '1 2 3 4 |',
+    '1 2 3 4 | 5 6 7 1 |',
+    '// @part 2 name="B"',
+    '3 4 5 6 |',
+    '1 1 1 1 |',
+    '// @page 2',
+    '// @part 1 name="A"',
+    '2 2 2 2 |',
+    '// @part 2 name="B"',
+    '3 3 3 3 |',
+  ].join('\n')
+
+  assert.deepEqual(utils.jianpuGutterLabels(text), [
+    'P1', '', '1', '2-3', '', '1', '2', 'P2', '', '4', '', '4',
+  ])
+  assert.deepEqual(
+    utils.jianpuPageSummaries(text).map((p) => [
+      p.firstMeasureNumber,
+      p.lastMeasureNumber,
+      p.measureCount,
+    ]),
+    [[1, 3, 3], [4, 4, 1]],
+  )
+})
+
+test('超长区间标签截断为 n+', () => {
+  const line = '1 | '.repeat(64).trim()
+  assert.deepEqual(
+    utils.jianpuGutterLabels(GOLDEN_HEADER + line, 1000).filter(Boolean),
+    ['1000+'],
+  )
+  // 3 字符区间不截断；4 字符区间（如 "10-1"）截断。
+  assert.deepEqual(
+    utils.jianpuGutterLabels(GOLDEN_HEADER + '1 2 3 4 | 2 3 4 5 |', 100).filter(Boolean),
+    ['100+'],
+  )
+  assert.deepEqual(
+    utils.jianpuGutterLabels(GOLDEN_HEADER + '1 2 3 4 | 2 3 4 5 |', 9).filter(Boolean),
+    ['9-10'],
+  )
+})

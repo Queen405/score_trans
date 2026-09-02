@@ -244,76 +244,303 @@ function splitInlineComment(line: string): string {
   return commentStart < 0 ? line : line.slice(0, commentStart)
 }
 
-export function jianpuMeasureCount(text: string): number {
-  const partCounts: number[] = []
-  let currentPartCount = 0
-  let hasPartMarkers = false
-  for (const line of normalizeLineEndings(text).split('\n')) {
+/**
+ * 小节线切词：与后端 `_read_new_syntax` 的核心正则同构（`jianpu_text.py`）。
+ * 刻意不含 `\s+` 分支——`jianpuSyntax.ts` 的 TOKEN_PATTERN 为高亮保留了空白 token，
+ * 复用它会把每个空格当成小节内容。
+ */
+const MEASURE_TOKEN_PATTERN = /\$[^$]*\$|\|\||\|:|:\||\||[^\s|]+/g
+const REPEAT_TOKEN_PATTERN = /^\*(\d+)$/
+const MEASURE_LABEL_TOKEN_PATTERN = /^(\d+)([.:：])$/
+const LEADING_MEASURE_LABEL_PATTERN = /^\s*(\d+)([.:：])(?=\s|$)/
+const KEY_TOKEN_PATTERN = /^1\s*=\s*[A-G](?:#|b)?$/
+const TIME_TOKEN_PATTERN = /^\d+\/\d+$/
+const METADATA_LINE_PATTERN = /^(?:title|tempo|instrument|key|time)\s*=/i
+// 4 字符可容纳 "1-3"、"10-"；gutter 宽度见 JianpuEditor（44px），更长截断为 n+。
+const MAX_GUTTER_LABEL_LENGTH = 4
+
+function isMeasureLabelToken(token: string): boolean {
+  const match = MEASURE_LABEL_TOKEN_PATTERN.exec(token)
+  if (!match) return false
+  return match[2] !== '.' || Number(match[1]) > 7
+}
+
+/** 与后端 `_strip_leading_measure_label` 对齐：剥离 AI 输出的行首小节号（`272:`、`10.`）。 */
+function stripLeadingMeasureLabel(line: string): string {
+  const match = LEADING_MEASURE_LABEL_PATTERN.exec(line)
+  if (!match) return line
+  if (match[2] === '.' && Number(match[1]) <= 7) return line
+  return line.slice(match[0].length)
+}
+
+function isNonMeasureLine(trimmed: string): boolean {
+  if (!trimmed || trimmed.startsWith('L:')) return true
+  if (METADATA_LINE_PATTERN.test(trimmed)) return true
+  return KEY_TOKEN_PATTERN.test(trimmed) || TIME_TOKEN_PATTERN.test(trimmed)
+}
+
+interface MeasureWalkLine {
+  firstMeasure: number | null
+  lastMeasure: number | null
+}
+
+interface MeasureWalkPage {
+  pageIndex: number
+  pageNumber: number
+  inputFileName: string
+  firstMeasureNumber: number
+  measureCount: number
+  markerLineIndex: number
+}
+
+interface MeasureWalkResult {
+  lines: MeasureWalkLine[]
+  pages: MeasureWalkPage[]
+}
+
+/**
+ * 按后端解析语义走一遍全文，同时产出「每行承载的小节号区间」与「每页小节数」。
+ *
+ * 计数真值来自后端 `parse_jianpu_score` 的 flush 逻辑 + 渲染器
+ * `_assign_score_measure_numbers`：一个小节对象占 `repeat_count` 个号，
+ * 小节线才是边界，换行不是。
+ */
+function walkJianpuMeasures(
+  text: string,
+  initialMeasureNumber = 1,
+): MeasureWalkResult {
+  const normalized = normalizeLineEndings(text)
+  const lines = normalized.split('\n')
+  const lineResults: MeasureWalkLine[] = lines.map(() => ({
+    firstMeasure: null,
+    lastMeasure: null,
+  }))
+
+  const markerLines = lines.flatMap((line, lineIndex) => {
+    const marker = parseJianpuPageMarker(line)
+    return marker
+      ? [{ lineIndex, pageNumber: marker.pageNumber, inputFileName: marker.inputFileName }]
+      : []
+  })
+  // 无分页标记时整段视为第 1 页；有标记时，首个标记之前的前缀仍归第 1 页。
+  const pagePlan = markerLines.length
+    ? markerLines
+    : [{ lineIndex: -1, pageNumber: 1, inputFileName: '' }]
+
+  const pages: MeasureWalkPage[] = []
+  let pageStart = Math.max(1, Math.trunc(initialMeasureNumber))
+  let planIndex = -1
+  let partCounts: number[] = []
+
+  let measureNumber = pageStart
+  let partAdvance = 0
+  let hasContent = false
+  let pendingRepeat = 1
+  let skipEmpty = false
+  let afterRepeatStart = false
+  let repeatAppliedBackward = false
+  let lastAdvance = 0
+  let lastMeasureStart = 0
+  let lastMeasureLine = -1
+  let countedInPart = false
+  let contentLineIndex = -1
+
+  function recordMeasure(lineIndex: number, advance: number): void {
+    const target = lineResults[lineIndex]
+    const span = Math.max(1, advance)
+    if (target) {
+      if (target.firstMeasure === null) target.firstMeasure = measureNumber
+      target.lastMeasure = measureNumber + span - 1
+    }
+    lastMeasureStart = measureNumber
+    lastMeasureLine = lineIndex
+    measureNumber += span
+    partAdvance += span
+    lastAdvance = span
+    countedInPart = true
+  }
+
+  function resetPartState(): void {
+    measureNumber = pageStart
+    partAdvance = 0
+    hasContent = false
+    pendingRepeat = 1
+    skipEmpty = false
+    afterRepeatStart = false
+    repeatAppliedBackward = false
+    lastAdvance = 0
+    lastMeasureStart = 0
+    lastMeasureLine = -1
+    countedInPart = false
+    contentLineIndex = -1
+  }
+
+  /** 小节线 flush：与后端 `flush_measure` 的空小节/吞并规则一致。 */
+  function flushBar(
+    lineIndex: number,
+    kind: 'bar' | 'repeatStart' | 'repeatEnd',
+  ): void {
+    if (hasContent) {
+      recordMeasure(lineIndex, pendingRepeat)
+    } else if (repeatAppliedBackward) {
+      // backward `*N` 之后的空小节被整个吞掉，不分配号。
+      repeatAppliedBackward = false
+    } else if (kind === 'bar' && !skipEmpty) {
+      // 空小节保留为整小节休止，占 1 个号。`|:`/`:|` 的空 flush 不保留。
+      recordMeasure(lineIndex, 1)
+    }
+    hasContent = false
+    pendingRepeat = 1
+    afterRepeatStart = false
+    if (kind === 'bar') skipEmpty = false
+  }
+
+  function finishPart(): void {
+    // 后端每 part 结束时有 final flush：末小节可以没有小节线。
+    if (hasContent) recordMeasure(contentLineIndex, pendingRepeat)
+    partCounts.push(partAdvance)
+    resetPartState()
+  }
+
+  function finishPage(): void {
+    finishPart()
+    const plan = pagePlan[planIndex]
+    const measureCount = partCounts.length ? Math.max(0, ...partCounts) : 0
+    pages.push({
+      pageIndex: (plan?.pageNumber ?? planIndex + 1) - 1,
+      pageNumber: plan?.pageNumber ?? planIndex + 1,
+      inputFileName: plan?.inputFileName ?? '',
+      firstMeasureNumber: pageStart,
+      measureCount,
+      markerLineIndex: plan?.lineIndex ?? -1,
+    })
+    pageStart += measureCount
+    measureNumber = pageStart
+    partCounts = []
+  }
+
+  function startPage(index: number): void {
+    planIndex = index
+    resetPartState()
+  }
+
+  startPage(0)
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const nextPage = pagePlan[planIndex + 1]
+    if (nextPage && nextPage.lineIndex === lineIndex) {
+      finishPage()
+      startPage(planIndex + 1)
+    }
+    const line = lines[lineIndex]
+    if (parseJianpuPageMarker(line)) continue
     if (PART_MARKER_PATTERN.test(line)) {
-      if (hasPartMarkers) partCounts.push(currentPartCount)
-      hasPartMarkers = true
-      currentPartCount = 0
+      finishPart()
       continue
     }
-    const code = splitInlineComment(line).trim()
-    if (!code.includes('|')) continue
-    const withoutBar = code.replace(/\|$/, '').trim()
-    const repeatMatch = withoutBar.match(/\*\s*(\d+)$/)
-    currentPartCount += repeatMatch ? Number(repeatMatch[1]) : 1
+
+    const code = stripLeadingMeasureLabel(splitInlineComment(line))
+    if (isNonMeasureLine(code.trim())) continue
+
+    for (const match of code.matchAll(MEASURE_TOKEN_PATTERN)) {
+      const raw = match[0]
+      // 后端在遇到任何非 `|`/`||` token 时清除 skip_empty，顺序在分支之前。
+      if (skipEmpty && raw !== '|' && raw !== '||') skipEmpty = false
+      if (isMeasureLabelToken(raw)) continue
+      if (raw === '|' || raw === '||') {
+        flushBar(lineIndex, 'bar')
+        continue
+      }
+      if (raw === '|:') {
+        flushBar(lineIndex, 'repeatStart')
+        afterRepeatStart = true
+        continue
+      }
+      if (raw === ':|') {
+        flushBar(lineIndex, 'repeatEnd')
+        skipEmpty = true
+        continue
+      }
+      const repeat = REPEAT_TOKEN_PATTERN.exec(raw)
+      if (repeat) {
+        const count = Math.max(1, Number(repeat[1]))
+        if (!hasContent && countedInPart && !afterRepeatStart) {
+          // backward：覆盖上一小节的反复次数，而非叠加。
+          const delta = count - lastAdvance
+          measureNumber = Math.max(pageStart, measureNumber + delta)
+          partAdvance = Math.max(0, partAdvance + delta)
+          lastAdvance = count
+          repeatAppliedBackward = true
+          // 该小节现在吃掉 count 个号，把区间标签补上（前向反复同理）。
+          const previous = lineResults[lastMeasureLine]
+          if (previous && previous.lastMeasure !== null) {
+            previous.lastMeasure = Math.max(
+              previous.lastMeasure,
+              lastMeasureStart + count - 1,
+            )
+          }
+        } else {
+          pendingRepeat = count
+        }
+        continue
+      }
+      if (KEY_TOKEN_PATTERN.test(raw) || TIME_TOKEN_PATTERN.test(raw)) continue
+      hasContent = true
+      repeatAppliedBackward = false
+      contentLineIndex = lineIndex
+    }
   }
-  if (!hasPartMarkers) return currentPartCount
-  partCounts.push(currentPartCount)
-  return Math.max(0, ...partCounts)
+  finishPage()
+
+  return { lines: lineResults, pages }
+}
+
+let cachedWalkKey = ''
+let cachedWalkResult: MeasureWalkResult | null = null
+
+function walkWithCache(text: string, initialMeasureNumber: number): MeasureWalkResult {
+  const key = `${initialMeasureNumber} ${text}`
+  if (key !== cachedWalkKey || cachedWalkResult === null) {
+    cachedWalkKey = key
+    cachedWalkResult = walkJianpuMeasures(text, initialMeasureNumber)
+  }
+  return cachedWalkResult
+}
+
+export function jianpuMeasureCount(text: string, initialMeasureNumber = 1): number {
+  const { pages } = walkWithCache(normalizeLineEndings(text), initialMeasureNumber)
+  return pages.reduce((total, page) => total + page.measureCount, 0)
 }
 
 export function jianpuPageSummaries(
   text: string,
   initialMeasureNumber = 1,
 ): JianpuPageSummary[] {
-  const sections = parseJianpuPageSections(text)
-  let nextMeasureNumber = Math.max(1, Math.trunc(initialMeasureNumber))
-  return sections.map((section, order) => {
-    const firstMeasureNumber = nextMeasureNumber
-    const measureCount = jianpuMeasureCount(section.body)
-    const lastMeasureNumber = measureCount ? firstMeasureNumber + measureCount - 1 : null
-    nextMeasureNumber = firstMeasureNumber + measureCount
-    return {
-      pageIndex: section.pageIndex,
-      pageNumber: section.pageIndex >= 0 ? section.pageIndex + 1 : order + 1,
-      inputFileName: section.inputFileName,
-      firstMeasureNumber,
-      lastMeasureNumber,
-      measureCount,
-      markerLineIndex: section.markerLineIndex,
-    }
-  })
+  const { pages } = walkWithCache(normalizeLineEndings(text), initialMeasureNumber)
+  return pages.map((page) => ({
+    pageIndex: page.pageIndex,
+    pageNumber: page.pageNumber,
+    inputFileName: page.inputFileName,
+    firstMeasureNumber: page.firstMeasureNumber,
+    lastMeasureNumber: page.measureCount
+      ? page.firstMeasureNumber + page.measureCount - 1
+      : null,
+    measureCount: page.measureCount,
+    markerLineIndex: page.markerLineIndex,
+  }))
 }
 
 export function jianpuGutterLabels(text: string, initialMeasureNumber = 1): string[] {
   const normalized = normalizeLineEndings(text)
-  const summaries = jianpuPageSummaries(normalized, initialMeasureNumber)
-  let pageOrder = -1
-  let pageStartMeasureNumber = Math.max(1, Math.trunc(initialMeasureNumber))
-  let measureNumber = pageStartMeasureNumber
-  return normalized.split('\n').map((line) => {
+  const { lines } = walkWithCache(normalized, initialMeasureNumber)
+  return normalized.split('\n').map((line, index) => {
     const marker = parseJianpuPageMarker(line)
-    if (marker) {
-      pageOrder += 1
-      pageStartMeasureNumber = summaries[pageOrder]?.firstMeasureNumber ?? measureNumber
-      measureNumber = pageStartMeasureNumber
-      return `P${marker.pageNumber}`
-    }
-    if (PART_MARKER_PATTERN.test(line)) {
-      measureNumber = pageStartMeasureNumber
-      return ''
-    }
+    if (marker) return `P${marker.pageNumber}`
 
-    const code = splitInlineComment(line).trim()
-    if (!code.includes('|')) return ''
-    const currentNumber = measureNumber
-    const withoutBar = code.replace(/\|$/, '').trim()
-    const repeatMatch = withoutBar.match(/\*\s*(\d+)$/)
-    measureNumber += repeatMatch ? Number(repeatMatch[1]) : 1
-    return String(currentNumber)
+    const info = lines[index]
+    if (!info || info.firstMeasure === null || info.lastMeasure === null) return ''
+    if (info.firstMeasure === info.lastMeasure) return String(info.firstMeasure)
+    const label = `${info.firstMeasure}-${info.lastMeasure}`
+    // 一行挤了太多小节时退化为 `n+`，避免撑破 gutter（宽度见 JianpuEditor）。
+    return label.length > MAX_GUTTER_LABEL_LENGTH ? `${info.firstMeasure}+` : label
   })
 }

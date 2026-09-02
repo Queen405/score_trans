@@ -874,8 +874,13 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 }
 
 .editor-gutter {
-  width: 42px;
-  flex-shrink: 0;
+  /* 宽度必须恒定：flex 子项默认 min-width:auto 会被区间标签（如 "1-3"）撑开，
+     用 flex-basis + min-width:0 锁死，内容溢出由 overflow:hidden 裁剪。
+     44px 容纳 3 位小节号或 3 字符区间（"10-"）+ 6px 右内边距，更长由 JS 截断为 n+。 */
+  flex: 0 0 44px;
+  min-width: 0;
+  width: 44px;
+  max-width: 44px;
   overflow: hidden;
   background: var(--bg-soft, #f5f5f5);
   border-right: 1px solid var(--border-color, #e0e0e0);
