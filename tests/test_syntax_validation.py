@@ -414,7 +414,7 @@ def test_validate_jianpu_text_reports_compact_tuplet_member_after_marks() -> Non
 
 # ---------------------------------------------------------------------------
 # v1 回归：多页文档的小节数校验 / 页眉配置归属 / 按页连续小节号
-# 对应 docs/syntax-measure-numbering-fix-plan.md 的用例 A / B / C / G。
+# 对应用例 A / B / C / G（见 docs/issues.md R7）。
 # ---------------------------------------------------------------------------
 
 

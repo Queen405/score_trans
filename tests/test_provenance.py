@@ -274,7 +274,7 @@ def test_batch_render_uses_sparse_source_page_index_for_source_ids() -> None:
         def __init__(self) -> None:
             pass
 
-        def _build_batch_page_scores(self, req, page):
+        def _build_batch_page_scores(self, req, page, _inherited_state=None):
             score = parse_jianpu_score("1=C\n4/4\n1 |")
             event = score.measures[0].events[0]
             event.source_ids = ["s1:i10"]

@@ -6,31 +6,31 @@
 
 | 指标 | 数值 |
 |---|---|
-| 后端 Python 源文件 | 232 个 |
-| 测试文件 | 32 个 Python 文件，另有 desktop 工具测试 |
-| API 路由声明 | 51 个 |
-| 核心依赖 | FastAPI, Pillow, PyMuPDF, mido, langchain, langchain-openai |
+| 后端 Python 源文件 | 245 个 |
+| 测试文件 | 42 个 Python 文件，另有 desktop 工具测试 |
+| API 路由声明 | 55 个 |
+| 核心依赖 | FastAPI, Pillow, PyMuPDF, mido, httpx, fonttools, pyyaml |
 
 ## 2. 技术栈
 
 - **框架**：FastAPI + Uvicorn
 - **数据库**：SQLite（settings.db + history.db）
 - **OMR 引擎**：Audiveris（subprocess 调用，需 JDK 25）
-- **AI 转录**：LangChain + OpenAI 兼容视觉 LLM（默认 Qwen3-VL-8B）
-- **文字 OCR**：Python 服务调用 OpenAI 兼容 API（默认 DeepSeek-OCR）
+- **AI 转录**：httpx + 多 provider（DashScope / SenseNova / Agnes / OpenAI 兼容 / Xiaomi MiMo / Mock），无 LangChain 依赖
+- **文字 OCR**：httpx 调用 OpenAI 兼容 API（默认 DeepSeek-OCR）
 - **前端**：Electron + Vue3（通过 CORS 连接后端）
 
 ## 3. 分层架构
 
 ```
-api/         → 10 个路由模块，纯 HTTP 边界
+api/         → 15 个路由模块，纯 HTTP 边界
 exec/        → 9 个 Actions 编排类
-services/    → 14 个服务子包（ocr, ai, render, recognize, export, files, history, settings, tasks 等）
-domain/      → 纯算法（parse/, write/, constants, xml_utils）
+services/    → 14 个服务子包（ocr, ai, render, recognize, export, files, history, settings, correct, overlay, tasks, storage, syntax, jianpu）
+domain/      → 纯算法（parse/, write/, accidentals, constants, jianpu, jianpu_tokens, measure_counts, musicxml, performance_marks, pitch_spelling, provenance, reconciliation, rekey, text_attachments, text_placement, xml_utils）
 models/      → Pydantic DTO + dataclass 实体
 dao/         → history、settings、tasks、ai chat 等 SQLite DAO
 config/      → .env 加载 + ai_prompt.yaml
-utils/       → 7 个工具模块
+utils/       → 9 个工具模块（bbox, dict_tools, env, json_parsing, media, openai_response, pdf, safe_xml, text）
 ```
 
 ### 依赖方向
@@ -53,12 +53,17 @@ api  →  exec  →  services  →  dao / domain / models
 | files | `/files` | `POST /upload`, `GET /{file_id}`, `DELETE /{file_id}` | 文件上传/下载/删除 |
 | convert | `/convert` | `POST /musicxml-to-jianpu`, `POST /jianpu-to-musicxml` | MusicXML ↔ 简谱互转 |
 | recognize | `/recognize` | `POST /` | 乐谱图片/PDF → MusicXML（OMR） |
-| render | `/render` | 5 个端点 | 简谱 → SVG 渲染 |
+| render | `/render` | 多个端点（jianpu-svg / jianpu-text-svg / batch-a4 / final-output 等） | 简谱 → SVG 渲染 |
 | pipeline | `/pipeline` | `POST /` | 一键全流程 |
-| ai | `/ai` | `POST /transcribe` | AI 视觉 LLM 转录 |
-| export | `/export` | `POST /midi`, `POST /midi-text`, `POST /pdf` | 导出 MIDI / PDF |
-| history | `/history` | 6 个端点 | 历史记录 CRUD |
-| settings | `/settings` | `GET /`, `PUT /` | 应用配置读写 |
+| ai | `/ai` | `POST /transcribe`、聊天会话 | AI 视觉 LLM 转录与助手对话 |
+| export | `/export` | `POST /midi`, `POST /musicxml`, `POST /text`, `POST /pdf`, `POST /png` 等 | 导出 MIDI / MusicXML / 文本 / PDF / PNG |
+| history | `/history` | 多个端点（批次/页面/渲染页/OCR CRUD） | 历史记录管理 |
+| settings | `/settings` | `GET /`, `PUT /`, 缓存清理 | 应用配置读写 |
+| syntax | `/syntax` | `POST /validate` | 简谱语法诊断 |
+| jianpu | `/jianpu` | `POST /rekey` | 换调重记谱 |
+| correct | `/correct` | 实体查询与修正提交 | 结构元素修正与 MusicXML patch |
+| notation | `/notation` | 乐器画像目录 | erhu/ruan/guzheng 等乐器画像 |
+| tasks | `/tasks` | SSE 进度流 | 后台任务进度推送 |
 
 ## 5. 核心数据流
 
@@ -121,8 +126,8 @@ JianpuScore（乐谱）
 |---|---|---|
 | Audiveris | OMR 识别（乐谱→MusicXML） | subprocess（gradlew.bat） |
 | JDK 25 | Audiveris 运行时 | 环境变量 JAVA_HOME |
-| 视觉 LLM | AI 转录乐谱→简谱 | HTTP API（LangChain） |
-| Python OCR API | 提取乐谱文字块 | HTTP API（urllib） |
+| 视觉 LLM | AI 转录乐谱→简谱 | HTTP API（httpx，多 provider） |
+| Python OCR API | 提取乐谱文字块 | HTTP API（httpx） |
 
 ## 8. 前端架构
 

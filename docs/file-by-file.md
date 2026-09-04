@@ -1,7 +1,7 @@
 # Score Trans 当前文件索引
 
 > 本索引只描述当前实现。历史审计、旧渲染器设计和删除计划不再放在本文件中。
-> 分层规则见 [architecture.md](architecture.md)，删减顺序见 [code-reduction-plan-2026-08.md](code-reduction-plan-2026-08.md)。
+> 分层规则见 [architecture.md](architecture.md)，开放问题与待办见 [issues.md](issues.md)。
 
 ## 后端入口
 
@@ -30,7 +30,10 @@
 | api/ai | AiActions | AI 转录和聊天会话 |
 | api/syntax | SyntaxActions | 简谱语法诊断 |
 | api/jianpu | JianpuActions | 换调号时按音高重记谱（自动转调） |
+| api/correct | CorrectActions | 结构元素修正与 MusicXML patch |
+| api/notation | NotationActions | 乐器画像（erhu/ruan/guzheng 等）目录 |
 | api/files | FileActions | 上传、下载、删除和文件存在检查 |
+| api/tasks | TaskActions | 后台任务 SSE 进度流 |
 
 ## Domain
 
@@ -67,6 +70,9 @@
 | services/correct | clef/key/time 修正和 MusicXML patch |
 | services/overlay | OMR overlay、source map 和 SVG 生成 |
 | services/tasks | 后台任务状态和 SSE 进度 |
+| services/storage | 缓存清理与历史文件引用校验 |
+| services/syntax | 简谱语法校验服务门面 |
+| services/jianpu | 换调重记谱服务门面 |
 
 ### 重要渲染文件
 

@@ -40,13 +40,23 @@ $env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris
 
 ---
 
-## OMR 预处理
+## 工作目录与输出
+
+| 变量 | 说明 | 默认值 / 示例 |
+|------|------|---------------|
+| `SCORE_TRANS_WORKDIR` | 上传、识别、历史记录等工作目录根。 | `work` |
+| `SCORE_TRANS_OUTPUT_DIR` | 额外输出目录，空则使用工作目录。 | 空 |
+
+---
+
+## OMR 图像预处理与资源上限
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `SCORE_TRANS_OMR_PREPROCESS` | 是否在调用 Audiveris 前对图片做预处理（裁白边、增强对比、放大）。 | `1` |
-| `SCORE_TRANS_OMR_PREPROCESS_LONG_EDGE` | 预处理后图片长边像素数。 | `3600` |
-| `SCORE_TRANS_OMR_PREPROCESS_BINARIZE` | 是否额外做黑白化。识别异常时可尝试开启或关闭。 | `0` |
+| `SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE` | 是否在调用 Audiveris 前对低分辨率光栅图自动放大。 | `1`（True） |
+| `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE` | 自动放大的目标长边像素数。 | `2500` |
+| `SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT` | 大图保护上限，超过则缩放后再送 Audiveris。 | `4500000` |
+| `SCORE_TRANS_AUDIVERIS_MAX_HEAP` | Audiveris JVM 堆上限，仅允许 `1g`/`2g`/`3g`/`4g`。 | `3g` |
 
 ---
 
@@ -102,6 +112,7 @@ $env:SCORE_TRANS_OCR_MODEL="deepseek-ai/DeepSeek-OCR"
 | `SCORE_TRANS_AI_BASE_URL` | API 基础 URL。 | `https://api.xiaomimimo.com/v1` |
 | `SCORE_TRANS_AI_MODEL` | 视觉模型名。 | `mimo-v2.5` |
 | `SCORE_TRANS_AI_API_KEY` | API key。 | `sk-your-key` |
+| `SCORE_TRANS_AI_SYSTEM_MSG` | 转录用的系统提示词（覆盖默认）。 | 空 |
 | `SCORE_TRANS_AI_TIMEOUT` | 请求超时秒数。 | `120` |
 | `SCORE_TRANS_AI_TEMPERATURE` | 采样温度。 | `0.3` |
 | `SCORE_TRANS_AI_MAX_TOKENS` | 输出 token 上限回退值。provider profile 的 `max_tokens` 优先于此变量；均未配置时使用 4096。 | `4096` |
@@ -141,7 +152,18 @@ $env:SCORE_TRANS_AI_MODEL="mimo-v2.5"
 |------|------|--------|
 | `SCORE_TRANS_API_TITLE` | FastAPI 文档标题。 | `Score Trans` |
 | `SCORE_TRANS_API_VERSION` | API 版本号。 | `0.1.0` |
+| `SCORE_TRANS_API_TOKEN` | 后端鉴权 token（≥32 字符）。独立启动后端必填；Electron 启动时自动生成随机值。测试可设 `SCORE_TRANS_API_AUTH_DISABLED=1` 关闭。 | — |
+| `SCORE_TRANS_API_AUTH_DISABLED` | 关闭 token 鉴权（仅测试用）。 | 空 |
 | `SCORE_TRANS_CORS_ORIGINS` | 允许的 CORS 来源，逗号分隔。 | `http://localhost:5173,http://127.0.0.1:5173,null` |
+
+---
+
+## 上传大小限制
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `SCORE_TRANS_MAX_UPLOAD_FILE_BYTES` | 单文件上传字节上限。 | 见 `env.example` |
+| `SCORE_TRANS_MAX_UPLOAD_REQUEST_BYTES` | 单次请求体字节上限（含多文件）。 | 见 `env.example` |
 
 ---
 

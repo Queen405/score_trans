@@ -53,6 +53,9 @@ class JianpuOptions:
     title: str = "简谱"
     tempo: int | None = None
     instrument_profile: InstrumentProfile = "general"
+    key_explicit: bool = False
+    beats_explicit: bool = False
+    beat_type_explicit: bool = False
 
 
 @dataclass(slots=True)
@@ -128,6 +131,9 @@ def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
         title=score.title,
         tempo=score.tempo,
         instrument_profile=score.instrument_profile,
+        key_explicit=True,
+        beats_explicit=True,
+        beat_type_explicit=True,
     )
     tokens: list[ParsedToken] = []
     for measure in score.measures:
@@ -801,6 +807,7 @@ def parse_jianpu_parts(
     text: str,
     *,
     title: str | None = None,
+    _inherited_state: dict[int, tuple[str, int, int, int]] | None = None,
 ) -> list[ParsedJianpuPart]:
     text = text.lstrip("\ufeff")
     page_markers = _find_page_markers(text)
@@ -827,7 +834,31 @@ def parse_jianpu_parts(
             '名称中的引号需要写成 \\"',
         )
     if not markers:
-        score = parse_jianpu_score(_strip_page_marker_lines(text), title=title)
+        if _inherited_state is None:
+            score = parse_jianpu_score(_strip_page_marker_lines(text), title=title)
+        else:
+            prev = _inherited_state.get(0)
+            if prev is None and _inherited_state:
+                prev = _inherited_state[max(_inherited_state)]
+            if prev is None:
+                prev = ("C", 4, 4, DEFAULT_TEMPO)
+            prev_key, prev_beats, prev_beat_type, prev_tempo = prev
+            score = parse_jianpu_score(
+                _strip_page_marker_lines(text),
+                title=title,
+                _initial_tempo=prev_tempo,
+                _initial_key=prev_key,
+                _initial_beats=prev_beats,
+                _initial_beat_type=prev_beat_type,
+            )
+            if score.measures:
+                last = score.measures[-1]
+                _inherited_state[0] = (
+                    last.target_key or prev_key,
+                    last.beats_per_measure,
+                    last.beat_type,
+                    last.tempo or prev_tempo,
+                )
         if page_markers:
             page = page_markers[0]
             score.page_index = page.number - 1
@@ -874,7 +905,9 @@ def parse_jianpu_parts(
     parts: list[ParsedJianpuPart] = []
     current_page_start: int = -1
     page_part_index = 0
-    inherited_tempos: dict[int, int] = {}
+    inherited_state: dict[int, tuple[str, int, int, int]] = (
+        _inherited_state if _inherited_state is not None else {}
+    )
     # F2：上一个声部正文被 @page 截断时，其后的页眉归属下一个声部（起点前移）。
     # 最后一个声部之后的页眉 v1 暂静默丢弃，F6（v2）改为显式报错。
     pending_header_start: int | None = None
@@ -929,20 +962,39 @@ def parse_jianpu_parts(
             )
         part_text = text[start:end]
         part_text_without_page_markers = _strip_page_marker_lines(part_text)
+        if page_part_index in inherited_state:
+            prev_key, prev_beats, prev_beat_type, prev_tempo = inherited_state[
+                page_part_index
+            ]
+        elif inherited_state:
+            prev_key, prev_beats, prev_beat_type, prev_tempo = inherited_state[
+                max(inherited_state)
+            ]
+        else:
+            prev_key, prev_beats, prev_beat_type, prev_tempo = (
+                "C",
+                4,
+                4,
+                DEFAULT_TEMPO,
+            )
         try:
             score = parse_jianpu_score(
                 part_text_without_page_markers,
                 title=title,
-                _initial_tempo=inherited_tempos.get(
-                    page_part_index,
-                    DEFAULT_TEMPO,
-                ),
+                _initial_tempo=prev_tempo,
+                _initial_key=prev_key,
+                _initial_beats=prev_beats,
+                _initial_beat_type=prev_beat_type,
             )
         except JianpuSyntaxError as exc:
             raise _remap_part_syntax_error(exc, text, start) from exc
         if score.measures:
-            inherited_tempos[page_part_index] = (
-                score.measures[-1].tempo or DEFAULT_TEMPO
+            last = score.measures[-1]
+            inherited_state[page_part_index] = (
+                last.target_key or prev_key,
+                last.beats_per_measure,
+                last.beat_type,
+                last.tempo or prev_tempo,
             )
         base_utf16 = _utf16_length(text[:start])
         for measure in score.measures:
@@ -1021,6 +1073,9 @@ def parse_jianpu_score(
     *,
     title: str | None = None,
     _initial_tempo: int = DEFAULT_TEMPO,
+    _initial_key: str = "C",
+    _initial_beats: int = 4,
+    _initial_beat_type: int = 4,
 ) -> JianpuScore:
     normalized = text.lstrip("\ufeff")
     options, token_lines, lyrics = _read_new_syntax(normalized)
@@ -1028,10 +1083,12 @@ def parse_jianpu_score(
         options.title = title
     score = JianpuScore(
         title=options.title,
-        target_key=options.key,
-        source_key=options.key,
-        beats=options.beats,
-        beat_type=options.beat_type,
+        target_key=options.key if options.key_explicit else _initial_key,
+        source_key=options.key if options.key_explicit else _initial_key,
+        beats=options.beats if options.beats_explicit else _initial_beats,
+        beat_type=options.beat_type
+        if options.beat_type_explicit
+        else _initial_beat_type,
         tempo=options.tempo,
         instrument_profile=options.instrument_profile,
     )
@@ -1052,9 +1109,11 @@ def parse_jianpu_score(
     open_tie = False
     measure_number = 1
     next_repeat_start = False
-    current_key = options.key
-    current_beats = options.beats
-    current_beat_type = options.beat_type
+    current_key = options.key if options.key_explicit else _initial_key
+    current_beats = options.beats if options.beats_explicit else _initial_beats
+    current_beat_type = (
+        options.beat_type if options.beat_type_explicit else _initial_beat_type
+    )
     current_tempo = options.tempo or _initial_tempo
     last_pitched_event: Event | None = None
     pending_slide_token: _Token | None = None
@@ -1507,6 +1566,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                     saw_token_since_bar = True
                 else:
                     options.key = value
+                    options.key_explicit = True
                     saw_key = True
                 continue
             if key == "title":
@@ -1574,6 +1634,8 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                     )
                 options.beats = int(beats)
                 options.beat_type = int(beat_type)
+                options.beats_explicit = True
+                options.beat_type_explicit = True
             continue
         for match in re.finditer(
             r"\(?\$[^$]+\$\)?|\|\||\|:|:\||\||[^\s|]+",

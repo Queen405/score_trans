@@ -24,10 +24,10 @@ tests/          Python 测试
 
 导入权限（禁止反向导入）：
 
-- `api/` 可导入 `exec/`、`models/`
-- `exec/` 可导入 `services/`、`models/`
-- `services/` 可导入 `dao/`、`domain/`、`models/`
-- `dao/`、`domain/` 只能导入 `models/` 和标准库
+- `api/` 可导入 `exec/`、`models/`、`config/`
+- `exec/` 可导入 `services/`、`models/`、`config/`、`utils/`
+- `services/` 可导入 `dao/`、`domain/`、`models/`、`config/`、`utils/`
+- `dao/`、`domain/` 可导入 `models/` 和 `utils/`
 - `models/` 不能导入任何项目模块
 
 架构测试在 [`tests/test_architecture.py`](../tests/test_architecture.py) 中强制执行。另外注意：**`exec/` 层禁止新增 `HTTPException` 导入**，这是已知的技术债务；新代码请使用标准异常并在 `api/` 路由中转换。

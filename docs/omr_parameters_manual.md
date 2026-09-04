@@ -51,12 +51,16 @@ OMR 相关参数全部集中在 `backend/score_trans/config/.env` 中，分为�
 | `SCORE_TRANS_AUDIVERIS_SHEETS` | 空 | 字符串 | 指定处理的乐谱页 |
 | `SCORE_TRANS_AUDIVERIS_CONSTANTS` | 空 | 字符串 | 设置 Audiveris 内部常量 |
 | `SCORE_TRANS_AUDIVERIS_EXTRA_ARGS` | 空 | 字符串 | 直接追加 Audiveris CLI 参数 |
+| `SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE` | `1` | 布尔 | 自动放大低分辨率光栅图（目标长边见下） |
+| `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE` | `2500` | 整数 | 自动放大的目标长边像素数 |
+| `SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT` | `4500000` | 整数 | 大图保护上限，超过则先缩放 |
+| `SCORE_TRANS_AUDIVERIS_MAX_HEAP` | `3g` | 字符串 | Audiveris JVM 堆上限，仅 `1g`/`2g`/`3g`/`4g` |
 
 ### 2.3 PDF 渲染参数（OMR 输入阶段）
 
 | 参数名 | 默认值 | 类型 | 作用 |
 |---|---|---|---|
-| `SCORE_TRANS_PDF_RENDER_DPI` | `220` | 整数 | PDF 渲染为 PNG 时的分辨率 |
+| `SCORE_TRANS_PDF_RENDER_DPI` | `300` | 整数 | PDF 渲染为 PNG 时的分辨率 |
 
 
 
@@ -219,62 +223,6 @@ Audiveris 内部有大量可调整的算法常量，格式为 `-constant key=val
 
 ---
 
-
----
-
-## 4. 参数详解
-
-### 4.1 外部工具路径
-
-#### `SCORE_TRANS_AUDIVERIS`
-
-- **含义**：Audiveris 的启动入口。
-- **默认值**：`third_party/audiveris/gradlew.bat`
-- **格式要求**：
-  - Windows 下通常为 `gradlew.bat` 或编译后的 `audiveris.exe`。
-  - 使用 Gradle Wrapper 时，代码会自动使用 `:app:run` 任务启动。
-  - Wrapper 调用固定追加 `--no-daemon`，优先级高于 `gradle.properties`，避免识别后留下长期 Gradle JVM。
-  - 该参数会带来秒级的 Gradle/JVM 冷启动开销，实际耗时取决于机器与缓存；换取退出后的资源释放。
-  - macOS/Linux 同样不创建长期 Daemon；现有后端终止信号负责回收本次调用的 JVM，但不保证任意外部孙进程级联退出。
-  - 使用独立可执行文件时，直接作为命令调用。
-- **常见配置**：
-  ```env
-  # 使用源码/Wrapper（开发环境）
-  SCORE_TRANS_AUDIVERIS=third_party/audiveris/gradlew.bat
-
-  # 使用已编译的独立可执行文件
-  SCORE_TRANS_AUDIVERIS=C:/Tools/Audiveris/bin/audiveris.exe
-  ```
-- **注意事项**：路径中的反斜杠建议写成正斜杠，或使用双反斜杠，避免转义问题。
-
-#### `SCORE_TRANS_JAVA_HOME`
-
-- **含义**：Audiveris 运行依赖的 JDK 根目录。
-- **默认值**：`E:/ENV/JAVA/JDK25`
-- **要求**：必须是 **JDK 25**，Audiveris 对 Java 版本要求较严格。
-- **校验逻辑**：启动时会检查 `{JAVA_HOME}/bin/java.exe` 是否存在；不存在会抛出 `ExternalToolError`。
-- **常见配置**：
-  ```env
-  SCORE_TRANS_JAVA_HOME=E:/ENV/JAVA/JDK25
-  # 或
-  SCORE_TRANS_JAVA_HOME=C:/Program Files/Java/jdk-25
-  ```
-
-#### `SCORE_TRANS_WORKDIR`
-
-- **含义**：工作目录根路径，用于存放上传文件、识别中间产物、历史记录等。
-- **默认值**：`work`
-- **效果**：后端会在此目录下创建 `uploads/`、`pipeline/`、`audiveris/`、`history/` 等子目录。
-- **建议**：确保该目录所在磁盘有足够空间，Audiveris 识别过程中可能产生较大临时文件。
-
-#### `SCORE_TRANS_OUTPUT_DIR`
-
-- **含义**：额外输出目录。
-- **默认值**：空（使用 `SCORE_TRANS_WORKDIR`）
-- **效果**：留空时，所有输出都放在工作目录下；否则可作为辅助输出位置。
-
----
-
 ### 4.2 Audiveris 执行选项
 
 这些参数最终会被翻译成 Audiveris 命令行参数。代码中的映射关系如下：
@@ -381,7 +329,7 @@ args += ["-export", "-output", output_dir, input_file]
 #### `SCORE_TRANS_PDF_RENDER_DPI`
 
 - **含义**：PDF 输入在送入 Audiveris 前，先被渲染为 PNG 的分辨率。
-- **默认值**：`220`
+- **默认值**：`300`
 - **取值范围**：建议 `150` ~ `400`
 - **影响**：
   - **DPI 越高**，PNG 越清晰，Audiveris 识别细节越好，但文件越大、识别越慢。
@@ -393,7 +341,7 @@ args += ["-export", "-output", output_dir, input_file]
   | 普通打印扫描 | 220 ~ 300 |
   | 高质量印刷源 | 300 ~ 400 |
   | 快速测试 | 150 ~ 200 |
-- **相关说明**：AI 转录模块（`/ai/transcribe`）内部默认也使用 220 DPI，但可通过 API 参数覆盖。
+- **相关说明**：AI 转录模块（`/ai/transcribe`）内部默认也使用 300 DPI，但可通过 API 参数覆盖。
 
 ---
 
@@ -441,7 +389,7 @@ SCORE_TRANS_AUDIVERIS_SAVE=1
 
 **Q1：Score Trans 是否支持上传前自动对图片做预处理？**
 
-A：当前版本**不内置 OMR 图像预处理**。如需增强对比度、裁剪白边、二值化等，请在上传前使用 ImageMagick、Photoshop 等工具处理。
+A：**支持**。`SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE`（默认 `1`）会在调用 Audiveris 前对低分辨率光栅图自动放大到 `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE`（默认 `2500`）像素长边；`SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT`（默认 `4500000`）则对超大图先缩放再做大图保护。PDF 输入按 `SCORE_TRANS_PDF_RENDER_DPI` 渲染为 PNG 后同样经过该链路。
 
 **Q2：识别总是报错找不到 Java？**
 
