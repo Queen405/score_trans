@@ -77,6 +77,52 @@ def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -
     return pages[0].svg
 
 
+def render_scores_svg(
+    scores: list[JianpuScore], options: RenderOptions | None = None
+) -> str:
+    """多声部版本，与 render_score_svg 对应，页面高度按内容自动估算。"""
+    first = scores[0] if scores else JianpuScore()
+    options = options or RenderOptions(title=first.title)
+    style = _style_from_options(options, page_width=float(options.width))
+    measure_count = max((len(score.measures) for score in scores), default=0)
+    part_count = max(len(scores), 1)
+    estimated_height = max(420.0, 270.0 + measure_count * 150.0 * part_count)
+    style = replace(style, page_height=estimated_height)
+    pages = PublicationRenderer(style).render_scores(
+        scores,
+        title=options.title or first.title,
+        show_measure_numbers=options.show_measure_numbers,
+        measure_number_mode=options.measure_number_mode,
+        initial_measure_number=options.initial_measure_number,
+    )
+    if len(pages) != 1:
+        raise RenderError("单页渲染空间不足；请使用 A4 分页渲染入口")
+    return pages[0].svg
+
+
+def render_scores_page_svg(
+    scores: list[JianpuScore],
+    *,
+    page_width: float,
+    page_height: float,
+    options: RenderOptions | None = None,
+) -> str:
+    """多声部版本，与 render_score_page_svg 对应，使用固定页面尺寸。"""
+    first = scores[0] if scores else JianpuScore()
+    options = options or RenderOptions(title=first.title)
+    style = _style_from_options(options, page_width=page_width, page_height=page_height)
+    pages = PublicationRenderer(style).render_scores(
+        scores,
+        title=options.title or first.title,
+        show_measure_numbers=options.show_measure_numbers,
+        measure_number_mode=options.measure_number_mode,
+        initial_measure_number=options.initial_measure_number,
+    )
+    if len(pages) != 1:
+        raise RenderError("请求的页面尺寸无法容纳全部谱面内容")
+    return pages[0].svg
+
+
 def render_jianpu_page_svg(
     jianpu_text: str,
     *,
@@ -297,6 +343,7 @@ def render_score_page_file_to_svg(
     title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
+    initial_measure_number: int | None = 1,
 ) -> Path:
     svg = render_score_page_svg(
         score,
@@ -306,6 +353,61 @@ def render_score_page_file_to_svg(
             title=title or score.title,
             show_measure_numbers=show_measure_numbers is not False,
             measure_number_mode=measure_number_mode or "all",
+            initial_measure_number=initial_measure_number,
+        ),
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(svg, encoding="utf-8")
+    return output_path
+
+
+def render_scores_file_to_svg(
+    scores: list[JianpuScore],
+    output_path: Path,
+    *,
+    title: str | None = None,
+    show_measure_numbers: bool | None = None,
+    measure_number_mode=None,
+    initial_measure_number: int | None = 1,
+) -> Path:
+    """多声部版本，与 render_score_file_to_svg 对应。"""
+    first = scores[0] if scores else JianpuScore()
+    svg = render_scores_svg(
+        scores,
+        RenderOptions(
+            title=title or first.title,
+            show_measure_numbers=show_measure_numbers is not False,
+            measure_number_mode=measure_number_mode or "all",
+            initial_measure_number=initial_measure_number,
+        ),
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(svg, encoding="utf-8")
+    return output_path
+
+
+def render_scores_page_file_to_svg(
+    scores: list[JianpuScore],
+    output_path: Path,
+    *,
+    page_width: float,
+    page_height: float,
+    title: str | None = None,
+    show_measure_numbers: bool | None = None,
+    measure_number_mode=None,
+    initial_measure_number: int | None = 1,
+) -> Path:
+    """多声部版本，与 render_score_page_file_to_svg 对应。"""
+    first = scores[0] if scores else JianpuScore()
+    svg = render_scores_page_svg(
+        scores,
+        page_width=page_width,
+        page_height=page_height,
+        options=RenderOptions(
+            title=title or first.title,
+            show_measure_numbers=show_measure_numbers is not False,
+            measure_number_mode=measure_number_mode or "all",
+            initial_measure_number=initial_measure_number,
         ),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)

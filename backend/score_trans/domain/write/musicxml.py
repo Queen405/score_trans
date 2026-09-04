@@ -106,8 +106,8 @@ def _append_score_measures(
                 ET.SubElement(time, "beat-type").text = str(measure_beat_type)
             if index == 1:
                 clef = ET.SubElement(attrs, "clef")
-                ET.SubElement(clef, "sign").text = "G"
-                ET.SubElement(clef, "line").text = "2"
+                ET.SubElement(clef, "sign").text = score.clef_sign or "G"
+                ET.SubElement(clef, "line").text = str(score.clef_line or 2)
             previous_key = measure_key
             previous_time = measure_time
         direction_blocks = _measure_direction_blocks(

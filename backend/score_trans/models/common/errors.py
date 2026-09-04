@@ -52,3 +52,15 @@ class JianpuValidationError(CodedValidationError):
     """Raised when Jianpu input cannot be rendered or exported."""
 
     error_code = "jianpu_syntax"
+
+
+class MultiVoiceNotSupportedError(CodedValidationError):
+    """声部内含多个 voice，简谱文本无法无损表达。
+
+    简谱文本格式只有 ``// @part`` 一级多声部概念，没有 voice 级表达。
+    当一个 MusicXML part 内同时存在多个 voice（复调、钢琴同谱双 voice 等），
+    经简谱文本中转会把并行的音符串行化，小节时值翻倍且不可逆。
+    本异常在转换入口拦截，避免静默损坏。
+    """
+
+    error_code = "multi_voice_not_supported"

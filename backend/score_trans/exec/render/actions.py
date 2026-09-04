@@ -99,17 +99,19 @@ class RenderMusicXmlJianpuAction:
         initial_measure_number: int = 1,
         title: str | None = None,
     ) -> Path:
-        score = self.build_score(
+        scores = self.build_scores(
             musicxml_path,
             target_key=target_key,
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
             title=title,
         )
-        return self.render_service.render_score_svg(
-            score,
+        _validate_multi_part_measure_counts(scores)
+        first_score = scores[0] if scores else JianpuScore()
+        return self.render_service.render_scores_svg(
+            scores,
             output_path,
-            title=title or score.title,
+            title=title or first_score.title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
@@ -130,19 +132,21 @@ class RenderMusicXmlJianpuAction:
         initial_measure_number: int = 1,
         title: str | None = None,
     ) -> Path:
-        score = self.build_score(
+        scores = self.build_scores(
             musicxml_path,
             target_key=target_key,
             accidental_mode=accidental_mode,
             instrument_profile=instrument_profile,
             title=title,
         )
-        return self.render_service.render_score_page_svg(
-            score,
+        _validate_multi_part_measure_counts(scores)
+        first_score = scores[0] if scores else JianpuScore()
+        return self.render_service.render_scores_page_svg(
+            scores,
             output_path,
             page_width=page_width,
             page_height=page_height,
-            title=title or score.title,
+            title=title or first_score.title,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
@@ -187,7 +191,7 @@ class RenderMusicXmlJianpuAction:
             beat_gap_percent=beat_gap_percent,
         )
 
-    def build_score(
+    def first_score(
         self,
         musicxml_path: str | Path,
         *,
@@ -196,6 +200,11 @@ class RenderMusicXmlJianpuAction:
         instrument_profile: InstrumentProfile | None = None,
         title: str | None = None,
     ) -> JianpuScore:
+        """只取第一个声部，其余声部会被丢弃。
+
+        仅在确实只需要单声部预览时使用；渲染与导出请一律走 build_scores()，
+        否则多声部谱面会被静默截断为第一声部。
+        """
         scores = self.build_scores(
             musicxml_path,
             target_key=target_key,

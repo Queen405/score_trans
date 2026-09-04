@@ -252,6 +252,10 @@ class JianpuScore:
     part_index: int = 0
     part_name: str = ""
     part_count: int = 1
+    part_staff: str | None = None
+    clef_sign: str | None = None
+    clef_line: int | None = None
+    clefs_by_staff: dict[str, tuple[str, int | None]] = field(default_factory=dict)
     page_index: int = 0
     page_count: int = 1
     page_input_file_name: str = ""

@@ -46,24 +46,6 @@ class MusicXmlToJianpuAction:
             accidental_mode=accidental_mode,
         ).text
 
-    def build_score(
-        self,
-        musicxml_path: str | Path,
-        *,
-        target_key: str = "C",
-        instrument_profile: InstrumentProfile | None = None,
-        image_path: str | Path | None = None,
-        ocr_provider: OCRProvider | None = None,
-    ) -> JianpuScore:
-        scores = self.build_scores(
-            musicxml_path,
-            target_key=target_key,
-            instrument_profile=instrument_profile,
-            image_path=image_path,
-            ocr_provider=ocr_provider,
-        )
-        return scores[0] if scores else JianpuScore()
-
     def build_scores(
         self,
         musicxml_path: str | Path,

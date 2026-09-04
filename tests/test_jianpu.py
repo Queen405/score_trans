@@ -630,7 +630,9 @@ def test_double_slash_comments_are_ignored() -> None:
     )
     normalized = normalize_jianpu_text(text)
 
-    assert "//" not in normalized
+    # 注释行被剥离；唯一的 `//` 来自分谱标记（单声部也输出 @part）
+    assert normalized.count("//") == 1
+    assert normalized.startswith('// @part 1 name=""')
     assert "#5 6 7 1' |" in normalized
     assert "2 3 4 5 |" in normalized
 

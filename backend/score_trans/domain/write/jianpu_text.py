@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from fractions import Fraction
 
+from ...models.common.errors import MultiVoiceNotSupportedError
 from ...models.common.types import AccidentalMode, normalize_instrument_profile
 from ...models.provenance.entities import JianpuDocument
 from ...models.provenance.schemas import TextAnchor
@@ -58,15 +59,32 @@ def scores_to_jianpu_text(
     return scores_to_jianpu_document(scores, accidental_mode=accidental_mode).text
 
 
+def _assert_single_voice_per_part(scores: list[JianpuScore]) -> None:
+    """拦截同声部多 voice：简谱文本无 voice 级表达，转换会不可逆损坏。"""
+    for score in scores:
+        voices: set[str] = set()
+        for measure in score.measures:
+            for event in measure.events:
+                if event.kind == "note" and event.voice:
+                    voices.add(event.voice.strip())
+        if len(voices) > 1:
+            name = score.part_name or f"声部{score.part_index + 1}"
+            raise MultiVoiceNotSupportedError(
+                f"声部「{name}」包含 {len(voices)} 个 voice，"
+                f"简谱文本暂不支持同声部复调，无法无损转换。"
+                f"建议将各 voice 拆分为独立声部（// @part）后再处理。"
+            )
+
+
 def scores_to_jianpu_document(
     scores: list[JianpuScore],
     *,
     accidental_mode: AccidentalMode = "auto",
 ) -> JianpuDocument:
-    if len(scores) <= 1:
-        score = scores[0] if scores else JianpuScore()
-        return score_to_jianpu_document(score, accidental_mode=accidental_mode)
+    if not scores:
+        return score_to_jianpu_document(JianpuScore(), accidental_mode=accidental_mode)
 
+    _assert_single_voice_per_part(scores)
     scores = [_score_with_serializable_slurs(score) for score in scores]
 
     has_page_info = any(s.page_input_file_name for s in scores) or (

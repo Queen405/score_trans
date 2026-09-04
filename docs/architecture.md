@@ -70,7 +70,7 @@ api  →  exec  →  services  →  dao / domain / models
   → RecognizeScoreAction.execute()
     → AudiverisService.recognize()（subprocess）
     → 得到 MusicXML
-  → MusicXmlToJianpuAction.build_score()
+  → MusicXmlToJianpuAction.build_scores()
     → domain/musicxml.musicxml_path_to_scores() → JianpuScore 列表
     → Python OCR provider 提取标题、歌词、表情等文字块
   → score_to_jianpu_text() → 简谱文本

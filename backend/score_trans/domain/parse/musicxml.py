@@ -235,6 +235,18 @@ def _parse_single_part(
                     score.beats = current_beats
                     score.beat_type = current_beat_type
                     initialized_score_time = True
+            # 读取谱号（首小节生效，用于回写 MusicXML 时还原）
+            if index == 1:
+                for clef_el in attrs.findall(_q(ns, "clef")):
+                    number = clef_el.get("number") or "1"
+                    sign = _text(clef_el.find(_q(ns, "sign")))
+                    line_text = _text(clef_el.find(_q(ns, "line")))
+                    line = int(line_text) if line_text else None
+                    if sign:
+                        score.clefs_by_staff[number] = (sign, line)
+                        if score.clef_sign is None or number == "1":
+                            score.clef_sign = sign
+                            score.clef_line = line
             score.source_key = current_key
 
         display_number = _display_measure_number(xml_measure, index)
@@ -304,6 +316,14 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
             instrument_profile=score.instrument_profile,
             part_name=score.part_name,
         )
+        # 按 staff 分配谱号；无对应记录时回退到 part 级谱号
+        staff_clef = score.clefs_by_staff.get(staff)
+        if staff_clef:
+            staff_score.clef_sign, staff_score.clef_line = staff_clef
+        else:
+            staff_score.clef_sign = score.clef_sign
+            staff_score.clef_line = score.clef_line
+        staff_score.clefs_by_staff = dict(score.clefs_by_staff)
         for measure in score.measures:
             staff_events = [
                 event
@@ -344,9 +364,7 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
                 pad_empty=True,
             )
             staff_score.measures.append(staff_measure)
-        staff_score.part_name = (
-            f"{score.part_name}(staff {staff})" if score.part_name else f"staff {staff}"
-        )
+        staff_score.part_staff = staff
         results.append(staff_score)
     return results if results else [score]
 

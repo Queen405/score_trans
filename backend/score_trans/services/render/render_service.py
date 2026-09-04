@@ -13,6 +13,8 @@ from .main import (
     render_scores_a4_page_results_to_files,
     render_scores_a4_pages,
     render_scores_a4_pages_to_files,
+    render_scores_file_to_svg,
+    render_scores_page_file_to_svg,
 )
 from .options import A4LayoutOptions, RenderOptions
 
@@ -64,6 +66,49 @@ class PublicationRenderService:
     ) -> Path:
         return render_score_page_file_to_svg(
             score,
+            Path(output_path),
+            page_width=page_width,
+            page_height=page_height,
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
+        )
+
+    def render_scores_svg(
+        self,
+        scores: list[JianpuScore],
+        output_path: str | Path,
+        title: str | None = None,
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
+    ) -> Path:
+        """多声部版本，与 render_score_svg 对应。"""
+        return render_scores_file_to_svg(
+            scores,
+            Path(output_path),
+            title=title,
+            show_measure_numbers=show_measure_numbers,
+            measure_number_mode=measure_number_mode,
+            initial_measure_number=initial_measure_number,
+        )
+
+    def render_scores_page_svg(
+        self,
+        scores: list[JianpuScore],
+        output_path: str | Path,
+        *,
+        page_width: float,
+        page_height: float,
+        title: str | None = None,
+        show_measure_numbers: bool | None = None,
+        measure_number_mode: MeasureNumberMode | None = None,
+        initial_measure_number: int | None = 1,
+    ) -> Path:
+        """多声部版本，与 render_score_page_svg 对应。"""
+        return render_scores_page_file_to_svg(
+            scores,
             Path(output_path),
             page_width=page_width,
             page_height=page_height,
