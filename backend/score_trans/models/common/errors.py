@@ -60,7 +60,11 @@ class MultiVoiceNotSupportedError(CodedValidationError):
     简谱文本格式只有 ``// @part`` 一级多声部概念，没有 voice 级表达。
     当一个 MusicXML part 内同时存在多个 voice（复调、钢琴同谱双 voice 等），
     经简谱文本中转会把并行的音符串行化，小节时值翻倍且不可逆。
-    本异常在转换入口拦截，避免静默损坏。
+
+    注意：默认转换路径（``scores_to_jianpu_document``）不再自动抛出本异常——
+    因为 OMR（Audiveris）常把单声部旋律伪拆成多个 voice，硬拦截会阻断整个
+    识别流程。默认行为改为「拍平为单声部输出 + 警告日志」。本异常保留供需要
+    严格止损的调用方显式抛出（如未来引入 ``strict_multi_voice`` 选项时）。
     """
 
     error_code = "multi_voice_not_supported"

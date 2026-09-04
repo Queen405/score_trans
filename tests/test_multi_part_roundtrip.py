@@ -79,6 +79,27 @@ TWO_VOICES_XML = """<?xml version="1.0" encoding="UTF-8"?>
 </score-partwise>
 """
 
+# 单个 part 内含两个 voice 但时间不重叠（OMR 伪 voice：voice1 奏 C4 一半，voice2 接着奏 E4 一半）
+SEQUENTIAL_VOICES_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1"><part-name>Voice</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>4</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>8</duration><voice>2</voice><type>half</type></note>
+    </measure>
+  </part>
+</score-partwise>
+"""
+
 # 钢琴大谱表：一个 part、两个 staff、高音谱号 + 低音谱号
 GRAND_STAFF_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="4.0">
@@ -220,56 +241,65 @@ def test_grand_staff_splits_into_two_parts_with_distinct_pitches() -> None:
     )
 
 
-def test_polyphonic_score_is_rejected_before_text_conversion() -> None:
-    """复调：多 voice 声部在转简谱文本前即被拦截（F2-A 止损）。"""
-    from score_trans.models.common.errors import MultiVoiceNotSupportedError
-
+def test_polyphonic_score_is_flattened_not_rejected() -> None:
+    """多 voice 声部转简谱文本不再硬拦截，拍平为单声部输出（恢复旧可用行为）。"""
     scores = musicxml_to_scores(TWO_VOICES_XML)
-    with pytest.raises(MultiVoiceNotSupportedError):
-        scores_to_jianpu_document(scores)
+    document = scores_to_jianpu_document(scores)
+    assert document.text
 
 
 # --------------------------------------------------------------------------
-# F2-A 复调止损：同声部多 voice 转简谱文本时明确报错，不再静默拍平
+# F2-A 调整：同声部多 voice 不再硬拦截，改为拍平为单声部输出 + 警告
+# （OMR 常把单声部旋律伪拆成多 voice，硬拦截会阻断整个识别流程）。
+# 真复调的潜在损失通过警告日志提示，由用户决定是否改用 // @part 拆分。
 # --------------------------------------------------------------------------
 
 
-def test_polyphonic_score_raises_multi_voice_error() -> None:
-    """复调：含多 voice 的声部转简谱文本应抛 MultiVoiceNotSupportedError。"""
-    from score_trans.models.common.errors import MultiVoiceNotSupportedError
+def test_polyphonic_score_flattens_to_single_part() -> None:
+    """多 voice 拍平后仍为单个声部文本。"""
+    scores = musicxml_to_scores(TWO_VOICES_XML)
+    document = scores_to_jianpu_document(scores)
+    restored = [part.score for part in parse_jianpu_parts(document.text)]
+    assert len(restored) == 1
+
+
+def test_polyphonic_flatten_warns_with_part_name(caplog) -> None:
+    """拍平时应通过警告日志提示风险，且包含声部名便于定位。"""
+    import logging
 
     scores = musicxml_to_scores(TWO_VOICES_XML)
-    with pytest.raises(MultiVoiceNotSupportedError, match="2 个 voice"):
+    with caplog.at_level(
+        logging.WARNING, logger="score_trans.domain.write.jianpu_text"
+    ):
         scores_to_jianpu_document(scores)
-
-
-def test_multi_voice_error_message_contains_part_name() -> None:
-    """报错信息应包含声部名，便于用户定位。"""
-    from score_trans.models.common.errors import MultiVoiceNotSupportedError
-
-    scores = musicxml_to_scores(TWO_VOICES_XML)
-    with pytest.raises(MultiVoiceNotSupportedError, match="Flute"):
-        scores_to_jianpu_document(scores)
+    assert any("Flute" in record.message for record in caplog.records)
 
 
 def test_single_voice_score_does_not_raise() -> None:
-    """单 voice 声部不受止损拦截。"""
+    """单 voice 声部不受多 voice 警告路径影响。"""
     scores = musicxml_to_scores(TWO_PARTS_XML)
     # 不应抛错
     scores_to_jianpu_document(scores)
 
 
-def test_multi_voice_error_has_stable_code() -> None:
-    """异常应携带稳定的 error_code 供 API 层路由。"""
-    from score_trans.models.common.errors import MultiVoiceNotSupportedError
+def test_sequential_voices_are_merged_not_rejected() -> None:
+    """OMR 伪 voice：同声部多 voice 拍平为单声部输出，不抛错。
 
-    scores = musicxml_to_scores(TWO_VOICES_XML)
-    try:
-        scores_to_jianpu_document(scores)
-    except MultiVoiceNotSupportedError as exc:
-        assert exc.error_code == "multi_voice_not_supported"
-    else:
-        pytest.fail("应抛出 MultiVoiceNotSupportedError")
+    Audiveris 常把单声部旋律伪拆成多个 voice（甚至用 ``<backup>`` 造成时间
+    重叠）；这类输入统一按 voice 分组拍平为单声部文本，恢复旧的可用行为。
+    """
+    scores = musicxml_to_scores(SEQUENTIAL_VOICES_XML)
+    document = scores_to_jianpu_document(scores)
+
+    restored = [part.score for part in parse_jianpu_parts(document.text)]
+    assert len(restored) == 1
+    pitches = [
+        (pitch.degree, pitch.octave)
+        for measure in restored[0].measures
+        for event in measure.events
+        for pitch in event.pitches
+    ]
+    assert pitches == [(1, 0), (3, 0)]
 
 
 def test_grand_staff_output_keeps_bass_clef() -> None:
