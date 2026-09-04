@@ -127,14 +127,18 @@
 - **位置**：`backend/score_trans/config/settings.py` 与 `backend/score_trans/config/env.example:1-76`
 - **修复**：示例已增加 `SCORE_TRANS_WORKDIR`、`SCORE_TRANS_JAVA_HOME`、`SCORE_TRANS_OUTPUT_DIR`、`SCORE_TRANS_AI_SYSTEM_MSG`，均保持空值默认语义；新增 settings 测试防止再次遗漏。
 
-### R7. 语法检查估算路径在反复结构下小节号偏差（P2，开放）
+### R7. 语法检查估算路径在反复结构下小节号偏差（P2，已修复）
 
 - **位置**：`backend/score_trans/domain/parse/jianpu_text.py` 的 `_estimate_measure_spans`（随 F3「事后重打号」引入）
-- **原因**：估算路径（`parse_jianpu_parts` 失败时的降级）用段内 token 累计号的极差估算小节数，但 `_read_new_syntax` 的累计号会被 `*N` 干扰：backward `:| *2` 推进 +1（极差高估），forward `*3` 不推进（极差低估）。没有简单的排除/不排除 `*N` token 能同时修正两者。
+- **原因**：估算路径（`parse_jianpu_parts` 失败时的降级）用段内 token 累计号的极差估算小节数，但 `_read_new_syntax` 的累计号会被 `*N` 干扰：backward `:| *2` 推进 +1（极差高估），forward `*3` 不推进（极差低估）。
 - **影响**：仅限"语法错误 + 反复结构"同时出现的文档；错误之后的页的小节号会偏大/偏小。错误的行号、列号、高亮区间仍正确，仅小节号偏差。
 - **实测**：第 1 页 `1 2 3 4 :| *2 |` + 第 2 页 `2 3 4 8 |`，`8` 准确应为第 3 小节，估算报第 4 小节。
-- **修复方案**：v2 的 T8 落地后（`_read_new_syntax` 补齐 flush_measure 的 `|:`/`:|`/`*N` 推进规则），估算路径改数小节线而非用极差。
-- **2026-09-04**：随 v1（F1+F2+F3）一并交付；详见 `docs/syntax-measure-numbering-fix-plan.md` §5.6 与 `docs/code-review-syntax-v1.md`。
+- **2026-09-04 修复（v2 T8）**：双管齐下——
+  1. `_read_new_syntax` 补齐 `flush_measure` 的推进规则（`|:`/`:` 不产生空小节、`:` 后空小节吞并、backward `*N` 后空小节吞并、forward `*N` 在 bar 时占号），累计号与 display_number 语义对齐；
+  2. `_estimate_measure_spans` 改为**逐段单独 `parse_jianpu_score`**，好段拿准确的 `sum(repeat_count)`，只有坏段回退极差（而极差在 1 落地后也已对齐 display 语义）。
+  实测 T2 复现用例现在报第 3 小节（准确）。新增 3 条 T8 回归测试。
+- **已知残余边界**：段末悬空配置行（如 `1 2 3 4 |\n2/4` 后无音符）会让该段极差高估 1，但仅在"该段所在整篇文档的其它段有语法错误"时才走估算路径，且只影响该页之后的 base；场景罕见，暂不处理。
+- **2026-09-04**：v1 随 F1+F2+F3 交付；详见 `docs/syntax-measure-numbering-fix-plan.md` §5.6 与 `docs/code-review-syntax-v1.md`。
 
 ## 五、新增测试缺口
 

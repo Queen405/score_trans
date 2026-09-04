@@ -31,6 +31,7 @@ from ..jianpu_tokens import (
     duration_prefix,
     tuplet_normal_notes,
 )
+from ..measure_counts import find_measure_count_mismatch
 from ..performance_marks import (
     PERFORMANCE_MARKS,
     event_mark_ids,
@@ -402,9 +403,12 @@ def _estimate_measure_spans(
     bounds: list[tuple[int, int, bool]],
     tokens: list[_Token],
 ) -> list[tuple[int, int, int]]:
-    """解析失败时按「标记分段 + token 累计小节线」估算连续起始号。
+    """解析失败时估算各声部段的连续起始号。
 
-    每段的小节数取段内 token 累计号的极差 + 1；与准确路径一样按页取最大值推进。
+    整篇 `parse_jianpu_parts` 失败通常只因**某一段**有语法错误，所以这里逐段单独
+    `parse_jianpu_score`：好的段能拿到准确的 `sum(repeat_count)`（含反复结构），
+    只有真正坏掉的那段才回退到 token 累计号极差。这样坏段之前的页完全准确，
+    R7 的偏差被限制在坏段所在的页。与准确路径一样按页取最大值推进。
     """
     measure_by_offset = [
         (token.start_utf16, int(token.measure))
@@ -420,13 +424,19 @@ def _estimate_measure_spans(
         if is_page_first and page_counts:
             cursor += max(page_counts)
             page_counts = []
-        inside = [
-            value
-            for offset, value in measure_by_offset
-            if start_utf16 <= offset < end_utf16
-        ]
+        segment = _strip_page_marker_lines(text[start_cp:end_cp])
+        try:
+            segment_score = parse_jianpu_score(segment)
+            count = sum(m.repeat_count for m in segment_score.measures)
+        except Exception:  # noqa: BLE001 — 坏段回退到累计号极差
+            inside = [
+                value
+                for offset, value in measure_by_offset
+                if start_utf16 <= offset < end_utf16
+            ]
+            count = max(inside) - min(inside) + 1 if inside else 0
         spans.append((start_utf16, end_utf16, cursor))
-        page_counts.append(max(inside) - min(inside) + 1 if inside else 0)
+        page_counts.append(count)
     return spans
 
 
@@ -624,23 +634,19 @@ def _part_marker_token(text: str, part_index: int) -> _Token:
 
 
 def _validate_part_measure_counts(text: str, parts: list[ParsedJianpuPart]) -> None:
-    multi_page = len({part.page_index for part in parts}) > 1
-    for page_index, group in _iter_page_part_groups(parts):
-        if len(group) <= 1:
-            continue
-        counts = [len(part.score.measures) for part in group]
-        if len(set(counts)) <= 1:
-            continue
-        details = "、".join(
-            f"{part.part_name or f'声部{part.part_index + 1}'}={counts[index]}"
-            for index, part in enumerate(group)
-        )
-        page_prefix = f"第 {page_index + 1} 页" if multi_page else ""
-        raise JianpuSyntaxError(
-            _part_marker_token(text, group[0].part_index),
-            f"{page_prefix}各声部小节数量不一致：{details}",
-            severity="warning",
-        )
+    mismatch = find_measure_count_mismatch([part.score for part in parts])
+    if mismatch is None:
+        return
+    page_index, message = mismatch
+    anchor_part = next(
+        (part for part in parts if part.page_index == page_index),
+        parts[0],
+    )
+    raise JianpuSyntaxError(
+        _part_marker_token(text, anchor_part.part_index),
+        message,
+        severity="warning",
+    )
 
 
 def _validate_marker_structure(text: str) -> None:
@@ -848,6 +854,22 @@ def parse_jianpu_parts(
             _marker_token(text, markers[0].start(), markers[0].end()),
             "第一个分谱标记之前不能包含简谱正文",
         )
+
+    # F6：用了 @part 的文档里，每一页都必须有自己的 @part，否则该页正文会被
+    # 静默并入上一页最后一个声部、page_index 丢失。完全无 @part 的多页文档
+    # （单声部）走上面的「整篇一个 score」分支，不受影响。
+    for pm_index, page_marker in enumerate(page_markers):
+        next_page_start = (
+            page_markers[pm_index + 1].start
+            if pm_index + 1 < len(page_markers)
+            else len(text)
+        )
+        if not any(page_marker.end <= m.start() < next_page_start for m in markers):
+            raise JianpuSyntaxError(
+                _marker_token(text, page_marker.start, page_marker.end),
+                f"第 {page_marker.number} 页缺少分谱标记，请在该页 // @page 之后添加 "
+                f'// @part 1 name="声部名称"',
+            )
 
     parts: list[ParsedJianpuPart] = []
     current_page_start: int = -1
@@ -1440,6 +1462,12 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
     current_measure = 1
     pending_repeat = 1
     saw_token_since_bar = False
+    # T8：以下四个状态让 current_measure 的推进对齐 flush_measure 的语义
+    # （|:/:| 不产生空小节、:| 之后的空小节吞掉、backward *N 之后的空小节吞掉）。
+    skip_empty = False
+    repeat_applied_backward = False
+    after_repeat_start = False
+    has_measures = False
     raw_lines = text.splitlines(keepends=True)
     line_start_utf16 = 0
     line_utf16_starts: list[int] = []
@@ -1568,13 +1596,33 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
             if not _is_key_or_time_token(raw_token):
                 saw_score_tokens = True
             if raw_token in {"|", "||", "|:", ":|"}:
-                current_measure += pending_repeat
+                # 对齐 flush_measure：有内容才推进 pending_repeat 个号；空小节按规则吞并。
+                if saw_token_since_bar:
+                    current_measure += pending_repeat
+                    has_measures = True
+                    after_repeat_start = False
+                elif repeat_applied_backward:
+                    # backward *N 之后的空小节被吞掉，不再推进。
+                    repeat_applied_backward = False
+                elif raw_token in {"|", "||"} and not skip_empty:
+                    # 非 :| 之后的空小节保留为整小节休止，占 1 个号。
+                    current_measure += 1
+                    has_measures = True
+                # |: / :| 自身的空 flush 不产生小节。
                 pending_repeat = 1
                 saw_token_since_bar = False
+                if raw_token == "|:":
+                    after_repeat_start = True
+                elif raw_token == ":|":
+                    skip_empty = True
+                else:
+                    skip_empty = False
             elif re.fullmatch(r"\*\d+", raw_token):
                 repeat_n = max(1, int(raw_token[1:]))
-                if not saw_token_since_bar:
+                if not saw_token_since_bar and has_measures and not after_repeat_start:
+                    # backward：覆盖上一小节的反复次数（扩展占号，不新增小节）。
                     current_measure += repeat_n - 1
+                    repeat_applied_backward = True
                 else:
                     pending_repeat = repeat_n
             else:

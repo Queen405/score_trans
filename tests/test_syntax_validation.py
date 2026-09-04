@@ -500,3 +500,74 @@ def test_cross_page_measure_numbers_are_continuous() -> None:
     # 警告侧与错误侧同一套号：第 2 页左手的超拍小节是连续号 2。
     duration_warnings = [d for d in warnings if "超拍" in d.message]
     assert [d.measure for d in duration_warnings] == ["1", "2"]
+
+
+def test_page_without_part_marker_is_reported() -> None:
+    # F6：用了 @part 的文档里，某页缺 @part 不应静默并入上一页声部，应报错。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="A"\n'
+        "1=C\n4/4\n"
+        "1 2 3 4 |\n"
+        '// @page 2 name="p2.png"\n'
+        "1=C\n4/4\n"
+        "2 3 4 5 |\n"
+    )
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert any("缺少分谱标记" in d.message and d.line == 6 for d in diagnostics)
+
+
+def test_page_without_part_marker_is_ok_when_no_part_at_all() -> None:
+    # F6 兼容：完全无 @part 的多页文档（单声部）走整篇一个 score，不受影响。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        "1=C\n4/4\n"
+        "1 2 3 4 |\n"
+        '// @page 2 name="p2.png"\n'
+        "2 3 4 5 |\n"
+    )
+
+    assert validate_jianpu_text(text, check_measure_durations=True) == []
+
+
+def test_measure_numbers_respect_forward_repeat_in_error_report() -> None:
+    # T8：段内 forward 反复 `*3` 应让下一个小节占正确的连续号。
+    # 1 2 3 4 *3 占号 1-3，5 6 7 8 是 display 4；8 应报第 4 小节。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="A"\n'
+        "1=C\n4/4\n"
+        "1 2 3 4 *3 | 5 6 7 8 |\n"
+    )
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+    errors = [d for d in diagnostics if d.severity == "error"]
+
+    assert [(d.line, d.measure) for d in errors] == [(5, "4")]
+
+
+def test_measure_numbers_respect_backward_repeat_in_error_report() -> None:
+    # T8：段内 backward `*2` 覆盖上一小节反复次数；8 应报第 3 小节。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="A"\n'
+        "1=C\n4/4\n"
+        "1 2 3 4 | *2 5 6 7 8 |\n"
+    )
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+    errors = [d for d in diagnostics if d.severity == "error"]
+
+    assert [(d.line, d.measure) for d in errors] == [(5, "3")]
+
+
+def test_measure_numbers_swallow_empty_bar_after_repeat_end() -> None:
+    # T8：`:|` 之后的空 `|` 被吞掉不占号；8 应报第 2 小节。
+    text = "1=C\n4/4\n|: 1 2 3 4 :| | 5 6 7 8 |"
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+    errors = [d for d in diagnostics if d.severity == "error"]
+
+    assert [(d.line, d.measure) for d in errors] == [(3, "2")]

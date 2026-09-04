@@ -9,6 +9,7 @@ from ...domain.accidentals import score_with_accidental_mode
 from ...domain.jianpu import (
     normalize_jianpu_text,
 )
+from ...domain.measure_counts import find_measure_count_mismatch
 from ...domain.parse.jianpu_text import parse_jianpu_parts
 from ...domain.provenance import apply_text_anchors_to_parts
 from ...domain.text_placement import place_source_text_attachments
@@ -837,16 +838,10 @@ def _a4_layout_kwargs(req) -> dict[str, int]:
 
 
 def _validate_multi_part_measure_counts(scores: list[JianpuScore]) -> None:
-    if len(scores) <= 1:
+    mismatch = find_measure_count_mismatch(scores)
+    if mismatch is None:
         return
-    counts = [len(score.measures) for score in scores]
-    if len(set(counts)) <= 1:
-        return
-    details = "、".join(
-        f"{score.part_name or f'声部{index + 1}'}={counts[index]}"
-        for index, score in enumerate(scores)
-    )
-    raise JianpuValidationError(f"各声部小节数量不一致：{details}")
+    raise JianpuValidationError(mismatch[1])
 
 
 def _parse_ocr_text(payload: str) -> list[TextBlock]:

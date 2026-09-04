@@ -1,8 +1,8 @@
 # 语法检查小节号 / 行号修复 —— v1 实施方案
 
 > 定稿日期：2026-09-04
-> 状态：**v1 已实施**（2026-09-04，1011 passed / 1 skipped / 1 xfailed，Ruff 全绿）
-> 实施偏差见 §5.6；实施结果见 §9。
+> 状态：**v1 + v2 均已实施**（2026-09-04，1016 passed / 1 skipped / 1 xfailed，Ruff 全绿）
+> 实施偏差见 §5.6；v1 实施结果见 §9；v2 实施结果见 §10。
 > 前置诊断（根因、实测数据）见本文档第 1–2 节，与 `docs/multi-part-audit-2026-09.md` 互补。
 
 ---
@@ -411,3 +411,22 @@ _assign_measure_number_bases(duration_parts)
 
 **遗留（v2）**：F4/F5/F6/T8 见 §8 任务拆分；其中 T8 的「反复结构推进规则」
 会让 `1 2 3 4 :| *2 |` 这类段内编号仍有 1 小节误差，属已知且已声明。
+
+---
+
+## 10. v2 实施结果（2026-09-04）
+
+v2 的四个任务（F4/F5/F6/T8）已全部完成，全量 1016 passed，Ruff 双门禁全绿。
+
+| 任务 | 改动 | 结果 |
+|------|------|------|
+| **F4** | `docs/jianpu-syntax.md` §12.2 + §14 速查表的 `start=auto` 过时写法改为实际的 `// @page N [name="..."]`，并补"小节号自动按页连续"与页眉配置归属说明 | 文档与实现一致 |
+| **F5** | 新建 `domain/measure_counts.py::find_measure_count_mismatch`，parse 层 `_validate_part_measure_counts` 与 exec 层 `_validate_multi_part_measure_counts`（渲染拦截）均改为调用它 | 三处校验语义统一；MusicXML 声部 page_index 全 0 自然归一组 |
+| **F6** | `parse_jianpu_parts` 中，凡用了 `@part` 的文档，逐页校验每页必须有 `@part`，否则报错"第 N 页缺少分谱标记"；完全无 `@part` 的多页文档（单声部）不受影响 | 页内缺 `@part` 不再静默并入上一页 |
+| **T8** | `_read_new_syntax` 补齐 `flush_measure` 的推进规则（4 个新状态变量）；`_estimate_measure_spans` 改为逐段单独 `parse_jianpu_score`，好段准确、坏段回退极差（极差在吞并对齐后也已准确） | **R7 修复**，估算路径在反复结构下不再偏差 |
+
+**v2 新增的坑**：F6 初版误把 `_ParsedPageMarker.end`（dataclass 字段）写成方法调用 `end()`，
+触发 `TypeError: 'int' object is not callable`，第一时间实测发现并修正——再次验证
+"写完就实测最小用例"的必要性。
+
+**T8 测试**：新增 3 条（forward `*3` / backward `*2` / `:|` 空小节吞并）。
