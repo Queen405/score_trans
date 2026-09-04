@@ -109,6 +109,7 @@ def scores_to_jianpu_document(
 
     full_text = ""
     current_page_index = -1
+    part_in_page = 0
     for index, score in enumerate(scores):
         part_text = _score_to_jianpu_text(score, accidental_mode=accidental_mode)
         part_anchors.append(
@@ -121,8 +122,10 @@ def scores_to_jianpu_document(
                 name_suffix = f" name={json.dumps(score.page_input_file_name, ensure_ascii=False)}"
             full_text += f"// @page {page_number}{name_suffix}\n"
             current_page_index = score.page_index
+            part_in_page = 0
+        part_in_page += 1
         encoded_name = json.dumps(score.part_name, ensure_ascii=False)
-        marker = f"// @part {index + 1} name={encoded_name}"
+        marker = f"// @part {part_in_page} name={encoded_name}"
         full_text += marker + "\n"
         part_offsets.append(len(full_text))
         full_text += part_text
