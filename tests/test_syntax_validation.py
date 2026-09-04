@@ -309,6 +309,8 @@ def test_validate_jianpu_text_reports_part_measure_count_mismatch() -> None:
     assert len(diagnostics) == 1
     assert diagnostics[0].line == 1
     assert "各声部小节数量不一致：a=2、b=1" in diagnostics[0].message
+    # v1：这条诊断降级为 warning（不阻塞流程，前端「隐藏警告」可关闭）。
+    assert diagnostics[0].severity == "warning"
 
 
 def test_validate_jianpu_text_reports_measure_duration_warnings_in_document_offsets() -> (
@@ -408,3 +410,93 @@ def test_validate_jianpu_text_reports_compact_tuplet_member_after_marks() -> Non
     assert diagnostic.end > diagnostic.start > 0
     selected = text.encode("utf-16-le")[diagnostic.start * 2 : diagnostic.end * 2]
     assert selected.decode("utf-16-le") == "19"
+
+
+# ---------------------------------------------------------------------------
+# v1 回归：多页文档的小节数校验 / 页眉配置归属 / 按页连续小节号
+# 对应 docs/syntax-measure-numbering-fix-plan.md 的用例 A / B / C / G。
+# ---------------------------------------------------------------------------
+
+
+def test_page_grouped_measure_counts_accept_multi_page_single_part() -> None:
+    # 用例 A：单声部两页。每页的小节数天然不同，不应再误报「小节数量不一致」。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="旋律"\n'
+        "1=C\n4/4\n"
+        "1 2 3 4 | 5 6 7 1' |\n"
+        "2 3 4 5 |\n"
+        '// @page 2 name="p2.png"\n'
+        '// @part 1 name="旋律"\n'
+        "1=C\n4/4\n"
+        "3 4 5 6 | 7 1' 2' 3' |\n"
+    )
+
+    assert validate_jianpu_text(text, check_measure_durations=True) == []
+
+
+def test_page_header_config_belongs_to_next_page_part() -> None:
+    # 用例 B：第 2 页的调号/拍号写在 @part 之前，且第 1 页末小节已收尾。
+    # 2/4 必须作用于第 2 页（3 4 | 恰好 2 拍），而不是被吞进第 1 页声部。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="A"\n'
+        "1=C\n4/4\n"
+        "1 2 3 4 |\n"
+        '// @page 2 name="p2.png"\n'
+        "1=C\n2/4\n"
+        '// @part 1 name="A"\n'
+        "3 4 | 5 6 |\n"
+    )
+
+    assert validate_jianpu_text(text, check_measure_durations=True) == []
+    scores = parse_jianpu_scores(text)
+    assert (scores[1].beats, scores[1].beat_type) == (2, 4)
+
+
+def test_page_header_config_after_unterminated_measure() -> None:
+    # 用例 C：第 2 页配置写在 @part 之前，且第 1 页末小节没有小节线。
+    # 不应误报「调号必须写在该小节音符之前」。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="旋律"\n'
+        "1=C\n4/4\n"
+        "1 2 3 4 | 5 6 7 1'\n"
+        '// @page 2 name="p2.png"\n'
+        "1=C\n4/4\n"
+        '// @part 1 name="旋律"\n'
+        "2 3 4 5 |\n"
+    )
+
+    assert validate_jianpu_text(text, check_measure_durations=True) == []
+
+
+def test_cross_page_measure_numbers_are_continuous() -> None:
+    # 用例 G：第 1 页每声部 1 小节 → 第 2 页起始号 = 2；
+    # 左手第 2 页的第 2/3 小节 → 连续号 3/4。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="右手"\n'
+        "1=C\n4/4\n"
+        "1 2 3 4 |\n"
+        '// @part 2 name="左手"\n'
+        "1=C\n4/4\n"
+        "w1 w1 |\n"
+        '// @page 2 name="p2.png"\n'
+        '// @part 1 name="右手"\n'
+        "1=C\n4/4\n"
+        "2 3 4 5 |\n"
+        '// @part 2 name="左手"\n'
+        "1=C\n4/4\n"
+        "w3 w4 |\n"
+        "5 6 7 8 | 1 2 99 |\n"
+    )
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+    errors = [d for d in diagnostics if d.severity == "error"]
+
+    assert [(d.line, d.measure) for d in errors] == [(19, "3"), (19, "4")]
+    warnings = [d for d in diagnostics if d.severity == "warning"]
+    # 警告侧与错误侧同一套号：第 2 页左手的超拍小节是连续号 2。
+    duration_warnings = [d for d in warnings if "超拍" in d.message]
+    assert [d.measure for d in duration_warnings] == ["1", "2"]

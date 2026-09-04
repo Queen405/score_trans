@@ -127,6 +127,15 @@
 - **位置**：`backend/score_trans/config/settings.py` 与 `backend/score_trans/config/env.example:1-76`
 - **修复**：示例已增加 `SCORE_TRANS_WORKDIR`、`SCORE_TRANS_JAVA_HOME`、`SCORE_TRANS_OUTPUT_DIR`、`SCORE_TRANS_AI_SYSTEM_MSG`，均保持空值默认语义；新增 settings 测试防止再次遗漏。
 
+### R7. 语法检查估算路径在反复结构下小节号偏差（P2，开放）
+
+- **位置**：`backend/score_trans/domain/parse/jianpu_text.py` 的 `_estimate_measure_spans`（随 F3「事后重打号」引入）
+- **原因**：估算路径（`parse_jianpu_parts` 失败时的降级）用段内 token 累计号的极差估算小节数，但 `_read_new_syntax` 的累计号会被 `*N` 干扰：backward `:| *2` 推进 +1（极差高估），forward `*3` 不推进（极差低估）。没有简单的排除/不排除 `*N` token 能同时修正两者。
+- **影响**：仅限"语法错误 + 反复结构"同时出现的文档；错误之后的页的小节号会偏大/偏小。错误的行号、列号、高亮区间仍正确，仅小节号偏差。
+- **实测**：第 1 页 `1 2 3 4 :| *2 |` + 第 2 页 `2 3 4 8 |`，`8` 准确应为第 3 小节，估算报第 4 小节。
+- **修复方案**：v2 的 T8 落地后（`_read_new_syntax` 补齐 flush_measure 的 `|:`/`:|`/`*N` 推进规则），估算路径改数小节线而非用极差。
+- **2026-09-04**：随 v1（F1+F2+F3）一并交付；详见 `docs/syntax-measure-numbering-fix-plan.md` §5.6 与 `docs/code-review-syntax-v1.md`。
+
 ## 五、新增测试缺口
 
 ### T1. 新的 SVG 来源高亮修复缺完整组件集成测试（部分完成）
@@ -207,6 +216,7 @@
 
 ## 九、历史记录
 
+- **2026-09-04**：修复多页文档语法检查的小节号/行号错误（F1 按页分组校验 + 降级 warning、F2 `@page` 切断声部正文、F3 按页连续编号的事后重打号）；新增 R7（估算路径反复结构偏差）。详见 `docs/syntax-measure-numbering-fix-plan.md` 与 `docs/code-review-syntax-v1.md`。
 - **2026-08-20**：修复 `ee3f38c` 重构残留（后端 14 测试、前端约 60 处死引用、12 个工具测试、openapi 契约漂移、生产构建失败）；修复 typecheck 门禁空转与 `window.api` 类型遮蔽；执行全仓 ruff format 并在 CI 增加 format 门禁（R3/R4 关闭）；提交方案 A 结构标记删除。
 - **2026-07-18**：重新验证当前工作树；撤销 N6/N7/N8 的错误结论，确认 N2 已修复，重定义 N24，新增 R1-R6 和 T1-T2。
 - **2026-07-14**：旧全面审计建立 N1-N26；其行号、数量和若干因果判断已被本轮替代。

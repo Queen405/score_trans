@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -22,7 +23,7 @@ from ...models.score import (
     TextBlock,
     TupletSpan,
 )
-from ...models.syntax.schemas import SyntaxDiagnostic
+from ...models.syntax.schemas import SyntaxDiagnostic, SyntaxSeverity
 from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
 from ..jianpu_tokens import (
     consume_duration_prefix,
@@ -78,8 +79,15 @@ class JianpuSyntaxError(JianpuValidationError):
 
     error_code = "jianpu_syntax"
 
-    def __init__(self, token: _Token, message: str) -> None:
+    def __init__(
+        self,
+        token: _Token,
+        message: str,
+        *,
+        severity: SyntaxSeverity = "error",
+    ) -> None:
         self.token = token
+        self.severity: SyntaxSeverity = severity
         self.detail = message
         super().__init__(f"第 {token.line} 行第 {token.column} 列：{message}")
 
@@ -93,6 +101,7 @@ class JianpuSyntaxError(JianpuValidationError):
             column=self.token.column,
             start=start,
             end=end,
+            severity=self.severity,
             measure=self.token.measure,
         )
 
@@ -106,6 +115,7 @@ class ParsedJianpuPart:
     body_end_utf16: int
     page_index: int = 0
     page_input_file_name: str = ""
+    measure_number_base: int = 1
 
 
 def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
@@ -230,6 +240,9 @@ def validate_jianpu_text(
     try:
         _validate_marker_structure(normalized)
         _options, token_lines, _lyrics = _read_new_syntax(normalized)
+        _relabel_measure_numbers(
+            token_lines, _measure_number_spans(normalized, token_lines)
+        )
     except JianpuSyntaxError as exc:
         diagnostics.append(exc.diagnostic())
         token_lines = []
@@ -296,6 +309,8 @@ def validate_jianpu_text(
     else:
         return diagnostics
 
+    _assign_measure_number_bases(duration_parts)
+
     if has_markers:
         try:
             _validate_part_measure_counts(duration_text, duration_parts)
@@ -314,6 +329,127 @@ def validate_jianpu_text(
             )
         )
     return diagnostics
+
+
+def _measure_number_spans(
+    text: str,
+    tokens: list[_Token] | None = None,
+) -> list[tuple[int, int, int]]:
+    """各声部段的 (start_utf16, end_utf16, 连续起始小节号)。
+
+    优先用 `parse_jianpu_parts` 的准确小节数；解析失败时（文档本身有语法错误，
+    而这正是最需要正确小节号的场景）退化为按标记分段 + token 小节线估算。
+    无标记文档返回空列表，`_relabel_measure_numbers` 会原样保留累计号。
+    """
+    if not (_PART_MARKER_START_RE.search(text) or _PAGE_MARKER_START_RE.search(text)):
+        return []
+    bounds = _part_bounds_from_markers(text)
+    if not bounds:
+        return []
+    try:
+        parts = parse_jianpu_parts(text)
+    except Exception:  # noqa: BLE001 — 与 validate 第 2 轮解析的兜底对齐
+        parts = []
+    if len(parts) == len(bounds):
+        _assign_measure_number_bases(parts)
+        return [
+            (part.body_start_utf16, part.body_end_utf16, part.measure_number_base)
+            for part in parts
+        ]
+    return _estimate_measure_spans(text, bounds, tokens or [])
+
+
+def _part_bounds_from_markers(text: str) -> list[tuple[int, int, bool]]:
+    """从标记位置算出各声部的正文区间：代码点 (start, end, 是否本页第一个声部)。
+
+    不依赖解析成功；切分规则与 `parse_jianpu_parts`（含 F2 的 @page 切断与页眉前移）一致。
+    """
+    page_markers = _find_page_markers(text)
+    markers = list(_PART_MARKER_RE.finditer(text))
+    bounds: list[tuple[int, int, bool]] = []
+    current_page_start = -1
+    pending_header_start: int | None = None
+    for index, match in enumerate(markers):
+        preceding_pages = [pm for pm in page_markers if pm.start < match.start()]
+        page_start = preceding_pages[-1].start if preceding_pages else -1
+        is_page_first = page_start != current_page_start
+        current_page_start = page_start
+        start = match.end()
+        if text[start : start + 2] == "\r\n":
+            start += 2
+        elif start < len(text) and text[start] in {"\n", "\r"}:
+            start += 1
+        if pending_header_start is not None:
+            start = min(start, pending_header_start)
+            pending_header_start = None
+        end = markers[index + 1].start() if index + 1 < len(markers) else len(text)
+        next_page_start = next(
+            (pm.start for pm in page_markers if start < pm.start < end),
+            None,
+        )
+        if next_page_start is not None:
+            end = next_page_start
+            header_newline = text.find("\n", next_page_start)
+            pending_header_start = (
+                len(text) if header_newline < 0 else header_newline + 1
+            )
+        bounds.append((start, end, is_page_first))
+    return bounds
+
+
+def _estimate_measure_spans(
+    text: str,
+    bounds: list[tuple[int, int, bool]],
+    tokens: list[_Token],
+) -> list[tuple[int, int, int]]:
+    """解析失败时按「标记分段 + token 累计小节线」估算连续起始号。
+
+    每段的小节数取段内 token 累计号的极差 + 1；与准确路径一样按页取最大值推进。
+    """
+    measure_by_offset = [
+        (token.start_utf16, int(token.measure))
+        for token in tokens
+        if token.start_utf16 is not None and token.measure
+    ]
+    spans: list[tuple[int, int, int]] = []
+    cursor = 1
+    page_counts: list[int] = []
+    for start_cp, end_cp, is_page_first in bounds:
+        start_utf16 = _utf16_length(text[:start_cp])
+        end_utf16 = _utf16_length(text[:end_cp])
+        if is_page_first and page_counts:
+            cursor += max(page_counts)
+            page_counts = []
+        inside = [
+            value
+            for offset, value in measure_by_offset
+            if start_utf16 <= offset < end_utf16
+        ]
+        spans.append((start_utf16, end_utf16, cursor))
+        page_counts.append(max(inside) - min(inside) + 1 if inside else 0)
+    return spans
+
+
+def _relabel_measure_numbers(
+    tokens: list[_Token],
+    spans: list[tuple[int, int, int]],
+) -> None:
+    """把 token 的整篇累计小节号改写为按页连续的显示号（原地修改）。"""
+    if not spans:
+        return
+    for start, end, base in spans:
+        inside = [
+            token
+            for token in tokens
+            if token.start_utf16 is not None
+            and token.measure
+            and start <= token.start_utf16 < end
+        ]
+        if not inside:
+            continue
+        first = min(int(token.measure) for token in inside)
+        for token in inside:
+            token.measure = str(base + int(token.measure) - first)
 
 
 def _mask_diagnostic_ranges(
@@ -339,6 +475,32 @@ def _utf16_offset_to_codepoint_index(text: str, offset: int) -> int:
             return index
         consumed += _utf16_length(character)
     return len(text)
+
+
+def _assign_measure_number_bases(
+    parts: list[ParsedJianpuPart],
+    *,
+    initial_measure_number: int = 1,
+) -> None:
+    """为每个 part 写入整篇文档内的连续起始小节号（F3）。
+
+    规则与渲染路径 `exec/render/actions.py:_render_batch_multi_part`
+    及前端 `jianpuPageSections.ts:walkJianpuMeasures` 完全一致：
+    按页推进，每页取该页各声部「小节数（含 repeat_count）」的最大值累加，
+    页内所有声部共用同一个起始号。
+    """
+    cursor = initial_measure_number
+    for _page_index, group in _iter_page_part_groups(parts):
+        span = max(
+            (
+                sum(measure.repeat_count for measure in part.score.measures)
+                for part in group
+            ),
+            default=0,
+        )
+        for part in group:
+            part.measure_number_base = cursor
+        cursor += span
 
 
 def _measure_duration_diagnostics(
@@ -369,7 +531,11 @@ def _measure_duration_diagnostics(
                 ):
                     continue
                 line, column = _line_column_from_utf16_offset(text, start)
-                measure_number = measure.display_number or measure_index
+                measure_number = (
+                    part.measure_number_base
+                    + (measure.display_number or measure_index)
+                    - 1
+                )
                 message = _format_measure_duration_warning(error)
                 diagnostics.append(
                     SyntaxDiagnostic(
@@ -429,21 +595,52 @@ def _line_column_from_utf16_offset(text: str, offset: int) -> tuple[int, int]:
     return line, column
 
 
+def _iter_page_part_groups(
+    parts: list[ParsedJianpuPart],
+) -> Iterator[tuple[int, list[ParsedJianpuPart]]]:
+    """把连续的 part 按 page_index 分组，产出 (page_index, group)。
+
+    多页文档里每一页的声部都是独立编号的（`parse_jianpu_parts` 对每页每声部
+    各产出一个 ParsedJianpuPart，各自从 1 开始），因此任何跨页的比较都没有意义。
+    F1（小节数一致性）与 F3（连续小节号）共用这份分组语义。
+    """
+    index = 0
+    while index < len(parts):
+        page_index = parts[index].page_index
+        end = index
+        while end < len(parts) and parts[end].page_index == page_index:
+            end += 1
+        yield page_index, parts[index:end]
+        index = end
+
+
+def _part_marker_token(text: str, part_index: int) -> _Token:
+    """第 `part_index` 个 `@part` 标记对应的 token（parts 与标记同序）。"""
+    markers = list(_PART_MARKER_RE.finditer(text))
+    if part_index >= len(markers):
+        return _Token(value="", line=1, column=1, start_utf16=0, end_utf16=0)
+    match = markers[part_index]
+    return _marker_token(text, match.start(), match.end())
+
+
 def _validate_part_measure_counts(text: str, parts: list[ParsedJianpuPart]) -> None:
-    counts = [len(part.score.measures) for part in parts]
-    if len(set(counts)) <= 1:
-        return
-    details = "、".join(
-        f"{part.part_name or f'声部{part.part_index + 1}'}={counts[part.part_index]}"
-        for part in parts
-    )
-    first_marker = _PART_MARKER_RE.search(text)
-    token = (
-        _marker_token(text, first_marker.start(), first_marker.end())
-        if first_marker
-        else _Token(value="", line=1, column=1, start_utf16=0, end_utf16=0)
-    )
-    raise JianpuSyntaxError(token, f"各声部小节数量不一致：{details}")
+    multi_page = len({part.page_index for part in parts}) > 1
+    for page_index, group in _iter_page_part_groups(parts):
+        if len(group) <= 1:
+            continue
+        counts = [len(part.score.measures) for part in group]
+        if len(set(counts)) <= 1:
+            continue
+        details = "、".join(
+            f"{part.part_name or f'声部{part.part_index + 1}'}={counts[index]}"
+            for index, part in enumerate(group)
+        )
+        page_prefix = f"第 {page_index + 1} 页" if multi_page else ""
+        raise JianpuSyntaxError(
+            _part_marker_token(text, group[0].part_index),
+            f"{page_prefix}各声部小节数量不一致：{details}",
+            severity="warning",
+        )
 
 
 def _validate_marker_structure(text: str) -> None:
@@ -576,6 +773,24 @@ def _is_structural_syntax_error(error: JianpuSyntaxError) -> bool:
     return any(marker in error.detail for marker in ("连音组", "和弦", "缺少结束标记"))
 
 
+_CONFIG_ONLY_LINE = re.compile(
+    r"^(?:1\s*=\s*[A-Ga-g](?:bb|[#b])?"
+    r"|\d+\s*/\s*\d+"
+    r"|(?:title|tempo|instrument|key|time)\s*=\s*\S.*)$"
+)
+
+
+def _is_config_line(stripped: str) -> bool:
+    """配置行不产生小节，允许出现在分谱标记之前 / 分页标记之后（页眉位置）。
+
+    覆盖调号 `1=C`、拍号 `4/4`、以及 `title=` / `tempo=` / `instrument=`
+    与已废弃的 `key=` / `time=`。注释行与空行同样视为非正文。
+    """
+    if not stripped or stripped.startswith("//"):
+        return True
+    return bool(_CONFIG_ONLY_LINE.match(stripped))
+
+
 def parse_jianpu_parts(
     text: str,
     *,
@@ -625,7 +840,10 @@ def parse_jianpu_parts(
         ]
     prefix = text[: markers[0].start()]
     prefix_without_page_markers = _strip_page_marker_lines(prefix)
-    if prefix_without_page_markers.strip():
+    if any(
+        not _is_config_line(line.strip())
+        for line in prefix_without_page_markers.splitlines()
+    ):
         raise JianpuSyntaxError(
             _marker_token(text, markers[0].start(), markers[0].end()),
             "第一个分谱标记之前不能包含简谱正文",
@@ -635,6 +853,9 @@ def parse_jianpu_parts(
     current_page_start: int = -1
     page_part_index = 0
     inherited_tempos: dict[int, int] = {}
+    # F2：上一个声部正文被 @page 截断时，其后的页眉归属下一个声部（起点前移）。
+    # 最后一个声部之后的页眉 v1 暂静默丢弃，F6（v2）改为显式报错。
+    pending_header_start: int | None = None
     for i, match in enumerate(markers):
         marker_number = int(match.group("number"))
         preceding_pages = [pm for pm in page_markers if pm.start < match.start()]
@@ -665,7 +886,25 @@ def parse_jianpu_parts(
             start += 2
         elif start < len(text) and text[start] in {"\n", "\r"}:
             start += 1
+        # F2：声部正文不得越过下一个 @page 标记——页眉（写在 @page 之后、
+        # 本页第一个 @part 之前的调号/拍号等）归属下一页的第一个声部。
+        # 实现方式是把下一声部的正文起点前移到页眉起点，而非拼接字符串，
+        # 这样 UTF-16 偏移与行号靠 _strip_page_marker_lines 的等长替换自动对齐。
+        if pending_header_start is not None:
+            start = min(start, pending_header_start)
+            pending_header_start = None
         end = markers[i + 1].start() if i + 1 < len(markers) else len(text)
+        next_page_start = next(
+            (pm.start for pm in page_markers if start < pm.start < end),
+            None,
+        )
+        if next_page_start is not None:
+            end = next_page_start
+            header_start = next_page_start
+            header_newline = text.find("\n", header_start)
+            pending_header_start = (
+                len(text) if header_newline < 0 else header_newline + 1
+            )
         part_text = text[start:end]
         part_text_without_page_markers = _strip_page_marker_lines(part_text)
         try:
@@ -1187,6 +1426,12 @@ def parse_jianpu_score(
 
 
 def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]:
+    """读取新语法，产出 token 流。
+
+    注意：token 的 `measure` 是**整篇文档的累计小节线计数**。按页连续的显示号
+    由 `_relabel_measure_numbers` 事后重打，因为准确的分段需要 `parse_jianpu_parts`
+    的结果，而解析会失败（文档本身有语法错误时正是最需要正确号号的场景）。
+    """
     options = JianpuOptions()
     tokens: list[_Token] = []
     lyrics: list[str] = []
