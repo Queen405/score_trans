@@ -339,19 +339,22 @@ def test_multi_part_marker_names_roundtrip_json_escaping() -> None:
     assert 'name="Violin \\"Solo\\" 🎻"' in normalized
 
 
-def test_measure_level_tempo_carries_across_page_part_segments() -> None:
+def test_measure_tempo_does_not_inherit_across_pages() -> None:
+    """每页独立自足：后续页无 tempo 声明时回退各自默认，不继承上一页。
+
+    逐页识别可能跳页/乱序，跨页继承会引用错误页的状态，故不做跨页继承。
+    """
     text = (
         '// @page 1\n// @part 1 name="A"\n'
         "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |\n"
-        '// @part 2 name="B"\n1=C\n4/4\n1 2 3 4 |\n5 6 7 1 |\n'
-        '// @page 2\n// @part 1 name="A"\n1=C\n4/4\n1 2 3 4 |\n'
-        '// @part 2 name="B"\n1=C\n4/4\n5 6 7 1 |'
+        '// @page 2\n// @part 1 name="A"\n1=C\n4/4\n1 2 3 4 |'
     )
 
     scores = parse_jianpu_scores(text)
 
     assert [measure.tempo for measure in scores[0].measures] == [120, 80]
-    assert [measure.tempo for measure in scores[2].measures] == [80]
+    # 第 2 页无 tempo 声明，回到默认 120，而非继承第 1 页的 80
+    assert scores[1].measures[0].tempo == 120
 
 
 def test_multi_part_jianpu_to_musicxml_preserves_parts() -> None:

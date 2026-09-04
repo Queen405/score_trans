@@ -8,7 +8,6 @@ import pytest
 from score_trans.domain.jianpu import (
     jianpu_to_musicxml,
     parse_jianpu_score,
-    parse_jianpu_scores,
 )
 from score_trans.exec.export.actions import ExportActions
 from score_trans.models.export.schemas import (
@@ -246,23 +245,6 @@ def test_midi_export_writes_measure_level_tempo_map(tmp_path) -> None:
     )
     output_path = tmp_path / "tempo-map.mid"
     ExportService().export_midi_scores([score], output_path)
-
-    midi = mido.MidiFile(output_path)
-    assert _midi_tempo_events(midi) == [
-        (0, pytest.approx(120)),
-        (4 * midi.ticks_per_beat, pytest.approx(80)),
-    ]
-
-
-def test_midi_tempo_map_does_not_reset_at_a_page_boundary(tmp_path) -> None:
-    text = (
-        '// @page 1\n// @part 1 name="A"\n'
-        "tempo=120\n1=C\n4/4\n1 2 3 4 |\ntempo=80\n5 6 7 1 |\n"
-        '// @page 2\n// @part 1 name="A"\n1=C\n4/4\n1 2 3 4 |'
-    )
-    output_path = tmp_path / "paged-tempo.mid"
-
-    ExportService().export_midi_scores(parse_jianpu_scores(text), output_path)
 
     midi = mido.MidiFile(output_path)
     assert _midi_tempo_events(midi) == [

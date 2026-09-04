@@ -432,12 +432,9 @@ class RenderActions:
         if not req.pages:
             raise ValueError("至少需要一个待渲染页面")
         page_scores_list: list[list[JianpuScore]] = []
-        inherited_state: dict[int, tuple[str, int, int, int]] = {}
         for index, page in enumerate(req.pages):
             try:
-                page_scores = self._build_batch_page_scores(
-                    req, page, _inherited_state=inherited_state
-                )
+                page_scores = self._build_batch_page_scores(req, page)
             except JianpuValidationError as exc:
                 page_label = f"第 {index + 1} 页"
                 if page.input_file_name:
@@ -729,7 +726,6 @@ class RenderActions:
         self,
         req: BatchRenderRequest,
         page: BatchRenderPageRequest,
-        _inherited_state: dict[int, tuple[str, int, int, int]] | None = None,
     ) -> list[JianpuScore]:
         if page.musicxml_file_id:
             musicxml_path = self.uploads.get_path(page.musicxml_file_id)
@@ -755,11 +751,7 @@ class RenderActions:
                 if not input_path or not input_path.exists():
                     raise FileNotFoundError(f"文件不存在：{page.jianpu_file_id}")
                 text = input_path.read_text(encoding="utf-8")
-            parts = parse_jianpu_parts(
-                text,
-                title=page.title or req.title,
-                _inherited_state=_inherited_state,
-            )
+            parts = parse_jianpu_parts(text, title=page.title or req.title)
             if page.text_anchors:
                 apply_text_anchors_to_parts(parts, page.text_anchors)
             scores = [part.score for part in parts]
