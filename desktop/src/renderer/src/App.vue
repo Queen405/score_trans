@@ -141,6 +141,7 @@
               <recognize-view
                 v-show="activeTab === 'recognize'"
                 :active="activeTab === 'recognize'"
+                :flush-pending-edits="flushPendingEdits"
               />
               <convert-view
                 v-show="activeTab === 'convert'"
@@ -365,6 +366,11 @@ const discardModalVisible = ref(false)
 const pendingNavigation = ref<PendingNavigation | null>(null)
 const closeRequest = ref<CloseRequest | null>(null)
 const convertViewRef = ref<{ flushPendingEdits: () => Promise<void> } | null>(null)
+
+async function flushPendingEdits(): Promise<void> {
+  await convertViewRef.value?.flushPendingEdits()
+}
+
 const closeConfirmVisible = ref(false)
 const closeSaving = ref(false)
 const closeSaveError = ref('')

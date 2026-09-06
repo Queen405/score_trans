@@ -20,6 +20,8 @@ import {
 } from '../utils/batchRender'
 import { usePublicationRender } from './usePublicationRender'
 import { isRenderAborted } from '../utils/renderAbort'
+import { createWorkspacePersistence } from '../utils/workspacePersistence'
+import { notifyHistoryUpdated } from '../utils/historyEvents'
 import {
   isRenderLayoutStale,
   PUBLICATION_ENGINE_VERSION,
@@ -27,19 +29,43 @@ import {
 
 type RebuildOutcome = 'completed' | 'aborted' | 'failed'
 
-export function useHistoryRestore() {
+export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
   const message = useMessage()
   const store = useWorkspaceStore()
   const settings = useSettingsStore()
   const log = useLogStore()
   const publicationRender = usePublicationRender()
+  const workspacePersistence = createWorkspacePersistence(historyApi, notifyHistoryUpdated)
   let restoreCheckSeq = 0
+
+  // loadBatch 会整页替换当前批次。切走前先把未保存编辑落盘，避免静默丢弃；
+  // 保存失败则取消这次恢复，让用户先处理（重试保存或手动丢弃）。
+  async function persistUnsavedBeforeRestore(): Promise<boolean> {
+    store.setBusy(true)
+    try {
+      await flushPendingEdits()
+      if (!store.hasUnsavedChanges) return true
+      await workspacePersistence.saveAllUnsavedBatches(store)
+      log.addLog('恢复历史版本前已自动保存当前批次的未保存更改')
+      return true
+    } catch (e: unknown) {
+      if (isRenderAborted(e)) return false
+      const msg = e instanceof Error ? e.message : String(e)
+      log.addError(`自动保存失败，已取消恢复历史版本：${msg}`)
+      message.error(`保存当前更改失败，已取消恢复历史版本：${msg}`)
+      return false
+    } finally {
+      store.setBusy(false)
+    }
+  }
 
   async function restoreBatch(entry: HistoryBatchListItem): Promise<boolean> {
     if (store.isBusy) {
       message.warning('识别任务进行中，完成后再恢复历史记录。')
       return false
     }
+
+    if (!(await persistUnsavedBeforeRestore())) return false
 
     let batch: HistoryBatch
     try {

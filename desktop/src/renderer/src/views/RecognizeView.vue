@@ -127,7 +127,7 @@
           <span>历史记录</span>
         </div>
         <div class="card-stats-scroll">
-          <HistoryQuickEntry />
+          <HistoryQuickEntry :flush-pending-edits="props.flushPendingEdits" />
         </div>
       </div>
 
@@ -382,6 +382,7 @@ onMounted(async () => {
 
 const props = withDefaults(defineProps<{
   active?: boolean
+  flushPendingEdits: () => Promise<void>
 }>(), {
   active: true,
 })

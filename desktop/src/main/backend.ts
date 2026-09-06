@@ -37,6 +37,11 @@ export class BackendProcess {
       SCORE_TRANS_CACHE_DIR: storagePaths.cacheDir,
       SCORE_TRANS_API_TOKEN: this.apiToken,
       SCORE_TRANS_API_AUTH_DISABLED: '0',
+      // 显式注入 CORS 允许源, 防止用户 shell 里残留的脏 SCORE_TRANS_CORS_ORIGINS
+      // (load_project_env 不会覆盖已存在的环境变量) 导致后端 CORS 配置错误,
+      // 进而让渲染进程的文件请求全部被浏览器以 CORS 错误拦截。
+      SCORE_TRANS_CORS_ORIGINS:
+        'http://localhost:5173,http://127.0.0.1:5173,null',
     }
 
     let child: ChildProcess

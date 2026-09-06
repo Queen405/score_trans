@@ -411,10 +411,17 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const batchId = currentBatchId.value
     return batchId ? isBatchChangeKindUnsaved(batchId, 'attachments') : false
   })
-  const hasUnsavedChanges = computed(() =>
-    (!currentBatchId.value && jianpuDirty.value)
-    || Object.values(batchUserChangeRevisions.value).some(revisionHasUnsavedChanges),
-  )
+  const hasUnsavedChanges = computed(() => {
+    if (!currentBatchId.value && jianpuDirty.value) return true
+    // 只统计仍存在于 pages 的 batchId：已被 loadBatch/replacePage 整页替换掉的
+    // 旧 batchId 是孤儿脏条目，无法保存也不应阻断关闭。
+    const live = new Set(
+      pages.value.map((p) => p.batchId).filter((id): id is string => Boolean(id)),
+    )
+    return Object.entries(batchUserChangeRevisions.value).some(
+      ([id, rev]) => live.has(id) && revisionHasUnsavedChanges(rev),
+    )
+  })
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
@@ -1113,6 +1120,20 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const random = Math.random().toString(36).slice(2, 8)
     const bid = `batch-${Date.now().toString(36)}-${random}`
     const firstLabel = batchPages[0]?.inputFileName ?? '历史记录'
+    // loadBatch 整页替换 pages.value，旧 batchId 的页面全部消失。
+    // 若不在此清空各 per-batch map，下方 spread（...value, [bid]: ...）会保留
+    // 旧 batchId 的脏 revision 条目，形成孤儿 —— 孤儿让 hasUnsavedChanges 永真，
+    // 关闭时 saveAllUnsavedBatches 找不到可保存批次却仍判脏，抛 "New edits were
+    // made while saving"。整页替换意味着只有 bid 存活，直接重置即可。
+    batchRenderPageFileIds.value = {}
+    batchRenderPageOcrTexts.value = {}
+    batchRenderPageOcrDirty.value = {}
+    batchRenderOutputStale.value = {}
+    batchRenderLayoutKeys.value = {}
+    batchJianpuTexts.value = {}
+    batchJianpuDirty.value = {}
+    batchJianpuPendingPageIds.value = {}
+    batchUserChangeRevisions.value = {}
     pages.value = batchPages.map((p) => createPage({
       batchId: bid,
       batchLabel: p.batchLabel ?? firstLabel,

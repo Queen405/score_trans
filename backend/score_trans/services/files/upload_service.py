@@ -117,11 +117,17 @@ class UploadService:
 
     def _persist_index(self, *, remove_ids: set[str] | None = None) -> None:
         remove_ids = remove_ids or set()
+        # 注意：这里刻意不做 path.exists() 过滤。
+        # Windows 上杀毒扫描/句柄占用会让 exists() 瞬时返回 False，
+        # 若在落盘时过滤，会把仍然存在的文件永久剔除出 index.json，
+        # 导致后续实例启动时索引缺失（历史页面被误判"文件已失效"）。
+        # 已删除的条目由 cleanup/prune 的 remove_ids 显式移除，
+        # 冗余条目在 get_path 的 exists 检查中自然失效，不会误报存在。
         with self._lock:
             current = {
-                file_id: str(path.resolve())
+                file_id: str(path)
                 for file_id, path in self._files.items()
-                if file_id not in remove_ids and path.exists()
+                if file_id not in remove_ids
             }
 
         with _INDEX_LOCK:
@@ -133,7 +139,7 @@ class UploadService:
             serializable = {
                 file_id: path
                 for file_id, path in serializable.items()
-                if file_id not in remove_ids and Path(path).exists()
+                if file_id not in remove_ids
             }
 
             try:

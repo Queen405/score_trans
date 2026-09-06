@@ -1216,6 +1216,8 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
   const batchId = expandedBatchId.value
   if (!batchId) return
 
+  if (!(await persistUnsavedBeforeReplace('恢复历史版本'))) return
+
   let allPages = expandedPages.value
   let renderPageFileIds: string[] = []
   let batchEngineVersion = ''
@@ -2332,6 +2334,27 @@ function settleDiscardConfirmation(value: boolean): void {
 // 而把批次重新标脏。见 App.vue 的 saveAndClose。
 async function flushPendingEdits(): Promise<void> {
   await jianpuEditorRef.value?.flushPendingAutoTranspose()
+}
+
+// loadBatch 会整页替换当前批次，切走前先把未保存编辑落盘，避免静默丢弃。
+// 保存失败则取消这次切换，让用户先处理（重试保存或手动丢弃），不强行覆盖。
+async function persistUnsavedBeforeReplace(action: string): Promise<boolean> {
+  store.setBusy(true)
+  try {
+    await flushPendingEdits()
+    if (!store.hasUnsavedChanges) return true
+    await workspacePersistence.saveAllUnsavedBatches(store)
+    log.addLog(`${action}前已自动保存当前批次的未保存更改`)
+    return true
+  } catch (e: unknown) {
+    if (isRenderAborted(e)) return false
+    const msg = e instanceof Error ? e.message : String(e)
+    log.addError(`自动保存失败，已取消${action}：${msg}`)
+    message.error(`保存当前更改失败，已取消${action}：${msg}`)
+    return false
+  } finally {
+    store.setBusy(false)
+  }
 }
 
 defineExpose({ flushPendingEdits })

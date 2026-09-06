@@ -62,12 +62,16 @@ import type { HistoryBatchListItem } from '../models/types'
 
 const RECENT_LIMIT = 6
 
+const props = defineProps<{
+  flushPendingEdits: () => Promise<void>
+}>()
+
 const entries = ref<HistoryBatchListItem[]>([])
 const loading = ref(false)
 const restoringId = ref<number | null>(null)
 let stopListener: (() => void) | null = null
 
-const { restoreBatch } = useHistoryRestore()
+const { restoreBatch } = useHistoryRestore(() => props.flushPendingEdits())
 
 onMounted(() => {
   void load()

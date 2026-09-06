@@ -511,6 +511,7 @@ function onInput(e: Event): void {
 // 自动转调：debounce 后把「编辑前 → 编辑后」交给后端重记谱。
 // 基线时机与竞态判定全部在 AutoTransposeGate 里，此处只负责计时器与 DOM。
 let keyChangeTimer: ReturnType<typeof setTimeout> | null = null
+let autoTransposeTask: Promise<void> | null = null
 const KEY_CHANGE_DEBOUNCE_MS = 600
 const autoTransposeGate = new AutoTransposeGate(classifyKeyEdit)
 
@@ -530,12 +531,12 @@ function scheduleKeyChangeCheck(before: string, after: string): void {
   autoTransposeGate.recordEdit(before, after)
   keyChangeTimer = setTimeout(() => {
     keyChangeTimer = null
-    void triggerAutoTranspose()
+    // The task reports failures; background execution must also consume rejection.
+    void triggerAutoTranspose().catch(() => {})
   }, KEY_CHANGE_DEBOUNCE_MS)
 }
 
-// 后端跳过转调时的提示。no_key_token 理论上被 classifyKeyEdit 的 no-key 预检拦下，
-// 走到这里说明前后端调号词表出现分歧，静默回滚即可，不必打扰用户。
+// Backend skip reasons leave the edit unresolved and must block persistence.
 const SKIP_MESSAGES: Record<string, string> = {
   parse_error: '简谱有语法错误，自动转调已跳过',
   unresolvable_key_change: '删除调号无法自动转调，请直接把调号改写成新调',
@@ -544,12 +545,22 @@ const SKIP_MESSAGES: Record<string, string> = {
 // 保存前调用：把待执行的转调立刻做完并等它落地，避免 debounce 落进保存窗口。
 // 刻意不用 cancel —— 丢掉待发转调会留下「新调号 + 未转调音符」的错谱，比报错更糟。
 async function flushPendingAutoTranspose(): Promise<void> {
-  if (keyChangeTimer === null) return
   clearKeyChangeTimer()
+  await nextTick()
   await triggerAutoTranspose()
+  await nextTick()
 }
 
-async function triggerAutoTranspose(): Promise<void> {
+function triggerAutoTranspose(): Promise<void> {
+  if (autoTransposeTask) return autoTransposeTask
+  autoTransposeTask = performAutoTranspose().finally(() => {
+    autoTransposeTask = null
+  })
+  return autoTransposeTask
+}
+
+async function performAutoTranspose(): Promise<void> {
+  if (!settings.jianpuAutoTranspose) return
   const pending = autoTransposeGate.takePending(props.modelValue)
   if (pending === null) return
   const requestId = autoTransposeGate.beginRequest()
@@ -562,28 +573,22 @@ async function triggerAutoTranspose(): Promise<void> {
       previous_text: pending.baseline,
     })
     if (!autoTransposeGate.acceptResponse(requestId, pending.text, props.modelValue)) {
-      // 在途期间文档被改动，结果作废；但基线要还回去，否则这次编辑的旧调就丢了。
-      autoTransposeGate.rollbackRequest(requestId)
-      return
+      throw new Error('转调期间谱面已变更，请检查当前编辑后重试')
     }
     if (result.error) {
-      logStore.addError(`自动转调失败：${result.error}`)
-      message.warning('自动转调失败，音符未改动')
-      autoTransposeGate.rollbackRequest(requestId)
-      return
+      throw result.error
     }
     const skipReason = result.data?.skip_reason
     if (skipReason) {
       const detail = result.data?.skip_detail
-      if (detail) logStore.addError(`自动转调已跳过（${skipReason}）：${detail}`)
-      const hint = SKIP_MESSAGES[skipReason]
-      if (hint) message.warning(hint)
-      autoTransposeGate.rollbackRequest(requestId)
-      return
+      throw new Error(SKIP_MESSAGES[skipReason] || detail || `自动转调已跳过：${skipReason}`)
     }
     const transposed = result.data?.transposed_text
-    if (!transposed || transposed === pending.text) {
-      autoTransposeGate.rollbackRequest(requestId)
+    if (!transposed) {
+      throw new Error('自动转调未返回谱面文本')
+    }
+    if (transposed === pending.text) {
+      autoTransposeGate.commitRequest()
       return
     }
     emit('rekey-applied', {
@@ -595,6 +600,16 @@ async function triggerAutoTranspose(): Promise<void> {
     // parent watcher cannot mistake this update for ordinary user input.
     applyTransposed(pending.text, transposed)
     autoTransposeGate.commitRequest()
+  } catch (error: unknown) {
+    autoTransposeGate.rollbackRequest(requestId)
+    if (settings.jianpuAutoTranspose && props.modelValue === pending.text) {
+      // Keep the failed edit retryable even after its debounce timer has fired.
+      autoTransposeGate.recordEdit(pending.baseline, pending.text)
+    }
+    const detail = error instanceof Error ? error.message : String(error)
+    logStore.addError(`自动转调失败：${detail}`)
+    message.warning(`自动转调未完成：${detail}`)
+    throw error
   } finally {
     transposing.value = false
   }

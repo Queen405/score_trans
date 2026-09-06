@@ -138,6 +138,7 @@ import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon, useMessage } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
 import { useSettingsStore } from '../stores/settings'
+import { useLogStore } from '../stores/log'
 import type { CorrectableEntityDTO } from '../models/types'
 
 const props = defineProps<{
@@ -179,6 +180,7 @@ interface SourceMap {
 
 const settings = useSettingsStore()
 const message = useMessage()
+const log = useLogStore()
 const containerRef = ref<HTMLElement>()
 const zp = useZoomPan(containerRef)
 const imgW = ref(0)
@@ -283,7 +285,15 @@ watch(
     if (!fileId) return
 
     const result = await fetchFileBlob(fileId, controller.signal)
-    if (!active || result.error) return
+    if (!active) return
+    if (result.error) {
+      // 切换页面/组件卸载触发的 abort 不算错误
+      if (result.error.code === 'aborted') return
+      const msg = result.error.message || '未知错误'
+      log.addError(`原始谱面加载失败（${props.fileName}）：${msg}`)
+      message.error(`原始谱面加载失败：${msg}`)
+      return
+    }
     fileUrl.value = URL.createObjectURL(result.data)
   },
   { immediate: true },

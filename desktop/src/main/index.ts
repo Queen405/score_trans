@@ -9,6 +9,14 @@ import {
   type CloseDecision,
   type CloseIntent,
 } from './closeCoordinator'
+
+// 本地后端(127.0.0.1)的请求绝不能走系统代理。
+// 代理软件(Clash 等)会剥离响应里的 CORS 头, 浏览器随即以 CORS 错误拦截,
+// 表现为页面图片"Failed to fetch"。用 commandLine 开关设置 bypass,
+// 它在 Chromium 的任何代理模式(system/fixed/pac)下都强制生效,
+// 比 session.setProxy 的 proxyBypassRules 可靠(后者在 system 模式下会被忽略)。
+// 必须在 app ready 前调用。
+app.commandLine.appendSwitch('proxy-bypass-list', '<local>,localhost,127.0.0.1,::1')
 import {
   configureElectronStoragePaths,
   loadStoragePaths,

@@ -1,0 +1,329 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { createRequire } from 'node:module'
+import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
+import { compileScript, parse } from 'vue/compiler-sfc'
+
+const require = createRequire(import.meta.url)
+const { createRenderer, h, nextTick, reactive, ref, watch } = require('vue')
+const { createPinia, setActivePinia } = require('pinia')
+const root = fileURLToPath(new URL('../src/renderer/src/', import.meta.url))
+const before = '1=C\n4/4\n1 2 3 4 |'
+const edited = '1=D\n4/4\n1 2 3 4 |'
+const transposed = "1=D\n4/4\n7, #1 2 3 |"
+const success = { data: { transposed_text: transposed }, error: null }
+
+// Compile the real modules and SFC setup; replace only environment/API boundaries.
+function createLoader(overrides) {
+  const cache = new Map()
+  return function load(relative) {
+    const filename = path.resolve(root, relative)
+    if (overrides[filename]) return overrides[filename]
+    if (cache.has(filename)) return cache.get(filename)
+    const text = fs.readFileSync(filename, 'utf8')
+    const source = filename.endsWith('.vue')
+      ? compileScript(parse(text, { filename }).descriptor, { id: filename }).content
+      : text
+    const compiled = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+      fileName: filename,
+    }).outputText
+    const module = { exports: {} }
+    cache.set(filename, module.exports)
+    const localRequire = (specifier) => {
+      if (overrides[specifier]) return overrides[specifier]
+      if (!specifier.startsWith('.')) return require(specifier)
+      const resolved = path.resolve(path.dirname(filename), specifier)
+      return load(path.extname(resolved) ? resolved : `${resolved}.ts`)
+    }
+    new Function('require', 'module', 'exports', compiled)(localRequire, module, module.exports)
+    return module.exports
+  }
+}
+
+const renderer = createRenderer({
+  createComment: () => ({}),
+  insert() {},
+  remove() {},
+  parentNode: () => null,
+  nextSibling: () => null,
+})
+
+function deferred() {
+  let resolve
+  const promise = new Promise((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+async function settle() {
+  await new Promise((resolve) => setImmediate(resolve))
+  await nextTick()
+}
+
+function convertPreflight(bindings) {
+  const source = parse(fs.readFileSync(path.join(root, 'views/ConvertView.vue'), 'utf8')).descriptor.scriptSetup.content
+  const ast = ts.createSourceFile('ConvertView.ts', source, ts.ScriptTarget.Latest, true)
+  const names = new Set(['flushPendingEdits', 'persistUnsavedBeforeReplace'])
+  const declarations = ast.statements
+    .filter((node) => ts.isFunctionDeclaration(node) && names.has(node.name.text))
+    .map((node) => node.getText(ast)).join('\n')
+  assert.equal(declarations.includes('persistUnsavedBeforeReplace'), true)
+  const compiled = ts.transpileModule(declarations, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText
+  return new Function(...Object.keys(bindings), `${compiled}\nreturn persistUnsavedBeforeReplace;`)(...Object.values(bindings))
+}
+
+function setup(t, entrypoint = 'quick', { enabled = true } = {}) {
+  const requests = []
+  const saved = []
+  const events = []
+  const errors = []
+  const pending = deferred()
+  const settings = reactive({ jianpuAutoTranspose: enabled, jianpuLayoutKey: 'layout' })
+  const message = { error: (value) => errors.push(value), warning() {}, success() {} }
+  const log = { addError() {}, addLog() {} }
+  const historyApi = {
+    async saveBatch(id, request) {
+      events.push('save')
+      saved.push(JSON.parse(JSON.stringify(request)))
+      return {
+        data: { ...request, id, pages: request.pages.map((page) => ({ ...page, id: page.page_id })) },
+        error: null,
+      }
+    },
+    async get() {
+      events.push('get')
+      return {
+        data: {
+          id: 20, pages: [{ id: 200, input_file_name: 'target.png', input_file_id: '', jianpu_text: before }],
+          jianpu_text: before, render_page_file_ids: ['rendered'], render_layout_key: 'layout',
+          engine_version: load('utils/jianpuLayout.ts').PUBLICATION_ENGINE_VERSION,
+        },
+        error: null,
+      }
+    },
+  }
+  const mocks = {
+    'naive-ui': { useMessage: () => message },
+    [path.join(root, 'stores/settings.ts')]: { useSettingsStore: () => settings },
+    [path.join(root, 'stores/log.ts')]: { useLogStore: () => log },
+    [path.join(root, 'api/jianpu.ts')]: { jianpuApi: { rekeyText: async (request) => {
+      requests.push(request)
+      return pending.promise
+    } } },
+    [path.join(root, 'api/history.ts')]: { historyApi },
+    [path.join(root, 'api/client.ts')]: {
+      ApiError: class ApiError extends Error {},
+      requireData: async (promise) => {
+        const result = await promise
+        if (result.error) throw result.error
+        return result.data
+      },
+    },
+    [path.join(root, 'api/files.ts')]: { filesApi: { existsMany: async () => ({ data: { rendered: true }, error: null }) } },
+    [path.join(root, 'utils/historyEvents.ts')]: { notifyHistoryUpdated() {} },
+    [path.join(root, 'composables/usePublicationRender.ts')]: { usePublicationRender: () => ({}) },
+    [path.join(root, 'composables/useViewPersistence.ts')]: { loadEditorScroll: () => null, saveEditorScroll() {} },
+  }
+  const load = createLoader(mocks)
+  setActivePinia(createPinia())
+  const store = load('stores/workspace.ts').useWorkspaceStore()
+  store.loadBatch([{ inputFileName: 'current.png', inputFileId: '', historyBatchId: 10, historyPageId: 100, jianpuText: before }], 0, [], before)
+  const originalBatchId = store.currentBatchId
+  const model = ref(before)
+  const stopWatch = watch(model, (text) => store.setBatchJianpuText(text, true))
+  const Editor = load('components/JianpuEditor.vue').default
+  Editor.render = () => null
+  const editorRef = ref(null)
+  const app = renderer.createApp({ render: () => h(Editor, {
+    ref: editorRef,
+    modelValue: model.value,
+    'onUpdate:modelValue': (text) => { model.value = text },
+  }) })
+  app.mount({})
+  const editor = editorRef.value
+  t.after(() => { stopWatch(); app.unmount() })
+  const flushPendingEdits = async () => {
+    events.push('flush')
+    await editor.flushPendingAutoTranspose()
+  }
+  let restore
+  if (entrypoint === 'quick') {
+    const { useHistoryRestore } = load('composables/useHistoryRestore.ts')
+    restore = () => useHistoryRestore(flushPendingEdits).restoreBatch({ id: 20 })
+  } else {
+    const persist = convertPreflight({
+      store, log, message, jianpuEditorRef: { value: { flushPendingAutoTranspose: flushPendingEdits } },
+      workspacePersistence: load('utils/workspacePersistence.ts').createWorkspacePersistence(historyApi),
+      isRenderAborted: () => false,
+    })
+    restore = () => persist('restore')
+  }
+  return {
+    store, model, editor, settings, requests, saved, events, errors, pending, originalBatchId,
+    historyApi, rekeyApi: mocks[path.join(root, 'api/jianpu.ts')].jianpuApi, restore,
+    async edit(text = edited) {
+      const old = model.value
+      model.value = text
+      editor.$.setupState.scheduleKeyChangeCheck(old, text)
+      await nextTick()
+    },
+  }
+}
+
+for (const entrypoint of ['quick', 'convert']) {
+  test(`${entrypoint}: restore saves transposed notes when called during debounce`, async (t) => {
+    const ctx = setup(t, entrypoint)
+    await ctx.edit()
+    const restoring = ctx.restore()
+    await settle()
+    assert.equal(ctx.requests.length, 1)
+    assert.equal(ctx.saved.length, 0, 'must not save before the transpose response')
+    assert.equal(ctx.store.currentBatchId, ctx.originalBatchId)
+    ctx.pending.resolve(success)
+    assert.equal(await restoring, true)
+    assert.equal(ctx.saved[0].jianpu_text, transposed)
+    assert.deepEqual(ctx.requests[0], { text: edited, previous_text: before })
+    assert.equal(ctx.store.isBusy, false)
+    if (entrypoint === 'quick') assert.deepEqual(ctx.events, ['flush', 'save', 'get'])
+  })
+
+  test(`${entrypoint}: restore waits for an in-flight transpose without a second request`, async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] })
+    const ctx = setup(t, entrypoint)
+    await ctx.edit()
+    t.mock.timers.tick(600)
+    assert.equal(ctx.requests.length, 1)
+    const restoring = ctx.restore()
+    await settle()
+    assert.equal(ctx.saved.length, 0)
+    ctx.pending.resolve(success)
+    assert.equal(await restoring, true)
+    assert.equal(ctx.requests.length, 1)
+    assert.equal(ctx.saved[0].jianpu_text, transposed)
+  })
+
+  test(`${entrypoint}: flush runs before the dirty check`, async (t) => {
+    const ctx = setup(t, entrypoint)
+    await ctx.edit()
+    ctx.store.acknowledgeBatchChanges(ctx.store.captureBatchChangeRevision(ctx.originalBatchId), undefined, ctx.originalBatchId)
+    assert.equal(ctx.store.hasUnsavedChanges, false)
+    const restoring = ctx.restore()
+    await settle()
+    assert.equal(ctx.requests.length, 1)
+    ctx.pending.resolve(success)
+    assert.equal(await restoring, true)
+    assert.equal(ctx.saved[0].jianpu_text, transposed)
+  })
+
+  for (const result of [
+    { data: null, error: new Error('offline') },
+    { data: { skip_reason: 'parse_error' }, error: null },
+    { data: { transposed_text: '' }, error: null },
+  ]) {
+    test(`${entrypoint}: failed or skipped transpose cancels restore (${result.error?.message ?? result.data.skip_reason ?? 'empty result'})`, async (t) => {
+      const ctx = setup(t, entrypoint)
+      await ctx.edit()
+      const restoring = ctx.restore()
+      ctx.pending.resolve(result)
+      assert.equal(await restoring, false)
+      assert.equal(ctx.saved.length, 0)
+      assert.equal(ctx.events.includes('get'), false)
+      assert.equal(ctx.store.currentBatchId, ctx.originalBatchId)
+      assert.equal(ctx.store.currentBatchJianpuText, edited)
+      assert.equal(ctx.store.hasUnsavedChanges, true)
+      assert.equal(ctx.store.isBusy, false)
+      assert.equal(ctx.errors.length, 1)
+      assert.equal(await ctx.restore(), false, 'a second restore must not silently save the failed edit')
+      assert.equal(ctx.saved.length, 0)
+    })
+  }
+
+  test(`${entrypoint}: a save failure keeps the transposed current batch`, async (t) => {
+    const ctx = setup(t, entrypoint)
+    ctx.historyApi.saveBatch = async () => ({ data: null, error: new Error('save failed') })
+    await ctx.edit()
+    const restoring = ctx.restore()
+    ctx.pending.resolve(success)
+    assert.equal(await restoring, false)
+    assert.equal(ctx.store.currentBatchId, ctx.originalBatchId)
+    assert.equal(ctx.store.currentBatchJianpuText, transposed)
+    assert.equal(ctx.store.hasUnsavedChanges, true)
+    assert.equal(ctx.store.isBusy, false)
+  })
+
+  test(`${entrypoint}: restore without pending edits does not transpose or save`, async (t) => {
+    const ctx = setup(t, entrypoint)
+    assert.equal(await ctx.restore(), true)
+    assert.equal(ctx.requests.length, 0)
+    assert.equal(ctx.saved.length, 0)
+    assert.equal(ctx.store.isBusy, false)
+  })
+
+  test(`${entrypoint}: disabled auto-transpose preserves explicitly edited notes`, async (t) => {
+    const ctx = setup(t, entrypoint, { enabled: false })
+    await ctx.edit()
+    assert.equal(await ctx.restore(), true)
+    assert.equal(ctx.requests.length, 0)
+    assert.equal(ctx.saved[0].jianpu_text, edited)
+  })
+}
+
+test('a stale transpose response cannot authorize history replacement', async (t) => {
+  const ctx = setup(t)
+  await ctx.edit()
+  const restoring = ctx.restore()
+  await settle()
+  assert.equal(ctx.requests.length, 1)
+  ctx.model.value = '1=G\n4/4\n1 2 3 4 |'
+  await nextTick()
+  ctx.pending.resolve(success)
+  assert.equal(await restoring, false)
+  assert.equal(ctx.saved.length, 0)
+  assert.equal(ctx.store.currentBatchId, ctx.originalBatchId)
+})
+
+test('a successful unchanged transpose is safe to save', async (t) => {
+  const ctx = setup(t)
+  await ctx.edit()
+  const restoring = ctx.restore()
+  ctx.pending.resolve({ data: { transposed_text: edited }, error: null })
+  assert.equal(await restoring, true)
+  assert.equal(ctx.saved[0].jianpu_text, edited)
+})
+
+test('a rejected background request is handled and a restore can retry its original baseline', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const ctx = setup(t)
+  ctx.rekeyApi.rekeyText = async () => { throw new Error('offline') }
+  await ctx.edit()
+  t.mock.timers.tick(600)
+  await settle()
+  assert.equal(ctx.editor.transposing, false)
+  assert.equal(ctx.store.hasUnsavedChanges, true)
+  ctx.rekeyApi.rekeyText = async (request) => {
+    ctx.requests.push(request)
+    return success
+  }
+  assert.equal(await ctx.restore(), true)
+  assert.deepEqual(ctx.requests, [{ text: edited, previous_text: before }])
+  assert.equal(ctx.saved[0].jianpu_text, transposed)
+})
+
+test('disabling auto-transpose invalidates an in-flight result without blocking later manual saves', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const ctx = setup(t)
+  await ctx.edit()
+  t.mock.timers.tick(600)
+  ctx.settings.jianpuAutoTranspose = false
+  await nextTick()
+  ctx.pending.resolve(success)
+  await settle()
+  assert.equal(ctx.model.value, edited)
+  assert.equal(await ctx.restore(), true)
+  assert.equal(ctx.saved[0].jianpu_text, edited)
+})

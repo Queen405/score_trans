@@ -38,7 +38,12 @@ async def download_file(
     actions: FileActions = Depends(get_file_actions),
 ):
     path, media_type = await asyncio.to_thread(actions.download_file, file_id)
-    return FileResponse(path, media_type=media_type, filename=path.name)
+    return FileResponse(
+        path,
+        media_type=media_type,
+        filename=path.name,
+        headers={"Cache-Control": "private, no-store"},
+    )
 
 
 @router.head("/{file_id}")
@@ -52,6 +57,7 @@ async def head_file(
         headers={
             "Content-Type": media_type,
             "Content-Length": str(path.stat().st_size),
+            "Cache-Control": "private, no-store",
         },
     )
 

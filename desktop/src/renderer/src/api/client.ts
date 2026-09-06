@@ -50,7 +50,8 @@ export function authenticatedFetch(
   const headers = new Headers(options.headers)
   const token = getApiToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  return fetch(input, { ...options, headers })
+  // Old file responses may be cached without CORS headers or for a past session.
+  return fetch(input, { cache: 'no-store', ...options, headers })
 }
 
 export class ApiError extends Error {
@@ -209,8 +210,9 @@ export async function fetchFileBlob(
   fileId: string,
   signal?: AbortSignal,
 ): Promise<ApiResult<Blob>> {
+  const url = getFileURL(fileId)
   try {
-    const response = await authenticatedFetch(getFileURL(fileId), { signal })
+    const response = await authenticatedFetch(url, { signal })
     if (!response.ok) {
       const payload = await response.json().catch(() => ({} as Record<string, unknown>))
       return apiFailure(apiErrorFromResponse(response.status, payload))
