@@ -1291,6 +1291,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     renderLayoutKey,
   )
   isViewingFinal.value = false
+  await nextTick()
   if (
     !renderPageFileIds.length
     || batchEngineVersion !== PUBLICATION_ENGINE_VERSION

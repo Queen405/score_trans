@@ -1,3 +1,4 @@
+import { nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useSettingsStore } from '../stores/settings'
@@ -62,6 +63,7 @@ export function useHistoryRestore() {
       batch.render_output_stale ?? false,
       batch.render_layout_key ?? '',
     )
+    await nextTick()
     await validateRestoredBatchFiles(pages, renderPageFileIds)
     if (
       !renderPageFileIds.length
