@@ -2621,13 +2621,20 @@ def _split_long_note(event: Event) -> list[Event]:
     whole = int(event.duration)
     pieces: list[Fraction] = [Fraction(1)] * whole
     remainder = event.duration - whole
-    if remainder > 0:
+    # 附点只表达无法用整数横线覆盖的小数部分：当存在小数余数时，note 片段
+    # 保留附点（画 rhythm-dot）且不再为该余数生成 extension 横线；当余数
+    # 为 0（纯整数拍）时，即使数据带 dotted 标记也用横线表达，不画附点，
+    # 例如 ``h1.`` 渲染为 ``1--`` 而非 ``1.--``。
+    note_dotted = event.dotted if remainder > 0 else 0
+    if remainder > 0 and note_dotted == 0:
         pieces.append(remainder)
     result: list[Event] = []
     cursor = event.start
     for index, piece in enumerate(pieces):
         if index == 0:
-            result.append(replace(event, duration=piece, start=cursor))
+            result.append(
+                replace(event, duration=piece, dotted=note_dotted, start=cursor)
+            )
         else:
             result.append(
                 Event(

@@ -23,6 +23,7 @@ import {
   saveStoragePaths,
   type StoragePathUpdate,
 } from './storage'
+import { checkForUpdate } from './updater'
 
 let mainWindow: BrowserWindow | null = null
 let backend: BackendProcess | null = null
@@ -223,6 +224,13 @@ app.whenReady().then(async () => {
     return { ok: true }
   })
 
+  ipcMain.handle('app:check-update', () => checkForUpdate())
+
+  ipcMain.handle('app:open-external', (_event, url: string) => {
+    if (typeof url !== 'string' || !isAllowedExternalURL(url)) return
+    void shell.openExternal(url)
+  })
+
   registerFileHandlers(() => mainWindow)
 
   // Create the main window
@@ -263,6 +271,8 @@ app.on('will-quit', async () => {
   ipcMain.removeHandler('storage:get')
   ipcMain.removeHandler('storage:set')
   ipcMain.removeHandler('cache:clear-electron')
+  ipcMain.removeHandler('app:check-update')
+  ipcMain.removeHandler('app:open-external')
 })
 
 app.on('window-all-closed', () => {

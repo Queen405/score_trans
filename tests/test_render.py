@@ -361,15 +361,26 @@ def test_rhythm_pitch_and_chord_features_are_visible() -> None:
     assert 'class="extension-line"' in svg
 
 
-def test_dotted_duration_line_starts_after_rhythm_dot() -> None:
+def test_dotted_quarter_note_renders_dot_without_extension_line() -> None:
+    # 附点四分音符（1.5 拍）的小数部分由附点表达，不应再画延长横线。
     root = _root(render_score_svg(long_duration_score()))
-    dot = next(node for node in root.iter() if node.attrib.get("class") == "rhythm-dot")
-    line = next(
-        node for node in root.iter() if node.attrib.get("class") == "extension-line"
+
+    assert any(node.attrib.get("class") == "rhythm-dot" for node in root.iter())
+    assert not any(
+        node.attrib.get("class") == "extension-line" for node in root.iter()
     )
 
-    assert (
-        float(line.attrib["x1"]) >= float(dot.attrib["cx"]) + float(dot.attrib["r"]) + 3
+
+def test_dotted_half_note_renders_dashes_without_rhythm_dot() -> None:
+    # 附点二分音符（3 拍）是纯整数拍，用横线表达，不再画附点。
+    root = _root(render_jianpu_svg("1=C\n4/4\nh1. 2 |"))
+
+    dashes = [
+        node for node in root.iter() if node.attrib.get("class") == "extension-line"
+    ]
+    assert len(dashes) == 2
+    assert not any(
+        node.attrib.get("class") == "rhythm-dot" for node in root.iter()
     )
 
 

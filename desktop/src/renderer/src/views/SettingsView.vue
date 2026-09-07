@@ -76,7 +76,10 @@
         </div>
       </div>
 
-      <footer class="sv-footer">
+      <footer
+        v-if="activeCategory !== 'about'"
+        class="sv-footer"
+      >
         <div
           class="sv-footer-status"
           role="status"
@@ -149,17 +152,19 @@ import {
 import {
   CloudOutline,
   ColorPaletteOutline,
+  InformationCircleOutline,
   SettingsOutline,
   SwapHorizontalOutline,
 } from '@vicons/ionicons5'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
+import AboutSettingsPanel from '../components/settings/AboutSettingsPanel.vue'
 import AppearanceSettingsPanel from '../components/settings/AppearanceSettingsPanel.vue'
 import ConversionSettingsPanel from '../components/settings/ConversionSettingsPanel.vue'
 import ServiceSettingsPanel from '../components/settings/ServiceSettingsPanel.vue'
 import ToolStorageSettingsPanel from '../components/settings/ToolStorageSettingsPanel.vue'
 
-type SettingsCategory = 'services' | 'tools-storage' | 'conversion' | 'appearance'
+type SettingsCategory = 'services' | 'tools-storage' | 'conversion' | 'appearance' | 'about'
 
 interface CategoryDefinition {
   key: SettingsCategory
@@ -206,6 +211,12 @@ const categories: CategoryDefinition[] = [
     label: '界面与外观',
     icon: ColorPaletteOutline,
     panel: AppearanceSettingsPanel,
+  },
+  {
+    key: 'about',
+    label: '关于',
+    icon: InformationCircleOutline,
+    panel: AboutSettingsPanel,
   },
 ]
 

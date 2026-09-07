@@ -12,6 +12,15 @@ export interface BackendConnection {
   token: string
 }
 
+export interface UpdateCheckResult {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string | null
+  downloadUrl: string | null
+  notes: string | null
+  error: string | null
+}
+
 const api = {
   getBackendConnection: async (): Promise<BackendConnection> => {
     return await ipcRenderer.invoke('get-backend-connection') || {
@@ -68,6 +77,12 @@ const api = {
   },
   clearElectronCache: async (): Promise<void> => {
     await ipcRenderer.invoke('cache:clear-electron')
+  },
+  checkForUpdate: async (): Promise<UpdateCheckResult> => {
+    return ipcRenderer.invoke('app:check-update')
+  },
+  openExternal: async (url: string): Promise<void> => {
+    await ipcRenderer.invoke('app:open-external', url)
   },
   saveExportFile: async (
     source: { buffer: ArrayBuffer },

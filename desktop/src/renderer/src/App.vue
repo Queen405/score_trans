@@ -19,6 +19,16 @@
           </div>
           <div class="titlebar-drag" />
           <div class="titlebar-right">
+            <button
+              v-if="hasUpdate"
+              class="update-badge"
+              type="button"
+              :title="`点击前往下载 v${updateInfo?.latestVersion}`"
+              @click="openDownloadPage"
+            >
+              <span class="update-badge-dot" />
+              <span>有新版本 v{{ updateInfo?.latestVersion }}</span>
+            </button>
             <div
               class="window-controls"
               role="group"
@@ -380,6 +390,25 @@ const systemPrefersDark = ref(mediaQuery.matches)
 const isMaximized = ref(false)
 let removeMaximizedListener: (() => void) | null = null
 let removeCloseRequestedListener: (() => void) | null = null
+let updateCheckTimer: ReturnType<typeof setTimeout> | null = null
+
+type UpdateCheckResult = Awaited<ReturnType<typeof window.api.checkForUpdate>>
+const updateInfo = ref<UpdateCheckResult | null>(null)
+const hasUpdate = computed(() => updateInfo.value?.hasUpdate === true)
+
+async function performUpdateCheck(): Promise<void> {
+  try {
+    updateInfo.value = await window.api.checkForUpdate()
+  } catch (err) {
+    console.warn('[update] check failed:', err)
+    updateInfo.value = null
+  }
+}
+
+function openDownloadPage(): void {
+  const url = updateInfo.value?.downloadUrl
+  if (typeof url === 'string') void window.api.openExternal(url)
+}
 const saveBeforeCloseBlocked = computed(() =>
   !closeSaving.value && (store.isBusy || store.backgroundTaskCount > 0),
 )
@@ -420,6 +449,10 @@ onMounted(() => {
   })
   removeCloseRequestedListener = window.api.onCloseRequested(handleCloseRequested)
   void window.api.notifyCloseListenerReady()
+  updateCheckTimer = setTimeout(() => {
+    updateCheckTimer = null
+    void performUpdateCheck()
+  }, 5000)
 })
 
 onUnmounted(() => {
@@ -436,6 +469,10 @@ onUnmounted(() => {
   if (removeCloseRequestedListener) {
     removeCloseRequestedListener()
     removeCloseRequestedListener = null
+  }
+  if (updateCheckTimer) {
+    clearTimeout(updateCheckTimer)
+    updateCheckTimer = null
   }
 })
 
@@ -772,6 +809,45 @@ body {
   flex-shrink: 0;
   -webkit-app-region: no-drag;
   app-region: no-drag;
+  display: flex;
+  align-items: center;
+}
+
+.update-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  margin-right: 8px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(76, 110, 245, 0.2);
+  color: #c5d0f6;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+
+.update-badge:hover {
+  background: rgba(76, 110, 245, 0.36);
+  color: #fff;
+}
+
+.update-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(76, 110, 245, 0.7);
+  animation: update-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes update-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .window-controls {
