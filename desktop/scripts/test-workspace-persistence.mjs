@@ -158,6 +158,129 @@ test('save-all refuses to finish when an edit remains after the batch pass', asy
   )
 })
 
+test('replacement save defers an unbound edit instead of blocking history restore', async () => {
+  const store = fakeStore([])
+  store.currentBatchId = null
+  store.batches = []
+  store.hasUnsavedChanges = true
+  store.isBatchUnsaved = () => false
+  const persistence = createWorkspacePersistence({
+    saveBatch: async () => assert.fail('saveBatch must not be called'),
+    create: async () => assert.fail('create must not be called'),
+    updateRenderState: async () => assert.fail('render-state must not be called'),
+  })
+
+  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'replace' })
+
+  assert.deepEqual(result, { savedBatchIds: [], deferredDiscard: true })
+})
+
+test('replacement save defers a missing history batch without acknowledging its edits', async () => {
+  const pages = [page(0)]
+  const store = fakeStore(pages)
+  store.hasUnsavedChanges = true
+  const persistence = createWorkspacePersistence({
+    saveBatch: async () => ({
+      data: null,
+      error: Object.assign(new Error('Batch not found'), { status: 404 }),
+    }),
+    create: async () => assert.fail('create must not be called'),
+    updateRenderState: async () => assert.fail('render-state must not be called'),
+  })
+
+  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'replace' })
+
+  assert.deepEqual(result, { savedBatchIds: [], deferredDiscard: true })
+  assert.deepEqual(store.acknowledgements, [])
+})
+
+test('strict save still rejects a missing history batch', async () => {
+  const pages = [page(0)]
+  const store = fakeStore(pages)
+  store.hasUnsavedChanges = true
+  const persistence = createWorkspacePersistence({
+    saveBatch: async () => ({
+      data: null,
+      error: Object.assign(new Error('Batch not found'), { status: 404 }),
+    }),
+    create: async () => assert.fail('create must not be called'),
+    updateRenderState: async () => assert.fail('render-state must not be called'),
+  })
+
+  await assert.rejects(
+    persistence.saveAllUnsavedBatches(store),
+    /Batch not found/,
+  )
+  assert.deepEqual(store.acknowledgements, [])
+})
+
+test('replacement save does not swallow a 404 while creating a draft batch', async () => {
+  const pages = [page(0, null)]
+  const store = fakeStore(pages)
+  store.hasUnsavedChanges = true
+  const persistence = createWorkspacePersistence({
+    saveBatch: async () => assert.fail('saveBatch must not be called'),
+    create: async () => ({
+      data: null,
+      error: Object.assign(new Error('Not found'), { status: 404 }),
+    }),
+    updateRenderState: async () => assert.fail('render-state must not be called'),
+  })
+
+  await assert.rejects(
+    persistence.saveAllUnsavedBatches(store, { mode: 'replace' }),
+    /Not found/,
+  )
+})
+
+test('replacement save skips one missing batch and still saves another dirty batch', async () => {
+  const missingPage = { ...page(0, 10), id: 'missing-page', batchId: 'missing-batch' }
+  const validPage = {
+    ...page(1, 20),
+    id: 'valid-page',
+    batchId: 'valid-batch',
+    historyPageId: 201,
+  }
+  const store = fakeStore([missingPage, validPage])
+  const dirty = new Set(['missing-batch', 'valid-batch'])
+  store.currentBatchId = 'missing-batch'
+  store.batches = [
+    { id: 'missing-batch', pages: [missingPage] },
+    { id: 'valid-batch', pages: [validPage] },
+  ]
+  store.batchRenderPageFileIds = { 'missing-batch': [], 'valid-batch': [] }
+  store.batchRenderOutputStale = { 'missing-batch': true, 'valid-batch': true }
+  store.batchRenderLayoutKeys = { 'missing-batch': '', 'valid-batch': '' }
+  store.isBatchUnsaved = (batchId) => dirty.has(batchId)
+  store.acknowledgeBatchChanges = (_captured, _kinds, batchId) => dirty.delete(batchId)
+  Object.defineProperty(store, 'hasUnsavedChanges', {
+    get: () => dirty.size > 0,
+  })
+  const calls = []
+  const persistence = createWorkspacePersistence({
+    saveBatch: async (id) => {
+      calls.push(id)
+      if (id === 10) {
+        return {
+          data: null,
+          error: Object.assign(new Error('Batch not found'), { status: 404 }),
+        }
+      }
+      return { data: response(id, [validPage]), error: null }
+    },
+    create: async () => assert.fail('create must not be called'),
+    updateRenderState: async () => assert.fail('render-state must not be called'),
+  })
+
+  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'replace' })
+
+  assert.deepEqual(calls, [10, 20])
+  assert.deepEqual(result, {
+    savedBatchIds: ['valid-batch'],
+    deferredDiscard: true,
+  })
+})
+
 test('save-all retries once when an async write dirties the batch mid-save', async () => {
   // 自动转调的 debounce 落进 saveBatch 的 await 窗口：第 1 趟保存后批次仍脏，
   // 第 2 趟必须自动收敛，而不是取消关闭。
@@ -198,7 +321,7 @@ test('save-all gives up after a bounded number of passes', async () => {
   })
 
   await assert.rejects(
-    persistence.saveAllUnsavedBatches(store),
+    persistence.saveAllUnsavedBatches(store, { mode: 'replace' }),
     /New edits were made while saving/,
   )
   assert.equal(saveCount, 3)

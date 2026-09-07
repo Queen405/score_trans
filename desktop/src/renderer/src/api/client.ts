@@ -58,13 +58,21 @@ export class ApiError extends Error {
   stage?: string
   detail?: string
   code?: string
+  status?: number
 
-  constructor(message: string, stage?: string, detail?: string, code?: string) {
+  constructor(
+    message: string,
+    stage?: string,
+    detail?: string,
+    code?: string,
+    status?: number,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.stage = stage
     this.detail = detail
     this.code = code
+    this.status = status
   }
 }
 
@@ -185,7 +193,7 @@ function apiErrorFromResponse(
         ? JSON.stringify(payload.detail)
         : undefined
   const code = typeof payload.code === 'string' ? payload.code : undefined
-  return new ApiError(message, stage, detail, code)
+  return new ApiError(message, stage, detail, code, status)
 }
 
 function toApiError(error: unknown): ApiError {

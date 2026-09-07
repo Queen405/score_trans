@@ -57,6 +57,23 @@ test('apiFetch preserves AbortError as an aborted ApiError code', async () => {
   }
 })
 
+test('apiFetch preserves the HTTP status on ApiError', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response(
+    JSON.stringify({ error: 'Batch not found' }),
+    { status: 404, headers: { 'Content-Type': 'application/json' } },
+  )
+
+  try {
+    const result = await apiFetch('/history/10/save-all')
+    assert.equal(result.data, null)
+    assert.equal(result.error?.message, 'Batch not found')
+    assert.equal(result.error?.status, 404)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('stale render result is rejected even when the request resolves successfully', async () => {
   const gate = new RenderRequestGate()
   const first = deferred()

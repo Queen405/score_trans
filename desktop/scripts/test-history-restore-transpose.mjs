@@ -271,7 +271,68 @@ for (const entrypoint of ['quick', 'convert']) {
     assert.equal(ctx.requests.length, 0)
     assert.equal(ctx.saved[0].jianpu_text, edited)
   })
+
+  for (const emptyState of ['no selected batch', 'removed final page']) {
+    test(`${entrypoint}: ${emptyState} edits do not block history replacement`, async (t) => {
+      const ctx = setup(t, entrypoint, { enabled: false })
+      if (emptyState === 'no selected batch') ctx.store.reset()
+      else ctx.store.removePage(0)
+      await ctx.edit('1 2 3 |')
+
+      assert.equal(ctx.store.currentBatchId, null)
+      assert.equal(ctx.store.hasUnsavedChanges, true)
+      assert.equal(await ctx.restore(), true)
+      assert.equal(ctx.saved.length, 0)
+      assert.equal(ctx.errors.length, 0)
+      if (entrypoint === 'quick') {
+        assert.notEqual(ctx.store.currentBatchId, ctx.originalBatchId)
+        assert.equal(ctx.store.hasUnsavedChanges, false)
+      }
+    })
+  }
+
+  for (const deletion of ['single deletion', 'delete-all']) {
+    test(`${entrypoint}: ${deletion} of the source batch does not block replacement`, async (t) => {
+      const ctx = setup(t, entrypoint, { enabled: false })
+      ctx.historyApi.saveBatch = async () => ({
+        data: null,
+        error: Object.assign(new Error('Batch not found'), { status: 404 }),
+      })
+      await ctx.edit()
+
+      assert.equal(await ctx.restore(), true)
+      assert.equal(ctx.store.isBusy, false)
+      assert.equal(ctx.errors.length, 0)
+      if (entrypoint === 'quick') {
+        assert.notEqual(ctx.store.currentBatchId, ctx.originalBatchId)
+        assert.equal(ctx.store.hasUnsavedChanges, false)
+      }
+    })
+  }
 }
+
+test('a missing restore target keeps edits from an already deleted source batch', async (t) => {
+  const ctx = setup(t, 'quick', { enabled: false })
+  ctx.historyApi.saveBatch = async () => ({
+    data: null,
+    error: Object.assign(new Error('Batch not found'), { status: 404 }),
+  })
+  ctx.historyApi.get = async () => {
+    ctx.events.push('get')
+    return {
+      data: null,
+      error: Object.assign(new Error('Batch not found'), { status: 404 }),
+    }
+  }
+  await ctx.edit()
+
+  assert.equal(await ctx.restore(), false)
+  assert.equal(ctx.events.includes('get'), true)
+  assert.equal(ctx.store.currentBatchId, ctx.originalBatchId)
+  assert.equal(ctx.store.currentBatchJianpuText, edited)
+  assert.equal(ctx.store.hasUnsavedChanges, true)
+  assert.equal(ctx.errors.length, 1)
+})
 
 test('a stale transpose response cannot authorize history replacement', async (t) => {
   const ctx = setup(t)

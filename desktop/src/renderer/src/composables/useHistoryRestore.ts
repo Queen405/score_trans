@@ -38,15 +38,19 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
   const workspacePersistence = createWorkspacePersistence(historyApi, notifyHistoryUpdated)
   let restoreCheckSeq = 0
 
-  // loadBatch 会整页替换当前批次。切走前先把未保存编辑落盘，避免静默丢弃；
-  // 保存失败则取消这次恢复，让用户先处理（重试保存或手动丢弃）。
+  // loadBatch 会整页替换当前批次。切走前先保存仍有历史目标的编辑；没有本地批次
+  // 或历史目标已被删除时保留现场，等目标成功加载后再随工作区替换一起丢弃。
   async function persistUnsavedBeforeRestore(): Promise<boolean> {
     store.setBusy(true)
     try {
       await flushPendingEdits()
       if (!store.hasUnsavedChanges) return true
-      await workspacePersistence.saveAllUnsavedBatches(store)
-      log.addLog('恢复历史版本前已自动保存当前批次的未保存更改')
+      const result = await workspacePersistence.saveAllUnsavedBatches(store, {
+        mode: 'replace',
+      })
+      if (result.savedBatchIds.length) {
+        log.addLog('恢复历史版本前已自动保存当前批次的未保存更改')
+      }
       return true
     } catch (e: unknown) {
       if (isRenderAborted(e)) return false

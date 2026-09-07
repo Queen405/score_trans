@@ -65,6 +65,26 @@ export interface BatchSaveOverrides {
   renderLayoutKey?: string
 }
 
+export interface SaveAllUnsavedBatchesOptions {
+  mode?: 'strict' | 'replace'
+  maxPasses?: number
+}
+
+export interface SaveAllUnsavedBatchesResult {
+  savedBatchIds: string[]
+  deferredDiscard: boolean
+}
+
+class MissingHistoryBatchError extends Error {
+  readonly batchId: string
+
+  constructor(batchId: string, message: string) {
+    super(message)
+    this.name = 'MissingHistoryBatchError'
+    this.batchId = batchId
+  }
+}
+
 function unwrap<T>(result: ApiResult<T>): T {
   if (result.error) throw result.error
   return result.data
@@ -103,9 +123,16 @@ export function createWorkspacePersistence(
       renderLayoutKey: overrides.renderLayoutKey ?? store.batchRenderLayoutKeys[batchId] ?? '',
       source,
     })
-    const saved = snapshot.kind === 'update'
-      ? unwrap(await client.saveBatch(snapshot.historyBatchId, snapshot.request))
-      : unwrap(await client.create(snapshot.request))
+    let saved: HistoryBatch
+    if (snapshot.kind === 'update') {
+      const result = await client.saveBatch(snapshot.historyBatchId, snapshot.request)
+      if (result.error?.status === 404) {
+        throw new MissingHistoryBatchError(batchId, result.error.message)
+      }
+      saved = unwrap(result)
+    } else {
+      saved = unwrap(await client.create(snapshot.request))
+    }
 
     for (let index = 0; index < localPages.length; index += 1) {
       const localPage = localPages[index]
@@ -148,23 +175,60 @@ export function createWorkspacePersistence(
   // 任何落在 await 窗口里的写入都取消关闭。有界重试让常见情况自动收敛。
   async function saveAllUnsavedBatches(
     store: WorkspacePersistenceStore,
-    maxPasses = 3,
-  ): Promise<void> {
+    options: SaveAllUnsavedBatchesOptions = {},
+  ): Promise<SaveAllUnsavedBatchesResult> {
+    const mode = options.mode ?? 'strict'
+    const maxPasses = options.maxPasses ?? 3
+    const savedBatchIds = new Set<string>()
+    const missingBatchIds = new Set<string>()
+    let deferredDiscard = false
+
+    const result = (): SaveAllUnsavedBatchesResult => ({
+      savedBatchIds: [...savedBatchIds],
+      deferredDiscard,
+    })
+    const retryableBatchIds = (): string[] => store.batches
+      .map((batch) => batch.id)
+      .filter((batchId) => (
+        store.isBatchUnsaved(batchId) && !missingBatchIds.has(batchId)
+      ))
+
     for (let pass = 0; pass < maxPasses; pass += 1) {
-      const ids = store.batches
-        .map((batch) => batch.id)
-        .filter((batchId) => store.isBatchUnsaved(batchId))
+      const ids = retryableBatchIds()
       if (store.currentBatchId && ids.includes(store.currentBatchId)) {
         ids.splice(ids.indexOf(store.currentBatchId), 1)
         ids.unshift(store.currentBatchId)
       }
       // 仍然 dirty 但没有可保存的批次：无 batchId 的草稿状态，持久化层无从下手。
-      // 继续循环只会空转，跳出去让调用方看到真实原因。
-      if (!ids.length) break
-      for (const batchId of ids) await saveBatch(store, batchId)
-      if (!store.hasUnsavedChanges) return
+      // 严格模式继续报告错误；历史替换模式则保留现场，等待 loadBatch 成功后整体丢弃。
+      if (!ids.length) {
+        if (!store.hasUnsavedChanges) return result()
+        if (mode === 'replace') {
+          deferredDiscard = true
+          return result()
+        }
+        break
+      }
+      for (const batchId of ids) {
+        try {
+          await saveBatch(store, batchId)
+          savedBatchIds.add(batchId)
+        } catch (error: unknown) {
+          if (mode === 'replace' && error instanceof MissingHistoryBatchError) {
+            missingBatchIds.add(error.batchId)
+            deferredDiscard = true
+            continue
+          }
+          throw error
+        }
+      }
+      if (!store.hasUnsavedChanges) return result()
+      if (mode === 'replace' && !retryableBatchIds().length) {
+        deferredDiscard = true
+        return result()
+      }
     }
-    if (!store.hasUnsavedChanges) return
+    if (!store.hasUnsavedChanges) return result()
     throw new Error('New edits were made while saving; close was cancelled')
   }
 
