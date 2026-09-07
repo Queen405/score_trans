@@ -193,3 +193,62 @@ test('workspace load and replacement preserve independent text-anchor baselines'
   assert.equal(store.pages[0].textAnchorBaselineText, '😀 2 |')
   assert.equal(store.pages[0].textAnchorBaselineAnchors[0].start_utf16, 3)
 })
+
+test('unbound Jianpu edits are unsaved but have no persistable close target', () => {
+  setActivePinia(createPinia())
+  const store = useWorkspaceStore()
+
+  store.setBatchJianpuText('1 2 3 |', true)
+
+  assert.equal(store.currentBatchId, null)
+  assert.equal(store.hasUnsavedChanges, true)
+  assert.equal(store.hasPersistableUnsavedChanges, false)
+})
+
+test('a new draft batch remains persistable on close', () => {
+  setActivePinia(createPinia())
+  const store = useWorkspaceStore()
+  store.addInputPage('draft.png', 'input-draft')
+
+  store.setBatchJianpuText('1 2 3 |', true)
+
+  assert.equal(store.hasUnsavedChanges, true)
+  assert.equal(store.hasPersistableUnsavedChanges, true)
+})
+
+test('deleting the backing history makes only that local batch unpersistable', () => {
+  setActivePinia(createPinia())
+  const store = useWorkspaceStore()
+  store.loadBatch([{
+    inputFileName: 'history.png',
+    inputFileId: 'input-history',
+    historyPageId: 100,
+    historyBatchId: 10,
+    jianpuText: '1 2 3 |',
+  }], 0)
+  store.setBatchJianpuText('1 2 4 |', true)
+
+  assert.equal(store.hasPersistableUnsavedChanges, true)
+  store.markHistoryBatchDeleted(10)
+
+  assert.equal(store.hasUnsavedChanges, true)
+  assert.equal(store.hasPersistableUnsavedChanges, false)
+})
+
+test('clearing history makes every loaded history batch unpersistable', () => {
+  setActivePinia(createPinia())
+  const store = useWorkspaceStore()
+  store.loadBatch([{
+    inputFileName: 'history.png',
+    inputFileId: 'input-history',
+    historyPageId: 100,
+    historyBatchId: 10,
+    jianpuText: '1 2 3 |',
+  }], 0)
+  store.setBatchJianpuText('1 2 4 |', true)
+
+  store.markAllHistoryBatchesDeleted()
+
+  assert.equal(store.hasUnsavedChanges, true)
+  assert.equal(store.hasPersistableUnsavedChanges, false)
+})

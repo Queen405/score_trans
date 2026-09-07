@@ -501,7 +501,7 @@ function handleCloseRequested(request: CloseRequest): void {
 }
 
 function processCloseRequest(request: CloseRequest): void {
-  if (!store.hasUnsavedChanges) {
+  if (!store.hasUnsavedChanges || !store.hasPersistableUnsavedChanges) {
     window.api.resolveCloseRequest(request.requestId, 'proceed')
     return
   }
@@ -535,7 +535,9 @@ async function saveAndClose(): Promise<void> {
     // 先兑现待执行的异步编辑（自动转调），否则它会在保存的 await 窗口里
     // 把批次重新标脏，导致 saveAllUnsavedBatches 报「保存期间又改了」。
     await convertViewRef.value?.flushPendingEdits()
-    await workspacePersistence.saveAllUnsavedBatches(store)
+    await workspacePersistence.saveAllUnsavedBatches(store, {
+      mode: 'discard',
+    })
     closeConfirmVisible.value = false
     window.api.resolveCloseRequest(request.requestId, 'proceed')
   } catch (error: unknown) {

@@ -95,6 +95,7 @@ function response(id, pages) {
 function fakeStore(pages) {
   const acknowledgements = []
   const patches = []
+  const unpersistableBatches = []
   return {
     pages,
     currentBatchId: 'local-batch',
@@ -111,8 +112,10 @@ function fakeStore(pages) {
     patchPageById: (id, patch) => patches.push([id, patch]),
     setBatchRenderPageFileIds: () => {},
     setBatchRenderPageOcrTexts: () => {},
+    markBatchUnpersistable: (batchId) => unpersistableBatches.push(batchId),
     acknowledgements,
     patches,
+    unpersistableBatches,
   }
 }
 
@@ -170,7 +173,7 @@ test('replacement save defers an unbound edit instead of blocking history restor
     updateRenderState: async () => assert.fail('render-state must not be called'),
   })
 
-  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'replace' })
+  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'discard' })
 
   assert.deepEqual(result, { savedBatchIds: [], deferredDiscard: true })
 })
@@ -188,10 +191,11 @@ test('replacement save defers a missing history batch without acknowledging its 
     updateRenderState: async () => assert.fail('render-state must not be called'),
   })
 
-  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'replace' })
+  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'discard' })
 
   assert.deepEqual(result, { savedBatchIds: [], deferredDiscard: true })
   assert.deepEqual(store.acknowledgements, [])
+  assert.deepEqual(store.unpersistableBatches, ['local-batch'])
 })
 
 test('strict save still rejects a missing history batch', async () => {
@@ -212,6 +216,7 @@ test('strict save still rejects a missing history batch', async () => {
     /Batch not found/,
   )
   assert.deepEqual(store.acknowledgements, [])
+  assert.deepEqual(store.unpersistableBatches, ['local-batch'])
 })
 
 test('replacement save does not swallow a 404 while creating a draft batch', async () => {
@@ -228,7 +233,7 @@ test('replacement save does not swallow a 404 while creating a draft batch', asy
   })
 
   await assert.rejects(
-    persistence.saveAllUnsavedBatches(store, { mode: 'replace' }),
+    persistence.saveAllUnsavedBatches(store, { mode: 'discard' }),
     /Not found/,
   )
 })
@@ -272,7 +277,7 @@ test('replacement save skips one missing batch and still saves another dirty bat
     updateRenderState: async () => assert.fail('render-state must not be called'),
   })
 
-  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'replace' })
+  const result = await persistence.saveAllUnsavedBatches(store, { mode: 'discard' })
 
   assert.deepEqual(calls, [10, 20])
   assert.deepEqual(result, {
@@ -321,7 +326,7 @@ test('save-all gives up after a bounded number of passes', async () => {
   })
 
   await assert.rejects(
-    persistence.saveAllUnsavedBatches(store, { mode: 'replace' }),
+    persistence.saveAllUnsavedBatches(store, { mode: 'discard' }),
     /New edits were made while saving/,
   )
   assert.equal(saveCount, 3)

@@ -47,6 +47,7 @@ export interface WorkspacePersistenceStore {
     stale: boolean,
     batchId: string,
   ): void
+  markBatchUnpersistable(batchId: string): void
 }
 
 export interface RenderStateSnapshot {
@@ -66,7 +67,7 @@ export interface BatchSaveOverrides {
 }
 
 export interface SaveAllUnsavedBatchesOptions {
-  mode?: 'strict' | 'replace'
+  mode?: 'strict' | 'discard'
   maxPasses?: number
 }
 
@@ -127,6 +128,7 @@ export function createWorkspacePersistence(
     if (snapshot.kind === 'update') {
       const result = await client.saveBatch(snapshot.historyBatchId, snapshot.request)
       if (result.error?.status === 404) {
+        store.markBatchUnpersistable(batchId)
         throw new MissingHistoryBatchError(batchId, result.error.message)
       }
       saved = unwrap(result)
@@ -203,7 +205,7 @@ export function createWorkspacePersistence(
       // 严格模式继续报告错误；历史替换模式则保留现场，等待 loadBatch 成功后整体丢弃。
       if (!ids.length) {
         if (!store.hasUnsavedChanges) return result()
-        if (mode === 'replace') {
+        if (mode === 'discard') {
           deferredDiscard = true
           return result()
         }
@@ -214,7 +216,7 @@ export function createWorkspacePersistence(
           await saveBatch(store, batchId)
           savedBatchIds.add(batchId)
         } catch (error: unknown) {
-          if (mode === 'replace' && error instanceof MissingHistoryBatchError) {
+          if (mode === 'discard' && error instanceof MissingHistoryBatchError) {
             missingBatchIds.add(error.batchId)
             deferredDiscard = true
             continue
@@ -223,7 +225,7 @@ export function createWorkspacePersistence(
         }
       }
       if (!store.hasUnsavedChanges) return result()
-      if (mode === 'replace' && !retryableBatchIds().length) {
+      if (mode === 'discard' && !retryableBatchIds().length) {
         deferredDiscard = true
         return result()
       }

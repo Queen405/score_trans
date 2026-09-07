@@ -189,6 +189,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const batchJianpuDirty = ref<Record<string, boolean>>({})
   const batchJianpuPendingPageIds = ref<Record<string, string[]>>({})
   const batchUserChangeRevisions = ref<Record<string, BatchRevisionState>>({})
+  const batchUnpersistable = ref<Record<string, boolean>>({})
 
   function syncCurrentFromPage(): void {
     const page = pages.value[currentPageIndex.value]
@@ -422,6 +423,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       ([id, rev]) => live.has(id) && revisionHasUnsavedChanges(rev),
     )
   })
+  const hasPersistableUnsavedChanges = computed(() => {
+    const live = new Set(
+      pages.value.map((p) => p.batchId).filter((id): id is string => Boolean(id)),
+    )
+    return Object.entries(batchUserChangeRevisions.value).some(
+      ([id, rev]) => (
+        live.has(id)
+        && batchUnpersistable.value[id] !== true
+        && revisionHasUnsavedChanges(rev)
+      ),
+    )
+  })
 
   // ── Actions ──
   function setInputFile(name: string, fileId: string) {
@@ -596,6 +609,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       batchJianpuDirty.value = omitBatchRecord(batchJianpuDirty.value, batchId)
       batchJianpuPendingPageIds.value = omitBatchRecord(batchJianpuPendingPageIds.value, batchId)
       batchUserChangeRevisions.value = omitBatchRecord(batchUserChangeRevisions.value, batchId)
+      batchUnpersistable.value = omitBatchRecord(batchUnpersistable.value, batchId)
       return
     }
 
@@ -798,6 +812,34 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   function markBatchAttachmentUserEdited(batchId = currentBatchId.value): void {
     markBatchUserEdited('attachments', batchId)
+  }
+
+  function markBatchUnpersistable(batchId = currentBatchId.value): void {
+    if (!batchId) return
+    batchUnpersistable.value = {
+      ...batchUnpersistable.value,
+      [batchId]: true,
+    }
+  }
+
+  function markHistoryBatchDeleted(historyBatchId: number): void {
+    const localBatchIds = new Set(
+      pages.value
+        .filter((page) => page.historyBatchId === historyBatchId)
+        .map((page) => page.batchId)
+        .filter((batchId): batchId is string => Boolean(batchId)),
+    )
+    for (const batchId of localBatchIds) markBatchUnpersistable(batchId)
+  }
+
+  function markAllHistoryBatchesDeleted(): void {
+    const localBatchIds = new Set(
+      pages.value
+        .filter((page) => page.historyBatchId !== null)
+        .map((page) => page.batchId)
+        .filter((batchId): batchId is string => Boolean(batchId)),
+    )
+    for (const batchId of localBatchIds) markBatchUnpersistable(batchId)
   }
 
   function captureBatchChangeRevision(
@@ -1055,6 +1097,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchJianpuDirty.value = {}
     batchJianpuPendingPageIds.value = {}
     batchUserChangeRevisions.value = {}
+    batchUnpersistable.value = {}
   }
 
   function reorderBatchPages(
@@ -1134,6 +1177,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchJianpuDirty.value = {}
     batchJianpuPendingPageIds.value = {}
     batchUserChangeRevisions.value = {}
+    batchUnpersistable.value = {}
     pages.value = batchPages.map((p) => createPage({
       batchId: bid,
       batchLabel: p.batchLabel ?? firstLabel,
@@ -1242,6 +1286,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     batchJianpuDirty,
     batchJianpuPendingPageIds,
     batchUserChangeRevisions,
+    batchUnpersistable,
     hasMusicxml,
     hasInput,
     hasOriginal,
@@ -1258,6 +1303,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     currentBatchOcrUserEdited,
     currentBatchAttachmentUserEdited,
     hasUnsavedChanges,
+    hasPersistableUnsavedChanges,
     currentBatchJianpuText,
     currentBatchJianpuDirty,
     currentBatchJianpuPendingPageIds,
@@ -1290,6 +1336,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     markBatchJianpuClean,
     markBatchUserEdited,
     markBatchAttachmentUserEdited,
+    markBatchUnpersistable,
+    markHistoryBatchDeleted,
+    markAllHistoryBatchesDeleted,
     captureBatchChangeRevision,
     acknowledgeBatchChanges,
     isBatchUnsaved,

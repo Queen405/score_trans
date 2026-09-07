@@ -128,10 +128,25 @@ test('all close paths share the guarded request protocol', () => {
   assert.match(appSource, /onCloseRequested\(handleCloseRequested\)/)
   assert.match(appSource, /settings\.draftDirty[\s\S]*processCloseRequest/)
   assert.match(appSource, /store\.hasUnsavedChanges/)
-  assert.match(appSource, /saveAllUnsavedBatches\(store\)/)
+  assert.match(appSource, /store\.hasPersistableUnsavedChanges/)
+  assert.match(
+    appSource,
+    /saveAllUnsavedBatches\(store,\s*\{[\s\S]*mode:\s*'discard'[\s\S]*\}\)/,
+  )
   assert.match(appSource, /store\.isBusy \|\| store\.backgroundTaskCount > 0/)
   assert.match(appSource, /resolveCloseRequest\(request\.requestId, 'cancel'\)/)
   assert.match(appSource, /resolveCloseRequest\(request\.requestId, 'proceed'\)/)
+})
+
+test('history deletion marks matching workspace batches as unpersistable', () => {
+  const deleteAllStart = convertSource.indexOf('async function handleDeleteAll')
+  const deleteOneStart = convertSource.indexOf('async function handleDeleteBatch')
+  const nextHandlerStart = convertSource.indexOf('async function toggleBatchExpand')
+  const deleteAllHandler = convertSource.slice(deleteAllStart, deleteOneStart)
+  const deleteOneHandler = convertSource.slice(deleteOneStart, nextHandlerStart)
+
+  assert.match(deleteAllHandler, /store\.markAllHistoryBatchesDeleted\(\)/)
+  assert.match(deleteOneHandler, /store\.markHistoryBatchDeleted\(batchId\)/)
 })
 
 test('convert guards destructive actions and shows the current unsaved state', () => {

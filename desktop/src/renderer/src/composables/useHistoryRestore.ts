@@ -46,7 +46,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       await flushPendingEdits()
       if (!store.hasUnsavedChanges) return true
       const result = await workspacePersistence.saveAllUnsavedBatches(store, {
-        mode: 'replace',
+        mode: 'discard',
       })
       if (result.savedBatchIds.length) {
         log.addLog('恢复历史版本前已自动保存当前批次的未保存更改')

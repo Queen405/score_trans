@@ -1056,6 +1056,7 @@ async function loadHistory(
 
 async function handleDeleteAll(): Promise<void> {
   await requireData(historyApi.deleteAll())
+  store.markAllHistoryBatchesDeleted()
   histBatches.value = []
   expandedBatchId.value = null
   expandedPages.value = []
@@ -1068,6 +1069,7 @@ async function handleDeleteAll(): Promise<void> {
 async function handleDeleteBatch(batchId: number): Promise<void> {
   try {
     await requireData(historyApi.deleteOne(batchId))
+    store.markHistoryBatchDeleted(batchId)
     histBatches.value = histBatches.value.filter((batch) => batch.id !== batchId)
     if (expandedBatchId.value === batchId) {
       expandedBatchId.value = null
@@ -2344,7 +2346,7 @@ async function persistUnsavedBeforeReplace(action: string): Promise<boolean> {
     await flushPendingEdits()
     if (!store.hasUnsavedChanges) return true
     const result = await workspacePersistence.saveAllUnsavedBatches(store, {
-      mode: 'replace',
+      mode: 'discard',
     })
     if (result.savedBatchIds.length) {
       log.addLog(`${action}前已自动保存当前批次的未保存更改`)
