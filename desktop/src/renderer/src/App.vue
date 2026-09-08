@@ -19,16 +19,6 @@
           </div>
           <div class="titlebar-drag" />
           <div class="titlebar-right">
-            <button
-              v-if="hasUpdate"
-              class="update-badge"
-              type="button"
-              :title="`点击前往下载 v${updateInfo?.latestVersion}`"
-              @click="openDownloadPage"
-            >
-              <span class="update-badge-dot" />
-              <span>有新版本 v{{ updateInfo?.latestVersion }}</span>
-            </button>
             <div
               class="window-controls"
               role="group"
@@ -142,6 +132,14 @@
                 v-if="store.isBusy || store.backgroundTaskCount"
                 class="busy-indicator"
                 title="后台处理中…"
+              />
+              <button
+                class="update-dot"
+                :class="`update-dot--${updateState}`"
+                type="button"
+                :title="updateTitle"
+                :aria-label="updateTitle"
+                @click="onUpdateDotClick"
               />
             </div>
           </nav>
@@ -394,7 +392,30 @@ let updateCheckTimer: ReturnType<typeof setTimeout> | null = null
 
 type UpdateCheckResult = Awaited<ReturnType<typeof window.api.checkForUpdate>>
 const updateInfo = ref<UpdateCheckResult | null>(null)
-const hasUpdate = computed(() => updateInfo.value?.hasUpdate === true)
+
+type UpdateState = 'idle' | 'update-available' | 'up-to-date' | 'error'
+const updateState = computed<UpdateState>(() => {
+  const info = updateInfo.value
+  if (info === null) return 'idle'
+  if (info.error) return 'error'
+  if (info.hasUpdate) return 'update-available'
+  return 'up-to-date'
+})
+
+const updateTitle = computed(() => {
+  switch (updateState.value) {
+    case 'idle':
+      return '点击检查更新'
+    case 'update-available':
+      return `发现新版本 v${updateInfo.value?.latestVersion}，点击前往下载`
+    case 'up-to-date':
+      return '已是最新版本'
+    case 'error':
+      return `检查更新失败：${updateInfo.value?.error ?? ''}`
+    default:
+      return '点击检查更新'
+  }
+})
 
 async function performUpdateCheck(): Promise<void> {
   try {
@@ -405,9 +426,13 @@ async function performUpdateCheck(): Promise<void> {
   }
 }
 
-function openDownloadPage(): void {
-  const url = updateInfo.value?.downloadUrl
-  if (typeof url === 'string') void window.api.openExternal(url)
+function onUpdateDotClick(): void {
+  if (updateState.value === 'update-available') {
+    const url = updateInfo.value?.downloadUrl
+    if (typeof url === 'string') void window.api.openExternal(url)
+    return
+  }
+  void performUpdateCheck()
 }
 const saveBeforeCloseBlocked = computed(() =>
   !closeSaving.value && (store.isBusy || store.backgroundTaskCount > 0),
@@ -815,36 +840,39 @@ body {
   align-items: center;
 }
 
-.update-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 24px;
-  margin-right: 8px;
-  padding: 0 10px;
+.update-dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
   border: 0;
-  border-radius: 12px;
-  background: rgba(76, 110, 245, 0.2);
-  color: #c5d0f6;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-  font-family: inherit;
-}
-
-.update-badge:hover {
-  background: rgba(76, 110, 245, 0.36);
-  color: #fff;
-}
-
-.update-badge-dot {
-  width: 6px;
-  height: 6px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 6px rgba(76, 110, 245, 0.7);
+  background: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.update-dot:hover {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+.update-dot--idle {
+  background: var(--text-tertiary);
+}
+
+.update-dot--up-to-date {
+  background: var(--success);
+  box-shadow: 0 0 4px rgba(64, 192, 87, 0.5);
+}
+
+.update-dot--update-available {
+  background: var(--warning);
+  box-shadow: 0 0 6px rgba(250, 176, 5, 0.7);
   animation: update-pulse 1.6s ease-in-out infinite;
+}
+
+.update-dot--error {
+  background: var(--danger);
+  box-shadow: 0 0 4px rgba(250, 82, 82, 0.5);
 }
 
 @keyframes update-pulse {
@@ -909,7 +937,9 @@ body {
 .sidebar-footer {
   padding: 8px 6px;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .busy-indicator {
