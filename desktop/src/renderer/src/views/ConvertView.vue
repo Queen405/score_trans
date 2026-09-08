@@ -429,6 +429,7 @@
               :error-line="errorLine"
               :flash-line="flashLine"
               :scroll-persistence-key="store.currentBatchId"
+              :structure-markers-enabled="store.currentBatchId !== null"
               @update:initial-measure-number="initialMeasureNumber = $event"
               @rekey-applied="handleRekeyApplied"
             />
@@ -437,7 +438,7 @@
       </div>
       <jianpu-player
         :musicxml-file-id="store.musicxmlFileId"
-        :jianpu-text="jianpuText"
+        :jianpu-text="operationalJianpuText"
         :session-key="store.currentBatchId"
         @update:current-note-index="currentNoteIndex = $event"
       />
@@ -513,6 +514,7 @@ import {
   ensureRecognizedTempoHeader,
   parseJianpuPageSections,
   jianpuPageSectionBodyOffset,
+  maskJianpuStructureMarkers,
   replaceJianpuSectionBody,
   restoreJianpuPageText,
   serializeJianpuPageSections,
@@ -629,6 +631,11 @@ const mappedSourceIds = computed(() => {
 })
 
 const jianpuText = ref(store.currentBatchJianpuText)
+const operationalJianpuText = computed(() => (
+  store.currentBatchId === null
+    ? maskJianpuStructureMarkers(jianpuText.value)
+    : jianpuText.value
+))
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
 const errorLine = ref(-1)
@@ -712,7 +719,7 @@ function loadInitialMeasureNumber(batchId: string | null): number {
 watch(() => store.currentBatchId, (batchId) => {
   syntaxStore.clear()
   initialMeasureNumber.value = loadInitialMeasureNumber(batchId)
-  syntaxStore.schedule(jianpuText.value)
+  syntaxStore.schedule(operationalJianpuText.value)
 }, { immediate: true })
 watch(initialMeasureNumber, (value) => {
   const normalized = typeof value === 'number' && Number.isInteger(value) && value >= 1
@@ -722,10 +729,17 @@ watch(initialMeasureNumber, (value) => {
     initialMeasureNumber.value = normalized
     return
   }
+  // 与当前批次已持久化的值一致说明是批次切换/初始化加载，不是用户修改，
+  // 此时不能让已有渲染失效。
+  const changed = loadInitialMeasureNumber(store.currentBatchId) !== normalized
   localStorage.setItem(
     initialMeasureNumberKey(store.currentBatchId),
     String(normalized),
   )
+  if (changed) {
+    store.setBatchRenderPageFileIds([])
+    setFinalSvgFileIds([])
+  }
 })
 
 watch(() => store.currentBatchJianpuText, (v) => {
@@ -759,7 +773,7 @@ watch(jianpuText, (v, previous) => {
     }
     errorLine.value = -1
   }
-  syntaxStore.schedule(v)
+  syntaxStore.schedule(operationalJianpuText.value)
 }, { immediate: true })
 
 function handleRekeyApplied(payload: RekeyAppliedPayload): void {
@@ -767,7 +781,7 @@ function handleRekeyApplied(payload: RekeyAppliedPayload): void {
 }
 
 watch(() => settings.jianpuMeasureDurationCheck, () => {
-  syntaxStore.schedule(jianpuText.value)
+  syntaxStore.schedule(operationalJianpuText.value)
 })
 
 watch(() => syntaxStore.selectionVersion, () => {
@@ -782,6 +796,7 @@ function selectSyntaxDiagnostic(diagnostic: SyntaxDiagnostic): void {
 }
 
 function updateTextAnchorsAfterEdit(previous: string, current: string): void {
+  if (store.currentBatchId === null) return
   let previousSections
   let currentSections
   try {
@@ -819,6 +834,7 @@ function updateTextAnchorsAfterEdit(previous: string, current: string): void {
 }
 
 function updateTextAnchorsAfterRekey(payload: RekeyAppliedPayload): void {
+  if (store.currentBatchId === null) return
   const mappings = payload.anchorMapping
   if (!mappings?.length) {
     updateTextAnchorsAfterEdit(payload.before, payload.after)
@@ -879,6 +895,7 @@ function updateTextAnchorsAfterRekey(payload: RekeyAppliedPayload): void {
 }
 
 function refreshRekeyBaselines(text: string): void {
+  if (store.currentBatchId === null) return
   let sections
   try {
     sections = parseJianpuPageSections(text)
@@ -998,7 +1015,7 @@ watch(currentNoteIndex, (index) => {
     if (pageIndex >= 0) targetPage = pageIndex
   }
   if (targetPage === null) {
-    targetPage = findNotePageIndex(jianpuText.value, index)
+    targetPage = findNotePageIndex(operationalJianpuText.value, index)
   }
   if (targetPage !== null && targetPage !== finalRenderPageIndex.value) {
     finalRenderPageIndex.value = targetPage
@@ -1489,7 +1506,7 @@ function extractErrorLineFromMessage(msg: string): number {
   if (!lineMatch) return -1
   const sectionLine = Number(lineMatch[1])
 
-  const sections = parseJianpuPageSections(jianpuText.value)
+  const sections = parseJianpuPageSections(operationalJianpuText.value)
   if (sections.length === 1 && sections[0].markerLineIndex < 0) {
     return sectionLine - 1
   }
@@ -1693,7 +1710,7 @@ function currentExportPage(): TaskPage {
       status: 'completed',
       errorMessage: '',
     }),
-    jianpuText: jianpuText.value,
+    jianpuText: operationalJianpuText.value,
     ocrText: store.ocrText,
     svgFileId: finalSvgFileId.value || store.svgFileId,
     svgFileIds: finalSvgFileIds.value.length ? finalSvgFileIds.value : store.svgFileIds,
@@ -1839,14 +1856,14 @@ async function loadRenderSourcePageLookup(pages: RenderedSvgPage[]): Promise<voi
 
 function buildBatchRenderPages() {
   return buildBatchRenderRequests(batchRenderSourcePages(), {
-    jianpuText: jianpuText.value,
+    jianpuText: operationalJianpuText.value,
     title: '简谱',
   })
 }
 
 function buildBatchRenderSourcePages() {
   return buildBatchRenderRequests(batchRenderSourcePages(), {
-    jianpuText: jianpuText.value,
+    jianpuText: operationalJianpuText.value,
     title: '简谱',
   })
 }

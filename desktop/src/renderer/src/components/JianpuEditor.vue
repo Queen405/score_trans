@@ -133,9 +133,10 @@ import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSynta
 import type { SyntaxDiagnostic } from '../models/types'
 import { NInputNumber, useMessage } from 'naive-ui'
 import {
-  hasJianpuPageMarkers,
+  hasLiveJianpuPageMarkers,
   jianpuGutterLabels,
   jianpuPageSummaries,
+  maskJianpuStructureMarkers,
   type JianpuPageSummary,
 } from '../utils/jianpuPageSections'
 import { loadEditorScroll, saveEditorScroll } from '../composables/useViewPersistence'
@@ -160,6 +161,7 @@ const props = withDefaults(defineProps<{
   flashLine?: number
   initialMeasureNumber?: number
   scrollPersistenceKey?: string | null
+  structureMarkersEnabled?: boolean
 }>(), {
   currentNoteIndex: -1,
   syntaxHighlight: false,
@@ -169,6 +171,7 @@ const props = withDefaults(defineProps<{
   flashLine: -1,
   initialMeasureNumber: 1,
   scrollPersistenceKey: null,
+  structureMarkersEnabled: true,
 })
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -226,7 +229,12 @@ function getSelectionRange(): { start: number; end: number } | null {
 
 defineExpose({ selectRange, getSelectionRange, flushPendingAutoTranspose, transposing })
 
-const noteSpans = computed(() => findJianpuNoteSpans(props.modelValue))
+const analysisText = computed(() => (
+  props.structureMarkersEnabled
+    ? props.modelValue
+    : maskJianpuStructureMarkers(props.modelValue)
+))
+const noteSpans = computed(() => findJianpuNoteSpans(analysisText.value))
 interface HighlightToken extends JianpuSyntaxToken {
   syntaxError?: boolean
   syntaxWarning?: boolean
@@ -637,13 +645,13 @@ function syncScroll(e: Event): void {
 }
 
 const measureLabels = computed(() =>
-  jianpuGutterLabels(props.modelValue, props.initialMeasureNumber),
+  jianpuGutterLabels(analysisText.value, props.initialMeasureNumber),
 )
 const pageSummaries = computed(() =>
-  jianpuPageSummaries(props.modelValue, props.initialMeasureNumber),
+  jianpuPageSummaries(analysisText.value, props.initialMeasureNumber),
 )
 const showPageSummary = computed(() =>
-  hasJianpuPageMarkers(props.modelValue) && pageSummaries.value.length > 0,
+  hasLiveJianpuPageMarkers(analysisText.value) && pageSummaries.value.length > 0,
 )
 
 function pageRangeText(page: JianpuPageSummary): string {

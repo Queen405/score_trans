@@ -1,4 +1,4 @@
-import { parseJianpuPageMarker, parseJianpuPageSections } from './jianpuPageSections'
+import { isJianpuPageMarker, parseJianpuPageSections } from './jianpuPageSections'
 
 export interface JianpuNoteSpan {
   index: number
@@ -323,7 +323,7 @@ function findTimedNoteSpans(text: string): JianpuNoteSpan[] {
     const rawLine = lines[lineIdx]
     const code = stripInlineComment(rawLine)
 
-    if (parseJianpuPageMarker(rawLine)) {
+    if (isJianpuPageMarker(rawLine)) {
       currentPartOrdinal = -1
       continue
     }

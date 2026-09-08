@@ -133,6 +133,13 @@ test('inline tempo keeps note highlighting and playback spans', () => {
   )
 })
 
+test('part-aware playback tolerates an incomplete page marker while typing', () => {
+  const text = '// @page\n// @part 1 name="A"\n1 2 3 4 |'
+
+  assert.doesNotThrow(() => findJianpuNoteSpans(text))
+  assert.deepEqual(tokensOf(text), ['1', '2', '3', '4'])
+})
+
 test('octave transpose moves bare dotted notes with everything else', () => {
   // transposeOctave gates on isPlayableToken, so the same guard used to leave
   // dotted notes behind while shifting their neighbours — corrupting the melody.

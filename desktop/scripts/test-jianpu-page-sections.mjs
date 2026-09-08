@@ -21,6 +21,53 @@ const compiled = ts.transpileModule(source, {
 const utilsModuleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 const utils = await import(utilsModuleUrl)
 
+test('live page-marker helpers tolerate every character-typing intermediate', () => {
+  const prefixes = ['/', '//', '// ', '// @', '// @p', '// @pa', '// @pag', '// @page', '// @page ']
+  for (const text of prefixes) {
+    assert.doesNotThrow(() => utils.hasLiveJianpuPageMarkers(text), text)
+    assert.doesNotThrow(() => utils.jianpuGutterLabels(text), text)
+    assert.doesNotThrow(() => utils.jianpuPageSummaries(text), text)
+    assert.equal(utils.hasLiveJianpuPageMarkers(text), false, text)
+  }
+
+  assert.throws(
+    () => utils.parseJianpuPageMarker('// @page'),
+    /无效的分页标记/,
+    'strict parsing must still reject an incomplete persisted marker',
+  )
+  assert.throws(() => utils.hasJianpuPageMarkers('// @page'), /无效的分页标记/)
+  assert.equal(utils.hasLiveJianpuPageMarkers('// @page 1'), true)
+})
+
+test('plain-comment mode masks page and part markers without shifting offsets', () => {
+  const text = [
+    '\ufeff  //\t@page 1 name="p.png"',
+    '// @part 1 name="A"',
+    '// @page',
+    '// ordinary comment',
+    '1 2 3 4 | // @page 9',
+    '// @pages 2',
+  ].join('\r\n')
+
+  const masked = utils.maskJianpuStructureMarkers(text)
+
+  assert.equal(masked.length, text.length)
+  assert.deepEqual(
+    Array.from(masked, (character, index) => character === '\n' || character === '\r' ? index : -1)
+      .filter((index) => index >= 0),
+    Array.from(text, (character, index) => character === '\n' || character === '\r' ? index : -1)
+      .filter((index) => index >= 0),
+  )
+  assert.match(masked, /^\ufeff  \/\/\t page 1 name="p\.png"/)
+  assert.match(masked, /^\/\/  part 1 name="A"/m)
+  assert.match(masked, /^\/\/  page$/m)
+  assert.match(masked, /^\/\/ ordinary comment$/m)
+  assert.match(masked, /1 2 3 4 \| \/\/ @page 9/)
+  assert.match(masked, /^\/\/ @pages 2$/m)
+  assert.equal(utils.hasLiveJianpuPageMarkers(masked), false)
+  assert.equal(utils.parseJianpuPageSections(masked).length, 1)
+})
+
 const jianpuTextStateSourcePath = path.resolve(
   here,
   '../src/renderer/src/utils/jianpuTextState.ts',

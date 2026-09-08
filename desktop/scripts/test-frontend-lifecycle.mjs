@@ -202,6 +202,25 @@ test('editor does not rewrite externally restored model text', () => {
   )
 })
 
+test('blank workspace treats structural marker comments as plain comments everywhere', () => {
+  assert.match(editorSource, /structureMarkersEnabled/)
+  assert.match(editorSource, /maskJianpuStructureMarkers\(props\.modelValue\)/)
+  assert.match(
+    convertSource,
+    /:structure-markers-enabled="store\.currentBatchId !== null"/,
+  )
+  assert.match(convertSource, /const operationalJianpuText = computed/)
+  assert.match(convertSource, /maskJianpuStructureMarkers\(jianpuText\.value\)/)
+  assert.match(convertSource, /:jianpu-text="operationalJianpuText"/)
+  assert.match(convertSource, /syntaxStore\.schedule\(operationalJianpuText\.value\)/)
+  assert.match(convertSource, /jianpuText:\s*operationalJianpuText\.value/)
+  assert.equal(
+    convertSource.match(/jianpuText:\s*operationalJianpuText\.value/g)?.length,
+    3,
+    'export plus both render request builders must use plain-comment semantics',
+  )
+})
+
 test('convert distinguishes one external editor sync without a nextTick timing flag', () => {
   assert.doesNotMatch(convertSource, /programmaticUpdate/)
   assert.match(convertSource, /let editorSyncGeneration = 0/)

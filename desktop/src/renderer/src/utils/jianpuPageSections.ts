@@ -29,6 +29,7 @@ interface JianpuPageMarker {
 const PAGE_MARKER_PATTERN = /^\s*\/\/\s*@page\s+(\d+)(?:\s+name=("(?:\\.|[^"\\])*"))?\s*$/
 const PAGE_MARKER_PREFIX_PATTERN = /^\s*\/\/\s*@page\b/
 const PART_MARKER_PATTERN = /^\s*\/\/\s*@part\s+\d+\s+name="(?:\\.|[^"\\])*"\s*$/
+const STRUCTURE_MARKER_COMMENT_PATTERN = /^(\ufeff?[ \t]*\/\/[ \t]*)@(?=(?:page|part)\b)/gm
 
 function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n?/g, '\n')
@@ -64,6 +65,29 @@ export function parseJianpuPageMarker(line: string): JianpuPageMarker | null {
   }
 }
 
+function tryParseJianpuPageMarker(line: string): JianpuPageMarker | null {
+  try {
+    return parseJianpuPageMarker(line)
+  } catch {
+    return null
+  }
+}
+
+export function isJianpuPageMarker(line: string): boolean {
+  return tryParseJianpuPageMarker(line) !== null
+}
+
+/**
+ * Keep page/part-looking comments inert without changing any UTF-16 offsets.
+ * The raw editor text remains untouched; only semantic analysis and requests use this copy.
+ */
+export function maskJianpuStructureMarkers(text: string): string {
+  return text.replace(
+    STRUCTURE_MARKER_COMMENT_PATTERN,
+    (_match, prefix: string) => `${prefix} `,
+  )
+}
+
 export function formatJianpuPageMarker(
   pageNumber: number,
   inputFileName = '',
@@ -74,6 +98,10 @@ export function formatJianpuPageMarker(
 
 export function hasJianpuPageMarkers(text: string): boolean {
   return normalizeLineEndings(text).split('\n').some((line) => parseJianpuPageMarker(line) !== null)
+}
+
+export function hasLiveJianpuPageMarkers(text: string): boolean {
+  return normalizeLineEndings(text).split('\n').some(isJianpuPageMarker)
 }
 
 export function parseJianpuPageSections(text: string): JianpuPageSection[] {
@@ -352,7 +380,7 @@ function walkJianpuMeasures(
   }))
 
   const markerLines = lines.flatMap((line, lineIndex) => {
-    const marker = parseJianpuPageMarker(line)
+    const marker = tryParseJianpuPageMarker(line)
     return marker
       ? [{ lineIndex, pageNumber: marker.pageNumber, inputFileName: marker.inputFileName }]
       : []
@@ -467,7 +495,7 @@ function walkJianpuMeasures(
       startPage(planIndex + 1)
     }
     const line = lines[lineIndex]
-    if (parseJianpuPageMarker(line)) continue
+    if (tryParseJianpuPageMarker(line)) continue
     if (PART_MARKER_PATTERN.test(line)) {
       finishPart()
       continue
@@ -572,7 +600,7 @@ export function jianpuGutterLabels(text: string, initialMeasureNumber = 1): stri
   const normalized = normalizeLineEndings(text)
   const { lines } = walkWithCache(normalized, initialMeasureNumber)
   return normalized.split('\n').map((line, index) => {
-    const marker = parseJianpuPageMarker(line)
+    const marker = tryParseJianpuPageMarker(line)
     if (marker) return `P${marker.pageNumber}`
 
     const info = lines[index]
