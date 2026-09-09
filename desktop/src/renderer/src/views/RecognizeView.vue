@@ -4,7 +4,6 @@
       <div class="rv-title">
         <h2>智能识别</h2>
       </div>
-      <span class="rv-header-text">欢迎加入吉林大学民乐团</span>
     </div>
 
     <div
@@ -1574,14 +1573,6 @@ function errorMessage(error: unknown): string {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
-}
-
-.rv-header-text {
-  font-size: 14px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .rv-header p {

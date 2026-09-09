@@ -119,10 +119,11 @@ pnpm check:api-types
 - 真实 manifest：`desktop/latest.json`（**必须提交进仓库**，jsDelivr 镜像仓库内容）
 - 模板：`desktop/latest.json.example`（参考用，不会被打包）
 - 字段：`version`（必填，`x.y.z` 三段数字）、`url`（必填，下载页地址）、`notes`（可选，更新说明）
-- 默认拉取 URL：`https://cdn.jsdelivr.net/gh/Queen405/score_trans@v1.0.0/desktop/latest.json`
-  - 路径里的 `@v1.0.0` 是默认分支名，**默认分支改名时必须同步改 `updater.ts` 里的常量**
+- 默认拉取 URL：`https://cdn.jsdelivr.net/gh/Queen405/score_trans/desktop/latest.json`（不带 `@ref`，jsDelivr 自动服务默认分支 HEAD）
+  - **不要**给 URL 加 `@<版本号>`（如 `@v1.0.0`）：jsDelivr 会把形如版本号的 ref 当成 git tag / semver 来解析，而本仓库没有 tag（只有分支），解析必然 404，导致更新检查静默失败。这是历史 bug，已修复，勿回退
+  - 不带 `@ref` 的附带好处：默认分支改名时无需同步 `updater.ts`
 - 客户端通过 `?t=<timestamp>` 查询参数和 `Cache-Control: no-cache` 头绕过 jsDelivr CDN 缓存
-- jsDelivr 自身有 ~10 分钟边缘缓存，紧急时可访问 `https://purge.jsdelivr.net/gh/Queen405/score_trans@v1.0.0/desktop/latest.json` 强制刷新
+- jsDelivr 自身有 ~10 分钟边缘缓存，紧急时可访问 `https://purge.jsdelivr.net/gh/Queen405/score_trans/desktop/latest.json` 强制刷新
 - 本地测试：设置环境变量 `SCORE_TRANS_UPDATE_MANIFEST_URL` 指向本地 server，version 写 `9.9.9` 即可强制触发徽章
 
 ### 发版步骤
