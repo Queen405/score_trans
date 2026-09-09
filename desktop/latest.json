@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "url": "https://github.com/Queen405/score_trans/releases/latest",
-  "notes": "首次发布版本"
+  "notes": "支持导入 MusicXML 文件而无需运行 OMR 识别；新增语法高亮组件；增强转调处理"
 }
