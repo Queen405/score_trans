@@ -181,6 +181,32 @@ def test_full_pipeline_writes_pipeline_outputs(tmp_path) -> None:
     assert recognizer.calls
 
 
+def test_full_pipeline_imports_musicxml_without_running_omr(tmp_path: Path) -> None:
+    source = tmp_path / "score.musicxml"
+    source.write_text(jianpu_to_musicxml("1=C\n4/4\n1 2 |"), encoding="utf-8")
+    recognizer = FakeRecognizer(source, tmp_path / "unused.musicxml")
+
+    outputs = FullPipelineAction(recognizer=recognizer).execute(
+        source,
+        tmp_path / "out",
+        config=ToolConfig(audiveris_path="fake-audiveris"),
+        target_key="C",
+        title="导入 MusicXML",
+    )
+
+    assert recognizer.calls == []
+    assert outputs.musicxml_path.name == "score.musicxml"
+    assert outputs.musicxml_path.exists()
+    jianpu_text = outputs.jianpu_text_path.read_text(encoding="utf-8")
+    assert "1 2 |" in jianpu_text
+    svg = outputs.jianpu_svg_path.read_text(encoding="utf-8")
+    assert ">1</text>" in svg
+    assert outputs.overlay_path is None
+    assert outputs.source_map_path is None
+    assert outputs.overlay_svg_path is None
+    assert outputs.omr_path is None
+
+
 def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
     source = tmp_path / "scan.pdf"
     source.write_bytes(b"%PDF-1.4")

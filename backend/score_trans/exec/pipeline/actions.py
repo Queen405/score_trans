@@ -46,6 +46,8 @@ from ..tasks.background import OMR_SEMAPHORE, run_sync_task, schedule_background
 
 logger = logging.getLogger(__name__)
 
+_MUSICXML_SUFFIXES: frozenset[str] = frozenset({".musicxml", ".mxl", ".xml"})
+
 
 @dataclass(slots=True)
 class ScorePipelineOutputs:
@@ -108,20 +110,31 @@ class FullPipelineAction:
         source = Path(input_path).resolve()
         out_dir = Path(output_dir).resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
-        report_progress(progress_callback, "omr", 10, "准备 OMR 识别")
-        recognized = self.recognizer.execute(source, out_dir / "omr", config)
-        report_progress(progress_callback, "omr", 45, "OMR 识别完成")
-        musicxml_path = _copy_musicxml_output(Path(recognized), out_dir, source.stem)
+        omr_dir = out_dir / "omr"
+        overlay_path: Path | None = None
+        source_map_path: Path | None = None
+        overlay_svg_path: Path | None = None
+        if _is_musicxml_input(source):
+            # 导入已有 MusicXML：跳过 OMR，直接用输入文件进入转换+渲染。
+            report_progress(progress_callback, "convert", 30, "导入 MusicXML")
+            musicxml_path = _copy_musicxml_output(source, out_dir, source.stem)
+        else:
+            report_progress(progress_callback, "omr", 10, "准备 OMR 识别")
+            recognized = self.recognizer.execute(source, omr_dir, config)
+            report_progress(progress_callback, "omr", 45, "OMR 识别完成")
+            musicxml_path = _copy_musicxml_output(
+                Path(recognized), out_dir, source.stem
+            )
+            overlay_path, source_map_path = self.overlay_service.find_native_overlay(
+                omr_dir
+            )
+            overlay_svg_path = (
+                _generate_overlay(self.overlay_service, omr_dir)
+                if overlay_path is None
+                else None
+            )
         # The compatibility flag controls Python OCR on the original raster image.
         ocr_image_path = source if enable_omr_ocr and _is_ocr_image(source) else None
-        overlay_path, source_map_path = self.overlay_service.find_native_overlay(
-            out_dir / "omr"
-        )
-        overlay_svg_path = (
-            _generate_overlay(self.overlay_service, out_dir / "omr")
-            if overlay_path is None
-            else None
-        )
         report_progress(progress_callback, "convert", 55, "转换 MusicXML")
         scores = self.converter.build_scores(
             musicxml_path,
@@ -447,11 +460,7 @@ class PipelineActions:
 
 
 def _copy_musicxml_output(path: Path, output_dir: Path, stem: str) -> Path:
-    suffix = (
-        path.suffix
-        if path.suffix.lower() in {".musicxml", ".mxl", ".xml"}
-        else ".musicxml"
-    )
+    suffix = path.suffix if path.suffix.lower() in _MUSICXML_SUFFIXES else ".musicxml"
     target = output_dir / f"{stem}{suffix}"
     if path.resolve() != target.resolve():
         shutil.copy2(path, target)
@@ -594,6 +603,10 @@ def _require_rendered_pages(paths: list[Path]) -> None:
 
 def _is_ocr_image(path: Path) -> bool:
     return path.suffix.lower() in IMAGE_SUFFIXES
+
+
+def _is_musicxml_input(path: Path) -> bool:
+    return path.suffix.lower() in _MUSICXML_SUFFIXES
 
 
 def _generate_overlay(overlay_service: OverlayService, omr_dir: Path) -> Path | None:
