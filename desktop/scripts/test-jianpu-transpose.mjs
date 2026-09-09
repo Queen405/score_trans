@@ -88,7 +88,18 @@ test('classifyKeyEdit is not fooled by other "=" lines or partial keys in commen
   assert.equal(classifyKeyEdit('1=D\n12: 1 2 | *2', '12: 1 2 | *2'), 'key-removed')
   // A "1=" left only inside a comment or lyric line is not an unfinished key.
   assert.equal(classifyKeyEdit('1=D\n1 2 // 1=', '1 2 // 1='), 'key-removed')
-  assert.equal(classifyKeyEdit('1=D\nL: 1= a b', 'L: 1= a b'), 'key-removed')
+  assert.equal(classifyKeyEdit('1=D\n5\nL: 1= a b', '5\nL: 1= a b'), 'key-removed')
+})
+
+test('classifyKeyEdit does not dispatch when the new text has no notes left', () => {
+  // 清空整篇或删到只剩元数据时，调号 token 看似被删干净，但已无音可转。
+  // 必须按 unchanged 处理，否则空文本的转调请求只会回 no_key_token 卡死自动保存。
+  assert.equal(classifyKeyEdit('1=C\n4/4\n1 2 3 |', ''), 'unchanged')
+  assert.equal(classifyKeyEdit('1=C\n4/4\n1 2 3 |', '   \n  '), 'unchanged')
+  assert.equal(classifyKeyEdit('1=C\n1 2 3', 'title=x\n4/4'), 'unchanged')
+  assert.equal(classifyKeyEdit('1=C\n1 2 3', '1=D'), 'unchanged')
+  // 但只要还有音符，删调号仍要派发给后端回退。
+  assert.equal(classifyKeyEdit('1=C\n1 2 3', '1 2 3'), 'key-removed')
 })
 
 test('remapOffset keeps a cursor located before the edited region', () => {
@@ -205,6 +216,14 @@ test('gate dispatches a cleanly deleted key so the backend can revert it', () =>
   const after = '1=C\n4/4\n1 2 3 4 |\nb7, 1 2 b3 |'
   gate.recordEdit(before, after)
   assert.deepEqual(gate.takePending(after), { baseline: before, text: after })
+})
+
+test('gate does not dispatch after the text is cleared', () => {
+  // 复现「清空后切批次被自动保存卡死」：清空不得产生待发转调，
+  // 否则 flushPendingAutoTranspose 会拿到 no_key_token 并阻断批次切换。
+  const gate = newGate()
+  gate.recordEdit('1=C\n4/4\n1 2 3 4 |', '')
+  assert.equal(gate.takePending(''), null)
 })
 
 test('gate discards the edit when the text was replaced externally meanwhile', () => {

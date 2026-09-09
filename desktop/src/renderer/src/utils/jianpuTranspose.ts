@@ -4,6 +4,7 @@ import {
   isMetadataLine,
   stripInlineComment,
   isPlayableToken,
+  findJianpuNoteSpans,
 } from './jianpuPlayback'
 
 const PITCH_OCTAVE_PATTERN = /([1-7])([',]*)/g
@@ -93,6 +94,9 @@ export function classifyKeyEdit(oldText: string, newText: string): KeyEditVerdic
   const changed = oldKeys.length !== newKeys.length
     || oldKeys.some((key, index) => key !== newKeys[index])
   if (!changed) return 'unchanged'
+  // 新文本不含任何可演奏音符时无音可转（典型如清空整篇、删到只剩元数据），
+  // 不应发转调请求——否则后端只能回 no_key_token，反而把自动保存卡死。
+  if (findJianpuNoteSpans(newText).length === 0) return 'unchanged'
   if (newKeys.length >= oldKeys.length) return 'transposable'
   // 调号变少了：可能是删干净，也可能是正打到一半。中间态一定留着 1= 残片，
   // 删除则不留——只有后者能让后端定出回退目标。
