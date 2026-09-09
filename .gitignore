@@ -62,3 +62,4 @@ build-app.py
 # 本地工具记忆目录（不纳入版本控制）
 /.workbuddy/
 tests/test_installer_ui.py
+desktop/scripts/upload-cos.mjs
