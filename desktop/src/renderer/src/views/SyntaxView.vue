@@ -16,7 +16,7 @@
           type="button"
           :class="['sv-category-button', { active: activeSection === section.id }]"
           :aria-current="activeSection === section.id ? 'page' : undefined"
-          @click="activeSection = section.id"
+          @click="selectSection(section.id)"
         >
           <n-icon size="18">
             <component :is="section.icon" />
@@ -44,7 +44,10 @@
         </n-input>
       </header>
 
-      <div class="sv-page-body">
+      <div
+        ref="bodyRef"
+        class="sv-page-body"
+      >
         <div class="sv-panel-container">
           <div
             v-if="normalizedQuery"
@@ -82,10 +85,19 @@
                     class="result-row"
                     @click="openSearchResult(item)"
                   >
-                    <code>{{ item.syntax }}</code>
+                    <code><syntax-highlight-text
+                      :text="item.syntax"
+                      :query="normalizedQuery"
+                    /></code>
                     <span class="result-copy">
-                      <strong>{{ item.name }}</strong>
-                      <span>{{ item.description }}</span>
+                      <strong><syntax-highlight-text
+                        :text="item.name"
+                        :query="normalizedQuery"
+                      /></strong>
+                      <span><syntax-highlight-text
+                        :text="item.description"
+                        :query="normalizedQuery"
+                      /></span>
                     </span>
                     <span class="result-section">{{ item.sectionTitle }}</span>
                   </button>
@@ -116,7 +128,11 @@
               v-if="activeSection === 'quick-start'"
               class="syntax-section"
             >
-              <div class="code-block">
+              <div
+                class="code-block"
+                data-search-key="quick-start-example"
+                :class="{ 'block-highlight': isHighlighted('quick-start-example') }"
+              >
                 <div class="code-toolbar">
                   <span>简谱文本</span>
                   <n-tooltip>
@@ -154,6 +170,8 @@
                     <tr
                       v-for="entry in activeTableSection.entries"
                       :key="`${activeTableSection.id}-${entry.syntax}`"
+                      :data-search-key="`${activeTableSection.id}-${entry.syntax}`"
+                      :class="{ 'row-highlight': isHighlighted(`${activeTableSection.id}-${entry.syntax}`) }"
                     >
                       <td><code>{{ entry.syntax }}</code></td>
                       <td>{{ entry.name }}</td>
@@ -238,6 +256,8 @@
                         <tr
                           v-for="mark in profile.marks"
                           :key="mark.id"
+                          :data-search-key="`profile-${profile.id}-${mark.id}`"
+                          :class="{ 'row-highlight': isHighlighted(`profile-${profile.id}-${mark.id}`) }"
                         >
                           <td><code>{{ mark.syntax }}</code></td>
                           <td>{{ mark.name }}</td>
@@ -261,9 +281,10 @@
                     >
                       <h3>范围写法</h3>
                       <div
-                        v-for="example in profile.range_examples"
+                        v-for="(example, index) in profile.range_examples"
                         :key="`range-${example.syntax}`"
-                        class="example-row"
+                        :data-search-key="`profile-${profile.id}-range-${index}`"
+                        :class="['example-row', { 'row-highlight': isHighlighted(`profile-${profile.id}-range-${index}`) }]"
                       >
                         <code>{{ example.syntax }}</code>
                         <span>{{ example.description }}</span>
@@ -275,9 +296,10 @@
                     >
                       <h3>组合示例</h3>
                       <div
-                        v-for="example in profile.combination_examples"
+                        v-for="(example, index) in profile.combination_examples"
                         :key="`combination-${example.syntax}`"
-                        class="example-row"
+                        :data-search-key="`profile-${profile.id}-combination-${index}`"
+                        :class="['example-row', { 'row-highlight': isHighlighted(`profile-${profile.id}-combination-${index}`) }]"
                       >
                         <code>{{ example.syntax }}</code>
                         <span>{{ example.description }}</span>
@@ -322,7 +344,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import {
   AppsOutline,
@@ -350,6 +372,7 @@ import {
 } from 'naive-ui'
 import { requireData } from '../api/client'
 import { notationApi } from '../api/notation'
+import SyntaxHighlightText from '../components/SyntaxHighlightText.vue'
 import type { InstrumentProfileCatalog } from '../models/types'
 
 type SectionId =
@@ -401,8 +424,13 @@ interface SearchGroup {
   items: SearchItem[]
 }
 
+
 const message = useMessage()
+const bodyRef = ref<HTMLElement | null>(null)
 const searchQuery = ref('')
+const highlightKey = ref('')
+let highlightTimer: ReturnType<typeof setTimeout> | null = null
+let frameHandle: number | null = null
 const activeSection = ref<SectionId>('quick-start')
 const profiles = ref<InstrumentProfileCatalog[]>([])
 const activeProfile = ref<string>('general')
@@ -742,6 +770,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (copyResetTimer) clearTimeout(copyResetTimer)
+  clearHighlight()
 })
 
 function normalizeText(value: string): string {
@@ -770,11 +799,95 @@ async function loadProfiles(): Promise<void> {
   }
 }
 
-function openSearchResult(item: SearchItem): void {
+function clearHighlight(): void {
+  if (highlightTimer) {
+    clearTimeout(highlightTimer)
+    highlightTimer = null
+  }
+  if (frameHandle !== null) {
+    window.cancelAnimationFrame(frameHandle)
+    frameHandle = null
+  }
+  highlightKey.value = ''
+}
+
+function scheduleHighlightClear(): void {
+  if (highlightTimer) clearTimeout(highlightTimer)
+  highlightTimer = setTimeout(() => {
+    highlightTimer = null
+    highlightKey.value = ''
+  }, 2600)
+}
+
+function isHighlighted(key: string): boolean {
+  return highlightKey.value === key
+}
+
+function scrollBodyToTop(): void {
+  bodyRef.value?.scrollTo({ top: 0 })
+}
+
+function selectSection(sectionId: SectionId): void {
+  clearHighlight()
+  activeSection.value = sectionId
+  searchQuery.value = ''
+  scrollBodyToTop()
+}
+
+function nextFrameAsync(): Promise<void> {
+  return new Promise((resolve) => {
+    frameHandle = window.requestAnimationFrame(() => {
+      frameHandle = null
+      resolve()
+    })
+  })
+}
+
+function findTargetElement(key: string): HTMLElement | null {
+  const body = bodyRef.value
+  if (!body || !key) return null
+  // 不使用 CSS 属性选择器：item.key 含 \ $ ( ) 等字符，反斜杠会被当作转义符
+  for (const node of Array.from(body.querySelectorAll<HTMLElement>('[data-search-key]'))) {
+    if (node.dataset.searchKey === key) return node
+  }
+  return null
+}
+
+async function waitForTarget(key: string, maxFrames: number): Promise<HTMLElement | null> {
+  for (let attempt = 0; attempt < maxFrames; attempt += 1) {
+    const existing = findTargetElement(key)
+    if (existing) return existing
+    await nextFrameAsync()
+  }
+  return findTargetElement(key)
+}
+
+async function revealSearchTarget(key: string, needsLazyRender: boolean): Promise<void> {
+  await nextTick()
+  // 演奏技巧区的标签面板是懒渲染的且带切换动画，需要轮询等待其出现在 DOM 中
+  const target = await waitForTarget(key, needsLazyRender ? 12 : 2)
+  if (!target) {
+    scrollBodyToTop()
+    scheduleHighlightClear()
+    return
+  }
+  target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  scheduleHighlightClear()
+}
+
+async function openSearchResult(item: SearchItem): Promise<void> {
+  // 重复点击同一项时先渲染一帧（移除高亮类），保证动画能够重播
+  const repeated = highlightKey.value === item.key
+  clearHighlight()
+  if (repeated) await nextTick()
+
   if (item.profileId) activeProfile.value = item.profileId
   activeSection.value = item.sectionId
+  highlightKey.value = item.key
   searchQuery.value = ''
+  await revealSearchTarget(item.key, item.sectionId === 'performance-marks')
 }
+
 
 async function copyExample(block: 'quick', content: string): Promise<void> {
   try {
@@ -1113,6 +1226,43 @@ code {
   margin-bottom: 12px;
 }
 
+@keyframes row-flash {
+  0%,
+  55% {
+    background-color: var(--accent-light);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes block-flash {
+  0%,
+  55% {
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+.syntax-table tbody tr.row-highlight td {
+  animation: row-flash 2.4s ease-out forwards;
+}
+
+.syntax-table tbody tr.row-highlight td:first-child,
+.example-row.row-highlight {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.example-row.row-highlight {
+  animation: row-flash 2.4s ease-out forwards;
+}
+
+.code-block.block-highlight {
+  animation: block-flash 2.4s ease-out forwards;
+}
+
 :deep(.n-tabs-tab) {
   font-size: 14px;
 }
@@ -1183,6 +1333,18 @@ code {
   .syntax-table tbody tr,
   .result-row {
     transition: none;
+  }
+
+  /* 关闭动画但保留静态高亮，直到定时器清除 */
+  .syntax-table tbody tr.row-highlight td,
+  .example-row.row-highlight {
+    animation: none;
+    background-color: var(--accent-light);
+  }
+
+  .code-block.block-highlight {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--accent-light);
   }
 }
 </style>
