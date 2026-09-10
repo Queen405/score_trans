@@ -15,11 +15,7 @@ os.environ.setdefault("SCORE_TRANS_API_AUTH_DISABLED", "1")
 _env_file = Path(__file__).parents[1] / ".env"
 if not _env_file.is_file():
     load_project_env(
-        Path(__file__).parents[1]
-        / "backend"
-        / "score_trans"
-        / "config"
-        / "env.example"
+        Path(__file__).parents[1] / "backend" / "score_trans" / "config" / "env.example"
     )
 
 # test_build_app.py 依赖本地打包脚本 build-app.py（.gitignore 忽略，CI 无此文件），缺失时跳过收集。
