@@ -366,9 +366,7 @@ def test_dotted_quarter_note_renders_dot_without_extension_line() -> None:
     root = _root(render_score_svg(long_duration_score()))
 
     assert any(node.attrib.get("class") == "rhythm-dot" for node in root.iter())
-    assert not any(
-        node.attrib.get("class") == "extension-line" for node in root.iter()
-    )
+    assert not any(node.attrib.get("class") == "extension-line" for node in root.iter())
 
 
 def test_dotted_half_note_renders_dashes_without_rhythm_dot() -> None:
@@ -379,9 +377,7 @@ def test_dotted_half_note_renders_dashes_without_rhythm_dot() -> None:
         node for node in root.iter() if node.attrib.get("class") == "extension-line"
     ]
     assert len(dashes) == 2
-    assert not any(
-        node.attrib.get("class") == "rhythm-dot" for node in root.iter()
-    )
+    assert not any(node.attrib.get("class") == "rhythm-dot" for node in root.iter())
 
 
 def _extension_centers(root: ET.Element) -> list[float]:
