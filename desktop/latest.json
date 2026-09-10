@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.1",
   "url": "https://github.com/Queen405/score_trans/releases/latest",
-  "notes": "去除民乐团宣传内容，首页改为五线谱识别效果展示；安装包体积文案改为真实大小；新增 COS 自动上传工具"
+  "notes": "支持导入 MusicXML 文件而无需运行 OMR 识别；新增语法高亮组件；增强转调处理"
 }
