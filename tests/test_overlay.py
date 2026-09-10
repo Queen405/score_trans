@@ -25,6 +25,8 @@ OMR_FIXTURE = (
 
 @pytest.fixture
 def sheets() -> list[SheetModel]:
+    if not OMR_FIXTURE.is_file():
+        pytest.skip("OMR fixture not available (examples/ excluded from VCS)")
     return OmrParser().parse(OMR_FIXTURE)
 
 
@@ -155,6 +157,8 @@ def test_overlay_service_returns_empty_for_missing_omr(tmp_path: Path) -> None:
 def test_overlay_service_generates_svg_files(tmp_path: Path) -> None:
     import shutil
 
+    if not OMR_FIXTURE.is_file():
+        pytest.skip("OMR fixture not available (examples/ excluded from VCS)")
     omr_copy = tmp_path / "test.omr"
     shutil.copy2(OMR_FIXTURE, omr_copy)
     service = OverlayService()
