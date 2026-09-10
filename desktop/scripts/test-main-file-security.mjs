@@ -85,7 +85,7 @@ test('export filenames cannot become traversal or Windows device paths', () => {
 })
 
 test('export writes stay in the canonical directory and remain unique', async () => {
-  const root = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'score-trans-export-'))
+  const root = await fsPromises.mkdtemp(path.join(process.cwd(), '.export-test-'))
   try {
     const outputDir = path.join(root, 'output')
     const first = await exportPath.writeUniqueExportFile(
