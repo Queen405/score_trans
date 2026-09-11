@@ -469,13 +469,14 @@ async function highlightSource(sourceId: string): Promise<boolean> {
     node.classList.remove('source-current')
   })
 
-  const semanticTargets = Array.from(
-    svg.querySelectorAll<SVGGraphicsElement>('[data-source-role]'),
+  // A source id can also be attached to shared semantic spans (for example a
+  // beam spanning several notes). Those spans are useful metadata, but they
+  // must not become the click target: doing so highlights the whole measure.
+  // The note's source-anchor is the precise visual unit for source selection;
+  // its descendants still receive the source-current CSS styling.
+  const targets = Array.from(
+    svg.querySelectorAll<SVGGraphicsElement>('.source-anchor'),
   ).filter((element) => sourceIdsOf(element).includes(sourceId))
-  const targets = semanticTargets.length
-    ? semanticTargets
-    : Array.from(svg.querySelectorAll<SVGGraphicsElement>('.source-anchor'))
-      .filter((element) => sourceIdsOf(element).includes(sourceId))
   if (!targets.length) return false
 
   targets.forEach((target) => {

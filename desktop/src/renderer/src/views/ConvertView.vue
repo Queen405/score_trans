@@ -1568,16 +1568,14 @@ async function exportScore(): Promise<void> {
   try {
     const format = exportFormat.value
     if (format === 'mid') {
-      const page = currentExportPage()
       const filename = getExportFilename('mid')
-      const result = page.jianpuText.trim()
-        ? await requireData(exportApi.exportMidiText({
-          jianpu_text: page.jianpuText,
-          filename,
-          title: '简谱',
-        }))
+      const batchText = operationalJianpuText.value
+      const musicxmlFileIds = store.currentBatchPages.map((page) => page.musicxmlFileId).filter(Boolean)
+      const result = batchText.trim()
+        ? await requireData(exportApi.exportMidiText({ jianpu_text: batchText, filename, title: '简谱' }))
         : await requireData(exportApi.exportMidi({
-          musicxml_file_id: store.musicxmlFileId,
+          musicxml_file_id: musicxmlFileIds[0] || store.musicxmlFileId,
+          musicxml_file_ids: musicxmlFileIds.length ? musicxmlFileIds : undefined,
           filename,
           target_key: settings.targetKey,
         }))
@@ -1587,12 +1585,14 @@ async function exportScore(): Promise<void> {
       return
     }
     if (format === 'musicxml') {
-      const page = currentExportPage()
       const filename = getExportFilename('musicxml')
-      const result = page.jianpuText.trim()
-        ? await requireData(exportApi.exportMusicXmlText({ jianpu_text: page.jianpuText, filename, title: '简谱' }))
+      const batchText = operationalJianpuText.value
+      const musicxmlFileIds = store.currentBatchPages.map((page) => page.musicxmlFileId).filter(Boolean)
+      const result = batchText.trim()
+        ? await requireData(exportApi.exportMusicXmlText({ jianpu_text: batchText, filename, title: '简谱' }))
         : await requireData(exportApi.exportMusicXml({
-            musicxml_file_id: store.musicxmlFileId,
+            musicxml_file_id: musicxmlFileIds[0] || store.musicxmlFileId,
+            musicxml_file_ids: musicxmlFileIds.length ? musicxmlFileIds : undefined,
             filename,
             title: '简谱',
             target_key: settings.targetKey,

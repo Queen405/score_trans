@@ -1542,7 +1542,9 @@ export type components = {
             /** Filename */
             filename?: string | null;
             /** Musicxml File Id */
-            musicxml_file_id: string;
+            musicxml_file_id?: string | null;
+            /** Musicxml File Ids */
+            musicxml_file_ids?: string[] | null;
             /**
              * Target Key
              * @default auto
@@ -1571,7 +1573,9 @@ export type components = {
             /** Filename */
             filename?: string | null;
             /** Musicxml File Id */
-            musicxml_file_id: string;
+            musicxml_file_id?: string | null;
+            /** Musicxml File Ids */
+            musicxml_file_ids?: string[] | null;
             /**
              * Target Key
              * @default C

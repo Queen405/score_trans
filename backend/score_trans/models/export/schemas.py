@@ -29,7 +29,8 @@ class ExportRenderedImagesRequest(BaseModel):
 
 
 class ExportMidiRequest(BaseModel):
-    musicxml_file_id: str
+    musicxml_file_id: str | None = None
+    musicxml_file_ids: list[str] | None = None
     filename: str | None = None
     title: str | None = None
     target_key: TargetKeyOrAuto = "auto"
@@ -42,7 +43,8 @@ class ExportMidiTextRequest(BaseModel):
 
 
 class ExportMusicXmlRequest(BaseModel):
-    musicxml_file_id: str
+    musicxml_file_id: str | None = None
+    musicxml_file_ids: list[str] | None = None
     filename: str | None = None
     title: str | None = None
     target_key: TargetKeyOrAuto = "C"
