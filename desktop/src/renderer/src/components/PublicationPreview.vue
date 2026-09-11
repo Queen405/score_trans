@@ -529,12 +529,6 @@ function applyPlaybackHighlight(reveal: boolean): void {
   let targets = Array.from(svg.querySelectorAll<SVGGElement>(
     `.playback-note[data-note-group="${playbackIndex}"]`,
   ))
-  if (!targets.length) {
-    const fallback = svg.querySelector<SVGGElement>(
-      `.playback-note[data-note-index="${props.currentNoteIndex}"]`,
-    )
-    targets = fallback ? [fallback] : []
-  }
   if (!targets.length) return
   targets.forEach((target) => target.classList.add('playback-current'))
   const boxes = targets.map((target) => targetBBox(target, svg)).filter(

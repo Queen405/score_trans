@@ -141,6 +141,7 @@ class PublicationRenderer:
         page_width: float | None = None,
         page_height: float | None = None,
         initial_measure_number: int | None = None,
+        playback_group_offset: int = 0,
     ) -> list[PublicationPage]:
         style = self._style_for_page(page_width, page_height)
         parts = _normalize_parts(scores)
@@ -149,7 +150,10 @@ class PublicationRenderer:
         if not parts:
             parts = [[JianpuScore(title=title or "简谱")]]
         cells = _build_cells(parts, style)
-        playback_groups = _playback_group_map(cells)
+        playback_groups = {
+            cell_index: {onset: group + playback_group_offset for onset, group in groups.items()}
+            for cell_index, groups in _playback_group_map(cells).items()
+        }
         systems = _break_systems(cells, style, len(parts))
         pages = _paginate(systems, style)
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
