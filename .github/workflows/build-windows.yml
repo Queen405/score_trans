@@ -219,11 +219,17 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Attach to GitHub Release (on tag)
+      - name: Publish to GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release upload "${GITHUB_REF_NAME}" \
-            desktop/dist-electron/*.exe --clobber
+          # The first tag build to finish creates the release; the other
+          # platform's build finds it already exists and falls back to just
+          # uploading its assets. set -e is satisfied: a failed create inside
+          # a `||` list does not abort the script.
+          gh release create "${GITHUB_REF_NAME}" desktop/dist-electron/*.exe \
+            --title "${GITHUB_REF_NAME}" \
+            --notes "Score Trans ${GITHUB_REF_NAME} - Windows x64 + macOS arm64" \
+            || gh release upload "${GITHUB_REF_NAME}" desktop/dist-electron/*.exe --clobber
