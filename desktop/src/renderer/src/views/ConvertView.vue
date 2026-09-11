@@ -400,7 +400,8 @@
               ref="svgPreviewRef"
               :svg-file-id="finalSvgFileId"
               :ocr-text="finalRenderPageOcrText"
-              :current-note-index="currentPlaybackGroupIndex"
+              :current-note-index="currentNoteIndex"
+              :playback-group-index="currentPlaybackGroupIndex"
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
               @update:text-attachment="handleTextAttachmentUpdate"
