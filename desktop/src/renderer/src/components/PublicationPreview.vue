@@ -101,6 +101,7 @@ import { loadViewState, saveViewState } from '../composables/useViewPersistence'
 import { useSettingsStore } from '../stores/settings'
 import { parseOcrText, serializeOcrText, type OcrTextBlock } from '../utils/ocrText'
 import { sanitizeSvg } from '../utils/svgSanitizer'
+import { playbackTargets } from '../utils/playbackNavigation'
 import { LatestAsyncGate } from '../utils/latestAsyncGate'
 
 const props = withDefaults(defineProps<{
@@ -109,11 +110,13 @@ const props = withDefaults(defineProps<{
   editableOcr?: boolean
   currentNoteIndex?: number
   playbackGroupIndex?: number
+  playbackPosition?: { tick: number; onsetTick: number; ppq: number }
 }>(), {
   ocrText: '',
   editableOcr: false,
   currentNoteIndex: -1,
   playbackGroupIndex: -1,
+  playbackPosition: () => ({ tick: -1, onsetTick: -1, ppq: 480 }),
 })
 interface TextAttachmentUpdate {
   sourcePageIndex: number
@@ -400,10 +403,13 @@ async function loadSvg(url: string): Promise<void> {
 
     await nextTick()
     const mountedSvg = document.importNode(safeSvg, true)
+    if (generation !== svgLoadGeneration) return
     svgHostRef.value?.replaceChildren(mountedSvg)
+    applyPlaybackHighlight(false)
     zp.bind()
     const savedView = loadViewState(url)
     requestAnimationFrame(() => {
+      if (generation !== svgLoadGeneration) return
       if (savedView) {
         zp.scale.value = savedView.scale
         zp.tx.value = savedView.tx
@@ -524,11 +530,7 @@ function applyPlaybackHighlight(reveal: boolean): void {
     node.classList.remove('playback-current')
     if (node.classList.contains('playback-group-highlight')) node.remove()
   })
-  const playbackIndex = props.playbackGroupIndex >= 0 ? props.playbackGroupIndex : props.currentNoteIndex
-  if (playbackIndex < 0) return
-  let targets = Array.from(svg.querySelectorAll<SVGGElement>(
-    `.playback-note[data-note-group="${playbackIndex}"]`,
-  ))
+  const targets = playbackTargets(svg, props.playbackPosition)
   if (!targets.length) return
   targets.forEach((target) => target.classList.add('playback-current'))
   const boxes = targets.map((target) => targetBBox(target, svg)).filter(
@@ -653,15 +655,8 @@ watch(svgUrl, (url, prevUrl) => {
   svgLoadGate.track(loadSvg(url))
 }, { immediate: true })
 
-watch(() => props.currentNoteIndex, () => {
+watch(() => props.playbackPosition.onsetTick, () => {
   nextTick(() => applyPlaybackHighlight(true))
-})
-
-// Page navigation can change the SVG while the playback group index stays the
-// same. Re-apply the current group after the new SVG is mounted.
-watch([svgUrl, svgReady], () => {
-  if (!svgReady.value) return
-  nextTick(() => applyPlaybackHighlight(false))
 })
 
 watch(() => props.ocrText, (value) => {

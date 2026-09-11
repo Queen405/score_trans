@@ -1221,7 +1221,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-13
+             * @default publication-14
              */
             engine_version?: string;
             /** Id */
@@ -1881,7 +1881,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-13
+             * @default publication-14
              */
             engine_version?: string;
             /**
@@ -1991,7 +1991,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-13
+             * @default publication-14
              */
             engine_version?: string;
             /** Error Message */
@@ -2345,7 +2345,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-13
+             * @default publication-14
              */
             engine_version?: string;
             /**
@@ -2389,6 +2389,16 @@ export type components = {
             page_index: number;
             /** Page Width */
             page_width: number;
+            /**
+             * Playback End Tick
+             * @default null
+             */
+            playback_end_tick?: number | null;
+            /**
+             * Playback Start Tick
+             * @default null
+             */
+            playback_start_tick?: number | null;
             /**
              * Render Map File Id
              * @default null

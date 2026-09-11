@@ -13,6 +13,7 @@ import {
 } from '../utils/jianpuPlayback'
 
 export interface PlayerNote {
+  tick: number
   time: number
   duration: number
   midi: number
@@ -21,6 +22,7 @@ export interface PlayerNote {
 }
 
 export interface PlayerNoteGroup {
+  tick: number
   time: number
   duration: number
   endTime: number
@@ -41,6 +43,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   const error = ref<string | null>(null)
   const duration = ref(0)
   const currentTime = ref(0)
+  const playbackPosition = ref({ tick: -1, onsetTick: -1, ppq: 480 })
   const rate = ref<PlaybackRate>(options.defaultRate ?? 1)
   const volume = ref(0) // dB, 0 = full, -Infinity = mute
   const loop = ref(false)
@@ -95,6 +98,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     error.value = null
     isReady.value = false
     currentPlaybackGroupIndex.value = -1
+    playbackPosition.value = { tick: -1, onsetTick: -1, ppq: midiData?.header.ppq ?? 480 }
     notes.length = 0
     noteGroups.length = 0
 
@@ -113,6 +117,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       for (const track of midiData.tracks) {
         for (const note of track.notes) {
           const n: PlayerNote = {
+            tick: note.ticks,
             time: note.time,
             duration: note.duration,
             midi: note.midi,
@@ -128,7 +133,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       notes.sort((a, b) => a.time - b.time)
       rebuildNoteGroups()
 
-      nominalDuration = maxEnd
+      nominalDuration = Math.max(maxEnd, midiData.duration)
       duration.value = toPlaybackSeconds(nominalDuration, rate.value)
       loopEnd.value = duration.value
       isReady.value = true
@@ -201,6 +206,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     isPlaying.value = false
     currentTime.value = 0
     currentPlaybackGroupIndex.value = -1
+    playbackPosition.value = { tick: -1, onsetTick: -1, ppq: midiData?.header.ppq ?? 480 }
     stopPositionTracking()
   }
 
@@ -324,7 +330,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   function updateCurrentNoteIndex(time: number): void {
     // Find the note/chord group that is currently sounding.
     let idx = -1
-    const epsilon = 0.02
+    const epsilon = 0
     for (let i = noteGroups.length - 1; i >= 0; i--) {
       const group = noteGroups[i]
       if (time + epsilon >= group.time && time <= group.endTime + epsilon) {
@@ -334,16 +340,20 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       if (group.time < time) break
     }
     currentPlaybackGroupIndex.value = idx
+    playbackPosition.value = {
+      tick: midiData?.header.secondsToTicks(time) ?? -1,
+      onsetTick: idx >= 0 ? noteGroups[idx]!.tick : -1,
+      ppq: midiData?.header.ppq ?? 480,
+    }
   }
 
   function rebuildNoteGroups(): void {
     noteGroups.length = 0
-    const sameStartEpsilon = 0.001
 
     for (const note of notes) {
       const endTime = note.time + note.duration
       const previous = noteGroups[noteGroups.length - 1]
-      if (previous && Math.abs(previous.time - note.time) <= sameStartEpsilon) {
+      if (previous && previous.tick === note.tick) {
         previous.notes.push(note)
         previous.endTime = Math.max(previous.endTime, endTime)
         previous.duration = previous.endTime - previous.time
@@ -351,6 +361,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       }
 
       noteGroups.push({
+        tick: note.tick,
         time: note.time,
         duration: note.duration,
         endTime,
@@ -400,6 +411,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     volume: readonlyRef(volume),
     loop: readonlyRef(loop),
     currentPlaybackGroupIndex: readonlyRef(currentPlaybackGroupIndex),
+    playbackPosition: readonlyRef(playbackPosition),
     currentTimeFormatted,
     durationFormatted,
     notes,

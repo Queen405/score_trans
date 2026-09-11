@@ -123,7 +123,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-13"
+    assert root.attrib["data-engine-version"] == "publication-14"
     assert "春江" in svg
     assert "<path" in svg
 

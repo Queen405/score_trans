@@ -84,6 +84,9 @@ class PublicationScene:
     geometry_issues: list[dict[str, object]] = field(default_factory=list)
     note_index_start: int | None = None
     note_index_end: int | None = None
+    playback_start_tick: int | None = None
+    playback_end_tick: int | None = None
+    playback_ppq: int = 480
 
     def add(self, node: SceneNode) -> SceneNode:
         self.nodes.append(node)

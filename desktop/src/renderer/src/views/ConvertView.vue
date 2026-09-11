@@ -402,6 +402,7 @@
               :ocr-text="finalRenderPageOcrText"
               :current-note-index="currentNoteIndex"
               :playback-group-index="currentPlaybackGroupIndex"
+              :playback-position="playbackPosition"
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
               @update:text-attachment="handleTextAttachmentUpdate"
@@ -443,6 +444,7 @@
         :session-key="store.currentBatchId"
         @update:current-note-index="currentNoteIndex = $event"
         @update:playback-group-index="currentPlaybackGroupIndex = $event"
+        @update:playback-position="playbackPosition = $event"
       />
     </div>
     <n-modal
@@ -533,6 +535,8 @@ import {
   reconcileTextAnchors,
   type RekeySpanMapping,
 } from '../utils/textAnchorTracking'
+import { readPlaybackRange, playbackPage, type PlaybackRange } from '../utils/playbackNavigation'
+import { sanitizeSvg } from '../utils/svgSanitizer'
 import { sourceAnchorRange } from '../utils/sourceAnchorSelection'
 import { transposeOctave } from '../utils/jianpuTranspose'
 import {
@@ -610,12 +614,7 @@ const canEditMarkers = computed(() => (
 ))
 
 const renderSourcePageLookup = ref<Record<string, number>>({})
-interface NoteIndexRange {
-  start: number | null
-  end: number | null
-}
-const renderPageNoteIndexRanges = ref<NoteIndexRange[]>([])
-const renderPageNoteGroupRanges = ref<NoteIndexRange[]>([])
+const renderPlaybackRanges = ref<Array<PlaybackRange | null>>([])
 const clickableSourceIds = computed(() => {
   if (isViewingFinal.value && !finalSvgFileId.value) return []
   return [...new Set(
@@ -641,6 +640,7 @@ const operationalJianpuText = computed(() => (
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
 const currentPlaybackGroupIndex = ref(-1)
+const playbackPosition = ref({ tick: -1, onsetTick: -1, ppq: 480 })
 const errorLine = ref(-1)
 const flashLine = ref(-1)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
@@ -1003,28 +1003,30 @@ watch(() => store.currentPage?.id ?? '', () => {
   correctableSheet.value = null
   deletedEntityIds.value = new Set(store.currentPage?.deletedSourceIds ?? [])
 }, { immediate: true })
-watch(currentPlaybackGroupIndex, (index) => {
-  if (!isViewingFinal.value || index < 0) return
-  // Automatic playback paging is based only on the rendered Jianpu pages.
-  // Text/source-page fallbacks can advance the preview before its notes play.
-  const ranges = renderPageNoteGroupRanges.value
-  if (!ranges.length || ranges.some((range) => range.start === null || range.end === null)) return
-
-  const currentPage = finalRenderPageIndex.value
-  const currentRange = ranges[currentPage]
-  if (currentRange?.start !== null && currentRange?.end !== null
-    && index >= currentRange.start && index <= currentRange.end) {
-    return
-  }
-
-  const targetPage = ranges.findIndex((range) =>
-    range.start !== null && range.end !== null
-    && index >= range.start && index <= range.end,
-  )
-  if (targetPage >= 0 && targetPage !== currentPage) {
-    finalRenderPageIndex.value = targetPage
+watch([playbackPosition, renderPlaybackRanges, isViewingFinal], () => {
+  if (!isViewingFinal.value) return
+  const target = playbackPage(renderPlaybackRanges.value, playbackPosition.value)
+  if (target !== null && target !== finalRenderPageIndex.value) {
+    finalRenderPageIndex.value = target
   }
 })
+
+// Rebuild from the rendered SVGs, including restored history. Ranges are tied
+// to this exact file list; responses for a superseded render cannot replace it.
+watch(finalSvgFileIds, async (ids, _previous, onCleanup) => {
+  let cancelled = false
+  const controller = new AbortController()
+  onCleanup(() => { cancelled = true; controller.abort() })
+  renderPlaybackRanges.value = []
+  const ranges = await Promise.all(ids.map(async (id) => {
+    try {
+      const response = await fetchFileBlob(id, controller.signal)
+      if (response.error) return null
+      return readPlaybackRange(sanitizeSvg(await response.data.text()))
+    } catch { return null }
+  }))
+  if (!cancelled) renderPlaybackRanges.value = ranges
+}, { immediate: true })
 
 onMounted(() => {
   if (!settings.loaded) void settings.load()
@@ -1852,14 +1854,7 @@ async function loadRenderSourcePageLookup(pages: RenderedSvgPage[]): Promise<voi
     }
   }))
   renderSourcePageLookup.value = lookup
-  renderPageNoteIndexRanges.value = (pages ?? []).map((page) => ({
-    start: page.note_index_start ?? null,
-    end: page.note_index_end ?? null,
-  }))
-  renderPageNoteGroupRanges.value = (pages ?? []).map((page) => ({
-    start: page.note_group_start ?? null,
-    end: page.note_group_end ?? null,
-  }))
+
 }
 
 function buildBatchRenderPages() {

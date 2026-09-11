@@ -148,6 +148,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:currentNoteIndex': [index: number]
   'update:playbackGroupIndex': [index: number]
+  'update:playbackPosition': [position: { tick: number; onsetTick: number; ppq: number }]
 }>()
 
 const player = usePlayer()
@@ -318,6 +319,10 @@ onUnmounted(() => {
 
 // Watch for source changes (debounce jianpuText since user may be typing)
 let jianpuDebounce: ReturnType<typeof setTimeout> | null = null
+
+watch(player.playbackPosition, (position) => {
+  emit('update:playbackPosition', position)
+}, { immediate: true })
 
 watch(player.currentPlaybackGroupIndex, (index) => {
   emit('update:currentNoteIndex', index)

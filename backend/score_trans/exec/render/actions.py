@@ -554,6 +554,7 @@ class RenderActions:
         source_pages = req.source_pages or req.pages
         page_offset = 0
         playback_group_offset = 0
+        playback_tick_offset = 0
         for page_idx, page_scores in enumerate(page_scores_list):
             source_page_index = _score_source_page_index(page_scores, page_idx)
             layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
@@ -612,13 +613,25 @@ class RenderActions:
                     measure_number_mode=_request_measure_number_mode(req),
                     initial_measure_number=None,
                     playback_group_offset=playback_group_offset,
+                    playback_tick_offset=playback_tick_offset,
                     **_a4_layout_kwargs(req),
                 )
             )
             all_rendered_file_pages.extend(rendered_pages)
-            page_group_ends = [page.note_group_end for page in rendered_pages if page.note_group_end is not None]
+            page_group_ends = [
+                page.note_group_end
+                for page in rendered_pages
+                if page.note_group_end is not None
+            ]
             if page_group_ends:
                 playback_group_offset = max(page_group_ends) + 1
+            playback_tick_offset = max(
+                (
+                    page.playback_end_tick or playback_tick_offset
+                    for page in rendered_pages
+                ),
+                default=playback_tick_offset,
+            )
             page_offset += len(rendered_pages)
 
         pages = self._register_rendered_page_results(

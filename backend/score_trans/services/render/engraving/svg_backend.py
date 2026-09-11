@@ -81,11 +81,16 @@ def _inline_class_styles(
 def scene_to_svg(scene: PublicationScene, style: PublicationStyle) -> str:
     scale = scene.coordinate_scale
     body = "\n".join(_node_to_svg(node, 2, scale) for node in scene.nodes)
+    playback_attrs = (
+        f' data-playback-version="1" data-playback-ppq="{scene.playback_ppq}"'
+    )
+    if scene.playback_start_tick is not None and scene.playback_end_tick is not None:
+        playback_attrs += f' data-playback-start-tick="{scene.playback_start_tick}" data-playback-end-tick="{scene.playback_end_tick}"'
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{scene.width:g}" '
         f'height="{scene.height:g}" viewBox="0 0 {scene.width:g} {scene.height:g}" '
         f'data-render-engine="publication" data-engine-version="{PUBLICATION_ENGINE_VERSION}" '
-        f'data-layout-key="{escape(scene.layout_key, quote=True)}">\n'
+        f'data-layout-key="{escape(scene.layout_key, quote=True)}"{playback_attrs}>\n'
         f"  <style>{_CSS}</style>\n"
         f'  <g class="publication-content" transform="scale({scale:g})">\n'
         f"{body}\n  </g>\n</svg>"

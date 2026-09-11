@@ -8,6 +8,8 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Literal
 
+from ....config.settings import MIDI_TICKS_PER_BEAT
+from ....domain.playback_timeline import measure_boundaries, score_parts, to_tick
 from ....domain.jianpu_tokens import is_notatable_duration
 from ....models.common.types import MeasureNumberMode
 from ....models.render.layout import PUBLICATION_ENGINE_VERSION
@@ -142,6 +144,7 @@ class PublicationRenderer:
         page_height: float | None = None,
         initial_measure_number: int | None = None,
         playback_group_offset: int = 0,
+        playback_tick_offset: int = 0,
     ) -> list[PublicationPage]:
         style = self._style_for_page(page_width, page_height)
         parts = _normalize_parts(scores)
@@ -151,9 +154,12 @@ class PublicationRenderer:
             parts = [[JianpuScore(title=title or "简谱")]]
         cells = _build_cells(parts, style)
         playback_groups = {
-            cell_index: {onset: group + playback_group_offset for onset, group in groups.items()}
+            cell_index: {
+                onset: group + playback_group_offset for onset, group in groups.items()
+            }
             for cell_index, groups in _playback_group_map(cells).items()
         }
+        boundaries = measure_boundaries([cell.measures for cell in cells])
         systems = _break_systems(cells, style, len(parts))
         pages = _paginate(systems, style)
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
@@ -175,6 +181,24 @@ class PublicationRenderer:
                 style.title_block_height if page_index == 0 else 54.0
             )
             page_ranges: list[MeasureRange] = []
+            page_cells = [cell for system in page_systems for cell in system.cells]
+            scene.playback_start_tick = (
+                (
+                    playback_tick_offset
+                    + to_tick(boundaries[page_cells[0].index], MIDI_TICKS_PER_BEAT)
+                )
+                if page_cells
+                else None
+            )
+            scene.playback_end_tick = (
+                (
+                    playback_tick_offset
+                    + to_tick(boundaries[page_cells[-1].index + 1], MIDI_TICKS_PER_BEAT)
+                )
+                if page_cells
+                else None
+            )
+            scene.playback_ppq = MIDI_TICKS_PER_BEAT
             page_groups = [
                 group
                 for system in page_systems
@@ -194,6 +218,8 @@ class PublicationRenderer:
                     first_system_on_page=system_index == 0,
                     spanners=document_spanners,
                     playback_groups=playback_groups,
+                    playback_boundaries=boundaries,
+                    playback_tick_offset=playback_tick_offset,
                 )
                 _append_ranges(page_ranges, system.cells)
                 y += system.height + style.system_gap
@@ -210,8 +236,8 @@ class PublicationRenderer:
                     note_index_end=scene.note_index_end,
                     note_group_start=min(page_groups) if page_groups else None,
                     note_group_end=max(page_groups) if page_groups else None,
-                    playback_start_tick=min(page_groups) if page_groups else None,
-                    playback_end_tick=(max(page_groups) + 1) if page_groups else None,
+                    playback_start_tick=scene.playback_start_tick,
+                    playback_end_tick=scene.playback_end_tick,
                 )
             )
         return result
@@ -271,6 +297,8 @@ class PublicationRenderer:
         first_system_on_page: bool,
         spanners: list[_OpenSpanners],
         playback_groups: dict[int, dict[Fraction, int]] | None = None,
+        playback_boundaries: list[Fraction] | None = None,
+        playback_tick_offset: int = 0,
     ) -> int:
         x0 = style.margin_left
         part_count = max(1, len(parts))
@@ -357,6 +385,13 @@ class PublicationRenderer:
                     ),
                     shared_positions=shared_positions,
                     note_groups=cell_groups,
+                    playback_start=(
+                        playback_boundaries[cell.index]
+                        if playback_boundaries
+                        else Fraction(0)
+                    ),
+                    playback_tick_offset=playback_tick_offset,
+                    part_index=part_index,
                 )
             x += width
         for part_index, open_state in enumerate(spanners):
@@ -382,6 +417,9 @@ class PublicationRenderer:
         draw_terminal: bool,
         shared_positions: dict[Fraction, float] | None = None,
         note_groups: dict[Fraction, int] | None = None,
+        playback_start: Fraction = Fraction(0),
+        playback_tick_offset: int = 0,
+        part_index: int = 0,
     ) -> int:
         bar_top, bar_bottom = _measure_bar_offsets(measure, style)
         if draw_start_bar or measure.repeat_start:
@@ -505,6 +543,11 @@ class PublicationRenderer:
                 note_index,
                 right_limit=clip_right,
                 note_group=note_group,
+                playback_tick=playback_tick_offset
+                + to_tick(
+                    playback_start + (event.start or Fraction(0)), MIDI_TICKS_PER_BEAT
+                ),
+                part_index=part_index,
             )
             anchors.append(anchor)
             if consumed:
@@ -586,24 +629,7 @@ def _draw_barline(
 
 
 def _normalize_parts(scores: list[JianpuScore]) -> list[list[JianpuScore]]:
-    if not scores:
-        return []
-    multi = any(score.part_count > 1 or score.part_index > 0 for score in scores)
-    if not multi:
-        return [scores]
-    # Parsed multi-page Jianpu text numbers parts globally (page 1: 0/1,
-    # page 2: 2/3), while MIDI export treats the nth part on each page as the
-    # same continuous instrument. Rank parts within each source page first,
-    # then merge equal ranks across pages.
-    by_page: dict[int, list[JianpuScore]] = {}
-    for score in scores:
-        by_page.setdefault(score.page_index, []).append(score)
-    by_part: dict[int, list[JianpuScore]] = {}
-    for page_index in sorted(by_page):
-        page_scores = sorted(by_page[page_index], key=lambda score: score.part_index)
-        for part_rank, score in enumerate(page_scores):
-            by_part.setdefault(part_rank, []).append(score)
-    return [by_part[index] for index in sorted(by_part)]
+    return score_parts(scores)
 
 
 def _assign_display_measure_numbers(
@@ -1762,6 +1788,8 @@ def _draw_event(
     *,
     right_limit: float | None = None,
     note_group: int | None = None,
+    playback_tick: int | None = None,
+    part_index: int = 0,
 ) -> tuple[_Anchor, bool]:
     if event.kind == "extension":
         return _draw_extension_event(scene, event, x, y, right_limit=right_limit)
@@ -1804,6 +1832,9 @@ def _draw_event(
         attrs["data-source-end-utf16"] = event.source_end_utf16
     if pitched:
         attrs["data-note-index"] = note_index
+        attrs["data-part-index"] = part_index
+        if playback_tick is not None:
+            attrs["data-playback-tick"] = playback_tick
         if note_group is not None:
             attrs["data-note-group"] = note_group
     marks = list(

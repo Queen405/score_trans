@@ -197,6 +197,7 @@ def render_score_a4_pages_to_files(
     initial_measure_number: int | None = 1,
     layout: A4LayoutOptions | None = None,
     playback_group_offset: int = 0,
+    playback_tick_offset: int = 0,
 ) -> list[RenderedA4FilePage]:
     return render_scores_a4_pages_to_files(
         [score],
@@ -240,6 +241,7 @@ def render_scores_a4_page_results_to_files(
     initial_measure_number: int | None = 1,
     layout: A4LayoutOptions | None = None,
     playback_group_offset: int = 0,
+    playback_tick_offset: int = 0,
 ) -> list[RenderedA4FilePage]:
     options = RenderOptions(
         title=title or (scores[0].title if scores else "简谱"),
@@ -256,6 +258,7 @@ def render_scores_a4_page_results_to_files(
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
         playback_group_offset=playback_group_offset,
+        playback_tick_offset=playback_tick_offset,
     )
     paths = renderer.write_pages(pages, output_path)
     return [

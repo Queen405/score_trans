@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from fractions import Fraction
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
@@ -13,6 +14,12 @@ from score_trans.config.settings import (
     MIDI_TICKS_PER_BEAT,
 )
 
+from ...domain.playback_timeline import (
+    score_parts,
+    measure_boundaries,
+    event_onsets,
+    to_tick,
+)
 from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
 from ...domain.write.musicxml import scores_to_musicxml
 from ...models.score import DEFAULT_TEMPO, JianpuPitch, JianpuScore
@@ -47,9 +54,7 @@ def _pitch_to_midi(pitch: JianpuPitch, key: str) -> int:
 
 
 def _duration_to_ticks(duration: Fraction, beat_type: int) -> int:
-    quarter_note_fraction = Fraction(4, beat_type)
-    quarters = duration / quarter_note_fraction
-    return max(1, int(quarters * _TICKS_PER_BEAT))
+    return max(1, to_tick(duration, _TICKS_PER_BEAT))
 
 
 def images_to_pdf(image_pages: list[bytes], output_path: Path) -> Path:
@@ -153,24 +158,10 @@ class ExportService:
         position across pages belong to the same instrument; their measures
         are concatenated to form a single continuous track.
         """
-        grouped: dict[int, list[JianpuScore]] = {}
-        current_page: int = -1
-        part_in_page = 0
-        for score in scores:
-            if score.page_index != current_page:
-                current_page = score.page_index
-                part_in_page = 0
-            grouped.setdefault(part_in_page, []).append(score)
-            part_in_page += 1
-
-        merged: list[JianpuScore] = []
-        for part_pos in sorted(grouped.keys()):
-            group = grouped[part_pos]
-            base = group[0]
-            for extra in group[1:]:
-                base.measures.extend(extra.measures)
-            merged.append(base)
-        return merged
+        return [
+            replace(part[0], measures=[m for score in part for m in score.measures])
+            for part in score_parts(scores)
+        ]
 
     def export_midi_scores(
         self,
@@ -189,83 +180,102 @@ class ExportService:
                             getattr(measure, "target_key", score.target_key),
                         )
 
+        measure_count = max((len(s.measures) for s in rendered_scores), default=0)
+        boundaries = measure_boundaries(
+            [
+                [
+                    s.measures[i] if i < len(s.measures) else None
+                    for s in rendered_scores
+                ]
+                for i in range(measure_count)
+            ]
+        )
         mid = mido.MidiFile(ticks_per_beat=_TICKS_PER_BEAT)
-        for index, score in enumerate(rendered_scores):
+        for part_index, score in enumerate(rendered_scores):
             track = mido.MidiTrack()
             mid.tracks.append(track)
-            track_name = score.part_name or f"Part {index + 1}"
+            track_name = score.part_name or f"Part {part_index + 1}"
             try:
                 track_name.encode("latin-1")
             except UnicodeEncodeError:
-                track_name = f"Part {index + 1}"
+                track_name = f"Part {part_index + 1}"
+            track.append(mido.MetaMessage("track_name", name=track_name, time=0))
+            messages: list[tuple[int, int, mido.Message | mido.MetaMessage]] = []
+            current_bpm = score.tempo or DEFAULT_TEMPO
+            if part_index == 0:
+                messages.append(
+                    (
+                        0,
+                        0,
+                        mido.MetaMessage(
+                            "set_tempo", tempo=mido.bpm2tempo(current_bpm)
+                        ),
+                    )
+                )
+                messages.append(
+                    (
+                        0,
+                        0,
+                        mido.MetaMessage(
+                            "time_signature",
+                            numerator=score.beats,
+                            denominator=_midi_time_signature_denominator(
+                                score.beat_type
+                            ),
+                            clocks_per_click=24,
+                            notated_32nd_notes_per_beat=8,
+                        ),
+                    )
+                )
+            for i, measure in enumerate(score.measures):
+                bpm = measure.tempo or current_bpm
+                if part_index == 0 and bpm != current_bpm:
+                    messages.append(
+                        (
+                            to_tick(boundaries[i], _TICKS_PER_BEAT),
+                            0,
+                            mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(bpm)),
+                        )
+                    )
+                current_bpm = bpm
+                for onset, event in event_onsets(measure):
+                    if event.kind != "note" or not event.pitches:
+                        continue
+                    start = to_tick(boundaries[i] + onset, _TICKS_PER_BEAT)
+                    end = max(
+                        start + 1,
+                        to_tick(
+                            boundaries[i] + onset + event.duration, _TICKS_PER_BEAT
+                        ),
+                    )
+                    for pitch in event.pitches:
+                        note = max(
+                            0, min(127, _pitch_to_midi(pitch, measure.target_key))
+                        )
+                        messages.append(
+                            (
+                                start,
+                                2,
+                                mido.Message(
+                                    "note_on", note=note, velocity=MIDI_DEFAULT_VELOCITY
+                                ),
+                            )
+                        )
+                        messages.append(
+                            (end, 1, mido.Message("note_off", note=note, velocity=0))
+                        )
+            cursor = 0
+            for tick, _, message in sorted(
+                messages, key=lambda item: (item[0], item[1])
+            ):
+                track.append(message.copy(time=tick - cursor))
+                cursor = tick
             track.append(
                 mido.MetaMessage(
-                    "track_name",
-                    name=track_name,
-                    time=0,
+                    "end_of_track",
+                    time=max(0, to_tick(boundaries[-1], _TICKS_PER_BEAT) - cursor),
                 )
             )
-            # set_tempo 仅写在 track 0（MIDI 规范要求单一 tempo map）
-            current_bpm = score.tempo or DEFAULT_TEMPO
-            if index == 0:
-                track.append(
-                    mido.MetaMessage(
-                        "set_tempo", tempo=mido.bpm2tempo(current_bpm), time=0
-                    )
-                )
-                track.append(
-                    mido.MetaMessage(
-                        "time_signature",
-                        numerator=score.beats,
-                        denominator=_midi_time_signature_denominator(score.beat_type),
-                        clocks_per_click=24,
-                        notated_32nd_notes_per_beat=8,
-                        time=0,
-                    )
-                )
-
-            for measure in score.measures:
-                measure_bpm = measure.tempo or current_bpm
-                if index == 0 and measure_bpm != current_bpm:
-                    track.append(
-                        mido.MetaMessage(
-                            "set_tempo", tempo=mido.bpm2tempo(measure_bpm), time=0
-                        )
-                    )
-                current_bpm = measure_bpm
-                key = getattr(measure, "target_key", score.target_key)
-                beat_type = getattr(measure, "beat_type", score.beat_type)
-                for event in measure.events:
-                    if event.kind == "rest":
-                        ticks = _duration_to_ticks(event.duration, beat_type)
-                        track.append(
-                            mido.Message("note_off", note=0, velocity=0, time=ticks)
-                        )
-                        continue
-                    if not event.pitches:
-                        continue
-
-                    ticks = _duration_to_ticks(event.duration, beat_type)
-                    for pitch in event.pitches:
-                        midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
-                        track.append(
-                            mido.Message(
-                                "note_on",
-                                note=midi_note,
-                                velocity=MIDI_DEFAULT_VELOCITY,
-                                time=0,
-                            )
-                        )
-                    for pitch_index, pitch in enumerate(event.pitches):
-                        midi_note = max(0, min(127, _pitch_to_midi(pitch, key)))
-                        track.append(
-                            mido.Message(
-                                "note_off",
-                                note=midi_note,
-                                velocity=0,
-                                time=ticks if pitch_index == 0 else 0,
-                            )
-                        )
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         mid.save(str(output_path))

@@ -20,6 +20,12 @@ const COMMON_ATTRIBUTES = new Set(['class', 'aria-label', 'aria-hidden'])
 const DATA_ATTRIBUTES = new Set([
   'data-note-index',
   'data-note-group',
+  'data-playback-version',
+  'data-playback-ppq',
+  'data-playback-start-tick',
+  'data-playback-end-tick',
+  'data-playback-tick',
+  'data-part-index',
   'data-note-token',
   'data-source-id',
   'data-source-ids',

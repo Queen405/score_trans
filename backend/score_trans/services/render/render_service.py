@@ -218,6 +218,7 @@ class PublicationRenderService:
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
         playback_group_offset: int = 0,
+        playback_tick_offset: int = 0,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_page_results_to_files(
             scores,
@@ -233,6 +234,7 @@ class PublicationRenderService:
                 beat_gap_percent,
             ),
             playback_group_offset=playback_group_offset,
+            playback_tick_offset=playback_tick_offset,
         )
 
     def render_text_svg(
