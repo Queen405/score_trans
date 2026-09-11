@@ -439,24 +439,127 @@ const profileError = ref('')
 const copiedBlock = ref<'quick' | null>(null)
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 
-const quickStartExample = String.raw`title=彩云追月（片段）
-instrument=erhu
-1=G
-4/4
-tempo=88
-
-\mp (5 6 7 1') | h2' h1' | 5~ 6 7 ~5 | (3 2 3 1,) |
-L: 彩 云 追 月 夜 色 浓 山 河 醉
-
-tempo=72
-\f q[1+3+5] 5. 6 5 | $1 2 3$ 5 6 7 | ^>3 ^>2 1 7, | h6. q6 q5 |
-L: 一 曲 霓 裳 舞 半 空 天 上 仙
-
-\ff (6 5 4 3) | 2 3 4 5~ | 5 6 7 1' | 6 7 1' 2' |
-L: 醉 倒 了 月 下 人 不 知 归 路
-
-\p $6 5 6$ 3 5 4 | 1=D (^.) 2 3 4 5 | (^r) (^f) 1, 2 3 5 | w1 |
-L: 且 将 此 曲 寄 相 思 千 里 共 婵 娟`
+const quickStartExample = String.raw`// @page 1 name="bach_invention_04_bwv775_a4_page_001.png"
+// @part 1 name="Piano(staff 1)"
+title=Invention4
+tempo=120
+1=F
+3/8
+s6, s7, s1 s2 s3 s4 |
+s#5, s4 s3 s2 s1 s7, |
+q1 q3 q6 |
+q2 q#5 q7 |
+s6 s7 s1' s2' s3' s4' |
+s#5 s4' s3' s2' s1' s7 |
+s1' s6 s7 s1' s2' s3' |
+s4 s3' s2' s1' s7 s6 |
+s7 s5 s6 s7 s1' s2' |
+s3 s2' s1' s7 s6 s5 |
+s6 s7 s1' s6 s7 s1' |
+q2 q0 q0 |
+s5 s6 s7 s5 s6 s7 |
+q1 q0 q4~ |
+~q4 q3 q2 |
+s5 s4 s3 s2 s1 s7, |
+s1 s2 q2. s1 |
+q1 q5 q5 |
+^sc 5. |
+5. |
+5. |
+s5 s4 s3 s2 s1 s7, |
+s5 s6, s7, s#1 s2 s3 |
+s4 s3 s2 s1 s7, s6, |
+s4 s5, s6, s7, s1 s2 |
+s3 sn4 s5 s6 s7 s1' |
+s#2 s1' s7 s6 s5 sn4 |
+s5 sn4 s6 s5 sn4 s3 |
+s#2 s3 s#2 s#1 s7, s6, |
+s5, s6, s7, s#1 s#2 s3 |
+s6, s5 sn4 s3 s#2 s#1 |
+s7, s#1 s#2 s3 sn4 s5 |
+s#1 s7 s6 s5 sn4 s3 |
+s#2 s3 sn4 s5 s6 s7 |
+s3 s1' s7 s6 s5 sn4 |
+s3' s#2' s#1' s7 q3'~ |
+~s3' s6 qn4. s3 |
+q3. s3 s4 s5 |
+0. |
+s4 s2 s3 s4 s5 s6 |
+// @part 2 name="Piano(staff 2)"
+1=F
+3/8
+0. |
+0. |
+s6,, s7,, s1, s2, s3, s4, |
+s#5,, s4, s3, s2, s1, s7,, |
+q1, q3, q6, |
+q7,, q2, q#5, |
+q6,, q6, q1, |
+q2, q3, q4, |
+q5,, q5, q7,, |
+q1, q2, q3, |
+s4, s2, s3, s4, s5, s6, |
+s7,, s6, s5, s4, s3, s2, |
+s3, s1, s2, s3, s4, s5, |
+s6,, s5, s4, s3, s2, s1, |
+s7,, s5,, s6,, s7,, s1, s2, |
+s3,, s2, s1, s7,, s6,, s5,, |
+s6,, s4,, q5,, q5,,, |
+s1,, s2,, s3,, s4,, s5,, s6,, |
+s7,,, s6,, s5,, s4,, s3,, s2,, |
+s3,, s4,, s5,, s6,, s7,, s1, |
+s2,, s1, s7,, s6,, s5,, s4,, |
+s3,, s4,, s5,, s3,, s4,, s5,, |
+q#1,, q0 q0 |
+s2,, s3,, s4,, s2,, s3,, s4,, |
+q7,,, q0 q0 |
+q1,, q1, q6,, |
+qn4,, q#2,, q7,,, |
+s3,, s#2,, s3,, sn4,, s5,, s6,, |
+^sc 7,,. |
+7,,. |
+^> 7,,. |
+7,,. |
+^. 7,,. |
+q7,, q7, q6, |
+q5, qn4, q3, |
+q6, q7, q1 |
+q6, \p q7, \pp q7,, |
+s3, ^. s3,, s4,, s5,, s6,, sb7,, |
+h[3,,+1,,] |
+q2,,. s2,, s3,, s4,, |
+// @page 2 name="bach_invention_04_bwv775_a4_page_002.png"
+// @part 1 name="Piano"
+1=F
+3/8
+s7, s6 s5 s4 s3 s2 |
+q3 s1' s7 q1' |
+q2 q7 q0 |
+s6 s7 s1' s2' s3' s4' |
+s#5 s4' s3' s2' s1' s7 |
+q1' q6 q2~ |
+~s2 s6 s5 s7 s3 s5 |
+s6 sn4 q#5. s6 |
+s6 sn5 s4 s3 s2 s1 |
+s4 s#5, s6, s7, s1 s2 |
+s3 s6 q1 s7, s6, |
+^f 6,. |
+// @part 2 name="Piano"
+tempo=120
+1=F
+3/8
+q3, q7, q3 |
+s6 s7 s1' sn2' s#3' sn4' |
+s5 sn4' s#3' sn2' s1' s7 |
+q6 q1' qn4' |
+q5 q7 q#3' |
+sn4 s5 s6 s7 s1' s2' |
+s#3 s2' s1' s7 s6 s5 |
+s6 s7 q1' q1 |
+q2. s3 s2 s1 |
+s7, s2' s1' s7 s6 s5 |
+s6 s7 q1' q1 |
+^f n4,. |`
 
 const docSections: DocSection[] = [
   {
@@ -671,9 +774,9 @@ const searchGroups = computed<SearchGroup[]>(() => {
       groupTitle: '快速开始',
       sectionId: 'quick-start',
       sectionTitle: '快速开始',
-      syntax: 'title=彩云追月（片段） …',
+      syntax: 'title=Invention4 …',
       name: '快速开始示例',
-      description: '包含力度、连音线、延音线、和弦、连音组、附点、演奏法、移调八度、中途转调、乐器模式和歌词。',
+      description: '巴赫二部创意曲，包含多页（@page）、多声部（@part）、调号、拍号、速度、附点、延音线、力度与演奏法标记。',
       keywords: [quickStartExample],
     },
     ...syntaxSections.flatMap((section) =>

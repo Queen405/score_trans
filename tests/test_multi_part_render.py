@@ -179,6 +179,21 @@ def test_shared_onsets_share_group_and_exact_position() -> None:
     )
 
 
+def test_multi_part_multipage_title_only_on_first_page() -> None:
+    """多声部跨页时，曲名只应出现在首页。"""
+    parts = [
+        _part("1=C 4/4\n" + "1 2 3 4 | " * 18, 0, 2, "高"),
+        _part("1=C 4/4\n" + "5 6 7 1 | " * 18, 1, 2, "低"),
+    ]
+    pages = PublicationRenderer().render_scores(
+        parts, title="标题", page_width=900.0, page_height=700.0
+    )
+
+    assert len(pages) > 1
+    assert sum(page.svg.count('class="score-title"') for page in pages) == 1
+    assert pages[0].svg.count('class="score-title"') == 1
+    assert all('class="score-title"' not in page.svg for page in pages[1:])
+
 def test_three_parts_share_first_onset() -> None:
     """三声部：小节起点的同拍音符共用一个 group 且 x 对齐。"""
     parts = [

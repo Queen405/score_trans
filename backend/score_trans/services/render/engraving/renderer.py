@@ -1400,16 +1400,6 @@ def _page_chrome(
                 style.meta_size,
             )
         )
-    else:
-        scene.add(
-            _text(
-                "score-meta",
-                style.margin_left,
-                style.margin_top + 18,
-                title,
-                style.meta_size,
-            )
-        )
     scene.add(
         _text(
             "annotation page-number",
