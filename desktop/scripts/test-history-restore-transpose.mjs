@@ -388,3 +388,143 @@ test('disabling auto-transpose invalidates an in-flight result without blocking 
   assert.equal(await ctx.restore(), true)
   assert.equal(ctx.saved[0].jianpu_text, edited)
 })
+
+// Exercise snapshot navigation with the real restore/confirmation functions and
+// editor watchers, so an external editor sync cannot silently re-dirty the store.
+function setupSnapshotNavigation(t) {
+  const { computed, effectScope } = require('vue')
+  const load = createLoader({})
+  setActivePinia(createPinia())
+  const store = load('stores/workspace.ts').useWorkspaceStore()
+  store.loadBatch([{
+    inputFileName: 'score.png', inputFileId: '', historyBatchId: 10,
+    historyPageId: 100, jianpuText: before,
+  }], 0, ['rendered-A'], before)
+  const jianpuText = ref(before)
+  const discardConfirmVisible = ref(false)
+  const finalSvgFileIds = ref(['rendered-A'])
+  const requests = []
+  const bindings = {
+    store, jianpuText, discardConfirmVisible, ref, watch,
+    discardConfirmAction: ref('恢复历史版本'),
+    isViewingFinal: ref(true), snapshotHistoryOpen: ref(true),
+    pendingRekeyApplied: ref(null), errorLine: ref(-1),
+    operationalJianpuText: computed(() => jianpuText.value),
+    syntaxStore: { schedule() {} },
+    updateTextAnchorsAfterEdit() {}, updateTextAnchorsAfterRekey() {},
+    setFinalSvgFileIds: (ids) => { finalSvgFileIds.value = ids },
+    ...load('utils/jianpuPageSections.ts'),
+    ...load('utils/textAnchorTracking.ts'),
+    log: { addLog() {} }, message: { success() {} },
+    historyApi: { saveBatch: (...args) => requests.push(args) },
+    workspacePersistence: { saveBatch: (...args) => requests.push(args) },
+  }
+  const source = parse(fs.readFileSync(path.join(root, 'views/ConvertView.vue'), 'utf8')).descriptor.scriptSetup.content
+  const ast = ts.createSourceFile('ConvertView.ts', source, ts.ScriptTarget.Latest, true)
+  const names = new Set([
+    'restoreJianpuSnapshot', 'confirmDiscardUnsaved', 'settleDiscardConfirmation',
+    'snapshotSourceLabel', 'formatSnapshotTime',
+  ])
+  const declarations = ast.statements.filter((node) => (
+    ts.isFunctionDeclaration(node) && names.has(node.name.text)
+  ) || (
+    ts.isExpressionStatement(node)
+    && (node.getText(ast).startsWith('watch(() => store.currentBatchJianpuText,')
+      || node.getText(ast).startsWith('watch(jianpuText,'))
+  )).map((node) => node.getText(ast)).join('\n')
+  const compiled = ts.transpileModule(declarations, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText
+  const scope = effectScope()
+  t.after(() => scope.stop())
+  const actions = scope.run(() => new Function(...Object.keys(bindings), `
+    let discardConfirmResolver = null;
+    let editorSyncGeneration = 0;
+    let pendingExternalEditorSync = null;
+    ${compiled}
+    return { restoreJianpuSnapshot, settleDiscardConfirmation };
+  `)(...Object.values(bindings)))
+  return {
+    store, jianpuText, discardConfirmVisible, finalSvgFileIds, requests,
+    settle: actions.settleDiscardConfirmation,
+    restore: (text) => actions.restoreJianpuSnapshot({
+      jianpu_text: text, source: 'save', created_at: '2026-09-01 12:00:00',
+    }),
+  }
+}
+
+test('snapshots: A to B to A stays clean without confirmation or saves', async (t) => {
+  const ctx = setupSnapshotNavigation(t)
+  for (const text of [edited, before]) {
+    await ctx.restore(text)
+    await nextTick()
+    assert.equal(ctx.jianpuText.value, text)
+    assert.equal(ctx.store.currentBatchPages[0].jianpuText, text)
+    assert.equal(ctx.store.currentBatchHasUnsavedChanges, false)
+    assert.equal(ctx.store.currentBatchJianpuDirty, false)
+    assert.equal(ctx.store.hasUnsavedChanges, false)
+    assert.equal(ctx.discardConfirmVisible.value, false)
+    assert.deepEqual(ctx.store.currentBatchRenderPageFileIds, [])
+    assert.deepEqual(ctx.finalSvgFileIds.value, [])
+  }
+  assert.deepEqual(ctx.requests, [])
+})
+
+test('snapshots: real edits prompt; cancel retains them and discard restores cleanly', async (t) => {
+  const ctx = setupSnapshotNavigation(t)
+  await ctx.restore(edited)
+  await nextTick()
+  ctx.jianpuText.value = transposed
+  await nextTick()
+  assert.equal(ctx.store.currentBatchHasUnsavedChanges, true)
+
+  const cancelled = ctx.restore(before)
+  assert.equal(ctx.discardConfirmVisible.value, true)
+  ctx.settle(false)
+  await cancelled
+  assert.equal(ctx.store.currentBatchJianpuText, transposed)
+  assert.equal(ctx.store.currentBatchHasUnsavedChanges, true)
+
+  const accepted = ctx.restore(before)
+  assert.equal(ctx.discardConfirmVisible.value, true)
+  ctx.settle(true)
+  await accepted
+  await nextTick()
+  assert.equal(ctx.jianpuText.value, before)
+  assert.equal(ctx.store.currentBatchHasUnsavedChanges, false)
+  assert.equal(ctx.store.currentBatchPages[0].jianpuDirty, false)
+  assert.deepEqual(ctx.requests, [])
+})
+
+test('snapshots: restoring only clears jianpu changes, preserving OCR and attachments', async (t) => {
+  const ctx = setupSnapshotNavigation(t)
+  ctx.store.setBatchJianpuText(transposed, true)
+  ctx.store.setBatchRenderPageOcrText(0, 'edited OCR')
+  ctx.store.markBatchAttachmentUserEdited()
+  const restoring = ctx.restore(edited)
+  ctx.settle(true)
+  await restoring
+  await nextTick()
+  const id = ctx.store.currentBatchId
+  assert.equal(ctx.store.isBatchChangeKindUnsaved(id, 'jianpu'), false)
+  assert.equal(ctx.store.isBatchChangeKindUnsaved(id, 'ocr'), true)
+  assert.equal(ctx.store.isBatchChangeKindUnsaved(id, 'attachments'), true)
+  assert.equal(ctx.store.hasUnsavedChanges, true)
+})
+
+test('snapshots: navigation leaves another batch dirty', async (t) => {
+  const ctx = setupSnapshotNavigation(t)
+  const originalId = ctx.store.currentBatchId
+  ctx.store.addInputPage('other.png', '')
+  const otherId = ctx.store.currentBatchId
+  assert.notEqual(otherId, originalId)
+  ctx.store.setBatchJianpuText('5 6 |', true)
+  ctx.store.selectBatch(originalId)
+  await nextTick()
+  await ctx.restore(edited)
+  await nextTick()
+  assert.equal(ctx.store.currentBatchHasUnsavedChanges, false)
+  assert.equal(ctx.store.isBatchUnsaved(otherId), true)
+  assert.equal(ctx.store.hasUnsavedChanges, true)
+  assert.equal(ctx.store.batchJianpuTextFor(otherId), '5 6 |')
+})

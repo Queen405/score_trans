@@ -2305,7 +2305,7 @@ async function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): Promise<void
   if (!(await confirmDiscardUnsaved('恢复历史版本'))) return
   const text = snapshot.jianpu_text
   isViewingFinal.value = false
-  store.setBatchJianpuText(text, true)
+  store.setBatchJianpuText(text, false)
   const sections = parseJianpuPageSections(text)
   store.currentBatchPages.forEach((page, index) => {
     const section = sections.find((item) => item.pageIndex === index) ?? sections[index]
@@ -2326,6 +2326,8 @@ async function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): Promise<void
       textAnchors: update.anchors,
     })
   })
+  // 恢复的快照作为当前简谱的干净状态，不清除 OCR 或附件的未保存修改。
+  store.markBatchJianpuClean()
   store.setBatchRenderPageFileIds([])
   setFinalSvgFileIds([])
   snapshotHistoryOpen.value = false
