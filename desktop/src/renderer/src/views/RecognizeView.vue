@@ -4,6 +4,59 @@
       <div class="rv-title">
         <h2>智能识别</h2>
       </div>
+      <div class="rv-header-actions">
+        <div
+          ref="qqWrapRef"
+          class="rv-qq"
+        >
+          <button
+            type="button"
+            class="rv-website"
+            :class="{ active: qqOpen }"
+            title="加入官方 QQ 交流群"
+            @click="toggleQq"
+          >
+            <n-icon size="16">
+              <ChatbubblesOutline />
+            </n-icon>
+            <span>官方Q群</span>
+          </button>
+          <transition name="rv-qqpop">
+            <div
+              v-if="qqOpen"
+              class="rv-qq-card"
+            >
+              <div class="rv-qq-card-head">
+                <span class="rv-qq-dot" />
+                <span class="rv-qq-heading">QQ 交流群</span>
+              </div>
+              <div class="rv-qq-qr">
+                <img
+                  src="../assets/qq-group.jpg"
+                  alt="Score Trans QQ 群二维码"
+                >
+              </div>
+              <div class="rv-qq-title">
+                扫码加入 QQ 交流群
+              </div>
+              <div class="rv-qq-sub">
+                反馈 · 交流 · 分享 · 建议
+              </div>
+            </div>
+          </transition>
+        </div>
+        <button
+          type="button"
+          class="rv-website"
+          title="访问官网 www.score-trans.com"
+          @click="openWebsite"
+        >
+          <n-icon size="16">
+            <GlobeOutline />
+          </n-icon>
+          <span>官网</span>
+        </button>
+      </div>
     </div>
 
     <div
@@ -296,6 +349,8 @@ import {
   DocumentOutline,
   TimeOutline,
   BarChartOutline,
+  GlobeOutline,
+  ChatbubblesOutline,
 } from '@vicons/ionicons5'
 import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
 
@@ -334,6 +389,28 @@ const publicationRender = usePublicationRender()
 const log = useLogStore()
 const settings = useSettingsStore()
 const message = useMessage()
+
+const WEBSITE_URL = 'https://www.score-trans.com'
+function openWebsite(): void {
+  void window.api.openExternal(WEBSITE_URL)
+}
+
+const qqOpen = ref(false)
+const qqWrapRef = ref<HTMLElement | null>(null)
+function toggleQq(): void {
+  qqOpen.value = !qqOpen.value
+}
+function onQqDocClick(e: MouseEvent): void {
+  const el = qqWrapRef.value
+  if (!qqOpen.value || !el) return
+  if (!e.composedPath().includes(el)) qqOpen.value = false
+}
+watch(qqOpen, (open) => {
+  if (open) document.addEventListener('click', onQqDocClick)
+  else document.removeEventListener('click', onQqDocClick)
+})
+onUnmounted(() => document.removeEventListener('click', onQqDocClick))
+
 const aiVisionEnabled = ref(false)
 const instrumentProfile = ref<InstrumentProfile>('general')
 const instrumentCatalogs = ref<InstrumentProfileCatalog[]>([])
@@ -1579,6 +1656,119 @@ function errorMessage(error: unknown): string {
   font-size: 13px;
   color: var(--text-tertiary);
   margin: 4px 0 0;
+}
+
+.rv-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* 官网链接(右上) */
+.rv-website {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.rv-website:hover,
+.rv-website.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.rv-website:active {
+  transform: translateY(1px);
+}
+
+/* 官方Q群气泡卡片(自按钮向下弹出) */
+.rv-qq { position: relative; }
+.rv-qq-card {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 212px;
+  padding: 14px 14px 16px;
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.08);
+  text-align: center;
+  z-index: 60;
+}
+/* 指向按钮的小箭头 */
+.rv-qq-card::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 24px;
+  width: 11px;
+  height: 11px;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+.rv-qq-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.rv-qq-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+.rv-qq-heading {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+.rv-qq-qr {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.rv-qq-qr img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.rv-qq-title {
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.rv-qq-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.rv-qqpop-enter-active,
+.rv-qqpop-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: top right;
+}
+.rv-qqpop-enter-from,
+.rv-qqpop-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.94);
 }
 
 /* ── Dashboard Grid ── */
