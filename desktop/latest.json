@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "url": "https://github.com/Queen405/score_trans/releases/latest",
-  "notes": "识别页顶部横幅文案移除"
+  "notes": "多声部跨页/播放/导出修复 + 安装包瘦身(JDK 裁剪)"
 }
