@@ -31,6 +31,8 @@ class RenderedA4Page:
     note_index_end: int | None = None
     note_group_start: int | None = None
     note_group_end: int | None = None
+    playback_start_tick: int | None = None
+    playback_end_tick: int | None = None
     layout_key: str = ""
 
 
@@ -42,6 +44,8 @@ class RenderedA4FilePage:
     note_index_end: int | None = None
     note_group_start: int | None = None
     note_group_end: int | None = None
+    playback_start_tick: int | None = None
+    playback_end_tick: int | None = None
     render_map_path: Path | None = None
     layout_key: str = ""
 
@@ -259,6 +263,8 @@ def render_scores_a4_page_results_to_files(
             note_index_end=page.note_index_end,
             note_group_start=page.note_group_start,
             note_group_end=page.note_group_end,
+            playback_start_tick=page.playback_start_tick,
+            playback_end_tick=page.playback_end_tick,
             render_map_path=path.with_suffix(".render-map.json"),
             layout_key=layout.key,
         )
@@ -472,6 +478,8 @@ def _public_page(page: PublicationPage) -> RenderedA4Page:
         note_index_end=page.note_index_end,
         note_group_start=page.note_group_start,
         note_group_end=page.note_group_end,
+        playback_start_tick=page.playback_start_tick,
+        playback_end_tick=page.playback_end_tick,
         layout_key=page.scene.layout_key,
     )
 

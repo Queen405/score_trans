@@ -789,6 +789,8 @@ class RenderActions:
                     note_index_end=rendered_page.note_index_end,
                     note_group_start=rendered_page.note_group_start,
                     note_group_end=rendered_page.note_group_end,
+                    playback_start_tick=rendered_page.playback_start_tick,
+                    playback_end_tick=rendered_page.playback_end_tick,
                     layout_key=rendered_page.layout_key,
                 )
             )
@@ -825,6 +827,8 @@ class RenderActions:
                     note_index_end=rendered_page.note_index_end,
                     note_group_start=rendered_page.note_group_start,
                     note_group_end=rendered_page.note_group_end,
+                    playback_start_tick=rendered_page.playback_start_tick,
+                    playback_end_tick=rendered_page.playback_end_tick,
                     text_blocks=(rendered_text_blocks or {}).get(index, []),
                     layout_key=rendered_page.layout_key,
                 )

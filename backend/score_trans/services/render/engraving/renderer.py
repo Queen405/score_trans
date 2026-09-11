@@ -54,6 +54,8 @@ class PublicationPage:
     note_index_end: int | None = None
     note_group_start: int | None = None
     note_group_end: int | None = None
+    playback_start_tick: int | None = None
+    playback_end_tick: int | None = None
 
 
 @dataclass(slots=True)
@@ -204,6 +206,8 @@ class PublicationRenderer:
                     note_index_end=scene.note_index_end,
                     note_group_start=min(page_groups) if page_groups else None,
                     note_group_end=max(page_groups) if page_groups else None,
+                    playback_start_tick=min(page_groups) if page_groups else None,
+                    playback_end_tick=(max(page_groups) + 1) if page_groups else None,
                 )
             )
         return result
