@@ -108,10 +108,12 @@ const props = withDefaults(defineProps<{
   ocrText?: string
   editableOcr?: boolean
   currentNoteIndex?: number
+  playbackGroupIndex?: number
 }>(), {
   ocrText: '',
   editableOcr: false,
   currentNoteIndex: -1,
+  playbackGroupIndex: -1,
 })
 interface TextAttachmentUpdate {
   sourcePageIndex: number
@@ -522,9 +524,10 @@ function applyPlaybackHighlight(reveal: boolean): void {
     node.classList.remove('playback-current')
     if (node.classList.contains('playback-group-highlight')) node.remove()
   })
-  if (props.currentNoteIndex < 0) return
+  const playbackIndex = props.playbackGroupIndex >= 0 ? props.playbackGroupIndex : props.currentNoteIndex
+  if (playbackIndex < 0) return
   let targets = Array.from(svg.querySelectorAll<SVGGElement>(
-    `.playback-note[data-note-group="${props.currentNoteIndex}"]`,
+    `.playback-note[data-note-group="${playbackIndex}"]`,
   ))
   if (!targets.length) {
     const fallback = svg.querySelector<SVGGElement>(

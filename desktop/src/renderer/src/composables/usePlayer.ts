@@ -48,7 +48,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   const loopEnd = ref(0)
 
   // Current note index for SVG highlighting
-  const currentNoteIndex = ref(-1)
+  const currentPlaybackGroupIndex = ref(-1)
 
   // ── Internal ──
   const synth = shallowRef<Tone.PolySynth | null>(null)
@@ -94,7 +94,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     isLoading.value = true
     error.value = null
     isReady.value = false
-    currentNoteIndex.value = -1
+    currentPlaybackGroupIndex.value = -1
     notes.length = 0
     noteGroups.length = 0
 
@@ -200,7 +200,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     Tone.getTransport().position = 0
     isPlaying.value = false
     currentTime.value = 0
-    currentNoteIndex.value = -1
+    currentPlaybackGroupIndex.value = -1
     stopPositionTracking()
   }
 
@@ -333,7 +333,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       }
       if (group.time < time) break
     }
-    currentNoteIndex.value = idx
+    currentPlaybackGroupIndex.value = idx
   }
 
   function rebuildNoteGroups(): void {
@@ -399,7 +399,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     rate: readonlyRef(rate),
     volume: readonlyRef(volume),
     loop: readonlyRef(loop),
-    currentNoteIndex: readonlyRef(currentNoteIndex),
+    currentPlaybackGroupIndex: readonlyRef(currentPlaybackGroupIndex),
     currentTimeFormatted,
     durationFormatted,
     notes,

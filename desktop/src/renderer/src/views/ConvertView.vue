@@ -400,7 +400,7 @@
               ref="svgPreviewRef"
               :svg-file-id="finalSvgFileId"
               :ocr-text="finalRenderPageOcrText"
-              :current-note-index="currentNoteIndex"
+              :current-note-index="currentPlaybackGroupIndex"
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
               @update:text-attachment="handleTextAttachmentUpdate"
@@ -441,6 +441,7 @@
         :jianpu-text="operationalJianpuText"
         :session-key="store.currentBatchId"
         @update:current-note-index="currentNoteIndex = $event"
+        @update:playback-group-index="currentPlaybackGroupIndex = $event"
       />
     </div>
     <n-modal
@@ -639,6 +640,7 @@ const operationalJianpuText = computed(() => (
 ))
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
+const currentPlaybackGroupIndex = ref(-1)
 const errorLine = ref(-1)
 const flashLine = ref(-1)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
@@ -1001,7 +1003,7 @@ watch(() => store.currentPage?.id ?? '', () => {
   correctableSheet.value = null
   deletedEntityIds.value = new Set(store.currentPage?.deletedSourceIds ?? [])
 }, { immediate: true })
-watch(currentNoteIndex, (index) => {
+watch(currentPlaybackGroupIndex, (index) => {
   if (!isViewingFinal.value || index < 0) return
   // currentNoteIndex counts playback groups (time order), so prefer the
   // group ranges; note_index ranges are layout order and only fit older

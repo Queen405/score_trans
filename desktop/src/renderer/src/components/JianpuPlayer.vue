@@ -147,6 +147,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:currentNoteIndex': [index: number]
+  'update:playbackGroupIndex': [index: number]
 }>()
 
 const player = usePlayer()
@@ -318,8 +319,9 @@ onUnmounted(() => {
 // Watch for source changes (debounce jianpuText since user may be typing)
 let jianpuDebounce: ReturnType<typeof setTimeout> | null = null
 
-watch(player.currentNoteIndex, (index) => {
+watch(player.currentPlaybackGroupIndex, (index) => {
   emit('update:currentNoteIndex', index)
+  emit('update:playbackGroupIndex', index)
 }, { immediate: true })
 
 watch(() => [props.midiFileId, props.musicxmlFileId], () => {
