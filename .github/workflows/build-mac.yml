@@ -16,14 +16,9 @@ on:
     branches: [main, master]
     tags: ['v*']
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'backend/**'
-      - 'desktop/**'
-      - 'third_party/audiveris/**'
-      - 'pyinstaller.spec'
-      - 'pyinstaller_entry.py'
-      - '.github/workflows/build-mac.yml'
+# No `pull_request` trigger: PRs run only the lightweight ci.yml (lint/test).
+# To verify a packaging build before merge, merge to main (triggers this) or
+# run it manually from the Actions tab (workflow_dispatch).
 
 permissions:
   contents: write   # needed only for the tag-gated `gh release upload` step
