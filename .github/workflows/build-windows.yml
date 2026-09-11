@@ -151,13 +151,25 @@ jobs:
       - name: Stage bundled JDK 25
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path build-resources/third_party/jre | Out-Null
-          Copy-Item -Recurse -Force -Path "$env:JAVA_HOME\*" -Destination "build-resources/third_party/jre/jdk"
-          if (-not (Test-Path "build-resources/third_party/jre/jdk/bin/java.exe")) {
+          $dest = "build-resources\third_party\jre\jdk"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          # robocopy is the robust choice for large trees on Windows; Copy-Item
+          # with a wildcard source into a non-existent path turns the dest into a
+          # leaf file ("Container cannot be copied onto existing leaf item").
+          robocopy $env:JAVA_HOME $dest /E /NFL /NDL /NJH /NJS /NP
+          # robocopy exit codes 0-7 are success (1 = files copied, 2 = extras,
+          # 3 = both, ...); 8+ = error. GitHub Actions treats non-zero as
+          # failure, so normalize the success range back to 0.
+          if ($LASTEXITCODE -ge 8) {
+            Write-Error "robocopy failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+          $LASTEXITCODE = 0
+          if (-not (Test-Path "$dest\bin\java.exe")) {
             Write-Error "FAIL: java.exe missing after JDK staging"; exit 1
           }
           Write-Host "=== JDK staged ==="
-          $size = (Get-ChildItem -Recurse "build-resources/third_party/jre/jdk" |
+          $size = (Get-ChildItem -Recurse $dest |
                     Measure-Object -Property Length -Sum).Sum / 1MB
           Write-Host ("JDK size: {0:N1} MB" -f $size)
 
