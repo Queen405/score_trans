@@ -1021,7 +1021,7 @@ watch(currentPlaybackGroupIndex, (index) => {
     range.start !== null && range.end !== null
     && index >= range.start && index <= range.end,
   )
-  if (targetPage >= 0 && targetPage > currentPage) {
+  if (targetPage >= 0 && targetPage !== currentPage) {
     finalRenderPageIndex.value = targetPage
   }
 })
