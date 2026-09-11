@@ -45,6 +45,13 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  # Use the custom beautified NSIS wizard (build/installer/installer.nsi) instead
+  # of electron-builder's default MUI2 installer. The script draws its own
+  # welcome/directory/installing/finish pages + sidebar via nsDialogs/GDI and
+  # references electron-builder's built-in nsh (common/multiUser/installUtil/...)
+  # plus the committed theme/ui/pages .nsh files under build/installer/.
+  # macOS (`--mac`) ignores this block entirely, so the shared config is safe.
+  script: installer/installer.nsi
 
 mac:
   target:

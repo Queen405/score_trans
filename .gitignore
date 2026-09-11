@@ -6,7 +6,10 @@ __pycache__/
 .env
 .env.local
 dist/
-build/
+# Anchor to repo root: only ignore PyInstaller's root build/ dir.
+# (desktop/build/ is governed by the negated rules below so its committed
+#  installer assets stay trackable.)
+/build/
 build-resources/
 *.egg-info/
 work/
@@ -17,7 +20,12 @@ replay_pid*.log
 build-log.txt
 desktop/build-log.txt
 desktop/dist-electron/
-desktop/build/
+# desktop/build/ holds committed installer assets (icon + custom NSIS wizard).
+# Ignore generated intermediates but keep the source assets needed by CI.
+desktop/build/*
+!desktop/build/icon.ico
+!desktop/build/icon.png
+!desktop/build/installer/
 desktop/out/
 website/
 *.tsbuildinfo
@@ -32,6 +40,7 @@ third_party/audiveris/.gradle/
 third_party/audiveris/app/.gradle/
 third_party/audiveris/app/bin/
 third_party/audiveris/app/build/
+third_party/audiveris/build/
 
 # OMC 本地状态
 .omc/
