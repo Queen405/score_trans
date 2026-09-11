@@ -62,7 +62,3 @@ mac:
   gatekeeperAssess: false
   notarize: false
   artifactName: "Score Trans-${version}-${arch}.${ext}"
-
-dmg:
-  # Simple read-only DMG; no code signing requirement.
-  writeFlash: false
