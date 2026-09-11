@@ -144,6 +144,17 @@ jobs:
           echo "=== JDK staged ==="
           du -sh build-resources/third_party/jre/jdk
 
+      - name: Trim JDK to runtime-only
+        run: |
+          JDK="build-resources/third_party/jre/jdk"
+          # Audiveris only needs java + lib/modules at runtime. Drop jmods
+          # (jlink-only), src.zip + ct.sym (javac), include/ (C headers).
+          # bin/ is left intact on macOS (jspawnhelper + low size payoff).
+          rm -rf "$JDK/jmods" "$JDK/include"
+          rm -f "$JDK/lib/src.zip" "$JDK/lib/ct.sym"
+          echo "=== JDK trimmed ==="
+          du -sh "$JDK"
+
       - name: Pre-cache Gradle distribution (offline end-user run)
         run: |
           VER=$(grep -m1 'distributionUrl=' third_party/audiveris/gradle/wrapper/gradle-wrapper.properties \

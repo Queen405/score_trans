@@ -168,6 +168,20 @@ jobs:
                     Measure-Object -Property Length -Sum).Sum / 1MB
           Write-Host ("JDK size: {0:N1} MB" -f $size)
 
+      - name: Trim JDK to runtime-only
+        shell: bash
+        run: |
+          JDK="build-resources/third_party/jre/jdk"
+          # Audiveris only needs java/javaw + lib/modules at runtime. Drop the
+          # rest to cut the installer by ~150 MB. *.dll and bin/server/ are kept
+          # (java.exe runtime deps); legal/ is kept (license notices).
+          rm -rf "$JDK/jmods" "$JDK/include"
+          rm -f "$JDK/lib/src.zip" "$JDK/lib/ct.sym"
+          find "$JDK/bin" -maxdepth 1 -name '*.exe' \
+            ! -name 'java.exe' ! -name 'javaw.exe' -delete
+          echo "=== JDK trimmed ==="
+          du -sh "$JDK"
+
       - name: Pre-cache Gradle distribution (offline end-user run)
         shell: bash
         run: |
