@@ -145,6 +145,7 @@ class PublicationRenderer:
         initial_measure_number: int | None = None,
         playback_group_offset: int = 0,
         playback_tick_offset: int = 0,
+        show_title: bool = True,
     ) -> list[PublicationPage]:
         style = self._style_for_page(page_width, page_height)
         parts = _normalize_parts(scores)
@@ -175,10 +176,12 @@ class PublicationRenderer:
                 coordinate_scale=self.coordinate_scale,
                 layout_key=self.layout_key,
             )
-            _page_chrome(scene, style, document_title, score0, page_index)
+            _page_chrome(
+                scene, style, document_title, score0, page_index, show_title=show_title
+            )
             note_start = next_note_index
             y = style.margin_top + (
-                style.title_block_height if page_index == 0 else 54.0
+                style.title_block_height if page_index == 0 and show_title else 54.0
             )
             page_ranges: list[MeasureRange] = []
             page_cells = [cell for system in page_systems for cell in system.cells]
@@ -1365,6 +1368,8 @@ def _page_chrome(
     title: str,
     score: JianpuScore,
     page_index: int,
+    *,
+    show_title: bool = True,
 ) -> None:
     scene.add(
         SceneNode(
@@ -1378,7 +1383,7 @@ def _page_chrome(
             },
         )
     )
-    if page_index == 0:
+    if page_index == 0 and show_title:
         scene.add(
             _text(
                 "score-title",

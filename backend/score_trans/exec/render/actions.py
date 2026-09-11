@@ -614,6 +614,7 @@ class RenderActions:
                     initial_measure_number=None,
                     playback_group_offset=playback_group_offset,
                     playback_tick_offset=playback_tick_offset,
+                    show_title=page_offset == 0,
                     **_a4_layout_kwargs(req),
                 )
             )
