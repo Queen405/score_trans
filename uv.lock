@@ -647,7 +647,7 @@ api = [
 ]
 build = [
     { name = "pyinstaller" },
-    { name = "pywin32" },
+    { name = "pywin32", marker = "platform_system == 'Windows'" },
 ]
 test = [
     { name = "pytest" },
