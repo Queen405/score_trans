@@ -1,0 +1,68 @@
+# electron-builder configuration for Score Trans.
+#
+# Shared by the Windows local flow (build-app.py) and the macOS CI flow
+# (.github/workflows/build-mac.yml). Targets are split per platform so a single
+# `--config` invocation picks the right one via `--win` / `--mac`.
+#
+# extraResources maps the prebuilt backend + third_party bundles (produced in
+# build-resources/ by the build flow) into the app's resources/ directory, where
+# paths.py resolves PROJECT_ROOT = resources/ and settings.py reads
+# resources/third_party/{audiveris,jre,gradle_home}.
+
+appId: com.scoretrans.app
+productName: Score Trans
+copyright: Copyright © 2025 queen
+
+directories:
+  output: dist-electron
+  buildResources: build
+
+# Use electron-builder defaults for `files` (includes out/ + production
+# node_modules, excludes devDeps and build artifacts). The renderer/main/preload
+# bundles live in out/ (see package.json "main": ./out/main/index.js).
+
+extraResources:
+  - from: ../build-resources/backend
+    to: backend
+    filter: ["**/*"]
+  - from: ../build-resources/third_party
+    to: third_party
+    filter: ["**/*"]
+
+# Icon is auto-detected from build/icon.ico (win) / build/icon.icns (mac).
+# If absent, electron-builder falls back to the default Electron icon.
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # artifactName kept in line with the historical Windows installer name.
+  artifactName: "Score Trans Setup ${version}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  category: public.app-category.music
+  # No Apple Developer ID: ad-hoc sign only, no notarization. End users must
+  # bypass Gatekeeper (right-click → Open, or `xattr -cr` on the .app).
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  notarize: false
+  artifactName: "Score Trans-${version}-${arch}.${ext}"
+
+dmg:
+  # Simple read-only DMG; no code signing requirement.
+  writeFlash: false

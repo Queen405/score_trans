@@ -22,13 +22,13 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest>=8"]
 api = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
-build = ["pyinstaller>=6", "pywin32>=306"]
+build = ["pyinstaller>=6", "pywin32>=306; platform_system=='Windows'"]
 
 [tool.setuptools.packages.find]
 where = ["backend"]
 
 [tool.setuptools.package-data]
-score_trans = ["assets/fonts/*", "config/*.yaml", "config/env.example"]
+score_trans = ["assets/fonts/*", "config/*.yaml", "config/*.json", "config/env.example"]
 
 [tool.pytest.ini_options]
 pythonpath = ["backend"]

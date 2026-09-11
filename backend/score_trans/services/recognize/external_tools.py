@@ -12,7 +12,7 @@ from zipfile import BadZipFile
 
 from ...domain.parse.musicxml import read_musicxml_text
 from ...models.common.errors import ExternalToolError
-from ...models.common.paths import PROJECT_ROOT
+from ...models.common.paths import PROJECT_ROOT, java_binary_name
 from ...models.settings.config import ToolConfig
 from ...utils.safe_xml import UnsafeXmlError, safe_xml_fromstring
 from .image_preprocess import (
@@ -495,7 +495,7 @@ def _java_env(config: ToolConfig) -> dict[str, str] | None:
     if not config.java_home:
         return None
     java_home = Path(config.java_home)
-    java_exe = java_home / "bin" / "java.exe"
+    java_exe = java_home / "bin" / java_binary_name()
     if not java_exe.exists():
         raise ExternalToolError(f"配置的 Java 路径无效：{java_home}")
     env = os.environ.copy()

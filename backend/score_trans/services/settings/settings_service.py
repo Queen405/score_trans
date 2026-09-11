@@ -26,13 +26,15 @@ from ...models.common.paths import (
     PROJECT_ROOT,
     USER_CACHE_ROOT,
     USER_WORK_DIR,
+    gradlew_script_name,
+    java_binary_name,
 )
 from ...models.settings.config import ToolConfig
 from .defaults import configured_settings_dao
 
 
 _LOCAL_AUDIVERIS_DIR = PROJECT_ROOT / "third_party" / "audiveris"
-_LOCAL_AUDIVERIS_GRADLE = _LOCAL_AUDIVERIS_DIR / "gradlew.bat"
+_LOCAL_AUDIVERIS_GRADLE = _LOCAL_AUDIVERIS_DIR / gradlew_script_name()
 
 # 捆绑的 JDK 路径（打包时由 build-app.py 复制）
 _BUNDLED_JDK = PROJECT_ROOT / "third_party" / "jre" / "jdk"
@@ -52,7 +54,7 @@ def _default_java_home() -> str:
     """优先使用环境变量配置，否则自动探测捆绑的 JDK 25。"""
     if JAVA_HOME:
         return JAVA_HOME
-    if _BUNDLED_JDK.exists() and (_BUNDLED_JDK / "bin" / "java.exe").exists():
+    if _BUNDLED_JDK.exists() and (_BUNDLED_JDK / "bin" / java_binary_name()).exists():
         return str(_BUNDLED_JDK)
     # 最后尝试系统 PATH 中的 java
     return ""

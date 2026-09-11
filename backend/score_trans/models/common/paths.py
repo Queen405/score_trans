@@ -12,13 +12,23 @@ LEGACY_USER_DATA_DIR_NAME = ".sorce_trans"
 CACHE_DIR_NAME = "cache"
 
 if getattr(sys, "frozen", False):
-    # PyInstaller 打包模式：backend.exe 位于 <app>/resources/backend/
+    # PyInstaller 打包模式：可执行文件位于 <app>/resources/backend/
     # PROJECT_ROOT 指向 <app>/resources/，与开发模式的项目根目录等价
     CONFIG_DIR = Path(sys.executable).resolve().parent
     PROJECT_ROOT = Path(sys.executable).resolve().parent.parent
 else:
     PROJECT_ROOT = Path(__file__).resolve().parents[4]
     CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+
+
+def java_binary_name() -> str:
+    """JDK bin/ 下的 java 可执行文件名（Windows 带 .exe，其他平台无后缀）。"""
+    return "java.exe" if sys.platform == "win32" else "java"
+
+
+def gradlew_script_name() -> str:
+    """Gradle wrapper 脚本名（Windows 用 .bat，其他平台用 sh 版）。"""
+    return "gradlew.bat" if sys.platform == "win32" else "gradlew"
 
 
 def migrate_legacy_user_data_directory(legacy: Path, target: Path) -> bool:

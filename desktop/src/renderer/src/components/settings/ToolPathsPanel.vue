@@ -11,7 +11,7 @@
         >
           <n-input
             v-model:value="settings.draft.audiverisPath"
-            placeholder="audiveris 或 gradlew.bat 路径"
+            placeholder="audiveris 或 gradlew 脚本路径"
             size="small"
           />
         </settings-form-row>

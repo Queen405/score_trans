@@ -666,7 +666,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8" },
     { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "python-multipart", marker = "extra == 'api'", specifier = ">=0.0.9" },
-    { name = "pywin32", marker = "extra == 'build'", specifier = ">=306" },
+    { name = "pywin32", marker = "extra == 'build' and platform_system == 'Windows'", specifier = ">=306" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "uvicorn", specifier = ">=0.29" },
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.29" },

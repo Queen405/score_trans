@@ -45,9 +45,12 @@ export class BackendProcess {
     }
 
     let child: ChildProcess
+    const isWindows = process.platform === 'win32'
     if (isDev) {
       const projectRoot = resolveProjectRoot()
-      const localPython = path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
+      const localPython = path.join(
+        projectRoot, '.venv', isWindows ? 'Scripts' : 'bin', isWindows ? 'python.exe' : 'python',
+      )
       const pythonExe = existsSync(localPython) ? localPython : 'python'
       const backendPath = path.join(projectRoot, 'backend')
       const pythonPath = [backendPath, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)
@@ -66,7 +69,7 @@ export class BackendProcess {
       })
     } else {
       const resourcesPath = process.resourcesPath
-      const exePath = path.join(resourcesPath, 'backend', 'backend.exe')
+      const exePath = path.join(resourcesPath, 'backend', isWindows ? 'backend.exe' : 'backend')
       const backendCwd = path.join(resourcesPath, 'backend')
       child = spawn(exePath, [
         '--host', '127.0.0.1',
