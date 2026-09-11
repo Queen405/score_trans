@@ -52,6 +52,28 @@ pnpm lint
 npx vue-tsc --noEmit
 ```
 
+## Branching & Release Workflow
+
+Two long-lived branches:
+
+- **`main`** — release branch. Holds only release-ready code. A push to `main`
+  triggers `build-windows.yml` + `build-mac.yml` (full packaging builds →
+  downloadable artifacts in the Actions run). A push of a tag `vX.Y.Z` triggers
+  them again and the tag-gated step **auto-creates the GitHub Release and uploads
+  both installers**.
+- **`dev`** — day-to-day development. Commit/branch here. PRs into `main`/`dev`
+  run only `ci.yml` (lint + tests); they do **not** run the heavy packaging builds.
+
+Standard loop: `dev / feature branch → (PR validates via ci.yml) → merge to main → bump version → push main (packaging builds validate) → tag vX.Y.Z → Release auto-published`.
+
+- Verify a packaging build on a branch without merging: run the workflow manually
+  (Actions → "Run workflow" / `workflow_dispatch`).
+- Full release recipe (version bump, tag, manifests): see [RELEASE.md](RELEASE.md).
+- PR/`push` build artifacts live in the Actions run's **Artifacts** section
+  (14-day retention); the **Release** page only gets assets on a tag push.
+- Installers are **unsigned** (no Authenticode/Apple Developer cert). Windows
+  shows SmartScreen "unknown publisher"; macOS users right-click → Open.
+
 ## Architecture Rules
 Import permissions (no reverse imports are permitted):
 
