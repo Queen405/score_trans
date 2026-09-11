@@ -534,7 +534,6 @@ import {
   type RekeySpanMapping,
 } from '../utils/textAnchorTracking'
 import { sourceAnchorRange } from '../utils/sourceAnchorSelection'
-import { findNotePageIndex } from '../utils/jianpuPlayback'
 import { transposeOctave } from '../utils/jianpuTranspose'
 import {
   buildBatchRenderRequests,
@@ -1006,28 +1005,23 @@ watch(() => store.currentPage?.id ?? '', () => {
 }, { immediate: true })
 watch(currentPlaybackGroupIndex, (index) => {
   if (!isViewingFinal.value || index < 0) return
-  // currentNoteIndex counts playback groups (time order), so prefer the
-  // group ranges; note_index ranges are layout order and only fit older
-  // renders that predate group metadata.
-  const groupRanges = renderPageNoteGroupRanges.value
-  const ranges = groupRanges.some((range) => range.start !== null && range.end !== null)
-    ? groupRanges
-    : renderPageNoteIndexRanges.value
-  let targetPage: number | null = null
-  if (ranges.length) {
-    const pageIndex = ranges.findIndex(
-      (range) =>
-        range.start !== null
-        && range.end !== null
-        && index >= range.start
-        && index <= range.end,
-    )
-    if (pageIndex >= 0) targetPage = pageIndex
+  // Automatic playback paging is based only on the rendered Jianpu pages.
+  // Text/source-page fallbacks can advance the preview before its notes play.
+  const ranges = renderPageNoteGroupRanges.value
+  if (!ranges.length || ranges.some((range) => range.start === null || range.end === null)) return
+
+  const currentPage = finalRenderPageIndex.value
+  const currentRange = ranges[currentPage]
+  if (currentRange?.start !== null && currentRange?.end !== null
+    && index >= currentRange.start && index <= currentRange.end) {
+    return
   }
-  if (targetPage === null) {
-    targetPage = findNotePageIndex(operationalJianpuText.value, index)
-  }
-  if (targetPage !== null && targetPage !== finalRenderPageIndex.value) {
+
+  const targetPage = ranges.findIndex((range) =>
+    range.start !== null && range.end !== null
+    && index >= range.start && index <= range.end,
+  )
+  if (targetPage >= 0 && targetPage > currentPage) {
     finalRenderPageIndex.value = targetPage
   }
 })
