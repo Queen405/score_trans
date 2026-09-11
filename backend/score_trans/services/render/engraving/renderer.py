@@ -52,6 +52,8 @@ class PublicationPage:
     measure_ranges: list[MeasureRange]
     note_index_start: int | None = None
     note_index_end: int | None = None
+    note_group_start: int | None = None
+    note_group_end: int | None = None
 
 
 @dataclass(slots=True)
@@ -145,6 +147,7 @@ class PublicationRenderer:
         if not parts:
             parts = [[JianpuScore(title=title or "简谱")]]
         cells = _build_cells(parts, style)
+        playback_groups = _playback_group_map(cells)
         systems = _break_systems(cells, style, len(parts))
         pages = _paginate(systems, style)
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
@@ -166,6 +169,12 @@ class PublicationRenderer:
                 style.title_block_height if page_index == 0 else 54.0
             )
             page_ranges: list[MeasureRange] = []
+            page_groups = [
+                group
+                for system in page_systems
+                for cell in system.cells
+                for group in playback_groups.get(cell.index, {}).values()
+            ]
             for system_index, system in enumerate(page_systems):
                 next_note_index = self._draw_system(
                     scene,
@@ -178,6 +187,7 @@ class PublicationRenderer:
                     measure_number_mode=measure_number_mode,
                     first_system_on_page=system_index == 0,
                     spanners=document_spanners,
+                    playback_groups=playback_groups,
                 )
                 _append_ranges(page_ranges, system.cells)
                 y += system.height + style.system_gap
@@ -192,6 +202,8 @@ class PublicationRenderer:
                     measure_ranges=page_ranges,
                     note_index_start=scene.note_index_start,
                     note_index_end=scene.note_index_end,
+                    note_group_start=min(page_groups) if page_groups else None,
+                    note_group_end=max(page_groups) if page_groups else None,
                 )
             )
         return result
@@ -250,6 +262,7 @@ class PublicationRenderer:
         measure_number_mode: MeasureNumberMode,
         first_system_on_page: bool,
         spanners: list[_OpenSpanners],
+        playback_groups: dict[int, dict[Fraction, int]] | None = None,
     ) -> int:
         x0 = style.margin_left
         part_count = max(1, len(parts))
@@ -277,6 +290,8 @@ class PublicationRenderer:
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
+            shared_positions = _shared_cell_positions(cell.measures, x, width, style)
+            cell_groups = playback_groups.get(cell.index) if playback_groups else None
             for part_index in range(part_count):
                 measure = (
                     cell.measures[part_index]
@@ -332,6 +347,8 @@ class PublicationRenderer:
                     draw_terminal=(
                         cell.index == len(_flatten_measures(parts[part_index])) - 1
                     ),
+                    shared_positions=shared_positions,
+                    note_groups=cell_groups,
                 )
             x += width
         for part_index, open_state in enumerate(spanners):
@@ -355,6 +372,8 @@ class PublicationRenderer:
         draw_attribute: bool,
         draw_tempo: bool,
         draw_terminal: bool,
+        shared_positions: dict[Fraction, float] | None = None,
+        note_groups: dict[Fraction, int] | None = None,
     ) -> int:
         bar_top, bar_bottom = _measure_bar_offsets(measure, style)
         if draw_start_bar or measure.repeat_start:
@@ -459,8 +478,16 @@ class PublicationRenderer:
             measure,
             style,
         )
+        if shared_positions:
+            event_positions = [
+                shared_positions.get(event.start or Fraction(0), position)
+                for event, position in zip(ordered_events, event_positions, strict=True)
+            ]
         for event_pos, (_source_index, event) in enumerate(events):
             event_x = event_positions[event_pos]
+            note_group = (
+                note_groups.get(event.start or Fraction(0)) if note_groups else None
+            )
             anchor, consumed = _draw_event(
                 scene,
                 style,
@@ -469,6 +496,7 @@ class PublicationRenderer:
                 y + style.event_baseline,
                 note_index,
                 right_limit=clip_right,
+                note_group=note_group,
             )
             anchors.append(anchor)
             if consumed:
@@ -655,6 +683,10 @@ def _build_cells(
         ]
         present = [measure for measure in measures if measure is not None]
         widths = [_intrinsic_measure_width(measure, style) for measure in present]
+        if len(present) > 1:
+            shared_width = _shared_intrinsic_measure_width(present, style)
+            if shared_width is not None:
+                widths.append(shared_width)
         if (
             measures
             and measures[0] is not None
@@ -687,28 +719,7 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
     extents = [_event_visual_extents(event, style) for event in events]
     if not extents:
         return style.minimum_measure_width
-    common_shortest = _common_shortest_duration(events)
-    boundaries = _beat_boundaries(measure)
-    preferred = _minimum_event_gaps(events, extents, common_shortest, style, boundaries)
-    scale = style.short_note_gap_scale
-    if scale != 1.0:
-        # Symmetric on purpose: lowering the control has to narrow the cell so
-        # _break_systems fits more measures per line. Applying it only above 1.0
-        # left the cell unchanged and turned the saved room into dead space at
-        # the bar edges, which is why the control looked inert.
-        gaps = [
-            gap * scale
-            if _is_short_note_pair(events[index], events[index + 1])
-            else gap
-            for index, gap in enumerate(preferred)
-        ]
-        # The scale may compress past the duration spring but not past the ink
-        # collision and beat-boundary floors, or the cell would be too narrow to
-        # hold its own content.
-        floors = _hard_event_gaps(events, extents, style, boundaries)
-        gaps = [max(floor, gap) for floor, gap in zip(floors, gaps, strict=True)]
-    else:
-        gaps = list(preferred)
+    gaps = _preferred_event_gaps(events, extents, style, _beat_boundaries(measure))
     pad_left, pad_right = _rhythm_edge_padding(events, style)
     width = (
         style.measure_side_padding
@@ -717,6 +728,249 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
         + sum(gaps)
     )
     return max(style.minimum_measure_width, min(style.content_width, width))
+
+
+def _preferred_event_gaps(
+    events: list[Event],
+    extents: list[tuple[float, float, float, float]],
+    style: PublicationStyle,
+    boundaries: list[Fraction] | None,
+) -> list[float]:
+    """Return the per-gap widths a measure asks for, short-note control applied.
+
+    The scale may compress past the duration spring but not past the ink
+    collision and beat-boundary floors, or the cell would be too narrow to
+    hold its own content.
+    """
+    preferred = _minimum_event_gaps(
+        events,
+        extents,
+        _common_shortest_duration(events),
+        style,
+        boundaries,
+    )
+    scale = style.short_note_gap_scale
+    if scale == 1.0:
+        return list(preferred)
+    # Symmetric on purpose: lowering the control has to narrow the cell so
+    # _break_systems fits more measures per line. Applying it only above 1.0
+    # left the cell unchanged and turned the saved room into dead space at
+    # the bar edges, which is why the control looked inert.
+    gaps = [
+        gap * scale if _is_short_note_pair(events[index], events[index + 1]) else gap
+        for index, gap in enumerate(preferred)
+    ]
+    floors = _hard_event_gaps(events, extents, style, boundaries)
+    return [max(floor, gap) for floor, gap in zip(floors, gaps, strict=True)]
+
+
+def _shared_intrinsic_measure_width(
+    measures: list[Measure], style: PublicationStyle
+) -> float | None:
+    """Return the cell width the shared multi-part onset layout asks for.
+
+    Laying out the union of all parts' onsets can need more room than any
+    single part (one part dense at the start, another dense at the end), so
+    the cell width must consider the union requirement rather than only the
+    per-part maxima, or the draw-time justification would have to compress
+    below the parts' minimum gaps.
+    """
+    per_part: list[tuple[Measure, list[Event]]] = []
+    for measure in measures:
+        visual = _visual_events(measure)
+        if not visual:
+            continue
+        events = sorted(
+            visual,
+            key=lambda event: event.start if event.start is not None else Fraction(0),
+        )
+        if events:
+            per_part.append((measure, events))
+    if len(per_part) < 2:
+        return None
+    union = sorted(
+        {
+            event.start or Fraction(0)
+            for _measure, events in per_part
+            for event in events
+        }
+    )
+    if len(union) < 2:
+        return None
+    rel_maps: list[dict[Fraction, float]] = []
+    left_outer = 0.0
+    right_outer = 0.0
+    for measure, events in per_part:
+        extents = [_event_visual_extents(event, style) for event in events]
+        gaps = _preferred_event_gaps(events, extents, style, _beat_boundaries(measure))
+        relative = [0.0]
+        for gap in gaps:
+            relative.append(relative[-1] + gap)
+        rel_maps.append(
+            {
+                event.start or Fraction(0): offset
+                for event, offset in zip(events, relative, strict=True)
+            }
+        )
+        pad_left, pad_right = _rhythm_edge_padding(events, style)
+        left_outer = min(left_outer, extents[0][0] - pad_left)
+        right_outer = max(right_outer, extents[-1][1] + pad_right)
+    total = 0.0
+    for start, end in zip(union, union[1:]):
+        total += _union_interval_shares(rel_maps, start, end)
+    width = style.measure_side_padding + (right_outer - left_outer) + total
+    return max(style.minimum_measure_width, min(style.content_width, width))
+
+
+def _playback_group_map(cells: list[_Cell]) -> dict[int, dict[Fraction, int]]:
+    """Map each cell's local onsets to document-wide playback group ids.
+
+    A group id counts the unique sounding onsets of the whole document in
+    time order.  This is the same sequence the MIDI player produces when it
+    merges notes that share a start time, so the frontend can address every
+    part's notes at the current playback position with a single id instead of
+    translating between layout order and time order.
+    """
+    offsets: list[Fraction] = []
+    cursor = Fraction(0)
+    for cell in cells:
+        offsets.append(cursor)
+        span = Fraction(0)
+        for measure in cell.measures:
+            if measure is None:
+                continue
+            span = max(span, measure.duration, measure.span_duration)
+        cursor += span
+    onsets: set[Fraction] = set()
+    local_onsets: list[set[Fraction]] = []
+    for cell, offset in zip(cells, offsets, strict=True):
+        local: set[Fraction] = set()
+        for measure in cell.measures:
+            if measure is None:
+                continue
+            for event in _visual_events(measure):
+                if event.kind == "note" and event.pitches:
+                    start = event.start or Fraction(0)
+                    local.add(start)
+                    onsets.add(offset + start)
+        local_onsets.append(local)
+    order = {onset: index for index, onset in enumerate(sorted(onsets))}
+    return {
+        cell.index: {start: order[offset + start] for start in local}
+        for cell, offset, local in zip(cells, offsets, local_onsets, strict=True)
+    }
+
+
+def _shared_cell_positions(
+    measures: list[Measure | None], x: float, width: float, style: PublicationStyle
+) -> dict[Fraction, float]:
+    """Return one x coordinate per onset shared by every part in a cell.
+
+    An empty mapping means "fall back to the per-part layout".  Single-part
+    cells keep the per-part spring layout untouched.  For multi-part cells the
+    union of all onsets is laid out once: each inter-onset gap is the maximum
+    share any part needs across that interval, so every part's minimum spacing
+    is preserved (per-part gaps telescope over the union intervals) while
+    identical onsets share one coordinate across all parts.
+    """
+    per_part: list[tuple[Measure, list[Event]]] = []
+    for measure in measures:
+        if measure is None:
+            continue
+        events = [
+            event
+            for _source_index, event in sorted(
+                enumerate(_visual_events(measure)),
+                key=lambda item: (item[1].start or Fraction(item[0]), item[0]),
+            )
+        ]
+        if events:
+            per_part.append((measure, events))
+    if len(per_part) < 2:
+        return {}
+    union = sorted(
+        {
+            event.start or Fraction(0)
+            for _measure, events in per_part
+            for event in events
+        }
+    )
+    if not union:
+        return {}
+    clip_left = x + style.barline_gutter
+    clip_right = x + width - style.barline_gutter
+    part_maps: list[dict[Fraction, float]] = []
+    pad_right_max = 0.0
+    for measure, events in per_part:
+        pad_left, pad_right = _rhythm_edge_padding(events, style)
+        pad_right_max = max(pad_right_max, pad_right)
+        positions = _event_positions(
+            events,
+            clip_left + pad_left,
+            clip_right - pad_right,
+            measure,
+            style,
+        )
+        part_maps.append(
+            {
+                event.start or Fraction(0): position
+                for event, position in zip(events, positions, strict=True)
+            }
+        )
+    start0 = max(
+        (positions[union[0]] for positions in part_maps if union[0] in positions),
+        default=clip_left,
+    )
+    if len(union) == 1:
+        return {union[0]: start0}
+    intervals = list(zip(union, union[1:]))
+    required = [
+        _union_interval_shares(part_maps, start, end) for start, end in intervals
+    ]
+    total = sum(required)
+    available = max(0.0, clip_right - pad_right_max - start0)
+    if total <= 0.0:
+        gaps = [0.0 for _ in required]
+    elif total <= available:
+        extra = available - total
+        weights = [float(end - start) for start, end in intervals]
+        weight_sum = sum(weights) or 1.0
+        gaps = [
+            need + extra * weight / weight_sum
+            for need, weight in zip(required, weights, strict=True)
+        ]
+    else:
+        # The cell is narrower than the union requirement (its width comes
+        # from the widest single part).  Compress uniformly; per-part order
+        # and monotone spacing are preserved because requirements shrink
+        # proportionally rather than dropping to zero selectively.
+        scale = available / total
+        gaps = [need * scale for need in required]
+    positions = {union[0]: start0}
+    for (start, end), gap in zip(intervals, gaps, strict=True):
+        positions[end] = positions[start] + gap
+    return positions
+
+
+def _union_interval_shares(
+    part_maps: list[dict[Fraction, float]], start: Fraction, end: Fraction
+) -> float:
+    """Return the maximum x span any part needs across the onset interval.
+
+    A part whose own onsets bracket the interval contributes its proportional
+    share of the bracketed span; summing the shares over the union intervals
+    inside a part's own gap reproduces that gap, so per-part minimum spacing
+    survives the max() aggregation.
+    """
+    need = 0.0
+    for positions in part_maps:
+        prev = max((onset for onset in positions if onset <= start), default=None)
+        nxt = min((onset for onset in positions if onset >= end), default=None)
+        if prev is None or nxt is None or nxt <= prev:
+            continue
+        span = positions[nxt] - positions[prev]
+        need = max(need, span * float((end - start) / (nxt - prev)))
+    return need
 
 
 def _common_shortest_duration(events: list[Event]) -> Fraction:
@@ -1493,6 +1747,7 @@ def _draw_event(
     note_index: int,
     *,
     right_limit: float | None = None,
+    note_group: int | None = None,
 ) -> tuple[_Anchor, bool]:
     if event.kind == "extension":
         return _draw_extension_event(scene, event, x, y, right_limit=right_limit)
@@ -1535,6 +1790,8 @@ def _draw_event(
         attrs["data-source-end-utf16"] = event.source_end_utf16
     if pitched:
         attrs["data-note-index"] = note_index
+        if note_group is not None:
+            attrs["data-note-group"] = note_group
     marks = list(
         dict.fromkeys([*event.articulations, *event.ornaments, *event.technical])
     )

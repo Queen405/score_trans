@@ -2359,6 +2359,16 @@ export type components = {
              */
             measure_ranges?: components["schemas"]["RenderPageMeasureRange"][];
             /**
+             * Note Group End
+             * @default null
+             */
+            note_group_end?: number | null;
+            /**
+             * Note Group Start
+             * @default null
+             */
+            note_group_start?: number | null;
+            /**
              * Note Index End
              * @default null
              */

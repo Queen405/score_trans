@@ -19,6 +19,7 @@ const ALLOWED_ELEMENTS = new Set([
 const COMMON_ATTRIBUTES = new Set(['class', 'aria-label', 'aria-hidden'])
 const DATA_ATTRIBUTES = new Set([
   'data-note-index',
+  'data-note-group',
   'data-note-token',
   'data-source-id',
   'data-source-ids',

@@ -33,6 +33,8 @@ class RenderedSvgPage(BaseModel):
     render_map_file_id: str | None = None
     note_index_start: int | None = None
     note_index_end: int | None = None
+    note_group_start: int | None = None
+    note_group_end: int | None = None
     text_blocks: list[RenderedTextBlock] = []
     engine_version: str = PUBLICATION_ENGINE_VERSION
     layout_key: str = ""

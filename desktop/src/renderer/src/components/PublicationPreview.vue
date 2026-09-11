@@ -444,8 +444,9 @@ function svgRoot(): SVGSVGElement | null {
 }
 
 function clearPlaybackHighlight(): void {
-  svgRoot()?.querySelectorAll('.playback-current').forEach((node) => {
+  svgRoot()?.querySelectorAll('.playback-current, .playback-group-highlight').forEach((node) => {
     node.classList.remove('playback-current')
+    if (node.classList.contains('playback-group-highlight')) node.remove()
   })
 }
 
@@ -517,21 +518,50 @@ defineExpose({ highlightSource })
 function applyPlaybackHighlight(reveal: boolean): void {
   const svg = svgRoot()
   if (!svg) return
-
-  svg.querySelectorAll('.playback-current').forEach((node) => {
+  svg.querySelectorAll('.playback-current, .playback-group-highlight').forEach((node) => {
     node.classList.remove('playback-current')
+    if (node.classList.contains('playback-group-highlight')) node.remove()
   })
-
   if (props.currentNoteIndex < 0) return
-  const targets = svg.querySelectorAll<SVGGElement>(
-    `.playback-note[data-note-index="${props.currentNoteIndex}"]`
-  )
-  if (targets.length === 0) return
-
+  let targets = Array.from(svg.querySelectorAll<SVGGElement>(
+    `.playback-note[data-note-group="${props.currentNoteIndex}"]`,
+  ))
+  if (!targets.length) {
+    const fallback = svg.querySelector<SVGGElement>(
+      `.playback-note[data-note-index="${props.currentNoteIndex}"]`,
+    )
+    targets = fallback ? [fallback] : []
+  }
+  if (!targets.length) return
   targets.forEach((target) => target.classList.add('playback-current'))
-  if (reveal) keepTargetVisible(targets[0])
+  const boxes = targets.map((target) => targetBBox(target, svg)).filter(
+    (box): box is { x: number; y: number; width: number; height: number } => box !== null,
+  )
+  if (!boxes.length) return
+  // Make one tight rectangle per staff row. Never union the vertical gap between parts.
+  const rows: Array<{ boxes: typeof boxes }> = []
+  for (const box of boxes) {
+    const row = rows.find((candidate) => candidate.boxes.some((other) =>
+      Math.min(box.y + box.height, other.y + other.height) - Math.max(box.y, other.y) > 0,
+    ))
+    if (row) row.boxes.push(box)
+    else rows.push({ boxes: [box] })
+  }
+  for (const row of rows) {
+    const left = Math.min(...row.boxes.map((box) => box.x)) - 3
+    const top = Math.min(...row.boxes.map((box) => box.y)) - 3
+    const right = Math.max(...row.boxes.map((box) => box.x + box.width)) + 3
+    const bottom = Math.max(...row.boxes.map((box) => box.y + box.height)) + 3
+    const frame = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    frame.setAttribute('class', 'playback-group-highlight')
+    frame.setAttribute('x', String(left))
+    frame.setAttribute('y', String(top))
+    frame.setAttribute('width', String(Math.max(1, right - left)))
+    frame.setAttribute('height', String(Math.max(1, bottom - top)))
+    svg.appendChild(frame)
+  }
+  if (reveal) keepTargetVisible(targets[0]!)
 }
-
 function keepTargetVisible(target: SVGGraphicsElement): void {
   const viewport = containerRef.value
   const svg = svgRoot()
@@ -630,6 +660,13 @@ watch(() => props.currentNoteIndex, () => {
   nextTick(() => applyPlaybackHighlight(true))
 })
 
+// Page navigation can change the SVG while the playback group index stays the
+// same. Re-apply the current group after the new SVG is mounted.
+watch([svgUrl, svgReady], () => {
+  if (!svgReady.value) return
+  nextTick(() => applyPlaybackHighlight(false))
+})
+
 watch(() => props.ocrText, (value) => {
   ocrBlocks.value = parseOcrText(value || '')
 }, { immediate: true })
@@ -699,6 +736,14 @@ onUnmounted(() => {
 .svg-inline :deep(svg) {
   max-width: none;
   max-height: none;
+}
+
+.svg-inline :deep(.playback-group-highlight) {
+  fill: rgba(224, 82, 82, 0.08);
+  stroke: #e05252;
+  stroke-width: 2;
+  rx: 3;
+  pointer-events: none;
 }
 
 .svg-inline :deep(.playback-note.playback-current .note),

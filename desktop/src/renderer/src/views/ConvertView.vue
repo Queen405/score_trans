@@ -614,6 +614,7 @@ interface NoteIndexRange {
   end: number | null
 }
 const renderPageNoteIndexRanges = ref<NoteIndexRange[]>([])
+const renderPageNoteGroupRanges = ref<NoteIndexRange[]>([])
 const clickableSourceIds = computed(() => {
   if (isViewingFinal.value && !finalSvgFileId.value) return []
   return [...new Set(
@@ -1002,7 +1003,13 @@ watch(() => store.currentPage?.id ?? '', () => {
 }, { immediate: true })
 watch(currentNoteIndex, (index) => {
   if (!isViewingFinal.value || index < 0) return
-  const ranges = renderPageNoteIndexRanges.value
+  // currentNoteIndex counts playback groups (time order), so prefer the
+  // group ranges; note_index ranges are layout order and only fit older
+  // renders that predate group metadata.
+  const groupRanges = renderPageNoteGroupRanges.value
+  const ranges = groupRanges.some((range) => range.start !== null && range.end !== null)
+    ? groupRanges
+    : renderPageNoteIndexRanges.value
   let targetPage: number | null = null
   if (ranges.length) {
     const pageIndex = ranges.findIndex(
@@ -1851,6 +1858,10 @@ async function loadRenderSourcePageLookup(pages: RenderedSvgPage[]): Promise<voi
   renderPageNoteIndexRanges.value = (pages ?? []).map((page) => ({
     start: page.note_index_start ?? null,
     end: page.note_index_end ?? null,
+  }))
+  renderPageNoteGroupRanges.value = (pages ?? []).map((page) => ({
+    start: page.note_group_start ?? null,
+    end: page.note_group_end ?? null,
   }))
 }
 

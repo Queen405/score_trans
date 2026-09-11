@@ -93,3 +93,133 @@ def test_first_score_still_returns_only_the_leading_part(tmp_path: Path) -> None
     score = RenderMusicXmlJianpuAction().first_score(_write(tmp_path))
 
     assert score.part_name == "高声部"
+
+
+# ── 多声部播放分组（data-note-group）与节拍对齐 ──
+
+
+import re  # noqa: E402
+from typing import NamedTuple  # noqa: E402
+
+import mido  # noqa: E402
+
+from score_trans.domain.jianpu import parse_jianpu_score  # noqa: E402
+from score_trans.models.score import JianpuScore  # noqa: E402
+from score_trans.services.export.export_service import ExportService  # noqa: E402
+from score_trans.services.render.engraving.renderer import (  # noqa: E402
+    PublicationRenderer,
+)
+
+
+def _part(text: str, index: int, count: int, name: str = "") -> JianpuScore:
+    score = parse_jianpu_score(text)
+    score.part_count = count
+    score.part_index = index
+    score.part_name = name
+    return score
+
+
+class _PlaybackNote(NamedTuple):
+    group: int
+    note_index: int
+    y: float
+    x: float
+
+
+def _playback_notes(svg: str) -> list[_PlaybackNote]:
+    """提取 SVG 中每个播放音符的 (group, index, y, event_x)。"""
+    notes: list[_PlaybackNote] = []
+    for match in re.finditer(
+        r'<g class="playback-note[^"]*"([^>]*)>(.*?)</g>\s*</g>', svg, re.S
+    ):
+        attrs, body = match.groups()
+        group = re.search(r'data-note-group="(\d+)"', attrs)
+        index = re.search(r'data-note-index="(\d+)"', attrs)
+        bbox = re.search(r'data-bbox="([^"]+)"', attrs)
+        transform = re.search(r'transform="translate\(([\d.]+) ', body)
+        assert group and index and bbox and transform
+        notes.append(
+            _PlaybackNote(
+                group=int(group.group(1)),
+                note_index=int(index.group(1)),
+                y=float(bbox.group(1).split()[1]),
+                x=float(transform.group(1)),
+            )
+        )
+    return notes
+
+
+def test_shared_onsets_share_group_and_exact_position() -> None:
+    """四分音符声部与八分音符声部：同拍点的音符 group 相同且 x 完全相等。"""
+    high = _part("1=C 2/4\n1 2 | 3 5 |", 0, 2, "高")
+    low = _part("1=C 2/4\nq1 q2 q3 q4 | q6 q7 q1 q2 |", 1, 2, "低")
+    pages = PublicationRenderer().render_scores([high, low], title="t")
+
+    assert pages[0].note_group_start == 0
+    assert pages[0].note_group_end == 7
+    notes = _playback_notes(pages[0].svg)
+    by_group: dict[int, list[_PlaybackNote]] = {}
+    for note in notes:
+        by_group.setdefault(note.group, []).append(note)
+    assert sorted(by_group) == list(range(8))
+    # 拍点 0/1/2/3 由两个声部共享；分组 0/2/4/6 必须各含两个声部且 x 一致
+    for shared in (0, 2, 4, 6):
+        members = by_group[shared]
+        assert len(members) == 2
+        assert len({round(note.x, 6) for note in members}) == 1
+        assert len({round(note.y, 1) for note in members}) == 2
+    # 分组即时间序：低声部（八分音符）的组号必须沿 x 严格递增
+    high_row = min(note.y for note in notes)
+    low_notes = sorted(
+        (note for note in notes if note.y != high_row),
+        key=lambda note: note.x,
+    )
+    assert [note.group for note in low_notes] == sorted(
+        note.group for note in low_notes
+    )
+
+
+def test_three_parts_share_first_onset() -> None:
+    """三声部：小节起点的同拍音符共用一个 group 且 x 对齐。"""
+    parts = [
+        _part("1=C 4/4\n1 2 3 4 |", 0, 3, "一"),
+        _part("1=C 4/4\n1 0 0 0 |", 1, 3, "二"),
+        _part("1=C 4/4\nq1 q1 q1 q1 q1 q1 q1 q1 |", 2, 3, "三"),
+    ]
+    svg = PublicationRenderer().render_scores(parts, title="t")[0].svg
+    notes = _playback_notes(svg)
+    first = [note for note in notes if note.group == 0]
+    assert len(first) == 3
+    assert len({round(note.x, 6) for note in first}) == 1
+
+
+def test_rest_and_chord_group_semantics() -> None:
+    """休止符不占播放组；和弦（一个事件多个音）只占一个播放组。"""
+    score = parse_jianpu_score("1=C 4/4\n1 0 [1+3+5] 2 |")
+    svg = PublicationRenderer().render_scores([score], title="t")[0].svg
+    notes = _playback_notes(svg)
+    # 1、和弦、2 三个发声事件；休止符 0 不出现
+    assert len(notes) == 3
+    assert [note.group for note in notes] == [0, 1, 2]
+
+
+def test_midi_group_sequence_matches_render_groups(tmp_path: Path) -> None:
+    """核心不变量：MIDI 同起点合并后的组序列与渲染分组一一对应。"""
+    high = _part("1=C 2/4\n1 2 | [1+3] 5 |", 0, 2, "高")
+    low = _part("1=C 2/4\nq1 q2 q3 q4 | q6 q7 q1 q2 |", 1, 2, "低")
+    midi_path = tmp_path / "out.mid"
+    ExportService().export_midi_scores([high, low], midi_path)
+
+    onsets: set[int] = set()
+    mid = mido.MidiFile(midi_path)
+    for track in mid.tracks:
+        tick = 0
+        for message in track:
+            tick += message.time
+            if message.type == "note_on" and message.velocity > 0:
+                onsets.add(tick)
+    midi_group_count = len(onsets)
+
+    pages = PublicationRenderer().render_scores([high, low], title="t")
+    render_groups = {note.group for page in pages for note in _playback_notes(page.svg)}
+    assert render_groups == set(range(midi_group_count))

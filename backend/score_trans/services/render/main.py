@@ -29,6 +29,8 @@ class RenderedA4Page:
     measure_ranges: list[A4MeasureRange]
     note_index_start: int | None = None
     note_index_end: int | None = None
+    note_group_start: int | None = None
+    note_group_end: int | None = None
     layout_key: str = ""
 
 
@@ -38,6 +40,8 @@ class RenderedA4FilePage:
     measure_ranges: list[A4MeasureRange]
     note_index_start: int | None = None
     note_index_end: int | None = None
+    note_group_start: int | None = None
+    note_group_end: int | None = None
     render_map_path: Path | None = None
     layout_key: str = ""
 
@@ -253,6 +257,8 @@ def render_scores_a4_page_results_to_files(
             measure_ranges=_ranges(page.measure_ranges),
             note_index_start=page.note_index_start,
             note_index_end=page.note_index_end,
+            note_group_start=page.note_group_start,
+            note_group_end=page.note_group_end,
             render_map_path=path.with_suffix(".render-map.json"),
             layout_key=layout.key,
         )
@@ -464,6 +470,8 @@ def _public_page(page: PublicationPage) -> RenderedA4Page:
         measure_ranges=_ranges(page.measure_ranges),
         note_index_start=page.note_index_start,
         note_index_end=page.note_index_end,
+        note_group_start=page.note_group_start,
+        note_group_end=page.note_group_end,
         layout_key=page.scene.layout_key,
     )
 
