@@ -591,13 +591,19 @@ def _normalize_parts(scores: list[JianpuScore]) -> list[list[JianpuScore]]:
     multi = any(score.part_count > 1 or score.part_index > 0 for score in scores)
     if not multi:
         return [scores]
-    by_part: dict[int, list[JianpuScore]] = {}
+    # Parsed multi-page Jianpu text numbers parts globally (page 1: 0/1,
+    # page 2: 2/3), while MIDI export treats the nth part on each page as the
+    # same continuous instrument. Rank parts within each source page first,
+    # then merge equal ranks across pages.
+    by_page: dict[int, list[JianpuScore]] = {}
     for score in scores:
-        by_part.setdefault(score.part_index, []).append(score)
-    return [
-        sorted(by_part[index], key=lambda score: score.page_index)
-        for index in sorted(by_part)
-    ]
+        by_page.setdefault(score.page_index, []).append(score)
+    by_part: dict[int, list[JianpuScore]] = {}
+    for page_index in sorted(by_page):
+        page_scores = sorted(by_page[page_index], key=lambda score: score.part_index)
+        for part_rank, score in enumerate(page_scores):
+            by_part.setdefault(part_rank, []).append(score)
+    return [by_part[index] for index in sorted(by_part)]
 
 
 def _assign_display_measure_numbers(

@@ -223,3 +223,25 @@ def test_midi_group_sequence_matches_render_groups(tmp_path: Path) -> None:
     pages = PublicationRenderer().render_scores([high, low], title="t")
     render_groups = {note.group for page in pages for note in _playback_notes(page.svg)}
     assert render_groups == set(range(midi_group_count))
+
+
+def test_multi_page_parts_merge_by_within_page_rank() -> None:
+    """跨 @page 时全局 part_index 仍应合并为连续的两个声部。"""
+    from score_trans.domain.parse.jianpu_text import parse_jianpu_parts
+    from score_trans.services.render.engraving.renderer import _normalize_parts
+
+    text = (
+        '// @page 1 name="p1"\n'
+        '// @part 1 name="高"\n1=C\n3/8\n1 |\n'
+        '// @part 2 name="低"\n1=C\n3/8\n5 |\n'
+        '// @page 2 name="p2"\n'
+        '// @part 1 name="高"\n1=C\n3/8\n2 |\n'
+        '// @part 2 name="低"\n1=C\n3/8\n6 |\n'
+    )
+    scores = [part.score for part in parse_jianpu_parts(text)]
+    parts = _normalize_parts(scores)
+
+    assert len(parts) == 2
+    assert [len(part) for part in parts] == [2, 2]
+    assert [score.part_index for score in parts[0]] == [0, 2]
+    assert [score.part_index for score in parts[1]] == [1, 3]
