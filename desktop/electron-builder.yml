@@ -45,19 +45,6 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
-  # Use the custom beautified NSIS wizard (build/installer/installer.nsi) instead
-  # of electron-builder's default MUI2 installer. The script draws its own
-  # welcome/directory/installing/finish pages + sidebar via nsDialogs/GDI and
-  # references electron-builder's built-in nsh (common/multiUser/installUtil/...)
-  # plus the committed theme/ui/pages .nsh files under build/installer/.
-  # macOS (`--mac`) ignores this block entirely, so the shared config is safe.
-  script: installer/installer.nsi
-  # electron-builder passes -WX (warnings-as-errors) to makensis by default.
-  # The custom script only ships SimpChinese; NSIS still emits a benign warning
-  # 6040 (MUI_TEXT_* not set for the implicit default language table) which is
-  # harmless because this installer draws its own pages and never shows MUI's
-  # default text. Allow warnings so the build doesn't fail on it.
-  warningsAsErrors: false
 
 mac:
   target:

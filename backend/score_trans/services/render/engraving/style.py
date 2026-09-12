@@ -13,6 +13,9 @@ class PublicationStyle:
     margin_right: float = 82.0
     margin_top: float = 72.0
     margin_bottom: float = 48.0
+    # Extra pagination allowance for dense systems; geometry validation still
+    # guards the actual SVG page boundary.
+    pagination_bottom_allowance: float = 120.0
     title_size: float = 40.0
     meta_size: float = 20.0
     part_name_size: float = 18.0

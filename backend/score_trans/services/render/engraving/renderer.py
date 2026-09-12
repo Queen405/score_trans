@@ -146,6 +146,7 @@ class PublicationRenderer:
         playback_group_offset: int = 0,
         playback_tick_offset: int = 0,
         show_title: bool = True,
+        page_index_offset: int = 0,
     ) -> list[PublicationPage]:
         style = self._style_for_page(page_width, page_height)
         parts = _normalize_parts(scores)
@@ -177,7 +178,12 @@ class PublicationRenderer:
                 layout_key=self.layout_key,
             )
             _page_chrome(
-                scene, style, document_title, score0, page_index, show_title=show_title
+                scene,
+                style,
+                document_title,
+                score0,
+                page_index + page_index_offset,
+                show_title=show_title,
             )
             note_start = next_note_index
             y = style.margin_top + (
@@ -1302,11 +1308,10 @@ def _paginate(systems: list[_System], style: PublicationStyle) -> list[list[_Sys
     pages: list[list[_System]] = []
     current: list[_System] = []
     used = style.margin_top + style.title_block_height
+    content_bottom = style.content_bottom + style.pagination_bottom_allowance
     for system in systems:
         required = system.height + (style.system_gap if current else 0)
-        if current and (
-            used + required > style.content_bottom or system.force_page_before
-        ):
+        if current and (used + required > content_bottom or system.force_page_before):
             pages.append(current)
             current = []
             used = style.margin_top + style.continuation_header_height

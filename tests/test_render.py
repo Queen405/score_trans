@@ -1927,6 +1927,19 @@ def test_multi_part_system_contains_all_parts_and_aligned_bars() -> None:
     assert pages[0].svg.count('class="measure"') >= 4
 
 
+def test_page_number_offset_is_applied_to_rendered_pages() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n" + " 1 |" * 20)
+    score.measures[5].new_page = True
+    pages = PublicationRenderer(PublicationStyle(page_height=500.0)).render_scores(
+        [score], page_index_offset=3
+    )
+
+    assert len(pages) > 1
+    assert 'class="annotation page-number"' in pages[0].svg
+    assert ">4</text>" in pages[0].svg
+    assert ">5</text>" in pages[1].svg
+
+
 def test_custom_page_size_is_preserved() -> None:
     svg = render_jianpu_page_svg(
         "1=C\n4/4\n1 2 3 4 |",

@@ -220,6 +220,7 @@ class PublicationRenderService:
         playback_group_offset: int = 0,
         playback_tick_offset: int = 0,
         show_title: bool = True,
+        page_index_offset: int = 0,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_page_results_to_files(
             scores,
@@ -237,6 +238,7 @@ class PublicationRenderService:
             playback_group_offset=playback_group_offset,
             playback_tick_offset=playback_tick_offset,
             show_title=show_title,
+            page_index_offset=page_index_offset,
         )
 
     def render_text_svg(
