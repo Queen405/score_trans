@@ -2479,22 +2479,32 @@ def _spanner(
         if ex <= sx + 8:
             sx = start.x + 5
             ex = end.x - 5
+        span = max(0.0, ex - sx)
         if kind == "slur":
-            height = -resolved_style.slur_height
+            # Longer phrases need a slightly higher arch; short spans stay compact.
+            height = -min(30.0, max(12.0, resolved_style.slur_height + span * 0.035))
             base = min(start.bbox.y, end.bbox.y) - resolved_style.spanner_base_clearance
-        else:
-            height = resolved_style.tie_height
-            start_bottom = start.y + _event_attachment_bottom(
-                start.event, resolved_style
+            control_left = sx + span * 0.33
+            control_right = sx + span * 0.67
+            d = (
+                f"M {sx:g} {base:g} C {control_left:g} {base + height:g} "
+                f"{control_right:g} {base + height:g} {ex:g} {base:g}"
             )
+        else:
+            start_bottom = start.y + _event_attachment_bottom(start.event, resolved_style)
             end_bottom = end.y + _event_attachment_bottom(end.event, resolved_style)
             base = max(start_bottom, end_bottom) + resolved_style.tie_below_clearance
-        control_left = sx + (ex - sx) * 0.33
-        control_right = sx + (ex - sx) * 0.67
-        d = (
-            f"M {sx:g} {base:g} C {control_left:g} {base + height:g} "
-            f"{control_right:g} {base + height:g} {ex:g} {base:g}"
-        )
+            thickness = 2.2
+            height = max(4.0, min(12.0, resolved_style.tie_height))
+            control_left = sx + span * 0.33
+            control_right = sx + span * 0.67
+            # Closed filled band, matching engraved ties and remaining stable at short spans.
+            d = (
+                f"M {sx:g} {base:g} C {control_left:g} {base + height:g} "
+                f"{control_right:g} {base + height:g} {ex:g} {base:g} "
+                f"C {control_right:g} {base + height - thickness:g} "
+                f"{control_left:g} {base + height - thickness:g} {sx:g} {base:g} Z"
+            )
     source_ids = list(
         dict.fromkeys(
             [
