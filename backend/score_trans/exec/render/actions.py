@@ -543,111 +543,21 @@ class RenderActions:
                 _renumber_score(score, current_measure or 1)
             current_measure = (current_measure or 1) + max_measure_count
 
-        all_scores = [s for page_scores in page_scores_list for s in page_scores]
-        source_ranges = self._batch_source_ranges(req, all_scores)
-        effective_title = _effective_title(req.title, all_scores)
-        svg_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.svg"
-        all_rendered_file_pages: list[RenderedA4FilePage] = []
-        all_measure_ranges: list[list[RenderPageMeasureRange]] = []
-        all_page_ocr_texts: dict[int, str] = {}
-        all_rendered_blocks: dict[int, list[RenderedTextBlock]] = {}
-        source_pages = req.source_pages or req.pages
+        # Each request page is parsed independently, with local page indexes.
+        # Give those segments distinct indexes so score_parts joins matching
+        # staves across pages instead of treating them as additional staves.
         page_offset = 0
-        playback_group_offset = 0
-        playback_tick_offset = 0
-        for page_idx, page_scores in enumerate(page_scores_list):
-            source_page_index = _score_source_page_index(page_scores, page_idx)
-            layout_pages = self.text_renderer.render_service.build_scores_a4_svg_pages(
-                page_scores,
-                title=effective_title,
-                show_measure_numbers=_request_show_measure_numbers(req),
-                measure_number_mode=_request_measure_number_mode(req),
-                initial_measure_number=None,
-                **_a4_layout_kwargs(req),
-            )
-            page_source_ranges = (
-                [r for r in source_ranges if r.source_page_index == source_page_index]
-                if page_scores and page_scores[0].measures
-                else []
-            )
-            measure_ranges_by_page = [
-                _page_measure_ranges(page.measure_ranges, page_source_ranges)
-                for page in layout_pages
-            ]
-            all_measure_ranges.extend(measure_ranges_by_page)
-            legacy_page_ocr_texts = _resolved_render_page_ocr_texts(
-                req,
-                measure_ranges_by_page,
-                page_offset=page_offset,
-                source_page_indices=[source_page_index],
-            )
-            current_attachments = _aligned_source_attachments(
-                source_pages,
-                only_source_page_index=source_page_index,
-            )
-            placement = place_source_text_attachments(
-                current_attachments,
-                [page.svg for page in layout_pages],
-                measure_ranges_by_page,
-            )
-            page_ocr_texts = _merge_rendered_and_legacy_ocr_texts(
-                legacy_page_ocr_texts,
-                placement.rendered_blocks_by_page,
-                len(layout_pages),
-            )
-            for pi, text in page_ocr_texts.items():
-                all_page_ocr_texts[page_offset + pi] = text
-            for pi, blocks in placement.rendered_blocks_by_page.items():
-                all_rendered_blocks.setdefault(page_offset + pi, []).extend(blocks)
-            page_svg_path = (
-                svg_path.with_stem(f"{svg_path.stem}_p{page_offset + 1}")
-                if page_offset > 0
-                else svg_path
-            )
-            rendered_pages = (
-                self.text_renderer.render_service.render_scores_a4_svg_page_results(
-                    page_scores,
-                    page_svg_path,
-                    title=effective_title,
-                    show_measure_numbers=_request_show_measure_numbers(req),
-                    measure_number_mode=_request_measure_number_mode(req),
-                    initial_measure_number=None,
-                    playback_group_offset=playback_group_offset,
-                    playback_tick_offset=playback_tick_offset,
-                    show_title=page_offset == 0,
-                    page_index_offset=page_offset,
-                    **_a4_layout_kwargs(req),
-                )
-            )
-            all_rendered_file_pages.extend(rendered_pages)
-            page_group_ends = [
-                page.note_group_end
-                for page in rendered_pages
-                if page.note_group_end is not None
-            ]
-            if page_group_ends:
-                playback_group_offset = max(page_group_ends) + 1
-            playback_tick_offset = max(
-                (
-                    page.playback_end_tick or playback_tick_offset
-                    for page in rendered_pages
-                ),
-                default=playback_tick_offset,
-            )
-            page_offset += len(rendered_pages)
+        for page_scores in page_scores_list:
+            local_pages = sorted({score.page_index for score in page_scores})
+            page_indexes = {
+                local: page_offset + index for index, local in enumerate(local_pages)
+            }
+            for score in page_scores:
+                score.page_index = page_indexes[score.page_index]
+            page_offset += len(local_pages)
 
-        pages = self._register_rendered_page_results(
-            all_rendered_file_pages,
-            all_page_ocr_texts,
-            all_measure_ranges,
-            all_rendered_blocks,
-        )
-        return BatchRenderResponse(
-            svg_file_id=pages[0].svg_file_id,
-            pages=pages,
-            page_width=pages[0].page_width,
-            page_height=pages[0].page_height,
-        )
+        all_scores = [s for page_scores in page_scores_list for s in page_scores]
+        return self._render_batch_flat(req, all_scores)
 
     def _batch_source_ranges(
         self,
