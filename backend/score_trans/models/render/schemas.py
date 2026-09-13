@@ -73,6 +73,19 @@ class RenderJianpuTextSvgRequest(A4LayoutRequest):
     text_anchors: list[TextAnchor] = []
 
 
+class LiveJianpuSvgRequest(BaseModel):
+    jianpu_text: str
+    title: str = "\u7b80\u8c31"
+    show_measure_numbers: bool | None = False
+    measure_number_mode: MeasureNumberMode = "all"
+    initial_measure_number: int = Field(default=1, ge=1)
+
+
+class LiveJianpuSvgResponse(BaseModel):
+    svg: str
+    jianpu_text: str
+
+
 class RenderJianpuTextSvgResponse(BaseModel):
     svg_file_id: str
     pages: list[RenderedSvgPage] = []
@@ -159,3 +172,4 @@ class BatchRenderResponse(BaseModel):
     pages: list[RenderedSvgPage]
     page_width: float
     page_height: float
+

@@ -19,6 +19,8 @@ from ...models.render.schemas import (
     RenderJianpuSvgResponse,
     RenderJianpuTextSvgRequest,
     RenderJianpuTextSvgResponse,
+    LiveJianpuSvgRequest,
+    LiveJianpuSvgResponse,
 )
 
 router = APIRouter(prefix="/render", tags=["render"])
@@ -38,6 +40,14 @@ async def render_jianpu_text_svg(
     actions: RenderActions = Depends(get_render_actions),
 ):
     return await asyncio.to_thread(actions.render_jianpu_text_svg, req)
+
+
+@router.post("/jianpu-live-svg", response_model=LiveJianpuSvgResponse)
+async def render_live_jianpu_svg(
+    req: LiveJianpuSvgRequest,
+    actions: RenderActions = Depends(get_render_actions),
+):
+    return await asyncio.to_thread(actions.render_live_jianpu_svg, req)
 
 
 @router.post("/normalize-jianpu-text", response_model=NormalizeJianpuTextResponse)

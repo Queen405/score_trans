@@ -43,6 +43,8 @@ from ...models.render.schemas import (
     RenderJianpuSvgResponse,
     RenderJianpuTextSvgRequest,
     RenderJianpuTextSvgResponse,
+    LiveJianpuSvgRequest,
+    LiveJianpuSvgResponse,
     RenderPageMeasureRange,
 )
 from ...models.score import JianpuScore, TextBlock
@@ -411,6 +413,22 @@ class RenderActions:
             else None,
             jianpu_text=req.jianpu_text,
         )
+
+    def render_live_jianpu_svg(self, req: LiveJianpuSvgRequest) -> LiveJianpuSvgResponse:
+        input_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.live.txt"
+        output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.live.svg"
+        input_path.write_text(req.jianpu_text, encoding="utf-8")
+        try:
+            self.text_renderer.render_service.render_text_svg(
+                input_path, output_path, title=req.title,
+                show_measure_numbers=req.show_measure_numbers,
+                measure_number_mode=req.measure_number_mode,
+                initial_measure_number=req.initial_measure_number,
+            )
+            return LiveJianpuSvgResponse(svg=output_path.read_text(encoding="utf-8"), jianpu_text=req.jianpu_text)
+        finally:
+            input_path.unlink(missing_ok=True)
+            output_path.unlink(missing_ok=True)
 
     def normalize_jianpu_text(
         self, req: NormalizeJianpuTextRequest

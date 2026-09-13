@@ -419,8 +419,8 @@
               </n-icon>
               <span>暂无渲染</span>
             </div>
-            <jianpu-editor
-              v-else
+            <div v-else class="jianpu-live-layout" :style="{ gridTemplateRows: `${liveEditorRatio}% 8px minmax(0, 1fr)` }">
+              <div class="jianpu-live-editor"><jianpu-editor
               ref="jianpuEditorRef"
               v-model="jianpuText"
               :current-note-index="currentNoteIndex"
@@ -434,7 +434,10 @@
               :structure-markers-enabled="store.currentBatchId !== null"
               @update:initial-measure-number="initialMeasureNumber = $event"
               @rekey-applied="handleRekeyApplied"
-            />
+            /></div>
+              <div class="jianpu-live-divider" @mousedown="startLiveResize" title="调整上下区域高度" />
+              <LiveJianpuPreview :svg="livePreviewSvg" :loading="livePreviewLoading" :error="livePreviewError" />
+            </div>
           </div>
         </div>
       </div>
@@ -509,6 +512,8 @@ import JianpuPlayer from '../components/JianpuPlayer.vue'
 import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
+import LiveJianpuPreview from '../components/LiveJianpuPreview.vue'
+import { renderApi } from '../api/render'
 import { loadRenderPageIndex, saveRenderPageIndex } from '../composables/useViewPersistence'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { isRenderAborted } from '../utils/renderAbort'
@@ -567,6 +572,13 @@ import { NButton, NPopover, NSelect, NIcon, NModal, NPopconfirm, useMessage } fr
 const store = useWorkspaceStore()
 const settings = useSettingsStore()
 const publicationRender = usePublicationRender()
+const livePreviewSvg = ref("")
+const livePreviewError = ref("")
+const livePreviewLoading = ref(false)
+const liveEditorRatio = ref(Number(localStorage.getItem("score-trans.live-editor-ratio") || 50))
+let livePreviewTimer: ReturnType<typeof setTimeout> | null = null
+let livePreviewController: AbortController | null = null
+let liveResizeStart: { y: number; ratio: number; height: number } | null = null
 const log = useLogStore()
 const syntaxStore = useSyntaxDiagnosticsStore()
 const message = useMessage()
@@ -717,6 +729,27 @@ function initialMeasureNumberKey(batchId: string | null): string {
 function loadInitialMeasureNumber(batchId: string | null): number {
   const raw = Number.parseInt(localStorage.getItem(initialMeasureNumberKey(batchId)) || '', 10)
   return Number.isInteger(raw) && raw >= 1 ? raw : 1
+}
+
+watch(jianpuText, (text) => {
+  if (livePreviewTimer) clearTimeout(livePreviewTimer)
+  livePreviewTimer = setTimeout(async () => {
+    if (!text.trim()) { livePreviewSvg.value = ""; livePreviewError.value = ""; return }
+    livePreviewController?.abort(); livePreviewController = new AbortController(); livePreviewLoading.value = true
+    const result = await renderApi.liveJianpuSvg({ jianpu_text: text, show_measure_numbers: false, initial_measure_number: initialMeasureNumber.value }, livePreviewController.signal)
+    if (result.data) { livePreviewSvg.value = result.data.svg; livePreviewError.value = "" }
+    else if (result.error && result.error.name !== "AbortError") livePreviewError.value = result.error.message
+    livePreviewLoading.value = false
+  }, 150)
+})
+function startLiveResize(event: MouseEvent): void {
+  const target = event.currentTarget as HTMLElement
+  const parent = target.parentElement
+  if (!parent) return
+  liveResizeStart = { y: event.clientY, ratio: liveEditorRatio.value, height: parent.clientHeight }
+  const move = (e: MouseEvent) => { if (!liveResizeStart) return; const next = liveResizeStart.ratio + ((e.clientY-liveResizeStart.y)/liveResizeStart.height)*100; liveEditorRatio.value = Math.max(20, Math.min(80, next)) }
+  const up = () => { localStorage.setItem("score-trans.live-editor-ratio", String(liveEditorRatio.value)); liveResizeStart=null; window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up) }
+  window.addEventListener("mousemove", move); window.addEventListener("mouseup", up)
 }
 
 watch(() => store.currentBatchId, (batchId) => {
@@ -2691,6 +2724,11 @@ defineExpose({ flushPendingEdits })
   text-align: center;
 }
 
+.jianpu-live-layout { height:100%; min-height:0; display:grid; gap:0; }
+.jianpu-live-editor { min-height:0; overflow:hidden; }
+.jianpu-live-divider { cursor:row-resize; background:var(--border-color); position:relative; }
+.jianpu-live-divider::after { content:""; position:absolute; left:45%; right:45%; top:3px; height:2px; background:var(--text-tertiary); border-radius:2px; }
+
 .ws-layout {
   flex: 1;
   min-height: 0;
@@ -2884,7 +2922,12 @@ defineExpose({ flushPendingEdits })
 }
 
 @media (max-width: 900px) {
-  .ws-layout {
+  .jianpu-live-layout { height:100%; min-height:0; display:grid; gap:0; }
+.jianpu-live-editor { min-height:0; overflow:hidden; }
+.jianpu-live-divider { cursor:row-resize; background:var(--border-color); position:relative; }
+.jianpu-live-divider::after { content:""; position:absolute; left:45%; right:45%; top:3px; height:2px; background:var(--text-tertiary); border-radius:2px; }
+
+.ws-layout {
     grid-template-columns: 1fr;
   }
 
@@ -2893,3 +2936,4 @@ defineExpose({ flushPendingEdits })
   }
 }
 </style>
+
