@@ -75,6 +75,7 @@ class RenderJianpuTextSvgRequest(A4LayoutRequest):
 
 class LiveJianpuSvgRequest(BaseModel):
     jianpu_text: str
+    cursor_offset: int | None = None
     title: str = "\u7b80\u8c31"
     show_measure_numbers: bool | None = False
     show_title: bool = False

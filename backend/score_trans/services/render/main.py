@@ -68,6 +68,25 @@ def render_jianpu_svg(
     return render_score_svg(score, options)
 
 
+def render_live_measure_svg(
+    jianpu_text: str,
+    cursor_offset: int,
+    options: RenderOptions | None = None,
+) -> str:
+    """Parse the full text for key/time/tempo context, then render only the
+    single measure containing *cursor_offset*."""
+    options = options or RenderOptions(title="")
+    score = parse_jianpu_score(jianpu_text, title=options.title)
+    if not score.measures:
+        return render_score_svg(score, options)
+    measure_index = jianpu_text.count("|", 0, max(0, cursor_offset))
+    measure_index = min(measure_index, len(score.measures) - 1)
+    single = replace(score, title="", measures=[score.measures[measure_index]])
+    initial_number = (options.initial_measure_number or 1) + measure_index
+    options = replace(options, initial_measure_number=initial_number)
+    return render_score_svg(single, options)
+
+
 def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -> str:
     options = options or RenderOptions(title=score.title)
     style = _style_from_options(options, page_width=float(options.width))
@@ -80,6 +99,8 @@ def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
         initial_measure_number=options.initial_measure_number,
+        show_title=options.show_title,
+        show_page_number=options.show_page_number,
     )
     if len(pages) != 1:
         raise RenderError("单页渲染空间不足；请使用 A4 分页渲染入口")
@@ -104,6 +125,8 @@ def render_scores_svg(
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
         initial_measure_number=options.initial_measure_number,
+        show_title=options.show_title,
+        show_page_number=options.show_page_number,
     )
     if len(pages) != 1:
         raise RenderError("单页渲染空间不足；请使用 A4 分页渲染入口")

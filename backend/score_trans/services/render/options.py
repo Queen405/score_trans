@@ -40,6 +40,8 @@ class RenderOptions:
     show_measure_numbers: bool = True
     measure_number_mode: MeasureNumberMode = "all"
     initial_measure_number: int | None = 1
+    show_title: bool = True
+    show_page_number: bool = True
 
 
 @dataclass(frozen=True, slots=True)

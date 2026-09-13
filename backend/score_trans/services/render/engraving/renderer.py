@@ -147,6 +147,7 @@ class PublicationRenderer:
         playback_group_offset: int = 0,
         playback_tick_offset: int = 0,
         show_title: bool = True,
+        show_page_number: bool = True,
         page_index_offset: int = 0,
         fit_content_height: bool = False,
     ) -> list[PublicationPage]:
@@ -202,6 +203,7 @@ class PublicationRenderer:
                 score0,
                 page_index + page_index_offset,
                 show_title=show_title,
+                show_page_number=show_page_number,
             )
             note_start = next_note_index
             y = style.margin_top + (
@@ -1458,6 +1460,7 @@ def _page_chrome(
     page_index: int,
     *,
     show_title: bool = True,
+    show_page_number: bool = True,
 ) -> None:
     scene.add(
         SceneNode(
@@ -1493,16 +1496,17 @@ def _page_chrome(
                 style.meta_size,
             )
         )
-    scene.add(
-        _text(
-            "annotation page-number",
-            style.page_width / 2,
-            style.page_height - 24,
-            str(page_index + 1),
-            style.annotation_size,
-            anchor="middle",
+    if show_page_number:
+        scene.add(
+            _text(
+                "annotation page-number",
+                style.page_width / 2,
+                style.page_height - 24,
+                str(page_index + 1),
+                style.annotation_size,
+                anchor="middle",
+            )
         )
-    )
 
 
 def _event_x(

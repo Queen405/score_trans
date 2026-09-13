@@ -52,7 +52,7 @@ from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.providers import create_configured_ocr_provider
 from ...services.render import A4MeasureRange, RenderedA4FilePage
-from ...services.render.main import render_jianpu_svg
+from ...services.render.main import render_jianpu_svg, render_live_measure_svg
 from ...services.render.options import RenderOptions
 from ...services.render.render_service import PublicationRenderService
 from ..convert.actions import MusicXmlToJianpuAction
@@ -417,12 +417,20 @@ class RenderActions:
         )
 
     def render_live_jianpu_svg(self, req: LiveJianpuSvgRequest) -> LiveJianpuSvgResponse:
-        svg = render_jianpu_svg(req.jianpu_text, RenderOptions(
-            title="", width=800, margin=24,
-            show_measure_numbers=False,
+        options = RenderOptions(
+            title="",
+            width=800,
+            margin=24,
+            show_measure_numbers=True,
             measure_number_mode=req.measure_number_mode,
             initial_measure_number=req.initial_measure_number,
-        ))
+            show_title=False,
+            show_page_number=False,
+        )
+        if req.cursor_offset is not None:
+            svg = render_live_measure_svg(req.jianpu_text, req.cursor_offset, options)
+        else:
+            svg = render_jianpu_svg(req.jianpu_text, options)
         return LiveJianpuSvgResponse(svg=svg, jianpu_text=req.jianpu_text)
 
     def normalize_jianpu_text(

@@ -420,7 +420,7 @@
               </n-icon>
               <span>暂无渲染</span>
             </div>
-            <div v-else class="jianpu-live-layout" :style="{ gridTemplateRows: `${liveEditorRatio}% 14px minmax(0, 1fr)` }">
+            <div v-else class="jianpu-live-layout" :style="liveRenderEnabled ? { gridTemplateRows: `${liveEditorRatio}% 14px minmax(0, 1fr)` } : { gridTemplateRows: '1fr' }">
               <div class="jianpu-live-editor"><jianpu-editor
               ref="jianpuEditorRef"
               v-model="jianpuText"
@@ -437,8 +437,10 @@
               @rekey-applied="handleRekeyApplied"
               @cursor-change="liveCursorTick++"
             /></div>
-              <div class="jianpu-live-divider" @mousedown="startLiveResize" title="调整上下区域高度" />
-              <LiveJianpuPreview :svg="livePreviewSvg" :loading="livePreviewLoading" :error="livePreviewError" />
+              <template v-if="liveRenderEnabled">
+                <div class="jianpu-live-divider" @mousedown="startLiveResize" title="调整上下区域高度" />
+                <LiveJianpuPreview :svg="livePreviewSvg" :loading="livePreviewLoading" :error="livePreviewError" />
+              </template>
             </div>
           </div>
         </div>
@@ -582,14 +584,6 @@ const liveEditorRatio = ref(Number(localStorage.getItem("score-trans.live-editor
 let livePreviewTimer: ReturnType<typeof setTimeout> | null = null
 let livePreviewController: AbortController | null = null
 const liveCursorTick = ref(0)
-function currentMeasureText(text: string): string {
-  const pos = jianpuEditorRef.value?.getSelectionRange()?.start ?? text.length
-  const left = text.lastIndexOf("|", Math.max(0, pos - 1)) + 1
-  const rightBar = text.indexOf("|", pos)
-  const right = rightBar >= 0 ? rightBar + 1 : text.length
-  const segment = text.slice(left, right).trim()
-  return segment || text
-}
 let liveResizeStart: { y: number; ratio: number; height: number } | null = null
 const log = useLogStore()
 const syntaxStore = useSyntaxDiagnosticsStore()
@@ -743,13 +737,21 @@ function loadInitialMeasureNumber(batchId: string | null): number {
   return Number.isInteger(raw) && raw >= 1 ? raw : 1
 }
 
-watch([jianpuText, liveCursorTick], ([text]) => {
-
+watch([jianpuText, liveCursorTick, liveRenderEnabled], ([text, , enabled]) => {
+  if (!enabled) {
+    if (livePreviewTimer) clearTimeout(livePreviewTimer)
+    livePreviewController?.abort()
+    livePreviewSvg.value = ""
+    livePreviewError.value = ""
+    livePreviewLoading.value = false
+    return
+  }
   if (livePreviewTimer) clearTimeout(livePreviewTimer)
   livePreviewTimer = setTimeout(async () => {
     if (!text.trim()) { livePreviewSvg.value = ""; livePreviewError.value = ""; return }
     livePreviewController?.abort(); livePreviewController = new AbortController(); livePreviewLoading.value = true
-    const result = await renderApi.liveJianpuSvg({ jianpu_text: currentMeasureText(text), show_measure_numbers: false, initial_measure_number: initialMeasureNumber.value }, livePreviewController.signal)
+    const cursorOffset = jianpuEditorRef.value?.getSelectionRange()?.start ?? text.length
+    const result = await renderApi.liveJianpuSvg({ jianpu_text: text, cursor_offset: cursorOffset, show_measure_numbers: false, initial_measure_number: initialMeasureNumber.value }, livePreviewController.signal)
     if (result.data) { livePreviewSvg.value = result.data.svg; livePreviewError.value = "" }
     else if (result.error && result.error.name !== "AbortError") livePreviewError.value = result.error.message
     livePreviewLoading.value = false
@@ -757,7 +759,6 @@ watch([jianpuText, liveCursorTick], ([text]) => {
 })
 function toggleLiveRender(): void {
   liveRenderEnabled.value = !liveRenderEnabled.value
-  if (!liveRenderEnabled.value) { livePreviewController?.abort(); if (livePreviewTimer) clearTimeout(livePreviewTimer); livePreviewLoading.value = false }
 }
 function startLiveResize(event: MouseEvent): void {
   const target = event.currentTarget as HTMLElement
@@ -2741,8 +2742,8 @@ defineExpose({ flushPendingEdits })
   text-align: center;
 }
 
-.jianpu-live-layout { height:100%; min-height:0; display:grid; gap:0; }
-.jianpu-live-editor { min-height:0; overflow:hidden; }
+.jianpu-live-layout { height:100%; width:100%; min-height:0; display:grid; gap:0; }
+.jianpu-live-editor { min-height:0; overflow:hidden; display:flex; flex-direction:column; }
 .jianpu-live-divider { cursor:row-resize; background:var(--border-color); position:relative; border-top:1px solid var(--text-tertiary); border-bottom:1px solid var(--text-tertiary); }
 .jianpu-live-divider::before { content:""; position:absolute; left:calc(50% - 24px); top:4px; width:48px; height:4px; border-radius:4px; background:var(--text-tertiary); box-shadow:0 7px 0 var(--text-tertiary); }
 .jianpu-live-divider:hover { background:var(--primary-color); }

@@ -875,6 +875,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   min-width: 0;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
 }
@@ -956,6 +957,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   white-space: pre;
   overflow-wrap: normal;
   overflow-x: auto;
+  overflow-y: auto;
   position: relative;
   z-index: 1;
 }
