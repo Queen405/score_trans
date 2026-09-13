@@ -8,7 +8,11 @@ from copy import deepcopy
 from dataclasses import dataclass
 from fractions import Fraction
 
-from ...models.common.types import AccidentalMode, normalize_instrument_profile
+from ...models.common.types import (
+    AccidentalMode,
+    PolyphonyMode,
+    normalize_instrument_profile,
+)
 from ...models.provenance.entities import JianpuDocument
 from ...models.provenance.schemas import TextAnchor
 from ...models.score import DEFAULT_TEMPO, Event, JianpuScore, Measure
@@ -19,6 +23,9 @@ from ..jianpu_tokens import (
     tuplet_normal_notes,
 )
 from ..performance_marks import event_mark_ids, mark_token
+from ..voices import LaneKey, lane_key, measure_is_polyphonic, measure_lanes
+
+_VOICE_LANE_SEPARATOR = "&"
 
 _CONTINUOUS_SLIDE_TOKEN = mark_token("continuous-slide") or "lh"
 logger = logging.getLogger(__name__)
@@ -28,23 +35,32 @@ def score_to_jianpu_text(
     score: JianpuScore,
     *,
     accidental_mode: AccidentalMode = "auto",
+    polyphony_mode: PolyphonyMode = "auto",
 ) -> str:
-    return score_to_jianpu_document(score, accidental_mode=accidental_mode).text
+    return score_to_jianpu_document(
+        score, accidental_mode=accidental_mode, polyphony_mode=polyphony_mode
+    ).text
 
 
 def score_to_jianpu_document(
     score: JianpuScore,
     *,
     accidental_mode: AccidentalMode = "auto",
+    polyphony_mode: PolyphonyMode = "auto",
 ) -> JianpuDocument:
     serializable_score = _score_with_serializable_slurs(score)
-    text = _score_to_jianpu_text(serializable_score, accidental_mode=accidental_mode)
+    text = _score_to_jianpu_text(
+        serializable_score,
+        accidental_mode=accidental_mode,
+        polyphony_mode=polyphony_mode,
+    )
     return JianpuDocument(
         text=text,
         anchors=_text_anchors(
             serializable_score,
             text,
             accidental_mode=accidental_mode,
+            polyphony_mode=polyphony_mode,
         ),
         text_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
     )
@@ -54,26 +70,33 @@ def scores_to_jianpu_text(
     scores: list[JianpuScore],
     *,
     accidental_mode: AccidentalMode = "auto",
+    polyphony_mode: PolyphonyMode = "auto",
 ) -> str:
-    return scores_to_jianpu_document(scores, accidental_mode=accidental_mode).text
+    return scores_to_jianpu_document(
+        scores, accidental_mode=accidental_mode, polyphony_mode=polyphony_mode
+    ).text
 
 
-def _resolve_multi_voice(scores: list[JianpuScore]) -> list[JianpuScore]:
-    """同声部多 voice 处理：拍平为单声部输出并警告。
+def _resolve_multi_voice(
+    scores: list[JianpuScore], polyphony_mode: PolyphonyMode
+) -> list[JianpuScore]:
+    """flatten 模式下的同声部多 voice 处理：拍平为单声部输出并警告。
 
-    简谱文本无 voice 级表达。Audiveris 等 OMR 常把单声部旋律伪拆成多个 voice
-    （甚至用 ``<backup>`` 造成时间重叠），硬拦截会阻断整个识别流程，故沿用旧的
-    「拍平」行为：由 ``_events_grouped_by_voice`` 按 voice 分组排序后输出单声部
-    文本，同时通过警告日志提示真复调可能丢失信息。真复调若有损需要，应由调用方
-    显式按 ``// @part`` 拆分各 voice。
+    Audiveris 等 OMR 常把单声部旋律伪拆成多个 voice（甚至用 ``<backup>``
+    造成时间重叠），硬拦截会阻断整个识别流程，故沿用「拍平」行为：由
+    ``_events_grouped_by_voice`` 按 voice 分组排序后输出单声部文本，同时
+    通过警告日志提示真复调可能丢失信息。auto/preserve 模式由
+    ``_measure_emission_lanes`` 以 ``&`` 声线分隔输出，不经过本函数。
     """
+    if polyphony_mode != "flatten":
+        return scores
     for score in scores:
         voices = _collect_voices(score)
         if len(voices) > 1:
             name = score.part_name or f"声部{score.part_index + 1}"
             logger.warning(
-                "声部「%s」包含 %d 个 voice，简谱文本无 voice 表达，已拍平为单声部输出"
-                "（真复调可能有损）；若需无损请将各 voice 拆分为独立声部（// @part）。",
+                "声部「%s」包含 %d 个 voice，flatten 模式下已拍平为单声部输出"
+                "（真复调可能有损）；若需无损请使用 polyphony_mode=auto/preserve。",
                 name,
                 len(voices),
             )
@@ -93,11 +116,16 @@ def scores_to_jianpu_document(
     scores: list[JianpuScore],
     *,
     accidental_mode: AccidentalMode = "auto",
+    polyphony_mode: PolyphonyMode = "auto",
 ) -> JianpuDocument:
     if not scores:
-        return score_to_jianpu_document(JianpuScore(), accidental_mode=accidental_mode)
+        return score_to_jianpu_document(
+            JianpuScore(),
+            accidental_mode=accidental_mode,
+            polyphony_mode=polyphony_mode,
+        )
 
-    scores = _resolve_multi_voice(scores)
+    scores = _resolve_multi_voice(scores, polyphony_mode)
     scores = [_score_with_serializable_slurs(score) for score in scores]
 
     has_page_info = any(s.page_input_file_name for s in scores) or (
@@ -111,9 +139,16 @@ def scores_to_jianpu_document(
     current_page_index = -1
     part_in_page = 0
     for index, score in enumerate(scores):
-        part_text = _score_to_jianpu_text(score, accidental_mode=accidental_mode)
+        part_text = _score_to_jianpu_text(
+            score, accidental_mode=accidental_mode, polyphony_mode=polyphony_mode
+        )
         part_anchors.append(
-            _text_anchors_raw(score, part_text, accidental_mode=accidental_mode)
+            _text_anchors_raw(
+                score,
+                part_text,
+                accidental_mode=accidental_mode,
+                polyphony_mode=polyphony_mode,
+            )
         )
         if has_page_info and score.page_index != current_page_index:
             page_number = score.page_index + 1
@@ -154,12 +189,20 @@ def scores_to_jianpu_document(
 def _score_with_serializable_slurs(score: JianpuScore) -> JianpuScore:
     adjusted = deepcopy(score)
     pending_start: Event | None = None
+    pending_lane: LaneKey | None = None
     dropped_starts = 0
     dropped_stops = 0
 
     for measure in adjusted.measures:
         measure.events = _events_grouped_by_voice(measure.events)
         for event in measure.events:
+            # 连音线只能在同一 (staff, voice) 声线内配对，跨声线强制断开，
+            # 避免大谱表两个 staff 同用 voice 编号时串线。
+            current_lane = lane_key(event)
+            if pending_start is not None and current_lane != pending_lane:
+                dropped_starts += 1
+                pending_start = None
+                pending_lane = None
             if event.kind == "note" and not event.pitches:
                 logger.warning(
                     "小节 %s 含无音高 note，简谱文本按休止符输出",
@@ -187,12 +230,14 @@ def _score_with_serializable_slurs(score: JianpuScore) -> JianpuScore:
                     pending_start.slur_start = True
                     event.slur_stop = True
                     pending_start = None
+                    pending_lane = None
 
             if source_start:
                 if pending_start is not None or event.slur_stop:
                     dropped_starts += 1
                 else:
                     pending_start = event
+                    pending_lane = current_lane
 
     if pending_start is not None:
         dropped_starts += 1
@@ -206,15 +251,63 @@ def _score_with_serializable_slurs(score: JianpuScore) -> JianpuScore:
 
 
 def _events_grouped_by_voice(events: list[Event]) -> list[Event]:
-    def key(item: tuple[int, Event]) -> tuple[int, int | str, Fraction, int]:
+    def key(
+        item: tuple[int, Event],
+    ) -> tuple[tuple[int, int | str], tuple[int, int | str], Fraction, int]:
         index, event = item
         voice = (event.voice or "1").strip()
         voice_key: tuple[int, int | str] = (
             (0, int(voice)) if voice.isdigit() else (1, voice)
         )
-        return (*voice_key, event.start or Fraction(0, 1), index)
+        staff = (event.staff or "").strip()
+        staff_key: tuple[int, int | str] = (
+            (0, int(staff)) if staff.isdigit() else (1, staff)
+        )
+        return (voice_key, staff_key, event.start or Fraction(0, 1), index)
 
     return [event for _index, event in sorted(enumerate(events), key=key)]
+
+
+def _fill_lane_gaps(measure: Measure, events: list[Event]) -> list[Event]:
+    """为声线补间/补尾休止符，使每条声线的时长等于小节时值。
+
+    声线内事件按 (start, 原序) 排列；``<forward>`` 或 hidden/generated
+    事件留下的空隙以普通休止符填补，保证 ``&`` 分隔的各声线时间对齐。
+    """
+    filled: list[Event] = []
+    cursor = Fraction(0, 1)
+    for event in events:
+        start = event.start if event.start is not None else cursor
+        if start > cursor:
+            filled.append(Event(kind="rest", duration=start - cursor))
+        filled.append(event)
+        end = start + event.duration
+        if end > cursor:
+            cursor = end
+    tail = measure.duration - cursor
+    if tail > 0:
+        filled.append(Event(kind="rest", duration=tail))
+    return filled
+
+
+def _measure_emission_lanes(
+    measure: Measure, polyphony_mode: PolyphonyMode
+) -> list[list[Event]] | None:
+    """返回按声线拆分的事件列表（含补全休止符）；无需拆分时返回 None。
+
+    - flatten：一律不拆分（旧拍平行为）。
+    - preserve：只要存在多个可见声线就拆分。
+    - auto：仅当不同 voice 在同一 staff 上时间重叠（真复调）才拆分；
+      OMR 伪拆的顺序 voice 仍合并为单线。
+    """
+    if polyphony_mode == "flatten":
+        return None
+    lanes = measure_lanes(measure)
+    if len(lanes) < 2:
+        return None
+    if polyphony_mode == "auto" and not measure_is_polyphonic(measure):
+        return None
+    return [_fill_lane_gaps(measure, events) for _key, events in lanes]
 
 
 def _measure_lead_info(
@@ -256,10 +349,61 @@ def _lead_skip_length(lead_tokens: list[str], prefix: str) -> int:
     return len(prefix) + len(" ".join(lead_tokens)) + 1
 
 
+def _events_to_tokens(
+    measure: Measure,
+    events: list[Event],
+    *,
+    accidental_mode: AccidentalMode,
+    lyrics: list[str],
+) -> list[str]:
+    tokens: list[str] = []
+    index = 0
+    while index < len(events):
+        event = events[index]
+        if event.kind == "rest" and event.hidden and event.tuplet_id is None:
+            index += 1
+            continue
+        if event.tuplet_start and event.tuplet_count:
+            group = _collect_tuplet_events(events, index)
+            tokens.append(_tuplet_to_token(group, accidental_mode=accidental_mode))
+            for group_event in group:
+                if group_event.kind == "note" and group_event.lyric:
+                    lyrics.append(group_event.lyric)
+            index += len(group)
+            continue
+        if event.dynamic:
+            tokens.append(f"\\{event.dynamic}")
+        articulations = list(
+            event.articulations or ([event.articulation] if event.articulation else [])
+        )
+        for mark in event_mark_ids(
+            articulations,
+            list(event.ornaments),
+            list(event.technical),
+        ):
+            token = mark_token(mark)
+            if token:
+                tokens.append(f"^{token}")
+        if event.slide_stop:
+            tokens.append(f"^{_CONTINUOUS_SLIDE_TOKEN}")
+        tokens.append(
+            _event_to_token(
+                event,
+                accidental_mode=accidental_mode,
+                duration=_text_event_duration(event, measure),
+            )
+        )
+        if event.kind == "note" and event.lyric:
+            lyrics.append(event.lyric)
+        index += 1
+    return tokens
+
+
 def _score_to_jianpu_text(
     score: JianpuScore,
     *,
     accidental_mode: AccidentalMode = "auto",
+    polyphony_mode: PolyphonyMode = "auto",
 ) -> str:
     first_measure = score.measures[0] if score.measures else None
     current_key = (
@@ -306,51 +450,31 @@ def _score_to_jianpu_text(
         )
         if tempo_line is not None:
             measure_lines.append(tempo_line)
-        events = measure.events
-        tokens = []
-        index = 0
-        while index < len(events):
-            event = events[index]
-            if event.kind == "rest" and event.hidden and event.tuplet_id is None:
-                index += 1
-                continue
-            if event.tuplet_start and event.tuplet_count:
-                group = _collect_tuplet_events(events, index)
-                tokens.append(_tuplet_to_token(group, accidental_mode=accidental_mode))
-                for group_event in group:
-                    if group_event.kind == "note" and group_event.lyric:
-                        lyrics.append(group_event.lyric)
-                index += len(group)
-                continue
-            if event.dynamic:
-                tokens.append(f"\\{event.dynamic}")
-            articulations = list(
-                event.articulations
-                or ([event.articulation] if event.articulation else [])
+        lanes = _measure_emission_lanes(measure, polyphony_mode)
+        if lanes is None:
+            tokens = _events_to_tokens(
+                measure,
+                measure.events,
+                accidental_mode=accidental_mode,
+                lyrics=lyrics,
             )
-            for mark in event_mark_ids(
-                articulations,
-                list(event.ornaments),
-                list(event.technical),
-            ):
-                token = mark_token(mark)
-                if token:
-                    tokens.append(f"^{token}")
-            if event.slide_stop:
-                tokens.append(f"^{_CONTINUOUS_SLIDE_TOKEN}")
-            tokens.append(
-                _event_to_token(
-                    event,
+            body = " ".join([*lead_tokens, *tokens])
+        else:
+            lane_bodies: list[str] = []
+            for lane_index, lane_events in enumerate(lanes):
+                # 歌词只归属声线 1，其余声线的歌词不进入 L: 行
+                lane_lyrics = lyrics if lane_index == 0 else []
+                tokens = _events_to_tokens(
+                    measure,
+                    lane_events,
                     accidental_mode=accidental_mode,
-                    duration=_text_event_duration(event, measure),
+                    lyrics=lane_lyrics,
                 )
-            )
-            if event.kind == "note" and event.lyric:
-                lyrics.append(event.lyric)
-            index += 1
+                lane_bodies.append(" ".join(tokens))
+            lane_body = f" {_VOICE_LANE_SEPARATOR} ".join(lane_bodies)
+            body = " ".join([*lead_tokens, lane_body])
         repeat_count = getattr(measure, "repeat_count", 1)
         repeat_suffix = f" *{repeat_count}" if repeat_count > 1 else ""
-        body = " ".join([*lead_tokens, *tokens])
         next_has_start = (
             measure_index + 1 < len(score.measures)
             and score.measures[measure_index + 1].repeat_start
@@ -380,8 +504,14 @@ def _text_anchors(
     text: str,
     *,
     accidental_mode: AccidentalMode,
+    polyphony_mode: PolyphonyMode = "auto",
 ) -> list[TextAnchor]:
-    anchors = _text_anchors_raw(score, text, accidental_mode=accidental_mode)
+    anchors = _text_anchors_raw(
+        score,
+        text,
+        accidental_mode=accidental_mode,
+        polyphony_mode=polyphony_mode,
+    )
     for anchor in anchors:
         anchor.start_utf16 = _utf16_offset(text, anchor.start_utf16)
         anchor.end_utf16 = _utf16_offset(text, anchor.end_utf16)
@@ -394,6 +524,7 @@ def _text_anchors_raw(
     text: str,
     *,
     accidental_mode: AccidentalMode,
+    polyphony_mode: PolyphonyMode = "auto",
 ) -> list[TextAnchor]:
     if not score.measures:
         return []
@@ -457,114 +588,144 @@ def _text_anchors_raw(
         if measure_index == 0 and measure.repeat_start:
             prefix = "|: "
         event_cursor = _lead_skip_length(lead_tokens, prefix)
-        events = measure.events
-        index = 0
-        while index < len(events):
-            event = events[index]
-            if event.kind == "rest" and event.hidden and event.tuplet_id is None:
-                index += 1
-                continue
-            if event.tuplet_start and event.tuplet_count:
-                group = _collect_tuplet_events(events, index)
-                plan = _tuplet_emission_plan(group, accidental_mode=accidental_mode)
-                if plan.wrapper:
-                    group_open = line.find("$", event_cursor)
-                    group_close = (
-                        line.find("$", group_open + 1) if group_open >= 0 else -1
-                    )
-                else:
-                    group_open = -1
-                    group_close = -1
-                for group_event, token in zip(group, plan.bodies):
-                    position = line.find(
-                        token,
-                        event_cursor,
-                        group_close if group_close >= 0 else len(line),
-                    )
-                    if position < 0:
-                        if group_close < 0:
-                            event_cursor = _advance_past_text_tokens(line, event_cursor)
-                        continue
-                    _append_event_anchors(
-                        anchors,
-                        seen,
-                        group_event,
-                        token,
-                        line_offset + position,
-                        line,
-                        event_cursor,
-                        position,
-                        accidental_mode,
-                    )
-                    event_cursor = position + len(token)
-                if (
-                    plan.external_start is not None
-                    and group_open > 0
-                    and line[group_open - 1] == "("
-                ):
-                    for source_id in group[plan.external_start].source_roles.get(
-                        "slur_start", []
-                    ):
-                        _append_anchor(
-                            anchors,
-                            seen,
-                            source_id,
-                            line_offset + group_open - 1,
-                            line_offset + group_open,
-                            "slur",
-                        )
-                if (
-                    plan.external_stop is not None
-                    and group_close >= 0
-                    and group_close + 1 < len(line)
-                    and line[group_close + 1] == ")"
-                ):
-                    for source_id in group[plan.external_stop].source_roles.get(
-                        "slur_stop", []
-                    ):
-                        _append_anchor(
-                            anchors,
-                            seen,
-                            source_id,
-                            line_offset + group_close + 1,
-                            line_offset + group_close + 2,
-                            "slur",
-                        )
-                if group_close >= 0:
-                    event_cursor = group_close + 1 + int(plan.external_stop is not None)
-                index += len(group)
-                continue
-
-            token = _event_to_token(
-                event,
-                accidental_mode=accidental_mode,
-                duration=_text_event_duration(event, measure),
-            )
-            position = line.find(token, event_cursor)
-            if position < 0:
-                event_cursor = _advance_past_text_tokens(
-                    line,
-                    event_cursor,
-                    count=_rendered_event_token_count(event),
-                )
-                index += 1
-                continue
-            _append_event_anchors(
+        emission_lanes = _measure_emission_lanes(measure, polyphony_mode)
+        event_groups = (
+            emission_lanes if emission_lanes is not None else [measure.events]
+        )
+        for lane_index, events in enumerate(event_groups):
+            if lane_index > 0:
+                separator = line.find(_VOICE_LANE_SEPARATOR, event_cursor)
+                if separator >= 0:
+                    event_cursor = separator + 1
+            event_cursor = _collect_measure_line_anchors(
                 anchors,
                 seen,
-                event,
-                token,
-                line_offset + position,
                 line,
+                line_offset,
                 event_cursor,
-                position,
-                accidental_mode,
+                events,
+                measure,
+                accidental_mode=accidental_mode,
             )
-            event_cursor = position + len(token)
-            index += 1
         line_offset += len(lines[line_index])
         line_index += 1
     return anchors
+
+
+def _collect_measure_line_anchors(
+    anchors: list[TextAnchor],
+    seen: set[tuple[str, int, int, str]],
+    line: str,
+    line_offset: int,
+    event_cursor: int,
+    events: list[Event],
+    measure: Measure,
+    *,
+    accidental_mode: AccidentalMode,
+) -> int:
+    index = 0
+    while index < len(events):
+        event = events[index]
+        if event.kind == "rest" and event.hidden and event.tuplet_id is None:
+            index += 1
+            continue
+        if event.tuplet_start and event.tuplet_count:
+            group = _collect_tuplet_events(events, index)
+            plan = _tuplet_emission_plan(group, accidental_mode=accidental_mode)
+            if plan.wrapper:
+                group_open = line.find("$", event_cursor)
+                group_close = line.find("$", group_open + 1) if group_open >= 0 else -1
+            else:
+                group_open = -1
+                group_close = -1
+            for group_event, token in zip(group, plan.bodies):
+                position = line.find(
+                    token,
+                    event_cursor,
+                    group_close if group_close >= 0 else len(line),
+                )
+                if position < 0:
+                    if group_close < 0:
+                        event_cursor = _advance_past_text_tokens(line, event_cursor)
+                    continue
+                _append_event_anchors(
+                    anchors,
+                    seen,
+                    group_event,
+                    token,
+                    line_offset + position,
+                    line,
+                    event_cursor,
+                    position,
+                    accidental_mode,
+                )
+                event_cursor = position + len(token)
+            if (
+                plan.external_start is not None
+                and group_open > 0
+                and line[group_open - 1] == "("
+            ):
+                for source_id in group[plan.external_start].source_roles.get(
+                    "slur_start", []
+                ):
+                    _append_anchor(
+                        anchors,
+                        seen,
+                        source_id,
+                        line_offset + group_open - 1,
+                        line_offset + group_open,
+                        "slur",
+                    )
+            if (
+                plan.external_stop is not None
+                and group_close >= 0
+                and group_close + 1 < len(line)
+                and line[group_close + 1] == ")"
+            ):
+                for source_id in group[plan.external_stop].source_roles.get(
+                    "slur_stop", []
+                ):
+                    _append_anchor(
+                        anchors,
+                        seen,
+                        source_id,
+                        line_offset + group_close + 1,
+                        line_offset + group_close + 2,
+                        "slur",
+                    )
+            if group_close >= 0:
+                event_cursor = group_close + 1 + int(plan.external_stop is not None)
+            index += len(group)
+            continue
+
+        token = _event_to_token(
+            event,
+            accidental_mode=accidental_mode,
+            duration=_text_event_duration(event, measure),
+        )
+        position = line.find(token, event_cursor)
+        if position < 0:
+            event_cursor = _advance_past_text_tokens(
+                line,
+                event_cursor,
+                count=_rendered_event_token_count(event),
+            )
+            index += 1
+            continue
+        _append_event_anchors(
+            anchors,
+            seen,
+            event,
+            token,
+            line_offset + position,
+            line,
+            event_cursor,
+            position,
+            accidental_mode,
+        )
+        event_cursor = position + len(token)
+        index += 1
+    return event_cursor
 
 
 def _append_event_anchors(

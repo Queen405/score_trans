@@ -392,7 +392,9 @@ def _lyric_baseline(event: Event, style: PublicationStyle) -> float:
     return baseline
 
 
-def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
+def measure_event_layout(
+    event: Event, style: PublicationStyle, *, subtext_offset: float = 0.0
+) -> EventLayout:
     """Measure every visible event component with one conservative geometry pass."""
 
     if event.kind == "extension":
@@ -471,14 +473,14 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
         # lyrics, dynamics and low octave dots still clear the lines.
         box = InkBox(box.left, box.top, box.right, max(box.bottom, rhythm_bottom))
     if event.lyric:
-        lyric_baseline = _lyric_baseline(event, style)
+        lyric_baseline = _lyric_baseline(event, style) + subtext_offset
         lyric_box = _translated(
             _centered_text_box(event.lyric, style.lyric_size), 0.0, lyric_baseline
         )
         parts.append(VisualPart("lyric", lyric_box))
         box = box.union(lyric_box)
     if event.dynamic:
-        dynamic_baseline = _dynamic_baseline(event, style)
+        dynamic_baseline = _dynamic_baseline(event, style) + subtext_offset
         dynamic_box = _translated(
             _centered_text_box(event.dynamic, style.annotation_size),
             0.0,
@@ -493,5 +495,7 @@ def measure_event_layout(event: Event, style: PublicationStyle) -> EventLayout:
     return EventLayout(box, tuple(parts))
 
 
-def measure_event_ink(event: Event, style: PublicationStyle) -> InkBox:
-    return measure_event_layout(event, style).ink_box
+def measure_event_ink(
+    event: Event, style: PublicationStyle, *, subtext_offset: float = 0.0
+) -> InkBox:
+    return measure_event_layout(event, style, subtext_offset=subtext_offset).ink_box

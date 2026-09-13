@@ -19,6 +19,7 @@ from ...models.common.types import (
     AccidentalMode,
     InstrumentProfile,
     MeasureNumberMode,
+    PolyphonyMode,
 )
 from ...models.pipeline.schemas import PipelineResponse
 from ...models.provenance.schemas import SourceMap, SourceTextAttachment, TextAnchor
@@ -95,6 +96,7 @@ class FullPipelineAction:
         config: ToolConfig,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        polyphony_mode: PolyphonyMode = "auto",
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
@@ -148,7 +150,11 @@ class FullPipelineAction:
                 score.title = title
         report_progress(progress_callback, "convert", 72, "生成简谱文本")
         text_path = out_dir / f"{source.stem}_jianpu.txt"
-        document = scores_to_jianpu_document(scores, accidental_mode=accidental_mode)
+        document = scores_to_jianpu_document(
+            scores,
+            accidental_mode=accidental_mode,
+            polyphony_mode=polyphony_mode,
+        )
         self.file_service.write_text(text_path, document.text)
         render_scores = [
             score_with_accidental_mode(score, accidental_mode=accidental_mode)
@@ -229,6 +235,7 @@ class PipelineActions:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        polyphony_mode: PolyphonyMode = "auto",
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
@@ -244,6 +251,7 @@ class PipelineActions:
             input_path,
             target_key=target_key,
             accidental_mode=accidental_mode,
+            polyphony_mode=polyphony_mode,
             instrument_profile=instrument_profile,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
@@ -270,6 +278,7 @@ class PipelineActions:
         tasks: TaskActions,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        polyphony_mode: PolyphonyMode = "auto",
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
@@ -290,6 +299,7 @@ class PipelineActions:
                 input_path,
                 target_key=target_key,
                 accidental_mode=accidental_mode,
+                polyphony_mode=polyphony_mode,
                 instrument_profile=instrument_profile,
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
@@ -315,6 +325,7 @@ class PipelineActions:
         tasks: TaskActions,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        polyphony_mode: PolyphonyMode = "auto",
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
@@ -333,6 +344,7 @@ class PipelineActions:
                 input_path,
                 target_key=target_key,
                 accidental_mode=accidental_mode,
+                polyphony_mode=polyphony_mode,
                 instrument_profile=instrument_profile,
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
@@ -356,6 +368,7 @@ class PipelineActions:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        polyphony_mode: PolyphonyMode = "auto",
         instrument_profile: InstrumentProfile = "general",
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
@@ -380,6 +393,7 @@ class PipelineActions:
             config=config,
             target_key=target_key,
             accidental_mode=accidental_mode,
+            polyphony_mode=polyphony_mode,
             instrument_profile=instrument_profile,
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,

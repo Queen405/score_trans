@@ -1960,6 +1960,7 @@ async function resetAll(): Promise<void> {
       musicxml_file_id: store.musicxmlFileId,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
+      polyphony_mode: settings.polyphonyMode,
     }))
     const split = splitJianpuAndOcr(result.jianpu_text)
     const pageIndex = Math.max(0, currentBatchLocalIndex.value)

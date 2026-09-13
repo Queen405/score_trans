@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ..common.types import AccidentalMode, InstrumentProfile, TargetKeyOrAuto
+from ..common.types import (
+    AccidentalMode,
+    InstrumentProfile,
+    PolyphonyMode,
+    TargetKeyOrAuto,
+)
 from ..provenance.schemas import TextAnchor
 
 
@@ -12,6 +17,7 @@ class MusicXmlToJianpuRequest(BaseModel):
     target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile | None = None
+    polyphony_mode: PolyphonyMode = "auto"
 
 
 class MusicXmlToJianpuResponse(BaseModel):

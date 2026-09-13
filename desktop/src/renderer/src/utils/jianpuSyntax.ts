@@ -17,7 +17,7 @@ export interface JianpuSyntaxToken {
   type: JianpuSyntaxTokenType
 }
 
-const TOKEN_PATTERN = /(\s+|\$[^$]*\$|\|\||\|:|:\||\||[^\s|]+)/g
+const TOKEN_PATTERN = /(\s+|\$[^$]*\$|\|\||\|:|:\||\||&|[^\s|&]+)/g
 const DURATION_PREFIX_PATTERN = /^(?:[whqs]|d+)/
 const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
 const PITCH_PATTERN = /^(?:(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
@@ -71,6 +71,8 @@ function classifyToken(token: string): JianpuSyntaxTokenType {
   if (!token.trim()) return 'plain'
   if (/^tempo\s*=\s*[^\s|]+$/.test(token)) return 'metadata'
   if (token === '|' || token === '||' || token === '|:' || token === ':|') return 'barline'
+  // 声线分隔符（复调小节内 & 分隔多条并行旋律线），按分隔符样式高亮
+  if (token === '&') return 'barline'
   if (/^\*\d+$/.test(token)) return 'repeat'
   if (token.startsWith('\\')) return 'dynamic'
   if (token.startsWith('^') || token.startsWith('(^')) return 'ornament'

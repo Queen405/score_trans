@@ -48,6 +48,7 @@ export type {
   PerformanceMarkCatalogItem,
   PipelineByFileIdRequest,
   PipelineResponse,
+  PolyphonyMode,
   RecognizeResponse,
   RenderedSvgPage,
   RenderJianpuSvgRequest,

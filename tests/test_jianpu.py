@@ -275,7 +275,7 @@ def test_writer_groups_events_by_voice_without_mutating_source_score() -> None:
         ]
     )
 
-    text = score_to_jianpu_text(score)
+    text = score_to_jianpu_text(score, polyphony_mode="flatten")
 
     assert text.splitlines()[-1] == "1 2 5 6 |"
     assert score.measures[0].events == source_events

@@ -8,6 +8,7 @@ from ...models.common.types import (
     AccidentalMode,
     InstrumentProfile,
     MeasureNumberMode,
+    PolyphonyMode,
     TargetKeyOrAuto,
 )
 from ...models.pipeline.schemas import PipelineByFileIdRequest
@@ -45,6 +46,7 @@ async def run_pipeline_by_file_id(
         target_key=req.target_key,
         accidental_mode=req.accidental_mode,
         instrument_profile=req.instrument_profile,
+        polyphony_mode=req.polyphony_mode,
         show_measure_numbers=_request_show_measure_numbers(req),
         measure_number_mode=_request_measure_number_mode(req),
         content_scale_percent=req.jianpu_content_scale_percent,
@@ -62,6 +64,7 @@ async def run_pipeline(
     target_key: TargetKeyOrAuto = Form("C"),
     accidental_mode: AccidentalMode = Form("auto"),
     instrument_profile: InstrumentProfile = Form("general"),
+    polyphony_mode: PolyphonyMode = Form("auto"),
     show_measure_numbers: bool = Form(True),
     measure_number_mode: MeasureNumberMode = Form("all"),
     jianpu_content_scale_percent: int = Form(
@@ -95,6 +98,7 @@ async def run_pipeline(
         target_key=target_key,
         accidental_mode=accidental_mode,
         instrument_profile=instrument_profile,
+        polyphony_mode=polyphony_mode,
         show_measure_numbers=measure_number_mode != "none" and show_measure_numbers,
         measure_number_mode="none" if not show_measure_numbers else measure_number_mode,
         content_scale_percent=jianpu_content_scale_percent,

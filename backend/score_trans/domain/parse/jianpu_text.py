@@ -724,7 +724,7 @@ def _validate_jianpu_token(token: _Token) -> None:
     raw = token.value
     measure_mark = _measure_level_mark(raw)
     if (
-        raw in {"|", "||", "|:", ":|"}
+        raw in {"|", "||", "|:", ":|", "&"}
         or re.fullmatch(r"\*\d+", raw)
         or _key_signature_value(raw) is not None
         or _time_signature_value(raw) is not None
@@ -1039,18 +1039,27 @@ def parse_jianpu_score(
     measure_ornaments: list[str] = []
     pending_repeat_count: int = 1
     repeat_applied_backward = False
-    open_slur = False
-    open_tie = False
     measure_number = 1
     next_repeat_start = False
     current_key = options.key
     current_beats = options.beats
     current_beat_type = options.beat_type
     current_tempo = options.tempo or _initial_tempo
-    last_pitched_event: Event | None = None
     pending_slide_token: _Token | None = None
     skip_empty_bar_after_repeat_end = False
     measure_source_start_utf16: int | None = None
+    # 声线（& 分隔）：cursor 始终跟踪当前声线；跨小节的连音线/连线/滑音
+    # 状态按声线隔离，避免 lane 1 末尾的 tie 错误地连到 lane 2 开头。
+    current_lane = 1
+    current_event_lanes: list[int] = []
+    events_in_current_lane = 0
+    open_slur_by_lane: dict[int, bool] = {}
+    open_tie_by_lane: dict[int, bool] = {}
+    last_pitched_by_lane: dict[int, Event] = {}
+    # 诊断定位：小节首个 token（超拍等小节级错误指向小节开头而非小节线），
+    # 以及每条声线的引入 & token（空声线错误的定位点）。
+    measure_first_token: _Token | None = None
+    lane_separator_tokens: dict[int, _Token] = {}
 
     def flush_measure(
         *,
@@ -1067,8 +1076,52 @@ def parse_jianpu_score(
             measure_ornaments, \
             pending_repeat_count, \
             repeat_applied_backward, \
-            measure_source_start_utf16
+            measure_source_start_utf16, \
+            current_lane, \
+            current_event_lanes, \
+            events_in_current_lane, \
+            measure_first_token, \
+            lane_separator_tokens
+
+        def reset_lane_state() -> None:
+            nonlocal current_lane, current_event_lanes, events_in_current_lane
+            nonlocal measure_first_token, lane_separator_tokens
+            current_lane = 1
+            current_event_lanes = []
+            events_in_current_lane = 0
+            measure_first_token = None
+            lane_separator_tokens = {}
+
+        def lane_error_token(lane: int, fallback: _Token | None) -> _Token | None:
+            """小节级声线错误的定位 token：行列指向小节开头，范围覆盖整小节
+            （这样 validate 的 mask 重试会遮蔽整个出错小节，不会因只遮蔽
+            小节线而把内容并入下一行小节、级联出重复的错位诊断）。
+            """
+            base = measure_first_token or fallback
+            if base is None:
+                return None
+            end_utf16 = (
+                fallback.end_utf16
+                if fallback is not None and fallback.end_utf16 is not None
+                else base.end_utf16
+            )
+            return _Token(
+                value=base.value,
+                line=base.line,
+                column=base.column,
+                start_utf16=measure_source_start_utf16,
+                end_utf16=end_utf16,
+                measure=fallback.measure if fallback is not None else base.measure,
+            )
+
+        if current_lane > 1 and events_in_current_lane == 0:
+            separator = lane_separator_tokens.get(current_lane)
+            raise _contextual_syntax_error(
+                separator or boundary_token,
+                f"声线分隔符 & 之后的第 {current_lane} 声线不能为空",
+            )
         if not current_events and not current_blocks:
+            reset_lane_state()
             if repeat_applied_backward:
                 repeat_applied_backward = False
                 measure_articulations = []
@@ -1086,6 +1139,7 @@ def parse_jianpu_score(
                         measure_rest=True,
                     )
                 ]
+                current_event_lanes = [1]
                 if measure_source_start_utf16 is None and boundary_token is not None:
                     measure_source_start_utf16 = boundary_token.start_utf16
             else:
@@ -1093,6 +1147,24 @@ def parse_jianpu_score(
                 measure_ornaments = []
                 measure_source_start_utf16 = None
                 return
+        # 多声线小节：为所有事件打上 voice 标签（声线序号），
+        # 并严格校验每条声线不超出小节时值（对齐是 & 语法的前提）。
+        if current_lane > 1:
+            for event, lane in zip(current_events, current_event_lanes, strict=True):
+                event.voice = str(lane)
+            target = Fraction(current_beats * 4, current_beat_type)
+            lane_ends: dict[int, Fraction] = {}
+            for event, lane in zip(current_events, current_event_lanes, strict=True):
+                end = (event.start or Fraction(0, 1)) + event.duration
+                if end > lane_ends.get(lane, Fraction(0, 1)):
+                    lane_ends[lane] = end
+            for lane, end in sorted(lane_ends.items()):
+                if end > target:
+                    raise _contextual_syntax_error(
+                        lane_error_token(lane, boundary_token),
+                        f"第 {lane} 声线超拍：实际 {end}，小节时值 {target}。"
+                        "请检查 & 分隔的每条声线时长不超过小节总时值。",
+                    )
         source_end_utf16 = (
             boundary_token.end_utf16
             if boundary_token is not None
@@ -1131,6 +1203,7 @@ def parse_jianpu_score(
         measure_ornaments = []
         pending_repeat_count = 1
         measure_source_start_utf16 = None
+        reset_lane_state()
 
     def append_event(event: Event, raw: str, token: _Token | None = None) -> None:
         nonlocal \
@@ -1141,11 +1214,10 @@ def parse_jianpu_score(
             pending_technical, \
             pending_slide, \
             pending_slide_token, \
-            open_slur, \
-            open_tie, \
-            last_pitched_event, \
             repeat_applied_backward, \
-            measure_source_start_utf16
+            measure_source_start_utf16, \
+            events_in_current_lane, \
+            measure_first_token
         event.source_token = raw
         if token is not None:
             event.source_start_utf16 = token.start_utf16
@@ -1192,29 +1264,31 @@ def parse_jianpu_score(
                 raise _contextual_syntax_error(
                     token, "连线滑音 ^lh 后必须跟随音符，不能跟休止符"
                 )
-            if last_pitched_event is None:
+            lane_last_pitched = last_pitched_by_lane.get(current_lane)
+            if lane_last_pitched is None:
                 raise _contextual_syntax_error(
                     token, "连线滑音 ^lh 前没有可连接的起始音"
                 )
-            last_pitched_event.slide_start = True
+            lane_last_pitched.slide_start = True
             _set_slide_direction(
-                last_pitched_event,
+                lane_last_pitched,
                 event,
                 instrument_profile=options.instrument_profile,
                 token=token,
             )
         if event.slur_start:
-            open_slur = True
-        if event.slur_stop and open_slur:
-            open_slur = False
+            open_slur_by_lane[current_lane] = True
+        if event.slur_stop and open_slur_by_lane.get(current_lane):
+            open_slur_by_lane[current_lane] = False
         # Propagate tie across measures: if a previous note had tie_start,
         # the next note automatically receives tie_stop even without explicit ~
-        if open_tie and not event.tie_stop:
+        # （按声线隔离：lane 1 末尾的 tie 只连到下一小节的 lane 1）
+        if open_tie_by_lane.get(current_lane) and not event.tie_stop:
             event.tie_stop = True
         if event.tie_start:
-            open_tie = True
+            open_tie_by_lane[current_lane] = True
         elif event.tie_stop:
-            open_tie = False
+            open_tie_by_lane[current_lane] = False
         for pitch in event.pitches:
             if pitch.accidental_text in {"n", "♮"}:
                 _step, key_alter, _octave = jianpu_pitch_to_written(
@@ -1228,16 +1302,20 @@ def parse_jianpu_score(
         _validate_instrument_mark_target(event, options.instrument_profile, token=token)
         if measure_source_start_utf16 is None and token is not None:
             measure_source_start_utf16 = token.start_utf16
+            measure_first_token = token
         repeat_applied_backward = False
         current_events.append(event)
+        current_event_lanes.append(current_lane)
+        events_in_current_lane += 1
         cursor += event.duration
         if event.kind == "note":
-            last_pitched_event = event
+            last_pitched_by_lane[current_lane] = event
 
     def remember_measure_token(token: _Token) -> None:
-        nonlocal measure_source_start_utf16
+        nonlocal measure_source_start_utf16, measure_first_token
         if measure_source_start_utf16 is None:
             measure_source_start_utf16 = token.start_utf16
+            measure_first_token = token
 
     for token in token_lines:
         raw = token.value
@@ -1280,6 +1358,24 @@ def parse_jianpu_score(
             continue
         if re.fullmatch(r"\d+/\d+", raw):
             raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
+        if raw == "&":
+            # 声线分隔：结束当前声线，下一条声线从小节起点重新开始计时。
+            if not current_event_lanes:
+                raise _syntax_error(
+                    token,
+                    "声线分隔符 & 不能出现在小节开头，请先写第 1 声线的内容",
+                )
+            if events_in_current_lane == 0:
+                raise _syntax_error(
+                    token, "声线分隔符 & 不能连续出现，每条声线至少一个事件"
+                )
+            if pending_slide:
+                raise _syntax_error(token, "连线滑音 ^lh 不能跨声线连接")
+            current_lane += 1
+            lane_separator_tokens[current_lane] = token
+            events_in_current_lane = 0
+            cursor = Fraction(0, 1)
+            continue
         if raw in {"|", "||"}:
             flush_measure(
                 preserve_empty=not skip_empty_bar_after_repeat_end,
@@ -1567,7 +1663,7 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                 options.beat_type = int(beat_type)
             continue
         for match in re.finditer(
-            r"\(?\$[^$]+\$\)?|\|\||\|:|:\||\||[^\s|]+",
+            r"\(?\$[^$]+\$\)?|\|\||\|:|:\||\||&|[^\s|&]+",
             raw_line,
         ):
             raw_token = match.group(0)
@@ -1742,6 +1838,10 @@ def _parse_tuplet_token(token: _Token) -> list[tuple[Event, str]]:
         + (len(inner) - len(inner.lstrip()))
     )
     body = inner.strip()
+    if "&" in body:
+        raise _syntax_error(
+            token, "连音组内不允许声线分隔符 &，声线切换只能在小节顶层进行"
+        )
     explicit_ratio, body, ratio_offset = _consume_tuplet_ratio(body, token)
     body_offset += ratio_offset
     parts = _split_tuplet_body(body)
@@ -2183,6 +2283,9 @@ def _apply_lyrics(score: JianpuScore, lyrics: list[str]) -> None:
             if lyric_index >= len(lyrics):
                 return
             if event.kind != "note":
+                continue
+            # 多声线小节（& 语法）的歌词只归属第 1 声线
+            if event.voice not in (None, "1"):
                 continue
             event.lyric = lyrics[lyric_index]
             measure.text_blocks.append(

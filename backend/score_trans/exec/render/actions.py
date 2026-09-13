@@ -416,7 +416,9 @@ class RenderActions:
             jianpu_text=req.jianpu_text,
         )
 
-    def render_live_jianpu_svg(self, req: LiveJianpuSvgRequest) -> LiveJianpuSvgResponse:
+    def render_live_jianpu_svg(
+        self, req: LiveJianpuSvgRequest
+    ) -> LiveJianpuSvgResponse:
         options = RenderOptions(
             title="",
             width=800,

@@ -3,6 +3,13 @@
 > 配套文档：[multi-part-audit-2026-09.md](multi-part-audit-2026-09.md)（问题清单与实测证据）
 > 当前基线：`996 passed, 1 skipped, 8 xfailed`（CI 绿色）
 > 守护测试：`tests/test_multi_part_roundtrip.py`
+>
+> **F2 已完成（voice 声线支持）**：简谱文本新增小节内联 `&` 声线语法（见
+> [jianpu-syntax.md](jianpu-syntax.md) §8），`polyphony_mode`（`auto`/`preserve`/`flatten`）
+> 控制行为；真复调检测、文本往返、MusicXML 往返、SVG 双排渲染均已落地，
+> 守护测试新增 `tests/test_voices.py` 与 test_multi_part_roundtrip.py 的
+> `test_polyphonic_*` 验收用例。文本格式未采用下文方案 B 的全局 `// @voice` 段，
+> 而是按用户拍板的小节级内联分隔——普通小节逐字不变。
 
 ---
 

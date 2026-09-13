@@ -77,6 +77,7 @@ export type CorrectionRequest = Schemas['CorrectionRequest']
 export type CorrectionResponse = Schemas['CorrectionResponse']
 
 export type AccidentalMode = NonNullable<BatchRenderRequest['accidental_mode']>
+export type PolyphonyMode = NonNullable<PipelineByFileIdRequest['polyphony_mode']>
 export type MeasureNumberMode = NonNullable<BatchRenderRequest['measure_number_mode']>
 export type InstrumentProfile = NonNullable<AiTranscribeRequest['instrument_profile']>
 export type TargetKey = NonNullable<AiTranscribeRequest['target_key']>

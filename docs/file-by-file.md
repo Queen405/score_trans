@@ -46,6 +46,7 @@
 | domain/write/jianpu_text.py | JianpuScore 到简谱文本的写出 |
 | domain/write/musicxml.py | JianpuScore 到 MusicXML 的写出 |
 | domain/jianpu_tokens.py | 时值、附点、延长线、连音组与音高核心 span 定位 |
+| domain/voices.py | 声部内多声线（voice）检测与分组：真复调判据（同 staff 跨 voice 时间重叠）、lane 排序 |
 | domain/accidentals.py | 变音记号和调式转换 |
 | domain/pitch_spelling.py | 音名、调号、书写音高转换与等音重拼 |
 | domain/rekey.py | 换调号时按绝对音高重记谱，保留排版与非音符 token；删除调号按管辖调回退，无法转调时回传跳过原因 |

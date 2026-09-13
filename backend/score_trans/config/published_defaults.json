@@ -17,7 +17,8 @@
     "jianpu_beat_gap_percent": "100",
     "enable_omr_ocr": "0",
     "output_dir": "",
-    "jianpu_auto_transpose": "1"
+    "jianpu_auto_transpose": "1",
+    "polyphony_mode": "auto"
   },
   "providers": {
     "ocr": {

@@ -176,6 +176,14 @@ $env:SCORE_TRANS_AI_MODEL="mimo-v2.5"
 
 ---
 
+## 简谱转换
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `SCORE_TRANS_POLYPHONY_MODE` | 声部内复调（多 voice）处理：`auto` 时间重叠时以 `&` 声线保留、`preserve` 始终保留、`flatten` 拍平为单行。 | `auto` |
+
+---
+
 ## 简谱出版渲染
 
 出版引擎使用内置 Noto Serif CJK SC 和 Bravura 字体、固定版式参数与确定性分页，不再通过 `SCORE_TRANS_RENDER_*` 环境变量调整绘制几何。
