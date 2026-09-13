@@ -139,12 +139,8 @@ npx vue-tsc --noEmit
 
 ## 构建桌面安装包
 
-```powershell
-# 先构建前端
-# 然后运行打包脚本，详见 pyinstaller.spec 和 build-app.py
-```
-
-具体打包流程参考 [`build-app.py`](../build-app.py) 和 [`pyinstaller.spec`](../pyinstaller.spec)。
+打包仅在 CI 中运行，入口为 `.github/workflows/package.yml`。详见
+[打包指南](packaging.md) 和 [`pyinstaller.spec`](../pyinstaller.spec)。
 
 ---
 

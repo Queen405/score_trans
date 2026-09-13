@@ -1,8 +1,8 @@
 # electron-builder configuration for Score Trans.
 #
-# Shared by the Windows local flow (build-app.py) and the macOS CI flow
-# (.github/workflows/build-mac.yml). Targets are split per platform so a single
-# `--config` invocation picks the right one via `--win` / `--mac`.
+# Used by CI workflows (.github/workflows/build-windows.yml and build-mac.yml).
+# Targets are split per platform so a single `--config` invocation picks the
+# right one via `--win` / `--mac`.
 #
 # extraResources maps the prebuilt backend + third_party bundles (produced in
 # build-resources/ by the build flow) into the app's resources/ directory, where

@@ -34,7 +34,7 @@ jobs:
       - name: Validate release version
         run: uv run python tools/release.py validate
       - name: Build and stage complete runtime
-        run: uv run python build-app.py --skip-electron
+        run: uv run python build-app.py
       - name: Install locked frontend dependencies
         working-directory: desktop
         run: pnpm install --frozen-lockfile

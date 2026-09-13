@@ -8,6 +8,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -111,4 +112,6 @@ if __name__ == "__main__":
     if args.command == "publish":
         publish(args.assets)
     else:
-        print(json.dumps(validate(), ensure_ascii=False))
+        sys.stdout.buffer.write(
+            json.dumps(validate(), ensure_ascii=False).encode("utf-8") + b"\n"
+        )

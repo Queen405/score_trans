@@ -53,7 +53,7 @@ def test_release_waits_for_quality_and_both_platforms() -> None:
         assert "push" not in build["on"]
         assert "gh release" not in source
         assert "tools/smoke_" in source
-        assert "build-app.py --skip-electron" in source
+        assert "build-app.py" in source
         assert "--frozen-lockfile" in source
 
 

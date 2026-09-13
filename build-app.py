@@ -1,17 +1,11 @@
-"""Score Trans 一键打包脚本
+"""Score Trans CI build script (backend + Audiveris + JRE staging).
 
-将 Python 后端、Audiveris（含 JRE）、Electron 前端打包为独立的 Windows 安装包。
-
-用法:
-    python build-app.py                    # 完整构建
-    python build-app.py --skip-backend     # 跳过后端（仅前端+打包）
-    python build-app.py --skip-jre         # 跳过 JRE 下载（使用已有 JRE）
-    python build-app.py --skip-electron    # 跳过 Electron 构建（仅后端）
+Generates the complete ``build-resources/`` directory for CI electron-builder
+packaging. Called only by GitHub Actions workflows; local packaging is not supported.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import re
@@ -27,7 +21,7 @@ THIRD_PARTY = BUILD_RESOURCES / "third_party"
 JRE_DIR = THIRD_PARTY / "jre"
 AUVERERIS_DIR = THIRD_PARTY / "audiveris"
 
-# 本地 JDK 25 路径（开发机已安装时直接复用）
+# JDK 25 path (CI uses setup-java; SCORE_TRANS_JAVA_HOME takes priority)
 LOCAL_JDK = Path(
     os.environ.get("SCORE_TRANS_JAVA_HOME")
     or os.environ.get("JAVA_HOME")
@@ -242,18 +236,18 @@ def _validate_published_defaults(project_root: Path) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Step 1 — Build Python backend (PyInstaller)
+# Step 1 - Build Python backend (PyInstaller)
 # ---------------------------------------------------------------------------
 
 
 def build_backend() -> None:
     print("\n" + "=" * 60)
-    print("[1/5] 打包 Python 后端 (PyInstaller) ...")
+    print("[1/4] Build Python backend (PyInstaller) ...")
     print("=" * 60)
 
     # Fail fast: validate published_defaults.json before any expensive build step.
     _validate_published_defaults(PROJECT_ROOT)
-    print("    published_defaults.json 校验通过")
+    print("    published_defaults.json validated")
 
     python = sys.executable
 
@@ -294,22 +288,22 @@ def build_backend() -> None:
     env_target = BACKEND_DIST / ".env"
     if env_example.exists():
         shutil.copy2(env_example, env_target)
-        print(f"    .env 已复制: {env_target}")
+        print(f"    .env copied: {env_target}")
 
     # Copy published_defaults.json into the backend bundle
     defaults_src = _PUBLISHED_DEFAULTS_SRC
     defaults_target = BACKEND_DIST / "published_defaults.json"
     if defaults_src.exists():
         shutil.copy2(defaults_src, defaults_target)
-        print(f"    published_defaults.json 已复制: {defaults_target}")
+        print(f"    published_defaults.json copied: {defaults_target}")
 
     exe = BACKEND_DIST / ("backend.exe" if sys.platform == "win32" else "backend")
     size_mb = exe.stat().st_size / (1024 * 1024) if exe.exists() else 0
-    print(f"    后端打包完成: {exe}  ({size_mb:.1f} MB)")
+    print(f"    backend built: {exe}  ({size_mb:.1f} MB)")
 
 
 # ---------------------------------------------------------------------------
-# Step 2 — Set up third_party/audiveris
+# Step 2 - Set up third_party/audiveris
 # ---------------------------------------------------------------------------
 
 
@@ -429,7 +423,7 @@ def _trim_jdk(jdk_dir: Path) -> None:
             _rm_file(exe)
     if removed > 0:
         print(
-            f"    JDK 裁剪(jmods/src.zip/ct.sym/include + bin 开发工具): -{removed:.0f} MB"
+            f"    JDK trimmed (jmods/src.zip/ct.sym/include + bin dev tools): -{removed:.0f} MB"
         )
 
 
@@ -454,14 +448,14 @@ def _purge_trash_leftovers() -> None:
         else:
             t.unlink(missing_ok=True)
         removed += 1
-    print(f"    清理 .trash/崩溃日志残留: {removed} 项")
+    print(f"    Purged .trash/crash-log leftovers: {removed} items")
 
 
 def _finalize_third_party() -> None:
     """Trim runtime-irrelevant JDK files and purge safe-rmtree trash before
     electron-builder bundles ``build-resources/`` into the installer."""
     print("\n" + "-" * 60)
-    print("[•] 打包前清理与裁剪 ...")
+    print("[-] Pre-packaging cleanup and trim ...")
     print("-" * 60)
     _trim_jdk(JRE_DIR / "jdk")
     _purge_trash_leftovers()
@@ -471,128 +465,27 @@ def _finalize_third_party() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 4 — Build Electron frontend
-# ---------------------------------------------------------------------------
-
-
-def build_electron_frontend() -> None:
-    print("\n" + "=" * 60)
-    print("[4/5] 构建 Electron 前端 ...")
-    print("=" * 60)
-
-    desktop = PROJECT_ROOT / "desktop"
-    pnpm = _find_pnpm()
-    run([pnpm, "install", "--frozen-lockfile"], cwd=desktop)
-    run([pnpm, "build"], cwd=desktop)
-    print("    Electron 前端构建完成")
-
-
-def _find_pnpm() -> str:
-    found = shutil.which("pnpm")
-    if not found:
-        raise RuntimeError(
-            "Install the pnpm version specified in desktop/package.json and add it to PATH"
-        )
-    return found
-
-
-# ---------------------------------------------------------------------------
-# Step 5 — Package with electron-builder
-# ---------------------------------------------------------------------------
-
-
-def package_electron() -> None:
-    print("\n" + "=" * 60)
-    print("[5/5] 打包 Electron 应用 (electron-builder) ...")
-    print("=" * 60)
-
-    desktop = PROJECT_ROOT / "desktop"
-    pnpm = _find_pnpm()
-    run(
-        [
-            pnpm,
-            "electron-builder",
-            "build",
-            "--mac" if sys.platform == "darwin" else "--win",
-            "--config",
-            "--publish",
-            "never",
-        ],
-        cwd=desktop,
-    )
-
-    dist = desktop / "dist-electron"
-    print(f"\n    打包完成！输出目录: {dist}")
-    installers = list(dist.glob("*.exe"))
-    for f in installers:
-        size_mb = f.stat().st_size / (1024 * 1024)
-        print(f"    → {f.name}  ({size_mb:.1f} MB)")
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Score Trans 一键打包")
-    parser.add_argument(
-        "--skip-backend", action="store_true", help="跳过 PyInstaller 后端构建"
-    )
-    parser.add_argument(
-        "--skip-jre", action="store_true", help="跳过 JRE 复制，复用已有资源"
-    )
-    parser.add_argument(
-        "--skip-electron", action="store_true", help="跳过 Electron 构建和打包"
-    )
-    parser.add_argument(
-        "--skip-audiveris",
-        action="store_true",
-        help="跳过 Audiveris 配置（使用 build-resources 中已有的 audiveris）",
-    )
-    args = parser.parse_args()
     from tools.release import validate
 
     validate()
 
-    print("╔══════════════════════════════════════════╗")
-    print("║     Score Trans 应用打包工具              ║")
-    print("╚══════════════════════════════════════════╝")
-    print(f"项目根目录: {PROJECT_ROOT}")
+    print("=" * 60)
+    print("  Score Trans CI build (staging build-resources/)")
+    print("=" * 60)
+    print(f"Project root: {PROJECT_ROOT}")
 
-    if not args.skip_backend:
-        build_backend()
-    else:
-        print("\n[1/5] 跳过后端构建")
-
-    if not args.skip_audiveris:
-        setup_audiveris()
-    else:
-        print("\n[2/5] 跳过 Audiveris 配置")
-
-    if not args.skip_jre:
-        download_jre()
-    else:
-        print("\n[3/5] 跳过 JRE 配置")
-
+    build_backend()
+    setup_audiveris()
+    download_jre()
     _finalize_third_party()
-    if not args.skip_electron:
-        build_electron_frontend()
-        package_electron()
-        from tools.smoke_package import smoke
-
-        resources = PROJECT_ROOT / "desktop" / "dist-electron"
-        resources = (
-            resources / "mac-arm64" / "Score Trans.app" / "Contents" / "Resources"
-            if sys.platform == "darwin"
-            else resources / "win-unpacked" / "resources"
-        )
-        smoke(resources)
-    else:
-        print("\n[4-5/5] 跳过 Electron 构建")
 
     print("\n" + "=" * 60)
-    print("打包流程全部完成！")
+    print("Build staging complete. CI runs electron-builder next.")
     print("=" * 60)
 
 
