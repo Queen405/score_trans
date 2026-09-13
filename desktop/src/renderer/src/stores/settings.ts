@@ -116,7 +116,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const storageRestartRequired = ref(false)
   const targetKey = ref<TargetKey>('auto')
   const accidentalMode = ref<AccidentalMode>('auto')
-  const polyphonyMode = ref<PolyphonyMode>('auto')
+  const polyphonyMode = ref<PolyphonyMode>('flatten')
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
   const jianpuSyntaxHighlight = ref(true)
@@ -169,7 +169,7 @@ export const useSettingsStore = defineStore('settings', () => {
     cacheDir: '',
     targetKey: 'auto',
     accidentalMode: 'auto',
-    polyphonyMode: 'auto',
+    polyphonyMode: 'flatten',
     measureNumberMode: 'all',
     jianpuSyntaxHighlight: true,
     jianpuMeasureDurationCheck: true,
@@ -449,7 +449,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value
     targetKey.value = data.target_key ?? 'auto'
     accidentalMode.value = data.accidental_mode ?? 'auto'
-    polyphonyMode.value = data.polyphony_mode ?? 'auto'
+    polyphonyMode.value = data.polyphony_mode ?? 'flatten'
     measureNumberMode.value =
       data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'

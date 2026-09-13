@@ -180,7 +180,7 @@ $env:SCORE_TRANS_AI_MODEL="mimo-v2.5"
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `SCORE_TRANS_POLYPHONY_MODE` | 声部内复调（多 voice）处理：`auto` 时间重叠时以 `&` 声线保留、`preserve` 始终保留、`flatten` 拍平为单行。 | `auto` |
+| `SCORE_TRANS_POLYPHONY_MODE` | 声部内复调（多 voice）处理：`auto` 时间重叠时以 `&` 声线保留、`preserve` 始终保留、`flatten` 拍平为单行。 | `flatten` |
 
 ---
 

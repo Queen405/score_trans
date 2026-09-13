@@ -18,7 +18,7 @@
     "enable_omr_ocr": "0",
     "output_dir": "",
     "jianpu_auto_transpose": "1",
-    "polyphony_mode": "auto"
+    "polyphony_mode": "flatten"
   },
   "providers": {
     "ocr": {
