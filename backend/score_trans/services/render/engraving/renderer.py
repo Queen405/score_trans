@@ -11,6 +11,7 @@ from typing import Literal
 from ....config.settings import MIDI_TICKS_PER_BEAT
 from ....domain.playback_timeline import measure_boundaries, score_parts, to_tick
 from ....domain.jianpu_tokens import is_notatable_duration
+from ....models.common.errors import RenderError
 from ....models.common.types import MeasureNumberMode
 from ....models.render.layout import PUBLICATION_ENGINE_VERSION
 from ....models.score import (
@@ -147,6 +148,7 @@ class PublicationRenderer:
         playback_tick_offset: int = 0,
         show_title: bool = True,
         page_index_offset: int = 0,
+        fit_content_height: bool = False,
     ) -> list[PublicationPage]:
         style = self._style_for_page(page_width, page_height)
         parts = _normalize_parts(scores)
@@ -163,7 +165,15 @@ class PublicationRenderer:
         }
         boundaries = measure_boundaries([cell.measures for cell in cells])
         systems = _break_systems(cells, style, len(parts))
-        pages = _paginate(systems, style)
+        if fit_content_height:
+            footer_height = style.page_height - _pagination_bottom(style)
+            content_height = sum(system.height for system in systems)
+            content_height += max(0, len(systems) - 1) * style.system_gap
+            header_height = style.title_block_height if show_title else style.continuation_header_height
+            style = replace(style, page_height=max(
+                style.page_height, style.margin_top + header_height + content_height + footer_height
+            ))
+        pages = _paginate(systems, style, show_title=show_title)
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
         document_title = title or score0.title or "简谱"
         next_note_index = 0
@@ -187,7 +197,7 @@ class PublicationRenderer:
             )
             note_start = next_note_index
             y = style.margin_top + (
-                style.title_block_height if page_index == 0 and show_title else 54.0
+                style.title_block_height if page_index == 0 and show_title else style.continuation_header_height
             )
             page_ranges: list[MeasureRange] = []
             page_cells = [cell for system in page_systems for cell in system.cells]
@@ -1248,16 +1258,7 @@ def _break_systems(
         return []
     systems: list[_System] = []
     start = 0
-    while start < len(cells):
-        forced_end = next(
-            (
-                index
-                for index in range(start + 1, len(cells))
-                if cells[index].forced_system or cells[index].forced_page
-            ),
-            len(cells),
-        )
-        end = _best_break(cells, start, forced_end, style.content_width)
+    for end in _optimal_system_ends(cells, style):
         row = cells[start:end]
         natural = sum(cell.width for cell in row)
         is_last = end == len(cells)
@@ -1287,28 +1288,91 @@ def _break_systems(
     return systems
 
 
-def _best_break(cells: list[_Cell], start: int, limit: int, available: float) -> int:
-    candidates: list[tuple[float, int]] = []
-    width = 0.0
-    for end in range(start + 1, limit + 1):
-        width += cells[end - 1].width
-        ratio = width / available
-        if ratio > 1.18 and end > start + 1:
-            break
-        badness = abs(1.0 - ratio) ** 3 * 1000.0
-        if end - start == 1 and end < len(cells):
-            badness += 160.0
-        if limit - end == 1 and end - start > 1:
-            badness += 520.0
-        candidates.append((badness, end))
-    return min(candidates, default=(0.0, min(start + 1, len(cells))))[1]
+def _boundary_penalties(cells: list[_Cell], style: PublicationStyle) -> list[float]:
+    """Track spans through every measure, matching the drawing stop/start order."""
+    penalties = [0.0]
+    active: dict[tuple[int, str], bool] = {}
+    for cell in cells:
+        penalty = 0.0
+        for part, measure in enumerate(cell.measures):
+            if measure is None:
+                continue
+            last_lyric = None
+            for event in measure.events:
+                for kind in ("slur", "tie", "slide"):
+                    key = (part, kind)
+                    if getattr(event, f"{kind}_stop"):
+                        active[key] = False
+                    if getattr(event, f"{kind}_start"):
+                        active[key] = True
+                if event.lyric:
+                    last_lyric = event.lyric
+            if last_lyric and not last_lyric.rstrip().endswith(tuple("。，；！？.,;!?")):
+                penalty += style.lyric_break_penalty
+        penalty += sum(
+            style.slur_break_penalty if kind == "slur" else style.tie_break_penalty
+            for (_, kind), opened in active.items() if opened
+        )
+        penalties.append(penalty)
+    return penalties
 
 
-def _paginate(systems: list[_System], style: PublicationStyle) -> list[list[_System]]:
+def _optimal_system_ends(cells: list[_Cell], style: PublicationStyle) -> list[int]:
+    """Shortest path over feasible rows; width bounds keep candidates local."""
+    count = len(cells)
+    penalties = _boundary_penalties(cells, style)
+    costs = [math.inf] * (count + 1)
+    following = [count] * count
+    costs[count] = 0.0
+    for start in range(count - 1, -1, -1):
+        width = 0.0
+        for end in range(start + 1, count + 1):
+            if end > start + 1 and (cells[end - 1].forced_system or cells[end - 1].forced_page):
+                break
+            width += cells[end - 1].width
+            ratio = width / style.content_width
+            if ratio > style.max_system_overflow_ratio and end > start + 1:
+                break
+            ragged_last = end == count and ratio < style.last_line_fill_threshold
+            badness = 0.0 if ragged_last else abs(1.0 - ratio) ** 3 * 1000.0
+            if end - start == 1 and count > 1 and ratio < 0.6:
+                badness += style.singleton_system_penalty
+            forced = end < count and (cells[end].forced_system or cells[end].forced_page)
+            if end < count and not forced:
+                badness += penalties[end]
+            total = badness + costs[end]
+            if total < costs[start]:
+                costs[start] = total
+                following[start] = end
+    ends = []
+    start = 0
+    while start < count:
+        start = following[start]
+        ends.append(start)
+    return ends
+
+
+def _pagination_bottom(style: PublicationStyle) -> float:
+    # Page number baseline is shared with _page_chrome. Use actual ink height,
+    # not the baseline, and never spend the tolerance inside the footer band.
+    _, ink_top, _, _ = font_registry().ink_bounds("0123456789", style.annotation_size)
+    footer_top = style.page_height - 24 + ink_top - style.footer_clearance
+    return min(
+        style.content_bottom + max(0.0, style.pagination_bottom_allowance),
+        style.page_height - style.footer_reserved,
+        footer_top,
+    )
+
+
+def _paginate(
+    systems: list[_System], style: PublicationStyle, *, show_title: bool = True
+) -> list[list[_System]]:
     pages: list[list[_System]] = []
     current: list[_System] = []
-    used = style.margin_top + style.title_block_height
-    content_bottom = style.content_bottom + style.pagination_bottom_allowance
+    used = style.margin_top + (
+        style.title_block_height if show_title else style.continuation_header_height
+    )
+    content_bottom = _pagination_bottom(style)
     for system in systems:
         required = system.height + (style.system_gap if current else 0)
         if current and (used + required > content_bottom or system.force_page_before):
@@ -1316,6 +1380,8 @@ def _paginate(systems: list[_System], style: PublicationStyle) -> list[list[_Sys
             current = []
             used = style.margin_top + style.continuation_header_height
             required = system.height
+        if used + required > content_bottom + 1e-6:
+            raise RenderError("单个谱表系统超出页面可用高度，请缩小谱面或增大页面")
         current.append(system)
         used += required
     if current or not pages:
@@ -2933,10 +2999,6 @@ def _split_long_note(event: Event) -> list[Event]:
     whole = int(event.duration)
     pieces: list[Fraction] = [Fraction(1)] * whole
     remainder = event.duration - whole
-    # 附点只表达无法用整数横线覆盖的小数部分：当存在小数余数时，note 片段
-    # 保留附点（画 rhythm-dot）且不再为该余数生成 extension 横线；当余数
-    # 为 0（纯整数拍）时，即使数据带 dotted 标记也用横线表达，不画附点，
-    # 例如 ``h1.`` 渲染为 ``1--`` 而非 ``1.--``。
     note_dotted = event.dotted if remainder > 0 else 0
     if remainder > 0 and note_dotted == 0:
         pieces.append(remainder)

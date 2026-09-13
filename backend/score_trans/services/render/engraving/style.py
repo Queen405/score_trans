@@ -13,9 +13,10 @@ class PublicationStyle:
     margin_right: float = 82.0
     margin_top: float = 72.0
     margin_bottom: float = 48.0
-    # Extra pagination allowance for dense systems; geometry validation still
-    # guards the actual SVG page boundary.
-    pagination_bottom_allowance: float = 120.0
+    # Reserved footer band below the music systems (page number plus clearance).
+    footer_reserved: float = 28.0
+    # Small tolerance for rounding and dense-system packing at the page edge.
+    pagination_bottom_allowance: float = 10.0
     title_size: float = 40.0
     meta_size: float = 20.0
     part_name_size: float = 18.0
@@ -82,6 +83,12 @@ class PublicationStyle:
     tuplet_stack_gap: float = 16.0
     extension_line_step: float = 18.0
     last_line_fill_threshold: float = 0.72
+    max_system_overflow_ratio: float = 1.08
+    slur_break_penalty: float = 120.0
+    tie_break_penalty: float = 100.0
+    lyric_break_penalty: float = 90.0
+    singleton_system_penalty: float = 160.0
+    footer_clearance: float = 12.0
     stroke_width: float = 1.7
     font_family: str = "ScoreTransNotoSerif"
     music_font_family: str = "ScoreTransBravura"

@@ -75,6 +75,7 @@ def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -
     style = replace(style, page_height=estimated_height)
     pages = PublicationRenderer(style).render_scores(
         [score],
+        fit_content_height=True,
         title=options.title or score.title,
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
@@ -98,6 +99,7 @@ def render_scores_svg(
     style = replace(style, page_height=estimated_height)
     pages = PublicationRenderer(style).render_scores(
         scores,
+        fit_content_height=True,
         title=options.title or first.title,
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,

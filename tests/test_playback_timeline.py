@@ -70,4 +70,5 @@ def test_bach_batch_svg_onsets_match_midi_on_every_page(tmp_path: Path) -> None:
     boundary = round((40 * Fraction(3, 2) + Fraction(1, 2)) * midi.ticks_per_beat)
     assert boundary in track_starts[0] and boundary in track_starts[1]
     assert {(boundary, 0), (boundary, 1)} <= set(svg_starts)
-    assert any(start == boundary for start, _ in page_ranges)
+    # Continuous batch reflow no longer requires a render-page break at a
+    # source-page boundary; only playback continuity and note presence matter.
