@@ -12,7 +12,10 @@ It runs quality checks, calls both platform builds, then publishes a complete re
 3. Push `main` and wait for **Package and release** to pass, including both builds.
 4. Tag that exact commit `vX.Y.Z` and push the tag. The tag build validates all three
    versions again, runs quality checks and both platform smoke tests, then publishes.
-5. Verify the public release contains:
+5. After the release is public, run `pnpm upload:cos` (from `desktop/`) to upload
+   the Windows installer and `latest.json` to Tencent COS. The auto-update check
+   returns 404 until this step completes.
+6. Verify the public release contains:
    - `Score Trans Setup X.Y.Z.exe` (Windows x64)
    - `Score Trans-X.Y.Z-arm64.dmg` and `.zip` (macOS Apple Silicon)
    - `latest.json` (version-specific download page and release notes)
@@ -39,13 +42,18 @@ artifact from a different commit or an unverified previous Actions run.
 
 ## Update discovery
 
-New clients read `releases/latest/download/latest.json`, so the update becomes visible
-only after a complete release is public. `SCORE_TRANS_UPDATE_MANIFEST_URL` can override
-this endpoint for a mirror or local tests. GitHub access may be less reliable than a
-regional mirror; connection failures remain non-blocking in the UI.
+New clients read `latest.json` from Tencent COS
+(`score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/latest.json`),
+hardcoded in `desktop/src/main/updater.ts`. The update becomes visible only
+after `pnpm upload:cos` (from `desktop/`) uploads the installer and manifest
+to the COS `download/` prefix. `SCORE_TRANS_UPDATE_MANIFEST_URL` can override
+this endpoint for a mirror or local tests. Connection failures remain
+non-blocking in the UI.
 
-Older installed clients still use the historical jsDelivr repository manifest until
-upgraded; changing this repository cannot retroactively change their updater code.
+`tools/release.py` validates versions and overwrites the manifest `url` with
+the COS installer direct link (`download/Score%20Trans%20Setup%20X.Y.Z.exe`).
+The GitHub Release created by the same script serves as a version archive and
+human-facing listing; the auto-update channel is COS.
 
 ## Delivery limits
 

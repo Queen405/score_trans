@@ -187,6 +187,10 @@
                   v-if="syntaxStore.warningCount && !syntaxStore.hideWarnings"
                   class="log-badge syntax-badge"
                 >时值警告{{ syntaxStore.warningCount }}</span>
+                <span
+                  v-if="appVersion"
+                  class="log-version"
+                >v{{ appVersion }}</span>
               </button>
               <div class="log-body">
                 <div class="log-columns">
@@ -392,6 +396,13 @@ let updateCheckTimer: ReturnType<typeof setTimeout> | null = null
 
 type UpdateCheckResult = Awaited<ReturnType<typeof window.api.checkForUpdate>>
 const updateInfo = ref<UpdateCheckResult | null>(null)
+
+const appVersion = ref('')
+onMounted(() => {
+  void window.api.getVersion().then((v) => {
+    appVersion.value = v
+  })
+})
 
 type UpdateState = 'idle' | 'update-available' | 'up-to-date' | 'error'
 const updateState = computed<UpdateState>(() => {
@@ -1115,6 +1126,13 @@ body {
   padding: 1px 5px;
   border-radius: 9px;
   line-height: 1.3;
+}
+
+.log-version {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
 }
 
 .syntax-badge {

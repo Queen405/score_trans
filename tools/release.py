@@ -14,6 +14,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REF = os.environ.get("GITHUB_REF", "")
 REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "Queen405/score_trans")
+COS_BUCKET = os.environ.get("COS_BUCKET", "score-trans-1320022301")
+COS_REGION = os.environ.get("COS_REGION", "ap-beijing")
+
+
+def _installer_url(version: str) -> str:
+    """Build the Tencent COS direct-download URL for the Windows installer."""
+    return (
+        f"https://{COS_BUCKET}.cos.{COS_REGION}.myqcloud.com"
+        f"/download/Score%20Trans%20Setup%20{version}.exe"
+    )
 
 
 def validate(root: Path = ROOT, ref: str = REF) -> dict:
@@ -28,7 +38,7 @@ def validate(root: Path = ROOT, ref: str = REF) -> dict:
         raise ValueError(f"Tag must be v{version}; got {ref}")
     return {
         **manifest,
-        "url": f"https://github.com/{REPOSITORY}/releases/tag/v{version}",
+        "url": _installer_url(version),
     }
 
 

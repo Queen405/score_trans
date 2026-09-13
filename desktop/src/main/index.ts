@@ -226,6 +226,8 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('app:check-update', () => checkForUpdate())
 
+  ipcMain.handle('app:get-version', () => app.getVersion())
+
   ipcMain.handle('app:open-external', (_event, url: string) => {
     if (typeof url !== 'string' || !isAllowedExternalURL(url)) return
     void shell.openExternal(url)

@@ -62,8 +62,11 @@ npx vue-tsc --noEmit
 - Platform workflows support `workflow_call` / `workflow_dispatch`; they never
   publish independently. All build paths use tracked `build-app.py`.
 - Versions in tag, `desktop/package.json`, and `desktop/latest.json` must agree.
-  New clients read the published release manifest, not a working-branch manifest.
-- See `RELEASE.md` for release steps and `docs/packaging.md` for runtime layout.
+  New clients read the manifest from Tencent COS (`updater.ts` hardcodes the
+  COS `download/latest.json` endpoint), not a working-branch manifest.
+- After packaging, run `pnpm upload:cos` (from `desktop/`) to upload the
+  installer and `latest.json` to COS; the auto-update check 404s until this step
+  completes. See `RELEASE.md` and `docs/packaging.md` for details.
 - Installers remain unsigned; Windows x64 and macOS arm64 are supported.
 
 ## Architecture Rules
@@ -104,6 +107,7 @@ When modifying specific areas, follow these rules:
 | `desktop/src/main/backend.ts` or launching app | Verify `.venv` exists — Electron auto-starts the FastAPI backend |
 | Audiveris integration or OMR | Verify `SCORE_TRANS_JAVA_HOME` exists and contains `bin/java.exe`. If invalid, raise `ExternalToolError` with diagnostic message. Do not defer this check to first invocation |
 | `/pipeline`, `/recognize`, `/ai/transcribe` | Use `asyncio.to_thread()` when the route must return the result to the caller; use FastAPI `BackgroundTasks` only for fire-and-forget operations. Never use synchronous blocking calls directly in async route handlers |
+| `desktop/latest.json` or releasing | After packaging, run `pnpm upload:cos` (from `desktop/`) to upload the installer and `latest.json` to Tencent COS; the auto-update check 404s until this completes. `tools/release.py` overwrites the manifest `url` with the COS direct link |
 
 - **Audiveris requires JDK 25**. Set `SCORE_TRANS_JAVA_HOME` (default on Windows: `E:/ENV/JAVA/JDK25`; use forward slashes or `pathlib.Path` for cross-platform compatibility) or place JDK at that path.
 
@@ -119,3 +123,4 @@ Key variables:
 - `SCORE_TRANS_POLYPHONY_MODE` — intra-part voice handling: `auto` (default, `&` lanes on real overlap), `preserve`, `flatten`
 - `SCORE_TRANS_OCR_API_KEY` / `SCORE_TRANS_OCR_BASE_URL` / `SCORE_TRANS_OCR_MODEL`
 - `SCORE_TRANS_AI_API_KEY` / `SCORE_TRANS_AI_BASE_URL` / `SCORE_TRANS_AI_MODEL`
+- `SCORE_TRANS_UPDATE_MANIFEST_URL` — desktop update-check `latest.json` endpoint (default: Tencent COS `download/latest.json`); override for mirrors or local tests

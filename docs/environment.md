@@ -176,6 +176,14 @@ $env:SCORE_TRANS_AI_MODEL="mimo-v2.5"
 
 ---
 
+## 应用更新
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `SCORE_TRANS_UPDATE_MANIFEST_URL` | 桌面端更新检查所读取的 `latest.json` 地址。留空时使用腾讯云 COS（`score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/latest.json`）。用于配置镜像或本地测试地址。 | COS 地址 |
+
+---
+
 ## 简谱转换
 
 | 变量 | 说明 | 默认值 |

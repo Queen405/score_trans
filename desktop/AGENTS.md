@@ -108,10 +108,10 @@ pnpm check:api-types
 
 发布流程见根目录 `RELEASE.md`，打包细节见 `docs/packaging.md`。
 
-- 新客户端从 GitHub Release 的 `releases/latest/download/latest.json` 获取更新信息。
-- `desktop/latest.json` 是发布输入，必须与 `package.json` 保持 `x.y.z` 版本一致。
-- `tools/release.py` 校验 tag、版本、两平台全部安装包，上传草稿后再公开 Release。
+- 新客户端从腾讯云 COS（`score-trans-1320022301.cos.ap-beijing.myqcloud.com`）的 `download/latest.json` 获取更新信息，地址硬编码在 `src/main/updater.ts`。
+- `desktop/latest.json` 是发布输入，必须与 `package.json` 保持 `x.y.z` 版本一致；其中 `url` 字段应指向 COS 安装包直链。
+- `tools/release.py` 校验 tag、版本、两平台全部安装包，并将 manifest 的 `url` 覆盖为 COS 直链后上传草稿、公开 Release。
+- 打包完成后必须执行 `pnpm upload:cos`（`desktop/scripts/upload-cos.mjs`）将安装包和 `latest.json` 上传到 COS 的 `download/` 前缀下，否则客户端更新检查会 404。
 - 工作分支中的 manifest 不用于新客户端的更新通知，避免提前公布未完成构建。
 - 可用 `SCORE_TRANS_UPDATE_MANIFEST_URL` 配置镜像或本地测试地址。
 - 更新检查继续使用主进程异步 IPC；连接失败不阻塞应用，不引入同步网络调用。
-- 历史版本客户端升级前仍读取旧 jsDelivr 地址。

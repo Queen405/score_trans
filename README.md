@@ -6,7 +6,7 @@
 
 五线谱与简谱互转的 Windows 本地桌面应用。支持图片/PDF 导入、Audiveris OMR 识别、AI 视觉转写、MusicXML ↔ 简谱互转，以及出版级简谱 SVG 渲染。
 
-[下载 Windows 安装包](https://github.com/Queen405/score_trans/releases) · [查看文档](docs/) · [报告问题](../../issues)
+[下载 Windows 安装包](https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.0.3.exe) · [查看文档](docs/) · [报告问题](../../issues)
 
 <!-- TODO: 替换为真实截图 -->
 <!-- ![Score Trans 主界面](docs/images/screenshot.png) -->
@@ -29,7 +29,7 @@
 
 ## 下载与安装
 
-1. 在 [Releases](https://github.com/Queen405/score_trans/releases) 下载 `Score Trans Setup x.x.x.exe`。
+1. 下载 `Score Trans Setup x.x.x.exe`（[腾讯云 COS 直链](https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.0.3.exe) · [GitHub Releases 列表](https://github.com/Queen405/score_trans/releases)）。
 2. 双击安装并启动应用。
 3. 首次启动时，在设置页配置 JDK 25 和 Audiveris 路径。
 

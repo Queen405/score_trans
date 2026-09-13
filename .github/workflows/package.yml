@@ -42,3 +42,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python tools/release.py publish --assets release-assets
+      - name: Upload installer and manifest to Tencent COS
+        env:
+          TENCENTCLOUD_SECRET_ID: ${{ secrets.TENCENTCLOUD_SECRET_ID }}
+          TENCENTCLOUD_SECRET_KEY: ${{ secrets.TENCENTCLOUD_SECRET_KEY }}
+          COS_BUCKET: ${{ vars.COS_BUCKET }}
+          COS_REGION: ${{ vars.COS_REGION }}
+        run: |
+          VERSION=$(python -c "import json;print(json.load(open('desktop/package.json'))['version'])")
+          node desktop/scripts/upload-cos.mjs --file="release-assets/Score Trans Setup ${VERSION}.exe" --no-sync

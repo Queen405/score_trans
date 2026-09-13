@@ -81,6 +81,9 @@ const api = {
   checkForUpdate: async (): Promise<UpdateCheckResult> => {
     return ipcRenderer.invoke('app:check-update')
   },
+  getVersion: async (): Promise<string> => {
+    return ipcRenderer.invoke('app:get-version')
+  },
   openExternal: async (url: string): Promise<void> => {
     await ipcRenderer.invoke('app:open-external', url)
   },
