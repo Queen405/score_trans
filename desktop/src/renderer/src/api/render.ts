@@ -1,8 +1,8 @@
 import { apiFetch, type ApiResult } from './client'
-export interface LiveJianpuSvgRequest { jianpu_text: string; cursor_offset?: number; title?: string; show_measure_numbers?: boolean; measure_number_mode?: string; initial_measure_number?: number }
-export interface LiveJianpuSvgResponse { svg: string; jianpu_text: string }
 
 import type {
+  LiveJianpuSvgRequest,
+  LiveJianpuSvgResponse,
   BatchRenderRequest,
   BatchRenderResponse,
   RenderJianpuSvgRequest,

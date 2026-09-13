@@ -81,3 +81,6 @@ export type PolyphonyMode = NonNullable<PipelineByFileIdRequest['polyphony_mode'
 export type MeasureNumberMode = NonNullable<BatchRenderRequest['measure_number_mode']>
 export type InstrumentProfile = NonNullable<AiTranscribeRequest['instrument_profile']>
 export type TargetKey = NonNullable<AiTranscribeRequest['target_key']>
+
+export type LiveJianpuSvgRequest = Schemas['LiveJianpuSvgRequest']
+export type LiveJianpuSvgResponse = Schemas['LiveJianpuSvgResponse']

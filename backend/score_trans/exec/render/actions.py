@@ -52,7 +52,7 @@ from ...services.files.image_info import image_dimensions
 from ...services.files.upload_service import UploadService
 from ...services.ocr.providers import create_configured_ocr_provider
 from ...services.render import A4MeasureRange, RenderedA4FilePage
-from ...services.render.main import render_jianpu_svg, render_live_measure_svg
+from ...services.render.main import render_jianpu_svg, render_live_measure_preview
 from ...services.render.options import RenderOptions
 from ...services.render.render_service import PublicationRenderService
 from ..convert.actions import MusicXmlToJianpuAction
@@ -430,7 +430,9 @@ class RenderActions:
             show_page_number=False,
         )
         if req.cursor_offset is not None:
-            svg = render_live_measure_svg(req.jianpu_text, req.cursor_offset, options)
+            return render_live_measure_preview(
+                req.jianpu_text, req.cursor_offset, options
+            )
         else:
             svg = render_jianpu_svg(req.jianpu_text, options)
         return LiveJianpuSvgResponse(svg=svg, jianpu_text=req.jianpu_text)

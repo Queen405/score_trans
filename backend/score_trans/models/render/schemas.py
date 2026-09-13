@@ -9,6 +9,7 @@ from ..common.types import (
     TargetKeyOrAuto,
 )
 from ..provenance.schemas import RenderedTextBlock, SourceTextAttachment, TextAnchor
+from ..syntax.schemas import SyntaxDiagnostic
 from .layout import PUBLICATION_ENGINE_VERSION, A4LayoutRequest
 
 
@@ -86,6 +87,7 @@ class LiveJianpuSvgRequest(BaseModel):
 class LiveJianpuSvgResponse(BaseModel):
     svg: str
     jianpu_text: str
+    warnings: list[SyntaxDiagnostic] = Field(default_factory=list)
 
 
 class RenderJianpuTextSvgResponse(BaseModel):

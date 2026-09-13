@@ -6,11 +6,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ...domain.jianpu import parse_jianpu_score
-from ...domain.parse.jianpu_text import (
-    ParsedJianpuPart,
-    _assign_measure_number_bases,
-    parse_jianpu_parts,
-)
+from ...domain.parse.live_jianpu import select_live_measure
+from ...models.render.schemas import LiveJianpuSvgResponse
 from ...models.common.errors import RenderError
 from ...models.score import JianpuScore
 from .engraving.renderer import MeasureRange, PublicationPage, PublicationRenderer
@@ -78,65 +75,27 @@ def render_live_measure_svg(
     cursor_offset: int,
     options: RenderOptions | None = None,
 ) -> str:
-    """Parse the full text for key/time/tempo context, then render only the
-    single measure containing *cursor_offset*.
-
-    多声部/多页文档按 // @part、// @page 切分，定位光标所在声部的小节；
-    解析失败（编辑中间态）退化为旧的整篇小节线统计。"""
-    options = options or RenderOptions(title="")
-    try:
-        parts = parse_jianpu_parts(jianpu_text, title=options.title)
-    except Exception:  # noqa: BLE001 — 编辑中间态走旧逻辑
-        parts = []
-    if parts:
-        return _render_live_part_measure(parts, cursor_offset, options)
-    score = parse_jianpu_score(jianpu_text, title=options.title)
-    if not score.measures:
-        return render_score_svg(score, options)
-    measure_index = jianpu_text.count("|", 0, max(0, cursor_offset))
-    measure_index = min(measure_index, len(score.measures) - 1)
-    single = replace(score, title="", measures=[score.measures[measure_index]])
-    initial_number = (options.initial_measure_number or 1) + measure_index
-    options = replace(options, initial_measure_number=initial_number)
-    return render_score_svg(single, options)
+    return render_live_measure_preview(jianpu_text, cursor_offset, options).svg
 
 
-def _render_live_part_measure(
-    parts: list[ParsedJianpuPart],
+def render_live_measure_preview(
+    jianpu_text: str,
     cursor_offset: int,
-    options: RenderOptions,
-) -> str:
-    # cursor_offset 是编辑器（JS）的 UTF-16 偏移，与 part/measure 的
-    # *_utf16 字段同单位。光标落在空白/标记行时取前方最近声部与小节。
-    cursor = max(0, cursor_offset)
-    part = parts[0]
-    for candidate in parts:
-        if candidate.body_start_utf16 <= cursor:
-            part = candidate
-        else:
-            break
-    score = part.score
-    if not score.measures:
-        return render_score_svg(score, options)
-    measure_index = 0
-    for index, measure in enumerate(score.measures):
-        start = measure.source_start_utf16
-        end = measure.source_end_utf16
-        if end is not None and end <= cursor:
-            measure_index = index + 1
-        elif start is not None and start <= cursor:
-            measure_index = index
-    measure_index = min(measure_index, len(score.measures) - 1)
-    _assign_measure_number_bases(
-        parts, initial_measure_number=options.initial_measure_number or 1
+    options: RenderOptions | None = None,
+) -> LiveJianpuSvgResponse:
+    options = options or RenderOptions(title="")
+    selection = select_live_measure(
+        jianpu_text,
+        cursor_offset,
+        initial_measure_number=options.initial_measure_number or 1,
     )
-    initial_number = part.measure_number_base + sum(
-        max(1, int(getattr(measure, "repeat_count", 1) or 1))
-        for measure in score.measures[:measure_index]
+    svg = render_score_svg(
+        selection.score,
+        replace(options, initial_measure_number=selection.initial_measure_number),
     )
-    single = replace(score, title="", measures=[score.measures[measure_index]])
-    options = replace(options, initial_measure_number=initial_number)
-    return render_score_svg(single, options)
+    return LiveJianpuSvgResponse(
+        svg=svg, jianpu_text=jianpu_text, warnings=selection.warnings
+    )
 
 
 def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -> str:

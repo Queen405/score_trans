@@ -1,16 +1,22 @@
 <template>
   <div ref="rootRef" class="live-preview">
-    <div v-if="loading" class="live-status">渲染中…</div>
-    <div v-else-if="!svg" class="live-status">输入简谱后自动预览当前小节</div>
-    <div v-else ref="hostRef" class="live-svg" v-html="safeSvg" />
-    <div v-if="error" class="live-error">{{ error }}</div>
+    <div v-if="svg" ref="hostRef" class="live-svg" v-html="safeSvg" />
+    <div v-else class="live-status">{{ loading ? '渲染中…' : '输入简谱后自动预览当前小节' }}</div>
+    <div v-if="loading && svg" class="live-loading" role="status">渲染中…</div>
+    <div v-if="error" class="live-error" role="status">
+      <span v-if="svg">显示上次成功预览。 </span>{{ error }}
+    </div>
+    <div v-else-if="warnings?.length" class="live-warning" role="status">
+      <div v-for="warning in warnings" :key="warning.id">{{ warning.message }}</div>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue"
+import type { SyntaxDiagnostic } from '../models/types'
 import { sanitizeSvg } from "../utils/svgSanitizer"
 
-const props = defineProps<{ svg: string; loading?: boolean; error?: string }>()
+const props = defineProps<{ svg: string; loading?: boolean; error?: string; warnings?: SyntaxDiagnostic[] }>()
 const safeSvg = computed(() => sanitizeSvg(props.svg).outerHTML)
 const rootRef = ref<HTMLDivElement | null>(null)
 const hostRef = ref<HTMLDivElement | null>(null)
@@ -98,7 +104,15 @@ onMounted(() => { void nextTick(fitSvg) })
   color: var(--text-tertiary);
 }
 
-.live-error {
+.live-loading {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.live-error, .live-warning {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -107,5 +121,9 @@ onMounted(() => { void nextTick(fitSvg) })
   background: rgba(180, 40, 40, .12);
   color: #c0392b;
   font-size: 12px;
+}
+.live-warning {
+  background: rgba(170, 110, 0, .12);
+  color: #946000;
 }
 </style>

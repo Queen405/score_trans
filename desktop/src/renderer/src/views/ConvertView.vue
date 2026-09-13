@@ -440,7 +440,7 @@
             /></div>
               <template v-if="liveRenderEnabled">
                 <div class="jianpu-live-divider" @mousedown="startLiveResize" title="调整上下区域高度" />
-                <LiveJianpuPreview :svg="livePreviewSvg" :loading="livePreviewLoading" :error="livePreviewError" />
+                <LiveJianpuPreview :svg="livePreviewSvg" :loading="livePreviewLoading" :error="livePreviewError" :warnings="livePreviewWarnings" />
               </template>
             </div>
           </div>
@@ -520,7 +520,7 @@ import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
 import LiveJianpuPreview from '../components/LiveJianpuPreview.vue'
-import { renderApi } from '../api/render'
+import { useLiveJianpuPreview } from '../composables/useLiveJianpuPreview'
 import { loadRenderPageIndex, saveRenderPageIndex } from '../composables/useViewPersistence'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { isRenderAborted } from '../utils/renderAbort'
@@ -579,13 +579,10 @@ import { NButton, NPopover, NSelect, NIcon, NModal, NPopconfirm, useMessage } fr
 const store = useWorkspaceStore()
 const settings = useSettingsStore()
 const publicationRender = usePublicationRender()
-const livePreviewSvg = ref("")
-const livePreviewError = ref("")
-const livePreviewLoading = ref(false)
+const livePreview = useLiveJianpuPreview()
+const { svg: livePreviewSvg, error: livePreviewError, warnings: livePreviewWarnings, loading: livePreviewLoading } = livePreview
 const liveRenderEnabled = ref(true)
 const liveEditorRatio = ref(Number(localStorage.getItem("score-trans.live-editor-ratio") || 50))
-let livePreviewTimer: ReturnType<typeof setTimeout> | null = null
-let livePreviewController: AbortController | null = null
 const liveCursorTick = ref(0)
 let liveResizeStart: { y: number; ratio: number; height: number } | null = null
 const log = useLogStore()
@@ -744,26 +741,17 @@ function loadInitialMeasureNumber(batchId: string | null): number {
   return Number.isInteger(raw) && raw >= 1 ? raw : 1
 }
 
-watch([jianpuText, liveCursorTick, liveRenderEnabled], ([text, , enabled]) => {
-  if (!enabled) {
-    if (livePreviewTimer) clearTimeout(livePreviewTimer)
-    livePreviewController?.abort()
-    livePreviewSvg.value = ""
-    livePreviewError.value = ""
-    livePreviewLoading.value = false
-    return
-  }
-  if (livePreviewTimer) clearTimeout(livePreviewTimer)
-  livePreviewTimer = setTimeout(async () => {
-    if (!text.trim()) { livePreviewSvg.value = ""; livePreviewError.value = ""; return }
-    livePreviewController?.abort(); livePreviewController = new AbortController(); livePreviewLoading.value = true
+watch(
+  [jianpuText, liveCursorTick, liveRenderEnabled, initialMeasureNumber, () => store.currentBatchId],
+  ([text, , enabled, initialNumber, documentId]) => {
     const cursorOffset = jianpuEditorRef.value?.getSelectionRange()?.start ?? text.length
-    const result = await renderApi.liveJianpuSvg({ jianpu_text: text, cursor_offset: cursorOffset, show_measure_numbers: false, initial_measure_number: initialMeasureNumber.value }, livePreviewController.signal)
-    if (result.data) { livePreviewSvg.value = result.data.svg; livePreviewError.value = "" }
-    else if (result.error && result.error.name !== "AbortError") livePreviewError.value = result.error.message
-    livePreviewLoading.value = false
-  }, 150)
-})
+    livePreview.update({
+      documentId,
+      enabled,
+      request: { jianpu_text: text, cursor_offset: cursorOffset, show_measure_numbers: false, initial_measure_number: initialNumber },
+    })
+  },
+)
 function toggleLiveRender(): void {
   liveRenderEnabled.value = !liveRenderEnabled.value
 }
@@ -1096,6 +1084,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  livePreview.dispose()
   settleDiscardConfirmation(false)
   stopHistoryUpdatedListener?.()
   stopHistoryUpdatedListener = null

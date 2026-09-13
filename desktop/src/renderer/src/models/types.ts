@@ -1,4 +1,6 @@
 export type {
+  LiveJianpuSvgRequest,
+  LiveJianpuSvgResponse,
   AccidentalMode,
   AiChatMessage,
   AiChatRequest,

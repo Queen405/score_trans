@@ -1868,6 +1868,8 @@ export type components = {
             jianpu_text: string;
             /** Svg */
             svg: string;
+            /** Warnings */
+            warnings?: components["schemas"]["SyntaxDiagnostic"][];
         };
         /** LlmProviderOption */
         LlmProviderOption: {

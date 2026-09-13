@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 
 from ...models.common.errors import JianpuValidationError
@@ -20,6 +20,7 @@ from ...models.score import (
     JianpuPitch,
     JianpuScore,
     Measure,
+    SlideDirection,
     TextBlock,
     TupletSpan,
 )
@@ -1007,6 +1008,42 @@ def _remap_part_syntax_error(
     )
 
 
+@dataclass(slots=True)
+class _PreviewRecovery:
+    """Per-request recovery; strict parsing never creates this state."""
+
+    errors: dict[int, JianpuSyntaxError] = field(default_factory=dict)
+    lexical_errors: dict[int, JianpuSyntaxError] = field(default_factory=dict)
+    context_warnings: dict[str, SyntaxDiagnostic] = field(default_factory=dict)
+    warnings: dict[int, list[SyntaxDiagnostic]] = field(default_factory=dict)
+    profiles: dict[int, InstrumentProfile] = field(default_factory=dict)
+
+    def setting_valid(self, name: str) -> None:
+        self.context_warnings.pop(name, None)
+
+    def failed(self, index: int, error: JianpuSyntaxError) -> None:
+        self.errors.setdefault(index, error)
+        raw = error.token.value.strip()
+        setting = None
+        if raw.startswith("1=") or re.match(r"^1\s*=", raw):
+            setting = "调号"
+        elif re.fullmatch(r"\d+/\d+", raw):
+            setting = "拍号"
+        elif raw.startswith("tempo"):
+            setting = "速度"
+        elif raw.startswith("instrument"):
+            setting = "乐器模式"
+        if setting:
+            diagnostic = error.diagnostic()
+            self.context_warnings[setting] = diagnostic.model_copy(
+                update={
+                    "id": "live-context-" + diagnostic.id,
+                    "severity": "warning",
+                    "message": f"此前{setting}设置无效，当前预览沿用最近有效设置（未设置时使用默认值）。",
+                }
+            )
+
+
 def parse_jianpu_score(
     text: str,
     *,
@@ -1015,6 +1052,20 @@ def parse_jianpu_score(
 ) -> JianpuScore:
     normalized = text.lstrip("\ufeff")
     options, token_lines, lyrics = _read_new_syntax(normalized)
+    return _parse_score_tokens(
+        options, token_lines, lyrics, title=title, initial_tempo=_initial_tempo
+    )
+
+
+def _parse_score_tokens(
+    options: JianpuOptions,
+    token_lines: list[_Token],
+    lyrics: list[str],
+    *,
+    title: str | None = None,
+    initial_tempo: int = DEFAULT_TEMPO,
+    recovery: _PreviewRecovery | None = None,
+) -> JianpuScore:
     if title and options.title == "简谱":
         options.title = title
     score = JianpuScore(
@@ -1044,7 +1095,7 @@ def parse_jianpu_score(
     current_key = options.key
     current_beats = options.beats
     current_beat_type = options.beat_type
-    current_tempo = options.tempo or _initial_tempo
+    current_tempo = options.tempo or initial_tempo
     pending_slide_token: _Token | None = None
     skip_empty_bar_after_repeat_end = False
     measure_source_start_utf16: int | None = None
@@ -1060,6 +1111,10 @@ def parse_jianpu_score(
     # 以及每条声线的引入 & token（空声线错误的定位点）。
     measure_first_token: _Token | None = None
     lane_separator_tokens: dict[int, _Token] = {}
+
+    discarding = False
+    connections_uncertain = False
+    slide_undo: list[tuple[Event, bool, SlideDirection | None]] = []
 
     def flush_measure(
         *,
@@ -1193,7 +1248,13 @@ def parse_jianpu_score(
             source_end_utf16=source_end_utf16,
         )
         _normalize_parsed_measure(measure)
+        if recovery is not None:
+            recovery.profiles[len(score.measures)] = options.instrument_profile
+            recovery.warnings[len(score.measures)] = list(
+                recovery.context_warnings.values()
+            )
         score.measures.append(measure)
+        slide_undo.clear()
         current_events = []
         current_blocks = []
         cursor = Fraction(0, 1)
@@ -1269,6 +1330,14 @@ def parse_jianpu_score(
                 raise _contextual_syntax_error(
                     token, "连线滑音 ^lh 前没有可连接的起始音"
                 )
+            if recovery is not None:
+                slide_undo.append(
+                    (
+                        lane_last_pitched,
+                        lane_last_pitched.slide_start,
+                        lane_last_pitched.slide_direction,
+                    )
+                )
             lane_last_pitched.slide_start = True
             _set_slide_direction(
                 lane_last_pitched,
@@ -1276,6 +1345,23 @@ def parse_jianpu_score(
                 instrument_profile=options.instrument_profile,
                 token=token,
             )
+        if connections_uncertain:
+            if (
+                event.slur_stop
+                and not event.slur_start
+                and not open_slur_by_lane.get(current_lane)
+            ):
+                raise _contextual_syntax_error(
+                    token, "此前小节有语法错误，连音线的起点不可确定"
+                )
+            if (
+                event.tie_stop
+                and not event.tie_start
+                and not open_tie_by_lane.get(current_lane)
+            ):
+                raise _contextual_syntax_error(
+                    token, "此前小节有语法错误，延音线的起点不可确定"
+                )
         if event.slur_start:
             open_slur_by_lane[current_lane] = True
         if event.slur_stop and open_slur_by_lane.get(current_lane):
@@ -1317,216 +1403,315 @@ def parse_jianpu_score(
             measure_source_start_utf16 = token.start_utf16
             measure_first_token = token
 
+    def recover_measure(boundary: _Token | None) -> None:
+        nonlocal current_events, current_blocks, current_lane, events_in_current_lane
+        nonlocal cursor, pending_dynamic, pending_slide, pending_slide_token, discarding
+        nonlocal repeat_applied_backward, connections_uncertain
+        connections_uncertain = True
+        for event, slide_start, direction in slide_undo:
+            event.slide_start = slide_start
+            event.slide_direction = direction
+        slide_undo.clear()
+        current_events = []
+        current_blocks = []
+        current_lane = 1
+        events_in_current_lane = 0
+        cursor = Fraction(0)
+        pending_dynamic = None
+        pending_articulations.clear()
+        pending_ornaments.clear()
+        pending_technical.clear()
+        pending_slide = False
+        pending_slide_token = None
+        open_slur_by_lane.clear()
+        open_tie_by_lane.clear()
+        last_pitched_by_lane.clear()
+        repeat_applied_backward = False
+        flush_measure(preserve_empty=True, boundary_token=boundary)
+        discarding = False
+
     for token in token_lines:
         raw = token.value
-        if skip_empty_bar_after_repeat_end and raw not in {"|", "||"}:
-            skip_empty_bar_after_repeat_end = False
-        key_signature = _key_signature_value(raw)
-        if key_signature is not None:
-            if current_events:
-                raise _syntax_error(
-                    token,
-                    f"调号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
-                    "请把调号移到小节开头或紧跟在小节线 | 之后。",
-                )
-            if score.measures and not token.standalone_line:
+        boundary = raw in {"|", "||", "|:", ":|"}
+        if discarding:
+            if re.fullmatch(r"\*\d+", raw):
+                pending_repeat_count = max(1, int(raw[1:]))
+            if not boundary:
+                continue
+            recover_measure(token)
+            if raw == "|:":
+                next_repeat_start = True
                 remember_measure_token(token)
-            current_key = key_signature
-            continue
-        if _is_tempo_token(raw):
-            if current_events:
-                raise _syntax_error(
-                    token,
-                    f"速度 {raw} 必须写在该小节音符之前，不能写在音符后面。"
-                    "请把速度移到小节开头或紧跟在小节线 | 之后。",
-                )
-            if score.measures and not token.standalone_line:
-                remember_measure_token(token)
-            current_tempo = _parse_tempo_token(token)
-            continue
-        time_signature = _time_signature_value(raw)
-        if time_signature is not None:
-            if current_events:
-                raise _syntax_error(
-                    token,
-                    f"拍号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
-                    "请把拍号移到小节开头或紧跟在小节线 | 之后。",
-                )
-            if score.measures and not token.standalone_line:
-                remember_measure_token(token)
-            current_beats, current_beat_type = time_signature
-            continue
-        if re.fullmatch(r"\d+/\d+", raw):
-            raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
-        if raw == "&":
-            # 声线分隔：结束当前声线，下一条声线从小节起点重新开始计时。
-            if not current_event_lanes:
-                raise _syntax_error(
-                    token,
-                    "声线分隔符 & 不能出现在小节开头，请先写第 1 声线的内容",
-                )
-            if events_in_current_lane == 0:
-                raise _syntax_error(
-                    token, "声线分隔符 & 不能连续出现，每条声线至少一个事件"
-                )
-            if pending_slide:
-                raise _syntax_error(token, "连线滑音 ^lh 不能跨声线连接")
-            current_lane += 1
-            lane_separator_tokens[current_lane] = token
-            events_in_current_lane = 0
-            cursor = Fraction(0, 1)
-            continue
-        if raw in {"|", "||"}:
-            flush_measure(
-                preserve_empty=not skip_empty_bar_after_repeat_end,
-                boundary_token=token,
-            )
-            skip_empty_bar_after_repeat_end = False
-            continue
-        if raw == "|:":
-            flush_measure(boundary_token=token)
-            next_repeat_start = True
-            remember_measure_token(token)
-            continue
-        if raw == ":|":
-            flush_measure(boundary_token=token)
-            if score.measures:
+            elif raw == ":|":
                 score.measures[-1].repeat_end = True
-            skip_empty_bar_after_repeat_end = True
+                skip_empty_bar_after_repeat_end = True
             continue
-        if re.fullmatch(r"\*\d+", raw):
-            repeat_count = max(1, int(raw[1:]))
-            if (
-                not current_events
-                and not current_blocks
-                and score.measures
-                and not next_repeat_start
-            ):
-                previous = score.measures[-1]
-                previous.repeat_count = repeat_count
-                if token.end_utf16 is not None and (
-                    previous.source_end_utf16 is None
-                    or token.end_utf16 > previous.source_end_utf16
-                ):
-                    previous.source_end_utf16 = token.end_utf16
-                repeat_applied_backward = True
-            else:
-                remember_measure_token(token)
-                pending_repeat_count = repeat_count
-            continue
-
-        measure_mark = _measure_level_mark(raw)
-        if measure_mark is not None:
-            remember_measure_token(token)
-            kind, mark = measure_mark
-            if not mark:
-                raise _syntax_error(
-                    token,
-                    f"不支持的小节级演奏标记：{raw}。"
-                    "请使用 (^l)、(^.)、(^>)、(^r)、(^f)",
+        try:
+            if recovery is not None and token.start_utf16 in recovery.lexical_errors:
+                raise recovery.lexical_errors[token.start_utf16]
+            if skip_empty_bar_after_repeat_end and raw not in {"|", "||"}:
+                skip_empty_bar_after_repeat_end = False
+            if recovery is not None and raw.startswith("instrument="):
+                options.instrument_profile = normalize_instrument_profile(
+                    raw.split("=", 1)[1]
                 )
-            if current_events:
-                raise _syntax_error(
-                    token,
-                    f"小节级演奏标记 {raw} 必须写在当前小节第一个音符或休止符之前。",
-                )
-            if kind == "ornament":
-                _append_unique_mark(measure_ornaments, mark)
-            else:
-                _append_unique_mark(measure_articulations, mark)
-            continue
-        if raw.startswith("\\"):
-            remember_measure_token(token)
-            dynamic = raw[1:]
-            if dynamic not in DYNAMICS:
-                inline_marks, event_part = _consume_tuplet_inline_marks(raw)
-                if not inline_marks or not event_part:
+                recovery.setting_valid("乐器模式")
+                continue
+            key_signature = _key_signature_value(raw)
+            if key_signature is not None:
+                if current_events:
                     raise _syntax_error(
                         token,
-                        f"不支持的力度标记：{raw}，请使用 \\p、\\mp、\\f、\\ff 等",
+                        f"调号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
+                        "请把调号移到小节开头或紧跟在小节线 | 之后。",
                     )
-                event_offset = raw.find(event_part)
-                event_token = _Token(
-                    event_part,
-                    token.line,
-                    token.column + event_offset,
-                    start_utf16=(
-                        token.start_utf16 + _utf16_length(raw[:event_offset])
-                        if token.start_utf16 is not None
-                        else None
-                    ),
-                    end_utf16=(
-                        token.start_utf16
-                        + _utf16_length(raw[:event_offset])
-                        + _utf16_length(event_part)
-                        if token.start_utf16 is not None
-                        else None
-                    ),
-                    measure=token.measure,
-                )
-                event = _parse_event_token(event_token)
-                _apply_inline_marks(event, inline_marks)
-                append_event(event, raw, token)
+                if score.measures and not token.standalone_line:
+                    remember_measure_token(token)
+                if recovery is not None:
+                    recovery.setting_valid("调号")
+                current_key = key_signature
                 continue
-            pending_dynamic = dynamic
-            continue
-        if raw.startswith("^"):
+            if _is_tempo_token(raw):
+                if current_events:
+                    raise _syntax_error(
+                        token,
+                        f"速度 {raw} 必须写在该小节音符之前，不能写在音符后面。"
+                        "请把速度移到小节开头或紧跟在小节线 | 之后。",
+                    )
+                if score.measures and not token.standalone_line:
+                    remember_measure_token(token)
+                current_tempo = _parse_tempo_token(token)
+                if recovery is not None:
+                    recovery.setting_valid("速度")
+                continue
+            time_signature = _time_signature_value(raw)
+            if time_signature is not None:
+                if current_events:
+                    raise _syntax_error(
+                        token,
+                        f"拍号 {raw} 必须写在该小节音符之前，不能写在音符后面。"
+                        "请把拍号移到小节开头或紧跟在小节线 | 之后。",
+                    )
+                if score.measures and not token.standalone_line:
+                    remember_measure_token(token)
+                if recovery is not None:
+                    recovery.setting_valid("拍号")
+                current_beats, current_beat_type = time_signature
+                continue
+            if re.fullmatch(r"\d+/\d+", raw):
+                raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
+            if raw == "&":
+                # 声线分隔：结束当前声线，下一条声线从小节起点重新开始计时。
+                if not current_event_lanes:
+                    raise _syntax_error(
+                        token,
+                        "声线分隔符 & 不能出现在小节开头，请先写第 1 声线的内容",
+                    )
+                if events_in_current_lane == 0:
+                    raise _syntax_error(
+                        token, "声线分隔符 & 不能连续出现，每条声线至少一个事件"
+                    )
+                if pending_slide:
+                    raise _syntax_error(token, "连线滑音 ^lh 不能跨声线连接")
+                current_lane += 1
+                lane_separator_tokens[current_lane] = token
+                events_in_current_lane = 0
+                cursor = Fraction(0, 1)
+                continue
+            if raw in {"|", "||"}:
+                flush_measure(
+                    preserve_empty=not skip_empty_bar_after_repeat_end,
+                    boundary_token=token,
+                )
+                skip_empty_bar_after_repeat_end = False
+                continue
+            if raw == "|:":
+                flush_measure(boundary_token=token)
+                next_repeat_start = True
+                remember_measure_token(token)
+                continue
+            if raw == ":|":
+                flush_measure(boundary_token=token)
+                if score.measures:
+                    score.measures[-1].repeat_end = True
+                skip_empty_bar_after_repeat_end = True
+                continue
+            if re.fullmatch(r"\*\d+", raw):
+                repeat_count = max(1, int(raw[1:]))
+                if (
+                    not current_events
+                    and not current_blocks
+                    and score.measures
+                    and not next_repeat_start
+                ):
+                    previous = score.measures[-1]
+                    previous.repeat_count = repeat_count
+                    if token.end_utf16 is not None and (
+                        previous.source_end_utf16 is None
+                        or token.end_utf16 > previous.source_end_utf16
+                    ):
+                        previous.source_end_utf16 = token.end_utf16
+                    repeat_applied_backward = True
+                else:
+                    remember_measure_token(token)
+                    pending_repeat_count = repeat_count
+                continue
+
+            measure_mark = _measure_level_mark(raw)
+            if measure_mark is not None:
+                remember_measure_token(token)
+                kind, mark = measure_mark
+                if not mark:
+                    raise _syntax_error(
+                        token,
+                        f"不支持的小节级演奏标记：{raw}。"
+                        "请使用 (^l)、(^.)、(^>)、(^r)、(^f)",
+                    )
+                if current_events:
+                    raise _syntax_error(
+                        token,
+                        f"小节级演奏标记 {raw} 必须写在当前小节第一个音符或休止符之前。",
+                    )
+                if kind == "ornament":
+                    _append_unique_mark(measure_ornaments, mark)
+                else:
+                    _append_unique_mark(measure_articulations, mark)
+                continue
+            if raw.startswith("\\"):
+                remember_measure_token(token)
+                dynamic = raw[1:]
+                if dynamic not in DYNAMICS:
+                    inline_marks, event_part = _consume_tuplet_inline_marks(raw)
+                    if not inline_marks or not event_part:
+                        raise _syntax_error(
+                            token,
+                            f"不支持的力度标记：{raw}，请使用 \\p、\\mp、\\f、\\ff 等",
+                        )
+                    event_offset = raw.find(event_part)
+                    event_token = _Token(
+                        event_part,
+                        token.line,
+                        token.column + event_offset,
+                        start_utf16=(
+                            token.start_utf16 + _utf16_length(raw[:event_offset])
+                            if token.start_utf16 is not None
+                            else None
+                        ),
+                        end_utf16=(
+                            token.start_utf16
+                            + _utf16_length(raw[:event_offset])
+                            + _utf16_length(event_part)
+                            if token.start_utf16 is not None
+                            else None
+                        ),
+                        measure=token.measure,
+                    )
+                    event = _parse_event_token(event_token)
+                    _apply_inline_marks(event, inline_marks)
+                    append_event(event, raw, token)
+                    continue
+                pending_dynamic = dynamic
+                continue
+            if raw.startswith("^"):
+                remember_measure_token(token)
+                name = raw[1:]
+                if mark_for_token(name) is None and _ornament_name(name) is None:
+                    inline_marks, event_part = _consume_tuplet_inline_marks(raw)
+                    if not inline_marks or not event_part:
+                        raise _syntax_error(token, f"不支持的演奏标记：{raw}")
+                    event_offset = raw.find(event_part)
+                    event_token = _Token(
+                        event_part,
+                        token.line,
+                        token.column + event_offset,
+                        start_utf16=(
+                            token.start_utf16 + _utf16_length(raw[:event_offset])
+                            if token.start_utf16 is not None
+                            else None
+                        ),
+                        end_utf16=(
+                            token.start_utf16
+                            + _utf16_length(raw[:event_offset])
+                            + _utf16_length(event_part)
+                            if token.start_utf16 is not None
+                            else None
+                        ),
+                        measure=token.measure,
+                    )
+                    event = _parse_event_token(event_token)
+                    _apply_inline_marks(event, inline_marks)
+                    append_event(event, raw, token)
+                    continue
+                kind, mark = _mark_kind_name(name)
+                if kind == "spanner":
+                    pending_slide = True
+                    pending_slide_token = token
+                    continue
+                if kind == "ornament":
+                    pending_ornaments.append(mark)
+                elif kind == "technical":
+                    pending_technical.append(mark)
+                else:
+                    pending_articulations.append(mark)
+                continue
+            if _is_tuplet_token(raw):
+                for event, source_token in _parse_tuplet_token(token):
+                    append_event(event, source_token, token)
+                continue
+
+            append_event(_parse_event_token(token), raw, token)
+
+        except JianpuSyntaxError as exc:
+            if recovery is None:
+                raise
+            recovery.failed(len(score.measures), exc)
             remember_measure_token(token)
-            name = raw[1:]
-            if mark_for_token(name) is None and _ornament_name(name) is None:
-                inline_marks, event_part = _consume_tuplet_inline_marks(raw)
-                if not inline_marks or not event_part:
-                    raise _syntax_error(token, f"不支持的演奏标记：{raw}")
-                event_offset = raw.find(event_part)
-                event_token = _Token(
-                    event_part,
-                    token.line,
-                    token.column + event_offset,
-                    start_utf16=(
-                        token.start_utf16 + _utf16_length(raw[:event_offset])
-                        if token.start_utf16 is not None
-                        else None
-                    ),
-                    end_utf16=(
-                        token.start_utf16
-                        + _utf16_length(raw[:event_offset])
-                        + _utf16_length(event_part)
-                        if token.start_utf16 is not None
-                        else None
-                    ),
-                    measure=token.measure,
-                )
-                event = _parse_event_token(event_token)
-                _apply_inline_marks(event, inline_marks)
-                append_event(event, raw, token)
-                continue
-            kind, mark = _mark_kind_name(name)
-            if kind == "spanner":
-                pending_slide = True
-                pending_slide_token = token
-                continue
-            if kind == "ornament":
-                pending_ornaments.append(mark)
-            elif kind == "technical":
-                pending_technical.append(mark)
-            else:
-                pending_articulations.append(mark)
-            continue
-        if _is_tuplet_token(raw):
-            for event, source_token in _parse_tuplet_token(token):
-                append_event(event, source_token, token)
-            continue
+            discarding = True
+            if boundary:
+                recover_measure(token)
+                if raw == "|:":
+                    next_repeat_start = True
+                    remember_measure_token(token)
+                elif raw == ":|":
+                    score.measures[-1].repeat_end = True
+                    skip_empty_bar_after_repeat_end = True
 
-        append_event(_parse_event_token(token), raw, token)
-
+    if discarding:
+        recover_measure(token_lines[-1] if token_lines else None)
     if pending_slide:
-        raise _contextual_syntax_error(
+        error = _contextual_syntax_error(
             pending_slide_token, "连线滑音 ^lh 后必须跟随目标音符"
         )
+        if recovery is None:
+            raise error
+        index = len(score.measures)
+        if not current_events and score.measures:
+            index -= 1
+        recovery.failed(index, error)
     if current_events or current_blocks or not score.measures:
-        flush_measure()
+        try:
+            flush_measure()
+        except JianpuSyntaxError as exc:
+            if recovery is None:
+                raise
+            recovery.failed(len(score.measures), exc)
+            recover_measure(token_lines[-1] if token_lines else None)
 
-    _apply_lyrics(score, lyrics)
+    if recovery is not None and recovery.errors and lyrics:
+        first_error = min(recovery.errors)
+        _apply_lyrics(JianpuScore(measures=score.measures[:first_error]), lyrics)
+        diagnostic = recovery.errors[first_error].diagnostic()
+        warning = diagnostic.model_copy(
+            update={
+                "id": "live-lyrics-" + diagnostic.id,
+                "severity": "warning",
+                "message": "此前小节有语法错误，歌词对齐无法确定，当前预览暂不显示歌词。",
+            }
+        )
+        for index in range(first_error + 1, len(score.measures)):
+            recovery.warnings.setdefault(index, []).append(warning)
+    else:
+        _apply_lyrics(score, lyrics)
     current_number = 1
     for measure in score.measures:
         measure.display_number = current_number
@@ -1534,7 +1719,9 @@ def parse_jianpu_score(
     return score
 
 
-def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]:
+def _read_new_syntax(
+    text: str, *, recovery: _PreviewRecovery | None = None
+) -> tuple[JianpuOptions, list[_Token], list[str]]:
     """读取新语法，产出 token 流。
 
     注意：token 的 `measure` 是**整篇文档的累计小节线计数**。按页连续的显示号
@@ -1575,10 +1762,81 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
         if stripped.startswith("L:"):
             lyrics.extend(part for part in stripped[2:].strip().split() if part)
             continue
-        if "=" in stripped and not stripped.startswith(("|", ":", "[", "\\", "^", "$")):
-            key, value = [part.strip() for part in stripped.split("=", 1)]
-            if key == "1" and _is_key_name(value):
-                if saw_score_tokens or saw_key:
+        try:
+            if "=" in stripped and not stripped.startswith(
+                ("|", ":", "[", "\\", "^", "$")
+            ):
+                key, value = [part.strip() for part in stripped.split("=", 1)]
+                if key == "1" and _is_key_name(value):
+                    if saw_score_tokens or saw_key:
+                        column = raw_line.find(stripped)
+                        tokens.append(
+                            _token_with_offsets(
+                                stripped,
+                                line_no,
+                                column,
+                                line_utf16_starts[line_no - 1],
+                                original_line,
+                                measure=str(current_measure),
+                                standalone_line=True,
+                            )
+                        )
+                        saw_token_since_bar = True
+                    else:
+                        options.key = value
+                        saw_key = True
+                    continue
+                if key == "title":
+                    options.title = value or options.title
+                    continue
+                if key == "tempo" and re.fullmatch(r"[^\s|]+", value):
+                    tempo_token = _token_with_offsets(
+                        stripped,
+                        line_no,
+                        raw_line.find(stripped),
+                        line_utf16_starts[line_no - 1],
+                        original_line,
+                        measure=str(current_measure),
+                        standalone_line=saw_score_tokens,
+                    )
+                    tempo = _parse_tempo_token(tempo_token)
+                    if saw_score_tokens:
+                        tokens.append(tempo_token)
+                        saw_token_since_bar = True
+                    else:
+                        options.tempo = tempo
+                    continue
+                if key == "instrument":
+                    if value not in ACCEPTED_INSTRUMENT_PROFILES:
+                        raise JianpuSyntaxError(
+                            _token_with_offsets(
+                                stripped,
+                                line_no,
+                                raw_line.find(stripped),
+                                line_utf16_starts[line_no - 1],
+                                original_line,
+                            ),
+                            f"不支持的乐器模式 {value}，"
+                            "请使用 " + "、".join(SUPPORTED_INSTRUMENT_PROFILES),
+                        )
+                    if recovery is not None and saw_score_tokens:
+                        tokens.append(
+                            _token_with_offsets(
+                                "instrument=" + value,
+                                line_no,
+                                raw_line.find(stripped),
+                                line_utf16_starts[line_no - 1],
+                                original_line,
+                                measure=str(current_measure),
+                                standalone_line=True,
+                            )
+                        )
+                    else:
+                        options.instrument_profile = normalize_instrument_profile(value)
+                    continue
+            if re.fullmatch(r"\d+/\d+", stripped):
+                beats, beat_type = stripped.split("/", 1)
+                if saw_score_tokens:
                     column = raw_line.find(stripped)
                     tokens.append(
                         _token_with_offsets(
@@ -1593,77 +1851,34 @@ def _read_new_syntax(text: str) -> tuple[JianpuOptions, list[_Token], list[str]]
                     )
                     saw_token_since_bar = True
                 else:
-                    options.key = value
-                    saw_key = True
+                    if int(beats) <= 0 or int(beat_type) <= 0:
+                        raise JianpuSyntaxError(
+                            _token_with_offsets(
+                                stripped,
+                                line_no,
+                                raw_line.find(stripped),
+                                line_utf16_starts[line_no - 1],
+                                original_line,
+                            ),
+                            f"拍号无效：{stripped}，分子分母必须为正整数",
+                        )
+                    options.beats = int(beats)
+                    options.beat_type = int(beat_type)
                 continue
-            if key == "title":
-                options.title = value or options.title
-                continue
-            if key == "tempo" and re.fullmatch(r"[^\s|]+", value):
-                tempo_token = _token_with_offsets(
-                    stripped,
-                    line_no,
-                    raw_line.find(stripped),
-                    line_utf16_starts[line_no - 1],
-                    original_line,
-                    measure=str(current_measure),
-                    standalone_line=saw_score_tokens,
-                )
-                tempo = _parse_tempo_token(tempo_token)
-                if saw_score_tokens:
-                    tokens.append(tempo_token)
-                    saw_token_since_bar = True
-                else:
-                    options.tempo = tempo
-                continue
-            if key == "instrument":
-                if value not in ACCEPTED_INSTRUMENT_PROFILES:
-                    raise JianpuSyntaxError(
-                        _token_with_offsets(
-                            stripped,
-                            line_no,
-                            raw_line.find(stripped),
-                            line_utf16_starts[line_no - 1],
-                            original_line,
-                        ),
-                        f"不支持的乐器模式 {value}，"
-                        "请使用 " + "、".join(SUPPORTED_INSTRUMENT_PROFILES),
-                    )
-                options.instrument_profile = normalize_instrument_profile(value)
-                continue
-        if re.fullmatch(r"\d+/\d+", stripped):
-            beats, beat_type = stripped.split("/", 1)
-            if saw_score_tokens:
-                column = raw_line.find(stripped)
-                tokens.append(
-                    _token_with_offsets(
-                        stripped,
-                        line_no,
-                        column,
-                        line_utf16_starts[line_no - 1],
-                        original_line,
-                        measure=str(current_measure),
-                        standalone_line=True,
-                    )
-                )
-                saw_token_since_bar = True
-            else:
-                if int(beats) <= 0 or int(beat_type) <= 0:
-                    raise JianpuSyntaxError(
-                        _token_with_offsets(
-                            stripped,
-                            line_no,
-                            raw_line.find(stripped),
-                            line_utf16_starts[line_no - 1],
-                            original_line,
-                        ),
-                        f"拍号无效：{stripped}，分子分母必须为正整数",
-                    )
-                options.beats = int(beats)
-                options.beat_type = int(beat_type)
+        except JianpuSyntaxError as exc:
+            if recovery is None:
+                raise
+            recovery.lexical_errors[exc.token.start_utf16 or 0] = exc
+            tokens.append(exc.token)
+            saw_token_since_bar = True
+            saw_score_tokens = True
             continue
         for match in re.finditer(
-            r"\(?\$[^$]+\$\)?|\|\||\|:|:\||\||&|[^\s|&]+",
+            (
+                r"\(?\$[^$|]+\$\)?|\|\||\|:|:\||\||&|[^\s|&]+"
+                if recovery is not None
+                else r"\(?\$[^$]+\$\)?|\|\||\|:|:\||\||&|[^\s|&]+"
+            ),
             raw_line,
         ):
             raw_token = match.group(0)
