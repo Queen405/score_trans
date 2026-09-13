@@ -1012,33 +1012,33 @@ def test_files_exist_route_returns_batch_existence(tmp_path: Path) -> None:
     }
 
 
-class FakeExportUseCase:
-    def __init__(self) -> None:
-        self.calls = []
-
-    def execute(self, musicxml_file, output_file, **kwargs):
-        self.calls.append((Path(musicxml_file), Path(output_file), kwargs))
-        Path(output_file).write_bytes(b"exported")
-        return Path(output_file)
-
-
 def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> None:
+    import mido
+
     config = ToolConfig(work_dir=tmp_path / "work")
     uploads = UploadService(config)
     source = tmp_path / "score.musicxml"
-    source.write_text("<score-partwise/>", encoding="utf-8")
+    source.write_text(
+        '<score-partwise version="4.0"><part-list><score-part id="P1">'
+        '<part-name>Music</part-name></score-part></part-list><part id="P1">'
+        '<measure number="1"><attributes><divisions>1</divisions>'
+        "<time><beats>4</beats><beat-type>4</beat-type></time></attributes>"
+        "<note><pitch><step>C</step><octave>4</octave></pitch>"
+        "<duration>4</duration><type>whole</type></note></measure></part></score-partwise>",
+        encoding="utf-8",
+    )
     musicxml_id = uploads.register(source)
-    fake_export = FakeExportUseCase()
-
     response = asyncio.run(
         export_midi(
             req=ExportMidiRequest(musicxml_file_id=musicxml_id),
-            actions=ExportActions(uploads=uploads, exporter=fake_export),
+            actions=ExportActions(uploads=uploads),
         )
     )
-
     assert response.filename == "score.mid"
-    assert uploads.get_path(response.file_id).read_bytes() == b"exported"
+    output = uploads.get_path(response.file_id)
+    assert output is not None
+    midi = mido.MidiFile(output)
+    assert any(message.type == "note_on" and message.note == 60 for message in midi)
 
 
 def test_instrument_profile_catalog_uses_contextual_tremolo_labels() -> None:

@@ -24,10 +24,10 @@ directories:
 extraResources:
   - from: ../build-resources/backend
     to: backend
-    filter: ["**/*"]
+    filter: ["**/*", "!**/*.trash-*/**", "!**/hs_err_pid*", "!**/replay_pid*"]
   - from: ../build-resources/third_party
     to: third_party
-    filter: ["**/*"]
+    filter: ["**/*", "!**/*.trash-*/**", "!**/hs_err_pid*", "!**/replay_pid*"]
 
 # Icon is auto-detected from build/icon.ico (win) / build/icon.icns (mac).
 # If absent, electron-builder falls back to the default Electron icon.

@@ -172,4 +172,3 @@ class BatchRenderResponse(BaseModel):
     pages: list[RenderedSvgPage]
     page_width: float
     page_height: float
-

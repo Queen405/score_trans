@@ -106,37 +106,12 @@ pnpm check:api-types
 
 ## Release / 发版流程
 
-应用使用"启动时检查 + 跳转网页下载"的轻量更新机制，不接 `electron-updater` 自动增量更新。manifest 通过 **jsDelivr CDN** 分发（国内访问稳定，直连 GitHub Releases 在国内大多超时）。
+发布流程见根目录 `RELEASE.md`，打包细节见 `docs/packaging.md`。
 
-### 工作原理
-- `src/main/updater.ts` 在应用启动 5s 后静默 fetch jsDelivr 上的 `latest.json`
-- 与 `app.getVersion()`（来自 `package.json` 的 `version`）做 SemVer 三段式数值比较
-- 有新版 → `App.vue` 标题栏右侧显示蓝色脉冲徽章"有新版本 vX.Y.Z"，点击调 `window.api.openExternal(url)` 用系统浏览器打开下载页
-- 设置页"关于"分类（`AboutSettingsPanel.vue`）有手动"检查更新"按钮 + 当前/最新版本对比 + 更新说明
-- 网络失败静默兜底，不阻塞应用启动
-
-### manifest 文件
-- 真实 manifest：`desktop/latest.json`（**必须提交进仓库**，jsDelivr 镜像仓库内容）
-- 模板：`desktop/latest.json.example`（参考用，不会被打包）
-- 字段：`version`（必填，`x.y.z` 三段数字）、`url`（必填，下载页地址）、`notes`（可选，更新说明）
-- 默认拉取 URL：`https://cdn.jsdelivr.net/gh/Queen405/score_trans/desktop/latest.json`（不带 `@ref`，jsDelivr 自动服务默认分支 HEAD）
-  - **不要**给 URL 加 `@<版本号>`（如 `@v1.0.0`）：jsDelivr 会把形如版本号的 ref 当成 git tag / semver 来解析，而本仓库没有 tag（只有分支），解析必然 404，导致更新检查静默失败。这是历史 bug，已修复，勿回退
-  - 不带 `@ref` 的附带好处：默认分支改名时无需同步 `updater.ts`
-- 客户端通过 `?t=<timestamp>` 查询参数和 `Cache-Control: no-cache` 头绕过 jsDelivr CDN 缓存
-- jsDelivr 自身有 ~10 分钟边缘缓存，紧急时可访问 `https://purge.jsdelivr.net/gh/Queen405/score_trans/desktop/latest.json` 强制刷新
-- 本地测试：设置环境变量 `SCORE_TRANS_UPDATE_MANIFEST_URL` 指向本地 server，version 写 `9.9.9` 即可强制触发徽章
-
-### 发版步骤
-1. 改 `desktop/package.json` 的 `"version"`（如 `"1.0.0"` → `"1.0.1"`）
-2. 改 `desktop/latest.json`，把 `version` 改成同一新版本号，可选填 `notes`
-3. `pnpm build` 打包 installer
-4. `git commit` + `git push`（让 jsDelivr 能拉到新 manifest）
-5. 在 GitHub 创建 Release（tag = `vX.Y.Z`），上传生成的 `.exe`（manifest 不需要再传 Release，已在仓库里）
-
-> **关键**：manifest 的 `version` 必须严格等于 `package.json` 的 `version`，否则客户端会误判。比较器只识别 `major.minor.patch` 三段数字，**不支持预发布标签**（如 `1.0.1-beta.1`），遇到非三段格式会回退到字符串不等比较。
-
-### 不要做的事
-- 不要把 `latest.json` 放进 `desktop/build/`（该目录被 `.gitignore` 忽略，jsDelivr 拉不到）
-- 不要在 `updater.ts` 里引入同步阻塞调用，它在主进程 event loop 里跑
-- 不要在渲染层直接 `fetch` manifest URL，统一走 `window.api.checkForUpdate()` IPC
-- 不要忘记 push 代码就直接发 Release——jsDelivr 镜像的是仓库内容，不 push 则用户拉到的是旧 manifest
+- 新客户端从 GitHub Release 的 `releases/latest/download/latest.json` 获取更新信息。
+- `desktop/latest.json` 是发布输入，必须与 `package.json` 保持 `x.y.z` 版本一致。
+- `tools/release.py` 校验 tag、版本、两平台全部安装包，上传草稿后再公开 Release。
+- 工作分支中的 manifest 不用于新客户端的更新通知，避免提前公布未完成构建。
+- 可用 `SCORE_TRANS_UPDATE_MANIFEST_URL` 配置镜像或本地测试地址。
+- 更新检查继续使用主进程异步 IPC；连接失败不阻塞应用，不引入同步网络调用。
+- 历史版本客户端升级前仍读取旧 jsDelivr 地址。

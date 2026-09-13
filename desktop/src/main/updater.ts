@@ -17,7 +17,7 @@ interface Manifest {
 
 const UPDATE_MANIFEST_URL =
   process.env.SCORE_TRANS_UPDATE_MANIFEST_URL ??
-  'https://cdn.jsdelivr.net/gh/Queen405/score_trans/desktop/latest.json'
+  'https://github.com/Queen405/score_trans/releases/latest/download/latest.json'
 
 const FETCH_TIMEOUT_MS = 5000
 

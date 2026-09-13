@@ -169,10 +169,18 @@ class PublicationRenderer:
             footer_height = style.page_height - _pagination_bottom(style)
             content_height = sum(system.height for system in systems)
             content_height += max(0, len(systems) - 1) * style.system_gap
-            header_height = style.title_block_height if show_title else style.continuation_header_height
-            style = replace(style, page_height=max(
-                style.page_height, style.margin_top + header_height + content_height + footer_height
-            ))
+            header_height = (
+                style.title_block_height
+                if show_title
+                else style.continuation_header_height
+            )
+            style = replace(
+                style,
+                page_height=max(
+                    style.page_height,
+                    style.margin_top + header_height + content_height + footer_height,
+                ),
+            )
         pages = _paginate(systems, style, show_title=show_title)
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
         document_title = title or score0.title or "简谱"
@@ -197,7 +205,9 @@ class PublicationRenderer:
             )
             note_start = next_note_index
             y = style.margin_top + (
-                style.title_block_height if page_index == 0 and show_title else style.continuation_header_height
+                style.title_block_height
+                if page_index == 0 and show_title
+                else style.continuation_header_height
             )
             page_ranges: list[MeasureRange] = []
             page_cells = [cell for system in page_systems for cell in system.cells]
@@ -1307,11 +1317,14 @@ def _boundary_penalties(cells: list[_Cell], style: PublicationStyle) -> list[flo
                         active[key] = True
                 if event.lyric:
                     last_lyric = event.lyric
-            if last_lyric and not last_lyric.rstrip().endswith(tuple("。，；！？.,;!?")):
+            if last_lyric and not last_lyric.rstrip().endswith(
+                tuple("。，；！？.,;!?")
+            ):
                 penalty += style.lyric_break_penalty
         penalty += sum(
             style.slur_break_penalty if kind == "slur" else style.tie_break_penalty
-            for (_, kind), opened in active.items() if opened
+            for (_, kind), opened in active.items()
+            if opened
         )
         penalties.append(penalty)
     return penalties
@@ -1327,7 +1340,9 @@ def _optimal_system_ends(cells: list[_Cell], style: PublicationStyle) -> list[in
     for start in range(count - 1, -1, -1):
         width = 0.0
         for end in range(start + 1, count + 1):
-            if end > start + 1 and (cells[end - 1].forced_system or cells[end - 1].forced_page):
+            if end > start + 1 and (
+                cells[end - 1].forced_system or cells[end - 1].forced_page
+            ):
                 break
             width += cells[end - 1].width
             ratio = width / style.content_width
@@ -1337,7 +1352,9 @@ def _optimal_system_ends(cells: list[_Cell], style: PublicationStyle) -> list[in
             badness = 0.0 if ragged_last else abs(1.0 - ratio) ** 3 * 1000.0
             if end - start == 1 and count > 1 and ratio < 0.6:
                 badness += style.singleton_system_penalty
-            forced = end < count and (cells[end].forced_system or cells[end].forced_page)
+            forced = end < count and (
+                cells[end].forced_system or cells[end].forced_page
+            )
             if end < count and not forced:
                 badness += penalties[end]
             total = badness + costs[end]
@@ -2557,7 +2574,9 @@ def _spanner(
                 f"{control_right:g} {base + height:g} {ex:g} {base:g}"
             )
         else:
-            start_bottom = start.y + _event_attachment_bottom(start.event, resolved_style)
+            start_bottom = start.y + _event_attachment_bottom(
+                start.event, resolved_style
+            )
             end_bottom = end.y + _event_attachment_bottom(end.event, resolved_style)
             base = max(start_bottom, end_bottom) + resolved_style.tie_below_clearance
             thickness = 2.2

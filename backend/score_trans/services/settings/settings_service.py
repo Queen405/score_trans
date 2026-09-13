@@ -43,6 +43,9 @@ _BUNDLED_JDK = PROJECT_ROOT / "third_party" / "jre" / "jdk"
 def _default_audiveris_path() -> str:
     if AUDIVERIS_PATH:
         return AUDIVERIS_PATH
+    bundled_jar = _LOCAL_AUDIVERIS_DIR / "lib" / "audiveris.jar"
+    if bundled_jar.is_file():
+        return str(bundled_jar)
     return (
         str(_LOCAL_AUDIVERIS_GRADLE)
         if _LOCAL_AUDIVERIS_GRADLE.exists()

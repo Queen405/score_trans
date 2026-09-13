@@ -17,8 +17,3 @@ if not _env_file.is_file():
     load_project_env(
         Path(__file__).parents[1] / "backend" / "score_trans" / "config" / "env.example"
     )
-
-# test_build_app.py 依赖本地打包脚本 build-app.py（.gitignore 忽略，CI 无此文件），缺失时跳过收集。
-collect_ignore: list[str] = []
-if not (Path(__file__).parents[1] / "build-app.py").is_file():
-    collect_ignore.append("test_build_app.py")

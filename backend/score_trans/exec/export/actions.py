@@ -84,16 +84,27 @@ class ExportActions:
         self.max_upload_request_bytes = max_upload_request_bytes
 
     def export_midi(self, req: ExportMidiRequest) -> ExportResponse:
-        file_ids = list(dict.fromkeys(req.musicxml_file_ids or ([req.musicxml_file_id] if req.musicxml_file_id else [])))
+        file_ids = list(
+            dict.fromkeys(
+                req.musicxml_file_ids
+                or ([req.musicxml_file_id] if req.musicxml_file_id else [])
+            )
+        )
         if not file_ids:
             raise ValueError("至少需要一个 MusicXML 文件")
         paths = [self.uploads.get_path(file_id) for file_id in file_ids]
         if any(not path or not path.exists() for path in paths):
-            missing = next(file_id for file_id, path in zip(file_ids, paths) if not path or not path.exists())
+            missing = next(
+                file_id
+                for file_id, path in zip(file_ids, paths)
+                if not path or not path.exists()
+            )
             raise FileNotFoundError(f"MusicXML 文件不存在：{missing}")
         scores = []
         for path in paths:
-            scores.extend(self.exporter.converter.build_scores(path, target_key=req.target_key))
+            scores.extend(
+                self.exporter.converter.build_scores(path, target_key=req.target_key)
+            )
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.mid"
         self.export_service.export_midi_scores(scores, output_path)
         source_stem = paths[0].stem
@@ -109,16 +120,27 @@ class ExportActions:
         return ExportResponse(file_id=file_id, filename=req.filename or "score.mid")
 
     def export_musicxml(self, req: ExportMusicXmlRequest) -> ExportResponse:
-        file_ids = list(dict.fromkeys(req.musicxml_file_ids or ([req.musicxml_file_id] if req.musicxml_file_id else [])))
+        file_ids = list(
+            dict.fromkeys(
+                req.musicxml_file_ids
+                or ([req.musicxml_file_id] if req.musicxml_file_id else [])
+            )
+        )
         if not file_ids:
             raise ValueError("至少需要一个 MusicXML 文件")
         paths = [self.uploads.get_path(file_id) for file_id in file_ids]
         if any(not path or not path.exists() for path in paths):
-            missing = next(file_id for file_id, path in zip(file_ids, paths) if not path or not path.exists())
+            missing = next(
+                file_id
+                for file_id, path in zip(file_ids, paths)
+                if not path or not path.exists()
+            )
             raise FileNotFoundError(f"MusicXML 文件不存在：{missing}")
         scores = []
         for path in paths:
-            scores.extend(self.exporter.converter.build_scores(path, target_key=req.target_key))
+            scores.extend(
+                self.exporter.converter.build_scores(path, target_key=req.target_key)
+            )
         if req.title:
             for score in scores:
                 score.title = req.title

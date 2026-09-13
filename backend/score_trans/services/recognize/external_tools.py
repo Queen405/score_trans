@@ -12,7 +12,7 @@ from zipfile import BadZipFile
 
 from ...domain.parse.musicxml import read_musicxml_text
 from ...models.common.errors import ExternalToolError
-from ...models.common.paths import PROJECT_ROOT, java_binary_name
+from ...models.common.paths import java_binary_name
 from ...models.settings.config import ToolConfig
 from ...utils.safe_xml import UnsafeXmlError, safe_xml_fromstring
 from .image_preprocess import (
@@ -108,7 +108,27 @@ def _run_audiveris(input_file: Path, output_dir: Path, config: ToolConfig) -> No
     audiveris_path = Path(config.audiveris_path)
     env = _java_env(config)
     audiveris_args = _audiveris_args(input_file, output_dir, config)
-    if audiveris_path.name.lower() in {"gradlew", "gradlew.bat"}:
+    if audiveris_path.suffix.lower() == ".jar":
+        if not audiveris_path.is_file():
+            raise ExternalToolError(f"找不到 Audiveris 运行文件：{audiveris_path}")
+        java = (
+            str(Path(config.java_home) / "bin" / java_binary_name())
+            if config.java_home
+            else java_binary_name()
+        )
+        args = [
+            java,
+            f"-Xmx{_validated_max_heap(config)}",
+            "--add-exports=java.desktop/sun.awt.image=ALL-UNNAMED",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.awt.headless=true",
+            "-cp",
+            str(audiveris_path.parent / "*"),
+            "Audiveris",
+            *audiveris_args,
+        ]
+        _run(args, env=env)
+    elif audiveris_path.name.lower() in {"gradlew", "gradlew.bat"}:
         args = [
             str(audiveris_path),
             "--no-daemon",
@@ -501,10 +521,6 @@ def _java_env(config: ToolConfig) -> dict[str, str] | None:
     env = os.environ.copy()
     env["JAVA_HOME"] = str(java_home)
     env["PATH"] = str(java_home / "bin") + os.pathsep + env.get("PATH", "")
-    # 使用捆绑的 Gradle 缓存（打包时由 build-app.py 预填充）
-    bundled_gradle_home = PROJECT_ROOT / "third_party" / "gradle_home"
-    if bundled_gradle_home.exists():
-        env["GRADLE_USER_HOME"] = str(bundled_gradle_home)
     _apply_java_proxy_options(env)
     return env
 
