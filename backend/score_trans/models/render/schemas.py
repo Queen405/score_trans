@@ -77,6 +77,7 @@ class LiveJianpuSvgRequest(BaseModel):
     jianpu_text: str
     title: str = "\u7b80\u8c31"
     show_measure_numbers: bool | None = False
+    show_title: bool = False
     measure_number_mode: MeasureNumberMode = "all"
     initial_measure_number: int = Field(default=1, ge=1)
 

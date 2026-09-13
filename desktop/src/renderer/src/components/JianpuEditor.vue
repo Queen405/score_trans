@@ -90,6 +90,7 @@
           @scroll="syncScroll"
           @click="emitCursorChange"
           @keyup="emitCursorChange"
+          @mousedown="emitCursorChange"
           @select="emitCursorChange"
         />
         <div
@@ -869,7 +870,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   overflow: hidden;
 }
 
-.editor-main {
+.editor-main { overflow:auto;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -1184,3 +1185,4 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 .theme-dark .token-ornament { color: #d16969; }
 .theme-dark .token-lyrics { color: #c8c8c8; }
 </style>
+

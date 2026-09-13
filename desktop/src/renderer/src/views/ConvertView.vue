@@ -128,6 +128,7 @@
     <div class="ws-main">
       <div class="ws-toolbar">
         <div class="ws-toolbar-left">
+          <n-button size="small" :type="liveRenderEnabled ? 'primary' : 'default'" @click="liveRenderEnabled = !liveRenderEnabled">????</n-button>
           <button
             class="hist-toggle"
             title="历史记录"
@@ -576,6 +577,7 @@ const publicationRender = usePublicationRender()
 const livePreviewSvg = ref("")
 const livePreviewError = ref("")
 const livePreviewLoading = ref(false)
+const liveRenderEnabled = ref(true)
 const liveEditorRatio = ref(Number(localStorage.getItem("score-trans.live-editor-ratio") || 50))
 let livePreviewTimer: ReturnType<typeof setTimeout> | null = null
 let livePreviewController: AbortController | null = null
@@ -741,7 +743,8 @@ function loadInitialMeasureNumber(batchId: string | null): number {
   return Number.isInteger(raw) && raw >= 1 ? raw : 1
 }
 
-watch([jianpuText, liveCursorTick], ([text]) => {
+watch([jianpuText, liveCursorTick, liveRenderEnabled], ([text]) => {
+  if (!liveRenderEnabled.value) return
   if (livePreviewTimer) clearTimeout(livePreviewTimer)
   livePreviewTimer = setTimeout(async () => {
     if (!text.trim()) { livePreviewSvg.value = ""; livePreviewError.value = ""; return }
