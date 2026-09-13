@@ -403,7 +403,7 @@
               :ocr-text="finalRenderPageOcrText"
               :current-note-index="currentNoteIndex"
               :playback-group-index="currentPlaybackGroupIndex"
-              :playback-position="playbackPosition"
+              :playback-position="renderPlaybackPosition"
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
               @update:text-attachment="handleTextAttachmentUpdate"
@@ -424,6 +424,7 @@
               <div class="jianpu-live-editor"><jianpu-editor
               ref="jianpuEditorRef"
               v-model="jianpuText"
+              :playback-highlight="playbackHighlight"
               :current-note-index="currentNoteIndex"
               :initial-measure-number="initialMeasureNumber"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
@@ -449,6 +450,7 @@
         :musicxml-file-id="store.musicxmlFileId"
         :jianpu-text="operationalJianpuText"
         :session-key="store.currentBatchId"
+        @update:playback-highlight="playbackHighlight = $event"
         @update:current-note-index="currentNoteIndex = $event"
         @update:playback-group-index="currentPlaybackGroupIndex = $event"
         @update:playback-position="playbackPosition = $event"
@@ -513,6 +515,7 @@ import type {
 import type { TaskPage, TaskPageStatus } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import JianpuPlayer from '../components/JianpuPlayer.vue'
+import type { PlaybackHighlight } from '../utils/midiSourceMap'
 import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
@@ -658,7 +661,11 @@ const operationalJianpuText = computed(() => (
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
 const currentPlaybackGroupIndex = ref(-1)
+const playbackHighlight = ref<PlaybackHighlight>({ ranges: [], textHash: null })
 const playbackPosition = ref({ tick: -1, onsetTick: -1, ppq: 480 })
+const renderPlaybackPosition = computed(() => store.currentBatchRenderOutputStale
+  ? { tick: -1, onsetTick: -1, ppq: 480 }
+  : playbackPosition.value)
 const errorLine = ref(-1)
 const flashLine = ref(-1)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
@@ -1056,9 +1063,9 @@ watch(() => store.currentPage?.id ?? '', () => {
   correctableSheet.value = null
   deletedEntityIds.value = new Set(store.currentPage?.deletedSourceIds ?? [])
 }, { immediate: true })
-watch([playbackPosition, renderPlaybackRanges, isViewingFinal], () => {
+watch([renderPlaybackPosition, renderPlaybackRanges, isViewingFinal], () => {
   if (!isViewingFinal.value) return
-  const target = playbackPage(renderPlaybackRanges.value, playbackPosition.value)
+  const target = playbackPage(renderPlaybackRanges.value, renderPlaybackPosition.value)
   if (target !== null && target !== finalRenderPageIndex.value) {
     finalRenderPageIndex.value = target
   }

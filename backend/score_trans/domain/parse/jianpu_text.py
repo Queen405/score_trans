@@ -151,7 +151,7 @@ def parse_jianpu(text: str) -> tuple[JianpuOptions, list[ParsedToken]]:
 
 _PART_MARKER_RE = re.compile(
     r"^[ \t]*//[ \t]*@part[ \t]+(?P<number>\d+)[ \t]+"
-    r'name=(?P<name>"(?:\\.|[^"\\])*")[ \t]*$',
+    r'name=(?P<name>"(?:\\.|[^"\\])*")[ \t]*\r?$',
     re.MULTILINE,
 )
 _PART_MARKER_START_RE = re.compile(
@@ -160,7 +160,7 @@ _PART_MARKER_START_RE = re.compile(
 )
 _PAGE_MARKER_RE = re.compile(
     r"^[ \t]*//[ \t]*@page[ \t]+(?P<number>\d+)"
-    r"(?:[ \t]+name=(?P<name>\"(?:\\.|[^\"\\])*\"))?[ \t]*$",
+    r"(?:[ \t]+name=(?P<name>\"(?:\\.|[^\"\\])*\"))?[ \t]*\r?$",
     re.MULTILINE,
 )
 _PAGE_MARKER_START_RE = re.compile(
@@ -223,7 +223,7 @@ def _find_page_markers(text: str) -> list[_ParsedPageMarker]:
 def _strip_page_marker_lines(text: str) -> str:
     # Blank marker content instead of deleting it so line numbers and UTF-16
     # offsets in the remaining text stay aligned with the original document.
-    return _PAGE_MARKER_RE.sub(lambda match: " " * (match.end() - match.start()), text)
+    return _PAGE_MARKER_RE.sub(lambda match: " " * _utf16_length(match.group(0)), text)
 
 
 def parse_jianpu_scores(text: str, *, title: str | None = None) -> list[JianpuScore]:

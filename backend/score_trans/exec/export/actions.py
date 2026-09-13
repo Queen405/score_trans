@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+import hashlib
 from pathlib import Path
 
 from score_trans.config.settings import (
@@ -10,6 +11,8 @@ from score_trans.config.settings import (
 )
 
 from ...domain.jianpu import parse_jianpu_scores
+from ...domain.parse.jianpu_text import parse_jianpu_parts
+from ...models.playback import PlaybackTextSource
 from ...models.common.errors import UploadTooLargeError
 from ...models.common.protocols import UploadFileLike
 from ...models.export.schemas import (
@@ -113,9 +116,27 @@ class ExportActions:
         return ExportResponse(file_id=file_id, filename=out_name)
 
     def export_midi_text(self, req: ExportMidiTextRequest) -> ExportResponse:
-        scores = parse_jianpu_scores(req.jianpu_text, title=req.title)
+        parts = parse_jianpu_parts(req.jianpu_text, title=req.title)
+        source = PlaybackTextSource(
+            hashlib.sha256(req.jianpu_text.encode("utf-8")).hexdigest()
+        )
+        bom_offset = len(req.jianpu_text) - len(req.jianpu_text.lstrip("﻿"))
+        for part in parts:
+            for measure in part.score.measures:
+                for event in measure.events:
+                    if (
+                        event.source_start_utf16 is not None
+                        and event.source_end_utf16 is not None
+                    ):
+                        base = part.body_start_utf16 + bom_offset
+                        source.event_ranges[id(event)] = (
+                            base + event.source_start_utf16,
+                            base + event.source_end_utf16,
+                        )
         output_path = self.uploads.base_dir / f"{uuid.uuid4().hex[:12]}.mid"
-        self.export_service.export_midi_scores(scores, output_path)
+        self.export_service.export_midi_scores(
+            [part.score for part in parts], output_path, text_source=source
+        )
         file_id = self.uploads.register(output_path)
         return ExportResponse(file_id=file_id, filename=req.filename or "score.mid")
 

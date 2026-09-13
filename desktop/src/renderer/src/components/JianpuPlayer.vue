@@ -37,6 +37,10 @@
           height="12"
         /></svg>
       </button>
+      <span
+        v-if="player.isReady.value && !player.sourceMapReady.value"
+        class="player-time"
+      >无谱面定位信息</span>
       <span class="player-time">{{ player.currentTimeFormatted.value }} / {{ player.durationFormatted.value }}</span>
     </div>
 
@@ -131,6 +135,7 @@ import {
 } from '../utils/playerPreferences'
 import { buildPlayerLoadId } from '../utils/playerLoadId'
 import { PLAYBACK_RATES } from '../utils/jianpuPlayback'
+import { playbackTextHash, type PlaybackHighlight } from '../utils/midiSourceMap'
 
 const settings = useSettingsStore()
 
@@ -146,6 +151,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  'update:playbackHighlight': [highlight: PlaybackHighlight]
   'update:currentNoteIndex': [index: number]
   'update:playbackGroupIndex': [index: number]
   'update:playbackPosition': [position: { tick: number; onsetTick: number; ppq: number }]
@@ -172,15 +178,19 @@ let lastVolumeRatio = initialVolumeRatio > 0 ? initialVolumeRatio : 0.8
 let currentLoadId = ''
 let loadGeneration = 0
 
-async function loadFromProps(): Promise<void> {
+async function loadFromProps(skipDirect = false): Promise<void> {
   const loadId = buildPlayerLoadId(props)
-  if (loadId === currentLoadId) return
+  if (!skipDirect && loadId === currentLoadId) return
   currentLoadId = loadId
   const gen = ++loadGeneration
 
-  if (props.midiFileId) {
+  if (props.midiFileId && !skipDirect) {
     try {
       await loadMidiForGeneration(getFileURL(props.midiFileId), gen)
+      if (gen !== loadGeneration) return
+      if (!player.sourceMapReady.value && (props.jianpuText?.trim() || props.musicxmlFileId)) {
+        await loadFromProps(true)
+      }
     } catch (error: unknown) {
       reportMidiError(error, gen)
     }
@@ -219,7 +229,9 @@ async function loadFromProps(): Promise<void> {
 }
 
 async function loadMidiForGeneration(url: string, generation: number): Promise<void> {
-  await player.loadMidi(url)
+  const expectedHash = props.jianpuText?.trim() ? await playbackTextHash(props.jianpuText) : undefined
+  if (generation !== loadGeneration) return
+  await player.loadMidi(url, expectedHash)
   if (generation !== loadGeneration) return
   if (player.error.value) throw new Error(player.error.value)
 }
@@ -313,12 +325,17 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  ++loadGeneration
   if (jianpuDebounce) { clearTimeout(jianpuDebounce); jianpuDebounce = null }
   onProgressUp()
 })
 
 // Watch for source changes (debounce jianpuText since user may be typing)
 let jianpuDebounce: ReturnType<typeof setTimeout> | null = null
+
+watch(player.playbackHighlight, (highlight) => {
+  emit('update:playbackHighlight', highlight)
+}, { immediate: true })
 
 watch(player.playbackPosition, (position) => {
   emit('update:playbackPosition', position)
@@ -330,7 +347,8 @@ watch(player.currentPlaybackGroupIndex, (index) => {
 }, { immediate: true })
 
 watch(() => [props.midiFileId, props.musicxmlFileId], () => {
-  player.stop()
+  ++loadGeneration
+  player.unload()
   if (jianpuDebounce) { clearTimeout(jianpuDebounce); jianpuDebounce = null }
   currentLoadId = ''
   void loadFromProps()
@@ -338,12 +356,19 @@ watch(() => [props.midiFileId, props.musicxmlFileId], () => {
 
 watch(() => props.sessionKey, (value, previous) => {
   if (previous !== undefined && value !== previous) {
-    player.stop()
+    ++loadGeneration
+    player.unload()
     player.setRate(1)
+    if (jianpuDebounce) { clearTimeout(jianpuDebounce); jianpuDebounce = null }
+    currentLoadId = ''
+    void loadFromProps()
   }
 })
 
 watch(() => props.jianpuText, () => {
+  ++loadGeneration
+  player.unload()
+  currentLoadId = ''
   if (jianpuDebounce) clearTimeout(jianpuDebounce)
   jianpuDebounce = setTimeout(() => {
     jianpuDebounce = null

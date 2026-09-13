@@ -132,6 +132,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
+import { playbackTextHash, sourceRangeSpans, type PlaybackHighlight } from '../utils/midiSourceMap'
 import { horizontalScrollIntoView } from '../utils/editorViewport'
 import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
 import type { SyntaxDiagnostic } from '../models/types'
@@ -158,6 +159,7 @@ const message = useMessage()
 const props = withDefaults(defineProps<{
   modelValue: string
   currentNoteIndex?: number
+  playbackHighlight?: PlaybackHighlight | null
   syntaxHighlight?: boolean
   syntaxDiagnostics?: SyntaxDiagnostic[]
   activeDiagnosticId?: string | null
@@ -168,6 +170,7 @@ const props = withDefaults(defineProps<{
   structureMarkersEnabled?: boolean
 }>(), {
   currentNoteIndex: -1,
+  playbackHighlight: null,
   syntaxHighlight: false,
   syntaxDiagnostics: () => [],
   activeDiagnosticId: null,
@@ -307,11 +310,24 @@ const highlightedLines = computed(() => props.modelValue.split('\n').map((line, 
 const highlightScrollStyle = computed(() => ({
   transform: `translate(${-scrollLeft.value}px, ${-scrollTop.value}px)`,
 }))
-const activeNoteSpans = computed(() => (
-  props.currentNoteIndex >= 0
+const playbackSourceHash = ref('')
+watch(analysisText, async (text, _previous, onCleanup) => {
+  let cancelled = false
+  onCleanup(() => { cancelled = true })
+  playbackSourceHash.value = ''
+  const hash = await playbackTextHash(text)
+  if (!cancelled) playbackSourceHash.value = hash
+}, { immediate: true })
+const activeNoteSpans = computed(() => {
+  if (props.playbackHighlight !== null) {
+    return props.playbackHighlight.textHash === playbackSourceHash.value
+      ? sourceRangeSpans(props.modelValue, props.playbackHighlight.ranges)
+      : []
+  }
+  return props.currentNoteIndex >= 0
     ? noteSpans.value.filter((span) => span.index === props.currentNoteIndex)
     : []
-))
+})
 const playbackHighlightStyles = computed(() => {
   const metrics = editorMetrics.value
   return activeNoteSpans.value.map((span) => {

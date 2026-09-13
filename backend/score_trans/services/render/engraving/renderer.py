@@ -9,7 +9,13 @@ from pathlib import Path
 from typing import Literal
 
 from ....config.settings import MIDI_TICKS_PER_BEAT
-from ....domain.playback_timeline import measure_boundaries, score_parts, to_tick
+from ....domain.playback_timeline import (
+    measure_boundaries,
+    score_parts,
+    to_tick,
+    score_onset_groups,
+    event_onsets,
+)
 from ....domain.jianpu_tokens import is_notatable_duration
 from ....domain.voices import (
     LaneKey,
@@ -1139,41 +1145,22 @@ def _shared_intrinsic_measure_width(
 
 
 def _playback_group_map(cells: list[_Cell]) -> dict[int, dict[Fraction, int]]:
-    """Map each cell's local onsets to document-wide playback group ids.
+    """Stable original-score onset IDs shared with MIDI source-position markers.
 
-    A group id counts the unique sounding onsets of the whole document in
-    time order.  This is the same sequence the MIDI player produces when it
-    merges notes that share a start time, so the frontend can address every
-    part's notes at the current playback position with a single id instead of
-    translating between layout order and time order.
+    Repeated performances refer back to these IDs; they do not add SVG groups.
     """
-    offsets: list[Fraction] = []
-    cursor = Fraction(0)
-    for cell in cells:
-        offsets.append(cursor)
-        span = Fraction(0)
-        for measure in cell.measures:
-            if measure is None:
-                continue
-            span = max(span, measure.duration, measure.span_duration)
-        cursor += span
-    onsets: set[Fraction] = set()
-    local_onsets: list[set[Fraction]] = []
-    for cell, offset in zip(cells, offsets, strict=True):
-        local: set[Fraction] = set()
-        for measure in cell.measures:
-            if measure is None:
-                continue
-            for event in _visual_events(measure):
-                if event.kind == "note" and event.pitches:
-                    start = event.start or Fraction(0)
-                    local.add(start)
-                    onsets.add(offset + start)
-        local_onsets.append(local)
-    order = {onset: index for index, onset in enumerate(sorted(onsets))}
+    measures = [cell.measures for cell in cells]
+    boundaries = measure_boundaries(measures)
+    groups = score_onset_groups(measures)
     return {
-        cell.index: {start: order[offset + start] for start in local}
-        for cell, offset, local in zip(cells, offsets, local_onsets, strict=True)
+        cell.index: {
+            start: groups[boundaries[index] + start]
+            for measure in cell.measures
+            if measure is not None
+            for start, event in event_onsets(measure)
+            if event.kind == "note" and event.pitches
+        }
+        for index, cell in enumerate(cells)
     }
 
 
