@@ -41,6 +41,10 @@
         v-if="player.isReady.value && !player.sourceMapReady.value"
         class="player-time"
       >无谱面定位信息</span>
+      <span
+        v-else-if="player.isReady.value && !player.intervalTrackingReady.value"
+        class="player-time"
+      >无逐音时长定位</span>
       <span class="player-time">{{ player.currentTimeFormatted.value }} / {{ player.durationFormatted.value }}</span>
     </div>
 
@@ -188,7 +192,7 @@ async function loadFromProps(skipDirect = false): Promise<void> {
     try {
       await loadMidiForGeneration(getFileURL(props.midiFileId), gen)
       if (gen !== loadGeneration) return
-      if (!player.sourceMapReady.value && (props.jianpuText?.trim() || props.musicxmlFileId)) {
+      if (!player.intervalTrackingReady.value && (props.jianpuText?.trim() || props.musicxmlFileId)) {
         await loadFromProps(true)
       }
     } catch (error: unknown) {

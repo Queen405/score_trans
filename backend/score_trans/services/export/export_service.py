@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import json
 from fractions import Fraction
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Literal
 
@@ -24,7 +24,7 @@ from ...domain.playback_timeline import (
 )
 from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
 from ...domain.write.musicxml import scores_to_musicxml
-from ...models.playback import PlaybackTextSource
+from ...models.playback import PlaybackEvent, PlaybackTextSource
 from ...models.score import DEFAULT_TEMPO, JianpuPitch, JianpuScore
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
@@ -203,7 +203,7 @@ class ExportService:
                 0,
                 {
                     "kind": "document",
-                    "version": 1,
+                    "version": 2,
                     "source_kind": "text" if text_source is not None else "score",
                     "text_hash": text_source.text_hash
                     if text_source is not None
@@ -211,7 +211,8 @@ class ExportService:
                 },
             )
         ]
-        for visit in visits:
+        event_intervals: dict[tuple[int, int, int], PlaybackEvent] = {}
+        for visit_index, visit in enumerate(visits):
             start_tick = to_tick(visit.performance_start, _TICKS_PER_BEAT)
             end_tick = to_tick(
                 visit.performance_start + visit.duration, _TICKS_PER_BEAT
@@ -230,18 +231,42 @@ class ExportService:
                 )
             )
             ranges: dict[Fraction, set[tuple[int, int]]] = {}
-            for measure in cells[visit.source_index]:
+            onset_events: dict[Fraction, list[dict[str, object]]] = {}
+            for part_index, measure in enumerate(cells[visit.source_index]):
                 if measure is None:
                     continue
-                for onset, event in event_onsets(measure):
+                for event_index, (onset, event) in enumerate(event_onsets(measure)):
                     if event.kind != "note" or not event.pitches:
                         continue
-                    bucket = ranges.setdefault(onset, set())
-                    if (
-                        text_source is not None
-                        and id(event) in text_source.event_ranges
-                    ):
-                        bucket.add(text_source.event_ranges[id(event)])
+                    source_range = (
+                        text_source.event_ranges.get(id(event)) if text_source else None
+                    )
+                    event_ranges = (source_range,) if source_range is not None else ()
+                    start = to_tick(visit.performance_start + onset, _TICKS_PER_BEAT)
+                    end = max(
+                        start + 1,
+                        to_tick(
+                            visit.performance_start + onset + event.duration,
+                            _TICKS_PER_BEAT,
+                        ),
+                    )
+                    interval = PlaybackEvent(
+                        f"{visit_index}:{part_index}:{event_index}",
+                        part_index,
+                        event.staff,
+                        event.voice or "1",
+                        start,
+                        end,
+                        event_ranges,
+                    )
+                    event_intervals[visit_index, part_index, event_index] = interval
+                    payload = asdict(interval)
+                    payload.pop("start_tick")  # The marker carries the absolute start.
+                    payload["ranges"] = [
+                        {"start": a, "end": b} for a, b in event_ranges
+                    ]
+                    onset_events.setdefault(onset, []).append(payload)
+                    ranges.setdefault(onset, set()).update(event_ranges)
             for onset, source_ranges in sorted(ranges.items()):
                 marker_events.append(
                     (
@@ -252,6 +277,7 @@ class ExportService:
                                 visit.score_start + onset, _TICKS_PER_BEAT
                             ),
                             "score_group": groups[visit.score_start + onset],
+                            "events": onset_events[onset],
                             "ranges": [
                                 {"start": start, "end": end}
                                 for start, end in sorted(source_ranges)
@@ -311,7 +337,7 @@ class ExportService:
                         ),
                     )
                 )
-            for visit in visits:
+            for visit_index, visit in enumerate(visits):
                 measure = cells[visit.source_index][part_index]
                 if measure is None:
                     continue
@@ -325,17 +351,11 @@ class ExportService:
                         )
                     )
                 current_bpm = bpm
-                for onset, event in event_onsets(measure):
+                for event_index, (_onset, event) in enumerate(event_onsets(measure)):
                     if event.kind != "note" or not event.pitches:
                         continue
-                    start = to_tick(visit.performance_start + onset, _TICKS_PER_BEAT)
-                    end = max(
-                        start + 1,
-                        to_tick(
-                            visit.performance_start + onset + event.duration,
-                            _TICKS_PER_BEAT,
-                        ),
-                    )
+                    interval = event_intervals[visit_index, part_index, event_index]
+                    start, end = interval.start_tick, interval.end_tick
                     for pitch in event.pitches:
                         note = max(
                             0, min(127, _pitch_to_midi(pitch, measure.target_key))

@@ -17,3 +17,14 @@ class PlaybackTextSource:
     text_hash: str
     # Event object identities from the parsed scores; never serialized.
     event_ranges: dict[int, tuple[int, int]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class PlaybackEvent:
+    event_id: str
+    part_index: int
+    staff: str | None
+    voice: str
+    start_tick: int
+    end_tick: int
+    ranges: tuple[tuple[int, int], ...]

@@ -704,9 +704,18 @@ watch(() => props.flashLine, (line, oldLine) => {
 // 外部覆盖则由 AutoTransposeGate 的 takePending / acceptResponse 用文本比对拦掉。
 
 watch(activeNoteSpans, (spans) => {
+  if (props.playbackHighlight !== null) return
   const span = spans[0]
   if (!span) return
   nextTick(() => scrollNoteIntoView(span))
+})
+
+// Note-off changes the highlight set, but only a new focus requests scrolling.
+watch([() => props.playbackHighlight?.focusRange, playbackSourceHash], ([range]) => {
+  const highlight = props.playbackHighlight
+  if (!range || highlight?.textHash !== playbackSourceHash.value) return
+  const span = sourceRangeSpans(props.modelValue, [range])[0]
+  if (span) nextTick(() => scrollNoteIntoView(span))
 })
 
 // 关闭开关时立刻丢弃待发编辑并让在途响应失效，避免关掉后音符还被改写。

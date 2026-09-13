@@ -46,20 +46,31 @@ test('UTF-16 ranges support simultaneous voices, CRLF and surrogate pairs', asyn
   assert.equal((await playbackTextHash(text)).length, 64)
 })
 
-function exportedMidi() {
+function exportedMidi(sourceText = `1=C
+4/4
+|: 1 2 3 4 :| 5 6 7 1' |`) {
   const python = path.join(root, process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python')
   const result = spawnSync(python, ['-c', String.raw`
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import base64
+import base64, hashlib, sys
 from score_trans.utils.env import load_project_env
 load_project_env(Path('backend/score_trans/config/env.example'))
-from score_trans.domain.jianpu import parse_jianpu_score
+from score_trans.domain.parse.jianpu_text import parse_jianpu_parts
+from score_trans.models.playback import PlaybackTextSource
 from score_trans.services.export.export_service import ExportService
+text=sys.stdin.read()
+parts=parse_jianpu_parts(text)
+source=PlaybackTextSource(hashlib.sha256(text.encode()).hexdigest())
+for part in parts:
+ for measure in part.score.measures:
+  for event in measure.events:
+   if event.source_start_utf16 is not None and event.source_end_utf16 is not None:
+    source.event_ranges[id(event)]=(part.body_start_utf16+event.source_start_utf16,part.body_start_utf16+event.source_end_utf16)
 with TemporaryDirectory() as tmp:
- p=ExportService().export_midi(parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 :| 5 6 7 1' |"), Path(tmp)/'repeat.mid')
+ p=ExportService().export_midi_scores([part.score for part in parts],Path(tmp)/'repeat.mid',text_source=source)
  print(base64.b64encode(p.read_bytes()).decode())
-`], {cwd:root,env:{...process.env,PYTHONPATH:path.join(root,'backend'),SCORE_TRANS_API_AUTH_DISABLED:'1'},encoding:'utf8'})
+`], {cwd:root,env:{...process.env,PYTHONPATH:path.join(root,'backend'),SCORE_TRANS_API_AUTH_DISABLED:'1'},encoding:'utf8',input:sourceText})
   assert.equal(result.status, 0, result.stderr)
   return Buffer.from(result.stdout.trim(), 'base64')
 }
@@ -96,7 +107,8 @@ async function moduleUrl(file) {
   const url=urlOf(compile(source));cache.set(file,url);return url
 }
 globalThis.__repeatMidi=Midi
-globalThis.requestAnimationFrame=()=>1
+let playbackFrame
+globalThis.requestAnimationFrame=(callback)=>{ playbackFrame=callback; return 1 }
 globalThis.cancelAnimationFrame=()=>{}
 const {usePlayer}=await import(await moduleUrl(path.join(root,'desktop/src/renderer/src/composables/usePlayer.ts')))
 const response = (bytes=midiBytes) => ({ok:true,arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)})
@@ -164,4 +176,119 @@ test('source mismatch and repeated stop never expose stale text ranges', async (
   player.stop()
   player.stop()
   assert.deepEqual(player.playbackHighlight.value.ranges,[])
+})
+
+async function polyphonicPlayer(body) {
+  const text = '1=C\n4/4\n' + body
+  const bytes = exportedMidi(text)
+  globalThis.__repeatFetch = async () => response(bytes)
+  const player = usePlayer()
+  await player.loadMidi('polyphonic', await playbackTextHash(text))
+  const tokens = () => player.playbackHighlight.value.ranges.map((r) => text.slice(r.start, r.end))
+  const advance = (seconds) => { transport.ticks = seconds * 960; playbackFrame() }
+  return { player, tokens, advance }
+}
+
+test('later chords do not erase the sustained bass text highlight', async () => {
+  const { player, tokens } = await polyphonicPlayer('0 [3+#1] [3+#1] [3+#1] & w6, |')
+  player.seekToTime(.625)
+  assert.deepEqual(tokens(), ['[3+#1]', 'w6,'])
+  player.seekToTime(1.125)
+  assert.deepEqual(tokens(), ['[3+#1]', 'w6,'])
+  player.unload()
+})
+
+test('note-off updates only that event while a long voice remains active', async () => {
+  const { player, tokens, advance } = await polyphonicPlayer('w1 & 6 0 0 0 |')
+  await player.play()
+  advance(.25)
+  assert.deepEqual(tokens(), ['w1', '6'])
+  const focus = player.playbackHighlight.value.focusRange
+  advance(.75)
+  assert.deepEqual(tokens(), ['w1'])
+  assert.equal(player.playbackHighlight.value.focusRange, focus, 'note-off must not scroll')
+  const stable = player.playbackHighlight.value
+  advance(.8)
+  assert.equal(player.playbackHighlight.value, stable, 'no per-frame highlight rebuild')
+  player.unload()
+})
+
+test('short voice gap cannot hide an earlier still-sounding voice', async () => {
+  const { player, tokens } = await polyphonicPlayer('0 q1 0 0 & w6, |')
+  player.seekToTime(.625)
+  assert.deepEqual(tokens(), ['q1', 'w6,'])
+  player.seekToTime(.9375)
+  assert.deepEqual(tokens(), ['w6,'])
+  player.unload()
+})
+
+test('three voices enter and finish independently, including identical pitches', async () => {
+  const { player, tokens } = await polyphonicPlayer('w1 & h1 0 0 & 0 0 3 0 |')
+  player.seekToTime(.25)
+  assert.deepEqual(tokens(), ['w1', 'h1'])
+  player.seekToTime(1.25)
+  assert.deepEqual(tokens(), ['w1', '3'])
+  player.seekToTime(1.75)
+  assert.deepEqual(tokens(), ['w1'])
+  player.unload()
+})
+
+test('repeat and loop jumps restore all active ranges with new occurrence identities', async () => {
+  const { player, tokens, advance } = await polyphonicPlayer('|: 0 [3+#1] [3+#1] [3+#1] & w6, :|')
+  await player.play()
+  advance(.625)
+  assert.deepEqual(tokens(), ['[3+#1]', 'w6,'])
+  const first = player.playbackHighlight.value
+  advance(2.625)
+  assert.deepEqual(player.playbackHighlight.value.ranges, first.ranges)
+  assert.notEqual(player.playbackHighlight.value.focusEventId, first.focusEventId)
+  const repeated = player.playbackHighlight.value
+  player.pause()
+  assert.equal(player.playbackHighlight.value, repeated)
+  await player.play()
+  advance(.625)
+  assert.deepEqual(player.playbackHighlight.value.ranges, first.ranges)
+  assert.equal(player.playbackHighlight.value.focusEventId, first.focusEventId)
+  player.setRate(2)
+  assert.deepEqual(tokens(), ['[3+#1]', 'w6,'])
+  player.unload()
+  assert.equal(player.playbackHighlight.value.focusRange, null)
+})
+
+test('v1 remains usable for score navigation but cannot guess sustained text ranges', async () => {
+  const legacy = new Midi(midiBytes)
+  legacy.header.meta = legacy.header.meta.map((marker) => {
+    const data = JSON.parse(marker.text.slice('score-trans-playback:'.length))
+    if (data.kind === 'document') data.version = 1
+    delete data.events
+    return { ...marker, text: 'score-trans-playback:' + JSON.stringify(data) }
+  })
+  globalThis.__repeatFetch = async () => response(Buffer.from(legacy.toArray()))
+  const player = usePlayer()
+  await player.loadMidi('v1')
+  assert.equal(player.sourceMapReady.value, true)
+  assert.equal(player.intervalTrackingReady.value, false)
+  player.seekToTime(2)
+  assert.equal(player.currentPlaybackGroupIndex.value, 0)
+  assert.deepEqual(player.playbackHighlight.value.ranges, [])
+  player.unload()
+})
+
+test('invalid event intervals invalidate v2 without affecting v1 decoding', () => {
+  const valid = new Midi(midiBytes).header.meta
+  for (const corrupt of [
+    (data, tick) => { data.events[0].end_tick = tick },
+    (data) => { data.events[0].end_tick = Number.NaN },
+    (data) => { data.events.push({...data.events[0]}) },
+    (data) => { data.events[0].ranges = [{start:7,end:2}] },
+    (data) => { data.events[0].part_index = -1 },
+  ]) {
+    let changed = false
+    const bad = valid.map((marker) => {
+      const data = JSON.parse(marker.text.slice('score-trans-playback:'.length))
+      if (data.kind === 'onset' && !changed) { corrupt(data, marker.ticks); changed = true }
+      return { ...marker, text: 'score-trans-playback:' + JSON.stringify(data) }
+    })
+    assert.equal(readMidiSourceMap(bad), null)
+  }
 })

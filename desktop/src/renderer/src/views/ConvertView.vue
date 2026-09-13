@@ -515,7 +515,7 @@ import type {
 import type { TaskPage, TaskPageStatus } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import JianpuPlayer from '../components/JianpuPlayer.vue'
-import type { PlaybackHighlight } from '../utils/midiSourceMap'
+import { emptyPlaybackHighlight, type PlaybackHighlight } from '../utils/midiSourceMap'
 import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
@@ -661,7 +661,7 @@ const operationalJianpuText = computed(() => (
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
 const currentPlaybackGroupIndex = ref(-1)
-const playbackHighlight = ref<PlaybackHighlight>({ ranges: [], textHash: null })
+const playbackHighlight = ref<PlaybackHighlight>(emptyPlaybackHighlight())
 const playbackPosition = ref({ tick: -1, onsetTick: -1, ppq: 480 })
 const renderPlaybackPosition = computed(() => store.currentBatchRenderOutputStale
   ? { tick: -1, onsetTick: -1, ppq: 480 }

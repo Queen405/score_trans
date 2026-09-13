@@ -87,7 +87,11 @@ def test_text_ranges_use_document_utf16_offsets(tmp_path: Path) -> None:
 
     assert tokens(0) == ["1", "w6,"]
     assert tokens(480) == ["2", "[3+#1]"]
-    assert onsets[1920] == onsets[0]
+    for key in ("kind", "score_tick", "score_group", "ranges"):
+        assert onsets[1920][key] == onsets[0][key]
+    assert {e["event_id"] for e in onsets[0]["events"]}.isdisjoint(
+        e["event_id"] for e in onsets[1920]["events"]
+    )
 
 
 def test_repeat_rest_and_tempo_mapping(tmp_path: Path) -> None:
@@ -214,3 +218,70 @@ def test_repeat_can_return_across_source_pages(tmp_path: Path) -> None:
     path = ExportService().export_midi_scores(scores, tmp_path / "pages.mid")
     visits = [d["source_index"] for _, d in _markers(path) if d["kind"] == "measure"]
     assert visits == [0, 1, 0, 1, 2]
+
+
+def test_polyphonic_events_keep_individual_end_ticks(tmp_path: Path) -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: w1 & 6 0 0 0 :|")
+    path = ExportService().export_midi(score, tmp_path / "polyphonic.mid")
+    markers = _markers(path)
+    assert markers[0][1]["version"] == 2
+    onsets = {tick: data for tick, data in markers if data["kind"] == "onset"}
+    events = onsets[0]["events"]
+    assert [(e["voice"], e["end_tick"]) for e in events] == [("1", 1920), ("2", 480)]
+    assert len({e["event_id"] for d in onsets.values() for e in d["events"]}) == 4
+    assert [e["end_tick"] for e in onsets[1920]["events"]] == [3840, 2400]
+    assert all(e["part_index"] == 0 for e in events)
+
+
+def test_event_metadata_uses_exact_midi_gate_intervals(tmp_path: Path) -> None:
+    score = parse_jianpu_score("""1=C
+4/4
+|: w1 & 6 0 0 0 :|""")
+    path = ExportService().export_midi(score, tmp_path / "gates.mid")
+    intervals = sorted(
+        (tick, event["end_tick"])
+        for tick, marker in _markers(path)
+        if marker["kind"] == "onset"
+        for event in marker["events"]
+    )
+    active: dict[int, int] = {}
+    actual: list[tuple[int, int]] = []
+    tick = 0
+    for message in mido.MidiFile(path).tracks[0]:
+        tick += message.time
+        if message.type == "note_on" and message.velocity:
+            active[message.note] = tick
+        elif message.type == "note_off":
+            actual.append((active.pop(message.note), tick))
+    assert intervals == sorted(actual)
+
+
+def test_full_piano_active_intervals_include_melody_chord_and_bass(
+    tmp_path: Path,
+) -> None:
+    from score_trans.exec.export.actions import ExportActions
+    from score_trans.models.export.schemas import ExportMidiTextRequest
+    from score_trans.models.settings.config import ToolConfig
+    from score_trans.services.files.upload_service import UploadService
+
+    text = (Path(__file__).parent / "fixtures/piano_polyphonic.jianpu").read_text(
+        encoding="utf-8"
+    )
+    uploads = UploadService(ToolConfig(work_dir=tmp_path))
+    result = ExportActions(uploads=uploads).export_midi_text(
+        ExportMidiTextRequest(jianpu_text=text)
+    )
+    markers = _markers(uploads.get_path(result.file_id))
+    events = [
+        (tick, e) for tick, d in markers if d["kind"] == "onset" for e in d["events"]
+    ]
+    assert len({e["event_id"] for _, e in events}) == len(events)
+    raw = text.encode("utf-16-le")
+    for tick in (600, 8 * 1920 + 600):
+        active = [e for start, e in events if start <= tick < e["end_tick"]]
+        tokens = [
+            raw[r["start"] * 2 : r["end"] * 2].decode("utf-16-le")
+            for e in active
+            for r in e["ranges"]
+        ]
+        assert sorted(tokens) == sorted(["q6", "[3+#1]", "w6,"])
