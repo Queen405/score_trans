@@ -147,3 +147,11 @@ UPLOAD_PDF_DPI: int = _i("SCORE_TRANS_UPLOAD_PDF_DPI")
 # MIDI
 MIDI_TICKS_PER_BEAT: int = _i("SCORE_TRANS_MIDI_TICKS_PER_BEAT")
 MIDI_DEFAULT_VELOCITY: int = _i("SCORE_TRANS_MIDI_DEFAULT_VELOCITY")
+
+# 简谱转换
+POLYPHONY_MODE: str = _s_or("SCORE_TRANS_POLYPHONY_MODE", "auto")
+if POLYPHONY_MODE not in ("auto", "preserve", "flatten"):
+    raise ValueError(
+        "SCORE_TRANS_POLYPHONY_MODE must be one of auto/preserve/flatten, "
+        f"got {POLYPHONY_MODE!r}"
+    )

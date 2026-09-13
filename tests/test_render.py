@@ -123,7 +123,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-14"
+    assert root.attrib["data-engine-version"] == "publication-15"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -488,6 +488,7 @@ def test_sixteenth_notes_share_both_rhythm_lines() -> None:
 
 
 def test_simultaneous_independent_voices_remain_distinct_and_do_not_overlap() -> None:
+    """复调小节的多 voice 渲染为上下两排：垂直分离、同 onset 水平对齐。"""
     events = [
         Event(
             kind="note",
@@ -511,19 +512,88 @@ def test_simultaneous_independent_voices_remain_distinct_and_do_not_overlap() ->
     anchors = [
         node for node in root.iter() if "source-anchor" in node.attrib.get("class", "")
     ]
-    boxes = [
-        [float(value) for value in node.attrib["data-bbox"].split()] for node in anchors
-    ]
-
-    assert len(anchors) == 2
-    assert {node.attrib["data-source-ids"] for node in anchors} == {
-        "voice-1",
-        "voice-2",
+    by_source = {
+        node.attrib["data-source-ids"]: [
+            float(value) for value in node.attrib["data-bbox"].split()
+        ]
+        for node in anchors
     }
-    assert (
-        boxes[0][0] + boxes[0][2] <= boxes[1][0]
-        or boxes[1][0] + boxes[1][2] <= boxes[0][0]
+
+    assert set(by_source) == {"voice-1", "voice-2"}
+    v1_box = by_source["voice-1"]
+    v2_box = by_source["voice-2"]
+    # 垂直分离：voice 2 排在 voice 1 下方
+    assert v2_box[1] > v1_box[1]
+    # 同一 onset 水平对齐（比较中心点：不同字形的 ink 左边缘本就不同）
+    assert v1_box[0] + v1_box[2] / 2 == pytest.approx(
+        v2_box[0] + v2_box[2] / 2, abs=1.0
     )
+    # 小节线延伸到下排声线之下
+    barlines = [
+        node
+        for node in root.iter()
+        if node.tag.endswith("line") and "measure" in node.attrib.get("class", "")
+    ]
+    assert barlines
+    bar_bottom = max(float(node.attrib["y2"]) for node in barlines)
+    assert bar_bottom >= v2_box[1]
+
+
+def test_polyphonic_measure_renders_two_lanes_with_aligned_onsets() -> None:
+    """用户场景：休止+和弦线与全音符线渲染为两排，barline 覆盖下排。"""
+    events = [
+        # lane 1：四分休止 + 三个四分音符
+        Event(kind="rest", duration=Fraction(1), start=Fraction(0), voice="1"),
+        *[
+            Event(
+                kind="note",
+                duration=Fraction(1),
+                pitches=[JianpuPitch(1), JianpuPitch(3)],
+                start=Fraction(index),
+                voice="1",
+                source_ids=[f"chord-{index}"],
+            )
+            for index in (1, 2, 3)
+        ],
+        # lane 2：全音符（低音）
+        Event(
+            kind="note",
+            duration=Fraction(4),
+            pitches=[JianpuPitch(1, octave=-1)],
+            start=Fraction(0),
+            voice="2",
+            source_ids=["bass"],
+        ),
+    ]
+    score = JianpuScore(measures=[Measure("1", duration=Fraction(4), events=events)])
+
+    root = _root(render_score_svg(score))
+    anchors = [
+        node for node in root.iter() if "source-anchor" in node.attrib.get("class", "")
+    ]
+    by_source = {
+        node.attrib["data-source-ids"]: [
+            float(value) for value in node.attrib["data-bbox"].split()
+        ]
+        for node in anchors
+        if node.attrib.get("data-source-ids")
+    }
+    assert set(by_source) == {"chord-1", "chord-2", "chord-3", "bass"}
+    lane1_y = by_source["chord-1"][1]
+    bass_box = by_source["bass"]
+    # 垂直分离
+    assert bass_box[1] > lane1_y
+    # 全音符的起始 onset（0）与 lane 1 的休止符同 x：休止符没有 source_ids，
+    # 用 lane 1 第一个和弦（onset 1）验证 x 单调递增即可
+    assert by_source["chord-1"][0] < by_source["chord-2"][0] < by_source["chord-3"][0]
+    # barline 高度覆盖下排
+    barlines = [
+        node
+        for node in root.iter()
+        if node.tag.endswith("line") and "measure" in node.attrib.get("class", "")
+    ]
+    bar_bottom = max(float(node.attrib["y2"]) for node in barlines)
+    assert bar_bottom >= bass_box[1]
 
 
 def test_accidental_has_clearance_from_its_note() -> None:

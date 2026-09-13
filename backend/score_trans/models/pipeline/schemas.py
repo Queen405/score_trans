@@ -6,6 +6,7 @@ from ..common.types import (
     AccidentalMode,
     InstrumentProfile,
     MeasureNumberMode,
+    PolyphonyMode,
     TargetKeyOrAuto,
 )
 from ..provenance.schemas import SourceTextAttachment, TextAnchor
@@ -18,6 +19,7 @@ class PipelineByFileIdRequest(A4LayoutRequest):
     target_key: TargetKeyOrAuto = "C"
     accidental_mode: AccidentalMode = "auto"
     instrument_profile: InstrumentProfile = "general"
+    polyphony_mode: PolyphonyMode = "auto"
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     title: str | None = None

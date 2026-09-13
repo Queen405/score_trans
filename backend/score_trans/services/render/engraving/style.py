@@ -27,6 +27,9 @@ class PublicationStyle:
     measure_number_size: float = 15.0
     base_staff_height: float = 92.0
     part_gap: float = 34.0
+    # 声线最小基线距离及实际符号边界之间的最小留白。
+    voice_row_gap: float = 38.0
+    voice_clearance: float = 18.0
     system_gap: float = 16.0
     title_block_height: float = 132.0
     minimum_measure_width: float = 150.0

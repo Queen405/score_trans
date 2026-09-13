@@ -8,6 +8,7 @@ import type {
   CacheCleanupResponse,
   LlmProviderOption,
   MeasureNumberMode,
+  PolyphonyMode,
   SettingsResponse,
   StoragePaths,
   TargetKey,
@@ -32,6 +33,7 @@ export interface SettingsDraft {
   cacheDir: string
   targetKey: TargetKey
   accidentalMode: AccidentalMode
+  polyphonyMode: PolyphonyMode
   measureNumberMode: MeasureNumberMode
   jianpuSyntaxHighlight: boolean
   jianpuMeasureDurationCheck: boolean
@@ -114,6 +116,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const storageRestartRequired = ref(false)
   const targetKey = ref<TargetKey>('auto')
   const accidentalMode = ref<AccidentalMode>('auto')
+  const polyphonyMode = ref<PolyphonyMode>('flatten')
   const showMeasureNumbers = ref(true)
   const measureNumberMode = ref<MeasureNumberMode>('all')
   const jianpuSyntaxHighlight = ref(true)
@@ -166,6 +169,7 @@ export const useSettingsStore = defineStore('settings', () => {
     cacheDir: '',
     targetKey: 'auto',
     accidentalMode: 'auto',
+    polyphonyMode: 'flatten',
     measureNumberMode: 'all',
     jianpuSyntaxHighlight: true,
     jianpuMeasureDurationCheck: true,
@@ -253,6 +257,7 @@ export const useSettingsStore = defineStore('settings', () => {
       cacheDir: cacheDir.value,
       targetKey: targetKey.value,
       accidentalMode: accidentalMode.value,
+      polyphonyMode: polyphonyMode.value,
       measureNumberMode: measureNumberMode.value,
       jianpuSyntaxHighlight: jianpuSyntaxHighlight.value,
       jianpuMeasureDurationCheck: jianpuMeasureDurationCheck.value,
@@ -322,6 +327,7 @@ export const useSettingsStore = defineStore('settings', () => {
           output_dir: next.outputDir,
           target_key: next.targetKey,
           accidental_mode: next.accidentalMode,
+          polyphony_mode: next.polyphonyMode,
           show_measure_numbers: next.measureNumberMode !== 'none',
           measure_number_mode: next.measureNumberMode,
           jianpu_syntax_highlight: next.jianpuSyntaxHighlight,
@@ -443,6 +449,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!cacheDir.value) cacheDir.value = activeCacheDir.value
     targetKey.value = data.target_key ?? 'auto'
     accidentalMode.value = data.accidental_mode ?? 'auto'
+    polyphonyMode.value = data.polyphony_mode ?? 'flatten'
     measureNumberMode.value =
       data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
@@ -538,6 +545,7 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.cacheDir = next.cacheDir
     draft.targetKey = next.targetKey
     draft.accidentalMode = next.accidentalMode
+    draft.polyphonyMode = next.polyphonyMode
     draft.measureNumberMode = next.measureNumberMode
     draft.jianpuSyntaxHighlight = next.jianpuSyntaxHighlight
     draft.jianpuMeasureDurationCheck = next.jianpuMeasureDurationCheck
@@ -580,6 +588,7 @@ export const useSettingsStore = defineStore('settings', () => {
     storageRestartRequired,
     targetKey,
     accidentalMode,
+    polyphonyMode,
     showMeasureNumbers,
     measureNumberMode,
     jianpuSyntaxHighlight,

@@ -2,6 +2,7 @@ import { ref, computed, shallowRef, onUnmounted, watch, type Ref } from 'vue'
 import * as Tone from 'tone'
 import { Midi } from '@tonejs/midi'
 import { authenticatedFetch } from '../api/client'
+import { readMidiSourceMap, sourcePlaybackPosition, ActivePlaybackEvents, emptyPlaybackHighlight, type MidiSourceMap, type PlaybackHighlight } from '../utils/midiSourceMap'
 import {
   normalizePlaybackRate,
   nominalSecondsToTransportTicks,
@@ -44,6 +45,13 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   const duration = ref(0)
   const currentTime = ref(0)
   const playbackPosition = ref({ tick: -1, onsetTick: -1, ppq: 480 })
+  const sourceMapReady = ref(false)
+  const intervalTrackingReady = ref(false)
+  const playbackHighlight = ref<PlaybackHighlight>(emptyPlaybackHighlight())
+  let sourceMap: MidiSourceMap | null = null
+  let activeEvents = new ActivePlaybackEvents(null)
+  let loadGeneration = 0
+  let loadController: AbortController | null = null
   const rate = ref<PlaybackRate>(options.defaultRate ?? 1)
   const volume = ref(0) // dB, 0 = full, -Infinity = mute
   const loop = ref(false)
@@ -93,11 +101,23 @@ export function usePlayer(options: UsePlayerOptions = {}) {
   }
 
   // ── Load MIDI ──
-  async function loadMidi(url: string): Promise<void> {
+  async function loadMidi(url: string, expectedTextHash?: string): Promise<void> {
+    const generation = ++loadGeneration
+    loadController?.abort()
+    const controller = new AbortController()
+    loadController = controller
+    stop()
+    clearSchedule()
+    sourceMap = null
+    sourceMapReady.value = false
+    intervalTrackingReady.value = false
+    activeEvents = new ActivePlaybackEvents(null)
     isLoading.value = true
     error.value = null
     isReady.value = false
     currentPlaybackGroupIndex.value = -1
+    activeEvents.reset()
+    playbackHighlight.value = emptyPlaybackHighlight()
     playbackPosition.value = { tick: -1, onsetTick: -1, ppq: midiData?.header.ppq ?? 480 }
     notes.length = 0
     noteGroups.length = 0
@@ -105,11 +125,15 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     try {
       await ensureAudioContext()
 
-      const response = await authenticatedFetch(url)
+      if (generation !== loadGeneration) return
+      const response = await authenticatedFetch(url, { signal: controller.signal })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const arrayBuffer = await response.arrayBuffer()
 
+      if (generation !== loadGeneration) return
       midiData = new Midi(arrayBuffer)
+      sourceMap = readMidiSourceMap(midiData.header.meta)
+      if (expectedTextHash && sourceMap?.textHash !== expectedTextHash) sourceMap = null
       scheduleBpm = midiData.header.tempos[0]?.bpm ?? 120
 
       // Extract notes from all tracks.
@@ -132,18 +156,26 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       // Sort by time for highlighting
       notes.sort((a, b) => a.time - b.time)
       rebuildNoteGroups()
+      if (sourceMap && noteGroups.some((g) => !sourceMap!.onsets.has(g.tick))) sourceMap = null
+      sourceMapReady.value = sourceMap !== null
+      intervalTrackingReady.value = sourceMap?.version === 2
+      activeEvents = new ActivePlaybackEvents(sourceMap)
 
-      nominalDuration = Math.max(maxEnd, midiData.duration)
+      nominalDuration = Math.max(maxEnd, midiData.duration, sourceMap ? midiData.header.ticksToSeconds(sourceMap.measures.at(-1)!.endTick) : 0)
       duration.value = toPlaybackSeconds(nominalDuration, rate.value)
       loopEnd.value = duration.value
       isReady.value = true
 
       Tone.getTransport().bpm.value = scaledTransportBpm(scheduleBpm, rate.value)
     } catch (e) {
+      if (generation !== loadGeneration) return
       error.value = e instanceof Error ? e.message : String(e)
       isReady.value = false
     } finally {
-      isLoading.value = false
+      if (generation === loadGeneration) {
+        isLoading.value = false
+        loadController = null
+      }
     }
   }
 
@@ -206,11 +238,21 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     isPlaying.value = false
     currentTime.value = 0
     currentPlaybackGroupIndex.value = -1
+    activeEvents.reset()
+    playbackHighlight.value = emptyPlaybackHighlight()
     playbackPosition.value = { tick: -1, onsetTick: -1, ppq: midiData?.header.ppq ?? 480 }
     stopPositionTracking()
   }
 
   function unload(): void {
+    ++loadGeneration
+    loadController?.abort()
+    loadController = null
+    sourceMap = null
+    sourceMapReady.value = false
+    intervalTrackingReady.value = false
+    activeEvents = new ActivePlaybackEvents(null)
+    isLoading.value = false
     stop()
     clearSchedule()
     midiData = null
@@ -241,7 +283,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       transport.PPQ,
     )
     currentTime.value = toPlaybackSeconds(clamped, rate.value)
-    updateCurrentNoteIndex(clamped)
+    updateCurrentNoteIndex(clamped, true)
   }
 
   function nominalPosition(): number {
@@ -265,6 +307,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
       if (loop.value) Tone.getTransport().loopEnd = loopEnd.value
     }
     currentTime.value = toPlaybackSeconds(position, rate.value)
+    updateCurrentNoteIndex(position)
   }
 
   // ── Volume ──
@@ -327,24 +370,29 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     }
   }
 
-  function updateCurrentNoteIndex(time: number): void {
-    // Find the note/chord group that is currently sounding.
+  function updateCurrentNoteIndex(time: number, seek = false): void {
+    // Primary onset for SVG navigation; text uses all active event intervals below.
     let idx = -1
     const epsilon = 0
     for (let i = noteGroups.length - 1; i >= 0; i--) {
       const group = noteGroups[i]
-      if (time + epsilon >= group.time && time <= group.endTime + epsilon) {
+      if (time + epsilon >= group.time && time < group.endTime + epsilon) {
         idx = i
         break
       }
       if (group.time < time) break
     }
-    currentPlaybackGroupIndex.value = idx
-    playbackPosition.value = {
-      tick: midiData?.header.secondsToTicks(time) ?? -1,
-      onsetTick: idx >= 0 ? noteGroups[idx]!.tick : -1,
-      ppq: midiData?.header.ppq ?? 480,
-    }
+    const mapped = sourcePlaybackPosition(
+      sourceMap,
+      midiData?.header.secondsToTicks(time) ?? -1,
+      idx >= 0 ? noteGroups[idx]!.tick : -1,
+      midiData?.header.ppq ?? 480,
+    )
+    currentPlaybackGroupIndex.value = mapped.groupIndex
+    playbackPosition.value = mapped.position
+    playbackHighlight.value = activeEvents.update(
+      midiData?.header.secondsToTicks(time) ?? -1, seek,
+    )
   }
 
   function rebuildNoteGroups(): void {
@@ -382,8 +430,7 @@ export function usePlayer(options: UsePlayerOptions = {}) {
 
   // ── Cleanup ──
   function dispose(): void {
-    stop()
-    clearSchedule()
+    unload()
     if (synth.value) {
       synth.value.dispose()
       synth.value = null
@@ -412,6 +459,9 @@ export function usePlayer(options: UsePlayerOptions = {}) {
     loop: readonlyRef(loop),
     currentPlaybackGroupIndex: readonlyRef(currentPlaybackGroupIndex),
     playbackPosition: readonlyRef(playbackPosition),
+    playbackHighlight: readonlyRef(playbackHighlight),
+    sourceMapReady: readonlyRef(sourceMapReady),
+    intervalTrackingReady: readonlyRef(intervalTrackingReady),
     currentTimeFormatted,
     durationFormatted,
     notes,

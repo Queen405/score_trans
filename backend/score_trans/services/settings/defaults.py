@@ -15,6 +15,7 @@ _BACKEND_STRING_KEYS: tuple[str, ...] = (
     "audiveris_min_image_edge",
     "target_key",
     "accidental_mode",
+    "polyphony_mode",
     "measure_number_mode",
     "show_measure_numbers",
     "jianpu_syntax_highlight",

@@ -88,6 +88,10 @@
           spellcheck="false"
           @input="onInput"
           @scroll="syncScroll"
+          @click="emitCursorChange"
+          @keyup="emitCursorChange"
+          @mousedown="emitCursorChange"
+          @select="emitCursorChange"
         />
         <div
           v-if="transposing"
@@ -128,6 +132,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
+import { playbackTextHash, sourceRangeSpans, type PlaybackHighlight } from '../utils/midiSourceMap'
 import { horizontalScrollIntoView } from '../utils/editorViewport'
 import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
 import type { SyntaxDiagnostic } from '../models/types'
@@ -154,6 +159,7 @@ const message = useMessage()
 const props = withDefaults(defineProps<{
   modelValue: string
   currentNoteIndex?: number
+  playbackHighlight?: PlaybackHighlight | null
   syntaxHighlight?: boolean
   syntaxDiagnostics?: SyntaxDiagnostic[]
   activeDiagnosticId?: string | null
@@ -164,6 +170,7 @@ const props = withDefaults(defineProps<{
   structureMarkersEnabled?: boolean
 }>(), {
   currentNoteIndex: -1,
+  playbackHighlight: null,
   syntaxHighlight: false,
   syntaxDiagnostics: () => [],
   activeDiagnosticId: null,
@@ -176,6 +183,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:initialMeasureNumber': [value: number]
+  'cursor-change': []
   'rekey-applied': [payload: {
     before: string
     after: string
@@ -302,11 +310,24 @@ const highlightedLines = computed(() => props.modelValue.split('\n').map((line, 
 const highlightScrollStyle = computed(() => ({
   transform: `translate(${-scrollLeft.value}px, ${-scrollTop.value}px)`,
 }))
-const activeNoteSpans = computed(() => (
-  props.currentNoteIndex >= 0
+const playbackSourceHash = ref('')
+watch(analysisText, async (text, _previous, onCleanup) => {
+  let cancelled = false
+  onCleanup(() => { cancelled = true })
+  playbackSourceHash.value = ''
+  const hash = await playbackTextHash(text)
+  if (!cancelled) playbackSourceHash.value = hash
+}, { immediate: true })
+const activeNoteSpans = computed(() => {
+  if (props.playbackHighlight !== null) {
+    return props.playbackHighlight.textHash === playbackSourceHash.value
+      ? sourceRangeSpans(props.modelValue, props.playbackHighlight.ranges)
+      : []
+  }
+  return props.currentNoteIndex >= 0
     ? noteSpans.value.filter((span) => span.index === props.currentNoteIndex)
     : []
-))
+})
 const playbackHighlightStyles = computed(() => {
   const metrics = editorMetrics.value
   return activeNoteSpans.value.map((span) => {
@@ -464,6 +485,8 @@ function isCursorInLineComment(value: string, cursor: number): boolean {
   const linePrefix = value.slice(lineStart, cursor)
   return linePrefix.includes('//')
 }
+
+function emitCursorChange(): void { emit('cursor-change') }
 
 function onInput(e: Event): void {
   const target = e.target as HTMLTextAreaElement
@@ -681,9 +704,18 @@ watch(() => props.flashLine, (line, oldLine) => {
 // 外部覆盖则由 AutoTransposeGate 的 takePending / acceptResponse 用文本比对拦掉。
 
 watch(activeNoteSpans, (spans) => {
+  if (props.playbackHighlight !== null) return
   const span = spans[0]
   if (!span) return
   nextTick(() => scrollNoteIntoView(span))
+})
+
+// Note-off changes the highlight set, but only a new focus requests scrolling.
+watch([() => props.playbackHighlight?.focusRange, playbackSourceHash], ([range]) => {
+  const highlight = props.playbackHighlight
+  if (!range || highlight?.textHash !== playbackSourceHash.value) return
+  const span = sourceRangeSpans(props.modelValue, [range])[0]
+  if (span) nextTick(() => scrollNoteIntoView(span))
 })
 
 // 关闭开关时立刻丢弃待发编辑并让在途响应失效，避免关掉后音符还被改写。
@@ -868,6 +900,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   min-width: 0;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
 }
@@ -949,6 +982,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   white-space: pre;
   overflow-wrap: normal;
   overflow-x: auto;
+  overflow-y: auto;
   position: relative;
   z-index: 1;
 }
@@ -1178,3 +1212,4 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 .theme-dark .token-ornament { color: #d16969; }
 .theme-dark .token-lyrics { color: #c8c8c8; }
 </style>
+

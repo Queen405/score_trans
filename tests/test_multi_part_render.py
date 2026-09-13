@@ -194,6 +194,7 @@ def test_multi_part_multipage_title_only_on_first_page() -> None:
     assert pages[0].svg.count('class="score-title"') == 1
     assert all('class="score-title"' not in page.svg for page in pages[1:])
 
+
 def test_three_parts_share_first_onset() -> None:
     """三声部：小节起点的同拍音符共用一个 group 且 x 对齐。"""
     parts = [

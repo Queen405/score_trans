@@ -310,7 +310,7 @@ function splitInlineComment(line: string): string {
  * 刻意不含 `\s+` 分支——`jianpuSyntax.ts` 的 TOKEN_PATTERN 为高亮保留了空白 token，
  * 复用它会把每个空格当成小节内容。
  */
-const MEASURE_TOKEN_PATTERN = /\$[^$]*\$|\|\||\|:|:\||\||[^\s|]+/g
+const MEASURE_TOKEN_PATTERN = /\$[^$]*\$|\|\||\|:|:\||\||&|[^\s|&]+/g
 const REPEAT_TOKEN_PATTERN = /^\*(\d+)$/
 const MEASURE_LABEL_TOKEN_PATTERN = /^(\d+)([.:：])$/
 const LEADING_MEASURE_LABEL_PATTERN = /^\s*(\d+)([.:：])(?=\s|$)/

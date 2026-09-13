@@ -9,8 +9,20 @@ from pathlib import Path
 from typing import Literal
 
 from ....config.settings import MIDI_TICKS_PER_BEAT
-from ....domain.playback_timeline import measure_boundaries, score_parts, to_tick
+from ....domain.playback_timeline import (
+    measure_boundaries,
+    score_parts,
+    to_tick,
+    score_onset_groups,
+    event_onsets,
+)
 from ....domain.jianpu_tokens import is_notatable_duration
+from ....domain.voices import (
+    LaneKey,
+    events_are_polyphonic,
+    group_event_lanes,
+    lane_key,
+)
 from ....models.common.errors import RenderError
 from ....models.common.types import MeasureNumberMode
 from ....models.render.layout import PUBLICATION_ENGINE_VERSION
@@ -71,11 +83,22 @@ class _Cell:
 
 
 @dataclass(slots=True)
+class _PartLayout:
+    offset: float = 0.0
+    lanes: dict[LaneKey, float] = field(default_factory=dict)
+    bar_top: float = 14.0
+    bar_bottom: float = 69.0
+    height: float = 92.0
+    text_offset: float = 0.0
+
+
+@dataclass(slots=True)
 class _System:
     cells: list[_Cell]
     widths: list[float]
     height: float
     force_page_before: bool = False
+    parts: list[_PartLayout] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -107,11 +130,23 @@ class TextLayout:
 
 
 @dataclass(slots=True)
-class _OpenSpanners:
+class _LaneSpanners:
+    """单条声线的未闭合 spanner（tie/slur/slide）。"""
+
     tie: _Anchor | None = None
     slur: _Anchor | None = None
     slide: _Anchor | None = None
-    continuations: set[str] = field(default_factory=set)
+
+
+@dataclass(slots=True)
+class _OpenSpanners:
+    """每个声部一份；内部按声线（lane 序号）隔离，避免复调小节内跨声线串线。"""
+
+    lanes: dict[LaneKey, _LaneSpanners] = field(default_factory=dict)
+    continuations: set[tuple[LaneKey, str]] = field(default_factory=set)
+
+    def lane(self, index: LaneKey) -> _LaneSpanners:
+        return self.lanes.setdefault(index, _LaneSpanners())
 
 
 class PublicationRenderer:
@@ -147,6 +182,7 @@ class PublicationRenderer:
         playback_group_offset: int = 0,
         playback_tick_offset: int = 0,
         show_title: bool = True,
+        show_page_number: bool = True,
         page_index_offset: int = 0,
         fit_content_height: bool = False,
     ) -> list[PublicationPage]:
@@ -169,10 +205,18 @@ class PublicationRenderer:
             footer_height = style.page_height - _pagination_bottom(style)
             content_height = sum(system.height for system in systems)
             content_height += max(0, len(systems) - 1) * style.system_gap
-            header_height = style.title_block_height if show_title else style.continuation_header_height
-            style = replace(style, page_height=max(
-                style.page_height, style.margin_top + header_height + content_height + footer_height
-            ))
+            header_height = (
+                style.title_block_height
+                if show_title
+                else style.continuation_header_height
+            )
+            style = replace(
+                style,
+                page_height=max(
+                    style.page_height,
+                    style.margin_top + header_height + content_height + footer_height,
+                ),
+            )
         pages = _paginate(systems, style, show_title=show_title)
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
         document_title = title or score0.title or "简谱"
@@ -194,10 +238,13 @@ class PublicationRenderer:
                 score0,
                 page_index + page_index_offset,
                 show_title=show_title,
+                show_page_number=show_page_number,
             )
             note_start = next_note_index
             y = style.margin_top + (
-                style.title_block_height if page_index == 0 and show_title else style.continuation_header_height
+                style.title_block_height
+                if page_index == 0 and show_title
+                else style.continuation_header_height
             )
             page_ranges: list[MeasureRange] = []
             page_cells = [cell for system in page_systems for cell in system.cells]
@@ -322,9 +369,7 @@ class PublicationRenderer:
         x0 = style.margin_left
         part_count = max(1, len(parts))
         if part_count > 1:
-            system_bottom = (
-                y + (part_count - 1) * (style.base_staff_height + style.part_gap) + 69.0
-            )
+            system_bottom = y + system.parts[-1].offset + system.parts[-1].bar_bottom
             scene.add(
                 _line("system-bracket", x0 - 12, y + 14, x0 - 12, system_bottom, 2.2)
             )
@@ -340,8 +385,13 @@ class PublicationRenderer:
             )
         x = x0
         for part_index, state in enumerate(spanners):
-            staff_y = y + part_index * (style.base_staff_height + style.part_gap)
-            _start_spanner_continuations(state, x0, staff_y + style.event_baseline)
+            staff_y = y + system.parts[part_index].offset
+            _start_spanner_continuations(
+                state,
+                x0,
+                staff_y + style.event_baseline,
+                lane_offsets=system.parts[part_index].lanes,
+            )
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
@@ -353,7 +403,7 @@ class PublicationRenderer:
                     if part_index < len(cell.measures)
                     else None
                 )
-                staff_y = y + part_index * (style.base_staff_height + style.part_gap)
+                staff_y = y + system.parts[part_index].offset
                 if cell_index == 0 and part_count > 1:
                     part_name = _part_name(parts, part_index)
                     if part_name:
@@ -372,9 +422,9 @@ class PublicationRenderer:
                         _line(
                             "measure",
                             x + width,
-                            staff_y + 14.0,
+                            staff_y + system.parts[part_index].bar_top,
                             x + width,
-                            staff_y + 69.0,
+                            staff_y + system.parts[part_index].bar_bottom,
                             style.stroke_width,
                         )
                     )
@@ -411,10 +461,11 @@ class PublicationRenderer:
                     ),
                     playback_tick_offset=playback_tick_offset,
                     part_index=part_index,
+                    part_layout=system.parts[part_index],
                 )
             x += width
         for part_index, open_state in enumerate(spanners):
-            staff_y = y + part_index * (style.base_staff_height + style.part_gap)
+            staff_y = y + system.parts[part_index].offset
             _finish_spanners(scene, open_state, x, staff_y, style)
         return note_index
 
@@ -439,8 +490,18 @@ class PublicationRenderer:
         playback_start: Fraction = Fraction(0),
         playback_tick_offset: int = 0,
         part_index: int = 0,
+        part_layout: _PartLayout | None = None,
     ) -> int:
+        visual_events = _visual_events(measure)
+        lane_groups = _measure_render_lanes(visual_events)
+        if part_layout is not None and part_layout.lanes:
+            lane_groups = [
+                [event for event in visual_events if lane_key(event) == key]
+                for key in part_layout.lanes
+            ]
         bar_top, bar_bottom = _measure_bar_offsets(measure, style)
+        if part_layout is not None:
+            bar_top, bar_bottom = part_layout.bar_top, part_layout.bar_bottom
         if draw_start_bar or measure.repeat_start:
             _draw_barline(
                 scene,
@@ -519,11 +580,6 @@ class PublicationRenderer:
                     style.annotation_size,
                 )
             )
-        visual_events = _visual_events(measure)
-        events = sorted(
-            enumerate(visual_events),
-            key=lambda item: (item[1].start or Fraction(item[0]), item[0]),
-        )
         anchors: list[_Anchor] = []
         # Attributes sit in the upper-left annotation band and must not consume
         # horizontal event slots; otherwise a key/meter change shifts the bar.
@@ -534,53 +590,138 @@ class PublicationRenderer:
         # because the shared line is no longer part of per-event ink.
         clip_left = x + style.barline_gutter
         clip_right = x + width - style.barline_gutter
-        ordered_events = [event for _source_index, event in events]
-        pad_left, pad_right = _rhythm_edge_padding(ordered_events, style)
-        event_positions = _event_positions(
-            ordered_events,
-            clip_left + pad_left,
-            clip_right - pad_right,
-            measure,
-            style,
-        )
-        if shared_positions:
-            event_positions = [
-                shared_positions.get(event.start or Fraction(0), position)
-                for event, position in zip(ordered_events, event_positions, strict=True)
-            ]
-        for event_pos, (_source_index, event) in enumerate(events):
-            event_x = event_positions[event_pos]
-            note_group = (
-                note_groups.get(event.start or Fraction(0)) if note_groups else None
+        if lane_groups is None:
+            events = sorted(
+                enumerate(visual_events),
+                key=lambda item: (
+                    item[1].start if item[1].start is not None else Fraction(item[0]),
+                    item[0],
+                ),
             )
-            anchor, consumed = _draw_event(
+            ordered_events = [event for _source_index, event in events]
+            pad_left, pad_right = _rhythm_edge_padding(ordered_events, style)
+            event_positions = _event_positions(
+                ordered_events,
+                clip_left + pad_left,
+                clip_right - pad_right,
+                measure,
+                style,
+            )
+            if shared_positions:
+                event_positions = [
+                    shared_positions.get(event.start or Fraction(0), position)
+                    for event, position in zip(
+                        ordered_events, event_positions, strict=True
+                    )
+                ]
+            note_index = _draw_event_group(
                 scene,
                 style,
-                event,
-                event_x,
+                events,
+                event_positions,
                 y + style.event_baseline,
                 note_index,
-                right_limit=clip_right,
-                note_group=note_group,
-                playback_tick=playback_tick_offset
-                + to_tick(
-                    playback_start + (event.start or Fraction(0)), MIDI_TICKS_PER_BEAT
-                ),
+                clip_right=clip_right,
+                note_groups=note_groups,
+                playback_start=playback_start,
+                playback_tick_offset=playback_tick_offset,
                 part_index=part_index,
+                spanners=spanners,
+                lane=None,
+                measure_left=x,
+                measure_right=x + width,
+                subtext_offset=0.0,
+                anchors=anchors,
             )
-            anchors.append(anchor)
-            if consumed:
-                note_index += 1
-            _route_spanners(scene, spanners, anchor, x, x + width, style)
-        _draw_rhythm_lines(scene, anchors, clip_left, clip_right, style)
-        _draw_tuplets(scene, anchors, style)
-        _draw_measure_text(scene, measure, x, y, width, style)
+        else:
+            # 复调小节：每条声线独立成行，共享小节线；跨声线用 union onset
+            # 对齐（与多声部 shared_positions 同一机制），同一时刻各声线同 x。
+            lane_probes: list[Measure | None] = [
+                _lane_probe(measure, lane_events) for lane_events in lane_groups
+            ]
+            lane_positions = shared_positions or _shared_cell_positions(
+                lane_probes, x, width, style
+            )
+            lane_offsets = part_layout.lanes if part_layout is not None else {}
+            lyric_offset = part_layout.text_offset if part_layout is not None else 0.0
+            for lane_rank, lane_events in enumerate(lane_groups):
+                if not lane_events:
+                    continue
+                key = lane_key(lane_events[0])
+                baseline_offset = lane_offsets.get(key, lane_rank * style.voice_row_gap)
+                lane_anchors: list[_Anchor] = []
+                events = sorted(
+                    enumerate(lane_events),
+                    key=lambda item: (
+                        item[1].start
+                        if item[1].start is not None
+                        else Fraction(item[0]),
+                        item[0],
+                    ),
+                )
+                ordered_events = [event for _source_index, event in events]
+                pad_left, pad_right = _rhythm_edge_padding(ordered_events, style)
+                event_positions = _event_positions(
+                    ordered_events,
+                    clip_left + pad_left,
+                    clip_right - pad_right,
+                    measure,
+                    style,
+                )
+                if lane_positions:
+                    event_positions = [
+                        lane_positions.get(event.start or Fraction(0), position)
+                        for event, position in zip(
+                            ordered_events, event_positions, strict=True
+                        )
+                    ]
+                note_index = _draw_event_group(
+                    scene,
+                    style,
+                    events,
+                    event_positions,
+                    y + style.event_baseline + baseline_offset,
+                    note_index,
+                    clip_right=clip_right,
+                    note_groups=note_groups,
+                    playback_start=playback_start,
+                    playback_tick_offset=playback_tick_offset,
+                    part_index=part_index,
+                    spanners=spanners,
+                    lane=key,
+                    measure_left=x,
+                    measure_right=x + width,
+                    # lane 1 的歌词/力度移到所有声线之下，避免与 lane 2 数字重叠
+                    subtext_offset=max(0.0, lyric_offset - baseline_offset),
+                    anchors=lane_anchors,
+                )
+                _draw_rhythm_lines(scene, lane_anchors, clip_left, clip_right, style)
+                _draw_tuplets(scene, lane_anchors, style)
+                anchors.extend(lane_anchors)
+        if lane_groups is None:
+            _draw_rhythm_lines(scene, anchors, clip_left, clip_right, style)
+            _draw_tuplets(scene, anchors, style)
+        text_offset = part_layout.text_offset if part_layout is not None else 0.0
+        _draw_measure_text(scene, measure, x, y + text_offset, width, style)
+        repeat_center = (bar_top + bar_bottom) / 2
         if measure.repeat_start:
-            scene.add(_circle("repeat-dot", x + 12, y + 37, 2.3, fill=True))
-            scene.add(_circle("repeat-dot", x + 12, y + 51, 2.3, fill=True))
+            scene.add(
+                _circle("repeat-dot", x + 12, y + repeat_center - 7, 2.3, fill=True)
+            )
+            scene.add(
+                _circle("repeat-dot", x + 12, y + repeat_center + 7, 2.3, fill=True)
+            )
         if measure.repeat_end:
-            scene.add(_circle("repeat-dot", x + width - 12, y + 37, 2.3, fill=True))
-            scene.add(_circle("repeat-dot", x + width - 12, y + 51, 2.3, fill=True))
+            scene.add(
+                _circle(
+                    "repeat-dot", x + width - 12, y + repeat_center - 7, 2.3, fill=True
+                )
+            )
+            scene.add(
+                _circle(
+                    "repeat-dot", x + width - 12, y + repeat_center + 7, 2.3, fill=True
+                )
+            )
         _draw_barline(
             scene,
             x + width,
@@ -594,6 +735,100 @@ class PublicationRenderer:
             ),
         )
         return note_index
+
+
+def _measure_render_lanes(visual_events: list[Event]) -> list[list[Event]] | None:
+    """真复调小节按声线分组视觉事件（含 extension 槽位），否则返回 None。
+
+    仅在同一 staff 上不同 voice 时间重叠时拆分；分组顺序与
+    ``group_event_lanes`` 一致（voice 数字升序、staff 次之）。
+    """
+    # Extension slots still occupy musical time. Include them in overlap
+    # detection; otherwise a later entry loses the sustained voice beside it.
+    occupancy = [
+        replace(event, kind="rest") if event.kind == "extension" else event
+        for event in visual_events
+    ]
+    if not events_are_polyphonic(occupancy):
+        return None
+    lanes = group_event_lanes(occupancy)
+    if len(lanes) < 2:
+        return None
+    grouped: dict[LaneKey, list[Event]] = {key: [] for key, _events in lanes}
+    for event in visual_events:
+        if event.kind == "rest" and event.hidden and event.tuplet_id is None:
+            continue
+        key = lane_key(event)
+        if key in grouped:
+            grouped[key].append(event)
+    return [grouped[key] for key, _events in lanes]
+
+
+def _lane_probe(measure: Measure, events: list[Event]) -> Measure:
+    return Measure(
+        source_number=measure.source_number,
+        duration=measure.duration,
+        events=events,
+        beats_per_measure=measure.beats_per_measure,
+        beat_type=measure.beat_type,
+    )
+
+
+def _draw_event_group(
+    scene: PublicationScene,
+    style: PublicationStyle,
+    events: list[tuple[int, Event]],
+    event_positions: list[float],
+    baseline_y: float,
+    note_index: int,
+    *,
+    clip_right: float,
+    note_groups: dict[Fraction, int] | None,
+    playback_start: Fraction,
+    playback_tick_offset: int,
+    part_index: int,
+    spanners: _OpenSpanners,
+    lane: LaneKey | None,
+    measure_left: float,
+    measure_right: float,
+    subtext_offset: float,
+    anchors: list[_Anchor],
+) -> int:
+    """按给定水平位置绘制一组事件（单线小节的全组，或复调小节的一条声线）。"""
+    for event_pos, (_source_index, event) in enumerate(events):
+        event_x = event_positions[event_pos]
+        note_group = (
+            note_groups.get(event.start or Fraction(0)) if note_groups else None
+        )
+        anchor, consumed = _draw_event(
+            scene,
+            style,
+            event,
+            event_x,
+            baseline_y,
+            note_index,
+            right_limit=clip_right,
+            note_group=note_group,
+            playback_tick=playback_tick_offset
+            + to_tick(
+                playback_start + (event.start or Fraction(0)), MIDI_TICKS_PER_BEAT
+            ),
+            part_index=part_index,
+            subtext_offset=subtext_offset,
+        )
+        anchors.append(anchor)
+        if consumed:
+            note_index += 1
+        _route_spanners(
+            scene,
+            spanners,
+            anchor,
+            measure_left,
+            measure_right,
+            style,
+            lane=lane if lane is not None else lane_key(event),
+        )
+    return note_index
 
 
 def _measure_bar_offsets(
@@ -771,6 +1006,16 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
     visual = _visual_events(measure)
     if not visual:
         return style.minimum_measure_width
+    # 复调小节按声线分组后，宽度需求是各声线 union onset 的布局需求，
+    # 与多声部共享宽度同一机制（任一单线布局都不够装下并行的两组事件）。
+    lane_groups = _measure_render_lanes(visual)
+    if lane_groups is not None:
+        shared = _shared_intrinsic_measure_width(
+            [_lane_probe(measure, lane_events) for lane_events in lane_groups],
+            style,
+        )
+        if shared is not None:
+            return shared
     events = sorted(
         visual,
         key=lambda event: event.start if event.start is not None else Fraction(0),
@@ -823,6 +1068,34 @@ def _preferred_event_gaps(
     return [max(floor, gap) for floor, gap in zip(floors, gaps, strict=True)]
 
 
+def _spacing_lanes(
+    measures: list[Measure | None],
+) -> list[tuple[Measure, list[Event]]]:
+    result: list[tuple[Measure, list[Event]]] = []
+    for measure in measures:
+        if measure is None:
+            continue
+        visual = _visual_events(measure)
+        groups = _measure_render_lanes(visual) or [visual]
+        for events in groups:
+            ordered = sorted(events, key=lambda event: event.start or Fraction(0))
+            # A simultaneous event adds ink constraints, not a new time slot.
+            # Separate coincident events into independent spacing sequences so
+            # no onset dictionary can overwrite another event's requirement.
+            sequences: list[list[Event]] = []
+            for event in ordered:
+                sequence = next(
+                    (items for items in sequences if items[-1].start != event.start),
+                    None,
+                )
+                if sequence is None:
+                    sequence = []
+                    sequences.append(sequence)
+                sequence.append(event)
+            result.extend((measure, items) for items in sequences)
+    return result
+
+
 def _shared_intrinsic_measure_width(
     measures: list[Measure], style: PublicationStyle
 ) -> float | None:
@@ -834,17 +1107,7 @@ def _shared_intrinsic_measure_width(
     per-part maxima, or the draw-time justification would have to compress
     below the parts' minimum gaps.
     """
-    per_part: list[tuple[Measure, list[Event]]] = []
-    for measure in measures:
-        visual = _visual_events(measure)
-        if not visual:
-            continue
-        events = sorted(
-            visual,
-            key=lambda event: event.start if event.start is not None else Fraction(0),
-        )
-        if events:
-            per_part.append((measure, events))
+    per_part = _spacing_lanes(measures)
     if len(per_part) < 2:
         return None
     union = sorted(
@@ -882,41 +1145,22 @@ def _shared_intrinsic_measure_width(
 
 
 def _playback_group_map(cells: list[_Cell]) -> dict[int, dict[Fraction, int]]:
-    """Map each cell's local onsets to document-wide playback group ids.
+    """Stable original-score onset IDs shared with MIDI source-position markers.
 
-    A group id counts the unique sounding onsets of the whole document in
-    time order.  This is the same sequence the MIDI player produces when it
-    merges notes that share a start time, so the frontend can address every
-    part's notes at the current playback position with a single id instead of
-    translating between layout order and time order.
+    Repeated performances refer back to these IDs; they do not add SVG groups.
     """
-    offsets: list[Fraction] = []
-    cursor = Fraction(0)
-    for cell in cells:
-        offsets.append(cursor)
-        span = Fraction(0)
-        for measure in cell.measures:
-            if measure is None:
-                continue
-            span = max(span, measure.duration, measure.span_duration)
-        cursor += span
-    onsets: set[Fraction] = set()
-    local_onsets: list[set[Fraction]] = []
-    for cell, offset in zip(cells, offsets, strict=True):
-        local: set[Fraction] = set()
-        for measure in cell.measures:
-            if measure is None:
-                continue
-            for event in _visual_events(measure):
-                if event.kind == "note" and event.pitches:
-                    start = event.start or Fraction(0)
-                    local.add(start)
-                    onsets.add(offset + start)
-        local_onsets.append(local)
-    order = {onset: index for index, onset in enumerate(sorted(onsets))}
+    measures = [cell.measures for cell in cells]
+    boundaries = measure_boundaries(measures)
+    groups = score_onset_groups(measures)
     return {
-        cell.index: {start: order[offset + start] for start in local}
-        for cell, offset, local in zip(cells, offsets, local_onsets, strict=True)
+        cell.index: {
+            start: groups[boundaries[index] + start]
+            for measure in cell.measures
+            if measure is not None
+            for start, event in event_onsets(measure)
+            if event.kind == "note" and event.pitches
+        }
+        for index, cell in enumerate(cells)
     }
 
 
@@ -932,19 +1176,7 @@ def _shared_cell_positions(
     is preserved (per-part gaps telescope over the union intervals) while
     identical onsets share one coordinate across all parts.
     """
-    per_part: list[tuple[Measure, list[Event]]] = []
-    for measure in measures:
-        if measure is None:
-            continue
-        events = [
-            event
-            for _source_index, event in sorted(
-                enumerate(_visual_events(measure)),
-                key=lambda item: (item[1].start or Fraction(item[0]), item[0]),
-            )
-        ]
-        if events:
-            per_part.append((measure, events))
+    per_part = _spacing_lanes(measures)
     if len(per_part) < 2:
         return {}
     union = sorted(
@@ -1257,6 +1489,23 @@ def _break_systems(
     if not cells:
         return []
     systems: list[_System] = []
+    part_keys: list[list[LaneKey]] = []
+    for index in range(part_count):
+        events = [
+            event
+            for cell in cells
+            if index < len(cell.measures) and cell.measures[index] is not None
+            for event in _visual_events(cell.measures[index])
+        ]
+        polyphonic = any(
+            index < len(cell.measures)
+            and cell.measures[index] is not None
+            and _measure_render_lanes(_visual_events(cell.measures[index])) is not None
+            for cell in cells
+        )
+        part_keys.append(
+            [key for key, _ in group_event_lanes(events)] if polyphonic else []
+        )
     start = 0
     for end in _optimal_system_ends(cells, style):
         row = cells[start:end]
@@ -1270,28 +1519,158 @@ def _break_systems(
         )
         scale = target / natural if natural else 1.0
         widths = [cell.width * scale for cell in row]
-        extra = _system_extra_height(row, style)
-        height = (
-            part_count * style.base_staff_height
-            + max(0, part_count - 1) * style.part_gap
-            + extra
-        )
+        layouts = _system_part_layouts(row, widths, style, part_keys)
+        height = layouts[-1].offset + layouts[-1].height if layouts else 0.0
         systems.append(
             _System(
                 row,
                 widths,
                 height,
                 force_page_before=bool(row and row[0].forced_page),
+                parts=layouts,
             )
         )
         start = end
     return systems
 
 
+def _system_part_layouts(
+    cells: list[_Cell],
+    widths: list[float],
+    style: PublicationStyle,
+    part_keys: list[list[LaneKey]],
+) -> list[_PartLayout]:
+    layouts: list[_PartLayout] = []
+    cursor = 0.0
+    for index, keys in enumerate(part_keys):
+        measures = [
+            (cell.measures[index], width)
+            for cell, width in zip(cells, widths, strict=True)
+            if index < len(cell.measures) and cell.measures[index] is not None
+        ]
+        visual = [event for measure, _ in measures for event in _visual_events(measure)]
+        offsets: dict[LaneKey, float] = {}
+        previous_bottom = 0.0
+        baseline = 0.0
+        for rank, key in enumerate(keys):
+            events = [event for event in visual if lane_key(event) == key]
+            boxes = [
+                measure_event_ink(replace(event, lyric=None, dynamic=None), style)
+                for event in events
+            ]
+            top = min((box.top for box in boxes), default=-29.0)
+            bottom = max((box.bottom for box in boxes), default=14.0)
+            if any(event.slur_start or event.slur_stop for event in events):
+                top -= max(30.0, style.slur_height) + style.spanner_base_clearance
+            if any(event.tie_start or event.tie_stop for event in events):
+                bottom += style.tie_below_clearance + max(
+                    4.0, min(12.0, style.tie_height)
+                )
+            rhythm = [
+                event for event in events if _rhythm_line_count(event) or event.beams
+            ]
+            if rhythm:
+                levels = max(
+                    max(
+                        _rhythm_line_count(event),
+                        max(
+                            (int(b.number) for b in event.beams if b.number.isdigit()),
+                            default=0,
+                        ),
+                    )
+                    for event in rhythm
+                )
+                bottom = max(
+                    bottom,
+                    max(_rhythm_line_offset(event, style) for event in rhythm)
+                    + max(0, levels - 1) * style.rhythm_line_level_step
+                    + style.stroke_width,
+                )
+            if any(_is_tuplet(event) for event in events):
+                top -= style.tuplet_bracket_offset + style.annotation_size
+            if rank:
+                baseline += max(
+                    style.voice_row_gap, previous_bottom - top + style.voice_clearance
+                )
+            offsets[key] = baseline
+            previous_bottom = bottom
+        text_offset = max(offsets.values(), default=0.0)
+        bar_top, bar_bottom = 14.0, 69.0
+        for measure, _ in measures:
+            groups = (
+                [
+                    [e for e in _visual_events(measure) if lane_key(e) == key]
+                    for key in keys
+                ]
+                if keys
+                else [_visual_events(measure)]
+            )
+            for events in groups:
+                if not events:
+                    continue
+                offset = offsets.get(lane_key(events[0]), 0.0)
+                top, bottom = _measure_bar_offsets(_lane_probe(measure, events), style)
+                bar_top = min(bar_top, top + offset)
+                bar_bottom = max(bar_bottom, bottom + offset)
+        probes = [
+            _Cell(cell.index, [cell.measures[index]], width)
+            for cell, width in zip(cells, widths, strict=True)
+            if index < len(cell.measures)
+        ]
+        extra = _system_extra_height(probes, style)
+        height = style.base_staff_height + extra
+        if offsets:
+            depth = max(
+                (
+                    style.event_baseline
+                    + offsets.get(lane_key(e), 0.0)
+                    + measure_event_ink(
+                        replace(e, lyric=None, dynamic=None), style
+                    ).bottom
+                    for e in visual
+                ),
+                default=bar_bottom,
+            )
+            for e in visual:
+                if e.lyric or e.dynamic:
+                    depth = max(
+                        depth,
+                        style.event_baseline
+                        + text_offset
+                        + measure_event_ink(e, style).bottom,
+                    )
+            for measure, width in measures:
+                for text in _measure_text_layout(
+                    measure, 0.0, width, text_offset, style
+                ):
+                    depth = max(depth, text.bbox.y + text.bbox.height)
+            height = max(
+                height,
+                depth + style.system_bottom_reserve,
+                bar_bottom + style.system_bottom_reserve,
+            )
+        top_ink = min(
+            (
+                style.event_baseline
+                + offsets.get(lane_key(e), 0.0)
+                + measure_event_ink(e, style).top
+                for e in visual
+            ),
+            default=14.0,
+        )
+        if index:
+            cursor += max(0.0, -top_ink)
+        layouts.append(
+            _PartLayout(cursor, offsets, bar_top, bar_bottom, height, text_offset)
+        )
+        cursor += height + style.part_gap
+    return layouts
+
+
 def _boundary_penalties(cells: list[_Cell], style: PublicationStyle) -> list[float]:
     """Track spans through every measure, matching the drawing stop/start order."""
     penalties = [0.0]
-    active: dict[tuple[int, str], bool] = {}
+    active: dict[tuple[int, LaneKey, str], bool] = {}
     for cell in cells:
         penalty = 0.0
         for part, measure in enumerate(cell.measures):
@@ -1300,18 +1679,21 @@ def _boundary_penalties(cells: list[_Cell], style: PublicationStyle) -> list[flo
             last_lyric = None
             for event in measure.events:
                 for kind in ("slur", "tie", "slide"):
-                    key = (part, kind)
+                    key = (part, lane_key(event), kind)
                     if getattr(event, f"{kind}_stop"):
                         active[key] = False
                     if getattr(event, f"{kind}_start"):
                         active[key] = True
                 if event.lyric:
                     last_lyric = event.lyric
-            if last_lyric and not last_lyric.rstrip().endswith(tuple("。，；！？.,;!?")):
+            if last_lyric and not last_lyric.rstrip().endswith(
+                tuple("。，；！？.,;!?")
+            ):
                 penalty += style.lyric_break_penalty
         penalty += sum(
             style.slur_break_penalty if kind == "slur" else style.tie_break_penalty
-            for (_, kind), opened in active.items() if opened
+            for (_, _lane, kind), opened in active.items()
+            if opened
         )
         penalties.append(penalty)
     return penalties
@@ -1327,7 +1709,9 @@ def _optimal_system_ends(cells: list[_Cell], style: PublicationStyle) -> list[in
     for start in range(count - 1, -1, -1):
         width = 0.0
         for end in range(start + 1, count + 1):
-            if end > start + 1 and (cells[end - 1].forced_system or cells[end - 1].forced_page):
+            if end > start + 1 and (
+                cells[end - 1].forced_system or cells[end - 1].forced_page
+            ):
                 break
             width += cells[end - 1].width
             ratio = width / style.content_width
@@ -1337,7 +1721,9 @@ def _optimal_system_ends(cells: list[_Cell], style: PublicationStyle) -> list[in
             badness = 0.0 if ragged_last else abs(1.0 - ratio) ** 3 * 1000.0
             if end - start == 1 and count > 1 and ratio < 0.6:
                 badness += style.singleton_system_penalty
-            forced = end < count and (cells[end].forced_system or cells[end].forced_page)
+            forced = end < count and (
+                cells[end].forced_system or cells[end].forced_page
+            )
             if end < count and not forced:
                 badness += penalties[end]
             total = badness + costs[end]
@@ -1398,6 +1784,15 @@ def _system_extra_height(cells: list[_Cell], style: PublicationStyle) -> float:
         for measure in cell.measures:
             if measure is None:
                 continue
+            # 复调小节的附加声线占用垂直空间，系统高度按小节级 lane 数加高
+            visual = _visual_events(measure)
+            lane_groups = _measure_render_lanes(visual)
+            if lane_groups is not None:
+                bottom_extra = max(
+                    bottom_extra,
+                    (len(lane_groups) - 1) * style.voice_row_gap,
+                )
+                needs_bottom = True
             for event in measure.events:
                 box = measure_event_ink(event, style)
                 top_extra = max(top_extra, max(0.0, -box.top - 29.0))
@@ -1441,6 +1836,7 @@ def _page_chrome(
     page_index: int,
     *,
     show_title: bool = True,
+    show_page_number: bool = True,
 ) -> None:
     scene.add(
         SceneNode(
@@ -1476,16 +1872,17 @@ def _page_chrome(
                 style.meta_size,
             )
         )
-    scene.add(
-        _text(
-            "annotation page-number",
-            style.page_width / 2,
-            style.page_height - 24,
-            str(page_index + 1),
-            style.annotation_size,
-            anchor="middle",
+    if show_page_number:
+        scene.add(
+            _text(
+                "annotation page-number",
+                style.page_width / 2,
+                style.page_height - 24,
+                str(page_index + 1),
+                style.annotation_size,
+                anchor="middle",
+            )
         )
-    )
 
 
 def _event_x(
@@ -1856,6 +2253,7 @@ def _draw_event(
     note_group: int | None = None,
     playback_tick: int | None = None,
     part_index: int = 0,
+    subtext_offset: float = 0.0,
 ) -> tuple[_Anchor, bool]:
     if event.kind == "extension":
         return _draw_extension_event(scene, event, x, y, right_limit=right_limit)
@@ -1869,7 +2267,7 @@ def _draw_event(
             ]
         )
     )
-    layout_box = measure_event_ink(event, style)
+    layout_box = measure_event_ink(event, style, subtext_offset=subtext_offset)
     if right_limit is not None:
         layout_box = type(layout_box)(
             layout_box.left,
@@ -1934,7 +2332,7 @@ def _draw_event(
             _draw_pitch(group, style, event, row.pitch, pitch_index, x, y + row.y)
     _draw_duration(group, event, x, y, style, right_limit=right_limit)
     if event.lyric:
-        lyric_baseline = _lyric_baseline(event, style)
+        lyric_baseline = _lyric_baseline(event, style) + subtext_offset
         group.children.append(
             _text(
                 "lyric",
@@ -1946,7 +2344,7 @@ def _draw_event(
             )
         )
     if event.dynamic:
-        dynamic_baseline = _dynamic_baseline(event, style)
+        dynamic_baseline = _dynamic_baseline(event, style) + subtext_offset
         group.children.append(
             _text(
                 "dynamic",
@@ -2455,12 +2853,15 @@ def _route_spanners(
     left: float,
     right: float,
     style: PublicationStyle,
+    *,
+    lane: LaneKey = (None, "1"),
 ) -> None:
     event = anchor.event
+    lane_state = state.lane(lane)
     for kind in ("tie", "slur", "slide"):
         start = bool(getattr(event, f"{kind}_start"))
         stop = bool(getattr(event, f"{kind}_stop"))
-        current = getattr(state, kind)
+        current = getattr(lane_state, kind)
         if stop and current is not None:
             node = _spanner(
                 kind,
@@ -2471,27 +2872,33 @@ def _route_spanners(
             )
             scene.add(node)
             _register_span_node(scene, node)
-            setattr(state, kind, None)
-            state.continuations.discard(kind)
+            setattr(lane_state, kind, None)
+            state.continuations.discard((lane, kind))
         if start:
-            setattr(state, kind, anchor)
+            setattr(lane_state, kind, anchor)
 
 
 def _start_spanner_continuations(
-    state: _OpenSpanners, left: float, baseline: float
+    state: _OpenSpanners,
+    left: float,
+    baseline: float,
+    *,
+    lane_offsets: dict[LaneKey, float] | None = None,
 ) -> None:
-    for kind in tuple(state.continuations):
-        current = getattr(state, kind)
+    for lane, kind in tuple(state.continuations):
+        lane_state = state.lanes.get(lane)
+        current = getattr(lane_state, kind) if lane_state is not None else None
         if current is None:
-            state.continuations.discard(kind)
+            state.continuations.discard((lane, kind))
             continue
+        lane_baseline = baseline + (lane_offsets or {}).get(lane, 0.0)
         setattr(
-            state,
+            lane_state,
             kind,
             _Anchor(
                 left + 3.0,
-                baseline,
-                BBox(left + 3.0, baseline - 20.0, 1.0, 40.0),
+                lane_baseline,
+                BBox(left + 3.0, lane_baseline - 20.0, 1.0, 40.0),
                 current.event,
                 continuation_start=True,
             ),
@@ -2505,17 +2912,18 @@ def _finish_spanners(
     staff_y: float,
     style: PublicationStyle,
 ) -> None:
-    for kind in ("tie", "slur", "slide"):
-        current = getattr(state, kind)
-        if current is None:
-            continue
-        end = _Anchor(
-            right - 3, current.y, BBox(right - 3, current.y, 1, 1), current.event
-        )
-        node = _spanner(kind, current, end, style=style, continuation=True)
-        scene.add(node)
-        _register_span_node(scene, node)
-        state.continuations.add(kind)
+    for lane, lane_state in state.lanes.items():
+        for kind in ("tie", "slur", "slide"):
+            current = getattr(lane_state, kind)
+            if current is None:
+                continue
+            end = _Anchor(
+                right - 3, current.y, BBox(right - 3, current.y, 1, 1), current.event
+            )
+            node = _spanner(kind, current, end, style=style, continuation=True)
+            scene.add(node)
+            _register_span_node(scene, node)
+            state.continuations.add((lane, kind))
 
 
 def _spanner(
@@ -2557,7 +2965,9 @@ def _spanner(
                 f"{control_right:g} {base + height:g} {ex:g} {base:g}"
             )
         else:
-            start_bottom = start.y + _event_attachment_bottom(start.event, resolved_style)
+            start_bottom = start.y + _event_attachment_bottom(
+                start.event, resolved_style
+            )
             end_bottom = end.y + _event_attachment_bottom(end.event, resolved_style)
             base = max(start_bottom, end_bottom) + resolved_style.tie_below_clearance
             thickness = 2.2
@@ -2975,7 +3385,15 @@ def _visual_events(measure: Measure) -> list[Event]:
                 )
                 for index in range(count)
             ]
-    return [piece for event in events for piece in _split_visual_event(event)]
+    resolved: list[Event] = []
+    cursor = Fraction(0)
+    for event in events:
+        start = event.start if event.start is not None else cursor
+        resolved.append(
+            event if event.start is not None else replace(event, start=start)
+        )
+        cursor = start + event.duration
+    return [piece for event in resolved for piece in _split_visual_event(event)]
 
 
 def _split_visual_event(event: Event) -> list[Event]:

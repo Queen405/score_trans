@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-PUBLICATION_ENGINE_VERSION = "publication-14"
+PUBLICATION_ENGINE_VERSION = "publication-15"
 DEFAULT_CONTENT_SCALE_PERCENT = 80
 DEFAULT_SYSTEM_GAP_PERCENT = 50
 DEFAULT_SHORT_NOTE_GAP_PERCENT = 20

@@ -165,6 +165,7 @@
           </div>
         </div>
         <div class="ws-toolbar-right">
+          <n-button size="small" :type="liveRenderEnabled ? 'primary' : 'default'" @click="toggleLiveRender">即时渲染</n-button>
           <n-popover
             trigger="click"
             placement="bottom"
@@ -402,7 +403,7 @@
               :ocr-text="finalRenderPageOcrText"
               :current-note-index="currentNoteIndex"
               :playback-group-index="currentPlaybackGroupIndex"
-              :playback-position="playbackPosition"
+              :playback-position="renderPlaybackPosition"
               editable-ocr
               @update:ocr-text="handleOcrTextUpdate"
               @update:text-attachment="handleTextAttachmentUpdate"
@@ -419,10 +420,11 @@
               </n-icon>
               <span>暂无渲染</span>
             </div>
-            <jianpu-editor
-              v-else
+            <div v-else class="jianpu-live-layout" :style="liveRenderEnabled ? { gridTemplateRows: `${liveEditorRatio}% 10px minmax(0, 1fr)` } : { gridTemplateRows: '1fr' }">
+              <div class="jianpu-live-editor"><jianpu-editor
               ref="jianpuEditorRef"
               v-model="jianpuText"
+              :playback-highlight="playbackHighlight"
               :current-note-index="currentNoteIndex"
               :initial-measure-number="initialMeasureNumber"
               :syntax-highlight="settings.jianpuSyntaxHighlight"
@@ -434,7 +436,13 @@
               :structure-markers-enabled="store.currentBatchId !== null"
               @update:initial-measure-number="initialMeasureNumber = $event"
               @rekey-applied="handleRekeyApplied"
-            />
+              @cursor-change="liveCursorTick++"
+            /></div>
+              <template v-if="liveRenderEnabled">
+                <div class="jianpu-live-divider" @mousedown="startLiveResize" title="调整上下区域高度" />
+                <LiveJianpuPreview :svg="livePreviewSvg" :loading="livePreviewLoading" :error="livePreviewError" :warnings="livePreviewWarnings" />
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -442,6 +450,7 @@
         :musicxml-file-id="store.musicxmlFileId"
         :jianpu-text="operationalJianpuText"
         :session-key="store.currentBatchId"
+        @update:playback-highlight="playbackHighlight = $event"
         @update:current-note-index="currentNoteIndex = $event"
         @update:playback-group-index="currentPlaybackGroupIndex = $event"
         @update:playback-position="playbackPosition = $event"
@@ -506,9 +515,12 @@ import type {
 import type { TaskPage, TaskPageStatus } from '../stores/workspace'
 import JianpuEditor from '../components/JianpuEditor.vue'
 import JianpuPlayer from '../components/JianpuPlayer.vue'
+import { emptyPlaybackHighlight, type PlaybackHighlight } from '../utils/midiSourceMap'
 import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
+import LiveJianpuPreview from '../components/LiveJianpuPreview.vue'
+import { useLiveJianpuPreview } from '../composables/useLiveJianpuPreview'
 import { loadRenderPageIndex, saveRenderPageIndex } from '../composables/useViewPersistence'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { isRenderAborted } from '../utils/renderAbort'
@@ -567,6 +579,12 @@ import { NButton, NPopover, NSelect, NIcon, NModal, NPopconfirm, useMessage } fr
 const store = useWorkspaceStore()
 const settings = useSettingsStore()
 const publicationRender = usePublicationRender()
+const livePreview = useLiveJianpuPreview()
+const { svg: livePreviewSvg, error: livePreviewError, warnings: livePreviewWarnings, loading: livePreviewLoading } = livePreview
+const liveRenderEnabled = ref(true)
+const liveEditorRatio = ref(Number(localStorage.getItem("score-trans.live-editor-ratio") || 50))
+const liveCursorTick = ref(0)
+let liveResizeStart: { y: number; ratio: number; height: number } | null = null
 const log = useLogStore()
 const syntaxStore = useSyntaxDiagnosticsStore()
 const message = useMessage()
@@ -640,7 +658,11 @@ const operationalJianpuText = computed(() => (
 const hasJianpuText = computed(() => jianpuText.value.trim().length > 0)
 const currentNoteIndex = ref(-1)
 const currentPlaybackGroupIndex = ref(-1)
+const playbackHighlight = ref<PlaybackHighlight>(emptyPlaybackHighlight())
 const playbackPosition = ref({ tick: -1, onsetTick: -1, ppq: 480 })
+const renderPlaybackPosition = computed(() => store.currentBatchRenderOutputStale
+  ? { tick: -1, onsetTick: -1, ppq: 480 }
+  : playbackPosition.value)
 const errorLine = ref(-1)
 const flashLine = ref(-1)
 const canRenderCurrentScore = computed(() => hasJianpuText.value || store.hasMusicxml)
@@ -717,6 +739,32 @@ function initialMeasureNumberKey(batchId: string | null): string {
 function loadInitialMeasureNumber(batchId: string | null): number {
   const raw = Number.parseInt(localStorage.getItem(initialMeasureNumberKey(batchId)) || '', 10)
   return Number.isInteger(raw) && raw >= 1 ? raw : 1
+}
+
+watch(
+  [jianpuText, liveCursorTick, liveRenderEnabled, initialMeasureNumber, () => store.currentBatchId],
+  ([text, , enabled, initialNumber, documentId]) => {
+    const cursorOffset = jianpuEditorRef.value?.getSelectionRange()?.start ?? text.length
+    livePreview.update({
+      documentId,
+      enabled,
+      request: { jianpu_text: text, cursor_offset: cursorOffset, show_measure_numbers: false, initial_measure_number: initialNumber },
+    })
+  },
+)
+function toggleLiveRender(): void {
+  liveRenderEnabled.value = !liveRenderEnabled.value
+}
+function startLiveResize(event: MouseEvent): void {
+  event.preventDefault()
+  const target = event.currentTarget as HTMLElement
+  const parent = target.parentElement
+  if (!parent) return
+  liveResizeStart = { y: event.clientY, ratio: liveEditorRatio.value, height: parent.clientHeight }
+  document.body.classList.add("live-resizing")
+  const move = (e: MouseEvent) => { if (!liveResizeStart) return; const next = liveResizeStart.ratio + ((e.clientY-liveResizeStart.y)/liveResizeStart.height)*100; liveEditorRatio.value = Math.max(20, Math.min(80, next)) }
+  const up = () => { localStorage.setItem("score-trans.live-editor-ratio", String(liveEditorRatio.value)); liveResizeStart=null; document.body.classList.remove("live-resizing"); window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up) }
+  window.addEventListener("mousemove", move); window.addEventListener("mouseup", up)
 }
 
 watch(() => store.currentBatchId, (batchId) => {
@@ -1003,9 +1051,9 @@ watch(() => store.currentPage?.id ?? '', () => {
   correctableSheet.value = null
   deletedEntityIds.value = new Set(store.currentPage?.deletedSourceIds ?? [])
 }, { immediate: true })
-watch([playbackPosition, renderPlaybackRanges, isViewingFinal], () => {
+watch([renderPlaybackPosition, renderPlaybackRanges, isViewingFinal], () => {
   if (!isViewingFinal.value) return
-  const target = playbackPage(renderPlaybackRanges.value, playbackPosition.value)
+  const target = playbackPage(renderPlaybackRanges.value, renderPlaybackPosition.value)
   if (target !== null && target !== finalRenderPageIndex.value) {
     finalRenderPageIndex.value = target
   }
@@ -1036,6 +1084,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  livePreview.dispose()
   settleDiscardConfirmation(false)
   stopHistoryUpdatedListener?.()
   stopHistoryUpdatedListener = null
@@ -1907,6 +1956,7 @@ async function resetAll(): Promise<void> {
       musicxml_file_id: store.musicxmlFileId,
       target_key: settings.targetKey,
       accidental_mode: settings.accidentalMode,
+      polyphony_mode: settings.polyphonyMode,
     }))
     const split = splitJianpuAndOcr(result.jianpu_text)
     const pageIndex = Math.max(0, currentBatchLocalIndex.value)
@@ -2691,6 +2741,45 @@ defineExpose({ flushPendingEdits })
   text-align: center;
 }
 
+.jianpu-live-layout { height:100%; width:100%; min-height:0; display:grid; gap:0; }
+.jianpu-live-editor { min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+.jianpu-live-divider {
+  cursor: row-resize;
+  position: relative;
+  background: var(--bg-surface);
+}
+.jianpu-live-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: var(--border);
+  transition: background 0.2s;
+}
+.jianpu-live-divider::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  box-shadow: 0 0 0 3px var(--bg-surface);
+  transition: background 0.2s, width 0.2s;
+}
+.jianpu-live-divider:hover::before {
+  background: var(--accent);
+}
+.jianpu-live-divider:hover::after {
+  background: var(--accent);
+  width: 72px;
+}
+
 .ws-layout {
   flex: 1;
   min-height: 0;
@@ -2893,3 +2982,16 @@ defineExpose({ flushPendingEdits })
   }
 }
 </style>
+
+<style>
+body.live-resizing {
+  user-select: none;
+  cursor: row-resize;
+}
+
+body.live-resizing .jianpu-live-editor,
+body.live-resizing .live-preview {
+  pointer-events: none;
+}
+</style>
+

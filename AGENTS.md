@@ -54,25 +54,17 @@ npx vue-tsc --noEmit
 
 ## Branching & Release Workflow
 
-Two long-lived branches:
-
-- **`main`** — release branch. Holds only release-ready code. A push to `main`
-  triggers `build-windows.yml` + `build-mac.yml` (full packaging builds →
-  downloadable artifacts in the Actions run). A push of a tag `vX.Y.Z` triggers
-  them again and the tag-gated step **auto-creates the GitHub Release and uploads
-  both installers**.
-- **`dev`** — day-to-day development. Commit/branch here. PRs into `main`/`dev`
-  run only `ci.yml` (lint + tests); they do **not** run the heavy packaging builds.
-
-Standard loop: `dev / feature branch → (PR validates via ci.yml) → merge to main → bump version → push main (packaging builds validate) → tag vX.Y.Z → Release auto-published`.
-
-- Verify a packaging build on a branch without merging: run the workflow manually
-  (Actions → "Run workflow" / `workflow_dispatch`).
-- Full release recipe (version bump, tag, manifests): see [RELEASE.md](RELEASE.md).
-- PR/`push` build artifacts live in the Actions run's **Artifacts** section
-  (14-day retention); the **Release** page only gets assets on a tag push.
-- Installers are **unsigned** (no Authenticode/Apple Developer cert). Windows
-  shows SmartScreen "unknown publisher"; macOS users right-click → Open.
+- `dev` / feature branches: lightweight `ci.yml` on pushes and PRs.
+- `main`: `package.yml` runs quality checks, then calls reusable Windows/macOS
+  workflows for full packaging and runtime smoke tests; artifacts retained 14 days.
+- `vX.Y.Z` tags: same validation, followed by one release job that checks both
+  platform assets, uploads a draft, then makes the complete release public.
+- Platform workflows support `workflow_call` / `workflow_dispatch`; they never
+  publish independently. All build paths use tracked `build-app.py`.
+- Versions in tag, `desktop/package.json`, and `desktop/latest.json` must agree.
+  New clients read the published release manifest, not a working-branch manifest.
+- See `RELEASE.md` for release steps and `docs/packaging.md` for runtime layout.
+- Installers remain unsigned; Windows x64 and macOS arm64 are supported.
 
 ## Architecture Rules
 Import permissions (no reverse imports are permitted):
@@ -120,9 +112,10 @@ When modifying specific areas, follow these rules:
 Configured via `.env` or environment. See `backend/score_trans/config/env.example` for the full list.
 
 Key variables:
-- `SCORE_TRANS_AUDIVERIS` — Audiveris path (default: `third_party/audiveris/gradlew.bat`)
+- `SCORE_TRANS_AUDIVERIS` — Audiveris path (packaged: `third_party/audiveris/lib/audiveris.jar`; development: Gradle wrapper)
 - `SCORE_TRANS_JAVA_HOME` — JDK 25 path for Audiveris
 - `SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE` — auto-upscale low-res raster images before OMR (default: `1`)
 - `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE` — target long-edge pixel count for preventive upscale (default: `2500`)
+- `SCORE_TRANS_POLYPHONY_MODE` — intra-part voice handling: `auto` (default, `&` lanes on real overlap), `preserve`, `flatten`
 - `SCORE_TRANS_OCR_API_KEY` / `SCORE_TRANS_OCR_BASE_URL` / `SCORE_TRANS_OCR_MODEL`
 - `SCORE_TRANS_AI_API_KEY` / `SCORE_TRANS_AI_BASE_URL` / `SCORE_TRANS_AI_MODEL`

@@ -5,6 +5,17 @@ from typing import Literal, cast
 
 AccidentalMode = Literal["auto", "sharp", "flat"]
 MeasureNumberMode = Literal["all", "row_start", "none"]
+# auto：检测到真实重叠时保留 voice；preserve：只要存在多个 voice 就保留；
+# flatten：始终拍平为单线（旧行为）。
+PolyphonyMode = Literal["auto", "preserve", "flatten"]
+
+
+def normalize_polyphony_mode(mode: str) -> PolyphonyMode:
+    if mode not in ("auto", "preserve", "flatten"):
+        raise ValueError(f"不支持的复调模式：{mode}")
+    return cast(PolyphonyMode, mode)
+
+
 InstrumentProfile = Literal["general", "erhu", "ruan", "guzheng", "zhongruan"]
 SUPPORTED_INSTRUMENT_PROFILES: tuple[InstrumentProfile, ...] = (
     "general",

@@ -17,9 +17,9 @@ interface Manifest {
 
 const UPDATE_MANIFEST_URL =
   process.env.SCORE_TRANS_UPDATE_MANIFEST_URL ??
-  'https://cdn.jsdelivr.net/gh/Queen405/score_trans/desktop/latest.json'
+  'https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/latest.json'
 
-const FETCH_TIMEOUT_MS = 5000
+const FETCH_TIMEOUT_MS = 15000
 
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
   const currentVersion = app.getVersion()

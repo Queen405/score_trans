@@ -1,83 +1,57 @@
 # Release Guide — Score Trans
 
-Packaging + release upload are fully automated by
-`.github/workflows/build-windows.yml` and `.github/workflows/build-mac.yml`.
-You only push a tag — CI does the rest.
+`.github/workflows/package.yml` is the only automatic packaging/release entry point.
+It runs quality checks, calls both platform builds, then publishes a complete release.
 
-## Prerequisites
+## Release steps
 
-- All work merged into `main`, and `main` is green (Build Windows + Build macOS pass).
-- The version you are about to release is not already tagged.
+1. Merge release-ready changes into `main`.
+2. Update `desktop/package.json` and `desktop/latest.json` to the same `x.y.z` version.
+   `latest.json` is release input (including notes); new clients do not fetch this
+   working-branch file. Do not use prerelease version suffixes.
+3. Push `main` and wait for **Package and release** to pass, including both builds.
+4. Tag that exact commit `vX.Y.Z` and push the tag. The tag build validates all three
+   versions again, runs quality checks and both platform smoke tests, then publishes.
+5. Verify the public release contains:
+   - `Score Trans Setup X.Y.Z.exe` (Windows x64)
+   - `Score Trans-X.Y.Z-arm64.dmg` and `.zip` (macOS Apple Silicon)
+   - `latest.json` (version-specific download page and release notes)
+   - `SHA256SUMS.txt` (SHA-256 of installers and manifest)
 
-## Steps
+The release job uploads every asset to a **draft** before making it public. A failed
+build/test/upload cannot announce a partially uploaded new release. Failed draft
+uploads can be rerun; an already public release cannot be overwritten by the script.
+Do not move an existing public tag to different source code; publish a new version.
 
-### 1. Bump the version (two files must match)
+## Triggers
 
-Versions are three-segment `x.y.z` (no pre-release suffix). Update **both**:
-
-- `desktop/package.json` → `"version": "1.0.3"`
-- `desktop/latest.json`  → `"version": "1.0.3"` (optionally update `"notes"`)
-
-```bash
-git add desktop/package.json desktop/latest.json
-git commit -m "release: 1.0.3"
-git push origin main
-```
-
-Pushing `main` triggers Build Windows + Build macOS (validation; produces test
-artifacts in the Actions run). Wait for both to pass before tagging.
-
-### 2. Tag the release
-
-```bash
-git tag -a v1.0.3 -m "Release v1.0.3"
-git push origin v1.0.3
-```
-
-The tag push triggers both workflows' tag build. The first to finish runs
-`gh release create v1.0.3 ...` (creates the Release + uploads its assets); the
-second finds the Release already exists and runs `gh release upload ... --clobber`
-(adds its assets). No manual UI step.
-
-### 3. Verify
-
-Open `https://github.com/Queen405/score_trans/releases/tag/v1.0.3`. Three assets
-should appear:
-
-| File | Platform |
+| Trigger | Result |
 |---|---|
-| `Score Trans Setup 1.0.3.exe` | Windows x64 |
-| `Score Trans-1.0.3-arm64.dmg` | macOS arm64 |
-| `Score Trans-1.0.3-arm64.zip` | macOS arm64 |
+| PR or push to a development branch | Lightweight CI |
+| Push to main/master | Quality + Windows/macOS packaging and smoke tests; artifacts only |
+| Push v* tag | Same checks, then draft upload and publish |
+| Manual Package and release | Both platforms; publishes only if the selected ref is a version tag |
+| Manual Build Windows / Build mac | Selected platform only; never publishes |
 
-## Rules & gotchas
+Artifacts are retained for 14 days. Reusable platform workflows use the same commit
+as the caller. The tag build deliberately rebuilds and retests: it never borrows an
+artifact from a different commit or an unverified previous Actions run.
 
-- **Version must be three-segment** (`1.0.3`). The in-app updater only parses
-  `major.minor.patch`; pre-release tags like `1.0.3-beta` break the update check.
-- **`package.json` and `latest.json` versions must be identical** — otherwise
-  users see a false "new version" badge or miss a real one.
-- **Push `main` before tagging.** `latest.json` is served to clients via jsDelivr,
-  which mirrors the committed repo content. Tagging without pushing means clients
-  fetch a stale manifest.
-- **Don't put `latest.json` in `desktop/build/`** — that dir is gitignored for
-  generated files; jsDelivr wouldn't see it.
-- **Installers are unsigned.** Windows SmartScreen warns on first run; macOS
-  requires right-click → Open. To sign later:
-  - **Windows**: get a code-signing cert (SignPath Foundation is free for OSS;
-    else an OV cert ~$219/yr). Add repo secrets `CSC_LINK` (PFX base64) +
-    `CSC_KEY_PASSWORD` and electron-builder auto-signs. Since June 2023 new OV
-    keys live on HSM, so for CI use a cloud-HSM service (SignPath / Azure Trusted
-    Signing ~$10/mo).
-  - **macOS**: Apple Developer ID cert ($99/yr) + notarization secrets; remove
-    `CSC_IDENTITY_AUTO_DISCOVERY: 'false'` / `notarize: false` in build-mac.yml.
-- **Transient upload failure on the tag build?** Re-run the failed job from the
-  Actions tab — the `--clobber` flag makes asset upload idempotent.
+## Update discovery
 
-## What each trigger does
+New clients read `releases/latest/download/latest.json`, so the update becomes visible
+only after a complete release is public. `SCORE_TRANS_UPDATE_MANIFEST_URL` can override
+this endpoint for a mirror or local tests. GitHub access may be less reliable than a
+regional mirror; connection failures remain non-blocking in the UI.
 
-| Trigger | Workflows | Effect |
-|---|---|---|
-| `pull_request` (any PR) | `ci.yml` only | lint + tests (no packaging) |
-| `push` to `main` | `build-windows.yml`, `build-mac.yml` | full packaging build → Actions artifacts (14-day) |
-| `push` of tag `v*` | `build-windows.yml`, `build-mac.yml` | full build + **create/upload GitHub Release** |
-| `workflow_dispatch` | one chosen workflow | manual full build (artifacts only) |
+Older installed clients still use the historical jsDelivr repository manifest until
+upgraded; changing this repository cannot retroactively change their updater code.
+
+## Delivery limits
+
+Windows installers are unsigned; macOS packages are not Developer-ID-signed or
+notarized. Windows x64 and macOS arm64 are supported; Intel macOS is not built.
+macOS packaging/startup is verified on its CI runner, not on a local Windows machine.
+The Windows CI test covers silent installation, same-version reinstall, runtime API
+smoke tests and uninstall preserving user data. Interactive wizard behavior and
+cross-version migration still require release QA.

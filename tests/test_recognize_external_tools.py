@@ -286,3 +286,47 @@ def test_recognize_with_gradle_retries_with_no_daemon(
 
     assert len(calls) == 2
     assert all(args[1:3] == ["--no-daemon", ":app:run"] for args in calls)
+
+
+def test_bundled_jar_launch_uses_java_and_preserves_arguments(
+    monkeypatch, tmp_path: Path
+) -> None:
+    jar = tmp_path / "安装 resources" / "lib" / "audiveris.jar"
+    jar.parent.mkdir(parents=True)
+    jar.touch()
+    java_home = tmp_path / "jdk"
+    java = java_home / "bin" / external_tools.java_binary_name()
+    java.parent.mkdir(parents=True)
+    java.touch()
+    calls = []
+    monkeypatch.setattr(
+        external_tools, "_run", lambda args, **kwargs: calls.append((args, kwargs))
+    )
+    source = tmp_path / "乐谱, sample.png"
+    external_tools._run_audiveris(
+        source,
+        tmp_path / "output",
+        ToolConfig(
+            audiveris_path=str(jar),
+            java_home=str(java_home),
+            audiveris_max_heap="2g",
+        ),
+    )
+    args, kwargs = calls[0]
+    assert args[0] == str(java)
+    assert "-Xmx2g" in args
+    assert args[args.index("-cp") + 1] == str(jar.parent / "*")
+    assert str(source.resolve()) in args
+    assert ":app:run" not in args
+    assert kwargs.get("cwd") != jar.parent
+
+
+def test_packaged_settings_prefer_distribution_jar(tmp_path: Path, monkeypatch) -> None:
+    from score_trans.services.settings import settings_service
+
+    jar = tmp_path / "lib" / "audiveris.jar"
+    jar.parent.mkdir()
+    jar.touch()
+    monkeypatch.setattr(settings_service, "AUDIVERIS_PATH", "")
+    monkeypatch.setattr(settings_service, "_LOCAL_AUDIVERIS_DIR", tmp_path)
+    assert settings_service._default_audiveris_path() == str(jar)

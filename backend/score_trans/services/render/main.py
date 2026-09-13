@@ -6,6 +6,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ...domain.jianpu import parse_jianpu_score
+from ...domain.parse.live_jianpu import select_live_measure
+from ...models.render.schemas import LiveJianpuSvgResponse
 from ...models.common.errors import RenderError
 from ...models.score import JianpuScore
 from .engraving.renderer import MeasureRange, PublicationPage, PublicationRenderer
@@ -68,6 +70,34 @@ def render_jianpu_svg(
     return render_score_svg(score, options)
 
 
+def render_live_measure_svg(
+    jianpu_text: str,
+    cursor_offset: int,
+    options: RenderOptions | None = None,
+) -> str:
+    return render_live_measure_preview(jianpu_text, cursor_offset, options).svg
+
+
+def render_live_measure_preview(
+    jianpu_text: str,
+    cursor_offset: int,
+    options: RenderOptions | None = None,
+) -> LiveJianpuSvgResponse:
+    options = options or RenderOptions(title="")
+    selection = select_live_measure(
+        jianpu_text,
+        cursor_offset,
+        initial_measure_number=options.initial_measure_number or 1,
+    )
+    svg = render_score_svg(
+        selection.score,
+        replace(options, initial_measure_number=selection.initial_measure_number),
+    )
+    return LiveJianpuSvgResponse(
+        svg=svg, jianpu_text=jianpu_text, warnings=selection.warnings
+    )
+
+
 def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -> str:
     options = options or RenderOptions(title=score.title)
     style = _style_from_options(options, page_width=float(options.width))
@@ -80,6 +110,8 @@ def render_score_svg(score: JianpuScore, options: RenderOptions | None = None) -
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
         initial_measure_number=options.initial_measure_number,
+        show_title=options.show_title,
+        show_page_number=options.show_page_number,
     )
     if len(pages) != 1:
         raise RenderError("单页渲染空间不足；请使用 A4 分页渲染入口")
@@ -104,6 +136,8 @@ def render_scores_svg(
         show_measure_numbers=options.show_measure_numbers,
         measure_number_mode=options.measure_number_mode,
         initial_measure_number=options.initial_measure_number,
+        show_title=options.show_title,
+        show_page_number=options.show_page_number,
     )
     if len(pages) != 1:
         raise RenderError("单页渲染空间不足；请使用 A4 分页渲染入口")

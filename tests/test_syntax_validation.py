@@ -372,6 +372,53 @@ def test_validate_jianpu_text_accepts_valid_multi_part_score() -> None:
     assert validate_jianpu_text(text) == []
 
 
+def test_validate_jianpu_text_accepts_voice_lane_separator() -> None:
+    text = "1=C\n4/4\n0 [1+3] [1+3] [1+3] & w1, |\n"
+
+    assert validate_jianpu_text(text, check_measure_durations=True) == []
+
+
+def test_validate_jianpu_text_reports_lane_errors_with_positions() -> None:
+    # lane 1 为空：定位到小节开头（小节级错误不再指向小节线）
+    diagnostics = validate_jianpu_text("1=C\n4/4\n& 5 5 |\n")
+    assert len(diagnostics) == 1
+    assert "声线分隔符" in diagnostics[0].message
+    assert (diagnostics[0].line, diagnostics[0].column) == (3, 1)
+
+    # lane 1 超拍：定位到该小节开头，诊断范围覆盖整个出错小节
+    diagnostics = validate_jianpu_text("1=C\n4/4\n5 5 5 5 5 & w1 |\n")
+    assert len(diagnostics) == 1
+    assert "第 1 声线超拍" in diagnostics[0].message
+    assert (diagnostics[0].line, diagnostics[0].column) == (3, 1)
+
+    # 声线为空：定位到引入该声线的 &
+    diagnostics = validate_jianpu_text("1=C\n4/4\n5 5 5 5 | 1 2 & |\n")
+    assert len(diagnostics) == 1
+    assert "第 2 声线不能为空" in diagnostics[0].message
+    assert (diagnostics[0].line, diagnostics[0].column) == (3, 15)
+
+    # 连音组内不允许 &
+    diagnostics = validate_jianpu_text("1=C\n4/4\n$1 & 2$ 5 5 5 |\n")
+    assert len(diagnostics) == 1
+    assert "连音组内不允许声线分隔符" in diagnostics[0].message
+
+
+def test_validate_jianpu_text_lane_overflow_does_not_cascade() -> None:
+    """超拍诊断的范围必须覆盖整个出错小节，mask 重试不会级联出错位重复诊断。"""
+    text = "1=C\n4/4\n1 2 3 4 |\n2 2 2 2 2 & 0 2 2 2 |\n3 3 3 3 & 0 3 3 3 |\n"
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    assert len(diagnostics) == 1
+    assert "第 1 声线超拍" in diagnostics[0].message
+    assert (diagnostics[0].line, diagnostics[0].column) == (4, 1)
+    assert diagnostics[0].measure == "2"
+    selected = text.encode("utf-16-le")[
+        diagnostics[0].start * 2 : diagnostics[0].end * 2
+    ].decode("utf-16-le")
+    assert selected == "2 2 2 2 2 & 0 2 2 2 |"
+
+
 def test_validate_jianpu_text_reports_part_body_error_at_document_position() -> None:
     text = (
         '// @part 1 name="a"\n1=C\n4/4\n1 2 3 4 |\n'

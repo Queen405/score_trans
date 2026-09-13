@@ -144,6 +144,41 @@ SINGLE_PART_XML = """<?xml version="1.0" encoding="UTF-8"?>
 </score-partwise>
 """
 
+# 用户报告场景：单声部某小节内两条并行线——
+# voice 1 = 四分休止 + 三个带跳音的四分和弦，voice 2 = 一个全音符（低音）
+POLYPHONIC_MEASURE_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1"><part-name>Piano RH</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>4</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><rest/><duration>4</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type>
+        <notations><articulations><staccato/></articulations></notations></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type>
+        <notations><articulations><staccato/></articulations></notations></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type>
+        <notations><articulations><staccato/></articulations></notations></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+      <backup><duration>16</duration></backup>
+      <note><pitch><step>C</step><octave>3</octave></pitch><duration>16</duration><voice>2</voice><type>whole</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+    </measure>
+  </part>
+</score-partwise>
+"""
+
 AUDIT_DOC = "docs/multi-part-audit-2026-09.md"
 
 
@@ -242,36 +277,50 @@ def test_grand_staff_splits_into_two_parts_with_distinct_pitches() -> None:
 
 
 def test_polyphonic_score_is_flattened_not_rejected() -> None:
-    """多 voice 声部转简谱文本不再硬拦截，拍平为单声部输出（恢复旧可用行为）。"""
+    """flatten 模式：多 voice 声部拍平为单声部输出（旧行为），不硬拦截。"""
     scores = musicxml_to_scores(TWO_VOICES_XML)
-    document = scores_to_jianpu_document(scores)
+    document = scores_to_jianpu_document(scores, polyphony_mode="flatten")
     assert document.text
 
 
+def test_polyphonic_score_auto_mode_uses_voice_lanes() -> None:
+    """auto 模式：真复调（时间重叠的多 voice）以 & 声线分隔输出，不拍平。"""
+    scores = musicxml_to_scores(TWO_VOICES_XML)
+    document = scores_to_jianpu_document(scores, polyphony_mode="auto")
+    assert "h1 h3 & w5 |" in document.text
+
+
+def test_polyphonic_score_preserve_mode_uses_voice_lanes() -> None:
+    """preserve 模式：只要存在多个 voice 就按声线输出。"""
+    scores = musicxml_to_scores(TWO_VOICES_XML)
+    document = scores_to_jianpu_document(scores, polyphony_mode="preserve")
+    assert "h1 h3 & w5 |" in document.text
+
+
 # --------------------------------------------------------------------------
-# F2-A 调整：同声部多 voice 不再硬拦截，改为拍平为单声部输出 + 警告
-# （OMR 常把单声部旋律伪拆成多 voice，硬拦截会阻断整个识别流程）。
-# 真复调的潜在损失通过警告日志提示，由用户决定是否改用 // @part 拆分。
+# flatten 模式：同声部多 voice 拍平为单声部输出 + 警告（旧可用行为，
+# 供明确不需要复调的场景使用）；auto 模式下顺序伪 voice 仍合并、真复调
+# 以 & 声线分隔无损输出。
 # --------------------------------------------------------------------------
 
 
 def test_polyphonic_score_flattens_to_single_part() -> None:
-    """多 voice 拍平后仍为单个声部文本。"""
+    """flatten 模式拍平后仍为单个声部文本。"""
     scores = musicxml_to_scores(TWO_VOICES_XML)
-    document = scores_to_jianpu_document(scores)
+    document = scores_to_jianpu_document(scores, polyphony_mode="flatten")
     restored = [part.score for part in parse_jianpu_parts(document.text)]
     assert len(restored) == 1
 
 
 def test_polyphonic_flatten_warns_with_part_name(caplog) -> None:
-    """拍平时应通过警告日志提示风险，且包含声部名便于定位。"""
+    """flatten 模式拍平时应通过警告日志提示风险，且包含声部名便于定位。"""
     import logging
 
     scores = musicxml_to_scores(TWO_VOICES_XML)
     with caplog.at_level(
         logging.WARNING, logger="score_trans.domain.write.jianpu_text"
     ):
-        scores_to_jianpu_document(scores)
+        scores_to_jianpu_document(scores, polyphony_mode="flatten")
     assert any("Flute" in record.message for record in caplog.records)
 
 
@@ -283,14 +332,15 @@ def test_single_voice_score_does_not_raise() -> None:
 
 
 def test_sequential_voices_are_merged_not_rejected() -> None:
-    """OMR 伪 voice：同声部多 voice 拍平为单声部输出，不抛错。
+    """OMR 伪 voice：时间不重叠的多 voice 在 auto 模式下仍合并为单线。
 
     Audiveris 常把单声部旋律伪拆成多个 voice（甚至用 ``<backup>`` 造成时间
-    重叠）；这类输入统一按 voice 分组拍平为单声部文本，恢复旧的可用行为。
+    重叠）；顺序拼接的伪 voice 合并为单声部文本，真复调才走 & 声线。
     """
     scores = musicxml_to_scores(SEQUENTIAL_VOICES_XML)
     document = scores_to_jianpu_document(scores)
 
+    assert "&" not in document.text
     restored = [part.score for part in parse_jianpu_parts(document.text)]
     assert len(restored) == 1
     pitches = [
@@ -300,6 +350,73 @@ def test_sequential_voices_are_merged_not_rejected() -> None:
         for pitch in event.pitches
     ]
     assert pitches == [(1, 0), (3, 0)]
+
+
+# --------------------------------------------------------------------------
+# 复调 voice 无损往返（& 声线语法）：fix-plan F2 的完整支持方案
+# --------------------------------------------------------------------------
+
+
+def test_polyphonic_measure_span_does_not_grow() -> None:
+    """复调小节经文本往返后总时长不膨胀（4 拍不变 8 拍）。"""
+    original, restored, _ = _roundtrip(TWO_VOICES_XML)
+    assert _measure_span(restored) == _measure_span(original) == Fraction(4)
+
+
+def test_polyphonic_note_start_positions_survive_roundtrip() -> None:
+    """每个音符的 (voice, start) 在文本往返后保持不变。"""
+    original, restored, _ = _roundtrip(TWO_VOICES_XML)
+
+    def voice_starts(scores: list) -> set[tuple[str, Fraction]]:
+        return {
+            (event.voice or "1", event.start)
+            for measure in scores[0].measures
+            for event in measure.events
+            if event.kind == "note"
+        }
+
+    assert voice_starts(restored) == voice_starts(original)
+
+
+def test_voice_assignment_survives_jianpu_text_roundtrip() -> None:
+    """文本解析恢复 voice 归属：voice 1 两个二分音符，voice 2 一个全音符。"""
+    _original, restored, _ = _roundtrip(TWO_VOICES_XML)
+    events = [event for event in restored[0].measures[0].events if event.kind == "note"]
+    by_voice: dict[str, list[Fraction]] = {}
+    for event in events:
+        by_voice.setdefault(event.voice or "", []).append(event.duration)
+    assert by_voice == {"1": [Fraction(2), Fraction(2)], "2": [Fraction(4)]}
+
+
+def test_polyphonic_musicxml_output_keeps_voice_elements() -> None:
+    """文本往返后回写 MusicXML：仍输出 <voice> 与 <backup>，不错拍。"""
+    _, _, xml = _roundtrip(TWO_VOICES_XML)
+    assert "<voice>2</voice>" in xml
+    assert "<backup>" in xml
+
+
+def test_user_reported_measure_uses_two_lanes() -> None:
+    """用户场景：休止+跳音和弦线与全音符线并行，文本以 & 分隔、其余小节不变。"""
+    scores = musicxml_to_scores(POLYPHONIC_MEASURE_XML)
+    document = scores_to_jianpu_document(scores)
+
+    lines = document.text.splitlines()
+    lane_lines = [line for line in lines if "&" in line]
+    assert len(lane_lines) == 1
+    lane1, lane2 = (part.strip() for part in lane_lines[0].rstrip("|").split("&"))
+    assert lane1.startswith("0")
+    assert lane1.count("[") == 3
+    assert lane1.count("^.") == 3
+    assert lane2 == "w1,"
+    # 相邻的单线小节保持原样，不带 &、不填充休止符
+    assert "w5 |" in lines
+
+    # 往返后两小节的跨度与原谱一致
+    _original, restored, _ = _roundtrip(POLYPHONIC_MEASURE_XML)
+    assert [m.span_duration for m in restored[0].measures] == [
+        Fraction(4),
+        Fraction(4),
+    ]
 
 
 def test_grand_staff_output_keeps_bass_clef() -> None:

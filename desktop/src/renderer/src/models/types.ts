@@ -1,4 +1,6 @@
 export type {
+  LiveJianpuSvgRequest,
+  LiveJianpuSvgResponse,
   AccidentalMode,
   AiChatMessage,
   AiChatRequest,
@@ -48,6 +50,7 @@ export type {
   PerformanceMarkCatalogItem,
   PipelineByFileIdRequest,
   PipelineResponse,
+  PolyphonyMode,
   RecognizeResponse,
   RenderedSvgPage,
   RenderJianpuSvgRequest,

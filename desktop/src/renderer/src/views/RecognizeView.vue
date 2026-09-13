@@ -900,6 +900,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
         file_id: target.inputFileId,
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
+        polyphony_mode: settings.polyphonyMode,
         instrument_profile: target.instrumentProfile,
         measure_number_mode: settings.measureNumberMode,
         ...settings.jianpuLayoutRequest,

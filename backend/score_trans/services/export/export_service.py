@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
+import json
 from fractions import Fraction
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Literal
 
@@ -16,12 +17,14 @@ from score_trans.config.settings import (
 
 from ...domain.playback_timeline import (
     score_parts,
-    measure_boundaries,
+    playback_visits,
+    score_onset_groups,
     event_onsets,
     to_tick,
 )
 from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
 from ...domain.write.musicxml import scores_to_musicxml
+from ...models.playback import PlaybackEvent, PlaybackTextSource
 from ...models.score import DEFAULT_TEMPO, JianpuPitch, JianpuScore
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
@@ -167,6 +170,8 @@ class ExportService:
         self,
         scores: list[JianpuScore],
         output_path: Path,
+        *,
+        text_source: PlaybackTextSource | None = None,
     ) -> Path:
         rendered_scores = (
             self._merge_scores_by_part(scores) if scores else [JianpuScore()]
@@ -181,15 +186,105 @@ class ExportService:
                         )
 
         measure_count = max((len(s.measures) for s in rendered_scores), default=0)
-        boundaries = measure_boundaries(
-            [
-                [
-                    s.measures[i] if i < len(s.measures) else None
-                    for s in rendered_scores
-                ]
-                for i in range(measure_count)
-            ]
-        )
+        cells = [
+            [s.measures[i] if i < len(s.measures) else None for s in rendered_scores]
+            for i in range(measure_count)
+        ]
+        visits = playback_visits(cells)
+        groups = score_onset_groups(cells)
+        source_tempos: list[int] = []
+        tempo = rendered_scores[0].tempo or DEFAULT_TEMPO
+        for cell in cells:
+            if cell[0] is not None:
+                tempo = cell[0].tempo or tempo
+            source_tempos.append(tempo)
+        marker_events: list[tuple[int, dict[str, object]]] = [
+            (
+                0,
+                {
+                    "kind": "document",
+                    "version": 2,
+                    "source_kind": "text" if text_source is not None else "score",
+                    "text_hash": text_source.text_hash
+                    if text_source is not None
+                    else None,
+                },
+            )
+        ]
+        event_intervals: dict[tuple[int, int, int], PlaybackEvent] = {}
+        for visit_index, visit in enumerate(visits):
+            start_tick = to_tick(visit.performance_start, _TICKS_PER_BEAT)
+            end_tick = to_tick(
+                visit.performance_start + visit.duration, _TICKS_PER_BEAT
+            )
+            if end_tick <= start_tick:
+                continue
+            marker_events.append(
+                (
+                    start_tick,
+                    {
+                        "kind": "measure",
+                        "score_tick": to_tick(visit.score_start, _TICKS_PER_BEAT),
+                        "end_tick": end_tick,
+                        "source_index": visit.source_index,
+                    },
+                )
+            )
+            ranges: dict[Fraction, set[tuple[int, int]]] = {}
+            onset_events: dict[Fraction, list[dict[str, object]]] = {}
+            for part_index, measure in enumerate(cells[visit.source_index]):
+                if measure is None:
+                    continue
+                for event_index, (onset, event) in enumerate(event_onsets(measure)):
+                    if event.kind != "note" or not event.pitches:
+                        continue
+                    source_range = (
+                        text_source.event_ranges.get(id(event)) if text_source else None
+                    )
+                    event_ranges = (source_range,) if source_range is not None else ()
+                    start = to_tick(visit.performance_start + onset, _TICKS_PER_BEAT)
+                    end = max(
+                        start + 1,
+                        to_tick(
+                            visit.performance_start + onset + event.duration,
+                            _TICKS_PER_BEAT,
+                        ),
+                    )
+                    interval = PlaybackEvent(
+                        f"{visit_index}:{part_index}:{event_index}",
+                        part_index,
+                        event.staff,
+                        event.voice or "1",
+                        start,
+                        end,
+                        event_ranges,
+                    )
+                    event_intervals[visit_index, part_index, event_index] = interval
+                    payload = asdict(interval)
+                    payload.pop("start_tick")  # The marker carries the absolute start.
+                    payload["ranges"] = [
+                        {"start": a, "end": b} for a, b in event_ranges
+                    ]
+                    onset_events.setdefault(onset, []).append(payload)
+                    ranges.setdefault(onset, set()).update(event_ranges)
+            for onset, source_ranges in sorted(ranges.items()):
+                marker_events.append(
+                    (
+                        to_tick(visit.performance_start + onset, _TICKS_PER_BEAT),
+                        {
+                            "kind": "onset",
+                            "score_tick": to_tick(
+                                visit.score_start + onset, _TICKS_PER_BEAT
+                            ),
+                            "score_group": groups[visit.score_start + onset],
+                            "events": onset_events[onset],
+                            "ranges": [
+                                {"start": start, "end": end}
+                                for start, end in sorted(source_ranges)
+                            ],
+                        },
+                    )
+                )
         mid = mido.MidiFile(ticks_per_beat=_TICKS_PER_BEAT)
         for part_index, score in enumerate(rendered_scores):
             track = mido.MidiTrack()
@@ -201,6 +296,21 @@ class ExportService:
                 track_name = f"Part {part_index + 1}"
             track.append(mido.MetaMessage("track_name", name=track_name, time=0))
             messages: list[tuple[int, int, mido.Message | mido.MetaMessage]] = []
+            if part_index == 0:
+                messages.extend(
+                    (
+                        tick,
+                        0,
+                        mido.MetaMessage(
+                            "marker",
+                            text="score-trans-playback:"
+                            + json.dumps(
+                                data, ensure_ascii=True, separators=(",", ":")
+                            ),
+                        ),
+                    )
+                    for tick, data in marker_events
+                )
             current_bpm = score.tempo or DEFAULT_TEMPO
             if part_index == 0:
                 messages.append(
@@ -227,27 +337,25 @@ class ExportService:
                         ),
                     )
                 )
-            for i, measure in enumerate(score.measures):
-                bpm = measure.tempo or current_bpm
+            for visit_index, visit in enumerate(visits):
+                measure = cells[visit.source_index][part_index]
+                if measure is None:
+                    continue
+                bpm = source_tempos[visit.source_index]
                 if part_index == 0 and bpm != current_bpm:
                     messages.append(
                         (
-                            to_tick(boundaries[i], _TICKS_PER_BEAT),
+                            to_tick(visit.performance_start, _TICKS_PER_BEAT),
                             0,
                             mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(bpm)),
                         )
                     )
                 current_bpm = bpm
-                for onset, event in event_onsets(measure):
+                for event_index, (_onset, event) in enumerate(event_onsets(measure)):
                     if event.kind != "note" or not event.pitches:
                         continue
-                    start = to_tick(boundaries[i] + onset, _TICKS_PER_BEAT)
-                    end = max(
-                        start + 1,
-                        to_tick(
-                            boundaries[i] + onset + event.duration, _TICKS_PER_BEAT
-                        ),
-                    )
+                    interval = event_intervals[visit_index, part_index, event_index]
+                    start, end = interval.start_tick, interval.end_tick
                     for pitch in event.pitches:
                         note = max(
                             0, min(127, _pitch_to_midi(pitch, measure.target_key))
@@ -273,7 +381,18 @@ class ExportService:
             track.append(
                 mido.MetaMessage(
                     "end_of_track",
-                    time=max(0, to_tick(boundaries[-1], _TICKS_PER_BEAT) - cursor),
+                    time=max(
+                        0,
+                        (
+                            to_tick(
+                                visits[-1].performance_start + visits[-1].duration,
+                                _TICKS_PER_BEAT,
+                            )
+                            if visits
+                            else 0
+                        )
+                        - cursor,
+                    ),
                 )
             )
 

@@ -9,6 +9,7 @@ from ..common.types import (
     TargetKeyOrAuto,
 )
 from ..provenance.schemas import RenderedTextBlock, SourceTextAttachment, TextAnchor
+from ..syntax.schemas import SyntaxDiagnostic
 from .layout import PUBLICATION_ENGINE_VERSION, A4LayoutRequest
 
 
@@ -71,6 +72,22 @@ class RenderJianpuTextSvgRequest(A4LayoutRequest):
     initial_measure_number: int = Field(default=1, ge=1)
     title: str = "简谱"
     text_anchors: list[TextAnchor] = []
+
+
+class LiveJianpuSvgRequest(BaseModel):
+    jianpu_text: str
+    cursor_offset: int | None = None
+    title: str = "\u7b80\u8c31"
+    show_measure_numbers: bool | None = False
+    show_title: bool = False
+    measure_number_mode: MeasureNumberMode = "all"
+    initial_measure_number: int = Field(default=1, ge=1)
+
+
+class LiveJianpuSvgResponse(BaseModel):
+    svg: str
+    jianpu_text: str
+    warnings: list[SyntaxDiagnostic] = Field(default_factory=list)
 
 
 class RenderJianpuTextSvgResponse(BaseModel):

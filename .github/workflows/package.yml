@@ -1,0 +1,44 @@
+name: Package and release
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    uses: ./.github/workflows/ci.yml
+  windows:
+    needs: quality
+    uses: ./.github/workflows/build-windows.yml
+  mac:
+    needs: quality
+    uses: ./.github/workflows/build-mac.yml
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [quality, windows, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: score-trans-*
+          merge-multiple: true
+          path: release-assets
+      - name: Validate assets, upload draft, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/release.py publish --assets release-assets

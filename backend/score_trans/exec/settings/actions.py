@@ -5,6 +5,7 @@ from ...models.common.types import (
     SUPPORTED_TARGET_KEYS,
     AccidentalMode,
     MeasureNumberMode,
+    PolyphonyMode,
     TargetKeyOrAuto,
 )
 from ...models.settings.provider_profiles import LlmProviderKind, LlmProviderProfile
@@ -76,6 +77,9 @@ class SettingsActions:
 
         if req.accidental_mode is not None:
             self.service.set("accidental_mode", req.accidental_mode)
+
+        if req.polyphony_mode is not None:
+            self.service.set("polyphony_mode", req.polyphony_mode)
 
         if req.show_measure_numbers is not None:
             self.service.set(
@@ -294,6 +298,7 @@ class SettingsActions:
             output_dir=all_settings.get("output_dir", ""),
             target_key=_target_key(all_settings.get("target_key")),
             accidental_mode=_accidental_mode(all_settings.get("accidental_mode")),
+            polyphony_mode=_polyphony_mode(all_settings.get("polyphony_mode")),
             show_measure_numbers=measure_number_mode != "none",
             measure_number_mode=measure_number_mode,
             jianpu_syntax_highlight=self.service.get_bool(
@@ -364,6 +369,12 @@ def _provider_endpoint(
 
 def _accidental_mode(value: str | None) -> AccidentalMode:
     if value in {"auto", "sharp", "flat"}:
+        return value
+    return "auto"
+
+
+def _polyphony_mode(value: str | None) -> PolyphonyMode:
+    if value in {"auto", "preserve", "flatten"}:
         return value
     return "auto"
 

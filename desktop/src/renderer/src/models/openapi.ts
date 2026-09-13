@@ -668,6 +668,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/render/jianpu-live-svg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render Live Jianpu Svg */
+        post: operations["render_live_jianpu_svg_render_jianpu_live_svg_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/render/jianpu-svg": {
         parameters: {
             query?: never;
@@ -1221,7 +1238,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-14
+             * @default publication-15
              */
             engine_version?: string;
             /** Id */
@@ -1369,6 +1386,12 @@ export type components = {
              * @enum {string}
              */
             measure_number_mode?: "all" | "row_start" | "none";
+            /**
+             * Polyphony Mode
+             * @default auto
+             * @enum {string}
+             */
+            polyphony_mode?: "auto" | "preserve" | "flatten";
             /**
              * Show Measure Numbers
              * @default true
@@ -1806,6 +1829,48 @@ export type components = {
             /** Musicxml Text */
             musicxml_text: string;
         };
+        /** LiveJianpuSvgRequest */
+        LiveJianpuSvgRequest: {
+            /** Cursor Offset */
+            cursor_offset?: number | null;
+            /**
+             * Initial Measure Number
+             * @default 1
+             */
+            initial_measure_number?: number;
+            /** Jianpu Text */
+            jianpu_text: string;
+            /**
+             * Measure Number Mode
+             * @default all
+             * @enum {string}
+             */
+            measure_number_mode?: "all" | "row_start" | "none";
+            /**
+             * Show Measure Numbers
+             * @default false
+             */
+            show_measure_numbers?: boolean | null;
+            /**
+             * Show Title
+             * @default false
+             */
+            show_title?: boolean;
+            /**
+             * Title
+             * @default 简谱
+             */
+            title?: string;
+        };
+        /** LiveJianpuSvgResponse */
+        LiveJianpuSvgResponse: {
+            /** Jianpu Text */
+            jianpu_text: string;
+            /** Svg */
+            svg: string;
+            /** Warnings */
+            warnings?: components["schemas"]["SyntaxDiagnostic"][];
+        };
         /** LlmProviderOption */
         LlmProviderOption: {
             /** Base Url */
@@ -1838,6 +1903,12 @@ export type components = {
             musicxml_file_id: string;
             /** Page Image File Id */
             page_image_file_id?: string | null;
+            /**
+             * Polyphony Mode
+             * @default auto
+             * @enum {string}
+             */
+            polyphony_mode?: "auto" | "preserve" | "flatten";
             /**
              * Target Key
              * @default C
@@ -1885,7 +1956,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-14
+             * @default publication-15
              */
             engine_version?: string;
             /**
@@ -1995,7 +2066,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-14
+             * @default publication-15
              */
             engine_version?: string;
             /** Error Message */
@@ -2172,6 +2243,12 @@ export type components = {
              * @enum {string}
              */
             measure_number_mode?: "all" | "row_start" | "none";
+            /**
+             * Polyphony Mode
+             * @default auto
+             * @enum {string}
+             */
+            polyphony_mode?: "auto" | "preserve" | "flatten";
             /** Show Measure Numbers */
             show_measure_numbers?: boolean | null;
             /**
@@ -2349,7 +2426,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-14
+             * @default publication-15
              */
             engine_version?: string;
             /**
@@ -2731,6 +2808,12 @@ export type components = {
              */
             output_dir?: string;
             /**
+             * Polyphony Mode
+             * @default auto
+             * @enum {string}
+             */
+            polyphony_mode?: "auto" | "preserve" | "flatten";
+            /**
              * Show Measure Numbers
              * @default true
              */
@@ -2803,6 +2886,8 @@ export type components = {
             ocr_provider?: string | null;
             /** Output Dir */
             output_dir?: string | null;
+            /** Polyphony Mode */
+            polyphony_mode?: ("auto" | "preserve" | "flatten") | null;
             /** Show Measure Numbers */
             show_measure_numbers?: boolean | null;
             /** Target Key */
@@ -4428,6 +4513,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinalRenderResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    render_live_jianpu_svg_render_jianpu_live_svg_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveJianpuSvgRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveJianpuSvgResponse"];
                 };
             };
             /** @description Validation Error */

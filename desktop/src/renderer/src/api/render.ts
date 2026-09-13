@@ -1,5 +1,8 @@
 import { apiFetch, type ApiResult } from './client'
+
 import type {
+  LiveJianpuSvgRequest,
+  LiveJianpuSvgResponse,
   BatchRenderRequest,
   BatchRenderResponse,
   RenderJianpuSvgRequest,
@@ -47,6 +50,10 @@ export const renderApi = {
       body: JSON.stringify(req),
       signal,
     })
+  },
+
+  liveJianpuSvg(req: LiveJianpuSvgRequest, signal?: AbortSignal): Promise<ApiResult<LiveJianpuSvgResponse>> {
+    return apiFetch("/render/jianpu-live-svg", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req), signal })
   },
 
   normalizeJianpuText(req: NormalizeJianpuTextRequest): Promise<ApiResult<NormalizeJianpuTextResponse>> {

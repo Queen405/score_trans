@@ -57,6 +57,16 @@
         </settings-form-row>
 
         <settings-form-row
+          label="复调识别"
+        >
+          <n-switch
+            :value="settings.draft.polyphonyMode !== 'flatten'"
+            size="small"
+            @update:value="(value: boolean) => (settings.draft.polyphonyMode = value ? 'auto' : 'flatten')"
+          />
+        </settings-form-row>
+
+        <settings-form-row
           label="代码配色"
         >
           <n-switch

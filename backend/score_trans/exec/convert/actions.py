@@ -8,7 +8,12 @@ from ...domain.musicxml import (
     musicxml_path_to_scores,
 )
 from ...domain.write.jianpu_text import scores_to_jianpu_document
-from ...models.common.types import IMAGE_SUFFIXES, AccidentalMode, InstrumentProfile
+from ...models.common.types import (
+    IMAGE_SUFFIXES,
+    AccidentalMode,
+    InstrumentProfile,
+    PolyphonyMode,
+)
 from ...models.convert.schemas import (
     JianpuToMusicXmlRequest,
     JianpuToMusicXmlResponse,
@@ -31,6 +36,7 @@ class MusicXmlToJianpuAction:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        polyphony_mode: PolyphonyMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -44,6 +50,7 @@ class MusicXmlToJianpuAction:
                 ocr_provider=ocr_provider,
             ),
             accidental_mode=accidental_mode,
+            polyphony_mode=polyphony_mode,
         ).text
 
     def build_scores(
@@ -74,6 +81,7 @@ class MusicXmlToJianpuAction:
         *,
         target_key: str = "C",
         accidental_mode: AccidentalMode = "auto",
+        polyphony_mode: PolyphonyMode = "auto",
         instrument_profile: InstrumentProfile | None = None,
         image_path: str | Path | None = None,
         ocr_provider: OCRProvider | None = None,
@@ -87,6 +95,7 @@ class MusicXmlToJianpuAction:
                 ocr_provider=ocr_provider,
             ),
             accidental_mode=accidental_mode,
+            polyphony_mode=polyphony_mode,
         )
 
 
@@ -132,6 +141,7 @@ class ConvertActions:
             path,
             target_key=req.target_key,
             accidental_mode=req.accidental_mode,
+            polyphony_mode=req.polyphony_mode,
             instrument_profile=req.instrument_profile,
             image_path=image_path,
         )
