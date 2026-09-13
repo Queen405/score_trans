@@ -870,7 +870,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   overflow: hidden;
 }
 
-.editor-main { overflow:auto;
+.editor-main {
   flex: 1;
   min-width: 0;
   min-height: 0;

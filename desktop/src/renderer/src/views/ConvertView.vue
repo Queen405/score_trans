@@ -128,7 +128,7 @@
     <div class="ws-main">
       <div class="ws-toolbar">
         <div class="ws-toolbar-left">
-          <n-button size="small" :type="liveRenderEnabled ? 'primary' : 'default'" @click="liveRenderEnabled = !liveRenderEnabled">????</n-button>
+          <n-button size="small" :type="liveRenderEnabled ? 'primary' : 'default'" @click="toggleLiveRender">即时渲染</n-button>
           <button
             class="hist-toggle"
             title="历史记录"
@@ -743,8 +743,8 @@ function loadInitialMeasureNumber(batchId: string | null): number {
   return Number.isInteger(raw) && raw >= 1 ? raw : 1
 }
 
-watch([jianpuText, liveCursorTick, liveRenderEnabled], ([text]) => {
-  if (!liveRenderEnabled.value) return
+watch([jianpuText, liveCursorTick], ([text]) => {
+
   if (livePreviewTimer) clearTimeout(livePreviewTimer)
   livePreviewTimer = setTimeout(async () => {
     if (!text.trim()) { livePreviewSvg.value = ""; livePreviewError.value = ""; return }
@@ -755,7 +755,7 @@ watch([jianpuText, liveCursorTick, liveRenderEnabled], ([text]) => {
     livePreviewLoading.value = false
   }, 150)
 })
-function startLiveResize(event: MouseEvent): void {
+function toggleLiveRender(): void {`r`n  liveRenderEnabled.value = !liveRenderEnabled.value`r`n  if (!liveRenderEnabled.value) { livePreviewController?.abort(); if (livePreviewTimer) clearTimeout(livePreviewTimer); livePreviewLoading.value = false }`r`n}`r`nfunction startLiveResize(event: MouseEvent): void {
   const target = event.currentTarget as HTMLElement
   const parent = target.parentElement
   if (!parent) return
