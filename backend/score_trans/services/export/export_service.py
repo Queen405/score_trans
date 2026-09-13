@@ -22,7 +22,7 @@ from ...domain.playback_timeline import (
 )
 from ...domain.constants import KEY_TO_TONIC, MAJOR_SCALE
 from ...domain.write.musicxml import scores_to_musicxml
-from ...models.score import DEFAULT_TEMPO, JianpuPitch, JianpuScore
+from ...models.score import DEFAULT_TEMPO, JianpuPitch, JianpuScore, Measure
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
 
@@ -146,6 +146,30 @@ def svg_page_to_image(
     return output_path
 
 
+def _expand_repeats(measures: list[Measure]) -> list[Measure]:
+    """Expand repeat sections into a linear playback sequence.
+
+    Standard |: ... :| repeat plays the section twice (repeat_count=2).
+    If repeat_end has no matching repeat_start, repeat from the beginning.
+    """
+    result: list[Measure] = []
+    repeat_start_idx: int | None = None
+    for i, measure in enumerate(measures):
+        if measure.repeat_start:
+            repeat_start_idx = len(result)
+        result.append(measure)
+        if measure.repeat_end:
+            times = max(2, int(getattr(measure, "repeat_count", 1)))
+            if repeat_start_idx is not None:
+                section = result[repeat_start_idx:]
+            else:
+                section = result[:]
+            for _ in range(times - 1):
+                result.extend(section)
+            repeat_start_idx = None
+    return result
+
+
 class ExportService:
     def export_midi(self, score: JianpuScore, output_path: Path) -> Path:
         return self.export_midi_scores([score], output_path)
@@ -171,6 +195,10 @@ class ExportService:
         rendered_scores = (
             self._merge_scores_by_part(scores) if scores else [JianpuScore()]
         )
+        rendered_scores = [
+            replace(score, measures=_expand_repeats(score.measures))
+            for score in rendered_scores
+        ]
         for score in rendered_scores:
             for measure in score.measures:
                 for event in measure.events:

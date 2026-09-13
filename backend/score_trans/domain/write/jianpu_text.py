@@ -239,10 +239,9 @@ def _measure_lead_info(
         lead_tokens.append(f"{measure.beats_per_measure}/{measure.beat_type}")
         current_beats = measure.beats_per_measure
         current_beat_type = measure.beat_type
-    prefix = "|: " if measure.repeat_start else ""
     return (
         lead_tokens,
-        prefix,
+        "",
         current_key,
         current_beats,
         current_beat_type,
@@ -289,10 +288,10 @@ def _score_to_jianpu_text(
         lines.insert(0, f"title={score.title}")
     measure_lines: list[str] = []
     lyrics: list[str] = []
-    for measure in score.measures:
+    for measure_index, measure in enumerate(score.measures):
         (
             lead_tokens,
-            prefix,
+            _prefix,
             current_key,
             current_beats,
             current_beat_type,
@@ -351,9 +350,25 @@ def _score_to_jianpu_text(
             index += 1
         repeat_count = getattr(measure, "repeat_count", 1)
         repeat_suffix = f" *{repeat_count}" if repeat_count > 1 else ""
-        suffix = " :|" if getattr(measure, "repeat_end", False) else ""
         body = " ".join([*lead_tokens, *tokens])
-        measure_lines.append(prefix + body + repeat_suffix + suffix + " |")
+        next_has_start = (
+            measure_index + 1 < len(score.measures)
+            and score.measures[measure_index + 1].repeat_start
+        )
+        has_end = getattr(measure, "repeat_end", False)
+        if measure_index == 0 and measure.repeat_start:
+            prefix = "|: "
+        else:
+            prefix = ""
+        if has_end and next_has_start:
+            barline = " :| |:"
+        elif has_end:
+            barline = " :|"
+        elif next_has_start:
+            barline = " |:"
+        else:
+            barline = " |"
+        measure_lines.append(prefix + body + repeat_suffix + barline)
     lines.extend(measure_lines)
     if lyrics:
         lines.append(f"L: {' '.join(lyrics)}")
@@ -439,6 +454,8 @@ def _text_anchors_raw(
             line_offset += len(lines[line_index])
             line_index += 1
         line = lines[line_index].rstrip("\r\n")
+        if measure_index == 0 and measure.repeat_start:
+            prefix = "|: "
         event_cursor = _lead_skip_length(lead_tokens, prefix)
         events = measure.events
         index = 0
