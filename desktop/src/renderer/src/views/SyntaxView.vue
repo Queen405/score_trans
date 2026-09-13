@@ -676,6 +676,13 @@ const syntaxSections: SyntaxSection[] = [
       { syntax: '|:  :|', name: '反复记号', description: '分别表示反复段落的起点和终点。' },
       { syntax: '*2', name: '重复小节', description: '当前内容重复 2 次，小节号相应增加。' },
       { syntax: '*10', name: '多次重复', description: '当前内容重复 10 次。' },
+      {
+        syntax: '&',
+        name: '声线分隔（复调）',
+        description:
+          '同一小节内存在多条并行旋律线（复调）时，先写第 1 声线全部内容，再写 & 和第 2 声线；每条声线从小节起点独立计时。例：0 [1+3] [1+3] [1+3] & w1, |。',
+        keywords: ['复调', '声线', '多声部', 'voice', 'polyphony', 'lane'],
+      },
     ],
   },
   {
@@ -738,6 +745,7 @@ const quickReferenceEntries: SyntaxEntry[] = [
   { syntax: '$3:2;...$', name: '显式连音比例', description: '实际数:常规数; 指定比例。' },
   { syntax: '[a+b]', name: '和弦', description: '方括号内 + 分隔，可加时值前缀。' },
   { syntax: '| / || / |: :|', name: '小节结构', description: '小节线、双小节线、反复记号。' },
+  { syntax: '&', name: '声线分隔', description: '复调小节内分隔并行旋律线；每条声线从小节起点独立计时。' },
   { syntax: '\\p / \\f / \\sfz 等', name: '力度', description: '16 种力度标记，\\ 加符号。' },
   { syntax: '^. / ^> / ^r 等', name: '演奏法', description: '断奏、重音、颤音等，^ 加标记。' },
   { syntax: '^l / ^lh', name: '民乐标记', description: '颤弓/轮指/摇指（^l）、连线滑音（^lh），仅 erhu/ruan/guzheng。' },
