@@ -88,6 +88,9 @@
           spellcheck="false"
           @input="onInput"
           @scroll="syncScroll"
+          @click="emitCursorChange"
+          @keyup="emitCursorChange"
+          @select="emitCursorChange"
         />
         <div
           v-if="transposing"
@@ -176,6 +179,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:initialMeasureNumber': [value: number]
+  'cursor-change': []
   'rekey-applied': [payload: {
     before: string
     after: string
@@ -464,6 +468,8 @@ function isCursorInLineComment(value: string, cursor: number): boolean {
   const linePrefix = value.slice(lineStart, cursor)
   return linePrefix.includes('//')
 }
+
+function emitCursorChange(): void { emit('cursor-change') }
 
 function onInput(e: Event): void {
   const target = e.target as HTMLTextAreaElement

@@ -434,6 +434,7 @@
               :structure-markers-enabled="store.currentBatchId !== null"
               @update:initial-measure-number="initialMeasureNumber = $event"
               @rekey-applied="handleRekeyApplied"
+              @cursor-change="liveCursorTick++"
             /></div>
               <div class="jianpu-live-divider" @mousedown="startLiveResize" title="调整上下区域高度" />
               <LiveJianpuPreview :svg="livePreviewSvg" :loading="livePreviewLoading" :error="livePreviewError" />
@@ -578,6 +579,7 @@ const livePreviewLoading = ref(false)
 const liveEditorRatio = ref(Number(localStorage.getItem("score-trans.live-editor-ratio") || 50))
 let livePreviewTimer: ReturnType<typeof setTimeout> | null = null
 let livePreviewController: AbortController | null = null
+const liveCursorTick = ref(0)
 function currentMeasureText(text: string): string {
   const pos = jianpuEditorRef.value?.getSelectionRange()?.start ?? text.length
   const left = text.lastIndexOf("|", Math.max(0, pos - 1)) + 1
@@ -739,7 +741,7 @@ function loadInitialMeasureNumber(batchId: string | null): number {
   return Number.isInteger(raw) && raw >= 1 ? raw : 1
 }
 
-watch(jianpuText, (text) => {
+watch([jianpuText, liveCursorTick], ([text]) => {
   if (livePreviewTimer) clearTimeout(livePreviewTimer)
   livePreviewTimer = setTimeout(async () => {
     if (!text.trim()) { livePreviewSvg.value = ""; livePreviewError.value = ""; return }
