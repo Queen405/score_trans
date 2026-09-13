@@ -128,7 +128,6 @@
     <div class="ws-main">
       <div class="ws-toolbar">
         <div class="ws-toolbar-left">
-          <n-button size="small" :type="liveRenderEnabled ? 'primary' : 'default'" @click="toggleLiveRender">即时渲染</n-button>
           <button
             class="hist-toggle"
             title="历史记录"
@@ -166,6 +165,7 @@
           </div>
         </div>
         <div class="ws-toolbar-right">
+          <n-button size="small" :type="liveRenderEnabled ? 'primary' : 'default'" @click="toggleLiveRender">即时渲染</n-button>
           <n-popover
             trigger="click"
             placement="bottom"
@@ -420,7 +420,7 @@
               </n-icon>
               <span>暂无渲染</span>
             </div>
-            <div v-else class="jianpu-live-layout" :style="liveRenderEnabled ? { gridTemplateRows: `${liveEditorRatio}% 14px minmax(0, 1fr)` } : { gridTemplateRows: '1fr' }">
+            <div v-else class="jianpu-live-layout" :style="liveRenderEnabled ? { gridTemplateRows: `${liveEditorRatio}% 10px minmax(0, 1fr)` } : { gridTemplateRows: '1fr' }">
               <div class="jianpu-live-editor"><jianpu-editor
               ref="jianpuEditorRef"
               v-model="jianpuText"
@@ -761,12 +761,14 @@ function toggleLiveRender(): void {
   liveRenderEnabled.value = !liveRenderEnabled.value
 }
 function startLiveResize(event: MouseEvent): void {
+  event.preventDefault()
   const target = event.currentTarget as HTMLElement
   const parent = target.parentElement
   if (!parent) return
   liveResizeStart = { y: event.clientY, ratio: liveEditorRatio.value, height: parent.clientHeight }
+  document.body.classList.add("live-resizing")
   const move = (e: MouseEvent) => { if (!liveResizeStart) return; const next = liveResizeStart.ratio + ((e.clientY-liveResizeStart.y)/liveResizeStart.height)*100; liveEditorRatio.value = Math.max(20, Math.min(80, next)) }
-  const up = () => { localStorage.setItem("score-trans.live-editor-ratio", String(liveEditorRatio.value)); liveResizeStart=null; window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up) }
+  const up = () => { localStorage.setItem("score-trans.live-editor-ratio", String(liveEditorRatio.value)); liveResizeStart=null; document.body.classList.remove("live-resizing"); window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up) }
   window.addEventListener("mousemove", move); window.addEventListener("mouseup", up)
 }
 
@@ -2744,9 +2746,42 @@ defineExpose({ flushPendingEdits })
 
 .jianpu-live-layout { height:100%; width:100%; min-height:0; display:grid; gap:0; }
 .jianpu-live-editor { min-height:0; overflow:hidden; display:flex; flex-direction:column; }
-.jianpu-live-divider { cursor:row-resize; background:var(--border-color); position:relative; border-top:1px solid var(--text-tertiary); border-bottom:1px solid var(--text-tertiary); }
-.jianpu-live-divider::before { content:""; position:absolute; left:calc(50% - 24px); top:4px; width:48px; height:4px; border-radius:4px; background:var(--text-tertiary); box-shadow:0 7px 0 var(--text-tertiary); }
-.jianpu-live-divider:hover { background:var(--primary-color); }
+.jianpu-live-divider {
+  cursor: row-resize;
+  position: relative;
+  background: var(--bg-surface);
+}
+.jianpu-live-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: var(--border);
+  transition: background 0.2s;
+}
+.jianpu-live-divider::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  box-shadow: 0 0 0 3px var(--bg-surface);
+  transition: background 0.2s, width 0.2s;
+}
+.jianpu-live-divider:hover::before {
+  background: var(--accent);
+}
+.jianpu-live-divider:hover::after {
+  background: var(--accent);
+  width: 72px;
+}
 
 .ws-layout {
   flex: 1;
@@ -2948,6 +2983,18 @@ defineExpose({ flushPendingEdits })
   .ws-history.open {
     width: 200px;
   }
+}
+</style>
+
+<style>
+body.live-resizing {
+  user-select: none;
+  cursor: row-resize;
+}
+
+body.live-resizing .jianpu-live-editor,
+body.live-resizing .live-preview {
+  pointer-events: none;
 }
 </style>
 
