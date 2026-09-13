@@ -2,11 +2,11 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)](https://github.com/Queen405/score_trans)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey)](https://github.com/Queen405/score_trans)
 
-五线谱与简谱互转的 Windows 本地桌面应用。支持图片/PDF 导入、Audiveris OMR 识别、AI 视觉转写、MusicXML ↔ 简谱互转，以及出版级简谱 SVG 渲染。
+五线谱与简谱互转的本地桌面应用（Windows / macOS）。支持图片/PDF 导入、Audiveris OMR 识别、AI 视觉转写、MusicXML ↔ 简谱互转，以及出版级简谱 SVG 渲染。
 
-[下载 Windows 安装包](https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.0.3.exe) · [查看文档](docs/) · [报告问题](../../issues)
+[下载安装包](https://github.com/Queen405/score_trans/releases) · [查看文档](docs/) · [报告问题](../../issues)
 
 <!-- TODO: 替换为真实截图 -->
 <!-- ![Score Trans 主界面](docs/images/screenshot.png) -->
@@ -23,24 +23,28 @@
 
 ## 系统要求
 
-- Windows 10 / 11
-- [JDK 25](https://jdk.java.net/25/)（Audiveris 必需）
+- Windows 10 / 11，或 macOS 11+（Apple Silicon，M1/M2/M3/M4）
+- 无需安装 Java / Python，运行时已全部内置
 - OCR / AI API key（可选，用于文字层和 AI 转写）
 
 ## 下载与安装
 
-1. 下载 `Score Trans Setup x.x.x.exe`（[腾讯云 COS 直链](https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.0.3.exe) · [GitHub Releases 列表](https://github.com/Queen405/score_trans/releases)）。
-2. 双击安装并启动应用。
-3. 首次启动时，在设置页配置 JDK 25 和 Audiveris 路径。
+### Windows
 
-或者通过环境变量配置：
+1. 从 [GitHub Releases](https://github.com/Queen405/score_trans/releases) 下载 `Score Trans Setup X.Y.Z.exe`。
+2. 双击运行安装向导。首次启动若出现 SmartScreen 警告，点击「仍要运行」。
+3. 安装完成即可使用，本地识别无需任何配置。
 
-```powershell
-$env:SCORE_TRANS_JAVA_HOME="E:\ENV\JAVA\JDK25"
-$env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris\gradlew.bat"
-```
+### macOS
 
-更多环境变量见 [docs/environment.md](docs/environment.md)。
+1. 从 [GitHub Releases](https://github.com/Queen405/score_trans/releases) 下载 `Score Trans-X.Y.Z-arm64.dmg`。
+2. 双击打开 dmg，将 **Score Trans** 拖入「应用程序」文件夹。
+3. 首次打开会被 Gatekeeper 拦截（应用未签名未公证）。先双击弹窗点「完成」，再打开
+   **系统设置 → 隐私与安全性 → 安全性**，点击「仍要打开」。
+   - 或在终端执行 `xattr -cr "/Applications/Score Trans.app"` 后双击启动。
+4. 放行一次后正常使用，本地识别无需任何配置。
+
+更多环境变量（开发态配置）见 [docs/environment.md](docs/environment.md)。
 
 ## 快速开始
 
