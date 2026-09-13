@@ -20,7 +20,7 @@ def main() -> None:
     installers = list((ROOT / "desktop/dist-electron").glob("*.exe"))
     if len(installers) != 1:
         raise RuntimeError(f"Expected one installer, got {installers}")
-    install = Path(RUNNER_TEMP) / "安装测试 Score Trans"
+    install = Path(RUNNER_TEMP) / "安装测试_ScoreTrans"
     if install.exists():
         raise RuntimeError(f"Installer test directory already exists: {install}")
     user_data = Path.home() / ".score_trans"
@@ -28,6 +28,9 @@ def main() -> None:
     marker = user_data / "installer-test-preserve.txt"
     marker.write_text("preserve user data", encoding="utf-8")
     # NSIS /D= consumes the remainder of the command line and must be unquoted.
+    # The install path must not contain spaces: electron-builder's multiUser.nsh
+    # re-parses /D via StdUtils::GetParameter, which splits on spaces and would
+    # truncate the path. Chinese characters still exercise non-ASCII path handling.
     command = f'"{installers[0]}" /S /D={install}'
     subprocess.run(command, check=True, timeout=300)
     if not (install / "Score Trans.exe").is_file():
