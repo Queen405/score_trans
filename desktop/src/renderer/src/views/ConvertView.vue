@@ -755,7 +755,11 @@ watch([jianpuText, liveCursorTick], ([text]) => {
     livePreviewLoading.value = false
   }, 150)
 })
-function toggleLiveRender(): void {`r`n  liveRenderEnabled.value = !liveRenderEnabled.value`r`n  if (!liveRenderEnabled.value) { livePreviewController?.abort(); if (livePreviewTimer) clearTimeout(livePreviewTimer); livePreviewLoading.value = false }`r`n}`r`nfunction startLiveResize(event: MouseEvent): void {
+function toggleLiveRender(): void {
+  liveRenderEnabled.value = !liveRenderEnabled.value
+  if (!liveRenderEnabled.value) { livePreviewController?.abort(); if (livePreviewTimer) clearTimeout(livePreviewTimer); livePreviewLoading.value = false }
+}
+function startLiveResize(event: MouseEvent): void {
   const target = event.currentTarget as HTMLElement
   const parent = target.parentElement
   if (!parent) return
