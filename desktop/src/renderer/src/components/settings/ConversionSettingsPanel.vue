@@ -39,18 +39,6 @@
           />
         </settings-form-row>
 
-        <settings-form-row
-          label="复调识别"
-          description="同一声部内并行的多条旋律线（如全音符线加四分音符线）"
-          hint="开启后以 & 声线语法保留并双排显示；关闭则拍平为单行"
-        >
-          <n-switch
-            :value="settings.draft.polyphonyMode !== 'flatten'"
-            size="small"
-            @update:value="(value: boolean) => (settings.draft.polyphonyMode = value ? 'auto' : 'flatten')"
-          />
-        </settings-form-row>
-
         <settings-form-row label="小节号">
           <n-select
             v-model:value="settings.draft.measureNumberMode"
@@ -65,6 +53,16 @@
           <n-switch
             v-model:value="settings.draft.enableOmrOcr"
             size="small"
+          />
+        </settings-form-row>
+
+        <settings-form-row
+          label="复调识别"
+        >
+          <n-switch
+            :value="settings.draft.polyphonyMode !== 'flatten'"
+            size="small"
+            @update:value="(value: boolean) => (settings.draft.polyphonyMode = value ? 'auto' : 'flatten')"
           />
         </settings-form-row>
 
