@@ -91,8 +91,14 @@ def smoke(resources: Path) -> None:
 
     original_resources = snapshot()
     with tempfile.TemporaryDirectory(prefix="score-trans-smoke-") as temporary:
+        # The work directory uses non-ASCII + spaces + comma to exercise
+        # Unicode path handling in the Python backend. Java's FileSystemView
+        # (used by Audiveris WellKnowns) requires a valid Windows user profile,
+        # so HOME/USERPROFILE point to a separate ASCII-safe directory.
         work = Path(temporary) / "用户 smoke, path"
         work.mkdir()
+        java_home_dir = Path(temporary) / "java-home"
+        java_home_dir.mkdir()
         token = secrets.token_urlsafe(32)
         env = {k: v for k, v in os.environ.items() if not k.startswith("SCORE_TRANS_")}
         env.update(
@@ -101,8 +107,8 @@ def smoke(resources: Path) -> None:
                 "SCORE_TRANS_CACHE_DIR": str(work / "cache"),
                 "SCORE_TRANS_API_TOKEN": token,
                 "SCORE_TRANS_API_AUTH_DISABLED": "0",
-                "HOME": str(work),
-                "USERPROFILE": str(work),
+                "HOME": str(java_home_dir),
+                "USERPROFILE": str(java_home_dir),
                 "APPDATA": str(work / "AppData"),
                 "LOCALAPPDATA": str(work / "LocalAppData"),
                 "XDG_CONFIG_HOME": str(work / "config"),
