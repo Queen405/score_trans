@@ -47,13 +47,22 @@ def make_score(path: Path) -> None:
 def validate_resources(resources: Path) -> None:
     exe = "backend.exe" if sys.platform == "win32" else "backend"
     java = "java.exe" if sys.platform == "win32" else "java"
-    for relative in (
+    required = [
         f"backend/{exe}",
         "backend/.env",
         "backend/published_defaults.json",
         "third_party/audiveris/lib/audiveris.jar",
         f"third_party/jre/jdk/bin/{java}",
-    ):
+    ]
+    if sys.platform == "win32":
+        required.extend(
+            [
+                "third_party/jre/jdk/bin/java.dll",
+                "third_party/jre/jdk/bin/server/jvm.dll",
+                "third_party/jre/jdk/lib/jvm.cfg",
+            ]
+        )
+    for relative in required:
         if not (resources / relative).is_file():
             raise ValueError(f"Missing packaged resource: {relative}")
     jars = list((resources / "third_party/audiveris/lib").glob("*.jar"))

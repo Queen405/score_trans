@@ -425,6 +425,25 @@ def _trim_jdk(jdk_dir: Path) -> None:
         print(
             f"    JDK trimmed (jmods/src.zip/ct.sym/include + bin dev tools): -{removed:.0f} MB"
         )
+    _assert_jdk_runtime_intact(jdk)
+
+
+def _assert_jdk_runtime_intact(jdk: Path) -> None:
+    """Verify that critical JVM runtime files survived trimming."""
+    if sys.platform != "win32":
+        return
+    for rel in ("bin/java.dll", "bin/server/jvm.dll", "lib/jvm.cfg"):
+        if not (jdk / rel).is_file():
+            missing = jdk / rel
+            siblings = (
+                sorted(p.name for p in (jdk / rel).parent.iterdir())
+                if (jdk / rel).parent.is_dir()
+                else []
+            )
+            raise RuntimeError(
+                f"JDK trim removed a runtime-critical file: {missing}\n"
+                f"Sibling files in {(jdk / rel).parent}: {siblings}"
+            )
 
 
 def _purge_trash_leftovers() -> None:
