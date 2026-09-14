@@ -42,6 +42,10 @@ upload, preserving the website URLs. Unknown names or duplicate aliases fail.
 In Actions, run **Package and release** from the repository's default branch:
 choose mode **resume** and release_tag **vX.Y.Z**.
 
+Draft lookup uses the authenticated, paginated release list and reads the selected
+release by ID; the by-tag REST endpoint only returns published releases. Duplicate
+drafts fail explicitly so delivery cannot select the wrong snapshot.
+
 Recovery reuses the draft/public snapshot, verifies checksums and tag provenance,
 and finishes missing stages. It does not rebuild or replace published assets.
 Rerunning a failed ordinary release job uses the same recovery logic when the

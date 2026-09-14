@@ -508,3 +508,104 @@ def test_remote_asset_mapping_rejects_collisions_and_unexpected_names(names):
         release.snapshot_asset_names(
             {"assets": [{"name": name} for name in names]}, "v1.2.3"
         )
+
+
+def test_release_lookup_finds_draft_when_tag_endpoint_returns_404(monkeypatch):
+    import subprocess
+
+    draft = {"id": 42, "tag_name": "v1.2.3", "draft": True, "assets": []}
+    calls = []
+
+    def run(*args):
+        calls.append(args)
+        if args[1].endswith("/releases/tags/v1.2.3"):
+            raise subprocess.CalledProcessError(1, args, stderr="gh: HTTP 404")
+        if args[1].endswith("/releases?per_page=100"):
+            assert "--paginate" in args and "--slurp" in args
+            return subprocess.CompletedProcess(args, 0, json.dumps([[], [draft]]))
+        assert args[1].endswith("/releases/42")
+        return subprocess.CompletedProcess(args, 0, json.dumps(draft))
+
+    monkeypatch.setattr(release, "gh", run)
+    monkeypatch.setattr(release.time, "sleep", lambda _: None)
+    assert release.release_info("v1.2.3") == draft
+    assert len(calls) == 3
+
+
+def test_release_lookup_rejects_duplicate_drafts(monkeypatch):
+    import subprocess
+
+    drafts = [{"id": n, "tag_name": "v1.2.3", "draft": True} for n in [42, 43]]
+
+    def run(*args):
+        if "/releases/tags/" in args[1]:
+            raise subprocess.CalledProcessError(1, args, stderr="gh: HTTP 404")
+        return subprocess.CompletedProcess(args, 0, json.dumps([drafts]))
+
+    monkeypatch.setattr(release, "gh", run)
+    monkeypatch.setattr(release.time, "sleep", lambda _: None)
+    with pytest.raises(ValueError, match="Multiple release"):
+        release.release_info("v1.2.3")
+
+
+def test_release_lookup_list_permission_failure_is_not_absence(monkeypatch):
+    import subprocess
+
+    def run(*args):
+        status = 404 if "/releases/tags/" in args[1] else 403
+        raise subprocess.CalledProcessError(1, args, stderr=f"gh: HTTP {status}")
+
+    monkeypatch.setattr(release, "gh", run)
+    monkeypatch.setattr(release.time, "sleep", lambda _: None)
+    with pytest.raises(subprocess.CalledProcessError, match="non-zero"):
+        release.release_info("v1.2.3")
+
+
+def test_publish_reads_real_draft_lookup_without_creating_another_release(
+    tmp_path, monkeypatch
+):
+    import subprocess
+
+    remote = FakeGitHub(sanitize_names=True)
+    manifest = {"version": "1.2.3", "notes": "test"}
+    windows, mac = release.installer_names("1.2.3")
+    manifest.update(
+        url=release.installer_url(windows), urlMac=release.installer_url(mac)
+    )
+    for name in (windows, mac):
+        (tmp_path / name).write_bytes(name.encode())
+
+    def run(*args):
+        if args[0] != "api":
+            result = remote.run(*args)
+            if remote.info:
+                remote.info.update(id=42, tag_name="v1.2.3")
+            return result
+        endpoint = args[1]
+        if "/releases/tags/" in endpoint:
+            if not remote.info or remote.info["draft"]:
+                raise subprocess.CalledProcessError(1, args, stderr="gh: HTTP 404")
+            data = remote.info
+        elif endpoint.endswith("/releases?per_page=100"):
+            data = [[remote.info] if remote.info else []]
+        elif endpoint.endswith("/releases/42"):
+            data = remote.info
+        elif endpoint.endswith("/releases/latest"):
+            raise subprocess.CalledProcessError(1, args, stderr="gh: HTTP 404")
+        else:
+            pytest.fail(f"Unexpected API call: {endpoint}")
+        return subprocess.CompletedProcess(args, 0, json.dumps(data))
+
+    monkeypatch.setattr(release, "REF", "refs/tags/v1.2.3")
+    monkeypatch.setattr(release, "SOURCE_SHA", "a" * 40)
+    monkeypatch.setattr(release, "validate", lambda: manifest)
+    monkeypatch.setattr(release, "preflight", lambda: None)
+    monkeypatch.setattr(release, "tag_sha", lambda _: "a" * 40)
+    monkeypatch.setattr(release, "gh", run)
+    monkeypatch.setattr(release.time, "sleep", lambda _: None)
+    monkeypatch.setattr(release, "cos", lambda *_: {"status": "promoted"})
+    release.publish(tmp_path)
+    assert not remote.info["draft"]
+    assert len([c for c in remote.calls if c[1] == "create"]) == 1
+    release.resume("v1.2.3")
+    assert len([c for c in remote.calls if c[1] == "create"]) == 1

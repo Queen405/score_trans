@@ -174,14 +174,26 @@ def gh_json(endpoint: str, *, missing_ok: bool = False) -> dict | None:
 
 
 def release_info(tag: str) -> dict | None:
-    endpoint = f"repos/{REPOSITORY}/releases/tags/{quote(tag)}"
-    for attempt in range(5):
-        info = gh_json(endpoint, missing_ok=True)
-        if info is not None or attempt == 4:
-            return info
-        # GitHub can briefly lag after creating an annotated tag/release.
-        time.sleep(attempt + 1)
-    return None
+    published = gh_json(
+        f"repos/{REPOSITORY}/releases/tags/{quote(tag)}", missing_ok=True
+    )
+    if published is not None:
+        return published
+    # The by-tag REST endpoint only returns published releases. Authenticated
+    # listings include drafts; query every page before deciding a tag is absent.
+    pages = json.loads(
+        gh(
+            "api", f"repos/{REPOSITORY}/releases?per_page=100", "--paginate", "--slurp"
+        ).stdout
+    )
+    matches = [item for page in pages for item in page if item["tag_name"] == tag]
+    if len(matches) > 1:
+        raise ValueError(
+            f"Multiple release records for {tag}; resolve duplicate drafts before delivery"
+        )
+    if not matches:
+        return None
+    return gh_json(f"repos/{REPOSITORY}/releases/{matches[0]['id']}")
 
 
 def tag_sha(tag: str) -> str:
