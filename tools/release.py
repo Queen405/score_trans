@@ -217,8 +217,25 @@ def preflight() -> None:
     cos("preflight")
 
 
+def snapshot_asset_names(info: dict, tag: str) -> dict[str, str]:
+    """Map GitHub's sanitized filenames back to the canonical COS snapshot."""
+    expected = [*installer_names(tag[1:]), "latest.json", CHECKSUMS, METADATA]
+    aliases = {
+        alias: name for name in expected for alias in (name, name.replace(" ", "."))
+    }
+    mapping = {}
+    for asset in info["assets"]:
+        remote = asset["name"]
+        canonical = aliases.get(remote)
+        if canonical is None or canonical in mapping.values():
+            raise ValueError("Unexpected or duplicate release snapshot asset")
+        mapping[remote] = canonical
+    return mapping
+
+
 def download_snapshot(info: dict, directory: Path, tag: str, sha: str) -> dict:
-    names = {asset["name"] for asset in info["assets"]}
+    mapping = snapshot_asset_names(info, tag)
+    names = set(mapping.values())
     expected = set(installer_names(tag[1:])) | {"latest.json", CHECKSUMS}
     if METADATA in names:
         expected.add(METADATA)
@@ -227,6 +244,12 @@ def download_snapshot(info: dict, directory: Path, tag: str, sha: str) -> dict:
             "Release snapshot missing assets or contains unexpected assets"
         )
     gh("release", "download", tag, "--repo", REPOSITORY, "--dir", str(directory))
+    for remote, canonical in mapping.items():
+        if remote != canonical:
+            target = directory / canonical
+            if target.exists():
+                raise ValueError("Snapshot download filename collision")
+            (directory / remote).rename(target)
     return verify_snapshot(directory, tag, sha)
 
 
@@ -238,7 +261,7 @@ def stage(
     if info:
         if not info["draft"] or CHECKSUMS in {a["name"] for a in info["assets"]}:
             raise ValueError("Refusing to replace a completed release snapshot")
-        if not {a["name"] for a in info["assets"]} <= expected:
+        if not set(snapshot_asset_names(info, tag).values()) <= expected:
             raise ValueError("Unexpected assets in incomplete draft")
     else:
         gh(

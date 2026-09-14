@@ -33,6 +33,9 @@ version but different contents also requires a new version, not an overwrite.
 GitHub and COS receive identical manifest bytes. SHA256SUMS.txt covers the
 installers, manifest and release-metadata.json (version, tag, source commit).
 The checksums asset is uploaded LAST and marks an immutable, complete snapshot.
+GitHub may replace spaces in installer filenames with dots. Recovery maps those
+known names back to the canonical filenames before checksum verification and COS
+upload, preserving the website URLs. Unknown names or duplicate aliases fail.
 
 ## Recover interrupted delivery
 

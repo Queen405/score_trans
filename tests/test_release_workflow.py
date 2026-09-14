@@ -62,7 +62,8 @@ def test_release_waits_for_quality_and_both_platforms() -> None:
 
 
 class FakeGitHub:
-    def __init__(self):
+    def __init__(self, sanitize_names=False):
+        self.sanitize_names = sanitize_names
         self.info = None
         self.assets = {}
         self.calls = []
@@ -82,7 +83,12 @@ class FakeGitHub:
             for arg in args:
                 path = Path(arg)
                 if path.is_file():
-                    self.assets[path.name] = path.read_bytes()
+                    name = (
+                        path.name.replace(" ", ".")
+                        if self.sanitize_names
+                        else path.name
+                    )
+                    self.assets[name] = path.read_bytes()
             self.info["assets"] = [{"name": name} for name in self.assets]
         elif action == "download":
             directory = Path(args[args.index("--dir") + 1])
@@ -93,9 +99,9 @@ class FakeGitHub:
         return subprocess.CompletedProcess(args, 0, "")
 
 
-@pytest.fixture
-def delivery(tmp_path: Path, monkeypatch):
-    remote = FakeGitHub()
+@pytest.fixture(params=[False, True], ids=["original-names", "github-sanitized-names"])
+def delivery(tmp_path: Path, monkeypatch, request):
+    remote = FakeGitHub(sanitize_names=request.param)
     manifest = {"version": "1.2.3", "notes": "test"}
     windows, mac = release.installer_names("1.2.3")
     manifest.update(
@@ -200,7 +206,10 @@ def test_snapshot_checksum_and_tag_provenance_are_enforced(delivery, monkeypatch
     with pytest.raises(ValueError, match="provenance"):
         release.resume("v1.2.3")
     monkeypatch.setattr(release, "tag_sha", lambda _: "a" * 40)
-    remote.assets["Score Trans Setup 1.2.3.exe"] = b"tampered"
+    name = "Score Trans Setup 1.2.3.exe"
+    if remote.sanitize_names:
+        name = name.replace(" ", ".")
+    remote.assets[name] = b"tampered"
     with pytest.raises(ValueError, match="checksum mismatch"):
         release.resume("v1.2.3")
 
@@ -484,3 +493,18 @@ def test_auto_release_downloads_same_run_assets_and_keeps_credentials_in_locked_
             assert "run-id" not in step["with"]
             assert step["with"]["path"] == "release-assets"
     assert ".venv/bin/python tools/release.py auto-publish" in steps[-1]["run"]
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        ["Score Trans Setup 1.2.3.exe", "Score.Trans.Setup.1.2.3.exe"],
+        ["../../unexpected.exe"],
+        ["Score.Trans.Setup.1.2.4.exe"],
+    ],
+)
+def test_remote_asset_mapping_rejects_collisions_and_unexpected_names(names):
+    with pytest.raises(ValueError, match="Unexpected or duplicate"):
+        release.snapshot_asset_names(
+            {"assets": [{"name": name} for name in names]}, "v1.2.3"
+        )
