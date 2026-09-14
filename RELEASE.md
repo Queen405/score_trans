@@ -2,16 +2,33 @@
 
 ## Normal release
 
-1. Set desktop/package.json and desktop/latest.json to the same x.y.z version.
-2. Merge to main and wait for Package and release to pass both platform builds.
-3. Tag that exact commit vX.Y.Z and push the tag.
-4. The release job automatically delivers both platforms to GitHub and COS.
-   Do not follow it with a separate manual manifest upload.
+1. Set desktop/package.json and desktop/latest.json to the same x.y.z version
+   and prepare the manifest's release notes.
+2. Push or merge to the default branch (main). Package and release runs quality
+   checks, Windows x64 and macOS arm64 packaging, and installed-app smoke tests.
+3. After all three jobs pass, the serialized delivery job validates both installers
+   and creates an annotated vX.Y.Z tag at that build's exact commit.
+4. The same run publishes the complete GitHub Release, uploads both installers to
+   COS, verifies their public bytes, and promotes the update manifest.
+   No separate tag push or manual manifest upload is needed.
 
-The delivery sequence is: validate inputs/configuration → complete GitHub draft
-snapshot → verify public COS installers → publish GitHub archive → promote COS
-latest.json → update GitHub Latest. A GitHub archive can become public before the
-update channel is promoted; interrupted delivery is resumable.
+Manual Package and release with mode **build** on the default branch does the same.
+Feature-branch manual builds remain build-only. Manually pushed vX.Y.Z tags still
+support the existing build-and-publish path. Platform-only workflows never publish.
+The automatic tag uses GITHUB_TOKEN; delivery consumes this run's artifacts directly
+instead of relying on that tag to start another workflow.
+
+The delivery sequence is: validate inputs/configuration → create or verify tag →
+complete and verify GitHub draft snapshot → publish GitHub archive → upload and
+verify both public COS installers → promote COS latest.json → update GitHub Latest.
+A GitHub archive can become public before COS delivery succeeds; interrupted
+COS delivery is resumable using the same immutable GitHub snapshot.
+
+An existing version tag is reused only when it resolves to this exact build commit.
+If a later commit retains an already-tagged version, automatic publication fails
+with a version-conflict error. Bump the version for a new build; never move an
+existing tag or replace public installer bytes. A legacy COS manifest with the same
+version but different contents also requires a new version, not an overwrite.
 
 GitHub and COS receive identical manifest bytes. SHA256SUMS.txt covers the
 installers, manifest and release-metadata.json (version, tag, source commit).
@@ -26,7 +43,7 @@ Recovery reuses the draft/public snapshot, verifies checksums and tag provenance
 and finishes missing stages. It does not rebuild or replace published assets.
 Rerunning a failed ordinary release job uses the same recovery logic when the
 snapshot is complete. An incomplete draft without SHA256SUMS.txt can be repaired
-by rerunning the normal tag build.
+by rerunning the original default-branch or tag build.
 
 Existing COS files are downloaded publicly and hashed. Identical files are reused;
 conflicting bytes fail without overwriting them. Legacy releases without metadata
@@ -36,14 +53,18 @@ investigation; do not replace public assets or move public tags.
 
 CLI equivalents (normally executed only by CI):
 
-- python tools/release.py validate
-- python tools/release.py publish --assets release-assets
-- python tools/release.py resume --tag vX.Y.Z
+- .venv/bin/python tools/release.py validate
+- .venv/bin/python tools/release.py auto-publish --assets release-assets (default-branch CI only)
+- .venv/bin/python tools/release.py publish --assets release-assets (tag CI)
+- .venv/bin/python tools/release.py resume --tag vX.Y.Z
+
+These paths are for the Linux delivery runner; use .venv/Scripts/python.exe on Windows.
 
 ## Update-channel rules
 
 All release/recovery jobs share the score-trans-release concurrency group with
-queue: max and cancellation disabled. Platform builds remain parallel.
+queue: max and cancellation disabled, including automatic tag creation. Platform
+builds remain parallel.
 An older version may be archived but cannot replace either Latest pointer.
 Equal-version manifests must be byte-identical. A failed remote query is not an
 empty channel: only an explicit 404 permits initialization.
@@ -79,6 +100,28 @@ bucket versioning is disabled.
 Installed clients keep using the existing production COS endpoint. For mirrors
 and isolated testing, set SCORE_TRANS_UPDATE_MANIFEST_URL explicitly.
 Do not point a test workflow at the production download prefix.
+
+## Website integration
+
+The local website reads APP_VERSION from website/src/data/site.ts and constructs
+COS URLs with installerUrl / installerUrlMac. DownloadSection.vue uses these URLs
+for the homepage; ChangelogView.vue uses each historical entry's version.
+With the default bucket, the object keys for 1.0.3 are:
+
+- download/Score Trans Setup 1.0.3.exe (Windows x64)
+- download/Score Trans-1.0.3-arm64.dmg (macOS Apple Silicon)
+
+The release uploader uses these exact names, so publishing both files supplies the
+website's existing download links. Spaces are URL-encoded by the URL builders.
+The homepage does not fetch latest.json or check availability before displaying
+links. The desktop updater reads download/latest.json; CI generates both url and
+urlMac only from the validated release version and configured COS destination.
+
+website/ is ignored by this repository and deployed separately. When publishing a
+new version, update its APP_VERSION, APP_RELEASE_DATE and changelog locally, then
+rebuild/deploy the website after delivery succeeds. Uploading latest.json does not
+change the website's displayed version. Changing COS destination also requires
+updating the website's CDN_BASE and the desktop update endpoint.
 
 ## Validation and limits
 

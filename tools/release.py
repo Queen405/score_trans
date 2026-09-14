@@ -17,6 +17,9 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[1]
 REF = os.environ.get("GITHUB_REF", "")
 SOURCE_SHA = os.environ.get("GITHUB_SHA", "")
+DEFAULT_BRANCH = os.environ.get("DEFAULT_BRANCH", "")
+RELEASE_JOB = os.environ.get("SCORE_TRANS_RELEASE_JOB", "")
+GITHUB_ACTIONS = os.environ.get("GITHUB_ACTIONS", "")
 REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "Queen405/score_trans")
 COS_BUCKET = os.environ.get("COS_BUCKET") or "score-trans-1320022301"
 COS_REGION = os.environ.get("COS_REGION") or "ap-beijing"
@@ -69,8 +72,8 @@ def write_json(path: Path, value: dict) -> None:
     )
 
 
-def prepare_assets(directory: Path, manifest: dict, source_sha: str = "") -> list[Path]:
-    names = installer_names(manifest["version"])
+def installer_assets(directory: Path, version: str) -> list[Path]:
+    names = installer_names(version)
     for name in names:
         asset = directory / name
         if not asset.is_file() or asset.stat().st_size == 0:
@@ -78,8 +81,13 @@ def prepare_assets(directory: Path, manifest: dict, source_sha: str = "") -> lis
     actual = {p.name for p in directory.iterdir() if p.suffix in {".exe", ".dmg"}}
     if actual != set(names):
         raise ValueError(f"Unexpected installer set: {actual}")
+    return [directory / name for name in names]
+
+
+def prepare_assets(directory: Path, manifest: dict, source_sha: str = "") -> list[Path]:
+    installers = installer_assets(directory, manifest["version"])
     write_json(directory / "latest.json", manifest)
-    assets = [*(directory / name for name in names), directory / "latest.json"]
+    assets = [*installers, directory / "latest.json"]
     if source_sha:
         write_json(
             directory / METADATA,
@@ -260,7 +268,6 @@ def stage(
 
 
 def finish(directory: Path, tag: str, info: dict) -> None:
-    cos("artifacts", directory)
     if info["draft"]:
         gh(
             "release",
@@ -271,6 +278,9 @@ def finish(directory: Path, tag: str, info: dict) -> None:
             "--draft=false",
             "--latest=false",
         )
+    # GitHub has the complete public snapshot before COS uploads begin.
+    # Latest pointers are only updated after both public COS installers verify.
+    cos("artifacts", directory)
     # Protect both pointers if a newer GitHub release already exists.
     latest = gh_json(f"repos/{REPOSITORY}/releases/latest", missing_ok=True)
     if latest and version_tuple(latest["tag_name"].removeprefix("v")) > version_tuple(
@@ -284,12 +294,79 @@ def finish(directory: Path, tag: str, info: dict) -> None:
     print(f"{tag}: {result['status']}")
 
 
-def publish(directory: Path) -> None:
-    if not REF.startswith("refs/tags/"):
+def ensure_release_tag(tag: str, sha: str) -> None:
+    """Create an annotated tag once; never move an existing version tag."""
+    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+        raise ValueError("Tag must be vX.Y.Z")
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ValueError("GITHUB_SHA must be a full commit SHA for automatic tagging")
+    existing = gh_json(f"repos/{REPOSITORY}/git/ref/tags/{tag}", missing_ok=True)
+    if existing is None:
+        # GITHUB_TOKEN-created tags do not trigger another push workflow.
+        # Delivery continues here using artifacts from the same successful build.
+        created = json.loads(
+            gh(
+                "api",
+                f"repos/{REPOSITORY}/git/tags",
+                "--method",
+                "POST",
+                "-f",
+                f"tag={tag}",
+                "-f",
+                f"message=Release {tag}",
+                "-f",
+                f"object={sha}",
+                "-f",
+                "type=commit",
+            ).stdout
+        )
+        tag_object = created["sha"]
+        if not isinstance(tag_object, str) or not re.fullmatch(
+            r"[0-9a-f]{40}", tag_object
+        ):
+            raise ValueError("GitHub returned an invalid tag object SHA")
+        gh(
+            "api",
+            f"repos/{REPOSITORY}/git/refs",
+            "--method",
+            "POST",
+            "-f",
+            f"ref=refs/tags/{tag}",
+            "-f",
+            f"sha={tag_object}",
+        )
+    actual = tag_sha(tag)
+    if actual != sha:
+        raise ValueError(
+            f"{tag} already points to {actual}, but this build is {sha}. "
+            "Keep the existing tag and release assets; bump the version for a new build."
+        )
+
+
+def publish(directory: Path, *, auto_tag: bool = False) -> None:
+    if auto_tag:
+        if (
+            GITHUB_ACTIONS != "true"
+            or RELEASE_JOB != "1"
+            or not DEFAULT_BRANCH
+            or REF != f"refs/heads/{DEFAULT_BRANCH}"
+        ):
+            raise ValueError(
+                "Automatic publishing requires the default-branch release job"
+            )
+        if not re.fullmatch(r"[0-9a-f]{40}", SOURCE_SHA):
+            raise ValueError(
+                "GITHUB_SHA must be a full commit SHA for automatic tagging"
+            )
+    elif not REF.startswith("refs/tags/"):
         raise ValueError("Publishing requires a version tag")
     manifest = validate()
     tag = f"v{manifest['version']}"
+    # No tag or release is written until both platform installers are present.
+    installer_assets(directory, manifest["version"])
     preflight()
+    if auto_tag:
+        ensure_release_tag(tag, SOURCE_SHA)
     sha = tag_sha(tag)
     if SOURCE_SHA and SOURCE_SHA != sha:
         raise ValueError("Workflow commit differs from release tag")
@@ -298,7 +375,7 @@ def publish(directory: Path) -> None:
         resume(tag)
         return
     stage(directory, manifest, tag, sha, info)
-    # Read back the canonical snapshot before any COS write or publication.
+    # Read back the canonical snapshot before publication and COS delivery.
     resume(tag)
 
 
@@ -307,7 +384,9 @@ def resume(tag: str) -> None:
     sha = tag_sha(tag)
     info = release_info(tag)
     if info is None:
-        raise ValueError("No release snapshot to resume; run a normal tag build first")
+        raise ValueError(
+            "No release snapshot to resume; run a default-branch or tag build first"
+        )
     with tempfile.TemporaryDirectory(prefix="score-trans-release-") as temporary:
         directory = Path(temporary)
         download_snapshot(info, directory, tag, sha)
@@ -316,7 +395,9 @@ def resume(tag: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["validate", "publish", "resume"])
+    parser.add_argument(
+        "command", choices=["validate", "publish", "auto-publish", "resume"]
+    )
     parser.add_argument("--assets", type=Path, default=Path("release-assets"))
     parser.add_argument("--tag")
     args = parser.parse_args()
@@ -329,4 +410,4 @@ if __name__ == "__main__":
             parser.error("resume requires --tag vX.Y.Z")
         resume(args.tag)
     else:
-        publish(args.assets)
+        publish(args.assets, auto_tag=args.command == "auto-publish")

@@ -57,6 +57,8 @@ npx vue-tsc --noEmit
 - `dev` / feature branches: lightweight `ci.yml` on pushes and PRs.
 - `main`: `package.yml` runs quality checks, then calls reusable Windows/macOS
   workflows for full packaging and runtime smoke tests; artifacts retained 14 days.
+  Once all pass on the default branch, serialized delivery creates the version tag
+  at the build commit, publishes GitHub Release, then uploads both installers to COS.
 - `vX.Y.Z` tags: same validation, followed by one release job that checks both
   platform assets, uploads a draft, then makes the complete release public.
 - Platform workflows support `workflow_call` / `workflow_dispatch`; they never
@@ -64,7 +66,7 @@ npx vue-tsc --noEmit
 - Versions in tag, `desktop/package.json`, and `desktop/latest.json` must agree.
   New clients read the manifest from Tencent COS (`updater.ts` hardcodes the
   COS `download/latest.json` endpoint), not a working-branch manifest.
-- Tag releases automatically upload immutable GitHub/COS assets and promote the
+- Default-branch and tag releases upload immutable GitHub/COS assets and promote the
   update manifest under a shared release lock. Recover from the default branch
   using Package and release, mode `resume`, and the existing release tag.
   `pnpm upload:cos` uploads versioned installers only; it does not promote updates.

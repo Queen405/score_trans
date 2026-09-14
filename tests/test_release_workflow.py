@@ -46,6 +46,11 @@ def test_release_waits_for_quality_and_both_platforms() -> None:
         (ROOT / ".github/workflows/package.yml").read_text(), Loader=yaml.BaseLoader
     )
     assert set(workflow["jobs"]["release"]["needs"]) == {"quality", "windows", "mac"}
+    assert (
+        "tag" not in workflow["jobs"]
+    )  # Tag writes share the serialized delivery job.
+    assert "github.event.repository.default_branch" in workflow["jobs"]["release"]["if"]
+    assert "auto-publish" in workflow["jobs"]["release"]["with"]["mode"]
     for platform in ("windows", "mac"):
         source = (ROOT / f".github/workflows/build-{platform}.yml").read_text()
         build = yaml.load(source, Loader=yaml.BaseLoader)
@@ -125,7 +130,7 @@ def test_delivery_failure_resumes_canonical_snapshot(
     monkeypatch.setattr(release, "cos", fail_once)
     with pytest.raises(RuntimeError, match="interruption"):
         release.publish(directory)
-    assert remote.info["draft"] == (failed_phase == "artifacts")
+    assert not remote.info["draft"]
     original = dict(remote.assets)
     # Rebuilt bytes cannot replace a completed snapshot.
     (directory / "Score Trans Setup 1.2.3.exe").write_bytes(b"different rebuild")
@@ -235,3 +240,247 @@ def test_recovery_and_publish_share_lock_and_configuration():
     quality = (ROOT / ".github/workflows/ci.yml").read_text()
     assert "pnpm check:api-types" in quality
     assert "pnpm test:release-tools" in quality
+
+
+@pytest.fixture
+def automatic_delivery(delivery, monkeypatch):
+    monkeypatch.setattr(release, "REF", "refs/heads/main")
+    monkeypatch.setattr(release, "DEFAULT_BRANCH", "main")
+    monkeypatch.setattr(release, "GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(release, "RELEASE_JOB", "1")
+    return delivery
+
+
+def test_auto_publish_tags_build_before_release_then_uploads_both_to_cos(
+    automatic_delivery, monkeypatch
+):
+    directory, remote = automatic_delivery
+    tagged = []
+    phases = []
+
+    def tag(name, sha):
+        assert remote.info is None
+        assert not phases
+        tagged.append((name, sha))
+
+    def cos(phase, snapshot):
+        assert tagged == [("v1.2.3", "a" * 40)]
+        assert not remote.info["draft"]  # User requested GitHub publication first.
+        release.verify_snapshot(snapshot, "v1.2.3", "a" * 40)
+        assert all(
+            (snapshot / name).is_file() for name in release.installer_names("1.2.3")
+        )
+        phases.append(phase)
+        return {"status": "promoted"}
+
+    monkeypatch.setattr(release, "ensure_release_tag", tag)
+    monkeypatch.setattr(release, "cos", cos)
+    release.publish(directory, auto_tag=True)
+    assert phases == ["artifacts", "promote"]
+    assert remote.calls[-1][-1] == "--latest"
+    assert json.loads(remote.assets[release.METADATA])["source_sha"] == "a" * 40
+
+
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("REF", "refs/heads/feature"),
+        ("REF", "refs/tags/v1.2.3"),
+        ("DEFAULT_BRANCH", ""),
+        ("GITHUB_ACTIONS", "false"),
+        ("RELEASE_JOB", ""),
+        ("SOURCE_SHA", ""),
+        ("SOURCE_SHA", "abc123"),
+    ],
+)
+def test_auto_publish_rejects_untrusted_source_before_any_remote_write(
+    automatic_delivery, monkeypatch, name, value
+):
+    directory, remote = automatic_delivery
+    monkeypatch.setattr(release, name, value)
+    monkeypatch.setattr(
+        release, "preflight", lambda: pytest.fail("No remote access expected")
+    )
+    with pytest.raises(ValueError):
+        release.publish(directory, auto_tag=True)
+    assert remote.calls == []
+
+
+def test_auto_publish_missing_mac_cannot_create_a_tag(automatic_delivery, monkeypatch):
+    directory, remote = automatic_delivery
+    (directory / "Score Trans-1.2.3-arm64.dmg").unlink()
+    monkeypatch.setattr(
+        release,
+        "ensure_release_tag",
+        lambda *_: pytest.fail("Tag created before assets validated"),
+    )
+    with pytest.raises(ValueError, match="Missing or empty"):
+        release.publish(directory, auto_tag=True)
+    assert remote.calls == []
+
+
+def test_auto_publish_preflight_failure_cannot_create_a_tag(
+    automatic_delivery, monkeypatch
+):
+    directory, remote = automatic_delivery
+
+    def preflight():
+        raise ValueError("Tencent COS credentials are required")
+
+    monkeypatch.setattr(release, "preflight", preflight)
+    monkeypatch.setattr(
+        release,
+        "ensure_release_tag",
+        lambda *_: pytest.fail("Tag created before preflight"),
+    )
+    with pytest.raises(ValueError, match="credentials"):
+        release.publish(directory, auto_tag=True)
+    assert remote.calls == []
+
+
+def test_auto_publish_conflicting_tag_cannot_create_a_release(
+    automatic_delivery, monkeypatch
+):
+    directory, remote = automatic_delivery
+    monkeypatch.setattr(
+        release, "gh_json", lambda *_, **__: {"ref": "refs/tags/v1.2.3"}
+    )
+    monkeypatch.setattr(release, "tag_sha", lambda _: "b" * 40)
+    with pytest.raises(ValueError, match="already points to"):
+        release.publish(directory, auto_tag=True)
+    assert remote.calls == []
+    assert remote.info is None
+
+
+def test_tag_creation_writes_annotated_tag_then_ref_for_exact_commit(monkeypatch):
+    import subprocess
+
+    calls = []
+    monkeypatch.setattr(release, "gh_json", lambda *_, **__: None)
+
+    def run(*args):
+        calls.append(args)
+        if args[1].endswith("/git/tags"):
+            return subprocess.CompletedProcess(args, 0, json.dumps({"sha": "b" * 40}))
+        return subprocess.CompletedProcess(args, 0, "{}")
+
+    def resolve(tag):
+        assert len(calls) == 2
+        assert tag == "v1.2.3"
+        return "a" * 40
+
+    monkeypatch.setattr(release, "gh", run)
+    monkeypatch.setattr(release, "tag_sha", resolve)
+    release.ensure_release_tag("v1.2.3", "a" * 40)
+    assert calls[0] == (
+        "api",
+        f"repos/{release.REPOSITORY}/git/tags",
+        "--method",
+        "POST",
+        "-f",
+        "tag=v1.2.3",
+        "-f",
+        "message=Release v1.2.3",
+        "-f",
+        "object=" + "a" * 40,
+        "-f",
+        "type=commit",
+    )
+    assert calls[1] == (
+        "api",
+        f"repos/{release.REPOSITORY}/git/refs",
+        "--method",
+        "POST",
+        "-f",
+        "ref=refs/tags/v1.2.3",
+        "-f",
+        "sha=" + "b" * 40,
+    )
+
+
+@pytest.mark.parametrize("kind", ["tag", "commit"])
+def test_existing_tag_at_same_commit_is_reused_without_writes(monkeypatch, kind):
+    monkeypatch.setattr(release, "gh_json", lambda *_, **__: {"object": {"type": kind}})
+    monkeypatch.setattr(release, "tag_sha", lambda _: "a" * 40)
+    monkeypatch.setattr(
+        release, "gh", lambda *_: pytest.fail("Existing tag must not be rewritten")
+    )
+    release.ensure_release_tag("v1.2.3", "a" * 40)
+
+
+def test_tag_lookup_failure_is_not_treated_as_missing(monkeypatch):
+    import subprocess
+
+    calls = []
+
+    def run(*args):
+        calls.append(args)
+        raise subprocess.CalledProcessError(1, args, stderr="gh: HTTP 403")
+
+    monkeypatch.setattr(release, "gh", run)
+    with pytest.raises(subprocess.CalledProcessError):
+        release.ensure_release_tag("v1.2.3", "a" * 40)
+    assert len(calls) == 1
+    assert "POST" not in calls[0]
+
+
+def test_github_publication_failure_prevents_cos_upload(delivery, monkeypatch):
+    directory, remote = delivery
+    remote.fail_action = "edit"
+    monkeypatch.setattr(
+        release, "cos", lambda *_: pytest.fail("COS write before GitHub publication")
+    )
+    import subprocess
+
+    with pytest.raises(subprocess.CalledProcessError):
+        release.publish(directory)
+    assert remote.info["draft"]
+
+
+def test_auto_publish_reuses_completed_snapshot_on_retry(
+    automatic_delivery, monkeypatch
+):
+    directory, remote = automatic_delivery
+    monkeypatch.setattr(release, "ensure_release_tag", lambda *_: None)
+    phases = []
+
+    def cos(phase, *_):
+        phases.append(phase)
+        if len(phases) == 1:
+            raise RuntimeError("COS interrupted after GitHub publication")
+        return {"status": "promoted"}
+
+    monkeypatch.setattr(release, "cos", cos)
+    with pytest.raises(RuntimeError, match="interrupted"):
+        release.publish(directory, auto_tag=True)
+    original = dict(remote.assets)
+    (directory / "Score Trans Setup 1.2.3.exe").write_bytes(b"different rebuild")
+    release.publish(directory, auto_tag=True)
+    assert remote.assets == original
+    assert len([call for call in remote.calls if call[1] == "upload"]) == 2
+
+
+def test_auto_release_downloads_same_run_assets_and_keeps_credentials_in_locked_job():
+    workflow = yaml.load(
+        (ROOT / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    job = workflow["jobs"]["deliver"]
+    assert job["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert (
+        job["env"]["TENCENTCLOUD_SECRET_ID"] == "${{ secrets.TENCENTCLOUD_SECRET_ID }}"
+    )
+    assert (
+        job["env"]["TENCENTCLOUD_SECRET_KEY"]
+        == "${{ secrets.TENCENTCLOUD_SECRET_KEY }}"
+    )
+    steps = job["steps"]
+    checkout = next(
+        step for step in steps if step.get("uses", "").startswith("actions/checkout")
+    )
+    assert checkout["with"]["ref"] == "${{ github.sha }}"
+    for step in steps:
+        if step.get("uses", "").startswith("actions/download-artifact"):
+            assert "auto-publish" in step["if"]
+            assert "run-id" not in step["with"]
+            assert step["with"]["path"] == "release-assets"
+    assert ".venv/bin/python tools/release.py auto-publish" in steps[-1]["run"]

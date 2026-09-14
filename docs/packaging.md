@@ -86,12 +86,22 @@ SCORE_TRANS_ELECTRON_USER_DATA_DIR 可指定绝对 Electron 用户目录；
 
 ## 发布与恢复
 
-发布工作流统一生成清单与校验文件，先验证 GitHub 草稿和公开 COS 安装包，
-再公开归档并按版本规则推广更新。旧版本可以归档，不能覆盖最新版。
+默认分支（main）推送或手动运行 build 后，必须先通过质量门禁与 Windows/macOS
+两个平台的打包和安装冒烟。发布任务下载同一次运行的两个安装包，在共享发布锁内
+校验版本、产物和配置，再为该构建提交创建带注释的 vX.Y.Z tag。
+已有 tag 仅允许指向相同提交；不同提交必须升级版本，不能覆盖 tag。
+手动推送版本 tag 仍支持发布；手动运行功能分支和单平台工作流只打包。
+
+发布工作流统一生成清单与校验文件，上传并回读校验完整 GitHub 草稿，先公开
+GitHub Release，再上传 Windows .exe 与 macOS arm64 .dmg 到腾讯云 COS。
+两个 COS 安装包公开下载的哈希都通过后，才按版本规则推广 latest.json 和 GitHub
+Latest。旧版本可以归档，不能覆盖最新版；COS 上传失败可从已公开的快照恢复。
 失败后从默认分支运行 Package and release，选择 resume 和既有 tag，
 复用原始快照恢复，不重打包、不覆盖公开资产。
 
 COS 上传工具默认只上传版本化安装包；不要在公开 Release 后手动写 latest.json。
-配置、恢复条件和隔离环境演练要求见 [RELEASE.md](../RELEASE.md)。
+website 的下载按钮按本地版本常量拼接相同 COS 文件名，不读取 latest.json；
+网站目录被 Git 忽略，新版本的网站展示需另行更新部署。配置、网站接入、恢复条件
+和隔离环境演练要求见 [RELEASE.md](../RELEASE.md)。
 
 签名、公证、交互式安装以及跨历史版本迁移仍需独立发布验收。
