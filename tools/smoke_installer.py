@@ -17,6 +17,8 @@ RUNNER_TEMP = os.environ.get("RUNNER_TEMP", "")
 _ACCESS_VIOLATION = 0xC0000005
 _MAX_RETRIES = 3
 _RETRY_DELAY = 5
+_INSTALL_TIMEOUT = 600
+_UNINSTALL_TIMEOUT = 300
 
 
 def main() -> None:
@@ -56,7 +58,11 @@ def main() -> None:
         uninstallers = list(install.glob("Uninstall*.exe"))
         if len(uninstallers) != 1:
             raise RuntimeError("Uninstaller missing")
-        subprocess.run(f'"{uninstallers[0]}" /S _?={install}', check=True, timeout=180)
+        subprocess.run(
+            f'"{uninstallers[0]}" /S _?={install}',
+            check=True,
+            timeout=_UNINSTALL_TIMEOUT,
+        )
         for _ in range(30):
             if not (install / "Score Trans.exe").exists():
                 break
@@ -79,34 +85,39 @@ def main() -> None:
 
 
 def _run_installer(command: str, install: Path) -> bool:
-    """Run the NSIS installer, retrying on ACCESS_VIOLATION crashes.
+    """Run the NSIS installer, retrying on crashes and timeouts.
 
-    The NSIS installer (32-bit) can crash (0xC0000005) on headless CI runners
-    during extraction of the large embedded archive (JDK + Audiveris + backend).
-    Files may already be extracted, so we check for the app executable before
-    retrying. If all retries fail, we fall back to extracting the installer
-    payload with 7z.exe so the smoke test can still verify the bundled runtime.
+    The NSIS installer (32-bit) can crash (0xC0000005) or time out on headless
+    CI runners during extraction of the large embedded archive (JDK + Audiveris
+    + backend). Files may already be extracted even when the process crashes
+    or hangs during post-install cleanup, so we check for the app executable
+    before retrying. If all retries fail, we fall back to extracting the
+    installer payload with 7z.exe so the smoke test can still verify the
+    bundled runtime.
 
     Returns True if the installer completed (or files are present after a
-    crash), False if all retries failed and 7z fallback was used.
+    crash/timeout), False if all retries failed and 7z fallback was used.
     """
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
-            subprocess.run(command, check=True, timeout=300)
+            subprocess.run(command, check=True, timeout=_INSTALL_TIMEOUT)
             return True
-        except subprocess.CalledProcessError as exc:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
             already_installed = (install / "Score Trans.exe").is_file()
             if already_installed:
                 print(
-                    f"Installer exited {exc.returncode} but files are present; "
-                    "continuing (crash likely occurred during post-install cleanup)"
+                    f"Installer {_failure_reason(exc)} but files are present; "
+                    "continuing (crash/timeout likely occurred during post-install)"
                 )
                 return True
-            if exc.returncode != _ACCESS_VIOLATION:
+            if isinstance(exc, subprocess.TimeoutExpired):
+                # Kill any lingering installer process before retrying.
+                _kill_installer(installer_path=command.split('"')[1])
+            elif exc.returncode != _ACCESS_VIOLATION:
                 raise
             if attempt < _MAX_RETRIES:
                 print(
-                    f"Installer crashed (exit {exc.returncode}); "
+                    f"Installer {_failure_reason(exc)}; "
                     f"cleaning up and retrying ({attempt}/{_MAX_RETRIES})..."
                 )
                 if install.exists():
@@ -114,12 +125,32 @@ def _run_installer(command: str, install: Path) -> bool:
                 time.sleep(_RETRY_DELAY)
             else:
                 print(
-                    f"Installer crashed (exit {exc.returncode}) on all "
+                    f"Installer {_failure_reason(exc)} on all "
                     f"{_MAX_RETRIES} attempts; falling back to 7z extraction..."
                 )
                 _extract_installer_with_7z(command, install)
                 return False
     return False
+
+
+def _failure_reason(
+    exc: subprocess.CalledProcessError | subprocess.TimeoutExpired,
+) -> str:
+    if isinstance(exc, subprocess.TimeoutExpired):
+        return f"timed out after {_INSTALL_TIMEOUT}s"
+    return f"crashed (exit {exc.returncode})"
+
+
+def _kill_installer(installer_path: str) -> None:
+    """Kill any lingering NSIS installer process to release file locks."""
+    try:
+        subprocess.run(
+            ["taskkill", "/IM", Path(installer_path).name, "/T", "/F"],
+            capture_output=True,
+            timeout=30,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass
 
 
 def _extract_installer_with_7z(command: str, install: Path) -> None:
