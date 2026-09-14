@@ -174,7 +174,14 @@ def gh_json(endpoint: str, *, missing_ok: bool = False) -> dict | None:
 
 
 def release_info(tag: str) -> dict | None:
-    return gh_json(f"repos/{REPOSITORY}/releases/tags/{quote(tag)}", missing_ok=True)
+    endpoint = f"repos/{REPOSITORY}/releases/tags/{quote(tag)}"
+    for attempt in range(5):
+        info = gh_json(endpoint, missing_ok=True)
+        if info is not None or attempt == 4:
+            return info
+        # GitHub can briefly lag after creating an annotated tag/release.
+        time.sleep(attempt + 1)
+    return None
 
 
 def tag_sha(tag: str) -> str:
