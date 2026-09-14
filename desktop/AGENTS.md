@@ -102,7 +102,7 @@ pnpm generate:api-types
 pnpm check:api-types
 ```
 
-> **Note**: 当前已有基于 Node `node:test` 的工具与状态逻辑测试；组件级 Vitest 和 Playwright E2E 尚未配置。
+> **Note**: 工具与状态逻辑测试使用 Node `node:test`；CI 通过锁定的 playwright-core 验证实际安装后的 Electron 应用。组件级 Vitest 和完整 UI E2E 尚未配置。
 
 ## Release / 发版流程
 
@@ -110,8 +110,10 @@ pnpm check:api-types
 
 - 新客户端从腾讯云 COS（`score-trans-1320022301.cos.ap-beijing.myqcloud.com`）的 `download/latest.json` 获取更新信息，地址硬编码在 `src/main/updater.ts`。
 - `desktop/latest.json` 是发布输入，必须与 `package.json` 保持 `x.y.z` 版本一致；其中 `url` 字段应指向 COS 安装包直链。
-- `tools/release.py` 校验 tag、版本、两平台全部安装包，并将 manifest 的 `url` 覆盖为 COS 直链后上传草稿、公开 Release。
-- 打包完成后必须执行 `pnpm upload:cos`（`desktop/scripts/upload-cos.mjs`）将安装包和 `latest.json` 上传到 COS 的 `download/` 前缀下，否则客户端更新检查会 404。
+- `tools/release.py` 生成并校验不可变草稿快照、上传验证 COS 安装包、公开归档，最后按版本顺序推广更新清单。GitHub 和 COS 使用同一份清单。
+- 发布失败后从默认分支手动运行 Package and release，选择 `resume` 和原 tag；恢复复用原产物，不覆盖公开资产。`pnpm upload:cos` 默认仅上传版本化安装包，清单只能由串行发布任务推广。
+- `pnpm test:release-tools` 使用模拟 COS 验证上传、失败恢复和版本保护；不得用生产更新清单演练故障。
+- `SCORE_TRANS_ELECTRON_USER_DATA_DIR` 必须为绝对路径，可用于隔离 Electron 用户目录；业务数据目录仍来自 storage-paths.json。
 - 工作分支中的 manifest 不用于新客户端的更新通知，避免提前公布未完成构建。
 - 可用 `SCORE_TRANS_UPDATE_MANIFEST_URL` 配置镜像或本地测试地址。
 - 更新检查继续使用主进程异步 IPC；连接失败不阻塞应用，不引入同步网络调用。

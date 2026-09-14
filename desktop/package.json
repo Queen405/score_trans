@@ -11,6 +11,7 @@
     "preview": "electron-vite preview",
     "upload:cos": "node scripts/upload-cos.mjs",
     "upload:cos:dry": "node scripts/upload-cos.mjs --dry-run",
+    "test:release-tools": "node --test scripts/test-release-cos.mjs",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint --config eslint.config.mjs src/",
     "typecheck": "vue-tsc --noEmit -p tsconfig.web.json && vue-tsc --noEmit -p tsconfig.node.json",
@@ -29,6 +30,7 @@
     "vue": "^3.5.13"
   },
   "devDependencies": {
+    "playwright-core": "1.63.0",
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron-toolkit/utils": "^3.0.0",

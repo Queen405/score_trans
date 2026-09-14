@@ -1,66 +1,104 @@
 # Release Guide — Score Trans
 
-`.github/workflows/package.yml` is the only automatic packaging/release entry point.
-It runs quality checks, calls both platform builds, then publishes a complete release.
+## Normal release
 
-## Release steps
+1. Set desktop/package.json and desktop/latest.json to the same x.y.z version.
+2. Merge to main and wait for Package and release to pass both platform builds.
+3. Tag that exact commit vX.Y.Z and push the tag.
+4. The release job automatically delivers both platforms to GitHub and COS.
+   Do not follow it with a separate manual manifest upload.
 
-1. Merge release-ready changes into `main`.
-2. Update `desktop/package.json` and `desktop/latest.json` to the same `x.y.z` version.
-   `latest.json` is release input (including notes); new clients do not fetch this
-   working-branch file. Do not use prerelease version suffixes.
-3. Push `main` and wait for **Package and release** to pass, including both builds.
-4. Tag that exact commit `vX.Y.Z` and push the tag. The tag build validates all three
-   versions again, runs quality checks and both platform smoke tests, then publishes.
-5. After the release is public, run `pnpm upload:cos` (from `desktop/`) to upload
-   the Windows installer and `latest.json` to Tencent COS. The auto-update check
-   returns 404 until this step completes.
-6. Verify the public release contains:
-   - `Score Trans Setup X.Y.Z.exe` (Windows x64)
-   - `Score Trans-X.Y.Z-arm64.dmg` (macOS Apple Silicon)
-   - `latest.json` (version-specific download page and release notes)
-   - `SHA256SUMS.txt` (SHA-256 of installers and manifest)
+The delivery sequence is: validate inputs/configuration → complete GitHub draft
+snapshot → verify public COS installers → publish GitHub archive → promote COS
+latest.json → update GitHub Latest. A GitHub archive can become public before the
+update channel is promoted; interrupted delivery is resumable.
 
-The release job uploads every asset to a **draft** before making it public. A failed
-build/test/upload cannot announce a partially uploaded new release. Failed draft
-uploads can be rerun; an already public release cannot be overwritten by the script.
-Do not move an existing public tag to different source code; publish a new version.
+GitHub and COS receive identical manifest bytes. SHA256SUMS.txt covers the
+installers, manifest and release-metadata.json (version, tag, source commit).
+The checksums asset is uploaded LAST and marks an immutable, complete snapshot.
 
-## Triggers
+## Recover interrupted delivery
 
-| Trigger | Result |
-|---|---|
-| PR or push to a development branch | Lightweight CI |
-| Push to main/master | Quality + Windows/macOS packaging and smoke tests; artifacts only |
-| Push v* tag | Same checks, then draft upload and publish |
-| Manual Package and release | Both platforms; publishes only if the selected ref is a version tag |
-| Manual Build Windows / Build mac | Selected platform only; never publishes |
+In Actions, run **Package and release** from the repository's default branch:
+choose mode **resume** and release_tag **vX.Y.Z**.
 
-Artifacts are retained for 14 days. Reusable platform workflows use the same commit
-as the caller. The tag build deliberately rebuilds and retests: it never borrows an
-artifact from a different commit or an unverified previous Actions run.
+Recovery reuses the draft/public snapshot, verifies checksums and tag provenance,
+and finishes missing stages. It does not rebuild or replace published assets.
+Rerunning a failed ordinary release job uses the same recovery logic when the
+snapshot is complete. An incomplete draft without SHA256SUMS.txt can be repaired
+by rerunning the normal tag build.
 
-## Update discovery
+Existing COS files are downloaded publicly and hashed. Identical files are reused;
+conflicting bytes fail without overwriting them. Legacy releases without metadata
+can be recovered only from their existing complete assets and valid SHA256SUMS.txt.
+Missing checksums, moved tags, wrong destinations or corrupt snapshots require
+investigation; do not replace public assets or move public tags.
 
-New clients read `latest.json` from Tencent COS
-(`score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/latest.json`),
-hardcoded in `desktop/src/main/updater.ts`. The update becomes visible only
-after `pnpm upload:cos` (from `desktop/`) uploads the Windows exe, macOS dmg
-and manifest to the COS `download/` prefix; the manifest carries `url`
-(Windows) and `urlMac` (macOS) direct links. `SCORE_TRANS_UPDATE_MANIFEST_URL`
-can override this endpoint for a mirror or local tests. Connection failures
-remain non-blocking in the UI.
+CLI equivalents (normally executed only by CI):
 
-`tools/release.py` validates versions and overwrites the manifest `url` with
-the COS installer direct link (`download/Score%20Trans%20Setup%20X.Y.Z.exe`).
-The GitHub Release created by the same script serves as a version archive and
-human-facing listing; the auto-update channel is COS.
+- python tools/release.py validate
+- python tools/release.py publish --assets release-assets
+- python tools/release.py resume --tag vX.Y.Z
 
-## Delivery limits
+## Update-channel rules
 
-Windows installers are unsigned; macOS packages are not Developer-ID-signed or
-notarized. Windows x64 and macOS arm64 are supported; Intel macOS is not built.
-macOS packaging/startup is verified on its CI runner, not on a local Windows machine.
-The Windows CI test covers silent installation, same-version reinstall, runtime API
-smoke tests and uninstall preserving user data. Interactive wizard behavior and
-cross-version migration still require release QA.
+All release/recovery jobs share the score-trans-release concurrency group with
+queue: max and cancellation disabled. Platform builds remain parallel.
+An older version may be archived but cannot replace either Latest pointer.
+Equal-version manifests must be byte-identical. A failed remote query is not an
+empty channel: only an explicit 404 permits initialization.
+
+Production manifest promotion has one writer: the serialized release workflow.
+pnpm upload:cos now uploads versioned installers ONLY, without rewriting local
+files or publishing latest.json. Its --dry-run mode performs no remote calls.
+CI calls the upload script with explicit --phase=artifacts or --phase=promote,
+--manifest and --checksums arguments. Old --no-sync / --no-cdn flags are tolerated
+but no local synchronization or CDN purge is performed.
+
+## Configuration and permissions
+
+Repository secrets: TENCENTCLOUD_SECRET_ID and TENCENTCLOUD_SECRET_KEY.
+The release job receives GH_TOKEN from github.token with contents: write.
+No release credentials are passed to platform builds or PR checks.
+
+Optional repository variables:
+- COS_BUCKET: score-trans-1320022301
+- COS_REGION: ap-beijing
+- COS_PREFIX: download
+
+Empty values use these defaults in both Python and Node. Changing destination
+during recovery is rejected because the snapshot already contains its URLs.
+The bucket must permit public installer/manifest reads. The COS identity needs
+object reads/HEAD, upload/initiate/upload-part/complete/abort-multipart and
+manifest writes; PutObject alone is insufficient. Incomplete multipart cleanup
+never deletes completed installer objects. Keep other writers away from the
+production prefix; the Actions lock cannot serialize uploads from other systems.
+The additional forbid-overwrite header only provides COS-side protection when
+bucket versioning is disabled.
+
+Installed clients keep using the existing production COS endpoint. For mirrors
+and isolated testing, set SCORE_TRANS_UPDATE_MANIFEST_URL explicitly.
+Do not point a test workflow at the production download prefix.
+
+## Validation and limits
+
+Windows: strict silent install → backend/API and packaged Electron smoke →
+same-version reinstall → Electron smoke → uninstall, preserving user data.
+Any installer nonzero exit or timeout fails; 7z extraction is never a substitute.
+
+macOS: mount the final DMG, copy its app preserving metadata, and run backend and
+packaged Electron smoke from the copied application. Always detach the image.
+
+Desktop smoke checks visible Vue UI, preload/IPC, renderer-authenticated backend
+rendering, and normal shutdown of Electron plus its backend. Runtime smoke also
+checks SVG/PDF/MIDI and real Audiveris recognition. Smoke runs only on disposable
+GitHub-hosted runners. Diagnostic artifacts are retained for 14 days and are not
+downloaded by the release job.
+
+Unsigned Windows x64 and unnotarized macOS arm64 remain the supported targets.
+Gatekeeper/SmartScreen, interactive installation and cross-version migrations
+still require manual QA; CI startup does not certify those experiences.
+
+Before production rollout, run both platform builds from a feature branch and
+exercise retries/older-version delivery in an isolated repository/prefix. Never
+move an existing production tag or roll back latest.json to test recovery.

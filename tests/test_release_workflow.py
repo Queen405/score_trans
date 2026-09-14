@@ -56,46 +56,182 @@ def test_release_waits_for_quality_and_both_platforms() -> None:
         assert "--frozen-lockfile" in source
 
 
-def test_failed_upload_never_publishes_release(tmp_path: Path, monkeypatch) -> None:
-    import subprocess
+class FakeGitHub:
+    def __init__(self):
+        self.info = None
+        self.assets = {}
+        self.calls = []
+        self.fail_action = None
 
-    monkeypatch.setattr(release, "REF", "refs/tags/v1.2.3")
-    monkeypatch.setattr(release, "validate", lambda: {"version": "1.2.3"})
-    monkeypatch.setattr(
-        release, "prepare_assets", lambda *_: [tmp_path / "installer.exe"]
-    )
-    calls = []
+    def run(self, *args):
+        import subprocess
 
-    def run(args, **kwargs):
-        calls.append(args)
-        if args[2] == "view":
-            return subprocess.CompletedProcess(args, 0, '{"isDraft":true,"assets":[]}')
-        if args[2] == "upload":
+        self.calls.append(args)
+        action = args[1]
+        if action == self.fail_action:
+            self.fail_action = None
             raise subprocess.CalledProcessError(1, args)
-        return subprocess.CompletedProcess(args, 0)
+        if action == "create":
+            self.info = {"draft": True, "assets": []}
+        elif action == "upload":
+            for arg in args:
+                path = Path(arg)
+                if path.is_file():
+                    self.assets[path.name] = path.read_bytes()
+            self.info["assets"] = [{"name": name} for name in self.assets]
+        elif action == "download":
+            directory = Path(args[args.index("--dir") + 1])
+            for name, payload in self.assets.items():
+                (directory / name).write_bytes(payload)
+        elif action == "edit" and "--draft=false" in args:
+            self.info["draft"] = False
+        return subprocess.CompletedProcess(args, 0, "")
 
-    monkeypatch.setattr(release.subprocess, "run", run)
-    with pytest.raises(subprocess.CalledProcessError):
-        release.publish(tmp_path)
-    assert all(args[2] != "edit" for args in calls)
+
+@pytest.fixture
+def delivery(tmp_path: Path, monkeypatch):
+    remote = FakeGitHub()
+    manifest = {"version": "1.2.3", "notes": "test"}
+    windows, mac = release.installer_names("1.2.3")
+    manifest.update(
+        url=release.installer_url(windows), urlMac=release.installer_url(mac)
+    )
+    for name in (windows, mac):
+        (tmp_path / name).write_bytes(name.encode())
+    monkeypatch.setattr(release, "REF", "refs/tags/v1.2.3")
+    monkeypatch.setattr(release, "SOURCE_SHA", "a" * 40)
+    monkeypatch.setattr(release, "validate", lambda: manifest)
+    monkeypatch.setattr(release, "preflight", lambda: None)
+    monkeypatch.setattr(release, "tag_sha", lambda _: "a" * 40)
+    monkeypatch.setattr(release, "gh", remote.run)
+    monkeypatch.setattr(release, "release_info", lambda _: remote.info)
+    monkeypatch.setattr(release, "gh_json", lambda *_, **__: None)
+    return tmp_path, remote
 
 
-def test_successful_upload_publishes_last(tmp_path: Path, monkeypatch) -> None:
+@pytest.mark.parametrize("failed_phase", ["artifacts", "promote"])
+def test_delivery_failure_resumes_canonical_snapshot(
+    delivery, monkeypatch, failed_phase
+):
+    directory, remote = delivery
+    phases = []
+
+    def fail_once(phase, *_):
+        phases.append(phase)
+        if phases.count(failed_phase) == 1 and phase == failed_phase:
+            raise RuntimeError("simulated delivery interruption")
+        return {"status": "promoted"}
+
+    monkeypatch.setattr(release, "cos", fail_once)
+    with pytest.raises(RuntimeError, match="interruption"):
+        release.publish(directory)
+    assert remote.info["draft"] == (failed_phase == "artifacts")
+    original = dict(remote.assets)
+    # Rebuilt bytes cannot replace a completed snapshot.
+    (directory / "Score Trans Setup 1.2.3.exe").write_bytes(b"different rebuild")
+    release.publish(directory)
+    assert remote.assets == original
+    assert not remote.info["draft"]
+    assert len([c for c in remote.calls if c[1] == "upload"]) == 2
+
+
+def test_github_latest_failure_resumes_without_replacing_assets(delivery, monkeypatch):
+    directory, remote = delivery
+    monkeypatch.setattr(release, "cos", lambda *_: {"status": "promoted"})
+    original_run = remote.run
+
+    def fail_latest(*args):
+        if "--latest" in args:
+            raise RuntimeError("latest interrupted")
+        return original_run(*args)
+
+    monkeypatch.setattr(release, "gh", fail_latest)
+    with pytest.raises(RuntimeError, match="latest interrupted"):
+        release.publish(directory)
+    assert not remote.info["draft"]
+    monkeypatch.setattr(release, "gh", remote.run)
+    release.resume("v1.2.3")
+    assert remote.calls[-1][-1] == "--latest"
+
+
+def test_incomplete_draft_can_be_repaired(delivery, monkeypatch):
     import subprocess
 
-    monkeypatch.setattr(release, "REF", "refs/tags/v1.2.3")
-    monkeypatch.setattr(release, "validate", lambda: {"version": "1.2.3"})
-    monkeypatch.setattr(
-        release, "prepare_assets", lambda *_: [tmp_path / "installer.exe"]
+    directory, remote = delivery
+    remote.fail_action = "upload"
+    monkeypatch.setattr(release, "cos", lambda *_: {"status": "promoted"})
+    with pytest.raises(subprocess.CalledProcessError):
+        release.publish(directory)
+    assert remote.info["draft"]
+    assert release.CHECKSUMS not in remote.assets
+    release.publish(directory)
+    assert not remote.info["draft"]
+
+
+@pytest.mark.parametrize("latest_source", ["cos", "github"])
+def test_older_versions_never_replace_latest(delivery, monkeypatch, latest_source):
+    directory, remote = delivery
+    phases = []
+
+    def cos(phase, *_):
+        phases.append(phase)
+        return {"status": "older"}
+
+    monkeypatch.setattr(release, "cos", cos)
+    if latest_source == "github":
+        monkeypatch.setattr(release, "gh_json", lambda *_, **__: {"tag_name": "v1.3.0"})
+    release.publish(directory)
+    assert not remote.info["draft"]
+    assert not any("--latest" in call for call in remote.calls)
+    if latest_source == "github":
+        assert "promote" not in phases
+
+
+def test_snapshot_checksum_and_tag_provenance_are_enforced(delivery, monkeypatch):
+    directory, remote = delivery
+    monkeypatch.setattr(release, "cos", lambda *_: {"status": "promoted"})
+    release.publish(directory)
+    monkeypatch.setattr(release, "tag_sha", lambda _: "b" * 40)
+    with pytest.raises(ValueError, match="provenance"):
+        release.resume("v1.2.3")
+    monkeypatch.setattr(release, "tag_sha", lambda _: "a" * 40)
+    remote.assets["Score Trans Setup 1.2.3.exe"] = b"tampered"
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        release.resume("v1.2.3")
+
+
+@pytest.mark.parametrize("status", [403, 404, 500])
+def test_only_explicit_github_404_is_treated_as_absence(monkeypatch, status):
+    import subprocess
+
+    def fail(*args):
+        raise subprocess.CalledProcessError(1, args, stderr=f"gh: HTTP {status}")
+
+    monkeypatch.setattr(release, "gh", fail)
+    if status == 404:
+        assert release.gh_json("example", missing_ok=True) is None
+    else:
+        with pytest.raises(subprocess.CalledProcessError):
+            release.gh_json("example", missing_ok=True)
+
+
+def test_recovery_and_publish_share_lock_and_configuration():
+    workflow = yaml.load(
+        (ROOT / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader
     )
-    calls = []
-
-    def run(args, **kwargs):
-        calls.append(args)
-        return subprocess.CompletedProcess(args, 1 if args[2] == "view" else 0)
-
-    monkeypatch.setattr(release.subprocess, "run", run)
-    release.publish(tmp_path)
-    assert [args[2] for args in calls] == ["view", "create", "upload", "edit"]
-    assert "--draft" in calls[1]
-    assert "--draft=false" in calls[-1]
+    job = workflow["jobs"]["deliver"]
+    assert job["concurrency"] == {
+        "group": "score-trans-release",
+        "cancel-in-progress": "false",
+        "queue": "max",
+    }
+    assert {"COS_BUCKET", "COS_REGION", "COS_PREFIX", "GH_TOKEN"} <= job["env"].keys()
+    downloads = [
+        step["with"]["name"]
+        for step in job["steps"]
+        if step.get("uses", "").startswith("actions/download-artifact")
+    ]
+    assert set(downloads) == {"score-trans-windows-x64", "score-trans-mac-arm64"}
+    quality = (ROOT / ".github/workflows/ci.yml").read_text()
+    assert "pnpm check:api-types" in quality
+    assert "pnpm test:release-tools" in quality

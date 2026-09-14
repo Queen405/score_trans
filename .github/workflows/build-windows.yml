@@ -45,7 +45,18 @@ jobs:
         working-directory: desktop
         run: pnpm electron-builder build --win --config --publish never
       - name: Install, smoke test, reinstall and uninstall
-        run: uv run python tools/smoke_installer.py
+        run: |
+          New-Item -ItemType Directory -Force desktop/smoke-reports | Out-Null
+          uv run python tools/smoke_installer.py 2>&1 | Tee-Object -FilePath desktop/smoke-reports/installer.log
+          exit $LASTEXITCODE
+      - name: Preserve diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-diagnostics-windows
+          path: desktop/smoke-reports/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:

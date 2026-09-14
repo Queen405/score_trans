@@ -57,9 +57,17 @@ jobs:
         working-directory: desktop
         run: pnpm lint
 
+      - name: Check backend API contracts
+        working-directory: desktop
+        run: pnpm check:api-types
+
       - name: Check frontend types
         working-directory: desktop
         run: pnpm typecheck
+
+      - name: Test release tools without production services
+        working-directory: desktop
+        run: pnpm test:release-tools
 
       - name: Test frontend utilities
         working-directory: desktop

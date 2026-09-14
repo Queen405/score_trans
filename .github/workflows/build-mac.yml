@@ -44,8 +44,19 @@ jobs:
       - name: Package application
         working-directory: desktop
         run: pnpm electron-builder build --mac --config --publish never
-      - name: Smoke test final packaged resources
-        run: uv run python tools/smoke_package.py "desktop/dist-electron/mac-arm64/Score Trans.app/Contents/Resources"
+      - name: Install DMG and smoke test actual application
+        run: |
+          mkdir -p desktop/smoke-reports
+          set -o pipefail
+          uv run python tools/smoke_mac.py 2>&1 | tee desktop/smoke-reports/installer.log
+      - name: Preserve diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-diagnostics-mac
+          path: desktop/smoke-reports/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:

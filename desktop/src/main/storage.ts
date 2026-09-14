@@ -8,6 +8,7 @@ const LEGACY_USER_DATA_DIR_NAME = '.sorce_trans'
 const STORAGE_CONFIG_FILE = 'storage-paths.json'
 const CACHE_DIR_NAME = 'cache'
 const ELECTRON_SESSION_DIR_NAME = 'electron-session'
+const ELECTRON_USER_DATA_DIR = process.env.SCORE_TRANS_ELECTRON_USER_DATA_DIR || ''
 const DB_FILE_NAMES = ['settings.db', 'history.db', 'ai_chat.db', 'tasks.db']
 let defaultDataDirOverride: string | null = null
 
@@ -41,6 +42,13 @@ export function loadStoragePaths(): StoragePaths {
 }
 
 export function configureElectronStoragePaths(): StoragePaths {
+  if (ELECTRON_USER_DATA_DIR) {
+    if (!path.isAbsolute(ELECTRON_USER_DATA_DIR)) {
+      throw new Error('SCORE_TRANS_ELECTRON_USER_DATA_DIR must be an absolute path')
+    }
+    fs.mkdirSync(ELECTRON_USER_DATA_DIR, { recursive: true })
+    app.setPath('userData', ELECTRON_USER_DATA_DIR)
+  }
   migrateLegacyStorageConfig()
   const migrated = migrateLegacyDataDirectory(
     legacyDefaultDataDir(),

@@ -1,0 +1,66 @@
+name: Deliver release snapshot
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: publish
+      release_tag:
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: score-trans-release
+      cancel-in-progress: false
+      queue: max
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TENCENTCLOUD_SECRET_ID: ${{ secrets.TENCENTCLOUD_SECRET_ID }}
+      TENCENTCLOUD_SECRET_KEY: ${{ secrets.TENCENTCLOUD_SECRET_KEY }}
+      COS_BUCKET: ${{ vars.COS_BUCKET || 'score-trans-1320022301' }}
+      COS_REGION: ${{ vars.COS_REGION || 'ap-beijing' }}
+      COS_PREFIX: ${{ vars.COS_PREFIX || 'download' }}
+      SCORE_TRANS_RELEASE_JOB: '1'
+      RELEASE_MODE: ${{ inputs.mode }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Validate recovery source
+        if: inputs.mode == 'resume'
+        run: |
+          test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH"
+          test -n "$RELEASE_TAG"
+      - uses: actions/download-artifact@v4
+        if: inputs.mode == 'publish'
+        with:
+          name: score-trans-windows-x64
+          path: release-assets
+      - uses: actions/download-artifact@v4
+        if: inputs.mode == 'publish'
+        with:
+          name: score-trans-mac-arm64
+          path: release-assets
+      - name: Deliver immutable snapshot
+        run: |
+          if [ "$RELEASE_MODE" = "resume" ]; then
+            python tools/release.py resume --tag "$RELEASE_TAG"
+          elif [ "$RELEASE_MODE" = "publish" ]; then
+            python tools/release.py publish --assets release-assets
+          else
+            exit 1
+          fi

@@ -64,9 +64,11 @@ npx vue-tsc --noEmit
 - Versions in tag, `desktop/package.json`, and `desktop/latest.json` must agree.
   New clients read the manifest from Tencent COS (`updater.ts` hardcodes the
   COS `download/latest.json` endpoint), not a working-branch manifest.
-- After packaging, run `pnpm upload:cos` (from `desktop/`) to upload the
-  installer and `latest.json` to COS; the auto-update check 404s until this step
-  completes. See `RELEASE.md` and `docs/packaging.md` for details.
+- Tag releases automatically upload immutable GitHub/COS assets and promote the
+  update manifest under a shared release lock. Recover from the default branch
+  using Package and release, mode `resume`, and the existing release tag.
+  `pnpm upload:cos` uploads versioned installers only; it does not promote updates.
+  See `RELEASE.md` and `docs/packaging.md` for details.
 - Installers remain unsigned; Windows x64 and macOS arm64 are supported.
 
 ## Architecture Rules
@@ -95,7 +97,8 @@ pattern for new code.
 - The frontend uses Vue 3 Composition API (`<script setup>`) + Pinia + Naive UI. API calls go through typed wrappers in `desktop/src/renderer/api/`.
 - Frontend error handling: API wrappers must return `{ data, error }` tuples, never throw. Components display errors via Naive UI `useMessage()`. Pinia stores handle async state with explicit `loading`/`error` flags.
 - Commit messages use Chinese conventional commits: `feat: 添加XXX功能`, `fix: 修复XXX`, `refactor: 重构XXX`.
-- Frontend tests (vitest, playwright) are not yet set up despite being mentioned in desktop/AGENTS.md.
+- Frontend utility tests use Node; packaged desktop smoke uses locked playwright-core
+  on disposable CI runners. Component-level Vitest tests are not configured.
 
 ## Critical Pitfalls
 
@@ -107,7 +110,7 @@ When modifying specific areas, follow these rules:
 | `desktop/src/main/backend.ts` or launching app | Verify `.venv` exists — Electron auto-starts the FastAPI backend |
 | Audiveris integration or OMR | Verify `SCORE_TRANS_JAVA_HOME` exists and contains `bin/java.exe`. If invalid, raise `ExternalToolError` with diagnostic message. Do not defer this check to first invocation |
 | `/pipeline`, `/recognize`, `/ai/transcribe` | Use `asyncio.to_thread()` when the route must return the result to the caller; use FastAPI `BackgroundTasks` only for fire-and-forget operations. Never use synchronous blocking calls directly in async route handlers |
-| `desktop/latest.json` or releasing | After packaging, run `pnpm upload:cos` (from `desktop/`) to upload the Windows exe, macOS dmg and `latest.json` (with `url`/`urlMac`) to Tencent COS; the auto-update check 404s until this completes. `tools/release.py` overwrites the manifest URLs with COS direct links |
+| `desktop/latest.json` or releasing | Keep tag/package/manifest versions aligned. Use the serialized release workflow for immutable snapshots and COS promotion; recover with `resume`, never replace public assets or downgrade latest.json. |
 
 - **Audiveris requires JDK 25**. Set `SCORE_TRANS_JAVA_HOME` (default on Windows: `E:/ENV/JAVA/JDK25`; use forward slashes or `pathlib.Path` for cross-platform compatibility) or place JDK at that path.
 

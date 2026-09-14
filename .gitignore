@@ -56,7 +56,8 @@ opencode.json
 
 
 # 根目录本地脚本文件夹（不纳入版本控制）
-/scripts/
+/scripts/*
+!/scripts/export_openapi.py
 
 # 本地截图目录（不纳入版本控制）
 /screenshots/
@@ -64,4 +65,4 @@ opencode.json
 # 本地工具记忆目录（不纳入版本控制）
 /.workbuddy/
 tests/test_installer_ui.py
-desktop/scripts/upload-cos.mjs
+desktop/smoke-reports/
