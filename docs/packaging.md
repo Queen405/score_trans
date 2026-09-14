@@ -20,6 +20,13 @@ Windows 使用 tools/smoke_installer.py，静默安装后检查最终 resources�
 安装器退出码非零或超时直接失败，禁止使用旧文件存在或 7z 解包结果放行。
 安装/重装超时 600 秒，卸载超时 300 秒；只清理本次启动的进程树。
 
+Windows NSIS 使用 `useZip: true` 时必须同时设置 `differentialPackage: false`。
+electron-builder 25.1.8 默认开启差分包，会生成 7z 载荷，但 `useZip` 仍选择 ZIP
+解压器，导致 `Error opening ZIP file`；错误弹窗会使静默安装一直等到超时。
+当前更新流程下载完整安装器，不依赖差分包或 blockmap。
+`pnpm test:utils` 中的归档测试会调用锁定的打包器生成小文件归档，
+检查真实文件头与安装器解压方式一致，避免只检查配置而漏掉打包器的覆盖行为。
+
 Windows 安装阶段即时记录 PID、时间、耗时和退出码，每 30 秒采集安装目录的
 文件数量、总大小和最近变更文件。超时清理前，tools/installer_diagnostics.py
 额外采集本次安装器进程树及其窗口/控件文本（包含隐藏的错误弹窗）。
