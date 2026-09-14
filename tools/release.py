@@ -26,6 +26,14 @@ def _installer_url(version: str) -> str:
     )
 
 
+def _installer_url_mac(version: str) -> str:
+    """Build the Tencent COS direct-download URL for the macOS installer."""
+    return (
+        f"https://{COS_BUCKET}.cos.{COS_REGION}.myqcloud.com"
+        f"/download/Score%20Trans-{version}-arm64.dmg"
+    )
+
+
 def validate(root: Path = ROOT, ref: str = REF) -> dict:
     package = json.loads((root / "desktop/package.json").read_text("utf-8"))
     manifest = json.loads((root / "desktop/latest.json").read_text("utf-8"))
@@ -39,6 +47,7 @@ def validate(root: Path = ROOT, ref: str = REF) -> dict:
     return {
         **manifest,
         "url": _installer_url(version),
+        "urlMac": _installer_url_mac(version),
     }
 
 
@@ -47,14 +56,13 @@ def prepare_assets(directory: Path, manifest: dict) -> list[Path]:
     names = [
         f"Score Trans Setup {version}.exe",
         f"Score Trans-{version}-arm64.dmg",
-        f"Score Trans-{version}-arm64.zip",
     ]
     installers = [directory / name for name in names]
     for asset in installers:
         if not asset.is_file() or asset.stat().st_size == 0:
             raise ValueError(f"Missing or empty installer: {asset}")
     actual = {
-        p.name for p in directory.iterdir() if p.suffix in {".exe", ".dmg", ".zip"}
+        p.name for p in directory.iterdir() if p.suffix in {".exe", ".dmg"}
     }
     if actual != set(names):
         raise ValueError(f"Unexpected installer set: {actual}")

@@ -50,4 +50,4 @@ jobs:
           COS_REGION: ${{ vars.COS_REGION }}
         run: |
           VERSION=$(python -c "import json;print(json.load(open('desktop/package.json'))['version'])")
-          node desktop/scripts/upload-cos.mjs --file="release-assets/Score Trans Setup ${VERSION}.exe" --no-sync
+          node desktop/scripts/upload-cos.mjs --no-sync --files="release-assets/Score Trans Setup ${VERSION}.exe,release-assets/Score Trans-${VERSION}-arm64.dmg"

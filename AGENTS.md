@@ -107,7 +107,7 @@ When modifying specific areas, follow these rules:
 | `desktop/src/main/backend.ts` or launching app | Verify `.venv` exists — Electron auto-starts the FastAPI backend |
 | Audiveris integration or OMR | Verify `SCORE_TRANS_JAVA_HOME` exists and contains `bin/java.exe`. If invalid, raise `ExternalToolError` with diagnostic message. Do not defer this check to first invocation |
 | `/pipeline`, `/recognize`, `/ai/transcribe` | Use `asyncio.to_thread()` when the route must return the result to the caller; use FastAPI `BackgroundTasks` only for fire-and-forget operations. Never use synchronous blocking calls directly in async route handlers |
-| `desktop/latest.json` or releasing | After packaging, run `pnpm upload:cos` (from `desktop/`) to upload the installer and `latest.json` to Tencent COS; the auto-update check 404s until this completes. `tools/release.py` overwrites the manifest `url` with the COS direct link |
+| `desktop/latest.json` or releasing | After packaging, run `pnpm upload:cos` (from `desktop/`) to upload the Windows exe, macOS dmg and `latest.json` (with `url`/`urlMac`) to Tencent COS; the auto-update check 404s until this completes. `tools/release.py` overwrites the manifest URLs with COS direct links |
 
 - **Audiveris requires JDK 25**. Set `SCORE_TRANS_JAVA_HOME` (default on Windows: `E:/ENV/JAVA/JDK25`; use forward slashes or `pathlib.Path` for cross-platform compatibility) or place JDK at that path.
 

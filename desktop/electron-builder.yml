@@ -51,9 +51,6 @@ mac:
     - target: dmg
       arch:
         - arm64
-    - target: zip
-      arch:
-        - arm64
   category: public.app-category.music
   # No Apple Developer ID: ad-hoc sign only, no notarization. End users must
   # bypass Gatekeeper (right-click → Open, or `xattr -cr` on the .app).

@@ -12,6 +12,8 @@ export interface UpdateCheckResult {
 interface Manifest {
   version: string
   url: string
+  /** macOS (Apple Silicon) dmg 直链；缺失时回退到 url */
+  urlMac?: string
   notes?: string
 }
 
@@ -57,11 +59,16 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
     return { ...base, error: '更新信息缺少必要字段' }
   }
 
+  const downloadUrl =
+    process.platform === 'darwin' && typeof manifest.urlMac === 'string'
+      ? manifest.urlMac
+      : manifest.url
+
   return {
     hasUpdate: isNewer(manifest.version, currentVersion),
     currentVersion,
     latestVersion: manifest.version,
-    downloadUrl: manifest.url,
+    downloadUrl,
     notes: manifest.notes ?? null,
     error: null,
   }

@@ -35,10 +35,9 @@ def test_release_requires_both_platforms_before_manifest(tmp_path: Path) -> None
         release.prepare_assets(tmp_path, manifest)
     assert not (tmp_path / "latest.json").exists()
     (tmp_path / "Score Trans-1.2.3-arm64.dmg").write_bytes(b"mac")
-    (tmp_path / "Score Trans-1.2.3-arm64.zip").write_bytes(b"zip")
     assets = release.prepare_assets(tmp_path, manifest)
-    assert len(assets) == 5
-    assert len((tmp_path / "SHA256SUMS.txt").read_text().splitlines()) == 4
+    assert len(assets) == 4
+    assert len((tmp_path / "SHA256SUMS.txt").read_text().splitlines()) == 3
     assert json.loads((tmp_path / "latest.json").read_text())["version"] == "1.2.3"
 
 

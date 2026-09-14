@@ -52,6 +52,5 @@ jobs:
           name: score-trans-mac-arm64
           path: |
             desktop/dist-electron/*.dmg
-            desktop/dist-electron/*.zip
           if-no-files-found: error
           retention-days: 14

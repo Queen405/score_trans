@@ -17,7 +17,7 @@ It runs quality checks, calls both platform builds, then publishes a complete re
    returns 404 until this step completes.
 6. Verify the public release contains:
    - `Score Trans Setup X.Y.Z.exe` (Windows x64)
-   - `Score Trans-X.Y.Z-arm64.dmg` and `.zip` (macOS Apple Silicon)
+   - `Score Trans-X.Y.Z-arm64.dmg` (macOS Apple Silicon)
    - `latest.json` (version-specific download page and release notes)
    - `SHA256SUMS.txt` (SHA-256 of installers and manifest)
 
@@ -45,10 +45,11 @@ artifact from a different commit or an unverified previous Actions run.
 New clients read `latest.json` from Tencent COS
 (`score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/latest.json`),
 hardcoded in `desktop/src/main/updater.ts`. The update becomes visible only
-after `pnpm upload:cos` (from `desktop/`) uploads the installer and manifest
-to the COS `download/` prefix. `SCORE_TRANS_UPDATE_MANIFEST_URL` can override
-this endpoint for a mirror or local tests. Connection failures remain
-non-blocking in the UI.
+after `pnpm upload:cos` (from `desktop/`) uploads the Windows exe, macOS dmg
+and manifest to the COS `download/` prefix; the manifest carries `url`
+(Windows) and `urlMac` (macOS) direct links. `SCORE_TRANS_UPDATE_MANIFEST_URL`
+can override this endpoint for a mirror or local tests. Connection failures
+remain non-blocking in the UI.
 
 `tools/release.py` validates versions and overwrites the manifest `url` with
 the COS installer direct link (`download/Score%20Trans%20Setup%20X.Y.Z.exe`).
