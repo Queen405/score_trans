@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shlex
@@ -33,6 +34,8 @@ _MOVEMENT_STEM_PATTERN = re.compile(
 _RESCALE_MIN_EDGE_FALLBACK = 2500
 _RESCALE_MAX_PIXELS_FALLBACK = 20_000_000
 
+_logger = logging.getLogger(__name__)
+
 
 @dataclass(slots=True)
 class CommandResult:
@@ -65,6 +68,13 @@ def _run(
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr or ""
         stdout = exc.stdout or ""
+        _logger.error(
+            "External tool failed (exit %s): %s\nstdout:\n%s\nstderr:\n%s",
+            exc.returncode,
+            " ".join(args),
+            stdout,
+            stderr,
+        )
         raise ExternalToolError(
             "外部程序执行失败，请查看完整日志定位原因。",
             stdout=stdout,
