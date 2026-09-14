@@ -23,17 +23,19 @@ def main() -> None:
     installers = list((ROOT / "desktop/dist-electron").glob("*.exe"))
     if len(installers) != 1:
         raise RuntimeError(f"Expected one installer, got {installers}")
-    install = Path(RUNNER_TEMP) / "安装测试_ScoreTrans"
+    # NSIS /D= consumes the remainder of the command line and must be unquoted.
+    # The install path must be ASCII-only: the bundled JDK's java.exe launcher
+    # uses ANSI codepage (cp1252) on the CI runner and cannot resolve paths
+    # containing non-ASCII characters, causing "could not find java.dll".
+    # The backend's Unicode path handling is still tested by smoke_package.py
+    # via its "用户 smoke, path" work directory.
+    install = Path(RUNNER_TEMP) / "ScoreTrans-CI-Test"
     if install.exists():
         raise RuntimeError(f"Installer test directory already exists: {install}")
     user_data = Path.home() / ".score_trans"
     user_data.mkdir(exist_ok=True)
     marker = user_data / "installer-test-preserve.txt"
     marker.write_text("preserve user data", encoding="utf-8")
-    # NSIS /D= consumes the remainder of the command line and must be unquoted.
-    # The install path must not contain spaces: electron-builder's multiUser.nsh
-    # re-parses /D via StdUtils::GetParameter, which splits on spaces and would
-    # truncate the path. Chinese characters still exercise non-ASCII path handling.
     command = f'"{installers[0]}" /S /D={install}'
     _run_installer(command, install)
     if not (install / "Score Trans.exe").is_file():
