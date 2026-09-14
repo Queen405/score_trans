@@ -201,6 +201,8 @@ def desktop_smoke(executable: Path, phase: str) -> None:
             str(executable),
             "--phase",
             phase,
+            "--python",
+            sys.executable,
         ],
         cwd=ROOT / "desktop",
         check=True,

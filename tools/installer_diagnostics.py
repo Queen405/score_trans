@@ -200,11 +200,20 @@ def emit_windows(pids: set[int]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--install", required=True, type=Path)
+    parser.add_argument("--install", type=Path)
     parser.add_argument("--pid", required=True, type=int)
     parser.add_argument("--windows", action="store_true")
+    parser.add_argument("--processes-only", action="store_true")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
+    if args.pid <= 0:
+        parser.error("--pid must be positive")
+    if args.processes_only:
+        # Strict machine-readable query for desktop smoke: API failures must fail CI.
+        emit({"processes": process_tree(args.pid)})
+        return
+    if args.install is None:
+        parser.error("--install is required unless --processes-only is set")
     if args.windows:
         # Emit each result immediately so the parent can preserve partial output.
         try:

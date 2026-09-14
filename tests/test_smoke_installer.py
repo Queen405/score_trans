@@ -305,3 +305,19 @@ def test_unwritable_report_does_not_prevent_timeout_cleanup(
     with pytest.raises(subprocess.TimeoutExpired):
         installer.run_bounded("installer", 1)
     assert calls == [1234]
+
+
+def test_desktop_smoke_passes_the_running_python_to_native_process_query(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+    monkeypatch.setattr(
+        installer.subprocess, "run", lambda args, **kwargs: calls.append((args, kwargs))
+    )
+    executable = tmp_path / "Score Trans.exe"
+    installer.desktop_smoke(executable, "installed")
+    args, kwargs = calls[0]
+    assert args[args.index("--python") + 1] == sys.executable
+    assert args[args.index("--executable") + 1] == str(executable)
+    assert kwargs["check"] is True
+    assert kwargs["timeout"] == 130

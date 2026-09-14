@@ -127,3 +127,40 @@ def test_hidden_dialog_and_child_text_are_collected_with_unicode(
         )
     finally:
         user.DestroyWindow(window)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows native process query")
+def test_process_query_cli_needs_no_install_directory() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SPEC.origin),
+            "--processes-only",
+            "--pid",
+            str(os.getpid()),
+        ],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=10,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    record = json.loads(result.stdout)
+    assert list(record) == ["processes"]
+    assert any(row["pid"] == os.getpid() for row in record["processes"])
+
+
+def test_process_query_does_not_turn_native_api_failure_into_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        sys, "argv", ["installer_diagnostics.py", "--processes-only", "--pid", "1234"]
+    )
+    monkeypatch.setattr(diagnostics.sys.stdout, "reconfigure", lambda **kwargs: None)
+
+    def fail(pid: int) -> list[dict[str, object]]:
+        raise OSError("snapshot denied")
+
+    monkeypatch.setattr(diagnostics, "process_tree", fail)
+    with pytest.raises(OSError, match="snapshot denied"):
+        diagnostics.main()

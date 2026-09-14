@@ -59,6 +59,15 @@ desktop/scripts/smoke-desktop.mjs 使用锁定的 playwright-core 驱动实际�
 启动与检查预算 90 秒，退出等待 15 秒，外层看门狗 120 秒。
 只在一次性 GitHub-hosted runner 上运行。
 
+桌面冒烟的 Windows 子进程检查使用 `tools/installer_diagnostics.py --processes-only`
+调用原生进程快照 API，由外层 Python 通过 `--python` 传入当前虚拟环境解释器；
+不依赖 PowerShell/WMI。macOS 继续使用 `ps`。两端都要求只有一个直属后端子进程，
+并继续检查应用退出后后端进程与端口均已关闭。
+查询预算 10 秒，输出直接写入文件，超时仅清理查询进程树。
+每个冒烟阶段的目录保存 `process-query.json`、`process-query.stdout.log` 和
+`process-query.stderr.log`，分别提供状态、查询结果和错误输出；这些文件随现有
+诊断附件上传。`result.json` 同时记录触发冒烟失败的错误信息。
+
 SCORE_TRANS_ELECTRON_USER_DATA_DIR 可指定绝对 Electron 用户目录；
 冒烟测试预先写入 storage-paths.json，将业务数据和缓存隔离到临时目录。
 该变量不改变默认用户存储行为，不暴露认证 token。

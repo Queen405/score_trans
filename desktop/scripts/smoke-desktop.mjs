@@ -8,6 +8,7 @@ import { writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { _electron as electron } from 'playwright-core'
+import { inspectBackendProcess } from './smoke-processes.mjs'
 
 const ENV = { ...process.env }
 const argv = process.argv.slice(2)
@@ -102,19 +103,10 @@ try {
   await page.locator('.app-shell').waitFor({ state: 'visible' })
   await page.getByRole('button', { name: '最小化', exact: true }).waitFor({ state: 'visible' })
   assert.equal(await page.evaluate(() => window.api.getVersion()), expectedVersion)
-  const listing = process.platform === 'win32'
-    ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-      `Get-CimInstance Win32_Process -Filter 'ParentProcessId = ${child.pid}' | Select-Object ProcessId,Name | ConvertTo-Json -Compress`],
-    { encoding: 'utf8', timeout: 10000, windowsHide: true })
-    : spawnSync('ps', ['-axo', 'pid=,ppid=,comm='], { encoding: 'utf8', timeout: 10000 })
-  if (listing.error || listing.status !== 0) throw new Error('Cannot inspect application child processes')
-  const candidates = process.platform === 'win32'
-    ? [JSON.parse(listing.stdout)].flat().filter((p) => p.Name === 'backend.exe').map((p) => p.ProcessId)
-    : listing.stdout.split('\n').map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/))
-      .filter((match) => match && Number(match[2]) === child.pid && match[3].endsWith('/backend'))
-      .map((match) => Number(match[1]))
-  assert.equal(candidates.length, 1, 'Expected one packaged backend child')
-  backendPid = candidates[0]
+  backendPid = await inspectBackendProcess(child.pid, {
+    python: argv.includes('--python') ? arg('python') : undefined,
+    reports,
+  })
   baseURL = await page.evaluate(async () => {
     const { baseURL: url, token } = await window.api.getBackendConnection()
     if (!url || !token) throw new Error('Backend IPC did not supply a connection')
@@ -139,6 +131,7 @@ try {
   assert.equal(errors.length, 0, errors.join('\n'))
   success = true
 } catch (error) {
+  errors.push(redact(error.message || error))
   logs.push(redact(error.stack || error))
   if (page && !page.isClosed()) await page.screenshot({ path: join(reports, 'failure.png'), timeout: 3000 }).catch(() => {})
   throw error
