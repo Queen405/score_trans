@@ -70,6 +70,7 @@ def _collect_diagnostics(
     phase: str,
     *,
     windows: bool,
+    crash: bool = False,
     timeout: float = _DIAGNOSTIC_TIMEOUT,
 ) -> None:
     command = [
@@ -82,6 +83,8 @@ def _collect_diagnostics(
     ]
     if windows:
         command.append("--windows")
+    if crash:
+        command.append("--crash-events")
     try:
         # A venv Python launcher may spawn another Python process on Windows.
         # File output avoids waiting forever for inherited pipes after a timeout.
@@ -177,11 +180,18 @@ def run_bounded(
         "exited",
         pid=child.pid,
         returncode=code,
+        returncode_hex=f"0x{code & 0xFFFFFFFF:08X}",
         elapsed_seconds=round(time.monotonic() - started, 2),
     )
     if code:
         if install:
-            _collect_diagnostics(child.pid, install, phase, windows=True)
+            _collect_diagnostics(
+                child.pid,
+                install,
+                phase,
+                windows=True,
+                crash=bool(code & 0x80000000),
+            )
         raise subprocess.CalledProcessError(code, command)
 
 

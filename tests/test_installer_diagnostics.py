@@ -164,3 +164,81 @@ def test_process_query_does_not_turn_native_api_failure_into_success(
     monkeypatch.setattr(diagnostics, "process_tree", fail)
     with pytest.raises(OSError, match="snapshot denied"):
         diagnostics.main()
+
+
+def test_crash_events_match_pid_and_keep_only_fault_details() -> None:
+    xml = """<Events>
+      <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+        <System><TimeCreated SystemTime="2026-09-14T16:14:29Z"/></System>
+        <EventData>
+          <Data Name="AppName">Score Trans Setup 1.0.3.exe</Data>
+          <Data Name="ProcessId">0x8e0</Data>
+          <Data Name="ModuleName">example.dll</Data>
+          <Data Name="ExceptionCode">c0000005</Data>
+          <Data Name="FaultingOffset">00001234</Data>
+          <Data Name="UnrelatedField">must not be exported</Data>
+        </EventData>
+      </Event>
+      <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+        <System/><EventData><Data Name="ProcessId">99</Data></EventData>
+      </Event>
+    </Events>"""
+    events = diagnostics.parse_crash_events(xml, 2272)
+    assert len(events) == 1
+    assert events[0]["ModuleName"] == "example.dll"
+    assert events[0]["ExceptionCode"] == "c0000005"
+    assert events[0]["FaultingOffset"] == "00001234"
+    assert events[0]["timestamp"] == "2026-09-14T16:14:29Z"
+    assert "UnrelatedField" not in events[0]
+    assert diagnostics.parse_crash_events(xml, 1234) == []
+
+
+def test_crash_query_waits_briefly_for_event_log_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outputs = iter(
+        [
+            "<Events/>",
+            '<Events><Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><EventData><Data Name="ProcessId">2272</Data><Data Name="ModuleName">example.dll</Data></EventData></Event></Events>',
+        ]
+    )
+    calls = []
+
+    def query(args: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+        calls.append(args)
+        assert kwargs["timeout"] == 2
+        return subprocess.CompletedProcess(args, 0, next(outputs).encode("utf-16"), b"")
+
+    monkeypatch.setattr(diagnostics.subprocess, "run", query)
+    monkeypatch.setattr(diagnostics.time, "sleep", lambda _: None)
+    assert diagnostics.crash_events(2272)[0]["ModuleName"] == "example.dll"
+    assert len(calls) == 2
+    assert all("/uni:true" in args for args in calls)
+    assert all(any("EventID=1000" in arg for arg in args) for args in calls)
+
+
+def test_crash_query_failure_keeps_installer_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "installer_diagnostics.py",
+            "--pid",
+            "2272",
+            "--install",
+            str(tmp_path),
+            "--crash-events",
+        ],
+    )
+    monkeypatch.setattr(diagnostics.sys.stdout, "reconfigure", lambda **kwargs: None)
+
+    def fail(pid: int) -> list[dict[str, object]]:
+        raise OSError("event log unavailable")
+
+    monkeypatch.setattr(diagnostics, "crash_events", fail)
+    diagnostics.main()
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert records[0]["directory"] == str(tmp_path)
+    assert records[-1]["crash_event_error"] == "event log unavailable"

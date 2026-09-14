@@ -7,9 +7,90 @@ import ctypes
 import heapq
 import json
 import os
+import subprocess
 import sys
+import time
+import xml.etree.ElementTree as ET
 from ctypes import wintypes
 from pathlib import Path
+
+_WEVTUTIL = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32/wevtutil.exe"
+_EVENT_NS = {"e": "http://schemas.microsoft.com/win/2004/08/events/event"}
+_CRASH_FIELDS = (
+    "AppName",
+    "AppVersion",
+    "ModuleName",
+    "ModuleVersion",
+    "ExceptionCode",
+    "FaultingOffset",
+    "ProcessId",
+    "AppPath",
+    "ModulePath",
+)
+
+
+def parse_crash_events(xml: str, pid: int) -> list[dict[str, str | None]]:
+    """Select recent Application Error records for this PID without exporting other data."""
+    matches: list[dict[str, str | None]] = []
+    for event in ET.fromstring(xml).findall("e:Event", _EVENT_NS):
+        data = {
+            item.get("Name"): item.text or ""
+            for item in event.findall("e:EventData/e:Data", _EVENT_NS)
+        }
+        value = data.get("ProcessId", "").strip()
+        try:
+            event_pid = int(value, 16 if value.lower().startswith("0x") else 10)
+        except ValueError:
+            continue
+        if event_pid != pid:
+            continue
+        created = event.find("e:System/e:TimeCreated", _EVENT_NS)
+        matches.append(
+            {
+                "timestamp": created.get("SystemTime") if created is not None else None,
+                **{key: data[key] for key in _CRASH_FIELDS if key in data},
+            }
+        )
+    return matches
+
+
+def crash_events(pid: int) -> list[dict[str, str | None]]:
+    command = [
+        str(_WEVTUTIL),
+        "qe",
+        "Application",
+        "/q:*[System[(EventID=1000) and TimeCreated[timediff(@SystemTime) <= 120000]]]",
+        "/f:xml",
+        "/e:Events",
+        "/c:20",
+        "/rd:true",
+        "/uni:true",
+    ]
+    # Error Reporting may publish the fault record shortly after process exit.
+    # Three two-second queries plus two half-second waits fit the collector budget.
+    for attempt in range(3):
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            timeout=2,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if result.returncode:
+            raw = result.stderr
+            encoding = (
+                "utf-16" if raw.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8"
+            )
+            raise RuntimeError(
+                f"Windows crash event query failed ({result.returncode}): "
+                f"{raw.decode(encoding, errors='replace').strip()}"
+            )
+        events = parse_crash_events(result.stdout.decode("utf-16"), pid)
+        if events:
+            return events
+        if attempt < 2:
+            time.sleep(0.5)
+    return []
 
 
 def emit(record: dict[str, object]) -> None:
@@ -204,6 +285,7 @@ def main() -> None:
     parser.add_argument("--pid", required=True, type=int)
     parser.add_argument("--windows", action="store_true")
     parser.add_argument("--processes-only", action="store_true")
+    parser.add_argument("--crash-events", action="store_true")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     if args.pid <= 0:
@@ -223,6 +305,11 @@ def main() -> None:
         except Exception as error:
             emit({"process_snapshot_error": str(error)})
     emit(directory_snapshot(args.install))
+    if args.crash_events:
+        try:
+            emit({"crash_events": crash_events(args.pid)})
+        except Exception as error:
+            emit({"crash_event_error": str(error)})
 
 
 if __name__ == "__main__":

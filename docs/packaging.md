@@ -39,6 +39,12 @@ Windows 安装阶段即时记录 PID、时间、耗时和退出码，每 30 秒�
 package-diagnostics-windows 附件；重点检查 timeout 后的 snapshot 或 diagnostic-error，
 其中 output 保留诊断子进程输出。未记录的阶段表示尚未执行到该步骤。
 
+若安装器以 Windows 异常码退出（例如 `0xC0000005`），额外读取 Application
+日志中的事件 1000，筛选最近两分钟内与本次 PID 匹配的记录，并短暂重试以等待
+错误报告写入。`crash_events` 保存应用名、故障模块名/路径、异常码和故障偏移；
+只输出相关字段，不导出整个事件日志。若系统未生成记录，输出空列表；读取失败
+则记录 `crash_event_error`。原始安装器退出码仍决定失败，不因诊断结果改变。
+
 macOS 使用 tools/smoke_mac.py，挂载实际 DMG，以 ditto 复制 .app 到临时目录，
 测试复制后的 resources 与 Contents/MacOS/Score Trans，并在 finally 中卸载镜像。
 

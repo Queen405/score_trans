@@ -321,3 +321,27 @@ def test_desktop_smoke_passes_the_running_python_to_native_process_query(
     assert args[args.index("--executable") + 1] == str(executable)
     assert kwargs["check"] is True
     assert kwargs["timeout"] == 130
+
+
+@pytest.mark.parametrize(
+    "code,crash", [(2, False), (0xC0000005, True), (0xC0000409, True)]
+)
+def test_crash_exit_requests_event_log_without_hiding_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, code: int, crash: bool
+) -> None:
+    calls = []
+
+    class Child:
+        pid = 2272
+
+        def wait(self, timeout: float) -> int:
+            return code
+
+    monkeypatch.setattr(installer.subprocess, "Popen", lambda _: Child())
+    monkeypatch.setattr(
+        installer, "_collect_diagnostics", lambda *args, **kwargs: calls.append(kwargs)
+    )
+    with pytest.raises(subprocess.CalledProcessError) as caught:
+        installer.run_bounded("installer", 600, install=tmp_path)
+    assert caught.value.returncode == code
+    assert calls == [{"windows": True, "crash": crash}]
