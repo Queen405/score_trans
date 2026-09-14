@@ -2013,6 +2013,10 @@ async function resetAll(): Promise<void> {
     store.setBatchRenderPageFileIds([])
     store.setBatchRenderPageOcrTexts([], true)
     setFinalSvgFileIds([])
+    const resetWarnings = result.warnings ?? []
+    for (const warning of resetWarnings) {
+      log.addLog(warning, 'warn')
+    }
     log.addLog('已重置到识别初始状态')
     message.success('已重置')
   } catch (e: unknown) {
@@ -2182,6 +2186,10 @@ async function applyCorrections(): Promise<void> {
     store.setBatchJianpuText(nextBatchText, false)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
+    const correctionWarnings = data.warnings ?? []
+    for (const warning of correctionWarnings) {
+      log.addLog(warning, 'warn')
+    }
     message.success('修正已应用')
     editMode.value = false
   } catch (e: unknown) {

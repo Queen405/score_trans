@@ -8,6 +8,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from urllib.parse import urlparse
 from zipfile import BadZipFile
 
@@ -116,13 +117,16 @@ def recognize_with_audiveris(
 
 def _run_audiveris(input_file: Path, output_dir: Path, config: ToolConfig) -> None:
     audiveris_path = Path(config.audiveris_path)
+    input_file = input_file.resolve()
+    output_dir = output_dir.resolve()
     env = _java_env(config)
     audiveris_args = _audiveris_args(input_file, output_dir, config)
     if audiveris_path.suffix.lower() == ".jar":
         if not audiveris_path.is_file():
             raise ExternalToolError(f"找不到 Audiveris 运行文件：{audiveris_path}")
+        audiveris_path = audiveris_path.resolve()
         java = (
-            str(Path(config.java_home) / "bin" / java_binary_name())
+            str(Path(config.java_home).resolve() / "bin" / java_binary_name())
             if config.java_home
             else java_binary_name()
         )
@@ -132,12 +136,27 @@ def _run_audiveris(input_file: Path, output_dir: Path, config: ToolConfig) -> No
             "--add-exports=java.desktop/sun.awt.image=ALL-UNNAMED",
             "--enable-native-access=ALL-UNNAMED",
             "-Djava.awt.headless=true",
+            "-Dfile.encoding=UTF-8",
+            "--disable-@files",
             "-cp",
             str(audiveris_path.parent / "*"),
             "Audiveris",
-            *audiveris_args,
         ]
-        _run(args, env=env)
+        if any("\n" in arg or "\r" in arg for arg in audiveris_args):
+            raise ExternalToolError("Audiveris 参数不能包含换行符。")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        # Windows' Java launcher can replace non-ACP characters with '?'. Let
+        # args4j read UTF-8 itself, one argument per line (no shell quoting).
+        with TemporaryDirectory(prefix=".audiveris-args-", dir=output_dir) as temporary:
+            argfile = Path(temporary) / "arguments.txt"
+            argfile.write_text("\n".join(audiveris_args) + "\n", encoding="utf-8")
+            # cwd is passed through CreateProcessW, so even a Unicode output
+            # directory needs only an ASCII relative argument-file name here.
+            _run(
+                [*args, f"@{argfile.relative_to(output_dir)}"],
+                cwd=output_dir,
+                env=env,
+            )
     elif audiveris_path.name.lower() in {"gradlew", "gradlew.bat"}:
         args = [
             str(audiveris_path),

@@ -18,6 +18,7 @@ from ...services.correct.entity_service import (
     load_source_map,
 )
 from ...services.files.upload_service import UploadService
+from ...utils.warnings import collect_warnings, dedupe_preserve_order
 
 
 class CorrectActions:
@@ -43,14 +44,15 @@ class CorrectActions:
             self._load_entities(req.omr_file_id, req.source_map_file_id)
         )
         with TemporaryDirectory(prefix="score-trans-correct-") as temp_dir:
-            artifacts = self.correction_service.correct(
-                req.original_musicxml,
-                req.deleted_source_ids,
-                entities,
-                req.options,
-                Path(temp_dir),
-                req.text_attachments,
-            )
+            with collect_warnings() as captured:
+                artifacts = self.correction_service.correct(
+                    req.original_musicxml,
+                    req.deleted_source_ids,
+                    entities,
+                    req.options,
+                    Path(temp_dir),
+                    req.text_attachments,
+                )
             svg_file_ids = [self.uploads.register(path) for path in artifacts.svg_paths]
         return CorrectionResponse(
             working_musicxml=artifacts.working_musicxml,
@@ -58,6 +60,7 @@ class CorrectActions:
             text_anchors=list(artifacts.text_anchors),
             text_hash=artifacts.text_hash,
             svg_file_ids=svg_file_ids,
+            warnings=dedupe_preserve_order(captured),
         )
 
     def _load_entities(

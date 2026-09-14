@@ -63,3 +63,4 @@ class CorrectionResponse(BaseModel):
     text_anchors: list[TextAnchor] = Field(default_factory=list)
     text_hash: str
     svg_file_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

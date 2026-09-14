@@ -1359,15 +1359,13 @@ async function applyPipelineResult(
     await syncBatchJianpuTextForPage(target.pageId)
     void maybeRenderCompletedBatchForPage(target.pageId)
     clearOwnedLiveRecognitionPage(target.pageId)
-    log.addLog(
-      warnings.length
-        ? `识别完成，但有 ${warnings.length} 条警告：${target.inputFileName}`
-        : `识别完成：${target.inputFileName}`,
-      warnings.length ? 'warn' : 'info',
-    )
     if (warnings.length) {
-      message.warning(warnings.slice(0, 3).join('；'))
+      for (const warning of warnings) {
+        log.addLog(warning, 'warn')
+      }
+      log.addLog(`识别完成，但有 ${warnings.length} 条警告：${target.inputFileName}`, 'warn')
     } else {
+      log.addLog(`识别完成：${target.inputFileName}`)
       message.success(`识别完成：${target.inputFileName}`)
     }
 }

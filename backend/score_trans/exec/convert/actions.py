@@ -27,6 +27,7 @@ from ...services.files.upload_service import UploadService
 from ...services.ocr.core import OCRProvider
 from ...services.ocr.providers import create_configured_ocr_provider
 from ...services.settings.settings_service import SettingsService
+from ...utils.warnings import collect_warnings, dedupe_preserve_order
 
 
 class MusicXmlToJianpuAction:
@@ -137,18 +138,20 @@ class ConvertActions:
             if image_path.suffix.lower() not in IMAGE_SUFFIXES:
                 image_path = None
 
-        document = self.musicxml_to_jianpu.execute_document(
-            path,
-            target_key=req.target_key,
-            accidental_mode=req.accidental_mode,
-            polyphony_mode=req.polyphony_mode,
-            instrument_profile=req.instrument_profile,
-            image_path=image_path,
-        )
+        with collect_warnings() as captured:
+            document = self.musicxml_to_jianpu.execute_document(
+                path,
+                target_key=req.target_key,
+                accidental_mode=req.accidental_mode,
+                polyphony_mode=req.polyphony_mode,
+                instrument_profile=req.instrument_profile,
+                image_path=image_path,
+            )
         return MusicXmlToJianpuResponse(
             jianpu_text=document.text,
             text_anchors=document.anchors,
             text_hash=document.text_hash,
+            warnings=dedupe_preserve_order(captured),
         )
 
     def jianpu_to_musicxml_response(

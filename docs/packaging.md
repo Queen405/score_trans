@@ -46,6 +46,13 @@ tools/smoke_package.py 验证健康检查、SVG、PDF、MIDI 与真实图片识�
 包含中文、空格、逗号工作路径，不依赖外部乐谱样例。
 安装目录使用可被内置 Java 正常识别的路径；不覆盖 HOME/USERPROFILE。
 
+Windows 非 UTF-8 代码页下，Java 启动器可能把命令行中的中文转换为 `?`。
+打包版 Audiveris 的应用参数通过临时 UTF-8 参数文件传递，每行一个原始参数，
+保留路径中的中文、空格和逗号。`-Dfile.encoding=UTF-8` 与 `--disable-@files`
+确保由 Audiveris 的 args4j 读取文件，避免 Java 启动器提前展开。
+以输出目录作为工作目录，仅将相对 ASCII 参数文件名放入命令行；
+成功或失败均清理临时文件。中文工作路径的真实识别冒烟检查继续保留。
+
 desktop/scripts/smoke-desktop.mjs 使用锁定的 playwright-core 驱动实际打包程序，
 不下载浏览器、不启动开发服务器。检查主界面、preload、版本 IPC、
 渲染进程到后端的认证调用，以及 Electron/后端进程和端口的正常关闭。

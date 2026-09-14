@@ -1542,6 +1542,8 @@ export type components = {
             text_anchors?: components["schemas"]["TextAnchor"][];
             /** Text Hash */
             text_hash: string;
+            /** Warnings */
+            warnings?: string[];
             /** Working Musicxml */
             working_musicxml: string;
         };
@@ -1919,16 +1921,15 @@ export type components = {
         MusicXmlToJianpuResponse: {
             /** Jianpu Text */
             jianpu_text: string;
-            /**
-             * Text Anchors
-             * @default []
-             */
+            /** Text Anchors */
             text_anchors?: components["schemas"]["TextAnchor"][];
             /**
              * Text Hash
              * @default
              */
             text_hash?: string;
+            /** Warnings */
+            warnings?: string[];
         };
         /** NormalizeJianpuTextRequest */
         NormalizeJianpuTextRequest: {

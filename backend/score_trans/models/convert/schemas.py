@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..common.types import (
     AccidentalMode,
@@ -22,8 +22,9 @@ class MusicXmlToJianpuRequest(BaseModel):
 
 class MusicXmlToJianpuResponse(BaseModel):
     jianpu_text: str
-    text_anchors: list[TextAnchor] = []
+    text_anchors: list[TextAnchor] = Field(default_factory=list)
     text_hash: str = ""
+    warnings: list[str] = Field(default_factory=list)
 
 
 class JianpuToMusicXmlRequest(BaseModel):

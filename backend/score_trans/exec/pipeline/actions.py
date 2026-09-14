@@ -40,6 +40,7 @@ from ...services.overlay.overlay_service import (
 from ...services.recognize.audiveris_service import read_audiveris_musicxml
 from ...services.render.render_service import PublicationRenderService
 from ...services.settings.settings_service import SettingsService
+from ...utils.warnings import collect_warnings, dedupe_preserve_order
 from ..convert.actions import MusicXmlToJianpuAction
 from ..recognize.actions import RecognizeScoreAction
 from ..tasks.actions import TaskActions
@@ -138,47 +139,49 @@ class FullPipelineAction:
         # The compatibility flag controls Python OCR on the original raster image.
         ocr_image_path = source if enable_omr_ocr and _is_ocr_image(source) else None
         report_progress(progress_callback, "convert", 55, "转换 MusicXML")
-        scores = self.converter.build_scores(
-            musicxml_path,
-            target_key=target_key,
-            instrument_profile=instrument_profile,
-            image_path=ocr_image_path,
-            ocr_provider=ocr_provider,
-        )
-        if title:
-            for score in scores:
-                score.title = title
-        report_progress(progress_callback, "convert", 72, "生成简谱文本")
-        text_path = out_dir / f"{source.stem}_jianpu.txt"
-        document = scores_to_jianpu_document(
-            scores,
-            accidental_mode=accidental_mode,
-            polyphony_mode=polyphony_mode,
-        )
-        self.file_service.write_text(text_path, document.text)
-        render_scores = [
-            score_with_accidental_mode(score, accidental_mode=accidental_mode)
-            for score in scores
-        ]
-        svg_path = out_dir / f"{source.stem}_jianpu.svg"
-        report_progress(progress_callback, "render", 82, "渲染简谱 SVG")
-        rendered_pages = self.renderer.render_scores_a4_svg_pages(
-            render_scores,
-            svg_path,
-            title=title or (render_scores[0].title if render_scores else "简谱"),
-            show_measure_numbers=show_measure_numbers,
-            measure_number_mode=measure_number_mode,
-            content_scale_percent=content_scale_percent,
-            system_gap_percent=system_gap_percent,
-            short_note_gap_percent=short_note_gap_percent,
-            beat_gap_percent=beat_gap_percent,
-        )
-        svg_paths = _rendered_page_paths(rendered_pages)
-        _require_rendered_pages(svg_paths)
-        first_score = render_scores[0] if render_scores else None
-        source_map = _load_source_map(source_map_path)
-        _warn_unanchored_source_elements(source_map, document.anchors)
-        warnings = _unmapped_omr_warnings(source_map, document.anchors)
+        with collect_warnings() as captured:
+            scores = self.converter.build_scores(
+                musicxml_path,
+                target_key=target_key,
+                instrument_profile=instrument_profile,
+                image_path=ocr_image_path,
+                ocr_provider=ocr_provider,
+            )
+            if title:
+                for score in scores:
+                    score.title = title
+            report_progress(progress_callback, "convert", 72, "生成简谱文本")
+            text_path = out_dir / f"{source.stem}_jianpu.txt"
+            document = scores_to_jianpu_document(
+                scores,
+                accidental_mode=accidental_mode,
+                polyphony_mode=polyphony_mode,
+            )
+            self.file_service.write_text(text_path, document.text)
+            render_scores = [
+                score_with_accidental_mode(score, accidental_mode=accidental_mode)
+                for score in scores
+            ]
+            svg_path = out_dir / f"{source.stem}_jianpu.svg"
+            report_progress(progress_callback, "render", 82, "渲染简谱 SVG")
+            rendered_pages = self.renderer.render_scores_a4_svg_pages(
+                render_scores,
+                svg_path,
+                title=title or (render_scores[0].title if render_scores else "简谱"),
+                show_measure_numbers=show_measure_numbers,
+                measure_number_mode=measure_number_mode,
+                content_scale_percent=content_scale_percent,
+                system_gap_percent=system_gap_percent,
+                short_note_gap_percent=short_note_gap_percent,
+                beat_gap_percent=beat_gap_percent,
+            )
+            svg_paths = _rendered_page_paths(rendered_pages)
+            _require_rendered_pages(svg_paths)
+            first_score = render_scores[0] if render_scores else None
+            source_map = _load_source_map(source_map_path)
+            _warn_unanchored_source_elements(source_map, document.anchors)
+        omr_warnings = _unmapped_omr_warnings(source_map, document.anchors)
+        warnings = dedupe_preserve_order([*captured, *omr_warnings])
         source_image_size = _source_image_size(source)
         ocr_blocks = _visible_ocr_blocks(first_score.text_blocks) if first_score else []
         text_attachments = (
