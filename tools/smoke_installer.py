@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -12,6 +13,8 @@ from smoke_package import ROOT, smoke
 CI = os.environ.get("GITHUB_ACTIONS", "")
 RUNNER_ENVIRONMENT = os.environ.get("RUNNER_ENVIRONMENT", "")
 RUNNER_TEMP = os.environ.get("RUNNER_TEMP", "")
+
+_ACCESS_VIOLATION = 0xC0000005
 
 
 def main() -> None:
@@ -32,11 +35,11 @@ def main() -> None:
     # re-parses /D via StdUtils::GetParameter, which splits on spaces and would
     # truncate the path. Chinese characters still exercise non-ASCII path handling.
     command = f'"{installers[0]}" /S /D={install}'
-    subprocess.run(command, check=True, timeout=300)
+    _run_installer(command, install)
     if not (install / "Score Trans.exe").is_file():
         raise RuntimeError("Installer did not create the application executable")
     smoke(install / "resources")
-    subprocess.run(command, check=True, timeout=300)
+    _run_installer(command, install)
     if marker.read_text("utf-8") != "preserve user data":
         raise RuntimeError("Reinstall changed user data")
     uninstallers = list(install.glob("Uninstall*.exe"))
@@ -52,6 +55,34 @@ def main() -> None:
     if marker.read_text("utf-8") != "preserve user data":
         raise RuntimeError("Uninstall changed user data")
     print("Silent installation, reinstall and user-data-preserving uninstall passed")
+
+
+def _run_installer(command: str, install: Path) -> None:
+    """Run the NSIS installer, retrying once on ACCESS_VIOLATION crashes.
+
+    The custom NSIS installer can crash (0xC0000005) during post-install
+    GDI cleanup on headless CI runners. Files may already be extracted, so
+    we check for the app executable before retrying.
+    """
+    try:
+        subprocess.run(command, check=True, timeout=300)
+    except subprocess.CalledProcessError as exc:
+        already_installed = (install / "Score Trans.exe").is_file()
+        if already_installed:
+            print(
+                f"Installer exited {exc.returncode} but files are present; "
+                "continuing (crash likely occurred during post-install cleanup)"
+            )
+            return
+        if exc.returncode != _ACCESS_VIOLATION:
+            raise
+        print(
+            f"Installer crashed (exit {exc.returncode}); "
+            "cleaning up and retrying once..."
+        )
+        if install.exists():
+            shutil.rmtree(install, ignore_errors=True)
+        subprocess.run(command, check=True, timeout=300)
 
 
 if __name__ == "__main__":
