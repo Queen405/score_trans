@@ -20,6 +20,18 @@ Windows 使用 tools/smoke_installer.py，静默安装后检查最终 resources�
 安装器退出码非零或超时直接失败，禁止使用旧文件存在或 7z 解包结果放行。
 安装/重装超时 600 秒，卸载超时 300 秒；只清理本次启动的进程树。
 
+Windows 安装阶段即时记录 PID、时间、耗时和退出码，每 30 秒采集安装目录的
+文件数量、总大小和最近变更文件。超时清理前，tools/installer_diagnostics.py
+额外采集本次安装器进程树及其窗口/控件文本（包含隐藏的错误弹窗）。
+诊断使用独立的 Python 子进程，正常采集预算最多 10 秒；若采集超时，
+分别限时 5 秒清理诊断进程树和回收父进程，并保留已经产生的输出。
+采集或清理失败不会覆盖原始安装错误，不会将超时安装判定为成功。
+
+这些记录写入 desktop/smoke-reports/install.jsonl、reinstall.jsonl、uninstall.jsonl，
+并同步输出到 installer.log。可在失败的 Actions 运行摘要页下载
+package-diagnostics-windows 附件；重点检查 timeout 后的 snapshot 或 diagnostic-error，
+其中 output 保留诊断子进程输出。未记录的阶段表示尚未执行到该步骤。
+
 macOS 使用 tools/smoke_mac.py，挂载实际 DMG，以 ditto 复制 .app 到临时目录，
 测试复制后的 resources 与 Contents/MacOS/Score Trans，并在 finally 中卸载镜像。
 

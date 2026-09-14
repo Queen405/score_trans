@@ -28,6 +28,8 @@ import { checkForUpdate } from './updater'
 let mainWindow: BrowserWindow | null = null
 let backend: BackendProcess | null = null
 let quitting = false
+let quitRequested = false
+let quitTask: Promise<void> | null = null
 let allowWindowClose = false
 let rendererCloseListenerReady = false
 let rendererWasReady = false
@@ -102,6 +104,8 @@ function createWindow(): void {
     if (!rendererCloseListenerReady || mainWindow?.webContents.isDestroyed()) {
       if (!rendererWasReady || confirmCloseWithoutRenderer()) {
         approveWindowClose(intent)
+      } else {
+        quitRequested = false
       }
       return
     }
@@ -198,6 +202,7 @@ app.whenReady().then(async () => {
         requestId,
         decision === 'proceed' ? 'proceed' : 'cancel',
       )
+      if (resolution.kind === 'cancel') quitRequested = false
       if (resolution.kind === 'proceed') approveWindowClose(resolution.intent)
     },
   )
@@ -239,29 +244,29 @@ app.whenReady().then(async () => {
   createWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!quitRequested && BrowserWindow.getAllWindows().length === 0) {
       createWindow()
     }
   })
 })
 
-app.on('before-quit', async (e) => {
+app.on('before-quit', (e) => {
+  if (quitting) return
+  e.preventDefault()
+  quitRequested = true
   if (mainWindow && !allowWindowClose) {
-    e.preventDefault()
     mainWindow.close()
     return
   }
-  if (quitting) return
-  quitting = true
-  if (backend) {
-    e.preventDefault()
-    await cleanupBackend()
+  // Repeated quit requests must wait even after cleanupBackend clears backend.
+  if (quitTask) return
+  quitTask = cleanupBackend().then(() => {
+    quitting = true
     app.quit()
-  }
+  })
 })
 
-app.on('will-quit', async () => {
-  await cleanupBackend()
+app.on('will-quit', () => {
   ipcMain.removeHandler('get-backend-connection')
   ipcMain.removeHandler('window:minimize')
   ipcMain.removeHandler('window:toggle-maximize')
@@ -313,6 +318,11 @@ function confirmCloseWithoutRenderer(): boolean {
 
 function approveWindowClose(intent: CloseIntent): void {
   allowWindowClose = true
-  if (intent === 'relaunch') app.relaunch()
-  mainWindow?.close()
+  if (intent === 'relaunch') {
+    app.relaunch()
+    quitRequested = true
+  }
+  // macOS stays resident after its last window closes; resume an explicit quit.
+  if (quitRequested) app.quit()
+  else mainWindow?.close()
 }
