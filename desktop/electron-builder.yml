@@ -45,6 +45,11 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  # Use ZIP instead of 7z for the embedded app archive. The Nsis7z plugin is a
+  # 32-bit DLL that can crash (0xC0000005) when extracting the large payload
+  # (JDK + Audiveris + backend) on headless CI runners. ZIP uses nsisunz which
+  # is more stable. The installer is ~10% larger but reliably installs.
+  useZip: true
 
 mac:
   target:
