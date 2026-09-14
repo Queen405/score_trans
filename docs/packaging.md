@@ -63,6 +63,11 @@ desktop/scripts/smoke-desktop.mjs 使用锁定的 playwright-core 驱动实际�
 调用原生进程快照 API，由外层 Python 通过 `--python` 传入当前虚拟环境解释器；
 不依赖 PowerShell/WMI。macOS 继续使用 `ps`。两端都要求只有一个直属后端子进程，
 并继续检查应用退出后后端进程与端口均已关闭。
+Windows 下 Playwright 会通过 `cmd.exe` 启动 Electron，因此其 `process().pid`
+可能是启动壳的 PID。检查通过 `application.evaluate(() => process.pid)` 取得
+Electron 主进程 PID，再查找其直属后端；`application-processes.json` 保存启动壳、
+Electron 与后端的 PID。退出后分别断言三个进程均已结束。
+工具测试使用真实 Playwright 启动隐藏的 Electron 测试窗口，覆盖这一层启动壳。
 查询预算 10 秒，输出直接写入文件，超时仅清理查询进程树。
 每个冒烟阶段的目录保存 `process-query.json`、`process-query.stdout.log` 和
 `process-query.stderr.log`，分别提供状态、查询结果和错误输出；这些文件随现有

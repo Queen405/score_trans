@@ -93,8 +93,14 @@ export function selectBackendPid(output, parentPid, platform) {
   return candidates[0].pid
 }
 
-export async function inspectBackendProcess(parentPid, { python, reports }) {
+export async function inspectBackendProcess(application, { python, reports }) {
+  // Playwright launches through cmd.exe on Windows; process().pid is the launcher.
+  const parentPid = await application.evaluate(() => process.pid)
   if (!Number.isSafeInteger(parentPid) || parentPid <= 0) throw new Error('Invalid application PID')
+  const identity = { launcherPid: application.process().pid, electronPid: parentPid }
+  const identityFile = join(reports, 'application-processes.json')
+  await writeFile(identityFile, JSON.stringify(identity, null, 2))
+  console.log(`[desktop] launcher PID=${identity.launcherPid}, Electron PID=${parentPid}`)
   const windows = process.platform === 'win32'
   if (windows && !python) throw new Error('--python is required for Windows process inspection')
   const command = windows ? python : 'ps'
@@ -102,5 +108,7 @@ export async function inspectBackendProcess(parentPid, { python, reports }) {
     ? [fileURLToPath(new URL('../../tools/installer_diagnostics.py', import.meta.url)), '--pid', String(parentPid), '--processes-only']
     : ['-axo', 'pid=,ppid=,comm=']
   const output = await runProcessQuery(command, args, reports)
-  return selectBackendPid(output, parentPid, process.platform)
+  identity.backendPid = selectBackendPid(output, parentPid, process.platform)
+  await writeFile(identityFile, JSON.stringify(identity, null, 2))
+  return identity
 }

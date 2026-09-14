@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { copyFile, mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
+import { copyFile, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+import { createRequire } from 'node:module'
+import { _electron as electron } from 'playwright-core'
 import { inspectBackendProcess, runProcessQuery, selectBackendPid } from './smoke-processes.mjs'
 
 async function temporary(t) {
@@ -75,10 +77,64 @@ test('Windows native query finds a real backend.exe child using the project venv
   await once(child, 'spawn')
   try {
     const python = fileURLToPath(new URL('../../.venv/Scripts/python.exe', import.meta.url))
-    assert.equal(await inspectBackendProcess(process.pid, { reports, python }), child.pid)
+    const application = { evaluate: async (callback) => callback(), process: () => process }
+    const identity = await inspectBackendProcess(application, { reports, python })
+    assert.equal(identity.backendPid, child.pid)
   } finally {
     const exited = once(child, 'exit')
     child.kill()
     await exited
+  }
+})
+
+test('Playwright Windows launch locates the backend owned by Electron, including its shell wrapper', { skip: process.platform !== 'win32' }, async (t) => {
+  const reports = await temporary(t)
+  const executable = join(reports, 'backend.exe')
+  await copyFile(process.execPath, executable)
+  const entrypoint = join(reports, 'app.cjs')
+  await writeFile(entrypoint, `
+    const { app, BrowserWindow } = require('electron')
+    const { spawn } = require('node:child_process')
+    const { join } = require('node:path')
+    app.setPath('userData', join(__dirname, 'electron-data'))
+    app.disableHardwareAcceleration()
+    let backend, quitting = false
+    app.whenReady().then(async () => {
+      backend = spawn(${JSON.stringify(executable)}, ['-e', 'setInterval(() => {}, 1000)'], {
+        stdio: 'ignore', windowsHide: true,
+      })
+      globalThis.backendProbePid = backend.pid
+      const window = new BrowserWindow({ show: false })
+      await window.loadURL('data:text/html,<title>process ownership probe</title>')
+    })
+    app.on('before-quit', (event) => {
+      if (quitting || !backend) return
+      event.preventDefault()
+      backend.once('exit', () => { quitting = true; app.quit() })
+      backend.kill()
+    })
+  `)
+  const env = { ...process.env }
+  delete env.ELECTRON_RUN_AS_NODE
+  const application = await electron.launch({
+    executablePath: createRequire(import.meta.url)('electron'),
+    args: [entrypoint], env, timeout: 15000,
+  })
+  let identity
+  try {
+    await application.firstWindow({ timeout: 5000 })
+    const expected = await application.evaluate(() => ({ electronPid: process.pid, backendPid: globalThis.backendProbePid }))
+    const python = fileURLToPath(new URL('../../.venv/Scripts/python.exe', import.meta.url))
+    identity = await inspectBackendProcess(application, { reports, python })
+    assert.equal(identity.launcherPid, application.process().pid)
+    assert.equal(identity.electronPid, expected.electronPid)
+    assert.equal(identity.backendPid, expected.backendPid)
+    assert.notEqual(identity.launcherPid, identity.electronPid)
+    assert.deepEqual(JSON.parse(await readFile(join(reports, 'application-processes.json'), 'utf8')), identity)
+  } finally {
+    await application.close()
+  }
+  for (const pid of [identity.launcherPid, identity.electronPid, identity.backendPid]) {
+    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
   }
 })

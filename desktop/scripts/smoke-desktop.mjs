@@ -31,7 +31,7 @@ await writeFile(join(userData, 'storage-paths.json'), JSON.stringify({
 const expectedVersion = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version
 const errors = []
 const logs = []
-let application, page, child, backendPid, baseURL
+let application, page, child, electronPid, backendPid, baseURL
 let success = false
 const env = Object.fromEntries(Object.entries(ENV).filter(([key]) => !key.startsWith('SCORE_TRANS_')))
 env.SCORE_TRANS_ELECTRON_USER_DATA_DIR = userData
@@ -64,7 +64,7 @@ function killOwnedProcesses() {
     }
     try { process.kill(pid, 'SIGKILL') } catch (error) { if (error.code !== 'ESRCH') throw error }
   }
-  for (const pid of [child?.pid, backendPid]) {
+  for (const pid of [child?.pid, electronPid, backendPid]) {
     if (!alive(pid)) continue
     if (process.platform === 'win32') {
       spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { timeout: 10000, windowsHide: true })
@@ -103,10 +103,12 @@ try {
   await page.locator('.app-shell').waitFor({ state: 'visible' })
   await page.getByRole('button', { name: '最小化', exact: true }).waitFor({ state: 'visible' })
   assert.equal(await page.evaluate(() => window.api.getVersion()), expectedVersion)
-  backendPid = await inspectBackendProcess(child.pid, {
+  const identity = await inspectBackendProcess(application, {
     python: argv.includes('--python') ? arg('python') : undefined,
     reports,
   })
+  electronPid = identity.electronPid
+  backendPid = identity.backendPid
   baseURL = await page.evaluate(async () => {
     const { baseURL: url, token } = await window.api.getBackendConnection()
     if (!url || !token) throw new Error('Backend IPC did not supply a connection')
@@ -125,7 +127,8 @@ try {
     application.close(),
     delay(15000).then(() => { throw new Error('Application did not quit normally') }),
   ])
-  assert.equal(alive(child.pid), false, 'Electron is still alive')
+  assert.equal(alive(child.pid), false, 'Electron launcher is still alive')
+  assert.equal(alive(electronPid), false, 'Electron main process is still alive')
   assert.equal(alive(backendPid), false, 'Backend process is still alive')
   assert.equal(await portOpen(), false, 'Backend port is still listening after app exit')
   assert.equal(errors.length, 0, errors.join('\n'))
