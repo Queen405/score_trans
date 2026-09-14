@@ -61,9 +61,7 @@ def prepare_assets(directory: Path, manifest: dict) -> list[Path]:
     for asset in installers:
         if not asset.is_file() or asset.stat().st_size == 0:
             raise ValueError(f"Missing or empty installer: {asset}")
-    actual = {
-        p.name for p in directory.iterdir() if p.suffix in {".exe", ".dmg"}
-    }
+    actual = {p.name for p in directory.iterdir() if p.suffix in {".exe", ".dmg"}}
     if actual != set(names):
         raise ValueError(f"Unexpected installer set: {actual}")
     manifest_path = directory / "latest.json"
