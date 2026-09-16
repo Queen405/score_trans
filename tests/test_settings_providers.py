@@ -225,10 +225,17 @@ def test_assistant_provider_profiles_include_agnes_and_sensenova() -> None:
     assert "agnes_2_5_flash" in ids
     assert "sensenova_deepseek_v4_flash" in ids
 
+    assert "agnes_3_0_flash" in ids
+
     agnes = resolve_provider_profile("assistant", "agnes_2_5_flash")
     assert agnes.provider == "agnes"
     assert agnes.base_url == "https://apihub.agnes-ai.com/v1"
     assert agnes.model == "agnes-2.5-flash"
+
+    agnes_3 = resolve_provider_profile("assistant", "agnes_3_0_flash")
+    assert agnes_3.provider == "agnes"
+    assert agnes_3.base_url == "https://apihub.agnes-ai.com/v1"
+    assert agnes_3.model == "agnes-3.0-flash"
 
     sensenova = resolve_provider_profile("assistant", "sensenova_deepseek_v4_flash")
     assert sensenova.provider == "sensenova"
@@ -243,10 +250,17 @@ def test_ai_provider_profiles_include_agnes() -> None:
     assert "agnes_2_5_flash" in ids
     assert "sensenova_6_8_flash_lite" in ids
 
+    assert "agnes_3_0_flash" in ids
+
     agnes = resolve_provider_profile("ai", "agnes_2_5_flash")
     assert agnes.provider == "openai_compatible"
     assert agnes.base_url == "https://apihub.agnes-ai.com/v1"
     assert agnes.model == "agnes-2.5-flash"
+
+    agnes_3 = resolve_provider_profile("ai", "agnes_3_0_flash")
+    assert agnes_3.provider == "openai_compatible"
+    assert agnes_3.base_url == "https://apihub.agnes-ai.com/v1"
+    assert agnes_3.model == "agnes-3.0-flash"
 
     sensenova = resolve_provider_profile("ai", "sensenova_6_8_flash_lite")
     assert sensenova.provider == "sensenova"
