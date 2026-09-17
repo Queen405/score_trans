@@ -6,12 +6,18 @@
     <div class="player-left">
       <button
         class="player-btn play-btn"
-        :disabled="!player.isReady.value"
-        :title="player.isPlaying.value ? '暂停' : '播放'"
+        :disabled="isGenerating"
+        :title="isGenerating ? t('components.jianpuPlayer.generatingMidi') : player.isPlaying.value ? t('common.action.pause') : t('common.action.play')"
         @click="togglePlay"
       >
         <svg
-          v-if="!player.isPlaying.value"
+          v-if="isGenerating"
+          class="spin"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        ><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" /></svg>
+        <svg
+          v-else-if="!player.isPlaying.value"
           viewBox="0 0 24 24"
           fill="currentColor"
         ><path d="M8 5v14l11-7z" /></svg>
@@ -24,7 +30,7 @@
       <button
         class="player-btn"
         :disabled="!player.isReady.value"
-        title="停止"
+        :title="t('common.action.stop')"
         @click="stopPlayback"
       >
         <svg
@@ -40,11 +46,11 @@
       <span
         v-if="player.isReady.value && !player.sourceMapReady.value"
         class="player-time"
-      >无谱面定位信息</span>
+      >{{ t('components.jianpuPlayer.noSourceMap') }}</span>
       <span
         v-else-if="player.isReady.value && !player.intervalTrackingReady.value"
         class="player-time"
-      >无逐音时长定位</span>
+      >{{ t('components.jianpuPlayer.noIntervalTracking') }}</span>
       <span class="player-time">{{ player.currentTimeFormatted.value }} / {{ player.durationFormatted.value }}</span>
     </div>
 
@@ -70,7 +76,7 @@
     <div class="player-right">
       <div
         class="tempo-control"
-        title="速度"
+        :title="t('components.jianpuPlayer.tempo')"
       >
         <svg
           class="tempo-icon"
@@ -83,13 +89,13 @@
           size="tiny"
           style="width: 72px"
           :consistent-menu-width="false"
-          aria-label="播放倍率"
+          :aria-label="t('components.jianpuPlayer.playbackRate')"
           @update:value="handleRateChange"
         />
       </div>
       <div
         class="volume-control"
-        title="音量"
+        :title="t('components.jianpuPlayer.volume')"
       >
         <button
           class="player-btn-sm"
@@ -128,6 +134,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { NSelect, NSlider, useMessage } from 'naive-ui'
+import { t } from '../i18n'
 import { usePlayer } from '../composables/usePlayer'
 import { ApiError, getFileURL, requireData } from '../api/client'
 import { exportApi } from '../api/export'
@@ -165,6 +172,7 @@ const player = usePlayer()
 const message = useMessage()
 const logStore = useLogStore()
 const progressRef = ref<HTMLElement>()
+const isGenerating = ref(false)
 const visible = computed(() => !!props.musicxmlFileId || !!props.jianpuText?.trim() || !!props.midiFileId)
 const rateOptions = PLAYBACK_RATES.map((rate) => ({ label: `${rate}x`, value: rate }))
 
@@ -182,7 +190,7 @@ let lastVolumeRatio = initialVolumeRatio > 0 ? initialVolumeRatio : 0.8
 let currentLoadId = ''
 let loadGeneration = 0
 
-async function loadFromProps(skipDirect = false): Promise<void> {
+async function loadFromProps(skipDirect = false, silent = false): Promise<void> {
   const loadId = buildPlayerLoadId(props)
   if (!skipDirect && loadId === currentLoadId) return
   currentLoadId = loadId
@@ -193,10 +201,10 @@ async function loadFromProps(skipDirect = false): Promise<void> {
       await loadMidiForGeneration(getFileURL(props.midiFileId), gen)
       if (gen !== loadGeneration) return
       if (!player.intervalTrackingReady.value && (props.jianpuText?.trim() || props.musicxmlFileId)) {
-        await loadFromProps(true)
+        await loadFromProps(true, silent)
       }
     } catch (error: unknown) {
-      reportMidiError(error, gen)
+      reportMidiError(error, gen, silent)
     }
     return
   }
@@ -207,12 +215,12 @@ async function loadFromProps(skipDirect = false): Promise<void> {
       const result = await requireData(exportApi.exportMidiText({
         jianpu_text: props.jianpuText,
         filename: 'player.mid',
-        title: '简谱',
+        title: t('components.jianpuPlayer.midiTitle'),
       }))
       if (gen !== loadGeneration) return
       await loadMidiForGeneration(getFileURL(result.file_id), gen)
     } catch (error: unknown) {
-      reportMidiError(error, gen)
+      reportMidiError(error, gen, silent)
     }
     return
   }
@@ -227,7 +235,7 @@ async function loadFromProps(skipDirect = false): Promise<void> {
       if (gen !== loadGeneration) return
       await loadMidiForGeneration(getFileURL(result.file_id), gen)
     } catch (error: unknown) {
-      reportMidiError(error, gen)
+      reportMidiError(error, gen, silent)
     }
   }
 }
@@ -240,18 +248,20 @@ async function loadMidiForGeneration(url: string, generation: number): Promise<v
   if (player.error.value) throw new Error(player.error.value)
 }
 
-function reportMidiError(error: unknown, generation: number): void {
+function reportMidiError(error: unknown, generation: number, silent = false): void {
   if (generation !== loadGeneration) return
   const detail = error instanceof Error ? error.message : String(error)
   if (error instanceof ApiError && error.code === 'jianpu_syntax') {
     player.unload()
-    const msg = '存在语法错误，无法生成 MIDI，请先修复'
+    if (silent) return
+    const msg = t('components.jianpuPlayer.syntaxErrorCannotGenerate')
     logStore.addError(msg)
     message.error(msg)
     return
   }
   player.unload()
-  const msg = `MIDI 加载失败：${detail}`
+  if (silent) return
+  const msg = t('components.jianpuPlayer.midiLoadFailed', { detail })
   logStore.addError(msg)
   message.error(msg)
 }
@@ -259,9 +269,23 @@ function reportMidiError(error: unknown, generation: number): void {
 async function togglePlay(): Promise<void> {
   if (player.isPlaying.value) {
     player.pause()
-  } else {
-    await player.play()
+    return
   }
+  if (!player.isReady.value) {
+    if (jianpuDebounce) {
+      clearTimeout(jianpuDebounce)
+      jianpuDebounce = null
+    }
+    currentLoadId = ''
+    isGenerating.value = true
+    try {
+      await loadFromProps(false, false)
+    } finally {
+      isGenerating.value = false
+    }
+    if (!player.isReady.value) return
+  }
+  await player.play()
 }
 
 function stopPlayback(): void {
@@ -378,12 +402,19 @@ watch(() => props.jianpuText, () => {
     jianpuDebounce = null
     player.stop()
     currentLoadId = ''
-    void loadFromProps()
+    void loadFromProps(false, true)
   }, 600)
 })
 </script>
 
 <style scoped>
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
 .jianpu-player {
   display: flex;
   align-items: center;

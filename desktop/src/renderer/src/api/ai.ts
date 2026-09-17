@@ -15,6 +15,7 @@ import type {
   AiTranscribeRequest,
   TaskSubmitResponse,
 } from '../models/types'
+import { t } from '../i18n'
 
 interface ChatStreamHandlers {
   onSession?: (sessionId: string) => void
@@ -77,7 +78,7 @@ export const aiApi = {
         const rawMessage = payload.error ?? payload.detail
         throw new ApiError(typeof rawMessage === 'string' ? rawMessage : `HTTP ${response.status}`)
       }
-      if (!response.body) throw new ApiError('浏览器不支持流式响应')
+      if (!response.body) throw new ApiError(t('runtime.api.streamUnsupported'))
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
@@ -124,7 +125,7 @@ function handleSseBlock(block: string, handlers: ChatStreamHandlers): void {
     return
   }
   if (parsed.event === 'error') {
-    const error = typeof parsed.data.error === 'string' ? parsed.data.error : 'AI 响应中断'
+    const error = typeof parsed.data.error === 'string' ? parsed.data.error : t('runtime.api.aiInterrupted')
     throw new ApiError(error)
   }
 }

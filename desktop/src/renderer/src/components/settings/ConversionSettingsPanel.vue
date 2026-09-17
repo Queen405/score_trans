@@ -2,17 +2,17 @@
   <div class="sv-panel">
     <section class="sv-section">
       <div class="sv-section-heading">
-        <h3>简谱规则</h3>
+        <h3>{{ t('settings.conversion.jianpuRules') }}</h3>
       </div>
 
       <div class="sv-form-stack">
-        <settings-form-row label="简谱调">
+        <settings-form-row :label="t('settings.conversion.jianpuKey')">
           <div class="sv-key-pickers">
             <n-checkbox
               v-model:checked="autoKey"
-              title="勾选后自动识别 MusicXML 中的调号，未识别到时默认 C 调"
+              :title="t('settings.conversion.autoKeyHint')"
             >
-              自动识别
+              {{ t('settings.conversion.autoKey') }}
             </n-checkbox>
             <n-select
               v-model:value="accidental"
@@ -31,7 +31,7 @@
           </div>
         </settings-form-row>
 
-        <settings-form-row label="半音记谱">
+        <settings-form-row :label="t('settings.conversion.accidentalMode')">
           <n-select
             v-model:value="settings.draft.accidentalMode"
             :options="accidentalModeOptions"
@@ -39,7 +39,7 @@
           />
         </settings-form-row>
 
-        <settings-form-row label="小节号">
+        <settings-form-row :label="t('settings.conversion.measureNumber')">
           <n-select
             v-model:value="settings.draft.measureNumberMode"
             :options="measureNumberModeOptions"
@@ -48,7 +48,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="识别五线谱文字"
+          :label="t('settings.conversion.enableOmrOcr')"
         >
           <n-switch
             v-model:value="settings.draft.enableOmrOcr"
@@ -57,7 +57,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="复调识别"
+          :label="t('settings.conversion.polyphony')"
         >
           <n-switch
             :value="settings.draft.polyphonyMode !== 'flatten'"
@@ -67,7 +67,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="代码配色"
+          :label="t('settings.conversion.syntaxHighlight')"
         >
           <n-switch
             v-model:value="settings.draft.jianpuSyntaxHighlight"
@@ -76,7 +76,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="检查小节时值"
+          :label="t('settings.conversion.measureDurationCheck')"
         >
           <n-switch
             v-model:value="settings.draft.jianpuMeasureDurationCheck"
@@ -85,7 +85,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="修改调号自动转调"
+          :label="t('settings.conversion.autoTranspose')"
         >
           <n-switch
             v-model:value="settings.draft.jianpuAutoTranspose"
@@ -99,16 +99,16 @@
 
     <section class="sv-section">
       <div class="sv-section-heading">
-        <h3>导出</h3>
+        <h3>{{ t('settings.conversion.export') }}</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
-          label="默认导出位置"
+          :label="t('settings.conversion.defaultExport')"
         >
           <n-input
             v-model:value="settings.draft.outputDir"
-            placeholder="选择默认导出目录"
+            :placeholder="t('settings.conversion.defaultExportPlaceholder')"
             size="small"
           >
             <template #suffix>
@@ -117,7 +117,7 @@
                 quaternary
                 @click="selectOutputDir"
               >
-                浏览
+                {{ t('common.action.browse') }}
               </n-button>
             </template>
           </n-input>
@@ -131,6 +131,7 @@
 import { NButton, NCheckbox, NInput, NSelect, NSwitch } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
 import { useSettingsStore } from '../../stores/settings'
+import { t } from '../../i18n'
 import type { AccidentalMode, MeasureNumberMode, TargetKey } from '../../models/types'
 import SettingsFormRow from './SettingsFormRow.vue'
 
@@ -212,27 +213,27 @@ const baseKey = computed<KeyBase>({
   },
 })
 
-const accidentalOptions = [
-  { label: '无', value: 'natural' as KeyAccidental },
-  { label: '升号', value: 'sharp' as KeyAccidental },
-  { label: '降号', value: 'flat' as KeyAccidental },
-]
+const accidentalOptions = computed(() => [
+  { label: t('settings.conversion.optionNone'), value: 'natural' as KeyAccidental },
+  { label: t('settings.conversion.optionSharp'), value: 'sharp' as KeyAccidental },
+  { label: t('settings.conversion.optionFlat'), value: 'flat' as KeyAccidental },
+])
 
 const baseKeyOptions = computed(() =>
   allowedBases(accidental.value).map((b) => ({ label: baseLabels[b], value: b })),
 )
 
-const accidentalModeOptions: { label: string; value: AccidentalMode }[] = [
-  { label: '自动', value: 'auto' },
-  { label: '升号', value: 'sharp' },
-  { label: '降号', value: 'flat' },
-]
+const accidentalModeOptions = computed<{ label: string; value: AccidentalMode }[]>(() => [
+  { label: t('settings.conversion.optionAuto'), value: 'auto' },
+  { label: t('settings.conversion.optionSharp'), value: 'sharp' },
+  { label: t('settings.conversion.optionFlat'), value: 'flat' },
+])
 
-const measureNumberModeOptions: { label: string; value: MeasureNumberMode }[] = [
-  { label: '全部显示', value: 'all' },
-  { label: '每行首显示', value: 'row_start' },
-  { label: '隐藏', value: 'none' },
-]
+const measureNumberModeOptions = computed<{ label: string; value: MeasureNumberMode }[]>(() => [
+  { label: t('settings.conversion.measureAll'), value: 'all' },
+  { label: t('settings.conversion.measureRowStart'), value: 'row_start' },
+  { label: t('settings.conversion.measureHide'), value: 'none' },
+])
 
 async function selectOutputDir(): Promise<void> {
   const result = await desktopApi().selectDirectory()

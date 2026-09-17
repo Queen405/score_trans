@@ -24,6 +24,7 @@ import {
   type StoragePathUpdate,
 } from './storage'
 import { checkForUpdate } from './updater'
+import { registerLocaleIpc, t } from './locale'
 
 let mainWindow: BrowserWindow | null = null
 let backend: BackendProcess | null = null
@@ -37,6 +38,7 @@ let nextCloseIntent: CloseIntent = 'close'
 const closeCoordinator = new CloseCoordinator()
 
 configureElectronStoragePaths()
+registerLocaleIpc()
 
 function createWindow(): void {
   allowWindowClose = false
@@ -146,8 +148,8 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('[main] Failed to start backend:', err)
     dialog.showErrorBox(
-      '后端启动失败',
-      `Score Trans 后端无法启动，应用即将退出。\n\n${errorMessage(err)}`,
+      t('backend.startFailedTitle'),
+      t('backend.startFailedBody', { detail: errorMessage(err) }),
     )
     await cleanupBackend()
     app.quit()
@@ -305,10 +307,10 @@ function confirmCloseWithoutRenderer(): boolean {
   if (!mainWindow) return true
   const choice = dialog.showMessageBoxSync(mainWindow, {
     type: 'warning',
-    title: '无法检查未保存的更改',
-    message: '界面进程当前不可用，未保存的更改可能丢失。',
-    detail: '是否仍要直接退出？',
-    buttons: ['取消', '直接退出'],
+    title: t('close.unavailableTitle'),
+    message: t('close.unavailableMessage'),
+    detail: t('close.unavailableDetail'),
+    buttons: [t('close.cancel'), t('close.quit')],
     defaultId: 0,
     cancelId: 0,
     noLink: true,

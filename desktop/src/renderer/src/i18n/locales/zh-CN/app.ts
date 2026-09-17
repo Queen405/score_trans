@@ -1,0 +1,55 @@
+const app = {
+  window: {
+    controls: '窗口控制',
+    minimize: '最小化',
+    maximize: '最大化',
+    restore: '还原',
+    close: '关闭',
+  },
+  nav: {
+    recognize: '识别',
+    convert: '工作台',
+    syntax: '语法',
+    settings: '设置',
+  },
+  log: {
+    title: '日志',
+    backgroundProcessing: '后台处理中…',
+    runErrors: '运行 {count}',
+    syntaxErrors: '语法报错{count}',
+    durationWarnings: '时值警告{count}',
+    runLog: '运行日志',
+    syntaxCheck: '语法检查',
+    errorsCount: '{count} 个错误',
+    warningsCount: '{count} 个警告',
+    showDurationWarnings: '点击显示时值警告',
+    hideDurationWarnings: '点击隐藏时值警告',
+  },
+  update: {
+    check: '点击检查更新',
+    found: '发现新版本 v{version}，点击前往下载',
+    upToDate: '已是最新版本',
+    failed: '检查更新失败：{error}',
+  },
+  discard: {
+    title: '放弃未保存的更改？',
+    message: '设置页中的修改还没有应用。放弃后，这些修改将无法恢复。',
+    continue: '继续编辑',
+    confirm: '放弃更改',
+  },
+  close: {
+    titleRelaunch: '重启前保存更改？',
+    titleClose: '关闭前保存更改？',
+    message: '当前有更改尚未保存。',
+    blocked: '任务处理中，完成后可保存。',
+    discardRelaunch: '直接重启',
+    discardClose: '直接关闭',
+    saveRelaunch: '保存并重启',
+    saveClose: '保存并关闭',
+    relaunchAction: '重启',
+    closeAction: '关闭',
+    saveFailed: '保存失败，已取消{action}：{detail}',
+  },
+}
+
+export default app

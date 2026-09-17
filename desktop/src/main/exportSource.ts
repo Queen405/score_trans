@@ -1,3 +1,5 @@
+import { t } from './locale'
+
 export interface ExportBufferSource {
   buffer: ArrayBuffer
 }
@@ -9,7 +11,7 @@ export function exportSourceBuffer(source: unknown): Buffer {
     || !('buffer' in source)
     || !(source.buffer instanceof ArrayBuffer)
   ) {
-    throw new Error('导出来源必须包含 ArrayBuffer')
+    throw new Error(t('export.sourceArrayBuffer'))
   }
   return Buffer.from(source.buffer)
 }

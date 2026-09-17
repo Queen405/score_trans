@@ -16,7 +16,7 @@
           </n-icon>
           <div class="upload-text">
             <span class="upload-title">{{ uploadStatusText }}</span>
-            <span class="upload-hint">支持多选 · PDF / PNG / JPG / TIF / MusicXML</span>
+            <span class="upload-hint">{{ t('components.fileUploader.supportFormats') }}</span>
           </div>
         </div>
       </n-upload-dragger>
@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { CloudUploadOutline } from '@vicons/ionicons5'
+import { t } from '../i18n'
 import { useFileUpload } from '../composables/useFileUpload'
 import { useLogStore } from '../stores/log'
 import { NUpload, NUploadDragger, NIcon, NProgress } from 'naive-ui'
@@ -72,8 +73,8 @@ const uploadQueue: File[] = []
 let isProcessingQueue = false
 
 const uploadStatusText = computed(() => {
-  if (!uploading.value) return '点击或拖拽文件到此处'
-  return phase.value === 'processing' ? '正在解析...' : '正在上传...'
+  if (!uploading.value) return t('components.fileUploader.dragHint')
+  return phase.value === 'processing' ? t('components.fileUploader.processing') : t('components.fileUploader.uploading')
 })
 
 async function handleUpload({ file }: UploadCustomRequestOptions): Promise<void> {
@@ -92,10 +93,10 @@ async function processUploadQueue(): Promise<void> {
   try {
     while (uploadQueue.length > 0) {
       const currentFile = uploadQueue.shift()!
-      log.addLog(`正在上传：${currentFile.name}`)
+      log.addLog(t('components.fileUploader.uploadingLog', { name: currentFile.name }))
       const result = await upload(currentFile)
       if (result) {
-        log.addLog(`上传成功：${result.filename}`)
+        log.addLog(t('components.fileUploader.uploadSuccessLog', { name: result.filename }))
         if (result.pages && result.pages.length > 0) {
           for (const page of result.pages) {
             emit('uploaded', page.file_id, page.filename)
@@ -104,10 +105,10 @@ async function processUploadQueue(): Promise<void> {
           emit('uploaded', result.file_id, result.filename)
         }
       } else {
-        const detail = error.value || '上传失败，请重试'
+        const detail = error.value || t('components.fileUploader.uploadFailedRetry')
         const message = `${currentFile.name}：${detail}`
         uploadErrors.value = [...uploadErrors.value, message]
-        log.addError(`上传失败：${message}`)
+        log.addError(t('components.fileUploader.uploadFailedLog', { message }))
       }
     }
     uploadRef.value?.clear()

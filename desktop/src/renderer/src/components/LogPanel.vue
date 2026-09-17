@@ -21,7 +21,7 @@
       class="log-line info"
     >
       <span class="log-dot info" />
-      <span class="log-msg empty">暂无日志</span>
+      <span class="log-msg empty">{{ t('components.logPanel.noLog') }}</span>
     </div>
   </div>
 </template>
@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { useLogStore } from '../stores/log'
+import { t } from '../i18n'
 
 const logStore = useLogStore()
 const logContainer = ref<HTMLDivElement>()

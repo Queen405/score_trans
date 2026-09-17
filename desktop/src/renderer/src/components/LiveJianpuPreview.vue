@@ -1,10 +1,10 @@
 <template>
   <div ref="rootRef" class="live-preview">
     <div v-if="svg" ref="hostRef" class="live-svg" v-html="safeSvg" />
-    <div v-else class="live-status">{{ loading ? '渲染中…' : '输入简谱后自动预览当前小节' }}</div>
-    <div v-if="loading && svg" class="live-loading" role="status">渲染中…</div>
+    <div v-else class="live-status">{{ loading ? t('components.liveJianpuPreview.rendering') : t('components.liveJianpuPreview.inputHint') }}</div>
+    <div v-if="loading && svg" class="live-loading" role="status">{{ t('components.liveJianpuPreview.rendering') }}</div>
     <div v-if="error" class="live-error" role="status">
-      <span v-if="svg">显示上次成功预览。 </span>{{ error }}
+      <span v-if="svg">{{ t('components.liveJianpuPreview.showLastPreview') }} </span>{{ error }}
     </div>
     <div v-else-if="warnings?.length" class="live-warning" role="status">
       <div v-for="warning in warnings" :key="warning.id">{{ warning.message }}</div>
@@ -15,6 +15,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue"
 import type { SyntaxDiagnostic } from '../models/types'
 import { sanitizeSvg } from "../utils/svgSanitizer"
+import { t } from '../i18n'
 
 const props = defineProps<{ svg: string; loading?: boolean; error?: string; warnings?: SyntaxDiagnostic[] }>()
 const safeSvg = computed(() => sanitizeSvg(props.svg).outerHTML)

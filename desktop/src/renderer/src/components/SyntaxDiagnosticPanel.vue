@@ -4,7 +4,7 @@
       v-if="syntaxStore.loading"
       class="syntax-diagnostic-state"
     >
-      检查中…
+      {{ t('components.syntaxDiagnosticPanel.checking') }}
     </div>
     <div
       v-else-if="syntaxStore.error"
@@ -16,7 +16,7 @@
       v-else-if="!syntaxStore.visibleDiagnostics.length"
       class="syntax-diagnostic-state"
     >
-      {{ syntaxStore.hideWarnings && syntaxStore.warningCount ? '未发现语法问题（时值警告已隐藏）' : '未发现语法问题' }}
+      {{ syntaxStore.hideWarnings && syntaxStore.warningCount ? t('components.syntaxDiagnosticPanel.noIssueWarningsHidden') : t('components.syntaxDiagnosticPanel.noIssue') }}
     </div>
     <template v-else>
       <button
@@ -29,7 +29,7 @@
         @keydown.enter.prevent="selectDiagnostic(diagnostic)"
         @keydown.space.prevent="selectDiagnostic(diagnostic)"
       >
-        <span class="syntax-diagnostic-location">{{ diagnostic.measure ? `第 ${diagnostic.measure} 小节` : '—' }}</span>
+        <span class="syntax-diagnostic-location">{{ diagnostic.measure ? t('components.syntaxDiagnosticPanel.measureLabel', { n: diagnostic.measure }) : '—' }}</span>
         <span class="syntax-diagnostic-message">{{ diagnostic.message }}</span>
       </button>
     </template>
@@ -39,6 +39,7 @@
 <script setup lang="ts">
 import { useSyntaxDiagnosticsStore } from '../stores/syntaxDiagnostics'
 import type { SyntaxDiagnostic } from '../models/types'
+import { t } from '../i18n'
 const syntaxStore = useSyntaxDiagnosticsStore()
 
 function selectDiagnostic(diagnostic: SyntaxDiagnostic): void {

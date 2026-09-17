@@ -2,7 +2,7 @@
   <div class="recognize-view">
     <div class="rv-header">
       <div class="rv-title">
-        <h2>智能识别</h2>
+        <h2>{{ t('recognize.header.title') }}</h2>
       </div>
       <div class="rv-header-actions">
         <div
@@ -13,13 +13,13 @@
             type="button"
             class="rv-website"
             :class="{ active: qqOpen }"
-            title="加入官方 QQ 交流群"
+            :title="t('recognize.qq.joinTooltip')"
             @click="toggleQq"
           >
             <n-icon size="16">
               <ChatbubblesOutline />
             </n-icon>
-            <span>官方Q群</span>
+            <span>{{ t('recognize.qq.groupButton') }}</span>
           </button>
           <transition name="rv-qqpop">
             <div
@@ -28,19 +28,19 @@
             >
               <div class="rv-qq-card-head">
                 <span class="rv-qq-dot" />
-                <span class="rv-qq-heading">QQ 交流群</span>
+                <span class="rv-qq-heading">{{ t('recognize.qq.heading') }}</span>
               </div>
               <div class="rv-qq-qr">
                 <img
                   src="../assets/qq-group.jpg"
-                  alt="Score Trans QQ 群二维码"
+                  :alt="t('recognize.qq.qrAlt')"
                 >
               </div>
               <div class="rv-qq-title">
-                扫码加入 QQ 交流群
+                {{ t('recognize.qq.scanToJoin') }}
               </div>
               <div class="rv-qq-sub">
-                反馈 · 交流 · 分享 · 建议
+                {{ t('recognize.qq.subtitle') }}
               </div>
             </div>
           </transition>
@@ -48,13 +48,13 @@
         <button
           type="button"
           class="rv-website"
-          title="访问官网 www.score-trans.com"
+          :title="t('recognize.header.websiteTitle')"
           @click="openWebsite"
         >
           <n-icon size="16">
             <GlobeOutline />
           </n-icon>
-          <span>官网</span>
+          <span>{{ t('recognize.header.websiteButton') }}</span>
         </button>
       </div>
     </div>
@@ -70,7 +70,7 @@
             <n-icon size="18">
               <ScanOutline />
             </n-icon>
-            <span>智能识别</span>
+            <span>{{ t('recognize.card.recognition') }}</span>
           </div>
           <div class="card-header-right">
             <n-select
@@ -145,17 +145,17 @@
             <template #icon>
               <n-icon><FlashOutline /></n-icon>
             </template>
-            批量识别全部
+            {{ t('recognize.toolbar.recognizeAll') }}
           </n-button>
           <div class="ai-switch">
-            <span>AI 视觉识别</span>
+            <span>{{ t('recognize.toolbar.aiVision') }}</span>
             <n-switch
               v-model:value="aiVisionEnabled"
               size="small"
             />
           </div>
           <div class="instrument-select">
-            <span>乐器模式</span>
+            <span>{{ t('recognize.toolbar.instrumentMode') }}</span>
             <n-select
               v-model:value="instrumentProfile"
               :options="instrumentOptions"
@@ -166,7 +166,7 @@
           <span
             v-if="selectedPageCount"
             class="selection-count"
-          >已选 {{ selectedPageCount }}</span>
+          >{{ t('recognize.selection.count', { n: selectedPageCount }) }}</span>
         </div>
       </div>
 
@@ -176,7 +176,7 @@
           <n-icon size="18">
             <TimeOutline />
           </n-icon>
-          <span>历史记录</span>
+          <span>{{ t('recognize.card.history') }}</span>
         </div>
         <div class="card-stats-scroll">
           <HistoryQuickEntry :flush-pending-edits="props.flushPendingEdits" />
@@ -186,7 +186,7 @@
       <!-- 最近上传 -->
       <div class="dashboard-card card-uploads">
         <div class="card-title">
-          最近上传
+          {{ t('recognize.card.uploads') }}
         </div>
         <div
           v-if="store.currentBatchPages.length"
@@ -212,7 +212,7 @@
               v-if="page.status === 'failed' && !page.inputFileId"
               class="upload-reupload"
               type="button"
-              title="重新上传"
+              :title="t('recognize.uploads.reupload')"
               @click.stop="reuploadForPage(page)"
             >
               <n-icon size="12">
@@ -266,7 +266,7 @@
           >
             <CloudUploadOutline />
           </n-icon>
-          <span>暂无上传文件</span>
+          <span>{{ t('recognize.uploads.empty') }}</span>
         </div>
       </div>
 
@@ -276,7 +276,7 @@
           <n-icon size="18">
             <BarChartOutline />
           </n-icon>
-          <span>处理效率</span>
+          <span>{{ t('recognize.card.activity') }}</span>
         </div>
         <EfficiencyDashboard />
       </div>
@@ -353,6 +353,7 @@ import {
   ChatbubblesOutline,
 } from '@vicons/ionicons5'
 import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
+import { t } from '../i18n'
 
 type RecognitionMode = 'omr' | 'ai'
 
@@ -452,7 +453,7 @@ onMounted(async () => {
   try {
     instrumentCatalogs.value = await requireData(notationApi.listInstrumentProfiles())
   } catch (error: unknown) {
-    log.addLog(`加载乐器模式失败：${errorMessage(error)}`, 'warn')
+    log.addLog(t('recognize.log.loadInstrumentFailed', { detail: errorMessage(error) }), 'warn')
   }
 })
 
@@ -524,7 +525,9 @@ onUnmounted(() => {
 
 const batchOptions = computed(() =>
   store.batches.map((b, i) => ({
-    label: b.sealed ? `批次 ${i + 1}：${b.label}` : `草稿：${b.label}`,
+    label: b.sealed
+      ? t('recognize.batch.sealed', { n: i + 1, label: b.label })
+      : t('recognize.batch.draft', { label: b.label }),
     value: b.id,
   })),
 )
@@ -554,8 +557,8 @@ const recognizeButtonLoading = computed(() =>
 const recognizeButtonDisabled = computed(() => recognizeTargetPages.value.length === 0)
 const recognizeButtonText = computed(() =>
   selectedPages.value.length
-    ? `识别选中 ${recognizeTargetPages.value.length || selectedPages.value.length} 张`
-    : '识别并自动填充',
+    ? t('recognize.toolbar.recognizeSelected', { n: recognizeTargetPages.value.length || selectedPages.value.length })
+    : t('recognize.toolbar.recognize'),
 )
 const overallProgressPercent = computed(() => {
   if (!activePages.value.length) return 0
@@ -564,9 +567,9 @@ const overallProgressPercent = computed(() => {
 })
 const overallProgressText = computed(() => {
   if (activePages.value.length === 1) {
-    return activePages.value[0].progressMessage || '后台处理中'
+    return activePages.value[0].progressMessage || t('recognize.progress.background')
   }
-  return `${activePages.value.length} 个后台任务并行处理中`
+  return t('recognize.progress.parallel', { n: activePages.value.length })
 })
 
 watch(
@@ -598,16 +601,16 @@ function isStartablePage(page: TaskPage): boolean {
 
 function statusText(page: TaskPage): string {
   if (page.status === 'processing') {
-    return page.progressPercent > 0 ? `${Math.round(page.progressPercent)}%` : '处理中'
+    return page.progressPercent > 0 ? `${Math.round(page.progressPercent)}%` : t('recognize.status.processing')
   }
   if (page.status === 'failed' && !page.inputFileId) {
-    return '需重新上传'
+    return t('recognize.status.needReupload')
   }
   const map: Record<string, string> = {
-    completed: '完成',
-    failed: '失败',
-    pending: '待处理',
-    unrecognized: '未识别',
+    completed: t('recognize.status.completed'),
+    failed: t('recognize.status.failed'),
+    pending: t('recognize.status.pending'),
+    unrecognized: t('recognize.status.unrecognized'),
   }
   return map[page.status] ?? ''
 }
@@ -639,17 +642,17 @@ function removePageById(pageId: string): void {
   if (idx < 0) return
   const page = store.pages[idx]!
   if (page.status === 'processing') {
-    message.warning('后台识别中的页面暂不能移除')
+    message.warning(t('recognize.message.removeProcessingPage'))
     return
   }
   removePageSelection(pageId)
   store.removePage(idx)
-  log.addLog(`已移除：${page.inputFileName}`)
+  log.addLog(t('recognize.log.removed', { name: page.inputFileName }))
 }
 
 async function onFileUploaded(fileId: string, fileName: string): Promise<void> {
   store.addInputPage(fileName, fileId)
-  log.addLog(`已加入：${fileName}`)
+  log.addLog(t('recognize.log.added', { name: fileName }))
 }
 
 function reuploadForPage(page: TaskPage): void {
@@ -660,7 +663,7 @@ function reuploadForPage(page: TaskPage): void {
   input.onchange = async () => {
     const file = input.files?.[0]
     if (!file) return
-    log.addLog(`正在重新上传：${file.name}`)
+    log.addLog(t('recognize.log.reuploading', { name: file.name }))
     const result = await reupload.upload(file)
     if (result) {
       let fileId: string
@@ -686,9 +689,9 @@ function reuploadForPage(page: TaskPage): void {
         status: 'pending',
         errorMessage: '',
       })
-      log.addLog(`重新上传成功：${fileName}`)
+      log.addLog(t('recognize.log.reuploadSuccess', { name: fileName }))
     } else {
-      message.error('重新上传失败')
+      message.error(t('recognize.message.reuploadFailed'))
     }
   }
   input.click()
@@ -737,12 +740,15 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
       const missing = targets.filter((t) => !exists[t.inputFileId])
       if (missing.length) {
         message.error(
-          `${missing.length} 个页面的原始文件已丢失（后端重启或已清理），请重新上传：${missing.map((t) => t.inputFileName).join('、')}`
+          t('recognize.message.fileLost', {
+            n: missing.length,
+            names: missing.map((tg) => tg.inputFileName).join(', '),
+          }),
         )
-        for (const t of missing) {
-          store.patchPageById(t.pageId, {
+        for (const tg of missing) {
+          store.patchPageById(tg.pageId, {
             status: 'failed',
-            errorMessage: '原始文件已丢失，请重新上传',
+            errorMessage: t('recognize.message.fileLostPatch'),
           })
         }
         // Only continue with files that still exist
@@ -764,8 +770,8 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
     history = await prepareHistory(targets)
   } catch (error: unknown) {
     const detail = errorMessage(error)
-    log.addError(`创建识别历史失败：${detail}`)
-    message.error(`无法创建完整历史记录，识别未开始：${detail}`)
+    log.addError(t('recognize.log.historyCreateFailed', { detail }))
+    message.error(t('recognize.message.historyCreateFailed', { detail }))
     return
   }
   if (hasUnsealedPage) store.sealCurrentBatch()
@@ -779,7 +785,7 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
     for (const target of targets) {
       const historyPageId = historyPageIds.get(target.pageId)
       if (!historyPageId) {
-        throw new Error(`页面 ${target.inputFileName} 缺少历史记录编号`)
+        throw new Error(t('recognize.error.pageMissingHistory', { name: target.inputFileName }))
       }
       registerOwnedLiveRecognitionPage(target.pageId, historyPageId)
       patchRecognitionPage(target.pageId, {
@@ -804,12 +810,12 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
       clearOwnedLiveRecognitionPage(target.pageId)
     }
     const detail = errorMessage(error)
-    log.addError(`更新识别历史状态失败：${detail}`)
-    message.error(`无法更新历史状态，识别未开始：${detail}`)
+    log.addError(t('recognize.log.historyStatusFailed', { detail }))
+    message.error(t('recognize.message.historyStatusFailed', { detail }))
     return
   }
 
-  const label = mode === 'ai' ? 'AI 视觉识别' : 'OMR 识别'
+  const label = mode === 'ai' ? t('recognize.mode.ai') : t('recognize.mode.omr')
 
   for (const target of targets) {
     const historyPageId = historyPageIds.get(target.pageId) ?? null
@@ -822,7 +828,7 @@ async function submitRecognitionTargets(targets: RecognitionTarget[], mode: Reco
     })
   }
 
-  message.success(`已提交 ${targets.length} 个${label}后台任务`)
+  message.success(t('recognize.message.submitted', { n: targets.length, label }))
 }
 
 interface PreparedHistory {
@@ -843,20 +849,20 @@ async function prepareHistory(targets: RecognitionTarget[]): Promise<PreparedHis
     return { pageIds, created: false }
   }
   if (pageIds.size) {
-    throw new Error('当前批次历史记录不完整，请重新上传后再识别')
+    throw new Error(t('recognize.error.historyIncomplete'))
   }
 
   const firstTarget = targets[0]
-  if (!firstTarget) throw new Error('没有可识别的页面')
+  if (!firstTarget) throw new Error(t('recognize.error.noPageToRecognize'))
   const batchPages = batchPagesForPage(firstTarget.pageId)
-  if (!batchPages.length) throw new Error('找不到待建档的源页面')
+  if (!batchPages.length) throw new Error(t('recognize.error.noSourcePage'))
   const batchId = batchPages[0]?.batchId
   if (
     !batchId
     || targets.some((target) => !batchPages.some((page) => page.id === target.pageId))
     || batchPages.some((page) => page.historyPageId !== null)
   ) {
-    throw new Error('待识别页面不属于同一个未建档批次')
+    throw new Error(t('recognize.error.notSameBatch'))
   }
 
   const selectedPageIds = new Set(targets.map((target) => target.pageId))
@@ -867,7 +873,10 @@ async function prepareHistory(targets: RecognitionTarget[]): Promise<PreparedHis
     jianpu_text: batchJianpuText,
   }))
   if (created.pages.length !== batchPages.length) {
-    throw new Error(`历史页数量不一致：期望 ${batchPages.length}，实际 ${created.pages.length}`)
+    throw new Error(t('recognize.error.historyPageCountMismatch', {
+      expected: batchPages.length,
+      actual: created.pages.length,
+    }))
   }
 
   created.pages.forEach((historyPage, index) => {
@@ -888,10 +897,10 @@ async function prepareHistory(targets: RecognitionTarget[]): Promise<PreparedHis
 }
 
 async function runPipelineTarget(target: RecognitionTarget, historyPageId: number | null): Promise<void> {
-  markPageProcessing(target, '读取输入文件', 3)
+  markPageProcessing(target, t('recognize.progress.readInput'), 3)
   let submittedTaskId = ''
   try {
-    markPageProcessing(target, '提交 OMR 后台任务', 8)
+    markPageProcessing(target, t('recognize.progress.submitOmr'), 8)
 
     let submitted: { task_id: string }
     if (target.inputFileId) {
@@ -906,7 +915,7 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
         ...settings.jianpuLayoutRequest,
       }))
     } else {
-      throw new Error('无输入文件 ID，请重新上传图片')
+      throw new Error(t('recognize.error.noInputFileId'))
     }
     submittedTaskId = submitted.task_id
     ownedTaskIds.add(submittedTaskId)
@@ -916,19 +925,19 @@ async function runPipelineTarget(target: RecognitionTarget, historyPageId: numbe
 
     const result = await waitForTaskResult(submitted.task_id, target.pageId)
     if (!isPipelineResponse(result)) {
-      throw new Error('后台任务返回了无法识别的 OMR 结果格式')
+      throw new Error(t('recognize.error.omrFormat'))
     }
     await applyPipelineResult(target, result, historyPageId)
   } catch (error: unknown) {
     if (recognitionUnmounted) return
-    await failTarget(target, historyPageId, error, '识别失败')
+    await failTarget(target, historyPageId, error, t('recognize.fail.recognize'))
   } finally {
     if (submittedTaskId) ownedTaskIds.delete(submittedTaskId)
   }
 }
 
 async function runAiTarget(target: RecognitionTarget, historyPageId: number | null): Promise<void> {
-  markPageProcessing(target, '提交 AI 视觉识别任务', 5)
+  markPageProcessing(target, t('recognize.mode.ai'), 5)
   let submittedTaskId = ''
   try {
     const submitted = await requireData(aiApi.transcribe({
@@ -946,15 +955,15 @@ async function runAiTarget(target: RecognitionTarget, historyPageId: number | nu
 
     const response = await waitForTaskResult(submitted.task_id, target.pageId)
     if (!isAiTranscribeResponse(response)) {
-      throw new Error('后台任务返回了无法识别的 AI 结果格式')
+      throw new Error(t('recognize.error.aiFormat'))
     }
-    if (!response.pages.length) throw new Error('AI 未返回任何页面')
+    if (!response.pages.length) throw new Error(t('recognize.error.aiNoPage'))
 
     const warnings = collectAiWarnings(response.pages, response.warnings)
     await applyAiResult(target, response, historyPageId, warnings)
   } catch (error: unknown) {
     if (recognitionUnmounted) return
-    await failTarget(target, historyPageId, error, 'AI 转写失败')
+    await failTarget(target, historyPageId, error, t('recognize.fail.aiTranscribe'))
   } finally {
     if (submittedTaskId) ownedTaskIds.delete(submittedTaskId)
   }
@@ -972,7 +981,7 @@ async function waitForTaskResult(taskId: string, pageId: string): Promise<unknow
     recognitionWaitControllers.delete(controller)
   }
   if (!completed.result) {
-    throw new Error('任务完成但没有返回结果')
+    throw new Error(t('recognize.error.noResult'))
   }
   return completed.result
 }
@@ -998,7 +1007,7 @@ async function persistRecognitionTaskId(
       },
     })
   } catch (error: unknown) {
-    log.addLog(`保存后台任务编号失败：${errorMessage(error)}`, 'warn')
+    log.addLog(t('recognize.log.saveTaskIdFailed', { detail: errorMessage(error) }), 'warn')
     updateLiveRecognitionPage(pageId, { taskId })
   }
 }
@@ -1037,15 +1046,15 @@ async function resumeInterruptedRecognitionTask(page: TaskPage, taskId: string):
       return
     }
     if (isAiTranscribeResponse(result)) {
-      if (!result.pages.length) throw new Error('AI 未返回任何页面')
+      if (!result.pages.length) throw new Error(t('recognize.error.aiNoPage'))
       const warnings = collectAiWarnings(result.pages, result.warnings)
       await applyAiResult(target, result, historyPageId, warnings)
       return
     }
-    throw new Error('后台任务返回了无法识别的结果格式')
+    throw new Error(t('recognize.error.unknownResult'))
   } catch (error: unknown) {
     if (recognitionUnmounted) return
-    await failTarget(target, historyPageId, error, '恢复后台识别失败')
+    await failTarget(target, historyPageId, error, t('recognize.fail.resume'))
   }
 }
 
@@ -1133,7 +1142,7 @@ async function failTarget(
 ): Promise<void> {
   let msg = errorMessage(error)
   if (msg === 'Failed to fetch') {
-    msg = '后端未启动或网络异常，请检查后端是否在运行'
+    msg = t('recognize.error.backendDown')
   }
   patchRecognitionPage(target.pageId, {
     taskId: '',
@@ -1232,7 +1241,7 @@ async function persistPageResult(
       return createdPage ?? null
     }
   } catch (error: unknown) {
-    log.addLog(`保存后台历史结果失败：${errorMessage(error)}`, 'warn')
+    log.addLog(t('recognize.log.saveHistoryResultFailed', { detail: errorMessage(error) }), 'warn')
     return null
   }
 }
@@ -1265,9 +1274,9 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
     status: page.status as TaskPageStatus,
     progressPercent: page.status === 'processing' ? 99 : 100,
     progressMessage: page.status === 'completed'
-        ? '识别完成'
+        ? t('recognize.progress.done')
         : page.status === 'processing'
-          ? (page.error_message || '正在重新渲染')
+          ? (page.error_message || t('recognize.progress.rerendering'))
           : page.error_message,
     errorMessage: page.error_message,
     omrFileId: page.omr_file_id ?? '',
@@ -1325,7 +1334,7 @@ async function applyPipelineResult(
       text_anchor_baseline_anchors: textAnchorBaselineAnchors,
       text_attachments: textAttachments,
       status: 'completed',
-      error_message: warnings.join('；'),
+      error_message: warnings.join('; '),
       omr_file_id: result.omr_file_id ?? '',
       musicxml_text: result.musicxml_text ?? '',
     }
@@ -1349,8 +1358,8 @@ async function applyPipelineResult(
       taskId: '',
       status: 'completed',
       progressPercent: 100,
-      progressMessage: '识别完成',
-      errorMessage: warnings.join('；'),
+      progressMessage: t('recognize.progress.done'),
+      errorMessage: warnings.join('; '),
       omrFileId: result.omr_file_id ?? '',
       originalMusicxml: result.musicxml_text ?? '',
       workingMusicxml: result.musicxml_text ?? '',
@@ -1363,12 +1372,12 @@ async function applyPipelineResult(
       for (const warning of warnings) {
         log.addLog(warning, 'warn')
       }
-      log.addLog(`识别完成，但有 ${warnings.length} 条警告：${target.inputFileName}`, 'warn')
+      log.addLog(t('recognize.log.recognizeDoneWithWarnings', { n: warnings.length, name: target.inputFileName }), 'warn')
     } else {
-      log.addLog(`识别完成：${target.inputFileName}`)
-      message.success(`识别完成：${target.inputFileName}`)
+      log.addLog(t('recognize.log.recognizeDone', { name: target.inputFileName }))
+      message.success(t('recognize.message.recognizeDone', { name: target.inputFileName }))
     }
-}
+  }
 
 async function applyAiResult(
   target: RecognitionTarget,
@@ -1402,8 +1411,8 @@ async function applyAiResult(
       taskId: '',
       status: 'completed',
       progressPercent: 100,
-      progressMessage: 'AI 转写完成',
-      errorMessage: warnings.join('；'),
+      progressMessage: t('recognize.progress.aiDone'),
+      errorMessage: warnings.join('; '),
     })
     const pageResult: PageResult = {
       input_file_name: target.inputFileName,
@@ -1417,20 +1426,20 @@ async function applyAiResult(
       text_anchor_baseline_text: mergedJianpuText,
       text_anchor_baseline_anchors: [],
       status: 'completed',
-      error_message: warnings.join('；'),
+      error_message: warnings.join('; '),
     }
     await persistPageResult(target, pageResult, historyPageId)
     await syncBatchJianpuTextForPage(target.pageId)
     void maybeRenderCompletedBatchForPage(target.pageId)
     clearOwnedLiveRecognitionPage(target.pageId)
     if (warnings.length) {
-      log.addLog(`AI 转写完成：${target.inputFileName}`)
-      message.warning(warnings.slice(0, 3).join('；'))
+      log.addLog(t('recognize.log.aiDone', { name: target.inputFileName }))
+      message.warning(warnings.slice(0, 3).join('; '))
     } else {
-      log.addLog(`AI 转写完成：${target.inputFileName}`)
-      message.success(`AI 转写完成：${target.inputFileName}`)
+      log.addLog(t('recognize.log.aiDone', { name: target.inputFileName }))
+      message.success(t('recognize.message.aiDone', { name: target.inputFileName }))
     }
-}
+  }
 
 function collectAiWarnings(pages: AiTranscribedPage[], responseWarnings: string[] | undefined): string[] {
   return [
@@ -1440,8 +1449,8 @@ function collectAiWarnings(pages: AiTranscribedPage[], responseWarnings: string[
 }
 
 function taskProgressText(event: SSEProgressEvent): string {
-  if (event.status === 'failed') return event.error || event.message || '任务失败'
-  return event.message || event.stage || '处理中'
+  if (event.status === 'failed') return event.error || event.message || t('recognize.progress.taskFailed')
+  return event.message || event.stage || t('recognize.progress.processing')
 }
 
 function renderPageIds(pages: PipelineResponse['render_pages'], fallback: string): string[] {
@@ -1492,7 +1501,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
           ?? instrumentProfile.value,
         measure_number_mode: settings.measureNumberMode,
         initial_measure_number: 1,
-        title: '简谱',
+        title: t('recognize.render.jianpuTitle'),
         ...settings.jianpuLayoutRequest,
       }))
       const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)
@@ -1522,7 +1531,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
       }
     } catch (error: unknown) {
       if (isRenderAborted(error)) return
-      log.addLog(`生成连续 A4 简谱失败：${errorMessage(error)}`, 'warn')
+      log.addLog(t('recognize.log.renderA4Failed', { detail: errorMessage(error) }), 'warn')
     }
   })()
   batchRenderInFlight.set(batchId, render)
@@ -1571,7 +1580,7 @@ async function clearBatchRenderPages(batchId: string): Promise<void> {
     }))
     notifyHistoryUpdated()
   } catch (error: unknown) {
-    log.addLog(`清理连续 A4 渲染页失败：${errorMessage(error)}`, 'warn')
+    log.addLog(t('recognize.log.clearRenderFailed', { detail: errorMessage(error) }), 'warn')
   }
 }
 
@@ -1609,7 +1618,7 @@ async function syncBatchJianpuTextForPage(pageId: string): Promise<void> {
   try {
     await requireData(historyApi.updateBatchJianpuText(historyBatchId, { jianpu_text: text, source: 'auto' }))
   } catch (error: unknown) {
-    log.addLog(`保存批次简谱文本失败：${errorMessage(error)}`, 'warn')
+    log.addLog(t('recognize.log.saveBatchJianpuFailed', { detail: errorMessage(error) }), 'warn')
   }
 }
 

@@ -5,7 +5,7 @@
       :class="['ai-fab', { dragging: isFabDragging }, animationClass('fab')]"
       :style="fabStyle"
       type="button"
-      title="AI 助手"
+      :title="t('components.aiAssistant.assistant')"
       @pointerdown="handleFabPointerDown"
       @pointermove="handleFabPointerMove"
       @pointerup="handleFabPointerUp"
@@ -23,7 +23,7 @@
     >
       <aside :class="['ai-sessions', { hidden: !sessionsOpen }]">
         <div class="ai-sessions-head">
-          <span>对话</span>
+          <span>{{ t('components.aiAssistant.conversations') }}</span>
           <n-button
             size="tiny"
             quaternary
@@ -54,7 +54,7 @@
                 <button
                   class="ai-session-delete"
                   type="button"
-                  title="删除"
+                  :title="t('common.action.delete')"
                   @click.stop
                 >
                   <n-icon size="13">
@@ -62,14 +62,14 @@
                   </n-icon>
                 </button>
               </template>
-              删除这段对话？
+              {{ t('components.aiAssistant.confirmDeleteSession') }}
             </n-popconfirm>
           </div>
           <div
             v-if="!assistant.sessions.length && !assistant.loading"
             class="ai-empty-small"
           >
-            暂无对话
+            {{ t('components.aiAssistant.emptyConversations') }}
           </div>
         </div>
       </aside>
@@ -87,28 +87,28 @@
             <button
               class="ai-icon-btn"
               type="button"
-              title="历史"
+              :title="t('components.aiAssistant.history')"
               @click="sessionsOpen = !sessionsOpen"
             >
               <n-icon><TimeOutline /></n-icon>
             </button>
-            <span>AI 助手</span>
+            <span>{{ t('components.aiAssistant.assistant') }}</span>
           </div>
           <div class="ai-head-actions">
             <label
               class="ai-think-master"
-              title="关闭后请求会禁用深度思考"
+              :title="t('components.aiAssistant.thinkMasterTitle')"
             >
               <input
                 v-model="showThinking"
                 type="checkbox"
               >
-              <span>思考</span>
+              <span>{{ t('components.aiAssistant.thinking') }}</span>
             </label>
             <button
               class="ai-icon-btn"
               type="button"
-              title="收起"
+              :title="t('components.aiAssistant.collapse')"
               @click="closePanel"
             >
               <n-icon><CloseOutline /></n-icon>
@@ -136,7 +136,7 @@
             <n-icon size="32">
               <ChatbubbleEllipsesOutline />
             </n-icon>
-            <span>可以问我简谱语法、转写修正或当前文本的问题。</span>
+            <span>{{ t('components.aiAssistant.emptyHint') }}</span>
           </div>
           <div
             v-for="message in assistant.messages"
@@ -182,14 +182,14 @@
               type="textarea"
               size="small"
               :autosize="{ minRows: 1, maxRows: 4 }"
-              placeholder="问点什么..."
+              :placeholder="t('components.aiAssistant.inputPlaceholder')"
               :disabled="assistant.sending"
               @keydown.enter.exact.prevent="send"
             />
             <n-button
               v-if="assistant.sending"
               size="small"
-              title="停止生成"
+              :title="t('components.aiAssistant.stopGenerate')"
               @click="stopSending"
             >
               <template #icon>
@@ -220,6 +220,7 @@ import type { CSSProperties } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useAssistantStore } from '../stores/assistant'
 import { useWorkspaceStore } from '../stores/workspace'
+import { t } from '../i18n'
 import {
   AddOutline,
   ChatbubbleEllipsesOutline,
@@ -241,14 +242,19 @@ const includeCurrentJianpu = ref(true)
 const includeJianpuLabel = computed(() => {
   const pages = task.currentBatchPages
   const page = task.currentPage
-  if (!page) return '附带当前简谱'
+  const base = t('components.aiAssistant.attachCurrentJianpu')
+  if (!page) return base
   const index = pages.indexOf(page)
   const name = page.inputFileName
   if (!name) {
-    return index >= 0 && pages.length > 1 ? `附带当前简谱（第 ${index + 1}/${pages.length} 页）` : '附带当前简谱'
+    return index >= 0 && pages.length > 1
+      ? base + t('components.aiAssistant.attachWithPage', { current: index + 1, total: pages.length })
+      : base
   }
-  const suffix = pages.length > 1 ? `（第 ${index + 1}/${pages.length} 页 · ${name}）` : `（${name}）`
-  return `附带当前简谱${suffix}`
+  const suffix = pages.length > 1
+    ? t('components.aiAssistant.attachPageWithName', { current: index + 1, total: pages.length, name })
+    : t('components.aiAssistant.attachWithName', { name })
+  return base + suffix
 })
 const messageBody = ref<HTMLElement | null>(null)
 const autoScrollEnabled = ref(true)
@@ -708,7 +714,7 @@ function stopSending(): void {
 async function deleteSession(sessionId: string): Promise<void> {
   try {
     await assistant.deleteSession(sessionId)
-    notification.success('已删除')
+    notification.success(t('components.aiAssistant.deleted'))
   } catch (e: unknown) {
     notification.error(e instanceof Error ? e.message : String(e))
   }
@@ -771,7 +777,7 @@ function renderAssistantMessage(text: string, messageId: number): string {
     if (showThinking.value) {
       const thinkKey = `${messageId}:${blockIndex}`
       const thinkOpen = openThinkKeys.value.has(thinkKey)
-      const label = thinkOpen ? '收起深度思考' : '展开深度思考'
+      const label = thinkOpen ? t('components.aiAssistant.thinkCollapse') : t('components.aiAssistant.thinkExpand')
       parts.push(
         `<div class="ai-think ${thinkOpen ? 'open' : ''}">` +
           `<button class="ai-think-toggle" type="button" data-think-key="${thinkKey}" aria-expanded="${thinkOpen ? 'true' : 'false'}" tabindex="0">${label}</button>` +

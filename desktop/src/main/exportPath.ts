@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs'
 import path from 'path'
+import { t } from './locale'
 
 const WINDOWS_DEVICE_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
 const MAX_FILENAME_LENGTH = 240
@@ -45,7 +46,7 @@ export async function writeUniqueExportFile(
 
   const canonicalDirectory = await fs.realpath(requestedDirectory)
   if (comparablePath(canonicalDirectory) !== comparablePath(requestedDirectory)) {
-    throw new Error('导出目录不能包含符号链接或重解析点')
+    throw new Error(t('export.symlinkNotAllowed'))
   }
 
   const safeName = sanitizeExportFilename(filename)
@@ -80,24 +81,24 @@ export async function writeUniqueExportFile(
     }
   }
 
-  throw new Error('无法生成唯一的导出文件名')
+    throw new Error(t('export.uniqueNameFailed'))
 }
 
 function validateExportDirectory(directory: string): void {
   if (!directory || typeof directory !== 'string') {
-    throw new Error('导出目录无效')
+    throw new Error(t('export.invalidDir'))
   }
   if (directory.includes('\0')) {
-    throw new Error('导出目录包含非法空字符')
+    throw new Error(t('export.nulChar'))
   }
   if (!path.isAbsolute(directory)) {
-    throw new Error('导出目录必须是绝对路径')
+    throw new Error(t('export.mustBeAbsolute'))
   }
 
   const root = path.parse(directory).root
   const segments = directory.slice(root.length).split(/[\\/]+/)
   if (segments.includes('..')) {
-    throw new Error('导出目录不能包含路径遍历片段')
+    throw new Error(t('export.traversal'))
   }
 }
 
@@ -113,10 +114,10 @@ async function assertNoLinkedPathComponents(directory: string): Promise<void> {
     try {
       const stat = await fs.lstat(current)
       if (stat.isSymbolicLink()) {
-        throw new Error('导出目录不能包含符号链接或重解析点')
+        throw new Error(t('export.symlinkNotAllowed'))
       }
       if (!stat.isDirectory()) {
-        throw new Error('导出路径中的已有项目不是目录')
+        throw new Error(t('export.notDirectory'))
       }
     } catch (error) {
       if (isNodeError(error) && error.code === 'ENOENT') {
@@ -136,7 +137,7 @@ function assertContainedPath(directory: string, candidate: string): void {
     || relative.startsWith(`..${path.sep}`)
     || path.isAbsolute(relative)
   ) {
-    throw new Error('导出目标路径越出所选目录')
+    throw new Error(t('export.escapesDir'))
   }
 }
 

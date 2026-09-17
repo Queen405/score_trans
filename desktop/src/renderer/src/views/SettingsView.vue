@@ -2,11 +2,11 @@
   <div class="settings-view">
     <aside
       class="sv-sidebar"
-      aria-label="设置分类"
+      :aria-label="t('settings.view.categoriesAria')"
     >
       <div class="sv-sidebar-header">
-        <span class="sv-sidebar-eyebrow">应用设置</span>
-        <h2>设置</h2>
+        <span class="sv-sidebar-eyebrow">{{ t('settings.view.eyebrow') }}</span>
+        <h2>{{ t('settings.view.title') }}</h2>
       </div>
 
       <nav class="sv-category-list">
@@ -36,7 +36,7 @@
           class="sv-dirty-indicator"
         >
           <span />
-          有未保存的更改
+          {{ t('settings.view.dirtyIndicator') }}
         </span>
       </header>
 
@@ -46,7 +46,7 @@
           class="sv-state-view"
         >
           <n-spin size="small" />
-          <span>正在加载设置…</span>
+          <span>{{ t('settings.view.loading') }}</span>
         </div>
 
         <div
@@ -55,16 +55,16 @@
         >
           <n-alert
             type="error"
-            title="无法加载设置"
+            :title="t('settings.view.loadFailed')"
           >
-            {{ settings.loadError || '设置尚未加载。' }}
+            {{ settings.loadError || t('settings.view.notLoaded') }}
           </n-alert>
           <n-button
             size="small"
             secondary
             @click="retryLoad"
           >
-            重新加载
+            {{ t('settings.view.reload') }}
           </n-button>
         </div>
 
@@ -85,16 +85,16 @@
             v-if="settings.saveError"
             class="is-error"
           >{{ settings.saveError }}</span>
-          <span v-else-if="settings.draftDirty">更改尚未保存</span>
-          <span v-else-if="settings.storageRestartRequired">存储位置将在重启后生效</span>
-          <span v-else>所有更改均已保存</span>
+          <span v-else-if="settings.draftDirty">{{ t('settings.view.statusUnsaved') }}</span>
+          <span v-else-if="settings.storageRestartRequired">{{ t('settings.view.statusStorageRestart') }}</span>
+          <span v-else>{{ t('settings.view.statusAllSaved') }}</span>
         </div>
         <div class="sv-footer-actions">
           <n-button
             :disabled="settings.saving"
             @click="cancel"
           >
-            取消
+            {{ t('common.action.cancel') }}
           </n-button>
           <n-button
             type="primary"
@@ -102,7 +102,7 @@
             :loading="settings.saving"
             @click="save"
           >
-            保存更改
+            {{ t('settings.view.save') }}
           </n-button>
         </div>
       </footer>
@@ -112,23 +112,23 @@
       v-model:show="restartModalVisible"
       preset="card"
       class="sv-modal-card"
-      title="需要重启应用"
+      :title="t('settings.view.restartTitle')"
       :bordered="false"
       :mask-closable="false"
     >
       <p class="sv-modal-copy">
-        存储位置已经保存。重启后，新的用户数据和缓存目录才会生效。
+        {{ t('settings.view.restartBody') }}
       </p>
       <template #footer>
         <div class="sv-modal-actions">
           <n-button @click="restartLater">
-            稍后重启
+            {{ t('settings.view.restartLater') }}
           </n-button>
           <n-button
             type="primary"
             @click="restartNow"
           >
-            立即重启
+            {{ t('settings.view.restartNow') }}
           </n-button>
         </div>
       </template>
@@ -154,6 +154,7 @@ import {
 } from '@vicons/ionicons5'
 import { useLogStore } from '../stores/log'
 import { useSettingsStore } from '../stores/settings'
+import { t } from '../i18n'
 import AppearanceSettingsPanel from '../components/settings/AppearanceSettingsPanel.vue'
 import ConversionSettingsPanel from '../components/settings/ConversionSettingsPanel.vue'
 import ServiceSettingsPanel from '../components/settings/ServiceSettingsPanel.vue'
@@ -182,35 +183,35 @@ const message = useMessage()
 const activeCategory = ref<SettingsCategory>('services')
 const restartModalVisible = ref(false)
 
-const categories: CategoryDefinition[] = [
+const categories = computed<CategoryDefinition[]>(() => [
   {
     key: 'services',
-    label: '服务与模型',
+    label: t('settings.category.services'),
     icon: CloudOutline,
     panel: ServiceSettingsPanel,
   },
   {
     key: 'tools-storage',
-    label: '工具与存储',
+    label: t('settings.category.toolsStorage'),
     icon: SettingsOutline,
     panel: ToolStorageSettingsPanel,
   },
   {
     key: 'conversion',
-    label: '转换与导出',
+    label: t('settings.category.conversion'),
     icon: SwapHorizontalOutline,
     panel: ConversionSettingsPanel,
   },
   {
     key: 'appearance',
-    label: '界面与外观',
+    label: t('settings.category.appearance'),
     icon: ColorPaletteOutline,
     panel: AppearanceSettingsPanel,
   },
-]
+])
 
 const activeCategoryMeta = computed(
-  () => categories.find((category) => category.key === activeCategory.value) ?? categories[0],
+  () => categories.value.find((category) => category.key === activeCategory.value) ?? categories.value[0],
 )
 const activePanel = computed(() => activeCategoryMeta.value.panel)
 
@@ -251,14 +252,14 @@ function cancel(): void {
 async function save(): Promise<void> {
   try {
     const restartNeeded = await settings.applyDraft()
-    log.addLog('配置已保存')
-    message.success(restartNeeded ? '配置已保存，存储路径将在重启后生效' : '配置已保存')
+    log.addLog(t('settings.view.saved'))
+    message.success(restartNeeded ? t('settings.view.savedRestart') : t('settings.view.saved'))
     if (restartNeeded) {
       restartModalVisible.value = true
     }
   } catch (error: unknown) {
     const text = error instanceof Error ? error.message : String(error)
-    log.addError(`保存失败：${text}`)
+    log.addError(t('settings.view.saveFailed', { text }))
     message.error(text)
   }
 }

@@ -81,8 +81,8 @@ test('uploader reports individual upload failures while continuing the queue', (
   assert.match(uploaderSource, /const \{ upload, uploading, progress, phase, error \} = useFileUpload\(\)/)
   assert.match(uploaderSource, /const uploadErrors = ref<string\[\]>\(\[\]\)/)
   assert.match(uploaderSource, /v-if="uploadErrors\.length"/)
-  assert.match(uploaderSource, /const detail = error\.value \|\| '上传失败，请重试'/)
-  assert.match(uploaderSource, /log\.addError\(`上传失败：\$\{message\}`\)/)
+  assert.match(uploaderSource, /const detail = error\.value \|\| t\('components\.fileUploader\.uploadFailedRetry'\)/)
+  assert.match(uploaderSource, /log\.addError\(t\('components\.fileUploader\.uploadFailedLog', \{ message \}\)\)/)
   assert.doesNotMatch(uploaderSource, /if \(!result\)\s*throw/)
 })
 
@@ -151,9 +151,9 @@ test('history deletion marks matching workspace batches as unpersistable', () =>
 
 test('convert guards destructive actions and shows the current unsaved state', () => {
   assert.match(convertSource, /store\.currentBatchHasUnsavedChanges/)
-  assert.match(convertSource, /当前有更改未保存/)
-  assert.match(convertSource, /await confirmDiscardUnsaved\('重置'\)/)
-  assert.match(convertSource, /await confirmDiscardUnsaved\('恢复历史版本'\)/)
+  assert.match(convertSource, /t\('convert\.panel\.unsavedHint'\)/)
+  assert.match(convertSource, /await confirmDiscardUnsaved\('reset'\)/)
+  assert.match(convertSource, /await confirmDiscardUnsaved\('restore'\)/)
   assert.match(convertSource, /:mask-closable="false"/)
 })
 
@@ -368,20 +368,20 @@ test('syntax validation blocks output with a user-visible log and toast', () => 
     /if \(error instanceof ApiError && error\.code === 'jianpu_syntax'\) \{[\s\S]*logStore\.addError[\s\S]*message\.error/s,
   )
   assert.match(convertSource, /function handleJianpuOutputBlocked/)
-  assert.match(convertSource, /无法\$\{action\}/)
+  assert.match(convertSource, /syntaxBlockMsg/)
   assert.doesNotMatch(convertSource, /normalizeJianpuText\(\{ jianpu_text: savedJianpu/)
   assert.match(convertSource, /markBatchRenderPageOcrClean\(\)/)
 })
 
 test('delete-markers mode toggles label, cancels pending load, and gates apply on baseline diff', () => {
   // 入口/取消 二态标签
-  assert.match(convertSource, /\{\{ editMode \? '取消' : '删除标记' \}\}/)
+  assert.match(convertSource, /\{\{ editMode \? t\('common\.action\.cancel'\) : t\('convert\.marker\.deleteMark'\) \}\}/)
   // 应用按钮文案与加载态守卫
   assert.match(convertSource, /const loadingEntities = ref\(false\)/)
   assert.match(convertSource, /:disabled="loadingEntities"/)
   assert.match(
     convertSource,
-    /@click="applyCorrections"[\s\S]*?>\s*应用\s*<\/n-button>/,
+    /@click="applyCorrections"[\s\S]*?>\s*\{\{ t\('convert\.marker\.apply'\) \}\}\s*<\/n-button>/,
   )
   // 拆分进入/取消；取消时终止未完成加载并恢复已应用基线
   assert.match(convertSource, /async function enterEditMode\(\)/)
@@ -397,10 +397,10 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
   // 应用成功后自动退出删除标记模式，无需再点"取消"
   assert.match(
     convertSource,
-    /message\.success\('修正已应用'\)\s*\n\s*editMode\.value = false/,
+    /message\.success\(t\('convert\.marker\.applied'\)\)\s*\n\s*editMode\.value = false/,
   )
   // 多页 OMR 提示文案与功能名一致
-  assert.match(convertSource, /在单张原图上删除标记/)
+  assert.match(convertSource, /multiPageOmr/)
 })
 
 test('deleted entity markers render as a faint red outline without fill', () => {
@@ -414,7 +414,7 @@ test('deleted entity markers render as a faint red outline without fill', () => 
     originalPreviewSource,
     /\.entity-box\.deleted:hover \{[\s\S]*?stroke-opacity:\s*0\.65/,
   )
-  assert.match(originalPreviewSource, /aria-label="可删除标记"/)
+  assert.match(originalPreviewSource, /aria-label="t\('components\.originalPreview\.deletableMarkLabel'\)"/)
   assert.match(originalPreviewSource, /transition: fill 0\.15s, stroke-opacity 0\.15s;/)
 })
 

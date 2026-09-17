@@ -101,7 +101,7 @@ try {
   assert.equal(state.packaged, true)
   assert.equal(state.version, expectedVersion)
   await page.locator('.app-shell').waitFor({ state: 'visible' })
-  await page.getByRole('button', { name: '最小化', exact: true }).waitFor({ state: 'visible' })
+  await page.getByRole('button', { name: /^(最小化|Minimize)$/ }).waitFor({ state: 'visible' })
   assert.equal(await page.evaluate(() => window.api.getVersion()), expectedVersion)
   const identity = await inspectBackendProcess(application, {
     python: argv.includes('--python') ? arg('python') : undefined,

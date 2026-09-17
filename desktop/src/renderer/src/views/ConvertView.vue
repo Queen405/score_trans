@@ -2,7 +2,7 @@
   <div class="workspace">
     <div :class="['ws-history', { open: historyOpen }]">
       <div class="ws-hist-head">
-        <span class="ws-hist-title">历史</span>
+        <span class="ws-hist-title">{{ t('convert.history.title') }}</span>
         <div class="ws-hist-actions">
           <n-button
             size="tiny"
@@ -34,7 +34,7 @@
                 </template>
               </n-button>
             </template>
-            确定删除所有历史记录？
+            {{ t('convert.history.confirmDeleteAll') }}
           </n-popconfirm>
         </div>
       </div>
@@ -43,7 +43,7 @@
           v-if="!histLoading && !histBatches.length"
           class="hist-empty"
         >
-          <span>暂无记录</span>
+          <span>{{ t('convert.history.empty') }}</span>
         </div>
         <div
           v-for="batch in histBatches"
@@ -55,11 +55,11 @@
             @click="toggleBatchExpand(batch.id)"
           >
             <span :class="['hist-dot', historyStatusClass(batch.status)]" />
-            <span class="hist-batch-name">{{ batch.first_file_name || '未知' }}</span>
+            <span class="hist-batch-name">{{ batch.first_file_name || t('convert.history.unknown') }}</span>
             <span
               v-if="batch.page_count > 1"
               class="hist-batch-count"
-            >{{ batch.page_count }}页</span>
+            >{{ t('convert.history.pageCount', { count: batch.page_count }) }}</span>
             <n-popconfirm
               :show-icon="false"
               @positive-click="handleDeleteBatch(batch.id)"
@@ -68,7 +68,7 @@
                 <button
                   class="hist-delete"
                   type="button"
-                  title="删除该历史记录"
+                  :title="t('convert.history.deleteTitle')"
                   @click.stop
                 >
                   <n-icon size="12">
@@ -76,7 +76,7 @@
                   </n-icon>
                 </button>
               </template>
-              确定删除这次历史记录？
+              {{ t('convert.history.confirmDeleteBatch') }}
             </n-popconfirm>
             <n-icon
               size="12"
@@ -97,7 +97,7 @@
               v-if="loadingBatchId === batch.id"
               class="hist-loading"
             >
-              加载中...
+              {{ t('convert.history.loading') }}
             </div>
             <div
               v-for="(page, pi) in expandedPages"
@@ -114,11 +114,11 @@
               @dragend="handlePageDragEnd"
             >
               <span :class="['hist-dot small', historyStatusClass(page.status)]" />
-              <span class="hist-page-name">{{ page.input_file_name || `第${pi + 1}页` }}</span>
+              <span class="hist-page-name">{{ page.input_file_name || t('convert.history.pageN', { n: pi + 1 }) }}</span>
               <span
                 v-if="page.status === 'unrecognized'"
                 class="hist-unrecognized-label"
-              >未识别</span>
+              >{{ t('convert.history.unrecognized') }}</span>
             </div>
           </div>
         </div>
@@ -130,7 +130,7 @@
         <div class="ws-toolbar-left">
           <button
             class="hist-toggle"
-            title="历史记录"
+            :title="t('convert.history.toggleTitle')"
             @click="toggleHistory"
           >
             <n-icon size="16">
@@ -165,7 +165,7 @@
           </div>
         </div>
         <div class="ws-toolbar-right">
-          <n-button size="small" :type="liveRenderEnabled ? 'primary' : 'default'" @click="toggleLiveRender">即时渲染</n-button>
+          <n-button size="small" :type="liveRenderEnabled ? 'primary' : 'default'" @click="toggleLiveRender">{{ t('convert.toolbar.liveRender') }}</n-button>
           <n-popover
             trigger="click"
             placement="bottom"
@@ -179,24 +179,24 @@
                 type="primary"
                 :disabled="store.isBusy || !canOpenSnapshotHistory"
               >
-                历史版本
+                {{ t('convert.toolbar.snapshots') }}
               </n-button>
             </template>
             <div class="snapshot-list">
               <div class="snapshot-hint">
-                默认保存最近三次的历史
+                {{ t('convert.snapshot.hint') }}
               </div>
               <div
                 v-if="snapshotLoading"
                 class="snapshot-empty"
               >
-                加载中…
+                {{ t('convert.snapshot.loading') }}
               </div>
               <div
                 v-else-if="!snapshotList.length"
                 class="snapshot-empty"
               >
-                暂无历史版本
+                {{ t('convert.snapshot.empty') }}
               </div>
               <template v-else>
                 <div
@@ -215,7 +215,7 @@
                     type="primary"
                     @click="restoreJianpuSnapshot(snapshot)"
                   >
-                    恢复
+                    {{ t('convert.snapshot.restore') }}
                   </n-button>
                 </div>
               </template>
@@ -228,7 +228,7 @@
             type="primary"
             @click="resetAll"
           >
-            重置
+            {{ t('convert.toolbar.reset') }}
           </n-button>
           <n-button
             size="small"
@@ -240,7 +240,7 @@
             <template #icon>
               <n-icon><CloudDownloadOutline /></n-icon>
             </template>
-            导出
+            {{ t('convert.toolbar.export') }}
           </n-button>
           <n-select
             v-model:value="exportFormat"
@@ -254,7 +254,7 @@
       <div class="ws-layout">
         <div class="ws-panel ws-left">
           <div class="ws-panel-head">
-            <span>原始五线谱</span>
+            <span>{{ t('convert.panel.originalStaff') }}</span>
             <span
               v-if="store.originalFileName"
               class="panel-filename"
@@ -268,10 +268,10 @@
                 :type="editMode ? 'default' : 'primary'"
                 @click="editMode ? cancelEditMode() : enterEditMode()"
               >
-                {{ editMode ? '取消' : '删除标记' }}
+                {{ editMode ? t('common.action.cancel') : t('convert.marker.deleteMark') }}
               </n-button>
               <template v-if="editMode">
-                <span class="deleted-count">已删除 {{ deletedEntityIds.size }}</span>
+                <span class="deleted-count">{{ t('convert.marker.deletedCount', { count: deletedEntityIds.size }) }}</span>
                 <n-button
                   size="tiny"
                   type="warning"
@@ -279,7 +279,7 @@
                   :disabled="loadingEntities"
                   @click="applyCorrections"
                 >
-                  应用
+                  {{ t('convert.marker.apply') }}
                 </n-button>
               </template>
             </div>
@@ -308,11 +308,11 @@
         <div class="ws-panel ws-right">
           <div class="ws-panel-head">
             <span class="panel-head-label">
-              <span>{{ isViewingFinal ? '最终渲染' : '简谱编辑' }}</span>
+              <span>{{ isViewingFinal ? t('convert.panel.finalRender') : t('convert.panel.jianpuEdit') }}</span>
               <span
                 v-if="store.currentBatchHasUnsavedChanges"
                 class="unsaved-hint"
-              >当前有更改未保存</span>
+              >{{ t('convert.panel.unsavedHint') }}</span>
             </span>
             <div class="panel-head-actions">
               <n-button
@@ -321,7 +321,7 @@
                 :disabled="!hasJianpuText || isViewingFinal || editorTransposing"
                 @click="transposeOctaveShift(1)"
               >
-                升八度
+                {{ t('convert.editor.octaveUp') }}
               </n-button>
               <n-button
                 size="tiny"
@@ -329,7 +329,7 @@
                 :disabled="!hasJianpuText || isViewingFinal || editorTransposing"
                 @click="transposeOctaveShift(-1)"
               >
-                降八度
+                {{ t('convert.editor.octaveDown') }}
               </n-button>
               <n-button
                 v-if="store.currentBatchJianpuPendingPageIds.length"
@@ -343,7 +343,7 @@
                     <RefreshOutline />
                   </n-icon>
                 </template>
-                合入识别结果
+                {{ t('convert.editor.mergeRecognition') }}
               </n-button>
               <n-button
                 size="tiny"
@@ -352,7 +352,7 @@
                 :disabled="store.isBusy || !canSaveCurrentPage"
                 @click="saveJianpu"
               >
-                保存
+                {{ t('common.action.save') }}
               </n-button>
               <n-button
                 size="tiny"
@@ -361,7 +361,7 @@
                 :disabled="store.isBusy || !canRenderCurrentScore || editorTransposing"
                 @click="toggleFinalView"
               >
-                {{ isViewingFinal ? '编辑' : '渲染' }}
+                {{ isViewingFinal ? t('common.action.edit') : t('convert.toolbar.render') }}
               </n-button>
               <div
                 v-if="isViewingFinal && finalSvgFileIds.length > 1"
@@ -418,7 +418,7 @@
               >
                 <ImageOutline />
               </n-icon>
-              <span>暂无渲染</span>
+              <span>{{ t('convert.panel.noRender') }}</span>
             </div>
             <div v-else class="jianpu-live-layout" :style="liveRenderEnabled ? { gridTemplateRows: `${liveEditorRatio}% 10px minmax(0, 1fr)` } : { gridTemplateRows: '1fr' }">
               <div class="jianpu-live-editor"><jianpu-editor
@@ -439,7 +439,7 @@
               @cursor-change="liveCursorTick++"
             /></div>
               <template v-if="liveRenderEnabled">
-                <div class="jianpu-live-divider" @mousedown="startLiveResize" title="调整上下区域高度" />
+                <div class="jianpu-live-divider" :title="t('convert.editor.resizeTitle')" @mousedown="startLiveResize" />
                 <LiveJianpuPreview :svg="livePreviewSvg" :loading="livePreviewLoading" :error="livePreviewError" :warnings="livePreviewWarnings" />
               </template>
             </div>
@@ -460,25 +460,25 @@
       v-model:show="discardConfirmVisible"
       preset="card"
       :style="{ width: 'min(440px, calc(100vw - 48px))' }"
-      title="有更改尚未保存"
+      :title="t('convert.discard.title')"
       :bordered="false"
       :mask-closable="false"
       :closable="false"
       @esc="settleDiscardConfirmation(false)"
     >
       <p class="discard-confirm-copy">
-        当前有更改未保存，{{ discardConfirmAction }}将丢弃这些修改，是否继续？
+        {{ t('convert.discard.body', { action: discardActionLabel }) }}
       </p>
       <template #footer>
         <div class="discard-confirm-actions">
           <n-button @click="settleDiscardConfirmation(false)">
-            取消
+            {{ t('common.action.cancel') }}
           </n-button>
           <n-button
             type="warning"
             @click="settleDiscardConfirmation(true)"
           >
-            继续
+            {{ t('common.action.continue') }}
           </n-button>
         </div>
       </template>
@@ -575,6 +575,7 @@ import {
   TrashOutline,
 } from '@vicons/ionicons5'
 import { NButton, NPopover, NSelect, NIcon, NModal, NPopconfirm, useMessage } from 'naive-ui'
+import { t } from '../i18n'
 
 const store = useWorkspaceStore()
 const settings = useSettingsStore()
@@ -590,8 +591,18 @@ const syntaxStore = useSyntaxDiagnosticsStore()
 const message = useMessage()
 const workspacePersistence = createWorkspacePersistence(historyApi, notifyHistoryUpdated)
 const discardConfirmVisible = ref(false)
-const discardConfirmAction = ref<'重置' | '恢复历史版本'>('重置')
+const discardConfirmAction = ref<'reset' | 'restore'>('reset')
 let discardConfirmResolver: ((value: boolean) => void) | null = null
+
+type ConvertAction = 'reset' | 'restore' | 'export' | 'render' | 'historyRender'
+function actionLabel(action: ConvertAction): string {
+  return t(`convert.action.${action}`)
+}
+const discardActionLabel = computed(() =>
+  discardConfirmAction.value === 'reset'
+    ? t('convert.discard.actionReset')
+    : t('convert.discard.actionRestore'),
+)
 const jianpuEditorRef = ref<{
   selectRange: (
     start: number,
@@ -977,8 +988,8 @@ async function handleOriginalSourceClick(sourceId: string): Promise<void> {
   if (!range) {
     message.warning(
       candidates.length
-        ? '对应简谱内容已被重构，无法精确定位'
-        : '该识别元素在当前简谱中没有可定位目标',
+        ? t('convert.message.rangeRebuilt')
+        : t('convert.message.elementNoTarget'),
     )
     return
   }
@@ -989,7 +1000,7 @@ async function handleOriginalSourceClick(sourceId: string): Promise<void> {
       offset + range.start,
       offset + range.end,
     )) {
-      message.warning('对应简谱范围当前不可见')
+      message.warning(t('convert.message.rangeNotVisible'))
     }
     return
   }
@@ -1006,7 +1017,7 @@ async function handleOriginalSourceClick(sourceId: string): Promise<void> {
       || await preview.highlightSource(sourceId)
     : false
   if (!highlighted) {
-    message.warning('当前渲染页中没有该元素，请重新渲染后再试')
+    message.warning(t('convert.message.elementNotInRender'))
   }
 }
 
@@ -1037,7 +1048,7 @@ watch(() => store.currentPageIndex, () => {
   currentNoteIndex.value = -1
   errorLine.value = -1
   if (!isViewingFinal.value) setFinalSvgFileIds(currentPageSvgIds())
-  if (!isViewingFinal.value) flashCurrentPageSection('切换页面')
+  if (!isViewingFinal.value) flashCurrentPageSection(t('convert.log.sourceSwitchPage'))
 })
 watch(finalRenderPageIndex, (index) => {
   if (isViewingFinal.value && store.currentBatchId) {
@@ -1117,7 +1128,7 @@ async function loadHistory(
     }
   } catch (e: unknown) {
     if (seq === historyListRequestSeq) {
-      log.addError(`加载历史失败：${e instanceof Error ? e.message : String(e)}`)
+      log.addError(t('convert.history.loadFailed', { msg: e instanceof Error ? e.message : String(e) }))
     }
   } finally {
     if (seq === historyListRequestSeq) {
@@ -1135,7 +1146,7 @@ async function handleDeleteAll(): Promise<void> {
   expandedBatchJianpuText.value = ''
   loadingBatchId.value = null
   historyDetailEpoch.invalidate()
-  message.success('已清空')
+  message.success(t('convert.history.cleared'))
 }
 
 async function handleDeleteBatch(batchId: number): Promise<void> {
@@ -1150,10 +1161,10 @@ async function handleDeleteBatch(batchId: number): Promise<void> {
       loadingBatchId.value = null
       historyDetailEpoch.invalidate()
     }
-    message.success('已删除')
+    message.success(t('convert.history.deleted'))
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    log.addError(`删除历史失败：${msg}`)
+    log.addError(t('convert.history.deleteFailed', { msg }))
     message.error(msg)
   }
 }
@@ -1191,7 +1202,7 @@ async function refreshExpandedBatch(
     }
   } catch (e: unknown) {
     if (historyDetailEpoch.isCurrent(requestToken) && expandedBatchId.value === batchId) {
-      log.addError(`加载详情失败：${e instanceof Error ? e.message : String(e)}`)
+      log.addError(t('convert.history.detailLoadFailed', { msg: e instanceof Error ? e.message : String(e) }))
       expandedPages.value = []
     }
   } finally {
@@ -1243,7 +1254,7 @@ async function handleReorder(fromIndex: number, toIndex: number): Promise<void> 
   const sections = parseJianpuPageSections(restoredText)
 
   if (sections.length !== newPages.length) {
-    message.error('页面数量与代码段数量不一致，无法排序')
+    message.error(t('convert.history.orderMismatch'))
     return
   }
 
@@ -1270,11 +1281,11 @@ async function handleReorder(fromIndex: number, toIndex: number): Promise<void> 
     expandedPages.value = result.pages
     expandedBatchJianpuText.value = result.jianpu_text ?? newBatchText
     store.reorderBatchPages(batchId, orderedPageIds, pageUpdates, newBatchText)
-    message.success('页面顺序已更新')
+    message.success(t('convert.history.orderUpdated'))
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    log.addError(`排序失败：${msg}`)
-    message.error(`排序失败：${msg}`)
+    log.addError(t('convert.history.sortFailed', { msg }))
+    message.error(t('convert.history.sortFailed', { msg }))
     await refreshExpandedBatch(batchId, { clear: false, showLoading: false })
   } finally {
     isReordering.value = false
@@ -1283,14 +1294,14 @@ async function handleReorder(fromIndex: number, toIndex: number): Promise<void> 
 
 async function handleRestorePage(page: HistoryPage): Promise<void> {
   if (store.isBusy) {
-    message.warning('识别任务进行中，完成后再恢复历史记录。')
+    message.warning(t('convert.history.recognizingRestore'))
     return
   }
 
   const batchId = expandedBatchId.value
   if (!batchId) return
 
-  if (!(await persistUnsavedBeforeReplace('恢复历史版本'))) return
+  if (!(await persistUnsavedBeforeReplace('restore'))) return
 
   let allPages = expandedPages.value
   let renderPageFileIds: string[] = []
@@ -1315,7 +1326,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
     }
     pageIndex = allPages.findIndex((p) => p.id === page.id)
   } catch (e: unknown) {
-    log.addError(`刷新历史详情失败：${e instanceof Error ? e.message : String(e)}`)
+    log.addError(t('convert.history.refreshDetailFailed', { msg: e instanceof Error ? e.message : String(e) }))
   }
   if (!allPages.length) return
 
@@ -1378,17 +1389,17 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       renderPageFileIds = await renderFinalBatch()
     } catch (e: unknown) {
       if (isRenderAborted(e)) return
-      if (handleJianpuOutputBlocked('重新渲染历史记录', e)) return
+      if (handleJianpuOutputBlocked('historyRender', e)) return
       const detail = e instanceof Error ? e.message : String(e)
-      log.addError(`历史记录重新排版失败：${detail}`)
-      message.error(`历史记录重新排版失败：${detail}`)
+      log.addError(t('convert.history.relayoutFailed', { detail }))
+      message.error(t('convert.history.relayoutFailed', { detail }))
       return
     }
   }
   void validateRestoredBatchFiles(allPages, renderPageFileIds)
-  void nextTick(() => flashCurrentPageSection('历史恢复'))
+  void nextTick(() => flashCurrentPageSection(t('convert.log.sourceHistoryRestore')))
 
-  message.success(`已恢复 ${allPages.length} 页`)
+  message.success(t('convert.history.restored', { count: allPages.length }))
 }
 
 async function fetchStableHistoryBatch(batchId: number): Promise<HistoryBatch | null> {
@@ -1401,7 +1412,7 @@ async function fetchStableHistoryBatch(batchId: number): Promise<HistoryBatch | 
       return batch
     }
   }
-  message.info('历史页面状态正在更新，请稍后重试')
+  message.info(t('convert.history.updatingRetry'))
   return null
 }
 
@@ -1433,43 +1444,43 @@ async function validateRestoredBatchFiles(
         patch.inputFileId = ''
         patch.originalFileId = ''
         patch.originalFileName = ''
-        warnings.push(`${entry.input_file_name}：原始文件已失效`)
+        warnings.push(`${entry.input_file_name}: ${t('convert.history.fileInvalid')}`)
       }
       if (entry.musicxml_file_id && !exists[entry.musicxml_file_id]) {
         patch.musicxmlFileId = ''
-        warnings.push(`${entry.input_file_name}：MusicXML 已失效`)
+        warnings.push(`${entry.input_file_name}: ${t('convert.history.musicxmlInvalid')}`)
       }
       if (entry.svg_file_id && !exists[entry.svg_file_id]) {
         patch.svgFileId = ''
         patch.svgFileIds = []
-        warnings.push(`${entry.input_file_name}：SVG 已失效`)
+        warnings.push(`${entry.input_file_name}: ${t('convert.history.svgInvalid')}`)
       }
       if (entry.overlay_file_id && !exists[entry.overlay_file_id]) {
         patch.overlayFileId = ''
-        warnings.push(`${entry.input_file_name}：原谱叠加层已失效`)
+        warnings.push(`${entry.input_file_name}: ${t('convert.history.overlayInvalid')}`)
       }
       if (entry.source_map_file_id && !exists[entry.source_map_file_id]) {
         patch.sourceMapFileId = ''
         patch.textAnchors = []
         patch.deletedSourceIds = []
-        warnings.push(`${entry.input_file_name}：原谱点击映射已失效`)
+        warnings.push(`${entry.input_file_name}: ${t('convert.history.clickmapInvalid')}`)
       }
       if (entry.omr_file_id && !exists[entry.omr_file_id]) {
         patch.omrFileId = ''
         patch.deletedSourceIds = []
-        warnings.push(`${entry.input_file_name}：OMR 工程文件已失效`)
+        warnings.push(`${entry.input_file_name}: ${t('convert.history.omrInvalid')}`)
       }
       if (Object.keys(patch).length) {
         store.patchPageByHistoryPageId(entry.id, patch)
       }
     }
     if (warnings.length) {
-      log.addLog(`历史恢复部分失效：${warnings.join('，')}`, 'warn')
-      message.warning(`${warnings.join('；')}，请重新识别或重新上传。`)
+      log.addLog(t('convert.history.partialInvalid', { warnings: warnings.join(', ') }), 'warn')
+      message.warning(t('convert.history.partialInvalidMsg', { warnings: warnings.join('; ') }))
     }
   } catch (e: unknown) {
     if (seq === restoreCheckSeq) {
-      log.addLog(`校验历史文件失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
+      log.addLog(t('convert.history.validateFailed', { msg: e instanceof Error ? e.message : String(e) }), 'warn')
     }
   }
 }
@@ -1553,7 +1564,7 @@ function handleMissingMusicxml(errorMessage: string): string {
   if (!missingId || missingId !== store.musicxmlFileId) return errorMessage
   store.setMusicxml('', '')
   setFinalSvgFileIds([])
-  return '当前 MusicXML 引用已失效，请回到"识别"页重新识别。'
+  return t('convert.message.musicxmlStale')
 }
 
 function extractErrorLineFromMessage(msg: string): number {
@@ -1602,12 +1613,13 @@ function isSyntaxValidationError(error: unknown): boolean {
   return error instanceof ApiError && error.code === 'jianpu_syntax'
 }
 
-function handleJianpuOutputBlocked(action: string, error: unknown): boolean {
+function handleJianpuOutputBlocked(action: ConvertAction, error: unknown): boolean {
   if (!isSyntaxValidationError(error)) return false
   const raw = error instanceof Error ? error.message : String(error)
   errorLine.value = extractErrorLineFromMessage(raw)
-  log.addError(`${action}失败：存在语法错误，无法${action}`)
-  message.error(`存在语法错误，无法${action}，请先修复`)
+  const label = actionLabel(action)
+  log.addError(t('convert.message.syntaxBlockLog', { action: label }))
+  message.error(t('convert.message.syntaxBlockMsg', { action: label }))
   return true
 }
 
@@ -1621,7 +1633,7 @@ async function exportScore(): Promise<void> {
       const batchText = operationalJianpuText.value
       const musicxmlFileIds = store.currentBatchPages.map((page) => page.musicxmlFileId).filter(Boolean)
       const result = batchText.trim()
-        ? await requireData(exportApi.exportMidiText({ jianpu_text: batchText, filename, title: '简谱' }))
+        ? await requireData(exportApi.exportMidiText({ jianpu_text: batchText, filename, title: t('convert.exportTitle') }))
         : await requireData(exportApi.exportMidi({
           musicxml_file_id: musicxmlFileIds[0] || store.musicxmlFileId,
           musicxml_file_ids: musicxmlFileIds.length ? musicxmlFileIds : undefined,
@@ -1629,8 +1641,8 @@ async function exportScore(): Promise<void> {
           target_key: settings.targetKey,
         }))
       await finalizeExport({ fileId: result.file_id }, filename)
-      log.addLog(`导出完成：${filename}`)
-      message.success('导出完成')
+      log.addLog(t('convert.message.exportDoneLog', { filename }))
+      message.success(t('convert.message.exportDone'))
       return
     }
     if (format === 'musicxml') {
@@ -1638,48 +1650,48 @@ async function exportScore(): Promise<void> {
       const batchText = operationalJianpuText.value
       const musicxmlFileIds = store.currentBatchPages.map((page) => page.musicxmlFileId).filter(Boolean)
       const result = batchText.trim()
-        ? await requireData(exportApi.exportMusicXmlText({ jianpu_text: batchText, filename, title: '简谱' }))
+        ? await requireData(exportApi.exportMusicXmlText({ jianpu_text: batchText, filename, title: t('convert.exportTitle') }))
         : await requireData(exportApi.exportMusicXml({
             musicxml_file_id: musicxmlFileIds[0] || store.musicxmlFileId,
             musicxml_file_ids: musicxmlFileIds.length ? musicxmlFileIds : undefined,
             filename,
-            title: '简谱',
+            title: t('convert.exportTitle'),
             target_key: settings.targetKey,
           }))
       await finalizeExport({ fileId: result.file_id }, filename)
-      log.addLog(`导出完成：${filename}`)
-      message.success('导出完成')
+      log.addLog(t('convert.message.exportDoneLog', { filename }))
+      message.success(t('convert.message.exportDone'))
       return
     }
     if (format === 'png') {
       const ids = await renderExportSvgIds()
       const svgFileId = ids[Math.min(finalRenderPageIndex.value, ids.length - 1)]
-      if (!svgFileId) throw new Error('暂无可导出的 A4 页面')
+      if (!svgFileId) throw new Error(t('convert.message.noExportPage'))
       const filename = getExportFilename('png')
       const result = await requireData(
         exportApi.exportRenderedImages([svgFileId], filename, 300, 'png'),
       )
       const exported = result.files[0]
-      if (!exported) throw new Error('PNG 导出未生成文件')
+      if (!exported) throw new Error(t('convert.message.pngNoFile'))
       await finalizeExport({ fileId: exported.file_id }, exported.filename)
-      log.addLog(`导出完成：${filename}`)
-      message.success('导出完成')
+      log.addLog(t('convert.message.exportDoneLog', { filename }))
+      message.success(t('convert.message.exportDone'))
       return
     }
 
     const svgIds = await renderExportSvgIds()
-    if (!svgIds.length) throw new Error('暂无可导出的页面')
+    if (!svgIds.length) throw new Error(t('convert.message.noPage'))
     const filename = getExportFilename('pdf')
     const result = await requireData(exportApi.exportRenderedPdf(svgIds, filename))
     await finalizeExport({ fileId: result.file_id }, filename)
-    log.addLog(`导出完成：${filename}`)
-    message.success('导出完成')
+    log.addLog(t('convert.message.exportDoneLog', { filename }))
+    message.success(t('convert.message.exportDone'))
   } catch (e: unknown) {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
-    if (handleJianpuOutputBlocked('导出', e)) return
+    if (handleJianpuOutputBlocked('export', e)) return
     errorLine.value = extractErrorLineFromMessage(raw)
-    log.addError(`导出失败：${raw}`)
+    log.addError(t('convert.message.exportFailed', { msg: raw }))
     message.error(raw)
   } finally {
     store.setBusy(false)
@@ -1734,7 +1746,7 @@ async function finalizeExport(source: ExportSource, filename: string): Promise<v
   }
 
   const savedPath = await api.saveExportFile(ipcSource, dir, filename)
-  message.success(`已保存到：${savedPath}`)
+  message.success(t('convert.message.savedTo', { path: savedPath }))
   if (api.openFolder) {
     await api.openFolder(dir)
   }
@@ -1801,7 +1813,7 @@ function flashCurrentPageSection(source: string): void {
 
   if (sections.length !== batchPages.length) {
     log.addLog(
-      `[${source}] 左侧图片（${batchPages.length} 页）与右侧编辑区段落（${sections.length} 段）数量不一致，可能不同步`,
+      t('convert.log.sectionMismatch', { source, pages: batchPages.length, sections: sections.length }),
       'warn',
     )
   }
@@ -1824,7 +1836,7 @@ function mergePendingRecognitionResults(): void {
   store.clearBatchJianpuPendingPages()
   store.setBatchRenderPageFileIds([])
   setFinalSvgFileIds([])
-  message.success(`已合入 ${pendingIds.size} 页识别结果`)
+  message.success(t('convert.editor.merged', { count: pendingIds.size }))
 }
 
 async function renderExportSvgIds(): Promise<string[]> {
@@ -1844,7 +1856,7 @@ async function renderExportSvgIds(): Promise<string[]> {
 
 async function renderFinalBatch(): Promise<string[]> {
   const pages = buildBatchRenderPages()
-  if (!pages.length) throw new Error('暂无可渲染的简谱内容')
+  if (!pages.length) throw new Error(t('convert.message.noRenderContent'))
   const result = await requireData(publicationRender.batchA4({
     pages,
     source_pages: buildBatchRenderSourcePages(),
@@ -1853,7 +1865,7 @@ async function renderFinalBatch(): Promise<string[]> {
     accidental_mode: settings.accidentalMode,
     measure_number_mode: settings.measureNumberMode,
     initial_measure_number: Math.max(1, Math.trunc(initialMeasureNumber.value || 1)),
-    title: '简谱',
+    title: t('convert.exportTitle'),
     ...settings.jianpuLayoutRequest,
   }))
   const ids = renderResponsePageIds(result.pages, result.svg_file_id)
@@ -1877,7 +1889,7 @@ async function renderFinalBatch(): Promise<string[]> {
       })
     } catch (error: unknown) {
       log.addLog(
-        `保存连续 A4 渲染状态失败：${error instanceof Error ? error.message : String(error)}`,
+        t('convert.message.renderStateSaveFailed', { msg: error instanceof Error ? error.message : String(error) }),
         'warn',
       )
     }
@@ -1909,14 +1921,14 @@ async function loadRenderSourcePageLookup(pages: RenderedSvgPage[]): Promise<voi
 function buildBatchRenderPages() {
   return buildBatchRenderRequests(batchRenderSourcePages(), {
     jianpuText: operationalJianpuText.value,
-    title: '简谱',
+    title: t('convert.exportTitle'),
   })
 }
 
 function buildBatchRenderSourcePages() {
   return buildBatchRenderRequests(batchRenderSourcePages(), {
     jianpuText: operationalJianpuText.value,
-    title: '简谱',
+    title: t('convert.exportTitle'),
   })
 }
 
@@ -1944,7 +1956,7 @@ function setFinalSvgFileIds(ids: string[]): void {
 }
 
 async function resetAll(): Promise<void> {
-  if (!(await confirmDiscardUnsaved('重置'))) return
+  if (!(await confirmDiscardUnsaved('reset'))) return
   store.setBusy(true)
   try {
     if (editMode.value) {
@@ -2017,12 +2029,12 @@ async function resetAll(): Promise<void> {
     for (const warning of resetWarnings) {
       log.addLog(warning, 'warn')
     }
-    log.addLog('已重置到识别初始状态')
-    message.success('已重置')
+    log.addLog(t('convert.message.resetLog'))
+    message.success(t('convert.message.resetDone'))
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
-    log.addError(`重置失败：${msg}`)
+    log.addError(t('convert.message.resetFailed', { msg }))
     message.error(msg)
   } finally {
     store.setBusy(false)
@@ -2072,7 +2084,7 @@ async function loadEntities(): Promise<void> {
   const sheets = data.sheets ?? []
   if (sheets.length !== 1) {
     editMode.value = false
-    message.warning(sheets.length ? '多页 OMR 暂不支持在单张原图上删除标记' : '没有可安全定位的标记')
+    message.warning(sheets.length ? t('convert.marker.multiPageOmr') : t('convert.marker.noSafeMark'))
     return
   }
   correctableSheet.value = sheets[0] ?? null
@@ -2097,7 +2109,7 @@ async function applyCorrections(): Promise<void> {
     [...current].some((id) => !baseline.has(id)) ||
     [...baseline].some((id) => !current.has(id))
   if (!hasPendingChange) {
-    message.info('没有未应用的改动')
+    message.info(t('convert.marker.noChanges'))
     return
   }
   const editedPageText = currentPageJianpuText()
@@ -2126,7 +2138,7 @@ async function applyCorrections(): Promise<void> {
       },
     }))
     if (store.currentPage?.id !== page.id) {
-      message.warning('页面已切换，本次修正结果未写入')
+      message.warning(t('convert.marker.pageSwitched'))
       return
     }
     const svgFileIds = data.svg_file_ids ?? []
@@ -2190,11 +2202,11 @@ async function applyCorrections(): Promise<void> {
     for (const warning of correctionWarnings) {
       log.addLog(warning, 'warn')
     }
-    message.success('修正已应用')
+    message.success(t('convert.marker.applied'))
     editMode.value = false
   } catch (e: unknown) {
     const detail = e instanceof Error ? e.message : String(e)
-    log.addError(`应用标记修正失败：${detail}`)
+    log.addError(t('convert.marker.applyFailed', { detail }))
     message.error(detail)
   } finally {
     applying.value = false
@@ -2224,27 +2236,27 @@ function transposeOctaveShift(direction: 1 | -1): void {
       jianpuEditorRef.value?.selectRange(reveal.start, reveal.end, { flash: false }),
     )
   }
-  message.success(direction > 0 ? '已升高八度' : '已降低八度')
+  message.success(direction > 0 ? t('convert.editor.octaveUpDone') : t('convert.editor.octaveDownDone'))
 }
 
 async function saveJianpu(): Promise<void> {
   if (!canSaveCurrentPage.value) {
-    message.warning('暂无可保存内容')
+    message.warning(t('convert.message.nothingToSave'))
     return
   }
   store.setBusy(true)
   errorLine.value = -1
   try {
     const batchId = store.currentBatchId
-    if (!batchId) throw new Error('暂无可保存批次')
+    if (!batchId) throw new Error(t('convert.message.noBatch'))
     await workspacePersistence.saveBatch(store, batchId)
-    log.addLog('已保存 OMR、简谱和 OCR 信息')
-    message.success('已保存')
+    log.addLog(t('convert.message.savedOmr'))
+    message.success(t('convert.message.saved'))
   } catch (e: unknown) {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
     errorLine.value = extractErrorLineFromMessage(raw)
-    log.addError(`保存失败：${raw}`)
+    log.addError(t('convert.message.saveFailed', { msg: raw }))
     message.error(raw)
   } finally {
     store.setBusy(false)
@@ -2314,9 +2326,9 @@ async function toggleFinalView(): Promise<void> {
     if (isRenderAborted(e)) return
     const raw = e instanceof Error ? e.message : String(e)
     const msg = e instanceof ApiError ? handleMissingMusicxml(raw) : raw
-    if (handleJianpuOutputBlocked('渲染', e)) return
+    if (handleJianpuOutputBlocked('render', e)) return
     errorLine.value = extractErrorLineFromMessage(msg)
-    log.addError(`渲染失败：${msg}`)
+    log.addError(t('convert.message.renderFailed', { msg }))
     message.error(msg)
   } finally {
     store.setBusy(false)
@@ -2354,13 +2366,13 @@ function formatSnapshotTime(createdAt: string): string {
 }
 
 function snapshotSourceLabel(source: string): string {
-  if (source === 'reset') return '重置'
-  if (source === 'auto') return '自动'
-  return '保存'
+  if (source === 'reset') return t('convert.snapshot.sourceReset')
+  if (source === 'auto') return t('convert.snapshot.sourceAuto')
+  return t('convert.snapshot.sourceSave')
 }
 
 async function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): Promise<void> {
-  if (!(await confirmDiscardUnsaved('恢复历史版本'))) return
+  if (!(await confirmDiscardUnsaved('restore'))) return
   const text = snapshot.jianpu_text
   isViewingFinal.value = false
   store.setBatchJianpuText(text, false)
@@ -2391,11 +2403,11 @@ async function restoreJianpuSnapshot(snapshot: JianpuSnapshotItem): Promise<void
   snapshotHistoryOpen.value = false
   const label = snapshotSourceLabel(snapshot.source)
   const time = formatSnapshotTime(snapshot.created_at)
-  log.addLog(`已恢复历史版本（${label} ${time}）`)
-  message.success(`已恢复到${label}版本 ${time}`)
+  log.addLog(t('convert.snapshot.restoredLog', { label, time }))
+  message.success(t('convert.snapshot.restored', { label, time }))
 }
 
-function confirmDiscardUnsaved(action: '重置' | '恢复历史版本'): Promise<boolean> {
+function confirmDiscardUnsaved(action: 'reset' | 'restore'): Promise<boolean> {
   if (!store.currentBatchHasUnsavedChanges) return Promise.resolve(true)
   settleDiscardConfirmation(false)
   discardConfirmAction.value = action
@@ -2420,7 +2432,7 @@ async function flushPendingEdits(): Promise<void> {
 
 // loadBatch 会整页替换当前批次。切走前先保存仍有历史目标的编辑；没有本地批次
 // 或历史目标已被删除时保留现场，等目标成功加载后再随工作区替换一起丢弃。
-async function persistUnsavedBeforeReplace(action: string): Promise<boolean> {
+async function persistUnsavedBeforeReplace(action: ConvertAction): Promise<boolean> {
   store.setBusy(true)
   try {
     await flushPendingEdits()
@@ -2429,14 +2441,14 @@ async function persistUnsavedBeforeReplace(action: string): Promise<boolean> {
       mode: 'discard',
     })
     if (result.savedBatchIds.length) {
-      log.addLog(`${action}前已自动保存当前批次的未保存更改`)
+      log.addLog(t('convert.message.autoSaved', { action: actionLabel(action) }))
     }
     return true
   } catch (e: unknown) {
     if (isRenderAborted(e)) return false
     const msg = e instanceof Error ? e.message : String(e)
-    log.addError(`自动保存失败，已取消${action}：${msg}`)
-    message.error(`保存当前更改失败，已取消${action}：${msg}`)
+    log.addError(t('convert.message.autoSaveFailedLog', { action: actionLabel(action), msg }))
+    message.error(t('convert.message.autoSaveFailedMsg', { action: actionLabel(action), msg }))
     return false
   } finally {
     store.setBusy(false)
