@@ -43,6 +43,7 @@ class RenderOptions:
     initial_measure_number: int | None = 1
     show_title: bool = True
     show_page_number: bool = True
+    break_beams_at_beat: bool = DEFAULT_BREAK_BEAMS_AT_BEAT
 
 
 @dataclass(frozen=True, slots=True)

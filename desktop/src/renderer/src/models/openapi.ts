@@ -1860,6 +1860,11 @@ export type components = {
              * @default 1
              */
             initial_measure_number?: number;
+            /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
             /** Jianpu Text */
             jianpu_text: string;
             /**

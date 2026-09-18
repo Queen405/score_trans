@@ -494,6 +494,7 @@ def _style_from_options(
         minimum_measure_width=float(options.min_measure_width),
         minimum_event_gap=float(options.note_min_gap),
         font_family=options.font_family,
+        break_beams_at_beat=options.break_beams_at_beat,
     )
 
 

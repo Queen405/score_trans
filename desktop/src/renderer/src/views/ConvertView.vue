@@ -753,13 +753,13 @@ function loadInitialMeasureNumber(batchId: string | null): number {
 }
 
 watch(
-  [jianpuText, liveCursorTick, liveRenderEnabled, initialMeasureNumber, () => store.currentBatchId],
+  [jianpuText, liveCursorTick, liveRenderEnabled, initialMeasureNumber, () => store.currentBatchId, () => settings.jianpuBreakBeamsAtBeat],
   ([text, , enabled, initialNumber, documentId]) => {
     const cursorOffset = jianpuEditorRef.value?.getSelectionRange()?.start ?? text.length
     livePreview.update({
       documentId,
       enabled,
-      request: { jianpu_text: text, cursor_offset: cursorOffset, show_measure_numbers: false, initial_measure_number: initialNumber },
+      request: { jianpu_text: text, cursor_offset: cursorOffset, show_measure_numbers: false, initial_measure_number: initialNumber, jianpu_break_beams_at_beat: settings.jianpuBreakBeamsAtBeat },
     })
   },
 )

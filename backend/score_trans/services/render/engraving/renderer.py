@@ -2668,6 +2668,7 @@ def _draw_rhythm_segment(
     left_limit: float | None = None,
     right_limit: float | None = None,
     style: PublicationStyle | None = None,
+    side_extent: float | None = None,
 ) -> None:
     source_ids = list(
         dict.fromkeys(
@@ -2678,7 +2679,8 @@ def _draw_rhythm_segment(
             )
         )
     )
-    side_extent = style.rhythm_line_side_extent if style else 12.0
+    if side_extent is None:
+        side_extent = style.rhythm_line_side_extent if style else 12.0
     x1 = anchors[0].x - side_extent
     x2 = anchors[-1].x + side_extent
     if left_limit is not None:
@@ -2730,8 +2732,10 @@ def _draw_rhythm_run(
     ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0)
     if style is not None and style.break_beams_at_beat and beat_boundaries:
         groups = _split_anchors_by_beat(anchors, beat_boundaries)
+        segment_extent: float | None = style.rhythm_line_break_segment_extent
     else:
         groups = [anchors]
+        segment_extent = None
     for group in groups:
         _draw_rhythm_segment(
             scene,
@@ -2740,6 +2744,7 @@ def _draw_rhythm_run(
             left_limit=left_limit,
             right_limit=right_limit,
             style=style,
+            side_extent=segment_extent,
         )
 
 

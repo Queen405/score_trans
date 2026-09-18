@@ -521,6 +521,10 @@ def test_break_beams_at_beat_splits_rhythm_lines_per_beat() -> None:
 
     assert len(lines) == 4
 
+    spans = sorted((float(node.attrs["x1"]), float(node.attrs["x2"])) for node in lines)
+    for (prev_x1, prev_x2), (curr_x1, curr_x2) in zip(spans, spans[1:]):
+        assert curr_x1 - prev_x2 >= 15.0
+
 
 def test_break_beams_at_beat_disabled_keeps_continuous_line() -> None:
     events = [
@@ -590,6 +594,29 @@ def test_break_beams_at_beat_splits_sixteenth_both_levels() -> None:
     ]
 
     assert len(lines) == 4
+
+
+def test_live_render_follows_break_beams_option() -> None:
+    """即时渲染（render_score_svg 路径）随 RenderOptions.break_beams_at_beat 生效。"""
+    score = parse_jianpu_score("1=C\n4/4\nq1 q2 q3 q4 q5 q6 q7 q1 |")
+
+    off_svg = render_score_svg(score, RenderOptions(break_beams_at_beat=False))
+    on_svg = render_score_svg(score, RenderOptions(break_beams_at_beat=True))
+
+    off_root = _root(off_svg)
+    on_root = _root(on_svg)
+    off_beams = [
+        node
+        for node in off_root.iter()
+        if "duration-line" in node.attrib.get("class", "")
+    ]
+    on_beams = [
+        node
+        for node in on_root.iter()
+        if "duration-line" in node.attrib.get("class", "")
+    ]
+    assert len(off_beams) == 1
+    assert len(on_beams) == 4
 
 
 def test_simultaneous_independent_voices_remain_distinct_and_do_not_overlap() -> None:

@@ -673,6 +673,9 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
     assert settings_beat_gap["minimum"] == 0
     assert settings_beat_gap["maximum"] == 200
 
+    live_properties = schemas["LiveJianpuSvgRequest"]["properties"]
+    assert live_properties["jianpu_break_beams_at_beat"]["default"] is False
+
     multipart_properties = schemas["Body_run_pipeline_pipeline_post"]["properties"]
     assert multipart_properties["jianpu_system_gap_percent"]["minimum"] == 20
     assert multipart_properties["jianpu_system_gap_percent"]["maximum"] == 180

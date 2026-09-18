@@ -435,6 +435,7 @@ class RenderActions:
             initial_measure_number=req.initial_measure_number,
             show_title=False,
             show_page_number=False,
+            break_beams_at_beat=req.jianpu_break_beams_at_beat,
         )
         if req.cursor_offset is not None:
             return render_live_measure_preview(
