@@ -780,6 +780,7 @@ function startLiveResize(event: MouseEvent): void {
 
 watch(() => store.currentBatchId, (batchId) => {
   syntaxStore.clear()
+  errorLine.value = -1
   initialMeasureNumber.value = loadInitialMeasureNumber(batchId)
   syntaxStore.schedule(operationalJianpuText.value)
 }, { immediate: true })
