@@ -15,8 +15,8 @@
       >
         <TimeOutline />
       </n-icon>
-      <span class="hq-empty-text">暂无历史记录</span>
-      <span class="hq-empty-hint">识别乐谱后会自动保存到此处</span>
+      <span class="hq-empty-text">{{ t('components.historyQuickEntry.noHistory') }}</span>
+      <span class="hq-empty-hint">{{ t('components.historyQuickEntry.autoSaveHint') }}</span>
     </div>
     <div
       v-else
@@ -31,13 +31,13 @@
       >
         <span :class="['hq-dot', statusClass(entry.status)]" />
         <div class="hq-info">
-          <span class="hq-name">{{ entry.first_file_name || '未知文件' }}</span>
+          <span class="hq-name">{{ entry.first_file_name || t('components.historyQuickEntry.unknownFile') }}</span>
           <span class="hq-meta">
             <span>{{ formatRelative(entry.created_at) }}</span>
             <span
               v-if="entry.page_count > 1"
               class="hq-pages"
-            >{{ entry.page_count }} 页</span>
+            >{{ t('components.historyQuickEntry.pages', { count: entry.page_count }) }}</span>
           </span>
         </div>
         <n-icon
@@ -54,6 +54,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { NIcon, NSpin } from 'naive-ui'
+import { t } from '../i18n'
 import { TimeOutline, ChevronForwardOutline } from '@vicons/ionicons5'
 import { historyApi } from '../api/history'
 import { listenHistoryUpdated } from '../utils/historyEvents'
@@ -106,12 +107,12 @@ function formatRelative(iso: string): string {
   if (isNaN(d.getTime())) return iso
   const diffMs = Date.now() - d.getTime()
   const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return '刚刚'
-  if (diffMin < 60) return `${diffMin} 分钟前`
+  if (diffMin < 1) return t('components.historyQuickEntry.justNow')
+  if (diffMin < 60) return t('components.historyQuickEntry.minutesAgo', { n: diffMin })
   const diffHour = Math.floor(diffMin / 60)
-  if (diffHour < 24) return `${diffHour} 小时前`
+  if (diffHour < 24) return t('components.historyQuickEntry.hoursAgo', { n: diffHour })
   const diffDay = Math.floor(diffHour / 24)
-  if (diffDay < 7) return `${diffDay} 天前`
+  if (diffDay < 7) return t('components.historyQuickEntry.daysAgo', { n: diffDay })
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }

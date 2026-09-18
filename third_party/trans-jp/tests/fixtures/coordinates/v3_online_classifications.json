@@ -1,0 +1,463 @@
+{
+  "schema_version": 3,
+  "model": "agnes-3.0-flash",
+  "date": "2026-09-18",
+  "origin": "First online v3 pass, unedited model classifications. Labels used for evaluation only.",
+  "rows": [
+    {
+      "image": "image copy 10.png",
+      "row_index": 0,
+      "registry_sha256": "a7fa6f295170bc99aa8e6c7ae3238e45fa44e9c4efc51aa2e0930ffb66a48060",
+      "batches": [
+        {
+          "batch_id": "r0000:b0000",
+          "candidate_ids": [
+            "r0000:c0000",
+            "r0000:c0001",
+            "r0000:c0002",
+            "r0000:c0003",
+            "r0000:c0004",
+            "r0000:c0005",
+            "r0000:c0007",
+            "r0000:c0008",
+            "r0000:c0009",
+            "r0000:c0010",
+            "r0000:c0011",
+            "r0000:c0012"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0000:c0000\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0001\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0002\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0003\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0004\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 0.8, \"status\": \"recognized\", \"reason\": \"dash/rest symbol not in allowed label set\"}, {\"candidate_id\": \"r0000:c0005\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0007\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 0.9, \"status\": \"recognized\", \"reason\": \"dash/rest symbol not in allowed label set\"}, {\"candidate_id\": \"r0000:c0008\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 0.95, \"status\": \"recognized\", \"reason\": \"parenthesis is non-music ink\"}, {\"candidate_id\": \"r0000:c0009\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0010\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0011\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0012\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0000:b0001",
+          "candidate_ids": [
+            "r0000:c0013",
+            "r0000:c0014",
+            "r0000:c0015",
+            "r0000:c0016",
+            "r0000:c0017",
+            "r0000:c0018",
+            "r0000:c0019",
+            "r0000:c0020",
+            "r0000:c0021",
+            "r0000:c0022",
+            "r0000:c0023",
+            "r0000:c0024"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0000:c0013\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0014\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0015\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0016\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0017\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0018\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0019\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0020\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0021\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0022\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0023\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0000:c0024\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0000:b0002",
+          "candidate_ids": [
+            "r0000:c0025",
+            "r0000:c0026",
+            "r0000:c0027",
+            "r0000:c0028",
+            "r0000:c0029"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0000:c0025\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0026\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0027\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0028\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0029\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}]}",
+          "status": "classified"
+        }
+      ]
+    },
+    {
+      "image": "image copy 10.png",
+      "row_index": 1,
+      "registry_sha256": "45d6ff81e41348e0641ff4ce8542696cc2be8b7447c4c621d1ea891727c02f11",
+      "batches": [
+        {
+          "batch_id": "r0001:b0000",
+          "candidate_ids": [
+            "r0001:c0000",
+            "r0001:c0001",
+            "r0001:c0002",
+            "r0001:c0003",
+            "r0001:c0004",
+            "r0001:c0005",
+            "r0001:c0006",
+            "r0001:c0007",
+            "r0001:c0008",
+            "r0001:c0009",
+            "r0001:c0010",
+            "r0001:c0011"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0001:c0000\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0001\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0002\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0003\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0004\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0005\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0006\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0007\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0008\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0009\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0010\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0011\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0001:b0001",
+          "candidate_ids": [
+            "r0001:c0012",
+            "r0001:c0013",
+            "r0001:c0014",
+            "r0001:c0015",
+            "r0001:c0016",
+            "r0001:c0017",
+            "r0001:c0018",
+            "r0001:c0019",
+            "r0001:c0020",
+            "r0001:c0021",
+            "r0001:c0022",
+            "r0001:c0023"
+          ],
+          "raw_response": "{\n\"schema_version\": 3,\n\"items\": [\n{\"candidate_id\": \"r0001:c0012\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0013\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0014\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0015\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0016\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0017\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0018\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0019\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0020\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0021\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0022\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0023\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}\n],\n\"unresolved\": []\n}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0001:b0002",
+          "candidate_ids": [
+            "r0001:c0024",
+            "r0001:c0025",
+            "r0001:c0026",
+            "r0001:c0027",
+            "r0001:c0028",
+            "r0001:c0029",
+            "r0001:c0030",
+            "r0001:c0031",
+            "r0001:c0032",
+            "r0001:c0033",
+            "r0001:c0034",
+            "r0001:c0035"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0001:c0024\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0025\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0026\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0027\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0028\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0029\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0030\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0031\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0032\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0033\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0034\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0035\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0001:b0003",
+          "candidate_ids": [
+            "r0001:c0036",
+            "r0001:c0037"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0001:c0036\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0037\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "status": "classified"
+        }
+      ]
+    },
+    {
+      "image": "image copy 10.png",
+      "row_index": 2,
+      "registry_sha256": "a8944549d8c30481b5192df8c6714163fbc7fd120cda52777443f2e721c756da",
+      "batches": [
+        {
+          "batch_id": "r0002:b0000",
+          "candidate_ids": [
+            "r0002:c0000",
+            "r0002:c0001",
+            "r0002:c0002",
+            "r0002:c0003",
+            "r0002:c0004",
+            "r0002:c0005",
+            "r0002:c0006",
+            "r0002:c0007",
+            "r0002:c0008",
+            "r0002:c0009",
+            "r0002:c0010",
+            "r0002:c0011"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0002:c0000\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0001\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0002\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0005\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0007\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0008\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0009\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0010\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0011\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0002:c0003\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0002:c0006\", \"reason\": \"non_music\"}]}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0002:b0001",
+          "candidate_ids": [
+            "r0002:c0012",
+            "r0002:c0013",
+            "r0002:c0014",
+            "r0002:c0015",
+            "r0002:c0016",
+            "r0002:c0017",
+            "r0002:c0018",
+            "r0002:c0019",
+            "r0002:c0020",
+            "r0002:c0021",
+            "r0002:c0022",
+            "r0002:c0023"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0002:c0012\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0013\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0014\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0015\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0016\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0017\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0018\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0019\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0020\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0021\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0022\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0023\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ]\n}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0002:b0002",
+          "candidate_ids": [
+            "r0002:c0024",
+            "r0002:c0025",
+            "r0002:c0026",
+            "r0002:c0027",
+            "r0002:c0028",
+            "r0002:c0029",
+            "r0002:c0030"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0002:c0024\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0025\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0026\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0027\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0028\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0029\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0030\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    }\n  ]\n}",
+          "status": "classified"
+        }
+      ]
+    },
+    {
+      "image": "image copy 10.png",
+      "row_index": 4,
+      "registry_sha256": "c5dccb6ae8113383b64164156bebe576f5bb2a447c7ebaeb2b212764509be018",
+      "batches": [
+        {
+          "batch_id": "r0004:b0000",
+          "candidate_ids": [
+            "r0004:c0000",
+            "r0004:c0001",
+            "r0004:c0002",
+            "r0004:c0003",
+            "r0004:c0004",
+            "r0004:c0005",
+            "r0004:c0006",
+            "r0004:c0007",
+            "r0004:c0008",
+            "r0004:c0009",
+            "r0004:c0010",
+            "r0004:c0011"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0004:c0000\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0001\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0002\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0003\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0004\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0005\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0006\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0007\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0008\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0009\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0010\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0011\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0004:b0001",
+          "candidate_ids": [
+            "r0004:c0012",
+            "r0004:c0013",
+            "r0004:c0014",
+            "r0004:c0015",
+            "r0004:c0016",
+            "r0004:c0017",
+            "r0004:c0018",
+            "r0004:c0019",
+            "r0004:c0020",
+            "r0004:c0021",
+            "r0004:c0022",
+            "r0004:c0023"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0004:c0012\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0013\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0014\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0015\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0016\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0017\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0018\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0019\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0020\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0021\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0022\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0023\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0004:b0002",
+          "candidate_ids": [
+            "r0004:c0024",
+            "r0004:c0027",
+            "r0004:c0028",
+            "r0004:c0029",
+            "r0004:c0030",
+            "r0004:c0031",
+            "r0004:c0032"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0004:c0024\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0027\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0028\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0029\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0030\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0031\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0032\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "status": "classified"
+        }
+      ]
+    },
+    {
+      "image": "image copy 12.png",
+      "row_index": 2,
+      "registry_sha256": "988331762560b9c47e8ba6dafda0c59d8d2cc2c9083119d19863072d270e18cd",
+      "batches": [
+        {
+          "batch_id": "r0002:b0000",
+          "candidate_ids": [
+            "r0002:c0000",
+            "r0002:c0001",
+            "r0002:c0002",
+            "r0002:c0003",
+            "r0002:c0004",
+            "r0002:c0005",
+            "r0002:c0006",
+            "r0002:c0007",
+            "r0002:c0008",
+            "r0002:c0009",
+            "r0002:c0010",
+            "r0002:c0011"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0002:c0000\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0001\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0002\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0003\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0004\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0007\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0002:c0005\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0002:c0006\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0002:c0008\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0002:c0009\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0002:c0010\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0002:c0011\", \"reason\": \"non_music\"}]}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0002:b0001",
+          "candidate_ids": [
+            "r0002:c0012",
+            "r0002:c0013",
+            "r0002:c0014",
+            "r0002:c0015",
+            "r0002:c0016",
+            "r0002:c0017",
+            "r0002:c0018",
+            "r0002:c0019",
+            "r0002:c0020",
+            "r0002:c0021",
+            "r0002:c0022",
+            "r0002:c0023"
+          ],
+          "raw_response": "{\n\"schema_version\": 3,\n\"items\": [\n{\"candidate_id\": \"r0002:c0012\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0013\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0014\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0015\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0016\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0017\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0018\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0019\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0020\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0021\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0022\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0023\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}\n],\n\"unresolved\": []\n}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0002:b0002",
+          "candidate_ids": [
+            "r0002:c0025",
+            "r0002:c0026",
+            "r0002:c0027",
+            "r0002:c0028",
+            "r0002:c0029",
+            "r0002:c0030",
+            "r0002:c0031",
+            "r0002:c0032",
+            "r0002:c0033",
+            "r0002:c0034",
+            "r0002:c0035",
+            "r0002:c0036"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0002:c0025\", \"label\": \"4\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0026\", \"label\": \"4\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0027\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0028\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0029\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0030\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0031\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0032\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0033\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0034\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0035\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0036\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}]}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0002:b0003",
+          "candidate_ids": [
+            "r0002:c0037",
+            "r0002:c0038",
+            "r0002:c0039",
+            "r0002:c0040",
+            "r0002:c0041"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0002:c0037\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0038\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0039\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0040\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0041\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "status": "classified"
+        }
+      ]
+    },
+    {
+      "image": "image copy 13.png",
+      "row_index": 4,
+      "registry_sha256": "c09f28f7848ef34486218835e1d52decdd3fd713ed41c1818c3bedc72d567cd8",
+      "batches": [
+        {
+          "batch_id": "r0004:b0000",
+          "candidate_ids": [
+            "r0004:c0000",
+            "r0004:c0001",
+            "r0004:c0002",
+            "r0004:c0003",
+            "r0004:c0004",
+            "r0004:c0005",
+            "r0004:c0006",
+            "r0004:c0007",
+            "r0004:c0008",
+            "r0004:c0009",
+            "r0004:c0010",
+            "r0004:c0011"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0004:c0000\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0001\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0002\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0003\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0004\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0005\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0006\",\n      \"label\": \"4\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0007\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0008\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0009\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0010\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0011\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0004:b0001",
+          "candidate_ids": [
+            "r0004:c0012",
+            "r0004:c0013",
+            "r0004:c0014",
+            "r0004:c0015",
+            "r0004:c0016",
+            "r0004:c0017",
+            "r0004:c0018",
+            "r0004:c0019",
+            "r0004:c0020",
+            "r0004:c0021",
+            "r0004:c0022",
+            "r0004:c0023"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0004:c0012\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0013\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0014\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0015\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0016\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0017\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0018\", \"label\": \"4\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0019\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0020\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0021\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0022\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0023\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "status": "classified"
+        },
+        {
+          "batch_id": "r0004:b0002",
+          "candidate_ids": [
+            "r0004:c0024",
+            "r0004:c0025",
+            "r0004:c0026",
+            "r0004:c0027",
+            "r0004:c0028",
+            "r0004:c0030",
+            "r0004:c0031"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0004:c0024\",\n      \"label\": \"4\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0025\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0026\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0027\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0030\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unresolved\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0031\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unresolved\"\n    }\n  ],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0004:c0028\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0030\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0031\",\n      \"reason\": \"unreadable\"\n    }\n  ]\n}",
+          "status": "classified"
+        }
+      ]
+    },
+    {
+      "image": "sample_jianpu.png",
+      "row_index": 1,
+      "registry_sha256": "c1820f284bfb5e7b5f3ae2b7ec26db44a9ecaeb93d86aa82602dac27dfc512f5",
+      "batches": [
+        {
+          "batch_id": "r0001:b0000",
+          "candidate_ids": [
+            "r0001:c0000",
+            "r0001:c0001",
+            "r0001:c0002",
+            "r0001:c0003",
+            "r0001:c0004",
+            "r0001:c0005",
+            "r0001:c0006",
+            "r0001:c0007",
+            "r0001:c0008",
+            "r0001:c0009"
+          ],
+          "raw_response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0001:c0000\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0001\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0002\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0003\",\n      \"label\": \"4\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0004\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0005\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0006\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0007\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0008\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0009\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "status": "classified"
+        }
+      ]
+    },
+    {
+      "image": "sample_jianpu.png",
+      "row_index": 2,
+      "registry_sha256": "10ddfed3081df3637aa2bca269a4addc98ff67f04a6bf2e72abad9c976d55790",
+      "batches": [
+        {
+          "batch_id": "r0002:b0000",
+          "candidate_ids": [
+            "r0002:c0000",
+            "r0002:c0001",
+            "r0002:c0002",
+            "r0002:c0003",
+            "r0002:c0004",
+            "r0002:c0005",
+            "r0002:c0006",
+            "r0002:c0007",
+            "r0002:c0008",
+            "r0002:c0009"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0002:c0000\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0001\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0002\", \"label\": \"4\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0003\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0005\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0006\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0007\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0008\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0009\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "status": "classified"
+        }
+      ]
+    },
+    {
+      "image": "sample_jianpu.png",
+      "row_index": 3,
+      "registry_sha256": "678211d47d070d90cfdfb2464f37bc14df97cf2b1c570293074322ae809397fe",
+      "batches": [
+        {
+          "batch_id": "r0003:b0000",
+          "candidate_ids": [
+            "r0003:c0000",
+            "r0003:c0001",
+            "r0003:c0002",
+            "r0003:c0003",
+            "r0003:c0004",
+            "r0003:c0005",
+            "r0003:c0006",
+            "r0003:c0007",
+            "r0003:c0008",
+            "r0003:c0009"
+          ],
+          "raw_response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0003:c0000\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0001\", \"label\": \"4\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0002\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0003\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0005\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0006\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0007\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0008\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0009\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "status": "classified"
+        }
+      ]
+    }
+  ]
+}

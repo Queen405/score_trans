@@ -1,4 +1,5 @@
 import type { UploadResponse } from '../models/types'
+import { t } from '../i18n'
 
 type BackendConnection = Awaited<
   ReturnType<Window['api']['getBackendConnection']>
@@ -167,7 +168,7 @@ async function uploadFileData(
         reject(new ApiError(msg))
       }
     }
-    xhr.onerror = () => reject(new ApiError('网络错误'))
+    xhr.onerror = () => reject(new ApiError(t('runtime.api.networkError')))
     const formData = new FormData()
     formData.append('file', file)
     xhr.send(formData)

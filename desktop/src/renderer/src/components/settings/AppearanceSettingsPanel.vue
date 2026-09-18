@@ -2,26 +2,25 @@
   <div class="sv-panel">
     <section class="sv-section">
       <div class="sv-section-heading">
-        <h3>主题外观</h3>
+        <h3>{{ t('common.language.label') }}</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
-          label="主题模式"
+          :label="t('common.language.interface')"
         >
           <n-radio-group
-            v-model:value="settings.draft.themeMode"
+            :value="locale"
             class="sv-theme-options"
             size="small"
+            @update:value="onLocaleChange"
           >
-            <n-radio-button value="system">
-              跟随系统
-            </n-radio-button>
-            <n-radio-button value="light">
-              浅色
-            </n-radio-button>
-            <n-radio-button value="dark">
-              深色
+            <n-radio-button
+              v-for="option in localeOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
             </n-radio-button>
           </n-radio-group>
         </settings-form-row>
@@ -32,12 +31,42 @@
 
     <section class="sv-section">
       <div class="sv-section-heading">
-        <h3>预览叠加</h3>
+        <h3>{{ t('settings.appearance.theme') }}</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
-          label="识别音符叠加"
+          :label="t('settings.appearance.themeMode')"
+        >
+          <n-radio-group
+            v-model:value="settings.draft.themeMode"
+            class="sv-theme-options"
+            size="small"
+          >
+            <n-radio-button value="system">
+              {{ t('settings.appearance.themeSystem') }}
+            </n-radio-button>
+            <n-radio-button value="light">
+              {{ t('settings.appearance.themeLight') }}
+            </n-radio-button>
+            <n-radio-button value="dark">
+              {{ t('settings.appearance.themeDark') }}
+            </n-radio-button>
+          </n-radio-group>
+        </settings-form-row>
+      </div>
+    </section>
+
+    <div class="sv-section-divider" />
+
+    <section class="sv-section">
+      <div class="sv-section-heading">
+        <h3>{{ t('settings.appearance.overlay') }}</h3>
+      </div>
+
+      <div class="sv-form-stack">
+        <settings-form-row
+          :label="t('settings.appearance.recognitionOverlay')"
         >
           <n-switch
             v-model:value="settings.draft.showRecognitionOverlay"
@@ -46,7 +75,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="简谱 OCR 叠加"
+          :label="t('settings.appearance.ocrOverlay')"
         >
           <n-switch
             v-model:value="settings.draft.showOcrOverlay"
@@ -60,11 +89,11 @@
 
     <section class="sv-section">
       <div class="sv-section-heading">
-        <h3>简谱版式</h3>
+        <h3>{{ t('settings.appearance.layout') }}</h3>
       </div>
 
       <div class="sv-form-stack">
-        <settings-form-row label="整体大小">
+        <settings-form-row :label="t('settings.appearance.contentScale')">
           <div class="sv-layout-control">
             <n-slider
               v-model:value="settings.draft.jianpuContentScalePercent"
@@ -86,7 +115,7 @@
           </div>
         </settings-form-row>
 
-        <settings-form-row label="行间距">
+        <settings-form-row :label="t('settings.appearance.systemGap')">
           <div class="sv-layout-control">
             <n-slider
               v-model:value="settings.draft.jianpuSystemGapPercent"
@@ -109,7 +138,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="短音符间距"
+          :label="t('settings.appearance.shortNoteGap')"
         >
           <div class="sv-layout-control">
             <n-slider
@@ -133,7 +162,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="分拍间隔"
+          :label="t('settings.appearance.beatGap')"
         >
           <div class="sv-layout-control">
             <n-slider
@@ -162,10 +191,24 @@
 
 <script setup lang="ts">
 import { NInputNumber, NRadioButton, NRadioGroup, NSlider, NSwitch } from 'naive-ui'
+import {
+  LOCALE_OPTIONS,
+  isLocaleCode,
+  locale,
+  setLocale,
+  t,
+} from '../../i18n'
 import { useSettingsStore } from '../../stores/settings'
 import SettingsFormRow from './SettingsFormRow.vue'
 
 const settings = useSettingsStore()
+const localeOptions = LOCALE_OPTIONS
+
+function onLocaleChange(value: string): void {
+  if (isLocaleCode(value)) {
+    setLocale(value)
+  }
+}
 </script>
 
 <style scoped>

@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { t } from '../i18n'
 import { renderApi } from '../api/render'
 import type { LiveJianpuSvgRequest, LiveJianpuSvgResponse, SyntaxDiagnostic } from '../models/types'
 import type { ApiResult } from '../api/client'
@@ -77,7 +78,7 @@ export function useLiveJianpuPreview(request: PreviewRequest = renderApi.liveJia
       }
     } catch (cause) {
       if (epoch.isCurrent(generation) && !isRenderAborted(cause)) {
-        error.value = cause instanceof Error ? cause.message : '即时预览失败'
+        error.value = cause instanceof Error ? cause.message : t('runtime.preview.liveFailed')
       }
     } finally {
       if (epoch.isCurrent(generation)) {

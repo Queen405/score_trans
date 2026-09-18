@@ -25,7 +25,7 @@
           v-else
           class="svg-loading"
         >
-          加载中...
+          {{ t('common.state.loading') }}
         </div>
         <template v-if="showOcrOverlay">
           <button
@@ -62,17 +62,17 @@
       <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
       <button
         class="zoom-btn"
-        title="适应窗口"
+        :title="t('components.publicationPreview.fitWindowTitle')"
         @click="zp.reset()"
       >
-        适应
+        {{ t('components.publicationPreview.fit') }}
       </button>
       <button
         :class="['zoom-btn', { active: showOcrOverlay }]"
-        :title="showOcrOverlay ? '隐藏 OCR 文字叠加' : '显示 OCR 文字叠加'"
+        :title="showOcrOverlay ? t('components.publicationPreview.hideOcrOverlay') : t('components.publicationPreview.showOcrOverlay')"
         @click="showOcrOverlay = !showOcrOverlay"
       >
-        OCR叠加
+        {{ t('components.publicationPreview.ocrOverlay') }}
       </button>
     </div>
   </div>
@@ -86,7 +86,7 @@
     >
       <ImageOutline />
     </n-icon>
-    <span>暂无 SVG</span>
+    <span>{{ t('components.publicationPreview.noSvg') }}</span>
   </div>
 </template>
 
@@ -94,6 +94,7 @@
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import type { CSSProperties } from 'vue'
 import { fetchFileBlob } from '../api/client'
+import { t } from '../i18n'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
@@ -424,7 +425,7 @@ async function loadSvg(url: string): Promise<void> {
   } catch {
     if (generation !== svgLoadGeneration) return
     svgReady.value = false
-    svgError.value = 'SVG 加载失败'
+    svgError.value = t('components.publicationPreview.svgLoadFailed')
   } finally {
     window.clearTimeout(timeout)
     if (svgLoadController === controller) svgLoadController = null

@@ -1,0 +1,802 @@
+{
+  "version": 1,
+  "origin": "First development/holdout review responses, including failures; no selection or relabelling. Captured 2026-09-18.",
+  "pages": {
+    "image.png": {
+      "split": "development",
+      "metadata": {
+        "status": "reviewed",
+        "raw_response": "{\n  \"schema_version\": 1,\n  \"key\": {\n    \"value\": \"bB\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"meter\": {\n    \"value\": \"4/4\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"changes_detected\": false\n}",
+        "finish_reason": "stop",
+        "parsed": {
+          "key": {
+            "value": null,
+            "status": "unknown"
+          },
+          "meter": {
+            "value": "4/4",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "changes": [],
+          "warnings": [],
+          "source_regions": [
+            {
+              "region_id": "page",
+              "bounds_work": [
+                0,
+                0,
+                1767,
+                2500
+              ]
+            }
+          ]
+        }
+      },
+      "reviews": {
+        "r0002-review0000": {
+          "sha256": "2018d69178964bd1d16c4a6ac1284ed62f67b7eb766d1baab24669114e0ead5a",
+          "result": {
+            "request_id": "r0002-review0000",
+            "relations": [
+              {
+                "candidate_id": "r0002:a0000",
+                "body_ids": [
+                  "r0002:c0001"
+                ],
+                "kind": "flat",
+                "status": "confirmed",
+                "source": "vlm"
+              }
+            ],
+            "unknown_ids": [],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0002:a0000\",\n      \"body_ids\": [\n        \"r0002:c0001\"\n      ],\n      \"kind\": \"flat\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0003-review0000": {
+          "sha256": "b9a8e97de3d2f2789e4d61b32346ac730d7b7decc05bfcf73667c805a1618e1c",
+          "result": {
+            "request_id": "r0003-review0000",
+            "relations": [],
+            "unknown_ids": [
+              "r0003:a0001",
+              "r0003:a0002"
+            ],
+            "missing_evidence": [
+              "r0003:c0012"
+            ],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [],\n  \"unknown_ids\": [\n    \"r0003:a0001\",\n    \"r0003:a0002\"\n  ],\n  \"missing_evidence\": [\n    \"r0003:c0012\"\n  ]\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0003-review0001": {
+          "sha256": "04acdb61a072f165e545f4f8d50ebe2074a25473b18169fc9aa165b57c007234",
+          "result": {
+            "request_id": "r0003-review0001",
+            "relations": [],
+            "unknown_ids": [
+              "r0003:a0000",
+              "r0003:a0003"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0003:a0000\",\n      \"body_ids\": [\n        \"r0003:c0015\",\n        \"r0003:c0016\"\n      ],\n      \"kind\": \"unclassified\"\n    },\n    {\n      \"candidate_id\": \"r0003:a0003\",\n      \"body_ids\": [\n        \"r0003:c0015\",\n        \"r0003:c0016\"\n      ],\n      \"kind\": \"unclassified\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        }
+      }
+    },
+    "image copy 2.png": {
+      "split": "development",
+      "metadata": {
+        "status": "reviewed",
+        "raw_response": "{\n  \"schema_version\": 1,\n  \"key\": {\n    \"value\": \"Bb\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"meter\": {\n    \"value\": \"4/4\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"changes_detected\": false\n}",
+        "finish_reason": "stop",
+        "parsed": {
+          "key": {
+            "value": "Bb",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "meter": {
+            "value": "4/4",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "changes": [],
+          "warnings": [],
+          "source_regions": [
+            {
+              "region_id": "page",
+              "bounds_work": [
+                0,
+                0,
+                2480,
+                3507
+              ]
+            }
+          ]
+        }
+      },
+      "reviews": {
+        "r0003-review0000": {
+          "sha256": "d46572ba81b36b67f42310e3909adc5e7d6abc9e56049573a0245eb8c253e6b3",
+          "result": {
+            "request_id": "r0003-review0000",
+            "relations": [
+              {
+                "candidate_id": "r0003:a0000",
+                "body_ids": [
+                  "r0003:c0001"
+                ],
+                "kind": "unsupported",
+                "status": "confirmed",
+                "source": "vlm"
+              }
+            ],
+            "unknown_ids": [],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0003:a0000\",\n      \"body_ids\": [\n        \"r0003:c0001\"\n      ],\n      \"kind\": \"unsupported\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0004-review0000": {
+          "sha256": "1f568bd535ff5a35ac91737c7a97bac8f7bd30ce50073bc53bc70a231ef22079",
+          "result": {
+            "request_id": "r0004-review0000",
+            "relations": [],
+            "unknown_ids": [
+              "r0004:a0000"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n \"schema_version\": 1,\n \"relations\": [\n  {\n   \"candidate_id\": \"r0004:a0000\",\n   \"body_ids\": [\"r0004:c0020\", \"r0004:c0021\"],\n   \"kind\": \"unsupported\"\n  }\n ],\n \"unknown_ids\": [],\n \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0005-review0000": {
+          "sha256": "bef0a6fcd7845b524dc55b4813f33e3230cdadeac5986c49727d210499ff43df",
+          "result": {
+            "request_id": "r0005-review0000",
+            "relations": [],
+            "unknown_ids": [
+              "r0005:a0000"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\"schema_version\": 1, \"relations\": [], \"unknown_ids\": [\"r0005:a0000\"], \"missing_evidence\": []}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0005-review0001": {
+          "sha256": "0e94a4f15e37054e76bdda10a6a0b9f1c5d55871d557cc05c0ecbd741dad72c2",
+          "result": {
+            "request_id": "r0005-review0001",
+            "relations": [],
+            "unknown_ids": [
+              "r0005:a0001"
+            ],
+            "missing_evidence": [],
+            "status": "invalid",
+            "raw_response": "{\"relations\": [{\"candidate_id\": \"r0005:a0001\", \"body_ids\": [\"r0005:c0018\"], \"kind\": \"unsupported\"}], \"unknown_ids\": [], \"missing_evidence\": []}",
+            "reason": "复核协议无效",
+            "finish_reason": "stop"
+          }
+        }
+      }
+    },
+    "image copy 4.png": {
+      "split": "development",
+      "metadata": {
+        "status": "reviewed",
+        "raw_response": "{\n  \"schema_version\": 1,\n  \"key\": {\n    \"value\": \"A\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"meter\": {\n    \"value\": \"4/4\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"changes_detected\": false\n}",
+        "finish_reason": "stop",
+        "parsed": {
+          "key": {
+            "value": "A",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "meter": {
+            "value": "4/4",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "changes": [],
+          "warnings": [],
+          "source_regions": [
+            {
+              "region_id": "page",
+              "bounds_work": [
+                0,
+                0,
+                1898,
+                2560
+              ]
+            }
+          ]
+        }
+      },
+      "reviews": {}
+    },
+    "image copy 5.png": {
+      "split": "development",
+      "metadata": {
+        "status": "reviewed",
+        "raw_response": "{\n  \"schema_version\": 1,\n  \"key\": {\n    \"value\": \"Ab\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"meter\": {\n    \"value\": \"4/4\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"changes_detected\": false\n}",
+        "finish_reason": "stop",
+        "parsed": {
+          "key": {
+            "value": "Ab",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "meter": {
+            "value": "4/4",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "changes": [],
+          "warnings": [],
+          "source_regions": [
+            {
+              "region_id": "page",
+              "bounds_work": [
+                0,
+                0,
+                1767,
+                2500
+              ]
+            }
+          ]
+        }
+      },
+      "reviews": {
+        "r0002-review0000": {
+          "sha256": "2a5cd7e96723efdf32d601b96b30799a32f38bc9c0762c27e475823483fdf49c",
+          "result": {
+            "request_id": "r0002-review0000",
+            "relations": [
+              {
+                "candidate_id": "r0002:a0000",
+                "body_ids": [
+                  "r0002:c0009"
+                ],
+                "kind": "octave_up",
+                "status": "confirmed",
+                "source": "vlm"
+              }
+            ],
+            "unknown_ids": [],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0002:a0000\",\n      \"body_ids\": [\n        \"r0002:c0009\"\n      ],\n      \"kind\": \"octave_up\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0002-review0001": {
+          "sha256": "f5dea2fa47a48e8e475083adc9ac780faaf02b9e2de0679552ca2ecbfc7f9d34",
+          "result": {
+            "request_id": "r0002-review0001",
+            "relations": [],
+            "unknown_ids": [
+              "r0002:a0001"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0002:a0001\",\n      \"body_ids\": [],\n      \"kind\": \"unsupported\"\n    }\n  ],\n  \"unknown_ids\": [\n    \"r0002:a0001\"\n  ],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0002-review0002": {
+          "sha256": "6de04abdd8ceb478ef8a2e5d7fd7e0c8256a97f50edc56bcc59cda9b99724385",
+          "result": {
+            "request_id": "r0002-review0002",
+            "relations": [],
+            "unknown_ids": [
+              "r0002:a0003"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0002:a0003\",\n      \"body_ids\": [\n        \"r0002:c0015\"\n      ],\n      \"kind\": \"unsupported\"\n    },\n    {\n      \"candidate_id\": \"r0002:a0003\",\n      \"body_ids\": [\n        \"r0002:c0016\"\n      ],\n      \"kind\": \"unsupported\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0002-review0003": {
+          "sha256": "8ceb91198ca1314c619c014f126ab19afcfa54d153e04a1031b086109de850e3",
+          "result": {
+            "request_id": "r0002-review0003",
+            "relations": [],
+            "unknown_ids": [
+              "r0002:a0004"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0002:a0004\",\n      \"body_ids\": [\n        \"r0002:c0029\",\n        \"r0002:c0030\"\n      ],\n      \"kind\": \"extension\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0002-review0004": {
+          "sha256": "7e59506b23fbda53468800131afe73b366ae9ab5899650d58ec679aad5a42928",
+          "result": {
+            "request_id": "r0002-review0004",
+            "relations": [],
+            "unknown_ids": [
+              "r0002:a0032",
+              "r0002:a0033"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\"schema_version\": 1, \"relations\": [], \"unknown_ids\": [\"r0002:a0032\", \"r0002:a0033\"], \"missing_evidence\": []}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0002-review0005": {
+          "sha256": "a4090d12798615269ea1b7f2326451a998558a05fd8fa267f9531e8811470623",
+          "result": {
+            "request_id": "r0002-review0005",
+            "relations": [],
+            "unknown_ids": [
+              "r0002:a0002",
+              "r0002:a0034",
+              "r0002:a0037"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0002:a0002\",\n      \"body_ids\": [\n        \"r0002:c0041\"\n      ],\n      \"kind\": \"extension\"\n    },\n    {\n      \"candidate_id\": \"r0002:a0002\",\n      \"body_ids\": [\n        \"r0002:c0040\"\n      ],\n      \"kind\": \"extension\"\n    },\n    {\n      \"candidate_id\": \"r0002:a0002\",\n      \"body_ids\": [\n        \"r0002:c0039\"\n      ],\n      \"kind\": \"extension\"\n    },\n    {\n      \"candidate_id\": \"r0002:a0034\",\n      \"body_ids\": [\n        \"r0002:c0041\"\n      ],\n      \"kind\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0002:a0034\",\n      \"body_ids\": [\n        \"r0002:c0040\"\n      ],\n      \"kind\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0002:a0034\",\n      \"body_ids\": [\n        \"r0002:c0039\"\n      ],\n      \"kind\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0002:a0037\",\n      \"body_ids\": [\n        \"r0002:c0040\"\n      ],\n      \"kind\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0002:a0037\",\n      \"body_ids\": [\n        \"r0002:c0039\"\n      ],\n      \"kind\": \"non_music\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0002-review0006": {
+          "sha256": "33accf2fbd216359a1edbd58293cf714c4e2b58da22743eaac2733ee11c303f6",
+          "result": {
+            "request_id": "r0002-review0006",
+            "relations": [],
+            "unknown_ids": [
+              "r0002:a0030",
+              "r0002:a0031",
+              "r0002:a0035",
+              "r0002:a0038"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [],\n  \"unknown_ids\": [\n    \"r0002:a0030\",\n    \"r0002:a0031\",\n    \"r0002:a0035\",\n    \"r0002:a0038\"\n  ],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        }
+      }
+    },
+    "image copy 7.png": {
+      "split": "holdout",
+      "metadata": {
+        "status": "reviewed",
+        "raw_response": "{\"schema_version\": 1, \"key\": {\"value\": \"G\", \"status\": \"confirmed\", \"region_id\": \"page\"}, \"meter\": {\"value\": \"4/4\", \"status\": \"confirmed\", \"region_id\": \"page\"}, \"changes_detected\": false}",
+        "finish_reason": "stop",
+        "parsed": {
+          "key": {
+            "value": "G",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "meter": {
+            "value": "4/4",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "changes": [],
+          "warnings": [],
+          "source_regions": [
+            {
+              "region_id": "page",
+              "bounds_work": [
+                0,
+                0,
+                1969,
+                2500
+              ]
+            }
+          ]
+        }
+      },
+      "reviews": {
+        "r0004-review0000": {
+          "sha256": "49932bf7599b11717b4ca335177b04fa235f709bad9482f97a8a823713fa0b7b",
+          "result": {
+            "request_id": "r0004-review0000",
+            "relations": [],
+            "unknown_ids": [
+              "r0004:a0007"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0004:a0007\",\n      \"body_ids\": [\n        \"r0004:c0001\"\n      ],\n      \"kind\": \"non_music\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0000": {
+          "sha256": "9f889319735ad59cdb2a5a5ba42024875e8eda9ed2980ad6b8f745450d02f5e2",
+          "result": {
+            "request_id": "r0006-review0000",
+            "relations": [],
+            "unknown_ids": [
+              "r0006:a0003",
+              "r0006:a0004",
+              "r0006:a0036"
+            ],
+            "missing_evidence": [],
+            "status": "invalid",
+            "raw_response": "{\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0006:a0003\",\n      \"body_ids\": [\n        \"r0006:c0015\",\n        \"r0006:c0016\"\n      ],\n      \"kind\": \"extension\"\n    },\n    {\n      \"candidate_id\": \"r0006:a0004\",\n      \"body_ids\": [\n        \"r0006:c0016\",\n        \"r0006:c0017\"\n      ],\n      \"kind\": \"extension\"\n    },\n    {\n      \"candidate_id\": \"r0006:a0036\",\n      \"body_ids\": [\n        \"r0006:c0015\",\n        \"r0006:c0016\"\n      ],\n      \"kind\": \"non_music\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "复核协议无效",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0001": {
+          "sha256": "63571bd175043a920c264d14231e4d196454f3365ea3ac3a0bbfe16e464b5c3e",
+          "result": {
+            "request_id": "r0006-review0001",
+            "relations": [],
+            "unknown_ids": [
+              "r0006:a0037"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\"schema_version\":1,\"relations\":[{\"candidate_id\":\"r0006:a0037\",\"body_ids\":[\"r0006:c0019\"],\"kind\":\"non_music\"}],\"unknown_ids\":[],\"missing_evidence\":[]}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0002": {
+          "sha256": "6790b25b4452420a2f137f65ff442503ce61e22a9052adc517ba3e662b7e3303",
+          "result": {
+            "request_id": "r0006-review0002",
+            "relations": [],
+            "unknown_ids": [
+              "r0006:a0039"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0006:a0039\",\n      \"body_ids\": [],\n      \"kind\": \"non_music\"\n    }\n  ],\n  \"unknown_ids\": [\n    \"r0006:a0039\"\n  ],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0003": {
+          "sha256": "fd2ce75bb4bdbd3f97c798bd6ce508dc7ebcacb53bef07bc78e4528d853d946c",
+          "result": {
+            "request_id": "r0006-review0003",
+            "relations": [
+              {
+                "candidate_id": "r0006:a0040",
+                "body_ids": [],
+                "kind": "non_music",
+                "status": "confirmed",
+                "source": "vlm"
+              }
+            ],
+            "unknown_ids": [],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\"schema_version\": 1, \"relations\": [{\"candidate_id\": \"r0006:a0040\", \"body_ids\": [], \"kind\": \"non_music\"}], \"unknown_ids\": [], \"missing_evidence\": []}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0004": {
+          "sha256": "83288738f14208dbdf5159a768011c0ad570ceac57f5dd30d5a8fedc131aa2b0",
+          "result": {
+            "request_id": "r0006-review0004",
+            "relations": [],
+            "unknown_ids": [
+              "r0006:a0047",
+              "r0006:a0051"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [],\n  \"unknown_ids\": [\n    \"r0006:a0047\",\n    \"r0006:a0051\"\n  ],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0005": {
+          "sha256": "596edc4af09427fea48c179fadb1b4eb65fd0aa6484201e8a69f3ee315a566b0",
+          "result": {
+            "request_id": "r0006-review0005",
+            "relations": [],
+            "unknown_ids": [
+              "r0006:a0052"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0006:a0052\",\n      \"body_ids\": [\n        \"r0006:c0020\"\n      ],\n      \"kind\": \"extension\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0006": {
+          "sha256": "b6c22694d6830d8f50e59e0ba74279ce02ca90ecef410a02ac931803c9dd657e",
+          "result": {
+            "request_id": "r0006-review0006",
+            "relations": [],
+            "unknown_ids": [
+              "r0006:a0027",
+              "r0006:a0055"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0006:a0027\",\n      \"body_ids\": [\"r0006:c0006\"],\n      \"kind\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0006:a0055\",\n      \"body_ids\": [\"r0006:c0006\"],\n      \"kind\": \"non_music\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0007": {
+          "sha256": "dcc14053eb4d5e5329f6dd04f69d553d439b72d3f7bb1869b72e94b0057d6513",
+          "result": {
+            "request_id": "r0006-review0007",
+            "relations": [
+              {
+                "candidate_id": "r0006:a0045",
+                "body_ids": [
+                  "r0006:c0027"
+                ],
+                "kind": "unsupported",
+                "status": "confirmed",
+                "source": "vlm"
+              },
+              {
+                "candidate_id": "r0006:a0058",
+                "body_ids": [
+                  "r0006:c0029"
+                ],
+                "kind": "unsupported",
+                "status": "confirmed",
+                "source": "vlm"
+              }
+            ],
+            "unknown_ids": [
+              "r0006:a0005",
+              "r0006:a0041",
+              "r0006:a0042",
+              "r0006:a0043",
+              "r0006:a0046",
+              "r0006:a0049",
+              "r0006:a0059",
+              "r0006:a0060"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0006:a0045\",\n      \"body_ids\": [\n        \"r0006:c0027\"\n      ],\n      \"kind\": \"unsupported\"\n    },\n    {\n      \"candidate_id\": \"r0006:a0058\",\n      \"body_ids\": [\n        \"r0006:c0029\"\n      ],\n      \"kind\": \"unsupported\"\n    }\n  ],\n  \"unknown_ids\": [\n    \"r0006:a0005\",\n    \"r0006:a0041\",\n    \"r0006:a0042\",\n    \"r0006:a0043\",\n    \"r0006:a0046\",\n    \"r0006:a0049\",\n    \"r0006:a0059\",\n    \"r0006:a0060\"\n  ],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0006-review0008": {
+          "sha256": "34d07fe4c7c604a0957eb10c6df2ca08eb68b5420c099a1c10151c21bacfc01a",
+          "result": {
+            "request_id": "r0006-review0008",
+            "relations": [],
+            "unknown_ids": [
+              "r0006:a0002",
+              "r0006:a0028",
+              "r0006:a0033",
+              "r0006:a0034",
+              "r0006:a0035",
+              "r0006:a0048",
+              "r0006:a0061"
+            ],
+            "missing_evidence": [],
+            "status": "failed",
+            "raw_response": "",
+            "reason": "RuntimeError",
+            "finish_reason": null
+          }
+        },
+        "r0006-review0009": {
+          "sha256": "6e5c3136f92f517e2297e63d892beea45259b00f8cd4ac316f11e0ef5758f982",
+          "result": {
+            "request_id": "r0006-review0009",
+            "relations": [],
+            "unknown_ids": [
+              "r0006:a0000",
+              "r0006:a0001",
+              "r0006:a0030",
+              "r0006:a0031",
+              "r0006:a0032",
+              "r0006:a0050",
+              "r0006:a0063"
+            ],
+            "missing_evidence": [],
+            "status": "failed",
+            "raw_response": "",
+            "reason": "RuntimeError",
+            "finish_reason": null
+          }
+        }
+      }
+    },
+    "image copy 9.png": {
+      "split": "holdout",
+      "metadata": {
+        "status": "reviewed",
+        "raw_response": "{\n  \"schema_version\": 1,\n  \"key\": {\n    \"value\": \"#C\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"meter\": {\n    \"value\": \"4/4\",\n    \"status\": \"confirmed\",\n    \"region_id\": \"page\"\n  },\n  \"changes_detected\": false\n}",
+        "finish_reason": "stop",
+        "parsed": {
+          "key": {
+            "value": null,
+            "status": "unknown"
+          },
+          "meter": {
+            "value": "4/4",
+            "status": "confirmed",
+            "region_id": "page",
+            "source": "vlm"
+          },
+          "changes": [],
+          "warnings": [],
+          "source_regions": [
+            {
+              "region_id": "page",
+              "bounds_work": [
+                0,
+                0,
+                2480,
+                3508
+              ]
+            }
+          ]
+        }
+      },
+      "reviews": {
+        "r0002-review0000": {
+          "sha256": "be969cfe03bf098d178c072434fdd4bd6103fc069402fd343626242a26d07b8b",
+          "result": {
+            "request_id": "r0002-review0000",
+            "relations": [
+              {
+                "candidate_id": "r0002:a0009",
+                "body_ids": [],
+                "kind": "non_music",
+                "status": "confirmed",
+                "source": "vlm"
+              }
+            ],
+            "unknown_ids": [],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0002:a0009\",\n      \"body_ids\": [],\n      \"kind\": \"non_music\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0003-review0000": {
+          "sha256": "185eeb3577b73ec2080b98a25489ff4fb9a5f57f8e1ccc687a291e9574d1b875",
+          "result": {
+            "request_id": "r0003-review0000",
+            "relations": [
+              {
+                "candidate_id": "r0003:a0022",
+                "body_ids": [],
+                "kind": "non_music",
+                "status": "confirmed",
+                "source": "vlm"
+              }
+            ],
+            "unknown_ids": [],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0003:a0022\",\n      \"body_ids\": [],\n      \"kind\": \"non_music\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0003-review0001": {
+          "sha256": "1c3a9498d4f995c0187cbf3026e27b90709922cfbfda9e949e1351c712f6ef44",
+          "result": {
+            "request_id": "r0003-review0001",
+            "relations": [],
+            "unknown_ids": [
+              "r0003:a0007",
+              "r0003:a0021",
+              "r0003:a0027"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\"schema_version\": 1, \"relations\": [{\"candidate_id\": \"r0003:a0007\", \"body_ids\": [\"r0003:c0020\"], \"kind\": \"non_music\"}, {\"candidate_id\": \"r0003:a0021\", \"body_ids\": [\"r0003:c0022\"], \"kind\": \"non_music\"}, {\"candidate_id\": \"r0003:a0027\", \"body_ids\": [\"r0003:c0023\"], \"kind\": \"non_music\"}], \"unknown_ids\": [], \"missing_evidence\": []}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0003-review0002": {
+          "sha256": "1e3dbce69da7cefb6bc03fb09984117126ac3121e1f911b660bb3c4222671ae0",
+          "result": {
+            "request_id": "r0003-review0002",
+            "relations": [
+              {
+                "candidate_id": "r0003:a0024",
+                "body_ids": [],
+                "kind": "non_music",
+                "status": "confirmed",
+                "source": "vlm"
+              },
+              {
+                "candidate_id": "r0003:a0028",
+                "body_ids": [],
+                "kind": "non_music",
+                "status": "confirmed",
+                "source": "vlm"
+              },
+              {
+                "candidate_id": "r0003:a0036",
+                "body_ids": [],
+                "kind": "non_music",
+                "status": "confirmed",
+                "source": "vlm"
+              },
+              {
+                "candidate_id": "r0003:a0039",
+                "body_ids": [],
+                "kind": "non_music",
+                "status": "confirmed",
+                "source": "vlm"
+              }
+            ],
+            "unknown_ids": [
+              "r0003:a0000"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\n  \"schema_version\": 1,\n  \"relations\": [\n    {\n      \"candidate_id\": \"r0003:a0000\",\n      \"body_ids\": [\"r0003:c0027\", \"r0003:c0029\"],\n      \"kind\": \"unsupported\"\n    },\n    {\n      \"candidate_id\": \"r0003:a0024\",\n      \"body_ids\": [],\n      \"kind\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0003:a0028\",\n      \"body_ids\": [],\n      \"kind\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0003:a0036\",\n      \"body_ids\": [],\n      \"kind\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0003:a0039\",\n      \"body_ids\": [],\n      \"kind\": \"non_music\"\n    }\n  ],\n  \"unknown_ids\": [],\n  \"missing_evidence\": []\n}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        },
+        "r0003-review0003": {
+          "sha256": "76a19dc5ecef25429bdb3fb108333f67fcdcac2e4f050ad356550e8d5cbae5c0",
+          "result": {
+            "request_id": "r0003-review0003",
+            "relations": [],
+            "unknown_ids": [
+              "r0003:a0001",
+              "r0003:a0029",
+              "r0003:a0030",
+              "r0003:a0038",
+              "r0003:a0040"
+            ],
+            "missing_evidence": [],
+            "status": "reviewed",
+            "raw_response": "{\"schema_version\": 1, \"relations\": [], \"unknown_ids\": [\"r0003:a0001\", \"r0003:a0029\", \"r0003:a0030\", \"r0003:a0038\", \"r0003:a0040\"], \"missing_evidence\": []}",
+            "reason": "",
+            "finish_reason": "stop"
+          }
+        }
+      }
+    }
+  }
+}

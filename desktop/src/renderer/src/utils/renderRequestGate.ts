@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+
 export class RenderRequestGate {
   private generation = 0
   private controller: AbortController | null = null
@@ -13,7 +15,7 @@ export class RenderRequestGate {
     const result = await request(controller.signal)
 
     if (this.disposed || generation !== this.generation) {
-      throw new DOMException('渲染请求已过期', 'AbortError')
+      throw new DOMException(t('runtime.render.requestExpired'), 'AbortError')
     }
     return result
   }

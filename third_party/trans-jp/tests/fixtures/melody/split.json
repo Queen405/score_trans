@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "frozen_date": "2026-09-18",
+  "policy": "Split by entire source page. Holdout pages are not inspected until first implementation and development evaluation complete. No model-derived labels.",
+  "pages": {
+    "development": [
+      {
+        "image": "image.png",
+        "sha256": "dc066b161702203927a074a225ea034667bbe34d70cd73d2591f15205d545304"
+      },
+      {
+        "image": "image copy 2.png",
+        "sha256": "1aa1ca9f6bdcb94fad5c4271a65616a3fa6eebf950635ac059953a55dd172ed6"
+      },
+      {
+        "image": "image copy 4.png",
+        "sha256": "2573ba593025662d9cc10b568cf40b9e72baabdfac6431c7a8bb33d168893c53"
+      },
+      {
+        "image": "image copy 5.png",
+        "sha256": "9bfef59ebc33c4c13aad4faa325fe0b3a9c99cbe0650a8b1f0100a24e3a57841"
+      }
+    ],
+    "holdout": [
+      {
+        "image": "image copy 7.png",
+        "sha256": "ccd925496a53d903c3ae7b8fc749ac6cbf4df47e306ed70e88988592ebfd3254"
+      },
+      {
+        "image": "image copy 9.png",
+        "sha256": "68c35966ec4f45234d97876f0e6fd0752de1c450dbd54ed135e8061cee39b0db"
+      }
+    ]
+  }
+}

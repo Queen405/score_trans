@@ -2,32 +2,32 @@
   <div class="sv-panel">
     <section class="sv-section">
       <div class="sv-section-heading">
-        <h3>识别工具</h3>
+        <h3>{{ t('settings.tools.title') }}</h3>
       </div>
 
       <div class="sv-form-stack">
         <settings-form-row
-          label="Audiveris"
+          :label="t('settings.tools.audiveris')"
         >
           <n-input
             v-model:value="settings.draft.audiverisPath"
-            placeholder="audiveris 或 gradlew 脚本路径"
+            :placeholder="t('settings.tools.audiverisPlaceholder')"
             size="small"
           />
         </settings-form-row>
 
         <settings-form-row
-          label="Java 环境"
+          :label="t('settings.tools.javaHome')"
         >
           <n-input
             v-model:value="settings.draft.javaHome"
-            placeholder="JDK 25 目录"
+            :placeholder="t('settings.tools.javaHomePlaceholder')"
             size="small"
           />
         </settings-form-row>
 
         <settings-form-row
-          label="最大堆内存"
+          :label="t('settings.tools.maxHeap')"
         >
           <n-select
             v-model:value="settings.draft.audiverisMaxHeap"
@@ -37,7 +37,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="像素上限"
+          :label="t('settings.tools.pixelLimit')"
         >
           <n-input-number
             v-model:value="maxPixelCountNumber"
@@ -48,7 +48,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="自动放大图片"
+          :label="t('settings.tools.autoUpscale')"
         >
           <n-switch
             v-model:value="settings.draft.audiverisAutoUpscale"
@@ -57,7 +57,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="最小长边像素"
+          :label="t('settings.tools.minImageEdge')"
         >
           <n-input-number
             v-model:value="settings.draft.audiverisMinImageEdge"
@@ -77,6 +77,7 @@
 import { computed } from 'vue'
 import { NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
 import { useSettingsStore } from '../../stores/settings'
+import { t } from '../../i18n'
 import SettingsFormRow from './SettingsFormRow.vue'
 
 const settings = useSettingsStore()

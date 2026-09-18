@@ -15,31 +15,31 @@
       >
         <BarChartOutline />
       </n-icon>
-      <span class="ed-empty-text">暂无处理数据</span>
-      <span class="ed-empty-hint">完成识别后这里会展示效率统计</span>
+      <span class="ed-empty-text">{{ t('components.efficiencyDashboard.noData') }}</span>
+      <span class="ed-empty-hint">{{ t('components.efficiencyDashboard.autoStatsHint') }}</span>
     </div>
     <template v-else>
       <div class="ed-stats">
         <div class="ed-stat">
           <span class="ed-stat-value">{{ todayBatchCount }}</span>
-          <span class="ed-stat-label">今日批次</span>
+          <span class="ed-stat-label">{{ t('components.efficiencyDashboard.todayBatches') }}</span>
         </div>
         <div class="ed-stat">
           <span class="ed-stat-value">{{ todayPageCount }}</span>
-          <span class="ed-stat-label">今日页数</span>
+          <span class="ed-stat-label">{{ t('components.efficiencyDashboard.todayPages') }}</span>
         </div>
         <div class="ed-stat">
           <span class="ed-stat-value">{{ successRateText }}</span>
-          <span class="ed-stat-label">成功率</span>
+          <span class="ed-stat-label">{{ t('components.efficiencyDashboard.successRate') }}</span>
         </div>
         <div class="ed-stat">
           <span class="ed-stat-value">{{ avgDurationText }}</span>
-          <span class="ed-stat-label">平均耗时</span>
+          <span class="ed-stat-label">{{ t('components.efficiencyDashboard.avgDuration') }}</span>
         </div>
       </div>
       <div class="ed-chart">
         <div class="ed-chart-title">
-          最近 14 天
+          {{ t('components.efficiencyDashboard.last14Days') }}
         </div>
         <div class="ed-bars">
           <div
@@ -52,7 +52,7 @@
                 class="ed-bar"
                 :class="{ today: day.isToday }"
                 :style="{ height: day.heightPercent + '%' }"
-                :title="`${day.label}：${day.count} 个批次`"
+                :title="t('components.efficiencyDashboard.barTooltip', { label: day.label, count: day.count })"
               />
             </div>
             <span class="ed-bar-label">{{ day.shortLabel }}</span>
@@ -66,6 +66,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { NIcon, NSpin } from 'naive-ui'
+import { t } from '../i18n'
 import { BarChartOutline } from '@vicons/ionicons5'
 import { historyApi } from '../api/history'
 import { listenHistoryUpdated } from '../utils/historyEvents'
@@ -166,12 +167,12 @@ const avgDurationText = computed(() => {
 
 function formatDuration(ms: number): string {
   const totalSec = Math.round(ms / 1000)
-  if (totalSec < 60) return `${totalSec}秒`
+  if (totalSec < 60) return t('components.efficiencyDashboard.seconds', { n: totalSec })
   const min = Math.floor(totalSec / 60)
   const sec = totalSec % 60
-  if (min < 60) return sec ? `${min}分${sec}秒` : `${min}分`
+  if (min < 60) return sec ? t('components.efficiencyDashboard.minutesSeconds', { min, sec }) : t('components.efficiencyDashboard.minutesOnly', { min })
   const hour = Math.floor(min / 60)
-  return `${hour}时${min % 60}分`
+  return t('components.efficiencyDashboard.hourMinutes', { hour, min: min % 60 })
 }
 
 const chartDays = computed(() => {

@@ -9,6 +9,7 @@ import {
 } from './client'
 import type { SSEProgressEvent } from '../models/types'
 import { dispatchTaskProgress } from '../utils/taskEventState'
+import { t } from '../i18n'
 
 const TASK_POLL_INTERVAL_MS = 2_000
 const MAX_CONSECUTIVE_POLL_FAILURES = 30
@@ -52,7 +53,7 @@ function streamTask(
     function cancel(): void {
       if (settled) return
       void reader?.cancel()
-      finish(() => reject(new ApiError('任务进度流已取消')))
+      finish(() => reject(new ApiError(t('runtime.api.streamCancelled'))))
     }
 
     if (signal?.aborted) {
@@ -66,13 +67,13 @@ function streamTask(
         try {
           onEvent?.(progressEvent)
         } catch (error) {
-          console.error('任务进度回调失败', error)
+          console.error(t('runtime.api.progressCallbackFailed'), error)
         }
       })
       if (disposition === 'completed') {
         finish(() => resolve(event))
       } else if (disposition === 'failed') {
-        finish(() => reject(new Error(event.error || event.message || '任务失败')))
+        finish(() => reject(new Error(event.error || event.message || t('runtime.api.taskFailed'))))
       }
     }
 
@@ -88,8 +89,8 @@ function streamTask(
       } catch (error) {
         consecutivePollFailures += 1
         if (consecutivePollFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
-          const message = error instanceof Error ? error.message : '无法查询任务状态'
-          finish(() => reject(new Error(`任务状态查询失败：${message}`)))
+          const message = error instanceof Error ? error.message : t('runtime.api.queryStatusUnavailable')
+          finish(() => reject(new Error(t('runtime.api.statusQueryFailed', { message }))))
         }
       } finally {
         polling = false
@@ -110,7 +111,7 @@ function streamTask(
           throw new ApiError(`HTTP ${response.status}`)
         }
         if (!response.body) {
-          throw new ApiError('浏览器不支持流式响应')
+          throw new ApiError(t('runtime.api.streamUnsupported'))
         }
 
         reader = response.body.getReader()
@@ -137,7 +138,7 @@ function streamTask(
         }
       } catch (error) {
         if (!controller.signal.aborted) {
-          console.warn('任务进度流中断，继续使用轮询', error)
+          console.warn(t('runtime.api.streamInterrupted'), error)
           void pollTask()
         }
       }

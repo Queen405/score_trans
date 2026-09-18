@@ -97,6 +97,12 @@ const api = {
   openFolder: async (dir: string): Promise<void> => {
     await ipcRenderer.invoke('file:open-folder', dir)
   },
+  getLocale: async (): Promise<string> => {
+    return await ipcRenderer.invoke('locale:get')
+  },
+  setLocale: async (locale: string): Promise<string> => {
+    return await ipcRenderer.invoke('locale:set', locale)
+  },
 }
 
 export type BackendAPI = typeof api

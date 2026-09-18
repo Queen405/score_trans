@@ -2,11 +2,11 @@
   <div class="settings-view">
     <aside
       class="sv-sidebar"
-      aria-label="语法章节"
+      :aria-label="t('syntax.sectionNavLabel')"
     >
       <div class="sv-sidebar-header">
-        <span class="sv-sidebar-eyebrow">语法参考</span>
-        <h2>语法说明</h2>
+        <span class="sv-sidebar-eyebrow">{{ t('syntax.eyebrow') }}</span>
+        <h2>{{ t('syntax.heading') }}</h2>
       </div>
 
       <nav class="sv-category-list">
@@ -35,8 +35,8 @@
           v-model:value="searchQuery"
           class="syntax-search"
           clearable
-          placeholder="搜索语法、名称或说明"
-          aria-label="搜索简谱语法"
+          :placeholder="t('syntax.searchPlaceholder')"
+          :aria-label="t('syntax.searchAriaLabel')"
         >
           <template #prefix>
             <n-icon :component="SearchOutline" />
@@ -57,16 +57,16 @@
             <div class="syntax-search-header">
               <div>
                 <p class="syntax-search-kicker">
-                  搜索结果
+                  {{ t('syntax.search.kicker') }}
                 </p>
-                <h3>找到 {{ searchResultCount }} 条相关语法</h3>
+                <h3>{{ t('syntax.search.resultCount', { count: searchResultCount }) }}</h3>
               </div>
               <n-button
                 size="small"
                 quaternary
                 @click="searchQuery = ''"
               >
-                清除搜索
+                {{ t('syntax.search.clear') }}
               </n-button>
             </div>
 
@@ -107,14 +107,14 @@
 
             <n-empty
               v-else
-              description="没有找到匹配的语法"
+              :description="t('syntax.search.empty')"
             >
               <template #extra>
                 <n-button
                   size="small"
                   @click="searchQuery = ''"
                 >
-                  返回完整说明
+                  {{ t('syntax.search.backToFull') }}
                 </n-button>
               </template>
             </n-empty>
@@ -134,19 +134,19 @@
                 :class="{ 'block-highlight': isHighlighted('quick-start-example') }"
               >
                 <div class="code-toolbar">
-                  <span>简谱文本</span>
+                  <span>{{ t('syntax.codeBlock.notation') }}</span>
                   <n-tooltip>
                     <template #trigger>
                       <button
                         type="button"
                         class="copy-button"
-                        :aria-label="copiedBlock === 'quick' ? '已复制' : '复制示例'"
+                        :aria-label="copiedBlock === 'quick' ? t('syntax.codeBlock.copied') : t('syntax.codeBlock.copy')"
                         @click="copyExample('quick', quickStartExample)"
                       >
                         <n-icon :component="copiedBlock === 'quick' ? CheckmarkOutline : CopyOutline" />
                       </button>
                     </template>
-                    {{ copiedBlock === 'quick' ? '已复制' : '复制示例' }}
+                    {{ copiedBlock === 'quick' ? t('syntax.codeBlock.copied') : t('syntax.codeBlock.copy') }}
                   </n-tooltip>
                 </div>
                 <pre><code>{{ quickStartExample }}</code></pre>
@@ -161,9 +161,9 @@
                 <table class="syntax-table">
                   <thead>
                     <tr>
-                      <th>语法</th>
-                      <th>含义</th>
-                      <th>说明或示例</th>
+                      <th>{{ t('syntax.table.syntax') }}</th>
+                      <th>{{ t('syntax.table.meaning') }}</th>
+                      <th>{{ t('syntax.table.descOrExample') }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -189,7 +189,7 @@
               <div
                 v-if="loadingProfiles"
                 class="profile-loading"
-                aria-label="正在加载演奏技巧"
+                :aria-label="t('syntax.profiles.loading')"
               >
                 <n-skeleton
                   v-for="index in 5"
@@ -205,7 +205,7 @@
                 role="alert"
               >
                 <div>
-                  <strong>演奏技巧暂时无法加载</strong>
+                  <strong>{{ t('syntax.profiles.errorTitle') }}</strong>
                   <p>{{ profileError }}</p>
                 </div>
                 <n-button
@@ -214,13 +214,13 @@
                   :loading="loadingProfiles"
                   @click="loadProfiles"
                 >
-                  重新加载
+                  {{ t('syntax.profiles.retry') }}
                 </n-button>
               </div>
 
               <n-empty
                 v-else-if="!orderedProfiles.length"
-                description="当前没有可用的乐器语法"
+                :description="t('syntax.profiles.empty')"
               />
 
               <n-tabs
@@ -236,7 +236,7 @@
                   :tab="profile.name"
                 >
                   <div class="profile-meta">
-                    <span>谱面元数据</span>
+                    <span>{{ t('syntax.profiles.meta') }}</span>
                     <code>instrument={{ profileIdForText(profile.id) }}</code>
                   </div>
 
@@ -247,9 +247,9 @@
                     <table class="syntax-table profile-table">
                       <thead>
                         <tr>
-                          <th>语法</th>
-                          <th>技巧</th>
-                          <th>记谱说明</th>
+                          <th>{{ t('syntax.table.syntax') }}</th>
+                          <th>{{ t('syntax.table.technique') }}</th>
+                          <th>{{ t('syntax.table.notationNote') }}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -268,7 +268,7 @@
                   </div>
                   <n-empty
                     v-else
-                    description="该模式没有专属演奏技巧"
+                    :description="t('syntax.profiles.noTechnique')"
                   />
 
                   <div
@@ -279,7 +279,7 @@
                       v-if="profile.range_examples?.length"
                       class="example-list"
                     >
-                      <h3>范围写法</h3>
+                      <h3>{{ t('syntax.profiles.range') }}</h3>
                       <div
                         v-for="(example, index) in profile.range_examples"
                         :key="`range-${example.syntax}`"
@@ -294,7 +294,7 @@
                       v-if="profile.combination_examples?.length"
                       class="example-list"
                     >
-                      <h3>组合示例</h3>
+                      <h3>{{ t('syntax.profiles.combination') }}</h3>
                       <div
                         v-for="(example, index) in profile.combination_examples"
                         :key="`combination-${example.syntax}`"
@@ -318,9 +318,9 @@
                 <table class="syntax-table">
                   <thead>
                     <tr>
-                      <th>语法</th>
-                      <th>含义</th>
-                      <th>备注</th>
+                      <th>{{ t('syntax.table.syntax') }}</th>
+                      <th>{{ t('syntax.table.meaning') }}</th>
+                      <th>{{ t('syntax.table.note') }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -373,6 +373,7 @@ import {
 import { requireData } from '../api/client'
 import { notationApi } from '../api/notation'
 import SyntaxHighlightText from '../components/SyntaxHighlightText.vue'
+import { t } from '../i18n'
 import type { InstrumentProfileCatalog } from '../models/types'
 
 type SectionId =
@@ -561,206 +562,205 @@ s7, s2' s1' s7 s6 s5 |
 s6 s7 q1' q1 |
 ^f n4,. |`
 
-const docSections: DocSection[] = [
+const docSections = computed<DocSection[]>(() => [
   {
     id: 'quick-start',
-    label: '快速开始',
+    label: t('syntax.section.quickStart'),
     icon: FlashOutline,
   },
   {
     id: 'metadata',
-    label: '谱面信息',
+    label: t('syntax.section.metadata'),
     icon: InformationCircleOutline,
   },
   {
     id: 'notes',
-    label: '音符与八度',
+    label: t('syntax.section.notes'),
     icon: MusicalNotesOutline,
   },
   {
     id: 'duration',
-    label: '时值与连音',
+    label: t('syntax.section.duration'),
     icon: TimerOutline,
   },
   {
     id: 'measures',
-    label: '和弦与小节',
+    label: t('syntax.section.measures'),
     icon: AppsOutline,
   },
   {
     id: 'expression',
-    label: '力度、歌词与注释',
+    label: t('syntax.section.expression'),
     icon: CreateOutline,
   },
   {
     id: 'performance-marks',
-    label: '演奏技巧',
+    label: t('syntax.section.performanceMarks'),
     icon: ColorWandOutline,
   },
   {
     id: 'quick-reference',
-    label: '速查表',
+    label: t('syntax.section.quickReference'),
     icon: ListOutline,
   },
-]
+])
 
-const syntaxSections: SyntaxSection[] = [
+const syntaxSections = computed<SyntaxSection[]>(() => [
   {
     id: 'metadata',
-    title: '谱面信息',
-    kicker: '文档设置',
+    title: t('syntax.sections.metadata.title'),
+    kicker: t('syntax.sections.metadata.kicker'),
     entries: [
-      { syntax: '1=C', name: '调号', description: '以 C 为大调主音。' },
-      { syntax: '4/4', name: '拍号', description: '每小节四拍，以四分音符为一拍。' },
-      { syntax: '1=G', name: '中途转调', description: '写在小节音符之前，后续小节转为 G 调；不能写在音符之后。' },
-      { syntax: '3/4', name: '中途变拍', description: '写在小节音符之前，后续小节转为 3/4 拍。' },
-      { syntax: 'title=名称', name: '谱名', description: '可选，显示在谱面顶部。' },
+      { syntax: '1=C', name: t('syntax.entries.metadata.keySignature.name'), description: t('syntax.entries.metadata.keySignature.desc') },
+      { syntax: '4/4', name: t('syntax.entries.metadata.timeSignature.name'), description: t('syntax.entries.metadata.timeSignature.desc') },
+      { syntax: '1=G', name: t('syntax.entries.metadata.midwayKeyChange.name'), description: t('syntax.entries.metadata.midwayKeyChange.desc') },
+      { syntax: '3/4', name: t('syntax.entries.metadata.midwayMeterChange.name'), description: t('syntax.entries.metadata.midwayMeterChange.desc') },
+      { syntax: 'title=Name', name: t('syntax.entries.metadata.title.name'), description: t('syntax.entries.metadata.title.desc') },
       {
         syntax: 'instrument=erhu',
-        name: '乐器模式',
-        description: '可使用 general、erhu、ruan 或 guzheng；zhongruan 作为 ruan 的别名同样可用。',
+        name: t('syntax.entries.metadata.instrument.name'),
+        description: t('syntax.entries.metadata.instrument.desc'),
         keywords: ['普通', '二胡', '阮', '古筝', '中阮', 'zhongruan'],
       },
-      { syntax: 'tempo=120', name: '速度', description: '20–300 的整数 BPM；省略时按 120 播放。' },
-      { syntax: 'tempo=80', name: '中途变速', description: '独占一行写在目标小节第一个音符之前，对该小节及后续小节生效。' },
+      { syntax: 'tempo=120', name: t('syntax.entries.metadata.tempo.name'), description: t('syntax.entries.metadata.tempo.desc') },
+      { syntax: 'tempo=80', name: t('syntax.entries.metadata.midwayTempo.name'), description: t('syntax.entries.metadata.midwayTempo.desc') },
     ],
   },
   {
     id: 'notes',
-    title: '音符与八度',
-    kicker: '音高',
+    title: t('syntax.sections.notes.title'),
+    kicker: t('syntax.sections.notes.kicker'),
     entries: [
-      { syntax: '1–7', name: '音级', description: '分别表示 do 到 si。' },
-      { syntax: '0', name: '休止符', description: '占据时值但不发声。' },
-      { syntax: "1'  2'", name: '高八度', description: '在数字后加撇号，谱面显示上加点。' },
-      { syntax: '1,  2,', name: '低八度', description: '在数字后加逗号，谱面显示下加点。' },
-      { syntax: '#1  b7', name: '升降半音', description: '在音级前写升号或降号，也可后置（如 1#、7b）。' },
-      { syntax: 'x4  bb7', name: '重升重降', description: '分别升高或降低两个半音，可前置或后置。' },
-      { syntax: 'n4  ♮4', name: '还原号', description: '取消之前的升降，只能前置。' },
-      { syntax: 'qs1  qf2', name: '四分之一升/降', description: '微音程，升高或降低半个半音，只能前置。' },
-      { syntax: 'tqs3  tqf4', name: '四分之三升/降', description: '微音程，升高或降低一个半半音，只能前置。' },
+      { syntax: '1–7', name: t('syntax.entries.notes.scaleDegree.name'), description: t('syntax.entries.notes.scaleDegree.desc') },
+      { syntax: '0', name: t('syntax.entries.notes.rest.name'), description: t('syntax.entries.notes.rest.desc') },
+      { syntax: "1'  2'", name: t('syntax.entries.notes.octaveUp.name'), description: t('syntax.entries.notes.octaveUp.desc') },
+      { syntax: '1,  2,', name: t('syntax.entries.notes.octaveDown.name'), description: t('syntax.entries.notes.octaveDown.desc') },
+      { syntax: '#1  b7', name: t('syntax.entries.notes.accidentalSharpFlat.name'), description: t('syntax.entries.notes.accidentalSharpFlat.desc') },
+      { syntax: 'x4  bb7', name: t('syntax.entries.notes.doubleAccidental.name'), description: t('syntax.entries.notes.doubleAccidental.desc') },
+      { syntax: 'n4  ♮4', name: t('syntax.entries.notes.natural.name'), description: t('syntax.entries.notes.natural.desc') },
+      { syntax: 'qs1  qf2', name: t('syntax.entries.notes.quarterAccidental.name'), description: t('syntax.entries.notes.quarterAccidental.desc') },
+      { syntax: 'tqs3  tqf4', name: t('syntax.entries.notes.threeQuarterAccidental.name'), description: t('syntax.entries.notes.threeQuarterAccidental.desc') },
     ],
   },
   {
     id: 'duration',
-    title: '时值与连音',
-    kicker: '节奏',
+    title: t('syntax.sections.duration.title'),
+    kicker: t('syntax.sections.duration.kicker'),
     entries: [
-      { syntax: 'w1', name: '全音符', description: '持续 4 拍。' },
-      { syntax: 'h1', name: '二分音符', description: '持续 2 拍。' },
-      { syntax: '1', name: '四分音符', description: '持续 1 拍，也是默认时值。' },
-      { syntax: 'q1', name: '八分音符', description: '持续 1/2 拍。' },
-      { syntax: 's1', name: '十六分音符', description: '持续 1/4 拍。' },
-      { syntax: 'd1', name: '三十二分音符', description: '持续 1/8 拍。' },
-      { syntax: 'dd1', name: '六十四分音符', description: '持续 1/16 拍。' },
-      { syntax: 'ddd1  dddd1  ddddd1', name: '更短时值', description: '持续 1/32、1/64、1/128 拍，每多一个 d 缩短一半。' },
-      { syntax: '5.', name: '附点', description: '将原时值延长一半；必须写在音级之后，不能写在时值前缀与音级之间。' },
-      { syntax: '1-  /  1--', name: '延长线', description: '每个减号延长一拍，可叠加。' },
-      { syntax: '5~  /  ~5', name: '延音线', description: '5~ 标记起点（音符后），~5 标记终点（音符前）；跨小节时下一小节首音自动成为终点。' },
-      { syntax: '$123$', name: '三连音', description: '紧凑写法，组内三个音总共占 1 拍。' },
-      { syntax: '$1 2 3$', name: '空格分隔连音组', description: '与紧凑写法等价。' },
-      { syntax: '$1234$', name: '四连音', description: '组内四个音总共占 1 拍。' },
-      { syntax: '$3:2;s1 s2$', name: '显式连音比例', description: '用 实际数:常规数; 指定比例，适用于组内时值无法推导比例的情况。' },
-      { syntax: '(1 2', name: '连音线', description: '在前一个音前写 ( 标记起点，在后一个音后写 ) 标记终点；可跨小节。' },
+      { syntax: 'w1', name: t('syntax.entries.duration.whole.name'), description: t('syntax.entries.duration.whole.desc') },
+      { syntax: 'h1', name: t('syntax.entries.duration.half.name'), description: t('syntax.entries.duration.half.desc') },
+      { syntax: '1', name: t('syntax.entries.duration.quarter.name'), description: t('syntax.entries.duration.quarter.desc') },
+      { syntax: 'q1', name: t('syntax.entries.duration.eighth.name'), description: t('syntax.entries.duration.eighth.desc') },
+      { syntax: 's1', name: t('syntax.entries.duration.sixteenth.name'), description: t('syntax.entries.duration.sixteenth.desc') },
+      { syntax: 'd1', name: t('syntax.entries.duration.thirtySecond.name'), description: t('syntax.entries.duration.thirtySecond.desc') },
+      { syntax: 'dd1', name: t('syntax.entries.duration.sixtyFourth.name'), description: t('syntax.entries.duration.sixtyFourth.desc') },
+      { syntax: 'ddd1  dddd1  ddddd1', name: t('syntax.entries.duration.shorter.name'), description: t('syntax.entries.duration.shorter.desc') },
+      { syntax: '5.', name: t('syntax.entries.duration.dotted.name'), description: t('syntax.entries.duration.dotted.desc') },
+      { syntax: '1-  /  1--', name: t('syntax.entries.duration.fermata.name'), description: t('syntax.entries.duration.fermata.desc') },
+      { syntax: '5~  /  ~5', name: t('syntax.entries.duration.tie.name'), description: t('syntax.entries.duration.tie.desc') },
+      { syntax: '$123$', name: t('syntax.entries.duration.triplet.name'), description: t('syntax.entries.duration.triplet.desc') },
+      { syntax: '$1 2 3$', name: t('syntax.entries.duration.tripletSpaced.name'), description: t('syntax.entries.duration.tripletSpaced.desc') },
+      { syntax: '$1234$', name: t('syntax.entries.duration.quadruplet.name'), description: t('syntax.entries.duration.quadruplet.desc') },
+      { syntax: '$3:2;s1 s2$', name: t('syntax.entries.duration.explicitRatio.name'), description: t('syntax.entries.duration.explicitRatio.desc') },
+      { syntax: '(1 2', name: t('syntax.entries.duration.slur.name'), description: t('syntax.entries.duration.slur.desc') },
     ],
   },
   {
     id: 'measures',
-    title: '和弦与小节',
-    kicker: '结构',
+    title: t('syntax.sections.measures.title'),
+    kicker: t('syntax.sections.measures.kicker'),
     entries: [
-      { syntax: '[1+3+5]', name: '和弦', description: '多个音高同时发声，并在谱面上纵向排列。' },
-      { syntax: 'q[1+3+5]', name: '带时值和弦', description: '这个和弦持续 1/2 拍。' },
-      { syntax: '|', name: '小节线', description: '结束当前小节。' },
-      { syntax: '||', name: '双小节线', description: '与 | 等效；渲染时最后一小节自动显示终止线。' },
-      { syntax: '|:  :|', name: '反复记号', description: '分别表示反复段落的起点和终点。' },
-      { syntax: '*2', name: '重复小节', description: '当前内容重复 2 次，小节号相应增加。' },
-      { syntax: '*10', name: '多次重复', description: '当前内容重复 10 次。' },
+      { syntax: '[1+3+5]', name: t('syntax.entries.measures.chord.name'), description: t('syntax.entries.measures.chord.desc') },
+      { syntax: 'q[1+3+5]', name: t('syntax.entries.measures.chordDuration.name'), description: t('syntax.entries.measures.chordDuration.desc') },
+      { syntax: '|', name: t('syntax.entries.measures.barline.name'), description: t('syntax.entries.measures.barline.desc') },
+      { syntax: '||', name: t('syntax.entries.measures.doubleBarline.name'), description: t('syntax.entries.measures.doubleBarline.desc') },
+      { syntax: '|:  :|', name: t('syntax.entries.measures.repeat.name'), description: t('syntax.entries.measures.repeat.desc') },
+      { syntax: '*2', name: t('syntax.entries.measures.repeatBar.name'), description: t('syntax.entries.measures.repeatBar.desc') },
+      { syntax: '*10', name: t('syntax.entries.measures.multiRepeat.name'), description: t('syntax.entries.measures.multiRepeat.desc') },
       {
         syntax: '&',
-        name: '声线分隔（复调）',
-        description:
-          '同一小节内存在多条并行旋律线（复调）时，先写第 1 声线全部内容，再写 & 和第 2 声线；每条声线从小节起点独立计时。例：0 [1+3] [1+3] [1+3] & w1, |。',
+        name: t('syntax.entries.measures.voice.name'),
+        description: t('syntax.entries.measures.voice.desc'),
         keywords: ['复调', '声线', '多声部', 'voice', 'polyphony', 'lane'],
       },
     ],
   },
   {
     id: 'expression',
-    title: '力度、歌词与注释',
-    kicker: '文本与表现',
+    title: t('syntax.sections.expression.title'),
+    kicker: t('syntax.sections.expression.kicker'),
     entries: [
-      { syntax: '\\pppp  \\ppp  \\pp  \\p', name: '弱力度', description: '从极弱到弱，p 为基本弱。' },
-      { syntax: '\\mp  \\mf', name: '中弱与中强', description: '表示介于弱和强之间的力度。' },
-      { syntax: '\\f  \\ff  \\fff  \\ffff', name: '强力度', description: '从强到极强，f 为基本强。' },
-      { syntax: '\\fp  \\sfz  \\sfp', name: '强后弱与突强', description: '强后弱、突强、突强后弱。' },
-      { syntax: '\\sf  \\fz  \\rfz', name: '强调类力度', description: '突强、强调、加强。' },
+      { syntax: '\\pppp  \\ppp  \\pp  \\p', name: t('syntax.entries.expression.ppp.name'), description: t('syntax.entries.expression.ppp.desc') },
+      { syntax: '\\mp  \\mf', name: t('syntax.entries.expression.mpMf.name'), description: t('syntax.entries.expression.mpMf.desc') },
+      { syntax: '\\f  \\ff  \\fff  \\ffff', name: t('syntax.entries.expression.ff.name'), description: t('syntax.entries.expression.ff.desc') },
+      { syntax: '\\fp  \\sfz  \\sfp', name: t('syntax.entries.expression.fpSfz.name'), description: t('syntax.entries.expression.fpSfz.desc') },
+      { syntax: '\\sf  \\fz  \\rfz', name: t('syntax.entries.expression.sfFz.name'), description: t('syntax.entries.expression.sfFz.desc') },
       {
         syntax: '^.  ^>  ^-',
-        name: '断奏、重音、保持',
-        description: '分别表示 staccato、accent、tenuto。',
+        name: t('syntax.entries.expression.staccatoAccentTenuto.name'),
+        description: t('syntax.entries.expression.staccatoAccentTenuto.desc'),
       },
       {
         syntax: '^r  ^f',
-        name: '颤音、延音',
-        description: '颤音 trill、延音记号 fermata。',
+        name: t('syntax.entries.expression.trillFermata.name'),
+        description: t('syntax.entries.expression.trillFermata.desc'),
       },
       {
         syntax: '^l',
-        name: '颤弓/轮指/摇指',
-        description: 'tremolo（三道斜线），仅 erhu/ruan/guzheng 可用。',
+        name: t('syntax.entries.expression.tremolo.name'),
+        description: t('syntax.entries.expression.tremolo.desc'),
         keywords: ['颤弓', '轮指', '摇指', 'tremolo'],
       },
       {
         syntax: '^lh',
-        name: '连线滑音',
-        description: '写在目标音前，连接前一个音；古筝模式自动判断上滑或下滑。',
+        name: t('syntax.entries.expression.slide.name'),
+        description: t('syntax.entries.expression.slide.desc'),
         keywords: ['滑音', 'continuous-slide', 'slide'],
       },
       {
         syntax: '(^l)  (^.)  (^>)  (^r)  (^f)',
-        name: '小节级简写',
-        description: '写在小节开头，对该小节所有音符与和弦生效，休止符不继承。',
+        name: t('syntax.entries.expression.measureLevelShorthand.name'),
+        description: t('syntax.entries.expression.measureLevelShorthand.desc'),
       },
       {
-        syntax: 'L: 春 风 又 绿',
-        name: '歌词行',
-        description: '按音符顺序一一匹配，休止符不分配歌词。',
+        syntax: 'L: do re mi',
+        name: t('syntax.entries.expression.lyric.name'),
+        description: t('syntax.entries.expression.lyric.desc'),
       },
-      { syntax: '// 注释内容', name: '注释', description: '从双斜线开始忽略到当前行末尾。' },
+      { syntax: '// comment', name: t('syntax.entries.expression.comment.name'), description: t('syntax.entries.expression.comment.desc') },
     ],
   },
-]
+])
 
-const quickReferenceEntries: SyntaxEntry[] = [
-  { syntax: '1–7 / 0', name: '音级 / 休止符', description: '数字直接输入。' },
-  { syntax: "' / ,", name: '高 / 低八度', description: '写在音级数字后，可叠加。' },
-  { syntax: '# / b / x / bb / n', name: '变音', description: '升、降、重升、重降、还原（可前置或后置；还原仅前缀）。' },
-  { syntax: 'qs / qf / tqs / tqf', name: '微音程', description: '四分之一升/降、四分之三升/降（仅前缀）。' },
-  { syntax: 'w / h / q / s / d / dd', name: '时值前缀', description: '全、二分、四分、八分、十六分、三十二分、六十四分音符。' },
-  { syntax: '. / -', name: '附点 / 延长线', description: '附点延长一半（写在音级后），- 每个延长一拍。' },
-  { syntax: '5~ / ~5', name: '延音线', description: '起点（音符后）/ 终点（音符前），跨小节自动传播。' },
-  { syntax: '( / )', name: '连音线', description: '前缀 ( 标记起点，后缀 ) 标记终点。' },
-  { syntax: '$...$ / *N', name: '连音组 / 重复', description: '$ 包裹连音组（紧凑或空格分隔），*N 重复当前小节 N 次。' },
-  { syntax: '$3:2;...$', name: '显式连音比例', description: '实际数:常规数; 指定比例。' },
-  { syntax: '[a+b]', name: '和弦', description: '方括号内 + 分隔，可加时值前缀。' },
-  { syntax: '| / || / |: :|', name: '小节结构', description: '小节线、双小节线、反复记号。' },
-  { syntax: '&', name: '声线分隔', description: '复调小节内分隔并行旋律线；每条声线从小节起点独立计时。' },
-  { syntax: '\\p / \\f / \\sfz 等', name: '力度', description: '16 种力度标记，\\ 加符号。' },
-  { syntax: '^. / ^> / ^r 等', name: '演奏法', description: '断奏、重音、颤音等，^ 加标记。' },
-  { syntax: '^l / ^lh', name: '民乐标记', description: '颤弓/轮指/摇指（^l）、连线滑音（^lh），仅 erhu/ruan/guzheng。' },
-  { syntax: '(^...)', name: '小节级标记', description: '括号包裹，写在小节开头。' },
-  { syntax: 'instrument=...', name: '乐器模式', description: '普通、二胡、阮或古筝（zhongruan 同 ruan）。' },
-  { syntax: 'L: / //', name: '歌词 / 注释', description: '歌词单独成行，注释忽略到行尾。' },
-  { syntax: '// @part / // @page', name: '分谱 / 分页', description: '多声部或多页输入标记。' },
-]
+const quickReferenceEntries = computed<SyntaxEntry[]>(() => [
+  { syntax: '1–7 / 0', name: t('syntax.quickRef.scale.name'), description: t('syntax.quickRef.scale.desc') },
+  { syntax: "' / ,", name: t('syntax.quickRef.octave.name'), description: t('syntax.quickRef.octave.desc') },
+  { syntax: '# / b / x / bb / n', name: t('syntax.quickRef.accidental.name'), description: t('syntax.quickRef.accidental.desc') },
+  { syntax: 'qs / qf / tqs / tqf', name: t('syntax.quickRef.microtone.name'), description: t('syntax.quickRef.microtone.desc') },
+  { syntax: 'w / h / q / s / d / dd', name: t('syntax.quickRef.durationPrefix.name'), description: t('syntax.quickRef.durationPrefix.desc') },
+  { syntax: '. / -', name: t('syntax.quickRef.dotExtend.name'), description: t('syntax.quickRef.dotExtend.desc') },
+  { syntax: '5~ / ~5', name: t('syntax.quickRef.tie.name'), description: t('syntax.quickRef.tie.desc') },
+  { syntax: '( / )', name: t('syntax.quickRef.slur.name'), description: t('syntax.quickRef.slur.desc') },
+  { syntax: '$...$ / *N', name: t('syntax.quickRef.groupRepeat.name'), description: t('syntax.quickRef.groupRepeat.desc') },
+  { syntax: '$3:2;...$', name: t('syntax.quickRef.explicitRatio.name'), description: t('syntax.quickRef.explicitRatio.desc') },
+  { syntax: '[a+b]', name: t('syntax.quickRef.chord.name'), description: t('syntax.quickRef.chord.desc') },
+  { syntax: '| / || / |: :|', name: t('syntax.quickRef.barStructure.name'), description: t('syntax.quickRef.barStructure.desc') },
+  { syntax: '&', name: t('syntax.quickRef.voice.name'), description: t('syntax.quickRef.voice.desc') },
+  { syntax: '\\p / \\f / \\sfz etc.', name: t('syntax.quickRef.dynamics.name'), description: t('syntax.quickRef.dynamics.desc') },
+  { syntax: '^. / ^> / ^r etc.', name: t('syntax.quickRef.articulation.name'), description: t('syntax.quickRef.articulation.desc') },
+  { syntax: '^l / ^lh', name: t('syntax.quickRef.folk.name'), description: t('syntax.quickRef.folk.desc') },
+  { syntax: '(^...)', name: t('syntax.quickRef.measureLevel.name'), description: t('syntax.quickRef.measureLevel.desc') },
+  { syntax: 'instrument=...', name: t('syntax.quickRef.instrument.name'), description: t('syntax.quickRef.instrument.desc') },
+  { syntax: 'L: / //', name: t('syntax.quickRef.lyricComment.name'), description: t('syntax.quickRef.lyricComment.desc') },
+  { syntax: '// @part / // @page', name: t('syntax.quickRef.partPage.name'), description: t('syntax.quickRef.partPage.desc') },
+])
 
 const activeMeta = computed(
-  () => docSections.find((section) => section.id === activeSection.value) ?? docSections[0],
+  () => docSections.value.find((section) => section.id === activeSection.value) ?? docSections.value[0],
 )
 
 const activeTableSection = computed(
-  () => syntaxSections.find((section) => section.id === activeSection.value) ?? null,
+  () => syntaxSections.value.find((section) => section.id === activeSection.value) ?? null,
 )
 
 const normalizedQuery = computed(() => normalizeText(searchQuery.value))
@@ -779,15 +779,15 @@ const searchGroups = computed<SearchGroup[]>(() => {
     {
       key: 'quick-start-example',
       groupKey: 'quick-start',
-      groupTitle: '快速开始',
+      groupTitle: t('syntax.quickStartExample.groupTitle'),
       sectionId: 'quick-start',
-      sectionTitle: '快速开始',
+      sectionTitle: t('syntax.quickStartExample.sectionTitle'),
       syntax: 'title=Invention4 …',
-      name: '快速开始示例',
-      description: '巴赫二部创意曲，包含多页（@page）、多声部（@part）、调号、拍号、速度、附点、延音线、力度与演奏法标记。',
+      name: t('syntax.quickStartExample.name'),
+      description: t('syntax.quickStartExample.description'),
       keywords: [quickStartExample],
     },
-    ...syntaxSections.flatMap((section) =>
+    ...syntaxSections.value.flatMap((section) =>
       section.entries.map((entry) => ({
         key: `${section.id}-${entry.syntax}`,
         groupKey: section.id,
@@ -802,7 +802,7 @@ const searchGroups = computed<SearchGroup[]>(() => {
     ),
     ...orderedProfiles.value.flatMap((profile) => {
       const groupKey = `profile-${profile.id}`
-      const sectionTitle = `${profile.name}演奏技巧`
+      const sectionTitle = `${profile.name}${t('syntax.profiles.techniquesSuffix')}`
       const marks: SearchItem[] = (profile.marks ?? []).map((mark) => ({
         key: `${groupKey}-${mark.id}`,
         groupKey,
@@ -822,7 +822,7 @@ const searchGroups = computed<SearchGroup[]>(() => {
         sectionId: 'performance-marks',
         sectionTitle,
         syntax: example.syntax,
-        name: '范围写法',
+        name: t('syntax.profiles.range'),
         description: example.description,
         keywords: ['范围', '整小节'],
         profileId: profile.id,
@@ -835,7 +835,7 @@ const searchGroups = computed<SearchGroup[]>(() => {
           sectionId: 'performance-marks',
           sectionTitle,
           syntax: example.syntax,
-          name: '组合示例',
+          name: t('syntax.profiles.combination'),
           description: example.description,
           keywords: ['组合'],
           profileId: profile.id,
@@ -904,7 +904,7 @@ async function loadProfiles(): Promise<void> {
       activeProfile.value = preferredProfile?.id ?? profiles.value[0]?.id ?? 'general'
     }
   } catch {
-    profileError.value = '请确认后端服务正在运行后重试。'
+    profileError.value = t('syntax.profiles.error')
   } finally {
     loadingProfiles.value = false
   }
@@ -1004,13 +1004,13 @@ async function copyExample(block: 'quick', content: string): Promise<void> {
   try {
     await window.navigator.clipboard.writeText(content)
     copiedBlock.value = block
-    message.success('示例已复制')
+    message.success(t('syntax.message.exampleCopied'))
     if (copyResetTimer) clearTimeout(copyResetTimer)
     copyResetTimer = setTimeout(() => {
       copiedBlock.value = null
     }, 1600)
   } catch {
-    message.error('复制失败，请稍后重试')
+    message.error(t('syntax.message.copyFailed'))
   }
 }
 </script>

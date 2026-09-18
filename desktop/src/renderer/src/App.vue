@@ -2,6 +2,8 @@
   <n-config-provider
     :theme="naiveTheme"
     :theme-overrides="themeOverrides"
+    :locale="naiveLocale"
+    :date-locale="naiveDateLocale"
   >
     <n-message-provider>
       <div :class="['app-shell', effectiveDark ? 'theme-dark' : 'theme-light']">
@@ -19,15 +21,15 @@
           </div>
           <div class="titlebar-drag" />
           <div class="titlebar-right">
-            <div
-              class="window-controls"
-              role="group"
-              aria-label="窗口控制"
-            >
+              <div
+                class="window-controls"
+                role="group"
+                :aria-label="t('app.window.controls')"
+              >
               <button
                 class="wc-btn"
                 type="button"
-                aria-label="最小化"
+                :aria-label="t('app.window.minimize')"
                 @click="minimizeWindow"
               >
                 <svg
@@ -43,7 +45,7 @@
               <button
                 class="wc-btn"
                 type="button"
-                :aria-label="isMaximized ? '还原' : '最大化'"
+                :aria-label="isMaximized ? t('app.window.restore') : t('app.window.maximize')"
                 @click="toggleMaximizeWindow"
               >
                 <svg
@@ -89,7 +91,7 @@
               <button
                 class="wc-btn wc-close"
                 type="button"
-                aria-label="关闭"
+                :aria-label="t('app.window.close')"
                 @click="closeWindow"
               >
                 <svg
@@ -131,7 +133,7 @@
               <div
                 v-if="store.isBusy || store.backgroundTaskCount"
                 class="busy-indicator"
-                title="后台处理中…"
+                :title="t('app.log.backgroundProcessing')"
               />
               <button
                 class="update-dot"
@@ -174,19 +176,19 @@
                   viewBox="0 0 12 12"
                   fill="currentColor"
                 ><path d="M2 4l4 4 4-4" /></svg>
-                <span>日志</span>
+                <span>{{ t('app.log.title') }}</span>
                 <span
                   v-if="logStore.errorCount"
                   class="log-badge"
-                >运行 {{ logStore.errorCount }}</span>
+                >{{ t('app.log.runErrors', { count: logStore.errorCount }) }}</span>
                 <span
                   v-if="syntaxStore.errorCount"
                   class="log-badge"
-                >语法报错{{ syntaxStore.errorCount }}</span>
+                >{{ t('app.log.syntaxErrors', { count: syntaxStore.errorCount }) }}</span>
                 <span
                   v-if="syntaxStore.warningCount && !syntaxStore.hideWarnings"
                   class="log-badge syntax-badge"
-                >时值警告{{ syntaxStore.warningCount }}</span>
+                >{{ t('app.log.durationWarnings', { count: syntaxStore.warningCount }) }}</span>
                 <span
                   v-if="appVersion"
                   class="log-version"
@@ -197,16 +199,16 @@
                   <section class="log-column">
                     <div class="log-column-head">
                       <h3 class="log-column-title">
-                        运行日志
+                        {{ t('app.log.runLog') }}
                       </h3>
                       <button
                         class="log-clear-btn"
                         type="button"
                         :disabled="!logStore.entries.length"
-                        title="清除运行日志"
+                        :title="t('common.action.clear')"
                         @click="logStore.clear()"
                       >
-                        清除
+                        {{ t('common.action.clear') }}
                       </button>
                     </div>
                     <log-panel />
@@ -214,7 +216,7 @@
                   <section class="log-column syntax-column">
                     <div class="log-column-head">
                       <h3 class="log-column-title">
-                        语法检查
+                        {{ t('app.log.syntaxCheck') }}
                       </h3>
                       <div
                         v-if="syntaxStore.errorCount || syntaxStore.warningCount"
@@ -223,16 +225,16 @@
                         <span
                           v-if="syntaxStore.errorCount"
                           class="syntax-summary-count error"
-                        >{{ syntaxStore.errorCount }} 个错误</span>
+                        >{{ t('app.log.errorsCount', { count: syntaxStore.errorCount }) }}</span>
                         <button
                           v-if="syntaxStore.warningCount"
                           type="button"
                           :aria-pressed="syntaxStore.hideWarnings"
-                          :title="syntaxStore.hideWarnings ? '点击显示时值警告' : '点击隐藏时值警告'"
+                          :title="syntaxStore.hideWarnings ? t('app.log.showDurationWarnings') : t('app.log.hideDurationWarnings')"
                           :class="['syntax-summary-count', 'warning', 'syntax-summary-toggle', { muted: syntaxStore.hideWarnings }]"
                           @click="syntaxStore.toggleHideWarnings()"
                         >
-                          {{ syntaxStore.warningCount }} 个警告
+                          {{ t('app.log.warningsCount', { count: syntaxStore.warningCount }) }}
                         </button>
                       </div>
                     </div>
@@ -249,26 +251,26 @@
         v-model:show="discardModalVisible"
         preset="card"
         class="discard-settings-modal"
-        title="放弃未保存的更改？"
+        :title="t('app.discard.title')"
         :bordered="false"
         :mask-closable="false"
         :closable="false"
         @esc="continueEditingSettings"
       >
         <p class="discard-settings-copy">
-          设置页中的修改还没有应用。放弃后，这些修改将无法恢复。
+          {{ t('app.discard.message') }}
         </p>
         <template #footer>
           <div class="discard-settings-actions">
             <n-button @click="continueEditingSettings">
-              继续编辑
+              {{ t('app.discard.continue') }}
             </n-button>
             <n-button
               type="error"
               secondary
               @click="discardSettingsChanges"
             >
-              放弃更改
+              {{ t('app.discard.confirm') }}
             </n-button>
           </div>
         </template>
@@ -277,20 +279,20 @@
         v-model:show="closeConfirmVisible"
         preset="card"
         class="close-confirm-modal"
-        :title="closeRequest?.intent === 'relaunch' ? '重启前保存更改？' : '关闭前保存更改？'"
+        :title="closeRequest?.intent === 'relaunch' ? t('app.close.titleRelaunch') : t('app.close.titleClose')"
         :bordered="false"
         :mask-closable="false"
         :closable="false"
         @esc="cancelCloseRequest"
       >
         <p class="close-confirm-copy">
-          当前有更改尚未保存。
+          {{ t('app.close.message') }}
         </p>
         <p
           v-if="saveBeforeCloseBlocked"
           class="close-confirm-warning"
         >
-          任务处理中，完成后可保存。
+          {{ t('app.close.blocked') }}
         </p>
         <p
           v-if="closeSaveError"
@@ -301,14 +303,14 @@
         <template #footer>
           <div class="close-confirm-actions">
             <n-button @click="cancelCloseRequest">
-              取消
+              {{ t('common.action.cancel') }}
             </n-button>
             <n-button
               type="error"
               secondary
               @click="discardAndClose"
             >
-              {{ closeRequest?.intent === 'relaunch' ? '直接重启' : '直接关闭' }}
+              {{ closeRequest?.intent === 'relaunch' ? t('app.close.discardRelaunch') : t('app.close.discardClose') }}
             </n-button>
             <n-button
               type="primary"
@@ -316,7 +318,7 @@
               :disabled="saveBeforeCloseBlocked"
               @click="saveAndClose"
             >
-              {{ closeRequest?.intent === 'relaunch' ? '保存并重启' : '保存并关闭' }}
+              {{ closeRequest?.intent === 'relaunch' ? t('app.close.saveRelaunch') : t('app.close.saveClose') }}
             </n-button>
           </div>
         </template>
@@ -328,6 +330,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { GlobalThemeOverrides } from 'naive-ui'
+import { t, naiveDateLocale, naiveLocale } from './i18n'
 import { useWorkspaceStore } from './stores/workspace'
 import { useLogStore } from './stores/log'
 import { useSyntaxDiagnosticsStore } from './stores/syntaxDiagnostics'
@@ -416,15 +419,15 @@ const updateState = computed<UpdateState>(() => {
 const updateTitle = computed(() => {
   switch (updateState.value) {
     case 'idle':
-      return '点击检查更新'
+      return t('app.update.check')
     case 'update-available':
-      return `发现新版本 v${updateInfo.value?.latestVersion}，点击前往下载`
+      return t('app.update.found', { version: updateInfo.value?.latestVersion ?? '' })
     case 'up-to-date':
-      return '已是最新版本'
+      return t('app.update.upToDate')
     case 'error':
-      return `检查更新失败：${updateInfo.value?.error ?? ''}`
+      return t('app.update.failed', { error: updateInfo.value?.error ?? '' })
     default:
-      return '点击检查更新'
+      return t('app.update.check')
   }
 })
 
@@ -449,12 +452,12 @@ const saveBeforeCloseBlocked = computed(() =>
   !closeSaving.value && (store.isBusy || store.backgroundTaskCount > 0),
 )
 
-const navItems = [
-  { key: 'recognize' as const, label: '识别', icon: ScanOutline },
-  { key: 'convert' as const, label: '工作台', icon: SyncOutline },
-  { key: 'syntax' as const, label: '语法', icon: BookOutline },
-  { key: 'settings' as const, label: '设置', icon: SettingsOutline },
-]
+const navItems = computed(() => [
+  { key: 'recognize' as const, label: t('app.nav.recognize'), icon: ScanOutline },
+  { key: 'convert' as const, label: t('app.nav.convert'), icon: SyncOutline },
+  { key: 'syntax' as const, label: t('app.nav.syntax'), icon: BookOutline },
+  { key: 'settings' as const, label: t('app.nav.settings'), icon: SettingsOutline },
+])
 
 const effectiveDark = computed(() => {
   if (settings.themeMode === 'system') return systemPrefersDark.value
@@ -578,7 +581,8 @@ async function saveAndClose(): Promise<void> {
     window.api.resolveCloseRequest(request.requestId, 'proceed')
   } catch (error: unknown) {
     const detail = error instanceof Error ? error.message : String(error)
-    closeSaveError.value = `保存失败，已取消${request.intent === 'relaunch' ? '重启' : '关闭'}：${detail}`
+    const closeAction = request.intent === 'relaunch' ? t('app.close.relaunchAction') : t('app.close.closeAction')
+    closeSaveError.value = t('app.close.saveFailed', { action: closeAction, detail })
     logStore.addError(closeSaveError.value)
   } finally {
     store.setBusy(false)

@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { t } from './locale'
 
 export interface UpdateCheckResult {
   hasUpdate: boolean
@@ -41,22 +42,22 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
   } catch (err) {
-    return { ...base, error: `无法连接更新服务器：${errorMessage(err)}` }
+    return { ...base, error: t('update.connectFailed', { error: errorMessage(err) }) }
   }
 
   if (!response.ok) {
-    return { ...base, error: `更新服务器返回 ${response.status}` }
+    return { ...base, error: t('update.badStatus', { status: response.status }) }
   }
 
   let manifest: Manifest
   try {
     manifest = (await response.json()) as Manifest
   } catch (err) {
-    return { ...base, error: `更新信息格式错误：${errorMessage(err)}` }
+    return { ...base, error: t('update.badFormat', { error: errorMessage(err) }) }
   }
 
   if (typeof manifest.version !== 'string' || typeof manifest.url !== 'string') {
-    return { ...base, error: '更新信息缺少必要字段' }
+    return { ...base, error: t('update.missingFields') }
   }
 
   const downloadUrl =

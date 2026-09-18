@@ -35,7 +35,7 @@
           :viewBox="`0 0 ${sourceSheet.width} ${sourceSheet.height}`"
           :width="imgW || sourceSheet.width"
           :height="imgH || sourceSheet.height"
-          aria-label="可点击识别元素"
+          :aria-label="t('components.originalPreview.clickableElementLabel')"
         >
           <path
             v-for="element in disabledElements"
@@ -76,7 +76,7 @@
           :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
           :width="imgW || entitySheetWidth"
           :height="imgH || entitySheetHeight"
-          aria-label="可删除标记"
+          :aria-label="t('components.originalPreview.deletableMarkLabel')"
         >
           <rect
             v-for="entity in entities"
@@ -104,7 +104,7 @@
       >
         <ImageOutline />
       </n-icon>
-      <span>上传图片或 PDF 后对照原始五线谱</span>
+      <span>{{ t('components.originalPreview.uploadHint') }}</span>
     </div>
     <div
       v-if="fileUrl"
@@ -113,19 +113,19 @@
       <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
       <button
         class="zoom-btn"
-        title="适应窗口"
+        :title="t('components.originalPreview.fitWindowTitle')"
         @click="zp.reset()"
       >
-        适应
+        {{ t('components.originalPreview.fit') }}
       </button>
       <button
         v-if="canShowOverlay"
         class="zoom-btn"
         :class="{ active: showOverlay }"
-        title="切换识别结果叠加"
+        :title="t('components.originalPreview.toggleOverlayTitle')"
         @click="showOverlay = !showOverlay"
       >
-        叠加
+        {{ t('components.originalPreview.overlay') }}
       </button>
     </div>
   </div>
@@ -134,6 +134,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import { fetchFileBlob } from '../api/client'
+import { t } from '../i18n'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon, useMessage } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
@@ -247,7 +248,7 @@ function selectSource(sourceId: string): void {
 }
 
 function notifyUnmapped(): void {
-  message.info('该音符未能进入识别结果，无法定位到简谱')
+  message.info(t('components.originalPreview.noteNotMapped'))
 }
 
 function onImgLoad(e: Event) {
@@ -289,9 +290,9 @@ watch(
     if (result.error) {
       // 切换页面/组件卸载触发的 abort 不算错误
       if (result.error.code === 'aborted') return
-      const msg = result.error.message || '未知错误'
-      log.addError(`原始谱面加载失败（${props.fileName}）：${msg}`)
-      message.error(`原始谱面加载失败：${msg}`)
+      const msg = result.error.message || t('components.originalPreview.unknownError')
+      log.addError(t('components.originalPreview.sourceLoadFailedLog', { name: props.fileName, msg }))
+      message.error(t('components.originalPreview.sourceLoadFailed', { msg }))
       return
     }
     fileUrl.value = URL.createObjectURL(result.data)

@@ -1,0 +1,45 @@
+const runtime = {
+  history: {
+    autoSavedBeforeRestore: '恢复历史版本前已自动保存当前批次的未保存更改',
+    autoSaveFailed: '自动保存失败，已取消恢复历史版本：{message}',
+    saveFailed: '保存当前更改失败，已取消恢复历史版本：{message}',
+    recognizingInProgress: '识别任务进行中，完成后再恢复历史记录。',
+    loadDetailFailed: '加载历史详情失败：{message}',
+    restoredPages: '已恢复 {count} 页',
+    missingMusicxmlOrText: '历史记录缺少 MusicXML 或简谱文本，无法用新版渲染器重建。',
+    rebuiltPages: '历史记录已由新版出版渲染器重建，共 {count} 页。',
+    syntaxError: '历史记录存在语法错误，无法重新渲染，请先修复',
+    rebuildFailed: '历史谱面重建失败：{message}',
+    restoredNeedsRerender: '历史数据已恢复，但谱面需要重新渲染：{message}',
+    originalFileExpired: '原始文件已失效',
+    musicxmlExpired: 'MusicXML 已失效',
+    svgExpired: 'SVG 已失效',
+    omrExpired: 'OMR 工程文件已失效',
+    sourceMapExpired: '来源映射已失效',
+    continuousA4Expired: '连续 A4 渲染页部分失效',
+    partialExpired: '历史恢复部分失效：',
+    rerecognizeOrReupload: '，请重新识别或重新上传。',
+    validateFailed: '校验历史文件失败：',
+    defaultLabel: '历史记录',
+    scoreTitle: '简谱',
+  },
+  preview: {
+    liveFailed: '即时预览失败',
+  },
+  render: {
+    requestExpired: '渲染请求已过期',
+  },
+  api: {
+    networkError: '网络错误',
+    streamCancelled: '任务进度流已取消',
+    progressCallbackFailed: '任务进度回调失败',
+    taskFailed: '任务失败',
+    queryStatusUnavailable: '无法查询任务状态',
+    statusQueryFailed: '任务状态查询失败：{message}',
+    streamUnsupported: '浏览器不支持流式响应',
+    streamInterrupted: '任务进度流中断，继续使用轮询',
+    aiInterrupted: 'AI 响应中断',
+  },
+}
+
+export default runtime

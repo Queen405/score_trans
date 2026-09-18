@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { t } from '../i18n'
 import type {
   RenderPageOcrText,
   SSEProgressEvent,
@@ -1162,7 +1163,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   ) {
     const random = Math.random().toString(36).slice(2, 8)
     const bid = `batch-${Date.now().toString(36)}-${random}`
-    const firstLabel = batchPages[0]?.inputFileName ?? '历史记录'
+    const firstLabel = batchPages[0]?.inputFileName ?? t('runtime.history.defaultLabel')
     // loadBatch 整页替换 pages.value，旧 batchId 的页面全部消失。
     // 若不在此清空各 per-batch map，下方 spread（...value, [bid]: ...）会保留
     // 旧 batchId 的脏 revision 条目，形成孤儿 —— 孤儿让 hasUnsavedChanges 永真，

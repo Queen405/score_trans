@@ -1,0 +1,268 @@
+from __future__ import annotations
+
+from dataclasses import asdict
+from io import BytesIO
+import logging
+import time
+import numpy as np
+
+from ..models.contracts import CliConfig, TransJpResult
+from ..models.errors import EngineError
+from ..io.images import load_image, save_rows
+from ..io.assets import glyph_assets
+from ..io.output_writer import write_row_responses
+from ..io.candidate_requests import build_manifest, save_request, write_manifest
+from ..io.replay_reader import ReplayClient
+from ..structure.candidates import build_registry
+from ..rendering.candidate_atlas import render_atlases
+from ..preprocess.image import prepare_work_image, to_binary, otsu_binarize
+from ..preprocess.deskew import normalize_skew
+from ..structure.row_segmenter import segment
+from ..structure.page_analyzer import analyze_row
+from ..recognition.llm_client import LlmClient
+from ..recognition.prompt_builder import PromptBuilder
+from ..recognition.row_recognizer import RowTranscriber, recognize_rows
+from ..matching.token_matcher import match_row
+from ..validation.checks import validate_rows, reject_invalid_geometry
+from ..provenance.text_anchors import merge_rows
+from ..provenance.source_map import build_source_map
+from ..rendering.overlay_renderer import generate_overlay_svg
+from ..rendering.preview_renderer import composite_preview
+
+from .body_recognition import recognize_bodies
+
+logger = logging.getLogger("trans_jp.pipeline")
+
+
+def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpResult:
+    if config.concurrency < 1 or config.min_image_edge < 0:
+        raise EngineError("concurrency 必须大于 0，min-image-edge 不得为负数", 5)
+    if config.body_responses_dir is not None:
+        llm_client = ReplayClient(config.body_responses_dir)
+    if isinstance(llm_client, ReplayClient):
+        source = llm_client.directory.resolve()
+        output = config.output_dir.resolve()
+        if (
+            source == (output / "rows").resolve()
+            or output == source
+            or output in source.parents
+        ):
+            raise EngineError("回放输出不能覆盖输入目录", 5)
+    if config.recognition_mode not in ("bodies", "notation", "melody"):
+        raise EngineError("recognition_mode 必须为 bodies 或 notation", 5)
+    stages = []
+    started = time.perf_counter()
+    original = load_image(config.input_path)
+    work, _ = prepare_work_image(original, config.min_image_edge)
+    work, transform = normalize_skew(work, original.size)
+    rows = segment(
+        to_binary(work), work, config.output_dir / "rows", transform=transform
+    )
+    if not rows:
+        raise EngineError("图像未找到有效谱行", 2)
+    # All CV facts are computed before recognition. LLM cannot change them.
+    analyses = []
+    rasters = []
+    crops = []
+    registries = []
+    for row in rows:
+        crop = work.crop((0, row.work_y_top, row.width, row.work_y_top + row.height))
+        binary = otsu_binarize(np.asarray(crop.convert("L"), dtype=np.uint8))
+        crops.append(crop)
+        rasters.append(binary)
+        analyses.append(analyze_row(binary))
+        registries.append(build_registry(binary, analyses[-1], row.index))
+    stages.append(
+        {"stage": "image_structure", "seconds": time.perf_counter() - started}
+    )
+    prompts = PromptBuilder(config.prompt_config)
+    client = llm_client or LlmClient(config.llm, prompts.system_message)
+    melody_replay_root = None
+    melody_review_enabled = config.melody_review
+    manifest = build_manifest(config, rows, crops, registries)
+    if isinstance(client, ReplayClient):
+        registries = client.validate_run(manifest, registries)
+        if config.recognition_mode == "melody":
+            if set(client.versions.values()) != {3}:
+                raise EngineError("melody 只能复用 v3 主体响应", 5)
+            root = client.directory.parent
+            if (root / "melody-manifest.json").exists():
+                from ..io.melody_artifacts import validate_melody_replay
+
+                try:
+                    validate_melody_replay(root)
+                except (OSError, ValueError, KeyError, TypeError) as exc:
+                    raise EngineError(f"melody 回放校验失败: {exc}", 5) from exc
+                melody_replay_root = root
+                from ..io.melody_artifacts import read_melody_review_flag
+
+                melody_review_enabled = read_melody_review_flag(root)
+        manifest = build_manifest(config, rows, crops, registries)
+    use_bodies = (
+        any(v == 3 for v in client.versions.values())
+        if isinstance(client, ReplayClient)
+        else config.recognition_mode in ("bodies", "melody")
+        and hasattr(client, "classify")
+    )
+    if config.recognition_mode == "melody" and not use_bodies:
+        raise EngineError("melody 必须使用 v3 主体分类或 v3 回放", 5)
+    requests = {}
+    try:
+        save_rows(work, rows)
+        for row, crop, registry in zip(rows, crops, registries, strict=True):
+            version = (
+                client.versions.get(row.index, 1)
+                if isinstance(client, ReplayClient)
+                else 2
+                if hasattr(client, "transcribe_request_with_retry")
+                else 1
+            )
+            atlases = (
+                render_atlases(crop, registry)
+                if version == 2 and not use_bodies
+                else []
+            )
+            requests[row.index] = save_request(
+                row, registry, atlases, expected_schema=version
+            )
+        write_manifest(config.output_dir, manifest)
+    except (OSError, ValueError) as exc:
+        raise EngineError(f"识别输入写入失败: {exc}", 4) from exc
+    started = time.perf_counter()
+    if use_bodies:
+        recognized = recognize_bodies(
+            rows, crops, registries, client, manifest, concurrency=config.concurrency
+        )
+    else:
+        recognized = recognize_rows(
+            rows,
+            client,
+            prompts,
+            target_key=config.target_key,
+            title=config.title,
+            extra_prompt=config.extra_prompt,
+            concurrency=config.concurrency,
+            requests=requests,
+            progress_callback=lambda done, total: logger.info(
+                "识别进度 %d/%d", done, total
+            ),
+        )
+    try:
+        write_row_responses(recognized, config.output_dir / "rows")
+        if use_bodies:
+            from ..io.classification_batches import sha256
+
+            manifest["row_responses"] = {
+                f"row_{r.row.index}.json": sha256(
+                    config.output_dir / "rows" / f"row_{r.row.index}.json"
+                )
+                for r in recognized
+            }
+            write_manifest(config.output_dir, manifest)
+    except OSError as exc:
+        raise EngineError(f"行响应写入失败: {exc}", 4) from exc
+    if use_bodies:
+        batches = [b for r in recognized for b in r.batch_diagnostics]
+        if batches and all(
+            b["status"] in ("batch_request_failed", "batch_response_invalid")
+            for b in batches
+        ):
+            raise EngineError("所有主体批次失败；原始响应和批次诊断已保存", 3)
+    if all(not r.jianpu_text and not r.tokens for r in recognized) and not use_bodies:
+        raise EngineError("所有谱行识别均失败", 3)
+    stages.append({"stage": "recognition", "seconds": time.perf_counter() - started})
+    started = time.perf_counter()
+    matched = [
+        match_row(row, binary, analysis)
+        for row, binary, analysis in zip(recognized, rasters, analyses, strict=True)
+    ]
+    melody = {}
+    if config.recognition_mode == "melody":
+        from .melody_recognition import enrich_melody
+        from ..io.melody_artifacts import finish_manifest
+
+        reviewer = (
+            client
+            if hasattr(client, "review_attachments")
+            else LlmClient(config.llm, "")
+            if config.llm.api_key
+            else None
+        )
+        try:
+            melody = enrich_melody(
+                matched,
+                work,
+                reviewer,
+                config.output_dir,
+                concurrency=config.concurrency,
+                review_enabled=melody_review_enabled,
+                replay_root=melody_replay_root,
+            )
+            files = sorted((config.output_dir / "melody-evidence").glob("*")) + [
+                config.output_dir / "melody.json"
+            ]
+            finish_manifest(config.output_dir, manifest, files)
+        except OSError as exc:
+            raise EngineError(f"melody 产物写入失败: {exc}", 4) from exc
+    reject_invalid_geometry(matched, *original.size)
+    text, anchors = merge_rows(matched)
+    source_map = build_source_map(matched, *original.size)
+    glyphs = glyph_assets()
+    svg = generate_overlay_svg(matched, *original.size, glyphs)
+    warnings = [warning for row in matched for warning in row.warnings]
+    warnings.extend(validate_rows(matched, *original.size))
+    # A source target must also have a valid textual target to prevent a false
+    # promise of click-to-text navigation for hallucinated extra tokens.
+    valid_ids = {a["source_id"] for a in anchors if a["valid"]}
+    for element in source_map["sheets"][0]["elements"]:
+        if element["source_id"] not in valid_ids:
+            warnings.append(f"{element['source_id']}: 无有效文本锚点")
+    preview = BytesIO()
+    composite_preview(original, svg).save(preview, format="PNG")
+    stages.append(
+        {"stage": "matching_render", "seconds": time.perf_counter() - started}
+    )
+    debug_svg = (
+        generate_overlay_svg(matched, *original.size, glyphs, debug=True)
+        if config.debug
+        else ""
+    )
+    diagnostics = (
+        {
+            "source_size": original.size,
+            "transform": asdict(transform),
+            "stages": stages,
+            "warnings": warnings,
+            "rows": [
+                {
+                    "row_index": r.row.index,
+                    "work_y_top": r.row.work_y_top,
+                    "analysis": asdict(r.analysis),
+                    "tokens": [asdict(t) for t in r.tokens],
+                    "schema_version": r.schema_version,
+                    "complete": r.complete,
+                    "recognition_scope": r.recognition_scope,
+                    "batch_diagnostics": r.batch_diagnostics,
+                    "unresolved_candidates": r.unresolved_candidates,
+                    "registry_sha256": r.registry.digest if r.registry else None,
+                }
+                for r in matched
+            ],
+        }
+        if config.debug
+        else {}
+    )
+    return TransJpResult(
+        jianpu_text=text,
+        rows=matched,
+        source_map=source_map,
+        overlay_svg=svg,
+        text_anchors=anchors,
+        warnings=warnings,
+        input_path=config.input_path,
+        debug=config.debug,
+        diagnostics=diagnostics,
+        preview_png=preview.getvalue(),
+        debug_svg=debug_svg,
+        melody=melody,
+    )

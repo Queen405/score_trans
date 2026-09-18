@@ -1,5 +1,6 @@
 import { nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
+import { t } from '../i18n'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
@@ -49,14 +50,14 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
         mode: 'discard',
       })
       if (result.savedBatchIds.length) {
-        log.addLog('恢复历史版本前已自动保存当前批次的未保存更改')
+        log.addLog(t('runtime.history.autoSavedBeforeRestore'))
       }
       return true
     } catch (e: unknown) {
       if (isRenderAborted(e)) return false
       const msg = e instanceof Error ? e.message : String(e)
-      log.addError(`自动保存失败，已取消恢复历史版本：${msg}`)
-      message.error(`保存当前更改失败，已取消恢复历史版本：${msg}`)
+      log.addError(t('runtime.history.autoSaveFailed', { message: msg }))
+      message.error(t('runtime.history.saveFailed', { message: msg }))
       return false
     } finally {
       store.setBusy(false)
@@ -65,7 +66,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
 
   async function restoreBatch(entry: HistoryBatchListItem): Promise<boolean> {
     if (store.isBusy) {
-      message.warning('识别任务进行中，完成后再恢复历史记录。')
+      message.warning(t('runtime.history.recognizingInProgress'))
       return false
     }
 
@@ -76,7 +77,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       batch = await requireData(historyApi.get(entry.id))
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      log.addError(`加载历史详情失败：${msg}`)
+      log.addError(t('runtime.history.loadDetailFailed', { message: msg }))
       message.error(msg)
       return false
     }
@@ -104,7 +105,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       const outcome = await rebuildPublicationPages(batch)
       if (outcome !== 'completed') return true
     }
-    message.success(`已恢复 ${pages.length} 页`)
+    message.success(t('runtime.history.restoredPages', { count: pages.length }))
     return true
   }
 
@@ -124,23 +125,23 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
     })
     const requestPages = buildBatchRenderRequests(sourcePages, {
       jianpuText: batch.jianpu_text || '',
-      title: '简谱',
+      title: t('runtime.history.scoreTitle'),
     })
     if (!requestPages.length) {
-      log.addLog('历史记录缺少 MusicXML 或简谱文本，无法用新版渲染器重建。', 'warn')
+      log.addLog(t('runtime.history.missingMusicxmlOrText'), 'warn')
       return 'failed'
     }
     try {
       const rendered = await requireData(publicationRender.batchA4({
         pages: requestPages,
-        source_pages: buildBatchRenderRequests(sourcePages, { title: '简谱' }),
+        source_pages: buildBatchRenderRequests(sourcePages, { title: t('runtime.history.scoreTitle') }),
         render_page_ocr_texts: batch.render_page_ocr_texts || [],
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
         show_measure_numbers: settings.showMeasureNumbers,
         measure_number_mode: settings.measureNumberMode,
         initial_measure_number: 1,
-        title: '简谱',
+        title: t('runtime.history.scoreTitle'),
         ...settings.jianpuLayoutRequest,
       }))
       const ids = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
@@ -156,19 +157,19 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
         render_output_stale: false,
         render_layout_key: layoutKey,
       }))
-      log.addLog(`历史记录已由新版出版渲染器重建，共 ${ids.length} 页。`)
+      log.addLog(t('runtime.history.rebuiltPages', { count: ids.length }))
       return 'completed'
     } catch (error: unknown) {
       if (isRenderAborted(error)) return 'aborted'
       if (error instanceof ApiError && error.code === 'jianpu_syntax') {
-        const msg = '历史记录存在语法错误，无法重新渲染，请先修复'
+        const msg = t('runtime.history.syntaxError')
         log.addError(msg)
         message.error(msg)
         return 'failed'
       }
       const detail = error instanceof Error ? error.message : String(error)
-      log.addLog(`历史谱面重建失败：${detail}`, 'warn')
-      message.warning(`历史数据已恢复，但谱面需要重新渲染：${detail}`)
+      log.addLog(t('runtime.history.rebuildFailed', { message: detail }), 'warn')
+      message.warning(t('runtime.history.restoredNeedsRerender', { message: detail }))
       return 'failed'
     }
   }
@@ -238,26 +239,26 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
           patch.inputFileId = ''
           patch.originalFileId = ''
           patch.originalFileName = ''
-          warnings.push(`${page.input_file_name}：原始文件已失效`)
+          warnings.push(`${page.input_file_name}: ${t('runtime.history.originalFileExpired')}`)
         }
         if (page.musicxml_file_id && !exists[page.musicxml_file_id]) {
           patch.musicxmlFileId = ''
-          warnings.push(`${page.input_file_name}：MusicXML 已失效`)
+          warnings.push(`${page.input_file_name}: ${t('runtime.history.musicxmlExpired')}`)
         }
         if (page.svg_file_id && !exists[page.svg_file_id]) {
           patch.svgFileId = ''
           patch.svgFileIds = []
-          warnings.push(`${page.input_file_name}：SVG 已失效`)
+          warnings.push(`${page.input_file_name}: ${t('runtime.history.svgExpired')}`)
         }
         if (page.omr_file_id && !exists[page.omr_file_id]) {
           patch.omrFileId = ''
           patch.deletedSourceIds = []
-          warnings.push(`${page.input_file_name}：OMR 工程文件已失效`)
+          warnings.push(`${page.input_file_name}: ${t('runtime.history.omrExpired')}`)
         }
         if (page.source_map_file_id && !exists[page.source_map_file_id]) {
           patch.sourceMapFileId = ''
           patch.deletedSourceIds = []
-          warnings.push(`${page.input_file_name}：来源映射已失效`)
+          warnings.push(`${page.input_file_name}: ${t('runtime.history.sourceMapExpired')}`)
         }
         if (Object.keys(patch).length) {
           store.patchPageByHistoryPageId(page.id, patch)
@@ -266,15 +267,15 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       const validRenderIds = renderPageFileIds.filter((fileId) => exists[fileId])
       if (validRenderIds.length !== renderPageFileIds.length) {
         store.setBatchRenderPageFileIds(validRenderIds)
-        warnings.push('连续 A4 渲染页部分失效')
+        warnings.push(t('runtime.history.continuousA4Expired'))
       }
       if (warnings.length) {
-        log.addLog(`历史恢复部分失效：${warnings.join('，')}`, 'warn')
-        message.warning(`${warnings.join('；')}，请重新识别或重新上传。`)
+        log.addLog(`${t('runtime.history.partialExpired')}${warnings.join(', ')}`, 'warn')
+        message.warning(`${warnings.join('; ')}${t('runtime.history.rerecognizeOrReupload')}`)
       }
     } catch (e: unknown) {
       if (seq === restoreCheckSeq) {
-        log.addLog(`校验历史文件失败：${e instanceof Error ? e.message : String(e)}`, 'warn')
+        log.addLog(`${t('runtime.history.validateFailed')}${e instanceof Error ? e.message : String(e)}`, 'warn')
       }
     }
   }

@@ -1,0 +1,11 @@
+{
+  "source": "examples/image.png",
+  "sha256": "dc066b161702203927a074a225ea034667bbe34d70cd73d2591f15205d545304",
+  "min_image_edge": 2500,
+  "origin": "Manually transcribed geometry reference, not a model accuracy benchmark; rows 2, 3, 5 only.",
+  "populated_rows": [
+    2,
+    3,
+    5
+  ]
+}

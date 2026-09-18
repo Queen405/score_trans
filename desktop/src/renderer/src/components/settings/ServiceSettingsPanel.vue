@@ -18,7 +18,7 @@
       </div>
 
       <div class="sv-form-stack">
-        <settings-form-row label="服务商">
+        <settings-form-row :label="t('settings.service.provider')">
           <n-select
             v-model:value="settings.draft.providers[service.kind].provider"
             :options="providerOptions(service.kind)"
@@ -28,7 +28,7 @@
         </settings-form-row>
 
         <settings-form-row
-          label="API Key"
+          :label="t('settings.service.apiKey')"
         >
           <n-input
             v-model:value="settings.draft.providers[service.kind].apiKey"
@@ -36,8 +36,8 @@
             show-password-on="click"
             :placeholder="
               settings.draftProviderDetails[service.kind].apiKeySet
-                ? '如需更换，请输入新的 API Key'
-                : '输入 API Key'
+                ? t('settings.service.apiKeyReplacePlaceholder')
+                : t('settings.service.apiKeyPlaceholder')
             "
             size="small"
           />
@@ -45,7 +45,7 @@
 
         <settings-form-row
           v-if="settings.draftProviderDetails[service.kind].model"
-          label="当前模型"
+          :label="t('settings.service.currentModel')"
         >
           <div class="sv-readonly-value">
             {{ settings.draftProviderDetails[service.kind].model }}
@@ -57,9 +57,10 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import { NInput, NSelect, useMessage } from 'naive-ui'
 import { useLogStore } from '../../stores/log'
+import { t } from '../../i18n'
 import {
   useSettingsStore,
   type ProviderKind,
@@ -76,20 +77,20 @@ const settings = useSettingsStore()
 const log = useLogStore()
 const message = useMessage()
 
-const services: ServiceDescriptor[] = [
+const services = computed<ServiceDescriptor[]>(() => [
   {
     kind: 'ocr',
-    title: '乐谱 OCR',
+    title: t('settings.service.ocr'),
   },
   {
     kind: 'ai',
-    title: 'AI 视觉转写',
+    title: t('settings.service.ai'),
   },
   {
     kind: 'assistant',
-    title: '工作台助手',
+    title: t('settings.service.assistant'),
   },
-]
+])
 
 watch(
   () => settings.draft.providers.ocr.provider,
@@ -122,25 +123,25 @@ function providerStatus(kind: ProviderKind): {
   tone: 'saved' | 'pending' | 'empty' | 'loading' | 'error'
 } {
   if (settings.draft.providers[kind].apiKey.trim()) {
-    return { label: '待保存', tone: 'pending' }
+    return { label: t('settings.service.statusPending'), tone: 'pending' }
   }
   if (settings.providerDetailLoading[kind]) {
-    return { label: '正在检查', tone: 'loading' }
+    return { label: t('settings.service.statusLoading'), tone: 'loading' }
   }
   if (settings.providerDetailError[kind]) {
-    return { label: '状态未知', tone: 'error' }
+    return { label: t('settings.service.statusError'), tone: 'error' }
   }
   if (settings.draftProviderDetails[kind].apiKeySet) {
-    return { label: '已保存', tone: 'saved' }
+    return { label: t('settings.service.statusSaved'), tone: 'saved' }
   }
-  return { label: '未配置', tone: 'empty' }
+  return { label: t('settings.service.statusEmpty'), tone: 'empty' }
 }
 
 function refreshProviderDetails(kind: ProviderKind): void {
   if (!settings.draftReady) return
   void settings.loadDraftProviderDetails(kind).catch((error: unknown) => {
     const text = error instanceof Error ? error.message : String(error)
-    log.addError(`加载 Provider 配置失败：${text}`)
+    log.addError(t('settings.service.loadFailed', { text }))
     message.error(text)
   })
 }

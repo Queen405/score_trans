@@ -1,0 +1,2267 @@
+{
+  "version": 1,
+  "scope": "Coordinate body benchmark. Digits and barline bodies only; octave/rhythm/lyrics not scored. Boxes are CV proposals visually reviewed against source crops; therefore IoU is a regression check, not an independent detector accuracy benchmark. Rows for image copy 12/13 score digit bodies only. Labels manually transcribed during review, not model outputs.",
+  "rows": [
+    {
+      "image": "image copy 10.png",
+      "source_sha256": "0b4cee7048624e6db8d813bd9bdedfbd781de3b7c9b90e7ee075eb10a3a5d5ed",
+      "row_index": 0,
+      "crop_sha256": "d75bbad9cfeee80edbc5bad5bac3ef17ed0cbac2abed2917cc2b3338c3ed33ab",
+      "work_y_top": 247,
+      "crop_size": [
+        2480,
+        104
+      ],
+      "score_kinds": [
+        "digit",
+        "barline"
+      ],
+      "expected": [
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            254,
+            32,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            333,
+            32,
+            30,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            408,
+            32,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            483,
+            32,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            615.9770114942528,
+            7.0,
+            4.034090909090764,
+            87.0
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            660,
+            32,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            859.9885057471264,
+            7.0,
+            3.034090909090878,
+            87.0
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            912,
+            31,
+            29,
+            42
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            993,
+            32,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1078,
+            32,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            1127,
+            32,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1203,
+            32,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1261,
+            32,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1325.9999999999995,
+            7.0,
+            3.000000000000682,
+            87.0
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            1369,
+            31,
+            30,
+            42
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1451,
+            32,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1536,
+            32,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            1585,
+            31,
+            29,
+            42
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1661,
+            32,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1719,
+            32,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1783.977403343782,
+            7.0,
+            3.034090909091219,
+            87.0
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            1828,
+            32,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            1909,
+            32,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1994,
+            32,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            2043,
+            32,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            2118,
+            32,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            2177,
+            32,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            2240.9999999999995,
+            7.0,
+            4.0000000000009095,
+            87.0
+          ]
+        }
+      ]
+    },
+    {
+      "image": "image copy 10.png",
+      "source_sha256": "0b4cee7048624e6db8d813bd9bdedfbd781de3b7c9b90e7ee075eb10a3a5d5ed",
+      "row_index": 1,
+      "crop_sha256": "5736e50256e8c54c45008c8b3ae2bbdd6c48f7d43302c9c531a04cb34c656dc4",
+      "work_y_top": 490,
+      "crop_size": [
+        2480,
+        116
+      ],
+      "score_kinds": [
+        "digit",
+        "barline"
+      ],
+      "expected": [
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            240,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            307,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            353,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            396,
+            35,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            455,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            500,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            562,
+            35,
+            30,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            609,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            667.9999999999999,
+            11.0,
+            4.000000000000114,
+            86.0
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            703,
+            35,
+            30,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            772,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            844,
+            35,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            884,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            948,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            997,
+            35,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1052.9999999999998,
+            11.0,
+            3.0000000000004547,
+            86.0
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            1088,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1156,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1228,
+            35,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            1268,
+            35,
+            30,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1332,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1382,
+            35,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1438.0,
+            11.0,
+            3.0000000000004547,
+            86.0
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            1473,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            1541,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1609,
+            35,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            1654,
+            35,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1721,
+            35,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1776.9999999999993,
+            11.0,
+            3.0000000000009095,
+            86.0
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            1812,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            1879,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            1926,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1969,
+            35,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            2028,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            2073,
+            35,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            2135,
+            35,
+            30,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            2182,
+            35,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            2241.0000000000005,
+            11.0,
+            4.000000000000455,
+            86.0
+          ]
+        }
+      ]
+    },
+    {
+      "image": "image copy 10.png",
+      "source_sha256": "0b4cee7048624e6db8d813bd9bdedfbd781de3b7c9b90e7ee075eb10a3a5d5ed",
+      "row_index": 2,
+      "crop_sha256": "2f48c3ff977315641c5820a1eb4edcaccdb56395beb1d3741ab0f54c38284dce",
+      "work_y_top": 696,
+      "crop_size": [
+        2480,
+        85
+      ],
+      "score_kinds": [
+        "digit",
+        "barline"
+      ],
+      "expected": [
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            688.0,
+            0.0,
+            3.0,
+            77.0
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1261.0,
+            0.0,
+            4.000000000000227,
+            77.0
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1813.9999999999989,
+            0.0,
+            4.000000000001364,
+            77.0
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            2240.9999999999995,
+            0.0,
+            4.0000000000009095,
+            77.0
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            238,
+            15,
+            30,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            331,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            386,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            460,
+            15,
+            30,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            543,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            618,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            732,
+            15,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            814,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            890,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            966,
+            15,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            1041,
+            15,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1121,
+            15,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1196,
+            15,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1311,
+            15,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            1388,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            1442,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1522,
+            15,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            1594,
+            15,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1669,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            1744,
+            15,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            1859,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            1940,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1995,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            2071,
+            15,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            2146,
+            15,
+            28,
+            41
+          ]
+        }
+      ]
+    },
+    {
+      "image": "image copy 10.png",
+      "source_sha256": "0b4cee7048624e6db8d813bd9bdedfbd781de3b7c9b90e7ee075eb10a3a5d5ed",
+      "row_index": 4,
+      "crop_sha256": "ca23efd6ee7f64959fd148e24a610c673c2c956aab410ac94b3683e433d62720",
+      "work_y_top": 996,
+      "crop_size": [
+        2480,
+        84
+      ],
+      "score_kinds": [
+        "digit",
+        "barline"
+      ],
+      "expected": [
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            648.9999999999997,
+            0.0,
+            4.000000000000341,
+            78.0
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1109.9999999999998,
+            0.0,
+            4.000000000000455,
+            78.0
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1516.0,
+            0.0,
+            3.0,
+            78.0
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            1767.9999999999998,
+            0.0,
+            4.000000000000227,
+            78.0
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            2240.999999999999,
+            0.0,
+            4.000000000000455,
+            78.0
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            239,
+            16,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            315,
+            16,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            367,
+            16,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            436,
+            16,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            513,
+            16,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            584,
+            16,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            690,
+            16,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            767,
+            16,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            837,
+            16,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            908,
+            16,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            973,
+            16,
+            14,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1045,
+            16,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1152,
+            16,
+            27,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            1227,
+            16,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            1303,
+            16,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            1379,
+            16,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            1450,
+            16,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            1557,
+            16,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            1831,
+            16,
+            15,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            1888,
+            16,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            1983,
+            16,
+            28,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            2035,
+            16,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            2105,
+            16,
+            29,
+            41
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            2180,
+            16,
+            14,
+            41
+          ]
+        }
+      ]
+    },
+    {
+      "image": "image copy 12.png",
+      "source_sha256": "cd7a4aeb32f5d14f147d37600a997ea363a7dc474909dc6d87f84195619dc2e4",
+      "row_index": 2,
+      "crop_sha256": "c80f76fa1f342edb1a64a2c8755f6cc68a339b58db1788c40c5000d8e9d6f445",
+      "work_y_top": 504,
+      "crop_size": [
+        1767,
+        107
+      ],
+      "score_kinds": [
+        "digit"
+      ],
+      "expected": [
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            98,
+            15,
+            17,
+            26
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            163,
+            16,
+            11,
+            24
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            222,
+            16,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            306,
+            15,
+            17,
+            26
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            410,
+            16,
+            19,
+            24
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            597,
+            26,
+            16,
+            15
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            97,
+            57,
+            19,
+            24
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            201,
+            57,
+            19,
+            25
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            304,
+            57,
+            19,
+            24
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            347,
+            57,
+            17,
+            24
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            412,
+            57,
+            11,
+            24
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            450,
+            56,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            554,
+            56,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            596,
+            56,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            638,
+            56,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            689,
+            56,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "4",
+          "kind": "digit",
+          "box": [
+            748,
+            57,
+            17,
+            24
+          ]
+        },
+        {
+          "label": "4",
+          "kind": "digit",
+          "box": [
+            811,
+            57,
+            16,
+            24
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            842,
+            56,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            872,
+            56,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            934,
+            56,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            968,
+            57,
+            12,
+            24
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            995,
+            59,
+            19,
+            22
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            1086,
+            56,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            1117,
+            56,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            1138,
+            56,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            1200,
+            56,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1231,
+            56,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            1262,
+            57,
+            18,
+            24
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            1314,
+            56,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            1397,
+            56,
+            20,
+            26
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            709,
+            57,
+            17,
+            24
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            726,
+            57,
+            18,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "image": "image copy 13.png",
+      "source_sha256": "107f057ce0de9e3f3014b0e4cbb2eb2e9ec665960a15e4adb3cc7e9ee0293779",
+      "row_index": 4,
+      "crop_sha256": "c25b82c707d408920d33890f172682fc5270e756df64dfa359acf5cb7fcd00ad",
+      "work_y_top": 641,
+      "crop_size": [
+        1767,
+        81
+      ],
+      "score_kinds": [
+        "digit"
+      ],
+      "expected": [
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            101,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            184,
+            32,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "4",
+          "kind": "digit",
+          "box": [
+            215,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            235,
+            32,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            298,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            330,
+            32,
+            17,
+            24
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            363,
+            32,
+            12,
+            25
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            426,
+            32,
+            11,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            454,
+            32,
+            18,
+            24
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            579,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            660,
+            32,
+            18,
+            24
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            692,
+            31,
+            18,
+            26
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            713,
+            32,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            776,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "4",
+          "kind": "digit",
+          "box": [
+            807,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            838,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            900,
+            32,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            932,
+            32,
+            18,
+            24
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1057,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1140,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "4",
+          "kind": "digit",
+          "box": [
+            1171,
+            32,
+            16,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1191,
+            32,
+            18,
+            25
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            1264,
+            32,
+            17,
+            25
+          ]
+        },
+        {
+          "label": "0",
+          "kind": "digit",
+          "box": [
+            1369,
+            31,
+            19,
+            26
+          ]
+        }
+      ]
+    },
+    {
+      "image": "sample_jianpu.png",
+      "source_sha256": "4dc0f35214c5ea216c6b9545156fa6cee266f815e3b646384057c50ec1c7e413",
+      "row_index": 1,
+      "crop_sha256": "661f6bcc815a6e3d04518e72408dfd82fd6c4612c0418880ff584944427793ac",
+      "work_y_top": 316,
+      "crop_size": [
+        2500,
+        78
+      ],
+      "score_kinds": [
+        "digit",
+        "barline"
+      ],
+      "expected": [
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            133,
+            15,
+            19,
+            48
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            183,
+            15,
+            32,
+            48
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            237,
+            15,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "4",
+          "kind": "digit",
+          "box": [
+            289,
+            15,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            347.9999999999997,
+            7.0,
+            4.0000000000001705,
+            69.0
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            377,
+            15,
+            31,
+            48
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            429,
+            15,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            485,
+            15,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            544,
+            15,
+            19,
+            48
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            610.0006393861886,
+            7.0,
+            4.041596638655733,
+            69.0
+          ]
+        }
+      ]
+    },
+    {
+      "image": "sample_jianpu.png",
+      "source_sha256": "4dc0f35214c5ea216c6b9545156fa6cee266f815e3b646384057c50ec1c7e413",
+      "row_index": 2,
+      "crop_sha256": "bc27837e3fca0fde3379979c8f9c10b509f993e504c5859ac8e51a929f892bb9",
+      "work_y_top": 565,
+      "crop_size": [
+        2500,
+        79
+      ],
+      "score_kinds": [
+        "digit",
+        "barline"
+      ],
+      "expected": [
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            129,
+            16,
+            32,
+            48
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            183,
+            16,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "4",
+          "kind": "digit",
+          "box": [
+            235,
+            16,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            291,
+            16,
+            32,
+            48
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            347.9999999999997,
+            7.0,
+            4.0000000000001705,
+            69.0
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            375,
+            16,
+            33,
+            48
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            431,
+            16,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            489,
+            16,
+            20,
+            48
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            554,
+            16,
+            32,
+            48
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            624.9999999999994,
+            7.0,
+            4.000000000000227,
+            69.0
+          ]
+        }
+      ]
+    },
+    {
+      "image": "sample_jianpu.png",
+      "source_sha256": "4dc0f35214c5ea216c6b9545156fa6cee266f815e3b646384057c50ec1c7e413",
+      "row_index": 3,
+      "crop_sha256": "d8140c145e41618b927632a18b6b3bf8e5c800621b178d56f1810107ecf26acb",
+      "work_y_top": 808,
+      "crop_size": [
+        2500,
+        97
+      ],
+      "score_kinds": [
+        "digit",
+        "barline"
+      ],
+      "expected": [
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            129,
+            23,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "4",
+          "kind": "digit",
+          "box": [
+            181,
+            23,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "5",
+          "kind": "digit",
+          "box": [
+            237,
+            23,
+            32,
+            48
+          ]
+        },
+        {
+          "label": "6",
+          "kind": "digit",
+          "box": [
+            289,
+            23,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            347.97163561076604,
+            14.0,
+            4.042857142857315,
+            69.0
+          ]
+        },
+        {
+          "label": "7",
+          "kind": "digit",
+          "box": [
+            377,
+            23,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "1",
+          "kind": "digit",
+          "box": [
+            435,
+            23,
+            19,
+            48
+          ]
+        },
+        {
+          "label": "2",
+          "kind": "digit",
+          "box": [
+            485,
+            23,
+            32,
+            48
+          ]
+        },
+        {
+          "label": "3",
+          "kind": "digit",
+          "box": [
+            539,
+            23,
+            34,
+            48
+          ]
+        },
+        {
+          "label": "|",
+          "kind": "barline",
+          "box": [
+            595.9716356107662,
+            14.0,
+            21.028364389233957,
+            69.0
+          ]
+        }
+      ]
+    }
+  ]
+}

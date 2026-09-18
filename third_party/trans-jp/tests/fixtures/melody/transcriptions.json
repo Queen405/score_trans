@@ -1,0 +1,3100 @@
+{
+  "version": 1,
+  "origin": "Human visual transcription of numbered source-crop bodies on 2026-09-18. No VLM outputs used. Non-music candidates explicitly omitted. Boxes are CV proposals, so this is a conditional attribute benchmark, not independent detector evaluation. Slurs/ties excluded from duration truth; measure timing not annotated.",
+  "rows": [
+    {
+      "image": "image.png",
+      "row": 2,
+      "split": "development",
+      "tokens": "X 0 5 3 2 1--- 1 2 7, 6, 5,---",
+      "notes": [
+        {
+          "body_id": "r0002:c0001",
+          "bounds_work": [
+            120,
+            13,
+            23,
+            30
+          ],
+          "text": "0"
+        },
+        {
+          "body_id": "r0002:c0002",
+          "bounds_work": [
+            206,
+            13,
+            23,
+            30
+          ],
+          "text": "5"
+        },
+        {
+          "body_id": "r0002:c0003",
+          "bounds_work": [
+            290,
+            13,
+            22,
+            30
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0002:c0004",
+          "bounds_work": [
+            376,
+            13,
+            22,
+            30
+          ],
+          "text": "2"
+        },
+        {
+          "body_id": "r0002:c0006",
+          "bounds_work": [
+            507,
+            13,
+            11,
+            30
+          ],
+          "text": "1---"
+        },
+        {
+          "body_id": "r0002:c0011",
+          "bounds_work": [
+            902,
+            13,
+            11,
+            30
+          ],
+          "text": "1"
+        },
+        {
+          "body_id": "r0002:c0012",
+          "bounds_work": [
+            986,
+            13,
+            22,
+            30
+          ],
+          "text": "2"
+        },
+        {
+          "body_id": "r0002:c0013",
+          "bounds_work": [
+            1074,
+            13,
+            23,
+            30
+          ],
+          "text": "7,"
+        },
+        {
+          "body_id": "r0002:c0014",
+          "bounds_work": [
+            1162,
+            13,
+            23,
+            30
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0002:c0016",
+          "bounds_work": [
+            1294,
+            13,
+            23,
+            30
+          ],
+          "text": "5,---"
+        }
+      ]
+    },
+    {
+      "image": "image.png",
+      "row": 3,
+      "split": "development",
+      "tokens": "5, 7 6 7 5. q6 #4 3 q2 q3 q#4 q3 5. q3 q2 q3 q5 q2 q3 q4 q3 q2",
+      "notes": [
+        {
+          "body_id": "r0003:c0006",
+          "bounds_work": [
+            106,
+            21,
+            22,
+            30
+          ],
+          "text": "5,"
+        },
+        {
+          "body_id": "r0003:c0007",
+          "bounds_work": [
+            194,
+            21,
+            23,
+            30
+          ],
+          "text": "7"
+        },
+        {
+          "body_id": "r0003:c0008",
+          "bounds_work": [
+            282,
+            21,
+            23,
+            30
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0003:c0009",
+          "bounds_work": [
+            370,
+            21,
+            23,
+            30
+          ],
+          "text": "7"
+        },
+        {
+          "body_id": "r0003:c0010",
+          "bounds_work": [
+            501,
+            21,
+            22,
+            30
+          ],
+          "text": "5."
+        },
+        {
+          "body_id": "r0003:c0011",
+          "bounds_work": [
+            625,
+            21,
+            23,
+            30
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0003:c0012",
+          "bounds_work": [
+            698,
+            21,
+            24,
+            30
+          ],
+          "text": "#4"
+        },
+        {
+          "body_id": "r0003:c0013",
+          "bounds_work": [
+            778,
+            21,
+            21,
+            30
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0003:c0014",
+          "bounds_work": [
+            896,
+            21,
+            21,
+            30
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0003:c0015",
+          "bounds_work": [
+            939,
+            21,
+            22,
+            30
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0016",
+          "bounds_work": [
+            1005,
+            21,
+            24,
+            30
+          ],
+          "text": "q#4"
+        },
+        {
+          "body_id": "r0003:c0017",
+          "bounds_work": [
+            1050,
+            21,
+            21,
+            30
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0018",
+          "bounds_work": [
+            1094,
+            21,
+            22,
+            30
+          ],
+          "text": "5."
+        },
+        {
+          "body_id": "r0003:c0019",
+          "bounds_work": [
+            1209,
+            21,
+            22,
+            30
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0020",
+          "bounds_work": [
+            1293,
+            21,
+            21,
+            30
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0003:c0021",
+          "bounds_work": [
+            1336,
+            21,
+            22,
+            30
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0022",
+          "bounds_work": [
+            1380,
+            21,
+            22,
+            30
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0003:c0023",
+          "bounds_work": [
+            1425,
+            21,
+            22,
+            30
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0003:c0024",
+          "bounds_work": [
+            1471,
+            21,
+            22,
+            30
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0025",
+          "bounds_work": [
+            1514,
+            21,
+            24,
+            30
+          ],
+          "text": "q4"
+        },
+        {
+          "body_id": "r0003:c0026",
+          "bounds_work": [
+            1559,
+            21,
+            22,
+            30
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0027",
+          "bounds_work": [
+            1607,
+            21,
+            21,
+            30
+          ],
+          "text": "q2"
+        }
+      ]
+    },
+    {
+      "image": "image.png",
+      "row": 4,
+      "split": "development",
+      "tokens": "1-- 5 7, 2 6, 1 5,-- q6, q1 5,--- X",
+      "notes": [
+        {
+          "body_id": "r0004:c0000",
+          "bounds_work": [
+            110,
+            13,
+            11,
+            30
+          ],
+          "text": "1--"
+        },
+        {
+          "body_id": "r0004:c0003",
+          "bounds_work": [
+            371,
+            13,
+            22,
+            30
+          ],
+          "text": "5"
+        },
+        {
+          "body_id": "r0004:c0005",
+          "bounds_work": [
+            502,
+            13,
+            24,
+            30
+          ],
+          "text": "7,"
+        },
+        {
+          "body_id": "r0004:c0006",
+          "bounds_work": [
+            592,
+            13,
+            21,
+            30
+          ],
+          "text": "2"
+        },
+        {
+          "body_id": "r0004:c0007",
+          "bounds_work": [
+            679,
+            13,
+            23,
+            30
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0004:c0008",
+          "bounds_work": [
+            772,
+            13,
+            11,
+            30
+          ],
+          "text": "1"
+        },
+        {
+          "body_id": "r0004:c0010",
+          "bounds_work": [
+            897,
+            13,
+            23,
+            30
+          ],
+          "text": "5,--"
+        },
+        {
+          "body_id": "r0004:c0013",
+          "bounds_work": [
+            1149,
+            13,
+            23,
+            30
+          ],
+          "text": "q6,"
+        },
+        {
+          "body_id": "r0004:c0014",
+          "bounds_work": [
+            1205,
+            13,
+            12,
+            30
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0004:c0016",
+          "bounds_work": [
+            1295,
+            13,
+            22,
+            30
+          ],
+          "text": "5,---"
+        }
+      ]
+    },
+    {
+      "image": "image copy 2.png",
+      "row": 3,
+      "split": "development",
+      "tokens": "1. s7, s6, 7, 3, 6,. s5, s4, q3,. d4, d3, q2, q3, q1 q2 q3 q1 7, q3 q5 6 5 2---",
+      "notes": [
+        {
+          "body_id": "r0003:c0001",
+          "bounds_work": [
+            96,
+            35,
+            27,
+            64
+          ],
+          "text": "1."
+        },
+        {
+          "body_id": "r0003:c0002",
+          "bounds_work": [
+            226,
+            35,
+            49,
+            64
+          ],
+          "text": "s7,"
+        },
+        {
+          "body_id": "r0003:c0003",
+          "bounds_work": [
+            285,
+            34,
+            49,
+            65
+          ],
+          "text": "s6,"
+        },
+        {
+          "body_id": "r0003:c0005",
+          "bounds_work": [
+            392,
+            35,
+            49,
+            64
+          ],
+          "text": "7,"
+        },
+        {
+          "body_id": "r0003:c0006",
+          "bounds_work": [
+            476,
+            34,
+            45,
+            65
+          ],
+          "text": "3,"
+        },
+        {
+          "body_id": "r0003:c0007",
+          "bounds_work": [
+            553,
+            34,
+            49,
+            65
+          ],
+          "text": "6,."
+        },
+        {
+          "body_id": "r0003:c0008",
+          "bounds_work": [
+            680,
+            34,
+            47,
+            65
+          ],
+          "text": "s5,"
+        },
+        {
+          "body_id": "r0003:c0009",
+          "bounds_work": [
+            737,
+            34,
+            50,
+            65
+          ],
+          "text": "s4,"
+        },
+        {
+          "body_id": "r0003:c0011",
+          "bounds_work": [
+            848,
+            34,
+            45,
+            65
+          ],
+          "text": "q3,."
+        },
+        {
+          "body_id": "r0003:c0012",
+          "bounds_work": [
+            955,
+            34,
+            50,
+            65
+          ],
+          "text": "d4,"
+        },
+        {
+          "body_id": "r0003:c0013",
+          "bounds_work": [
+            1015,
+            34,
+            46,
+            65
+          ],
+          "text": "d3,"
+        },
+        {
+          "body_id": "r0003:c0014",
+          "bounds_work": [
+            1107,
+            36,
+            46,
+            62
+          ],
+          "text": "q2,"
+        },
+        {
+          "body_id": "r0003:c0015",
+          "bounds_work": [
+            1173,
+            34,
+            46,
+            65
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0003:c0016",
+          "bounds_work": [
+            1279,
+            35,
+            27,
+            64
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0003:c0017",
+          "bounds_work": [
+            1341,
+            36,
+            46,
+            62
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0003:c0018",
+          "bounds_work": [
+            1442,
+            34,
+            46,
+            65
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0019",
+          "bounds_work": [
+            1513,
+            35,
+            27,
+            64
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0003:c0021",
+          "bounds_work": [
+            1621,
+            35,
+            49,
+            64
+          ],
+          "text": "7,"
+        },
+        {
+          "body_id": "r0003:c0022",
+          "bounds_work": [
+            1704,
+            34,
+            45,
+            65
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0023",
+          "bounds_work": [
+            1770,
+            34,
+            47,
+            65
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0003:c0024",
+          "bounds_work": [
+            1869,
+            34,
+            50,
+            65
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0003:c0025",
+          "bounds_work": [
+            1950,
+            34,
+            47,
+            65
+          ],
+          "text": "5"
+        },
+        {
+          "body_id": "r0003:c0027",
+          "bounds_work": [
+            2076,
+            36,
+            46,
+            62
+          ],
+          "text": "2---"
+        }
+      ]
+    },
+    {
+      "image": "image copy 2.png",
+      "row": 4,
+      "split": "development",
+      "tokens": "6, 3 7,- q6, q1 q2. s1 3- 6, 6 q5 q6 q5 q2 q4 3. 3-",
+      "notes": [
+        {
+          "body_id": "r0004:c0000",
+          "bounds_work": [
+            28,
+            24,
+            50,
+            64
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0004:c0001",
+          "bounds_work": [
+            148,
+            25,
+            46,
+            63
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0004:c0002",
+          "bounds_work": [
+            265,
+            25,
+            50,
+            63
+          ],
+          "text": "7,-"
+        },
+        {
+          "body_id": "r0004:c0005",
+          "bounds_work": [
+            545,
+            24,
+            49,
+            64
+          ],
+          "text": "q6,"
+        },
+        {
+          "body_id": "r0004:c0006",
+          "bounds_work": [
+            641,
+            25,
+            27,
+            63
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0004:c0007",
+          "bounds_work": [
+            757,
+            26,
+            46,
+            62
+          ],
+          "text": "q2."
+        },
+        {
+          "body_id": "r0004:c0008",
+          "bounds_work": [
+            898,
+            25,
+            26,
+            63
+          ],
+          "text": "s1"
+        },
+        {
+          "body_id": "r0004:c0009",
+          "bounds_work": [
+            997,
+            25,
+            45,
+            63
+          ],
+          "text": "3-"
+        },
+        {
+          "body_id": "r0004:c0012",
+          "bounds_work": [
+            1277,
+            24,
+            49,
+            64
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0004:c0013",
+          "bounds_work": [
+            1398,
+            24,
+            50,
+            64
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0004:c0014",
+          "bounds_work": [
+            1517,
+            24,
+            47,
+            64
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0004:c0015",
+          "bounds_work": [
+            1601,
+            24,
+            50,
+            64
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0004:c0016",
+          "bounds_work": [
+            1723,
+            24,
+            47,
+            64
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0004:c0017",
+          "bounds_work": [
+            1810,
+            26,
+            45,
+            62
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0004:c0019",
+          "bounds_work": [
+            1937,
+            24,
+            51,
+            64
+          ],
+          "text": "q4"
+        },
+        {
+          "body_id": "r0004:c0020",
+          "bounds_work": [
+            2031,
+            25,
+            45,
+            63
+          ],
+          "text": "3."
+        },
+        {
+          "body_id": "r0004:c0021",
+          "bounds_work": [
+            2214,
+            25,
+            46,
+            63
+          ],
+          "text": "3-"
+        }
+      ]
+    },
+    {
+      "image": "image copy 2.png",
+      "row": 5,
+      "split": "development",
+      "tokens": "6, 6 q5 q2 q3 q4 3. q2 1- 6, 3 7,. q1 q1 q6, 6,--",
+      "notes": [
+        {
+          "body_id": "r0005:c0000",
+          "bounds_work": [
+            25,
+            22,
+            49,
+            63
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0005:c0001",
+          "bounds_work": [
+            150,
+            22,
+            50,
+            63
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0005:c0002",
+          "bounds_work": [
+            277,
+            22,
+            47,
+            63
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0005:c0003",
+          "bounds_work": [
+            367,
+            24,
+            46,
+            61
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0005:c0004",
+          "bounds_work": [
+            491,
+            22,
+            46,
+            63
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0005:c0005",
+          "bounds_work": [
+            577,
+            22,
+            50,
+            63
+          ],
+          "text": "q4"
+        },
+        {
+          "body_id": "r0005:c0007",
+          "bounds_work": [
+            716,
+            22,
+            46,
+            63
+          ],
+          "text": "3."
+        },
+        {
+          "body_id": "r0005:c0008",
+          "bounds_work": [
+            916,
+            24,
+            46,
+            61
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0005:c0009",
+          "bounds_work": [
+            1010,
+            22,
+            27,
+            64
+          ],
+          "text": "1-"
+        },
+        {
+          "body_id": "r0005:c0012",
+          "bounds_work": [
+            1300,
+            22,
+            49,
+            63
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0005:c0013",
+          "bounds_work": [
+            1431,
+            22,
+            46,
+            63
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0005:c0014",
+          "bounds_work": [
+            1557,
+            23,
+            48,
+            63
+          ],
+          "text": "7,."
+        },
+        {
+          "body_id": "r0005:c0015",
+          "bounds_work": [
+            1757,
+            22,
+            26,
+            64
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0005:c0017",
+          "bounds_work": [
+            1892,
+            22,
+            27,
+            64
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0005:c0018",
+          "bounds_work": [
+            1979,
+            22,
+            49,
+            63
+          ],
+          "text": "q6,"
+        },
+        {
+          "body_id": "r0005:c0019",
+          "bounds_work": [
+            2069,
+            22,
+            49,
+            63
+          ],
+          "text": "6,--"
+        }
+      ]
+    },
+    {
+      "image": "image copy 4.png",
+      "row": 3,
+      "split": "development",
+      "tokens": "0 0 0 0 q1, q5, 1 q1, q5, 1 q3, q7, 3 q6,, q3, 6, q6,, q3, 6, q6,, q3, 6,",
+      "notes": [
+        {
+          "body_id": "r0003:c0001",
+          "bounds_work": [
+            204,
+            14,
+            19,
+            27
+          ],
+          "text": "0"
+        },
+        {
+          "body_id": "r0003:c0002",
+          "bounds_work": [
+            295,
+            14,
+            19,
+            27
+          ],
+          "text": "0"
+        },
+        {
+          "body_id": "r0003:c0003",
+          "bounds_work": [
+            387,
+            14,
+            19,
+            27
+          ],
+          "text": "0"
+        },
+        {
+          "body_id": "r0003:c0004",
+          "bounds_work": [
+            477,
+            14,
+            20,
+            27
+          ],
+          "text": "0"
+        },
+        {
+          "body_id": "r0003:c0006",
+          "bounds_work": [
+            602,
+            14,
+            10,
+            27
+          ],
+          "text": "q1,"
+        },
+        {
+          "body_id": "r0003:c0007",
+          "bounds_work": [
+            640,
+            14,
+            19,
+            27
+          ],
+          "text": "q5,"
+        },
+        {
+          "body_id": "r0003:c0008",
+          "bounds_work": [
+            693,
+            14,
+            10,
+            27
+          ],
+          "text": "1"
+        },
+        {
+          "body_id": "r0003:c0009",
+          "bounds_work": [
+            783,
+            14,
+            11,
+            27
+          ],
+          "text": "q1,"
+        },
+        {
+          "body_id": "r0003:c0010",
+          "bounds_work": [
+            823,
+            14,
+            19,
+            27
+          ],
+          "text": "q5,"
+        },
+        {
+          "body_id": "r0003:c0011",
+          "bounds_work": [
+            874,
+            14,
+            11,
+            27
+          ],
+          "text": "1"
+        },
+        {
+          "body_id": "r0003:c0013",
+          "bounds_work": [
+            995,
+            14,
+            18,
+            27
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0003:c0014",
+          "bounds_work": [
+            1035,
+            14,
+            20,
+            27
+          ],
+          "text": "q7,"
+        },
+        {
+          "body_id": "r0003:c0015",
+          "bounds_work": [
+            1086,
+            14,
+            18,
+            27
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0003:c0016",
+          "bounds_work": [
+            1177,
+            14,
+            19,
+            27
+          ],
+          "text": "q6,,"
+        },
+        {
+          "body_id": "r0003:c0017",
+          "bounds_work": [
+            1218,
+            14,
+            18,
+            27
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0003:c0018",
+          "bounds_work": [
+            1267,
+            14,
+            20,
+            27
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0003:c0020",
+          "bounds_work": [
+            1389,
+            14,
+            20,
+            27
+          ],
+          "text": "q6,,"
+        },
+        {
+          "body_id": "r0003:c0021",
+          "bounds_work": [
+            1431,
+            14,
+            18,
+            27
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0003:c0022",
+          "bounds_work": [
+            1480,
+            14,
+            20,
+            27
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0003:c0023",
+          "bounds_work": [
+            1572,
+            14,
+            19,
+            27
+          ],
+          "text": "q6,,"
+        },
+        {
+          "body_id": "r0003:c0024",
+          "bounds_work": [
+            1613,
+            14,
+            18,
+            27
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0003:c0025",
+          "bounds_work": [
+            1663,
+            14,
+            19,
+            27
+          ],
+          "text": "6,"
+        }
+      ]
+    },
+    {
+      "image": "image copy 4.png",
+      "row": 5,
+      "split": "development",
+      "tokens": "q3, q7, 3 q3, q7, 3 q4,, q1, 4, q4,, q1, 4, q6,, q3, 6, q6,, q3, 6, q2, q6, 2 q2, q6, 2",
+      "notes": [
+        {
+          "body_id": "r0005:c0001",
+          "bounds_work": [
+            205,
+            15,
+            18,
+            27
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0005:c0002",
+          "bounds_work": [
+            245,
+            15,
+            20,
+            27
+          ],
+          "text": "q7,"
+        },
+        {
+          "body_id": "r0005:c0003",
+          "bounds_work": [
+            296,
+            15,
+            18,
+            27
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0005:c0004",
+          "bounds_work": [
+            387,
+            15,
+            18,
+            27
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0005:c0005",
+          "bounds_work": [
+            427,
+            15,
+            19,
+            27
+          ],
+          "text": "q7,"
+        },
+        {
+          "body_id": "r0005:c0006",
+          "bounds_work": [
+            477,
+            15,
+            19,
+            27
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0005:c0008",
+          "bounds_work": [
+            599,
+            15,
+            21,
+            27
+          ],
+          "text": "q4,,"
+        },
+        {
+          "body_id": "r0005:c0009",
+          "bounds_work": [
+            642,
+            15,
+            11,
+            27
+          ],
+          "text": "q1,"
+        },
+        {
+          "body_id": "r0005:c0010",
+          "bounds_work": [
+            690,
+            15,
+            21,
+            27
+          ],
+          "text": "4,"
+        },
+        {
+          "body_id": "r0005:c0011",
+          "bounds_work": [
+            781,
+            15,
+            21,
+            27
+          ],
+          "text": "q4,,"
+        },
+        {
+          "body_id": "r0005:c0012",
+          "bounds_work": [
+            825,
+            15,
+            10,
+            27
+          ],
+          "text": "q1,"
+        },
+        {
+          "body_id": "r0005:c0013",
+          "bounds_work": [
+            872,
+            15,
+            21,
+            27
+          ],
+          "text": "4,"
+        },
+        {
+          "body_id": "r0005:c0015",
+          "bounds_work": [
+            995,
+            15,
+            19,
+            27
+          ],
+          "text": "q6,,"
+        },
+        {
+          "body_id": "r0005:c0016",
+          "bounds_work": [
+            1035,
+            15,
+            19,
+            27
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0005:c0017",
+          "bounds_work": [
+            1086,
+            15,
+            19,
+            27
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0005:c0018",
+          "bounds_work": [
+            1177,
+            15,
+            19,
+            27
+          ],
+          "text": "q6,,"
+        },
+        {
+          "body_id": "r0005:c0019",
+          "bounds_work": [
+            1218,
+            15,
+            18,
+            27
+          ],
+          "text": "q3,"
+        },
+        {
+          "body_id": "r0005:c0020",
+          "bounds_work": [
+            1267,
+            15,
+            20,
+            27
+          ],
+          "text": "6,"
+        },
+        {
+          "body_id": "r0005:c0022",
+          "bounds_work": [
+            1389,
+            15,
+            20,
+            27
+          ],
+          "text": "q2,"
+        },
+        {
+          "body_id": "r0005:c0023",
+          "bounds_work": [
+            1431,
+            15,
+            19,
+            27
+          ],
+          "text": "q6,"
+        },
+        {
+          "body_id": "r0005:c0024",
+          "bounds_work": [
+            1480,
+            15,
+            19,
+            27
+          ],
+          "text": "2"
+        },
+        {
+          "body_id": "r0005:c0025",
+          "bounds_work": [
+            1572,
+            15,
+            19,
+            27
+          ],
+          "text": "q2,"
+        },
+        {
+          "body_id": "r0005:c0026",
+          "bounds_work": [
+            1613,
+            15,
+            19,
+            27
+          ],
+          "text": "q6,"
+        },
+        {
+          "body_id": "r0005:c0027",
+          "bounds_work": [
+            1663,
+            15,
+            19,
+            27
+          ],
+          "text": "2"
+        }
+      ]
+    },
+    {
+      "image": "image copy 5.png",
+      "row": 2,
+      "split": "development",
+      "tokens": "s6 s3 s6 s1' s1' s6 q3 s6 s3 s6 s7 s7 s6 q3 s6 s3 s6 s1' s1' s6 q3 s6 s3 s6 s7 s7 s6 q3 q0 X s3 X s3 q3. X s3 X 2 X s1 s3 X 3",
+      "notes": [
+        {
+          "body_id": "r0002:c0005",
+          "bounds_work": [
+            155,
+            53,
+            17,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0006",
+          "bounds_work": [
+            183,
+            51,
+            17,
+            32
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0007",
+          "bounds_work": [
+            212,
+            51,
+            16,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0008",
+          "bounds_work": [
+            240,
+            51,
+            10,
+            32
+          ],
+          "text": "s1'"
+        },
+        {
+          "body_id": "r0002:c0009",
+          "bounds_work": [
+            285,
+            50,
+            10,
+            32
+          ],
+          "text": "s1'"
+        },
+        {
+          "body_id": "r0002:c0010",
+          "bounds_work": [
+            313,
+            51,
+            16,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0011",
+          "bounds_work": [
+            341,
+            51,
+            16,
+            32
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0002:c0012",
+          "bounds_work": [
+            387,
+            53,
+            17,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0013",
+          "bounds_work": [
+            415,
+            51,
+            17,
+            32
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0014",
+          "bounds_work": [
+            444,
+            51,
+            16,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0015",
+          "bounds_work": [
+            475,
+            51,
+            17,
+            32
+          ],
+          "text": "s7"
+        },
+        {
+          "body_id": "r0002:c0016",
+          "bounds_work": [
+            515,
+            51,
+            16,
+            32
+          ],
+          "text": "s7"
+        },
+        {
+          "body_id": "r0002:c0017",
+          "bounds_work": [
+            545,
+            51,
+            16,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0018",
+          "bounds_work": [
+            573,
+            51,
+            16,
+            32
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0002:c0019",
+          "bounds_work": [
+            698,
+            53,
+            17,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0020",
+          "bounds_work": [
+            726,
+            51,
+            17,
+            32
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0021",
+          "bounds_work": [
+            755,
+            51,
+            17,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0022",
+          "bounds_work": [
+            784,
+            51,
+            10,
+            32
+          ],
+          "text": "s1'"
+        },
+        {
+          "body_id": "r0002:c0023",
+          "bounds_work": [
+            828,
+            50,
+            10,
+            32
+          ],
+          "text": "s1'"
+        },
+        {
+          "body_id": "r0002:c0024",
+          "bounds_work": [
+            856,
+            51,
+            17,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0025",
+          "bounds_work": [
+            884,
+            51,
+            17,
+            32
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0002:c0026",
+          "bounds_work": [
+            930,
+            53,
+            17,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0027",
+          "bounds_work": [
+            958,
+            51,
+            17,
+            32
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0028",
+          "bounds_work": [
+            987,
+            51,
+            17,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0029",
+          "bounds_work": [
+            1018,
+            51,
+            17,
+            32
+          ],
+          "text": "s7"
+        },
+        {
+          "body_id": "r0002:c0030",
+          "bounds_work": [
+            1058,
+            51,
+            17,
+            32
+          ],
+          "text": "s7"
+        },
+        {
+          "body_id": "r0002:c0031",
+          "bounds_work": [
+            1088,
+            51,
+            17,
+            32
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0002:c0032",
+          "bounds_work": [
+            1116,
+            51,
+            17,
+            32
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0002:c0033",
+          "bounds_work": [
+            1227,
+            50,
+            17,
+            32
+          ],
+          "text": "q0"
+        },
+        {
+          "body_id": "r0002:c0034",
+          "bounds_work": [
+            1288,
+            50,
+            16,
+            32
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0035",
+          "bounds_work": [
+            1319,
+            50,
+            17,
+            32
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0036",
+          "bounds_work": [
+            1350,
+            50,
+            17,
+            32
+          ],
+          "text": "q3."
+        },
+        {
+          "body_id": "r0002:c0037",
+          "bounds_work": [
+            1400,
+            50,
+            16,
+            32
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0038",
+          "bounds_work": [
+            1431,
+            50,
+            18,
+            32
+          ],
+          "text": "2"
+        },
+        {
+          "body_id": "r0002:c0039",
+          "bounds_work": [
+            1497,
+            50,
+            9,
+            32
+          ],
+          "text": "s1"
+        },
+        {
+          "body_id": "r0002:c0040",
+          "bounds_work": [
+            1526,
+            50,
+            16,
+            32
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0041",
+          "bounds_work": [
+            1558,
+            50,
+            17,
+            32
+          ],
+          "text": "3"
+        }
+      ]
+    },
+    {
+      "image": "image copy 7.png",
+      "row": 4,
+      "split": "holdout",
+      "tokens": "X q5, q5 4 3 q2 q4 q3 q7, 2 1- q6, q6 5 4 q3 q4 q5 q1 3- 2 q5 q5' 4' 3' q2' q4' q3' q7'",
+      "notes": [
+        {
+          "body_id": "r0004:c0001",
+          "bounds_work": [
+            130,
+            24,
+            26,
+            28
+          ],
+          "text": "q5,"
+        },
+        {
+          "body_id": "r0004:c0002",
+          "bounds_work": [
+            165,
+            24,
+            27,
+            27
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0004:c0004",
+          "bounds_work": [
+            268,
+            24,
+            29,
+            27
+          ],
+          "text": "4"
+        },
+        {
+          "body_id": "r0004:c0005",
+          "bounds_work": [
+            324,
+            24,
+            25,
+            27
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0004:c0006",
+          "bounds_work": [
+            376,
+            24,
+            25,
+            27
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0004:c0007",
+          "bounds_work": [
+            409,
+            24,
+            29,
+            27
+          ],
+          "text": "q4"
+        },
+        {
+          "body_id": "r0004:c0008",
+          "bounds_work": [
+            465,
+            24,
+            26,
+            28
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0004:c0009",
+          "bounds_work": [
+            500,
+            24,
+            27,
+            27
+          ],
+          "text": "q7,"
+        },
+        {
+          "body_id": "r0004:c0011",
+          "bounds_work": [
+            605,
+            24,
+            25,
+            27
+          ],
+          "text": "2"
+        },
+        {
+          "body_id": "r0004:c0012",
+          "bounds_work": [
+            662,
+            24,
+            14,
+            27
+          ],
+          "text": "1-"
+        },
+        {
+          "body_id": "r0004:c0014",
+          "bounds_work": [
+            763,
+            24,
+            28,
+            28
+          ],
+          "text": "q6,"
+        },
+        {
+          "body_id": "r0004:c0015",
+          "bounds_work": [
+            799,
+            24,
+            27,
+            28
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0004:c0017",
+          "bounds_work": [
+            907,
+            24,
+            26,
+            27
+          ],
+          "text": "5"
+        },
+        {
+          "body_id": "r0004:c0018",
+          "bounds_work": [
+            956,
+            24,
+            30,
+            27
+          ],
+          "text": "4"
+        },
+        {
+          "body_id": "r0004:c0019",
+          "bounds_work": [
+            1012,
+            24,
+            26,
+            28
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0004:c0020",
+          "bounds_work": [
+            1045,
+            24,
+            29,
+            27
+          ],
+          "text": "q4"
+        },
+        {
+          "body_id": "r0004:c0021",
+          "bounds_work": [
+            1101,
+            24,
+            26,
+            27
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0004:c0022",
+          "bounds_work": [
+            1139,
+            24,
+            14,
+            27
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0004:c0024",
+          "bounds_work": [
+            1242,
+            24,
+            26,
+            27
+          ],
+          "text": "3-"
+        },
+        {
+          "body_id": "r0004:c0026",
+          "bounds_work": [
+            1365,
+            24,
+            24,
+            27
+          ],
+          "text": "2"
+        },
+        {
+          "body_id": "r0004:c0027",
+          "bounds_work": [
+            1419,
+            24,
+            26,
+            27
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0004:c0028",
+          "bounds_work": [
+            1454,
+            24,
+            27,
+            27
+          ],
+          "text": "q5'"
+        },
+        {
+          "body_id": "r0004:c0030",
+          "bounds_work": [
+            1557,
+            24,
+            29,
+            27
+          ],
+          "text": "4'"
+        },
+        {
+          "body_id": "r0004:c0031",
+          "bounds_work": [
+            1613,
+            24,
+            25,
+            27
+          ],
+          "text": "3'"
+        },
+        {
+          "body_id": "r0004:c0032",
+          "bounds_work": [
+            1665,
+            24,
+            25,
+            27
+          ],
+          "text": "q2'"
+        },
+        {
+          "body_id": "r0004:c0033",
+          "bounds_work": [
+            1698,
+            24,
+            30,
+            27
+          ],
+          "text": "q4'"
+        },
+        {
+          "body_id": "r0004:c0034",
+          "bounds_work": [
+            1754,
+            24,
+            26,
+            28
+          ],
+          "text": "q3'"
+        },
+        {
+          "body_id": "r0004:c0035",
+          "bounds_work": [
+            1789,
+            24,
+            27,
+            27
+          ],
+          "text": "q7'"
+        }
+      ]
+    },
+    {
+      "image": "image copy 7.png",
+      "row": 6,
+      "split": "holdout",
+      "tokens": "s3 s1' s2' s2' s6 X s7 5- s6 X s5 X s4 X q4 q6 X X q5 s3 s1 X 1 q4 X 3 X q5 2- X q3 X X s3 X X s3 X q3 q1' 1'- X",
+      "notes": [
+        {
+          "body_id": "r0006:c0000",
+          "bounds_work": [
+            94,
+            49,
+            26,
+            39
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0006:c0001",
+          "bounds_work": [
+            132,
+            49,
+            14,
+            39
+          ],
+          "text": "s1'"
+        },
+        {
+          "body_id": "r0006:c0002",
+          "bounds_work": [
+            163,
+            49,
+            26,
+            39
+          ],
+          "text": "s2'"
+        },
+        {
+          "body_id": "r0006:c0003",
+          "bounds_work": [
+            234,
+            49,
+            25,
+            39
+          ],
+          "text": "s2'"
+        },
+        {
+          "body_id": "r0006:c0004",
+          "bounds_work": [
+            269,
+            49,
+            27,
+            39
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0006:c0005",
+          "bounds_work": [
+            306,
+            49,
+            27,
+            39
+          ],
+          "text": "s7"
+        },
+        {
+          "body_id": "r0006:c0006",
+          "bounds_work": [
+            377,
+            49,
+            26,
+            39
+          ],
+          "text": "5-"
+        },
+        {
+          "body_id": "r0006:c0009",
+          "bounds_work": [
+            551,
+            49,
+            28,
+            39
+          ],
+          "text": "s6"
+        },
+        {
+          "body_id": "r0006:c0010",
+          "bounds_work": [
+            589,
+            49,
+            26,
+            39
+          ],
+          "text": "s5"
+        },
+        {
+          "body_id": "r0006:c0011",
+          "bounds_work": [
+            621,
+            49,
+            29,
+            39
+          ],
+          "text": "s4"
+        },
+        {
+          "body_id": "r0006:c0012",
+          "bounds_work": [
+            692,
+            49,
+            29,
+            39
+          ],
+          "text": "q4"
+        },
+        {
+          "body_id": "r0006:c0013",
+          "bounds_work": [
+            728,
+            49,
+            28,
+            39
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0006:c0014",
+          "bounds_work": [
+            801,
+            49,
+            26,
+            39
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0006:c0015",
+          "bounds_work": [
+            836,
+            49,
+            25,
+            39
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0006:c0016",
+          "bounds_work": [
+            874,
+            49,
+            14,
+            39
+          ],
+          "text": "s1"
+        },
+        {
+          "body_id": "r0006:c0017",
+          "bounds_work": [
+            944,
+            49,
+            15,
+            39
+          ],
+          "text": "1"
+        },
+        {
+          "body_id": "r0006:c0019",
+          "bounds_work": [
+            1045,
+            49,
+            29,
+            39
+          ],
+          "text": "q4"
+        },
+        {
+          "body_id": "r0006:c0020",
+          "bounds_work": [
+            1118,
+            49,
+            26,
+            39
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0006:c0021",
+          "bounds_work": [
+            1189,
+            49,
+            27,
+            39
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0006:c0022",
+          "bounds_work": [
+            1258,
+            49,
+            26,
+            39
+          ],
+          "text": "2-"
+        },
+        {
+          "body_id": "r0006:c0025",
+          "bounds_work": [
+            1454,
+            49,
+            26,
+            39
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0006:c0026",
+          "bounds_work": [
+            1489,
+            49,
+            26,
+            39
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0006:c0027",
+          "bounds_work": [
+            1524,
+            49,
+            26,
+            39
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0006:c0028",
+          "bounds_work": [
+            1595,
+            49,
+            26,
+            39
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0006:c0029",
+          "bounds_work": [
+            1633,
+            49,
+            14,
+            39
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0006:c0030",
+          "bounds_work": [
+            1704,
+            49,
+            14,
+            39
+          ],
+          "text": "1'-"
+        }
+      ]
+    },
+    {
+      "image": "image copy 9.png",
+      "row": 2,
+      "split": "holdout",
+      "tokens": "X 6 q0. s3 q1' q6 q3 q1' 6 3 q1' q6 q3 q1' 7 5 q1' q5 q3 q1' 7 q0 s7 s1' q7 q5 q6 q7 6 3 q1' q6 q3 q1'",
+      "notes": [
+        {
+          "body_id": "r0002:c0001",
+          "bounds_work": [
+            259,
+            38,
+            30,
+            41
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0002:c0002",
+          "bounds_work": [
+            326,
+            38,
+            28,
+            41
+          ],
+          "text": "q0."
+        },
+        {
+          "body_id": "r0002:c0003",
+          "bounds_work": [
+            383,
+            38,
+            28,
+            41
+          ],
+          "text": "s3"
+        },
+        {
+          "body_id": "r0002:c0004",
+          "bounds_work": [
+            449,
+            38,
+            14,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0002:c0005",
+          "bounds_work": [
+            488,
+            38,
+            30,
+            41
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0002:c0006",
+          "bounds_work": [
+            551,
+            38,
+            28,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0002:c0007",
+          "bounds_work": [
+            599,
+            38,
+            15,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0002:c0009",
+          "bounds_work": [
+            688,
+            38,
+            29,
+            41
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0002:c0010",
+          "bounds_work": [
+            755,
+            38,
+            28,
+            41
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0002:c0011",
+          "bounds_work": [
+            826,
+            38,
+            14,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0002:c0012",
+          "bounds_work": [
+            865,
+            38,
+            30,
+            41
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0002:c0013",
+          "bounds_work": [
+            928,
+            38,
+            28,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0002:c0014",
+          "bounds_work": [
+            977,
+            38,
+            14,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0002:c0016",
+          "bounds_work": [
+            1066,
+            38,
+            29,
+            41
+          ],
+          "text": "7"
+        },
+        {
+          "body_id": "r0002:c0017",
+          "bounds_work": [
+            1132,
+            38,
+            28,
+            41
+          ],
+          "text": "5"
+        },
+        {
+          "body_id": "r0002:c0018",
+          "bounds_work": [
+            1203,
+            38,
+            15,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0002:c0019",
+          "bounds_work": [
+            1243,
+            38,
+            28,
+            41
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0002:c0020",
+          "bounds_work": [
+            1305,
+            38,
+            28,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0002:c0021",
+          "bounds_work": [
+            1354,
+            38,
+            14,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0002:c0023",
+          "bounds_work": [
+            1443,
+            38,
+            29,
+            41
+          ],
+          "text": "7"
+        },
+        {
+          "body_id": "r0002:c0024",
+          "bounds_work": [
+            1509,
+            38,
+            28,
+            41
+          ],
+          "text": "q0"
+        },
+        {
+          "body_id": "r0002:c0025",
+          "bounds_work": [
+            1554,
+            38,
+            29,
+            41
+          ],
+          "text": "s7"
+        },
+        {
+          "body_id": "r0002:c0026",
+          "bounds_work": [
+            1597,
+            38,
+            15,
+            41
+          ],
+          "text": "s1'"
+        },
+        {
+          "body_id": "r0002:c0027",
+          "bounds_work": [
+            1655,
+            38,
+            29,
+            41
+          ],
+          "text": "q7"
+        },
+        {
+          "body_id": "r0002:c0028",
+          "bounds_work": [
+            1699,
+            38,
+            28,
+            41
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0002:c0029",
+          "bounds_work": [
+            1760,
+            37,
+            29,
+            42
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0002:c0030",
+          "bounds_work": [
+            1805,
+            38,
+            29,
+            41
+          ],
+          "text": "q7"
+        },
+        {
+          "body_id": "r0002:c0032",
+          "bounds_work": [
+            1898,
+            38,
+            29,
+            41
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0002:c0033",
+          "bounds_work": [
+            1965,
+            38,
+            28,
+            41
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0002:c0034",
+          "bounds_work": [
+            2036,
+            38,
+            14,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0002:c0035",
+          "bounds_work": [
+            2075,
+            38,
+            30,
+            41
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0002:c0036",
+          "bounds_work": [
+            2138,
+            38,
+            28,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0002:c0037",
+          "bounds_work": [
+            2187,
+            38,
+            14,
+            41
+          ],
+          "text": "q1'"
+        }
+      ]
+    },
+    {
+      "image": "image copy 9.png",
+      "row": 3,
+      "split": "holdout",
+      "tokens": "6 3 q1' q6 q3 q1' 7 5 q1' q5 q3 q1' 7 5 q7 q1' 7 6 X q0 q6, q3 q2 q1 q3 3 q0 q6, q3 q2 q1 q3",
+      "notes": [
+        {
+          "body_id": "r0003:c0000",
+          "bounds_work": [
+            238,
+            35,
+            30,
+            41
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0003:c0001",
+          "bounds_work": [
+            307,
+            35,
+            28,
+            41
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0003:c0002",
+          "bounds_work": [
+            379,
+            35,
+            15,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0003:c0003",
+          "bounds_work": [
+            419,
+            35,
+            30,
+            41
+          ],
+          "text": "q6"
+        },
+        {
+          "body_id": "r0003:c0004",
+          "bounds_work": [
+            483,
+            35,
+            28,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0005",
+          "bounds_work": [
+            533,
+            35,
+            14,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0003:c0007",
+          "bounds_work": [
+            624,
+            35,
+            29,
+            41
+          ],
+          "text": "7"
+        },
+        {
+          "body_id": "r0003:c0008",
+          "bounds_work": [
+            692,
+            35,
+            28,
+            41
+          ],
+          "text": "5"
+        },
+        {
+          "body_id": "r0003:c0009",
+          "bounds_work": [
+            764,
+            35,
+            14,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0003:c0010",
+          "bounds_work": [
+            805,
+            35,
+            28,
+            41
+          ],
+          "text": "q5"
+        },
+        {
+          "body_id": "r0003:c0011",
+          "bounds_work": [
+            868,
+            35,
+            28,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0012",
+          "bounds_work": [
+            917,
+            35,
+            15,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0003:c0014",
+          "bounds_work": [
+            1009,
+            35,
+            29,
+            41
+          ],
+          "text": "7"
+        },
+        {
+          "body_id": "r0003:c0015",
+          "bounds_work": [
+            1076,
+            35,
+            28,
+            41
+          ],
+          "text": "5"
+        },
+        {
+          "body_id": "r0003:c0016",
+          "bounds_work": [
+            1144,
+            35,
+            29,
+            41
+          ],
+          "text": "q7"
+        },
+        {
+          "body_id": "r0003:c0017",
+          "bounds_work": [
+            1194,
+            35,
+            14,
+            41
+          ],
+          "text": "q1'"
+        },
+        {
+          "body_id": "r0003:c0018",
+          "bounds_work": [
+            1253,
+            35,
+            29,
+            41
+          ],
+          "text": "7"
+        },
+        {
+          "body_id": "r0003:c0020",
+          "bounds_work": [
+            1347,
+            35,
+            29,
+            41
+          ],
+          "text": "6"
+        },
+        {
+          "body_id": "r0003:c0022",
+          "bounds_work": [
+            1424,
+            35,
+            28,
+            41
+          ],
+          "text": "q0"
+        },
+        {
+          "body_id": "r0003:c0023",
+          "bounds_work": [
+            1469,
+            35,
+            29,
+            41
+          ],
+          "text": "q6,"
+        },
+        {
+          "body_id": "r0003:c0024",
+          "bounds_work": [
+            1533,
+            35,
+            27,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0025",
+          "bounds_work": [
+            1596,
+            35,
+            27,
+            41
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0003:c0026",
+          "bounds_work": [
+            1663,
+            35,
+            14,
+            41
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0003:c0027",
+          "bounds_work": [
+            1721,
+            35,
+            28,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0029",
+          "bounds_work": [
+            1817,
+            35,
+            28,
+            41
+          ],
+          "text": "3"
+        },
+        {
+          "body_id": "r0003:c0030",
+          "bounds_work": [
+            1884,
+            35,
+            28,
+            41
+          ],
+          "text": "q0"
+        },
+        {
+          "body_id": "r0003:c0031",
+          "bounds_work": [
+            1929,
+            35,
+            29,
+            41
+          ],
+          "text": "q6,"
+        },
+        {
+          "body_id": "r0003:c0032",
+          "bounds_work": [
+            1993,
+            35,
+            28,
+            41
+          ],
+          "text": "q3"
+        },
+        {
+          "body_id": "r0003:c0033",
+          "bounds_work": [
+            2056,
+            35,
+            27,
+            41
+          ],
+          "text": "q2"
+        },
+        {
+          "body_id": "r0003:c0034",
+          "bounds_work": [
+            2123,
+            35,
+            14,
+            41
+          ],
+          "text": "q1"
+        },
+        {
+          "body_id": "r0003:c0035",
+          "bounds_work": [
+            2182,
+            35,
+            27,
+            41
+          ],
+          "text": "q3"
+        }
+      ]
+    }
+  ]
+}

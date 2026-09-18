@@ -9,14 +9,14 @@
         :key="`${page.pageNumber}-${page.markerLineIndex}`"
         type="button"
         class="editor-page-link"
-        :title="page.inputFileName || `第 ${page.pageNumber} 页`"
+        :title="page.inputFileName || t('components.jianpuEditor.pageLabel', { n: page.pageNumber })"
         @click="scrollToPage(page.markerLineIndex)"
       >
         <span class="editor-page-number">P{{ page.pageNumber }}</span>
         <span class="editor-page-range">{{ pageRangeText(page) }}</span>
       </button>
       <div class="editor-initial-measure-group">
-        <span class="editor-initial-measure-label">修改起始小节号</span>
+        <span class="editor-initial-measure-label">{{ t('components.jianpuEditor.initialMeasureLabel') }}</span>
         <n-input-number
           v-model:value="initialMeasureNumberModel"
           class="editor-initial-measure-number"
@@ -24,8 +24,8 @@
           :min="1"
           :precision="0"
           :show-button="false"
-          placeholder="起始小节号"
-          aria-label="第一页起始小节号"
+          :placeholder="t('components.jianpuEditor.initialMeasurePlaceholder')"
+          :aria-label="t('components.jianpuEditor.firstPageMeasureAria')"
         />
       </div>
     </div>
@@ -83,7 +83,7 @@
           ref="textareaRef"
           :value="modelValue"
           :readonly="transposing"
-          placeholder="title=瑞雪迎春&#10;1=C&#10;4/4&#10;1 2 $345$ 4 |&#10;1=G&#10;3/4&#10;h[1+3+5] \p 4 |&#10;L: 春 风 又 绿"
+          :placeholder="t('components.jianpuEditor.placeholder')"
           :class="['editor-textarea', { 'syntax-highlight-enabled': syntaxHighlight || syntaxDiagnostics.length }]"
           spellcheck="false"
           @input="onInput"
@@ -99,7 +99,7 @@
           role="status"
         >
           <span class="editor-transpose-lock-dot" />
-          转调中…
+          {{ t('components.jianpuEditor.transposing') }}
         </div>
         <div
           v-for="(style, i) in playbackHighlightStyles"
@@ -137,6 +137,7 @@ import { horizontalScrollIntoView } from '../utils/editorViewport'
 import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
 import type { SyntaxDiagnostic } from '../models/types'
 import { NInputNumber, useMessage } from 'naive-ui'
+import { t } from '../i18n'
 import {
   hasLiveJianpuPageMarkers,
   jianpuGutterLabels,
@@ -568,9 +569,9 @@ function scheduleKeyChangeCheck(before: string, after: string): void {
 }
 
 // Backend skip reasons leave the edit unresolved and must block persistence.
-const SKIP_MESSAGES: Record<string, string> = {
-  parse_error: '简谱有语法错误，自动转调已跳过',
-  unresolvable_key_change: '删除调号无法自动转调，请直接把调号改写成新调',
+const SKIP_MESSAGES: Record<string, () => string> = {
+  parse_error: () => t('components.jianpuEditor.skipSyntaxError'),
+  unresolvable_key_change: () => t('components.jianpuEditor.skipUnresolvableKeyChange'),
 }
 
 // 保存前调用：把待执行的转调立刻做完并等它落地，避免 debounce 落进保存窗口。
@@ -604,7 +605,7 @@ async function performAutoTranspose(): Promise<void> {
       previous_text: pending.baseline,
     })
     if (!autoTransposeGate.acceptResponse(requestId, pending.text, props.modelValue)) {
-      throw new Error('转调期间谱面已变更，请检查当前编辑后重试')
+      throw new Error(t('components.jianpuEditor.sheetChangedDuringTranspose'))
     }
     if (result.error) {
       throw result.error
@@ -612,11 +613,12 @@ async function performAutoTranspose(): Promise<void> {
     const skipReason = result.data?.skip_reason
     if (skipReason) {
       const detail = result.data?.skip_detail
-      throw new Error(SKIP_MESSAGES[skipReason] || detail || `自动转调已跳过：${skipReason}`)
+      const fallback = t('components.jianpuEditor.skipFallback', { reason: skipReason })
+      throw new Error(SKIP_MESSAGES[skipReason]?.() || detail || fallback)
     }
     const transposed = result.data?.transposed_text
     if (!transposed) {
-      throw new Error('自动转调未返回谱面文本')
+      throw new Error(t('components.jianpuEditor.noTransposedText'))
     }
     if (transposed === pending.text) {
       autoTransposeGate.commitRequest()
@@ -638,8 +640,8 @@ async function performAutoTranspose(): Promise<void> {
       autoTransposeGate.recordEdit(pending.baseline, pending.text)
     }
     const detail = error instanceof Error ? error.message : String(error)
-    logStore.addError(`自动转调失败：${detail}`)
-    message.warning(`自动转调未完成：${detail}`)
+    logStore.addError(t('components.jianpuEditor.transposeFailed', { detail }))
+    message.warning(t('components.jianpuEditor.transposeIncomplete', { detail }))
     throw error
   } finally {
     transposing.value = false
