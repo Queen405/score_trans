@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { fileURLToPath } from 'node:url'
+import { i18nStubUrl } from './lib/i18n-stub.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -15,7 +16,7 @@ async function loadTypeScript(relativePath) {
       target: ts.ScriptTarget.ES2022,
     },
     fileName: filePath,
-  }).outputText
+  }).outputText.replace("from '../i18n'", `from '${i18nStubUrl}'`)
   return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
 }
 

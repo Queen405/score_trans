@@ -4,6 +4,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { i18nStubUrl } from './lib/i18n-stub.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -22,6 +23,7 @@ function compileTasks(clientUrl, eventStateUrl) {
   }).outputText
   compiled = compiled.replace("from './client'", `from '${clientUrl}'`)
   compiled = compiled.replace("from '../utils/taskEventState'", `from '${eventStateUrl}'`)
+  compiled = compiled.replace("from '../i18n'", `from '${i18nStubUrl}'`)
   return moduleUrl(compiled)
 }
 

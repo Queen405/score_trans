@@ -4,6 +4,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { i18nStubUrl } from './lib/i18n-stub.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const sourcePath = path.resolve(
@@ -210,7 +211,7 @@ const apiClientCompiled = ts.transpileModule(apiClientSource, {
     target: ts.ScriptTarget.ES2022,
   },
   fileName: apiClientSourcePath,
-}).outputText
+}).outputText.replace("from '../i18n'", `from '${i18nStubUrl}'`)
 const apiClient = await import(
   `data:text/javascript;base64,${Buffer.from(apiClientCompiled).toString('base64')}`
 )

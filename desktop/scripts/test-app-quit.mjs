@@ -96,6 +96,7 @@ async function launch(platform = 'darwin', { deferStop = false } = {}) {
     './closeCoordinator': coordinator.exports,
     './storage': { configureElectronStoragePaths() {}, loadStoragePaths() {}, saveStoragePaths() {} },
     './updater': { checkForUpdate() {} },
+    './locale': { t: (s) => s, registerLocaleIpc() {} },
   }
   vm.runInNewContext(mainSource, {
     exports: {}, __dirname: 'test-app', process: { platform, env: {} },

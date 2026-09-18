@@ -37,7 +37,9 @@ function createLoader(overrides) {
       if (overrides[specifier]) return overrides[specifier]
       if (!specifier.startsWith('.')) return require(specifier)
       const resolved = path.resolve(path.dirname(filename), specifier)
-      return load(path.extname(resolved) ? resolved : `${resolved}.ts`)
+      if (path.extname(resolved)) return load(resolved)
+      if (fs.existsSync(`${resolved}.ts`)) return load(`${resolved}.ts`)
+      return load(path.join(resolved, 'index.ts'))
     }
     new Function('require', 'module', 'exports', compiled)(localRequire, module, module.exports)
     return module.exports
@@ -66,7 +68,7 @@ async function settle() {
 function convertPreflight(bindings) {
   const source = parse(fs.readFileSync(path.join(root, 'views/ConvertView.vue'), 'utf8')).descriptor.scriptSetup.content
   const ast = ts.createSourceFile('ConvertView.ts', source, ts.ScriptTarget.Latest, true)
-  const names = new Set(['flushPendingEdits', 'persistUnsavedBeforeReplace'])
+  const names = new Set(['flushPendingEdits', 'persistUnsavedBeforeReplace', 'actionLabel'])
   const declarations = ast.statements
     .filter((node) => ts.isFunctionDeclaration(node) && names.has(node.name.text))
     .map((node) => node.getText(ast)).join('\n')
@@ -160,6 +162,7 @@ function setup(t, entrypoint = 'quick', { enabled = true } = {}) {
       store, log, message, jianpuEditorRef: { value: { flushPendingAutoTranspose: flushPendingEdits } },
       workspacePersistence: load('utils/workspacePersistence.ts').createWorkspacePersistence(historyApi),
       isRenderAborted: () => false,
+      t: load('i18n/index.ts').t,
     })
     restore = () => persist('restore')
   }
@@ -393,7 +396,7 @@ test('disabling auto-transpose invalidates an in-flight result without blocking 
 // editor watchers, so an external editor sync cannot silently re-dirty the store.
 function setupSnapshotNavigation(t) {
   const { computed, effectScope } = require('vue')
-  const load = createLoader({})
+  const load = createLoader({ 'naive-ui': { useMessage: () => {}, enUS: {}, zhCN: {}, dateEnUS: {}, dateZhCN: {} } })
   setActivePinia(createPinia())
   const store = load('stores/workspace.ts').useWorkspaceStore()
   store.loadBatch([{
@@ -418,6 +421,7 @@ function setupSnapshotNavigation(t) {
     log: { addLog() {} }, message: { success() {} },
     historyApi: { saveBatch: (...args) => requests.push(args) },
     workspacePersistence: { saveBatch: (...args) => requests.push(args) },
+    t: load('i18n/index.ts').t,
   }
   const source = parse(fs.readFileSync(path.join(root, 'views/ConvertView.vue'), 'utf8')).descriptor.scriptSetup.content
   const ast = ts.createSourceFile('ConvertView.ts', source, ts.ScriptTarget.Latest, true)

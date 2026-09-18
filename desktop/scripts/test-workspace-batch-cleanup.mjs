@@ -5,6 +5,7 @@ import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import ts from 'typescript'
 import { createPinia, setActivePinia } from 'pinia'
+import { i18nStubUrl } from './lib/i18n-stub.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -41,6 +42,7 @@ const workspaceUrl = compileModule(workspacePath, [
   ["from 'vue'", `from '${pathToFileURL(path.resolve(here, '../node_modules/vue/dist/vue.runtime.esm-bundler.js')).href}'`],
   ["from '../utils/jianpuPageSections'", `from '${jianpuSectionsUrl}'`],
   ["from '../utils/unsavedChangeState'", `from '${unsavedChangeStateUrl}'`],
+  ["from '../i18n'", `from '${i18nStubUrl}'`],
 ])
 const { useWorkspaceStore } = await import(workspaceUrl)
 

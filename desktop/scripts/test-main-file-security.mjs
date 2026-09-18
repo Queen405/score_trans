@@ -9,6 +9,16 @@ import ts from 'typescript'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(here, '..')
+const electronStub = `data:text/javascript;base64,${Buffer.from("export const app = { getLocale: () => 'zh-CN', getPath: () => '/tmp' }; export const ipcMain = { handle() {} }").toString('base64')}`
+const localeSourcePath = path.join(projectRoot, 'src/main/locale.ts')
+const localeCompiled = ts.transpileModule(fs.readFileSync(localeSourcePath, 'utf8'), {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: localeSourcePath,
+}).outputText.replace("from 'electron'", `from '${electronStub}'`)
+const localeStubUrl = `data:text/javascript;base64,${Buffer.from(localeCompiled).toString('base64')}`
 const sourcePath = path.join(projectRoot, 'src/main/exportSource.ts')
 const source = fs.readFileSync(sourcePath, 'utf8')
 const compiled = ts.transpileModule(source, {
@@ -17,7 +27,7 @@ const compiled = ts.transpileModule(source, {
     target: ts.ScriptTarget.ES2022,
   },
   fileName: sourcePath,
-}).outputText
+}).outputText.replace("from './locale'", `from '${localeStubUrl}'`)
 const exportSource = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 )
@@ -30,7 +40,7 @@ const exportPathCompiled = ts.transpileModule(exportPathSource, {
     target: ts.ScriptTarget.ES2022,
   },
   fileName: exportPathSourcePath,
-}).outputText
+}).outputText.replace("from './locale'", `from '${localeStubUrl}'`)
 const exportPath = await import(
   `data:text/javascript;base64,${Buffer.from(exportPathCompiled).toString('base64')}`
 )

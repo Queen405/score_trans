@@ -3,6 +3,7 @@ import test from 'node:test'
 import fs from 'node:fs'
 import ts from 'typescript'
 import { fileURLToPath } from 'node:url'
+import { i18nStubUrl } from './lib/i18n-stub.mjs'
 
 function compile(relative) {
   const file = fileURLToPath(new URL(`../src/renderer/src/${relative}`, import.meta.url))
@@ -19,6 +20,7 @@ const source = compile('composables/useLiveJianpuPreview.ts')
   .replace("import { renderApi } from '../api/render';", 'const renderApi = {};')
   .replace("'../utils/asyncCoordination'", JSON.stringify(moduleUrl(compile('utils/asyncCoordination.ts'))))
   .replace("'../utils/renderAbort'", JSON.stringify(moduleUrl(compile('utils/renderAbort.ts'))))
+  .replace("from '../i18n'", `from '${i18nStubUrl}'`)
 const { useLiveJianpuPreview } = await import(moduleUrl(source))
 
 function harness(t) {
