@@ -11,7 +11,9 @@ build-app.py 生成 build-resources/（冻结后端、Audiveris 分发、裁剪 
 - 质量门禁包含 Python 测试/lint/格式、前端 lint/类型/工具测试，
   pnpm check:api-types 和 pnpm test:release-tools。
 - OpenAPI 导出和 COS 上传脚本必须随仓库检出，不能放入忽略规则。
-- 平台安装与冒烟失败时不上传可发布安装包；诊断产物始终尝试保存 14 天。
+- 平台安装与冒烟失败时不上传可发布安装包；诊断产物始终尝试保存 3 天。
+- 安装包产物仅保留 1 天：它们只在同一次运行内交给 release job，
+  随后发布到 GitHub Release 与 COS 作为持久副本，避免占用 Actions 存储配额。
 
 ## 最终产物验证
 

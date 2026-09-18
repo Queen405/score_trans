@@ -56,7 +56,8 @@ npx vue-tsc --noEmit
 
 - `dev` / feature branches: lightweight `ci.yml` on pushes and PRs.
 - `main`: `package.yml` runs quality checks, then calls reusable Windows/macOS
-  workflows for full packaging and runtime smoke tests; artifacts retained 14 days.
+  workflows for full packaging and runtime smoke tests; installer artifacts are
+  retained 1 day and diagnostics 3 days (durable copies live on GitHub Release/COS).
   Once all pass on the default branch, serialized delivery creates the version tag
   at the build commit, publishes GitHub Release, then uploads both installers to COS.
 - `vX.Y.Z` tags: same validation, followed by one release job that checks both

@@ -142,8 +142,10 @@ packaged Electron smoke from the copied application. Always detach the image.
 Desktop smoke checks visible Vue UI, preload/IPC, renderer-authenticated backend
 rendering, and normal shutdown of Electron plus its backend. Runtime smoke also
 checks SVG/PDF/MIDI and real Audiveris recognition. Smoke runs only on disposable
-GitHub-hosted runners. Diagnostic artifacts are retained for 14 days and are not
-downloaded by the release job.
+GitHub-hosted runners. Diagnostic artifacts are retained for 3 days and are not
+downloaded by the release job. Installer artifacts are retained for 1 day — they
+are only handed to the release job within the same run, then published to GitHub
+Release and COS as the durable copies.
 
 Unsigned Windows x64 and unnotarized macOS arm64 remain the supported targets.
 Gatekeeper/SmartScreen, interactive installation and cross-version migrations
