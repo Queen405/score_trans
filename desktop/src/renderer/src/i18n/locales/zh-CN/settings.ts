@@ -106,7 +106,7 @@ const settings = {
     systemGap: '行间距',
     shortNoteGap: '短音符间距',
     beatGap: '分拍间隔',
-    breakBeamsAtBeat: '时值线按拍断开',
+    breakBeamsAtBeat: '时值线断开',
   },
 }
 

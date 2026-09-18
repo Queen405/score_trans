@@ -74,7 +74,7 @@ class PublicationStyle:
     rhythm_line_side_extent: float = 12.0
     # Smaller overhang for per-beat segments when beams break at beat
     # boundaries, so adjacent beat groups keep a clearly visible gap.
-    rhythm_line_break_segment_extent: float = 4.0
+    rhythm_line_break_segment_extent: float = 6.0
     rhythm_line_level_step: float = 6.0
     beam_hook_length: float = 18.0
     # When true, rhythm/beam lines break at beat boundaries so each beat keeps
