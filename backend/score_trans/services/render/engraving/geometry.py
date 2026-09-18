@@ -362,12 +362,12 @@ def _event_attachment_bottom(event: Event, style: PublicationStyle) -> float:
 
 def _dynamic_baseline(event: Event, style: PublicationStyle) -> float:
     if not event.dynamic:
-        return 63.0
+        return style.dynamic_baseline_floor
     _left, ink_top, _right, _bottom = font_registry().ink_bounds(
         event.dynamic, style.annotation_size
     )
     return max(
-        63.0,
+        style.dynamic_baseline_floor,
         _event_attachment_bottom(event, style) + style.dynamic_clearance - ink_top,
     )
 

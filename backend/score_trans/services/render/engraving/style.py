@@ -62,6 +62,7 @@ class PublicationStyle:
     rhythm_dot_step: float = 7.0
     duration_dot_clearance: float = 3.0
     dynamic_clearance: float = 6.0
+    dynamic_baseline_floor: float = 30.0
     lyric_clearance: float = 6.0
     event_baseline: float = 43.0
     text_lane_clearance: float = 18.0
