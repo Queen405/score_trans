@@ -15,6 +15,7 @@
     "jianpu_system_gap_percent": "50",
     "jianpu_short_note_gap_percent": "20",
     "jianpu_beat_gap_percent": "100",
+    "jianpu_break_beams_at_beat": "0",
     "enable_omr_ocr": "0",
     "output_dir": "",
     "jianpu_auto_transpose": "1",

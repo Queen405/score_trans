@@ -21,6 +21,7 @@ export const pipelineApi = {
     systemGapPercent = 92,
     shortNoteGapPercent = 90,
     beatGapPercent = 100,
+    breakBeamsAtBeat = false,
     polyphonyMode: PolyphonyMode = 'auto',
   ): Promise<ApiResult<TaskSubmitResponse>> {
     const formData = new FormData()
@@ -33,6 +34,7 @@ export const pipelineApi = {
     formData.append('jianpu_system_gap_percent', String(systemGapPercent))
     formData.append('jianpu_short_note_gap_percent', String(shortNoteGapPercent))
     formData.append('jianpu_beat_gap_percent', String(beatGapPercent))
+    formData.append('jianpu_break_beams_at_beat', breakBeamsAtBeat ? '1' : '0')
     formData.append('polyphony_mode', polyphonyMode)
     if (title) {
       formData.append('title', title)

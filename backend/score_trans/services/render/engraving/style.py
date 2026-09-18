@@ -74,6 +74,9 @@ class PublicationStyle:
     rhythm_line_side_extent: float = 12.0
     rhythm_line_level_step: float = 6.0
     beam_hook_length: float = 18.0
+    # When true, rhythm/beam lines break at beat boundaries so each beat keeps
+    # its own continuous segment with a gap between beats (one line per beat).
+    break_beams_at_beat: bool = False
     spanner_endpoint_offset: float = 10.0
     slide_endpoint_offset: float = 13.0
     slur_height: float = 18.0

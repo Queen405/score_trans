@@ -59,6 +59,7 @@ class SettingsResponse(BaseModel):
     jianpu_system_gap_percent: int = DEFAULT_SYSTEM_GAP_PERCENT
     jianpu_short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
     jianpu_beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
+    jianpu_break_beams_at_beat: bool = False
     enable_omr_ocr: bool = False
     output_dir: str = ""
     ocr_provider: str
@@ -114,6 +115,7 @@ class SettingsUpdateRequest(BaseModel):
         ge=MIN_BEAT_GAP_PERCENT,
         le=MAX_BEAT_GAP_PERCENT,
     )
+    jianpu_break_beams_at_beat: bool | None = None
     enable_omr_ocr: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None

@@ -1160,6 +1160,11 @@ export type components = {
              */
             jianpu_beat_gap_percent?: number;
             /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
+            /**
              * Jianpu Content Scale Percent
              * @default 80
              */
@@ -1366,6 +1371,11 @@ export type components = {
              */
             jianpu_beat_gap_percent?: number;
             /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
+            /**
              * Jianpu Content Scale Percent
              * @default 80
              */
@@ -1455,6 +1465,11 @@ export type components = {
              * @default 100
              */
             jianpu_beat_gap_percent?: number;
+            /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
              * @default 80
@@ -1695,6 +1710,11 @@ export type components = {
              * @default 100
              */
             jianpu_beat_gap_percent?: number;
+            /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
              * @default 80
@@ -2224,6 +2244,11 @@ export type components = {
              */
             jianpu_beat_gap_percent?: number;
             /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
+            /**
              * Jianpu Content Scale Percent
              * @default 80
              */
@@ -2538,6 +2563,11 @@ export type components = {
              */
             jianpu_beat_gap_percent?: number;
             /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
+            /**
              * Jianpu Content Scale Percent
              * @default 80
              */
@@ -2599,6 +2629,11 @@ export type components = {
              * @default 100
              */
             jianpu_beat_gap_percent?: number;
+            /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
              * @default 80
@@ -2760,6 +2795,11 @@ export type components = {
              */
             jianpu_beat_gap_percent?: number;
             /**
+             * Jianpu Break Beams At Beat
+             * @default false
+             */
+            jianpu_break_beams_at_beat?: boolean;
+            /**
              * Jianpu Content Scale Percent
              * @default 80
              */
@@ -2865,6 +2905,8 @@ export type components = {
             jianpu_auto_transpose?: boolean | null;
             /** Jianpu Beat Gap Percent */
             jianpu_beat_gap_percent?: number | null;
+            /** Jianpu Break Beams At Beat */
+            jianpu_break_beams_at_beat?: boolean | null;
             /** Jianpu Content Scale Percent */
             jianpu_content_scale_percent?: number | null;
             /** Jianpu Measure Duration Check */

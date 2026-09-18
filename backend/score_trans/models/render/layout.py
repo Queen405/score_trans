@@ -15,6 +15,7 @@ MIN_SHORT_NOTE_GAP_PERCENT = 20
 MAX_SHORT_NOTE_GAP_PERCENT = 180
 MIN_BEAT_GAP_PERCENT = 0
 MAX_BEAT_GAP_PERCENT = 200
+DEFAULT_BREAK_BEAMS_AT_BEAT = False
 
 
 class A4LayoutRequest(BaseModel):
@@ -38,6 +39,7 @@ class A4LayoutRequest(BaseModel):
         ge=MIN_BEAT_GAP_PERCENT,
         le=MAX_BEAT_GAP_PERCENT,
     )
+    jianpu_break_beams_at_beat: bool = DEFAULT_BREAK_BEAMS_AT_BEAT
 
 
 def a4_layout_key(
@@ -45,8 +47,9 @@ def a4_layout_key(
     system_gap_percent: int,
     short_note_gap_percent: int,
     beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT,
+    break_beams_at_beat: bool = DEFAULT_BREAK_BEAMS_AT_BEAT,
 ) -> str:
     return (
         f"{content_scale_percent}:{system_gap_percent}"
-        f":{short_note_gap_percent}:{beat_gap_percent}"
+        f":{short_note_gap_percent}:{beat_gap_percent}:{int(break_beams_at_beat)}"
     )

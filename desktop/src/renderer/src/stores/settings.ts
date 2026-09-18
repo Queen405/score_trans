@@ -41,6 +41,7 @@ export interface SettingsDraft {
   jianpuSystemGapPercent: number
   jianpuShortNoteGapPercent: number
   jianpuBeatGapPercent: number
+  jianpuBreakBeamsAtBeat: boolean
   enableOmrOcr: boolean
   outputDir: string
   jianpuAutoTranspose: boolean
@@ -125,6 +126,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const jianpuSystemGapPercent = ref(50)
   const jianpuShortNoteGapPercent = ref(20)
   const jianpuBeatGapPercent = ref(100)
+  const jianpuBreakBeamsAtBeat = ref(false)
   const enableOmrOcr = ref(false)
   const outputDir = ref('')
   const jianpuAutoTranspose = ref(true)
@@ -177,6 +179,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuSystemGapPercent: 50,
     jianpuShortNoteGapPercent: 20,
     jianpuBeatGapPercent: 100,
+    jianpuBreakBeamsAtBeat: false,
     enableOmrOcr: false,
     outputDir: '',
     jianpuAutoTranspose: true,
@@ -219,12 +222,14 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuSystemGapPercent.value,
     jianpuShortNoteGapPercent.value,
     jianpuBeatGapPercent.value,
+    jianpuBreakBeamsAtBeat.value,
   ))
   const jianpuLayoutRequest = computed(() => ({
     jianpu_content_scale_percent: jianpuContentScalePercent.value,
     jianpu_system_gap_percent: jianpuSystemGapPercent.value,
     jianpu_short_note_gap_percent: jianpuShortNoteGapPercent.value,
     jianpu_beat_gap_percent: jianpuBeatGapPercent.value,
+    jianpu_break_beams_at_beat: jianpuBreakBeamsAtBeat.value,
   }))
 
   async function load(): Promise<void> {
@@ -265,6 +270,7 @@ export const useSettingsStore = defineStore('settings', () => {
       jianpuSystemGapPercent: jianpuSystemGapPercent.value,
       jianpuShortNoteGapPercent: jianpuShortNoteGapPercent.value,
       jianpuBeatGapPercent: jianpuBeatGapPercent.value,
+      jianpuBreakBeamsAtBeat: jianpuBreakBeamsAtBeat.value,
       enableOmrOcr: enableOmrOcr.value,
       outputDir: outputDir.value,
       jianpuAutoTranspose: jianpuAutoTranspose.value,
@@ -336,6 +342,7 @@ export const useSettingsStore = defineStore('settings', () => {
           jianpu_system_gap_percent: next.jianpuSystemGapPercent,
           jianpu_short_note_gap_percent: next.jianpuShortNoteGapPercent,
           jianpu_beat_gap_percent: next.jianpuBeatGapPercent,
+          jianpu_break_beams_at_beat: next.jianpuBreakBeamsAtBeat,
           enable_omr_ocr: next.enableOmrOcr,
           jianpu_auto_transpose: next.jianpuAutoTranspose,
           ocr_provider: next.providers.ocr.provider,
@@ -459,6 +466,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuSystemGapPercent.value = data.jianpu_system_gap_percent ?? 50
     jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 20
     jianpuBeatGapPercent.value = data.jianpu_beat_gap_percent ?? 100
+    jianpuBreakBeamsAtBeat.value = data.jianpu_break_beams_at_beat ?? false
     enableOmrOcr.value = data.enable_omr_ocr ?? false
     outputDir.value = data.output_dir ?? ''
     jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? true
@@ -553,6 +561,7 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.jianpuSystemGapPercent = next.jianpuSystemGapPercent
     draft.jianpuShortNoteGapPercent = next.jianpuShortNoteGapPercent
     draft.jianpuBeatGapPercent = next.jianpuBeatGapPercent
+    draft.jianpuBreakBeamsAtBeat = next.jianpuBreakBeamsAtBeat
     draft.enableOmrOcr = next.enableOmrOcr
     draft.outputDir = next.outputDir
     draft.jianpuAutoTranspose = next.jianpuAutoTranspose
@@ -597,6 +606,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuSystemGapPercent,
     jianpuShortNoteGapPercent,
     jianpuBeatGapPercent,
+    jianpuBreakBeamsAtBeat,
     jianpuLayoutKey: jianpuLayoutKeyValue,
     jianpuLayoutRequest,
     enableOmrOcr,

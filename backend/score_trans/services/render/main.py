@@ -509,6 +509,7 @@ def _a4_renderer(
         system_gap=base.system_gap * layout.system_gap_scale,
         short_note_gap_scale=layout.short_note_gap_scale,
         beat_boundary_gap=base.beat_boundary_gap * layout.beat_gap_scale,
+        break_beams_at_beat=layout.break_beams_at_beat,
     )
     return PublicationRenderer(
         style,

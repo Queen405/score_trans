@@ -590,6 +590,9 @@ class PublicationRenderer:
         # because the shared line is no longer part of per-event ink.
         clip_left = x + style.barline_gutter
         clip_right = x + width - style.barline_gutter
+        beat_boundaries = (
+            _beat_boundaries(measure) if style.break_beams_at_beat else None
+        )
         if lane_groups is None:
             events = sorted(
                 enumerate(visual_events),
@@ -695,11 +698,15 @@ class PublicationRenderer:
                     subtext_offset=max(0.0, lyric_offset - baseline_offset),
                     anchors=lane_anchors,
                 )
-                _draw_rhythm_lines(scene, lane_anchors, clip_left, clip_right, style)
+                _draw_rhythm_lines(
+                    scene, lane_anchors, clip_left, clip_right, style, beat_boundaries
+                )
                 _draw_tuplets(scene, lane_anchors, style)
                 anchors.extend(lane_anchors)
         if lane_groups is None:
-            _draw_rhythm_lines(scene, anchors, clip_left, clip_right, style)
+            _draw_rhythm_lines(
+                scene, anchors, clip_left, clip_right, style, beat_boundaries
+            )
             _draw_tuplets(scene, anchors, style)
         text_offset = part_layout.text_offset if part_layout is not None else 0.0
         _draw_measure_text(scene, measure, x, y + text_offset, width, style)
@@ -2559,6 +2566,7 @@ def _draw_rhythm_lines(
     left_limit: float | None = None,
     right_limit: float | None = None,
     style: PublicationStyle | None = None,
+    beat_boundaries: list[Fraction] | None = None,
 ) -> None:
     baseline_anchors = [
         anchor
@@ -2615,6 +2623,7 @@ def _draw_rhythm_lines(
                     right_limit=right_limit,
                     style=style,
                     baseline=shared_baseline,
+                    beat_boundaries=beat_boundaries,
                 )
                 run = []
             if eligible and anchor is not None:
@@ -2627,24 +2636,39 @@ def _draw_rhythm_lines(
             right_limit=right_limit,
             style=style,
             baseline=shared_baseline,
+            beat_boundaries=beat_boundaries,
         )
 
 
-def _draw_rhythm_run(
+def _split_anchors_by_beat(
+    anchors: list[_Anchor], beat_boundaries: list[Fraction]
+) -> list[list[_Anchor]]:
+    interiors = [boundary for boundary in beat_boundaries if boundary > 0]
+    groups: list[list[_Anchor]] = [[anchors[0]]] if anchors else []
+    for previous, current in zip(anchors, anchors[1:]):
+        prev_start = previous.event.start
+        curr_start = current.event.start
+        crossed = (
+            prev_start is not None
+            and curr_start is not None
+            and any(prev_start < boundary <= curr_start for boundary in interiors)
+        )
+        if crossed:
+            groups.append([current])
+        else:
+            groups[-1].append(current)
+    return groups
+
+
+def _draw_rhythm_segment(
     scene: PublicationScene,
     anchors: list[_Anchor],
-    level: int,
+    line_baseline: float,
     *,
     left_limit: float | None = None,
     right_limit: float | None = None,
     style: PublicationStyle | None = None,
-    baseline: float | None = None,
 ) -> None:
-    line_baseline = (
-        baseline
-        if baseline is not None
-        else max(_rhythm_line_base(anchor, style) for anchor in anchors)
-    ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0)
     source_ids = list(
         dict.fromkeys(
             source_id
@@ -2688,6 +2712,37 @@ def _draw_rhythm_run(
     scene.register_sources(list(layout.source_ids), layout.bbox)
 
 
+def _draw_rhythm_run(
+    scene: PublicationScene,
+    anchors: list[_Anchor],
+    level: int,
+    *,
+    left_limit: float | None = None,
+    right_limit: float | None = None,
+    style: PublicationStyle | None = None,
+    baseline: float | None = None,
+    beat_boundaries: list[Fraction] | None = None,
+) -> None:
+    line_baseline = (
+        baseline
+        if baseline is not None
+        else max(_rhythm_line_base(anchor, style) for anchor in anchors)
+    ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0)
+    if style is not None and style.break_beams_at_beat and beat_boundaries:
+        groups = _split_anchors_by_beat(anchors, beat_boundaries)
+    else:
+        groups = [anchors]
+    for group in groups:
+        _draw_rhythm_segment(
+            scene,
+            group,
+            line_baseline,
+            left_limit=left_limit,
+            right_limit=right_limit,
+            style=style,
+        )
+
+
 def _draw_explicit_beam_level(
     scene: PublicationScene,
     anchors: list[_Anchor],
@@ -2697,6 +2752,7 @@ def _draw_explicit_beam_level(
     right_limit: float | None = None,
     style: PublicationStyle | None = None,
     baseline: float | None = None,
+    beat_boundaries: list[Fraction] | None = None,
 ) -> None:
     runs: dict[tuple[str | None, str | None], list[_Anchor]] = {}
     for anchor in anchors:
@@ -2720,6 +2776,7 @@ def _draw_explicit_beam_level(
                     right_limit=right_limit,
                     style=style,
                     baseline=baseline,
+                    beat_boundaries=beat_boundaries,
                 )
             runs[key] = [anchor]
         elif status == "continue" and run:
@@ -2734,6 +2791,7 @@ def _draw_explicit_beam_level(
                 right_limit=right_limit,
                 style=style,
                 baseline=baseline,
+                beat_boundaries=beat_boundaries,
             )
             runs[key] = []
         elif status in {"forward-hook", "backward-hook"}:
@@ -2804,6 +2862,7 @@ def _draw_explicit_beam_level(
                 right_limit=right_limit,
                 style=style,
                 baseline=baseline,
+                beat_boundaries=beat_boundaries,
             )
             runs[key] = []
     for run in runs.values():
@@ -2816,6 +2875,7 @@ def _draw_explicit_beam_level(
                 right_limit=right_limit,
                 style=style,
                 baseline=baseline,
+                beat_boundaries=beat_boundaries,
             )
 
 

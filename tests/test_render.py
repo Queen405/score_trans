@@ -487,6 +487,111 @@ def test_sixteenth_notes_share_both_rhythm_lines() -> None:
     assert len(beams) == 2
 
 
+def test_break_beams_at_beat_splits_rhythm_lines_per_beat() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            pitches=[JianpuPitch(index + 1)],
+            start=Fraction(index, 2),
+        )
+        for index in range(8)
+    ]
+    scene = PublicationScene(640.0, 180.0, 0)
+    anchors = [
+        _Anchor(
+            60.0 * (index + 1),
+            100.0,
+            BBox(60.0 * (index + 1), 80.0, 20.0, 28.0),
+            events[index],
+        )
+        for index in range(8)
+    ]
+    beat_boundaries = [Fraction(b) for b in (0, 1, 2, 3, 4)]
+
+    _draw_rhythm_lines(
+        scene,
+        anchors,
+        style=PublicationStyle(break_beams_at_beat=True),
+        beat_boundaries=beat_boundaries,
+    )
+    lines = [
+        node for node in scene.nodes if "duration-line" in node.attrs.get("class", "")
+    ]
+
+    assert len(lines) == 4
+
+
+def test_break_beams_at_beat_disabled_keeps_continuous_line() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            pitches=[JianpuPitch(index + 1)],
+            start=Fraction(index, 2),
+        )
+        for index in range(8)
+    ]
+    scene = PublicationScene(640.0, 180.0, 0)
+    anchors = [
+        _Anchor(
+            60.0 * (index + 1),
+            100.0,
+            BBox(60.0 * (index + 1), 80.0, 20.0, 28.0),
+            events[index],
+        )
+        for index in range(8)
+    ]
+    beat_boundaries = [Fraction(b) for b in (0, 1, 2, 3, 4)]
+
+    _draw_rhythm_lines(
+        scene,
+        anchors,
+        style=PublicationStyle(break_beams_at_beat=False),
+        beat_boundaries=beat_boundaries,
+    )
+    lines = [
+        node for node in scene.nodes if "duration-line" in node.attrs.get("class", "")
+    ]
+
+    assert len(lines) == 1
+
+
+def test_break_beams_at_beat_splits_sixteenth_both_levels() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 4),
+            pitches=[JianpuPitch(index + 1)],
+            start=Fraction(index, 4),
+        )
+        for index in range(8)
+    ]
+    scene = PublicationScene(640.0, 180.0, 0)
+    anchors = [
+        _Anchor(
+            60.0 * (index + 1),
+            100.0,
+            BBox(60.0 * (index + 1), 80.0, 20.0, 28.0),
+            events[index],
+        )
+        for index in range(8)
+    ]
+    beat_boundaries = [Fraction(b) for b in (0, 1, 2)]
+
+    _draw_rhythm_lines(
+        scene,
+        anchors,
+        style=PublicationStyle(break_beams_at_beat=True),
+        beat_boundaries=beat_boundaries,
+    )
+    lines = [
+        node for node in scene.nodes if "duration-line" in node.attrs.get("class", "")
+    ]
+
+    assert len(lines) == 4
+
+
 def test_simultaneous_independent_voices_remain_distinct_and_do_not_overlap() -> None:
     """复调小节的多 voice 渲染为上下两排：垂直分离、同 onset 水平对齐。"""
     events = [
@@ -2127,7 +2232,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
     assert root.attrib["width"] == "1240"
     assert root.attrib["height"] == "1754"
     assert root.attrib["viewBox"] == "0 0 1240 1754"
-    assert root.attrib["data-layout-key"] == "67:100:100:100"
+    assert root.attrib["data-layout-key"] == "67:100:100:100:0"
     content = next(
         node for node in root if node.attrib.get("class") == "publication-content"
     )
@@ -2716,8 +2821,8 @@ def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> Non
     svg_path = uploads.get_path(response.svg_file_id)
     assert svg_path is not None
     root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
-    assert root.attrib["data-layout-key"] == "75:88:85:100"
-    assert response.pages[0].layout_key == "75:88:85:100"
+    assert root.attrib["data-layout-key"] == "75:88:85:100:0"
+    assert response.pages[0].layout_key == "75:88:85:100:0"
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
     assert "简谱" not in text_content

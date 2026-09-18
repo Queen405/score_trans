@@ -173,6 +173,7 @@ class RenderMusicXmlJianpuAction:
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
+        break_beams_at_beat: bool = False,
     ) -> list[RenderedA4FilePage]:
         scores = self.build_scores(
             musicxml_path,
@@ -194,6 +195,7 @@ class RenderMusicXmlJianpuAction:
             system_gap_percent=system_gap_percent,
             short_note_gap_percent=short_note_gap_percent,
             beat_gap_percent=beat_gap_percent,
+            break_beams_at_beat=break_beams_at_beat,
         )
 
     def first_score(
@@ -298,6 +300,7 @@ class RenderJianpuTextAction:
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
+        break_beams_at_beat: bool = False,
     ) -> list[RenderedA4FilePage]:
         text = Path(input_path).read_text(encoding="utf-8")
         parts = parse_jianpu_parts(text, title=title)
@@ -316,6 +319,7 @@ class RenderJianpuTextAction:
             system_gap_percent=system_gap_percent,
             short_note_gap_percent=short_note_gap_percent,
             beat_gap_percent=beat_gap_percent,
+            break_beams_at_beat=break_beams_at_beat,
         )
 
 
@@ -347,6 +351,7 @@ class RenderActions:
             initial_measure_number=req.initial_measure_number,
             title=req.title,
             **_a4_layout_kwargs(req),
+            break_beams_at_beat=req.jianpu_break_beams_at_beat,
         )
         pages = self._register_rendered_pages(paths)
         return RenderJianpuSvgResponse(
@@ -393,6 +398,7 @@ class RenderActions:
                 initial_measure_number=req.initial_measure_number,
                 **anchor_options,
                 **_a4_layout_kwargs(req),
+                break_beams_at_beat=req.jianpu_break_beams_at_beat,
             )
         else:
             paths = self.text_renderer.execute_a4_pages(
@@ -404,6 +410,7 @@ class RenderActions:
                 initial_measure_number=req.initial_measure_number,
                 **anchor_options,
                 **_a4_layout_kwargs(req),
+                break_beams_at_beat=req.jianpu_break_beams_at_beat,
             )
         pages = self._register_rendered_pages(paths)
 
@@ -502,6 +509,7 @@ class RenderActions:
             measure_number_mode=_request_measure_number_mode(req),
             initial_measure_number=None,
             **_a4_layout_kwargs(req),
+            break_beams_at_beat=req.jianpu_break_beams_at_beat,
         )
         measure_ranges_by_page = [
             _page_measure_ranges(page.measure_ranges, source_ranges)
@@ -531,6 +539,7 @@ class RenderActions:
                 measure_number_mode=_request_measure_number_mode(req),
                 initial_measure_number=None,
                 **_a4_layout_kwargs(req),
+                break_beams_at_beat=req.jianpu_break_beams_at_beat,
             )
         )
         pages = self._register_rendered_page_results(
@@ -619,6 +628,7 @@ class RenderActions:
             initial_measure_number=req.initial_measure_number,
             title=req.title,
             **_a4_layout_kwargs(req),
+            break_beams_at_beat=req.jianpu_break_beams_at_beat,
         )
         pages = self._register_rendered_pages(paths)
         return FinalRenderResponse(

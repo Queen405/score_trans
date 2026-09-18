@@ -24,12 +24,14 @@ def _layout(
     system_gap_percent: int,
     short_note_gap_percent: int,
     beat_gap_percent: int,
+    break_beams_at_beat: bool = False,
 ) -> A4LayoutOptions:
     return A4LayoutOptions(
         content_scale_percent=content_scale_percent,
         system_gap_percent=system_gap_percent,
         short_note_gap_percent=short_note_gap_percent,
         beat_gap_percent=beat_gap_percent,
+        break_beams_at_beat=break_beams_at_beat,
     )
 
 
@@ -130,6 +132,7 @@ class PublicationRenderService:
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
+        break_beams_at_beat: bool = False,
     ) -> list[RenderedA4FilePage]:
         return render_score_a4_pages_to_files(
             score,
@@ -143,6 +146,7 @@ class PublicationRenderService:
                 system_gap_percent,
                 short_note_gap_percent,
                 beat_gap_percent,
+                break_beams_at_beat,
             ),
         )
 
@@ -158,6 +162,7 @@ class PublicationRenderService:
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
+        break_beams_at_beat: bool = False,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_pages_to_files(
             scores,
@@ -171,6 +176,7 @@ class PublicationRenderService:
                 system_gap_percent,
                 short_note_gap_percent,
                 beat_gap_percent,
+                break_beams_at_beat,
             ),
         )
 
@@ -185,6 +191,7 @@ class PublicationRenderService:
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
+        break_beams_at_beat: bool = False,
     ) -> list[RenderedA4Page]:
         mode = measure_number_mode or (
             "none" if show_measure_numbers is False else "all"
@@ -202,6 +209,7 @@ class PublicationRenderService:
                 system_gap_percent,
                 short_note_gap_percent,
                 beat_gap_percent,
+                break_beams_at_beat,
             ),
         )
 
@@ -217,6 +225,7 @@ class PublicationRenderService:
         system_gap_percent: int = 92,
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
+        break_beams_at_beat: bool = False,
         playback_group_offset: int = 0,
         playback_tick_offset: int = 0,
         show_title: bool = True,
@@ -234,6 +243,7 @@ class PublicationRenderService:
                 system_gap_percent,
                 short_note_gap_percent,
                 beat_gap_percent,
+                break_beams_at_beat,
             ),
             playback_group_offset=playback_group_offset,
             playback_tick_offset=playback_tick_offset,

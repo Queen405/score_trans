@@ -586,6 +586,7 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     assert initial.json()["jianpu_system_gap_percent"] == 50
     assert initial.json()["jianpu_short_note_gap_percent"] == 20
     assert initial.json()["jianpu_beat_gap_percent"] == 100
+    assert initial.json()["jianpu_break_beams_at_beat"] is False
 
     updated = client.put(
         "/settings",
@@ -594,6 +595,7 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
             "jianpu_system_gap_percent": 88,
             "jianpu_short_note_gap_percent": 85,
             "jianpu_beat_gap_percent": 140,
+            "jianpu_break_beams_at_beat": True,
         },
     )
     assert updated.status_code == 200
@@ -601,6 +603,7 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     assert updated.json()["jianpu_system_gap_percent"] == 88
     assert updated.json()["jianpu_short_note_gap_percent"] == 85
     assert updated.json()["jianpu_beat_gap_percent"] == 140
+    assert updated.json()["jianpu_break_beams_at_beat"] is True
 
     boundaries = client.put(
         "/settings",
@@ -649,6 +652,7 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
         assert properties["jianpu_system_gap_percent"]["default"] == 50
         assert properties["jianpu_short_note_gap_percent"]["default"] == 20
         assert properties["jianpu_beat_gap_percent"]["default"] == 100
+        assert properties["jianpu_break_beams_at_beat"]["default"] is False
         assert properties["jianpu_system_gap_percent"]["minimum"] == 20
         assert properties["jianpu_system_gap_percent"]["maximum"] == 180
         assert properties["jianpu_short_note_gap_percent"]["minimum"] == 20

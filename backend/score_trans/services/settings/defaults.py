@@ -24,6 +24,7 @@ _BACKEND_STRING_KEYS: tuple[str, ...] = (
     "jianpu_system_gap_percent",
     "jianpu_short_note_gap_percent",
     "jianpu_beat_gap_percent",
+    "jianpu_break_beams_at_beat",
     "enable_omr_ocr",
     "output_dir",
     "jianpu_auto_transpose",

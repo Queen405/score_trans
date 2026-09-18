@@ -126,6 +126,12 @@ class SettingsActions:
             if value is not None:
                 self.service.set(key, str(value))
 
+        if req.jianpu_break_beams_at_beat is not None:
+            self.service.set(
+                "jianpu_break_beams_at_beat",
+                "1" if req.jianpu_break_beams_at_beat else "0",
+            )
+
         if req.enable_omr_ocr is not None:
             self.service.set(
                 "enable_omr_ocr",
@@ -319,6 +325,9 @@ class SettingsActions:
             ),
             jianpu_beat_gap_percent=self.service.get_int(
                 "jianpu_beat_gap_percent", 100
+            ),
+            jianpu_break_beams_at_beat=self.service.get_bool(
+                "jianpu_break_beams_at_beat", False
             ),
             enable_omr_ocr=self.service.get_bool("enable_omr_ocr", False),
             ocr_provider=ocr_profile.id,

@@ -53,6 +53,7 @@ async def run_pipeline_by_file_id(
         system_gap_percent=req.jianpu_system_gap_percent,
         short_note_gap_percent=req.jianpu_short_note_gap_percent,
         beat_gap_percent=req.jianpu_beat_gap_percent,
+        break_beams_at_beat=req.jianpu_break_beams_at_beat,
         title=req.title,
     )
 
@@ -87,6 +88,7 @@ async def run_pipeline(
         ge=MIN_BEAT_GAP_PERCENT,
         le=MAX_BEAT_GAP_PERCENT,
     ),
+    jianpu_break_beams_at_beat: bool = Form(False),
     title: str | None = Form(None),
     actions: PipelineActions = Depends(get_pipeline_actions),
     tasks: TaskActions = Depends(get_task_actions),
@@ -105,6 +107,7 @@ async def run_pipeline(
         system_gap_percent=jianpu_system_gap_percent,
         short_note_gap_percent=jianpu_short_note_gap_percent,
         beat_gap_percent=jianpu_beat_gap_percent,
+        break_beams_at_beat=jianpu_break_beams_at_beat,
         title=title,
     )
 

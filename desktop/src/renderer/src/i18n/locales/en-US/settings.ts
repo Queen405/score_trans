@@ -109,6 +109,7 @@ const settings: typeof zhSettings = {
     systemGap: 'System spacing',
     shortNoteGap: 'Short note spacing',
     beatGap: 'Beat spacing',
+    breakBeamsAtBeat: 'Break beams per beat',
   },
 }
 

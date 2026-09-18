@@ -5,8 +5,9 @@ export function jianpuLayoutKey(
   systemGapPercent: number,
   shortNoteGapPercent: number,
   beatGapPercent: number,
+  breakBeamsAtBeat: boolean,
 ): string {
-  return `${contentScalePercent}:${systemGapPercent}:${shortNoteGapPercent}:${beatGapPercent}`
+  return `${contentScalePercent}:${systemGapPercent}:${shortNoteGapPercent}:${beatGapPercent}:${breakBeamsAtBeat ? 1 : 0}`
 }
 
 export function isRenderLayoutStale(renderLayoutKey: string, currentLayoutKey: string): boolean {

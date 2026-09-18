@@ -184,6 +184,10 @@
             </n-input-number>
           </div>
         </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.breakBeamsAtBeat')">
+          <n-switch v-model:value="settings.draft.jianpuBreakBeamsAtBeat" />
+        </settings-form-row>
       </div>
     </section>
   </div>
