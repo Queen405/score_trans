@@ -1,6 +1,6 @@
 {
   "name": "score-trans-desktop",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": "queen",
   "packageManager": "pnpm@11.7.0",
   "description": "Score Trans - 五线谱/简谱互转桌面应用",

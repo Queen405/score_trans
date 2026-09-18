@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
-  "url": "https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.0.3.exe",
-  "notes": "多声部跨页/播放/导出修复 + 安装包瘦身(JDK 裁剪)"
+  "version": "1.0.4",
+  "url": "https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.0.4.exe",
+  "notes": "简谱按拍断裂音符 + 应用界面中英文本地化"
 }
