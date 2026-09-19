@@ -97,6 +97,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="歌词识别与音符误识别拦截；默认关闭",
     )
     parser.add_argument(
+        "--lyrics-refine",
+        action="store_true",
+        help="在新目录中追加局部补救请求（需要文字服务配置）",
+    )
+    parser.add_argument(
         "--lyrics-responses-dir", type=Path, help="回放歌词证据根目录，不调用文字服务"
     )
     parser.add_argument(
@@ -189,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
         body_responses_dir=args.body_responses_dir,
         melody_review=not args.no_melody_review,
         lyrics_mode=args.lyrics,
+        lyrics_refine=args.lyrics_refine,
         lyrics_responses_dir=args.lyrics_responses_dir,
         lyrics_ocr=(
             LlmConfig(

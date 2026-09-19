@@ -112,3 +112,9 @@ metadata 页请求和局部复核均最多三次尝试；认证错误不重试�
 `pipeline/lyrics_recognition` 在主体请求之前编排整页细墨迹区域、编号裁剪识别、字词裁剪复核；`structure/lyric_regions` 只做图像几何，`recognition/lyrics` 只处理文字协议。`matching/text_conflicts` 给出文字/音符冲突与不确定的音符关联，`structure/body_assembler` 最终执行排除约束。新在线请求跳过排除候选，旧主体回放保留冻结批次并在组装时过滤。默认关闭，不改变候选注册表或 v3 主体协议。
 
 歌词 DTO 在 models，证据/哈希在 io，图册、SVG 与交互预览在 rendering。歌词细分是独立层，不使用已有音符 token 冒充歌词；字词框必须有局部墨迹证据与唯一顺序对齐。文字失败不等于无文字。melody 排除触及文字的附属候选，同时设置 missing_evidence，避免错误确认零属性。音符与歌词的独立预览不表示有效播放语义。
+
+### v4 局部补救
+
+`pipeline/text_evidence` 管理追加请求与冻结响应，`pipeline/lyrics_refinement` 管理每个父区域两次分类补询预算。`structure/text_refinement` 仅生成分析掩码、基线/子区域几何，不改原图；`matching/text_conflicts` 形成 eligible/excluded/pending 决定，并在主体组装后将 eligible 结算为 accepted 或 pending。未被子区域覆盖的父区域残余框仍用于隔离附属符号。
+
+版本3与4共存，旧版结果序列化不增加新字段，普通回放不能触发HTTP。显式升级可读取v3原始请求及哈希，新的补救请求另取ID并使用v4。旧主体批次中从未分类的已恢复候选可追加分类，但必须记录新批次并更新省略集合。待确认数据在独立层渲染，不伪造文本锚点。

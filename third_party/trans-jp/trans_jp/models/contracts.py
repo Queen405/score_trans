@@ -80,6 +80,7 @@ class TransJpResult:
     melody: dict = field(default_factory=dict)
     lyrics: dict = field(default_factory=dict)
     lyrics_svg: str = ""
+    pending_svg: str = ""
     lyrics_preview_html: str = ""
 
 
@@ -109,6 +110,7 @@ class CliConfig:
     body_responses_dir: Path | None = None
     melody_review: bool = True
     lyrics_mode: str = "off"
+    lyrics_refine: bool = False
     lyrics_responses_dir: Path | None = None
     lyrics_ocr: LlmConfig | None = None
 

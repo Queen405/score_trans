@@ -160,3 +160,30 @@ python -m trans_jp --input third_party/trans-jp/examples/image.png \
 `melody` 排除落入文字框的点线候选，相关音符的属性保持未知，不把被排除的点线当成“没有附属记号”。旧 melody 证据不能在新增歌词过滤后继续使用，须从 v3 bodies 响应重新运行属性。
 
 验证结果与剩余限制见 [LYRICS_REVIEW.md](LYRICS_REVIEW.md)。
+
+### v4 局部补救与待确认层
+
+新运行的歌词证据使用版本4。请求失败、空数组、遗漏/重复ID、截断和模型unknown分别记录；未解决对象进入独立待确认层，保留已有识别值（没有值就只显示框），不进入已确认简谱、播放或音符对齐计算。
+
+混合区域先通过分析掩码中的长线断开及现有基线框分组，生成本地子区域。子区域只替代它覆盖的父区域部分；未解释的余下墨迹继续隔离。恢复候选需有乐谱区域判定、局部结构支持和有效主体分类，不能凭旧数字读数放行。
+
+每个未解决父区域的**区域分类补询合计最多两次HTTP请求**，拆分出的子区域共用额度（每次最多12个）；401/403不再补询，不套用普通三次重试。成功的首轮区域不重跑。新确认的歌词仍进入原有字词裁剪流程，这部分请求单独记录，并不计作区域分类补询。若旧在线运行根本未发送被拦截主体，显式补救还会追加必要的主体分类批次；没有主体结果时保持待确认。
+
+```bash
+source .venv/Scripts/activate
+export PYTHONUTF8=1 PYTHONPATH=third_party/trans-jp
+# 配置 TRANS_JP_*（以及可选 TRANS_JP_LYRICS_*）后，在新目录追加补救：
+python -m trans_jp --input 'third_party/trans-jp/examples/image copy 10.png' \
+  --body-responses-dir 'screenshots/trans-jp-lyrics-development/final/image copy 10/rows' \
+  --output-dir 'screenshots/lyrics-v4-new' \
+  --lyrics recognize --lyrics-refine --debug
+
+# 普通回放保留已保存版本，不补询、不联网：
+python -m trans_jp --input 'third_party/trans-jp/examples/image copy 10.png' \
+  --body-responses-dir 'screenshots/lyrics-v4-new/rows' \
+  --output-dir 'screenshots/lyrics-v4-replay' --no-melody-review --debug
+```
+
+版本3冻结回放仍走原严格逻辑；`--lyrics-refine` 才将旧证据作为输入追加新版请求。源目录不覆盖，已有输出manifest的目录不能用于显式补救。新版新增 `pending-notes.json`、`pending-notes.svg`，预览里灰色虚线层默认显示；点击查看原因、已有识别值、请求编号与原图裁剪。灰色框不计入已恢复数量。
+
+本轮真实开发页49个误拦截主体全部恢复且标签/位置正确；四张受控合成留出页64个真值音符全部保留，但它们不证明真实扫描泛化或歌词全文准确。结果与限制见 [LYRICS_V4_REVIEW.md](LYRICS_V4_REVIEW.md)。默认歌词开关仍为off。

@@ -4,7 +4,12 @@ import hashlib
 import json
 from pathlib import Path
 from PIL import Image
-from ..models.lyrics import TextRequest, LYRICS_VERSION
+from ..models.lyrics import (
+    TextRequest,
+    LYRICS_VERSION,
+    SUPPORTED_LYRICS_VERSIONS,
+    LyricsResult,
+)
 
 
 def digest(path: Path) -> str:
@@ -20,14 +25,20 @@ def write_json(path: Path, data: dict | list) -> None:
 
 
 def save_text_request(
-    output: Path, identity: str, image: Image.Image, items: tuple[dict, ...], task: str
+    output: Path,
+    identity: str,
+    image: Image.Image,
+    items: tuple[dict, ...],
+    task: str,
+    *,
+    version: int = LYRICS_VERSION,
 ) -> TextRequest:
     directory = output / "lyrics-evidence"
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{identity}.png"
     image.save(path)
     payload = {
-        "version": LYRICS_VERSION,
+        "version": version,
         "id": identity,
         "task": task,
         "items": items,
@@ -44,13 +55,13 @@ def write_lyrics_manifest(output: Path, binding: dict, result: dict) -> dict:
     write_json(output / "lyrics.json", result)
     files = [output / "lyrics.json", *sorted((output / "lyrics-evidence").glob("*"))]
     manifest = {
-        "version": LYRICS_VERSION,
+        "version": result["version"],
         "binding": binding,
         "files": {str(p.relative_to(output).as_posix()): digest(p) for p in files},
     }
     write_json(output / "lyrics-manifest.json", manifest)
     return {
-        "version": LYRICS_VERSION,
+        "version": result["version"],
         "manifest_sha256": digest(output / "lyrics-manifest.json"),
     }
 
@@ -60,15 +71,17 @@ def validate_lyrics_replay(
 ) -> dict:
     path = root / "lyrics-manifest.json"
     if marker is not None and (
-        marker.get("version") != LYRICS_VERSION
+        marker.get("version") not in SUPPORTED_LYRICS_VERSIONS
         or marker.get("manifest_sha256") != digest(path)
     ):
         raise ValueError("歌词manifest绑定错误")
     data = json.loads(path.read_text(encoding="utf-8"))
-    if data.get("version") != LYRICS_VERSION or data.get("binding") != json.loads(
-        json.dumps(binding)
-    ):
+    if data.get("version") not in SUPPORTED_LYRICS_VERSIONS or data.get(
+        "binding"
+    ) != json.loads(json.dumps(binding)):
         raise ValueError("歌词源图/候选/变换版本不一致")
+    if marker is not None and marker["version"] != data["version"]:
+        raise ValueError("歌词标记与manifest版本不一致")
     expected = {
         "lyrics.json",
         *[
@@ -83,7 +96,10 @@ def validate_lyrics_replay(
         p = (root / name).resolve()
         if not p.is_relative_to(root.resolve()) or digest(p) != sha:
             raise ValueError("歌词证据路径或哈希错误")
-    return json.loads((root / "lyrics.json").read_text(encoding="utf-8"))
+    result = json.loads((root / "lyrics.json").read_text(encoding="utf-8"))
+    if result.get("version") != data["version"]:
+        raise ValueError("歌词结果版本与manifest不一致")
+    return result
 
 
 def lyrics_binding(manifest: dict) -> dict:
@@ -92,3 +108,13 @@ def lyrics_binding(manifest: dict) -> dict:
         "min_image_edge": manifest["min_image_edge"],
         "rows": manifest["rows"],
     }
+
+
+def result_payload(result: LyricsResult) -> dict:
+    from dataclasses import asdict
+
+    data = asdict(result)
+    if result.version == 3:
+        for key in ("decisions", "pending", "refinement"):
+            data.pop(key)
+    return data

@@ -1,0 +1,186 @@
+{
+  "version": 4,
+  "pages": {
+    "image": {},
+    "image copy 10": {
+      "rescue-text-0014-0": {
+        "sha256": "572abd39e1cf219d174428dc1d7083ff34865464b3ca5f13ba492e3be46e3e8f",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0014:sub000\",\"role\":\"other_text\",\"text\":\"结束句\"},{\"id\":\"text:0014:sub001\",\"role\":\"other_text\",\"text\":\"转 1 = ♯C\"},{\"id\":\"text:0014:sub002\",\"role\":\"notation\",\"text\":null}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0016-0": {
+        "sha256": "ab0c0ecfc4aca93d4cdb99cf222357c8b2c57b087340817123e2f69027b60b79",
+        "response": {
+          "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0016:sub000\", \"role\": \"other_text\", \"text\": \"D.S.\"}, {\"id\": \"text:0016:sub001\", \"role\": \"lyrics\", \"text\": \"望\"}, {\"id\": \"text:0016:sub002\", \"role\": \"lyrics\", \"text\": \"别让我\"}, {\"id\": \"text:0016:sub003\", \"role\": \"lyrics\", \"text\": \"太绝望。\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0023-0": {
+        "sha256": "daebd82dc707bb03c9654e75b119da82f0ff2bee66a2b3775703e578f08a000e",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0023\",\"role\":\"notation\",\"text\":\"\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0024-0": {
+        "sha256": "2d6907126e4ec8774be324ca1acded5b42417caa6bb77fa4e6fe962a384bcbe0",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0024\",\"role\":\"notation\",\"text\":null}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0025-0": {
+        "sha256": "90983f9979a310b3b281d9d96df08082fb1b9237e1a183d12ba46fbd5098338e",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"0025\",\"role\":\"unknown\",\"text\":null}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0025-1": {
+        "sha256": "4b708d26cf571d24f852541544f720f5ce27fbbacfb6c91a9e634450423185a7",
+        "response": {
+          "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0025\", \"role\": \"notation\", \"text\": null}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "words-text-0016-sub001-000": {
+        "sha256": "5e6de14a9b4d664050859ba99499deda6d7066d28f052603248d2a8412bb40d9",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0016:sub001:w000\",\"role\":\"unknown\",\"text\":\"望\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "words-text-0016-sub002-000": {
+        "sha256": "da7113f343a520d93445de6960320a047d5ec52e36829ac8951c3956248ae558",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0016:sub002:w000\",\"role\":\"unknown\",\"text\":\"别\"},{\"id\":\"text:0016:sub002:w001\",\"role\":\"unknown\",\"text\":\"让\"},{\"id\":\"text:0016:sub002:w002\",\"role\":\"unknown\",\"text\":\"我\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "words-text-0016-sub003-000": {
+        "sha256": "f719c1e8a3fac27bee73cf560bca6338b27d285b4cdb1b9df4c322136d185548",
+        "response": {
+          "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0016:sub003:w000\", \"role\": \"unknown\", \"text\": \"太\"}, {\"id\": \"text:0016:sub003:w001\", \"role\": \"unknown\", \"text\": \"绝\"}, {\"id\": \"text:0016:sub003:w002\", \"role\": \"unknown\", \"text\": \"望\"}, {\"id\": \"text:0016:sub003:w003\", \"role\": \"unknown\", \"text\": \"o\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      }
+    },
+    "image copy 9": {
+      "rescue-text-0000-0": {
+        "sha256": "35742b744b65ceca101c511d649cb8d4f4f5543778e67c9caa9a292f0de46a03",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0000:sub000\",\"role\":\"other_text\",\"text\":\"JP-Word6 2024-01(9941)\"},{\"id\":\"text:0000:sub001\",\"role\":\"other_text\",\"text\":\"道理都懂\"},{\"id\":\"text:0000:sub002\",\"role\":\"other_text\",\"text\":\"刘德华作词\"},{\"id\":\"text:0000:sub003\",\"role\":\"other_text\",\"text\":\"1=#C 4/4\"},{\"id\":\"text:0000:sub004\",\"role\":\"other_text\",\"text\":\"《潜行》电影片尾曲(粤语版)\"},{\"id\":\"text:0000:sub005\",\"role\":\"other_text\",\"text\":\"钱\"},{\"id\":\"text:0000:sub006\",\"role\":\"other_text\",\"text\":\"雷作曲\"},{\"id\":\"text:0000:sub007\",\"role\":\"other_text\",\"text\":\"♩=121\"},{\"id\":\"text:0000:sub008\",\"role\":\"other_text\",\"text\":\"演唱：刘德华\"},{\"id\":\"text:0000:sub009\",\"role\":\"other_text\",\"text\":\"桃李醉春风 记谱\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0006-0": {
+        "sha256": "f1fece274ec49f1d0f06f6f2dbff5fa7c0831d25e4c680629a867873775fe2d9",
+        "response": {
+          "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0006\", \"role\": \"notation\", \"text\": null}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0007-0": {
+        "sha256": "f29d5e4303867006b14983480b7002e3eaed9bcc3943a7ea0e786dd740b6a9a3",
+        "response": {
+          "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0007\", \"role\": \"lyrics\", \"text\": \"孩童时被这样警告。曾经自愿不自愿跟风到老,\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0008-0": {
+        "sha256": "bfc907d63b0ad56f2e91f0422ba5837c4478425365c8c6cb30b144771fab8018",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0008\",\"role\":\"notation\",\"text\":null}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0009-0": {
+        "sha256": "d9f7d71d5d17ee08338ffffe9d00fb8c5f9e6e3d955d9693ed9770a2e671305e",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0009\",\"role\":\"lyrics\",\"text\":\"到最终是我 得不到。 被出卖被 孤立风 雨中\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0010-0": {
+        "sha256": "c0e82832914343774810cfb0e306c14a497406af5a0ff1c378ab46e7ee71bb99",
+        "response": {
+          "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0010\", \"role\": \"lyrics\", \"text\": \"跌倒。\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0011-0": {
+        "sha256": "7c28824a47bdb72ec35272821a7a7a76b9b997ece1e33ff310a9601b10ada46e",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0011\",\"role\":\"unknown\",\"text\":null}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "rescue-text-0011-1": {
+        "sha256": "17da21b1b52cc5dc903b00b4a3a756cc083de7cf0bc140c26c26994cbbbe8741",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0011\",\"role\":\"notation\",\"text\":null}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "words-text-0007-000": {
+        "sha256": "db18d58c9ce7332ddc88bf8dac9321ea5d9aa4451fb527d985e74c6978b9da01",
+        "response": {
+          "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0007:w000\",\n      \"role\": \"unknown\",\n      \"text\": \"孩\"\n    },\n    {\n      \"id\": \"text:0007:w001\",\n      \"role\": \"unknown\",\n      \"text\": \"童\"\n    },\n    {\n      \"id\": \"text:0007:w002\",\n      \"role\": \"unknown\",\n      \"text\": \"时\"\n    },\n    {\n      \"id\": \"text:0007:w003\",\n      \"role\": \"unknown\",\n      \"text\": \"被\"\n    },\n    {\n      \"id\": \"text:0007:w004\",\n      \"role\": \"unknown\",\n      \"text\": \"这\"\n    },\n    {\n      \"id\": \"text:0007:w005\",\n      \"role\": \"unknown\",\n      \"text\": \"样\"\n    },\n    {\n      \"id\": \"text:0007:w006\",\n      \"role\": \"unknown\",\n      \"text\": \"警\"\n    },\n    {\n      \"id\": \"text:0007:w007\",\n      \"role\": \"unknown\",\n      \"text\": \"告\"\n    },\n    {\n      \"id\": \"text:0007:w008\",\n      \"role\": \"unknown\",\n      \"text\": \"。\"\n    },\n    {\n      \"id\": \"text:0007:w009\",\n      \"role\": \"unknown\",\n      \"text\": \"曾\"\n    },\n    {\n      \"id\": \"text:0007:w010\",\n      \"role\": \"unknown\",\n      \"text\": \"经\"\n    },\n    {\n      \"id\": \"text:0007:w011\",\n      \"role\": \"unknown\",\n      \"text\": \"自\"\n    }\n  ]\n}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "words-text-0007-012": {
+        "sha256": "4d22de52cc43a6851cf4c5687cede641520c987b4a018eb7a3d27963eef5b996",
+        "response": {
+          "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0007:w012\", \"role\": \"unknown\", \"text\": \"愿\"}, {\"id\": \"text:0007:w013\", \"role\": \"unknown\", \"text\": \"不\"}, {\"id\": \"text:0007:w014\", \"role\": \"unknown\", \"text\": \"自\"}, {\"id\": \"text:0007:w015\", \"role\": \"unknown\", \"text\": \"愿\"}, {\"id\": \"text:0007:w016\", \"role\": \"unknown\", \"text\": \"跟\"}, {\"id\": \"text:0007:w017\", \"role\": \"unknown\", \"text\": \"风\"}, {\"id\": \"text:0007:w018\", \"role\": \"unknown\", \"text\": \"到\"}, {\"id\": \"text:0007:w019\", \"role\": \"unknown\", \"text\": \"老\"}, {\"id\": \"text:0007:w020\", \"role\": \"unknown\", \"text\": \"，\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "words-text-0009-000": {
+        "sha256": "14e2c08943cae9cb600f576f014f37ed6caf5d49acac4dc28655ab5358f28d49",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0009:w000\",\"role\":\"unknown\",\"text\":\"到\"},{\"id\":\"text:0009:w001\",\"role\":\"unknown\",\"text\":\"最\"},{\"id\":\"text:0009:w002\",\"role\":\"unknown\",\"text\":\"终\"},{\"id\":\"text:0009:w003\",\"role\":\"unknown\",\"text\":\"是\"},{\"id\":\"text:0009:w004\",\"role\":\"unknown\",\"text\":\"我\"},{\"id\":\"text:0009:w005\",\"role\":\"unknown\",\"text\":\"得\"},{\"id\":\"text:0009:w006\",\"role\":\"unknown\",\"text\":\"不\"},{\"id\":\"text:0009:w007\",\"role\":\"unknown\",\"text\":\"到。\"},{\"id\":\"text:0009:w008\",\"role\":\"unknown\",\"text\":\"。\"},{\"id\":\"text:0009:w009\",\"role\":\"unknown\",\"text\":\"被\"},{\"id\":\"text:0009:w010\",\"role\":\"unknown\",\"text\":\"出\"},{\"id\":\"text:0009:w011\",\"role\":\"unknown\",\"text\":\"卖\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "words-text-0009-012": {
+        "sha256": "d06e30b54d2ed5465930791b8d98e199901786d20d0415ca54d4481382d8c4aa",
+        "response": {
+          "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0009:w012\",\"role\":\"unknown\",\"text\":\"被\"},{\"id\":\"text:0009:w013\",\"role\":\"unknown\",\"text\":\"孤\"},{\"id\":\"text:0009:w014\",\"role\":\"unknown\",\"text\":\"立\"},{\"id\":\"text:0009:w015\",\"role\":\"unknown\",\"text\":\"风\"},{\"id\":\"text:0009:w016\",\"role\":\"unknown\",\"text\":\"雨\"},{\"id\":\"text:0009:w017\",\"role\":\"unknown\",\"text\":\"中\"}]}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      },
+      "words-text-0010-000": {
+        "sha256": "024ecf08f1d185fa0152b709b2c8cfe26ec6ca2b5b7d76748fe88d26d983042a",
+        "response": {
+          "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0010:w000\",\n      \"role\": \"unknown\",\n      \"text\": \"跌\"\n    },\n    {\n      \"id\": \"text:0010:w001\",\n      \"role\": \"unknown\",\n      \"text\": \"倒\"\n    },\n    {\n      \"id\": \"text:0010:w002\",\n      \"role\": \"unknown\",\n      \"text\": \"。\"\n    }\n  ]\n}",
+          "finish_reason": "stop",
+          "failure": null
+        }
+      }
+    }
+  }
+}

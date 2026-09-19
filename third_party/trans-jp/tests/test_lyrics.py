@@ -70,10 +70,11 @@ def test_text_gate_excludes_accepted_labels_but_not_nearby_music(tmp_path):
     text = LocatedCandidate("line", "digit", Box(10, 30, 10, 15), (1,), ("b",))
     registry = CandidateRegistry(0, 100, 60, (note, text))
     result = LyricsResult(
+        version=3,
         regions=[
             {"id": "a", "role": "notation", "bounds_work": asdict(Box(5, 4, 30, 17))},
             {"id": "b", "role": "lyrics", "bounds_work": asdict(Box(5, 29, 30, 17))},
-        ]
+        ],
     )
     blocked = body_text_conflicts([row], [registry], result)
     assert blocked == {"line": "text_excluded"}
@@ -286,7 +287,7 @@ def test_source_bound_evidence_cannot_escape_replay_root(tmp_path):
     )
 
     binding = {"source_sha256": "s", "min_image_edge": 0, "rows": []}
-    write_lyrics_manifest(tmp_path, binding, {"lines": []})
+    write_lyrics_manifest(tmp_path, binding, {"version": 4, "lines": []})
     file = tmp_path / "lyrics-manifest.json"
     m = json.loads(file.read_text(encoding="utf-8"))
     m["files"]["../outside"] = "invalid"
@@ -329,6 +330,12 @@ def test_frozen_real_pages_no_network_and_filter_preserves_known_music(
             assert data["registry_sha256"] == request.registry.digest
             return CompletionResult(data["response"], data["finish_reason"])
 
+    legacy_recognize = runner.recognize_lyrics
+
+    def legacy(*args, **kwargs):
+        return legacy_recognize(*args, **kwargs, version=3)
+
+    monkeypatch.setattr(runner, "recognize_lyrics", legacy)
     monkeypatch.setattr(runner, "ConfiguredTextRecognizer", FrozenText)
     config = CliConfig(
         source,

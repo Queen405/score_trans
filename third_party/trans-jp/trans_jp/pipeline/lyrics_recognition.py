@@ -2,24 +2,24 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
-import json
 import logging
 from pathlib import Path
 import numpy as np
 from PIL import Image
-from ..models.contracts import CompletionResult
 from ..models.errors import EngineError
 from ..models.geometry import Transform
-from ..models.lyrics import LyricsResult, LyricLine, LyricToken, TextRequest
+from ..models.lyrics import LyricsResult, LyricLine, LyricToken
 from ..structure.lyric_regions import (
     find_text_regions,
     word_boxes,
     language,
     text_units,
 )
-from ..recognition.lyrics import TextRecognizer, parse_text_response
+from ..recognition.lyrics import TextRecognizer
 from ..rendering.lyrics import text_atlas
-from ..io.lyrics_artifacts import save_text_request, write_json, validate_lyrics_replay
+from ..io.lyrics_artifacts import write_json, validate_lyrics_replay
+from .text_evidence import TextEvidenceSession
+from .lyrics_refinement import refine_regions
 from ..matching.text_conflicts import (
     body_text_conflicts,
     attach_note_candidates,
@@ -42,10 +42,14 @@ def recognize_lyrics(
     concurrency: int = 2,
     replay_root: Path | None = None,
     replay_marker: dict | None = None,
+    refine: bool = False,
+    version: int = 4,
 ) -> tuple[LyricsResult, dict[str, str]]:
     if replay_root is not None:
         try:
-            validate_lyrics_replay(replay_root, binding, replay_marker)
+            saved_result = validate_lyrics_replay(replay_root, binding, replay_marker)
+            if not refine:
+                version = saved_result["version"]
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise EngineError(f"歌词回放校验失败: {exc}", 5) from exc
     elif client is None:
@@ -53,56 +57,8 @@ def recognize_lyrics(
     regions = find_text_regions(binary, transform)
     write_json(output / "lyrics-evidence/regions.json", [asdict(r) for r in regions])
 
-    def evaluate(request: TextRequest) -> list[dict]:
-        saved = None
-        if replay_root is not None:
-            directory = replay_root / "lyrics-evidence"
-            try:
-                previous = json.loads(
-                    (directory / f"{request.request_id}-request.json").read_text(
-                        encoding="utf-8"
-                    )
-                )
-                if previous["sha256"] != request.sha256:
-                    raise ValueError("文字请求几何或图像已改变")
-                saved = json.loads(
-                    (directory / f"{request.request_id}-response.json").read_text(
-                        encoding="utf-8"
-                    )
-                )
-            except (OSError, ValueError, KeyError) as exc:
-                raise EngineError(f"歌词回放请求校验失败: {exc}", 5) from exc
-        else:
-            try:
-                response = client.recognize_text(request)
-                saved = {
-                    "content": response.content,
-                    "finish_reason": response.finish_reason,
-                    "failure": None,
-                }
-            except Exception as exc:
-                saved = {
-                    "content": "",
-                    "finish_reason": None,
-                    "failure": type(exc).__name__,
-                }
-        write_json(
-            output / "lyrics-evidence" / f"{request.request_id}-response.json", saved
-        )
-        parsed = parse_text_response(
-            CompletionResult(saved["content"], saved["finish_reason"]), request
-        )
-        if saved["failure"]:
-            for item in parsed:
-                item.update(
-                    role="unknown", text=None, status="failed", reason=saved["failure"]
-                )
-        logger.info(
-            "文字识别 %s: %s",
-            request.request_id,
-            "failed" if saved["failure"] else "completed",
-        )
-        return parsed
+    session = TextEvidenceSession(output, client, version, replay_root, refine)
+    evaluate = session.evaluate
 
     requests = []
     for i in range(0, len(regions), 6):
@@ -112,8 +68,7 @@ def recognize_lyrics(
             {"id": r.region_id, "bounds_work": asdict(r.bounds_work)} for r in batch
         )
         requests.append(
-            save_text_request(
-                output,
+            session.request(
                 f"regions-{i // 6:04d}",
                 text_atlas(work, entries, context=False),
                 items,
@@ -126,7 +81,20 @@ def recognize_lyrics(
             for response in executor.map(evaluate, requests)
             for v in response
         }
-    result = LyricsResult()
+    result = LyricsResult(version=version)
+    if version >= 4:
+        regions, decisions, result.refinement = refine_regions(
+            work,
+            binary,
+            transform,
+            regions,
+            decisions,
+            session,
+            concurrency,
+            rows,
+            registries,
+        )
+        write_json(output / "lyrics-evidence/refinement.json", result.refinement)
     lines = {}
     token_boxes = {}
     word_requests = []
@@ -158,8 +126,7 @@ def recognize_lyrics(
                 {"id": identity, "bounds_work": asdict(b)} for identity, b in entries
             )
             word_requests.append(
-                save_text_request(
-                    output,
+                session.request(
                     f"words-{r.region_id.replace(':', '-')}-{start:03d}",
                     text_atlas(work, entries, context=False),
                     items,

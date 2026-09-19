@@ -1,0 +1,24 @@
+{
+  "scope": "Development-page visual transcript and broad line boxes, not independent character boxes",
+  "image": "image copy 9.png",
+  "lines": [
+    {
+      "box": [
+        340,
+        1345,
+        1910,
+        90
+      ],
+      "text": "孩童时被这样警告。曾经自愿不自愿跟风到老，"
+    },
+    {
+      "box": [
+        340,
+        1605,
+        1910,
+        90
+      ],
+      "text": "到最终是我得不到。被出卖被孤立风雨中跌倒。"
+    }
+  ]
+}

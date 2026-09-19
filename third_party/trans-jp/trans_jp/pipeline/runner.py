@@ -8,8 +8,11 @@ import numpy as np
 
 from ..models.contracts import CliConfig, TransJpResult
 from ..models.errors import EngineError
-from ..models.geometry import Box
-from ..matching.text_conflicts import touches
+from ..matching.text_conflicts import (
+    touches,
+    finish_body_decisions,
+    active_text_exclusions,
+)
 from ..io.images import load_image, save_rows
 from ..io.assets import glyph_assets
 from ..io.output_writer import write_row_responses
@@ -32,8 +35,8 @@ from ..rendering.overlay_renderer import generate_overlay_svg
 from ..rendering.preview_renderer import composite_preview
 from ..recognition.lyrics import ConfiguredTextRecognizer
 from .lyrics_recognition import recognize_lyrics
-from ..rendering.lyrics import lyric_overlay, lyrics_preview
-from ..io.lyrics_artifacts import lyrics_binding, write_lyrics_manifest
+from ..rendering.lyrics import lyric_overlay, lyrics_preview, pending_overlay
+from ..io.lyrics_artifacts import lyrics_binding, write_lyrics_manifest, result_payload
 
 from .body_recognition import recognize_bodies
 
@@ -41,6 +44,10 @@ logger = logging.getLogger("trans_jp.pipeline")
 
 
 def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpResult:
+    if config.lyrics_refine and config.lyrics_mode != "recognize":
+        raise EngineError("--lyrics-refine 需要 --lyrics recognize", 5)
+    if config.lyrics_refine and (config.output_dir / "manifest.json").exists():
+        raise EngineError("歌词补救必须写入新的输出目录", 5)
     if config.concurrency < 1 or config.min_image_edge < 0:
         raise EngineError("concurrency 必须大于 0，min-image-edge 不得为负数", 5)
     if config.body_responses_dir is not None:
@@ -127,6 +134,8 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
     if lyrics_enabled:
         if not use_bodies or config.recognition_mode not in ("bodies", "melody"):
             raise EngineError("歌词防误识别只能与 bodies 或 melody 主体模式一起使用", 5)
+        if config.lyrics_refine and melody_replay_root is not None:
+            raise EngineError("歌词补救不能复用旧melody属性；请从bodies运行开始", 5)
         if melody_replay_root is not None and not (
             isinstance(client, ReplayClient) and client.lyrics_marker
         ):
@@ -139,7 +148,7 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
             if output == source or output in source.parents:
                 raise EngineError("歌词回放输出不能覆盖输入目录", 5)
         ocr = config.lyrics_ocr or config.llm
-        if lyrics_replay_root is None and not (
+        if (lyrics_replay_root is None or config.lyrics_refine) and not (
             ocr.api_key and ocr.base_url and ocr.model
         ):
             raise EngineError("歌词识别需要文字模型配置或 --lyrics-responses-dir", 5)
@@ -151,13 +160,16 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
                 rows,
                 registries,
                 config.output_dir,
-                None if lyrics_replay_root else ConfiguredTextRecognizer(ocr),
+                ConfiguredTextRecognizer(ocr)
+                if not lyrics_replay_root or config.lyrics_refine
+                else None,
                 lyrics_binding(manifest),
                 concurrency=config.concurrency,
                 replay_root=lyrics_replay_root,
                 replay_marker=lyrics_replay_marker,
+                refine=config.lyrics_refine,
             )
-            lyrics_data = asdict(lyrics_result)
+            lyrics_data = result_payload(lyrics_result)
             manifest["lyrics"] = write_lyrics_manifest(
                 config.output_dir, lyrics_binding(manifest), lyrics_data
             )
@@ -194,6 +206,7 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
     except (OSError, ValueError) as exc:
         raise EngineError(f"识别输入写入失败: {exc}", 4) from exc
     started = time.perf_counter()
+    body_observations = {}
     if use_bodies:
         recognized = recognize_bodies(
             rows,
@@ -203,6 +216,10 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
             manifest,
             concurrency=config.concurrency,
             blocked=blocked_candidates,
+            observations=body_observations,
+            supplement_client=LlmClient(config.llm, prompts.system_message)
+            if config.lyrics_refine and isinstance(client, ReplayClient)
+            else None,
         )
     else:
         recognized = recognize_rows(
@@ -217,6 +234,12 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
             progress_callback=lambda done, total: logger.info(
                 "识别进度 %d/%d", done, total
             ),
+        )
+    if lyrics_result and lyrics_result.version >= 4:
+        finish_body_decisions(lyrics_result, recognized, body_observations)
+        lyrics_data = result_payload(lyrics_result)
+        manifest["lyrics"] = write_lyrics_manifest(
+            config.output_dir, lyrics_binding(manifest), lyrics_data
         )
     try:
         write_row_responses(recognized, config.output_dir / "rows")
@@ -268,11 +291,9 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
                 concurrency=config.concurrency,
                 review_enabled=melody_review_enabled,
                 replay_root=melody_replay_root,
-                text_exclusions=tuple(
-                    Box(**r["bounds"])
-                    for r in lyrics_data.get("regions", [])
-                    if r["role"] != "notation"
-                ),
+                text_exclusions=active_text_exclusions(lyrics_result)
+                if lyrics_result
+                else (),
             )
             files = sorted((config.output_dir / "melody-evidence").glob("*")) + [
                 config.output_dir / "melody.json"
@@ -281,9 +302,7 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
         except OSError as exc:
             raise EngineError(f"melody 产物写入失败: {exc}", 4) from exc
     if lyrics_result:
-        text_boxes = [
-            Box(**r["bounds"]) for r in lyrics_result.regions if r["role"] != "notation"
-        ]
+        text_boxes = active_text_exclusions(lyrics_result)
         for row in matched:
             for token in row.tokens:
                 if token.geometry:
@@ -369,5 +388,8 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
         melody=melody,
         lyrics=lyrics_data,
         lyrics_svg=lyrics_svg,
+        pending_svg=pending_overlay(lyrics_result, *original.size)
+        if lyrics_result and lyrics_result.version >= 4
+        else "",
         lyrics_preview_html=lyrics_html,
     )

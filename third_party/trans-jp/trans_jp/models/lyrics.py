@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from .geometry import Box
 
-LYRICS_VERSION = 3
+LYRICS_VERSION = 4
+SUPPORTED_LYRICS_VERSIONS = (3, 4)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +50,9 @@ class LyricsResult:
     regions: list[dict] = field(default_factory=list)
     conflicts: list[dict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    decisions: list[dict] = field(default_factory=list)
+    pending: list[dict] = field(default_factory=list)
+    refinement: list[dict] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)

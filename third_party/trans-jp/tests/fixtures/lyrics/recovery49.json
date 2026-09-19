@@ -1,0 +1,594 @@
+{
+  "scope": "49 CV proposed bodies visually checked against original image, digits transcribed from image; development-only, not independent detector-box truth",
+  "source_sha256": "0b4cee7048624e6db8d813bd9bdedfbd781de3b7c9b90e7ee075eb10a3a5d5ed",
+  "notes": [
+    {
+      "candidate_id": "r0008:c0015",
+      "label": "2",
+      "classification": "true_music",
+      "bounds": {
+        "x": 239.0,
+        "y": 1611.0,
+        "width": 28.0,
+        "height": 40.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0016",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 289.0,
+        "y": 1611.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0017",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 356.0,
+        "y": 1611.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0019",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 475.0,
+        "y": 1611.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0020",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 524.0,
+        "y": 1610.0,
+        "width": 28.0,
+        "height": 42.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0021",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 627.0,
+        "y": 1610.0,
+        "width": 28.0,
+        "height": 42.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0022",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 848.0,
+        "y": 1610.0,
+        "width": 28.0,
+        "height": 42.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0023",
+      "label": "0",
+      "classification": "true_music",
+      "bounds": {
+        "x": 966.0,
+        "y": 1611.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0024",
+      "label": "0",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1039.0,
+        "y": 1611.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0025",
+      "label": "0",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1142.0,
+        "y": 1611.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0026",
+      "label": "0",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1215.0,
+        "y": 1611.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0027",
+      "label": "0",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1288.0,
+        "y": 1611.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0028",
+      "label": "0",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1361.0,
+        "y": 1611.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0030",
+      "label": "1",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1478.0,
+        "y": 1611.0,
+        "width": 14.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0031",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1532.0,
+        "y": 1611.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0032",
+      "label": "0",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1624.0,
+        "y": 1611.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0033",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1673.0,
+        "y": 1611.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0034",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1741.0,
+        "y": 1611.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0035",
+      "label": "1",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1813.0,
+        "y": 1611.0,
+        "width": 14.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0036",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1912.0,
+        "y": 1611.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0037",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1984.0,
+        "y": 1610.0,
+        "width": 29.0,
+        "height": 42.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0038",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 2051.0,
+        "y": 1610.0,
+        "width": 30.0,
+        "height": 42.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0008:c0039",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 2119.0,
+        "y": 1610.0,
+        "width": 30.0,
+        "height": 42.0
+      },
+      "former_region": "text:0014"
+    },
+    {
+      "candidate_id": "r0015:c0005",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 238.0,
+        "y": 2486.0,
+        "width": 30.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0006",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 323.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0007",
+      "label": "1",
+      "classification": "true_music",
+      "bounds": {
+        "x": 411.0,
+        "y": 2486.0,
+        "width": 15.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0008",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 462.0,
+        "y": 2486.0,
+        "width": 30.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0009",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 541.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0010",
+      "label": "1",
+      "classification": "true_music",
+      "bounds": {
+        "x": 601.0,
+        "y": 2486.0,
+        "width": 15.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0011",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 715.0,
+        "y": 2486.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0012",
+      "label": "5",
+      "classification": "true_music",
+      "bounds": {
+        "x": 799.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0013",
+      "label": "1",
+      "classification": "true_music",
+      "bounds": {
+        "x": 887.0,
+        "y": 2486.0,
+        "width": 14.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0014",
+      "label": "5",
+      "classification": "true_music",
+      "bounds": {
+        "x": 939.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0015",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1017.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0016",
+      "label": "1",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1077.0,
+        "y": 2486.0,
+        "width": 15.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0017",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1191.0,
+        "y": 2486.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0018",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1247.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0019",
+      "label": "5",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1325.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0020",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1381.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0021",
+      "label": "5",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1459.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0022",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1515.0,
+        "y": 2486.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0023",
+      "label": "7",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1593.0,
+        "y": 2486.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0024",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1710.0,
+        "y": 2486.0,
+        "width": 30.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0025",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1760.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0026",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1808.0,
+        "y": 2486.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0027",
+      "label": "1",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1862.0,
+        "y": 2486.0,
+        "width": 15.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0028",
+      "label": "3",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1936.0,
+        "y": 2486.0,
+        "width": 28.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0029",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 1984.0,
+        "y": 2486.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    },
+    {
+      "candidate_id": "r0015:c0030",
+      "label": "6",
+      "classification": "true_music",
+      "bounds": {
+        "x": 2083.0,
+        "y": 2486.0,
+        "width": 29.0,
+        "height": 41.0
+      },
+      "former_region": "text:0024"
+    }
+  ]
+}

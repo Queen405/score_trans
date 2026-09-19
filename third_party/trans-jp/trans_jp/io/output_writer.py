@@ -62,6 +62,16 @@ def write_outputs(result: TransJpResult, output_dir: Path) -> None:
             (output_dir / name).write_text(
                 json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
             )
+        if result.lyrics.get("version", 0) >= 4:
+            (output_dir / "pending-notes.json").write_text(
+                json.dumps(
+                    result.lyrics.get("pending", []), ensure_ascii=False, indent=2
+                ),
+                encoding="utf-8",
+            )
+            (output_dir / "pending-notes.svg").write_text(
+                result.pending_svg, encoding="utf-8"
+            )
         if result.lyrics_preview_html:
             (output_dir / "lyrics-preview.html").write_text(
                 result.lyrics_preview_html, encoding="utf-8"
