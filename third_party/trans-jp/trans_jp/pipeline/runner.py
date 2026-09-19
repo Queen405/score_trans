@@ -8,6 +8,8 @@ import numpy as np
 
 from ..models.contracts import CliConfig, TransJpResult
 from ..models.errors import EngineError
+from ..models.geometry import Box
+from ..matching.text_conflicts import touches
 from ..io.images import load_image, save_rows
 from ..io.assets import glyph_assets
 from ..io.output_writer import write_row_responses
@@ -28,6 +30,10 @@ from ..provenance.text_anchors import merge_rows
 from ..provenance.source_map import build_source_map
 from ..rendering.overlay_renderer import generate_overlay_svg
 from ..rendering.preview_renderer import composite_preview
+from ..recognition.lyrics import ConfiguredTextRecognizer
+from .lyrics_recognition import recognize_lyrics
+from ..rendering.lyrics import lyric_overlay, lyrics_preview
+from ..io.lyrics_artifacts import lyrics_binding, write_lyrics_manifest
 
 from .body_recognition import recognize_bodies
 
@@ -55,9 +61,8 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
     original = load_image(config.input_path)
     work, _ = prepare_work_image(original, config.min_image_edge)
     work, transform = normalize_skew(work, original.size)
-    rows = segment(
-        to_binary(work), work, config.output_dir / "rows", transform=transform
-    )
+    page_binary = to_binary(work)
+    rows = segment(page_binary, work, config.output_dir / "rows", transform=transform)
     if not rows:
         raise EngineError("图像未找到有效谱行", 2)
     # All CV facts are computed before recognition. LLM cannot change them.
@@ -106,6 +111,66 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
     )
     if config.recognition_mode == "melody" and not use_bodies:
         raise EngineError("melody 必须使用 v3 主体分类或 v3 回放", 5)
+    lyrics_data = {}
+    lyrics_svg = ""
+    lyrics_result = None
+    blocked_candidates: dict[str, str] = {}
+    lyrics_replay_root = config.lyrics_responses_dir
+    lyrics_replay_marker = None
+    lyrics_enabled = config.lyrics_mode == "recognize"
+    if config.lyrics_mode not in ("off", "recognize"):
+        raise EngineError("lyrics_mode 必须为 off 或 recognize", 5)
+    if isinstance(client, ReplayClient) and client.lyrics_marker:
+        lyrics_enabled = True
+        lyrics_replay_root = client.directory.parent
+        lyrics_replay_marker = client.lyrics_marker
+    if lyrics_enabled:
+        if not use_bodies or config.recognition_mode not in ("bodies", "melody"):
+            raise EngineError("歌词防误识别只能与 bodies 或 melody 主体模式一起使用", 5)
+        if melody_replay_root is not None and not (
+            isinstance(client, ReplayClient) and client.lyrics_marker
+        ):
+            raise EngineError(
+                "旧 melody 证据不能在改变主体后继续复用；请使用 v3 bodies 响应", 5
+            )
+        if lyrics_replay_root is not None:
+            source = lyrics_replay_root.resolve()
+            output = config.output_dir.resolve()
+            if output == source or output in source.parents:
+                raise EngineError("歌词回放输出不能覆盖输入目录", 5)
+        ocr = config.lyrics_ocr or config.llm
+        if lyrics_replay_root is None and not (
+            ocr.api_key and ocr.base_url and ocr.model
+        ):
+            raise EngineError("歌词识别需要文字模型配置或 --lyrics-responses-dir", 5)
+        try:
+            lyrics_result, blocked_candidates = recognize_lyrics(
+                work,
+                page_binary,
+                transform,
+                rows,
+                registries,
+                config.output_dir,
+                None if lyrics_replay_root else ConfiguredTextRecognizer(ocr),
+                lyrics_binding(manifest),
+                concurrency=config.concurrency,
+                replay_root=lyrics_replay_root,
+                replay_marker=lyrics_replay_marker,
+            )
+            lyrics_data = asdict(lyrics_result)
+            manifest["lyrics"] = write_lyrics_manifest(
+                config.output_dir, lyrics_binding(manifest), lyrics_data
+            )
+            lyrics_svg = lyric_overlay(lyrics_result, original.width, original.height)
+            # Old body replay keeps its frozen batches. Only newly sent batches
+            # omit text candidates; both paths enforce the final assembly gate.
+            manifest["lyrics_excluded_candidates"] = sorted(
+                client.lyrics_excluded
+                if isinstance(client, ReplayClient)
+                else blocked_candidates
+            )
+        except (OSError, ValueError) as exc:
+            raise EngineError(f"歌词识别产物失败: {exc}", 4) from exc
     requests = {}
     try:
         save_rows(work, rows)
@@ -131,7 +196,13 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
     started = time.perf_counter()
     if use_bodies:
         recognized = recognize_bodies(
-            rows, crops, registries, client, manifest, concurrency=config.concurrency
+            rows,
+            crops,
+            registries,
+            client,
+            manifest,
+            concurrency=config.concurrency,
+            blocked=blocked_candidates,
         )
     else:
         recognized = recognize_rows(
@@ -197,6 +268,11 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
                 concurrency=config.concurrency,
                 review_enabled=melody_review_enabled,
                 replay_root=melody_replay_root,
+                text_exclusions=tuple(
+                    Box(**r["bounds"])
+                    for r in lyrics_data.get("regions", [])
+                    if r["role"] != "notation"
+                ),
             )
             files = sorted((config.output_dir / "melody-evidence").glob("*")) + [
                 config.output_dir / "melody.json"
@@ -204,6 +280,18 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
             finish_manifest(config.output_dir, manifest, files)
         except OSError as exc:
             raise EngineError(f"melody 产物写入失败: {exc}", 4) from exc
+    if lyrics_result:
+        text_boxes = [
+            Box(**r["bounds"]) for r in lyrics_result.regions if r["role"] != "notation"
+        ]
+        for row in matched:
+            for token in row.tokens:
+                if token.geometry:
+                    token.geometry.primitives = [
+                        p
+                        for p in token.geometry.primitives
+                        if not any(touches(p.bounds, b) for b in text_boxes)
+                    ]
     reject_invalid_geometry(matched, *original.size)
     text, anchors = merge_rows(matched)
     source_map = build_source_map(matched, *original.size)
@@ -211,6 +299,8 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
     svg = generate_overlay_svg(matched, *original.size, glyphs)
     warnings = [warning for row in matched for warning in row.warnings]
     warnings.extend(validate_rows(matched, *original.size))
+    if lyrics_result:
+        warnings.extend(lyrics_result.warnings)
     # A source target must also have a valid textual target to prevent a false
     # promise of click-to-text navigation for hallucinated extra tokens.
     valid_ids = {a["source_id"] for a in anchors if a["valid"]}
@@ -252,6 +342,18 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
         if config.debug
         else {}
     )
+    lyrics_html = ""
+    if lyrics_result:
+        import base64
+
+        original_bytes = BytesIO()
+        original.save(original_bytes, format="PNG")
+        image_url = "data:image/png;base64," + base64.b64encode(
+            original_bytes.getvalue()
+        ).decode("ascii")
+        lyrics_html = lyrics_preview(
+            image_url, svg, lyrics_svg, lyrics_result, *original.size
+        )
     return TransJpResult(
         jianpu_text=text,
         rows=matched,
@@ -265,4 +367,7 @@ def run(config: CliConfig, llm_client: RowTranscriber | None = None) -> TransJpR
         preview_png=preview.getvalue(),
         debug_svg=debug_svg,
         melody=melody,
+        lyrics=lyrics_data,
+        lyrics_svg=lyrics_svg,
+        lyrics_preview_html=lyrics_html,
     )

@@ -21,6 +21,9 @@ class ReplayClient:
         self.directory = directory
         self.versions: dict[int, int] = {}
         self.batch_results: dict[str, dict] = {}
+        self.lyrics_marker: dict | None = None
+        self.saved_batch_groups: list[dict] = []
+        self.lyrics_excluded: set[str] = set()
 
     def validate_run(
         self, manifest: dict, registries: list[CandidateRegistry]
@@ -96,12 +99,37 @@ class ReplayClient:
                 for name, digest in saved["row_responses"].items():
                     if sha256(self.directory / name) != digest:
                         raise ValueError("v3 行响应哈希不一致")
+                self.lyrics_marker = saved.get("lyrics")
+                self.lyrics_excluded = set(saved.get("lyrics_excluded_candidates", []))
+                if self.lyrics_marker:
+                    from .lyrics_artifacts import validate_lyrics_replay, lyrics_binding
+
+                    lyrics = validate_lyrics_replay(
+                        root, lyrics_binding(saved), self.lyrics_marker
+                    )
+                    if not self.lyrics_excluded <= {
+                        c["candidate_id"] for c in lyrics["conflicts"]
+                    }:
+                        raise ValueError("歌词排除集合与证据不一致")
+                elif self.lyrics_excluded or (root / "lyrics-manifest.json").exists():
+                    raise ValueError("歌词回放缺少manifest绑定")
+                self.saved_batch_groups = saved["batches"]
                 self.batch_results = validate_batch_files(
-                    root, saved["batches"], {r.row_index: r for r in restored}
+                    root,
+                    saved["batches"],
+                    {r.row_index: r for r in restored},
+                    self.lyrics_excluded,
                 )
             return restored
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise EngineError(f"v2/v3 回放校验失败: {exc}", 5) from exc
+
+    def groups_for_row(self, row_index: int) -> list[tuple[int, tuple[str, ...]]]:
+        return sorted(
+            (int(b["batch_id"].split(":b")[1]), tuple(b["candidate_ids"]))
+            for b in self.saved_batch_groups
+            if b["row_index"] == row_index
+        )
 
     def classify(self, request: CandidateBatchRequest) -> CompletionResult:
         data = self.batch_results[request.batch_id]

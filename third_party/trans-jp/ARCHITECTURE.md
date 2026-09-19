@@ -106,3 +106,9 @@ metadata 页请求和局部复核均最多三次尝试；认证错误不重试�
 
 
 局部元数据补充：structure/metadata_regions 从实测等号笔画提出局部框，rendering/metadata_atlas 输出编号裁剪，recognition 解析可见 key_text/meter_text。pipeline/local_metadata 保存候选/请求/结果，版本内以可选 sidecar 兼容旧冻结证据；存在局部记录时必须校验请求图像哈希并重放原响应。observed_local 不直接激活调号状态，possible_following_body 仅供核对。无等号的独立拍号检测与可靠生效映射仍待实现。
+
+### 可选歌词分支
+
+`pipeline/lyrics_recognition` 在主体请求之前编排整页细墨迹区域、编号裁剪识别、字词裁剪复核；`structure/lyric_regions` 只做图像几何，`recognition/lyrics` 只处理文字协议。`matching/text_conflicts` 给出文字/音符冲突与不确定的音符关联，`structure/body_assembler` 最终执行排除约束。新在线请求跳过排除候选，旧主体回放保留冻结批次并在组装时过滤。默认关闭，不改变候选注册表或 v3 主体协议。
+
+歌词 DTO 在 models，证据/哈希在 io，图册、SVG 与交互预览在 rendering。歌词细分是独立层，不使用已有音符 token 冒充歌词；字词框必须有局部墨迹证据与唯一顺序对齐。文字失败不等于无文字。melody 排除触及文字的附属候选，同时设置 missing_evidence，避免错误确认零属性。音符与歌词的独立预览不表示有效播放语义。

@@ -26,7 +26,9 @@ def recognize_bodies(
     manifest: dict,
     *,
     concurrency: int,
+    blocked: dict[str, str] | None = None,
 ) -> list[RowResult]:
+    blocked = blocked or {}
     requests = []
     output = rows[0].image_path.parent.parent
     manifest.update(
@@ -37,8 +39,23 @@ def recognize_bodies(
     )
     try:
         for row, crop, registry in zip(rows, crops, registries, strict=True):
-            for index, candidates in enumerate(partition_candidates(registry)):
-                ids = tuple(c.candidate_id for c in candidates)
+            if hasattr(client, "groups_for_row"):
+                groups = client.groups_for_row(row.index)
+            else:
+                groups = [
+                    (
+                        index,
+                        tuple(
+                            c.candidate_id
+                            for c in candidates
+                            if c.candidate_id not in blocked
+                        ),
+                    )
+                    for index, candidates in enumerate(partition_candidates(registry))
+                ]
+            for index, ids in groups:
+                if not ids:
+                    continue
                 atlas = render_atlases(crop, registry, candidate_ids=ids)[0]
                 requests.append(save_batch_request(row, registry, index, ids, atlas))
         write_manifest(output, manifest)
@@ -66,6 +83,6 @@ def recognize_bodies(
     for request, result in zip(requests, results, strict=True):
         by_row[request.registry.row_index].append(result)
     return [
-        assemble_body_tokens(registry, by_row[row.index], row)
+        assemble_body_tokens(registry, by_row[row.index], row, blocked=blocked)
         for row, registry in zip(rows, registries, strict=True)
     ]

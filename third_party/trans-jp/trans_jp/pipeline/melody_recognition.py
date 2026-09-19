@@ -10,6 +10,8 @@ from typing import Any
 from collections.abc import Iterator
 from PIL import Image
 from ..models.candidates import CandidateRegistry
+from ..models.geometry import Box
+from ..matching.text_conflicts import touches
 from ..models.contracts import RowSegment, RecognizedToken
 from ..models.raster import RowAnalysis
 from ..models.melody import AttachmentReviewRequest, NoteAttributes
@@ -106,6 +108,7 @@ def enrich_melody(
     concurrency: int = 2,
     review_enabled: bool = True,
     replay_root: Path | None = None,
+    text_exclusions: tuple[Box, ...] = (),
 ) -> dict:
     directory = output / "melody-evidence"
     directory.mkdir(parents=True, exist_ok=True)
@@ -137,6 +140,13 @@ def enrich_melody(
             for cid in t.candidate_ids
         )
         candidates = detect_attachment_candidates(analysis, registry, ids)
+        text_marks = [
+            c
+            for c in candidates
+            if any(touches(page_box(padded, c.bounds), b) for b in text_exclusions)
+        ]
+        missing_owners = {owner for c in text_marks for owner in c.owners}
+        candidates = tuple(c for c in candidates if c not in text_marks)
         relations = resolve_attachment_relations(candidates)
         write_json(
             directory / f"row_{row.row.index}-candidates.json",
@@ -207,7 +217,7 @@ def enrich_melody(
             "candidates": candidates,
             "relations": relations,
             "regions": regions,
-            "missing": set(),
+            "missing": missing_owners,
             "reviews": [],
         }
         contexts.append(context)

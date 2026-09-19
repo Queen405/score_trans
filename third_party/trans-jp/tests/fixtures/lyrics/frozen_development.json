@@ -1,0 +1,685 @@
+{
+  "version": 3,
+  "scope": "First tight-crop region responses retained, including failures. Changed/new word crops evaluated separately; regression evidence, not truth.",
+  "pages": {
+    "image": {
+      "source_sha256": "dc066b161702203927a074a225ea034667bbe34d70cd73d2591f15205d545304",
+      "text": {
+        "regions-0000": {
+          "sha256": "d2e80c1b52eb44769504284cd5c072099084e4a9049fd3ec40aa4efd194dddde",
+          "response": {
+            "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0000\",\n      \"role\": \"other_text\",\n      \"text\": \"梁祝\"\n    },\n    {\n      \"id\": \"text:0001\",\n      \"role\": \"other_text\",\n      \"text\": \"1=bB 4/4\"\n    },\n    {\n      \"id\": \"text:0002\",\n      \"role\": \"other_text\",\n      \"text\": \"CuteMIDI软件制谱\"\n    },\n    {\n      \"id\": \"text:0003\",\n      \"role\": \"other_text\",\n      \"text\": \"黄 霑 填词\"\n    },\n    {\n      \"id\": \"text:0004\",\n      \"role\": \"other_text\",\n      \"text\": \"= 82\"\n    },\n    {\n      \"id\": \"text:0005\",\n      \"role\": \"other_text\",\n      \"text\": \"何占豪、陈刚 曲\"\n    }\n  ]\n}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0001": {
+          "sha256": "638f2b9b21fdf8a71a50c8d74e9825b304e0d6937747a0bb742c2a2406b3a5e1",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0006\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0007\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0008\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0009\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0010\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0011\",\"role\":\"notation\",\"text\":null}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0002": {
+          "sha256": "9f4b0297c8f17e45d59817ee06304bc1958c3ad5899171dc03d008f0277ce8cc",
+          "response": {
+            "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0012\",\n      \"role\": \"lyrics\",\n      \"text\": \"无言\"\n    },\n    {\n      \"id\": \"text:0013\",\n      \"role\": \"lyrics\",\n      \"text\": \"到 面 前 与 君 分 杯 水 ,\"\n    },\n    {\n      \"id\": \"text:0014\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0015\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0016\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0017\",\n      \"role\": \"notation\",\n      \"text\": null\n    }\n  ]\n}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0003": {
+          "sha256": "d77ad6bd987ac2d8e577f0b56715d7d73c22966fd70845f212fd79ddc891be34",
+          "response": {
+            "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0018\",\n      \"role\": \"lyrics\",\n      \"text\": \"清 中有\"\n    },\n    {\n      \"id\": \"text:0019\",\n      \"role\": \"lyrics\",\n      \"text\": \"浓 意\"\n    },\n    {\n      \"id\": \"text:0020\",\n      \"role\": \"lyrics\",\n      \"text\": \"流出心底 醉。\"\n    },\n    {\n      \"id\": \"text:0021\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0022\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0023\",\n      \"role\": \"notation\",\n      \"text\": null\n    }\n  ]\n}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0004": {
+          "sha256": "11b13d0d0ff70219a216f760c2ef454a1713fb32740a63c82d73b2af4271b796",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0024\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0025\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0026\",\"role\":\"lyrics\",\"text\":\"不论冤 或缘\"},{\"id\":\"text:0027\",\"role\":\"lyrics\",\"text\":\"默说 蝴蝶 梦,\"},{\"id\":\"text:0028\",\"role\":\"lyrics\",\"text\":\"还\"},{\"id\":\"text:0029\",\"role\":\"notation\",\"text\":null}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0005": {
+          "sha256": "b34bccabc1e21413ea565ab4d8a1fae8942adb3a4fc3406fc65786274746f274",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0030\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0031\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0032\",\"role\":\"lyrics\",\"text\":\"你 此生 此 世 今世 前 世\"},{\"id\":\"text:0033\",\"role\":\"lyrics\",\"text\":\"双双飞过万世千生\"},{\"id\":\"text:0034\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0035\",\"role\":\"lyrics\",\"text\":\"去。\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0012-000": {
+          "sha256": "cce0e66361b902468b9d171e9dedc58de93b5957185166f29d3a74545fb929d1",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0012:w000\", \"role\": \"unknown\", \"text\": \"无\"}, {\"id\": \"text:0012:w001\", \"role\": \"unknown\", \"text\": \"言\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0013-000": {
+          "sha256": "c3442293dace10f1723f18104b080eb709ff7f986af5198d0f4de6de0846698c",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0013:w000\", \"role\": \"unknown\", \"text\": \"到\"}, {\"id\": \"text:0013:w001\", \"role\": \"unknown\", \"text\": \"面\"}, {\"id\": \"text:0013:w002\", \"role\": \"unknown\", \"text\": \"前\"}, {\"id\": \"text:0013:w003\", \"role\": \"unknown\", \"text\": \"与\"}, {\"id\": \"text:0013:w004\", \"role\": \"unknown\", \"text\": \"君\"}, {\"id\": \"text:0013:w005\", \"role\": \"unknown\", \"text\": \"分\"}, {\"id\": \"text:0013:w006\", \"role\": \"unknown\", \"text\": \"杯\"}, {\"id\": \"text:0013:w007\", \"role\": \"unknown\", \"text\": \"水，\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0018-000": {
+          "sha256": "4f72053ab9afcc6fc35d61fbea51d8450794792152f059434ffb651016834ec9",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0018:w000\", \"role\": \"unknown\", \"text\": \"清\"}, {\"id\": \"text:0018:w001\", \"role\": \"unknown\", \"text\": \"中\"}, {\"id\": \"text:0018:w002\", \"role\": \"unknown\", \"text\": \"有\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0019-000": {
+          "sha256": "d2f5eb042f9a1589ee3a79617ee87c979d70909dbe5e925c11b5d27d17a8f3a3",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0019:w000\", \"role\": \"unknown\", \"text\": \"浓\"}, {\"id\": \"text:0019:w001\", \"role\": \"unknown\", \"text\": \"意\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0020-000": {
+          "sha256": "70e7b39f128f463e63bf400935bdc97008f86fd73e4b459c4b7ac142e76cd7c5",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0020:w000\", \"role\": \"unknown\", \"text\": \"流\"}, {\"id\": \"text:0020:w001\", \"role\": \"unknown\", \"text\": \"出\"}, {\"id\": \"text:0020:w002\", \"role\": \"unknown\", \"text\": \"心\"}, {\"id\": \"text:0020:w003\", \"role\": \"unknown\", \"text\": \"底\"}, {\"id\": \"text:0020:w004\", \"role\": \"unknown\", \"text\": \"醉。\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0026-000": {
+          "sha256": "03dc990c47a3eceabaa63aea151198df596d1e6509902165acd7ea995bc69b40",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0026:w000\",\"role\":\"unknown\",\"text\":\"不\"},{\"id\":\"text:0026:w001\",\"role\":\"unknown\",\"text\":\"论\"},{\"id\":\"text:0026:w002\",\"role\":\"unknown\",\"text\":\"冤\"},{\"id\":\"text:0026:w003\",\"role\":\"unknown\",\"text\":\"或\"},{\"id\":\"text:0026:w004\",\"role\":\"unknown\",\"text\":\"缘\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0027-000": {
+          "sha256": "064e08c74c5b1fdce37a6cbf3fcfd08fe883a7584072e93195ab10aa42b7552f",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0027:w000\", \"role\": \"unknown\", \"text\": \"默\"}, {\"id\": \"text:0027:w001\", \"role\": \"unknown\", \"text\": \"说\"}, {\"id\": \"text:0027:w002\", \"role\": \"unknown\", \"text\": \"蝴\"}, {\"id\": \"text:0027:w003\", \"role\": \"unknown\", \"text\": \"蝶\"}, {\"id\": \"text:0027:w004\", \"role\": \"unknown\", \"text\": \"梦，\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0028-000": {
+          "sha256": "72a735645264db7e1f15dab588032861829cfeb119f448879588d4f153e03987",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0028:w000\",\"role\":\"unknown\",\"text\":\"还\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0032-000": {
+          "sha256": "1c51a990318ae93a3a035f8a9c64bc97b2d86ad101c582c2cc01565030c9b43e",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0032:w000\", \"role\": \"unknown\", \"text\": \"你\"}, {\"id\": \"text:0032:w001\", \"role\": \"unknown\", \"text\": \"此\"}, {\"id\": \"text:0032:w002\", \"role\": \"unknown\", \"text\": \"生\"}, {\"id\": \"text:0032:w003\", \"role\": \"unknown\", \"text\": \"此\"}, {\"id\": \"text:0032:w004\", \"role\": \"unknown\", \"text\": \"世\"}, {\"id\": \"text:0032:w005\", \"role\": \"unknown\", \"text\": \"今\"}, {\"id\": \"text:0032:w006\", \"role\": \"unknown\", \"text\": \"世\"}, {\"id\": \"text:0032:w007\", \"role\": \"unknown\", \"text\": \"前\"}, {\"id\": \"text:0032:w008\", \"role\": \"unknown\", \"text\": \"世\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0033-000": {
+          "sha256": "030d0d65b4ea7acd98bd85a7775a805911c12adbaa390473b168c2bdf8165051",
+          "response": {
+            "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0033:w000\",\n      \"role\": \"unknown\",\n      \"text\": \"双\"\n    },\n    {\n      \"id\": \"text:0033:w001\",\n      \"role\": \"unknown\",\n      \"text\": \"双飞\"\n    },\n    {\n      \"id\": \"text:0033:w002\",\n      \"role\": \"unknown\",\n      \"text\": \"过\"\n    },\n    {\n      \"id\": \"text:0033:w003\",\n      \"role\": \"unknown\",\n      \"text\": \"万\"\n    },\n    {\n      \"id\": \"text:0033:w004\",\n      \"role\": \"unknown\",\n      \"text\": \"世\"\n    },\n    {\n      \"id\": \"text:0033:w005\",\n      \"role\": \"unknown\",\n      \"text\": \"千\"\n    },\n    {\n      \"id\": \"text:0033:w006\",\n      \"role\": \"unknown\",\n      \"text\": \"生\"\n    }\n  ]\n}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0035-000": {
+          "sha256": "409e06eb8c0aff93ff43d5ff2c23948519dd88a38e24dac4129bbe6dc2b66a43",
+          "response": {
+            "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0035:w000\",\n      \"role\": \"unknown\",\n      \"text\": \"去\"\n    },\n    {\n      \"id\": \"text:0035:w001\",\n      \"role\": \"unknown\",\n      \"text\": \"。\"\n    }\n  ]\n}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        }
+      },
+      "bodies": {
+        "r0000:b0000": {
+          "registry_sha256": "2b6c3ae1265f1aa1d7e3177c1ad6575a22809ee9c3cb90e2ca54f0182870da42",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0000:c0000\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0000:c0001\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0000:c0002\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0000": {
+          "registry_sha256": "e6fa7f57f44477db74261c64a19ed749463b887823083b38ba4b37499752ea9b",
+          "response": "{\n \"schema_version\": 3,\n \"items\": [\n  {\n   \"candidate_id\": \"r0001:c0006\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.95,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0004\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  }\n ],\n \"unresolved\": [\n  {\n   \"candidate_id\": \"r0001:c0000\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0001\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0002\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0003\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0005\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0007\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0008\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0009\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0010\",\n   \"reason\": \"non_music\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0011\",\n   \"reason\": \"non_music\"\n  }\n ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0001": {
+          "registry_sha256": "e6fa7f57f44477db74261c64a19ed749463b887823083b38ba4b37499752ea9b",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [\n{\n\"candidate_id\": \"r0001:c0013\",\n\"label\": \"4\",\n\"kind\": \"digit\",\n\"confidence\": 0.98,\n\"status\": \"recognized\"\n}\n],\n\"unresolved\": [\n{\n\"candidate_id\": \"r0001:c0012\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0014\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0015\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0016\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0017\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0018\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0019\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0020\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0021\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0022\",\n\"reason\": \"non_music\"\n},\n{\n\"candidate_id\": \"r0001:c0023\",\n\"reason\": \"non_music\"\n}\n]\n}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0002": {
+          "registry_sha256": "e6fa7f57f44477db74261c64a19ed749463b887823083b38ba4b37499752ea9b",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0001:c0024\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0025\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0026\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0027\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0028\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0029\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0030\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0031\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0032\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0033\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0034\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0035\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0003": {
+          "registry_sha256": "e6fa7f57f44477db74261c64a19ed749463b887823083b38ba4b37499752ea9b",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0001:c0036\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0039\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0040\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0041\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0042\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0043\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0044\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0045\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0046\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0047\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0048\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0049\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0004": {
+          "registry_sha256": "e6fa7f57f44477db74261c64a19ed749463b887823083b38ba4b37499752ea9b",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0001:c0050\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0051\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0052\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0053\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0054\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0055\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0056\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0057\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0058\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0059\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0060\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0001:c0061\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0005": {
+          "registry_sha256": "e6fa7f57f44477db74261c64a19ed749463b887823083b38ba4b37499752ea9b",
+          "response": "{\n \"schema_version\": 3,\n \"items\": [\n  {\n   \"candidate_id\": \"r0001:c0062\",\n   \"label\": \"unknown\",\n   \"kind\": \"unknown\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0063\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0064\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0065\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.85,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0066\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0067\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0068\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0069\",\n   \"label\": \"unknown\",\n   \"kind\": \"unknown\",\n   \"confidence\": 0.95,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0070\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0071\",\n   \"label\": \"unknown\",\n   \"kind\": \"unknown\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0072\",\n   \"label\": \"unknown\",\n   \"kind\": \"unknown\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  },\n  {\n   \"candidate_id\": \"r0001:c0073\",\n   \"label\": \"barline\",\n   \"kind\": \"barline\",\n   \"confidence\": 0.9,\n   \"status\": \"recognized\"\n  }\n ],\n \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0006": {
+          "registry_sha256": "e6fa7f57f44477db74261c64a19ed749463b887823083b38ba4b37499752ea9b",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0001:c0075\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0076\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0079\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0080\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0001:c0074\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0001:c0077\",\n      \"reason\": \"non_music\"\n    }\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0002:b0000": {
+          "registry_sha256": "c8a500821de0097aef58e13f32d733080673ca3972617ac7857bc6cbbcccbff8",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0002:c0001\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0002\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0003\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0004\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0005\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0006\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0010\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0011\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0012\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0013\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0014\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0002:c0000\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0002:b0001": {
+          "registry_sha256": "c8a500821de0097aef58e13f32d733080673ca3972617ac7857bc6cbbcccbff8",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0002:c0015\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0016\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0020\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0003:b0000": {
+          "registry_sha256": "1528aa1ab2184c72483ab268f49f974aa847137a9006bbe743abe653f383fbb6",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\"candidate_id\": \"r0003:c0006\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0007\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0008\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0009\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0010\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0011\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0000\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0002\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0003:c0005\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}\n  ],\n  \"unresolved\": [\n    {\"candidate_id\": \"r0003:c0001\", \"reason\": \"non_music\"},\n    {\"candidate_id\": \"r0003:c0003\", \"reason\": \"non_music\"}\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0003:b0001": {
+          "registry_sha256": "1528aa1ab2184c72483ab268f49f974aa847137a9006bbe743abe653f383fbb6",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [\n{\"candidate_id\": \"r0003:c0012\", \"label\": \"4\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0013\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0014\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0015\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0016\", \"label\": \"4\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0017\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0018\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0019\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0020\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0021\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0022\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0003:c0023\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"}\n]\n}",
+          "finish_reason": "stop"
+        },
+        "r0003:b0002": {
+          "registry_sha256": "1528aa1ab2184c72483ab268f49f974aa847137a9006bbe743abe653f383fbb6",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0003:c0024\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0025\", \"label\": \"4\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0026\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0003:c0027\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0004:b0000": {
+          "registry_sha256": "715d775bc45b8e7aef6897f0f989f256ff32561010e654231b02c5c379c9674e",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0004:c0000\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0003\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0004\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0005\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0006\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0007\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0008\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0009\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0010\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0013\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0014\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0015\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0004:b0001": {
+          "registry_sha256": "715d775bc45b8e7aef6897f0f989f256ff32561010e654231b02c5c379c9674e",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0004:c0016\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0020\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0004:c0021\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0005:b0000": {
+          "registry_sha256": "3250baec6541ad49347b8750db92dc09cbdc9b4e3361697dbe276d7791fe4872",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0005:c0001\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0003\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0005\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0006\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0007\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0009\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0010\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0011\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0012\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0013\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0005:c0014\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0005:c0002\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0005:b0001": {
+          "registry_sha256": "3250baec6541ad49347b8750db92dc09cbdc9b4e3361697dbe276d7791fe4872",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0005:c0015\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0016\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0017\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0018\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0019\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0020\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0021\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0022\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0027\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0030\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.2,\n      \"status\": \"unrecognized\"\n    }\n  ],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0005:c0031\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0032\",\n      \"reason\": \"non_music\"\n    }\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0005:b0002": {
+          "registry_sha256": "3250baec6541ad49347b8750db92dc09cbdc9b4e3361697dbe276d7791fe4872",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0005:c0033\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0034\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0037\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0038\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0040\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0042\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0045\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0005:c0039\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0041\",\n      \"reason\": \"ambiguous\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0043\",\n      \"reason\": \"ambiguous\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0044\",\n      \"reason\": \"ambiguous\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0046\",\n      \"reason\": \"unreadable\"\n    }\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0005:b0003": {
+          "registry_sha256": "3250baec6541ad49347b8750db92dc09cbdc9b4e3361697dbe276d7791fe4872",
+          "response": "{\"schema_version\":3,\"items\":[{\"candidate_id\":\"r0005:c0047\",\"label\":\"unknown\",\"kind\":\"unknown\",\"confidence\":0.9,\"status\":\"unresolved\"},{\"candidate_id\":\"r0005:c0048\",\"label\":\"unknown\",\"kind\":\"unknown\",\"confidence\":0.9,\"status\":\"unresolved\"}],\"unresolved\":[{\"candidate_id\":\"r0005:c0047\",\"reason\":\"unreadable\"},{\"candidate_id\":\"r0005:c0048\",\"reason\":\"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0006:b0000": {
+          "registry_sha256": "ee6f4f3f40ff51d2c6b0aebb5c27f78c350d6db423d1e3d59d5e0c8323b0e464",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0006:c0001\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0003\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0004\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0005\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0006\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0007\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0008\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0009\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0010\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0011\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0006:c0000\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0002\",\n      \"reason\": \"unreadable\"\n    }\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0006:b0001": {
+          "registry_sha256": "ee6f4f3f40ff51d2c6b0aebb5c27f78c350d6db423d1e3d59d5e0c8323b0e464",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0006:c0012\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0013\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0014\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0015\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0016\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0017\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0018\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0019\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0020\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0024\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"status\": \"unrecognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0025\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"status\": \"unrecognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0026\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"status\": \"unrecognized\"\n    }\n  ],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0006:c0024\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0025\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0026\",\n      \"reason\": \"non_music\"\n    }\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0006:b0002": {
+          "registry_sha256": "ee6f4f3f40ff51d2c6b0aebb5c27f78c350d6db423d1e3d59d5e0c8323b0e464",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0006:c0027\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0028\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0029\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0033\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0034\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0037\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0006:c0030\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0006:c0031\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0006:c0032\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0006:c0035\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0006:c0036\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0006:c0038\", \"reason\": \"ambiguous\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0007:b0000": {
+          "registry_sha256": "f9d2a598a8175ab2ad690f688059d4c7843f7f9ae96ac22c98ff5a6b38fae1e8",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0007:c0000\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0001\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0002\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0003\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0005\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0006\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0007\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0009\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0010\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.8, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0011\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0012\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0007:b0001": {
+          "registry_sha256": "f9d2a598a8175ab2ad690f688059d4c7843f7f9ae96ac22c98ff5a6b38fae1e8",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\"candidate_id\": \"r0007:c0013\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0014\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0015\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0016\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0017\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0018\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0019\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0022\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0023\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0024\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0025\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0007:c0026\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 1.0, \"status\": \"recognized\"}\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0007:b0002": {
+          "registry_sha256": "f9d2a598a8175ab2ad690f688059d4c7843f7f9ae96ac22c98ff5a6b38fae1e8",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [\n{\n\"candidate_id\": \"r0007:c0028\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0029\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0030\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0031\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0032\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0033\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0034\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0035\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0036\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0037\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0038\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n},\n{\n\"candidate_id\": \"r0007:c0039\",\n\"label\": \"unknown\",\n\"kind\": \"unknown\",\n\"confidence\": 0.0,\n\"status\": \"recognized\"\n}\n],\n\"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0007:b0003": {
+          "registry_sha256": "f9d2a598a8175ab2ad690f688059d4c7843f7f9ae96ac22c98ff5a6b38fae1e8",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0007:c0040\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0007:c0041\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0000": {
+          "registry_sha256": "5cd3c5c2b6e88ad7461757a200eb30b8cd1125e5c75347b403ce6573fa7bc687",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\"candidate_id\": \"r0008:c0000\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0001\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0002\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0003\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0005\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0006\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0007\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0008\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0009\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0010\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0011\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0001": {
+          "registry_sha256": "5cd3c5c2b6e88ad7461757a200eb30b8cd1125e5c75347b403ce6573fa7bc687",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0008:c0012\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0014\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0016\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0017\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0018\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0019\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0020\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0021\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0022\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0023\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0024\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0025\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0002": {
+          "registry_sha256": "5cd3c5c2b6e88ad7461757a200eb30b8cd1125e5c75347b403ce6573fa7bc687",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0008:c0026\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0027\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0028\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0029\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0030\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"ambiguous\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0031\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0032\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0033\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0034\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0035\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0036\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0037\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.0,\n      \"status\": \"unrecognized\",\n      \"reason\": \"non_music\"\n    }\n  ],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0008:c0027\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0028\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0029\",\n      \"reason\": \"unreadable\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0030\",\n      \"reason\": \"ambiguous\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0031\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0032\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0033\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0034\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0035\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0036\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0037\",\n      \"reason\": \"non_music\"\n    }\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0003": {
+          "registry_sha256": "5cd3c5c2b6e88ad7461757a200eb30b8cd1125e5c75347b403ce6573fa7bc687",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0008:c0038\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0039\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0040\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0041\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0042\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0043\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0044\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0045\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0046\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0047\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0048\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}, {\"candidate_id\": \"r0008:c0049\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.85, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0004": {
+          "registry_sha256": "5cd3c5c2b6e88ad7461757a200eb30b8cd1125e5c75347b403ce6573fa7bc687",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0008:c0050\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0051\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0052\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0009:b0000": {
+          "registry_sha256": "bb46b65afeae6c819adad1fe2155ef54667b1ca4ccfc89a971ab0444260552d4",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\"candidate_id\": \"r0009:c0000\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0003\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0004\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0005\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0006\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0007\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0008\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0009\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0010\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0011\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0012\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0009:c0013\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0009:b0001": {
+          "registry_sha256": "bb46b65afeae6c819adad1fe2155ef54667b1ca4ccfc89a971ab0444260552d4",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0009:c0014\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0009:c0015\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0009:c0019\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0009:c0020\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.9,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0009:c0021\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0010:b0000": {
+          "registry_sha256": "b6f28f211eb3a6d618a06fe0093f765a7d5139ae02b7d5d1c4e444a0baa30a9a",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0010:c0001\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0010:c0000\", \"reason\": \"unreadable\"}]}",
+          "finish_reason": "stop"
+        }
+      }
+    },
+    "image copy 10": {
+      "source_sha256": "0b4cee7048624e6db8d813bd9bdedfbd781de3b7c9b90e7ee075eb10a3a5d5ed",
+      "text": {
+        "regions-0000": {
+          "sha256": "204e5cfaa4af5b12650447166866dc842bd9e47b32bd545e0942312b782d4e94",
+          "response": {
+            "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0000\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0001\",\n      \"role\": \"lyrics\",\n      \"text\": \"也是祸。\"\n    },\n    {\n      \"id\": \"text:0002\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0003\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0004\",\n      \"role\": \"lyrics\",\n      \"text\": \"是兄弟是 真是伪清醒了我， 情和义令我 不识破，\"\n    },\n    {\n      \"id\": \"text:0005\",\n      \"role\": \"notation\",\n      \"text\": null\n    }\n  ]\n}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0001": {
+          "sha256": "45ff948d330f5d0ce5b2400fced81f2cddd5bd87970b1f68d7d1ff1a2f6af7af",
+          "response": {
+            "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0006\",\n      \"role\": \"lyrics\",\n      \"text\": \"是复杂是 生命的 挽歌\"\n    },\n    {\n      \"id\": \"text:0007\",\n      \"role\": \"lyrics\",\n      \"text\": \"结果。\"\n    },\n    {\n      \"id\": \"text:0008\",\n      \"role\": \"lyrics\",\n      \"text\": \"望 绝望里\"\n    },\n    {\n      \"id\": \"text:0009\",\n      \"role\": \"notation\",\n      \"text\": null\n    },\n    {\n      \"id\": \"text:0010\",\n      \"role\": \"lyrics\",\n      \"text\": \"更绝望。\"\n    },\n    {\n      \"id\": \"text:0011\",\n      \"role\": \"lyrics\",\n      \"text\": \"在那彼 岸\"\n    }\n  ]\n}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0002": {
+          "sha256": "0ce2a7ecab30678ae2acd264c12c1f5fb22956089d6bbfd56f20188174d8f8a3",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0012\",\"role\":\"lyrics\",\"text\":\"你共我\"},{\"id\":\"text:0013\",\"role\":\"lyrics\",\"text\":\"没有希\"},{\"id\":\"text:0014\",\"role\":\"mixed\",\"text\":\"结束句\"},{\"id\":\"text:0015\",\"role\":\"lyrics\",\"text\":\"望。\"},{\"id\":\"text:0016\",\"role\":\"mixed\",\"text\":\"D.S. 望 别让我 太绝望。\"},{\"id\":\"text:0017\",\"role\":\"notation\",\"text\":\"\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0003": {
+          "sha256": "f695b76aa8992030a4f62538b740153cfc4dca047e7e414414d5162e273873a7",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0018\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0019\",\"role\":\"lyrics\",\"text\":\"相拥时对望\"},{\"id\":\"text:0020\",\"role\":\"lyrics\",\"text\":\"便达到我愿望，\"},{\"id\":\"text:0021\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0022\",\"role\":\"notation\",\"text\":null},{\"id\":\"text:0023\",\"role\":\"other_text\",\"text\":\"\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "regions-0004": {
+          "sha256": "6657b43328dc811be23c25bba5439fedab367cef165eceb3c2ee347cae989d6b",
+          "response": {
+            "content": "",
+            "finish_reason": null,
+            "failure": "RuntimeError"
+          }
+        },
+        "words-text-0001-000": {
+          "sha256": "48bdff3d3d8599ed1f175cc72d7462fa2a113718724a87af5bb1c6fbeb9a1ff8",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0001:w000\",\"role\":\"unknown\",\"text\":\"也是\"},{\"id\":\"text:0001:w001\",\"role\":\"unknown\",\"text\":\"是\"},{\"id\":\"text:0001:w002\",\"role\":\"unknown\",\"text\":\"祸\"},{\"id\":\"text:0001:w003\",\"role\":\"unknown\",\"text\":\"。\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0004-000": {
+          "sha256": "79a4d306610891ef0007200ca7fae37b6c2b951488458219d1c4fe4af1286780",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0004:w000\",\"role\":\"unknown\",\"text\":\"是\"},{\"id\":\"text:0004:w001\",\"role\":\"unknown\",\"text\":\"兄\"},{\"id\":\"text:0004:w002\",\"role\":\"unknown\",\"text\":\"弟\"},{\"id\":\"text:0004:w003\",\"role\":\"unknown\",\"text\":\"是\"},{\"id\":\"text:0004:w004\",\"role\":\"unknown\",\"text\":\"真\"},{\"id\":\"text:0004:w005\",\"role\":\"unknown\",\"text\":\"是\"},{\"id\":\"text:0004:w006\",\"role\":\"unknown\",\"text\":\"伪\"},{\"id\":\"text:0004:w007\",\"role\":\"unknown\",\"text\":\"清\"},{\"id\":\"text:0004:w008\",\"role\":\"unknown\",\"text\":\"醒\"},{\"id\":\"text:0004:w009\",\"role\":\"unknown\",\"text\":\"了\"},{\"id\":\"text:0004:w010\",\"role\":\"unknown\",\"text\":\"我，\"},{\"id\":\"text:0004:w011\",\"role\":\"unknown\",\"text\":\"，\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0004-012": {
+          "sha256": "89d4b7cc0c9eb17d7f045f012d142a87cf4899d29794a463af20d9018618ba3a",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0004:w012\", \"role\": \"unknown\", \"text\": \"情\"}, {\"id\": \"text:0004:w013\", \"role\": \"unknown\", \"text\": \"和\"}, {\"id\": \"text:0004:w014\", \"role\": \"unknown\", \"text\": \"义\"}, {\"id\": \"text:0004:w015\", \"role\": \"unknown\", \"text\": \"令\"}, {\"id\": \"text:0004:w016\", \"role\": \"unknown\", \"text\": \"我\"}, {\"id\": \"text:0004:w017\", \"role\": \"unknown\", \"text\": \"不\"}, {\"id\": \"text:0004:w018\", \"role\": \"unknown\", \"text\": \"识\"}, {\"id\": \"text:0004:w019\", \"role\": \"unknown\", \"text\": \"破\"}, {\"id\": \"text:0004:w020\", \"role\": \"unknown\", \"text\": \"，\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0006-000": {
+          "sha256": "b1b30c075ee6f4c87069e721b4401ac4dd8aee50e903132e7afe33a77adcbabd",
+          "response": {
+            "content": "{\n  \"schema_version\": 1,\n  \"items\": [\n    {\n      \"id\": \"text:0006:w000\",\n      \"role\": \"unknown\",\n      \"text\": \"是\"\n    },\n    {\n      \"id\": \"text:0006:w001\",\n      \"role\": \"unknown\",\n      \"text\": \"复\"\n    },\n    {\n      \"id\": \"text:0006:w002\",\n      \"role\": \"unknown\",\n      \"text\": \"杂\"\n    },\n    {\n      \"id\": \"text:0006:w003\",\n      \"role\": \"unknown\",\n      \"text\": \"是\"\n    },\n    {\n      \"id\": \"text:0006:w004\",\n      \"role\": \"unknown\",\n      \"text\": \"生\"\n    },\n    {\n      \"id\": \"text:0006:w005\",\n      \"role\": \"unknown\",\n      \"text\": \"命\"\n    },\n    {\n      \"id\": \"text:0006:w006\",\n      \"role\": \"unknown\",\n      \"text\": \"的\"\n    },\n    {\n      \"id\": \"text:0006:w007\",\n      \"role\": \"unknown\",\n      \"text\": \"挽\"\n    },\n    {\n      \"id\": \"text:0006:w008\",\n      \"role\": \"unknown\",\n      \"text\": \"歌\"\n    }\n  ]\n}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0007-000": {
+          "sha256": "ec7d39eaf36594f8536c8f091c7c8a0c6ee2c5085174d175ef62c6dc4ea413b9",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0007:w000\",\"role\":\"unknown\",\"text\":\"结\"},{\"id\":\"text:0007:w001\",\"role\":\"unknown\",\"text\":\"果\"},{\"id\":\"text:0007:w002\",\"role\":\"unknown\",\"text\":\"。\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0008-000": {
+          "sha256": "56ebb59609c8c8001ab2ae4981856d3dca7eaa67b35be29ee7fd0738a82aac5e",
+          "response": {
+            "content": "{\"schema_version\": 1, \"items\": [{\"id\": \"text:0008:w000\", \"role\": \"unknown\", \"text\": \"望\"}, {\"id\": \"text:0008:w001\", \"role\": \"unknown\", \"text\": \"绝\"}, {\"id\": \"text:0008:w002\", \"role\": \"unknown\", \"text\": \"望\"}, {\"id\": \"text:0008:w003\", \"role\": \"unknown\", \"text\": \"里\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0010-000": {
+          "sha256": "c91a08bfe81777b60c9047dd3106087c07bb09ef25c7b19100eb140ce9ac1f58",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0010:w000\",\"role\":\"unknown\",\"text\":\"更\"},{\"id\":\"text:0010:w001\",\"role\":\"unknown\",\"text\":\"绝\"},{\"id\":\"text:0010:w002\",\"role\":\"unknown\",\"text\":\"望\"},{\"id\":\"text:0010:w003\",\"role\":\"unknown\",\"text\":\"o\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0011-000": {
+          "sha256": "73e1f576c4828ddffe597c9aac5f6a427f1d9ffdf91f9c7e600532dbdc0f893c",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0011:w000\",\"role\":\"unknown\",\"text\":\"在\"},{\"id\":\"text:0011:w001\",\"role\":\"unknown\",\"text\":\"那\"},{\"id\":\"text:0011:w002\",\"role\":\"unknown\",\"text\":\"彼\"},{\"id\":\"text:0011:w003\",\"role\":\"unknown\",\"text\":\"岸\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0012-000": {
+          "sha256": "65a4b66001ab05915eda57fa238489cc07f21a1f68d6231596400eed710ca01a",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0012:w000\",\"role\":\"unknown\",\"text\":\"你\"},{\"id\":\"text:0012:w001\",\"role\":\"unknown\",\"text\":\"共\"},{\"id\":\"text:0012:w002\",\"role\":\"unknown\",\"text\":\"我\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0013-000": {
+          "sha256": "28c281d6fa6ab0299c7943ce04304cf2239d2ec7087d97da4fc1cbf320706fd7",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0013:w000\",\"role\":\"unknown\",\"text\":\"没\"},{\"id\":\"text:0013:w001\",\"role\":\"unknown\",\"text\":\"有\"},{\"id\":\"text:0013:w002\",\"role\":\"unknown\",\"text\":\"希\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0015-000": {
+          "sha256": "dbe6b70fcc9bbd331e7ed67429441213a9d1a39971e6a2ab0feac6655f667f11",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0015:w000\",\"role\":\"unknown\",\"text\":\"望\"},{\"id\":\"text:0015:w001\",\"role\":\"unknown\",\"text\":\"○\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0019-000": {
+          "sha256": "7ea23b8e5328e723f5dbe0b0d736bbe27bb60a0394e6e5677c00192d4b8892ae",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0019:w000\",\"role\":\"unknown\",\"text\":\"相\"},{\"id\":\"text:0019:w001\",\"role\":\"unknown\",\"text\":\"拥\"},{\"id\":\"text:0019:w002\",\"role\":\"unknown\",\"text\":\"时\"},{\"id\":\"text:0019:w003\",\"role\":\"unknown\",\"text\":\"对\"},{\"id\":\"text:0019:w004\",\"role\":\"unknown\",\"text\":\"望\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        },
+        "words-text-0020-000": {
+          "sha256": "015b69c428bd7f5d2f26d3e9855a299b365dd602a659ed7d4336f7477a595c5e",
+          "response": {
+            "content": "{\"schema_version\":1,\"items\":[{\"id\":\"text:0020:w000\",\"role\":\"unknown\",\"text\":\"便\"},{\"id\":\"text:0020:w001\",\"role\":\"unknown\",\"text\":\"达\"},{\"id\":\"text:0020:w002\",\"role\":\"unknown\",\"text\":\"到\"},{\"id\":\"text:0020:w003\",\"role\":\"unknown\",\"text\":\"我\"},{\"id\":\"text:0020:w004\",\"role\":\"unknown\",\"text\":\"愿\"},{\"id\":\"text:0020:w005\",\"role\":\"unknown\",\"text\":\"望\"},{\"id\":\"text:0020:w006\",\"role\":\"unknown\",\"text\":\"，\"}]}",
+            "finish_reason": "stop",
+            "failure": null
+          }
+        }
+      },
+      "bodies": {
+        "r0000:b0000": {
+          "registry_sha256": "a7fa6f295170bc99aa8e6c7ae3238e45fa44e9c4efc51aa2e0930ffb66a48060",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0000:c0000\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0001\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0002\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0003\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0005\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0009\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0010\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0011\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0012\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0007\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0000:c0008\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0000:b0001": {
+          "registry_sha256": "a7fa6f295170bc99aa8e6c7ae3238e45fa44e9c4efc51aa2e0930ffb66a48060",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\"candidate_id\": \"r0000:c0013\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0014\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0015\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0016\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0017\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0018\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0019\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0020\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0021\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0022\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0023\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0000:c0024\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0000:b0002": {
+          "registry_sha256": "a7fa6f295170bc99aa8e6c7ae3238e45fa44e9c4efc51aa2e0930ffb66a48060",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0000:c0025\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0026\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0027\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0028\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0000:c0029\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0000": {
+          "registry_sha256": "45d6ff81e41348e0641ff4ce8542696cc2be8b7447c4c621d1ea891727c02f11",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\"candidate_id\": \"r0001:c0000\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0001\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0002\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0003\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0004\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0005\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0006\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0007\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0008\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0009\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0010\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0001:c0011\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0001": {
+          "registry_sha256": "45d6ff81e41348e0641ff4ce8542696cc2be8b7447c4c621d1ea891727c02f11",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [\n{\"candidate_id\": \"r0001:c0012\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0013\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0014\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0015\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0016\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0017\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0018\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0019\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0020\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0021\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0022\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0023\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}\n],\n\"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0002": {
+          "registry_sha256": "45d6ff81e41348e0641ff4ce8542696cc2be8b7447c4c621d1ea891727c02f11",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [\n{\"candidate_id\": \"r0001:c0024\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0025\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0026\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0027\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0028\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0029\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0030\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0031\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0032\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0033\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0034\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0001:c0035\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}\n],\n\"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0001:b0003": {
+          "registry_sha256": "45d6ff81e41348e0641ff4ce8542696cc2be8b7447c4c621d1ea891727c02f11",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0001:c0036\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0001:c0037\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0002:b0000": {
+          "registry_sha256": "a8944549d8c30481b5192df8c6714163fbc7fd120cda52777443f2e721c756da",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0002:c0000\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0001\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0002\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0005\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0007\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0008\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0009\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0010\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0002:c0011\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0002:c0003\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0002:c0004\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0002:c0006\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0002:b0001": {
+          "registry_sha256": "a8944549d8c30481b5192df8c6714163fbc7fd120cda52777443f2e721c756da",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [\n{\"candidate_id\": \"r0002:c0012\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0013\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0014\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0015\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0016\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0017\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0018\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0019\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0020\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0021\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0022\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0002:c0023\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}\n]\n}",
+          "finish_reason": "stop"
+        },
+        "r0002:b0002": {
+          "registry_sha256": "a8944549d8c30481b5192df8c6714163fbc7fd120cda52777443f2e721c756da",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0002:c0024\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0025\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0026\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0027\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0028\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0029\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0002:c0030\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0003:b0000": {
+          "registry_sha256": "812dfb67eb413117a2c7e61ff71ef15ff9f72c8e6008d76dd3a7064644ed6b45",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0003:c0000\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0001\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0002\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0003\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0005\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0008\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0012\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0013\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0014\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0015\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0017\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0003:c0018\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0003:b0001": {
+          "registry_sha256": "812dfb67eb413117a2c7e61ff71ef15ff9f72c8e6008d76dd3a7064644ed6b45",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [],\n\"unresolved\": [\n{\"candidate_id\": \"r0003:c0019\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0020\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0022\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0023\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0024\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0025\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0026\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0027\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0028\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0030\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0031\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0003:c0032\", \"reason\": \"non_music\"}\n]\n}",
+          "finish_reason": "stop"
+        },
+        "r0003:b0002": {
+          "registry_sha256": "812dfb67eb413117a2c7e61ff71ef15ff9f72c8e6008d76dd3a7064644ed6b45",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0003:c0033\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0004:b0000": {
+          "registry_sha256": "c5dccb6ae8113383b64164156bebe576f5bb2a447c7ebaeb2b212764509be018",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0004:c0000\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0001\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0002\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0005\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0007\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0008\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0009\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0010\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0011\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0004:c0003\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0004:c0006\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0004:b0001": {
+          "registry_sha256": "c5dccb6ae8113383b64164156bebe576f5bb2a447c7ebaeb2b212764509be018",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0004:c0012\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0013\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0014\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0015\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0016\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0017\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0018\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0019\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0020\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0021\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0022\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0023\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0004:b0002": {
+          "registry_sha256": "c5dccb6ae8113383b64164156bebe576f5bb2a447c7ebaeb2b212764509be018",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0004:c0024\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0027\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0028\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0029\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0030\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0031\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0004:c0032\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0005:b0000": {
+          "registry_sha256": "4ca0ee70928be19637abc402d1be379ffbf3a70fc46a589a78b932e24d2ac211",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0005:c0000\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0001\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0002\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0003\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0004\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0006\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0007\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0008\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0009\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0010\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0013\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0005:c0016\",\n      \"reason\": \"non_music\"\n    }\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0005:b0001": {
+          "registry_sha256": "4ca0ee70928be19637abc402d1be379ffbf3a70fc46a589a78b932e24d2ac211",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0005:c0017\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0005:c0018\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0005:c0019\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0005:c0020\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0005:c0021\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0005:c0022\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0005:c0024\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0005:c0025\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0006:b0000": {
+          "registry_sha256": "58cf64b1c94a43ea222125c70b080ae18858b9b82eb97f770c7976b63903cfb3",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0006:c0000\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0001\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0002\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0003\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0005\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0006\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0007\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0008\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0009\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0010\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0011\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0006:c0012\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0006:b0001": {
+          "registry_sha256": "58cf64b1c94a43ea222125c70b080ae18858b9b82eb97f770c7976b63903cfb3",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0006:c0013\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0014\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0015\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0016\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0017\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0018\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0019\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0020\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0021\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0022\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0023\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0024\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0006:b0002": {
+          "registry_sha256": "58cf64b1c94a43ea222125c70b080ae18858b9b82eb97f770c7976b63903cfb3",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0006:c0027\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0028\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0029\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0030\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0031\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0032\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0033\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0034\", \"label\": \"2\", \"kind\": \"digit\", \"confidence\": 1.0, \"status\": \"recognized\"}, {\"candidate_id\": \"r0006:c0035\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 1.0, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0007:b0000": {
+          "registry_sha256": "4241582a3c2e56bc2bc9ab026939a48e35ba62ce973b92bd18bc7f73d97571ad",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0007:c0000\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0001\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0002\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0003\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0004\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0007\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0008\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0010\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0011\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0013\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0014\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0015\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0007:b0001": {
+          "registry_sha256": "4241582a3c2e56bc2bc9ab026939a48e35ba62ce973b92bd18bc7f73d97571ad",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0007:c0016\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0017\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0019\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0020\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0021\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0025\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0026\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0027\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0007:c0028\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0000": {
+          "registry_sha256": "ad8be05368f8dce31146834b278051c73a2d439c453a479a876bcaf60adba2b2",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\"candidate_id\": \"r0008:c0010\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"},\n    {\"candidate_id\": \"r0008:c0011\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}\n  ],\n  \"unresolved\": [\n    {\"candidate_id\": \"r0008:c0000\", \"reason\": \"non_music\"},\n    {\"candidate_id\": \"r0008:c0002\", \"reason\": \"non_music\"},\n    {\"candidate_id\": \"r0008:c0003\", \"reason\": \"non_music\"},\n    {\"candidate_id\": \"r0008:c0004\", \"reason\": \"non_music\"},\n    {\"candidate_id\": \"r0008:c0005\", \"reason\": \"non_music\"},\n    {\"candidate_id\": \"r0008:c0006\", \"reason\": \"non_music\"},\n    {\"candidate_id\": \"r0008:c0007\", \"reason\": \"ambiguous\"},\n    {\"candidate_id\": \"r0008:c0008\", \"reason\": \"ambiguous\"},\n    {\"candidate_id\": \"r0008:c0009\", \"reason\": \"ambiguous\"},\n    {\"candidate_id\": \"r0008:c0012\", \"reason\": \"non_music\"}\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0001": {
+          "registry_sha256": "ad8be05368f8dce31146834b278051c73a2d439c453a479a876bcaf60adba2b2",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0008:c0013\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0014\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0015\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0016\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0017\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0019\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0020\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0021\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0022\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0023\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0024\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0008:c0025\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0002": {
+          "registry_sha256": "ad8be05368f8dce31146834b278051c73a2d439c453a479a876bcaf60adba2b2",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [\n{\"candidate_id\": \"r0008:c0026\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0027\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0028\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0029\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0030\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0031\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0032\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0033\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0034\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0035\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0036\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"},\n{\"candidate_id\": \"r0008:c0037\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.99, \"status\": \"recognized\"}\n]\n}",
+          "finish_reason": "stop"
+        },
+        "r0008:b0003": {
+          "registry_sha256": "ad8be05368f8dce31146834b278051c73a2d439c453a479a876bcaf60adba2b2",
+          "response": "{\"schema_version\":3,\"items\":[{\"candidate_id\":\"r0008:c0038\",\"label\":\"6\",\"kind\":\"digit\",\"confidence\":0.95,\"status\":\"recognized\"},{\"candidate_id\":\"r0008:c0039\",\"label\":\"6\",\"kind\":\"digit\",\"confidence\":0.95,\"status\":\"recognized\"}],\"unresolved\":[]}",
+          "finish_reason": "stop"
+        },
+        "r0009:b0000": {
+          "registry_sha256": "3571bd01ebffabdeef83358d8b47dd8c1491b43c42a21f7f8a4c7e443b58d96b",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0009:c0000\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0001\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0002\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0003\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0004\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0005\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0006\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0007\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0008\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0010\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0011\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0012\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0009:b0001": {
+          "registry_sha256": "3571bd01ebffabdeef83358d8b47dd8c1491b43c42a21f7f8a4c7e443b58d96b",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0009:c0013\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0014\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0015\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0016\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0017\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0018\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0009:c0019\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0010:b0000": {
+          "registry_sha256": "ecc9ce751b97ddf01ed140f23afa67e458767f16ebc2a6f81cc8c527aba88080",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0010:c0000\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0010:c0001\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0010:c0002\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0010:c0003\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0010:c0004\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0010:c0005\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0010:c0006\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0010:c0007\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0010:c0008\", \"reason\": \"ambiguous\"}, {\"candidate_id\": \"r0010:c0009\", \"reason\": \"ambiguous\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0011:b0000": {
+          "registry_sha256": "85029306e64a43994249053bad91a01cc151710522256ce67153a4c5291dee5e",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0011:c0000\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0001\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0002\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0003\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0005\", \"label\": \"unknown\", \"kind\": \"unknown\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0006\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0007\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0008\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0010\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0011\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.98, \"status\": \"recognized\"}, {\"candidate_id\": \"r0011:c0012\", \"label\": \"0\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0011:b0001": {
+          "registry_sha256": "85029306e64a43994249053bad91a01cc151710522256ce67153a4c5291dee5e",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0011:c0013\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0014\",\n      \"label\": \"2\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0015\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0016\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0017\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0018\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0019\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0020\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0021\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0022\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0023\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0011:c0024\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 1.0,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0011:b0002": {
+          "registry_sha256": "85029306e64a43994249053bad91a01cc151710522256ce67153a4c5291dee5e",
+          "response": "{\n \"schema_version\": 3,\n \"items\": [\n  {\n   \"candidate_id\": \"r0011:c0025\",\n   \"label\": \"6\",\n   \"kind\": \"digit\",\n   \"confidence\": 0.99,\n   \"status\": \"recognized\"\n  }\n ],\n \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0012:b0000": {
+          "registry_sha256": "bff42b9a401a4e917235073bbd5737978b635fe090cc3c23f9b3cdbd049159bf",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [],\n\"unresolved\": [\n{\"candidate_id\": \"r0012:c0000\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0001\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0002\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0003\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0004\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0006\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0007\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0008\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0009\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0010\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0011\", \"reason\": \"non_music\"},\n{\"candidate_id\": \"r0012:c0012\", \"reason\": \"non_music\"}\n]\n}",
+          "finish_reason": "stop"
+        },
+        "r0012:b0001": {
+          "registry_sha256": "bff42b9a401a4e917235073bbd5737978b635fe090cc3c23f9b3cdbd049159bf",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0012:c0013\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0014\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0015\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0016\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0017\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0018\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0019\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0020\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0021\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0022\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0023\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0024\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0012:b0002": {
+          "registry_sha256": "bff42b9a401a4e917235073bbd5737978b635fe090cc3c23f9b3cdbd049159bf",
+          "response": "{\"schema_version\": 3, \"items\": [], \"unresolved\": [{\"candidate_id\": \"r0012:c0025\", \"reason\": \"non_music\"}, {\"candidate_id\": \"r0012:c0026\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0013:b0000": {
+          "registry_sha256": "ee6ec389579085f96ec73422469d7e6647b5d7eaf8001fc492c8fac64495c78a",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0013:c0000\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.95,\n      \"status\": \"unresolved\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0001\",\n      \"label\": \"unknown\",\n      \"kind\": \"unknown\",\n      \"confidence\": 0.95,\n      \"status\": \"unresolved\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0002\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0003\",\n      \"label\": \"0\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0004\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0005\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0006\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0007\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.99,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0008\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": [\n    {\n      \"candidate_id\": \"r0013:c0000\",\n      \"reason\": \"non_music\"\n    },\n    {\n      \"candidate_id\": \"r0013:c0001\",\n      \"reason\": \"non_music\"\n    }\n  ]\n}",
+          "finish_reason": "stop"
+        },
+        "r0014:b0000": {
+          "registry_sha256": "061224085a89eb1b31dfa7f327bd5279361d1a3c5bfe287d591026bb0f1f6fb3",
+          "response": "{\n  \"schema_version\": 3,\n  \"items\": [\n    {\n      \"candidate_id\": \"r0014:c0000\",\n      \"label\": \"6\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0002\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0003\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0004\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0005\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0006\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0007\",\n      \"label\": \"3\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0008\",\n      \"label\": \"1\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0009\",\n      \"label\": \"barline\",\n      \"kind\": \"barline\",\n      \"confidence\": 0.95,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0010\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0011\",\n      \"label\": \"5\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    },\n    {\n      \"candidate_id\": \"r0014:c0012\",\n      \"label\": \"7\",\n      \"kind\": \"digit\",\n      \"confidence\": 0.98,\n      \"status\": \"recognized\"\n    }\n  ],\n  \"unresolved\": []\n}",
+          "finish_reason": "stop"
+        },
+        "r0014:b0001": {
+          "registry_sha256": "061224085a89eb1b31dfa7f327bd5279361d1a3c5bfe287d591026bb0f1f6fb3",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0014:c0013\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0014\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0015\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0016\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0017\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0018\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0019\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0020\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0021\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0022\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0023\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0014:c0024\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0014:b0002": {
+          "registry_sha256": "061224085a89eb1b31dfa7f327bd5279361d1a3c5bfe287d591026bb0f1f6fb3",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0014:c0025\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.98, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0015:b0000": {
+          "registry_sha256": "99c127be3efe1c99adce53fbdf4cded960cb6ca023a08af62ad6b66fe1cda727",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0015:c0000\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0001\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0002\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0004\", \"label\": \"barline\", \"kind\": \"barline\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0005\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0006\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0007\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0008\", \"label\": \"6\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0009\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0010\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0011\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.9, \"status\": \"recognized\"}], \"unresolved\": [{\"candidate_id\": \"r0015:c0003\", \"reason\": \"non_music\"}]}",
+          "finish_reason": "stop"
+        },
+        "r0015:b0001": {
+          "registry_sha256": "99c127be3efe1c99adce53fbdf4cded960cb6ca023a08af62ad6b66fe1cda727",
+          "response": "{\"schema_version\": 3, \"items\": [{\"candidate_id\": \"r0015:c0012\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0013\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0014\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0015\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0016\", \"label\": \"1\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0017\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0018\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0019\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0020\", \"label\": \"3\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0021\", \"label\": \"5\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0022\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}, {\"candidate_id\": \"r0015:c0023\", \"label\": \"7\", \"kind\": \"digit\", \"confidence\": 0.95, \"status\": \"recognized\"}], \"unresolved\": []}",
+          "finish_reason": "stop"
+        },
+        "r0015:b0002": {
+          "registry_sha256": "99c127be3efe1c99adce53fbdf4cded960cb6ca023a08af62ad6b66fe1cda727",
+          "response": "{\n\"schema_version\": 3,\n\"items\": [\n  {\n    \"candidate_id\": \"r0015:c0024\",\n    \"label\": \"6\",\n    \"kind\": \"digit\",\n    \"confidence\": 0.95,\n    \"status\": \"recognized\"\n  },\n  {\n    \"candidate_id\": \"r0015:c0025\",\n    \"label\": \"3\",\n    \"kind\": \"digit\",\n    \"confidence\": 0.95,\n    \"status\": \"recognized\"\n  },\n  {\n    \"candidate_id\": \"r0015:c0026\",\n    \"label\": \"6\",\n    \"kind\": \"digit\",\n    \"confidence\": 0.95,\n    \"status\": \"recognized\"\n  },\n  {\n    \"candidate_id\": \"r0015:c0027\",\n    \"label\": \"1\",\n    \"kind\": \"digit\",\n    \"confidence\": 0.95,\n    \"status\": \"recognized\"\n  },\n  {\n    \"candidate_id\": \"r0015:c0028\",\n    \"label\": \"3\",\n    \"kind\": \"digit\",\n    \"confidence\": 0.95,\n    \"status\": \"recognized\"\n  },\n  {\n    \"candidate_id\": \"r0015:c0029\",\n    \"label\": \"6\",\n    \"kind\": \"digit\",\n    \"confidence\": 0.95,\n    \"status\": \"recognized\"\n  },\n  {\n    \"candidate_id\": \"r0015:c0030\",\n    \"label\": \"6\",\n    \"kind\": \"digit\",\n    \"confidence\": 0.95,\n    \"status\": \"recognized\"\n  }\n],\n\"unresolved\": [\n  {\n    \"candidate_id\": \"r0015:c0032\",\n    \"reason\": \"non_music\"\n  }\n]\n}",
+          "finish_reason": "stop"
+        }
+      }
+    }
+  }
+}

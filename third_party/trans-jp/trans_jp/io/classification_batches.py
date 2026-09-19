@@ -73,7 +73,10 @@ def write_batch_result(
 
 
 def validate_batch_files(
-    root: Path, entries: list[dict], registries: dict[int, CandidateRegistry]
+    root: Path,
+    entries: list[dict],
+    registries: dict[int, CandidateRegistry],
+    excluded: set[str] | None = None,
 ) -> dict[str, dict]:
     results = {}
     used = set()
@@ -147,6 +150,7 @@ def validate_batch_files(
         for c in registry.candidates
         if c.kind in ("digit", "barline") and not c.ambiguous
     }
+    expected -= excluded or set()
     if used != expected:
         raise ValueError("批次没有覆盖全部可识别候选")
     return results

@@ -45,12 +45,26 @@ def write_outputs(result: TransJpResult, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "jianpu.txt").write_text(result.jianpu_text, encoding="utf-8")
         (output_dir / "overlay.svg").write_text(result.overlay_svg, encoding="utf-8")
+        if result.lyrics:
+            (output_dir / "lyrics.json").write_text(
+                json.dumps(result.lyrics, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            (output_dir / "lyrics.svg").write_text(result.lyrics_svg, encoding="utf-8")
+            (output_dir / "lyrics.txt").write_text(
+                chr(10).join(line["text"] for line in result.lyrics["lines"]),
+                encoding="utf-8",
+            )
         for name, data in [
             ("score-link-map.json", result.source_map),
             ("text_anchors.json", result.text_anchors),
         ]:
             (output_dir / name).write_text(
                 json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        if result.lyrics_preview_html:
+            (output_dir / "lyrics-preview.html").write_text(
+                result.lyrics_preview_html, encoding="utf-8"
             )
         if result.preview_png:
             (output_dir / "overlay-preview.png").write_bytes(result.preview_png)

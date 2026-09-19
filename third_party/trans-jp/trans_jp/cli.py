@@ -15,6 +15,9 @@ from .models.errors import EngineError
 _ENV_API_KEY = os.getenv("TRANS_JP_API_KEY", "")
 _ENV_BASE_URL = os.getenv("TRANS_JP_BASE_URL", "")
 _ENV_MODEL = os.getenv("TRANS_JP_MODEL", "")
+_ENV_LYRICS_KEY = os.getenv("TRANS_JP_LYRICS_API_KEY", "")
+_ENV_LYRICS_URL = os.getenv("TRANS_JP_LYRICS_BASE_URL", "")
+_ENV_LYRICS_MODEL = os.getenv("TRANS_JP_LYRICS_MODEL", "")
 
 logger = logging.getLogger("trans_jp")
 
@@ -87,6 +90,30 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--no-melody-review", action="store_true", help="melody 仅本地处理，疑点留空"
     )
+    parser.add_argument(
+        "--lyrics",
+        choices=("off", "recognize"),
+        default="off",
+        help="歌词识别与音符误识别拦截；默认关闭",
+    )
+    parser.add_argument(
+        "--lyrics-responses-dir", type=Path, help="回放歌词证据根目录，不调用文字服务"
+    )
+    parser.add_argument(
+        "--lyrics-base-url",
+        default=_ENV_LYRICS_URL,
+        help="歌词 OCR/文字模型 OpenAI 兼容基地址，默认复用 --base-url",
+    )
+    parser.add_argument(
+        "--lyrics-model",
+        default=_ENV_LYRICS_MODEL,
+        help="歌词 OCR/文字模型，默认复用 --model",
+    )
+    parser.add_argument(
+        "--lyrics-api-key",
+        default=_ENV_LYRICS_KEY,
+        help="歌词 OCR/文字模型密钥，默认复用 --api-key",
+    )
     parser.add_argument("--debug", action="store_true", help="启用调试日志")
     args = parser.parse_args(argv)
 
@@ -100,6 +127,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                 EXIT_ARG_ERROR,
                 f"trans-jp: error: {flag} 必填（或设置环境变量 {env_name}）\n",
             )
+    if args.lyrics_responses_dir and args.lyrics != "recognize":
+        parser.exit(
+            EXIT_ARG_ERROR, "--lyrics-responses-dir 需要 --lyrics recognize" + chr(10)
+        )
     return args
 
 
@@ -157,6 +188,20 @@ def main(argv: list[str] | None = None) -> int:
         recognition_mode=args.recognition_mode,
         body_responses_dir=args.body_responses_dir,
         melody_review=not args.no_melody_review,
+        lyrics_mode=args.lyrics,
+        lyrics_responses_dir=args.lyrics_responses_dir,
+        lyrics_ocr=(
+            LlmConfig(
+                api_key=args.lyrics_api_key or args.api_key,
+                base_url=args.lyrics_base_url or args.base_url,
+                model=args.lyrics_model or args.model,
+                max_tokens=args.max_tokens,
+                temperature=args.temperature,
+                timeout=args.timeout,
+            )
+            if args.lyrics == "recognize"
+            else None
+        ),
     )
 
     try:

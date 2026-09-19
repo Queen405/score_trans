@@ -24,8 +24,13 @@ def partition_candidates(
 
 
 def assemble_body_tokens(
-    registry: CandidateRegistry, batches: list[CandidateBatchResult], row: RowSegment
+    registry: CandidateRegistry,
+    batches: list[CandidateBatchResult],
+    row: RowSegment,
+    *,
+    blocked: dict[str, str] | None = None,
 ) -> RowResult:
+    blocked = blocked or {}
     by_id = {c.candidate_id: c for c in registry.candidates}
     all_items = [item for batch in batches for item in batch.items]
     counts = Counter(item.candidate_id for item in all_items)
@@ -74,6 +79,17 @@ def assemble_body_tokens(
                     "candidate_id": c.candidate_id,
                     "reason": "主体粘连" if c.ambiguous else "没有分类结果",
                     "status": "candidate_unresolved",
+                }
+            )
+    for cid, reason in blocked.items():
+        accepted.pop(cid, None)
+        unresolved = [item for item in unresolved if item["candidate_id"] != cid]
+        if cid in by_id:
+            unresolved.append(
+                {
+                    "candidate_id": cid,
+                    "status": reason,
+                    "reason": "文字区域排除或类型冲突",
                 }
             )
     conflict_ids = {

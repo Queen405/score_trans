@@ -114,3 +114,49 @@ v3 注入客户端实现 `CandidateClassifier.classify(CandidateBatchRequest) ->
 
 
 局部元数据可通过本地等号候选裁剪复核，局部模型读数为 observed_local（不是已验证调号）；变化的生效范围不确定时继续留空。185 项测试通过不等于乐谱质量达标，完整验收缺口详见 MELODY_REVIEW.md。
+
+## 实验性歌词层与文字防误识别
+
+在 `bodies` 或 `melody` 上显式启用 `--lyrics recognize`。默认 `off`。
+先在整页发现细墨迹带，文字模型只读取本地编号裁剪；确定文字与未解决区域的主体候选不进入新主体请求，组装时再次拦截。歌词与音符分开输出。
+
+```bash
+source .venv/Scripts/activate
+export PYTHONUTF8=1 PYTHONPATH=third_party/trans-jp
+python -m trans_jp --input third_party/trans-jp/examples/image.png \
+  --output-dir screenshots/lyrics-new --lyrics recognize --debug
+```
+
+音符配置沿用 `TRANS_JP_*`。文字服务可单独通过 `TRANS_JP_LYRICS_API_KEY / TRANS_JP_LYRICS_BASE_URL / TRANS_JP_LYRICS_MODEL` 或 `--lyrics-api-key / --lyrics-base-url / --lyrics-model` 指定，未指定时显式复用当前视觉模型。适配器要求支持图片输入和 JSON 响应的 OpenAI 兼容服务；未验证所有 OCR 服务。本轮现有环境只有 AI 配置，因此实际测试仍使用 `agnes-3.0-flash` 读取文字，**并非新增专用 OCR 模型**。CLI 不自动加载根 `.env`，不自动切换模型。
+
+新增产物：
+
+- `lyrics.json`：歌词片段、中文单字/英文词、本地框、原图框、观测/定位状态，以及所有文字区域和候选排除原因。
+- `lyrics.txt`：片段原文；保留原观测，不补全歌词，不加入 `jianpu.txt`。
+- `lyrics.svg`：紫色片段框、橙色字词框，不替换底图文字。
+- `lyrics-preview.html`：自包含原图与图层，支持歌词/音符/冲突开关及点击详情。
+- `lyrics-evidence/`：区域、编号图册、请求、原始响应；`lyrics-manifest.json` 绑定源图、变换、候选及证据哈希。
+
+定位只使用实际墨迹间隙。局部裁剪转写与行文本做唯一的顺序匹配，重复词/粘连字不猜位置；失败时保留片段框和已可靠匹配的部分字词。`verified_crop` 表示裁剪转写与行文本一致，不是人工验证正确。模型置信度未知时为 null。
+
+音符关联只是候选 ID（`alignment_status=unconfirmed`），不是节拍对齐或一字多音解析。片段与上方乐谱区域的关联及 `verse_index` 仅按几何估计。混合区域、识别失败区域保守留空，可能漏音符；上下文中仍可能把文字判成乐谱。此模式不保证零误检，也未达到全面质量验收。
+
+### 复用主体与离线回放
+
+```bash
+# 旧 v3 主体结果 + 新文字识别：不重复主体模型请求，但运行文字服务
+python -m trans_jp --input third_party/trans-jp/examples/image.png \
+  --body-responses-dir screenshots/old-bodies/rows \
+  --output-dir screenshots/lyrics-enriched --lyrics recognize --debug
+
+# 已完成歌词运行的冻结回放；自动恢复歌词开关，不调用文字服务
+python -m trans_jp --input third_party/trans-jp/examples/image.png \
+  --body-responses-dir screenshots/lyrics-enriched/rows \
+  --output-dir screenshots/lyrics-replay --no-melody-review --debug
+```
+
+旧主体增强时保留原始批次及哈希，在组装时过滤；新在线运行则在发送前过滤。两者都保持原候选 ID。新结果 manifest 使用独立歌词扩展标记，省略的批次候选必须有排除证据；旧 v3 无歌词标记时行为不变。歌词证据版本当前为 3，版本不匹配拒绝回放，不默默重新请求。也可用 `--lyrics-responses-dir <含lyrics-manifest.json的根目录> --lyrics recognize` 冻结文字服务，源图、行变换和候选绑定必须一致。
+
+`melody` 排除落入文字框的点线候选，相关音符的属性保持未知，不把被排除的点线当成“没有附属记号”。旧 melody 证据不能在新增歌词过滤后继续使用，须从 v3 bodies 响应重新运行属性。
+
+验证结果与剩余限制见 [LYRICS_REVIEW.md](LYRICS_REVIEW.md)。
