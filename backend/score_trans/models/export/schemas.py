@@ -39,7 +39,7 @@ class ExportMidiRequest(BaseModel):
 class ExportMidiTextRequest(BaseModel):
     jianpu_text: str
     filename: str = "score.mid"
-    title: str = "简谱"
+    title: str | None = None
 
 
 class ExportMusicXmlRequest(BaseModel):
@@ -53,4 +53,4 @@ class ExportMusicXmlRequest(BaseModel):
 class ExportMusicXmlTextRequest(BaseModel):
     jianpu_text: str
     filename: str = "score.musicxml"
-    title: str = "简谱"
+    title: str | None = None

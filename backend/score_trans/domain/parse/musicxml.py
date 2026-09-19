@@ -97,7 +97,7 @@ def musicxml_to_scores(
     xml_parts = root.findall(_q(ns, "part"))
     if not xml_parts:
         resolved = "C" if target_key == "auto" else target_key
-        return [JianpuScore(title=title or "简谱", target_key=resolved)]
+        return [JianpuScore(title=title, target_key=resolved)]
 
     extracted_title = title or _extract_title(root, ns)
     profile = (
@@ -153,11 +153,7 @@ def musicxml_to_score(
         title=title,
         instrument_profile=instrument_profile,
     )
-    return (
-        scores[0]
-        if scores
-        else JianpuScore(title=title or "简谱", target_key=target_key)
-    )
+    return scores[0] if scores else JianpuScore(title=title, target_key=target_key)
 
 
 def _extract_first_key(part: ET.Element, ns: str) -> str | None:
@@ -369,10 +365,10 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
     return results if results else [score]
 
 
-def _extract_title(root: ET.Element, ns: str) -> str:
+def _extract_title(root: ET.Element, ns: str) -> str | None:
     work_title = root.find(f"{_q(ns, 'work')}/{_q(ns, 'work-title')}")
     movement_title = root.find(_q(ns, "movement-title"))
-    return _text(work_title) or _text(movement_title) or "简谱"
+    return _text(work_title) or _text(movement_title)
 
 
 def _extract_instrument_profile(root: ET.Element, ns: str) -> InstrumentProfile:

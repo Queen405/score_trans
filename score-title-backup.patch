@@ -1,0 +1,565 @@
+warning: in the working copy of 'backend/score_trans/models/export/schemas.py', CRLF will be replaced by LF the next time Git touches it
+diff --git a/backend/score_trans/domain/parse/jianpu_text.py b/backend/score_trans/domain/parse/jianpu_text.py
+index bce62907..2c4f88c4 100644
+--- a/backend/score_trans/domain/parse/jianpu_text.py
++++ b/backend/score_trans/domain/parse/jianpu_text.py
+@@ -51,7 +51,7 @@ class JianpuOptions:
+     key: str = "C"
+     beats: int = 4
+     beat_type: int = 4
+-    title: str = "简谱"
++    title: str | None = None
+     tempo: int | None = None
+     instrument_profile: InstrumentProfile = "general"
+ 
+@@ -1066,7 +1066,7 @@ def _parse_score_tokens(
+     initial_tempo: int = DEFAULT_TEMPO,
+     recovery: _PreviewRecovery | None = None,
+ ) -> JianpuScore:
+-    if title and options.title == "简谱":
++    if title is not None and options.title is None:
+         options.title = title
+     score = JianpuScore(
+         title=options.title,
+diff --git a/backend/score_trans/domain/parse/musicxml.py b/backend/score_trans/domain/parse/musicxml.py
+index a49dc10b..96e11cd3 100644
+--- a/backend/score_trans/domain/parse/musicxml.py
++++ b/backend/score_trans/domain/parse/musicxml.py
+@@ -97,7 +97,7 @@ def musicxml_to_scores(
+     xml_parts = root.findall(_q(ns, "part"))
+     if not xml_parts:
+         resolved = "C" if target_key == "auto" else target_key
+-        return [JianpuScore(title=title or "简谱", target_key=resolved)]
++        return [JianpuScore(title=title, target_key=resolved)]
+ 
+     extracted_title = title or _extract_title(root, ns)
+     profile = (
+@@ -156,7 +156,7 @@ def musicxml_to_score(
+     return (
+         scores[0]
+         if scores
+-        else JianpuScore(title=title or "简谱", target_key=target_key)
++        else JianpuScore(title=title, target_key=target_key)
+     )
+ 
+ 
+@@ -369,10 +369,10 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
+     return results if results else [score]
+ 
+ 
+-def _extract_title(root: ET.Element, ns: str) -> str:
++def _extract_title(root: ET.Element, ns: str) -> str | None:
+     work_title = root.find(f"{_q(ns, 'work')}/{_q(ns, 'work-title')}")
+     movement_title = root.find(_q(ns, "movement-title"))
+-    return _text(work_title) or _text(movement_title) or "简谱"
++    return _text(work_title) or _text(movement_title)
+ 
+ 
+ def _extract_instrument_profile(root: ET.Element, ns: str) -> InstrumentProfile:
+diff --git a/backend/score_trans/domain/text_attachments.py b/backend/score_trans/domain/text_attachments.py
+index a47140d9..5f293947 100644
+--- a/backend/score_trans/domain/text_attachments.py
++++ b/backend/score_trans/domain/text_attachments.py
+@@ -160,7 +160,7 @@ def _semantic_texts(score: JianpuScore) -> dict[str, object]:
+         elif block.role == "expression":
+             expressions.add(normalized)
+     return {
+-        "title": _normalize(score.title),
++        "title": _normalize(score.title) if score.title else "",
+         "lyrics": set(lyrics),
+         "lyric_stream": "".join(lyrics),
+         "expressions": expressions,
+diff --git a/backend/score_trans/domain/write/jianpu_text.py b/backend/score_trans/domain/write/jianpu_text.py
+index 0a3af802..58df43ca 100644
+--- a/backend/score_trans/domain/write/jianpu_text.py
++++ b/backend/score_trans/domain/write/jianpu_text.py
+@@ -428,7 +428,7 @@ def _score_to_jianpu_text(
+     instrument_profile = normalize_instrument_profile(score.instrument_profile)
+     if instrument_profile != "general":
+         lines.insert(0, f"instrument={instrument_profile}")
+-    if score.title and score.title != "简谱":
++    if score.title:
+         lines.insert(0, f"title={score.title}")
+     measure_lines: list[str] = []
+     lyrics: list[str] = []
+diff --git a/backend/score_trans/exec/pipeline/actions.py b/backend/score_trans/exec/pipeline/actions.py
+index df3f4504..d1c6e8be 100644
+--- a/backend/score_trans/exec/pipeline/actions.py
++++ b/backend/score_trans/exec/pipeline/actions.py
+@@ -168,7 +168,7 @@ class FullPipelineAction:
+             rendered_pages = self.renderer.render_scores_a4_svg_pages(
+                 render_scores,
+                 svg_path,
+-                title=title or (render_scores[0].title if render_scores else "简谱"),
++                title=title or (render_scores[0].title if render_scores else None),
+                 show_measure_numbers=show_measure_numbers,
+                 measure_number_mode=measure_number_mode,
+                 content_scale_percent=content_scale_percent,
+diff --git a/backend/score_trans/exec/render/actions.py b/backend/score_trans/exec/render/actions.py
+index a44d8b5e..3cb9af39 100644
+--- a/backend/score_trans/exec/render/actions.py
++++ b/backend/score_trans/exec/render/actions.py
+@@ -65,21 +65,18 @@ class _SourcePageRange:
+     end_measure_number: int | None
+ 
+ 
+-_DEFAULT_TITLE = "简谱"
++def _effective_title(request_title: str | None, scores: list[JianpuScore]) -> str | None:
++    """Resolve the render title: explicit request title first, parsed score title next.
+ 
+-
+-def _effective_title(request_title: str | None, scores: list[JianpuScore]) -> str:
+-    """Resolve the render title, letting a parsed score title win over the default sentinel.
+-
+-    The frontend and several request schemas use ``"简谱"`` as the default title.
+-    When the jianpu text or MusicXML carries an explicit title, that should take
+-    priority over the default.
++    A ``None`` result means the score genuinely carries no title, and callers
++    render it without one. No language-specific default lives here: the client
++    owns the fallback title and supplies it through the request payload.
+     """
+-    if request_title and request_title != _DEFAULT_TITLE:
++    if request_title:
+         return request_title
+-    if scores and scores[0].title and scores[0].title != _DEFAULT_TITLE:
++    if scores and scores[0].title:
+         return scores[0].title
+-    return request_title or _DEFAULT_TITLE
++    return None
+ 
+ 
+ class RenderMusicXmlJianpuAction:
+@@ -253,7 +250,7 @@ class RenderJianpuTextAction:
+         input_path: str | Path,
+         output_path: str | Path,
+         *,
+-        title: str = "简谱",
++        title: str | None = None,
+         show_measure_numbers: bool = True,
+         measure_number_mode: MeasureNumberMode = "all",
+     ) -> Path:
+@@ -272,7 +269,7 @@ class RenderJianpuTextAction:
+         *,
+         page_width: float,
+         page_height: float,
+-        title: str = "简谱",
++        title: str | None = None,
+         show_measure_numbers: bool = True,
+         measure_number_mode: MeasureNumberMode = "all",
+     ) -> Path:
+@@ -291,7 +288,7 @@ class RenderJianpuTextAction:
+         input_path: str | Path,
+         output_path: str | Path,
+         *,
+-        title: str = "简谱",
++        title: str | None = None,
+         show_measure_numbers: bool = True,
+         measure_number_mode: MeasureNumberMode = "all",
+         initial_measure_number: int = 1,
+diff --git a/backend/score_trans/models/export/schemas.py b/backend/score_trans/models/export/schemas.py
+index ed609b04..3c24f5ec 100644
+--- a/backend/score_trans/models/export/schemas.py
++++ b/backend/score_trans/models/export/schemas.py
+@@ -39,7 +39,7 @@ class ExportMidiRequest(BaseModel):
+ class ExportMidiTextRequest(BaseModel):
+     jianpu_text: str
+     filename: str = "score.mid"
+-    title: str = "简谱"
++    title: str | None = None
+ 
+ 
+ class ExportMusicXmlRequest(BaseModel):
+@@ -53,4 +53,4 @@ class ExportMusicXmlRequest(BaseModel):
+ class ExportMusicXmlTextRequest(BaseModel):
+     jianpu_text: str
+     filename: str = "score.musicxml"
+-    title: str = "简谱"
++    title: str | None = None
+diff --git a/backend/score_trans/models/render/schemas.py b/backend/score_trans/models/render/schemas.py
+index 520f44f1..1dbb12ae 100644
+--- a/backend/score_trans/models/render/schemas.py
++++ b/backend/score_trans/models/render/schemas.py
+@@ -70,14 +70,14 @@ class RenderJianpuTextSvgRequest(A4LayoutRequest):
+     show_measure_numbers: bool | None = None
+     measure_number_mode: MeasureNumberMode = "all"
+     initial_measure_number: int = Field(default=1, ge=1)
+-    title: str = "简谱"
++    title: str | None = None
+     text_anchors: list[TextAnchor] = []
+ 
+ 
+ class LiveJianpuSvgRequest(BaseModel):
+     jianpu_text: str
+     cursor_offset: int | None = None
+-    title: str = "简谱"
++    title: str | None = None
+     show_measure_numbers: bool | None = False
+     show_title: bool = False
+     measure_number_mode: MeasureNumberMode = "all"
+@@ -100,7 +100,7 @@ class RenderJianpuTextSvgResponse(BaseModel):
+ 
+ class NormalizeJianpuTextRequest(BaseModel):
+     jianpu_text: str
+-    title: str = "简谱"
++    title: str | None = None
+ 
+ 
+ class NormalizeJianpuTextResponse(BaseModel):
+@@ -169,7 +169,7 @@ class BatchRenderRequest(A4LayoutRequest):
+     show_measure_numbers: bool | None = None
+     measure_number_mode: MeasureNumberMode = "all"
+     initial_measure_number: int = Field(default=1, ge=1)
+-    title: str = "简谱"
++    title: str | None = None
+ 
+ 
+ class BatchRenderResponse(BaseModel):
+diff --git a/backend/score_trans/models/score.py b/backend/score_trans/models/score.py
+index 8714a85c..955eecaa 100644
+--- a/backend/score_trans/models/score.py
++++ b/backend/score_trans/models/score.py
+@@ -239,7 +239,7 @@ class Measure:
+ 
+ @dataclass(slots=True)
+ class JianpuScore:
+-    title: str = "简谱"
++    title: str | None = None
+     target_key: str = "C"
+     source_key: str = "C"
+     beats: int = 4
+diff --git a/backend/score_trans/services/correct/correction_service.py b/backend/score_trans/services/correct/correction_service.py
+index 79de99b2..6bd73f35 100644
+--- a/backend/score_trans/services/correct/correction_service.py
++++ b/backend/score_trans/services/correct/correction_service.py
+@@ -96,7 +96,7 @@ def _document_title(
+     options: ConversionOptionsDTO,
+     attachments: list[SourceTextAttachment],
+     scores: list[JianpuScore],
+-) -> str:
++) -> str | None:
+     if options.title and options.title.strip():
+         return options.title.strip()
+     attachment_title = next(
+@@ -109,4 +109,4 @@ def _document_title(
+     )
+     if attachment_title:
+         return attachment_title
+-    return scores[0].title if scores and scores[0].title else "简谱"
++    return scores[0].title if scores and scores[0].title else None
+diff --git a/backend/score_trans/services/render/engraving/renderer.py b/backend/score_trans/services/render/engraving/renderer.py
+index 2264b53e..e6a32064 100644
+--- a/backend/score_trans/services/render/engraving/renderer.py
++++ b/backend/score_trans/services/render/engraving/renderer.py
+@@ -191,7 +191,7 @@ class PublicationRenderer:
+         if initial_measure_number is not None:
+             _assign_display_measure_numbers(parts, initial_measure_number)
+         if not parts:
+-            parts = [[JianpuScore(title=title or "简谱")]]
++            parts = [[JianpuScore(title=title)]]
+         cells = _build_cells(parts, style)
+         playback_groups = {
+             cell_index: {
+@@ -219,7 +219,7 @@ class PublicationRenderer:
+             )
+         pages = _paginate(systems, style, show_title=show_title)
+         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
+-        document_title = title or score0.title or "简谱"
++        document_title = title or score0.title or ""
+         next_note_index = 0
+         document_spanners = [_OpenSpanners() for _ in range(max(1, len(parts)))]
+         result: list[PublicationPage] = []
+diff --git a/backend/score_trans/services/render/main.py b/backend/score_trans/services/render/main.py
+index c5b46b0b..3e915a55 100644
+--- a/backend/score_trans/services/render/main.py
++++ b/backend/score_trans/services/render/main.py
+@@ -61,11 +61,7 @@ def render_jianpu_svg(
+         if isinstance(jianpu_text, JianpuScore)
+         else parse_jianpu_score(jianpu_text, title=options.title)
+     )
+-    if (
+-        not isinstance(jianpu_text, JianpuScore)
+-        and score.title != "简谱"
+-        and options.title == "简谱"
+-    ):
++    if not isinstance(jianpu_text, JianpuScore) and options.title is None:
+         options = replace(options, title=score.title)
+     return render_score_svg(score, options)
+ 
+@@ -172,7 +168,7 @@ def render_jianpu_page_svg(
+     *,
+     page_width: float,
+     page_height: float,
+-    title: str = "简谱",
++    title: str | None = None,
+     options: RenderOptions | None = None,
+ ) -> str:
+     score = parse_jianpu_score(jianpu_text, title=title)
+@@ -210,7 +206,7 @@ def render_scores_a4_pages(
+     options: RenderOptions | None = None,
+     layout: A4LayoutOptions | None = None,
+ ) -> list[RenderedA4Page]:
+-    options = options or RenderOptions(title=(scores[0].title if scores else "简谱"))
++    options = options or RenderOptions(title=(scores[0].title if scores else None))
+     layout = layout or A4LayoutOptions()
+     renderer = _a4_renderer(options, layout)
+     pages = renderer.render_scores(
+@@ -283,7 +279,7 @@ def render_scores_a4_page_results_to_files(
+     page_index_offset: int = 0,
+ ) -> list[RenderedA4FilePage]:
+     options = RenderOptions(
+-        title=title or (scores[0].title if scores else "简谱"),
++        title=title or (scores[0].title if scores else None),
+         show_measure_numbers=show_measure_numbers is not False,
+         measure_number_mode=measure_number_mode
+         or ("none" if show_measure_numbers is False else "all"),
+@@ -323,7 +319,7 @@ def render_jianpu_file_to_svg(
+     input_path: Path,
+     output_path: Path,
+     *,
+-    title: str = "简谱",
++    title: str | None = None,
+     show_measure_numbers: bool | None = None,
+     measure_number_mode=None,
+     initial_measure_number: int | None = 1,
+@@ -348,7 +344,7 @@ def render_jianpu_page_file_to_svg(
+     *,
+     page_width: float,
+     page_height: float,
+-    title: str = "简谱",
++    title: str | None = None,
+     show_measure_numbers: bool | None = None,
+     measure_number_mode=None,
+     initial_measure_number: int | None = 1,
+diff --git a/backend/score_trans/services/render/options.py b/backend/score_trans/services/render/options.py
+index 14443b72..c0c83571 100644
+--- a/backend/score_trans/services/render/options.py
++++ b/backend/score_trans/services/render/options.py
+@@ -29,7 +29,7 @@ class RenderOptions:
+     from the removed SCORE_TRANS_RENDER_* environment variables.
+     """
+ 
+-    title: str = "简谱"
++    title: str | None = None
+     width: int = 800
+     margin: int = 36
+     font_family: str = "ScoreTransNotoSerif"
+diff --git a/backend/score_trans/services/render/render_service.py b/backend/score_trans/services/render/render_service.py
+index d0d6c9b0..62c7e5d1 100644
+--- a/backend/score_trans/services/render/render_service.py
++++ b/backend/score_trans/services/render/render_service.py
+@@ -199,7 +199,7 @@ class PublicationRenderService:
+         return render_scores_a4_pages(
+             scores,
+             RenderOptions(
+-                title=title or (scores[0].title if scores else "简谱"),
++                title=title or (scores[0].title if scores else None),
+                 show_measure_numbers=mode != "none",
+                 measure_number_mode=mode,
+                 initial_measure_number=initial_measure_number,
+@@ -255,7 +255,7 @@ class PublicationRenderService:
+         self,
+         input_path: str | Path,
+         output_path: str | Path,
+-        title: str = "简谱",
++        title: str | None = None,
+         show_measure_numbers: bool | None = None,
+         measure_number_mode: MeasureNumberMode | None = None,
+         initial_measure_number: int | None = 1,
+@@ -276,7 +276,7 @@ class PublicationRenderService:
+         *,
+         page_width: float,
+         page_height: float,
+-        title: str = "简谱",
++        title: str | None = None,
+         show_measure_numbers: bool | None = None,
+         measure_number_mode: MeasureNumberMode | None = None,
+         initial_measure_number: int | None = 1,
+diff --git a/desktop/src/renderer/src/i18n/locales/en-US/common.ts b/desktop/src/renderer/src/i18n/locales/en-US/common.ts
+index a478cf4c..aad50655 100644
+--- a/desktop/src/renderer/src/i18n/locales/en-US/common.ts
++++ b/desktop/src/renderer/src/i18n/locales/en-US/common.ts
+@@ -89,6 +89,9 @@ const common: typeof zhCommon = {
+     unknown: 'Unknown',
+     restartRequired: 'Takes effect after restarting the app',
+   },
++  score: {
++    defaultTitle: 'Jianpu',
++  },
+ }
+ 
+ export default common
+diff --git a/desktop/src/renderer/src/i18n/locales/zh-CN/common.ts b/desktop/src/renderer/src/i18n/locales/zh-CN/common.ts
+index 3de46572..cc707a71 100644
+--- a/desktop/src/renderer/src/i18n/locales/zh-CN/common.ts
++++ b/desktop/src/renderer/src/i18n/locales/zh-CN/common.ts
+@@ -87,6 +87,9 @@ const common = {
+     unknown: '未知',
+     restartRequired: '需要重启应用后生效',
+   },
++  score: {
++    defaultTitle: '简谱',
++  },
+ }
+ 
+ export default common
+diff --git a/desktop/src/renderer/src/models/openapi.ts b/desktop/src/renderer/src/models/openapi.ts
+index 26e34013..55d4cf35 100644
+--- a/desktop/src/renderer/src/models/openapi.ts
++++ b/desktop/src/renderer/src/models/openapi.ts
+@@ -1204,11 +1204,8 @@ export type components = {
+              * @default C
+              */
+             target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
+-            /**
+-             * Title
+-             * @default 简谱
+-             */
+-            title?: string;
++            /** Title */
++            title?: string | null;
+         };
+         /** BatchRenderResponse */
+         BatchRenderResponse: {
+@@ -1602,11 +1599,8 @@ export type components = {
+             filename?: string;
+             /** Jianpu Text */
+             jianpu_text: string;
+-            /**
+-             * Title
+-             * @default 简谱
+-             */
+-            title?: string;
++            /** Title */
++            title?: string | null;
+         };
+         /** ExportMusicXmlRequest */
+         ExportMusicXmlRequest: {
+@@ -1633,11 +1627,8 @@ export type components = {
+             filename?: string;
+             /** Jianpu Text */
+             jianpu_text: string;
+-            /**
+-             * Title
+-             * @default 简谱
+-             */
+-            title?: string;
++            /** Title */
++            title?: string | null;
+         };
+         /** ExportRenderedImagesRequest */
+         ExportRenderedImagesRequest: {
+@@ -1883,11 +1874,8 @@ export type components = {
+              * @default false
+              */
+             show_title?: boolean;
+-            /**
+-             * Title
+-             * @default 简谱
+-             */
+-            title?: string;
++            /** Title */
++            title?: string | null;
+         };
+         /** LiveJianpuSvgResponse */
+         LiveJianpuSvgResponse: {
+@@ -1960,11 +1948,8 @@ export type components = {
+         NormalizeJianpuTextRequest: {
+             /** Jianpu Text */
+             jianpu_text: string;
+-            /**
+-             * Title
+-             * @default 简谱
+-             */
+-            title?: string;
++            /** Title */
++            title?: string | null;
+         };
+         /** NormalizeJianpuTextResponse */
+         NormalizeJianpuTextResponse: {
+@@ -2675,11 +2660,8 @@ export type components = {
+              * @default []
+              */
+             text_anchors?: components["schemas"]["TextAnchor"][];
+-            /**
+-             * Title
+-             * @default 简谱
+-             */
+-            title?: string;
++            /** Title */
++            title?: string | null;
+         };
+         /** RenderJianpuTextSvgResponse */
+         RenderJianpuTextSvgResponse: {
+diff --git a/tests/test_render.py b/tests/test_render.py
+index c2a14fe1..89bd139a 100644
+--- a/tests/test_render.py
++++ b/tests/test_render.py
+@@ -2806,25 +2806,36 @@ def test_overfull_duration_does_not_cross_the_right_measure_barline() -> None:
+ # ---------------------------------------------------------------------------
+ 
+ 
+-def test_effective_title_uses_score_title_when_request_is_default() -> None:
++def test_effective_title_resolution_order() -> None:
+     from score_trans.exec.render.actions import _effective_title
+ 
+     score = JianpuScore(title="My Song")
+-    assert _effective_title("简谱", [score]) == "My Song"
+ 
+-    # Request explicitly set a non-default title — request wins
++    # An explicit request title wins over everything else.
+     assert _effective_title("Custom", [score]) == "Custom"
+ 
+-    # No scores — fall back to request title
+-    assert _effective_title("简谱", []) == "简谱"
+-
+-    # None request title — score title wins
++    # Without a request title the score title is used.
+     assert _effective_title(None, [score]) == "My Song"
+ 
++    # Neither present — there is no title, not a fallback string.
++    assert _effective_title(None, [JianpuScore()]) is None
++    assert _effective_title(None, []) is None
++
++
++def test_score_carries_no_builtin_title() -> None:
++    """The absence of a title must be representable, not simulated by a
++    default string that later needs sentinel comparisons to undo."""
++    from score_trans.domain.parse.jianpu_text import JianpuOptions
++    from score_trans.services.render.options import RenderOptions
+ 
+-def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> None:
+-    """When jianpu text has title=My Song and req.title is '简谱', the SVG
+-    should contain 'My Song' and not '简谱'."""
++    assert JianpuScore().title is None
++    assert JianpuOptions().title is None
++    assert RenderOptions().title is None
++
++
++def test_batch_render_uses_jianpu_text_title_when_request_omits_one(tmp_path: Path) -> None:
++    """When jianpu text has title=My Song and the request omits a title, the SVG
++    renders 'My Song'. An explicit request title takes priority instead."""
+     from score_trans.models.render.schemas import (
+         BatchRenderPageRequest,
+         BatchRenderRequest,
+@@ -2838,7 +2849,6 @@ def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> Non
+                 jianpu_text="title=My Song\n1=C\n4/4\n1 2 3 4 |",
+             )
+         ],
+-        title="简谱",
+         jianpu_content_scale_percent=75,
+         jianpu_system_gap_percent=88,
+         jianpu_short_note_gap_percent=85,
+@@ -2852,4 +2862,12 @@ def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> Non
+     assert response.pages[0].layout_key == "75:88:85:100:0"
+     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
+     assert "My Song" in text_content
+-    assert "简谱" not in text_content
++
++    req.title = "Custom"
++    response = actions.render_batch_a4(req)
++    svg_path = uploads.get_path(response.svg_file_id)
++    assert svg_path is not None
++    root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
++    text_content = " ".join(node.text or "" for node in root.iter() if node.text)
++    assert "Custom" in text_content
++    assert "My Song" not in text_content

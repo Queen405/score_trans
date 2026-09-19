@@ -191,7 +191,7 @@ class PublicationRenderer:
         if initial_measure_number is not None:
             _assign_display_measure_numbers(parts, initial_measure_number)
         if not parts:
-            parts = [[JianpuScore(title=title or "简谱")]]
+            parts = [[JianpuScore(title=title)]]
         cells = _build_cells(parts, style)
         playback_groups = {
             cell_index: {
@@ -219,7 +219,7 @@ class PublicationRenderer:
             )
         pages = _paginate(systems, style, show_title=show_title)
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
-        document_title = title or score0.title or "简谱"
+        document_title = title or score0.title or ""
         next_note_index = 0
         document_spanners = [_OpenSpanners() for _ in range(max(1, len(parts)))]
         result: list[PublicationPage] = []

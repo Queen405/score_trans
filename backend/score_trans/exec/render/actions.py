@@ -65,21 +65,20 @@ class _SourcePageRange:
     end_measure_number: int | None
 
 
-_DEFAULT_TITLE = "简谱"
+def _effective_title(
+    request_title: str | None, scores: list[JianpuScore]
+) -> str | None:
+    """Resolve the render title: explicit request title first, parsed score title next.
 
-
-def _effective_title(request_title: str | None, scores: list[JianpuScore]) -> str:
-    """Resolve the render title, letting a parsed score title win over the default sentinel.
-
-    The frontend and several request schemas use ``"简谱"`` as the default title.
-    When the jianpu text or MusicXML carries an explicit title, that should take
-    priority over the default.
+    A ``None`` result means the score genuinely carries no title, and callers
+    render it without one. No language-specific default lives here: the client
+    owns the fallback title and supplies it through the request payload.
     """
-    if request_title and request_title != _DEFAULT_TITLE:
+    if request_title:
         return request_title
-    if scores and scores[0].title and scores[0].title != _DEFAULT_TITLE:
+    if scores and scores[0].title:
         return scores[0].title
-    return request_title or _DEFAULT_TITLE
+    return None
 
 
 class RenderMusicXmlJianpuAction:
@@ -253,7 +252,7 @@ class RenderJianpuTextAction:
         input_path: str | Path,
         output_path: str | Path,
         *,
-        title: str = "简谱",
+        title: str | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
     ) -> Path:
@@ -272,7 +271,7 @@ class RenderJianpuTextAction:
         *,
         page_width: float,
         page_height: float,
-        title: str = "简谱",
+        title: str | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
     ) -> Path:
@@ -291,7 +290,7 @@ class RenderJianpuTextAction:
         input_path: str | Path,
         output_path: str | Path,
         *,
-        title: str = "简谱",
+        title: str | None = None,
         show_measure_numbers: bool = True,
         measure_number_mode: MeasureNumberMode = "all",
         initial_measure_number: int = 1,

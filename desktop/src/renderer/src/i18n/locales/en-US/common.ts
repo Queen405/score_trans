@@ -89,6 +89,9 @@ const common: typeof zhCommon = {
     unknown: 'Unknown',
     restartRequired: 'Takes effect after restarting the app',
   },
+  score: {
+    defaultTitle: 'Jianpu',
+  },
 }
 
 export default common

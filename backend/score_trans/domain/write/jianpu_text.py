@@ -428,7 +428,7 @@ def _score_to_jianpu_text(
     instrument_profile = normalize_instrument_profile(score.instrument_profile)
     if instrument_profile != "general":
         lines.insert(0, f"instrument={instrument_profile}")
-    if score.title and score.title != "简谱":
+    if score.title:
         lines.insert(0, f"title={score.title}")
     measure_lines: list[str] = []
     lyrics: list[str] = []

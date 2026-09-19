@@ -61,11 +61,7 @@ def render_jianpu_svg(
         if isinstance(jianpu_text, JianpuScore)
         else parse_jianpu_score(jianpu_text, title=options.title)
     )
-    if (
-        not isinstance(jianpu_text, JianpuScore)
-        and score.title != "简谱"
-        and options.title == "简谱"
-    ):
+    if not isinstance(jianpu_text, JianpuScore) and options.title is None:
         options = replace(options, title=score.title)
     return render_score_svg(score, options)
 
@@ -172,7 +168,7 @@ def render_jianpu_page_svg(
     *,
     page_width: float,
     page_height: float,
-    title: str = "简谱",
+    title: str | None = None,
     options: RenderOptions | None = None,
 ) -> str:
     score = parse_jianpu_score(jianpu_text, title=title)
@@ -210,7 +206,7 @@ def render_scores_a4_pages(
     options: RenderOptions | None = None,
     layout: A4LayoutOptions | None = None,
 ) -> list[RenderedA4Page]:
-    options = options or RenderOptions(title=(scores[0].title if scores else "简谱"))
+    options = options or RenderOptions(title=(scores[0].title if scores else None))
     layout = layout or A4LayoutOptions()
     renderer = _a4_renderer(options, layout)
     pages = renderer.render_scores(
@@ -283,7 +279,7 @@ def render_scores_a4_page_results_to_files(
     page_index_offset: int = 0,
 ) -> list[RenderedA4FilePage]:
     options = RenderOptions(
-        title=title or (scores[0].title if scores else "简谱"),
+        title=title or (scores[0].title if scores else None),
         show_measure_numbers=show_measure_numbers is not False,
         measure_number_mode=measure_number_mode
         or ("none" if show_measure_numbers is False else "all"),
@@ -323,7 +319,7 @@ def render_jianpu_file_to_svg(
     input_path: Path,
     output_path: Path,
     *,
-    title: str = "简谱",
+    title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
     initial_measure_number: int | None = 1,
@@ -348,7 +344,7 @@ def render_jianpu_page_file_to_svg(
     *,
     page_width: float,
     page_height: float,
-    title: str = "简谱",
+    title: str | None = None,
     show_measure_numbers: bool | None = None,
     measure_number_mode=None,
     initial_measure_number: int | None = 1,

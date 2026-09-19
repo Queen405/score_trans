@@ -96,7 +96,7 @@ def _document_title(
     options: ConversionOptionsDTO,
     attachments: list[SourceTextAttachment],
     scores: list[JianpuScore],
-) -> str:
+) -> str | None:
     if options.title and options.title.strip():
         return options.title.strip()
     attachment_title = next(
@@ -109,4 +109,4 @@ def _document_title(
     )
     if attachment_title:
         return attachment_title
-    return scores[0].title if scores and scores[0].title else "简谱"
+    return scores[0].title if scores and scores[0].title else None

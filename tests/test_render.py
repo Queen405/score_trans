@@ -2806,25 +2806,38 @@ def test_overfull_duration_does_not_cross_the_right_measure_barline() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_effective_title_uses_score_title_when_request_is_default() -> None:
+def test_effective_title_resolution_order() -> None:
     from score_trans.exec.render.actions import _effective_title
 
     score = JianpuScore(title="My Song")
-    assert _effective_title("简谱", [score]) == "My Song"
 
-    # Request explicitly set a non-default title — request wins
+    # An explicit request title wins over everything else.
     assert _effective_title("Custom", [score]) == "Custom"
 
-    # No scores — fall back to request title
-    assert _effective_title("简谱", []) == "简谱"
-
-    # None request title — score title wins
+    # Without a request title the score title is used.
     assert _effective_title(None, [score]) == "My Song"
 
+    # Neither present — there is no title, not a fallback string.
+    assert _effective_title(None, [JianpuScore()]) is None
+    assert _effective_title(None, []) is None
 
-def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> None:
-    """When jianpu text has title=My Song and req.title is '简谱', the SVG
-    should contain 'My Song' and not '简谱'."""
+
+def test_score_carries_no_builtin_title() -> None:
+    """The absence of a title must be representable, not simulated by a
+    default string that later needs sentinel comparisons to undo."""
+    from score_trans.domain.parse.jianpu_text import JianpuOptions
+    from score_trans.services.render.options import RenderOptions
+
+    assert JianpuScore().title is None
+    assert JianpuOptions().title is None
+    assert RenderOptions().title is None
+
+
+def test_batch_render_uses_jianpu_text_title_when_request_omits_one(
+    tmp_path: Path,
+) -> None:
+    """When jianpu text has title=My Song and the request omits a title, the SVG
+    renders 'My Song'. An explicit request title takes priority instead."""
     from score_trans.models.render.schemas import (
         BatchRenderPageRequest,
         BatchRenderRequest,
@@ -2838,7 +2851,6 @@ def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> Non
                 jianpu_text="title=My Song\n1=C\n4/4\n1 2 3 4 |",
             )
         ],
-        title="简谱",
         jianpu_content_scale_percent=75,
         jianpu_system_gap_percent=88,
         jianpu_short_note_gap_percent=85,
@@ -2852,4 +2864,12 @@ def test_batch_render_uses_jianpu_text_title_over_default(tmp_path: Path) -> Non
     assert response.pages[0].layout_key == "75:88:85:100:0"
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
-    assert "简谱" not in text_content
+
+    req.title = "Custom"
+    response = actions.render_batch_a4(req)
+    svg_path = uploads.get_path(response.svg_file_id)
+    assert svg_path is not None
+    root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
+    text_content = " ".join(node.text or "" for node in root.iter() if node.text)
+    assert "Custom" in text_content
+    assert "My Song" not in text_content

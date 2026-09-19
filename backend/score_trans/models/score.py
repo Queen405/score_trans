@@ -239,7 +239,7 @@ class Measure:
 
 @dataclass(slots=True)
 class JianpuScore:
-    title: str = "简谱"
+    title: str | None = None
     target_key: str = "C"
     source_key: str = "C"
     beats: int = 4

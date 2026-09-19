@@ -70,14 +70,14 @@ class RenderJianpuTextSvgRequest(A4LayoutRequest):
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     initial_measure_number: int = Field(default=1, ge=1)
-    title: str = "简谱"
+    title: str | None = None
     text_anchors: list[TextAnchor] = []
 
 
 class LiveJianpuSvgRequest(BaseModel):
     jianpu_text: str
     cursor_offset: int | None = None
-    title: str = "简谱"
+    title: str | None = None
     show_measure_numbers: bool | None = False
     show_title: bool = False
     measure_number_mode: MeasureNumberMode = "all"
@@ -100,7 +100,7 @@ class RenderJianpuTextSvgResponse(BaseModel):
 
 class NormalizeJianpuTextRequest(BaseModel):
     jianpu_text: str
-    title: str = "简谱"
+    title: str | None = None
 
 
 class NormalizeJianpuTextResponse(BaseModel):
@@ -169,7 +169,7 @@ class BatchRenderRequest(A4LayoutRequest):
     show_measure_numbers: bool | None = None
     measure_number_mode: MeasureNumberMode = "all"
     initial_measure_number: int = Field(default=1, ge=1)
-    title: str = "简谱"
+    title: str | None = None
 
 
 class BatchRenderResponse(BaseModel):

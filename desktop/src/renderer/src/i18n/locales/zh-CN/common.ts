@@ -87,6 +87,9 @@ const common = {
     unknown: '未知',
     restartRequired: '需要重启应用后生效',
   },
+  score: {
+    defaultTitle: '简谱',
+  },
 }
 
 export default common

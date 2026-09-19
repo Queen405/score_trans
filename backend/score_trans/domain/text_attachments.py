@@ -160,7 +160,7 @@ def _semantic_texts(score: JianpuScore) -> dict[str, object]:
         elif block.role == "expression":
             expressions.add(normalized)
     return {
-        "title": _normalize(score.title),
+        "title": _normalize(score.title) if score.title else "",
         "lyrics": set(lyrics),
         "lyric_stream": "".join(lyrics),
         "expressions": expressions,

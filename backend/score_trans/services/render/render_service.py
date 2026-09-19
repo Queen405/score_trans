@@ -199,7 +199,7 @@ class PublicationRenderService:
         return render_scores_a4_pages(
             scores,
             RenderOptions(
-                title=title or (scores[0].title if scores else "简谱"),
+                title=title or (scores[0].title if scores else None),
                 show_measure_numbers=mode != "none",
                 measure_number_mode=mode,
                 initial_measure_number=initial_measure_number,
@@ -255,7 +255,7 @@ class PublicationRenderService:
         self,
         input_path: str | Path,
         output_path: str | Path,
-        title: str = "简谱",
+        title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
         initial_measure_number: int | None = 1,
@@ -276,7 +276,7 @@ class PublicationRenderService:
         *,
         page_width: float,
         page_height: float,
-        title: str = "简谱",
+        title: str | None = None,
         show_measure_numbers: bool | None = None,
         measure_number_mode: MeasureNumberMode | None = None,
         initial_measure_number: int | None = 1,

@@ -29,7 +29,7 @@ class RenderOptions:
     from the removed SCORE_TRANS_RENDER_* environment variables.
     """
 
-    title: str = "简谱"
+    title: str | None = None
     width: int = 800
     margin: int = 36
     font_family: str = "ScoreTransNotoSerif"

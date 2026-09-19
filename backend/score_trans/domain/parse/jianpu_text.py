@@ -51,7 +51,7 @@ class JianpuOptions:
     key: str = "C"
     beats: int = 4
     beat_type: int = 4
-    title: str = "简谱"
+    title: str | None = None
     tempo: int | None = None
     instrument_profile: InstrumentProfile = "general"
 
@@ -1066,7 +1066,7 @@ def _parse_score_tokens(
     initial_tempo: int = DEFAULT_TEMPO,
     recovery: _PreviewRecovery | None = None,
 ) -> JianpuScore:
-    if title and options.title == "简谱":
+    if title is not None and options.title is None:
         options.title = title
     score = JianpuScore(
         title=options.title,

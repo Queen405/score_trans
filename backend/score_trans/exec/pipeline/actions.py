@@ -168,7 +168,7 @@ class FullPipelineAction:
             rendered_pages = self.renderer.render_scores_a4_svg_pages(
                 render_scores,
                 svg_path,
-                title=title or (render_scores[0].title if render_scores else "简谱"),
+                title=title or (render_scores[0].title if render_scores else None),
                 show_measure_numbers=show_measure_numbers,
                 measure_number_mode=measure_number_mode,
                 content_scale_percent=content_scale_percent,

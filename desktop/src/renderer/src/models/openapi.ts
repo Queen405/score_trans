@@ -1204,11 +1204,8 @@ export type components = {
              * @default C
              */
             target_key?: ("Cb" | "Gb" | "Db" | "Ab" | "Eb" | "Bb" | "F" | "C" | "G" | "D" | "A" | "E" | "B" | "F#" | "C#") | "auto";
-            /**
-             * Title
-             * @default 简谱
-             */
-            title?: string;
+            /** Title */
+            title?: string | null;
         };
         /** BatchRenderResponse */
         BatchRenderResponse: {
@@ -1602,11 +1599,8 @@ export type components = {
             filename?: string;
             /** Jianpu Text */
             jianpu_text: string;
-            /**
-             * Title
-             * @default 简谱
-             */
-            title?: string;
+            /** Title */
+            title?: string | null;
         };
         /** ExportMusicXmlRequest */
         ExportMusicXmlRequest: {
@@ -1633,11 +1627,8 @@ export type components = {
             filename?: string;
             /** Jianpu Text */
             jianpu_text: string;
-            /**
-             * Title
-             * @default 简谱
-             */
-            title?: string;
+            /** Title */
+            title?: string | null;
         };
         /** ExportRenderedImagesRequest */
         ExportRenderedImagesRequest: {
@@ -1883,11 +1874,8 @@ export type components = {
              * @default false
              */
             show_title?: boolean;
-            /**
-             * Title
-             * @default 简谱
-             */
-            title?: string;
+            /** Title */
+            title?: string | null;
         };
         /** LiveJianpuSvgResponse */
         LiveJianpuSvgResponse: {
@@ -1960,11 +1948,8 @@ export type components = {
         NormalizeJianpuTextRequest: {
             /** Jianpu Text */
             jianpu_text: string;
-            /**
-             * Title
-             * @default 简谱
-             */
-            title?: string;
+            /** Title */
+            title?: string | null;
         };
         /** NormalizeJianpuTextResponse */
         NormalizeJianpuTextResponse: {
@@ -2675,11 +2660,8 @@ export type components = {
              * @default []
              */
             text_anchors?: components["schemas"]["TextAnchor"][];
-            /**
-             * Title
-             * @default 简谱
-             */
-            title?: string;
+            /** Title */
+            title?: string | null;
         };
         /** RenderJianpuTextSvgResponse */
         RenderJianpuTextSvgResponse: {
