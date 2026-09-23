@@ -26,6 +26,7 @@ from ...services.ai.transcription import AiTranscriptionService
 from ...services.files.file_service import FileService
 from ...services.files.upload_service import UploadService
 from ...services.settings.settings_service import SettingsService
+from ..api_key_check import ensure_ai_api_key_or_raise
 from ..tasks.actions import TaskActions
 from ..tasks.background import run_sync_task, schedule_background_task
 
@@ -128,6 +129,7 @@ class AiActions:
         req: AiTranscribeRequest,
         tasks: TaskActions,
     ) -> TaskSubmitResponse:
+        ensure_ai_api_key_or_raise()
         task_id = tasks.create_task()
 
         def action(progress: ProgressCallback):

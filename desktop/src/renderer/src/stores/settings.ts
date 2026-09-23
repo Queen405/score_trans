@@ -160,6 +160,11 @@ export const useSettingsStore = defineStore('settings', () => {
   const draftReady = ref(false)
   const draftBaseline = ref('')
 
+  const apiKeyMissingVisible = ref(false)
+  const apiKeyMissingKind = ref<ProviderKind | null>(null)
+  const pendingOpenSettings = ref(false)
+  const pendingSettingsCategory = ref<string | null>(null)
+
   const draft = reactive<SettingsDraft>({
     audiverisPath: '',
     javaHome: '',
@@ -424,6 +429,22 @@ export const useSettingsStore = defineStore('settings', () => {
     saveBooleanPreference(SHOW_OCR_OVERLAY_KEY, value)
   }
 
+  function notifyApiKeyMissing(kind: ProviderKind): void {
+    apiKeyMissingKind.value = kind
+    apiKeyMissingVisible.value = true
+  }
+
+  function clearApiKeyMissing(): void {
+    apiKeyMissingVisible.value = false
+    apiKeyMissingKind.value = null
+  }
+
+  function requestOpenSettings(): void {
+    clearApiKeyMissing()
+    pendingOpenSettings.value = true
+    pendingSettingsCategory.value = 'services'
+  }
+
   async function clearCache(): Promise<CacheCleanupResponse> {
     const result = await requireData(settingsApi.clearCache())
     const api = window.api
@@ -654,6 +675,13 @@ export const useSettingsStore = defineStore('settings', () => {
     setThemeMode,
     setShowRecognitionOverlay,
     setShowOcrOverlay,
+    apiKeyMissingVisible,
+    apiKeyMissingKind,
+    pendingOpenSettings,
+    pendingSettingsCategory,
+    notifyApiKeyMissing,
+    clearApiKeyMissing,
+    requestOpenSettings,
   }
 })
 

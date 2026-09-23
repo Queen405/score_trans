@@ -323,12 +323,13 @@
           </div>
         </template>
       </n-modal>
+      <ApiKeyMissingDialog />
     </n-message-provider>
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { GlobalThemeOverrides } from 'naive-ui'
 import { t, naiveDateLocale, naiveLocale } from './i18n'
 import { useWorkspaceStore } from './stores/workspace'
@@ -345,6 +346,7 @@ import SettingsView from './views/SettingsView.vue'
 import AiAssistant from './components/AiAssistant.vue'
 import LogPanel from './components/LogPanel.vue'
 import SyntaxDiagnosticPanel from './components/SyntaxDiagnosticPanel.vue'
+import ApiKeyMissingDialog from './components/ApiKeyMissingDialog.vue'
 import {
   BookOutline,
   ScanOutline,
@@ -614,6 +616,15 @@ function activateTab(tab: AppTab): void {
 function leaveSettings(): void {
   activateTab(previousWorkspaceTab.value)
 }
+
+watch(
+  () => settings.pendingOpenSettings,
+  (value) => {
+    if (!value) return
+    settings.pendingOpenSettings = false
+    activateTab('settings')
+  },
+)
 
 function continueEditingSettings(): void {
   const navigation = pendingNavigation.value

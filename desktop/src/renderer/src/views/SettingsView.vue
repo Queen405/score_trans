@@ -232,6 +232,17 @@ watch(
   },
 )
 
+watch(
+  () => settings.pendingSettingsCategory,
+  (category) => {
+    if (!category) return
+    if (categories.value.some((c) => c.key === category)) {
+      activeCategory.value = category as SettingsCategory
+    }
+    settings.pendingSettingsCategory = null
+  },
+)
+
 async function prepareSettings(): Promise<void> {
   if (!settings.loaded) await settings.load()
   if (settings.loaded && (!settings.draftReady || !settings.draftDirty)) {

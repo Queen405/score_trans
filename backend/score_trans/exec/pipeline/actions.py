@@ -41,6 +41,7 @@ from ...services.recognize.audiveris_service import read_audiveris_musicxml
 from ...services.render.render_service import PublicationRenderService
 from ...services.settings.settings_service import SettingsService
 from ...utils.warnings import collect_warnings, dedupe_preserve_order
+from ..api_key_check import ensure_ocr_api_key_or_raise
 from ..convert.actions import MusicXmlToJianpuAction
 from ..recognize.actions import RecognizeScoreAction
 from ..tasks.actions import TaskActions
@@ -299,8 +300,10 @@ class PipelineActions:
         input_path = self.uploads.get_path(file_id)
         if not input_path or not input_path.exists():
             raise FileNotFoundError(f"文件不存在：{file_id}")
-        task_id = tasks.create_task()
         enable_omr_ocr = self.settings.get_bool("enable_omr_ocr", True)
+        if enable_omr_ocr:
+            ensure_ocr_api_key_or_raise()
+        task_id = tasks.create_task()
 
         def action(progress: ProgressCallback):
             return self.run_pipeline_from_path(
@@ -345,9 +348,11 @@ class PipelineActions:
         break_beams_at_beat: bool = False,
         title: str | None = None,
     ) -> TaskSubmitResponse:
+        enable_omr_ocr = self.settings.get_bool("enable_omr_ocr", False)
+        if enable_omr_ocr:
+            ensure_ocr_api_key_or_raise()
         input_path = await asyncio.to_thread(self.save_upload, file)
         task_id = tasks.create_task()
-        enable_omr_ocr = self.settings.get_bool("enable_omr_ocr", False)
 
         def action(progress: ProgressCallback):
             return self.run_pipeline_from_path(

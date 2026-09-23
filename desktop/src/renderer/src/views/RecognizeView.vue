@@ -732,6 +732,14 @@ function instrumentProfileFromText(text: string): InstrumentProfile | null {
 }
 
 async function submitRecognitionTargets(targets: RecognitionTarget[], mode: RecognitionMode): Promise<void> {
+  if (mode === 'ai' && !settings.aiApiKeySet) {
+    settings.notifyApiKeyMissing('ai')
+    return
+  }
+  if (mode === 'omr' && settings.enableOmrOcr && !settings.ocrApiKeySet) {
+    settings.notifyApiKeyMissing('ocr')
+    return
+  }
   // Check file existence before starting recognition
   const fileIds = targets.map((t) => t.inputFileId).filter(Boolean)
   if (fileIds.length) {

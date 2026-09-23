@@ -87,6 +87,14 @@ const common = {
     unknown: '未知',
     restartRequired: '需要重启应用后生效',
   },
+  apiKeyMissing: {
+    title: 'API 密钥未配置',
+    messageOcr: 'OCR 文字识别功能需要先配置 OCR API 密钥，请前往设置页填写。',
+    messageAi: 'AI 视觉转写功能需要先配置 AI API 密钥，请前往设置页填写。',
+    messageAssistant: 'AI 工作台助手需要先配置 AI 助手 API 密钥，请前往设置页填写。',
+    messageDefault: '该功能需要先配置 API 密钥，请前往设置页填写。',
+    goSettings: '去设置',
+  },
   score: {
     defaultTitle: '简谱',
   },

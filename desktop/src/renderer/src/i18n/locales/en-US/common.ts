@@ -89,6 +89,14 @@ const common: typeof zhCommon = {
     unknown: 'Unknown',
     restartRequired: 'Takes effect after restarting the app',
   },
+  apiKeyMissing: {
+    title: 'API Key Not Configured',
+    messageOcr: 'The OCR text recognition feature requires an OCR API key. Please configure it in Settings.',
+    messageAi: 'AI vision transcription requires an AI API key. Please configure it in Settings.',
+    messageAssistant: 'The AI workbench assistant requires an AI assistant API key. Please configure it in Settings.',
+    messageDefault: 'This feature requires an API key. Please configure it in Settings.',
+    goSettings: 'Go to Settings',
+  },
   score: {
     defaultTitle: 'Jianpu',
   },

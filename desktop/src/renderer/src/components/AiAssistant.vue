@@ -220,6 +220,7 @@ import type { CSSProperties } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useAssistantStore } from '../stores/assistant'
 import { useWorkspaceStore } from '../stores/workspace'
+import { useSettingsStore } from '../stores/settings'
 import { t } from '../i18n'
 import {
   AddOutline,
@@ -233,6 +234,7 @@ import { NButton, NIcon, NInput, NPopconfirm, NSpin } from 'naive-ui'
 
 const assistant = useAssistantStore()
 const task = useWorkspaceStore()
+const settings = useSettingsStore()
 const notification = useMessage()
 
 const open = computed(() => animPhase.value === 'open' || animPhase.value === 'opening')
@@ -693,6 +695,10 @@ function getPanelSize(): { width: number; height: number } {
 async function send(): Promise<void> {
   const text = draft.value.trim()
   if (!text) return
+  if (!settings.assistantApiKeySet) {
+    settings.notifyApiKeyMissing('assistant')
+    return
+  }
   draft.value = ''
   autoScrollEnabled.value = true
   try {
