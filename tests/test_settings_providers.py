@@ -283,7 +283,7 @@ def test_settings_saves_api_keys_per_provider(tmp_path) -> None:
 
     assert response.ocr_provider == first.id
     assert response.ocr_api_key_set is True
-    assert "ocr_api_key" not in response.model_dump()
+    assert response.ocr_api_key == "first-key"
     assert dao.get(provider_api_key_name(first.id)) == "first-key"
     assert actions.get_settings(ocr_provider=first.id).ocr_api_key_set is True
 

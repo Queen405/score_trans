@@ -2708,6 +2708,11 @@ export type components = {
              */
             accidental_mode?: "auto" | "sharp" | "flat";
             /**
+             * Ai Api Key
+             * @default
+             */
+            ai_api_key?: string;
+            /**
              * Ai Api Key Set
              * @default false
              */
@@ -2720,6 +2725,11 @@ export type components = {
             ai_provider: string;
             /** Ai Provider Options */
             ai_provider_options?: components["schemas"]["LlmProviderOption"][];
+            /**
+             * Assistant Api Key
+             * @default
+             */
+            assistant_api_key?: string;
             /**
              * Assistant Api Key Set
              * @default false
@@ -2817,6 +2827,11 @@ export type components = {
              * @enum {string}
              */
             measure_number_mode?: "all" | "row_start" | "none";
+            /**
+             * Ocr Api Key
+             * @default
+             */
+            ocr_api_key?: string;
             /**
              * Ocr Api Key Set
              * @default false

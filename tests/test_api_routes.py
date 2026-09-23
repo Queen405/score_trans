@@ -313,14 +313,14 @@ def test_generation_requests_accept_show_measure_numbers() -> None:
     assert "measure_number_mode" in schemas["PreservingLayoutRequest"]["properties"]
 
 
-def test_settings_response_schema_does_not_expose_api_keys() -> None:
+def test_settings_response_schema_exposes_api_keys() -> None:
     properties = create_app().openapi()["components"]["schemas"]["SettingsResponse"][
         "properties"
     ]
 
-    assert "ocr_api_key" not in properties
-    assert "ai_api_key" not in properties
-    assert "assistant_api_key" not in properties
+    assert "ocr_api_key" in properties
+    assert "ai_api_key" in properties
+    assert "assistant_api_key" in properties
     assert "ocr_api_key_set" in properties
     assert "ai_api_key_set" in properties
     assert "assistant_api_key_set" in properties

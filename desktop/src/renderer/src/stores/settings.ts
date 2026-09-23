@@ -53,6 +53,7 @@ export interface SettingsDraft {
 
 export interface ProviderDraftDetails {
   provider: string
+  apiKey: string
   apiKeySet: boolean
   baseUrl: string
   model: string
@@ -94,6 +95,7 @@ function saveBooleanPreference(key: string, value: boolean): void {
 function emptyProviderDetails(): ProviderDraftDetails {
   return {
     provider: '',
+    apiKey: '',
     apiKeySet: false,
     baseUrl: '',
     model: '',
@@ -280,9 +282,9 @@ export const useSettingsStore = defineStore('settings', () => {
       outputDir: outputDir.value,
       jianpuAutoTranspose: jianpuAutoTranspose.value,
       providers: {
-        ocr: { provider: ocrProvider.value, apiKey: '' },
-        ai: { provider: aiProvider.value, apiKey: '' },
-        assistant: { provider: assistantProvider.value, apiKey: '' },
+        ocr: { provider: ocrProvider.value, apiKey: ocrApiKey.value },
+        ai: { provider: aiProvider.value, apiKey: aiApiKey.value },
+        assistant: { provider: assistantProvider.value, apiKey: assistantApiKey.value },
       },
       themeMode: themeMode.value,
       showRecognitionOverlay: showRecognitionOverlay.value,
@@ -291,18 +293,21 @@ export const useSettingsStore = defineStore('settings', () => {
 
     setDraftProviderDetails('ocr', {
       provider: ocrProvider.value,
+      apiKey: ocrApiKey.value,
       apiKeySet: ocrApiKeySet.value,
       baseUrl: ocrBaseUrl.value,
       model: ocrModel.value,
     })
     setDraftProviderDetails('ai', {
       provider: aiProvider.value,
+      apiKey: aiApiKey.value,
       apiKeySet: aiApiKeySet.value,
       baseUrl: aiBaseUrl.value,
       model: aiModel.value,
     })
     setDraftProviderDetails('assistant', {
       provider: assistantProvider.value,
+      apiKey: assistantApiKey.value,
       apiKeySet: assistantApiKeySet.value,
       baseUrl: assistantBaseUrl.value,
       model: assistantModel.value,
@@ -351,11 +356,17 @@ export const useSettingsStore = defineStore('settings', () => {
           enable_omr_ocr: next.enableOmrOcr,
           jianpu_auto_transpose: next.jianpuAutoTranspose,
           ocr_provider: next.providers.ocr.provider,
-          ocr_api_key: next.providers.ocr.apiKey.trim() || undefined,
+          ocr_api_key: next.providers.ocr.apiKey !== ocrApiKey.value
+            ? (next.providers.ocr.apiKey.trim() || undefined)
+            : undefined,
           ai_provider: next.providers.ai.provider,
-          ai_api_key: next.providers.ai.apiKey.trim() || undefined,
+          ai_api_key: next.providers.ai.apiKey !== aiApiKey.value
+            ? (next.providers.ai.apiKey.trim() || undefined)
+            : undefined,
           assistant_provider: next.providers.assistant.provider,
-          assistant_api_key: next.providers.assistant.apiKey.trim() || undefined,
+          assistant_api_key: next.providers.assistant.apiKey !== assistantApiKey.value
+            ? (next.providers.assistant.apiKey.trim() || undefined)
+            : undefined,
         }),
       )
       const storageResult = await persistStoragePaths(next.dataDir, next.cacheDir)
@@ -383,6 +394,7 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.providers[kind].apiKey = ''
     setDraftProviderDetails(kind, {
       provider,
+      apiKey: '',
       apiKeySet: false,
       baseUrl: '',
       model: '',
@@ -398,7 +410,9 @@ export const useSettingsStore = defineStore('settings', () => {
       ) {
         return
       }
-      setDraftProviderDetails(kind, providerDetailsFromResponse(kind, provider, data))
+      const details = providerDetailsFromResponse(kind, provider, data)
+      setDraftProviderDetails(kind, details)
+      draft.providers[kind].apiKey = details.apiKey
     } catch (error: unknown) {
       if (providerLoadVersion[kind] !== version) return
       providerDetailError[kind] = errorMessage(error)
@@ -493,20 +507,20 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? true
     ocrProvider.value = data.ocr_provider ?? 'siliconflow_deepseek_ocr'
     ocrProviderOptions.value = data.ocr_provider_options ?? []
-    ocrApiKey.value = ''
+    ocrApiKey.value = data.ocr_api_key ?? ''
     ocrApiKeySet.value = data.ocr_api_key_set ?? false
     ocrBaseUrl.value = data.ocr_base_url ?? 'https://api.siliconflow.cn/v1'
     ocrModel.value = data.ocr_model ?? 'deepseek-ai/DeepSeek-OCR'
     aiProvider.value = data.ai_provider ?? 'agnes_2_5_flash'
     aiProviderOptions.value = data.ai_provider_options ?? []
-    aiApiKey.value = ''
+    aiApiKey.value = data.ai_api_key ?? ''
     aiApiKeySet.value = data.ai_api_key_set ?? false
     aiBaseUrl.value = data.ai_base_url ?? 'https://apihub.agnes-ai.com/v1'
     aiModel.value = data.ai_model ?? 'agnes-2.5-flash'
     assistantProvider.value =
       data.assistant_provider ?? 'agnes_2_5_flash'
     assistantProviderOptions.value = data.assistant_provider_options ?? []
-    assistantApiKey.value = ''
+    assistantApiKey.value = data.assistant_api_key ?? ''
     assistantApiKeySet.value = data.assistant_api_key_set ?? false
     assistantBaseUrl.value =
       data.assistant_base_url ?? 'https://apihub.agnes-ai.com/v1'
@@ -718,6 +732,7 @@ function providerDetailsFromResponse(
   if (kind === 'ocr') {
     return {
       provider,
+      apiKey: data.ocr_api_key ?? '',
       apiKeySet: data.ocr_api_key_set ?? false,
       baseUrl: data.ocr_base_url ?? '',
       model: data.ocr_model ?? '',
@@ -726,6 +741,7 @@ function providerDetailsFromResponse(
   if (kind === 'ai') {
     return {
       provider,
+      apiKey: data.ai_api_key ?? '',
       apiKeySet: data.ai_api_key_set ?? false,
       baseUrl: data.ai_base_url ?? '',
       model: data.ai_model ?? '',
@@ -733,6 +749,7 @@ function providerDetailsFromResponse(
   }
   return {
     provider,
+    apiKey: data.assistant_api_key ?? '',
     apiKeySet: data.assistant_api_key_set ?? false,
     baseUrl: data.assistant_base_url ?? '',
     model: data.assistant_model ?? '',

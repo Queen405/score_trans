@@ -122,19 +122,25 @@ function providerStatus(kind: ProviderKind): {
   label: string
   tone: 'saved' | 'pending' | 'empty' | 'loading' | 'error'
 } {
-  if (settings.draft.providers[kind].apiKey.trim()) {
-    return { label: t('settings.service.statusPending'), tone: 'pending' }
-  }
   if (settings.providerDetailLoading[kind]) {
     return { label: t('settings.service.statusLoading'), tone: 'loading' }
   }
   if (settings.providerDetailError[kind]) {
     return { label: t('settings.service.statusError'), tone: 'error' }
   }
+  if (settings.draft.providers[kind].apiKey !== savedApiKey(kind)) {
+    return { label: t('settings.service.statusPending'), tone: 'pending' }
+  }
   if (settings.draftProviderDetails[kind].apiKeySet) {
     return { label: t('settings.service.statusSaved'), tone: 'saved' }
   }
   return { label: t('settings.service.statusEmpty'), tone: 'empty' }
+}
+
+function savedApiKey(kind: ProviderKind): string {
+  if (kind === 'ocr') return settings.ocrApiKey
+  if (kind === 'ai') return settings.aiApiKey
+  return settings.assistantApiKey
 }
 
 function refreshProviderDetails(kind: ProviderKind): void {
