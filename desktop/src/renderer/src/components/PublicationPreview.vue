@@ -59,7 +59,7 @@
       </div>
     </div>
     <div class="zoom-bar">
-      <span class="zoom-label">{{ Math.round(zp.scale.value * 100) }}%</span>
+      <span class="zoom-label">{{ zp.displayPercent }}</span>
       <button
         class="zoom-btn"
         :title="t('components.publicationPreview.fitWindowTitle')"

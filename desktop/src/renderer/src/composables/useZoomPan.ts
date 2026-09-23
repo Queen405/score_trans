@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 
 export function useZoomPan(container: Ref<HTMLElement | undefined>) {
   const scale = ref(1)
@@ -14,7 +14,8 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
   let startTx = 0
   let startTy = 0
   let resizeObserver: ResizeObserver | null = null
-  let autoFit = true
+  const autoFit = ref(true)
+  const fitBase = ref(1)
   let contentW = 0
   let contentH = 0
 
@@ -68,9 +69,10 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     const renderedW = contentW * s
     const renderedH = contentH * s
     scale.value = s
+    fitBase.value = s
     tx.value = (cw - renderedW) / 2
     ty.value = (ch - renderedH) / 2
-    autoFit = true
+    autoFit.value = true
     applyTransform()
   }
 
@@ -90,14 +92,14 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
       tx.value = mx - ratio * (mx - tx.value)
       ty.value = my - ratio * (my - ty.value)
       scale.value = newScale
-      autoFit = false
+      autoFit.value = false
     } else if (e.shiftKey) {
       tx.value -= e.deltaY
-      autoFit = false
+      autoFit.value = false
     } else {
       ty.value -= e.deltaY
       tx.value -= e.deltaX
-      autoFit = false
+      autoFit.value = false
     }
     applyTransform()
   }
@@ -118,7 +120,7 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     if (!isPanning) return
     tx.value = startTx + (e.clientX - startX)
     ty.value = startTy + (e.clientY - startY)
-    autoFit = false
+    autoFit.value = false
     applyTransform()
   }
 
@@ -130,11 +132,11 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
   }
 
   function onResize() {
-    if (autoFit) fitToView()
+    fitToView()
   }
 
   function setAutoFit(value: boolean): void {
-    autoFit = value
+    autoFit.value = value
   }
 
   function bind() {
@@ -162,5 +164,9 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     }
   }
 
-  return { scale, tx, ty, reset, fitToView, bind, unbind, applyTransform, setAutoFit }
+  const displayPercent = computed(() =>
+    autoFit.value ? '100%' : `${Math.round(scale.value / (fitBase.value || 1) * 100)}%`,
+  )
+
+  return { scale, tx, ty, reset, fitToView, bind, unbind, applyTransform, setAutoFit, displayPercent }
 }
