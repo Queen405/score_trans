@@ -25,5 +25,14 @@ class SyntaxValidateRequest(BaseModel):
     jianpu_text: str
 
 
+class LyricLineSummary(BaseModel):
+    verse: int
+    words: int
+    available_notes: int | None = None
+    missing_words: int = 0
+    extra_words: int = 0
+
+
 class SyntaxValidateResponse(BaseModel):
     diagnostics: list[SyntaxDiagnostic]
+    lyrics: list[LyricLineSummary] = Field(default_factory=list)

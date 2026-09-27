@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import xml.etree.ElementTree as ET
 from decimal import Decimal, localcontext
@@ -39,6 +40,36 @@ def scores_to_musicxml(
         {"name": "score-trans-instrument-profile"},
     )
     profile_field.text = instrument_profile
+    lyric_positions: list[dict[str, object]] = []
+    for score_index, score in enumerate(rendered_scores, start=1):
+        for measure_index, measure in enumerate(score.measures, start=1):
+            for block in measure.text_blocks:
+                if block.role != "lyric" or block.bbox is not None:
+                    continue
+                lyric_positions.append(
+                    {
+                        "part": score_index,
+                        "measure": measure_index,
+                        "verse": block.lyric_verse or 1,
+                        "text": block.text,
+                        "start": [
+                            (block.start or Fraction(0)).numerator,
+                            (block.start or Fraction(0)).denominator,
+                        ],
+                        "duration": [
+                            block.duration.numerator,
+                            block.duration.denominator,
+                        ]
+                        if block.duration is not None
+                        else None,
+                    }
+                )
+    if lyric_positions:
+        ET.SubElement(
+            miscellaneous,
+            "miscellaneous-field",
+            {"name": "score-trans-lyric-positions"},
+        ).text = json.dumps(lyric_positions, ensure_ascii=False, separators=(",", ":"))
     part_list = ET.SubElement(root, "part-list")
     for index, score in enumerate(rendered_scores, start=1):
         score_part = ET.SubElement(
@@ -520,9 +551,13 @@ def _append_event_xml(
             ET.SubElement(note, "staff").text = output_staff
         if index == 0:
             _append_notations(note, event, suppress_dynamic=suppress_dynamic)
-        if event.lyric and index == 0:
-            lyric = ET.SubElement(note, "lyric")
-            ET.SubElement(lyric, "text").text = event.lyric
+        if index == 0 and event.kind == "note":
+            lyrics = dict(event.lyrics)
+            if event.lyric and 1 not in lyrics:
+                lyrics[1] = event.lyric
+            for verse, text in sorted(lyrics.items()):
+                lyric = ET.SubElement(note, "lyric", {"number": str(verse)})
+                ET.SubElement(lyric, "text").text = text
 
 
 def _append_notations(

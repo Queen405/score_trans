@@ -47,7 +47,7 @@ function tokenizeCodePart(code: string): JianpuSyntaxToken[] {
     return [{ text: code, type: 'plain' }]
   }
 
-  if (trimmedStart.startsWith('L:')) {
+  if (/^L\d*:\s*/.test(trimmedStart)) {
     return [
       ...(leadingWhitespace ? [{ text: leadingWhitespace, type: 'plain' as const }] : []),
       { text: trimmedStart, type: 'lyrics' },

@@ -24,7 +24,11 @@ from ...models.score import (
     TextBlock,
     TupletSpan,
 )
-from ...models.syntax.schemas import SyntaxDiagnostic, SyntaxSeverity
+from ...models.syntax.schemas import (
+    LyricLineSummary,
+    SyntaxDiagnostic,
+    SyntaxSeverity,
+)
 from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
 from ..jianpu_tokens import (
     consume_duration_prefix,
@@ -74,6 +78,16 @@ class _Token:
     end_utf16: int | None = None
     measure: str | None = None
     standalone_line: bool = False
+
+
+@dataclass(slots=True)
+class _LyricLine:
+    verse: int
+    measures: list[list[tuple[Fraction, Fraction, str]]]
+    legacy_words: list[str] = field(default_factory=list)
+    source_line: int = 1
+    source_start: int = 0
+    source_end: int = 0
 
 
 class JianpuSyntaxError(JianpuValidationError):
@@ -331,6 +345,73 @@ def validate_jianpu_text(
             )
         )
     return diagnostics
+
+
+def validate_jianpu_lyrics(
+    text: str,
+) -> tuple[list[LyricLineSummary], list[SyntaxDiagnostic]]:
+    try:
+        options, token_lines, lines = _read_new_syntax(text)
+        score = parse_jianpu_score(text)
+    except (JianpuSyntaxError, ValueError):
+        return [], []
+    summaries: list[LyricLineSummary] = []
+    warnings: list[SyntaxDiagnostic] = []
+    available = sum(
+        event.kind == "note" and event.voice in (None, "1")
+        for measure in score.measures
+        for event in measure.events
+    )
+    for line in lines:
+        word_count = (
+            len(line.legacy_words)
+            if line.legacy_words
+            else sum(len(entries) for entries in line.measures)
+        )
+        legacy = bool(line.legacy_words) or not line.measures
+        summaries.append(
+            LyricLineSummary(
+                verse=line.verse,
+                words=word_count,
+                available_notes=available if legacy else None,
+                missing_words=max(0, available - word_count) if legacy else 0,
+                extra_words=max(0, word_count - available) if legacy else 0,
+            )
+        )
+        if legacy:
+            continue
+        for measure_index, entries in enumerate(line.measures):
+            if measure_index >= len(score.measures):
+                for start, duration, _word in entries:
+                    warnings.append(
+                        SyntaxDiagnostic(
+                            id=f"lyric-overflow-{line.verse}-{measure_index}-{start}",
+                            message="歌词时值超出小节范围，未显示该歌词。",
+                            line=line.source_line,
+                            column=1,
+                            start=line.source_start,
+                            end=line.source_end,
+                            severity="warning",
+                        )
+                    )
+                continue
+            measure = score.measures[measure_index]
+            for start, duration, _word in entries:
+                if start + duration <= measure.duration:
+                    continue
+                warnings.append(
+                    SyntaxDiagnostic(
+                        id=f"lyric-overflow-{line.verse}-{measure_index}-{start}",
+                        message="歌词时值超出小节范围，未显示该歌词。",
+                        line=line.source_line,
+                        column=1,
+                        start=line.source_start,
+                        end=line.source_end,
+                        severity="warning",
+                        measure=str(measure.display_number),
+                    )
+                )
+    return summaries, warnings
 
 
 def _measure_number_spans(
@@ -1060,7 +1141,7 @@ def parse_jianpu_score(
 def _parse_score_tokens(
     options: JianpuOptions,
     token_lines: list[_Token],
-    lyrics: list[str],
+    lyrics: list[_LyricLine],
     *,
     title: str | None = None,
     initial_tempo: int = DEFAULT_TEMPO,
@@ -1730,7 +1811,7 @@ def _read_new_syntax(
     """
     options = JianpuOptions()
     tokens: list[_Token] = []
-    lyrics: list[str] = []
+    lyrics: list[_LyricLine] = []
     saw_key = False
     saw_score_tokens = False
     current_measure = 1
@@ -1759,8 +1840,94 @@ def _read_new_syntax(
         stripped = raw_line.strip()
         if not stripped:
             continue
-        if stripped.startswith("L:"):
-            lyrics.extend(part for part in stripped[2:].strip().split() if part)
+        lyric_match = re.match(r"^L(\d*):\s*(.*)$", stripped)
+        if lyric_match:
+            verse = int(lyric_match.group(1) or "1")
+            if verse < 1:
+                token_start = line_start_utf16 + _utf16_length(
+                    original_line[: original_line.index("L")]
+                )
+                raise JianpuSyntaxError(
+                    _Token("L0:", line_no, 1, token_start, token_start + 3),
+                    "歌词段号必须从 1 开始",
+                )
+            raw_lyric_body = lyric_match.group(2)
+            lyric_start = line_start_utf16 + _utf16_length(
+                original_line[: original_line.index("L")]
+            )
+            lyric_end = line_start_utf16 + _utf16_length(original_line)
+            lyric_tokens = raw_lyric_body.split()
+            has_timing_syntax = any(
+                re.match(r"^(?:w|h|q|s|d+)(?:0|[^A-Za-z])", token) or token == "0"
+                for token in lyric_tokens
+            )
+            if "|" not in raw_lyric_body and not has_timing_syntax:
+                lyrics.append(
+                    _LyricLine(
+                        verse=verse,
+                        measures=[],
+                        legacy_words=raw_lyric_body.split(),
+                        source_line=line_no,
+                        source_start=lyric_start,
+                        source_end=lyric_end,
+                    )
+                )
+                continue
+            measures: list[list[tuple[Fraction, Fraction, str]]] = []
+            lyric_bars = raw_lyric_body.split("|")
+            if len(lyric_bars) == 1:
+                flat_cursor = Fraction(0)
+                flat_entries: list[tuple[Fraction, Fraction, str]] = []
+                for raw_word in lyric_bars[0].split():
+                    duration, word = consume_duration_prefix(raw_word)
+                    # 歌词时值仅由前缀表达；`.` 和 `-` 属于歌词原文。
+                    if word == "0":
+                        flat_cursor += duration
+                        continue
+                    if not word:
+                        raise ValueError(
+                            "歌词时值前缀后缺少歌词；空拍请使用 q0、s0 等写法"
+                        )
+                    flat_entries.append((flat_cursor, duration, word))
+                    flat_cursor += duration
+                measure_duration = Fraction(4 * options.beats, options.beat_type)
+                split_bars: list[list[tuple[Fraction, Fraction, str]]] = []
+                for start, duration, word in flat_entries:
+                    measure_index = int(start // measure_duration)
+                    while len(split_bars) <= measure_index:
+                        split_bars.append([])
+                    split_bars[measure_index].append(
+                        (start - measure_index * measure_duration, duration, word)
+                    )
+                measures = split_bars
+            else:
+                measures = []
+            if len(raw_lyric_body.split("|")) > 1:
+                for measure_text in lyric_bars:
+                    cursor = Fraction(0)
+                    entries: list[tuple[Fraction, Fraction, str]] = []
+                    for raw_word in measure_text.split():
+                        duration, word = consume_duration_prefix(raw_word)
+                        # 歌词时值仅由前缀表达；`.` 和 `-` 属于歌词原文。
+                        if word == "0":
+                            cursor += duration
+                            continue
+                        if not word:
+                            raise ValueError(
+                                "歌词时值前缀后缺少歌词；空拍请使用 q0、s0 等写法"
+                            )
+                        entries.append((cursor, duration, word))
+                        cursor += duration
+                    measures.append(entries)
+            lyrics.append(
+                _LyricLine(
+                    verse=verse,
+                    measures=measures,
+                    source_line=line_no,
+                    source_start=lyric_start,
+                    source_end=lyric_end,
+                )
+            )
             continue
         try:
             if "=" in stripped and not stripped.startswith(
@@ -2489,29 +2656,65 @@ def _normalize_parsed_measure(measure: Measure) -> None:
         measure.validation_errors.append(f"小节超拍：实际 {actual}，目标 {target}")
 
 
-def _apply_lyrics(score: JianpuScore, lyrics: list[str]) -> None:
+def _apply_lyrics(score: JianpuScore, lyrics: list[_LyricLine]) -> None:
     if not lyrics:
         return
-    lyric_index = 0
-    for measure in score.measures:
-        for event in measure.events:
-            if lyric_index >= len(lyrics):
-                return
-            if event.kind != "note":
-                continue
-            # 多声线小节（& 语法）的歌词只归属第 1 声线
-            if event.voice not in (None, "1"):
-                continue
-            event.lyric = lyrics[lyric_index]
-            measure.text_blocks.append(
-                TextBlock(
-                    text=lyrics[lyric_index],
-                    role="lyric",
-                    measure_number=measure.display_number,
-                    start=event.start,
+    for line in lyrics:
+        if line.legacy_words:
+            word_index = 0
+            for measure in score.measures:
+                for event in measure.events:
+                    if word_index >= len(line.legacy_words):
+                        break
+                    if event.kind != "note" or event.voice not in (None, "1"):
+                        continue
+                    word = line.legacy_words[word_index]
+                    measure.text_blocks.append(
+                        TextBlock(
+                            text=word,
+                            role="lyric",
+                            measure_number=measure.display_number,
+                            start=event.start,
+                            lyric_verse=line.verse,
+                            duration=None,
+                        )
+                    )
+                    event.lyrics[line.verse] = word
+                    if line.verse == 1:
+                        event.lyric = word
+                    word_index += 1
+            continue
+        for measure_index, entries in enumerate(line.measures):
+            if measure_index >= len(score.measures):
+                break
+            measure = score.measures[measure_index]
+            target_duration = measure.duration
+            for start, duration, text in entries:
+                if start + duration > target_duration:
+                    continue
+                measure.text_blocks.append(
+                    TextBlock(
+                        text=text,
+                        role="lyric",
+                        measure_number=measure.display_number,
+                        start=start,
+                        lyric_verse=line.verse,
+                        duration=duration,
+                    )
                 )
-            )
-            lyric_index += 1
+                event = next(
+                    (
+                        item
+                        for item in measure.events
+                        if item.kind == "note"
+                        and (item.start or Fraction(0)) <= start
+                        and start < (item.start or Fraction(0)) + item.duration
+                        and item.voice in (None, "1")
+                    ),
+                    None,
+                )
+                if event is not None:
+                    event.lyrics[line.verse] = text
 
 
 def _articulation_name(raw: str) -> str:

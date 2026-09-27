@@ -680,6 +680,51 @@ def test_parse_new_project_syntax_chords_lyrics_and_marks() -> None:
     assert score.measures[0].events[0].lyric == "春"
 
 
+def test_timed_lyrics_align_by_duration_and_keep_verse_tracks() -> None:
+    score = parse_jianpu_score(
+        "1=C\n4/4\n1 2 3 4 | 5 6 7 1' |\nL: 春 q眠 q不 | q0 q觉\nL2: 星 s闪 s亮 | 光"
+    )
+
+    first_measure_lyrics = [
+        (block.text, block.start, block.duration, block.lyric_verse)
+        for block in score.measures[0].text_blocks
+        if block.role == "lyric"
+    ]
+    assert first_measure_lyrics == [
+        ("春", Fraction(0), Fraction(1), 1),
+        ("眠", Fraction(1), Fraction(1, 2), 1),
+        ("不", Fraction(3, 2), Fraction(1, 2), 1),
+        ("星", Fraction(0), Fraction(1), 2),
+        ("闪", Fraction(1), Fraction(1, 4), 2),
+        ("亮", Fraction(5, 4), Fraction(1, 4), 2),
+    ]
+    second_measure_lyrics = [
+        block.text
+        for block in score.measures[1].text_blocks
+        if block.role == "lyric" and block.lyric_verse == 1
+    ]
+    assert second_measure_lyrics == ["觉"]
+    assert "L2:" in score_to_jianpu_text(score)
+
+
+def test_timed_lyric_literal_hyphen_and_period_are_preserved() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\nL: q一- q二.")
+
+    assert [
+        (block.text, block.start, block.duration)
+        for block in score.measures[0].text_blocks
+        if block.role == "lyric"
+    ] == [
+        ("一-", Fraction(0), Fraction(1, 2)),
+        ("二.", Fraction(1, 2), Fraction(1, 2)),
+    ]
+
+
+def test_lyric_verse_zero_is_rejected() -> None:
+    with pytest.raises(JianpuSyntaxError, match="歌词段号必须从 1 开始"):
+        parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\nL0: 春")
+
+
 def test_parse_note_can_end_slur_and_start_tie() -> None:
     score = parse_jianpu_score("1=C\n4/4\n(1 2 3)~ | ~3 4 5 6 |")
 

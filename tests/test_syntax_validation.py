@@ -57,6 +57,47 @@ def test_validate_jianpu_text_accepts_valid_score() -> None:
     assert validate_jianpu_text("1=C\n4/4\n1 2 3 4 |") == []
 
 
+def test_timed_lyric_overflow_is_a_warning_and_summary_counts_words() -> None:
+    client = TestClient(create_app(auth_disabled=True))
+
+    response = client.post(
+        "/syntax/validate",
+        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\nL: w春 q眠"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["lyrics"] == [
+        {
+            "verse": 1,
+            "words": 2,
+            "available_notes": None,
+            "missing_words": 0,
+            "extra_words": 0,
+        }
+    ]
+    assert any(
+        item["severity"] == "warning" and "歌词时值超出小节范围" in item["message"]
+        for item in response.json()["diagnostics"]
+    )
+
+
+def test_legacy_lyric_summary_reports_missing_and_extra_words() -> None:
+    client = TestClient(create_app(auth_disabled=True))
+
+    response = client.post(
+        "/syntax/validate",
+        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\nL: 春 风 雨 云 雪"},
+    )
+
+    assert response.json()["lyrics"][0] == {
+        "verse": 1,
+        "words": 5,
+        "available_notes": 4,
+        "missing_words": 0,
+        "extra_words": 1,
+    }
+
+
 @pytest.mark.parametrize(
     "change",
     ["tempo=80\n5 6 7 1 |", "tempo=80 5 6 7 1 |"],
@@ -202,6 +243,7 @@ def test_validate_syntax_route_returns_structured_diagnostics() -> None:
 
     assert response.status_code == 200
     assert response.json() == {
+        "lyrics": [],
         "diagnostics": [
             {
                 "id": "syntax-error-3-1-8-10",
@@ -226,6 +268,46 @@ def test_validate_syntax_route_is_in_openapi() -> None:
     assert "/syntax/validate" in schema["paths"]
     response_schema = schema["components"]["schemas"]["SyntaxValidateResponse"]
     assert "diagnostics" in response_schema["properties"]
+    assert "lyrics" in response_schema["properties"]
+
+
+def test_validate_syntax_reports_lyric_overflow_and_summary() -> None:
+    client = TestClient(create_app(auth_disabled=True))
+    response = client.post(
+        "/syntax/validate",
+        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\nL: w春 q眠"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["lyrics"] == [
+        {
+            "verse": 1,
+            "words": 2,
+            "available_notes": None,
+            "missing_words": 0,
+            "extra_words": 0,
+        }
+    ]
+    assert any(
+        item["severity"] == "warning" and "歌词时值超出小节范围" in item["message"]
+        for item in response.json()["diagnostics"]
+    )
+
+
+def test_validate_syntax_summarizes_legacy_lyric_word_mismatch() -> None:
+    client = TestClient(create_app(auth_disabled=True))
+    response = client.post(
+        "/syntax/validate",
+        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\nL: 春 风 雨 云 雪"},
+    )
+
+    assert response.json()["lyrics"][0] == {
+        "verse": 1,
+        "words": 5,
+        "available_notes": 4,
+        "missing_words": 0,
+        "extra_words": 1,
+    }
 
 
 @pytest.mark.parametrize("time_signature", ["4/0", "0/4"])

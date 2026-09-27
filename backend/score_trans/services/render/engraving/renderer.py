@@ -32,6 +32,7 @@ from ....models.score import (
     JianpuPitch,
     JianpuScore,
     Measure,
+    TextBlock,
     TupletSpan,
 )
 from .fonts import font_registry
@@ -40,7 +41,6 @@ from .geometry import (
     _duration_extension_start,
     _dynamic_baseline,
     _event_attachment_bottom,
-    _lyric_baseline,
     _rhythm_line_count,
     mark_layouts,
     measure_event_ink,
@@ -1632,19 +1632,19 @@ def _system_part_layouts(
                     style.event_baseline
                     + offsets.get(lane_key(e), 0.0)
                     + measure_event_ink(
-                        replace(e, lyric=None, dynamic=None), style
+                        replace(e, lyric=None, lyrics={}, dynamic=None), style
                     ).bottom
                     for e in visual
                 ),
                 default=bar_bottom,
             )
             for e in visual:
-                if e.lyric or e.dynamic:
+                if e.dynamic:
                     depth = max(
                         depth,
                         style.event_baseline
                         + text_offset
-                        + measure_event_ink(e, style).bottom,
+                        + measure_event_ink(replace(e, lyric=None, lyrics={}), style).bottom,
                     )
             for measure, width in measures:
                 for text in _measure_text_layout(
@@ -1813,8 +1813,7 @@ def _system_extra_height(cells: list[_Cell], style: PublicationStyle) -> float:
                     or any(pitch.octave > 0 for pitch in event.pitches)
                 )
                 needs_bottom = needs_bottom or bool(
-                    event.lyric
-                    or event.dynamic
+                    event.dynamic
                     or any(pitch.octave < 0 for pitch in event.pitches)
                 )
             text_layouts = _measure_text_layout(measure, 0.0, cell.width, 0.0, style)
@@ -2338,18 +2337,6 @@ def _draw_event(
         for pitch_index, row in enumerate(rows):
             _draw_pitch(group, style, event, row.pitch, pitch_index, x, y + row.y)
     _draw_duration(group, event, x, y, style, right_limit=right_limit)
-    if event.lyric:
-        lyric_baseline = _lyric_baseline(event, style) + subtext_offset
-        group.children.append(
-            _text(
-                "lyric",
-                x,
-                y + lyric_baseline,
-                event.lyric,
-                style.lyric_size,
-                anchor="middle",
-            )
-        )
     if event.dynamic:
         dynamic_baseline = _dynamic_baseline(event, style) + subtext_offset
         group.children.append(
@@ -3305,17 +3292,57 @@ def _measure_text_layout(
         and block.role != "measure_number"
         and block.direction_kind != "metronome"
         and not (block.role == "expression" and block.text in event_dynamics)
-        and not (
-            block.role == "lyric"
-            and any(event.lyric == block.text for event in measure.events)
-        )
     ]
+    lyric_anchors = {
+        (block.text, block.lyric_verse or 1, block.start or Fraction(0))
+        for block in blocks
+        if block.role == "lyric"
+    }
+    for event in measure.events:
+        lyrics = dict(event.lyrics)
+        if event.lyric and 1 not in lyrics:
+            lyrics[1] = event.lyric
+        if event.kind != "note":
+            continue
+        for verse, text in lyrics.items():
+            event_start = event.start or Fraction(0)
+            event_end = event_start + event.duration
+            already_positioned = any(
+                block.role == "lyric"
+                and block.text == text
+                and (block.lyric_verse or 1) == verse
+                and (
+                    (block.start or Fraction(0)) == event_start
+                    or (
+                        block.duration is not None
+                        and event_start <= (block.start or Fraction(0)) < event_end
+                    )
+                )
+                for block in blocks
+            )
+            if already_positioned:
+                continue
+            anchor = (text, verse, event_start)
+            if anchor in lyric_anchors:
+                continue
+            blocks.append(
+                TextBlock(
+                    text=text,
+                    role="lyric",
+                    measure_number=measure.display_number,
+                    start=event_start,
+                    lyric_verse=verse,
+                    duration=None,
+                )
+            )
+            lyric_anchors.add(anchor)
     if not blocks:
         return []
 
     event_bottom = max(
         (
-            style.event_baseline + measure_event_ink(event, style).bottom
+            style.event_baseline
+            + measure_event_ink(replace(event, lyric=None, lyrics={}), style).bottom
             for event in measure.events
         ),
         default=style.event_baseline,
@@ -3324,8 +3351,19 @@ def _measure_text_layout(
     inner_right = x + width - style.barline_gutter
     layouts: list[TextLayout] = []
     previous_bottom = event_bottom
+    verse_baselines: dict[int, float] = {}
+    lyric_lane_bottom = event_bottom
+    blocks.sort(
+        key=lambda block: (
+            0 if block.role == "lyric" else 1,
+            (block.lyric_verse or 1) if block.role == "lyric" else 0,
+            block.start or Fraction(0),
+        )
+    )
     for index, block in enumerate(blocks):
-        font_size = block.font_size or style.annotation_size
+        font_size = block.font_size or (
+            style.lyric_size if block.role == "lyric" else style.annotation_size
+        )
         ink_left, ink_top, ink_right, ink_bottom = font_registry().ink_bounds(
             block.text, font_size
         )
@@ -3335,10 +3373,30 @@ def _measure_text_layout(
             center_x = inner_left + (inner_right - inner_left) * ratio
         else:
             center_x = x + width / 2
-        baseline = max(
-            y + style.base_staff_height + style.text_lane_clearance,
-            y + previous_bottom + style.text_lane_gap - ink_top,
-        )
+        if block.role == "lyric":
+            verse = block.lyric_verse or 1
+            if verse not in verse_baselines:
+                _left, verse_top, _right, _bottom = font_registry().ink_bounds(
+                    block.text, font_size
+                )
+                baseline = max(
+                    y + style.base_staff_height + style.text_lane_clearance,
+                    y
+                    + max(
+                        lyric_lane_bottom,
+                        _measure_lyric_event_bottom(measure, style),
+                    )
+                    + style.text_lane_gap
+                    - verse_top,
+                )
+                verse_baselines[verse] = baseline
+            else:
+                baseline = verse_baselines[verse]
+        else:
+            baseline = max(
+                y + style.base_staff_height + style.text_lane_clearance,
+                y + previous_bottom + style.text_lane_gap - ink_top,
+            )
         bbox = BBox(
             center_x + ink_left - advance / 2,
             baseline + ink_top,
@@ -3354,8 +3412,22 @@ def _measure_text_layout(
                 font_size,
             )
         )
-        previous_bottom = bbox.y + bbox.height - y
+        if block.role != "lyric":
+            previous_bottom = max(previous_bottom, bbox.y + bbox.height - y)
+        else:
+            lyric_lane_bottom = max(lyric_lane_bottom, bbox.y + bbox.height - y)
     return layouts
+
+
+def _measure_lyric_event_bottom(measure: Measure, style: PublicationStyle) -> float:
+    return max(
+        (
+            style.event_baseline + measure_event_ink(event, style).bottom
+            for event in measure.events
+            if event.kind == "note" and (event.lyric or event.lyrics)
+        ),
+        default=style.event_baseline,
+    )
 
 
 def _draw_measure_text(
@@ -3371,7 +3443,7 @@ def _draw_measure_text(
             layout.text, layout.font_size
         )
         node = _text(
-            layout.role,
+            "lyric" if layout.role == "lyric" else "annotation",
             layout.bbox.x + layout.bbox.width / 2,
             layout.bbox.y - ink_top,
             layout.text,

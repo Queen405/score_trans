@@ -126,6 +126,13 @@
         />
       </div>
     </div>
+    <div
+      v-if="lyricSummary"
+      class="lyric-summary"
+      role="status"
+    >
+      {{ lyricSummary }}
+    </div>
   </div>
 </template>
 
@@ -135,6 +142,7 @@ import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
 import { playbackTextHash, sourceRangeSpans, type PlaybackHighlight } from '../utils/midiSourceMap'
 import { horizontalScrollIntoView } from '../utils/editorViewport'
 import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
+import { useSyntaxDiagnosticsStore } from '../stores/syntaxDiagnostics'
 import type { SyntaxDiagnostic } from '../models/types'
 import { NInputNumber, useMessage } from 'naive-ui'
 import { t } from '../i18n'
@@ -181,6 +189,18 @@ const props = withDefaults(defineProps<{
   scrollPersistenceKey: null,
   structureMarkersEnabled: true,
 })
+
+const syntaxStore = useSyntaxDiagnosticsStore()
+const lyricSummary = computed(() => syntaxStore.lyrics.map((line) => {
+  const label = line.verse === 1 ? 'L' : `L${line.verse}`
+  const parts = [`${label}: ${line.words} ${t('components.syntaxDiagnosticPanel.lyricWords')}`]
+  if (line.available_notes !== null) {
+    parts.push(`${line.available_notes} ${t('components.syntaxDiagnosticPanel.lyricNotes')}`)
+    if (line.missing_words) parts.push(t('components.syntaxDiagnosticPanel.lyricMissing', { count: line.missing_words }))
+    if (line.extra_words) parts.push(t('components.syntaxDiagnosticPanel.lyricExtra', { count: line.extra_words }))
+  }
+  return parts.join(' · ')
+}).join('　·　'))
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:initialMeasureNumber': [value: number]
@@ -830,6 +850,15 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   overflow: hidden;
 }
 
+.lyric-summary {
+  flex: 0 0 auto;
+  padding: 5px 12px;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .editor-pages {
   min-height: 32px;
   display: flex;
@@ -1214,4 +1243,3 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 .theme-dark .token-ornament { color: #d16969; }
 .theme-dark .token-lyrics { color: #c8c8c8; }
 </style>
-

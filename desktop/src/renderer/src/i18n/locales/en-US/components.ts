@@ -116,6 +116,10 @@ const components: typeof zhComponents = {
     noIssue: 'No syntax issues found',
     noIssueWarningsHidden: 'No syntax issues found (duration warnings hidden)',
     measureLabel: 'Measure {n}',
+    lyricWords: 'lyric words',
+    lyricNotes: 'notes available',
+    lyricMissing: '{count} missing',
+    lyricExtra: '{count} extra',
   },
 }
 

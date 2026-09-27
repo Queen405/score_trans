@@ -10,7 +10,14 @@ from score_trans.domain.musicxml import (
     score_to_jianpu_text,
 )
 from score_trans.domain.write.musicxml import scores_to_musicxml
-from score_trans.models.score import Event, JianpuEvent, TextBlock
+from score_trans.models.score import (
+    Event,
+    JianpuEvent,
+    JianpuPitch,
+    JianpuScore,
+    Measure,
+    TextBlock,
+)
 from score_trans.dao.settings.settings_dao import SettingsDao
 from score_trans.exec.convert.actions import ConvertActions
 from score_trans.models.convert.schemas import MusicXmlToJianpuRequest
@@ -170,6 +177,45 @@ def test_musicxml_beam_statuses_roundtrip_on_event() -> None:
         ("2", "backward-hook"),
         ("1", "end"),
     ]
+
+
+def test_musicxml_preserves_multiple_lyric_verses() -> None:
+    source = "1=C\n4/4\n1 2 3 4 | 5 6 7 1' |\nL: 春 q眠 | q0 q觉\nL2: 星 闪 | 月 光"
+    xml = jianpu_to_musicxml(source)
+    root = ET.fromstring(xml)
+    first_note_lyrics = root.findall(".//measure[1]/note[1]/lyric")
+    assert [lyric.get("number") for lyric in first_note_lyrics] == ["1", "2"]
+    restored = musicxml_to_score(xml)
+    assert restored.measures[0].events[0].lyrics == {1: "春", 2: "星"}
+    assert any(
+        block.role == "lyric" and block.text == "觉" and block.start == Fraction(1, 2)
+        for block in restored.measures[1].text_blocks
+    )
+
+
+def test_writer_keeps_repeated_same_verse_lyrics_at_distinct_starts() -> None:
+    score = JianpuScore(
+        measures=[
+            Measure(
+                "1",
+                duration=Fraction(4),
+                events=[
+                    Event(
+                        kind="note",
+                        duration=Fraction(1),
+                        start=Fraction(start),
+                        pitches=[JianpuPitch(1)],
+                        lyrics={1: "啦"},
+                    )
+                    for start in range(3)
+                ],
+            )
+        ]
+    )
+
+    text = score_to_jianpu_text(score)
+
+    assert text.splitlines()[-1] == "L: 啦 啦 啦"
 
 
 def test_jianpu_to_musicxml_preserves_accidental_direction_and_magnitude() -> None:

@@ -37,6 +37,8 @@ class TextBlock:
     staff: str | None = None
     direction_kind: str | None = None
     direction_attributes: dict[str, str] = field(default_factory=dict)
+    lyric_verse: int | None = None
+    duration: Fraction | None = None
 
 
 @dataclass(slots=True)
@@ -90,6 +92,7 @@ class Event:
     slide_stop: bool = False
     slide_direction: SlideDirection | None = None
     lyric: str | None = None
+    lyrics: dict[int, str] = field(default_factory=dict)
     dynamic: str | None = None
     articulation: str | None = None
     articulations: list[str] = field(default_factory=list)

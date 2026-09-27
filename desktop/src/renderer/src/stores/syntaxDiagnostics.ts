@@ -2,12 +2,14 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { syntaxApi } from '../api/syntax'
 import type { SyntaxDiagnostic } from '../models/types'
+import type { LyricLineSummary } from '../models/contracts'
 
 const VALIDATION_DEBOUNCE_MS = 400
 const TRUNCATED_MARKER_ID = 'syntax-warning-truncated'
 
 export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => {
   const diagnostics = ref<SyntaxDiagnostic[]>([])
+  const lyrics = ref<LyricLineSummary[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
   const activeId = ref<string | null>(null)
@@ -45,6 +47,7 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
     controller?.abort()
     controller = null
     diagnostics.value = []
+    lyrics.value = []
     activeId.value = null
     selectionVersion.value += 1
     error.value = null
@@ -57,6 +60,7 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
     controller = new AbortController()
     if (!text.trim()) {
       diagnostics.value = []
+      lyrics.value = []
       activeId.value = null
       error.value = null
       loading.value = false
@@ -70,11 +74,13 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
     if (result.error) {
       if (result.error.code === 'aborted') return
       diagnostics.value = []
+      lyrics.value = []
       activeId.value = null
       error.value = result.error.message
       return
     }
     diagnostics.value = result.data.diagnostics
+    lyrics.value = result.data.lyrics ?? []
     if (!diagnostics.value.some((item) => item.id === activeId.value)) activeId.value = null
   }
 
@@ -93,6 +99,7 @@ export const useSyntaxDiagnosticsStore = defineStore('syntaxDiagnostics', () => 
 
   return {
     diagnostics,
+    lyrics,
     visibleDiagnostics,
     loading,
     error,

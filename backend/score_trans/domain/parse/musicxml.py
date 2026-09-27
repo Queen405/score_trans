@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import xml.etree.ElementTree as ET
@@ -108,7 +109,8 @@ def musicxml_to_scores(
     part_names = _extract_part_names(root, ns)
 
     raw_scores: list[JianpuScore] = []
-    for part_element in xml_parts:
+    lyric_positions = _extract_lyric_positions(root, ns)
+    for part_index, part_element in enumerate(xml_parts, start=1):
         part_target_key = target_key
         if target_key == "auto":
             source_key = _extract_first_key(part_element, ns)
@@ -123,6 +125,50 @@ def musicxml_to_scores(
             profile,
             follow_modulation=target_key == "auto",
         )
+        matched_position_blocks: dict[int, set[int]] = {}
+        for item in lyric_positions:
+            if item.get("part") != part_index:
+                continue
+            measure_index = int(item.get("measure", 0)) - 1
+            if not 0 <= measure_index < len(score.measures):
+                continue
+            start_value = item.get("start")
+            if not isinstance(start_value, list) or len(start_value) != 2:
+                continue
+            start = Fraction(int(start_value[0]), int(start_value[1]))
+            duration_value = item.get("duration")
+            duration = (
+                Fraction(int(duration_value[0]), int(duration_value[1]))
+                if isinstance(duration_value, list) and len(duration_value) == 2
+                else None
+            )
+            text = str(item.get("text", ""))
+            verse = int(item.get("verse", 1))
+            matched_for_measure = matched_position_blocks.setdefault(
+                measure_index, set()
+            )
+            block_index = next(
+                (
+                    index
+                    for index, block in enumerate(
+                        score.measures[measure_index].text_blocks
+                    )
+                    if index not in matched_for_measure
+                    and block.role == "lyric"
+                    and block.text == text
+                    and (block.lyric_verse or 1) == verse
+                ),
+                None,
+            )
+            block = (
+                score.measures[measure_index].text_blocks[block_index]
+                if block_index is not None
+                else None
+            )
+            if block is not None:
+                matched_for_measure.add(block_index)
+                block.start = start
+                block.duration = duration
         score.part_name = part_name
         raw_scores.append(score)
 
@@ -139,6 +185,22 @@ def musicxml_to_scores(
             score.part_name = f"声部{index + 1}"
 
     return final_scores
+
+
+def _extract_lyric_positions(root: ET.Element, ns: str) -> list[dict[str, object]]:
+    for field in root.findall(f".//{_q(ns, 'miscellaneous-field')}"):
+        if field.get("name") != "score-trans-lyric-positions":
+            continue
+        try:
+            payload = json.loads(_text(field) or "[]")
+        except json.JSONDecodeError:
+            return []
+        return (
+            [item for item in payload if isinstance(item, dict)]
+            if isinstance(payload, list)
+            else []
+        )
+    return []
 
 
 def musicxml_to_score(
@@ -700,19 +762,33 @@ def _read_measure_events(
             ]
             if event.dynamic is None:
                 event.dynamic = dynamic
-        lyric = note.find(_q(ns, "lyric"))
-        if lyric is not None:
-            event.lyric = _text(lyric.find(_q(ns, "text")))
-            if event.lyric:
-                measure.text_blocks.append(
-                    TextBlock(
-                        text=event.lyric,
-                        role="lyric",
-                        measure_number=measure.display_measure_number,
-                        start=cursor,
-                        placement="below",
-                    )
+        for lyric_index, lyric in enumerate(note.findall(_q(ns, "lyric")), start=1):
+            lyric_text = "".join(
+                _text(child) for child in lyric.findall(_q(ns, "text"))
+            ).strip()
+            if not lyric_text:
+                continue
+            if event.kind != "note":
+                continue
+            number = lyric.get("number")
+            try:
+                verse = int(number) if number else lyric_index
+            except ValueError:
+                verse = lyric_index
+            event.lyrics[verse] = lyric_text
+            if verse == 1:
+                event.lyric = lyric_text
+            measure.text_blocks.append(
+                TextBlock(
+                    text=lyric_text,
+                    role="lyric",
+                    measure_number=measure.display_measure_number,
+                    start=cursor,
+                    placement="below",
+                    lyric_verse=verse,
+                    duration=duration,
                 )
+            )
         measure.events.append(event)
         parsed_notes.append((note, event))
         last_event = event

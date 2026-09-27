@@ -475,7 +475,7 @@ function tupletPartSpans(
 export function isMetadataLine(line: string): boolean {
   const trimmed = line.trim()
   if (!trimmed || trimmed.startsWith('//')) return true
-  if (trimmed.startsWith('L:') || trimmed.startsWith('@text ')) return true
+  if (/^L\d*:\s*/.test(trimmed) || trimmed.startsWith('@text ')) return true
   if (/^title\s*=/.test(trimmed)) return true
   if (/^tempo\s*=\s*[^\s|]+$/.test(trimmed)) return true
   if (/^1\s*=/.test(trimmed)) return true

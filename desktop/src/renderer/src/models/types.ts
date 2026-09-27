@@ -62,6 +62,7 @@ export type {
   SettingsResponse,
   SettingsUpdateRequest,
   SyntaxDiagnostic,
+  LyricLineSummary,
   SyntaxValidateRequest,
   SyntaxValidateResponse,
   SheetEntitiesDTO,

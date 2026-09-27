@@ -1996,6 +1996,21 @@ def test_event_lyric_is_not_rendered_again_from_measure_text_block() -> None:
     )
 
 
+def test_timed_lyrics_are_not_duplicated_by_event_lyrics() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\nL: q就 q老 q师 q老 q师")
+
+    root = _root(render_score_svg(score))
+    lyrics = [node for node in root.iter() if node.attrib.get("class") == "lyric"]
+
+    assert [node.attrib["aria-label"] for node in lyrics] == [
+        "就",
+        "老",
+        "师",
+        "老",
+        "师",
+    ]
+
+
 def test_wide_event_stays_centered_when_its_ink_cannot_fit() -> None:
     event = Event(
         kind="note",

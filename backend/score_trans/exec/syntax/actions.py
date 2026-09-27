@@ -28,6 +28,11 @@ class SyntaxActions:
                 "jianpu_measure_duration_check", True
             ),
         )
+        lyrics, lyric_warnings = self.validator.validate_lyrics(req.jianpu_text)
+        known_ids = {item.id for item in diagnostics}
+        diagnostics.extend(
+            item for item in lyric_warnings if item.id not in known_ids
+        )
         if len(diagnostics) > MAX_DIAGNOSTICS:
             diagnostics = [
                 *diagnostics[: MAX_DIAGNOSTICS - 1],
@@ -41,4 +46,4 @@ class SyntaxActions:
                     severity="warning",
                 ),
             ]
-        return SyntaxValidateResponse(diagnostics=diagnostics)
+        return SyntaxValidateResponse(diagnostics=diagnostics, lyrics=lyrics)

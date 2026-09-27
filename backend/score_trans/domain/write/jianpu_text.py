@@ -15,10 +15,11 @@ from ...models.common.types import (
 )
 from ...models.provenance.entities import JianpuDocument
 from ...models.provenance.schemas import TextAnchor
-from ...models.score import DEFAULT_TEMPO, Event, JianpuScore, Measure
+from ...models.score import DEFAULT_TEMPO, Event, JianpuScore, Measure, TextBlock
 from ..accidentals import pitch_to_token
 from ..constants import DYNAMICS
 from ..jianpu_tokens import (
+    DURATION_PREFIXES,
     safe_duration_affixes,
     tuplet_normal_notes,
 )
@@ -29,6 +30,28 @@ _VOICE_LANE_SEPARATOR = "&"
 
 _CONTINUOUS_SLIDE_TOKEN = mark_token("continuous-slide") or "lh"
 logger = logging.getLogger(__name__)
+
+
+def _lyric_timing_tokens(duration: Fraction, text: str | None = None) -> list[str]:
+    remaining = duration
+    prefixes = sorted(
+        [("", Fraction(1)), *DURATION_PREFIXES.items()],
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    tokens: list[str] = []
+    while remaining > 0:
+        candidate = next(
+            ((prefix, value) for prefix, value in prefixes if value <= remaining),
+            None,
+        )
+        if candidate is None:
+            raise ValueError(f"无法用歌词时值前缀精确表示时值：{duration}")
+        prefix, value = candidate
+        token_text = text if not tokens and text is not None else "0"
+        tokens.append(f"{prefix}{token_text}")
+        remaining -= value
+    return tokens
 
 
 def score_to_jianpu_text(
@@ -218,6 +241,9 @@ def _score_with_serializable_slurs(score: JianpuScore) -> JianpuScore:
                 event.dynamic = None
             if event.kind == "rest" and event.hidden:
                 continue
+            if event.kind == "rest":
+                event.lyric = None
+                event.lyrics.clear()
             source_start = event.slur_start
             source_stop = event.slur_stop
             event.slur_start = False
@@ -366,9 +392,6 @@ def _events_to_tokens(
         if event.tuplet_start and event.tuplet_count:
             group = _collect_tuplet_events(events, index)
             tokens.append(_tuplet_to_token(group, accidental_mode=accidental_mode))
-            for group_event in group:
-                if group_event.kind == "note" and group_event.lyric:
-                    lyrics.append(group_event.lyric)
             index += len(group)
             continue
         if event.dynamic:
@@ -393,8 +416,6 @@ def _events_to_tokens(
                 duration=_text_event_duration(event, measure),
             )
         )
-        if event.kind == "note" and event.lyric:
-            lyrics.append(event.lyric)
         index += 1
     return tokens
 
@@ -494,8 +515,93 @@ def _score_to_jianpu_text(
             barline = " |"
         measure_lines.append(prefix + body + repeat_suffix + barline)
     lines.extend(measure_lines)
-    if lyrics:
-        lines.append(f"L: {' '.join(lyrics)}")
+    for measure in score.measures:
+        for event in measure.events:
+            if event.kind == "rest":
+                continue
+            for verse, lyric in event.lyrics.items():
+                if not any(
+                    block.role == "lyric"
+                    and block.bbox is None
+                    and block.text == lyric
+                    and (block.start or Fraction(0)) == (event.start or Fraction(0))
+                    and (block.lyric_verse or 1) == verse
+                    for block in measure.text_blocks
+                ):
+                    measure.text_blocks.append(
+                        TextBlock(
+                            text=lyric,
+                            role="lyric",
+                            measure_number=measure.display_number,
+                            start=event.start,
+                            lyric_verse=verse,
+                            duration=None,
+                        )
+                    )
+            if (
+                event.kind == "note"
+                and event.lyric
+                and not event.lyrics
+                and not any(
+                    block.role == "lyric"
+                    and block.bbox is None
+                    and block.text == event.lyric
+                    for block in measure.text_blocks
+                )
+            ):
+                measure.text_blocks.append(
+                    TextBlock(
+                        text=event.lyric,
+                        role="lyric",
+                        measure_number=measure.display_number,
+                        start=event.start,
+                        lyric_verse=1,
+                        duration=event.duration,
+                    )
+                )
+    lyric_verses = sorted(
+        {
+            block.lyric_verse or 1
+            for measure in score.measures
+            for block in measure.text_blocks
+            if block.role == "lyric" and block.bbox is None
+        }
+    )
+    for verse in lyric_verses:
+        measure_tokens: list[str] = []
+        for measure in score.measures:
+            blocks = sorted(
+                (
+                    block
+                    for block in measure.text_blocks
+                    if block.role == "lyric"
+                    and block.bbox is None
+                    and (block.lyric_verse or 1) == verse
+                ),
+                key=lambda block: block.start or Fraction(0),
+            )
+            if not blocks:
+                measure_tokens.append(" ".join(_lyric_timing_tokens(measure.duration)))
+                continue
+            if all(block.duration is None for block in blocks):
+                measure_tokens.append(" ".join(block.text for block in blocks))
+                continue
+            cursor = Fraction(0)
+            tokens: list[str] = []
+            for block in blocks:
+                start = block.start or Fraction(0)
+                if start > cursor:
+                    tokens.extend(_lyric_timing_tokens(start - cursor))
+                if block.duration is None:
+                    tokens.append(block.text)
+                    cursor = start + Fraction(1)
+                    continue
+                duration = block.duration or Fraction(1)
+                tokens.extend(_lyric_timing_tokens(duration, block.text))
+                cursor = start + duration
+            measure_tokens.append(" ".join(tokens))
+        prefix = "L:" if verse == 1 else f"L{verse}:"
+        lines.append(f"{prefix} {' | '.join(measure_tokens)}".rstrip())
     return "\n".join(lines)
 
 

@@ -114,6 +114,10 @@ const components = {
     noIssue: '未发现语法问题',
     noIssueWarningsHidden: '未发现语法问题（时值警告已隐藏）',
     measureLabel: '第 {n} 小节',
+    lyricWords: '个歌词词项',
+    lyricNotes: '个可配音符',
+    lyricMissing: '缺 {count} 个',
+    lyricExtra: '多 {count} 个',
   },
 }
 

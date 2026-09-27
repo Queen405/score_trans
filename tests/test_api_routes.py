@@ -539,7 +539,8 @@ def test_syntax_measure_duration_warnings_follow_saved_setting(tmp_path: Path) -
     assert response.status_code == 200
     assert response.json()["jianpu_measure_duration_check"] is False
     assert client.post("/syntax/validate", json={"jianpu_text": text}).json() == {
-        "diagnostics": []
+        "diagnostics": [],
+        "lyrics": [],
     }
 
     diagnostics = client.post(

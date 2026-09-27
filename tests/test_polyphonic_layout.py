@@ -301,23 +301,11 @@ def test_full_fixture_playback_and_source_mapping_is_preserved() -> None:
 
 
 def test_polyphonic_lyrics_are_measured_at_their_shifted_position() -> None:
-    from score_trans.services.render.engraving.fonts import font_registry
-
     scores = _scores(BASS)
     scores[0].measures[0].events[1].lyric = "测试"
     scores[0].measures[0].events[1].source_ids = ["lyric-note"]
     page = PublicationRenderer().render_scores(scores)[0]
-    note = next(
-        n for n in _notes(page) if n.attrib.get("data-source-id") == "lyric-note"
-    )
-    lyric = next(n for n in note.iter() if "lyric" in n.attrib.get("class", "").split())
-    baseline = float(
-        re.search(r"translate\([-\d.]+ ([-\d.]+)", lyric.attrib["transform"])[1]
-    )
-    bottom = (
-        baseline + font_registry().ink_bounds("测试", PublicationStyle().lyric_size)[3]
-    )
-    box = _box(note)
-    assert box[1] + box[3] >= bottom - 0.01
+    lyric = next(n for n in page.scene.nodes if n.text == "测试")
+    lyric_y = lyric.attrs["y"]
     bass = next(n for n in _notes(page) if n.attrib["data-note-token"] == "w6,")
-    assert baseline > _box(bass)[1] + _box(bass)[3]
+    assert float(lyric_y) > _box(bass)[1] + _box(bass)[3]
