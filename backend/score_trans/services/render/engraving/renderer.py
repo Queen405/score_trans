@@ -1644,7 +1644,9 @@ def _system_part_layouts(
                         depth,
                         style.event_baseline
                         + text_offset
-                        + measure_event_ink(replace(e, lyric=None, lyrics={}), style).bottom,
+                        + measure_event_ink(
+                            replace(e, lyric=None, lyrics={}), style
+                        ).bottom,
                     )
             for measure, width in measures:
                 for text in _measure_text_layout(
@@ -1813,8 +1815,7 @@ def _system_extra_height(cells: list[_Cell], style: PublicationStyle) -> float:
                     or any(pitch.octave > 0 for pitch in event.pitches)
                 )
                 needs_bottom = needs_bottom or bool(
-                    event.dynamic
-                    or any(pitch.octave < 0 for pitch in event.pitches)
+                    event.dynamic or any(pitch.octave < 0 for pitch in event.pitches)
                 )
             text_layouts = _measure_text_layout(measure, 0.0, cell.width, 0.0, style)
             if text_layouts:
@@ -3422,7 +3423,8 @@ def _measure_text_layout(
 def _measure_lyric_event_bottom(measure: Measure, style: PublicationStyle) -> float:
     return max(
         (
-            style.event_baseline + measure_event_ink(event, style).bottom
+            style.event_baseline
+            + measure_event_ink(replace(event, lyric=None, lyrics={}), style).bottom
             for event in measure.events
             if event.kind == "note" and (event.lyric or event.lyrics)
         ),

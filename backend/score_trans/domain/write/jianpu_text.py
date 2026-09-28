@@ -567,41 +567,39 @@ def _score_to_jianpu_text(
             if block.role == "lyric" and block.bbox is None
         }
     )
-    for verse in lyric_verses:
+    if lyric_verses:
         measure_tokens: list[str] = []
         for measure in score.measures:
-            blocks = sorted(
-                (
-                    block
-                    for block in measure.text_blocks
-                    if block.role == "lyric"
-                    and block.bbox is None
-                    and (block.lyric_verse or 1) == verse
-                ),
-                key=lambda block: block.start or Fraction(0),
-            )
-            if not blocks:
-                measure_tokens.append(" ".join(_lyric_timing_tokens(measure.duration)))
-                continue
-            if all(block.duration is None for block in blocks):
-                measure_tokens.append(" ".join(block.text for block in blocks))
-                continue
-            cursor = Fraction(0)
-            tokens: list[str] = []
-            for block in blocks:
-                start = block.start or Fraction(0)
-                if start > cursor:
-                    tokens.extend(_lyric_timing_tokens(start - cursor))
-                if block.duration is None:
-                    tokens.append(block.text)
-                    cursor = start + Fraction(1)
+            verse_tokens: list[str] = []
+            for verse in lyric_verses:
+                blocks = sorted(
+                    (
+                        block
+                        for block in measure.text_blocks
+                        if block.role == "lyric"
+                        and block.bbox is None
+                        and (block.lyric_verse or 1) == verse
+                    ),
+                    key=lambda block: block.start or Fraction(0),
+                )
+                if not blocks:
+                    verse_tokens.append("")
                     continue
-                duration = block.duration or Fraction(1)
-                tokens.extend(_lyric_timing_tokens(duration, block.text))
-                cursor = start + duration
-            measure_tokens.append(" ".join(tokens))
-        prefix = "L:" if verse == 1 else f"L{verse}:"
-        lines.append(f"{prefix} {' | '.join(measure_tokens)}".rstrip())
+                if all(block.duration is None for block in blocks):
+                    verse_tokens.append(" ".join(block.text for block in blocks))
+                    continue
+                cursor = Fraction(0)
+                tokens: list[str] = []
+                for block in blocks:
+                    start = block.start or Fraction(0)
+                    if start > cursor:
+                        tokens.extend(_lyric_timing_tokens(start - cursor))
+                    duration = block.duration or Fraction(1)
+                    tokens.extend(_lyric_timing_tokens(duration, block.text))
+                    cursor = start + duration
+                verse_tokens.append(" ".join(tokens))
+            measure_tokens.append(" & ".join(verse_tokens))
+        lines.append(f"/L: {' | '.join(measure_tokens)}/")
     return "\n".join(lines)
 
 
@@ -636,7 +634,7 @@ def _text_anchors_raw(
         return []
 
     lines = text.splitlines(keepends=True)
-    lyric_line_count = 1 if lines and lines[-1].lstrip().startswith("L:") else 0
+    lyric_line_count = sum(1 for line in lines if "/L:" in line)
     current_tempo = score.tempo or DEFAULT_TEMPO
     tempo_line_count = 0
     for measure in score.measures:

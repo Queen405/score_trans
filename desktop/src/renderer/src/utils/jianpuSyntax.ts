@@ -17,6 +17,39 @@ export interface JianpuSyntaxToken {
   type: JianpuSyntaxTokenType
 }
 
+// `/` 是歌词正文保留符号，全文最后一个 `/` 即歌词块结束符。
+// 优先在同一行内查找，避免误匹配后续行的 `//` 注释。
+export function findLyricBlockRange(text: string): { start: number; end: number } {
+  const start = text.indexOf('/L:')
+  if (start < 0) return { start: -1, end: -1 }
+  const lineEnd = text.indexOf('\n', start + 3)
+  const searchLimit = lineEnd >= 0 ? lineEnd : text.length
+  let end = text.lastIndexOf('/', searchLimit)
+  if (end < start + 3) end = text.lastIndexOf('/') // 同一行没有，回退全文
+  return { start, end }
+}
+
+export function lyricBlockLineIndexes(text: string): Set<number> {
+  const { start, end } = findLyricBlockRange(text)
+  if (start < 0) return new Set()
+  const limit = end < start ? text.length : end + 1
+  const before = text.slice(0, start)
+  const block = text.slice(start, limit)
+  const firstLine = before.split('\n').length - 1
+  const result = new Set<number>()
+  for (let i = 0; i < block.split('\n').length; i += 1) result.add(firstLine + i)
+  return result
+}
+
+export function maskJianpuLyricBlocks(text: string): string {
+  const { start, end } = findLyricBlockRange(text)
+  if (start < 0) return text
+  const limit = end < start ? text.length : end + 1
+  return text.slice(0, start)
+    + text.slice(start, limit).replace(/[^\r\n]/g, ' ')
+    + text.slice(limit)
+}
+
 const TOKEN_PATTERN = /(\s+|\$[^$]*\$|\|\||\|:|:\||\||&|[^\s|&]+)/g
 const DURATION_PREFIX_PATTERN = /^(?:[whqs]|d+)/
 const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
@@ -47,7 +80,7 @@ function tokenizeCodePart(code: string): JianpuSyntaxToken[] {
     return [{ text: code, type: 'plain' }]
   }
 
-  if (/^L\d*:\s*/.test(trimmedStart)) {
+  if (/^\/L:/.test(trimmedStart)) {
     return [
       ...(leadingWhitespace ? [{ text: leadingWhitespace, type: 'plain' as const }] : []),
       { text: trimmedStart, type: 'lyrics' },

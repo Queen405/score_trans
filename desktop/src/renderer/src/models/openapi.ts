@@ -1906,18 +1906,6 @@ export type components = {
         };
         /** LyricLineSummary */
         LyricLineSummary: {
-            /** Available Notes */
-            available_notes?: number | null;
-            /**
-             * Extra Words
-             * @default 0
-             */
-            extra_words?: number;
-            /**
-             * Missing Words
-             * @default 0
-             */
-            missing_words?: number;
             /** Verse */
             verse: number;
             /** Words */

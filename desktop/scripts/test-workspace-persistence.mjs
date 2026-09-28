@@ -16,7 +16,11 @@ function compileModule(sourcePath, replacements = []) {
   return `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 }
 
-const sectionsUrl = compileModule(path.resolve(here, '../src/renderer/src/utils/jianpuPageSections.ts'))
+const syntaxUrl = compileModule(path.resolve(here, '../src/renderer/src/utils/jianpuSyntax.ts'))
+const sectionsUrl = compileModule(
+  path.resolve(here, '../src/renderer/src/utils/jianpuPageSections.ts'),
+  [["from './jianpuSyntax'", `from '${syntaxUrl}'`]],
+)
 const payloadUrl = compileModule(
   path.resolve(here, '../src/renderer/src/utils/historySavePayload.ts'),
   [["from './jianpuPageSections'", `from '${sectionsUrl}'`]],

@@ -50,7 +50,23 @@ const pageSourceUrl = new URL(
   '../src/renderer/src/utils/jianpuPageSections.ts',
   import.meta.url,
 )
-const pageJavascript = ts.transpileModule(await readFile(pageSourceUrl, 'utf8'), {
+const syntaxSourceUrl = new URL(
+  '../src/renderer/src/utils/jianpuSyntax.ts',
+  import.meta.url,
+)
+const syntaxJavascript = ts.transpileModule(await readFile(syntaxSourceUrl, 'utf8'), {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ES2022,
+  },
+}).outputText
+const syntaxModuleUrl = `data:text/javascript;base64,${Buffer.from(syntaxJavascript).toString('base64')}`
+const pageJavascript = ts.transpileModule(
+  (await readFile(pageSourceUrl, 'utf8')).replace(
+    "from './jianpuSyntax'",
+    `from '${syntaxModuleUrl}'`,
+  ),
+  {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
     target: ts.ScriptTarget.ES2022,

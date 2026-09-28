@@ -1,3 +1,5 @@
+import { lyricBlockLineIndexes } from './jianpuSyntax'
+
 export interface JianpuPageSource {
   inputFileName?: string
   jianpuText?: string
@@ -201,6 +203,7 @@ export function ensureRecognizedTempoHeader(text: string): string {
     if (
       !trimmed
       || trimmed.startsWith('//')
+      || trimmed.startsWith('/L:')
       || trimmed.startsWith('L:')
       || trimmed.startsWith('@text ')
       || HEADER_LINE_PATTERN.test(trimmed)
@@ -337,7 +340,7 @@ function stripLeadingMeasureLabel(line: string): string {
 }
 
 function isNonMeasureLine(trimmed: string): boolean {
-  if (!trimmed || trimmed.startsWith('L:')) return true
+  if (!trimmed || trimmed.startsWith('/L:') || trimmed.startsWith('L:')) return true
   if (METADATA_LINE_PATTERN.test(trimmed) || TEMPO_LINE_PATTERN.test(trimmed)) return true
   return KEY_TOKEN_PATTERN.test(trimmed) || TIME_TOKEN_PATTERN.test(trimmed)
 }
@@ -374,6 +377,7 @@ function walkJianpuMeasures(
 ): MeasureWalkResult {
   const normalized = normalizeLineEndings(text)
   const lines = normalized.split('\n')
+  const lyricLines = lyricBlockLineIndexes(normalized)
   const lineResults: MeasureWalkLine[] = lines.map(() => ({
     firstMeasure: null,
     lastMeasure: null,
@@ -495,6 +499,7 @@ function walkJianpuMeasures(
       startPage(planIndex + 1)
     }
     const line = lines[lineIndex]
+    if (lyricLines.has(lineIndex)) continue
     if (tryParseJianpuPageMarker(line)) continue
     if (PART_MARKER_PATTERN.test(line)) {
       finishPart()
@@ -558,6 +563,19 @@ function walkJianpuMeasures(
   }
   finishPage()
 
+  const firstMeasure = pages[0]?.firstMeasureNumber ?? null
+  const lastPage = pages.at(-1)
+  const lastMeasure = lastPage?.measureCount
+    ? lastPage.firstMeasureNumber + lastPage.measureCount - 1
+    : null
+  for (const lyricLine of lyricLines) {
+    const result = lineResults[lyricLine]
+    if (result && firstMeasure !== null && lastMeasure !== null) {
+      result.firstMeasure = firstMeasure
+      result.lastMeasure = lastMeasure
+    }
+  }
+
   return { lines: lineResults, pages }
 }
 
@@ -598,12 +616,19 @@ export function jianpuPageSummaries(
 
 export function jianpuGutterLabels(text: string, initialMeasureNumber = 1): string[] {
   const normalized = normalizeLineEndings(text)
-  const { lines } = walkWithCache(normalized, initialMeasureNumber)
-  return normalized.split('\n').map((line, index) => {
+  const { lines, pages } = walkWithCache(normalized, initialMeasureNumber)
+  const totalMeasures = pages.reduce((total, page) => total + page.measureCount, 0)
+  const scoreRange = totalMeasures
+    ? `${initialMeasureNumber}-${initialMeasureNumber + totalMeasures - 1}`
+    : ''
+  const rawLines = normalized.split('\n')
+  const lyricLines = lyricBlockLineIndexes(normalized)
+  return rawLines.map((line, index) => {
     const marker = tryParseJianpuPageMarker(line)
     if (marker) return `P${marker.pageNumber}`
 
     const info = lines[index]
+    if (lyricLines.has(index)) return scoreRange
     if (!info || info.firstMeasure === null || info.lastMeasure === null) return ''
     if (info.firstMeasure === info.lastMeasure) return String(info.firstMeasure)
     const label = `${info.firstMeasure}-${info.lastMeasure}`

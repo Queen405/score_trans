@@ -6,6 +6,7 @@ import {
   isPlayableToken,
   findJianpuNoteSpans,
 } from './jianpuPlayback'
+import { maskJianpuLyricBlocks } from './jianpuSyntax'
 
 const PITCH_OCTAVE_PATTERN = /([1-7])([',]*)/g
 
@@ -23,7 +24,7 @@ const KEY_PREFIX_PATTERN = new RegExp(`${KEY_HEAD_SOURCE}[A-G]?`, 'g')
 // 否则「// 1=G」这类文本会白发一次转调请求。
 export function detectKeyChanges(text: string): Array<{ lineIndex: number; key: string }> {
   const changes: Array<{ lineIndex: number; key: string }> = []
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const lines = maskJianpuLyricBlocks(text).replace(/\r\n?/g, '\n').split('\n')
   for (let i = 0; i < lines.length; i++) {
     const line = stripInlineComment(lines[i])
     if (!line.trim()) continue
@@ -43,7 +44,7 @@ export function detectKeyChanges(text: string): Array<{ lineIndex: number; key: 
 // 不能直接用 isMetadataLine：调号行本身就是 metadata，正是我们要找的目标。
 function isLyricOrTextLine(line: string): boolean {
   const trimmed = line.trim()
-  return trimmed.startsWith('L:') || trimmed.startsWith('@text ')
+  return trimmed.startsWith('/L:') || trimmed.startsWith('L:') || trimmed.startsWith('@text ')
 }
 
 /**

@@ -10,6 +10,42 @@
 
 > **修复执行状态（历史记录）**：2026-08-20 的测试和清理数字只代表当时基线；执行新的删减批次时必须重新运行当前 `.venv` 测试、前端 typecheck 和生产构建。
 
+## 〇、当前待办清单（2026-09-29）
+
+### 进行中：歌词语法重构（未提交）
+
+当前工作树有一大批未提交改动（`parse/write/jianpu_text.py`、`rekey.py`、`renderer.py`、前端 `jianpuSyntax.ts`/`jianpuPageSections.ts`/`jianpuPlayback.ts`/`JianpuEditor.vue`/`SyntaxView.vue`、i18n、相关测试与 `docs/jianpu-syntax.md`），是新版 `/L:` 歌词语法特性的主体。
+
+- [ ] 提交歌词重构主体改动（含 i18n 与测试），并决定是否将 [lyric-refactor-fix-plan.md](lyric-refactor-fix-plan.md) 纳入版本管理。
+
+### 已完成：歌词重构修复批次 B1–C1（2026-09-29）
+
+按 [lyric-refactor-fix-plan.md](lyric-refactor-fix-plan.md) 四批次全部实施完成：
+
+- [x] **B1**（Bug）英文歌词以 `s`/`h`/`q`/`w` 开头被截断 — `d` 特判已扩展到全部 5 个时值前缀字母，新增回归测试 `test_lyric_words_starting_with_duration_letters_are_preserved`
+- [x] **B2**（Bug）`lyric_line_count` 对带换行符的行多算 1 — 已改为 `sum(1 for line in lines if "/L:" in line)`
+- [x] **B3**（Bug）测试名与内容不符 — 已改名 `test_lyric_block_without_terminator_is_rejected`
+- [x] **D1**（设计）`rfind("/")` 误匹配后续行 — 后端 `_extract_lyric_blocks` 优先同行查找；前端 `jianpuSyntax.ts` 新增公共 `findLyricBlockRange`
+- [x] **D2**（设计）前端歌词块定位逻辑重复 — `jianpuPageSections.ts`（2 处）、`jianpuPlayback.ts`（1 处）已复用 `lyricBlockLineIndexes`/`maskJianpuLyricBlocks`；5 个内联编译的 Node 测试脚本同步补充 `jianpuSyntax` 依赖注入
+- [x] **D3**（设计）`JianpuEditor.vue` 每行重算 — 已提取到 `map` 之前只算一次
+- [x] **D4**（设计）`LyricLineSummary` 死字段 — `schemas.py` 移除三字段，同步删除 `JianpuEditor.vue` 死代码引用与中英文 i18n 键（`lyricNotes`/`lyricMissing`/`lyricExtra`），`openapi.ts` 已重新生成且 `check:api-types` 通过
+- [x] **D5**（设计）`validate_jianpu_lyrics` 双重解析 — 已改用 `_parse_score_tokens` 复用首次解析结果（保留 BOM strip）
+- [x] **D6**（设计）`_split_lyric_block` 匹配注释 — 已增加行首检查
+- [x] **C1**（清理）`.gitignore` 已添加 `.pytest-*/`，`.pytest-lyrics-investigation-20260929/` 已删除
+
+**验证结果**：后端全量 pytest `1247 passed, 1 skipped, 1 xfailed`；Ruff check / format --check 全绿；前端 `vue-tsc` 通过、ESLint 0 error（残余 42 条可修复 warning 均为用户既有改动文件 `App.vue`/`LiveJianpuPreview.vue`/`ConvertView.vue`，非本批次引入）；`pnpm test:utils` 288 项全过；`pnpm check:api-types` 通过。
+
+注：本机 `C:\Users\15732\AppData\Local\Temp\pytest-of-Lenovo` 目录无访问权限，pytest 需加 `--basetemp` 指向可写目录运行（环境问题，与代码无关）。
+
+### 长期开放项（来自本文 N/T 系列）
+
+- [ ] **N21** Windows 安装包/exe 无签名 — 需设计 Authenticode 密钥托管与 CI 签名步骤
+- [ ] **N25** `musicxml_patch.py` 删除路径最坏 O(k·n²) — 单次解析建立 parent map + locator 索引
+- [ ] **N26** AI/OCR provider 每次新建同步请求、无连接池 — 由 composition 持有 `httpx.Client`
+- [ ] **T1**（部分完成）缺 Vue DOM 挂载测试设施与 Playwright 点击链路（R2 异步行为已覆盖）
+- [ ] **T2** correction 标题/文本附件缺完整集成回归
+- [ ] **P3 技术债**：死代码候选清理、A4 尺寸常量收敛、大视图拆分（RecognizeView/ConvertView/SyntaxView）、SQLite WAL/busy_timeout、`no-explicit-any` 收紧、README 截图等（详见 §六）
+
 ## 一、结论总览
 
 | 结论 | 数量 | 编号 |

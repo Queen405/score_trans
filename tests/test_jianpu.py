@@ -227,7 +227,7 @@ def test_writer_does_not_put_rest_lyrics_in_note_lyric_stream() -> None:
 
     text = score_to_jianpu_text(score)
 
-    assert text.splitlines()[-1] == "L: 唱"
+    assert text.splitlines()[-1] == "/L: 唱/"
 
 
 def test_writer_groups_events_by_voice_without_mutating_source_score() -> None:
@@ -665,7 +665,7 @@ def test_musicxml_file_to_jianpu_reads_mxl(tmp_path) -> None:
 
 def test_parse_new_project_syntax_chords_lyrics_and_marks() -> None:
     score = parse_jianpu_score(
-        "title=瑞雪迎春\n1=D\n4/4\nq1 #2. ^r [1+3+5] \\f 4~ | ~4 (5 6) |\nL: 春 风 又 绿"
+        "title=瑞雪迎春\n1=D\n4/4\nq1 #2. ^r [1+3+5] \\f 4~ | ~4 (5 6) |\n/L: 春 风 又 绿/"
     )
 
     assert score.title == "瑞雪迎春"
@@ -682,7 +682,7 @@ def test_parse_new_project_syntax_chords_lyrics_and_marks() -> None:
 
 def test_timed_lyrics_align_by_duration_and_keep_verse_tracks() -> None:
     score = parse_jianpu_score(
-        "1=C\n4/4\n1 2 3 4 | 5 6 7 1' |\nL: 春 q眠 q不 | q0 q觉\nL2: 星 s闪 s亮 | 光"
+        "1=C\n4/4\n1 2 3 4 | 5 6 7 1' |\n/L: 春 q眠 q不 & 星 s闪 s亮 | q0 q觉 & 光/"
     )
 
     first_measure_lyrics = [
@@ -704,11 +704,11 @@ def test_timed_lyrics_align_by_duration_and_keep_verse_tracks() -> None:
         if block.role == "lyric" and block.lyric_verse == 1
     ]
     assert second_measure_lyrics == ["觉"]
-    assert "L2:" in score_to_jianpu_text(score)
+    assert "&" in score_to_jianpu_text(score)
 
 
 def test_timed_lyric_literal_hyphen_and_period_are_preserved() -> None:
-    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\nL: q一- q二.")
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: q一- q二./")
 
     assert [
         (block.text, block.start, block.duration)
@@ -720,9 +720,25 @@ def test_timed_lyric_literal_hyphen_and_period_are_preserved() -> None:
     ]
 
 
-def test_lyric_verse_zero_is_rejected() -> None:
-    with pytest.raises(JianpuSyntaxError, match="歌词段号必须从 1 开始"):
-        parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\nL0: 春")
+def test_lyric_words_starting_with_duration_letters_are_preserved() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: so he we star/")
+
+    blocks = [
+        (block.text, block.duration)
+        for block in score.measures[0].text_blocks
+        if block.role == "lyric"
+    ]
+    assert blocks == [
+        ("so", Fraction(1)),
+        ("he", Fraction(1)),
+        ("we", Fraction(1)),
+        ("star", Fraction(1)),
+    ]
+
+
+def test_lyric_block_without_terminator_is_rejected() -> None:
+    with pytest.raises(JianpuSyntaxError, match="缺少结束符"):
+        parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: 春")
 
 
 def test_parse_note_can_end_slur_and_start_tie() -> None:
@@ -1002,7 +1018,7 @@ def test_ai_dotted_duration_prefix_variant_is_rejected() -> None:
 
 def test_score_to_jianpu_text_preserves_marks_and_lyrics() -> None:
     score = parse_jianpu_score(
-        "title=完整\n1=C\n4/4\n|: \\mf ^> (q1~ ~q1) q[1+3+5] q0 :|\nL: 春 风"
+        "title=完整\n1=C\n4/4\n|: \\mf ^> (q1~ ~q1) q[1+3+5] q0 :|\n/L: 春 风/"
     )
     text = score_to_jianpu_text(score)
 
@@ -1013,7 +1029,7 @@ def test_score_to_jianpu_text_preserves_marks_and_lyrics() -> None:
     assert "(q1~" in text
     assert "~q1)" in text
     assert "q[5+3+1]" in text
-    assert "L: 春 风" in text
+    assert "/L: 春 风/" in text
 
 
 def test_score_to_jianpu_text_only_writes_supported_mark_tokens() -> None:

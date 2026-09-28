@@ -28,9 +28,6 @@ class SyntaxValidateRequest(BaseModel):
 class LyricLineSummary(BaseModel):
     verse: int
     words: int
-    available_notes: int | None = None
-    missing_words: int = 0
-    extra_words: int = 0
 
 
 class SyntaxValidateResponse(BaseModel):

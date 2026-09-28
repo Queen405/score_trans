@@ -723,7 +723,7 @@ const syntaxSections = computed<SyntaxSection[]>(() => [
         description: t('syntax.entries.expression.measureLevelShorthand.desc'),
       },
       {
-        syntax: 'L: do re mi',
+        syntax: '/L: do re mi/',
         name: t('syntax.entries.expression.lyric.name'),
         description: t('syntax.entries.expression.lyric.desc'),
       },
@@ -751,7 +751,7 @@ const quickReferenceEntries = computed<SyntaxEntry[]>(() => [
   { syntax: '^l / ^lh', name: t('syntax.quickRef.folk.name'), description: t('syntax.quickRef.folk.desc') },
   { syntax: '(^...)', name: t('syntax.quickRef.measureLevel.name'), description: t('syntax.quickRef.measureLevel.desc') },
   { syntax: 'instrument=...', name: t('syntax.quickRef.instrument.name'), description: t('syntax.quickRef.instrument.desc') },
-  { syntax: 'L: / //', name: t('syntax.quickRef.lyricComment.name'), description: t('syntax.quickRef.lyricComment.desc') },
+  { syntax: '/L: .../', name: t('syntax.quickRef.lyricComment.name'), description: t('syntax.quickRef.lyricComment.desc') },
   { syntax: '// @part / // @page', name: t('syntax.quickRef.partPage.name'), description: t('syntax.quickRef.partPage.desc') },
 ])
 

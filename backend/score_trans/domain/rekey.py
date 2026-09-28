@@ -136,18 +136,23 @@ def rekey_text(
     newline = _detect_newline(text)
     normalized = _normalize_newlines(text)
     previous_normalized = _normalize_newlines(previous_text)
+    full_normalized = normalized
+    normalized, lyric_block = _split_lyric_block(normalized)
+    previous_normalized, _previous_lyric_block = _split_lyric_block(previous_normalized)
+    scan_normalized = normalized
+    previous_scan_normalized = previous_normalized
 
     # 先试管辖调路径。它必须早于 new_tokens 判空：删掉唯一调号后新文本已无 token，
     # 但那恰恰是需要回退到 _DEFAULT_KEY 的情形。
     rewritten = _rekey_by_governing_key(
-        previous_normalized, normalized, accidental_mode
+        previous_scan_normalized, scan_normalized, accidental_mode
     )
     if rewritten is not None:
-        if rewritten == normalized:
+        if rewritten == scan_normalized:
             # 纯调号编辑但无改动：调号序列没变，或新旧管辖调本就相同。
             return RekeyResult(text)
-        output = newline.join(rewritten.split("\n"))
-        mapping = _build_rekey_mappings(normalized, rewritten)
+        output = newline.join((rewritten + lyric_block).split("\n"))
+        mapping = _build_rekey_mappings(full_normalized, output)
         return RekeyResult(
             output,
             anchor_mapping=(
@@ -157,8 +162,8 @@ def rekey_text(
             ),
         )
 
-    old_tokens = _find_key_tokens(previous_normalized)
-    new_tokens = _find_key_tokens(normalized)
+    old_tokens = _find_key_tokens(previous_scan_normalized)
+    new_tokens = _find_key_tokens(scan_normalized)
     if not new_tokens:
         return RekeyResult(text, "no_key_token")
 
@@ -170,11 +175,22 @@ def rekey_text(
         )
         return RekeyResult(text, reason)
 
-    lines = normalized.split("\n")
+    lines = scan_normalized.split("\n")
     # 区间互不重叠，倒序应用可让尚未处理的区间偏移保持有效。
     for segment in reversed(segments):
         _apply_segment(lines, segment, accidental_mode)
-    return RekeyResult(newline.join(lines))
+    return RekeyResult(newline.join(("\n".join(lines) + lyric_block).split("\n")))
+
+
+def _split_lyric_block(text: str) -> tuple[str, str]:
+    start = text.find("/L:")
+    if start < 0:
+        return text, ""
+    # 确保 /L: 在行首（前面只有空白），避免匹配注释中的 /L:
+    line_start = text.rfind("\n", 0, start) + 1
+    if text[line_start:start].strip():
+        return text, ""
+    return text[:start], text[start:]
 
 
 def _detect_newline(text: str) -> str:
@@ -494,7 +510,11 @@ def _is_metadata_line(line: str) -> bool:
 
 def _is_lyric_or_text_line(line: str) -> bool:
     stripped = line.strip()
-    return stripped.startswith("L:") or stripped.startswith("@text ")
+    return (
+        stripped.startswith("/L:")
+        or stripped.startswith("L:")
+        or stripped.startswith("@text ")
+    )
 
 
 def _strip_inline_comment(line: str) -> str:
@@ -617,6 +637,8 @@ def _line_pitch_entries(
 ) -> list[tuple[int, int, str, list[tuple[int, int]]]]:
     """Return pitch-bearing tokens, excluding key/metadata/comment tokens."""
     code = _strip_inline_comment(line)
+    if "/L:" in code:
+        return []
     if _is_lyric_or_text_line(code):
         return []
     key_ranges = [(token.start, token.end) for token in _find_key_tokens(line)]

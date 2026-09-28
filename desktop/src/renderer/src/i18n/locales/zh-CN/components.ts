@@ -4,7 +4,7 @@ const components = {
     initialMeasureLabel: '修改起始小节号',
     initialMeasurePlaceholder: '起始小节号',
     firstPageMeasureAria: '第一页起始小节号',
-    placeholder: 'title=瑞雪迎春\n1=C\n4/4\n1 2 $345$ 4 |\n1=G\n3/4\nh[1+3+5] \\p 4 |\nL: 春 风 又 绿',
+    placeholder: 'title=瑞雪迎春\n1=C\n4/4\n1 2 $345$ 4 |\n1=G\n3/4\nh[1+3+5] \\p 4 |\n/L: 春 风 又 绿/',
     transposing: '转调中…',
     skipSyntaxError: '简谱有语法错误，自动转调已跳过',
     skipUnresolvableKeyChange: '删除调号无法自动转调，请直接把调号改写成新调',
@@ -115,9 +115,6 @@ const components = {
     noIssueWarningsHidden: '未发现语法问题（时值警告已隐藏）',
     measureLabel: '第 {n} 小节',
     lyricWords: '个歌词词项',
-    lyricNotes: '个可配音符',
-    lyricMissing: '缺 {count} 个',
-    lyricExtra: '多 {count} 个',
   },
 }
 

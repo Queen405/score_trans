@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import xml.etree.ElementTree as ET
+from dataclasses import replace
 from fractions import Fraction
 from itertools import pairwise
 from pathlib import Path
@@ -43,6 +44,8 @@ from score_trans.services.render.engraving.renderer import (
     _event_positions,
     _event_visual_extents,
     _intrinsic_measure_width,
+    _measure_lyric_event_bottom,
+    _measure_text_layout,
     _rhythm_line_base,
     _system_extra_height,
 )
@@ -1545,7 +1548,7 @@ def test_sextuplet_notes_render_two_rhythm_line_levels() -> None:
 
 
 def test_tuplet_lyric_clears_the_rhythm_line() -> None:
-    root = _root(render_jianpu_svg("1=C\n4/4\n$123$ 4 |\nL: 春 江"))
+    root = _root(render_jianpu_svg("1=C\n4/4\n$123$ 4 |\n/L: 春 江/"))
 
     beams = [
         node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
@@ -1997,7 +2000,7 @@ def test_event_lyric_is_not_rendered_again_from_measure_text_block() -> None:
 
 
 def test_timed_lyrics_are_not_duplicated_by_event_lyrics() -> None:
-    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\nL: q就 q老 q师 q老 q师")
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: q就 q老 q师 q老 q师/")
 
     root = _root(render_score_svg(score))
     lyrics = [node for node in root.iter() if node.attrib.get("class") == "lyric"]
@@ -2031,7 +2034,7 @@ def test_wide_event_stays_centered_when_its_ink_cannot_fit() -> None:
 
 
 def test_spanners_tuplets_marks_and_lyrics_are_rendered() -> None:
-    score = parse_jianpu_score("1=C\n4/4\n$^.1 2 3$ 4~ | ~4 (5 6) |\nL: 春 江 花 月")
+    score = parse_jianpu_score("1=C\n4/4\n$^.1 2 3$ 4~ | ~4 (5 6) |\n/L: 春 江 花 月/")
     score.measures[0].events[0].dynamic = "mf"
     score.measures[0].repeat_start = True
     score.measures[1].repeat_end = True
@@ -2733,6 +2736,60 @@ def test_measure_text_layout_uses_text_start_for_horizontal_position() -> None:
     }
 
     assert texts["左"] < texts["右"]
+
+
+def test_legacy_and_timed_lyrics_share_baseline_below_note_attachments() -> None:
+    legacy = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[
+            Event(
+                kind="note",
+                duration=Fraction(1, 2),
+                pitches=[JianpuPitch(3, octave=-1)],
+                lyric="春",
+            )
+        ],
+    )
+    timed = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[
+            Event(
+                kind="note",
+                duration=Fraction(1, 2),
+                pitches=[JianpuPitch(3, octave=-1)],
+                lyrics={1: "春"},
+            )
+        ],
+        text_blocks=[
+            TextBlock(
+                "春",
+                role="lyric",
+                start=Fraction(0),
+                duration=Fraction(1, 2),
+                lyric_verse=1,
+            )
+        ],
+    )
+    style = PublicationStyle()
+
+    legacy_layout = _measure_text_layout(legacy, 0.0, 150.0, 0.0, style)
+    timed_layout = _measure_text_layout(timed, 0.0, 150.0, 0.0, style)
+
+    assert [layout.text for layout in legacy_layout] == ["春"]
+    assert [layout.text for layout in timed_layout] == ["春"]
+    assert legacy_layout[0].bbox.y == timed_layout[0].bbox.y
+    assert _measure_lyric_event_bottom(legacy, style) == _measure_lyric_event_bottom(
+        timed, style
+    )
+    note_bottom = (
+        style.event_baseline
+        + measure_event_ink(
+            replace(legacy.events[0], lyric=None, lyrics={}), style
+        ).bottom
+    )
+    assert legacy_layout[0].bbox.y >= note_bottom + style.text_lane_gap
 
 
 def test_measure_text_layout_emits_truthful_bbox_for_custom_font_size() -> None:

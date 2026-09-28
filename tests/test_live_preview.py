@@ -83,7 +83,7 @@ def test_invalid_context_uses_last_valid_value_and_warning_clears(
         "w1 & 2 3 4 5 | w6, & 1 2 3 4 |",
         "1 2 3 4 | 1=G 3/4 tempo=90 5 6 7 |",
         "$123$ 4 5 6 | 1 2 3 4 |",
-        "1 2 3 4 | 5 6 7 1 |\nL: do re mi fa so la ti do",
+        "1 2 3 4 | 5 6 7 1 |\n/L: do re mi fa | so la ti do/",
     ],
 )
 def test_valid_measures_match_strict_parser(body: str) -> None:
@@ -103,7 +103,7 @@ def test_failed_voice_is_discarded_and_cannot_leak_tie() -> None:
 
 
 def test_uncertain_lyrics_omitted_only_after_error() -> None:
-    text = "1=C\n4/4\n1 2 3 4 | INVALID | 5 6 7 1 |\nL: do re mi fa so la ti do"
+    text = "1=C\n4/4\n1 2 3 4 | INVALID | 5 6 7 1 |\n/L: do re mi fa | so la ti do/"
     assert select(text, "1 2").score.measures[0].events[0].lyric == "do"
     result = select(text, "5 6")
     assert all(event.lyric is None for event in result.score.measures[0].events)

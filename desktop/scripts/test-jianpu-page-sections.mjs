@@ -11,7 +11,22 @@ const sourcePath = path.resolve(
   here,
   '../src/renderer/src/utils/jianpuPageSections.ts',
 )
-const source = fs.readFileSync(sourcePath, 'utf8')
+const syntaxSourcePath = path.resolve(
+  here,
+  '../src/renderer/src/utils/jianpuSyntax.ts',
+)
+const syntaxCompiled = ts.transpileModule(fs.readFileSync(syntaxSourcePath, 'utf8'), {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
+  fileName: syntaxSourcePath,
+}).outputText
+const syntaxModuleUrl = `data:text/javascript;base64,${Buffer.from(syntaxCompiled).toString('base64')}`
+const source = fs.readFileSync(sourcePath, 'utf8').replace(
+  "from './jianpuSyntax'",
+  `from '${syntaxModuleUrl}'`,
+)
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ES2022,
@@ -549,6 +564,12 @@ test('gutter labels show page markers and continuous measure numbers', () => {
     utils.jianpuGutterLabels(text).filter(Boolean),
     ['P1', '1', 'P2', '2'],
   )
+})
+
+test('lyric block lines use score measure numbers and never advance the score', () => {
+  const text = '1 2 3 4 | 5 6 7 1 |\n/L: 春 眠 | 晓 闻/\n'
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-2', '1-2', ''])
+  assert.equal(utils.jianpuMeasureCount(text), 2)
 })
 
 test('removing a page removes its body and renumbers following markers', () => {

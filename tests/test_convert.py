@@ -180,7 +180,7 @@ def test_musicxml_beam_statuses_roundtrip_on_event() -> None:
 
 
 def test_musicxml_preserves_multiple_lyric_verses() -> None:
-    source = "1=C\n4/4\n1 2 3 4 | 5 6 7 1' |\nL: 春 q眠 | q0 q觉\nL2: 星 闪 | 月 光"
+    source = "1=C\n4/4\n1 2 3 4 | 5 6 7 1' |\n/L: 春 q眠 & 星 闪 | q0 q觉 & 月 光/"
     xml = jianpu_to_musicxml(source)
     root = ET.fromstring(xml)
     first_note_lyrics = root.findall(".//measure[1]/note[1]/lyric")
@@ -215,7 +215,7 @@ def test_writer_keeps_repeated_same_verse_lyrics_at_distinct_starts() -> None:
 
     text = score_to_jianpu_text(score)
 
-    assert text.splitlines()[-1] == "L: 啦 啦 啦"
+    assert text.splitlines()[-1] == "/L: 啦 啦 啦/"
 
 
 def test_jianpu_to_musicxml_preserves_accidental_direction_and_magnitude() -> None:

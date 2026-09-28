@@ -27,7 +27,14 @@ const jianpuSectionsPath = path.resolve(
   here,
   '../src/renderer/src/utils/jianpuPageSections.ts',
 )
-const jianpuSectionsUrl = compileModule(jianpuSectionsPath)
+const jianpuSyntaxPath = path.resolve(
+  here,
+  '../src/renderer/src/utils/jianpuSyntax.ts',
+)
+const jianpuSyntaxUrl = compileModule(jianpuSyntaxPath)
+const jianpuSectionsUrl = compileModule(jianpuSectionsPath, [
+  ["from './jianpuSyntax'", `from '${jianpuSyntaxUrl}'`],
+])
 const unsavedChangeStatePath = path.resolve(
   here,
   '../src/renderer/src/utils/unsavedChangeState.ts',

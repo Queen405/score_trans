@@ -339,7 +339,7 @@ const syntax: typeof zhSyntax = {
     },
     lyricComment: {
       name: 'Lyric / Comment',
-      desc: 'Lyrics on their own line, comments ignored to line end.',
+      desc: 'Write one /L: .../ block on its own line; | separates measures and & separates lyric streams.',
     },
     partPage: {
       name: 'Part / Page',

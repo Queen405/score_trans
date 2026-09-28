@@ -6,7 +6,7 @@ const components: typeof zhComponents = {
     initialMeasureLabel: 'Starting measure number',
     initialMeasurePlaceholder: 'Start measure',
     firstPageMeasureAria: 'First page starting measure',
-    placeholder: 'title=Snow in Spring\n1=C\n4/4\n1 2 $345$ 4 |\n1=G\n3/4\nh[1+3+5] \\p 4 |\nL: spring breeze',
+    placeholder: 'title=Snow in Spring\n1=C\n4/4\n1 2 $345$ 4 |\n1=G\n3/4\nh[1+3+5] \\p 4 |\n/L: spring breeze/',
     transposing: 'Transposing…',
     skipSyntaxError: 'Jianpu has syntax errors; auto-transpose skipped',
     skipUnresolvableKeyChange: 'Removing the key signature cannot be auto-transposed; rewrite it to the new key directly',
@@ -117,9 +117,6 @@ const components: typeof zhComponents = {
     noIssueWarningsHidden: 'No syntax issues found (duration warnings hidden)',
     measureLabel: 'Measure {n}',
     lyricWords: 'lyric words',
-    lyricNotes: 'notes available',
-    lyricMissing: '{count} missing',
-    lyricExtra: '{count} extra',
   },
 }
 

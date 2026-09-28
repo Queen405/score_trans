@@ -62,7 +62,7 @@ def test_timed_lyric_overflow_is_a_warning_and_summary_counts_words() -> None:
 
     response = client.post(
         "/syntax/validate",
-        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\nL: w春 q眠"},
+        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\n/L: w春 q眠/"},
     )
 
     assert response.status_code == 200
@@ -70,9 +70,6 @@ def test_timed_lyric_overflow_is_a_warning_and_summary_counts_words() -> None:
         {
             "verse": 1,
             "words": 2,
-            "available_notes": None,
-            "missing_words": 0,
-            "extra_words": 0,
         }
     ]
     assert any(
@@ -81,21 +78,34 @@ def test_timed_lyric_overflow_is_a_warning_and_summary_counts_words() -> None:
     )
 
 
-def test_legacy_lyric_summary_reports_missing_and_extra_words() -> None:
+def test_slash_lyric_block_is_reported_by_validation() -> None:
     client = TestClient(create_app(auth_disabled=True))
 
     response = client.post(
         "/syntax/validate",
-        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\nL: 春 风 雨 云 雪"},
+        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\n/L: 春 风 雨 云 雪/"},
     )
 
-    assert response.json()["lyrics"][0] == {
-        "verse": 1,
-        "words": 5,
-        "available_notes": 4,
-        "missing_words": 0,
-        "extra_words": 1,
-    }
+    assert response.json()["lyrics"][0]["words"] == 5
+    assert response.json()["diagnostics"]
+
+
+@pytest.mark.parametrize(
+    "lyric_text, message",
+    [
+        ("/L: 一\n二/", "必须写在同一行"),
+        ("1 2 3 4 | /L: 一 二/", "单独写在一行"),
+        ("/L: 一/\n/L: 二/", "只允许一个"),
+        ("/L: 一 / 二/", "不能包含保留符号"),
+        ("L: 一 二", "旧歌词语法已移除"),
+        ("L2: 一 二", "旧歌词语法已移除"),
+    ],
+)
+def test_lyric_block_shape_and_removed_legacy_syntax(lyric_text, message) -> None:
+    assert any(
+        message in item.message
+        for item in validate_jianpu_text(f"1=C\n4/4\n1 2 3 4 |\n{lyric_text}")
+    )
 
 
 @pytest.mark.parametrize(
@@ -258,7 +268,7 @@ def test_validate_syntax_route_returns_structured_diagnostics() -> None:
                 "severity": "error",
                 "measure": "1",
             }
-        ]
+        ],
     }
 
 
@@ -275,7 +285,7 @@ def test_validate_syntax_reports_lyric_overflow_and_summary() -> None:
     client = TestClient(create_app(auth_disabled=True))
     response = client.post(
         "/syntax/validate",
-        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\nL: w春 q眠"},
+        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\n/L: w春 q眠/"},
     )
 
     assert response.status_code == 200
@@ -283,9 +293,6 @@ def test_validate_syntax_reports_lyric_overflow_and_summary() -> None:
         {
             "verse": 1,
             "words": 2,
-            "available_notes": None,
-            "missing_words": 0,
-            "extra_words": 0,
         }
     ]
     assert any(
@@ -294,20 +301,15 @@ def test_validate_syntax_reports_lyric_overflow_and_summary() -> None:
     )
 
 
-def test_validate_syntax_summarizes_legacy_lyric_word_mismatch() -> None:
+def test_validate_syntax_rejects_legacy_lyric_syntax() -> None:
     client = TestClient(create_app(auth_disabled=True))
     response = client.post(
         "/syntax/validate",
-        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\nL: 春 风 雨 云 雪"},
+        json={"jianpu_text": "1=C\n4/4\n1 2 3 4 |\n/L: 春 风 雨 云 雪/"},
     )
 
-    assert response.json()["lyrics"][0] == {
-        "verse": 1,
-        "words": 5,
-        "available_notes": 4,
-        "missing_words": 0,
-        "extra_words": 1,
-    }
+    assert response.json()["lyrics"][0]["words"] == 5
+    assert response.json()["diagnostics"]
 
 
 @pytest.mark.parametrize("time_signature", ["4/0", "0/4"])

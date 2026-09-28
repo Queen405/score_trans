@@ -1,4 +1,5 @@
 import { isJianpuPageMarker, parseJianpuPageSections } from './jianpuPageSections'
+import { maskJianpuLyricBlocks } from './jianpuSyntax'
 
 export interface JianpuNoteSpan {
   index: number
@@ -251,6 +252,7 @@ function hasPartMarkers(text: string): boolean {
 }
 
 export function findJianpuNoteSpans(text: string): JianpuNoteSpan[] {
+  text = maskJianpuLyricBlocks(text)
   if (hasPartMarkers(text)) {
     return findTimedNoteSpans(text)
   }

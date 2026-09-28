@@ -274,7 +274,7 @@ const syntax = {
     },
     lyricComment: {
       name: '歌词 / 注释',
-      desc: '歌词单独成行，注释忽略到行尾。',
+      desc: '歌词单独写成一行 /L: .../；| 分隔小节，& 分隔歌词流。',
     },
     partPage: {
       name: '分谱 / 分页',

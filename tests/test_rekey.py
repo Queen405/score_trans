@@ -109,10 +109,12 @@ def test_rekey_downward_g_to_c() -> None:
 
 
 def test_rekey_preserves_barlines_time_signature_lyrics_and_tuplets() -> None:
-    previous = "1=C\n4/4\n1 2 3 4 | 5 6 7 1\nL: 春 夏 秋 冬\n$3:2;1 2 3$"
-    text = "1=G\n4/4\n1 2 3 4 | 5 6 7 1\nL: 春 夏 秋 冬\n$3:2;1 2 3$"
+    previous = "1=C\n4/4\n1 2 3 4 | 5 6 7 1\n$3:2;1 2 3$\n/L: 春 夏 秋 冬/"
+    text = "1=G\n4/4\n1 2 3 4 | 5 6 7 1\n$3:2;1 2 3$\n/L: 春 夏 秋 冬/"
     out = _rekey(text, previous)
-    assert out == ("1=G\n4/4\n4, 5, 6, b7, | 1 2 3 4,\nL: 春 夏 秋 冬\n$3:2;4, 5, 6,$")
+    assert out == (
+        "1=G\n4/4\n4, 5, 6, b7, | 1 2 3 4,\n$3:2;4, 5, 6,$\n/L: 春 夏 秋 冬/"
+    )
 
 
 def test_rekey_only_segment_after_changed_key_is_transposed() -> None:
@@ -272,16 +274,16 @@ def test_rekey_ignores_keys_inside_inline_comments() -> None:
 
 
 def test_rekey_ignores_keys_inside_lyric_and_text_lines() -> None:
-    previous = "1=C\n1 2 3\nL: a b c\n4 5 6"
-    text = "1=C\n1 2 3\nL: 1=G b c\n4 5 6"
+    previous = "1=C\n1 2 3\n4 5 6\n/L: a b c/"
+    text = "1=C\n1 2 3\n4 5 6\n/L: 1=G b c/"
     assert _rekey(text, previous) == text
 
 
 def test_rekey_does_not_transpose_a_lyric_line_on_a_segment_boundary() -> None:
-    previous = "1=C\n1 2\nL: 1 2 1=C 3"
-    text = "1=G\n1 2\nL: 1 2 1=C 3"
+    previous = "1=C\n1 2\n/L: 1 2 1=C 3/"
+    text = "1=G\n1 2\n/L: 1 2 1=C 3/"
     # Only the note line moves; the lyric line keeps its literal digits.
-    assert _rekey(text, previous) == "1=G\n4, 5,\nL: 1 2 1=C 3"
+    assert _rekey(text, previous) == "1=G\n4, 5,\n/L: 1 2 1=C 3/"
 
 
 def test_rekey_key_token_vocabulary_matches_the_parser() -> None:

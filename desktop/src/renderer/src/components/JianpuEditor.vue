@@ -141,7 +141,7 @@ import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
 import { playbackTextHash, sourceRangeSpans, type PlaybackHighlight } from '../utils/midiSourceMap'
 import { horizontalScrollIntoView } from '../utils/editorViewport'
-import { tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
+import { lyricBlockLineIndexes, tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
 import { useSyntaxDiagnosticsStore } from '../stores/syntaxDiagnostics'
 import type { SyntaxDiagnostic } from '../models/types'
 import { NInputNumber, useMessage } from 'naive-ui'
@@ -193,13 +193,7 @@ const props = withDefaults(defineProps<{
 const syntaxStore = useSyntaxDiagnosticsStore()
 const lyricSummary = computed(() => syntaxStore.lyrics.map((line) => {
   const label = line.verse === 1 ? 'L' : `L${line.verse}`
-  const parts = [`${label}: ${line.words} ${t('components.syntaxDiagnosticPanel.lyricWords')}`]
-  if (line.available_notes !== null) {
-    parts.push(`${line.available_notes} ${t('components.syntaxDiagnosticPanel.lyricNotes')}`)
-    if (line.missing_words) parts.push(t('components.syntaxDiagnosticPanel.lyricMissing', { count: line.missing_words }))
-    if (line.extra_words) parts.push(t('components.syntaxDiagnosticPanel.lyricExtra', { count: line.extra_words }))
-  }
-  return parts.join(' · ')
+  return `${label}: ${line.words} ${t('components.syntaxDiagnosticPanel.lyricWords')}`
 }).join('　·　'))
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -280,54 +274,60 @@ const lineOffsets = computed(() => {
   return offsets
 })
 
-const highlightedLines = computed(() => props.modelValue.split('\n').map((line, lineIndex) => {
-  const lineStart = lineOffsets.value[lineIndex] ?? 0
-  const lineEnd = lineStart + line.length
-  const ranges = props.syntaxDiagnostics
-    .filter((diagnostic) => diagnostic.end > lineStart && diagnostic.start < lineEnd)
-    .map((diagnostic) => ({
-      start: Math.max(lineStart, diagnostic.start) - lineStart,
-      end: Math.min(lineEnd, diagnostic.end) - lineStart,
-      active: diagnostic.id === props.activeDiagnosticId,
-      severity: diagnostic.severity ?? 'error',
-    }))
-    .filter((range) => range.end > range.start)
-    .sort((a, b) => a.start - b.start)
+const highlightedLines = computed(() => {
+  const lyricLines = lyricBlockLineIndexes(props.modelValue)
+  return props.modelValue.split('\n').map((line, lineIndex) => {
+    const lineStart = lineOffsets.value[lineIndex] ?? 0
+    const lineEnd = lineStart + line.length
+    const ranges = props.syntaxDiagnostics
+      .filter((diagnostic) => diagnostic.end > lineStart && diagnostic.start < lineEnd)
+      .map((diagnostic) => ({
+        start: Math.max(lineStart, diagnostic.start) - lineStart,
+        end: Math.min(lineEnd, diagnostic.end) - lineStart,
+        active: diagnostic.id === props.activeDiagnosticId,
+        severity: diagnostic.severity ?? 'error',
+      }))
+      .filter((range) => range.end > range.start)
+      .sort((a, b) => a.start - b.start)
 
-  if (!ranges.length) {
-    const tokens = tokenizeJianpuLine(line) as HighlightToken[]
-    if (props.syntaxHighlight) return tokens
-    return tokens.map((token) => ({ ...token, type: 'plain' }))
-  }
-  const result: HighlightToken[] = []
-  let cursor = 0
-  for (const token of tokenizeJianpuLine(line)) {
-    const tokenStart = cursor
-    const tokenEnd = cursor + token.text.length
-    cursor = tokenEnd
-    const boundaries = new Set<number>([tokenStart, tokenEnd])
-    for (const range of ranges) {
-      if (range.start < tokenEnd && range.end > tokenStart) {
-        boundaries.add(Math.max(tokenStart, range.start))
-        boundaries.add(Math.min(tokenEnd, range.end))
+    if (lyricLines.has(lineIndex)) {
+      return [{ text: line, type: 'lyrics' as const }]
+    }
+    if (!ranges.length) {
+      const tokens = tokenizeJianpuLine(line) as HighlightToken[]
+      if (props.syntaxHighlight) return tokens
+      return tokens.map((token) => ({ ...token, type: 'plain' }))
+    }
+    const result: HighlightToken[] = []
+    let cursor = 0
+    for (const token of tokenizeJianpuLine(line)) {
+      const tokenStart = cursor
+      const tokenEnd = cursor + token.text.length
+      cursor = tokenEnd
+      const boundaries = new Set<number>([tokenStart, tokenEnd])
+      for (const range of ranges) {
+        if (range.start < tokenEnd && range.end > tokenStart) {
+          boundaries.add(Math.max(tokenStart, range.start))
+          boundaries.add(Math.min(tokenEnd, range.end))
+        }
+      }
+      const sortedBoundaries = [...boundaries].sort((a, b) => a - b)
+      for (let i = 0; i < sortedBoundaries.length - 1; i += 1) {
+        const start = sortedBoundaries[i]
+        const end = sortedBoundaries[i + 1]
+        const matching = ranges.find((range) => range.start < end && range.end > start)
+        result.push({
+          text: token.text.slice(start - tokenStart, end - tokenStart),
+          type: props.syntaxHighlight ? token.type : 'plain',
+          syntaxError: matching?.severity === 'error',
+          syntaxWarning: matching?.severity === 'warning',
+          activeDiagnostic: matching?.active,
+        })
       }
     }
-    const sortedBoundaries = [...boundaries].sort((a, b) => a - b)
-    for (let i = 0; i < sortedBoundaries.length - 1; i += 1) {
-      const start = sortedBoundaries[i]
-      const end = sortedBoundaries[i + 1]
-      const matching = ranges.find((range) => range.start < end && range.end > start)
-      result.push({
-        text: token.text.slice(start - tokenStart, end - tokenStart),
-        type: props.syntaxHighlight ? token.type : 'plain',
-        syntaxError: matching?.severity === 'error',
-        syntaxWarning: matching?.severity === 'warning',
-        activeDiagnostic: matching?.active,
-      })
-    }
-  }
-  return result
-}))
+    return result
+  })
+})
 const highlightScrollStyle = computed(() => ({
   transform: `translate(${-scrollLeft.value}px, ${-scrollTop.value}px)`,
 }))

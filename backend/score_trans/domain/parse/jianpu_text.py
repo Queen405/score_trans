@@ -84,7 +84,6 @@ class _Token:
 class _LyricLine:
     verse: int
     measures: list[list[tuple[Fraction, Fraction, str]]]
-    legacy_words: list[str] = field(default_factory=list)
     source_line: int = 1
     source_start: int = 0
     source_end: int = 0
@@ -351,35 +350,21 @@ def validate_jianpu_lyrics(
     text: str,
 ) -> tuple[list[LyricLineSummary], list[SyntaxDiagnostic]]:
     try:
-        options, token_lines, lines = _read_new_syntax(text)
-        score = parse_jianpu_score(text)
+        normalized = text.lstrip("\ufeff")
+        options, token_lines, lines = _read_new_syntax(normalized)
+        score = _parse_score_tokens(options, token_lines, lines)
     except (JianpuSyntaxError, ValueError):
         return [], []
     summaries: list[LyricLineSummary] = []
     warnings: list[SyntaxDiagnostic] = []
-    available = sum(
-        event.kind == "note" and event.voice in (None, "1")
-        for measure in score.measures
-        for event in measure.events
-    )
     for line in lines:
-        word_count = (
-            len(line.legacy_words)
-            if line.legacy_words
-            else sum(len(entries) for entries in line.measures)
-        )
-        legacy = bool(line.legacy_words) or not line.measures
+        word_count = sum(len(entries) for entries in line.measures)
         summaries.append(
             LyricLineSummary(
                 verse=line.verse,
                 words=word_count,
-                available_notes=available if legacy else None,
-                missing_words=max(0, available - word_count) if legacy else 0,
-                extra_words=max(0, word_count - available) if legacy else 0,
             )
         )
-        if legacy:
-            continue
         for measure_index, entries in enumerate(line.measures):
             if measure_index >= len(score.measures):
                 for start, duration, _word in entries:
@@ -1098,6 +1083,7 @@ class _PreviewRecovery:
     context_warnings: dict[str, SyntaxDiagnostic] = field(default_factory=dict)
     warnings: dict[int, list[SyntaxDiagnostic]] = field(default_factory=dict)
     profiles: dict[int, InstrumentProfile] = field(default_factory=dict)
+    initial_measure_number: int = 1
 
     def setting_valid(self, name: str) -> None:
         self.context_warnings.pop(name, None)
@@ -1136,6 +1122,227 @@ def parse_jianpu_score(
     return _parse_score_tokens(
         options, token_lines, lyrics, title=title, initial_tempo=_initial_tempo
     )
+
+
+_LYRIC_BLOCK_START = re.compile(r"/L:")
+
+
+def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
+    """Parse slash-delimited lyric blocks and mask them without shifting offsets."""
+    starts = list(_LYRIC_BLOCK_START.finditer(text))
+    legacy_match = re.search(r"(?m)^\s*L\d*:", text)
+    if not starts:
+        if legacy_match:
+            match = legacy_match
+            line = text.count("\n", 0, match.start()) + 1
+            column = match.start() - text.rfind("\n", 0, match.start())
+            raise JianpuSyntaxError(
+                _Token(
+                    match.group().strip(),
+                    line,
+                    column,
+                    _utf16_length(text[: match.start()]),
+                    _utf16_length(text[: match.end()]),
+                ),
+                "旧歌词语法已移除，请使用 /L: .../ 歌词块",
+            )
+        return [], text
+    start_match = starts[0]
+    if text[text.rfind("\n", 0, start_match.start()) + 1 : start_match.start()].strip():
+        raise JianpuSyntaxError(
+            _Token(
+                "/L:",
+                text.count("\n", 0, start_match.start()) + 1,
+                start_match.start() - text.rfind("\n", 0, start_match.start()),
+                _utf16_length(text[: start_match.start()]),
+                _utf16_length(text[: start_match.end()]),
+            ),
+            "歌词块必须单独写在一行",
+        )
+    if len(starts) > 1:
+        second = starts[1]
+        second_line = text.count("\n", 0, second.start()) + 1
+        second_column = second.start() - text.rfind("\n", 0, second.start())
+        raise JianpuSyntaxError(
+            _Token(
+                "/L:",
+                second_line,
+                second_column,
+                _utf16_length(text[: second.start()]),
+                _utf16_length(text[: second.end()]),
+            ),
+            "只允许一个 /L: 歌词块",
+        )
+    # `/` is reserved inside lyrics, so the final slash is the block terminator.
+    # Search within the same line first so a `//` comment on a later line is
+    # not mistaken for the terminator.
+    newline_after_start = text.find("\n", start_match.end())
+    same_line_limit = newline_after_start + 1 if newline_after_start >= 0 else len(text)
+    end = text.rfind("/", start_match.end(), same_line_limit)
+    if end < 0:
+        # No terminator on the same line; fall back to a full-text search so
+        # the cross-line check below still reports the proper error.
+        end = text.rfind("/")
+    line = text.count("\n", 0, start_match.start()) + 1
+    column = start_match.start() - text.rfind("\n", 0, start_match.start())
+    if end <= start_match.end() - 1:
+        raise JianpuSyntaxError(
+            _Token(
+                "/L:",
+                line,
+                column,
+                _utf16_length(text[: start_match.start()]),
+                _utf16_length(text[: start_match.end()]),
+            ),
+            "歌词块缺少结束符 /",
+        )
+    trailing_text = text[end + 1 :].strip()
+    if trailing_text:
+        trailing = end + 1 + (len(text[end + 1 :]) - len(text[end + 1 :].lstrip()))
+        trailing_line = text.count("\n", 0, trailing) + 1
+        trailing_column = trailing - text.rfind("\n", 0, trailing)
+        raise JianpuSyntaxError(
+            _Token(
+                "/",
+                trailing_line,
+                trailing_column,
+                _utf16_length(text[:trailing]),
+                _utf16_length(text[: trailing + 1]),
+            ),
+            "歌词块必须放在简谱正文之后，结束符 / 后不能有内容",
+        )
+
+    masked_for_legacy = (
+        text[: start_match.start()]
+        + " " * (end + 1 - start_match.start())
+        + text[end + 1 :]
+    )
+    legacy_match = re.search(r"(?m)^\s*L\d*:", masked_for_legacy)
+    if legacy_match:
+        match = legacy_match
+        legacy_line = text.count("\n", 0, match.start()) + 1
+        legacy_column = match.start() - text.rfind("\n", 0, match.start())
+        raise JianpuSyntaxError(
+            _Token(
+                match.group().strip(),
+                legacy_line,
+                legacy_column,
+                _utf16_length(text[: match.start()]),
+                _utf16_length(text[: match.end()]),
+            ),
+            "旧歌词语法已移除；歌词统一写在一个 /L: .../ 块中",
+        )
+
+    body = text[start_match.end() : end]
+    if "/" in body:
+        slash = body.index("/") + start_match.end()
+        slash_line = text.count("\n", 0, slash) + 1
+        slash_column = slash - text.rfind("\n", 0, slash)
+        raise JianpuSyntaxError(
+            _Token(
+                "/",
+                slash_line,
+                slash_column,
+                _utf16_length(text[:slash]),
+                _utf16_length(text[: slash + 1]),
+            ),
+            "歌词正文不能包含保留符号 /",
+        )
+    if "\n" in body or "\r" in body:
+        raise JianpuSyntaxError(
+            _Token(
+                "/L:",
+                line,
+                column,
+                _utf16_length(text[: start_match.start()]),
+                _utf16_length(text[: start_match.end()]),
+            ),
+            "歌词块必须写在同一行",
+        )
+    normalized_body = re.sub(r"\s+", " ", body).strip()
+    raw_measures = normalized_body.split("|")
+    if raw_measures and not raw_measures[-1].strip():
+        raw_measures.pop()
+    if not raw_measures:
+        raise JianpuSyntaxError(
+            _Token(
+                "/L:",
+                line,
+                column,
+                _utf16_length(text[: start_match.start()]),
+                _utf16_length(text[: start_match.end()]),
+            ),
+            "歌词块不能为空",
+        )
+
+    lane_count: int | None = None
+    parsed: list[list[list[tuple[Fraction, Fraction, str]]]] = []
+    for raw_measure in raw_measures:
+        raw_lanes = raw_measure.split("&")
+        if lane_count is None:
+            lane_count = len(raw_lanes)
+        elif len(raw_lanes) != lane_count:
+            raise JianpuSyntaxError(
+                _Token(
+                    "&",
+                    line,
+                    column,
+                    _utf16_length(text[: start_match.start()]),
+                    _utf16_length(text[: start_match.end()]),
+                ),
+                "每个歌词小节必须有相同数量的 & 分隔流",
+            )
+        measure_lanes: list[list[tuple[Fraction, Fraction, str]]] = []
+        for raw_lane in raw_lanes:
+            cursor = Fraction(0)
+            entries: list[tuple[Fraction, Fraction, str]] = []
+            for raw_word in raw_lane.split():
+                duration, word = consume_duration_prefix(raw_word)
+                # w/h/q/s/d are both duration prefixes and the start of
+                # ordinary Latin lyric words such as "do" or "we". Preserve
+                # alphabetic words; qf/qs are already excluded by
+                # consume_duration_prefix and never reach here.
+                if (
+                    word
+                    and word.isascii()
+                    and word.isalpha()
+                    and raw_word[0] in "whqsd"
+                ):
+                    duration, word = Fraction(1), raw_word
+                if word == "0":
+                    cursor += duration
+                    continue
+                if not word:
+                    raise JianpuSyntaxError(
+                        _Token(
+                            raw_word,
+                            line,
+                            column,
+                            _utf16_length(text[: start_match.start()]),
+                            _utf16_length(text[: start_match.end()]),
+                        ),
+                        "歌词时值前缀后缺少歌词；空拍请使用 q0、s0 等写法",
+                    )
+                entries.append((cursor, duration, word))
+                cursor += duration
+            measure_lanes.append(entries)
+        parsed.append(measure_lanes)
+
+    lyrics = [
+        _LyricLine(
+            verse=lane_index + 1,
+            measures=[measure[lane_index] for measure in parsed],
+            source_line=line,
+            source_start=_utf16_length(text[: start_match.start()]),
+            source_end=_utf16_length(text[: end + 1]),
+        )
+        for lane_index in range(lane_count or 0)
+    ]
+    masked = list(text)
+    for index in range(start_match.start(), end + 1):
+        if masked[index] not in "\r\n":
+            masked[index] = " "
+    return lyrics, "".join(masked)
 
 
 def _parse_score_tokens(
@@ -1780,7 +1987,11 @@ def _parse_score_tokens(
 
     if recovery is not None and recovery.errors and lyrics:
         first_error = min(recovery.errors)
-        _apply_lyrics(JianpuScore(measures=score.measures[:first_error]), lyrics)
+        _apply_lyrics(
+            JianpuScore(measures=score.measures[:first_error]),
+            lyrics,
+            allow_truncated=True,
+        )
         diagnostic = recovery.errors[first_error].diagnostic()
         warning = diagnostic.model_copy(
             update={
@@ -1802,7 +2013,7 @@ def _parse_score_tokens(
 
 def _read_new_syntax(
     text: str, *, recovery: _PreviewRecovery | None = None
-) -> tuple[JianpuOptions, list[_Token], list[str]]:
+) -> tuple[JianpuOptions, list[_Token], list[_LyricLine]]:
     """读取新语法，产出 token 流。
 
     注意：token 的 `measure` 是**整篇文档的累计小节线计数**。按页连续的显示号
@@ -1811,7 +2022,7 @@ def _read_new_syntax(
     """
     options = JianpuOptions()
     tokens: list[_Token] = []
-    lyrics: list[_LyricLine] = []
+    lyrics, text = _extract_lyric_blocks(text)
     saw_key = False
     saw_score_tokens = False
     current_measure = 1
@@ -1840,95 +2051,13 @@ def _read_new_syntax(
         stripped = raw_line.strip()
         if not stripped:
             continue
-        lyric_match = re.match(r"^L(\d*):\s*(.*)$", stripped)
-        if lyric_match:
-            verse = int(lyric_match.group(1) or "1")
-            if verse < 1:
-                token_start = line_start_utf16 + _utf16_length(
-                    original_line[: original_line.index("L")]
-                )
-                raise JianpuSyntaxError(
-                    _Token("L0:", line_no, 1, token_start, token_start + 3),
-                    "歌词段号必须从 1 开始",
-                )
-            raw_lyric_body = lyric_match.group(2)
-            lyric_start = line_start_utf16 + _utf16_length(
-                original_line[: original_line.index("L")]
+        if stripped.startswith("L:") or re.match(r"^L\d+:", stripped):
+            column = len(raw_line) - len(raw_line.lstrip()) + 1
+            start = line_start_utf16 + _utf16_length(original_line[: column - 1])
+            raise JianpuSyntaxError(
+                _Token(stripped.split()[0], line_no, column, start, start + 3),
+                "旧歌词语法已移除，请使用 /L: .../ 歌词块",
             )
-            lyric_end = line_start_utf16 + _utf16_length(original_line)
-            lyric_tokens = raw_lyric_body.split()
-            has_timing_syntax = any(
-                re.match(r"^(?:w|h|q|s|d+)(?:0|[^A-Za-z])", token) or token == "0"
-                for token in lyric_tokens
-            )
-            if "|" not in raw_lyric_body and not has_timing_syntax:
-                lyrics.append(
-                    _LyricLine(
-                        verse=verse,
-                        measures=[],
-                        legacy_words=raw_lyric_body.split(),
-                        source_line=line_no,
-                        source_start=lyric_start,
-                        source_end=lyric_end,
-                    )
-                )
-                continue
-            measures: list[list[tuple[Fraction, Fraction, str]]] = []
-            lyric_bars = raw_lyric_body.split("|")
-            if len(lyric_bars) == 1:
-                flat_cursor = Fraction(0)
-                flat_entries: list[tuple[Fraction, Fraction, str]] = []
-                for raw_word in lyric_bars[0].split():
-                    duration, word = consume_duration_prefix(raw_word)
-                    # 歌词时值仅由前缀表达；`.` 和 `-` 属于歌词原文。
-                    if word == "0":
-                        flat_cursor += duration
-                        continue
-                    if not word:
-                        raise ValueError(
-                            "歌词时值前缀后缺少歌词；空拍请使用 q0、s0 等写法"
-                        )
-                    flat_entries.append((flat_cursor, duration, word))
-                    flat_cursor += duration
-                measure_duration = Fraction(4 * options.beats, options.beat_type)
-                split_bars: list[list[tuple[Fraction, Fraction, str]]] = []
-                for start, duration, word in flat_entries:
-                    measure_index = int(start // measure_duration)
-                    while len(split_bars) <= measure_index:
-                        split_bars.append([])
-                    split_bars[measure_index].append(
-                        (start - measure_index * measure_duration, duration, word)
-                    )
-                measures = split_bars
-            else:
-                measures = []
-            if len(raw_lyric_body.split("|")) > 1:
-                for measure_text in lyric_bars:
-                    cursor = Fraction(0)
-                    entries: list[tuple[Fraction, Fraction, str]] = []
-                    for raw_word in measure_text.split():
-                        duration, word = consume_duration_prefix(raw_word)
-                        # 歌词时值仅由前缀表达；`.` 和 `-` 属于歌词原文。
-                        if word == "0":
-                            cursor += duration
-                            continue
-                        if not word:
-                            raise ValueError(
-                                "歌词时值前缀后缺少歌词；空拍请使用 q0、s0 等写法"
-                            )
-                        entries.append((cursor, duration, word))
-                        cursor += duration
-                    measures.append(entries)
-            lyrics.append(
-                _LyricLine(
-                    verse=verse,
-                    measures=measures,
-                    source_line=line_no,
-                    source_start=lyric_start,
-                    source_end=lyric_end,
-                )
-            )
-            continue
         try:
             if "=" in stripped and not stripped.startswith(
                 ("|", ":", "[", "\\", "^", "$")
@@ -2656,37 +2785,27 @@ def _normalize_parsed_measure(measure: Measure) -> None:
         measure.validation_errors.append(f"小节超拍：实际 {actual}，目标 {target}")
 
 
-def _apply_lyrics(score: JianpuScore, lyrics: list[_LyricLine]) -> None:
+def _apply_lyrics(
+    score: JianpuScore,
+    lyrics: list[_LyricLine],
+    *,
+    allow_truncated: bool = False,
+) -> None:
     if not lyrics:
         return
     for line in lyrics:
-        if line.legacy_words:
-            word_index = 0
-            for measure in score.measures:
-                for event in measure.events:
-                    if word_index >= len(line.legacy_words):
-                        break
-                    if event.kind != "note" or event.voice not in (None, "1"):
-                        continue
-                    word = line.legacy_words[word_index]
-                    measure.text_blocks.append(
-                        TextBlock(
-                            text=word,
-                            role="lyric",
-                            measure_number=measure.display_number,
-                            start=event.start,
-                            lyric_verse=line.verse,
-                            duration=None,
-                        )
-                    )
-                    event.lyrics[line.verse] = word
-                    if line.verse == 1:
-                        event.lyric = word
-                    word_index += 1
-            continue
-        for measure_index, entries in enumerate(line.measures):
-            if measure_index >= len(score.measures):
-                break
+        if len(line.measures) > len(score.measures) and not allow_truncated:
+            raise JianpuSyntaxError(
+                _Token(
+                    "/L:",
+                    line.source_line,
+                    1,
+                    line.source_start,
+                    min(line.source_start + 3, line.source_end),
+                ),
+                "歌词小节数不能超过谱面小节数",
+            )
+        for measure_index, entries in enumerate(line.measures[: len(score.measures)]):
             measure = score.measures[measure_index]
             target_duration = measure.duration
             for start, duration, text in entries:
@@ -2715,6 +2834,8 @@ def _apply_lyrics(score: JianpuScore, lyrics: list[_LyricLine]) -> None:
                 )
                 if event is not None:
                     event.lyrics[line.verse] = text
+                    if line.verse == 1:
+                        event.lyric = text
 
 
 def _articulation_name(raw: str) -> str:
