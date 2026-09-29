@@ -702,3 +702,118 @@ def test_measure_numbers_swallow_empty_bar_after_repeat_end() -> None:
     errors = [d for d in diagnostics if d.severity == "error"]
 
     assert [(d.line, d.measure) for d in errors] == [(3, "2")]
+
+
+def test_part_measure_count_mismatch_reports_first_missing_measure() -> None:
+    # W1：多声部不一致警告应携带第一个缺失小节的显示号与文案提示。
+    text = (
+        '// @part 1 name="a"\n1=C\n4/4\n1 2 3 4 | 5 6 7 1 |\n'
+        '// @part 2 name="b"\n1=C\n4/4\n1 2 3 4 |'
+    )
+
+    diagnostics = validate_jianpu_text(text)
+
+    assert len(diagnostics) == 1
+    assert diagnostics[0].measure == "2"
+    assert "（b从第 2 小节起缺失）" in diagnostics[0].message
+
+
+def test_part_measure_count_mismatch_uses_continuous_number_across_pages() -> None:
+    # W1：第 1 页各声部 1 小节 → 第 2 页 base=2；左手缺 1 小节 → 第 3 小节起缺失。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="右手"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="左手"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @page 2 name="p2.png"\n'
+        '// @part 1 name="右手"\n1=C\n4/4\n1 2 3 4 | 5 6 7 1 |\n'
+        '// @part 2 name="左手"\n1=C\n4/4\n1 2 3 4 |\n'
+    )
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    mismatch = [d for d in diagnostics if "各声部小节数量不一致" in d.message]
+    assert len(mismatch) == 1
+    assert mismatch[0].measure == "3"
+    assert "（左手从第 3 小节起缺失）" in mismatch[0].message
+
+
+def test_part_measure_count_mismatch_with_equal_span_has_no_measure_hint() -> None:
+    # W1：反复结构使小节「数量」不同但占位相同（1 小节 ×2 vs 2 小节），
+    # 不存在缺失小节，不填 measure、不追加提示。
+    text = (
+        '// @part 1 name="a"\n1=C\n4/4\n1 2 3 4 *2 |\n'
+        '// @part 2 name="b"\n1=C\n4/4\n1 2 3 4 | 5 6 7 1 |\n'
+    )
+
+    diagnostics = validate_jianpu_text(text)
+
+    mismatch = [d for d in diagnostics if "各声部小节数量不一致" in d.message]
+    assert len(mismatch) == 1
+    assert mismatch[0].measure is None
+    assert "起缺失" not in mismatch[0].message
+
+
+def test_lyric_measure_overflow_reports_first_orphan_measure() -> None:
+    # W1：歌词小节数超过谱面时，measure 指向第一个无对应谱面的歌词小节。
+    text = "1=C\n4/4\n1 2 3 4 |\n/L: 一 | 二 三/\n"
+
+    diagnostics = validate_jianpu_text(text)
+
+    overflow = [d for d in diagnostics if "歌词小节数不能超过谱面小节数" in d.message]
+    assert len(overflow) == 1
+    assert overflow[0].measure == "2"
+
+
+def test_lyric_measure_overflow_uses_continuous_number_in_multi_page() -> None:
+    # W1：多页文档歌词溢出，measure 为按页连续显示号（第 2 页 base=2，
+    # 左手 1 小节 → 第一个溢出的歌词小节是显示号 3，而非段内局部号 2）。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="右手"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="左手"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @page 2 name="p2.png"\n'
+        '// @part 1 name="右手"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="左手"\n1=C\n4/4\n1 2 3 4 |\n/L: 一 | 二/\n'
+    )
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+
+    overflow = [d for d in diagnostics if "歌词小节数不能超过谱面小节数" in d.message]
+    assert len(overflow) == 1
+    assert overflow[0].measure == "3"
+
+
+def test_round_two_part_errors_use_continuous_display_measure_numbers() -> None:
+    # W1 顺带修复：第二轮按声部分段解析的 token 错误（掩码歌词块后暴露的
+    # 非法字符）曾透传段内局部号；第 2 页 base=2，局部 2/3 → 显示号 3/4。
+    text = (
+        '// @page 1 name="p1.png"\n'
+        '// @part 1 name="右手"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="左手"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @page 2 name="p2.png"\n'
+        '// @part 1 name="右手"\n1=C\n4/4\n1 2 3 4 |\n'
+        '// @part 2 name="左手"\n1=C\n4/4\n1 2 3 4 |\n/L: 一 | 二/\n'
+    )
+
+    diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+    errors = [d for d in diagnostics if "不支持的简谱 token" in d.message]
+
+    assert [d.measure for d in errors] == ["3", "4"]
+
+
+def test_structural_diagnostics_keep_measure_empty() -> None:
+    # W1：标记格式/歌词块形状/文档头配置类错误属于结构级问题，保持 measure 为空。
+    cases = [
+        "1=C\n// @part 1\n1 2 3 4 |\n",  # 分谱标记格式无效
+        "1=C\n4/4\n1 2 3 4 |\n/L: 歌词没有结束\n",  # 歌词块缺少结束符
+        '// @part 1 name="a"\n1=C\n0/4\n1 2 3 4 |\n',  # 拍号无效
+        '// @part 1 name="a"\n1=C\ninstrument=xyz\n1 2 3 4 |\n',  # instrument 无效
+        "1=C\n4/4\n1 2 3 4 |\nL: 旧歌词语法\n",  # 旧 L: 语法
+    ]
+
+    for text in cases:
+        diagnostics = validate_jianpu_text(text, check_measure_durations=True)
+        assert diagnostics, text
+        # 首条诊断即结构级错误本身；开启时值检查后，掩码可能暴露后续
+        # 内容级 token 错误（携带小节号属正常），不在本用例断言范围内。
+        assert diagnostics[0].measure is None, text

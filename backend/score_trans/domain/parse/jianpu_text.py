@@ -296,6 +296,7 @@ def validate_jianpu_text(
                     )
                 ]
         except JianpuSyntaxError as exc:
+            _relabel_part_error_measure(duration_text, exc.token)
             diagnostic = exc.diagnostic()
         except ValueError as exc:
             diagnostic = _document_syntax_diagnostic(normalized, str(exc))
@@ -529,6 +530,21 @@ def _relabel_measure_numbers(
             token.measure = str(base + int(token.measure) - first)
 
 
+def _relabel_part_error_measure(text: str, token: _Token) -> None:
+    """把第二轮按声部分段解析抛错的段内局部小节号改写为按页连续显示号。
+
+    无标记文档整篇解析，局部号即显示号，直接返回；有标记时用
+    `_measure_number_spans` 的分段（解析失败自动退化逐段估算；第二轮按
+    文档序抛错，出错段之前的段可解析成功，base 精确）定位 token 所在段。
+    """
+    if token.start_utf16 is None or not (token.measure or "").isdigit():
+        return
+    for start, end, base in _measure_number_spans(text, []):
+        if start <= token.start_utf16 < end:
+            token.measure = str(base + int(token.measure) - 1)
+            return
+
+
 def _mask_diagnostic_ranges(
     text: str,
     diagnostics: list[SyntaxDiagnostic],
@@ -709,8 +725,27 @@ def _validate_part_measure_counts(text: str, parts: list[ParsedJianpuPart]) -> N
         (part for part in parts if part.page_index == page_index),
         parts[0],
     )
+    token = _part_marker_token(text, anchor_part.part_index)
+    group = [part for part in parts if part.page_index == page_index]
+    spans = [
+        sum(measure.repeat_count for measure in part.score.measures) for part in group
+    ]
+    min_span = min(spans, default=0)
+    max_span = max(spans, default=0)
+    if group and min_span < max_span:
+        # 同页各声部共用 base（_assign_measure_number_bases），第一个缺失
+        # 小节的显示号 = base + 最短声部的 repeat 加权小节数。数量不同但
+        # 占位相同（反复结构）时不存在缺失小节，保持 measure 为空。
+        first_missing = group[0].measure_number_base + min_span
+        token.measure = str(first_missing)
+        shortest = "、".join(
+            part.part_name or f"声部{part.part_index + 1}"
+            for part, span in zip(group, spans, strict=True)
+            if span == min_span
+        )
+        message = f"{message}（{shortest}从第 {first_missing} 小节起缺失）"
     raise JianpuSyntaxError(
-        _part_marker_token(text, anchor_part.part_index),
+        token,
         message,
         severity="warning",
     )
@@ -2802,6 +2837,9 @@ def _apply_lyrics(
                     1,
                     line.source_start,
                     min(line.source_start + 3, line.source_end),
+                    # 第一个无对应谱面的歌词小节（段内局部号，repeat 加权），
+                    # 第二轮 catch 的 _relabel_part_error_measure 换算显示号。
+                    measure=str(sum(m.repeat_count for m in score.measures) + 1),
                 ),
                 "歌词小节数不能超过谱面小节数",
             )
