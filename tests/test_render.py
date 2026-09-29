@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from score_trans.domain.jianpu import parse_jianpu_score
+from score_trans.domain.parse.jianpu_text import parse_jianpu_parts
 from score_trans.exec.render.actions import RenderActions, _renumber_scores_continuously
 from score_trans.models.settings.config import ToolConfig
 from score_trans.models.score import (
@@ -2722,7 +2723,14 @@ def test_measure_text_layout_uses_text_start_for_horizontal_position() -> None:
     measure = Measure(
         "1",
         duration=Fraction(4),
-        events=[Event(kind="note", duration=Fraction(1), pitches=[JianpuPitch(1)])],
+        # 真实谱面的小节由事件铺满（休止符占位）；铺满后每个 start 都能
+        # 归属到覆盖事件的实际 x 坐标。
+        events=[
+            Event(kind="note", duration=Fraction(1), pitches=[JianpuPitch(1)]),
+            Event(kind="rest", duration=Fraction(1), pitches=[]),
+            Event(kind="rest", duration=Fraction(1), pitches=[]),
+            Event(kind="rest", duration=Fraction(1), pitches=[]),
+        ],
         text_blocks=[
             TextBlock("左", role="expression", start=Fraction(0)),
             TextBlock("右", role="expression", start=Fraction(3)),
@@ -3128,3 +3136,88 @@ def test_measure_text_layout_falls_back_without_visual_events() -> None:
     assert [layout.text for layout in layouts] == ["词"]
     center = layouts[0].bbox.x + layouts[0].bbox.width / 2
     assert abs(center - style.barline_gutter) < 1.0
+
+
+def _assert_rendered_lyrics_align_with_notes(svg: str) -> None:
+    """逐字断言：渲染结果中每个歌词与同一行声部中 x 最近的音符对齐（< 1px）。"""
+    root = _root(svg)
+    notes = [
+        _translate(node) for node in root.iter() if node.attrib.get("class") == "note"
+    ]
+    lyrics = [
+        (_translate(node), node.attrib.get("aria-label"))
+        for node in root.iter()
+        if node.attrib.get("class") == "lyric"
+    ]
+    assert lyrics
+    for (lyric_x, lyric_y), text in lyrics:
+        above = [(nx, ny) for nx, ny in notes if ny < lyric_y - 5]
+        assert above, f"歌词 {text} 下方找不到音符行"
+        staff_y = max(ny for _, ny in above)
+        row = [nx for nx, ny in above if abs(ny - staff_y) < 2]
+        note_x = min(row, key=lambda value: abs(value - lyric_x))
+        assert abs(lyric_x - note_x) < 1.0, (
+            f"歌词 {text}: x={lyric_x:.1f}, 最近音符 x={note_x:.1f}"
+        )
+
+
+def test_lyrics_align_with_notes_in_multi_part_render() -> None:
+    parts = parse_jianpu_parts(
+        "1=C\n4/4\n"
+        '// @part 1 name="a"\n'
+        "1 2 3 4 | 5 6 7 1 |\n"
+        '// @part 2 name="b"\n'
+        "1 2 3 4 | 5 6 7 1 |\n"
+        "/L: 春 眠 觉 晓 | 夜 来 风 雨/"
+    )
+
+    pages = render_scores_a4_pages([part.score for part in parts])
+
+    _assert_rendered_lyrics_align_with_notes(pages[0].svg)
+
+
+def test_lyrics_align_with_notes_in_mixed_duration_measure() -> None:
+    score = parse_jianpu_score("1=C\n4/4\nh1 2 3 | w5 |\n/L: h春 眠 觉 | 夜/")
+
+    pages = render_scores_a4_pages([score])
+
+    _assert_rendered_lyrics_align_with_notes(pages[0].svg)
+
+
+def test_measure_text_layout_interpolates_between_event_positions() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(1)],
+            start=Fraction(0),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(2)],
+            start=Fraction(2),
+        ),
+    ]
+    measure = Measure(
+        "1",
+        duration=Fraction(4),
+        events=events,
+        text_blocks=[
+            TextBlock("中", role="expression", start=Fraction(1)),
+            TextBlock("尾", role="expression", start=Fraction(3)),
+        ],
+    )
+    style = PublicationStyle()
+    event_spans = [(Fraction(0), Fraction(1), 100.0), (Fraction(2), Fraction(3), 300.0)]
+
+    layouts = _measure_text_layout(
+        measure, 0.0, 440.0, 0.0, style, event_spans=event_spans
+    )
+
+    by_text = {layout.text: layout for layout in layouts}
+    middle = by_text["中"].bbox.x + by_text["中"].bbox.width / 2
+    tail = by_text["尾"].bbox.x + by_text["尾"].bbox.width / 2
+    # start=1 在 0/2 两事件中点 -> x=200；start=3 越过末事件 -> 钳制到 300
+    assert abs(middle - 200.0) < 1.0
+    assert abs(tail - 300.0) < 1.0

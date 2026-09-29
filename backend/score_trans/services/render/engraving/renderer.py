@@ -709,7 +709,27 @@ class PublicationRenderer:
             )
             _draw_tuplets(scene, anchors, style)
         text_offset = part_layout.text_offset if part_layout is not None else 0.0
-        _draw_measure_text(scene, measure, x, y + text_offset, width, style)
+        # 事件最终 x 坐标跨度表（共享定位/复调/拥挤回退等路径后的真实位置），
+        # 供歌词/注解按 start 查找覆盖事件精确锚定。stable sort 保证同 start
+        # 时先画的声线（歌词所在的 voice 1）优先。
+        drawn_spans = sorted(
+            (
+                anchor.event.start,
+                anchor.event.start + anchor.event.duration,
+                anchor.x,
+            )
+            for anchor in anchors
+            if anchor.event.start is not None
+        )
+        _draw_measure_text(
+            scene,
+            measure,
+            x,
+            y + text_offset,
+            width,
+            style,
+            event_spans=drawn_spans,
+        )
         repeat_center = (bar_top + bar_bottom) / 2
         if measure.repeat_start:
             scene.add(
@@ -3277,12 +3297,37 @@ def _event_notation_top(
     return baseline + min(pitch_top, mark_top)
 
 
+def _lookup_event_x(
+    event_spans: list[tuple[Fraction, Fraction, float]], start: Fraction
+) -> float:
+    """按事件实际 x 坐标定位：start 被某事件跨度覆盖时返回该事件 x（歌词
+    词元默认 1 拍，start 可能落在长音符内部，与 _apply_lyrics 的附着规则
+    一致）；落入事件间隙时在相邻事件 start 点间线性插值；越界钳制端点。"""
+    for span_start, span_end, span_x in event_spans:
+        if span_start <= start < span_end:
+            return span_x
+    points = [(span_start, span_x) for span_start, _span_end, span_x in event_spans]
+    if start <= points[0][0]:
+        return points[0][1]
+    if start >= points[-1][0]:
+        return points[-1][1]
+    pairs = zip(points, points[1:], strict=True)
+    for (prev_start, prev_x), (next_start, next_x) in pairs:
+        if prev_start <= start <= next_start:
+            span = next_start - prev_start
+            ratio = float((start - prev_start) / span) if span > 0 else 0.0
+            return prev_x + (next_x - prev_x) * ratio
+    return points[-1][1]
+
+
 def _measure_text_layout(
     measure: Measure,
     x: float,
     width: float,
     y: float,
     style: PublicationStyle,
+    *,
+    event_spans: list[tuple[Fraction, Fraction, float]] | None = None,
 ) -> list[TextLayout]:
     event_dynamics = {event.dynamic for event in measure.events if event.dynamic}
     blocks = [
@@ -3403,7 +3448,11 @@ def _measure_text_layout(
             block.text, font_size
         )
         advance = font_registry().measure(block.text, font_size)
-        if block.start is not None and measure.duration > 0:
+        if block.start is not None and event_spans:
+            # 歌词词元附着在覆盖其 start 的事件上（与 _apply_lyrics 一致），
+            # 查跨度表即精确对齐；落入间隙的注解块走相邻事件线性插值。
+            center_x = _lookup_event_x(event_spans, block.start)
+        elif block.start is not None and measure.duration > 0:
             ratio = max(0.0, min(1.0, float(block.start / measure.duration)))
             if anchor_ratio_end > anchor_ratio_start:
                 scaled = (ratio - anchor_ratio_start) / (
@@ -3482,8 +3531,12 @@ def _draw_measure_text(
     y: float,
     width: float,
     style: PublicationStyle,
+    *,
+    event_spans: list[tuple[Fraction, Fraction, float]] | None = None,
 ) -> None:
-    for layout in _measure_text_layout(measure, x, width, y, style):
+    for layout in _measure_text_layout(
+        measure, x, width, y, style, event_spans=event_spans
+    ):
         ink_left, ink_top, _right, _bottom = font_registry().ink_bounds(
             layout.text, layout.font_size
         )
