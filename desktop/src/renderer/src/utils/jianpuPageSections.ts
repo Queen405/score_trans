@@ -408,6 +408,7 @@ function walkJianpuMeasures(
   let pageStart = Math.max(1, Math.trunc(initialMeasureNumber))
   let planIndex = -1
   let partCounts: number[] = []
+  let pageSpansDone = false
 
   let measureNumber = pageStart
   let partAdvance = 0
@@ -425,9 +426,10 @@ function walkJianpuMeasures(
   function recordMeasure(lineIndex: number, advance: number): void {
     const target = lineResults[lineIndex]
     const span = Math.max(1, advance)
-    // 仅在每页首声部收集：多声部共用页 base，有效文档各声部 span 一致；
-    // 声部小节数不一致的非法文档下退化为部分歌词行无标签，不崩溃。
-    if (partCounts.length === 0) {
+    // 仅在每页第一个有声部的声部期间收集：多声部共用页 base，有效文档各声部
+    // span 一致。不能用 partCounts 判首声部——@part 标记行会对标记前的空
+    // 前缀段 finishPart，使真正的首声部被误判为非首。
+    if (!pageSpansDone) {
       measureSpans.push({ first: measureNumber, last: measureNumber + span - 1 })
     }
     if (target) {
@@ -481,6 +483,7 @@ function walkJianpuMeasures(
     // 后端每 part 结束时有 final flush：末小节可以没有小节线。
     if (hasContent) recordMeasure(contentLineIndex, pendingRepeat)
     partCounts.push(partAdvance)
+    if (partAdvance > 0) pageSpansDone = true
     resetPartState()
   }
 
@@ -499,6 +502,7 @@ function walkJianpuMeasures(
     pageStart += measureCount
     measureNumber = pageStart
     partCounts = []
+    pageSpansDone = false
   }
 
   function startPage(index: number): void {
@@ -561,7 +565,7 @@ function walkJianpuMeasures(
               lastMeasureStart + count - 1,
             )
           }
-          if (partCounts.length === 0 && measureSpans.length > 0) {
+          if (!pageSpansDone && measureSpans.length > 0) {
             const lastSpan = measureSpans[measureSpans.length - 1]
             lastSpan.last = Math.max(lastSpan.last, lastMeasureStart + count - 1)
           }
@@ -624,9 +628,9 @@ export function jianpuPageSummaries(
  * 歌词块每一行覆盖的歌词小节序号区间（1 起，线性计数）。
  *
  * 规则与后端 `_extract_lyric_blocks` 一致：`|` 划分小节（`&` 分流不占号、
- * 空段占号、仅弹出全空白的结尾段），换行等同空白；小节归属到其闭合 `|`
- * 所在行，结尾未闭合段归属到段内最后一个非空白字符所在行。
- * 未闭合的块（非法文档）尽力扫到文末。
+ * 空段占号、全空白段不产生小节），换行等同空白。归属：闭合 `|` 所在行
+ * 计入该小节；有内容的行同时计入其当前未闭合小节——跨行小节的每一行、
+ * 不写 `|` 的整段歌词因此都能显示小节号。未闭合的块（非法文档）尽力扫到文末。
  */
 function lyricLineMeasureRanges(
   text: string,
@@ -647,8 +651,6 @@ function lyricLineMeasureRanges(
     if (text[index] === '\n') lineIndex += 1
   }
   let measure = 1
-  let segmentHasContent = false
-  let segmentLastContentLine = -1
   for (let index = start + 3; index < limit; index += 1) {
     const char = text[index]
     if (char === '\n') {
@@ -658,15 +660,13 @@ function lyricLineMeasureRanges(
     if (char === '|') {
       attribute(lineIndex, measure)
       measure += 1
-      segmentHasContent = false
       continue
     }
     if (char === ' ' || char === '\t' || char === '\r') continue
-    // 任意非空白（含 `&`）都算段内容，与后端 `strip()` 非空判定一致。
-    segmentHasContent = true
-    segmentLastContentLine = lineIndex
+    // 任意非空白（含 `&`）都算内容，与后端 `strip()` 非空判定一致；
+    // 内容行归属当前未闭合小节。
+    attribute(lineIndex, measure)
   }
-  if (segmentHasContent) attribute(segmentLastContentLine, measure)
   return ranges
 }
 

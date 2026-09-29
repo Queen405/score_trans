@@ -1259,9 +1259,17 @@ test('lyric gutter labels use repeat-weighted display numbers like the body', ()
   assert.deepEqual(utils.jianpuGutterLabels(text), ['1-5', '1-5', ''])
 })
 
-test('lyric gutter labels attribute spanning measures to the closing bar line', () => {
+test('lyric gutter labels let content lines join their open measure', () => {
+  // 跨行小节：内容行与闭合行都计入该小节。
   const text = '1 | 2 | 3 |\n/L: a | b\nc | d/\n'
-  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-3', '1', '2-3', ''])
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-3', '1-2', '2-3', ''])
+})
+
+test('lyric gutter labels cover lines without any bar separator', () => {
+  // 整段歌词不写 `|`：每个内容行都显示当前小节号；`/L:` 前缀行与
+  // 结束符独占行无内容，不显示标签。
+  const text = '1 | 2 | 3 |\n/L:\n春 眠\n处处闻啼鸟\n/\n'
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-3', '', '1', '1', '', ''])
 })
 
 test('lyric gutter labels ignore & lanes and count empty measures', () => {
@@ -1297,6 +1305,22 @@ test('lyric gutter labels respect the initial measure number', () => {
   assert.deepEqual(
     utils.jianpuGutterLabels('1 | 2 |\n/L: a | b/\n', 5),
     ['5-6', '5-6', ''],
+  )
+})
+
+test('lyric gutter labels work in documents with explicit part markers', () => {
+  // @part 标记行会触发空 finishPart，不能影响 measureSpans 的首声部收集。
+  const text = '// @page 1 name="p1.png"\n// @part 1 name="Voice"\ntempo=120\n1=C\n2/4\nq5 q6 q7 |\nq5 q6 q7 |\n\n/L:1 2 3|\n 3 5 4|\n/\n'
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['P1', '', '', '', '', '1', '2', '', '1', '2', '', ''])
+})
+
+test('lyric gutter labels match across multi-part documents', () => {
+  const single = '1 | 2 |\n/L: a | b/\n'
+  const multi = '// @part 1 name="a"\n1 | 2 |\n// @part 2 name="b"\n3 | 4 |\n/L: a | b/\n'
+  assert.deepEqual(utils.jianpuGutterLabels(single), ['1-2', '1-2', ''])
+  assert.deepEqual(
+    utils.jianpuGutterLabels(multi),
+    ['', '1-2', '', '1-2', '1-2', ''],
   )
 })
 
