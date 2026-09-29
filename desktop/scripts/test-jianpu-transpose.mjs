@@ -43,7 +43,7 @@ async function loadModule(relativePath) {
 const transpose = await loadModule('../src/renderer/src/utils/jianpuTranspose.ts')
 const { AutoTransposeGate } = await loadModule('../src/renderer/src/utils/autoTransposeGate.ts')
 
-const { detectKeyChanges, classifyKeyEdit, remapOffset } = transpose
+const { detectKeyChanges, classifyKeyEdit, remapOffset, transposeOctave } = transpose
 
 test('detectKeyChanges finds line-start, inline and multi-character keys', () => {
   assert.deepEqual(detectKeyChanges('1=C\n1 2 3'), [{ lineIndex: 0, key: 'C' }])
@@ -328,4 +328,12 @@ test('gate reset drops pending edits, dispatched baseline and in-flight response
   gate.rollbackRequest(id)
   assert.equal(gate.hasPendingEdit, false, 'reset must also clear dispatched')
   assert.equal(gate.acceptResponse(id, '1=G\n1 2 3', '1=G\n1 2 3'), false)
+})
+
+test('transposeOctave preserves multi-line lyric blocks', () => {
+  const text = '1=C\n1 2 3 |\n/L: 一 二 |\n三 四/'
+  const transposed = transposeOctave(text, 1)
+
+  assert.ok(transposed.includes('/L: 一 二 |\n三 四/'))
+  assert.ok(transposed.includes("1' 2' 3'"))
 })

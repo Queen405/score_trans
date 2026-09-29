@@ -93,10 +93,13 @@ def test_slash_lyric_block_is_reported_by_validation() -> None:
 @pytest.mark.parametrize(
     "lyric_text, message",
     [
-        ("/L: 一\n二/", "必须写在同一行"),
         ("1 2 3 4 | /L: 一 二/", "单独写在一行"),
         ("/L: 一/\n/L: 二/", "只允许一个"),
-        ("/L: 一 / 二/", "不能包含保留符号"),
+        # W2：结束符改为 `/L:` 后第一个独立 `/`，其后内容报"结束后不能有内容"。
+        ("/L: 一 / 二/", "结束符 / 后不能有内容"),
+        ("/L: 一/二/", "结束符 / 后不能有内容"),
+        # 块内的 `//` 不是结束符，命中保留符号检查。
+        ("/L: 一 // 注释\n二/", "不能包含保留符号"),
         ("L: 一 二", "旧歌词语法已移除"),
         ("L2: 一 二", "旧歌词语法已移除"),
     ],
@@ -106,6 +109,83 @@ def test_lyric_block_shape_and_removed_legacy_syntax(lyric_text, message) -> Non
         message in item.message
         for item in validate_jianpu_text(f"1=C\n4/4\n1 2 3 4 |\n{lyric_text}")
     )
+
+
+def test_lyric_block_spans_multiple_lines() -> None:
+    # W2：歌词块可跨行，换行等同空白，小节仍由 | 划分。
+    score = parse_jianpu_score(
+        "1=C\n4/4\n1 2 3 4 | 5 6 7 1 |\n/L: 一 二 三 四 |\n五 六 七 一/"
+    )
+
+    assert [
+        [event.lyric for event in measure.events if event.kind == "note"]
+        for measure in score.measures
+    ] == [["一", "二", "三", "四"], ["五", "六", "七", "一"]]
+
+
+def test_lyric_block_newline_is_plain_whitespace() -> None:
+    # W2：小节中段的换行不改变词项归属；& 歌词流同样可跨行。
+    score = parse_jianpu_score(
+        "1=C\n4/4\n1 2 | 3 4 |\n/L: 一\n二 & A\nB | 三\n四 & C\nD/"
+    )
+
+    assert [
+        [event.lyric for event in measure.events if event.kind == "note"]
+        for measure in score.measures
+    ] == [["一", "二"], ["三", "四"]]
+    assert [
+        [event.lyrics.get(2) for event in measure.events if event.kind == "note"]
+        for measure in score.measures
+    ] == [["A", "B"], ["C", "D"]]
+
+
+def test_lyric_block_multiline_unterminated_and_trailing_content() -> None:
+    unterminated = validate_jianpu_text("1=C\n4/4\n1 2 3 4 |\n/L: 一 二\n三 四")
+    assert any("歌词块缺少结束符" in item.message for item in unterminated)
+
+    # 未闭合块后接注释行仍报缺少结束符（`//` 不会被误认为结束符）。
+    with_comment = validate_jianpu_text("1=C\n4/4\n1 2 3 4 |\n/L: 一 二\n// 注释")
+    assert any("歌词块缺少结束符" in item.message for item in with_comment)
+
+    trailing = validate_jianpu_text("1=C\n4/4\n1 2 3 4 |\n/L: 一 二 |\n三 四/ 多余")
+    assert any("结束符 / 后不能有内容" in item.message for item in trailing)
+
+
+def test_lyric_block_multiline_errors_anchor_to_actual_line() -> None:
+    # W2：多行块的内容错误锚定到出错小节/词的实际行列，而非 /L: 行。
+    lane_mismatch = validate_jianpu_text(
+        "1=C\n4/4\n1 2 | 3 4 |\n/L: 一 二 & A B |\n三 四/"
+    )
+    lane_errors = [item for item in lane_mismatch if "& 分隔流" in item.message]
+    assert [(item.line, item.column) for item in lane_errors] == [(5, 1)]
+
+    missing_word = validate_jianpu_text("1=C\n4/4\n1 2 | 3 4 |\n/L: 一 二 |\n三 q/")
+    word_errors = [
+        item for item in missing_word if "时值前缀后缺少歌词" in item.message
+    ]
+    assert [(item.line, item.column) for item in word_errors] == [(5, 3)]
+
+
+def test_lyric_block_multiline_in_multi_part_document() -> None:
+    # W2：多声部文档中每个声部段可各自携带多行歌词块（按段解析路径）。
+    score_a, score_b = parse_jianpu_scores(
+        '// @page 1 name="p1"\n'
+        '// @part 1 name="a"\n'
+        "1 2 | 3 4 |\n"
+        "/L: 一 二 |\n三 四/\n"
+        '// @part 2 name="b"\n'
+        "5 6 | 7 1 |\n"
+        "/L: 五 六 |\n七 一/"
+    )
+
+    assert [
+        [event.lyric for event in measure.events if event.kind == "note"]
+        for measure in score_a.measures
+    ] == [["一", "二"], ["三", "四"]]
+    assert [
+        [event.lyric for event in measure.events if event.kind == "note"]
+        for measure in score_b.measures
+    ] == [["五", "六"], ["七", "一"]]
 
 
 @pytest.mark.parametrize(

@@ -1233,3 +1233,24 @@ test('超长区间标签截断为 n+', () => {
     ['9-10'],
   )
 })
+
+test('multi-line lyric blocks do not advance measure numbers and mask cleanly', async () => {
+  const text = '1 2 3 4 | 5 6 7 1 |\n/L: 一 二 三 四 |\n五 六 七 一/\n'
+
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-2', '1-2', '1-2', ''])
+  assert.equal(utils.jianpuMeasureCount(text), 2)
+
+  const syntax = await import(syntaxModuleUrl)
+  assert.deepEqual([...syntax.lyricBlockLineIndexes(text)], [1, 2])
+  const masked = syntax.maskJianpuLyricBlocks(text)
+  assert.equal(masked.split('\n').length, text.split('\n').length)
+  assert.ok(!masked.includes('一') && !masked.includes('五'))
+})
+
+test('lyric block range skips // comment markers when unterminated', async () => {
+  const syntax = await import(syntaxModuleUrl)
+  const unterminated = syntax.findLyricBlockRange('1 2 |\n/L: 一 二\n// 注释\n')
+  assert.ok(unterminated.end < unterminated.start)
+  const terminated = syntax.findLyricBlockRange('1 2 |\n/L: 一 二 |\n三 四/\n')
+  assert.equal('1 2 |\n/L: 一 二 |\n三 四/\n'[terminated.end], '/')
+})

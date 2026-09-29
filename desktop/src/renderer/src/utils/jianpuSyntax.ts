@@ -17,16 +17,17 @@ export interface JianpuSyntaxToken {
   type: JianpuSyntaxTokenType
 }
 
-// `/` 是歌词正文保留符号，全文最后一个 `/` 即歌词块结束符。
-// 优先在同一行内查找，避免误匹配后续行的 `//` 注释。
+// `/` 是歌词正文保留符号，`/L:` 之后第一个独立 `/`（非 `//` 注释标记）即结束符；
+// 歌词块可跨行，与后端 _extract_lyric_blocks 的结束符规则保持一致。
 export function findLyricBlockRange(text: string): { start: number; end: number } {
   const start = text.indexOf('/L:')
   if (start < 0) return { start: -1, end: -1 }
-  const lineEnd = text.indexOf('\n', start + 3)
-  const searchLimit = lineEnd >= 0 ? lineEnd : text.length
-  let end = text.lastIndexOf('/', searchLimit)
-  if (end < start + 3) end = text.lastIndexOf('/') // 同一行没有，回退全文
-  return { start, end }
+  for (let index = start + 3; index < text.length; index += 1) {
+    if (text[index] !== '/') continue
+    if (text[index - 1] === '/' || text[index + 1] === '/') continue
+    return { start, end: index }
+  }
+  return { start, end: -1 }
 }
 
 export function lyricBlockLineIndexes(text: string): Set<number> {

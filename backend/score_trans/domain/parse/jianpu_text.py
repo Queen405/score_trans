@@ -1160,6 +1160,8 @@ def parse_jianpu_score(
 
 
 _LYRIC_BLOCK_START = re.compile(r"/L:")
+# `/` 是歌词正文保留符号，`/L:` 之后第一个独立 `/`（非 `//` 注释标记）即结束符。
+_LYRIC_BLOCK_END = re.compile(r"(?<!/)/(?!/)")
 
 
 def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
@@ -1208,19 +1210,10 @@ def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
             ),
             "只允许一个 /L: 歌词块",
         )
-    # `/` is reserved inside lyrics, so the final slash is the block terminator.
-    # Search within the same line first so a `//` comment on a later line is
-    # not mistaken for the terminator.
-    newline_after_start = text.find("\n", start_match.end())
-    same_line_limit = newline_after_start + 1 if newline_after_start >= 0 else len(text)
-    end = text.rfind("/", start_match.end(), same_line_limit)
-    if end < 0:
-        # No terminator on the same line; fall back to a full-text search so
-        # the cross-line check below still reports the proper error.
-        end = text.rfind("/")
     line = text.count("\n", 0, start_match.start()) + 1
     column = start_match.start() - text.rfind("\n", 0, start_match.start())
-    if end <= start_match.end() - 1:
+    end_match = _LYRIC_BLOCK_END.search(text, start_match.end())
+    if end_match is None:
         raise JianpuSyntaxError(
             _Token(
                 "/L:",
@@ -1231,6 +1224,7 @@ def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
             ),
             "歌词块缺少结束符 /",
         )
+    end = end_match.start()
     trailing_text = text[end + 1 :].strip()
     if trailing_text:
         trailing = end + 1 + (len(text[end + 1 :]) - len(text[end + 1 :].lstrip()))
@@ -1249,7 +1243,10 @@ def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
 
     masked_for_legacy = (
         text[: start_match.start()]
-        + " " * (end + 1 - start_match.start())
+        + "".join(
+            char if char in "\r\n" else " "
+            for char in text[start_match.start() : end + 1]
+        )
         + text[end + 1 :]
     )
     legacy_match = re.search(r"(?m)^\s*L\d*:", masked_for_legacy)
@@ -1283,20 +1280,18 @@ def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
             ),
             "歌词正文不能包含保留符号 /",
         )
-    if "\n" in body or "\r" in body:
-        raise JianpuSyntaxError(
-            _Token(
-                "/L:",
-                line,
-                column,
-                _utf16_length(text[: start_match.start()]),
-                _utf16_length(text[: start_match.end()]),
-            ),
-            "歌词块必须写在同一行",
-        )
-    normalized_body = re.sub(r"\s+", " ", body).strip()
-    raw_measures = normalized_body.split("|")
-    if raw_measures and not raw_measures[-1].strip():
+
+    # 换行等同空白：小节由 `|` 划分，与谱面正文规则一致。以下在原始 body 上
+    # 带偏移解析，使内容错误能锚定到出错小节/词的实际行列。
+    def line_col(pos: int) -> tuple[int, int]:
+        return text.count("\n", 0, pos) + 1, pos - text.rfind("\n", 0, pos)
+
+    raw_measures: list[tuple[str, int]] = []
+    measure_pos = start_match.end()
+    for measure_part in body.split("|"):
+        raw_measures.append((measure_part, measure_pos))
+        measure_pos += len(measure_part) + 1
+    if raw_measures and not raw_measures[-1][0].strip():
         raw_measures.pop()
     if not raw_measures:
         raise JianpuSyntaxError(
@@ -1312,26 +1307,38 @@ def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
 
     lane_count: int | None = None
     parsed: list[list[list[tuple[Fraction, Fraction, str]]]] = []
-    for raw_measure in raw_measures:
-        raw_lanes = raw_measure.split("&")
+    for raw_measure, measure_offset in raw_measures:
+        raw_lanes: list[tuple[str, int]] = []
+        lane_pos = measure_offset
+        for lane_part in raw_measure.split("&"):
+            raw_lanes.append((lane_part, lane_pos))
+            lane_pos += len(lane_part) + 1
         if lane_count is None:
             lane_count = len(raw_lanes)
         elif len(raw_lanes) != lane_count:
+            anchor = measure_offset + len(raw_measure) - len(raw_measure.lstrip())
+            anchor_end = measure_offset + len(raw_measure.rstrip())
+            if anchor_end <= anchor:
+                anchor_end = anchor + 1
+            error_line, error_column = line_col(anchor)
             raise JianpuSyntaxError(
                 _Token(
-                    "&",
-                    line,
-                    column,
-                    _utf16_length(text[: start_match.start()]),
-                    _utf16_length(text[: start_match.end()]),
+                    raw_measure.strip() or "&",
+                    error_line,
+                    error_column,
+                    _utf16_length(text[:anchor]),
+                    _utf16_length(text[:anchor_end]),
                 ),
                 "每个歌词小节必须有相同数量的 & 分隔流",
             )
         measure_lanes: list[list[tuple[Fraction, Fraction, str]]] = []
-        for raw_lane in raw_lanes:
+        for raw_lane, lane_offset in raw_lanes:
             cursor = Fraction(0)
             entries: list[tuple[Fraction, Fraction, str]] = []
-            for raw_word in raw_lane.split():
+            for word_match in re.finditer(r"\S+", raw_lane):
+                raw_word = word_match.group()
+                word_start = lane_offset + word_match.start()
+                word_end = lane_offset + word_match.end()
                 duration, word = consume_duration_prefix(raw_word)
                 # w/h/q/s/d are both duration prefixes and the start of
                 # ordinary Latin lyric words such as "do" or "we". Preserve
@@ -1348,13 +1355,14 @@ def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
                     cursor += duration
                     continue
                 if not word:
+                    error_line, error_column = line_col(word_start)
                     raise JianpuSyntaxError(
                         _Token(
                             raw_word,
-                            line,
-                            column,
-                            _utf16_length(text[: start_match.start()]),
-                            _utf16_length(text[: start_match.end()]),
+                            error_line,
+                            error_column,
+                            _utf16_length(text[:word_start]),
+                            _utf16_length(text[:word_end]),
                         ),
                         "歌词时值前缀后缺少歌词；空拍请使用 q0、s0 等写法",
                     )
