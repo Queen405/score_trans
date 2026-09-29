@@ -46,6 +46,7 @@ from score_trans.services.render.engraving.renderer import (
     _intrinsic_measure_width,
     _measure_lyric_event_bottom,
     _measure_text_layout,
+    _rhythm_edge_padding,
     _rhythm_line_base,
     _system_extra_height,
 )
@@ -2945,3 +2946,185 @@ def test_batch_render_uses_jianpu_text_title_when_request_omits_one(
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "Custom" in text_content
     assert "My Song" not in text_content
+
+
+def test_lyrics_align_with_quarter_note_positions() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(degree)],
+            lyric=lyric,
+            start=Fraction(index),
+        )
+        for index, (degree, lyric) in enumerate(
+            [(1, "春"), (2, "眠"), (3, "觉"), (4, "晓")]
+        )
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    style = PublicationStyle()
+    x, width = 0.0, 440.0
+    clip_left = x + style.barline_gutter
+    clip_right = x + width - style.barline_gutter
+    pad_left, pad_right = _rhythm_edge_padding(events, style)
+    positions = _event_positions(
+        events, clip_left + pad_left, clip_right - pad_right, measure, style
+    )
+
+    layouts = _measure_text_layout(measure, x, width, 0.0, style)
+
+    assert [layout.text for layout in layouts] == ["春", "眠", "觉", "晓"]
+    for layout, position in zip(layouts, positions, strict=True):
+        center = layout.bbox.x + layout.bbox.width / 2
+        assert abs(center - position) < 1.0
+
+
+def test_edge_lyrics_align_with_eighth_notes_at_measure_edges() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            pitches=[JianpuPitch(1)],
+            lyric="春",
+            start=Fraction(0),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            pitches=[JianpuPitch(2)],
+            lyric="眠",
+            start=Fraction(1, 2),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(3)],
+            lyric="觉",
+            start=Fraction(1),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(4)],
+            lyric="晓",
+            start=Fraction(2),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            pitches=[JianpuPitch(5)],
+            lyric="夜",
+            start=Fraction(3),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1, 2),
+            pitches=[JianpuPitch(6)],
+            lyric="雨",
+            start=Fraction(7, 2),
+        ),
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    style = PublicationStyle()
+    x, width = 0.0, 440.0
+    clip_left = x + style.barline_gutter
+    clip_right = x + width - style.barline_gutter
+    pad_left, pad_right = _rhythm_edge_padding(events, style)
+    assert pad_left > 0 and pad_right > 0
+    positions = _event_positions(
+        events, clip_left + pad_left, clip_right - pad_right, measure, style
+    )
+
+    layouts = _measure_text_layout(measure, x, width, 0.0, style)
+
+    assert [layout.text for layout in layouts] == ["春", "眠", "觉", "晓", "夜", "雨"]
+    first_center = layouts[0].bbox.x + layouts[0].bbox.width / 2
+    last_center = layouts[-1].bbox.x + layouts[-1].bbox.width / 2
+    assert abs(first_center - positions[0]) < 1.0
+    assert abs(last_center - positions[-1]) < 1.0
+
+
+def test_first_lyric_aligns_when_wide_lyric_pushes_first_note() -> None:
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(1)],
+            lyric="春眠",
+            start=Fraction(0),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(2)],
+            lyric="觉",
+            start=Fraction(1),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(3)],
+            lyric="晓",
+            start=Fraction(2),
+        ),
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(4)],
+            lyric="鸟",
+            start=Fraction(3),
+        ),
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    style = PublicationStyle()
+    x, width = 0.0, 440.0
+    clip_left = x + style.barline_gutter
+    clip_right = x + width - style.barline_gutter
+    pad_left, pad_right = _rhythm_edge_padding(events, style)
+    positions = _event_positions(
+        events, clip_left + pad_left, clip_right - pad_right, measure, style
+    )
+
+    layouts = _measure_text_layout(measure, x, width, 0.0, style)
+
+    # bbox 是真实墨盒，设计锚点（= 实际绘制锚点）按 advance 居中换算。
+    registry = font_registry()
+    ink_left, _top, _right, _bottom = registry.ink_bounds(
+        layouts[0].text, layouts[0].font_size
+    )
+    advance = registry.measure(layouts[0].text, layouts[0].font_size)
+    first_anchor = layouts[0].bbox.x + advance / 2 - ink_left
+    assert abs(first_anchor - positions[0]) < 1.0
+    assert first_anchor > clip_left + 10
+
+    # 端到端：渲染出的歌词节点 x 与首个音符节点 x 一致。
+    root = _root(render_score_svg(JianpuScore(measures=[measure])))
+    lyric_x = next(
+        _translate(node)[0]
+        for node in root.iter()
+        if node.attrib.get("class") == "lyric"
+        and node.attrib.get("aria-label") == "春眠"
+    )
+    note_xs = sorted(
+        _translate(node)[0]
+        for node in root.iter()
+        if node.attrib.get("class") == "note"
+    )
+    assert note_xs
+    assert abs(lyric_x - note_xs[0]) < 1.0
+
+
+def test_measure_text_layout_falls_back_without_visual_events() -> None:
+    measure = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[],
+        text_blocks=[TextBlock("词", role="lyric", start=Fraction(0))],
+    )
+    style = PublicationStyle()
+
+    layouts = _measure_text_layout(measure, 0.0, 440.0, 0.0, style)
+
+    assert [layout.text for layout in layouts] == ["词"]
+    center = layouts[0].bbox.x + layouts[0].bbox.width / 2
+    assert abs(center - style.barline_gutter) < 1.0

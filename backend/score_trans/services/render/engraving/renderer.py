@@ -3350,6 +3350,40 @@ def _measure_text_layout(
     )
     inner_left = x + style.barline_gutter
     inner_right = x + width - style.barline_gutter
+    # 歌词/注解保持独立的时间比例映射，但映射区间两端对齐到音符排版
+    # 实际钉住的首/末音符中心（节奏线边距 + 首尾墨宽，与 _draw_measure
+    # 的 _event_positions 边界同源），消除与音符列的系统性左右偏差。
+    anchor_left = inner_left
+    anchor_right = inner_right
+    anchor_ratio_start = 0.0
+    anchor_ratio_end = 1.0
+    visual = _visual_events(measure)
+    if visual and measure.duration > 0:
+        ordered = [
+            event
+            for _source_index, event in sorted(
+                enumerate(visual),
+                key=lambda item: (
+                    item[1].start if item[1].start is not None else Fraction(item[0]),
+                    item[0],
+                ),
+            )
+        ]
+        first, last = ordered[0], ordered[-1]
+        pad_left, pad_right = _rhythm_edge_padding(ordered, style)
+        first_left = _event_visual_extents(first, style)[0]
+        last_right = _event_visual_extents(last, style)[1]
+        candidate_left = inner_left + pad_left - first_left
+        candidate_right = inner_right - pad_right - last_right
+        if candidate_right > candidate_left:
+            anchor_left = candidate_left
+            anchor_right = candidate_right
+            # 锚定到首/末音符自身的 start 比例：末音符中心钉在小节右端，
+            # 但它的 start 比例小于 1（如 4 个四分音符的末音符为 3/4）。
+            if first.start is not None:
+                anchor_ratio_start = max(0.0, float(first.start / measure.duration))
+            if last.start is not None:
+                anchor_ratio_end = min(1.0, float(last.start / measure.duration))
     layouts: list[TextLayout] = []
     previous_bottom = event_bottom
     verse_baselines: dict[int, float] = {}
@@ -3371,7 +3405,16 @@ def _measure_text_layout(
         advance = font_registry().measure(block.text, font_size)
         if block.start is not None and measure.duration > 0:
             ratio = max(0.0, min(1.0, float(block.start / measure.duration)))
-            center_x = inner_left + (inner_right - inner_left) * ratio
+            if anchor_ratio_end > anchor_ratio_start:
+                scaled = (ratio - anchor_ratio_start) / (
+                    anchor_ratio_end - anchor_ratio_start
+                )
+                scaled = max(0.0, min(1.0, scaled))
+                center_x = anchor_left + (anchor_right - anchor_left) * scaled
+            else:
+                # 单事件小节首尾同为 anchor_ratio_start：退化为锚点区间内的
+                # 原始比例映射，保证块仍随 start 递增向右排开。
+                center_x = anchor_left + (anchor_right - anchor_left) * ratio
         else:
             center_x = x + width / 2
         if block.role == "lyric":
@@ -3441,12 +3484,15 @@ def _draw_measure_text(
     style: PublicationStyle,
 ) -> None:
     for layout in _measure_text_layout(measure, x, width, y, style):
-        _left, ink_top, _right, _bottom = font_registry().ink_bounds(
+        ink_left, ink_top, _right, _bottom = font_registry().ink_bounds(
             layout.text, layout.font_size
         )
+        advance = font_registry().measure(layout.text, layout.font_size)
         node = _text(
             "lyric" if layout.role == "lyric" else "annotation",
-            layout.bbox.x + layout.bbox.width / 2,
+            # bbox 是真实墨盒：anchor="middle" 以 advance 居中，设计锚点在
+            # bbox.x + advance/2 - ink_left，而非墨盒中心（多字文本墨盒不居中）。
+            layout.bbox.x + advance / 2 - ink_left,
             layout.bbox.y - ink_top,
             layout.text,
             layout.font_size,
