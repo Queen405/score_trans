@@ -1,4 +1,4 @@
-import { lyricBlockLineIndexes } from './jianpuSyntax'
+import { findLyricBlockRange, lyricBlockLineIndexes } from './jianpuSyntax'
 
 export interface JianpuPageSource {
   inputFileName?: string
@@ -325,6 +325,13 @@ const TEMPO_TOKEN_PATTERN = /^tempo\s*=\s*[^\s|]+$/i
 // 4 字符可容纳 "1-3"、"10-"；gutter 宽度见 JianpuEditor（44px），更长截断为 n+。
 const MAX_GUTTER_LABEL_LENGTH = 4
 
+function formatGutterRange(first: number, last: number): string {
+  if (first === last) return String(first)
+  const label = `${first}-${last}`
+  // 一行挤了太多小节时退化为 `n+`，避免撑破 gutter（宽度见 JianpuEditor）。
+  return label.length > MAX_GUTTER_LABEL_LENGTH ? `${first}+` : label
+}
+
 function isMeasureLabelToken(token: string): boolean {
   const match = MEASURE_LABEL_TOKEN_PATTERN.exec(token)
   if (!match) return false
@@ -362,6 +369,8 @@ interface MeasureWalkPage {
 interface MeasureWalkResult {
   lines: MeasureWalkLine[]
   pages: MeasureWalkPage[]
+  /** 文档顺序的每个物理小节的 repeat 加权显示号区间（歌词行标签映射用）。 */
+  measureSpans: Array<{ first: number; last: number }>
 }
 
 /**
@@ -395,6 +404,7 @@ function walkJianpuMeasures(
     : [{ lineIndex: -1, pageNumber: 1, inputFileName: '' }]
 
   const pages: MeasureWalkPage[] = []
+  const measureSpans: Array<{ first: number; last: number }> = []
   let pageStart = Math.max(1, Math.trunc(initialMeasureNumber))
   let planIndex = -1
   let partCounts: number[] = []
@@ -415,6 +425,11 @@ function walkJianpuMeasures(
   function recordMeasure(lineIndex: number, advance: number): void {
     const target = lineResults[lineIndex]
     const span = Math.max(1, advance)
+    // 仅在每页首声部收集：多声部共用页 base，有效文档各声部 span 一致；
+    // 声部小节数不一致的非法文档下退化为部分歌词行无标签，不崩溃。
+    if (partCounts.length === 0) {
+      measureSpans.push({ first: measureNumber, last: measureNumber + span - 1 })
+    }
     if (target) {
       if (target.firstMeasure === null) target.firstMeasure = measureNumber
       target.lastMeasure = measureNumber + span - 1
@@ -546,6 +561,10 @@ function walkJianpuMeasures(
               lastMeasureStart + count - 1,
             )
           }
+          if (partCounts.length === 0 && measureSpans.length > 0) {
+            const lastSpan = measureSpans[measureSpans.length - 1]
+            lastSpan.last = Math.max(lastSpan.last, lastMeasureStart + count - 1)
+          }
         } else {
           pendingRepeat = count
         }
@@ -563,20 +582,7 @@ function walkJianpuMeasures(
   }
   finishPage()
 
-  const firstMeasure = pages[0]?.firstMeasureNumber ?? null
-  const lastPage = pages.at(-1)
-  const lastMeasure = lastPage?.measureCount
-    ? lastPage.firstMeasureNumber + lastPage.measureCount - 1
-    : null
-  for (const lyricLine of lyricLines) {
-    const result = lineResults[lyricLine]
-    if (result && firstMeasure !== null && lastMeasure !== null) {
-      result.firstMeasure = firstMeasure
-      result.lastMeasure = lastMeasure
-    }
-  }
-
-  return { lines: lineResults, pages }
+  return { lines: lineResults, pages, measureSpans }
 }
 
 let cachedWalkKey = ''
@@ -614,25 +620,77 @@ export function jianpuPageSummaries(
   }))
 }
 
+/**
+ * 歌词块每一行覆盖的歌词小节序号区间（1 起，线性计数）。
+ *
+ * 规则与后端 `_extract_lyric_blocks` 一致：`|` 划分小节（`&` 分流不占号、
+ * 空段占号、仅弹出全空白的结尾段），换行等同空白；小节归属到其闭合 `|`
+ * 所在行，结尾未闭合段归属到段内最后一个非空白字符所在行。
+ * 未闭合的块（非法文档）尽力扫到文末。
+ */
+function lyricLineMeasureRanges(
+  text: string,
+): Map<number, { first: number; last: number }> {
+  const ranges = new Map<number, { first: number; last: number }>()
+  const { start, end } = findLyricBlockRange(text)
+  if (start < 0) return ranges
+  const limit = end < start ? text.length : end
+
+  const attribute = (line: number, measure: number): void => {
+    const entry = ranges.get(line)
+    if (entry) entry.last = measure
+    else ranges.set(line, { first: measure, last: measure })
+  }
+
+  let lineIndex = 0
+  for (let index = 0; index < start; index += 1) {
+    if (text[index] === '\n') lineIndex += 1
+  }
+  let measure = 1
+  let segmentHasContent = false
+  let segmentLastContentLine = -1
+  for (let index = start + 3; index < limit; index += 1) {
+    const char = text[index]
+    if (char === '\n') {
+      lineIndex += 1
+      continue
+    }
+    if (char === '|') {
+      attribute(lineIndex, measure)
+      measure += 1
+      segmentHasContent = false
+      continue
+    }
+    if (char === ' ' || char === '\t' || char === '\r') continue
+    // 任意非空白（含 `&`）都算段内容，与后端 `strip()` 非空判定一致。
+    segmentHasContent = true
+    segmentLastContentLine = lineIndex
+  }
+  if (segmentHasContent) attribute(segmentLastContentLine, measure)
+  return ranges
+}
+
 export function jianpuGutterLabels(text: string, initialMeasureNumber = 1): string[] {
   const normalized = normalizeLineEndings(text)
-  const { lines, pages } = walkWithCache(normalized, initialMeasureNumber)
-  const totalMeasures = pages.reduce((total, page) => total + page.measureCount, 0)
-  const scoreRange = totalMeasures
-    ? `${initialMeasureNumber}-${initialMeasureNumber + totalMeasures - 1}`
-    : ''
+  const { lines, measureSpans } = walkWithCache(normalized, initialMeasureNumber)
   const rawLines = normalized.split('\n')
   const lyricLines = lyricBlockLineIndexes(normalized)
+  const lyricRanges = lyricLineMeasureRanges(normalized)
   return rawLines.map((line, index) => {
     const marker = tryParseJianpuPageMarker(line)
     if (marker) return `P${marker.pageNumber}`
 
+    if (lyricLines.has(index)) {
+      // 歌词行：该行歌词小节线性映射到谱面物理小节，取其 repeat 加权显示号。
+      const range = lyricRanges.get(index)
+      const firstSpan = range ? measureSpans[range.first - 1] : undefined
+      if (!range || !firstSpan) return ''
+      // 歌词小节数超出谱面（非法文档）时截断到最后一个已映射小节。
+      const lastSpan = measureSpans[Math.min(range.last, measureSpans.length) - 1]
+      return formatGutterRange(firstSpan.first, lastSpan.last)
+    }
     const info = lines[index]
-    if (lyricLines.has(index)) return scoreRange
     if (!info || info.firstMeasure === null || info.lastMeasure === null) return ''
-    if (info.firstMeasure === info.lastMeasure) return String(info.firstMeasure)
-    const label = `${info.firstMeasure}-${info.lastMeasure}`
-    // 一行挤了太多小节时退化为 `n+`，避免撑破 gutter（宽度见 JianpuEditor）。
-    return label.length > MAX_GUTTER_LABEL_LENGTH ? `${info.firstMeasure}+` : label
+    return formatGutterRange(info.firstMeasure, info.lastMeasure)
   })
 }

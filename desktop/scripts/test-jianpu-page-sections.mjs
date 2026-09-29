@@ -566,7 +566,7 @@ test('gutter labels show page markers and continuous measure numbers', () => {
   )
 })
 
-test('lyric block lines use score measure numbers and never advance the score', () => {
+test('lyric block lines show their covered measure numbers and never advance the score', () => {
   const text = '1 2 3 4 | 5 6 7 1 |\n/L: 春 眠 | 晓 闻/\n'
   assert.deepEqual(utils.jianpuGutterLabels(text), ['1-2', '1-2', ''])
   assert.equal(utils.jianpuMeasureCount(text), 2)
@@ -1237,7 +1237,7 @@ test('超长区间标签截断为 n+', () => {
 test('multi-line lyric blocks do not advance measure numbers and mask cleanly', async () => {
   const text = '1 2 3 4 | 5 6 7 1 |\n/L: 一 二 三 四 |\n五 六 七 一/\n'
 
-  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-2', '1-2', '1-2', ''])
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-2', '1', '2', ''])
   assert.equal(utils.jianpuMeasureCount(text), 2)
 
   const syntax = await import(syntaxModuleUrl)
@@ -1245,6 +1245,59 @@ test('multi-line lyric blocks do not advance measure numbers and mask cleanly', 
   const masked = syntax.maskJianpuLyricBlocks(text)
   assert.equal(masked.split('\n').length, text.split('\n').length)
   assert.ok(!masked.includes('一') && !masked.includes('五'))
+})
+
+test('lyric gutter labels follow per-line covered measure ranges', () => {
+  // 用户示例：歌词第 1 行覆盖 3 小节，后续行各 1 小节。
+  const text = '1 | 2 | 3 | 4 | 5 |\n/L: a b | c d | e |\nf |\ng/\n'
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-5', '1-3', '4', '5', ''])
+})
+
+test('lyric gutter labels use repeat-weighted display numbers like the body', () => {
+  // 前向反复：小节 1 占 2 个号（1-2），小节 2 占 3 个号（3-5）。
+  const text = '1 2 3 4 *2 | 5 6 7 1 *3 |\n/L: a b | c d/\n'
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-5', '1-5', ''])
+})
+
+test('lyric gutter labels attribute spanning measures to the closing bar line', () => {
+  const text = '1 | 2 | 3 |\n/L: a | b\nc | d/\n'
+  assert.deepEqual(utils.jianpuGutterLabels(text), ['1-3', '1', '2-3', ''])
+})
+
+test('lyric gutter labels ignore & lanes and count empty measures', () => {
+  assert.deepEqual(
+    utils.jianpuGutterLabels('1 | 2 |\n/L: a & b | c & d/\n'),
+    ['1-2', '1-2', ''],
+  )
+  assert.deepEqual(
+    utils.jianpuGutterLabels('1 | 2 | 3 |\n/L: a || b/\n'),
+    ['1-3', '1-3', ''],
+  )
+})
+
+test('lyric gutter labels handle truncated and overflowing lyrics gracefully', () => {
+  // 截断：歌词只覆盖前 2 个小节。
+  assert.deepEqual(
+    utils.jianpuGutterLabels('1 | 2 | 3 | 4 | 5 |\n/L: a | b/\n'),
+    ['1-5', '1-2', ''],
+  )
+  // 溢出（非法文档）：超出谱面的小节行不显示标签，不崩溃。
+  assert.deepEqual(
+    utils.jianpuGutterLabels('1 |\n/L: a | b\nc/\n'),
+    ['1', '1', '', ''],
+  )
+  // 未闭合块（非法文档）：尽力扫描到文末。
+  assert.deepEqual(
+    utils.jianpuGutterLabels('1 | 2 |\n/L: a | b\n'),
+    ['1-2', '1-2', ''],
+  )
+})
+
+test('lyric gutter labels respect the initial measure number', () => {
+  assert.deepEqual(
+    utils.jianpuGutterLabels('1 | 2 |\n/L: a | b/\n', 5),
+    ['5-6', '5-6', ''],
+  )
 })
 
 test('lyric block range skips // comment markers when unterminated', async () => {
