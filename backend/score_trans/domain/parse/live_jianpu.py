@@ -6,10 +6,13 @@ import json
 from dataclasses import dataclass, replace
 
 from ...models.render.live import LiveMeasureSelection
+from ...models.score import JianpuScore
 from ...models.syntax.schemas import SyntaxDiagnostic
 from .jianpu_text import (
     JianpuSyntaxError,
     ParsedJianpuPart,
+    _LYRIC_BLOCK_END,
+    _LYRIC_BLOCK_START,
     _PAGE_MARKER_RE,
     _PAGE_MARKER_START_RE,
     _PART_MARKER_RE,
@@ -113,6 +116,44 @@ def _remap_warning(warning: SyntaxDiagnostic, text: str, base: int) -> SyntaxDia
     )
 
 
+def _parse_live_segment(
+    stripped_body: str, block_rel_cp: int | None
+) -> tuple[JianpuScore, _PreviewRecovery]:
+    """解析一个 segment；歌词块错误时容错降级，保证编辑歌词时预览不中断。
+
+    两级降级：块未闭合先虚拟补结束符（正在输入的歌词仍可附着到音符）；
+    其余歌词错误（内容/`&` 流/溢出谱面等，token 偏移落在块内）则把块起到
+    段尾掩码为空格（保留换行），无歌词重解析。歌词块之外的错误照常上抛。
+    """
+
+    def _parse(candidate: str) -> tuple[JianpuScore, _PreviewRecovery]:
+        recovery = _PreviewRecovery()
+        options, tokens, lyrics = _read_new_syntax(candidate, recovery=recovery)
+        score = _parse_score_tokens(
+            options, tokens, lyrics, title="", recovery=recovery
+        )
+        return score, recovery
+
+    if block_rel_cp is None:
+        return _parse(stripped_body)
+    block_rel_utf16 = _utf16_length(stripped_body[:block_rel_cp])
+    candidates = [stripped_body]
+    if _LYRIC_BLOCK_END.search(stripped_body, block_rel_cp + 3) is None:
+        candidates.insert(0, stripped_body + " /")
+    for candidate in candidates:
+        try:
+            return _parse(candidate)
+        except JianpuSyntaxError as exc:
+            start = exc.token.start_utf16
+            if start is None or start < block_rel_utf16:
+                raise
+    masked = "".join(
+        char if char in "\r\n" or index < block_rel_cp else " "
+        for index, char in enumerate(stripped_body)
+    )
+    return _parse(masked)
+
+
 def select_live_measure(
     text: str, cursor_offset: int, *, initial_measure_number: int = 1
 ) -> LiveMeasureSelection:
@@ -132,6 +173,16 @@ def select_live_measure(
             _marker_token(source, page_before_cursor.start(), page_before_cursor.end()),
             "分页标记格式无效，无法确定当前预览的页面。",
         )
+    # 歌词块定位（全文唯一；多个 /L: 属非法，取第一个做容错）。光标进入块内时
+    # 改用「歌词小节 -> 物理小节」的线性映射选中小节，不再依赖 source offset。
+    lyric_start = _LYRIC_BLOCK_START.search(source)
+    lyric_block_start_cp = lyric_start.start() if lyric_start else None
+    cursor_in_lyrics = (
+        lyric_block_start_cp is not None and cursor_cp >= lyric_block_start_cp
+    )
+    lyric_measure_index = (
+        source[lyric_start.end() : cursor_cp].count("|") if cursor_in_lyrics else 0
+    )
     segments = _segments(source)
     parts: list[ParsedJianpuPart] = []
     recoveries: list[_PreviewRecovery] = []
@@ -140,12 +191,14 @@ def select_live_measure(
     base = 0
     for index, segment in enumerate(segments):
         body = source[segment.start : segment.end]
-        recovery = _PreviewRecovery()
-        options, tokens, lyrics = _read_new_syntax(
-            _strip_page_marker_lines(body), recovery=recovery
+        block_rel_cp = (
+            lyric_block_start_cp - segment.start
+            if lyric_block_start_cp is not None
+            and segment.start <= lyric_block_start_cp < segment.end
+            else None
         )
-        score = _parse_score_tokens(
-            options, tokens, lyrics, title="", recovery=recovery
+        score, recovery = _parse_live_segment(
+            _strip_page_marker_lines(body), block_rel_cp
         )
         base += _utf16_length(source[previous_start : segment.start])
         previous_start = segment.start
@@ -185,16 +238,27 @@ def select_live_measure(
         return LiveMeasureSelection(
             score=part.score, initial_measure_number=part.measure_number_base
         )
-    measure_index = 0
-    for index, measure in enumerate(part.score.measures):
-        if measure.source_end_utf16 is not None and measure.source_end_utf16 <= cursor:
-            measure_index = index + 1
-        elif (
-            measure.source_start_utf16 is not None
-            and measure.source_start_utf16 <= cursor
-        ):
-            measure_index = index
-    measure_index = min(measure_index, len(part.score.measures) - 1)
+    block_in_selected = (
+        lyric_block_start_cp is not None
+        and segment.start <= lyric_block_start_cp < segment.end
+    )
+    if cursor_in_lyrics and block_in_selected:
+        # 光标在歌词区：歌词第 k 个小节线性映射到该声部第 k 个物理小节。
+        measure_index = min(lyric_measure_index, len(part.score.measures) - 1)
+    else:
+        measure_index = 0
+        for index, measure in enumerate(part.score.measures):
+            if (
+                measure.source_end_utf16 is not None
+                and measure.source_end_utf16 <= cursor
+            ):
+                measure_index = index + 1
+            elif (
+                measure.source_start_utf16 is not None
+                and measure.source_start_utf16 <= cursor
+            ):
+                measure_index = index
+        measure_index = min(measure_index, len(part.score.measures) - 1)
     if measure_index in recovery.errors:
         raise _remap_part_syntax_error(
             recovery.errors[measure_index], source, segment.start

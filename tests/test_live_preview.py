@@ -213,3 +213,54 @@ def test_live_api_keeps_existing_error_contract_and_adds_context_warnings() -> N
     assert invalid.json()["code"] == "jianpu_syntax"
     strict = client.post("/render/jianpu-live-svg", json={"jianpu_text": text})
     assert strict.status_code == 400
+
+
+def _lyrics_of(selection) -> list[str | None]:
+    return [event.lyric for event in selection.score.measures[0].events]
+
+
+def test_cursor_in_lyric_block_selects_corresponding_measure() -> None:
+    text = "1 | 2 | 3 | 4 | 5 |\n/L: 一 | 二 | 三 /\n"
+    selection = select_live_measure(text, text.index("二"))
+    assert selection.initial_measure_number == 2
+    assert _lyrics_of(selection) == ["二"]
+
+
+def test_unterminated_lyric_block_still_renders_with_lyrics() -> None:
+    text = "1 2 3 4 | 5 6 7 1 |\n/L: 春 眠 | 晓"
+    selection = select_live_measure(text, len(text))
+    assert selection.initial_measure_number == 2
+    assert _lyrics_of(selection)[0] == "晓"
+
+
+def test_lyric_content_error_degrades_to_measure_without_lyrics() -> None:
+    text = "1 | 2 | 3 |\n/L: 一 & 二 | 三 /\n"
+    selection = select_live_measure(text, text.index("三"))
+    assert selection.initial_measure_number == 2
+    assert _lyrics_of(selection) == [None]
+
+
+def test_lyric_overflow_clamps_to_last_measure() -> None:
+    text = "1 | 2 |\n/L: 一 | 二 | 三 /\n"
+    selection = select_live_measure(text, text.index("三"))
+    assert selection.initial_measure_number == 2
+
+
+def test_broken_lyric_block_does_not_kill_body_cursor_preview() -> None:
+    text = "1 2 3 4 | 5 6 7 1 |\n/L: 春 眠 | 晓"
+    selection = select_live_measure(text, text.index("1"))
+    assert selection.initial_measure_number == 1
+
+
+def test_lyric_cursor_uses_repeat_weighted_measure_number() -> None:
+    text = "1 2 3 4 *2 | 5 6 7 1 *3 |\n/L: 一 二 三 四 | 五 六 七 一/\n"
+    selection = select_live_measure(text, text.index("五"))
+    assert selection.initial_measure_number == 3
+    assert _lyrics_of(selection) == ["五", "六", "七", "一"]
+
+
+def test_multiline_lyric_block_cursor_maps_by_bar_count() -> None:
+    text = "1 | 2 | 3 |\n/L: 一 |\n二 | 三 /\n"
+    selection = select_live_measure(text, text.index("三"))
+    assert selection.initial_measure_number == 3
+    assert _lyrics_of(selection) == ["三"]
