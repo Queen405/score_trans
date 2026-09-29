@@ -32,7 +32,6 @@ def test_env_example_documents_optional_path_and_ai_prompt_overrides() -> None:
     for variable in (
         "SCORE_TRANS_WORKDIR=",
         "SCORE_TRANS_JAVA_HOME=",
-        "SCORE_TRANS_OUTPUT_DIR=",
         "SCORE_TRANS_AI_SYSTEM_MSG=",
     ):
         assert variable in example

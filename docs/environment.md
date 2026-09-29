@@ -45,7 +45,6 @@ $env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris
 | 变量 | 说明 | 默认值 / 示例 |
 |------|------|---------------|
 | `SCORE_TRANS_WORKDIR` | 上传、识别、历史记录等工作目录根。 | `work` |
-| `SCORE_TRANS_OUTPUT_DIR` | 额外输出目录，空则使用工作目录。 | 空 |
 
 ---
 
@@ -181,14 +180,6 @@ $env:SCORE_TRANS_AI_MODEL="mimo-v2.5"
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `SCORE_TRANS_UPDATE_MANIFEST_URL` | 桌面端更新检查所读取的 `latest.json` 地址。留空时使用腾讯云 COS（`score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/latest.json`）。用于配置镜像或本地测试地址。 | COS 地址 |
-
----
-
-## 简谱转换
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `SCORE_TRANS_POLYPHONY_MODE` | 声部内复调（多 voice）处理：`auto` 时间重叠时以 `&` 声线保留、`preserve` 始终保留、`flatten` 拍平为单行。 | `flatten` |
 
 ---
 

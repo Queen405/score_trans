@@ -83,7 +83,6 @@ MAX_UPLOAD_REQUEST_BYTES: int = _positive_i_or(
 AUDIVERIS_PATH: str = _s_or("SCORE_TRANS_AUDIVERIS")
 WORK_DIR: str = _s_or("SCORE_TRANS_WORKDIR")
 JAVA_HOME: str = _s_or("SCORE_TRANS_JAVA_HOME")
-OUTPUT_DIR: str = _s_or("SCORE_TRANS_OUTPUT_DIR")
 
 # Audiveris / Java OMR command options
 AUDIVERIS_STEP: str = _s_or("SCORE_TRANS_AUDIVERIS_STEP")
@@ -147,11 +146,3 @@ UPLOAD_PDF_DPI: int = _i("SCORE_TRANS_UPLOAD_PDF_DPI")
 # MIDI
 MIDI_TICKS_PER_BEAT: int = _i("SCORE_TRANS_MIDI_TICKS_PER_BEAT")
 MIDI_DEFAULT_VELOCITY: int = _i("SCORE_TRANS_MIDI_DEFAULT_VELOCITY")
-
-# 简谱转换
-POLYPHONY_MODE: str = _s_or("SCORE_TRANS_POLYPHONY_MODE", "auto")
-if POLYPHONY_MODE not in ("auto", "preserve", "flatten"):
-    raise ValueError(
-        "SCORE_TRANS_POLYPHONY_MODE must be one of auto/preserve/flatten, "
-        f"got {POLYPHONY_MODE!r}"
-    )

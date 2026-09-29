@@ -126,13 +126,6 @@
         />
       </div>
     </div>
-    <div
-      v-if="lyricSummary"
-      class="lyric-summary"
-      role="status"
-    >
-      {{ lyricSummary }}
-    </div>
   </div>
 </template>
 
@@ -142,7 +135,6 @@ import { findJianpuNoteSpans } from '../utils/jianpuPlayback'
 import { playbackTextHash, sourceRangeSpans, type PlaybackHighlight } from '../utils/midiSourceMap'
 import { horizontalScrollIntoView } from '../utils/editorViewport'
 import { lyricBlockLineIndexes, tokenizeJianpuLine, type JianpuSyntaxToken } from '../utils/jianpuSyntax'
-import { useSyntaxDiagnosticsStore } from '../stores/syntaxDiagnostics'
 import type { SyntaxDiagnostic } from '../models/types'
 import { NInputNumber, useMessage } from 'naive-ui'
 import { t } from '../i18n'
@@ -190,11 +182,6 @@ const props = withDefaults(defineProps<{
   structureMarkersEnabled: true,
 })
 
-const syntaxStore = useSyntaxDiagnosticsStore()
-const lyricSummary = computed(() => syntaxStore.lyrics.map((line) => {
-  const label = line.verse === 1 ? 'L' : `L${line.verse}`
-  return `${label}: ${line.words} ${t('components.syntaxDiagnosticPanel.lyricWords')}`
-}).join('　·　'))
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:initialMeasureNumber': [value: number]
@@ -848,15 +835,6 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.lyric-summary {
-  flex: 0 0 auto;
-  padding: 5px 12px;
-  border-top: 1px solid var(--border-color, #e5e7eb);
-  color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.4;
 }
 
 .editor-pages {

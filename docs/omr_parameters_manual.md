@@ -35,7 +35,6 @@ OMR 相关参数全部集中在 `backend/score_trans/config/.env` 中，分为�
 | `SCORE_TRANS_AUDIVERIS` | `third_party/audiveris/gradlew.bat` | 路径字符串 | Audiveris 启动脚本 |
 | `SCORE_TRANS_JAVA_HOME` | `E:/ENV/JAVA/JDK25` | 路径字符串 | Audiveris 运行所需的 JDK 25 根目录 |
 | `SCORE_TRANS_WORKDIR` | `work` | 路径字符串 | 上传、识别、历史记录等工作目录根 |
-| `SCORE_TRANS_OUTPUT_DIR` | 空 | 路径字符串 | 额外输出目录，空则使用工作目录 |
 
 ### 2.2 Audiveris 执行选项
 
@@ -214,12 +213,6 @@ Audiveris 内部有大量可调整的算法常量，格式为 `-constant key=val
 - **默认值**：`work`
 - **效果**：后端会在此目录下创建 `uploads/`、`pipeline/`、`audiveris/`、`history/` 等子目录。
 - **建议**：确保该目录所在磁盘有足够空间，Audiveris 识别过程中可能产生较大临时文件。
-
-#### `SCORE_TRANS_OUTPUT_DIR`
-
-- **含义**：额外输出目录。
-- **默认值**：空（使用 `SCORE_TRANS_WORKDIR`）
-- **效果**：留空时，所有输出都放在工作目录下；否则可作为辅助输出位置。
 
 ---
 

@@ -126,7 +126,6 @@ Key variables:
 - `SCORE_TRANS_JAVA_HOME` — JDK 25 path for Audiveris
 - `SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE` — auto-upscale low-res raster images before OMR (default: `1`)
 - `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE` — target long-edge pixel count for preventive upscale (default: `2500`)
-- `SCORE_TRANS_POLYPHONY_MODE` — intra-part voice handling: `auto` (default, `&` lanes on real overlap), `preserve`, `flatten`
 - `SCORE_TRANS_OCR_API_KEY` / `SCORE_TRANS_OCR_BASE_URL` / `SCORE_TRANS_OCR_MODEL`
 - `SCORE_TRANS_AI_API_KEY` / `SCORE_TRANS_AI_BASE_URL` / `SCORE_TRANS_AI_MODEL`
 - `SCORE_TRANS_UPDATE_MANIFEST_URL` — desktop update-check `latest.json` endpoint (default: Tencent COS `download/latest.json`); override for mirrors or local tests
