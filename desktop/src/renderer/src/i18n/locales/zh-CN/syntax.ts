@@ -13,7 +13,8 @@ const syntax = {
     notes: '音符与八度',
     duration: '时值与连音',
     measures: '和弦与小节',
-    expression: '力度、歌词与注释',
+    expression: '力度与注释',
+    lyrics: '歌词',
     performanceMarks: '演奏技巧',
     quickReference: '速查表',
   },
@@ -64,7 +65,8 @@ const syntax = {
     notes: { title: '音符与八度', kicker: '音高' },
     duration: { title: '时值与连音', kicker: '节奏' },
     measures: { title: '和弦与小节', kicker: '结构' },
-    expression: { title: '力度、歌词与注释', kicker: '文本与表现' },
+    expression: { title: '力度与注释', kicker: '文本与表现' },
+    lyrics: { title: '歌词', kicker: '填词与对齐' },
   },
 
   // 快速开始搜索项
@@ -74,6 +76,12 @@ const syntax = {
     name: '快速开始示例',
     description:
       '巴赫二部创意曲，包含多页（@page）、多声部（@part）、调号、拍号、速度、附点、延音线、力度与演奏法标记。',
+  },
+
+  // 歌词章节示例标题
+  lyricExamples: {
+    basic: '基础对齐',
+    streams: '多段歌词与多行书写',
   },
 
   // 语法段落条目
@@ -208,11 +216,29 @@ const syntax = {
         name: '小节级简写',
         desc: '写在小节开头，对该小节所有音符与和弦生效，休止符不继承。',
       },
-      lyric: {
-        name: '歌词行',
-        desc: '按音符顺序一一匹配，休止符不分配歌词。',
-      },
       comment: { name: '注释', desc: '从双斜线开始忽略到当前行末尾。' },
+    },
+    lyrics: {
+      block: {
+        name: '歌词块',
+        desc: '全文唯一，写在简谱正文之后，/L: 需写在行首；| 划分歌词小节，与谱面逐小节对齐，歌词小节可以少写，不能多写。词项时值超出所在小节时，该词不显示，编辑器会给出提示。',
+      },
+      streams: {
+        name: '歌词流',
+        desc: '小节内用 & 分隔多条歌词流，各流独立计时；每个歌词小节的流数量必须一致，槽位可以留空。',
+      },
+      duration: {
+        name: '歌词时值',
+        desc: '词项默认占一拍；q/s/d/h/w 前缀分别为 1/2、1/4、1/8、2、4 拍，只改变该流后续歌词的时间位置。纯英文词以这些字母开头时按整词保留（如 star、do）。',
+      },
+      placeholder: {
+        name: '时值占位',
+        desc: '空拍写为时值前缀加 0（如 q0 占 1/2 拍），推进该流时间但不显示歌词；时值前缀不能单独出现，只写 q 或 s 会报错。',
+      },
+      multiLine: {
+        name: '多行书写',
+        desc: '块内换行等同空白，可跨多行书写，推荐每行写一个小节；块内不能写 // 注释，/、|、& 为保留符号。',
+      },
     },
   },
 
@@ -274,7 +300,7 @@ const syntax = {
     },
     lyricComment: {
       name: '歌词 / 注释',
-      desc: '歌词单独写成一行 /L: .../；| 分隔小节，& 分隔歌词流。',
+      desc: '歌词块 /L: .../ 按小节对齐；| 划分歌词小节，& 分隔歌词流，可跨行书写。',
     },
     partPage: {
       name: '分谱 / 分页',

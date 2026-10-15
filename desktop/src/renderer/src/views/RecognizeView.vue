@@ -154,7 +154,10 @@
               size="small"
             />
           </div>
-          <div class="instrument-select">
+          <div
+            v-if="showInstrumentMode"
+            class="instrument-select"
+          >
             <span>{{ t('recognize.toolbar.instrumentMode') }}</span>
             <n-select
               v-model:value="instrumentProfile"
@@ -411,6 +414,10 @@ watch(qqOpen, (open) => {
   else document.removeEventListener('click', onQqDocClick)
 })
 onUnmounted(() => document.removeEventListener('click', onQqDocClick))
+
+// 暂时隐藏乐器模式入口（仅界面，实现与后端 instrument_profile 参数完整保留）。
+// 恢复显示：把这里改回 true 即可，无需改动其它代码。
+const showInstrumentMode: boolean = false
 
 const aiVisionEnabled = ref(false)
 const instrumentProfile = ref<InstrumentProfile>('general')

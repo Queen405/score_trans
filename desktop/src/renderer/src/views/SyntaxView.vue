@@ -180,6 +180,41 @@
                   </tbody>
                 </table>
               </div>
+
+              <div
+                v-if="activeSection === 'lyrics'"
+                class="lyric-examples"
+              >
+                <div
+                  v-for="example in lyricExamples"
+                  :key="example.key"
+                >
+                  <h3>{{ example.title }}</h3>
+                  <div
+                    class="code-block"
+                    :data-search-key="example.key"
+                    :class="{ 'block-highlight': isHighlighted(example.key) }"
+                  >
+                    <div class="code-toolbar">
+                      <span>{{ t('syntax.codeBlock.notation') }}</span>
+                      <n-tooltip>
+                        <template #trigger>
+                          <button
+                            type="button"
+                            class="copy-button"
+                            :aria-label="copiedBlock === example.key ? t('syntax.codeBlock.copied') : t('syntax.codeBlock.copy')"
+                            @click="copyExample(example.key, example.content)"
+                          >
+                            <n-icon :component="copiedBlock === example.key ? CheckmarkOutline : CopyOutline" />
+                          </button>
+                        </template>
+                        {{ copiedBlock === example.key ? t('syntax.codeBlock.copied') : t('syntax.codeBlock.copy') }}
+                      </n-tooltip>
+                    </div>
+                    <pre><code>{{ example.content }}</code></pre>
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section
@@ -357,6 +392,7 @@ import {
   ListOutline,
   MusicalNotesOutline,
   SearchOutline,
+  TextOutline,
   TimerOutline,
 } from '@vicons/ionicons5'
 import {
@@ -383,6 +419,7 @@ type SectionId =
   | 'duration'
   | 'measures'
   | 'expression'
+  | 'lyrics'
   | 'performance-marks'
   | 'quick-reference'
 
@@ -437,7 +474,7 @@ const profiles = ref<InstrumentProfileCatalog[]>([])
 const activeProfile = ref<string>('general')
 const loadingProfiles = ref(true)
 const profileError = ref('')
-const copiedBlock = ref<'quick' | null>(null)
+const copiedBlock = ref<string | null>(null)
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 
 const quickStartExample = String.raw`// @page 1 name="bach_invention_04_bwv775_a4_page_001.png"
@@ -562,6 +599,30 @@ s7, s2' s1' s7 s6 s5 |
 s6 s7 q1' q1 |
 ^f n4,. |`
 
+const lyricBasicExample = String.raw`1=C
+4/4
+1 1 5 5 | 6 6 h5 |
+/L: 一 闪 一 闪 | 亮 晶 晶/`
+
+const lyricStreamsExample = String.raw`1=C
+4/4
+1 1 5 5 | 6 6 h5 | 4 4 3 3 | 2 2 h1 |
+/L: 一 闪 一 闪 & Twinkle twinkle |
+    亮 晶 晶 & little star |
+    满 天 都 是 & Up above the |
+    小 星 星 & world so high/`
+
+interface LyricExample {
+  key: string
+  title: string
+  content: string
+}
+
+const lyricExamples = computed<LyricExample[]>(() => [
+  { key: 'lyrics-example-basic', title: t('syntax.lyricExamples.basic'), content: lyricBasicExample },
+  { key: 'lyrics-example-streams', title: t('syntax.lyricExamples.streams'), content: lyricStreamsExample },
+])
+
 const docSections = computed<DocSection[]>(() => [
   {
     id: 'quick-start',
@@ -592,6 +653,11 @@ const docSections = computed<DocSection[]>(() => [
     id: 'expression',
     label: t('syntax.section.expression'),
     icon: CreateOutline,
+  },
+  {
+    id: 'lyrics',
+    label: t('syntax.section.lyrics'),
+    icon: TextOutline,
   },
   {
     id: 'performance-marks',
@@ -722,12 +788,44 @@ const syntaxSections = computed<SyntaxSection[]>(() => [
         name: t('syntax.entries.expression.measureLevelShorthand.name'),
         description: t('syntax.entries.expression.measureLevelShorthand.desc'),
       },
-      {
-        syntax: '/L: do re mi/',
-        name: t('syntax.entries.expression.lyric.name'),
-        description: t('syntax.entries.expression.lyric.desc'),
-      },
       { syntax: '// comment', name: t('syntax.entries.expression.comment.name'), description: t('syntax.entries.expression.comment.desc') },
+    ],
+  },
+  {
+    id: 'lyrics',
+    title: t('syntax.sections.lyrics.title'),
+    kicker: t('syntax.sections.lyrics.kicker'),
+    entries: [
+      {
+        syntax: '/L: 一 闪 一 闪 | 亮 晶 晶/',
+        name: t('syntax.entries.lyrics.block.name'),
+        description: t('syntax.entries.lyrics.block.desc'),
+        keywords: ['歌词', '歌词块', 'lyric', '/L:'],
+      },
+      {
+        syntax: '一 闪 一 闪 & Twinkle twinkle',
+        name: t('syntax.entries.lyrics.streams.name'),
+        description: t('syntax.entries.lyrics.streams.desc'),
+        keywords: ['歌词流', '分段歌词', '多段歌词', 'verse', 'stream'],
+      },
+      {
+        syntax: 'q眠  s闪  d哒  h长  w远',
+        name: t('syntax.entries.lyrics.duration.name'),
+        description: t('syntax.entries.lyrics.duration.desc'),
+        keywords: ['歌词时值', 'duration prefix'],
+      },
+      {
+        syntax: 'q0',
+        name: t('syntax.entries.lyrics.placeholder.name'),
+        description: t('syntax.entries.lyrics.placeholder.desc'),
+        keywords: ['占位', 'placeholder'],
+      },
+      {
+        syntax: '/L: 一 闪 一 闪 | ↵ 亮 晶 晶/',
+        name: t('syntax.entries.lyrics.multiLine.name'),
+        description: t('syntax.entries.lyrics.multiLine.desc'),
+        keywords: ['多行歌词', '换行', 'multi-line'],
+      },
     ],
   },
 ])
@@ -787,6 +885,17 @@ const searchGroups = computed<SearchGroup[]>(() => {
       description: t('syntax.quickStartExample.description'),
       keywords: [quickStartExample],
     },
+    ...lyricExamples.value.map((example) => ({
+      key: example.key,
+      groupKey: 'lyrics',
+      groupTitle: t('syntax.sections.lyrics.title'),
+      sectionId: 'lyrics' as SectionId,
+      sectionTitle: t('syntax.sections.lyrics.title'),
+      syntax: '/L: …/',
+      name: example.title,
+      description: example.title,
+      keywords: [example.content, '歌词', 'lyric'],
+    })),
     ...syntaxSections.value.flatMap((section) =>
       section.entries.map((entry) => ({
         key: `${section.id}-${entry.syntax}`,
@@ -1000,7 +1109,7 @@ async function openSearchResult(item: SearchItem): Promise<void> {
 }
 
 
-async function copyExample(block: 'quick', content: string): Promise<void> {
+async function copyExample(block: string, content: string): Promise<void> {
   try {
     await window.navigator.clipboard.writeText(content)
     copiedBlock.value = block
@@ -1219,7 +1328,14 @@ code {
   margin-top: 24px;
 }
 
+.lyric-examples {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+
 .example-list h3,
+.lyric-examples h3,
 .result-group h4 {
   margin: 0 0 10px;
   color: var(--text-primary);

@@ -2219,6 +2219,21 @@ def test_bundled_font_ink_bounds_are_deterministic() -> None:
     assert first[1] < first[3]
 
 
+def test_ink_bounds_advances_cursor_for_multi_char_text() -> None:
+    """ink_bounds must advance the cursor per character, so multi-char text
+    width approximates advance (within side-bearing tolerance).  A regression
+    where ``cursor_em`` only advanced on the error path made every multi-char
+    bbox as narrow as the widest single glyph."""
+    registry = font_registry()
+    for text in ["Twinkle", "春天到了", "mf"]:
+        ink = registry.ink_bounds(text, 18)
+        advance = registry.measure(text, 18)
+        ink_width = ink[2] - ink[0]
+        assert abs(ink_width - advance) < 6.0, (
+            f"{text!r}: ink_width={ink_width:.2f} vs advance={advance:.2f}"
+        )
+
+
 def test_a4_viewbox_is_stable() -> None:
     svg = render_scores_a4_pages([parse_jianpu_score("1=C\n4/4\n1 2 3 4 |")])[0].svg
     root = _root(svg)
@@ -2982,9 +2997,11 @@ def test_lyrics_align_with_quarter_note_positions() -> None:
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
     assert [layout.text for layout in layouts] == ["春", "眠", "觉", "晓"]
+    registry = font_registry()
     for layout, position in zip(layouts, positions, strict=True):
-        center = layout.bbox.x + layout.bbox.width / 2
-        assert abs(center - position) < 1.0
+        ink_left = registry.ink_bounds(layout.text, layout.font_size)[0]
+        left_edge = layout.bbox.x - ink_left
+        assert abs(left_edge - position) < 1.0
 
 
 def test_edge_lyrics_align_with_eighth_notes_at_measure_edges() -> None:
@@ -3046,10 +3063,13 @@ def test_edge_lyrics_align_with_eighth_notes_at_measure_edges() -> None:
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
     assert [layout.text for layout in layouts] == ["春", "眠", "觉", "晓", "夜", "雨"]
-    first_center = layouts[0].bbox.x + layouts[0].bbox.width / 2
-    last_center = layouts[-1].bbox.x + layouts[-1].bbox.width / 2
-    assert abs(first_center - positions[0]) < 1.0
-    assert abs(last_center - positions[-1]) < 1.0
+    registry = font_registry()
+    first_ink_left = registry.ink_bounds(layouts[0].text, layouts[0].font_size)[0]
+    last_ink_left = registry.ink_bounds(layouts[-1].text, layouts[-1].font_size)[0]
+    first_left = layouts[0].bbox.x - first_ink_left
+    last_left = layouts[-1].bbox.x - last_ink_left
+    assert abs(first_left - positions[0]) < 1.0
+    assert abs(last_left - positions[-1]) < 1.0
 
 
 def test_first_lyric_aligns_when_wide_lyric_pushes_first_note() -> None:
@@ -3095,15 +3115,14 @@ def test_first_lyric_aligns_when_wide_lyric_pushes_first_note() -> None:
 
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
-    # bbox 是真实墨盒，设计锚点（= 实际绘制锚点）按 advance 居中换算。
+    # bbox 左对齐：歌词左缘（bbox.x - ink_left = center_x）与音符位置对齐。
     registry = font_registry()
     ink_left, _top, _right, _bottom = registry.ink_bounds(
         layouts[0].text, layouts[0].font_size
     )
-    advance = registry.measure(layouts[0].text, layouts[0].font_size)
-    first_anchor = layouts[0].bbox.x + advance / 2 - ink_left
+    first_anchor = layouts[0].bbox.x - ink_left
     assert abs(first_anchor - positions[0]) < 1.0
-    assert first_anchor > clip_left + 10
+    assert first_anchor > clip_left
 
     # 端到端：渲染出的歌词节点 x 与首个音符节点 x 一致。
     root = _root(render_score_svg(JianpuScore(measures=[measure])))
@@ -3134,8 +3153,58 @@ def test_measure_text_layout_falls_back_without_visual_events() -> None:
     layouts = _measure_text_layout(measure, 0.0, 440.0, 0.0, style)
 
     assert [layout.text for layout in layouts] == ["词"]
-    center = layouts[0].bbox.x + layouts[0].bbox.width / 2
-    assert abs(center - style.barline_gutter) < 1.0
+    registry = font_registry()
+    ink_left = registry.ink_bounds(layouts[0].text, layouts[0].font_size)[0]
+    left_edge = layouts[0].bbox.x - ink_left
+    assert abs(left_edge - style.barline_gutter) < 1.0
+
+
+def test_lyrics_are_left_aligned_while_annotations_remain_centered() -> None:
+    """歌词左对齐（anchor=start，左缘钉在音符 x），注解保持居中（anchor=middle）。"""
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(1),
+            pitches=[JianpuPitch(1)],
+            lyric="春",
+            start=Fraction(index),
+        )
+        for index in range(2)
+    ]
+    measure = Measure(
+        "1",
+        duration=Fraction(2),
+        events=events,
+        text_blocks=[
+            TextBlock("rit.", role="expression", start=Fraction(0)),
+        ],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[measure])))
+
+    lyric_nodes = [node for node in root.iter() if node.attrib.get("class") == "lyric"]
+    annotation_nodes = [
+        node
+        for node in root.iter()
+        if node.attrib.get("class") == "annotation"
+        and node.attrib.get("aria-label") == "rit."
+    ]
+    note_nodes = [node for node in root.iter() if node.attrib.get("class") == "note"]
+    assert lyric_nodes and annotation_nodes and note_nodes
+
+    # 歌词：transform 的末段 translate(offset 0) 中 offset=0（左对齐），
+    # 且首个 translate x = 音符 x。
+    for lyric_node, note_node in zip(lyric_nodes, note_nodes, strict=True):
+        lyric_x = _translate(lyric_node)[0]
+        note_x = _translate(note_node)[0]
+        assert abs(lyric_x - note_x) < 1.0, (
+            f"歌词 x={lyric_x:.1f} 应与音符 x={note_x:.1f} 对齐"
+        )
+
+    # 注解：transform 末段 translate(offset 0) 中 offset<0（居中偏移）。
+    for ann_node in annotation_nodes:
+        ann_x = _translate(ann_node)[0]
+        # 注解的首个 translate x 也是音符 x，但末段 translate 有偏移
+        assert ann_x > 0
 
 
 def _assert_rendered_lyrics_align_with_notes(svg: str) -> None:

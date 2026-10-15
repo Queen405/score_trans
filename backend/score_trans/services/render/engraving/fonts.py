@@ -106,7 +106,7 @@ class FontRegistry:
                     f"FontTools failed to draw glyph {char!r} (U+{ord(char):04X}), "
                     f"using fallback bounds (0, 0, 0, 0)"
                 )
-                cursor_em += self._advance_em(char)
+            cursor_em += self._advance_em(char)
         if left_em is None:
             return (0.0, 0.0, 0.0, 0.0)
         return (

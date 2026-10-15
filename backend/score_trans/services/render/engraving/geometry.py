@@ -79,6 +79,18 @@ def _centered_text_box(value: str, size: float) -> InkBox:
     return InkBox(left - advance / 2, top, right - advance / 2, bottom)
 
 
+def _left_aligned_text_box(value: str, size: float) -> InkBox:
+    """Text ink box starting at the origin and extending rightward by advance.
+
+    Used for left-aligned lyrics whose left edge sits at the note centre
+    rather than being centred on it.
+    """
+    registry = font_registry()
+    left, top, _right, bottom = registry.ink_bounds(value, size)
+    advance = registry.measure(value, size)
+    return InkBox(left, top, advance, bottom)
+
+
 def _translated(box: InkBox, x: float, y: float) -> InkBox:
     return InkBox(box.left + x, box.top + y, box.right + x, box.bottom + y)
 
@@ -475,10 +487,20 @@ def measure_event_layout(
     if event.lyric:
         lyric_baseline = _lyric_baseline(event, style) + subtext_offset
         lyric_box = _translated(
-            _centered_text_box(event.lyric, style.lyric_size), 0.0, lyric_baseline
+            _left_aligned_text_box(event.lyric, style.lyric_size),
+            0.0,
+            lyric_baseline,
         )
         parts.append(VisualPart("lyric", lyric_box))
         box = box.union(lyric_box)
+    # Other verses' lyrics are rendered as text blocks (not event lyric
+    # parts), but their horizontal extent must still participate in
+    # collision detection so that wide multi-verse lyrics (e.g. English
+    # verse 2 alongside Chinese verse 1) get enough note spacing.
+    for verse, text in (event.lyrics or {}).items():
+        if verse == 1 or not text:
+            continue
+        box = box.union(_left_aligned_text_box(text, style.lyric_size))
     if event.dynamic:
         dynamic_baseline = _dynamic_baseline(event, style) + subtext_offset
         dynamic_box = _translated(

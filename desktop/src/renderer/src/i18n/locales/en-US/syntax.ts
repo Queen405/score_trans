@@ -15,7 +15,8 @@ const syntax: typeof zhSyntax = {
     notes: 'Notes & Octaves',
     duration: 'Durations & Tuplets',
     measures: 'Chords & Measures',
-    expression: 'Dynamics, Lyrics & Annotations',
+    expression: 'Dynamics & Annotations',
+    lyrics: 'Lyrics',
     performanceMarks: 'Performance Techniques',
     quickReference: 'Quick Reference',
   },
@@ -67,9 +68,10 @@ const syntax: typeof zhSyntax = {
     duration: { title: 'Durations & Tuplets', kicker: 'Rhythm' },
     measures: { title: 'Chords & Measures', kicker: 'Structure' },
     expression: {
-      title: 'Dynamics, Lyrics & Annotations',
+      title: 'Dynamics & Annotations',
       kicker: 'Text & Expression',
     },
+    lyrics: { title: 'Lyrics', kicker: 'Lyrics & Alignment' },
   },
 
   // Quick start search item
@@ -79,6 +81,12 @@ const syntax: typeof zhSyntax = {
     name: 'Quick Start Example',
     description:
       'Bach two-part invention, with multiple pages (@page), voices (@part), key signature, time signature, tempo, dotted notes, ties, dynamics, and articulation marks.',
+  },
+
+  // Lyric section example titles
+  lyricExamples: {
+    basic: 'Basic Alignment',
+    streams: 'Multiple Verses & Line Breaks',
   },
 
   // Syntax section entries
@@ -258,13 +266,31 @@ const syntax: typeof zhSyntax = {
         name: 'Measure-level Shorthand',
         desc: 'Written at the start of a measure, applying to all notes and chords in it; rests do not inherit it.',
       },
-      lyric: {
-        name: 'Lyric Line',
-        desc: 'Matched one-to-one in note order; rests get no lyric.',
-      },
       comment: {
         name: 'Comment',
         desc: 'Ignored from the double slash to the end of the current line.',
+      },
+    },
+    lyrics: {
+      block: {
+        name: 'Lyric Block',
+        desc: 'Unique per document, written after the score body, and /L: must begin its line; | separates lyric measures, aligning with the score measure by measure — lyric measures may be fewer, never more. A word whose duration overflows its measure is not displayed, and the editor reports it.',
+      },
+      streams: {
+        name: 'Lyric Streams',
+        desc: 'Use & inside a measure to separate lyric streams; each stream keeps its own timing. Every lyric measure must have the same number of streams, and a slot may be left empty.',
+      },
+      duration: {
+        name: 'Lyric Duration',
+        desc: 'Each word takes one beat by default; the q/s/d/h/w prefixes make it 1/2, 1/4, 1/8, 2, and 4 beats, advancing only that stream. Latin words that start with these letters are kept whole (e.g. star, do).',
+      },
+      placeholder: {
+        name: 'Duration Placeholder',
+        desc: 'Write a rest as 0 with a duration prefix (e.g. q0 takes 1/2 beat) to advance the stream without showing a word; a bare prefix such as q or s is an error.',
+      },
+      multiLine: {
+        name: 'Multi-line Writing',
+        desc: 'Line breaks inside the block count as whitespace, so it may span multiple lines — one measure per line is recommended; // comments are not allowed inside, and / | & are reserved.',
       },
     },
   },
@@ -339,7 +365,7 @@ const syntax: typeof zhSyntax = {
     },
     lyricComment: {
       name: 'Lyric / Comment',
-      desc: 'Write one /L: .../ block on its own line; | separates measures and & separates lyric streams.',
+      desc: 'The /L: .../ lyric block aligns by measure; | separates lyric measures, & separates lyric streams, and the block may span multiple lines.',
     },
     partPage: {
       name: 'Part / Page',

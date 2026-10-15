@@ -3490,12 +3490,20 @@ def _measure_text_layout(
                 y + style.base_staff_height + style.text_lane_clearance,
                 y + previous_bottom + style.text_lane_gap - ink_top,
             )
-        bbox = BBox(
-            center_x + ink_left - advance / 2,
-            baseline + ink_top,
-            ink_right - ink_left,
-            ink_bottom - ink_top,
-        )
+        if block.role == "lyric":
+            bbox = BBox(
+                center_x + ink_left,
+                baseline + ink_top,
+                advance,
+                ink_bottom - ink_top,
+            )
+        else:
+            bbox = BBox(
+                center_x + ink_left - advance / 2,
+                baseline + ink_top,
+                ink_right - ink_left,
+                ink_bottom - ink_top,
+            )
         layouts.append(
             TextLayout(
                 block.text,
@@ -3541,15 +3549,22 @@ def _draw_measure_text(
             layout.text, layout.font_size
         )
         advance = font_registry().measure(layout.text, layout.font_size)
+        if layout.role == "lyric":
+            # 左对齐：歌词从音符位置向右延伸，anchor="start" 起始于
+            # bbox.x - ink_left（= center_x）。
+            text_x = layout.bbox.x - ink_left
+            text_anchor = "start"
+        else:
+            # 注解/表情保持居中：anchor="middle" 以 advance 居中。
+            text_x = layout.bbox.x + advance / 2 - ink_left
+            text_anchor = "middle"
         node = _text(
             "lyric" if layout.role == "lyric" else "annotation",
-            # bbox 是真实墨盒：anchor="middle" 以 advance 居中，设计锚点在
-            # bbox.x + advance/2 - ink_left，而非墨盒中心（多字文本墨盒不居中）。
-            layout.bbox.x + advance / 2 - ink_left,
+            text_x,
             layout.bbox.y - ink_top,
             layout.text,
             layout.font_size,
-            anchor="middle",
+            anchor=text_anchor,
         )
         node.attrs["data-bbox"] = layout.bbox.as_data()
         scene.add(node)
