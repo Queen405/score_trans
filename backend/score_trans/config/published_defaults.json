@@ -1,42 +1,42 @@
 {
-  "version": 1,
-  "backend": {
-    "audiveris_max_heap": "3g",
-    "audiveris_max_pixel_count": "4500000",
-    "audiveris_auto_upscale": "1",
-    "audiveris_min_image_edge": "2500",
-    "target_key": "auto",
-    "accidental_mode": "auto",
-    "measure_number_mode": "all",
-    "show_measure_numbers": "1",
-    "jianpu_syntax_highlight": "1",
-    "jianpu_measure_duration_check": "1",
-    "jianpu_content_scale_percent": "80",
-    "jianpu_system_gap_percent": "50",
-    "jianpu_short_note_gap_percent": "20",
-    "jianpu_beat_gap_percent": "100",
-    "jianpu_break_beams_at_beat": "0",
-    "enable_omr_ocr": "0",
-    "output_dir": "",
-    "jianpu_auto_transpose": "1",
-    "polyphony_mode": "flatten"
-  },
-  "providers": {
-    "ocr": {
-      "provider": "siliconflow_deepseek_ocr",
-      "base_url": "https://api.siliconflow.cn/v1",
-      "model": "deepseek-ai/DeepSeek-OCR",
-      "fallback_model": "Qwen/Qwen3-VL-8B-Instruct"
+    "version": 1,
+    "backend": {
+        "audiveris_max_heap": "3g",
+        "audiveris_max_pixel_count": "4500000",
+        "audiveris_auto_upscale": "1",
+        "audiveris_min_image_edge": "2500",
+        "target_key": "auto",
+        "accidental_mode": "auto",
+        "measure_number_mode": "all",
+        "show_measure_numbers": "1",
+        "jianpu_syntax_highlight": "1",
+        "jianpu_measure_duration_check": "1",
+        "jianpu_content_scale_percent": "80",
+        "jianpu_system_gap_percent": "50",
+        "jianpu_short_note_gap_percent": "20",
+        "jianpu_beat_gap_percent": "100",
+        "jianpu_break_beams_at_beat": "0",
+        "enable_omr_ocr": "0",
+        "output_dir": "",
+        "jianpu_auto_transpose": "1",
+        "polyphony_mode": "auto",
     },
-    "ai": {
-      "provider": "agnes_2_5_flash",
-      "base_url": "https://apihub.agnes-ai.com/v1",
-      "model": "agnes-2.5-flash"
+    "providers": {
+        "ocr": {
+            "provider": "siliconflow_deepseek_ocr",
+            "base_url": "https://api.siliconflow.cn/v1",
+            "model": "deepseek-ai/DeepSeek-OCR",
+            "fallback_model": "Qwen/Qwen3-VL-8B-Instruct",
+        },
+        "ai": {
+            "provider": "agnes_2_5_flash",
+            "base_url": "https://apihub.agnes-ai.com/v1",
+            "model": "agnes-2.5-flash",
+        },
+        "assistant": {
+            "provider": "agnes_2_5_flash",
+            "base_url": "https://apihub.agnes-ai.com/v1",
+            "model": "agnes-2.5-flash",
+        },
     },
-    "assistant": {
-      "provider": "agnes_2_5_flash",
-      "base_url": "https://apihub.agnes-ai.com/v1",
-      "model": "agnes-2.5-flash"
-    }
-  }
 }

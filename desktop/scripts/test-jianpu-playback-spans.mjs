@@ -158,3 +158,72 @@ test('span count matches the backend note count on a real score', async () => {
   )
   assert.equal(findJianpuNoteSpans(text).length, 180)
 })
+
+test('lane separator resets the beat cursor so lane 2 shares onset groups', () => {
+  // The backend resets the cursor to the measure start at `&`
+  // (parse/jianpu_text.py). Before, `&` was skipped silently and `w1,`
+  // landed at beat 4 with a dangling index, drifting the highlight.
+  const spans = findJianpuNoteSpans('1=C\n4/4\n0 [1+3] [1+3] [1+3] & w1, |')
+  assert.deepEqual(spans.map((span) => [span.token, span.index]), [
+    ['[1+3]', 1],
+    ['[1+3]', 2],
+    ['[1+3]', 3],
+    ['w1,', 0],
+  ])
+})
+
+test('lane separator routes no-part text through timed grouping', () => {
+  // Mirrors backend tests/test_repeat_playback.py (`|: w1 & 6 0 0 0 :|`):
+  // both notes start at beat 0 and share score_group 0.
+  const spans = findJianpuNoteSpans('1=C\n4/4\n|: w1 & 6 0 0 0 :|')
+  assert.deepEqual(spans.map((span) => [span.token, span.index]), [
+    ['w1', 0],
+    ['6', 0],
+  ])
+})
+
+test('lane separator aligns onset groups across parts', () => {
+  // Mirrors backend tests/test_repeat_playback.py UTF-16 case, with both parts
+  // repeat-wrapped so each part's first measure lands in the same bucket.
+  const text = [
+    '// @part 1 name="Piano"',
+    '1=C',
+    '4/4',
+    '|: 1 2 3 4 :|',
+    '// @part 2 name="低音"',
+    '1=C',
+    '4/4',
+    '|: 0 [3+#1] [3+#1] [3+#1] & w6, :|',
+  ].join('\n')
+  const spans = findJianpuNoteSpans(text)
+  assert.deepEqual(spans.map((span) => [span.token, span.index]), [
+    ['1', 0],
+    ['2', 1],
+    ['3', 2],
+    ['4', 3],
+    ['[3+#1]', 1],
+    ['[3+#1]', 2],
+    ['[3+#1]', 3],
+    ['w6,', 0],
+  ])
+})
+
+test('an unspaced lane separator still splits like the backend tokenizer', () => {
+  // The backend tokenizer splits on `&` even without spaces (jianpu_text.py);
+  // before, `1&2` was one unplayable token and both notes were dropped.
+  const spans = findJianpuNoteSpans('1=C\n4/4\n1&2 |')
+  assert.deepEqual(spans.map((span) => [span.token, span.index]), [
+    ['1', 0],
+    ['2', 0],
+  ])
+})
+
+test('a lane separator inside the lyric block does not affect spans', () => {
+  // maskJianpuLyricBlocks blanks the /L: .../ block before routing, so a
+  // lyric `&` must neither trigger timed grouping nor produce spans.
+  const spans = findJianpuNoteSpans(
+    '1=C\n4/4\n1 2 3 4 |\n5 5 5 5 |\n/L: 一 & 二 | 三 & 四/',
+  )
+  assert.deepEqual(spans.map((span) => span.token), ['1', '2', '3', '4', '5', '5', '5', '5'])
+  assert.deepEqual(spans.map((span) => span.index), [0, 1, 2, 3, 4, 5, 6, 7])
+})

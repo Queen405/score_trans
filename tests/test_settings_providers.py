@@ -395,6 +395,7 @@ def test_settings_defaults_seeds_baseline_values() -> None:
     defaults = settings_defaults()
     assert defaults["target_key"] == "auto"
     assert defaults["accidental_mode"] == "auto"
+    assert defaults["polyphony_mode"] == "auto"
     assert defaults["measure_number_mode"] == "all"
     assert defaults["show_measure_numbers"] == "1"
     assert defaults["jianpu_syntax_highlight"] == "1"

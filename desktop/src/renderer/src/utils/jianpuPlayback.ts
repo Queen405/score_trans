@@ -52,7 +52,7 @@ export function transportTicksToNominalSeconds(
   return bpm > 0 && ppq > 0 ? ticks * 60 / (bpm * ppq) : 0
 }
 
-export const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||[^\s|]+/g
+export const TOKEN_PATTERN = /\$[^$]+\$|\|\||\|:|:\||\||&|[^\s|&]+/g
 const DURATION_PREFIX_PATTERN = /^(?:[whqs]|d+)/
 const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
 const PITCH_PATTERN = /^(?:(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
@@ -251,9 +251,18 @@ function hasPartMarkers(text: string): boolean {
   return text.split('\n').some((line) => PART_MARKER_PATTERN.test(line))
 }
 
+function hasLaneSeparator(text: string): boolean {
+  // 调用前 text 已经过 maskJianpuLyricBlocks，歌词块中的 & 已被抹成空格；
+  // & 是保留语法符号（docs/jianpu-syntax.md §8），排除注释与元数据行后即可安全检测。
+  return text.split('\n').some((line) => {
+    const code = stripInlineComment(line)
+    return !isMetadataLine(code) && code.includes('&')
+  })
+}
+
 export function findJianpuNoteSpans(text: string): JianpuNoteSpan[] {
   text = maskJianpuLyricBlocks(text)
-  if (hasPartMarkers(text)) {
+  if (hasPartMarkers(text) || hasLaneSeparator(text)) {
     return findTimedNoteSpans(text)
   }
   return findSequentialNoteSpans(text)
@@ -354,6 +363,12 @@ function findTimedNoteSpans(text: string): JianpuNoteSpan[] {
 
       if (token === '|' || token === '||' || token === '|:' || token === ':|') {
         state.measureIndex++
+        state.beatPosition = frac(0)
+        continue
+      }
+
+      if (token === '&') {
+        // 声线分隔：下一条声线从小节起点重新计时（对齐后端 jianpu_text.py 的 raw == "&" 分支）
         state.beatPosition = frac(0)
         continue
       }
