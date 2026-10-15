@@ -222,7 +222,7 @@ const syntax: typeof zhSyntax = {
       voice: {
         name: 'Voice Separator (Polyphony)',
         desc:
-          'When multiple parallel melodic lines (polyphony) exist in one measure, write the entire first voice first, then & and the second voice; each voice is timed independently from the measure start. Example: 0 [1+3] [1+3] [1+3] & w1, |.',
+          'In a polyphonic measure, write voice 1 first, then & and voice 2; each voice is timed independently from the measure start. Example: 0 1 2 3 & w1, |.',
       },
     },
     expression: {
@@ -274,23 +274,23 @@ const syntax: typeof zhSyntax = {
     lyrics: {
       block: {
         name: 'Lyric Block',
-        desc: 'Unique per document, written after the score body, and /L: must begin its line; | separates lyric measures, aligning with the score measure by measure — lyric measures may be fewer, never more. A word whose duration overflows its measure is not displayed, and the editor reports it.',
+        desc: 'Unique per document and written after the score body, /L: starting its own line; | aligns lyric measures with the score — fewer allowed, never more. Words past the measure end are not shown.',
       },
       streams: {
         name: 'Lyric Streams',
-        desc: 'Use & inside a measure to separate lyric streams; each stream keeps its own timing. Every lyric measure must have the same number of streams, and a slot may be left empty.',
+        desc: 'Use & inside a measure to separate lyric streams; each keeps its own timing. Every measure needs the same stream count; slots may be left empty.',
       },
       duration: {
         name: 'Lyric Duration',
-        desc: 'Each word takes one beat by default; the q/s/d/h/w prefixes make it 1/2, 1/4, 1/8, 2, and 4 beats, advancing only that stream. Latin words that start with these letters are kept whole (e.g. star, do).',
+        desc: 'Each word takes one beat by default; the q/s/d/h/w prefixes make it 1/2, 1/4, 1/8, 2, and 4 beats. Latin words starting with these letters are kept whole (e.g. star).',
       },
       placeholder: {
         name: 'Duration Placeholder',
-        desc: 'Write a rest as 0 with a duration prefix (e.g. q0 takes 1/2 beat) to advance the stream without showing a word; a bare prefix such as q or s is an error.',
+        desc: 'Write a rest as 0 with a duration prefix (e.g. q0) to advance the stream without showing a word; a bare prefix is an error.',
       },
       multiLine: {
         name: 'Multi-line Writing',
-        desc: 'Line breaks inside the block count as whitespace, so it may span multiple lines — one measure per line is recommended; // comments are not allowed inside, and / | & are reserved.',
+        desc: 'Line breaks count as whitespace; one measure per line is recommended. No // comments inside; / | & are reserved.',
       },
     },
   },

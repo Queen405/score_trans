@@ -607,9 +607,9 @@ const lyricBasicExample = String.raw`1=C
 const lyricStreamsExample = String.raw`1=C
 4/4
 1 1 5 5 | 6 6 h5 | 4 4 3 3 | 2 2 h1 |
-/L: 一 闪 一 闪 & Twinkle twinkle |
-    亮 晶 晶 & little star |
-    满 天 都 是 & Up above the |
+/L: 一 闪 一 闪 & Twinkle 0 twinkle |
+    亮 晶 晶 & little 0 star |
+    满 天 都 是 & Up a bove the |
     小 星 星 & world so high/`
 
 interface LyricExample {
