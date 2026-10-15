@@ -87,6 +87,7 @@ const syntax: typeof zhSyntax = {
   lyricExamples: {
     basic: 'Basic Alignment',
     streams: 'Multiple Verses & Line Breaks',
+    brace: 'English Lyric Duration (Brace Syntax)',
   },
 
   // Syntax section entries
@@ -282,7 +283,7 @@ const syntax: typeof zhSyntax = {
       },
       duration: {
         name: 'Lyric Duration',
-        desc: 'Each word takes one beat by default; the q/s/d/h/w prefixes make it 1/2, 1/4, 1/8, 2, and 4 beats. Latin words starting with these letters are kept whole (e.g. star).',
+        desc: 'Each word takes one beat by default; the q/s/d/h/w prefixes make it 1/2, 1/4, 1/8, 2, and 4 beats. Latin words starting with these letters are kept whole (e.g. star); to assign a duration to a Latin word, use brace syntax like h{Twinkle}, q{star}.',
       },
       placeholder: {
         name: 'Duration Placeholder',

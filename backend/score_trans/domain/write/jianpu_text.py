@@ -48,8 +48,14 @@ def _lyric_timing_tokens(duration: Fraction, text: str | None = None) -> list[st
         if candidate is None:
             raise ValueError(f"无法用歌词时值前缀精确表示时值：{duration}")
         prefix, value = candidate
-        token_text = text if not tokens and text is not None else "0"
-        tokens.append(f"{prefix}{token_text}")
+        is_first_with_text = not tokens and text is not None
+        token_text = text if is_first_with_text else "0"
+        # ASCII 歌词用花括号语法（h{Twinkle}），避免重新解析时被英文保护
+        # 规则吞掉时值前缀。中文歌词继续使用旧格式（q春）。
+        if prefix and is_first_with_text and token_text.isascii():
+            tokens.append(f"{prefix}{{{token_text}}}")
+        else:
+            tokens.append(f"{prefix}{token_text}")
         remaining -= value
     return tokens
 

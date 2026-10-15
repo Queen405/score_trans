@@ -736,6 +736,84 @@ def test_lyric_words_starting_with_duration_letters_are_preserved() -> None:
     ]
 
 
+def test_brace_syntax_parses_english_lyrics_with_duration() -> None:
+    """h{Twinkle}、q{star} 等花括号语法为英文歌词指定时值。"""
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: h{Twinkle} q{star} s{hello}/")
+
+    assert [
+        (block.text, block.start, block.duration)
+        for block in score.measures[0].text_blocks
+        if block.role == "lyric"
+    ] == [
+        ("Twinkle", Fraction(0), Fraction(2)),
+        ("star", Fraction(2), Fraction(1, 2)),
+        ("hello", Fraction(5, 2), Fraction(1, 4)),
+    ]
+
+
+def test_brace_syntax_preserves_punctuation_in_content() -> None:
+    """花括号内的标点属于歌词正文，不影响时值解析。"""
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: h{Twinkle.} q{star-}/")
+
+    assert [
+        (block.text, block.duration)
+        for block in score.measures[0].text_blocks
+        if block.role == "lyric"
+    ] == [
+        ("Twinkle.", Fraction(2)),
+        ("star-", Fraction(1, 2)),
+    ]
+
+
+def test_brace_syntax_round_trip_preserves_duration() -> None:
+    """parse → write → parse 保持英文歌词文字和时值不变。"""
+    original = "1=C\n4/4\n1 2 3 4 |\n/L: h{Twinkle} q{star}/"
+    score = parse_jianpu_score(original)
+    text = score_to_jianpu_text(score)
+    assert "h{Twinkle}" in text and "q{star}" in text
+    restored = parse_jianpu_score(text)
+    assert [
+        (block.text, block.start, block.duration)
+        for block in restored.measures[0].text_blocks
+        if block.role == "lyric"
+    ] == [
+        ("Twinkle", Fraction(0), Fraction(2)),
+        ("star", Fraction(2), Fraction(1, 2)),
+    ]
+
+
+def test_brace_syntax_backward_compat_preserves_old_words() -> None:
+    """旧写法 hTwinkle 仍作为完整歌词，不应用时值。"""
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: hTwinkle qstar/")
+
+    assert [
+        (block.text, block.duration)
+        for block in score.measures[0].text_blocks
+        if block.role == "lyric"
+    ] == [
+        ("hTwinkle", Fraction(1)),
+        ("qstar", Fraction(1)),
+    ]
+
+
+def test_malformed_brace_syntax_is_rejected() -> None:
+    """花括号格式错误时报清晰错误。"""
+    for malformed in ["h{Twinkle", "h{Twinkle}extra", "h{two words}", "h{}"]:
+        with pytest.raises(JianpuSyntaxError, match="花括号"):
+            parse_jianpu_score(f"1=C\n4/4\n1 2 3 4 |\n/L: {malformed}/")
+
+
+def test_writer_emits_brace_syntax_for_ascii_lyrics_with_duration() -> None:
+    """写出器对带时值的 ASCII 歌词使用花括号语法，中文保持旧格式。"""
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: h{Twinkle} q{star} & q春 s闪/")
+    text = score_to_jianpu_text(score)
+    last_line = text.splitlines()[-1]
+    assert "h{Twinkle}" in last_line
+    assert "q{star}" in last_line
+    # 中文歌词继续使用旧格式（不带花括号）
+    assert "q春" in last_line or "s闪" in last_line
+
+
 def test_lyric_block_without_terminator_is_rejected() -> None:
     with pytest.raises(JianpuSyntaxError, match="缺少结束符"):
         parse_jianpu_score("1=C\n4/4\n1 2 3 4 |\n/L: 春")

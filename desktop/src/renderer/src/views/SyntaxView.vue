@@ -618,9 +618,16 @@ interface LyricExample {
   content: string
 }
 
+const lyricBraceExample = String.raw`1=C
+4/4
+1 1 5 5 | 6 6 h5 |
+/L: h{Twinkle} q{twinkle} & 一 闪 |
+    q{little} q{star} & 一 闪/`
+
 const lyricExamples = computed<LyricExample[]>(() => [
   { key: 'lyrics-example-basic', title: t('syntax.lyricExamples.basic'), content: lyricBasicExample },
   { key: 'lyrics-example-streams', title: t('syntax.lyricExamples.streams'), content: lyricStreamsExample },
+  { key: 'lyrics-example-brace', title: t('syntax.lyricExamples.brace'), content: lyricBraceExample },
 ])
 
 const docSections = computed<DocSection[]>(() => [
@@ -821,7 +828,7 @@ const syntaxSections = computed<SyntaxSection[]>(() => [
         keywords: ['占位', 'placeholder'],
       },
       {
-        syntax: '/L: 一 闪 一 闪 | ↵ 亮 晶 晶/',
+        syntax: '/L: 一 闪 一 闪 | 亮 晶 晶/',
         name: t('syntax.entries.lyrics.multiLine.name'),
         description: t('syntax.entries.lyrics.multiLine.desc'),
         keywords: ['多行歌词', '换行', 'multi-line'],

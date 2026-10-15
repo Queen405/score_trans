@@ -31,6 +31,7 @@ from ...models.syntax.schemas import (
 )
 from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
 from ..jianpu_tokens import (
+    DURATION_PREFIXES,
     consume_duration_prefix,
     consume_duration_suffix,
     duration_prefix,
@@ -48,6 +49,12 @@ from ..pitch_spelling import jianpu_pitch_to_written
 
 MIN_TEMPO = 20
 MAX_TEMPO = 300
+
+# 歌词显式时值语法：h{Twinkle}、q{star} 等。
+# 花括号明确分隔时值前缀和歌词正文，避免英文歌词被保护规则吞掉时值。
+_BRACE_LYRIC_PATTERN = re.compile(r"^(w|h|q|s|d+)\{([^{}]+)\}$")
+# 仅匹配 "时值前缀 + {" 开头但不构成完整合法花括号语法的词项（用于报错）。
+_MALFORMED_BRACE_LYRIC_PATTERN = re.compile(r"^(w|h|q|s|d+)\{")
 
 
 @dataclass(slots=True)
@@ -1339,18 +1346,49 @@ def _extract_lyric_blocks(text: str) -> tuple[list[_LyricLine], str]:
                 raw_word = word_match.group()
                 word_start = lane_offset + word_match.start()
                 word_end = lane_offset + word_match.end()
-                duration, word = consume_duration_prefix(raw_word)
-                # w/h/q/s/d are both duration prefixes and the start of
-                # ordinary Latin lyric words such as "do" or "we". Preserve
-                # alphabetic words; qf/qs are already excluded by
-                # consume_duration_prefix and never reach here.
-                if (
-                    word
-                    and word.isascii()
-                    and word.isalpha()
-                    and raw_word[0] in "whqsd"
-                ):
-                    duration, word = Fraction(1), raw_word
+                # 显式时值花括号语法：h{Twinkle}、q{star} 等。
+                # 花括号明确分隔时值前缀和歌词正文，绕过英文保护规则。
+                brace_match = _BRACE_LYRIC_PATTERN.match(raw_word)
+                if brace_match:
+                    prefix, content = brace_match.group(1), brace_match.group(2)
+                    if prefix not in DURATION_PREFIXES:
+                        error_line, error_column = line_col(word_start)
+                        raise JianpuSyntaxError(
+                            _Token(
+                                raw_word,
+                                error_line,
+                                error_column,
+                                _utf16_length(text[:word_start]),
+                                _utf16_length(text[:word_end]),
+                            ),
+                            f"无效的歌词时值前缀「{prefix}」",
+                        )
+                    duration, word = DURATION_PREFIXES[prefix], content
+                elif _MALFORMED_BRACE_LYRIC_PATTERN.match(raw_word):
+                    error_line, error_column = line_col(word_start)
+                    raise JianpuSyntaxError(
+                        _Token(
+                            raw_word,
+                            error_line,
+                            error_column,
+                            _utf16_length(text[:word_start]),
+                            _utf16_length(text[:word_end]),
+                        ),
+                        "歌词花括号格式错误，正确写法如 h{Twinkle}、q{star}",
+                    )
+                else:
+                    duration, word = consume_duration_prefix(raw_word)
+                    # w/h/q/s/d are both duration prefixes and the start of
+                    # ordinary Latin lyric words such as "do" or "we".
+                    # Preserve alphabetic words; qf/qs are already excluded
+                    # by consume_duration_prefix and never reach here.
+                    if (
+                        word
+                        and word.isascii()
+                        and word.isalpha()
+                        and raw_word[0] in "whqsd"
+                    ):
+                        duration, word = Fraction(1), raw_word
                 if word == "0":
                     cursor += duration
                     continue

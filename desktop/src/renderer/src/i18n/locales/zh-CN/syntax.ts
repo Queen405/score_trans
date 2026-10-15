@@ -82,6 +82,7 @@ const syntax = {
   lyricExamples: {
     basic: '基础对齐',
     streams: '多段歌词与多行书写',
+    brace: '英文歌词时值（花括号语法）',
   },
 
   // 语法段落条目
@@ -229,7 +230,7 @@ const syntax = {
       },
       duration: {
         name: '歌词时值',
-        desc: '词项默认占一拍；q/s/d/h/w 前缀分别为 1/2、1/4、1/8、2、4 拍。英文词以这些字母开头时整词保留（如 star）。',
+        desc: '词项默认占一拍；q/s/d/h/w 前缀分别为 1/2、1/4、1/8、2、4 拍。英文词以这些字母开头时整词保留（如 star）；如需为英文词指定时值，用花括号语法 h{Twinkle}、q{star}。',
       },
       placeholder: {
         name: '时值占位',
