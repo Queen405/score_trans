@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
-  "url": "https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.0.4.exe",
-  "notes": "简谱按拍断裂音符 + 应用界面中英文本地化"
+  "version": "1.0.5",
+  "url": "https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.0.5.exe",
+  "notes": "英文歌词花括号时值语法 + 歌词左对齐渲染修复"
 }
