@@ -751,6 +751,12 @@ const syntaxSections = computed<SyntaxSection[]>(() => [
       { syntax: '*2', name: t('syntax.entries.measures.repeatBar.name'), description: t('syntax.entries.measures.repeatBar.desc') },
       { syntax: '*10', name: t('syntax.entries.measures.multiRepeat.name'), description: t('syntax.entries.measures.multiRepeat.desc') },
       {
+        syntax: '{1.}  {2.}',
+        name: t('syntax.entries.measures.ending.name'),
+        description: t('syntax.entries.measures.ending.desc'),
+        keywords: ['跳房子', '房子', '跳跃', '反复跳跃', 'ending', 'volta'],
+      },
+      {
         syntax: '&',
         name: t('syntax.entries.measures.voice.name'),
         description: t('syntax.entries.measures.voice.desc'),
@@ -850,6 +856,7 @@ const quickReferenceEntries = computed<SyntaxEntry[]>(() => [
   { syntax: '$3:2;...$', name: t('syntax.quickRef.explicitRatio.name'), description: t('syntax.quickRef.explicitRatio.desc') },
   { syntax: '[a+b]', name: t('syntax.quickRef.chord.name'), description: t('syntax.quickRef.chord.desc') },
   { syntax: '| / || / |: :|', name: t('syntax.quickRef.barStructure.name'), description: t('syntax.quickRef.barStructure.desc') },
+  { syntax: '{1.} / {2.}', name: t('syntax.quickRef.ending.name'), description: t('syntax.quickRef.ending.desc') },
   { syntax: '&', name: t('syntax.quickRef.voice.name'), description: t('syntax.quickRef.voice.desc') },
   { syntax: '\\p / \\f / \\sfz etc.', name: t('syntax.quickRef.dynamics.name'), description: t('syntax.quickRef.dynamics.desc') },
   { syntax: '^. / ^> / ^r etc.', name: t('syntax.quickRef.articulation.name'), description: t('syntax.quickRef.articulation.desc') },

@@ -13,7 +13,7 @@ _CSS = """
 .score-meta,.measure-attribute,.part-name,.measure-no,.repeat-count,.annotation,.lyric{fill:#181818}
 .note,.accidental,.score-title,.score-meta,.part-name,.measure-no,.repeat-count,.annotation,.lyric,.tuplet-number,.dynamic,.technique{font-family:ScoreTransNotoSerif,serif}
 .music-symbol{font-family:ScoreTransBravura,serif}.note{font-weight:600}
-.measure,.system-bracket,.duration-line,.beam-line,.extension-line,.ending-line,.repeat-dot,.staff-line{stroke:#171717;fill:none;stroke-linecap:round}
+.measure,.system-bracket,.duration-line,.beam-line,.extension-line,.ending-line,.ending-hook,.repeat-dot,.staff-line{stroke:#171717;fill:none;stroke-linecap:round}
 .tie,.slur,.slide{stroke:#171717;stroke-width:1.8;fill:none;stroke-linecap:round}.tie{fill:#171717;stroke:none}
 .performance-mark-stroke{stroke:#171717;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .performance-mark-fill{fill:#171717;stroke:none}

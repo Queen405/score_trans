@@ -1188,6 +1188,20 @@ test('行内容错 tempo 不吞掉所在行的小节', () => {
   assert.deepEqual(goldenLabels('1 2 3 4 |\ntempo=80 5 6 7 1 |'), ['1', '2'])
 })
 
+test('跳房子是结构标注不占小节号，:| 之后 {N.} | 的空小节被吞掉', () => {
+  // 与 tests/test_jianpu_measure_numbering.py 的房子样例一一对应。
+  assert.deepEqual(
+    goldenLabels('|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1\' 2\' 1\' |'),
+    ['1-3'],
+  )
+  assert.deepEqual(
+    goldenLabels('|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} | 7 1\' 2\' 1\' |'),
+    ['1-3'],
+  )
+  // 非 :| 之后的 `{1.} |` 仍按空小节保留为整小节休止，占 1 个号。
+  assert.deepEqual(goldenLabels('{1.} | 1 2 3 4 |'), ['1-2'])
+})
+
 test('分页分谱：各声部从本页起始号并行编号，页跨度取最大值', () => {
   const text = [
     '// @page 1',

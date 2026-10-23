@@ -344,6 +344,108 @@ def test_jianpu_repeat_flags_write_musicxml_repeats() -> None:
     assert repeats == [{"direction": "forward"}, {"direction": "backward"}]
 
 
+def test_jianpu_ending_houses_write_musicxml_endings() -> None:
+    root = ET.fromstring(
+        jianpu_to_musicxml("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' h2' ||")
+    )
+    endings = [
+        (measure.get("number"), ending.attrib)
+        for measure in root.findall(".//measure")
+        for ending in measure.findall(".//ending")
+    ]
+
+    assert endings == [
+        ("2", {"number": "1", "type": "start"}),
+        ("2", {"number": "1", "type": "stop"}),
+        ("3", {"number": "2", "type": "start"}),
+        ("3", {"number": "2", "type": "stop"}),
+    ]
+
+
+def test_musicxml_endings_survive_text_export_and_reparse() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes>
+            <divisions>1</divisions><key><fifths>0</fifths></key>
+            <time><beats>4</beats><beat-type>4</beat-type></time>
+          </attributes>
+          <barline location="left"><repeat direction="forward"/></barline>
+          <note><rest/><duration>4</duration><type>whole</type></note>
+        </measure>
+        <measure number="2">
+          <barline location="left"><ending number="1" type="start"/></barline>
+          <note><rest/><duration>4</duration><type>whole</type></note>
+        </measure>
+        <measure number="3">
+          <note><rest/><duration>4</duration><type>whole</type></note>
+          <barline location="right">
+            <ending number="1" type="stop"/><repeat direction="backward"/>
+          </barline>
+        </measure>
+        <measure number="4">
+          <barline location="left"><ending number="2" type="start"/></barline>
+          <note><rest/><duration>4</duration><type>whole</type></note>
+          <barline location="right"><ending number="2" type="stop"/></barline>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    text = score_to_jianpu_text(musicxml_to_score(xml))
+
+    assert "{1.}" in text and "{2.}" in text
+    reparsed = parse_jianpu_score(text)
+    assert [(m.ending_start, m.ending_stop) for m in reparsed.measures] == [
+        (None, None),
+        ("1", None),
+        (None, "1"),
+        ("2", "2"),
+    ]
+
+
+def test_musicxml_ending_stop_at_plain_barline_uses_explicit_close_marker() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes>
+            <divisions>1</divisions><key><fifths>0</fifths></key>
+            <time><beats>4</beats><beat-type>4</beat-type></time>
+          </attributes>
+          <barline location="left"><ending number="1, 2" type="start"/></barline>
+          <note><rest/><duration>4</duration><type>whole</type></note>
+        </measure>
+        <measure number="2">
+          <note><rest/><duration>4</duration><type>whole</type></note>
+          <barline location="right"><ending number="1, 2" type="stop"/></barline>
+        </measure>
+        <measure number="3">
+          <note><rest/><duration>4</duration><type>whole</type></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    # 编号规范化：MusicXML 的 "1, 2" → 模型规范形 "1,2"
+    assert score.measures[0].ending_start == "1,2"
+    assert score.measures[1].ending_stop == "1,2"
+
+    text = score_to_jianpu_text(score)
+
+    # stop 落在普通小节线上，必须显式输出 {.} 才能无损往返
+    assert "{1,2.}" in text
+    assert "{.}" in text
+    reparsed = parse_jianpu_score(text)
+    assert reparsed.measures[0].ending_start == "1,2"
+    assert reparsed.measures[1].ending_stop == "1,2"
+    assert reparsed.measures[2].ending_start is None
+
+
 def test_musicxml_same_number_nested_tuplets_keep_both_spans() -> None:
     def note(notations: str) -> str:
         return (

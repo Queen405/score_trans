@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 from ....config.settings import MIDI_TICKS_PER_BEAT
+from ....domain.endings import EndingSpan, ending_display_label, ending_spans
 from ....domain.playback_timeline import (
     measure_boundaries,
     score_parts,
@@ -200,6 +201,17 @@ class PublicationRenderer:
             for cell_index, groups in _playback_group_map(cells).items()
         }
         boundaries = measure_boundaries([cell.measures for cell in cells])
+        # 跳房子跨度按声部在全局 cell 序列上预算，绘制时按系统切片（跨系统自动续接）。
+        part_count = max(1, len(parts))
+        ending_spans_by_part = [
+            ending_spans(
+                [
+                    cell.measures[part_index] if part_index < len(cell.measures) else None
+                    for cell in cells
+                ]
+            )
+            for part_index in range(part_count)
+        ]
         systems = _break_systems(cells, style, len(parts))
         if fit_content_height:
             footer_height = style.page_height - _pagination_bottom(style)
@@ -283,6 +295,7 @@ class PublicationRenderer:
                     measure_number_mode=measure_number_mode,
                     first_system_on_page=system_index == 0,
                     spanners=document_spanners,
+                    ending_spans=ending_spans_by_part,
                     playback_groups=playback_groups,
                     playback_boundaries=boundaries,
                     playback_tick_offset=playback_tick_offset,
@@ -362,6 +375,7 @@ class PublicationRenderer:
         measure_number_mode: MeasureNumberMode,
         first_system_on_page: bool,
         spanners: list[_OpenSpanners],
+        ending_spans: list[list[EndingSpan]] | None = None,
         playback_groups: dict[int, dict[Fraction, int]] | None = None,
         playback_boundaries: list[Fraction] | None = None,
         playback_tick_offset: int = 0,
@@ -467,7 +481,76 @@ class PublicationRenderer:
         for part_index, open_state in enumerate(spanners):
             staff_y = y + system.parts[part_index].offset
             _finish_spanners(scene, open_state, x, staff_y, style)
+        self._draw_ending_brackets(scene, style, system, y, ending_spans or [])
         return note_index
+
+    def _draw_ending_brackets(
+        self,
+        scene: PublicationScene,
+        style: PublicationStyle,
+        system: _System,
+        y: float,
+        spans_by_part: list[list[EndingSpan]],
+    ) -> None:
+        """系统级跳房子括号：跨度在全局预算，这里按系统切片绘制。
+
+        每个声部行各自绘制自己的房子；跨系统的跨度在边界处开口截断，
+        下一系统续接并重标编号；discontinue 末端不画右竖钩。
+        """
+        if not spans_by_part or not system.cells:
+            return
+        first_index = system.cells[0].index
+        last_index = system.cells[-1].index
+        lefts: list[float] = []
+        left = style.margin_left
+        for width in system.widths:
+            lefts.append(left)
+            left += width
+        for part_index, spans in enumerate(spans_by_part):
+            if part_index >= len(system.parts):
+                break
+            bracket_y = y + system.parts[part_index].offset - 22
+            for span in spans:
+                if span.stop < first_index or span.start > last_index:
+                    continue
+                start_cell = max(span.start, first_index) - first_index
+                end_cell = min(span.stop, last_index) - first_index
+                line_left = lefts[start_cell] + 2
+                line_right = lefts[end_cell] + system.widths[end_cell] - 2
+                scene.add(
+                    _line("ending-line", line_left, bracket_y, line_right, bracket_y, 1.4)
+                )
+                if span.start >= first_index:
+                    scene.add(
+                        _line(
+                            "ending-hook",
+                            line_left,
+                            bracket_y,
+                            line_left,
+                            bracket_y + 7,
+                            1.4,
+                        )
+                    )
+                if span.stop <= last_index and not span.discontinue:
+                    scene.add(
+                        _line(
+                            "ending-hook",
+                            line_right,
+                            bracket_y,
+                            line_right,
+                            bracket_y + 7,
+                            1.4,
+                        )
+                    )
+                scene.add(
+                    _text(
+                        "annotation",
+                        lefts[start_cell] + 7,
+                        bracket_y - 3,
+                        ending_display_label(span.number),
+                        style.annotation_size,
+                    )
+                )
 
     def _draw_measure(
         self,
@@ -569,17 +652,8 @@ class PublicationRenderer:
             scene.add(
                 _text("measure-attribute", x + 8, y + 9, attr, style.annotation_size)
             )
-        if measure.ending_start:
-            scene.add(_line("ending-line", x + 2, y - 22, x + width - 2, y - 22, 1.4))
-            scene.add(
-                _text(
-                    "annotation",
-                    x + 7,
-                    y - 25,
-                    str(measure.ending_start),
-                    style.annotation_size,
-                )
-            )
+        # 跳房子括号由 _draw_ending_brackets 在系统级统一绘制（跨小节连线、
+        # 跨系统续接），这里不再按小节单独画。
         anchors: list[_Anchor] = []
         # Attributes sit in the upper-left annotation band and must not consume
         # horizontal event slots; otherwise a key/meter change shifts the bar.

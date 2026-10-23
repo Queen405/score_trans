@@ -206,6 +206,113 @@ def test_repeat_count_after_barline_roundtrips() -> None:
     assert reparsed.measures[0].repeat_count == 2
 
 
+def test_ending_houses_parse_and_roundtrip() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' h2' ||")
+
+    assert len(score.measures) == 3
+    assert score.measures[0].repeat_start is True
+    assert score.measures[1].ending_start == "1"
+    assert score.measures[1].ending_stop == "1"
+    assert score.measures[1].repeat_end is True
+    assert score.measures[2].ending_start == "2"
+    # || 自动闭合最后的房子
+    assert score.measures[2].ending_stop == "2"
+
+    reparsed = parse_jianpu_score(score_to_jianpu_text(score))
+
+    assert [(m.ending_start, m.ending_stop) for m in reparsed.measures] == [
+        (None, None),
+        ("1", "1"),
+        ("2", "2"),
+    ]
+
+
+def test_ending_house_spans_multiple_measures() -> None:
+    score = parse_jianpu_score("{1.} 1 2 3 4 | 2 3 4 5 :|")
+
+    assert score.measures[0].ending_start == "1"
+    assert score.measures[0].ending_stop is None
+    assert score.measures[1].ending_start is None
+    assert score.measures[1].ending_stop == "1"
+
+
+def test_ending_close_marker_stops_house_at_plain_barline() -> None:
+    score = parse_jianpu_score("{1.} 1 2 3 4 | 2 3 4 5 | {.} 5 4 3 2 |")
+
+    assert score.measures[0].ending_start == "1"
+    assert score.measures[1].ending_stop == "1"
+    assert score.measures[2].ending_start is None
+
+    text = score_to_jianpu_text(score)
+    assert "{.}" in text
+    reparsed = parse_jianpu_score(text)
+    assert reparsed.measures[1].ending_stop == "1"
+    assert reparsed.measures[2].ending_start is None
+
+
+def test_ending_close_marker_omitted_when_auto_close_applies() -> None:
+    # stop 落在 :|、下一个 {N.} 或曲终时不输出 {.}
+    score = parse_jianpu_score("|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |")
+
+    text = score_to_jianpu_text(score)
+
+    assert "{.}" not in text
+
+
+def test_ending_numbers_normalize_fullwidth_comma_and_spaces() -> None:
+    score = parse_jianpu_score("{1， 2.} 1 2 3 4 |")
+
+    assert score.measures[0].ending_start == "1,2"
+    assert "{1,2.}" in score_to_jianpu_text(score)
+
+
+def test_ending_auto_closes_at_score_end_without_barline() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n{1.} 1 2 3 4 | 2 3 4 5")
+
+    assert score.measures[-1].ending_stop == "1"
+
+
+def test_ending_marker_after_notes_is_an_error() -> None:
+    with pytest.raises(JianpuSyntaxError, match="必须写在小节第一个音符之前"):
+        parse_jianpu_score("1=C\n4/4\n1 2 {1.} 3 4 |")
+
+
+def test_ending_duplicate_number_in_same_group_is_an_error() -> None:
+    with pytest.raises(JianpuSyntaxError, match="同一反复组内重复"):
+        parse_jianpu_score("{1.} 1 2 3 4 | {1.} 2 3 4 5 |")
+
+
+def test_ending_number_restarts_after_double_barline() -> None:
+    score = parse_jianpu_score("{1.} 1 2 3 4 || {1.} 2 3 4 5 ||")
+
+    assert [m.ending_start for m in score.measures] == ["1", "1"]
+
+
+def test_ending_close_without_open_house_is_an_error() -> None:
+    with pytest.raises(JianpuSyntaxError, match="没有开着的房子"):
+        parse_jianpu_score("{.} 1 2 3 4 |")
+
+
+def test_ending_malformed_brace_is_an_error() -> None:
+    with pytest.raises(JianpuSyntaxError, match="房子标记格式无效"):
+        parse_jianpu_score("{x.} 1 2 3 4 |")
+    with pytest.raises(JianpuSyntaxError, match="房子标记格式无效"):
+        parse_jianpu_score("{0.} 1 2 3 4 |")
+
+
+def test_ending_empty_house_at_eof_is_an_error() -> None:
+    with pytest.raises(JianpuSyntaxError, match="没有任何小节内容"):
+        parse_jianpu_score("1=C\n4/4\n1 2 3 4 | {1.}")
+
+
+def test_ending_house_survives_swallowed_empty_bar_after_repeat_end() -> None:
+    # :| 之后的空小节被吞并；{2.} 挂到下一个真正产出的小节（复刻 |: 语义）。
+    score = parse_jianpu_score("|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} | 7 1' 2' 1' |")
+
+    assert len(score.measures) == 3
+    assert score.measures[2].ending_start == "2"
+
+
 def test_writer_does_not_put_rest_lyrics_in_note_lyric_stream() -> None:
     score = JianpuScore(
         measures=[

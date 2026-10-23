@@ -30,6 +30,7 @@ from ...models.syntax.schemas import (
     SyntaxSeverity,
 )
 from ..constants import DYNAMICS, MICROTONAL_TOKEN_TO_ALTER
+from ..endings import ending_spans, normalize_ending_number
 from ..jianpu_tokens import (
     DURATION_PREFIXES,
     consume_duration_prefix,
@@ -55,6 +56,12 @@ MAX_TEMPO = 300
 _BRACE_LYRIC_PATTERN = re.compile(r"^(w|h|q|s|d+)\{([^{}]+)\}$")
 # 仅匹配 "时值前缀 + {" 开头但不构成完整合法花括号语法的词项（用于报错）。
 _MALFORMED_BRACE_LYRIC_PATTERN = re.compile(r"^(w|h|q|s|d+)\{")
+
+# 跳房子（反复跳跃房子 / volta endings）：{1.} 开房子（也接受 {1}、{1,2.}、
+# 全角逗号），{.} 显式闭房子（仅用于 stop 落在普通 | 的 MusicXML 往返场景）。
+# 自动闭合点：:|、下一个 {N.}、|| 与曲终，手写文本通常不需要 {.}。
+_ENDING_OPEN_PATTERN = re.compile(r"^\{([1-9]\d*(?:\s*[,，]\s*[1-9]\d*)*)\.?\}$")
+_ENDING_CLOSE_TOKEN = "{.}"
 
 
 @dataclass(slots=True)
@@ -333,6 +340,8 @@ def validate_jianpu_text(
         return diagnostics
 
     _assign_measure_number_bases(duration_parts)
+
+    diagnostics.extend(_ending_nested_repeat_warnings(normalized, duration_parts))
 
     if has_markers:
         try:
@@ -657,6 +666,52 @@ def _measure_duration_diagnostics(
     return diagnostics
 
 
+def _ending_nested_repeat_warnings(
+    text: str, parts: list[ParsedJianpuPart]
+) -> list[SyntaxDiagnostic]:
+    """跳房子内嵌套反复的 warning（房子起始小节的 |: 不算嵌套）。
+
+    播放展开对嵌套反复内的房子只能线性处理，提前提示而不是静默跳错。
+    """
+    warnings: list[SyntaxDiagnostic] = []
+    for part in parts:
+        measures = part.score.measures
+        for span in ending_spans(measures):
+            for measure_index in range(span.start + 1, span.stop + 1):
+                measure = measures[measure_index]
+                if not measure.repeat_start:
+                    continue
+                start = measure.source_start_utf16
+                end = measure.source_end_utf16
+                if start is None or end is None:
+                    continue
+                line, column = _line_column_from_utf16_offset(text, start)
+                number = (
+                    part.measure_number_base
+                    + (measure.display_number or measure_index + 1)
+                    - 1
+                )
+                warnings.append(
+                    SyntaxDiagnostic(
+                        id=(
+                            "syntax-warning-nested-ending-repeat-"
+                            f"{part.part_index}-{measure_index}-{start}-{end}"
+                        ),
+                        message=(
+                            "反复开始 |: 出现在跳房子内：当前版本播放时按线性展开，"
+                            "不做跳跃。"
+                        ),
+                        line=line,
+                        column=column,
+                        start=start,
+                        end=end,
+                        severity="warning",
+                        measure=str(number),
+                    )
+                )
+    return warnings
+
+
 def _line_start_utf16_offset(text: str, offset: int) -> int:
     codepoint_index = _utf16_offset_to_codepoint_index(text, offset)
     line_start = text.rfind("\n", 0, codepoint_index) + 1
@@ -835,11 +890,18 @@ def _validate_jianpu_token(token: _Token) -> None:
     if (
         raw in {"|", "||", "|:", ":|", "&"}
         or re.fullmatch(r"\*\d+", raw)
+        or _ENDING_OPEN_PATTERN.fullmatch(raw) is not None
+        or raw == _ENDING_CLOSE_TOKEN
         or _key_signature_value(raw) is not None
         or _time_signature_value(raw) is not None
         or (measure_mark is not None and measure_mark[1] is not None)
     ):
         return
+    if raw.startswith("{"):
+        raise _syntax_error(
+            token,
+            f"房子标记格式无效：{raw}，正确写法如 {{1.}}、{{2.}}；显式闭合用 {{.}}。",
+        )
     if re.fullmatch(r"\d+/\d+", raw):
         raise _syntax_error(token, f"拍号无效：{raw}，分子分母必须为正整数")
     if _is_tempo_token(raw):
@@ -1461,6 +1523,17 @@ def _parse_score_tokens(
     repeat_applied_backward = False
     measure_number = 1
     next_repeat_start = False
+    # 跳房子：pending_ending_start 复刻 next_repeat_start 的生命周期
+    # （空小节吞并/backward *N 早退路径不清空，真正产出小节后才复位）；
+    # open_ending 是当前开着（未闭合）的房子编号；used_ending_numbers 在
+    # |:、|| 与 {.} 处清空，用于同一反复组内的编号重复诊断。
+    pending_ending_start: str | None = None
+    pending_ending_token: _Token | None = None
+    open_ending: str | None = None
+    used_ending_numbers: set[str] = set()
+    # 嵌套反复 warning 挂到 |: 引入的小节上；flush_measure 在小节落位时写入
+    # （warnings 字典在小节追加时被覆盖，提前写入会被清空）。
+    pending_nested_repeat_token: _Token | None = None
     current_key = options.key
     current_beats = options.beats
     current_beat_type = options.beat_type
@@ -1496,6 +1569,10 @@ def _parse_score_tokens(
             cursor, \
             measure_number, \
             next_repeat_start, \
+            pending_ending_start, \
+            pending_ending_token, \
+            pending_nested_repeat_token, \
+            open_ending, \
             measure_articulations, \
             measure_ornaments, \
             pending_repeat_count, \
@@ -1613,6 +1690,7 @@ def _parse_score_tokens(
             target_key=current_key,
             repeat_start=next_repeat_start,
             repeat_count=pending_repeat_count,
+            ending_start=pending_ending_start,
             source_start_utf16=measure_source_start_utf16,
             source_end_utf16=source_end_utf16,
         )
@@ -1622,6 +1700,28 @@ def _parse_score_tokens(
             recovery.warnings[len(score.measures)] = list(
                 recovery.context_warnings.values()
             )
+            if pending_nested_repeat_token is not None:
+                warning_token = pending_nested_repeat_token
+                recovery.warnings[len(score.measures)].append(
+                    SyntaxDiagnostic(
+                        id=(
+                            f"syntax-warning-{warning_token.line}"
+                            f"-{warning_token.column}"
+                            f"-{warning_token.start_utf16}"
+                            f"-{warning_token.end_utf16}"
+                        ),
+                        message=(
+                            "反复开始 |: 出现在跳房子内：当前版本播放时按线性展开，"
+                            "不做跳跃。"
+                        ),
+                        line=warning_token.line,
+                        column=warning_token.column,
+                        start=warning_token.start_utf16 or 0,
+                        end=warning_token.end_utf16 or warning_token.start_utf16 or 0,
+                        severity="warning",
+                        measure=warning_token.measure,
+                    )
+                )
         score.measures.append(measure)
         slide_undo.clear()
         current_events = []
@@ -1629,6 +1729,11 @@ def _parse_score_tokens(
         cursor = Fraction(0, 1)
         measure_number += 1
         next_repeat_start = False
+        if pending_ending_start is not None:
+            open_ending = pending_ending_start
+        pending_ending_start = None
+        pending_ending_token = None
+        pending_nested_repeat_token = None
         measure_articulations = []
         measure_ornaments = []
         pending_repeat_count = 1
@@ -1810,15 +1915,28 @@ def _parse_score_tokens(
             recover_measure(token)
             if raw == "|:":
                 next_repeat_start = True
+                used_ending_numbers.clear()
                 remember_measure_token(token)
             elif raw == ":|":
                 score.measures[-1].repeat_end = True
+                if open_ending is not None:
+                    # 镜像正常路径：:| 闭合跨遮蔽区开着的房子。
+                    score.measures[-1].ending_stop = open_ending
+                    open_ending = None
                 skip_empty_bar_after_repeat_end = True
             continue
         try:
             if recovery is not None and token.start_utf16 in recovery.lexical_errors:
                 raise recovery.lexical_errors[token.start_utf16]
-            if skip_empty_bar_after_repeat_end and raw not in {"|", "||"}:
+            if (
+                skip_empty_bar_after_repeat_end
+                and raw not in {"|", "||"}
+                and _ENDING_OPEN_PATTERN.fullmatch(raw) is None
+                and raw != _ENDING_CLOSE_TOKEN
+            ):
+                # 房子记号不解除“:| 之后空小节吞并”状态：{2.} | 的空小节
+                # 被吞掉，房子挂到下一个真正产出的小节（复刻 |: 语义，
+                # 并与小节号估算路径的非内容 token 豁免对齐）。
                 skip_empty_bar_after_repeat_end = False
             if recovery is not None and raw.startswith("instrument="):
                 options.instrument_profile = normalize_instrument_profile(
@@ -1893,16 +2011,33 @@ def _parse_score_tokens(
                     boundary_token=token,
                 )
                 skip_empty_bar_after_repeat_end = False
+                if raw == "||":
+                    # 双小节线是房子的自动闭合点之一，同时结束当前反复组编号作用域。
+                    if open_ending is not None and score.measures:
+                        score.measures[-1].ending_stop = open_ending
+                        open_ending = None
+                    used_ending_numbers.clear()
                 continue
             if raw == "|:":
                 flush_measure(boundary_token=token)
                 next_repeat_start = True
+                used_ending_numbers.clear()
+                if recovery is not None and open_ending is not None:
+                    # 嵌套反复（房子内出现新的 |:）：播放只能线性展开。
+                    # warning 延迟到 |: 引入的小节落位时写入，避免被
+                    # flush_measure 的 warnings 覆盖清掉。
+                    pending_nested_repeat_token = token
                 remember_measure_token(token)
                 continue
             if raw == ":|":
                 flush_measure(boundary_token=token)
                 if score.measures:
                     score.measures[-1].repeat_end = True
+                    if open_ending is not None:
+                        # :| 是 1 房子的典型闭合点；注意 repeat_end 的既有语义
+                        # 允许附着在更早的小节上（空小节被吞并），房子闭合同理。
+                        score.measures[-1].ending_stop = open_ending
+                        open_ending = None
                 skip_empty_bar_after_repeat_end = True
                 continue
             if re.fullmatch(r"\*\d+", raw):
@@ -1925,6 +2060,61 @@ def _parse_score_tokens(
                     remember_measure_token(token)
                     pending_repeat_count = repeat_count
                 continue
+
+            ending_open = _ENDING_OPEN_PATTERN.fullmatch(raw)
+            if ending_open is not None:
+                if current_events or current_blocks:
+                    raise _syntax_error(
+                        token,
+                        f"房子标记 {raw} 必须写在小节第一个音符之前，"
+                        "请把它移到小节开头或紧跟在小节线 | 之后。",
+                    )
+                if pending_ending_start is not None:
+                    raise _syntax_error(
+                        token,
+                        f"房子标记 {raw} 之前没有任何小节内容："
+                        "相邻的两栋房子之间至少要有一个小节。",
+                    )
+                number = normalize_ending_number(ending_open.group(1))
+                if number in used_ending_numbers:
+                    raise _syntax_error(
+                        token,
+                        f"房子编号 {number.replace(',', ', ')} 在同一反复组内重复；"
+                        "请改用递增编号，或在 || 之后开始新的段落。",
+                    )
+                if open_ending is not None and score.measures:
+                    # 自动闭合：下一栋房子出现时，前房子在前一小节结束。
+                    score.measures[-1].ending_stop = open_ending
+                    open_ending = None
+                remember_measure_token(token)
+                pending_ending_start = number
+                pending_ending_token = token
+                used_ending_numbers.add(number)
+                continue
+            if raw == _ENDING_CLOSE_TOKEN:
+                if (
+                    current_events
+                    or current_blocks
+                    or pending_ending_start is not None
+                ):
+                    raise _syntax_error(
+                        token,
+                        "闭房子标记 {.} 必须紧跟在小节线之后（闭合刚结束的小节），"
+                        "不能写在小节内容中间。",
+                    )
+                if open_ending is None or not score.measures:
+                    raise _syntax_error(token, "闭房子标记 {.} 之前没有开着的房子。")
+                score.measures[-1].ending_stop = open_ending
+                open_ending = None
+                used_ending_numbers.clear()
+                remember_measure_token(token)
+                continue
+            if raw.startswith("{"):
+                raise _syntax_error(
+                    token,
+                    f"房子标记格式无效：{raw}，正确写法如 {{1.}}、{{2.}}；"
+                    "显式闭合用 {.}。",
+                )
 
             measure_mark = _measure_level_mark(raw)
             if measure_mark is not None:
@@ -2040,9 +2230,13 @@ def _parse_score_tokens(
                 recover_measure(token)
                 if raw == "|:":
                     next_repeat_start = True
+                    used_ending_numbers.clear()
                     remember_measure_token(token)
                 elif raw == ":|":
                     score.measures[-1].repeat_end = True
+                    if open_ending is not None:
+                        score.measures[-1].ending_stop = open_ending
+                        open_ending = None
                     skip_empty_bar_after_repeat_end = True
 
     if discarding:
@@ -2065,6 +2259,25 @@ def _parse_score_tokens(
                 raise
             recovery.failed(len(score.measures), exc)
             recover_measure(token_lines[-1] if token_lines else None)
+
+    if pending_ending_start is not None:
+        # {N.} 之后没有任何小节内容（房子是空的）。
+        error = _contextual_syntax_error(
+            pending_ending_token,
+            "房子标记 "
+            f"{pending_ending_token.value if pending_ending_token else ''} "
+            "后没有任何小节内容。",
+        )
+        if recovery is None:
+            raise error
+        index = len(score.measures)
+        if not current_events and score.measures:
+            index -= 1
+        recovery.failed(index, error)
+    if open_ending is not None and score.measures:
+        # 曲终自动闭合：最后的房子在最后一个小节结束。
+        score.measures[-1].ending_stop = open_ending
+        open_ending = None
 
     if recovery is not None and recovery.errors and lyrics:
         first_error = min(recovery.errors)
@@ -2252,9 +2465,9 @@ def _read_new_syntax(
             continue
         for match in re.finditer(
             (
-                r"\(?\$[^$|]+\$\)?|\|\||\|:|:\||\||&|[^\s|&]+"
+                r"\{[^}]*\}|\(?\$[^$|]+\$\)?|\|\||\|:|:\||\||&|[^\s|&]+"
                 if recovery is not None
-                else r"\(?\$[^$]+\$\)?|\|\||\|:|:\||\||&|[^\s|&]+"
+                else r"\{[^}]*\}|\(?\$[^$]+\$\)?|\|\||\|:|:\||\||&|[^\s|&]+"
             ),
             raw_line,
         ):
@@ -2304,6 +2517,12 @@ def _read_new_syntax(
                     repeat_applied_backward = True
                 else:
                     pending_repeat = repeat_n
+            elif (
+                _ENDING_OPEN_PATTERN.fullmatch(raw_token)
+                or raw_token == _ENDING_CLOSE_TOKEN
+            ):
+                # 房子标记不占小节内容（对齐主解析：:| 之后 {1.} | 的空小节同样被吞并）。
+                pass
             else:
                 saw_token_since_bar = True
     return options, tokens, lyrics

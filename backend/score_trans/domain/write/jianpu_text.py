@@ -519,7 +519,27 @@ def _score_to_jianpu_text(
             barline = " |:"
         else:
             barline = " |"
-        measure_lines.append(prefix + body + repeat_suffix + barline)
+        # 跳房子：开房子记号 {N.} 写在小节内容之前（恰好落在小节线之后）。
+        ending_start = getattr(measure, "ending_start", None)
+        if ending_start:
+            body = " ".join(part for part in (f"{{{ending_start}.}}", body) if part)
+        # 闭房子：stop/discontinue 落在普通小节线上时自动闭合规则覆盖不到，
+        # 必须显式输出 {.}；:|、下一个 {N.}、曲终都能自动闭合，无需输出。
+        # discontinue 在文本中无对应记号，按 stop 导出（外观的单向降级）。
+        ending_close = getattr(measure, "ending_stop", None) or getattr(
+            measure, "ending_discontinue", None
+        )
+        needs_explicit_close = (
+            ending_close is not None
+            and not has_end
+            and not next_has_start
+            and measure_index + 1 < len(score.measures)
+            and not getattr(score.measures[measure_index + 1], "ending_start", None)
+        )
+        explicit_close_suffix = " {.}" if needs_explicit_close else ""
+        measure_lines.append(
+            prefix + body + repeat_suffix + barline + explicit_close_suffix
+        )
     lines.extend(measure_lines)
     for measure in score.measures:
         for event in measure.events:

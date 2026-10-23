@@ -4,8 +4,10 @@ import json
 from pathlib import Path
 
 import mido
+import pytest
 
 from score_trans.domain.jianpu import parse_jianpu_score
+from score_trans.domain.playback_timeline import playback_visits
 from score_trans.services.export.export_service import ExportService
 
 PREFIX = "score-trans-playback:"
@@ -42,6 +44,68 @@ def test_repeat_midi_maps_back_to_source_onsets(tmp_path: Path) -> None:
     ]
     assert measures == [(0, 0), (1920, 0), (3840, 1920)]
     assert len(score.measures) == 2
+
+
+def test_ending_house_visits_skip_first_house_on_second_pass() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |")
+
+    visits = playback_visits([[measure] for measure in score.measures])
+
+    # A B A C：第二遍跳过 1 房子，改奏 2 房子。
+    assert [visit.source_index for visit in visits] == [0, 1, 0, 2]
+
+
+def test_ending_house_visits_with_repeat_count_and_shared_house() -> None:
+    score = parse_jianpu_score(
+        "1=C\n4/4\n|: 1 2 3 4 | {1,2.} 5 6 5 4 *3 :| {3.} 7 1' 2' 1' |"
+    )
+
+    visits = playback_visits([[measure] for measure in score.measures])
+
+    # *3：前两遍走 {1,2.} 房子，第三遍走 {3.} 房子。
+    assert [visit.source_index for visit in visits] == [0, 1, 0, 1, 0, 2]
+
+
+def test_isolated_ending_house_plays_linearly() -> None:
+    # 不在任何反复段内的房子永远线性播放，不能从 MIDI 中消失。
+    score = parse_jianpu_score("{2.} 1 2 3 4 | 5 6 5 4 |")
+
+    visits = playback_visits([[measure] for measure in score.measures])
+
+    assert [visit.source_index for visit in visits] == [0, 1]
+
+
+def test_ending_house_mismatch_across_parts_is_an_error() -> None:
+    lead = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |")
+    bass = parse_jianpu_score("1=C\n4/4\nw1 | w2 | w3 |")
+    cells = [[lead.measures[i], bass.measures[i]] for i in range(3)]
+
+    with pytest.raises(ValueError, match="跳房子标记不一致"):
+        playback_visits(cells)
+
+
+def test_ending_house_midi_maps_back_to_source_onsets(tmp_path: Path) -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |")
+    path = ExportService().export_midi(score, tmp_path / "houses.mid")
+    markers = _markers(path)
+    onsets = [
+        (tick, data["score_tick"], data["score_group"])
+        for tick, data in markers
+        if data["kind"] == "onset"
+    ]
+    # A B A C 共 16 个音；第二遍 A 段的 score_tick/group 回到 0。
+    assert onsets == [
+        *[(i * 480, i * 480, i) for i in range(4)],
+        *[(i * 480, (i - 4) * 480 + 1920, i) for i in range(4, 8)],
+        *[(i * 480, (i - 8) * 480, i - 8) for i in range(8, 12)],
+        *[(i * 480, (i - 12) * 480 + 3840, i - 4) for i in range(12, 16)],
+    ]
+    measures = [
+        (tick, data["score_tick"])
+        for tick, data in markers
+        if data["kind"] == "measure"
+    ]
+    assert measures == [(0, 0), (1920, 1920), (3840, 0), (5760, 3840)]
 
 
 def test_repeat_markers_on_one_part_repeat_all_tracks(tmp_path: Path) -> None:

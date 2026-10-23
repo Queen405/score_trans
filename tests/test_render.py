@@ -2040,7 +2040,7 @@ def test_spanners_tuplets_marks_and_lyrics_are_rendered() -> None:
     score.measures[0].events[0].dynamic = "mf"
     score.measures[0].repeat_start = True
     score.measures[1].repeat_end = True
-    score.measures[1].ending_start = "1."
+    score.measures[1].ending_start = "1"
     svg = render_score_svg(score)
 
     assert 'class="tuplet-bracket"' in svg
@@ -2076,6 +2076,69 @@ def test_measure_repeat_count_after_barline_is_rendered() -> None:
     ]
 
     assert repeat_counts == ["*2"]
+
+
+def _ending_nodes(root: ET.Element, class_name: str) -> list[ET.Element]:
+    return [
+        node for node in root.iter() if node.attrib.get("class") == class_name
+    ]
+
+
+def test_ending_house_bracket_spans_measures_with_hooks() -> None:
+    root = _root(
+        render_jianpu_svg("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 | 2 3 4 5 :| {2.} 7 1' 2' 1' |")
+    )
+
+    lines = _ending_nodes(root, "ending-line")
+    hooks = _ending_nodes(root, "ending-hook")
+    labels = [
+        node.attrib.get("aria-label")
+        for node in _ending_nodes(root, "annotation")
+        if (node.attrib.get("aria-label") or "").endswith(".")
+    ]
+    # 两栋房子各一条横线 + 一对竖钩；编号按印刷样式显示为 1. / 2.
+    assert len(lines) == 2
+    assert len(hooks) == 4
+    assert labels == ["1.", "2."]
+    # 1 房子跨两个小节，横线必须明显长过 2 房子（一个小节）
+    house1 = float(lines[0].attrib["x2"]) - float(lines[0].attrib["x1"])
+    house2 = float(lines[1].attrib["x2"]) - float(lines[1].attrib["x1"])
+    assert house1 > house2 * 1.5
+
+
+def test_ending_house_continues_across_systems() -> None:
+    score = parse_jianpu_score(
+        "1=C\n4/4\n{1.} 1 2 3 4 | 2 3 4 5 | 3 4 5 6 | {.} 4 5 6 7 |"
+    )
+    score.measures[1].new_system = True
+    root = _root(render_score_svg(score))
+
+    lines = _ending_nodes(root, "ending-line")
+    hooks = _ending_nodes(root, "ending-hook")
+    labels = [
+        node.attrib.get("aria-label")
+        for node in _ending_nodes(root, "annotation")
+        if (node.attrib.get("aria-label") or "").endswith(".")
+    ]
+    # 跨系统截断续接：两条横线、编号在新系统重标；
+    # 前一段只有左钩（右端开口），后一段只有右钩。
+    assert len(lines) == 2
+    assert labels == ["1.", "1."]
+    assert len(hooks) == 2
+
+
+def test_ending_house_discontinue_has_no_right_hook() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n{1.} 1 2 3 4 | 2 3 4 5 |")
+    # MusicXML discontinue：开口结束（文本写不出的情形，直接构造模型）
+    score.measures[1].ending_stop = None
+    score.measures[1].ending_discontinue = "1"
+    root = _root(render_score_svg(score))
+
+    lines = _ending_nodes(root, "ending-line")
+    hooks = _ending_nodes(root, "ending-hook")
+
+    assert len(lines) == 1
+    assert len(hooks) == 1
 
 
 def test_unknown_musicxml_mark_uses_text_fallback() -> None:

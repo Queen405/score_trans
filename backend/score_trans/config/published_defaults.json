@@ -19,24 +19,24 @@
         "enable_omr_ocr": "0",
         "output_dir": "",
         "jianpu_auto_transpose": "1",
-        "polyphony_mode": "auto",
+        "polyphony_mode": "auto"
     },
     "providers": {
         "ocr": {
             "provider": "siliconflow_deepseek_ocr",
             "base_url": "https://api.siliconflow.cn/v1",
             "model": "deepseek-ai/DeepSeek-OCR",
-            "fallback_model": "Qwen/Qwen3-VL-8B-Instruct",
+            "fallback_model": "Qwen/Qwen3-VL-8B-Instruct"
         },
         "ai": {
             "provider": "agnes_2_5_flash",
             "base_url": "https://apihub.agnes-ai.com/v1",
-            "model": "agnes-2.5-flash",
+            "model": "agnes-2.5-flash"
         },
         "assistant": {
             "provider": "agnes_2_5_flash",
             "base_url": "https://apihub.agnes-ai.com/v1",
-            "model": "agnes-2.5-flash",
-        },
-    },
+            "model": "agnes-2.5-flash"
+        }
+    }
 }

@@ -220,6 +220,11 @@ const syntax: typeof zhSyntax = {
         desc: 'Repeats the current content 2 times; measure numbers increase accordingly.',
       },
       multiRepeat: { name: 'Multiple Repeats', desc: 'Repeats the current content 10 times.' },
+      ending: {
+        name: 'Volta Endings (1st/2nd House)',
+        desc:
+          '{1.} at the start of a measure opens the 1st ending; :| closes it and jumps back to the repeat start; {2.} opens the 2nd ending. Shared endings use {1,2.}; houses do not consume measure numbers.',
+      },
       voice: {
         name: 'Voice Separator (Polyphony)',
         desc:
@@ -339,6 +344,10 @@ const syntax: typeof zhSyntax = {
     barStructure: {
       name: 'Bar Structure',
       desc: 'Barline, double barline, repeat marks.',
+    },
+    ending: {
+      name: 'Volta Endings',
+      desc: '{1.} opens a house; :| or the next {N.} closes it; the number selects the pass it plays on.',
     },
     voice: {
       name: 'Voice Separator',

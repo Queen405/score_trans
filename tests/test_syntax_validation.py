@@ -57,6 +57,55 @@ def test_validate_jianpu_text_accepts_valid_score() -> None:
     assert validate_jianpu_text("1=C\n4/4\n1 2 3 4 |") == []
 
 
+def test_validate_jianpu_text_accepts_ending_houses() -> None:
+    assert (
+        validate_jianpu_text("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' h2' ||")
+        == []
+    )
+
+
+def test_validate_ending_marker_mid_measure_reports_position() -> None:
+    diagnostics = validate_jianpu_text("1=C\n4/4\n1 2 {1.} 3 4 |")
+
+    assert len(diagnostics) == 1
+    assert diagnostics[0].severity == "error"
+    assert (diagnostics[0].line, diagnostics[0].column) == (3, 5)
+    assert "必须写在小节第一个音符之前" in diagnostics[0].message
+
+
+def test_validate_ending_duplicate_number_reports_position() -> None:
+    diagnostics = validate_jianpu_text("{1.} 1 2 3 4 | {1.} 2 3 4 5 |")
+
+    assert len(diagnostics) == 1
+    assert (diagnostics[0].line, diagnostics[0].column) == (1, 16)
+    assert "同一反复组内重复" in diagnostics[0].message
+
+
+def test_validate_ending_close_without_open_house() -> None:
+    diagnostics = validate_jianpu_text("{.} 1 2 3 4 |")
+
+    assert len(diagnostics) == 1
+    assert "没有开着的房子" in diagnostics[0].message
+
+
+def test_validate_ending_malformed_brace() -> None:
+    diagnostics = validate_jianpu_text("{x.} 1 2 3 4 |")
+
+    assert len(diagnostics) == 1
+    assert "房子标记格式无效" in diagnostics[0].message
+
+
+def test_validate_warns_on_repeat_inside_ending_house() -> None:
+    diagnostics = validate_jianpu_text(
+        "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 | |: 1 2 3 4 :| {2.} 7 1' 2' 1' |"
+    )
+
+    warnings = [item for item in diagnostics if item.severity == "warning"]
+    assert warnings
+    assert "跳房子" in warnings[0].message
+    assert warnings[0].measure == "3"
+
+
 def test_timed_lyric_overflow_is_a_warning_and_summary_counts_words() -> None:
     client = TestClient(create_app(auth_disabled=True))
 

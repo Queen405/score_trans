@@ -27,6 +27,7 @@ from ...models.score import (
     TupletSpan,
 )
 from ...utils.safe_xml import safe_xml_fromstring
+from ..endings import normalize_ending_number
 from ..constants import (
     DYNAMICS,
     FIFTHS_TO_KEY,
@@ -524,6 +525,11 @@ def _read_measure_structure(
             continue
         number = (ending.get("number") or "").strip()
         ending_type = (ending.get("type") or "").strip().lower()
+        try:
+            number = normalize_ending_number(number)
+        except ValueError:
+            # 无效编号（空值、非正整数等）：丢弃该房子标记，不阻断整体转换。
+            continue
         if ending_type == "start":
             measure.ending_start = number
         elif ending_type == "stop":

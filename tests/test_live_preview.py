@@ -264,3 +264,26 @@ def test_multiline_lyric_block_cursor_maps_by_bar_count() -> None:
     selection = select_live_measure(text, text.index("三"))
     assert selection.initial_measure_number == 3
     assert _lyrics_of(selection) == ["三"]
+
+
+def test_live_preview_selects_measure_with_ending_houses() -> None:
+    text = "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |"
+    selection = select(text, "5 6")
+    assert selection.initial_measure_number == 2
+    assert selection.score.measures[0].ending_start == "1"
+    assert selection.score.measures[0].ending_stop == "1"
+
+
+def test_live_preview_ending_house_marker_keeps_numbering() -> None:
+    # {2.} 不占小节号：光标落在 2 房子小节时编号为 3。
+    text = "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |"
+    selection = select(text, "7 1'")
+    assert selection.initial_measure_number == 3
+    assert selection.score.measures[0].ending_start == "2"
+
+
+def test_live_preview_warns_on_nested_repeat_inside_house() -> None:
+    text = "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 | |: 3 4 5 6 :| {2.} 7 1' 2' 1' |"
+    selection = select(text, "3 4")
+    assert any("跳房子" in warning.message for warning in selection.warnings)
+

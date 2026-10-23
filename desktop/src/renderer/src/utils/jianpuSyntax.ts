@@ -8,6 +8,7 @@ export type JianpuSyntaxTokenType =
   | 'tuplet'
   | 'barline'
   | 'repeat'
+  | 'ending'
   | 'dynamic'
   | 'ornament'
   | 'lyrics'
@@ -51,10 +52,12 @@ export function maskJianpuLyricBlocks(text: string): string {
     + text.slice(limit)
 }
 
-const TOKEN_PATTERN = /(\s+|\$[^$]*\$|\|\||\|:|:\||\||&|[^\s|&]+)/g
+const TOKEN_PATTERN = /(\s+|\{[^}]*\}|\$[^$]*\$|\|\||\|:|:\||\||&|[^\s|&]+)/g
 const DURATION_PREFIX_PATTERN = /^(?:[whqs]|d+)/
 const MICROTONAL_PREFIX_PATTERN = /^(?:qs|qf)/
 const PITCH_PATTERN = /^(?:(?:tqf|tqs|qf|qs|bb|x|n|♮|#|b)?[1-7][',]*|[1-7][',]*[#b])$/
+// 跳房子：{1.} {2.}（也接受 {1,2.}、全角逗号）开房子，{.} 显式闭房子
+const ENDING_PATTERN = /^\{(?:[1-9]\d*(?:\s*[,，]\s*[1-9]\d*)*\.?|\.)\}$/
 
 export function tokenizeJianpuLine(line: string): JianpuSyntaxToken[] {
   if (!line) return []
@@ -108,6 +111,8 @@ function classifyToken(token: string): JianpuSyntaxTokenType {
   // 声线分隔符（复调小节内 & 分隔多条并行旋律线），按分隔符样式高亮
   if (token === '&') return 'barline'
   if (/^\*\d+$/.test(token)) return 'repeat'
+  // 跳房子记号必须在 stripEventDecorations 之前判断（它会剥掉尾部的点）
+  if (ENDING_PATTERN.test(token)) return 'ending'
   if (token.startsWith('\\')) return 'dynamic'
   if (token.startsWith('^') || token.startsWith('(^')) return 'ornament'
   if (token.startsWith('$') && token.endsWith('$') && token.length > 2) return 'tuplet'

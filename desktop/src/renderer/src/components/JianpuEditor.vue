@@ -1152,6 +1152,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 .token-tuplet { color: #953800; }
 .token-barline { color: #cf222e; }
 .token-repeat { color: #9a6700; }
+.token-ending { color: #0e7c86; }
 .token-dynamic { color: #1a7f37; }
 .token-ornament { color: #bc4c00; }
 .token-lyrics { color: #57606a; }
@@ -1217,6 +1218,7 @@ function scrollNoteIntoView(span: { line: number; startColumn: number; endColumn
 .theme-dark .token-tuplet { color: #dcdcaa; }
 .theme-dark .token-barline { color: #d7ba7d; }
 .theme-dark .token-repeat { color: #b5cea8; }
+.theme-dark .token-ending { color: #66d9e8; }
 .theme-dark .token-dynamic { color: #ce9178; }
 .theme-dark .token-ornament { color: #d16969; }
 .theme-dark .token-lyrics { color: #c8c8c8; }

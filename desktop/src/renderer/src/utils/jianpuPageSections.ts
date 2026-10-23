@@ -313,8 +313,11 @@ function splitInlineComment(line: string): string {
  * 刻意不含 `\s+` 分支——`jianpuSyntax.ts` 的 TOKEN_PATTERN 为高亮保留了空白 token，
  * 复用它会把每个空格当成小节内容。
  */
-const MEASURE_TOKEN_PATTERN = /\$[^$]*\$|\|\||\|:|:\||\||&|[^\s|&]+/g
+const MEASURE_TOKEN_PATTERN = /\{[^}]*\}|\$[^$]*\$|\|\||\|:|:\||\||&|[^\s|&]+/g
 const REPEAT_TOKEN_PATTERN = /^\*(\d+)$/
+// 跳房子记号（{1.}/{2.}/{.}）：结构标注而非小节内容，与后端 `_read_new_syntax`
+// 的非内容 token 豁免对齐——不解除 :| 之后的空小节吞并，也不计为小节内容。
+const ENDING_TOKEN_PATTERN = /^\{(?:[1-9]\d*(?:\s*[,，]\s*[1-9]\d*)*\.?|\.)\}$/
 const MEASURE_LABEL_TOKEN_PATTERN = /^(\d+)([.:：])$/
 const LEADING_MEASURE_LABEL_PATTERN = /^\s*(\d+)([.:：])(?=\s|$)/
 const KEY_TOKEN_PATTERN = /^1\s*=\s*[A-G](?:#|b)?$/
@@ -530,8 +533,9 @@ function walkJianpuMeasures(
 
     for (const match of code.matchAll(MEASURE_TOKEN_PATTERN)) {
       const raw = match[0]
-      // 后端在遇到任何非 `|`/`||` token 时清除 skip_empty，顺序在分支之前。
-      if (skipEmpty && raw !== '|' && raw !== '||') skipEmpty = false
+      // 后端在遇到任何非 `|`/`||` token 时清除 skip_empty，顺序在分支之前；
+      // 房子记号除外（非内容 token，与后端豁免对齐）。
+      if (skipEmpty && raw !== '|' && raw !== '||' && !ENDING_TOKEN_PATTERN.test(raw)) skipEmpty = false
       if (isMeasureLabelToken(raw)) continue
       if (raw === '|' || raw === '||') {
         flushBar(lineIndex, 'bar')
@@ -578,6 +582,7 @@ function walkJianpuMeasures(
         KEY_TOKEN_PATTERN.test(raw)
         || TIME_TOKEN_PATTERN.test(raw)
         || TEMPO_TOKEN_PATTERN.test(raw)
+        || ENDING_TOKEN_PATTERN.test(raw)
       ) continue
       hasContent = true
       repeatAppliedBackward = false
@@ -593,7 +598,7 @@ let cachedWalkKey = ''
 let cachedWalkResult: MeasureWalkResult | null = null
 
 function walkWithCache(text: string, initialMeasureNumber: number): MeasureWalkResult {
-  const key = `${initialMeasureNumber} ${text}`
+  const key = `${initialMeasureNumber}\0${text}`
   if (key !== cachedWalkKey || cachedWalkResult === null) {
     cachedWalkKey = key
     cachedWalkResult = walkJianpuMeasures(text, initialMeasureNumber)
