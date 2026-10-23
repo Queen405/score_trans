@@ -32,6 +32,7 @@ class PageCreate(BaseModel):
     original_musicxml: str = ""
     working_musicxml: str = ""
     deleted_source_ids: list[str] = Field(default_factory=list)
+    recognition_candidate_selections: dict[str, str] = Field(default_factory=dict)
 
 
 class PageUpdate(BaseModel):
@@ -56,6 +57,7 @@ class PageUpdate(BaseModel):
     original_musicxml: str | None = None
     working_musicxml: str | None = None
     deleted_source_ids: list[str] | None = None
+    recognition_candidate_selections: dict[str, str] | None = None
 
 
 class PageResponse(BaseModel):
@@ -85,6 +87,7 @@ class PageResponse(BaseModel):
     original_musicxml: str = ""
     working_musicxml: str = ""
     deleted_source_ids: list[str] = Field(default_factory=list)
+    recognition_candidate_selections: dict[str, str] = Field(default_factory=dict)
 
 
 class RenderPageOcrText(BaseModel):
@@ -112,6 +115,7 @@ class BatchSavePage(BaseModel):
     original_musicxml: str
     working_musicxml: str
     deleted_source_ids: list[str]
+    recognition_candidate_selections: dict[str, str] = Field(default_factory=dict)
 
 
 class BatchRenderStateUpdate(BaseModel):

@@ -35,6 +35,7 @@ class HistoryPage:
     original_musicxml: str = ""
     working_musicxml: str = ""
     deleted_source_ids: list[str] = field(default_factory=list)
+    recognition_candidate_selections: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

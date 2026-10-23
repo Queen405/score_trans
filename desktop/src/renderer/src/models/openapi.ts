@@ -1291,6 +1291,10 @@ export type components = {
             overlay_file_id: string;
             /** Page Id */
             page_id: number;
+            /** Recognition Candidate Selections */
+            recognition_candidate_selections?: {
+                [key: string]: string;
+            };
             /** Source Map File Id */
             source_map_file_id: string;
             /** Status */
@@ -1443,6 +1447,15 @@ export type components = {
             /** Removed Items */
             removed_items: number;
         };
+        /** CandidateDTO */
+        CandidateDTO: {
+            /** Score */
+            score: number;
+            /** Score Kind */
+            score_kind: string;
+            /** Shape */
+            shape: string;
+        };
         /** ConversionOptionsDTO */
         ConversionOptionsDTO: {
             /**
@@ -1511,6 +1524,13 @@ export type components = {
             bounds_x: number;
             /** Bounds Y */
             bounds_y: number;
+            /** Candidates */
+            candidates?: components["schemas"]["CandidateDTO"][];
+            /**
+             * Current Score Kind
+             * @default audiveris_inter_grade
+             */
+            current_score_kind?: string;
             /** Grade */
             grade: number;
             /** Hit Path */
@@ -1532,6 +1552,10 @@ export type components = {
         };
         /** CorrectionRequest */
         CorrectionRequest: {
+            /** Candidate Selections */
+            candidate_selections?: {
+                [key: string]: string;
+            };
             /** Deleted Source Ids */
             deleted_source_ids: string[];
             /** Omr File Id */
@@ -1546,6 +1570,10 @@ export type components = {
         };
         /** CorrectionResponse */
         CorrectionResponse: {
+            /** Applied Candidate Selections */
+            applied_candidate_selections?: {
+                [key: string]: string;
+            };
             /** Jianpu Text */
             jianpu_text: string;
             /** Svg File Ids */
@@ -2027,6 +2055,10 @@ export type components = {
              * @default
              */
             overlay_svg_file_id?: string;
+            /** Recognition Candidate Selections */
+            recognition_candidate_selections?: {
+                [key: string]: string;
+            };
             /**
              * Source Map File Id
              * @default
@@ -2121,6 +2153,10 @@ export type components = {
              * @default
              */
             overlay_svg_file_id?: string;
+            /** Recognition Candidate Selections */
+            recognition_candidate_selections?: {
+                [key: string]: string;
+            };
             /**
              * Source Map File Id
              * @default
@@ -2178,6 +2214,10 @@ export type components = {
             overlay_file_id?: string | null;
             /** Overlay Svg File Id */
             overlay_svg_file_id?: string | null;
+            /** Recognition Candidate Selections */
+            recognition_candidate_selections?: {
+                [key: string]: string;
+            } | null;
             /** Source Map File Id */
             source_map_file_id?: string | null;
             /** Status */
@@ -2955,6 +2995,8 @@ export type components = {
             height: number;
             /** Sheet Index */
             sheet_index: number;
+            /** Suspicious Glyphs */
+            suspicious_glyphs?: components["schemas"]["SuspiciousGlyphDTO"][];
             /** Width */
             width: number;
         };
@@ -3004,6 +3046,23 @@ export type components = {
             status: string;
             /** Task Id */
             task_id: string;
+        };
+        /** SuspiciousGlyphDTO */
+        SuspiciousGlyphDTO: {
+            /** Bounds H */
+            bounds_h: number;
+            /** Bounds W */
+            bounds_w: number;
+            /** Bounds X */
+            bounds_x: number;
+            /** Bounds Y */
+            bounds_y: number;
+            /** Candidates */
+            candidates?: components["schemas"]["CandidateDTO"][];
+            /** Glyph Id */
+            glyph_id: string;
+            /** Hit Path */
+            hit_path: string;
         };
         /** SyntaxDiagnostic */
         SyntaxDiagnostic: {

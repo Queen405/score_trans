@@ -22,16 +22,65 @@
           @load="onImgLoad"
         >
         <img
-          v-if="overlayImgUrl && showOverlay && canShowOverlay"
+          v-if="overlayImgUrl && showOverlay && canShowOverlay && !correctedOverlayEntities.length"
           :src="overlayImgUrl"
           class="svg-overlay-img"
           alt=""
           draggable="false"
         >
         <svg
-          v-if="sourceSheet && showOverlay && canShowOverlay"
+          v-else-if="overlayImgUrl && showOverlay && canShowOverlay && sourceSheet && correctedOverlayEntities.length"
+          class="svg-overlay-img"
+          :viewBox="`0 0 ${sourceSheet.width} ${sourceSheet.height}`"
+          :width="imgW || sourceSheet.width"
+          :height="imgH || sourceSheet.height"
+          aria-hidden="true"
+        >
+          <defs>
+            <mask
+              :id="overlayMaskId"
+              maskUnits="userSpaceOnUse"
+              :width="sourceSheet.width"
+              :height="sourceSheet.height"
+            >
+              <rect :width="sourceSheet.width" :height="sourceSheet.height" fill="white" />
+              <path
+                v-for="item in correctedOverlayEntities"
+                :key="`mask-${item.entity.source_id}`"
+                :d="item.entity.hit_path || ''"
+                fill="black"
+              />
+            </mask>
+          </defs>
+          <image
+            x="0"
+            y="0"
+            :width="sourceSheet.width"
+            :height="sourceSheet.height"
+            :href="overlayImgUrl"
+            :mask="`url(#${overlayMaskId})`"
+          />
+          <svg
+            v-for="item in correctedOverlayEntities"
+            :key="`corrected-${item.entity.source_id}`"
+            :x="item.entity.bounds_x"
+            :y="item.entity.bounds_y"
+            :width="item.entity.bounds_w"
+            :height="item.entity.bounds_h"
+            viewBox="0 0 32 24"
+            aria-hidden="true"
+          >
+            <NoteheadSymbol
+              :shape="item.shape"
+              :background="false"
+              :style="{ width: '100%', height: '100%', color: '#00aa44', opacity: item.entity.grade }"
+            />
+          </svg>
+        </svg>
+        <svg
+          v-if="sourceSheet && canShowOverlay && (showOverlay || editable)"
           class="source-hit-layer"
-          :class="{ disabled: editable }"
+          :class="{ editing: editable }"
           :viewBox="`0 0 ${sourceSheet.width} ${sourceSheet.height}`"
           :width="imgW || sourceSheet.width"
           :height="imgH || sourceSheet.height"
@@ -50,9 +99,29 @@
             :d="element.hit_path"
             class="source-hit"
             :class="{ selected: element.source_id === selectedSourceId }"
+            :data-source-id="element.source_id"
             tabindex="0"
-            @click.stop="selectSource(element.source_id)"
-            @keydown.enter.prevent="selectSource(element.source_id)"
+            @click.stop="handleSourceClick(element.source_id, $event)"
+            @contextmenu.stop.prevent="openMarkerEditor(element.source_id, $event)"
+            @keydown.enter.prevent="selectSource(element.source_id, $event)"
+          />
+        </svg>
+        <svg
+          v-if="editable && suspiciousGlyphs?.length && isImage"
+          class="source-hit-layer glyph-source-hit-layer"
+          :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
+          :width="imgW || entitySheetWidth"
+          :height="imgH || entitySheetHeight"
+        >
+          <path
+            v-for="glyph in suspiciousGlyphs"
+            :key="glyph.glyph_id"
+            :d="glyph.hit_path"
+            class="source-hit source-hit--glyph"
+            :data-glyph-id="glyph.glyph_id"
+            tabindex="0"
+            @click.stop="selectGlyph(glyph.glyph_id, $event)"
+            @keydown.enter.prevent="selectGlyph(glyph.glyph_id, $event)"
           />
         </svg>
         <svg
@@ -70,28 +139,14 @@
             class="deleted-mark"
           />
         </svg>
-        <svg
-          v-if="editable && entitySheetWidth > 0 && entitySheetHeight > 0"
-          class="entity-edit-layer"
-          :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
-          :width="imgW || entitySheetWidth"
-          :height="imgH || entitySheetHeight"
-          :aria-label="t('components.originalPreview.deletableMarkLabel')"
-        >
-          <rect
-            v-for="entity in entities"
-            :key="entity.source_id"
-            :x="entity.bounds_x"
-            :y="entity.bounds_y"
-            :width="entity.bounds_w"
-            :height="entity.bounds_h"
-            class="entity-box"
-            :class="[entity.tag, { deleted: isDeleted(entity.source_id) }]"
-            tabindex="0"
-            @click.stop="$emit('toggleDelete', entity.source_id)"
-            @keydown.enter.prevent="$emit('toggleDelete', entity.source_id)"
-          />
-        </svg>
+      </div>
+      <div
+        v-if="editable && editorVisible"
+        class="marker-editor-anchor"
+        :style="editorPosition"
+        @click.stop
+      >
+        <slot name="marker-editor" :close="closeMarkerEditor" />
       </div>
     </div>
     <div
@@ -132,7 +187,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, nextTick, useId } from 'vue'
 import { fetchFileBlob } from '../api/client'
 import { t } from '../i18n'
 import { ImageOutline } from '@vicons/ionicons5'
@@ -141,6 +196,7 @@ import { useZoomPan } from '../composables/useZoomPan'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import type { CorrectableEntityDTO } from '../models/types'
+import NoteheadSymbol from './NoteheadSymbol.vue'
 
 const props = defineProps<{
   fileId: string
@@ -152,6 +208,9 @@ const props = defineProps<{
   selectedSourceId?: string
   editable?: boolean
   entities?: CorrectableEntityDTO[]
+  appliedCandidateSelections?: Record<string, string>
+  suspiciousGlyphs?: import('../models/types').SuspiciousGlyphDTO[]
+  selectedGlyphId?: string
   deletedEntityIds?: Set<string>
   appliedDeletedSourceIds?: string[]
   entityWidth?: number
@@ -160,6 +219,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   selectSource: [sourceId: string]
   toggleDelete: [sourceId: string]
+  selectGlyph: [glyphId: string]
 }>()
 
 interface SourceElement {
@@ -190,6 +250,11 @@ const fileUrl = ref('')
 const overlayImgUrl = ref('')
 const showOverlay = ref(settings.showRecognitionOverlay)
 const sourceMap = ref<SourceMap | null>(null)
+const editorVisible = ref(false)
+const editorPosition = ref<Record<string, string>>({ left: '8px', top: '8px' })
+let markerPositionObserver: InstanceType<typeof window.MutationObserver> | null = null
+let markerResizeObserver: ResizeObserver | null = null
+const overlayMaskId = `candidate-overlay-mask-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
 
 const pdfFitUrl = computed(() =>
   fileUrl.value ? `${fileUrl.value}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : '',
@@ -210,7 +275,8 @@ const deletedMarkElements = computed(() => (
 ))
 const clickableElements = computed(() => (
   sourceSheet.value?.elements.filter((element) => (
-    clickableSourceIdSet.value.has(element.source_id)
+    (clickableSourceIdSet.value.has(element.source_id)
+      || (props.editable && props.entities?.some((entity) => entity.source_id === element.source_id)))
     && !appliedDeletedSourceIdSet.value.has(element.source_id)
   )) ?? []
 ))
@@ -238,14 +304,93 @@ function isUnanchoredByDesign(element: SourceElement): boolean {
 }
 const entitySheetWidth = computed(() => props.entityWidth || sourceSheet.value?.width || 0)
 const entitySheetHeight = computed(() => props.entityHeight || sourceSheet.value?.height || 0)
+const correctedOverlayEntities = computed(() => Object.entries(props.appliedCandidateSelections ?? {})
+  .map(([sourceId, shape]) => ({
+    entity: props.entities?.find((item) => item.source_id === sourceId),
+    shape,
+  }))
+  .filter((item): item is { entity: CorrectableEntityDTO; shape: string } => (
+    item.entity?.tag === 'head'
+    && item.entity.bounds_w > 0
+    && item.entity.bounds_h > 0
+    && !!item.entity.hit_path
+  )))
 
-function isDeleted(sourceId: string): boolean {
-  return props.deletedEntityIds?.has(sourceId) ?? false
+type MarkerTarget = { getBoundingClientRect: () => { left: number; right: number; top: number; bottom: number } }
+
+function updateEditorPosition(target: MarkerTarget | null = null): void {
+  if (!props.editable || !editorVisible.value) return
+  const viewport = containerRef.value
+  const inner = viewport?.querySelector<HTMLElement>('.zp-inner')
+  const activeTarget = target ?? (props.selectedSourceId
+    ? inner?.querySelector(`[data-source-id="${window.CSS.escape(props.selectedSourceId)}"]`)
+    : props.selectedGlyphId
+      ? inner?.querySelector(`[data-glyph-id="${window.CSS.escape(props.selectedGlyphId)}"]`)
+      : null)
+  if (!viewport || !activeTarget) return
+
+  const viewportRect = viewport.getBoundingClientRect()
+  const targetRect = activeTarget.getBoundingClientRect()
+  const gap = 10
+  const panelWidth = Math.min(292, Math.max(220, viewport.clientWidth - 16))
+  const panelHeight = Math.min(430, Math.max(180, viewport.clientHeight - 16))
+  const markerCenterX = (targetRect.left + targetRect.right) / 2 - viewportRect.left
+  const markerCenterY = (targetRect.top + targetRect.bottom) / 2 - viewportRect.top
+  const left = markerCenterX + panelWidth + gap <= viewport.clientWidth - 8
+    ? markerCenterX + gap
+    : markerCenterX - panelWidth - gap >= 8
+      ? markerCenterX - panelWidth - gap
+      : Math.max(8, Math.min(viewport.clientWidth - panelWidth - 8, markerCenterX - panelWidth / 2))
+  const top = Math.max(8, Math.min(viewport.clientHeight - panelHeight - 8, markerCenterY - 40))
+  editorPosition.value = { left: `${left}px`, top: `${top}px` }
 }
 
-function selectSource(sourceId: string): void {
+function selectSource(sourceId: string, event: Event): void {
+  if (props.editable) {
+    editorVisible.value = true
+    updateEditorPosition(event.currentTarget as unknown as MarkerTarget)
+    requestAnimationFrame(() => updateEditorPosition())
+  }
   emit('selectSource', sourceId)
 }
+
+function handleSourceClick(sourceId: string, event: Event): void {
+  if (props.editable) {
+    editorVisible.value = false
+    emit('selectGlyph', '')
+    emit('toggleDelete', sourceId)
+    return
+  }
+  selectSource(sourceId, event)
+}
+
+function openMarkerEditor(sourceId: string, event: MouseEvent): void {
+  if (!props.editable) return
+  editorVisible.value = true
+  updateEditorPosition(event.currentTarget as unknown as MarkerTarget)
+  emit('selectSource', sourceId)
+  requestAnimationFrame(() => updateEditorPosition())
+}
+
+function closeMarkerEditor(): void {
+  editorVisible.value = false
+}
+
+function selectGlyph(glyphId: string, event: Event): void {
+  editorVisible.value = true
+  updateEditorPosition(event.currentTarget as unknown as MarkerTarget)
+  requestAnimationFrame(() => updateEditorPosition())
+  emit('selectGlyph', glyphId)
+}
+
+watch(() => props.editable, (editable) => {
+  if (!editable) editorVisible.value = false
+})
+
+watch(() => [props.selectedSourceId, props.selectedGlyphId] as const, async () => {
+  await nextTick()
+  updateEditorPosition()
+})
 
 function notifyUnmapped(): void {
   message.info(t('components.originalPreview.noteNotMapped'))
@@ -338,7 +483,7 @@ watch(
     if (!active || result.error) return
     try {
       const parsed = JSON.parse(await result.data.text()) as SourceMap
-      if (parsed.version === 1 && Array.isArray(parsed.sheets)) sourceMap.value = parsed
+      if ([1, 2].includes(parsed.version) && Array.isArray(parsed.sheets)) sourceMap.value = parsed
     } catch {
       sourceMap.value = null
     }
@@ -346,9 +491,22 @@ watch(
   { immediate: true },
 )
 
-onMounted(() => zp.bind())
+onMounted(() => {
+  zp.bind()
+  const inner = containerRef.value?.querySelector<HTMLElement>('.zp-inner')
+  if (inner) {
+    markerPositionObserver = new window.MutationObserver(() => updateEditorPosition())
+    markerPositionObserver.observe(inner, { attributes: true, attributeFilter: ['style'] })
+  }
+  if (containerRef.value) {
+    markerResizeObserver = new ResizeObserver(() => updateEditorPosition())
+    markerResizeObserver.observe(containerRef.value)
+  }
+})
 onUnmounted(() => {
   zp.unbind()
+  markerPositionObserver?.disconnect()
+  markerResizeObserver?.disconnect()
   if (fileUrl.value) URL.revokeObjectURL(fileUrl.value)
   if (overlayImgUrl.value) URL.revokeObjectURL(overlayImgUrl.value)
 })
@@ -370,6 +528,18 @@ onUnmounted(() => {
   background: var(--bg-surface);
   cursor: default;
   position: relative;
+}
+
+.marker-editor-anchor {
+  position: absolute;
+  z-index: 30;
+  width: min(280px, calc(100% - 16px));
+  max-height: calc(100% - 16px);
+  pointer-events: none;
+}
+
+.marker-editor-anchor :deep(.candidate-editor) {
+  pointer-events: auto;
 }
 
 .zp-inner {
@@ -398,11 +568,16 @@ onUnmounted(() => {
 
 .source-hit-layer {
   position: absolute;
+  z-index: 1;
   inset: 0;
   width: 100%;
   height: 100%;
   overflow: visible;
   pointer-events: none;
+}
+
+.glyph-source-hit-layer {
+  z-index: 0;
 }
 
 .source-hit {
@@ -422,10 +597,18 @@ onUnmounted(() => {
   stroke-width: 2;
 }
 
-.source-hit.selected {
-  fill: rgba(245, 158, 11, 0.22);
-  stroke: rgba(217, 119, 6, 1);
+.source-hit-layer.editing .source-hit:hover,
+.source-hit-layer.editing .source-hit:focus {
+  fill: rgba(14, 165, 233, 0.001);
+  stroke: rgba(14, 165, 233, 0.001);
   stroke-width: 4;
+}
+
+.source-hit.selected {
+  fill: rgba(255, 176, 32, 0.38);
+  stroke: rgba(230, 126, 18, 1);
+  stroke-width: 5;
+  filter: drop-shadow(0 0 3px rgba(230, 126, 18, 0.85));
   animation: source-hit-pulse 1.2s ease-in-out infinite;
 }
 
@@ -480,52 +663,6 @@ onUnmounted(() => {
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
-}
-
-.entity-edit-layer {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.entity-box {
-  fill: rgba(0, 170, 68, 0.001);
-  stroke-width: 2;
-  stroke: #00aa44;
-  vector-effect: non-scaling-stroke;
-  pointer-events: visiblePainted;
-  cursor: pointer;
-  transition: fill 0.15s, stroke-opacity 0.15s;
-}
-
-.entity-box.clef,
-.entity-box.time-whole,
-.entity-box.time-custom,
-.entity-box.key {
-  stroke: #0066ff;
-}
-
-.entity-box.alter {
-  stroke: #cc00cc;
-}
-
-.entity-box:hover {
-  fill: rgba(0, 170, 68, 0.2);
-}
-
-.entity-box.deleted {
-  stroke: #ff3333;
-  stroke-width: 1.5;
-  fill: rgba(255, 51, 51, 0.001);
-  stroke-dasharray: 6 4;
-  stroke-opacity: 0.3;
-}
-
-.entity-box.deleted:hover {
-  stroke-opacity: 0.65;
 }
 
 .scan-img {

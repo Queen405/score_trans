@@ -23,6 +23,7 @@ export interface HistoryPagePatchDetail {
       | 'original_musicxml'
       | 'working_musicxml'
       | 'deleted_source_ids'
+      | 'recognition_candidate_selections'
       | 'status'
       | 'error_message'
     >

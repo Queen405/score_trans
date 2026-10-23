@@ -70,6 +70,16 @@ test('log state is bounded and LogPanel uses its stable entry ids', () => {
   assert.doesNotMatch(logPanelSource, /:key="i"/)
 })
 
+test('marker candidate maps preserve the native overlay and use contour hit paths', () => {
+  assert.match(originalPreviewSource, /\[1, 2\]\.includes\(parsed\.version\)/)
+  assert.match(originalPreviewSource, /:class="\{ dimmed: showOverlay && canShowOverlay \}"/)
+  assert.match(originalPreviewSource, /\.scan-img\.dimmed\s*\{[\s\S]*?grayscale\(0\.5\) brightness\(0\.95\) blur\(1px\)/)
+  assert.doesNotMatch(originalPreviewSource, /<rect[\s\S]*?entity-box/)
+  assert.match(originalPreviewSource, /:d="element\.hit_path"/)
+  assert.match(convertSource, /@select-source="handleOriginalSourceClick"/)
+  assert.match(convertSource, /@click="toggleEntityDelete\(selectedEntity\.source_id\)"/)
+})
+
 test('uploader and recognition coordination state is instance scoped', () => {
   assert.ok(isInsideScriptSetup(uploaderSource, 'const uploadQueue'))
   assert.ok(isInsideScriptSetup(recognizeSource, 'const batchRenderInFlight'))
@@ -378,7 +388,7 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
   assert.match(convertSource, /\{\{ editMode \? t\('common\.action\.cancel'\) : t\('convert\.marker\.deleteMark'\) \}\}/)
   // 应用按钮文案与加载态守卫
   assert.match(convertSource, /const loadingEntities = ref\(false\)/)
-  assert.match(convertSource, /:disabled="loadingEntities"/)
+  assert.match(convertSource, /:disabled="loadingEntities \|\| !canEditMarkers"/)
   assert.match(
     convertSource,
     /@click="applyCorrections"[\s\S]*?>\s*\{\{ t\('convert\.marker\.apply'\) \}\}\s*<\/n-button>/,
@@ -403,19 +413,21 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
   assert.match(convertSource, /multiPageOmr/)
 })
 
-test('deleted entity markers render as a faint red outline without fill', () => {
-  // 不用红色填充覆盖 notehead，也不整体调 opacity 把轮廓弄没；
-  // 删除标记只留淡红虚线轮廓（stroke-opacity 控制浓淡），填充不可见但保留可点击。
-  assert.match(
-    originalPreviewSource,
-    /\.entity-box\.deleted \{[\s\S]*?stroke-opacity:\s*0\.3/,
-  )
-  assert.match(
-    originalPreviewSource,
-    /\.entity-box\.deleted:hover \{[\s\S]*?stroke-opacity:\s*0\.65/,
-  )
-  assert.match(originalPreviewSource, /aria-label="t\('components\.originalPreview\.deletableMarkLabel'\)"/)
-  assert.match(originalPreviewSource, /transition: fill 0\.15s, stroke-opacity 0\.15s;/)
+test('marker edit mode keeps the original overlay and clicks semantic hit paths without boxes', () => {
+  assert.match(originalPreviewSource, /class="source-hit-layer"\s+:class="\{ editing: editable \}"/)
+  assert.match(originalPreviewSource, /@click\.stop="selectSource\(element\.source_id, \$event\)"/)
+  assert.match(originalPreviewSource, /class="marker-editor-anchor"/)
+  assert.match(convertSource, /template #marker-editor/)
+  assert.match(convertSource, /<NoteheadSymbol :shape="candidate\.shape"\s*\/>/)
+  assert.match(originalPreviewSource, /appliedCandidateSelections \?\? \{\}/)
+  assert.match(originalPreviewSource, /:mask="`url\(#\$\{overlayMaskId\}\)`"/)
+  assert.match(originalPreviewSource, /<NoteheadSymbol/)
+  assert.match(convertSource, /selectedGlyphId\.value = ''/)
+  assert.match(originalPreviewSource, /\.source-hit-layer\.editing \.source-hit:hover/)
+  assert.doesNotMatch(originalPreviewSource, /<rect[\s\S]*?class="entity-box"/)
+  assert.doesNotMatch(originalPreviewSource, /\.entity-box\s*\{/)
+  assert.match(originalPreviewSource, /:class="\{ dimmed: showOverlay && canShowOverlay \}"/)
+  assert.match(originalPreviewSource, /\.scan-img\.dimmed\s*\{[\s\S]*?grayscale\(0\.5\) brightness\(0\.95\) blur\(1px\)/)
 })
 
 test('applied deleted source ids render in an independent persistent mark layer', () => {

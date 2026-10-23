@@ -5,9 +5,14 @@ import org.audiveris.omr.sheet.Sheet;
 import org.audiveris.omr.sheet.SheetStub;
 import org.audiveris.omr.sheet.SystemInfo;
 import org.audiveris.omr.sheet.ui.SheetGradedPainter;
+import org.audiveris.omr.classifier.Evaluation;
+import org.audiveris.omr.classifier.ShapeClassifier;
+import org.audiveris.omr.glyph.Glyph;
+import org.audiveris.omr.glyph.GlyphGroup;
 import org.audiveris.omr.sig.inter.AbstractNoteInter;
 import org.audiveris.omr.sig.inter.AbstractPauseInter;
 import org.audiveris.omr.sig.inter.AbstractTimeInter;
+import org.audiveris.omr.sig.inter.RestInter;
 import org.audiveris.omr.sig.inter.AlterInter;
 import org.audiveris.omr.sig.inter.ArpeggiatoInter;
 import org.audiveris.omr.sig.inter.ArticulationInter;
@@ -71,7 +76,7 @@ public final class ScoreTransOverlayExporter
     {
         Files.createDirectories(outputDir);
         final StringBuilder json = new StringBuilder();
-        json.append("{\"version\":1,\"sheets\":[");
+        json.append("{\"version\":2,\"sheets\":[");
         boolean firstSheet = true;
 
         for (SheetStub stub : stubs) {
@@ -174,14 +179,144 @@ public final class ScoreTransOverlayExporter
                 json.append(',');
             }
             first = false;
-            appendElement(json, inter, bounds);
+            appendElement(json, inter, bounds, sheet);
         }
-        json.append("]}");
+        appendSuspiciousGlyphs(json, sheet);
+        json.append("}");
+    }
+
+    private static void appendSuspiciousGlyphs (StringBuilder json,
+                                                 Sheet sheet)
+    {
+        json.append("],\"glyphs\":[");
+        final Set<Integer> referenced = new HashSet<>();
+        final List<Rectangle> recognizedHeads = new ArrayList<>();
+        for (SystemInfo system : sheet.getSystems()) {
+            for (Inter inter : system.getSig().vertexSet()) {
+                if (inter.getGlyph() != null) referenced.add(inter.getGlyph().getId());
+                if (!inter.isRemoved() && inter instanceof AbstractNoteInter
+                        && inter.getBounds() != null) {
+                    recognizedHeads.add(inter.getBounds());
+                }
+            }
+        }
+        final List<Glyph> suspicious = new ArrayList<>();
+        for (Glyph glyph : sheet.getGlyphIndex().getEntities()) {
+            final Rectangle bounds = glyph.getBounds();
+            if (bounds == null || bounds.isEmpty()
+                    || !glyph.getGroups().contains(GlyphGroup.SYMBOL)
+                    || glyph.getWidth() < sheet.getInterline() / 4
+                    || glyph.getWidth() > sheet.getInterline() * 4
+                    || glyph.getHeight() < sheet.getInterline() / 4
+                    || glyph.getHeight() > sheet.getInterline() * 4) {
+                continue;
+            }
+            if (referenced.contains(glyph.getId())) {
+                continue;
+            }
+            if (nearRecognizedHead(bounds, recognizedHeads, sheet.getInterline())) {
+                continue;
+            }
+            final boolean repetitive = isRepeatedAcrossRows(
+                    glyph, sheet.getGlyphIndex().getEntities(), sheet.getInterline());
+            if (repetitive) continue;
+
+            final List<ScoreTransCandidateRegistry.Candidate> candidates = noteheadCandidates(
+                    sheet, bounds, glyph);
+            if (candidates.isEmpty()) continue;
+            suspicious.add(glyph);
+        }
+        boolean first = true;
+        for (Glyph glyph : suspicious) {
+            final Rectangle bounds = glyph.getBounds();
+            final List<ScoreTransCandidateRegistry.Candidate> candidates = noteheadCandidates(
+                    sheet, bounds, glyph);
+            if (!first) json.append(',');
+            first = false;
+            json.append("{\"glyph_id\":\"s").append(sheet.getStub().getNumber())
+                    .append(":g").append(glyph.getId()).append("\",\"bounds\":{\"x\":")
+                    .append(bounds.x).append(",\"y\":").append(bounds.y)
+                    .append(",\"width\":").append(bounds.width)
+                    .append(",\"height\":").append(bounds.height)
+                    .append("},\"hit_path\":\"").append(escape(svgPath(glyphArea(glyph))))
+                    .append("\",\"suspicious\":true,\"shape_candidates\":")
+                    .append(candidateJson(candidates))
+                    .append('}');
+        }
+        json.append(']');
+    }
+
+    private static boolean nearRecognizedHead (Rectangle glyphBounds,
+                                               List<Rectangle> headBounds,
+                                               int interline)
+    {
+        final Rectangle expanded = new Rectangle(glyphBounds);
+        expanded.grow(Math.max(1, interline / 2), Math.max(1, interline / 2));
+        for (Rectangle head : headBounds) {
+            if (expanded.intersects(head)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isRepeatedAcrossRows (Glyph target,
+                                                 List<Glyph> glyphs,
+                                                 int interline)
+    {
+        final Rectangle box = target.getBounds();
+        if (box == null) return false;
+        final List<Integer> rowPositions = new ArrayList<>();
+        final int xTolerance = Math.max(2, interline / 3);
+        for (Glyph other : glyphs) {
+            if (other.getId() == target.getId()) continue;
+            final Rectangle otherBox = other.getBounds();
+            if (otherBox == null || otherBox.isEmpty()) continue;
+            if (Math.abs(otherBox.getCenterX() - box.getCenterX()) <= xTolerance
+                    && Math.abs(otherBox.width - box.width) <= Math.max(2, interline / 3)
+                    && Math.abs(otherBox.height - box.height) <= Math.max(2, interline / 3)) {
+                rowPositions.add(otherBox.y + (otherBox.height / 2));
+            }
+        }
+        rowPositions.add(box.y + (box.height / 2));
+        rowPositions.sort(Integer::compareTo);
+
+        final List<Integer> largeGaps = new ArrayList<>();
+        for (int i = 1; i < rowPositions.size(); i++) {
+            final int gap = rowPositions.get(i) - rowPositions.get(i - 1);
+            if (gap >= interline * 4) largeGaps.add(gap);
+        }
+        for (int i = 1; i < largeGaps.size(); i++) {
+            final int previous = largeGaps.get(i - 1);
+            final int current = largeGaps.get(i);
+            if (Math.abs(previous - current) <= Math.max(interline * 2, previous / 5)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Area glyphArea (Glyph glyph)
+    {
+        final Area area = new Area();
+        final Rectangle bounds = glyph.getBounds();
+        for (int y = bounds.y; y < bounds.y + bounds.height; y++) {
+            int start = -1;
+            for (int x = bounds.x; x <= bounds.x + bounds.width; x++) {
+                boolean ink = x < bounds.x + bounds.width && glyph.getRunTable() != null
+                        && glyph.getRunTable().contains(new Point(x - bounds.x, y - bounds.y));
+                if (ink && start < 0) start = x;
+                else if (!ink && start >= 0) {
+                    area.add(new Area(new Rectangle(start, y, x - start, 1)));
+                    start = -1;
+                }
+            }
+        }
+        return area;
     }
 
     private static void appendElement (StringBuilder json,
                                        Inter inter,
-                                       Rectangle bounds)
+                                       Rectangle bounds,
+                                       Sheet sheet)
     {
         final String sourceId = ScoreTransProvenance.sourceId(inter);
         json.append("{\"source_id\":\"")
@@ -192,6 +327,10 @@ public final class ScoreTransOverlayExporter
                 .append(escape(String.valueOf(inter.getShape())))
                 .append("\",\"grade\":")
                 .append(String.format(java.util.Locale.ROOT, "%.6f", inter.getBestGrade()))
+                .append(",\"candidates\":")
+                .append(inter instanceof AbstractNoteInter
+                        ? candidateJson(noteheadCandidates(sheet, bounds, inter.getGlyph()))
+                        : candidateJson(inter))
                 .append(",\"bounds\":{\"x\":")
                 .append(bounds.x)
                 .append(",\"y\":")
@@ -201,12 +340,90 @@ public final class ScoreTransOverlayExporter
                 .append(",\"height\":")
                 .append(bounds.height)
                 .append("},\"hit_path\":\"")
-                .append(escape(svgPath(hitArea(inter, bounds), bounds)))
+                .append(escape(svgPath(hitArea(inter, bounds))))
                 .append("\",\"musicxml_locator\":{\"attribute\":\"id\",\"contains\":\"")
                 .append(xmlRole(inter))
                 .append("-")
                 .append(sourceId.replace(':', '-'))
                 .append("\"}}");
+    }
+
+    private static String candidateJson (Inter inter)
+    {
+        if (inter instanceof RestInter) {
+            final Glyph glyph = inter.getGlyph();
+            return glyph == null ? "[]" : candidateJson(glyph, Math.max(1,
+                    inter.getSig().getSystem().getSheet().getInterline()), "rest");
+        }
+        return "[]";
+    }
+
+    private static String candidateJson (List<ScoreTransCandidateRegistry.Candidate> candidates)
+    {
+        final StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < candidates.size(); i++) {
+            if (i > 0) json.append(',');
+            final ScoreTransCandidateRegistry.Candidate candidate = candidates.get(i);
+            json.append("{\"shape\":\"").append(candidate.shape())
+                    .append("\",\"score\":")
+                    .append(String.format(java.util.Locale.ROOT, "%.6f", candidate.score()))
+                    .append(",\"score_kind\":\"")
+                    .append(ScoreTransCandidateRegistry.SCORE_KIND).append("\"}");
+        }
+        return json.append(']').toString();
+    }
+
+    private static List<ScoreTransCandidateRegistry.Candidate> noteheadCandidates (Sheet sheet,
+                                                                                    Rectangle bounds,
+                                                                                    Glyph glyph)
+    {
+        final List<ScoreTransCandidateRegistry.Candidate> stored =
+                ScoreTransCandidateRegistry.candidatesFor(glyph);
+        return stored.isEmpty()
+                ? ScoreTransCandidateRegistry.candidatesNear(
+                        sheet.getScoreTransNoteCandidateLocations(),
+                        bounds,
+                        sheet.getInterline() * 2)
+                : stored;
+    }
+
+    private static String candidateJson (Glyph glyph, int interline, String family)
+    {
+        final Evaluation[] evaluations;
+        try {
+            evaluations = ShapeClassifier.getInstance().getNaturalEvaluations(
+                    glyph, interline);
+        } catch (RuntimeException ex) {
+            logger.debug("Could not evaluate candidates for glyph {}", glyph.getId(), ex);
+            return "[]";
+        }
+        final List<Evaluation> candidates = new ArrayList<>();
+        for (Evaluation evaluation : evaluations) {
+            final String name = evaluation.shape.toString();
+            if (isSupportedCandidate(family, name)) {
+                candidates.add(evaluation);
+            }
+        }
+        candidates.sort(Comparator.comparingDouble((Evaluation e) -> e.grade).reversed());
+        final StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < Math.min(5, candidates.size()); i++) {
+            if (i > 0) json.append(',');
+            final Evaluation candidate = candidates.get(i);
+            json.append("{\"shape\":\"").append(candidate.shape)
+                    .append("\",\"score\":")
+                    .append(String.format(java.util.Locale.ROOT, "%.6f", candidate.grade))
+                    .append(",\"score_kind\":\"audiveris_shape_classifier\"}");
+        }
+        return json.append(']').toString();
+    }
+
+    private static boolean isSupportedCandidate (String family,
+                                                 String shape)
+    {
+        if ("rest".equals(family)) {
+            return shape.endsWith("_REST") || shape.equals("HW_REST");
+        }
+        return false;
     }
 
     private static boolean isClickableSemantic (Inter inter)
@@ -284,15 +501,19 @@ public final class ScoreTransOverlayExporter
             }
         }
 
+        if (area.isEmpty() && inter.getGlyph() != null) {
+            return glyphArea(inter.getGlyph());
+        }
+
         return area;
     }
 
-    private static String svgPath (Area area,
-                                   Rectangle fallback)
+    private static String svgPath (Area area)
     {
         if (area == null || area.isEmpty()) {
-            return "M" + fallback.x + " " + fallback.y + "h" + fallback.width + "v"
-                    + fallback.height + "h-" + fallback.width + "Z";
+            // An empty semantic area must not become a bounding-box hit target.
+            // Empty paths are non-rendering and non-clickable in the renderer.
+            return "";
         }
 
         final StringBuilder path = new StringBuilder();

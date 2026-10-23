@@ -153,6 +153,7 @@ class HistoryService:
         original_musicxml: str | None = None,
         working_musicxml: str | None = None,
         deleted_source_ids: list[str] | None = None,
+        recognition_candidate_selections: dict[str, str] | None = None,
     ) -> HistoryPage | None:
         return self.dao.update_page(
             page_id,
@@ -177,6 +178,7 @@ class HistoryService:
             original_musicxml=original_musicxml,
             working_musicxml=working_musicxml,
             deleted_source_ids=deleted_source_ids,
+            recognition_candidate_selections=recognition_candidate_selections,
         )
 
     def reorder_pages(

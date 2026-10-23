@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from dataclasses import replace
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -26,7 +27,10 @@ from score_trans.services.correct.entity_service import (
     CorrectableEntity,
     extract_entities,
 )
-from score_trans.services.correct.musicxml_patch import apply_deletions
+from score_trans.services.correct.musicxml_patch import (
+    apply_candidate_selections,
+    apply_deletions,
+)
 
 
 def _entity(
@@ -204,6 +208,36 @@ def test_apply_deletions_skips_phantom_note_reference() -> None:
     note = corrected.find(".//note")
     assert note is not None
     assert note.find("pitch") is not None
+
+
+def test_candidate_selection_updates_musicxml_notehead_style() -> None:
+    entity = _entity("head", "head", "note-1")
+    entity = replace(
+        entity,
+        shape="NOTEHEAD_BLACK",
+        candidates=(
+            ("NOTEHEAD_BLACK", 0.8, "audiveris_shape_classifier"),
+            ("NOTEHEAD_CROSS", 0.2, "audiveris_shape_classifier"),
+        ),
+    )
+    xml = '<score-partwise><part><measure><note id="note-1"><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note></measure></part></score-partwise>'
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(xml, {"head": "NOTEHEAD_CROSS"}, {"head": entity})
+    )
+
+    assert corrected.findtext(".//note/notehead") == "x"
+    assert corrected.findtext(".//note/duration") == "1"
+
+
+def test_candidate_selection_rejects_unknown_candidate_atomically() -> None:
+    entity = _entity("head", "head", "note-1")
+    with pytest.raises(ValueError, match="不包含候选"):
+        apply_candidate_selections(
+            '<score-partwise><part><measure><note id="note-1"/></measure></part></score-partwise>',
+            {"head": "NOT_A_CANDIDATE"},
+            {"head": entity},
+        )
 
 
 def test_extract_entities_uses_sheet_scoped_source_map_and_omr_dimensions(

@@ -154,6 +154,43 @@ def test_overlay_service_returns_empty_for_missing_omr(tmp_path: Path) -> None:
     assert result == []
 
 
+def test_native_overlay_accepts_version_two_source_map(tmp_path: Path) -> None:
+    """Candidate metadata must not disable the native recognition overlay."""
+    import base64
+    import json
+
+    # A 1x1 transparent PNG is enough to exercise the sidecar contract.
+    (tmp_path / "overlay.png").write_bytes(
+        base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/"
+            "eU8AAAAASUVORK5CYII="
+        )
+    )
+    (tmp_path / "score-link-map.json").write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "sheets": [
+                    {
+                        "sheet_index": 1,
+                        "width": 1,
+                        "height": 1,
+                        "overlay_file": "overlay.png",
+                        "elements": [],
+                        "glyphs": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    overlay, source_map = OverlayService().find_native_overlay(tmp_path)
+
+    assert overlay == tmp_path / "overlay.png"
+    assert source_map == tmp_path / "score-link-map.json"
+
+
 def test_overlay_service_generates_svg_files(tmp_path: Path) -> None:
     import shutil
 

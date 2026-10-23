@@ -12,7 +12,7 @@ from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
 from ...models.score import JianpuScore
 from ..render.render_service import PublicationRenderService
 from .entity_service import CorrectableEntity
-from .musicxml_patch import apply_deletions
+from .musicxml_patch import apply_candidate_selections, apply_deletions
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,12 +38,16 @@ class CorrectionService:
         entities: dict[str, CorrectableEntity],
         options: ConversionOptionsDTO,
         output_dir: Path,
+        candidate_selections: dict[str, str] | None = None,
         text_attachments: list[SourceTextAttachment] | None = None,
     ) -> CorrectionArtifacts:
         working_xml = apply_deletions(
             original_musicxml,
             deleted_source_ids,
             entities,
+        )
+        working_xml = apply_candidate_selections(
+            working_xml, candidate_selections or {}, entities
         )
         output_dir.mkdir(parents=True, exist_ok=True)
         musicxml_path = output_dir / "corrected.musicxml"

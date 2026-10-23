@@ -76,6 +76,7 @@ class HistoryActions:
                 original_musicxml=p.original_musicxml,
                 working_musicxml=p.working_musicxml,
                 deleted_source_ids=p.deleted_source_ids,
+                recognition_candidate_selections=p.recognition_candidate_selections,
             )
             for p in req.pages
         ]
@@ -138,6 +139,7 @@ class HistoryActions:
             original_musicxml=req.original_musicxml,
             working_musicxml=req.working_musicxml,
             deleted_source_ids=req.deleted_source_ids,
+            recognition_candidate_selections=req.recognition_candidate_selections,
         )
         if not page:
             raise FileNotFoundError("Page not found")
@@ -232,6 +234,7 @@ class HistoryActions:
                 original_musicxml=page.original_musicxml,
                 working_musicxml=page.working_musicxml,
                 deleted_source_ids=page.deleted_source_ids,
+                recognition_candidate_selections=page.recognition_candidate_selections,
             )
 
         batch = self.service.save_batch(
@@ -317,6 +320,7 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         original_musicxml=page.original_musicxml,
         working_musicxml=page.working_musicxml,
         deleted_source_ids=page.deleted_source_ids,
+        recognition_candidate_selections=page.recognition_candidate_selections,
     )
 
 

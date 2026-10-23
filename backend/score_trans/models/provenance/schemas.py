@@ -17,6 +17,12 @@ class MusicXmlLocator(BaseModel):
     contains: str
 
 
+class ShapeCandidate(BaseModel):
+    shape: str
+    score: float
+    score_kind: str
+
+
 class SourceElement(BaseModel):
     source_id: str
     inter_id: int
@@ -25,6 +31,7 @@ class SourceElement(BaseModel):
     bounds: BoundingBox
     hit_path: str
     musicxml_locator: MusicXmlLocator
+    candidates: list[ShapeCandidate] = Field(default_factory=list)
 
 
 class SourceMapSheet(BaseModel):
@@ -33,6 +40,15 @@ class SourceMapSheet(BaseModel):
     height: int
     overlay_file: str
     elements: list[SourceElement] = Field(default_factory=list)
+    glyphs: list["SourceGlyph"] = Field(default_factory=list)
+
+
+class SourceGlyph(BaseModel):
+    glyph_id: str
+    shape_candidates: list[ShapeCandidate] = Field(default_factory=list)
+    bounds: BoundingBox
+    hit_path: str
+    suspicious: bool = False
 
 
 class SourceMap(BaseModel):

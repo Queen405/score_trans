@@ -7,6 +7,8 @@ from ...models.correct.schemas import (
     CorrectionRequest,
     CorrectionResponse,
     CorrectableEntityDTO,
+    CandidateDTO,
+    SuspiciousGlyphDTO,
     EntitiesResponse,
     SheetEntitiesDTO,
 )
@@ -51,6 +53,7 @@ class CorrectActions:
                     entities,
                     req.options,
                     Path(temp_dir),
+                    req.candidate_selections,
                     req.text_attachments,
                 )
             svg_file_ids = [self.uploads.register(path) for path in artifacts.svg_paths]
@@ -61,6 +64,7 @@ class CorrectActions:
             text_hash=artifacts.text_hash,
             svg_file_ids=svg_file_ids,
             warnings=dedupe_preserve_order(captured),
+            applied_candidate_selections=req.candidate_selections,
         )
 
     def _load_entities(
@@ -75,7 +79,9 @@ class CorrectActions:
         if not source_map_path or not Path(source_map_path).is_file():
             raise FileNotFoundError(f"来源映射文件不存在：{source_map_file_id}")
         sheets = extract_entities(omr_path, load_source_map(source_map_path))
-        if not sheets or not any(sheet.entities for sheet in sheets):
+        if not sheets or not any(
+            sheet.entities or sheet.suspicious_glyphs for sheet in sheets
+        ):
             raise ValueError("该识别结果不包含可安全编辑的 MusicXML 定位信息")
         return sheets
 
@@ -102,8 +108,22 @@ def _to_entities_response(sheets: list[CorrectableSheet]) -> EntitiesResponse:
                         is_structural=entity.is_structural,
                         musicxml_locator=entity.musicxml_locator,
                         hit_path=entity.hit_path,
+                        candidates=[
+                            CandidateDTO(shape=shape, score=score, score_kind=kind)
+                            for shape, score, kind in entity.candidates
+                        ],
                     )
                     for entity in sheet.entities
+                ],
+                suspicious_glyphs=[
+                    SuspiciousGlyphDTO(
+                        glyph_id=glyph_id,
+                        bounds_x=bounds[0], bounds_y=bounds[1],
+                        bounds_w=bounds[2], bounds_h=bounds[3],
+                        hit_path=hit_path,
+                        candidates=[CandidateDTO(shape=s, score=v, score_kind=k) for s, v, k in candidates],
+                    )
+                    for glyph_id, bounds, hit_path, candidates in sheet.suspicious_glyphs
                 ],
             )
             for sheet in sheets

@@ -26,6 +26,24 @@ class CorrectableEntityDTO(BaseModel):
     is_structural: bool
     musicxml_locator: str | None = None
     hit_path: str | None = None
+    candidates: list["CandidateDTO"] = Field(default_factory=list)
+    current_score_kind: str = "audiveris_inter_grade"
+
+
+class CandidateDTO(BaseModel):
+    shape: str
+    score: float
+    score_kind: str
+
+
+class SuspiciousGlyphDTO(BaseModel):
+    glyph_id: str
+    bounds_x: float
+    bounds_y: float
+    bounds_w: float
+    bounds_h: float
+    hit_path: str
+    candidates: list[CandidateDTO] = Field(default_factory=list)
 
 
 class SheetEntitiesDTO(BaseModel):
@@ -33,6 +51,7 @@ class SheetEntitiesDTO(BaseModel):
     width: int
     height: int
     entities: list[CorrectableEntityDTO] = Field(default_factory=list)
+    suspicious_glyphs: list[SuspiciousGlyphDTO] = Field(default_factory=list)
 
 
 class EntitiesResponse(BaseModel):
@@ -53,6 +72,7 @@ class CorrectionRequest(BaseModel):
     omr_file_id: str
     source_map_file_id: str
     deleted_source_ids: list[str] = Field(min_length=0)
+    candidate_selections: dict[str, str] = Field(default_factory=dict)
     text_attachments: list[SourceTextAttachment] = Field(default_factory=list)
     options: ConversionOptionsDTO = Field(default_factory=ConversionOptionsDTO)
 
@@ -64,3 +84,4 @@ class CorrectionResponse(BaseModel):
     text_hash: str
     svg_file_ids: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    applied_candidate_selections: dict[str, str] = Field(default_factory=dict)

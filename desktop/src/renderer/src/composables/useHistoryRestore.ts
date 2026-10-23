@@ -209,6 +209,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       originalMusicxml: page.original_musicxml || '',
       workingMusicxml: page.working_musicxml || page.original_musicxml || '',
       deletedSourceIds: page.deleted_source_ids || [],
+      recognitionCandidateSelections: page.recognition_candidate_selections || {},
       ...liveRecognitionTaskPatch(page.id, page.status),
     }
   }

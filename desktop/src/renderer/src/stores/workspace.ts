@@ -64,6 +64,7 @@ export interface TaskPage {
   originalMusicxml: string
   workingMusicxml: string
   deletedSourceIds: string[]
+  recognitionCandidateSelections: Record<string, string>
 }
 
 export interface TaskPageInput {
@@ -99,6 +100,7 @@ export interface TaskPageInput {
   originalMusicxml?: string
   workingMusicxml?: string
   deletedSourceIds?: string[]
+  recognitionCandidateSelections?: Record<string, string>
 }
 
 function createPage(seed?: Partial<TaskPage>): TaskPage {
@@ -137,6 +139,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     originalMusicxml: '',
     workingMusicxml: '',
     deletedSourceIds: [],
+    recognitionCandidateSelections: {},
     ...seed,
   }
 }
@@ -1003,6 +1006,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       originalMusicxml: p.originalMusicxml ?? '',
       workingMusicxml: p.workingMusicxml ?? '',
       deletedSourceIds: [...(p.deletedSourceIds ?? [])],
+      recognitionCandidateSelections: { ...(p.recognitionCandidateSelections ?? {}) },
     }))
     pages.value.splice(index, 1, ...nextPages)
     if (!pages.value.length) {
@@ -1214,6 +1218,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       originalMusicxml: p.originalMusicxml ?? '',
       workingMusicxml: p.workingMusicxml ?? '',
       deletedSourceIds: [...(p.deletedSourceIds ?? [])],
+      recognitionCandidateSelections: { ...(p.recognitionCandidateSelections ?? {}) },
     }))
     currentBatchId.value = bid
     if (renderPageFileIds.length) {

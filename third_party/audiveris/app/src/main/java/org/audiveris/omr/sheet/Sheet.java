@@ -199,6 +199,10 @@ public class Sheet
     @XmlElement(name = "page")
     private final List<Page> pages = new ArrayList<>();
 
+    /** Compact recognition-time notehead candidates used to diagnose unrecognized glyphs. */
+    @XmlElement(name = "score-trans-note-candidate-location")
+    private List<String> scoreTransNoteCandidateLocations = new ArrayList<>();
+
     /**
      * Global glyph index.
      * See annotated get/set methods: {@link #getGlyphIndexContent()}
@@ -832,6 +836,17 @@ public class Sheet
         }
 
         return glyphIndex;
+    }
+
+    public List<String> getScoreTransNoteCandidateLocations ()
+    {
+        return scoreTransNoteCandidateLocations;
+    }
+
+    public void setScoreTransNoteCandidateLocations (List<String> locations)
+    {
+        scoreTransNoteCandidateLocations = (locations == null)
+                ? new ArrayList<>() : new ArrayList<>(locations);
     }
 
     //----------------------//

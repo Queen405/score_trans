@@ -50,6 +50,7 @@ import org.audiveris.omr.math.ReversePathIterator;
 import org.audiveris.omr.run.Orientation;
 import org.audiveris.omr.score.DrumSet;
 import org.audiveris.omr.score.DrumSet.DrumInstrument;
+import org.audiveris.omr.score.ScoreTransCandidateRegistry;
 import org.audiveris.omr.sheet.Part;
 import org.audiveris.omr.sheet.Picture;
 import org.audiveris.omr.sheet.Scale;
@@ -93,7 +94,9 @@ import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -176,6 +179,9 @@ public class NoteHeadsBuilder
 
     /** The head-oriented spots for this system. */
     private final List<Glyph> systemSpots;
+
+    /** Avoid repeating diagnostic template scans for the same glyph on every staff pitch. */
+    private final Set<Integer> evaluatedDiagnosticGlyphs = new HashSet<>();
 
     /** Scale-dependent constants. */
     private final Parameters params;
@@ -330,6 +336,10 @@ public class NoteHeadsBuilder
      */
     public void buildHeads ()
     {
+        if (system.getId() == 1) {
+            ScoreTransCandidateRegistry.beginSheet(sheet);
+        }
+
         final MusicFamily family = sheet.getStub().getMusicFamily();
         final StopWatch watch = new StopWatch("buildHeads S#" + system.getId());
         systemBarAreas = getSystemBarAreas();
@@ -416,6 +426,7 @@ public class NoteHeadsBuilder
 
         logger.debug("S#{} seeds {}", system.getId(), seedsPerf);
         logger.debug("    range {}", rangePerf);
+        ScoreTransCandidateRegistry.flush(sheet);
     }
 
     //-------------------------//
@@ -1993,14 +2004,21 @@ public class NoteHeadsBuilder
                         ? scannerTemplateNotesAll
                         : scannerTemplateNotesHollow;
 
+                final Map<Shape, Double> locationScores = new EnumMap<>(Shape.class);
+                boolean hasStrongCandidate = false;
+
                 ShapeLoop:
                 for (Shape shape : shapeSet) {
                     PixelDistance bestLoc = null;
+                    PixelDistance bestAny = null;
 
                     for (int yOffset : yOffsets) {
                         final int y = y0 + yOffset;
                         PixelDistance loc = eval(shape, x0, y, MIDDLE_LEFT);
 
+                        if (loc != null && (bestAny == null || bestAny.d > loc.d)) {
+                            bestAny = loc;
+                        }
                         if ((loc != null) && (loc.d <= params.maxDistanceLow)) {
                             if ((bestLoc == null) || (bestLoc.d > loc.d)) {
                                 bestLoc = loc;
@@ -2009,6 +2027,12 @@ public class NoteHeadsBuilder
                             // This is the very first (best guess) location tried.
                             // If eval is really bad, stop immediately
                             if ((loc == null) || (loc.d >= params.reallyBadDistance)) {
+                                if (loc != null) {
+                                    locationScores.merge(
+                                            shape,
+                                            Template.impactOf(loc.d),
+                                            Math::max);
+                                }
                                 rangePerf.abandons++;
 
                                 continue ShapeLoop;
@@ -2016,7 +2040,16 @@ public class NoteHeadsBuilder
                         }
                     }
 
+                    if (bestLoc == null && bestAny != null) {
+                        locationScores.merge(
+                                shape,
+                                Template.impactOf(bestAny.d),
+                                Math::max);
+                        continue;
+                    }
+
                     if (bestLoc != null) {
+                        hasStrongCandidate = true;
                         // Special case: NOTEHEAD_VOID mistaken for NOTEHEAD_BLACK
                         if (shape == Shape.NOTEHEAD_BLACK) {
                             Shape newShape = evalBlackAsVoid(bestLoc.x, bestLoc.y, MIDDLE_LEFT);
@@ -2025,6 +2058,8 @@ public class NoteHeadsBuilder
                                 shape = newShape;
                             }
                         }
+
+                        locationScores.merge(shape, Template.impactOf(bestLoc.d), Math::max);
 
                         // Weak stemless heads can be discarded immediately
                         if (isWeakStemLessHead(shape, bestLoc)) {
@@ -2043,6 +2078,10 @@ public class NoteHeadsBuilder
                         }
                     }
                 }
+
+                if (hasStrongCandidate) {
+                    ScoreTransCandidateRegistry.record(sheet, x0, y0, locationScores);
+                }
             }
             // Aggregate matching inters
             heads = aggregateMatches(heads);
@@ -2057,12 +2096,18 @@ public class NoteHeadsBuilder
                 final Glyph glyph = inter.retrieveGlyph(template, image);
 
                 if (glyph != null) {
+                    ScoreTransCandidateRegistry.persistNear(
+                            sheet,
+                            inter.getBounds(),
+                            glyph,
+                            sheet.getInterline() * 2);
                     sig.addVertex(inter);
                 } else {
                     it.remove();
                 }
             }
 
+            collectUnmatchedGlyphCandidates();
             return heads;
         }
 
@@ -2103,11 +2148,15 @@ public class NoteHeadsBuilder
                 final int y0 = getTheoreticalOrdinate(x0); // Precise y value
 
                 for (Anchor anchor : anchors) {
+                    final Map<Shape, Double> locationScores = new EnumMap<>(Shape.class);
+                    final int firstHeadIndex = heads.size();
+                    boolean hasStrongCandidate = false;
                     // For each stem side and for each possible shape,
                     // keep the best match (if acceptable) among all locations tried.
                     ShapeLoop:
                     for (Shape shape : scannerTemplateNotesStem) {
                         PixelDistance bestLoc = null;
+                        PixelDistance bestAny = null;
 
                         // Brute force: explore the whole rectangle around (x0, y0)
                         for (int yOffset : yOffsets) {
@@ -2117,6 +2166,9 @@ public class NoteHeadsBuilder
                                 final int x = x0 + xOffset;
                                 final PixelDistance loc = eval(shape, x, y, anchor);
 
+                                if (loc != null && (bestAny == null || bestAny.d > loc.d)) {
+                                    bestAny = loc;
+                                }
                                 if ((loc != null) && (loc.d <= params.maxDistanceLow)) {
                                     if ((bestLoc == null) || (bestLoc.d > loc.d)) {
                                         bestLoc = loc;
@@ -2125,6 +2177,12 @@ public class NoteHeadsBuilder
                                     // This is the very first (best guess) location tried.
                                     // If eval is really bad, stop immediately
                                     if ((loc == null) || (loc.d >= params.reallyBadDistance)) {
+                                        if (loc != null) {
+                                            locationScores.merge(
+                                                    shape,
+                                                    Template.impactOf(loc.d),
+                                                    Math::max);
+                                        }
                                         seedsPerf.abandons++;
 
                                         continue ShapeLoop;
@@ -2134,8 +2192,15 @@ public class NoteHeadsBuilder
                         }
 
                         if (bestLoc == null) {
+                            if (bestAny != null) {
+                                locationScores.merge(
+                                        shape,
+                                        Template.impactOf(bestAny.d),
+                                        Math::max);
+                            }
                             continue;
                         }
+                        hasStrongCandidate = true;
 
                         // Special case: NOTEHEAD_VOID mistaken for NOTEHEAD_BLACK
                         if (shape == Shape.NOTEHEAD_BLACK) {
@@ -2145,6 +2210,8 @@ public class NoteHeadsBuilder
                                 shape = newShape;
                             }
                         }
+
+                        locationScores.merge(shape, Template.impactOf(bestLoc.d), Math::max);
 
                         final HeadInter head = createInter(
                                 bestLoc,
@@ -2178,10 +2245,64 @@ public class NoteHeadsBuilder
                                 : x0 + 0.5 - (box.x + box.width - 1);
                         tally.putDx(head, hSide, dx);
                     }
+                    if (hasStrongCandidate) {
+                        ScoreTransCandidateRegistry.record(sheet, x0, y0, locationScores);
+                    }
+                    for (HeadInter head : heads.subList(firstHeadIndex, heads.size())) {
+                        ScoreTransCandidateRegistry.persistNear(
+                                sheet, head.getBounds(), head.getGlyph(), sheet.getInterline() * 2);
+                    }
                 }
             }
 
+            collectUnmatchedGlyphCandidates();
             return heads;
+        }
+
+        /** Evaluate nearby glyphs with the same templates used for accepted noteheads. */
+        private void collectUnmatchedGlyphCandidates ()
+        {
+            final int minDimension = Math.max(1, interline / 4);
+            final int maxDimension = interline * 4;
+            final List<Glyph> nearbyGlyphs = getGlyphsSlice(
+                    systemSpots, competitorsArea);
+
+            for (Glyph glyph : nearbyGlyphs) {
+                final Rectangle box = glyph.getBounds();
+                if (box == null || box.isEmpty()
+                        || box.width < minDimension || box.height < minDimension
+                        || box.width > maxDimension || box.height > maxDimension) {
+                    continue;
+                }
+                final int x0 = (int) Math.rint(box.getCenterX());
+                final int y0 = getTheoreticalOrdinate(x0);
+                if (Math.abs(box.getCenterY() - y0) > interline) continue;
+                if (!evaluatedDiagnosticGlyphs.add(glyph.getId())) continue;
+
+                final Map<Shape, Double> scores = new EnumMap<>(Shape.class);
+                for (Shape shape : scannerTemplateNotesAll) {
+                    PixelDistance best = null;
+                    for (int dx : xOffsets) {
+                        for (int dy : yOffsets) {
+                            final PixelDistance candidate = eval(
+                                    shape, x0 + dx, y0 + dy, MIDDLE_LEFT);
+                            if (candidate != null && (best == null || candidate.d < best.d)) {
+                                best = candidate;
+                            }
+                        }
+                    }
+                    if (best == null) continue;
+
+                    Shape matchedShape = shape;
+                    if (shape == Shape.NOTEHEAD_BLACK) {
+                        final Shape hollow = evalBlackAsVoid(best.x, best.y, MIDDLE_LEFT);
+                        if (hollow != null) matchedShape = hollow;
+                    }
+                    scores.merge(matchedShape, Template.impactOf(best.d), Math::max);
+                }
+
+                ScoreTransCandidateRegistry.recordForGlyph(glyph, scores);
+            }
         }
     }
 

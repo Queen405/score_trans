@@ -14,6 +14,7 @@ export type {
   BatchRenderResponse,
   CacheCleanupResponse,
   CorrectableEntityDTO,
+  SuspiciousGlyphDTO,
   CorrectionRequest,
   CorrectionResponse,
   EntitiesResponse,

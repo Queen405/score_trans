@@ -20,6 +20,7 @@ export function historyPagePatchFromPage(page: HistoryPage): HistoryPagePatchDet
       original_musicxml: page.original_musicxml,
       working_musicxml: page.working_musicxml,
       deleted_source_ids: page.deleted_source_ids,
+      recognition_candidate_selections: page.recognition_candidate_selections,
       status: page.status,
       error_message: page.error_message,
     },

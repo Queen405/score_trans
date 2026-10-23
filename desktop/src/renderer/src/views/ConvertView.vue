@@ -260,7 +260,7 @@
               class="panel-filename"
             >{{ store.originalFileName }}</span>
             <div
-              v-if="canEditMarkers"
+              v-if="canOpenMarkerEditor"
               class="marker-edit-controls"
             >
               <n-button
@@ -276,11 +276,14 @@
                   size="tiny"
                   type="warning"
                   :loading="applying"
-                  :disabled="loadingEntities"
+                  :disabled="loadingEntities || !canEditMarkers"
                   @click="applyCorrections"
                 >
                   {{ t('convert.marker.apply') }}
                 </n-button>
+                <small v-if="!store.originalMusicxml" class="marker-edit-hint">
+                  {{ t('convert.marker.missingMusicxml') }}
+                </small>
               </template>
             </div>
           </div>
@@ -295,13 +298,126 @@
               :selected-source-id="selectedSourceId"
               :editable="editMode"
               :entities="correctableEntities"
+              :applied-candidate-selections="store.currentPage?.recognitionCandidateSelections"
+              :suspicious-glyphs="correctableSheet?.suspicious_glyphs"
+              :selected-glyph-id="selectedGlyphId"
               :deleted-entity-ids="deletedEntityIds"
               :applied-deleted-source-ids="appliedDeletedSourceIds"
               :entity-width="correctableSheet?.width"
               :entity-height="correctableSheet?.height"
               @select-source="handleOriginalSourceClick"
               @toggle-delete="toggleEntityDelete"
-            />
+              @select-glyph="selectSuspiciousGlyph"
+            >
+              <template #marker-editor="{ close }">
+                <section
+                  v-if="editMode && selectedEntity"
+                  class="candidate-editor"
+                >
+                  <header class="candidate-editor__header">
+                    <div class="candidate-editor__title-row">
+                      <div class="candidate-editor__title">
+                        <span class="candidate-editor__eyebrow">{{ t('convert.marker.inspector') }}</span>
+                        <NoteheadSymbol :shape="selectedCandidateShape || selectedEntity.shape" />
+                      </div>
+                      <button
+                        class="candidate-editor__close"
+                        type="button"
+                        :aria-label="t('convert.marker.closeInspector')"
+                        :title="t('convert.marker.closeInspector')"
+                        @click="close"
+                      >
+                        ×
+                      </button>
+                      <span class="current-grade">
+                        <span>{{ Math.round(selectedEntityDisplayGrade * 100) }}%</span>
+                        <small>{{ t('convert.marker.currentScore') }}</small>
+                      </span>
+                    </div>
+                  </header>
+                  <div class="candidate-editor__body">
+                    <div class="candidate-list-heading">
+                      <strong>{{ t('convert.marker.topCandidates') }}</strong>
+                      <span>{{ selectedEntityCandidates.length }}</span>
+                    </div>
+                    <div
+                      v-if="selectedEntityCandidates.length"
+                      class="candidate-list"
+                    >
+                      <button
+                        v-for="(candidate, index) in selectedEntityCandidates"
+                        :key="`${candidate.score_kind}:${candidate.shape}`"
+                        class="candidate-option"
+                        :class="{ selected: selectedCandidateShape === candidate.shape }"
+                        :style="{ '--candidate-score': `${Math.max(0, Math.min(1, candidate.score)) * 100}%` }"
+                        type="button"
+                        @click="selectCandidate(selectedEntity.source_id, candidate.shape)"
+                      >
+                        <span class="candidate-rank">{{ index + 1 }}</span>
+                        <span class="candidate-shape"><NoteheadSymbol :shape="candidate.shape" /></span>
+                        <span class="candidate-score">{{ Math.round(candidate.score * 100) }}%</span>
+                      </button>
+                    </div>
+                    <p
+                      v-else
+                      class="candidate-empty"
+                    >
+                      {{ t('convert.marker.noTopFive') }}
+                    </p>
+                  </div>
+                </section>
+                <section
+                  v-if="editMode && selectedGlyph"
+                  class="candidate-editor glyph-candidate-editor"
+                >
+                  <header class="candidate-editor__header">
+                    <div class="candidate-editor__title-row">
+                      <div class="candidate-editor__title">
+                        <span class="candidate-editor__eyebrow">
+                          {{ t('convert.marker.suspiciousGlyph') }}
+                        </span>
+                        <strong>{{ t('convert.marker.topCandidates') }}</strong>
+                      </div>
+                      <button
+                        class="candidate-editor__close"
+                        type="button"
+                        :aria-label="t('convert.marker.closeInspector')"
+                        :title="t('convert.marker.closeInspector')"
+                        @click="close"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </header>
+                  <div class="candidate-editor__body">
+                    <div
+                      v-if="selectedGlyphCandidates.length"
+                      class="candidate-list"
+                    >
+                      <div
+                        v-for="(candidate, index) in selectedGlyphCandidates"
+                        :key="candidate.shape"
+                        class="candidate-option candidate-option--display"
+                        :style="{ '--candidate-score': `${Math.max(0, Math.min(1, candidate.score)) * 100}%` }"
+                      >
+                        <span class="candidate-rank">{{ index + 1 }}</span>
+                        <span class="candidate-shape"><NoteheadSymbol :shape="candidate.shape" /></span>
+                        <span class="candidate-score">{{ Math.round(candidate.score * 100) }}%</span>
+                      </div>
+                    </div>
+                    <p
+                      v-else
+                      class="candidate-empty"
+                    >
+                      {{ t('convert.marker.noTopFive') }}
+                    </p>
+                    <small class="candidate-note">
+                      {{ t('convert.marker.glyphHintOnly') }}
+                    </small>
+                  </div>
+                </section>
+              </template>
+            </original-preview>
           </div>
         </div>
 
@@ -518,6 +634,7 @@ import JianpuPlayer from '../components/JianpuPlayer.vue'
 import { emptyPlaybackHighlight, type PlaybackHighlight } from '../utils/midiSourceMap'
 import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
+import NoteheadSymbol from '../components/NoteheadSymbol.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
 import LiveJianpuPreview from '../components/LiveJianpuPreview.vue'
 import { useLiveJianpuPreview } from '../composables/useLiveJianpuPreview'
@@ -626,11 +743,52 @@ const svgPreviewRef = ref<{
 const selectedSourceId = ref('')
 const editMode = ref(false)
 const deletedEntityIds = ref<Set<string>>(new Set())
+const candidateSelections = ref<Record<string, string>>({})
+const effectiveCandidateSelections = computed(() => {
+  const selections: Record<string, string> = {}
+  for (const [sourceId, shape] of Object.entries(candidateSelections.value)) {
+    const entity = correctableEntities.value.find((item) => item.source_id === sourceId)
+    const candidate = entity?.candidates?.find((item) => item.shape === shape)
+    if (entity?.tag === 'head'
+        && candidate?.score_kind === 'audiveris_notehead_template') {
+      selections[sourceId] = shape
+    }
+  }
+  return selections
+})
+const selectedGlyphId = ref('')
+const selectedGlyph = computed(() => correctableSheet.value?.suspicious_glyphs?.find(
+  (glyph) => glyph.glyph_id === selectedGlyphId.value,
+))
+const selectedEntityCandidates = computed(() => (
+  selectedEntity.value?.candidates
+    ?.filter((candidate) => selectedEntity.value?.tag === 'head'
+      ? candidate.score_kind === 'audiveris_notehead_template'
+      : candidate.score_kind === 'audiveris_shape_classifier')
+    .slice(0, 5) ?? []
+))
+const selectedGlyphCandidates = computed(() => (
+  selectedGlyph.value?.candidates
+    ?.filter((candidate) => candidate.score_kind === 'audiveris_notehead_template')
+    .slice(0, 5) ?? []
+))
 const appliedDeletedSourceIds = computed(() => store.currentPage?.deletedSourceIds ?? [])
 const correctableSheet = ref<SheetEntitiesDTO | null>(null)
 const correctableEntities = computed<CorrectableEntityDTO[]>(
   () => correctableSheet.value?.entities ?? [],
 )
+const selectedEntity = computed(() => correctableEntities.value.find(
+  (entity) => entity.source_id === selectedSourceId.value,
+))
+const selectedCandidateShape = computed(() => selectedEntity.value
+  ? candidateSelections.value[selectedEntity.value.source_id] ?? selectedEntity.value.shape
+  : '')
+const selectedEntityDisplayGrade = computed(() => {
+  const selectedShape = selectedCandidateShape.value
+  return selectedEntity.value?.candidates?.find((candidate) => candidate.shape === selectedShape)?.score
+    ?? selectedEntity.value?.grade
+    ?? 0
+})
 const applying = ref(false)
 const loadingEntities = ref(false)
 let entityLoadController: AbortController | null = null
@@ -639,6 +797,11 @@ const canEditMarkers = computed(() => (
   !!store.omrFileId
   && !!store.sourceMapFileId
   && !!store.originalMusicxml
+  && /\.(png|jpe?g|tiff?|webp)$/i.test(store.originalFileName)
+))
+const canLoadMarkerData = computed(() => !!store.omrFileId && !!store.sourceMapFileId)
+const canOpenMarkerEditor = computed(() => (
+  !!store.originalFileId
   && /\.(png|jpe?g|tiff?|webp)$/i.test(store.originalFileName)
 ))
 
@@ -977,6 +1140,8 @@ function refreshRekeyBaselines(text: string): void {
 
 async function handleOriginalSourceClick(sourceId: string): Promise<void> {
   selectedSourceId.value = sourceId
+  selectedGlyphId.value = ''
+  if (editMode.value) return
   const candidates = store.textAnchors.filter((anchor) => anchor.source_id === sourceId)
   const sections = parseJianpuPageSections(jianpuText.value)
   const localIndex = Math.max(0, currentBatchLocalIndex.value)
@@ -2043,7 +2208,10 @@ async function resetAll(): Promise<void> {
 }
 
 async function enterEditMode() {
-  if (!canEditMarkers.value) return
+  if (!canLoadMarkerData.value) {
+    message.warning(t('convert.marker.missingSourceData'))
+    return
+  }
   editMode.value = true
   if (!correctableSheet.value) {
     loadingEntities.value = true
@@ -2089,6 +2257,20 @@ async function loadEntities(): Promise<void> {
     return
   }
   correctableSheet.value = sheets[0] ?? null
+  candidateSelections.value = { ...(store.currentPage?.recognitionCandidateSelections ?? {}) }
+}
+
+function selectCandidate(sourceId: string, shape: string): void {
+  const candidate = selectedEntityCandidates.value.find((item) => item.shape === shape)
+  if (!candidate || candidate.score_kind !== 'audiveris_notehead_template'
+      || selectedEntity.value?.tag !== 'head'
+      || selectedEntity.value.source_id !== sourceId) return
+  candidateSelections.value = { ...candidateSelections.value, [sourceId]: shape }
+}
+
+function selectSuspiciousGlyph(glyphId: string): void {
+  selectedGlyphId.value = glyphId
+  selectedSourceId.value = ''
 }
 
 function toggleEntityDelete(sourceId: string) {
@@ -2103,10 +2285,18 @@ function toggleEntityDelete(sourceId: string) {
 
 async function applyCorrections(): Promise<void> {
   const page = store.currentPage
-  if (!page || !canEditMarkers.value) return
+  if (!page) return
+  if (!canEditMarkers.value) {
+    message.warning(t('convert.marker.missingMusicxml'))
+    return
+  }
   const baseline = new Set(page.deletedSourceIds ?? [])
   const current = deletedEntityIds.value
-  const hasPendingChange =
+  const baselineSelections = page.recognitionCandidateSelections ?? {}
+  const selectedChanges = Object.keys(effectiveCandidateSelections.value).some(
+    (id) => effectiveCandidateSelections.value[id] !== baselineSelections[id],
+  ) || Object.keys(baselineSelections).some((id) => !effectiveCandidateSelections.value[id])
+  const hasPendingChange = selectedChanges ||
     [...current].some((id) => !baseline.has(id)) ||
     [...baseline].some((id) => !current.has(id))
   if (!hasPendingChange) {
@@ -2125,6 +2315,7 @@ async function applyCorrections(): Promise<void> {
     const data = await requireData(correctApi.apply({
       original_musicxml: page.originalMusicxml,
       deleted_source_ids: [...deletedEntityIds.value],
+      candidate_selections: effectiveCandidateSelections.value,
       omr_file_id: page.omrFileId,
       source_map_file_id: page.sourceMapFileId,
       text_attachments: page.textAttachments,
@@ -2177,6 +2368,7 @@ async function applyCorrections(): Promise<void> {
       jianpuText: nextPageText,
       jianpuDirty: preserveEditedText,
       deletedSourceIds: [...deletedEntityIds.value],
+      recognitionCandidateSelections: { ...data.applied_candidate_selections },
       textAnchors: nextTextAnchors,
       textAnchorBaselineText: corrected.jianpuText,
       textAnchorBaselineAnchors,
@@ -2979,7 +3171,247 @@ defineExpose({ flushPendingEdits })
   flex: 1;
   min-height: 0;
   display: flex;
+  gap: 8px;
   padding: 6px;
+}
+
+.ws-panel-body > .original-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.candidate-editor {
+  width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.candidate-editor__header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.candidate-editor__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.candidate-editor__title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.candidate-editor__title strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate-editor__eyebrow {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.current-grade {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.current-grade small,
+.current-score-kind {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.current-score-kind {
+  margin-top: -6px;
+}
+
+.candidate-threshold {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.candidate-threshold output {
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.candidate-threshold input {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.candidate-delete-button {
+  align-self: flex-start;
+  pointer-events: auto;
+}
+
+.candidate-editor input,
+.candidate-option {
+  pointer-events: auto;
+}
+
+.candidate-editor__body {
+  min-height: 0;
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.candidate-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.candidate-list-heading span {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.candidate-option {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.candidate-option::before {
+  position: absolute;
+  z-index: -1;
+  inset: auto auto 0 0;
+  width: var(--candidate-score, 0%);
+  height: 2px;
+  background: var(--accent);
+  content: '';
+  opacity: 0.55;
+}
+
+.candidate-option:not(:disabled):hover,
+.candidate-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--text-primary);
+}
+
+.candidate-option:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.candidate-option:disabled {
+  cursor: default;
+}
+
+.candidate-option.muted {
+  opacity: 0.48;
+}
+
+.candidate-option--display {
+  cursor: default;
+}
+
+.candidate-option--read-only {
+  cursor: default;
+}
+
+.candidate-rank {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--border-soft);
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.candidate-option.selected .candidate-rank {
+  background: var(--accent);
+  color: var(--bg-elevated);
+}
+
+.candidate-shape {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.candidate-score {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.candidate-note,
+.candidate-empty {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .empty-hint {
@@ -3015,4 +3447,3 @@ body.live-resizing .live-preview {
   pointer-events: none;
 }
 </style>
-

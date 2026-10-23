@@ -104,6 +104,10 @@ public class Glyph
     @XmlElement(name = "run-table")
     protected final RunTable runTable;
 
+    /** Recognition-time Score Trans notehead template candidates, if computed. */
+    @XmlAttribute(name = "score-trans-note-candidates")
+    private String scoreTransNoteCandidates;
+
     // Transient data
     //---------------
 
@@ -488,6 +492,18 @@ public class Glyph
     public RunTable getRunTable ()
     {
         return runTable;
+    }
+
+    /** Set Score Trans notehead template candidates for sidecar export. */
+    public void setScoreTransNoteCandidates (String candidates)
+    {
+        scoreTransNoteCandidates = candidates;
+    }
+
+    /** Report persisted Score Trans notehead template candidates, if any. */
+    public String getScoreTransNoteCandidates ()
+    {
+        return scoreTransNoteCandidates;
     }
 
     @Override

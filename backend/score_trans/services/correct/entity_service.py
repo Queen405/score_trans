@@ -32,6 +32,7 @@ class CorrectableEntity:
     musicxml_attribute: str
     musicxml_locator: str
     hit_path: str
+    candidates: tuple[tuple[str, float, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +41,7 @@ class CorrectableSheet:
     width: int
     height: int
     entities: tuple[CorrectableEntity, ...]
+    suspicious_glyphs: tuple[tuple[str, tuple[int, int, int, int], str, tuple[tuple[str, float, str], ...]], ...] = ()
 
 
 def extract_entities(
@@ -75,6 +77,13 @@ def extract_entities(
                     musicxml_attribute=mapped.musicxml_locator.attribute,
                     musicxml_locator=mapped.musicxml_locator.contains,
                     hit_path=mapped.hit_path,
+                    candidates=(
+                        tuple(
+                            (candidate.shape, candidate.score, candidate.score_kind)
+                            for candidate in mapped.candidates
+                        )
+                        or ((mapped.shape, mapped.grade, "audiveris_inter_grade"),)
+                    ),
                 )
             )
         result.append(
@@ -83,6 +92,16 @@ def extract_entities(
                 width=mapped_sheet.width or omr_sheet.width,
                 height=mapped_sheet.height or omr_sheet.height,
                 entities=tuple(entities),
+                suspicious_glyphs=tuple(
+                    (
+                        glyph.glyph_id,
+                        (int(glyph.bounds.x), int(glyph.bounds.y), int(glyph.bounds.width), int(glyph.bounds.height)),
+                        glyph.hit_path,
+                        tuple((candidate.shape, candidate.score, candidate.score_kind) for candidate in glyph.shape_candidates),
+                    )
+                    for glyph in (mapped_sheet.glyphs if mapped_sheet else [])
+                    if glyph.suspicious
+                ),
             )
         )
     return result
@@ -92,7 +111,7 @@ def load_source_map(source_map_path: str | Path) -> SourceMap:
     path = Path(source_map_path)
     data = json.loads(path.read_text(encoding="utf-8"))
     source_map = SourceMap.model_validate(data)
-    if source_map.version != 1 or not source_map.sheets:
+    if source_map.version not in {1, 2} or not source_map.sheets:
         raise ValueError("来源映射缺少可编辑的谱面数据")
     return source_map
 

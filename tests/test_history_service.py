@@ -247,7 +247,7 @@ def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
 
     assert "start_measure_number" not in columns
-    assert version == 9
+    assert version == 10
 
 
 def test_history_render_pages_use_current_publication_engine_version(tmp_path) -> None:
@@ -570,7 +570,7 @@ def test_v4_migration_backs_up_and_clears_history(tmp_path) -> None:
         page_columns = {
             row[1] for row in conn.execute("PRAGMA table_info(history_page)")
         }
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
         assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 0
         assert "start_measure_number" not in page_columns
@@ -610,7 +610,7 @@ def test_v5_migration_adds_ocr_stale_without_clearing_history(tmp_path) -> None:
     assert loaded.render_page_file_ids == ["svg-kept"]
     assert loaded.render_output_stale is False
     with sqlite3.connect(db_path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
 
 
 def test_schema_migration_rolls_back_all_alter_steps(tmp_path, monkeypatch) -> None:
@@ -682,7 +682,7 @@ def test_legacy_history_rows_are_discarded_after_backup(tmp_path) -> None:
         }
         assert "history" not in tables
         assert "history_legacy_backup" not in tables
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
     with sqlite3.connect(db_path.with_suffix(".v0.bak")) as conn:
         assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 2
 

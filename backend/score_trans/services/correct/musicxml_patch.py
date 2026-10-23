@@ -48,6 +48,107 @@ def apply_deletions(
     return _serialize(root, ns)
 
 
+def apply_candidate_selections(
+    original_musicxml: str,
+    selections: Mapping[str, str],
+    entities: Mapping[str, CorrectableEntity],
+) -> str:
+    """Apply selected notehead classifications atomically.
+
+    Notehead class changes also update MusicXML type and duration so the
+    regenerated Jianpu reflects the chosen quarter/half/whole-note value. The
+    correction intentionally does not validate measure rhythm.
+    """
+    if not selections:
+        return original_musicxml
+    root = safe_xml_fromstring(
+        original_musicxml.encode("utf-8"), allow_musicxml_doctype=True
+    )
+    ns = _detect_namespace(root)
+    for source_id, selected_shape in selections.items():
+        entity = entities.get(source_id)
+        if entity is None:
+            raise ValueError(f"无法定位待应用候选：{source_id}")
+        candidates = {shape for shape, _score, _kind in entity.candidates}
+        if selected_shape not in candidates:
+            raise ValueError(f"标记 {source_id} 不包含候选形状：{selected_shape}")
+        if entity.tag != "head":
+            raise ValueError(f"暂不支持该标记的候选替换：{entity.tag}")
+        current_type = _notehead_type(entity.shape)
+        selected_type = _notehead_type(selected_shape)
+        if selected_type is None:
+            raise ValueError(f"暂不支持音符头候选：{selected_shape}")
+        target = _single_matching_element(root, entity)
+        if target is None:
+            continue
+        note = _ancestor(root, target, _q(ns, "note"))
+        if note is None:
+            raise ValueError(f"标记 {source_id} 未定位到音符")
+        notehead_style = _musicxml_notehead_style(selected_shape)
+        notehead = note.find(_q(ns, "notehead"))
+        if notehead_style == "normal":
+            if notehead is not None:
+                note.remove(notehead)
+        else:
+            if notehead is None:
+                notehead = ET.Element(_q(ns, "notehead"))
+                note.insert(0, notehead)
+            notehead.text = notehead_style
+        _replace_note_type_and_duration(note, ns, current_type, selected_type)
+    return _serialize(root, ns)
+
+
+def _notehead_type(shape: str) -> str | None:
+    if shape in {"NOTEHEAD_BLACK", "NOTEHEAD_BLACK_SMALL", "NOTEHEAD_CROSS",
+                 "NOTEHEAD_DIAMOND_FILLED", "NOTEHEAD_TRIANGLE_DOWN_FILLED",
+                 "NOTEHEAD_CIRCLE_X"}:
+        return "quarter"
+    if shape in {"NOTEHEAD_VOID", "NOTEHEAD_VOID_SMALL", "NOTEHEAD_CROSS_VOID",
+                 "NOTEHEAD_DIAMOND_VOID", "NOTEHEAD_TRIANGLE_DOWN_VOID",
+                 "NOTEHEAD_CIRCLE_X_VOID"}:
+        return "half"
+    if shape in {"WHOLE_NOTE", "WHOLE_NOTE_SMALL", "WHOLE_NOTE_CROSS",
+                 "WHOLE_NOTE_DIAMOND", "WHOLE_NOTE_TRIANGLE_DOWN",
+                 "WHOLE_NOTE_CIRCLE_X"}:
+        return "whole"
+    return None
+
+
+def _replace_note_type_and_duration(
+    note: ET.Element,
+    ns: str,
+    current_type: str | None,
+    selected_type: str,
+) -> None:
+    type_element = note.find(_q(ns, "type"))
+    if type_element is None:
+        type_element = ET.Element(_q(ns, "type"))
+        note.append(type_element)
+    type_element.text = selected_type
+
+    duration_element = note.find(_q(ns, "duration"))
+    if duration_element is None or current_type is None or current_type == selected_type:
+        return
+    try:
+        duration = int(duration_element.text or "")
+    except ValueError:
+        return
+    beat_values = {"quarter": 1, "half": 2, "whole": 4}
+    numerator = duration * beat_values[selected_type]
+    denominator = beat_values[current_type]
+    duration_element.text = str(max(1, (2 * numerator + denominator) // (2 * denominator)))
+
+
+def _musicxml_notehead_style(shape: str) -> str:
+    if "DIAMOND" in shape:
+        return "diamond"
+    if "CROSS" in shape or "CIRCLE_X" in shape:
+        return "x"
+    if "TRIANGLE_DOWN" in shape:
+        return "triangle-down"
+    return "normal"
+
+
 def _detect_namespace(root: ET.Element) -> str:
     if root.tag.startswith("{"):
         return root.tag.split("}", 1)[0].lstrip("{")

@@ -19,7 +19,7 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 9
+_SCHEMA_VERSION = 10
 _MAX_SNAPSHOTS = 3
 _MIN_SQLITE_VERSION = (3, 35, 0)
 
@@ -151,6 +151,7 @@ class HistoryDao:
                 ,original_musicxml TEXT NOT NULL DEFAULT ''
                 ,working_musicxml TEXT NOT NULL DEFAULT ''
                 ,deleted_source_ids TEXT NOT NULL DEFAULT '[]'
+                ,recognition_candidate_selections TEXT NOT NULL DEFAULT '{}'
             )
             """
         )
@@ -316,8 +317,8 @@ class HistoryDao:
                          text_anchors, text_anchor_baseline_text,
                          text_anchor_baseline_anchors, status, error_message,
                          completed_at, position, omr_file_id, original_musicxml, working_musicxml,
-                         deleted_source_ids)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         deleted_source_ids, recognition_candidate_selections)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -346,6 +347,7 @@ class HistoryDao:
                         page.original_musicxml,
                         page.working_musicxml,
                         _dump_string_list(page.deleted_source_ids),
+                        _dump_string_dict(page.recognition_candidate_selections),
                     ),
                 )
             batch_status = _batch_status([p.status for p in pages])
@@ -463,7 +465,7 @@ class HistoryDao:
                 source_map_file_id = ?, text_hash = ?, text_anchors = ?,
                 text_anchor_baseline_text = ?, text_anchor_baseline_anchors = ?, status = ?,
                 error_message = ?, omr_file_id = ?, original_musicxml = ?,
-                working_musicxml = ?, deleted_source_ids = ?
+                working_musicxml = ?, deleted_source_ids = ?, recognition_candidate_selections = ?
             WHERE id = ?
             """,
             (
@@ -485,6 +487,7 @@ class HistoryDao:
                 page.original_musicxml,
                 page.working_musicxml,
                 _dump_string_list(page.deleted_source_ids),
+                _dump_string_dict(page.recognition_candidate_selections),
                 page.id,
             ),
         )
@@ -670,6 +673,7 @@ class HistoryDao:
         original_musicxml: str | None = None,
         working_musicxml: str | None = None,
         deleted_source_ids: list[str] | None = None,
+        recognition_candidate_selections: dict[str, str] | None = None,
     ) -> HistoryPage | None:
         updates: list[str] = []
         values: list[str | int | None] = []
@@ -711,6 +715,12 @@ class HistoryDao:
                 "deleted_source_ids",
                 _dump_string_list(deleted_source_ids)
                 if deleted_source_ids is not None
+                else None,
+            ),
+            (
+                "recognition_candidate_selections",
+                _dump_string_dict(recognition_candidate_selections)
+                if recognition_candidate_selections is not None
                 else None,
             ),
         ):
@@ -964,6 +974,10 @@ class HistoryDao:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN deleted_source_ids TEXT NOT NULL DEFAULT '[]'"
             )
+        if "recognition_candidate_selections" not in columns:
+            conn.execute(
+                "ALTER TABLE history_page ADD COLUMN recognition_candidate_selections TEXT NOT NULL DEFAULT '{}'"
+            )
         if version < 2:
             conn.execute(
                 "UPDATE history_page SET svg_file_id = '', engine_version = ''"
@@ -1133,6 +1147,11 @@ class HistoryDao:
                 if "deleted_source_ids" in row.keys()
                 else "[]"
             ),
+            recognition_candidate_selections=_load_string_dict(
+                row["recognition_candidate_selections"]
+                if "recognition_candidate_selections" in row.keys()
+                else "{}"
+            ),
         )
 
 
@@ -1166,6 +1185,20 @@ def _load_string_list(payload: str) -> list[str]:
     if not isinstance(raw, list):
         return []
     return [str(item) for item in raw if str(item)]
+
+
+def _dump_string_dict(items: dict[str, str]) -> str:
+    return json.dumps(items, ensure_ascii=False, separators=(",", ":"))
+
+
+def _load_string_dict(payload: str) -> dict[str, str]:
+    try:
+        raw = json.loads(payload or "{}")
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {str(key): str(value) for key, value in raw.items() if isinstance(value, str)}
 
 
 def _dump_render_page_ocr_texts(items: list[HistoryRenderPageOcrText]) -> str:
