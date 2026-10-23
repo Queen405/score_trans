@@ -228,6 +228,26 @@ def test_candidate_selection_updates_musicxml_notehead_style() -> None:
 
     assert corrected.findtext(".//note/notehead") == "x"
     assert corrected.findtext(".//note/duration") == "1"
+    assert corrected.findtext(".//note/type") == "quarter"
+
+
+def test_candidate_selection_updates_note_value_without_measure_validation() -> None:
+    entity = replace(
+        _entity("head", "head", "note-1"),
+        shape="NOTEHEAD_BLACK",
+        candidates=(
+            ("NOTEHEAD_BLACK", 0.8, "audiveris_notehead_template"),
+            ("NOTEHEAD_VOID", 0.7, "audiveris_notehead_template"),
+        ),
+    )
+    xml = '<score-partwise><part><measure><note id="note-1"><pitch><step>C</step><octave>4</octave></pitch><duration>3</duration><type>quarter</type></note></measure></part></score-partwise>'
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(xml, {"head": "NOTEHEAD_VOID"}, {"head": entity})
+    )
+
+    assert corrected.findtext(".//note/type") == "half"
+    assert corrected.findtext(".//note/duration") == "6"
 
 
 def test_candidate_selection_rejects_unknown_candidate_atomically() -> None:

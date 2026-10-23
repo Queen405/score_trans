@@ -272,6 +272,7 @@
               </n-button>
               <template v-if="editMode">
                 <span class="deleted-count">{{ t('convert.marker.deletedCount', { count: deletedEntityIds.size }) }}</span>
+                <small class="marker-edit-hint">{{ t('convert.marker.editInstructions') }}</small>
                 <n-button
                   size="tiny"
                   type="warning"
@@ -364,6 +365,12 @@
                     >
                       {{ t('convert.marker.noTopFive') }}
                     </p>
+                    <small
+                      v-if="selectedEntityCandidates.length"
+                      class="candidate-note"
+                    >
+                      {{ t('convert.marker.applySelectionHint') }}
+                    </small>
                   </div>
                 </section>
                 <section
@@ -3181,54 +3188,45 @@ defineExpose({ flushPendingEdits })
 }
 
 .candidate-editor {
-  width: 100%;
+  width: min(280px, 100%);
   max-height: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 12px;
+  background: var(--bg-elevated);
   color: var(--text-primary);
+  box-shadow: 0 12px 34px rgba(20, 24, 32, 0.22), 0 2px 8px rgba(20, 24, 32, 0.12);
+  pointer-events: auto;
 }
 
 .candidate-editor__header {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  padding: 11px 12px 10px;
   border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--accent-light) 26%, var(--bg-elevated));
 }
 
 .candidate-editor__title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 9px;
 }
 
 .candidate-editor__title {
   min-width: 0;
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.candidate-editor__title strong {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .candidate-editor__eyebrow {
   color: var(--text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .current-grade {
@@ -3237,52 +3235,37 @@ defineExpose({ flushPendingEdits })
   flex-direction: column;
   align-items: flex-end;
   color: var(--accent);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
 
 .current-grade small,
-.current-score-kind {
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 400;
-}
-
-.current-score-kind {
-  margin-top: -6px;
-}
-
-.candidate-threshold {
-  display: grid;
-  grid-template-columns: 1fr auto;
+.candidate-editor__close {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
   align-items: center;
-  gap: 6px 10px;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-elevated);
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.candidate-threshold output {
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.candidate-editor__close:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
-.candidate-threshold input {
-  grid-column: 1 / -1;
-  width: 100%;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.candidate-delete-button {
-  align-self: flex-start;
-  pointer-events: auto;
-}
-
-.candidate-editor input,
 .candidate-option {
   pointer-events: auto;
 }
@@ -3292,9 +3275,9 @@ defineExpose({ flushPendingEdits })
   display: flex;
   flex: 0 1 auto;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   overflow-y: auto;
-  padding: 12px;
+  padding: 10px;
 }
 
 .candidate-list-heading {
@@ -3305,6 +3288,12 @@ defineExpose({ flushPendingEdits })
   font-size: 11px;
 }
 
+.candidate-list-heading strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .candidate-list-heading span {
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
@@ -3313,7 +3302,7 @@ defineExpose({ flushPendingEdits })
 .candidate-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .candidate-option {
@@ -3321,18 +3310,18 @@ defineExpose({ flushPendingEdits })
   isolation: isolate;
   min-width: 0;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   overflow: hidden;
-  padding: 8px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
   background: var(--bg-elevated);
   color: var(--text-secondary);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.12s ease;
 }
 
 .candidate-option::before {
@@ -3346,30 +3335,18 @@ defineExpose({ flushPendingEdits })
   opacity: 0.55;
 }
 
-.candidate-option:not(:disabled):hover,
+.candidate-option:hover,
 .candidate-option.selected {
   border-color: var(--accent);
   background: var(--accent-light);
   color: var(--text-primary);
 }
 
-.candidate-option:active:not(:disabled) {
+.candidate-option:active {
   transform: scale(0.99);
 }
 
-.candidate-option:disabled {
-  cursor: default;
-}
-
-.candidate-option.muted {
-  opacity: 0.48;
-}
-
 .candidate-option--display {
-  cursor: default;
-}
-
-.candidate-option--read-only {
   cursor: default;
 }
 

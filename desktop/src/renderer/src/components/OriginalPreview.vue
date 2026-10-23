@@ -271,6 +271,7 @@ const appliedDeletedSourceIdSet = computed(() => new Set(props.appliedDeletedSou
 const deletedMarkElements = computed(() => (
   sourceSheet.value?.elements.filter((element) => (
     appliedDeletedSourceIdSet.value.has(element.source_id)
+      || props.deletedEntityIds?.has(element.source_id)
   )) ?? []
 ))
 const clickableElements = computed(() => (
@@ -357,7 +358,7 @@ function selectSource(sourceId: string, event: Event): void {
 function handleSourceClick(sourceId: string, event: Event): void {
   if (props.editable) {
     editorVisible.value = false
-    emit('selectGlyph', '')
+    emit('selectSource', sourceId)
     emit('toggleDelete', sourceId)
     return
   }

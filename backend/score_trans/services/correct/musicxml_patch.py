@@ -133,6 +133,8 @@ def _replace_note_type_and_duration(
         duration = int(duration_element.text or "")
     except ValueError:
         return
+    if duration <= 0:
+        return
     beat_values = {"quarter": 1, "half": 2, "whole": 4}
     numerator = duration * beat_values[selected_type]
     denominator = beat_values[current_type]
