@@ -1354,3 +1354,19 @@ def test_applied_candidate_is_reported_for_real_target() -> None:
     )
 
     assert applied == {"s1:i9": "TIME_NINE_EIGHT"}
+
+
+def test_apply_rejects_overlapping_delete_and_candidate() -> None:
+    """同一标记不能既删除又选候选，避免先删后改产生的歧义。"""
+    from score_trans.exec.correct.actions import CorrectActions
+
+    request = CorrectionRequest(
+        original_musicxml="<score-partwise/>",
+        omr_file_id="omr",
+        source_map_file_id="map",
+        deleted_source_ids=["s1:i1"],
+        candidate_selections={"s1:i1": "NOTEHEAD_VOID"},
+    )
+
+    with pytest.raises(ValueError, match="同时删除并选择候选"):
+        CorrectActions().apply_corrections(request)

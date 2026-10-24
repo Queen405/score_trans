@@ -42,6 +42,14 @@ class CorrectActions:
         )
 
     def apply_corrections(self, req: CorrectionRequest) -> CorrectionResponse:
+        if req.deleted_source_ids and req.candidate_selections:
+            conflicts = sorted(
+                set(req.deleted_source_ids) & set(req.candidate_selections)
+            )
+            if conflicts:
+                raise ValueError(
+                    f"同一标记不能同时删除并选择候选：{', '.join(conflicts)}"
+                )
         sheets = self._load_entities(req.omr_file_id, req.source_map_file_id)
         entities = entity_index(sheets)
         glyphs = {

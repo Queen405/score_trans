@@ -598,6 +598,11 @@ def _insert_note_at_glyph_position(
     anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]],
     glyph_x: float,
 ) -> None:
+    if any(_local_name(child.tag) in {"backup", "forward"} for child in measure):
+        logger.warning(
+            "小节 %s 含多声部时间轴，插入的漏检符号位置可能不准确",
+            measure.get("number", "?"),
+        )
     same_measure = [anchor for anchor in anchors if anchor[2] is measure]
     right_anchors = [
         anchor

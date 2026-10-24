@@ -193,23 +193,21 @@ public final class ScoreTransOverlayExporter
             first = false;
             appendElement(json, inter, bounds, sheet);
         }
-        appendSuspiciousGlyphs(json, sheet, exportedSourceIds);
+        appendSuspiciousGlyphs(json, sheet);
         json.append("}");
     }
 
     private static void appendSuspiciousGlyphs (StringBuilder json,
-                                                 Sheet sheet,
-                                                 Set<String> exportedSourceIds)
+                                                 Sheet sheet)
     {
         json.append("],\"glyphs\":[");
         final Set<Integer> referenced = new HashSet<>();
-        final Set<String> emittedInterIds = new HashSet<>();
         for (SystemInfo system : sheet.getSystems()) {
             for (Inter inter : system.getSig().vertexSet()) {
                 if (inter.getGlyph() != null) referenced.add(inter.getGlyph().getId());
             }
         }
-        boolean first = appendUnexportedInters(json, sheet, exportedSourceIds, emittedInterIds);
+        boolean first = true;
         final List<Glyph> suspicious = new ArrayList<>();
         final int minimumHeadDimension = Math.max(4, (int) Math.ceil(sheet.getInterline() * 0.4));
         for (Glyph glyph : sheet.getGlyphIndex().getEntities()) {
@@ -252,51 +250,6 @@ public final class ScoreTransOverlayExporter
                     .append('}');
         }
         json.append(']');
-    }
-
-    private static boolean appendUnexportedInters (StringBuilder json,
-                                                   Sheet sheet,
-                                                   Set<String> exportedSourceIds,
-                                                   Set<String> emittedInterIds)
-    {
-        boolean first = true;
-        for (SystemInfo system : sheet.getSystems()) {
-            for (Inter inter : system.getSig().vertexSet()) {
-                final String tag = candidateTag(inter);
-                final Rectangle bounds = inter.getBounds();
-                if (inter.isRemoved() || !("head".equals(tag) || "rest".equals(tag))
-                        || bounds == null || bounds.isEmpty()
-                        || exportedSourceIds.contains(ScoreTransProvenance.sourceId(inter))) {
-                    continue;
-                }
-                final List<ExportCandidate> candidates = candidatesFor(inter, sheet, tag);
-                final String interId = ScoreTransProvenance.sourceId(inter);
-                if (candidates.isEmpty() || !emittedInterIds.add(interId)) continue;
-                if (!first) json.append(',');
-                first = false;
-                json.append("{\"glyph_id\":\"").append(interId)
-                        .append("\",\"inter_id\":\"").append(inter.getId())
-                        .append("\",\"tag\":\"").append(tag)
-                        .append("\",\"shape\":\"").append(escape(shapeForInter(inter)))
-                        .append("\",\"grade\":")
-                        .append(String.format(java.util.Locale.ROOT, "%.6f", inter.getBestGrade()))
-                        .append(",\"staff\":\"")
-                        .append(inter.getStaff() == null ? "" : inter.getStaff().getId())
-                        .append("\",\"pitch\":")
-                        .append(inter instanceof AbstractNoteInter note
-                                ? String.format(java.util.Locale.ROOT, "%.4f", note.getPitch())
-                                : "null")
-                        .append(",\"bounds\":{\"x\":").append(bounds.x)
-                        .append(",\"y\":").append(bounds.y)
-                        .append(",\"width\":").append(bounds.width)
-                        .append(",\"height\":").append(bounds.height)
-                        .append("},\"hit_path\":\"")
-                        .append(escape(svgPath(hitArea(inter, bounds))))
-                        .append("\",\"suspicious\":true,\"shape_candidates\":")
-                        .append(exportCandidateJson(candidates)).append('}');
-            }
-        }
-        return first;
     }
 
     private static boolean isRepeatedAcrossRows (Glyph target,
