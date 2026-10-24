@@ -84,6 +84,22 @@ test('marker candidate maps preserve the native overlay and use contour hit path
   assert.match(originalPreviewSource, /entity\?\.can_delete[\s\S]*?emit\('toggleDelete', sourceId\)/)
 })
 
+test('applied deletions stay clickable in edit mode so they can be restored', () => {
+  // 已应用的删除若从命中层剔除，用户就再也没法点回来，因此编辑态必须保留命中区
+  assert.match(
+    originalPreviewSource,
+    /if \(appliedDeletedSourceIdSet\.value\.has\(element\.source_id\)\) return props\.editable/,
+  )
+  // 已删除记号悬停提示「恢复」，而不是再次预览删除
+  assert.match(
+    originalPreviewSource,
+    /'source-hit--deleted': editable && isElementDeleted\(element\.source_id\)/,
+  )
+  assert.match(originalPreviewSource, /t\('convert\.marker\.restore'\)/)
+  // 再次点击后虚线转绿，表示等待应用即可恢复
+  assert.match(originalPreviewSource, /deleted-mark--restore/)
+})
+
 test('uploader and recognition coordination state is instance scoped', () => {
   assert.ok(isInsideScriptSetup(uploaderSource, 'const uploadQueue'))
   assert.ok(isInsideScriptSetup(recognizeSource, 'const batchRenderInFlight'))
@@ -419,6 +435,17 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
 
 test('marker edit mode keeps the original overlay and clicks semantic hit paths without boxes', () => {
   assert.match(originalPreviewSource, /class="source-hit-layer"\s+:class="\{ editing: editable \}"/)
+  assert.match(originalPreviewSource, /\.glyph-source-hit-layer\s*\{[\s\S]*?z-index:\s*0;/)
+  assert.match(originalPreviewSource, /\.source-hit-layer\.editing \.source-hit--disabled\s*\{[\s\S]*?pointer-events:\s*none;/)
+  // 命中层用宽描边扩大点击热区，视觉高亮由独立的细线层绘制，两者解耦
+  assert.match(
+    originalPreviewSource,
+    /\.source-hit \{[\s\S]*?stroke-width:\s*6;[\s\S]*?pointer-events:\s*all;/,
+  )
+  assert.match(
+    originalPreviewSource,
+    /\.source-hit-outline \{[\s\S]*?stroke-width:\s*1\.2;[\s\S]*?pointer-events:\s*none;/,
+  )
   assert.match(originalPreviewSource, /@click\.stop="handleSourceClick\(element\.source_id, \$event\)"/)
   assert.match(originalPreviewSource, /@keydown\.enter\.prevent="selectSource\(element\.source_id, \$event\)"/)
   assert.match(originalPreviewSource, /class="marker-editor-anchor"/)

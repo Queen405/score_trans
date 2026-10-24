@@ -93,18 +93,33 @@
             class="source-hit source-hit--disabled"
             @click.stop="notifyUnmapped"
           />
-          <path
+          <g
             v-for="element in clickableElements"
             :key="element.source_id"
-            :d="element.hit_path"
-            class="source-hit"
-            :class="{ selected: element.source_id === selectedSourceId }"
-            :data-source-id="element.source_id"
-            tabindex="0"
-            @click.stop="handleSourceClick(element.source_id, $event)"
-            @contextmenu.stop.prevent="openMarkerEditor(element.source_id, $event)"
-            @keydown.enter.prevent="selectSource(element.source_id, $event)"
-          />
+          >
+            <path
+              :d="element.hit_path"
+              class="source-hit"
+              :class="{
+                selected: element.source_id === selectedSourceId,
+                'source-hit--deleted': editable && isElementDeleted(element.source_id),
+              }"
+              :data-source-id="element.source_id"
+              tabindex="0"
+              @click.stop="handleSourceClick(element.source_id, $event)"
+              @contextmenu.stop.prevent="openMarkerEditor(element.source_id, $event)"
+              @keydown.enter.prevent="selectSource(element.source_id, $event)"
+            >
+              <title v-if="editable && isElementDeleted(element.source_id)">
+                {{ t('convert.marker.restore') }}
+              </title>
+            </path>
+            <path
+              :d="element.hit_path"
+              class="source-hit-outline"
+              aria-hidden="true"
+            />
+          </g>
         </svg>
         <svg
           v-if="editable && suspiciousGlyphs?.length && isImage"
@@ -113,18 +128,26 @@
           :width="imgW || entitySheetWidth"
           :height="imgH || entitySheetHeight"
         >
-          <path
+          <g
             v-for="glyph in suspiciousGlyphs"
             :key="glyph.glyph_id"
-            :d="glyph.hit_path"
-            class="source-hit source-hit--glyph"
-            :class="{ selected: glyph.glyph_id === selectedGlyphId }"
-            :data-glyph-id="glyph.glyph_id"
-            tabindex="0"
-            @click.stop="selectGlyph(glyph.glyph_id, $event, false)"
-            @contextmenu.stop.prevent="selectGlyph(glyph.glyph_id, $event, true)"
-            @keydown.enter.prevent="selectGlyph(glyph.glyph_id, $event, true)"
-          />
+          >
+            <path
+              :d="glyph.hit_path"
+              class="source-hit source-hit--glyph"
+              :class="{ selected: glyph.glyph_id === selectedGlyphId }"
+              :data-glyph-id="glyph.glyph_id"
+              tabindex="0"
+              @click.stop="selectGlyph(glyph.glyph_id, $event, false)"
+              @contextmenu.stop.prevent="selectGlyph(glyph.glyph_id, $event, true)"
+              @keydown.enter.prevent="selectGlyph(glyph.glyph_id, $event, true)"
+            />
+            <path
+              :d="glyph.hit_path"
+              class="source-hit-outline"
+              aria-hidden="true"
+            />
+          </g>
         </svg>
         <svg
           v-if="deletedMarkElements.length > 0 && isImage"
@@ -139,6 +162,7 @@
             :key="`deleted-mark-${element.source_id}`"
             :d="element.hit_path"
             class="deleted-mark"
+            :class="{ 'deleted-mark--restore': isPendingRestore(element.source_id) }"
           />
         </svg>
       </div>
@@ -278,12 +302,27 @@ const deletedMarkElements = computed(() => (
   )) ?? []
 ))
 const clickableElements = computed(() => (
-  sourceSheet.value?.elements.filter((element) => (
-    (clickableSourceIdSet.value.has(element.source_id)
-      || (props.editable && props.entities?.some((entity) => entity.source_id === element.source_id)))
-    && !appliedDeletedSourceIdSet.value.has(element.source_id)
-  )) ?? []
+  sourceSheet.value?.elements.filter((element) => {
+    const mapped = clickableSourceIdSet.value.has(element.source_id)
+      || (props.editable
+        && props.entities?.some((entity) => entity.source_id === element.source_id))
+    if (!mapped) return false
+    // 已应用的删除在编辑模式下必须保留命中区，否则无法再点回来恢复
+    if (appliedDeletedSourceIdSet.value.has(element.source_id)) return props.editable
+    return true
+  }) ?? []
 ))
+function isElementDeleted(sourceId: string): boolean {
+  return appliedDeletedSourceIdSet.value.has(sourceId)
+    || Boolean(props.deletedEntityIds?.has(sourceId))
+}
+
+/** 已写入 MusicXML 的删除，又被重新点亮：等待再次应用即可恢复。 */
+function isPendingRestore(sourceId: string): boolean {
+  return appliedDeletedSourceIdSet.value.has(sourceId)
+    && !props.deletedEntityIds?.has(sourceId)
+}
+
 const disabledElements = computed(() => {
   return sourceSheet.value?.elements.filter(
     (element) => (
@@ -607,12 +646,13 @@ onUnmounted(() => {
 }
 
 .glyph-source-hit-layer {
+  /* 保留已识别标记在上层，避免重叠的碎片 Glyph 抢走其点击。 */
   z-index: 0;
 }
 
 .source-hit {
-  /* 命中区域固定：颜色随状态变化，但 stroke-width / dasharray 保持不变，
-     否则鼠标停在轮廓边缘时命中区会来回收缩，出现实线/虚线闪烁 */
+  /* 命中层：宽描边只用来扩大点击热区，颜色始终透明，不参与视觉。
+     视觉高亮由后面的 .source-hit-outline 细线绘制，保证线宽不受热区影响。 */
   fill: transparent;
   stroke: transparent;
   stroke-width: 6;
@@ -620,38 +660,78 @@ onUnmounted(() => {
   pointer-events: all;
   cursor: pointer;
   outline: none;
-  transition: fill 0.14s ease, stroke 0.14s ease;
+  transition: fill 0.14s ease;
+}
+
+/* 视觉轮廓层：细线、不参与命中，线宽不随缩放或状态变化 */
+.source-hit-outline {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  transition: stroke 0.14s ease;
 }
 
 .source-hit:hover,
 .source-hit:focus-visible {
   fill: color-mix(in srgb, var(--accent) 13%, transparent);
-  stroke: color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+.source-hit:hover + .source-hit-outline,
+.source-hit:focus-visible + .source-hit-outline {
+  stroke: color-mix(in srgb, var(--accent) 78%, transparent);
 }
 
 /* 编辑模式下左键=删除，悬停时预告删除结果 */
 .source-hit-layer.editing .source-hit:hover,
 .source-hit-layer.editing .source-hit:focus-visible {
   fill: color-mix(in srgb, var(--danger) 12%, transparent);
-  stroke: color-mix(in srgb, var(--danger) 62%, transparent);
+}
+
+.source-hit-layer.editing .source-hit:hover + .source-hit-outline,
+.source-hit-layer.editing .source-hit:focus-visible + .source-hit-outline {
+  stroke: color-mix(in srgb, var(--danger) 68%, transparent);
 }
 
 .source-hit.selected {
-  fill: color-mix(in srgb, var(--accent) 24%, transparent);
+  fill: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.source-hit.selected + .source-hit-outline {
   stroke: var(--accent);
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 55%, transparent));
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 40%, transparent));
+}
+
+/* 已经标记为删除的记号，再点一次是「恢复」，用绿色预告 */
+.source-hit-layer.editing .source-hit--deleted:hover,
+.source-hit-layer.editing .source-hit--deleted:focus-visible {
+  fill: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.source-hit-layer.editing .source-hit--deleted:hover + .source-hit-outline,
+.source-hit-layer.editing .source-hit--deleted:focus-visible + .source-hit-outline {
+  stroke: color-mix(in srgb, var(--success) 72%, transparent);
 }
 
 .source-hit--glyph:hover,
 .source-hit--glyph:focus-visible {
-  fill: color-mix(in srgb, var(--warning) 16%, transparent);
-  stroke: color-mix(in srgb, var(--warning) 80%, transparent);
+  fill: color-mix(in srgb, var(--warning) 15%, transparent);
+}
+
+.source-hit--glyph:hover + .source-hit-outline,
+.source-hit--glyph:focus-visible + .source-hit-outline {
+  stroke: color-mix(in srgb, var(--warning) 82%, transparent);
 }
 
 .source-hit--glyph.selected {
-  fill: color-mix(in srgb, var(--warning) 22%, transparent);
+  fill: color-mix(in srgb, var(--warning) 15%, transparent);
+}
+
+.source-hit--glyph.selected + .source-hit-outline {
   stroke: var(--warning);
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--warning) 55%, transparent));
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--warning) 40%, transparent));
 }
 
 .source-hit--disabled {
@@ -660,11 +740,14 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
+/* 删除/候选编辑模式下，非可编辑结构标记不能遮挡漏检 Glyph 的命中区。 */
+.source-hit-layer.editing .source-hit--disabled {
+  pointer-events: none;
+}
+
 .source-hit--disabled:hover,
 .source-hit--disabled:focus-visible {
-  fill: color-mix(in srgb, var(--text-tertiary) 10%, transparent);
-  stroke: color-mix(in srgb, var(--text-tertiary) 60%, transparent);
-  stroke-dasharray: 4 3;
+  fill: color-mix(in srgb, var(--text-tertiary) 12%, transparent);
 }
 
 .source-hit-layer.disabled {
@@ -693,6 +776,11 @@ onUnmounted(() => {
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
+}
+
+.deleted-mark--restore {
+  fill: color-mix(in srgb, var(--success) 8%, transparent);
+  stroke: color-mix(in srgb, var(--success) 78%, transparent);
 }
 
 .scan-img {
