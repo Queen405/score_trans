@@ -71,6 +71,106 @@ def _rank_candidates(
     return tuple(ranked)
 
 
+_TAG_FAMILIES: dict[str, str] = {
+    "head": "head",
+    "unrecognized-head": "head",
+    "rest": "rest",
+    "alter": "accidental",
+    "clef": "clef",
+    "key": "key",
+    "time-whole": "time",
+    "time-custom": "time",
+    "time-pair": "time",
+    "dynamics": "dynamic",
+    "dynamic": "dynamic",
+    "wedge": "wedge",
+    "articulation": "articulation",
+    "ornament": "ornament",
+    "fermata": "fermata",
+    "pause": "breath",
+    "breath-mark": "breath",
+    "caesura": "breath",
+    "slur": "slur",
+    "tie": "slur",
+    "tuplet": "tuplet",
+    "fingering": "fingering",
+    "plucking": "pluck",
+    "bow": "bow",
+    "arpeggiato": "arpeggio",
+    "augmentation-dot": "dot",
+    "pedal": "pedal",
+}
+
+
+def _shape_family(shape: str) -> str:
+    value = shape.upper()
+    if value.startswith(("NOTEHEAD", "WHOLE_NOTE", "BREVE_NOTE", "HALF_NOTE")):
+        return "head"
+    if "REST" in value:
+        return "rest"
+    if "CLEF" in value:
+        return "clef"
+    if value.startswith("KEY_"):
+        return "key"
+    if value.startswith(("TIME_", "COMMON_TIME", "CUT_TIME")):
+        return "time"
+    if "SLUR" in value or "TIE" in value:
+        return "slur"
+    if "TUPLET" in value:
+        return "tuplet"
+    if value.startswith("DYNAMICS_") or value in {
+        "F",
+        "P",
+        "MP",
+        "MF",
+        "PP",
+        "PPP",
+        "SF",
+        "SFZ",
+        "FFFF",
+    }:
+        return "dynamic"
+    if "FERMATA" in value:
+        return "fermata"
+    if "AUGMENTATION_DOT" in value or value == "DOT" or value.endswith("_DOT"):
+        return "dot"
+    if any(part in value for part in ("MARCATO", "ACCENT", "STACCATO", "TENUTO")):
+        return "articulation"
+    if any(part in value for part in ("MORDENT", "TURN", "TRILL")) or value == "TR":
+        return "ornament"
+    if "PEDAL" in value:
+        return "pedal"
+    if value in {"CRESCENDO", "DIMINUENDO"}:
+        return "wedge"
+    if "ARPEGGIO" in value or value == "ARPEGGIATO":
+        return "arpeggio"
+    if "PLUCK" in value or "PLECTRUM" in value:
+        return "pluck"
+    if "BOW" in value or "SCORDATURA" in value:
+        return "bow"
+    if "FINGERING" in value or value.startswith("DIGIT_"):
+        return "fingering"
+    if any(part in value for part in ("BREATH", "CAESURA", "PAUSE")):
+        return "breath"
+    if any(part in value for part in ("SHARP", "FLAT", "NATURAL")):
+        return "accidental"
+    return "other"
+
+
+def _candidates_for_family(
+    candidates: tuple[tuple[str, float, str], ...], tag: str
+) -> tuple[tuple[str, float, str], ...]:
+    """Drop stale/corrupt cross-family candidates from older source maps."""
+    expected_family = _TAG_FAMILIES.get(tag)
+    if expected_family is None:
+        return candidates
+    return tuple(
+        candidate
+        for candidate in candidates
+        if _shape_family(candidate[0]) == expected_family
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class CorrectableEntity:
     source_id: str
@@ -141,6 +241,15 @@ def extract_entities(
                 inferred_staff, inferred_pitch = _staff_pitch(omr_sheet, mapped.bounds)
                 staff = staff or inferred_staff
                 pitch = pitch if pitch is not None else inferred_pitch
+            source_candidates = tuple(
+                (candidate.shape, candidate.score, candidate.score_kind)
+                for candidate in mapped.candidates
+            )
+            source_candidates = _candidates_for_family(source_candidates, entity_tag)
+            if not source_candidates:
+                source_candidates = (
+                    (mapped.shape, mapped.grade, "audiveris_inter_grade"),
+                )
             entities.append(
                 CorrectableEntity(
                     source_id=mapped.source_id,
@@ -155,11 +264,7 @@ def extract_entities(
                     musicxml_locator=mapped.musicxml_locator.contains,
                     hit_path=mapped.hit_path,
                     candidates=_rank_candidates(
-                        tuple(
-                            (candidate.shape, candidate.score, candidate.score_kind)
-                            for candidate in mapped.candidates
-                        )
-                        or ((mapped.shape, mapped.grade, "audiveris_inter_grade"),),
+                        source_candidates,
                         mapped.shape,
                     ),
                     staff=staff,
@@ -199,11 +304,15 @@ def _correctable_glyph(
         inferred_staff, inferred_pitch = _staff_pitch(sheet, mapped.bounds)
         staff = staff or inferred_staff
         pitch = pitch if pitch is not None else inferred_pitch
+    source_candidates = tuple(
+        (candidate.shape, candidate.score, candidate.score_kind)
+        for candidate in mapped.shape_candidates
+    )
+    source_candidates = _candidates_for_family(
+        source_candidates, inter.tag if inter is not None else mapped.tag
+    )
     candidates = _rank_candidates(
-        tuple(
-            (candidate.shape, candidate.score, candidate.score_kind)
-            for candidate in mapped.shape_candidates
-        ),
+        source_candidates,
         mapped.shape if mapped.shape != "UNKNOWN" else None,
     )
     if not candidates and mapped.shape != "UNKNOWN":

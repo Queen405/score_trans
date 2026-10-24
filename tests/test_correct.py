@@ -26,6 +26,7 @@ from score_trans.services.correct.correction_service import (
 from score_trans.services.correct.entity_service import (
     CorrectableEntity,
     CorrectableGlyph,
+    _candidates_for_family,
     _rank_candidates,
     extract_entities,
 )
@@ -1260,6 +1261,26 @@ def test_rank_candidates_keeps_recognized_shape_when_outscored() -> None:
     assert len(ranked) == 5
     assert ranked[-1][0] == "CURRENT"
     assert "SHAPE_5" not in {item[0] for item in ranked}
+
+
+@pytest.mark.parametrize(
+    ("tag", "valid_shape", "invalid_shape"),
+    [
+        ("time-whole", "TIME_FOUR_FOUR", "NOTEHEAD_BLACK"),
+        ("rest", "QUARTER_REST", "NOTEHEAD_VOID"),
+        ("alter", "SHARP", "NOTEHEAD_BLACK"),
+        ("dynamics", "DYNAMICS_F", "NOTEHEAD_BLACK"),
+    ],
+)
+def test_candidate_family_filter_rejects_cross_family_shapes(
+    tag: str, valid_shape: str, invalid_shape: str
+) -> None:
+    candidates = (
+        (valid_shape, 0.7, "audiveris_shape_classifier"),
+        (invalid_shape, 0.99, "audiveris_shape_classifier"),
+    )
+
+    assert _candidates_for_family(candidates, tag) == (candidates[0],)
 
 
 def test_time_nine_eight_candidate_updates_signature() -> None:

@@ -46,7 +46,7 @@ const FAMILY_RULES: ReadonlyArray<{ pattern: RegExp; family: ShapeFamily }> = [
   { pattern: /(MORDENT|TURN|TRILL|^TR$)/, family: 'ornament' },
   { pattern: /PEDAL/, family: 'pedal' },
   { pattern: /(CRESCENDO|DIMINUENDO)/, family: 'wedge' },
-  { pattern: /ARPEGGIO/, family: 'arpeggio' },
+  { pattern: /ARPEGGIO|ARPEGGIATO/, family: 'arpeggio' },
   { pattern: /(PLUCK|PLECTRUM)/, family: 'pluck' },
   { pattern: /(BOW|SCORDATURA)/, family: 'bow' },
   { pattern: /(FINGERING|^DIGIT_)/, family: 'fingering' },
@@ -57,10 +57,12 @@ const FAMILY_RULES: ReadonlyArray<{ pattern: RegExp; family: ShapeFamily }> = [
 
 const TAG_FAMILIES: Record<string, ShapeFamily> = {
   head: 'head',
+  'unrecognized-head': 'head',
   rest: 'rest',
   alter: 'accidental',
   clef: 'clef',
   key: 'key',
+  'time-pair': 'time',
   'time-whole': 'time',
   'time-custom': 'time',
   slur: 'slur',
@@ -81,6 +83,16 @@ const TAG_FAMILIES: Record<string, ShapeFamily> = {
   pause: 'breath',
   'breath-mark': 'breath',
   caesura: 'breath',
+}
+
+/** Returns whether a persisted candidate belongs to the selected marker family. */
+export function candidateMatchesTag(
+  shape: string | null | undefined,
+  tag: string | null | undefined,
+  fallbackShape = '',
+): boolean {
+  if (!shape) return false
+  return shapeFamily(shape) === familyFromTag(tag, fallbackShape)
 }
 
 export function shapeFamily(shape: string | null | undefined): ShapeFamily {

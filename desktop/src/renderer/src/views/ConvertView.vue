@@ -588,6 +588,7 @@ import {
   type RekeySpanMapping,
 } from '../utils/textAnchorTracking'
 import { readPlaybackRange, playbackPage, type PlaybackRange } from '../utils/playbackNavigation'
+import { candidateMatchesTag } from '../utils/shapeDescriptor'
 import { sanitizeSvg } from '../utils/svgSanitizer'
 import { sourceAnchorRange } from '../utils/sourceAnchorSelection'
 import { transposeOctave } from '../utils/jianpuTranspose'
@@ -688,12 +689,20 @@ const selectedGlyphId = ref('')
 const selectedGlyph = computed(() => correctableSheet.value?.suspicious_glyphs?.find(
   (glyph) => glyph.glyph_id === selectedGlyphId.value,
 ))
-const selectedEntityCandidates = computed(() => (
-  (selectedEntity.value?.candidates ?? selectedGlyph.value?.candidates ?? []).slice(0, 5)
-))
-const selectedGlyphCandidates = computed(() => (
-  selectedGlyph.value?.candidates?.slice(0, 5) ?? []
-))
+const selectedEntityCandidates = computed(() => {
+  const entity = selectedEntity.value
+  if (!entity) return []
+  return (entity.candidates ?? [])
+    .filter((candidate) => candidateMatchesTag(candidate.shape, entity.tag, entity.shape))
+    .slice(0, 5)
+})
+const selectedGlyphCandidates = computed(() => {
+  const glyph = selectedGlyph.value
+  if (!glyph) return []
+  return (glyph.candidates ?? [])
+    .filter((candidate) => candidateMatchesTag(candidate.shape, glyph.tag, glyph.shape))
+    .slice(0, 5)
+})
 const appliedDeletedSourceIds = computed(() => store.currentPage?.deletedSourceIds ?? [])
 const correctableSheet = ref<SheetEntitiesDTO | null>(null)
 const correctableEntities = computed<CorrectableEntityDTO[]>(

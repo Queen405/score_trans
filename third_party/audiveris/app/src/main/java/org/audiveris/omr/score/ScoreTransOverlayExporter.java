@@ -204,10 +204,16 @@ public final class ScoreTransOverlayExporter
                                                  Sheet sheet)
     {
         json.append("],\"glyphs\":[");
-        final Set<Integer> referenced = new HashSet<>();
+        // A glyph can be shared by several inters.  In particular, a compound
+        // stem/beam glyph may be referenced by a non-note inter while still
+        // containing the visible notehead that the user needs to repair.  Only
+        // suppress glyphs that are already owned by a note inter.
+        final Set<Integer> referencedByNote = new HashSet<>();
         for (SystemInfo system : sheet.getSystems()) {
             for (Inter inter : system.getSig().vertexSet()) {
-                if (inter.getGlyph() != null) referenced.add(inter.getGlyph().getId());
+                if (inter.getGlyph() != null && inter instanceof AbstractNoteInter) {
+                    referencedByNote.add(inter.getGlyph().getId());
+                }
             }
         }
         boolean first = true;
@@ -217,31 +223,37 @@ public final class ScoreTransOverlayExporter
             final Rectangle bounds = glyph.getBounds();
             if (bounds == null || bounds.isEmpty()
                     || !glyph.getGroups().contains(GlyphGroup.SYMBOL)
+                    || glyph.getGroups().contains(GlyphGroup.VERTICAL_SEED)
                     || glyph.getWidth() < minimumHeadDimension
                     || glyph.getWidth() > sheet.getInterline() * 4
                     || glyph.getHeight() < minimumHeadDimension
                     || glyph.getHeight() > sheet.getInterline() * 4) {
                 continue;
             }
-            if (referenced.contains(glyph.getId())) {
+            if (referencedByNote.contains(glyph.getId())) {
                 continue;
             }
+            if (isBeforeStaffHeader(sheet, bounds)) continue;
             final boolean repetitive = isRepeatedAcrossRows(
                     glyph, sheet.getGlyphIndex().getEntities(), sheet.getInterline());
-            if (repetitive) continue;
+            // Repeated symbols before the staff header are usually clef/key
+            // fragments copied once per row. After the header, the same x
+            // position can legitimately be a repeated note, so keep it for
+            // candidate editing instead of dropping it by a row-pattern rule.
+            if (repetitive && isBeforeStaffHeader(sheet, bounds)) continue;
 
             // Keep the existing glyph-based correction path: when an unmatched
             // SYMBOL glyph has no per-glyph metadata, attach the nearest HEADS
             // scanner candidates. This preserves previously clickable glyphs while
             // location-based candidates are being improved independently.
-            final List<ScoreTransCandidateRegistry.Candidate> candidates = noteheadCandidates(
+            final List<ScoreTransCandidateRegistry.Candidate> candidates = resolvedNoteheadCandidates(
                     sheet, bounds, glyph);
             if (candidates.isEmpty()) continue;
             suspicious.add(glyph);
         }
         for (Glyph glyph : suspicious) {
             final Rectangle bounds = glyph.getBounds();
-            final List<ScoreTransCandidateRegistry.Candidate> candidates = noteheadCandidates(
+            final List<ScoreTransCandidateRegistry.Candidate> candidates = resolvedNoteheadCandidates(
                     sheet, bounds, glyph);
             if (!first) json.append(',');
             first = false;
@@ -258,6 +270,56 @@ public final class ScoreTransOverlayExporter
         }
         appendUnmatchedLocations(json, sheet);
         json.append(']');
+    }
+
+    /**
+     * Resolve notehead alternatives for an unmatched glyph. Recognition-time
+     * template evidence is preferred, but an all-zero template list is not
+     * useful to the editor, so fall back to the persisted shape classifier.
+     */
+    private static List<ScoreTransCandidateRegistry.Candidate> resolvedNoteheadCandidates (
+            Sheet sheet,
+            Rectangle bounds,
+            Glyph glyph)
+    {
+        final List<ScoreTransCandidateRegistry.Candidate> nativeCandidates = noteheadCandidates(
+                sheet, bounds, glyph).stream()
+                .filter(candidate -> candidate.score() >= 0.10)
+                .toList();
+        if (!nativeCandidates.isEmpty()) return nativeCandidates;
+        return classifyNoteheadGlyph(glyph, sheet.getInterline()).stream()
+                .filter(candidate -> candidate.score() >= 0.10)
+                .toList();
+    }
+
+    private static boolean isBeforeStaffHeader (Sheet sheet, Rectangle bounds)
+    {
+        final Point2D center = new Point2D.Double(bounds.getCenterX(), bounds.getCenterY());
+        for (SystemInfo system : sheet.getSystems()) {
+            if (system.getBounds() == null || !system.getBounds().contains(center)) continue;
+            final Staff staff = system.getClosestStaff(center);
+            return staff != null && center.getX() < staff.getHeaderStop();
+        }
+        return false;
+    }
+
+    private static List<ScoreTransCandidateRegistry.Candidate> classifyNoteheadGlyph (Glyph glyph,
+                                                                                       int interline)
+    {
+        try {
+            return java.util.Arrays.stream(ShapeClassifier.getInstance()
+                            .getNaturalEvaluations(glyph, Math.max(1, interline)))
+                    .filter(evaluation -> isSupportedCandidate("head", evaluation.shape.toString()))
+                    .sorted(Comparator.comparingDouble((Evaluation evaluation) -> evaluation.grade)
+                            .reversed())
+                    .limit(5)
+                    .map(evaluation -> new ScoreTransCandidateRegistry.Candidate(
+                            evaluation.shape.toString(), evaluation.grade))
+                    .toList();
+        } catch (RuntimeException ex) {
+            logger.debug("Could not classify unmatched notehead glyph {}", glyph.getId(), ex);
+            return List.of();
+        }
     }
 
     /** Export weak native notehead matches directly; many missed heads have no standalone glyph. */
@@ -290,7 +352,7 @@ public final class ScoreTransOverlayExporter
         for (ScoreTransCandidateRegistry.LocationCandidate location : locations) {
             final List<ScoreTransCandidateRegistry.Candidate> candidates = location.candidates()
                     .stream().filter(candidate -> isSupportedCandidate("head", candidate.shape()))
-                    .filter(candidate -> candidate.score() >= 0.20)
+                    .filter(candidate -> candidate.score() >= 0.10)
                     .toList();
             if (candidates.isEmpty()) continue;
             final Point2D point = new Point2D.Double(location.x(), location.y());
@@ -305,6 +367,7 @@ public final class ScoreTransOverlayExporter
             if (system == null) continue;
             final Staff staff = system.getClosestStaff(point);
             if (staff == null || staff.isTablature()) continue;
+            if (point.getX() < staff.getHeaderStop()) continue;
             final int staffInterline = Math.max(1, staff.getSpecificInterline());
             final double pitch = staff.pitchPositionOf(point);
             if (Math.abs(pitch) > staff.getLineCount() + 12) continue;

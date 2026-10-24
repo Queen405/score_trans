@@ -180,6 +180,9 @@ public class NoteHeadsBuilder
     /** The head-oriented spots for this system. */
     private final List<Glyph> systemSpots;
 
+    /** Avoid repeating diagnostic template scans for the same glyph on every staff pitch. */
+    private final Set<Integer> evaluatedDiagnosticGlyphs = new HashSet<>();
+
     /** Scale-dependent constants. */
     private final Parameters params;
 
@@ -2097,6 +2100,13 @@ public class NoteHeadsBuilder
                             (int) Math.rint(headBounds.getCenterY()), locationScores);
                 }
             }
+
+            // The normal range scan deliberately skips black-head templates at
+            // abscissae without a reliable head spot. Keep a second, diagnostic
+            // pass that only records weak evidence for the correction editor;
+            // it never creates HeadInter instances and therefore cannot change
+            // the recognition result.
+            collectDiagnosticRangeCandidates(scanLeft, scanRight);
             // Aggregate matching inters
             heads = aggregateMatches(heads);
 
@@ -2121,7 +2131,56 @@ public class NoteHeadsBuilder
                 }
             }
 
+            collectUnmatchedGlyphCandidates();
             return heads;
+        }
+
+        /** Record notehead template evidence missed by the spot-gated scan. */
+        private void collectDiagnosticRangeCandidates (int scanLeft,
+                                                        int scanRight)
+        {
+            final int step = 2;
+            for (int x0 = scanLeft; x0 <= scanRight; x0 += step) {
+                final int y0 = getTheoreticalOrdinate(x0);
+                if ((x0 + templateHalf >= distances.getWidth())
+                        || (y0 < 0) || (y0 >= distances.getHeight())) {
+                    continue;
+                }
+                final double centerDistance = distances.getValue(x0, y0)
+                        / ChamferDistance.DEFAULT_NORMALIZER;
+                if (centerDistance > templateHalf * 1.5) continue;
+
+                final Map<Shape, Double> scores = new EnumMap<>(Shape.class);
+                PixelDistance strongest = null;
+                for (Shape shape : scannerTemplateNotesAll) {
+                    PixelDistance best = null;
+                    for (int dx : xOffsets) {
+                        for (int dy : yOffsets) {
+                            final PixelDistance candidate = eval(
+                                    shape, x0 + dx, y0 + dy, MIDDLE_LEFT);
+                            if (candidate != null && (best == null || candidate.d < best.d)) {
+                                best = candidate;
+                            }
+                        }
+                    }
+                    if (best == null) continue;
+                    final double score = Template.impactOf(best.d);
+                    if (score < 0.20) continue;
+                    scores.merge(shape, score, Math::max);
+                    if (strongest == null || best.d < strongest.d) strongest = best;
+                }
+                if (scores.isEmpty() || strongest == null) continue;
+                final Shape strongestShape = scores.entrySet().stream()
+                        .max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
+                if (strongestShape == null) continue;
+                final Rectangle bounds = catalog.getTemplate(strongestShape)
+                        .getSlimBoundsAt(strongest.x, strongest.y, MIDDLE_LEFT);
+                ScoreTransCandidateRegistry.record(
+                        sheet,
+                        (int) Math.rint(bounds.getCenterX()),
+                        (int) Math.rint(bounds.getCenterY()),
+                        scores);
+            }
         }
 
         //-------------//
@@ -2285,7 +2344,53 @@ public class NoteHeadsBuilder
                 }
             }
 
+            collectUnmatchedGlyphCandidates();
             return heads;
+        }
+
+        /** Evaluate nearby unmatched glyphs with native notehead templates. */
+        private void collectUnmatchedGlyphCandidates ()
+        {
+            final int minDimension = Math.max(1, interline / 4);
+            final int maxDimension = interline * 4;
+            final List<Glyph> nearbyGlyphs = getGlyphsSlice(systemSpots, competitorsArea);
+
+            for (Glyph glyph : nearbyGlyphs) {
+                final Rectangle box = glyph.getBounds();
+                if (box == null || box.isEmpty()
+                        || box.width < minDimension || box.height < minDimension
+                        || box.width > maxDimension || box.height > maxDimension) {
+                    continue;
+                }
+                final int x0 = (int) Math.rint(box.getCenterX());
+                final int y0 = getTheoreticalOrdinate(x0);
+                if (Math.abs(box.getCenterY() - y0) > interline) continue;
+                if (!evaluatedDiagnosticGlyphs.add(glyph.getId())) continue;
+
+                final Map<Shape, Double> scores = new EnumMap<>(Shape.class);
+                for (Shape shape : scannerTemplateNotesAll) {
+                    PixelDistance best = null;
+                    for (int dx : xOffsets) {
+                        for (int dy : yOffsets) {
+                            final PixelDistance candidate = eval(
+                                    shape, x0 + dx, y0 + dy, MIDDLE_LEFT);
+                            if (candidate != null && (best == null || candidate.d < best.d)) {
+                                best = candidate;
+                            }
+                        }
+                    }
+                    if (best == null) continue;
+
+                    Shape matchedShape = shape;
+                    if (shape == Shape.NOTEHEAD_BLACK) {
+                        final Shape hollow = evalBlackAsVoid(best.x, best.y, MIDDLE_LEFT);
+                        if (hollow != null) matchedShape = hollow;
+                    }
+                    scores.merge(matchedShape, Template.impactOf(best.d), Math::max);
+                }
+
+                ScoreTransCandidateRegistry.recordForGlyph(glyph, scores);
+            }
         }
     }
 
