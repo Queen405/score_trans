@@ -125,8 +125,6 @@ def _apply_entity_candidate(
     selected_shape: str,
     entities: Mapping[str, CorrectableEntity],
 ) -> None:
-    if selected_shape == entity.shape:
-        return
     if entity.tag == "slur":
         _replace_slur_candidate(root, ns, entity, selected_shape)
         return
@@ -159,7 +157,20 @@ def _apply_entity_candidate(
         else:
             if notehead is None:
                 notehead = ET.Element(_q(ns, "notehead"))
-                note.insert(0, notehead)
+                _insert_note_child(
+                    note,
+                    ns,
+                    notehead,
+                    {
+                        "notehead-text",
+                        "staff",
+                        "beam",
+                        "notations",
+                        "lyric",
+                        "play",
+                        "listen",
+                    },
+                )
             notehead.text = notehead_style
         # Audiveris stores chord members as separate MusicXML notes, while the
         # Jianpu converter reads one duration for the chord. A selected head
@@ -193,10 +204,14 @@ def _apply_entity_candidate(
         _replace_dynamic_candidate(root, ns, target, entity, selected_shape)
         return
     if entity.tag == "articulation":
-        _replace_notation_candidate(root, ns, target, entity, selected_shape, "articulation")
+        _replace_notation_candidate(
+            root, ns, target, entity, selected_shape, "articulation"
+        )
         return
     if entity.tag == "ornament":
-        _replace_notation_candidate(root, ns, target, entity, selected_shape, "ornament")
+        _replace_notation_candidate(
+            root, ns, target, entity, selected_shape, "ornament"
+        )
         return
     if entity.tag == "fermata":
         _replace_notation_candidate(root, ns, target, entity, selected_shape, "fermata")
@@ -205,7 +220,9 @@ def _apply_entity_candidate(
         _replace_notation_candidate(root, ns, target, entity, selected_shape, "pause")
         return
     if entity.tag == "fingering":
-        _replace_technical_candidate(root, ns, target, entity, selected_shape, "fingering")
+        _replace_technical_candidate(
+            root, ns, target, entity, selected_shape, "fingering"
+        )
         return
     if entity.tag == "plucking":
         _replace_technical_candidate(root, ns, target, entity, selected_shape, "pluck")
@@ -214,7 +231,9 @@ def _apply_entity_candidate(
         _replace_technical_candidate(root, ns, target, entity, selected_shape, "bow")
         return
     if entity.tag == "arpeggiato":
-        _replace_notation_candidate(root, ns, target, entity, selected_shape, "arpeggiato")
+        _replace_notation_candidate(
+            root, ns, target, entity, selected_shape, "arpeggiato"
+        )
         return
     if entity.tag == "augmentation-dot":
         _replace_augmentation_dot(root, ns, target, entity, selected_shape)
@@ -261,8 +280,10 @@ def _replace_slur_candidate(
     selected_shape: str,
 ) -> None:
     placement = (
-        "above" if selected_shape.upper().endswith("_ABOVE")
-        else "below" if selected_shape.upper().endswith("_BELOW")
+        "above"
+        if selected_shape.upper().endswith("_ABOVE")
+        else "below"
+        if selected_shape.upper().endswith("_BELOW")
         else None
     )
     changed = False
@@ -286,13 +307,17 @@ def _replace_tuplet_candidate(
     entity: CorrectableEntity,
     selected_shape: str,
 ) -> None:
-    tuplet_count = {"TUPLET_THREE": "3", "TUPLET_SIX": "6"}.get(
-        selected_shape.upper()
-    )
-    if tuplet_count is None:
+    counts = {"TUPLET_THREE": (3, 2), "TUPLET_SIX": (6, 4)}.get(selected_shape.upper())
+    if counts is None:
         raise ValueError(f"暂不支持连音候选：{selected_shape}")
-    found = False
-    for note in _matching_notes(root, ns, entity):
+    actual_count, normal_count = counts
+    matched_notes = _matching_notes(root, ns, entity)
+    changed = False
+    measures: list[ET.Element] = []
+    for note in matched_notes:
+        measure = _ancestor(root, note, _q(ns, "measure"))
+        if measure is not None and measure not in measures:
+            measures.append(measure)
         notations = note.find(_q(ns, "notations"))
         if notations is None:
             continue
@@ -300,9 +325,59 @@ def _replace_tuplet_candidate(
             for number in tuplet.findall(
                 f"{_q(ns, 'tuplet-actual')}/{_q(ns, 'tuplet-number')}"
             ):
-                number.text = tuplet_count
-                found = True
-    if not found:
+                number.text = str(actual_count)
+                changed = True
+            for number in tuplet.findall(
+                f"{_q(ns, 'tuplet-normal')}/{_q(ns, 'tuplet-number')}"
+            ):
+                number.text = str(normal_count)
+                changed = True
+
+    # The Jianpu parser reads the ratio from time-modification, not from the
+    # printed tuplet number. Update every encoded note between the matched
+    # start/stop notes so the visual mark and the regenerated rhythm agree.
+    for measure in measures:
+        measure_notes = list(measure.findall(_q(ns, "note")))
+        matched_indices = [
+            index for index, note in enumerate(measure_notes) if note in matched_notes
+        ]
+        if not matched_indices:
+            continue
+        start_indices = [
+            index
+            for index in matched_indices
+            if any(
+                tuplet.get("type") == "start"
+                for tuplet in measure_notes[index].findall(
+                    f"{_q(ns, 'notations')}/{_q(ns, 'tuplet')}"
+                )
+            )
+        ]
+        stop_indices = [
+            index
+            for index in matched_indices
+            if any(
+                tuplet.get("type") == "stop"
+                for tuplet in measure_notes[index].findall(
+                    f"{_q(ns, 'notations')}/{_q(ns, 'tuplet')}"
+                )
+            )
+        ]
+        start = min(start_indices or matched_indices)
+        stop = max(stop_indices or matched_indices)
+        for note in measure_notes[start : stop + 1]:
+            modification = note.find(_q(ns, "time-modification"))
+            if modification is None:
+                continue
+            actual = modification.find(_q(ns, "actual-notes"))
+            normal = modification.find(_q(ns, "normal-notes"))
+            if actual is not None:
+                actual.text = str(actual_count)
+                changed = True
+            if normal is not None:
+                normal.text = str(normal_count)
+                changed = True
+    if not changed:
         logger.warning("跳过无法定位的连音候选 %s", entity.source_id)
 
 
@@ -326,14 +401,18 @@ def _replace_technical_candidate(
 
     shape = selected_shape.upper()
     if family == "fingering":
-        if not shape.startswith("DIGIT_") or shape.removeprefix("DIGIT_") not in set("012345"):
+        if not shape.startswith("DIGIT_") or shape.removeprefix("DIGIT_") not in set(
+            "012345"
+        ):
             raise ValueError(f"暂不支持指法候选：{selected_shape}")
         for child in list(technical.findall(_q(ns, "fingering"))):
             technical.remove(child)
         ET.SubElement(technical, _q(ns, "fingering")).text = shape[-1]
         return
     if family == "pluck":
-        pluck = {"PLUCK_P": "p", "PLUCK_I": "i", "PLUCK_M": "m", "PLUCK_A": "a"}.get(shape)
+        pluck = {"PLUCK_P": "p", "PLUCK_I": "i", "PLUCK_M": "m", "PLUCK_A": "a"}.get(
+            shape
+        )
         if pluck is None:
             raise ValueError(f"暂不支持拨弦候选：{selected_shape}")
         for child in list(technical.findall(_q(ns, "pluck"))):
@@ -364,7 +443,12 @@ def _replace_augmentation_dot(
     if note.find(_q(ns, "dot")) is None:
         type_element = note.find(_q(ns, "type"))
         dot = ET.Element(_q(ns, "dot"))
-        note.insert(list(note).index(type_element) + 1 if type_element is not None else len(note), dot)
+        note.insert(
+            list(note).index(type_element) + 1
+            if type_element is not None
+            else len(note),
+            dot,
+        )
 
 
 def _insert_glyph_note(
@@ -384,8 +468,12 @@ def _insert_glyph_note(
         root, ns, glyph, entities, require_pitch=True
     )
     pitch_element = nearest_note.find(_q(ns, "pitch"))
-    step_element = pitch_element.find(_q(ns, "step")) if pitch_element is not None else None
-    octave_element = pitch_element.find(_q(ns, "octave")) if pitch_element is not None else None
+    step_element = (
+        pitch_element.find(_q(ns, "step")) if pitch_element is not None else None
+    )
+    octave_element = (
+        pitch_element.find(_q(ns, "octave")) if pitch_element is not None else None
+    )
     if step_element is None or octave_element is None or not step_element.text:
         raise ValueError(f"附近音符缺少可用音高：{nearest_entity.source_id}")
     target_step, target_octave = _shift_diatonic_pitch(
@@ -408,6 +496,9 @@ def _insert_glyph_note(
         voice_copy = ET.SubElement(note, _q(ns, "voice"))
         voice_copy.text = voice.text
     ET.SubElement(note, _q(ns, "type")).text = note_type
+    staff = nearest_note.find(_q(ns, "staff"))
+    if staff is not None:
+        ET.SubElement(note, _q(ns, "staff")).text = staff.text
 
     _insert_note_at_glyph_position(measure, note, anchors, glyph_x)
 
@@ -430,12 +521,15 @@ def _insert_glyph_rest(
     note.set("id", _unique_note_id(root, glyph.glyph_id))
     ET.SubElement(note, _q(ns, "rest"))
     ET.SubElement(note, _q(ns, "duration")).text = str(
-        max(1, round(divisions * _duration_value(note_type)))
+        _rounded_duration(divisions * _duration_value(note_type))
     )
     voice = nearest_note.find(_q(ns, "voice"))
     if voice is not None:
         ET.SubElement(note, _q(ns, "voice")).text = voice.text
     ET.SubElement(note, _q(ns, "type")).text = note_type
+    staff = nearest_note.find(_q(ns, "staff"))
+    if staff is not None:
+        ET.SubElement(note, _q(ns, "staff")).text = staff.text
     _insert_note_at_glyph_position(measure, note, anchors, glyph_x)
 
 
@@ -455,8 +549,11 @@ def _glyph_note_context(
 ]:
     anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]] = []
     for entity in entities.values():
-        if (entity.tag != "head" or entity.staff != glyph.staff
-                or (require_pitch and entity.pitch is None)):
+        if (
+            entity.tag != "head"
+            or entity.staff != glyph.staff
+            or (require_pitch and entity.pitch is None)
+        ):
             continue
         target = _single_matching_element(root, entity)
         note = _ancestor(root, target, _q(ns, "note")) if target is not None else None
@@ -487,7 +584,8 @@ def _insert_note_at_glyph_position(
 ) -> None:
     same_measure = [anchor for anchor in anchors if anchor[2] is measure]
     right_anchors = [
-        anchor for anchor in same_measure
+        anchor
+        for anchor in same_measure
         if anchor[0].bounds[0] + anchor[0].bounds[2] / 2 > glyph_x
     ]
     if right_anchors:
@@ -540,17 +638,32 @@ def _unique_note_id(root: ET.Element, glyph_id: str) -> str:
 
 
 def _notehead_type(shape: str) -> str | None:
-    if shape in {"NOTEHEAD_BLACK", "NOTEHEAD_BLACK_SMALL", "NOTEHEAD_CROSS",
-                 "NOTEHEAD_DIAMOND_FILLED", "NOTEHEAD_TRIANGLE_DOWN_FILLED",
-                 "NOTEHEAD_CIRCLE_X"}:
+    if shape in {
+        "NOTEHEAD_BLACK",
+        "NOTEHEAD_BLACK_SMALL",
+        "NOTEHEAD_CROSS",
+        "NOTEHEAD_DIAMOND_FILLED",
+        "NOTEHEAD_TRIANGLE_DOWN_FILLED",
+        "NOTEHEAD_CIRCLE_X",
+    }:
         return "quarter"
-    if shape in {"NOTEHEAD_VOID", "NOTEHEAD_VOID_SMALL", "NOTEHEAD_CROSS_VOID",
-                 "NOTEHEAD_DIAMOND_VOID", "NOTEHEAD_TRIANGLE_DOWN_VOID",
-                 "NOTEHEAD_CIRCLE_X_VOID"}:
+    if shape in {
+        "NOTEHEAD_VOID",
+        "NOTEHEAD_VOID_SMALL",
+        "NOTEHEAD_CROSS_VOID",
+        "NOTEHEAD_DIAMOND_VOID",
+        "NOTEHEAD_TRIANGLE_DOWN_VOID",
+        "NOTEHEAD_CIRCLE_X_VOID",
+    }:
         return "half"
-    if shape in {"WHOLE_NOTE", "WHOLE_NOTE_SMALL", "WHOLE_NOTE_CROSS",
-                 "WHOLE_NOTE_DIAMOND", "WHOLE_NOTE_TRIANGLE_DOWN",
-                 "WHOLE_NOTE_CIRCLE_X"}:
+    if shape in {
+        "WHOLE_NOTE",
+        "WHOLE_NOTE_SMALL",
+        "WHOLE_NOTE_CROSS",
+        "WHOLE_NOTE_DIAMOND",
+        "WHOLE_NOTE_TRIANGLE_DOWN",
+        "WHOLE_NOTE_CIRCLE_X",
+    }:
         return "whole"
     return None
 
@@ -564,11 +677,33 @@ def _replace_note_type_and_duration(
     type_element = note.find(_q(ns, "type"))
     if type_element is None:
         type_element = ET.Element(_q(ns, "type"))
-        note.append(type_element)
+        _insert_note_child(
+            note,
+            ns,
+            type_element,
+            {
+                "dot",
+                "accidental",
+                "time-modification",
+                "stem",
+                "notehead",
+                "notehead-text",
+                "staff",
+                "beam",
+                "notations",
+                "lyric",
+                "play",
+                "listen",
+            },
+        )
     type_element.text = selected_type
 
     duration_element = note.find(_q(ns, "duration"))
-    if duration_element is None or current_type is None or current_type == selected_type:
+    if (
+        duration_element is None
+        or current_type is None
+        or current_type == selected_type
+    ):
         return
     try:
         duration = int(duration_element.text or "")
@@ -577,7 +712,31 @@ def _replace_note_type_and_duration(
     if duration <= 0:
         return
     ratio = _duration_value(selected_type) / _duration_value(current_type)
-    duration_element.text = str(max(1, round(duration * ratio)))
+    duration_element.text = str(_rounded_duration(duration * ratio))
+
+
+def _rounded_duration(value: Fraction) -> int:
+    """Round positive durations half-up, consistently across Python versions."""
+    return max(1, int(value + Fraction(1, 2)))
+
+
+def _insert_note_child(
+    note: ET.Element,
+    ns: str,
+    child: ET.Element,
+    following_tags: set[str],
+) -> None:
+    """Insert a note child before the first schema-successor element."""
+    successors = {_q(ns, tag) for tag in following_tags}
+    index = next(
+        (
+            index
+            for index, existing in enumerate(list(note))
+            if existing.tag in successors
+        ),
+        len(note),
+    )
+    note.insert(index, child)
 
 
 def _duration_value(note_type: str) -> Fraction:
@@ -670,12 +829,30 @@ def _replace_alter_candidate(
     if alter is None:
         alter = ET.Element(_q(ns, "alter"))
         octave = pitch.find(_q(ns, "octave"))
-        pitch.insert(list(pitch).index(octave) if octave is not None else len(pitch), alter)
+        pitch.insert(
+            list(pitch).index(octave) if octave is not None else len(pitch), alter
+        )
     alter.text = values[0]
     accidental = note.find(_q(ns, "accidental"))
     if accidental is None:
         accidental = ET.Element(_q(ns, "accidental"))
-        note.append(accidental)
+        _insert_note_child(
+            note,
+            ns,
+            accidental,
+            {
+                "time-modification",
+                "stem",
+                "notehead",
+                "notehead-text",
+                "staff",
+                "beam",
+                "notations",
+                "lyric",
+                "play",
+                "listen",
+            },
+        )
     accidental.text = values[1]
 
 
@@ -695,7 +872,9 @@ def _replace_clef_candidate(
     if target is None:
         anchor = _nearest_clef_anchor(root, ns, entity, entities)
         if anchor is None:
-            logger.warning("跳过无法定位的谱号候选 %s：没有同谱表音符锚点", entity.source_id)
+            logger.warning(
+                "跳过无法定位的谱号候选 %s：没有同谱表音符锚点", entity.source_id
+            )
             return
         old_properties = _clef_properties(entity.shape)
         if old_properties is None:
@@ -726,12 +905,25 @@ def _replace_clef_candidate(
             next_system, ns, staff_number
         ):
             _insert_clef(
-                root, ns, next_system, staff_number,
-                old_sign, old_line, old_octave,
+                root,
+                ns,
+                next_system,
+                staff_number,
+                old_sign,
+                old_line,
+                old_octave,
             )
         _transform_notes_until_next_clef(
-            part, measure, ns, staff_number,
-            old_sign, old_line, new_sign, new_line, old_octave, new_octave,
+            part,
+            measure,
+            ns,
+            staff_number,
+            old_sign,
+            old_line,
+            new_sign,
+            new_line,
+            old_octave,
+            new_octave,
         )
 
 
@@ -922,17 +1114,28 @@ def _replace_dynamic_candidate(
 ) -> None:
     name = selected_shape.upper()
     dynamic_names = {
-        "DYNAMICS_PPP": "ppp", "DYNAMICS_PP": "pp", "DYNAMICS_P": "p",
-        "DYNAMICS_MP": "mp", "DYNAMICS_MF": "mf", "DYNAMICS_F": "f",
-        "DYNAMICS_FF": "ff", "DYNAMICS_FFF": "fff", "DYNAMICS_FP": "fp",
-        "DYNAMICS_FZ": "fz", "DYNAMICS_SF": "sf", "DYNAMICS_SFZ": "sfz",
-        "SF": "sf", "SFZ": "sfz",
+        "DYNAMICS_PPP": "ppp",
+        "DYNAMICS_PP": "pp",
+        "DYNAMICS_P": "p",
+        "DYNAMICS_MP": "mp",
+        "DYNAMICS_MF": "mf",
+        "DYNAMICS_F": "f",
+        "DYNAMICS_FF": "ff",
+        "DYNAMICS_FFF": "fff",
+        "DYNAMICS_FP": "fp",
+        "DYNAMICS_FZ": "fz",
+        "DYNAMICS_SF": "sf",
+        "DYNAMICS_SFZ": "sfz",
+        "SF": "sf",
+        "SFZ": "sfz",
     }
     tag = dynamic_names.get(name)
     if tag is None:
         raise ValueError(f"暂不支持力度记号候选：{selected_shape}")
-    direction = target if _local_name(target.tag) == "direction" else _ancestor(
-        root, target, _q(ns, "direction")
+    direction = (
+        target
+        if _local_name(target.tag) == "direction"
+        else _ancestor(root, target, _q(ns, "direction"))
     )
     if direction is None:
         note = _ancestor(root, target, _q(ns, "note"))
@@ -941,9 +1144,22 @@ def _replace_dynamic_candidate(
             raise ValueError(f"标记 {entity.source_id} 未定位到力度记号容器")
         direction = ET.Element(_q(ns, "direction"))
         measure.insert(list(measure).index(note), direction)
-    for child in list(direction.findall(_q(ns, "direction-type"))):
-        direction.remove(child)
-    direction_type = ET.SubElement(direction, _q(ns, "direction-type"))
+    for direction_type in list(direction.findall(_q(ns, "direction-type"))):
+        for dynamics in list(direction_type.findall(_q(ns, "dynamics"))):
+            direction_type.remove(dynamics)
+        if not list(direction_type):
+            direction.remove(direction_type)
+    direction_type = ET.Element(_q(ns, "direction-type"))
+    children = list(direction)
+    insert_at = next(
+        (
+            index
+            for index, child in enumerate(children)
+            if _local_name(child.tag) != "direction-type"
+        ),
+        len(children),
+    )
+    direction.insert(insert_at, direction_type)
     dynamics = ET.SubElement(direction_type, _q(ns, "dynamics"))
     ET.SubElement(dynamics, _q(ns, tag))
 
@@ -960,10 +1176,13 @@ def _replace_wedge_candidate(
     if wedge_type is None:
         raise ValueError(f"暂不支持渐强/渐弱候选：{selected_shape}")
     directions = [
-        item for item in _matching_elements(root, entity)
+        item
+        for item in _matching_elements(root, entity)
         if _local_name(item.tag) == "direction"
     ]
-    wedges = [wedge for direction in directions for wedge in direction.iter(_q(ns, "wedge"))]
+    wedges = [
+        wedge for direction in directions for wedge in direction.iter(_q(ns, "wedge"))
+    ]
     if not wedges:
         logger.warning("跳过无法定位的力度渐变候选 %s", entity.source_id)
         return
@@ -992,8 +1211,11 @@ def _replace_pedal_candidate(
         if target is not None
         else None
     )
-    pedal = next((item for item in direction.iter(_q(ns, "pedal"))), None) \
-        if direction is not None else None
+    pedal = (
+        next((item for item in direction.iter(_q(ns, "pedal"))), None)
+        if direction is not None
+        else None
+    )
     if pedal is None:
         _insert_pedal_candidate(root, ns, entity, selected_shape, entities)
         return
@@ -1037,7 +1259,9 @@ def _insert_pedal_candidate(
                 anchors.append((abs(note_x - center_x), target_note, measure))
 
     if not anchors:
-        logger.warning("跳过无法定位的踏板候选 %s：没有同谱表音符锚点", entity.source_id)
+        logger.warning(
+            "跳过无法定位的踏板候选 %s：没有同谱表音符锚点", entity.source_id
+        )
         return
     _, note, measure = min(anchors, key=lambda item: item[0])
     direction = ET.Element(_q(ns, "direction"))
@@ -1096,17 +1320,24 @@ def _replace_notation_candidate(
     if family == "articulation":
         parent_tag = "articulations"
         mapping = {
-            "STACCATO": "staccato", "STACCATO_BELOW": "staccato",
-            "STACCATISSIMO": "staccatissimo", "ACCENT": "accent",
-            "STRONG_ACCENT": "strong-accent", "TENUTO": "tenuto",
-            "MARCATO": "strong-accent", "MARCATO_BELOW": "strong-accent",
+            "STACCATO": "staccato",
+            "STACCATO_BELOW": "staccato",
+            "STACCATISSIMO": "staccatissimo",
+            "ACCENT": "accent",
+            "STRONG_ACCENT": "strong-accent",
+            "TENUTO": "tenuto",
+            "MARCATO": "strong-accent",
+            "MARCATO_BELOW": "strong-accent",
         }
     else:
         parent_tag = "ornaments"
         mapping = {
-            "TR": "trill-mark", "MORDENT": "mordent",
-            "MORDENT_INVERTED": "inverted-mordent", "TURN": "turn",
-            "TURN_INVERTED": "inverted-turn", "TURN_UP": "turn",
+            "TR": "trill-mark",
+            "MORDENT": "mordent",
+            "MORDENT_INVERTED": "inverted-mordent",
+            "TURN": "turn",
+            "TURN_INVERTED": "inverted-turn",
+            "TURN_UP": "turn",
             "TURN_SLASH": "turn",
         }
     tag = mapping.get(selected_shape.upper())
@@ -1115,8 +1346,14 @@ def _replace_notation_candidate(
     container = notations.find(_q(ns, parent_tag))
     if container is None:
         container = ET.SubElement(notations, _q(ns, parent_tag))
-    for child in list(container):
-        container.remove(child)
+    # Replace only the articulation/ornament represented by this entity. A note
+    # may legitimately carry several marks from the same container (for example
+    # accent + staccato), so clearing the container would delete unrelated data.
+    previous_tag = mapping.get(entity.shape.upper())
+    if previous_tag is not None:
+        previous = container.find(_q(ns, previous_tag))
+        if previous is not None:
+            container.remove(previous)
     ET.SubElement(container, _q(ns, tag))
 
 
@@ -1147,11 +1384,36 @@ def _serialize(root: ET.Element, ns: str) -> str:
     return xml_bytes.decode("utf-8")
 
 
+def _locator_matches(element_id: str, locator: str) -> bool:
+    """Match one complete provenance segment, never a numeric id prefix.
+
+    Audiveris note ids join sources with ``__`` (for example
+    ``st__n-s1-i1__a-s1-i2``). Slurs use ``ss``/``se`` in MusicXML while the
+    link map uses the common ``s`` role, and wedges share one locator between
+    their ``-start`` and ``-stop`` directions.
+    """
+    if not element_id or not locator:
+        return False
+    segments = element_id.split("__")
+    if locator in segments:
+        return True
+    if locator.startswith("wg-") and any(
+        segment in {f"{locator}-start", f"{locator}-stop"} for segment in segments
+    ):
+        return True
+    if locator.startswith("s-"):
+        suffix = locator[2:]
+        return f"ss-{suffix}" in segments or f"se-{suffix}" in segments
+    return False
+
+
 def _matching_elements(root: ET.Element, entity: CorrectableEntity) -> list[ET.Element]:
     return [
         element
         for element in root.iter()
-        if entity.musicxml_locator in element.get(entity.musicxml_attribute, "")
+        if _locator_matches(
+            element.get(entity.musicxml_attribute, ""), entity.musicxml_locator
+        )
     ]
 
 

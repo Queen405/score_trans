@@ -463,8 +463,17 @@ public final class ScoreTransOverlayExporter
             }
         }
 
-        final Glyph glyph = inter.getGlyph() != null
-                ? inter.getGlyph() : glyphForInterBounds(sheet, inter.getBounds());
+        final Glyph glyph;
+        if (inter.getGlyph() != null) {
+            glyph = inter.getGlyph();
+        } else if ("clef".equals(family) || "key".equals(family)) {
+            // Compound clefs/keys may need their component glyphs reunited.
+            // Do not synthesize glyphs for large slur/tuplet bounds: that scans
+            // the whole sheet and classifies unrelated notes inside the bounds.
+            glyph = glyphForInterBounds(sheet, inter.getBounds());
+        } else {
+            glyph = null;
+        }
         if (glyph != null) {
             final Evaluation[] evaluations;
             try {

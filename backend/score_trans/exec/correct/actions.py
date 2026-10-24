@@ -129,8 +129,10 @@ def _to_entities_response(sheets: list[CorrectableSheet]) -> EntitiesResponse:
                 suspicious_glyphs=[
                     SuspiciousGlyphDTO(
                         glyph_id=glyph.glyph_id,
-                        bounds_x=glyph.bounds[0], bounds_y=glyph.bounds[1],
-                        bounds_w=glyph.bounds[2], bounds_h=glyph.bounds[3],
+                        bounds_x=glyph.bounds[0],
+                        bounds_y=glyph.bounds[1],
+                        bounds_w=glyph.bounds[2],
+                        bounds_h=glyph.bounds[3],
                         hit_path=glyph.hit_path,
                         candidates=[
                             CandidateDTO(shape=s, score=v, score_kind=k)

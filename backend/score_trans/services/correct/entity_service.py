@@ -179,17 +179,21 @@ def _correctable_glyph(
     inters_by_id: dict[str, InterData],
 ) -> CorrectableGlyph:
     mapped = glyph
-    inter = inters_by_id.get(str(mapped.inter_id)) if mapped.inter_id is not None else None
+    inter = (
+        inters_by_id.get(str(mapped.inter_id)) if mapped.inter_id is not None else None
+    )
     staff = inter.staff if inter is not None else mapped.staff
     pitch = inter.pitch if inter is not None else mapped.pitch
     if staff is None or pitch is None:
         inferred_staff, inferred_pitch = _staff_pitch(sheet, mapped.bounds)
         staff = staff or inferred_staff
         pitch = pitch if pitch is not None else inferred_pitch
-    candidates = _rank_candidates(tuple(
-        (candidate.shape, candidate.score, candidate.score_kind)
-        for candidate in mapped.shape_candidates
-    ))
+    candidates = _rank_candidates(
+        tuple(
+            (candidate.shape, candidate.score, candidate.score_kind)
+            for candidate in mapped.shape_candidates
+        )
+    )
     if not candidates and mapped.shape != "UNKNOWN":
         candidates = _rank_candidates(
             ((mapped.shape, mapped.grade, "audiveris_inter_grade"),)
@@ -197,8 +201,10 @@ def _correctable_glyph(
     return CorrectableGlyph(
         glyph_id=mapped.glyph_id,
         bounds=(
-            int(mapped.bounds.x), int(mapped.bounds.y),
-            int(mapped.bounds.width), int(mapped.bounds.height),
+            int(mapped.bounds.x),
+            int(mapped.bounds.y),
+            int(mapped.bounds.width),
+            int(mapped.bounds.height),
         ),
         hit_path=mapped.hit_path,
         candidates=candidates,

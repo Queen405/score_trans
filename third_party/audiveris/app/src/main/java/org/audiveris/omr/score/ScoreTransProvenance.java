@@ -126,7 +126,10 @@ public final class ScoreTransProvenance
 
         final SIGraph sig = note.getSig();
         final AbstractChordInter chord = note.getChord();
-        final boolean firstInChord = chord.getNotes().indexOf(note) == 0;
+        // A loose note/rest may not belong to any chord yet. It still has its
+        // own source id (and possibly slur relations), so keep exporting it
+        // instead of failing the whole sidecar with a NullPointerException.
+        final boolean firstInChord = chord != null && chord.getNotes().indexOf(note) == 0;
 
         if (firstInChord) {
             for (Relation relation : sig.edgesOf(chord)) {

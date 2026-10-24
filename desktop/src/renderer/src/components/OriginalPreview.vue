@@ -73,7 +73,7 @@
             <RecognitionSymbol
               :shape="item.shape"
               :background="false"
-              :style="{ width: '100%', height: '100%', color: '#00aa44', opacity: item.grade }"
+              :style="{ width: '100%', height: '100%', color: '#00aa44', opacity: 1 }"
             />
           </svg>
         </svg>

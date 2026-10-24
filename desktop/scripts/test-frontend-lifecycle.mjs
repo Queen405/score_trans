@@ -77,7 +77,9 @@ test('marker candidate maps preserve the native overlay and use contour hit path
   assert.doesNotMatch(originalPreviewSource, /<rect[\s\S]*?entity-box/)
   assert.match(originalPreviewSource, /:d="element\.hit_path"/)
   assert.match(convertSource, /@select-source="handleOriginalSourceClick"/)
-  assert.match(convertSource, /@click="toggleEntityDelete\(selectedEntity\.source_id\)"/)
+  // 删除/恢复由语义命中层单击驱动（仅 can_delete 实体），面板只做候选选择
+  assert.match(convertSource, /@toggle-delete="toggleEntityDelete"/)
+  assert.match(originalPreviewSource, /entity\?\.can_delete[\s\S]*?emit\('toggleDelete', sourceId\)/)
 })
 
 test('uploader and recognition coordination state is instance scoped', () => {
@@ -391,7 +393,7 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
   assert.match(convertSource, /:disabled="loadingEntities \|\| !canEditMarkers"/)
   assert.match(
     convertSource,
-    /@click="applyCorrections"[\s\S]*?>\s*\{\{ t\('convert\.marker\.apply'\) \}\}\s*<\/n-button>/,
+    /@click="applyCorrections\(\)"[\s\S]*?>\s*\{\{ t\('convert\.marker\.apply'\) \}\}\s*<\/n-button>/,
   )
   // 拆分进入/取消；取消时终止未完成加载并恢复已应用基线
   assert.match(convertSource, /async function enterEditMode\(\)/)
@@ -404,10 +406,10 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
   // apply 守卫基于"相对已应用基线的差异"，而非"删除数为 0"
   assert.match(convertSource, /const hasPendingChange =/)
   assert.doesNotMatch(convertSource, /未删除任何标记/)
-  // 应用成功后自动退出删除标记模式，无需再点"取消"
+  // 显式应用成功后退出删除标记模式；候选自动应用（keepEditing）保持编辑态
   assert.match(
     convertSource,
-    /message\.success\(t\('convert\.marker\.applied'\)\)\s*\n\s*editMode\.value = false/,
+    /if \(!options\.silent\) message\.success\(t\('convert\.marker\.applied'\)\)\s*\n\s*if \(!options\.keepEditing\) editMode\.value = false/,
   )
   // 多页 OMR 提示文案与功能名一致
   assert.match(convertSource, /multiPageOmr/)
@@ -415,13 +417,14 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
 
 test('marker edit mode keeps the original overlay and clicks semantic hit paths without boxes', () => {
   assert.match(originalPreviewSource, /class="source-hit-layer"\s+:class="\{ editing: editable \}"/)
-  assert.match(originalPreviewSource, /@click\.stop="selectSource\(element\.source_id, \$event\)"/)
+  assert.match(originalPreviewSource, /@click\.stop="handleSourceClick\(element\.source_id, \$event\)"/)
+  assert.match(originalPreviewSource, /@keydown\.enter\.prevent="selectSource\(element\.source_id, \$event\)"/)
   assert.match(originalPreviewSource, /class="marker-editor-anchor"/)
   assert.match(convertSource, /template #marker-editor/)
-  assert.match(convertSource, /<NoteheadSymbol :shape="candidate\.shape"\s*\/>/)
+  assert.match(convertSource, /<RecognitionSymbol :shape="candidate\.shape"\s*\/>/)
   assert.match(originalPreviewSource, /appliedCandidateSelections \?\? \{\}/)
   assert.match(originalPreviewSource, /:mask="`url\(#\$\{overlayMaskId\}\)`"/)
-  assert.match(originalPreviewSource, /<NoteheadSymbol/)
+  assert.match(originalPreviewSource, /<RecognitionSymbol/)
   assert.match(convertSource, /selectedGlyphId\.value = ''/)
   assert.match(originalPreviewSource, /\.source-hit-layer\.editing \.source-hit:hover/)
   assert.doesNotMatch(originalPreviewSource, /<rect[\s\S]*?class="entity-box"/)

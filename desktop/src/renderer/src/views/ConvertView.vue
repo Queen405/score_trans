@@ -354,6 +354,8 @@
                         :style="{ '--candidate-score': `${Math.max(0, Math.min(1, candidate.score)) * 100}%` }"
                         type="button"
                         :disabled="applying"
+                        :title="candidate.shape"
+                        :aria-label="candidate.shape"
                         @click="selectCandidate(selectedEntity.source_id, candidate.shape)"
                       >
                         <span class="candidate-rank">{{ index + 1 }}</span>
@@ -419,6 +421,8 @@
                         :style="{ '--candidate-score': `${Math.max(0, Math.min(1, candidate.score)) * 100}%` }"
                         type="button"
                         :disabled="applying"
+                        :title="candidate.shape"
+                        :aria-label="candidate.shape"
                         @click="selectCandidate(selectedGlyph.glyph_id, candidate.shape)"
                       >
                         <span class="candidate-rank">{{ index + 1 }}</span>
@@ -1554,6 +1558,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       originalMusicxml: r.page.original_musicxml ?? '',
       workingMusicxml: r.page.working_musicxml || r.page.original_musicxml || '',
       deletedSourceIds: r.page.deleted_source_ids ?? [],
+      recognitionCandidateSelections: r.page.recognition_candidate_selections ?? {},
       ...liveRecognitionTaskPatch(r.page.id, r.page.status),
     })),
     pageIndex >= 0 ? pageIndex : 0,
@@ -2149,6 +2154,7 @@ async function resetAll(): Promise<void> {
       editMode.value = false
     }
     deletedEntityIds.value = new Set()
+    candidateSelections.value = {}
 
     const result = await requireData(convertApi.musicxmlToJianpu({
       musicxml_file_id: store.musicxmlFileId,
@@ -2183,6 +2189,7 @@ async function resetAll(): Promise<void> {
         textHash: await hashJianpuText(resetJianpuText),
         workingMusicxml: store.originalMusicxml,
         deletedSourceIds: [],
+        recognitionCandidateSelections: {},
       }
       const nextBatchText = ensureRecognizedTempoHeader(
         replaceJianpuSectionBody(
@@ -2286,13 +2293,19 @@ async function selectCandidate(sourceId: string, shape: string): Promise<void> {
   const isCurrentEntity = selectedEntity.value?.source_id === sourceId
   const isCurrentGlyph = selectedGlyph.value?.glyph_id === sourceId
   if (!candidate || (!isCurrentEntity && !isCurrentGlyph)) return
-  if (candidateSelections.value[sourceId] === shape
-      || (!candidateSelections.value[sourceId]
-        && ((selectedEntity.value?.shape ?? selectedGlyph.value?.shape) === shape))) return
+  if (candidateSelections.value[sourceId] === shape) return
   const previousSelections = candidateSelections.value
   const pageId = store.currentPage?.id
   candidateSelections.value = { ...candidateSelections.value, [sourceId]: shape }
-  const applied = await applyCorrections({ keepEditing: true, silent: true })
+  // Selecting a candidate also revives a mark that was staged for deletion.
+  // Do not suppress the current shape: an OMR note/rest/clef missing from
+  // MusicXML still needs that exact classification for insertion.
+  if (deletedEntityIds.value.has(sourceId)) {
+    const next = new Set(deletedEntityIds.value)
+    next.delete(sourceId)
+    deletedEntityIds.value = next
+  }
+  const applied = await applyCorrections({ keepEditing: true, silent: true, candidateOnly: true })
   if (!applied && store.currentPage?.id === pageId
       && store.currentPage?.recognitionCandidateSelections?.[sourceId] !== shape) {
     candidateSelections.value = previousSelections
@@ -2317,6 +2330,7 @@ function toggleEntityDelete(sourceId: string) {
 async function applyCorrections(options: {
   keepEditing?: boolean
   silent?: boolean
+  candidateOnly?: boolean
 } = {}): Promise<boolean> {
   const page = store.currentPage
   if (!page) return false
@@ -2337,7 +2351,10 @@ async function applyCorrections(options: {
     if (!options.silent) message.info(t('convert.marker.noChanges'))
     return false
   }
-  const deletedSourceIds = [...deletedEntityIds.value]
+  // Automatic candidate switching must not silently commit deletions that are
+  // still staged in the editing session. Replay only the applied baseline here;
+  // the explicit Apply button submits the staged deletion set.
+  const deletedSourceIds = options.candidateOnly ? [...baseline] : [...current]
   const candidateSelectionPayload = { ...effectiveCandidateSelections.value }
   const editedPageText = currentPageJianpuText()
   applying.value = true

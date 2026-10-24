@@ -1210,6 +1210,7 @@ async function persistPageResult(
         original_musicxml: result.musicxml_text ?? '',
         working_musicxml: result.musicxml_text ?? '',
         deleted_source_ids: [],
+        recognition_candidate_selections: {},
       }))
       syncStoreFromHistoryPage(target.pageId, updated)
       notifyHistoryPagePatched(historyPagePatchFromPage(updated))
@@ -1298,6 +1299,7 @@ function syncStoreFromHistoryPage(pageId: string, page: HistoryPage): void {
     originalMusicxml: page.original_musicxml ?? '',
     workingMusicxml: page.working_musicxml || page.original_musicxml || '',
     deletedSourceIds: page.deleted_source_ids ?? [],
+    recognitionCandidateSelections: page.recognition_candidate_selections ?? {},
     ...liveRecognitionTaskPatch(page.id, page.status),
   }
   if (!store.patchPageById(pageId, patch)) {
@@ -1378,6 +1380,8 @@ async function applyPipelineResult(
       omrFileId: result.omr_file_id ?? '',
       originalMusicxml: result.musicxml_text ?? '',
       workingMusicxml: result.musicxml_text ?? '',
+      deletedSourceIds: [],
+      recognitionCandidateSelections: {},
     })
     await persistPageResult(target, pageResult, historyPageId)
     await syncBatchJianpuTextForPage(target.pageId)
