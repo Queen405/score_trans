@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跳房子（Volta）实现调研报告 · score_trans</title>
+<style>
+  :root{
+    --ink:#1b1d22; --ink-2:#4a4f58; --ink-3:#767c88;
+    --line:#e3e6ea; --line-2:#eef0f3;
+    --bg:#f6f7f9; --card:#ffffff;
+    --accent:#0e7c86; --accent-soft:#e6f4f5;
+    --p0:#b42318; --p0-soft:#fdeceb;
+    --p1:#b54708; --p1-soft:#fef3e6;
+    --p2:#8a6100; --p2-soft:#fdf7e3;
+    --p3:#475467; --p3-soft:#f2f4f7;
+    --ok:#087443; --ok-soft:#e9f7ef;
+    --code:#f3f4f6;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{display:grid; grid-template-columns:232px minmax(0,1fr); gap:48px; max-width:1240px; margin:0 auto; padding:56px 40px 120px;}
+  nav{position:sticky; top:40px; align-self:start; font-size:13.5px;}
+  nav .nav-title{font-size:11px; letter-spacing:.14em; color:var(--ink-3); text-transform:uppercase; margin-bottom:14px;}
+  nav a{display:block; color:var(--ink-2); text-decoration:none; padding:5px 0 5px 12px; border-left:2px solid transparent;}
+  nav a:hover{color:var(--accent); border-left-color:var(--accent-soft)}
+  nav a .n{display:inline-block; width:22px; color:var(--ink-3); font-variant-numeric:tabular-nums;}
+  main{min-width:0}
+  header.hero{border-bottom:1px solid var(--line); padding-bottom:28px; margin-bottom:40px;}
+  .eyebrow{font-size:12px; letter-spacing:.16em; color:var(--accent); text-transform:uppercase; font-weight:600;}
+  h1{font-size:34px; line-height:1.3; margin:10px 0 14px; letter-spacing:-.01em;}
+  .sub{color:var(--ink-2); font-size:15px; max-width:760px;}
+  .meta{display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:18px; font-size:13px; color:var(--ink-3);}
+  .meta b{color:var(--ink-2); font-weight:600;}
+  h2{font-size:23px; margin:56px 0 18px; padding-top:8px; letter-spacing:-.01em;}
+  h2 .num{color:var(--accent); font-size:13px; letter-spacing:.1em; display:block; margin-bottom:6px;}
+  h3{font-size:17px; margin:30px 0 10px;}
+  p{margin:0 0 14px}
+  ul,ol{margin:0 0 16px; padding-left:22px}
+  li{margin:5px 0}
+  a{color:var(--accent)}
+  code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; font-size:12.6px;
+       background:var(--code); border-radius:4px; padding:1.5px 5px; color:#2b3038;}
+  pre{background:#1e2228; color:#e6e8eb; border-radius:10px; padding:18px 20px; overflow-x:auto;
+      font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; font-size:12.6px; line-height:1.7; margin:14px 0 20px;}
+  pre code{background:none; padding:0; color:inherit; font-size:inherit}
+  pre .c{color:#8b949e}
+  pre .k{color:#79c0ff}
+  pre .s{color:#a5d6ff}
+  pre .bad{color:#ff9b90}
+  pre .good{color:#7ee787}
+  table{width:100%; border-collapse:collapse; margin:16px 0 22px; font-size:13.5px; background:var(--card);}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line-2); vertical-align:top;}
+  th{background:#fafbfc; font-weight:600; color:var(--ink-2); font-size:12.5px; letter-spacing:.02em; border-bottom:1px solid var(--line);}
+  tbody tr:hover{background:#fcfdfd}
+  td.num,th.num{font-variant-numeric:tabular-nums; white-space:nowrap}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin:18px 0;}
+  .badge{display:inline-block; font-size:11.5px; font-weight:700; letter-spacing:.06em; padding:2px 8px; border-radius:5px; vertical-align:1px;}
+  .b-p0{background:var(--p0-soft); color:var(--p0)}
+  .b-p1{background:var(--p1-soft); color:var(--p1)}
+  .b-p2{background:var(--p2-soft); color:var(--p2)}
+  .b-p3{background:var(--p3-soft); color:var(--p3)}
+  .b-ok{background:var(--ok-soft); color:var(--ok)}
+  .issue{border-left:3px solid var(--line); padding-left:20px; margin:26px 0 30px;}
+  .issue.p0{border-left-color:var(--p0)}
+  .issue.p1{border-left-color:var(--p1)}
+  .issue.p2{border-left-color:var(--p2)}
+  .issue.p3{border-left-color:var(--p3)}
+  .issue h3{margin-top:0; display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;}
+  .kv{font-size:13.5px; margin:8px 0}
+  .kv .t{display:inline-block; min-width:56px; color:var(--ink-3); font-weight:600; margin-right:8px;}
+  .callout{background:var(--accent-soft); border:1px solid #cfe7e9; border-radius:10px; padding:16px 18px; margin:18px 0; font-size:14px;}
+  .callout.warn{background:var(--p1-soft); border-color:#f3d9b6;}
+  .callout .ct{font-weight:700; margin-bottom:4px; display:block;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px}
+  .stat .v{font-size:26px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+  .stat .l{font-size:12.5px; color:var(--ink-3); margin-top:2px}
+  .stat.bad .v{color:var(--p0)}
+  .stat.warn .v{color:var(--p1)}
+  .stat.ok .v{color:var(--ok)}
+  .actual{color:var(--p0); font-weight:600}
+  .expect{color:var(--ok); font-weight:600}
+  .yes{color:var(--ok); font-weight:700}
+  .no{color:var(--p0); font-weight:700}
+  .flow{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:18px 0; font-size:13.5px; overflow-x:auto;}
+  .flow pre{background:none; color:var(--ink-2); padding:0; margin:0; font-size:12.4px; line-height:1.9}
+  footer{margin-top:64px; padding-top:20px; border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-3)}
+  @media (max-width:980px){
+    .wrap{grid-template-columns:1fr; gap:0; padding:32px 20px 80px}
+    nav{display:none}
+    .grid2{grid-template-columns:1fr}
+    h1{font-size:27px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="nav-title">目录</div>
+  <a href="#s0"><span class="n">0</span>结论速览</a>
+  <a href="#s1"><span class="n">1</span>调研范围与方法</a>
+  <a href="#s2"><span class="n">2</span>实现现状</a>
+  <a href="#s3"><span class="n">3</span>问题清单</a>
+  <a href="#s4"><span class="n">4</span>修复方案</a>
+  <a href="#s5"><span class="n">5</span>测试矩阵</a>
+  <a href="#s6"><span class="n">6</span>附录：原始数据</a>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Code Review · Volta / Ending Houses</div>
+  <h1>跳房子（反复跳跃房子）实现调研报告</h1>
+  <p class="sub">对 <code>score_trans</code> 中“跳房子”从文本语法、数据模型、MusicXML 双向转换、播放展开到排版渲染的完整链路做了一次走查，并用可执行探针复现了 12 个边界场景。结论是：分层设计是对的，但“自动闭合”和“播放展开”两个状态机都有确定性缺陷，会直接造成<b>括号画多</b>和<b>播放丢小节</b>。</p>
+  <div class="meta">
+    <span><b>代码基线</b> D:\CODE\MyProjects\score_trans</span>
+    <span><b>日期</b> 2026-10-24</span>
+    <span><b>现有测试</b> 33 项跳房子用例全部通过</span>
+    <span><b>新增探针</b> 12 组（解析 / 展开 / 渲染）</span>
+  </div>
+</header>
+
+<h2 id="s0"><span class="num">SECTION 00</span>结论速览</h2>
+
+<div class="grid2">
+  <div class="stat bad"><div class="v">3</div><div class="l">P0 / P1 级功能缺陷（会直接改变谱面或音频）</div></div>
+  <div class="stat warn"><div class="v">5</div><div class="l">P2 级健壮性与诊断缺失</div></div>
+  <div class="stat ok"><div class="v">33 / 33</div><div class="l">现有测试通过率 —— 说明缺陷都在未覆盖区</div></div>
+  <div class="stat"><div class="v">~1.5 天</div><div class="l">P0 修复 + 补测试的预估工作量</div></div>
+</div>
+
+<table>
+  <thead><tr><th style="width:74px">级别</th><th>问题</th><th style="width:220px">用户可见后果</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge b-p0">P0-1</span></td><td>末房子（2 房及以后）没有可靠的闭合点，会一直“吞”到下一个 <code>:|</code> / <code>||</code> / <code>{N.}</code> / 曲终</td><td>括号画到整首曲子结尾；跨到下一段时会把下一段首小节算进房子，播放时该小节被跳过</td></tr>
+    <tr><td><span class="badge b-p0">P0-2</span></td><td>链式多房子（<code>{1.} :| {2.} :| {3.}</code>）播放展开算法从全曲重新复制，产生重复并丢失末房子</td><td>4 小节的三房子乐段，实际播出 11 小节，且第 3 房子一次都不播</td></tr>
+    <tr><td><span class="badge b-p1">P1-1</span></td><td>房子括号的纵向位置是硬编码 <code>-22</code>，不参与系统高度计算；高八度 + 连音线时与弧线重叠</td><td>1 房子开头有高音连线时，括号横线压在连音线上</td></tr>
+    <tr><td><span class="badge b-p1">P1-2</span></td><td>多声部里只有一行写了房子 → <code>playback_visits</code> 直接抛 <code>ValueError</code></td><td>谱面正常显示，但点播放/导出 MIDI 报 400「各声部的跳房子标记不一致」，整首无法播放</td></tr>
+    <tr><td><span class="badge b-p1">P1-3</span></td><td>MusicXML 只有 <code>start</code> 没有 <code>stop</code> 的房子会延伸到全曲；反复结束后 <code>current_pass</code> 仍为 2，这些小节被整段跳过</td><td>导入一份不规范 MusicXML，后半首从播放里消失</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="ct">一句话判断</span>
+  核心抽象（<code>domain/endings.py</code> 统一编号规范与跨度扫描）做得干净，问题不在“设计”，而在两个“边扫边改状态”的实现细节：<b>解析器用“遇到下一个结构记号再回头闭合”的延迟策略</b>，以及<b>播放器用“事后复制片段”的展开策略</b>。两者都缺一个显式的“段/遍”状态机。
+</div>
+
+<h2 id="s1"><span class="num">SECTION 01</span>调研范围与方法</h2>
+
+<h3>1.1 涉及文件</h3>
+<table>
+  <thead><tr><th style="width:120px">层</th><th>文件</th><th>在跳房子链路里的职责</th></tr></thead>
+  <tbody>
+    <tr><td>model</td><td><code>models/score.py:150-155</code></td><td>三个边界字段 <code>ending_start</code> / <code>ending_stop</code> / <code>ending_discontinue</code>，只落在房子首末小节</td></tr>
+    <tr><td>domain</td><td><code>domain/endings.py</code></td><td>编号规范化、遍数集合、显示标签、跨度扫描 <code>ending_spans()</code>（全链路共享）</td></tr>
+    <tr><td>parse</td><td><code>domain/parse/jianpu_text.py:2021-2117</code></td><td>文本 <code>{N.}</code> / <code>{N,M.}</code> / <code>{.}</code> 的开启、自动闭合、重复编号校验</td></tr>
+    <tr><td>parse</td><td><code>domain/parse/musicxml.py:507-540</code></td><td>MusicXML <code>&lt;ending type=start|stop|discontinue&gt;</code> 读取</td></tr>
+    <tr><td>write</td><td><code>domain/write/jianpu_text.py:522-539</code></td><td>文本回写：<code>{N.}</code> 前置、按需补 <code>{.}</code></td></tr>
+    <tr><td>write</td><td><code>domain/write/musicxml.py:450-483</code></td><td>MusicXML 回写：left barline 写 start，right barline 写 stop/discontinue</td></tr>
+    <tr><td>playback</td><td><code>domain/playback_timeline.py:76-162</code></td><td>声部一致性校验 + 反复/房子展开为 <code>MeasureVisit</code></td></tr>
+    <tr><td>render</td><td><code>services/render/engraving/renderer.py:487-553</code></td><td>系统级房子括号：按系统切片、跨系统续接、编号重标</td></tr>
+    <tr><td>render</td><td><code>services/render/engraving/renderer.py:1773-1929</code></td><td>断行代价函数与系统高度预算（<b>未包含房子</b>）</td></tr>
+    <tr><td>frontend</td><td><code>desktop/.../jianpuSyntax.ts</code>、<code>website/.../jianpuPageSections.ts</code></td><td>编辑器高亮、分页小节号估算（与后端规则对齐）</td></tr>
+    <tr><td>docs</td><td><code>docs/jianpu-syntax.md:187-205</code></td><td>权威语法说明（包含 <code>{.}</code> 与 discontinue 的降级说明）</td></tr>
+  </tbody>
+</table>
+
+<h3>1.2 方法</h3>
+<ul>
+  <li><b>静态走查</b>：从模型字段出发，逐层追到播放与渲染的消费点，确认没有第二套实现（这一点项目做得很好，只有 <code>endings.py</code> 一处共享算法）。</li>
+  <li><b>可执行探针</b>：直接调用 <code>parse_jianpu_score</code> / <code>playback_visits</code> / <code>PublicationRenderer</code>，打印模型字段、房子跨度、播放序列、SVG 节点坐标与 QA 报错。</li>
+  <li><b>回归基线</b>：<code>pytest -k "ending or house or 房子"</code> 共 33 项，全部通过（1.4s）。</li>
+</ul>
+
+<div class="callout warn">
+  <span class="ct">这一点很重要</span>
+  33 项测试全绿并不代表没有问题。现有用例集中在“1 房 + 2 房、两段以内”的主路径；下面列出的缺陷全部落在“末房子之后还有音乐”“三个以上房子”“反复段之后还有房子”“多声部只标一行”这些尚未覆盖的分支上。
+</div>
+
+<h2 id="s2"><span class="num">SECTION 02</span>实现现状：它是怎么工作的</h2>
+
+<h3>2.1 数据模型：只记边界，不记跨度</h3>
+<p>房子不是独立对象，而是挂在 <code>Measure</code> 上的三个可空字符串：房子首小节写 <code>ending_start</code>，末小节写 <code>ending_stop</code>（闭合，画右竖钩）或 <code>ending_discontinue</code>（开口，不画右竖钩）。中间小节不带任何标记，跨度由 <code>ending_spans()</code> 事后扫描推导。</p>
+<pre><code><span class="c"># domain/endings.py:57  扫描规则（简化）</span>
+for index, measure in enumerate(measures):
+    <span class="k">if</span> measure.ending_start <span class="k">is not</span> None:
+        <span class="c"># 若已有开着的房子，先在前一小节闭合它</span>
+        <span class="k">if</span> open_number <span class="k">and</span> index &gt; open_start:
+            spans.append(EndingSpan(open_number, open_start, index - 1))
+        open_number, open_start = measure.ending_start, index
+    <span class="k">if</span> open_number <span class="k">and</span> (measure.ending_stop <span class="k">or</span> measure.ending_discontinue):
+        spans.append(EndingSpan(open_number, open_start, index, ...))
+<span class="c"># 未闭合 → 一直延伸到最后一个 measure</span></code></pre>
+<p>这个模型与 MusicXML 语义一致，也让渲染/播放/导出共用一套跨度计算，是正确的方向。但它把“房子到哪结束”完全交给上游标记，于是<b>上游少写一个闭合点，下游就会画错、播错</b>——这正是下面 P0-1 的结构性原因。</p>
+
+<h3>2.2 文本解析：延迟闭合</h3>
+<p>解析器维护一个 <code>open_ending</code>（当前开着的房子编号），只在遇到结构记号时回头把它写到“刚结束的小节”上。自动闭合点有五个：</p>
+<table>
+  <thead><tr><th style="width:150px">记号</th><th>行为</th><th style="width:90px">是否闭合房子</th></tr></thead>
+  <tbody>
+    <tr><td><code>:|</code></td><td><code>score.measures[-1].ending_stop = open_ending</code></td><td class="yes">是</td></tr>
+    <tr><td><code>||</code></td><td>闭合 + 清空 <code>used_ending_numbers</code></td><td class="yes">是</td></tr>
+    <tr><td>下一个 <code>{N.}</code></td><td>闭合到 <code>score.measures[-1]</code>（此时是上一小节）</td><td class="yes">是（但见 P0-1）</td></tr>
+    <tr><td><code>{.}</code></td><td>显式闭合</td><td class="yes">是</td></tr>
+    <tr><td>曲终</td><td>收尾时补 <code>ending_stop</code></td><td class="yes">是</td></tr>
+    <tr><td><code>|</code></td><td>仅 flush 小节</td><td class="no">否</td></tr>
+    <tr><td><code>|:</code></td><td>flush + <code>next_repeat_start = True</code> + 清空编号集合</td><td class="no">否 ← 缺陷点</td></tr>
+  </tbody>
+</table>
+
+<h3>2.3 播放展开：事后复制片段</h3>
+<pre><code><span class="c"># domain/playback_timeline.py:112-162（简化）</span>
+<span class="k">for</span> index, measures <span class="k">in</span> enumerate(cells):
+    <span class="k">if</span> repeat_start:  repeat_start, current_pass = len(sequence), 1
+    <span class="k">if</span> house <span class="k">is</span> None <span class="k">or</span> current_pass <span class="k">is</span> None <span class="k">or</span> current_pass <span class="k">in</span> house.passes:
+        sequence.append(index)
+    <span class="k">if</span> repeat_end:
+        section = sequence[repeat_start <span class="k">or</span> 0 :]        <span class="c"># ← 已过滤过的序列</span>
+        <span class="k">for</span> pass_no <span class="k">in</span> range(2, count + 1):
+            sequence.extend(c <span class="k">for</span> c <span class="k">in</span> section <span class="k">if</span> pass_no <span class="k">in</span> house(c))
+        repeat_start, current_pass = None, count     <span class="c"># ← 遍数不复位</span></code></pre>
+<p>两个隐患写在这里：<code>section</code> 取的是<b>已经按第 1 遍过滤过</b>的序列；<code>current_pass</code> 在反复结束后被留在 <code>count</code>，而不是回到“线性区”。这两点分别导致 P0-2 和 P1-3。</p>
+
+<h3>2.4 渲染：系统级切片</h3>
+<p>房子跨度在全局预算，绘制时按 system 切片：跨系统的段左侧不画钩（表示续接），下一系统重标编号；<code>discontinue</code> 不画右钩。这部分实现是完整且考虑周到的。</p>
+<p>但括号的纵坐标是 <code>y + part.offset - 22</code>（<code>renderer.py:512</code>），既不参与 <code>_system_extra_height()</code> 的高度预算，也不参与 <code>_boundary_penalties()</code> 的断行代价。它是“贴上去的一条线”，不是布局的一部分。</p>
+
+<h2 id="s3"><span class="num">SECTION 03</span>问题清单</h2>
+
+<div class="issue p0">
+  <h3><span class="badge b-p0">P0-1</span> 末房子没有可靠闭合点，向后“吞”小节</h3>
+  <div class="kv"><span class="t">现象</span>2 房子（以及任何“最后一栋”）写完后，如果后面还有普通小节、或下一段以 <code>|:</code> 开始，房子不会在小节线处结束，而是一直延伸到下一个 <code>:|</code> / <code>||</code> / <code>{N.}</code> / 曲终。</div>
+  <div class="kv"><span class="t">复现 A</span><code>|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' | 3 4 5 6 | 2 3 4 5 |</code><br>
+  实际跨度：<span class="actual">1 房 = (1,1)，2 房 = (2,4)</span>；期望 <span class="expect">2 房 = (2,2)</span>。<br>
+  → 谱面上 2 房子的括号横跨到全曲结尾。</div>
+  <div class="kv"><span class="t">复现 B</span><code>… :| {2.} 7 1' 2' 1' |</code> 换行后接 <code>|: 2 3 4 5 | {1.} 3 4 5 6 :| {2.} 4 5 6 7 |</code><br>
+  实际：第 3 小节（下一段首小节）<code>ending_stop = "2"</code>，跨度 <span class="actual">2 房 = (2,3)</span>；<br>
+  播放序列 <span class="actual">[0,1,0,2,4,5]</span>，期望 <span class="expect">[0,1,0,2,3,4,3,5]</span> —— <b>下一段首小节被整体丢掉</b>。</div>
+  <div class="kv"><span class="t">根因</span>两处叠加：<br>
+  ① <code>parse/jianpu_text.py:2021</code> 的 <code>|:</code> 分支没有闭合 <code>open_ending</code>，房子越过段边界存活；<br>
+  ② <code>parse/jianpu_text.py:2085</code> 的“下一个 <code>{N.}</code> 自动闭合”写的是 <code>score.measures[-1]</code>，而此时 <code>[-1]</code> 已经是新段落 flush 出来的小节，于是闭合点整体右移一格。</div>
+  <div class="kv"><span class="t">影响</span>渲染（括号跨段/跨到曲尾）+ 播放（丢小节）+ 文本往返（错误跨度被“稳定”保存下来，导出再导入仍然是错的）。这是本次最该先修的一条。</div>
+</div>
+
+<div class="issue p0">
+  <h3><span class="badge b-p0">P0-2</span> 链式多房子：展开序列重复且末房子丢失</h3>
+  <div class="kv"><span class="t">现象</span>三个以上房子、每个房子各自以 <code>:|</code> 结束时（MusicXML 里就是连续多个 backward repeat），播放展开从全曲重新复制一遍。</div>
+  <div class="kv"><span class="t">复现</span><code>|: 1 2 3 4 | {1.} 5 6 5 4 *3 :| {2.} 7 1' 2' 1' *3 :| {3.} 2' 3' 4' 5' |</code><br>
+  实际：<span class="actual">[0,1,0,0,0,0,0,0,0,0,3]</span>（0 号小节播 9 次，2 房子一次不播）<br>
+  期望：<span class="expect">[0,1,0,2,0,3]</span><br>
+  不写 <code>*3</code> 时同样错：<span class="actual">[0,1,0,2,0,0,2]</span>。</div>
+  <div class="kv"><span class="t">根因</span><code>playback_timeline.py:146</code>：<code>section = sequence[repeat_start if repeat_start is not None else 0:]</code>。第一个 <code>:|</code> 把 <code>repeat_start</code> 置为 <code>None</code>，第二个 <code>:|</code> 于是从 <code>0</code> 取到<b>整首已展开序列</b>再复制一遍；同时 <code>current_pass</code> 被设成 <code>count</code>，末房子编号对不上就被过滤掉。</div>
+  <div class="kv"><span class="t">影响</span>三房子、三遍以上的进行曲/民谣很常见；音频错乱程度与曲子长度成正比。渲染不受影响（跨度来自标记，不来自展开），所以是“谱面对、声音错”，更难被发现。</div>
+</div>
+
+<div class="issue p1">
+  <h3><span class="badge b-p1">P1-1</span> 房子括号与高音区连音线重叠</h3>
+  <div class="kv"><span class="t">现象</span><code>{1.} (1' 2' 3' 4' | 5 6 5 4 | 3 4 5 6) :|</code> 渲染后，房子横线压在连音线弧顶。</div>
+  <div class="kv"><span class="t">实测坐标</span>连音线 bbox <code>y=178.46, h=31.8</code>；房子横线 bbox <code>y=181.3 ~ 189.7</code> → <span class="actual">纵向重叠约 8px</span>。<br>对照：同样首小节但无连音线时，最近墨迹在 y≈214，无重叠。</div>
+  <div class="kv"><span class="t">根因</span><code>renderer.py:512</code> 固定 <code>-22</code>；<code>_system_extra_height()</code>（:1881）只为装饰音/八度点/连音线/歌词预留高度，<b>完全不知道房子的存在</b>。房子画在系统框外，靠“系统间隔 16 + 底部预留 18”的余量侥幸不撞，一旦上方墨迹抬高（连音线 + 高八度）就撞上。</div>
+  <div class="kv"><span class="t">影响</span>视觉缺陷；且 QA 检测不到——<code>qa.py:91-95</code> 会跳过所有 spanner 类节点的比对。</div>
+</div>
+
+<div class="issue p1">
+  <h3><span class="badge b-p1">P1-2</span> 多声部只标一行房子 → 播放整首失败</h3>
+  <div class="kv"><span class="t">现象</span><code>// @part 1</code> 写了 <code>{1.}/{2.}</code>，<code>// @part 2</code> 没写（伴奏行不标房子，是很自然的写法）。渲染正常：只有第一行画括号。但按播放键报错。</div>
+  <div class="kv"><span class="t">实测</span><code>playback_visits</code> 抛 <code>ValueError: 第 2 小节各声部的跳房子标记不一致</code>；<code>api/app.py:171</code> 的全局 handler 把它转成 <b>400</b>，<code>JianpuPlayer.vue</code> 直接弹错误，MIDI 也导不出。</div>
+  <div class="kv"><span class="t">根因</span><code>playback_timeline.py:100-104</code> 逐小节比较各声部的“所属房子编号”，把 <code>None</code> 与 <code>"1"</code> 也视为不一致。</div>
+  <div class="kv"><span class="t">影响</span>可用性硬伤：谱子能看不能听。建议把“某声部完全没有房子标记”视为“继承参考声部”，只有两个声部都标了但标得不同才报错（或降级为 warning）。</div>
+</div>
+
+<div class="issue p1">
+  <h3><span class="badge b-p1">P1-3</span> 未闭合房子 + 反复结束后遍数不复位 → 后续小节从播放中消失</h3>
+  <div class="kv"><span class="t">现象</span>两种触发方式：<br>① MusicXML 只有 <code>start</code> 没有 <code>stop</code>（OMR 漏识别时很常见）；<br>② 反复段之后出现一栋“孤立房子”，编号与最后一遍数不同。</div>
+  <div class="kv"><span class="t">实测</span>模型 <code>[|: , :|, {1.}start, 空]</code> → 跨度 <code>(2,3)</code>；播放 <span class="actual">[0,1,0,1]</span>，期望 <span class="expect">[0,1,0,1,2,3]</span>。文本侧 <code>|: 1 2 3 4 :| 5 6 5 4 | {1.} 7 1' 2' 1' |</code> → 同样丢掉第 3 小节。</div>
+  <div class="kv"><span class="t">根因</span><code>playback_timeline.py:155</code> 的 <code>current_pass = count</code> 在反复结束后不再复位，于是“线性区”实际上变成了“第 count 遍区”；只要房子编号不含 <code>count</code>，整段被过滤。</div>
+  <div class="kv"><span class="t">影响</span>与文档冲突：<code>docs/jianpu-syntax.md:203</code> 明确写“不在任何反复段内的孤立房子始终线性播放”。当前只对“从未进入反复段”成立。</div>
+</div>
+
+<div class="issue p2">
+  <h3><span class="badge b-p2">P2-1</span> 缺诊断：错误结构静默通过</h3>
+  <div class="kv"><span class="t">缺什么</span>目前只有两类诊断：重复编号（error）、房子内嵌 <code>|:</code>（warning）。以下都静默：<br>
+  · 末房子跨越了段边界（P0-1 的现场）；<br>
+  · 编号跳号（<code>{1.} … {3.}</code> 且只反复 2 遍 → 3 房子永远不播，且没有任何提示）；<br>
+  · 房子编号 &gt; <code>*N</code> 的次数（死房子）；<br>
+  · 某一遍没有任何匹配房子（会跳过该位置全部内容）；<br>
+  · MusicXML 导入时 <code>start</code> 无 <code>stop</code>。</div>
+  <div class="kv"><span class="t">建议</span>在 <code>_ending_nested_repeat_warnings</code> 同级加一个 <code>_ending_structure_warnings()</code>，复用 <code>ending_spans</code> + <code>repeat_*</code> 标记做静态检查，全部用 warning（不阻断）。</div>
+</div>
+
+<div class="issue p2">
+  <h3><span class="badge b-p2">P2-2</span> MusicXML 同一 barline 里的多个 ending 只取第一个</h3>
+  <div class="kv"><span class="t">根因</span><code>parse/musicxml.py:525</code> 用 <code>barline.find(q("ending"))</code>。MusicXML schema 允许 <code>ending*</code>，部分导出器会把 <code>type="stop"</code>（1 房结束）和 <code>type="start"</code>（2 房开始）放在同一条 barline 上，第二个会被丢弃 → 2 房子消失、渲染无括号、播放多播一遍。</div>
+  <div class="kv"><span class="t">建议</span>改成 <code>findall</code> 并按 <code>type</code> 分派；同一 barline 同时出现多个 start 时取最后一个。</div>
+</div>
+
+<div class="issue p2">
+  <h3><span class="badge b-p2">P2-3</span> 编号规范化过于宽松，与文本词法不一致</h3>
+  <div class="kv"><span class="t">现象</span><code>normalize_ending_number()</code> 用 <code>findall(r"\d+")</code> 抽数字：<code>"1.5"</code> → <code>"1,5"</code>，<code>"01"</code> → <code>"1"</code>，<code>"1-3"</code> → <code>"1,3"</code>。文本侧的 <code>_ENDING_OPEN_PATTERN</code> 却是严格模式，同样的写法会直接报错。</div>
+  <div class="kv"><span class="t">影响</span>MusicXML 侧的脏数据被“猜”成一个看似合理的编号，错误被隐藏而不是暴露。建议改成 <code>^\s*\d+(\s*[,，]\s*\d+)*\s*\.?\s*$</code> 全匹配，不匹配就丢弃并记 warning。</div>
+</div>
+
+<div class="issue p2">
+  <h3><span class="badge b-p2">P2-4</span> QA 对每栋房子固定产生 2 条误报</h3>
+  <div class="kv"><span class="t">现象</span>横线（<code>ending-line</code>）与竖钩（<code>ending-hook</code>）在端点处必然相交，<code>qa.py:98</code> 的 <code>_overlaps</code> 用严格不等号 + 各自 0.7px 描边，判定为重叠。每栋房子稳定产出 2 条 <code>geometry-overlap</code>。</div>
+  <div class="kv"><span class="t">影响</span>目前只进 <code>scene.geometry_issues</code> 与测试，不影响出图；但会把“真正的重叠”淹没，也让后续想用 QA 做发布门禁时无法设 <code>== 0</code>。</div>
+  <div class="kv"><span class="t">建议</span>给同一 owner 家族的节点加白名单（<code>ending-*</code> 内部互检跳过），与现有 spanner 白名单同一处理方式。</div>
+</div>
+
+<div class="issue p2">
+  <h3><span class="badge b-p2">P2-5</span> 断行不避让房子</h3>
+  <div class="kv"><span class="t">现象</span><code>_boundary_penalties()</code> 只惩罚在小节中间断开连音线/延音线/滑音/歌词，不惩罚在房子中间断开。房子被拆到两行时靠“续接 + 重标编号”兜底，能看到，但不符合排版习惯。</div>
+  <div class="kv"><span class="t">建议</span>加 <code>ending_break_penalty</code>（与 <code>slur_break_penalty</code> 同级，取 60~90），只在“非不得已”时断。</div>
+</div>
+
+<div class="issue p3">
+  <h3><span class="badge b-p3">P3-1</span> AI 转写提示词与实现矛盾</h3>
+  <div class="kv"><span class="t">原文</span><code>config/ai_prompt.yaml:105</code>：“房子在 <code>:|</code>、下一个 <code>{N.}</code>、<code>||</code> 或曲终自动闭合，<b>不需要也不允许显式闭合记号</b>”。</div>
+  <div class="kv"><span class="t">矛盾</span><code>{.}</code> 是正式语法（<code>docs/jianpu-syntax.md:189</code> 有定义，解析器支持，导出器会自动写）。提示词把它禁掉，等于让 AI 永远无法表达“末房子结束于普通小节线”——而这恰好是 P0-1 的唯一解法。</div>
+  <div class="kv"><span class="t">建议</span>改成：“末房子若结束在普通小节线且后面还有音乐，用 <code>{.}</code> 显式闭合”；并在自检清单里加一条。</div>
+</div>
+
+<div class="issue p3">
+  <h3><span class="badge b-p3">P3-2</span> 桌面端语法面板信息缺失</h3>
+  <div class="kv"><span class="t">现状</span><code>zh-CN/syntax.ts:185-189</code> 与 <code>SyntaxView.vue:754</code> 只展示 <code>{1.}  {2.}</code>，描述里没提 <code>{1,2.}</code>、<code>{.}</code>、以及“<code>*N</code> 与多房子必须逐遍安排编号”。网站手册（<code>manual/tables.ts:239</code>）反而写全了。三处文档（docs / 网站 / 桌面）不一致。</div>
+  <div class="kv"><span class="t">建议</span>以 <code>docs/jianpu-syntax.md</code> 为单一事实源，补一条 quickRef 到 <code>{.}</code>，并在 ending 条目里加一句“末房子后面还有音乐时用 <code>{.}</code> 收尾”。</div>
+</div>
+
+<div class="issue p3">
+  <h3><span class="badge b-p3">P3-3</span> 每个声部各画一条房子括号（待产品确认）</h3>
+  <div class="kv"><span class="t">现状</span><code>_draw_ending_brackets</code> 对 <code>spans_by_part</code> 逐个声部绘制，两声部就有两条竖排的括号。中文简谱分声部排版里这样画可以接受；但如果是钢琴大谱表式的“多行同属一个系统”，出版惯例通常只在最上行画一条。</div>
+  <div class="kv"><span class="t">建议</span>不做对错判断，作为产品决策记录；若改为“只画最上行”，<code>ending_spans</code> 的跨声部一致性校验也要同步放宽（见 P1-2）。</div>
+</div>
+
+<h2 id="s4"><span class="num">SECTION 04</span>修复方案</h2>
+
+<h3>4.1 P0 第一批（建议先做，独立可发布）</h3>
+
+<p><b>① 解析器：<code>|:</code> 处闭合当前房子</b>（改 <code>parse/jianpu_text.py:2021</code>，必须写在 <code>flush_measure</code> 之前，否则空小节 flush 会把 <code>[-1]</code> 顶走）：</p>
+<pre><code><span class="k">if</span> raw == <span class="s">"|:"</span>:
+    <span class="k">if</span> open_ending <span class="k">is not</span> None <span class="k">and</span> score.measures:
+        score.measures[-1].ending_stop = open_ending   <span class="c"># 新段开始 = 前一段的房子结束</span>
+        open_ending = None
+    flush_measure(boundary_token=token)
+    next_repeat_start = True
+    used_ending_numbers.clear()
+    ...</code></pre>
+
+<p><b>② 播放：把“事后复制”换成游标 + 遍数状态机</b>（重写 <code>playback_visits</code> 主循环，约 40 行）：</p>
+<pre><code>i, pass_no = 0, None
+group_start, group_times = None, 2
+<span class="k">while</span> i &lt; len(cells):
+    house = house_at.get(i)
+    <span class="k">if</span> pass_no <span class="k">is</span> None <span class="k">or</span> house <span class="k">is</span> None <span class="k">or</span> pass_no <span class="k">in</span> ending_pass_numbers(house):
+        sequence.append(i)                       <span class="c"># 线性区 / 匹配遍数 → 收下</span>
+    <span class="k">if</span> has_repeat_start(i):
+        group_start, group_times = i, repeat_times(i)
+        pass_no = 1
+    <span class="k">if</span> has_repeat_end(i):
+        <span class="k">if</span> pass_no <span class="k">is not</span> None <span class="k">and</span> pass_no &lt; group_times:
+            pass_no += 1
+            i = group_start                       <span class="c"># 跳回，不复制序列</span>
+            <span class="k">continue</span>
+        pass_no = None                            <span class="c"># 最后一遍结束 → 回到线性区</span>
+        group_start = None
+    i += 1</code></pre>
+<p>这个模型天然覆盖：链式多房子（每次 <code>:|</code> 遍数 +1 并跳回同一起点）、两段独立反复（<code>|:</code> 重设起点）、反复后的孤立房子（<code>pass_no=None</code> 线性播放，符合文档）。需要产品确认的一个行为变化：<code>{3.}</code> 但只反复 2 遍时，新模型会把它当“孤立房子”线性播放（当前是直接丢弃）。二者都说得通，但必须二选一并写进文档。</p>
+
+<p><b>③ 末房子跨度：二选一</b></p>
+<table>
+  <thead><tr><th style="width:150px">方案</th><th>规则</th><th>优点</th><th style="width:200px">代价</th></tr></thead>
+  <tbody>
+    <tr><td><b>A. 末房子默认单小节</b>（推荐）</td><td>紧跟在 <code>:|</code> 之后开启的房子，若未遇到 <code>:|</code>/<code>||</code>/<code>{.}</code>/下一个 <code>{N.}</code>，则在第一个普通 <code>|</code> 处闭合</td><td>符合“2 房子就是一两个小节”的直觉；P0-1 的 A/B 两个复现都自动修好</td><td>“多小节 2 房子 + 普通小节线收尾”需显式写 <code>{.}</code>；要改一处文档</td></tr>
+    <tr><td><b>B. 保持现状 + 强制 <code>{.}</code></b></td><td>导出器在“末房子后面还有小节”时补 <code>{.}</code>；AI 提示词同步放开</td><td>不动解析语义，风险最小</td><td>手写用户仍会踩；P0-1 只修“跨段”不回填“曲尾吞并”</td></tr>
+  </tbody>
+</table>
+<p>建议 <b>A + B 同时做</b>：A 修手写路径，B 保证导入/导出路径即使跨度异常也能被显式修正。</p>
+
+<h3>4.2 P1 第二批</h3>
+<ul>
+  <li><b>房子参与布局</b>：<code>_system_part_layouts</code> 里把“本系统是否有房子起始段”算进 <code>top</code>（至少 <code>-22 - annotation_size</code>），并让 <code>_system_extra_height</code> 感知房子；或把 <code>-22</code> 改成随 <code>top_ink</code> 下移的 <code>min(-22, top_ink - 8)</code>。</li>
+  <li><b>放宽声部一致性</b>：<code>_house_numbers_per_cell</code> 中，若某声部整体无房子（<code>spans</code> 为空）则跳过比较；只有两个声部都有房子但不同才报错。</li>
+  <li><b>未闭合房子兜底</b>：<code>ending_spans</code> 增加一个上限参数（如“不得跨过 <code>|:</code> 标记”），或在 MusicXML 导入后跑一次结构体检，缺 <code>stop</code> 时补到最后一个 <code>repeat_end</code> 之前并记 warning。</li>
+</ul>
+
+<h3>4.3 第三批：诊断与文档</h3>
+<ul>
+  <li>新增 <code>_ending_structure_warnings()</code>：编号跳号 / 死房子 / 某遍无匹配 / 房子跨段。</li>
+  <li><code>parse/musicxml.py</code> 改 <code>findall</code>；<code>normalize_ending_number</code> 改全匹配。</li>
+  <li>QA 白名单 <code>ending-*</code> 内部互检。</li>
+  <li>统一三处文档 + 修正 <code>ai_prompt.yaml:105</code>。</li>
+</ul>
+
+<h2 id="s5"><span class="num">SECTION 05</span>测试矩阵（要补的用例）</h2>
+
+<table>
+  <thead><tr><th style="width:40px">#</th><th>用例</th><th style="width:250px">断言</th><th style="width:70px">对应</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td><code>|: A | {1.} B :| {2.} C | D | E |</code></td><td><code>spans == [("1",1,1),("2",2,2)]</code></td><td>P0-1 A</td></tr>
+    <tr><td class="num">2</td><td><code>|: A | {1.} B :| {2.} C |</code> + <code>|: D | {1.} E :| {2.} F |</code></td><td><code>visits == [0,1,0,2,3,4,3,5]</code>，且第 3 小节 <code>ending_stop is None</code></td><td>P0-1 B</td></tr>
+    <tr><td class="num">3</td><td><code>|: A | {1.} B *3 :| {2.} C *3 :| {3.} D |</code></td><td><code>visits == [0,1,0,2,0,3]</code></td><td>P0-2</td></tr>
+    <tr><td class="num">4</td><td><code>|: A :| B | {1.} C |</code></td><td><code>visits == [0,0,1,2]</code>（孤立房子线性）</td><td>P1-3</td></tr>
+    <tr><td class="num">5</td><td>MusicXML：<code>ending start</code> 无 <code>stop</code></td><td>给出 warning，且 <code>spans</code> 不越过 <code>repeat_end</code></td><td>P1-3</td></tr>
+    <tr><td class="num">6</td><td><code>// @part 1</code> 带房子 / <code>@part 2</code> 不带</td><td>不抛错；括号只画在第一声部</td><td>P1-2</td></tr>
+    <tr><td class="num">7</td><td><code>{1.} (1' 2' 3' 4' | … ) :|</code> 渲染</td><td><code>ending-line.bbox.bottom &lt;= slur.bbox.top</code></td><td>P1-1</td></tr>
+    <tr><td class="num">8</td><td>同一 barline 内 <code>stop + start</code></td><td>两侧房子都在模型里</td><td>P2-2</td></tr>
+    <tr><td class="num">9</td><td><code>normalize_ending_number("1.5")</code></td><td>抛 <code>ValueError</code>（而不是返回 "1,5"）</td><td>P2-3</td></tr>
+    <tr><td class="num">10</td><td>任意含房子乐谱</td><td><code>[i for i in issues if i.kind=="geometry-overlap" and "ending" in …] == []</code></td><td>P2-4</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="ct">回归提醒</span>
+  改 <code>playback_visits</code> 后，现有 <code>test_ending_house_visits_with_repeat_count_and_shared_house</code>（断言 <code>[0,1,0,1,0,2]</code>）与 <code>test_isolated_ending_house_plays_linearly</code> 应保持不变 —— 它们是新状态机的天然回归基线。会变的是 <code>{3.}</code>+<code>*2</code> 这种“死房子”的取舍（见 4.1 ③ 的说明），需要在文档里明确。
+</div>
+
+<h2 id="s6"><span class="num">SECTION 06</span>附录：探针原始数据</h2>
+
+<h3>6.1 播放展开（<code>A–K</code>）</h3>
+<table>
+  <thead><tr><th style="width:40px">编号</th><th style="width:330px">输入</th><th style="width:220px">实际 visits</th><th style="width:200px">期望</th></tr></thead>
+  <tbody>
+    <tr><td class="num">A</td><td><code>|: A | {1.} B :| {2.} C |</code></td><td class="yes">[0,1,0,2]</td><td>[0,1,0,2]</td></tr>
+    <tr><td class="num">B</td><td>三房子，无 <code>*N</code></td><td class="no">[0,1,0,2,0,0,2]</td><td>[0,1,0,2,0,3]</td></tr>
+    <tr><td class="num">B1</td><td>三房子，两个 <code>:|</code> 都标 <code>*3</code></td><td class="no">[0,1,0,0,0,0,0,0,0,0,3]</td><td>[0,1,0,2,0,3]</td></tr>
+    <tr><td class="num">B2</td><td>三房子，仅第二个 <code>:|</code> 标 <code>*3</code></td><td class="no">[0,1,0,2,0,0,2,0,0,3]</td><td>[0,1,0,2,0,3]</td></tr>
+    <tr><td class="num">C</td><td><code>|: A :| B | {2.} C |</code></td><td class="yes">[0,0,1,2]</td><td>[0,0,1,2]</td></tr>
+    <tr><td class="num">D</td><td>编号 1 / 3，反复 2 遍</td><td class="yes">[0,1,0]</td><td>文档行为（但 3 房是死房子，应给 warning）</td></tr>
+    <tr><td class="num">E</td><td>多小节房子 + <code>{.}</code></td><td class="yes">[0,1,2,3,4]</td><td>[0,1,2,3,4]</td></tr>
+    <tr><td class="num">F</td><td><code>{1,2.}</code> + <code>{3.}</code>，<code>*3</code></td><td class="yes">[0,1,0,1,0,2]</td><td>[0,1,0,1,0,2]</td></tr>
+    <tr><td class="num">G</td><td><code>|: {1.} A | B :| {2.} C |</code></td><td class="yes">[0,1,2]</td><td>[0,1,2]</td></tr>
+    <tr><td class="num">I</td><td>两段独立反复，各带 2 房子</td><td class="no">[0,1,0,2,4,5]</td><td>[0,1,0,2,3,4,3,5]</td></tr>
+    <tr><td class="num">J</td><td>反复后孤立 <code>{1.}</code></td><td class="no">[0,0,1]</td><td>[0,0,1,2]</td></tr>
+    <tr><td class="num">K</td><td>嵌套反复（无房子）</td><td class="yes">[0,1,1,2,0,1,1,2,3]</td><td>起点恰为 0，侥幸正确</td></tr>
+  </tbody>
+</table>
+
+<h3>6.2 渲染坐标</h3>
+<table>
+  <thead><tr><th>场景</th><th>节点</th><th>数据</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="2">首行 1 房子</td><td>系统顶</td><td><code>y = 204</code>（= 182 + 22，即 margin_top 72 + title_block 132）</td></tr>
+    <tr><td>房子横线</td><td><code>y = 182</code>（= 204 − 22），标签基线 <code>179</code></td></tr>
+    <tr><td rowspan="2">高八度 + 连音线</td><td>连音线 bbox</td><td><code>(116.1, 178.5, 421.2, 31.8)</code></td></tr>
+    <tr><td>房子横线 bbox</td><td><code>(83.3, 181.3, 488.6, 8.4)</code> → <span class="no">重叠</span></td></tr>
+    <tr><td>任意含房子乐谱</td><td>QA</td><td>每栋房子 2 条 <code>geometry-overlap</code>（hook × line）</td></tr>
+  </tbody>
+</table>
+
+<h3>6.3 基线</h3>
+<pre><code>$ .venv/Scripts/python.exe -m pytest tests/test_repeat_playback.py tests/test_jianpu.py \
+    tests/test_render.py tests/test_convert.py tests/test_syntax_validation.py \
+    -k "ending or house or 房子" -q
+<span class="good">33 passed, 426 deselected, 1 warning in 1.40s</span></code></pre>
+
+<footer>
+  调研基于 2026-10-24 的工作区快照。全部结论可用 <code>work/ending_probes.py</code> 复现：<code>.venv/Scripts/python.exe work/ending_probes.py</code>；文中坐标与播放序列均为该脚本实测输出，未做估算。
+</footer>
+</main>
+</div>
+</body>
+</html>

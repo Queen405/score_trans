@@ -87,7 +87,7 @@ const convert = {
     locateGlyph: '定位到简谱',
     undoInsert: '撤销插入',
     glyphNotApplied: '该符号还没有写入乐谱，先应用候选后再点击定位。',
-    glyphApplyHint: '选择候选会先在五线谱上预览，点「应用」后才插入乐谱；再次点击该符号可撤销。',
+    glyphApplyHint: '右键可重新选择候选；左键删除或恢复此标记，点「应用」写入修改。',
     family: {
       head: '音符头',
       rest: '休止符',

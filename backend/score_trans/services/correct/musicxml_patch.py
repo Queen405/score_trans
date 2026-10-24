@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 import logging
+import statistics
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
@@ -16,6 +18,7 @@ def apply_deletions(
     original_musicxml: str,
     deleted_source_ids: list[str],
     entities: Mapping[str, CorrectableEntity],
+    glyphs: Mapping[str, CorrectableGlyph] | None = None,
 ) -> str:
     root = safe_xml_fromstring(
         original_musicxml.encode("utf-8"),
@@ -23,14 +26,22 @@ def apply_deletions(
     )
     ns = _detect_namespace(root)
 
+    glyph_index = glyphs or {}
     unknown = [
-        source_id for source_id in deleted_source_ids if source_id not in entities
+        source_id
+        for source_id in deleted_source_ids
+        if source_id not in entities and source_id not in glyph_index
     ]
     if unknown:
         raise ValueError(f"无法定位待删除标记：{', '.join(unknown)}")
 
     for source_id in dict.fromkeys(deleted_source_ids):
-        entity = entities[source_id]
+        # A loose glyph has no MusicXML node until a candidate is inserted.
+        # Recording its deletion suppresses that candidate insertion in the UI;
+        # there is therefore nothing to patch in the base MusicXML here.
+        entity = entities.get(source_id)
+        if entity is None:
+            continue
         if entity.tag == "clef":
             _delete_clef_with_pitch_transform(root, ns, entity)
         elif entity.tag in {"time-whole", "time-custom"}:
@@ -285,6 +296,64 @@ def _chord_notes(root: ET.Element, ns: str, note: ET.Element) -> list[ET.Element
     return notes[first:last]
 
 
+@dataclass(frozen=True, slots=True)
+class _Column:
+    """MusicXML 里同一 onset 的一组 note（和弦列）。"""
+
+    center: float
+    head: ET.Element
+    tail: ET.Element
+    voice: str
+    staff: str
+
+
+@dataclass(frozen=True, slots=True)
+class _AnchorContext:
+    """插入未识别符号时用到的上下文：候选列、最近锚点与几何容差。"""
+
+    anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]]
+    columns: list[_Column]
+    nearest_entity: CorrectableEntity
+    nearest_note: ET.Element
+    measure: ET.Element
+    glyph_x: float
+    glyph_y: float
+    tolerance: float
+
+
+# 二度叠置的和弦音会有约 0.6~1 个符头宽的横向错位，1.25 倍作为上限。
+_CHORD_HEAD_WIDTH_RATIO = 1.25
+
+
+def _xml_voice(ns: str, note: ET.Element) -> str:
+    return (note.findtext(_q(ns, "voice")) or "1").strip() or "1"
+
+
+def _xml_staff(ns: str, note: ET.Element) -> str:
+    return (note.findtext(_q(ns, "staff")) or "1").strip() or "1"
+
+
+def _column_tolerance(
+    anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]],
+    columns: list[_Column],
+) -> float:
+    """同列判定容差：取「半列距」与「1.25 倍符头宽」的较小值。
+
+    后端拿不到 interline，因此用版面自身的量做尺度：符头宽度来自 OMR bounds，
+    列距来自同一小节内相邻和弦列的中心距。两者都随扫描分辨率自适应。
+    """
+    widths = [item[0].bounds[2] for item in anchors if item[0].bounds[2] > 0]
+    head_width = statistics.median(widths) if widths else 12.0
+    centers = sorted({column.center for column in columns})
+    gaps = sorted(
+        right - left for left, right in zip(centers, centers[1:]) if right - left > 1.0
+    )
+    # 用第 10 百分位列距而不是最小列距：个别被拆开的和弦音会把最小列距压到几像素，
+    # 从而把容差压没；p10 仍能挡住真正的相邻列（约半列距）。
+    column_gap = gaps[max(0, len(gaps) // 10)] if gaps else 2.5 * head_width
+    return max(3.0, min(0.5 * column_gap, _CHORD_HEAD_WIDTH_RATIO * head_width))
+
+
 def _replace_slur_candidate(
     root: ET.Element,
     ns: str,
@@ -478,9 +547,10 @@ def _insert_glyph_note(
     if glyph.staff is None or glyph.pitch is None:
         raise ValueError(f"无法确定未识别符号 {glyph.glyph_id} 所在的谱表音高")
 
-    anchors, nearest_entity, nearest_note, measure, glyph_x = _glyph_note_context(
-        root, ns, glyph, entities, require_pitch=True
-    )
+    context = _glyph_note_context(root, ns, glyph, entities, require_pitch=True)
+    nearest_entity = context.nearest_entity
+    nearest_note = context.nearest_note
+    measure = context.measure
     pitch_element = nearest_note.find(_q(ns, "pitch"))
     step_element = (
         pitch_element.find(_q(ns, "step")) if pitch_element is not None else None
@@ -514,7 +584,9 @@ def _insert_glyph_note(
     if staff is not None:
         ET.SubElement(note, _q(ns, "staff")).text = staff.text
 
-    _insert_note_at_glyph_position(root, ns, measure, note, anchors, glyph_x)
+    _insert_note_at_glyph_position(
+        root, ns, measure, note, context, merge_into_chord=True
+    )
 
 
 def _insert_glyph_rest(
@@ -527,9 +599,9 @@ def _insert_glyph_rest(
     note_type = _rest_type(selected_shape)
     if note_type is None:
         raise ValueError(f"未识别休止符暂不支持该候选：{selected_shape}")
-    anchors, _nearest_entity, nearest_note, measure, glyph_x = _glyph_note_context(
-        root, ns, glyph, entities, require_pitch=False
-    )
+    context = _glyph_note_context(root, ns, glyph, entities, require_pitch=False)
+    nearest_note = context.nearest_note
+    measure = context.measure
     divisions = _measure_divisions(root, ns, measure)
     note = ET.Element(_q(ns, "note"))
     note.set("id", _unique_note_id(root, glyph.glyph_id))
@@ -544,7 +616,9 @@ def _insert_glyph_rest(
     staff = nearest_note.find(_q(ns, "staff"))
     if staff is not None:
         ET.SubElement(note, _q(ns, "staff")).text = staff.text
-    _insert_note_at_glyph_position(root, ns, measure, note, anchors, glyph_x)
+    _insert_note_at_glyph_position(
+        root, ns, measure, note, context, merge_into_chord=False
+    )
 
 
 def _glyph_note_context(
@@ -554,20 +628,15 @@ def _glyph_note_context(
     entities: Mapping[str, CorrectableEntity],
     *,
     require_pitch: bool,
-) -> tuple[
-    list[tuple[CorrectableEntity, ET.Element, ET.Element]],
-    CorrectableEntity,
-    ET.Element,
-    ET.Element,
-    float,
-]:
+) -> _AnchorContext:
     anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]] = []
     for entity in entities.values():
-        if (
-            entity.tag != "head"
-            or entity.staff != glyph.staff
-            or (require_pitch and entity.pitch is None)
-        ):
+        if entity.tag != "head":
+            continue
+        # glyph.staff 未知时不按谱表过滤，靠 y 距离兜底（旧数据常见）
+        if glyph.staff is not None and entity.staff != glyph.staff:
+            continue
+        if require_pitch and entity.pitch is None:
             continue
         target = _single_matching_element(root, entity)
         note = _ancestor(root, target, _q(ns, "note")) if target is not None else None
@@ -587,7 +656,40 @@ def _glyph_note_context(
             + abs(item[0].bounds[1] + item[0].bounds[3] / 2 - glyph_y) * 1.5
         ),
     )
-    return anchors, nearest_entity, nearest_note, measure, glyph_x
+
+    # 同一小节内的和弦列：以组首 entity 的中心为准，followers 的 bounds 可能有位移
+    groups: dict[int, tuple[ET.Element, ET.Element, CorrectableEntity]] = {}
+    for entity, note, anchor_measure in anchors:
+        if anchor_measure is not measure:
+            continue
+        group = _chord_notes(root, ns, note)
+        head, tail = group[0], group[-1]
+        key = id(head)
+        # 优先用「组首本身对应的 entity」作为列中心
+        if key not in groups or note is head:
+            groups[key] = (head, tail, entity)
+
+    columns = [
+        _Column(
+            center=float(entity.bounds[0]) + entity.bounds[2] / 2,
+            head=head,
+            tail=tail,
+            voice=_xml_voice(ns, head),
+            staff=_xml_staff(ns, head),
+        )
+        for head, tail, entity in groups.values()
+    ]
+    same_measure_anchors = [item for item in anchors if item[2] is measure]
+    return _AnchorContext(
+        anchors=anchors,
+        columns=columns,
+        nearest_entity=nearest_entity,
+        nearest_note=nearest_note,
+        measure=measure,
+        glyph_x=glyph_x,
+        glyph_y=glyph_y,
+        tolerance=_column_tolerance(same_measure_anchors, columns),
+    )
 
 
 def _insert_note_at_glyph_position(
@@ -595,40 +697,167 @@ def _insert_note_at_glyph_position(
     ns: str,
     measure: ET.Element,
     note: ET.Element,
-    anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]],
-    glyph_x: float,
-) -> None:
+    context: _AnchorContext,
+    *,
+    merge_into_chord: bool,
+) -> str:
+    """把新音符放进最接近 glyph 的位置，返回实际采用的分支（便于测试与日志）。"""
+    nearest_voice = _xml_voice(ns, context.nearest_note)
+    nearest_staff = _xml_staff(ns, context.nearest_note)
+    column = min(
+        context.columns,
+        key=lambda item: abs(item.center - context.glyph_x),
+        default=None,
+    )
+    same_column = (
+        column is not None and abs(column.center - context.glyph_x) <= context.tolerance
+    )
+
+    if same_column and column is not None:
+        if not merge_into_chord:
+            # 休止符不能进和弦组：插到组首之前，避免 follower 挂到休止符上
+            measure.insert(list(measure).index(column.head), note)
+            return "before_column"
+        if column.voice == nearest_voice and column.staff == nearest_staff:
+            if _append_chord_member(root, ns, measure, column, note):
+                return "chord"
+
     if any(_local_name(child.tag) in {"backup", "forward"} for child in measure):
         logger.warning(
             "小节 %s 含多声部时间轴，插入的漏检符号位置可能不准确",
             measure.get("number", "?"),
         )
-    same_measure = [anchor for anchor in anchors if anchor[2] is measure]
-    right_anchors = [
-        anchor
-        for anchor in same_measure
-        if anchor[0].bounds[0] + anchor[0].bounds[2] / 2 > glyph_x
-    ]
-    if right_anchors:
-        before = min(
-            right_anchors,
-            key=lambda anchor: anchor[0].bounds[0] + anchor[0].bounds[2] / 2,
-        )[1]
-        # Inserting in front of a <chord/> follower would make the new note the
-        # chord head and silently attach it to the existing chord. Step back to
-        # the head of that chord group instead.
-        children = list(measure)
-        index = children.index(before)
-        while index > 0 and children[index].find(_q(ns, "chord")) is not None:
-            index -= 1
-        measure.insert(index, note)
-        return
+
+    right_columns = sorted(
+        (
+            item
+            for item in context.columns
+            if item.center > context.glyph_x + context.tolerance
+        ),
+        key=lambda item: item.center,
+    )
+    if right_columns:
+        measure.insert(list(measure).index(right_columns[0].head), note)
+        return "before_column"
+
     note_indices = [
-        list(measure).index(anchor[1])
-        for anchor in same_measure
-        if anchor[1] in list(measure)
+        list(measure).index(item[1]) for item in context.anchors if item[2] is measure
     ]
     measure.insert(max(note_indices, default=-1) + 1, note)
+    return "after_last"
+
+
+def _append_chord_member(
+    root: ET.Element,
+    ns: str,
+    measure: ET.Element,
+    column: _Column,
+    note: ET.Element,
+) -> bool:
+    """把新音符作为和弦成员追加到组尾之后；时值/类型/声部跟随和弦头。"""
+    head = column.head
+    if _same_pitch_in_column(root, ns, column, note):
+        logger.warning(
+            "未识别音符 %s 与和弦头同音高，跳过插入",
+            note.get("id", "?"),
+        )
+        return False
+
+    head_duration = (head.findtext(_q(ns, "duration")) or "").strip()
+    if head_duration.isdigit() and int(head_duration) > 0:
+        duration = note.find(_q(ns, "duration"))
+        if duration is not None:
+            duration.text = head_duration
+
+    head_type = (head.findtext(_q(ns, "type")) or "").strip()
+    if head_type:
+        type_element = note.find(_q(ns, "type"))
+        if type_element is None:
+            type_element = ET.Element(_q(ns, "type"))
+            note.append(type_element)
+        previous_type = (type_element.text or "").strip()
+        if previous_type and previous_type != head_type:
+            logger.warning(
+                "未识别音符 %s 的候选时值 %s 与和弦头 %s 不一致，已按和弦头写入",
+                note.get("id", "?"),
+                previous_type,
+                head_type,
+            )
+        type_element.text = head_type
+
+    _sync_note_text_from(ns, note, head, "voice", _NOTE_VOICE_SUCCESSORS)
+    _sync_note_text_from(ns, note, head, "staff", _NOTE_STAFF_SUCCESSORS)
+
+    # <chord/> 必须是 note 的第一个子元素，且紧跟组尾
+    note.insert(0, ET.Element(_q(ns, "chord")))
+    measure.insert(list(measure).index(column.tail) + 1, note)
+    return True
+
+
+_NOTE_VOICE_SUCCESSORS = {
+    "type",
+    "dot",
+    "accidental",
+    "time-modification",
+    "stem",
+    "notehead",
+    "notehead-text",
+    "staff",
+    "beam",
+    "notations",
+    "lyric",
+    "play",
+    "listen",
+}
+
+_NOTE_STAFF_SUCCESSORS = {"beam", "notations", "lyric", "play", "listen"}
+
+
+def _sync_note_text_from(
+    ns: str,
+    note: ET.Element,
+    source: ET.Element,
+    tag: str,
+    following_tags: set[str],
+) -> None:
+    """让 note 的某个文本子元素与 source 一致；source 没有时移除。"""
+    value = source.findtext(_q(ns, tag))
+    existing = note.find(_q(ns, tag))
+    if value is None:
+        if existing is not None:
+            note.remove(existing)
+        return
+    if existing is None:
+        existing = ET.Element(_q(ns, tag))
+        _insert_note_child(note, ns, existing, following_tags)
+    existing.text = value
+
+
+def _pitch_key(ns: str, note: ET.Element) -> tuple[str, str, str] | None:
+    pitch = note.find(_q(ns, "pitch"))
+    if pitch is None:
+        return None
+    step = (pitch.findtext(_q(ns, "step")) or "").strip()
+    octave = (pitch.findtext(_q(ns, "octave")) or "").strip()
+    if not step or not octave:
+        return None
+    alter = (pitch.findtext(_q(ns, "alter")) or "0").strip() or "0"
+    return step, octave, alter
+
+
+def _same_pitch_in_column(
+    root: ET.Element,
+    ns: str,
+    column: _Column,
+    note: ET.Element,
+) -> bool:
+    target = _pitch_key(ns, note)
+    if target is None:
+        return False
+    return any(
+        _pitch_key(ns, member) == target
+        for member in _chord_notes(root, ns, column.head)
+    )
 
 
 def _shift_diatonic_pitch(step: str, octave: int, delta: int) -> tuple[str, int]:

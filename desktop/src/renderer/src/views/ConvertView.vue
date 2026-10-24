@@ -671,6 +671,9 @@ const candidateSelections = ref<Record<string, string>>({})
 const effectiveCandidateSelections = computed(() => {
   const selections: Record<string, string> = {}
   for (const [sourceId, shape] of Object.entries(candidateSelections.value)) {
+    // 删除优先于候选：保留本地选择以便恢复时继续使用，但不要在一次请求中
+    // 同时发送删除和候选，后端会将该 glyph 重新插入 MusicXML。
+    if (deletedEntityIds.value.has(sourceId)) continue
     const entity = correctableEntities.value.find((item) => item.source_id === sourceId)
     const glyph = correctableSheet.value?.suspicious_glyphs?.find((item) => item.glyph_id === sourceId)
     const candidate = entity?.candidates?.find((item) => item.shape === shape)
@@ -2224,7 +2227,7 @@ async function locateGlyphInJianpu(glyphId: string): Promise<void> {
   selectedGlyphId.value = glyphId
 }
 
-/** 左键点未识别字形：编辑态撤销插入，非编辑态定位到简谱。 */
+/** 右键选择待编辑 glyph；普通预览模式点击已应用 glyph 时定位简谱。 */
 function selectSuspiciousGlyph(glyphId: string, openEditor = true): void {
   selectedGlyphId.value = glyphId
   selectedSourceId.value = ''
@@ -2233,10 +2236,6 @@ function selectSuspiciousGlyph(glyphId: string, openEditor = true): void {
     return
   }
   if (openEditor) return
-  if (!(glyphId in candidateSelections.value)) return
-  const next = { ...candidateSelections.value }
-  delete next[glyphId]
-  candidateSelections.value = next
 }
 
 function toggleEntityDelete(sourceId: string) {
@@ -2245,11 +2244,6 @@ function toggleEntityDelete(sourceId: string) {
     next.delete(sourceId)
   } else {
     next.add(sourceId)
-    if (sourceId in candidateSelections.value) {
-      const selections = { ...candidateSelections.value }
-      delete selections[sourceId]
-      candidateSelections.value = selections
-    }
   }
   deletedEntityIds.value = next
 }
@@ -2358,13 +2352,24 @@ async function applyCorrections(options: {
       nextPageText,
       { inputFileName: page.inputFileName },
     )
+    const retainedDeletedCandidates = Object.fromEntries(
+      deletedSourceIds.flatMap((sourceId) => {
+        const shape = candidateSelections.value[sourceId]
+        return shape ? [[sourceId, shape]] : []
+      }),
+    )
+    // 删除时不把候选写入 MusicXML，但保留用户选项；之后恢复标记即可恢复候选。
+    const savedCandidateSelections = {
+      ...data.applied_candidate_selections,
+      ...retainedDeletedCandidates,
+    }
     const nextSvgFileIds = preserveEditedText ? [] : svgFileIds
     const pagePatch: Partial<TaskPage> = {
       workingMusicxml: data.working_musicxml,
       jianpuText: nextPageText,
       jianpuDirty: preserveEditedText,
       deletedSourceIds,
-      recognitionCandidateSelections: { ...data.applied_candidate_selections },
+      recognitionCandidateSelections: savedCandidateSelections,
       textAnchors: nextTextAnchors,
       textAnchorBaselineText: corrected.jianpuText,
       textAnchorBaselineAnchors,
@@ -2384,7 +2389,7 @@ async function applyCorrections(options: {
       renderLayoutKey: '',
     })
     store.patchPageById(page.id, pagePatch)
-    candidateSelections.value = { ...data.applied_candidate_selections }
+    candidateSelections.value = savedCandidateSelections
     store.setBatchJianpuText(nextBatchText, false)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])

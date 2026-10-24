@@ -180,9 +180,6 @@ public class NoteHeadsBuilder
     /** The head-oriented spots for this system. */
     private final List<Glyph> systemSpots;
 
-    /** Avoid repeating diagnostic template scans for the same glyph on every staff pitch. */
-    private final Set<Integer> evaluatedDiagnosticGlyphs = new HashSet<>();
-
     /** Scale-dependent constants. */
     private final Parameters params;
 
@@ -2005,7 +2002,9 @@ public class NoteHeadsBuilder
                         : scannerTemplateNotesHollow;
 
                 final Map<Shape, Double> locationScores = new EnumMap<>(Shape.class);
-                boolean hasStrongCandidate = false;
+                PixelDistance strongestLocation = null;
+                Shape strongestShape = null;
+                double strongestScore = -1;
 
                 ShapeLoop:
                 for (Shape shape : shapeSet) {
@@ -2041,15 +2040,17 @@ public class NoteHeadsBuilder
                     }
 
                     if (bestLoc == null && bestAny != null) {
-                        locationScores.merge(
-                                shape,
-                                Template.impactOf(bestAny.d),
-                                Math::max);
+                        final double score = Template.impactOf(bestAny.d);
+                        locationScores.merge(shape, score, Math::max);
+                        if (score > strongestScore) {
+                            strongestScore = score;
+                            strongestLocation = bestAny;
+                            strongestShape = shape;
+                        }
                         continue;
                     }
 
                     if (bestLoc != null) {
-                        hasStrongCandidate = true;
                         // Special case: NOTEHEAD_VOID mistaken for NOTEHEAD_BLACK
                         if (shape == Shape.NOTEHEAD_BLACK) {
                             Shape newShape = evalBlackAsVoid(bestLoc.x, bestLoc.y, MIDDLE_LEFT);
@@ -2059,7 +2060,13 @@ public class NoteHeadsBuilder
                             }
                         }
 
-                        locationScores.merge(shape, Template.impactOf(bestLoc.d), Math::max);
+                        final double score = Template.impactOf(bestLoc.d);
+                        locationScores.merge(shape, score, Math::max);
+                        if (score > strongestScore) {
+                            strongestScore = score;
+                            strongestLocation = bestLoc;
+                            strongestShape = shape;
+                        }
 
                         // Weak stemless heads can be discarded immediately
                         if (isWeakStemLessHead(shape, bestLoc)) {
@@ -2079,8 +2086,15 @@ public class NoteHeadsBuilder
                     }
                 }
 
-                if (hasStrongCandidate) {
-                    ScoreTransCandidateRegistry.record(sheet, x0, y0, locationScores);
+                // Preserve weak template evidence too. Those are precisely the
+                // locations that fail normal Inter creation but can still provide
+                // useful alternatives for the correction UI.
+                if (!locationScores.isEmpty() && strongestLocation != null) {
+                    final Rectangle headBounds = catalog.getTemplate(strongestShape)
+                            .getSlimBoundsAt(strongestLocation.x, strongestLocation.y, MIDDLE_LEFT);
+                    ScoreTransCandidateRegistry.record(sheet,
+                            (int) Math.rint(headBounds.getCenterX()),
+                            (int) Math.rint(headBounds.getCenterY()), locationScores);
                 }
             }
             // Aggregate matching inters
@@ -2107,7 +2121,6 @@ public class NoteHeadsBuilder
                 }
             }
 
-            collectUnmatchedGlyphCandidates();
             return heads;
         }
 
@@ -2150,7 +2163,9 @@ public class NoteHeadsBuilder
                 for (Anchor anchor : anchors) {
                     final Map<Shape, Double> locationScores = new EnumMap<>(Shape.class);
                     final int firstHeadIndex = heads.size();
-                    boolean hasStrongCandidate = false;
+                    PixelDistance strongestLocation = null;
+                    Shape strongestShape = null;
+                    double strongestScore = -1;
                     // For each stem side and for each possible shape,
                     // keep the best match (if acceptable) among all locations tried.
                     ShapeLoop:
@@ -2178,10 +2193,13 @@ public class NoteHeadsBuilder
                                     // If eval is really bad, stop immediately
                                     if ((loc == null) || (loc.d >= params.reallyBadDistance)) {
                                         if (loc != null) {
-                                            locationScores.merge(
-                                                    shape,
-                                                    Template.impactOf(loc.d),
-                                                    Math::max);
+                                            final double score = Template.impactOf(loc.d);
+                                            locationScores.merge(shape, score, Math::max);
+                                            if (score > strongestScore) {
+                                                strongestScore = score;
+                                                strongestLocation = loc;
+                                                strongestShape = shape;
+                                            }
                                         }
                                         seedsPerf.abandons++;
 
@@ -2193,14 +2211,16 @@ public class NoteHeadsBuilder
 
                         if (bestLoc == null) {
                             if (bestAny != null) {
-                                locationScores.merge(
-                                        shape,
-                                        Template.impactOf(bestAny.d),
-                                        Math::max);
+                                final double score = Template.impactOf(bestAny.d);
+                                locationScores.merge(shape, score, Math::max);
+                                if (score > strongestScore) {
+                                    strongestScore = score;
+                                    strongestLocation = bestAny;
+                                    strongestShape = shape;
+                                }
                             }
                             continue;
                         }
-                        hasStrongCandidate = true;
 
                         // Special case: NOTEHEAD_VOID mistaken for NOTEHEAD_BLACK
                         if (shape == Shape.NOTEHEAD_BLACK) {
@@ -2211,7 +2231,13 @@ public class NoteHeadsBuilder
                             }
                         }
 
-                        locationScores.merge(shape, Template.impactOf(bestLoc.d), Math::max);
+                        final double score = Template.impactOf(bestLoc.d);
+                        locationScores.merge(shape, score, Math::max);
+                        if (score > strongestScore) {
+                            strongestScore = score;
+                            strongestLocation = bestLoc;
+                            strongestShape = shape;
+                        }
 
                         final HeadInter head = createInter(
                                 bestLoc,
@@ -2245,8 +2271,12 @@ public class NoteHeadsBuilder
                                 : x0 + 0.5 - (box.x + box.width - 1);
                         tally.putDx(head, hSide, dx);
                     }
-                    if (hasStrongCandidate) {
-                        ScoreTransCandidateRegistry.record(sheet, x0, y0, locationScores);
+                    if (!locationScores.isEmpty() && strongestLocation != null) {
+                        final Rectangle headBounds = catalog.getTemplate(strongestShape)
+                                .getSlimBoundsAt(strongestLocation.x, strongestLocation.y, anchor);
+                        ScoreTransCandidateRegistry.record(sheet,
+                                (int) Math.rint(headBounds.getCenterX()),
+                                (int) Math.rint(headBounds.getCenterY()), locationScores);
                     }
                     for (HeadInter head : heads.subList(firstHeadIndex, heads.size())) {
                         ScoreTransCandidateRegistry.persistNear(
@@ -2255,54 +2285,7 @@ public class NoteHeadsBuilder
                 }
             }
 
-            collectUnmatchedGlyphCandidates();
             return heads;
-        }
-
-        /** Evaluate nearby glyphs with the same templates used for accepted noteheads. */
-        private void collectUnmatchedGlyphCandidates ()
-        {
-            final int minDimension = Math.max(1, interline / 4);
-            final int maxDimension = interline * 4;
-            final List<Glyph> nearbyGlyphs = getGlyphsSlice(
-                    systemSpots, competitorsArea);
-
-            for (Glyph glyph : nearbyGlyphs) {
-                final Rectangle box = glyph.getBounds();
-                if (box == null || box.isEmpty()
-                        || box.width < minDimension || box.height < minDimension
-                        || box.width > maxDimension || box.height > maxDimension) {
-                    continue;
-                }
-                final int x0 = (int) Math.rint(box.getCenterX());
-                final int y0 = getTheoreticalOrdinate(x0);
-                if (Math.abs(box.getCenterY() - y0) > interline) continue;
-                if (!evaluatedDiagnosticGlyphs.add(glyph.getId())) continue;
-
-                final Map<Shape, Double> scores = new EnumMap<>(Shape.class);
-                for (Shape shape : scannerTemplateNotesAll) {
-                    PixelDistance best = null;
-                    for (int dx : xOffsets) {
-                        for (int dy : yOffsets) {
-                            final PixelDistance candidate = eval(
-                                    shape, x0 + dx, y0 + dy, MIDDLE_LEFT);
-                            if (candidate != null && (best == null || candidate.d < best.d)) {
-                                best = candidate;
-                            }
-                        }
-                    }
-                    if (best == null) continue;
-
-                    Shape matchedShape = shape;
-                    if (shape == Shape.NOTEHEAD_BLACK) {
-                        final Shape hollow = evalBlackAsVoid(best.x, best.y, MIDDLE_LEFT);
-                        if (hollow != null) matchedShape = hollow;
-                    }
-                    scores.merge(matchedShape, Template.impactOf(best.d), Math::max);
-                }
-
-                ScoreTransCandidateRegistry.recordForGlyph(glyph, scores);
-            }
         }
     }
 

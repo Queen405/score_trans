@@ -47,6 +47,7 @@ class CorrectionService:
             original_musicxml,
             deleted_source_ids,
             entities,
+            glyphs or {},
         )
         applied_candidate_selections: dict[str, str] = {}
         working_xml = apply_candidate_selections(

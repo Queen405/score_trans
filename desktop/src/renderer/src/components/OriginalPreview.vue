@@ -124,6 +124,7 @@
         <svg
           v-if="visibleSuspiciousGlyphs.length && isImage"
           class="source-hit-layer glyph-source-hit-layer"
+          :class="{ editing: editable }"
           :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
           :width="imgW || entitySheetWidth"
           :height="imgH || entitySheetHeight"
@@ -135,18 +136,24 @@
             <path
               :d="glyph.hit_path"
               class="source-hit source-hit--glyph"
-              :class="{ selected: glyph.glyph_id === selectedGlyphId }"
+              :class="{
+                selected: glyph.glyph_id === selectedGlyphId,
+                'source-hit--deleted': editable && isElementDeleted(glyph.glyph_id),
+              }"
               :data-glyph-id="glyph.glyph_id"
               tabindex="0"
-              @click.stop="selectGlyph(glyph.glyph_id, $event, false)"
+              @click.stop="handleGlyphClick(glyph.glyph_id, $event)"
               @contextmenu.stop.prevent="selectGlyph(glyph.glyph_id, $event, true)"
               @keydown.enter.prevent="selectGlyph(glyph.glyph_id, $event, true)"
             >
               <title v-if="!editable">
                 {{ t('convert.marker.locateGlyph') }}
               </title>
-              <title v-else-if="glyph.glyph_id in (appliedCandidateSelections ?? {})">
-                {{ t('convert.marker.undoInsert') }}
+              <title v-else-if="isElementDeleted(glyph.glyph_id)">
+                {{ t('convert.marker.restore') }}
+              </title>
+              <title v-else>
+                {{ t('convert.marker.delete') }}
               </title>
             </path>
             <path
@@ -266,6 +273,7 @@ interface SourceMapSheet {
   width: number
   height: number
   elements: SourceElement[]
+  glyphs?: { glyph_id: string; hit_path: string; suspicious?: boolean }[]
 }
 
 interface SourceMap {
@@ -302,12 +310,25 @@ const sourceSheet = computed(() => sourceMap.value?.sheets?.[0] ?? null)
 const clickableSourceIdSet = computed(() => new Set(props.clickableSourceIds ?? []))
 const mappedSourceIdSet = computed(() => new Set(props.mappedSourceIds ?? []))
 const appliedDeletedSourceIdSet = computed(() => new Set(props.appliedDeletedSourceIds ?? []))
-const deletedMarkElements = computed(() => (
-  sourceSheet.value?.elements.filter((element) => (
-    appliedDeletedSourceIdSet.value.has(element.source_id)
-      || props.deletedEntityIds?.has(element.source_id)
-  )) ?? []
-))
+const deletedMarkElements = computed(() => {
+  const deletedIds = new Set([
+    ...appliedDeletedSourceIdSet.value,
+    ...(props.deletedEntityIds ?? []),
+  ])
+  return [
+    ...(sourceSheet.value?.elements ?? [])
+      .filter((element) => deletedIds.has(element.source_id))
+      .map((element) => ({ source_id: element.source_id, hit_path: element.hit_path })),
+    ...(sourceSheet.value?.glyphs ?? [])
+      .filter((glyph) => glyph.suspicious && deletedIds.has(glyph.glyph_id))
+      .map((glyph) => ({ source_id: glyph.glyph_id, hit_path: glyph.hit_path })),
+    ...(props.suspiciousGlyphs ?? [])
+      .filter((glyph) => deletedIds.has(glyph.glyph_id))
+      .map((glyph) => ({ source_id: glyph.glyph_id, hit_path: glyph.hit_path })),
+  ].filter((item, index, items) => (
+    items.findIndex((candidate) => candidate.source_id === item.source_id) === index
+  ))
+})
 // 未识别字形：编辑模式下全部可见（可点选/撤销），
 // 非编辑模式只保留选过候选的，避免整页碎片抢点击。
 const visibleSuspiciousGlyphs = computed(() => {
@@ -469,6 +490,17 @@ function selectGlyph(glyphId: string, event: Event, openEditor: boolean): void {
     requestAnimationFrame(() => updateEditorPosition())
   }
   emit('selectGlyph', glyphId, openEditor)
+}
+
+function handleGlyphClick(glyphId: string, event: MouseEvent): void {
+  if (props.busy) return
+  if (props.editable) {
+    editorVisible.value = false
+    emit('toggleDelete', glyphId)
+    return
+  }
+  // 普通预览模式下，已插入的 glyph 仍可定位到简谱对应位置。
+  selectGlyph(glyphId, event, false)
 }
 
 watch(() => props.editable, (editable) => {

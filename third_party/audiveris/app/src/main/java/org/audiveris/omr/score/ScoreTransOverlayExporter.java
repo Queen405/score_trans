@@ -4,6 +4,7 @@ package org.audiveris.omr.score;
 import org.audiveris.omr.sheet.Sheet;
 import org.audiveris.omr.sheet.SheetStub;
 import org.audiveris.omr.sheet.SystemInfo;
+import org.audiveris.omr.sheet.Staff;
 import org.audiveris.omr.sheet.ui.SheetGradedPainter;
 import org.audiveris.omr.classifier.Evaluation;
 import org.audiveris.omr.classifier.ShapeClassifier;
@@ -42,8 +43,10 @@ import org.slf4j.LoggerFactory;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.geom.Point2D;
 import java.awt.RenderingHints;
 import java.awt.geom.Area;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.PathIterator;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -227,6 +230,10 @@ public final class ScoreTransOverlayExporter
                     glyph, sheet.getGlyphIndex().getEntities(), sheet.getInterline());
             if (repetitive) continue;
 
+            // Keep the existing glyph-based correction path: when an unmatched
+            // SYMBOL glyph has no per-glyph metadata, attach the nearest HEADS
+            // scanner candidates. This preserves previously clickable glyphs while
+            // location-based candidates are being improved independently.
             final List<ScoreTransCandidateRegistry.Candidate> candidates = noteheadCandidates(
                     sheet, bounds, glyph);
             if (candidates.isEmpty()) continue;
@@ -249,7 +256,81 @@ public final class ScoreTransOverlayExporter
                     .append(candidateJson(candidates))
                     .append('}');
         }
+        appendUnmatchedLocations(json, sheet);
         json.append(']');
+    }
+
+    /** Export weak native notehead matches directly; many missed heads have no standalone glyph. */
+    private static void appendUnmatchedLocations (StringBuilder json,
+                                                  Sheet sheet)
+    {
+        final List<Rectangle> existing = new ArrayList<>();
+        for (SystemInfo system : sheet.getSystems()) {
+            for (Inter inter : system.getSig().vertexSet()) {
+                if (inter instanceof AbstractNoteInter && inter.getBounds() != null) {
+                    final Rectangle bounds = inter.getBounds();
+                    // Suppress only detections that overlap an existing head. A full
+                    // interline margin hides legitimate nearby chord tones.
+                    bounds.grow(Math.max(2, sheet.getInterline() / 5),
+                            Math.max(2, sheet.getInterline() / 5));
+                    existing.add(bounds);
+                }
+            }
+        }
+        final List<ScoreTransCandidateRegistry.LocationCandidate> locations =
+                new ArrayList<>(ScoreTransCandidateRegistry.locations(
+                        sheet.getScoreTransNoteCandidateLocations()));
+        locations.sort(Comparator.comparingDouble(
+                (ScoreTransCandidateRegistry.LocationCandidate location) ->
+                        location.candidates().stream()
+                                .filter(candidate -> isSupportedCandidate("head", candidate.shape()))
+                                .mapToDouble(ScoreTransCandidateRegistry.Candidate::score)
+                                .max().orElse(0)).reversed());
+        final List<Point2D> acceptedLocations = new ArrayList<>();
+        for (ScoreTransCandidateRegistry.LocationCandidate location : locations) {
+            final List<ScoreTransCandidateRegistry.Candidate> candidates = location.candidates()
+                    .stream().filter(candidate -> isSupportedCandidate("head", candidate.shape()))
+                    .filter(candidate -> candidate.score() >= 0.20)
+                    .toList();
+            if (candidates.isEmpty()) continue;
+            final Point2D point = new Point2D.Double(location.x(), location.y());
+            final int interline = Math.max(1, sheet.getInterline());
+            if (acceptedLocations.stream().anyMatch(previous ->
+                    Math.abs(previous.getX() - point.getX()) <= interline * 1.15
+                            && Math.abs(previous.getY() - point.getY()) <= interline * 0.60)) continue;
+            final SystemInfo system = sheet.getSystems().stream()
+                    .filter(candidate -> candidate.getBounds() != null
+                            && candidate.getBounds().contains(point))
+                    .findFirst().orElse(null);
+            if (system == null) continue;
+            final Staff staff = system.getClosestStaff(point);
+            if (staff == null || staff.isTablature()) continue;
+            final int staffInterline = Math.max(1, staff.getSpecificInterline());
+            final double pitch = staff.pitchPositionOf(point);
+            if (Math.abs(pitch) > staff.getLineCount() + 12) continue;
+            final Rectangle bounds = new Rectangle(location.x() - staffInterline / 2,
+                    location.y() - staffInterline / 3, Math.max(5, staffInterline),
+                    Math.max(5, 2 * staffInterline / 3));
+            if (existing.stream().anyMatch(area -> area.intersects(bounds))) continue;
+            if (json.charAt(json.length() - 1) != '[') json.append(',');
+            final String id = "s" + sheet.getStub().getNumber() + ":p"
+                    + location.x() + "-" + location.y();
+            json.append("{\"glyph_id\":\"").append(id)
+                    .append("\",\"bounds\":{\"x\":").append(bounds.x)
+                    .append(",\"y\":").append(bounds.y)
+                    .append(",\"width\":").append(bounds.width)
+                    .append(",\"height\":").append(bounds.height)
+                    .append("},\"hit_path\":\"").append(escape(svgPath(
+                            new Area(new Ellipse2D.Double(bounds.x, bounds.y,
+                                    bounds.width, bounds.height)))))
+                    .append("\",\"suspicious\":true,\"tag\":\"unrecognized-head\"")
+                    .append(",\"shape\":\"UNKNOWN\",\"grade\":0,\"staff\":\"")
+                    .append(staff.getId()).append("\",\"pitch\":")
+                    .append(String.format(java.util.Locale.ROOT, "%.3f", pitch))
+                    .append(",\"shape_candidates\":").append(candidateJson(candidates)).append('}');
+            existing.add(bounds);
+            acceptedLocations.add(point);
+        }
     }
 
     private static boolean isRepeatedAcrossRows (Glyph target,

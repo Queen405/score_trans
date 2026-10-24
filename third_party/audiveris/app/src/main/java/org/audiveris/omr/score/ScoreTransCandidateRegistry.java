@@ -52,14 +52,26 @@ public final class ScoreTransCandidateRegistry
                 closestDistance = distance;
             }
         }
+        int targetIndex = -1;
         if (closest == null) {
             final EnumMap<Shape, Double> copy = new EnumMap<>(Shape.class);
             scores.forEach((shape, score) -> copy.merge(shape, normalize(score), Math::max));
             locations.add(new LocationScores(x, y, copy));
         } else {
+            targetIndex = locations.indexOf(closest);
             final LocationScores target = closest;
+            final double previousBest = target.scores().values().stream()
+                    .mapToDouble(Double::doubleValue).max().orElse(0);
+            final double incomingBest = scores.values().stream()
+                    .mapToDouble(ScoreTransCandidateRegistry::normalize).max().orElse(0);
             scores.forEach((shape, score) ->
                     target.scores().merge(shape, normalize(score), Math::max));
+            // Keep the anchor at the strongest template match in the cluster. The
+            // HEADS range scanner visits each x coordinate, so retaining the first
+            // weak grid point biases a whole cluster toward stems and accidentals.
+            if (incomingBest > previousBest && targetIndex >= 0) {
+                locations.set(targetIndex, new LocationScores(x, y, target.scores()));
+            }
         }
     }
 
@@ -109,6 +121,24 @@ public final class ScoreTransCandidateRegistry
             if (location != null) locations.add(location);
         }
         return findCandidatesNear(locations, bounds, radius);
+    }
+
+    /** Native template matches recorded at locations that did not become recognized inters. */
+    public static List<LocationCandidate> locations (List<String> encodedLocations)
+    {
+        if (encodedLocations == null || encodedLocations.isEmpty()) return List.of();
+        final List<LocationCandidate> result = new ArrayList<>();
+        for (String encoded : encodedLocations) {
+            final LocationScores location = decodeLocation(encoded);
+            if (location == null || location.scores().isEmpty()) continue;
+            final List<Candidate> candidates = location.scores().entrySet().stream()
+                    .sorted(Map.Entry.<Shape, Double>comparingByValue(Comparator.reverseOrder()))
+                    .limit(5)
+                    .map(entry -> new Candidate(entry.getKey().toString(), entry.getValue()))
+                    .toList();
+            result.add(new LocationCandidate(location.x(), location.y(), candidates));
+        }
+        return result;
     }
 
     public static synchronized void flush (Sheet sheet)
@@ -252,6 +282,10 @@ public final class ScoreTransCandidateRegistry
     }
 
     public record Candidate(String shape, double score)
+    {
+    }
+
+    public record LocationCandidate(int x, int y, List<Candidate> candidates)
     {
     }
 }

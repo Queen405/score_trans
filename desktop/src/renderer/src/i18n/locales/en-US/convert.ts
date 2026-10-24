@@ -89,7 +89,7 @@ const convert: typeof zhConvert = {
     locateGlyph: 'Locate in Jianpu',
     undoInsert: 'Undo insertion',
     glyphNotApplied: 'This symbol is not in the score yet. Apply a candidate first.',
-    glyphApplyHint: 'Choosing a candidate previews the symbol on the staff. Apply to insert it; click the symbol again to undo.',
+    glyphApplyHint: 'Right-click to review candidates. Left-click to delete or restore this mark, then Apply to save.',
     family: {
       head: 'Notehead',
       rest: 'Rest',

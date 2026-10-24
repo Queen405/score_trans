@@ -438,6 +438,12 @@ test('applied unrecognized glyphs behave like recognized marks', () => {
   assert.match(originalPreviewSource, /const visibleSuspiciousGlyphs = computed\(\(\) => \{/)
   assert.match(originalPreviewSource, /v-if="visibleSuspiciousGlyphs\.length && isImage"/)
   assert.match(originalPreviewSource, /glyph\.glyph_id in applied/)
+  // 未识别 glyph 与已识别标记统一：左键删除/恢复，右键打开候选框。
+  assert.match(originalPreviewSource, /@click\.stop="handleGlyphClick\(glyph\.glyph_id, \$event\)"/)
+  assert.match(originalPreviewSource, /function handleGlyphClick\(glyphId: string, event: MouseEvent\): void \{[\s\S]*?emit\('toggleDelete', glyphId\)/)
+  assert.match(originalPreviewSource, /@contextmenu\.stop\.prevent="selectGlyph\(glyph\.glyph_id, \$event, true\)"/)
+  assert.match(originalPreviewSource, /'source-hit--deleted': editable && isElementDeleted\(glyph\.glyph_id\)/)
+  assert.match(originalPreviewSource, /sourceSheet\.value\?\.glyphs \?\? \[\]/)
   // 点击已应用的 glyph 定位到简谱，并保留选中框
   assert.match(convertSource, /async function locateGlyphInJianpu\(glyphId: string\)/)
   assert.match(convertSource, /st__n-\$\{glyphId\.replace\(\/:\/g, '-'\)\}/)
@@ -460,9 +466,11 @@ test('candidate selection only previews and commits on apply', () => {
   // 计数改为「已编辑」，覆盖删除与候选两种改动
   assert.match(convertSource, /const editedCount = computed\(/)
   assert.match(convertSource, /t\('convert\.marker\.editedCount', \{ count: editedCount \}\)/)
-  // 左键点击已选中的未识别字形 = 撤销插入，和删除已识别标记的手感一致
-  assert.match(convertSource, /function selectSuspiciousGlyph\(glyphId: string, openEditor = true\): void \{/)
-  assert.match(convertSource, /delete next\[glyphId\]/)
+  // 删除优先于候选：删除时暂存候选，恢复后可以继续应用同一候选。
+  assert.match(convertSource, /if \(deletedEntityIds\.value\.has\(sourceId\)\) continue/)
+  assert.doesNotMatch(convertSource, /delete selections\[sourceId\]/)
+  assert.match(convertSource, /const retainedDeletedCandidates = Object\.fromEntries\(/)
+  assert.match(convertSource, /recognitionCandidateSelections: savedCandidateSelections/)
 })
 
 test('left click in edit mode toggles deletion without selecting the mark', () => {

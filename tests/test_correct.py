@@ -690,6 +690,25 @@ def test_unrecognized_notehead_candidate_inserts_note_at_glyph_position() -> Non
     assert inserted.findtext("staff") == "2"
 
 
+def test_deleting_unrecognized_glyph_is_valid_and_does_not_insert_it() -> None:
+    glyph = CorrectableGlyph(
+        glyph_id="s1:g99",
+        bounds=(30, 3, 12, 8),
+        hit_path="M30 3h12v8z",
+        candidates=(("NOTEHEAD_BLACK", 0.73, "audiveris_notehead_template"),),
+        tag="unrecognized-head",
+        shape="UNKNOWN",
+        grade=0,
+    )
+    xml = '<score-partwise><part><measure number="1" /></part></score-partwise>'
+
+    assert ET.tostring(
+        ET.fromstring(apply_deletions(xml, [glyph.glyph_id], {}, {glyph.glyph_id: glyph}))
+    ) == ET.tostring(ET.fromstring(xml))
+    with pytest.raises(ValueError, match="无法定位待删除标记"):
+        apply_deletions(xml, ["s1:g404"], {}, {glyph.glyph_id: glyph})
+
+
 def test_unexported_musicxml_head_inter_is_inserted_when_candidate_is_selected() -> (
     None
 ):
@@ -1265,8 +1284,8 @@ def test_time_nine_eight_candidate_updates_signature() -> None:
     assert corrected.findtext(".//time/beat-type") == "8"
 
 
-def test_inserted_note_steps_back_to_chord_head() -> None:
-    """插到 <chord/> follower 之前时必须回退到和弦组首，避免误组和弦。"""
+def test_offset_glyph_is_inserted_before_chord_head_without_joining_it() -> None:
+    """离和弦列很远的 glyph 仍是独立音符（近似的降级行为，不是和弦）。"""
     head_entity = replace(
         _entity("n-s1-i1", "head", "n-s1-i1"),
         bounds=(100, 20, 10, 10),
@@ -1370,3 +1389,285 @@ def test_apply_rejects_overlapping_delete_and_candidate() -> None:
 
     with pytest.raises(ValueError, match="同时删除并选择候选"):
         CorrectActions().apply_corrections(request)
+
+
+def _head_at(
+    source_id: str,
+    *,
+    x: int,
+    pitch: float,
+    staff: str = "1",
+    shape: str = "NOTEHEAD_BLACK",
+) -> CorrectableEntity:
+    return replace(
+        _entity(source_id, "head", source_id),
+        bounds=(x, 20, 12, 10),
+        shape=shape,
+        staff=staff,
+        pitch=pitch,
+        candidates=((shape, 0.9, "audiveris_inter_grade"),),
+    )
+
+
+def _glyph_at(
+    glyph_id: str,
+    *,
+    x: int,
+    pitch: float,
+    staff: str = "1",
+    shape: str = "NOTEHEAD_BLACK",
+    tag: str = "unrecognized-head",
+) -> CorrectableGlyph:
+    return CorrectableGlyph(
+        glyph_id=glyph_id,
+        bounds=(x, 24, 12, 10),
+        hit_path="M0 0h12v10z",
+        candidates=((shape, 0.8, "audiveris_notehead_template"),),
+        tag=tag,
+        shape="UNKNOWN",
+        grade=0.0,
+        staff=staff,
+        pitch=pitch,
+    )
+
+
+_CHORD_XML = """<score-partwise><part><measure number="1">
+  <attributes><divisions>4</divisions></attributes>
+  <note id="n-s1-i1"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+  <note id="n-s1-i2"><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+</measure></part></score-partwise>"""
+
+
+def _apply_chord_case(
+    xml: str,
+    entities: dict[str, CorrectableEntity],
+    glyphs: dict[str, CorrectableGlyph],
+    selections: dict[str, str],
+) -> ET.Element:
+    return ET.fromstring(apply_candidate_selections(xml, selections, entities, glyphs))
+
+
+def test_same_column_glyph_becomes_chord_member() -> None:
+    """同列的未识别符头应写成和弦成员，而不是新的时间步。"""
+    corrected = _apply_chord_case(
+        _CHORD_XML,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+        },
+        {"s1:g7": _glyph_at("s1:g7", x=100, pitch=-2.0)},
+        {"s1:g7": "NOTEHEAD_BLACK"},
+    )
+
+    notes = corrected.findall(".//measure/note")
+    assert len(notes) == 3
+    inserted = notes[1]
+    assert inserted.get("id") == "st__n-s1-g7"
+    assert inserted.find("chord") is not None
+    assert inserted.findtext("pitch/step") == "E"
+    assert inserted.findtext("duration") == "4"
+    assert inserted.findtext("type") == "quarter"
+    # 和弦成员不推进时间轴：非和弦音符的总时值不变
+    assert (
+        sum(
+            int(note.findtext("duration"))
+            for note in notes
+            if note.find("chord") is None
+        )
+        == 8
+    )
+
+
+def test_same_column_tolerates_second_interval_offset() -> None:
+    """二度叠置的符头会横向错开一点，仍应并入同一和弦列。"""
+    corrected = _apply_chord_case(
+        _CHORD_XML,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+        },
+        {"s1:g7": _glyph_at("s1:g7", x=111, pitch=-2.0)},
+        {"s1:g7": "NOTEHEAD_BLACK"},
+    )
+
+    inserted = [
+        note
+        for note in corrected.findall(".//measure/note")
+        if (note.get("id") or "").startswith("st__n-s1-g7")
+    ]
+    assert len(inserted) == 1
+    assert inserted[0].find("chord") is not None
+
+
+def test_glyph_beyond_tolerance_stays_independent_note() -> None:
+    """明显属于下一列时不能误并成和弦。"""
+    corrected = _apply_chord_case(
+        _CHORD_XML,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+        },
+        {"s1:g7": _glyph_at("s1:g7", x=120, pitch=-2.0)},
+        {"s1:g7": "NOTEHEAD_BLACK"},
+    )
+
+    notes = corrected.findall(".//measure/note")
+    inserted = [
+        note for note in notes if (note.get("id") or "").startswith("st__n-s1-g7")
+    ]
+    assert len(inserted) == 1
+    assert inserted[0].find("chord") is None
+    assert notes.index(inserted[0]) == 1
+
+
+def test_chord_member_is_appended_after_last_member() -> None:
+    """三音和弦的组尾之后插入，既有 follower 保持原位。"""
+    xml = """<score-partwise><part><measure number="1">
+      <attributes><divisions>4</divisions></attributes>
+      <note id="n-s1-i1"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note id="n-s1-i2"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note id="n-s1-i3"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note id="n-s1-i4"><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+    </measure></part></score-partwise>"""
+    corrected = _apply_chord_case(
+        xml,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=100, pitch=2.0),
+            "n-s1-i3": _head_at("n-s1-i3", x=100, pitch=4.0),
+            "n-s1-i4": _head_at("n-s1-i4", x=200, pitch=6.0),
+        },
+        {"s1:g7": _glyph_at("s1:g7", x=100, pitch=-1.0)},
+        {"s1:g7": "NOTEHEAD_BLACK"},
+    )
+
+    notes = corrected.findall(".//measure/note")
+    assert [note.get("id") for note in notes] == [
+        "n-s1-i1",
+        "n-s1-i2",
+        "n-s1-i3",
+        "st__n-s1-g7",
+        "n-s1-i4",
+    ]
+    assert notes[3].find("chord") is not None
+    assert notes[2].find("chord") is not None
+
+
+def test_chord_member_inherits_dotted_duration() -> None:
+    """和弦头是附点音符时，成员继承它的 duration/type。"""
+    xml = """<score-partwise><part><measure number="1">
+      <attributes><divisions>4</divisions></attributes>
+      <note id="n-s1-i1"><pitch><step>C</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note>
+      <note id="n-s1-i2"><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+    </measure></part></score-partwise>"""
+    corrected = _apply_chord_case(
+        xml,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+        },
+        {"s1:g7": _glyph_at("s1:g7", x=100, pitch=-2.0)},
+        {"s1:g7": "NOTEHEAD_BLACK"},
+    )
+
+    inserted = [
+        note
+        for note in corrected.findall(".//measure/note")
+        if (note.get("id") or "").startswith("st__n-s1-g7")
+    ][0]
+    assert inserted.findtext("duration") == "6"
+    assert inserted.findtext("type") == "quarter"
+
+
+def test_chord_member_type_follows_head(monkeypatch, caplog) -> None:
+    """候选时值与和弦头不同时以和弦头为准，并给出告警。"""
+    corrected = _apply_chord_case(
+        _CHORD_XML,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+        },
+        {"s1:g7": _glyph_at("s1:g7", x=100, pitch=-2.0, shape="NOTEHEAD_VOID")},
+        {"s1:g7": "NOTEHEAD_VOID"},
+    )
+
+    inserted = [
+        note
+        for note in corrected.findall(".//measure/note")
+        if (note.get("id") or "").startswith("st__n-s1-g7")
+    ][0]
+    assert inserted.find("chord") is not None
+    assert inserted.findtext("type") == "quarter"
+    assert inserted.findtext("duration") == "4"
+
+
+def test_duplicate_pitch_member_is_skipped() -> None:
+    """同列已有相同音高时不再重复插入成员。"""
+    corrected = _apply_chord_case(
+        _CHORD_XML,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+        },
+        {"s1:g7": _glyph_at("s1:g7", x=100, pitch=0.0)},
+        {"s1:g7": "NOTEHEAD_BLACK"},
+    )
+
+    notes = corrected.findall(".//measure/note")
+    inserted = [
+        note for note in notes if (note.get("id") or "").startswith("st__n-s1-g7")
+    ]
+    assert len(inserted) == 1
+    assert inserted[0].find("chord") is None
+    chord_pitches = [
+        (note.findtext("step"), note.findtext("octave"))
+        for note in notes
+        if note.find("chord") is not None
+    ]
+    assert chord_pitches == []
+
+
+def test_rest_glyph_never_becomes_chord_member() -> None:
+    """休止符不能进和弦组，插到组首之前。"""
+    corrected = _apply_chord_case(
+        _CHORD_XML,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+        },
+        {
+            "s1:g7": _glyph_at(
+                "s1:g7", x=100, pitch=0.0, shape="EIGHTH_REST", tag="rest"
+            )
+        },
+        {"s1:g7": "EIGHTH_REST"},
+    )
+
+    notes = corrected.findall(".//measure/note")
+    inserted = [
+        note for note in notes if (note.get("id") or "").startswith("st__n-s1-g7")
+    ][0]
+    assert inserted.find("chord") is None
+    assert inserted.find("rest") is not None
+    assert notes.index(inserted) == 0
+
+
+def test_unexported_head_merges_into_same_column_chord() -> None:
+    """未写入 MusicXML 的已识别 head 也走同一套和弦合并逻辑。"""
+    corrected = _apply_chord_case(
+        _CHORD_XML,
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+            "s1:i99": _head_at("s1:i99", x=100, pitch=-2.0),
+        },
+        {},
+        {"s1:i99": "NOTEHEAD_BLACK"},
+    )
+
+    notes = corrected.findall(".//measure/note")
+    inserted = [
+        note for note in notes if (note.get("id") or "").startswith("st__n-s1-i99")
+    ][0]
+    assert inserted.find("chord") is not None
+    assert notes.index(inserted) == 1
