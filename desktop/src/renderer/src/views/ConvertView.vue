@@ -254,39 +254,53 @@
       <div class="ws-layout">
         <div class="ws-panel ws-left">
           <div class="ws-panel-head">
-            <span>{{ t('convert.panel.originalStaff') }}</span>
+            <span class="panel-head-title">{{ t('convert.panel.originalStaff') }}</span>
             <span
               v-if="store.originalFileName"
               class="panel-filename"
             >{{ store.originalFileName }}</span>
-            <div
+            <n-button
               v-if="canOpenMarkerEditor"
-              class="marker-edit-controls"
+              size="tiny"
+              :secondary="!editMode"
+              :type="editMode ? 'default' : 'primary'"
+              @click="editMode ? cancelEditMode() : enterEditMode()"
             >
-              <n-button
-                size="tiny"
-                :type="editMode ? 'default' : 'primary'"
-                @click="editMode ? cancelEditMode() : enterEditMode()"
-              >
-                {{ editMode ? t('common.action.cancel') : t('convert.marker.deleteMark') }}
-              </n-button>
-              <template v-if="editMode">
-                <span class="deleted-count">{{ t('convert.marker.deletedCount', { count: deletedEntityIds.size }) }}</span>
-                <small class="marker-edit-hint">{{ t('convert.marker.editInstructions') }}</small>
-                <n-button
-                  size="tiny"
-                  type="warning"
-                  :loading="applying"
-                  :disabled="loadingEntities || !canEditMarkers"
-                  @click="applyCorrections()"
-                >
-                  {{ t('convert.marker.apply') }}
-                </n-button>
-                <small v-if="!store.originalMusicxml" class="marker-edit-hint">
-                  {{ t('convert.marker.missingMusicxml') }}
-                </small>
+              {{ editMode ? t('common.action.cancel') : t('convert.marker.deleteMark') }}
+            </n-button>
+          </div>
+          <div
+            v-if="editMode"
+            class="marker-mode-bar"
+          >
+            <span class="marker-mode-bar__status">
+              <i class="marker-mode-bar__dot" />
+              {{ t('convert.marker.modeTitle') }}
+            </span>
+            <span class="marker-mode-bar__count">
+              {{ t('convert.marker.deletedCount', { count: deletedEntityIds.size }) }}
+            </span>
+            <span
+              v-if="store.originalMusicxml"
+              class="marker-mode-bar__hint"
+            >{{ t('convert.marker.editInstructions') }}</span>
+            <span
+              v-else
+              class="marker-mode-bar__warn"
+              :title="t('convert.marker.missingMusicxml')"
+            >{{ t('convert.marker.missingMusicxml') }}</span>
+            <n-button
+              size="tiny"
+              type="primary"
+              :loading="applying"
+              :disabled="loadingEntities || !canEditMarkers"
+              @click="applyCorrections()"
+            >
+              <template #icon>
+                <n-icon><CheckmarkOutline /></n-icon>
               </template>
-            </div>
+              {{ t('convert.marker.apply') }}
+            </n-button>
           </div>
           <div class="ws-panel-body">
             <original-preview
@@ -312,135 +326,32 @@
               @select-glyph="selectSuspiciousGlyph"
             >
               <template #marker-editor="{ close }">
-                <section
+                <MarkerInspector
                   v-if="editMode && selectedEntity"
-                  class="candidate-editor"
-                >
-                  <header class="candidate-editor__header">
-                    <div class="candidate-editor__title-row">
-                      <div class="candidate-editor__title">
-                        <span class="candidate-editor__eyebrow">{{ t('convert.marker.inspector') }}</span>
-                        <RecognitionSymbol :shape="selectedCandidateShape || selectedEntity.shape" />
-                      </div>
-                      <button
-                        class="candidate-editor__close"
-                        type="button"
-                        :aria-label="t('convert.marker.closeInspector')"
-                        :title="t('convert.marker.closeInspector')"
-                        @click="close"
-                      >
-                        ×
-                      </button>
-                      <span class="current-grade">
-                        <span>{{ Math.round(selectedEntityDisplayGrade * 100) }}%</span>
-                        <small>{{ t('convert.marker.currentScore') }}</small>
-                      </span>
-                    </div>
-                  </header>
-                  <div class="candidate-editor__body">
-                    <div class="candidate-list-heading">
-                      <strong>{{ t('convert.marker.topCandidates') }}</strong>
-                      <span>{{ selectedEntityCandidates.length }}</span>
-                    </div>
-                    <div
-                      v-if="selectedEntityCandidates.length"
-                      class="candidate-list"
-                    >
-                      <button
-                        v-for="(candidate, index) in selectedEntityCandidates"
-                        :key="`${candidate.score_kind}:${candidate.shape}`"
-                        class="candidate-option"
-                        :class="{ selected: selectedCandidateShape === candidate.shape }"
-                        :style="{ '--candidate-score': `${Math.max(0, Math.min(1, candidate.score)) * 100}%` }"
-                        type="button"
-                        :disabled="applying"
-                        :title="candidate.shape"
-                        :aria-label="candidate.shape"
-                        @click="selectCandidate(selectedEntity.source_id, candidate.shape)"
-                      >
-                        <span class="candidate-rank">{{ index + 1 }}</span>
-                        <span class="candidate-shape"><RecognitionSymbol :shape="candidate.shape" /></span>
-                        <span class="candidate-score">{{ Math.round(candidate.score * 100) }}%</span>
-                      </button>
-                    </div>
-                    <p
-                      v-else
-                      class="candidate-empty"
-                    >
-                      {{ t('convert.marker.noTopFive') }}
-                    </p>
-                    <small
-                      v-if="selectedEntityCandidates.length"
-                      class="candidate-note"
-                    >
-                      {{ t('convert.marker.applySelectionHint') }}
-                    </small>
-                  </div>
-                </section>
-                <section
-                  v-if="editMode && selectedGlyph"
-                  class="candidate-editor glyph-candidate-editor"
-                >
-                  <header class="candidate-editor__header">
-                    <div class="candidate-editor__title-row">
-                      <div class="candidate-editor__title">
-                        <span class="candidate-editor__eyebrow">
-                          {{ t('convert.marker.suspiciousGlyph') }}
-                        </span>
-                        <RecognitionSymbol :shape="selectedGlyph.shape || 'UNKNOWN'" />
-                      </div>
-                      <button
-                        class="candidate-editor__close"
-                        type="button"
-                        :aria-label="t('convert.marker.closeInspector')"
-                        :title="t('convert.marker.closeInspector')"
-                        @click="close"
-                      >
-                        ×
-                      </button>
-                      <span class="current-grade">
-                        <span>{{ Math.round(selectedEntityDisplayGrade * 100) }}%</span>
-                        <small>{{ t('convert.marker.currentScore') }}</small>
-                      </span>
-                    </div>
-                  </header>
-                  <div class="candidate-editor__body">
-                    <div class="candidate-list-heading">
-                      <strong>{{ t('convert.marker.topCandidates') }}</strong>
-                      <span>{{ selectedGlyphCandidates.length }}</span>
-                    </div>
-                    <div
-                      v-if="selectedGlyphCandidates.length"
-                      class="candidate-list"
-                    >
-                      <button
-                        v-for="(candidate, index) in selectedGlyphCandidates"
-                        :key="candidate.shape"
-                        class="candidate-option"
-                        :class="{ selected: selectedCandidateShape === candidate.shape }"
-                        :style="{ '--candidate-score': `${Math.max(0, Math.min(1, candidate.score)) * 100}%` }"
-                        type="button"
-                        :disabled="applying"
-                        :title="candidate.shape"
-                        :aria-label="candidate.shape"
-                        @click="selectCandidate(selectedGlyph.glyph_id, candidate.shape)"
-                      >
-                        <span class="candidate-rank">{{ index + 1 }}</span>
-                        <span class="candidate-shape"><RecognitionSymbol :shape="candidate.shape" /></span>
-                        <span class="candidate-score">{{ Math.round(candidate.score * 100) }}%</span>
-                      </button>
-                    </div>
-                    <p
-                      v-else
-                      class="candidate-empty"
-                    >
-                      {{ t('convert.marker.noTopFive') }}
-                    </p>
-                    <small class="candidate-note">
-                      {{ t('convert.marker.applySelectionHint') }}
-                    </small>
-                  </div>
-                </section>
+                  mode="entity"
+                  :tag="selectedEntity.tag"
+                  :shape="selectedEntity.shape"
+                  :original-shape="selectedEntity.shape"
+                  :selected-shape="selectedCandidateShape"
+                  :current-score="selectedEntityDisplayGrade"
+                  :candidates="selectedEntityCandidates"
+                  :disabled="applying"
+                  @select="selectCandidate(selectedEntity.source_id, $event)"
+                  @close="close"
+                />
+                <MarkerInspector
+                  v-else-if="editMode && selectedGlyph"
+                  mode="glyph"
+                  :tag="selectedGlyph.tag"
+                  :shape="selectedGlyph.shape || 'UNKNOWN'"
+                  :original-shape="selectedGlyph.shape || ''"
+                  :selected-shape="selectedCandidateShape"
+                  :current-score="selectedEntityDisplayGrade"
+                  :candidates="selectedGlyphCandidates"
+                  :disabled="applying"
+                  @select="selectCandidate(selectedGlyph.glyph_id, $event)"
+                  @close="close"
+                />
               </template>
             </original-preview>
           </div>
@@ -659,7 +570,7 @@ import JianpuPlayer from '../components/JianpuPlayer.vue'
 import { emptyPlaybackHighlight, type PlaybackHighlight } from '../utils/midiSourceMap'
 import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
-import RecognitionSymbol from '../components/RecognitionSymbol.vue'
+import MarkerInspector from '../components/MarkerInspector.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
 import LiveJianpuPreview from '../components/LiveJianpuPreview.vue'
 import { useLiveJianpuPreview } from '../composables/useLiveJianpuPreview'
@@ -711,6 +622,7 @@ import {
   ImageOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
+  CheckmarkOutline,
   CloudDownloadOutline,
   TimeOutline,
   RefreshOutline,
@@ -3070,7 +2982,9 @@ defineExpose({ flushPendingEdits })
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 8px 4px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface);
   font-size: 11px;
@@ -3080,23 +2994,21 @@ defineExpose({ flushPendingEdits })
   letter-spacing: 0.4px;
 }
 
+.panel-head-title {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* 面板标题是大写小标签，按钮文案保持原样，避免英文界面变成全大写 */
+.ws-panel-head :deep(.n-button) {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .panel-head-label {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-}
-
-.marker-edit-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.deleted-count {
-  font-size: 11px;
-  color: var(--text-secondary);
-  text-transform: none;
-  letter-spacing: 0;
 }
 
 .panel-head-actions {
@@ -3123,7 +3035,7 @@ defineExpose({ flushPendingEdits })
 
 .snapshot-hint {
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-light);
   color: var(--text-tertiary);
   font-size: 10px;
 }
@@ -3150,7 +3062,7 @@ defineExpose({ flushPendingEdits })
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: var(--border-soft);
+  background: var(--border-light);
   color: var(--text-tertiary);
   font-size: 10px;
 }
@@ -3173,7 +3085,7 @@ defineExpose({ flushPendingEdits })
   gap: 4px;
   margin-right: 6px;
   padding-right: 6px;
-  border-right: 1px solid var(--border-soft);
+  border-right: 1px solid var(--border-light);
 }
 
 .meta-label {
@@ -3186,10 +3098,17 @@ defineExpose({ flushPendingEdits })
 }
 
 .panel-filename {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
   font-weight: 400;
   color: var(--text-tertiary);
   font-size: 10px;
+  letter-spacing: 0;
+  text-align: right;
+  text-overflow: ellipsis;
   text-transform: none;
+  white-space: nowrap;
 }
 
 .unsaved-hint {
@@ -3235,225 +3154,76 @@ defineExpose({ flushPendingEdits })
   min-width: 0;
 }
 
-.candidate-editor {
-  width: min(280px, 100%);
-  max-height: 100%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-  border-radius: 12px;
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  box-shadow: 0 12px 34px rgba(20, 24, 32, 0.22), 0 2px 8px rgba(20, 24, 32, 0.12);
-  pointer-events: auto;
-}
-
-.candidate-editor__header {
-  padding: 11px 12px 10px;
-  border-bottom: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--accent-light) 26%, var(--bg-elevated));
-}
-
-.candidate-editor__title-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.candidate-editor__title {
-  min-width: 0;
-  flex: 1;
+/* 编辑模式条：按钮、计数与说明各占一层，避免挤在面板标题行 */
+.marker-mode-bar {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 5px 8px 5px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+  color: var(--text-secondary);
 }
 
-.candidate-editor__eyebrow {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.current-grade {
+.marker-mode-bar__status {
   flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  color: var(--accent);
-  font-size: 17px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
-
-.current-grade small {
-  color: var(--text-tertiary);
-  font-size: 9px;
-  font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.candidate-editor__close {
-  flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-  font-size: 19px;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.candidate-editor__close:hover {
-  border-color: var(--accent);
-  background: var(--accent-light);
-  color: var(--accent);
-}
-
-.candidate-option {
-  pointer-events: auto;
-}
-
-.candidate-editor__body {
-  min-height: 0;
-  display: flex;
-  flex: 0 1 auto;
-  flex-direction: column;
-  gap: 9px;
-  overflow-y: auto;
-  padding: 10px;
-}
-
-.glyph-candidate-editor .candidate-editor__header {
-  background: color-mix(in srgb, #d89a35 14%, var(--bg-elevated));
-}
-
-.candidate-editor__close:focus-visible,
-.candidate-option:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.candidate-list-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-
-.candidate-list-heading strong {
+  gap: 7px;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 650;
+  letter-spacing: 0.2px;
+  text-transform: none;
+  white-space: nowrap;
 }
 
-.candidate-list-heading span {
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
+.marker-mode-bar__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-.candidate-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.candidate-option {
-  position: relative;
-  isolation: isolate;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  overflow: hidden;
-  padding: 7px 8px;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--bg-elevated);
+.marker-mode-bar__count {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
   color: var(--text-secondary);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.12s ease;
-}
-
-.candidate-option::before {
-  position: absolute;
-  z-index: -1;
-  inset: auto auto 0 0;
-  width: var(--candidate-score, 0%);
-  height: 2px;
-  background: var(--accent);
-  content: '';
-  opacity: 0.55;
-}
-
-.candidate-option:hover,
-.candidate-option.selected {
-  border-color: var(--accent);
-  background: var(--accent-light);
-  color: var(--text-primary);
-}
-
-.candidate-option:active {
-  transform: scale(0.99);
-}
-
-.candidate-option--display {
-  cursor: default;
-}
-
-.candidate-rank {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: var(--border-soft);
-  color: var(--text-tertiary);
   font-size: 10px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.candidate-option.selected .candidate-rank {
-  background: var(--accent);
-  color: var(--bg-elevated);
-}
-
-.candidate-shape {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.candidate-score {
-  color: var(--text-primary);
-  font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
 }
 
-.candidate-note,
-.candidate-empty {
-  margin: 0;
+.marker-mode-bar__hint {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
   color: var(--text-tertiary);
   font-size: 10px;
-  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.marker-mode-bar__warn {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--warning) 70%, var(--text-primary));
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .empty-hint {

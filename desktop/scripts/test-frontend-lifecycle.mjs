@@ -20,6 +20,8 @@ const editorSource = source('../src/renderer/src/components/JianpuEditor.vue')
 const convertSource = source('../src/renderer/src/views/ConvertView.vue')
 const historyRestoreSource = source('../src/renderer/src/composables/useHistoryRestore.ts')
 const originalPreviewSource = source('../src/renderer/src/components/OriginalPreview.vue')
+const markerInspectorSource = source('../src/renderer/src/components/MarkerInspector.vue')
+const shapeDescriptorSource = source('../src/renderer/src/utils/shapeDescriptor.ts')
 const playerSource = source('../src/renderer/src/components/JianpuPlayer.vue')
 const playerPreferencesPath = path.resolve(
   here,
@@ -421,7 +423,14 @@ test('marker edit mode keeps the original overlay and clicks semantic hit paths 
   assert.match(originalPreviewSource, /@keydown\.enter\.prevent="selectSource\(element\.source_id, \$event\)"/)
   assert.match(originalPreviewSource, /class="marker-editor-anchor"/)
   assert.match(convertSource, /template #marker-editor/)
-  assert.match(convertSource, /<RecognitionSymbol :shape="candidate\.shape"\s*\/>/)
+  // 候选面板是独立组件：已识别标记与漏识别 glyph 共用同一套候选项渲染
+  assert.match(convertSource, /<MarkerInspector[\s\S]*?:candidates="selectedEntityCandidates"/)
+  assert.match(convertSource, /<MarkerInspector[\s\S]*?:candidates="selectedGlyphCandidates"/)
+  assert.match(markerInspectorSource, /<RecognitionSymbol :shape="candidate\.shape"\s*\/>/)
+  // 候选项必须同时给出可读名称与分数条，不能只靠字形图标区分
+  assert.match(markerInspectorSource, /class="candidate-row__label"/)
+  assert.match(markerInspectorSource, /class="candidate-row__meter"/)
+  assert.match(shapeDescriptorSource, /export function shapeVariantKey/)
   assert.match(originalPreviewSource, /appliedCandidateSelections \?\? \{\}/)
   assert.match(originalPreviewSource, /:mask="`url\(#\$\{overlayMaskId\}\)`"/)
   assert.match(originalPreviewSource, /<RecognitionSymbol/)
@@ -439,6 +448,7 @@ test('applied deleted source ids render in an independent persistent mark layer'
   assert.match(originalPreviewSource, /appliedDeletedSourceIds\?: string\[\]/)
   assert.match(originalPreviewSource, /class="deleted-mark-layer"/)
   assert.match(originalPreviewSource, /v-if="deletedMarkElements\.length > 0 && isImage"/)
-  assert.match(originalPreviewSource, /\.deleted-mark \{[\s\S]*?fill: none;[\s\S]*?stroke-dasharray: 6 4;/)
+  // 待删除标记用主题危险色的虚线覆盖层，且不参与点击
+  assert.match(originalPreviewSource, /\.deleted-mark \{[\s\S]*?var\(--danger\)[\s\S]*?stroke-dasharray: 5 3;/)
   assert.match(originalPreviewSource, /\.deleted-mark-layer \{[\s\S]*?pointer-events: none;/)
 })

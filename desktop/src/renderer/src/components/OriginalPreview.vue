@@ -73,7 +73,7 @@
             <RecognitionSymbol
               :shape="item.shape"
               :background="false"
-              :style="{ width: '100%', height: '100%', color: '#00aa44', opacity: 1 }"
+              :style="{ width: '100%', height: '100%', color: 'var(--success)', opacity: 1 }"
             />
           </svg>
         </svg>
@@ -354,8 +354,8 @@ function updateEditorPosition(target: MarkerTarget | null = null): void {
   const viewportRect = viewport.getBoundingClientRect()
   const targetRect = activeTarget.getBoundingClientRect()
   const gap = 10
-  const panelWidth = Math.min(292, Math.max(220, viewport.clientWidth - 16))
-  const panelHeight = Math.min(430, Math.max(180, viewport.clientHeight - 16))
+  const panelWidth = Math.min(318, Math.max(220, viewport.clientWidth - 16))
+  const panelHeight = Math.min(470, Math.max(180, viewport.clientHeight - 16))
   const markerCenterX = (targetRect.left + targetRect.right) / 2 - viewportRect.left
   const markerCenterY = (targetRect.top + targetRect.bottom) / 2 - viewportRect.top
   const left = markerCenterX + panelWidth + gap <= viewport.clientWidth - 8
@@ -563,12 +563,12 @@ onUnmounted(() => {
 .marker-editor-anchor {
   position: absolute;
   z-index: 30;
-  width: min(280px, calc(100% - 16px));
-  max-height: calc(100% - 16px);
+  width: min(318px, calc(100% - 16px));
+  max-height: calc(100% - 20px);
   pointer-events: none;
 }
 
-.marker-editor-anchor :deep(.candidate-editor) {
+.marker-editor-anchor :deep(.marker-inspector) {
   pointer-events: auto;
 }
 
@@ -611,60 +611,65 @@ onUnmounted(() => {
 }
 
 .source-hit {
-  fill: rgba(14, 165, 233, 0.001);
-  stroke: rgba(14, 165, 233, 0.001);
-  stroke-width: 4;
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 5;
   vector-effect: non-scaling-stroke;
   pointer-events: visiblePainted;
   cursor: pointer;
   outline: none;
+  transition: fill 0.14s ease, stroke 0.14s ease;
 }
 
 .source-hit:hover,
-.source-hit:focus {
-  fill: rgba(14, 165, 233, 0.16);
-  stroke: rgba(2, 132, 199, 0.9);
-  stroke-width: 2;
+.source-hit:focus-visible {
+  fill: color-mix(in srgb, var(--accent) 13%, transparent);
+  stroke: color-mix(in srgb, var(--accent) 72%, transparent);
+  stroke-width: 1.6;
 }
 
+/* 编辑模式下左键=删除，因此悬停预告的是删除结果 */
 .source-hit-layer.editing .source-hit:hover,
-.source-hit-layer.editing .source-hit:focus {
-  fill: rgba(14, 165, 233, 0.001);
-  stroke: rgba(14, 165, 233, 0.001);
-  stroke-width: 4;
+.source-hit-layer.editing .source-hit:focus-visible {
+  fill: color-mix(in srgb, var(--danger) 12%, transparent);
+  stroke: color-mix(in srgb, var(--danger) 62%, transparent);
+  stroke-width: 1.6;
+  stroke-dasharray: 4 3;
 }
 
 .source-hit.selected {
-  fill: rgba(255, 176, 32, 0.38);
-  stroke: rgba(230, 126, 18, 1);
-  stroke-width: 5;
-  filter: drop-shadow(0 0 3px rgba(230, 126, 18, 0.85));
-  animation: source-hit-pulse 1.2s ease-in-out infinite;
+  fill: color-mix(in srgb, var(--accent) 24%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+
+.source-hit--glyph:hover,
+.source-hit--glyph:focus-visible {
+  fill: color-mix(in srgb, var(--warning) 16%, transparent);
+  stroke: color-mix(in srgb, var(--warning) 80%, transparent);
+  stroke-dasharray: 2 3;
+}
+
+.source-hit--glyph.selected {
+  fill: color-mix(in srgb, var(--warning) 22%, transparent);
+  stroke: var(--warning);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--warning) 55%, transparent));
 }
 
 .source-hit--disabled {
-  fill: rgba(100, 116, 139, 0.001);
-  stroke: rgba(100, 116, 139, 0.001);
+  fill: transparent;
+  stroke: transparent;
   cursor: not-allowed;
 }
 
 .source-hit--disabled:hover,
-.source-hit--disabled:focus {
-  fill: rgba(100, 116, 139, 0.1);
-  stroke: rgba(100, 116, 139, 0.7);
-  stroke-width: 2;
+.source-hit--disabled:focus-visible {
+  fill: color-mix(in srgb, var(--text-tertiary) 10%, transparent);
+  stroke: color-mix(in srgb, var(--text-tertiary) 60%, transparent);
+  stroke-width: 1.6;
   stroke-dasharray: 4 3;
-}
-
-@keyframes source-hit-pulse {
-  0%, 100% {
-    stroke-opacity: 1;
-    fill-opacity: 0.22;
-  }
-  50% {
-    stroke-opacity: 0.6;
-    fill-opacity: 0.35;
-  }
 }
 
 .source-hit-layer.disabled {
@@ -685,10 +690,10 @@ onUnmounted(() => {
 }
 
 .deleted-mark {
-  fill: none;
-  stroke: rgba(255, 51, 51, 0.84);
-  stroke-width: 2.5;
-  stroke-dasharray: 6 4;
+  fill: color-mix(in srgb, var(--danger) 9%, transparent);
+  stroke: color-mix(in srgb, var(--danger) 82%, transparent);
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
