@@ -2208,10 +2208,30 @@ function selectCandidate(sourceId: string, shape: string): void {
   }
 }
 
-/** 左键点未识别字形：已有候选时等同于「撤销插入」。 */
+/** 未识别字形应用后会成为乐谱里的真实音符：点击它定位到简谱对应位置。 */
+async function locateGlyphInJianpu(glyphId: string): Promise<void> {
+  // 插入音符的来源被解析成 glyph 自身的 id（s1:g7），旧数据则可能是 MusicXML 元素 id（st__n-s1-g7）
+  const keys = [glyphId, `st__n-${glyphId.replace(/:/g, '-')}`]
+  const anchor = store.textAnchors.find(
+    (item) => keys.some((key) => item.source_id === key || item.source_id.startsWith(`${key}__`)),
+  )
+  if (!anchor) {
+    message.info(t('convert.marker.glyphNotApplied'))
+    return
+  }
+  await handleOriginalSourceClick(anchor.source_id)
+  // 定位会清空 selectedGlyphId，这里补回来，让符号保持选中框
+  selectedGlyphId.value = glyphId
+}
+
+/** 左键点未识别字形：编辑态撤销插入，非编辑态定位到简谱。 */
 function selectSuspiciousGlyph(glyphId: string, openEditor = true): void {
   selectedGlyphId.value = glyphId
   selectedSourceId.value = ''
+  if (!editMode.value) {
+    void locateGlyphInJianpu(glyphId)
+    return
+  }
   if (openEditor) return
   if (!(glyphId in candidateSelections.value)) return
   const next = { ...candidateSelections.value }

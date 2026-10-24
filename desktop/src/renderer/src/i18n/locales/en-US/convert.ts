@@ -86,6 +86,9 @@ const convert: typeof zhConvert = {
     notRecognized: 'Not recognized',
     glyphSubtitle: 'Not recognized as a score element',
     suspiciousNotice: 'This symbol was not recognized as a score element. Choosing a candidate inserts it into the score and regenerates the Jianpu.',
+    locateGlyph: 'Locate in Jianpu',
+    undoInsert: 'Undo insertion',
+    glyphNotApplied: 'This symbol is not in the score yet. Apply a candidate first.',
     glyphApplyHint: 'Choosing a candidate previews the symbol on the staff. Apply to insert it; click the symbol again to undo.',
     family: {
       head: 'Notehead',

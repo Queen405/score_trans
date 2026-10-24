@@ -433,6 +433,17 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
   assert.match(convertSource, /multiPageOmr/)
 })
 
+test('applied unrecognized glyphs behave like recognized marks', () => {
+  // 非编辑模式下只渲染选过候选的 glyph，避免整页碎片抢点击
+  assert.match(originalPreviewSource, /const visibleSuspiciousGlyphs = computed\(\(\) => \{/)
+  assert.match(originalPreviewSource, /v-if="visibleSuspiciousGlyphs\.length && isImage"/)
+  assert.match(originalPreviewSource, /glyph\.glyph_id in applied/)
+  // 点击已应用的 glyph 定位到简谱，并保留选中框
+  assert.match(convertSource, /async function locateGlyphInJianpu\(glyphId: string\)/)
+  assert.match(convertSource, /st__n-\$\{glyphId\.replace\(\/:\/g, '-'\)\}/)
+  assert.match(convertSource, /if \(!editMode\.value\) \{\s*\n\s*void locateGlyphInJianpu\(glyphId\)/)
+})
+
 test('candidate selection only previews and commits on apply', () => {
   // 选候选是同步的本地暂存，不再触发后端修正
   assert.match(convertSource, /function selectCandidate\(sourceId: string, shape: string\): void \{/)

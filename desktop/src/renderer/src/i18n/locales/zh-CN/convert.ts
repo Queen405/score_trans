@@ -84,6 +84,9 @@ const convert = {
     notRecognized: '未识别',
     glyphSubtitle: '未被识别为乐谱元素',
     suspiciousNotice: '该符号没有被识别成乐谱元素；选择候选后会插入到乐谱，并重新生成简谱。',
+    locateGlyph: '定位到简谱',
+    undoInsert: '撤销插入',
+    glyphNotApplied: '该符号还没有写入乐谱，先应用候选后再点击定位。',
     glyphApplyHint: '选择候选会先在五线谱上预览，点「应用」后才插入乐谱；再次点击该符号可撤销。',
     family: {
       head: '音符头',

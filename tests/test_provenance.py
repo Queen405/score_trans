@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import struct
+import xml.etree.ElementTree as ET
 from fractions import Fraction
 from pathlib import Path
 
 import score_trans.domain.write.jianpu_text as jianpu_writer
 from score_trans.domain.parse.jianpu_text import parse_jianpu_score
-from score_trans.domain.parse.musicxml import musicxml_to_score
+from score_trans.domain.parse.musicxml import _note_provenance, musicxml_to_score
 from score_trans.domain.provenance import apply_text_anchors
 from score_trans.domain.write.jianpu_text import score_to_jianpu_document
 from score_trans.exec.render.actions import RenderActions, _tag_score_source_page
@@ -593,3 +594,17 @@ def test_slur_provenance_still_produces_slur_anchors() -> None:
     for anchor in slur_anchors:
         char = _utf16_slice(document.text, anchor.start_utf16, anchor.end_utf16)
         assert char in {"(", ")"}
+
+
+def test_inserted_glyph_note_keeps_glyph_provenance() -> None:
+    """未识别字形插入的音符用 g 段，仍要解析出来源，才能像普通标记一样定位。"""
+    note = ET.fromstring('<note id="st__n-s1-g7"/>')
+
+    assert _note_provenance(note) == {"note": ["s1:g7"]}
+
+
+def test_inter_provenance_is_unchanged() -> None:
+    """普通 Inter 的 i 段解析保持不变。"""
+    note = ET.fromstring('<note id="n-s1-i42"/>')
+
+    assert _note_provenance(note) == {"note": ["s1:i42"]}

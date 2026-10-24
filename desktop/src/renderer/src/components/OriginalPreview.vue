@@ -122,14 +122,14 @@
           </g>
         </svg>
         <svg
-          v-if="editable && suspiciousGlyphs?.length && isImage"
+          v-if="visibleSuspiciousGlyphs.length && isImage"
           class="source-hit-layer glyph-source-hit-layer"
           :viewBox="`0 0 ${entitySheetWidth} ${entitySheetHeight}`"
           :width="imgW || entitySheetWidth"
           :height="imgH || entitySheetHeight"
         >
           <g
-            v-for="glyph in suspiciousGlyphs"
+            v-for="glyph in visibleSuspiciousGlyphs"
             :key="glyph.glyph_id"
           >
             <path
@@ -141,7 +141,14 @@
               @click.stop="selectGlyph(glyph.glyph_id, $event, false)"
               @contextmenu.stop.prevent="selectGlyph(glyph.glyph_id, $event, true)"
               @keydown.enter.prevent="selectGlyph(glyph.glyph_id, $event, true)"
-            />
+            >
+              <title v-if="!editable">
+                {{ t('convert.marker.locateGlyph') }}
+              </title>
+              <title v-else-if="glyph.glyph_id in (appliedCandidateSelections ?? {})">
+                {{ t('convert.marker.undoInsert') }}
+              </title>
+            </path>
             <path
               :d="glyph.hit_path"
               class="source-hit-outline"
@@ -301,6 +308,15 @@ const deletedMarkElements = computed(() => (
       || props.deletedEntityIds?.has(element.source_id)
   )) ?? []
 ))
+// 未识别字形：编辑模式下全部可见（可点选/撤销），
+// 非编辑模式只保留选过候选的，避免整页碎片抢点击。
+const visibleSuspiciousGlyphs = computed(() => {
+  const glyphs = props.suspiciousGlyphs ?? []
+  if (props.editable) return glyphs
+  const applied = props.appliedCandidateSelections ?? {}
+  return glyphs.filter((glyph) => glyph.glyph_id in applied)
+})
+
 const clickableElements = computed(() => (
   sourceSheet.value?.elements.filter((element) => {
     const mapped = clickableSourceIdSet.value.has(element.source_id)

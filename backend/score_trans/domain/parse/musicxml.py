@@ -48,8 +48,10 @@ from ..xml_utils import (
     _text,
 )
 
+# 插入的音符来自未识别字形，其 MusicXML id 形如 ``st__n-s1-g7``，
+# 因此 inter 段允许 i（Audiveris Inter）和 g（Glyph）两种来源。
 _PROVENANCE_PART_RE = re.compile(
-    r"(?:^|__)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-i(?P<inter>\d+)"
+    r"(?:^|__)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-(?P<kind>[ig])(?P<inter>\d+)"
 )
 logger = logging.getLogger(__name__)
 
@@ -1087,7 +1089,9 @@ def _note_provenance(note: ET.Element) -> dict[str, list[str]]:
     xml_id = note.get("id") or ""
     for match in _PROVENANCE_PART_RE.finditer(xml_id):
         role = _source_role(match.group("role"))
-        source_id = f"s{match.group('sheet')}:i{match.group('inter')}"
+        source_id = (
+            f"s{match.group('sheet')}:{match.group('kind')}{match.group('inter')}"
+        )
         result.setdefault(role, []).append(source_id)
     return result
 
