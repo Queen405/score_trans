@@ -1225,3 +1225,132 @@ def test_extract_entities_includes_structural_when_in_source_map(
     assert len(sheets) == 1
     tags = sorted(entity.tag for entity in sheets[0].entities)
     assert tags == ["clef", "key", "time-whole"]
+
+
+def test_rank_candidates_keeps_recognized_shape_when_outscored() -> None:
+    """Top-5 截断时也必须保留当前识别形状，否则改选后无法恢复原始结果。"""
+    ranked = _rank_candidates(
+        tuple(
+            (f"SHAPE_{index}", 0.9 - index * 0.05, "audiveris_shape_classifier")
+            for index in range(6)
+        )
+        + (("CURRENT", 0.01, "audiveris_inter_grade"),),
+        "CURRENT",
+    )
+
+    assert len(ranked) == 5
+    assert ranked[-1][0] == "CURRENT"
+    assert "SHAPE_5" not in {item[0] for item in ranked}
+
+
+def test_time_nine_eight_candidate_updates_signature() -> None:
+    """9/8 是合法拍号，不能退化成不可应用的 TIME_CUSTOM。"""
+    entity = replace(
+        _entity("s1:i9", "time-whole", "t-s1-i9"),
+        shape="TIME_THREE_FOUR",
+        candidates=(
+            ("TIME_THREE_FOUR", 0.9, "audiveris_inter_grade"),
+            ("TIME_NINE_EIGHT", 0.7, "audiveris_shape_classifier_composite"),
+        ),
+    )
+    xml = """<score-partwise><part><measure number="1">
+      <attributes><time id="t-s1-i9"><beats>3</beats><beat-type>4</beat-type></time></attributes>
+    </measure></part></score-partwise>"""
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(xml, {"s1:i9": "TIME_NINE_EIGHT"}, {"s1:i9": entity})
+    )
+
+    assert corrected.findtext(".//time/beats") == "9"
+    assert corrected.findtext(".//time/beat-type") == "8"
+
+
+def test_inserted_note_steps_back_to_chord_head() -> None:
+    """插到 <chord/> follower 之前时必须回退到和弦组首，避免误组和弦。"""
+    head_entity = replace(
+        _entity("n-s1-i1", "head", "n-s1-i1"),
+        bounds=(100, 20, 10, 10),
+        shape="NOTEHEAD_BLACK",
+        staff="1",
+        pitch=0.0,
+    )
+    follower_entity = replace(
+        _entity("n-s1-i2", "head", "n-s1-i2", inter_id="2"),
+        bounds=(50, 20, 10, 10),
+        shape="NOTEHEAD_BLACK",
+        staff="1",
+        pitch=2.0,
+    )
+    glyph = CorrectableGlyph(
+        glyph_id="s1:g7",
+        bounds=(5, 20, 8, 10),
+        hit_path="M5 20h8v10z",
+        candidates=(("NOTEHEAD_BLACK", 0.8, "audiveris_notehead_template"),),
+        tag="head",
+        shape="NOTEHEAD_BLACK",
+        grade=0.0,
+        staff="1",
+        pitch=0.0,
+    )
+    xml = """<score-partwise><part><measure number="1">
+      <attributes><divisions>4</divisions></attributes>
+      <note id="n-s1-i1"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note id="n-s1-i2"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+    </measure></part></score-partwise>"""
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(
+            xml,
+            {"s1:g7": "NOTEHEAD_BLACK"},
+            {"n-s1-i1": head_entity, "n-s1-i2": follower_entity},
+            {"s1:g7": glyph},
+        )
+    )
+
+    notes = corrected.findall(".//measure/note")
+    inserted = [note for note in notes if note.get("id", "").startswith("st__n-s1-g7")]
+    assert len(inserted) == 1
+    assert notes.index(inserted[0]) == 0
+    assert inserted[0].find("chord") is None
+    assert notes.index(inserted[0]) + 1 == next(
+        index for index, note in enumerate(notes) if note.get("id") == "n-s1-i1"
+    )
+    assert notes[-1].find("chord") is not None
+
+
+def test_phantom_candidate_is_not_reported_as_applied() -> None:
+    """定位不到 MusicXML 元素的候选不能返回为已应用。"""
+    entity = _candidate_entity("k-s1-i7", "key", "k-s1-i7", "KEY_SHARP_2", "KEY_FLAT_2")
+    xml = """<score-partwise><part><measure number="1">
+      <attributes><key><fifths>0</fifths></key></attributes>
+    </measure></part></score-partwise>"""
+    applied: dict[str, str] = {}
+
+    corrected = apply_candidate_selections(
+        xml, {"k-s1-i7": "KEY_FLAT_2"}, {"k-s1-i7": entity}, applied_out=applied
+    )
+
+    assert applied == {}
+    assert ET.fromstring(corrected).findtext(".//key/fifths") == "0"
+
+
+def test_applied_candidate_is_reported_for_real_target() -> None:
+    """能定位到目标的候选应出现在 applied 集合中。"""
+    entity = replace(
+        _entity("s1:i9", "time-whole", "t-s1-i9"),
+        shape="TIME_THREE_FOUR",
+        candidates=(
+            ("TIME_THREE_FOUR", 0.9, "audiveris_inter_grade"),
+            ("TIME_NINE_EIGHT", 0.7, "audiveris_shape_classifier_composite"),
+        ),
+    )
+    xml = """<score-partwise><part><measure number="1">
+      <attributes><time id="t-s1-i9"><beats>3</beats><beat-type>4</beat-type></time></attributes>
+    </measure></part></score-partwise>"""
+    applied: dict[str, str] = {}
+
+    apply_candidate_selections(
+        xml, {"s1:i9": "TIME_NINE_EIGHT"}, {"s1:i9": entity}, applied_out=applied
+    )
+
+    assert applied == {"s1:i9": "TIME_NINE_EIGHT"}

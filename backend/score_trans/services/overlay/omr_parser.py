@@ -162,6 +162,7 @@ def _time_pair_shape(value: str | None) -> str | None:
         "6/4": "TIME_SIX_FOUR",
         "3/8": "TIME_THREE_EIGHT",
         "6/8": "TIME_SIX_EIGHT",
+        "9/8": "TIME_NINE_EIGHT",
         "12/8": "TIME_TWELVE_EIGHT",
     }.get(value)
 

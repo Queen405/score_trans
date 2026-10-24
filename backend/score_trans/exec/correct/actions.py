@@ -69,7 +69,7 @@ class CorrectActions:
             text_hash=artifacts.text_hash,
             svg_file_ids=svg_file_ids,
             warnings=dedupe_preserve_order(captured),
-            applied_candidate_selections=req.candidate_selections,
+            applied_candidate_selections=artifacts.applied_candidate_selections,
         )
 
     def _load_entities(
@@ -117,10 +117,13 @@ def _to_entities_response(sheets: list[CorrectableSheet]) -> EntitiesResponse:
                             CandidateDTO(shape=shape, score=score, score_kind=kind)
                             for shape, score, kind in entity.candidates
                         ],
-                        current_score_kind=(
-                            entity.candidates[0][2]
-                            if entity.candidates
-                            else "audiveris_inter_grade"
+                        current_score_kind=next(
+                            (
+                                kind
+                                for shape, _score, kind in entity.candidates
+                                if shape == entity.shape
+                            ),
+                            "audiveris_inter_grade",
                         ),
                         can_delete=entity.can_delete,
                     )

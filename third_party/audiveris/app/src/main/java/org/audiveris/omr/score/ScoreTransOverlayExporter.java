@@ -204,14 +204,9 @@ public final class ScoreTransOverlayExporter
         json.append("],\"glyphs\":[");
         final Set<Integer> referenced = new HashSet<>();
         final Set<String> emittedInterIds = new HashSet<>();
-        final List<Rectangle> recognizedHeads = new ArrayList<>();
         for (SystemInfo system : sheet.getSystems()) {
             for (Inter inter : system.getSig().vertexSet()) {
                 if (inter.getGlyph() != null) referenced.add(inter.getGlyph().getId());
-                if (!inter.isRemoved() && inter instanceof AbstractNoteInter
-                        && inter.getBounds() != null) {
-                    recognizedHeads.add(inter.getBounds());
-                }
             }
         }
         boolean first = appendUnexportedInters(json, sheet, exportedSourceIds, emittedInterIds);
@@ -302,18 +297,6 @@ public final class ScoreTransOverlayExporter
             }
         }
         return first;
-    }
-
-    private static boolean nearRecognizedHead (Rectangle glyphBounds,
-                                               List<Rectangle> headBounds,
-                                               int interline)
-    {
-        final Rectangle expanded = new Rectangle(glyphBounds);
-        expanded.grow(Math.max(1, interline / 2), Math.max(1, interline / 2));
-        for (Rectangle head : headBounds) {
-            if (expanded.intersects(head)) return true;
-        }
-        return false;
     }
 
     private static boolean isRepeatedAcrossRows (Glyph target,
@@ -502,7 +485,7 @@ public final class ScoreTransOverlayExporter
         final Map<Integer, Double> denominatorScores = timeNumberScores(pair.getDen(), sheet);
         final int[][] signatures = {
                 {4, 4}, {2, 2}, {2, 4}, {3, 4}, {5, 4}, {6, 4},
-                {3, 8}, {6, 8}, {12, 8},
+                {3, 8}, {6, 8}, {9, 8}, {12, 8},
         };
         final Map<String, ExportCandidate> candidates = new LinkedHashMap<>();
         for (int[] signature : signatures) {
@@ -517,11 +500,7 @@ public final class ScoreTransOverlayExporter
         final String currentShape = shapeForInter(pair);
         candidates.putIfAbsent(currentShape, new ExportCandidate(
                 currentShape, pair.getBestGrade(), "audiveris_inter_grade"));
-        return candidates.values().stream()
-                .map(ScoreTransOverlayExporter::normalizeCandidateScore)
-                .sorted(Comparator.comparingDouble(ExportCandidate::score).reversed())
-                .limit(5)
-                .toList();
+        return topCandidates(candidates, currentShape);
     }
 
     private static Map<Integer, Double> timeNumberScores (TimeNumberInter number, Sheet sheet)
@@ -573,6 +552,7 @@ public final class ScoreTransOverlayExporter
             case "6/4" -> "TIME_SIX_FOUR";
             case "3/8" -> "TIME_THREE_EIGHT";
             case "6/8" -> "TIME_SIX_EIGHT";
+            case "9/8" -> "TIME_NINE_EIGHT";
             case "12/8" -> "TIME_TWELVE_EIGHT";
             default -> "TIME_CUSTOM";
         };
@@ -584,11 +564,36 @@ public final class ScoreTransOverlayExporter
         final String currentShape = shapeForInter(inter);
         byShape.putIfAbsent(currentShape, new ExportCandidate(
                 currentShape, inter.getBestGrade(), "audiveris_inter_grade"));
-        return byShape.values().stream()
-                .map(ScoreTransOverlayExporter::normalizeCandidateScore)
-                .sorted(Comparator.comparingDouble(ExportCandidate::score).reversed())
-                .limit(5)
-                .toList();
+        return topCandidates(byShape, currentShape);
+    }
+
+    /**
+     * Report the strongest candidates, always keeping the recognized shape selectable.
+     * <p>
+     * A user who switches away from the original classification must be able to switch
+     * back, so the current shape replaces the weakest entry when five stronger
+     * candidates would otherwise hide it.
+     */
+    private static List<ExportCandidate> topCandidates (Map<String, ExportCandidate> byShape,
+                                                        String currentShape)
+    {
+        final List<ExportCandidate> sorted = new ArrayList<>(byShape.values());
+        sorted.replaceAll(ScoreTransOverlayExporter::normalizeCandidateScore);
+        sorted.sort(Comparator.comparingDouble(ExportCandidate::score).reversed());
+        final List<ExportCandidate> top = new ArrayList<>(
+                sorted.subList(0, Math.min(5, sorted.size())));
+        final boolean hasCurrent = top.stream()
+                .anyMatch(candidate -> candidate.shape().equals(currentShape));
+        if (!hasCurrent) {
+            sorted.stream()
+                    .filter(candidate -> candidate.shape().equals(currentShape))
+                    .findFirst()
+                    .ifPresent(current -> {
+                        if (top.size() == 5) top.remove(top.size() - 1);
+                        top.add(current);
+                    });
+        }
+        return top;
     }
 
     private static String shapeForInter (Inter inter)
@@ -603,6 +608,7 @@ public final class ScoreTransOverlayExporter
                 case "6/4" -> "TIME_SIX_FOUR";
                 case "3/8" -> "TIME_THREE_EIGHT";
                 case "6/8" -> "TIME_SIX_EIGHT";
+                case "9/8" -> "TIME_NINE_EIGHT";
                 case "12/8" -> "TIME_TWELVE_EIGHT";
                 default -> "TIME_CUSTOM";
             };
@@ -661,36 +667,6 @@ public final class ScoreTransOverlayExporter
         }
         if (parts.isEmpty()) return null;
         return parts.size() == 1 ? parts.get(0) : GlyphFactory.buildGlyph(parts);
-    }
-
-    private static String candidateJson (Glyph glyph, int interline, String family)
-    {
-        final Evaluation[] evaluations;
-        try {
-            evaluations = ShapeClassifier.getInstance().getNaturalEvaluations(
-                    glyph, interline);
-        } catch (RuntimeException ex) {
-            logger.debug("Could not evaluate candidates for glyph {}", glyph.getId(), ex);
-            return "[]";
-        }
-        final List<Evaluation> candidates = new ArrayList<>();
-        for (Evaluation evaluation : evaluations) {
-            final String name = evaluation.shape.toString();
-            if (isSupportedCandidate(family, name)) {
-                candidates.add(evaluation);
-            }
-        }
-        candidates.sort(Comparator.comparingDouble((Evaluation e) -> e.grade).reversed());
-        final StringBuilder json = new StringBuilder("[");
-        for (int i = 0; i < Math.min(5, candidates.size()); i++) {
-            if (i > 0) json.append(',');
-            final Evaluation candidate = candidates.get(i);
-            json.append("{\"shape\":\"").append(candidate.shape)
-                    .append("\",\"score\":")
-                    .append(String.format(java.util.Locale.ROOT, "%.6f", candidate.grade))
-                    .append(",\"score_kind\":\"audiveris_shape_classifier\"}");
-        }
-        return json.append(']').toString();
     }
 
     private static boolean isSupportedCandidate (String family, String shape)

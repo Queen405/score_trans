@@ -54,13 +54,18 @@ def apply_candidate_selections(
     selections: Mapping[str, str],
     entities: Mapping[str, CorrectableEntity],
     glyphs: Mapping[str, CorrectableGlyph] | None = None,
+    applied_out: dict[str, str] | None = None,
 ) -> str:
     """Apply selected classifications and insert notes selected from loose glyphs.
 
     Notehead class changes also update MusicXML type and duration so the
     regenerated Jianpu reflects the chosen quarter/half/whole-note value. The
     correction intentionally does not validate measure rhythm.
+
+    Selections that actually reach the MusicXML are collected into
+    ``applied_out``, so a phantom locator cannot be reported as applied.
     """
+    applied: dict[str, str] = {}
     if not selections:
         return original_musicxml
     root = safe_xml_fromstring(
@@ -81,14 +86,21 @@ def apply_candidate_selections(
                 _insert_glyph_rest(root, ns, glyph, selected_shape, entities)
             else:
                 _insert_glyph_note(root, ns, glyph, selected_shape, entities)
+            applied[source_id] = selected_shape
             continue
         candidates = {shape for shape, _score, _kind in entity.candidates}
         if selected_shape not in candidates:
             raise ValueError(f"标记 {source_id} 不包含候选形状：{selected_shape}")
         if entity.tag in {"head", "rest"} and not _matching_elements(root, entity):
             _insert_unexported_entity(root, ns, entity, selected_shape, entities)
+            applied[source_id] = selected_shape
             continue
-        _apply_entity_candidate(root, ns, entity, selected_shape, entities)
+        if _apply_entity_candidate(root, ns, entity, selected_shape, entities):
+            applied[source_id] = selected_shape
+        else:
+            logger.warning("候选未写入 MusicXML，计为未应用：%s", source_id)
+    if applied_out is not None:
+        applied_out.update(applied)
     return _serialize(root, ns)
 
 
@@ -124,23 +136,22 @@ def _apply_entity_candidate(
     entity: CorrectableEntity,
     selected_shape: str,
     entities: Mapping[str, CorrectableEntity],
-) -> None:
+) -> bool:
     if entity.tag == "slur":
-        _replace_slur_candidate(root, ns, entity, selected_shape)
-        return
+        return _replace_slur_candidate(root, ns, entity, selected_shape)
     if entity.tag == "tuplet":
-        _replace_tuplet_candidate(root, ns, entity, selected_shape)
-        return
+        return _replace_tuplet_candidate(root, ns, entity, selected_shape)
     if entity.tag == "wedge":
-        _replace_wedge_candidate(root, ns, entity, selected_shape)
-        return
+        return _replace_wedge_candidate(root, ns, entity, selected_shape)
     if entity.tag == "pedal":
         target = _single_matching_element(root, entity)
-        _replace_pedal_candidate(root, ns, target, entity, selected_shape, entities)
-        return
+        return _replace_pedal_candidate(
+            root, ns, target, entity, selected_shape, entities
+        )
     target = _single_matching_element(root, entity)
     if target is None and entity.tag != "clef":
-        return
+        logger.warning("跳过无法定位的候选：%s", entity.source_id)
+        return False
     if entity.tag == "head":
         current_note_type = _notehead_type(entity.shape)
         selected_type = _notehead_type(selected_shape)
@@ -184,60 +195,61 @@ def _apply_entity_candidate(
                 _replace_note_type_and_duration(
                     chord_note, ns, existing_type, selected_type
                 )
-        return
+        return True
     if entity.tag == "rest":
         _replace_rest_candidate(root, ns, target, entity, selected_shape)
-        return
+        return True
     if entity.tag == "alter":
         _replace_alter_candidate(root, ns, target, entity, selected_shape)
-        return
+        return True
     if entity.tag == "clef":
-        _replace_clef_candidate(root, ns, target, entity, selected_shape, entities)
-        return
+        return _replace_clef_candidate(
+            root, ns, target, entity, selected_shape, entities
+        )
     if entity.tag == "key":
         _replace_key_candidate(root, ns, target, entity, selected_shape)
-        return
+        return True
     if entity.tag in {"time-whole", "time-custom"}:
         _replace_time_candidate(root, ns, target, entity, selected_shape)
-        return
+        return True
     if entity.tag in {"dynamics", "dynamic"}:
         _replace_dynamic_candidate(root, ns, target, entity, selected_shape)
-        return
+        return True
     if entity.tag == "articulation":
         _replace_notation_candidate(
             root, ns, target, entity, selected_shape, "articulation"
         )
-        return
+        return True
     if entity.tag == "ornament":
         _replace_notation_candidate(
             root, ns, target, entity, selected_shape, "ornament"
         )
-        return
+        return True
     if entity.tag == "fermata":
         _replace_notation_candidate(root, ns, target, entity, selected_shape, "fermata")
-        return
+        return True
     if entity.tag in {"pause", "breath-mark", "caesura"}:
         _replace_notation_candidate(root, ns, target, entity, selected_shape, "pause")
-        return
+        return True
     if entity.tag == "fingering":
         _replace_technical_candidate(
             root, ns, target, entity, selected_shape, "fingering"
         )
-        return
+        return True
     if entity.tag == "plucking":
         _replace_technical_candidate(root, ns, target, entity, selected_shape, "pluck")
-        return
+        return True
     if entity.tag == "bow":
         _replace_technical_candidate(root, ns, target, entity, selected_shape, "bow")
-        return
+        return True
     if entity.tag == "arpeggiato":
         _replace_notation_candidate(
             root, ns, target, entity, selected_shape, "arpeggiato"
         )
-        return
+        return True
     if entity.tag == "augmentation-dot":
         _replace_augmentation_dot(root, ns, target, entity, selected_shape)
-        return
+        return True
     raise ValueError(f"暂不支持该标记的候选替换：{entity.tag}")
 
 
@@ -278,7 +290,7 @@ def _replace_slur_candidate(
     ns: str,
     entity: CorrectableEntity,
     selected_shape: str,
-) -> None:
+) -> bool:
     placement = (
         "above"
         if selected_shape.upper().endswith("_ABOVE")
@@ -299,6 +311,7 @@ def _replace_slur_candidate(
             changed = True
     if not changed:
         logger.warning("跳过无法定位的连线候选 %s", entity.source_id)
+    return changed
 
 
 def _replace_tuplet_candidate(
@@ -306,7 +319,7 @@ def _replace_tuplet_candidate(
     ns: str,
     entity: CorrectableEntity,
     selected_shape: str,
-) -> None:
+) -> bool:
     counts = {"TUPLET_THREE": (3, 2), "TUPLET_SIX": (6, 4)}.get(selected_shape.upper())
     if counts is None:
         raise ValueError(f"暂不支持连音候选：{selected_shape}")
@@ -379,6 +392,7 @@ def _replace_tuplet_candidate(
                 changed = True
     if not changed:
         logger.warning("跳过无法定位的连音候选 %s", entity.source_id)
+    return changed
 
 
 def _replace_technical_candidate(
@@ -500,7 +514,7 @@ def _insert_glyph_note(
     if staff is not None:
         ET.SubElement(note, _q(ns, "staff")).text = staff.text
 
-    _insert_note_at_glyph_position(measure, note, anchors, glyph_x)
+    _insert_note_at_glyph_position(root, ns, measure, note, anchors, glyph_x)
 
 
 def _insert_glyph_rest(
@@ -530,7 +544,7 @@ def _insert_glyph_rest(
     staff = nearest_note.find(_q(ns, "staff"))
     if staff is not None:
         ET.SubElement(note, _q(ns, "staff")).text = staff.text
-    _insert_note_at_glyph_position(measure, note, anchors, glyph_x)
+    _insert_note_at_glyph_position(root, ns, measure, note, anchors, glyph_x)
 
 
 def _glyph_note_context(
@@ -577,6 +591,8 @@ def _glyph_note_context(
 
 
 def _insert_note_at_glyph_position(
+    root: ET.Element,
+    ns: str,
     measure: ET.Element,
     note: ET.Element,
     anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]],
@@ -593,7 +609,14 @@ def _insert_note_at_glyph_position(
             right_anchors,
             key=lambda anchor: anchor[0].bounds[0] + anchor[0].bounds[2] / 2,
         )[1]
-        measure.insert(list(measure).index(before), note)
+        # Inserting in front of a <chord/> follower would make the new note the
+        # chord head and silently attach it to the existing chord. Step back to
+        # the head of that chord group instead.
+        children = list(measure)
+        index = children.index(before)
+        while index > 0 and children[index].find(_q(ns, "chord")) is not None:
+            index -= 1
+        measure.insert(index, note)
         return
     note_indices = [
         list(measure).index(anchor[1])
@@ -863,7 +886,7 @@ def _replace_clef_candidate(
     entity: CorrectableEntity,
     selected_shape: str,
     entities: Mapping[str, CorrectableEntity],
-) -> None:
+) -> bool:
     if target is not None and _local_name(target.tag) != "clef":
         target = _ancestor(root, target, _q(ns, "clef"))
     properties = _clef_properties(selected_shape)
@@ -875,7 +898,7 @@ def _replace_clef_candidate(
             logger.warning(
                 "跳过无法定位的谱号候选 %s：没有同谱表音符锚点", entity.source_id
             )
-            return
+            return False
         old_properties = _clef_properties(entity.shape)
         if old_properties is None:
             raise ValueError(f"无法读取原谱号：{entity.shape}")
@@ -925,6 +948,7 @@ def _replace_clef_candidate(
             old_octave,
             new_octave,
         )
+    return True
 
 
 def _nearest_clef_anchor(
@@ -1090,6 +1114,7 @@ def _replace_time_candidate(
         "TIME_SIX_FOUR": (6, 4, None),
         "TIME_THREE_EIGHT": (3, 8, None),
         "TIME_SIX_EIGHT": (6, 8, None),
+        "TIME_NINE_EIGHT": (9, 8, None),
         "TIME_TWELVE_EIGHT": (12, 8, None),
     }
     value = values.get(selected_shape.upper())
@@ -1169,7 +1194,7 @@ def _replace_wedge_candidate(
     ns: str,
     entity: CorrectableEntity,
     selected_shape: str,
-) -> None:
+) -> bool:
     wedge_type = {"CRESCENDO": "crescendo", "DIMINUENDO": "diminuendo"}.get(
         selected_shape.upper()
     )
@@ -1185,10 +1210,11 @@ def _replace_wedge_candidate(
     ]
     if not wedges:
         logger.warning("跳过无法定位的力度渐变候选 %s", entity.source_id)
-        return
+        return False
     for wedge in wedges:
         if wedge.get("type") != "stop":
             wedge.set("type", wedge_type)
+    return True
 
 
 def _replace_pedal_candidate(
@@ -1198,7 +1224,7 @@ def _replace_pedal_candidate(
     entity: CorrectableEntity,
     selected_shape: str,
     entities: Mapping[str, CorrectableEntity],
-) -> None:
+) -> bool:
     pedal_type = {"PEDAL_MARK": "start", "PEDAL_UP_MARK": "stop"}.get(
         selected_shape.upper()
     )
@@ -1217,12 +1243,12 @@ def _replace_pedal_candidate(
         else None
     )
     if pedal is None:
-        _insert_pedal_candidate(root, ns, entity, selected_shape, entities)
-        return
+        return _insert_pedal_candidate(root, ns, entity, selected_shape, entities)
     pedal.set("type", pedal_type)
     sound = direction.find(_q(ns, "sound"))
     if sound is not None:
         sound.set("damper-pedal", "yes" if pedal_type == "start" else "no")
+    return True
 
 
 def _insert_pedal_candidate(
@@ -1231,7 +1257,7 @@ def _insert_pedal_candidate(
     entity: CorrectableEntity,
     selected_shape: str,
     entities: Mapping[str, CorrectableEntity],
-) -> None:
+) -> bool:
     """Insert a pedal direction near its score position when Audiveris omitted it.
 
     Some Audiveris scores retain a pedal Inter in the OMR graph and export it in
@@ -1262,7 +1288,7 @@ def _insert_pedal_candidate(
         logger.warning(
             "跳过无法定位的踏板候选 %s：没有同谱表音符锚点", entity.source_id
         )
-        return
+        return False
     _, note, measure = min(anchors, key=lambda item: item[0])
     direction = ET.Element(_q(ns, "direction"))
     direction_type = ET.SubElement(direction, _q(ns, "direction-type"))
@@ -1271,6 +1297,7 @@ def _insert_pedal_candidate(
     sound = ET.SubElement(direction, _q(ns, "sound"))
     sound.set("damper-pedal", "yes" if pedal_type == "start" else "no")
     measure.insert(list(measure).index(note), direction)
+    return True
 
 
 def _replace_notation_candidate(

@@ -53,12 +53,22 @@ def _normalized_candidate_score(score: float, score_kind: str) -> float:
 
 def _rank_candidates(
     candidates: tuple[tuple[str, float, str], ...],
+    current_shape: str | None = None,
 ) -> tuple[tuple[str, float, str], ...]:
-    normalized = (
+    normalized = [
         (shape, _normalized_candidate_score(score, kind), kind)
         for shape, score, kind in candidates
-    )
-    return tuple(sorted(normalized, key=lambda item: item[1], reverse=True)[:5])
+    ]
+    ranked = sorted(normalized, key=lambda item: item[1], reverse=True)[:5]
+    # The recognized shape must stay selectable so a manual switch can be undone,
+    # even when five stronger candidates would push it out of the top five.
+    if current_shape and all(item[0] != current_shape for item in ranked):
+        current = next((item for item in normalized if item[0] == current_shape), None)
+        if current is not None:
+            if len(ranked) == 5:
+                ranked = ranked[:4]
+            ranked.append(current)
+    return tuple(ranked)
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,7 +159,8 @@ def extract_entities(
                             (candidate.shape, candidate.score, candidate.score_kind)
                             for candidate in mapped.candidates
                         )
-                        or ((mapped.shape, mapped.grade, "audiveris_inter_grade"),)
+                        or ((mapped.shape, mapped.grade, "audiveris_inter_grade"),),
+                        mapped.shape,
                     ),
                     staff=staff,
                     pitch=pitch,
@@ -192,7 +203,8 @@ def _correctable_glyph(
         tuple(
             (candidate.shape, candidate.score, candidate.score_kind)
             for candidate in mapped.shape_candidates
-        )
+        ),
+        mapped.shape if mapped.shape != "UNKNOWN" else None,
     )
     if not candidates and mapped.shape != "UNKNOWN":
         candidates = _rank_candidates(

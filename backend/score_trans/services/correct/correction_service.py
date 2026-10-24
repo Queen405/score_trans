@@ -22,6 +22,7 @@ class CorrectionArtifacts:
     text_anchors: tuple[TextAnchor, ...]
     text_hash: str
     svg_paths: tuple[Path, ...]
+    applied_candidate_selections: dict[str, str]
 
 
 class CorrectionService:
@@ -47,8 +48,13 @@ class CorrectionService:
             deleted_source_ids,
             entities,
         )
+        applied_candidate_selections: dict[str, str] = {}
         working_xml = apply_candidate_selections(
-            working_xml, candidate_selections or {}, entities, glyphs or {}
+            working_xml,
+            candidate_selections or {},
+            entities,
+            glyphs or {},
+            applied_out=applied_candidate_selections,
         )
         output_dir.mkdir(parents=True, exist_ok=True)
         musicxml_path = output_dir / "corrected.musicxml"
@@ -90,6 +96,7 @@ class CorrectionService:
         )
         return CorrectionArtifacts(
             working_musicxml=working_xml,
+            applied_candidate_selections=applied_candidate_selections,
             jianpu_text=document.text,
             text_anchors=tuple(document.anchors),
             text_hash=document.text_hash,
