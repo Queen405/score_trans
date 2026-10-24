@@ -49,6 +49,12 @@ class SourceGlyph(BaseModel):
     bounds: BoundingBox
     hit_path: str
     suspicious: bool = False
+    tag: str = "unrecognized-head"
+    shape: str = "UNKNOWN"
+    grade: float = 0.0
+    inter_id: str | None = None
+    staff: str | None = None
+    pitch: float | None = None
 
 
 class SourceMap(BaseModel):

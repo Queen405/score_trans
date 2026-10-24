@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
-from ...models.provenance.schemas import SourceMap
-from ..overlay.omr_parser import OmrParser
+from ...models.provenance.schemas import BoundingBox, SourceGlyph, SourceMap
+from ..overlay.omr_parser import InterData, OmrParser, SheetModel
 
 STRUCTURAL_TAGS: frozenset[str] = frozenset(
     {"clef", "time-whole", "time-custom", "key"}
@@ -17,6 +18,47 @@ STRUCTURAL_TAGS: frozenset[str] = frozenset(
 DELETABLE_TAGS: frozenset[str] = frozenset(
     {"clef", "time-whole", "time-custom", "key", "head", "rest", "alter"}
 )
+CANDIDATE_TAGS: frozenset[str] = frozenset(
+    {
+        *DELETABLE_TAGS,
+        "dynamics",
+        "articulation",
+        "ornament",
+        "fermata",
+        "pause",
+        "breath-mark",
+        "caesura",
+        "slur",
+        "tuplet",
+        "fingering",
+        "plucking",
+        "bow",
+        "arpeggiato",
+        "augmentation-dot",
+        "wedge",
+        "pedal",
+    }
+)
+
+
+def _normalized_candidate_score(score: float, score_kind: str) -> float:
+    """Map Audiveris' categorical grades and classifier scores to one ranking scale."""
+    if score_kind == "audiveris_inter_grade":
+        if score >= 3:
+            return 1.0  # Evaluation.MANUAL
+        if score >= 2:
+            return 0.99  # Evaluation.ALGORITHM
+    return min(1.0, max(0.0, score)) if math.isfinite(score) else 0.0
+
+
+def _rank_candidates(
+    candidates: tuple[tuple[str, float, str], ...],
+) -> tuple[tuple[str, float, str], ...]:
+    normalized = (
+        (shape, _normalized_candidate_score(score, kind), kind)
+        for shape, score, kind in candidates
+    )
+    return tuple(sorted(normalized, key=lambda item: item[1], reverse=True)[:5])
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +75,23 @@ class CorrectableEntity:
     musicxml_locator: str
     hit_path: str
     candidates: tuple[tuple[str, float, str], ...] = ()
+    staff: str | None = None
+    pitch: float | None = None
+    can_delete: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectableGlyph:
+    glyph_id: str
+    bounds: tuple[int, int, int, int]
+    hit_path: str
+    candidates: tuple[tuple[str, float, str], ...]
+    tag: str
+    shape: str
+    grade: float
+    inter_id: str | None = None
+    staff: str | None = None
+    pitch: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +100,7 @@ class CorrectableSheet:
     width: int
     height: int
     entities: tuple[CorrectableEntity, ...]
-    suspicious_glyphs: tuple[tuple[str, tuple[int, int, int, int], str, tuple[tuple[str, float, str], ...]], ...] = ()
+    suspicious_glyphs: tuple[CorrectableGlyph, ...] = ()
 
 
 def extract_entities(
@@ -57,54 +116,127 @@ def extract_entities(
         mapped_by_inter = {
             str(element.inter_id): element for element in mapped_sheet.elements
         }
+        inters_by_id = {inter.id: inter for inter in omr_sheet.inters}
         entities: list[CorrectableEntity] = []
         for inter in omr_sheet.inters:
-            if inter.tag not in DELETABLE_TAGS:
+            entity_tag = "time-whole" if inter.tag == "time-pair" else inter.tag
+            if entity_tag not in CANDIDATE_TAGS:
                 continue
             mapped = mapped_by_inter.get(inter.id)
             if mapped is None:
                 continue
+            staff = inter.staff
+            pitch = inter.pitch
+            if inter.tag in {"head", "rest"} and (staff is None or pitch is None):
+                inferred_staff, inferred_pitch = _staff_pitch(omr_sheet, mapped.bounds)
+                staff = staff or inferred_staff
+                pitch = pitch if pitch is not None else inferred_pitch
             entities.append(
                 CorrectableEntity(
                     source_id=mapped.source_id,
                     inter_id=inter.id,
                     sheet_index=omr_sheet.index,
-                    tag=inter.tag,
+                    tag=entity_tag,
                     shape=inter.shape,
                     grade=inter.grade,
                     bounds=inter.bounds,
-                    is_structural=inter.tag in STRUCTURAL_TAGS,
+                    is_structural=entity_tag in STRUCTURAL_TAGS,
                     musicxml_attribute=mapped.musicxml_locator.attribute,
                     musicxml_locator=mapped.musicxml_locator.contains,
                     hit_path=mapped.hit_path,
-                    candidates=(
+                    candidates=_rank_candidates(
                         tuple(
                             (candidate.shape, candidate.score, candidate.score_kind)
                             for candidate in mapped.candidates
                         )
                         or ((mapped.shape, mapped.grade, "audiveris_inter_grade"),)
                     ),
+                    staff=staff,
+                    pitch=pitch,
+                    can_delete=entity_tag in DELETABLE_TAGS,
                 )
             )
+        glyphs = tuple(
+            _correctable_glyph(glyph, omr_sheet, inters_by_id)
+            for glyph in mapped_sheet.glyphs
+            if glyph.suspicious
+        )
         result.append(
             CorrectableSheet(
                 sheet_index=omr_sheet.index,
                 width=mapped_sheet.width or omr_sheet.width,
                 height=mapped_sheet.height or omr_sheet.height,
                 entities=tuple(entities),
-                suspicious_glyphs=tuple(
-                    (
-                        glyph.glyph_id,
-                        (int(glyph.bounds.x), int(glyph.bounds.y), int(glyph.bounds.width), int(glyph.bounds.height)),
-                        glyph.hit_path,
-                        tuple((candidate.shape, candidate.score, candidate.score_kind) for candidate in glyph.shape_candidates),
-                    )
-                    for glyph in (mapped_sheet.glyphs if mapped_sheet else [])
-                    if glyph.suspicious
-                ),
+                suspicious_glyphs=glyphs,
             )
         )
     return result
+
+
+def _correctable_glyph(
+    glyph: SourceGlyph,
+    sheet: SheetModel,
+    inters_by_id: dict[str, InterData],
+) -> CorrectableGlyph:
+    mapped = glyph
+    inter = inters_by_id.get(str(mapped.inter_id)) if mapped.inter_id is not None else None
+    staff = inter.staff if inter is not None else mapped.staff
+    pitch = inter.pitch if inter is not None else mapped.pitch
+    if staff is None or pitch is None:
+        inferred_staff, inferred_pitch = _staff_pitch(sheet, mapped.bounds)
+        staff = staff or inferred_staff
+        pitch = pitch if pitch is not None else inferred_pitch
+    candidates = _rank_candidates(tuple(
+        (candidate.shape, candidate.score, candidate.score_kind)
+        for candidate in mapped.shape_candidates
+    ))
+    if not candidates and mapped.shape != "UNKNOWN":
+        candidates = _rank_candidates(
+            ((mapped.shape, mapped.grade, "audiveris_inter_grade"),)
+        )
+    return CorrectableGlyph(
+        glyph_id=mapped.glyph_id,
+        bounds=(
+            int(mapped.bounds.x), int(mapped.bounds.y),
+            int(mapped.bounds.width), int(mapped.bounds.height),
+        ),
+        hit_path=mapped.hit_path,
+        candidates=candidates,
+        tag=inter.tag if inter is not None else mapped.tag,
+        shape=inter.shape if inter is not None else mapped.shape,
+        grade=inter.grade if inter is not None else mapped.grade,
+        inter_id=inter.id if inter is not None else mapped.inter_id,
+        staff=staff,
+        pitch=pitch,
+    )
+
+
+def _staff_pitch(
+    sheet: SheetModel,
+    bounds: BoundingBox,
+) -> tuple[str | None, float | None]:
+    center_x = float(bounds.x) + float(bounds.width) / 2
+    center_y = float(bounds.y) + float(bounds.height) / 2
+    best: tuple[float, str, float] | None = None
+    for staff in sheet.staves:
+        if not staff.left <= center_x <= staff.right or len(staff.lines) < 5:
+            continue
+        line_ys = []
+        for x1, y1, x2, y2 in staff.lines:
+            ratio = 0.0 if x2 == x1 else (center_x - x1) / (x2 - x1)
+            line_ys.append(y1 + (y2 - y1) * ratio)
+        gaps = [line_ys[index + 1] - line_ys[index] for index in range(4)]
+        spacing = sum(gaps) / len(gaps)
+        if spacing <= 0:
+            continue
+        distance_from_staff = max(line_ys[0] - center_y, center_y - line_ys[-1], 0.0)
+        if distance_from_staff > spacing * 3:
+            continue
+        pitch = (center_y - line_ys[2]) / (spacing / 2)
+        rank = abs(pitch)
+        if best is None or rank < best[0]:
+            best = rank, staff.id, float(round(pitch))
+    return (best[1], best[2]) if best is not None else (None, None)
 
 
 def load_source_map(source_map_path: str | Path) -> SourceMap:

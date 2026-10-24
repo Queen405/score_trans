@@ -2761,6 +2761,7 @@ public class PartwiseBuilder
             logger.debug("Visiting {}", pedal);
 
             Direction direction = new Direction();
+            direction.setId("pd-" + ScoreTransProvenance.sourceId(pedal).replace(':', '-'));
             DirectionType directionType = new DirectionType();
             Pedal pmPedal = new Pedal();
 
@@ -3366,6 +3367,8 @@ public class PartwiseBuilder
             logger.debug("Visiting {}", wedge);
 
             Direction direction = factory.createDirection();
+            direction.setId("wg-" + ScoreTransProvenance.sourceId(wedge).replace(':', '-')
+                    + ((side == LEFT) ? "-start" : "-stop"));
             DirectionType directionType = factory.createDirectionType();
             Wedge pmWedge = factory.createWedge();
 

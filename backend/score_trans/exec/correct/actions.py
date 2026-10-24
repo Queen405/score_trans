@@ -42,9 +42,13 @@ class CorrectActions:
         )
 
     def apply_corrections(self, req: CorrectionRequest) -> CorrectionResponse:
-        entities = entity_index(
-            self._load_entities(req.omr_file_id, req.source_map_file_id)
-        )
+        sheets = self._load_entities(req.omr_file_id, req.source_map_file_id)
+        entities = entity_index(sheets)
+        glyphs = {
+            glyph.glyph_id: glyph
+            for sheet in sheets
+            for glyph in sheet.suspicious_glyphs
+        }
         with TemporaryDirectory(prefix="score-trans-correct-") as temp_dir:
             with collect_warnings() as captured:
                 artifacts = self.correction_service.correct(
@@ -55,6 +59,7 @@ class CorrectActions:
                     Path(temp_dir),
                     req.candidate_selections,
                     req.text_attachments,
+                    glyphs,
                 )
             svg_file_ids = [self.uploads.register(path) for path in artifacts.svg_paths]
         return CorrectionResponse(
@@ -112,18 +117,33 @@ def _to_entities_response(sheets: list[CorrectableSheet]) -> EntitiesResponse:
                             CandidateDTO(shape=shape, score=score, score_kind=kind)
                             for shape, score, kind in entity.candidates
                         ],
+                        current_score_kind=(
+                            entity.candidates[0][2]
+                            if entity.candidates
+                            else "audiveris_inter_grade"
+                        ),
+                        can_delete=entity.can_delete,
                     )
                     for entity in sheet.entities
                 ],
                 suspicious_glyphs=[
                     SuspiciousGlyphDTO(
-                        glyph_id=glyph_id,
-                        bounds_x=bounds[0], bounds_y=bounds[1],
-                        bounds_w=bounds[2], bounds_h=bounds[3],
-                        hit_path=hit_path,
-                        candidates=[CandidateDTO(shape=s, score=v, score_kind=k) for s, v, k in candidates],
+                        glyph_id=glyph.glyph_id,
+                        bounds_x=glyph.bounds[0], bounds_y=glyph.bounds[1],
+                        bounds_w=glyph.bounds[2], bounds_h=glyph.bounds[3],
+                        hit_path=glyph.hit_path,
+                        candidates=[
+                            CandidateDTO(shape=s, score=v, score_kind=k)
+                            for s, v, k in glyph.candidates
+                        ],
+                        tag=glyph.tag,
+                        shape=glyph.shape,
+                        grade=glyph.grade,
+                        inter_id=glyph.inter_id,
+                        staff=glyph.staff,
+                        pitch=glyph.pitch,
                     )
-                    for glyph_id, bounds, hit_path, candidates in sheet.suspicious_glyphs
+                    for glyph in sheet.suspicious_glyphs
                 ],
             )
             for sheet in sheets

@@ -141,7 +141,7 @@ def test_warn_unanchored_source_elements_logs_per_page(
 
     messages = [record.getMessage() for record in caplog.records]
     assert any(
-        "第 1 页有 1 个识别符号未能进入乐谱，这些音符在五线谱上不可点击" in message
+        "第 1 页有 1 个原谱标记未关联到简谱文本锚点，可在原谱校正模式查看" in message
         for message in messages
     )
     assert all("s1:i3" not in message for message in messages)

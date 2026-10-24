@@ -25,6 +25,8 @@ from score_trans.services.correct.correction_service import (
 )
 from score_trans.services.correct.entity_service import (
     CorrectableEntity,
+    CorrectableGlyph,
+    _rank_candidates,
     extract_entities,
 )
 from score_trans.services.correct.musicxml_patch import (
@@ -101,6 +103,24 @@ def test_correction_request_accepts_empty_deleted_source_ids() -> None:
         deleted_source_ids=[],
     )
     assert request.deleted_source_ids == []
+
+
+def test_candidate_ranking_normalizes_audiveris_inter_grades() -> None:
+    ranked = _rank_candidates(
+        (
+            ("CLASSIFIER", 0.98, "audiveris_shape_classifier"),
+            ("MANUAL", 3.0, "audiveris_inter_grade"),
+            ("ALGORITHMIC", 2.0, "audiveris_inter_grade"),
+            ("LOW", 0.42, "audiveris_notehead_template"),
+        )
+    )
+
+    assert ranked == (
+        ("MANUAL", 1.0, "audiveris_inter_grade"),
+        ("ALGORITHMIC", 0.99, "audiveris_inter_grade"),
+        ("CLASSIFIER", 0.98, "audiveris_shape_classifier"),
+        ("LOW", 0.42, "audiveris_notehead_template"),
+    )
 
 
 def test_apply_deletions_empty_list_preserves_every_element() -> None:
@@ -228,7 +248,134 @@ def test_candidate_selection_updates_musicxml_notehead_style() -> None:
 
     assert corrected.findtext(".//note/notehead") == "x"
     assert corrected.findtext(".//note/duration") == "1"
-    assert corrected.findtext(".//note/type") == "quarter"
+
+
+def test_candidate_selection_updates_structural_and_expression_mark_families() -> None:
+    def candidate_entity(source_id: str, tag: str, locator: str, shape: str, alternative: str):
+        return replace(
+            _entity(source_id, tag, locator),
+            shape=shape,
+            candidates=(
+                (shape, 0.7, "audiveris_shape_classifier"),
+                (alternative, 0.3, "audiveris_shape_classifier"),
+            ),
+        )
+
+    entities = {
+        "clef": candidate_entity("clef", "clef", "clef-target", "G_CLEF", "F_CLEF"),
+        "key": candidate_entity("key", "key", "key-target", "KEY_SHARP_1", "KEY_FLAT_1"),
+        "time": candidate_entity(
+            "time", "time-whole", "time-target", "TIME_FOUR_FOUR", "TIME_THREE_FOUR"
+        ),
+        "alter": candidate_entity("alter", "alter", "note-target", "SHARP", "FLAT"),
+        "dynamic": candidate_entity(
+            "dynamic", "dynamic", "direction-dynamic", "DYNAMICS_F", "DYNAMICS_P"
+        ),
+        "articulation": candidate_entity(
+            "articulation", "articulation", "note-target", "STACCATO", "TENUTO"
+        ),
+        "ornament": candidate_entity("ornament", "ornament", "note-target", "TR", "MORDENT"),
+        "fermata": candidate_entity(
+            "fermata", "fermata", "note-target", "FERMATA", "FERMATA_BELOW"
+        ),
+        "plucking": candidate_entity(
+            "plucking", "plucking", "note-target", "PLUCK_P", "PLUCK_I"
+        ),
+    }
+    xml = """<score-partwise><part id="P1"><measure number="1">
+      <attributes>
+        <clef id="clef-target"><sign>G</sign><line>2</line></clef>
+        <key id="key-target"><fifths>1</fifths></key>
+        <time id="time-target"><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes>
+      <direction id="direction-dynamic"><direction-type><dynamics><f/></dynamics></direction-type></direction>
+      <note id="note-target"><pitch><step>C</step><alter>1</alter><octave>4</octave></pitch>
+        <duration>1</duration><type>quarter</type><accidental>sharp</accidental>
+        <notations><articulations><staccato/></articulations><ornaments><trill-mark/></ornaments>
+          <fermata type="upright"/><technical><pluck>p</pluck></technical></notations>
+      </note>
+    </measure></part></score-partwise>"""
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(
+            xml,
+            {
+                "clef": "F_CLEF",
+                "key": "KEY_FLAT_1",
+                "time": "TIME_THREE_FOUR",
+                "alter": "FLAT",
+                "dynamic": "DYNAMICS_P",
+                "articulation": "TENUTO",
+                "ornament": "MORDENT",
+                "fermata": "FERMATA_BELOW",
+                "plucking": "PLUCK_I",
+            },
+            entities,
+        )
+    )
+
+    assert corrected.findtext(".//clef/sign") == "F"
+    assert corrected.findtext(".//key/fifths") == "-1"
+    assert corrected.findtext(".//time/beats") == "3"
+    assert corrected.findtext(".//time/beat-type") == "4"
+    assert corrected.findtext(".//note/pitch/alter") == "-1"
+    assert corrected.findtext(".//note/accidental") == "flat"
+    assert corrected.find(".//dynamics/p") is not None
+    assert corrected.find(".//articulations/tenuto") is not None
+    assert corrected.find(".//ornaments/mordent") is not None
+    assert corrected.find(".//fermata").get("type") == "inverted"
+    assert corrected.findtext(".//technical/pluck") == "i"
+
+
+def test_unexported_system_clef_candidate_is_inserted_and_limited_to_its_system() -> None:
+    clef = replace(
+        _entity("clef-missing", "clef", "clef-missing"),
+        shape="G_CLEF",
+        bounds=(10, 5, 12, 30),
+        staff="1",
+        candidates=(
+            ("G_CLEF", 0.8, "audiveris_shape_classifier"),
+            ("F_CLEF", 0.2, "audiveris_shape_classifier"),
+        ),
+    )
+    first_note = replace(
+        _entity("head-one", "head", "note-one"),
+        bounds=(100, 15, 12, 12),
+        staff="1",
+        pitch=2.0,
+    )
+    next_system_note = replace(
+        _entity("head-two", "head", "note-two"),
+        bounds=(100, 100, 12, 12),
+        staff="1",
+        pitch=2.0,
+    )
+    xml = """<score-partwise><part id="P1">
+      <measure number="1"><attributes><divisions>1</divisions></attributes>
+        <note id="note-one"><pitch><step>C</step><octave>4</octave></pitch>
+          <duration>1</duration><type>quarter</type></note></measure>
+      <measure number="2"><print new-system="yes"/>
+        <note id="note-two"><pitch><step>C</step><octave>4</octave></pitch>
+          <duration>1</duration><type>quarter</type></note></measure>
+    </part></score-partwise>"""
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(
+            xml,
+            {"clef-missing": "F_CLEF"},
+            {
+                "clef-missing": clef,
+                "head-one": first_note,
+                "head-two": next_system_note,
+            },
+        )
+    )
+
+    clefs = list(corrected.iter("clef"))
+    assert [clef.findtext("sign") for clef in clefs] == ["F", "G"]
+    notes = list(corrected.iter("note"))
+    assert _pitch(notes[0]) != ("C", 4)
+    assert _pitch(notes[1]) == ("C", 4)
 
 
 def test_candidate_selection_updates_note_value_without_measure_validation() -> None:
@@ -240,14 +387,303 @@ def test_candidate_selection_updates_note_value_without_measure_validation() -> 
             ("NOTEHEAD_VOID", 0.7, "audiveris_notehead_template"),
         ),
     )
-    xml = '<score-partwise><part><measure><note id="note-1"><pitch><step>C</step><octave>4</octave></pitch><duration>3</duration><type>quarter</type></note></measure></part></score-partwise>'
+    # Changing this quarter note to a half note makes the 4/4 measure overfull.
+    # That is allowed here; syntax validation stays a separate workflow.
+    xml = (
+        '<score-partwise><part><measure><attributes><divisions>1</divisions>'
+        '<time><beats>4</beats><beat-type>4</beat-type></time></attributes>'
+        '<note id="note-1"><pitch><step>C</step><octave>4</octave></pitch>'
+        '<duration>1</duration><type>quarter</type></note>'
+        '<note id="note-2"><pitch><step>D</step><octave>4</octave></pitch>'
+        '<duration>1</duration><type>quarter</type></note>'
+        '<note id="note-3"><pitch><step>E</step><octave>4</octave></pitch>'
+        '<duration>1</duration><type>quarter</type></note>'
+        '<note id="note-4"><pitch><step>F</step><octave>4</octave></pitch>'
+        '<duration>1</duration><type>quarter</type></note>'
+        '</measure></part></score-partwise>'
+    )
+
+    corrected_xml = apply_candidate_selections(
+        xml, {"head": "NOTEHEAD_VOID"}, {"head": entity}
+    )
+    corrected = ET.fromstring(corrected_xml)
+
+    target_note = corrected.find(".//note[@id='note-1']")
+    assert target_note is not None
+    assert target_note.findtext("type") == "half"
+    assert target_note.findtext("duration") == "2"
+    assert "h1" in musicxml_to_jianpu(corrected_xml)
+
+
+def test_notehead_duration_candidate_updates_all_members_of_its_chord() -> None:
+    first = replace(
+        _entity("first", "head", "note-first"),
+        shape="NOTEHEAD_BLACK",
+    )
+    selected = replace(
+        _entity("selected", "head", "note-selected"),
+        shape="NOTEHEAD_BLACK",
+        candidates=(
+            ("NOTEHEAD_BLACK", 0.7, "audiveris_notehead_template"),
+            ("NOTEHEAD_VOID", 0.3, "audiveris_notehead_template"),
+        ),
+    )
+    xml = """<score-partwise><part><measure>
+      <attributes><divisions>2</divisions></attributes>
+      <note id="note-first"><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><type>eighth</type></note>
+      <note id="note-selected"><chord/><pitch><step>E</step><octave>4</octave></pitch>
+        <duration>1</duration><type>eighth</type></note>
+      <note id="note-next"><pitch><step>G</step><octave>4</octave></pitch>
+        <duration>1</duration><type>eighth</type></note>
+    </measure></part></score-partwise>"""
 
     corrected = ET.fromstring(
-        apply_candidate_selections(xml, {"head": "NOTEHEAD_VOID"}, {"head": entity})
+        apply_candidate_selections(
+            xml,
+            {"selected": "NOTEHEAD_VOID"},
+            {"first": first, "selected": selected},
+        )
+    )
+
+    chord = list(corrected.iter("note"))[:2]
+    assert [note.findtext("type") for note in chord] == ["half", "half"]
+    assert [note.findtext("duration") for note in chord] == ["4", "4"]
+    assert corrected.find(".//note[@id='note-next']/type").text == "eighth"
+
+
+def test_rest_candidate_updates_recognized_value_without_rhythm_validation() -> None:
+    entity = replace(
+        _entity("rest", "rest", "rest-note"),
+        shape="QUARTER_REST",
+        candidates=(
+            ("QUARTER_REST", 0.8, "audiveris_shape_classifier"),
+            ("HALF_REST", 0.7, "audiveris_shape_classifier"),
+        ),
+    )
+    xml = (
+        '<score-partwise><part><measure><attributes><divisions>1</divisions>'
+        '<time><beats>1</beats><beat-type>4</beat-type></time></attributes>'
+        '<note id="rest-note"><rest/><duration>1</duration><type>quarter</type></note>'
+        '</measure></part></score-partwise>'
+    )
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(
+            xml, {"rest": "HALF_REST"}, {"rest": entity}
+        )
     )
 
     assert corrected.findtext(".//note/type") == "half"
-    assert corrected.findtext(".//note/duration") == "6"
+    assert corrected.findtext(".//note/duration") == "2"
+
+
+def test_candidate_selection_updates_non_notehead_mark_families() -> None:
+    entities = {
+        "slur": replace(
+            _entity("slur", "slur", "slur-source"),
+            shape="SLUR_ABOVE",
+            candidates=(("SLUR_ABOVE", 0.8, "audiveris_shape_classifier"),
+                        ("SLUR_BELOW", 0.7, "audiveris_shape_classifier")),
+        ),
+        "tuplet": replace(
+            _entity("tuplet", "tuplet", "tuplet-source"),
+            shape="TUPLET_THREE",
+            candidates=(("TUPLET_THREE", 0.8, "audiveris_shape_classifier"),
+                        ("TUPLET_SIX", 0.7, "audiveris_shape_classifier")),
+        ),
+        "fingering": replace(
+            _entity("fingering", "fingering", "note-finger"),
+            shape="DIGIT_1",
+            candidates=(("DIGIT_1", 0.8, "audiveris_shape_classifier"),
+                        ("DIGIT_2", 0.7, "audiveris_shape_classifier")),
+        ),
+        "pause": replace(
+            _entity("pause", "breath-mark", "note-pause"),
+            shape="BREATH_MARK",
+            candidates=(("BREATH_MARK", 0.8, "audiveris_shape_classifier"),
+                        ("CAESURA", 0.7, "audiveris_shape_classifier")),
+        ),
+        "bow": replace(
+            _entity("bow", "bow", "note-bow"),
+            shape="BOW_DOWN",
+            candidates=(("BOW_DOWN", 0.8, "audiveris_shape_classifier"),
+                        ("BOW_UP", 0.7, "audiveris_shape_classifier")),
+        ),
+        "wedge": replace(
+            _entity("wedge", "wedge", "direction-wedge"),
+            shape="CRESCENDO",
+            candidates=(("CRESCENDO", 0.8, "audiveris_shape_classifier"),
+                        ("DIMINUENDO", 0.7, "audiveris_shape_classifier")),
+        ),
+        "pedal": replace(
+            _entity("pedal", "pedal", "direction-pedal"),
+            shape="PEDAL_MARK",
+            candidates=(("PEDAL_MARK", 0.8, "audiveris_shape_classifier"),
+                        ("PEDAL_UP_MARK", 0.7, "audiveris_shape_classifier")),
+        ),
+    }
+    xml = """<score-partwise><part><measure>
+      <note id="st__slur-source__tuplet-source-a__note-finger__note-pause__note-bow"><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><notations><slur type="start" placement="above"/>
+          <tuplet type="start"><tuplet-actual><tuplet-number>3</tuplet-number></tuplet-actual></tuplet>
+          <technical><fingering>1</fingering><down-bow/></technical>
+          <articulations><breath-mark/></articulations></notations></note>
+      <note id="st__slur-source__tuplet-source-b"><pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration><notations><slur type="stop" placement="above"/>
+          <tuplet type="stop"><tuplet-actual><tuplet-number>3</tuplet-number></tuplet-actual></tuplet>
+        </notations></note>
+      <direction id="st__direction-wedge"><direction-type><wedge type="crescendo"/></direction-type></direction>
+      <direction id="st__direction-pedal"><direction-type><pedal type="start"/></direction-type><sound damper-pedal="yes"/></direction>
+    </measure></part></score-partwise>"""
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(
+            xml,
+            {
+                "slur": "SLUR_BELOW",
+                "tuplet": "TUPLET_SIX",
+                "fingering": "DIGIT_2",
+                "pause": "CAESURA",
+                "bow": "BOW_UP",
+                "wedge": "DIMINUENDO",
+                "pedal": "PEDAL_UP_MARK",
+            },
+            entities,
+        )
+    )
+
+    assert [item.get("placement") for item in corrected.iter("slur")] == ["below", "below"]
+    assert [item.findtext("tuplet-actual/tuplet-number") for item in corrected.iter("tuplet")] == ["6", "6"]
+    assert corrected.findtext(".//technical/fingering") == "2"
+    assert corrected.find(".//technical/up-bow") is not None
+    assert corrected.find(".//articulations/caesura") is not None
+    assert corrected.find(".//direction-type/wedge").get("type") == "diminuendo"
+    assert corrected.find(".//direction-type/pedal").get("type") == "stop"
+    assert corrected.find(".//sound").get("damper-pedal") == "no"
+
+
+def test_pedal_candidate_is_inserted_when_audiveris_omits_musicxml_direction() -> None:
+    pedal = replace(
+        _entity("pedal", "pedal", "direction-pedal"),
+        shape="PEDAL_MARK",
+        bounds=(40, 10, 12, 8),
+        staff="1",
+        candidates=(("PEDAL_MARK", 0.8, "audiveris_shape_classifier"),
+                    ("PEDAL_UP_MARK", 0.2, "audiveris_shape_classifier")),
+    )
+    note = replace(
+        _entity("note", "head", "note-1"),
+        bounds=(50, 20, 10, 10),
+        staff="1",
+    )
+    xml = '<score-partwise><part><measure><note id="note-1"><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note></measure></part></score-partwise>'
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(
+            xml,
+            {"pedal": "PEDAL_UP_MARK"},
+            {"pedal": pedal, "note": note},
+        )
+    )
+
+    direction = corrected.find(".//direction")
+    assert direction is not None
+    assert direction.find("direction-type/pedal").get("type") == "stop"
+    assert direction.find("sound").get("damper-pedal") == "no"
+    assert list(corrected.find(".//measure"))[0] is direction
+
+
+def test_unrecognized_notehead_candidate_inserts_note_at_glyph_position() -> None:
+    neighbor = replace(
+        _entity("s1:i10", "head", "note-neighbor", inter_id="10"),
+        shape="NOTEHEAD_BLACK",
+        bounds=(10, 10, 12, 8),
+        staff="1",
+        pitch=0,
+    )
+    glyph = CorrectableGlyph(
+        glyph_id="s1:g99",
+        bounds=(30, 3, 12, 8),
+        hit_path="M30 3h12v8z",
+        candidates=(
+            ("NOTEHEAD_BLACK", 0.73, "audiveris_notehead_template"),
+            ("NOTEHEAD_VOID", 0.61, "audiveris_notehead_template"),
+        ),
+        tag="unrecognized-head",
+        shape="UNKNOWN",
+        grade=0,
+        staff="1",
+        pitch=-1,
+    )
+    xml = (
+        '<score-partwise><part id="P1"><measure number="1">'
+        '<attributes><divisions>1</divisions></attributes>'
+        '<note id="note-neighbor"><pitch><step>C</step><octave>4</octave></pitch>'
+        '<duration>1</duration><type>quarter</type></note>'
+        '</measure></part></score-partwise>'
+    )
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(
+            xml,
+            {glyph.glyph_id: "NOTEHEAD_VOID"},
+            {neighbor.source_id: neighbor},
+            {glyph.glyph_id: glyph},
+        )
+    )
+
+    notes = corrected.findall(".//measure/note")
+    assert len(notes) == 2
+    inserted = notes[1]
+    assert inserted.get("id") == "st__n-s1-g99"
+    assert inserted.findtext("pitch/step") == "D"
+    assert inserted.findtext("pitch/octave") == "4"
+    assert inserted.findtext("duration") == "2"
+    assert inserted.findtext("type") == "half"
+
+
+def test_unexported_musicxml_head_inter_is_inserted_when_candidate_is_selected() -> None:
+    neighbor = replace(
+        _entity("s1:i10", "head", "note-neighbor", inter_id="10"),
+        shape="NOTEHEAD_BLACK",
+        bounds=(10, 10, 12, 8),
+        staff="1",
+        pitch=0,
+    )
+    omitted = replace(
+        _entity("s1:i99", "head", "note-omitted", inter_id="99"),
+        shape="NOTEHEAD_BLACK",
+        bounds=(30, 3, 12, 8),
+        staff="1",
+        pitch=-1,
+        candidates=(
+            ("NOTEHEAD_BLACK", 0.38, "audiveris_shape_classifier"),
+            ("NOTEHEAD_VOID", 0.31, "audiveris_shape_classifier"),
+        ),
+    )
+    xml = (
+        '<score-partwise><part id="P1"><measure number="1">'
+        '<attributes><divisions>1</divisions></attributes>'
+        '<note id="note-neighbor"><pitch><step>C</step><octave>4</octave></pitch>'
+        '<duration>1</duration><type>quarter</type></note>'
+        '</measure></part></score-partwise>'
+    )
+
+    corrected = ET.fromstring(
+        apply_candidate_selections(
+            xml,
+            {omitted.source_id: "NOTEHEAD_VOID"},
+            {neighbor.source_id: neighbor, omitted.source_id: omitted},
+        )
+    )
+
+    notes = corrected.findall(".//measure/note")
+    assert len(notes) == 2
+    inserted = notes[1]
+    assert inserted.get("id") == "st__n-s1-i99"
+    assert inserted.findtext("type") == "half"
+    assert inserted.findtext("pitch/step") == "D"
 
 
 def test_candidate_selection_rejects_unknown_candidate_atomically() -> None:

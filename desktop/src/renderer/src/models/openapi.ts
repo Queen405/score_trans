@@ -1524,6 +1524,11 @@ export type components = {
             bounds_x: number;
             /** Bounds Y */
             bounds_y: number;
+            /**
+             * Can Delete
+             * @default true
+             */
+            can_delete?: boolean;
             /** Candidates */
             candidates?: components["schemas"]["CandidateDTO"][];
             /**
@@ -3061,8 +3066,29 @@ export type components = {
             candidates?: components["schemas"]["CandidateDTO"][];
             /** Glyph Id */
             glyph_id: string;
+            /**
+             * Grade
+             * @default 0
+             */
+            grade?: number;
             /** Hit Path */
             hit_path: string;
+            /** Inter Id */
+            inter_id?: string | null;
+            /** Pitch */
+            pitch?: number | null;
+            /**
+             * Shape
+             * @default UNKNOWN
+             */
+            shape?: string;
+            /** Staff */
+            staff?: string | null;
+            /**
+             * Tag
+             * @default unrecognized-head
+             */
+            tag?: string;
         };
         /** SyntaxDiagnostic */
         SyntaxDiagnostic: {

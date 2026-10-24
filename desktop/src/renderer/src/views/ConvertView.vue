@@ -278,7 +278,7 @@
                   type="warning"
                   :loading="applying"
                   :disabled="loadingEntities || !canEditMarkers"
-                  @click="applyCorrections"
+                  @click="applyCorrections()"
                 >
                   {{ t('convert.marker.apply') }}
                 </n-button>
@@ -296,10 +296,11 @@
               :source-map-file-id="store.sourceMapFileId"
               :clickable-source-ids="clickableSourceIds"
               :mapped-source-ids="mappedSourceIds"
+              :busy="applying"
               :selected-source-id="selectedSourceId"
               :editable="editMode"
               :entities="correctableEntities"
-              :applied-candidate-selections="store.currentPage?.recognitionCandidateSelections"
+              :applied-candidate-selections="effectiveCandidateSelections"
               :suspicious-glyphs="correctableSheet?.suspicious_glyphs"
               :selected-glyph-id="selectedGlyphId"
               :deleted-entity-ids="deletedEntityIds"
@@ -319,7 +320,7 @@
                     <div class="candidate-editor__title-row">
                       <div class="candidate-editor__title">
                         <span class="candidate-editor__eyebrow">{{ t('convert.marker.inspector') }}</span>
-                        <NoteheadSymbol :shape="selectedCandidateShape || selectedEntity.shape" />
+                        <RecognitionSymbol :shape="selectedCandidateShape || selectedEntity.shape" />
                       </div>
                       <button
                         class="candidate-editor__close"
@@ -352,10 +353,11 @@
                         :class="{ selected: selectedCandidateShape === candidate.shape }"
                         :style="{ '--candidate-score': `${Math.max(0, Math.min(1, candidate.score)) * 100}%` }"
                         type="button"
+                        :disabled="applying"
                         @click="selectCandidate(selectedEntity.source_id, candidate.shape)"
                       >
                         <span class="candidate-rank">{{ index + 1 }}</span>
-                        <span class="candidate-shape"><NoteheadSymbol :shape="candidate.shape" /></span>
+                        <span class="candidate-shape"><RecognitionSymbol :shape="candidate.shape" /></span>
                         <span class="candidate-score">{{ Math.round(candidate.score * 100) }}%</span>
                       </button>
                     </div>
@@ -383,7 +385,7 @@
                         <span class="candidate-editor__eyebrow">
                           {{ t('convert.marker.suspiciousGlyph') }}
                         </span>
-                        <strong>{{ t('convert.marker.topCandidates') }}</strong>
+                        <RecognitionSymbol :shape="selectedGlyph.shape || 'UNKNOWN'" />
                       </div>
                       <button
                         class="candidate-editor__close"
@@ -394,23 +396,35 @@
                       >
                         ×
                       </button>
+                      <span class="current-grade">
+                        <span>{{ Math.round(selectedEntityDisplayGrade * 100) }}%</span>
+                        <small>{{ t('convert.marker.currentScore') }}</small>
+                      </span>
                     </div>
                   </header>
                   <div class="candidate-editor__body">
+                    <div class="candidate-list-heading">
+                      <strong>{{ t('convert.marker.topCandidates') }}</strong>
+                      <span>{{ selectedGlyphCandidates.length }}</span>
+                    </div>
                     <div
                       v-if="selectedGlyphCandidates.length"
                       class="candidate-list"
                     >
-                      <div
+                      <button
                         v-for="(candidate, index) in selectedGlyphCandidates"
                         :key="candidate.shape"
-                        class="candidate-option candidate-option--display"
+                        class="candidate-option"
+                        :class="{ selected: selectedCandidateShape === candidate.shape }"
                         :style="{ '--candidate-score': `${Math.max(0, Math.min(1, candidate.score)) * 100}%` }"
+                        type="button"
+                        :disabled="applying"
+                        @click="selectCandidate(selectedGlyph.glyph_id, candidate.shape)"
                       >
                         <span class="candidate-rank">{{ index + 1 }}</span>
-                        <span class="candidate-shape"><NoteheadSymbol :shape="candidate.shape" /></span>
+                        <span class="candidate-shape"><RecognitionSymbol :shape="candidate.shape" /></span>
                         <span class="candidate-score">{{ Math.round(candidate.score * 100) }}%</span>
-                      </div>
+                      </button>
                     </div>
                     <p
                       v-else
@@ -419,7 +433,7 @@
                       {{ t('convert.marker.noTopFive') }}
                     </p>
                     <small class="candidate-note">
-                      {{ t('convert.marker.glyphHintOnly') }}
+                      {{ t('convert.marker.applySelectionHint') }}
                     </small>
                   </div>
                 </section>
@@ -641,7 +655,7 @@ import JianpuPlayer from '../components/JianpuPlayer.vue'
 import { emptyPlaybackHighlight, type PlaybackHighlight } from '../utils/midiSourceMap'
 import type { SyntaxDiagnostic } from '../models/types'
 import OriginalPreview from '../components/OriginalPreview.vue'
-import NoteheadSymbol from '../components/NoteheadSymbol.vue'
+import RecognitionSymbol from '../components/RecognitionSymbol.vue'
 import PublicationPreview from '../components/PublicationPreview.vue'
 import LiveJianpuPreview from '../components/LiveJianpuPreview.vue'
 import { useLiveJianpuPreview } from '../composables/useLiveJianpuPreview'
@@ -755,9 +769,10 @@ const effectiveCandidateSelections = computed(() => {
   const selections: Record<string, string> = {}
   for (const [sourceId, shape] of Object.entries(candidateSelections.value)) {
     const entity = correctableEntities.value.find((item) => item.source_id === sourceId)
+    const glyph = correctableSheet.value?.suspicious_glyphs?.find((item) => item.glyph_id === sourceId)
     const candidate = entity?.candidates?.find((item) => item.shape === shape)
-    if (entity?.tag === 'head'
-        && candidate?.score_kind === 'audiveris_notehead_template') {
+      ?? glyph?.candidates?.find((item) => item.shape === shape)
+    if (candidate && (entity || glyph)) {
       selections[sourceId] = shape
     }
   }
@@ -768,16 +783,10 @@ const selectedGlyph = computed(() => correctableSheet.value?.suspicious_glyphs?.
   (glyph) => glyph.glyph_id === selectedGlyphId.value,
 ))
 const selectedEntityCandidates = computed(() => (
-  selectedEntity.value?.candidates
-    ?.filter((candidate) => selectedEntity.value?.tag === 'head'
-      ? candidate.score_kind === 'audiveris_notehead_template'
-      : candidate.score_kind === 'audiveris_shape_classifier')
-    .slice(0, 5) ?? []
+  (selectedEntity.value?.candidates ?? selectedGlyph.value?.candidates ?? []).slice(0, 5)
 ))
 const selectedGlyphCandidates = computed(() => (
-  selectedGlyph.value?.candidates
-    ?.filter((candidate) => candidate.score_kind === 'audiveris_notehead_template')
-    .slice(0, 5) ?? []
+  selectedGlyph.value?.candidates?.slice(0, 5) ?? []
 ))
 const appliedDeletedSourceIds = computed(() => store.currentPage?.deletedSourceIds ?? [])
 const correctableSheet = ref<SheetEntitiesDTO | null>(null)
@@ -789,11 +798,15 @@ const selectedEntity = computed(() => correctableEntities.value.find(
 ))
 const selectedCandidateShape = computed(() => selectedEntity.value
   ? candidateSelections.value[selectedEntity.value.source_id] ?? selectedEntity.value.shape
-  : '')
+  : selectedGlyph.value
+    ? candidateSelections.value[selectedGlyph.value.glyph_id] ?? ''
+    : '')
 const selectedEntityDisplayGrade = computed(() => {
   const selectedShape = selectedCandidateShape.value
   return selectedEntity.value?.candidates?.find((candidate) => candidate.shape === selectedShape)?.score
     ?? selectedEntity.value?.grade
+    ?? selectedGlyph.value?.candidates?.find((candidate) => candidate.shape === selectedShape)?.score
+    ?? selectedGlyph.value?.grade
     ?? 0
 })
 const applying = ref(false)
@@ -2267,12 +2280,23 @@ async function loadEntities(): Promise<void> {
   candidateSelections.value = { ...(store.currentPage?.recognitionCandidateSelections ?? {}) }
 }
 
-function selectCandidate(sourceId: string, shape: string): void {
+async function selectCandidate(sourceId: string, shape: string): Promise<void> {
+  if (applying.value) return
   const candidate = selectedEntityCandidates.value.find((item) => item.shape === shape)
-  if (!candidate || candidate.score_kind !== 'audiveris_notehead_template'
-      || selectedEntity.value?.tag !== 'head'
-      || selectedEntity.value.source_id !== sourceId) return
+  const isCurrentEntity = selectedEntity.value?.source_id === sourceId
+  const isCurrentGlyph = selectedGlyph.value?.glyph_id === sourceId
+  if (!candidate || (!isCurrentEntity && !isCurrentGlyph)) return
+  if (candidateSelections.value[sourceId] === shape
+      || (!candidateSelections.value[sourceId]
+        && ((selectedEntity.value?.shape ?? selectedGlyph.value?.shape) === shape))) return
+  const previousSelections = candidateSelections.value
+  const pageId = store.currentPage?.id
   candidateSelections.value = { ...candidateSelections.value, [sourceId]: shape }
+  const applied = await applyCorrections({ keepEditing: true, silent: true })
+  if (!applied && store.currentPage?.id === pageId
+      && store.currentPage?.recognitionCandidateSelections?.[sourceId] !== shape) {
+    candidateSelections.value = previousSelections
+  }
 }
 
 function selectSuspiciousGlyph(glyphId: string): void {
@@ -2290,12 +2314,15 @@ function toggleEntityDelete(sourceId: string) {
   deletedEntityIds.value = next
 }
 
-async function applyCorrections(): Promise<void> {
+async function applyCorrections(options: {
+  keepEditing?: boolean
+  silent?: boolean
+} = {}): Promise<boolean> {
   const page = store.currentPage
-  if (!page) return
+  if (!page) return false
   if (!canEditMarkers.value) {
     message.warning(t('convert.marker.missingMusicxml'))
-    return
+    return false
   }
   const baseline = new Set(page.deletedSourceIds ?? [])
   const current = deletedEntityIds.value
@@ -2307,22 +2334,24 @@ async function applyCorrections(): Promise<void> {
     [...current].some((id) => !baseline.has(id)) ||
     [...baseline].some((id) => !current.has(id))
   if (!hasPendingChange) {
-    message.info(t('convert.marker.noChanges'))
-    return
+    if (!options.silent) message.info(t('convert.marker.noChanges'))
+    return false
   }
+  const deletedSourceIds = [...deletedEntityIds.value]
+  const candidateSelectionPayload = { ...effectiveCandidateSelections.value }
   const editedPageText = currentPageJianpuText()
-  const preserveEditedText = await hasJianpuTextEdits(
-    editedPageText,
-    page.textAnchorBaselineText,
-    page.textHash,
-    page.jianpuDirty,
-  )
   applying.value = true
   try {
+    const preserveEditedText = await hasJianpuTextEdits(
+      editedPageText,
+      page.textAnchorBaselineText,
+      page.textHash,
+      page.jianpuDirty,
+    )
     const data = await requireData(correctApi.apply({
       original_musicxml: page.originalMusicxml,
-      deleted_source_ids: [...deletedEntityIds.value],
-      candidate_selections: effectiveCandidateSelections.value,
+      deleted_source_ids: deletedSourceIds,
+      candidate_selections: candidateSelectionPayload,
       omr_file_id: page.omrFileId,
       source_map_file_id: page.sourceMapFileId,
       text_attachments: page.textAttachments,
@@ -2338,7 +2367,7 @@ async function applyCorrections(): Promise<void> {
     }))
     if (store.currentPage?.id !== page.id) {
       message.warning(t('convert.marker.pageSwitched'))
-      return
+      return false
     }
     const svgFileIds = data.svg_file_ids ?? []
     const corrected = splitJianpuAndOcr(data.jianpu_text)
@@ -2374,7 +2403,7 @@ async function applyCorrections(): Promise<void> {
       workingMusicxml: data.working_musicxml,
       jianpuText: nextPageText,
       jianpuDirty: preserveEditedText,
-      deletedSourceIds: [...deletedEntityIds.value],
+      deletedSourceIds,
       recognitionCandidateSelections: { ...data.applied_candidate_selections },
       textAnchors: nextTextAnchors,
       textAnchorBaselineText: corrected.jianpuText,
@@ -2402,12 +2431,14 @@ async function applyCorrections(): Promise<void> {
     for (const warning of correctionWarnings) {
       log.addLog(warning, 'warn')
     }
-    message.success(t('convert.marker.applied'))
-    editMode.value = false
+    if (!options.silent) message.success(t('convert.marker.applied'))
+    if (!options.keepEditing) editMode.value = false
+    return true
   } catch (e: unknown) {
     const detail = e instanceof Error ? e.message : String(e)
     log.addError(t('convert.marker.applyFailed', { detail }))
     message.error(detail)
+    return false
   } finally {
     applying.value = false
   }
@@ -3241,7 +3272,14 @@ defineExpose({ flushPendingEdits })
   line-height: 1.1;
 }
 
-.current-grade small,
+.current-grade small {
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .candidate-editor__close {
   flex: 0 0 auto;
   width: 26px;
@@ -3278,6 +3316,16 @@ defineExpose({ flushPendingEdits })
   gap: 9px;
   overflow-y: auto;
   padding: 10px;
+}
+
+.glyph-candidate-editor .candidate-editor__header {
+  background: color-mix(in srgb, #d89a35 14%, var(--bg-elevated));
+}
+
+.candidate-editor__close:focus-visible,
+.candidate-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .candidate-list-heading {

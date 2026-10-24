@@ -570,13 +570,13 @@ def _warn_unanchored_source_elements(
     for page, source_ids in missing.items():
         if page > 0:
             logger.warning(
-                "第 %d 页有 %d 个识别符号未能进入乐谱，这些音符在五线谱上不可点击",
+                "第 %d 页有 %d 个原谱标记未关联到简谱文本锚点，可在原谱校正模式查看",
                 page,
                 len(source_ids),
             )
         else:
             logger.warning(
-                "有 %d 个识别符号未能进入乐谱（来源标记缺少页码），这些音符在五线谱上不可点击",
+                "有 %d 个原谱标记未关联到简谱文本锚点（来源标记缺少页码），可在原谱校正模式查看",
                 len(source_ids),
             )
 

@@ -28,6 +28,7 @@ class CorrectableEntityDTO(BaseModel):
     hit_path: str | None = None
     candidates: list["CandidateDTO"] = Field(default_factory=list)
     current_score_kind: str = "audiveris_inter_grade"
+    can_delete: bool = True
 
 
 class CandidateDTO(BaseModel):
@@ -44,6 +45,12 @@ class SuspiciousGlyphDTO(BaseModel):
     bounds_h: float
     hit_path: str
     candidates: list[CandidateDTO] = Field(default_factory=list)
+    tag: str = "unrecognized-head"
+    shape: str = "UNKNOWN"
+    grade: float = 0.0
+    inter_id: str | None = None
+    staff: str | None = None
+    pitch: float | None = None
 
 
 class SheetEntitiesDTO(BaseModel):

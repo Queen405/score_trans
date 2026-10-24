@@ -22,6 +22,15 @@ class InterData:
     thickness: float | None = None
     curve: tuple[float, float, float, float, float, float, float, float] | None = None
     pitch: float | None = None
+    staff: str | None = None
+
+
+@dataclass(slots=True)
+class StaffData:
+    id: str
+    left: float
+    right: float
+    lines: tuple[tuple[float, float, float, float], ...]
 
 
 @dataclass(slots=True)
@@ -30,6 +39,7 @@ class SheetModel:
     width: int
     height: int
     inters: list[InterData]
+    staves: list[StaffData]
 
 
 _SKIP_TAGS: frozenset[str] = frozenset(
@@ -71,12 +81,14 @@ class OmrParser:
                 )
                 width, height = _read_picture_dimensions(root)
                 inters = _read_inters(root)
+                staves = _read_staves(root)
                 sheets.append(
                     SheetModel(
                         index=sheet_index,
                         width=width,
                         height=height,
                         inters=inters,
+                        staves=staves,
                     )
                 )
         return sheets
@@ -108,6 +120,8 @@ def _read_inters(root: ET.Element) -> list[InterData]:
 def _parse_inter(element: ET.Element) -> InterData | None:
     tag = element.tag
     shape = element.get("shape", tag.upper())
+    if tag == "time-pair":
+        shape = _time_pair_shape(element.get("time-rational")) or "UNKNOWN_TIME"
     grade = _best_grade(element)
     bounds = _read_bounds(element)
     if bounds is None:
@@ -132,7 +146,56 @@ def _parse_inter(element: ET.Element) -> InterData | None:
         thickness=thickness,
         curve=curve,
         pitch=pitch,
+        staff=element.get("staff"),
     )
+
+
+def _time_pair_shape(value: str | None) -> str | None:
+    if not value:
+        return None
+    return {
+        "4/4": "TIME_FOUR_FOUR",
+        "2/2": "TIME_TWO_TWO",
+        "2/4": "TIME_TWO_FOUR",
+        "3/4": "TIME_THREE_FOUR",
+        "5/4": "TIME_FIVE_FOUR",
+        "6/4": "TIME_SIX_FOUR",
+        "3/8": "TIME_THREE_EIGHT",
+        "6/8": "TIME_SIX_EIGHT",
+        "12/8": "TIME_TWELVE_EIGHT",
+    }.get(value)
+
+
+def _read_staves(root: ET.Element) -> list[StaffData]:
+    staves: list[StaffData] = []
+    for staff in root.iter("staff"):
+        try:
+            left = float(staff.get("left", "0"))
+            right = float(staff.get("right", "0"))
+            if right <= left:
+                continue
+            lines = tuple(
+                (
+                    float(points[0].get("x", "0")),
+                    float(points[0].get("y", "0")),
+                    float(points[-1].get("x", "0")),
+                    float(points[-1].get("y", "0")),
+                )
+                for line in staff.findall("./lines/line")
+                if (points := line.findall("point")) and len(points) >= 2
+            )
+            if len(lines) >= 5:
+                staves.append(
+                    StaffData(
+                        id=staff.get("id", ""),
+                        left=left,
+                        right=right,
+                        lines=lines,
+                    )
+                )
+        except (TypeError, ValueError):
+            continue
+    return staves
 
 
 def _best_grade(element: ET.Element) -> float:

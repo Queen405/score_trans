@@ -46,8 +46,8 @@
               <rect :width="sourceSheet.width" :height="sourceSheet.height" fill="white" />
               <path
                 v-for="item in correctedOverlayEntities"
-                :key="`mask-${item.entity.source_id}`"
-                :d="item.entity.hit_path || ''"
+                :key="`mask-${item.key}`"
+                :d="item.hitPath"
                 fill="black"
               />
             </mask>
@@ -62,18 +62,18 @@
           />
           <svg
             v-for="item in correctedOverlayEntities"
-            :key="`corrected-${item.entity.source_id}`"
-            :x="item.entity.bounds_x"
-            :y="item.entity.bounds_y"
-            :width="item.entity.bounds_w"
-            :height="item.entity.bounds_h"
+            :key="`corrected-${item.key}`"
+            :x="item.x"
+            :y="item.y"
+            :width="item.width"
+            :height="item.height"
             viewBox="0 0 32 24"
             aria-hidden="true"
           >
-            <NoteheadSymbol
+            <RecognitionSymbol
               :shape="item.shape"
               :background="false"
-              :style="{ width: '100%', height: '100%', color: '#00aa44', opacity: item.entity.grade }"
+              :style="{ width: '100%', height: '100%', color: '#00aa44', opacity: item.grade }"
             />
           </svg>
         </svg>
@@ -118,10 +118,12 @@
             :key="glyph.glyph_id"
             :d="glyph.hit_path"
             class="source-hit source-hit--glyph"
+            :class="{ selected: glyph.glyph_id === selectedGlyphId }"
             :data-glyph-id="glyph.glyph_id"
             tabindex="0"
-            @click.stop="selectGlyph(glyph.glyph_id, $event)"
-            @keydown.enter.prevent="selectGlyph(glyph.glyph_id, $event)"
+            @click.stop="selectGlyph(glyph.glyph_id, $event, false)"
+            @contextmenu.stop.prevent="selectGlyph(glyph.glyph_id, $event, true)"
+            @keydown.enter.prevent="selectGlyph(glyph.glyph_id, $event, true)"
           />
         </svg>
         <svg
@@ -196,7 +198,7 @@ import { useZoomPan } from '../composables/useZoomPan'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import type { CorrectableEntityDTO } from '../models/types'
-import NoteheadSymbol from './NoteheadSymbol.vue'
+import RecognitionSymbol from './RecognitionSymbol.vue'
 
 const props = defineProps<{
   fileId: string
@@ -205,6 +207,7 @@ const props = defineProps<{
   sourceMapFileId?: string
   clickableSourceIds?: string[]
   mappedSourceIds?: string[]
+  busy?: boolean
   selectedSourceId?: string
   editable?: boolean
   entities?: CorrectableEntityDTO[]
@@ -306,16 +309,34 @@ function isUnanchoredByDesign(element: SourceElement): boolean {
 const entitySheetWidth = computed(() => props.entityWidth || sourceSheet.value?.width || 0)
 const entitySheetHeight = computed(() => props.entityHeight || sourceSheet.value?.height || 0)
 const correctedOverlayEntities = computed(() => Object.entries(props.appliedCandidateSelections ?? {})
-  .map(([sourceId, shape]) => ({
-    entity: props.entities?.find((item) => item.source_id === sourceId),
-    shape,
+  .flatMap(([sourceId, shape]) => {
+    const entity = props.entities?.find((item) => item.source_id === sourceId)
+    if (entity && entity.bounds_w > 0 && entity.bounds_h > 0 && entity.hit_path) {
+      return [{
+        key: sourceId,
+        shape,
+        x: entity.bounds_x,
+        y: entity.bounds_y,
+        width: entity.bounds_w,
+        height: entity.bounds_h,
+        hitPath: entity.hit_path,
+        grade: entity.grade,
+      }]
+    }
+    const glyph = props.suspiciousGlyphs?.find((item) => item.glyph_id === sourceId)
+    return glyph && glyph.bounds_w > 0 && glyph.bounds_h > 0 && glyph.hit_path
+      ? [{
+          key: sourceId,
+          shape,
+          x: glyph.bounds_x,
+          y: glyph.bounds_y,
+          width: glyph.bounds_w,
+          height: glyph.bounds_h,
+          hitPath: glyph.hit_path,
+          grade: glyph.grade,
+        }]
+      : []
   }))
-  .filter((item): item is { entity: CorrectableEntityDTO; shape: string } => (
-    item.entity?.tag === 'head'
-    && item.entity.bounds_w > 0
-    && item.entity.bounds_h > 0
-    && !!item.entity.hit_path
-  )))
 
 type MarkerTarget = { getBoundingClientRect: () => { left: number; right: number; top: number; bottom: number } }
 
@@ -347,6 +368,7 @@ function updateEditorPosition(target: MarkerTarget | null = null): void {
 }
 
 function selectSource(sourceId: string, event: Event): void {
+  if (props.busy) return
   if (props.editable) {
     editorVisible.value = true
     updateEditorPosition(event.currentTarget as unknown as MarkerTarget)
@@ -356,17 +378,21 @@ function selectSource(sourceId: string, event: Event): void {
 }
 
 function handleSourceClick(sourceId: string, event: Event): void {
+  if (props.busy) return
   if (props.editable) {
     editorVisible.value = false
-    emit('selectSource', sourceId)
-    emit('toggleDelete', sourceId)
+    const entity = props.entities?.find((item) => item.source_id === sourceId)
+    if (entity?.can_delete) {
+      emit('selectSource', sourceId)
+      emit('toggleDelete', sourceId)
+    }
     return
   }
   selectSource(sourceId, event)
 }
 
 function openMarkerEditor(sourceId: string, event: MouseEvent): void {
-  if (!props.editable) return
+  if (!props.editable || props.busy) return
   editorVisible.value = true
   updateEditorPosition(event.currentTarget as unknown as MarkerTarget)
   emit('selectSource', sourceId)
@@ -377,10 +403,13 @@ function closeMarkerEditor(): void {
   editorVisible.value = false
 }
 
-function selectGlyph(glyphId: string, event: Event): void {
-  editorVisible.value = true
-  updateEditorPosition(event.currentTarget as unknown as MarkerTarget)
-  requestAnimationFrame(() => updateEditorPosition())
+function selectGlyph(glyphId: string, event: Event, openEditor: boolean): void {
+  if (props.busy) return
+  editorVisible.value = openEditor
+  if (openEditor) {
+    updateEditorPosition(event.currentTarget as unknown as MarkerTarget)
+    requestAnimationFrame(() => updateEditorPosition())
+  }
   emit('selectGlyph', glyphId)
 }
 
