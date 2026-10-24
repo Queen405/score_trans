@@ -611,11 +611,13 @@ onUnmounted(() => {
 }
 
 .source-hit {
+  /* 命中区域固定：颜色随状态变化，但 stroke-width / dasharray 保持不变，
+     否则鼠标停在轮廓边缘时命中区会来回收缩，出现实线/虚线闪烁 */
   fill: transparent;
   stroke: transparent;
-  stroke-width: 5;
+  stroke-width: 6;
   vector-effect: non-scaling-stroke;
-  pointer-events: visiblePainted;
+  pointer-events: all;
   cursor: pointer;
   outline: none;
   transition: fill 0.14s ease, stroke 0.14s ease;
@@ -625,22 +627,18 @@ onUnmounted(() => {
 .source-hit:focus-visible {
   fill: color-mix(in srgb, var(--accent) 13%, transparent);
   stroke: color-mix(in srgb, var(--accent) 72%, transparent);
-  stroke-width: 1.6;
 }
 
-/* 编辑模式下左键=删除，因此悬停预告的是删除结果 */
+/* 编辑模式下左键=删除，悬停时预告删除结果 */
 .source-hit-layer.editing .source-hit:hover,
 .source-hit-layer.editing .source-hit:focus-visible {
   fill: color-mix(in srgb, var(--danger) 12%, transparent);
   stroke: color-mix(in srgb, var(--danger) 62%, transparent);
-  stroke-width: 1.6;
-  stroke-dasharray: 4 3;
 }
 
 .source-hit.selected {
   fill: color-mix(in srgb, var(--accent) 24%, transparent);
   stroke: var(--accent);
-  stroke-width: 1.8;
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 55%, transparent));
 }
 
@@ -648,13 +646,11 @@ onUnmounted(() => {
 .source-hit--glyph:focus-visible {
   fill: color-mix(in srgb, var(--warning) 16%, transparent);
   stroke: color-mix(in srgb, var(--warning) 80%, transparent);
-  stroke-dasharray: 2 3;
 }
 
 .source-hit--glyph.selected {
   fill: color-mix(in srgb, var(--warning) 22%, transparent);
   stroke: var(--warning);
-  stroke-width: 1.8;
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--warning) 55%, transparent));
 }
 
@@ -668,7 +664,6 @@ onUnmounted(() => {
 .source-hit--disabled:focus-visible {
   fill: color-mix(in srgb, var(--text-tertiary) 10%, transparent);
   stroke: color-mix(in srgb, var(--text-tertiary) 60%, transparent);
-  stroke-width: 1.6;
   stroke-dasharray: 4 3;
 }
 

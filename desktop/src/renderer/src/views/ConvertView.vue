@@ -259,48 +259,35 @@
               v-if="store.originalFileName"
               class="panel-filename"
             >{{ store.originalFileName }}</span>
-            <n-button
+            <div
               v-if="canOpenMarkerEditor"
-              size="tiny"
-              :secondary="!editMode"
-              :type="editMode ? 'default' : 'primary'"
-              @click="editMode ? cancelEditMode() : enterEditMode()"
+              class="marker-edit-controls"
             >
-              {{ editMode ? t('common.action.cancel') : t('convert.marker.deleteMark') }}
-            </n-button>
-          </div>
-          <div
-            v-if="editMode"
-            class="marker-mode-bar"
-          >
-            <span class="marker-mode-bar__status">
-              <i class="marker-mode-bar__dot" />
-              {{ t('convert.marker.modeTitle') }}
-            </span>
-            <span class="marker-mode-bar__count">
-              {{ t('convert.marker.deletedCount', { count: deletedEntityIds.size }) }}
-            </span>
-            <span
-              v-if="store.originalMusicxml"
-              class="marker-mode-bar__hint"
-            >{{ t('convert.marker.editInstructions') }}</span>
-            <span
-              v-else
-              class="marker-mode-bar__warn"
-              :title="t('convert.marker.missingMusicxml')"
-            >{{ t('convert.marker.missingMusicxml') }}</span>
-            <n-button
-              size="tiny"
-              type="primary"
-              :loading="applying"
-              :disabled="loadingEntities || !canEditMarkers"
-              @click="applyCorrections()"
-            >
-              <template #icon>
-                <n-icon><CheckmarkOutline /></n-icon>
+              <n-button
+                size="tiny"
+                :secondary="!editMode"
+                :type="editMode ? 'default' : 'primary'"
+                @click="editMode ? cancelEditMode() : enterEditMode()"
+              >
+                {{ editMode ? t('common.action.cancel') : t('convert.marker.deleteMark') }}
+              </n-button>
+              <template v-if="editMode">
+                <span class="deleted-count">{{ t('convert.marker.deletedCount', { count: deletedEntityIds.size }) }}</span>
+                <n-button
+                  size="tiny"
+                  type="primary"
+                  :loading="applying"
+                  :disabled="loadingEntities || !canEditMarkers"
+                  :title="store.originalMusicxml ? undefined : t('convert.marker.missingMusicxml')"
+                  @click="applyCorrections()"
+                >
+                  <template #icon>
+                    <n-icon><CheckmarkOutline /></n-icon>
+                  </template>
+                  {{ t('convert.marker.apply') }}
+                </n-button>
               </template>
-              {{ t('convert.marker.apply') }}
-            </n-button>
+            </div>
           </div>
           <div class="ws-panel-body">
             <original-preview
@@ -3154,41 +3141,16 @@ defineExpose({ flushPendingEdits })
   min-width: 0;
 }
 
-/* 编辑模式条：按钮、计数与说明各占一层，避免挤在面板标题行 */
-.marker-mode-bar {
+/* 编辑入口与提交按钮放在面板标题行内，保持单行高度 */
+.marker-edit-controls {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 8px 5px 12px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
-  color: var(--text-secondary);
+  gap: 6px;
 }
 
-.marker-mode-bar__status {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-primary);
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.2px;
-  text-transform: none;
-  white-space: nowrap;
-}
-
-.marker-mode-bar__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
-.marker-mode-bar__count {
-  flex: 0 0 auto;
-  padding: 1px 7px;
+.deleted-count {
+  padding: 0 7px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--text-primary) 7%, transparent);
   color: var(--text-secondary);
@@ -3196,32 +3158,7 @@ defineExpose({ flushPendingEdits })
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
-  text-transform: none;
-  white-space: nowrap;
-}
-
-.marker-mode-bar__hint {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  text-transform: none;
-  white-space: nowrap;
-}
-
-.marker-mode-bar__warn {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  color: color-mix(in srgb, var(--warning) 70%, var(--text-primary));
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
+  line-height: 16px;
   text-transform: none;
   white-space: nowrap;
 }

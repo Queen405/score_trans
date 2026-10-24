@@ -149,6 +149,8 @@ import {
   familyFromTag,
   formatScorePercent,
   isLowConfidence,
+  shapeClefOctave,
+  shapeFamily,
   shapeVariantKey,
   shapeVariantText,
 } from '../utils/shapeDescriptor'
@@ -223,12 +225,20 @@ function variantText(shape: string | null | undefined): string {
   const value = (shape ?? '').trim()
   if (!value || value.toUpperCase() === 'UNKNOWN') return ''
   const key = shapeVariantKey(value)
-  if (key) return t(`convert.marker.variant.${key}`)
-  return shapeVariantText(value)
+  const base = key ? t(`convert.marker.variant.${key}`) : shapeVariantText(value)
+  if (!base) return ''
+  const octave = shapeClefOctave(value)
+  return octave ? `${base}（${t(`convert.marker.variant.${octave}`)}）` : base
 }
 
 function labelFor(shape: string): string {
-  return variantText(shape) || shape
+  const variant = variantText(shape)
+  if (variant) return variant
+  // 没有专门变体文案时回退到中文族名，绝不显示英文 shape 名
+  const base = t(`convert.marker.family.${shapeFamily(shape)}`)
+  if (/_ABOVE$/i.test(shape)) return `${base} · ${t('convert.marker.variant.above')}`
+  if (/_BELOW$/i.test(shape)) return `${base} · ${t('convert.marker.variant.below')}`
+  return base
 }
 
 function meterWidth(score: number): string {

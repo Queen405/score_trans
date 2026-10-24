@@ -102,12 +102,33 @@ export function familyFromTag(
 }
 
 const HEAD_VARIANTS: Record<string, string> = {
-  NOTEHEAD_BLACK: 'black',
-  NOTEHEAD_VOID: 'void',
-  NOTEHEAD_HALF: 'half',
+  NOTEHEAD_BLACK: 'headBlack',
+  NOTEHEAD_BLACK_SMALL: 'headBlackSmall',
+  NOTEHEAD_VOID: 'headVoid',
+  NOTEHEAD_VOID_SMALL: 'headVoidSmall',
+  NOTEHEAD_HALF: 'headVoid',
+  HALF_NOTE: 'headVoid',
+  NOTEHEAD_CROSS: 'headCross',
+  NOTEHEAD_CROSS_VOID: 'headCrossVoid',
+  NOTEHEAD_DIAMOND_FILLED: 'headDiamond',
+  NOTEHEAD_DIAMOND_VOID: 'headDiamondVoid',
+  NOTEHEAD_TRIANGLE_DOWN_FILLED: 'headTriangle',
+  NOTEHEAD_TRIANGLE_DOWN_VOID: 'headTriangleVoid',
+  NOTEHEAD_CIRCLE_X: 'headCircleX',
+  NOTEHEAD_CIRCLE_X_VOID: 'headCircleXVoid',
   WHOLE_NOTE: 'whole',
+  WHOLE_NOTE_SMALL: 'wholeSmall',
+  WHOLE_NOTE_CROSS: 'wholeCross',
+  WHOLE_NOTE_DIAMOND: 'wholeDiamond',
+  WHOLE_NOTE_TRIANGLE_DOWN: 'wholeTriangle',
+  WHOLE_NOTE_CIRCLE_X: 'wholeCircleX',
+  BREVE: 'breve',
   BREVE_NOTE: 'breve',
-  BREVE_NOTE_VOID: 'breveVoid',
+  BREVE_SMALL: 'breveSmall',
+  BREVE_CROSS: 'breveCross',
+  BREVE_DIAMOND: 'breveDiamond',
+  BREVE_TRIANGLE_DOWN: 'breveTriangle',
+  BREVE_CIRCLE_X: 'breveCircleX',
 }
 
 const REST_VARIANTS: Record<string, string> = {
@@ -118,10 +139,23 @@ const REST_VARIANTS: Record<string, string> = {
   SIXTEENTH_REST: 'restS16',
   THIRTY_SECOND_REST: 'restS32',
   SIXTY_FOURTH_REST: 'restS64',
+  ONE_16TH_REST: 'restS16',
+  ONE_32ND_REST: 'restS32',
+  ONE_64TH_REST: 'restS64',
   ONE_128TH_REST: 'restS128',
   LONG_REST: 'restLong',
   BREVE_REST: 'restBreve',
 }
+
+const CLEF_VARIANTS: Record<string, string> = {
+  G_CLEF: 'clefTreble',
+  F_CLEF: 'clefBass',
+  C_CLEF: 'clefAlto',
+  PERCUSSION_CLEF: 'clefPercussion',
+  TAB_CLEF: 'clefTab',
+}
+
+const CLEF_OCTAVE_SUFFIX = /[_-](8VA|8VB|15MA|15MB|OTTAVA)$/
 
 const ACCIDENTAL_TEXT: Record<string, string> = {
   SHARP: '♯',
@@ -168,9 +202,24 @@ export function shapeVariantKey(shape: string | null | undefined): string | null
   if (!value) return null
   if (HEAD_VARIANTS[value]) return HEAD_VARIANTS[value]
   if (REST_VARIANTS[value]) return REST_VARIANTS[value]
+  if (CLEF_VARIANTS[value]) return CLEF_VARIANTS[value]
   const ordinal = /^ONE_(\d+)(?:ST|ND|RD|TH)_REST$/.exec(value)
   if (ordinal) return `restS${ordinal[1]}`
+  if (CLEF_OCTAVE_SUFFIX.test(value)) {
+    const base = CLEF_VARIANTS[value.replace(CLEF_OCTAVE_SUFFIX, '')]
+    if (base) return base
+  }
   return null
+}
+
+/** 谱号的八度标记单独成词，避免为每个组合再开一条文案。 */
+export function shapeClefOctave(
+  shape: string | null | undefined,
+): 'octaveUp' | 'octaveDown' | null {
+  const value = (shape ?? '').toUpperCase()
+  const match = CLEF_OCTAVE_SUFFIX.exec(value)
+  if (!match) return null
+  return match[1].endsWith('B') ? 'octaveDown' : 'octaveUp'
 }
 
 /** 无需翻译、直接用符号或数字表达的变体。 */
@@ -193,8 +242,8 @@ export function shapeVariantText(shape: string | null | undefined): string {
   const tuplet = /^TUPLET_([A-Z]+)$/.exec(value)
   if (tuplet && NUMBER_WORDS[tuplet[1]]) return NUMBER_WORDS[tuplet[1]]
   if (/^DIGIT_[0-9]$/.test(value)) return value.slice(-1)
-  if (value.includes('CLEF')) return ''
-  return value.toLowerCase().replace(/_/g, ' ')
+  // 没有对应文案时返回空串，由调用方回退到中文族名，绝不把英文 shape 名直接展示给用户
+  return ''
 }
 
 /** 百分数展示，避免出现「100%」和「99%」之间的视觉抖动。 */
