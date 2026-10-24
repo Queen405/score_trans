@@ -272,7 +272,7 @@
                 {{ editMode ? t('common.action.cancel') : t('convert.marker.deleteMark') }}
               </n-button>
               <template v-if="editMode">
-                <span class="deleted-count">{{ t('convert.marker.deletedCount', { count: deletedEntityIds.size }) }}</span>
+                <span class="edited-count">{{ t('convert.marker.editedCount', { count: editedCount }) }}</span>
                 <n-button
                   size="tiny"
                   type="primary"
@@ -2153,7 +2153,9 @@ function cancelEditMode() {
   entityLoadController?.abort()
   entityLoadController = null
   editMode.value = false
+  // 取消 = 放弃本次所有暂存：删除集合与候选选择都回到已应用基线
   deletedEntityIds.value = new Set(store.currentPage?.deletedSourceIds ?? [])
+  candidateSelections.value = { ...(store.currentPage?.recognitionCandidateSelections ?? {}) }
 }
 
 async function loadEntities(): Promise<void> {
@@ -2186,34 +2188,35 @@ async function loadEntities(): Promise<void> {
   candidateSelections.value = { ...(store.currentPage?.recognitionCandidateSelections ?? {}) }
 }
 
-async function selectCandidate(sourceId: string, shape: string): Promise<void> {
+/**
+ * 选择候选只写入本地暂存：五线谱上用覆盖层即时预览，
+ * 简谱与 MusicXML 必须等用户点「应用」才会变。
+ */
+function selectCandidate(sourceId: string, shape: string): void {
   if (applying.value) return
   const candidate = selectedEntityCandidates.value.find((item) => item.shape === shape)
   const isCurrentEntity = selectedEntity.value?.source_id === sourceId
   const isCurrentGlyph = selectedGlyph.value?.glyph_id === sourceId
   if (!candidate || (!isCurrentEntity && !isCurrentGlyph)) return
   if (candidateSelections.value[sourceId] === shape) return
-  const previousSelections = candidateSelections.value
-  const pageId = store.currentPage?.id
   candidateSelections.value = { ...candidateSelections.value, [sourceId]: shape }
-  // Selecting a candidate also revives a mark that was staged for deletion.
-  // Do not suppress the current shape: an OMR note/rest/clef missing from
-  // MusicXML still needs that exact classification for insertion.
+  // 选中候选意味着这个标记要保留，顺带撤销它待删除的状态。
   if (deletedEntityIds.value.has(sourceId)) {
     const next = new Set(deletedEntityIds.value)
     next.delete(sourceId)
     deletedEntityIds.value = next
   }
-  const applied = await applyCorrections({ keepEditing: true, silent: true, candidateOnly: true })
-  if (!applied && store.currentPage?.id === pageId
-      && store.currentPage?.recognitionCandidateSelections?.[sourceId] !== shape) {
-    candidateSelections.value = previousSelections
-  }
 }
 
-function selectSuspiciousGlyph(glyphId: string): void {
+/** 左键点未识别字形：已有候选时等同于「撤销插入」。 */
+function selectSuspiciousGlyph(glyphId: string, openEditor = true): void {
   selectedGlyphId.value = glyphId
   selectedSourceId.value = ''
+  if (openEditor) return
+  if (!(glyphId in candidateSelections.value)) return
+  const next = { ...candidateSelections.value }
+  delete next[glyphId]
+  candidateSelections.value = next
 }
 
 function toggleEntityDelete(sourceId: string) {
@@ -2222,14 +2225,38 @@ function toggleEntityDelete(sourceId: string) {
     next.delete(sourceId)
   } else {
     next.add(sourceId)
+    if (sourceId in candidateSelections.value) {
+      const selections = { ...candidateSelections.value }
+      delete selections[sourceId]
+      candidateSelections.value = selections
+    }
   }
   deletedEntityIds.value = next
 }
 
+/** 「已编辑」= 删除状态或识别形状相对已应用基线发生了变化。 */
+const editedCount = computed(() => {
+  const baseDeleted = new Set(store.currentPage?.deletedSourceIds ?? [])
+  const baseSelections = store.currentPage?.recognitionCandidateSelections ?? {}
+  const ids = new Set<string>([
+    ...deletedEntityIds.value,
+    ...baseDeleted,
+    ...Object.keys(effectiveCandidateSelections.value),
+    ...Object.keys(baseSelections),
+  ])
+  let count = 0
+  for (const id of ids) {
+    const deletedChanged = deletedEntityIds.value.has(id) !== baseDeleted.has(id)
+    const selectionChanged = (effectiveCandidateSelections.value[id] ?? '')
+      !== (baseSelections[id] ?? '')
+    if (deletedChanged || selectionChanged) count += 1
+  }
+  return count
+})
+
 async function applyCorrections(options: {
   keepEditing?: boolean
   silent?: boolean
-  candidateOnly?: boolean
 } = {}): Promise<boolean> {
   const page = store.currentPage
   if (!page) return false
@@ -2250,10 +2277,7 @@ async function applyCorrections(options: {
     if (!options.silent) message.info(t('convert.marker.noChanges'))
     return false
   }
-  // Automatic candidate switching must not silently commit deletions that are
-  // still staged in the editing session. Replay only the applied baseline here;
-  // the explicit Apply button submits the staged deletion set.
-  const deletedSourceIds = options.candidateOnly ? [...baseline] : [...current]
+  const deletedSourceIds = [...current]
   const candidateSelectionPayload = { ...effectiveCandidateSelections.value }
   const editedPageText = currentPageJianpuText()
   applying.value = true
@@ -2340,6 +2364,7 @@ async function applyCorrections(options: {
       renderLayoutKey: '',
     })
     store.patchPageById(page.id, pagePatch)
+    candidateSelections.value = { ...data.applied_candidate_selections }
     store.setBatchJianpuText(nextBatchText, false)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
@@ -3149,7 +3174,7 @@ defineExpose({ flushPendingEdits })
   gap: 6px;
 }
 
-.deleted-count {
+.edited-count {
   padding: 0 7px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--text-primary) 7%, transparent);

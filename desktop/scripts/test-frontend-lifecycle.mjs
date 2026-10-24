@@ -424,13 +424,56 @@ test('delete-markers mode toggles label, cancels pending load, and gates apply o
   // apply 守卫基于"相对已应用基线的差异"，而非"删除数为 0"
   assert.match(convertSource, /const hasPendingChange =/)
   assert.doesNotMatch(convertSource, /未删除任何标记/)
-  // 显式应用成功后退出删除标记模式；候选自动应用（keepEditing）保持编辑态
+  // 只有点「应用」才会提交并退出编辑模式
   assert.match(
     convertSource,
     /if \(!options\.silent\) message\.success\(t\('convert\.marker\.applied'\)\)\s*\n\s*if \(!options\.keepEditing\) editMode\.value = false/,
   )
   // 多页 OMR 提示文案与功能名一致
   assert.match(convertSource, /multiPageOmr/)
+})
+
+test('candidate selection only previews and commits on apply', () => {
+  // 选候选是同步的本地暂存，不再触发后端修正
+  assert.match(convertSource, /function selectCandidate\(sourceId: string, shape: string\): void \{/)
+  assert.doesNotMatch(convertSource, /candidateOnly/)
+  assert.match(
+    convertSource,
+    /candidateSelections\.value = \{ \.\.\.candidateSelections\.value, \[sourceId\]: shape \}/,
+  )
+  // 取消编辑回滚删除集合与候选选择
+  assert.match(
+    convertSource,
+    /candidateSelections\.value = \{ \.\.\.\(store\.currentPage\?\.recognitionCandidateSelections \?\? \{\}\) \}/,
+  )
+  // 计数改为「已编辑」，覆盖删除与候选两种改动
+  assert.match(convertSource, /const editedCount = computed\(/)
+  assert.match(convertSource, /t\('convert\.marker\.editedCount', \{ count: editedCount \}\)/)
+  // 左键点击已选中的未识别字形 = 撤销插入，和删除已识别标记的手感一致
+  assert.match(convertSource, /function selectSuspiciousGlyph\(glyphId: string, openEditor = true\): void \{/)
+  assert.match(convertSource, /delete next\[glyphId\]/)
+})
+
+test('left click in edit mode toggles deletion without selecting the mark', () => {
+  // 编辑态左键只切换删除：如果同时发 selectSource，蓝色选中轮廓会盖住红色删除虚线
+  assert.match(
+    originalPreviewSource,
+    /if \(entity\?\.can_delete\) \{[\s\S]*?emit\('toggleDelete', sourceId\)/,
+  )
+  assert.doesNotMatch(
+    originalPreviewSource,
+    /if \(entity\?\.can_delete\) \{\s*emit\('selectSource'/,
+  )
+  // 删除虚线层必须在命中层之上
+  assert.match(
+    originalPreviewSource,
+    /\.deleted-mark-layer \{[\s\S]*?z-index:\s*2;/,
+  )
+  // 已删除标记即使被选中也保持删除色
+  assert.match(
+    originalPreviewSource,
+    /\.source-hit\.selected\.source-hit--deleted \+ \.source-hit-outline \{[\s\S]*?var\(--danger\)/,
+  )
 })
 
 test('marker edit mode keeps the original overlay and clicks semantic hit paths without boxes', () => {
@@ -444,7 +487,7 @@ test('marker edit mode keeps the original overlay and clicks semantic hit paths 
   )
   assert.match(
     originalPreviewSource,
-    /\.source-hit-outline \{[\s\S]*?stroke-width:\s*1\.2;[\s\S]*?pointer-events:\s*none;/,
+    /\.source-hit-outline \{[\s\S]*?stroke-width:\s*2;[\s\S]*?pointer-events:\s*none;/,
   )
   assert.match(originalPreviewSource, /@click\.stop="handleSourceClick\(element\.source_id, \$event\)"/)
   assert.match(originalPreviewSource, /@keydown\.enter\.prevent="selectSource\(element\.source_id, \$event\)"/)

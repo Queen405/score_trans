@@ -246,7 +246,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   selectSource: [sourceId: string]
   toggleDelete: [sourceId: string]
-  selectGlyph: [glyphId: string]
+  selectGlyph: [glyphId: string, openEditor: boolean]
 }>()
 
 interface SourceElement {
@@ -350,6 +350,8 @@ const entitySheetHeight = computed(() => props.entityHeight || sourceSheet.value
 const correctedOverlayEntities = computed(() => Object.entries(props.appliedCandidateSelections ?? {})
   .flatMap(([sourceId, shape]) => {
     const entity = props.entities?.find((item) => item.source_id === sourceId)
+    // 与当前识别形状相同就没有预览的必要（例如把候选改回原形状）
+    if (entity && entity.shape === shape) return []
     if (entity && entity.bounds_w > 0 && entity.bounds_h > 0 && entity.hit_path) {
       return [{
         key: sourceId,
@@ -422,7 +424,8 @@ function handleSourceClick(sourceId: string, event: Event): void {
     editorVisible.value = false
     const entity = props.entities?.find((item) => item.source_id === sourceId)
     if (entity?.can_delete) {
-      emit('selectSource', sourceId)
+      // 左键只切换删除状态：选中态是蓝色实线，会和「已删除」的红色虚线抢同一轮廓，
+      // 导致用户点完看到的是蓝色而不是已删除。查看候选走右键。
       emit('toggleDelete', sourceId)
     }
     return
@@ -449,7 +452,7 @@ function selectGlyph(glyphId: string, event: Event, openEditor: boolean): void {
     updateEditorPosition(event.currentTarget as unknown as MarkerTarget)
     requestAnimationFrame(() => updateEditorPosition())
   }
-  emit('selectGlyph', glyphId)
+  emit('selectGlyph', glyphId, openEditor)
 }
 
 watch(() => props.editable, (editable) => {
@@ -667,7 +670,7 @@ onUnmounted(() => {
 .source-hit-outline {
   fill: transparent;
   stroke: transparent;
-  stroke-width: 1.2;
+  stroke-width: 2;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
@@ -707,12 +710,18 @@ onUnmounted(() => {
 /* 已经标记为删除的记号，再点一次是「恢复」，用绿色预告 */
 .source-hit-layer.editing .source-hit--deleted:hover,
 .source-hit-layer.editing .source-hit--deleted:focus-visible {
-  fill: color-mix(in srgb, var(--success) 12%, transparent);
+  fill: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 
 .source-hit-layer.editing .source-hit--deleted:hover + .source-hit-outline,
 .source-hit-layer.editing .source-hit--deleted:focus-visible + .source-hit-outline {
-  stroke: color-mix(in srgb, var(--success) 72%, transparent);
+  stroke: color-mix(in srgb, var(--danger) 75%, transparent);
+}
+
+/* 已删除的记号即使同时处于选中态，也必须以删除色呈现 */
+.source-hit.selected.source-hit--deleted + .source-hit-outline {
+  stroke: color-mix(in srgb, var(--danger) 82%, transparent);
+  filter: none;
 }
 
 .source-hit--glyph:hover,
@@ -761,6 +770,7 @@ onUnmounted(() => {
 .deleted-mark-layer {
   position: absolute;
   inset: 0;
+  z-index: 2;
   width: 100%;
   height: 100%;
   overflow: visible;
