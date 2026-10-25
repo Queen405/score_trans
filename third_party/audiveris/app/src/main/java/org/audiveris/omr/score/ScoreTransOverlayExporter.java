@@ -13,6 +13,8 @@ import org.audiveris.omr.glyph.GlyphFactory;
 import org.audiveris.omr.glyph.GlyphGroup;
 import org.audiveris.omr.glyph.Shape;
 import org.audiveris.omr.glyph.ShapeSet;
+import static org.audiveris.omr.run.Orientation.VERTICAL;
+import org.audiveris.omr.run.RunTableFactory;
 import org.audiveris.omr.sig.inter.AbstractNoteInter;
 import org.audiveris.omr.sig.inter.AbstractPauseInter;
 import org.audiveris.omr.sig.inter.AbstractTimeInter;
@@ -26,6 +28,7 @@ import org.audiveris.omr.sig.inter.ClefInter;
 import org.audiveris.omr.sig.inter.DynamicsInter;
 import org.audiveris.omr.sig.inter.FermataInter;
 import org.audiveris.omr.sig.inter.FingeringInter;
+import org.audiveris.omr.sig.inter.HeadInter;
 import org.audiveris.omr.sig.inter.Inter;
 import org.audiveris.omr.sig.inter.KeyInter;
 import org.audiveris.omr.sig.inter.OrnamentInter;
@@ -63,11 +66,16 @@ import java.util.Set;
 
 import javax.imageio.ImageIO;
 
+import ij.process.ByteProcessor;
+
 /**
  * Exports the exact Data-view paint layer and its semantic hit geometry for Score Trans.
  */
 public final class ScoreTransOverlayExporter
 {
+    /** Page 086 separates visible noteheads (>=0.83) from nearby structure fragments (<=0.43). */
+    private static final double MIN_UNMAPPED_NOTEHEAD_SCORE = 0.50;
+
     private static final Logger logger = LoggerFactory.getLogger(
             ScoreTransOverlayExporter.class);
 
@@ -217,48 +225,99 @@ public final class ScoreTransOverlayExporter
             }
         }
         boolean first = true;
-        final List<Glyph> suspicious = new ArrayList<>();
-        final int minimumHeadDimension = Math.max(4, (int) Math.ceil(sheet.getInterline() * 0.4));
+        final List<GlyphExportCandidate> suspicious = new ArrayList<>();
+        final List<Rectangle> semanticBounds = new ArrayList<>();
+        for (SystemInfo system : sheet.getSystems()) {
+            for (Inter inter : system.getSig().vertexSet()) {
+                if (!inter.isRemoved() && isClickableSemantic(inter)
+                        && !(inter instanceof AbstractNoteInter)
+                        && inter.getBounds() != null) {
+                    semanticBounds.add(inter.getBounds());
+                }
+            }
+        }
+        final int minimumHeadDimension = Math.max(7, (int) Math.ceil(sheet.getInterline() * 0.5));
         for (Glyph glyph : sheet.getGlyphIndex().getEntities()) {
             final Rectangle bounds = glyph.getBounds();
             if (bounds == null || bounds.isEmpty()
                     || !glyph.getGroups().contains(GlyphGroup.SYMBOL)
-                    || glyph.getGroups().contains(GlyphGroup.VERTICAL_SEED)
-                    || glyph.getWidth() < minimumHeadDimension
-                    || glyph.getWidth() > sheet.getInterline() * 4
-                    || glyph.getHeight() < minimumHeadDimension
-                    || glyph.getHeight() > sheet.getInterline() * 4) {
+                    || glyph.getGroups().contains(GlyphGroup.VERTICAL_SEED)) {
                 continue;
             }
             if (referencedByNote.contains(glyph.getId())) {
                 continue;
             }
-            if (isBeforeStaffHeader(sheet, bounds)) continue;
-            final boolean repetitive = isRepeatedAcrossRows(
-                    glyph, sheet.getGlyphIndex().getEntities(), sheet.getInterline());
-            // Repeated symbols before the staff header are usually clef/key
-            // fragments copied once per row. After the header, the same x
-            // position can legitimately be a repeated note, so keep it for
-            // candidate editing instead of dropping it by a row-pattern rule.
-            if (repetitive && isBeforeStaffHeader(sheet, bounds)) continue;
-
             // Keep the existing glyph-based correction path: when an unmatched
             // SYMBOL glyph has no per-glyph metadata, attach the nearest HEADS
             // scanner candidates. This preserves previously clickable glyphs while
             // location-based candidates are being improved independently.
-            final List<ScoreTransCandidateRegistry.Candidate> candidates = resolvedNoteheadCandidates(
-                    sheet, bounds, glyph);
-            if (candidates.isEmpty()) continue;
-            suspicious.add(glyph);
+            // A single SYMBOL glyph often contains a stem, beam and one or more
+            // noteheads.  Classifying the whole glyph makes the notehead disappear
+            // from the editor (and commonly classifies an accidental as a head).
+            // Split disconnected components and export the useful component as its
+            // own clickable candidate whenever possible.
+            final List<Glyph> parts = splitGlyph(glyph);
+            boolean exportedPart = false;
+            for (int partIndex = 0; partIndex < parts.size(); partIndex++) {
+                final Glyph part = parts.get(partIndex);
+                final Rectangle partBounds = part.getBounds();
+                if (!isCandidateSized(partBounds, sheet.getInterline(), minimumHeadDimension)
+                        || isBeforeStaffHeader(sheet, partBounds)
+                        || isCoveredBySemantic(partBounds, semanticBounds, sheet.getInterline() / 2)) {
+                    continue;
+                }
+                final boolean repetitive = isRepeatedAcrossRows(
+                        part, sheet.getGlyphIndex().getEntities(), sheet.getInterline());
+                if (repetitive && isBeforeStaffHeader(sheet, partBounds)) continue;
+                if (!isNoteheadLike(partBounds)) {
+                    final List<GlyphExportCandidate> windows = classifyHeadWindows(
+                            part, sheet.getInterline(), semanticBounds);
+                    suspicious.addAll(windows);
+                    exportedPart |= !windows.isEmpty();
+                    continue;
+                }
+                final List<ScoreTransCandidateRegistry.Candidate> candidates =
+                        resolvedNoteheadCandidates(sheet, partBounds, part);
+                if (hasStrongNoteheadCandidate(candidates)) {
+                    suspicious.add(new GlyphExportCandidate(
+                            glyph, part, parts.size() == 1 ? "" : "p" + partIndex, candidates));
+                    exportedPart = true;
+                } else {
+                    final List<GlyphExportCandidate> windows = classifyHeadWindows(
+                            part, sheet.getInterline(), semanticBounds);
+                    suspicious.addAll(windows);
+                    exportedPart |= !windows.isEmpty();
+                }
+            }
+            if (!exportedPart) {
+                if (!isBeforeStaffHeader(sheet, bounds)
+                        && !isCoveredBySemantic(bounds, semanticBounds, sheet.getInterline() / 2)) {
+                    if (isCandidateSized(bounds, sheet.getInterline(), minimumHeadDimension)
+                            && isNoteheadLike(bounds)) {
+                        final List<ScoreTransCandidateRegistry.Candidate> candidates =
+                                resolvedNoteheadCandidates(sheet, bounds, glyph);
+                        if (hasStrongNoteheadCandidate(candidates)) {
+                            suspicious.add(new GlyphExportCandidate(glyph, glyph, "", candidates));
+                        } else {
+                            suspicious.addAll(classifyHeadWindows(
+                                    glyph, sheet.getInterline(), semanticBounds));
+                        }
+                    } else {
+                        suspicious.addAll(classifyHeadWindows(
+                                glyph, sheet.getInterline(), semanticBounds));
+                    }
+                }
+            }
         }
-        for (Glyph glyph : suspicious) {
+        for (GlyphExportCandidate exported : suspicious) {
+            final Glyph glyph = exported.part();
             final Rectangle bounds = glyph.getBounds();
-            final List<ScoreTransCandidateRegistry.Candidate> candidates = resolvedNoteheadCandidates(
-                    sheet, bounds, glyph);
+            final List<ScoreTransCandidateRegistry.Candidate> candidates = exported.candidates();
             if (!first) json.append(',');
             first = false;
             json.append("{\"glyph_id\":\"s").append(sheet.getStub().getNumber())
-                    .append(":g").append(glyph.getId()).append("\",\"bounds\":{\"x\":")
+                    .append(":g").append(exported.parent().getId()).append(exported.suffix());
+            json.append("\",\"bounds\":{\"x\":")
                     .append(bounds.x).append(",\"y\":").append(bounds.y)
                     .append(",\"width\":").append(bounds.width)
                     .append(",\"height\":").append(bounds.height)
@@ -270,6 +329,113 @@ public final class ScoreTransOverlayExporter
         }
         appendUnmatchedLocations(json, sheet);
         json.append(']');
+    }
+
+    private record GlyphExportCandidate (
+            Glyph parent,
+            Glyph part,
+            String suffix,
+            List<ScoreTransCandidateRegistry.Candidate> candidates)
+    {
+    }
+
+    private static List<GlyphExportCandidate> classifyHeadWindows (Glyph parent,
+                                                                    int interline,
+                                                                    List<Rectangle> semanticBounds)
+    {
+        if (parent.getRunTable() == null) return List.of();
+        final ByteProcessor source = parent.getRunTable().getBuffer();
+        final int windowWidth = Math.min(source.getWidth(), Math.max(10, interline * 2));
+        final int windowHeight = Math.min(source.getHeight(), Math.max(8, interline));
+        if (windowWidth < 7 || windowHeight < 7) return List.of();
+        final int stepX = Math.max(3, interline / 2);
+        final int stepY = Math.max(2, interline / 3);
+        final List<GlyphExportCandidate> result = new ArrayList<>();
+        final List<Point2D> acceptedCenters = new ArrayList<>();
+        for (int y = 0; y + windowHeight <= source.getHeight(); y += stepY) {
+            for (int x = 0; x + windowWidth <= source.getWidth(); x += stepX) {
+                final Rectangle roi = new Rectangle(x, y, windowWidth, windowHeight);
+                source.setRoi(roi);
+                final ByteProcessor window = (ByteProcessor) source.crop();
+                int ink = 0;
+                for (int py = 0; py < windowHeight; py++) {
+                    for (int px = 0; px < windowWidth; px++) {
+                        if (window.get(px, py) < 128) ink++;
+                    }
+                }
+                if (ink < Math.max(12, windowWidth * windowHeight / 12)) continue;
+                final Glyph probe = new Glyph(
+                        parent.getLeft() + x,
+                        parent.getTop() + y,
+                        new RunTableFactory(VERTICAL).createTable(window));
+                final Rectangle bounds = probe.getBounds();
+                if (isCoveredBySemantic(bounds, semanticBounds, interline / 2)) continue;
+                final List<ScoreTransCandidateRegistry.Candidate> candidates =
+                        classifyNoteheadGlyph(probe, interline).stream()
+                                .filter(candidate -> Double.isFinite(candidate.score())
+                                        && candidate.score() >= MIN_UNMAPPED_NOTEHEAD_SCORE)
+                                .toList();
+                if (candidates.isEmpty() || !isNoteheadLike(bounds)) continue;
+                final Point2D center = new Point2D.Double(
+                        bounds.getCenterX(), bounds.getCenterY());
+                if (acceptedCenters.stream().anyMatch(previous ->
+                        previous.distance(center) < interline * 0.8)) continue;
+                acceptedCenters.add(center);
+                result.add(new GlyphExportCandidate(
+                        parent, probe, "c" + x + "-" + y, candidates));
+            }
+        }
+        return result;
+    }
+
+    private static List<Glyph> splitGlyph (Glyph glyph)
+    {
+        if (glyph.getRunTable() == null) return List.of(glyph);
+        try {
+            final List<Glyph> parts = GlyphFactory.buildGlyphs(
+                    glyph.getRunTable(), glyph.getTopLeft());
+            return parts.isEmpty() ? List.of(glyph) : parts;
+        } catch (RuntimeException ex) {
+            logger.debug("Could not split glyph {} for candidate export", glyph.getId(), ex);
+            return List.of(glyph);
+        }
+    }
+
+    private static boolean isCandidateSized (Rectangle bounds,
+                                              int interline,
+                                              int minimumDimension)
+    {
+        return bounds != null && !bounds.isEmpty()
+                && bounds.width >= minimumDimension && bounds.height >= minimumDimension
+                && bounds.width <= interline * 4 && bounds.height <= interline * 4;
+    }
+
+    private static boolean isNoteheadLike (Rectangle bounds)
+    {
+        if (bounds == null || bounds.isEmpty()) return false;
+        final double aspect = (double) bounds.width / bounds.height;
+        return aspect >= 0.55 && aspect <= 2.5;
+    }
+
+    private static boolean hasStrongNoteheadCandidate (
+            List<ScoreTransCandidateRegistry.Candidate> candidates)
+    {
+        return candidates.stream().anyMatch(candidate -> Double.isFinite(candidate.score())
+                && candidate.score() >= MIN_UNMAPPED_NOTEHEAD_SCORE);
+    }
+
+    private static boolean isCoveredBySemantic (Rectangle candidate,
+                                                List<Rectangle> semanticBounds,
+                                                int margin)
+    {
+        if (candidate == null) return true;
+        final Point2D center = new Point2D.Double(
+                candidate.getCenterX(), candidate.getCenterY());
+        return semanticBounds.stream().anyMatch(bounds -> {
+            final Rectangle expanded = new Rectangle(bounds);
+            expanded.grow(Math.max(0, margin), Math.max(0, margin));
+            return expanded.contains(center);
+        });
     }
 
     /**
@@ -284,11 +450,17 @@ public final class ScoreTransOverlayExporter
     {
         final List<ScoreTransCandidateRegistry.Candidate> nativeCandidates = noteheadCandidates(
                 sheet, bounds, glyph).stream()
-                .filter(candidate -> candidate.score() >= 0.10)
+                // Keep weak but real template evidence. A missed head is often
+                // precisely the case where every score is below the normal Inter
+                // acceptance threshold; hiding those scores makes the glyph
+                // impossible to repair from the editor.
+                .filter(candidate -> Double.isFinite(candidate.score())
+                        && candidate.score() > 0)
                 .toList();
         if (!nativeCandidates.isEmpty()) return nativeCandidates;
         return classifyNoteheadGlyph(glyph, sheet.getInterline()).stream()
-                .filter(candidate -> candidate.score() >= 0.10)
+                .filter(candidate -> Double.isFinite(candidate.score())
+                        && candidate.score() > 0)
                 .toList();
     }
 
@@ -327,15 +499,24 @@ public final class ScoreTransOverlayExporter
                                                   Sheet sheet)
     {
         final List<Rectangle> existing = new ArrayList<>();
+        final List<Rectangle> nonHeadSymbolBounds = new ArrayList<>();
         for (SystemInfo system : sheet.getSystems()) {
             for (Inter inter : system.getSig().vertexSet()) {
-                if (inter instanceof AbstractNoteInter && inter.getBounds() != null) {
+                if (inter instanceof HeadInter && inter.getBounds() != null) {
                     final Rectangle bounds = inter.getBounds();
                     // Suppress only detections that overlap an existing head. A full
                     // interline margin hides legitimate nearby chord tones.
                     bounds.grow(Math.max(2, sheet.getInterline() / 5),
                             Math.max(2, sheet.getInterline() / 5));
                     existing.add(bounds);
+                } else if ((inter instanceof AlterInter
+                        || inter instanceof ClefInter
+                        || inter instanceof KeyInter
+                        || inter instanceof AbstractTimeInter
+                        || inter instanceof DynamicsInter
+                        || inter instanceof RestInter)
+                        && inter.getBounds() != null) {
+                    nonHeadSymbolBounds.add(inter.getBounds());
                 }
             }
         }
@@ -352,21 +533,39 @@ public final class ScoreTransOverlayExporter
         for (ScoreTransCandidateRegistry.LocationCandidate location : locations) {
             final List<ScoreTransCandidateRegistry.Candidate> candidates = location.candidates()
                     .stream().filter(candidate -> isSupportedCandidate("head", candidate.shape()))
-                    .filter(candidate -> candidate.score() >= 0.10)
+                    .filter(candidate -> Double.isFinite(candidate.score())
+                            && candidate.score() >= MIN_UNMAPPED_NOTEHEAD_SCORE)
                     .toList();
             if (candidates.isEmpty()) continue;
             final Point2D point = new Point2D.Double(location.x(), location.y());
             final int interline = Math.max(1, sheet.getInterline());
+            final Rectangle pointBounds = new Rectangle(
+                    (int) Math.rint(point.getX()),
+                    (int) Math.rint(point.getY()),
+                    1,
+                    1);
+            if (isCoveredBySemantic(pointBounds, nonHeadSymbolBounds,
+                    interline / 2)) continue;
             if (acceptedLocations.stream().anyMatch(previous ->
-                    Math.abs(previous.getX() - point.getX()) <= interline * 1.15
+                    Math.abs(previous.getX() - point.getX()) <= interline * 1.5
                             && Math.abs(previous.getY() - point.getY()) <= interline * 0.60)) continue;
-            final SystemInfo system = sheet.getSystems().stream()
-                    .filter(candidate -> candidate.getBounds() != null
-                            && candidate.getBounds().contains(point))
-                    .findFirst().orElse(null);
-            if (system == null) continue;
-            final Staff staff = system.getClosestStaff(point);
-            if (staff == null || staff.isTablature()) continue;
+            SystemInfo system = null;
+            Staff staff = null;
+            double nearestStaffDistance = Double.MAX_VALUE;
+            for (SystemInfo candidate : sheet.getSystems()) {
+                final Staff candidateStaff = candidate.getClosestStaff(point);
+                if (candidateStaff == null) continue;
+                final double staffDistance = Math.abs(
+                        point.getY() - candidateStaff.getFirstLine().yAt(point.getX()));
+                if (staffDistance < nearestStaffDistance) {
+                    nearestStaffDistance = staffDistance;
+                    system = candidate;
+                    staff = candidateStaff;
+                }
+            }
+            if (system == null || staff == null
+                    || nearestStaffDistance > Math.max(8, interline * 8)) continue;
+            if (staff.isTablature()) continue;
             if (point.getX() < staff.getHeaderStop()) continue;
             final int staffInterline = Math.max(1, staff.getSpecificInterline());
             final double pitch = staff.pitchPositionOf(point);

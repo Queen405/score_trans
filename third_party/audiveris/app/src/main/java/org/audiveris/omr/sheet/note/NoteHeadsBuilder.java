@@ -375,6 +375,11 @@ public class NoteHeadsBuilder
             watch.start("Staff #" + staff.getId() + " range");
             ch.addAll(processStaff(staff, false));
 
+            // Ledger lines that were not recognized still contain visible
+            // noteheads. Scan the corresponding virtual pitch rows for
+            // correction evidence only; this pass never creates HeadInter data.
+            collectUnmappedLedgerCandidates(staff);
+
             // Remove duplicates for current staff
             Collections.sort(ch, Inters.byFullAbscissa);
             watch.start("Staff #" + staff.getId() + " duplicates");
@@ -427,6 +432,33 @@ public class NoteHeadsBuilder
         logger.debug("S#{} seeds {}", system.getId(), seedsPerf);
         logger.debug("    range {}", rangePerf);
         ScoreTransCandidateRegistry.flush(sheet);
+    }
+
+    /** Record template evidence on virtual ledger rows which have no LedgerInter. */
+    private void collectUnmappedLedgerCandidates (Staff staff)
+    {
+        final int staffInterline = Math.max(1, staff.getSpecificInterline());
+        final int scanLeft = Math.max(
+                staff.getHeaderStop(),
+                (int) Math.floor(staff.getFirstLine().getEndPoint(LEFT).getX()));
+        final int scanRight = (int) Math.floor(
+                staff.getLastLine().getEndPoint(RIGHT).getX()) - minTemplateWidth;
+        if (scanRight < scanLeft) return;
+
+        for (int direction : new int[] { -1, 1 }) {
+            final LineInfo baseInfo = direction < 0 ? staff.getFirstLine() : staff.getLastLine();
+            final LineAdapter base = new StaffLineAdapter(staff, baseInfo);
+            for (int halfSteps = 1; halfSteps <= 10; halfSteps++) {
+                final int shift = direction * halfSteps * staffInterline / 2;
+                final Scanner scanner = new Scanner(
+                        new OffsetLineAdapter(base, shift),
+                        null,
+                        0,
+                        direction * 20,
+                        false);
+                scanner.collectDiagnosticRangeCandidates(scanLeft, scanRight);
+            }
+        }
     }
 
     //-------------------------//
@@ -2165,7 +2197,7 @@ public class NoteHeadsBuilder
                     }
                     if (best == null) continue;
                     final double score = Template.impactOf(best.d);
-                    if (score < 0.20) continue;
+                    if (score < 0.10) continue;
                     scores.merge(shape, score, Math::max);
                     if (strongest == null || best.d < strongest.d) strongest = best;
                 }
@@ -2455,6 +2487,54 @@ public class NoteHeadsBuilder
         public int yAt (int x)
         {
             return line.yAt(x);
+        }
+    }
+
+    /** Staff line shifted to a virtual ledger position for diagnostics. */
+    private static class OffsetLineAdapter
+            extends LineAdapter
+    {
+        private final LineAdapter base;
+
+        private final int shift;
+
+        OffsetLineAdapter (LineAdapter base,
+                           int shift)
+        {
+            super(base.getStaff(), base.getPrefix() + "#virtual" + shift);
+            this.base = base;
+            this.shift = shift;
+        }
+
+        @Override
+        public Area getArea (double above,
+                             double below)
+        {
+            return base.getArea(above + shift, below + shift);
+        }
+
+        @Override
+        public int getLeftAbscissa ()
+        {
+            return base.getLeftAbscissa();
+        }
+
+        @Override
+        public int getRightAbscissa ()
+        {
+            return base.getRightAbscissa();
+        }
+
+        @Override
+        public double yAt (double x)
+        {
+            return base.yAt(x) + shift;
+        }
+
+        @Override
+        public int yAt (int x)
+        {
+            return base.yAt(x) + shift;
         }
     }
 }
