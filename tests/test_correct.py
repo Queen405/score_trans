@@ -169,6 +169,68 @@ def test_apply_deletions_removes_notation_marks_without_deleting_notes_or_siblin
     assert wedge_direction.find("sound") is None
 
 
+def test_deleted_augmentation_dot_is_removed_from_jianpu_and_duration() -> None:
+    xml = """<score-partwise><part><measure>
+      <attributes><divisions>2</divisions></attributes>
+      <note id="st__n-s1-i1__ad-s1-i2"><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>3</duration><type>quarter</type><dot/></note>
+    </measure></part></score-partwise>"""
+    entity = replace(
+        _entity("dot", "augmentation-dot", "ad-s1-i2"),
+        shape="AUGMENTATION_DOT",
+    )
+
+    corrected = apply_deletions(xml, ["dot"], {"dot": entity})
+
+    assert "<dot" not in corrected
+    assert "<duration>2</duration>" in corrected
+    assert "." not in musicxml_to_jianpu(corrected).splitlines()[-1]
+
+
+def test_deleted_slur_dynamic_and_articulation_disappear_from_jianpu() -> None:
+    xml = """<score-partwise><part><measure>
+      <attributes><divisions>1</divisions></attributes>
+      <direction id="st__dy-s1-i1"><direction-type><dynamics><f/></dynamics></direction-type></direction>
+      <note id="st__n-s1-i2__ss-s1-i4__ar-s1-i5"><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><type>quarter</type><notations><slur type="start"/><articulations><staccato/></articulations></notations></note>
+      <note id="st__n-s1-i3__se-s1-i4"><pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration><type>quarter</type><notations><slur type="stop"/></notations></note>
+    </measure></part></score-partwise>"""
+    entities = {
+        "slur": replace(_entity("slur", "slur", "s-s1-i4"), shape="SLUR_ABOVE"),
+        "dynamic": replace(_entity("dynamic", "dynamic", "dy-s1-i1"), shape="DYNAMICS_F"),
+        "articulation": replace(
+            _entity("articulation", "articulation", "ar-s1-i5"),
+            shape="STACCATO",
+        ),
+    }
+
+    corrected = apply_deletions(xml, list(entities), entities)
+    text = musicxml_to_jianpu(corrected).splitlines()[-1]
+
+    assert "\\f" not in text
+    assert "^." not in text
+    assert "(" not in text and ")" not in text
+
+
+def test_deleted_tuplet_removes_timing_modification_from_jianpu() -> None:
+    xml = """<score-partwise><part><measure>
+      <attributes><divisions>3</divisions></attributes>
+      <note id="st__n-s1-i1__tu-s1-i9"><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><type>eighth</type>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>
+        <notations><tuplet type="start"/></notations></note>
+      <note id="st__n-s1-i2__tu-s1-i9"><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><type>eighth</type>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>
+        <notations><tuplet type="stop"/></notations></note>
+    </measure></part></score-partwise>"""
+    entity = replace(_entity("tuplet", "tuplet", "tu-s1-i9"), shape="TUPLET_THREE")
+
+    corrected = apply_deletions(xml, ["tuplet"], {"tuplet": entity})
+
+    assert "<time-modification>" not in corrected
+    assert "<tuplet" not in corrected
+
+
 def test_correction_request_accepts_empty_deleted_source_ids() -> None:
     """B 方案：允许提交空删除列表（语义=不删除任何标记，用于恢复全部）。"""
     request = CorrectionRequest(

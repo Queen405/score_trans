@@ -1690,8 +1690,12 @@ def _locator_matches(element_id: str, locator: str) -> bool:
         return True
     if locator.startswith(("s-", "t-")):
         suffix = locator[2:]
-        prefix = "t" if locator.startswith("t-") else "s"
-        return f"{prefix}s-{suffix}" in segments or f"{prefix}e-{suffix}" in segments
+        prefixes = ("s", "t") if locator.startswith("s-") else ("t",)
+        return any(
+            f"{prefix}{side}-{suffix}" in segments
+            for prefix in prefixes
+            for side in ("s", "e")
+        )
     return False
 
 
@@ -1829,8 +1833,17 @@ def _remove_notation_mark(root: ET.Element, ns: str, entity: CorrectableEntity) 
 
     if tag in {"slur", "tie", "tuplet"}:
         notes = _matching_notes(root, ns, entity)
+        if tag == "tuplet":
+            _remove_tuplet_marks(root, ns, notes)
+            return
+        locator_suffix = entity.musicxml_locator[2:]
         is_tie = tag == "tie" or (
-            tag == "slur" and entity.musicxml_locator.startswith("t-")
+            tag == "slur"
+            and any(
+                segment in {f"ts-{locator_suffix}", f"te-{locator_suffix}"}
+                for target in targets
+                for segment in target.get(entity.musicxml_attribute, "").split("__")
+            )
         )
         names = {
             "slur": ("tie", "tied") if is_tie else ("slur",),
@@ -1855,6 +1868,7 @@ def _remove_notation_mark(root: ET.Element, ns: str, entity: CorrectableEntity) 
             dot = note.find(_q(ns, "dot"))
             if dot is not None:
                 note.remove(dot)
+                _rescale_duration_after_dot_removal(root, ns, note)
                 return
         logger.warning("跳过无法定位的附点标记：%s", entity.source_id)
         return
@@ -1960,6 +1974,79 @@ def _remove_notation_mark(root: ET.Element, ns: str, entity: CorrectableEntity) 
                         owner.remove(sound)
     if not changed:
         logger.warning("跳过无法定位的%s标记：%s", tag, entity.source_id)
+
+
+def _rescale_duration_after_dot_removal(
+    root: ET.Element,
+    ns: str,
+    note: ET.Element,
+) -> None:
+    """Keep MusicXML duration consistent after removing a rhythm dot.
+
+    Audiveris writes the expanded duration (for example ``3`` for a dotted
+    quarter with divisions ``2``). Removing only ``<dot/>`` would therefore
+    still make the Jianpu parser infer a dotted value from the duration.
+    Rescale the whole chord column from the old dot multiplier to the new one.
+    """
+    old_dots = len(note.findall(_q(ns, "dot"))) + 1
+    old_multiplier = Fraction(2, 1) - Fraction(1, 2**old_dots)
+    new_dots = max(0, old_dots - 1)
+    new_multiplier = (
+        Fraction(1, 1) if new_dots == 0 else Fraction(2, 1) - Fraction(1, 2**new_dots)
+    )
+    if old_multiplier == 0 or new_multiplier == old_multiplier:
+        return
+    for chord_note in _chord_notes(root, ns, note):
+        duration = chord_note.find(_q(ns, "duration"))
+        if duration is None:
+            continue
+        try:
+            current = Fraction(int((duration.text or "0").strip()), 1)
+        except ValueError:
+            continue
+        base = current / old_multiplier
+        updated = base * new_multiplier
+        duration.text = str(max(1, round(float(updated))))
+
+
+def _remove_tuplet_marks(
+    root: ET.Element,
+    ns: str,
+    matched_notes: list[ET.Element],
+) -> None:
+    """Remove a tuplet's printed notation and timing modifier as one unit."""
+    changed = False
+    for note in matched_notes:
+        notations = note.find(_q(ns, "notations"))
+        if notations is not None:
+            for mark in list(notations.findall(_q(ns, "tuplet"))):
+                notations.remove(mark)
+                changed = True
+
+    measures: list[ET.Element] = []
+    for note in matched_notes:
+        measure = _ancestor(root, note, _q(ns, "measure"))
+        if measure is not None and measure not in measures:
+            measures.append(measure)
+    for measure in measures:
+        notes = list(measure.findall(_q(ns, "note")))
+        indices = [index for index, note in enumerate(notes) if note in matched_notes]
+        if not indices:
+            continue
+        reference = matched_notes[0]
+        voice = reference.findtext(_q(ns, "voice"))
+        staff = reference.findtext(_q(ns, "staff"))
+        for note in notes[min(indices) : max(indices) + 1]:
+            if note.findtext(_q(ns, "voice")) != voice:
+                continue
+            if note.findtext(_q(ns, "staff")) != staff:
+                continue
+            modifier = note.find(_q(ns, "time-modification"))
+            if modifier is not None:
+                note.remove(modifier)
+                changed = True
+    if not changed:
+        logger.warning("跳过无法定位的连音标记")
 
 
 def _delete_attribute_element(
