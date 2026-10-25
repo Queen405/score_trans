@@ -2206,9 +2206,17 @@ async function loadEntities(): Promise<void> {
  */
 function selectCandidate(sourceId: string, shape: string): void {
   if (applying.value) return
-  const candidate = selectedEntityCandidates.value.find((item) => item.shape === shape)
   const isCurrentEntity = selectedEntity.value?.source_id === sourceId
   const isCurrentGlyph = selectedGlyph.value?.glyph_id === sourceId
+  // 未识别 glyph 使用独立的候选集合。之前这里始终查找
+  // selectedEntityCandidates，导致 glyph 面板里的按钮看得见但点击后
+  // candidate 为 undefined，函数直接返回，选择既不会暂存也不会写回。
+  const candidate = (isCurrentEntity
+    ? selectedEntityCandidates.value
+    : isCurrentGlyph
+      ? selectedGlyphCandidates.value
+      : []
+  ).find((item) => item.shape === shape)
   if (!candidate || (!isCurrentEntity && !isCurrentGlyph)) return
   if (candidateSelections.value[sourceId] === shape) return
   candidateSelections.value = { ...candidateSelections.value, [sourceId]: shape }
