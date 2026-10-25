@@ -112,6 +112,63 @@ def test_apply_deletions_targets_exact_structural_elements() -> None:
     assert _pitch(notes["note-stop"]) == ("D", 3)
 
 
+def test_apply_deletions_removes_notation_marks_without_deleting_notes_or_siblings() -> (
+    None
+):
+    xml = """<score-partwise><part><measure>
+      <note id="st__dot__slur__ts-s1-i42__art__orn__fermata__bow__finger__arpeggio">
+        <pitch><step>C</step><octave>4</octave></pitch><duration>6</duration><type>quarter</type><dot/>
+        <tie type="start"/><notations><tied type="start"/><slur type="start"/>
+          <articulations><staccato/><accent/></articulations>
+          <ornaments><trill-mark/></ornaments><fermata/><arpeggiate/>
+          <technical><up-bow/><fingering>1</fingering></technical></notations>
+      </note>
+      <direction id="st__direction-dynamic"><direction-type><dynamics><f/></dynamics><words>dolce</words></direction-type></direction>
+      <direction id="st__direction-wedge"><direction-type><wedge type="crescendo"/></direction-type><sound dynamics="70"/></direction>
+    </measure></part></score-partwise>"""
+    specs = {
+        "dot": ("augmentation-dot", "dot", "AUGMENTATION_DOT"),
+        "slur": ("slur", "slur", "SLUR_ABOVE"),
+        "tie": ("slur", "t-s1-i42", "SLUR"),
+        "art": ("articulation", "art", "STACCATO"),
+        "orn": ("ornament", "orn", "TR"),
+        "fermata": ("fermata", "fermata", "FERMATA"),
+        "bow": ("bow", "bow", "BOW_UP"),
+        "finger": ("fingering", "finger", "DIGIT_1"),
+        "arpeggio": ("arpeggiato", "arpeggio", "ARPEGGIATO"),
+        "direction-dynamic": ("dynamics", "direction-dynamic", "DYNAMICS_F"),
+        "direction-wedge": ("wedge", "direction-wedge", "CRESCENDO"),
+    }
+    entities = {
+        key: replace(_entity(key, tag, locator), shape=shape)
+        for key, (tag, locator, shape) in specs.items()
+    }
+
+    corrected = ET.fromstring(apply_deletions(xml, list(entities), entities))
+
+    note = corrected.find(".//note")
+    assert note is not None and note.find("pitch") is not None
+    assert note.find("dot") is None
+    assert note.find("tie") is None
+    assert note.find("notations/tied") is None
+    assert note.find("notations/slur") is None
+    assert note.find("notations/articulations/staccato") is None
+    assert note.find("notations/articulations/accent") is not None
+    assert note.find("notations/ornaments/trill-mark") is None
+    assert note.find("notations/fermata") is None
+    assert note.find("notations/arpeggiate") is None
+    assert note.find("notations/technical/up-bow") is None
+    assert note.find("notations/technical/fingering") is None
+    dynamic_direction = corrected.find(".//direction[@id='st__direction-dynamic']")
+    assert dynamic_direction is not None
+    assert dynamic_direction.find(".//dynamics") is None
+    assert dynamic_direction.find(".//words").text == "dolce"
+    wedge_direction = corrected.find(".//direction[@id='st__direction-wedge']")
+    assert wedge_direction is not None
+    assert wedge_direction.find(".//wedge") is None
+    assert wedge_direction.find("sound") is None
+
+
 def test_correction_request_accepts_empty_deleted_source_ids() -> None:
     """B 方案：允许提交空删除列表（语义=不删除任何标记，用于恢复全部）。"""
     request = CorrectionRequest(
@@ -704,7 +761,9 @@ def test_deleting_unrecognized_glyph_is_valid_and_does_not_insert_it() -> None:
     xml = '<score-partwise><part><measure number="1" /></part></score-partwise>'
 
     assert ET.tostring(
-        ET.fromstring(apply_deletions(xml, [glyph.glyph_id], {}, {glyph.glyph_id: glyph}))
+        ET.fromstring(
+            apply_deletions(xml, [glyph.glyph_id], {}, {glyph.glyph_id: glyph})
+        )
     ) == ET.tostring(ET.fromstring(xml))
     with pytest.raises(ValueError, match="无法定位待删除标记"):
         apply_deletions(xml, ["s1:g404"], {}, {glyph.glyph_id: glyph})
@@ -1600,8 +1659,8 @@ def test_chord_member_inherits_dotted_duration() -> None:
     assert inserted.findtext("type") == "quarter"
 
 
-def test_chord_member_type_follows_head(monkeypatch, caplog) -> None:
-    """候选时值与和弦头不同时以和弦头为准，并给出告警。"""
+def test_chord_member_type_updates_chord_to_selected_candidate() -> None:
+    """候选时值与和弦头不同时，简谱应体现用户选择的候选时值。"""
     corrected = _apply_chord_case(
         _CHORD_XML,
         {
@@ -1618,8 +1677,10 @@ def test_chord_member_type_follows_head(monkeypatch, caplog) -> None:
         if (note.get("id") or "").startswith("st__n-s1-g7")
     ][0]
     assert inserted.find("chord") is not None
-    assert inserted.findtext("type") == "quarter"
-    assert inserted.findtext("duration") == "4"
+    assert inserted.findtext("type") == "half"
+    assert inserted.findtext("duration") == "8"
+    assert corrected.findtext(".//measure/note/type") == "half"
+    assert corrected.findtext(".//measure/note/duration") == "8"
 
 
 def test_duplicate_pitch_member_is_skipped() -> None:

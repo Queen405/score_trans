@@ -9,6 +9,7 @@ from score_trans.domain.musicxml import (
     musicxml_to_scores,
     score_to_jianpu_text,
 )
+from score_trans.domain.write.jianpu_text import scores_to_jianpu_document
 from score_trans.domain.write.musicxml import scores_to_musicxml
 from score_trans.models.score import (
     Event,
@@ -65,6 +66,27 @@ def test_convert_does_not_resolve_or_call_ocr_when_setting_is_disabled(
 
     assert response.jianpu_text == "1=C\n4/4\n1 |"
     assert converter.image_path is None
+
+
+def test_musicxml_parser_restores_probe_source_id_with_coordinate_suffix() -> None:
+    """虚拟漏检音符的 p<x>-<y> ID 必须回到简谱锚点。"""
+    xml = """
+    <score-partwise>
+      <part id="P1"><measure number="1">
+        <attributes><divisions>4</divisions></attributes>
+        <note id="st__n-s1-p827-377">
+          <pitch><step>C</step><octave>4</octave></pitch>
+          <duration>4</duration><type>quarter</type>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    document = scores_to_jianpu_document([score])
+
+    assert score.measures[0].events[0].pitches[0].source_id == "s1:p827-377"
+    assert any(anchor.source_id == "s1:p827-377" for anchor in document.anchors)
 
 
 def test_convert_skips_pdf_ocr_input_even_when_setting_is_enabled(tmp_path) -> None:

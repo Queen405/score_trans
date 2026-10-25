@@ -73,6 +73,7 @@
             <RecognitionSymbol
               :shape="item.shape"
               :background="false"
+              fit
               :style="{ width: '100%', height: '100%', color: 'var(--success)', opacity: 1 }"
             />
           </svg>

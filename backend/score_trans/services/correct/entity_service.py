@@ -12,11 +12,37 @@ STRUCTURAL_TAGS: frozenset[str] = frozenset(
     {"clef", "time-whole", "time-custom", "key"}
 )
 
-# Only expose entities for which the MusicXML patcher has a precise, tested
-# operation. Removing a stem, beam or slur by deleting its entire note was both
-# surprising and rhythmically destructive.
+# Only expose entities for which the MusicXML patcher has a precise operation.
+# Marks such as ties/slurs are removed from their MusicXML notation nodes; they
+# must never be implemented by deleting the note that carries them.
 DELETABLE_TAGS: frozenset[str] = frozenset(
-    {"clef", "time-whole", "time-custom", "key", "head", "rest", "alter"}
+    {
+        "clef",
+        "time-whole",
+        "time-custom",
+        "key",
+        "head",
+        "rest",
+        "alter",
+        "dynamics",
+        "dynamic",
+        "articulation",
+        "ornament",
+        "fermata",
+        "pause",
+        "breath-mark",
+        "caesura",
+        "slur",
+        "tie",
+        "tuplet",
+        "fingering",
+        "plucking",
+        "bow",
+        "arpeggiato",
+        "augmentation-dot",
+        "wedge",
+        "pedal",
+    }
 )
 CANDIDATE_TAGS: frozenset[str] = frozenset(
     {

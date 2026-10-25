@@ -54,6 +54,27 @@ def apply_deletions(
             _remove_note(root, ns, entity)
         elif entity.tag == "alter":
             _remove_accidental(root, ns, entity)
+        elif entity.tag in {
+            "dynamics",
+            "dynamic",
+            "articulation",
+            "ornament",
+            "fermata",
+            "pause",
+            "breath-mark",
+            "caesura",
+            "slur",
+            "tie",
+            "tuplet",
+            "fingering",
+            "plucking",
+            "bow",
+            "arpeggiato",
+            "augmentation-dot",
+            "wedge",
+            "pedal",
+        }:
+            _remove_notation_mark(root, ns, entity)
         else:  # Defensive: entity_service must never expose unsupported tags.
             raise ValueError(f"不支持删除的标记类型：{entity.tag}")
 
@@ -754,7 +775,12 @@ def _append_chord_member(
     column: _Column,
     note: ET.Element,
 ) -> bool:
-    """把新音符作为和弦成员追加到组尾之后；时值/类型/声部跟随和弦头。"""
+    """把新音符作为和弦成员追加到组尾之后。
+
+    候选选择属于识别层修正：用户选择的音符头时值应反映到生成的简谱。
+    因此遇到和弦头时值不一致时，沿用用户选择的 ``note`` 时值同步整个
+    和弦列，而不是静默改回和弦头并给出误导性的“已按和弦头写入”警告。
+    """
     head = column.head
     if _same_pitch_in_column(root, ns, column, note):
         logger.warning(
@@ -763,27 +789,27 @@ def _append_chord_member(
         )
         return False
 
-    head_duration = (head.findtext(_q(ns, "duration")) or "").strip()
-    if head_duration.isdigit() and int(head_duration) > 0:
-        duration = note.find(_q(ns, "duration"))
-        if duration is not None:
-            duration.text = head_duration
-
-    head_type = (head.findtext(_q(ns, "type")) or "").strip()
-    if head_type:
+    selected_type = (note.findtext(_q(ns, "type")) or "").strip()
+    if selected_type:
+        # MusicXML 的和弦成员共享 onset；为让简谱文本体现用户选择的
+        # 候选时值，同步这一列的所有 note。这里不做小节节拍校验，语法
+        # 检查仍由右侧编辑器负责。
+        for chord_note in _chord_notes(root, ns, head):
+            current_type = (chord_note.findtext(_q(ns, "type")) or "").strip()
+            if current_type and current_type != selected_type:
+                _replace_note_type_and_duration(
+                    chord_note, ns, current_type, selected_type
+                )
+        head_duration = (head.findtext(_q(ns, "duration")) or "").strip()
+        if head_duration.isdigit() and int(head_duration) > 0:
+            duration = note.find(_q(ns, "duration"))
+            if duration is not None:
+                duration.text = head_duration
         type_element = note.find(_q(ns, "type"))
         if type_element is None:
             type_element = ET.Element(_q(ns, "type"))
             note.append(type_element)
-        previous_type = (type_element.text or "").strip()
-        if previous_type and previous_type != head_type:
-            logger.warning(
-                "未识别音符 %s 的候选时值 %s 与和弦头 %s 不一致，已按和弦头写入",
-                note.get("id", "?"),
-                previous_type,
-                head_type,
-            )
-        type_element.text = head_type
+        type_element.text = selected_type
 
     _sync_note_text_from(ns, note, head, "voice", _NOTE_VOICE_SUCCESSORS)
     _sync_note_text_from(ns, note, head, "staff", _NOTE_STAFF_SUCCESSORS)
@@ -1662,9 +1688,10 @@ def _locator_matches(element_id: str, locator: str) -> bool:
         segment in {f"{locator}-start", f"{locator}-stop"} for segment in segments
     ):
         return True
-    if locator.startswith("s-"):
+    if locator.startswith(("s-", "t-")):
         suffix = locator[2:]
-        return f"ss-{suffix}" in segments or f"se-{suffix}" in segments
+        prefix = "t" if locator.startswith("t-") else "s"
+        return f"{prefix}s-{suffix}" in segments or f"{prefix}e-{suffix}" in segments
     return False
 
 
@@ -1788,6 +1815,151 @@ def _remove_accidental(root: ET.Element, ns: str, entity: CorrectableEntity) -> 
     alter = pitch.find(_q(ns, "alter")) if pitch is not None else None
     if pitch is not None and alter is not None:
         pitch.remove(alter)
+
+
+def _remove_notation_mark(root: ET.Element, ns: str, entity: CorrectableEntity) -> None:
+    """Remove only the MusicXML mark represented by an OMR entity.
+
+    Source ids for note-attached marks are carried by their enclosing note;
+    direction marks carry them on the direction itself. Keep sibling marks,
+    note content, and direction text intact.
+    """
+    tag = entity.tag
+    targets = _matching_elements(root, entity)
+
+    if tag in {"slur", "tie", "tuplet"}:
+        notes = _matching_notes(root, ns, entity)
+        is_tie = tag == "tie" or (
+            tag == "slur" and entity.musicxml_locator.startswith("t-")
+        )
+        names = {
+            "slur": ("tie", "tied") if is_tie else ("slur",),
+            "tie": ("tie", "tied"),
+            "tuplet": ("tuplet",),
+        }[tag]
+        changed = False
+        for note in notes:
+            notations = note.find(_q(ns, "notations"))
+            for container in (note, notations) if notations is not None else (note,):
+                for name in names:
+                    for mark in list(container.findall(_q(ns, name))):
+                        container.remove(mark)
+                        changed = True
+        if not changed:
+            logger.warning("跳过无法定位的%s标记：%s", tag, entity.source_id)
+        return
+
+    if tag == "augmentation-dot":
+        notes = _matching_notes(root, ns, entity)
+        for note in notes:
+            dot = note.find(_q(ns, "dot"))
+            if dot is not None:
+                note.remove(dot)
+                return
+        logger.warning("跳过无法定位的附点标记：%s", entity.source_id)
+        return
+
+    # Map Audiveris Inter types to the MusicXML leaf that encodes the same mark.
+    shape = entity.shape.upper()
+    shape_to_leaf = {
+        "STACCATO": (("articulations",), "staccato"),
+        "STACCATO_BELOW": (("articulations",), "staccato"),
+        "STACCATISSIMO": (("articulations",), "staccatissimo"),
+        "ACCENT": (("articulations",), "accent"),
+        "STRONG_ACCENT": (("articulations",), "strong-accent"),
+        "TENUTO": (("articulations",), "tenuto"),
+        "MARCATO": (("articulations",), "strong-accent"),
+        "MARCATO_BELOW": (("articulations",), "strong-accent"),
+        "TR": (("ornaments",), "trill-mark"),
+        "MORDENT": (("ornaments",), "mordent"),
+        "MORDENT_INVERTED": (("ornaments",), "inverted-mordent"),
+        "TURN": (("ornaments",), "turn"),
+        "TURN_INVERTED": (("ornaments",), "inverted-turn"),
+        "TURN_UP": (("ornaments",), "turn"),
+        "TURN_SLASH": (("ornaments",), "turn"),
+        "BREATH_MARK": (("articulations",), "breath-mark"),
+        "CAESURA": (("articulations",), "caesura"),
+        "FERMATA": (("notations",), "fermata"),
+        "FERMATA_BELOW": (("notations",), "fermata"),
+        "ARPEGGIATO": (("notations",), "arpeggiate"),
+        "BOW_UP": (("technical",), "up-bow"),
+        "BOW_DOWN": (("technical",), "down-bow"),
+        "PLUCK_P": (("technical",), "pluck"),
+        "PLUCK_I": (("technical",), "pluck"),
+        "PLUCK_M": (("technical",), "pluck"),
+        "PLUCK_A": (("technical",), "pluck"),
+        "PEDAL_MARK": (("direction-type",), "pedal"),
+        "PEDAL_UP_MARK": (("direction-type",), "pedal"),
+    }
+    if tag in {"dynamics", "dynamic"}:
+        containers, leaf = ("direction-type",), "dynamics"
+    elif tag == "fingering":
+        containers, leaf = ("technical",), "fingering"
+    elif tag == "plucking":
+        containers, leaf = ("technical",), "pluck"
+    elif tag == "wedge":
+        containers, leaf = ("direction-type",), "wedge"
+    elif tag == "pedal":
+        containers, leaf = ("direction-type",), "pedal"
+    elif tag == "fermata":
+        containers, leaf = ("notations",), "fermata"
+    elif tag in {"pause", "breath-mark", "caesura"}:
+        containers = ("articulations",)
+        leaf = "caesura" if "CAESURA" in shape else "breath-mark"
+    elif tag == "arpeggiato":
+        containers, leaf = ("notations",), "arpeggiate"
+    else:
+        containers, leaf = shape_to_leaf.get(shape, ((), ""))
+        if not containers:
+            logger.warning("暂不支持删除%s标记：%s", tag, entity.source_id)
+            return
+
+    changed = False
+    for target in targets:
+        # For direction-based entities target is normally the direction itself;
+        # for note-based marks it is the note id or a nested element.
+        owners = [target]
+        note = _ancestor(root, target, _q(ns, "note"))
+        direction = _ancestor(root, target, _q(ns, "direction"))
+        if note is not None:
+            owners = [note]
+        elif direction is not None:
+            owners = [direction]
+        for owner in owners:
+            for container_name in containers:
+                containers_found = (
+                    [owner]
+                    if _local_name(owner.tag) == container_name
+                    else list(owner.iter(_q(ns, container_name)))
+                )
+                for container in containers_found:
+                    for mark in list(container.findall(_q(ns, leaf))):
+                        container.remove(mark)
+                        changed = True
+            if tag in {"dynamics", "dynamic"}:
+                for direction_type in list(owner.findall(_q(ns, "direction-type"))):
+                    if not list(direction_type):
+                        owner.remove(direction_type)
+                if _local_name(owner.tag) == "direction":
+                    sound = owner.find(_q(ns, "sound"))
+                    if sound is not None:
+                        sound.attrib.pop("dynamics", None)
+                        if not sound.attrib:
+                            owner.remove(sound)
+            if tag == "pedal" and _local_name(owner.tag) == "direction":
+                sound = owner.find(_q(ns, "sound"))
+                if sound is not None:
+                    sound.attrib.pop("damper-pedal", None)
+                    if not sound.attrib:
+                        owner.remove(sound)
+            if tag == "wedge" and _local_name(owner.tag) == "direction":
+                sound = owner.find(_q(ns, "sound"))
+                if sound is not None:
+                    sound.attrib.pop("dynamics", None)
+                    if not sound.attrib:
+                        owner.remove(sound)
+    if not changed:
+        logger.warning("跳过无法定位的%s标记：%s", tag, entity.source_id)
 
 
 def _delete_attribute_element(

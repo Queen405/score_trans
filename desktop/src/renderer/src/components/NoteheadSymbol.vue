@@ -1,7 +1,7 @@
 <template>
   <svg
     class="notehead-symbol"
-    :class="{ 'transparent-hollow': !background }"
+    :class="{ 'transparent-hollow': !background, fit }"
     viewBox="0 0 32 24"
     aria-hidden="true"
   >
@@ -68,8 +68,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = withDefaults(defineProps<{ shape: string; background?: boolean }>(), {
+const props = withDefaults(defineProps<{
+  shape: string
+  background?: boolean
+  fit?: boolean
+}>(), {
   background: true,
+  fit: false,
 })
 const kind = computed(() => {
   if (props.shape.includes('REST')) {
@@ -92,6 +97,11 @@ const filled = computed(() => /BLACK|FILLED/.test(props.shape))
   height: 24px;
   overflow: visible;
   color: currentColor;
+}
+
+.notehead-symbol.fit {
+  width: 100%;
+  height: 100%;
 }
 
 ellipse,

@@ -48,10 +48,14 @@ from ..xml_utils import (
     _text,
 )
 
-# 插入的音符来自未识别字形，其 MusicXML id 形如 ``st__n-s1-g7``，
-# 因此 inter 段允许 i（Audiveris Inter）和 g（Glyph）两种来源。
+# 插入的音符来自未识别字形，其 MusicXML id 形如
+# ``st__n-s1-g7`` 或 ``st__n-s1-p827-377``。后者是导出阶段为
+# “虚拟音符头扫描位置”生成的稳定定位 ID，不能按纯数字 inter ID 解析。
+# 因此 note provenance 同时允许 Audiveris inter（i）、glyph（g）和
+# probe/window（p）三种来源。
 _PROVENANCE_PART_RE = re.compile(
-    r"(?:^|__)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-(?P<kind>[ig])(?P<inter>\d+)"
+    r"(?:^|__)(?P<role>[a-z]+)\d*-s(?P<sheet>\d+)-"
+    r"(?P<token>(?:[ig]\d+|p\d+-\d+))"
 )
 logger = logging.getLogger(__name__)
 
@@ -1089,9 +1093,7 @@ def _note_provenance(note: ET.Element) -> dict[str, list[str]]:
     xml_id = note.get("id") or ""
     for match in _PROVENANCE_PART_RE.finditer(xml_id):
         role = _source_role(match.group("role"))
-        source_id = (
-            f"s{match.group('sheet')}:{match.group('kind')}{match.group('inter')}"
-        )
+        source_id = f"s{match.group('sheet')}:{match.group('token')}"
         result.setdefault(role, []).append(source_id)
     return result
 

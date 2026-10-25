@@ -87,7 +87,10 @@
         >
           <span class="candidate-row__rank">{{ index + 1 }}</span>
           <span class="candidate-row__glyph">
-            <RecognitionSymbol :shape="candidate.shape" />
+            <RecognitionSymbol
+              :shape="candidate.shape"
+              fit
+            />
           </span>
           <span class="candidate-row__text">
             <span class="candidate-row__label-line">
