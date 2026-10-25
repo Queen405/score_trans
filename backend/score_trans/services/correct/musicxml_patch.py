@@ -1936,7 +1936,11 @@ def _remove_notation_mark(root: ET.Element, ns: str, entity: CorrectableEntity) 
         note = _ancestor(root, target, _q(ns, "note"))
         direction = _ancestor(root, target, _q(ns, "direction"))
         if note is not None:
-            owners = [note]
+            if tag in {"dynamics", "dynamic"}:
+                dynamic_direction = _direction_for_note(root, ns, note)
+                owners = [dynamic_direction] if dynamic_direction is not None else []
+            else:
+                owners = [note]
         elif direction is not None:
             owners = [direction]
         for owner in owners:
@@ -1974,6 +1978,35 @@ def _remove_notation_mark(root: ET.Element, ns: str, entity: CorrectableEntity) 
                         owner.remove(sound)
     if not changed:
         logger.warning("跳过无法定位的%s标记：%s", tag, entity.source_id)
+
+
+def _direction_for_note(
+    root: ET.Element,
+    ns: str,
+    note: ET.Element,
+) -> ET.Element | None:
+    """Resolve Audiveris' id-less dynamic direction from its linked note.
+
+    Audiveris stores the dynamic Inter source id on the note provenance, but
+    its current MusicXML exporter does not set an id on the generated
+    ``<direction>``. The direction is emitted immediately before its linked
+    note, so select the nearest preceding direction that actually contains a
+    ``<dynamics>`` element.
+    """
+    measure = _ancestor(root, note, _q(ns, "measure"))
+    if measure is None:
+        return None
+    children = list(measure)
+    try:
+        note_index = children.index(note)
+    except ValueError:
+        return None
+    for sibling in reversed(children[:note_index]):
+        if sibling.tag == _q(ns, "direction") and sibling.find(
+            f"{_q(ns, 'direction-type')}/{_q(ns, 'dynamics')}"
+        ) is not None:
+            return sibling
+    return None
 
 
 def _rescale_duration_after_dot_removal(

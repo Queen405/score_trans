@@ -24,8 +24,10 @@ from score_trans.services.correct.correction_service import (
     _document_title,
 )
 from score_trans.services.correct.entity_service import (
+    CANDIDATE_TAGS,
     CorrectableEntity,
     CorrectableGlyph,
+    DELETABLE_TAGS,
     _candidates_for_family,
     _rank_candidates,
     extract_entities,
@@ -213,6 +215,29 @@ def test_deleted_slur_dynamic_and_articulation_disappear_from_jianpu() -> None:
     assert "(" not in text and ")" not in text
 
 
+@pytest.mark.parametrize("dynamic", ["p", "pp", "mp", "mf", "f", "ff", "sfz"])
+def test_delete_unidentified_musicxml_dynamic_linked_through_note_id(
+    dynamic: str,
+) -> None:
+    # Audiveris exports dynamics without a direction id and stores their source
+    # id in the associated note's provenance id instead.
+    xml = f"""<score-partwise><part><measure>
+      <attributes><divisions>1</divisions></attributes>
+      <direction><direction-type><dynamics><{dynamic}/></dynamics></direction-type></direction>
+      <note id="st__n-s1-i1__dy-s1-i9"><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
+    </measure></part></score-partwise>"""
+    entity = replace(
+        _entity("dynamic", "dynamic", "dy-s1-i9"),
+        shape=f"DYNAMICS_{dynamic.upper()}",
+    )
+
+    corrected = apply_deletions(xml, ["dynamic"], {"dynamic": entity})
+    text = musicxml_to_jianpu(corrected)
+
+    assert f"\\{dynamic}" not in text
+    assert "<dynamics" not in corrected
+
+
 def test_deleted_tuplet_removes_timing_modification_from_jianpu() -> None:
     xml = """<score-partwise><part><measure>
       <attributes><divisions>3</divisions></attributes>
@@ -240,6 +265,10 @@ def test_correction_request_accepts_empty_deleted_source_ids() -> None:
         deleted_source_ids=[],
     )
     assert request.deleted_source_ids == []
+
+
+def test_every_exposed_correctable_entity_is_left_click_deletable() -> None:
+    assert CANDIDATE_TAGS <= DELETABLE_TAGS
 
 
 def test_candidate_ranking_normalizes_audiveris_inter_grades() -> None:

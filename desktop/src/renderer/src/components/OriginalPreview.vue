@@ -461,9 +461,11 @@ function handleSourceClick(sourceId: string, event: Event): void {
   if (props.editable) {
     editorVisible.value = false
     const entity = props.entities?.find((item) => item.source_id === sourceId)
-    if (entity?.can_delete) {
+    if (entity) {
       // 左键只切换删除状态：选中态是蓝色实线，会和「已删除」的红色虚线抢同一轮廓，
-      // 导致用户点完看到的是蓝色而不是已删除。查看候选走右键。
+      // 导致用户点完看到的是蓝色而不是已删除。实体列表只包含后端支持精确 MusicXML
+      // patch 的类型，因此不要再用可选 DTO 字段 can_delete 二次拦截左键。
+      // 旧版/缓存 API 响应中的 can_delete=false 曾让很多合法标记看得到却点不掉。
       emit('toggleDelete', sourceId)
     }
     return
