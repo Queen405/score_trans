@@ -18,7 +18,13 @@
     viewBox="0 0 48 36"
     aria-hidden="true"
   >
-    <text x="24" y="27" text-anchor="middle">{{ smuflCharacter || symbol }}</text>
+    <text
+      ref="glyphText"
+      x="24"
+      y="27"
+      text-anchor="middle"
+      :transform="glyphCenterTransform"
+    >{{ smuflCharacter || symbol }}</text>
   </svg>
   <NoteheadSymbol
     v-else
@@ -28,20 +34,53 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import NoteheadSymbol from './NoteheadSymbol.vue'
+
+type GlyphText = {
+  getBBox: () => { x: number; y: number; width: number; height: number }
+}
 
 const props = withDefaults(defineProps<{
   shape: string
   background?: boolean
   /** Fill the supplied SVG bounds when used as an image replacement. */
   fit?: boolean
+  /** Center the painted font glyph, rather than its baseline, inside the SVG. */
+  center?: boolean
 }>(), {
   background: true,
   fit: false,
+  center: false,
 })
 
-const usesNotehead = computed(() => /NOTEHEAD|WHOLE_NOTE|REST/.test(props.shape))
+const glyphText = ref<GlyphText | null>(null)
+const glyphCenterTransform = ref('')
+
+const usesNotehead = computed(() => /NOTEHEAD|WHOLE_NOTE/.test(props.shape))
+
+function scheduleGlyphCentering(): void {
+  void nextTick(() => {
+    const text = glyphText.value
+    if (!props.center || !text) {
+      glyphCenterTransform.value = ''
+      return
+    }
+    const bounds = text.getBBox()
+    if (!bounds.width || !bounds.height) return
+    const dx = 24 - (bounds.x + bounds.width / 2)
+    const dy = 18 - (bounds.y + bounds.height / 2)
+    glyphCenterTransform.value = `translate(${dx.toFixed(3)} ${dy.toFixed(3)})`
+  })
+}
+
+watch(() => [props.shape, props.center], scheduleGlyphCentering)
+
+onMounted(() => {
+  scheduleGlyphCentering()
+  // Re-measure once Bravura is available; fallback fonts have different bounds.
+  void document.fonts.ready.then(scheduleGlyphCentering)
+})
 // Keep the candidate preview in the same SMuFL/Bravura glyph system as the
 // Audiveris overlay. The previous fallback drew noteheads with hand-built
 // ellipses and musical text with unrelated Unicode glyphs, which made a

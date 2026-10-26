@@ -528,9 +528,10 @@ test('marker edit mode keeps the original overlay and clicks semantic hit paths 
   assert.match(convertSource, /<MarkerInspector[\s\S]*?:candidates="selectedEntityCandidates"/)
   assert.match(convertSource, /<MarkerInspector[\s\S]*?:candidates="selectedGlyphCandidates"/)
   assert.match(markerInspectorSource, /<RecognitionSymbol\s+:shape="candidate\.shape"/)
-  // 候选项必须同时给出可读名称与分数条，不能只靠字形图标区分
-  assert.match(markerInspectorSource, /class="candidate-row__label"/)
-  assert.match(markerInspectorSource, /class="candidate-row__meter"/)
+  // 简洁候选列表保留可读的无障碍名称、置信度与明确的选中状态
+  assert.match(markerInspectorSource, /:aria-label="`\$\{index \+ 1\}\. \$\{labelFor\(candidate\.shape\)\}, \$\{formatScorePercent\(candidate\.score\)\}`"/)
+  assert.match(markerInspectorSource, /class="candidate-row__score"/)
+  assert.match(markerInspectorSource, /class="candidate-row__check"/)
   assert.match(shapeDescriptorSource, /export function shapeVariantKey/)
   assert.match(shapeDescriptorSource, /export function candidateMatchesTag/)
   assert.match(convertSource, /candidateMatchesTag\(candidate\.shape, entity\.tag, entity\.shape\)/)

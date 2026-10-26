@@ -1,7 +1,6 @@
 <template>
   <section
     class="marker-inspector"
-    :class="[`marker-inspector--${mode}`]"
     role="dialog"
     :aria-label="title"
   >
@@ -10,23 +9,21 @@
         <RecognitionSymbol
           :shape="displayShape"
           :background="false"
+          fit
+          center
         />
       </span>
 
       <span class="marker-inspector__identity">
-        <span class="marker-inspector__title-line">
-          <span class="marker-inspector__title">{{ title }}</span>
-          <span
-            v-if="variantLabel"
-            class="marker-inspector__variant"
-          >{{ variantLabel }}</span>
-        </span>
-        <span class="marker-inspector__subtitle">{{ subtitle }}</span>
+        <span class="marker-inspector__title">{{ title }}</span>
+        <span class="marker-inspector__subtitle">{{ scoreLabel }}</span>
       </span>
 
-      <span class="marker-inspector__score">
-        <span class="marker-inspector__score-value">{{ currentPercent }}</span>
-        <span class="marker-inspector__score-label">{{ scoreLabel }}</span>
+      <span
+        v-if="hasCurrentScore"
+        class="marker-inspector__score"
+      >
+        {{ currentPercent }}
       </span>
 
       <button
@@ -53,19 +50,7 @@
       </button>
     </header>
 
-    <p
-      v-if="mode === 'glyph'"
-      class="marker-inspector__notice"
-    >
-      {{ t('convert.marker.suspiciousNotice') }}
-    </p>
-
     <div class="marker-inspector__body">
-      <div class="marker-inspector__section">
-        <span class="marker-inspector__section-label">{{ t('convert.marker.topCandidates') }}</span>
-        <span class="marker-inspector__section-count">{{ candidates.length }}</span>
-      </div>
-
       <div
         v-if="candidates.length"
         class="marker-inspector__list"
@@ -74,14 +59,11 @@
           v-for="(candidate, index) in candidates"
           :key="`${candidate.score_kind}:${candidate.shape}`"
           class="candidate-row"
-          :class="{
-            'is-selected': candidate.shape === selectedShape,
-            'is-current': candidate.shape === originalShape,
-            'is-weak': isLowConfidence(candidate.score),
-          }"
+          :class="{ 'is-selected': candidate.shape === selectedShape }"
           type="button"
           :disabled="disabled"
-          :title="`${candidate.shape} · ${formatScorePercent(candidate.score)} · ${candidate.score_kind}`"
+          :title="`${labelFor(candidate.shape)} · ${formatScorePercent(candidate.score)}`"
+          :aria-label="`${index + 1}. ${labelFor(candidate.shape)}, ${formatScorePercent(candidate.score)}`"
           :aria-pressed="candidate.shape === selectedShape"
           @click="emit('select', candidate.shape)"
         >
@@ -90,21 +72,27 @@
             <RecognitionSymbol
               :shape="candidate.shape"
               fit
+              center
             />
           </span>
-          <span class="candidate-row__text">
-            <span class="candidate-row__label-line">
-              <span class="candidate-row__label">{{ labelFor(candidate.shape) }}</span>
-              <span
-                v-if="candidate.shape === originalShape"
-                class="candidate-row__tag"
-              >{{ t('convert.marker.currentTag') }}</span>
-            </span>
-            <span class="candidate-row__meter">
-              <i :style="{ width: meterWidth(candidate.score) }" />
-            </span>
-          </span>
           <span class="candidate-row__score">{{ formatScorePercent(candidate.score) }}</span>
+          <svg
+            v-if="candidate.shape === selectedShape"
+            class="candidate-row__check"
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            aria-hidden="true"
+          >
+            <path
+              d="m3.5 8.2 2.8 2.8 6.2-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </button>
       </div>
 
@@ -115,32 +103,6 @@
         {{ t('convert.marker.noTopFive') }}
       </p>
     </div>
-
-    <footer class="marker-inspector__foot">
-      <svg
-        class="marker-inspector__foot-icon"
-        viewBox="0 0 16 16"
-        width="12"
-        height="12"
-        aria-hidden="true"
-      >
-        <circle
-          cx="8"
-          cy="8"
-          r="6.2"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.3"
-        />
-        <path
-          d="M8 7.2v4M8 4.9v.9"
-          stroke="currentColor"
-          stroke-width="1.4"
-          stroke-linecap="round"
-        />
-      </svg>
-      <span>{{ footHint }}</span>
-    </footer>
   </section>
 </template>
 
@@ -151,7 +113,6 @@ import { t } from '../i18n'
 import {
   familyFromTag,
   formatScorePercent,
-  isLowConfidence,
   shapeClefOctave,
   shapeFamily,
   shapeVariantKey,
@@ -193,14 +154,6 @@ const title = computed(() => {
   return t(`convert.marker.family.${family}`)
 })
 
-const subtitle = computed(() => (
-  props.mode === 'glyph'
-    ? t('convert.marker.glyphSubtitle')
-    : t('convert.marker.inspector')
-))
-
-const variantLabel = computed(() => variantText(props.shape))
-
 const hasCurrentScore = computed(() => {
   const value = Number(props.currentScore)
   if (!Number.isFinite(value)) return false
@@ -216,12 +169,6 @@ const scoreLabel = computed(() => (
   hasCurrentScore.value
     ? t('convert.marker.currentScore')
     : t('convert.marker.notRecognized')
-))
-
-const footHint = computed(() => (
-  props.mode === 'glyph'
-    ? t('convert.marker.glyphApplyHint')
-    : t('convert.marker.applySelectionHint')
 ))
 
 function variantText(shape: string | null | undefined): string {
@@ -243,12 +190,6 @@ function labelFor(shape: string): string {
   if (/_BELOW$/i.test(shape)) return `${base} · ${t('convert.marker.variant.below')}`
   return base
 }
-
-function meterWidth(score: number): string {
-  const value = Number(score)
-  if (!Number.isFinite(value)) return '0%'
-  return `${Math.max(0, Math.min(1, value)) * 100}%`
-}
 </script>
 
 <style scoped>
@@ -258,400 +199,207 @@ function meterWidth(score: number): string {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-elevated);
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 2%, var(--bg-elevated));
   color: var(--text-primary);
-  box-shadow:
-    0 18px 40px -12px rgba(16, 20, 30, 0.28),
-    0 4px 12px -4px rgba(16, 20, 30, 0.16),
-    0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: 0 10px 30px rgba(23, 27, 36, 0.14), 0 2px 8px rgba(23, 27, 36, 0.08);
   pointer-events: auto;
 }
 
 .marker-inspector__head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto 24px;
   align-items: center;
-  gap: 10px;
-  padding: 11px 11px 10px 12px;
-  border-bottom: 1px solid var(--border-light);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--accent) 7%, var(--bg-elevated)),
-      var(--bg-elevated)
-    );
-}
-
-.marker-inspector--glyph .marker-inspector__head {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--warning) 12%, var(--bg-elevated)),
-      var(--bg-elevated)
-    );
+  gap: 8px;
+  padding: 10px 10px 9px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 8%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-elevated));
 }
 
 .marker-inspector__chip {
-  flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
-  color: var(--accent);
-}
-
-.marker-inspector--glyph .marker-inspector__chip {
-  border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
-  background: color-mix(in srgb, var(--warning) 12%, var(--bg-elevated));
-  color: color-mix(in srgb, var(--warning) 88%, var(--text-primary));
+  color: var(--text-primary);
 }
 
 .marker-inspector__chip :deep(svg) {
-  width: 26px;
-  height: 20px;
+  width: 30px;
+  height: 26px;
+  overflow: visible;
 }
 
 .marker-inspector__identity {
   min-width: 0;
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
-.marker-inspector__title-line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
+.marker-inspector__title,
+.marker-inspector__subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .marker-inspector__title {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 12.5px;
-  font-weight: 650;
-  letter-spacing: 0.1px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.marker-inspector__variant {
-  flex: 0 0 auto;
-  padding: 1px 6px;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.5;
-}
-
-.marker-inspector--glyph .marker-inspector__variant {
-  background: color-mix(in srgb, var(--warning) 16%, transparent);
-  color: color-mix(in srgb, var(--warning) 70%, var(--text-primary));
+  line-height: 1.35;
 }
 
 .marker-inspector__subtitle {
-  overflow: hidden;
   color: var(--text-tertiary);
   font-size: 10.5px;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
 }
 
 .marker-inspector__score {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-  padding-right: 2px;
-}
-
-.marker-inspector__score-value {
-  color: var(--accent);
-  font-size: 16px;
-  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  line-height: 1.05;
-}
-
-.marker-inspector--glyph .marker-inspector__score-value {
-  color: color-mix(in srgb, var(--warning) 80%, var(--text-primary));
-}
-
-.marker-inspector__score-label {
-  color: var(--text-tertiary);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
 }
 
 .marker-inspector__close {
-  flex: 0 0 auto;
   width: 24px;
   height: 24px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .marker-inspector__close:hover {
-  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
   color: var(--text-primary);
 }
 
 .marker-inspector__close:focus-visible,
 .candidate-row:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.marker-inspector__notice {
-  margin: 0;
-  padding: 7px 12px;
-  border-bottom: 1px solid var(--border-light);
-  background: color-mix(in srgb, var(--warning) 7%, var(--bg-elevated));
-  color: color-mix(in srgb, var(--warning) 60%, var(--text-secondary));
-  font-size: 10.5px;
-  line-height: 1.45;
+  outline-offset: -2px;
 }
 
 .marker-inspector__body {
   min-height: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
   overflow-y: auto;
-  padding: 10px 10px 11px;
-}
-
-.marker-inspector__section {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2px;
-}
-
-.marker-inspector__section-label {
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-
-.marker-inspector__section-count {
-  min-width: 16px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  color: var(--text-secondary);
-  font-size: 9.5px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 15px;
-  text-align: center;
+  padding: 7px;
+  background: color-mix(in srgb, var(--accent) 2%, var(--bg-surface));
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-primary) 18%, transparent) transparent;
 }
 
 .marker-inspector__list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .candidate-row {
-  display: flex;
+  width: 100%;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 18px minmax(32px, 1fr) auto 14px;
   align-items: center;
-  gap: 8px;
-  padding: 6px 7px 6px 6px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
-  color: var(--text-secondary);
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 3%, var(--bg-elevated));
+  color: var(--text-primary);
   text-align: left;
   cursor: pointer;
-  transition:
-    background 0.14s ease,
-    border-color 0.14s ease,
-    box-shadow 0.14s ease;
+  transition: background 120ms ease;
 }
 
 .candidate-row:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+.candidate-row:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .candidate-row:disabled {
   cursor: default;
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
-.candidate-row.is-selected {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 9%, var(--bg-elevated));
-  box-shadow: inset 2px 0 0 var(--accent);
+.candidate-row.is-selected,
+.candidate-row.is-selected:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+  background: var(--accent-light);
 }
 
 .candidate-row__rank {
-  flex: 0 0 auto;
-  width: 17px;
-  height: 17px;
-  display: grid;
-  place-items: center;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
   color: var(--text-tertiary);
-  font-size: 9.5px;
-  font-weight: 700;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
-  transition: background 0.14s ease, color 0.14s ease;
-}
-
-.candidate-row.is-selected .candidate-row__rank {
-  background: var(--accent);
-  color: #fff;
+  text-align: center;
 }
 
 .candidate-row__glyph {
-  flex: 0 0 auto;
-  width: 26px;
-  height: 22px;
+  width: 100%;
+  height: 24px;
   display: grid;
   place-items: center;
-  color: var(--text-primary);
 }
 
 .candidate-row__glyph :deep(svg) {
-  width: 26px;
-  height: 20px;
+  width: 28px;
+  max-width: 100%;
+  height: 22px;
+  overflow: visible;
 }
 
-.candidate-row__text {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.candidate-row__label-line {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.candidate-row__label {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.candidate-row.is-weak .candidate-row__label {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.candidate-row__tag {
-  flex: 0 0 auto;
-  padding: 0 4px;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-  border-radius: 4px;
-  color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
-  font-size: 8.5px;
-  font-weight: 600;
-  line-height: 13px;
-}
-
-.candidate-row__meter {
-  position: relative;
-  display: block;
-  height: 3px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
-}
-
-.candidate-row__meter i {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-  opacity: 0.85;
-  transition: width 0.22s ease;
-}
-
-.candidate-row.is-weak .candidate-row__meter i {
-  background: var(--text-tertiary);
-  opacity: 0.7;
+.candidate-row__glyph :deep(text) {
+  font-size: 22px;
 }
 
 .candidate-row__score {
-  flex: 0 0 auto;
-  min-width: 34px;
+  min-width: 40px;
   color: var(--text-secondary);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
 .candidate-row.is-selected .candidate-row__score {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.candidate-row.is-weak .candidate-row__score {
-  color: var(--text-tertiary);
-  font-weight: 500;
+.candidate-row__check {
+  color: var(--accent);
 }
 
 .marker-inspector__empty {
   margin: 0;
-  padding: 14px 10px;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
+  padding: 18px 12px;
   color: var(--text-tertiary);
-  font-size: 10.5px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.6;
   text-align: center;
 }
 
-.marker-inspector__foot {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 8px 12px 9px;
-  border-top: 1px solid var(--border-light);
-  background: color-mix(in srgb, var(--text-primary) 2.5%, var(--bg-elevated));
-  color: var(--text-tertiary);
-  font-size: 10px;
-  line-height: 1.45;
+:global(.theme-dark) .marker-inspector {
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
 }
 
-.marker-inspector__foot-icon {
-  flex: 0 0 auto;
-  margin-top: 1px;
-  opacity: 0.75;
+@media (prefers-reduced-motion: reduce) {
+  .marker-inspector__close,
+  .candidate-row {
+    transition: none;
+  }
 }
 </style>

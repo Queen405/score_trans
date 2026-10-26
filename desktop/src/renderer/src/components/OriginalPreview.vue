@@ -656,7 +656,7 @@ onUnmounted(() => {
 .marker-editor-anchor {
   position: absolute;
   z-index: 30;
-  width: min(318px, calc(100% - 16px));
+  width: min(256px, calc(100% - 16px));
   max-height: calc(100% - 20px);
   pointer-events: none;
 }
