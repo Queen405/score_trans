@@ -11,19 +11,27 @@
           :background="false"
           fit
           center
+          normalize
         />
       </span>
 
       <span class="marker-inspector__identity">
-        <span class="marker-inspector__title">{{ title }}</span>
-        <span class="marker-inspector__subtitle">{{ scoreLabel }}</span>
+        <span
+          class="marker-inspector__title"
+          :title="title"
+        >{{ title }}</span>
+        <span
+          v-if="!hasCurrentScore"
+          class="marker-inspector__subtitle"
+        >{{ scoreLabel }}</span>
       </span>
 
       <span
         v-if="hasCurrentScore"
         class="marker-inspector__score"
       >
-        {{ currentPercent }}
+        <span class="marker-inspector__score-label">{{ scoreLabel }}</span>
+        <span class="marker-inspector__score-value">{{ currentPercent }}</span>
       </span>
 
       <button
@@ -73,6 +81,7 @@
               :shape="candidate.shape"
               fit
               center
+              normalize
             />
           </span>
           <span class="candidate-row__score">{{ formatScorePercent(candidate.score) }}</span>
@@ -111,7 +120,6 @@ import { computed } from 'vue'
 import RecognitionSymbol from './RecognitionSymbol.vue'
 import { t } from '../i18n'
 import {
-  familyFromTag,
   formatScorePercent,
   shapeClefOctave,
   shapeFamily,
@@ -149,9 +157,10 @@ const emit = defineEmits<{
 const displayShape = computed(() => props.selectedShape || props.shape || 'UNKNOWN')
 
 const title = computed(() => {
-  if (props.mode === 'glyph') return t('convert.marker.suspiciousGlyph')
-  const family = familyFromTag(props.tag, props.shape)
-  return t(`convert.marker.family.${family}`)
+  if (props.mode === 'glyph' && !props.selectedShape) {
+    return t('convert.marker.suspiciousGlyph')
+  }
+  return labelFor(displayShape.value)
 })
 
 const hasCurrentScore = computed(() => {
@@ -227,7 +236,7 @@ function labelFor(shape: string): string {
 
 .marker-inspector__chip :deep(svg) {
   width: 30px;
-  height: 26px;
+  height: 30px;
   overflow: visible;
 }
 
@@ -258,6 +267,18 @@ function labelFor(shape: string): string {
 }
 
 .marker-inspector__score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.marker-inspector__score-label {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+.marker-inspector__score-value {
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
@@ -267,6 +288,7 @@ function labelFor(shape: string): string {
 .marker-inspector__close {
   width: 24px;
   height: 24px;
+  grid-column: 4;
   display: grid;
   place-items: center;
   padding: 0;
@@ -306,7 +328,7 @@ function labelFor(shape: string): string {
 
 .candidate-row {
   width: 100%;
-  min-height: 40px;
+  min-height: 46px;
   display: grid;
   grid-template-columns: 18px minmax(32px, 1fr) auto 14px;
   align-items: center;
@@ -349,15 +371,15 @@ function labelFor(shape: string): string {
 
 .candidate-row__glyph {
   width: 100%;
-  height: 24px;
+  height: 32px;
   display: grid;
   place-items: center;
 }
 
 .candidate-row__glyph :deep(svg) {
-  width: 28px;
+  width: 30px;
   max-width: 100%;
-  height: 22px;
+  height: 30px;
   overflow: visible;
 }
 

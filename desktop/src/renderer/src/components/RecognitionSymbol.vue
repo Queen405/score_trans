@@ -2,29 +2,38 @@
   <svg
     v-if="usesNotehead && fit"
     class="recognition-symbol recognition-symbol--fit"
-    viewBox="0 0 32 24"
+    :viewBox="glyphViewBox"
     aria-hidden="true"
   >
-    <NoteheadSymbol
-      :shape="shape"
-      :background="background"
-      fit
-    />
+    <g
+      ref="paintedGlyph"
+      :transform="glyphCenterTransform"
+    >
+      <NoteheadSymbol
+        :shape="shape"
+        :background="background"
+        fit
+      />
+    </g>
   </svg>
   <svg
     v-else-if="smuflCharacter || !usesNotehead"
     class="recognition-symbol"
     :class="{ 'recognition-symbol--fit': fit }"
-    viewBox="0 0 48 36"
+    :viewBox="glyphViewBox"
     aria-hidden="true"
   >
-    <text
-      ref="glyphText"
-      x="24"
-      y="27"
-      text-anchor="middle"
+    <g
+      ref="paintedGlyph"
       :transform="glyphCenterTransform"
-    >{{ smuflCharacter || symbol }}</text>
+    >
+      <text
+        ref="glyphText"
+        x="24"
+        y="27"
+        text-anchor="middle"
+      >{{ smuflCharacter || symbol }}</text>
+    </g>
   </svg>
   <NoteheadSymbol
     v-else
@@ -38,6 +47,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import NoteheadSymbol from './NoteheadSymbol.vue'
 
 type GlyphText = {
+  textContent: string | null
   getBBox: () => { x: number; y: number; width: number; height: number }
 }
 
@@ -48,38 +58,85 @@ const props = withDefaults(defineProps<{
   fit?: boolean
   /** Center the painted font glyph, rather than its baseline, inside the SVG. */
   center?: boolean
+  /** Scale each painted glyph independently to fill the available bounds. */
+  normalize?: boolean
 }>(), {
   background: true,
   fit: false,
   center: false,
+  normalize: false,
 })
 
+const paintedGlyph = ref<GlyphText | null>(null)
 const glyphText = ref<GlyphText | null>(null)
 const glyphCenterTransform = ref('')
 
 const usesNotehead = computed(() => /NOTEHEAD|WHOLE_NOTE/.test(props.shape))
+const baseViewBox = computed(() => (usesNotehead.value && props.fit ? '0 0 32 24' : '0 0 48 36'))
+const glyphViewBox = ref(baseViewBox.value)
 
-function scheduleGlyphCentering(): void {
+function paintedBounds(glyph: GlyphText): { x: number; y: number; width: number; height: number } {
+  const fallback = glyph.getBBox()
+  const text = glyphText.value
+  if (!text?.textContent) return fallback
+  const context = document.createElement('canvas').getContext('2d')
+  if (!context) return fallback
+  const style = window.getComputedStyle(text as unknown as HTMLElement)
+  context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  context.textAlign = 'center'
+  const metrics = context.measureText(text.textContent)
+  const width = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
+  const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
+  if (!width || !height) return fallback
+  return {
+    x: 24 - metrics.actualBoundingBoxLeft,
+    y: 27 - metrics.actualBoundingBoxAscent,
+    width,
+    height,
+  }
+}
+
+function scheduleGlyphLayout(): void {
   void nextTick(() => {
-    const text = glyphText.value
-    if (!props.center || !text) {
+    const glyph = paintedGlyph.value
+    if ((!props.center && !props.normalize) || !glyph) {
       glyphCenterTransform.value = ''
+      glyphViewBox.value = baseViewBox.value
       return
     }
-    const bounds = text.getBBox()
+    if (props.normalize && usesNotehead.value && props.fit) {
+      glyphCenterTransform.value = ''
+      glyphViewBox.value = '3 2 26 20'
+      return
+    }
+    const bounds = paintedBounds(glyph)
     if (!bounds.width || !bounds.height) return
-    const dx = 24 - (bounds.x + bounds.width / 2)
-    const dy = 18 - (bounds.y + bounds.height / 2)
+    if (props.normalize) {
+      const padding = Math.max(0.2, Math.max(bounds.width, bounds.height) * 0.03)
+      glyphCenterTransform.value = ''
+      glyphViewBox.value = [
+        bounds.x - padding,
+        bounds.y - padding,
+        bounds.width + padding * 2,
+        bounds.height + padding * 2,
+      ].join(' ')
+      return
+    }
+    glyphViewBox.value = baseViewBox.value
+    const centerX = usesNotehead.value && props.fit ? 16 : 24
+    const centerY = usesNotehead.value && props.fit ? 12 : 18
+    const dx = centerX - (bounds.x + bounds.width / 2)
+    const dy = centerY - (bounds.y + bounds.height / 2)
     glyphCenterTransform.value = `translate(${dx.toFixed(3)} ${dy.toFixed(3)})`
   })
 }
 
-watch(() => [props.shape, props.center], scheduleGlyphCentering)
+watch(() => [props.shape, props.center, props.normalize, props.fit], scheduleGlyphLayout)
 
 onMounted(() => {
-  scheduleGlyphCentering()
+  scheduleGlyphLayout()
   // Re-measure once Bravura is available; fallback fonts have different bounds.
-  void document.fonts.ready.then(scheduleGlyphCentering)
+  void document.fonts.ready.then(scheduleGlyphLayout)
 })
 // Keep the candidate preview in the same SMuFL/Bravura glyph system as the
 // Audiveris overlay. The previous fallback drew noteheads with hand-built

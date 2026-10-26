@@ -786,12 +786,33 @@ onUnmounted(() => {
 }
 
 .source-hit--glyph.selected {
-  fill: color-mix(in srgb, var(--warning) 15%, transparent);
+  fill: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .source-hit--glyph.selected + .source-hit-outline {
-  stroke: var(--warning);
-  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--warning) 40%, transparent));
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 40%, transparent));
+}
+
+/* 漏识别 Glyph 用黄色提示可疑状态；右键选中后与已识别标记一致。 */
+.source-hit-layer.editing .source-hit.source-hit--glyph:hover,
+.source-hit-layer.editing .source-hit.source-hit--glyph:focus-visible {
+  fill: color-mix(in srgb, var(--warning) 15%, transparent);
+}
+
+.source-hit-layer.editing .source-hit.source-hit--glyph:hover + .source-hit-outline,
+.source-hit-layer.editing .source-hit.source-hit--glyph:focus-visible + .source-hit-outline {
+  stroke: color-mix(in srgb, var(--warning) 82%, transparent);
+}
+
+/* 右键后的选中态优先于悬浮色，但已删除标记仍保持删除色。 */
+.source-hit-layer.editing .source-hit.selected:not(.source-hit--deleted) {
+  fill: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.source-hit-layer.editing .source-hit.selected:not(.source-hit--deleted) + .source-hit-outline {
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 40%, transparent));
 }
 
 .source-hit--disabled {

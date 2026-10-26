@@ -524,6 +524,8 @@ test('marker edit mode keeps the original overlay and clicks semantic hit paths 
   assert.match(originalPreviewSource, /@keydown\.enter\.prevent="selectSource\(element\.source_id, \$event\)"/)
   assert.match(originalPreviewSource, /class="marker-editor-anchor"/)
   assert.match(convertSource, /template #marker-editor/)
+  assert.match(originalPreviewSource, /\.source-hit-layer\.editing \.source-hit\.source-hit--glyph:hover[\s\S]*?var\(--warning\)/)
+  assert.match(originalPreviewSource, /\.source-hit-layer\.editing \.source-hit\.selected:not\(\.source-hit--deleted\)[\s\S]*?var\(--accent\)/)
   // 候选面板是独立组件：已识别标记与漏识别 glyph 共用同一套候选项渲染
   assert.match(convertSource, /<MarkerInspector[\s\S]*?:candidates="selectedEntityCandidates"/)
   assert.match(convertSource, /<MarkerInspector[\s\S]*?:candidates="selectedGlyphCandidates"/)
