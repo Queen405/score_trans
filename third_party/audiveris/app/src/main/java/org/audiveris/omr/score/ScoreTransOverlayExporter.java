@@ -5,6 +5,7 @@ import org.audiveris.omr.sheet.Sheet;
 import org.audiveris.omr.sheet.SheetStub;
 import org.audiveris.omr.sheet.SystemInfo;
 import org.audiveris.omr.sheet.Staff;
+import org.audiveris.omr.sheet.rhythm.Measure;
 import org.audiveris.omr.sheet.ui.SheetGradedPainter;
 import org.audiveris.omr.classifier.Evaluation;
 import org.audiveris.omr.classifier.ShapeClassifier;
@@ -96,7 +97,7 @@ public final class ScoreTransOverlayExporter
     {
         Files.createDirectories(outputDir);
         final StringBuilder json = new StringBuilder();
-        json.append("{\"version\":2,\"sheets\":[");
+        json.append("{\"version\":3,\"sheets\":[");
         boolean firstSheet = true;
 
         for (SheetStub stub : stubs) {
@@ -324,11 +325,45 @@ public final class ScoreTransOverlayExporter
                     .append("},\"hit_path\":\"").append(escape(svgPath(glyphArea(glyph))))
                     .append("\",\"suspicious\":true,\"tag\":\"unrecognized-head\"")
                     .append(",\"shape\":\"UNKNOWN\",\"grade\":0,\"shape_candidates\":")
-                    .append(candidateJson(candidates))
-                    .append('}');
+                    .append(candidateJson(candidates));
+            appendMeasureLocator(json, sheet, bounds);
+            json.append('}');
         }
         appendUnmatchedLocations(json, sheet);
         json.append(']');
+    }
+
+    /** Attach the exact MusicXML measure that contains a source location. */
+    private static void appendMeasureLocator (StringBuilder json,
+                                              Sheet sheet,
+                                              Rectangle bounds)
+    {
+        final Point2D center = new Point2D.Double(bounds.getCenterX(), bounds.getCenterY());
+        Staff closestStaff = null;
+        double closestDistance = Double.MAX_VALUE;
+        for (SystemInfo system : sheet.getSystems()) {
+            final Staff candidate = system.getClosestStaff(center);
+            if (candidate == null) continue;
+            final double distance = Math.abs(
+                    center.getY() - candidate.getFirstLine().yAt(center.getX()));
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestStaff = candidate;
+            }
+        }
+        if (closestStaff == null || closestStaff.getPart() == null) return;
+        final Measure measure = closestStaff.getPart().getMeasureAt(center, closestStaff);
+        if (measure == null || measure.getStack() == null
+                || closestStaff.getPart().getLogicalPart() == null) return;
+        final String number = measure.getStack().getScoreId(
+                measure.getStack().getSystem().getPage().getScore());
+        final String partId = closestStaff.getPart().getLogicalPart().getPid();
+        if (number == null || partId == null) return;
+        json.append(",\"measure\":{\"part_id\":\"")
+                .append(escape(partId))
+                .append("\",\"number\":\"")
+                .append(escape(number))
+                .append("\"}");
     }
 
     private record GlyphExportCandidate (
@@ -589,7 +624,9 @@ public final class ScoreTransOverlayExporter
                     .append(",\"shape\":\"UNKNOWN\",\"grade\":0,\"staff\":\"")
                     .append(staff.getId()).append("\",\"pitch\":")
                     .append(String.format(java.util.Locale.ROOT, "%.3f", pitch))
-                    .append(",\"shape_candidates\":").append(candidateJson(candidates)).append('}');
+                    .append(",\"shape_candidates\":").append(candidateJson(candidates));
+            appendMeasureLocator(json, sheet, bounds);
+            json.append('}');
             existing.add(bounds);
             acceptedLocations.add(point);
         }
@@ -680,7 +717,9 @@ public final class ScoreTransOverlayExporter
                 .append(xmlRole(inter))
                 .append("-")
                 .append(sourceId.replace(':', '-'))
-                .append("\"}}");
+                .append("\"}");
+        appendMeasureLocator(json, sheet, bounds);
+        json.append('}');
     }
 
     private static String candidateJson (Inter inter)

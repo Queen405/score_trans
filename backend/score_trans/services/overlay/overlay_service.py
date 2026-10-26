@@ -115,7 +115,7 @@ class OverlayService:
         except (OSError, ValueError, json.JSONDecodeError):
             logger.warning("Invalid Audiveris source map: %s", source_map_path)
             return None, None
-        if source_map.version not in {1, 2} or not source_map.sheets:
+        if source_map.version not in {1, 2, 3} or not source_map.sheets:
             return None, None
         sheet = source_map.sheets[0]
         output_root = output_dir.resolve()

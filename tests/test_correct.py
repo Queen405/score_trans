@@ -12,8 +12,10 @@ from score_trans.models.provenance.schemas import (
     BoundingBox,
     MusicXmlLocator,
     SourceElement,
+    SourceGlyph,
     SourceMap,
     SourceMapSheet,
+    SourceMeasureLocator,
     SourceTextAttachment,
     TextPlacementAnchor,
 )
@@ -31,6 +33,7 @@ from score_trans.services.correct.entity_service import (
     _candidates_for_family,
     _rank_candidates,
     extract_entities,
+    load_source_map,
 )
 from score_trans.services.correct.musicxml_patch import (
     apply_candidate_selections,
@@ -200,7 +203,9 @@ def test_deleted_slur_dynamic_and_articulation_disappear_from_jianpu() -> None:
     </measure></part></score-partwise>"""
     entities = {
         "slur": replace(_entity("slur", "slur", "s-s1-i4"), shape="SLUR_ABOVE"),
-        "dynamic": replace(_entity("dynamic", "dynamic", "dy-s1-i1"), shape="DYNAMICS_F"),
+        "dynamic": replace(
+            _entity("dynamic", "dynamic", "dy-s1-i1"), shape="DYNAMICS_F"
+        ),
         "articulation": replace(
             _entity("articulation", "articulation", "ar-s1-i5"),
             shape="STACCATO",
@@ -809,6 +814,8 @@ def test_unrecognized_notehead_candidate_inserts_note_at_glyph_position() -> Non
         grade=0,
         staff="2",
         pitch=-1,
+        part_id="P1",
+        measure_number="1",
     )
     xml = (
         '<score-partwise><part id="P1"><measure number="1">'
@@ -876,6 +883,8 @@ def test_unexported_musicxml_head_inter_is_inserted_when_candidate_is_selected()
         bounds=(30, 3, 12, 8),
         staff="1",
         pitch=-1,
+        part_id="P1",
+        measure_number="1",
         candidates=(
             ("NOTEHEAD_BLACK", 0.38, "audiveris_shape_classifier"),
             ("NOTEHEAD_VOID", 0.31, "audiveris_shape_classifier"),
@@ -1138,6 +1147,8 @@ def test_unexported_head_does_not_reuse_longer_numeric_id_match() -> None:
         bounds=(30, 3, 12, 8),
         staff="1",
         pitch=-1,
+        part_id="P1",
+        measure_number="1",
     )
     neighbor = replace(
         _entity("s1:i10", "head", "n-s1-i10", inter_id="10"),
@@ -1146,7 +1157,7 @@ def test_unexported_head_does_not_reuse_longer_numeric_id_match() -> None:
         staff="1",
         pitch=0,
     )
-    xml = """<score-partwise><part><measure><attributes><divisions>1</divisions></attributes>
+    xml = """<score-partwise><part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
       <note id="st__n-s1-i10"><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>
     </measure></part></score-partwise>"""
 
@@ -1481,8 +1492,10 @@ def test_offset_glyph_is_inserted_before_chord_head_without_joining_it() -> None
         grade=0.0,
         staff="1",
         pitch=0.0,
+        part_id="P1",
+        measure_number="1",
     )
-    xml = """<score-partwise><part><measure number="1">
+    xml = """<score-partwise><part id="P1"><measure number="1">
       <attributes><divisions>4</divisions></attributes>
       <note id="n-s1-i1"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
       <note id="n-s1-i2"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
@@ -1588,6 +1601,8 @@ def _glyph_at(
     staff: str = "1",
     shape: str = "NOTEHEAD_BLACK",
     tag: str = "unrecognized-head",
+    part_id: str | None = None,
+    measure_number: str | None = None,
 ) -> CorrectableGlyph:
     return CorrectableGlyph(
         glyph_id=glyph_id,
@@ -1599,10 +1614,12 @@ def _glyph_at(
         grade=0.0,
         staff=staff,
         pitch=pitch,
+        part_id=part_id,
+        measure_number=measure_number,
     )
 
 
-_CHORD_XML = """<score-partwise><part><measure number="1">
+_CHORD_XML = """<score-partwise><part id="P1"><measure number="1">
   <attributes><divisions>4</divisions></attributes>
   <note id="n-s1-i1"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
   <note id="n-s1-i2"><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
@@ -1678,7 +1695,11 @@ def test_glyph_beyond_tolerance_stays_independent_note() -> None:
             "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
             "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
         },
-        {"s1:g7": _glyph_at("s1:g7", x=120, pitch=-2.0)},
+        {
+            "s1:g7": _glyph_at(
+                "s1:g7", x=120, pitch=-2.0, part_id="P1", measure_number="1"
+            )
+        },
         {"s1:g7": "NOTEHEAD_BLACK"},
     )
 
@@ -1782,22 +1803,17 @@ def test_duplicate_pitch_member_is_skipped() -> None:
             "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
             "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
         },
-        {"s1:g7": _glyph_at("s1:g7", x=100, pitch=0.0)},
+        {
+            "s1:g7": _glyph_at(
+                "s1:g7", x=100, pitch=0.0, part_id="P1", measure_number="1"
+            )
+        },
         {"s1:g7": "NOTEHEAD_BLACK"},
     )
 
     notes = corrected.findall(".//measure/note")
-    inserted = [
-        note for note in notes if (note.get("id") or "").startswith("st__n-s1-g7")
-    ]
-    assert len(inserted) == 1
-    assert inserted[0].find("chord") is None
-    chord_pitches = [
-        (note.findtext("step"), note.findtext("octave"))
-        for note in notes
-        if note.find("chord") is not None
-    ]
-    assert chord_pitches == []
+    assert len(notes) == 2
+    assert all(not (note.get("id") or "").startswith("st__n-s1-g7") for note in notes)
 
 
 def test_rest_glyph_never_becomes_chord_member() -> None:
@@ -1844,3 +1860,199 @@ def test_unexported_head_merges_into_same_column_chord() -> None:
     ][0]
     assert inserted.find("chord") is not None
     assert notes.index(inserted) == 1
+
+
+def _all_missing_chord_fixture() -> tuple[
+    str, dict[str, CorrectableEntity], dict[str, CorrectableGlyph]
+]:
+    xml = """<score-partwise><part id="P1">
+      <measure number="27"><attributes><divisions>4</divisions><measure-style><multiple-rest>6</multiple-rest></measure-style></attributes>
+        <note print-object="no"><rest measure="yes"/><duration>8</duration></note></measure>
+      <measure number="28"><note print-object="no"><rest measure="yes"/><duration>8</duration></note></measure>
+      <measure number="29"><note print-object="no"><rest measure="yes"/><duration>8</duration></note></measure>
+      <measure number="30"><note print-object="no"><rest measure="yes"/><duration>8</duration></note></measure>
+      <measure number="31"><note print-object="no"><rest measure="yes"/><duration>8</duration></note></measure>
+      <measure number="32"><note print-object="no"><rest measure="yes"/><duration>8</duration></note></measure>
+      <measure number="33"><attributes><divisions>4</divisions></attributes>
+        <note id="n-s1-i1"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type><staff>1</staff></note></measure>
+    </part></score-partwise>"""
+    reference = replace(
+        _head_at("n-s1-i1", x=500, pitch=0.0),
+        staff="1",
+        part_id="P1",
+        measure_number="33",
+    )
+    glyphs = {
+        f"s1:g{index}": _glyph_at(
+            f"s1:g{index}",
+            x=100 + (1 if index % 2 else 0),
+            pitch=pitch,
+            part_id="P1",
+            measure_number="27",
+        )
+        for index, pitch in enumerate((4.0, 0.0, -2.0, -6.0), start=1)
+    }
+    return xml, {reference.source_id: reference}, glyphs
+
+
+def test_all_missing_same_column_notes_form_one_chord_in_located_measure() -> None:
+    xml, entities, glyphs = _all_missing_chord_fixture()
+    selections = {glyph_id: "NOTEHEAD_BLACK" for glyph_id in reversed(glyphs)}
+    corrected = apply_candidate_selections(xml, selections, entities, glyphs)
+    root = ET.fromstring(corrected)
+
+    target = root.find(".//part[@id='P1']/measure[@number='27']")
+    assert target is not None
+    notes = target.findall("note")
+    assert len(notes) == 4
+    assert [note.find("chord") is not None for note in notes] == [
+        False,
+        True,
+        True,
+        True,
+    ]
+    assert {note.findtext("voice") for note in notes} == {"1"}
+    assert len({note.findtext("duration") for note in notes}) == 1
+    assert target.find("note[@print-object='no']") is None
+    assert target.findtext("attributes/measure-style/multiple-rest") is None
+    assert (
+        root.findtext(".//measure[@number='28']/attributes/measure-style/multiple-rest")
+        == "5"
+    )
+    assert len(root.findall(".//measure[@number='33']/note")) == 1
+    assert any(
+        line.startswith("[") for line in musicxml_to_jianpu(corrected).splitlines()
+    )
+
+
+def test_all_missing_groups_stay_independent_and_order_is_stable() -> None:
+    xml, entities, glyphs = _all_missing_chord_fixture()
+    glyphs["s1:g2"] = replace(glyphs["s1:g2"], bounds=(200, 24, 12, 10))
+    glyphs["s1:g4"] = replace(glyphs["s1:g4"], bounds=(201, 24, 12, 10))
+    first = apply_candidate_selections(
+        xml, {key: "NOTEHEAD_BLACK" for key in glyphs}, entities, glyphs
+    )
+    second = apply_candidate_selections(
+        xml, {key: "NOTEHEAD_BLACK" for key in reversed(glyphs)}, entities, glyphs
+    )
+    assert musicxml_to_jianpu(first) == musicxml_to_jianpu(second)
+    for corrected in (first, second):
+        target = ET.fromstring(corrected).find(".//measure[@number='27']")
+        assert target is not None
+        notes = target.findall("note")
+        assert len(notes) == 4
+        assert [note.find("chord") is not None for note in notes] == [
+            False,
+            True,
+            False,
+            True,
+        ]
+
+
+def test_located_duplicate_pitch_is_not_written_or_reported_as_applied() -> None:
+    xml, entities, glyphs = _all_missing_chord_fixture()
+    glyphs["s1:g2"] = replace(glyphs["s1:g2"], pitch=4.0)
+    applied: dict[str, str] = {}
+    corrected = apply_candidate_selections(
+        xml,
+        {"s1:g1": "NOTEHEAD_BLACK", "s1:g2": "NOTEHEAD_BLACK"},
+        entities,
+        glyphs,
+        applied_out=applied,
+    )
+    assert applied == {"s1:g1": "NOTEHEAD_BLACK"}
+    assert len(ET.fromstring(corrected).findall(".//measure[@number='27']/note")) == 1
+
+
+def test_located_new_onset_in_multivoice_measure_is_safely_skipped() -> None:
+    xml = """<score-partwise><part id="P1"><measure number="1"><attributes><divisions>4</divisions></attributes>
+      <note id="n-s1-i1"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>
+      <backup><duration>4</duration></backup>
+      <note id="n-s1-i2"><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
+    </measure></part></score-partwise>"""
+    entities = {
+        "n-s1-i1": replace(_head_at("n-s1-i1", x=100, pitch=0.0), staff="1"),
+        "n-s1-i2": replace(_head_at("n-s1-i2", x=100, pitch=2.0), staff="1"),
+    }
+    glyph = _glyph_at("s1:g9", x=200, pitch=4.0, part_id="P1", measure_number="1")
+    applied: dict[str, str] = {}
+    corrected = apply_candidate_selections(
+        xml,
+        {"s1:g9": "NOTEHEAD_BLACK"},
+        entities,
+        {"s1:g9": glyph},
+        applied_out=applied,
+    )
+    assert applied == {}
+    assert len(ET.fromstring(corrected).findall(".//measure/note")) == 2
+    assert "s1-g9" not in corrected
+
+
+def test_new_chord_head_can_be_deleted_without_breaking_remaining_chord() -> None:
+    xml, entities, glyphs = _all_missing_chord_fixture()
+    corrected = apply_candidate_selections(
+        xml, {key: "NOTEHEAD_BLACK" for key in glyphs}, entities, glyphs
+    )
+    root = ET.fromstring(corrected)
+    first = root.find(".//measure[@number='27']/note")
+    assert first is not None
+    head_id = next(
+        key for key in glyphs if first.get("id") == f"st__n-{key.replace(':', '-')}"
+    )
+    inserted_entity = replace(
+        _head_at(head_id, x=100, pitch=glyphs[head_id].pitch or 0.0),
+        musicxml_locator=f"n-{head_id.replace(':', '-')}",
+        staff="1",
+    )
+    deleted = apply_deletions(
+        corrected, [head_id], {**entities, head_id: inserted_entity}, glyphs
+    )
+    notes = ET.fromstring(deleted).findall(".//measure[@number='27']/note")
+    assert len(notes) == 3
+    assert [note.find("chord") is not None for note in notes] == [False, True, True]
+
+
+def test_source_map_v3_measure_locator_is_loaded(tmp_path: Path) -> None:
+    source = SourceMap(
+        version=3,
+        sheets=[
+            SourceMapSheet(
+                sheet_index=1,
+                width=100,
+                height=100,
+                overlay_file="overlay.png",
+            )
+        ],
+    )
+    source.sheets[0].glyphs.append(
+        SourceGlyph(
+            glyph_id="s1:g1",
+            bounds=BoundingBox(x=10, y=10, width=10, height=10),
+            hit_path="M10 10h10v10z",
+            suspicious=True,
+            measure=SourceMeasureLocator(part_id="P1", number="27"),
+        )
+    )
+    path = tmp_path / "score-link-map.json"
+    path.write_text(source.model_dump_json(), encoding="utf-8")
+    loaded = load_source_map(path)
+    assert loaded.sheets[0].glyphs[0].measure == SourceMeasureLocator(
+        part_id="P1", number="27"
+    )
+
+
+def test_legacy_independent_insert_without_measure_is_not_guessed() -> None:
+    glyph = _glyph_at("s1:g7", x=300, pitch=0.0)
+    applied: dict[str, str] = {}
+    corrected = apply_candidate_selections(
+        _CHORD_XML,
+        {"s1:g7": "NOTEHEAD_BLACK"},
+        {
+            "n-s1-i1": _head_at("n-s1-i1", x=100, pitch=0.0),
+            "n-s1-i2": _head_at("n-s1-i2", x=200, pitch=4.0),
+        },
+        {"s1:g7": glyph},
+        applied_out=applied,
+    )
+    assert applied == {}
+    assert "st__n-s1-g7" not in corrected

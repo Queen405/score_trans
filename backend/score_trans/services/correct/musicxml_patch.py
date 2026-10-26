@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 import logging
+import re
 import statistics
 import xml.etree.ElementTree as ET
 from fractions import Fraction
@@ -105,6 +106,7 @@ def apply_candidate_selections(
     )
     ns = _detect_namespace(root)
     glyph_index = glyphs or {}
+    inserted_anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]] = []
     for source_id, selected_shape in selections.items():
         entity = entities.get(source_id)
         if entity is None:
@@ -114,17 +116,32 @@ def apply_candidate_selections(
             candidates = {shape for shape, _score, _kind in glyph.candidates}
             if selected_shape not in candidates:
                 raise ValueError(f"标记 {source_id} 不包含候选形状：{selected_shape}")
+            inserted = None
             if glyph.tag == "rest":
-                _insert_glyph_rest(root, ns, glyph, selected_shape, entities)
+                if not _insert_glyph_rest(
+                    root, ns, glyph, selected_shape, entities, inserted_anchors
+                ):
+                    continue
             else:
-                _insert_glyph_note(root, ns, glyph, selected_shape, entities)
+                inserted = _insert_glyph_note(
+                    root, ns, glyph, selected_shape, entities, inserted_anchors
+                )
+                if inserted is None:
+                    continue
+                inserted_anchors.append(inserted)
             applied[source_id] = selected_shape
             continue
         candidates = {shape for shape, _score, _kind in entity.candidates}
         if selected_shape not in candidates:
             raise ValueError(f"标记 {source_id} 不包含候选形状：{selected_shape}")
         if entity.tag in {"head", "rest"} and not _matching_elements(root, entity):
-            _insert_unexported_entity(root, ns, entity, selected_shape, entities)
+            inserted = _insert_unexported_entity(
+                root, ns, entity, selected_shape, entities, inserted_anchors
+            )
+            if isinstance(inserted, tuple):
+                inserted_anchors.append(inserted)
+            elif inserted is None or inserted is False:
+                continue
             applied[source_id] = selected_shape
             continue
         if _apply_entity_candidate(root, ns, entity, selected_shape, entities):
@@ -142,7 +159,8 @@ def _insert_unexported_entity(
     entity: CorrectableEntity,
     selected_shape: str,
     entities: Mapping[str, CorrectableEntity],
-) -> None:
+    inserted_anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]],
+) -> tuple[CorrectableEntity, ET.Element, ET.Element] | bool | None:
     """Add a source-map note/rest that Audiveris omitted from exported MusicXML."""
     glyph = CorrectableGlyph(
         glyph_id=entity.source_id,
@@ -155,11 +173,16 @@ def _insert_unexported_entity(
         inter_id=entity.inter_id,
         staff=entity.staff,
         pitch=entity.pitch,
+        part_id=entity.part_id,
+        measure_number=entity.measure_number,
     )
     if entity.tag == "rest":
-        _insert_glyph_rest(root, ns, glyph, selected_shape, entities)
-    else:
-        _insert_glyph_note(root, ns, glyph, selected_shape, entities)
+        return _insert_glyph_rest(
+            root, ns, glyph, selected_shape, entities, inserted_anchors
+        )
+    return _insert_glyph_note(
+        root, ns, glyph, selected_shape, entities, inserted_anchors
+    )
 
 
 def _apply_entity_candidate(
@@ -340,6 +363,9 @@ class _AnchorContext:
     glyph_x: float
     glyph_y: float
     tolerance: float
+    voice: str
+    staff: str
+    explicit_measure: bool = False
 
 
 # 二度叠置的和弦音会有约 0.6~1 个符头宽的横向错位，1.25 倍作为上限。
@@ -555,20 +581,80 @@ def _replace_augmentation_dot(
         )
 
 
+def _located_glyph_measure(
+    root: ET.Element, ns: str, glyph: CorrectableGlyph
+) -> ET.Element | None:
+    """Resolve the measure assigned by Audiveris, without geometric guessing."""
+    if glyph.measure_number is None:
+        return None
+    parts = root.findall(_q(ns, "part"))
+    if glyph.part_id is not None:
+        parts = [part for part in parts if part.get("id") == glyph.part_id]
+    elif len(parts) != 1:
+        raise ValueError(f"标记 {glyph.glyph_id} 缺少目标声部信息，请重新识别")
+    measures = [
+        measure
+        for part in parts
+        for measure in part.findall(_q(ns, "measure"))
+        if measure.get("number") == glyph.measure_number
+    ]
+    if len(measures) != 1:
+        raise ValueError(
+            f"标记 {glyph.glyph_id} 无法定位到小节 {glyph.measure_number}，"
+            "请重新识别后再应用"
+        )
+    return measures[0]
+
+
+def _inserted_glyph_anchor(
+    glyph: CorrectableGlyph, note: ET.Element, measure: ET.Element
+) -> tuple[CorrectableEntity, ET.Element, ET.Element]:
+    sheet_match = re.match(r"^s(\d+):", glyph.glyph_id)
+    entity = CorrectableEntity(
+        source_id=glyph.glyph_id,
+        inter_id=glyph.inter_id or glyph.glyph_id,
+        sheet_index=int(sheet_match.group(1)) if sheet_match else 1,
+        tag="head",
+        shape=glyph.shape,
+        grade=glyph.grade,
+        bounds=glyph.bounds,
+        is_structural=False,
+        musicxml_attribute="id",
+        musicxml_locator=f"n-{glyph.glyph_id.replace(':', '-')}",
+        hit_path=glyph.hit_path,
+        candidates=glyph.candidates,
+        staff=glyph.staff,
+        pitch=glyph.pitch,
+        part_id=glyph.part_id,
+        measure_number=glyph.measure_number,
+    )
+    return entity, note, measure
+
+
 def _insert_glyph_note(
     root: ET.Element,
     ns: str,
     glyph: CorrectableGlyph,
     selected_shape: str,
     entities: Mapping[str, CorrectableEntity],
-) -> None:
+    inserted_anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]],
+) -> tuple[CorrectableEntity, ET.Element, ET.Element] | None:
     note_type = _notehead_type(selected_shape)
     if note_type is None:
         raise ValueError(f"未识别符号暂不支持该候选：{selected_shape}")
     if glyph.staff is None or glyph.pitch is None:
         raise ValueError(f"无法确定未识别符号 {glyph.glyph_id} 所在的谱表音高")
 
-    context = _glyph_note_context(root, ns, glyph, entities, require_pitch=True)
+    located_measure = _located_glyph_measure(root, ns, glyph)
+    context = _glyph_note_context(
+        root,
+        ns,
+        glyph,
+        entities,
+        inserted_anchors,
+        require_pitch=True,
+        located_measure=located_measure,
+    )
     nearest_entity = context.nearest_entity
     nearest_note = context.nearest_note
     measure = context.measure
@@ -596,18 +682,22 @@ def _insert_glyph_note(
     ET.SubElement(note, _q(ns, "duration")).text = str(
         divisions * {"quarter": 1, "half": 2, "whole": 4}[note_type]
     )
-    voice = nearest_note.find(_q(ns, "voice"))
-    if voice is not None:
-        voice_copy = ET.SubElement(note, _q(ns, "voice"))
-        voice_copy.text = voice.text
+    ET.SubElement(note, _q(ns, "voice")).text = context.voice
     ET.SubElement(note, _q(ns, "type")).text = note_type
-    staff = nearest_note.find(_q(ns, "staff"))
-    if staff is not None:
-        ET.SubElement(note, _q(ns, "staff")).text = staff.text
+    ET.SubElement(note, _q(ns, "staff")).text = context.staff
 
-    _insert_note_at_glyph_position(
+    has_multiple_voices = any(
+        _local_name(child.tag) in {"backup", "forward"} for child in measure
+    )
+    if located_measure is not None and not has_multiple_voices:
+        _prepare_measure_for_pitch_insertion(root, ns, measure)
+    placement = _insert_note_at_glyph_position(
         root, ns, measure, note, context, merge_into_chord=True
     )
+    if placement.startswith("skipped"):
+        logger.warning("未写入无法安全定位的候选：%s", glyph.glyph_id)
+        return None
+    return _inserted_glyph_anchor(glyph, note, measure)
 
 
 def _insert_glyph_rest(
@@ -616,11 +706,20 @@ def _insert_glyph_rest(
     glyph: CorrectableGlyph,
     selected_shape: str,
     entities: Mapping[str, CorrectableEntity],
-) -> None:
+    inserted_anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]],
+) -> bool:
     note_type = _rest_type(selected_shape)
     if note_type is None:
         raise ValueError(f"未识别休止符暂不支持该候选：{selected_shape}")
-    context = _glyph_note_context(root, ns, glyph, entities, require_pitch=False)
+    context = _glyph_note_context(
+        root,
+        ns,
+        glyph,
+        entities,
+        inserted_anchors,
+        require_pitch=False,
+        located_measure=_located_glyph_measure(root, ns, glyph),
+    )
     nearest_note = context.nearest_note
     measure = context.measure
     divisions = _measure_divisions(root, ns, measure)
@@ -637,9 +736,13 @@ def _insert_glyph_rest(
     staff = nearest_note.find(_q(ns, "staff"))
     if staff is not None:
         ET.SubElement(note, _q(ns, "staff")).text = staff.text
-    _insert_note_at_glyph_position(
+    placement = _insert_note_at_glyph_position(
         root, ns, measure, note, context, merge_into_chord=False
     )
+    if placement.startswith("skipped"):
+        logger.warning("未写入无法安全定位的休止符候选：%s", glyph.glyph_id)
+        return False
+    return True
 
 
 def _glyph_note_context(
@@ -647,8 +750,10 @@ def _glyph_note_context(
     ns: str,
     glyph: CorrectableGlyph,
     entities: Mapping[str, CorrectableEntity],
+    inserted_anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]],
     *,
     require_pitch: bool,
+    located_measure: ET.Element | None = None,
 ) -> _AnchorContext:
     anchors: list[tuple[CorrectableEntity, ET.Element, ET.Element]] = []
     for entity in entities.values():
@@ -664,29 +769,39 @@ def _glyph_note_context(
         measure = _ancestor(root, note, _q(ns, "measure")) if note is not None else None
         if note is not None and measure is not None:
             anchors.append((entity, note, measure))
+    # Newly inserted heads are real anchors for subsequent selections. This is
+    # what lets a completely missed chord grow from its first inserted head.
+    for entity, note, measure in inserted_anchors:
+        if glyph.staff is not None and entity.staff != glyph.staff:
+            continue
+        if require_pitch and entity.pitch is None:
+            continue
+        if _ancestor(root, note, _q(ns, "measure")) is measure:
+            anchors.append((entity, note, measure))
     if not anchors:
         raise ValueError(f"附近没有可用于插入符号的已识别音符：{glyph.glyph_id}")
 
     gx, gy, gw, gh = glyph.bounds
     glyph_x = gx + gw / 2
     glyph_y = gy + gh / 2
-    nearest_entity, nearest_note, measure = min(
-        anchors,
-        key=lambda item: (
-            abs(item[0].bounds[0] + item[0].bounds[2] / 2 - glyph_x)
-            + abs(item[0].bounds[1] + item[0].bounds[3] / 2 - glyph_y) * 1.5
-        ),
-    )
+
+    def distance(item: tuple[CorrectableEntity, ET.Element, ET.Element]) -> float:
+        entity = item[0]
+        return (
+            abs(entity.bounds[0] + entity.bounds[2] / 2 - glyph_x)
+            + abs(entity.bounds[1] + entity.bounds[3] / 2 - glyph_y) * 1.5
+        )
+
+    nearest_entity, nearest_note, nearest_measure = min(anchors, key=distance)
+    measure = located_measure if located_measure is not None else nearest_measure
+    same_measure_anchors = [item for item in anchors if item[2] is measure]
 
     # 同一小节内的和弦列：以组首 entity 的中心为准，followers 的 bounds 可能有位移
     groups: dict[int, tuple[ET.Element, ET.Element, CorrectableEntity]] = {}
-    for entity, note, anchor_measure in anchors:
-        if anchor_measure is not measure:
-            continue
+    for entity, note, anchor_measure in same_measure_anchors:
         group = _chord_notes(root, ns, note)
         head, tail = group[0], group[-1]
         key = id(head)
-        # 优先用「组首本身对应的 entity」作为列中心
         if key not in groups or note is head:
             groups[key] = (head, tail, entity)
 
@@ -700,7 +815,17 @@ def _glyph_note_context(
         )
         for head, tail, entity in groups.values()
     ]
-    same_measure_anchors = [item for item in anchors if item[2] is measure]
+    local_reference = (
+        min(same_measure_anchors, key=distance)[1] if same_measure_anchors else None
+    )
+    voice = (
+        _xml_voice(ns, local_reference)
+        if local_reference is not None
+        else "1"
+        if located_measure is not None
+        else _xml_voice(ns, nearest_note)
+    )
+    staff = glyph.staff or (_xml_staff(ns, local_reference or nearest_note))
     return _AnchorContext(
         anchors=anchors,
         columns=columns,
@@ -710,7 +835,98 @@ def _glyph_note_context(
         glyph_x=glyph_x,
         glyph_y=glyph_y,
         tolerance=_column_tolerance(same_measure_anchors, columns),
+        voice=voice,
+        staff=staff,
+        explicit_measure=located_measure is not None,
     )
+
+
+def _is_hidden_measure_rest(ns: str, note: ET.Element) -> bool:
+    if note.get("print-object") != "no":
+        return False
+    rest = note.find(_q(ns, "rest"))
+    return rest is not None and rest.get("measure") == "yes"
+
+
+def _multiple_rest(measure: ET.Element, ns: str) -> ET.Element | None:
+    return measure.find(
+        f"{_q(ns, 'attributes')}/{_q(ns, 'measure-style')}/{_q(ns, 'multiple-rest')}"
+    )
+
+
+def _set_multiple_rest(measure: ET.Element, ns: str, count: int) -> None:
+    attributes = measure.find(_q(ns, "attributes"))
+    if attributes is None:
+        attributes = ET.Element(_q(ns, "attributes"))
+        measure.insert(0, attributes)
+    style = attributes.find(_q(ns, "measure-style"))
+    if style is None:
+        style = ET.SubElement(attributes, _q(ns, "measure-style"))
+    multiple = style.find(_q(ns, "multiple-rest"))
+    if count <= 1:
+        if multiple is not None:
+            style.remove(multiple)
+        if len(style) == 0:
+            attributes.remove(style)
+        if len(attributes) == 0:
+            measure.remove(attributes)
+        return
+    if multiple is None:
+        multiple = ET.SubElement(style, _q(ns, "multiple-rest"))
+    multiple.text = str(count)
+
+
+def _split_multiple_rest_for_insertion(
+    root: ET.Element, ns: str, measure: ET.Element
+) -> None:
+    part = _ancestor(root, measure, _q(ns, "part"))
+    if part is None:
+        return
+    measures = part.findall(_q(ns, "measure"))
+    try:
+        target_index = measures.index(measure)
+    except ValueError:
+        return
+    for start_index in range(target_index, -1, -1):
+        multiple = _multiple_rest(measures[start_index], ns)
+        if multiple is None:
+            continue
+        try:
+            count = int(multiple.text or "")
+        except ValueError:
+            return
+        offset = target_index - start_index
+        if count <= 1 or not 0 <= offset < count:
+            return
+        chain = measures[start_index : start_index + count]
+        if len(chain) != count or any(
+            not all(
+                _is_hidden_measure_rest(ns, note)
+                for note in item.findall(_q(ns, "note"))
+            )
+            for item in chain
+        ):
+            return
+        suffix = count - offset - 1
+        _set_multiple_rest(measures[start_index], ns, offset)
+        if suffix > 1 and target_index + 1 < len(measures):
+            _set_multiple_rest(measures[target_index + 1], ns, suffix)
+        return
+
+
+def _prepare_measure_for_pitch_insertion(
+    root: ET.Element, ns: str, measure: ET.Element
+) -> None:
+    hidden_rests = [
+        note
+        for note in measure.findall(_q(ns, "note"))
+        if _is_hidden_measure_rest(ns, note)
+    ]
+    if not hidden_rests:
+        return
+    _split_multiple_rest_for_insertion(root, ns, measure)
+    for note in hidden_rests:
+        measure.remove(note)
 
 
 def _insert_note_at_glyph_position(
@@ -723,8 +939,8 @@ def _insert_note_at_glyph_position(
     merge_into_chord: bool,
 ) -> str:
     """把新音符放进最接近 glyph 的位置，返回实际采用的分支（便于测试与日志）。"""
-    nearest_voice = _xml_voice(ns, context.nearest_note)
-    nearest_staff = _xml_staff(ns, context.nearest_note)
+    nearest_voice = context.voice
+    nearest_staff = context.staff
     column = min(
         context.columns,
         key=lambda item: abs(item.center - context.glyph_x),
@@ -742,8 +958,23 @@ def _insert_note_at_glyph_position(
         if column.voice == nearest_voice and column.staff == nearest_staff:
             if _append_chord_member(root, ns, measure, column, note):
                 return "chord"
+            if context.explicit_measure:
+                return "skipped_duplicate"
+
+    if not context.explicit_measure:
+        logger.warning(
+            "候选 %s 缺少精确小节定位，已跳过独立插入；请重新识别后再应用",
+            note.get("id", "?"),
+        )
+        return "skipped_missing_measure"
 
     if any(_local_name(child.tag) in {"backup", "forward"} for child in measure):
+        if context.explicit_measure:
+            logger.warning(
+                "小节 %s 含多声部时间轴，已跳过无法安全定位的新音符",
+                measure.get("number", "?"),
+            )
+            return "skipped_multivoice"
         logger.warning(
             "小节 %s 含多声部时间轴，插入的漏检符号位置可能不准确",
             measure.get("number", "?"),
@@ -764,7 +995,13 @@ def _insert_note_at_glyph_position(
     note_indices = [
         list(measure).index(item[1]) for item in context.anchors if item[2] is measure
     ]
-    measure.insert(max(note_indices, default=-1) + 1, note)
+    attribute_indices = [
+        index
+        for index, child in enumerate(measure)
+        if _local_name(child.tag) == "attributes"
+    ]
+    default_index = max(attribute_indices, default=-1) + 1
+    measure.insert(max(note_indices, default=default_index - 1) + 1, note)
     return "after_last"
 
 
@@ -2002,9 +2239,11 @@ def _direction_for_note(
     except ValueError:
         return None
     for sibling in reversed(children[:note_index]):
-        if sibling.tag == _q(ns, "direction") and sibling.find(
-            f"{_q(ns, 'direction-type')}/{_q(ns, 'dynamics')}"
-        ) is not None:
+        if (
+            sibling.tag == _q(ns, "direction")
+            and sibling.find(f"{_q(ns, 'direction-type')}/{_q(ns, 'dynamics')}")
+            is not None
+        ):
             return sibling
     return None
 

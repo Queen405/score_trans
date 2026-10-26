@@ -17,6 +17,11 @@ class MusicXmlLocator(BaseModel):
     contains: str
 
 
+class SourceMeasureLocator(BaseModel):
+    part_id: str
+    number: str
+
+
 class ShapeCandidate(BaseModel):
     shape: str
     score: float
@@ -31,6 +36,7 @@ class SourceElement(BaseModel):
     bounds: BoundingBox
     hit_path: str
     musicxml_locator: MusicXmlLocator
+    measure: SourceMeasureLocator | None = None
     candidates: list[ShapeCandidate] = Field(default_factory=list)
 
 
@@ -55,6 +61,7 @@ class SourceGlyph(BaseModel):
     inter_id: str | None = None
     staff: str | None = None
     pitch: float | None = None
+    measure: SourceMeasureLocator | None = None
 
 
 class SourceMap(BaseModel):

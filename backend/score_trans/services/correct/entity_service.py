@@ -214,6 +214,8 @@ class CorrectableEntity:
     staff: str | None = None
     pitch: float | None = None
     can_delete: bool = True
+    part_id: str | None = None
+    measure_number: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +230,8 @@ class CorrectableGlyph:
     inter_id: str | None = None
     staff: str | None = None
     pitch: float | None = None
+    part_id: str | None = None
+    measure_number: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -296,6 +300,8 @@ def extract_entities(
                     staff=staff,
                     pitch=pitch,
                     can_delete=entity_tag in DELETABLE_TAGS,
+                    part_id=mapped.measure.part_id if mapped.measure else None,
+                    measure_number=mapped.measure.number if mapped.measure else None,
                 )
             )
         glyphs = tuple(
@@ -361,6 +367,8 @@ def _correctable_glyph(
         inter_id=inter.id if inter is not None else mapped.inter_id,
         staff=staff,
         pitch=pitch,
+        part_id=mapped.measure.part_id if mapped.measure else None,
+        measure_number=mapped.measure.number if mapped.measure else None,
     )
 
 
@@ -396,7 +404,7 @@ def load_source_map(source_map_path: str | Path) -> SourceMap:
     path = Path(source_map_path)
     data = json.loads(path.read_text(encoding="utf-8"))
     source_map = SourceMap.model_validate(data)
-    if source_map.version not in {1, 2} or not source_map.sheets:
+    if source_map.version not in {1, 2, 3} or not source_map.sheets:
         raise ValueError("来源映射缺少可编辑的谱面数据")
     return source_map
 
