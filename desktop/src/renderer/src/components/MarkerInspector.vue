@@ -240,6 +240,10 @@ function labelFor(shape: string): string {
   overflow: visible;
 }
 
+.marker-inspector__chip :deep(svg[data-tall-rest]) {
+  width: 16px;
+}
+
 .marker-inspector__identity {
   min-width: 0;
   display: flex;
@@ -381,6 +385,10 @@ function labelFor(shape: string): string {
   max-width: 100%;
   height: 30px;
   overflow: visible;
+}
+
+.candidate-row__glyph :deep(svg[data-tall-rest]) {
+  width: 16px;
 }
 
 .candidate-row__glyph :deep(text) {
