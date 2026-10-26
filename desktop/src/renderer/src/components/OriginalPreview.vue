@@ -606,7 +606,7 @@ watch(
     if (!active || result.error) return
     try {
       const parsed = JSON.parse(await result.data.text()) as SourceMap
-      if ([1, 2].includes(parsed.version) && Array.isArray(parsed.sheets)) sourceMap.value = parsed
+      if ([1, 2, 3].includes(parsed.version) && Array.isArray(parsed.sheets)) sourceMap.value = parsed
     } catch {
       sourceMap.value = null
     }

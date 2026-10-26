@@ -75,6 +75,8 @@ const convert: typeof zhConvert = {
     editedCount: 'Edited {count}',
     apply: 'Apply',
     applied: 'Corrections applied',
+    applyPartial: '{count} candidate(s) could not be written. Your selections were kept; check the log and retry or recognize the page again.',
+    candidatesNotReady: 'Candidate data is not fully loaded. Your selections were kept; reopen mark editing before applying.',
     applyFailed: 'Failed to apply mark corrections: {detail}',
     multiPageOmr: 'Multi-page OMR does not support deleting marks on a single image',
     noSafeMark: 'No matching page could be located between the OMR and source map. Recognize the page again and retry.',

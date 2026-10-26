@@ -2295,6 +2295,14 @@ async function applyCorrections(options: {
     message.warning(t('convert.marker.missingMusicxml'))
     return false
   }
+  const unresolvedCandidateIds = Object.keys(candidateSelections.value).filter(
+    (sourceId) => !deletedEntityIds.value.has(sourceId)
+      && !(sourceId in effectiveCandidateSelections.value),
+  )
+  if (unresolvedCandidateIds.length > 0) {
+    message.warning(t('convert.marker.candidatesNotReady'))
+    return false
+  }
   const baseline = new Set(page.deletedSourceIds ?? [])
   const current = deletedEntityIds.value
   const baselineSelections = page.recognitionCandidateSelections ?? {}
@@ -2375,9 +2383,17 @@ async function applyCorrections(options: {
         return shape ? [[sourceId, shape]] : []
       }),
     )
+    const appliedCandidateSelections = data.applied_candidate_selections ?? {}
+    const unappliedCandidateSelections = Object.fromEntries(
+      Object.entries(candidateSelectionPayload).filter(([sourceId]) => (
+        !(sourceId in appliedCandidateSelections) && !deletedSourceIds.includes(sourceId)
+      )),
+    )
+    const unappliedCount = Object.keys(unappliedCandidateSelections).length
     // 删除时不把候选写入 MusicXML，但保留用户选项；之后恢复标记即可恢复候选。
+    // 历史基线只记录真正写入的候选，未应用项仅保留在本次编辑会话中供重试。
     const savedCandidateSelections = {
-      ...data.applied_candidate_selections,
+      ...appliedCandidateSelections,
       ...retainedDeletedCandidates,
     }
     const nextSvgFileIds = preserveEditedText ? [] : svgFileIds
@@ -2406,13 +2422,23 @@ async function applyCorrections(options: {
       renderLayoutKey: '',
     })
     store.patchPageById(page.id, pagePatch)
-    candidateSelections.value = savedCandidateSelections
+    candidateSelections.value = {
+      ...savedCandidateSelections,
+      ...unappliedCandidateSelections,
+    }
     store.setBatchJianpuText(nextBatchText, false)
     store.setBatchRenderPageFileIds([])
     setFinalSvgFileIds([])
     const correctionWarnings = data.warnings ?? []
     for (const warning of correctionWarnings) {
       log.addLog(warning, 'warn')
+    }
+    if (unappliedCount > 0) {
+      editMode.value = true
+      if (!options.silent) {
+        message.warning(t('convert.marker.applyPartial', { count: unappliedCount }))
+      }
+      return false
     }
     if (!options.silent) message.success(t('convert.marker.applied'))
     if (!options.keepEditing) editMode.value = false

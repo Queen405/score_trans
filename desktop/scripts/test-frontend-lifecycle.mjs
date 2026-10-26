@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
@@ -73,7 +74,7 @@ test('log state is bounded and LogPanel uses its stable entry ids', () => {
 })
 
 test('marker candidate maps preserve the native overlay and use contour hit paths', () => {
-  assert.match(originalPreviewSource, /\[1, 2\]\.includes\(parsed\.version\)/)
+  assert.match(originalPreviewSource, /\[1, 2, 3\]\.includes\(parsed\.version\)/)
   assert.match(originalPreviewSource, /:class="\{ dimmed: showOverlay && canShowOverlay \}"/)
   assert.match(originalPreviewSource, /\.scan-img\.dimmed\s*\{[\s\S]*?grayscale\(0\.5\) brightness\(0\.95\) blur\(1px\)/)
   assert.doesNotMatch(originalPreviewSource, /<rect[\s\S]*?entity-box/)
@@ -81,7 +82,18 @@ test('marker candidate maps preserve the native overlay and use contour hit path
   assert.match(convertSource, /@select-source="handleOriginalSourceClick"/)
   // 删除/恢复由语义命中层单击驱动（仅 can_delete 实体），面板只做候选选择
   assert.match(convertSource, /@toggle-delete="toggleEntityDelete"/)
-  assert.match(originalPreviewSource, /entity\?\.can_delete[\s\S]*?emit\('toggleDelete', sourceId\)/)
+  assert.match(originalPreviewSource, /if \(entity\) \{[\s\S]*?emit\('toggleDelete', sourceId\)/)
+})
+
+test('partial candidate application stays pending instead of reporting false success', () => {
+  assert.match(convertSource, /const unresolvedCandidateIds = Object\.keys/)
+  assert.match(convertSource, /convert\.marker\.candidatesNotReady/)
+  assert.match(convertSource, /const unappliedCandidateSelections = Object\.fromEntries/)
+  assert.match(convertSource, /!\(sourceId in appliedCandidateSelections\)/)
+  assert.match(convertSource, /recognitionCandidateSelections: savedCandidateSelections/)
+  assert.match(convertSource, /\.\.\.unappliedCandidateSelections/)
+  assert.match(convertSource, /message\.warning\(t\('convert\.marker\.applyPartial'/)
+  assert.match(convertSource, /return false/)
 })
 
 test('applied deletions stay clickable in edit mode so they can be restored', () => {
@@ -477,7 +489,7 @@ test('left click in edit mode toggles deletion without selecting the mark', () =
   // 编辑态左键只切换删除：如果同时发 selectSource，蓝色选中轮廓会盖住红色删除虚线
   assert.match(
     originalPreviewSource,
-    /if \(entity\?\.can_delete\) \{[\s\S]*?emit\('toggleDelete', sourceId\)/,
+    /if \(entity\) \{[\s\S]*?emit\('toggleDelete', sourceId\)/,
   )
   assert.doesNotMatch(
     originalPreviewSource,
@@ -515,7 +527,7 @@ test('marker edit mode keeps the original overlay and clicks semantic hit paths 
   // 候选面板是独立组件：已识别标记与漏识别 glyph 共用同一套候选项渲染
   assert.match(convertSource, /<MarkerInspector[\s\S]*?:candidates="selectedEntityCandidates"/)
   assert.match(convertSource, /<MarkerInspector[\s\S]*?:candidates="selectedGlyphCandidates"/)
-  assert.match(markerInspectorSource, /<RecognitionSymbol :shape="candidate\.shape"\s*\/>/)
+  assert.match(markerInspectorSource, /<RecognitionSymbol\s+:shape="candidate\.shape"/)
   // 候选项必须同时给出可读名称与分数条，不能只靠字形图标区分
   assert.match(markerInspectorSource, /class="candidate-row__label"/)
   assert.match(markerInspectorSource, /class="candidate-row__meter"/)

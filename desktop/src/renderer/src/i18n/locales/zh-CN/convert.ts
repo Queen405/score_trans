@@ -73,6 +73,8 @@ const convert = {
     editedCount: '已编辑 {count}',
     apply: '应用',
     applied: '修正已应用',
+    applyPartial: '{count} 个候选未能写入，已保留选择；请查看日志后重试或重新识别',
+    candidatesNotReady: '候选数据尚未加载完整，当前选择已保留；请重新进入标记编辑后再应用',
     applyFailed: '应用标记修正失败：{detail}',
     multiPageOmr: '多页 OMR 暂不支持在单张原图上删除标记',
     noSafeMark: 'OMR 与来源映射中没有匹配的可定位谱页，请重新识别后再试',
