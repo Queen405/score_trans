@@ -3216,6 +3216,7 @@ public class PartwiseBuilder
             logger.debug("Processing {}", system);
 
             current.system = system;
+            linkRemainingDynamics(system);
             current.multipleRests = system.getSig().inters(MultipleRestInter.class);
             isFirst.measure = true;
 
@@ -3246,6 +3247,29 @@ public class PartwiseBuilder
             }
         } catch (Exception ex) {
             logger.warn("Error visiting {} in {}", system, current.page, ex);
+        }
+    }
+
+    //-----------------------//
+    // linkRemainingDynamics //
+    //-----------------------//
+    /** Rest chords are complete by export time, unlike the earlier SymbolsLinker step. */
+    private void linkRemainingDynamics (SystemInfo system)
+    {
+        final SIGraph sig = system.getSig();
+
+        for (Inter inter : sig.inters(DynamicsInter.class)) {
+            final DynamicsInter dynamics = (DynamicsInter) inter;
+
+            if (!sig.getRelations(dynamics, ChordDynamicsRelation.class).isEmpty()) {
+                continue;
+            }
+
+            try {
+                dynamics.linkWithChord();
+            } catch (Exception ex) {
+                logger.warn("Error linking rest-chord dynamics {} in {}", dynamics, current.page, ex);
+            }
         }
     }
 

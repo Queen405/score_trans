@@ -262,6 +262,22 @@ public class DynamicsInter
      */
     private Link lookupLink (SystemInfo system)
     {
+        // Preserve the historical strict head-chord link. Export-time retries use
+        // the governing measure for rest-only passages and measure-edge dynamics.
+        final Link headChordLink = lookupLink(system, false, false);
+        if (headChordLink != null) {
+            return headChordLink;
+        }
+
+        final Link restChordLink = lookupLink(system, true, true);
+
+        return (restChordLink != null) ? restChordLink : lookupLink(system, false, true);
+    }
+
+    private Link lookupLink (SystemInfo system,
+                             boolean restChordFallback,
+                             boolean measureWideFallback)
+    {
         if (isVip()) {
             logger.info("VIP lookupLink for {}", this);
         }
@@ -294,11 +310,14 @@ public class DynamicsInter
                 continue;
             }
 
+            final Rectangle chordArea = measureWideFallback ? null : widenedBounds;
             AbstractChordInter chord = (side == VerticalSide.TOP) //
-                    ? stack.getStandardChordAbove(center, widenedBounds)
-                    : stack.getStandardChordBelow(center, widenedBounds);
+                    ? stack.getStandardChordAbove(center, chordArea)
+                    : stack.getStandardChordBelow(center, chordArea);
 
-            if ((chord == null) || chord instanceof RestChordInter) {
+            if ((chord == null) || (restChordFallback
+                    ? !(chord instanceof RestChordInter)
+                    : chord instanceof RestChordInter)) {
                 continue;
             }
 

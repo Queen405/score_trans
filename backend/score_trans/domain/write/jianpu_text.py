@@ -987,7 +987,10 @@ def _append_event_anchors(
                     "augmentation_dot",
                 )
 
-    prefix = line[segment_start:token_start]
+    # Ordinary event tokens exclude prefix marks, while tuplet bodies include them.
+    # Search through the token as well so dynamics/articulations inside $...$ groups
+    # receive the same source anchors as their counterparts outside the group.
+    prefix = line[segment_start : token_start + len(token)]
     prefix_base = absolute_start - (token_start - segment_start)
     _append_prefix_role_anchors(
         anchors,

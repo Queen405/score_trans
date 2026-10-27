@@ -816,6 +816,34 @@ def test_extended_musicxml_dynamic_roundtrips_through_jianpu_text() -> None:
     assert reparsed.measures[0].events[0].dynamic == "sf"
 
 
+def test_fff_on_rest_has_jianpu_text_and_dynamic_source_anchor() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes>
+          <divisions>1</divisions><key><fifths>0</fifths></key>
+          <time><beats>4</beats><beat-type>4</beat-type></time>
+        </attributes>
+        <direction placement="below">
+          <direction-type><dynamics><fff/></dynamics></direction-type>
+        </direction>
+        <note id="st__n-s1-i42__dy-s1-i5650">
+          <rest/><duration>4</duration><type>whole</type>
+        </note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    document = scores_to_jianpu_document(musicxml_to_scores(xml))
+    anchors = [anchor for anchor in document.anchors if anchor.source_id == "s1:i5650"]
+
+    assert "\\fff" in document.text
+    assert len(anchors) == 1
+    assert anchors[0].role == "dynamic"
+    assert document.text[anchors[0].start_utf16:anchors[0].end_utf16] == "\\fff"
+
+
 def test_jianpu_title_and_tempo_write_musicxml_metadata() -> None:
     root = ET.fromstring(
         jianpu_to_musicxml("title=春之歌\ntempo=96\n1=C\n4/4\n1 2 3 4 |")

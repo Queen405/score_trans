@@ -232,6 +232,49 @@ def test_subbeat_tuplet_with_prefix_marks_anchors_every_pitch() -> None:
     assert not dynamic_anchors
 
 
+def test_triplet_articulations_have_their_own_source_anchors() -> None:
+    pitches = [
+        JianpuPitch(degree=5, source_id="s1:i100"),
+        JianpuPitch(degree=5, octave=-1, source_id="s1:i101"),
+        JianpuPitch(degree=2, octave=-1, source_id="s1:i102"),
+        JianpuPitch(degree=5, octave=-2, source_id="s1:i103"),
+    ]
+    events = [
+        Event(
+            kind="note",
+            duration=Fraction(2, 3) if index < 3 else Fraction(1),
+            pitches=pitches,
+            articulations=["accent"],
+            source_roles={"articulation": [f"s1:i{200 + index}"]},
+            tuplet_start=index == 0,
+            tuplet_count=3 if index == 0 else None,
+            tuplet_index=index if index < 3 else 0,
+            tuplet_stop=index == 2,
+        )
+        for index in range(4)
+    ]
+    document = score_to_jianpu_document(
+        JianpuScore(measures=[_make_measure(events)])
+    )
+
+    assert (
+        "$3:2;^>[5+5,+2,+5,,] ^>[5+5,+2,+5,,] ^>[5+5,+2,+5,,]$ "
+        "^> [5+5,+2,+5,,] |"
+    ) in document.text
+    accents = [anchor for anchor in document.anchors if anchor.role == "articulation"]
+    assert [anchor.source_id for anchor in accents] == [
+        "s1:i200",
+        "s1:i201",
+        "s1:i202",
+        "s1:i203",
+    ]
+    assert len({anchor.start_utf16 for anchor in accents}) == 4
+    assert all(
+        _utf16_slice(document.text, anchor.start_utf16, anchor.end_utf16) == "^>"
+        for anchor in accents
+    )
+
+
 def test_nonlegacy_tuplet_prefixed_event_positions_are_exact() -> None:
     document = score_to_jianpu_document(
         JianpuScore(measures=[_make_measure(_nonlegacy_chord_sextuplet())])
