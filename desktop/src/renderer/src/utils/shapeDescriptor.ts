@@ -167,6 +167,31 @@ const CLEF_VARIANTS: Record<string, string> = {
   TAB_CLEF: 'clefTab',
 }
 
+const DYNAMIC_VARIANTS: Record<string, string> = {
+  DYNAMICS_P: 'dynamicP',
+  DYNAMICS_PP: 'dynamicPP',
+  DYNAMICS_PPP: 'dynamicPPP',
+  DYNAMICS_MP: 'dynamicMP',
+  DYNAMICS_F: 'dynamicF',
+  DYNAMICS_FF: 'dynamicFF',
+  DYNAMICS_FFF: 'dynamicFFF',
+  DYNAMICS_MF: 'dynamicMF',
+  DYNAMICS_FP: 'dynamicFP',
+  DYNAMICS_FZ: 'dynamicFZ',
+  DYNAMICS_SF: 'dynamicSF',
+  DYNAMICS_SFZ: 'dynamicSFZ',
+  SF: 'dynamicSF',
+  SFZ: 'dynamicSFZ',
+}
+
+const ACCIDENTAL_VARIANTS: Record<string, string> = {
+  SHARP: 'accidentalSharp',
+  FLAT: 'accidentalFlat',
+  NATURAL: 'accidentalNatural',
+  DOUBLE_SHARP: 'accidentalDoubleSharp',
+  DOUBLE_FLAT: 'accidentalDoubleFlat',
+}
+
 const CLEF_OCTAVE_SUFFIX = /[_-](8VA|8VB|15MA|15MB|OTTAVA)$/
 
 const ACCIDENTAL_TEXT: Record<string, string> = {
@@ -215,6 +240,8 @@ export function shapeVariantKey(shape: string | null | undefined): string | null
   if (HEAD_VARIANTS[value]) return HEAD_VARIANTS[value]
   if (REST_VARIANTS[value]) return REST_VARIANTS[value]
   if (CLEF_VARIANTS[value]) return CLEF_VARIANTS[value]
+  if (DYNAMIC_VARIANTS[value]) return DYNAMIC_VARIANTS[value]
+  if (ACCIDENTAL_VARIANTS[value]) return ACCIDENTAL_VARIANTS[value]
   const ordinal = /^ONE_(\d+)(?:ST|ND|RD|TH)_REST$/.exec(value)
   if (ordinal) return `restS${ordinal[1]}`
   if (CLEF_OCTAVE_SUFFIX.test(value)) {

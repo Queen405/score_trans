@@ -240,8 +240,13 @@ function labelFor(shape: string): string {
   overflow: visible;
 }
 
-.marker-inspector__chip :deep(svg[data-tall-rest]) {
+.marker-inspector__chip :deep(svg[data-rest-size="regular"]) {
   width: 16px;
+}
+
+.marker-inspector__chip :deep(svg[data-rest-size="large"]) {
+  width: 22px;
+  height: 32px;
 }
 
 .marker-inspector__identity {
@@ -387,8 +392,14 @@ function labelFor(shape: string): string {
   overflow: visible;
 }
 
-.candidate-row__glyph :deep(svg[data-tall-rest]) {
+.candidate-row__glyph :deep(svg[data-rest-size="regular"]) {
   width: 16px;
+  height: 30px;
+}
+
+.candidate-row__glyph :deep(svg[data-rest-size="large"]) {
+  width: 22px;
+  height: 32px;
 }
 
 .candidate-row__glyph :deep(text) {

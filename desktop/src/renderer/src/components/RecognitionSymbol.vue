@@ -22,7 +22,7 @@
     :class="{ 'recognition-symbol--fit': fit }"
     :viewBox="glyphViewBox"
     :preserve-aspect-ratio="normalize && isTallRest ? 'none' : 'xMidYMid meet'"
-    :data-tall-rest="normalize && isTallRest ? '' : undefined"
+    :data-rest-size="restSize"
     aria-hidden="true"
   >
     <g
@@ -75,6 +75,13 @@ const glyphCenterTransform = ref('')
 
 const usesNotehead = computed(() => /NOTEHEAD|WHOLE_NOTE/.test(props.shape))
 const isTallRest = computed(() => /^(?:QUARTER_REST|EIGHTH_REST|SIXTEENTH_REST|THIRTY_SECOND_REST|SIXTY_FOURTH_REST|ONE_(?:16|32|64|128)TH_REST)$/.test(props.shape))
+const isEnlargedRest = computed(() => /^(?:QUARTER_REST|EIGHTH_REST|SIXTEENTH_REST|ONE_16TH_REST)$/.test(props.shape))
+const restSize = computed(() => {
+  if (!props.normalize) return undefined
+  if (isEnlargedRest.value) return 'large'
+  if (isTallRest.value) return 'regular'
+  return undefined
+})
 const baseViewBox = computed(() => (usesNotehead.value && props.fit ? '0 0 32 24' : '0 0 48 36'))
 const glyphViewBox = ref(baseViewBox.value)
 

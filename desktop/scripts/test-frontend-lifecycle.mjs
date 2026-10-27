@@ -540,6 +540,8 @@ test('marker edit mode keeps the original overlay and clicks semantic hit paths 
   assert.match(convertSource, /candidateMatchesTag\(candidate\.shape, glyph\.tag, glyph\.shape\)/)
   assert.match(originalPreviewSource, /appliedCandidateSelections \?\? \{\}/)
   assert.match(originalPreviewSource, /:mask="`url\(#\$\{overlayMaskId\}\)`"/)
+  assert.match(originalPreviewSource, /maskUnits="userSpaceOnUse"\s+x="0"\s+y="0"/)
+  assert.match(originalPreviewSource, /maskContentUnits="userSpaceOnUse"\s+mask-type="luminance"/)
   assert.match(originalPreviewSource, /<RecognitionSymbol/)
   assert.match(convertSource, /selectedGlyphId\.value = ''/)
   assert.match(originalPreviewSource, /\.source-hit-layer\.editing \.source-hit:hover/)
@@ -547,6 +549,23 @@ test('marker edit mode keeps the original overlay and clicks semantic hit paths 
   assert.doesNotMatch(originalPreviewSource, /\.entity-box\s*\{/)
   assert.match(originalPreviewSource, /:class="\{ dimmed: showOverlay && canShowOverlay \}"/)
   assert.match(originalPreviewSource, /\.scan-img\.dimmed\s*\{[\s\S]*?grayscale\(0\.5\) brightness\(0\.95\) blur\(1px\)/)
+})
+
+test('marker inspector has specific names for dynamics and accidentals', async () => {
+  const descriptor = await importTranspiledTypeScript(path.resolve(
+    here,
+    '../src/renderer/src/utils/shapeDescriptor.ts',
+  ))
+  const expected = {
+    DYNAMICS_F: 'dynamicF',
+    DYNAMICS_SFZ: 'dynamicSFZ',
+    FLAT: 'accidentalFlat',
+    NATURAL: 'accidentalNatural',
+    DOUBLE_SHARP: 'accidentalDoubleSharp',
+  }
+  for (const [shape, key] of Object.entries(expected)) {
+    assert.equal(descriptor.shapeVariantKey(shape), key)
+  }
 })
 
 test('applied deleted source ids render in an independent persistent mark layer', () => {

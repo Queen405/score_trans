@@ -40,8 +40,12 @@
             <mask
               :id="overlayMaskId"
               maskUnits="userSpaceOnUse"
+              x="0"
+              y="0"
               :width="sourceSheet.width"
               :height="sourceSheet.height"
+              maskContentUnits="userSpaceOnUse"
+              mask-type="luminance"
             >
               <rect :width="sourceSheet.width" :height="sourceSheet.height" fill="white" />
               <path
