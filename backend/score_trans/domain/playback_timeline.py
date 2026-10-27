@@ -85,9 +85,7 @@ def _house_numbers_per_cell(
     if part_count == 0:
         return {}
     spans_by_part: list[list[EndingSpan]] = [
-        ending_spans(
-            [cell[part] if part < len(cell) else None for cell in cells]
-        )
+        ending_spans([cell[part] if part < len(cell) else None for cell in cells])
         for part in range(part_count)
     ]
 
@@ -109,54 +107,117 @@ def _house_numbers_per_cell(
     }
 
 
-def playback_visits(cells: list[list[Measure | None]]) -> list[MeasureVisit]:
-    """Expand the whole score once while retaining original cell identities.
+def _has_repeat_start(measures: list[Measure | None]) -> bool:
+    return any(measure is not None and measure.repeat_start for measure in measures)
 
-    跳房子（volta）语义：反复段第 k 遍只演奏编号列表含 k 的房子；
-    第 k 遍无匹配房子时跳过段内所有房子；反复段之外（current_pass 为 None
-    的线性区，例如从未进入任何反复段的孤立房子）永远线性播放。
+
+def _has_repeat_end(measures: list[Measure | None]) -> bool:
+    return any(measure is not None and measure.repeat_end for measure in measures)
+
+
+def _has_section_end(measures: list[Measure | None]) -> bool:
+    return any(measure is not None and measure.section_end for measure in measures)
+
+
+def _next_repeat_end(
+    cells: list[list[Measure | None]], start: int, *, allow_forward: bool
+) -> int | None:
+    for index in range(start, len(cells)):
+        if _has_repeat_end(cells[index]):
+            return index
+        if index > start and _has_section_end(cells[index - 1]):
+            return None
+        if not allow_forward and _has_repeat_start(cells[index]):
+            return None
+        if allow_forward and index > start and _has_repeat_start(cells[index]):
+            # Nested repeats retain the existing unsupported/linear-fallback scope.
+            return None
+    return None
+
+
+def _repeat_count(measures: list[Measure | None]) -> int:
+    counts = {
+        int(measure.repeat_count)
+        for measure in measures
+        if measure is not None and measure.repeat_end and measure.repeat_count > 1
+    }
+    if len(counts) > 1:
+        raise ValueError("反复次数不一致")
+    return max(2, next(iter(counts), 2))
+
+
+def _ending_tail_end(
+    cells: list[list[Measure | None]], house_at: dict[int, str], repeat_end: int
+) -> int:
+    """Return the first cell after the alternate-ending tail of a repeat group."""
+    index = repeat_end + 1
+    while index < len(cells):
+        if index not in house_at or _has_repeat_start(cells[index]):
+            break
+        index += 1
+        if _has_section_end(cells[index - 1]):
+            break
+    return index
+
+
+def playback_visits(cells: list[list[Measure | None]]) -> list[MeasureVisit]:
+    """Expand repeats and volta endings while retaining original cell identities.
+
+    Each pass is built independently from the repeat body plus its alternate-ending
+    tail. This is what allows separate ``{1.}``, ``{2.}``, ``{3.}`` houses to work
+    with ``*3``; shared houses such as ``{1,2.}`` follow the same rule. Houses
+    outside a repeat group are always linear.
     """
     boundaries = measure_boundaries(cells)
     house_at = _house_numbers_per_cell(cells)
+
+    def plays(index: int, pass_number: int) -> bool:
+        house = house_at.get(index)
+        return house is None or pass_number in ending_pass_numbers(house)
+
     sequence: list[int] = []
-    repeat_start: int | None = None
-    current_pass: int | None = None
-    for index, measures in enumerate(cells):
-        present = [measure for measure in measures if measure is not None]
-        if any(measure.repeat_start for measure in present):
-            repeat_start = len(sequence)
-            current_pass = 1
-        house_number = house_at.get(index)
-        if (
-            house_number is None
-            or current_pass is None
-            or current_pass in ending_pass_numbers(house_number)
-        ):
+    index = 0
+    section_start = 0
+    while index < len(cells):
+        has_forward = _has_repeat_start(cells[index])
+        repeat_end = (
+            _next_repeat_end(cells, index, allow_forward=True)
+            if has_forward
+            else _next_repeat_end(cells, index, allow_forward=False)
+            if index == section_start
+            else None
+        )
+        if repeat_end is None:
             sequence.append(index)
-        endings = [measure for measure in present if measure.repeat_end]
-        if endings:
-            counts = {
-                int(measure.repeat_count)
-                for measure in endings
-                if measure.repeat_count > 1
-            }
-            if len(counts) > 1:
-                raise ValueError(f"第 {index + 1} 小节各声部的反复次数不一致")
-            count = max(2, next(iter(counts), 2))
-            section = sequence[repeat_start if repeat_start is not None else 0 :]
-            for pass_number in range(2, count + 1):
-                sequence.extend(
-                    cell_index
-                    for cell_index in section
-                    if (house := house_at.get(cell_index)) is None
-                    or pass_number in ending_pass_numbers(house)
-                )
-            repeat_start = None
-            current_pass = count
+            index += 1
+            if _has_section_end(cells[index - 1]):
+                section_start = index
+            continue
+
+        count = _repeat_count(cells[repeat_end])
+        tail_end = _ending_tail_end(cells, house_at, repeat_end)
+        for pass_number in range(1, count + 1):
+            sequence.extend(
+                cell_index
+                for cell_index in range(index, repeat_end)
+                if plays(cell_index, pass_number)
+            )
+            if plays(repeat_end, pass_number):
+                sequence.append(repeat_end)
+            sequence.extend(
+                cell_index
+                for cell_index in range(repeat_end + 1, tail_end)
+                if plays(cell_index, pass_number)
+            )
+        index = tail_end
+        section_start = index
+
     visits: list[MeasureVisit] = []
     cursor = Fraction(0)
-    for index in sequence:
-        duration = boundaries[index + 1] - boundaries[index]
-        visits.append(MeasureVisit(index, cursor, boundaries[index], duration))
+    for source_index in sequence:
+        duration = boundaries[source_index + 1] - boundaries[source_index]
+        visits.append(
+            MeasureVisit(source_index, cursor, boundaries[source_index], duration)
+        )
         cursor += duration
     return visits

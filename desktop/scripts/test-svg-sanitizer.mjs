@@ -36,6 +36,8 @@ test('SVG sanitizer uses a narrow element and attribute allowlist', () => {
   assert.equal(sanitizer.isAllowedSvgAttribute('g', 'data-source-role'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('g', 'data-source-role-articulation'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('g', 'transform'), true)
+  assert.equal(sanitizer.isAllowedSvgAttribute('line', 'data-ending-number'), true)
+  assert.equal(sanitizer.isAllowedSvgAttribute('line', 'data-ending-resumed'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('text', 'opacity'), true)
   assert.equal(sanitizer.isAllowedSvgAttribute('text', 'aria-hidden'), true)
   assert.equal(

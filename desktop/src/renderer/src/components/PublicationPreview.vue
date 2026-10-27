@@ -61,11 +61,18 @@
     <div class="zoom-bar">
       <span class="zoom-label">{{ zp.displayPercent }}</span>
       <button
-        class="zoom-btn"
-        :title="t('components.publicationPreview.fitWindowTitle')"
-        @click="zp.reset()"
+        :class="['zoom-btn', { active: zp.fitMode.value === 'content' }]"
+        :title="t('components.publicationPreview.fitContentTitle')"
+        @click="zp.fitToView('content')"
       >
-        {{ t('components.publicationPreview.fit') }}
+        {{ t('components.publicationPreview.fitContent') }}
+      </button>
+      <button
+        :class="['zoom-btn', { active: zp.fitMode.value === 'page' }]"
+        :title="t('components.publicationPreview.fitPageTitle')"
+        @click="zp.fitToView('page')"
+      >
+        {{ t('components.publicationPreview.fitPage') }}
       </button>
       <button
         :class="['zoom-btn', { active: showOcrOverlay }]"
@@ -418,7 +425,7 @@ async function loadSvg(url: string): Promise<void> {
         zp.applyTransform()
         zp.setAutoFit(false)
       } else {
-        zp.fitToView()
+        zp.fitToView('content')
       }
       applyPlaybackHighlight(false)
     })
@@ -670,7 +677,7 @@ onMounted(() => {
     zp.unbind()
     zp.bind()
     requestAnimationFrame(() => {
-      zp.fitToView()
+      zp.fitToView('content')
       applyPlaybackHighlight(false)
     })
   }

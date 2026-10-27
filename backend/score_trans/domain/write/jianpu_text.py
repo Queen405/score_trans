@@ -511,10 +511,16 @@ def _score_to_jianpu_text(
             prefix = "|: "
         else:
             prefix = ""
-        if has_end and next_has_start:
-            barline = " :| |:"
-        elif has_end:
+        if has_end:
             barline = " :|"
+            if measure.section_end:
+                barline += " ||"
+            if next_has_start:
+                barline += " |:"
+        elif measure.section_end:
+            barline = " ||"
+            if next_has_start:
+                barline += " |:"
         elif next_has_start:
             barline = " |:"
         else:
@@ -532,6 +538,7 @@ def _score_to_jianpu_text(
         needs_explicit_close = (
             ending_close is not None
             and not has_end
+            and not measure.section_end
             and not next_has_start
             and measure_index + 1 < len(score.measures)
             and not getattr(score.measures[measure_index + 1], "ending_start", None)

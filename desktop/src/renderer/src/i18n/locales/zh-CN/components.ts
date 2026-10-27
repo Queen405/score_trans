@@ -56,8 +56,10 @@ const components = {
     midiLoadFailed: 'MIDI 加载失败：{detail}',
   },
   publicationPreview: {
-    fit: '适应',
-    fitWindowTitle: '适应窗口',
+    fitContent: '适应内容',
+    fitContentTitle: '缩放并居中实际谱面内容',
+    fitPage: '整页',
+    fitPageTitle: '适应完整页面',
     hideOcrOverlay: '隐藏 OCR 文字叠加',
     showOcrOverlay: '显示 OCR 文字叠加',
     ocrOverlay: 'OCR叠加',

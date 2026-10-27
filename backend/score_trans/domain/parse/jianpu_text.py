@@ -2013,6 +2013,8 @@ def _parse_score_tokens(
                 skip_empty_bar_after_repeat_end = False
                 if raw == "||":
                     # 双小节线是房子的自动闭合点之一，同时结束当前反复组编号作用域。
+                    if score.measures:
+                        score.measures[-1].section_end = True
                     if open_ending is not None and score.measures:
                         score.measures[-1].ending_stop = open_ending
                         open_ending = None
@@ -2092,11 +2094,7 @@ def _parse_score_tokens(
                 used_ending_numbers.add(number)
                 continue
             if raw == _ENDING_CLOSE_TOKEN:
-                if (
-                    current_events
-                    or current_blocks
-                    or pending_ending_start is not None
-                ):
+                if current_events or current_blocks or pending_ending_start is not None:
                     raise _syntax_error(
                         token,
                         "闭房子标记 {.} 必须紧跟在小节线之后（闭合刚结束的小节），"

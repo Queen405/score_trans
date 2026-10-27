@@ -151,8 +151,10 @@ class Measure:
     repeat_end: bool = False
     repeat_count: int = 1
     ending_start: str | None = None
+    ending_resume: str | None = None
     ending_stop: str | None = None
     ending_discontinue: str | None = None
+    section_end: bool = False
     new_page: bool = False
     new_system: bool = False
     source_page_index: int | None = None
@@ -178,8 +180,10 @@ class Measure:
         display_number: str | int | None = None,
         repeat_count: int = 1,
         ending_start: str | None = None,
+        ending_resume: str | None = None,
         ending_stop: str | None = None,
         ending_discontinue: str | None = None,
+        section_end: bool = False,
         new_page: bool = False,
         new_system: bool = False,
         source_page_index: int | None = None,
@@ -208,8 +212,10 @@ class Measure:
         self.repeat_end = repeat_end
         self.repeat_count = repeat_count
         self.ending_start = ending_start
+        self.ending_resume = ending_resume
         self.ending_stop = ending_stop
         self.ending_discontinue = ending_discontinue
+        self.section_end = section_end
         self.new_page = new_page
         self.new_system = new_system
         self.source_page_index = source_page_index

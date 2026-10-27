@@ -6,7 +6,8 @@ import json
 from dataclasses import dataclass, replace
 
 from ...models.render.live import LiveMeasureSelection
-from ...models.score import JianpuScore
+from ..endings import ending_spans
+from ...models.score import JianpuScore, Measure
 from ...models.syntax.schemas import SyntaxDiagnostic
 from .jianpu_text import (
     JianpuSyntaxError,
@@ -154,6 +155,41 @@ def _parse_live_segment(
     return _parse(masked)
 
 
+def _project_ending_to_live_measure(
+    measures: list[Measure], measure_index: int
+) -> Measure:
+    """Clip the full-score ending context onto the one-measure live preview."""
+    measure = measures[measure_index]
+    span = next(
+        (
+            item
+            for item in ending_spans(measures)
+            if item.start <= measure_index <= item.stop
+        ),
+        None,
+    )
+    projected = replace(
+        measure,
+        ending_start=None,
+        ending_resume=None,
+        ending_stop=None,
+        ending_discontinue=None,
+    )
+    if span is None:
+        return projected
+    if measure_index == span.start:
+        projected.ending_start = span.number
+    else:
+        projected.ending_resume = span.number
+    if measure_index == span.stop and not span.discontinue:
+        projected.ending_stop = span.number
+    else:
+        # A clipped segment never gains a right hook merely because the live
+        # preview contains only one measure. Actual discontinue has the same ink.
+        projected.ending_discontinue = span.number
+    return projected
+
+
 def select_live_measure(
     text: str, cursor_offset: int, *, initial_measure_number: int = 1
 ) -> LiveMeasureSelection:
@@ -266,7 +302,7 @@ def select_live_measure(
     number = part.measure_number_base + sum(
         m.repeat_count for m in part.score.measures[:measure_index]
     )
-    measure = part.score.measures[measure_index]
+    measure = _project_ending_to_live_measure(part.score.measures, measure_index)
     return LiveMeasureSelection(
         score=replace(
             part.score,

@@ -429,7 +429,7 @@ class RenderActions:
             title="",
             width=800,
             margin=24,
-            show_measure_numbers=True,
+            show_measure_numbers=bool(req.show_measure_numbers),
             measure_number_mode=req.measure_number_mode,
             initial_measure_number=req.initial_measure_number,
             show_title=False,

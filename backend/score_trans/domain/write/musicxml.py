@@ -462,8 +462,15 @@ def _append_barline_xml(parent: ET.Element, measure: Measure) -> None:
 
     ending_stop = getattr(measure, "ending_stop", None)
     ending_discontinue = getattr(measure, "ending_discontinue", None)
-    if measure.repeat_end or ending_stop is not None or ending_discontinue is not None:
+    if (
+        measure.repeat_end
+        or ending_stop is not None
+        or ending_discontinue is not None
+        or measure.section_end
+    ):
         barline = ET.SubElement(parent, "barline", {"location": "right"})
+        if measure.section_end:
+            ET.SubElement(barline, "bar-style").text = "light-light"
         if ending_stop is not None:
             ET.SubElement(
                 barline,

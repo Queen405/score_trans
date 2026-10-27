@@ -47,7 +47,9 @@ def test_repeat_midi_maps_back_to_source_onsets(tmp_path: Path) -> None:
 
 
 def test_ending_house_visits_skip_first_house_on_second_pass() -> None:
-    score = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |")
+    score = parse_jianpu_score(
+        "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |"
+    )
 
     visits = playback_visits([[measure] for measure in score.measures])
 
@@ -76,7 +78,9 @@ def test_isolated_ending_house_plays_linearly() -> None:
 
 
 def test_ending_house_mismatch_across_parts_is_an_error() -> None:
-    lead = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |")
+    lead = parse_jianpu_score(
+        "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |"
+    )
     bass = parse_jianpu_score("1=C\n4/4\nw1 | w2 | w3 |")
     cells = [[lead.measures[i], bass.measures[i]] for i in range(3)]
 
@@ -85,7 +89,9 @@ def test_ending_house_mismatch_across_parts_is_an_error() -> None:
 
 
 def test_ending_house_midi_maps_back_to_source_onsets(tmp_path: Path) -> None:
-    score = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |")
+    score = parse_jianpu_score(
+        "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' 2' 1' |"
+    )
     path = ExportService().export_midi(score, tmp_path / "houses.mid")
     markers = _markers(path)
     onsets = [
@@ -349,3 +355,41 @@ def test_full_piano_active_intervals_include_melody_chord_and_bass(
             for r in e["ranges"]
         ]
         assert sorted(tokens) == sorted(["q6", "[3+#1]", "w6,"])
+
+
+def test_three_pass_independent_ending_houses_visit_each_ending_once() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: 1 | {1.} 2 *3 :| {2.} 3 | {3.} 4 |")
+
+    visits = playback_visits([[measure] for measure in score.measures])
+
+    assert [visit.source_index for visit in visits] == [0, 1, 0, 2, 0, 3]
+
+
+def test_ending_house_after_double_barline_returns_to_linear_playback() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: 1 | {1.} 2 :| {2.} 3 || {1.} 4 |")
+
+    visits = playback_visits([[measure] for measure in score.measures])
+
+    assert [visit.source_index for visit in visits] == [0, 1, 0, 2, 3]
+
+
+def test_three_pass_independent_endings_midi_keeps_all_source_onsets(
+    tmp_path: Path,
+) -> None:
+    score = parse_jianpu_score("1=C\n4/4\n|: 1 | {1.} 2 *3 :| {2.} 3 | {3.} 4 |")
+    path = ExportService().export_midi(score, tmp_path / "independent-houses.mid")
+
+    onsets = [
+        data["score_group"] for _tick, data in _markers(path) if data["kind"] == "onset"
+    ]
+    assert onsets == [0, 1, 0, 2, 0, 3]
+
+
+def test_four_pass_independent_ending_houses() -> None:
+    score = parse_jianpu_score(
+        "1=C\n4/4\n|: 1 | {1.} 2 *4 :| {2.} 3 | {3.} 4 | {4.} 5 |"
+    )
+
+    visits = playback_visits([[measure] for measure in score.measures])
+
+    assert [visit.source_index for visit in visits] == [0, 1, 0, 2, 0, 3, 0, 4]

@@ -223,7 +223,7 @@ const syntax: typeof zhSyntax = {
       ending: {
         name: 'Volta Endings (1st/2nd House)',
         desc:
-          '{1.} at the start of a measure opens the 1st ending; :| closes it and jumps back to the repeat start; {2.} opens the 2nd ending. Shared endings use {1,2.}; houses do not consume measure numbers.',
+          '{1.} at the start of a measure opens the 1st ending; :| closes it and jumps back to the repeat start; {2.} opens the 2nd ending. Shared endings use {1,2.}; *3 also supports independent {1.}/{2.}/{3.}; houses do not consume measure numbers.',
       },
       voice: {
         name: 'Voice Separator (Polyphony)',

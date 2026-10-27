@@ -19,7 +19,7 @@ const layout = await import(
 )
 
 test('layout key is stable and ordered by render meaning', () => {
-  assert.equal(layout.PUBLICATION_ENGINE_VERSION, 'publication-15')
+  assert.equal(layout.PUBLICATION_ENGINE_VERSION, 'publication-16')
   assert.equal(layout.jianpuLayoutKey(67, 92, 90, 100, false), '67:92:90:100:0')
   assert.equal(layout.jianpuLayoutKey(75, 88, 85, 120, false), '75:88:85:120:0')
   assert.equal(layout.jianpuLayoutKey(67, 92, 90, 100, true), '67:92:90:100:1')

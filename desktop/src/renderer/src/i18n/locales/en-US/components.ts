@@ -58,8 +58,10 @@ const components: typeof zhComponents = {
     midiLoadFailed: 'MIDI load failed: {detail}',
   },
   publicationPreview: {
-    fit: 'Fit',
-    fitWindowTitle: 'Fit to window',
+    fitContent: 'Fit content',
+    fitContentTitle: 'Fit and center the engraved content',
+    fitPage: 'Full page',
+    fitPageTitle: 'Fit the complete page',
     hideOcrOverlay: 'Hide OCR text overlay',
     showOcrOverlay: 'Show OCR text overlay',
     ocrOverlay: 'OCR Overlay',

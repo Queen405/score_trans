@@ -287,3 +287,42 @@ def test_live_preview_warns_on_nested_repeat_inside_house() -> None:
     selection = select(text, "3 4")
     assert any("跳房子" in warning.message for warning in selection.warnings)
 
+
+def test_live_preview_projects_multimeasure_ending_continuations() -> None:
+    text = "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 | 2 3 4 5 | 3 4 5 6 :|"
+    cases = [
+        ("5 6 5 4", "1", None, None, "1", 1),
+        ("2 3 4 5", None, "1", None, "1", 0),
+        ("3 4 5 6", None, "1", "1", None, 1),
+    ]
+    for needle, start, resume, stop, discontinue, hook_count in cases:
+        selection = select(text, needle)
+        measure = selection.score.measures[0]
+        assert (
+            measure.ending_start,
+            measure.ending_resume,
+            measure.ending_stop,
+            measure.ending_discontinue,
+        ) == (start, resume, stop, discontinue)
+        svg = render_live_measure_svg(text, text.index(needle))
+        assert svg.count('class="ending-line"') == 1
+        assert svg.count('class="ending-hook"') == hook_count
+        assert 'data-ending-number="1"' in svg
+
+
+def test_live_api_honors_hidden_measure_numbers() -> None:
+    from fastapi.testclient import TestClient
+    from score_trans.api.app import create_app
+
+    text = "1=C\n4/4\n{1.} 1 2 3 4 |"
+    response = TestClient(create_app(auth_disabled=True)).post(
+        "/render/jianpu-live-svg",
+        json={
+            "jianpu_text": text,
+            "cursor_offset": text.index("1 2"),
+            "show_measure_numbers": False,
+        },
+    )
+
+    assert response.status_code == 200
+    assert 'class="measure-no"' not in response.json()["svg"]

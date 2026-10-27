@@ -25,6 +25,9 @@ class PublicationStyle:
     lyric_size: float = 18.0
     annotation_size: float = 15.0
     measure_number_size: float = 15.0
+    ending_clearance: float = 6.0
+    ending_label_gap: float = 3.0
+    ending_hook_depth: float = 7.0
     base_staff_height: float = 92.0
     part_gap: float = 34.0
     # 声线最小基线距离及实际符号边界之间的最小留白。

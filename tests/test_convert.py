@@ -841,7 +841,7 @@ def test_fff_on_rest_has_jianpu_text_and_dynamic_source_anchor() -> None:
     assert "\\fff" in document.text
     assert len(anchors) == 1
     assert anchors[0].role == "dynamic"
-    assert document.text[anchors[0].start_utf16:anchors[0].end_utf16] == "\\fff"
+    assert document.text[anchors[0].start_utf16 : anchors[0].end_utf16] == "\\fff"
 
 
 def test_jianpu_title_and_tempo_write_musicxml_metadata() -> None:
@@ -1812,3 +1812,35 @@ def test_guzheng_marks_musicxml_round_trip_and_chord_marks_write_once() -> None:
         "down",
         "down",
     ]
+
+
+def test_musicxml_double_barline_section_end_roundtrip() -> None:
+    xml = """
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          <note><rest/><duration>4</duration><type>whole</type></note>
+          <barline location="right"><bar-style>light-light</bar-style></barline>
+        </measure>
+        <measure number="2">
+          <note><rest/><duration>4</duration><type>whole</type></note>
+        </measure>
+      </part>
+    </score-partwise>
+    """
+
+    score = musicxml_to_score(xml)
+    assert score.measures[0].section_end is True
+    written = ET.fromstring(scores_to_musicxml([score]))
+    assert written.find(".//barline/bar-style").text == "light-light"
+
+
+def test_ending_stop_at_double_barline_does_not_emit_redundant_close() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n{1.} 1 2 3 4 || 5 6 5 4 |")
+
+    text = score_to_jianpu_text(score)
+
+    assert "{.}" not in text
+    assert parse_jianpu_score(text).measures[0].section_end is True

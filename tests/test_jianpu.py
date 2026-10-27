@@ -13,6 +13,7 @@ from score_trans.domain.jianpu import (
     parse_jianpu_score,
     parse_jianpu_scores,
 )
+from score_trans.domain.endings import normalize_ending_number
 from score_trans.domain.jianpu_tokens import (
     duration_affixes,
     safe_duration_affixes,
@@ -207,7 +208,9 @@ def test_repeat_count_after_barline_roundtrips() -> None:
 
 
 def test_ending_houses_parse_and_roundtrip() -> None:
-    score = parse_jianpu_score("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' h2' ||")
+    score = parse_jianpu_score(
+        "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 :| {2.} 7 1' h2' ||"
+    )
 
     assert len(score.measures) == 3
     assert score.measures[0].repeat_start is True
@@ -1561,3 +1564,19 @@ def test_playback_alignment_fixture_note_count() -> None:
     ]
 
     assert len(notes) == 180
+
+
+@pytest.mark.parametrize("raw", ["1foo2.", "abc1.", "1..2", "1,-2", "1;2", "0"])
+def test_ending_number_rejects_non_numeric_affixes(raw: str) -> None:
+    with pytest.raises(ValueError, match="房子编号无效"):
+        normalize_ending_number(raw)
+
+
+def test_double_barline_section_end_survives_text_roundtrip() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n1 2 3 4 || {1.} 5 6 5 4 |")
+
+    assert score.measures[0].section_end is True
+    text = score_to_jianpu_text(score)
+    assert "||" in text
+    reparsed = parse_jianpu_score(text)
+    assert reparsed.measures[0].section_end is True

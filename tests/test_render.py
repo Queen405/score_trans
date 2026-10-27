@@ -128,7 +128,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-15"
+    assert root.attrib["data-engine-version"] == "publication-16"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -2079,14 +2079,14 @@ def test_measure_repeat_count_after_barline_is_rendered() -> None:
 
 
 def _ending_nodes(root: ET.Element, class_name: str) -> list[ET.Element]:
-    return [
-        node for node in root.iter() if node.attrib.get("class") == class_name
-    ]
+    return [node for node in root.iter() if node.attrib.get("class") == class_name]
 
 
 def test_ending_house_bracket_spans_measures_with_hooks() -> None:
     root = _root(
-        render_jianpu_svg("1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 | 2 3 4 5 :| {2.} 7 1' 2' 1' |")
+        render_jianpu_svg(
+            "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 | 2 3 4 5 :| {2.} 7 1' 2' 1' |"
+        )
     )
 
     lines = _ending_nodes(root, "ending-line")
@@ -3353,3 +3353,69 @@ def test_measure_text_layout_interpolates_between_event_positions() -> None:
     # start=1 在 0/2 两事件中点 -> x=200；start=3 越过末事件 -> 钳制到 300
     assert abs(middle - 200.0) < 1.0
     assert abs(tail - 300.0) < 1.0
+
+
+def test_ending_continuation_label_clears_previous_system_lyrics() -> None:
+    score = parse_jianpu_score(
+        "1=C\n4/4\n{1,2.} 1 2 3 4 | 2 3 4 5 | 3 4 5 6 | {.} 4 5 6 7 |\n"
+        "/L: 四 二 三 四 | 五 六 七 八 | 九 十 十 一 | 十 二 十 三 四/"
+    )
+    score.measures[1].new_system = True
+    root = _root(
+        render_score_svg(
+            score,
+            RenderOptions(
+                title="",
+                width=800,
+                margin=24,
+                show_measure_numbers=True,
+                show_title=False,
+                show_page_number=False,
+            ),
+        )
+    )
+
+    continuation = next(
+        node
+        for node in _ending_nodes(root, "annotation")
+        if node.attrib.get("data-ending-resumed") == "1"
+    )
+    label_x, label_y, _label_width, _label_height = _bbox(continuation)
+    previous_lyric_bottoms = []
+    for lyric in _ending_nodes(root, "lyric"):
+        _x, y, _width, height = _bbox(lyric)
+        if y + height < label_y:
+            previous_lyric_bottoms.append(y + height)
+    assert previous_lyric_bottoms
+    assert label_y - max(previous_lyric_bottoms) >= 6
+    assert label_x >= 0
+    for node in _ending_nodes(root, "ending-line") + _ending_nodes(root, "ending-hook"):
+        assert len(node.attrib["data-bbox"].split()) == 4
+        assert node.attrib["data-ending-number"] == "1,2"
+
+
+def test_ending_layout_reserves_space_for_every_part() -> None:
+    lead = parse_jianpu_score("1=C\n4/4\n|: 1 | {1.} 2 | 3 :| {2.} 4 |")
+    bass = parse_jianpu_score("1=C\n4/4\n|: 5, | {1.} 6, | 7, :| {2.} 1 |")
+
+    lead.part_count = 2
+    bass.part_count = 2
+    bass.part_index = 1
+    pages = PublicationRenderer().render_scores(
+        [lead, bass], fit_content_height=True, show_title=False
+    )
+
+    assert len(pages) == 1
+    root = _root(pages[0].svg)
+    assert len(_ending_nodes(root, "ending-line")) == 4
+    assert len(_ending_nodes(root, "ending-hook")) == 8
+    assert (
+        len(
+            [
+                node
+                for node in _ending_nodes(root, "annotation")
+                if node.attrib.get("data-ending-number")
+            ]
+        )
+        == 4
+    )

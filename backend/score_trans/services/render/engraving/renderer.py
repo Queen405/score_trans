@@ -91,6 +91,8 @@ class _PartLayout:
     bar_bottom: float = 69.0
     height: float = 92.0
     text_offset: float = 0.0
+    top_ink: float = 14.0
+    ending_bracket_offset: float = 22.0
 
 
 @dataclass(slots=True)
@@ -100,6 +102,7 @@ class _System:
     height: float
     force_page_before: bool = False
     parts: list[_PartLayout] = field(default_factory=list)
+    top_reserve: float = 0.0
 
 
 @dataclass(slots=True)
@@ -206,13 +209,21 @@ class PublicationRenderer:
         ending_spans_by_part = [
             ending_spans(
                 [
-                    cell.measures[part_index] if part_index < len(cell.measures) else None
+                    cell.measures[part_index]
+                    if part_index < len(cell.measures)
+                    else None
                     for cell in cells
                 ]
             )
             for part_index in range(part_count)
         ]
-        systems = _break_systems(cells, style, len(parts))
+        systems = _break_systems(
+            cells,
+            style,
+            len(parts),
+            ending_spans_by_part=ending_spans_by_part,
+            show_measure_numbers=show_measure_numbers,
+        )
         if fit_content_height:
             footer_height = style.page_height - _pagination_bottom(style)
             content_height = sum(system.height for system in systems)
@@ -289,7 +300,7 @@ class PublicationRenderer:
                     style,
                     system,
                     parts,
-                    y,
+                    y + system.top_reserve,
                     next_note_index,
                     show_measure_numbers=show_measure_numbers,
                     measure_number_mode=measure_number_mode,
@@ -509,7 +520,11 @@ class PublicationRenderer:
         for part_index, spans in enumerate(spans_by_part):
             if part_index >= len(system.parts):
                 break
-            bracket_y = y + system.parts[part_index].offset - 22
+            bracket_y = (
+                y
+                + system.parts[part_index].offset
+                - system.parts[part_index].ending_bracket_offset
+            )
             for span in spans:
                 if span.stop < first_index or span.start > last_index:
                     continue
@@ -517,38 +532,57 @@ class PublicationRenderer:
                 end_cell = min(span.stop, last_index) - first_index
                 line_left = lefts[start_cell] + 2
                 line_right = lefts[end_cell] + system.widths[end_cell] - 2
-                scene.add(
-                    _line("ending-line", line_left, bracket_y, line_right, bracket_y, 1.4)
+                resumed = span.resumed or span.start < first_index
+
+                def add_ending_line(
+                    cls: str, x1: float, y1: float, x2: float, y2: float
+                ) -> None:
+                    width = 1.4
+                    node = _line(cls, x1, y1, x2, y2, width)
+                    node.attrs.update(
+                        {
+                            "data-bbox": BBox(
+                                min(x1, x2) - width / 2,
+                                min(y1, y2) - width / 2,
+                                abs(x2 - x1) + width,
+                                abs(y2 - y1) + width,
+                            ).as_data(),
+                            "data-ending-number": span.number,
+                            "data-ending-resumed": int(resumed),
+                        }
+                    )
+                    scene.add(node)
+
+                add_ending_line(
+                    "ending-line", line_left, bracket_y, line_right, bracket_y
                 )
-                if span.start >= first_index:
-                    scene.add(
-                        _line(
-                            "ending-hook",
-                            line_left,
-                            bracket_y,
-                            line_left,
-                            bracket_y + 7,
-                            1.4,
-                        )
+                if span.start >= first_index and not span.resumed:
+                    add_ending_line(
+                        "ending-hook",
+                        line_left,
+                        bracket_y,
+                        line_left,
+                        bracket_y + style.ending_hook_depth,
                     )
                 if span.stop <= last_index and not span.discontinue:
-                    scene.add(
-                        _line(
-                            "ending-hook",
-                            line_right,
-                            bracket_y,
-                            line_right,
-                            bracket_y + 7,
-                            1.4,
-                        )
+                    add_ending_line(
+                        "ending-hook",
+                        line_right,
+                        bracket_y,
+                        line_right,
+                        bracket_y + style.ending_hook_depth,
                     )
                 scene.add(
                     _text(
                         "annotation",
                         lefts[start_cell] + 7,
-                        bracket_y - 3,
+                        bracket_y - style.ending_label_gap,
                         ending_display_label(span.number),
                         style.annotation_size,
+                        attrs={
+                            "data-ending-number": span.number,
+                            "data-ending-resumed": int(resumed),
+                        },
                     )
                 )
 
@@ -1585,7 +1619,12 @@ def _event_visual_extents(
 
 
 def _break_systems(
-    cells: list[_Cell], style: PublicationStyle, part_count: int
+    cells: list[_Cell],
+    style: PublicationStyle,
+    part_count: int,
+    *,
+    ending_spans_by_part: list[list[EndingSpan]] | None = None,
+    show_measure_numbers: bool = True,
 ) -> list[_System]:
     if not cells:
         return []
@@ -1620,8 +1659,24 @@ def _break_systems(
         )
         scale = target / natural if natural else 1.0
         widths = [cell.width * scale for cell in row]
-        layouts = _system_part_layouts(row, widths, style, part_keys)
-        height = layouts[-1].offset + layouts[-1].height if layouts else 0.0
+        layouts = _system_part_layouts(
+            row,
+            widths,
+            style,
+            part_keys,
+            ending_spans_by_part=ending_spans_by_part,
+            show_measure_numbers=show_measure_numbers,
+        )
+        top_reserve = max(
+            0.0,
+            -min(
+                (layout.offset + layout.top_ink for layout in layouts),
+                default=0.0,
+            ),
+        )
+        height = (
+            top_reserve + layouts[-1].offset + layouts[-1].height if layouts else 0.0
+        )
         systems.append(
             _System(
                 row,
@@ -1629,6 +1684,7 @@ def _break_systems(
                 height,
                 force_page_before=bool(row and row[0].forced_page),
                 parts=layouts,
+                top_reserve=top_reserve,
             )
         )
         start = end
@@ -1640,6 +1696,9 @@ def _system_part_layouts(
     widths: list[float],
     style: PublicationStyle,
     part_keys: list[list[LaneKey]],
+    *,
+    ending_spans_by_part: list[list[EndingSpan]] | None = None,
+    show_measure_numbers: bool = True,
 ) -> list[_PartLayout]:
     layouts: list[_PartLayout] = []
     cursor = 0.0
@@ -1761,10 +1820,63 @@ def _system_part_layouts(
             ),
             default=14.0,
         )
+        ending_bracket_offset = 22.0
+        first_index = cells[0].index
+        last_index = cells[-1].index
+        part_spans = (
+            [
+                span
+                for span in ending_spans_by_part[index]
+                if span.stop >= first_index and span.start <= last_index
+            ]
+            if ending_spans_by_part is not None and index < len(ending_spans_by_part)
+            else []
+        )
+        if part_spans:
+            content_top = top_ink
+            for event in visual:
+                event_top = (
+                    style.event_baseline
+                    + offsets.get(lane_key(event), 0.0)
+                    + measure_event_ink(event, style).top
+                )
+                if event.slur_start or event.slur_stop:
+                    event_top -= (
+                        max(30.0, style.slur_height) + style.spanner_base_clearance
+                    )
+                if _is_tuplet(event):
+                    event_top -= style.tuplet_bracket_offset + style.annotation_size
+                content_top = min(content_top, event_top)
+            if show_measure_numbers or any(
+                measure.tempo is not None for measure, _width in measures
+            ):
+                # Measure numbers and tempo share the y - 9 annotation baseline.
+                content_top = min(content_top, -21.0)
+            ending_bracket_offset = max(
+                22.0,
+                style.ending_hook_depth + style.ending_clearance - content_top,
+            )
+            label_ink_top = min(
+                font_registry().ink_bounds(
+                    ending_display_label(span.number), style.annotation_size
+                )[0]
+                for span in part_spans
+            )
+            ending_top = -ending_bracket_offset - style.ending_label_gap + label_ink_top
+            top_ink = min(top_ink, ending_top)
         if index:
             cursor += max(0.0, -top_ink)
         layouts.append(
-            _PartLayout(cursor, offsets, bar_top, bar_bottom, height, text_offset)
+            _PartLayout(
+                cursor,
+                offsets,
+                bar_top,
+                bar_bottom,
+                height,
+                text_offset,
+                top_ink,
+                ending_bracket_offset,
+            )
         )
         cursor += height + style.part_gap
     return layouts

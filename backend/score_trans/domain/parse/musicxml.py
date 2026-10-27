@@ -409,8 +409,10 @@ def _split_part_by_staff(score: JianpuScore) -> list[JianpuScore]:
                 repeat_end=measure.repeat_end,
                 repeat_count=measure.repeat_count,
                 ending_start=measure.ending_start,
+                ending_resume=measure.ending_resume,
                 ending_stop=measure.ending_stop,
                 ending_discontinue=measure.ending_discontinue,
+                section_end=measure.section_end,
                 new_page=measure.new_page,
                 new_system=measure.new_system,
                 source_page_index=measure.source_page_index,
@@ -509,6 +511,9 @@ def _read_measure_structure(
         measure.new_system = _is_yes(print_element.get("new-system"))
 
     for barline in xml_measure.findall(_q(ns, "barline")):
+        bar_style = (barline.findtext(_q(ns, "bar-style")) or "").strip().lower()
+        if bar_style == "light-light":
+            measure.section_end = True
         repeat = barline.find(_q(ns, "repeat"))
         if repeat is not None:
             direction = (repeat.get("direction") or "").strip().lower()

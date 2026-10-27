@@ -40,6 +40,8 @@ const DATA_ATTRIBUTES = new Set([
   'data-page-index',
   'data-note-index-start',
   'data-note-index-end',
+  'data-ending-number',
+  'data-ending-resumed',
 ])
 const SAFE_SOURCE_ROLE_ATTRIBUTE = /^data-source-role(?:-[a-z0-9_-]+)?$/
 const ELEMENT_ATTRIBUTES: Record<string, ReadonlySet<string>> = {
