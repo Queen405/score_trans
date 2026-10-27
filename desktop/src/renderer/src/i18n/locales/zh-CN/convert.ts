@@ -175,6 +175,11 @@ const convert = {
       accidentalNatural: '还原号',
       accidentalDoubleSharp: '重升号',
       accidentalDoubleFlat: '重降号',
+      articulationAccent: '重音',
+      articulationMarcato: '强重音',
+      articulationTenuto: '保持音',
+      articulationStaccato: '跳音',
+      articulationStaccatissimo: '短跳音',
     },
   },
   editor: {

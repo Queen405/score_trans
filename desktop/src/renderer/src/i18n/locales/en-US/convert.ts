@@ -177,6 +177,11 @@ const convert: typeof zhConvert = {
       accidentalNatural: 'Natural',
       accidentalDoubleSharp: 'Double sharp',
       accidentalDoubleFlat: 'Double flat',
+      articulationAccent: 'Accent',
+      articulationMarcato: 'Marcato',
+      articulationTenuto: 'Tenuto',
+      articulationStaccato: 'Staccato',
+      articulationStaccatissimo: 'Staccatissimo',
     },
   },
   editor: {

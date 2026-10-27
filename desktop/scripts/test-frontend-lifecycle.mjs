@@ -562,6 +562,9 @@ test('marker inspector has specific names for dynamics and accidentals', async (
     FLAT: 'accidentalFlat',
     NATURAL: 'accidentalNatural',
     DOUBLE_SHARP: 'accidentalDoubleSharp',
+    TENUTO: 'articulationTenuto',
+    MARCATO_BELOW: 'articulationMarcato',
+    STACCATO: 'articulationStaccato',
   }
   for (const [shape, key] of Object.entries(expected)) {
     assert.equal(descriptor.shapeVariantKey(shape), key)

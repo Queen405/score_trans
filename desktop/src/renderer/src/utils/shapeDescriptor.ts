@@ -192,6 +192,18 @@ const ACCIDENTAL_VARIANTS: Record<string, string> = {
   DOUBLE_FLAT: 'accidentalDoubleFlat',
 }
 
+const ARTICULATION_VARIANTS: Record<string, string> = {
+  ACCENT: 'articulationAccent',
+  STRONG_ACCENT: 'articulationMarcato',
+  TENUTO: 'articulationTenuto',
+  STACCATO: 'articulationStaccato',
+  STACCATO_BELOW: 'articulationStaccato',
+  STACCATISSIMO: 'articulationStaccatissimo',
+  STACCATISSIMO_BELOW: 'articulationStaccatissimo',
+  MARCATO: 'articulationMarcato',
+  MARCATO_BELOW: 'articulationMarcato',
+}
+
 const CLEF_OCTAVE_SUFFIX = /[_-](8VA|8VB|15MA|15MB|OTTAVA)$/
 
 const ACCIDENTAL_TEXT: Record<string, string> = {
@@ -242,6 +254,7 @@ export function shapeVariantKey(shape: string | null | undefined): string | null
   if (CLEF_VARIANTS[value]) return CLEF_VARIANTS[value]
   if (DYNAMIC_VARIANTS[value]) return DYNAMIC_VARIANTS[value]
   if (ACCIDENTAL_VARIANTS[value]) return ACCIDENTAL_VARIANTS[value]
+  if (ARTICULATION_VARIANTS[value]) return ARTICULATION_VARIANTS[value]
   const ordinal = /^ONE_(\d+)(?:ST|ND|RD|TH)_REST$/.exec(value)
   if (ordinal) return `restS${ordinal[1]}`
   if (CLEF_OCTAVE_SUFFIX.test(value)) {
