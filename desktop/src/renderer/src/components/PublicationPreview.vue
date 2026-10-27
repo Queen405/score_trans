@@ -61,16 +61,9 @@
     <div class="zoom-bar">
       <span class="zoom-label">{{ zp.displayPercent }}</span>
       <button
-        :class="['zoom-btn', { active: zp.fitMode.value === 'content' }]"
-        :title="t('components.publicationPreview.fitContentTitle')"
-        @click="zp.fitToView('content')"
-      >
-        {{ t('components.publicationPreview.fitContent') }}
-      </button>
-      <button
-        :class="['zoom-btn', { active: zp.fitMode.value === 'page' }]"
+        class="zoom-btn"
         :title="t('components.publicationPreview.fitPageTitle')"
-        @click="zp.fitToView('page')"
+        @click="zp.fitToView()"
       >
         {{ t('components.publicationPreview.fitPage') }}
       </button>
@@ -420,12 +413,13 @@ async function loadSvg(url: string): Promise<void> {
       if (generation !== svgLoadGeneration) return
       if (savedView) {
         zp.scale.value = savedView.scale
+        zp.fitScale.value = savedView.fitScale ?? savedView.scale
         zp.tx.value = savedView.tx
         zp.ty.value = savedView.ty
         zp.applyTransform()
         zp.setAutoFit(false)
       } else {
-        zp.fitToView('content')
+        zp.fitToView()
       }
       applyPlaybackHighlight(false)
     })
@@ -656,6 +650,7 @@ watch(svgUrl, (url, prevUrl) => {
   if (prevUrl && svgReady.value) {
     saveViewState(prevUrl, {
       scale: zp.scale.value,
+      fitScale: zp.fitScale.value,
       tx: zp.tx.value,
       ty: zp.ty.value,
     })
@@ -677,7 +672,7 @@ onMounted(() => {
     zp.unbind()
     zp.bind()
     requestAnimationFrame(() => {
-      zp.fitToView('content')
+      zp.fitToView()
       applyPlaybackHighlight(false)
     })
   }
@@ -689,6 +684,7 @@ onUnmounted(() => {
   if (svgUrl.value && svgReady.value) {
     saveViewState(svgUrl.value, {
       scale: zp.scale.value,
+      fitScale: zp.fitScale.value,
       tx: zp.tx.value,
       ty: zp.ty.value,
     })

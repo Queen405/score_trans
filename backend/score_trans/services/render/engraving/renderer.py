@@ -9,7 +9,12 @@ from pathlib import Path
 from typing import Literal
 
 from ....config.settings import MIDI_TICKS_PER_BEAT
-from ....domain.endings import EndingSpan, ending_display_label, ending_spans
+from ....domain.endings import (
+    MAX_NOTATION_ENDING_MEASURES,
+    EndingSpan,
+    ending_display_label,
+    ending_spans,
+)
 from ....domain.playback_timeline import (
     measure_boundaries,
     score_parts,
@@ -213,7 +218,8 @@ class PublicationRenderer:
                     if part_index < len(cell.measures)
                     else None
                     for cell in cells
-                ]
+                ],
+                max_measures=MAX_NOTATION_ENDING_MEASURES,
             )
             for part_index in range(part_count)
         ]

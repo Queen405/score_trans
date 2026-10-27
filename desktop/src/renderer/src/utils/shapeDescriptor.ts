@@ -204,6 +204,24 @@ const ARTICULATION_VARIANTS: Record<string, string> = {
   MARCATO_BELOW: 'articulationMarcato',
 }
 
+const KEY_SIGNATURE_VARIANTS: Record<string, string> = {
+  KEY_SHARP_1: 'keyG',
+  KEY_SHARP_2: 'keyD',
+  KEY_SHARP_3: 'keyA',
+  KEY_SHARP_4: 'keyE',
+  KEY_SHARP_5: 'keyB',
+  KEY_SHARP_6: 'keyFSharp',
+  KEY_SHARP_7: 'keyCSharp',
+  KEY_FLAT_1: 'keyF',
+  KEY_FLAT_2: 'keyBFlat',
+  KEY_FLAT_3: 'keyEFlat',
+  KEY_FLAT_4: 'keyAFlat',
+  KEY_FLAT_5: 'keyDFlat',
+  KEY_FLAT_6: 'keyGFlat',
+  KEY_FLAT_7: 'keyCFlat',
+  KEY_CANCEL: 'keyC',
+}
+
 const CLEF_OCTAVE_SUFFIX = /[_-](8VA|8VB|15MA|15MB|OTTAVA)$/
 
 const ACCIDENTAL_TEXT: Record<string, string> = {
@@ -252,6 +270,7 @@ export function shapeVariantKey(shape: string | null | undefined): string | null
   if (HEAD_VARIANTS[value]) return HEAD_VARIANTS[value]
   if (REST_VARIANTS[value]) return REST_VARIANTS[value]
   if (CLEF_VARIANTS[value]) return CLEF_VARIANTS[value]
+  if (KEY_SIGNATURE_VARIANTS[value]) return KEY_SIGNATURE_VARIANTS[value]
   if (DYNAMIC_VARIANTS[value]) return DYNAMIC_VARIANTS[value]
   if (ACCIDENTAL_VARIANTS[value]) return ACCIDENTAL_VARIANTS[value]
   if (ARTICULATION_VARIANTS[value]) return ARTICULATION_VARIANTS[value]

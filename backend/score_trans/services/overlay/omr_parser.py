@@ -120,6 +120,8 @@ def _read_inters(root: ET.Element) -> list[InterData]:
 def _parse_inter(element: ET.Element) -> InterData | None:
     tag = element.tag
     shape = element.get("shape", tag.upper())
+    if tag == "key":
+        shape = _key_shape(element) or shape
     if tag == "time-pair":
         shape = _time_pair_shape(element.get("time-rational")) or "UNKNOWN_TIME"
     grade = _best_grade(element)
@@ -148,6 +150,22 @@ def _parse_inter(element: ET.Element) -> InterData | None:
         pitch=pitch,
         staff=element.get("staff"),
     )
+
+
+def _key_shape(element: ET.Element) -> str | None:
+    explicit = element.get("shape")
+    if explicit and explicit.startswith("KEY_"):
+        return explicit
+    fifths = element.get("fifths")
+    if fifths is None:
+        return None
+    try:
+        value = int(fifths)
+    except ValueError:
+        return None
+    if value == 0:
+        return "KEY_CANCEL"
+    return f"KEY_{'FLAT' if value < 0 else 'SHARP'}_{abs(value)}"
 
 
 def _time_pair_shape(value: str | None) -> str | None:

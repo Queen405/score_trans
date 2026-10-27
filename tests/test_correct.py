@@ -1408,6 +1408,43 @@ def test_extract_entities_includes_structural_when_in_source_map(
     assert tags == ["clef", "key", "time-whole"]
 
 
+def test_extract_entities_uses_omr_key_shape_when_source_map_is_unknown(
+    tmp_path: Path,
+) -> None:
+    omr = tmp_path / "score.omr"
+    sheet_xml = """<sheet><picture width="1000" height="1400"/><inters>
+      <key id="105" fifths="2"><bounds x="50" y="20" w="20" h="40"/></key>
+    </inters></sheet>"""
+    with ZipFile(omr, "w") as archive:
+        archive.writestr("book/sheet#1/sheet#1.xml", sheet_xml)
+    source_map = SourceMap(
+        sheets=[
+            SourceMapSheet(
+                sheet_index=1,
+                width=1000,
+                height=1400,
+                overlay_file="overlay.png",
+                elements=[
+                    SourceElement(
+                        source_id="s1:i105",
+                        inter_id=105,
+                        shape="null",
+                        grade=0.9,
+                        bounds=BoundingBox(x=50, y=20, width=20, height=40),
+                        hit_path="M50 20h20v40z",
+                        musicxml_locator=MusicXmlLocator(contains="k-s1-i105"),
+                    )
+                ],
+            )
+        ]
+    )
+
+    entity = extract_entities(omr, source_map)[0].entities[0]
+
+    assert entity.shape == "KEY_SHARP_2"
+    assert entity.candidates == (("KEY_SHARP_2", 0.9, "audiveris_inter_grade"),)
+
+
 def test_rank_candidates_keeps_recognized_shape_when_outscored() -> None:
     """Top-5 截断时也必须保留当前识别形状，否则改选后无法恢复原始结果。"""
     ranked = _rank_candidates(

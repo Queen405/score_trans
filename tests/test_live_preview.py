@@ -291,11 +291,13 @@ def test_live_preview_warns_on_nested_repeat_inside_house() -> None:
 def test_live_preview_projects_multimeasure_ending_continuations() -> None:
     text = "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 | 2 3 4 5 | 3 4 5 6 :|"
     cases = [
-        ("5 6 5 4", "1", None, None, "1", 1),
-        ("2 3 4 5", None, "1", None, "1", 0),
-        ("3 4 5 6", None, "1", "1", None, 1),
+        ("5 6 5 4", "1", None, None, "1", 1, 1),
+        # 谱面房子最多覆盖两个小节，第二小节自动收右钩。
+        ("2 3 4 5", None, "1", "1", None, 1, 1),
+        # 原始房子虽继续到第三小节，但谱面与实时预览都不再延伸。
+        ("3 4 5 6", None, None, None, None, 0, 0),
     ]
-    for needle, start, resume, stop, discontinue, hook_count in cases:
+    for needle, start, resume, stop, discontinue, hook_count, line_count in cases:
         selection = select(text, needle)
         measure = selection.score.measures[0]
         assert (
@@ -305,9 +307,10 @@ def test_live_preview_projects_multimeasure_ending_continuations() -> None:
             measure.ending_discontinue,
         ) == (start, resume, stop, discontinue)
         svg = render_live_measure_svg(text, text.index(needle))
-        assert svg.count('class="ending-line"') == 1
+        assert svg.count('class="ending-line"') == line_count
         assert svg.count('class="ending-hook"') == hook_count
-        assert 'data-ending-number="1"' in svg
+        if line_count:
+            assert 'data-ending-number="1"' in svg
 
 
 def test_live_api_honors_hidden_measure_numbers() -> None:

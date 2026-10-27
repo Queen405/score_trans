@@ -278,7 +278,7 @@ def extract_entities(
             source_candidates = _candidates_for_family(source_candidates, entity_tag)
             if not source_candidates:
                 source_candidates = (
-                    (mapped.shape, mapped.grade, "audiveris_inter_grade"),
+                    (inter.shape or mapped.shape, mapped.grade, "audiveris_inter_grade"),
                 )
             entities.append(
                 CorrectableEntity(
@@ -295,7 +295,7 @@ def extract_entities(
                     hit_path=mapped.hit_path,
                     candidates=_rank_candidates(
                         source_candidates,
-                        mapped.shape,
+                        inter.shape or mapped.shape,
                     ),
                     staff=staff,
                     pitch=pitch,

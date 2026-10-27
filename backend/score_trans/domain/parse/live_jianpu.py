@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, replace
 
 from ...models.render.live import LiveMeasureSelection
-from ..endings import ending_spans
+from ..endings import MAX_NOTATION_ENDING_MEASURES, ending_spans
 from ...models.score import JianpuScore, Measure
 from ...models.syntax.schemas import SyntaxDiagnostic
 from .jianpu_text import (
@@ -163,7 +163,9 @@ def _project_ending_to_live_measure(
     span = next(
         (
             item
-            for item in ending_spans(measures)
+            for item in ending_spans(
+                measures, max_measures=MAX_NOTATION_ENDING_MEASURES
+            )
             if item.start <= measure_index <= item.stop
         ),
         None,

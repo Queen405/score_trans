@@ -99,6 +99,21 @@ def test_parser_prefers_contextual_grade_when_present() -> None:
     assert inter.grade == pytest.approx(0.2)
 
 
+@pytest.mark.parametrize(
+    ("fifths", "expected"),
+    [("-2", "KEY_FLAT_2"), ("3", "KEY_SHARP_3"), ("0", "KEY_CANCEL")],
+)
+def test_parser_derives_key_shape_from_fifths(fifths: str, expected: str) -> None:
+    element = ET.fromstring(
+        f'<key id="1" fifths="{fifths}"><bounds x="1" y="2" w="3" h="4"/></key>'
+    )
+
+    inter = _parse_inter(element)
+
+    assert inter is not None
+    assert inter.shape == expected
+
+
 def test_parser_sorts_sheet_entries_numerically(tmp_path: Path) -> None:
     omr_path = tmp_path / "numeric-order.omr"
     sheet_xml = (

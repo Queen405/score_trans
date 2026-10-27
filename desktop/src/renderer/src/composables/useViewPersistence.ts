@@ -1,5 +1,6 @@
 export interface ViewState {
   scale: number
+  fitScale?: number
   tx: number
   ty: number
 }
@@ -52,7 +53,14 @@ export function loadViewState(svgFileId: string): ViewState | null {
       && isFiniteNumber(parsed.tx)
       && isFiniteNumber(parsed.ty)
     ) {
-      return { scale: parsed.scale!, tx: parsed.tx!, ty: parsed.ty! }
+      return {
+        scale: parsed.scale!,
+        fitScale: isFiniteNumber(parsed.fitScale) && parsed.fitScale > 0
+          ? parsed.fitScale
+          : undefined,
+        tx: parsed.tx!,
+        ty: parsed.ty!,
+      }
     }
   } catch {
     // corrupt entry; drop it so the next save can replace it
@@ -63,7 +71,12 @@ export function loadViewState(svgFileId: string): ViewState | null {
 
 export function saveViewState(svgFileId: string, state: ViewState): void {
   if (!svgFileId) return
-  if (!isFiniteNumber(state.scale) || !isFiniteNumber(state.tx) || !isFiniteNumber(state.ty)) {
+  if (
+    !isFiniteNumber(state.scale)
+    || !isFiniteNumber(state.tx)
+    || !isFiniteNumber(state.ty)
+    || (state.fitScale !== undefined && (!isFiniteNumber(state.fitScale) || state.fitScale <= 0))
+  ) {
     return
   }
   sessionSet(`${ZOOM_KEY_PREFIX}${svgFileId}`, JSON.stringify(state))

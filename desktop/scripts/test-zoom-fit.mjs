@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
@@ -14,6 +15,22 @@ const compiled = ts.transpileModule(fs.readFileSync(sourcePath, 'utf8'), {
 const { calculateZoomFit } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`
 )
+
+const zoomPanSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/composables/useZoomPan.ts'),
+  'utf8',
+)
+const publicationSource = fs.readFileSync(
+  path.resolve(here, '../src/renderer/src/components/PublicationPreview.vue'),
+  'utf8',
+)
+
+test('fit is the 100 percent zoom baseline and content fit is removed', () => {
+  assert.match(zoomPanSource, /scale\.value \/ \(fitScale\.value \|\| 1\)/)
+  assert.match(zoomPanSource, /fitScale\.value = fitted\.scale/)
+  assert.doesNotMatch(zoomPanSource, /fitMode|measureContent/)
+  assert.doesNotMatch(publicationSource, /fitContent|fitToView\('content'\)/)
+})
 
 test('content fit centers the padded content in SVG coordinates', () => {
   const result = calculateZoomFit({ x: 100, y: 200, width: 600, height: 200 }, 400, 400, 20)

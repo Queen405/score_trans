@@ -2141,6 +2141,23 @@ def test_ending_house_discontinue_has_no_right_hook() -> None:
     assert len(hooks) == 1
 
 
+@pytest.mark.parametrize("unclosed", [False, True])
+def test_ending_house_bracket_is_limited_to_two_measures(unclosed: bool) -> None:
+    actual = parse_jianpu_score("1=C\n4/4\n1 | 2 | {1.} 3 | 4 | 5 |")
+    expected = parse_jianpu_score("1=C\n4/4\n1 | 2 | {1.} 3 | 4 | 5 |")
+    expected.measures[3].ending_stop = "1"
+    expected.measures[-1].ending_stop = None
+    if unclosed:
+        # MusicXML 可能只有 ending start；不能因为缺少 stop 就延伸到谱尾。
+        actual.measures[-1].ending_stop = None
+
+    actual_line = _ending_nodes(_root(render_score_svg(actual)), "ending-line")[0]
+    expected_line = _ending_nodes(_root(render_score_svg(expected)), "ending-line")[0]
+
+    assert actual_line.attrib["x1"] == expected_line.attrib["x1"]
+    assert actual_line.attrib["x2"] == expected_line.attrib["x2"]
+
+
 def test_unknown_musicxml_mark_uses_text_fallback() -> None:
     event = Event(
         kind="note",

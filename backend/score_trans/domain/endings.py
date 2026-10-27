@@ -11,9 +11,12 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ..models.score import Measure
+
+MAX_NOTATION_ENDING_MEASURES = 2
+"""谱面上一栋跳房子最多覆盖的小节数。"""
 
 _ENDING_NUMBER_PART = re.compile(r"\d+")
 _ENDING_NUMBER_PATTERN = re.compile(r"\s*[1-9]\d*(?:\s*[,，]\s*[1-9]\d*)*\s*\.?\s*")
@@ -59,14 +62,19 @@ def ending_display_label(number: str) -> str:
     return ", ".join(part.strip() for part in number.split(",")) + "."
 
 
-def ending_spans(measures: list[Measure | None]) -> list[EndingSpan]:
+def ending_spans(
+    measures: list[Measure | None], *, max_measures: int | None = None
+) -> list[EndingSpan]:
     """从边界标记扫描房子跨度，下标与输入列表（含 None 空洞）对齐。
 
     - ``ending_start`` / ``ending_resume`` 开一栋房子；若已有开着的房子，先在前一小节闭合它；
     - ``ending_stop`` / ``ending_discontinue`` 在当前小节闭房子；
     - 未闭合的房子延伸到最后一个小节（文本自动闭合规则之外的 MusicXML 数据）；
-    - 没有开房子的孤立 stop/discontinue 标记被忽略。
+    - 没有开房子的孤立 stop/discontinue 标记被忽略；
+    - ``max_measures`` 仅截断返回的显示跨度，不改变原始边界标记的扫描规则。
     """
+    if max_measures is not None and max_measures < 1:
+        raise ValueError("跳房子最大小节数必须为正整数")
     spans: list[EndingSpan] = []
     open_number: str | None = None
     open_start = 0
@@ -103,4 +111,9 @@ def ending_spans(measures: list[Measure | None]) -> list[EndingSpan]:
         spans.append(
             EndingSpan(open_number, open_start, len(measures) - 1, resumed=open_resumed)
         )
+    if max_measures is not None:
+        return [
+            replace(span, stop=min(span.stop, span.start + max_measures - 1))
+            for span in spans
+        ]
     return spans

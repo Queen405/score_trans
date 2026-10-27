@@ -1,13 +1,11 @@
 import { computed, ref, type Ref } from 'vue'
 import { calculateZoomFit } from '../utils/zoomFit'
 
-export type ZoomFitMode = 'content' | 'page'
-
 export function useZoomPan(container: Ref<HTMLElement | undefined>) {
   const scale = ref(1)
+  const fitScale = ref(1)
   const tx = ref(0)
   const ty = ref(0)
-  const fitMode = ref<ZoomFitMode>('page')
   const MIN_SCALE = 0.05
   const MAX_SCALE = 10
   const ZOOM_STEP = 0.08
@@ -62,55 +60,10 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     return false
   }
 
-  function measureContent(mode: ZoomFitMode): boolean {
-    if (!measurePageContent()) return false
-    if (mode !== 'content') return true
-    const el = container.value
-    const svg = el?.querySelector<SVGSVGElement>('.zp-inner svg')
-    const content = svg?.querySelector<SVGGElement>('.publication-content')
-    if (!svg || !content) return true
-    const svgRect = svg.getBoundingClientRect()
-    const viewBox = svg.viewBox.baseVal
-    if (svgRect.width <= 0 || svgRect.height <= 0 || viewBox.width <= 0 || viewBox.height <= 0) {
-      return true
-    }
-    // The publication group also contains the A4 background, page number and
-    // invisible playback anchors. Measure only visible engraving leaves so those
-    // elements cannot turn content fit back into a full-page (or larger) box.
-    const leaves = content.querySelectorAll(
-      'path,line,rect,circle,ellipse,polyline,polygon,text',
-    )
-    let left = Number.POSITIVE_INFINITY
-    let top = Number.POSITIVE_INFINITY
-    let right = Number.NEGATIVE_INFINITY
-    let bottom = Number.NEGATIVE_INFINITY
-    for (const leaf of leaves) {
-      if (leaf.closest('.page-background,.page-number,[opacity="0"]')) continue
-      const rect = leaf.getBoundingClientRect()
-      if (rect.width === 0 && rect.height === 0) continue
-      left = Math.min(left, rect.left)
-      top = Math.min(top, rect.top)
-      right = Math.max(right, rect.right)
-      bottom = Math.max(bottom, rect.bottom)
-    }
-    if (!Number.isFinite(left) || !Number.isFinite(top) || right <= left || bottom <= top) {
-      return true
-    }
-    const kx = viewBox.width / svgRect.width
-    const ky = viewBox.height / svgRect.height
-    contentX = (left - svgRect.left) * kx
-    contentY = (top - svgRect.top) * ky
-    contentW = (right - left) * kx
-    contentH = (bottom - top) * ky
-    contentPadding = 24
-    return true
-  }
-
-  function fitToView(mode: ZoomFitMode = fitMode.value): void {
+  function fitToView(): void {
     const el = container.value
     if (!el) return
-    fitMode.value = mode
-    if (!measureContent(mode)) return
+    if (!measurePageContent()) return
     const fitted = calculateZoomFit(
       { x: contentX, y: contentY, width: contentW, height: contentH },
       el.clientWidth,
@@ -119,6 +72,7 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     )
     if (!fitted) return
     scale.value = fitted.scale
+    fitScale.value = fitted.scale
     tx.value = fitted.tx
     ty.value = fitted.ty
     autoFit.value = true
@@ -213,13 +167,15 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     }
   }
 
-  const displayPercent = computed(() => `${Math.round(scale.value * 100)}%`)
+  const displayPercent = computed(() => (
+    `${Math.round((scale.value / (fitScale.value || 1)) * 100)}%`
+  ))
 
   return {
     scale,
+    fitScale,
     tx,
     ty,
-    fitMode,
     reset,
     fitToView,
     bind,

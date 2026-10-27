@@ -768,6 +768,10 @@ public final class ScoreTransOverlayExporter
                                                          String family)
     {
         if (family == null) return List.of();
+        if ("key".equals(family) && inter instanceof KeyInter key) {
+            final List<ExportCandidate> composed = keyCandidates(key, sheet);
+            if (!composed.isEmpty()) return composed;
+        }
         if ("time-whole".equals(family) && inter instanceof TimePairInter pair) {
             return timePairCandidates(pair, sheet);
         }
@@ -811,6 +815,54 @@ public final class ScoreTransOverlayExporter
             }
         }
         return sortedTopCandidates(inter, byShape);
+    }
+
+    /** Compose key-signature candidates from the real scores of member accidentals. */
+    private static List<ExportCandidate> keyCandidates (KeyInter key, Sheet sheet)
+    {
+        final List<Inter> members = key.getMembers();
+        if (members.isEmpty()) return List.of();
+        final List<Evaluation[]> memberEvaluations = new ArrayList<>();
+        try {
+            for (Inter member : members) {
+                final Glyph glyph = member.getGlyph() != null
+                        ? member.getGlyph() : glyphForInterBounds(sheet, member.getBounds());
+                if (glyph == null) return List.of();
+                memberEvaluations.add(ShapeClassifier.getInstance().getNaturalEvaluations(
+                        glyph, Math.max(1, sheet.getInterline())));
+            }
+        } catch (RuntimeException ex) {
+            logger.debug("Could not evaluate key-signature members {}", key.getId(), ex);
+            return List.of();
+        }
+
+        final Integer fifths = key.getFifths();
+        int count = key.isCancel() ? members.size() : Math.abs(fifths == null ? 0 : fifths);
+        if (count == 0) count = members.size();
+        final Map<String, ExportCandidate> byShape = new LinkedHashMap<>();
+        addKeyCandidate(byShape, memberEvaluations, Shape.FLAT, "KEY_FLAT_" + count);
+        addKeyCandidate(byShape, memberEvaluations, Shape.SHARP, "KEY_SHARP_" + count);
+        addKeyCandidate(byShape, memberEvaluations, Shape.NATURAL, "KEY_CANCEL");
+        return sortedTopCandidates(key, byShape);
+    }
+
+    private static void addKeyCandidate (Map<String, ExportCandidate> byShape,
+                                         List<Evaluation[]> memberEvaluations,
+                                         Shape accidental,
+                                         String keyShape)
+    {
+        double product = 1.0;
+        for (Evaluation[] evaluations : memberEvaluations) {
+            double best = -1.0;
+            for (Evaluation evaluation : evaluations) {
+                if (evaluation.shape == accidental) best = Math.max(best, evaluation.grade);
+            }
+            if (best < 0) return;
+            product *= Math.max(0.0, best);
+        }
+        final double score = Math.pow(product, 1.0 / memberEvaluations.size());
+        byShape.put(keyShape, new ExportCandidate(
+                keyShape, score, "audiveris_shape_classifier_composite"));
     }
 
     /** Compose real classifier scores for numerator and denominator glyphs into time signatures. */
@@ -933,6 +985,12 @@ public final class ScoreTransOverlayExporter
 
     private static String shapeForInter (Inter inter)
     {
+        if (inter instanceof KeyInter key) {
+            if (key.isCancel()) return "KEY_CANCEL";
+            final Integer fifths = key.getFifths();
+            if (fifths == null || fifths == 0) return "KEY_CANCEL";
+            return (fifths < 0 ? "KEY_FLAT_" : "KEY_SHARP_") + Math.abs(fifths);
+        }
         if (inter instanceof TimePairInter pair && pair.getTimeRational() != null) {
             return switch (pair.getTimeRational().toString()) {
                 case "4/4" -> "TIME_FOUR_FOUR";
