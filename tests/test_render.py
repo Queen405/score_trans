@@ -2121,10 +2121,10 @@ def test_ending_house_continues_across_systems() -> None:
         if (node.attrib.get("aria-label") or "").endswith(".")
     ]
     # 跨系统截断续接：两条横线、编号在新系统重标；
-    # 前一段只有左钩（右端开口），后一段只有右钩。
+    # 前一段只有左钩（系统边界开口），第二段达到两小节上限时也保持开口。
     assert len(lines) == 2
     assert labels == ["1.", "1."]
-    assert len(hooks) == 2
+    assert len(hooks) == 1
 
 
 def test_ending_house_discontinue_has_no_right_hook() -> None:
@@ -2151,11 +2151,16 @@ def test_ending_house_bracket_is_limited_to_two_measures(unclosed: bool) -> None
         # MusicXML 可能只有 ending start；不能因为缺少 stop 就延伸到谱尾。
         actual.measures[-1].ending_stop = None
 
-    actual_line = _ending_nodes(_root(render_score_svg(actual)), "ending-line")[0]
-    expected_line = _ending_nodes(_root(render_score_svg(expected)), "ending-line")[0]
+    actual_root = _root(render_score_svg(actual))
+    expected_root = _root(render_score_svg(expected))
+    actual_line = _ending_nodes(actual_root, "ending-line")[0]
+    expected_line = _ending_nodes(expected_root, "ending-line")[0]
 
     assert actual_line.attrib["x1"] == expected_line.attrib["x1"]
     assert actual_line.attrib["x2"] == expected_line.attrib["x2"]
+    # 截断处表示房子仍延续，只画左钩，不能在第二小节末尾收右钩。
+    assert len(_ending_nodes(actual_root, "ending-hook")) == 1
+    assert len(_ending_nodes(expected_root, "ending-hook")) == 2
 
 
 def test_unknown_musicxml_mark_uses_text_fallback() -> None:

@@ -33,7 +33,7 @@ class EndingSpan:
     stop: int
     """``ending_stop`` / ``ending_discontinue`` 所在小节下标。"""
     discontinue: bool = False
-    """True = 开口结束（MusicXML discontinue，不画右竖钩）。"""
+    """True = 开口结束（MusicXML discontinue 或达到谱面显示上限，不画右竖钩）。"""
     resumed: bool = False
     """True = 从上一个上下文续接，不画左竖钩（实时局部预览）。"""
 
@@ -71,7 +71,8 @@ def ending_spans(
     - ``ending_stop`` / ``ending_discontinue`` 在当前小节闭房子；
     - 未闭合的房子延伸到最后一个小节（文本自动闭合规则之外的 MusicXML 数据）；
     - 没有开房子的孤立 stop/discontinue 标记被忽略；
-    - ``max_measures`` 仅截断返回的显示跨度，不改变原始边界标记的扫描规则。
+    - ``max_measures`` 仅截断返回的显示跨度，不改变原始边界标记的扫描规则；
+      因达到上限而截断的房子以开口结束，不画右竖钩。
     """
     if max_measures is not None and max_measures < 1:
         raise ValueError("跳房子最大小节数必须为正整数")
@@ -112,8 +113,15 @@ def ending_spans(
             EndingSpan(open_number, open_start, len(measures) - 1, resumed=open_resumed)
         )
     if max_measures is not None:
-        return [
-            replace(span, stop=min(span.stop, span.start + max_measures - 1))
-            for span in spans
-        ]
+        clipped_spans: list[EndingSpan] = []
+        for span in spans:
+            stop = min(span.stop, span.start + max_measures - 1)
+            clipped_spans.append(
+                replace(
+                    span,
+                    stop=stop,
+                    discontinue=span.discontinue or stop < span.stop,
+                )
+            )
+        return clipped_spans
     return spans

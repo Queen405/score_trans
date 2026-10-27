@@ -292,8 +292,8 @@ def test_live_preview_projects_multimeasure_ending_continuations() -> None:
     text = "1=C\n4/4\n|: 1 2 3 4 | {1.} 5 6 5 4 | 2 3 4 5 | 3 4 5 6 :|"
     cases = [
         ("5 6 5 4", "1", None, None, "1", 1, 1),
-        # 谱面房子最多覆盖两个小节，第二小节自动收右钩。
-        ("2 3 4 5", None, "1", "1", None, 1, 1),
+        # 谱面房子最多覆盖两个小节；仍未结束时开口截断，不收右钩。
+        ("2 3 4 5", None, "1", None, "1", 0, 1),
         # 原始房子虽继续到第三小节，但谱面与实时预览都不再延伸。
         ("3 4 5 6", None, None, None, None, 0, 0),
     ]
