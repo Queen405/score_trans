@@ -48,6 +48,7 @@ def test_render_routes_are_registered() -> None:
     assert "/syntax/validate" in paths
     assert "/history/pages/{page_id}" in paths
     assert "/history/{batch_id}/render-page-ocr-texts" in paths
+    assert "/files/{file_id}/rotate" in paths
     assert "/tasks/{task_id}" in paths
     assert "/tasks/{task_id}/stream" in paths
 
@@ -1018,6 +1019,30 @@ def test_files_exist_route_returns_batch_existence(tmp_path: Path) -> None:
             "": False,
         }
     }
+
+
+def test_file_rotate_route_returns_a_rotated_copy(tmp_path: Path) -> None:
+    from PIL import Image
+
+    app = create_app()
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    source = tmp_path / "page.png"
+    Image.new("RGB", (4, 2), "white").save(source)
+    file_id = uploads.register(source)
+    app.dependency_overrides[get_file_actions] = lambda: FileActions(uploads=uploads)
+
+    response = TestClient(app).post(
+        f"/files/{file_id}/rotate",
+        json={"direction": "right"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["filename"] == "page.png"
+    rotated_path = uploads.get_path(payload["file_id"])
+    assert rotated_path is not None
+    with Image.open(rotated_path) as rotated:
+        assert rotated.size == (2, 4)
 
 
 def test_export_midi_route_writes_and_registers_downloadable_file(tmp_path) -> None:

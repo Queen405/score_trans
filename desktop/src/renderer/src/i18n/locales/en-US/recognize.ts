@@ -56,10 +56,13 @@ const recognize: typeof zhRecognize = {
   uploads: {
     reupload: 'Re-upload',
     empty: 'No uploads yet',
+    rotateLeft: 'Rotate left',
+    rotateRight: 'Rotate right',
   },
   message: {
     removeProcessingPage: 'Pages being recognized cannot be removed',
     reuploadFailed: 'Re-upload failed',
+    rotateFailed: 'Failed to rotate the image: {detail}',
     fileLost: '{n} page(s) lost their original file (backend restarted or cleaned up). Please re-upload: {names}',
     fileLostPatch: 'Original file lost, please re-upload',
     historyCreateFailed: 'Could not create the full history record; recognition not started: {detail}',
@@ -98,6 +101,7 @@ const recognize: typeof zhRecognize = {
     added: 'Added: {name}',
     reuploading: 'Re-uploading: {name}',
     reuploadSuccess: 'Re-upload successful: {name}',
+    rotated: 'Rotated {direction}: {name}',
     historyCreateFailed: 'Failed to create recognition history: {detail}',
     historyStatusFailed: 'Failed to update recognition history status: {detail}',
     saveTaskIdFailed: 'Failed to save background task ID: {detail}',

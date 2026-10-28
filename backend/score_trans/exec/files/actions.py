@@ -76,6 +76,14 @@ class FileActions:
             logger.exception("PDF 页面转换失败: %s", pdf_path)
             raise ValueError("PDF 页面转换失败，请检查文件是否损坏") from exc
 
+    def rotate_file(self, file_id: str, direction: str) -> UploadResponse:
+        rotated_id, path = self.uploads.rotate_image(file_id, direction)
+        return UploadResponse(
+            file_id=rotated_id,
+            filename=path.name,
+            size=path.stat().st_size,
+        )
+
     def download_file(self, file_id: str) -> tuple[Path, str]:
         path = self.uploads.get_path(file_id)
         if not path or not path.exists():

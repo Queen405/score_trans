@@ -10,6 +10,7 @@ from ...exec.files.actions import FileActions
 from ...models.files.schemas import (
     FilesExistRequest,
     FilesExistResponse,
+    RotateFileRequest,
     UploadResponse,
 )
 
@@ -30,6 +31,15 @@ async def files_exist(
     actions: FileActions = Depends(get_file_actions),
 ):
     return await asyncio.to_thread(actions.files_exist, req.file_ids)
+
+
+@router.post("/{file_id}/rotate", response_model=UploadResponse)
+async def rotate_file(
+    file_id: str,
+    req: RotateFileRequest,
+    actions: FileActions = Depends(get_file_actions),
+):
+    return await asyncio.to_thread(actions.rotate_file, file_id, req.direction)
 
 
 @router.get("/{file_id}")

@@ -169,6 +169,47 @@ def test_upload_manager_exists_many(tmp_path: Path) -> None:
     }
 
 
+def test_rotate_image_right_and_left_updates_pixels(tmp_path: Path) -> None:
+    from PIL import Image
+
+    config = ToolConfig(work_dir=tmp_path)
+    source = tmp_path / "wide.png"
+    image = Image.new("RGB", (4, 2), "white")
+    image.putpixel((0, 0), (255, 0, 0))
+    image.save(source)
+
+    manager = UploadService(config)
+    actions = FileActions(manager)
+    file_id = manager.register(source)
+
+    rotated_right = actions.rotate_file(file_id, "right")
+    right_path = manager.get_path(rotated_right.file_id)
+    assert right_path is not None
+    with Image.open(right_path) as result:
+        assert result.size == (2, 4)
+        assert result.convert("RGB").getpixel((1, 0)) == (255, 0, 0)
+
+    rotated_left = actions.rotate_file(file_id, "left")
+    left_path = manager.get_path(rotated_left.file_id)
+    assert left_path is not None
+    with Image.open(left_path) as result:
+        assert result.size == (2, 4)
+        assert result.convert("RGB").getpixel((0, 3)) == (255, 0, 0)
+
+
+def test_rotate_image_rejects_non_image_files(tmp_path: Path) -> None:
+    config = ToolConfig(work_dir=tmp_path)
+    source = tmp_path / "score.musicxml"
+    source.write_text("<score-partwise/>", encoding="utf-8")
+
+    manager = UploadService(config)
+    actions = FileActions(manager)
+    file_id = manager.register(source)
+
+    with pytest.raises(ValueError, match="只有图片文件支持旋转"):
+        actions.rotate_file(file_id, "right")
+
+
 def test_upload_pdf_still_returns_page_pngs(monkeypatch, tmp_path: Path) -> None:
     seen_dpi: list[int] = []
 

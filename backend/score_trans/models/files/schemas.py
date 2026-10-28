@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -14,6 +16,10 @@ class UploadResponse(BaseModel):
     filename: str
     size: int
     pages: list[UploadPage] | None = None
+
+
+class RotateFileRequest(BaseModel):
+    direction: Literal["left", "right"]
 
 
 class FilesExistRequest(BaseModel):

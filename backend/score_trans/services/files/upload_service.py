@@ -28,6 +28,16 @@ _INDEX_CACHE: dict[Path, tuple[int, int, dict[str, Path]]] = {}
 _MIGRATION_LOCK = threading.Lock()
 _MIGRATED_UPLOAD_DIRS: set[Path] = set()
 _COPY_CHUNK_BYTES = 1024 * 1024
+_ROTATABLE_IMAGE_FORMATS: dict[str, str] = {
+    ".jpg": "JPEG",
+    ".jpeg": "JPEG",
+    ".png": "PNG",
+    ".webp": "WEBP",
+    ".tif": "TIFF",
+    ".tiff": "TIFF",
+    ".bmp": "BMP",
+}
+_ROTATE_DEGREES: dict[str, int] = {"left": 90, "right": -90}
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +226,55 @@ class UploadService:
             self._files[file_id] = target
         self._persist_index()
         return file_id
+
+    def rotate_image(self, file_id: str, direction: str) -> tuple[str, Path]:
+        """Rotate an uploaded image 90 degrees and register the result as a new file."""
+        source = self.get_path(file_id)
+        if source is None:
+            raise FileNotFoundError(f"文件不存在：{file_id}")
+
+        suffix = source.suffix.lower()
+        if suffix not in _ROTATABLE_IMAGE_FORMATS:
+            raise ValueError("只有图片文件支持旋转")
+        degrees = _ROTATE_DEGREES.get(direction)
+        if degrees is None:
+            raise ValueError(f"不支持的旋转方向：{direction}")
+
+        try:
+            from PIL import Image, ImageOps
+        except ImportError as exc:
+            raise RuntimeError("图片旋转依赖不可用") from exc
+
+        file_dir: Path | None = None
+        try:
+            with Image.open(source) as image:
+                image_format = (image.format or "").upper()
+                if image_format not in _ROTATABLE_IMAGE_FORMATS.values():
+                    image_format = _ROTATABLE_IMAGE_FORMATS[suffix]
+                oriented = ImageOps.exif_transpose(image)
+                rotated = oriented.rotate(degrees, expand=True)
+                if image_format == "JPEG" and rotated.mode not in {"RGB", "L", "CMYK"}:
+                    rotated = rotated.convert("RGB")
+
+                file_id_new = uuid.uuid4().hex[:12]
+                file_dir = self.base_dir / file_id_new
+                file_dir.mkdir(parents=True, exist_ok=True)
+                target = file_dir / source.name
+                save_kwargs: dict[str, object] = {}
+                if image_format in {"JPEG", "WEBP"}:
+                    save_kwargs["quality"] = 95
+                elif image_format == "PNG":
+                    save_kwargs["optimize"] = True
+                rotated.save(target, format=image_format, **save_kwargs)
+        except Exception:
+            if file_dir is not None:
+                shutil.rmtree(file_dir, ignore_errors=True)
+            raise
+
+        with self._lock:
+            self._files[file_id_new] = target
+        self._persist_index()
+        return file_id_new, target
 
     def get_path(self, file_id: str) -> Path | None:
         """Look up a file_id and return the local Path, or None."""

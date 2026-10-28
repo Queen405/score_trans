@@ -313,6 +313,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/files/{file_id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate File */
+        post: operations["rotate_file_files__file_id__rotate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files/exists": {
         parameters: {
             query?: never;
@@ -2751,6 +2768,14 @@ export type components = {
             /** Page Index */
             page_index: number;
         };
+        /** RotateFileRequest */
+        RotateFileRequest: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "left" | "right";
+        };
         /** SettingsResponse */
         SettingsResponse: {
             /**
@@ -3906,6 +3931,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_file_files__file_id__rotate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateFileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
                 };
             };
             /** @description Validation Error */

@@ -54,10 +54,13 @@ const recognize = {
   uploads: {
     reupload: '重新上传',
     empty: '暂无上传文件',
+    rotateLeft: '向左旋转',
+    rotateRight: '向右旋转',
   },
   message: {
     removeProcessingPage: '后台识别中的页面暂不能移除',
     reuploadFailed: '重新上传失败',
+    rotateFailed: '旋转图片失败：{detail}',
     fileLost: '{n} 个页面的原始文件已丢失（后端重启或已清理），请重新上传：{names}',
     fileLostPatch: '原始文件已丢失，请重新上传',
     historyCreateFailed: '无法创建完整历史记录，识别未开始：{detail}',
@@ -96,6 +99,7 @@ const recognize = {
     added: '已加入：{name}',
     reuploading: '正在重新上传：{name}',
     reuploadSuccess: '重新上传成功：{name}',
+    rotated: '已{direction}：{name}',
     historyCreateFailed: '创建识别历史失败：{detail}',
     historyStatusFailed: '更新识别历史状态失败：{detail}',
     saveTaskIdFailed: '保存后台任务编号失败：{detail}',

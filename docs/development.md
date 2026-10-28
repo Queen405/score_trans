@@ -126,6 +126,7 @@ npx vue-tsc --noEmit
 | 方法 | 端点 | 说明 |
 |------|------|------|
 | POST | `/files/upload` | 上传输入文件，返回 `file_id` |
+| POST | `/files/{file_id}/rotate` | 将图片旋转 90°（`left` / `right`），返回新的 `file_id` |
 | POST | `/recognize` | 图片/PDF → MusicXML |
 | POST | `/convert/musicxml-to-jianpu` | MusicXML → 简谱文本 |
 | POST | `/convert/jianpu-to-musicxml` | 简谱文本 → MusicXML |

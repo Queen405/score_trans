@@ -249,7 +249,39 @@
             </div>
             <div class="upload-info">
               <span class="upload-name">{{ page.inputFileName }}</span>
-              <span :class="['upload-status', page.status]">{{ statusText(page) }}</span>
+              <div class="upload-info-footer">
+                <span :class="['upload-status', page.status]">{{ statusText(page) }}</span>
+                <div
+                  v-if="canRotateImage(page)"
+                  class="upload-rotate"
+                  @click.stop
+                >
+                  <button
+                    type="button"
+                    class="upload-rotate-btn"
+                    :title="t('recognize.uploads.rotateLeft')"
+                    :aria-label="t('recognize.uploads.rotateLeft')"
+                    :disabled="page.status === 'processing' || isRotatingPage(page.id)"
+                    @click.stop="rotatePageImage(page, 'left')"
+                  >
+                    <n-icon size="12">
+                      <ArrowUndoOutline />
+                    </n-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="upload-rotate-btn"
+                    :title="t('recognize.uploads.rotateRight')"
+                    :aria-label="t('recognize.uploads.rotateRight')"
+                    :disabled="page.status === 'processing' || isRotatingPage(page.id)"
+                    @click.stop="rotatePageImage(page, 'right')"
+                  >
+                    <n-icon size="12">
+                      <ArrowRedoOutline />
+                    </n-icon>
+                  </button>
+                </div>
+              </div>
             </div>
             <div
               v-if="page.status === 'processing'"
@@ -297,7 +329,7 @@ import { usePublicationRender } from '../composables/usePublicationRender'
 import { aiApi } from '../api/ai'
 import { tasksApi } from '../api/tasks'
 import { historyApi } from '../api/history'
-import { filesApi } from '../api/files'
+import { filesApi, type ImageRotationDirection } from '../api/files'
 import { notationApi } from '../api/notation'
 import { fetchFileBlob, requireData } from '../api/client'
 import { isRenderAborted } from '../utils/renderAbort'
@@ -354,6 +386,8 @@ import {
   BarChartOutline,
   GlobeOutline,
   ChatbubblesOutline,
+  ArrowUndoOutline,
+  ArrowRedoOutline,
 } from '@vicons/ionicons5'
 import { NButton, NIcon, NProgress, NSelect, NSwitch, useMessage } from 'naive-ui'
 import { t } from '../i18n'
@@ -423,6 +457,7 @@ const aiVisionEnabled = ref(false)
 const instrumentProfile = ref<InstrumentProfile>('general')
 const instrumentCatalogs = ref<InstrumentProfileCatalog[]>([])
 const selectedPageIds = ref<Set<string>>(new Set())
+const rotatingPageIds = ref<Set<string>>(new Set())
 const reupload = useFileUpload()
 const batchRenderInFlight = new Map<string, Promise<void>>()
 const ownedTaskIds = new Set<string>()
@@ -600,6 +635,48 @@ watch(
 
 function isPreviewable(fileName: string): boolean {
   return /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(fileName)
+}
+
+function isRotatableImage(fileName: string): boolean {
+  return /\.(png|jpe?g|tiff?|webp|bmp)$/i.test(fileName)
+}
+
+function canRotateImage(page: TaskPage): boolean {
+  return !!page.inputFileId && isRotatableImage(page.inputFileName)
+}
+
+function isRotatingPage(pageId: string): boolean {
+  return rotatingPageIds.value.has(pageId)
+}
+
+async function rotatePageImage(page: TaskPage, direction: ImageRotationDirection): Promise<void> {
+  if (page.status === 'processing' || isRotatingPage(page.id)) return
+  const fileId = page.originalFileId || page.inputFileId
+  if (!fileId) return
+  const updateOriginal = !!page.originalFileId
+  rotatingPageIds.value = new Set(rotatingPageIds.value).add(page.id)
+  try {
+    const result = await requireData(filesApi.rotate(fileId, direction))
+    const patch: Partial<TaskPage> = {
+      inputFileId: result.file_id,
+      inputFileName: result.filename,
+    }
+    if (updateOriginal) {
+      patch.originalFileId = result.file_id
+      patch.originalFileName = result.filename
+    }
+    store.patchPageById(page.id, patch)
+    const label = t(direction === 'left'
+      ? 'recognize.uploads.rotateLeft'
+      : 'recognize.uploads.rotateRight')
+    log.addLog(t('recognize.log.rotated', { name: result.filename, direction: label }))
+  } catch (error: unknown) {
+    message.error(t('recognize.message.rotateFailed', { detail: errorMessage(error) }))
+  } finally {
+    const next = new Set(rotatingPageIds.value)
+    next.delete(page.id)
+    rotatingPageIds.value = next
+  }
 }
 
 function isStartablePage(page: TaskPage): boolean {
@@ -2207,6 +2284,52 @@ function errorMessage(error: unknown): string {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.upload-info-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.upload-rotate {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.upload-rotate-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease,
+    color 0.12s ease, opacity 0.12s ease;
+}
+
+.upload-rotate-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.upload-rotate-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.upload-rotate-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .upload-icon {
