@@ -12,6 +12,7 @@ from score_trans.services.render.engraving.renderer import (
     _Cell,
     _System,
     _boundary_penalties,
+    _break_systems,
     _optimal_system_ends,
     _paginate,
     _pagination_bottom,
@@ -120,3 +121,58 @@ def test_no_title_uses_continuation_header_for_pagination() -> None:
 def test_oversized_system_fails_instead_of_overflowing_footer() -> None:
     with pytest.raises(RenderError, match="超出页面"):
         _paginate([_System([], [], 2000)], PublicationStyle())
+
+
+@pytest.mark.parametrize("count", [3, 4, 5])
+def test_fixed_system_uses_aligned_columns_for_full_and_short_rows(count: int) -> None:
+    style = PublicationStyle(page_width=664, measures_per_system=count)
+    cells = _cells([100] * (count + 2))
+
+    systems = _break_systems(cells, style, 1)
+
+    assert [len(system.cells) for system in systems] == [count, 2]
+    column_width = style.content_width / count
+    for system in systems:
+        assert system.widths == pytest.approx([column_width] * len(system.cells))
+
+
+def test_fixed_system_honors_forced_breaks_without_rejustifying_short_row() -> None:
+    style = PublicationStyle(page_width=664, measures_per_system=4)
+    cells = _cells([100] * 9)
+    cells[2].forced_system = True
+    cells[6].forced_page = True
+
+    systems = _break_systems(cells, style, 1)
+
+    assert [len(system.cells) for system in systems] == [2, 4, 3]
+    assert systems[2].force_page_before is True
+    assert all(width == 125 for system in systems for width in system.widths)
+
+
+def test_fixed_system_width_protection_keeps_original_grid() -> None:
+    style = PublicationStyle(page_width=664, measures_per_system=4)
+    cells = _cells([130] * 8)
+
+    systems = _break_systems(cells, style, 1)
+
+    assert [len(system.cells) for system in systems] == [3, 3, 2]
+    assert all(width == 125 for system in systems for width in system.widths)
+
+
+def test_fixed_system_expands_dense_measure_across_aligned_columns() -> None:
+    style = PublicationStyle(page_width=664, measures_per_system=4)
+
+    systems = _break_systems(_cells([100, 200, 100]), style, 1)
+
+    assert len(systems) == 1
+    assert systems[0].widths == pytest.approx([125, 250, 125])
+
+
+def test_fixed_system_gives_extreme_measure_a_full_row_instead_of_failing() -> None:
+    style = PublicationStyle(page_width=664, measures_per_system=4)
+
+    systems = _break_systems(_cells([1000, 100]), style, 1)
+
+    assert [len(system.cells) for system in systems] == [1, 1]
+    assert systems[0].widths == pytest.approx([500])
+    assert systems[1].widths == pytest.approx([125])

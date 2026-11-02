@@ -44,6 +44,7 @@ export type {
   JianpuSnapshotItem,
   LlmProviderOption,
   MeasureNumberMode,
+  MeasuresPerSystem,
   MusicXmlToJianpuRequest,
   MusicXmlToJianpuResponse,
   NormalizeJianpuTextRequest,

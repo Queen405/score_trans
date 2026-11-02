@@ -19,10 +19,10 @@ const layout = await import(
 )
 
 test('layout key is stable and ordered by render meaning', () => {
-  assert.equal(layout.PUBLICATION_ENGINE_VERSION, 'publication-16')
-  assert.equal(layout.jianpuLayoutKey(67, 92, 90, 100, false), '67:92:90:100:0')
-  assert.equal(layout.jianpuLayoutKey(75, 88, 85, 120, false), '75:88:85:120:0')
-  assert.equal(layout.jianpuLayoutKey(67, 92, 90, 100, true), '67:92:90:100:1')
+  assert.equal(layout.PUBLICATION_ENGINE_VERSION, 'publication-19')
+  assert.equal(layout.jianpuLayoutKey(67, 92, 90, 100, false, 0), '67:92:90:100:0:a')
+  assert.equal(layout.jianpuLayoutKey(75, 88, 85, 120, false, 4), '75:88:85:120:0:4')
+  assert.equal(layout.jianpuLayoutKey(67, 92, 90, 100, true, 0), '67:92:90:100:1:a')
 })
 
 test('missing or different layout keys make cached A4 output stale', () => {

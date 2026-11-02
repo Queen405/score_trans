@@ -225,6 +225,7 @@ def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
         short_note_gap_percent=85,
         beat_gap_percent=140,
         break_beams_at_beat=True,
+        measures_per_system=5,
     )
 
     assert renderer.kwargs["content_scale_percent"] == 75
@@ -232,6 +233,7 @@ def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
     assert renderer.kwargs["short_note_gap_percent"] == 85
     assert renderer.kwargs["beat_gap_percent"] == 140
     assert renderer.kwargs["break_beams_at_beat"] is True
+    assert renderer.kwargs["measures_per_system"] == 5
 
 
 def test_full_pipeline_can_hide_measure_numbers(tmp_path) -> None:

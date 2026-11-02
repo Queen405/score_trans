@@ -956,6 +956,10 @@ def _draw_event_group(
             ),
             part_index=part_index,
             subtext_offset=subtext_offset,
+            content_bounds=(
+                measure_left + style.barline_gutter,
+                measure_right - style.barline_gutter,
+            ),
         )
         anchors.append(anchor)
         if consumed:
@@ -1142,6 +1146,51 @@ def _build_cells(
 
 
 def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float:
+    return max(
+        _notation_intrinsic_measure_width(measure, style),
+        _lyric_intrinsic_measure_width(measure, style),
+    )
+
+
+def _lyric_intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float:
+    """Reserve horizontal room for timed lyrics, including lyrics over rests/gaps."""
+    groups: dict[Fraction, list[TextBlock]] = {}
+    for block in _measure_text_blocks(measure):
+        if block.role == "lyric" and block.start is not None:
+            groups.setdefault(block.start, []).append(block)
+    if not groups:
+        return 0.0
+
+    measured: list[tuple[float, float]] = []
+    for start in sorted(groups):
+        boxes = []
+        for block in groups[start]:
+            font_size = block.font_size or style.lyric_size
+            ink_left, _top, _right, _bottom = font_registry().ink_bounds(
+                block.text, font_size
+            )
+            advance = font_registry().measure(block.text, font_size)
+            boxes.append((ink_left, ink_left + advance))
+        measured.append(
+            (
+                min(left for left, _right in boxes),
+                max(right for _left, right in boxes),
+            )
+        )
+
+    width = style.measure_side_padding - min(0.0, measured[0][0])
+    for index, (left, _right) in enumerate(measured[1:], start=1):
+        width += max(
+            style.minimum_event_gap,
+            measured[index - 1][1] + style.event_clearance - left,
+        )
+    width += max(0.0, measured[-1][1])
+    return max(style.minimum_measure_width, min(style.content_width, width))
+
+
+def _notation_intrinsic_measure_width(
+    measure: Measure, style: PublicationStyle
+) -> float:
     if not measure.events:
         return style.minimum_measure_width
     visual = _visual_events(measure)
@@ -1161,7 +1210,7 @@ def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float
         visual,
         key=lambda event: event.start if event.start is not None else Fraction(0),
     )
-    extents = [_event_visual_extents(event, style) for event in events]
+    extents = _measure_event_visual_extents(events, measure, style)
     if not extents:
         return style.minimum_measure_width
     gaps = _preferred_event_gaps(events, extents, style, _beat_boundaries(measure))
@@ -1264,7 +1313,7 @@ def _shared_intrinsic_measure_width(
     left_outer = 0.0
     right_outer = 0.0
     for measure, events in per_part:
-        extents = [_event_visual_extents(event, style) for event in events]
+        extents = _measure_event_visual_extents(events, measure, style)
         gaps = _preferred_event_gaps(events, extents, style, _beat_boundaries(measure))
         relative = [0.0]
         for gap in gaps:
@@ -1624,6 +1673,50 @@ def _event_visual_extents(
     return box.left, box.right, box.top, box.bottom
 
 
+def _measure_event_visual_extents(
+    events: list[Event], measure: Measure, style: PublicationStyle
+) -> list[tuple[float, float, float, float]]:
+    """Event ink plus timed lyric ink that is not already attached to an event."""
+    extents = [
+        _event_visual_extents(replace(event, lyric=None, lyrics={}), style)
+        for event in events
+    ]
+    if not events:
+        return extents
+    for block in _measure_text_blocks(measure):
+        if block.role != "lyric" or block.start is None:
+            continue
+        start = block.start
+        target = next(
+            (
+                index
+                for index, event in enumerate(events)
+                if (event.start or Fraction(0))
+                <= start
+                < (event.start or Fraction(0)) + event.duration
+            ),
+            None,
+        )
+        if target is None:
+            target = max(
+                range(len(events)),
+                key=lambda index: events[index].start or Fraction(0),
+            )
+        font_size = block.font_size or style.lyric_size
+        ink_left, top, _right, bottom = font_registry().ink_bounds(
+            block.text, font_size
+        )
+        advance = font_registry().measure(block.text, font_size)
+        left, right, old_top, old_bottom = extents[target]
+        extents[target] = (
+            min(left, ink_left),
+            max(right, ink_left + advance),
+            old_top,
+            old_bottom,
+        )
+    return extents
+
+
 def _break_systems(
     cells: list[_Cell],
     style: PublicationStyle,
@@ -1653,18 +1746,29 @@ def _break_systems(
             [key for key, _ in group_event_lanes(events)] if polyphonic else []
         )
     start = 0
-    for end in _optimal_system_ends(cells, style):
+    measures_per_system = style.measures_per_system
+    ends = (
+        _fixed_system_ends(cells, style, measures_per_system)
+        if measures_per_system
+        else _optimal_system_ends(cells, style)
+    )
+    for end in ends:
         row = cells[start:end]
-        natural = sum(cell.width for cell in row)
-        is_last = end == len(cells)
-        target = (
-            natural
-            if is_last
-            and natural < style.content_width * style.last_line_fill_threshold
-            else style.content_width
-        )
-        scale = target / natural if natural else 1.0
-        widths = [cell.width * scale for cell in row]
+        if measures_per_system:
+            # Every row uses the same column grid, including short final rows and
+            # rows ended early by explicit breaks or width protection.
+            widths = _fixed_system_widths(row, style, measures_per_system)
+        else:
+            natural = sum(cell.width for cell in row)
+            is_last = end == len(cells)
+            target = (
+                natural
+                if is_last
+                and natural < style.content_width * style.last_line_fill_threshold
+                else style.content_width
+            )
+            scale = target / natural if natural else 1.0
+            widths = [cell.width * scale for cell in row]
         layouts = _system_part_layouts(
             row,
             widths,
@@ -1920,6 +2024,60 @@ def _boundary_penalties(cells: list[_Cell], style: PublicationStyle) -> list[flo
     return penalties
 
 
+def _fixed_cell_column_span(
+    cell: _Cell, style: PublicationStyle, measures_per_system: int
+) -> int:
+    column_width = style.content_width / measures_per_system
+    fit_width = column_width * style.max_system_overflow_ratio
+    return min(
+        measures_per_system,
+        max(1, math.ceil(max(0.0, cell.width - 1e-6) / fit_width)),
+    )
+
+
+def _fixed_system_widths(
+    row: list[_Cell], style: PublicationStyle, measures_per_system: int
+) -> list[float]:
+    column_width = style.content_width / measures_per_system
+    return [
+        column_width * _fixed_cell_column_span(cell, style, measures_per_system)
+        for cell in row
+    ]
+
+
+def _fixed_system_ends(
+    cells: list[_Cell], style: PublicationStyle, measures_per_system: int
+) -> list[int]:
+    """Pack measures into an aligned grid, expanding dense cells across columns."""
+    ends: list[int] = []
+    start = 0
+    count = len(cells)
+    while start < count:
+        target = min(start + measures_per_system, count)
+        width = 0.0
+        columns_used = 0
+        end = start
+        for index in range(start, target):
+            cell = cells[index]
+            if index > start and (cell.forced_system or cell.forced_page):
+                break
+            span = _fixed_cell_column_span(cell, style, measures_per_system)
+            next_width = width + cell.width
+            if index > start and (
+                columns_used + span > measures_per_system
+                or next_width > style.content_width
+            ):
+                break
+            width = next_width
+            columns_used += span
+            end = index + 1
+        if end == start:
+            end = start + 1
+        ends.append(end)
+        start = end
+    return ends
+
+
 def _optimal_system_ends(cells: list[_Cell], style: PublicationStyle) -> list[int]:
     """Shortest path over feasible rows; width bounds keep candidates local."""
     count = len(cells)
@@ -2127,7 +2285,7 @@ def _event_positions(
     if not ideal_positions:
         return ideal_positions
 
-    extents = [_event_visual_extents(event, style) for event in events]
+    extents = _measure_event_visual_extents(events, measure, style)
     # No beat_boundaries here on purpose: the visible beat division is produced
     # by _apply_beat_boundary_gaps as a ratio after justification. Letting the
     # absolute beat_boundary_gap into the justification base would compound with
@@ -2473,9 +2631,17 @@ def _draw_event(
     playback_tick: int | None = None,
     part_index: int = 0,
     subtext_offset: float = 0.0,
+    content_bounds: tuple[float, float] | None = None,
 ) -> tuple[_Anchor, bool]:
     if event.kind == "extension":
-        return _draw_extension_event(scene, event, x, y, right_limit=right_limit)
+        return _draw_extension_event(
+            scene,
+            event,
+            x,
+            y,
+            right_limit=right_limit,
+            content_bounds=content_bounds,
+        )
     pitched = event.kind == "note" and bool(event.pitches)
     token = event.source_token or _event_token(event)
     source_ids = list(
@@ -2487,13 +2653,6 @@ def _draw_event(
         )
     )
     layout_box = measure_event_ink(event, style, subtext_offset=subtext_offset)
-    if right_limit is not None:
-        layout_box = type(layout_box)(
-            layout_box.left,
-            layout_box.top,
-            max(layout_box.left, min(layout_box.right, right_limit - x)),
-            layout_box.bottom,
-        )
     left, right, top, bottom = (
         layout_box.left,
         layout_box.right,
@@ -2513,6 +2672,9 @@ def _draw_event(
         attrs["data-source-start-utf16"] = event.source_start_utf16
     if event.source_end_utf16 is not None:
         attrs["data-source-end-utf16"] = event.source_end_utf16
+    if content_bounds is not None:
+        attrs["data-content-start"] = content_bounds[0]
+        attrs["data-content-end"] = content_bounds[1]
     if pitched:
         attrs["data-note-index"] = note_index
         attrs["data-part-index"] = part_index
@@ -2576,6 +2738,7 @@ def _draw_extension_event(
     y: float,
     *,
     right_limit: float | None = None,
+    content_bounds: tuple[float, float] | None = None,
 ) -> tuple[_Anchor, bool]:
     """Draw one beat-slot extension dash centered on its beat anchor."""
 
@@ -2591,6 +2754,9 @@ def _draw_extension_event(
         "data-note-token": event.source_token or "-",
         "data-bbox": bbox.as_data(),
     }
+    if content_bounds is not None:
+        attrs["data-content-start"] = content_bounds[0]
+        attrs["data-content-end"] = content_bounds[1]
     group = SceneNode("g", attrs)
     if right > left:
         group.children.append(_line("extension-line", left, y - 6, right, y - 6, 1.7))
@@ -3512,15 +3678,7 @@ def _lookup_event_x(
     return points[-1][1]
 
 
-def _measure_text_layout(
-    measure: Measure,
-    x: float,
-    width: float,
-    y: float,
-    style: PublicationStyle,
-    *,
-    event_spans: list[tuple[Fraction, Fraction, float]] | None = None,
-) -> list[TextLayout]:
+def _measure_text_blocks(measure: Measure) -> list[TextBlock]:
     event_dynamics = {event.dynamic for event in measure.events if event.dynamic}
     blocks = [
         block
@@ -3574,6 +3732,19 @@ def _measure_text_layout(
                 )
             )
             lyric_anchors.add(anchor)
+    return blocks
+
+
+def _measure_text_layout(
+    measure: Measure,
+    x: float,
+    width: float,
+    y: float,
+    style: PublicationStyle,
+    *,
+    event_spans: list[tuple[Fraction, Fraction, float]] | None = None,
+) -> list[TextLayout]:
+    blocks = _measure_text_blocks(measure)
     if not blocks:
         return []
 
@@ -3608,8 +3779,9 @@ def _measure_text_layout(
         ]
         first, last = ordered[0], ordered[-1]
         pad_left, pad_right = _rhythm_edge_padding(ordered, style)
-        first_left = _event_visual_extents(first, style)[0]
-        last_right = _event_visual_extents(last, style)[1]
+        edge_extents = _measure_event_visual_extents(ordered, measure, style)
+        first_left = edge_extents[0][0]
+        last_right = edge_extents[-1][1]
         candidate_left = inner_left + pad_left - first_left
         candidate_right = inner_right - pad_right - last_right
         if candidate_right > candidate_left:
@@ -3759,6 +3931,8 @@ def _draw_measure_text(
             anchor=text_anchor,
         )
         node.attrs["data-bbox"] = layout.bbox.as_data()
+        node.attrs["data-content-start"] = x + style.barline_gutter
+        node.attrs["data-content-end"] = x + width - style.barline_gutter
         scene.add(node)
 
 

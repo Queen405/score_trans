@@ -47,6 +47,7 @@ from ..performance_marks import (
     normalize_event_marks,
 )
 from ..pitch_spelling import jianpu_pitch_to_written
+from ..playback_timeline import find_house_number_mismatch
 
 MIN_TEMPO = 20
 MAX_TEMPO = 300
@@ -342,6 +343,15 @@ def validate_jianpu_text(
     _assign_measure_number_bases(duration_parts)
 
     diagnostics.extend(_ending_nested_repeat_warnings(normalized, duration_parts))
+    if has_markers:
+        try:
+            _validate_part_ending_houses(duration_text, duration_parts)
+        except JianpuSyntaxError as exc:
+            diagnostic = exc.diagnostic()
+            if not check_measure_durations:
+                return [diagnostic]
+            if not any(item.id == diagnostic.id for item in diagnostics):
+                diagnostics.append(diagnostic)
 
     if has_markers:
         try:
@@ -776,6 +786,43 @@ def _part_marker_token(text: str, part_index: int) -> _Token:
         return _Token(value="", line=1, column=1, start_utf16=0, end_utf16=0)
     match = markers[part_index]
     return _marker_token(text, match.start(), match.end())
+
+
+def _validate_part_ending_houses(text: str, parts: list[ParsedJianpuPart]) -> None:
+    for _page_index, group in _iter_page_part_groups(parts):
+        measure_count = max((len(part.score.measures) for part in group), default=0)
+        cells = [
+            [
+                part.score.measures[index] if index < len(part.score.measures) else None
+                for part in group
+            ]
+            for index in range(measure_count)
+        ]
+        mismatch = find_house_number_mismatch(cells)
+        if mismatch is None:
+            continue
+        anchor_part = next(
+            (
+                part
+                for part in group
+                if mismatch < len(part.score.measures)
+                and any(
+                    getattr(part.score.measures[mismatch], attribute) is not None
+                    for attribute in (
+                        "ending_start",
+                        "ending_stop",
+                        "ending_discontinue",
+                    )
+                )
+            ),
+            group[0],
+        )
+        display_measure = anchor_part.measure_number_base + mismatch
+        token = _part_marker_token(text, anchor_part.part_index)
+        token.measure = str(display_measure)
+        raise JianpuSyntaxError(
+            token, f"第 {display_measure} 小节各声部的跳房子标记不一致"
+        )
 
 
 def _validate_part_measure_counts(text: str, parts: list[ParsedJianpuPart]) -> None:

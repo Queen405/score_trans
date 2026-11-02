@@ -807,6 +807,7 @@ def _a4_layout_kwargs(req) -> dict[str, int]:
         "system_gap_percent": req.jianpu_system_gap_percent,
         "short_note_gap_percent": req.jianpu_short_note_gap_percent,
         "beat_gap_percent": req.jianpu_beat_gap_percent,
+        "measures_per_system": req.jianpu_measures_per_system,
     }
 
 

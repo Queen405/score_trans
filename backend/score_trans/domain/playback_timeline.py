@@ -73,17 +73,11 @@ def score_onset_groups(cells: list[list[Measure | None]]) -> dict[Fraction, int]
     return {start: index for index, start in enumerate(sorted(starts))}
 
 
-def _house_numbers_per_cell(
-    cells: list[list[Measure | None]],
-) -> dict[int, str]:
-    """每小节所属房子的规范化编号；同时校验各声部房子标记一致。
-
-    房子跨度由 domain.endings.ending_spans 从边界标记扫描，下标与 cells 对齐。
-    声部间不一致时抛 ValueError（与反复次数不一致的策略相同）。
-    """
+def find_house_number_mismatch(cells: list[list[Measure | None]]) -> int | None:
+    """Return the first zero-based cell whose ending markers differ across parts."""
     part_count = max((len(cell) for cell in cells), default=0)
     if part_count == 0:
-        return {}
+        return None
     spans_by_part: list[list[EndingSpan]] = [
         ending_spans([cell[part] if part < len(cell) else None for cell in cells])
         for part in range(part_count)
@@ -99,7 +93,18 @@ def _house_numbers_per_cell(
     for spans in spans_by_part[1:]:
         for index in range(len(cells)):
             if number_at(spans, index) != number_at(reference, index):
-                raise ValueError(f"第 {index + 1} 小节各声部的跳房子标记不一致")
+                return index
+    return None
+
+
+def _house_numbers_per_cell(
+    cells: list[list[Measure | None]],
+) -> dict[int, str]:
+    """每小节所属房子的规范化编号；同时校验各声部房子标记一致。"""
+    mismatch = find_house_number_mismatch(cells)
+    if mismatch is not None:
+        raise ValueError(f"第 {mismatch + 1} 小节各声部的跳房子标记不一致")
+    reference = ending_spans([cell[0] if cell else None for cell in cells])
     return {
         index: span.number
         for span in reference

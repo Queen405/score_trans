@@ -93,6 +93,29 @@
       </div>
 
       <div class="sv-form-stack">
+        <settings-form-row
+          :label="t('settings.appearance.measuresPerSystem')"
+        >
+          <div>
+            <n-radio-group
+              v-model:value="settings.draft.jianpuMeasuresPerSystem"
+              class="sv-theme-options"
+              size="small"
+            >
+              <n-radio-button :value="0">
+                {{ t('settings.appearance.measuresAutomatic') }}
+              </n-radio-button>
+              <n-radio-button
+                v-for="count in [3, 4, 5]"
+                :key="count"
+                :value="count"
+              >
+                {{ t('settings.appearance.measuresFixed', { count }) }}
+              </n-radio-button>
+            </n-radio-group>
+          </div>
+        </settings-form-row>
+
         <settings-form-row :label="t('settings.appearance.contentScale')">
           <div class="sv-layout-control">
             <n-slider

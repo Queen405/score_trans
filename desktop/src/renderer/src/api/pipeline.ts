@@ -3,6 +3,7 @@ import type {
   AccidentalMode,
   InstrumentProfile,
   MeasureNumberMode,
+  MeasuresPerSystem,
   PipelineByFileIdRequest,
   PolyphonyMode,
   TargetKey,
@@ -23,6 +24,7 @@ export const pipelineApi = {
     beatGapPercent = 100,
     breakBeamsAtBeat = false,
     polyphonyMode: PolyphonyMode = 'auto',
+    measuresPerSystem: MeasuresPerSystem = 0,
   ): Promise<ApiResult<TaskSubmitResponse>> {
     const formData = new FormData()
     formData.append('file', file)
@@ -35,6 +37,7 @@ export const pipelineApi = {
     formData.append('jianpu_short_note_gap_percent', String(shortNoteGapPercent))
     formData.append('jianpu_beat_gap_percent', String(beatGapPercent))
     formData.append('jianpu_break_beams_at_beat', breakBeamsAtBeat ? '1' : '0')
+    formData.append('jianpu_measures_per_system', String(measuresPerSystem))
     formData.append('polyphony_mode', polyphonyMode)
     if (title) {
       formData.append('title', title)

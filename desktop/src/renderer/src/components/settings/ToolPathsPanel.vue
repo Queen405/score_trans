@@ -29,11 +29,19 @@
         <settings-form-row
           :label="t('settings.tools.maxHeap')"
         >
-          <n-select
+          <n-radio-group
             v-model:value="settings.draft.audiverisMaxHeap"
-            :options="heapOptions"
+            class="sv-theme-options"
             size="small"
-          />
+          >
+            <n-radio-button
+              v-for="option in heapOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </n-radio-button>
+          </n-radio-group>
         </settings-form-row>
 
         <settings-form-row
@@ -75,7 +83,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
+import { NInput, NInputNumber, NRadioButton, NRadioGroup, NSwitch } from 'naive-ui'
 import { useSettingsStore } from '../../stores/settings'
 import { t } from '../../i18n'
 import SettingsFormRow from './SettingsFormRow.vue'

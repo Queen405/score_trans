@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Literal
 
-PUBLICATION_ENGINE_VERSION = "publication-16"
+from pydantic import BaseModel, Field, field_validator
+
+PUBLICATION_ENGINE_VERSION = "publication-19"
 DEFAULT_CONTENT_SCALE_PERCENT = 80
 DEFAULT_SYSTEM_GAP_PERCENT = 50
 DEFAULT_SHORT_NOTE_GAP_PERCENT = 20
@@ -16,6 +18,8 @@ MAX_SHORT_NOTE_GAP_PERCENT = 180
 MIN_BEAT_GAP_PERCENT = 0
 MAX_BEAT_GAP_PERCENT = 200
 DEFAULT_BREAK_BEAMS_AT_BEAT = False
+DEFAULT_MEASURES_PER_SYSTEM = 0
+MeasuresPerSystem = Literal[0, 3, 4, 5]
 
 
 class A4LayoutRequest(BaseModel):
@@ -40,6 +44,18 @@ class A4LayoutRequest(BaseModel):
         le=MAX_BEAT_GAP_PERCENT,
     )
     jianpu_break_beams_at_beat: bool = DEFAULT_BREAK_BEAMS_AT_BEAT
+    jianpu_measures_per_system: MeasuresPerSystem = DEFAULT_MEASURES_PER_SYSTEM
+
+    @field_validator("jianpu_measures_per_system", mode="before")
+    @classmethod
+    def validate_measures_per_system(cls, value: object) -> object:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or value not in (0, 3, 4, 5)
+        ):
+            raise ValueError("jianpu_measures_per_system must be one of 0, 3, 4, 5")
+        return value
 
 
 def a4_layout_key(
@@ -48,8 +64,10 @@ def a4_layout_key(
     short_note_gap_percent: int,
     beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT,
     break_beams_at_beat: bool = DEFAULT_BREAK_BEAMS_AT_BEAT,
+    measures_per_system: int = DEFAULT_MEASURES_PER_SYSTEM,
 ) -> str:
     return (
         f"{content_scale_percent}:{system_gap_percent}"
         f":{short_note_gap_percent}:{beat_gap_percent}:{int(break_beams_at_beat)}"
+        f":{measures_per_system or 'a'}"
     )

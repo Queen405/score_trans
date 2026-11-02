@@ -167,3 +167,26 @@ def test_geometry_qa_excludes_spanners_from_event_overlap() -> None:
     )
 
     assert not any(issue["kind"] == "geometry-overlap" for issue in issues)
+
+
+def test_measure_content_overflow_uses_actual_ink_instead_of_clipped_layout_box() -> (
+    None
+):
+    scene = PublicationScene(400, 400, 0)
+    scene.add(
+        SceneNode(
+            "g",
+            {
+                "class": "source-anchor",
+                "data-bbox": BBox(190, 100, 40, 30).as_data(),
+                "data-content-start": 100,
+                "data-content-end": 200,
+            },
+        )
+    )
+
+    issues = check_scene_geometry(
+        scene, PublicationStyle(page_width=400, page_height=400)
+    )
+
+    assert any(issue["kind"] == "measure-overflow" for issue in issues)

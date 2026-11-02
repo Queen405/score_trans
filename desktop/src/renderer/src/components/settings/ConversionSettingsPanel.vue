@@ -32,19 +32,35 @@
         </settings-form-row>
 
         <settings-form-row :label="t('settings.conversion.accidentalMode')">
-          <n-select
+          <n-radio-group
             v-model:value="settings.draft.accidentalMode"
-            :options="accidentalModeOptions"
+            class="sv-theme-options"
             size="small"
-          />
+          >
+            <n-radio-button
+              v-for="option in accidentalModeOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </n-radio-button>
+          </n-radio-group>
         </settings-form-row>
 
         <settings-form-row :label="t('settings.conversion.measureNumber')">
-          <n-select
+          <n-radio-group
             v-model:value="settings.draft.measureNumberMode"
-            :options="measureNumberModeOptions"
+            class="sv-theme-options"
             size="small"
-          />
+          >
+            <n-radio-button
+              v-for="option in measureNumberModeOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </n-radio-button>
+          </n-radio-group>
         </settings-form-row>
 
         <settings-form-row
@@ -128,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { NButton, NCheckbox, NInput, NSelect, NSwitch } from 'naive-ui'
+import { NButton, NCheckbox, NInput, NRadioButton, NRadioGroup, NSelect, NSwitch } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
 import { useSettingsStore } from '../../stores/settings'
 import { t } from '../../i18n'

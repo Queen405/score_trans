@@ -946,3 +946,41 @@ def test_structural_diagnostics_keep_measure_empty() -> None:
         # 首条诊断即结构级错误本身；开启时值检查后，掩码可能暴露后续
         # 内容级 token 错误（携带小节号属正常），不在本用例断言范围内。
         assert diagnostics[0].measure is None, text
+
+
+def test_multi_part_ending_mismatch_is_a_located_syntax_error() -> None:
+    first_measures = " | ".join(["w1"] * 9 + ["{1.} w1 ||"])
+    other_measures = " | ".join(["w2"] * 9 + ["w2 ||"])
+    text = (
+        '// @part 1 name="lead"\n1=C\n4/4\n'
+        + first_measures
+        + '\n// @part 2 name="bass"\n1=C\n4/4\n'
+        + other_measures
+    )
+
+    diagnostics = validate_jianpu_text(text)
+
+    assert len(diagnostics) == 1
+    diagnostic = diagnostics[0]
+    assert diagnostic.severity == "error"
+    assert diagnostic.message == "第 10 小节各声部的跳房子标记不一致"
+    assert diagnostic.measure == "10"
+    assert diagnostic.line == 1
+
+    client = TestClient(create_app(auth_disabled=True))
+    response = client.post("/syntax/validate", json={"jianpu_text": text})
+    assert response.status_code == 200
+    assert response.json()["diagnostics"][0]["message"] == diagnostic.message
+    assert response.json()["diagnostics"][0]["measure"] == "10"
+
+
+def test_multi_part_matching_endings_do_not_produce_syntax_errors() -> None:
+    measures = " | ".join(["w1"] * 9 + ["{1.} w1 ||"])
+    text = (
+        '// @part 1 name="lead"\n1=C\n4/4\n'
+        + measures
+        + '\n// @part 2 name="bass"\n1=C\n4/4\n'
+        + measures
+    )
+
+    assert validate_jianpu_text(text) == []

@@ -110,6 +110,9 @@ const settings: typeof zhSettings = {
     shortNoteGap: 'Short note spacing',
     beatGap: 'Beat spacing',
     breakBeamsAtBeat: 'Break beams per beat',
+    measuresPerSystem: 'Measures per system',
+    measuresAutomatic: 'Automatic',
+    measuresFixed: '{count} measures',
   },
 }
 

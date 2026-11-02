@@ -7,6 +7,7 @@ from score_trans.models.render.layout import (
     DEFAULT_BEAT_GAP_PERCENT,
     DEFAULT_BREAK_BEAMS_AT_BEAT,
     DEFAULT_CONTENT_SCALE_PERCENT,
+    DEFAULT_MEASURES_PER_SYSTEM,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
     MAX_BEAT_GAP_PERCENT,
@@ -53,6 +54,7 @@ class A4LayoutOptions:
     short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
     beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
     break_beams_at_beat: bool = DEFAULT_BREAK_BEAMS_AT_BEAT
+    measures_per_system: int = DEFAULT_MEASURES_PER_SYSTEM
 
     def __post_init__(self) -> None:
         ranges = (
@@ -81,6 +83,12 @@ class A4LayoutOptions:
                 MAX_BEAT_GAP_PERCENT,
             ),
         )
+        if (
+            isinstance(self.measures_per_system, bool)
+            or not isinstance(self.measures_per_system, int)
+            or self.measures_per_system not in (0, 3, 4, 5)
+        ):
+            raise ValueError("measures_per_system must be one of 0, 3, 4, 5")
         for field, value, minimum, maximum in ranges:
             if isinstance(value, bool) or not isinstance(value, int):
                 raise TypeError(f"{field} must be an integer")
@@ -111,4 +119,5 @@ class A4LayoutOptions:
             self.short_note_gap_percent,
             self.beat_gap_percent,
             self.break_beams_at_beat,
+            self.measures_per_system,
         )

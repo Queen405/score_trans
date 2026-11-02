@@ -14,6 +14,8 @@ from score_trans.models.common.types import (
 from score_trans.models.render.layout import (
     DEFAULT_BEAT_GAP_PERCENT,
     DEFAULT_CONTENT_SCALE_PERCENT,
+    DEFAULT_MEASURES_PER_SYSTEM,
+    MeasuresPerSystem,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
     MAX_BEAT_GAP_PERCENT,
@@ -60,6 +62,7 @@ class SettingsResponse(BaseModel):
     jianpu_short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
     jianpu_beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
     jianpu_break_beams_at_beat: bool = False
+    jianpu_measures_per_system: MeasuresPerSystem = DEFAULT_MEASURES_PER_SYSTEM
     enable_omr_ocr: bool = False
     output_dir: str = ""
     ocr_provider: str
@@ -119,6 +122,7 @@ class SettingsUpdateRequest(BaseModel):
         le=MAX_BEAT_GAP_PERCENT,
     )
     jianpu_break_beams_at_beat: bool | None = None
+    jianpu_measures_per_system: MeasuresPerSystem | None = None
     enable_omr_ocr: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None

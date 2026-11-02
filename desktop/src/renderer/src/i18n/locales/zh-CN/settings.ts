@@ -89,7 +89,7 @@ const settings = {
     optionFlat: '降号',
     optionAuto: '自动',
     measureAll: '全部显示',
-    measureRowStart: '每行首显示',
+    measureRowStart: '行首显示',
     measureHide: '隐藏',
   },
   appearance: {
@@ -107,6 +107,9 @@ const settings = {
     shortNoteGap: '短音符间距',
     beatGap: '分拍间隔',
     breakBeamsAtBeat: '时值线断开',
+    measuresPerSystem: '每行小节数',
+    measuresAutomatic: '自由排版',
+    measuresFixed: '{count} 小节',
   },
 }
 

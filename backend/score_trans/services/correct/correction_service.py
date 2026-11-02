@@ -94,6 +94,7 @@ class CorrectionService:
             short_note_gap_percent=options.jianpu_short_note_gap_percent,
             beat_gap_percent=options.jianpu_beat_gap_percent,
             break_beams_at_beat=options.jianpu_break_beams_at_beat,
+            measures_per_system=options.jianpu_measures_per_system,
         )
         return CorrectionArtifacts(
             working_musicxml=working_xml,

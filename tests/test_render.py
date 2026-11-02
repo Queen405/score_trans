@@ -128,7 +128,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-16"
+    assert root.attrib["data-engine-version"] == "publication-19"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -2379,7 +2379,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
     assert root.attrib["width"] == "1240"
     assert root.attrib["height"] == "1754"
     assert root.attrib["viewBox"] == "0 0 1240 1754"
-    assert root.attrib["data-layout-key"] == "67:100:100:100:0"
+    assert root.attrib["data-layout-key"] == "67:100:100:100:0:a"
     content = next(
         node for node in root if node.attrib.get("class") == "publication-content"
     )
@@ -3041,8 +3041,8 @@ def test_batch_render_uses_jianpu_text_title_when_request_omits_one(
     svg_path = uploads.get_path(response.svg_file_id)
     assert svg_path is not None
     root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
-    assert root.attrib["data-layout-key"] == "75:88:85:100:0"
-    assert response.pages[0].layout_key == "75:88:85:100:0"
+    assert root.attrib["data-layout-key"] == "75:88:85:100:0:a"
+    assert response.pages[0].layout_key == "75:88:85:100:0:a"
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
 
@@ -3441,3 +3441,100 @@ def test_ending_layout_reserves_space_for_every_part() -> None:
         )
         == 4
     )
+
+
+def test_fixed_measures_per_system_aligns_barlines_across_short_rows() -> None:
+    score = parse_jianpu_score("1=C\n4/4\n" + "\n".join(["q1 q2 q3 q4 |"] * 10))
+
+    page = render_scores_a4_pages(
+        [score], layout=A4LayoutOptions(measures_per_system=4)
+    )[0]
+    root = _root(page.svg)
+    rows: dict[float, list[float]] = {}
+    for node in root.iter():
+        if "measure" not in node.attrib.get("class", "").split():
+            continue
+        y = float(node.attrib["y1"])
+        rows.setdefault(y, []).append(float(node.attrib["x1"]))
+
+    ordered = [rows[y] for y in sorted(rows)]
+    assert len(ordered) == 3
+    assert ordered[1] == pytest.approx(ordered[0])
+    assert ordered[2][:2] == pytest.approx(ordered[0][:2])
+    assert (
+        len(ordered[2]) == 4
+    )  # two starting boundaries plus the double terminal barline
+
+
+def test_a4_layout_options_validate_measures_per_system() -> None:
+    for value in (0, 3, 4, 5):
+        assert A4LayoutOptions(measures_per_system=value).measures_per_system == value
+    for value in (1, 2, 6, "4", True):
+        with pytest.raises(ValueError):
+            A4LayoutOptions(measures_per_system=value)
+
+
+def test_gap_lyrics_participate_in_horizontal_width_and_never_overflow() -> None:
+    text = (
+        "1=C\n4/4\n"
+        + "\n".join(["0 0 0 0 |"] * 12)
+        + "\n/L: "
+        + " | ".join(
+            ["averylonglyric averylonglyric averylonglyric averylonglyric"] * 12
+        )
+        + "/"
+    )
+    score = parse_jianpu_score(text)
+    assert (
+        sum(bool(event.lyric) for measure in score.measures for event in measure.events)
+        == 0
+    )
+    assert sum(len(measure.text_blocks) for measure in score.measures) == 48
+
+    pages = PublicationRenderer().render_scores([score])
+
+    assert not any(
+        issue["kind"] in {"page-overflow", "measure-overflow"}
+        for page in pages
+        for issue in page.scene.geometry_issues
+    )
+
+
+def test_gap_lyrics_expand_dense_measures_instead_of_failing() -> None:
+    text = (
+        "1=C\n4/4\n"
+        + "\n".join(["0 0 0 0 |"] * 4)
+        + "\n/L: "
+        + " | ".join(
+            ["averylonglyric averylonglyric averylonglyric averylonglyric"] * 4
+        )
+        + "/"
+    )
+    score = parse_jianpu_score(text)
+
+    pages = PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
+        [score]
+    )
+
+    assert len(pages) == 1
+    assert not any(
+        issue["kind"] in {"page-overflow", "measure-overflow"}
+        for page in pages
+        for issue in page.scene.geometry_issues
+    )
+
+
+@pytest.mark.parametrize("measures_per_system", [0, 3, 4, 5])
+def test_standalone_forced_page_break_is_honored_in_every_layout_mode(
+    measures_per_system: int,
+) -> None:
+    score = parse_jianpu_score("1=C\n4/4\n" + " ".join(["1 2 3 4 |"] * 5))
+    score.measures[2].new_page = True
+
+    pages = render_scores_a4_pages(
+        [score], layout=A4LayoutOptions(measures_per_system=measures_per_system)
+    )
+
+    assert len(pages) == 2
+    assert pages[0].measure_ranges[0].end_measure_number == 2
+    assert pages[1].measure_ranges[0].start_measure_number == 3

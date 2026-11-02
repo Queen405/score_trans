@@ -8,6 +8,7 @@ import type {
   CacheCleanupResponse,
   LlmProviderOption,
   MeasureNumberMode,
+  MeasuresPerSystem,
   PolyphonyMode,
   SettingsResponse,
   StoragePaths,
@@ -42,6 +43,7 @@ export interface SettingsDraft {
   jianpuShortNoteGapPercent: number
   jianpuBeatGapPercent: number
   jianpuBreakBeamsAtBeat: boolean
+  jianpuMeasuresPerSystem: MeasuresPerSystem
   enableOmrOcr: boolean
   outputDir: string
   jianpuAutoTranspose: boolean
@@ -129,6 +131,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const jianpuShortNoteGapPercent = ref(20)
   const jianpuBeatGapPercent = ref(100)
   const jianpuBreakBeamsAtBeat = ref(false)
+  const jianpuMeasuresPerSystem = ref<MeasuresPerSystem>(0)
   const enableOmrOcr = ref(false)
   const outputDir = ref('')
   const jianpuAutoTranspose = ref(true)
@@ -187,6 +190,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuShortNoteGapPercent: 20,
     jianpuBeatGapPercent: 100,
     jianpuBreakBeamsAtBeat: false,
+    jianpuMeasuresPerSystem: 0 as MeasuresPerSystem,
     enableOmrOcr: false,
     outputDir: '',
     jianpuAutoTranspose: true,
@@ -230,6 +234,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuShortNoteGapPercent.value,
     jianpuBeatGapPercent.value,
     jianpuBreakBeamsAtBeat.value,
+    jianpuMeasuresPerSystem.value,
   ))
   const jianpuLayoutRequest = computed(() => ({
     jianpu_content_scale_percent: jianpuContentScalePercent.value,
@@ -237,6 +242,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpu_short_note_gap_percent: jianpuShortNoteGapPercent.value,
     jianpu_beat_gap_percent: jianpuBeatGapPercent.value,
     jianpu_break_beams_at_beat: jianpuBreakBeamsAtBeat.value,
+    jianpu_measures_per_system: jianpuMeasuresPerSystem.value,
   }))
 
   async function load(): Promise<void> {
@@ -278,6 +284,7 @@ export const useSettingsStore = defineStore('settings', () => {
       jianpuShortNoteGapPercent: jianpuShortNoteGapPercent.value,
       jianpuBeatGapPercent: jianpuBeatGapPercent.value,
       jianpuBreakBeamsAtBeat: jianpuBreakBeamsAtBeat.value,
+      jianpuMeasuresPerSystem: jianpuMeasuresPerSystem.value,
       enableOmrOcr: enableOmrOcr.value,
       outputDir: outputDir.value,
       jianpuAutoTranspose: jianpuAutoTranspose.value,
@@ -353,6 +360,7 @@ export const useSettingsStore = defineStore('settings', () => {
           jianpu_short_note_gap_percent: next.jianpuShortNoteGapPercent,
           jianpu_beat_gap_percent: next.jianpuBeatGapPercent,
           jianpu_break_beams_at_beat: next.jianpuBreakBeamsAtBeat,
+          jianpu_measures_per_system: next.jianpuMeasuresPerSystem,
           enable_omr_ocr: next.enableOmrOcr,
           jianpu_auto_transpose: next.jianpuAutoTranspose,
           ocr_provider: next.providers.ocr.provider,
@@ -502,6 +510,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 20
     jianpuBeatGapPercent.value = data.jianpu_beat_gap_percent ?? 100
     jianpuBreakBeamsAtBeat.value = data.jianpu_break_beams_at_beat ?? false
+  jianpuMeasuresPerSystem.value = data.jianpu_measures_per_system ?? 0
     enableOmrOcr.value = data.enable_omr_ocr ?? false
     outputDir.value = data.output_dir ?? ''
     jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? true
@@ -597,6 +606,7 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.jianpuShortNoteGapPercent = next.jianpuShortNoteGapPercent
     draft.jianpuBeatGapPercent = next.jianpuBeatGapPercent
     draft.jianpuBreakBeamsAtBeat = next.jianpuBreakBeamsAtBeat
+    draft.jianpuMeasuresPerSystem = next.jianpuMeasuresPerSystem
     draft.enableOmrOcr = next.enableOmrOcr
     draft.outputDir = next.outputDir
     draft.jianpuAutoTranspose = next.jianpuAutoTranspose
@@ -642,6 +652,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuShortNoteGapPercent,
     jianpuBeatGapPercent,
     jianpuBreakBeamsAtBeat,
+    jianpuMeasuresPerSystem,
     jianpuLayoutKey: jianpuLayoutKeyValue,
     jianpuLayoutRequest,
     enableOmrOcr,

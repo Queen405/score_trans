@@ -14,6 +14,7 @@ class GeometryIssue(TypedDict):
 
 
 _SPANNER_KINDS = frozenset({"tie", "slur", "slide"})
+_GEOMETRY_EPSILON = 1e-6
 
 
 def check_scene_geometry(
@@ -56,8 +57,8 @@ def check_scene_geometry(
         if (
             bbox.x < 0
             or bbox.y < 0
-            or bbox.x + bbox.width > virtual_width
-            or bbox.y + bbox.height > virtual_height
+            or bbox.x + bbox.width > virtual_width + _GEOMETRY_EPSILON
+            or bbox.y + bbox.height > virtual_height + _GEOMETRY_EPSILON
         ):
             issues.append(
                 {
@@ -67,6 +68,23 @@ def check_scene_geometry(
                     "owner": owner,
                 }
             )
+        content_start = node.attrs.get("data-content-start")
+        content_end = node.attrs.get("data-content-end")
+        if content_start is not None and content_end is not None:
+            left = float(content_start)
+            right = float(content_end)
+            if (
+                bbox.x < left - _GEOMETRY_EPSILON
+                or bbox.x + bbox.width > right + _GEOMETRY_EPSILON
+            ):
+                issues.append(
+                    {
+                        "kind": "measure-overflow",
+                        "classes": classes,
+                        "bbox": (bbox.x, bbox.y, bbox.width, bbox.height),
+                        "owner": owner,
+                    }
+                )
         if "source-anchor" in classes:
             anchors.append((classes, bbox))
 

@@ -25,6 +25,7 @@ from ...models.render.layout import (
     MIN_CONTENT_SCALE_PERCENT,
     MIN_SHORT_NOTE_GAP_PERCENT,
     MIN_SYSTEM_GAP_PERCENT,
+    MeasuresPerSystem,
 )
 from ...models.tasks.schemas import TaskSubmitResponse
 from ..dependencies import get_pipeline_actions, get_task_actions
@@ -54,6 +55,7 @@ async def run_pipeline_by_file_id(
         short_note_gap_percent=req.jianpu_short_note_gap_percent,
         beat_gap_percent=req.jianpu_beat_gap_percent,
         break_beams_at_beat=req.jianpu_break_beams_at_beat,
+        measures_per_system=req.jianpu_measures_per_system,
         title=req.title,
     )
 
@@ -89,6 +91,7 @@ async def run_pipeline(
         le=MAX_BEAT_GAP_PERCENT,
     ),
     jianpu_break_beams_at_beat: bool = Form(False),
+    jianpu_measures_per_system: MeasuresPerSystem = Form(0),
     title: str | None = Form(None),
     actions: PipelineActions = Depends(get_pipeline_actions),
     tasks: TaskActions = Depends(get_task_actions),
@@ -108,6 +111,7 @@ async def run_pipeline(
         short_note_gap_percent=jianpu_short_note_gap_percent,
         beat_gap_percent=jianpu_beat_gap_percent,
         break_beams_at_beat=jianpu_break_beams_at_beat,
+        measures_per_system=jianpu_measures_per_system,
         title=title,
     )
 

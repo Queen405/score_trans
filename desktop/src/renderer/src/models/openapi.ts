@@ -1187,6 +1187,12 @@ export type components = {
              */
             jianpu_content_scale_percent?: number;
             /**
+             * Jianpu Measures Per System
+             * @default 0
+             * @enum {integer}
+             */
+            jianpu_measures_per_system?: 0 | 3 | 4 | 5;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -1257,7 +1263,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-16
+             * @default publication-19
              */
             engine_version?: string;
             /** Id */
@@ -1399,6 +1405,12 @@ export type components = {
              */
             jianpu_content_scale_percent?: number;
             /**
+             * Jianpu Measures Per System
+             * @default 0
+             * @enum {integer}
+             */
+            jianpu_measures_per_system?: 0 | 3 | 4 | 5;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -1502,6 +1514,12 @@ export type components = {
              * @default 80
              */
             jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Measures Per System
+             * @default 0
+             * @enum {integer}
+             */
+            jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
              * Jianpu Short Note Gap Percent
              * @default 20
@@ -1761,6 +1779,12 @@ export type components = {
              * @default 80
              */
             jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Measures Per System
+             * @default 0
+             * @enum {integer}
+             */
+            jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
              * Jianpu Short Note Gap Percent
              * @default 20
@@ -2024,7 +2048,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-16
+             * @default publication-19
              */
             engine_version?: string;
             /**
@@ -2138,7 +2162,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-16
+             * @default publication-19
              */
             engine_version?: string;
             /** Error Message */
@@ -2312,6 +2336,12 @@ export type components = {
              * @default 80
              */
             jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Measures Per System
+             * @default 0
+             * @enum {integer}
+             */
+            jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
              * Jianpu Short Note Gap Percent
              * @default 20
@@ -2511,7 +2541,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-16
+             * @default publication-19
              */
             engine_version?: string;
             /**
@@ -2632,6 +2662,12 @@ export type components = {
              */
             jianpu_content_scale_percent?: number;
             /**
+             * Jianpu Measures Per System
+             * @default 0
+             * @enum {integer}
+             */
+            jianpu_measures_per_system?: 0 | 3 | 4 | 5;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -2700,6 +2736,12 @@ export type components = {
             jianpu_content_scale_percent?: number;
             /** Jianpu File Id */
             jianpu_file_id?: string | null;
+            /**
+             * Jianpu Measures Per System
+             * @default 0
+             * @enum {integer}
+             */
+            jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
              * Jianpu Short Note Gap Percent
              * @default 20
@@ -2884,6 +2926,12 @@ export type components = {
              */
             jianpu_measure_duration_check?: boolean;
             /**
+             * Jianpu Measures Per System
+             * @default 0
+             * @enum {integer}
+             */
+            jianpu_measures_per_system?: 0 | 3 | 4 | 5;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -2990,6 +3038,8 @@ export type components = {
             jianpu_content_scale_percent?: number | null;
             /** Jianpu Measure Duration Check */
             jianpu_measure_duration_check?: boolean | null;
+            /** Jianpu Measures Per System */
+            jianpu_measures_per_system?: (0 | 3 | 4 | 5) | null;
             /** Jianpu Short Note Gap Percent */
             jianpu_short_note_gap_percent?: number | null;
             /** Jianpu Syntax Highlight */

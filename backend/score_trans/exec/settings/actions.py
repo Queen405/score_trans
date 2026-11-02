@@ -121,6 +121,7 @@ class SettingsActions:
             "jianpu_system_gap_percent",
             "jianpu_short_note_gap_percent",
             "jianpu_beat_gap_percent",
+            "jianpu_measures_per_system",
         ):
             value = getattr(req, key)
             if value is not None:
@@ -328,6 +329,9 @@ class SettingsActions:
             ),
             jianpu_break_beams_at_beat=self.service.get_bool(
                 "jianpu_break_beams_at_beat", False
+            ),
+            jianpu_measures_per_system=self.service.get_int(
+                "jianpu_measures_per_system", 0
             ),
             enable_omr_ocr=self.service.get_bool("enable_omr_ocr", False),
             ocr_provider=ocr_profile.id,
