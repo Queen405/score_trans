@@ -345,7 +345,7 @@ def validate_jianpu_text(
     diagnostics.extend(_ending_nested_repeat_warnings(normalized, duration_parts))
     if has_markers:
         try:
-            _validate_part_ending_houses(duration_text, duration_parts)
+            _validate_part_ending_houses(duration_text, duration_parts, token_lines)
         except JianpuSyntaxError as exc:
             diagnostic = exc.diagnostic()
             if not check_measure_durations:
@@ -788,7 +788,9 @@ def _part_marker_token(text: str, part_index: int) -> _Token:
     return _marker_token(text, match.start(), match.end())
 
 
-def _validate_part_ending_houses(text: str, parts: list[ParsedJianpuPart]) -> None:
+def _validate_part_ending_houses(
+    text: str, parts: list[ParsedJianpuPart], tokens: list[_Token]
+) -> None:
     for _page_index, group in _iter_page_part_groups(parts):
         measure_count = max((len(part.score.measures) for part in group), default=0)
         cells = [
@@ -818,7 +820,22 @@ def _validate_part_ending_houses(text: str, parts: list[ParsedJianpuPart]) -> No
             group[0],
         )
         display_measure = anchor_part.measure_number_base + mismatch
-        token = _part_marker_token(text, anchor_part.part_index)
+        token = next(
+            (
+                candidate
+                for candidate in tokens
+                if candidate.start_utf16 is not None
+                and anchor_part.body_start_utf16
+                <= candidate.start_utf16
+                < anchor_part.body_end_utf16
+                and candidate.measure == str(display_measure)
+                and (
+                    _ENDING_OPEN_PATTERN.fullmatch(candidate.value)
+                    or candidate.value == _ENDING_CLOSE_TOKEN
+                )
+            ),
+            None,
+        ) or _part_marker_token(text, anchor_part.part_index)
         token.measure = str(display_measure)
         raise JianpuSyntaxError(
             token, f"第 {display_measure} 小节各声部的跳房子标记不一致"
@@ -853,11 +870,7 @@ def _validate_part_measure_counts(text: str, parts: list[ParsedJianpuPart]) -> N
             if span == min_span
         )
         message = f"{message}（{shortest}从第 {first_missing} 小节起缺失）"
-    raise JianpuSyntaxError(
-        token,
-        message,
-        severity="warning",
-    )
+    raise JianpuSyntaxError(token, message)
 
 
 def _validate_marker_structure(text: str) -> None:

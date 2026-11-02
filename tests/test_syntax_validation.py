@@ -522,8 +522,7 @@ def test_validate_jianpu_text_reports_part_measure_count_mismatch() -> None:
     assert len(diagnostics) == 1
     assert diagnostics[0].line == 1
     assert "各声部小节数量不一致：a=2、b=1" in diagnostics[0].message
-    # v1：这条诊断降级为 warning（不阻塞流程，前端「隐藏警告」可关闭）。
-    assert diagnostics[0].severity == "warning"
+    assert diagnostics[0].severity == "error"
 
 
 def test_validate_jianpu_text_reports_measure_duration_warnings_in_document_offsets() -> (
@@ -753,7 +752,11 @@ def test_cross_page_measure_numbers_are_continuous() -> None:
     )
 
     diagnostics = validate_jianpu_text(text, check_measure_durations=True)
-    errors = [d for d in diagnostics if d.severity == "error"]
+    errors = [
+        d
+        for d in diagnostics
+        if d.severity == "error" and "各声部小节数量不一致" not in d.message
+    ]
 
     assert [(d.line, d.measure) for d in errors] == [(19, "3"), (19, "4")]
     warnings = [d for d in diagnostics if d.severity == "warning"]
@@ -834,7 +837,7 @@ def test_measure_numbers_swallow_empty_bar_after_repeat_end() -> None:
 
 
 def test_part_measure_count_mismatch_reports_first_missing_measure() -> None:
-    # W1：多声部不一致警告应携带第一个缺失小节的显示号与文案提示。
+    # 多声部不一致错误应携带第一个缺失小节的显示号与文案提示。
     text = (
         '// @part 1 name="a"\n1=C\n4/4\n1 2 3 4 | 5 6 7 1 |\n'
         '// @part 2 name="b"\n1=C\n4/4\n1 2 3 4 |'
@@ -965,7 +968,9 @@ def test_multi_part_ending_mismatch_is_a_located_syntax_error() -> None:
     assert diagnostic.severity == "error"
     assert diagnostic.message == "第 10 小节各声部的跳房子标记不一致"
     assert diagnostic.measure == "10"
-    assert diagnostic.line == 1
+    assert diagnostic.line == 4
+    assert text[diagnostic.start : diagnostic.end] == "{1.}"
+    assert diagnostic.end > diagnostic.start
 
     client = TestClient(create_app(auth_disabled=True))
     response = client.post("/syntax/validate", json={"jianpu_text": text})

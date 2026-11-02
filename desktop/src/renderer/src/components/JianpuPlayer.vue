@@ -251,6 +251,11 @@ async function loadMidiForGeneration(url: string, generation: number): Promise<v
 function reportMidiError(error: unknown, generation: number, silent = false): void {
   if (generation !== loadGeneration) return
   const detail = error instanceof Error ? error.message : String(error)
+  if (detail.includes('各声部的跳房子标记不一致')) {
+    // 该结构错误已在语法诊断面板中报告，避免重复写运行日志或弹窗。
+    player.unload()
+    return
+  }
   if (error instanceof ApiError && error.code === 'jianpu_syntax') {
     player.unload()
     if (silent) return
