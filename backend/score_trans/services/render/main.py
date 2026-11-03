@@ -531,6 +531,12 @@ def _a4_renderer(
         + max(0.0, base.title_size * (layout.title_size_scale - 1.0)),
         annotation_size=base.annotation_size * layout.annotation_size_scale,
         measure_number_size=base.measure_number_size * layout.annotation_size_scale,
+        part_gap=base.part_gap * layout.part_gap_scale,
+        voice_row_gap=base.voice_row_gap * layout.voice_gap_scale,
+        text_lane_gap=base.text_lane_gap * layout.lyric_line_gap_scale,
+        lyric_clearance=base.lyric_clearance * layout.lyric_note_gap_scale,
+        text_lyric_clearance=base.text_lyric_clearance * layout.lyric_note_gap_scale,
+        text_lane_clearance=base.text_lane_clearance * layout.lyric_note_gap_scale,
     )
     if style.content_width < 100:
         raise RenderError("??????????????????")

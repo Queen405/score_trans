@@ -140,6 +140,10 @@ class SettingsActions:
             "jianpu_lyric_size_percent",
             "jianpu_title_size_percent",
             "jianpu_annotation_size_percent",
+            "jianpu_part_gap_percent",
+            "jianpu_voice_gap_percent",
+            "jianpu_lyric_line_gap_percent",
+            "jianpu_lyric_note_gap_percent",
         ):
             value = getattr(req, key)
             if value is not None:
@@ -380,6 +384,18 @@ class SettingsActions:
             ),
             jianpu_annotation_size_percent=self.service.get_int(
                 "jianpu_annotation_size_percent", 100
+            ),
+            jianpu_part_gap_percent=self.service.get_int(
+                "jianpu_part_gap_percent", 100
+            ),
+            jianpu_voice_gap_percent=self.service.get_int(
+                "jianpu_voice_gap_percent", 100
+            ),
+            jianpu_lyric_line_gap_percent=self.service.get_int(
+                "jianpu_lyric_line_gap_percent", 100
+            ),
+            jianpu_lyric_note_gap_percent=self.service.get_int(
+                "jianpu_lyric_note_gap_percent", 100
             ),
             enable_omr_ocr=self.service.get_bool("enable_omr_ocr", False),
             ocr_provider=ocr_profile.id,

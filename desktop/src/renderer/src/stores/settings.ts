@@ -54,6 +54,10 @@ export interface SettingsDraft {
   jianpuLyricSizePercent: number
   jianpuTitleSizePercent: number
   jianpuAnnotationSizePercent: number
+  jianpuPartGapPercent: number
+  jianpuVoiceGapPercent: number
+  jianpuLyricLineGapPercent: number
+  jianpuLyricNoteGapPercent: number
   enableOmrOcr: boolean
   outputDir: string
   jianpuAutoTranspose: boolean
@@ -152,6 +156,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const jianpuLyricSizePercent = ref(100)
   const jianpuTitleSizePercent = ref(100)
   const jianpuAnnotationSizePercent = ref(100)
+  const jianpuPartGapPercent = ref(100)
+  const jianpuVoiceGapPercent = ref(100)
+  const jianpuLyricLineGapPercent = ref(100)
+  const jianpuLyricNoteGapPercent = ref(100)
   const enableOmrOcr = ref(false)
   const outputDir = ref('')
   const jianpuAutoTranspose = ref(true)
@@ -221,6 +229,10 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuLyricSizePercent: 100,
     jianpuTitleSizePercent: 100,
     jianpuAnnotationSizePercent: 100,
+    jianpuPartGapPercent: 100,
+    jianpuVoiceGapPercent: 100,
+    jianpuLyricLineGapPercent: 100,
+    jianpuLyricNoteGapPercent: 100,
     enableOmrOcr: false,
     outputDir: '',
     jianpuAutoTranspose: true,
@@ -276,6 +288,10 @@ export const useSettingsStore = defineStore('settings', () => {
       jianpuLyricSizePercent.value,
       jianpuTitleSizePercent.value,
       jianpuAnnotationSizePercent.value,
+      jianpuPartGapPercent.value,
+      jianpuVoiceGapPercent.value,
+      jianpuLyricLineGapPercent.value,
+      jianpuLyricNoteGapPercent.value,
     ].join(':'),
   ))
   const jianpuLayoutRequest = computed(() => ({
@@ -295,6 +311,10 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpu_lyric_size_percent: jianpuLyricSizePercent.value,
     jianpu_title_size_percent: jianpuTitleSizePercent.value,
     jianpu_annotation_size_percent: jianpuAnnotationSizePercent.value,
+    jianpu_part_gap_percent: jianpuPartGapPercent.value,
+    jianpu_voice_gap_percent: jianpuVoiceGapPercent.value,
+    jianpu_lyric_line_gap_percent: jianpuLyricLineGapPercent.value,
+    jianpu_lyric_note_gap_percent: jianpuLyricNoteGapPercent.value,
   }))
 
   async function load(): Promise<void> {
@@ -347,6 +367,10 @@ export const useSettingsStore = defineStore('settings', () => {
       jianpuLyricSizePercent: jianpuLyricSizePercent.value,
       jianpuTitleSizePercent: jianpuTitleSizePercent.value,
       jianpuAnnotationSizePercent: jianpuAnnotationSizePercent.value,
+      jianpuPartGapPercent: jianpuPartGapPercent.value,
+      jianpuVoiceGapPercent: jianpuVoiceGapPercent.value,
+      jianpuLyricLineGapPercent: jianpuLyricLineGapPercent.value,
+      jianpuLyricNoteGapPercent: jianpuLyricNoteGapPercent.value,
       enableOmrOcr: enableOmrOcr.value,
       outputDir: outputDir.value,
       jianpuAutoTranspose: jianpuAutoTranspose.value,
@@ -433,6 +457,10 @@ export const useSettingsStore = defineStore('settings', () => {
           jianpu_lyric_size_percent: next.jianpuLyricSizePercent,
           jianpu_title_size_percent: next.jianpuTitleSizePercent,
           jianpu_annotation_size_percent: next.jianpuAnnotationSizePercent,
+          jianpu_part_gap_percent: next.jianpuPartGapPercent,
+          jianpu_voice_gap_percent: next.jianpuVoiceGapPercent,
+          jianpu_lyric_line_gap_percent: next.jianpuLyricLineGapPercent,
+          jianpu_lyric_note_gap_percent: next.jianpuLyricNoteGapPercent,
           enable_omr_ocr: next.enableOmrOcr,
           jianpu_auto_transpose: next.jianpuAutoTranspose,
           ocr_provider: next.providers.ocr.provider,
@@ -593,6 +621,10 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuLyricSizePercent.value = data.jianpu_lyric_size_percent ?? 100
     jianpuTitleSizePercent.value = data.jianpu_title_size_percent ?? 100
     jianpuAnnotationSizePercent.value = data.jianpu_annotation_size_percent ?? 100
+    jianpuPartGapPercent.value = data.jianpu_part_gap_percent ?? 100
+    jianpuVoiceGapPercent.value = data.jianpu_voice_gap_percent ?? 100
+    jianpuLyricLineGapPercent.value = data.jianpu_lyric_line_gap_percent ?? 100
+    jianpuLyricNoteGapPercent.value = data.jianpu_lyric_note_gap_percent ?? 100
     enableOmrOcr.value = data.enable_omr_ocr ?? false
     outputDir.value = data.output_dir ?? ''
     jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? true
@@ -699,6 +731,10 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.jianpuLyricSizePercent = next.jianpuLyricSizePercent
     draft.jianpuTitleSizePercent = next.jianpuTitleSizePercent
     draft.jianpuAnnotationSizePercent = next.jianpuAnnotationSizePercent
+    draft.jianpuPartGapPercent = next.jianpuPartGapPercent
+    draft.jianpuVoiceGapPercent = next.jianpuVoiceGapPercent
+    draft.jianpuLyricLineGapPercent = next.jianpuLyricLineGapPercent
+    draft.jianpuLyricNoteGapPercent = next.jianpuLyricNoteGapPercent
     draft.enableOmrOcr = next.enableOmrOcr
     draft.outputDir = next.outputDir
     draft.jianpuAutoTranspose = next.jianpuAutoTranspose
@@ -755,6 +791,10 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuLyricSizePercent,
     jianpuTitleSizePercent,
     jianpuAnnotationSizePercent,
+    jianpuPartGapPercent,
+    jianpuVoiceGapPercent,
+    jianpuLyricLineGapPercent,
+    jianpuLyricNoteGapPercent,
     jianpuLayoutKey: jianpuLayoutKeyValue,
     jianpuLayoutRequest,
     enableOmrOcr,

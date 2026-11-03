@@ -824,6 +824,10 @@ def _a4_layout_kwargs(req) -> dict[str, object]:
             lyric_size_percent=req.jianpu_lyric_size_percent,
             title_size_percent=req.jianpu_title_size_percent,
             annotation_size_percent=req.jianpu_annotation_size_percent,
+            part_gap_percent=req.jianpu_part_gap_percent,
+            voice_gap_percent=req.jianpu_voice_gap_percent,
+            lyric_line_gap_percent=req.jianpu_lyric_line_gap_percent,
+            lyric_note_gap_percent=req.jianpu_lyric_note_gap_percent,
         )
     }
 

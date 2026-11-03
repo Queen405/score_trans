@@ -1313,6 +1313,10 @@ def test_correction_forwards_a4_layout_controls(tmp_path: Path) -> None:
         jianpu_lyric_size_percent=85,
         jianpu_title_size_percent=130,
         jianpu_annotation_size_percent=95,
+        jianpu_part_gap_percent=120,
+        jianpu_voice_gap_percent=130,
+        jianpu_lyric_line_gap_percent=140,
+        jianpu_lyric_note_gap_percent=150,
     )
 
     service.correct(
@@ -1337,6 +1341,10 @@ def test_correction_forwards_a4_layout_controls(tmp_path: Path) -> None:
     assert layout.lyric_size_percent == 85
     assert layout.title_size_percent == 130
     assert layout.annotation_size_percent == 95
+    assert layout.part_gap_percent == 120
+    assert layout.voice_gap_percent == 130
+    assert layout.lyric_line_gap_percent == 140
+    assert layout.lyric_note_gap_percent == 150
 
 
 def test_clef_key_time_locator_matches_injected_ids() -> None:

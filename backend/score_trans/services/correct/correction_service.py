@@ -113,6 +113,10 @@ class CorrectionService:
                 lyric_size_percent=options.jianpu_lyric_size_percent,
                 title_size_percent=options.jianpu_title_size_percent,
                 annotation_size_percent=options.jianpu_annotation_size_percent,
+                part_gap_percent=options.jianpu_part_gap_percent,
+                voice_gap_percent=options.jianpu_voice_gap_percent,
+                lyric_line_gap_percent=options.jianpu_lyric_line_gap_percent,
+                lyric_note_gap_percent=options.jianpu_lyric_note_gap_percent,
             ),
         )
         return CorrectionArtifacts(

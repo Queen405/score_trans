@@ -134,7 +134,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-25"
+    assert root.attrib["data-engine-version"] == "publication-26"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -2386,7 +2386,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
     assert root.attrib["viewBox"] == "0 0 1240 1754"
     assert (
         root.attrib["data-layout-key"]
-        == "67:100:100:100:0:a:10:7:12:12:5:2:100:100:100:100"
+        == "67:100:100:100:0:a:10:7:12:12:5:2:100:100:100:100:100:100:100:100"
     )
     content = next(
         node for node in root if node.attrib.get("class") == "publication-content"
@@ -2632,6 +2632,10 @@ def test_overfull_measure_ignores_the_short_note_control() -> None:
         ("lyric_size_percent", 151),
         ("title_size_percent", 161),
         ("annotation_size_percent", 59),
+        ("part_gap_percent", 49),
+        ("voice_gap_percent", 201),
+        ("lyric_line_gap_percent", 49),
+        ("lyric_note_gap_percent", 201),
         ("short_note_gap_percent", 19),
         ("short_note_gap_percent", 181),
         ("beat_gap_percent", -1),
@@ -2914,7 +2918,7 @@ def test_legacy_and_timed_lyrics_share_baseline_below_note_attachments() -> None
             replace(legacy.events[0], lyric=None, lyrics={}), style
         ).bottom
     )
-    assert legacy_layout[0].bbox.y >= note_bottom + style.text_lane_gap
+    assert legacy_layout[0].bbox.y >= note_bottom + style.text_lyric_clearance
 
 
 def test_measure_text_layout_emits_truthful_bbox_for_custom_font_size() -> None:
@@ -3059,11 +3063,11 @@ def test_batch_render_uses_jianpu_text_title_when_request_omits_one(
     root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
     assert (
         root.attrib["data-layout-key"]
-        == "75:88:85:100:0:a:10:7:12:12:5:2:100:100:100:100"
+        == "75:88:85:100:0:a:10:7:12:12:5:2:100:100:100:100:100:100:100:100"
     )
     assert (
         response.pages[0].layout_key
-        == "75:88:85:100:0:a:10:7:12:12:5:2:100:100:100:100"
+        == "75:88:85:100:0:a:10:7:12:12:5:2:100:100:100:100:100:100:100:100"
     )
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
@@ -4015,3 +4019,56 @@ def test_a4_typography_controls_scale_independent_text_roles() -> None:
 
     assert first_note_y(larger_title) > first_note_y(page)
     assert first_note_y(default_title) == pytest.approx(first_note_y(smaller_title))
+
+
+def test_lyric_note_and_lyric_line_gaps_are_independent() -> None:
+    measure = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[Event(kind="note", duration=Fraction(4), pitches=[JianpuPitch(1)])],
+        text_blocks=[
+            TextBlock(
+                "first",
+                role="lyric",
+                start=Fraction(0),
+                duration=Fraction(4),
+                lyric_verse=1,
+            ),
+            TextBlock(
+                "second",
+                role="lyric",
+                start=Fraction(0),
+                duration=Fraction(4),
+                lyric_verse=2,
+            ),
+        ],
+    )
+    style = PublicationStyle()
+    default = _measure_text_layout(measure, 0, 300, 0, style)
+    note_gap = _measure_text_layout(
+        measure,
+        0,
+        300,
+        0,
+        replace(
+            style,
+            text_lane_clearance=style.text_lane_clearance * 1.5,
+            text_lyric_clearance=style.text_lyric_clearance * 1.5,
+        ),
+    )
+    line_gap = _measure_text_layout(
+        measure,
+        0,
+        300,
+        0,
+        replace(style, text_lane_gap=style.text_lane_gap * 1.5),
+    )
+
+    assert note_gap[0].bbox.y > default[0].bbox.y
+    assert note_gap[1].bbox.y - note_gap[0].bbox.y == pytest.approx(
+        default[1].bbox.y - default[0].bbox.y
+    )
+    assert line_gap[0].bbox.y == pytest.approx(default[0].bbox.y)
+    assert line_gap[1].bbox.y - line_gap[0].bbox.y > (
+        default[1].bbox.y - default[0].bbox.y
+    )

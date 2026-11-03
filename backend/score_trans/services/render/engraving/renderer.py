@@ -4289,6 +4289,11 @@ def _measure_text_layout(
                 _left, verse_top, _right, _bottom = font_registry().ink_bounds(
                     block.text, font_size
                 )
+                lyric_gap = (
+                    style.text_lyric_clearance
+                    if not verse_baselines
+                    else style.text_lane_gap
+                )
                 baseline = max(
                     y + style.base_staff_height + style.text_lane_clearance,
                     y
@@ -4296,7 +4301,7 @@ def _measure_text_layout(
                         lyric_lane_bottom,
                         _measure_lyric_event_bottom(measure, style),
                     )
-                    + style.text_lane_gap
+                    + lyric_gap
                     - verse_top,
                 )
                 verse_baselines[verse] = baseline

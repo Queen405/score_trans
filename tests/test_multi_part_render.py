@@ -102,6 +102,7 @@ import re  # noqa: E402
 from typing import NamedTuple  # noqa: E402
 
 import mido  # noqa: E402
+import pytest  # noqa: E402
 
 from score_trans.domain.jianpu import parse_jianpu_score  # noqa: E402
 from score_trans.models.score import JianpuScore  # noqa: E402
@@ -109,6 +110,7 @@ from score_trans.services.export.export_service import ExportService  # noqa: E4
 from score_trans.services.render.engraving.renderer import (  # noqa: E402
     PublicationRenderer,
 )
+from score_trans.services.render.engraving.style import PublicationStyle  # noqa: E402
 
 
 def _part(text: str, index: int, count: int, name: str = "") -> JianpuScore:
@@ -261,3 +263,39 @@ def test_multi_page_parts_merge_by_within_page_rank() -> None:
     assert [len(part) for part in parts] == [2, 2]
     assert [score.part_index for score in parts[0]] == [0, 2]
     assert [score.part_index for score in parts[1]] == [1, 3]
+
+
+def test_part_and_voice_gaps_change_their_own_vertical_distance() -> None:
+    high = _part("1=C 4/4\n1 2 3 4 |", 0, 2, "High")
+    low = _part("1=C 4/4\n1 3 5 7 |", 1, 2, "Low")
+    normal = _playback_notes(PublicationRenderer().render_scores([high, low])[0].svg)
+    wide = _playback_notes(
+        PublicationRenderer(PublicationStyle(part_gap=51))
+        .render_scores([high, low])[0]
+        .svg
+    )
+
+    def part_distance(notes: list[_PlaybackNote]) -> float:
+        return max(note.y for note in notes) - min(note.y for note in notes)
+
+    assert part_distance(wide) - part_distance(normal) == pytest.approx(17)
+
+    polyphonic = parse_jianpu_score("1=C\n4/4\n1 2 3 4 & 1 3 5 7 |")
+    normal_notes = PublicationRenderer(
+        PublicationStyle(voice_row_gap=80)
+    ).render_scores([polyphonic])[0]
+    wide_notes = PublicationRenderer(PublicationStyle(voice_row_gap=120)).render_scores(
+        [polyphonic]
+    )[0]
+
+    def voice_distance(page) -> float:
+        boxes = [
+            record.bbox
+            for record in page.scene.geometry_records
+            if record.kind == "note"
+        ]
+        return max(box.y for box in boxes) - min(box.y for box in boxes)
+
+    assert voice_distance(wide_notes) - voice_distance(normal_notes) == pytest.approx(
+        40
+    )

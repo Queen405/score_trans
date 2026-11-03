@@ -238,6 +238,10 @@ def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
             lyric_size_percent=85,
             title_size_percent=130,
             annotation_size_percent=95,
+            part_gap_percent=120,
+            voice_gap_percent=130,
+            lyric_line_gap_percent=140,
+            lyric_note_gap_percent=150,
         ),
     )
 
@@ -258,6 +262,10 @@ def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
     assert layout.lyric_size_percent == 85
     assert layout.title_size_percent == 130
     assert layout.annotation_size_percent == 95
+    assert layout.part_gap_percent == 120
+    assert layout.voice_gap_percent == 130
+    assert layout.lyric_line_gap_percent == 140
+    assert layout.lyric_note_gap_percent == 150
 
 
 def test_full_pipeline_can_hide_measure_numbers(tmp_path) -> None:

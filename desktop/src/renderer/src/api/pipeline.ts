@@ -35,6 +35,10 @@ export const pipelineApi = {
     lyricSizePercent = 100,
     titleSizePercent = 100,
     annotationSizePercent = 100,
+    partGapPercent = 100,
+    voiceGapPercent = 100,
+    lyricLineGapPercent = 100,
+    lyricNoteGapPercent = 100,
   ): Promise<ApiResult<TaskSubmitResponse>> {
     const formData = new FormData()
     formData.append('file', file)
@@ -58,6 +62,10 @@ export const pipelineApi = {
     formData.append('jianpu_lyric_size_percent', String(lyricSizePercent))
     formData.append('jianpu_title_size_percent', String(titleSizePercent))
     formData.append('jianpu_annotation_size_percent', String(annotationSizePercent))
+    formData.append('jianpu_part_gap_percent', String(partGapPercent))
+    formData.append('jianpu_voice_gap_percent', String(voiceGapPercent))
+    formData.append('jianpu_lyric_line_gap_percent', String(lyricLineGapPercent))
+    formData.append('jianpu_lyric_note_gap_percent', String(lyricNoteGapPercent))
     formData.append('polyphony_mode', polyphonyMode)
     if (title) {
       formData.append('title', title)

@@ -30,7 +30,11 @@
         "jianpu_note_size_percent": "100",
         "jianpu_lyric_size_percent": "100",
         "jianpu_title_size_percent": "100",
-        "jianpu_annotation_size_percent": "100"
+        "jianpu_annotation_size_percent": "100",
+        "jianpu_part_gap_percent": "100",
+        "jianpu_voice_gap_percent": "100",
+        "jianpu_lyric_line_gap_percent": "100",
+        "jianpu_lyric_note_gap_percent": "100"
     },
     "providers": {
         "ocr": {

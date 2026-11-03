@@ -20,6 +20,10 @@ from score_trans.models.render.layout import (
     DEFAULT_LYRIC_SIZE_PERCENT,
     DEFAULT_TITLE_SIZE_PERCENT,
     DEFAULT_ANNOTATION_SIZE_PERCENT,
+    DEFAULT_PART_GAP_PERCENT,
+    DEFAULT_VOICE_GAP_PERCENT,
+    DEFAULT_LYRIC_LINE_GAP_PERCENT,
+    DEFAULT_LYRIC_NOTE_GAP_PERCENT,
     DEFAULT_HEADER_GAP_MM,
     DEFAULT_MARGIN_BOTTOM_MM,
     DEFAULT_MARGIN_LEFT_MM,
@@ -83,6 +87,10 @@ class SettingsResponse(BaseModel):
     jianpu_lyric_size_percent: int = DEFAULT_LYRIC_SIZE_PERCENT
     jianpu_title_size_percent: int = DEFAULT_TITLE_SIZE_PERCENT
     jianpu_annotation_size_percent: int = DEFAULT_ANNOTATION_SIZE_PERCENT
+    jianpu_part_gap_percent: int = DEFAULT_PART_GAP_PERCENT
+    jianpu_voice_gap_percent: int = DEFAULT_VOICE_GAP_PERCENT
+    jianpu_lyric_line_gap_percent: int = DEFAULT_LYRIC_LINE_GAP_PERCENT
+    jianpu_lyric_note_gap_percent: int = DEFAULT_LYRIC_NOTE_GAP_PERCENT
     enable_omr_ocr: bool = False
     output_dir: str = ""
     ocr_provider: str
@@ -153,6 +161,10 @@ class SettingsUpdateRequest(BaseModel):
     jianpu_lyric_size_percent: int | None = Field(default=None, ge=60, le=150)
     jianpu_title_size_percent: int | None = Field(default=None, ge=60, le=160)
     jianpu_annotation_size_percent: int | None = Field(default=None, ge=60, le=150)
+    jianpu_part_gap_percent: int | None = Field(default=None, ge=50, le=200)
+    jianpu_voice_gap_percent: int | None = Field(default=None, ge=50, le=200)
+    jianpu_lyric_line_gap_percent: int | None = Field(default=None, ge=50, le=200)
+    jianpu_lyric_note_gap_percent: int | None = Field(default=None, ge=50, le=200)
     enable_omr_ocr: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None

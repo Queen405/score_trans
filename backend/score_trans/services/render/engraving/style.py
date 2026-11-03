@@ -70,6 +70,7 @@ class PublicationStyle:
     event_baseline: float = 43.0
     text_lane_clearance: float = 18.0
     text_lane_gap: float = 8.0
+    text_lyric_clearance: float = 8.0
     continuation_header_height: float = 18.0
     measure_side_padding: float = 42.0
     system_top_reserve: float = 24.0

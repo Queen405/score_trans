@@ -123,6 +123,10 @@ const settings: typeof zhSettings = {
     lyricSize: 'Lyric size',
     titleSize: 'Title size',
     annotationSize: 'Annotation / dynamics size',
+    partGap: 'Part spacing',
+    voiceGap: 'Voice lane spacing',
+    lyricLineGap: 'Lyric line spacing',
+    lyricNoteGap: 'Lyric to notes',
   },
 }
 

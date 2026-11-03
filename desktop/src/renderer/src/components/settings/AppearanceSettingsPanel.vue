@@ -336,6 +336,94 @@
           </div>
         </settings-form-row>
 
+        <settings-form-row :label="t('settings.appearance.partGap')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuPartGapPercent"
+              :min="50"
+              :max="200"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuPartGapPercent"
+              :min="50"
+              :max="200"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.voiceGap')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuVoiceGapPercent"
+              :min="50"
+              :max="200"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuVoiceGapPercent"
+              :min="50"
+              :max="200"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.lyricLineGap')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuLyricLineGapPercent"
+              :min="50"
+              :max="200"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuLyricLineGapPercent"
+              :min="50"
+              :max="200"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.lyricNoteGap')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuLyricNoteGapPercent"
+              :min="50"
+              :max="200"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuLyricNoteGapPercent"
+              :min="50"
+              :max="200"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
         <settings-form-row :label="t('settings.appearance.contentScale')">
           <div class="sv-layout-control">
             <n-slider

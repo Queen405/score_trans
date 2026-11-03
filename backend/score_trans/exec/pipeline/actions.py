@@ -71,6 +71,10 @@ def pipeline_layout_options(
     lyric_size_percent: int,
     title_size_percent: int,
     annotation_size_percent: int,
+    part_gap_percent: int,
+    voice_gap_percent: int,
+    lyric_line_gap_percent: int,
+    lyric_note_gap_percent: int,
 ) -> A4LayoutOptions:
     return A4LayoutOptions(
         content_scale_percent=content_scale_percent,
@@ -89,6 +93,10 @@ def pipeline_layout_options(
         lyric_size_percent=lyric_size_percent,
         title_size_percent=title_size_percent,
         annotation_size_percent=annotation_size_percent,
+        part_gap_percent=part_gap_percent,
+        voice_gap_percent=voice_gap_percent,
+        lyric_line_gap_percent=lyric_line_gap_percent,
+        lyric_note_gap_percent=lyric_note_gap_percent,
     )
 
 

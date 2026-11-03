@@ -18,6 +18,10 @@ from score_trans.models.render.layout import (
     DEFAULT_LYRIC_SIZE_PERCENT,
     DEFAULT_TITLE_SIZE_PERCENT,
     DEFAULT_ANNOTATION_SIZE_PERCENT,
+    DEFAULT_PART_GAP_PERCENT,
+    DEFAULT_VOICE_GAP_PERCENT,
+    DEFAULT_LYRIC_LINE_GAP_PERCENT,
+    DEFAULT_LYRIC_NOTE_GAP_PERCENT,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
     MAX_BEAT_GAP_PERCENT,
@@ -27,6 +31,7 @@ from score_trans.models.render.layout import (
     MAX_LYRIC_SIZE_PERCENT,
     MAX_TITLE_SIZE_PERCENT,
     MAX_ANNOTATION_SIZE_PERCENT,
+    MAX_VERTICAL_GAP_PERCENT,
     MAX_HEADER_GAP_MM,
     MAX_FOOTER_PROTECTION_MM,
     MAX_SHORT_NOTE_GAP_PERCENT,
@@ -38,6 +43,7 @@ from score_trans.models.render.layout import (
     MIN_LYRIC_SIZE_PERCENT,
     MIN_TITLE_SIZE_PERCENT,
     MIN_ANNOTATION_SIZE_PERCENT,
+    MIN_VERTICAL_GAP_PERCENT,
     MIN_SHORT_NOTE_GAP_PERCENT,
     MIN_SYSTEM_GAP_PERCENT,
     a4_layout_key,
@@ -87,6 +93,10 @@ class A4LayoutOptions:
     lyric_size_percent: int = DEFAULT_LYRIC_SIZE_PERCENT
     title_size_percent: int = DEFAULT_TITLE_SIZE_PERCENT
     annotation_size_percent: int = DEFAULT_ANNOTATION_SIZE_PERCENT
+    part_gap_percent: int = DEFAULT_PART_GAP_PERCENT
+    voice_gap_percent: int = DEFAULT_VOICE_GAP_PERCENT
+    lyric_line_gap_percent: int = DEFAULT_LYRIC_LINE_GAP_PERCENT
+    lyric_note_gap_percent: int = DEFAULT_LYRIC_NOTE_GAP_PERCENT
 
     def __post_init__(self) -> None:
         ranges = (
@@ -169,6 +179,19 @@ class A4LayoutOptions:
                 raise TypeError(f"{field} must be an integer")
             if not minimum <= value <= maximum:
                 raise ValueError(f"{field} must be between {minimum} and {maximum}")
+        for field in (
+            "part_gap_percent",
+            "voice_gap_percent",
+            "lyric_line_gap_percent",
+            "lyric_note_gap_percent",
+        ):
+            value = getattr(self, field)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{field} must be an integer")
+            if not MIN_VERTICAL_GAP_PERCENT <= value <= MAX_VERTICAL_GAP_PERCENT:
+                raise ValueError(
+                    f"{field} must be between {MIN_VERTICAL_GAP_PERCENT} and {MAX_VERTICAL_GAP_PERCENT}"
+                )
         for field, value, minimum, maximum in ranges:
             if isinstance(value, bool) or not isinstance(value, int):
                 raise TypeError(f"{field} must be an integer")
@@ -194,6 +217,22 @@ class A4LayoutOptions:
     @property
     def annotation_size_scale(self) -> float:
         return self.annotation_size_percent / 100.0
+
+    @property
+    def part_gap_scale(self) -> float:
+        return self.part_gap_percent / 100.0
+
+    @property
+    def voice_gap_scale(self) -> float:
+        return self.voice_gap_percent / 100.0
+
+    @property
+    def lyric_line_gap_scale(self) -> float:
+        return self.lyric_line_gap_percent / 100.0
+
+    @property
+    def lyric_note_gap_scale(self) -> float:
+        return self.lyric_note_gap_percent / 100.0
 
     @property
     def system_gap_scale(self) -> float:
@@ -229,6 +268,10 @@ class A4LayoutOptions:
                     self.lyric_size_percent,
                     self.title_size_percent,
                     self.annotation_size_percent,
+                    self.part_gap_percent,
+                    self.voice_gap_percent,
+                    self.lyric_line_gap_percent,
+                    self.lyric_note_gap_percent,
                 )
             ),
         )

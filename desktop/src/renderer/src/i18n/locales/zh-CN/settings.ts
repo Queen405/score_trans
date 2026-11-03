@@ -120,6 +120,10 @@ const settings = {
     lyricSize: '歌词字号',
     titleSize: '标题字号',
     annotationSize: '注解/力度字号',
+    partGap: '声部间距',
+    voiceGap: '声线间距',
+    lyricLineGap: '歌词行距',
+    lyricNoteGap: '歌词与音符间距',
   },
 }
 
