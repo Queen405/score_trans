@@ -44,6 +44,12 @@ export interface SettingsDraft {
   jianpuBeatGapPercent: number
   jianpuBreakBeamsAtBeat: boolean
   jianpuMeasuresPerSystem: MeasuresPerSystem
+  jianpuMarginTopMm: number
+  jianpuMarginBottomMm: number
+  jianpuMarginLeftMm: number
+  jianpuMarginRightMm: number
+  jianpuHeaderGapMm: number
+  jianpuFooterProtectionMm: number
   enableOmrOcr: boolean
   outputDir: string
   jianpuAutoTranspose: boolean
@@ -132,6 +138,12 @@ export const useSettingsStore = defineStore('settings', () => {
   const jianpuBeatGapPercent = ref(100)
   const jianpuBreakBeamsAtBeat = ref(false)
   const jianpuMeasuresPerSystem = ref<MeasuresPerSystem>(0)
+  const jianpuMarginTopMm = ref(10)
+  const jianpuMarginBottomMm = ref(7)
+  const jianpuMarginLeftMm = ref(12)
+  const jianpuMarginRightMm = ref(12)
+  const jianpuHeaderGapMm = ref(5)
+  const jianpuFooterProtectionMm = ref(2)
   const enableOmrOcr = ref(false)
   const outputDir = ref('')
   const jianpuAutoTranspose = ref(true)
@@ -191,6 +203,12 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuBeatGapPercent: 100,
     jianpuBreakBeamsAtBeat: false,
     jianpuMeasuresPerSystem: 0 as MeasuresPerSystem,
+    jianpuMarginTopMm: 10,
+    jianpuMarginBottomMm: 7,
+    jianpuMarginLeftMm: 12,
+    jianpuMarginRightMm: 12,
+    jianpuHeaderGapMm: 5,
+    jianpuFooterProtectionMm: 2,
     enableOmrOcr: false,
     outputDir: '',
     jianpuAutoTranspose: true,
@@ -235,6 +253,14 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuBeatGapPercent.value,
     jianpuBreakBeamsAtBeat.value,
     jianpuMeasuresPerSystem.value,
+    [
+      jianpuMarginTopMm.value,
+      jianpuMarginBottomMm.value,
+      jianpuMarginLeftMm.value,
+      jianpuMarginRightMm.value,
+      jianpuHeaderGapMm.value,
+      jianpuFooterProtectionMm.value,
+    ].join(':'),
   ))
   const jianpuLayoutRequest = computed(() => ({
     jianpu_content_scale_percent: jianpuContentScalePercent.value,
@@ -243,6 +269,12 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpu_beat_gap_percent: jianpuBeatGapPercent.value,
     jianpu_break_beams_at_beat: jianpuBreakBeamsAtBeat.value,
     jianpu_measures_per_system: jianpuMeasuresPerSystem.value,
+    jianpu_margin_top_mm: jianpuMarginTopMm.value,
+    jianpu_margin_bottom_mm: jianpuMarginBottomMm.value,
+    jianpu_margin_left_mm: jianpuMarginLeftMm.value,
+    jianpu_margin_right_mm: jianpuMarginRightMm.value,
+    jianpu_header_gap_mm: jianpuHeaderGapMm.value,
+    jianpu_footer_protection_mm: jianpuFooterProtectionMm.value,
   }))
 
   async function load(): Promise<void> {
@@ -285,6 +317,12 @@ export const useSettingsStore = defineStore('settings', () => {
       jianpuBeatGapPercent: jianpuBeatGapPercent.value,
       jianpuBreakBeamsAtBeat: jianpuBreakBeamsAtBeat.value,
       jianpuMeasuresPerSystem: jianpuMeasuresPerSystem.value,
+      jianpuMarginTopMm: jianpuMarginTopMm.value,
+      jianpuMarginBottomMm: jianpuMarginBottomMm.value,
+      jianpuMarginLeftMm: jianpuMarginLeftMm.value,
+      jianpuMarginRightMm: jianpuMarginRightMm.value,
+      jianpuHeaderGapMm: jianpuHeaderGapMm.value,
+      jianpuFooterProtectionMm: jianpuFooterProtectionMm.value,
       enableOmrOcr: enableOmrOcr.value,
       outputDir: outputDir.value,
       jianpuAutoTranspose: jianpuAutoTranspose.value,
@@ -361,6 +399,12 @@ export const useSettingsStore = defineStore('settings', () => {
           jianpu_beat_gap_percent: next.jianpuBeatGapPercent,
           jianpu_break_beams_at_beat: next.jianpuBreakBeamsAtBeat,
           jianpu_measures_per_system: next.jianpuMeasuresPerSystem,
+          jianpu_margin_top_mm: next.jianpuMarginTopMm,
+          jianpu_margin_bottom_mm: next.jianpuMarginBottomMm,
+          jianpu_margin_left_mm: next.jianpuMarginLeftMm,
+          jianpu_margin_right_mm: next.jianpuMarginRightMm,
+          jianpu_header_gap_mm: next.jianpuHeaderGapMm,
+          jianpu_footer_protection_mm: next.jianpuFooterProtectionMm,
           enable_omr_ocr: next.enableOmrOcr,
           jianpu_auto_transpose: next.jianpuAutoTranspose,
           ocr_provider: next.providers.ocr.provider,
@@ -510,7 +554,13 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 20
     jianpuBeatGapPercent.value = data.jianpu_beat_gap_percent ?? 100
     jianpuBreakBeamsAtBeat.value = data.jianpu_break_beams_at_beat ?? false
-  jianpuMeasuresPerSystem.value = data.jianpu_measures_per_system ?? 0
+    jianpuMeasuresPerSystem.value = data.jianpu_measures_per_system ?? 0
+    jianpuMarginTopMm.value = data.jianpu_margin_top_mm ?? 10
+    jianpuMarginBottomMm.value = data.jianpu_margin_bottom_mm ?? 7
+    jianpuMarginLeftMm.value = data.jianpu_margin_left_mm ?? 12
+    jianpuMarginRightMm.value = data.jianpu_margin_right_mm ?? 12
+    jianpuHeaderGapMm.value = data.jianpu_header_gap_mm ?? 5
+    jianpuFooterProtectionMm.value = data.jianpu_footer_protection_mm ?? 2
     enableOmrOcr.value = data.enable_omr_ocr ?? false
     outputDir.value = data.output_dir ?? ''
     jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? true
@@ -607,6 +657,12 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.jianpuBeatGapPercent = next.jianpuBeatGapPercent
     draft.jianpuBreakBeamsAtBeat = next.jianpuBreakBeamsAtBeat
     draft.jianpuMeasuresPerSystem = next.jianpuMeasuresPerSystem
+    draft.jianpuMarginTopMm = next.jianpuMarginTopMm
+    draft.jianpuMarginBottomMm = next.jianpuMarginBottomMm
+    draft.jianpuMarginLeftMm = next.jianpuMarginLeftMm
+    draft.jianpuMarginRightMm = next.jianpuMarginRightMm
+    draft.jianpuHeaderGapMm = next.jianpuHeaderGapMm
+    draft.jianpuFooterProtectionMm = next.jianpuFooterProtectionMm
     draft.enableOmrOcr = next.enableOmrOcr
     draft.outputDir = next.outputDir
     draft.jianpuAutoTranspose = next.jianpuAutoTranspose
@@ -653,6 +709,12 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuBeatGapPercent,
     jianpuBreakBeamsAtBeat,
     jianpuMeasuresPerSystem,
+    jianpuMarginTopMm,
+    jianpuMarginBottomMm,
+    jianpuMarginLeftMm,
+    jianpuMarginRightMm,
+    jianpuHeaderGapMm,
+    jianpuFooterProtectionMm,
     jianpuLayoutKey: jianpuLayoutKeyValue,
     jianpuLayoutRequest,
     enableOmrOcr,

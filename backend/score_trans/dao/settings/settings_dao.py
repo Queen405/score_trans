@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import sqlite3
 from collections.abc import Mapping
 from pathlib import Path
@@ -148,6 +150,16 @@ class SettingsDao:
         if not value:
             return default
         return value.strip().lower() not in {"0", "false", "no", "off", ""}
+
+    def get_float(self, key: str, default: float = 0.0) -> float:
+        value = self.get(key, "")
+        if not value:
+            return default
+        try:
+            parsed = float(value)
+        except ValueError:
+            return default
+        return parsed if math.isfinite(parsed) else default
 
     def get_int(self, key: str, default: int = 0) -> int:
         value = self.get(key, "")

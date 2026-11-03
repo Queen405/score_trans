@@ -8,6 +8,14 @@ from ...models.common.types import (
     PolyphonyMode,
     TargetKeyOrAuto,
 )
+from ...models.render.layout import (
+    DEFAULT_FOOTER_PROTECTION_MM,
+    DEFAULT_HEADER_GAP_MM,
+    DEFAULT_MARGIN_BOTTOM_MM,
+    DEFAULT_MARGIN_LEFT_MM,
+    DEFAULT_MARGIN_RIGHT_MM,
+    DEFAULT_MARGIN_TOP_MM,
+)
 from ...models.settings.provider_profiles import LlmProviderKind, LlmProviderProfile
 from ...models.settings.schemas import (
     CacheCleanupResponse,
@@ -122,6 +130,12 @@ class SettingsActions:
             "jianpu_short_note_gap_percent",
             "jianpu_beat_gap_percent",
             "jianpu_measures_per_system",
+            "jianpu_margin_top_mm",
+            "jianpu_margin_bottom_mm",
+            "jianpu_margin_left_mm",
+            "jianpu_margin_right_mm",
+            "jianpu_header_gap_mm",
+            "jianpu_footer_protection_mm",
         ):
             value = getattr(req, key)
             if value is not None:
@@ -332,6 +346,24 @@ class SettingsActions:
             ),
             jianpu_measures_per_system=self.service.get_int(
                 "jianpu_measures_per_system", 0
+            ),
+            jianpu_margin_top_mm=self.service.get_float(
+                "jianpu_margin_top_mm", DEFAULT_MARGIN_TOP_MM
+            ),
+            jianpu_margin_bottom_mm=self.service.get_float(
+                "jianpu_margin_bottom_mm", DEFAULT_MARGIN_BOTTOM_MM
+            ),
+            jianpu_margin_left_mm=self.service.get_float(
+                "jianpu_margin_left_mm", DEFAULT_MARGIN_LEFT_MM
+            ),
+            jianpu_margin_right_mm=self.service.get_float(
+                "jianpu_margin_right_mm", DEFAULT_MARGIN_RIGHT_MM
+            ),
+            jianpu_header_gap_mm=self.service.get_float(
+                "jianpu_header_gap_mm", DEFAULT_HEADER_GAP_MM
+            ),
+            jianpu_footer_protection_mm=self.service.get_float(
+                "jianpu_footer_protection_mm", DEFAULT_FOOTER_PROTECTION_MM
             ),
             enable_omr_ocr=self.service.get_bool("enable_omr_ocr", False),
             ocr_provider=ocr_profile.id,

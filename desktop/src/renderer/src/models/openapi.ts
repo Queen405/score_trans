@@ -1187,6 +1187,36 @@ export type components = {
              */
             jianpu_content_scale_percent?: number;
             /**
+             * Jianpu Footer Protection Mm
+             * @default 2
+             */
+            jianpu_footer_protection_mm?: number;
+            /**
+             * Jianpu Header Gap Mm
+             * @default 5
+             */
+            jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Margin Bottom Mm
+             * @default 7
+             */
+            jianpu_margin_bottom_mm?: number;
+            /**
+             * Jianpu Margin Left Mm
+             * @default 12
+             */
+            jianpu_margin_left_mm?: number;
+            /**
+             * Jianpu Margin Right Mm
+             * @default 12
+             */
+            jianpu_margin_right_mm?: number;
+            /**
+             * Jianpu Margin Top Mm
+             * @default 10
+             */
+            jianpu_margin_top_mm?: number;
+            /**
              * Jianpu Measures Per System
              * @default 0
              * @enum {integer}
@@ -1263,7 +1293,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-23
+             * @default publication-24
              */
             engine_version?: string;
             /** Id */
@@ -1405,6 +1435,36 @@ export type components = {
              */
             jianpu_content_scale_percent?: number;
             /**
+             * Jianpu Footer Protection Mm
+             * @default 2
+             */
+            jianpu_footer_protection_mm?: number;
+            /**
+             * Jianpu Header Gap Mm
+             * @default 5
+             */
+            jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Margin Bottom Mm
+             * @default 7
+             */
+            jianpu_margin_bottom_mm?: number;
+            /**
+             * Jianpu Margin Left Mm
+             * @default 12
+             */
+            jianpu_margin_left_mm?: number;
+            /**
+             * Jianpu Margin Right Mm
+             * @default 12
+             */
+            jianpu_margin_right_mm?: number;
+            /**
+             * Jianpu Margin Top Mm
+             * @default 10
+             */
+            jianpu_margin_top_mm?: number;
+            /**
              * Jianpu Measures Per System
              * @default 0
              * @enum {integer}
@@ -1514,6 +1574,36 @@ export type components = {
              * @default 80
              */
             jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Footer Protection Mm
+             * @default 2
+             */
+            jianpu_footer_protection_mm?: number;
+            /**
+             * Jianpu Header Gap Mm
+             * @default 5
+             */
+            jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Margin Bottom Mm
+             * @default 7
+             */
+            jianpu_margin_bottom_mm?: number;
+            /**
+             * Jianpu Margin Left Mm
+             * @default 12
+             */
+            jianpu_margin_left_mm?: number;
+            /**
+             * Jianpu Margin Right Mm
+             * @default 12
+             */
+            jianpu_margin_right_mm?: number;
+            /**
+             * Jianpu Margin Top Mm
+             * @default 10
+             */
+            jianpu_margin_top_mm?: number;
             /**
              * Jianpu Measures Per System
              * @default 0
@@ -1779,6 +1869,36 @@ export type components = {
              * @default 80
              */
             jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Footer Protection Mm
+             * @default 2
+             */
+            jianpu_footer_protection_mm?: number;
+            /**
+             * Jianpu Header Gap Mm
+             * @default 5
+             */
+            jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Margin Bottom Mm
+             * @default 7
+             */
+            jianpu_margin_bottom_mm?: number;
+            /**
+             * Jianpu Margin Left Mm
+             * @default 12
+             */
+            jianpu_margin_left_mm?: number;
+            /**
+             * Jianpu Margin Right Mm
+             * @default 12
+             */
+            jianpu_margin_right_mm?: number;
+            /**
+             * Jianpu Margin Top Mm
+             * @default 10
+             */
+            jianpu_margin_top_mm?: number;
             /**
              * Jianpu Measures Per System
              * @default 0
@@ -2048,7 +2168,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-23
+             * @default publication-24
              */
             engine_version?: string;
             /**
@@ -2162,7 +2282,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-23
+             * @default publication-24
              */
             engine_version?: string;
             /** Error Message */
@@ -2336,6 +2456,36 @@ export type components = {
              * @default 80
              */
             jianpu_content_scale_percent?: number;
+            /**
+             * Jianpu Footer Protection Mm
+             * @default 2
+             */
+            jianpu_footer_protection_mm?: number;
+            /**
+             * Jianpu Header Gap Mm
+             * @default 5
+             */
+            jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Margin Bottom Mm
+             * @default 7
+             */
+            jianpu_margin_bottom_mm?: number;
+            /**
+             * Jianpu Margin Left Mm
+             * @default 12
+             */
+            jianpu_margin_left_mm?: number;
+            /**
+             * Jianpu Margin Right Mm
+             * @default 12
+             */
+            jianpu_margin_right_mm?: number;
+            /**
+             * Jianpu Margin Top Mm
+             * @default 10
+             */
+            jianpu_margin_top_mm?: number;
             /**
              * Jianpu Measures Per System
              * @default 0
@@ -2541,7 +2691,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-23
+             * @default publication-24
              */
             engine_version?: string;
             /**
@@ -2662,6 +2812,36 @@ export type components = {
              */
             jianpu_content_scale_percent?: number;
             /**
+             * Jianpu Footer Protection Mm
+             * @default 2
+             */
+            jianpu_footer_protection_mm?: number;
+            /**
+             * Jianpu Header Gap Mm
+             * @default 5
+             */
+            jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Margin Bottom Mm
+             * @default 7
+             */
+            jianpu_margin_bottom_mm?: number;
+            /**
+             * Jianpu Margin Left Mm
+             * @default 12
+             */
+            jianpu_margin_left_mm?: number;
+            /**
+             * Jianpu Margin Right Mm
+             * @default 12
+             */
+            jianpu_margin_right_mm?: number;
+            /**
+             * Jianpu Margin Top Mm
+             * @default 10
+             */
+            jianpu_margin_top_mm?: number;
+            /**
              * Jianpu Measures Per System
              * @default 0
              * @enum {integer}
@@ -2736,6 +2916,36 @@ export type components = {
             jianpu_content_scale_percent?: number;
             /** Jianpu File Id */
             jianpu_file_id?: string | null;
+            /**
+             * Jianpu Footer Protection Mm
+             * @default 2
+             */
+            jianpu_footer_protection_mm?: number;
+            /**
+             * Jianpu Header Gap Mm
+             * @default 5
+             */
+            jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Margin Bottom Mm
+             * @default 7
+             */
+            jianpu_margin_bottom_mm?: number;
+            /**
+             * Jianpu Margin Left Mm
+             * @default 12
+             */
+            jianpu_margin_left_mm?: number;
+            /**
+             * Jianpu Margin Right Mm
+             * @default 12
+             */
+            jianpu_margin_right_mm?: number;
+            /**
+             * Jianpu Margin Top Mm
+             * @default 10
+             */
+            jianpu_margin_top_mm?: number;
             /**
              * Jianpu Measures Per System
              * @default 0
@@ -2921,6 +3131,36 @@ export type components = {
              */
             jianpu_content_scale_percent?: number;
             /**
+             * Jianpu Footer Protection Mm
+             * @default 2
+             */
+            jianpu_footer_protection_mm?: number;
+            /**
+             * Jianpu Header Gap Mm
+             * @default 5
+             */
+            jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Margin Bottom Mm
+             * @default 7
+             */
+            jianpu_margin_bottom_mm?: number;
+            /**
+             * Jianpu Margin Left Mm
+             * @default 12
+             */
+            jianpu_margin_left_mm?: number;
+            /**
+             * Jianpu Margin Right Mm
+             * @default 12
+             */
+            jianpu_margin_right_mm?: number;
+            /**
+             * Jianpu Margin Top Mm
+             * @default 10
+             */
+            jianpu_margin_top_mm?: number;
+            /**
              * Jianpu Measure Duration Check
              * @default true
              */
@@ -3036,6 +3276,18 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean | null;
             /** Jianpu Content Scale Percent */
             jianpu_content_scale_percent?: number | null;
+            /** Jianpu Footer Protection Mm */
+            jianpu_footer_protection_mm?: number | null;
+            /** Jianpu Header Gap Mm */
+            jianpu_header_gap_mm?: number | null;
+            /** Jianpu Margin Bottom Mm */
+            jianpu_margin_bottom_mm?: number | null;
+            /** Jianpu Margin Left Mm */
+            jianpu_margin_left_mm?: number | null;
+            /** Jianpu Margin Right Mm */
+            jianpu_margin_right_mm?: number | null;
+            /** Jianpu Margin Top Mm */
+            jianpu_margin_top_mm?: number | null;
             /** Jianpu Measure Duration Check */
             jianpu_measure_duration_check?: boolean | null;
             /** Jianpu Measures Per System */

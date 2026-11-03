@@ -1306,6 +1306,9 @@ def test_correction_forwards_a4_layout_controls(tmp_path: Path) -> None:
         jianpu_beat_gap_percent=140,
         jianpu_break_beams_at_beat=True,
         jianpu_measures_per_system=4,
+        jianpu_margin_top_mm=15.5,
+        jianpu_header_gap_mm=7.5,
+        jianpu_footer_protection_mm=4,
     )
 
     service.correct(
@@ -1322,6 +1325,10 @@ def test_correction_forwards_a4_layout_controls(tmp_path: Path) -> None:
     assert renderer.kwargs["beat_gap_percent"] == 140
     assert renderer.kwargs["break_beams_at_beat"] is True
     assert renderer.kwargs["measures_per_system"] == 4
+    layout = renderer.kwargs["layout"]
+    assert layout.margin_top_mm == 15.5
+    assert layout.header_gap_mm == 7.5
+    assert layout.footer_protection_mm == 4
 
 
 def test_clef_key_time_locator_matches_injected_ids() -> None:

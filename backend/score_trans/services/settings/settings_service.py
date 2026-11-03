@@ -140,5 +140,8 @@ class SettingsService:
     def get_int(self, key: str, default: int = 0) -> int:
         return self.dao.get_int(key, default)
 
+    def get_float(self, key: str, default: float = 0.0) -> float:
+        return self.dao.get_float(key, default)
+
     def set(self, key: str, value: str) -> None:
         self.dao.set(key, value)

@@ -25,6 +25,12 @@ export const pipelineApi = {
     breakBeamsAtBeat = false,
     polyphonyMode: PolyphonyMode = 'auto',
     measuresPerSystem: MeasuresPerSystem = 0,
+    marginTopMm = 10,
+    marginBottomMm = 7,
+    marginLeftMm = 12,
+    marginRightMm = 12,
+    headerGapMm = 5,
+    footerProtectionMm = 2,
   ): Promise<ApiResult<TaskSubmitResponse>> {
     const formData = new FormData()
     formData.append('file', file)
@@ -38,6 +44,12 @@ export const pipelineApi = {
     formData.append('jianpu_beat_gap_percent', String(beatGapPercent))
     formData.append('jianpu_break_beams_at_beat', breakBeamsAtBeat ? '1' : '0')
     formData.append('jianpu_measures_per_system', String(measuresPerSystem))
+    formData.append('jianpu_margin_top_mm', String(marginTopMm))
+    formData.append('jianpu_margin_bottom_mm', String(marginBottomMm))
+    formData.append('jianpu_margin_left_mm', String(marginLeftMm))
+    formData.append('jianpu_margin_right_mm', String(marginRightMm))
+    formData.append('jianpu_header_gap_mm', String(headerGapMm))
+    formData.append('jianpu_footer_protection_mm', String(footerProtectionMm))
     formData.append('polyphony_mode', polyphonyMode)
     if (title) {
       formData.append('title', title)

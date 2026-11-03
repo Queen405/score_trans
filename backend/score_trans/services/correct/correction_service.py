@@ -10,6 +10,7 @@ from ...models.common.types import normalize_instrument_profile
 from ...models.correct.schemas import ConversionOptionsDTO
 from ...models.provenance.schemas import SourceTextAttachment, TextAnchor
 from ...models.score import JianpuScore
+from ..render.options import A4LayoutOptions
 from ..render.render_service import PublicationRenderService
 from .entity_service import CorrectableEntity, CorrectableGlyph
 from .musicxml_patch import apply_candidate_selections, apply_deletions
@@ -95,6 +96,20 @@ class CorrectionService:
             beat_gap_percent=options.jianpu_beat_gap_percent,
             break_beams_at_beat=options.jianpu_break_beams_at_beat,
             measures_per_system=options.jianpu_measures_per_system,
+            layout=A4LayoutOptions(
+                content_scale_percent=options.jianpu_content_scale_percent,
+                system_gap_percent=options.jianpu_system_gap_percent,
+                short_note_gap_percent=options.jianpu_short_note_gap_percent,
+                beat_gap_percent=options.jianpu_beat_gap_percent,
+                break_beams_at_beat=options.jianpu_break_beams_at_beat,
+                measures_per_system=options.jianpu_measures_per_system,
+                margin_top_mm=options.jianpu_margin_top_mm,
+                margin_bottom_mm=options.jianpu_margin_bottom_mm,
+                margin_left_mm=options.jianpu_margin_left_mm,
+                margin_right_mm=options.jianpu_margin_right_mm,
+                header_gap_mm=options.jianpu_header_gap_mm,
+                footer_protection_mm=options.jianpu_footer_protection_mm,
+            ),
         )
         return CorrectionArtifacts(
             working_musicxml=working_xml,

@@ -38,6 +38,7 @@ from ...services.overlay.overlay_service import (
     find_unanchored_source_ids,
 )
 from ...services.recognize.audiveris_service import read_audiveris_musicxml
+from ...services.render.options import A4LayoutOptions
 from ...services.render.render_service import PublicationRenderService
 from ...services.settings.settings_service import SettingsService
 from ...utils.warnings import collect_warnings, dedupe_preserve_order
@@ -50,6 +51,37 @@ from ..tasks.background import OMR_SEMAPHORE, run_sync_task, schedule_background
 logger = logging.getLogger(__name__)
 
 _MUSICXML_SUFFIXES: frozenset[str] = frozenset({".musicxml", ".mxl", ".xml"})
+
+
+def pipeline_layout_options(
+    *,
+    content_scale_percent: int,
+    system_gap_percent: int,
+    short_note_gap_percent: int,
+    beat_gap_percent: int,
+    break_beams_at_beat: bool,
+    measures_per_system: int,
+    margin_top_mm: float,
+    margin_bottom_mm: float,
+    margin_left_mm: float,
+    margin_right_mm: float,
+    header_gap_mm: float,
+    footer_protection_mm: float,
+) -> A4LayoutOptions:
+    return A4LayoutOptions(
+        content_scale_percent=content_scale_percent,
+        system_gap_percent=system_gap_percent,
+        short_note_gap_percent=short_note_gap_percent,
+        beat_gap_percent=beat_gap_percent,
+        break_beams_at_beat=break_beams_at_beat,
+        measures_per_system=measures_per_system,
+        margin_top_mm=margin_top_mm,
+        margin_bottom_mm=margin_bottom_mm,
+        margin_left_mm=margin_left_mm,
+        margin_right_mm=margin_right_mm,
+        header_gap_mm=header_gap_mm,
+        footer_protection_mm=footer_protection_mm,
+    )
 
 
 @dataclass(slots=True)
@@ -108,6 +140,7 @@ class FullPipelineAction:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
         title: str | None = None,
         ocr_provider: OCRProvider | None = None,
         enable_omr_ocr: bool = False,
@@ -179,6 +212,7 @@ class FullPipelineAction:
                 beat_gap_percent=beat_gap_percent,
                 break_beams_at_beat=break_beams_at_beat,
                 measures_per_system=measures_per_system,
+                layout=layout,
             )
             svg_paths = _rendered_page_paths(rendered_pages)
             _require_rendered_pages(svg_paths)
@@ -253,6 +287,7 @@ class PipelineActions:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
         title: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> PipelineResponse:
@@ -300,6 +335,7 @@ class PipelineActions:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
         title: str | None = None,
     ) -> TaskSubmitResponse:
         input_path = self.uploads.get_path(file_id)
@@ -325,6 +361,7 @@ class PipelineActions:
                 beat_gap_percent=beat_gap_percent,
                 break_beams_at_beat=break_beams_at_beat,
                 measures_per_system=measures_per_system,
+                layout=layout,
                 title=title,
                 enable_omr_ocr=enable_omr_ocr,
                 progress_callback=progress,
@@ -353,6 +390,7 @@ class PipelineActions:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
         title: str | None = None,
     ) -> TaskSubmitResponse:
         enable_omr_ocr = self.settings.get_bool("enable_omr_ocr", False)
@@ -376,6 +414,7 @@ class PipelineActions:
                 beat_gap_percent=beat_gap_percent,
                 break_beams_at_beat=break_beams_at_beat,
                 measures_per_system=measures_per_system,
+                layout=layout,
                 title=title,
                 enable_omr_ocr=enable_omr_ocr,
                 progress_callback=progress,
@@ -402,6 +441,7 @@ class PipelineActions:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
         title: str | None = None,
         enable_omr_ocr: bool | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -429,6 +469,7 @@ class PipelineActions:
             beat_gap_percent=beat_gap_percent,
             break_beams_at_beat=break_beams_at_beat,
             measures_per_system=measures_per_system,
+            layout=layout,
             title=title,
             enable_omr_ocr=enable_omr_ocr,
             progress_callback=progress_callback,
@@ -457,13 +498,17 @@ class PipelineActions:
                     and (render_map_path := outputs.render_map_paths[index])
                     else None
                 ),
-                layout_key=a4_layout_key(
-                    content_scale_percent,
-                    system_gap_percent,
-                    short_note_gap_percent,
-                    beat_gap_percent,
-                    break_beams_at_beat,
-                    measures_per_system,
+                layout_key=(
+                    layout.key
+                    if layout is not None
+                    else a4_layout_key(
+                        content_scale_percent,
+                        system_gap_percent,
+                        short_note_gap_percent,
+                        beat_gap_percent,
+                        break_beams_at_beat,
+                        measures_per_system,
+                    )
                 ),
             )
             for index, path in enumerate(outputs.jianpu_svg_paths)

@@ -53,7 +53,7 @@ from ...services.files.upload_service import UploadService
 from ...services.ocr.providers import create_configured_ocr_provider
 from ...services.render import A4MeasureRange, RenderedA4FilePage
 from ...services.render.main import render_jianpu_svg, render_live_measure_preview
-from ...services.render.options import RenderOptions
+from ...services.render.options import A4LayoutOptions, RenderOptions
 from ...services.render.render_service import PublicationRenderService
 from ..convert.actions import MusicXmlToJianpuAction
 
@@ -173,6 +173,7 @@ class RenderMusicXmlJianpuAction:
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
+        layout: A4LayoutOptions | None = None,
     ) -> list[RenderedA4FilePage]:
         scores = self.build_scores(
             musicxml_path,
@@ -195,6 +196,7 @@ class RenderMusicXmlJianpuAction:
             short_note_gap_percent=short_note_gap_percent,
             beat_gap_percent=beat_gap_percent,
             break_beams_at_beat=break_beams_at_beat,
+            layout=layout,
         )
 
     def first_score(
@@ -300,6 +302,7 @@ class RenderJianpuTextAction:
         short_note_gap_percent: int = 90,
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
+        layout: A4LayoutOptions | None = None,
     ) -> list[RenderedA4FilePage]:
         text = Path(input_path).read_text(encoding="utf-8")
         parts = parse_jianpu_parts(text, title=title)
@@ -319,6 +322,7 @@ class RenderJianpuTextAction:
             short_note_gap_percent=short_note_gap_percent,
             beat_gap_percent=beat_gap_percent,
             break_beams_at_beat=break_beams_at_beat,
+            layout=layout,
         )
 
 
@@ -801,13 +805,22 @@ class RenderActions:
         return pages
 
 
-def _a4_layout_kwargs(req) -> dict[str, int]:
+def _a4_layout_kwargs(req) -> dict[str, object]:
     return {
-        "content_scale_percent": req.jianpu_content_scale_percent,
-        "system_gap_percent": req.jianpu_system_gap_percent,
-        "short_note_gap_percent": req.jianpu_short_note_gap_percent,
-        "beat_gap_percent": req.jianpu_beat_gap_percent,
-        "measures_per_system": req.jianpu_measures_per_system,
+        "layout": A4LayoutOptions(
+            content_scale_percent=req.jianpu_content_scale_percent,
+            system_gap_percent=req.jianpu_system_gap_percent,
+            short_note_gap_percent=req.jianpu_short_note_gap_percent,
+            beat_gap_percent=req.jianpu_beat_gap_percent,
+            break_beams_at_beat=req.jianpu_break_beams_at_beat,
+            measures_per_system=req.jianpu_measures_per_system,
+            margin_top_mm=req.jianpu_margin_top_mm,
+            margin_bottom_mm=req.jianpu_margin_bottom_mm,
+            margin_left_mm=req.jianpu_margin_left_mm,
+            margin_right_mm=req.jianpu_margin_right_mm,
+            header_gap_mm=req.jianpu_header_gap_mm,
+            footer_protection_mm=req.jianpu_footer_protection_mm,
+        )
     }
 
 

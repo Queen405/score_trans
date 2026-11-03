@@ -34,7 +34,7 @@ class PublicationStyle:
     voice_row_gap: float = 38.0
     voice_clearance: float = 18.0
     system_gap: float = 16.0
-    title_block_height: float = 132.0
+    title_block_height: float = 96.0
     minimum_measure_width: float = 150.0
     ideal_event_gap: float = 42.0
     minimum_event_gap: float = 28.0
@@ -70,9 +70,10 @@ class PublicationStyle:
     event_baseline: float = 43.0
     text_lane_clearance: float = 18.0
     text_lane_gap: float = 8.0
-    continuation_header_height: float = 54.0
+    continuation_header_height: float = 18.0
     measure_side_padding: float = 42.0
     system_top_reserve: float = 24.0
+    header_system_gap: float = 36.0
     system_bottom_reserve: float = 18.0
     rhythm_line_side_extent: float = 12.0
     # Smaller overhang for per-beat segments when beams break at beat
@@ -107,6 +108,14 @@ class PublicationStyle:
     stroke_width: float = 1.7
     font_family: str = "ScoreTransNotoSerif"
     music_font_family: str = "ScoreTransBravura"
+
+    @property
+    def first_system_header_height(self) -> float:
+        return self.title_block_height + self.header_system_gap
+
+    @property
+    def continuation_system_header_height(self) -> float:
+        return self.continuation_header_height + self.header_system_gap
 
     @property
     def content_width(self) -> float:

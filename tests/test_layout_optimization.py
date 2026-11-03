@@ -111,7 +111,9 @@ def test_paginated_systems_respect_footer_and_forced_pages() -> None:
     assert any(page[0] is systems[4] for page in pages)
     for index, page in enumerate(pages):
         header = (
-            style.title_block_height if index == 0 else style.continuation_header_height
+            style.first_system_header_height
+            if index == 0
+            else style.continuation_system_header_height
         )
         bottom = style.margin_top + header + sum(s.height for s in page)
         bottom += (len(page) - 1) * style.system_gap
@@ -198,7 +200,7 @@ def test_nonlast_page_distributes_slack_evenly_between_systems() -> None:
         fit_content_height=False,
     )
 
-    used = style.margin_top + style.title_block_height + 3 * 110
+    used = style.margin_top + style.first_system_header_height + 3 * 110
     used += 2 * style.system_gap
     expected = style.system_gap + min(
         max(0.0, _pagination_bottom(style) - used) / 2,
@@ -258,7 +260,7 @@ def test_page_gap_uses_continuation_header_without_title() -> None:
         fit_content_height=False,
     )
 
-    used = style.margin_top + style.continuation_header_height + 200
+    used = style.margin_top + style.continuation_system_header_height + 200
     used += style.system_gap
     expected = style.system_gap + min(
         max(0.0, _pagination_bottom(style) - used),
@@ -328,7 +330,9 @@ def test_fixed_page_pitch_uses_shared_stretch_but_not_on_last_page() -> None:
         show_title=True,
     )
 
-    used = style.margin_top + style.title_block_height + 40 + 2 * base_pitch + 50
+    used = (
+        style.margin_top + style.first_system_header_height + 40 + 2 * base_pitch + 50
+    )
     slack = _pagination_bottom(style) - used
     assert stretched == pytest.approx(base_pitch + slack / 2.5)
     assert stretched > base_pitch
@@ -414,4 +418,13 @@ def test_fixed_reference_baseline_uses_first_visible_lane() -> None:
         + part.offset
         + style.event_baseline
         + part.lanes[lane_key(second_event)]
+    )
+
+
+def test_footer_protection_moves_the_music_bottom_limit_upward() -> None:
+    style = PublicationStyle()
+    protected = replace(style, footer_clearance=style.footer_clearance + 20)
+
+    assert _pagination_bottom(protected) == pytest.approx(
+        _pagination_bottom(style) - 20
     )

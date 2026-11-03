@@ -15,6 +15,12 @@ from score_trans.models.render.layout import (
     DEFAULT_BEAT_GAP_PERCENT,
     DEFAULT_CONTENT_SCALE_PERCENT,
     DEFAULT_MEASURES_PER_SYSTEM,
+    DEFAULT_FOOTER_PROTECTION_MM,
+    DEFAULT_HEADER_GAP_MM,
+    DEFAULT_MARGIN_BOTTOM_MM,
+    DEFAULT_MARGIN_LEFT_MM,
+    DEFAULT_MARGIN_RIGHT_MM,
+    DEFAULT_MARGIN_TOP_MM,
     MeasuresPerSystem,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
@@ -63,6 +69,12 @@ class SettingsResponse(BaseModel):
     jianpu_beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
     jianpu_break_beams_at_beat: bool = False
     jianpu_measures_per_system: MeasuresPerSystem = DEFAULT_MEASURES_PER_SYSTEM
+    jianpu_margin_top_mm: float = DEFAULT_MARGIN_TOP_MM
+    jianpu_margin_bottom_mm: float = DEFAULT_MARGIN_BOTTOM_MM
+    jianpu_margin_left_mm: float = DEFAULT_MARGIN_LEFT_MM
+    jianpu_margin_right_mm: float = DEFAULT_MARGIN_RIGHT_MM
+    jianpu_header_gap_mm: float = DEFAULT_HEADER_GAP_MM
+    jianpu_footer_protection_mm: float = DEFAULT_FOOTER_PROTECTION_MM
     enable_omr_ocr: bool = False
     output_dir: str = ""
     ocr_provider: str
@@ -123,6 +135,12 @@ class SettingsUpdateRequest(BaseModel):
     )
     jianpu_break_beams_at_beat: bool | None = None
     jianpu_measures_per_system: MeasuresPerSystem | None = None
+    jianpu_margin_top_mm: float | None = Field(default=None, ge=0, le=50)
+    jianpu_margin_bottom_mm: float | None = Field(default=None, ge=0, le=50)
+    jianpu_margin_left_mm: float | None = Field(default=None, ge=0, le=50)
+    jianpu_margin_right_mm: float | None = Field(default=None, ge=0, le=50)
+    jianpu_header_gap_mm: float | None = Field(default=None, ge=0, le=30)
+    jianpu_footer_protection_mm: float | None = Field(default=None, ge=0, le=30)
     enable_omr_ocr: bool | None = None
     work_dir: str | None = None
     ocr_provider: str | None = None

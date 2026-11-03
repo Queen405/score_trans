@@ -590,6 +590,12 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     assert initial.json()["jianpu_beat_gap_percent"] == 100
     assert initial.json()["jianpu_break_beams_at_beat"] is False
     assert initial.json()["jianpu_measures_per_system"] == 0
+    assert initial.json()["jianpu_margin_top_mm"] == 10
+    assert initial.json()["jianpu_margin_bottom_mm"] == 7
+    assert initial.json()["jianpu_margin_left_mm"] == 12
+    assert initial.json()["jianpu_margin_right_mm"] == 12
+    assert initial.json()["jianpu_header_gap_mm"] == 5
+    assert initial.json()["jianpu_footer_protection_mm"] == 2
 
     updated = client.put(
         "/settings",
@@ -600,6 +606,12 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
             "jianpu_beat_gap_percent": 140,
             "jianpu_break_beams_at_beat": True,
             "jianpu_measures_per_system": 4,
+            "jianpu_margin_top_mm": 15.5,
+            "jianpu_margin_bottom_mm": 9,
+            "jianpu_margin_left_mm": 16,
+            "jianpu_margin_right_mm": 17,
+            "jianpu_header_gap_mm": 7.5,
+            "jianpu_footer_protection_mm": 4,
         },
     )
     assert updated.status_code == 200
@@ -609,6 +621,12 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     assert updated.json()["jianpu_beat_gap_percent"] == 140
     assert updated.json()["jianpu_break_beams_at_beat"] is True
     assert updated.json()["jianpu_measures_per_system"] == 4
+    assert updated.json()["jianpu_margin_top_mm"] == 15.5
+    assert updated.json()["jianpu_margin_bottom_mm"] == 9
+    assert updated.json()["jianpu_margin_left_mm"] == 16
+    assert updated.json()["jianpu_margin_right_mm"] == 17
+    assert updated.json()["jianpu_header_gap_mm"] == 7.5
+    assert updated.json()["jianpu_footer_protection_mm"] == 4
 
     boundaries = client.put(
         "/settings",
@@ -668,6 +686,12 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
         assert properties["jianpu_break_beams_at_beat"]["default"] is False
         assert properties["jianpu_measures_per_system"]["default"] == 0
         assert properties["jianpu_measures_per_system"]["enum"] == [0, 3, 4, 5]
+        assert properties["jianpu_margin_top_mm"]["default"] == 10
+        assert properties["jianpu_margin_bottom_mm"]["default"] == 7
+        assert properties["jianpu_margin_left_mm"]["default"] == 12
+        assert properties["jianpu_margin_right_mm"]["default"] == 12
+        assert properties["jianpu_header_gap_mm"]["default"] == 5
+        assert properties["jianpu_footer_protection_mm"]["default"] == 2
         assert properties["jianpu_system_gap_percent"]["minimum"] == 20
         assert properties["jianpu_system_gap_percent"]["maximum"] == 180
         assert properties["jianpu_short_note_gap_percent"]["minimum"] == 20

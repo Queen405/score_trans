@@ -8,14 +8,24 @@ from score_trans.models.render.layout import (
     DEFAULT_BREAK_BEAMS_AT_BEAT,
     DEFAULT_CONTENT_SCALE_PERCENT,
     DEFAULT_MEASURES_PER_SYSTEM,
+    DEFAULT_MARGIN_TOP_MM,
+    DEFAULT_MARGIN_BOTTOM_MM,
+    DEFAULT_MARGIN_LEFT_MM,
+    DEFAULT_MARGIN_RIGHT_MM,
+    DEFAULT_HEADER_GAP_MM,
+    DEFAULT_FOOTER_PROTECTION_MM,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
     MAX_BEAT_GAP_PERCENT,
     MAX_CONTENT_SCALE_PERCENT,
+    MAX_MARGIN_MM,
+    MAX_HEADER_GAP_MM,
+    MAX_FOOTER_PROTECTION_MM,
     MAX_SHORT_NOTE_GAP_PERCENT,
     MAX_SYSTEM_GAP_PERCENT,
     MIN_BEAT_GAP_PERCENT,
     MIN_CONTENT_SCALE_PERCENT,
+    MIN_PAGE_MM,
     MIN_SHORT_NOTE_GAP_PERCENT,
     MIN_SYSTEM_GAP_PERCENT,
     a4_layout_key,
@@ -55,6 +65,12 @@ class A4LayoutOptions:
     beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
     break_beams_at_beat: bool = DEFAULT_BREAK_BEAMS_AT_BEAT
     measures_per_system: int = DEFAULT_MEASURES_PER_SYSTEM
+    margin_top_mm: float = DEFAULT_MARGIN_TOP_MM
+    margin_bottom_mm: float = DEFAULT_MARGIN_BOTTOM_MM
+    margin_left_mm: float = DEFAULT_MARGIN_LEFT_MM
+    margin_right_mm: float = DEFAULT_MARGIN_RIGHT_MM
+    header_gap_mm: float = DEFAULT_HEADER_GAP_MM
+    footer_protection_mm: float = DEFAULT_FOOTER_PROTECTION_MM
 
     def __post_init__(self) -> None:
         ranges = (
@@ -89,6 +105,23 @@ class A4LayoutOptions:
             or self.measures_per_system not in (0, 3, 4, 5)
         ):
             raise ValueError("measures_per_system must be one of 0, 3, 4, 5")
+        page_ranges = (
+            ("margin_top_mm", self.margin_top_mm, MAX_MARGIN_MM),
+            ("margin_bottom_mm", self.margin_bottom_mm, MAX_MARGIN_MM),
+            ("margin_left_mm", self.margin_left_mm, MAX_MARGIN_MM),
+            ("margin_right_mm", self.margin_right_mm, MAX_MARGIN_MM),
+            ("header_gap_mm", self.header_gap_mm, MAX_HEADER_GAP_MM),
+            (
+                "footer_protection_mm",
+                self.footer_protection_mm,
+                MAX_FOOTER_PROTECTION_MM,
+            ),
+        )
+        for field, value, maximum in page_ranges:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError(f"{field} must be numeric")
+            if not MIN_PAGE_MM <= value <= maximum:
+                raise ValueError(f"{field} must be between 0 and {maximum}")
         for field, value, minimum, maximum in ranges:
             if isinstance(value, bool) or not isinstance(value, int):
                 raise TypeError(f"{field} must be an integer")
@@ -120,4 +153,15 @@ class A4LayoutOptions:
             self.beat_gap_percent,
             self.break_beams_at_beat,
             self.measures_per_system,
+            ":".join(
+                f"{value:g}"
+                for value in (
+                    self.margin_top_mm,
+                    self.margin_bottom_mm,
+                    self.margin_left_mm,
+                    self.margin_right_mm,
+                    self.header_gap_mm,
+                    self.footer_protection_mm,
+                )
+            ),
         )

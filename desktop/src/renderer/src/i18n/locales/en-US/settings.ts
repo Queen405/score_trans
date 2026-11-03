@@ -113,6 +113,12 @@ const settings: typeof zhSettings = {
     measuresPerSystem: 'Measures per system',
     measuresAutomatic: 'Automatic',
     measuresFixed: '{count} measures',
+    marginTop: 'Top margin',
+    marginBottom: 'Bottom margin',
+    marginLeft: 'Left margin',
+    marginRight: 'Right margin',
+    headerGap: 'Header to first system',
+    footerProtection: 'Last system to footer protection',
   },
 }
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
-from ...exec.pipeline.actions import PipelineActions
+from ...exec.pipeline.actions import PipelineActions, pipeline_layout_options
 from ...exec.tasks.actions import TaskActions
 from ...models.common.types import (
     AccidentalMode,
@@ -15,6 +15,12 @@ from ...models.pipeline.schemas import PipelineByFileIdRequest
 from ...models.render.layout import (
     DEFAULT_BEAT_GAP_PERCENT,
     DEFAULT_CONTENT_SCALE_PERCENT,
+    DEFAULT_FOOTER_PROTECTION_MM,
+    DEFAULT_HEADER_GAP_MM,
+    DEFAULT_MARGIN_BOTTOM_MM,
+    DEFAULT_MARGIN_LEFT_MM,
+    DEFAULT_MARGIN_RIGHT_MM,
+    DEFAULT_MARGIN_TOP_MM,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
     MAX_BEAT_GAP_PERCENT,
@@ -56,6 +62,20 @@ async def run_pipeline_by_file_id(
         beat_gap_percent=req.jianpu_beat_gap_percent,
         break_beams_at_beat=req.jianpu_break_beams_at_beat,
         measures_per_system=req.jianpu_measures_per_system,
+        layout=pipeline_layout_options(
+            content_scale_percent=req.jianpu_content_scale_percent,
+            system_gap_percent=req.jianpu_system_gap_percent,
+            short_note_gap_percent=req.jianpu_short_note_gap_percent,
+            beat_gap_percent=req.jianpu_beat_gap_percent,
+            break_beams_at_beat=req.jianpu_break_beams_at_beat,
+            measures_per_system=req.jianpu_measures_per_system,
+            margin_top_mm=req.jianpu_margin_top_mm,
+            margin_bottom_mm=req.jianpu_margin_bottom_mm,
+            margin_left_mm=req.jianpu_margin_left_mm,
+            margin_right_mm=req.jianpu_margin_right_mm,
+            header_gap_mm=req.jianpu_header_gap_mm,
+            footer_protection_mm=req.jianpu_footer_protection_mm,
+        ),
         title=req.title,
     )
 
@@ -92,6 +112,14 @@ async def run_pipeline(
     ),
     jianpu_break_beams_at_beat: bool = Form(False),
     jianpu_measures_per_system: MeasuresPerSystem = Form(0),
+    jianpu_margin_top_mm: float = Form(DEFAULT_MARGIN_TOP_MM, ge=0, le=50),
+    jianpu_margin_bottom_mm: float = Form(DEFAULT_MARGIN_BOTTOM_MM, ge=0, le=50),
+    jianpu_margin_left_mm: float = Form(DEFAULT_MARGIN_LEFT_MM, ge=0, le=50),
+    jianpu_margin_right_mm: float = Form(DEFAULT_MARGIN_RIGHT_MM, ge=0, le=50),
+    jianpu_header_gap_mm: float = Form(DEFAULT_HEADER_GAP_MM, ge=0, le=30),
+    jianpu_footer_protection_mm: float = Form(
+        DEFAULT_FOOTER_PROTECTION_MM, ge=0, le=30
+    ),
     title: str | None = Form(None),
     actions: PipelineActions = Depends(get_pipeline_actions),
     tasks: TaskActions = Depends(get_task_actions),
@@ -112,6 +140,20 @@ async def run_pipeline(
         beat_gap_percent=jianpu_beat_gap_percent,
         break_beams_at_beat=jianpu_break_beams_at_beat,
         measures_per_system=jianpu_measures_per_system,
+        layout=pipeline_layout_options(
+            content_scale_percent=jianpu_content_scale_percent,
+            system_gap_percent=jianpu_system_gap_percent,
+            short_note_gap_percent=jianpu_short_note_gap_percent,
+            beat_gap_percent=jianpu_beat_gap_percent,
+            break_beams_at_beat=jianpu_break_beams_at_beat,
+            measures_per_system=jianpu_measures_per_system,
+            margin_top_mm=jianpu_margin_top_mm,
+            margin_bottom_mm=jianpu_margin_bottom_mm,
+            margin_left_mm=jianpu_margin_left_mm,
+            margin_right_mm=jianpu_margin_right_mm,
+            header_gap_mm=jianpu_header_gap_mm,
+            footer_protection_mm=jianpu_footer_protection_mm,
+        ),
         title=title,
     )
 

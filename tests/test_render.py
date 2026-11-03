@@ -134,7 +134,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-23"
+    assert root.attrib["data-engine-version"] == "publication-24"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -2384,7 +2384,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
     assert root.attrib["width"] == "1240"
     assert root.attrib["height"] == "1754"
     assert root.attrib["viewBox"] == "0 0 1240 1754"
-    assert root.attrib["data-layout-key"] == "67:100:100:100:0:a"
+    assert root.attrib["data-layout-key"] == "67:100:100:100:0:a:10:7:12:12:5:2"
     content = next(
         node for node in root if node.attrib.get("class") == "publication-content"
     )
@@ -2403,7 +2403,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
     render_map = json.loads(page.render_map_path.read_text(encoding="utf-8"))
     render_map_bbox = render_map["anchors"][0]["bbox"]
     assert render_map_bbox["x"] <= note_bbox[0]
-    assert render_map_bbox["y"] <= note_bbox[1]
+    assert render_map_bbox["y"] <= note_bbox[1] + 0.001
     assert (
         render_map_bbox["x"] + render_map_bbox["width"]
         >= note_bbox[0] + note_bbox[2] - 1e-6
@@ -2621,6 +2621,10 @@ def test_overfull_measure_ignores_the_short_note_control() -> None:
         ("content_scale_percent", 101),
         ("system_gap_percent", 19),
         ("system_gap_percent", 181),
+        ("margin_left_mm", -1),
+        ("margin_left_mm", 51),
+        ("header_gap_mm", 31),
+        ("footer_protection_mm", -1),
         ("short_note_gap_percent", 19),
         ("short_note_gap_percent", 181),
         ("beat_gap_percent", -1),
@@ -3046,8 +3050,8 @@ def test_batch_render_uses_jianpu_text_title_when_request_omits_one(
     svg_path = uploads.get_path(response.svg_file_id)
     assert svg_path is not None
     root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
-    assert root.attrib["data-layout-key"] == "75:88:85:100:0:a"
-    assert response.pages[0].layout_key == "75:88:85:100:0:a"
+    assert root.attrib["data-layout-key"] == "75:88:85:100:0:a:10:7:12:12:5:2"
+    assert response.pages[0].layout_key == "75:88:85:100:0:a:10:7:12:12:5:2"
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
 
@@ -3890,3 +3894,53 @@ def test_fixed_mode_multi_part_reference_baselines_share_document_pitch() -> Non
     deltas = _baseline_deltas(_primary_note_baselines(page, part_index=0))
     assert len(deltas) == 3
     assert deltas == pytest.approx([deltas[0]] * 3, abs=1e-6)
+
+
+def test_a4_page_geometry_controls_use_physical_millimetres() -> None:
+    score = parse_jianpu_score("title=Page Geometry\n1=C\n4/4\n1 2 3 4 |")
+    units_per_mm = 1240 / 210
+    layout = A4LayoutOptions(
+        content_scale_percent=100,
+        margin_top_mm=20,
+        margin_bottom_mm=10,
+        margin_left_mm=15,
+        margin_right_mm=20,
+        header_gap_mm=8,
+        footer_protection_mm=3,
+    )
+
+    page = PublicationRenderService().build_scores_a4_svg_pages([score], layout=layout)[
+        0
+    ]
+    root = _root(page.svg)
+    first_barline = next(
+        node for node in root.iter() if node.attrib.get("class") == "measure"
+    )
+    title = next(
+        node for node in root.iter() if node.attrib.get("class") == "score-title"
+    )
+
+    assert float(first_barline.attrib["x1"]) == pytest.approx(
+        15 * units_per_mm, abs=0.001
+    )
+    assert _translate(title)[1] == pytest.approx(20 * units_per_mm + 26, abs=0.001)
+
+    low_header = PublicationRenderService().build_scores_a4_svg_pages(
+        [score], layout=A4LayoutOptions(content_scale_percent=100, header_gap_mm=2)
+    )[0]
+    high_header = PublicationRenderService().build_scores_a4_svg_pages(
+        [score], layout=A4LayoutOptions(content_scale_percent=100, header_gap_mm=10)
+    )[0]
+
+    def first_note_y(page) -> float:
+        return _translate(
+            next(
+                node
+                for node in _root(page.svg).iter()
+                if node.attrib.get("class") == "note"
+            )
+        )[1]
+
+    assert first_note_y(high_header) - first_note_y(low_header) == pytest.approx(
+        8 * units_per_mm, abs=0.001
+    )

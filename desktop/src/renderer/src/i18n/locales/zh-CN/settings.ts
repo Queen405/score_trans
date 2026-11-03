@@ -110,6 +110,12 @@ const settings = {
     measuresPerSystem: '每行小节数',
     measuresAutomatic: '自由排版',
     measuresFixed: '{count} 小节',
+    marginTop: '上边距',
+    marginBottom: '下边距',
+    marginLeft: '左边距',
+    marginRight: '右边距',
+    headerGap: '页眉与首行间距',
+    footerProtection: '末行与页脚保护',
   },
 }
 

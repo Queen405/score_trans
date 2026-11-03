@@ -116,6 +116,138 @@
           </div>
         </settings-form-row>
 
+        <settings-form-row :label="t('settings.appearance.marginTop')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuMarginTopMm"
+              :min="0"
+              :max="50"
+              :step="0.5"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuMarginTopMm"
+              :min="0"
+              :max="50"
+              :step="0.5"
+              size="small"
+            >
+              <template #suffix>
+                mm
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.marginBottom')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuMarginBottomMm"
+              :min="0"
+              :max="50"
+              :step="0.5"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuMarginBottomMm"
+              :min="0"
+              :max="50"
+              :step="0.5"
+              size="small"
+            >
+              <template #suffix>
+                mm
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.marginLeft')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuMarginLeftMm"
+              :min="0"
+              :max="50"
+              :step="0.5"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuMarginLeftMm"
+              :min="0"
+              :max="50"
+              :step="0.5"
+              size="small"
+            >
+              <template #suffix>
+                mm
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.marginRight')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuMarginRightMm"
+              :min="0"
+              :max="50"
+              :step="0.5"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuMarginRightMm"
+              :min="0"
+              :max="50"
+              :step="0.5"
+              size="small"
+            >
+              <template #suffix>
+                mm
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.headerGap')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuHeaderGapMm"
+              :min="0"
+              :max="30"
+              :step="0.5"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuHeaderGapMm"
+              :min="0"
+              :max="30"
+              :step="0.5"
+              size="small"
+            >
+              <template #suffix>
+                mm
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.footerProtection')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuFooterProtectionMm"
+              :min="0"
+              :max="30"
+              :step="0.5"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuFooterProtectionMm"
+              :min="0"
+              :max="30"
+              :step="0.5"
+              size="small"
+            >
+              <template #suffix>
+                mm
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
         <settings-form-row :label="t('settings.appearance.contentScale')">
           <div class="sv-layout-control">
             <n-slider

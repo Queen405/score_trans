@@ -1,4 +1,4 @@
-export const PUBLICATION_ENGINE_VERSION = 'publication-23'
+export const PUBLICATION_ENGINE_VERSION = 'publication-24'
 
 export function jianpuLayoutKey(
   contentScalePercent: number,
@@ -7,8 +7,10 @@ export function jianpuLayoutKey(
   beatGapPercent: number,
   breakBeamsAtBeat: boolean,
   measuresPerSystem: 0 | 3 | 4 | 5,
+  layoutExtras = '',
 ): string {
-  return `${contentScalePercent}:${systemGapPercent}:${shortNoteGapPercent}:${beatGapPercent}:${breakBeamsAtBeat ? 1 : 0}:${measuresPerSystem || 'a'}`
+  const base = `${contentScalePercent}:${systemGapPercent}:${shortNoteGapPercent}:${beatGapPercent}:${breakBeamsAtBeat ? 1 : 0}:${measuresPerSystem || 'a'}`
+  return layoutExtras ? `${base}:${layoutExtras}` : base
 }
 
 export function isRenderLayoutStale(renderLayoutKey: string, currentLayoutKey: string): boolean {

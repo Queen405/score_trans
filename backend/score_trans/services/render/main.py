@@ -12,6 +12,7 @@ from ...models.common.errors import RenderError
 from ...models.score import JianpuScore
 from .engraving.renderer import MeasureRange, PublicationPage, PublicationRenderer
 from .engraving.style import PublicationStyle
+from ...models.render.layout import A4_UNITS_PER_MM
 from .options import A4LayoutOptions, RenderOptions
 
 A4_PAGE_WIDTH = 1240
@@ -499,16 +500,30 @@ def _a4_renderer(
 ) -> PublicationRenderer:
     scale = layout.content_scale
     base = _style_from_options(options)
+
+    def page_units(mm: float) -> float:
+        return mm * A4_UNITS_PER_MM / scale
+
     style = replace(
         base,
         page_width=base.page_width / scale,
         page_height=base.page_height / scale,
+        margin_top=page_units(layout.margin_top_mm),
+        margin_bottom=page_units(layout.margin_bottom_mm),
+        margin_left=page_units(layout.margin_left_mm),
+        margin_right=page_units(layout.margin_right_mm),
+        header_system_gap=page_units(layout.header_gap_mm),
+        footer_clearance=page_units(layout.footer_protection_mm),
         system_gap=base.system_gap * layout.system_gap_scale,
         short_note_gap_scale=layout.short_note_gap_scale,
         beat_boundary_gap=base.beat_boundary_gap * layout.beat_gap_scale,
         break_beams_at_beat=layout.break_beams_at_beat,
         measures_per_system=layout.measures_per_system,
     )
+    if style.content_width < 100:
+        raise RenderError("??????????????????")
+    if style.page_height - style.margin_top - style.margin_bottom < 100:
+        raise RenderError("??????????????????")
     return PublicationRenderer(
         style,
         coordinate_scale=scale,

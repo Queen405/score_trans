@@ -254,9 +254,9 @@ class PublicationRenderer:
                 content_height = sum(system.height for system in systems)
                 content_height += max(0, len(systems) - 1) * style.system_gap
             header_height = (
-                style.title_block_height
+                style.first_system_header_height
                 if show_title
-                else style.continuation_header_height
+                else style.continuation_system_header_height
             )
             style = replace(
                 style,
@@ -328,9 +328,9 @@ class PublicationRenderer:
                 )
             )
             y = style.margin_top + (
-                style.title_block_height
+                style.first_system_header_height
                 if page_index == 0 and show_title
-                else style.continuation_header_height
+                else style.continuation_system_header_height
             )
             baseline = (
                 y + _vertical_metrics(page_systems[0], style).above
@@ -2468,7 +2468,9 @@ def _paginate_fixed(
     pages: list[list[_System]] = []
     current: list[_System] = []
     header_height = (
-        style.title_block_height if show_title else style.continuation_header_height
+        style.first_system_header_height
+        if show_title
+        else style.continuation_system_header_height
     )
     music_height = 0.0
     content_bottom = _pagination_bottom(style)
@@ -2484,7 +2486,7 @@ def _paginate_fixed(
         if current and (used > content_bottom or system.force_page_before):
             pages.append(current)
             current = []
-            header_height = style.continuation_header_height
+            header_height = style.continuation_system_header_height
             candidate_height = metrics.above + metrics.below
             used = style.margin_top + header_height + candidate_height
         if used > content_bottom + 1e-6:
@@ -2551,9 +2553,9 @@ def _fixed_page_pitch(
     if gap_count <= 0 or page_index == page_count - 1:
         return base_pitch
     header_height = (
-        style.title_block_height
+        style.first_system_header_height
         if page_index == 0 and show_title
-        else style.continuation_header_height
+        else style.continuation_system_header_height
     )
     used = (
         style.margin_top
@@ -2579,9 +2581,9 @@ def _page_system_gap(
     if fit_content_height or is_last_page or len(page_systems) <= 1:
         return base_gap
     header_height = (
-        style.title_block_height
+        style.first_system_header_height
         if page_index == 0 and show_title
-        else style.continuation_header_height
+        else style.continuation_system_header_height
     )
     used = style.margin_top + header_height
     used += sum(system.height for system in page_systems)
@@ -2597,7 +2599,9 @@ def _paginate(
     pages: list[list[_System]] = []
     current: list[_System] = []
     used = style.margin_top + (
-        style.title_block_height if show_title else style.continuation_header_height
+        style.first_system_header_height
+        if show_title
+        else style.continuation_system_header_height
     )
     content_bottom = _pagination_bottom(style)
     for system in systems:
@@ -2605,7 +2609,7 @@ def _paginate(
         if current and (used + required > content_bottom or system.force_page_before):
             pages.append(current)
             current = []
-            used = style.margin_top + style.continuation_header_height
+            used = style.margin_top + style.continuation_system_header_height
             required = system.height
         if used + required > content_bottom + 1e-6:
             raise RenderError("单个谱表系统超出页面可用高度，请缩小谱面或增大页面")

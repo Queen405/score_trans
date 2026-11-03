@@ -20,7 +20,7 @@ from score_trans.models.score import OCRTextBlock
 from score_trans.models.settings.config import ToolConfig
 from score_trans.services.files.upload_service import UploadService
 from score_trans.services.ocr.providers import MockOCRProvider
-from score_trans.services.render import PublicationRenderService
+from score_trans.services.render import A4LayoutOptions, PublicationRenderService
 
 
 class FakeRecognizer:
@@ -226,6 +226,15 @@ def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
         beat_gap_percent=140,
         break_beams_at_beat=True,
         measures_per_system=5,
+        layout=A4LayoutOptions(
+            content_scale_percent=75,
+            margin_top_mm=15.5,
+            margin_bottom_mm=9,
+            margin_left_mm=16,
+            margin_right_mm=17,
+            header_gap_mm=7.5,
+            footer_protection_mm=4,
+        ),
     )
 
     assert renderer.kwargs["content_scale_percent"] == 75
@@ -234,6 +243,13 @@ def test_full_pipeline_forwards_a4_layout_controls(tmp_path: Path) -> None:
     assert renderer.kwargs["beat_gap_percent"] == 140
     assert renderer.kwargs["break_beams_at_beat"] is True
     assert renderer.kwargs["measures_per_system"] == 5
+    layout = renderer.kwargs["layout"]
+    assert layout.margin_top_mm == 15.5
+    assert layout.margin_bottom_mm == 9
+    assert layout.margin_left_mm == 16
+    assert layout.margin_right_mm == 17
+    assert layout.header_gap_mm == 7.5
+    assert layout.footer_protection_mm == 4
 
 
 def test_full_pipeline_can_hide_measure_numbers(tmp_path) -> None:

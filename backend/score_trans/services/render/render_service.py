@@ -37,6 +37,25 @@ def _layout(
     )
 
 
+def _select_layout(
+    layout: A4LayoutOptions | None,
+    content_scale_percent: int,
+    system_gap_percent: int,
+    short_note_gap_percent: int,
+    beat_gap_percent: int,
+    break_beams_at_beat: bool,
+    measures_per_system: int,
+) -> A4LayoutOptions:
+    return layout or _layout(
+        content_scale_percent,
+        system_gap_percent,
+        short_note_gap_percent,
+        beat_gap_percent,
+        break_beams_at_beat,
+        measures_per_system,
+    )
+
+
 class PublicationRenderService:
     def render_score_svg(
         self,
@@ -136,6 +155,7 @@ class PublicationRenderService:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
     ) -> list[RenderedA4FilePage]:
         return render_score_a4_pages_to_files(
             score,
@@ -144,7 +164,8 @@ class PublicationRenderService:
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
-            layout=_layout(
+            layout=_select_layout(
+                layout,
                 content_scale_percent,
                 system_gap_percent,
                 short_note_gap_percent,
@@ -168,6 +189,7 @@ class PublicationRenderService:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
     ) -> list[RenderedA4FilePage]:
         return render_scores_a4_pages_to_files(
             scores,
@@ -176,7 +198,8 @@ class PublicationRenderService:
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
-            layout=_layout(
+            layout=_select_layout(
+                layout,
                 content_scale_percent,
                 system_gap_percent,
                 short_note_gap_percent,
@@ -199,6 +222,7 @@ class PublicationRenderService:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
     ) -> list[RenderedA4Page]:
         mode = measure_number_mode or (
             "none" if show_measure_numbers is False else "all"
@@ -211,7 +235,8 @@ class PublicationRenderService:
                 measure_number_mode=mode,
                 initial_measure_number=initial_measure_number,
             ),
-            _layout(
+            _select_layout(
+                layout,
                 content_scale_percent,
                 system_gap_percent,
                 short_note_gap_percent,
@@ -235,6 +260,7 @@ class PublicationRenderService:
         beat_gap_percent: int = 100,
         break_beams_at_beat: bool = False,
         measures_per_system: int = 0,
+        layout: A4LayoutOptions | None = None,
         playback_group_offset: int = 0,
         playback_tick_offset: int = 0,
         show_title: bool = True,
@@ -247,7 +273,8 @@ class PublicationRenderService:
             show_measure_numbers=show_measure_numbers,
             measure_number_mode=measure_number_mode,
             initial_measure_number=initial_measure_number,
-            layout=_layout(
+            layout=_select_layout(
+                layout,
                 content_scale_percent,
                 system_gap_percent,
                 short_note_gap_percent,
