@@ -7,16 +7,22 @@ from itertools import combinations
 import pytest
 
 from score_trans.models.common.errors import RenderError
-from score_trans.models.score import Event, JianpuPitch, Measure
+from score_trans.domain.voices import lane_key
+from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 from score_trans.services.render.engraving.renderer import (
     _Cell,
     _System,
+    _SystemVerticalMetrics,
     _boundary_penalties,
     _break_systems,
+    _build_cells,
+    _fixed_page_pitch,
     _optimal_system_ends,
     _page_system_gap,
     _paginate,
+    _paginate_fixed,
     _pagination_bottom,
+    _solve_fixed_pagination,
 )
 from score_trans.services.render.engraving.style import PublicationStyle
 
@@ -259,3 +265,153 @@ def test_page_gap_uses_continuation_header_without_title() -> None:
         2 * style.system_gap,
     )
     assert gap == pytest.approx(expected)
+
+
+def _measured_system(above: float, below: float) -> _System:
+    return _System(
+        [],
+        [],
+        above + below,
+        vertical=_SystemVerticalMetrics(above, above, below),
+    )
+
+
+def test_fixed_base_pitch_covers_every_same_page_pair_and_stays_stable() -> None:
+    style = PublicationStyle(page_height=650, measures_per_system=4)
+    systems = [
+        _measured_system(40, 60),
+        _measured_system(55, 75),
+        _measured_system(35, 50),
+        _measured_system(45, 65),
+    ]
+
+    base_pitch, pages = _solve_fixed_pagination(systems, style, show_title=True)
+
+    assert base_pitch >= style.base_staff_height + style.system_gap
+    for page in pages:
+        for left, right in zip(page, page[1:], strict=False):
+            required = left.vertical.below + style.system_gap + right.vertical.above
+            assert base_pitch + 1e-6 >= required
+    repaginated = _paginate_fixed(systems, style, base_pitch, show_title=True)
+    assert [[id(system) for system in page] for page in repaginated] == [
+        [id(system) for system in page] for page in pages
+    ]
+
+
+def test_fixed_page_pitch_uses_shared_stretch_but_not_on_last_page() -> None:
+    style = PublicationStyle(page_height=650, measures_per_system=4)
+    systems = [_measured_system(40, 50) for _ in range(3)]
+    base_pitch = 100.0
+
+    stretched = _fixed_page_pitch(
+        systems,
+        style,
+        base_pitch,
+        page_index=0,
+        page_count=2,
+        show_title=True,
+    )
+    without_title = _fixed_page_pitch(
+        systems,
+        style,
+        base_pitch,
+        page_index=0,
+        page_count=2,
+        show_title=False,
+    )
+    last = _fixed_page_pitch(
+        systems,
+        style,
+        base_pitch,
+        page_index=1,
+        page_count=2,
+        show_title=True,
+    )
+
+    used = style.margin_top + style.title_block_height + 40 + 2 * base_pitch + 50
+    slack = _pagination_bottom(style) - used
+    assert stretched == pytest.approx(base_pitch + slack / 2.5)
+    assert stretched > base_pitch
+    assert without_title > stretched
+    assert last == base_pitch
+    assert (
+        _fixed_page_pitch(
+            systems[:1],
+            style,
+            base_pitch,
+            page_index=0,
+            page_count=2,
+            show_title=True,
+        )
+        == base_pitch
+    )
+
+
+def test_fixed_pagination_honors_forced_page_before() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    systems = [_measured_system(40, 50) for _ in range(4)]
+    systems[2].force_page_before = True
+
+    pages = _paginate_fixed(systems, style, 100)
+
+    assert len(pages) == 2
+    assert pages[1][0] is systems[2]
+
+
+def test_fixed_vertical_envelope_covers_spanner_continuing_through_middle_row() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    score = JianpuScore(
+        measures=[
+            Measure(
+                "1",
+                events=[Event("note", Fraction(1), [JianpuPitch(1)], slur_start=True)],
+            ),
+            Measure(
+                "2",
+                events=[Event("note", Fraction(1), [JianpuPitch(2)])],
+                new_system=True,
+            ),
+            Measure(
+                "3",
+                events=[Event("note", Fraction(1), [JianpuPitch(3)], slur_stop=True)],
+                new_system=True,
+            ),
+        ]
+    )
+
+    systems = _break_systems(_build_cells([[score]], style), style, 1)
+
+    assert (0, "slur") in systems[1].continuing_spanners
+    assert systems[1].vertical is not None
+    assert systems[1].vertical.above >= (
+        20 + max(30.0, style.slur_height) + style.spanner_base_clearance
+    )
+
+
+def test_fixed_reference_baseline_uses_first_visible_lane() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    first = Measure(
+        "1",
+        duration=Fraction(1),
+        events=[
+            Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(0), voice="1"),
+            Event("note", Fraction(1), [JianpuPitch(3)], start=Fraction(0), voice="2"),
+        ],
+    )
+    second_event = Event(
+        "note", Fraction(1), [JianpuPitch(5)], start=Fraction(0), voice="2"
+    )
+    second = Measure("2", duration=Fraction(1), events=[second_event], new_system=True)
+    score = JianpuScore(measures=[first, second])
+
+    systems = _break_systems(_build_cells([[score]], style), style, 1)
+    system = systems[1]
+    part = system.parts[0]
+
+    assert system.vertical is not None
+    assert system.vertical.baseline_offset == pytest.approx(
+        system.top_reserve
+        + part.offset
+        + style.event_baseline
+        + part.lanes[lane_key(second_event)]
+    )

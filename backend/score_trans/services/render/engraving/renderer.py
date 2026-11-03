@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from ....config.settings import MIDI_TICKS_PER_BEAT
 from ....domain.endings import (
@@ -100,6 +100,15 @@ class _PartLayout:
     ending_bracket_offset: float = 22.0
 
 
+@dataclass(frozen=True, slots=True)
+class _SystemVerticalMetrics:
+    """Vertical envelope around the first part's primary note baseline."""
+
+    baseline_offset: float
+    above: float
+    below: float
+
+
 @dataclass(slots=True)
 class _System:
     cells: list[_Cell]
@@ -108,6 +117,8 @@ class _System:
     force_page_before: bool = False
     parts: list[_PartLayout] = field(default_factory=list)
     top_reserve: float = 0.0
+    vertical: _SystemVerticalMetrics | None = None
+    continuing_spanners: set[tuple[int, str]] = field(default_factory=set)
 
 
 @dataclass(slots=True)
@@ -230,10 +241,18 @@ class PublicationRenderer:
             ending_spans_by_part=ending_spans_by_part,
             show_measure_numbers=show_measure_numbers,
         )
+        fixed_layout = bool(style.measures_per_system)
+        document_base_pitch: float | None = None
         if fit_content_height:
             footer_height = style.page_height - _pagination_bottom(style)
-            content_height = sum(system.height for system in systems)
-            content_height += max(0, len(systems) - 1) * style.system_gap
+            if fixed_layout:
+                document_base_pitch = _fixed_unconstrained_base_pitch(systems, style)
+                content_height = _fixed_systems_height(
+                    systems, style, document_base_pitch
+                )
+            else:
+                content_height = sum(system.height for system in systems)
+                content_height += max(0, len(systems) - 1) * style.system_gap
             header_height = (
                 style.title_block_height
                 if show_title
@@ -246,7 +265,20 @@ class PublicationRenderer:
                     style.margin_top + header_height + content_height + footer_height,
                 ),
             )
-        pages = _paginate(systems, style, show_title=show_title)
+        if fixed_layout:
+            if document_base_pitch is None:
+                document_base_pitch, pages = _solve_fixed_pagination(
+                    systems, style, show_title=show_title
+                )
+            else:
+                pages = _paginate_fixed(
+                    systems,
+                    style,
+                    document_base_pitch,
+                    show_title=show_title,
+                )
+        else:
+            pages = _paginate(systems, style, show_title=show_title)
         score0 = parts[0][0] if parts and parts[0] else JianpuScore()
         document_title = title or score0.title or ""
         next_note_index = 0
@@ -270,18 +302,40 @@ class PublicationRenderer:
                 show_page_number=show_page_number,
             )
             note_start = next_note_index
-            page_gap = _page_system_gap(
-                page_systems,
-                style,
-                page_index=page_index,
-                page_count=len(pages or [[]]),
-                show_title=show_title,
-                fit_content_height=fit_content_height,
+            page_count = len(pages or [[]])
+            page_pitch = (
+                _fixed_page_pitch(
+                    page_systems,
+                    style,
+                    document_base_pitch,
+                    page_index=page_index,
+                    page_count=page_count,
+                    show_title=show_title,
+                )
+                if fixed_layout and document_base_pitch is not None
+                else None
+            )
+            page_gap = (
+                None
+                if fixed_layout
+                else _page_system_gap(
+                    page_systems,
+                    style,
+                    page_index=page_index,
+                    page_count=page_count,
+                    show_title=show_title,
+                    fit_content_height=fit_content_height,
+                )
             )
             y = style.margin_top + (
                 style.title_block_height
                 if page_index == 0 and show_title
                 else style.continuation_header_height
+            )
+            baseline = (
+                y + _vertical_metrics(page_systems[0], style).above
+                if fixed_layout and page_systems
+                else None
             )
             page_ranges: list[MeasureRange] = []
             page_cells = [cell for system in page_systems for cell in system.cells]
@@ -309,12 +363,17 @@ class PublicationRenderer:
                 for group in playback_groups.get(cell.index, {}).values()
             ]
             for system_index, system in enumerate(page_systems):
+                system_y = (
+                    baseline - _vertical_metrics(system, style).baseline_offset
+                    if fixed_layout and baseline is not None
+                    else y
+                )
                 next_note_index = self._draw_system(
                     scene,
                     style,
                     system,
                     parts,
-                    y + system.top_reserve,
+                    system_y + system.top_reserve,
                     next_note_index,
                     show_measure_numbers=show_measure_numbers,
                     measure_number_mode=measure_number_mode,
@@ -326,7 +385,10 @@ class PublicationRenderer:
                     playback_tick_offset=playback_tick_offset,
                 )
                 _append_ranges(page_ranges, system.cells)
-                y += system.height + page_gap
+                if fixed_layout:
+                    baseline = cast(float, baseline) + cast(float, page_pitch)
+                else:
+                    y += system.height + cast(float, page_gap)
             note_end = next_note_index - 1 if next_note_index > note_start else None
             scene.note_index_start = note_start if note_end is not None else None
             scene.note_index_end = note_end
@@ -1757,6 +1819,28 @@ def _measure_event_visual_extents(
     return extents
 
 
+def _continuing_spanners_by_cell(
+    cells: list[_Cell],
+) -> list[set[tuple[int, str]]]:
+    """Return active part-level spanners immediately before each cell."""
+
+    states: list[set[tuple[int, str]]] = []
+    active: Counter[tuple[int, str]] = Counter()
+    for cell in cells:
+        states.append({key for key, count in active.items() if count > 0})
+        for part_index, measure in enumerate(cell.measures):
+            if measure is None:
+                continue
+            for event in measure.events:
+                for kind in ("tie", "slur", "slide"):
+                    key = (part_index, kind)
+                    if getattr(event, f"{kind}_stop") and active[key] > 0:
+                        active[key] -= 1
+                    if getattr(event, f"{kind}_start"):
+                        active[key] += 1
+    return states
+
+
 def _break_systems(
     cells: list[_Cell],
     style: PublicationStyle,
@@ -1785,6 +1869,7 @@ def _break_systems(
         part_keys.append(
             [key for key, _ in group_event_lanes(events)] if polyphonic else []
         )
+    continuation_states = _continuing_spanners_by_cell(cells)
     start = 0
     measures_per_system = style.measures_per_system
     ends = (
@@ -1827,16 +1912,26 @@ def _break_systems(
         height = (
             top_reserve + layouts[-1].offset + layouts[-1].height if layouts else 0.0
         )
-        systems.append(
-            _System(
-                row,
-                widths,
-                height,
-                force_page_before=bool(row and row[0].forced_page),
-                parts=layouts,
-                top_reserve=top_reserve,
-            )
+        system = _System(
+            row,
+            widths,
+            height,
+            force_page_before=bool(row and row[0].forced_page),
+            parts=layouts,
+            top_reserve=top_reserve,
+            continuing_spanners=continuation_states[start],
         )
+        system.vertical = _system_vertical_metrics(
+            system, style, show_measure_numbers=show_measure_numbers
+        )
+        if measures_per_system:
+            system.height = max(
+                system.height,
+                system.vertical.baseline_offset
+                + system.vertical.below
+                + style.system_bottom_reserve,
+            )
+        systems.append(system)
         start = end
     return systems
 
@@ -1970,6 +2065,34 @@ def _system_part_layouts(
             ),
             default=14.0,
         )
+        annotation_top = math.inf
+        annotation_labels: list[tuple[str, float]] = []
+        if show_measure_numbers:
+            annotation_labels.extend(
+                (str(measure.display_number), style.measure_number_size)
+                for measure, _width in measures
+            )
+        annotation_labels.extend(
+            (
+                f"*{max(1, int(getattr(measure, 'repeat_count', 1) or 1))}",
+                style.measure_number_size,
+            )
+            for measure, _width in measures
+            if max(1, int(getattr(measure, "repeat_count", 1) or 1)) > 1
+        )
+        if index == 0:
+            annotation_labels.extend(
+                (f"♩={measure.tempo}", style.annotation_size)
+                for measure, _width in measures
+                if measure.tempo is not None
+            )
+        for label, font_size in annotation_labels:
+            _left, ink_top, _right, _bottom = font_registry().ink_bounds(
+                label, font_size
+            )
+            annotation_top = min(annotation_top, -9.0 + ink_top)
+        if style.measures_per_system:
+            top_ink = min(top_ink, annotation_top)
         ending_bracket_offset = 22.0
         first_index = cells[0].index
         last_index = cells[-1].index
@@ -1997,10 +2120,12 @@ def _system_part_layouts(
                 if _is_tuplet(event):
                     event_top -= style.tuplet_bracket_offset + style.annotation_size
                 content_top = min(content_top, event_top)
-            if show_measure_numbers or any(
+            # Measure numbers, repeat counts and tempo share the y - 9 band.
+            if style.measures_per_system:
+                content_top = min(content_top, annotation_top)
+            elif show_measure_numbers or any(
                 measure.tempo is not None for measure, _width in measures
             ):
-                # Measure numbers and tempo share the y - 9 annotation baseline.
                 content_top = min(content_top, -21.0)
             ending_bracket_offset = max(
                 22.0,
@@ -2030,6 +2155,158 @@ def _system_part_layouts(
         )
         cursor += height + style.part_gap
     return layouts
+
+
+def _system_vertical_metrics(
+    system: _System,
+    style: PublicationStyle,
+    *,
+    show_measure_numbers: bool,
+) -> _SystemVerticalMetrics:
+    """Measure a system's complete vertical envelope before page placement."""
+
+    if not system.parts:
+        return _SystemVerticalMetrics(
+            style.event_baseline,
+            style.event_baseline,
+            max(0.0, system.height - style.event_baseline),
+        )
+
+    first_part = system.parts[0]
+    first_part_events = [
+        event
+        for cell in system.cells
+        if cell.measures and cell.measures[0] is not None
+        for event in _visual_events(cell.measures[0])
+    ]
+    first_lane_key = next(
+        (
+            key
+            for key in first_part.lanes
+            if any(lane_key(event) == key for event in first_part_events)
+        ),
+        None,
+    )
+    first_lane_offset = first_part.lanes.get(first_lane_key, 0.0)
+    baseline_offset = (
+        system.top_reserve
+        + first_part.offset
+        + style.event_baseline
+        + first_lane_offset
+    )
+    top = math.inf
+    bottom = -math.inf
+    bar_stroke = max(style.stroke_width, 4.2) / 2
+
+    for part_index, part in enumerate(system.parts):
+        staff_y = system.top_reserve + part.offset
+        if (part_index, "slur") in system.continuing_spanners:
+            top = min(
+                top,
+                staff_y
+                + style.event_baseline
+                - 20.0
+                - max(30.0, style.slur_height)
+                - style.spanner_base_clearance,
+            )
+        if (part_index, "tie") in system.continuing_spanners:
+            bottom = max(
+                bottom,
+                staff_y
+                + style.event_baseline
+                + style.note_size
+                + 2 * style.rhythm_dot_step
+                + style.tie_below_clearance
+                + max(4.0, min(12.0, style.tie_height)),
+            )
+        top = min(
+            top,
+            staff_y + part.top_ink,
+            staff_y + part.bar_top - bar_stroke,
+        )
+        bottom = max(bottom, staff_y + part.bar_bottom + bar_stroke)
+
+        if len(system.parts) > 1:
+            # Part names share the staff_y + 30 baseline. Cover both CJK and
+            # Latin ascenders/descenders without depending on a custom name.
+            _left, ink_top, _right, ink_bottom = font_registry().ink_bounds(
+                "声部 1Ag", style.part_name_size
+            )
+            top = min(top, staff_y + 30 + ink_top)
+            bottom = max(bottom, staff_y + 30 + ink_bottom)
+
+        for cell, width in zip(system.cells, system.widths, strict=True):
+            if part_index >= len(cell.measures):
+                continue
+            measure = cell.measures[part_index]
+            if measure is None:
+                continue
+
+            annotation_labels: list[tuple[str, float]] = []
+            if show_measure_numbers:
+                annotation_labels.append(
+                    (str(measure.display_number), style.measure_number_size)
+                )
+            repeat_count = max(1, int(getattr(measure, "repeat_count", 1) or 1))
+            if repeat_count > 1:
+                annotation_labels.append(
+                    (f"*{repeat_count}", style.measure_number_size)
+                )
+            if part_index == 0 and measure.tempo is not None:
+                annotation_labels.append((f"♩={measure.tempo}", style.annotation_size))
+            for label, font_size in annotation_labels:
+                _left, ink_top, _right, ink_bottom = font_registry().ink_bounds(
+                    label, font_size
+                )
+                top = min(top, staff_y - 9 + ink_top)
+                bottom = max(bottom, staff_y - 9 + ink_bottom)
+
+            for event in _visual_events(measure):
+                lane_offset = (
+                    part.lanes.get(lane_key(event), 0.0) if part.lanes else 0.0
+                )
+                subtext_offset = (
+                    max(0.0, part.text_offset - lane_offset) if part.lanes else 0.0
+                )
+                event_baseline = staff_y + style.event_baseline + lane_offset
+                box = measure_event_ink(event, style, subtext_offset=subtext_offset)
+                top = min(top, event_baseline + box.top)
+                bottom = max(bottom, event_baseline + box.bottom)
+                if event.tie_start or event.tie_stop:
+                    tie_bottom = (
+                        event_baseline
+                        + _event_attachment_bottom(event, style)
+                        + style.tie_below_clearance
+                        + max(4.0, min(12.0, style.tie_height))
+                    )
+                    bottom = max(bottom, tie_bottom)
+
+            text_y = staff_y + part.text_offset
+            for layout in _measure_text_layout(measure, 0.0, width, text_y, style):
+                top = min(top, layout.bbox.y)
+                bottom = max(bottom, layout.bbox.y + layout.bbox.height)
+
+    if not math.isfinite(top) or not math.isfinite(bottom):
+        top = baseline_offset - style.event_baseline
+        bottom = baseline_offset + max(0.0, system.height - style.event_baseline)
+    return _SystemVerticalMetrics(
+        baseline_offset,
+        max(0.0, baseline_offset - top),
+        max(0.0, bottom - baseline_offset),
+    )
+
+
+def _vertical_metrics(
+    system: _System, style: PublicationStyle
+) -> _SystemVerticalMetrics:
+    if system.vertical is not None:
+        return system.vertical
+    baseline_offset = min(style.event_baseline, system.height)
+    return _SystemVerticalMetrics(
+        baseline_offset,
+        baseline_offset,
+        max(0.0, system.height - baseline_offset),
+    )
 
 
 def _boundary_penalties(cells: list[_Cell], style: PublicationStyle) -> list[float]:
@@ -2167,6 +2444,124 @@ def _pagination_bottom(style: PublicationStyle) -> float:
         style.page_height - style.footer_reserved,
         footer_top,
     )
+
+
+def _fixed_systems_height(
+    page_systems: list[_System], style: PublicationStyle, pitch: float
+) -> float:
+    if not page_systems:
+        return 0.0
+    first = _vertical_metrics(page_systems[0], style)
+    last = _vertical_metrics(page_systems[-1], style)
+    return first.above + (len(page_systems) - 1) * pitch + last.below
+
+
+def _paginate_fixed(
+    systems: list[_System],
+    style: PublicationStyle,
+    pitch: float,
+    *,
+    show_title: bool = True,
+) -> list[list[_System]]:
+    """Paginate fixed-layout systems using their baseline envelope."""
+
+    pages: list[list[_System]] = []
+    current: list[_System] = []
+    header_height = (
+        style.title_block_height if show_title else style.continuation_header_height
+    )
+    music_height = 0.0
+    content_bottom = _pagination_bottom(style)
+
+    for system in systems:
+        metrics = _vertical_metrics(system, style)
+        if current:
+            previous = _vertical_metrics(current[-1], style)
+            candidate_height = music_height + pitch + metrics.below - previous.below
+        else:
+            candidate_height = metrics.above + metrics.below
+        used = style.margin_top + header_height + candidate_height
+        if current and (used > content_bottom or system.force_page_before):
+            pages.append(current)
+            current = []
+            header_height = style.continuation_header_height
+            candidate_height = metrics.above + metrics.below
+            used = style.margin_top + header_height + candidate_height
+        if used > content_bottom + 1e-6:
+            raise RenderError("单个谱表系统超出页面可用高度，请缩小谱面或增大页面")
+        current.append(system)
+        music_height = candidate_height
+
+    if current or not pages:
+        pages.append(current)
+    return pages
+
+
+def _solve_fixed_pagination(
+    systems: list[_System], style: PublicationStyle, *, show_title: bool
+) -> tuple[float, list[list[_System]]]:
+    """Raise one document-wide base pitch until pagination is stable."""
+
+    base_pitch = style.base_staff_height + style.system_gap
+    while True:
+        pages = _paginate_fixed(systems, style, base_pitch, show_title=show_title)
+        required = max(
+            (
+                _vertical_metrics(left, style).below
+                + style.system_gap
+                + _vertical_metrics(right, style).above
+                for page in pages
+                for left, right in zip(page, page[1:], strict=False)
+            ),
+            default=base_pitch,
+        )
+        if required <= base_pitch + 1e-6:
+            return base_pitch, pages
+        # Pitch never decreases. A dense pair may later be split onto two pages,
+        # but retaining its contribution avoids pagination oscillation.
+        base_pitch = required
+
+
+def _fixed_unconstrained_base_pitch(
+    systems: list[_System], style: PublicationStyle
+) -> float:
+    """Base pitch for content-fit output, whose intended page has every row."""
+
+    return max(
+        [style.base_staff_height + style.system_gap]
+        + [
+            _vertical_metrics(left, style).below
+            + style.system_gap
+            + _vertical_metrics(right, style).above
+            for left, right in zip(systems, systems[1:], strict=False)
+        ]
+    )
+
+
+def _fixed_page_pitch(
+    page_systems: list[_System],
+    style: PublicationStyle,
+    base_pitch: float,
+    *,
+    page_index: int,
+    page_count: int,
+    show_title: bool,
+) -> float:
+    gap_count = len(page_systems) - 1
+    if gap_count <= 0 or page_index == page_count - 1:
+        return base_pitch
+    header_height = (
+        style.title_block_height
+        if page_index == 0 and show_title
+        else style.continuation_header_height
+    )
+    used = (
+        style.margin_top
+        + header_height
+        + _fixed_systems_height(page_systems, style, base_pitch)
+    )
+    slack = max(0.0, _pagination_bottom(style) - used)
+    return base_pitch + slack / (gap_count + 0.5)
 
 
 def _page_system_gap(

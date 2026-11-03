@@ -35,6 +35,7 @@ from score_trans.services.render.engraving.geometry import (
     pitch_layouts,
 )
 from score_trans.services.render.engraving.renderer import (
+    PublicationPage,
     PublicationRenderer,
     _Anchor,
     _Cell,
@@ -52,7 +53,11 @@ from score_trans.services.render.engraving.renderer import (
     _shared_cell_positions,
     _system_extra_height,
 )
-from score_trans.services.render.engraving.scene import BBox, PublicationScene
+from score_trans.services.render.engraving.scene import (
+    BBox,
+    PublicationScene,
+    SceneNode,
+)
 from score_trans.services.render.engraving.style import PublicationStyle
 from score_trans.services.render.main import (
     render_jianpu_page_svg,
@@ -129,7 +134,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-22"
+    assert root.attrib["data-engine-version"] == "publication-23"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -3737,3 +3742,151 @@ def test_low_octave_dot_without_duration_lines_keeps_original_position() -> None
     )
     note_box = _text_box(note)
     assert float(dot.attrib["cy"]) > note_box[3]
+
+
+def _vertical_pitch_score() -> JianpuScore:
+    return JianpuScore(
+        title="行距复核",
+        measures=[
+            Measure(
+                "1",
+                duration=Fraction(1),
+                events=[
+                    Event(
+                        kind="note",
+                        duration=Fraction(1),
+                        pitches=[JianpuPitch(1)],
+                    )
+                ],
+            ),
+            Measure(
+                "2",
+                duration=Fraction(1),
+                events=[
+                    Event(
+                        kind="note",
+                        duration=Fraction(1, 4),
+                        pitches=[JianpuPitch(1, octave=-1)],
+                        lyric="很长的歌词内容",
+                    )
+                ],
+                new_system=True,
+            ),
+            Measure(
+                "3",
+                duration=Fraction(1),
+                events=[
+                    Event(
+                        kind="note",
+                        duration=Fraction(1),
+                        pitches=[JianpuPitch(1, octave=1)],
+                        articulations=["staccato"],
+                    )
+                ],
+                new_system=True,
+            ),
+            Measure(
+                "4",
+                duration=Fraction(1),
+                events=[
+                    Event(
+                        kind="note",
+                        duration=Fraction(1),
+                        pitches=[JianpuPitch(1)],
+                    )
+                ],
+                new_system=True,
+            ),
+        ],
+    )
+
+
+def _primary_note_baselines(page: PublicationPage, part_index: int = 0) -> list[float]:
+    baselines: list[float] = []
+    stack: list[tuple[SceneNode, str | int | None]] = [
+        (node, None) for node in reversed(page.scene.nodes)
+    ]
+    while stack:
+        node, inherited_part = stack.pop()
+        current_part = node.attrs.get("data-part-index", inherited_part)
+        if node.attrs.get("class") == "note" and str(current_part or 0) == str(
+            part_index
+        ):
+            baselines.append(float(node.attrs["y"]))
+        stack.extend((child, current_part) for child in reversed(node.children))
+    return baselines
+
+
+def _baseline_deltas(values: list[float]) -> list[float]:
+    return [right - left for left, right in zip(values, values[1:], strict=False)]
+
+
+@pytest.mark.parametrize("fit_content_height", [False, True])
+def test_fixed_mode_primary_baselines_are_strictly_equidistant(
+    fit_content_height: bool,
+) -> None:
+    pages = PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
+        [_vertical_pitch_score()], fit_content_height=fit_content_height
+    )
+
+    assert len(pages) == 1
+    deltas = _baseline_deltas(_primary_note_baselines(pages[0]))
+    assert len(deltas) == 3
+    assert deltas == pytest.approx([deltas[0]] * 3, abs=1e-6)
+
+
+def test_fixed_mode_nonlast_pages_stretch_and_last_page_keeps_base_pitch() -> None:
+    score = _vertical_pitch_score()
+    single = PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
+        [score]
+    )[0]
+    base_pitch = _baseline_deltas(_primary_note_baselines(single))[0]
+
+    stretched_pages = PublicationRenderer(
+        PublicationStyle(page_height=650, measures_per_system=4)
+    ).render_scores([score])
+    stretched_deltas = _baseline_deltas(_primary_note_baselines(stretched_pages[0]))
+    assert len(stretched_pages) == 2
+    assert len(stretched_deltas) == 2
+    assert stretched_deltas == pytest.approx([stretched_deltas[0]] * 2, abs=1e-6)
+    assert stretched_deltas[0] > base_pitch
+
+    two_row_last_pages = PublicationRenderer(
+        PublicationStyle(page_height=600, measures_per_system=4)
+    ).render_scores([score])
+    assert len(two_row_last_pages) == 2
+    last_deltas = _baseline_deltas(_primary_note_baselines(two_row_last_pages[-1]))
+    assert last_deltas == pytest.approx([base_pitch], abs=1e-6)
+
+
+def test_fixed_mode_multi_part_reference_baselines_share_document_pitch() -> None:
+    melody = _vertical_pitch_score()
+    melody.part_index, melody.part_count, melody.part_name = 0, 2, "Voice"
+    accompaniment = JianpuScore(
+        part_index=1,
+        part_count=2,
+        part_name="Piano",
+        measures=[
+            Measure(
+                str(index + 1),
+                duration=Fraction(1),
+                events=[
+                    Event(
+                        kind="note",
+                        duration=Fraction(1),
+                        pitches=[JianpuPitch(5)],
+                    )
+                ],
+                new_system=index > 0,
+            )
+            for index in range(4)
+        ],
+    )
+
+    page = PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
+        [melody, accompaniment]
+    )[0]
+
+    deltas = _baseline_deltas(_primary_note_baselines(page, part_index=0))
+    assert len(deltas) == 3
+    assert deltas == pytest.approx([deltas[0]] * 3, abs=1e-6)
