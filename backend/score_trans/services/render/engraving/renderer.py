@@ -719,8 +719,8 @@ class PublicationRenderer:
             pad_left, pad_right = _rhythm_edge_padding(ordered_events, style)
             event_positions = _event_positions(
                 ordered_events,
-                clip_left + pad_left,
-                clip_right - pad_right,
+                clip_left if style.measures_per_system else clip_left + pad_left,
+                clip_right if style.measures_per_system else clip_right - pad_right,
                 measure,
                 style,
             )
@@ -780,8 +780,8 @@ class PublicationRenderer:
                 pad_left, pad_right = _rhythm_edge_padding(ordered_events, style)
                 event_positions = _event_positions(
                     ordered_events,
-                    clip_left + pad_left,
-                    clip_right - pad_right,
+                    clip_left if style.measures_per_system else clip_left + pad_left,
+                    clip_right if style.measures_per_system else clip_right - pad_right,
                     measure,
                     style,
                 )
@@ -957,8 +957,12 @@ def _draw_event_group(
             part_index=part_index,
             subtext_offset=subtext_offset,
             content_bounds=(
-                measure_left + style.barline_gutter,
-                measure_right - style.barline_gutter,
+                (measure_left, measure_right)
+                if style.measures_per_system
+                else (
+                    measure_left + style.barline_gutter,
+                    measure_right - style.barline_gutter,
+                )
             ),
         )
         anchors.append(anchor)
@@ -1378,6 +1382,34 @@ def _shared_cell_positions(
     )
     if not union:
         return {}
+    if style.measures_per_system and all(
+        event.start is not None for _measure, events in per_part for event in events
+    ):
+        duration = max(
+            (
+                max(
+                    measure.duration,
+                    max(
+                        (
+                            start + event.duration
+                            for start, event in event_onsets(measure)
+                        ),
+                        default=Fraction(0),
+                    ),
+                )
+                for measure in measures
+                if measure is not None
+            ),
+            default=Fraction(0),
+        )
+        if duration > 0:
+            clip_left = x + style.barline_gutter
+            clip_right = x + width - style.barline_gutter
+            return {
+                start: clip_left
+                + (clip_right - clip_left) * max(0.0, min(1.0, float(start / duration)))
+                for start in union
+            }
     clip_left = x + style.barline_gutter
     clip_right = x + width - style.barline_gutter
     part_maps: list[dict[Fraction, float]] = []
@@ -1387,8 +1419,8 @@ def _shared_cell_positions(
         pad_right_max = max(pad_right_max, pad_right)
         positions = _event_positions(
             events,
-            clip_left + pad_left,
-            clip_right - pad_right,
+            clip_left if style.measures_per_system else clip_left + pad_left,
+            clip_right if style.measures_per_system else clip_right - pad_right,
             measure,
             style,
         )
@@ -2283,6 +2315,12 @@ def _event_positions(
         for index, event in enumerate(events)
     ]
     if not ideal_positions:
+        return ideal_positions
+    if (
+        style.measures_per_system
+        and measure.duration > 0
+        and all(event.start is not None for event in events)
+    ):
         return ideal_positions
 
     extents = _measure_event_visual_extents(events, measure, style)

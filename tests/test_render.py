@@ -49,6 +49,7 @@ from score_trans.services.render.engraving.renderer import (
     _measure_text_layout,
     _rhythm_edge_padding,
     _rhythm_line_base,
+    _shared_cell_positions,
     _system_extra_height,
 )
 from score_trans.services.render.engraving.scene import BBox, PublicationScene
@@ -128,7 +129,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-19"
+    assert root.attrib["data-engine-version"] == "publication-20"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -3538,3 +3539,161 @@ def test_standalone_forced_page_break_is_honored_in_every_layout_mode(
     assert len(pages) == 2
     assert pages[0].measure_ranges[0].end_measure_number == 2
     assert pages[1].measure_ranges[0].start_measure_number == 3
+
+
+def test_fixed_mode_uses_strict_time_anchors_for_quarter_and_eighth_notes() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    quarter_measure = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[
+            Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(start))
+            for start in range(4)
+        ],
+    )
+    eighth_measure = Measure(
+        "2",
+        duration=Fraction(4),
+        events=[
+            Event("note", Fraction(1, 2), [JianpuPitch(2)], start=Fraction(start, 2))
+            for start in range(8)
+        ],
+    )
+
+    quarter = _event_positions(quarter_measure.events, 100, 500, quarter_measure, style)
+    eighth = _event_positions(eighth_measure.events, 100, 500, eighth_measure, style)
+
+    assert quarter == pytest.approx([100, 200, 300, 400])
+    assert eighth == pytest.approx([100, 150, 200, 250, 300, 350, 400, 450])
+    assert eighth[2] == pytest.approx((eighth[0] + eighth[4]) / 2)
+
+
+def test_fixed_mode_shared_onsets_use_one_strict_time_grid() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    quarter = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[
+            Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(start))
+            for start in range(4)
+        ],
+    )
+    eighth = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[
+            Event("note", Fraction(1, 2), [JianpuPitch(5)], start=Fraction(start, 2))
+            for start in range(8)
+        ],
+    )
+
+    positions = _shared_cell_positions([quarter, eighth], 82, 400, style)
+
+    assert positions[Fraction(0)] == pytest.approx(102)
+    assert positions[Fraction(1, 2)] == pytest.approx(147)
+    assert positions[Fraction(1)] == pytest.approx(192)
+    assert positions[Fraction(2)] == pytest.approx(282)
+    assert positions[Fraction(3)] == pytest.approx(372)
+
+
+def test_fixed_mode_lyrics_follow_strict_anchors_without_moving_notes() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    events = [
+        Event(
+            "note",
+            Fraction(1),
+            [JianpuPitch(1)],
+            start=Fraction(0),
+            lyric="a very long lyric that cannot move the note anchor",
+        ),
+        Event(
+            "note",
+            Fraction(1),
+            [JianpuPitch(2)],
+            start=Fraction(1),
+            lyric="词",
+        ),
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+
+    positions = _event_positions(events, 100, 500, measure, style)
+    layouts = _measure_text_layout(
+        measure,
+        82,
+        436,
+        0,
+        style,
+        event_spans=[
+            (event.start, event.start + event.duration, position)
+            for event, position in zip(events, positions, strict=True)
+        ],
+    )
+
+    assert positions == pytest.approx([100, 200])
+    assert layouts[0].bbox.x - font_registry().ink_bounds(
+        layouts[0].text, layouts[0].font_size
+    )[0] == pytest.approx(100)
+    assert layouts[1].bbox.x - font_registry().ink_bounds(
+        layouts[1].text, layouts[1].font_size
+    )[0] == pytest.approx(200)
+
+
+def test_fixed_mode_time_anchor_fallbacks_remain_available() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    missing_start = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[Event("note", Fraction(1), [JianpuPitch(1)], start=None)],
+    )
+    zero_duration = Measure(
+        "2",
+        duration=Fraction(0),
+        events=[Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(0))],
+    )
+
+    assert (
+        len(_event_positions(missing_start.events, 100, 500, missing_start, style)) == 1
+    )
+    assert (
+        len(_event_positions(zero_duration.events, 100, 500, zero_duration, style)) == 1
+    )
+
+
+def test_fixed_mode_normalizes_time_within_each_time_signature() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    measure = Measure(
+        "1",
+        duration=Fraction(2),
+        events=[Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(1))],
+    )
+
+    assert _event_positions(measure.events, 100, 500, measure, style) == pytest.approx(
+        [300]
+    )
+
+
+def test_fixed_mode_extreme_content_still_renders_with_diagnostics() -> None:
+    score = JianpuScore(
+        measures=[
+            Measure(
+                "1",
+                duration=Fraction(4),
+                events=[
+                    Event(
+                        "note",
+                        Fraction(4),
+                        [JianpuPitch(1)],
+                        start=Fraction(0),
+                        lyric="x" * 500,
+                    )
+                ],
+            )
+        ]
+    )
+
+    pages = PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
+        [score]
+    )
+
+    assert len(pages) == 1
+    assert pages[0].scene.geometry_issues

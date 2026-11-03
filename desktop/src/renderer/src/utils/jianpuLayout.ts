@@ -1,4 +1,4 @@
-export const PUBLICATION_ENGINE_VERSION = 'publication-19'
+export const PUBLICATION_ENGINE_VERSION = 'publication-20'
 
 export function jianpuLayoutKey(
   contentScalePercent: number,
