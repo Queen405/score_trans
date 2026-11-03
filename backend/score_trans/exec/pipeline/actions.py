@@ -67,6 +67,10 @@ def pipeline_layout_options(
     margin_right_mm: float,
     header_gap_mm: float,
     footer_protection_mm: float,
+    note_size_percent: int,
+    lyric_size_percent: int,
+    title_size_percent: int,
+    annotation_size_percent: int,
 ) -> A4LayoutOptions:
     return A4LayoutOptions(
         content_scale_percent=content_scale_percent,
@@ -81,6 +85,10 @@ def pipeline_layout_options(
         margin_right_mm=margin_right_mm,
         header_gap_mm=header_gap_mm,
         footer_protection_mm=footer_protection_mm,
+        note_size_percent=note_size_percent,
+        lyric_size_percent=lyric_size_percent,
+        title_size_percent=title_size_percent,
+        annotation_size_percent=annotation_size_percent,
     )
 
 

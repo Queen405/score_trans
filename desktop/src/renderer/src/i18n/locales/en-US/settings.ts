@@ -119,6 +119,10 @@ const settings: typeof zhSettings = {
     marginRight: 'Right margin',
     headerGap: 'Header to first system',
     footerProtection: 'Last system to footer protection',
+    noteSize: 'Note size',
+    lyricSize: 'Lyric size',
+    titleSize: 'Title size',
+    annotationSize: 'Annotation / dynamics size',
   },
 }
 

@@ -519,6 +519,18 @@ def _a4_renderer(
         beat_boundary_gap=base.beat_boundary_gap * layout.beat_gap_scale,
         break_beams_at_beat=layout.break_beams_at_beat,
         measures_per_system=layout.measures_per_system,
+        note_size=base.note_size * layout.note_size_scale,
+        accidental_size=base.accidental_size * layout.note_size_scale,
+        octave_dot_radius=base.octave_dot_radius * layout.note_size_scale,
+        rhythm_dot_radius=base.rhythm_dot_radius * layout.note_size_scale,
+        staccato_radius=base.staccato_radius * layout.note_size_scale,
+        chord_gap=base.chord_gap * layout.note_size_scale,
+        lyric_size=base.lyric_size * layout.lyric_size_scale,
+        title_size=base.title_size * layout.title_size_scale,
+        title_block_height=base.title_block_height
+        + max(0.0, base.title_size * (layout.title_size_scale - 1.0)),
+        annotation_size=base.annotation_size * layout.annotation_size_scale,
+        measure_number_size=base.measure_number_size * layout.annotation_size_scale,
     )
     if style.content_width < 100:
         raise RenderError("??????????????????")

@@ -26,7 +26,11 @@
         "jianpu_margin_left_mm": "12",
         "jianpu_margin_right_mm": "12",
         "jianpu_header_gap_mm": "5",
-        "jianpu_footer_protection_mm": "2"
+        "jianpu_footer_protection_mm": "2",
+        "jianpu_note_size_percent": "100",
+        "jianpu_lyric_size_percent": "100",
+        "jianpu_title_size_percent": "100",
+        "jianpu_annotation_size_percent": "100"
     },
     "providers": {
         "ocr": {

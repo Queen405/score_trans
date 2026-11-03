@@ -596,6 +596,10 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     assert initial.json()["jianpu_margin_right_mm"] == 12
     assert initial.json()["jianpu_header_gap_mm"] == 5
     assert initial.json()["jianpu_footer_protection_mm"] == 2
+    assert initial.json()["jianpu_note_size_percent"] == 100
+    assert initial.json()["jianpu_lyric_size_percent"] == 100
+    assert initial.json()["jianpu_title_size_percent"] == 100
+    assert initial.json()["jianpu_annotation_size_percent"] == 100
 
     updated = client.put(
         "/settings",
@@ -612,6 +616,10 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
             "jianpu_margin_right_mm": 17,
             "jianpu_header_gap_mm": 7.5,
             "jianpu_footer_protection_mm": 4,
+            "jianpu_note_size_percent": 120,
+            "jianpu_lyric_size_percent": 85,
+            "jianpu_title_size_percent": 130,
+            "jianpu_annotation_size_percent": 95,
         },
     )
     assert updated.status_code == 200
@@ -627,6 +635,10 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     assert updated.json()["jianpu_margin_right_mm"] == 17
     assert updated.json()["jianpu_header_gap_mm"] == 7.5
     assert updated.json()["jianpu_footer_protection_mm"] == 4
+    assert updated.json()["jianpu_note_size_percent"] == 120
+    assert updated.json()["jianpu_lyric_size_percent"] == 85
+    assert updated.json()["jianpu_title_size_percent"] == 130
+    assert updated.json()["jianpu_annotation_size_percent"] == 95
 
     boundaries = client.put(
         "/settings",
@@ -692,6 +704,10 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
         assert properties["jianpu_margin_right_mm"]["default"] == 12
         assert properties["jianpu_header_gap_mm"]["default"] == 5
         assert properties["jianpu_footer_protection_mm"]["default"] == 2
+        assert properties["jianpu_note_size_percent"]["default"] == 100
+        assert properties["jianpu_lyric_size_percent"]["default"] == 100
+        assert properties["jianpu_title_size_percent"]["default"] == 100
+        assert properties["jianpu_annotation_size_percent"]["default"] == 100
         assert properties["jianpu_system_gap_percent"]["minimum"] == 20
         assert properties["jianpu_system_gap_percent"]["maximum"] == 180
         assert properties["jianpu_short_note_gap_percent"]["minimum"] == 20

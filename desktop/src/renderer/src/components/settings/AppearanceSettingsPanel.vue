@@ -248,6 +248,94 @@
           </div>
         </settings-form-row>
 
+        <settings-form-row :label="t('settings.appearance.noteSize')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuNoteSizePercent"
+              :min="70"
+              :max="140"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuNoteSizePercent"
+              :min="70"
+              :max="140"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.lyricSize')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuLyricSizePercent"
+              :min="60"
+              :max="150"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuLyricSizePercent"
+              :min="60"
+              :max="150"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.titleSize')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuTitleSizePercent"
+              :min="60"
+              :max="160"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuTitleSizePercent"
+              :min="60"
+              :max="160"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
+        <settings-form-row :label="t('settings.appearance.annotationSize')">
+          <div class="sv-layout-control">
+            <n-slider
+              v-model:value="settings.draft.jianpuAnnotationSizePercent"
+              :min="60"
+              :max="150"
+              :step="1"
+            />
+            <n-input-number
+              v-model:value="settings.draft.jianpuAnnotationSizePercent"
+              :min="60"
+              :max="150"
+              :step="1"
+              size="small"
+            >
+              <template #suffix>
+                %
+              </template>
+            </n-input-number>
+          </div>
+        </settings-form-row>
+
         <settings-form-row :label="t('settings.appearance.contentScale')">
           <div class="sv-layout-control">
             <n-slider

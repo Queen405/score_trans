@@ -75,6 +75,10 @@ async def run_pipeline_by_file_id(
             margin_right_mm=req.jianpu_margin_right_mm,
             header_gap_mm=req.jianpu_header_gap_mm,
             footer_protection_mm=req.jianpu_footer_protection_mm,
+            note_size_percent=req.jianpu_note_size_percent,
+            lyric_size_percent=req.jianpu_lyric_size_percent,
+            title_size_percent=req.jianpu_title_size_percent,
+            annotation_size_percent=req.jianpu_annotation_size_percent,
         ),
         title=req.title,
     )
@@ -120,6 +124,10 @@ async def run_pipeline(
     jianpu_footer_protection_mm: float = Form(
         DEFAULT_FOOTER_PROTECTION_MM, ge=0, le=30
     ),
+    jianpu_note_size_percent: int = Form(100, ge=70, le=140),
+    jianpu_lyric_size_percent: int = Form(100, ge=60, le=150),
+    jianpu_title_size_percent: int = Form(100, ge=60, le=160),
+    jianpu_annotation_size_percent: int = Form(100, ge=60, le=150),
     title: str | None = Form(None),
     actions: PipelineActions = Depends(get_pipeline_actions),
     tasks: TaskActions = Depends(get_task_actions),
@@ -153,6 +161,10 @@ async def run_pipeline(
             margin_right_mm=jianpu_margin_right_mm,
             header_gap_mm=jianpu_header_gap_mm,
             footer_protection_mm=jianpu_footer_protection_mm,
+            note_size_percent=jianpu_note_size_percent,
+            lyric_size_percent=jianpu_lyric_size_percent,
+            title_size_percent=jianpu_title_size_percent,
+            annotation_size_percent=jianpu_annotation_size_percent,
         ),
         title=title,
     )

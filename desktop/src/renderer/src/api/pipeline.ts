@@ -31,6 +31,10 @@ export const pipelineApi = {
     marginRightMm = 12,
     headerGapMm = 5,
     footerProtectionMm = 2,
+    noteSizePercent = 100,
+    lyricSizePercent = 100,
+    titleSizePercent = 100,
+    annotationSizePercent = 100,
   ): Promise<ApiResult<TaskSubmitResponse>> {
     const formData = new FormData()
     formData.append('file', file)
@@ -50,6 +54,10 @@ export const pipelineApi = {
     formData.append('jianpu_margin_right_mm', String(marginRightMm))
     formData.append('jianpu_header_gap_mm', String(headerGapMm))
     formData.append('jianpu_footer_protection_mm', String(footerProtectionMm))
+    formData.append('jianpu_note_size_percent', String(noteSizePercent))
+    formData.append('jianpu_lyric_size_percent', String(lyricSizePercent))
+    formData.append('jianpu_title_size_percent', String(titleSizePercent))
+    formData.append('jianpu_annotation_size_percent', String(annotationSizePercent))
     formData.append('polyphony_mode', polyphonyMode)
     if (title) {
       formData.append('title', title)

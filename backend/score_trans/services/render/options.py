@@ -14,11 +14,19 @@ from score_trans.models.render.layout import (
     DEFAULT_MARGIN_RIGHT_MM,
     DEFAULT_HEADER_GAP_MM,
     DEFAULT_FOOTER_PROTECTION_MM,
+    DEFAULT_NOTE_SIZE_PERCENT,
+    DEFAULT_LYRIC_SIZE_PERCENT,
+    DEFAULT_TITLE_SIZE_PERCENT,
+    DEFAULT_ANNOTATION_SIZE_PERCENT,
     DEFAULT_SHORT_NOTE_GAP_PERCENT,
     DEFAULT_SYSTEM_GAP_PERCENT,
     MAX_BEAT_GAP_PERCENT,
     MAX_CONTENT_SCALE_PERCENT,
     MAX_MARGIN_MM,
+    MAX_NOTE_SIZE_PERCENT,
+    MAX_LYRIC_SIZE_PERCENT,
+    MAX_TITLE_SIZE_PERCENT,
+    MAX_ANNOTATION_SIZE_PERCENT,
     MAX_HEADER_GAP_MM,
     MAX_FOOTER_PROTECTION_MM,
     MAX_SHORT_NOTE_GAP_PERCENT,
@@ -26,6 +34,10 @@ from score_trans.models.render.layout import (
     MIN_BEAT_GAP_PERCENT,
     MIN_CONTENT_SCALE_PERCENT,
     MIN_PAGE_MM,
+    MIN_NOTE_SIZE_PERCENT,
+    MIN_LYRIC_SIZE_PERCENT,
+    MIN_TITLE_SIZE_PERCENT,
+    MIN_ANNOTATION_SIZE_PERCENT,
     MIN_SHORT_NOTE_GAP_PERCENT,
     MIN_SYSTEM_GAP_PERCENT,
     a4_layout_key,
@@ -71,6 +83,10 @@ class A4LayoutOptions:
     margin_right_mm: float = DEFAULT_MARGIN_RIGHT_MM
     header_gap_mm: float = DEFAULT_HEADER_GAP_MM
     footer_protection_mm: float = DEFAULT_FOOTER_PROTECTION_MM
+    note_size_percent: int = DEFAULT_NOTE_SIZE_PERCENT
+    lyric_size_percent: int = DEFAULT_LYRIC_SIZE_PERCENT
+    title_size_percent: int = DEFAULT_TITLE_SIZE_PERCENT
+    annotation_size_percent: int = DEFAULT_ANNOTATION_SIZE_PERCENT
 
     def __post_init__(self) -> None:
         ranges = (
@@ -122,6 +138,37 @@ class A4LayoutOptions:
                 raise TypeError(f"{field} must be numeric")
             if not MIN_PAGE_MM <= value <= maximum:
                 raise ValueError(f"{field} must be between 0 and {maximum}")
+        size_ranges = (
+            (
+                "note_size_percent",
+                self.note_size_percent,
+                MIN_NOTE_SIZE_PERCENT,
+                MAX_NOTE_SIZE_PERCENT,
+            ),
+            (
+                "lyric_size_percent",
+                self.lyric_size_percent,
+                MIN_LYRIC_SIZE_PERCENT,
+                MAX_LYRIC_SIZE_PERCENT,
+            ),
+            (
+                "title_size_percent",
+                self.title_size_percent,
+                MIN_TITLE_SIZE_PERCENT,
+                MAX_TITLE_SIZE_PERCENT,
+            ),
+            (
+                "annotation_size_percent",
+                self.annotation_size_percent,
+                MIN_ANNOTATION_SIZE_PERCENT,
+                MAX_ANNOTATION_SIZE_PERCENT,
+            ),
+        )
+        for field, value, minimum, maximum in size_ranges:
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{field} must be an integer")
+            if not minimum <= value <= maximum:
+                raise ValueError(f"{field} must be between {minimum} and {maximum}")
         for field, value, minimum, maximum in ranges:
             if isinstance(value, bool) or not isinstance(value, int):
                 raise TypeError(f"{field} must be an integer")
@@ -131,6 +178,22 @@ class A4LayoutOptions:
     @property
     def content_scale(self) -> float:
         return self.content_scale_percent / 100.0
+
+    @property
+    def note_size_scale(self) -> float:
+        return self.note_size_percent / 100.0
+
+    @property
+    def lyric_size_scale(self) -> float:
+        return self.lyric_size_percent / 100.0
+
+    @property
+    def title_size_scale(self) -> float:
+        return self.title_size_percent / 100.0
+
+    @property
+    def annotation_size_scale(self) -> float:
+        return self.annotation_size_percent / 100.0
 
     @property
     def system_gap_scale(self) -> float:
@@ -162,6 +225,10 @@ class A4LayoutOptions:
                     self.margin_right_mm,
                     self.header_gap_mm,
                     self.footer_protection_mm,
+                    self.note_size_percent,
+                    self.lyric_size_percent,
+                    self.title_size_percent,
+                    self.annotation_size_percent,
                 )
             ),
         )

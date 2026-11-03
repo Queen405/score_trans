@@ -109,6 +109,10 @@ class CorrectionService:
                 margin_right_mm=options.jianpu_margin_right_mm,
                 header_gap_mm=options.jianpu_header_gap_mm,
                 footer_protection_mm=options.jianpu_footer_protection_mm,
+                note_size_percent=options.jianpu_note_size_percent,
+                lyric_size_percent=options.jianpu_lyric_size_percent,
+                title_size_percent=options.jianpu_title_size_percent,
+                annotation_size_percent=options.jianpu_annotation_size_percent,
             ),
         )
         return CorrectionArtifacts(

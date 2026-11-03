@@ -116,6 +116,10 @@ const settings = {
     marginRight: '右边距',
     headerGap: '页眉与首行间距',
     footerProtection: '末行与页脚保护',
+    noteSize: '数字音符字号',
+    lyricSize: '歌词字号',
+    titleSize: '标题字号',
+    annotationSize: '注解/力度字号',
   },
 }
 

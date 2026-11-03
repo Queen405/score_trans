@@ -1172,6 +1172,11 @@ export type components = {
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
+             * Jianpu Annotation Size Percent
+             * @default 100
+             */
+            jianpu_annotation_size_percent?: number;
+            /**
              * Jianpu Beat Gap Percent
              * @default 100
              */
@@ -1196,6 +1201,11 @@ export type components = {
              * @default 5
              */
             jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Lyric Size Percent
+             * @default 100
+             */
+            jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
              * @default 7
@@ -1223,6 +1233,11 @@ export type components = {
              */
             jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
+             * Jianpu Note Size Percent
+             * @default 100
+             */
+            jianpu_note_size_percent?: number;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -1232,6 +1247,11 @@ export type components = {
              * @default 50
              */
             jianpu_system_gap_percent?: number;
+            /**
+             * Jianpu Title Size Percent
+             * @default 100
+             */
+            jianpu_title_size_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -1293,7 +1313,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-24
+             * @default publication-25
              */
             engine_version?: string;
             /** Id */
@@ -1420,6 +1440,11 @@ export type components = {
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /**
+             * Jianpu Annotation Size Percent
+             * @default 100
+             */
+            jianpu_annotation_size_percent?: number;
+            /**
              * Jianpu Beat Gap Percent
              * @default 100
              */
@@ -1444,6 +1469,11 @@ export type components = {
              * @default 5
              */
             jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Lyric Size Percent
+             * @default 100
+             */
+            jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
              * @default 7
@@ -1471,6 +1501,11 @@ export type components = {
              */
             jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
+             * Jianpu Note Size Percent
+             * @default 100
+             */
+            jianpu_note_size_percent?: number;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -1480,6 +1515,11 @@ export type components = {
              * @default 50
              */
             jianpu_system_gap_percent?: number;
+            /**
+             * Jianpu Title Size Percent
+             * @default 100
+             */
+            jianpu_title_size_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -1560,6 +1600,11 @@ export type components = {
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /**
+             * Jianpu Annotation Size Percent
+             * @default 100
+             */
+            jianpu_annotation_size_percent?: number;
+            /**
              * Jianpu Beat Gap Percent
              * @default 100
              */
@@ -1584,6 +1629,11 @@ export type components = {
              * @default 5
              */
             jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Lyric Size Percent
+             * @default 100
+             */
+            jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
              * @default 7
@@ -1611,6 +1661,11 @@ export type components = {
              */
             jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
+             * Jianpu Note Size Percent
+             * @default 100
+             */
+            jianpu_note_size_percent?: number;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -1620,6 +1675,11 @@ export type components = {
              * @default 50
              */
             jianpu_system_gap_percent?: number;
+            /**
+             * Jianpu Title Size Percent
+             * @default 100
+             */
+            jianpu_title_size_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -1855,6 +1915,11 @@ export type components = {
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
+             * Jianpu Annotation Size Percent
+             * @default 100
+             */
+            jianpu_annotation_size_percent?: number;
+            /**
              * Jianpu Beat Gap Percent
              * @default 100
              */
@@ -1879,6 +1944,11 @@ export type components = {
              * @default 5
              */
             jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Lyric Size Percent
+             * @default 100
+             */
+            jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
              * @default 7
@@ -1906,6 +1976,11 @@ export type components = {
              */
             jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
+             * Jianpu Note Size Percent
+             * @default 100
+             */
+            jianpu_note_size_percent?: number;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -1915,6 +1990,11 @@ export type components = {
              * @default 50
              */
             jianpu_system_gap_percent?: number;
+            /**
+             * Jianpu Title Size Percent
+             * @default 100
+             */
+            jianpu_title_size_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -2168,7 +2248,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-24
+             * @default publication-25
              */
             engine_version?: string;
             /**
@@ -2282,7 +2362,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-24
+             * @default publication-25
              */
             engine_version?: string;
             /** Error Message */
@@ -2442,6 +2522,11 @@ export type components = {
              */
             instrument_profile?: "general" | "erhu" | "ruan" | "guzheng" | "zhongruan";
             /**
+             * Jianpu Annotation Size Percent
+             * @default 100
+             */
+            jianpu_annotation_size_percent?: number;
+            /**
              * Jianpu Beat Gap Percent
              * @default 100
              */
@@ -2466,6 +2551,11 @@ export type components = {
              * @default 5
              */
             jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Lyric Size Percent
+             * @default 100
+             */
+            jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
              * @default 7
@@ -2493,6 +2583,11 @@ export type components = {
              */
             jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
+             * Jianpu Note Size Percent
+             * @default 100
+             */
+            jianpu_note_size_percent?: number;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -2502,6 +2597,11 @@ export type components = {
              * @default 50
              */
             jianpu_system_gap_percent?: number;
+            /**
+             * Jianpu Title Size Percent
+             * @default 100
+             */
+            jianpu_title_size_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -2691,7 +2791,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-24
+             * @default publication-25
              */
             engine_version?: string;
             /**
@@ -2797,6 +2897,11 @@ export type components = {
             /** Instrument Profile */
             instrument_profile?: ("general" | "erhu" | "ruan" | "guzheng" | "zhongruan") | null;
             /**
+             * Jianpu Annotation Size Percent
+             * @default 100
+             */
+            jianpu_annotation_size_percent?: number;
+            /**
              * Jianpu Beat Gap Percent
              * @default 100
              */
@@ -2821,6 +2926,11 @@ export type components = {
              * @default 5
              */
             jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Lyric Size Percent
+             * @default 100
+             */
+            jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
              * @default 7
@@ -2848,6 +2958,11 @@ export type components = {
              */
             jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
+             * Jianpu Note Size Percent
+             * @default 100
+             */
+            jianpu_note_size_percent?: number;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -2857,6 +2972,11 @@ export type components = {
              * @default 50
              */
             jianpu_system_gap_percent?: number;
+            /**
+             * Jianpu Title Size Percent
+             * @default 100
+             */
+            jianpu_title_size_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -2900,6 +3020,11 @@ export type components = {
              */
             initial_measure_number?: number;
             /**
+             * Jianpu Annotation Size Percent
+             * @default 100
+             */
+            jianpu_annotation_size_percent?: number;
+            /**
              * Jianpu Beat Gap Percent
              * @default 100
              */
@@ -2927,6 +3052,11 @@ export type components = {
              */
             jianpu_header_gap_mm?: number;
             /**
+             * Jianpu Lyric Size Percent
+             * @default 100
+             */
+            jianpu_lyric_size_percent?: number;
+            /**
              * Jianpu Margin Bottom Mm
              * @default 7
              */
@@ -2953,6 +3083,11 @@ export type components = {
              */
             jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
+             * Jianpu Note Size Percent
+             * @default 100
+             */
+            jianpu_note_size_percent?: number;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -2964,6 +3099,11 @@ export type components = {
             jianpu_system_gap_percent?: number;
             /** Jianpu Text */
             jianpu_text?: string | null;
+            /**
+             * Jianpu Title Size Percent
+             * @default 100
+             */
+            jianpu_title_size_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -3111,6 +3251,11 @@ export type components = {
             /** Java Home */
             java_home: string;
             /**
+             * Jianpu Annotation Size Percent
+             * @default 100
+             */
+            jianpu_annotation_size_percent?: number;
+            /**
              * Jianpu Auto Transpose
              * @default true
              */
@@ -3140,6 +3285,11 @@ export type components = {
              * @default 5
              */
             jianpu_header_gap_mm?: number;
+            /**
+             * Jianpu Lyric Size Percent
+             * @default 100
+             */
+            jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
              * @default 7
@@ -3172,6 +3322,11 @@ export type components = {
              */
             jianpu_measures_per_system?: 0 | 3 | 4 | 5;
             /**
+             * Jianpu Note Size Percent
+             * @default 100
+             */
+            jianpu_note_size_percent?: number;
+            /**
              * Jianpu Short Note Gap Percent
              * @default 20
              */
@@ -3186,6 +3341,11 @@ export type components = {
              * @default 50
              */
             jianpu_system_gap_percent?: number;
+            /**
+             * Jianpu Title Size Percent
+             * @default 100
+             */
+            jianpu_title_size_percent?: number;
             /**
              * Measure Number Mode
              * @default all
@@ -3268,6 +3428,8 @@ export type components = {
             enable_omr_ocr?: boolean | null;
             /** Java Home */
             java_home?: string | null;
+            /** Jianpu Annotation Size Percent */
+            jianpu_annotation_size_percent?: number | null;
             /** Jianpu Auto Transpose */
             jianpu_auto_transpose?: boolean | null;
             /** Jianpu Beat Gap Percent */
@@ -3280,6 +3442,8 @@ export type components = {
             jianpu_footer_protection_mm?: number | null;
             /** Jianpu Header Gap Mm */
             jianpu_header_gap_mm?: number | null;
+            /** Jianpu Lyric Size Percent */
+            jianpu_lyric_size_percent?: number | null;
             /** Jianpu Margin Bottom Mm */
             jianpu_margin_bottom_mm?: number | null;
             /** Jianpu Margin Left Mm */
@@ -3292,12 +3456,16 @@ export type components = {
             jianpu_measure_duration_check?: boolean | null;
             /** Jianpu Measures Per System */
             jianpu_measures_per_system?: (0 | 3 | 4 | 5) | null;
+            /** Jianpu Note Size Percent */
+            jianpu_note_size_percent?: number | null;
             /** Jianpu Short Note Gap Percent */
             jianpu_short_note_gap_percent?: number | null;
             /** Jianpu Syntax Highlight */
             jianpu_syntax_highlight?: boolean | null;
             /** Jianpu System Gap Percent */
             jianpu_system_gap_percent?: number | null;
+            /** Jianpu Title Size Percent */
+            jianpu_title_size_percent?: number | null;
             /** Measure Number Mode */
             measure_number_mode?: ("all" | "row_start" | "none") | null;
             /** Ocr Api Key */

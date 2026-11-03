@@ -136,6 +136,10 @@ class SettingsActions:
             "jianpu_margin_right_mm",
             "jianpu_header_gap_mm",
             "jianpu_footer_protection_mm",
+            "jianpu_note_size_percent",
+            "jianpu_lyric_size_percent",
+            "jianpu_title_size_percent",
+            "jianpu_annotation_size_percent",
         ):
             value = getattr(req, key)
             if value is not None:
@@ -364,6 +368,18 @@ class SettingsActions:
             ),
             jianpu_footer_protection_mm=self.service.get_float(
                 "jianpu_footer_protection_mm", DEFAULT_FOOTER_PROTECTION_MM
+            ),
+            jianpu_note_size_percent=self.service.get_int(
+                "jianpu_note_size_percent", 100
+            ),
+            jianpu_lyric_size_percent=self.service.get_int(
+                "jianpu_lyric_size_percent", 100
+            ),
+            jianpu_title_size_percent=self.service.get_int(
+                "jianpu_title_size_percent", 100
+            ),
+            jianpu_annotation_size_percent=self.service.get_int(
+                "jianpu_annotation_size_percent", 100
             ),
             enable_omr_ocr=self.service.get_bool("enable_omr_ocr", False),
             ocr_provider=ocr_profile.id,

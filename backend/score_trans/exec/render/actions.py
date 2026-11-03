@@ -820,6 +820,10 @@ def _a4_layout_kwargs(req) -> dict[str, object]:
             margin_right_mm=req.jianpu_margin_right_mm,
             header_gap_mm=req.jianpu_header_gap_mm,
             footer_protection_mm=req.jianpu_footer_protection_mm,
+            note_size_percent=req.jianpu_note_size_percent,
+            lyric_size_percent=req.jianpu_lyric_size_percent,
+            title_size_percent=req.jianpu_title_size_percent,
+            annotation_size_percent=req.jianpu_annotation_size_percent,
         )
     }
 
